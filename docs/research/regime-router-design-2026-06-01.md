@@ -19,6 +19,8 @@ has none). The matrix quantified the per-regime, per-direction net-R:
 | fade_breakout_4h | — (gated) | +5 | **+14** |
 | squeeze_breakout_4h | +5 | +2 | **+11** |
 | fvg_range_15m | — (gated) | — | **−17** |
+| htf_pullback_trend_2h **long** | **+30** | +13 | −8 |
+| htf_pullback_trend_2h **short** | −0.05 | −4 | −4 |
 
 Two structural facts jump out: (1) a strategy/direction that earns in one regime
 **loses** in another (trend-short: +16 chop vs −52 trending+transitional), and
@@ -64,19 +66,22 @@ A declarative map in config (e.g. `config/regime_policy.yaml`), each cell a
 ```yaml
 # regime: { strategy: { long: on|off|weight, short: on|off|weight } }
 trending:
-  trend_donchian:      { long: on,  short: off }   # short −28
-  squeeze_breakout_4h: { long: on,  short: on  }   # +5 net
-  fade_breakout_4h:    { long: off, short: off }   # ADX-gated anyway
-  fvg_range_15m:       { long: off, short: off }
+  trend_donchian:        { long: on,  short: off }   # short −28
+  squeeze_breakout_4h:   { long: on,  short: on  }   # +5 net
+  htf_pullback_trend_2h: { long: on,  short: off }   # long +30, short flat (−0.05)
+  fade_breakout_4h:      { long: off, short: off }   # ADX-gated anyway
+  fvg_range_15m:         { long: off, short: off }
 transitional:
-  trend_donchian:      { long: on,  short: off }   # short −24
-  squeeze_breakout_4h: { long: on,  short: on  }
-  fade_breakout_4h:    { long: on,  short: on  }    # +5
+  trend_donchian:        { long: on,  short: off }   # short −24
+  squeeze_breakout_4h:   { long: on,  short: on  }
+  htf_pullback_trend_2h: { long: on,  short: off }   # long +13, short −4
+  fade_breakout_4h:      { long: on,  short: on  }   # +5
 chop:
-  trend_donchian:      { long: on,  short: on  }    # short +16 ← reclaims the long-only drop
-  fade_breakout_4h:    { long: on,  short: on  }    # +14
-  squeeze_breakout_4h: { long: on,  short: on  }    # +11
-  fvg_range_15m:       { long: off, short: off }    # −17 loser, keep off everywhere
+  trend_donchian:        { long: on,  short: on  }   # short +16 ← reclaims the long-only drop
+  fade_breakout_4h:      { long: on,  short: on  }   # +14
+  squeeze_breakout_4h:   { long: on,  short: on  }   # +11
+  htf_pullback_trend_2h: { long: off, short: off }   # long −8 / short −4, same shape as fvg
+  fvg_range_15m:         { long: off, short: off }   # −17 loser, keep off everywhere
 ```
 
 Default for an unlisted cell is **on** (permissive — never strand a capability,
@@ -132,8 +137,9 @@ intent's `(symbol, timeframe)`, read the `(strategy, direction)` cell, and:
 
 ## 7. Dependencies / coverage
 
-The table above is decision-grade for trend/fade/squeeze/fvg. Two cells need the
-follow-up data before they're trustworthy: **vwap** (`PERF-20260601-003` — re-run
-with live selectivity params) and **htf_pullback_trend_2h** (`PERF-20260601-004`
-— commit a harness). Until then those strategies default to permissive (`on`) so
-the router never strands them.
+The table above is decision-grade for trend/fade/squeeze/fvg/htf_pullback
+(htf_pullback's row landed 2026-06-01 via #2573 and `scripts/backtest_pullback.py`).
+One cell still needs follow-up data before it's trustworthy: **vwap**
+(`PERF-20260601-003` — re-run with live selectivity params; the current unfiltered
+−3749 R run isn't decision-grade). Until then vwap defaults to permissive (`on`)
+in every regime so the router never strands it.

@@ -34,11 +34,13 @@ emit hook, so `regime_matrix.py` drove it in-process.
 | **fade_breakout_4h** (shadow) | 4h | **+19.4** | — *(ADX-gated out)* | +5.2 (−1.0 / +6.2) | **+14.2** (**+14.0** / +0.2) | 30.2 | chop mean-reversion; long-led in chop |
 | **squeeze_breakout_4h** (shadow) | 4h | **+17.6** | +5.1 (+7.8 / −2.7) | +1.6 (−0.4 / +2.1) | +10.9 (+7.6 / +3.4) | **7.9** | earns in **every** regime, long-biased, **lowest DD** |
 | **fvg_range_15m** (shadow) | 15m | **−16.9** | — *(ADX-gated out)* | — | −16.9 (−11.5 / −5.4) | 13.2 | chop MR; **net loser both sides** — no edge here |
+| **htf_pullback_trend_2h** (shadow) | 2h | **+26.3** | **+30.1** (+30.1 / −0.05) | +8.4 (+12.7 / −4.3) | **−12.2** (−7.9 / −4.3) | **14.8** | trend-continuation **owns trending**, loses chop; long-led; clean ADX>20 inclusion candidate |
 | **vwap** (shadow) | 5m | ⚠️ **−3749** *(unfiltered — see caveat)* | −1972 (−1037 / −936) | −649 (−298 / −351) | −1128 (−459 / −670) | — | **NOT decision-grade** — driven without the live selectivity filters |
 
-(n trades: trend 1104, fade 157, squeeze 110, fvg 60, vwap 10188. fade/fvg fire
-only at ADX<20 by design; trend/squeeze/vwap fire across all regimes. vwap window
-2024-01-01→2026-05.)
+(n trades: trend 1104, fade 157, squeeze 110, fvg 60, htf_pullback 348, vwap 10188.
+fade/fvg fire only at ADX<20 by design; trend/squeeze/htf_pullback/vwap fire across
+all regimes. vwap window 2024-01-01→2026-05. htf_pullback added 2026-06-01 via
+issue #2573, drives `scripts/backtest_pullback.py` with the live params.)
 
 > ⚠️ **vwap is the unfiltered harness, not the live strategy.** 10,188 trades in
 > ~2.4 years (~11/day) means it ran on bare `--no-htf` with **none** of the live
@@ -67,6 +69,14 @@ only at ADX<20 by design; trend/squeeze/vwap fire across all regimes. vwap windo
 - **fvg_range_15m** — net **−16.9**, every direction negative even in its target
   chop regime. Confirms the standing finding that fine-TF mean-reversion is not
   this market's edge. Shadow status justified; no re-promotion case.
+- **htf_pullback_trend_2h** — net **+26.3** over 5+ years (348 trades, 32.8% WR,
+  maxDD 14.8 R). Almost the entire edge is **trending long** (+30.1 R; the short
+  side is flat at −0.05 R in trending — BTC's uptrend punishes shorts here just
+  like trend_donchian). Transitional adds **+8.4 R** (long-led). **Chop is a
+  loser at −12.2 R both sides** — this is a trend-continuation strategy and the
+  chop entries are noise: the policy answer is the same shape as fvg (gate it
+  out of chop, not the rest). Confirms the PERF-20260531-002 walk-forward
+  finding (IS +32.7 / OOS +22.4 at tl=50; +26.3 here at the live tl=40).
 
 ## Decisions this feeds (Tier-3 — operator-gated; proposed, not applied)
 
@@ -117,11 +127,11 @@ This router *is* the home for trend_donchian's chop-gated-short (decision 1B) an
   run used bare `--no-htf` (10,188 trades / −3749 R), i.e. the unfiltered
   VWAP-touch strategy. The live vwap is heavily selectivity-gated
   (`recent_context_filter`, `threshold`, `min_r_for_vwap_cross`, `be_at_r`) —
-  thread those into the harness (it exposes `--entry-threshold`, etc.) so the
-  trade count drops to the live cadence before the regime read is trustworthy.
-- **htf_pullback_trend_2h — no committed standalone harness.** The overnight
-  `backtest_pullback.py` was never committed; commit/port it before it joins the
-  matrix.
+  thread those into the harness (it exposes `--entry-threshold` but the rest
+  require module-constant injection like the threshold-sweep does) so the trade
+  count drops to the live cadence before the regime read is trustworthy.
+- ~~**htf_pullback_trend_2h — no committed standalone harness.**~~ **DONE**
+  2026-06-01 — `scripts/backtest_pullback.py` committed; row added above.
 - **mes_trend_long_1d** is long-only on a separate MES daily data source
   (native-MES validation already positive, +13.8 R full / +2.9 OOS) — short side
   gated off by design and on different data, so it's tracked separately.
@@ -133,4 +143,5 @@ This router *is* the home for trend_donchian's chop-gated-short (decision 1B) an
 `scripts/research/regime_matrix.py` (trend, in-process) + `scripts/research/regime_tag_emitted.py`
 (every other harness's `--emit-trades` JSONL), driven with the exact live params above.
 Relays: #2562 (discovery), #2564 (trend/fade/squeeze), #2565 (fvg, after the pandas-3.0
-fixes), #2567 (vwap launch) → #2569 (vwap tag).
+fixes), #2567 (vwap launch) → #2569 (vwap tag), #2573 (htf_pullback, after committing
+`scripts/backtest_pullback.py`).
