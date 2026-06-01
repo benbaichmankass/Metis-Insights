@@ -84,6 +84,33 @@ cross-cutting theme**, which matters more than the raw numbers:
 - Momentum on BTC **1d** is weak (OOS ~0–2.5) — the BTC edge lives at 1h–4h,
   the equity-index edge at 1d. Two markets, two natural horizons.
 
+## Pre-shadow validation (2026-06-01) — 3 of 4 cleared
+Before any shadow wiring, the candidate leads ran two more gates:
+
+**Fee/slippage sensitivity** (net R, SPX = long R) — all survive 2× the backtest fee:
+| Candidate | @7.5 bps | @10 | @15 |
+|---|---|---|---|
+| trend 1h | +90 | +78 | +55 |
+| pullback 2h | +76 | +73 | +67 |
+| squeeze 2h | +46 | +41 | +31 |
+| SPX 1d long | +18 | +18 | +18 |
+
+**3-fold robustness** (non-overlapping sub-periods) + **monthly-return correlation**:
+| Candidate | 3-fold | corr | Verdict |
+|---|---|---|---|
+| **trend_donchian 1h dc20 trail5** | +14 / +54 / +24 ✅ | 0.46 to live 2h (additive) | **CLEAR** |
+| **htf_pullback tl40 pf0.5 trail5 2h** | +30 / +42 / +8 ✅ | 0.20–0.54 (additive), lowest DD | **CLEAR** |
+| **SPX/MES 1d trend long-only dc30 trail4** | +5 / +4 / +7 ✅ | **≈0 / negative to all BTC** | **CLEAR** (diversifier; MES live-data caveat) |
+| squeeze std2.0 2h | **−17** / +53 / +7 ❌ | — | **HELD** — period-fragile (lost 2021–22) |
+
+Correlation matrix (monthly net R): trend_1h↔live-2h **0.46**, trend↔pullback 0.20–0.54,
+**SPX_1d ≈ 0 / −0.20 to every BTC strategy** (clean diversifier). Validation harnesses:
+`scripts/research/validate_robustness.py`, `validate_corr.py`.
+
+**→ 3 cleared for `execution: shadow`** (trend-1h, htf_pullback, SPX-1d long-only),
+each wired shadow-first to bybit_1 (demo) as a Tier-3 PR. Squeeze held pending a
+period-robust config.
+
 ## What did NOT work
 - **`fade` (mean-reversion)** — no config reached the top tranche; BTC does not
   cleanly mean-revert at Donchian extremes on 1h/2h (consistent with the live
