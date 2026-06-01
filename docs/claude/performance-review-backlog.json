@@ -177,6 +177,21 @@
    "resolved_by": null,
    "resolution_note": null,
    "snoozed_until": null
+  },
+  {
+   "id": "PERF-20260601-005",
+   "opened_at": "2026-06-01T12:40:00+00:00",
+   "opened_by": "claude (regime study)",
+   "source": "Roster regime matrix (PERF-20260601-002) + operator decision 2026-06-01 (re-promote squeeze, gated on debounce verify).",
+   "title": "Re-promote squeeze_breakout_4h shadow->live [Tier-3, operator-PRE-APPROVED, gated on debounce verification]",
+   "description": "Operator approved (2026-06-01) re-promoting squeeze_breakout_4h to execution:live — it is the strongest roster re-promotion candidate: +17.6 R multiyear, net-positive in EVERY regime (trending +5.1/transitional +1.6/chop +10.9), lowest DD (7.9 R), long-biased. It was demoted on a single ranging-month live read compounded by the re-entry storm that #2548 (bar-close debounce) fixed. GATING PREREQUISITE (do NOT promote until met): verify #2548 reduced the orphan/intent_noop/same-bar re-entry rate vs the pre-#2548 baseline (BL-20260601-001). As of 2026-06-01 12:40 UTC there is only ~2.6h of post-#2548 data (deployed 09:59 UTC) — INSUFFICIENT; needs a multi-day window before the before/after is meaningful. Once verified: (1) confirm accrued squeeze SHADOW net-R since demotion doesn't contradict the +17.6 backtest, (2) re-check monthly-corr to the live roster stays additive (hist ~0.30), (3) flip execution: shadow->live in config/strategies.yaml at current risk_pct, open Tier-3 PR, operator merges + pull-and-deploy. fade_breakout_4h is NOT in this item (held for the router/chop-gating given its 30 R DD).",
+   "tier": 3,
+   "status": "open",
+   "trigger_condition": "After the post-#2548 (deployed 2026-06-01 09:59 UTC) live window accrues enough data (multi-day) to verify the orphan/intent_noop/re-entry rate dropped (BL-20260601-001). A /health-review or /performance-review with that window triggers it.",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null,
+   "snoozed_until": null
   }
  ],
  "updated_at": "2026-06-01T11:00:00+00:00"
