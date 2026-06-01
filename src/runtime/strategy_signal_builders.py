@@ -25,6 +25,32 @@ from src.utils.signal_audit_logger import log_signal
 logger = logging.getLogger(__name__)
 
 
+def _stamp_regime_on_meta(meta: Dict[str, Any], candles_df: Any) -> Dict[str, Any]:
+    """Stamp regime + ADX-14 onto a signal's meta dict (phase 2 wiring).
+
+    Phase 2 of the regime router carries the detector's verdict through
+    ``signal.meta`` so ``intent_from_signal`` can attach it to the typed
+    ``StrategyIntent`` and ``aggregate_intents`` can evaluate the policy
+    table in shadow mode (log-only, no enforcement). Mirrors the phase-1
+    audit-row stamp (``_stamp_regime``) — same fields (``regime``,
+    ``adx_14``, ``regime_source``), same setdefault semantics (a builder
+    that pre-computed its own regime is not overwritten), same
+    "never raise" contract (phase-2 is observability-only).
+
+    Returns the meta dict for fluent chaining.
+    """
+    try:
+        rg = detect_regime(candles_df)
+        meta.setdefault("regime", rg["regime"])
+        meta.setdefault("adx_14", rg["adx"])
+        meta.setdefault("regime_source", rg["source"])
+    except Exception:  # noqa: BLE001 — observability-only, never break a tick
+        meta.setdefault("regime", "unknown")
+        meta.setdefault("adx_14", None)
+        meta.setdefault("regime_source", "adx-14")
+    return meta
+
+
 def _stamp_regime(payload: Dict[str, Any], candles_df: Any) -> Dict[str, Any]:
     """Stamp the ADX-14 regime detector's output onto an eval audit row.
 
@@ -384,6 +410,7 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
         "turtle_soup", sig, cfg, symbol,
         timeframe=timeframe, candles_df=candles_df,
     )
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df)
     return _with_signal_package("turtle_soup", sig)
 
 
@@ -558,6 +585,7 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
         "ict_scalp_5m", sig, ict_cfg, symbol,
         timeframe=timeframe, candles_df=candles_df,
     )
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df)
     return _with_signal_package("ict_scalp_5m", sig)
 
 
@@ -730,6 +758,7 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
         }, candles_df))
     except Exception:  # noqa: BLE001
         logger.exception("VWAP: dedicated audit emit failed")
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df)
     return _with_signal_package("vwap", sig)
 
 
@@ -897,6 +926,7 @@ def trend_donchian_signal_builder(settings: dict) -> Dict[str, Any]:
         "trend_donchian", sig, trend_cfg, symbol,
         timeframe=timeframe, candles_df=candles_df,
     )
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df)
     return _with_signal_package("trend_donchian", sig)
 
 
@@ -1039,6 +1069,7 @@ def fade_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
         "fade_breakout_4h", sig, fade_cfg, symbol,
         timeframe=timeframe, candles_df=candles_df,
     )
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df)
     return _with_signal_package("fade_breakout_4h", sig)
 
 
@@ -1178,6 +1209,7 @@ def htf_pullback_trend_2h_signal_builder(settings: dict) -> Dict[str, Any]:
         "htf_pullback_trend_2h", sig, hp_cfg, symbol,
         timeframe=timeframe, candles_df=candles_df,
     )
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df)
     return _with_signal_package("htf_pullback_trend_2h", sig)
 
 
@@ -1316,6 +1348,7 @@ def trend_donchian_1h_signal_builder(settings: dict) -> Dict[str, Any]:
         "trend_donchian_1h", sig, td1h_cfg, symbol,
         timeframe=timeframe, candles_df=candles_df,
     )
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df)
     return _with_signal_package("trend_donchian_1h", sig)
 
 
@@ -1480,6 +1513,7 @@ def mes_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
         "mes_trend_long_1d", sig, mes_cfg, symbol,
         timeframe=timeframe, candles_df=candles_df,
     )
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df)
     return _with_signal_package("mes_trend_long_1d", sig)
 
 
@@ -1610,6 +1644,7 @@ def squeeze_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
         "squeeze_breakout_4h", sig, sqz_cfg, symbol,
         timeframe=timeframe, candles_df=candles_df,
     )
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df)
     return _with_signal_package("squeeze_breakout_4h", sig)
 
 
@@ -1760,4 +1795,5 @@ def fvg_range_15m_signal_builder(settings: dict) -> Dict[str, Any]:
         "fvg_range_15m", sig, fvg_cfg, symbol,
         timeframe=timeframe, candles_df=candles_df,
     )
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df)
     return _with_signal_package("fvg_range_15m", sig)
