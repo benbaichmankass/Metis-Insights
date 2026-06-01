@@ -319,6 +319,173 @@ def _journal_select(table: str, limit: int) -> list[dict[str, Any]]:
         )
 
 
+# ---------------------------------------------------------------------------
+# Historical audit query (2026-06-01) — the time/event-filtered reader the
+# line-capped /audit + /log_file tails cannot provide.
+#
+# /audit and /log_file?name=audit return only the last _MAX_LIMIT (1000) lines
+# of signal_audit.jsonl — on a busy day that is ~15 min of history — so an
+# off-VM session cannot retrieve an arbitrary historical window or grep for a
+# specific event type (e.g. all `regime_shadow_gate` rows on a given day; the
+# PERF-20260601-008/011 regime-router verification needs exactly that). The
+# full audit stream is dual-written to trade_journal.db::signals
+# (signal_audit_logger._dual_write_to_db, on by default; SIGNAL_DUAL_WRITE_
+# DISABLED opts out) with the typed columns PLUS the entire original payload
+# as JSON in `meta`. This reader SELECTs that table with since/until (on the
+# indexed logged_at_utc) + optional event / strategy / symbol / side filters
+# and offset paging, so a historical-window verification is one bounded query
+# instead of an unreachable tail.
+# ---------------------------------------------------------------------------
+
+# `event` is matched inside the `meta` JSON blob via LIKE; restrict it to a
+# safe identifier charset so a caller cannot smuggle LIKE wildcards (% / _) or
+# otherwise alter the match. strategy / symbol / side are bound params
+# (injection-safe) so they need no charset guard.
+_EVENT_NAME_RE = re.compile(r"^[A-Za-z0-9_]+$")
+
+
+def _normalize_utc_bound(iso: str) -> str:
+    """Convert a validated ISO-8601 bound to the canonical column format
+    (UTC, ``+00:00`` offset) so a plain TEXT comparison against
+    ``logged_at_utc`` is correct regardless of whether the caller sent
+    ``Z`` / ``+00:00`` / a naive timestamp.
+
+    ``logged_at_utc`` is always written as
+    ``datetime.now(timezone.utc).isoformat()`` (fixed ``+00:00`` offset), so
+    once the bound is in that same representation a lexicographic ``>=`` /
+    ``<=`` is also chronological — and, unlike wrapping the column in SQLite
+    ``datetime()``, this does NOT depend on the live SQLite version's support
+    for the ``T`` separator / ``Z`` suffix (added only in SQLite 3.42).
+    """
+    s = iso.strip()
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        # Already regex-validated upstream; fall back to the raw string.
+        return iso
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat()
+
+
+def _signals_query(
+    *,
+    since: str | None,
+    until: str | None,
+    event: str | None,
+    strategy: str | None,
+    symbol: str | None,
+    side: str | None,
+    limit: int,
+    offset: int,
+) -> dict[str, Any]:
+    """Time/event-filtered read of ``trade_journal.db::signals`` (the audit
+    dual-write). Newest-first by ``logged_at_utc``. Read-only (``mode=ro``).
+
+    Each returned row carries the typed columns merged with the parsed
+    ``meta`` payload, so callers see the same ``event`` / ``regime`` /
+    ``adx_14`` / ``enforced`` / ``cell`` fields the JSONL row had. Typed
+    columns win on key collision (they are the canonical projection).
+
+    Missing DB or absent ``signals`` table → empty result with a flag
+    (not a 503), matching ``_journal_select``'s fresh-install tolerance and
+    surfacing the "dual-write never ran / disabled" case explicitly.
+    """
+    result: dict[str, Any] = {
+        "table": "signals",
+        "filters": {
+            "since": since, "until": until, "event": event,
+            "strategy": strategy, "symbol": symbol, "side": side,
+        },
+        "limit": limit,
+        "offset": offset,
+        "rows": [],
+        "count": 0,
+        "dual_write_present": False,
+    }
+    if not _DB_PATH.exists():
+        return result
+    where: list[str] = []
+    params: list[Any] = []
+    # logged_at_utc is stored as an ISO-8601 string with a stable +00:00
+    # offset (log_signal stamps datetime.now(timezone.utc).isoformat()), so
+    # a lexicographic >=/<= compare is also chronological. Bound params.
+    if since:
+        where.append("logged_at_utc >= ?")
+        params.append(_normalize_utc_bound(since))
+    if until:
+        where.append("logged_at_utc <= ?")
+        params.append(_normalize_utc_bound(until))
+    if strategy:
+        where.append("strategy = ?")
+        params.append(strategy)
+    if symbol:
+        where.append("symbol = ?")
+        params.append(symbol)
+    if side:
+        where.append("side = ?")
+        params.append(side)
+    if event:
+        # event lives in the meta JSON blob, not a typed column. json.dumps
+        # renders it as `"event": "<name>"`; match that substring. event is
+        # charset-validated at the route layer so no LIKE-wildcard smuggling.
+        where.append("meta LIKE ?")
+        params.append(f'%"event": "{event}"%')
+    clause = (" WHERE " + " AND ".join(where)) if where else ""
+    sql = (
+        "SELECT id, logged_at_utc, strategy, symbol, side, qty, status, "
+        "reason, meta FROM signals" + clause +
+        # logged_at_utc is a fixed +00:00 isoformat string, so a TEXT sort is
+        # chronological — and avoids depending on SQLite datetime() T/Z parsing.
+        " ORDER BY logged_at_utc DESC, id DESC LIMIT ? OFFSET ?"
+    )
+    params.extend([limit, offset])
+    try:
+        conn = sqlite3.connect(f"file:{_DB_PATH}?mode=ro", uri=True)
+        try:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(sql, tuple(params)).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        # "no such table: signals" => the dual-write has never run (or was
+        # disabled before any write). Surface that explicitly as a non-fatal
+        # signal rather than a misleading 503, so the caller learns the
+        # table is absent (and can check SIGNAL_DUAL_WRITE_DISABLED).
+        if "no such table" in str(exc).lower():
+            result["error"] = "signals_table_absent"
+            return result
+        logger.exception("diag: _signals_query sqlite read failed")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "signals_query_unavailable",
+                "reason": f"sqlite error: {type(exc).__name__}",
+            },
+        )
+    result["dual_write_present"] = True
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        row = dict(r)
+        meta_raw = row.pop("meta", None)
+        if meta_raw:
+            try:
+                meta = json.loads(meta_raw)
+            except (json.JSONDecodeError, TypeError):
+                row["meta_raw"] = meta_raw
+            else:
+                if isinstance(meta, dict):
+                    # Full original payload (event/regime/adx_14/enforced/…)
+                    # under the canonical typed columns.
+                    row = {**meta, **row}
+        out.append(row)
+    result["rows"] = out
+    result["count"] = len(out)
+    return result
+
+
 def _db_info_payload() -> dict[str, Any]:
     """Return DB metadata for diagnostic cross-referencing of trader vs
     web-api. Resolves the same ``_DB_PATH`` the journal endpoint reads,
@@ -545,6 +712,77 @@ async def get_journal(
 ) -> list[dict[str, Any]]:
     _require_diag_token(request)
     return _journal_select(table, _clamp(limit, _DEFAULT_LIMIT, _MAX_LIMIT))
+
+
+@router.get("/audit_query")
+async def get_audit_query(
+    request: Request,
+    since: str | None = None,
+    until: str | None = None,
+    event: str | None = None,
+    strategy: str | None = None,
+    symbol: str | None = None,
+    side: str | None = None,
+    limit: int = _DEFAULT_LIMIT,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Historical, time/event-filtered audit read backed by the
+    ``trade_journal.db::signals`` dual-write.
+
+    Unlike ``/audit`` and ``/log_file?name=audit`` — which tail only the last
+    ``_MAX_LIMIT`` (1000) lines of ``signal_audit.jsonl`` (~15 min on a busy
+    day) — this reaches arbitrary history because the full audit stream is
+    mirrored to the indexed ``signals`` table. Use it to pull a specific
+    window (``since`` / ``until``) or every row of one event type
+    (``event=regime_shadow_gate``) without the tail cap.
+
+    Params:
+      * ``since`` / ``until`` — ISO-8601 (``2026-06-01T15:00:00Z``); filter on
+        ``logged_at_utc``. Validated against ``_ISO_TIMESTAMP_RE``.
+      * ``event`` — match the audit ``event`` field (stored in the ``meta``
+        JSON), e.g. ``regime_shadow_gate``, ``vwap_eval``. Charset
+        ``[A-Za-z0-9_]+``.
+      * ``strategy`` / ``symbol`` / ``side`` — exact-match typed columns.
+      * ``limit`` (≤ ``_MAX_LIMIT``) + ``offset`` — page back through the
+        full table.
+
+    Rows are newest-first and carry the typed columns merged with the parsed
+    ``meta`` payload (``regime`` / ``adx_14`` / ``enforced`` / ``cell`` …).
+    Empty ``rows`` with ``dual_write_present: false`` / ``error:
+    signals_table_absent`` means the dual-write hasn't populated the table
+    (check ``SIGNAL_DUAL_WRITE_DISABLED``).
+    """
+    _require_diag_token(request)
+    for label, value in (("since", since), ("until", until)):
+        if value is not None and not _ISO_TIMESTAMP_RE.match(value):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "invalid_timestamp",
+                    "param": label,
+                    "expected": "ISO-8601 like 2026-06-01T15:00:00Z",
+                    "got": value,
+                },
+            )
+    if event is not None and not _EVENT_NAME_RE.match(event):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_event",
+                "expected": "identifier matching [A-Za-z0-9_]+",
+                "got": event,
+            },
+        )
+    return _signals_query(
+        since=since,
+        until=until,
+        event=event,
+        strategy=strategy,
+        symbol=symbol,
+        side=side,
+        limit=_clamp(limit, _DEFAULT_LIMIT, _MAX_LIMIT),
+        offset=max(0, offset),
+    )
 
 
 @router.get("/db_info")
