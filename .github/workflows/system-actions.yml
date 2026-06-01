@@ -602,14 +602,17 @@ jobs:
           fi
           if [ "${ACTION}" = "pull-mes-ibkr-history-daily" ]; then
             # Same wrapper as pull-mes-ibkr-history, but baked to a DAILY
-            # multi-year pull: native MES 1d bars back to the contract's
+            # multi-year pull: native MES 1d bars back toward the contract's
             # ~2019 inception (the ibkr_offvm adapter stitches dated MES
-            # expiries for depth). Distinct dataset version so the daily
-            # series never collides with the intraday (5m/15m) v002 shards.
+            # expiries for depth — max_contracts=28 ≈ the quarterly expiries
+            # since 2019). DATASET_VERSION must match 'vNNN' (digits only —
+            # metadata.py enforces it); v003 keeps the daily series in its own
+            # shard dir distinct from the intraday v002 (the 1d/ timeframe
+            # subdir already separates them, but a distinct version is clearer).
             # All the wrapper's live-gateway guards still apply (live-first
             # heartbeat abort, idle nice/ionice, distinct clientId 450,
             # 20s pacing). For validating mes_trend_long_1d on real MES.
-            REMOTE_CMD="MES_TIMEFRAMES=1d MES_HIST_START=2019-05-06 DATASET_VERSION=v002-daily ${REMOTE_CMD}"
+            REMOTE_CMD="MES_TIMEFRAMES=1d MES_HIST_START=2019-05-06 DATASET_VERSION=v003 MES_MAX_CONTRACTS=28 ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "bybit-account-audit" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
