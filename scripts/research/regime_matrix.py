@@ -85,11 +85,18 @@ def tag_trades_by_regime(trades: List[Any], adx: pd.Series,
         idx = ts.searchsorted(et, side="right") - 1
         a = float(adx.iloc[idx]) if 0 <= idx < len(adx) else float("nan")
         reg = _regime(a)
+        direction = str(getattr(t, "direction", "?")).lower()
         net = t.r_multiple - _fee_r(t)
-        slot = by.setdefault(reg, {"trades": 0, "wins": 0, "net_r": 0.0})
+        slot = by.setdefault(reg, {"trades": 0, "wins": 0, "net_r": 0.0,
+                                   "long_r": 0.0, "short_r": 0.0,
+                                   "long_n": 0, "short_n": 0})
         slot["trades"] += 1
         slot["wins"] += 1 if net > 0 else 0
         slot["net_r"] = round(slot["net_r"] + net, 4)
+        if direction == "short":
+            slot["short_r"] = round(slot["short_r"] + net, 4); slot["short_n"] += 1
+        else:
+            slot["long_r"] = round(slot["long_r"] + net, 4); slot["long_n"] += 1
     for reg, s in by.items():
         s["win_pct"] = round(100 * s["wins"] / s["trades"], 1) if s["trades"] else 0.0
         s["exp_r"] = round(s["net_r"] / s["trades"], 4) if s["trades"] else 0.0
@@ -137,13 +144,15 @@ def main(argv: List[str]) -> int:
     print(f"regime base-rate (bars): chop={dist['pct']['chop']}% "
           f"transitional={dist['pct']['transitional']}% trending={dist['pct']['trending']}%")
     print(f"total trades={len(trades)} net_r={round(sum(t.r_multiple - _fee_r(t) for t in trades),3)}")
-    print("--- by regime (where this strategy's trades ENTERED) ---")
+    print("--- by regime (entry regime) x direction ---")
+    print(f"  {'regime':13} {'trades':>6} {'win%':>6} {'net_r':>9} "
+          f"{'long_r':>9}({'n':>4}) {'short_r':>9}({'n':>4})")
     for reg in ("trending", "transitional", "chop", "unknown"):
         s = by.get(reg)
         if not s:
             continue
-        print(f"  {reg:13} trades={s['trades']:4} win%={s['win_pct']:5} "
-              f"net_r={s['net_r']:>9} exp_r={s['exp_r']}")
+        print(f"  {reg:13} {s['trades']:6} {s['win_pct']:6} {s['net_r']:9} "
+              f"{s['long_r']:9}({s['long_n']:4}) {s['short_r']:9}({s['short_n']:4})")
     return 0
 
 
