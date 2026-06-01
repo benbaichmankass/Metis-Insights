@@ -30,5 +30,9 @@
   "htf_pullback_trend_2h": {
     "short": "HTF-pullback trend-follower, 2h BTCUSDT (shadow)",
     "how_it_works": "Requires a higher-timeframe uptrend (close above the Donchian-40 midline), then buys a pullback into the lower half of the recent 10-bar range, riding a wide Chandelier ATR trail (trail_mult 5.0) to let winners run. The pullback entry is the deliberate complement to trend_donchian's breakout entry into the same let-winners-run exit. Wired execution: shadow on bybit_1 (demo) 2026-06-01 after the overnight research campaign + pre-shadow validation (net-of-fee walk-forward IS +32.7R / OOS +22.4R, 3-fold robust, fee-robust to 15bps, additive corr 0.20-0.54). Long-biased BTC trend sleeve; never sends a live order until promoted (Tier-3)."
+  },
+  "trend_donchian_1h": {
+    "short": "trend_donchian on 1h with a wide trail, BTCUSDT (shadow A/B)",
+    "how_it_works": "A faster-timeframe / wider-trail shadow A/B of the LIVE trend_donchian flagship: the same Donchian-breakout entry + Chandelier ATR trail, but on 1h candles with donchian 20 / trail_mult 5.0 (vs the live 2h / trail 3.5). Reuses the same strategy unit parametrised by its own config block - a distinct instance, not a change to the live 2h strategy. Wired execution: shadow on bybit_1 (demo) 2026-06-01 after the overnight research found it the single strongest lead (net-of-fee walk-forward IS +42.4R / OOS +43.8R near-symmetric, 3-fold robust, fee-robust to 15bps) and only 0.46 correlated to the live 2h trend (additive A/B). Never sends a live order until promoted (Tier-3)."
   }
 }

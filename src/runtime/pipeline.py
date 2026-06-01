@@ -15,6 +15,7 @@ from src.runtime.strategy_signal_builders import (  # noqa: E402
     htf_pullback_trend_2h_signal_builder,
     squeeze_breakout_4h_signal_builder,
     ict_scalp_signal_builder,
+    trend_donchian_1h_signal_builder,
     trend_donchian_signal_builder,
     turtle_soup_signal_builder,
     vwap_signal_builder,
@@ -220,6 +221,11 @@ _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     # sends a live order. Cleared net-of-fee + walk-forward + 3-fold + fee +
     # correlation. Honours the YAML `enabled` flag.
     "htf_pullback_trend_2h": htf_pullback_trend_2h_signal_builder,
+    # trend_donchian_1h — faster-TF/wider-trail shadow A/B of the live 2h
+    # trend_donchian (overnight research 2026-06-01). Distinct instance reusing
+    # the trend_donchian unit via its own config; execution:shadow, never sends
+    # a live order. Honours the YAML `enabled` flag.
+    "trend_donchian_1h": trend_donchian_1h_signal_builder,
     # fvg_range_15m — FVG mean-reversion inside a confirmed STATIC horizontal
     # range (the range member the roster was missing; the deliberate opposite
     # of ict_scalp's directional FVG continuation). Wired execution:shadow
