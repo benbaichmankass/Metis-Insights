@@ -131,7 +131,23 @@
    "resolved_by": null,
    "resolution_note": null,
    "snoozed_until": null
+  },
+  {
+   "id": "PERF-20260601-002",
+   "opened_at": "2026-06-01T11:00:00+00:00",
+   "opened_by": "claude (regime study)",
+   "source": "Regime-aware-routing initiative (operator 2026-06-01: complementarity across REGIMES). Relays #2557-#2559; handoff docs/research/session-handoff-2026-06-01.md.",
+   "title": "Regime x strategy x direction matrix (roster) + regime router + the trend_donchian long-only-vs-chop-gated-short decision",
+   "description": "Flagship done: trend_donchian (gated, live 1h/trail5.0) long side = trend edge (+47R, wins trending/transitional); short side only works in chop (+16R chop, -52R trending/transitional) — BTC uptrend punishes trend-shorts. CRITICAL reconciliation: the research's BTC +43.8R OOS was over-optimistic (engine omitted the live min_confidence=0.30 gate -> -53R; gated +11R full / -6R OOS on fresh Bybit perp 1h; residual gap = data, research used a deleted /tmp/btc5m.csv 5m source). NEXT: build the same regime x direction matrix for fade/squeeze/fvg/vwap/htf/mes via each harness's --emit-trades hook driven with EXACT live params, then (a) decide trend_donchian long-only vs chop-gated-short, (b) re-promotion criteria for demoted squeeze/fade, (c) design the regime router (intent-layer weighting/gate keyed to detected regime; building blocks: existing ADX gates + regime-classifier-baseline-v0 shadow model). Tooling: scripts/research/regime_matrix.py + gated backtest_trend.py; data data/btc_1h_multiyear.csv on trainer (re-fetch via the ccxt loop if gone).",
+   "tier": 3,
+   "status": "open",
+   "trigger_condition": "Next session continues the broadened regime study.",
+   "resolution_criteria": "Full roster regime x direction matrix produced; long-vs-short/regime configs decided together; regime-router design proposed.",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null,
+   "snoozed_until": null
   }
  ],
- "updated_at": "2026-06-01T08:50:00+00:00"
+ "updated_at": "2026-06-01T11:00:00+00:00"
 }

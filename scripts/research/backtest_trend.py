@@ -109,9 +109,18 @@ def _signal(df: pd.DataFrame, donchian: int) -> pd.Series:
 
 
 def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
-             trail_mult: float, timeout: int, long_only: bool) -> List[Trade]:
+             trail_mult: float, timeout: int, long_only: bool,
+             min_confidence: float = 0.0) -> List[Trade]:
     atr = _atr(df, atr_p)
     sig = _signal(df, donchian)
+    # Donchian channel (causal — prior N bars) for the breakout-depth
+    # confidence gate, mirroring the LIVE trend_donchian unit: confidence =
+    # clamp((break depth past the channel) / ATR, 0, 1); skip entries below
+    # ``min_confidence`` (the unit's 0.30 gate that drops the shallow breaks
+    # "where the strategy bleeds"). Without this the engine takes every
+    # breakout and is NOT a faithful test of the filtered live strategy.
+    upper = df["high"].rolling(donchian, min_periods=donchian).max().shift(1)
+    lower = df["low"].rolling(donchian, min_periods=donchian).min().shift(1)
     n = len(df)
     trades: List[Trade] = []
     pos = None
@@ -154,6 +163,15 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
                 if a <= 0:
                     continue
                 direction = 'long' if s > 0 else 'short'
+                # Breakout-depth confidence gate (mirrors the live unit).
+                if min_confidence > 0.0:
+                    if direction == 'long':
+                        depth = (cl - float(upper.iloc[i])) / a
+                    else:
+                        depth = (float(lower.iloc[i]) - cl) / a
+                    conf = min(max(depth, 0.0), 1.0)
+                    if conf < min_confidence:
+                        continue
                 entry = cl
                 sl = entry - atr_stop * a if direction == 'long' else entry + atr_stop * a
                 risk = abs(entry - sl)
@@ -215,6 +233,8 @@ def main(argv: List[str]) -> int:
     p.add_argument('--trail-mult', type=float, default=4.0)
     p.add_argument('--timeout-bars', type=int, default=0)
     p.add_argument('--long-only', action='store_true')
+    p.add_argument('--min-confidence', type=float, default=0.0,
+                   help='breakout-depth/ATR gate, mirrors the live unit (0.30 live)')
     p.add_argument('--json', dest='json_out', default=None)
     a = p.parse_args(argv)
 
@@ -227,7 +247,7 @@ def main(argv: List[str]) -> int:
         df = df[df['timestamp'] <= pd.Timestamp(a.end, tz='UTC')].reset_index(drop=True)
 
     trades = backtest(df, a.donchian, a.atr_period, a.atr_stop_mult,
-                      a.trail_mult, a.timeout_bars, a.long_only)
+                      a.trail_mult, a.timeout_bars, a.long_only, a.min_confidence)
     params = {'symbol': a.symbol, 'timeframe': a.timeframe, 'donchian': a.donchian,
               'atr_stop_mult': a.atr_stop_mult, 'trail_mult': a.trail_mult,
               'long_only': a.long_only}
