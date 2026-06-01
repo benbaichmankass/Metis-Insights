@@ -324,6 +324,7 @@ def run_single(
     start_bar: int = 0,
     sl_std_mult: float | None = None,
     vwap_anchor: str = "session",
+    emit_trades: str | None = None,
 ) -> dict[str, Any]:
     """Run the VWAP backtest with one HTF config.
 
@@ -442,6 +443,29 @@ def run_single(
     cfg_label = (
         f"{htf_timeframe} EMA-{ema_period}" if use_htf else "no HTF filter"
     )
+
+    # Per-trade JSONL for the regime tagger (scripts/research/regime_tag_emitted.py).
+    # Same schema the standalone harnesses emit; vwap has no confidence score.
+    if emit_trades:
+        import json as _json
+
+        with open(emit_trades, "w", encoding="utf-8") as _fh:
+            for _t in trades:
+                _fh.write(
+                    _json.dumps(
+                        {
+                            "strategy": "vwap",
+                            "entry_time": str(_t["entry_time"]),
+                            "direction": _t["direction"],
+                            "gross_r": _t["pnl_r"],
+                            "net_r": _t["net_pnl_r"],
+                            "confidence": None,
+                        },
+                        default=str,
+                    )
+                    + "\n"
+                )
+
     return {
         "label": label or cfg_label,
         "config": {
@@ -912,6 +936,13 @@ def main(argv: list[str]) -> int:
     )
     parser.add_argument("--label", default="", help="Label for the run")
     parser.add_argument(
+        "--emit-trades",
+        default=None,
+        metavar="PATH",
+        help="Write per-trade {strategy, entry_time, direction, gross_r, net_r} "
+        "JSONL (single-run mode only) for scripts/research/regime_tag_emitted.py.",
+    )
+    parser.add_argument(
         "--start-date",
         default="",
         help="Filter data from YYYY-MM-DD UTC (inclusive). Use with fresh 5m data.",
@@ -1217,6 +1248,7 @@ def main(argv: list[str]) -> int:
                         label=args.label,
                         sl_std_mult=args.sl_mult,
                         vwap_anchor=args.vwap_anchor,
+                        emit_trades=args.emit_trades,
                     )
             finally:
                 if args.entry_threshold is not None:

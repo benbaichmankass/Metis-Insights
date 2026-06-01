@@ -23,6 +23,7 @@ import os
 import sys
 from typing import Any, Dict, List
 
+import numpy as np
 import pandas as pd
 
 # Reuse the committed trend engine (same dir) regardless of cwd.
@@ -49,9 +50,14 @@ def _adx(df: pd.DataFrame, period: int = 14) -> pd.Series:
     pc = c.shift(1)
     tr = pd.concat([(h - lo), (h - pc).abs(), (lo - pc).abs()], axis=1).max(axis=1)
     atr = tr.ewm(alpha=1 / period, adjust=False).mean()
-    plus_di = 100 * plus_dm.ewm(alpha=1 / period, adjust=False).mean() / atr.replace(0, pd.NA)
-    minus_di = 100 * minus_dm.ewm(alpha=1 / period, adjust=False).mean() / atr.replace(0, pd.NA)
-    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, pd.NA)
+    # Use np.nan (not pd.NA) for the zero-divisor guard: under pandas 3.0
+    # replacing into a float Series with pd.NA upcasts it to object dtype, and
+    # the trailing .ewm().mean() then raises "No numeric types to aggregate".
+    # np.nan keeps the Series float64 (only triggered when an ATR bar is exactly
+    # 0, e.g. on finer/flatter timeframes like the 15m fvg data).
+    plus_di = 100 * plus_dm.ewm(alpha=1 / period, adjust=False).mean() / atr.replace(0, np.nan)
+    minus_di = 100 * minus_dm.ewm(alpha=1 / period, adjust=False).mean() / atr.replace(0, np.nan)
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan)
     return dx.ewm(alpha=1 / period, adjust=False).mean()
 
 
