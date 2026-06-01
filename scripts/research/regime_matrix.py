@@ -116,6 +116,8 @@ def main(argv: List[str]) -> int:
     p.add_argument("--atr-stop-mult", type=float, default=2.5)
     p.add_argument("--trail-mult", type=float, default=5.0)
     p.add_argument("--adx-period", type=int, default=14)
+    p.add_argument("--min-confidence", type=float, default=0.0,
+                   help="breakout-depth/ATR gate, mirrors the live unit (0.30 live)")
     p.add_argument("--long-only", action="store_true")
     a = p.parse_args(argv)
 
@@ -125,7 +127,7 @@ def main(argv: List[str]) -> int:
     adx = _adx(df, a.adx_period)
 
     trades = backtest(df, a.donchian, a.atr_period, a.atr_stop_mult,
-                      a.trail_mult, 0, a.long_only)
+                      a.trail_mult, 0, a.long_only, a.min_confidence)
     by = tag_trades_by_regime(trades, adx, df)
     dist = regime_distribution(adx)
 
