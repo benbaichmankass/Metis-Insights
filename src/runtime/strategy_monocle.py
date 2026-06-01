@@ -227,7 +227,12 @@ def _strategy_timeframe_seconds(strategy_name: str) -> Optional[int]:
 
 
 def _bar_debounce_disabled() -> bool:
-    raw = os.environ.get("STRATEGY_BAR_DEBOUNCE_DISABLED", "")
+    # The flag below is a kill-switch for an over-trading DEBOUNCE, not a
+    # live/dry gate: it only throttles re-entry frequency (one entry per
+    # closed bar) and never decides whether a strategy trades live vs dry
+    # (that stays accounts.yaml mode + strategies.yaml execution). Mirrors
+    # the STRATEGY_REFUSAL_COOLDOWN_SECONDS rollback knob.
+    raw = os.environ.get("STRATEGY_BAR_DEBOUNCE_DISABLED", "")  # allow-silent: debounce kill-switch, not a live/dry gate
     return str(raw).strip().lower() in ("1", "true", "yes", "on")
 
 
