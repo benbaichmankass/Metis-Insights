@@ -90,5 +90,12 @@
       "ref": "Overnight strategy-research campaign (this PR) - DRAFT, Tier-3, execution: shadow",
       "summary": "New strategy wired execution: shadow on bybit_1 (demo) for live data collection. HTF-pullback trend-follower: HTF Donchian-40 uptrend gate, buy a pullback into the lower 0.5 of the recent 10-bar range, wide Chandelier ATR trail (trail_mult 5.0). Validated on 5y BTCUSDT 2h (2021-2026): net-of-fee walk-forward IS +32.7R / OOS +22.4R (exp +0.14 R/trade), 3-fold robust (+30/+42/+8), fee-robust (+67R at 15bps), additive to the live roster (monthly corr 0.20-0.54). Routed to the DEMO account ONLY; NOT on bybit_2 until operator promotes shadow -> live. Evidence: docs/research/overnight-strategy-research-2026-06-01.md; harness scripts/backtest_pullback.py."
     }
+  ],
+  "trend_donchian_1h": [
+    {
+      "date": "2026-06-01",
+      "ref": "Overnight strategy-research campaign (this PR) - DRAFT, Tier-3, execution: shadow",
+      "summary": "New strategy instance wired execution: shadow on bybit_1 (demo). Faster-TF/wider-trail A/B of the live 2h trend_donchian: 1h candles, donchian 20, trail_mult 5.0, reusing the trend_donchian unit via its own config. Validated on 5y BTCUSDT (2021-2026): net-of-fee walk-forward IS +42.4R / OOS +43.8R (near-symmetric, 730 trades), net-positive in all three 2y folds (+14/+54/+24), fee-robust (+55R at 15bps), only 0.46 monthly-return corr to the live 2h trend (additive). Routed to the DEMO account ONLY; the live 2h strategy is unchanged. Evidence: docs/research/overnight-strategy-research-2026-06-01.md."
+    }
   ]
 }

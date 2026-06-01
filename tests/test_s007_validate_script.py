@@ -145,7 +145,7 @@ def test_run_checks_strategies_match_roster():
     # HTF-pullback trend-follower).
     assert names == {
         "turtle_soup", "vwap", "ict_scalp_5m", "trend_donchian", "fade_breakout_4h",
-        "squeeze_breakout_4h", "fvg_range_15m", "htf_pullback_trend_2h",
+        "squeeze_breakout_4h", "fvg_range_15m", "htf_pullback_trend_2h", "trend_donchian_1h",
     }
 
 
