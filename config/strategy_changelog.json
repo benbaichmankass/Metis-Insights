@@ -97,5 +97,12 @@
       "ref": "Overnight strategy-research campaign (this PR) - DRAFT, Tier-3, execution: shadow",
       "summary": "New strategy instance wired execution: shadow on bybit_1 (demo). Faster-TF/wider-trail A/B of the live 2h trend_donchian: 1h candles, donchian 20, trail_mult 5.0, reusing the trend_donchian unit via its own config. Validated on 5y BTCUSDT (2021-2026): net-of-fee walk-forward IS +42.4R / OOS +43.8R (near-symmetric, 730 trades), net-positive in all three 2y folds (+14/+54/+24), fee-robust (+55R at 15bps), only 0.46 monthly-return corr to the live 2h trend (additive). Routed to the DEMO account ONLY; the live 2h strategy is unchanged. Evidence: docs/research/overnight-strategy-research-2026-06-01.md."
     }
+  ],
+  "mes_trend_long_1d": [
+    {
+      "date": "2026-06-01",
+      "ref": "Overnight strategy-research campaign (this PR) - DRAFT, Tier-3, execution: shadow",
+      "summary": "New strategy wired execution: shadow on the IBKR ib_paper account. MES daily LONG-ONLY trend-follower: Donchian 30 / trail_mult 4.0 on the 1d candle, reusing the trend_donchian unit with short signals suppressed (the equity-index edge is long-only). Validated on SPX500-CFD (the proxy, 2020-2026): long-only trend net-positive IS+OOS across three independent families (trend/TSMOM/MA-cross), near-zero correlation to the BTC roster, tiny drawdown (2-7R). CAVEAT - validated on the CFD proxy, NOT live MES (short ~16mo history); shadow collects the live-instrument data needed before any promotion. Routed to ib_paper (IBKR paper) ONLY; never real money. Evidence: docs/research/overnight-strategy-research-2026-06-01.md (PERF-20260531-001)."
+    }
   ]
 }

@@ -1261,6 +1261,170 @@ def trend_donchian_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     return _with_signal_package("trend_donchian_1h", sig)
 
 
+def mes_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
+    """MES daily LONG-ONLY trend-follower (overnight research 2026-06-01).
+
+    A BTC-uncorrelated equity-index diversifier: Donchian-breakout + Chandelier
+    ATR trail on the MES daily candle, reusing the SAME unit
+    (``src.units.strategies.trend_donchian.order_package``) but **gated
+    long-only** — short signals are suppressed (``side="none"``) because the
+    equity-index edge is the long side (the secular uptrend punishes
+    trend-breakout shorts; the research short-side was net-negative on SPX/MES).
+
+    Routed to the IBKR ``ib_paper`` account (MES futures); ``fetch_candles``
+    routes the MES symbol to IBKR automatically via
+    ``connector_for_symbol``. Cleared for ``execution: shadow`` after the
+    overnight sweep + pre-shadow validation on SPX (the CFD proxy): net-positive
+    in IS+OOS across THREE independent families (trend/TSMOM/MA-cross),
+    near-zero correlation to the BTC roster, tiny drawdown. CAVEAT: validated on
+    SPX500-CFD, not live MES, and live MES history is short — this shadow run
+    collects the live-instrument data needed before any promotion. Evidence:
+    docs/research/overnight-strategy-research-2026-06-01.md (PERF-20260531-001).
+
+    Honours the YAML ``enabled`` flag as the single source of truth.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.trend_donchian import order_package
+    from src.runtime.market_data import fetch_candles
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 - never fail-open on a config error
+        strategies_cfg = {}
+    mes_cfg = strategies_cfg.get("mes_trend_long_1d", {}) or {}
+
+    # This strategy is routed only to the MES (ib_paper) account, so the tick
+    # symbol is MES; default to MES if a caller omits it.
+    symbol = settings.get("SYMBOL", settings.get("symbol", "MES"))
+
+    if not bool(mes_cfg.get("enabled", False)):
+        logger.info(
+            "mes_trend_long_1d: strategy disabled in config/strategies.yaml - "
+            "returning side=none"
+        )
+        return _with_signal_package("mes_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "mes_trend_long_1d",
+                "reason": "disabled_in_yaml",
+            },
+        })
+
+    timeframe = str(
+        mes_cfg.get("timeframe")
+        or settings.get("MES_TREND_LONG_1D_TIMEFRAME")
+        or "1d"
+    )
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(
+        symbol, timeframe, exchange_client=exchange, limit=200,
+    )
+    if candles_df is None:
+        raise RuntimeError(
+            f"mes_trend_long_1d: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the IBKR connection is "
+            "configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **mes_cfg}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("mes_trend_long_1d: no actionable signal (%s)", exc)
+        try:
+            log_signal({
+                "event": "mes_trend_long_1d_eval",
+                "strategy": "mes_trend_long_1d",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception("mes_trend_long_1d: dedicated audit emit failed")
+        return _with_signal_package("mes_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "mes_trend_long_1d",
+                "reason": str(exc),
+            },
+        })
+
+    # LONG-ONLY gate: suppress short signals — the equity-index edge is the long
+    # side only (the validated short-side was net-negative). This is the one
+    # behavioural difference from the live trend_donchian unit.
+    if pkg["direction"] != "long":
+        logger.info("mes_trend_long_1d: short signal suppressed (long-only strategy)")
+        try:
+            log_signal({
+                "event": "mes_trend_long_1d_eval",
+                "strategy": "mes_trend_long_1d",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": "short_suppressed_long_only",
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception("mes_trend_long_1d: dedicated audit emit failed")
+        return _with_signal_package("mes_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "mes_trend_long_1d",
+                "reason": "short_suppressed_long_only",
+            },
+        })
+
+    side = "buy"
+    logger.info(
+        "mes_trend_long_1d: buy signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal({
+            "event": "mes_trend_long_1d_eval",
+            "strategy": "mes_trend_long_1d",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        })
+    except Exception:  # noqa: BLE001
+        logger.exception("mes_trend_long_1d: dedicated audit emit failed")
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "mes_trend_long_1d",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "mes_trend_long_1d",
+            "confidence": pkg["confidence"],
+            "direction": "long",
+            "strategy_risk_pct": float(mes_cfg.get("risk_pct", 0.3) or 0.3),
+        },
+    }
+    _emit_shadow_preds(
+        "mes_trend_long_1d", sig, mes_cfg, symbol,
+        timeframe=timeframe, candles_df=candles_df,
+    )
+    return _with_signal_package("mes_trend_long_1d", sig)
+
+
 def squeeze_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
     """Volatility-squeeze breakout (S-STRAT-IMPROVE-S9), member-#3 candidate.
 

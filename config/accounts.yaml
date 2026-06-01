@@ -342,8 +342,12 @@ accounts:
                                        # the Gateway as trusted localhost
     ib_account: DUQ325724
     ib_client_id: 497                  # unique per concurrent socket
-    strategies: [turtle_soup, vwap, ict_scalp_5m]   # all 3 on MES; BTCUSDT
-                                       # is gated out by exchange (see header)
+    strategies: [turtle_soup, vwap, ict_scalp_5m, mes_trend_long_1d]   # all on MES; BTCUSDT
+                                       # is gated out by exchange (see header).
+                                       # mes_trend_long_1d added 2026-06-01:
+                                       # execution: shadow, long-only equity-index
+                                       # diversifier — IBKR paper only (this
+                                       # account), never real money, until promoted.
     symbols: [MES]                     # MES is the instrument; the multi-symbol
                                        # tick loop unions this so MES signals are
                                        # GENERATED. BTCUSDT signals never reach

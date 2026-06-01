@@ -34,5 +34,9 @@
   "trend_donchian_1h": {
     "short": "trend_donchian on 1h with a wide trail, BTCUSDT (shadow A/B)",
     "how_it_works": "A faster-timeframe / wider-trail shadow A/B of the LIVE trend_donchian flagship: the same Donchian-breakout entry + Chandelier ATR trail, but on 1h candles with donchian 20 / trail_mult 5.0 (vs the live 2h / trail 3.5). Reuses the same strategy unit parametrised by its own config block - a distinct instance, not a change to the live 2h strategy. Wired execution: shadow on bybit_1 (demo) 2026-06-01 after the overnight research found it the single strongest lead (net-of-fee walk-forward IS +42.4R / OOS +43.8R near-symmetric, 3-fold robust, fee-robust to 15bps) and only 0.46 correlated to the live 2h trend (additive A/B). Never sends a live order until promoted (Tier-3)."
+  },
+  "mes_trend_long_1d": {
+    "short": "MES daily long-only trend, equity-index diversifier (shadow)",
+    "how_it_works": "A BTC-uncorrelated equity-index diversifier: Donchian-breakout + Chandelier ATR trail on the MES (Micro E-mini S&P 500) daily candle, reusing the trend_donchian unit but GATED LONG-ONLY (short signals are suppressed) because the equity-index edge is the long side - the secular uptrend punishes trend-breakout shorts. Runs on the IBKR ib_paper account. Wired execution: shadow 2026-06-01: on SPX (the CFD proxy) long-only trend is net-positive in-sample and out-of-sample across three independent families (trend/TSMOM/MA-cross) with near-zero correlation to the BTC roster and tiny drawdown. CAVEAT: validated on SPX500-CFD, not live MES (whose history is short ~16mo) - this shadow run collects the live-instrument data needed before any promotion. Never sends a live order until promoted (Tier-3)."
   }
 }

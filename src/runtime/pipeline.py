@@ -13,6 +13,7 @@ from src.runtime.strategy_signal_builders import (  # noqa: E402
     fade_breakout_4h_signal_builder,
     fvg_range_15m_signal_builder,
     htf_pullback_trend_2h_signal_builder,
+    mes_trend_long_1d_signal_builder,
     squeeze_breakout_4h_signal_builder,
     ict_scalp_signal_builder,
     trend_donchian_1h_signal_builder,
@@ -226,6 +227,11 @@ _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     # the trend_donchian unit via its own config; execution:shadow, never sends
     # a live order. Honours the YAML `enabled` flag.
     "trend_donchian_1h": trend_donchian_1h_signal_builder,
+    # mes_trend_long_1d — MES daily LONG-ONLY trend-follower (overnight research
+    # 2026-06-01). BTC-uncorrelated equity-index diversifier on IBKR ib_paper;
+    # reuses the trend_donchian unit, suppresses shorts. execution:shadow, never
+    # sends a live order. Honours the YAML `enabled` flag.
+    "mes_trend_long_1d": mes_trend_long_1d_signal_builder,
     # fvg_range_15m — FVG mean-reversion inside a confirmed STATIC horizontal
     # range (the range member the roster was missing; the deliberate opposite
     # of ict_scalp's directional FVG continuation). Wired execution:shadow

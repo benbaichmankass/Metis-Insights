@@ -140,6 +140,11 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # (data-only, never sends a live order), so its priority never arbitrates a
     # real order; the lowest value is the safety floor for the unproven instance.
     "trend_donchian_1h": 1,
+    # mes_trend_long_1d — the new floor (2026-06-01). MES daily long-only
+    # equity-index diversifier. Wired execution:shadow (data-only, never sends a
+    # live order), so its priority never arbitrates a real order; the lowest
+    # value is the safety floor for the unproven sleeve.
+    "mes_trend_long_1d": 0,
 }
 
 # Priority used when a strategy is not listed in DEFAULT_PRIORITIES and

@@ -52,6 +52,7 @@ from src.runtime.strategy_signal_builders import (
     fade_breakout_4h_signal_builder,
     fvg_range_15m_signal_builder,
     htf_pullback_trend_2h_signal_builder,
+    mes_trend_long_1d_signal_builder,
     squeeze_breakout_4h_signal_builder,
     ict_scalp_signal_builder,
     trend_donchian_1h_signal_builder,
@@ -111,6 +112,10 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # collection; priority 1 (new floor) so a wiring slip can't override an
         # established member. Builder honours the YAML `enabled` flag.
         "trend_donchian_1h": trend_donchian_1h_signal_builder,
+        # mes_trend_long_1d: MES daily long-only equity-index diversifier on
+        # IBKR ib_paper, execution:shadow (2026-06-01); priority 0 (new floor).
+        # Builder honours the YAML `enabled` flag.
+        "mes_trend_long_1d": mes_trend_long_1d_signal_builder,
     }
 
 
