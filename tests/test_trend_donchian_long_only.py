@@ -9,7 +9,6 @@ monkeypatch; no exchange / network / secrets) — mirrors test_mes_trend_long_1d
 """
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 
 import src.runtime.strategy_signal_builders as ssb
