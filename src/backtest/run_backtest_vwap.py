@@ -93,6 +93,39 @@ FEE_BPS_ROUNDTRIP = 7.5
 # monitor_hold_window_minutes = 240 min / 5 min per bar = 48 bars
 HOLD_BARS_MAX = 48
 
+# Per-bar timeframe in minutes — used by the hold-time gate. The vwap strategy
+# trades 5m candles in live; the harness consumes 5m too. Module-level so
+# _simulate_trade reads it without signature churn.
+BAR_MINUTES = 5.0
+
+# Live exit-side selectivity gates (PERF-20260601-003 — 2026-06-01). The live
+# strategy applies these in vwap.monitor()/build_vwap_signal (see
+# config/strategies.yaml::vwap and src/units/strategies/vwap.py::
+# _vwap_cross_gates_pass + the BE ratchet at L1109-1146). The original
+# _simulate_trade exited on any VWAP touch with no R / hold-time / break-even
+# check — which makes the unfiltered harness bleed fees on micro-cross exits
+# (the failure mode docs/research/regime-roster-matrix-2026-06-01.md flagged
+# as "vwap −3749 R, NOT decision-grade"). Module-level (same pattern as
+# ENTRY_STD_THRESHOLD / FEE_BPS_ROUNDTRIP) so callers monkey-patch a value in
+# for a run and _simulate_trade reads it without signature churn:
+#
+#   * MIN_R_FOR_VWAP_CROSS — minimum captured R before vwap_cross is allowed
+#     to fire (≥ this many R-multiples in the trade's favour). 0 = v1
+#     behaviour ("any cross closes"). Live: 0.25.
+#   * MIN_HOLD_MINUTES_FOR_VWAP_CROSS — minimum hold time before vwap_cross
+#     is allowed to fire. 0 = no gate. Live: 10 minutes.
+#   * BE_AT_R — when captured R ≥ this, ratchet SL to break-even (entry ±
+#     BE_OFFSET_BPS / 10_000). 0 = no break-even ratchet. Live: 1.0.
+#   * BE_OFFSET_BPS — basis points beyond entry to place the break-even SL.
+#     Default 15 bps matches the live ``be_offset_bps``.
+#
+# CLI flags --min-r-for-vwap-cross / --min-hold-minutes-for-vwap-cross /
+# --be-at-r / --be-offset-bps monkey-patch these for the run.
+MIN_R_FOR_VWAP_CROSS = 0.0
+MIN_HOLD_MINUTES_FOR_VWAP_CROSS = 0.0
+BE_AT_R = 0.0
+BE_OFFSET_BPS = 15.0
+
 # Warmup bars prepended to each random window so HTF EMAs are stable at the
 # window boundary.  7 days × 288 5m bars/day covers convergence for all
 # configs in COMPARE_CONFIGS (longest is 1h EMA-50: 50 × 3 × 12 = 1800 bars).
@@ -223,6 +256,35 @@ def _get_htf_state(
     return float(htf_df.at[last, "close"]), float(htf_ema.at[last])
 
 
+def _vwap_cross_gates_allow(
+    *,
+    entry: float,
+    sl: float,
+    direction: str,
+    bar_c: float,
+    bars_open: int,
+) -> bool:
+    """Mirror of ``vwap._vwap_cross_gates_pass`` for the backtest.
+
+    Suppresses ``vwap_cross`` exits that the live strategy would block —
+    crosses where the trade hasn't captured enough R or has been open too
+    briefly to be a real mean-reversion. Module-level ``MIN_R_FOR_VWAP_CROSS``
+    / ``MIN_HOLD_MINUTES_FOR_VWAP_CROSS`` control the thresholds; 0 = gate
+    disabled (legacy "any cross closes" behaviour).
+    """
+    risk = abs(entry - sl)
+    if risk <= 0:
+        return True
+    if MIN_R_FOR_VWAP_CROSS > 0:
+        r_captured = (bar_c - entry) / risk if direction == "long" else (entry - bar_c) / risk
+        if r_captured < MIN_R_FOR_VWAP_CROSS:
+            return False
+    if MIN_HOLD_MINUTES_FOR_VWAP_CROSS > 0:
+        if bars_open * BAR_MINUTES < MIN_HOLD_MINUTES_FOR_VWAP_CROSS:
+            return False
+    return True
+
+
 def _simulate_trade(
     df: pd.DataFrame,
     entry_idx: int,
@@ -242,6 +304,11 @@ def _simulate_trade(
     if risk <= 0:
         return None
 
+    # Mirrors the live monitor: SL may be ratcheted up to break-even mid-trade
+    # once captured R ≥ BE_AT_R. ``sl`` is the original placed stop; ``sl_live``
+    # is what the next bar actually checks against. Starts equal.
+    sl_live = sl
+
     exit_price: float | None = None
     exit_reason = "time_decay"
     exit_idx = min(entry_idx + HOLD_BARS_MAX, len(df) - 1)
@@ -252,15 +319,15 @@ def _simulate_trade(
         bar_c = float(df["close"].iloc[j])
 
         if direction == "long":
-            if bar_lo <= sl:
-                exit_price, exit_reason, exit_idx = sl, "sl_cross", j
+            if bar_lo <= sl_live:
+                exit_price, exit_reason, exit_idx = sl_live, "sl_cross", j
                 break
             if bar_h >= tp:
                 exit_price, exit_reason, exit_idx = tp, "tp_cross", j
                 break
         else:  # short
-            if bar_h >= sl:
-                exit_price, exit_reason, exit_idx = sl, "sl_cross", j
+            if bar_h >= sl_live:
+                exit_price, exit_reason, exit_idx = sl_live, "sl_cross", j
                 break
             if bar_lo <= tp:
                 exit_price, exit_reason, exit_idx = tp, "tp_cross", j
@@ -275,14 +342,38 @@ def _simulate_trade(
                 if vwap_anchor == "rolling"
                 else _session_anchor_slice(_monitor_slice)
             )
-            if direction == "long" and bar_c >= vwap_live:
-                exit_price, exit_reason, exit_idx = bar_c, "vwap_cross", j
-                break
-            if direction == "short" and bar_c <= vwap_live:
+            cross = (direction == "long" and bar_c >= vwap_live) or (
+                direction == "short" and bar_c <= vwap_live
+            )
+            if cross and _vwap_cross_gates_allow(
+                entry=entry,
+                sl=sl,
+                direction=direction,
+                bar_c=bar_c,
+                bars_open=j - entry_idx,
+            ):
                 exit_price, exit_reason, exit_idx = bar_c, "vwap_cross", j
                 break
         except Exception:  # noqa: BLE001
             pass
+
+        # Break-even ratchet: mirror the live monitor's BE step. If the bar's
+        # high (long) / low (short) cleared ``BE_AT_R`` × risk, move SL up to
+        # entry ± BE_OFFSET_BPS for the NEXT bar's SL check. Monotonic (never
+        # loosens). 0 = no ratchet (default = harness v1 behaviour).
+        if BE_AT_R > 0:
+            if direction == "long":
+                hwm_r = (bar_h - entry) / risk
+                if hwm_r >= BE_AT_R:
+                    be_sl = entry * (1.0 + BE_OFFSET_BPS / 10_000.0)
+                    if be_sl > sl_live:
+                        sl_live = be_sl
+            else:
+                hwm_r = (entry - bar_lo) / risk
+                if hwm_r >= BE_AT_R:
+                    be_sl = entry * (1.0 - BE_OFFSET_BPS / 10_000.0)
+                    if be_sl < sl_live:
+                        sl_live = be_sl
 
     if exit_price is None:
         exit_price = float(df["close"].iloc[exit_idx])
@@ -843,6 +934,8 @@ def run_windows(
 
 def main(argv: list[str]) -> int:
     global FEE_BPS_ROUNDTRIP  # set from --fee-bps-roundtrip after parse
+    global MIN_R_FOR_VWAP_CROSS, MIN_HOLD_MINUTES_FOR_VWAP_CROSS
+    global BE_AT_R, BE_OFFSET_BPS
     parser = argparse.ArgumentParser(description="VWAP HTF-filter backtest")
     parser.add_argument(
         "--htf-timeframe",
@@ -909,6 +1002,49 @@ def main(argv: list[str]) -> int:
         help=(
             "Override ENTRY_STD_THRESHOLD for a single run (default: use "
             "module constant). Ignored by --param-sweep (which sweeps its own grid)."
+        ),
+    )
+    parser.add_argument(
+        "--min-r-for-vwap-cross",
+        type=float,
+        default=None,
+        metavar="R",
+        help=(
+            "Live exit-side selectivity gate (PERF-20260601-003). Blocks "
+            "vwap_cross until the trade has captured ≥ R-multiples in its "
+            "favour. 0 = disable; live default 0.25. Default: module constant."
+        ),
+    )
+    parser.add_argument(
+        "--min-hold-minutes-for-vwap-cross",
+        type=float,
+        default=None,
+        metavar="MIN",
+        help=(
+            "Live exit-side selectivity gate (PERF-20260601-003). Blocks "
+            "vwap_cross until the trade has been open ≥ this many minutes. "
+            "0 = disable; live default 10. Default: module constant."
+        ),
+    )
+    parser.add_argument(
+        "--be-at-r",
+        type=float,
+        default=None,
+        metavar="R",
+        help=(
+            "Live break-even ratchet (PERF-20260601-003). When captured R "
+            "≥ this value, move SL to entry ± BE_OFFSET_BPS/10_000. "
+            "0 = no ratchet; live default 1.0. Default: module constant."
+        ),
+    )
+    parser.add_argument(
+        "--be-offset-bps",
+        type=float,
+        default=None,
+        metavar="BPS",
+        help=(
+            "Basis-points offset for the break-even SL (PERF-20260601-003). "
+            "Live default 15. Default: module constant."
         ),
     )
     parser.add_argument(
@@ -994,6 +1130,16 @@ def main(argv: list[str]) -> int:
     # ``global`` is declared at the top of main() (the argparse default reads
     # the module value, which counts as a use).
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
+    # PERF-20260601-003 live exit-side gates — same pattern. CLI flag overrides
+    # the module default when explicitly supplied (None = leave as-is).
+    if args.min_r_for_vwap_cross is not None:
+        MIN_R_FOR_VWAP_CROSS = args.min_r_for_vwap_cross
+    if args.min_hold_minutes_for_vwap_cross is not None:
+        MIN_HOLD_MINUTES_FOR_VWAP_CROSS = args.min_hold_minutes_for_vwap_cross
+    if args.be_at_r is not None:
+        BE_AT_R = args.be_at_r
+    if args.be_offset_bps is not None:
+        BE_OFFSET_BPS = args.be_offset_bps
 
     try:
         df, source_path = load_data()
