@@ -94,9 +94,11 @@ def tag_trades_by_regime(trades: List[Any], adx: pd.Series,
         slot["wins"] += 1 if net > 0 else 0
         slot["net_r"] = round(slot["net_r"] + net, 4)
         if direction == "short":
-            slot["short_r"] = round(slot["short_r"] + net, 4); slot["short_n"] += 1
+            slot["short_r"] = round(slot["short_r"] + net, 4)
+            slot["short_n"] += 1
         else:
-            slot["long_r"] = round(slot["long_r"] + net, 4); slot["long_n"] += 1
+            slot["long_r"] = round(slot["long_r"] + net, 4)
+            slot["long_n"] += 1
     for reg, s in by.items():
         s["win_pct"] = round(100 * s["wins"] / s["trades"], 1) if s["trades"] else 0.0
         s["exp_r"] = round(s["net_r"] / s["trades"], 4) if s["trades"] else 0.0
