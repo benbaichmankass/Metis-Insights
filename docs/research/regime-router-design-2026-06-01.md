@@ -21,6 +21,7 @@ has none). The matrix quantified the per-regime, per-direction net-R:
 | fvg_range_15m | — (gated) | — | **−17** |
 | htf_pullback_trend_2h **long** | **+30** | +13 | −8 |
 | htf_pullback_trend_2h **short** | −0.05 | −4 | −4 |
+| vwap (live-gated) | **−6,179** | **−1,903** | **−2,642** |
 
 Two structural facts jump out: (1) a strategy/direction that earns in one regime
 **loses** in another (trend-short: +16 chop vs −52 trending+transitional), and
@@ -71,17 +72,20 @@ trending:
   htf_pullback_trend_2h: { long: on,  short: off }   # long +30, short flat (−0.05)
   fade_breakout_4h:      { long: off, short: off }   # ADX-gated anyway
   fvg_range_15m:         { long: off, short: off }
+  vwap:                  { long: off, short: off }   # net −6,179 in trending; no-edge any regime
 transitional:
   trend_donchian:        { long: on,  short: off }   # short −24
   squeeze_breakout_4h:   { long: on,  short: on  }
   htf_pullback_trend_2h: { long: on,  short: off }   # long +13, short −4
   fade_breakout_4h:      { long: on,  short: on  }   # +5
+  vwap:                  { long: off, short: off }   # net −1,903 in transitional
 chop:
   trend_donchian:        { long: on,  short: on  }   # short +16 ← reclaims the long-only drop
   fade_breakout_4h:      { long: on,  short: on  }   # +14
   squeeze_breakout_4h:   { long: on,  short: on  }   # +11
   htf_pullback_trend_2h: { long: off, short: off }   # long −8 / short −4, same shape as fvg
   fvg_range_15m:         { long: off, short: off }   # −17 loser, keep off everywhere
+  vwap:                  { long: off, short: off }   # net −2,642 in chop
 ```
 
 Default for an unlisted cell is **on** (permissive — never strand a capability,
@@ -137,9 +141,15 @@ intent's `(symbol, timeframe)`, read the `(strategy, direction)` cell, and:
 
 ## 7. Dependencies / coverage
 
-The table above is decision-grade for trend/fade/squeeze/fvg/htf_pullback
-(htf_pullback's row landed 2026-06-01 via #2573 and `scripts/backtest_pullback.py`).
-One cell still needs follow-up data before it's trustworthy: **vwap**
-(`PERF-20260601-003` — re-run with live selectivity params; the current unfiltered
-−3749 R run isn't decision-grade). Until then vwap defaults to permissive (`on`)
-in every regime so the router never strands it.
+The table above is decision-grade for **every** roster strategy. The vwap row
+landed 2026-06-01 via #2575 + #2579 once `src/backtest/run_backtest_vwap.py`
+shipped four new exit-side-gate CLI flags + a BE ratchet in `_simulate_trade`;
+the htf_pullback row landed 2026-06-01 via #2573 + `scripts/backtest_pullback.py`.
+The full evidence is in `docs/research/regime-roster-matrix-2026-06-01.md`.
+
+The vwap-off-everywhere decision is the loudest verdict in the table: net
+−10,724 R over 6+ years with the live exit-side gates threaded (40,650 trades,
+gross +3,399 R, fees −14,123 R — a 4.2× fee-to-gross ratio). Confirms the
+2026-05-23 `docs/audits/vwap-viability-verdict-2026-05-23.md` ("vwap has no
+net-of-fee edge") on the full multiyear archive with the precise live-gate
+path; the prior `−3749 R unfiltered` was directionally correct.
