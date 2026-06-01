@@ -789,6 +789,34 @@ def trend_donchian_signal_builder(settings: dict) -> Dict[str, Any]:
             },
         })
 
+    # LONG-ONLY gate (operator-approved 2026-06-01, Tier-3). The
+    # regime×direction matrix (docs/research/regime-roster-matrix-2026-06-01.md)
+    # showed trend_donchian's SHORT side is a net −37 R drag that earns only in
+    # chop, while the LONG side is the +47 R trend edge. Honour an opt-in
+    # ``long_only`` flag from strategies.yaml — suppress shorts, keep longs.
+    # Default off, so omitting it preserves the two-sided behaviour.
+    if bool(trend_cfg.get("long_only", False)) and pkg["direction"] != "long":
+        logger.info("trend_donchian: short signal suppressed (long_only)")
+        try:
+            log_signal({
+                "event": "trend_donchian_eval",
+                "strategy": "trend_donchian",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": "short_suppressed_long_only",
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception("trend_donchian: dedicated audit emit failed")
+        return _with_signal_package("trend_donchian", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "trend_donchian",
+                "reason": "short_suppressed_long_only",
+            },
+        })
+
     side = "buy" if pkg["direction"] == "long" else "sell"
     logger.info(
         "trend_donchian: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
