@@ -937,6 +937,9 @@ class TestQtylessSignalRoutesToMultiAccountDispatch:
         monkeypatch.setattr(
             "src.runtime.pipeline._recent_refusal_for_strategy", lambda *a, **k: None
         )
+        monkeypatch.setattr(
+            "src.runtime.pipeline._same_bar_entry_for_strategy", lambda *a, **k: None
+        )
 
         settings = {
             "SYMBOL": "BTCUSDT",
