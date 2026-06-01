@@ -29,7 +29,7 @@ opens a socket.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, ClassVar, Iterator, Mapping
 
 from .base import MarketRawAdapter
@@ -156,6 +156,13 @@ class IBKRHistoricalMarketRawAdapter(MarketRawAdapter):
         def _to_dt(v: Any) -> datetime:
             if isinstance(v, (int, float)):
                 return datetime.fromtimestamp(int(v), tz=timezone.utc)
+            # IB DAILY bars (formatDate=2) hand back a datetime.date, not a
+            # datetime — and date.replace() rejects a tzinfo kwarg. Promote a
+            # bare date to midnight UTC. (Intraday bars are datetime/epoch, so
+            # this branch only fires for the 1d timeframe — which is why it was
+            # never hit until the native-MES daily pull.)
+            if isinstance(v, date) and not isinstance(v, datetime):
+                return datetime(v.year, v.month, v.day, tzinfo=timezone.utc)
             return v if getattr(v, "tzinfo", None) else v.replace(tzinfo=timezone.utc)
 
         ib = IB()
@@ -200,11 +207,19 @@ class IBKRHistoricalMarketRawAdapter(MarketRawAdapter):
                 cursor_end = min(end_dt, exp_dt)
                 last_cursor: datetime | None = None
                 while cursor_end > start_dt and total_chunks < MAX_TOTAL_CHUNKS:
-                    bars = ib.reqHistoricalData(
-                        c, endDateTime=cursor_end, durationStr=f"{chunk_days} D",
-                        barSizeSetting=bar_size, whatToShow=what_to_show,
-                        useRTH=use_rth, formatDate=2,
-                    )
+                    try:
+                        bars = ib.reqHistoricalData(
+                            c, endDateTime=cursor_end, durationStr=f"{chunk_days} D",
+                            barSizeSetting=bar_size, whatToShow=what_to_show,
+                            useRTH=use_rth, formatDate=2,
+                        )
+                    except Exception:  # noqa: BLE001
+                        # A dead/expired contract or a transient pacing timeout
+                        # on ONE request must not abort the whole multi-contract
+                        # stitch (the daily pull pages ~28 quarterly MES expiries
+                        # back to 2019; the oldest can hang). Skip to the next
+                        # contract and keep whatever we already collected.
+                        break
                     total_chunks += 1
                     if not bars:
                         break

@@ -88,6 +88,9 @@ EXPECTED_ACTIONS = {
     "backfill-shadow-predictions": "backfill_shadow_predictions_action.sh",
     # 2026-05-28 — paced IBKR MES historical pull on the live VM (MB-20260528-002).
     "pull-mes-ibkr-history": "pull_mes_ibkr_history.sh",
+    # 2026-06-01 — same wrapper baked to a DAILY multi-year pull (native MES 1d
+    # back to ~2019) for validating mes_trend_long_1d on real MES vs SPX proxy.
+    "pull-mes-ibkr-history-daily": "pull_mes_ibkr_history.sh",
     "set-account-mode": "set_account_mode.sh",
     # enable-mes / disable-mes removed 2026-05-22 — they flipped a
     # forbidden second gate (MULTI_SYMBOL_ENABLED). The traded-symbol set
@@ -127,6 +130,7 @@ TIER_2_ACTIONS = {
     "rebuild-pnl-from-bybit",
     "backfill-shadow-predictions",
     "pull-mes-ibkr-history",
+    "pull-mes-ibkr-history-daily",
     "set-account-mode",
     "fix-data-dir",
     "rotate-account-keys",
