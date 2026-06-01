@@ -11,11 +11,14 @@ from src.runtime.regime.detector import (
     regime_label,
     wilder_adx,
 )
+from src.runtime.regime.policy import load_policy, would_gate
 
 __all__ = [
     "CHOP_MAX_ADX",
     "TREND_MIN_ADX",
     "detect_regime",
+    "load_policy",
     "regime_label",
     "wilder_adx",
+    "would_gate",
 ]

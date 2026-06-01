@@ -281,6 +281,15 @@ class StrategyIntent:
     sl: Optional[float] = None
     tp: Optional[float] = None
     confidence: float = 0.0
+    # Regime tag computed by ``src.runtime.regime.detect_regime`` on the
+    # strategy's OWN candles (per-strategy TF — matches how the
+    # regime-roster matrix was measured). Optional / default-None so the
+    # field stays backwards-compatible: any caller that doesn't populate
+    # them gets the same behaviour as before. Phase 2 of the regime
+    # router (PERF-20260601-002) reads these to evaluate the policy
+    # table in shadow mode (log only; no enforcement until phase 3).
+    regime: Optional[str] = None
+    adx_14: Optional[float] = None
     meta: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -474,6 +483,13 @@ def intent_from_signal(
         or meta.get("tp")
     )
 
+    # Regime tag — phase 2 of the regime router. The strategy builder
+    # stamps these onto signal.meta via _stamp_regime_on_meta (mirrors
+    # the audit-row stamping that shipped in phase 1). When the builder
+    # didn't stamp (older code paths / tests), the fields stay None and
+    # the policy evaluator falls through to the permissive default.
+    regime_value = meta.get("regime")
+    adx_14_value = meta.get("adx_14")
     return StrategyIntent(
         strategy=str(strategy_name),
         symbol=str(signal.get("symbol") or "BTCUSDT"),
@@ -485,6 +501,8 @@ def intent_from_signal(
         sl=float(sl) if sl is not None else None,
         tp=float(tp) if tp is not None else None,
         confidence=float(meta.get("confidence") or 0.0),
+        regime=str(regime_value) if regime_value is not None else None,
+        adx_14=float(adx_14_value) if isinstance(adx_14_value, (int, float)) else None,
         meta=meta,
     )
 
@@ -509,6 +527,80 @@ def _flat_position(
         reason=reason,
         meta=meta or {},
     )
+
+
+# Lazy-loaded regime-policy cache. Re-read on REGIME_POLICY_RELOAD truthy env
+# (no live-reload required for phase 2 — operator restarts the trader after
+# editing the table). Importing here (not at module top) keeps the regime
+# package out of intents.py's import-time graph for the legacy test paths
+# that import this module without the regime config in place.
+_REGIME_POLICY_CACHE: Optional[Dict[str, Any]] = None
+
+
+def _load_regime_policy() -> Dict[str, Any]:
+    """Return the cached regime-policy table; load on first use.
+
+    The loader inside ``src.runtime.regime.policy`` returns ``{}`` on any
+    failure (missing file, bad YAML, PyYAML not installed) so this never
+    raises. Phase 2 is observability-only — an empty / unloaded policy is
+    treated as fully permissive, and the aggregator's behaviour is
+    identical to pre-phase-2.
+    """
+    global _REGIME_POLICY_CACHE
+    if _REGIME_POLICY_CACHE is None:
+        try:
+            from src.runtime.regime import load_policy
+            _REGIME_POLICY_CACHE = load_policy()
+        except Exception:  # noqa: BLE001 — observability-only
+            _REGIME_POLICY_CACHE = {}
+    return _REGIME_POLICY_CACHE
+
+
+def _shadow_regime_gate(candidates: tuple) -> None:
+    """Evaluate every candidate intent against the regime policy table and
+    emit a ``regime_shadow_gate`` audit row when an OFF cell WOULD have
+    suppressed it. Phase 2 — log only; never mutates the candidate set
+    and never raises. The aggregator's downstream behaviour is unchanged.
+    """
+    try:
+        from src.runtime.regime import would_gate
+        from src.utils.signal_audit_logger import log_signal
+        policy = _load_regime_policy()
+    except Exception:  # noqa: BLE001
+        return
+    if not policy:
+        # Empty / missing table → no shadow rows; permissive everywhere.
+        return
+    for intent in candidates:
+        try:
+            verdict = would_gate(
+                strategy=intent.strategy,
+                side=intent.side,
+                regime=intent.regime,
+                policy=policy,
+            )
+        except Exception:  # noqa: BLE001
+            continue
+        if not verdict.get("gated"):
+            continue
+        try:
+            log_signal({
+                "event": "regime_shadow_gate",
+                "strategy": intent.strategy,
+                "symbol": intent.symbol,
+                "side": intent.side,
+                "regime": intent.regime,
+                "adx_14": intent.adx_14,
+                "gated": True,
+                "cell": verdict.get("cell"),
+                "reason": verdict.get("reason"),
+                # Phase 2: NOT acted on. The audit row exists to
+                # accumulate would-gate evidence for the phase-3
+                # decision.
+                "enforced": False,
+            })
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def aggregate_intents(
@@ -572,6 +664,16 @@ def aggregate_intents(
         i for i in intents
         if i.symbol == norm_symbol
     )
+
+    # Phase 2 of the regime router (PERF-20260601-002 §5.2):
+    # shadow-evaluate the regime × strategy × direction policy table
+    # against each candidate and emit an audit row for any would-gate
+    # decision. The aggregator's decision is UNCHANGED — phase 2 is
+    # observability-only; phase 3 (Tier-3) turns the off-cells into
+    # hard gates behind a flag. ``_shadow_regime_gate`` swallows all
+    # failures internally so a missing policy file / bad cell cannot
+    # break the tick.
+    _shadow_regime_gate(candidates)
 
     if not candidates:
         return _flat_position(

@@ -131,9 +131,25 @@ intent's `(symbol, timeframe)`, read the `(strategy, direction)` cell, and:
    trending ~51% on 1h BTC; chop ~35% / transitional ~20% / trending ~45% on
    5m BTC — both bands are valid depending on which strategies dominate the
    per-tick volume).
-2. **Shadow the policy (Tier-2):** evaluate the table per tick and **log** which
-   intents *would* be gated, without acting. Compare a week of would-gate
-   decisions against actual fills.
+2. **Shadow the policy (Tier-2) — SHIPPED 2026-06-01 (#2582 phase 1 → this PR
+   phase 2).** Policy lives in `config/regime_policy.yaml` (the table at § 4.2
+   above). Loader + per-cell evaluator in `src/runtime/regime/policy.py`
+   (`load_policy()`, `would_gate(strategy, side, regime, policy)`). The
+   strategy builders' `_stamp_regime_on_meta` helper now propagates
+   `regime` + `adx_14` through `signal.meta` so `intent_from_signal` attaches
+   them to the typed `StrategyIntent` (two new optional fields).
+   `aggregate_intents` calls `_shadow_regime_gate(candidates)` at the top of
+   the function — for every candidate intent whose `(strategy, side, regime)`
+   cell is `off`, a `regime_shadow_gate` audit row is emitted with
+   `enforced: false`. **The aggregator's decision is NOT changed** —
+   candidates still feed the existing flat/reinforcement/conflict logic
+   exactly as before. The shadow rows accumulate evidence over a week's
+   live data that the phase-3 decision (turn the gates on) needs.
+   **Verification step** (next session, after a few days of live data):
+   pull `/api/diag/audit` filtered to `event=regime_shadow_gate`; count
+   per-(strategy, regime, side) and cross-reference against the actual
+   fills + PnL of those same intents to confirm the would-gate decisions
+   correlate with the matrix's net-negative cells.
 3. **Hard gates live (Tier-3):** enable `off`-cell gating on the net-negative
    cells only (the clearest wins: trend-short in trending/transitional, fvg
    everywhere). Operator-approved, behind a `REGIME_ROUTER_ENABLED` gate with a

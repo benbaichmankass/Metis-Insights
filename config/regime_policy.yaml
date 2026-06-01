@@ -1,0 +1,57 @@
+# Regime × strategy × direction policy table — PHASE 2 (SHADOW, LOG-ONLY).
+#
+# Seeded from `docs/research/regime-roster-matrix-2026-06-01.md` and the
+# decision rationale in `docs/research/regime-router-design-2026-06-01.md`
+# (§ 4.2). The aggregator evaluates this table per tick and emits a
+# `regime_shadow_gate` audit row for any intent that an `off` cell WOULD
+# suppress — but it does NOT actually gate the intent. Phase 3 (Tier-3,
+# operator-gated) turns the `off` cells into hard gates; phase 4 graduates
+# `weight: N.N` cells to soft confidence multipliers.
+#
+# DEFAULT (unlisted cells)
+# ------------------------
+# Permissive `on` — matches the YAML-default philosophy of the two
+# execution gates (`accounts.yaml::mode` + `strategies.yaml::execution`).
+# Never strand a strategy/direction silently — a regime profile we haven't
+# measured yet defaults to ON, not OFF.
+#
+# CELL SEMANTICS (phase 2)
+# ------------------------
+#   { long: on,  short: off }
+#         ^^         ^^^
+#         allow     log a would-gate event if a short intent fires in this regime
+#
+# Phase 3 will add `{ weight: 0.5 }` as a soft-multiplier alternative; phase 2
+# only reads `on` / `off` and ignores anything else with a logged warning.
+#
+# THRESHOLDS
+# ----------
+# Regime classification uses ADX-14 with the cut-points encoded in
+# `src/runtime/regime/detector.py` (CHOP_MAX_ADX = 20, TREND_MIN_ADX = 25).
+# Per-strategy timeframe — each strategy's regime is the ADX-14 read of its
+# own candles (matches how the matrix was measured).
+
+schema_version: 1
+
+trending:
+  trend_donchian:        { long: on,  short: off }   # short −28 (matrix net R)
+  squeeze_breakout_4h:   { long: on,  short: on  }   # +5 net
+  htf_pullback_trend_2h: { long: on,  short: off }   # long +30, short flat (−0.05)
+  fade_breakout_4h:      { long: off, short: off }   # ADX-gated by strategy anyway
+  fvg_range_15m:         { long: off, short: off }
+  vwap:                  { long: off, short: off }   # net −6,179 in trending; no-edge any regime
+
+transitional:
+  trend_donchian:        { long: on,  short: off }   # short −24
+  squeeze_breakout_4h:   { long: on,  short: on  }
+  htf_pullback_trend_2h: { long: on,  short: off }   # long +13, short −4
+  fade_breakout_4h:      { long: on,  short: on  }   # +5 net
+  vwap:                  { long: off, short: off }   # net −1,903 in transitional
+
+chop:
+  trend_donchian:        { long: on,  short: on  }   # short +16 ← reclaims long-only drop
+  fade_breakout_4h:      { long: on,  short: on  }   # +14
+  squeeze_breakout_4h:   { long: on,  short: on  }   # +11
+  htf_pullback_trend_2h: { long: off, short: off }   # long −8 / short −4, same shape as fvg
+  fvg_range_15m:         { long: off, short: off }   # −17 loser, keep off everywhere
+  vwap:                  { long: off, short: off }   # net −2,642 in chop
