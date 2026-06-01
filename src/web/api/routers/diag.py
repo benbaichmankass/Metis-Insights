@@ -449,7 +449,7 @@ def _signals_query(
             rows = conn.execute(sql, tuple(params)).fetchall()
         finally:
             conn.close()
-    except sqlite3.Error as exc:
+    except sqlite3.Error as exc:  # allow-silent: not silent — surfaces no-such-table as an explicit error flag and logs + 503s every other sqlite error (mirrors _journal_select)
         # "no such table: signals" => the dual-write has never run (or was
         # disabled before any write). Surface that explicitly as a non-fatal
         # signal rather than a misleading 503, so the caller learns the
