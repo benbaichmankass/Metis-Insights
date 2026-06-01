@@ -167,6 +167,17 @@ strategies:
     # Shallow breaks (the live -1R conf-0.05 stop-out was one) are where the
     # follower bled. Tier-3; evidence: trainer-vm-diag confidence-sweep v3.
     min_confidence: 0.30
+    # LONG-ONLY (2026-06-01, Tier-3, operator-approved). The regime×direction
+    # matrix (docs/research/regime-roster-matrix-2026-06-01.md) showed the SHORT
+    # side is a net −37 R drag over 2021-2026 that earns only in chop
+    # (trending −28, transitional −24, chop +16), while the LONG side is the
+    # +47 R trend edge (trending +22, transitional +22). Dropping the short leg
+    # keeps +47 R and removes the −37 R drag. The chop-only short edge will be
+    # reclaimed via the regime router (a single policy-table cell), not by
+    # special-casing this strategy. Enforced in
+    # strategy_signal_builders.trend_donchian_signal_builder (short → side=none,
+    # reason=short_suppressed_long_only). Default off; set true here.
+    long_only: true
     # shadow_model_ids omitted (2026-05-19 default): auto-wire every model
     # whose target_deployment_stage == "shadow" on this strategy's
     # signals. Set `shadow_model_ids: []` to opt out entirely or provide
