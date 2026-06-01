@@ -192,7 +192,54 @@
    "resolved_by": null,
    "resolution_note": null,
    "snoozed_until": null
+  },
+  {
+   "id": "PERF-20260601-006",
+   "opened_at": "2026-06-01T16:30:00+00:00",
+   "opened_by": "claude (regime-router phase 2 ship)",
+   "source": "Regime router phase 2 (PR #2583) shipped the shadow log. Phase 3 turns the OFF cells into hard gates.",
+   "title": "Regime router phase 3 — turn shadow OFF cells into hard gates [Tier-3, operator-approved]",
+   "description": "Phases 1+2 of the regime router are live (PRs #2582, #2583). Phase 2 emits `event=regime_shadow_gate` audit rows with `enforced: false` for every OFF-cell intent the policy table (config/regime_policy.yaml) WOULD suppress; the aggregator's decision is unchanged. Phase 3 is the operator-approved Tier-3 step that turns the OFF cells into hard gates inside aggregate_intents(), behind a single `REGIME_ROUTER_ENABLED` env-var with a one-flag rollback. Pre-conditions before opening the PR: (1) accrue at least a week of live shadow data (~7 days); (2) pull /api/diag/audit filtered to event=regime_shadow_gate, count per (strategy, regime, side); (3) cross-reference with the actual fills + closed PnL of those same intents — confirm the would-gate decisions correlate with the matrix's net-negative cells (vwap OFF everywhere, fvg OFF chop, trend-short OFF trending+transitional, htf_pullback OFF chop). If the live shadow data CONTRADICTS the matrix's verdict for any cell (e.g. vwap actually earned in trending despite the matrix saying -6,179 R), pause and re-investigate before turning the gate on. Implementation: in src/runtime/intents.py::aggregate_intents, drop OFF-cell candidates from `candidates` before the rest of the logic AND emit `event=regime_hard_gate` with `enforced: true`. Hidden behind `os.environ.get('REGIME_ROUTER_ENABLED', '0')` — operator flips the env on the live VM via set-env operator action; rollback is one env flip + restart. Tests: every existing phase-2 test extended with an `enabled` parameter that exercises both the log-only (current) and hard-gate (phase-3) code paths.",
+   "tier": 3,
+   "status": "open",
+   "trigger_condition": "After >= 7 days of post-#2583 live data accumulate enough regime_shadow_gate rows to cross-check the policy table against actual fills.",
+   "resolution_criteria": "Operator approves the phase-3 PR after the cross-check confirms the matrix's verdict on live data; the env flag flips ON on the live VM; trader restarts cleanly; the next batch of `regime_hard_gate` audit rows (with enforced: true) shows suppressed dispatches in the expected cells; no regression in the on-cell strategies' fill rate.",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null,
+   "snoozed_until": null
+  },
+  {
+   "id": "PERF-20260601-007",
+   "opened_at": "2026-06-01T16:30:00+00:00",
+   "opened_by": "claude (regime-router phase 2 ship)",
+   "source": "Regime router design doc § 5.4. Phase 4 is the soft-weight graduation after hard gates prove out.",
+   "title": "Regime router phase 4 — graduate to soft weights + classifier-v0 detector [Tier-3]",
+   "description": "Phase 4 (the design doc's last step): once phase-3 hard gates have demonstrated lift in production for >= a few weeks, graduate the policy from binary on/off to soft confidence weights (numeric cells like 0.5 / 1.0 / 1.5 multiply intent.confidence before priority resolution). The phase-2 evaluator already parses `weight: N.N` cells and routes them as permissive with a tagged reason — phase 4 wires the multiplier in. Also: validate `regime-classifier-baseline-v0` (the shadow regime model in the registry) against ADX-14 on the same per-tick stream; if its predictions correlate >0.85 with ADX-14 and add value at the regime boundaries (the 18.5-22.5 ADX hysteresis zone the design doc Q4 flagged), swap the detector source from 'adx-14' to 'classifier-v0' in src/runtime/regime/detector.py (the audit-row `regime_source` field already supports this; consumer is forward-compatible).",
+   "tier": 3,
+   "status": "open",
+   "trigger_condition": "After phase-3 hard gates have been live for >= 2-3 weeks with measurable lift; OR when the ML lifecycle promotes regime-classifier-baseline-v0 past shadow.",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null,
+   "snoozed_until": null
+  },
+  {
+   "id": "PERF-20260601-008",
+   "opened_at": "2026-06-01T16:30:00+00:00",
+   "opened_by": "claude (regime-router phase 2 ship)",
+   "source": "PR #2582 (phase 1) and PR #2583 (phase 2) ship observability that needs verification against the matrix base rates on LIVE data before phase 3.",
+   "title": "Verify regime router phase 1+2 live deploy — base-rate match + shadow row volume [Tier-1]",
+   "description": "After PR #2583 deploys, the trader emits two new audit fields on every `*_eval` row (`regime`, `adx_14`, `regime_source`) and a new `regime_shadow_gate` event for every OFF-cell intent. Verify against the matrix's expected base rates: pull /api/diag/audit?limit=2000 across a 24-48h window after deploy, group by strategy + regime, confirm the distribution matches the matrix (BTC 1h: chop ~30% / transitional ~19% / trending ~51%; BTC 5m: chop ~35% / transitional ~20% / trending ~45%). If a strategy's regime distribution diverges from the matrix by >5 percentage points in any bucket, investigate (could be candles-fetch mismatch, detector bug, or a regime shift in BTC since the matrix was measured). Cross-tab the regime_shadow_gate event counts against the matrix's OFF cells — vwap should dominate the shadow rows (it fires on every 5m bar regardless of regime; OFF in all 3 regimes). Tier-1 (autonomous diag pulls + arithmetic; no live-path change). Resolution: a short note in docs/research/ or a backlog comment that the live regime stream matches the matrix; gate PERF-20260601-006 (phase 3) on this passing.",
+   "tier": 1,
+   "status": "open",
+   "trigger_condition": "After PR #2583 deploys to the live VM and 24-48h of post-deploy audit data accumulates.",
+   "resolution_criteria": "Live regime distribution matches the matrix's base rates within ±5 percentage points per bucket per strategy; regime_shadow_gate event volume is consistent with the OFF-cell coverage (vwap dominant, fvg + htf_pullback + trend-short in matching regimes).",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null,
+   "snoozed_until": null
   }
  ],
- "updated_at": "2026-06-01T11:00:00+00:00"
+ "updated_at": "2026-06-01T16:30:00+00:00"
 }

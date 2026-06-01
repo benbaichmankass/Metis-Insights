@@ -3,6 +3,22 @@
  "schema_version": 1,
  "items": [
   {
+   "id": "BL-20260601-003",
+   "opened_at": "2026-06-01T16:30:00+00:00",
+   "opened_by": "claude (regime-router phase 1 ship)",
+   "source": "PR #2582 added src/runtime/regime/detector.py::wilder_adx as the canonical ADX-14 impl. Two existing live strategies still ship their own bit-for-bit-identical duplicates: src/units/strategies/fade_breakout_4h.py::_adx and src/units/strategies/fvg_range_15m.py::_adx.",
+   "title": "Consolidate fade_breakout_4h._adx + fvg_range_15m._adx onto src.runtime.regime.wilder_adx (DRY)",
+   "description": "PR #2582 (regime router phase 1) shipped src.runtime.regime.detector.wilder_adx as the single source of truth for Wilder's ADX(14). A test (test_wilder_adx_matches_live_fade_impl) verifies it matches fade_breakout_4h._adx bit-for-bit via assert_allclose. The fade_breakout_4h and fvg_range_15m units still ship their own local _adx — same algorithm, same NaN-guard, same shape. The duplication is intentional in #2582 (Tier-3 unit files were out of scope for that phase-1 PR), but should be consolidated so future fixes (e.g. the 2026-05-25 NaN-dtype crash) live in one place. Refactor: replace each unit's `def _adx(df, period)` with `from src.runtime.regime import wilder_adx as _adx`. Verify the existing fade/fvg unit tests still pass (they exercise the gate at ADX 19.5 vs 20.5, so a bit-for-bit equivalent will not move any gate decision). Tier-3 because it touches live unit files; operator-approved PR.",
+   "tier": 3,
+   "trigger_condition": "Any /health-review run; or whenever a Tier-3 PR touches fade_breakout_4h.py / fvg_range_15m.py for an unrelated reason and the cleanup can ride along.",
+   "resolution_criteria": "fade_breakout_4h.py and fvg_range_15m.py no longer define a local `_adx`; they import the canonical wilder_adx from src.runtime.regime. The existing unit tests pass. The bit-for-bit parity test in test_regime_detector.py can be removed (the consolidation makes it tautological) or kept as a regression guard.",
+   "status": "open",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution": null,
+   "snoozed_until": null
+  },
+  {
    "id": "BL-20260601-002",
    "opened_at": "2026-06-01T15:30:00+00:00",
    "opened_by": "claude (/doc-freshness)",
