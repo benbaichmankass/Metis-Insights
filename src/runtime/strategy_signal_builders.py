@@ -19,9 +19,39 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 
+from src.runtime.regime import detect_regime
 from src.utils.signal_audit_logger import log_signal
 
 logger = logging.getLogger(__name__)
+
+
+def _stamp_regime(payload: Dict[str, Any], candles_df: Any) -> Dict[str, Any]:
+    """Stamp the ADX-14 regime detector's output onto an eval audit row.
+
+    Phase 1 of the regime router (``PERF-20260601-002`` step 2): every
+    per-strategy ``*_eval`` row in ``signal_audit.jsonl`` carries the
+    regime + ADX value computed on the same candles the strategy was
+    evaluated against (per-strategy timeframe — matches how the
+    regime-roster matrix was measured). Pure observability — no
+    enforcement, no decision change. Returns the payload (mutated in
+    place) so call sites stay one-liners:
+    ``log_signal(_stamp_regime({...eval row...}, candles_df))``.
+
+    The detector NEVER raises; missing columns / empty frames / NaN
+    bars produce ``regime="unknown"``, ``adx_14=None``. ``setdefault`` is
+    used so a builder that has its own ADX (e.g. fade/fvg gate on it)
+    can pre-set ``regime``/``adx_14`` and we won't clobber it.
+    """
+    try:
+        rg = detect_regime(candles_df)
+        payload.setdefault("regime", rg["regime"])
+        payload.setdefault("adx_14", rg["adx"])
+        payload.setdefault("regime_source", rg["source"])
+    except Exception:  # noqa: BLE001 — observability-only, never break a tick
+        payload.setdefault("regime", "unknown")
+        payload.setdefault("adx_14", None)
+        payload.setdefault("regime_source", "adx-14")
+    return payload
 
 
 def _build_killzone_exchange(settings: dict):
@@ -277,7 +307,7 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
         # ``signal_audit.jsonl`` regardless of multiplexer routing.
         # Best-effort — never let an audit failure break the strategy.
         try:
-            log_signal(
+            log_signal(_stamp_regime(
                 {
                     "event": "turtle_soup_eval",
                     "strategy": "turtle_soup",
@@ -286,7 +316,7 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
                     "reason": str(exc),
                     "stage_rejections": stage_rejections,
                 }
-            )
+            , candles_df))
         except Exception:  # noqa: BLE001
             logger.exception("Turtle Soup: dedicated audit emit failed")
         meta: Dict[str, Any] = {
@@ -313,7 +343,7 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
     # signal through the main pipeline_result row.
     pkg_meta = pkg.get("meta") or {}
     try:
-        log_signal(
+        log_signal(_stamp_regime(
             {
                 "event": "turtle_soup_eval",
                 "strategy": "turtle_soup",
@@ -326,7 +356,7 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
                 "bars_back_of_setup": pkg_meta.get("bars_back_of_setup"),
                 "stage_rejections": pkg_meta.get("stage_rejections"),
             }
-        )
+        , candles_df))
     except Exception:  # noqa: BLE001
         logger.exception("Turtle Soup: dedicated audit emit failed")
     sig = {
@@ -461,14 +491,14 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
     except ValueError as exc:
         logger.info("ict_scalp_5m: no actionable signal (%s)", exc)
         try:
-            log_signal({
+            log_signal(_stamp_regime({
                 "event": "ict_scalp_eval",
                 "strategy": "ict_scalp_5m",
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "side": "none",
                 "reason": str(exc),
-            })
+            }, candles_df))
         except Exception:  # noqa: BLE001
             logger.exception("ict_scalp_5m: dedicated audit emit failed")
         return _with_signal_package("ict_scalp_5m", {
@@ -487,7 +517,7 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
     )
     pkg_meta = pkg.get("meta") or {}
     try:
-        log_signal({
+        log_signal(_stamp_regime({
             "event": "ict_scalp_eval",
             "strategy": "ict_scalp_5m",
             "symbol": symbol,
@@ -505,7 +535,7 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
             "fvg_high": pkg_meta.get("fvg_high"),
             "sweep_level": pkg_meta.get("sweep_level"),
             "sweep_extreme": pkg_meta.get("sweep_extreme"),
-        })
+        }, candles_df))
     except Exception:  # noqa: BLE001
         logger.exception("ict_scalp_5m: dedicated audit emit failed")
 
@@ -681,7 +711,7 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
     try:
         _sig = sig or {}
         _meta = _sig.get("meta") or {}
-        log_signal({
+        log_signal(_stamp_regime({
             "event": "vwap_eval",
             "strategy": "vwap",
             "symbol": symbol,
@@ -697,7 +727,7 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
             "recent_context": _meta.get("recent_context"),
             "recent_context_pct": _meta.get("recent_context_pct"),
             "reason": _meta.get("reason") or _sig.get("reason"),
-        })
+        }, candles_df))
     except Exception:  # noqa: BLE001
         logger.exception("VWAP: dedicated audit emit failed")
     return _with_signal_package("vwap", sig)
@@ -770,14 +800,14 @@ def trend_donchian_signal_builder(settings: dict) -> Dict[str, Any]:
     except ValueError as exc:
         logger.info("trend_donchian: no actionable signal (%s)", exc)
         try:
-            log_signal({
+            log_signal(_stamp_regime({
                 "event": "trend_donchian_eval",
                 "strategy": "trend_donchian",
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "side": "none",
                 "reason": str(exc),
-            })
+            }, candles_df))
         except Exception:  # noqa: BLE001
             logger.exception("trend_donchian: dedicated audit emit failed")
         return _with_signal_package("trend_donchian", {
@@ -798,14 +828,14 @@ def trend_donchian_signal_builder(settings: dict) -> Dict[str, Any]:
     if bool(trend_cfg.get("long_only", False)) and pkg["direction"] != "long":
         logger.info("trend_donchian: short signal suppressed (long_only)")
         try:
-            log_signal({
+            log_signal(_stamp_regime({
                 "event": "trend_donchian_eval",
                 "strategy": "trend_donchian",
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "side": "none",
                 "reason": "short_suppressed_long_only",
-            })
+            }, candles_df))
         except Exception:  # noqa: BLE001
             logger.exception("trend_donchian: dedicated audit emit failed")
         return _with_signal_package("trend_donchian", {
@@ -824,7 +854,7 @@ def trend_donchian_signal_builder(settings: dict) -> Dict[str, Any]:
     )
     pkg_meta = pkg.get("meta") or {}
     try:
-        log_signal({
+        log_signal(_stamp_regime({
             "event": "trend_donchian_eval",
             "strategy": "trend_donchian",
             "symbol": symbol,
@@ -834,7 +864,7 @@ def trend_donchian_signal_builder(settings: dict) -> Dict[str, Any]:
             "stop_loss": pkg["sl"],
             "take_profit": pkg["tp"],
             "confidence": pkg["confidence"],
-        })
+        }, candles_df))
     except Exception:  # noqa: BLE001
         logger.exception("trend_donchian: dedicated audit emit failed")
 
@@ -944,14 +974,14 @@ def fade_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
     except ValueError as exc:
         logger.info("fade_breakout_4h: no actionable signal (%s)", exc)
         try:
-            log_signal({
+            log_signal(_stamp_regime({
                 "event": "fade_breakout_4h_eval",
                 "strategy": "fade_breakout_4h",
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "side": "none",
                 "reason": str(exc),
-            })
+            }, candles_df))
         except Exception:  # noqa: BLE001
             logger.exception("fade_breakout_4h: dedicated audit emit failed")
         return _with_signal_package("fade_breakout_4h", {
@@ -970,7 +1000,7 @@ def fade_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
     )
     pkg_meta = pkg.get("meta") or {}
     try:
-        log_signal({
+        log_signal(_stamp_regime({
             "event": "fade_breakout_4h_eval",
             "strategy": "fade_breakout_4h",
             "symbol": symbol,
@@ -980,7 +1010,7 @@ def fade_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
             "stop_loss": pkg["sl"],
             "take_profit": pkg["tp"],
             "confidence": pkg["confidence"],
-        })
+        }, candles_df))
     except Exception:  # noqa: BLE001
         logger.exception("fade_breakout_4h: dedicated audit emit failed")
 
@@ -1088,14 +1118,14 @@ def htf_pullback_trend_2h_signal_builder(settings: dict) -> Dict[str, Any]:
     except ValueError as exc:
         logger.info("htf_pullback_trend_2h: no actionable signal (%s)", exc)
         try:
-            log_signal({
+            log_signal(_stamp_regime({
                 "event": "htf_pullback_trend_2h_eval",
                 "strategy": "htf_pullback_trend_2h",
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "side": "none",
                 "reason": str(exc),
-            })
+            }, candles_df))
         except Exception:  # noqa: BLE001
             logger.exception("htf_pullback_trend_2h: dedicated audit emit failed")
         return _with_signal_package("htf_pullback_trend_2h", {
@@ -1114,7 +1144,7 @@ def htf_pullback_trend_2h_signal_builder(settings: dict) -> Dict[str, Any]:
     )
     pkg_meta = pkg.get("meta") or {}
     try:
-        log_signal({
+        log_signal(_stamp_regime({
             "event": "htf_pullback_trend_2h_eval",
             "strategy": "htf_pullback_trend_2h",
             "symbol": symbol,
@@ -1124,7 +1154,7 @@ def htf_pullback_trend_2h_signal_builder(settings: dict) -> Dict[str, Any]:
             "stop_loss": pkg["sl"],
             "take_profit": pkg["tp"],
             "confidence": pkg["confidence"],
-        })
+        }, candles_df))
     except Exception:  # noqa: BLE001
         logger.exception("htf_pullback_trend_2h: dedicated audit emit failed")
 
@@ -1226,14 +1256,14 @@ def trend_donchian_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     except ValueError as exc:
         logger.info("trend_donchian_1h: no actionable signal (%s)", exc)
         try:
-            log_signal({
+            log_signal(_stamp_regime({
                 "event": "trend_donchian_1h_eval",
                 "strategy": "trend_donchian_1h",
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "side": "none",
                 "reason": str(exc),
-            })
+            }, candles_df))
         except Exception:  # noqa: BLE001
             logger.exception("trend_donchian_1h: dedicated audit emit failed")
         return _with_signal_package("trend_donchian_1h", {
@@ -1252,7 +1282,7 @@ def trend_donchian_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     )
     pkg_meta = pkg.get("meta") or {}
     try:
-        log_signal({
+        log_signal(_stamp_regime({
             "event": "trend_donchian_1h_eval",
             "strategy": "trend_donchian_1h",
             "symbol": symbol,
@@ -1262,7 +1292,7 @@ def trend_donchian_1h_signal_builder(settings: dict) -> Dict[str, Any]:
             "stop_loss": pkg["sl"],
             "take_profit": pkg["tp"],
             "confidence": pkg["confidence"],
-        })
+        }, candles_df))
     except Exception:  # noqa: BLE001
         logger.exception("trend_donchian_1h: dedicated audit emit failed")
 
@@ -1365,14 +1395,14 @@ def mes_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     except ValueError as exc:
         logger.info("mes_trend_long_1d: no actionable signal (%s)", exc)
         try:
-            log_signal({
+            log_signal(_stamp_regime({
                 "event": "mes_trend_long_1d_eval",
                 "strategy": "mes_trend_long_1d",
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "side": "none",
                 "reason": str(exc),
-            })
+            }, candles_df))
         except Exception:  # noqa: BLE001
             logger.exception("mes_trend_long_1d: dedicated audit emit failed")
         return _with_signal_package("mes_trend_long_1d", {
@@ -1390,14 +1420,14 @@ def mes_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     if pkg["direction"] != "long":
         logger.info("mes_trend_long_1d: short signal suppressed (long-only strategy)")
         try:
-            log_signal({
+            log_signal(_stamp_regime({
                 "event": "mes_trend_long_1d_eval",
                 "strategy": "mes_trend_long_1d",
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "side": "none",
                 "reason": "short_suppressed_long_only",
-            })
+            }, candles_df))
         except Exception:  # noqa: BLE001
             logger.exception("mes_trend_long_1d: dedicated audit emit failed")
         return _with_signal_package("mes_trend_long_1d", {
@@ -1416,7 +1446,7 @@ def mes_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     )
     pkg_meta = pkg.get("meta") or {}
     try:
-        log_signal({
+        log_signal(_stamp_regime({
             "event": "mes_trend_long_1d_eval",
             "strategy": "mes_trend_long_1d",
             "symbol": symbol,
@@ -1426,7 +1456,7 @@ def mes_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
             "stop_loss": pkg["sl"],
             "take_profit": pkg["tp"],
             "confidence": pkg["confidence"],
-        })
+        }, candles_df))
     except Exception:  # noqa: BLE001
         logger.exception("mes_trend_long_1d: dedicated audit emit failed")
 
@@ -1518,14 +1548,14 @@ def squeeze_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
     except ValueError as exc:
         logger.info("squeeze_breakout_4h: no actionable signal (%s)", exc)
         try:
-            log_signal({
+            log_signal(_stamp_regime({
                 "event": "squeeze_breakout_4h_eval",
                 "strategy": "squeeze_breakout_4h",
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "side": "none",
                 "reason": str(exc),
-            })
+            }, candles_df))
         except Exception:  # noqa: BLE001
             logger.exception("squeeze_breakout_4h: dedicated audit emit failed")
         return _with_signal_package("squeeze_breakout_4h", {
@@ -1544,7 +1574,7 @@ def squeeze_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
     )
     pkg_meta = pkg.get("meta") or {}
     try:
-        log_signal({
+        log_signal(_stamp_regime({
             "event": "squeeze_breakout_4h_eval",
             "strategy": "squeeze_breakout_4h",
             "symbol": symbol,
@@ -1554,7 +1584,7 @@ def squeeze_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
             "stop_loss": pkg["sl"],
             "take_profit": pkg["tp"],
             "confidence": pkg["confidence"],
-        })
+        }, candles_df))
     except Exception:  # noqa: BLE001
         logger.exception("squeeze_breakout_4h: dedicated audit emit failed")
 
@@ -1661,14 +1691,14 @@ def fvg_range_15m_signal_builder(settings: dict) -> Dict[str, Any]:
     except ValueError as exc:
         logger.info("fvg_range_15m: no actionable signal (%s)", exc)
         try:
-            log_signal({
+            log_signal(_stamp_regime({
                 "event": "fvg_range_15m_eval",
                 "strategy": "fvg_range_15m",
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "side": "none",
                 "reason": str(exc),
-            })
+            }, candles_df))
         except Exception:  # noqa: BLE001
             logger.exception("fvg_range_15m: dedicated audit emit failed")
         return _with_signal_package("fvg_range_15m", {
@@ -1687,7 +1717,7 @@ def fvg_range_15m_signal_builder(settings: dict) -> Dict[str, Any]:
     )
     pkg_meta = pkg.get("meta") or {}
     try:
-        log_signal({
+        log_signal(_stamp_regime({
             "event": "fvg_range_15m_eval",
             "strategy": "fvg_range_15m",
             "symbol": symbol,
@@ -1704,7 +1734,7 @@ def fvg_range_15m_signal_builder(settings: dict) -> Dict[str, Any]:
             "fvg_high": pkg_meta.get("fvg_high"),
             "range_hi": pkg_meta.get("range_hi"),
             "range_lo": pkg_meta.get("range_lo"),
-        })
+        }, candles_df))
     except Exception:  # noqa: BLE001
         logger.exception("fvg_range_15m: dedicated audit emit failed")
 

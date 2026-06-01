@@ -113,9 +113,24 @@ intent's `(symbol, timeframe)`, read the `(strategy, direction)` cell, and:
 
 ## 5. Rollout (phased, low-risk)
 
-1. **Detector + observability (Tier-1/2):** ship `RegimeDetector` + per-tick
-   regime logging, **no enforcement**. Confirm the live regime stream matches the
-   matrix's base rates (chop ~30% / transitional ~19% / trending ~51%).
+1. **Detector + observability (Tier-1/2) — SHIPPED 2026-06-01.** `RegimeDetector`
+   landed as `src/runtime/regime/detector.py` (+ `__init__.py`) exporting
+   `detect_regime(candles_df, *, adx_period=14) → {regime, adx, source}`. Wilder's
+   ADX consolidates the previously-duplicated impls in `fade_breakout_4h._adx`
+   and `regime_matrix._adx` (test parity verified bit-for-bit). Wired into
+   `src/runtime/strategy_signal_builders.py` via a `_stamp_regime` helper that
+   wraps every per-strategy `log_signal({"event": "..._eval", ...})` call — all
+   21 emit sites across 10 strategies (turtle, ict_scalp, vwap, trend_donchian,
+   trend_donchian_1h, fade, squeeze, fvg, htf_pullback, mes_trend_long_1d) now
+   stamp `regime` + `adx_14` + `regime_source` into `signal_audit.jsonl`.
+   Per-strategy timeframe (each strategy's own candles drive its own regime
+   tag — matches how the matrix was measured). **No enforcement**; pure
+   observability. **Verification step** (post-deploy, next session): pull
+   `/api/diag/audit` and confirm the live regime distribution across `*_eval`
+   rows matches the matrix's base rates (chop ~30% / transitional ~19% /
+   trending ~51% on 1h BTC; chop ~35% / transitional ~20% / trending ~45% on
+   5m BTC — both bands are valid depending on which strategies dominate the
+   per-tick volume).
 2. **Shadow the policy (Tier-2):** evaluate the table per tick and **log** which
    intents *would* be gated, without acting. Compare a week of would-gate
    decisions against actual fills.
@@ -128,9 +143,13 @@ intent's `(symbol, timeframe)`, read the `(strategy, direction)` cell, and:
 
 ## 6. Open questions for the operator
 
-1. **Detector timeframe:** per-strategy TF (each strategy's own bars) vs one
-   canonical regime TF (e.g. 1h) for the whole book? Per-strategy matches how the
-   edges were measured; canonical is simpler to reason about.
+1. **Detector timeframe:** ~~per-strategy TF vs one canonical regime TF?~~
+   **DECIDED 2026-06-01: per-strategy** (default — operator did not block on
+   the question and the per-strategy choice matches how the regime-roster
+   matrix was measured). Implemented in phase 1: each `*_eval` row's regime
+   tag is computed from that strategy's own candles. To switch to canonical
+   1h later is a one-line change in `_stamp_regime` (pass an additional
+   pre-fetched 1h frame instead of `candles_df`).
 2. **Gate vs weight first:** start with hard gates (mechanical, auditable) — yes?
    Soft weights are higher-ceiling but harder to validate.
 3. **Keep or retire the strategy-level `long_only` flag** once the table covers
