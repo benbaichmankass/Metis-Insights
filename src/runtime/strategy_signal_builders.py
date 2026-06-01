@@ -984,6 +984,145 @@ def fade_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
     return _with_signal_package("fade_breakout_4h", sig)
 
 
+def htf_pullback_trend_2h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """HTF-pullback trend-follower (overnight research 2026-06-01).
+
+    Requires an HTF Donchian-midline uptrend, then buys a pullback into the
+    lower ``pullback_frac`` of the recent range, with the shared Chandelier
+    ATR trail (let-winners-run). Fetches 2h candles, calls
+    ``src.units.strategies.htf_pullback_trend_2h.order_package``, maps to the
+    pipeline-shape signal dict.
+
+    Cleared for ``execution: shadow`` after net-of-fee + walk-forward
+    (IS +32.7R / OOS +22.4R), 3-fold robustness (+30/+42/+8 across 2y folds),
+    fee-robustness (+67R even at 15 bps), and additive correlation to the live
+    roster (0.20-0.54). Validated config: trend_lookback 40 / pullback_frac
+    0.5 / trail_mult 5.0. Evidence:
+    docs/research/overnight-strategy-research-2026-06-01.md; harness:
+    scripts/backtest_pullback.py.
+
+    Honours the YAML ``enabled`` flag as the single source of truth
+    (``enabled: false`` short-circuits to ``side="none"``). The
+    ``execution: shadow`` gate is enforced downstream in the Accounts layer,
+    not here - this builder always produces the real signal so the shadow log
+    captures exactly what would have traded.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.htf_pullback_trend_2h import order_package
+    from src.runtime.market_data import fetch_candles
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 - never fail-open on a config error
+        strategies_cfg = {}
+    hp_cfg = strategies_cfg.get("htf_pullback_trend_2h", {}) or {}
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+
+    if not bool(hp_cfg.get("enabled", False)):
+        logger.info(
+            "htf_pullback_trend_2h: strategy disabled in config/strategies.yaml - "
+            "returning side=none"
+        )
+        return _with_signal_package("htf_pullback_trend_2h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "htf_pullback_trend_2h",
+                "reason": "disabled_in_yaml",
+            },
+        })
+
+    timeframe = str(
+        hp_cfg.get("timeframe")
+        or settings.get("HTF_PULLBACK_TREND_2H_TIMEFRAME")
+        or settings.get("TIMEFRAME")
+        or "2h"
+    )
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(
+        symbol, timeframe, exchange_client=exchange, limit=200,
+    )
+    if candles_df is None:
+        raise RuntimeError(
+            f"htf_pullback_trend_2h: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the exchange connection "
+            "is configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **hp_cfg}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("htf_pullback_trend_2h: no actionable signal (%s)", exc)
+        try:
+            log_signal({
+                "event": "htf_pullback_trend_2h_eval",
+                "strategy": "htf_pullback_trend_2h",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception("htf_pullback_trend_2h: dedicated audit emit failed")
+        return _with_signal_package("htf_pullback_trend_2h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "htf_pullback_trend_2h",
+                "reason": str(exc),
+            },
+        })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "htf_pullback_trend_2h: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal({
+            "event": "htf_pullback_trend_2h_eval",
+            "strategy": "htf_pullback_trend_2h",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        })
+    except Exception:  # noqa: BLE001
+        logger.exception("htf_pullback_trend_2h: dedicated audit emit failed")
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "htf_pullback_trend_2h",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "htf_pullback_trend_2h",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+            "strategy_risk_pct": float(hp_cfg.get("risk_pct", 0.3) or 0.3),
+        },
+    }
+    _emit_shadow_preds(
+        "htf_pullback_trend_2h", sig, hp_cfg, symbol,
+        timeframe=timeframe, candles_df=candles_df,
+    )
+    return _with_signal_package("htf_pullback_trend_2h", sig)
+
+
 def squeeze_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
     """Volatility-squeeze breakout (S-STRAT-IMPROVE-S9), member-#3 candidate.
 

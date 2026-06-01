@@ -97,8 +97,11 @@ accounts:
     market_type: linear                # USDT-margined linear perpetuals — same
                                        # as bybit_2. set-leverage fires at boot
                                        # via _apply_per_account_leverage.
-    strategies: [trend_donchian, turtle_soup, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, vwap, fvg_range_15m]
+    strategies: [trend_donchian, turtle_soup, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, vwap, fvg_range_15m, htf_pullback_trend_2h]
                                        # execution-priority order matches list order.
+                                       # htf_pullback_trend_2h added 2026-06-01:
+                                       # execution: shadow, DEMO-ONLY (not on
+                                       # bybit_2) until operator-promoted (Tier-3).
                                        # 2026-05-25 (operator-approved): bybit_1 (demo)
                                        # now mirrors bybit_2 EXACTLY — the same six
                                        # strategies in the same order. trend_donchian

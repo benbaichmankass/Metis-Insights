@@ -525,3 +525,54 @@ strategies:
                               # keep this fresh data-collector's signal log
                               # clean of model predictions until it has a track
                               # record. Independent of `execution:`.
+
+  htf_pullback_trend_2h:
+    # HTF-pullback trend-follower (overnight research 2026-06-01). Requires an
+    # HTF Donchian-midline uptrend, then buys a pullback into the lower
+    # `pullback_frac` of the recent range, with the shared Chandelier ATR trail
+    # (the program's let-winners-run lever). Strategy code:
+    # src/units/strategies/htf_pullback_trend_2h.py; validated harness:
+    # scripts/backtest_pullback.py.
+    #
+    # STATUS: execution: shadow (NEW 2026-06-01). Runs + LOGS order packages on
+    # real ticks for data collection but never sends a live order. Cleared for
+    # shadow by the overnight research campaign + a dedicated pre-shadow
+    # validation suite (docs/research/overnight-strategy-research-2026-06-01.md):
+    #   * Net-of-fee + walk-forward: IS(2021-2023) +32.7R / OOS(2024-2026)
+    #     +22.4R (exp +0.14 R/trade), lowest drawdown of the cleared leads.
+    #   * 3-fold robustness: net-positive in every 2y sub-period (+30/+42/+8).
+    #   * Fee-robust: +67R even at 15 bps (2x the modelled 7.5).
+    #   * Additive to the live roster (monthly net-R corr 0.20-0.54).
+    # GRADUATION: shadow -> live is the operator-gated Tier-3 step, taken only
+    # after live shadow data confirms the backtest (days-weeks), then add to
+    # bybit_2.strategies. This is the same path fade_breakout_4h / trend_donchian
+    # took. The runtime builder honours `enabled` as the single source of truth.
+    model: null
+    signal_prefixes: [htf_pullback, htf_pullback_trend]
+    enabled: true
+    execution: shadow        # NEW strategy ships shadow (S9 path): runs + logs
+                             # on real ticks, never sends a live order. Routed to
+                             # bybit_1 (demo) only until promoted (Tier-3).
+    risk_pct: 0.3            # conservative; matches STRATEGY_RISK_PCT fallback.
+                             # Inert while execution: shadow (never sizes a real
+                             # order); set for a future graduation to live.
+    timeframe: "2h"          # served as Bybit 120m via CCXT.
+    symbols:
+      - BTCUSDT              # the only validated symbol (SUPPORTED_SYMBOLS gate).
+    # Strategy params — the validated walk-forward config (trend_lookback 40 /
+    # pullback_frac 0.5 / trail_mult 5.0). The wide Chandelier trail (5.0) is the
+    # let-winners-run lever; the deeper-pullback entry (0.5 vs the scaffold's
+    # 0.33) and faster trend filter (40 vs 50) were the sweep's robust winners.
+    trend_lookback: 40
+    pullback_lookback: 10
+    pullback_frac: 0.5
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    # No fixed profit target — the Chandelier trail is the sole profit-exit
+    # (matches the backtest). `tp_r` is a far ~50R sentinel that still satisfies
+    # the pipeline's full-SL/TP dispatch gate.
+    tp_r: 50.0
+    min_confidence: 0.0
+    shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring while
+                              # this fresh data-collector builds a track record.

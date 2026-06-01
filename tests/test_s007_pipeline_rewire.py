@@ -33,14 +33,17 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         data-collector (NOT live; never sends a live order).
       * fvg_range_15m registered 2026-05-30 as an execution: shadow
         data-collector (NOT live; never sends a live order) — the range member.
+      * htf_pullback_trend_2h registered 2026-06-01 as an execution: shadow
+        data-collector (NOT live; never sends a live order) — the overnight-
+        research HTF-pullback trend-follower.
     Roster: turtle_soup + vwap + ict_scalp_5m + trend_donchian + fade_breakout_4h
-    + squeeze_breakout_4h + fvg_range_15m.
+    + squeeze_breakout_4h + fvg_range_15m + htf_pullback_trend_2h.
     """
     from src.strategy_registry import load_strategies
     names = sorted(s["name"] for s in load_strategies())
     assert names == [
-        "fade_breakout_4h", "fvg_range_15m", "ict_scalp_5m", "squeeze_breakout_4h",
-        "trend_donchian", "turtle_soup", "vwap",
+        "fade_breakout_4h", "fvg_range_15m", "htf_pullback_trend_2h", "ict_scalp_5m",
+        "squeeze_breakout_4h", "trend_donchian", "turtle_soup", "vwap",
     ]
 
 

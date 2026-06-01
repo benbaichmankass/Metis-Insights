@@ -130,6 +130,11 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # a real order; the lowest value is the safety floor for the unproven
     # strategy.
     "fvg_range_15m": 3,
+    # htf_pullback_trend_2h — the new floor (2026-06-01). Overnight-research
+    # HTF-pullback trend-follower. Wired execution:shadow (data-only, never
+    # sends a live order), so its priority never arbitrates a real order; the
+    # lowest value is the safety floor for the unproven strategy.
+    "htf_pullback_trend_2h": 2,
 }
 
 # Priority used when a strategy is not listed in DEFAULT_PRIORITIES and
