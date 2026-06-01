@@ -239,7 +239,23 @@
    "resolved_by": null,
    "resolution_note": null,
    "snoozed_until": null
+  },
+  {
+   "id": "PERF-20260601-009",
+   "opened_at": "2026-06-01T16:45:00+00:00",
+   "opened_by": "claude (session-end, operator-deferred design-doc Q3)",
+   "source": "docs/research/regime-router-design-2026-06-01.md § 6 Q3 — operator deferred the long_only retire decision to a phase-3 follow-up (\"leave that for now\").",
+   "title": "Retire the trend_donchian long_only flag once the regime router policy table subsumes it [Tier-3, follow-up to phase 3]",
+   "description": "trend_donchian's `long_only: true` flag in config/strategies.yaml was shipped as #2570 (2026-06-01) as a simple, robust win that dropped the strategy's -37 R short drag. The regime router's policy table independently mirrors the same constraint: trend_donchian.short is OFF in trending+transitional (the regimes where the -52 R loss concentrates) and ON in chop (the +16 R chop-short edge). Once phase 3 (PERF-20260601-006) is live and the table is enforcing those gates, the strategy-level long_only flag becomes redundant — both flags would be saying the same thing in trending/transitional, AND the table is the ONLY way to recover the chop-short edge. The cleanup is: flip `long_only: false` (or remove the field entirely) on trend_donchian in config/strategies.yaml AND remove the `_short_suppressed_long_only` branch in src/units/strategies/trend_donchian.py / strategy_signal_builders.py. The router policy table will then be the single source of truth for trend_donchian's direction gating. Operator's instruction 2026-06-01: \"leave that for now\" — keep long_only as defense-in-depth until phase 3 proves out the policy-table enforcement. Mechanical risk if NOT cleaned up after phase 3: when an operator-approved exception manually flips a cell in regime_policy.yaml (e.g. enable trend_donchian chop-short in some future regime study), the YAML-level long_only flag will silently override and suppress that intent — a confusing footgun.",
+   "tier": 3,
+   "status": "open",
+   "trigger_condition": "After PERF-20260601-006 (regime router phase 3 hard gates) has been live for >= 1-2 weeks with no regression in trend_donchian's fill rate or PnL.",
+   "resolution_criteria": "config/strategies.yaml::trend_donchian no longer carries `long_only: true`; the `short_suppressed_long_only` branch is removed from the signal builder; the existing test_trend_donchian_long_only.py is either deleted or rewritten to verify the SAME behaviour is produced via the regime router policy table cells. Operator-approved Tier-3 PR.",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null,
+   "snoozed_until": null
   }
  ],
- "updated_at": "2026-06-01T16:30:00+00:00"
+ "updated_at": "2026-06-01T16:45:00+00:00"
 }

@@ -166,13 +166,31 @@ intent's `(symbol, timeframe)`, read the `(strategy, direction)` cell, and:
    tag is computed from that strategy's own candles. To switch to canonical
    1h later is a one-line change in `_stamp_regime` (pass an additional
    pre-fetched 1h frame instead of `candles_df`).
-2. **Gate vs weight first:** start with hard gates (mechanical, auditable) — yes?
-   Soft weights are higher-ceiling but harder to validate.
-3. **Keep or retire the strategy-level `long_only` flag** once the table covers
-   trend_donchian's short cells?
-4. **Boundary hysteresis:** ADX hovering at 20/25 will flip regimes tick-to-tick;
-   add a hysteresis band / dwell-time so the router doesn't thrash a strategy
-   on/off at the boundary.
+2. **Gate vs weight first:** ~~start with hard gates (mechanical, auditable) — yes?
+   Soft weights are higher-ceiling but harder to validate.~~
+   **DECIDED 2026-06-01: hard gates first** (operator-approved). Phase 3
+   (`PERF-20260601-006`) ships binary OFF-cell suppression behind
+   `REGIME_ROUTER_ENABLED` with one-flag rollback. Soft weights graduate
+   in phase 4 (`PERF-20260601-007`) only after hard gates demonstrate
+   lift.
+3. **Keep or retire the strategy-level `long_only` flag** once the table
+   covers trend_donchian's short cells?
+   **DEFERRED 2026-06-01** (operator: "leave that for now"). The flag
+   stays in `config/strategies.yaml::trend_donchian.long_only: true` for
+   now; the policy table independently mirrors the constraint (`short:
+   off` in trending+transitional, `short: on` in chop). After phase 3
+   ships, the table fully subsumes `long_only` — the cleanup is logged
+   as a follow-up in `docs/claude/performance-review-backlog.json`
+   (`PERF-20260601-009`).
+4. **Boundary hysteresis:** ~~ADX hovering at 20/25 will flip regimes
+   tick-to-tick; add a hysteresis band / dwell-time so the router
+   doesn't thrash a strategy on/off at the boundary.~~
+   **DEFERRED 2026-06-01: WAIT** (operator-approved — my recommendation).
+   No hysteresis in phase 3; observe whether boundary thrashing actually
+   matters once hard gates are live. The phase-3 verification step
+   (`PERF-20260601-006`'s resolution_criteria) includes a check for
+   benign boundary behaviour; if pathological, hysteresis ships in
+   phase 3.1.
 
 ## 7. Dependencies / coverage
 

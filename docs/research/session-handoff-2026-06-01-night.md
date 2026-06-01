@@ -70,6 +70,7 @@ strategy.
 | `PERF-20260601-006` | 3 | open | Phase 3 (hard gates) — after ≥ 7 days of live shadow data |
 | `PERF-20260601-007` | 3 | open | Phase 4 (soft weights + classifier-v0) — after phase 3 proves lift |
 | `PERF-20260601-008` | 1 | open | Verify phase-1+2 deploy on live data — base-rate match + shadow row volume (24-48h post-deploy) |
+| `PERF-20260601-009` | 3 | open | Retire `trend_donchian.long_only` once phase-3 policy table subsumes it (≥ 1-2 weeks post phase-3 deploy) |
 
 ### New `health-review-backlog.json` items (this session)
 
@@ -114,26 +115,27 @@ In priority order:
 
 4. **Backlog drain** if (1)-(3) are not yet ready.
 
-## 6. Open questions still on operator review
+## 6. Operator decisions on the four design-doc open questions
 
-The regime-router design doc (`docs/research/regime-router-design-2026-06-01.md`
-§ 6) had four open questions. Q1 (detector TF) was decided as
-**per-strategy** in this session. Three remain for the phase-3 / phase-4 PR:
+All four questions in `docs/research/regime-router-design-2026-06-01.md`
+§ 6 are now resolved or explicitly deferred (operator 2026-06-01).
+The phase-3 PR (PERF-20260601-006) can open without further input.
 
-2. **Gate vs weight first** — start phase 3 with hard gates (the design's
-   default), then graduate to weights in phase 4? Or skip hard gates and
-   ship phase 3 as soft weights directly? Recommend hard gates first
-   (mechanical, auditable, one-flag rollback).
-3. **Keep / retire the strategy-level `long_only` flag** once the table
-   covers `trend_donchian`'s short cells? Recommend retire on the phase-3
-   PR (the table now subsumes it).
-4. **Boundary hysteresis** — ADX hovering at 19.5/20 / 24.5/25 will flip
-   regimes tick-to-tick; add a hysteresis band or dwell-time so the
-   router doesn't thrash? Recommend wait for phase-3 data — if the
-   hard-gate frequency at the boundary is benign, no hysteresis needed.
-
-These are operator-input items the next session should ask before
-opening the phase-3 PR.
+1. **Detector timeframe** → **per-strategy** (decided during the phase-1
+   build; matches how the matrix was measured).
+2. **Gate vs weight first** → **hard gates first** (operator-approved).
+   Phase 3 ships binary OFF-cell suppression behind `REGIME_ROUTER_ENABLED`
+   with one-flag rollback. Soft weights wait for phase 4.
+3. **Keep / retire `long_only`** → **leave for now** (operator: "leave
+   that for now"). Logged as `PERF-20260601-009` in the perf backlog —
+   cleanup ships after phase-3 hard gates have been live ≥ 1-2 weeks
+   without regression. Risk if not cleaned up: a future manual flip of
+   `trend_donchian.short` in `regime_policy.yaml` will be silently
+   over-ridden by the YAML-level `long_only: true` flag.
+4. **Boundary hysteresis** → **wait** (operator-approved — observe
+   whether thrashing actually matters once hard gates are live).
+   `PERF-20260601-006`'s resolution_criteria includes a boundary-behaviour
+   check; if pathological, hysteresis ships in phase 3.1.
 
 ## 7. How to operate (recurring reminders)
 
