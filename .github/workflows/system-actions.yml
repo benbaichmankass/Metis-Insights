@@ -100,6 +100,7 @@ on:
           - monitor-miss-analysis
           - vwap-backtest-sweep
           - pull-mes-ibkr-history
+          - pull-mes-ibkr-history-daily
           - set-account-mode
           - fix-data-dir
           - rotate-account-keys
@@ -369,7 +370,7 @@ jobs:
             status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|enable-mobile-push|disable-mobile-push|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|backfill-shadow-predictions|pull-mes-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|enable-mobile-push|disable-mobile-push|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|backfill-shadow-predictions|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -546,6 +547,7 @@ jobs:
             monitor-miss-analysis)              SCRIPT="monitor_miss_analysis_action.sh" ;;
             vwap-backtest-sweep)                SCRIPT="vwap_backtest_sweep_action.sh" ;;
             pull-mes-ibkr-history)              SCRIPT="pull_mes_ibkr_history.sh" ;;
+            pull-mes-ibkr-history-daily)        SCRIPT="pull_mes_ibkr_history.sh" ;;
             set-account-mode)                   SCRIPT="set_account_mode.sh" ;;
             fix-data-dir)                       SCRIPT="fix_data_dir.sh" ;;
             rotate-account-keys)                SCRIPT="rotate_account_keys.sh" ;;
@@ -597,6 +599,17 @@ jobs:
           fi
           if [ "${ACTION}" = "inspect-closed-pnl" ] && [ -n "${TRADE_ID}" ]; then
             REMOTE_CMD="ACTION_TRADE_ID=$(printf '%q' "${TRADE_ID}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "pull-mes-ibkr-history-daily" ]; then
+            # Same wrapper as pull-mes-ibkr-history, but baked to a DAILY
+            # multi-year pull: native MES 1d bars back to the contract's
+            # ~2019 inception (the ibkr_offvm adapter stitches dated MES
+            # expiries for depth). Distinct dataset version so the daily
+            # series never collides with the intraday (5m/15m) v002 shards.
+            # All the wrapper's live-gateway guards still apply (live-first
+            # heartbeat abort, idle nice/ionice, distinct clientId 450,
+            # 20s pacing). For validating mes_trend_long_1d on real MES.
+            REMOTE_CMD="MES_TIMEFRAMES=1d MES_HIST_START=2019-05-06 DATASET_VERSION=v002-daily ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "bybit-account-audit" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
