@@ -139,6 +139,47 @@ if [ "${PRE_SYNC_HEAD}" = "${POST_SYNC_HEAD}" ]; then
     exit 0
 fi
 
+# ---------------------------------------------------------------------------
+# BL-20260529-002: skip the disruptive restart for NON-RUNTIME commits.
+#
+# A docs/comms-only commit (a session-end handoff, a health-review backlog
+# touch, a sprint log) used to run the full dependency-install + systemd
+# unit-refresh + restart-every-ict-*-service path — bouncing the live
+# money-path trader (and blinding the web-api read surface for ~5-7 min)
+# for a change that touches no code the running processes load. Observed
+# three /health-reviews running (2026-05-29 x2, 2026-06-01) where a pure
+# docs commit reset the trader uptime.
+#
+# We diff PRE..POST and, if EVERY changed path is in a known-safe,
+# non-runtime set (docs/, tests/, .claude/, and top-level *.md), skip the
+# restart entirely: the working tree was already synced by the hard-reset
+# above and the Telegram pings already fired. ANYTHING else — src/, ml/,
+# config/, deploy/, scripts/, comms/ (read at runtime by the insights /
+# order-package / comms-handler paths), requirements*, pyproject, etc. —
+# falls through to the normal restart below.
+#
+# FAIL-SAFE: if the diff cannot be computed, or comes back empty while HEAD
+# moved, we DO restart. An unnecessary restart is the prior status quo; a
+# MISSED restart would pin the running processes to stale code. Only a
+# non-empty, fully-safe diff is allowed to skip. Override: set
+# DEPLOY_FORCE_RESTART=1 to force the restart path regardless of the diff.
+# ---------------------------------------------------------------------------
+if [ "${DEPLOY_FORCE_RESTART:-0}" != "1" ]; then
+    CHANGED_FILES="$(git diff --name-only "${PRE_SYNC_HEAD}" "${POST_SYNC_HEAD}" 2>/dev/null || true)"
+    if [ -n "${CHANGED_FILES}" ]; then
+        # Strip the known-safe non-runtime paths; anything left needs a restart.
+        RUNTIME_CHANGES="$(printf '%s\n' "${CHANGED_FILES}" \
+            | grep -vE '^(docs/|tests/|\.claude/|[^/]+\.md$)' || true)"
+        if [ -z "${RUNTIME_CHANGES}" ]; then
+            echo ">>> Non-runtime commit (${PRE_SYNC_HEAD:0:7} -> ${POST_SYNC_HEAD:0:7}): only docs/tests/.claude/top-level-markdown changed."
+            echo ">>> Code synced + pings sent; skipping dependency install, unit refresh, and service restart (BL-20260529-002)."
+            printf '%s\n' "${CHANGED_FILES}" | sed 's/^/>>>   changed: /'
+            echo "===== DEPLOY COMPLETE (no runtime change; restart skipped): $(date) ====="
+            exit 0
+        fi
+    fi
+fi
+
 echo ">>> Code changed (${PRE_SYNC_HEAD:0:7} -> ${POST_SYNC_HEAD:0:7}). Installing/updating dependencies..."
 /usr/bin/python3 -m pip install -r requirements.txt --quiet
 
