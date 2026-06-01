@@ -35,21 +35,46 @@ emit hook, so `regime_matrix.py` drove it in-process.
 | **squeeze_breakout_4h** (shadow) | 4h | **+17.6** | +5.1 (+7.8 / −2.7) | +1.6 (−0.4 / +2.1) | +10.9 (+7.6 / +3.4) | **7.9** | earns in **every** regime, long-biased, **lowest DD** |
 | **fvg_range_15m** (shadow) | 15m | **−16.9** | — *(ADX-gated out)* | — | −16.9 (−11.5 / −5.4) | 13.2 | chop MR; **net loser both sides** — no edge here |
 | **htf_pullback_trend_2h** (shadow) | 2h | **+26.3** | **+30.1** (+30.1 / −0.05) | +8.4 (+12.7 / −4.3) | **−12.2** (−7.9 / −4.3) | **14.8** | trend-continuation **owns trending**, loses chop; long-led; clean ADX>20 inclusion candidate |
-| **vwap** (shadow) | 5m | ⚠️ **−3749** *(unfiltered — see caveat)* | −1972 (−1037 / −936) | −649 (−298 / −351) | −1128 (−459 / −670) | — | **NOT decision-grade** — driven without the live selectivity filters |
+| **vwap** (shadow) | 5m | **−10724** *(live gates threaded — see structural read)* | **−6179** (−2970 / −3209) | −1903 (−910 / −992) | −2642 (−1183 / −1459) | n/a | **net loser in every regime** even with the live gates active; gross is +3,399 R but the 7.5 bps round-trip fee × 40,650 trades = −14,123 R kills it |
 
-(n trades: trend 1104, fade 157, squeeze 110, fvg 60, htf_pullback 348, vwap 10188.
-fade/fvg fire only at ADX<20 by design; trend/squeeze/htf_pullback/vwap fire across
-all regimes. vwap window 2024-01-01→2026-05. htf_pullback added 2026-06-01 via
-issue #2573, drives `scripts/backtest_pullback.py` with the live params.)
+(n trades: trend 1104, fade 157, squeeze 110, fvg 60, htf_pullback 348,
+vwap **40,650**. fade/fvg fire only at ADX<20 by design; trend/squeeze/htf_pullback
+fire across all regimes; vwap fires across all regimes too. vwap window
+**2020-03 → 2026-05** — the multiyear archive, same window the unfiltered run
+used. htf_pullback added 2026-06-01 via #2573; vwap re-run with the live gates
+landed 2026-06-01 via #2575/#2579 once `src/backtest/run_backtest_vwap.py`
+shipped four new flags (`--min-r-for-vwap-cross`, `--min-hold-minutes-for-vwap-cross`,
+`--be-at-r`, `--be-offset-bps`) and a BE ratchet in `_simulate_trade`.)
 
-> ⚠️ **vwap is the unfiltered harness, not the live strategy.** 10,188 trades in
-> ~2.4 years (~11/day) means it ran on bare `--no-htf` with **none** of the live
-> selectivity gates (`recent_context_filter` 1h/24-bar, `threshold: 0.01`,
-> `min_r_for_vwap_cross`, `be_at_r`). It is the raw VWAP-touch strategy, which
-> bleeds in every regime — the same "wrong params → misleading matrix" trap the
-> reconciliation flagged for trend. **Re-run with the live selectivity params
-> threaded before trusting vwap's regime profile** (follow-up below). It does not
-> affect decisions 1–3, which rest on the exact-live-param runs.
+> **vwap row update (PERF-20260601-003, 2026-06-01).** The prior row (−3749 R
+> over 2.4 years, 10,188 trades, no live gates) was the unfiltered harness. The
+> updated row above is the full multiyear window (6+ years, 647,585 5m bars)
+> with the four live exit-side gates threaded:
+> `--min-r-for-vwap-cross 0.25 --min-hold-minutes-for-vwap-cross 10
+> --be-at-r 1.0 --be-offset-bps 15`. Result:
+> **40,650 trades, gross +3,399 R, fees −14,123 R, net −10,724 R, win rate
+> 49.8%, every regime net-negative at exp ≈ −0.26 R/trade.** The gates DO
+> work on the gross side (the live failure mode they target — "VWAP drifted to
+> price" sub-fee crosses — was real and they fix it), but the BE ratchet's
+> small-win exits at +15 bps stop cycle trades 4× faster, the fee per trade
+> stays the same, and the fee:gross ratio of ~4.2× swamps the edge. Per-regime
+> the exp_r is uniform (−0.27 trending / −0.26 transitional / −0.26 chop) —
+> **no regime where vwap earns net of fees**. Confirms
+> `docs/audits/vwap-viability-verdict-2026-05-23.md`'s 2026-05-23 verdict on
+> the precise live-gate path over the multiyear archive.
+>
+> The `recent_context_filter` was intentionally **not** threaded: per
+> `config/strategies.yaml::vwap.recent_context_filter` it is "Informational
+> only — does not block entries", confirmed by
+> `src/runtime/strategy_signal_builders.py` line 631 ("Informational only —
+> neither side is blocked"). It tags the meta but does not gate the signal.
+>
+> The starter-prompt expectation that gating would drop the trade count from
+> ~11/day to live cadence was wrong: the BE ratchet exits trades sooner (at
+> BE+15 bps), the cooldown shortens, and the trade count rises (~18/day for
+> the gated run). The live trader does not have years of vwap fills to
+> compare cadence against; the gated-harness output here IS the
+> live-equivalent backtest under the exact live params.
 
 ## Per-strategy structural reads
 
@@ -69,6 +94,15 @@ issue #2573, drives `scripts/backtest_pullback.py` with the live params.)
 - **fvg_range_15m** — net **−16.9**, every direction negative even in its target
   chop regime. Confirms the standing finding that fine-TF mean-reversion is not
   this market's edge. Shadow status justified; no re-promotion case.
+- **vwap** — net **−10,724** over 6+ years (40,650 trades, 49.8% WR — but the
+  win rate is a fee mirage: the BE-stop ratchet locks in many sub-fee small
+  wins). Gross is **+3,399** R; round-trip fee at 7.5 bps × the average
+  (entry+exit)/risk = **−14,123** R, a 4.2× fee-to-gross ratio. Loser in
+  every regime: trending −6,179 (long −2,970 / short −3,209), transitional
+  −1,903, chop −2,642. Long and short bleed equally. **Net of fees this
+  strategy has no edge in any regime** — gated or unfiltered. The
+  router should treat vwap as net-negative everywhere (same shape as fvg
+  but ~600× the magnitude).
 - **htf_pullback_trend_2h** — net **+26.3** over 5+ years (348 trades, 32.8% WR,
   maxDD 14.8 R). Almost the entire edge is **trending long** (+30.1 R; the short
   side is flat at −0.05 R in trending — BTC's uptrend punishes shorts here just
@@ -123,13 +157,17 @@ This router *is* the home for trend_donchian's chop-gated-short (decision 1B) an
 
 ## Caveats / coverage gaps (follow-ups)
 
-- **vwap — re-run with live selectivity params (BLOCKING for vwap's row).** This
-  run used bare `--no-htf` (10,188 trades / −3749 R), i.e. the unfiltered
-  VWAP-touch strategy. The live vwap is heavily selectivity-gated
-  (`recent_context_filter`, `threshold`, `min_r_for_vwap_cross`, `be_at_r`) —
-  thread those into the harness (it exposes `--entry-threshold` but the rest
-  require module-constant injection like the threshold-sweep does) so the trade
-  count drops to the live cadence before the regime read is trustworthy.
+- ~~**vwap — re-run with live selectivity params (BLOCKING for vwap's row).**~~
+  **DONE 2026-06-01** — `src/backtest/run_backtest_vwap.py` now exposes four
+  new flags (`--min-r-for-vwap-cross`, `--min-hold-minutes-for-vwap-cross`,
+  `--be-at-r`, `--be-offset-bps`) + a BE ratchet in `_simulate_trade` +
+  `_vwap_cross_gates_allow` mirroring the live `vwap._vwap_cross_gates_pass`.
+  Row above updated. Verdict: vwap is a net loser in every regime even with
+  the live gates threaded (the gates work on the gross side but the fee
+  structure swamps them); the prior `−3749 R unfiltered` finding holds up at
+  the larger ~−10,724 R magnitude on the longer window. `recent_context_filter`
+  intentionally not threaded — it's informational-only in the live strategy
+  (see structural read above).
 - ~~**htf_pullback_trend_2h — no committed standalone harness.**~~ **DONE**
   2026-06-01 — `scripts/backtest_pullback.py` committed; row added above.
 - **mes_trend_long_1d** is long-only on a separate MES daily data source
@@ -143,5 +181,7 @@ This router *is* the home for trend_donchian's chop-gated-short (decision 1B) an
 `scripts/research/regime_matrix.py` (trend, in-process) + `scripts/research/regime_tag_emitted.py`
 (every other harness's `--emit-trades` JSONL), driven with the exact live params above.
 Relays: #2562 (discovery), #2564 (trend/fade/squeeze), #2565 (fvg, after the pandas-3.0
-fixes), #2567 (vwap launch) → #2569 (vwap tag), #2573 (htf_pullback, after committing
-`scripts/backtest_pullback.py`).
+fixes), #2567 (vwap unfiltered launch) → #2569 (vwap unfiltered tag), #2573
+(htf_pullback, after committing `scripts/backtest_pullback.py`), #2575 (vwap
+live-gated detached launch) → #2579 (vwap live-gated result, after committing
+the four exit-side-gate CLI flags + BE ratchet in `src/backtest/run_backtest_vwap.py`).
