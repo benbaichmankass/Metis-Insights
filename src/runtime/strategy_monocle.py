@@ -166,3 +166,130 @@ def _recent_refusal_for_strategy(
             strategy_name, exc,
         )
         return None
+
+
+# ---------------------------------------------------------------------------
+# Bar-close debounce — one entry attempt per CLOSED bar (PERF-20260601-001)
+# ---------------------------------------------------------------------------
+#
+# The open-package gate blocks re-entry only while a package is *open*. When a
+# package closes mid-bar (e.g. the reconciler records an exchange-side SL/TP
+# fire), the gate frees and the strategy re-fires its still-valid breakout on
+# the very next tick — within the SAME bar. On a 2 h strategy this produced a
+# re-entry storm (9 packages in ~1 h on 2026-06-01) and a flood of
+# ``intent_noop`` rejection rows (the intent layer no-ops the duplicate while
+# a net position is already held), polluting the journal and skewing
+# per-strategy stats. A bar-close strategy should act AT MOST ONCE per closed
+# bar; this gate enforces that by suppressing a second actionable dispatch for
+# the same strategy+symbol within the same timeframe bucket as the most recent
+# package it already created. Env kill-switch: ``STRATEGY_BAR_DEBOUNCE_DISABLED``.
+
+_TIMEFRAME_SECONDS = {
+    "1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800,
+    "1h": 3600, "2h": 7200, "4h": 14400, "6h": 21600, "12h": 43200,
+    "1d": 86400, "1w": 604800,
+}
+
+
+def _timeframe_seconds(timeframe: Optional[str]) -> Optional[int]:
+    """Parse a timeframe token (``2h`` / ``15m`` / ``1d``) to seconds.
+
+    Returns ``None`` for unknown / unparseable tokens so the caller can
+    fall back to "no debounce" rather than guess a bucket size.
+    """
+    if not timeframe:
+        return None
+    tf = str(timeframe).strip().lower()
+    if tf in _TIMEFRAME_SECONDS:
+        return _TIMEFRAME_SECONDS[tf]
+    # generic <int><unit> parse (m/h/d/w) for anything not in the table
+    try:
+        unit = tf[-1]
+        n = int(tf[:-1])
+        mult = {"m": 60, "h": 3600, "d": 86400, "w": 604800}.get(unit)
+        return n * mult if (mult and n > 0) else None
+    except (ValueError, IndexError):
+        return None
+
+
+def _strategy_timeframe_seconds(strategy_name: str) -> Optional[int]:
+    """Look up *strategy_name*'s configured timeframe (seconds). Best-effort."""
+    try:
+        from src.units.strategies import load_strategy_config
+        cfg = (load_strategy_config() or {}).get(strategy_name) or {}
+        return _timeframe_seconds(cfg.get("timeframe"))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_strategy_timeframe_seconds(%s): config read failed — %s",
+            strategy_name, exc,
+        )
+        return None
+
+
+def _bar_debounce_disabled() -> bool:
+    # The flag below is a kill-switch for an over-trading DEBOUNCE, not a
+    # live/dry gate: it only throttles re-entry frequency (one entry per
+    # closed bar) and never decides whether a strategy trades live vs dry
+    # (that stays accounts.yaml mode + strategies.yaml execution). Mirrors
+    # the STRATEGY_REFUSAL_COOLDOWN_SECONDS rollback knob.
+    raw = os.environ.get("STRATEGY_BAR_DEBOUNCE_DISABLED", "")  # allow-silent: debounce kill-switch, not a live/dry gate
+    return str(raw).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _same_bar_entry_for_strategy(
+    strategy_name: Optional[str], symbol: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """Return ``{"order_package_id", "bar_seconds", "last_created_at"}`` when
+    *strategy_name* already created a package for *symbol* inside the CURRENT
+    timeframe bucket (i.e. it already acted this bar), else ``None``.
+
+    "Current bucket" is ``floor(epoch / bar_seconds)`` — so the first entry of
+    a 2 h bar dispatches and every subsequent actionable tick in that same 2 h
+    window is suppressed, regardless of whether the first package has since
+    closed. Resets cleanly when a new bar opens.
+
+    Best-effort: missing timeframe, kill-switch, or a DB-read failure all
+    return ``None`` (no debounce) rather than block dispatch on a hiccup.
+    """
+    if not strategy_name or _bar_debounce_disabled():
+        return None
+    bar_seconds = _strategy_timeframe_seconds(strategy_name)
+    if not bar_seconds or bar_seconds <= 0:
+        return None
+    try:
+        from datetime import datetime, timezone
+        from src.units.db.database import Database
+        from src.utils.paths import trade_journal_db_path
+        db = Database(db_path=trade_journal_db_path())
+        # Any-status, newest-first; scan a few in case the latest-updated row
+        # (e.g. an old package re-touched by a trail ratchet) is not the
+        # latest-created one.
+        rows = db.get_order_packages_by_strategy(
+            strategy_name, status=None, limit=5, symbol=symbol,
+        )
+        if not rows:
+            return None
+        now_bucket = int(datetime.now(timezone.utc).timestamp() // bar_seconds)
+        for row in rows:
+            created = row.get("created_at")
+            if not created:
+                continue
+            try:
+                ts = datetime.fromisoformat(str(created).replace("Z", "+00:00"))
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+            except (TypeError, ValueError):
+                continue
+            if int(ts.timestamp() // bar_seconds) == now_bucket:
+                return {
+                    "order_package_id": str(row.get("order_package_id") or ""),
+                    "bar_seconds": int(bar_seconds),
+                    "last_created_at": str(created),
+                }
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_same_bar_entry_for_strategy(%s, symbol=%s): DB read failed — %s",
+            strategy_name, symbol, exc,
+        )
+        return None

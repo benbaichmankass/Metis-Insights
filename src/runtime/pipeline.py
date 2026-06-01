@@ -50,6 +50,7 @@ from src.runtime.strategy_monocle import (  # noqa: E402
     _refusal_cooldown_seconds,  # noqa: F401  (re-export: tests import from pipeline)
     _has_open_package_for_strategy,
     _recent_refusal_for_strategy,
+    _same_bar_entry_for_strategy,
 )
 
 _OUTCOME_LEVEL_BY_STATUS: Dict[str, Level] = {
@@ -485,6 +486,53 @@ def run_pipeline(
                         "reason": "open_package_exists",
                         "strategy": _gate_strategy,
                         "open_package_id": _existing_open,
+                        "signal": signal,
+                    }
+                    _report_pipeline_outcome(result, signal)
+                    return result
+                # Bar-close debounce — one entry attempt per CLOSED bar
+                # (PERF-20260601-001). The open-package gate above only blocks
+                # while a package is *open*; when one closes mid-bar (the
+                # reconciler records an exchange-side SL/TP fire) the gate frees
+                # and the strategy re-fires its still-valid breakout on the next
+                # tick — within the SAME bar. On the 2 h trend_donchian this
+                # stacked 9 packages in ~1 h on 2026-06-01 and flooded the
+                # journal with ``intent_noop`` rejection rows (the intent layer
+                # no-ops the duplicate while a net position is held), skewing
+                # per-strategy stats. Suppress a second actionable dispatch for
+                # the same strategy+symbol inside the same timeframe bucket as
+                # the package it already created this bar. Kill-switch:
+                # ``STRATEGY_BAR_DEBOUNCE_DISABLED``.
+                _same_bar = _same_bar_entry_for_strategy(
+                    _gate_strategy, symbol=signal.get("symbol")
+                )
+                if _same_bar is not None:
+                    logger.info(
+                        "strategy_monocle: skipping dispatch — strategy=%s "
+                        "already acted this bar (bar=%ds, last_pkg=%s @ %s)",
+                        _gate_strategy, _same_bar["bar_seconds"],
+                        _same_bar["order_package_id"], _same_bar["last_created_at"],
+                    )
+                    try:
+                        log_signal({
+                            "event": "bar_debounce_blocked",
+                            "strategy": _gate_strategy,
+                            "symbol": signal.get("symbol"),
+                            "side": signal.get("side"),
+                            "bar_seconds": _same_bar["bar_seconds"],
+                            "last_package_id": _same_bar["order_package_id"],
+                            "last_created_at": _same_bar["last_created_at"],
+                        })
+                    except Exception:  # noqa: BLE001
+                        logger.exception(
+                            "strategy_monocle: bar-debounce audit emit failed",
+                        )
+                    result = {
+                        "status": "skipped",
+                        "reason": "same_bar_reentry_debounce",
+                        "strategy": _gate_strategy,
+                        "last_package_id": _same_bar["order_package_id"],
+                        "bar_seconds": _same_bar["bar_seconds"],
                         "signal": signal,
                     }
                     _report_pipeline_outcome(result, signal)
