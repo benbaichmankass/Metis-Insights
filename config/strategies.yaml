@@ -127,8 +127,14 @@ strategies:
                               # matches the STRATEGY_RISK_PCT fallback in
                               # src/runtime/pipeline.py. Revisit upward
                               # only after live proof (operator-approved).
-    timeframe: "2h"          # S9 migration 1h → 2h (2026-05-24, walk-forward
-                             # validated). Served as Bybit 120m via CCXT.
+    timeframe: "1h"          # RE-TUNED 2h → 1h 2026-06-01 (Tier-3, operator-
+                             # approved). SUPERSEDES the 2026-05-24 S9 1h → 2h
+                             # migration: the overnight 2026-06-01 research
+                             # (357 backtests, 3-fold robust) found 1h /
+                             # trail 5.0 is the OOS-best corner (+43.8 R OOS,
+                             # 3-fold +14/+54/+24) — it tested the wider trail
+                             # the S9 analysis never did, and at trail 5.0 the
+                             # 1h timeframe wins. Served as Bybit 60m via CCXT.
     symbols:
       - BTCUSDT               # currently the only supported symbol
                               # (SUPPORTED_SYMBOLS gate). NOTE: like the
@@ -138,12 +144,15 @@ strategies:
                               # config/accounts.yaml.
     # Strategy-specific — the robust-plateau centre. trail MUST stay
     # looser than the entry stop (atr_stop < trail) or the edge goes
-    # negative; at 2h the trail=3.5 / donchian 20 corner is the
-    # walk-forward train-winner (OOS-confirmed).
+    # negative. RE-TUNED 2026-06-01: trail 3.5 → 5.0 at the 1h timeframe,
+    # the overnight-research OOS-best corner. The report's dominant
+    # cross-cutting finding was that a WIDE trail (≈5.0) lifts net R in
+    # every family — the default 3.0–3.5 cuts the fat-tail runners that
+    # ARE the trend edge. donchian 20 unchanged (the plateau centre).
     donchian: 20
     atr_period: 14
     atr_stop_mult: 2.5
-    trail_mult: 3.5
+    trail_mult: 5.0
     # No fixed profit target — the Chandelier trail is the sole
     # profit-exit (matches the backtest, which has no TP). `tp` is placed
     # tp_r × risk away as a far, effectively-unreachable sentinel that
@@ -600,14 +609,18 @@ strategies:
     #   * Fee-robust: +55R even at 15 bps (2x the modelled 7.5).
     #   * Only 0.46 monthly-return correlation to the live 2h trend_donchian -
     #     an ADDITIVE A/B, not a re-skin; the faster TF is genuinely distinct.
-    # GRADUATION: shadow -> live is the operator-gated Tier-3 step. Routed to
-    # bybit_1 (demo) ONLY until promoted. The runtime builder honours `enabled`.
+    # RETIRED 2026-06-01 (enabled: false, Tier-3, operator-approved): this A/B's
+    # whole job was to validate 1h / trail 5.0 against the live 2h flagship. That
+    # validation is now ADOPTED — the live trend_donchian was re-tuned to exactly
+    # this config (1h / donchian 20 / trail 5.0) in the same PR. Keeping this
+    # instance enabled would double-fire identical 1h breakouts on bybit_1 (the
+    # demo account runs BOTH), so it is disabled. Block retained (not deleted) as
+    # the record of the A/B; the live strategy now collects the 1h/5.0 data
+    # directly on both demo (bybit_1) and real (bybit_2).
     model: null
     signal_prefixes: [trend_donchian_1h, donchian_1h]
-    enabled: true
-    execution: shadow        # NEW instance ships shadow: runs + logs on real
-                             # ticks, never sends a live order. bybit_1 (demo)
-                             # only until promoted (Tier-3).
+    enabled: false           # RETIRED — config adopted into live trend_donchian.
+    execution: shadow        # moot while disabled; left shadow for safety.
     risk_pct: 0.3            # conservative; matches the live trend_donchian.
                              # Inert while execution: shadow.
     timeframe: "1h"          # the faster-TF variant (live trend_donchian is 2h).
