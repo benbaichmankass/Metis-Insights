@@ -51,8 +51,10 @@ from src.runtime.runtime_flags import is_strategy_paused
 from src.runtime.strategy_signal_builders import (
     fade_breakout_4h_signal_builder,
     fvg_range_15m_signal_builder,
+    htf_pullback_trend_2h_signal_builder,
     squeeze_breakout_4h_signal_builder,
     ict_scalp_signal_builder,
+    trend_donchian_1h_signal_builder,
     trend_donchian_signal_builder,
     turtle_soup_signal_builder,
     vwap_signal_builder,
@@ -99,6 +101,16 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # collection; priority 3 (new floor) so a wiring slip can't override
         # an established member. Builder honours the YAML `enabled` flag.
         "fvg_range_15m": fvg_range_15m_signal_builder,
+        # htf_pullback_trend_2h: overnight-research HTF-pullback trend-follower,
+        # execution:shadow (2026-06-01) for live data collection; priority 2
+        # (new floor) so a wiring slip can't override an established member.
+        # Builder honours the YAML `enabled` flag.
+        "htf_pullback_trend_2h": htf_pullback_trend_2h_signal_builder,
+        # trend_donchian_1h: faster-TF/wider-trail shadow A/B of the live 2h
+        # trend_donchian, execution:shadow (2026-06-01) for live data
+        # collection; priority 1 (new floor) so a wiring slip can't override an
+        # established member. Builder honours the YAML `enabled` flag.
+        "trend_donchian_1h": trend_donchian_1h_signal_builder,
     }
 
 

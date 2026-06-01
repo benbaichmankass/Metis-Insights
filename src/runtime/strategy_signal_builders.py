@@ -984,6 +984,283 @@ def fade_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
     return _with_signal_package("fade_breakout_4h", sig)
 
 
+def htf_pullback_trend_2h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """HTF-pullback trend-follower (overnight research 2026-06-01).
+
+    Requires an HTF Donchian-midline uptrend, then buys a pullback into the
+    lower ``pullback_frac`` of the recent range, with the shared Chandelier
+    ATR trail (let-winners-run). Fetches 2h candles, calls
+    ``src.units.strategies.htf_pullback_trend_2h.order_package``, maps to the
+    pipeline-shape signal dict.
+
+    Cleared for ``execution: shadow`` after net-of-fee + walk-forward
+    (IS +32.7R / OOS +22.4R), 3-fold robustness (+30/+42/+8 across 2y folds),
+    fee-robustness (+67R even at 15 bps), and additive correlation to the live
+    roster (0.20-0.54). Validated config: trend_lookback 40 / pullback_frac
+    0.5 / trail_mult 5.0. Evidence:
+    docs/research/overnight-strategy-research-2026-06-01.md; harness:
+    scripts/backtest_pullback.py.
+
+    Honours the YAML ``enabled`` flag as the single source of truth
+    (``enabled: false`` short-circuits to ``side="none"``). The
+    ``execution: shadow`` gate is enforced downstream in the Accounts layer,
+    not here - this builder always produces the real signal so the shadow log
+    captures exactly what would have traded.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.htf_pullback_trend_2h import order_package
+    from src.runtime.market_data import fetch_candles
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 - never fail-open on a config error
+        strategies_cfg = {}
+    hp_cfg = strategies_cfg.get("htf_pullback_trend_2h", {}) or {}
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+
+    if not bool(hp_cfg.get("enabled", False)):
+        logger.info(
+            "htf_pullback_trend_2h: strategy disabled in config/strategies.yaml - "
+            "returning side=none"
+        )
+        return _with_signal_package("htf_pullback_trend_2h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "htf_pullback_trend_2h",
+                "reason": "disabled_in_yaml",
+            },
+        })
+
+    timeframe = str(
+        hp_cfg.get("timeframe")
+        or settings.get("HTF_PULLBACK_TREND_2H_TIMEFRAME")
+        or settings.get("TIMEFRAME")
+        or "2h"
+    )
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(
+        symbol, timeframe, exchange_client=exchange, limit=200,
+    )
+    if candles_df is None:
+        raise RuntimeError(
+            f"htf_pullback_trend_2h: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the exchange connection "
+            "is configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **hp_cfg}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("htf_pullback_trend_2h: no actionable signal (%s)", exc)
+        try:
+            log_signal({
+                "event": "htf_pullback_trend_2h_eval",
+                "strategy": "htf_pullback_trend_2h",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception("htf_pullback_trend_2h: dedicated audit emit failed")
+        return _with_signal_package("htf_pullback_trend_2h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "htf_pullback_trend_2h",
+                "reason": str(exc),
+            },
+        })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "htf_pullback_trend_2h: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal({
+            "event": "htf_pullback_trend_2h_eval",
+            "strategy": "htf_pullback_trend_2h",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        })
+    except Exception:  # noqa: BLE001
+        logger.exception("htf_pullback_trend_2h: dedicated audit emit failed")
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "htf_pullback_trend_2h",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "htf_pullback_trend_2h",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+            "strategy_risk_pct": float(hp_cfg.get("risk_pct", 0.3) or 0.3),
+        },
+    }
+    _emit_shadow_preds(
+        "htf_pullback_trend_2h", sig, hp_cfg, symbol,
+        timeframe=timeframe, candles_df=candles_df,
+    )
+    return _with_signal_package("htf_pullback_trend_2h", sig)
+
+
+def trend_donchian_1h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """trend_donchian on the 1h timeframe with a wide trail — shadow A/B
+    (overnight research 2026-06-01).
+
+    A faster-timeframe / wider-trail variant of the LIVE trend_donchian
+    flagship: same Donchian-breakout entry + Chandelier ATR trail, but on 1h
+    candles with donchian 20 / trail_mult 5.0. Reuses the SAME unit
+    (``src.units.strategies.trend_donchian.order_package``) parametrised by its
+    own ``trend_donchian_1h`` config block — it is a distinct strategy instance,
+    NOT a change to the live 2h strategy.
+
+    Cleared for ``execution: shadow`` after the overnight sweep + pre-shadow
+    validation: net-of-fee walk-forward IS +42.4R / OOS +43.8R (near-symmetric),
+    net-positive in all three 2y folds (+14/+54/+24), fee-robust (+55R at 15bps),
+    and only 0.46 monthly-return correlation to the live 2h trend_donchian
+    (additive A/B, not a re-skin). Evidence:
+    docs/research/overnight-strategy-research-2026-06-01.md.
+
+    Honours the YAML ``enabled`` flag as the single source of truth. The
+    ``execution: shadow`` gate is enforced downstream in the Accounts layer —
+    this builder always produces the real signal so the shadow log captures
+    exactly what would have traded.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.trend_donchian import order_package
+    from src.runtime.market_data import fetch_candles
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 - never fail-open on a config error
+        strategies_cfg = {}
+    td1h_cfg = strategies_cfg.get("trend_donchian_1h", {}) or {}
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+
+    if not bool(td1h_cfg.get("enabled", False)):
+        logger.info(
+            "trend_donchian_1h: strategy disabled in config/strategies.yaml - "
+            "returning side=none"
+        )
+        return _with_signal_package("trend_donchian_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "trend_donchian_1h",
+                "reason": "disabled_in_yaml",
+            },
+        })
+
+    timeframe = str(
+        td1h_cfg.get("timeframe")
+        or settings.get("TREND_DONCHIAN_1H_TIMEFRAME")
+        or "1h"
+    )
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(
+        symbol, timeframe, exchange_client=exchange, limit=200,
+    )
+    if candles_df is None:
+        raise RuntimeError(
+            f"trend_donchian_1h: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the exchange connection "
+            "is configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **td1h_cfg}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("trend_donchian_1h: no actionable signal (%s)", exc)
+        try:
+            log_signal({
+                "event": "trend_donchian_1h_eval",
+                "strategy": "trend_donchian_1h",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception("trend_donchian_1h: dedicated audit emit failed")
+        return _with_signal_package("trend_donchian_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "trend_donchian_1h",
+                "reason": str(exc),
+            },
+        })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "trend_donchian_1h: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal({
+            "event": "trend_donchian_1h_eval",
+            "strategy": "trend_donchian_1h",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        })
+    except Exception:  # noqa: BLE001
+        logger.exception("trend_donchian_1h: dedicated audit emit failed")
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "trend_donchian_1h",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "trend_donchian_1h",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+            "strategy_risk_pct": float(td1h_cfg.get("risk_pct", 0.3) or 0.3),
+        },
+    }
+    _emit_shadow_preds(
+        "trend_donchian_1h", sig, td1h_cfg, symbol,
+        timeframe=timeframe, candles_df=candles_df,
+    )
+    return _with_signal_package("trend_donchian_1h", sig)
+
+
 def squeeze_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
     """Volatility-squeeze breakout (S-STRAT-IMPROVE-S9), member-#3 candidate.
 
