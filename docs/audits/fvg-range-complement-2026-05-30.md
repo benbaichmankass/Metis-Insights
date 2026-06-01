@@ -28,7 +28,7 @@ oscillating between *static* support & resistance where the bounce continues
   not a static-S/R bounce, and it enters on the failed-break bar, not at a
   range boundary the market has respected repeatedly.
 - `vwap` reverts to a *drifting* VWAP anchor and is trend-gated; it has no
-  net-of-fee edge (`docs/audits/vwap-viability-verdict-2026-05-23.md`).
+  net-of-fee edge (`docs/audits/strategy-loss-drivers-2026-05-23.md`).
 - `ict_scalp_5m` uses an FVG in the **opposite** intent — continuation in the
   breakout direction (momentum), not reversion inside a range.
 

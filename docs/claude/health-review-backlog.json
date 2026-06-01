@@ -3,6 +3,22 @@
  "schema_version": 1,
  "items": [
   {
+   "id": "BL-20260601-002",
+   "opened_at": "2026-06-01T15:30:00+00:00",
+   "opened_by": "claude (/doc-freshness)",
+   "source": "/doc-freshness sweep at the end of the 2026-06-01 evening session (PRs #2574, #2580). Surfaced a doc-vs-reality drift while reconciling vwap citations.",
+   "title": "config/strategies.yaml:318 cites docs/audits/vwap-viability-verdict-2026-05-23.md but that file does not exist (the real doc is docs/audits/strategy-loss-drivers-2026-05-23.md)",
+   "description": "config/strategies.yaml:318 contains the comment 'vwap has no net-of-fee edge (docs/audits/vwap-viability-verdict-2026-05-23.md)' in the vwap block. The referenced filename does NOT exist on disk — `find docs -iname '*vwap*viability*'` returns nothing. The actual document carrying the 'thin gross edge fees bury ~4x' finding for vwap is docs/audits/strategy-loss-drivers-2026-05-23.md (same 2026-05-23 date, vwap is one of its main subjects, contains the 25.1% WR / 167 trades / -$35.82 / fees 4x gross finding). The reference was propagated to a few other places: docs/audits/fvg-range-complement-2026-05-30.md:31 (FIXED in this session), docs/research/regime-roster-matrix-2026-06-01.md (FIXED, the citation I added when resolving PERF-20260601-003), docs/research/regime-router-design-2026-06-01.md (FIXED). config/strategies.yaml is Tier-3 (operator-only), so this skill cannot edit it — surface to operator. Minor (the citation points at a nonexistent file but the surrounding comment is still correct; a reader looking it up gets a 404).",
+   "tier": 3,
+   "trigger_condition": "Any /health-review run; or whenever a Tier-3 PR touches config/strategies.yaml for an unrelated reason and the bad citation can be refreshed in the same diff.",
+   "resolution_criteria": "config/strategies.yaml:318 cites either docs/audits/strategy-loss-drivers-2026-05-23.md (the real source) or a future docs/audits/vwap-viability-verdict-2026-05-23.md created to host that specific verdict. Operator decides which.",
+   "status": "open",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution": null,
+   "snoozed_until": null
+  },
+  {
    "id": "BL-20260531-001",
    "opened_at": "2026-05-31T16:30:00+00:00",
    "opened_by": "claude",

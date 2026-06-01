@@ -60,8 +60,9 @@ shipped four new flags (`--min-r-for-vwap-cross`, `--min-hold-minutes-for-vwap-c
 > stays the same, and the fee:gross ratio of ~4.2× swamps the edge. Per-regime
 > the exp_r is uniform (−0.27 trending / −0.26 transitional / −0.26 chop) —
 > **no regime where vwap earns net of fees**. Confirms
-> `docs/audits/vwap-viability-verdict-2026-05-23.md`'s 2026-05-23 verdict on
-> the precise live-gate path over the multiyear archive.
+> `docs/audits/strategy-loss-drivers-2026-05-23.md`'s 2026-05-23 finding (vwap
+> has a thin positive gross edge that fees bury ~4×) on the precise live-gate
+> path over the multiyear archive.
 >
 > The `recent_context_filter` was intentionally **not** threaded: per
 > `config/strategies.yaml::vwap.recent_context_filter` it is "Informational
