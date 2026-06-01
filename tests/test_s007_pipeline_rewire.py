@@ -43,7 +43,8 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
     names = sorted(s["name"] for s in load_strategies())
     assert names == [
         "fade_breakout_4h", "fvg_range_15m", "htf_pullback_trend_2h", "ict_scalp_5m",
-        "squeeze_breakout_4h", "trend_donchian", "trend_donchian_1h", "turtle_soup", "vwap",
+        "mes_trend_long_1d", "squeeze_breakout_4h", "trend_donchian", "trend_donchian_1h",
+        "turtle_soup", "vwap",
     ]
 
 

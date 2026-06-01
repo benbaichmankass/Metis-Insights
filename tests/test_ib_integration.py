@@ -199,7 +199,12 @@ class TestAccountsYaml:
         assert paper["mode"] == "live"          # paper → live (paper money)
         assert paper["ib_port"] == 4002         # host 4002 → gnzsnz socat relay 4004
         assert paper["ib_account"] == "DUQ325724"
-        assert paper["strategies"] == ["turtle_soup", "vwap", "ict_scalp_5m"]  # all 3 on MES
+        # turtle_soup/vwap/ict_scalp_5m on MES + mes_trend_long_1d (execution:
+        # shadow daily long-only diversifier, wired 2026-06-01 — never sends a
+        # live order; the demo MES sleeve that collects live-MES trend data).
+        assert paper["strategies"] == [
+            "turtle_soup", "vwap", "ict_scalp_5m", "mes_trend_long_1d",
+        ]
 
         live = accts["ib_live"]
         assert live["exchange"] == "interactive_brokers"
@@ -254,7 +259,9 @@ class TestLoadAccounts:
         assert paper.ib_port == 4002          # host 4002 → gnzsnz socat relay 4004
         assert paper.ib_account == "DUQ325724"
         assert paper.ib_client_id == 497
-        assert paper.strategies == ["turtle_soup", "vwap", "ict_scalp_5m"]
+        assert paper.strategies == [
+            "turtle_soup", "vwap", "ict_scalp_5m", "mes_trend_long_1d",
+        ]  # + shadow daily long-only diversifier (2026-06-01)
 
         live = accounts["ib_live"]
         assert live.dry_run is True           # mode: dry_run

@@ -623,3 +623,48 @@ strategies:
                              # validated unfiltered (the wide trail is the edge).
     shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring while
                               # this fresh data-collector builds a track record.
+
+  mes_trend_long_1d:
+    # MES daily LONG-ONLY trend-follower (overnight research 2026-06-01). A
+    # BTC-uncorrelated EQUITY-INDEX diversifier: Donchian-breakout + Chandelier
+    # ATR trail on the MES daily candle, reusing the trend_donchian unit but
+    # GATED LONG-ONLY (shorts suppressed in the builder) — the equity-index edge
+    # is the long side; the validated short side was net-negative. Runs on the
+    # IBKR `ib_paper` account (MES futures); fetch_candles routes the MES symbol
+    # to IBKR automatically. Validated harness: scripts/backtest_trend.py.
+    #
+    # STATUS: execution: shadow (NEW 2026-06-01). Runs + LOGS order packages on
+    # real MES ticks but never sends a live order. The diversification lead from
+    # the overnight campaign (docs/research/overnight-strategy-research-2026-06-01.md,
+    # PERF-20260531-001):
+    #   * On SPX (the CFD proxy), long-only trend is net-positive in IS+OOS
+    #     across THREE independent families (trend / TSMOM / MA-cross), with
+    #     near-ZERO correlation to the BTC roster and tiny drawdown (2-7R).
+    #   * CAVEAT: validated on SPX500-CFD, NOT live MES, and live MES history is
+    #     short (~16 months). This shadow run exists precisely to collect the
+    #     live-instrument data needed before any promotion — the long-only edge
+    #     must be re-confirmed on real MES before shadow -> live (Tier-3).
+    # The runtime builder honours `enabled` as the single source of truth and
+    # suppresses every short signal (long-only).
+    model: null
+    signal_prefixes: [mes_trend_long, mes_trend]
+    enabled: true
+    execution: shadow        # NEW sleeve ships shadow: runs + logs on real MES
+                             # ticks, never sends a live order. ib_paper (IBKR
+                             # paper) only until promoted (Tier-3).
+    long_only: true          # documents the builder's long-only gate (shorts
+                             # are suppressed); the equity-index edge is long.
+    risk_pct: 0.3            # conservative; inert while execution: shadow.
+    timeframe: "1d"          # the daily timeframe the equity-index edge lives on.
+    symbols:
+      - MES                  # Micro E-mini S&P 500 future (IBKR). NOT BTCUSDT.
+    # Strategy params — the validated config (donchian 30 / trail_mult 4.0 on the
+    # daily). Donchian-30 was the steadier long-side config in the SPX sweep.
+    donchian: 30
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 4.0
+    tp_r: 50.0
+    min_confidence: 0.0
+    shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring while
+                              # this fresh data-collector builds a track record.
