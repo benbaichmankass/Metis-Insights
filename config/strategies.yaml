@@ -172,12 +172,12 @@ strategies:
     # src/units/strategies/fade_breakout_4h.py; validated harness:
     # scripts/backtest_fade.py.
     #
-    # STATUS: execution: live (PROMOTED from shadow 2026-05-25, operator
-    # decision, Tier-3). VALIDATED as an uncorrelated complement to the
-    # live trend-follower; now executes on real money (bybit_2) + paper
-    # (bybit_1 demo). Promoted WITHOUT the prior "more live proof" gate —
-    # explicit operator call. Evidence (docs/audits/fade-breakout-
-    # complement-2026-05-24.md):
+    # STATUS: execution: shadow (DEMOTED from live 2026-06-01, operator
+    # decision, Tier-3 — see the `execution:` field below). Promoted live
+    # 2026-05-25 on the backtest below, but the live record showed no edge
+    # (16 closed, 44% win, net -86R), so it was demoted back to a logging
+    # shadow. The backtest evidence that justified the original promotion
+    # (docs/audits/fade-breakout-complement-2026-05-24.md):
     #   * +64.2R / 6yr (2020-2026), net-positive every year, max-DD 13.9R.
     #   * Uncorrelated with live trend_donchian (monthly_corr 0.035); the
     #     equal-weight blend lifts return/drawdown 1.97 -> 3.80 and nearly
@@ -199,13 +199,14 @@ strategies:
     model: null
     signal_prefixes: [fade_breakout, fade]
     enabled: true
-    execution: live          # PROMOTED from shadow to live 2026-05-25
-                             # (operator decision, Tier-3): now executes on
-                             # every routed account (real money on bybit_2,
-                             # paper on bybit_1 demo). Overrides the prior
-                             # "shadow until live proof" stance.
-    risk_pct: 0.3            # conservative; matches the STRATEGY_RISK_PCT
-                             # fallback. Now ACTIVE (execution: live).
+    execution: shadow        # DEMOTED live -> shadow 2026-06-01 (operator
+                             # decision, Tier-3): no live edge demonstrated —
+                             # 16 closed trades, 44% win, net -86R (almost all
+                             # bybit_1 demo; real-money bybit_2 +1.55/8). Shadow
+                             # runs + logs on every routed account but sends NO
+                             # live order. Re-promote only on a fresh
+                             # net-positive live/shadow window.
+    risk_pct: 0.3            # retained for sizing while in shadow.
     timeframe: "4h"          # served as Bybit 240m via CCXT.
     symbols:
       - BTCUSDT              # currently the only supported symbol
@@ -251,12 +252,12 @@ strategies:
     # src/units/strategies/squeeze_breakout_4h.py; harness:
     # scripts/backtest_squeeze.py.
     #
-    # STATUS: execution: live (PROMOTED from shadow 2026-05-25, operator
-    # decision, Tier-3). VALIDATED; now executes on real money (bybit_2) +
-    # paper (bybit_1 demo). Promoted WITHOUT the prior "live proof" gate —
-    # explicit operator call. Caveat: OOS returns are month-concentrated
-    # (the residual live risk). Evidence:
-    # docs/audits/squeeze-breakout-complement-2026-05-24.md.
+    # STATUS: execution: shadow (DEMOTED from live 2026-06-01, operator
+    # decision, Tier-3 — see the `execution:` field below). Promoted live
+    # 2026-05-25 despite a month-concentrated-OOS caveat; the live record
+    # confirmed the risk (60 closed, 0% win, net -20R), so it was demoted
+    # back to a logging shadow. The backtest evidence that justified the
+    # original promotion: docs/audits/squeeze-breakout-complement-2026-05-24.md.
     #
     # `execution:` = per-strategy gate (enforced in
     # Coordinator.multi_account_execute). Now `live` — executes on every
@@ -264,11 +265,14 @@ strategies:
     model: null
     signal_prefixes: [squeeze_breakout, squeeze]
     enabled: true
-    execution: live          # PROMOTED from shadow to live 2026-05-25
-                             # (operator decision, Tier-3): executes on every
-                             # routed account (real money bybit_2 + paper
-                             # bybit_1 demo).
-    risk_pct: 0.3            # now ACTIVE (execution: live).
+    execution: shadow        # DEMOTED live -> shadow 2026-06-01 (operator
+                             # decision, Tier-3): no live edge demonstrated —
+                             # 60 closed trades, 0% win, net -20R (bybit_1 demo
+                             # -18.7, real-money bybit_2 -1.12/3). The
+                             # month-concentrated-OOS caveat materialised live.
+                             # Shadow runs + logs but sends NO live order;
+                             # re-promote only on a fresh net-positive window.
+    risk_pct: 0.3            # retained for sizing while in shadow.
     timeframe: "4h"          # served as Bybit 240m via CCXT.
     symbols:
       - BTCUSDT

@@ -79,9 +79,21 @@
   ],
   "fade_breakout_4h": [
     {
+      "date": "2026-06-01",
+      "ref": "Demotion live -> shadow (this PR) - Tier-3, operator-approved",
+      "summary": "DEMOTED execution: live -> shadow. The live record showed no edge after the 2026-05-25 promotion: 16 closed trades, 44% win, net -86R (almost all bybit_1 demo; real-money bybit_2 +1.55 over 8 trades). Shadow keeps it running + logging order packages on every routed account but it sends NO live order. Re-promote only on a fresh net-positive live/shadow window. The original backtest that justified the promotion (+64.2R/6yr, monthly_corr 0.035 to trend_donchian) still stands; this is a live-vs-backtest-divergence demotion, not a backtest reversal."
+    },
+    {
       "date": "2026-05-30",
       "ref": "exit review / time-stop (this PR) \u2014 DRAFT, Tier-3",
       "summary": "Added an ~8-day (48-bar) time-decay close to monitor() to restore live\u2194backtest parity \u2014 the validated config used timeout_bars=48 but the live monitor had no time stop (ran timeout=\u221e), so stalled fades sat open for weeks. 6.2yr 4h walk-forward: timeout=48 is a broad plateau (42-60 net-positive), fee-robust, helps across donchian/trail neighbors; FULL 6yr +73.5R->+87.7R. HONEST framing: the +14R lift is mostly a 2020-2023 (train) effect \u2014 OOS 2024-2026 it is neutral-to-slightly-better with marginally lower maxDD. So it is a parity + risk/operational change (caps stalled holds, frees capital), NOT an alpha boost. The 3.5xATR trail + all entry logic are unchanged (tightening the trail or adding partial-TPs was tested and HURTS net \u2014 the give-back from the peak is the price of the fat-tail runners that are the edge). Evidence: docs/audits/fade-breakout-complement-2026-05-24.md \u00a7 time-stop addendum."
+    }
+  ],
+  "squeeze_breakout_4h": [
+    {
+      "date": "2026-06-01",
+      "ref": "Demotion live -> shadow (this PR) - Tier-3, operator-approved",
+      "summary": "DEMOTED execution: live -> shadow. The month-concentrated-OOS caveat flagged at the 2026-05-25 promotion materialised in the live record: 60 closed trades, 0% win, net -20R (bybit_1 demo -18.7; real-money bybit_2 -1.12 over 3 trades). Shadow keeps it running + logging but it sends NO live order. Re-promote only on a fresh net-positive window. Original promotion evidence: docs/audits/squeeze-breakout-complement-2026-05-24.md."
     }
   ],
   "htf_pullback_trend_2h": [
