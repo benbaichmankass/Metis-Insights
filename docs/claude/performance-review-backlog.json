@@ -220,7 +220,10 @@
       "resolved_at": null,
       "resolved_by": null,
       "resolution_note": null,
-      "snoozed_until": null
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-06-01 (/performance-review, operator decision): OPTION 2 CHOSEN. Operator accepted the regime-roster MATRIX as sufficient evidence to proceed to phase-3 hard gates (behind REGIME_ROUTER_ENABLED, one-flag rollback) rather than manufacturing live OFF-cell intents to grow the shadow soak (Option 1 explicitly rejected — it would mean placing -EV trades just to generate logging). RATIONALE confirmed in code: _shadow_regime_gate (intents.py:676) runs over ALL candidate intents BEFORE execution:shadow is resolved (multi_account_execute), so the would-gate stream IS accumulating — but it is dominated by vwap (execution:shadow), where a hard gate is REDUNDANT; no LIVE strategy currently sits in an OFF cell (trend_donchian + mes are long-only, long cells ON). So phase-3 gates are ~a no-op on today's live PnL and only bite once a two-sided strategy is re-promoted (e.g. squeeze PERF-20260601-005, or reclaiming trend's chop-short via a policy cell). PRE-CONDITION before flipping the flag: PERF-20260601-008 base-rate check must pass (live regime distribution ~= matrix base rates) — a detector/data mismatch would gate the wrong cells. Ongoing gate firing+performance monitoring tracked in PERF-20260601-011."
+      ]
     },
     {
       "id": "PERF-20260601-007",
@@ -284,6 +287,22 @@
       "resolution_criteria": "vwap and htf_pullback_trend_2h order packages carry a confidence that VARIES with setup strength (not a constant 1.0); OR it's confirmed by-design that these strategies don't expose a graded confidence and the placeholder is documented + excluded from ML features.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "PERF-20260601-011",
+      "opened_at": "2026-06-01T19:45:00+00:00",
+      "opened_by": "claude (/performance-review, operator request)",
+      "source": "Operator 2026-06-01: after choosing Option 2 for the regime router, asked to log that the gates need to be tested periodically and their performance monitored — folded into the strategy review as a recurring check.",
+      "title": "RECURRING (every /performance-review): test the regime-router gates fire correctly + monitor gate performance",
+      "description": "Standing check the strategy review runs each pass, in two layers. (1) FIRING CORRECTNESS (phase 2+): pull a window where actionable directional intents fired (e.g. a vwap-active period) and confirm regime_shadow_gate events appear with the EXPECTED (strategy, side, regime, cell) per config/regime_policy.yaml + the regime-roster matrix, enforced:false in phase 2. Confirm the would-gate counts are sane (not zero when OFF-cell intents clearly fired; not gating ON-cell or unlisted strategies). NOTE the gate is event-driven on actionable intents, so a quiet window legitimately shows few/none — sample a busy window. (2) GATE PERFORMANCE: tally would-gate counts per (strategy, regime, side) vs ACTUAL fills, and once phase 3 is live (REGIME_ROUTER_ENABLED) verify the hard gates (a) are actually suppressing the OFF-cell intents they should, (b) are NOT suppressing winners — cross-check the regime-tagged decisions' realized PnL by regime against the matrix's expected sign, and flag any OFF cell that would have been net-POSITIVE live (regime shift since the matrix was measured) or any ON cell bleeding. Escalate a divergence >5pp on base rates (-> PERF-20260601-008) or a sign-flip on any cell as a tweak proposal / new backlog item.",
+      "tier": 1,
+      "trigger_condition": "EVERY /performance-review run (recurring; do not close on a single clean pass).",
+      "resolution_criteria": "RECURRING — never auto-resolves. Stays open as a standing checklist item; only closed if the regime router is retired. Each review appends a dated firing+performance reading to the evidence_log and raises a tweak/backlog item on any divergence.",
+      "status": "open",
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-06-01 (opened): baseline reading — phase 1 stamping live (119/119 eval rows carry regime/adx_14); phase 2 deployed log-only; firing-correctness spot-check still PENDING (the two audit windows sampled this session, 17:19Z + 18:55Z, did NOT overlap the 12-16Z vwap-active window, so regime_shadow_gate count was not positively confirmed yet). Next review: pull a vwap-active window and confirm the OFF-cell events fire as designed."
+      ]
     }
   ],
   "updated_at": "2026-06-01T16:45:00+00:00"
