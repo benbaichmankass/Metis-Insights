@@ -34,11 +34,13 @@ def test_distinct_from_live_trend_donchian():
     assert cfg["trend_donchian_1h"]["timeframe"] == "1h"
 
 
-def test_intent_priority_registered_as_floor():
+def test_intent_priority_registered_below_established_roster():
     from src.runtime.intents import DEFAULT_PRIORITIES
     assert DEFAULT_PRIORITIES.get("trend_donchian_1h") == 1
-    # the new lowest priority on the roster (safety floor for the shadow A/B).
-    assert DEFAULT_PRIORITIES["trend_donchian_1h"] == min(DEFAULT_PRIORITIES.values())
+    # ...below every established (non-shadow) strategy so a wiring slip can't let
+    # the shadow A/B override the live roster. (Not necessarily the global min —
+    # a later shadow strategy, e.g. the MES sleeve, sits even lower.)
+    assert DEFAULT_PRIORITIES["trend_donchian_1h"] < DEFAULT_PRIORITIES["fade_breakout_4h"]
 
 
 def test_routed_to_demo_only():

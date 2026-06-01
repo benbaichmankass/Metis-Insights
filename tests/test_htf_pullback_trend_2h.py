@@ -82,9 +82,10 @@ def test_contract_never_raises_foreign_exception():
             pass
 
 
-def test_intent_priority_registered_as_floor():
+def test_intent_priority_registered_below_established_roster():
     from src.runtime.intents import DEFAULT_PRIORITIES
     assert DEFAULT_PRIORITIES.get("htf_pullback_trend_2h") == 2
-    # ...and it is the lowest priority on the roster (safety floor for an
-    # untested, shadow-only strategy).
-    assert DEFAULT_PRIORITIES["htf_pullback_trend_2h"] == min(DEFAULT_PRIORITIES.values())
+    # ...and it sits BELOW every established (non-shadow) strategy, so a wiring
+    # slip can't let an untested shadow strategy override the live roster. (It is
+    # not necessarily the global min — newer shadow strategies sit even lower.)
+    assert DEFAULT_PRIORITIES["htf_pullback_trend_2h"] < DEFAULT_PRIORITIES["fade_breakout_4h"]
