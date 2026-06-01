@@ -150,6 +150,7 @@ The full evidence is in `docs/research/regime-roster-matrix-2026-06-01.md`.
 The vwap-off-everywhere decision is the loudest verdict in the table: net
 −10,724 R over 6+ years with the live exit-side gates threaded (40,650 trades,
 gross +3,399 R, fees −14,123 R — a 4.2× fee-to-gross ratio). Confirms the
-2026-05-23 `docs/audits/vwap-viability-verdict-2026-05-23.md` ("vwap has no
-net-of-fee edge") on the full multiyear archive with the precise live-gate
-path; the prior `−3749 R unfiltered` was directionally correct.
+2026-05-23 `docs/audits/strategy-loss-drivers-2026-05-23.md` finding (vwap
+has a thin positive gross edge fees bury ~4×) on the full multiyear archive
+with the precise live-gate path; the prior `−3749 R unfiltered` was
+directionally correct.
