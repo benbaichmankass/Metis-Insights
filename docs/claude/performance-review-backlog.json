@@ -145,6 +145,36 @@
    "resolution_criteria": "Full roster regime x direction matrix produced; long-vs-short/regime configs decided together; regime-router design proposed.",
    "resolved_at": null,
    "resolved_by": null,
+   "resolution_note": "2026-06-01 progress: full BTC roster matrix produced with exact live params (docs/research/regime-roster-matrix-2026-06-01.md). trend +10.9 (long +47/short -37), fade +19.4 (chop), squeeze +17.6 (every regime, low DD), fvg -16.9 (loser). vwap run was UNFILTERED (-3749, not decision-grade) -- needs live selectivity params. htf_pullback has no committed harness. 3 Tier-3 proposals (trend long-only vs chop-gated-short; squeeze/fade re-promotion criteria; regime-router design) in the doc, awaiting operator decision. Tooling on PR #2561.",
+   "snoozed_until": null
+  },
+  {
+   "id": "PERF-20260601-003",
+   "opened_at": "2026-06-01T12:10:00+00:00",
+   "opened_by": "claude (regime study)",
+   "source": "Roster regime matrix (PERF-20260601-002). docs/research/regime-roster-matrix-2026-06-01.md.",
+   "title": "Re-run vwap regime matrix with its LIVE selectivity params (not bare --no-htf)",
+   "description": "The 2026-06-01 vwap regime run used bare --no-htf => 10188 trades / -3749 R, i.e. the unfiltered VWAP-touch strategy (~11 trades/day vs the live cadence). Thread the live selectivity gates (recent_context_filter 1h/24-bar, threshold 0.01, min_r_for_vwap_cross, be_at_r) into src/backtest/run_backtest_vwap.py (it exposes --entry-threshold etc.) so the trade count matches live, then re-tag with regime_tag_emitted.py. Until then vwap's regime profile is not decision-grade.",
+   "tier": 1,
+   "status": "open",
+   "trigger_condition": "Before vwap joins the decision-grade roster matrix / router policy table.",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null,
+   "snoozed_until": null
+  },
+  {
+   "id": "PERF-20260601-004",
+   "opened_at": "2026-06-01T12:10:00+00:00",
+   "opened_by": "claude (regime study)",
+   "source": "Roster regime matrix (PERF-20260601-002).",
+   "title": "Commit/port a standalone htf_pullback harness so htf_pullback_trend_2h joins the regime matrix",
+   "description": "htf_pullback_trend_2h has no committed standalone backtest harness (the overnight backtest_pullback.py was never committed). Port it (run_backtest(df,*,...) + --emit-trades writing the shared JSONL schema) driven with the live params (trend_lookback 40, pullback_lookback 10, pullback_frac 0.5, trail 5.0), then add its regime x direction row.",
+   "tier": 1,
+   "status": "open",
+   "trigger_condition": "To complete roster coverage for the regime router policy table.",
+   "resolved_at": null,
+   "resolved_by": null,
    "resolution_note": null,
    "snoozed_until": null
   }
