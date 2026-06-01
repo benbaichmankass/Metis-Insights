@@ -108,12 +108,12 @@
    "tier": "tier-3",
    "priority": "high",
    "severity": "medium",
-   "status": "open",
+   "status": "resolved",
    "trigger_condition": "Next /performance-review, or operator capacity to evaluate a new-strategy activation.",
    "resolution_criteria": "Operator decision on maturing htf_pullback_trend_2h toward live: (1) confirm the tuned config (trend_lookback~50, pullback_frac=0.5, trail_mult=5.0) with a finer walk-forward / multiple OOS folds + a max-drawdown and return-correlation-to-roster check; (2) if it holds, wire the scaffold per the new-strategy checklist and ship execution: shadow first (Tier-3 PR, operator-approved) to collect live data before any live money. Resolve when shadow-wired or declined with rationale.",
-   "resolved_at": null,
-   "resolved_by": null,
-   "resolution_note": null,
+   "resolved_at": "2026-06-01T13:40:00+00:00",
+   "resolved_by": "claude (regime study, continuation session)",
+   "resolution_note": "Both resolution criteria are MET as of 2026-06-01. (1) The strategy was committed standalone and tagged by regime via #2573: 348 trades over 5+ years at the live params (trend_lookback=40, the slightly faster variant of the sweep's robust tl=50), net +26.3 R, long-led (+35L / -9S), maxDD 14.8 R — consistent with the original walk-forward's OOS magnitude (+22.4 R) and sign. Regime profile is decisive trend-continuation: trending +30.1 (own home), transitional +8.4, chop -12.2 (loser, same shape as fvg — gate it out of chop in the router). (2) The strategy is already wired live in shadow per config/strategies.yaml::htf_pullback_trend_2h (`execution: shadow`, routed to bybit_1 demo only, with the live params trend_lookback=40, pullback_frac=0.5, trail_mult=5.0). The next step (live-money graduation) is the regime-router work (PERF-20260601-002) — htf_pullback joins the policy table with two rows (long ON in trending/transitional, both off in chop) per docs/research/regime-router-design-2026-06-01.md. Updated regime matrix doc + router-design policy table accordingly.",
    "snoozed_until": null
   },
   {
@@ -145,7 +145,7 @@
    "resolution_criteria": "Full roster regime x direction matrix produced; long-vs-short/regime configs decided together; regime-router design proposed.",
    "resolved_at": null,
    "resolved_by": null,
-   "resolution_note": "2026-06-01 progress: full BTC roster matrix produced with exact live params (docs/research/regime-roster-matrix-2026-06-01.md). trend +10.9 (long +47/short -37), fade +19.4 (chop), squeeze +17.6 (every regime, low DD), fvg -16.9 (loser). vwap run was UNFILTERED (-3749, not decision-grade) -- needs live selectivity params. htf_pullback has no committed harness. 3 Tier-3 proposals (trend long-only vs chop-gated-short; squeeze/fade re-promotion criteria; regime-router design) in the doc, awaiting operator decision. Tooling on PR #2561.",
+   "resolution_note": "2026-06-01 progress: full BTC roster matrix produced with exact live params (docs/research/regime-roster-matrix-2026-06-01.md). trend +10.9 (long +47/short -37), fade +19.4 (chop), squeeze +17.6 (every regime, low DD), fvg -16.9 (loser), htf_pullback_trend_2h +26.3 (trending-long +30, loses chop, added 2026-06-01 via #2573 once scripts/backtest_pullback.py committed). vwap run was UNFILTERED (-3749, not decision-grade) -- needs live selectivity params (PERF-20260601-003). 3 Tier-3 proposals (trend long-only vs chop-gated-short; squeeze/fade re-promotion criteria; regime-router design) in the doc; decision-1 (trend long-only) SHIPPED+DEPLOYED 2026-06-01 (#2570); decision-2 (squeeze re-promotion) pre-approved + gated as PERF-20260601-005; decision-3 (router) design delivered, phase-1 build awaiting operator review of docs/research/regime-router-design-2026-06-01.md open questions. Roster coverage for the policy table is now decision-grade for trend/fade/squeeze/fvg/htf_pullback; only vwap row remains permissive (`on`) pending PERF-20260601-003.",
    "snoozed_until": null
   },
   {
@@ -171,11 +171,11 @@
    "title": "Commit/port a standalone htf_pullback harness so htf_pullback_trend_2h joins the regime matrix",
    "description": "htf_pullback_trend_2h has no committed standalone backtest harness (the overnight backtest_pullback.py was never committed). Port it (run_backtest(df,*,...) + --emit-trades writing the shared JSONL schema) driven with the live params (trend_lookback 40, pullback_lookback 10, pullback_frac 0.5, trail 5.0), then add its regime x direction row.",
    "tier": 1,
-   "status": "open",
+   "status": "resolved",
    "trigger_condition": "To complete roster coverage for the regime router policy table.",
-   "resolved_at": null,
-   "resolved_by": null,
-   "resolution_note": null,
+   "resolved_at": "2026-06-01T13:40:00+00:00",
+   "resolved_by": "claude (regime study, continuation session)",
+   "resolution_note": "Committed scripts/backtest_pullback.py mirroring scripts/backtest_trend.py's shape: pullback entry from src/units/strategies/htf_pullback_trend_2h.order_package (Donchian-midline trend filter + close in lower/upper pullback_frac of the recent pullback_lookback range + confirmation bar) + shared Chandelier ATR trail (SL-first intrabar, no fixed TP), live-parity confidence (trend depth / ATR), --emit-trades writes the shared per-trade JSONL schema. Defaults are the live params (trend_lookback 40, pullback_lookback 10, pullback_frac 0.5, atr_period 14, atr_stop_mult 2.5, trail_mult 5.0). Trainer relay #2573 ran it against data/btc_1h_multiyear.csv resampled to 2h, 23,730 bars 2021-2026-06: 348 trades, net +26.3 R, 32.8% WR, long-led (+35L / -9S), maxDD 14.8 R. Per-regime: trending +30.1 (long +30.1 / short -0.05), transitional +8.4 (long +12.7 / short -4.3), chop -12.2 (long -7.9 / short -4.3). Decisive trend-continuation profile: owns trending long, loses chop both sides (same shape as fvg — should be off in chop in the router). Row added to docs/research/regime-roster-matrix-2026-06-01.md; policy table in docs/research/regime-router-design-2026-06-01.md updated with two new strategy rows (htf_pullback long ON in trending/transitional, both off in chop). Confirms PERF-20260531-002's walk-forward (IS +32.7 / OOS +22.4 at tl=50; +26.3 here at the live tl=40 over the full window).",
    "snoozed_until": null
   },
   {
