@@ -51,6 +51,25 @@ matures.
    new strategy executes on demo/paper *first* (real fills, no risk),
    then graduates to real money once demo + backtest agree.
 
+### Follow-up directions (2026-06-02, same session)
+
+3. **Symbol universe: lead with futures diversification, but enumerate
+   the FULL tradeable set.** Start WS-A on the futures/IBKR side (best
+   BTC-uncorrelation) rather than Bybit alts. **Critical constraint:** the
+   eventual live futures account will likely be **NinjaTrader**, not
+   IBKR — so the universe must be scoped to what NinjaTrader can actually
+   trade (verify the catalog), using IBKR only as the current paper-data
+   source. Do not validate a symbol we cannot trade on the eventual venue.
+4. **Augment as much as possible, replicating real conditions
+   faithfully.** Maximize backtest-augmented training (WS-B), and make
+   the sim/backtest model real trading conditions as faithfully as we
+   can — fees, slippage, funding, partial fills, latency — so augmented
+   data resembles live and backtests predict live.
+5. **Do NOT add a stricter formal promotion gate.** Operator preference:
+   don't slow promotions with new gating bureaucracy. WS-C invests in
+   *evidence quality* (realism + diagnosis + drift observability), not a
+   blocking gate. Better evidence is the substitute for more process.
+
 ---
 
 ## Current state (verified 2026-06-02)
@@ -130,53 +149,72 @@ each edge generalizes — answering "what can we add for more trades /
 diversification" AND manufacturing the per-trade backtest outcomes WS-B
 needs.
 
-- **Universe (execution-path-constrained — only test what we can trade):**
-  - **Bybit linear perps (cheapest expansion — same keys, same code):**
-    ETHUSDT, SOLUSDT, plus a basket of liquid majors (e.g. BNB, XRP,
-    DOGE, ADA, LINK, AVAX). These can be added live with a config-only
-    change once validated.
-  - **IBKR micro futures (best diversification — near-zero BTC corr):**
-    MES (have), MNQ, MGC, MCL, M2K. Real-money IBKR is Tier-3-gated;
-    validate now for when `ib_live` opens.
+- **A0 — Verify the tradeable universe (FIRST, per directive 3).**
+  Enumerate the full set of symbols we can actually trade on the
+  *eventual* venues, not just today's. The live futures account will
+  likely be **NinjaTrader** (CME/CBOT/NYMEX/COMEX/ICE futures + FX via
+  Rithmic/Continuum/Tradovate — *not* equities/crypto), so the futures
+  universe is index futures (ES/MES, NQ/MNQ, YM/MYM, RTY/M2K),
+  commodities (GC/MGC, CL/MCL, SI, HG), rates, and FX futures
+  (6E/M6E, 6J). Cross-check NinjaTrader (likely live venue) against IBKR
+  (current paper-data source) so we only validate symbols tradeable on
+  the eventual venue. Bybit perps (ETH/SOL/majors) remain the
+  same-keys frequency play.
+- **Order (per directive 3): futures/diversification FIRST**, Bybit
+  alts second.
 - **Method:** trainer-VM sweeps via `scripts/backtest_{trend,fade,
-  squeeze,ict_scalp,fvg_range,pullback}.py` on fresh history
-  (`scripts/ops/fetch_backtest_candles.py --symbol <X>` for Bybit; the
-  IBKR/yfinance adapters for futures). Net-of-fee, long/short split,
-  walk-forward windows — reuse the existing harness flags.
+  squeeze,ict_scalp,fvg_range,pullback}.py` on fresh history (the
+  IBKR/yfinance adapters for futures; `fetch_backtest_candles.py` for
+  Bybit). Net-of-fee, long/short split, walk-forward windows — reuse the
+  existing harness flags. Re-tune per symbol (crypto params don't
+  transfer — the decider doc found SPX needed its own tuning).
 - **Deliverable:** a symbol×strategy generalization matrix (net-R, OOS
   hold, max-DD, trade frequency, fee robustness) under
-  `docs/research/`, ranked by net-of-fee OOS edge.
+  `docs/research/`, ranked by net-of-fee OOS edge, with each symbol
+  tagged by which venue(s) can trade it.
 
 ### WS-B — Break the data wall (ML)
 
-- **B1 — Backtest-augmented training (MB-20260530-001).** Tag WS-A
-  per-trade backtest outcomes `source=backtest`, train trade-outcome /
-  setup-quality models on backtest+live, **evaluate only on the live
-  holdout.** Valid for outcome/setup-quality families; **NOT** for
-  execution-quality (idealized fills) — keep those live-only.
+- **B1 — Backtest-augmented training, maximized (MB-20260530-001, per
+  directive 4).** Tag WS-A per-trade backtest outcomes `source=backtest`,
+  train trade-outcome / setup-quality models on backtest+live,
+  **evaluate only on the live holdout.** Go as aggressive on volume as
+  the live-holdout eval supports. **Realism is the constraint:** to make
+  augmented data resemble live, the harness must model real conditions
+  faithfully — net-of-fee (already in), plus slippage, funding (perps),
+  partial fills, and entry/exit latency. The closer the sim is to live,
+  the more the augmented labels transfer. Execution-quality (slippage)
+  models stay live-only unless/until the sim models fills credibly.
 - **B2 — OHLCV-only models (no data wall).** Train regime models on the
   WS-A symbols; add a regime-*transition* detector and a volatility
   forecaster (plentiful data, no n≈78 ceiling).
 - **B3 — Fix regime shadow coverage (MB-20260529-001)** + the
   window-recency sweep (MB-20260601-001).
 
-### WS-C — Honest validation framework (stop the bleed)
+### WS-C — Evidence quality (NOT a gate, per directive 5)
+
+Operator preference (directive 5): **no new blocking promotion gate.**
+WS-C improves the *quality of evidence* so we promote confidently and
+catch divergence early — it does not add process that slows promotions.
 
 - **C1 — Diagnose fade/squeeze.** Why did +64R backtest become −86R
   live? (regime concentration, fee realism, fill assumptions,
-  month-concentration). Write it up so the failure mode is named.
-- **C2 — Stricter promotion gate.** Purged/embargoed walk-forward,
-  combinatorial-CV robustness, realistic fee+slippage, regime-stratified
-  OOS, both-leg-positive at n≥3 windows. Make this the *gate*, not just
-  a one-off check.
-- **C3 — Backtest-vs-live drift monitor (new tripwire).** Every live
-  strategy continuously reports how far its live win-rate/expectancy has
-  drifted from its backtest expectation, and alerts *before* it bleeds.
-  Defensive; permanently de-risks every future promotion.
+  month-concentration). Write it up so the failure mode is named — input
+  to the WS-B realism work, not a gate.
+- **C2 — Sim realism (the substitute for a gate).** Make the
+  backtest/sim model live conditions faithfully (slippage, funding,
+  partial fills, latency on top of net-of-fee). Better-predicting
+  backtests are how we avoid the next fade/squeeze without adding a gate.
+  Shared work with WS-B1.
+- **C3 — Backtest-vs-live drift monitor (observability, not a gate).**
+  Every live strategy continuously reports how far its live
+  win-rate/expectancy has drifted from its backtest expectation, and
+  alerts *before* it bleeds. A tripwire the operator sees — it does not
+  auto-block anything.
 - **C4 — Synthetic-path stress (block bootstrap).** Resample returns
   into many synthetic-but-realistic paths to stress-test robustness
-  beyond the single historical path (the exact gap that let fade/squeeze
-  through). Also manufactures more training scenarios for WS-B.
+  beyond the single historical path. Also manufactures more training
+  scenarios for WS-B.
 
 ### WS-D — Decider / regime-router research
 
@@ -196,9 +234,13 @@ backtest-pass (WS-A/C gate)  →  demo/paper EXECUTE (no risk, real fills)
         →  demo+backtest agree  →  graduate to real-money bybit_2 (Tier-3)
 ```
 
-- **Immediate (this session, Tier-3 — awaiting operator approval):**
-  graduate `fvg_range_15m` + `htf_pullback_trend_2h` to `bybit_2` real
-  money (add to `accounts.yaml::bybit_2.strategies`, keep risk_pct 0.3).
+- **Immediate (this session, Tier-3 — operator-approved 2026-06-02,
+  committed, awaiting deploy):** real-money `bybit_2` roster set to
+  **passed-backtest winners only** = `[trend_donchian, ict_scalp_5m,
+  fvg_range_15m, htf_pullback_trend_2h]`. Graduated fvg_range +
+  htf_pullback (risk_pct 0.3); dropped turtle_soup, vwap, fade, squeeze
+  from real money (they stay on bybit_1 demo). Demo carries the full
+  active roster. Deploys via `pull-and-deploy` on the operator's OK.
 - **Standing:** every WS-A symbol/strategy winner enters demo-execute
   first, then graduates on agreement. New Bybit symbols are a
   config-only routing add once validated.
@@ -216,18 +258,23 @@ backtest-pass (WS-A/C gate)  →  demo/paper EXECUTE (no risk, real fills)
 
 Sprint ids: `S-MEANTIME-S0` … . Each produces a sprint log.
 
-- **S0 — Plan + immediate roster graduation (this session).** This plan
-  (Tier-1, committed). The `fvg_range`/`htf_pullback` → bybit_2
-  graduation as a Tier-3 draft PR + approval request. Define the exact
-  WS-A symbol list + sweep spec ready to dispatch.
-- **S1 — WS-A Bybit sweep.** ETH/SOL + majors across all roster
-  strategies on the trainer VM; generalization matrix.
-- **S2 — WS-C1+C2.** fade/squeeze post-mortem + stricter gate spec, then
-  apply the gate to the S1 winners.
-- **S3 — WS-B1+B2.** Backtest-augmented training on S1 outputs +
-  OHLCV-only models on the new symbols.
-- **S4 — WS-C3 drift monitor** wired to the live roster.
-- **S5 — WS-A IBKR micros + WS-D decider sim.**
+- **S0 — Plan + immediate roster change (this session).** This plan
+  (Tier-1, committed). The real-money `bybit_2` winners-only roster as a
+  Tier-3 commit (operator-approved, awaiting deploy). Define the WS-A
+  universe + sweep spec.
+- **S1 — WS-A0 + futures sweep (directive 3: futures FIRST).** Verify the
+  NinjaTrader-tradeable futures catalog (cross-checked vs IBKR data);
+  sweep all roster strategies across index futures + commodities + FX
+  futures on the trainer VM; generalization matrix tagged by venue.
+- **S2 — WS-B1 + WS-C2 sim realism (directive 4).** Add slippage /
+  funding / partial-fill / latency modeling to the harness so augmented
+  data resembles live; backtest-augmented training on S1 outputs,
+  maximized, eval on live holdout.
+- **S3 — WS-A Bybit alts + WS-B2.** ETH/SOL/majors sweep; OHLCV-only
+  models (regime/vol) on the new symbols.
+- **S4 — WS-C1 diagnosis + WS-C3 drift monitor** (observability) wired to
+  the live roster.
+- **S5 — WS-D decider sim + WS-C4 synthetic-path stress.**
 - **S6 — Package validated winners** into Tier-3 promotion PRs (demo
   first, then real money).
 
