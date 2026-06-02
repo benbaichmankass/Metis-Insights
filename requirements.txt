@@ -62,3 +62,13 @@ lightgbm>=4.0.0
 # JSON for FCM HTTP v1. Optional at runtime — when absent, the notifier
 # degrades to inert + logs a WARNING (the trader is unaffected).
 google-auth>=2.0.0
+
+# Tradovate WebSocket client (futures broker, PR #2647 + wiring PR).
+# Imported inside src/units/accounts/tradovate/websocket_client.py behind a
+# try/except so the rest of the Tradovate package (REST, models, risk) works
+# without it — required only when streaming quotes / order events. The
+# trader unit imports the package via the integrator only when an account
+# carries `exchange: tradovate`, so absence is degrade-to-warning not a
+# crash. Floor 12.x picked to match the websockets-12 API used in
+# websocket_client.py (the deprecated `WebSocketClientProtocol` import path).
+websockets>=12.0

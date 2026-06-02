@@ -50,7 +50,7 @@ def test_live_fire_calls_placeorder():
     order = svc.place(req)
     posts = [c for c in svc._rest.calls if c[0] == "POST"]
     assert len(posts) == 1
-    assert posts[0][1] == "/order/placeorder"
+    assert posts[0][1] == "/order/placeOrder"
     assert order.id == 12345
     assert order.status == "Working"
 
