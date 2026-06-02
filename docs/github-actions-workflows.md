@@ -421,6 +421,58 @@ mcp__github__issue_write
 
 ---
 
+#### `sync-vm-secrets.yml`
+
+**Autonomy:** TIER-2 (one operator OK in chat). **Canonical broker-credential
+propagation path** (added 2026-06-02). One workflow mirrors the full declared
+set of broker-credential Actions secrets to the live trader's `.env` and
+restarts the trader. Adding a new broker = append env-var names to
+`REQUIRED_SECRETS` or `OPTIONAL_SECRETS` in the workflow + `SYNC_REQUIRED`/
+`SYNC_OPTIONAL` in `scripts/ops/sync_vm_secrets.sh`. No per-broker workflow
+file.
+
+**Trigger:** `workflow_dispatch` (operator UI / Claude via Actions API).
+
+**Purpose:** Idempotent Actions → VM env-file mirror via SSH `SendEnv` —
+secret values never reach run logs or audit artifacts. Restart fires only
+when the `.env` actually changed. Replaces the per-account pattern of the
+legacy `rotate-account-keys.yml` (still in place as the Bybit-only path
+pending migration).
+
+**Secrets:** `VM_SSH_KEY`, all entries in `REQUIRED_SECRETS` (currently
+`BYBIT_API_KEY_1/2`, `BYBIT_API_SECRET_1/2`), and OPTIONAL ones for any
+broker that's been onboarded (currently the 7 Tradovate vars).
+
+---
+
+#### `init-actions-secrets.yml`
+
+**Autonomy:** AUTONOMOUS — creates empty placeholder Actions secrets only.
+Never reads, logs, or operates on values.
+
+**Trigger:** `workflow_dispatch` (UI / Actions API), `issues.opened` (label
+`init-actions-secrets`, added 2026-06-02 / PR #2652).
+
+**Purpose:** Pre-create empty placeholder Actions secret slots so the
+operator pastes values into pre-existing slots (Settings → Secrets →
+Update) instead of clicking "New repository secret" N times for each new
+broker. Already-set names are skipped, never overwritten.
+
+**MCP trigger (Pattern A — issue-label):**
+```
+mcp__github__issue_write
+  title: "[init-actions-secrets] pre-create <broker> placeholders"
+  body: |
+    names: BROKER_USERNAME,BROKER_PASSWORD,...
+    reason: pre-create empty <broker> placeholders for operator-paste flow
+  labels: ["init-actions-secrets"]
+```
+
+**Secrets:** `BRANCH_PROTECTION_TOKEN` (PAT with `repo` scope — already
+provisioned for `branch-protection-sync.yml`; covers Actions-secret writes).
+
+---
+
 #### `vm-net-diag.yml`
 
 **Autonomy:** AUTONOMOUS — read-only network diagnostics.

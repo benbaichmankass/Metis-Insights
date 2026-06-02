@@ -604,6 +604,26 @@ below are the contract.
   self-creates the labels other workflows filter on. Edit the
   `LABELS` array in that file and merge; the next push runs the
   sync. No `create_label` MCP needed.
+- **Broker-credential propagation (Actions → VM)** —
+  `.github/workflows/sync-vm-secrets.yml` is the canonical path for
+  mirroring broker-credential Actions secrets to the live trader's
+  `.env` (added 2026-06-02). One workflow declares the full known
+  set (`REQUIRED_SECRETS` + `OPTIONAL_SECRETS`); adding a new broker
+  appends env-var names there. Idempotent — re-running with no
+  change is a no-op. Values ride through SSH `SendEnv` and never
+  reach run logs. Replaces the per-broker workflow pattern the
+  earlier Bybit-only `rotate-account-keys.yml` followed; that
+  workflow stays in place as the legacy Bybit path pending a
+  separate migration PR.
+- **Actions-secret placeholder pre-creation** —
+  `.github/workflows/init-actions-secrets.yml` creates empty
+  placeholder repo Actions secrets so the operator pastes values
+  into pre-existing slots (Settings → Secrets → Update) instead of
+  clicking "New repository secret" N times. Idempotent — already-set
+  names are skipped, never overwritten. Used by Claude as the first
+  step on a new-broker hookup ping. Dispatchable via
+  `workflow_dispatch` (UI / Actions API) or via issue label
+  `init-actions-secrets` (Claude-driven; PR #2652).
 - **Trainer VM full visibility** — `.github/workflows/trainer-vm-diag.yml`
   is the unrestricted SSH relay for the trainer VM. Claude opens a
   `trainer-vm-diag-request`-labelled issue with a `cmd:` block
@@ -615,9 +635,10 @@ below are the contract.
   Workflows that need to be Claude-driven from a session must use
   an `issues.opened` (or `pull_request.opened`) trigger filtered to
   a label. Pattern is the diag relay (`vm-diag-snapshot.yml`),
-  `vm-web-api-recover.yml`, and now `system-actions.yml` (whose
-  Tier-2 ack is the operator's in-conversation approval — Claude
-  carries that approval into the issue body).
+  `vm-web-api-recover.yml`, `init-actions-secrets.yml`, and now
+  `system-actions.yml` (whose Tier-2 ack is the operator's
+  in-conversation approval — Claude carries that approval into the
+  issue body).
 
 ## Running Locally
 ```bash

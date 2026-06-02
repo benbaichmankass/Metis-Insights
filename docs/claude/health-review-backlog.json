@@ -561,7 +561,39 @@
    "snoozed_until": null,
    "resolved_at": "2026-06-02T12:40:00+00:00",
    "resolution_note": "Fixed by the per-strategy symbol-scope gate (PR #2643, merged + deployed 2026-06-02, HEAD 3d35e24). intent_multiplexer._collect_intents now skips a strategy whose declared config/strategies.yaml symbols: do not include the current tick symbol (permissive on no-symbols/unknown/config-error), so a strategy is evaluated/emits ONLY on its declared instrument(s) — no cross-product (strategy x non-declared-symbol) packages are produced. Gated at intent EMISSION (not dispatch) so a higher-priority off-symbol strategy can't win a symbol's per-symbol aggregation and starve the legitimate owner. Verified live post-deploy via audit_query: mgc_pullback_1d evaluates MGC-only (zero MES/MHG/BTCUSDT rows) where pre-deploy it ran on all four. Crypto strategies (symbols:[BTCUSDT]) no longer evaluate on MES. Tests: tests/test_intent_symbol_scope.py (4) + 324 intent/coordinator/pipeline regression green. NOTE: the gate lives in the production intent-multiplexer path (STRATEGY=multiplexed_intents); the legacy first-wins pipeline path is not gated but is not the production path."
+  },
+  {
+   "id": "BL-20260602-002",
+   "opened_at": "2026-06-02T17:55:00+00:00",
+   "opened_by": "claude (tradovate-integration session, doc-freshness sweep)",
+   "source": "End-of-session doc-freshness pass after PRs #2647 + #2649 + #2650 + #2651 merged. Spotted gaps in docs/claude/system-actions.md and docs/github-actions-workflows.md when greping for the new broker-credential-propagation surface.",
+   "title": "docs/claude/system-actions.md doesn't acknowledge sync-vm-secrets as the new canonical broker-credential propagation path",
+   "description": "After PR #2650 landed `.github/workflows/sync-vm-secrets.yml` as the canonical broker-credential propagation path, docs/claude/system-actions.md still presents `rotate-account-keys` (a system-actions allowlist entry) as the credential rotation surface without acknowledging that sync-vm-secrets exists and is now the canonical path for broker secrets. Risk: a fresh Claude reading system-actions.md would anchor on rotate-account-keys precedent for any new broker, exactly the failure mode the new credentials-and-vm-mutations + before-asking-the-operator skills are designed to prevent. The mentions are at docs/claude/system-actions.md lines 118, 223, 296, 306. Add a short note near each (or once at the top of the credential-rotation discussion) pointing at sync-vm-secrets as the canonical path with rotate-account-keys as the legacy Bybit-only path pending the migration PR.",
+   "tier": 1,
+   "trigger_condition": "Next /health-review compliance-audit rotation hitting docs/claude/ (Wednesday slot per the schedule in .claude/skills/health-review/SKILL.md § Compliance audit rotation).",
+   "resolution_criteria": "docs/claude/system-actions.md explicitly names sync-vm-secrets.yml as the canonical broker-credential propagation path and tags rotate-account-keys as the legacy Bybit-only path that will be migrated. A fresh Claude reading the doc end-to-end picks the right workflow without needing to cross-reference the skill files.",
+   "status": "open",
+   "snoozed_until": null,
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null
+  },
+  {
+   "id": "BL-20260602-003",
+   "opened_at": "2026-06-02T17:55:00+00:00",
+   "opened_by": "claude (tradovate-integration session, doc-freshness sweep)",
+   "source": "End-of-session doc-freshness pass — checked docs/github-actions-workflows.md for completeness, found pre-existing gaps unrelated to this session.",
+   "title": "docs/github-actions-workflows.md is missing catalog entries for several existing workflows",
+   "description": "The 'single source of truth' workflows catalog at docs/github-actions-workflows.md is missing entries for several workflows that exist in .github/workflows/ on main: rotate-account-keys.yml, provision-ib-gateway.yml, vm-ib-gateway-recover.yml, ict-scalp-backtest.yml, set-diag-token.yml, get-diag-token.yml, diag-relay-sweep.yml, delete-merged-branches.yml, pytest-collect.yml, pytest-diag.yml, pytest-run.yml, repo-inventory.yml, secret-scan.yml, ruff-lint.yml, silent-empty-guard.yml, canonical-config-loaders.yml, canonical-db-resolver.yml, env-gate-guard.yml, arch-doc-guard.yml, branch-protection-report.yml, dry-run-guard.yml. Pre-existing drift (not caused by this session — this session added sync-vm-secrets.yml + init-actions-secrets.yml entries to the catalog correctly). The missing entries mean a fresh Claude relying on the doc's 'single source of truth' framing would have an incomplete picture of available automation. Low-risk fix: add a thin entry per missing workflow (name, autonomy tier, trigger, purpose, secrets).",
+   "tier": 1,
+   "trigger_condition": "Next /health-review compliance-audit rotation hitting .github/workflows/ (Tuesday slot per the schedule).",
+   "resolution_criteria": "Every workflow file in .github/workflows/ has a matching entry in docs/github-actions-workflows.md. A simple `comm`-style diff (workflow files vs catalog entries) returns empty.",
+   "status": "open",
+   "snoozed_until": null,
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null
   }
  ],
- "updated_at": "2026-06-02T12:40:00+00:00"
+ "updated_at": "2026-06-02T17:55:00+00:00"
 }
