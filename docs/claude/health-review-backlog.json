@@ -546,7 +546,20 @@
    "resolved_at": null,
    "resolved_by": null,
    "resolution_note": null
+  },
+  {
+   "id": "BL-20260602-001",
+   "opened_at": "2026-06-02T06:15:00+00:00",
+   "opened_by": "claude (mea-ibkr-paper-trading session)",
+   "source": "Noticed while investigating the MES (mes_trend_long_1d) IBKR-paper pipeline (PR #2626): order_packages + signal-audit pulls show htf_pullback_trend_2h producing MES order packages even though its config declares symbols:[BTCUSDT] and it routes only to bybit_1.",
+   "title": "Per-strategy `symbols:` does not gate EVALUATION — the multi-symbol tick loop runs every enabled builder on the union of all account symbols, producing cross-product packages no account routes (ORPHANED)",
+   "description": "The tick loop (src/main.py::_resolve_tick_symbols) unions every configured account's symbols ({BTCUSDT, MES}) and evaluates each enabled strategy's signal builder on every symbol in the union, regardless of the strategy's own `symbols:` field in config/strategies.yaml. Observed 2026-06-02: htf_pullback_trend_2h (symbols:[BTCUSDT], routed to bybit_1 only) emitted MES order packages (status 'orphaned'); conversely mes_trend_long_1d (symbols:[MES]) is evaluated on BTCUSDT (the signal audit shows symbol=BTCUSDT eval rows for it, reason 'short_suppressed_long_only'). These cross-product packages are dropped/orphaned because no account routes that (strategy x symbol) combo — the symbol->exchange dispatch gate (coordinator._eligible_for_dispatch) + the account.strategies filter correctly prevent execution, so this is HARMLESS to trading (no wrong-symbol order can fire). But it is wasted per-tick evaluation + journal noise: the orphaned cross-product rows pollute per-strategy orphan-rate stats (cf. BL-20260601-001, whose triage_note already saw these htf_pullback_trend_2h-on-MES orphans). Fix: gate EVALUATION by the strategy's own declared `symbols:` (intersected with its routed accounts' symbols) so a BTCUSDT-only strategy is never run on MES and vice-versa.",
+   "tier": 1,
+   "trigger_condition": "Next /health-review or any session touching src/main.py::_resolve_tick_symbols or the per-tick strategy-evaluation loop. Re-pull order_packages and confirm orphaned cross-product packages (htf_pullback_trend_2h on MES, mes_trend_long_1d on BTCUSDT) still appear.",
+   "resolution_criteria": "Strategy signal builders are evaluated only on the symbols the strategy declares in config/strategies.yaml (intersected with account routing), so no cross-product (strategy x non-declared-symbol) order packages are produced. Verify htf_pullback_trend_2h no longer emits MES packages and mes_trend_long_1d no longer emits BTCUSDT packages, with no loss of legitimate signals.",
+   "status": "open",
+   "snoozed_until": null
   }
  ],
- "updated_at": "2026-06-01T17:10:00+00:00"
+ "updated_at": "2026-06-02T06:15:00+00:00"
 }
