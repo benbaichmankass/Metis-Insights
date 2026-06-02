@@ -557,9 +557,11 @@
    "tier": 1,
    "trigger_condition": "Next /health-review or any session touching src/main.py::_resolve_tick_symbols or the per-tick strategy-evaluation loop. Re-pull order_packages and confirm orphaned cross-product packages (htf_pullback_trend_2h on MES, mes_trend_long_1d on BTCUSDT) still appear.",
    "resolution_criteria": "Strategy signal builders are evaluated only on the symbols the strategy declares in config/strategies.yaml (intersected with account routing), so no cross-product (strategy x non-declared-symbol) order packages are produced. Verify htf_pullback_trend_2h no longer emits MES packages and mes_trend_long_1d no longer emits BTCUSDT packages, with no loss of legitimate signals.",
-   "status": "open",
-   "snoozed_until": null
+   "status": "resolved",
+   "snoozed_until": null,
+   "resolved_at": "2026-06-02T12:40:00+00:00",
+   "resolution_note": "Fixed by the per-strategy symbol-scope gate (PR #2643, merged + deployed 2026-06-02, HEAD 3d35e24). intent_multiplexer._collect_intents now skips a strategy whose declared config/strategies.yaml symbols: do not include the current tick symbol (permissive on no-symbols/unknown/config-error), so a strategy is evaluated/emits ONLY on its declared instrument(s) — no cross-product (strategy x non-declared-symbol) packages are produced. Gated at intent EMISSION (not dispatch) so a higher-priority off-symbol strategy can't win a symbol's per-symbol aggregation and starve the legitimate owner. Verified live post-deploy via audit_query: mgc_pullback_1d evaluates MGC-only (zero MES/MHG/BTCUSDT rows) where pre-deploy it ran on all four. Crypto strategies (symbols:[BTCUSDT]) no longer evaluate on MES. Tests: tests/test_intent_symbol_scope.py (4) + 324 intent/coordinator/pipeline regression green. NOTE: the gate lives in the production intent-multiplexer path (STRATEGY=multiplexed_intents); the legacy first-wins pipeline path is not gated but is not the production path."
   }
  ],
- "updated_at": "2026-06-02T06:15:00+00:00"
+ "updated_at": "2026-06-02T12:40:00+00:00"
 }
