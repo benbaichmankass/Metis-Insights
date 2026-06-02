@@ -118,13 +118,27 @@ trades are refused with a logged cause. Full Prime Directive + enforcement:
 [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § Prime Directive;
 mode-mutation contract in [`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md).
 
-## Skills (composable workflows)
+## Skills (composable workflows) — skill-first lookup is binding
 
 Concrete workflows live as skills under [`.claude/skills/`](.claude/skills/),
 written granularly so you can chain them (retrieve data → inspect a VM →
-dispatch an action → review). Prefer a skill over improvising. When you hit a
-mistake a workflow would have prevented, **propose a new skill** for it — that
-is how this library grows.
+dispatch an action → review).
+
+**Skill-first lookup is binding** — see
+[`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § Generation
+Discipline. Before generating ANY task output (operator instructions, code,
+workflows, runbooks, PR descriptions), your FIRST action is to scan the
+skills catalog. If a skill matches: invoke it and derive from it, not from
+a precedent artifact. If no skill matches but one *would* prevent future
+inconsistency, **propose one in chat** — low cost, operator approves, you
+create it. The catalog is the contract; precedents are example outputs.
+
+Skipping the skill check and going straight to precedent matching is the
+violation pattern that produces every other violation pattern in this repo.
+The companion rule — **precedents are not authoritative** — requires
+auditing any artifact you reference against current canonical rules before
+copying its shape. Non-compliant precedents either get fixed in your PR or
+logged to the health-review backlog; never silently replicated.
 
 ## Tiered system-actions (production mutations)
 
