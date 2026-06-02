@@ -17,129 +17,106 @@ sleeve in a Tier-3 PR.
 
 ## Operator hookup checklist
 
-Do these in order. Each step is independent and rerunnable; the
-account stays inert until **every** step is complete.
+**This section derives from the `credentials-and-vm-mutations` skill,
+not from any precedent runbook.** Operator steps are restricted to the
+three categories that contract allows: originate a secret value at the
+third party, add it to GitHub Actions secrets, or approve a tier-gated
+decision. Everything else (VM-side propagation, account discovery,
+smoke testing, mode promotion) is Claude-driven via workflows.
 
-### 1. Sign up for the Tradovate demo
+### 1. Sign up for the Tradovate demo *(originate at third party)*
 
 - Go to https://www.tradovate.com/ → create an account.
 - Activate the **free 14-day simulated trial** for futures
   (https://support.tradovate.com/s/article/Free-Trial-of-Tradovate).
   No payment info required for sim.
-- (Optional, do later) If/when you decide to take it live, you'll
-  also need: a funded live Tradovate account + the **API Access**
-  add-on (paid subscription). Demo is enough for everything in
-  this runbook.
+- (Optional, do later) For live: a funded live Tradovate account +
+  the paid **API Access** add-on. Demo is enough for everything
+  here.
 
-### 2. Create the API app and capture credentials
+### 2. Create the API app and capture credentials *(originate at third party)*
 
 - Sign in to https://trader.tradovate.com.
 - **Settings → API Access → Create new app.**
 - Pick any unique app name (e.g. `ict-bot-prod`); set version to
   `1.0`.
 - Copy the **`cid`** (numeric integer) and **`secret`** (long
-  random string) that Tradovate generates. You will not be able
-  to see the secret again — write it down securely.
-- Pick a stable **device id** (any string you choose) — e.g.
-  `ict-bot-linux-01`. It must be the same string in every place
-  you put the credentials below.
+  random string) that Tradovate generates. The secret is shown
+  once — save it before navigating away.
+- Pick a stable **device id** string (e.g. `ict-bot-linux-01`). Use
+  the same string in step 3.
 
-### 3. Add the 7 env vars to GitHub Actions secrets
+### 3. Add the 7 env vars to GitHub Actions secrets *(originate value into Actions)*
 
 Repo → **Settings → Secrets and variables → Actions → New repository
-secret**. Add each of these (exact names — they're the keys
+secret**. Add each (exact names — these are the keys
 `TradovateConfig.load()` reads):
 
 | Secret name | Value |
 |---|---|
 | `TRADOVATE_USERNAME` | the username you used to sign up |
 | `TRADOVATE_PASSWORD` | your Tradovate password |
-| `TRADOVATE_APP_ID` | the app name you chose in step 2 (e.g. `ict-bot-prod`) |
-| `TRADOVATE_APP_VERSION` | `1.0` (or whatever you set) |
+| `TRADOVATE_APP_ID` | the app name from step 2 |
+| `TRADOVATE_APP_VERSION` | `1.0` (matches what you set in step 2) |
 | `TRADOVATE_CID` | the numeric cid from step 2 |
 | `TRADOVATE_SECRET` | the secret from step 2 |
 | `TRADOVATE_DEVICE_ID` | the device-id string you picked |
 
-### 4. Provision the same 7 env vars on the live VM
+### 4. Ping Claude
 
-The trader process reads them from the systemd `EnvironmentFile=` —
-**not** from the Actions secrets directly. The Actions secrets are for
-CI / future automation; the live process needs them in its own env.
+That's the complete operator surface for provisioning. Tell Claude
+"Tradovate secrets provisioned" and the rest is Claude-driven via
+workflows — no SSH, no systemd edits, no VM commands from you.
 
-Operator path (manual):
+---
 
-```bash
-# On the live VM (158.178.210.252), as the user that owns the
-# trader service:
-sudo $EDITOR /etc/systemd/system/ict-trader-live.service.d/tradovate.conf
-```
+## What Claude does after your ping
 
-Add this drop-in:
+The propagation workflow (`provision-tradovate-creds`) doesn't exist
+yet — Claude's first action on the ping is opening the Tier-1 PR that
+adds it (a mirror of `rotate-account-keys.yml` for Tradovate's 7-tuple,
+with SSH `SendEnv` so secret values never reach run logs). Once that
+PR lands:
 
-```ini
-[Service]
-Environment=TRADOVATE_USERNAME=...
-Environment=TRADOVATE_PASSWORD=...
-Environment=TRADOVATE_APP_ID=...
-Environment=TRADOVATE_APP_VERSION=1.0
-Environment=TRADOVATE_CID=...
-Environment=TRADOVATE_SECRET=...
-Environment=TRADOVATE_DEVICE_ID=...
-```
+1. **Dispatch the propagation workflow** — reads the 7 Actions secrets,
+   writes them to the trader's systemd environment via SSH `SendEnv`,
+   reloads + restarts `ict-trader-live.service`. Output goes to the
+   workflow run, secret values never appear there.
+2. **Verify the post-state** via the diag relay — auth probe to
+   Tradovate succeeds (the trader logs `auth ok env=demo` when
+   `TradovateConfig.load()` constructs the adapter).
+3. **Discover the numeric account id** by dispatching
+   `python -m src.units.accounts.tradovate.cli.list_accounts` on the
+   VM through the system-actions allowlist (a new entry, added in the
+   same PR as the propagation workflow or in a tiny follow-up).
+4. **Patch `accounts.yaml::tradovate_demo_1.tradovate_account_id`** in
+   a Tier-1 PR with the discovered id.
+5. **Run the demo smoke test** —
+   `python -m src.units.accounts.tradovate.examples.smoke_test_demo
+   --symbol MESM6 --with-quotes` — via the same allowlist entry.
+   Expected JSON:
+   ```json
+   {
+     "env": "demo",
+     "authed": true,
+     "accounts_found": 1,
+     "selected_account": {"id": 12345, "name": "DEMO123"},
+     "contract": {"id": 67890, "name": "MESM6"},
+     "ws_connected": true,
+     "quote_seen": true,
+     "order_placed": false,
+     "errors": []
+   }
+   ```
+   On failure, Claude diagnoses and tells you whether the issue is
+   credential-side (your re-provisioning) or code-side (Claude's fix).
+6. **Open the Tier-3 strategy-assignment PR** (next section). Draft;
+   waits for your approval to merge.
+7. **Promote `mode: dry_run` → `mode: live`** via the `set-account-mode`
+   operator-action workflow once you give explicit approval (the third
+   operator-only category: approve a tier-gated decision).
 
-Then reload + restart:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl restart ict-trader-live.service
-```
-
-**Once steps 3+4 are done, ping me ("creds provisioned") and I'll
-drive steps 5+6 autonomously via the diag relay.**
-
-### 5. Discover the numeric account id (I drive this)
-
-I'll dispatch this on the VM via the `system-actions` workflow:
-
-```bash
-python -m src.units.accounts.tradovate.cli.list_accounts
-```
-
-Tradovate returns one or more accounts — usually a single
-simulation account when you start. I'll read the numeric `id`
-field and open a tiny PR that fills `tradovate_account_id` into
-`config/accounts.yaml::tradovate_demo_1`.
-
-### 6. Run the smoke test (I drive this)
-
-After the account id is patched in, I'll run the demo smoke test
-on the VM:
-
-```bash
-python -m src.units.accounts.tradovate.examples.smoke_test_demo \
-    --symbol MESM6 --with-quotes
-```
-
-Expected output (JSON):
-
-```json
-{
-  "env": "demo",
-  "authed": true,
-  "accounts_found": 1,
-  "selected_account": {"id": 12345, "name": "DEMO123"},
-  "contract": {"id": 67890, "name": "MESM6"},
-  "ws_connected": true,
-  "quote_seen": true,
-  "order_placed": false,
-  "errors": []
-}
-```
-
-If anything fails I'll diagnose and tell you whether the issue is
-credential-side (your fix) or code-side (my fix).
-
-### 7. Decide strategy assignment (Tier-3, your call)
+### Tier-3 decision you'll be asked to approve: strategy assignment
 
 Currently MES routes to `ib_paper` exclusively. Adding it to
 `tradovate_demo_1.strategies` would put **both** brokers in line
@@ -157,45 +134,29 @@ accounts. Options:
   larger change; IB futures sleeve immediately becomes dormant.
   Use after some paper-parallel observation.
 
-Either is a separate Tier-3 PR — I'll open it as a draft and you
-approve.
+Either is a separate Tier-3 PR — Claude opens it as a draft for your
+approval. Claude dispatches the `set-account-mode` operator action to
+flip `mode: dry_run → live` only after you approve the assignment PR
+and confirm the paper smoke test ran clean. The mode flip itself is
+the third operator-only category (approve a tier-gated decision); the
+workflow does the on-VM write.
 
-### 8. Promote `mode: dry_run` → `mode: live`
+### Later: switch demo → live Tradovate API
 
-**Only after steps 1–7** are complete, a paper trade is verified
-end-to-end on Tradovate, and you've decided on strategy
-assignment. The sanctioned wire is the `set-account-mode`
-operator action:
+When the 14-day demo trial expires (or you skip it), and after the
+funded live Tradovate account + paid API Access add-on is purchased:
 
-```
-# Open a labelled issue in the repo:
-# Label: system-action
-# Title: [system-action] set-account-mode tradovate_demo_1 live
-# Body:
-#   action: set-account-mode
-#   account: tradovate_demo_1
-#   mode: live
-#   reason: <one line — e.g. "promote to paper after smoke-test verification">
-```
+1. Repeat steps 1–4 above to provision the live-side credentials
+   into the same 7 Actions secret names. Same auth shape; only the
+   values change.
+2. Claude opens a Tier-3 PR flipping
+   `accounts.yaml::tradovate_demo_1.tradovate_env: demo → live`
+   (the single switch that maps to live URLs) and renaming the
+   account as appropriate. You approve; Claude dispatches the
+   propagation workflow with the new values and re-verifies via
+   the diag relay.
 
-The workflow flips `mode:` in `accounts.yaml` on the VM, restarts
-the trader, and posts the post-state back to the issue. Same wire
-as every other account-mode flip.
-
-### 9. (Optional, later) Switch demo → live API
-
-When the demo trial expires (or you skip it), and after the funded
-live account + API add-on is purchased:
-
-1. Set `tradovate_demo_1.tradovate_env: live` in `accounts.yaml`
-   (Tier-3 PR).
-2. Update the 7 env vars (steps 3+4) with the live-side
-   credentials. Same names; the live API uses the same auth
-   shape.
-3. Re-run the smoke test against the live env to confirm.
-
-No code edits required — `TRADOVATE_ENV=demo|live` is the single
-switch.
+No SSH, no systemd edits — same contract throughout.
 
 ## What's actually wired (code map)
 
