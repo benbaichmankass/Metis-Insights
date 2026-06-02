@@ -91,12 +91,13 @@ land before step 2 is useful.
 
 | Workflow | Owns |
 |---|---|
-| `rotate-account-keys.yml` | Bybit `api_key` + `api_secret` rotation per account (`account_id` choice input). |
+| `sync-vm-secrets.yml` | **Canonical broker-credential propagation** (added 2026-06-02). Mirrors the full declared set of broker-secret Actions secrets → VM `.env` in one SSH session. Idempotent: re-run with no change is a no-op. Adding a new broker = append to `KNOWN_SECRETS` in the workflow + `SYNC_REQUIRED`/`SYNC_OPTIONAL` env. Use this for every new broker integration and for ongoing broker-secret rotation. |
+| `rotate-account-keys.yml` | **Legacy Bybit-only path.** Per-account rotation (`bybit_1` \| `bybit_2`). Still wired through `system-actions.yml` allowlist + test fixtures + `notify_run.sh`; will be migrated to `sync-vm-secrets.yml` in a follow-up. Don't extend it to new brokers — use `sync-vm-secrets.yml` instead. |
 | `system-actions.yml` | Allowlisted live-VM mutations — `set-account-mode`, `pull-and-deploy`, `restart-bot-service`, `reboot-vm`, the dual-write toggles, the backfills. Tier-1 autonomous, Tier-2 after one chat ack. |
 | `vm-web-api-recover.yml` | Self-heal of `ict-web-api.service` (the diag-API process). |
 | `vm-diag-snapshot.yml` | Read-only diag pulls (composes with `diag-data`). |
 | `trainer-vm-diag.yml` | Arbitrary bash on the trainer VM, fully autonomous. |
-| **Missing for your case?** | Open a Tier-1 PR adding the workflow before writing the operator steps that depend on it. Mirror `rotate-account-keys.yml`'s `SendEnv` pattern so secret values never reach logs. |
+| **Missing for your case?** | Open a Tier-1 PR adding the workflow before writing the operator steps that depend on it. Mirror `sync-vm-secrets.yml`'s `SendEnv` pattern so secret values never reach logs. |
 
 ## When to invoke this skill
 

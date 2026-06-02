@@ -72,23 +72,25 @@ workflows — no SSH, no systemd edits, no VM commands from you.
 
 ## What Claude does after your ping
 
-The propagation workflow (`provision-tradovate-creds`) doesn't exist
-yet — Claude's first action on the ping is opening the Tier-1 PR that
-adds it (a mirror of `rotate-account-keys.yml` for Tradovate's 7-tuple,
-with SSH `SendEnv` so secret values never reach run logs). Once that
-PR lands:
+The canonical broker-credential propagation workflow
+(`.github/workflows/sync-vm-secrets.yml`, added in the same PR as this
+runbook) mirrors the declared Tradovate env-var names from Actions
+secrets to the live trader's `.env` via SSH `SendEnv` — secret values
+never touch run logs. Tradovate's 7 vars are already on the workflow's
+`OPTIONAL_SECRETS` list, so they sync automatically once they're in
+Actions:
 
-1. **Dispatch the propagation workflow** — reads the 7 Actions secrets,
-   writes them to the trader's systemd environment via SSH `SendEnv`,
-   reloads + restarts `ict-trader-live.service`. Output goes to the
-   workflow run, secret values never appear there.
+1. **Dispatch `sync-vm-secrets.yml`** — workflow_dispatch with a one-line
+   reason. The script (`scripts/ops/sync_vm_secrets.sh`) patches the
+   `.env` and restarts `ict-trader-live` + `ict-web-api` only if the
+   file actually changed (idempotent).
 2. **Verify the post-state** via the diag relay — auth probe to
    Tradovate succeeds (the trader logs `auth ok env=demo` when
    `TradovateConfig.load()` constructs the adapter).
 3. **Discover the numeric account id** by dispatching
    `python -m src.units.accounts.tradovate.cli.list_accounts` on the
    VM through the system-actions allowlist (a new entry, added in the
-   same PR as the propagation workflow or in a tiny follow-up).
+   same follow-up PR as the smoke-test allowlist entry).
 4. **Patch `accounts.yaml::tradovate_demo_1.tradovate_account_id`** in
    a Tier-1 PR with the discovered id.
 5. **Run the demo smoke test** —
