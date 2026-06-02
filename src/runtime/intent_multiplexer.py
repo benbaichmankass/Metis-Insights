@@ -170,6 +170,35 @@ def _strategies_from_registry() -> List[str]:
         return ["turtle_soup", "vwap"]
 
 
+def _strategy_symbol_scope() -> Dict[str, set]:
+    """``{strategy_name: {declared symbols}}`` from config/strategies.yaml.
+
+    Per-strategy symbol scope (2026-06-02, WS-A metals sleeve). A strategy
+    only trades the symbols its ``symbols:`` list declares. Strategies with
+    no ``symbols`` are OMITTED here so the call site treats them permissively
+    (single-symbol / legacy / test setups dispatch exactly as before).
+    Permissive on a config-load failure (returns ``{}`` → every strategy
+    falls through). Symbols are normalised (upper, ``/`` stripped) to match
+    ``intents.SUPPORTED_SYMBOLS``.
+    """
+    try:
+        from src.units.strategies import load_strategy_config
+        cfg = load_strategy_config() or {}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "intent_multiplexer: strategy-symbol scope unavailable (%s) — "
+            "per-strategy symbol gate disabled this tick (permissive)",
+            exc,
+        )
+        return {}
+    scope: Dict[str, set] = {}
+    for name, c in (cfg.items() if isinstance(cfg, dict) else []):
+        syms = (c or {}).get("symbols")
+        if syms:
+            scope[name] = {str(s).upper().replace("/", "") for s in syms}
+    return scope
+
+
 def _collect_intents(
     settings: dict,
     *,
@@ -181,15 +210,38 @@ def _collect_intents(
 
     A strategy that returns ``side="none"`` contributes no intent. A
     strategy that raises is logged + skipped (same isolation contract
-    the legacy multiplexer uses).
+    the legacy multiplexer uses). A strategy whose declared ``symbols:``
+    do not include this tick's symbol is skipped BEFORE evaluation — see
+    ``_strategy_symbol_scope`` — so e.g. ``mgc_pullback_1d`` (gold) never
+    evaluates/emits on MES or copper, and a higher-priority crypto strategy
+    can't win a metal's aggregation only to be undeliverable. The gate is
+    at emission, not dispatch, precisely so it can't suppress the
+    legitimate per-symbol owner.
     """
     intents: List[StrategyIntent] = []
     now = time.time()
+    tick_symbol = str(
+        settings.get("SYMBOL") or settings.get("symbol") or ""
+    ).upper().replace("/", "")
+    symbol_scope = _strategy_symbol_scope()
     for name in strategies:
         if is_strategy_paused(name):
             logger.info(
                 "intent_multiplexer: '%s' paused via runtime flag — skipping",
                 name,
+            )
+            continue
+        # Per-strategy symbol scope: skip a strategy that does not declare
+        # this tick's symbol. Permissive when the strategy declares no
+        # ``symbols`` (absent from ``symbol_scope``) or the tick symbol is
+        # unknown — so single-symbol accounts (bybit_2 = BTCUSDT) are
+        # unaffected.
+        declared = symbol_scope.get(name)
+        if tick_symbol and declared and tick_symbol not in declared:
+            logger.debug(
+                "intent_multiplexer: '%s' not configured for symbol=%s "
+                "(trades %s) — skipping",
+                name, tick_symbol, sorted(declared),
             )
             continue
         builder = builders.get(name)
