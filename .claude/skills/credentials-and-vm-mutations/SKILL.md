@@ -113,6 +113,10 @@ land before step 2 is useful.
 
 ## Composes with
 
+- `before-asking-the-operator` — the broader rule this skill applies
+  to credentials/VM-state specifically. If you're writing operator
+  instructions outside the credentials/VM domain, invoke that skill
+  instead (or as well).
 - `vm-ops` — broader VM operations contract; this skill is the
   credentials/state-mutation slice.
 - `git-actions` — for workflow dispatch mechanics (label + issue body).

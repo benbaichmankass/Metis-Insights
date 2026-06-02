@@ -119,8 +119,11 @@ autonomously:
 
 ## Composes with
 
-- `credentials-and-vm-mutations` — the deeper rule layer this skill
-  applies. Read it before writing the operator section.
+- `before-asking-the-operator` — the broader runner-not-operator rule;
+  invoke any time you find yourself about to write an operator-side
+  instruction outside the three legitimate categories.
+- `credentials-and-vm-mutations` — the credentials-specific application
+  of that rule. Read it before writing the operator section.
 - `vm-ops` — for VM-side mutation mechanics.
 - `git-actions` — for the workflow dispatch issue-body format.
 - `diag-data` — for smoke-test and post-state verification reads.
