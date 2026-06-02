@@ -90,10 +90,12 @@ from typing import Any, Dict, Iterable, Optional
 # aggregator/delta are already symbol-parametric (every StrategyIntent /
 # DesiredPosition / ExecutionDelta carries ``symbol``), and the
 # strategy-monocle open-package gates are symbol-scoped (so an open
-# BTCUSDT package can't suppress an MES entry). This is a validation
-# whitelist, not a runtime on/off gate — accounts.yaml ``symbols`` drives
-# what actually trades; ``mode:`` is the only execution gate.
-SUPPORTED_SYMBOLS: frozenset[str] = frozenset({"BTCUSDT", "MES"})
+# BTCUSDT package can't suppress an MES entry). MGC (Micro Gold) + MHG (Micro
+# Copper) join 2026-06-02 for the WS-A metals sleeve (mgc_pullback_1d /
+# mhg_pullback_1d on ib_paper) — same per-symbol parametricity. This is a
+# validation whitelist, not a runtime on/off gate — accounts.yaml ``symbols``
+# drives what actually trades; ``mode:`` is the only execution gate.
+SUPPORTED_SYMBOLS: frozenset[str] = frozenset({"BTCUSDT", "MES", "MGC", "MHG"})
 
 
 # Higher priority wins conflicts. Tiebreaker order is documented on
@@ -145,6 +147,12 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # live order), so its priority never arbitrates a real order; the lowest
     # value is the safety floor for the unproven sleeve.
     "mes_trend_long_1d": 0,
+    # mgc_pullback_1d / mhg_pullback_1d — the WS-A metals sleeve (2026-06-02).
+    # Micro Gold + Micro Copper daily HTF-pullback diversifiers. Each runs ALONE
+    # on its own symbol (MGC / MHG) on ib_paper, so priority is moot — they never
+    # arbitrate against another strategy. Value 0 follows mes_trend_long_1d.
+    "mgc_pullback_1d": 0,
+    "mhg_pullback_1d": 0,
 }
 
 # Priority used when a strategy is not listed in DEFAULT_PRIORITIES and

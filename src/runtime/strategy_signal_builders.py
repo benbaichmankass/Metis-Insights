@@ -1517,6 +1517,171 @@ def mes_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     return _with_signal_package("mes_trend_long_1d", sig)
 
 
+def _metals_pullback_signal_builder(
+    settings: dict,
+    *,
+    strategy_name: str,
+    default_symbol: str,
+) -> Dict[str, Any]:
+    """Shared body for the WS-A metals pullback sleeve (MGC / MHG).
+
+    A BTC-uncorrelated WS-A-validated diversifier: the HTF trend-pullback
+    continuation unit (``src.units.strategies.htf_pullback_trend_2h.order_package``)
+    on the COMEX-micro-metal daily candle, routed to the IBKR ``ib_paper``
+    account. Unlike ``mes_trend_long_1d`` this trades BOTH directions — the
+    pullback edge is symmetric (long pullbacks in uptrends, short pullbacks in
+    downtrends), so there is NO long-only gate. The live config exactly
+    reproduces the backtest-validated WS-A S2/S3 params (mirrored by
+    ``scripts/backtest_pullback.py``); honours the YAML ``enabled`` flag as the
+    single source of truth.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.htf_pullback_trend_2h import order_package
+    from src.runtime.market_data import fetch_candles
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 - never fail-open on a config error
+        strategies_cfg = {}
+    strat_cfg = strategies_cfg.get(strategy_name, {}) or {}
+
+    # Routed only to the metals (ib_paper) account, so the tick symbol is the
+    # metal; default to it if a caller omits it.
+    symbol = settings.get("SYMBOL", settings.get("symbol", default_symbol))
+
+    if not bool(strat_cfg.get("enabled", False)):
+        logger.info(
+            "%s: strategy disabled in config/strategies.yaml - returning side=none",
+            strategy_name,
+        )
+        return _with_signal_package(strategy_name, {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": strategy_name,
+                "reason": "disabled_in_yaml",
+            },
+        })
+
+    timeframe = str(strat_cfg.get("timeframe") or "1d")
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(
+        symbol, timeframe, exchange_client=exchange, limit=200,
+    )
+    if candles_df is None:
+        raise RuntimeError(
+            f"{strategy_name}: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the IBKR connection is "
+            "configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **strat_cfg}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("%s: no actionable signal (%s)", strategy_name, exc)
+        try:
+            log_signal(_stamp_regime({
+                "event": f"{strategy_name}_eval",
+                "strategy": strategy_name,
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            }, candles_df))
+        except Exception:  # noqa: BLE001
+            logger.exception("%s: dedicated audit emit failed", strategy_name)
+        return _with_signal_package(strategy_name, {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": strategy_name,
+                "reason": str(exc),
+            },
+        })
+
+    # No long-only gate: the pullback edge is symmetric, so honour BOTH
+    # directions (the deliberate difference from mes_trend_long_1d).
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "%s: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        strategy_name, side, symbol, pkg["entry"], pkg["sl"], pkg["tp"],
+        pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal(_stamp_regime({
+            "event": f"{strategy_name}_eval",
+            "strategy": strategy_name,
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        }, candles_df))
+    except Exception:  # noqa: BLE001
+        logger.exception("%s: dedicated audit emit failed", strategy_name)
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": strategy_name,
+        "meta": {
+            **pkg_meta,
+            "strategy_name": strategy_name,
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+            "strategy_risk_pct": float(strat_cfg.get("risk_pct", 0.3) or 0.3),
+        },
+    }
+    _emit_shadow_preds(
+        strategy_name, sig, strat_cfg, symbol,
+        timeframe=timeframe, candles_df=candles_df,
+    )
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df)
+    return _with_signal_package(strategy_name, sig)
+
+
+def mgc_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
+    """Micro Gold (MGC) daily HTF-pullback diversifier (WS-A S2/S3).
+
+    Reuses ``htf_pullback_trend_2h.order_package`` on the MGC daily candle,
+    routed to the IBKR ``ib_paper`` account (COMEX Micro Gold). Trades both
+    directions (no long-only gate). Validated params (pullback_frac 0.618,
+    trend_lookback 40, pullback_lookback 15) live in config/strategies.yaml and
+    are mirrored by scripts/backtest_pullback.py. Honours the YAML ``enabled``
+    flag as the single source of truth.
+    """
+    return _metals_pullback_signal_builder(
+        settings, strategy_name="mgc_pullback_1d", default_symbol="MGC",
+    )
+
+
+def mhg_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
+    """Micro Copper (MHG) daily HTF-pullback diversifier (WS-A S2/S3).
+
+    Reuses ``htf_pullback_trend_2h.order_package`` on the MHG daily candle,
+    routed to the IBKR ``ib_paper`` account (COMEX Micro Copper). Trades both
+    directions (no long-only gate). Validated params (pullback_frac 0.5,
+    trend_lookback 40, pullback_lookback 15) live in config/strategies.yaml and
+    are mirrored by scripts/backtest_pullback.py. Honours the YAML ``enabled``
+    flag as the single source of truth.
+    """
+    return _metals_pullback_signal_builder(
+        settings, strategy_name="mhg_pullback_1d", default_symbol="MHG",
+    )
+
+
 def squeeze_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
     """Volatility-squeeze breakout (S-STRAT-IMPROVE-S9), member-#3 candidate.
 

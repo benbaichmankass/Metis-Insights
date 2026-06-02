@@ -168,9 +168,11 @@ def test_real_yaml_loads():
     # fvg_range_15m shadow wiring (2026-05-30), then 7 → 8 by the
     # htf_pullback_trend_2h shadow wiring (2026-06-01), then 8 → 9 by the
     # trend_donchian_1h shadow A/B wiring (2026-06-01), then 9 → 10 by the
-    # mes_trend_long_1d shadow wiring (2026-06-01). Live turn-on is gated by
-    # each strategy's `enabled` / `execution` flags in the YAML, not the count.
-    assert len(strategies) == 10
+    # mes_trend_long_1d shadow wiring (2026-06-01), then 10 → 12 by the WS-A
+    # metals sleeve mgc_pullback_1d + mhg_pullback_1d (2026-06-02). Live turn-on
+    # is gated by each strategy's `enabled` / `execution` flags in the YAML, not
+    # the count.
+    assert len(strategies) == 12
 
 
 def test_real_yaml_has_required_strategies():
@@ -179,7 +181,7 @@ def test_real_yaml_has_required_strategies():
     assert names == {
         "turtle_soup", "vwap", "ict_scalp_5m", "trend_donchian", "fade_breakout_4h",
         "squeeze_breakout_4h", "fvg_range_15m", "htf_pullback_trend_2h", "trend_donchian_1h",
-        "mes_trend_long_1d",
+        "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d",
     }
 
 

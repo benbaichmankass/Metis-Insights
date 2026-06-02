@@ -203,8 +203,11 @@ class TestAccountsYaml:
         # diversifier, wired 2026-06-01, PROMOTED to execution: live 2026-06-02 —
         # executes on ib_paper PAPER money; collects live-MES trend data via real
         # paper execution. Real-money IB (ib_live) stays a separate Tier-3 gate).
+        # + the WS-A metals sleeve mgc_pullback_1d (MGC) / mhg_pullback_1d (MHG),
+        # added 2026-06-02, execution: live on ib_paper PAPER money.
         assert paper["strategies"] == [
             "turtle_soup", "vwap", "ict_scalp_5m", "mes_trend_long_1d",
+            "mgc_pullback_1d", "mhg_pullback_1d",
         ]
 
         live = accts["ib_live"]
@@ -262,7 +265,8 @@ class TestLoadAccounts:
         assert paper.ib_client_id == 497
         assert paper.strategies == [
             "turtle_soup", "vwap", "ict_scalp_5m", "mes_trend_long_1d",
-        ]  # + shadow daily long-only diversifier (2026-06-01)
+            "mgc_pullback_1d", "mhg_pullback_1d",
+        ]  # + long-only diversifier (2026-06-01) + WS-A metals sleeve (2026-06-02)
 
         live = accounts["ib_live"]
         assert live.dry_run is True           # mode: dry_run

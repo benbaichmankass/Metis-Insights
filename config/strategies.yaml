@@ -712,3 +712,89 @@ strategies:
     min_confidence: 0.0
     shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring while
                               # this fresh data-collector builds a track record.
+
+  mgc_pullback_1d:
+    # Micro Gold (MGC) daily HTF-pullback diversifier (WS-A S2/S3, 2026-06-02).
+    # A BTC-uncorrelated WS-A-validated edge: the htf_pullback_trend_2h unit
+    # (HTF Donchian-midline trend filter + pullback ENTRY into the recent range
+    # on a confirmation bar, Chandelier ATR trail exit) on the MGC daily candle.
+    # Routed to the IBKR `ib_paper` account (COMEX Micro Gold); fetch_candles
+    # routes the MGC symbol to IBKR automatically. Validated harness:
+    # scripts/backtest_pullback.py (mirrors htf_pullback_trend_2h.order_package
+    # exactly), so the params below MUST reproduce the validated config verbatim.
+    #
+    # STATUS: execution: live. ib_paper is IBKR PAPER money (no real-money risk);
+    # operator policy — paper accounts exist to TEST strategies, so a strategy
+    # routed there must EXECUTE, never sit data-only (`shadow` on a paper-only
+    # strategy strands it dark and is the forbidden bug). Real-money IB (ib_live)
+    # stays a separate Tier-3 gate. Tier-3, awaiting operator approval to deploy.
+    # RISK: if ib_paper lacks COMEX metals market-data entitlement the strategy
+    # logs but is inert (no candles -> side=none / RuntimeError, no orders).
+    # WS-A S2/S3 evidence: Gold/pullback PASSED the S2 diversifier re-tune
+    # (a roster lead), the S3 significance + robustness test, and the S3b
+    # fee-headroom test (survives >30bps round-trip). The runtime builder
+    # honours `enabled` as the single source of truth and trades BOTH directions
+    # (the pullback edge is symmetric — NO long-only gate).
+    model: null
+    signal_prefixes: [mgc_pullback, mgc_pull]
+    enabled: true
+    execution: live          # ib_paper is IBKR PAPER money — paper accounts always
+                             # execute (test the strategy). Real-money IB (ib_live)
+                             # stays a separate Tier-3 gate.
+    risk_pct: 0.3            # conservative; LIVE on ib_paper (paper money).
+    timeframe: "1d"          # the daily timeframe the WS-A metals edge lives on.
+    symbols:
+      - MGC                  # Micro Gold future (COMEX/IBKR). NOT BTCUSDT.
+    # Strategy params — the WS-A-validated config, set explicitly (do not rely on
+    # the htf_pullback_trend_2h unit defaults, which are the BTC-2h scaffold).
+    trend_lookback: 40
+    pullback_lookback: 15
+    pullback_frac: 0.618
+    atr_period: 14
+    atr_stop_mult: 2.0
+    trail_mult: 4.0
+    timeout_bars: 200
+    tp_r: 50.0
+    min_confidence: 0.0
+    shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring while
+                              # this fresh data-collector builds a track record.
+
+  mhg_pullback_1d:
+    # Micro Copper (MHG) daily HTF-pullback diversifier (WS-A S2/S3, 2026-06-02).
+    # The metals-sleeve sibling of mgc_pullback_1d: the same htf_pullback_trend_2h
+    # unit on the MHG daily candle, routed to the IBKR `ib_paper` account (COMEX
+    # Micro Copper). Validated harness: scripts/backtest_pullback.py — the params
+    # below MUST reproduce the validated config verbatim. The MHG-validated
+    # pullback fraction is 0.5 (vs MGC's 0.618).
+    #
+    # STATUS: execution: live. Same rationale as mgc_pullback_1d — ib_paper is
+    # IBKR PAPER money, paper accounts execute. Real-money IB (ib_live) stays a
+    # separate Tier-3 gate. Tier-3, awaiting operator approval to deploy. RISK:
+    # log-but-inert if ib_paper lacks COMEX metals market-data entitlement.
+    # WS-A S2/S3 evidence: Copper/pullback PASSED the S2 diversifier re-tune (a
+    # roster lead), the S3 significance + robustness test, and the S3b
+    # fee-headroom test (survives >30bps round-trip). Builder honours `enabled`
+    # and trades BOTH directions (symmetric pullback edge — NO long-only gate).
+    model: null
+    signal_prefixes: [mhg_pullback, mhg_pull]
+    enabled: true
+    execution: live          # ib_paper is IBKR PAPER money — paper accounts always
+                             # execute (test the strategy). Real-money IB (ib_live)
+                             # stays a separate Tier-3 gate.
+    risk_pct: 0.3            # conservative; LIVE on ib_paper (paper money).
+    timeframe: "1d"          # the daily timeframe the WS-A metals edge lives on.
+    symbols:
+      - MHG                  # Micro Copper future (COMEX/IBKR). NOT BTCUSDT.
+    # Strategy params — the WS-A-validated config, set explicitly (do not rely on
+    # the htf_pullback_trend_2h unit defaults, which are the BTC-2h scaffold).
+    trend_lookback: 40
+    pullback_lookback: 15
+    pullback_frac: 0.5
+    atr_period: 14
+    atr_stop_mult: 2.0
+    trail_mult: 4.0
+    timeout_bars: 200
+    tp_r: 50.0
+    min_confidence: 0.0
+    shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring while
+                              # this fresh data-collector builds a track record.

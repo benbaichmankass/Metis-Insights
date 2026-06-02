@@ -69,3 +69,46 @@ instruments:
     contract_value_usd: 5.0     # $5 per index point per contract
     max_leverage: 0             # no leverage cap (futures margin set by broker)
     display_name: "Micro E-mini S&P 500 (CME/IB)"
+
+  # ------------------------------------------------------------------
+  # MGC — Micro Gold futures via COMEX / Interactive Brokers (WS-A, 2026-06-02)
+  # The metals sleeve: BTC-uncorrelated WS-A-validated pullback diversifiers,
+  # routed to ib_paper (IBKR PAPER money) by mgc_pullback_1d. `exchange:` is
+  # the connector-routing key (interactive_brokers, same as MES); the COMEX
+  # listing detail is recorded in the spec fields. IB execution path:
+  # IBClient._build_contract uses ContFuture("MGC", "COMEX", currency="USD").
+  # Contract: 10 troy oz; tick 0.10 ($1.00/tick).
+  # ------------------------------------------------------------------
+  MGC:
+    exchange: interactive_brokers
+    category: futures
+    base_asset: GC              # underlying Gold (COMEX listing)
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.10             # $1.00 per tick (10 troy oz x $0.10)
+    min_qty: 1.0                # 1 contract minimum
+    qty_step: 1.0               # whole contracts only
+    contract_value_usd: 10.0    # 10 troy oz per contract
+    max_leverage: 0             # no leverage cap (futures margin set by broker)
+    display_name: "Micro Gold (COMEX/IB)"
+
+  # ------------------------------------------------------------------
+  # MHG — Micro Copper futures via COMEX / Interactive Brokers (WS-A, 2026-06-02)
+  # The metals sleeve sibling of MGC, routed to ib_paper by mhg_pullback_1d.
+  # `exchange: interactive_brokers` is the connector key (same as MES); COMEX
+  # is the listing. IB execution path: IBClient._build_contract uses
+  # ContFuture("MHG", "COMEX", currency="USD"). Contract: 2,500 lb;
+  # tick 0.0005 ($1.25/tick).
+  # ------------------------------------------------------------------
+  MHG:
+    exchange: interactive_brokers
+    category: futures
+    base_asset: HG              # underlying Copper (COMEX listing)
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.0005           # $1.25 per tick (2,500 lb x $0.0005)
+    min_qty: 1.0                # 1 contract minimum
+    qty_step: 1.0               # whole contracts only
+    contract_value_usd: 2500.0  # 2,500 lb per contract
+    max_leverage: 0             # no leverage cap (futures margin set by broker)
+    display_name: "Micro Copper (COMEX/IB)"

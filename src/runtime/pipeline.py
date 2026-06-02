@@ -14,6 +14,8 @@ from src.runtime.strategy_signal_builders import (  # noqa: E402
     fvg_range_15m_signal_builder,
     htf_pullback_trend_2h_signal_builder,
     mes_trend_long_1d_signal_builder,
+    mgc_pullback_1d_signal_builder,
+    mhg_pullback_1d_signal_builder,
     squeeze_breakout_4h_signal_builder,
     ict_scalp_signal_builder,
     trend_donchian_1h_signal_builder,
@@ -233,6 +235,13 @@ _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     # reuses the trend_donchian unit, suppresses shorts. execution:shadow, never
     # sends a live order. Honours the YAML `enabled` flag.
     "mes_trend_long_1d": mes_trend_long_1d_signal_builder,
+    # mgc_pullback_1d / mhg_pullback_1d — the WS-A metals sleeve (2026-06-02).
+    # Micro Gold (MGC) + Micro Copper (MHG) daily HTF-pullback diversifiers on
+    # IBKR ib_paper; both reuse the htf_pullback_trend_2h unit (trade both
+    # directions — no long-only gate). execution: live (paper money; ib_paper
+    # exists to test strategies so it executes). Honour the YAML `enabled` flag.
+    "mgc_pullback_1d": mgc_pullback_1d_signal_builder,
+    "mhg_pullback_1d": mhg_pullback_1d_signal_builder,
     # fvg_range_15m — FVG mean-reversion inside a confirmed STATIC horizontal
     # range (the range member the roster was missing; the deliberate opposite
     # of ict_scalp's directional FVG continuation). Wired execution:shadow
