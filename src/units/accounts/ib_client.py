@@ -64,6 +64,24 @@ DEFAULT_IB_HOST = "127.0.0.1"
 # MES (CME) trades in 0.25 index-point ticks. SL/TP prices sent to IB
 # must be on the tick grid or the order is rejected.
 MES_TICK_SIZE = 0.25
+# MGC (Micro Gold, COMEX) trades in 0.10 ticks ($1.00/tick on 10 troy oz).
+MGC_TICK_SIZE = 0.10
+# MHG (Micro Copper, COMEX) trades in 0.0005 ticks ($1.25/tick on 2,500 lb).
+MHG_TICK_SIZE = 0.0005
+
+# Per-symbol tick-size lookup. SL/TP prices sent to IB must sit on the
+# contract's tick grid or the order is rejected; the lookup keeps the
+# rounding correct per instrument (MES / MGC / MHG all differ).
+TICK_SIZES: Dict[str, float] = {
+    "MES": MES_TICK_SIZE,
+    "MGC": MGC_TICK_SIZE,
+    "MHG": MHG_TICK_SIZE,
+}
+
+
+def tick_size_for(symbol: Optional[str]) -> float:
+    """Return the contract tick size for *symbol* (defaults to MES)."""
+    return TICK_SIZES.get(str(symbol or "MES").upper(), MES_TICK_SIZE)
 
 
 class IBConnectionError(RuntimeError):
@@ -85,11 +103,17 @@ def _round_to_tick(price: float, tick: float = MES_TICK_SIZE) -> float:
     """Round *price* to the nearest valid *tick* increment.
 
     IB rejects futures orders whose price is off the contract's tick
-    grid (MES = 0.25). Rounds to the nearest tick and trims float noise.
+    grid (MES = 0.25, MGC = 0.10, MHG = 0.0005). Rounds to the nearest
+    tick and trims float noise to enough decimals to preserve the tick
+    (e.g. MHG's 0.0005 needs 4 dp; a fixed 4-dp trim would corrupt a
+    finer grid, so derive the precision from the tick itself).
     """
     if tick <= 0:
         return float(price)
-    return round(round(float(price) / tick) * tick, 4)
+    # Decimal places needed to represent the tick exactly (capped at 8).
+    tick_str = f"{tick:.8f}".rstrip("0")
+    ndigits = len(tick_str.split(".", 1)[1]) if "." in tick_str else 0
+    return round(round(float(price) / tick) * tick, max(ndigits, 4))
 
 
 class IBClient:
@@ -282,38 +306,48 @@ class IBClient:
     # ------------------------------------------------------------------
 
     def _build_contract(self, symbol: Optional[str] = None) -> Any:
-        """Resolve and cache the front-month MES future contract.
+        """Resolve and cache the front-month future contract for *symbol*.
 
         Uses ib_insync's continuous-future lookup to find the active
         front month, then qualifies the concrete ``Future`` so it carries
-        a ``conId`` IB will accept on an order. Only ``MES`` is wired —
-        any other symbol raises ``ValueError`` (the IB account trades MES;
-        a stray BTCUSDT package must never reach here).
+        a ``conId`` IB will accept on an order. Three symbols are wired:
+        ``MES`` (Micro E-mini S&P 500, CME) and the WS-A metals sleeve
+        ``MGC`` (Micro Gold, COMEX) + ``MHG`` (Micro Copper, COMEX). Any
+        other symbol raises ``ValueError`` (a stray BTCUSDT package must
+        never reach here). The resolved contract is cached on the client.
         """
         sym = str(symbol or self.symbol or "MES").upper()
-        if sym != "MES":
+        # symbol → IB primary exchange. CME for the equity-index micro;
+        # COMEX for the metals micros.
+        ib_exchanges = {"MES": "CME", "MGC": "COMEX", "MHG": "COMEX"}
+        ib_exchange = ib_exchanges.get(sym)
+        if ib_exchange is None:
             raise ValueError(
-                f"IBClient: only MES is wired for the IB execution path; "
-                f"got symbol={sym!r}. Add the contract spec to "
+                f"IBClient: only {sorted(ib_exchanges)} are wired for the IB "
+                f"execution path; got symbol={sym!r}. Add the contract spec to "
                 f"_build_contract before routing it to an IB account."
             )
-        if self._contract is not None:
-            return self._contract
+        # Cache is per-symbol — guard against a stale cache from a different
+        # symbol when one client is reused across instruments.
+        cached = self._contract
+        if cached is not None and getattr(cached, "symbol", sym) == sym:
+            return cached
         ib = self.connect()
         try:
             from ib_insync import ContFuture, Future  # type: ignore
         except ImportError:
             from ib_async import ContFuture, Future  # type: ignore
-        cont = ContFuture("MES", "CME", currency="USD")
+        cont = ContFuture(sym, ib_exchange, currency="USD")
         ib.qualifyContracts(cont)
         con_id = getattr(cont, "conId", 0)
         if not con_id:
             raise IBConnectionError(
-                "IBClient: could not resolve the MES front-month contract "
+                f"IBClient: could not resolve the {sym} front-month contract "
                 "from the Gateway (empty conId). Check market-data / "
-                "contract permissions on the IB account."
+                "contract permissions on the IB account "
+                f"(COMEX metals data is needed for MGC/MHG)."
             )
-        contract = Future(conId=con_id, exchange="CME")
+        contract = Future(conId=con_id, exchange=ib_exchange)
         ib.qualifyContracts(contract)
         self._contract = contract
         return contract
@@ -359,8 +393,9 @@ class IBClient:
         if qty <= 0:
             return {"retCode": 1, "retMsg": f"non-positive qty {qty}"}
 
-        tp_price = _round_to_tick(float(order["tp"])) if order.get("tp") else None
-        sl_price = _round_to_tick(float(order["sl"])) if order.get("sl") else None
+        tick = tick_size_for(order.get("symbol") or self.symbol)
+        tp_price = _round_to_tick(float(order["tp"]), tick) if order.get("tp") else None
+        sl_price = _round_to_tick(float(order["sl"]), tick) if order.get("sl") else None
 
         try:
             from ib_insync import LimitOrder, MarketOrder, StopOrder  # type: ignore

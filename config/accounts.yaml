@@ -305,12 +305,15 @@ accounts:
   #     live gateway. Promoting it to live is a Tier-3 change via the
   #     set-account-mode operator action.
   #
-  # Strategy routing (multi-symbol): all three strategies (vwap,
-  # turtle_soup, ict_scalp_5m) run on MES on ib_paper, same as on BTCUSDT.
-  # The symbol→exchange dispatch gate (coordinator._eligible_for_dispatch)
-  # guarantees a BTCUSDT signal NEVER reaches an IB account and an MES
-  # signal NEVER reaches a bybit account — so assigning the crypto
-  # strategies here is safe: ib_paper only ever receives MES packages.
+  # Strategy routing (multi-symbol): the crypto strategies (vwap,
+  # turtle_soup, ict_scalp_5m) plus the MES sleeve (mes_trend_long_1d) and the
+  # WS-A metals sleeve (mgc_pullback_1d on MGC, mhg_pullback_1d on MHG) run on
+  # ib_paper. The symbol→exchange dispatch gate
+  # (coordinator._eligible_for_dispatch) guarantees a BTCUSDT signal NEVER
+  # reaches an IB account and an MES/MGC/MHG signal NEVER reaches a bybit
+  # account — so assigning the crypto strategies here is safe: ib_paper only
+  # ever receives MES/MGC/MHG packages, and each per-symbol strategy only
+  # fires on its own instrument.
   #
   # Symbol set is config-driven (2026-05-22): the tick loop
   # (src/main.py::_resolve_tick_symbols) unions the ``symbols`` of every
@@ -338,19 +341,24 @@ accounts:
                                        # the Gateway as trusted localhost
     ib_account: DUQ325724
     ib_client_id: 497                  # unique per concurrent socket
-    strategies: [turtle_soup, vwap, ict_scalp_5m, mes_trend_long_1d]   # all on MES; BTCUSDT
-                                       # is gated out by exchange (see header).
-                                       # mes_trend_long_1d added 2026-06-01,
-                                       # PROMOTED to execution: live 2026-06-02
-                                       # (operator policy: paper accounts always
-                                       # execute). Long-only equity-index diversifier
-                                       # — IBKR PAPER money only; real money (ib_live)
-                                       # stays a separate Tier-3 gate.
-    symbols: [MES]                     # MES is the instrument; the multi-symbol
-                                       # tick loop unions this so MES signals are
-                                       # GENERATED. BTCUSDT signals never reach
-                                       # this account (coordinator symbol→exchange
-                                       # gate). This is the live MES enablement.
+    strategies: [turtle_soup, vwap, ict_scalp_5m, mes_trend_long_1d, mgc_pullback_1d, mhg_pullback_1d]
+                                       # MES + the WS-A metals sleeve (MGC/MHG);
+                                       # BTCUSDT is gated out by exchange (see
+                                       # header). mes_trend_long_1d added
+                                       # 2026-06-01 (long-only equity-index
+                                       # diversifier). mgc_pullback_1d (Micro
+                                       # Gold) + mhg_pullback_1d (Micro Copper)
+                                       # added 2026-06-02 — WS-A-validated
+                                       # BTC-uncorrelated daily pullback
+                                       # diversifiers, both execution: live.
+                                       # IBKR PAPER money only; real money
+                                       # (ib_live) stays a separate Tier-3 gate.
+    symbols: [MES, MGC, MHG]           # the instruments; the multi-symbol tick
+                                       # loop unions these so MES/MGC/MHG signals
+                                       # are GENERATED. BTCUSDT signals never
+                                       # reach this account (coordinator
+                                       # symbol→exchange gate). This is the live
+                                       # MES + metals-sleeve enablement.
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity

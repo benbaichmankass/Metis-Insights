@@ -141,12 +141,14 @@ def test_run_checks_strategies_match_roster():
     # ict_scalp_5m added after S-012 PR B1; trend_donchian at S8 go-live;
     # fade_breakout_4h + squeeze_breakout_4h at S9 (2026-05-24, execution:
     # shadow data-collectors); fvg_range_15m at 2026-05-30 (execution: shadow
-    # range member); htf_pullback_trend_2h at 2026-06-01 (execution: shadow
-    # HTF-pullback trend-follower).
+    # range member); htf_pullback_trend_2h + trend_donchian_1h + mes_trend_long_1d
+    # at 2026-06-01; mgc_pullback_1d + mhg_pullback_1d at 2026-06-02 (the WS-A
+    # metals sleeve — Micro Gold / Micro Copper daily HTF-pullback diversifiers
+    # on IBKR ib_paper, execution: live on PAPER money).
     assert names == {
         "turtle_soup", "vwap", "ict_scalp_5m", "trend_donchian", "fade_breakout_4h",
         "squeeze_breakout_4h", "fvg_range_15m", "htf_pullback_trend_2h", "trend_donchian_1h",
-        "mes_trend_long_1d",
+        "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d",
     }
 
 
