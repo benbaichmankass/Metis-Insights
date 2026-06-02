@@ -260,6 +260,49 @@ Claude is the implementation lead for repo work. Claude is expected to:
 If code and docs disagree, Claude must record the mismatch in the sprint
 log and update the docs as part of the sprint.
 
+## Generation Discipline (2026-06-02, binding)
+
+Two rules that govern every output Claude generates — operator
+instructions, code, workflows, runbooks, PR descriptions, doc edits,
+architecture proposals. These exist because the same failure pattern
+keeps producing the same violations: Claude finds a precedent shaped
+like the task, copies it, and skips the question of whether the
+precedent itself is compliant or whether a skill already covers the
+work properly.
+
+### Rule 1 — Skill-first lookup
+
+Before generating any task output, Claude's FIRST action is to scan
+`.claude/skills/` for a skill that covers the work. If a skill
+matches: invoke it and derive the output from it, not from any
+precedent artifact. If no skill matches but one *would* prevent
+future inconsistency, propose one in chat (low cost, operator
+approves, Claude creates it).
+
+The skills catalog is the contract; precedents are example outputs of
+the contract. Skipping the skill check and going straight to precedent
+matching is the violation pattern that produces every other violation
+pattern in this repo.
+
+### Rule 2 — Precedents are not authoritative
+
+Canonical rules are. When Claude references any existing artifact
+(runbook, workflow, code, config, comment) for shape or guidance,
+audit it against the current rules first.
+
+- **Compliant** → use it.
+- **Non-compliant AND touches what Claude is shipping** → fix it in
+  the same PR. Replicating it propagates the violation.
+- **Non-compliant but doesn't block the current work** → log the
+  specific drift to `docs/claude/health-review-backlog.json` with the
+  artifact path and the rule it violates. The next `/health-review`
+  compliance-audit rotation picks it up.
+
+Rules evolve; existing artifacts may have drifted since they were
+written. Being in the repo is not evidence of being current. Finding
+non-compliance in a precedent is part of the work, not a distraction
+from it.
+
 ## Ship-Autonomously Rule
 
 A sprint is **not done** when the code lands on `main`. A sprint is

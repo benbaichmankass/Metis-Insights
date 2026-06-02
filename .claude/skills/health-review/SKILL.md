@@ -219,6 +219,67 @@ doc or the live state you just pulled? Record issues in
 `contradiction` against a canonical doc is fixed in-place (Tier-1) or
 logged to the backlog — never walked past.
 
+## Compliance audit rotation (2026-06-02)
+
+One repo section per review, rotated by day-of-week so the full repo is
+audited against the **current** canonical rules
+(`docs/CLAUDE-RULES-CANONICAL.md` § Generation Discipline) over a week.
+This is the enforcement loop for Rule 2 (precedents-not-authoritative):
+artifacts drift as rules evolve, and this rotation is how the drift
+gets surfaced and queued for fix.
+
+Pick the section by `weekday`:
+
+| Weekday | Section |
+|---|---|
+| Mon | `docs/runbooks/` |
+| Tue | `.github/workflows/` + `scripts/ops/` |
+| Wed | `.claude/skills/` |
+| Thu | `config/` |
+| Fri | `src/units/accounts/` (broker integrations) |
+| Sat | `src/runtime/` + `src/core/` |
+| Sun | `src/units/strategies/` + `ml/` |
+
+For each artifact in the day's section:
+
+1. Run the bright-line scan from `before-asking-the-operator` (operator
+   instructions that should be runner-dispatched) and
+   `credentials-and-vm-mutations` (operator-attributed VM/credential
+   work that should route through `sync-vm-secrets` or
+   `system-actions`).
+2. Cross-check against any rule in `docs/CLAUDE-RULES-CANONICAL.md`
+   that the artifact category is subject to (tier, autonomy mandate,
+   prime directive, generation discipline, ship-autonomously rule).
+3. Per Rule 2 of Generation Discipline:
+   - **Compliant** → no action.
+   - **Non-compliant + the review session is shipping a fix for the
+     containing system** → fix in the same PR.
+   - **Non-compliant + non-blocking** → log to
+     `docs/claude/health-review-backlog.json` with the artifact path,
+     the specific rule it violates, the bright-line phrase or pattern
+     observed, and a one-line suggested fix.
+
+The audit findings appear in `compliance_audit` in the response JSON:
+
+```json
+"compliance_audit": {
+  "section": "docs/runbooks/",
+  "artifacts_scanned": 16,
+  "findings": [
+    {
+      "artifact": "docs/runbooks/ib-integration.md",
+      "rule": "before-asking-the-operator",
+      "pattern": "operator-attributed systemd edit at line 87",
+      "severity": "drift",
+      "logged_to_backlog": "BL-20260603-001"
+    }
+  ]
+}
+```
+
+This rotation does NOT touch artifacts outside the day's section — the
+weekly cycle is the coverage guarantee, not a per-session full sweep.
+
 ## Draining the backlog
 
 Read `docs/claude/health-review-backlog.json` — the parking lot for
