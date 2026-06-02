@@ -105,8 +105,9 @@ accounts:
                                        # DEMO-ONLY (not on bybit_2). Graduation to real
                                        # money is a separate Tier-3 gate.
                                        # 2026-05-25 (operator-approved): bybit_1 (demo)
-                                       # now mirrors bybit_2 EXACTLY — the same six
-                                       # strategies in the same order. trend_donchian
+                                       # mirrored bybit_2 at the time; SUPERSEDED 2026-06-02 —
+                                       # bybit_1 demo now carries the FULL active roster
+                                       # while bybit_2 real money is winners-only. trend_donchian
                                        # added so the demo mirrors the real account's
                                        # flagship; fade_breakout_4h + squeeze_breakout_4h
                                        # promoted to `execution: live` in
@@ -114,9 +115,10 @@ accounts:
                                        # strategy here trades PAPER money (demo endpoint)
                                        # — no real-money risk. vwap is the only remaining
                                        # `execution: shadow` strategy here (data-only on
-                                       # every account, incl. this one — it also routes to
-                                       # real-money bybit_2, so it CANNOT be flipped live
-                                       # without exposing real money). fvg_range_15m added
+                                       # every account, incl. this one). vwap was REMOVED
+                                       # from real-money bybit_2 on 2026-06-02 (no
+                                       # net-of-fee edge); it now logs only on no-risk
+                                       # paper/demo accounts. fvg_range_15m added
                                        # 2026-05-30, PROMOTED to execution: live 2026-06-02
                                        # (operator policy: paper/demo always executes) —
                                        # DEMO account ONLY; NOT on bybit_2 (real money),
@@ -145,9 +147,10 @@ accounts:
                                        # via /v5/position/set-leverage at boot.
 
   # bybit_2: the real-money account on Bybit V5 USDT-margined linear
-  # perpetuals at 3× leverage. Runs all six strategies (see the
-  # `strategies:` list below) — everything LIVE except vwap (data-only
-  # via the per-strategy shadow gate).
+  # perpetuals at 3× leverage. REAL-MONEY ROSTER = passed-backtest
+  # winners ONLY (operator directive 2026-06-02). See the `strategies:`
+  # list below for the kept/added/dropped breakdown; the demo account
+  # bybit_1 carries the full active roster for no-risk data generation.
   #
   # S8 go-live (2026-05-23, operator-approved straight-to-real, Tier-3):
   # the Donchian-breakout trend-follower took over real-money execution
@@ -182,34 +185,23 @@ accounts:
     market_type: linear                # PR 3 — Bybit V5 USDT-margined
                                        # linear perpetuals. Was
                                        # spot-margin pre-cutover.
-    strategies: [trend_donchian, turtle_soup, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, vwap]
-                                       # 2026-05-25 (operator-approved, Tier-3):
-                                       # bybit_2 runs "everything except vwap"
-                                       # LIVE on real money — trend_donchian +
-                                       # turtle_soup + ict_scalp_5m +
-                                       # fade_breakout_4h + squeeze_breakout_4h
-                                       # all execute; vwap is data-only via the
-                                       # per-strategy gate (strategies.yaml
-                                       # `execution: shadow`), so it LOGS order
-                                       # packages on real money for comparison
-                                       # but never sends a live order. REQUIRES
-                                       # the execution-gate PR (#1862) deployed
-                                       # FIRST — without it, vwap would execute
-                                       # ungated on real money.
-                                       #
-                                       # fade_breakout_4h + squeeze_breakout_4h
-                                       # were PROMOTED from `execution: shadow`
-                                       # to live this date (operator decision),
-                                       # overriding the prior S9 shadow-only
-                                       # stance — they now execute on real money
-                                       # WITHOUT the earlier "live shadow proof"
-                                       # gate. Their OOS expectancy is more
-                                       # fragile than trend_donchian's (see the
-                                       # strategies.yaml caveats). NOTE: like
-                                       # turtle_soup (net-negative) + ict_scalp
-                                       # (≈breakeven), these run real money on an
-                                       # explicit operator call despite the weaker
-                                       # / less-proven backtests.
+    strategies: [trend_donchian, ict_scalp_5m, fvg_range_15m, htf_pullback_trend_2h]
+                                       # 2026-06-02 (operator-approved, Tier-3):
+                                       # REAL-MONEY ROSTER = passed-backtest winners
+                                       # ONLY (operator directive). KEEP trend_donchian
+                                       # (net-positive flagship) + ict_scalp_5m (passed
+                                       # pre-live gate #1156). ADD fvg_range_15m +
+                                       # htf_pullback_trend_2h (graduated from demo:
+                                       # validated, OOS-robust, no overfit decay) at
+                                       # risk_pct 0.3 (config/strategies.yaml). DROP
+                                       # turtle_soup (net-negative), vwap (no net-of-
+                                       # fee edge), fade_breakout_4h + squeeze_breakout_4h
+                                       # (passed backtest but FAILED live: -86R / 0% WR).
+                                       # All four stay active on bybit_1 demo (data only).
+                                       # Open positions from dropped strategies close
+                                       # normally via native Bybit SL/TP brackets (S3:
+                                       # 96% native bracket fires) — de-routing stops
+                                       # NEW entries + trail updates, not exits.
     symbols: [BTCUSDT]                  # all on BTCUSDT (bybit perps)
     risk:
       max_dd_pct: 0.05

@@ -490,8 +490,10 @@ strategies:
     #
     # STATUS: execution: live (PROMOTED 2026-06-02 from shadow). Operator policy:
     # paper/demo accounts exist to TEST strategies, so a strategy routed only to a
-    # paper/demo account must EXECUTE. Routed to bybit_1 (DEMO / paper money) ONLY
-    # — no real-money risk; bybit_2 (real) does NOT run it. Executes its order
+    # paper/demo accounts execute first for no-risk data. GRADUATED to
+    # real-money bybit_2 on 2026-06-02 (Tier-3, operator-approved:
+    # validated, OOS-robust, no overfit decay). Runs on bybit_1 (DEMO)
+    # AND bybit_2 (REAL money). Executes its order
     # packages on real demo ticks to collect the live confirmation. Evidence
     # (docs/audits/fvg-range-complement-2026-05-30.md), BTCUSDT 15m, net-of-fee,
     # 5.2y 2021-01..2026-02:
@@ -511,16 +513,17 @@ strategies:
     # Coordinator.multi_account_execute). NOTE: this gate is GLOBAL across the
     # accounts a strategy routes to — live on a paper/demo-only strategy is safe,
     # but DO NOT set live on any strategy that also routes to a real-money account
-    # (it would execute there too). fvg_range_15m is bybit_1 (demo) ONLY.
+    # (it would execute there too). fvg_range_15m runs on bybit_1 (demo)
+    # AND bybit_2 (real money) as of 2026-06-02.
     model: null
     signal_prefixes: [fvg_range, fvg_mr]
     enabled: true
-    execution: live            # PROMOTED shadow -> live 2026-06-02 (operator policy:
-                               # paper/demo accounts always execute). bybit_1 DEMO
-                               # money ONLY — NOT on real-money bybit_2.
+    execution: live            # PROMOTED shadow -> live 2026-06-02; GRADUATED to
+                               # real-money bybit_2 2026-06-02 (Tier-3, operator-
+                               # approved). Runs on bybit_1 (demo) AND bybit_2 (real).
     risk_pct: 0.3              # low — still building a live track record; matches the
                               # STRATEGY_RISK_PCT fallback in src/runtime/pipeline.py.
-                              # Now live on the bybit_1 DEMO account (paper money).
+                              # Now live on bybit_1 (demo) AND bybit_2 (real money).
     timeframe: "15m"          # served as Bybit 15m via CCXT.
     symbols:
       - BTCUSDT               # currently the only supported symbol
@@ -564,8 +567,9 @@ strategies:
     #
     # STATUS: execution: live (PROMOTED 2026-06-02 from shadow). Operator policy:
     # paper/demo accounts exist to TEST strategies, so a strategy routed only to a
-    # paper/demo account must EXECUTE. Routed to bybit_1 (DEMO / paper money) ONLY
-    # — no real-money risk. Executes its order packages on real demo ticks. Cleared for
+    # paper/demo accounts execute first for no-risk data. GRADUATED to
+    # real-money bybit_2 on 2026-06-02 (Tier-3, operator-approved).
+    # Runs on bybit_1 (DEMO) AND bybit_2 (REAL money). Cleared for
     # shadow by the overnight research campaign + a dedicated pre-shadow
     # validation suite (docs/research/overnight-strategy-research-2026-06-01.md):
     #   * Net-of-fee + walk-forward: IS(2021-2023) +32.7R / OOS(2024-2026)
@@ -573,21 +577,21 @@ strategies:
     #   * 3-fold robustness: net-positive in every 2y sub-period (+30/+42/+8).
     #   * Fee-robust: +67R even at 15 bps (2x the modelled 7.5).
     #   * Additive to the live roster (monthly net-R corr 0.20-0.54).
-    # GRADUATION: now LIVE on bybit_1 (DEMO / paper money) to build the live
-    # confirmation via real demo execution. Graduation to REAL money — adding it
-    # to bybit_2.strategies — remains the operator-gated Tier-3 step (the same path
-    # fade_breakout_4h / trend_donchian took). The runtime builder honours `enabled`
+    # GRADUATION: LIVE on bybit_1 (DEMO) AND GRADUATED to REAL money on
+    # 2026-06-02 — added to bybit_2.strategies (Tier-3, operator-approved,
+    # the same path trend_donchian took). The runtime builder honours `enabled`
     # as the single source of truth. NOTE: `execution:` is GLOBAL across routed
-    # accounts; this strategy is bybit_1 (demo) ONLY, so live carries no real-money risk.
+    # accounts; this strategy now runs on bybit_1 (demo) AND bybit_2 (real
+    # money) as of 2026-06-02.
     model: null
     signal_prefixes: [htf_pullback, htf_pullback_trend]
     enabled: true
-    execution: live          # PROMOTED shadow -> live 2026-06-02 (operator policy:
-                             # paper/demo accounts always execute). bybit_1 DEMO
-                             # money ONLY — NOT on real-money bybit_2.
+    execution: live          # PROMOTED shadow -> live 2026-06-02; GRADUATED to
+                             # real-money bybit_2 2026-06-02 (Tier-3, operator-
+                             # approved). Runs on bybit_1 (demo) AND bybit_2 (real).
     risk_pct: 0.3            # conservative; matches STRATEGY_RISK_PCT fallback.
-                             # Now live on the bybit_1 DEMO account (paper money);
-                             # a future graduation to real money is a separate Tier-3 gate.
+                             # Now live on bybit_1 (demo) AND bybit_2 (real money)
+                             # as of 2026-06-02 (Tier-3, operator-approved).
     timeframe: "2h"          # served as Bybit 120m via CCXT.
     symbols:
       - BTCUSDT              # the only validated symbol (SUPPORTED_SYMBOLS gate).
