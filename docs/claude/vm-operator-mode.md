@@ -259,14 +259,16 @@ file aliases, no shell-out except a fixed-argument `journalctl` /
 | `GET /api/diag/snapshot` | one-shot bundle: heartbeat, status.json, audit tail, recent `order_packages` + `trades`, vm_health, service states |
 | `GET /api/diag/audit?limit=N` | tail of `runtime_logs/signal_audit.jsonl` |
 | `GET /api/diag/journal?table={order_packages\|trades}&limit=N` | read-only SELECT |
+| `GET /api/diag/audit_query?since=&until=&event=&strategy=&symbol=&side=&limit=&offset=` | **historical, time/event-filtered** audit read backed by the `trade_journal.db::signals` dual-write — reaches arbitrary history (the `/audit` + `/log_file` tails are capped at the last 1000 lines). `event` matches the audit event type (`regime_shadow_gate`, `vwap_eval`, …); rows carry the typed columns merged with the full `meta` payload. |
 | `GET /api/diag/status` | heartbeat + status.json + vm_health |
 | `GET /api/diag/services` | `systemctl is-active` for every allowlisted unit |
-| `GET /api/diag/journalctl?unit=<allowlisted>&lines=N` | systemd journal tail |
-| `GET /api/diag/log_file?name={audit\|status\|heartbeat\|bot_log}&lines=N` | tail of allowlisted log file |
+| `GET /api/diag/journalctl?unit=<allowlisted>&lines=N&since=&until=` | systemd journal tail |
+| `GET /api/diag/log_file?name={audit\|status\|heartbeat\|bot_log\|advisory_decisions\|shadow_predictions\|shadow_predictions_backfill\|ibkr_mes_pull}&lines=N` | tail of allowlisted log file |
 
-Every mutation — without exception — still goes through the Telegram
-`/vm_write` path with explicit operator confirmation. Adding a mutating
-route to `src/web/api/routers/diag.py` from a sandbox session is
+Every mutation — without exception — still goes through the audited
+`system-actions` workflow (issue-driven, tier-gated; Tier-2 needs an
+operator OK in chat — see `docs/claude/system-actions.md`). Adding a
+mutating route to `src/web/api/routers/diag.py` from a sandbox session is
 **Tier 3** (immutable from sandbox, same trust class as
 `src/runtime/orders.py`).
 

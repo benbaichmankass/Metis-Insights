@@ -88,7 +88,7 @@ returns 503 (closed by default). Bad/missing bearer → 401.
 
 | Endpoint family | Source | Notes |
 |---|---|---|
-| `GET /api/diag/snapshot`, `audit`, `journal`, `status`, `services`, `journalctl`, `log_file` | `src/web/api/routers/diag.py` | Token-gated SELECT-only or shell-safe diagnostic reads. |
+| `GET /api/diag/snapshot`, `audit`, `audit_query`, `journal`, `status`, `services`, `journalctl`, `log_file`, `db_info`, `version` | `src/web/api/routers/diag.py` | Token-gated SELECT-only or shell-safe diagnostic reads. `audit_query` (2026-06-01) is the historical, time/event-filtered audit read over the `signals` dual-write — reaches arbitrary history past the 1000-line `/audit` tail cap. |
 
 ---
 
