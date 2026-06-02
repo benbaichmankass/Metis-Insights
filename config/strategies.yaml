@@ -488,9 +488,11 @@ strategies:
     # the breakout direction). Strategy code: src/units/strategies/fvg_range_15m.py;
     # validated harness: scripts/backtest_fvg_range.py.
     #
-    # STATUS: execution: shadow (2026-05-30). NEW + untested live — runs and
-    # LOGS its order packages on real ticks (data collection) but never sends a
-    # live order, pending live confirmation of the backtest. Evidence
+    # STATUS: execution: live (PROMOTED 2026-06-02 from shadow). Operator policy:
+    # paper/demo accounts exist to TEST strategies, so a strategy routed only to a
+    # paper/demo account must EXECUTE. Routed to bybit_1 (DEMO / paper money) ONLY
+    # — no real-money risk; bybit_2 (real) does NOT run it. Executes its order
+    # packages on real demo ticks to collect the live confirmation. Evidence
     # (docs/audits/fvg-range-complement-2026-05-30.md), BTCUSDT 15m, net-of-fee,
     # 5.2y 2021-01..2026-02:
     #   * FULL 5y +24.4R, expectancy +0.363, win-rate 50.8%, max-DD 3.0R, 57%
@@ -506,17 +508,19 @@ strategies:
     #
     # The runtime builder honours `enabled` below as the single source of
     # truth; `execution:` is the per-strategy execution gate (enforced in
-    # Coordinator.multi_account_execute). Promote shadow -> live only after the
-    # live shadow data confirms the backtest (Tier-3, operator-approved).
+    # Coordinator.multi_account_execute). NOTE: this gate is GLOBAL across the
+    # accounts a strategy routes to — live on a paper/demo-only strategy is safe,
+    # but DO NOT set live on any strategy that also routes to a real-money account
+    # (it would execute there too). fvg_range_15m is bybit_1 (demo) ONLY.
     model: null
     signal_prefixes: [fvg_range, fvg_mr]
     enabled: true
-    execution: shadow          # data-only: logs order packages everywhere,
-                               # never sends a live order. Promote to `live`
-                               # after live shadow proof (Tier-3, operator-gated).
-    risk_pct: 0.3              # low — untested; matches the STRATEGY_RISK_PCT
-                              # fallback in src/runtime/pipeline.py. Moot while
-                              # execution: shadow (never sends a live order).
+    execution: live            # PROMOTED shadow -> live 2026-06-02 (operator policy:
+                               # paper/demo accounts always execute). bybit_1 DEMO
+                               # money ONLY — NOT on real-money bybit_2.
+    risk_pct: 0.3              # low — still building a live track record; matches the
+                              # STRATEGY_RISK_PCT fallback in src/runtime/pipeline.py.
+                              # Now live on the bybit_1 DEMO account (paper money).
     timeframe: "15m"          # served as Bybit 15m via CCXT.
     symbols:
       - BTCUSDT               # currently the only supported symbol
@@ -558,8 +562,10 @@ strategies:
     # src/units/strategies/htf_pullback_trend_2h.py; validated harness:
     # scripts/backtest_pullback.py.
     #
-    # STATUS: execution: shadow (NEW 2026-06-01). Runs + LOGS order packages on
-    # real ticks for data collection but never sends a live order. Cleared for
+    # STATUS: execution: live (PROMOTED 2026-06-02 from shadow). Operator policy:
+    # paper/demo accounts exist to TEST strategies, so a strategy routed only to a
+    # paper/demo account must EXECUTE. Routed to bybit_1 (DEMO / paper money) ONLY
+    # — no real-money risk. Executes its order packages on real demo ticks. Cleared for
     # shadow by the overnight research campaign + a dedicated pre-shadow
     # validation suite (docs/research/overnight-strategy-research-2026-06-01.md):
     #   * Net-of-fee + walk-forward: IS(2021-2023) +32.7R / OOS(2024-2026)
@@ -567,19 +573,21 @@ strategies:
     #   * 3-fold robustness: net-positive in every 2y sub-period (+30/+42/+8).
     #   * Fee-robust: +67R even at 15 bps (2x the modelled 7.5).
     #   * Additive to the live roster (monthly net-R corr 0.20-0.54).
-    # GRADUATION: shadow -> live is the operator-gated Tier-3 step, taken only
-    # after live shadow data confirms the backtest (days-weeks), then add to
-    # bybit_2.strategies. This is the same path fade_breakout_4h / trend_donchian
-    # took. The runtime builder honours `enabled` as the single source of truth.
+    # GRADUATION: now LIVE on bybit_1 (DEMO / paper money) to build the live
+    # confirmation via real demo execution. Graduation to REAL money — adding it
+    # to bybit_2.strategies — remains the operator-gated Tier-3 step (the same path
+    # fade_breakout_4h / trend_donchian took). The runtime builder honours `enabled`
+    # as the single source of truth. NOTE: `execution:` is GLOBAL across routed
+    # accounts; this strategy is bybit_1 (demo) ONLY, so live carries no real-money risk.
     model: null
     signal_prefixes: [htf_pullback, htf_pullback_trend]
     enabled: true
-    execution: shadow        # NEW strategy ships shadow (S9 path): runs + logs
-                             # on real ticks, never sends a live order. Routed to
-                             # bybit_1 (demo) only until promoted (Tier-3).
+    execution: live          # PROMOTED shadow -> live 2026-06-02 (operator policy:
+                             # paper/demo accounts always execute). bybit_1 DEMO
+                             # money ONLY — NOT on real-money bybit_2.
     risk_pct: 0.3            # conservative; matches STRATEGY_RISK_PCT fallback.
-                             # Inert while execution: shadow (never sizes a real
-                             # order); set for a future graduation to live.
+                             # Now live on the bybit_1 DEMO account (paper money);
+                             # a future graduation to real money is a separate Tier-3 gate.
     timeframe: "2h"          # served as Bybit 120m via CCXT.
     symbols:
       - BTCUSDT              # the only validated symbol (SUPPORTED_SYMBOLS gate).
@@ -661,28 +669,32 @@ strategies:
     # IBKR `ib_paper` account (MES futures); fetch_candles routes the MES symbol
     # to IBKR automatically. Validated harness: scripts/backtest_trend.py.
     #
-    # STATUS: execution: shadow (NEW 2026-06-01). Runs + LOGS order packages on
-    # real MES ticks but never sends a live order. The diversification lead from
-    # the overnight campaign (docs/research/overnight-strategy-research-2026-06-01.md,
-    # PERF-20260531-001):
+    # STATUS: execution: live (PROMOTED 2026-06-02 from shadow). Operator policy:
+    # paper/demo accounts exist to TEST strategies, so a strategy routed to a
+    # paper account must EXECUTE — never sit data-only. Places paper MES orders on
+    # ib_paper (IBKR PAPER money, no real-money risk) when it breaks out. The
+    # diversification lead from the overnight campaign
+    # (docs/research/overnight-strategy-research-2026-06-01.md, PERF-20260531-001):
     #   * On SPX (the CFD proxy), long-only trend is net-positive in IS+OOS
     #     across THREE independent families (trend / TSMOM / MA-cross), with
     #     near-ZERO correlation to the BTC roster and tiny drawdown (2-7R).
     #   * CAVEAT: validated on SPX500-CFD, NOT live MES, and live MES history is
-    #     short (~16 months). This shadow run exists precisely to collect the
-    #     live-instrument data needed before any promotion — the long-only edge
-    #     must be re-confirmed on real MES before shadow -> live (Tier-3).
+    #     short (~16 months). It now runs LIVE on ib_paper (PAPER money) to collect
+    #     the live-instrument data via REAL paper execution; the long-only edge
+    #     must still be re-confirmed before any promotion to a REAL-money IB
+    #     account (ib_live, Tier-3).
     # The runtime builder honours `enabled` as the single source of truth and
     # suppresses every short signal (long-only).
     model: null
     signal_prefixes: [mes_trend_long, mes_trend]
     enabled: true
-    execution: shadow        # NEW sleeve ships shadow: runs + logs on real MES
-                             # ticks, never sends a live order. ib_paper (IBKR
-                             # paper) only until promoted (Tier-3).
+    execution: live          # PROMOTED shadow -> live 2026-06-02 (operator policy:
+                             # paper/demo accounts always execute so strategies get
+                             # tested). ib_paper is IBKR PAPER money — no real-money
+                             # risk. Real-money IB (ib_live) stays a separate Tier-3 gate.
     long_only: true          # documents the builder's long-only gate (shorts
                              # are suppressed); the equity-index edge is long.
-    risk_pct: 0.3            # conservative; inert while execution: shadow.
+    risk_pct: 0.3            # conservative; now LIVE on ib_paper (paper money).
     timeframe: "1d"          # the daily timeframe the equity-index edge lives on.
     symbols:
       - MES                  # Micro E-mini S&P 500 future (IBKR). NOT BTCUSDT.

@@ -15,14 +15,32 @@ ict_scalp_5m, trend_donchian, fade_breakout_4h; squeeze_breakout_4h
 pending merge).
 
 **S9 shadow-first path (2026-05-24).** Since the per-strategy
-`execution: live|shadow` gate landed, a brand-new strategy ships
+`execution: live|shadow` gate landed, a new strategy MAY ship
 `enabled: true` + `execution: shadow` — it RUNS and LOGS its order
 packages on every tick (live data collection) but never sends a live
-order. This supersedes the older `enabled: false` "inert until the
-operator flips it" pattern: shadow lets the strategy prove itself on
-live data at zero risk, then graduates `shadow → live`. See "The
-execution gate" below; `fade_breakout_4h` / `squeeze_breakout_4h` are
-the worked examples.
+order. Shadow lets the strategy prove itself on live data at zero
+real-money risk, then graduates `shadow → live`. See "The execution
+gate" below; `fade_breakout_4h` / `squeeze_breakout_4h` are the worked
+examples.
+
+> **⚠️ AMENDMENT (operator directive 2026-06-02). Two hard rules — both
+> CI-enforced by the `dry-run-guard` (`scripts/check_dry_run_in_diff.py`):**
+>
+> 1. **Never set `execution: shadow` (or `mode: dry_run`) without EXPLICIT
+>    operator permission.** Shadow is a demotion out of live execution; it
+>    is not a safe default you reach for autonomously. A PR that adds
+>    `execution: shadow` FAILS CI unless that line carries an inline
+>    `# shadow-guard: allow — <reason>` marker recording the operator's
+>    approval. Default any new strategy to `execution: live`; only drop to
+>    shadow when the operator asks for it.
+> 2. **Paper/demo accounts always EXECUTE.** A strategy routed ONLY to
+>    paper/demo accounts (`ib_paper` IBKR paper, `bybit_1` Bybit demo)
+>    must ship `execution: live` — paper accounts exist precisely to TEST
+>    strategies by trading them. Shipping such a strategy `shadow` strands
+>    it (signals, no trades) and defeats the account's purpose — this is
+>    the exact bug that left the MES sleeve dark on `ib_paper`. "Collect
+>    live data first" is satisfied by REAL paper execution, not shadow
+>    logging, when no real money is at risk.
 
 If you find yourself editing `src/runtime/intents.py::aggregate_intents`,
 `compute_execution_delta`, or `src/core/coordinator.py::multi_account_execute`
@@ -46,14 +64,19 @@ than the aggregator.
   fade_breakout_4h=10 (squeeze_breakout_4h=5, pending merge). Higher
   wins ties. Pick a deliberately low value for an untested strategy so
   a wiring slip can't let it override an established member.
-- **Execution mode** — `live` or `shadow` (S9 per-strategy gate). A
-  new, unvalidated strategy ships `execution: shadow`. See "The
-  execution gate" below.
-- **Which accounts route this strategy** — a `shadow` strategy goes to
-  **bybit_1 (demo) first** for shadow data collection. Only a proven
-  `execution: live` strategy is added to `bybit_2.strategies` (the
-  funded live linear-perp account); that is the live activation and is
-  operator-gated.
+- **Execution mode** — `live` or `shadow` (S9 per-strategy gate).
+  Default to `live`. Only ship `shadow` with EXPLICIT operator
+  permission (and an inline `# shadow-guard: allow — <reason>` marker so
+  CI passes — see the amendment above). A strategy routed only to
+  paper/demo accounts MUST be `live`. See "The execution gate" below.
+- **Which accounts route this strategy** — a strategy validated only on
+  backtest goes to **bybit_1 (demo) first**. On the demo account it runs
+  `execution: live` (paper money — it executes, which is the point of a
+  demo account). Adding it to `bybit_2.strategies` (the funded live
+  linear-perp account) is the REAL-money activation and is the
+  operator-gated Tier-3 step; a strategy may legitimately run `shadow` on
+  the real account first (with the operator's `shadow-guard: allow`
+  marker) to collect real-money-context data before it executes there.
 
 If any of these are missing, **ask first**. Do not invent values.
 
@@ -78,10 +101,13 @@ registry-read error** (treats the strategy as shadow / dry), which is
 why a shadow strategy's safe home is **bybit_1 (demo)**.
 
 **Lifecycle of a new strategy:** ship `enabled: true` + `execution:
-shadow` → route to bybit_1 (demo) → let live shadow data confirm the
-backtest (days–weeks) → promote `shadow → live` (Tier-3, operator-
-approved) → add to `bybit_2.strategies`. This is the path `trend_donchian`
-took (now `live` on bybit_2) and `fade_breakout_4h` is on now (`shadow`).
+live` → route to **bybit_1 (demo)** / `ib_paper` (paper money — it
+EXECUTES there to build a real-fill track record) → let live paper data
+confirm the backtest (days–weeks) → add to `bybit_2.strategies` (REAL
+money, Tier-3, operator-approved). A strategy goes `shadow` ONLY with
+explicit operator permission — e.g. to log on the REAL-money account
+before it executes there. This is the path `trend_donchian` took (now
+`live` on bybit_2).
 
 ## Touch points (canonical wiring)
 

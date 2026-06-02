@@ -99,9 +99,11 @@ accounts:
                                        # via _apply_per_account_leverage.
     strategies: [trend_donchian, turtle_soup, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, vwap, fvg_range_15m, htf_pullback_trend_2h, trend_donchian_1h]
                                        # execution-priority order matches list order.
-                                       # htf_pullback_trend_2h added 2026-06-01:
-                                       # execution: shadow, DEMO-ONLY (not on
-                                       # bybit_2) until operator-promoted (Tier-3).
+                                       # htf_pullback_trend_2h added 2026-06-01,
+                                       # PROMOTED to execution: live 2026-06-02
+                                       # (operator policy: paper/demo always executes);
+                                       # DEMO-ONLY (not on bybit_2). Graduation to real
+                                       # money is a separate Tier-3 gate.
                                        # 2026-05-25 (operator-approved): bybit_1 (demo)
                                        # now mirrors bybit_2 EXACTLY — the same six
                                        # strategies in the same order. trend_donchian
@@ -110,13 +112,15 @@ accounts:
                                        # promoted to `execution: live` in
                                        # config/strategies.yaml the same date. Every live
                                        # strategy here trades PAPER money (demo endpoint)
-                                       # — no real-money risk. vwap + fvg_range_15m are the
-                                       # `execution: shadow` strategies (data-only on every
-                                       # account, incl. this one). fvg_range_15m added
-                                       # 2026-05-30 (DRAFT, Tier-3) as the shadow-first
-                                       # range member — routed to the DEMO account ONLY for
-                                       # live data collection; NOT on bybit_2 (real money)
-                                       # until the operator promotes it shadow -> live.
+                                       # — no real-money risk. vwap is the only remaining
+                                       # `execution: shadow` strategy here (data-only on
+                                       # every account, incl. this one — it also routes to
+                                       # real-money bybit_2, so it CANNOT be flipped live
+                                       # without exposing real money). fvg_range_15m added
+                                       # 2026-05-30, PROMOTED to execution: live 2026-06-02
+                                       # (operator policy: paper/demo always executes) —
+                                       # DEMO account ONLY; NOT on bybit_2 (real money),
+                                       # whose addition stays a separate Tier-3 gate.
     symbols: [BTCUSDT]                 # instrument(s) this account trades. The
                                        # multi-symbol tick loop unions every
                                        # configured account's symbols, so this
@@ -344,10 +348,12 @@ accounts:
     ib_client_id: 497                  # unique per concurrent socket
     strategies: [turtle_soup, vwap, ict_scalp_5m, mes_trend_long_1d]   # all on MES; BTCUSDT
                                        # is gated out by exchange (see header).
-                                       # mes_trend_long_1d added 2026-06-01:
-                                       # execution: shadow, long-only equity-index
-                                       # diversifier — IBKR paper only (this
-                                       # account), never real money, until promoted.
+                                       # mes_trend_long_1d added 2026-06-01,
+                                       # PROMOTED to execution: live 2026-06-02
+                                       # (operator policy: paper accounts always
+                                       # execute). Long-only equity-index diversifier
+                                       # — IBKR PAPER money only; real money (ib_live)
+                                       # stays a separate Tier-3 gate.
     symbols: [MES]                     # MES is the instrument; the multi-symbol
                                        # tick loop unions this so MES signals are
                                        # GENERATED. BTCUSDT signals never reach

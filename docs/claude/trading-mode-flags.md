@@ -16,8 +16,12 @@
 > `config/accounts.yaml`.** Mutated via the `set-account-mode` operator
 > action (PR #978, 2026-05-12) — the only sanctioned path. Applied via
 > `RiskManager.dry_run` (checked inside `RiskManager.evaluate()`, reason
-> `"account_mode_dry_run"`). There is no process-level interlock,
-> no strategy-level toggle, and no env-variable toggle. See
+> `"account_mode_dry_run"`). There is no process-level interlock and no
+> env-variable toggle. The ONE additional declared execution gate is the
+> per-strategy `execution: live | shadow` (S9, `config/strategies.yaml`):
+> `shadow` logs order packages but never sends a live order. BOTH
+> demotions (`mode: dry_run`, `execution: shadow`) are CI-guarded against
+> silent introduction — see "Guarded against silent demotion" below. See
 > [`docs/CLAUDE-RULES-CANONICAL.md`](../CLAUDE-RULES-CANONICAL.md)
 > § Prime Directive and
 > [`docs/ARCHITECTURE-CANONICAL.md`](../ARCHITECTURE-CANONICAL.md)
@@ -40,6 +44,36 @@ sanctioned path that exists now (`set-account-mode`) is audited,
 Telegram-notified, and the only allowed mutation surface. Code paths
 that write to account mode outside this wire are Tier-3 violations
 regardless of intent.
+
+## Guarded against silent demotion (`dry-run-guard`)
+
+Per the operator directive of **2026-06-02** — *Claude must never set a
+thing to `dry_run` or `shadow` without explicit operator permission* —
+the `dry-run-guard` CI check (`scripts/check_dry_run_in_diff.py`,
+`.github/workflows/dry-run-guard.yml`) scans every PR diff and **fails**
+when an added line introduces either demotion:
+
+| Demotion | Field | File |
+|---|---|---|
+| Account out of live | `mode: dry_run` / `paper` | `config/accounts.yaml` |
+| Strategy out of live | `execution: shadow` | `config/strategies.yaml` |
+
+The escape hatch is an inline **allow marker** on the same line, which
+records the operator's explicit approval directly in the diff for the
+audit trail:
+
+```yaml
+    mode: dry_run        # dry-run-guard: allow — new IB real-money acct, held dry
+    execution: shadow    # shadow-guard: allow — operator-approved real-money shadow A/B
+```
+
+Either marker name (`dry-run-guard` / `shadow-guard` / `mode-guard`)
+works on either demotion. Without a marker the check fails and pings the
+operator. This is the durable fix for the class of bug where a new
+strategy shipped `execution: shadow` onto the IBKR **paper** account and
+silently never traded (signals, no fills): a paper/demo account exists to
+TEST strategies, so its strategies must execute — see the `new-strategy`
+skill's 2026-06-02 amendment.
 
 ## Removed env vars (BUG-039 + follow-ups)
 

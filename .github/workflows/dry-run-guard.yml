@@ -1,8 +1,13 @@
 name: Dry-run guard
 
 # Pings the operator (and fails the PR check) when a pull request introduces
-# a flag flip that would silently downgrade a service out of live mode.
-# See scripts/check_dry_run_in_diff.py and docs/claude/trading-mode-flags.md.
+# a trading-mode DEMOTION out of live execution without explicit permission —
+# BOTH per-account `mode: dry_run` (accounts.yaml) AND per-strategy
+# `execution: shadow` (strategies.yaml), per the operator directive of
+# 2026-06-02 ("never set shadow/dry_run without explicit permission"). The
+# escape hatch is an inline `# dry-run-guard: allow` / `# shadow-guard: allow`
+# marker recording the approval. See scripts/check_dry_run_in_diff.py and
+# docs/claude/trading-mode-flags.md.
 
 on:
   pull_request:

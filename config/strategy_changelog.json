@@ -72,6 +72,11 @@
  ],
  "fvg_range_15m": [
   {
+   "date": "2026-06-02",
+   "ref": "Promote shadow -> live on bybit_1 demo (operator policy: paper/demo always execute) - Tier-3, operator-approved",
+   "summary": "Promoted execution: shadow -> live. Routed to the bybit_1 DEMO account ONLY (paper money) - no real-money risk; NOT added to real-money bybit_2 (that stays a separate Tier-3 gate). Operator directive: paper/demo accounts exist to test strategies, so they execute rather than log data-only. Now builds its live confirmation via real demo execution instead of shadow logging."
+  },
+  {
    "date": "2026-05-30",
    "ref": "S-STRAT-IMPROVE FVG-range (this PR) — DRAFT, Tier-3, execution: shadow",
    "summary": "New strategy wired execution: shadow on bybit_1 (demo) for live data collection. FVG mean-reversion inside a confirmed static horizontal range (range_lookback 48 / touches 4 / ADX<20 / far-boundary target / stop 0.25xATR). Validated on 5.2y BTCUSDT 15m (2021-01..2026-02) net-of-fee: FULL +24.4R, exp +0.363, WR 50.8%, maxDD 3.0R, 57% months positive, both sides net-positive; walk-forward OOS 2024-2026 +21.8R exp +0.518 (stronger than train, no overfit decay); fee-robust (+10.5R at 15bps). Caveat: low frequency (67 trades/5.2y) + edge concentrated in the recent regime (train exp +0.10R) — hence shadow. Evidence: docs/audits/fvg-range-complement-2026-05-30.md."
@@ -98,6 +103,11 @@
  ],
  "htf_pullback_trend_2h": [
   {
+   "date": "2026-06-02",
+   "ref": "Promote shadow -> live on bybit_1 demo (operator policy: paper/demo always execute) - Tier-3, operator-approved",
+   "summary": "Promoted execution: shadow -> live. Routed to the bybit_1 DEMO account ONLY (paper money) - no real-money risk; graduation to real-money bybit_2 stays a separate Tier-3 gate. Operator directive: paper/demo accounts exist to test strategies, so they execute rather than log data-only. Now builds its live confirmation via real demo execution instead of shadow logging."
+  },
+  {
    "date": "2026-06-01",
    "ref": "Overnight strategy-research campaign (this PR) - DRAFT, Tier-3, execution: shadow",
    "summary": "New strategy wired execution: shadow on bybit_1 (demo) for live data collection. HTF-pullback trend-follower: HTF Donchian-40 uptrend gate, buy a pullback into the lower 0.5 of the recent 10-bar range, wide Chandelier ATR trail (trail_mult 5.0). Validated on 5y BTCUSDT 2h (2021-2026): net-of-fee walk-forward IS +32.7R / OOS +22.4R (exp +0.14 R/trade), 3-fold robust (+30/+42/+8), fee-robust (+67R at 15bps), additive to the live roster (monthly corr 0.20-0.54). Routed to the DEMO account ONLY; NOT on bybit_2 until operator promotes shadow -> live. Evidence: docs/research/overnight-strategy-research-2026-06-01.md; harness scripts/backtest_pullback.py."
@@ -123,6 +133,11 @@
   }
  ],
  "mes_trend_long_1d": [
+  {
+   "date": "2026-06-02",
+   "ref": "Promote shadow -> live on ib_paper (operator policy: paper accounts always execute) - Tier-3, operator-approved",
+   "summary": "Promoted execution: shadow -> live on the IBKR ib_paper (PAPER money) account. Operator directive: paper/demo accounts exist to TEST strategies, so a strategy routed to a paper account must execute, not sit data-only. No real-money risk (ib_paper is paper money); promotion to the REAL-money IB account (ib_live) remains a separate Tier-3 gate. The strategy keeps collecting live-MES data, now via real paper execution rather than shadow logging. It only fires on a daily Donchian-30 breakout, so trades remain infrequent."
+  },
   {
    "date": "2026-06-01",
    "ref": "Overnight strategy-research campaign (this PR) - DRAFT, Tier-3, execution: shadow",

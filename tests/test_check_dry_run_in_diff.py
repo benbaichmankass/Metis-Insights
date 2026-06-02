@@ -90,3 +90,54 @@ def test_account_mode_dry_run_is_caught():
 def test_paper_trading_alias_is_caught():
     findings = scan_diff(_diff(".env", ["paper_trading=true"]))
     assert len(findings) == 1
+
+
+# ---------------------------------------------------------------------------
+# Strategy-level demotion: execution: shadow (operator directive 2026-06-02 —
+# Claude must never set a thing to shadow/dry_run without explicit permission).
+# This is the gap that silently stranded the MES sleeve on the IBKR paper
+# account (shipped execution: shadow, generated signals but never traded).
+# ---------------------------------------------------------------------------
+def test_execution_shadow_is_caught():
+    findings = scan_diff(_diff("config/strategies.yaml", ["    execution: shadow"]))
+    assert len(findings) == 1
+    assert "shadow" in findings[0]
+
+
+def test_execution_shadow_with_shadow_guard_marker_exempt():
+    """A deliberate, operator-approved shadow line carrying the allow marker
+    is exempt — the marker records the explicit permission in the diff."""
+    findings = scan_diff(_diff(
+        "config/strategies.yaml",
+        ["    execution: shadow   # shadow-guard: allow — operator-approved shadow A/B"],
+    ))
+    assert findings == []
+
+
+def test_execution_shadow_with_dry_run_guard_marker_also_exempt():
+    """Either marker name satisfies the override (broadened allow regex)."""
+    findings = scan_diff(_diff(
+        "config/strategies.yaml",
+        ["    execution: shadow   # dry-run-guard: allow — held data-only, approved"],
+    ))
+    assert findings == []
+
+
+def test_execution_live_is_not_caught():
+    """Promoting TO live (the permissive direction) never fires the guard."""
+    assert scan_diff(_diff("config/strategies.yaml", ["    execution: live"])) == []
+
+
+def test_execution_shadow_in_tests_is_ignored():
+    """Tests may set execution: shadow to exercise the data-only path."""
+    assert scan_diff(_diff("tests/test_foo.py", ["    execution: shadow"])) == []
+
+
+def test_execution_shadow_substring_in_prose_not_caught():
+    """A comment/description mentioning 'execution: shadow' mid-line (not at the
+    start of the line) must NOT trip the guard — only an actual YAML field does."""
+    findings = scan_diff(_diff(
+        "config/strategy_changelog.json",
+        ['   "summary": "Wired execution: shadow then promoted to live."'],
+    ))
+    assert findings == []
