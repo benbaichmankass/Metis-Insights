@@ -1,18 +1,40 @@
-"""Scan a unified diff for new dry-run / paper-trading switch flips.
+"""Scan a unified diff for new trading-mode DEMOTIONS (dry-run / shadow).
 
 Designed for the GitHub Actions guard (`.github/workflows/dry-run-guard.yml`)
 that runs on every PR. The script reads a unified diff from stdin (or the
 path passed as argv[1]) and exits with status 1 if any **added** line
-flips an account out of live mode without operator approval.
+demotes an account or strategy out of live execution without explicit
+operator approval.
 
-Per the operator directive of 2026-05-03, the SINGLE dry/live toggle in
-the codebase is per-account ``mode: live | dry_run`` in
-``config/accounts.yaml`` (applied via ``RiskManager.dry_run``). This
-guard now targets the YAML field directly:
+There are exactly TWO declared, default-permissive execution gates
+(see CLAUDE.md § "The two execution gates"), and this guard covers a
+new DEMOTION on BOTH — per the operator directive of 2026-06-02,
+*Claude must never set a thing to dry_run or shadow without explicit
+operator permission*:
+
+  1. Account level — per-account ``mode: live | dry_run`` in
+     ``config/accounts.yaml`` (operator directive 2026-05-03):
 
     +    mode: dry_run         (config/accounts.yaml — flips an account out of live)
     +    mode: paper           (alias)
     +mode: dry_run             (legacy unindented; same shape)
+
+  2. Strategy level — per-strategy ``execution: live | shadow`` in
+     ``config/strategies.yaml``. ``shadow`` runs + logs order packages
+     everywhere but NEVER sends a live order (folded into ``effective_dry``
+     in ``Coordinator.multi_account_execute``). Shipping a NEW strategy
+     ``execution: shadow`` is what silently stranded the MES sleeve on
+     the IBKR paper account (signals, no trades) — the gap this guard
+     now closes:
+
+    +    execution: shadow     (config/strategies.yaml — strategy never trades)
+
+The explicit-permission escape hatch is the same per-line allow marker
+used for dry_run (see ``_ALLOW_MARKER_RE``): a deliberate, operator-approved
+demotion carries an inline ``# dry-run-guard: allow — <reason>`` (or
+``# shadow-guard: allow — <reason>``) comment, which records the
+permission in the diff for the audit trail and lets that one line pass
+without weakening the guard for every other (unmarked) line.
 
 The legacy ``DRY_RUN`` / ``ALLOW_LIVE_TRADING`` env-var patterns are
 kept for back-compat with operator notebooks and external scripts that
@@ -36,6 +58,11 @@ _PATTERNS: List[Tuple[re.Pattern, str]] = [
     # Primary check (post-2026-05-03 architecture): per-account mode.
     (re.compile(r"^\s*mode\s*:\s*['\"]?(?:dry|dry[_-]run|paper)\b", re.IGNORECASE),
      "account mode flipped to dry_run / paper in accounts.yaml"),
+    # Strategy-level demotion (operator directive 2026-06-02): a strategy
+    # set ``execution: shadow`` runs but never sends a live order. New
+    # shadow wiring must carry explicit operator permission (allow marker).
+    (re.compile(r"^\s*execution\s*:\s*['\"]?shadow\b", re.IGNORECASE),
+     "strategy execution set to shadow in strategies.yaml (data-only; never sends a live order)"),
     # Legacy patterns retained as belt-and-braces. Production code no
     # longer reads these, but operator notebooks / external scripts
     # might — flag them so the operator notices.
@@ -70,8 +97,12 @@ _IGNORE_PATH_RE = re.compile(
 # skipped, so the deliberate config lands without weakening the guard for
 # every other (unmarked) line. The marker MUST include a reason for the
 # audit trail, e.g.:
-#     mode: dry_run   # dry-run-guard: allow — new IB real-money acct, held dry
-_ALLOW_MARKER_RE = re.compile(r"dry-run-guard:\s*allow", re.IGNORECASE)
+#     mode: dry_run        # dry-run-guard: allow — new IB real-money acct, held dry
+#     execution: shadow    # shadow-guard: allow — operator-approved shadow A/B
+# Either marker name (dry-run-guard / shadow-guard / the generic mode-guard)
+# satisfies the override on either demotion — the name is for human clarity,
+# the effect is identical.
+_ALLOW_MARKER_RE = re.compile(r"(?:dry-run|shadow|mode)-guard:\s*allow", re.IGNORECASE)
 
 
 def _iter_added_lines(diff_text: str) -> Iterable[Tuple[str, int, str]]:
