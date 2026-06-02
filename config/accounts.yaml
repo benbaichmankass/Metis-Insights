@@ -448,10 +448,11 @@ accounts:
   tradovate_demo_1:
     type: regular
     exchange: tradovate
-    mode: dry_run                      # phase-1 wiring; held dry until
-                                       # the operator completes the
-                                       # checklist above and approves
-                                       # the Tier-3 promotion.
+    mode: dry_run                      # dry-run-guard: allow — phase-1 wiring;
+                                       # new Tradovate account intentionally
+                                       # held dry until the operator completes
+                                       # the hookup checklist above and
+                                       # approves the Tier-3 promotion.
     market_type: futures
     tradovate_env: demo                # demo|live — selects the
                                        # demo.tradovateapi.com vs
