@@ -269,7 +269,10 @@ Add a `<name>:` block following the existing pattern:
                               # while execution: shadow)
   timeframe: "5m"             # primary timeframe
   symbols:
-    - BTCUSDT                 # currently the only supported symbol
+    - BTCUSDT                 # the instrument(s) this strategy trades —
+                              # load-bearing: a strategy only evaluates/emits
+                              # on its declared symbols (per-strategy scope).
+                              # Supported: BTCUSDT, MES, MGC, MHG.
   # ... strategy-specific parameters ...
   shadow_model_ids: []        # keep a fresh data-collector's signal log
                               # clean of ML predictions until it has a
@@ -423,15 +426,30 @@ evidence-based.)
 If you're editing any of these, you're either fixing a bug in the
 execution layer (a separate sprint) or you've taken a wrong turn.
 
-## Single-symbol invariant (BTC/USDT)
+## Multi-symbol support + the per-strategy symbol scope
 
-`src/runtime/intents.py::SUPPORTED_SYMBOLS` is `{"BTCUSDT"}`. The
-`StrategyIntent` constructor refuses other symbols at the type level.
-Multi-symbol routing is a separate sprint; do not "fix" the
-constructor or symbol filter to make a non-BTC strategy work. If the
-new strategy must trade a different symbol, raise that with the
-operator first — it requires per-symbol open-position state wiring
-and is explicitly out of scope of the current execution layer.
+`src/runtime/intents.py::SUPPORTED_SYMBOLS` is `{"BTCUSDT", "MES",
+"MGC", "MHG"}` (multi-symbol is live as of 2026-05-22 for MES, extended
+2026-06-02 for the WS-A metals sleeve). The `StrategyIntent` constructor
+refuses symbols outside that whitelist at the type level, and per-symbol
+open-position state is wired (the aggregator/delta + the strategy-monocle
+open-package gates are symbol-scoped). To add a brand-new symbol you
+extend `SUPPORTED_SYMBOLS`, add the `config/instruments.yaml` profile
+(exchange routing), and — for an IB futures symbol — a `ContFuture`
+branch in `src/units/accounts/ib_client._build_contract`. See the
+`mgc_pullback_1d` / `mhg_pullback_1d` wiring (PR #2634) for a worked
+non-BTC example cloned from the `mes_trend_long_1d` sleeve.
+
+**Per-strategy symbol scope (2026-06-02, PR #2643).** A strategy
+evaluates/emits ONLY on the symbols it declares in `config/strategies.yaml
+::symbols:` — `intent_multiplexer._collect_intents` skips a strategy whose
+declared symbols don't include the current tick symbol (permissive when a
+strategy declares no `symbols`). So `mgc_pullback_1d` (symbols `[MGC]`)
+never runs on MES/BTC, and a BTCUSDT-only strategy never runs on a metal.
+Set each new strategy's `symbols:` to exactly the instrument(s) it should
+trade — that field is now load-bearing, not just metadata. Do NOT widen an
+account's symbol list expecting a strategy to stay scoped by anything
+other than its own `symbols:`.
 
 ## When you're done
 
