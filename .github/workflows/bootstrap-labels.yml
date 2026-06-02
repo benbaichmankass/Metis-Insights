@@ -60,6 +60,11 @@ jobs:
                 description: 'Triggers vm-web-api-recover workflow — self-heal restart of ict-web-api.service when the diag relay is exit-7-ing.',
               },
               {
+                name: 'init-actions-secrets',
+                color: '0e8a16',
+                description: 'Triggers init-actions-secrets workflow — pre-creates empty placeholder Actions secrets so the operator pastes into existing slots.',
+              },
+              {
                 name: 'vm-ib-gateway-recover',
                 color: 'b60205',
                 description: 'Triggers vm-ib-gateway-recover — autonomous ib-gateway container restart (IBKR error 162).',
