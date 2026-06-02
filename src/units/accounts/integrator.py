@@ -145,10 +145,106 @@ class VelotradeAPI:
         raise RuntimeError(f"DXtrade rejected order: {reason}")
 
 
+class TradovateAPI:
+    """Tradovate futures broker — phase-1 wiring.
+
+    Phase-1 (this PR) wires the integrator routing for ``exchange:
+    tradovate`` so the coordinator can dispatch order packages to a
+    Tradovate account exactly like it does for bybit / velotrade /
+    interactive_brokers. The actual HTTP / WS work lives in
+    :class:`src.units.accounts.tradovate.adapter.TradovateAdapter`,
+    which is built by
+    :func:`src.units.accounts.clients.tradovate_client_for` and
+    injected here as ``client``.
+
+    Live-fire safety:
+        - The account ships at ``mode: dry_run`` in
+          ``config/accounts.yaml`` with ``strategies: []``, so this
+          branch never fires until the operator explicitly promotes it
+          via the ``set-account-mode`` action AND assigns a strategy.
+        - The injected adapter additionally honors its own
+          ``TradovateConfig.dry_run`` flag (env
+          ``TRADOVATE_DRY_RUN``); when set, ``OrderService.place``
+          short-circuits with a synthetic negative-id ``Order``. This
+          double-gate matches the live-VM rule that no money moves
+          without explicit, declared opt-in.
+
+    Live placement preferred path is ``execute_pkg`` from
+    :mod:`src.units.accounts.execute`, which receives the
+    ``TradovateAdapter`` from
+    :func:`src.units.accounts.clients.tradovate_client_for`. The bare
+    :meth:`place` here is kept for parity with :class:`VelotradeAPI`
+    and for legacy callers.
+    """
+
+    def __init__(self, api_key_env: str, *, client: object = None) -> None:
+        # Kept for shape-parity with the other API classes even though
+        # Tradovate auth doesn't use the single api_key_env pattern —
+        # creds are 7 env vars read by TradovateConfig.load() inside
+        # the adapter.
+        self.api_key_env = api_key_env
+        self._client = client
+
+    def place(
+        self,
+        order: OrderPackage,
+        *,
+        dry_run: bool = True,
+        client: object = None,
+    ) -> str:
+        if dry_run:
+            trade_id = f"dry-tradovate-{uuid.uuid4().hex[:10]}"
+            logger.info("TradovateAPI DRY-RUN %s → %s", order.symbol, trade_id)
+            return trade_id
+        from src.units.accounts.tradovate.adapter import TradovateAdapter
+        from src.units.accounts.tradovate.exceptions import (
+            TradovateAPIError,
+            TradovateConfigError,
+            TradovateRiskRejection,
+        )
+        from src.units.accounts.tradovate.models import (
+            OrderRequest,
+            OrderSide,
+            OrderType,
+        )
+
+        cli = client or self._client
+        if cli is None:
+            raise TradovateConfigError(
+                f"TradovateAPI: live placement requires a TradovateAdapter "
+                f"(api_key_env={self.api_key_env!r}); call execute_pkg "
+                f"with exchange_client=tradovate_client_for(account_cfg)."
+            )
+        if not isinstance(cli, TradovateAdapter):
+            raise TypeError(
+                f"TradovateAPI.place: expected TradovateAdapter, got "
+                f"{type(cli).__name__}"
+            )
+        side = OrderSide.BUY if (order.direction or "").lower() == "long" else OrderSide.SELL
+        # OrderPackage doesn't carry a Tradovate accountId — it's resolved
+        # from the per-account config by the executor branch in
+        # src/units/accounts/execute.py, not here. The bare class is a
+        # legacy entry point: callers that hit it must supply qty=1 and
+        # the adapter's already-configured default account.
+        req = OrderRequest(
+            account_id=getattr(order, "account_id", 0) or 0,
+            symbol=order.symbol,
+            side=side,
+            qty=int(getattr(order, "qty", 1) or 1),
+            order_type=OrderType.MARKET,
+        )
+        try:
+            placed = cli.place_order(req)
+        except (TradovateRiskRejection, TradovateAPIError) as exc:
+            raise RuntimeError(f"Tradovate rejected order: {exc}") from exc
+        return str(placed.id)
+
+
 EXCHANGE_MAP: dict[str, type] = {
     "bybit": BybitAPI,
     "breakout": BreakoutAPI,
     "velotrade": VelotradeAPI,
+    "tradovate": TradovateAPI,
 }
 
 
