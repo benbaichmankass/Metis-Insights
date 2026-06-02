@@ -95,6 +95,20 @@
 
 ### Active milestone queue (next 3)
 
+> **Cross-cutting (2026-06-02): Tradovate broker integration.** Drop-in
+> futures broker as a candidate replacement for the IBKR futures
+> sleeve (cheaper / better fills). Wired phase-1 inert via #2647
+> (self-contained package + 42 unit tests) and #2649 (broker routing +
+> `tradovate_demo_1` account entry, four-gate safety). Next:
+> operator provisions the 7 demo credentials → automated smoke test on
+> VM → strategy assignment decision (Tier-3) → mode promotion via
+> `set-account-mode`. Runbook + hookup checklist:
+> [`docs/runbooks/tradovate-integration.md`](docs/runbooks/tradovate-integration.md).
+> Long-term intent: deprecate IB futures sleeve once Tradovate paper
+> fills validate equivalent or better across a multi-week observation
+> window.
+
+
 1. **Strategy Improvement Program (M7 + M8)** — multi-sprint program to
    improve profitability / cut bad trades, starting from the bybit_2
    vwap loss problem. Plan:
