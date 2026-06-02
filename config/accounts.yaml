@@ -394,3 +394,90 @@ accounts:
       pos_size: 2000                   # $2000 max single position (approval gate only)
       risk_pct: 0.01                   # 1% balance risked per trade
       min_balance_usd: 100             # refuse to size below $100
+
+  # ------------------------------------------------------------------
+  # Tradovate — futures broker, phase-1 wiring (2026-06-02).
+  # ------------------------------------------------------------------
+  # Same shape as prop_velotrade_1: the integration code path is
+  # wired (integrator.TradovateAPI + tradovate_client_for factory +
+  # executor branch in execute._submit_order) but no real money or
+  # strategy is routed here yet. Account ships INERT:
+  #   * mode: dry_run                — RiskManager.evaluate() rejects
+  #                                    every signal with reason
+  #                                    "account_mode_dry_run".
+  #   * strategies: []               — the coordinator's per-account
+  #                                    strategy filter blocks all
+  #                                    signals; nothing to gate on.
+  #   * tradovate_account_id: 0      — execute._submit_order refuses
+  #                                    when 0/unset.
+  #
+  # Hookup checklist (operator):
+  #   1. Sign up for the Tradovate free 14-day demo and create an
+  #      API app at trader.tradovate.com → Settings → API Access.
+  #      Grab the `cid` + `secret`.
+  #   2. Add the seven required env vars to GitHub Actions secrets
+  #      AND to the live-trader systemd EnvironmentFile (the systemd
+  #      unit picks them up on restart, no code change needed):
+  #        TRADOVATE_USERNAME
+  #        TRADOVATE_PASSWORD
+  #        TRADOVATE_APP_ID
+  #        TRADOVATE_APP_VERSION
+  #        TRADOVATE_CID
+  #        TRADOVATE_SECRET
+  #        TRADOVATE_DEVICE_ID
+  #   3. Run `python -m src.units.accounts.tradovate.cli.list_accounts`
+  #      on the VM to discover the numeric simulation account id;
+  #      paste it into `tradovate_account_id` below.
+  #   4. Run the smoke test on the VM:
+  #        python -m src.units.accounts.tradovate.examples.smoke_test_demo \
+  #            --symbol MESM6 --with-quotes
+  #      Expect: authed=true, accounts_found>0, quote_seen=true.
+  #   5. Decide which strategies to assign (Tier-3) and add them to
+  #      `strategies:` once the operator approves a per-strategy
+  #      symbol-routing override (currently MES routes to ib_paper;
+  #      adding it here triggers a tie-break decision).
+  #   6. Promote `mode: dry_run` → `mode: live` via the
+  #      `set-account-mode` operator action only after steps 1-5 are
+  #      complete and a paper trade is verified end-to-end.
+  #
+  # The seven env vars also feed the Tradovate package directly
+  # (src/units/accounts/tradovate/config.py::TradovateConfig.load());
+  # the package was added in PR #2647 and ships standalone CLIs that
+  # work without this YAML wiring. This entry is what makes the bot
+  # route OrderPackages here once live.
+  tradovate_demo_1:
+    type: regular
+    exchange: tradovate
+    mode: dry_run                      # dry-run-guard: allow — phase-1 wiring;
+                                       # new Tradovate account intentionally
+                                       # held dry until the operator completes
+                                       # the hookup checklist above and
+                                       # approves the Tier-3 promotion.
+    market_type: futures
+    tradovate_env: demo                # demo|live — selects the
+                                       # demo.tradovateapi.com vs
+                                       # live.tradovateapi.com URLs.
+                                       # Default = demo. Switch to
+                                       # `live` only after the funded
+                                       # account + API add-on is active.
+    tradovate_account_id: 0            # numeric Tradovate simulation
+                                       # account id; 0 means
+                                       # "not configured". The executor
+                                       # refuses live placement when
+                                       # this is 0 or unset.
+    strategies: []                     # empty: belt-and-braces — even
+                                       # if env vars + account id land
+                                       # before strategies are
+                                       # assigned, the per-account
+                                       # filter blocks any live signal.
+    symbols: [MES]                     # instrument identity for clarity;
+                                       # strategies [] keeps this account
+                                       # out of the tick loop + dispatch
+                                       # until promoted.
+    risk:
+      max_dd_pct: 0.05
+      daily_loss_pct: 0.05
+      daily_usd: 200
+      pos_size: 2000
+      risk_pct: 0.01
+      min_balance_usd: 100
