@@ -199,9 +199,10 @@ class TestAccountsYaml:
         assert paper["mode"] == "live"          # paper → live (paper money)
         assert paper["ib_port"] == 4002         # host 4002 → gnzsnz socat relay 4004
         assert paper["ib_account"] == "DUQ325724"
-        # turtle_soup/vwap/ict_scalp_5m on MES + mes_trend_long_1d (execution:
-        # shadow daily long-only diversifier, wired 2026-06-01 — never sends a
-        # live order; the demo MES sleeve that collects live-MES trend data).
+        # turtle_soup/vwap/ict_scalp_5m on MES + mes_trend_long_1d (daily long-only
+        # diversifier, wired 2026-06-01, PROMOTED to execution: live 2026-06-02 —
+        # executes on ib_paper PAPER money; collects live-MES trend data via real
+        # paper execution. Real-money IB (ib_live) stays a separate Tier-3 gate).
         assert paper["strategies"] == [
             "turtle_soup", "vwap", "ict_scalp_5m", "mes_trend_long_1d",
         ]

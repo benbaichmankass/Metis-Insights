@@ -1,8 +1,8 @@
 """Wiring + long-only-gate tests for mes_trend_long_1d (overnight research 2026-06-01).
 
 The trend logic is the live trend_donchian unit (covered by test_trend_donchian.py).
-These tests pin what makes this instance distinct: the SHADOW config (MES / 1d /
-long-only), the ib_paper (IBKR demo) routing, the priority floor, and — the one
+These tests pin what makes this instance distinct: the live-on-paper config (MES /
+1d / long-only), the ib_paper (IBKR paper) routing, the priority floor, and — the one
 genuinely-new behaviour — the LONG-ONLY gate that suppresses short signals.
 Fully offline (synthetic OHLCV + monkeypatch; no exchange / network / secrets).
 """
@@ -22,10 +22,12 @@ def _load_strategies_cfg():
 # ---------------------------------------------------------------------------
 # Config / routing / priority wiring
 # ---------------------------------------------------------------------------
-def test_config_block_is_shadow_long_only_mes():
+def test_config_block_is_live_long_only_mes():
     cfg = _load_strategies_cfg().get("mes_trend_long_1d")
     assert cfg is not None, "mes_trend_long_1d missing from config/strategies.yaml"
-    assert cfg["execution"] == "shadow"      # never sends a live order
+    assert cfg["execution"] == "live"        # PROMOTED 2026-06-02: executes on ib_paper
+                                             # (PAPER money). Operator policy — paper
+                                             # accounts always execute (test the strategy).
     assert cfg["enabled"] is True
     assert cfg["long_only"] is True
     assert cfg["timeframe"] == "1d"
