@@ -48,9 +48,15 @@ smoke testing, mode promotion) is Claude-driven via workflows.
 
 ### 3. Add the 7 env vars to GitHub Actions secrets *(originate value into Actions)*
 
-Repo → **Settings → Secrets and variables → Actions → New repository
-secret**. Add each (exact names — these are the keys
-`TradovateConfig.load()` reads):
+When you ping me (step 4), tell me first if the 7 secret slots aren't
+pre-created — I'll dispatch `init-actions-secrets.yml` to create them
+as empty placeholders so you only need **Update** clicks (not "New
+repository secret" × 7). Already-set slots are skipped, never
+overwritten.
+
+Then in **Settings → Secrets and variables → Actions**, click
+**Update** on each and paste the value (exact names — these are the
+keys `TradovateConfig.load()` reads):
 
 | Secret name | Value |
 |---|---|

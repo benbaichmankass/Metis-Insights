@@ -92,6 +92,7 @@ land before step 2 is useful.
 | Workflow | Owns |
 |---|---|
 | `sync-vm-secrets.yml` | **Canonical broker-credential propagation** (added 2026-06-02). Mirrors the full declared set of broker-secret Actions secrets → VM `.env` in one SSH session. Idempotent: re-run with no change is a no-op. Adding a new broker = append to `KNOWN_SECRETS` in the workflow + `SYNC_REQUIRED`/`SYNC_OPTIONAL` env. Use this for every new broker integration and for ongoing broker-secret rotation. |
+| `init-actions-secrets.yml` | **Pre-create empty Actions-secret placeholders** so the operator can paste values into pre-existing slots (Settings → Secrets → Update) instead of clicking "New repository secret" N times. Idempotent — already-set secrets are skipped, never overwritten. Used by Claude as the FIRST step on a new-broker hookup ping: dispatch with the broker's env-var names, then tell the operator "the slots are ready, paste your values." |
 | `rotate-account-keys.yml` | **Legacy Bybit-only path.** Per-account rotation (`bybit_1` \| `bybit_2`). Still wired through `system-actions.yml` allowlist + test fixtures + `notify_run.sh`; will be migrated to `sync-vm-secrets.yml` in a follow-up. Don't extend it to new brokers — use `sync-vm-secrets.yml` instead. |
 | `system-actions.yml` | Allowlisted live-VM mutations — `set-account-mode`, `pull-and-deploy`, `restart-bot-service`, `reboot-vm`, the dual-write toggles, the backfills. Tier-1 autonomous, Tier-2 after one chat ack. |
 | `vm-web-api-recover.yml` | Self-heal of `ict-web-api.service` (the diag-API process). |
