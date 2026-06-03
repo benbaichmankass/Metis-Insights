@@ -235,10 +235,31 @@ the lever and stops.
   (past-only window from bar `e`) and `label_event` (future-only window
   from bar `e+1` to `e+1+max_holding`). The two windows never overlap —
   same guarantee CUSUM rows have.
-- **Trainer-VM eval** — dispatched (#2713). The headline number (signal-log
-  meta-label vs majority baseline on the 352 real BTCUSDT holdout) lands
-  in the backlog `evidence_log` when the run completes. The PR (#2712) is
-  draft until then.
+- **Trainer-VM eval** — #2716 (after #2713/#2714/#2715 were chasing CLI-flag
+  + venv-python issues). Signal-log meta-label trained on the v003 dataset
+  (signal_log train rows=8,739 win=0.469; live eval rows=352 win=0.244;
+  `include_cusum=false`), scored on the same 352 real BTCUSDT holdout.
+
+  | Metric | S6 CUSUM (#2697) | S6-FU Signal-log (#2716) | Majority baseline |
+  |---|---|---|---|
+  | accuracy | 0.670 | **0.526** | 0.756 |
+  | precision | 0.266 | 0.290 | — |
+  | recall | 0.198 | 0.651 | — |
+  | f1 | 0.227 | 0.401 | — |
+  | brier | 0.219 | 0.417 | — |
+
+  **Honest negative — signal-log accuracy is WORSE than the S6 CUSUM run
+  (0.526 < 0.670) and both lose to the baseline.** The recall jumped because
+  the train base rate is higher (0.469 vs 0.244 real → predictor biased toward
+  "win"); precision barely moved; brier doubled (less calibrated). The
+  "CUSUM is easier than real setups" hypothesis was **wrong**: signal-log win
+  rate (0.469) is almost identical to CUSUM (0.457), so both synthetic
+  populations are equally pulled from a different distribution than real
+  trades (0.244). **Real root cause: the triple-barrier LABELS, not the event
+  sampler.** Synthetic candle barriers assume optimistic fills, no slippage,
+  no risk-manager filtering; real trades win less because real execution +
+  real risk gating filter the obvious winners *out*, leaving structurally
+  harder cases. No amount of "better train-event-sampling" closes this gap.
 
 ## Documentation Updated
 - `docs/claude/ml-review-backlog.json` — `MB-20260603-002` evidence + status.
@@ -246,12 +267,11 @@ the lever and stops.
 - The PR (#2712) body documents the change-set, tier split, and test plan.
 
 ## Risks and Follow-Ups
-- **The eval is the headline that resolves MB-20260603-002.** If signal-log
-  beats the 0.756 baseline AND lifts precision off the 0.244 base rate,
-  propose the manifest for `shadow` (Tier-3, operator pulls the lever). If
-  not, document as inherent at the current data scale (n=352 real trades is
-  small for a binary classifier) and route to the next lever (S7
-  backtest-augmented labels for a larger holdout; Phase 2 better features).
+- **MB-20260603-002 RESOLVED-NEGATIVE.** The signal-log lever did NOT close
+  the gap, and accuracy is *worse* than the S6 CUSUM baseline. The Tier-1
+  enabler + manifest still stand as useful infrastructure (event-source
+  composability matters for future mixing); the manifest stays
+  `research_only`. No promotion proposed.
 - **MES will not produce a measurable transfer holdout this sprint or next**
   — Investigation 1 above. The S8 capability is ready; the data takes time.
 - **The new `event_source` column** is a schema addition; downstream readers
@@ -263,14 +283,30 @@ the lever and stops.
   config was touched.
 
 ## Next Recommended Sprint
-- **Wait for the trainer-VM eval** on #2713 → update `MB-20260603-002` with
-  the headline number → if green, propose `shadow` (Tier-3); if red, propose
-  S-MLOPT-S7 backtest-augmented BTCUSDT labels as the next lever or move to
-  Phase 2 features.
-- **Phase 2 features** (S9–S11: range-based vol estimators, order-flow /
-  VPIN, funding / OI) are the right place to invest if the signal-log
-  domain-fix doesn't move the needle — at n=352 real trades, better features
-  may matter more than a better sampler.
+
+The eval rules out "better train-event-sampling" as the lever. The next
+high-leverage Tier-1 move is to attack the *labels* directly with REAL
+execution modeling:
+
+- **S-MLOPT-S6-FU-2 — backtest-augmented setup_candidates labels using the
+  standalone strategy backtest harnesses** (`scripts/backtest_squeeze.py`,
+  `backtest_fade.py`, `backtest_trend.py`, `backtest_ict_scalp.py`,
+  `src/backtest/run_backtest_vwap.py`). These harnesses already model real
+  slippage + the strategies' actual entry rules + per-strategy exit logic,
+  so each backtest trade is a real-distribution label for that strategy at
+  that historical bar. Port the S-MLOPT-S7 `backtest_recorder` pattern
+  (`source` column + `include_backtest` flag) to `setup_candidates`: each
+  backtest trade becomes a row with the strategy's actual entry features +
+  the harness's actual realized outcome (NOT a triple-barrier synthetic
+  label). Then re-run the live_holdout eval with **backtest-train + real-eval**.
+  This is the apples-to-apples version of the train distribution we tried to
+  get with signal-log. Tier-1 trainer-side; Tier-3 if it yields a new
+  manifest worth promoting.
+- **In parallel, Phase 2 features** (S9 range-based vol estimators — Yang-Zhang,
+  Garman-Klass — Tier-1) is the alternative track. At n=352 real trades,
+  *better features* may also matter more than a better sampler.
+- **S-MLOPT-S13 per-bar regime scoring** (Tier-2, live-runtime) remains the
+  highest-leverage *regime* unblock — operator-gated, parked as its own arc.
 
 ## Wrap-Up Check
 - [x] Code was inspected directly, not inferred only from summaries.
