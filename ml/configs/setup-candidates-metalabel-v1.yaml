@@ -22,11 +22,13 @@
 #      (S-MLOPT-S1) and the S-MLOPT-S4 `gate-check` oos_edge vs the constant
 #      baseline. The manifest ships with (1); flip split_strategy to run (2).
 #
-# Build the dataset first (trainer VM), e.g.:
+# Build the dataset first (trainer VM), e.g. — live_trades_db MUST be the
+# canonical journal ($DATA_DIR/trade_journal.db = data/trade_journal.db on the
+# trainer; the repo-root trade_journal.db is an empty stub):
 #   python -m ml.datasets build setup_candidates --output-dir datasets-out \
 #     --version v001 --source market_raw --symbol-scope BTCUSDT --timeframe all \
 #     -- market_raw_path=datasets-out/market_raw/BTCUSDT/1h/v002 \
-#        live_trades_db=trade_journal.db
+#        live_trades_db=data/trade_journal.db
 #
 # TIER: adopting this manifest / promoting the model past `shadow` is Tier-3
 # (operator-gated). It ships at `research_only`; /ml-review + gate-check produce

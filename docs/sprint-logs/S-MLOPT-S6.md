@@ -79,11 +79,41 @@
   the meta-label manifest → score on the real holdout vs the majority-class
   baseline): reported below.
 
-## Trainer-VM meta-label eval
-Pending — dispatched via `trainer-vm-diag`: build `setup_candidates` for BTCUSDT
-with `live_trades_db=trade_journal.db`, then `python -m ml train` the manifest
-(`live_holdout`) and report the real-holdout metrics + the majority-class
-baseline. (Results appended here.)
+## Trainer-VM meta-label eval — ⚠️ honest negative result (the discipline working)
+Built `setup_candidates` for BTCUSDT (`market_raw` 1h/v002 → 15,732 synthetic) +
+the REAL-trade holdout from the canonical journal
+(`data/trade_journal.db`, the `$DATA_DIR` copy — **2320 trades**, not the empty
+repo-root `trade_journal.db` a first attempt mis-pointed at; #2697), then trained
+the manifest under `live_holdout` (train synthetic → score REAL trades).
+
+| Population | n | win rate |
+|---|---|---|
+| synthetic candidates (train) | 15,732 | ~0.457 |
+| **REAL BTCUSDT closed trades (eval holdout)** | **352** | **0.244** |
+
+Meta-label model on the 352 real trades: **accuracy 0.670**, precision 0.266,
+recall 0.198, f1 0.227, brier 0.219. **Majority-class baseline accuracy: 0.756.**
+
+**Verdict — the model does NOT beat the baseline on the real holdout**
+(0.670 < 0.756; precision 0.266 only marginally above the 0.244 base rate). So
+**no promotion is proposed** — the manifest stays `research_only`. This is the
+system working exactly as designed: the leak-free real-trade eval **blocks** a
+model that would have looked fine measured only on synthetic data. The honest
+reading:
+- **Large domain gap.** Synthetic candidate win rate (~0.457) vs the real
+  trades' (0.244) — the strategies' actual setups are a very different (and much
+  harder, loss-majority) population than CUSUM momentum events. Naive
+  synthetic→real transfer is insufficient.
+- **Where the edge must come from next** (all already on the roadmap): wire the
+  strategies' **actually-logged signals** as the candidate event source (the S5
+  follow-up) so the train distribution matches real setups; **S-MLOPT-S7**
+  (backtest-augmented real labels) to enlarge + diversify the real population;
+  **S-MLOPT-S8** cross-symbol. The `live_holdout` machinery makes each of these
+  measurable.
+- **The deliverable stands:** the meta-labeling *model + the honest real-trade
+  evaluation path* are built, tested, and demonstrably leak-free. The result it
+  returns is a true "not yet," not a green light — which is the entire point of
+  Phase 0/1 discipline.
 
 ## Documentation Updated
 - `ROADMAP.md` S-MLOPT-S6 row; `docs/ml/optimization-roadmap.md` Session 1.2
