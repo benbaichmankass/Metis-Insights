@@ -144,6 +144,28 @@ Resolution dispatches via `state['trainer']` qualname →
 The `target_kind` value is recorded in `model_state` so registry
 entries are unambiguous about what each baseline learned.
 
+### Trainer `sample_weight` knob (S-MLOPT-S2)
+
+Both LightGBM trainers accept an **opt-in** `trainer_config.sample_weight`
+block (absent → no behaviour change, byte-for-byte). It produces a per-row
+training weight, mean-normalised to 1.0, that composes with any `class_weight`:
+
+- `half_life_days: N` — **recency decay**: a row `t` days older than the newest
+  training row weighs `0.5 ** (t / N)`. Addresses `MB-20260601-001` (a wide
+  training window dilutes the recent regime) — keep the sample size but let old
+  history count for less.
+- `uniqueness: true` — **de Prado average uniqueness** (`AFML` Ch. 4) over label
+  spans (`label_horizon` rows). NOTE: near-uniform for fixed-horizon bar labels;
+  it only bites once spans vary (Phase 1 triple-barrier).
+- `time_column` — where the per-row timestamp is read (default `ts` multiclass /
+  `created_at` regression). Missing/unparseable timestamps **fail loud**.
+
+Implemented in [`ml/trainers/sample_weights.py`](../../ml/trainers/sample_weights.py);
+the applied block is echoed into `model_state["sample_weight"]`. The
+window-length/recency sweep that picks a config is
+[`scripts/ml/window_recency_sweep.py`](../../scripts/ml/window_recency_sweep.py).
+Adopting a weighted config as a manifest default is Tier-3 (operator-gated).
+
 ### Multiclass predictor surface (PR 2B)
 
 [`MulticlassPredictor`](../../ml/predictors/multiclass.py) is a
