@@ -19,6 +19,7 @@ from typing import Any, Mapping
 
 from ..manifest import TrainingManifest
 from ..registry.model_registry import ModelRegistry, RegistryEntry
+from .splitters import MULTI_FOLD_STRATEGIES, iter_folds
 from .splitters import split as split_rows
 
 
@@ -46,6 +47,50 @@ class ExperimentArtifacts:
     model_state_path: Path
     metrics_path: Path
     metrics: Mapping[str, float]
+    # Written only for multi-fold (cross-validation) split strategies; None
+    # for the single-split default path.
+    cv_folds_path: Path | None = None
+
+
+# Metric keys that are counts (summed across folds) rather than rates
+# (sample-weighted averaged).
+def _is_count_metric(key: str) -> bool:
+    return key == "n_eval" or key.startswith("support_")
+
+
+def _aggregate_fold_metrics(
+    fold_metrics: list[Mapping[str, float]],
+) -> dict[str, float]:
+    """Pool per-fold evaluator metrics into one scalar metric set.
+
+    Rate metrics (accuracy, f1, mae, …) are averaged across folds weighted
+    by each fold's ``n_eval`` — the pooled estimate, so a small final fold
+    can't dominate a large one. Count metrics (``n_eval``, ``support_*``)
+    are summed. Adds ``n_folds`` so the registry records how the estimate
+    was produced. Keeps the output flat + float-valued so it round-trips
+    through the registry unchanged.
+    """
+    keys: set[str] = set()
+    for m in fold_metrics:
+        keys.update(m.keys())
+    total_w = sum(float(m.get("n_eval", 0.0)) for m in fold_metrics)
+    agg: dict[str, float] = {}
+    for key in sorted(keys):
+        if _is_count_metric(key):
+            agg[key] = float(sum(float(m.get(key, 0.0)) for m in fold_metrics))
+        elif total_w > 0:
+            agg[key] = float(
+                sum(
+                    float(m.get(key, 0.0)) * float(m.get("n_eval", 0.0))
+                    for m in fold_metrics
+                )
+                / total_w
+            )
+        else:
+            vals = [float(m[key]) for m in fold_metrics if key in m]
+            agg[key] = float(sum(vals) / len(vals)) if vals else 0.0
+    agg["n_folds"] = float(len(fold_metrics))
+    return agg
 
 
 def _resolve_callable(qualname: str):
@@ -108,17 +153,44 @@ def run_experiment(
     if not rows:
         raise EmptyDatasetError(data_path)
 
-    train_rows, eval_rows = split_rows(rows, manifest.evaluator_config)
-
     trainer_cls = _resolve_callable(manifest.trainer)
     evaluator_cls = _resolve_callable(manifest.evaluator)
     trainer = trainer_cls()
     evaluator = evaluator_cls()
 
-    model_state = dict(trainer.fit(train_rows, manifest.trainer_config))
-    metrics = dict(
-        evaluator.score(model_state, eval_rows, manifest.evaluator_config)
-    )
+    strategy = manifest.evaluator_config.get("split_strategy", "holdout")
+    cv_folds: list[dict[str, Any]] | None = None
+    if strategy in MULTI_FOLD_STRATEGIES:
+        # Multi-fold cross-validation (opt-in). Fit + score each fold on its
+        # own purged/embargoed train block, then pool the per-fold metrics.
+        # The persisted, deployable model is refit on the FULL dataset — the
+        # CV metrics estimate *its* generalization (de Prado, AFML Ch. 7).
+        folds = iter_folds(rows, manifest.evaluator_config)
+        fold_metrics: list[Mapping[str, float]] = []
+        cv_folds = []
+        for idx, (train_f, eval_f) in enumerate(folds):
+            fold_state = dict(trainer.fit(train_f, manifest.trainer_config))
+            fold_score = dict(
+                evaluator.score(fold_state, eval_f, manifest.evaluator_config)
+            )
+            fold_metrics.append(fold_score)
+            cv_folds.append(
+                {
+                    "fold": idx,
+                    "n_train": len(train_f),
+                    "n_eval": len(eval_f),
+                    "metrics": fold_score,
+                }
+            )
+        metrics = _aggregate_fold_metrics(fold_metrics)
+        metrics["n_train_final"] = float(len(rows))
+        model_state = dict(trainer.fit(rows, manifest.trainer_config))
+    else:
+        train_rows, eval_rows = split_rows(rows, manifest.evaluator_config)
+        model_state = dict(trainer.fit(train_rows, manifest.trainer_config))
+        metrics = dict(
+            evaluator.score(model_state, eval_rows, manifest.evaluator_config)
+        )
 
     started_at = _now_utc()
     run_id = started_at.strftime("%Y%m%dT%H%M%SZ")
@@ -141,12 +213,30 @@ def run_experiment(
         encoding="utf-8",
     )
 
+    cv_folds_path: Path | None = None
+    if cv_folds is not None:
+        cv_folds_path = experiment_dir / "cv_folds.json"
+        cv_folds_path.write_text(
+            json.dumps(
+                {
+                    "split_strategy": strategy,
+                    "n_folds": len(cv_folds),
+                    "folds": cv_folds,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
     artifacts = ExperimentArtifacts(
         experiment_dir=experiment_dir,
         manifest_path=manifest_out,
         model_state_path=model_state_path,
         metrics_path=metrics_path,
         metrics=metrics,
+        cv_folds_path=cv_folds_path,
     )
 
     entry: RegistryEntry | None = None

@@ -198,6 +198,23 @@
       "evidence_log": [
         "2026-06-03 (/ml-review): both problems re-confirmed in the 6/3 cycle. (1) regime-classifier-baseline-v0 STILL COLLAPSES — fresh metrics macro_f1=0.4547, f1_volatile=0.0 (accuracy 0.8338 = majority-class on the 0.834 base rate), n_eval=8760 (BTC 1h). It never predicts volatile, so it remains UNusable as the phase-4 detector. The viable candidate stays btc-regime-1h-lgbm-v2 (macro_f1=0.6096, f1_volatile=0.4466, same n=8760) — but it has zero shadow track record (MB-20260529-001). (2) STAGE DRIFT PERSISTS — registry has regime-classifier-baseline-v0 at target_deployment_stage=research_only while its manifest (ml/configs/baseline-regime-classifier.yaml) declares shadow. Field-beats-comment: the registry research_only is the effective stage; the manifest line is stale and should be reconciled to research_only when phase-4 is taken up (or the model retired from the router design)."
       ]
+    },
+    {
+      "id": "MB-20260603-001",
+      "opened_at": "2026-06-03T00:00:00+00:00",
+      "opened_by": "claude (S-MLOPT-S1 / M14 Session 0.1)",
+      "source": "S-MLOPT-S1 re-evaluated registry models under the new purged & embargoed walk-forward CV (trainer-vm-diag #2675, PR #2674).",
+      "title": "Re-run setup-quality baselines under purged WF-CV before any promotion read; confirm whether setup-quality-lgbm-v2 still beats its mean baseline honestly",
+      "description": "Under leak-free 5-fold purged WF-CV, setup-quality-lgbm-v2 scored MAE=0.086 / MSE=0.0175 vs its optimistic 80/20 holdout MAE=0.065 / MSE=0.0094 (399 rows, setup_labels all v002). The manifest notes the per-setup-mean baseline (setup-quality-baseline-v0) at holdout MAE=0.058 — i.e. under honest CV the v2 LGBM may NOT clear its own baseline. The baseline was not re-run under the same WF-CV folds, so this is not yet apples-to-apples. Also: btc-regime-1h-lgbm-v2 weighted_f1 fell 0.7185->0.6742 under WF-CV (smaller, expected optimism gap). Tool: scripts/ml/eval_split_compare.py. Feeds Phase 0.1 (now done) → relates to G4 + Phase 1 meta-labeling in optimization-roadmap.md.",
+      "tier": 1,
+      "trigger_condition": "Next /ml-review, or before any setup-quality shadow->advisory promotion discussion.",
+      "resolution_criteria": "Run scripts/ml/eval_split_compare.py (or an equivalent WF-CV pass) on BOTH setup-quality-baseline-v0 and setup-quality-lgbm-v2 with identical purged folds; record which wins MAE under honest CV. If the v2 LGBM does not beat the baseline under WF-CV, log a demotion/hold note instead of advancing it.",
+      "status": "open",
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-06-03 (S-MLOPT-S1): WF-CV deltas captured in docs/sprint-logs/S-MLOPT-S1.md re-eval table — setup-quality MAE 0.065->0.086, btc-regime-1h weighted_f1 0.7185->0.6742. label_horizon=1 row for setup_labels is a conservative proxy for true trade-hold overlap; Session 0.2 sample-uniqueness weights (or a label-end-time horizon) would tighten this."
+      ],
+      "status_history": "open 2026-06-03 (S-MLOPT-S1 / M14 Session 0.1 execution)"
     }
   ]
 }

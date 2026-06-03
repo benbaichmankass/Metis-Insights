@@ -169,10 +169,14 @@ unchanged.
 |---|---|---|
 | `holdout` | Stable suffix split. | `holdout_fraction: float in (0,1)` (default 0.2) |
 | `time_aware_holdout` | Sort by `time_column` (default `created_at`), then suffix split. | `holdout_fraction`, `time_column` |
-| `walk_forward` | Rolling-origin folds. Returns the LAST fold for single-split mode. Aggregated walk-forward (averaging metrics across folds) is filed as a follow-up. | `n_folds: int >= 2`, `min_train_fraction: float in (0,1)`, `time_column` |
+| `walk_forward` | Rolling-origin folds. Returns the LAST fold for single-split mode. For multi-fold (averaged-across-folds) evaluation, use `purged_walk_forward`. | `n_folds: int >= 2`, `min_train_fraction: float in (0,1)`, `time_column` |
+| `purged_walk_forward` | **Multi-fold** purged & embargoed walk-forward CV (de Prado, *AFML* Ch. 7; S-MLOPT-S1). PURGEs training rows whose forward label window overlaps the test block and EMBARGOes an extra buffer; the runner iterates the fold list and pools per-fold metrics. The single-split `split()` form returns the last fold. **Opt-in** — no manifest defaults to it. | `n_folds`, `min_train_fraction`, `time_column`, `label_horizon: int >= 0` (PURGE width in rows, default 1), `embargo_fraction: float in [0,1)` **or** `embargo_n: int` |
 
 Implementation in
-[`ml/experiments/splitters.py`](../../ml/experiments/splitters.py).
+[`ml/experiments/splitters.py`](../../ml/experiments/splitters.py): the
+two-sided `purge_and_embargo_indices(...)` primitive backs the splitter and is
+ready for a later combinatorial purged CV (M14 Phase 0.2). Master plan:
+[`docs/ml/optimization-roadmap.md`](optimization-roadmap.md).
 
 ## Experiment runner
 
@@ -182,14 +186,18 @@ Steps:
 1. Load + validate manifest.
 2. Locate dataset under
    `<datasets_root>/<family>/<scope>/<tf>/<version>/data.jsonl`.
-3. Split via `splitters.split(rows, evaluator_config)`.
+3. Split via `splitters.split(rows, evaluator_config)` — **except** for a
+   multi-fold `split_strategy` (`purged_walk_forward`), which takes the CV
+   branch: `splitters.iter_folds(...)` → fit+score each fold → pool metrics
+   (rates sample-weighted by `n_eval`, counts summed; adds `n_folds`) → persist
+   a **full-data refit** as the deployable `model_state`.
 4. Resolve trainer + evaluator via `importlib`.
 5. `trainer.fit(...)` → `model_state` (carries `trainer` qualname).
 6. `evaluator.score(state, rows, config)` → `metrics` (uses
    `_resolve_predictor` internally).
-7. Write artifact triple under
-   `<experiments_root>/<model_id>/<run_id>/`:
-   `manifest.json`, `model_state.json`, `metrics.json`.
+7. Write artifacts under `<experiments_root>/<model_id>/<run_id>/`:
+   `manifest.json`, `model_state.json`, `metrics.json` (+ `cv_folds.json` for
+   the multi-fold CV path).
 8. Register in registry as `candidate` (default).
 
 ## CLI
@@ -328,7 +336,8 @@ python -m ml train ml/configs/baseline-setup-quality.yaml \
 
 ## Out of scope (deferred)
 
-- Aggregated walk-forward (metrics averaged across folds).
+- Aggregated walk-forward for the plain `walk_forward` strategy. (The
+  multi-fold averaged path now exists for `purged_walk_forward` — S-MLOPT-S1.)
 - Per-strategy detail metrics artifact alongside scalar metrics.
 - Registry concurrent-writer locking.
 - `python -m ml.datasets publish` HF subcommand.

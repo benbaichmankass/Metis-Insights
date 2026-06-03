@@ -84,7 +84,7 @@ help? is this model ready for advisory?) is only trustworthy if measured under
 leakage-free walk-forward CV with proper sample weighting. Cheap, no new infra, unblocks
 honest promotion. Closes G1, G2, G3, G7.
 
-### Session 0.1 — Purged & embargoed walk-forward CV *(Tier-1)*
+### Session 0.1 — Purged & embargoed walk-forward CV *(Tier-1)* — ✅ DONE 2026-06-03 (S-MLOPT-S1, PR #2674)
 - **Deliverable:** a `PurgedWalkForwardSplitter` in `ml/experiments/splitters.py` (purge
   train samples whose label window overlaps the test block; embargo a gap after each test
   block), wired as an opt-in eval mode in `ml/experiments/runner.py` alongside the current
@@ -94,6 +94,16 @@ honest promotion. Closes G1, G2, G3, G7.
   drop vs the optimistic 80/20 holdout. Add a regression test pinning purge/embargo
   boundaries (no future row in any train fold).
 - **Effort:** S.
+- **Shipped:** `split_purged_walk_forward` + the reusable two-sided `purge_and_embargo_indices`
+  primitive (ready for a later combinatorial purged CV); opt-in `purged_walk_forward` runner
+  path (multi-fold, pooled metrics sample-weighted by `n_eval`, `cv_folds.json` artifact,
+  full-data refit as the deployable `model_state`); leak regression test (no future-dated row
+  in any train fold; purge + embargo boundaries pinned on row position **and** the time
+  column); `scripts/ml/eval_split_compare.py` re-eval tool. **No manifest default eval
+  changed.** Re-eval on the trainer VM (#2675): the optimism gap is real — `btc-regime-1h-lgbm-v2`
+  weighted_f1 0.7185→0.6742; `setup-quality-lgbm-v2` MAE 0.065→0.086 / MSE 0.0094→0.0175
+  (the latter now likely below its mean baseline → `MB-20260603-001`). Sprint log:
+  [`docs/sprint-logs/S-MLOPT-S1.md`](../sprint-logs/S-MLOPT-S1.md).
 
 ### Session 0.2 — Sample-uniqueness + recency weighting *(Tier-1 tooling; Tier-3 to adopt in a manifest)*
 - **Deliverable:** average-uniqueness sample weights (overlapping label windows) and an
