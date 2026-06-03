@@ -3,11 +3,29 @@ from __future__ import annotations
 
 import json
 import math
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from ml.datasets.families.setup_candidates import SetupCandidatesBuilder
 from ml.datasets.registry import get_builder, list_families
+
+
+def _seed_trades(db: Path, entries: list[tuple[str, str, float]]) -> None:
+    """entries = [(iso_ts, direction, pnl), ...] of REAL closed BTCUSDT trades."""
+    conn = sqlite3.connect(str(db))
+    conn.execute(
+        "CREATE TABLE trades (id INTEGER PRIMARY KEY, symbol TEXT, direction TEXT, "
+        "timestamp TEXT, status TEXT, pnl REAL, pnl_percent REAL, "
+        "is_backtest INT, is_demo INT)"
+    )
+    for i, (ts, direction, pnl) in enumerate(entries):
+        conn.execute(
+            "INSERT INTO trades VALUES (?,?,?,?,?,?,?,?,?)",
+            (i, "BTCUSDT", direction, ts, "closed", pnl, pnl / 100.0, 0, 0),
+        )
+    conn.commit()
+    conn.close()
 
 
 def _write_market_raw(root: Path, closes: list[float]) -> Path:
@@ -115,3 +133,44 @@ def test_empty_when_too_few_bars(tmp_path: Path):
         market_raw_path=ddir, vol_window_n=10, max_holding=8,
     ))
     assert rows == []
+
+
+def test_real_trade_rows_appended(tmp_path: Path):
+    closes = _trending_closes()
+    ddir = _write_market_raw(tmp_path, closes)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    # Two REAL closed trades whose entry ts fall inside the bar range.
+    db = tmp_path / "trade_journal.db"
+    _seed_trades(db, [
+        ((base + timedelta(hours=50)).isoformat(), "buy", 12.5),   # win, long
+        ((base + timedelta(hours=120)).isoformat(), "sell", -8.0),  # loss, short
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db,
+    ))
+    live = [r for r in rows if r["is_live_trade"]]
+    synth = [r for r in rows if not r["is_live_trade"]]
+    assert len(synth) >= 5  # synthetic candidates still produced
+    assert len(live) == 2   # both real trades located + emitted
+    for r in live:
+        assert r["barrier_touched"] == "live"
+        assert r["signal_vol"] > 0       # real rows carry past-only features
+        assert r["vol_bucket"].startswith("vol_b")
+    won_row = next(r for r in live if r["direction"] == 1)
+    lost_row = next(r for r in live if r["direction"] == -1)
+    assert won_row["won"] == 1 and won_row["label"] == 1
+    assert lost_row["won"] == 0 and lost_row["label"] == -1
+
+
+def test_include_synthetic_false_emits_only_live(tmp_path: Path):
+    closes = _trending_closes()
+    ddir = _write_market_raw(tmp_path, closes)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    _seed_trades(db, [((base + timedelta(hours=60)).isoformat(), "buy", 5.0)])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        include_synthetic=False, live_trades_db=db,
+    ))
+    assert rows and all(r["is_live_trade"] for r in rows)
