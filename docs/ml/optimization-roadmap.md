@@ -318,6 +318,25 @@ trigger conditions so we revisit deliberately, not on hype.
 
 ---
 
+## Sprint map (→ `ROADMAP.md` § "M14 — ML Optimization Program")
+
+This program is registered in `ROADMAP.md` as **M14**; each session below is a numbered
+sprint there. Recommended execution order is **S13 → S1–S4 → S5–S6 → rest** (per-bar
+scoring unblocks the regime pipeline; the discipline foundation must precede trusting any
+data-wall result).
+
+| Sprint | Phase/session | Sprint | Phase/session |
+|---|---|---|---|
+| S-MLOPT-S1 | 0.1 purged WF-CV | S-MLOPT-S10 | 2.2 order-flow/VPIN |
+| S-MLOPT-S2 | 0.2 uniqueness + recency + window sweep | S-MLOPT-S11 | 2.3 funding/OI |
+| S-MLOPT-S3 | 0.3 Optuna HPO + early stop + class wt | S-MLOPT-S12 | 2.4 cross-asset/macro + account_context |
+| S-MLOPT-S4 | 0.4 promotion gates | S-MLOPT-S13 | 3.1 per-bar regime scoring |
+| S-MLOPT-S5 | 1.1 triple-barrier `setup_candidates` | S-MLOPT-S14 | 3.2 causal HMM/GMM |
+| S-MLOPT-S6 | 1.2 meta-labeling model | S-MLOPT-S15 | 3.3 regime-router phase-4 |
+| S-MLOPT-S7 | 1.3 backtest-augmented labels | S-MLOPT-S16 | 4.1 drift-triggered retrain |
+| S-MLOPT-S8 | 1.4 cross-symbol transfer | S-MLOPT-S17 | 4.2 experiment tracking + parity |
+| S-MLOPT-S9 | 2.1 range-based vol estimators | S-MLOPT-S18 | 4.3 champion-challenger automation |
+
 ## How this roadmap is tracked
 
 - **This file is the plan of record.** Each session above, when taken up, is executed via
