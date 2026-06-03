@@ -1,9 +1,10 @@
 # Dataset Taxonomy
 
 > **Status:** Canonical (data scope). Adopted in **S-AI-WS3**
-> (2026-05-10). Updated through **S-AI-WS5-C** (2026-05-10):
-> `trade_outcomes`, `market_raw`, `market_features`, and
-> `setup_labels` are now buildable.
+> (2026-05-10). Updated through **S-MLOPT-S5** (2026-06-03):
+> `trade_outcomes`, `market_raw`, `market_features`,
+> `setup_labels`, and `setup_candidates` (triple-barrier, M14
+> Phase 1.1) are now buildable.
 >
 > **Authority:** Subordinate to
 > [`docs/architecture/ai-model-platform.md`](../architecture/ai-model-platform.md).
@@ -24,6 +25,7 @@
 | `market_raw` | 1 (data) | Bars, ticks, order-book-derived snapshots, unaltered | `ml/datasets/adapters/`, `src/exchange/` | adapter-dispatched (CSV, Bybit-V5 off-VM, future yfinance / etc.) | per-fetch / per-pull | `market_features` builders, regime classifier (WS5-B-PART-2) |
 | `market_features` | 2 (feature/context) | Engineered features (rolling vol, log returns, vol bucket) + 3-class regime label derived from `market_raw` | `ml/datasets/families/market_features.py` | `market_raw` | aligned to `market_raw` | regime classifier (WS5-B-PART-2 PR 2B), future feature consumers |
 | `setup_labels` | 2 (feature/context) | Labels for pattern / setup quality (binary `won` + continuous `r_multiple`) | `ml/datasets/families/setup_labels.py` | `trade_journal.db::trades` (CLOSED, non-backtest, non-empty `setup_type`) | per closed setup-tagged trade | setup quality scorer (WS5-C); future cross-feature setup classifier |
+| `setup_candidates` | 2 (feature/context) | **Dense synthetic** candidate setups from bar history: CUSUM-sampled events labeled by **triple-barrier** (TP/SL/timeout sized to local vol); emits `won` + `r_multiple` + `barrier_touched` with signal-time features and an `is_live_trade` split flag for the mandatory real-trade holdout | `ml/datasets/families/setup_candidates.py` + `ml/datasets/labeling/triple_barrier.py` | a built `market_raw` dataset | aligned to `market_raw` | meta-labeling decision model (S-MLOPT-S6), setup quality |
 | `trade_outcomes` | 1 (data) | Realized trade results tied back to signals or execution intents; carries derived `won = pnl > 0` label | `src/units/`, `trade_journal.db` | `trade_journal.db::trades` (CLOSED, non-backtest, non-null pnl) | per closed trade | outcome probability model (WS5-A onwards) |
 | `backtest_results` | 1 (data) | Aggregate backtest run summaries (M5 outputs) | `src/bot/test_strategy_consumer.py`, `trade_journal.db` | `trade_journal.db::backtest_results` | per `/test <strategy>` invocation | strategy review (M7), regime baseline comparison |
 | `account_context` | 2 (feature/context) | Account state, funding phase, prop-firm restrictions, mission state | `src/units/accounts/`, `config/accounts.yaml` | accounts unit + per-account state | aligned to candidate evaluation | prop mission policy assist (WS5-F) |
@@ -36,6 +38,7 @@
 | `market_raw` | ✅ | ✅ (S-AI-WS5-B-PART-1) | [`ml/datasets/families/market_raw.py`](../../ml/datasets/families/market_raw.py) (CSV adapter live; Bybit off-VM scaffold env-gated, fetch wiring filed) |
 | `market_features` | ✅ | ✅ (S-AI-WS5-B-PART-2 PR 2B) | [`ml/datasets/families/market_features.py`](../../ml/datasets/families/market_features.py) (derives `log_return`, `rolling_log_return_vol`, `vol_bucket` + 3-class `regime_label` from a built `market_raw` dataset; forward-window labels guarantee no feature/label leakage by construction) |
 | `setup_labels` | ✅ | ✅ (S-AI-WS5-C) | [`ml/datasets/families/setup_labels.py`](../../ml/datasets/families/setup_labels.py) (reads `trade_journal.db::trades` filtered to CLOSED, non-backtest, non-empty `setup_type`; emits `r_multiple = pnl_percent / risk_pct` capped at `±r_cap`) |
+| `setup_candidates` | ✅ | ✅ (S-MLOPT-S5) | [`ml/datasets/families/setup_candidates.py`](../../ml/datasets/families/setup_candidates.py) (de Prado CUSUM events + triple-barrier labels over a built `market_raw` dataset; entry at next-bar open, features past-only + label future-only → `leakage_test_status: passed` by construction; conservative realistic fills; `is_live_trade` reserves the REAL-trade holdout) |
 | `trade_outcomes` | ✅ | ✅ (S-AI-WS5-A) | [`ml/datasets/families/trade_outcomes.py`](../../ml/datasets/families/trade_outcomes.py) |
 | `backtest_results` | ✅ | ✅ (S-AI-WS3) | [`ml/datasets/families/backtest_results.py`](../../ml/datasets/families/backtest_results.py) |
 | `account_context` | ✅ | ⏳ | WS5-F prereq |
