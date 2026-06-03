@@ -52,8 +52,33 @@
 - Real HPO run on the trainer VM: results below.
 
 ## HPO results (best vs baseline under purged WF-CV)
-<!-- FILLED FROM TRAINER-VM-DIAG -->
-_Pending the trainer-relay HPO run; appended on return._
+Ran on the trainer VM via `trainer-vm-diag` #2683: `btc-regime-1h-lgbm-v2`,
+`--metric-key f1_volatile --direction maximize --n-folds 5 --label-horizon 20`,
+30 trials. Optuna installed into the venv on demand.
+
+- **Baseline** (current manifest params — already recency-weighted from #2679,
+  enqueued as trial 0): `f1_volatile` = **0.5046** (5-fold purged WF-CV pooled).
+- **Best**: **0.5099** → **+0.0053 (~+1.1% relative)**, leakage-free.
+- 30 trials: **16 complete, 14 pruned** (MedianPruner cut ~half — pruning works).
+- Proposed `lgbm_params`: a **simpler, more regularised tree** — `num_leaves`
+  31→8, `min_data_in_leaf`→16, `feature_fraction`→0.505, `lambda_l1`/`l2` raised,
+  `learning_rate`→0.034, `n_iter`=200.
+
+**Honest read:** the lift is **modest** for this model — recency weighting (S2)
+was the big lever (≈+0.02 on the recent holdout); HPO adds a small,
+leakage-free gain on top. The harness is validated (it found a positive,
+leakage-free improvement on a real model and the pruner saved compute). Its
+**bigger expected payoff is elsewhere**: (a) the data-starved trade-outcome
+models that ship with **no class weight** (`--tune-class-weight` is built for
+them) once their datasets densify (Phase 1), and (b) models that haven't had
+any tuning pass. I am **not** proposing a Tier-3 manifest edit for a ~1% 1h
+gain on its own; the proposed config is recorded here / in #2683 if the
+operator wants it folded into a future regime-manifest refresh.
+
+Note: the absolute `f1_volatile` here (~0.50) differs from the S-MLOPT-S2 sweep
+(~0.47) because this is **5-fold purged WF-CV pooled across history** vs the
+sweep's **single fixed recent holdout** — two different protocols, each
+internally consistent; only within-protocol deltas are comparable.
 
 ## Documentation Updated
 - `ROADMAP.md` S-MLOPT-S3 row; `docs/ml/optimization-roadmap.md` Session 0.3;
