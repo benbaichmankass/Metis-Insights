@@ -132,18 +132,49 @@ second overloaded `source` column. `is_live_trade` remains the boolean the
   past-only window; the label is the harness's realized outcome, not a
   forward-looking barrier).
 
-## Trainer-VM eval — ⏳ pending (dispatched)
-The headline number (build backtest-train + real-eval → train
-`setup-candidates-metalabel-backtest-v1` → score the 352 real BTCUSDT holdout vs
-the majority baseline) runs on the trainer VM, same flow as #2716:
-1. record harness trades for BTCUSDT into a TEMP DB via
-   `python -m scripts.ml.record_harness_trades`;
-2. `python -m ml.datasets build setup_candidates ... -- backtest_trades_db=<tmp>
-   live_trades_db=data/trade_journal.db include_cusum=false`;
-3. `python -m ml train ml/configs/setup-candidates-metalabel-backtest-v1.yaml`
-   via `.venv/bin/python`.
-Result will be appended to `MB-20260603-003` `evidence_log` (and this section)
-when it lands. The PR is **draft** until then.
+## Trainer-VM eval — ⚠️ best-of-three, but ties baseline (eval incomplete)
+Same flow as #2716, dispatched via `trainer-vm-diag` (#2718): backup the journal
+to a TEMP copy → record BTC harness trades into it → build backtest-train +
+real-eval → `python -m ml train --no-register`.
+
+Built BTCUSDT `setup_candidates` v001 (`include_cusum=false`): **2,653 backtest
+train rows** (squeeze 963 + fade 1690, recorded `is_backtest=1` from the
+standalone harnesses via `scripts/ml/record_harness_trades`) + **352 real
+BTCUSDT eval rows** (win 0.244, majority baseline 0.756).
+
+| Metric | S6 CUSUM (#2697) | S6-FU signal-log (#2716) | **S6-FU-2 backtest (#2718)** | Majority baseline |
+|---|---|---|---|---|
+| accuracy | 0.670 | 0.526 | **0.756** | 0.756 |
+| precision | 0.266 | 0.290 | **0.500** | 0.244 (base rate) |
+| recall | 0.198 | 0.651 | **0.047** | — |
+| f1 | 0.227 | 0.401 | **0.085** | — |
+| brier | 0.219 | 0.417 | **0.196** | — |
+
+**Read — the best of the three label sources, but not a clean beat.** Backtest
+labels closed most of the synthetic↔real gap (acc 0.756 vs CUSUM 0.670 vs
+signal-log 0.526) **and** are the best-calibrated (brier 0.196), and
+**precision 0.50 genuinely lifts off the 0.244 base rate** — when the model
+predicts "win" it's right half the time, a real (if low-volume) signal. BUT
+accuracy only *ties* the majority baseline (0.756): recall 0.047 means the
+model essentially predicts the majority class (loss) for almost every row, so
+the accuracy ≈ baseline is by abstention, not by a discriminating edge. **Not a
+promotion-worthy beat.** The manifest stays `research_only`.
+
+**The eval is incomplete — two fixable confounds:**
+1. `scripts/backtest_ict_scalp.py` has **no `--emit-trades` flag** (only
+   `--json` summary), so ict_scalp — a core BTC strategy — was excluded; the
+   backtest population was squeeze + fade only. Adding the flag is a Tier-1
+   follow-up.
+2. squeeze + fade ran on the **1h** `market_raw` base (the only resolution
+   present), a timeframe approximation — both are 4h strategies, and fade was
+   deeply net-negative across every year on 1h (likely poor-quality trades that
+   drag the train distribution). Running each harness at its native timeframe is
+   the cleaner build.
+
+**Next:** a cleaner re-run (add `--emit-trades` to `backtest_ict_scalp.py`; run
+the harnesses at native timeframes) before any further promotion call —
+tracked in `MB-20260603-003` (kept `open`). Even so, the precision-0.50 signal
+is the most encouraging result of the M14 label-distribution arc.
 
 ## Documentation Updated
 - `docs/claude/ml-review-backlog.json` — `MB-20260603-002` evidence line +
@@ -154,9 +185,11 @@ when it lands. The PR is **draft** until then.
 - This sprint log. The PR body documents the change-set, tier split, test plan.
 
 ## Risks and Follow-Ups
-- **Eval is the open step.** The enabler + bridge + manifest are shipped and
-  locally verified; the headline real-holdout number is pending the trainer-VM
-  run (MB-20260603-003).
+- **Eval landed (#2718) but is incomplete.** Backtest labels are the best of
+  three sources (acc 0.756 ties baseline; precision 0.50 > 0.244 base rate;
+  brier 0.196 best-calibrated) — not a clean beat, and confounded by the
+  ict_scalp harness lacking `--emit-trades` + squeeze/fade running on the 1h
+  base. A cleaner re-run is the open step (MB-20260603-003, kept `open`).
 - **Backtest fills are modeled, not live.** The harnesses model slippage +
   real entry/exit logic — closer to the real distribution than a synthetic
   triple-barrier, but still not live fills. Backtest rows are a *training*
@@ -189,5 +222,6 @@ when it lands. The PR is **draft** until then.
 - [x] Roadmap status checked + updated (S6 follow-up on the closed S5–S8 block;
       the backlog item MB-20260603-003 tracks it).
 - [x] Contradictions were recorded (none new).
-- [x] Remaining unknowns stated clearly (the headline eval number is pending the
-      dispatched trainer-VM run; the PR is draft until it lands).
+- [x] Remaining unknowns stated clearly (eval landed #2718 — best-of-three but
+      ties baseline + incomplete; a cleaner re-run is the open step). PR stays
+      draft (manifest Tier-3, `research_only`).

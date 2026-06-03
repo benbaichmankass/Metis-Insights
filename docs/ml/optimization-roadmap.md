@@ -278,8 +278,13 @@ trust the result, and the live-vs-synthetic domain-shift check).
   instead of a synthetic triple-barrier. New manifest
   `ml/configs/setup-candidates-metalabel-backtest-v1.yaml` (Tier-3 proposal, `research_only`)
   mirrors the S6/S6-FU live_holdout protocol on the backtest distribution — the
-  apples-to-apples backtest-train + real-eval the signal-log run approximated. The headline
-  trainer-VM eval lands in `MB-20260603-003` `evidence_log`.
+  apples-to-apples backtest-train + real-eval the signal-log run approximated. **Eval
+  (#2718): the best of three label sources** — acc 0.756 (ties the baseline; vs CUSUM
+  0.670, signal-log 0.526), **precision 0.50 lifts off the 0.244 base rate**, brier 0.196
+  (best-calibrated) — but ties baseline by abstention (recall 0.047), not a clean beat.
+  Incomplete (ict_scalp harness lacks `--emit-trades`; squeeze/fade ran on 1h base); a
+  cleaner re-run is the open step (`MB-20260603-003`). The precision lift is the most
+  encouraging signal of the label-distribution arc.
 
 ### Session 1.3 — Backtest-augmented per-trade labels *(Tier-1; closes MB-20260530-001)* — 🔄 IN REVIEW 2026-06-03 (S-MLOPT-S7)
 - **Deliverable:** have the backtest harnesses emit **per-trade rows** in the
