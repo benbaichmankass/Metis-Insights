@@ -1,0 +1,126 @@
+# Meta-label model + BACKTEST event source (S-MLOPT-S6-FU-2).
+#
+# This manifest sits on top of the same trainer + evaluator + live_holdout
+# protocol as `setup-candidates-metalabel-{v1,siglog-v1}.yaml` — the only thing
+# it changes is the *training label distribution*. Two prior honest negatives
+# point straight here:
+#   - S6 (CUSUM):       acc 0.670 < 0.756 majority baseline (synthetic win 0.457)
+#   - S6-FU (signal-log): acc 0.526 < 0.756 (synthetic win 0.469)
+# Both synthetic populations win ~0.46; the real BTCUSDT trades win 0.244. The
+# signal-log eval (#2716) ruled out the *event sampler* as the lever — swapping
+# CUSUM momentum events for the strategies' real decision points barely moved the
+# train win rate (0.457 -> 0.469). The remaining suspect is the synthetic
+# triple-barrier LABEL itself: candle barriers assume optimistic fills, no
+# slippage, and no risk-manager filtering, so they manufacture easy winners the
+# real execution path filters out.
+#
+# This manifest attacks the label directly. The `setup_candidates` family now
+# accepts `backtest_trades_db=<db>` (S-MLOPT-S6-FU-2): every `is_backtest=1` row
+# in `trades` — written by `ml.datasets.backtest_recorder.write_backtest_trades`
+# from the strategies' standalone backtest harnesses (scripts/backtest_*.py,
+# src/backtest/run_backtest_vwap.py) — is located at the bar covering its entry
+# time and emitted in the same past-only feature space, tagged
+# `event_source=backtest` + `is_live_trade=False`, carrying the harness's ACTUAL
+# realized outcome (modeled slippage + the strategy's real entry + exit logic),
+# NOT a synthetic triple-barrier. Backtest rows ride the train side of
+# `live_holdout`; the real-trade population remains the only eval-side, so the
+# headline domain-shift number stays measurable. This is the apples-to-apples
+# backtest-train + real-eval the signal-log experiment approximated.
+#
+# Build the dataset on the trainer VM, e.g.:
+#   # 1. record backtest trades into a TEMP DB (never the real money journal):
+#   #    run each harness, then write_backtest_trades(tmp.db, [t.to_dict() ...])
+#   # 2. build with backtest-train + real-eval:
+#   python -m ml.datasets build setup_candidates --output-dir datasets-out \
+#     --version v001 --source market_raw --symbol-scope BTCUSDT --timeframe all \
+#     -- market_raw_path=datasets-out/market_raw/BTCUSDT/1h/v002 \
+#        backtest_trades_db=datasets-out/backtest_trades.db \
+#        live_trades_db=data/trade_journal.db \
+#        include_cusum=false
+#
+# `include_cusum=false` (and no `signal_log_db`) makes the train distribution
+# purely harness-labeled real-execution rows — the cleanest A/B vs the S6 /
+# S6-FU manifests. Pass `backtest_strategies=squeeze,fade,...` to restrict to a
+# subset of harnesses, or drop `include_cusum=false` to mix in CUSUM rows.
+#
+# Promotion + headline number: re-run the live_holdout eval (train backtest rows
+# -> score the real BTCUSDT closed trades). If accuracy beats the 0.756 majority
+# baseline AND precision lifts off the 0.244 base rate, propose promotion past
+# `research_only` (operator-gated, Tier-3). If the negative persists across all
+# three label sources, document the data-scale floor and pivot to better
+# features (Phase 2 / S-MLOPT-S9 range-based vol estimators).
+#
+# TIER: adopting this manifest / promoting the model past `shadow` is Tier-3
+# (operator-gated). Ships at `research_only`; the manifest is a proposal, the
+# operator pulls the lever after /ml-review surfaces the eval evidence.
+
+manifest_version: v1
+model_id: setup-candidates-metalabel-backtest-v1
+description: "Meta-labeling model (de Prado) trained on BACKTEST candidate events (the strategies' standalone harness trades, recorded is_backtest=1, carrying real-execution slippage + actual entry/exit logic) instead of synthetic triple-barrier labels, evaluated under live_holdout on the REAL-trade population. Attacks the label distribution gap the S6 (CUSUM) + S6-FU (signal-log) evals isolated (both synthetic train win ~0.46 vs real 0.244)."
+model_family: regression_lightgbm
+trainer: ml.trainers.lightgbm_regression.LightGBMRegressionTrainer
+trainer_config:
+  target_column: won
+  feature_columns:
+    - direction
+    - rolling_log_return_vol
+    - log_return
+    - vol_bucket
+    - momentum
+    - hour_of_day
+    - dayofweek
+    - log_return_lag_1
+    - log_return_lag_2
+  categorical_columns:
+    - direction
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  # Outcome / label / source columns — never features.
+  forbidden_features:
+    - won
+    - label
+    - r_multiple
+    - ret
+    - barrier_touched
+    - is_live_trade
+    - event_source
+    - entry_price
+    - signal_vol
+    - holding_bars
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 15
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    lambda_l2: 1.0
+dataset:
+  family: setup_candidates
+  symbol_scope: BTCUSDT
+  timeframe: all
+  version: v001
+evaluator: ml.evaluators.classification.ClassificationEvaluator
+evaluator_config:
+  target_column: won
+  threshold: 0.5
+  split_strategy: live_holdout
+  live_flag_column: is_live_trade
+  time_column: ts
+target_deployment_stage: research_only
+notes: |
+  S-MLOPT-S6-FU-2 (follows S6 + S6-FU). The S6 manifest (CUSUM) and the S6-FU
+  manifest (signal-log) both lost to the majority-class baseline on the real
+  holdout (0.670 and 0.526 < 0.756). The signal-log eval ruled out the event
+  sampler — train win rate barely moved (0.457 -> 0.469) — so the suspect is the
+  synthetic triple-barrier label, which assumes optimistic fills and no risk
+  gating. This manifest swaps the synthetic label for the strategies' standalone
+  backtest harness outcomes (real slippage + real entry/exit logic, recorded
+  is_backtest=1 and read via setup_candidates' backtest_trades_db source),
+  keeping every other moving part identical: same trainer, same features, same
+  live_holdout protocol, same real-trade holdout. If the result still loses to
+  the baseline across all three label sources, document it as a data-scale floor
+  at n~352 real trades and pivot to better features (Phase 2). Promotion past
+  `shadow` is operator-gated (Tier-3).

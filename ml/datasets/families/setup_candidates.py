@@ -74,6 +74,36 @@ their label is synthetic, so they ride on the live_holdout train side alongside
 the CUSUM rows. Use ``signal_log_strategies=("ict_scalp",...)`` to restrict to
 specific strategies, or ``include_cusum=False`` to emit signal-log + live
 populations only.
+
+## Backtest event source (S-MLOPT-S6-FU-2)
+
+The signal-log eval (#2716) was an honest negative: signal-log win rate (0.469)
+is almost identical to CUSUM (0.457), and both lose to the majority baseline on
+the real holdout (signal-log acc 0.526 < CUSUM 0.670 < 0.756). That ruled out
+the *event sampler* as the lever — the train↔eval gap is the **synthetic
+triple-barrier LABEL**: candle barriers assume optimistic fills, no slippage and
+no risk-manager filtering, so both synthetic populations win ~0.46 while the real
+trades (which real execution + risk gating filter the obvious winners out of)
+win 0.244.
+
+Pass ``backtest_trades_db=<db>`` (or ``include_backtest=True`` to reuse
+``live_trades_db``) to attack the label directly: the strategies' standalone
+backtest harnesses (``scripts/backtest_squeeze.py``, ``backtest_fade.py``,
+``backtest_trend.py``, ``backtest_ict_scalp.py``,
+``src/backtest/run_backtest_vwap.py``) already model real slippage + each
+strategy's actual entry rule + per-strategy exit logic, so every backtest trade
+is a **real-distribution** label at a real signal time. Their per-trade results
+are persisted as ``is_backtest=1`` rows by
+``ml.datasets.backtest_recorder.write_backtest_trades`` (the S-MLOPT-S7 pattern)
+and read back here: each is located at the bar covering its entry time, emitted
+in the same past-only feature space, and tagged ``event_source: "backtest"`` +
+``is_live_trade: false`` with the harness's **actual realized outcome** (``won``
+from the recorded R-proxy ``pnl``) — never a synthetic triple-barrier. So they
+ride the train side of ``live_holdout`` while the real trades stay the only
+eval-side population: the apples-to-apples backtest-train + real-eval the
+signal-log experiment approximated. ``backtest_strategies=("squeeze",...)``
+restricts to specific strategies; ``include_cusum=False`` + no ``signal_log_db``
+emits the pure backtest-train + real-eval split.
 """
 from __future__ import annotations
 
@@ -187,6 +217,65 @@ def _load_live_trades(db_path: Path | str, symbol: str) -> list[dict[str, Any]]:
             "direction": direction,
             "pnl": r["pnl"],
             "pnl_percent": r["pnl_percent"],
+        })
+    return out
+
+
+def _load_backtest_trades(
+    db_path: Path | str,
+    symbol: str,
+    *,
+    strategies: tuple[str, ...] | None = None,
+) -> list[dict[str, Any]]:
+    """Recorded BACKTEST trades (``is_backtest=1``) for one symbol (S-MLOPT-S6-FU-2).
+
+    The harness-labeled TRAIN population: each row was written by
+    ``ml.datasets.backtest_recorder.write_backtest_trades`` from a standalone
+    strategy backtest (``scripts/backtest_*.py`` / ``src/backtest/``), so it
+    carries the strategy's ACTUAL entry rule + the harness's realized outcome
+    (modeled slippage + the strategy's own exit logic) — a real-execution-
+    distribution label, unlike the synthetic triple-barrier CUSUM / signal-log
+    rows. Mirrors ``_load_live_trades`` but reads ``is_backtest=1`` (and
+    optionally restricts to ``strategies`` by ``strategy_name``). Returns
+    ``{entry_ts, direction(±1), pnl, pnl_percent, strategy}`` time-sorted.
+    Best-effort: missing DB / table / column returns ``[]``.
+    """
+    path = Path(db_path)
+    if not path.exists():
+        return []
+    try:
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    except sqlite3.OperationalError:
+        return []
+    conn.row_factory = sqlite3.Row
+    try:
+        params: list[Any] = [symbol]
+        sql = (
+            "SELECT timestamp, direction, pnl, pnl_percent, strategy_name "
+            "FROM trades WHERE status='closed' AND COALESCE(is_backtest,0)=1 "
+            "AND symbol=? AND pnl IS NOT NULL"
+        )
+        if strategies:
+            strat_placeholders = ",".join(["?"] * len(strategies))
+            sql += f" AND strategy_name IN ({strat_placeholders})"
+            params.extend(strategies)
+        sql += " ORDER BY timestamp"
+        try:
+            db_rows = conn.execute(sql, params).fetchall()
+        except sqlite3.OperationalError:
+            return []
+    finally:
+        conn.close()
+    out: list[dict[str, Any]] = []
+    for r in db_rows:
+        side = str(r["direction"] or "").lower()
+        direction = -1 if side in ("sell", "short", "-1") else 1
+        out.append({
+            "entry_ts": str(r["timestamp"] or ""),
+            "direction": direction,
+            "pnl": r["pnl"],
+            "pnl_percent": r["pnl_percent"],
+            "strategy": str(r["strategy_name"] or ""),
         })
     return out
 
@@ -371,7 +460,7 @@ class SetupCandidatesBuilder(DatasetBuilder):
         "log_return_lag_1": float,
         "log_return_lag_2": float,
         # triple-barrier label (future-only) — outcome columns, NOT features
-        "barrier_touched": str,      # 'tp' | 'sl' | 'timeout' | 'live' (real trade)
+        "barrier_touched": str,      # 'tp'|'sl'|'timeout' (synthetic) | 'live' (real) | 'backtest' (harness)
         "label": int,                # +1 tp, -1 sl, sign(ret) at timeout
         "won": int,                  # 1 if label > 0 else 0 (meta-label target)
         "r_multiple": float,         # ret / stop-distance (risk units)
@@ -379,10 +468,12 @@ class SetupCandidatesBuilder(DatasetBuilder):
         "holding_bars": int,
         # real-vs-synthetic split flag (domain-shift discipline)
         "is_live_trade": bool,
-        # which sampler emitted this row: 'cusum' / 'signal_log' / 'live'.
-        # ``cusum`` + ``signal_log`` carry triple-barrier labels and ride the
-        # train side of ``live_holdout``; ``live`` carries the real PnL outcome
-        # and is the eval side. Added MB-20260603-002 (S-MLOPT-S6 follow-up)
+        # which sampler emitted this row: 'cusum' / 'signal_log' / 'backtest' /
+        # 'live'. ``cusum`` + ``signal_log`` carry synthetic triple-barrier
+        # labels; ``backtest`` carries a harness's real-execution outcome
+        # (S-MLOPT-S6-FU-2) — all three ride the TRAIN side of ``live_holdout``
+        # (``is_live_trade=False``). ``live`` carries the real PnL outcome and
+        # is the only eval side. Added MB-20260603-002 (S-MLOPT-S6 follow-up)
         # so the meta-label can be re-evaluated when the training distribution
         # matches real setups instead of CUSUM momentum events.
         "event_source": str,
@@ -407,6 +498,9 @@ class SetupCandidatesBuilder(DatasetBuilder):
         signal_log_db: Path | str | None = None,
         signal_log_strategies: tuple[str, ...] | list[str] | str | None = None,
         signal_log_sides: tuple[str, ...] | list[str] | str | None = None,
+        backtest_trades_db: Path | str | None = None,
+        include_backtest: bool = False,
+        backtest_strategies: tuple[str, ...] | list[str] | str | None = None,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         """Build candidate rows for one OR several symbols (S-MLOPT-S8).
@@ -422,6 +516,15 @@ class SetupCandidatesBuilder(DatasetBuilder):
         ``include_cusum`` is the new (MB-20260603-002) name for the CUSUM toggle;
         the legacy ``include_synthetic`` alias is preserved (it controlled the
         same flag in S5/S6/S7). When both are passed, ``include_cusum`` wins.
+
+        ``backtest_trades_db`` (S-MLOPT-S6-FU-2) reads ``is_backtest=1`` rows
+        recorded by ``ml.datasets.backtest_recorder`` and emits them tagged
+        ``event_source="backtest"`` (train side, real-execution labels).
+        ``include_backtest=True`` is the S7-style convenience: when
+        ``backtest_trades_db`` is not given it reads the backtest rows from
+        ``live_trades_db`` (the single-DB flow the S7 recorder demo used, where
+        one journal carries both ``is_backtest=0`` real rows and ``is_backtest=1``
+        recorded rows). ``backtest_strategies`` restricts to a subset.
         """
         if vol_window_n < 2:
             raise ValueError(f"vol_window_n must be >= 2; got {vol_window_n}")
@@ -438,6 +541,12 @@ class SetupCandidatesBuilder(DatasetBuilder):
         emit_cusum = include_cusum if include_cusum is not None else include_synthetic
         strat_tuple = _normalise_str_tuple(signal_log_strategies)
         sides_tuple = _normalise_str_tuple(signal_log_sides) or ("buy", "sell")
+        bt_strat_tuple = _normalise_str_tuple(backtest_strategies)
+        # S7-style: include_backtest reuses live_trades_db when no dedicated
+        # backtest DB is given (one journal with both is_backtest 0/1 rows).
+        backtest_db = backtest_trades_db
+        if backtest_db is None and include_backtest:
+            backtest_db = live_trades_db
         paths = _resolve_market_raw_paths(market_raw_path, market_raw_paths)
         for path in paths:
             yield from self._iter_one_symbol(
@@ -449,6 +558,8 @@ class SetupCandidatesBuilder(DatasetBuilder):
                 signal_log_db=signal_log_db,
                 signal_log_strategies=strat_tuple,
                 signal_log_sides=sides_tuple,
+                backtest_trades_db=backtest_db,
+                backtest_strategies=bt_strat_tuple,
             )
 
     def _iter_one_symbol(
@@ -465,6 +576,8 @@ class SetupCandidatesBuilder(DatasetBuilder):
         signal_log_db: Path | str | None = None,
         signal_log_strategies: tuple[str, ...] | None = None,
         signal_log_sides: tuple[str, ...] = ("buy", "sell"),
+        backtest_trades_db: Path | str | None = None,
+        backtest_strategies: tuple[str, ...] | None = None,
     ) -> Iterator[Mapping[str, Any]]:
         max_holding = config.max_holding
         rows = _load_market_raw_rows(Path(market_raw_path))
@@ -582,6 +695,55 @@ class SetupCandidatesBuilder(DatasetBuilder):
                     "holding_bars": int(outcome.holding_bars),
                     "is_live_trade": False,
                     "event_source": "signal_log",
+                }
+
+        # --- Backtest candidates: harness-labeled real-execution outcomes ---
+        # S-MLOPT-S6-FU-2. The S6 + S6-FU evals showed the synthetic
+        # triple-barrier LABEL (not the event sampler) is the train↔eval gap:
+        # CUSUM (win 0.457) and signal-log (0.469) share one easy synthetic
+        # distribution, while the real trades (0.244) live in a harder
+        # real-execution one. The strategies' standalone backtest harnesses model
+        # real slippage + each strategy's actual entry rule + per-strategy exit
+        # logic, so each backtest trade is a real-distribution label at a real
+        # signal time. Recorded as ``is_backtest=1`` rows by
+        # ``ml.datasets.backtest_recorder`` and read back here tagged
+        # ``event_source="backtest"`` + ``is_live_trade=False`` so they ride the
+        # TRAIN side of ``live_holdout`` while the REAL trades remain the only
+        # eval-side population (apples-to-apples backtest-train + real-eval).
+        if backtest_trades_db is not None:
+            symbol = str(rows[0].get("symbol", "")) if rows else ""
+            bar_ts = [str(r.get("ts", "")) for r in rows]  # already sorted
+            for tr in _load_backtest_trades(
+                backtest_trades_db, symbol, strategies=backtest_strategies,
+            ):
+                e = _bar_index_at_or_before(bar_ts, tr["entry_ts"])
+                if e is None:
+                    continue
+                vol = past_vols[e]
+                if vol is None or vol <= 0:
+                    continue
+                pnl = tr["pnl"]
+                won = 1 if (pnl is not None and float(pnl) > 0) else 0
+                pnl_pct = tr["pnl_percent"]
+                ret = float(pnl_pct) / 100.0 if pnl_pct is not None else 0.0
+                # The recorder stores realized R in ``pnl`` (R proxy) and
+                # ``r_multiple * risk_pct`` in ``pnl_percent`` — so a backtest
+                # row's R is ``pnl`` directly (unlike live rows, where the real
+                # stop distance isn't reconstructed and r_multiple stays 0.0).
+                r_multiple = float(pnl) if pnl is not None else 0.0
+                yield {
+                    **_feature_fields(rows, e, log_returns, vol,
+                                      boundaries, bucket_labels, momentum_window),
+                    "direction": int(tr["direction"]),
+                    "entry_price": float(closes[e]),
+                    "barrier_touched": "backtest",
+                    "label": 1 if won else -1,
+                    "won": won,
+                    "r_multiple": r_multiple,
+                    "ret": ret,
+                    "holding_bars": 0,
+                    "is_live_trade": False,
+                    "event_source": "backtest",
                 }
 
         # --- Real trades: the held-out live population (domain-shift eval) ---

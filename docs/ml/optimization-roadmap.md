@@ -262,7 +262,24 @@ trust the result, and the live-vs-synthetic domain-shift check).
   mirrors the S6 stack on the signal-log distribution. The headline trainer-VM eval
   (signal-log meta-label vs majority baseline on the 352 real BTCUSDT holdout) lands in
   `MB-20260603-002` `evidence_log`. Composes with S7 (enlarge the real holdout) + S8
-  (cross-symbol).
+  (cross-symbol). **Eval result (#2716): honest negative** — signal-log acc 0.526 < the
+  S6 CUSUM run (0.670) < the 0.756 baseline. Win rate barely moved (CUSUM 0.457 →
+  signal-log 0.469), so the event sampler is NOT the lever; the synthetic triple-barrier
+  **label** is. `MB-20260603-002` RESOLVED-NEGATIVE.
+- **S6 follow-up 2 — backtest-label event source (Tier-1, `MB-20260603-003`)** — 2026-06-03,
+  sprint log [`S-MLOPT-S6-FU-2.md`](../sprint-logs/S-MLOPT-S6-FU-2.md). The next lever after
+  the signal-log negative isolated the synthetic **label** as the gap. `setup_candidates.py`
+  gained a `backtest_trades_db` kwarg (+ `include_backtest` convenience reusing
+  `live_trades_db`, + `backtest_strategies` filter) that reads the `is_backtest=1` rows the
+  S7 `backtest_recorder` writes from the strategies' standalone harnesses
+  (`scripts/backtest_{squeeze,fade,trend,ict_scalp}.py`, `src/backtest/run_backtest_vwap.py`)
+  and emits them tagged `event_source="backtest"` + `is_live_trade=False` (train side),
+  carrying the harness's **actual realized outcome** (real slippage + real entry/exit logic)
+  instead of a synthetic triple-barrier. New manifest
+  `ml/configs/setup-candidates-metalabel-backtest-v1.yaml` (Tier-3 proposal, `research_only`)
+  mirrors the S6/S6-FU live_holdout protocol on the backtest distribution — the
+  apples-to-apples backtest-train + real-eval the signal-log run approximated. The headline
+  trainer-VM eval lands in `MB-20260603-003` `evidence_log`.
 
 ### Session 1.3 — Backtest-augmented per-trade labels *(Tier-1; closes MB-20260530-001)* — 🔄 IN REVIEW 2026-06-03 (S-MLOPT-S7)
 - **Deliverable:** have the backtest harnesses emit **per-trade rows** in the
