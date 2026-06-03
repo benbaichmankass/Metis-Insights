@@ -76,8 +76,34 @@
   TEMP db → build `trade_outcomes`/`setup_labels` with `include_backtest=True` →
   enlarged training set with `source=backtest` rows): reported below.
 
-## Trainer-VM demo
-Pending — dispatched via `trainer-vm-diag`. (Result appended here.)
+## Trainer-VM demo — ✅ end-to-end on the real schema
+Ran via `trainer-vm-diag` (#2699 → #2700) against a TEMP copy of the canonical
+journal (never the real DB): record 400 synthetic backtest `SimTrade`s, then
+build the two families with `include_backtest`.
+
+```
+closed live trades: 499
+recorded is_backtest=1 rows: 400
+trade_outcomes  live_only=399  with_backtest=799  by_source={live:399, backtest:400}
+setup_labels    with_backtest=799  by_source={live:399, backtest:400}
+```
+
+The recorder wrote 400 `is_backtest=1` rows; both families default to **399
+live-only** and, with `include_backtest=True`, surface **799** rows correctly
+`source`-tagged (399 live + 400 backtest). That's the data-wall relief in one
+number: ~2× the training rows, with the real trades cleanly separable for a
+live-only holdout.
+
+**A real bug the demo caught (and fixed):** the first run failed with
+`NOT NULL constraint failed: trades.position_size` — the live `trades` table
+constrains columns the live writer always fills but a backtest row may not. My
+unit-test DDL didn't carry that constraint, so it passed locally but failed on
+the real schema. Fix: `write_backtest_trades` now introspects `PRAGMA
+table_info` and fills any NOT-NULL-without-default column it didn't map with a
+type-appropriate default; the test DDL was tightened to carry the real
+`position_size NOT NULL` so the regression is caught locally. (Honest note: the
+verification step did its job — the bug would have surfaced the first time
+anyone pointed the recorder at the real journal.)
 
 ## Documentation Updated
 - `ROADMAP.md` S-MLOPT-S7 row; `docs/ml/optimization-roadmap.md` Session 1.3;
