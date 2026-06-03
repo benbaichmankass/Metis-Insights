@@ -186,7 +186,7 @@ manufacture a **dense, properly-labeled** dataset of *hypothetical* setups inste
 waiting for real closed trades. Depends on Phase 0 (need purged CV + honest holdout to
 trust the result, and the live-vs-synthetic domain-shift check).
 
-### Session 1.1 — Triple-barrier labeler → `setup_candidates` dataset family *(Tier-1)*
+### Session 1.1 — Triple-barrier labeler → `setup_candidates` dataset family *(Tier-1)* — 🔄 IN REVIEW 2026-06-03 (S-MLOPT-S5)
 - **Deliverable:** a new family in `ml/datasets/families/` that, for **every historical
   candidate setup** the strategies could have taken (from `signals` / `signal_audit` +
   `market_raw` candles), labels the outcome with an upper (TP), lower (SL), and vertical
@@ -200,6 +200,23 @@ trust the result, and the live-vs-synthetic domain-shift check).
 - **Success:** family builds ≥ low-thousands of labeled candidates per symbol; a baseline
   trained on it and evaluated on the **live** holdout.
 - **Effort:** L.
+- **Shipped (Tier-1):** the reusable labeler `ml/datasets/labeling/triple_barrier.py` —
+  de Prado symmetric **CUSUM event sampler** (`cusum_events`, breach side → long/short
+  candidate) + **triple-barrier labeler** (`label_event`: TP/SL sized to signal-bar local
+  vol + vertical timeout). **Realistic-fill discipline** mitigates synthetic optimism:
+  touches on bar high/low (not close), **adverse-first** on a straddling bar (resolve to the
+  stop, never claim the profit), and an optional `slippage` charge per fill. New
+  `setup_candidates` family wires it over a `market_raw` dataset: CUSUM-sampled events,
+  entry at the **next bar's open** (no signal-bar look-ahead), signal-time features
+  (past-only) + the barrier outcome (future-only) → `leakage_test_status: passed` **by
+  construction** (feature/label windows never overlap). Every row carries
+  `is_live_trade: false` so a later PR appends REAL closed-trade rows and the evaluator
+  holds those out — the **mandatory real-trade eval** the domain-shift caveat demands. Pure
+  stdlib (no numpy/pandas) so it unit-tests in CI; labeler-boundary + family-build tests
+  (`tests/ml/test_triple_barrier.py`, `tests/ml/test_setup_candidates.py`). Builds the
+  **meta-labeling** base table for S-MLOPT-S6 (which adds the manifest + decision model;
+  manifest adoption is Tier-3). Density verification (≥ low-thousands of candidates per
+  symbol) runs on the trainer VM — reported in the sprint log.
 
 ### Session 1.2 — Meta-labeling model (the proper "should-I-take-this-trade") *(Tier-1 trainer/family; Tier-3 manifest)*
 - **Deliverable:** a secondary model that, given a primary strategy signal + signal-time

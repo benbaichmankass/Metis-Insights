@@ -10,6 +10,7 @@ from .families.execution_quality import ExecutionQualityBuilder
 from .families.market_features import MarketFeaturesBuilder
 from .families.market_raw import MarketRawBuilder
 from .families.review_journal import ReviewJournalBuilder
+from .families.setup_candidates import SetupCandidatesBuilder
 from .families.setup_labels import SetupLabelsBuilder
 from .families.setup_labels_audit import SetupLabelsAuditBuilder
 from .families.trade_outcomes import TradeOutcomesBuilder
@@ -21,6 +22,7 @@ FAMILY_REGISTRY: Mapping[str, Type[DatasetBuilder]] = {
     MarketFeaturesBuilder.family: MarketFeaturesBuilder,
     MarketRawBuilder.family: MarketRawBuilder,
     ReviewJournalBuilder.family: ReviewJournalBuilder,
+    SetupCandidatesBuilder.family: SetupCandidatesBuilder,
     SetupLabelsBuilder.family: SetupLabelsBuilder,
     SetupLabelsAuditBuilder.family: SetupLabelsAuditBuilder,
     TradeOutcomesBuilder.family: TradeOutcomesBuilder,
