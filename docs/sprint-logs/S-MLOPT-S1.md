@@ -21,10 +21,16 @@
   changed (the one move that would be Tier-3-adjacent is explicitly avoided).
 
 ## Starting Context
-- Active roadmap items: M14 ML-Optimization Program did not exist yet — this
-  sprint (Phase 0.1) bootstraps it. The work was pre-named in
-  `docs/sprint-plans/ai-traders/ws4-followups.md` § Out-of-scope ("Aggregated
-  walk-forward") and in the `setup-quality-lgbm-v2` manifest's notes
+- Active roadmap items: M14 ML-Optimization Program. This sprint executes the
+  program's **Session 0.1** (purged & embargoed walk-forward CV). The program
+  roadmap + sprint breakdown were established concurrently by **S-MLOPT-S0**
+  (PR #2673, landed on `main` mid-session) — `docs/ml/optimization-roadmap.md`
+  § Phase 0 Session 0.1 + the ROADMAP M14 table. (This session initially
+  bootstrapped a competing master-plan doc before S-MLOPT-S0 was visible on
+  `main`; on merge it was dropped in favour of S-MLOPT-S0's canonical version,
+  into which the Session 0.1 "done" status was folded.) The work was also
+  pre-named in `docs/sprint-plans/ai-traders/ws4-followups.md` § Out-of-scope
+  ("Aggregated walk-forward") and in the `setup-quality-lgbm-v2` manifest notes
   ("K-fold time-aware CV pass is a follow-up").
 - Prior sprint reference: S-AI-WS4-FU (introduced `split_strategy` +
   `split_walk_forward`, which returns only the last fold).
@@ -122,10 +128,12 @@ this sprint (Tier-1).
 - Historical docs marked superseded: none.
 
 ## Contradictions or Drift Found
-- The M14 program referenced by the sprint prompt (master plan +
-  `ROADMAP.md` section) did not exist. Resolved by bootstrapping both as part
-  of this (the program's first) sprint, rather than updating a non-existent
-  status row.
+- The M14 program referenced by the sprint prompt was not yet on `main` at
+  session start; a parallel session (S-MLOPT-S0, PR #2673) added it mid-session.
+  This session's interim bootstrap doc collided (add/add) with S-MLOPT-S0's
+  canonical `docs/ml/optimization-roadmap.md` and a duplicate M14 ROADMAP row;
+  resolved at merge by deferring to S-MLOPT-S0's versions and folding the
+  Session 0.1 "done" status + re-eval results into them.
 - `setup-quality-lgbm-v2.yaml` notes describe the K-fold CV pass as a pending
   follow-up; left as-is (config not edited per constraints) — the machinery it
   asks for now exists, so a future Tier-3 PR can flip it.
