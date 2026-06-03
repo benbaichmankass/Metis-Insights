@@ -123,9 +123,12 @@ honest promotion. Closes G1, G2, G3, G7.
   no behaviour change). `scripts/ml/window_recency_sweep.py` runs the 1y/2y/3y/5y(+decay)
   sweep against a fixed recent **purged** holdout (reuses the S-MLOPT-S1 primitive). Tests in
   `tests/ml/test_sample_weights.py` + `tests/ml/test_lightgbm_trainer.py`.
-- **Pending:** the trainer-VM sweep on `btc-regime-{5m,15m,1h}-lgbm-v2` to pick the
-  f1_volatile-maximising window/recency config, then the Tier-3 manifest-default proposal.
-  NOTE: average-uniqueness on **fixed-horizon** bar labels is near-uniform (the active lever
+- **Sweep done (trainer VM #2677 + half-life sweep #2678):** a recency-decayed 5y window
+  beats both the plain 5y **and** the 1y window on `f1_volatile` for all three models;
+  per-model `f1_volatile`-optimal half-lives are **1h=90d, 15m=60d, 5m=60d** (180d was too
+  slow). **Tier-3 manifest-adoption draft PR open** (adds `sample_weight` to the three
+  `btc-regime-*-lgbm-v2` manifests) — **operator-gated, pending approval before merge.**
+- NOTE: average-uniqueness on **fixed-horizon** bar labels is near-uniform (the active lever
   here is recency); uniqueness earns its keep once spans vary (Phase 1 triple-barrier).
 
 ### Session 0.3 — HPO + early stopping + class weights *(Tier-1)*

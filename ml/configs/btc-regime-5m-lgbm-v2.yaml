@@ -38,6 +38,14 @@ trainer_config:
   vol_window_n: 20
   seed: 42
   n_iter: 200
+  # Recency-weighted training (S-MLOPT-S2 / MB-20260601-001). Age-decay sample
+  # weight on the 5y window — keeps the full sample but down-weights old bars
+  # so the recent volatility regime isn't diluted. Half-life from the
+  # trainer-VM sweep (#2678): hl=60d maximised f1_volatile for 5m (0.1154 vs
+  # 0.1005 @1y, 0.0692 @5y) and macro_f1. Composes with class_weight below.
+  sample_weight:
+    half_life_days: 60
+    time_column: ts
   # Per-sample reweighting via Dataset(weight=...). The 5m regime label
   # is ~99.5% range / 0.5% volatile. Initial inverse-base-rate (200×)
   # weighting cleared the collapse (recall_volatile 0.000 → 0.530) but
