@@ -1,0 +1,98 @@
+# Meta-labeling decision model (S-MLOPT-S6, M14 Phase 1.2).
+#
+# de Prado meta-labeling: a secondary model that, given a candidate setup +
+# its signal-time market features, predicts P(profitable) — "should I act?".
+# This is the decision-correct replacement for `setup-quality-lgbm-v2`, which
+# lost to a per-group-mean baseline at n=80 (MB-20260527-003, demoted to
+# research_only; reproduced mechanically by the S-MLOPT-S4 gate). Instead of
+# ~80 real trades it trains on the THOUSANDS of dense, leak-free triple-barrier
+# candidates from the `setup_candidates` family (S-MLOPT-S5).
+#
+# Stack: reuses the existing LightGBM-regression trainer on the binary `won`
+# target (regress → probability) paired with the ClassificationEvaluator (which
+# scores a regression output as a probability: accuracy / precision / recall /
+# f1 / brier). Mirrors the `setup-quality-lgbm-v2` stack, retargeted.
+#
+# EVALUATION — two protocols, both honest:
+#   1. Headline (`split_strategy: live_holdout`): train on the SYNTHETIC
+#      candidates, score on the held-out set of REAL closed trades the build
+#      appended via `live_trades_db`. This is the mandatory domain-shift check —
+#      a model that only beats a baseline on synthetic rows has earned nothing.
+#   2. Leak-free within-distribution: re-run under `purged_walk_forward`
+#      (S-MLOPT-S1) and the S-MLOPT-S4 `gate-check` oos_edge vs the constant
+#      baseline. The manifest ships with (1); flip split_strategy to run (2).
+#
+# Build the dataset first (trainer VM), e.g. — live_trades_db MUST be the
+# canonical journal ($DATA_DIR/trade_journal.db = data/trade_journal.db on the
+# trainer; the repo-root trade_journal.db is an empty stub):
+#   python -m ml.datasets build setup_candidates --output-dir datasets-out \
+#     --version v001 --source market_raw --symbol-scope BTCUSDT --timeframe all \
+#     -- market_raw_path=datasets-out/market_raw/BTCUSDT/1h/v002 \
+#        live_trades_db=data/trade_journal.db
+#
+# TIER: adopting this manifest / promoting the model past `shadow` is Tier-3
+# (operator-gated). It ships at `research_only`; /ml-review + gate-check produce
+# the promotion evidence, the operator pulls the lever.
+
+manifest_version: v1
+model_id: setup-candidates-metalabel-v1
+description: "Meta-labeling model (de Prado): predicts P(profitable) for a candidate setup from signal-time market features, trained on the dense triple-barrier setup_candidates dataset and evaluated on a held-out set of REAL live trades. The decision-correct replacement for setup-quality-lgbm-v2 (which lost to a per-group-mean baseline at n=80)."
+model_family: regression_lightgbm
+trainer: ml.trainers.lightgbm_regression.LightGBMRegressionTrainer
+trainer_config:
+  target_column: won
+  feature_columns:
+    - direction
+    - rolling_log_return_vol
+    - log_return
+    - vol_bucket
+    - momentum
+    - hour_of_day
+    - dayofweek
+    - log_return_lag_1
+    - log_return_lag_2
+  categorical_columns:
+    - direction
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  # Outcome / label columns the family carries for analysis — never features.
+  forbidden_features:
+    - won
+    - label
+    - r_multiple
+    - ret
+    - barrier_touched
+    - holding_bars
+    - is_live_trade
+    - entry_price
+    - signal_vol
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 15
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    lambda_l2: 1.0
+dataset:
+  family: setup_candidates
+  symbol_scope: BTCUSDT
+  timeframe: all
+  version: v001
+evaluator: ml.evaluators.classification.ClassificationEvaluator
+evaluator_config:
+  target_column: won
+  threshold: 0.5
+  split_strategy: live_holdout
+  live_flag_column: is_live_trade
+  time_column: ts
+target_deployment_stage: research_only
+notes: |
+  de Prado meta-labeling on the dense setup_candidates dataset; the decision
+  model the data wall (G4) was blocking. Headline eval is live_holdout (train
+  synthetic, score REAL trades). For the leak-free within-distribution check,
+  flip evaluator_config.split_strategy to purged_walk_forward and read the
+  S-MLOPT-S4 gate-check oos_edge vs the constant baseline. Adoption + promotion
+  past shadow are Tier-3 (operator-gated).

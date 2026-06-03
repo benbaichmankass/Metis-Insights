@@ -219,6 +219,23 @@
         "2026-06-03 (S-MLOPT-S1): WF-CV deltas captured in docs/sprint-logs/S-MLOPT-S1.md re-eval table — setup-quality MAE 0.065->0.086, btc-regime-1h weighted_f1 0.7185->0.6742. label_horizon=1 row for setup_labels is a conservative proxy for true trade-hold overlap; Session 0.2 sample-uniqueness weights (or a label-end-time horizon) would tighten this."
       ],
       "status_history": "open 2026-06-03 (S-MLOPT-S1 / M14 Session 0.1 execution)"
+    },
+    {
+      "id": "MB-20260603-002",
+      "opened_at": "2026-06-03T12:30:00+00:00",
+      "opened_by": "claude (S-MLOPT-S6)",
+      "status": "open",
+      "tier": 1,
+      "title": "Meta-label model loses to baseline on the REAL holdout — close the synthetic↔real domain gap (wire logged signals as the setup_candidates event source)",
+      "description": "S-MLOPT-S6 built the de-Prado meta-label model + the leak-free live_holdout eval (train on synthetic setup_candidates, score on REAL trades). Trainer-VM eval (#2697): on 352 real BTCUSDT closed trades (win rate 0.244) the model scored accuracy 0.670 vs the majority-class baseline 0.756 — it does NOT beat the baseline, so no promotion was proposed. Root cause is a large domain gap: the synthetic CUSUM/triple-barrier candidates have a ~0.457 win rate vs the strategies' real 0.244 — CUSUM momentum events are a different (easier) population than the actual setups. Highest-leverage fix: add a SIGNAL-LOG event source to ml/datasets/families/setup_candidates.py (sample candidate events from trade_journal.db::signals / signal_audit.jsonl at the strategies' real decision points) so the train distribution matches real setups, then re-run the live_holdout eval. Compose with S7 (backtest-augmented real labels, enlarges the real holdout) and S8 (cross-symbol). The live_holdout machinery makes each measurable.",
+      "evidence_log": [
+        "2026-06-03 (S-MLOPT-S6 trainer-VM #2697): build BTCUSDT setup_candidates (15732 synthetic) + REAL-trade holdout from data/trade_journal.db (352 BTCUSDT closed, win_rate 0.244); meta-label (LightGBMRegressionTrainer->won, ClassificationEvaluator, live_holdout) scored acc=0.670 prec=0.266 recall=0.198 f1=0.227 brier=0.219 on the 352 real trades; majority-class baseline acc=0.756. Model < baseline => not promotable. Synthetic win rate ~0.457 vs real 0.244 = domain gap."
+      ],
+      "resolution_criteria": "A signal-log (real-decision-point) event source is added to setup_candidates and the meta-label model, re-evaluated on the REAL-trade live_holdout under purged WF-CV, beats the majority-class baseline on accuracy AND shows positive precision lift over the base rate — or the negative is documented as inherent at current data scale with the next lever identified.",
+      "source": "S-MLOPT-S6 live_holdout eval returned an honest negative (model < majority baseline on real trades).",
+      "status_history": "open 2026-06-03 (S-MLOPT-S6)",
+      "snoozed_until": null,
+      "trigger_condition": "Any /ml-review run; or when taking up S-MLOPT-S6 follow-up / S7 / S8."
     }
   ]
 }

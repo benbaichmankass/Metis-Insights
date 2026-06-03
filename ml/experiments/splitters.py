@@ -45,6 +45,40 @@ def split_time_aware_holdout(
     return split_holdout(sorted_rows, config)
 
 
+def split_live_holdout(
+    rows: list[dict[str, Any]],
+    config: Mapping[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Domain-shift eval (S-MLOPT-S6): train on SYNTHETIC rows, evaluate on REAL.
+
+    The mandatory discipline for models trained on `setup_candidates`: a model
+    fit on synthetic triple-barrier candidates must prove itself on a held-out
+    set of REAL live trades, never on synthetic rows. This split partitions on
+    the `flag_column` (default `is_live_trade`): train = rows where the flag is
+    falsey (synthetic), eval = rows where it is truthy (real trades). Both sides
+    are time-sorted for reproducibility. Raises if either side is empty (you
+    cannot certify domain transfer without both populations).
+    """
+    flag_col = config.get("live_flag_column", "is_live_trade")
+    time_col = config.get("time_column", "created_at")
+
+    def _truthy(v: Any) -> bool:
+        return bool(v) and v not in (0, "0", "false", "False")
+
+    train = [r for r in rows if not _truthy(r.get(flag_col))]
+    evaluation = [r for r in rows if _truthy(r.get(flag_col))]
+    if not train:
+        raise ValueError("live_holdout: no synthetic (train) rows")
+    if not evaluation:
+        raise ValueError(
+            "live_holdout: no real (is_live_trade) rows to evaluate on — build "
+            "the dataset with a live-trades source first"
+        )
+    train.sort(key=lambda r: r.get(time_col, ""))
+    evaluation.sort(key=lambda r: r.get(time_col, ""))
+    return train, evaluation
+
+
 def split_walk_forward(
     rows: list[dict[str, Any]],
     config: Mapping[str, Any],
@@ -254,6 +288,8 @@ def split(
         return split_holdout(rows, config)
     if strategy == "time_aware_holdout":
         return split_time_aware_holdout(rows, config)
+    if strategy == "live_holdout":
+        return split_live_holdout(rows, config)
     if strategy == "walk_forward":
         folds = split_walk_forward(rows, config)
         if not folds:

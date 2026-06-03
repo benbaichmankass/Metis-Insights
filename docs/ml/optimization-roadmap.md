@@ -218,7 +218,7 @@ trust the result, and the live-vs-synthetic domain-shift check).
   manifest adoption is Tier-3). Density verification (≥ low-thousands of candidates per
   symbol) runs on the trainer VM — reported in the sprint log.
 
-### Session 1.2 — Meta-labeling model (the proper "should-I-take-this-trade") *(Tier-1 trainer/family; Tier-3 manifest)*
+### Session 1.2 — Meta-labeling model (the proper "should-I-take-this-trade") *(Tier-1 trainer/family; Tier-3 manifest)* — 🔄 IN REVIEW 2026-06-03 (S-MLOPT-S6)
 - **Deliverable:** a secondary model that, given a primary strategy signal + signal-time
   features, predicts **whether to act** (and at what size-tilt) — the de-Prado-correct
   version of our `setup-quality` model. New manifest mirroring the existing lgbm-regression
@@ -229,6 +229,28 @@ trust the result, and the live-vs-synthetic domain-shift check).
 - **Success:** beats the per-group-mean baseline on the **live** holdout under purged
   WF-CV (Phase 0); if so → propose `shadow` registration.
 - **Effort:** M (after 1.1).
+- **Shipped (Tier-1 stack; Tier-3 manifest):** the meta-label model **reuses the existing
+  `LightGBMRegressionTrainer`** on the binary `won` target (regress → probability) paired
+  with `ClassificationEvaluator` (which scores a regression output as a probability:
+  accuracy/precision/recall/f1/brier) — no new trainer needed. **The domain-shift
+  discipline is now real machinery, not a caveat:** `setup_candidates` gained a
+  `live_trades_db` source that appends REAL closed trades (located at the bar covering each
+  trade's entry, same past-only feature space, actual realized outcome, `is_live_trade:
+  true`); a new **`live_holdout` split strategy** (`ml/experiments/splitters.py`) trains on
+  the synthetic candidates and **evaluates on the REAL trades** — the mandatory held-out
+  real-trade eval. The manifest `ml/configs/setup-candidates-metalabel-v1.yaml` ships at
+  `research_only` with `split_strategy: live_holdout` (flip to `purged_walk_forward` for the
+  leak-free within-distribution check + the S-MLOPT-S4 `gate-check` oos_edge-vs-baseline).
+  Tests: live-holdout split (partition + missing-population guards), real-trade append,
+  manifest validity, end-to-end runner drive (`tests/ml/test_metalabel.py`,
+  `tests/ml/test_setup_candidates.py`). **Trainer-VM eval is an honest NEGATIVE:** on 352
+  real BTCUSDT trades (24.4% win rate) the model scores accuracy 0.670 vs the majority-class
+  baseline's 0.756 → does **not** beat the baseline → **no promotion proposed**. The
+  leak-free real-trade eval correctly blocks a synthetic-only-good model; the large
+  synthetic↔real gap (win rate 0.457 vs 0.244 — CUSUM events ≠ the strategies' setups) is
+  the lever for the next sprints (wire logged signals as the event source; S7 backtest-
+  augmented labels; S8 cross-symbol). **Adopting the manifest / promoting past shadow is
+  Tier-3 (operator-gated).**
 
 ### Session 1.3 — Backtest-augmented per-trade labels *(Tier-1; closes MB-20260530-001)*
 - **Deliverable:** have the backtest harnesses emit **per-trade rows** in the
