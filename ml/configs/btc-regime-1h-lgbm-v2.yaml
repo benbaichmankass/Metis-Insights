@@ -31,6 +31,14 @@ trainer_config:
   vol_window_n: 20
   seed: 42
   n_iter: 200
+  # Recency-weighted training (S-MLOPT-S2 / MB-20260601-001). The 5y window
+  # diluted the recent volatility regime (f1_volatile fell vs a 1y window); an
+  # age-decay sample weight keeps the full 5y sample but lets old bars count
+  # for less. Half-life chosen by the trainer-VM sweep (#2678): hl=90d was the
+  # f1_volatile-maximising config for 1h (0.4666 vs 0.4510 @1y, 0.4455 @5y).
+  sample_weight:
+    half_life_days: 90
+    time_column: ts
   # The 1h regime label is less skewed than the intraday shards (the legacy
   # 1h modal baseline sits near acc=0.79 => ~21% volatile). ~4x inverse-base-
   # rate weighting pushes the booster to commit to volatile without spraying;
