@@ -113,6 +113,7 @@ class SetupLabelsBuilder(DatasetBuilder):
         "dayofweek": int,
         "won": bool,
         "r_multiple": float,
+        "source": str,   # "live" | "backtest" (S-MLOPT-S7)
     }
 
     def iter_rows(
@@ -123,6 +124,7 @@ class SetupLabelsBuilder(DatasetBuilder):
         r_cap: float = 3.0,
         strategy_name: str | None = None,
         symbol: str | None = None,
+        include_backtest: bool = False,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         if risk_pct <= 0:
@@ -136,13 +138,15 @@ class SetupLabelsBuilder(DatasetBuilder):
         conn = sqlite3.connect(uri, uri=True)
         try:
             conn.row_factory = sqlite3.Row
-            select_cols = ", ".join(_RAW_COLUMNS)
+            select_cols = ", ".join(_RAW_COLUMNS) + ", is_backtest"
             sql = (
                 f"SELECT {select_cols} FROM trades "
-                "WHERE status = 'closed' AND is_backtest = 0 "
+                "WHERE status = 'closed' "
                 "AND pnl IS NOT NULL "
                 "AND setup_type IS NOT NULL AND TRIM(setup_type) <> ''"
             )
+            if not include_backtest:
+                sql += " AND is_backtest = 0"
             params: list[Any] = []
             if strategy_name is not None:
                 sql += " AND strategy_name = ?"
@@ -181,6 +185,7 @@ class SetupLabelsBuilder(DatasetBuilder):
                 hour, dow = _parse_ts_hour_dow(ts_for_time)
                 payload["hour_of_day"] = int(hour)
                 payload["dayofweek"] = int(dow)
+                payload["source"] = "backtest" if row["is_backtest"] else "live"
                 yield payload
         finally:
             conn.close()
