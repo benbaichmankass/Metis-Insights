@@ -140,9 +140,15 @@ class LightGBMMulticlassTrainer(Trainer):
         spec_symbol = ""
         spec_timeframe = ""
 
+        # Opt-in recency / uniqueness sample weighting (S-MLOPT-S2). Absent →
+        # no behaviour change. Capture the time column per kept row in pass 1.
+        sample_weight_cfg = config.get("sample_weight")
+        sw_time_col = str((sample_weight_cfg or {}).get("time_column", "ts"))
+
         # Pass 1: collect rows + freeze categorical mappings + class labels.
         raw_categoricals: dict[str, set[str]] = {c: set() for c in categorical_columns}
         kept_rows: list[tuple[list[Any], str]] = []
+        kept_times: list[Any] = []
         class_set: set[str] = set()
         for row in rows:
             label_raw = row.get(target)
@@ -176,6 +182,7 @@ class LightGBMMulticlassTrainer(Trainer):
                 continue
             class_set.add(label)
             kept_rows.append((x_raw, label))
+            kept_times.append(row.get(sw_time_col))
 
             if freeze_regime_spec:
                 raw_vol = row.get(vol_feature_column)
@@ -269,6 +276,19 @@ class LightGBMMulticlassTrainer(Trainer):
                 [weight_lookup[class_labels[y]] for y in y_vec], dtype=np.float64,
             )
 
+        # Fold in opt-in recency / uniqueness weights (mean-1.0), multiplying
+        # any class_weight already resolved above.
+        if sample_weight_cfg is not None:
+            from .sample_weights import compute_sample_weights  # noqa: PLC0415
+
+            extra = compute_sample_weights(kept_times, sample_weight_cfg)
+            if extra is not None:
+                extra_arr = np.asarray(extra, dtype=np.float64)
+                sample_weights = (
+                    extra_arr if sample_weights is None
+                    else sample_weights * extra_arr
+                )
+
         train_data = lgb.Dataset(
             data=x_arr,
             label=y_arr,
@@ -319,6 +339,7 @@ class LightGBMMulticlassTrainer(Trainer):
                 {str(k): float(v) for k, v in class_weight_cfg.items()}
                 if class_weight_cfg is not None else None
             ),
+            "sample_weight": dict(sample_weight_cfg) if sample_weight_cfg else None,
             # Live-scoring spec (consumed by src/runtime/regime_shadow.py;
             # empty unless freeze_regime_spec was set).
             "vol_feature_column": vol_feature_column,

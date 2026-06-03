@@ -137,6 +137,36 @@ class TestLightGBMMulticlassTrainer:
         weighted = LightGBMMulticlassTrainer().fit(_regime_rows(), cfg)
         assert weighted["booster_str"] != base["booster_str"]
 
+    def test_sample_weight_none_by_default(self):
+        state = LightGBMMulticlassTrainer().fit(_regime_rows(), _REGIME_CONFIG)
+        assert state["sample_weight"] is None
+
+    def test_sample_weight_recency_changes_booster(self):
+        """Recency decay must reach lgb.train (the `ts` column spans two days,
+        so older rows are down-weighted) — a no-op wiring bug would match the
+        unweighted booster."""
+        base = LightGBMMulticlassTrainer().fit(_regime_rows(), _REGIME_CONFIG)
+        cfg = {**_REGIME_CONFIG, "sample_weight": {"half_life_days": 0.25}}
+        weighted = LightGBMMulticlassTrainer().fit(_regime_rows(), cfg)
+        assert weighted["booster_str"] != base["booster_str"]
+        assert weighted["sample_weight"] == {"half_life_days": 0.25}
+
+    def test_sample_weight_composes_with_class_weight(self):
+        cfg = {
+            **_REGIME_CONFIG,
+            "class_weight": {"range": 1.0, "volatile": 5.0},
+            "sample_weight": {"half_life_days": 0.5, "uniqueness": True},
+        }
+        state = LightGBMMulticlassTrainer().fit(_regime_rows(), cfg)
+        assert state["class_weight"] == {"range": 1.0, "volatile": 5.0}
+        assert state["sample_weight"]["uniqueness"] is True
+
+    def test_sample_weight_missing_timestamp_raises(self):
+        # time_column that no row carries → every weight-time is None → fail loud.
+        cfg = {**_REGIME_CONFIG, "sample_weight": {"half_life_days": 1, "time_column": "nope"}}
+        with pytest.raises(ValueError, match="parseable timestamp"):
+            LightGBMMulticlassTrainer().fit(_regime_rows(), cfg)
+
     def test_class_weight_missing_class_raises(self):
         cfg = {**_REGIME_CONFIG, "class_weight": {"range": 1.0}}  # volatile missing
         with pytest.raises(ValueError, match="missing entries"):
@@ -356,6 +386,22 @@ class TestLightGBMRegressionTrainer:
         a = LightGBMRegressionTrainer().fit(_setup_rows(), _SETUP_CONFIG)
         b = LightGBMRegressionTrainer().fit(_setup_rows(), _SETUP_CONFIG)
         assert a["booster_str"] == b["booster_str"]
+
+    def test_sample_weight_none_by_default(self):
+        state = LightGBMRegressionTrainer().fit(_setup_rows(), _SETUP_CONFIG)
+        assert state["sample_weight"] is None
+
+    def test_sample_weight_recency_changes_booster(self):
+        base = LightGBMRegressionTrainer().fit(_setup_rows(), _SETUP_CONFIG)
+        cfg = {**_SETUP_CONFIG, "sample_weight": {"half_life_days": 0.25}}
+        weighted = LightGBMRegressionTrainer().fit(_setup_rows(), cfg)
+        assert weighted["booster_str"] != base["booster_str"]
+        assert weighted["sample_weight"] == {"half_life_days": 0.25}
+
+    def test_sample_weight_missing_timestamp_raises(self):
+        cfg = {**_SETUP_CONFIG, "sample_weight": {"half_life_days": 1, "time_column": "nope"}}
+        with pytest.raises(ValueError, match="parseable timestamp"):
+            LightGBMRegressionTrainer().fit(_setup_rows(), cfg)
 
     def test_leakage_gate_blocks_outcome_columns(self):
         cfg = {

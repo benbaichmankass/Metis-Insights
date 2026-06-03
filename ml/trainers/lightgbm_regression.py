@@ -63,8 +63,14 @@ class LightGBMRegressionTrainer(Trainer):
         forbidden = _default_forbidden_regression(target) | extra_forbidden
         _check_leakage(feature_columns, target, forbidden)
 
+        # Opt-in recency / uniqueness sample weighting (S-MLOPT-S2). Absent →
+        # no behaviour change. Capture the time column per kept row.
+        sample_weight_cfg = config.get("sample_weight")
+        sw_time_col = str((sample_weight_cfg or {}).get("time_column", "created_at"))
+
         raw_categoricals: dict[str, set[str]] = {c: set() for c in categorical_columns}
         kept_rows: list[tuple[list[Any], float]] = []
+        kept_times: list[Any] = []
         for row in rows:
             target_raw = row.get(target)
             if target_raw is None:
@@ -98,6 +104,7 @@ class LightGBMRegressionTrainer(Trainer):
             if skip:
                 continue
             kept_rows.append((x_raw, y_val))
+            kept_times.append(row.get(sw_time_col))
 
         if not kept_rows:
             raise ValueError(
@@ -140,9 +147,20 @@ class LightGBMRegressionTrainer(Trainer):
 
         x_arr = np.asarray(x_matrix, dtype=np.float64)
         y_arr = np.asarray(y_vec, dtype=np.float64)
+
+        # Opt-in recency / uniqueness sample weights (mean-1.0), S-MLOPT-S2.
+        sample_weights = None
+        if sample_weight_cfg is not None:
+            from .sample_weights import compute_sample_weights  # noqa: PLC0415
+
+            extra = compute_sample_weights(kept_times, sample_weight_cfg)
+            if extra is not None:
+                sample_weights = np.asarray(extra, dtype=np.float64)
+
         train_data = lgb.Dataset(
             data=x_arr,
             label=y_arr,
+            weight=sample_weights,
             categorical_feature=cat_idx if cat_idx else "auto",
             free_raw_data=False,
         )
@@ -167,4 +185,5 @@ class LightGBMRegressionTrainer(Trainer):
             "params": params,
             "n_iter": n_iter,
             "n_train": len(kept_rows),
+            "sample_weight": dict(sample_weight_cfg) if sample_weight_cfg else None,
         }
