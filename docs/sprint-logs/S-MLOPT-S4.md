@@ -95,10 +95,36 @@
   3 purged WF-CV folds) — the correct champion-challenger verdict (no edge ⇒ not ready).
 
 ## Real-model gate-check packet (trainer VM)
-Ran `python -m ml gate-check` on a real registry model via the `trainer-vm-diag`
-relay (this branch fetched onto the trainer VM, where the registry + `datasets-out`
-live). Packet + interpretation: see the relay issue referenced in the PR. (The flip
-stays Tier-3 — the packet is evidence, the operator pulls the lever.)
+Ran `python -m ml gate-check … --datasets-root datasets-out --db trade_journal.db`
+on two real registry models via the `trainer-vm-diag` relay (this branch fetched
+into a detached worktree; the running trainer checkout untouched). Issues #2686
+(discovery) + #2687 (packet). **The gate mechanically reproduced the G4 finding** —
+the OOS-edge gate is doing exactly its job:
+
+**`setup-quality-lgbm-v2`** (the LightGBM regressor — G4's prime suspect),
+target `advisory`, `ready: false`:
+- `oos_edge` → **FAIL**: OOS edge on `mae` = **−0.00954** over 5 purged WF-CV folds
+  (candidate LGBM **0.08460** vs constant per-group-mean baseline **0.07506**). **The
+  LightGBM head LOSES to the trivial baseline on honest, leak-free folds** — the exact
+  MB-20260527-003 / G4 result ("lost to a per-group-mean baseline at n=80"), now
+  computed automatically instead of discovered by hand.
+- `sample_sufficiency` → FAIL (eval n=80 < 1000); `shadow_soak` → FAIL (4.1d at
+  research_only < 7); `cross_run_stability` → PASS (std mae 0.0037 over 5 runs);
+  `non_degenerate` / `beats_baseline` / `live_agreement` / `drift_clean` →
+  insufficient_data (no live shadow predictions joined for this model).
+
+**`setup-quality-baseline-v0`** (a real **shadow**-stage model), `ready: false`:
+- `oos_edge` → **PASS**: edge `+0.00123` (candidate 0.07383 vs baseline 0.07506) — the
+  per-setup_type grouped mean narrowly beats the global constant mean, so the gate
+  correctly clears it; `shadow_soak` → PASS (15.2d); `cross_run_stability` → PASS.
+- Still not ready: blocked on `sample_sufficiency` (n=80) + the live-evidence gates
+  (insufficient_data) — honest, since there's no real-time shadow-prediction track
+  record joined yet.
+
+Read: the packet is **mechanical and non-discretionary** — it failed the model that
+loses to baseline, passed the one that beats it, and held both back on volume / live
+evidence without any human judgement. The shadow→advisory flip stays **Tier-3**: the
+packet is evidence; the operator pulls the lever.
 
 ## Documentation Updated
 - `ROADMAP.md` (M14 milestone summary + S-MLOPT-S4 row → DONE; Phase 0 now S0–S4),
