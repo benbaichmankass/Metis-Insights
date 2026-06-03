@@ -88,7 +88,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument(
         "--decay-half-life-days", type=float, default=180.0,
-        help="Recency half-life for the '<max>y+decay' variant (0 disables it).",
+        help="Recency half-life for the '<max>y+decay' variant (0 disables it). "
+             "Ignored when --decay-half-lives is given.",
+    )
+    ap.add_argument(
+        "--decay-half-lives", default="",
+        help="Comma list of half-lives (days) to sweep at the max window, e.g. "
+             "'60,90,180' — one '<max>y+decay(hl=Xd)' result each. Overrides "
+             "--decay-half-life-days.",
     )
     ap.add_argument(
         "--metric-key", default="f1_volatile",
@@ -134,15 +141,24 @@ def main(argv: list[str] | None = None) -> int:
             trainer_config=base_trainer_cfg, evaluator_config=eval_cfg,
         )
 
-    # Largest window + recency decay variant.
-    if args.decay_half_life_days and windows:
+    # Largest window + recency decay variant(s). --decay-half-lives (a list)
+    # overrides the single --decay-half-life-days.
+    if args.decay_half_lives.strip():
+        half_lives = [float(h) for h in args.decay_half_lives.split(",") if h.strip()]
+    elif args.decay_half_life_days:
+        half_lives = [args.decay_half_life_days]
+    else:
+        half_lives = []
+    for hl in half_lives:
+        if not windows:
+            break
         w_max = max(windows)
         decay_cfg = dict(base_trainer_cfg)
         decay_cfg["sample_weight"] = {
-            "half_life_days": args.decay_half_life_days,
+            "half_life_days": hl,
             "time_column": time_col,
         }
-        results[f"{w_max:g}y+decay(hl={args.decay_half_life_days:g}d)"] = _evaluate_window(
+        results[f"{w_max:g}y+decay(hl={hl:g}d)"] = _evaluate_window(
             sorted_rows=sorted_rows, times=times, holdout_start=holdout_start,
             train_lo_time=holdout_lo_time - w_max * _YEAR_SECONDS,
             purge_horizon=args.label_horizon,
