@@ -55,8 +55,33 @@
 - Trainer-VM transfer experiment (joint BTC+MES vs MES-only meta-label, scored on
   the REAL MES holdout): reported below.
 
-## Trainer-VM transfer experiment
-Pending — dispatched via `trainer-vm-diag`. (Result appended here.)
+## Trainer-VM transfer experiment — build works; claim not yet measurable (MES has 0 real trades)
+Ran via `trainer-vm-diag` (#2702). The joint build assembles cleanly:
+
+```
+MES rows=6723 (synth=6723, live=0)   BTC rows=16084 (synth=15732, live=352)
+MES real holdout too small (0) for a powered transfer test — reporting availability only.
+```
+
+**The cross-symbol *capability* is verified** — the joint dataset assembles
+6,723 MES synthetic candidates + 16,084 BTC candidates, each vol-bucketed against
+its own scale. **But the transfer *claim* cannot be validated yet: MES has ZERO
+real closed trades** in the journal (consistent with `setup_labels` MES datasets
+being 0 rows, #2696). There is no MES real holdout to measure "does adding BTC
+help MES" against — the experiment correctly refused to fabricate one and
+reported availability only.
+
+Honest read:
+- This is itself a finding: **MES isn't producing real trades** (a known
+  operational theme — MES/IBKR has gone dark before; out of scope here, belongs
+  to /health-review or /performance-review). Cross-symbol transfer is *exactly*
+  the lever that would help MES once it trades — and the joint-build machinery is
+  now ready for the moment it does (or once S7 backtest-augments MES labels:
+  `include_backtest` + the recorder can manufacture an MES holdout from MES
+  backtests).
+- **Deliverable stands:** the Tier-1 joint-build enabler + the xsym manifest are
+  built, tested, and CI-green. The empirical transfer number is deferred to when
+  an MES real (or backtest-augmented) holdout exists — not claimed prematurely.
 
 ## Documentation Updated
 - `ROADMAP.md` S-MLOPT-S8 row; `docs/ml/optimization-roadmap.md` Session 1.4;
