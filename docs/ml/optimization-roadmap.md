@@ -252,7 +252,7 @@ trust the result, and the live-vs-synthetic domain-shift check).
   augmented labels; S8 cross-symbol). **Adopting the manifest / promoting past shadow is
   Tier-3 (operator-gated).**
 
-### Session 1.3 — Backtest-augmented per-trade labels *(Tier-1; closes MB-20260530-001)*
+### Session 1.3 — Backtest-augmented per-trade labels *(Tier-1; closes MB-20260530-001)* — 🔄 IN REVIEW 2026-06-03 (S-MLOPT-S7)
 - **Deliverable:** have the backtest harnesses emit **per-trade rows** in the
   `setup_labels`/`trade_outcomes` schema (entry/SL/TP/outcome/r_multiple + signal-time
   features), tagged `source=backtest`; extend those families with a `source` column + an
@@ -261,6 +261,23 @@ trust the result, and the live-vs-synthetic domain-shift check).
 - **Pairs with** Phase 1.1 (both are "manufacture labels from history") and the 5y window /
   FVG-strategy backtesting work.
 - **Effort:** M–L.
+- **Shipped (Tier-1):** `trade_outcomes` + `setup_labels` gained a **`source`** column
+  (`"live"`/`"backtest"`) + an **`include_backtest`** flag — default off (reads only
+  `is_backtest=0` live trades, unchanged), on also surfaces the `is_backtest=1` rows the
+  harnesses record. New **`ml/datasets/backtest_recorder.py`**: a pure `sim_trade_to_trade_row`
+  mapper (`sim.ledger.SimTrade`→trades row: `won`/`pnl`/`pnl_percent`/`r_multiple` derived so
+  the families work unchanged; `setup_type` falls back to the strategy) + `write_backtest_trades`
+  that INSERTs **`is_backtest=1`** rows — excluded from every live/stats/default-dataset path
+  (the same contract the M5 `backtest_results` writer relies on), **opt-in**, no autonomous
+  money-DB write. The S-MLOPT-S6 `live_holdout` split was generalized with `live_flag_true_value`
+  so the eval recipe is **train on live+backtest, hold out REAL only** (`live_flag_column:
+  source`, `live_flag_true_value: live`) — keeping the domain-shift discipline (never eval on
+  synthetic/backtest rows). `execution_quality` deliberately **not** augmented (it must learn
+  real slippage). Tests cover the mapper, the writer (`is_backtest=1`-only), both families'
+  `include_backtest`, and the source-based holdout; trainer-VM end-to-end demo (run a sim
+  backtest → record to a temp DB → build `trade_outcomes` with `include_backtest` → enlarged
+  training set) in the sprint log. Wiring the recorder into each harness (the opt-in money-DB
+  write) is a one-call follow-up.
 
 ### Session 1.4 — Cross-symbol transfer *(Tier-1 experiment; Tier-3 manifest)*
 - **Deliverable:** joint BTC+MES training (or pretrain-on-liquid-proxy → fine-tune) for the

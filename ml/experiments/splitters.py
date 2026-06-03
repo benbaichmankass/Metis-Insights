@@ -51,22 +51,31 @@ def split_live_holdout(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Domain-shift eval (S-MLOPT-S6): train on SYNTHETIC rows, evaluate on REAL.
 
-    The mandatory discipline for models trained on `setup_candidates`: a model
-    fit on synthetic triple-barrier candidates must prove itself on a held-out
-    set of REAL live trades, never on synthetic rows. This split partitions on
-    the `flag_column` (default `is_live_trade`): train = rows where the flag is
-    falsey (synthetic), eval = rows where it is truthy (real trades). Both sides
-    are time-sorted for reproducibility. Raises if either side is empty (you
-    cannot certify domain transfer without both populations).
+    The mandatory discipline for models trained on synthetic / backtest data: a
+    model must prove itself on a held-out set of REAL live trades, never on the
+    synthetic rows. This split partitions on `live_flag_column`:
+
+      - default `is_live_trade` (a boolean, as `setup_candidates` emits): eval =
+        truthy rows (real trades), train = falsey rows (synthetic candidates);
+      - or set `live_flag_true_value` (e.g. `live` with `live_flag_column:
+        source`, as the `trade_outcomes` / `setup_labels` backtest-augmented
+        families emit, S-MLOPT-S7): eval = rows whose flag **equals** that value
+        (real), train = everything else (backtest/synthetic).
+
+    Both sides are time-sorted for reproducibility. Raises if either side is
+    empty (you cannot certify domain transfer without both populations).
     """
     flag_col = config.get("live_flag_column", "is_live_trade")
     time_col = config.get("time_column", "created_at")
+    true_value = config.get("live_flag_true_value")
 
-    def _truthy(v: Any) -> bool:
+    def _is_real(v: Any) -> bool:
+        if true_value is not None:
+            return v == true_value
         return bool(v) and v not in (0, "0", "false", "False")
 
-    train = [r for r in rows if not _truthy(r.get(flag_col))]
-    evaluation = [r for r in rows if _truthy(r.get(flag_col))]
+    train = [r for r in rows if not _is_real(r.get(flag_col))]
+    evaluation = [r for r in rows if _is_real(r.get(flag_col))]
     if not train:
         raise ValueError("live_holdout: no synthetic (train) rows")
     if not evaluation:

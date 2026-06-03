@@ -1,8 +1,17 @@
-"""`trade_outcomes` dataset family (WS5-A).
+"""`trade_outcomes` dataset family (WS5-A; backtest augmentation S-MLOPT-S7).
 
-Reads CLOSED, non-backtest trades from `trade_journal.db::trades`
-and emits them with a derived `won` label (`pnl > 0`). The first
-label dataset on the AI-traders track.
+Reads CLOSED trades from `trade_journal.db::trades` and emits them with a
+derived `won` label (`pnl > 0`). The first label dataset on the AI-traders
+track.
+
+By default only **live** (non-backtest) trades are read — unchanged WS5-A
+behavior. Pass `include_backtest=True` (S-MLOPT-S7, Phase 1.3) to ALSO read
+`is_backtest = 1` rows recorded by the backtest harnesses; every row then
+carries a `source` field (`"live"` / `"backtest"`) so a trainer can train on
+live+backtest while the evaluator holds out **real** trades only (`source ==
+"live"`, via the `live_holdout` split with `live_flag_column: source` +
+`live_flag_true_value: live`). This manufactures more labeled training data
+than the ~80 real trades collapse the decision models against (gap G4).
 
 Leakage discipline: the dataset includes both `pnl` (outcome) and
 `won` (label derived from `pnl`). Any trainer consuming this family
@@ -72,6 +81,7 @@ class TradeOutcomesBuilder(DatasetBuilder):
         "account_id": str,
         "created_at": str,
         "won": bool,
+        "source": str,   # "live" | "backtest" (S-MLOPT-S7)
     }
 
     def iter_rows(
@@ -80,6 +90,7 @@ class TradeOutcomesBuilder(DatasetBuilder):
         db_path: Path,
         strategy_name: str | None = None,
         symbol: str | None = None,
+        include_backtest: bool = False,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         if not db_path.is_file():
@@ -88,11 +99,10 @@ class TradeOutcomesBuilder(DatasetBuilder):
         conn = sqlite3.connect(uri, uri=True)
         try:
             conn.row_factory = sqlite3.Row
-            select_cols = ", ".join(_RAW_COLUMNS)
-            sql = (
-                f"SELECT {select_cols} FROM trades "
-                "WHERE status = 'closed' AND is_backtest = 0"
-            )
+            select_cols = ", ".join(_RAW_COLUMNS) + ", is_backtest"
+            sql = f"SELECT {select_cols} FROM trades WHERE status = 'closed'"
+            if not include_backtest:
+                sql += " AND is_backtest = 0"
             params: list[Any] = []
             if strategy_name is not None:
                 sql += " AND strategy_name = ?"
@@ -119,6 +129,7 @@ class TradeOutcomesBuilder(DatasetBuilder):
                     else:
                         payload[col] = value
                 payload["won"] = bool(payload["pnl"] > 0)
+                payload["source"] = "backtest" if row["is_backtest"] else "live"
                 yield payload
         finally:
             conn.close()
