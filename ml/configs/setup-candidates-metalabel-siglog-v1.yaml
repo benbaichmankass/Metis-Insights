@@ -1,0 +1,112 @@
+# Meta-label model + signal-log event source (MB-20260603-002, S-MLOPT-S6 follow-up).
+#
+# This manifest sits on top of the same trainer + evaluator + live_holdout
+# protocol as `setup-candidates-metalabel-v1.yaml` — the only thing it changes
+# is the *training distribution*. The S6 honest negative (the model lost to the
+# majority-class baseline on the 352 real BTCUSDT closed trades: acc 0.670 vs
+# 0.756) had one clear root cause: synthetic CUSUM candidates win ~0.457 of the
+# time, but the strategies' actual setups win 0.244. CUSUM is a momentum-event
+# sampler; the strategies' setups are a different, harder, loss-majority
+# population. Train and eval lived in different worlds.
+#
+# This manifest closes that gap. The `setup_candidates` family now accepts
+# `signal_log_db=<trade_journal.db>` (MB-20260603-002): every `side=buy|sell`
+# row in `trade_journal.db::signals` (the audit-log dual-write — the strategies'
+# real decision points) is located at the bar covering its `logged_at_utc` and
+# labeled with the SAME triple-barrier as CUSUM (same BarrierConfig, same local
+# -vol sizing, same fill rules). Signal-log rows ride the train side of
+# `live_holdout` (synthetic label, `is_live_trade=False`); the real-trade
+# population remains the only eval-side, so the headline domain-shift number
+# stays measurable.
+#
+# Build the dataset on the trainer VM, e.g.:
+#   python -m ml.datasets build setup_candidates --output-dir datasets-out \
+#     --version v001 --source market_raw --symbol-scope BTCUSDT --timeframe all \
+#     -- market_raw_path=datasets-out/market_raw/BTCUSDT/1h/v002 \
+#        signal_log_db=data/trade_journal.db \
+#        live_trades_db=data/trade_journal.db \
+#        include_cusum=false
+#
+# Setting `include_cusum=false` makes the train distribution purely real-
+# decision-points + synthetic-label, which is the cleanest A/B vs the S6
+# manifest. Drop the flag (or set `include_cusum=true`) to mix CUSUM + signal-
+# log — the signal-log rows still tilt the distribution toward real setups.
+#
+# Promotion + headline number: re-run the live_holdout eval (train signal-log
+# rows -> score the 352 real BTCUSDT closed trades). If accuracy beats the
+# 0.756 majority baseline AND precision lifts off the 0.244 base rate, propose
+# promotion past `research_only` (operator-gated, Tier-3). If the negative
+# persists, the next lever is S-MLOPT-S7 (backtest-augmented real labels —
+# enlarges the real holdout) or fundamentally better features (Phase 2).
+#
+# TIER: adopting this manifest / promoting the model past `shadow` is Tier-3
+# (operator-gated). Ships at `research_only`; the manifest is a proposal, the
+# operator pulls the lever after /ml-review surfaces the eval evidence.
+
+manifest_version: v1
+model_id: setup-candidates-metalabel-siglog-v1
+description: "Meta-labeling model (de Prado) trained on SIGNAL-LOG candidate events (the strategies' real decision points from trade_journal.db::signals) with triple-barrier labels, evaluated under live_holdout on the REAL-trade population. Closes the synthetic↔real domain gap surfaced by S-MLOPT-S6 (MB-20260603-002)."
+model_family: regression_lightgbm
+trainer: ml.trainers.lightgbm_regression.LightGBMRegressionTrainer
+trainer_config:
+  target_column: won
+  feature_columns:
+    - direction
+    - rolling_log_return_vol
+    - log_return
+    - vol_bucket
+    - momentum
+    - hour_of_day
+    - dayofweek
+    - log_return_lag_1
+    - log_return_lag_2
+  categorical_columns:
+    - direction
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  # Outcome / label / source columns — never features.
+  forbidden_features:
+    - won
+    - label
+    - r_multiple
+    - ret
+    - barrier_touched
+    - is_live_trade
+    - event_source
+    - entry_price
+    - signal_vol
+    - holding_bars
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 15
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    lambda_l2: 1.0
+dataset:
+  family: setup_candidates
+  symbol_scope: BTCUSDT
+  timeframe: all
+  version: v001
+evaluator: ml.evaluators.classification.ClassificationEvaluator
+evaluator_config:
+  target_column: won
+  threshold: 0.5
+  split_strategy: live_holdout
+  live_flag_column: is_live_trade
+  time_column: ts
+target_deployment_stage: research_only
+notes: |
+  S-MLOPT-S6 follow-up. The S6 manifest (setup-candidates-metalabel-v1) lost to
+  the majority-class baseline on the real holdout (0.670 < 0.756) because the
+  synthetic CUSUM train distribution (win rate ~0.457) was a different, easier
+  population than the strategies' real setups (0.244). This manifest swaps the
+  CUSUM event source for a SIGNAL-LOG one (real decision points), keeping
+  every other moving part identical: same trainer, same features, same
+  triple-barrier labeler, same live_holdout protocol, same real-trade holdout.
+  If the result still loses to the baseline, document it as inherent at
+  current data scale and propose the next lever (S7 backtest-augmented
+  labels). Promotion past `shadow` is operator-gated (Tier-3).

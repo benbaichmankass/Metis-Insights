@@ -50,6 +50,30 @@ its **actual** realized outcome, tagged `is_live_trade: true` and
 (`ml.experiments.splitters.split_live_holdout`) then trains on the synthetic
 rows and evaluates on the real ones — the mandatory domain-shift check. Set
 `include_synthetic=false` to emit only the real rows.
+
+## Signal-log event source (MB-20260603-002, S-MLOPT-S6 follow-up)
+
+The S6 live-holdout eval surfaced a large train↔eval domain gap: synthetic
+CUSUM candidates have a ~0.457 win rate but the strategies' real BTCUSDT trades
+have 0.244. CUSUM momentum events are a different (easier) population than the
+strategies' actual setups, so a meta-label trained on synthetic CUSUM lost to
+the majority-class baseline on the real holdout (acc 0.670 < 0.756).
+
+Pass ``signal_log_db=<trade_journal.db>`` to also sample candidate events from
+the strategies' **real decision points** — every ``side=buy|sell`` row in
+``trade_journal.db::signals`` (the audit-log dual-write) becomes a candidate at
+the bar covering its ``logged_at_utc``, with the **same triple-barrier label**
+the CUSUM events use (synthetic but apples-to-apples — barriers sized to local
+vol from the same ``BarrierConfig``). The result is a training distribution
+that matches the strategies' real setups; the live-trade holdout still measures
+domain transfer to real PnL outcomes.
+
+These rows carry ``event_source: "signal_log"`` (CUSUM rows are tagged
+``"cusum"`` and real trades ``"live"``) and ``is_live_trade: false`` because
+their label is synthetic, so they ride on the live_holdout train side alongside
+the CUSUM rows. Use ``signal_log_strategies=("ict_scalp",...)`` to restrict to
+specific strategies, or ``include_cusum=False`` to emit signal-log + live
+populations only.
 """
 from __future__ import annotations
 
@@ -167,6 +191,87 @@ def _load_live_trades(db_path: Path | str, symbol: str) -> list[dict[str, Any]]:
     return out
 
 
+def _normalise_str_tuple(
+    value: tuple[str, ...] | list[str] | str | None,
+) -> tuple[str, ...] | None:
+    """Normalise the dataset CLI's ``key=a,b,c`` strings to a tuple.
+
+    Returns ``None`` for ``None`` / empty so callers can apply their own
+    default. Mirrors ``_resolve_market_raw_paths``'s string-split convention so
+    the build CLI's ``key=value`` pairs land as the same shape as a Python list.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        items = [s.strip() for s in value.split(",") if s.strip()]
+    else:
+        items = [str(s).strip() for s in value if str(s).strip()]
+    return tuple(items) if items else None
+
+
+def _load_signal_log_events(
+    db_path: Path | str,
+    symbol: str,
+    *,
+    sides: tuple[str, ...] = ("buy", "sell"),
+    strategies: tuple[str, ...] | None = None,
+) -> list[dict[str, Any]]:
+    """Audit-log buy/sell signal rows for one symbol (MB-20260603-002).
+
+    Reads ``trade_journal.db::signals`` — the dual-write of the JSONL audit
+    stream every strategy's signal builder emits (``side`` ∈ ``{buy, sell,
+    none}``). The buy/sell rows are the strategies' **real decision points**;
+    sampling candidates from them makes the train distribution match real
+    setups (vs CUSUM events, which are momentum-driven and easier — the
+    S-MLOPT-S6 domain gap).
+
+    Returns ``{event_ts, direction(±1), strategy}`` time-sorted ascending.
+    Best-effort: missing DB / table / column returns ``[]``. ``sides`` selects
+    which audit rows count (default buy + sell; ``none`` is the no-signal
+    evaluation row, never a candidate). ``strategies`` optionally restricts to
+    a subset; ``None`` = all.
+    """
+    path = Path(db_path)
+    if not path.exists():
+        return []
+    sides_lower = tuple(s.lower() for s in sides if s)
+    if not sides_lower:
+        return []
+    try:
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    except sqlite3.OperationalError:
+        return []
+    conn.row_factory = sqlite3.Row
+    try:
+        side_placeholders = ",".join(["?"] * len(sides_lower))
+        params: list[Any] = [symbol, *sides_lower]
+        sql = (
+            "SELECT logged_at_utc, strategy, side FROM signals "
+            f"WHERE symbol=? AND LOWER(side) IN ({side_placeholders})"
+        )
+        if strategies:
+            strat_placeholders = ",".join(["?"] * len(strategies))
+            sql += f" AND strategy IN ({strat_placeholders})"
+            params.extend(strategies)
+        sql += " ORDER BY logged_at_utc"
+        try:
+            db_rows = conn.execute(sql, params).fetchall()
+        except sqlite3.OperationalError:
+            return []
+    finally:
+        conn.close()
+    out: list[dict[str, Any]] = []
+    for r in db_rows:
+        side = str(r["side"] or "").lower()
+        direction = -1 if side in ("sell", "short") else 1
+        out.append({
+            "event_ts": str(r["logged_at_utc"] or ""),
+            "direction": direction,
+            "strategy": str(r["strategy"] or ""),
+        })
+    return out
+
+
 def _resolve_market_raw_paths(
     market_raw_path: Path | str | None,
     market_raw_paths: list[Path | str] | str | None,
@@ -274,6 +379,13 @@ class SetupCandidatesBuilder(DatasetBuilder):
         "holding_bars": int,
         # real-vs-synthetic split flag (domain-shift discipline)
         "is_live_trade": bool,
+        # which sampler emitted this row: 'cusum' / 'signal_log' / 'live'.
+        # ``cusum`` + ``signal_log`` carry triple-barrier labels and ride the
+        # train side of ``live_holdout``; ``live`` carries the real PnL outcome
+        # and is the eval side. Added MB-20260603-002 (S-MLOPT-S6 follow-up)
+        # so the meta-label can be re-evaluated when the training distribution
+        # matches real setups instead of CUSUM momentum events.
+        "event_source": str,
     }
 
     def iter_rows(
@@ -290,7 +402,11 @@ class SetupCandidatesBuilder(DatasetBuilder):
         cusum_threshold_mult: float = 1.0,
         n_vol_buckets: int = 3,
         include_synthetic: bool = True,
+        include_cusum: bool | None = None,
         live_trades_db: Path | str | None = None,
+        signal_log_db: Path | str | None = None,
+        signal_log_strategies: tuple[str, ...] | list[str] | str | None = None,
+        signal_log_sides: tuple[str, ...] | list[str] | str | None = None,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         """Build candidate rows for one OR several symbols (S-MLOPT-S8).
@@ -301,7 +417,12 @@ class SetupCandidatesBuilder(DatasetBuilder):
         + vol-bucketed against its OWN distribution (BTC and MES volatilities
         differ), then concatenated; the `symbol` column lets a model condition on
         / transfer across symbols. The smaller-data symbol (MES) borrows
-        statistical strength from the larger (BTC)."""
+        statistical strength from the larger (BTC).
+
+        ``include_cusum`` is the new (MB-20260603-002) name for the CUSUM toggle;
+        the legacy ``include_synthetic`` alias is preserved (it controlled the
+        same flag in S5/S6/S7). When both are passed, ``include_cusum`` wins.
+        """
         if vol_window_n < 2:
             raise ValueError(f"vol_window_n must be >= 2; got {vol_window_n}")
         if momentum_window < 1:
@@ -314,14 +435,20 @@ class SetupCandidatesBuilder(DatasetBuilder):
             pt_mult=pt_mult, sl_mult=sl_mult,
             max_holding=max_holding, slippage=slippage,
         )
+        emit_cusum = include_cusum if include_cusum is not None else include_synthetic
+        strat_tuple = _normalise_str_tuple(signal_log_strategies)
+        sides_tuple = _normalise_str_tuple(signal_log_sides) or ("buy", "sell")
         paths = _resolve_market_raw_paths(market_raw_path, market_raw_paths)
         for path in paths:
             yield from self._iter_one_symbol(
                 path, config=config, vol_window_n=vol_window_n,
                 momentum_window=momentum_window,
                 cusum_threshold_mult=cusum_threshold_mult,
-                n_vol_buckets=n_vol_buckets, include_synthetic=include_synthetic,
+                n_vol_buckets=n_vol_buckets, include_cusum=emit_cusum,
                 live_trades_db=live_trades_db,
+                signal_log_db=signal_log_db,
+                signal_log_strategies=strat_tuple,
+                signal_log_sides=sides_tuple,
             )
 
     def _iter_one_symbol(
@@ -333,8 +460,11 @@ class SetupCandidatesBuilder(DatasetBuilder):
         momentum_window: int,
         cusum_threshold_mult: float,
         n_vol_buckets: int,
-        include_synthetic: bool,
+        include_cusum: bool,
         live_trades_db: Path | str | None,
+        signal_log_db: Path | str | None = None,
+        signal_log_strategies: tuple[str, ...] | None = None,
+        signal_log_sides: tuple[str, ...] = ("buy", "sell"),
     ) -> Iterator[Mapping[str, Any]]:
         max_holding = config.max_holding
         rows = _load_market_raw_rows(Path(market_raw_path))
@@ -372,7 +502,7 @@ class SetupCandidatesBuilder(DatasetBuilder):
             return
 
         # --- Synthetic candidates: CUSUM events → triple-barrier labels ---
-        if include_synthetic:
+        if include_cusum:
             for e, side in cusum_events(log_prices(closes), threshold):
                 entry_idx = e + 1
                 if entry_idx >= n:
@@ -400,6 +530,58 @@ class SetupCandidatesBuilder(DatasetBuilder):
                     "ret": float(outcome.ret),
                     "holding_bars": int(outcome.holding_bars),
                     "is_live_trade": False,
+                    "event_source": "cusum",
+                }
+
+        # --- Signal-log candidates: strategies' real decision points ---
+        # MB-20260603-002 (S-MLOPT-S6 follow-up). Each ``buy``/``sell`` row in
+        # ``trade_journal.db::signals`` (the audit-log dual-write) is located
+        # at the bar covering its ``logged_at_utc`` and labeled with the SAME
+        # triple-barrier as the CUSUM candidates (same ``BarrierConfig``, same
+        # local-vol sizing, same fill rules). The label is synthetic but the
+        # *event distribution* is the strategies' actual setups — which is the
+        # train↔eval domain gap the S6 eval surfaced. These rows ride the
+        # train side of ``live_holdout`` (``is_live_trade=False``); the real
+        # trades remain the only eval-side population.
+        if signal_log_db is not None:
+            symbol = str(rows[0].get("symbol", "")) if rows else ""
+            bar_ts = [str(r.get("ts", "")) for r in rows]
+            events = _load_signal_log_events(
+                signal_log_db, symbol,
+                sides=signal_log_sides,
+                strategies=signal_log_strategies,
+            )
+            for ev in events:
+                e = _bar_index_at_or_before(bar_ts, ev["event_ts"])
+                if e is None:
+                    continue
+                entry_idx = e + 1
+                if entry_idx >= n:
+                    continue
+                vol = past_vols[e]
+                if vol is None or vol <= 0 or log_returns[e] is None:
+                    continue
+                entry_price = opens[entry_idx]
+                outcome = label_event(
+                    highs, lows, closes,
+                    entry_idx=entry_idx, entry_price=entry_price,
+                    direction=ev["direction"], vol=vol, config=config,
+                )
+                if outcome is None:
+                    continue
+                yield {
+                    **_feature_fields(rows, e, log_returns, vol,
+                                      boundaries, bucket_labels, momentum_window),
+                    "direction": int(ev["direction"]),
+                    "entry_price": float(entry_price),
+                    "barrier_touched": outcome.barrier,
+                    "label": int(outcome.label),
+                    "won": 1 if outcome.label > 0 else 0,
+                    "r_multiple": float(outcome.r_multiple),
+                    "ret": float(outcome.ret),
+                    "holding_bars": int(outcome.holding_bars),
+                    "is_live_trade": False,
+                    "event_source": "signal_log",
                 }
 
         # --- Real trades: the held-out live population (domain-shift eval) ---
@@ -434,4 +616,5 @@ class SetupCandidatesBuilder(DatasetBuilder):
                     "ret": ret,
                     "holding_bars": 0,
                     "is_live_trade": True,
+                    "event_source": "live",
                 }
