@@ -176,6 +176,34 @@ the harnesses at native timeframes) before any further promotion call —
 tracked in `MB-20260603-003` (kept `open`). Even so, the precision-0.50 signal
 is the most encouraging result of the M14 label-distribution arc.
 
+### Cleaner re-run (#2723/#2724, detached) — confirms the conclusion
+All three BTC harnesses at native timeframes (ict_scalp 5m 60k-bar window = 128
+trades; squeeze 4h = 226; fade 4h = 439 → 793 train rows) + the 352 real eval
+rows. **TRAIN: accuracy 0.741, precision 0.40, recall 0.116, brier 0.199** —
+slightly *worse* than the 1h run (#2718: 0.756 / 0.50), and still does **not**
+beat the 0.756 baseline. The cleaner native-TF set has far fewer rows (793 vs
+2653 — 4h yields ¼ the trades of 1h), and the smaller distribution didn't help.
+
+**Conclusion across all four label sources:**
+
+| source | train n | accuracy | precision (base rate 0.244; baseline acc 0.756) |
+|---|---|---|---|
+| CUSUM (S6) | 15,732 | 0.670 | 0.266 |
+| signal-log (S6-FU) | 8,739 | 0.526 | 0.290 |
+| backtest 1h (#2718) | 2,653 | 0.756 | 0.500 |
+| backtest native-TF (#2724) | 793 | 0.741 | 0.400 |
+
+Backtest labels are the **best source by precision** (0.40–0.50 vs the 0.244 base
+rate — a real, consistent signal that real-execution labels sit closer to the
+real distribution), but **none beats the majority baseline on accuracy at
+n=352** — the model abstains (low recall) because the holdout is 75.6% losses.
+This is a **data-scale floor at n≈352**, exactly as the roadmap predicted. The
+lever to break it is *more real data* (time) or *better features* (S-MLOPT-S9,
+which **did** show a positive regime `f1_volatile` lift), not another label
+distribution. The backtest-label infrastructure (event source + recorder bridge
++ ict_scalp `--emit-trades`) stands as reusable tooling; the manifest stays
+`research_only`. `MB-20260603-003` **resolved**.
+
 ## Documentation Updated
 - `docs/claude/ml-review-backlog.json` — `MB-20260603-002` evidence line +
   status (superseded-by 003); new `MB-20260603-003` (in_progress) tracks the
