@@ -105,7 +105,7 @@ honest promotion. Closes G1, G2, G3, G7.
   (the latter now likely below its mean baseline → `MB-20260603-001`). Sprint log:
   [`docs/sprint-logs/S-MLOPT-S1.md`](../sprint-logs/S-MLOPT-S1.md).
 
-### Session 0.2 — Sample-uniqueness + recency weighting *(Tier-1 tooling; Tier-3 to adopt in a manifest)* — 🔄 IN PROGRESS (S-MLOPT-S2)
+### Session 0.2 — Sample-uniqueness + recency weighting *(Tier-1 tooling; Tier-3 to adopt in a manifest)* — ✅ DONE 2026-06-03 (S-MLOPT-S2; adopted via Tier-3 #2679)
 - **Deliverable:** average-uniqueness sample weights (overlapping label windows) and an
   age-decay `sample_weight` option in the LightGBM trainers; expose both as manifest knobs
   (`sample_weight: {uniqueness: true, half_life_days: N}`).
@@ -131,7 +131,7 @@ honest promotion. Closes G1, G2, G3, G7.
 - NOTE: average-uniqueness on **fixed-horizon** bar labels is near-uniform (the active lever
   here is recency); uniqueness earns its keep once spans vary (Phase 1 triple-barrier).
 
-### Session 0.3 — HPO + early stopping + class weights *(Tier-1)* — 🔄 IN PROGRESS (S-MLOPT-S3)
+### Session 0.3 — HPO + early stopping + class weights *(Tier-1)* — ✅ DONE 2026-06-03 (S-MLOPT-S3)
 - **Deliverable:** an Optuna HPO harness that tunes LightGBM over **purged-CV folds**
   (TPE + pruning), early stopping on a validation fold, and class weights for the
   trade-outcome models (today they have none despite imbalance → `f1=0`). Save best params
