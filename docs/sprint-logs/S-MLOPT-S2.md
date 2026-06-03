@@ -71,8 +71,32 @@
   below.
 
 ## Sweep results (window length / recency vs fixed recent holdout)
-<!-- FILLED FROM TRAINER-VM-DIAG ISSUE #2677 -->
-_Pending the trainer-relay sweep; appended on return._
+Ran on the trainer VM via `trainer-vm-diag` #2677 (real `datasets-out`; fixed
+recent 20% holdout, 20-row purge gap, `f1_volatile` target). **`MB-20260601-001`
+confirmed: a longer window monotonically hurts `f1_volatile` (5y is the worst
+config in every model). Recency decay recovers it** — for 1h it is the outright
+best config; for 15m/5m it recovers most of the 5y collapse at 4–5× the data.
+
+| Model | holdout n | 1y | 2y | 3y | 5y | **5y+decay(180d)** | Best |
+|---|---|---|---|---|---|---|---|
+| `btc-regime-1h-lgbm-v2` | 8 760 | 0.4510 | 0.4588 | 0.4576 | 0.4455 | **0.4601** | **5y+decay** |
+| `btc-regime-15m-lgbm-v2` | 35 054 | **0.2023** | 0.1929 | 0.1647 | 0.1433 | 0.1916 | 1y (5y+decay close) |
+| `btc-regime-5m-lgbm-v2` | 105 173 | **0.1005** | 0.0948 | 0.0799 | 0.0692 | 0.0963 | 1y (5y+decay close) |
+
+(values = `f1_volatile` on the fixed recent holdout). `macro_f1` tracks the same
+ordering — e.g. 1h: 5y=0.609 (worst) → 5y+decay=0.637 (best).
+
+**Verdict / proposal (Tier-3, operator-gated — proposed, not shipped here):**
+- **1h:** adopt `sample_weight: {half_life_days: 180}` on the 5y window — strictly
+  best `f1_volatile` *and* `macro_f1`, full sample size. Clear win.
+- **15m / 5m:** `1y` is narrowly best, but `5y+decay` recovers ~80% of the
+  5y→1y gap while keeping 4–5× the data. Recommend a **half-life sweep**
+  (e.g. 60/90/180 d) before choosing — a shorter half-life may beat the 1y
+  window without throwing away history. Logged as the follow-up.
+- Recency decay strictly beats the plain 5y window on `f1_volatile` for **all
+  three** models, so the current 5y manifests are dominated either way.
+
+Sweep command + raw per-window `n_train`/`macro_f1`: issue #2677.
 
 ## Documentation Updated
 - Roadmap updates: `ROADMAP.md` M14 table (S-MLOPT-S2 → in progress).

@@ -15,8 +15,16 @@ from __future__ import annotations
 
 import json
 import math
+from datetime import datetime, timedelta, timezone
 
 import pytest
+
+_TS_BASE = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+
+def _iso(hours: int) -> str:
+    """Valid ISO-8601 UTC timestamp `hours` after the base (no 24:00 overflow)."""
+    return (_TS_BASE + timedelta(hours=hours)).isoformat().replace("+00:00", "Z")
 
 # Skip the whole module if lightgbm isn't installed — the trainer
 # lazy-imports it, but every test here exercises an actual fit() call.
@@ -41,7 +49,7 @@ def _regime_rows() -> list[dict]:
     for i in range(80):
         rows.append(
             {
-                "ts": f"2026-01-01T{i:02d}:00:00Z",
+                "ts": _iso(i),
                 "symbol": "BTCUSDT",
                 "timeframe": "5m",
                 "vol_bucket": "vol_b0",
@@ -54,7 +62,8 @@ def _regime_rows() -> list[dict]:
     for i in range(80):
         rows.append(
             {
-                "ts": f"2026-01-02T{i:02d}:00:00Z",
+                # Clearly newer than the range bucket → recency upweights volatile.
+                "ts": _iso(200 + i),
                 "symbol": "BTCUSDT",
                 "timeframe": "5m",
                 "vol_bucket": "vol_b2",
@@ -313,7 +322,7 @@ def _setup_rows() -> list[dict]:
     for i in range(40):
         rows.append(
             {
-                "created_at": f"2026-01-01T{i:02d}:00:00Z",
+                "created_at": _iso(i),
                 "setup_type": "fvg_long",
                 "strategy_name": "vwap",
                 "killzone": "london",
@@ -328,7 +337,7 @@ def _setup_rows() -> list[dict]:
     for i in range(40):
         rows.append(
             {
-                "created_at": f"2026-01-02T{i:02d}:00:00Z",
+                "created_at": _iso(200 + i),
                 "setup_type": "fvg_short",
                 "strategy_name": "vwap",
                 "killzone": "ny",
