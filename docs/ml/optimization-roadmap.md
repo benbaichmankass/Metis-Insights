@@ -282,9 +282,14 @@ trust the result, and the live-vs-synthetic domain-shift check).
   (#2718): the best of three label sources** — acc 0.756 (ties the baseline; vs CUSUM
   0.670, signal-log 0.526), **precision 0.50 lifts off the 0.244 base rate**, brier 0.196
   (best-calibrated) — but ties baseline by abstention (recall 0.047), not a clean beat.
-  Incomplete (ict_scalp harness lacks `--emit-trades`; squeeze/fade ran on 1h base); a
-  cleaner re-run is the open step (`MB-20260603-003`). The precision lift is the most
-  encouraging signal of the label-distribution arc.
+  **Cleaner re-run (#2724, all 3 harnesses native-TF, +ict_scalp `--emit-trades`): acc
+  0.741, prec 0.40 — still no baseline beat.** Across all FOUR label sources (CUSUM 0.670 /
+  signal-log 0.526 / backtest-1h 0.756 / backtest-native 0.741) backtest labels are the
+  best by precision (0.40-0.50 > the 0.244 base rate) but none beats the n=352 majority
+  baseline — a confirmed **data-scale floor**; the lever is more real data or better
+  features (S9), not another label distribution. `MB-20260603-003` **resolved**; the
+  backtest-label infra (event source + recorder bridge + ict_scalp `--emit-trades`) stands
+  as reusable tooling; manifest stays `research_only`.
 
 ### Session 1.3 — Backtest-augmented per-trade labels *(Tier-1; closes MB-20260530-001)* — 🔄 IN REVIEW 2026-06-03 (S-MLOPT-S7)
 - **Deliverable:** have the backtest harnesses emit **per-trade rows** in the
