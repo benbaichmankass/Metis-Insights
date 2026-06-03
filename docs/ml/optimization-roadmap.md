@@ -105,7 +105,7 @@ honest promotion. Closes G1, G2, G3, G7.
   (the latter now likely below its mean baseline → `MB-20260603-001`). Sprint log:
   [`docs/sprint-logs/S-MLOPT-S1.md`](../sprint-logs/S-MLOPT-S1.md).
 
-### Session 0.2 — Sample-uniqueness + recency weighting *(Tier-1 tooling; Tier-3 to adopt in a manifest)*
+### Session 0.2 — Sample-uniqueness + recency weighting *(Tier-1 tooling; Tier-3 to adopt in a manifest)* — 🔄 IN PROGRESS (S-MLOPT-S2)
 - **Deliverable:** average-uniqueness sample weights (overlapping label windows) and an
   age-decay `sample_weight` option in the LightGBM trainers; expose both as manifest knobs
   (`sample_weight: {uniqueness: true, half_life_days: N}`).
@@ -116,6 +116,17 @@ honest promotion. Closes G1, G2, G3, G7.
   recent holdout; pick the config that maximizes it; propose as the manifest default
   (operator-gated edit).
 - **Effort:** M.
+- **Shipped (Tier-1 tooling):** `ml/trainers/sample_weights.py` — opt-in
+  `trainer_config.sample_weight: {half_life_days, uniqueness, label_horizon, time_column}`,
+  folded into both LightGBM trainers (recency decay × de Prado average uniqueness,
+  mean-normalised, composing with any `class_weight`); **default-preserving** (knob absent →
+  no behaviour change). `scripts/ml/window_recency_sweep.py` runs the 1y/2y/3y/5y(+decay)
+  sweep against a fixed recent **purged** holdout (reuses the S-MLOPT-S1 primitive). Tests in
+  `tests/ml/test_sample_weights.py` + `tests/ml/test_lightgbm_trainer.py`.
+- **Pending:** the trainer-VM sweep on `btc-regime-{5m,15m,1h}-lgbm-v2` to pick the
+  f1_volatile-maximising window/recency config, then the Tier-3 manifest-default proposal.
+  NOTE: average-uniqueness on **fixed-horizon** bar labels is near-uniform (the active lever
+  here is recency); uniqueness earns its keep once spans vary (Phase 1 triple-barrier).
 
 ### Session 0.3 — HPO + early stopping + class weights *(Tier-1)*
 - **Deliverable:** an Optuna HPO harness that tunes LightGBM over **purged-CV folds**
