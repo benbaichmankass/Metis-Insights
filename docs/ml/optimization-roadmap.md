@@ -46,7 +46,7 @@ with trigger conditions.
 | G4 | Decision models train on **~50–80 live trades**; several collapse to majority class (`f1=0`) or lose to a per-group-mean baseline | setup-quality/trade-outcome models not useful |
 | G5 | ~7 features; **no order-flow, no range-based vol estimators, no funding/OI, no cross-asset**; `account_context`/`review_journal` families exist but **unused** | "volatile class won't separate" attacked at the wrong layer |
 | G6 | Shadow predictions fire **only on an actionable signal**; strong regime heads (1h f1_vol 0.45, MES-1d 0.65) get **zero** track record (MB-20260529-001) | regime promotion pipeline jammed both ways |
-| G7 | `ml/promotion/gates.py` is **advisory-only — never blocks**; promotion is discretionary | no automated champion-challenger gate |
+| G7 | ~~`ml/promotion/gates.py` is **advisory-only — never blocks**; promotion is discretionary~~ **CLOSED (S-MLOPT-S4):** `gate-check` now computes a mechanical PASS/FAIL champion-challenger packet (OOS edge vs baseline under purged WF-CV + KS/PSI drift bounds + shadow volume/soak); flip enforcement stays Tier-3 | ~~no automated champion-challenger gate~~ → "is it ready?" is now non-discretionary |
 
 **Definition of done for the whole roadmap:** the bot moves from *"all-shadow, nothing
 influences orders, data-starved decision models"* to *"disciplined, well-featured models
@@ -152,7 +152,7 @@ honest promotion. Closes G1, G2, G3, G7.
   venv) → per-model Tier-3 param proposals. Early-stopping *inside the trainer* is folded
   into the `n_iter` search for now; a trainer-level early-stop knob is a follow-up.
 
-### Session 0.4 — Promotion gates that actually compute & (optionally) block *(Tier-1 to compute; Tier-3 to enforce)*
+### Session 0.4 — Promotion gates that actually compute & (optionally) block *(Tier-1 to compute; Tier-3 to enforce)* — ✅ DONE 2026-06-03 (S-MLOPT-S4)
 - **Deliverable:** turn `ml/promotion/gates.py` from advisory into a real
   champion-challenger gate: pre-registered quantitative criteria (min shadow volume, OOS
   edge vs the incumbent/baseline under purged WF-CV, drift within KS/PSI bounds, min days
@@ -161,6 +161,20 @@ honest promotion. Closes G1, G2, G3, G7.
 - **Note:** gate *enforcement* of the `shadow→advisory` flip stays operator-gated (Tier-3);
   the gate just makes "is it ready?" mechanical and non-discretionary.
 - **Effort:** S–M.
+- **Shipped (Tier-1 compute):** new `ml/promotion/oos_edge.py` — `compute_oos_edge()` re-runs
+  the candidate's manifest through the S-MLOPT-S1 **purged & embargoed WF-CV** (reuses
+  `iter_folds` + the runner's per-fold fit/score + `_aggregate_fold_metrics` pooling) and
+  runs a **baseline trainer** (default constant per-group-mean — the G4 comparator) through
+  the *same folds*; the oriented edge is positive ⇔ the candidate beats the baseline OOS.
+  **Never scored on a holdout** (the no-leakage guardrail). Added the `oos_edge` gate to
+  `gates.py` (required; `insufficient_data` when no datasets supplied) and made `drift_clean`
+  gate on numeric **KS ≤ 0.2 / PSI ≤ 0.25** ceilings (not just the verdict bucket). `min shadow
+  volume` (`sample_sufficiency`) + `min days in shadow` (`shadow_soak`) already existed — now
+  one mechanical packet. Wired through `gate-check`/`stage-guard` (`--datasets-root`,
+  `--baseline-trainer`, `--n-folds`/`--label-horizon`/`--embargo-fraction`) and into the
+  `/ml-review` skill (cite the packet's `ready` + `blocking[]`). Boundary tests pin each
+  criterion's pass/fail edge (`tests/ml/test_gates.py`, `tests/ml/test_oos_edge.py`). Enforcement
+  of the flip stays Tier-3 — the gate computes "is it ready?", the operator still pulls the lever.
 
 ---
 

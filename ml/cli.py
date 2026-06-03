@@ -371,8 +371,24 @@ def _cmd_gate_check(args: argparse.Namespace) -> int:
         records, args.model_id,
         reference_days=args.reference_days, current_days=args.current_days,
     )
+    # Offline champion-challenger edge under purged WF-CV. Only computed
+    # when --datasets-root is supplied (the trainer VM, where datasets
+    # live); otherwise the oos_edge gate reports insufficient_data.
+    oos_edge = None
+    if args.datasets_root:
+        from .promotion.oos_edge import compute_oos_edge
+
+        oos_edge = compute_oos_edge(
+            entry,
+            datasets_root=args.datasets_root,
+            baseline_trainer=args.baseline_trainer,
+            n_folds=args.n_folds,
+            label_horizon=args.label_horizon,
+            embargo_fraction=args.embargo_fraction,
+        )
     report = evaluate_gates(
-        entry, target_stage=args.target_stage, attribution=attr, drift=drift,
+        entry, target_stage=args.target_stage, attribution=attr,
+        drift=drift, oos_edge=oos_edge,
     )
     print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
     return 0
@@ -391,6 +407,7 @@ def _cmd_stage_guard(args: argparse.Namespace) -> int:
         reference_days=args.reference_days,
         current_days=args.current_days,
         include_demo=args.include_demo,
+        datasets_root=args.datasets_root,
     )
     payload = [p.to_dict() for p in proposals]
     print(json.dumps({
@@ -607,6 +624,31 @@ def _build_parser() -> argparse.ArgumentParser:
     p_gate.add_argument("--reference-days", type=float, default=30.0)
     p_gate.add_argument("--current-days", type=float, default=7.0)
     p_gate.add_argument("--include-demo", action="store_true", default=False)
+    p_gate.add_argument(
+        "--datasets-root", default=None,
+        help=(
+            "datasets-out root (trainer VM). When set, computes the offline "
+            "OOS-edge-vs-baseline gate under purged WF-CV; omit and that "
+            "gate reports insufficient_data."
+        ),
+    )
+    p_gate.add_argument(
+        "--baseline-trainer",
+        default="ml.trainers.constant_baseline.ConstantPredictionTrainer",
+        help="baseline trainer qualname for the OOS-edge comparison",
+    )
+    p_gate.add_argument(
+        "--n-folds", type=int, default=5,
+        help="purged WF-CV fold count for the OOS-edge gate",
+    )
+    p_gate.add_argument(
+        "--label-horizon", type=int, default=1,
+        help="purge width (rows each label spans forward) for the OOS-edge gate",
+    )
+    p_gate.add_argument(
+        "--embargo-fraction", type=float, default=0.0,
+        help="embargo buffer as a fraction of the dataset for the OOS-edge gate",
+    )
 
     p_guard = sub.add_parser(
         "stage-guard",
@@ -625,6 +667,14 @@ def _build_parser() -> argparse.ArgumentParser:
     p_guard.add_argument("--reference-days", type=float, default=30.0)
     p_guard.add_argument("--current-days", type=float, default=7.0)
     p_guard.add_argument("--include-demo", action="store_true", default=False)
+    p_guard.add_argument(
+        "--datasets-root", default=None,
+        help=(
+            "datasets-out root (trainer VM). When set, computes the offline "
+            "OOS-edge gate for every shadow-stage model so promote proposals "
+            "carry champion-challenger evidence."
+        ),
+    )
 
     return parser
 
