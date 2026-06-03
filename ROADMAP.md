@@ -26,6 +26,9 @@
 >   first specialist baselines under `ml/configs/`.
 > - M11 — [`docs/sprint-plans/ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md`](docs/sprint-plans/ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md).
 >   Architecture target: [`docs/architecture/multi-strategy-architecture-target.md`](docs/architecture/multi-strategy-architecture-target.md).
+> - ML optimization (multi-session) — [`docs/ml/optimization-roadmap.md`](docs/ml/optimization-roadmap.md).
+>   Phased plan to lift model quality (validation discipline, the decision-model data
+>   wall, features, regime plumbing, MLOps); `/ml-review` tracks progress against it.
 
 ---
 
