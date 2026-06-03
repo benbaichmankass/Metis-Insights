@@ -18,11 +18,14 @@ from ml.datasets.families.trade_outcomes import TradeOutcomesBuilder
 from ml.experiments.splitters import split_live_holdout
 
 # A full trades-table DDL matching the live schema columns the families read.
+# `position_size` is NOT NULL on the real table (the live writer always fills
+# it) — kept here so the recorder's schema-adaptive NOT-NULL handling is tested
+# against the real constraint, not a laxer stub.
 _TRADES_DDL = (
     "CREATE TABLE trades (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, "
     "symbol TEXT, direction TEXT, entry_price REAL, exit_price REAL, "
     "stop_loss REAL, take_profit_1 REAL, take_profit_2 REAL, take_profit_3 REAL, "
-    "position_size REAL, setup_type TEXT, killzone TEXT, bias TEXT, "
+    "position_size REAL NOT NULL, setup_type TEXT, killzone TEXT, bias TEXT, "
     "entry_reason TEXT, exit_reason TEXT, pnl REAL, pnl_percent REAL, "
     "status TEXT, notes TEXT, is_backtest INT, strategy_name TEXT, "
     "account_id TEXT, is_demo INT, order_package_id INT, created_at TEXT)"
@@ -35,13 +38,13 @@ def _seed_live(db: Path) -> None:
     # Two REAL (is_backtest=0) closed setup-tagged trades.
     conn.executemany(
         "INSERT INTO trades (timestamp, symbol, direction, setup_type, pnl, "
-        "pnl_percent, status, is_backtest, is_demo, strategy_name, created_at) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        "pnl_percent, status, is_backtest, is_demo, strategy_name, created_at, "
+        "position_size) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         [
             ("2026-01-01T00:00:00Z", "BTCUSDT", "buy", "fvg", 10.0, 1.0,
-             "closed", 0, 0, "ict_scalp", "2026-01-01T00:00:00Z"),
+             "closed", 0, 0, "ict_scalp", "2026-01-01T00:00:00Z", 1.0),
             ("2026-01-02T00:00:00Z", "BTCUSDT", "sell", "sweep", -5.0, -0.5,
-             "closed", 0, 0, "ict_scalp", "2026-01-02T00:00:00Z"),
+             "closed", 0, 0, "ict_scalp", "2026-01-02T00:00:00Z", 1.0),
         ],
     )
     conn.commit()
