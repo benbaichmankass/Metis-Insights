@@ -26,6 +26,9 @@
 >   first specialist baselines under `ml/configs/`.
 > - M11 — [`docs/sprint-plans/ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md`](docs/sprint-plans/ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md).
 >   Architecture target: [`docs/architecture/multi-strategy-architecture-target.md`](docs/architecture/multi-strategy-architecture-target.md).
+> - ML optimization (multi-session) — [`docs/ml/optimization-roadmap.md`](docs/ml/optimization-roadmap.md).
+>   Phased plan to lift model quality (validation discipline, the decision-model data
+>   wall, features, regime plumbing, MLOps); `/ml-review` tracks progress against it.
 
 ---
 
@@ -49,6 +52,7 @@
 | **M10** | auto-claude | HF / data pipeline | 🔄 IN PROGRESS — WS3 closed; WS5-B-PART-1 adds `market_raw`; WS5-B-PART-2 PR 2A wires Bybit off-VM fetch; PR 2B adds `market_features`; WS5-C adds `setup_labels` (fifth buildable family); WS9 continuous. |
 | **M11** | auto-claude | Multi-strategy architecture refactor | ✅ COMPLETE 2026-05-20 — S0–S11 all merged (PRs #1604–#1610). Typed abstractions, allocator, advisory ML hooks, attribution API, ICT filter module, health-review update. See [`ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md`](docs/sprint-plans/ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md). IB/MES execution wired 2026-05-21 (S7-IB); **MES paper trading went live 2026-05-22** — multi-symbol BTCUSDT + MES, all 3 strategies, delayed CME data (PRs #1706 socat gateway port, #1712 persistent event loop). |
 | **M12** | mixed (auto-claude bot-side, operator-driven app-side) | Native Android companion app — push notifications + read-only dashboard + home-screen widget | 🔄 IN PROGRESS — **S1–S9 ✅ DONE 2026-05-26 / 2026-05-28**; Play Store first AAB pending operator verification. **S1 verification gate passed** — operator confirmed push notifications landing on phone. **S2 ✅ DONE** — Status screen on `/api/bot/stats`, Settings + Crashlytics + `IS_PREVIEW`, multi-module Gradle restructure, Telegram→FCM mirror (#2075), Firebase App Distribution rolling debug channel (Android PRs #3–#8 + bot #2082 fixing the systemd `EnvironmentFile`-multi-line silent failure that had stranded the notifier). **S3 ✅ DONE** — Positions / Trades / Signals tabs + Health folded into Status (Android #7, #9, #10, #11). Plus the FAD `versionCode` auto-increment fix (#12) that ended the install loop. **S4 ✅ DONE** — event-kind taxonomy module (`src/runtime/mobile_push/event_kinds.py`, #2116) + `GET /api/bot/devices/event-kinds` + Android Notifications sub-screen with per-kind toggles (#13) + per-event-kind NotificationChannel in `IctApp.onCreate`. **S5 ✅ DONE** — small Glance home-screen status widget (#14, 3×2, 15-min WorkManager refresh against `/api/bot/stats`) + bot-side `SIGNAL_EMITTED` wire at `signal_audit_logger.log_signal` (#2121, mirrors the `/api/bot/signals` filter). **S6 ✅ DONE** — operator-redirected from "bigger widget with per-account breakdown" to two new variants: **trade-log widget** (#16, 4×5 scrollable closed-trade list, last 7 days) + **candle-chart widget** (#17, 5×3 BTCUSDT 15m bitmap-rendered via `android.graphics.Canvas`). All three widgets gained a ↻ refresh button. Plus the **FCM auto-register fix** (#15) — `onNewToken` + `MainActivity.onCreate` re-register with the bot on every token rotation, fixing the silent-push regression caused by the S5 FAD-loop reinstall. **S7 ✅ DONE (prep)** — Play Store release-AAB pipeline + signing config (Android #21). Inert until operator's Google Play Console identity verification clears; runbook at `ict-trader-android/docs/runbooks/play-store-release.md` walks the keystore generation + 4 GitHub secrets + first AAB upload when ready. **S8 ✅ DONE 2026-05-27** — **Streamlit-parity restructure**. Bottom-nav (5 items) replaced with `ModalNavigationDrawer` (4 sections, 13 destinations) and built out the operator's full Streamlit tab list on the phone: Overview (#24 — ⚠️ this row originally credited Overview to PR #24, but #24 was opened and **never merged**; Overview stayed a placeholder until S9 below), Performance (#25, equity curve + per-strategy), Strategies (#26), Order Packages (#27, Claude grades), Accounts (#31, balance + open + 7d P&L), Models (#32, ML registry buckets), Health (#33, promoted to first-class tab), Logs (#34, per-level filters), Backtesting (#35, M5 history), Promotion (#36, shadow stats + lazy drift), Data Explorer (#37, federated DB browser). Plus unified-dashboard widget polish: 5×7 cell + edge-to-edge chart + chips below (#28), smart y-range so SL/TP/FVG overlays paint (#29, 25 bars), `DashboardWidget().updateAll(ctx)` in every worker so chip toggles repaint + 35 bars (#30). 15 PRs in one session. **Open S8 verification gates:** on-device walk-through of all 9 new drawer destinations; **W-1** widget chip-toggle + ↻ still no-op on the unified dashboard widget (suspected outer column `clickable` shadowing inner ActionCallbacks) — logged in `ict-trader-android/docs/known-bugs.md` § W-1, deferred per operator. Live order path explicitly untouched throughout; trust contract observer-only / read-only. **S9 ✅ DONE 2026-05-28** — **Overview tab actually built** (closing the S8 overclaim above) + operator-reported bug fixes. Android: Overview = live chart (shared `CandleChartRenderer` bitmap path) + 24h KPIs + 24h scorecard + VM health + open positions + per-strategy 24h, now the default home destination; **Order Packages** tab un-broken — `ClaudeScore.{entryQuality,exitQuality,riskManagement}` were modelled as `Double` but the bot serves categorical strings (`"early"`/`"optimal"`/`"sl_too_tight"`/…), so any scored package in the page threw and blanked the whole tab (1421 packages in the DB, 0 shown) — now decoded as strings; **Accounts** tab enumerates every configured account via `/api/bot/config` (IBKR `ib_paper` + dry-run prop were invisible whenever they had no balance snapshot); **widget W-1** fixed (outer `Column` open-app `clickable` was shadowing the chip + ↻ `ActionCallback`s — moved the open-app target onto the non-interactive sections); **Performance** pull-to-refresh now shows a spinner for manual refreshes. Bot: **FCM data messages now ride `android.priority=HIGH`** (were default/NORMAL → Doze batched them → operator's "notifications arrive in delayed bursts"); **liveness-watchdog `--boot-grace-seconds 600`** suppresses heartbeat missing/stale alerts (and autoheal) for 10 min after a host boot and emits no "recovered" ping, so a VM reboot stops spamming `[CRITICAL] heartbeat stale` + `[OK] recovered` — a still-stale heartbeat past the window alerts as a genuine failure-to-recover. Live order path still untouched. See [`ROADMAP-ANDROID-COMPANION-APP-2026-05-26.md`](docs/sprint-plans/ROADMAP-ANDROID-COMPANION-APP-2026-05-26.md), [S1 log](docs/sprint-logs/S-ANDROID-S1-2026-05-26.md), [S3 log](docs/sprint-logs/S-ANDROID-S3-2026-05-26.md), [S6 log](docs/sprint-logs/S-ANDROID-S6-2026-05-27.md), [S8 log](docs/sprint-logs/S-ANDROID-S8-2026-05-27.md). (S4 + S5 sprint logs were drafted in PR #2124 which closed without merging; ping the operator if you want them carried forward as separate logs.) |
+| **M14** | auto-claude (ML-optimization track) | **ML Optimization Program** — multi-session program to lift model quality: validation discipline → break the decision-model data wall → better features → regime plumbing → MLOps. Framing finding (deep-research + codebase inventory, 2026-06-03): on intraday tabular features, architecture is rarely the binding constraint — labeling/validation/sample-size/features are. | 🔄 IN PROGRESS — **S0 (roadmap + sprint breakdown) ✅ DONE 2026-06-03**; S1–S18 NOT STARTED. Full plan + per-session detail: [`docs/ml/optimization-roadmap.md`](docs/ml/optimization-roadmap.md); sprint breakdown in § "M14 — ML Optimization Program" below. Trainer-side tooling is Tier-1 autonomous; new manifests + live-runtime/order-path changes stay Tier-2/3 (operator-gated). |
 | **M13** | auto-claude (separate session — AI Analyst track) | AI Analyst — server-side LLM agent over live trading data, surfaced as a new FastAPI router on `:8001` | ✅ S1 + S2 COMPLETE 2026-05-26 — provider-flexible analyst now live on the trader VM. **NOT a registry model.** Tier-1 read-only; no influence on the order path. Three switchable modes via `INSIGHTS_MODEL_MODE`: `template` (rule-based, $0, deterministic, **active default 2026-05-26**), `anthropic` (Claude API, requires credit), `gemini` (Google Generative Language API, paid-tier required to lift `limit:0` free-tier quotas). Four cached endpoints under `/api/bot/insights/*` (`summary`, `recent`, `strategy/{name}`, `health`), each returning `{summary_md, grade, signals[], data_window, row_counts, generated_at, cache_age_seconds, model_id, cache_present, cache_path}`. Two-tier cadence: **fast tier** (`ict-insights-generator.timer`, every 15 min) drives the 3 globals; **slow tier** (`ict-insights-generator-strategies.timer`, every 60 min) drives the 6 per-strategy narratives. Two persistent tables: `insights_history` (every run, decoded JSON) + `insights_usage` (per-call tokens + estimated cost + budget gate). Read endpoints `/api/bot/insights/{history,usage}` surface those to the Streamlit dashboard's Insights tab + Overview card + usage panel + per-endpoint history expanders. Three Tier-1 system-actions: `enable-insights-generator`, `disable-insights-generator`, `inspect-insights` (full state snapshot), `kick-insights` (manual cycle fire). Verification gate **met:** live VM ran a 21:03 UTC cycle that produced grounded prose against real trades (vwap concern grade @ 5% win rate over 20 closed trades; trend_donchian watch grade; overall summary at +$1.34/24h, 50% win rate). Sprint log: [`docs/sprint-logs/S-M13-S1-S2-AI-ANALYST-2026-05-26.md`](docs/sprint-logs/S-M13-S1-S2-AI-ANALYST-2026-05-26.md). PR ladder: A (#2076 plan) · B (#2080 router) · C (#2081 generator+history+usage) · D (#2083 systemd+activation actions) · F (#2091 history+usage endpoints) · H (#2092 inspect-insights) · I (#2103 template analyst) · J (#2108 Gemini provider + cadence split) · K (#2114 kick-insights) + hotfixes #2095 (cli + schema) · #2097 (drop-in) · #2113 (Gemini error logging + retry). **Deferred to S3:** Gemini-driven `/health-review` + `/performance-review` + `/ml-review` reviews every 6h with Telegram + FCM push (deferred 2026-05-26 pending cost vs quality decision after operator sees template-mode prose in action). Plan: [`ROADMAP-AI-ANALYST-2026-05-26.md`](docs/sprint-plans/ROADMAP-AI-ANALYST-2026-05-26.md). |
 
 ### M9 / M10 — AI traders workstreams (WS1–WS10)
@@ -93,6 +97,45 @@
 - **No `ICT_OFFVM_BUILD_HOST=1` on the Oracle live VM**
   (S-AI-WS5-B-PART-1).
 
+### M14 — ML Optimization Program (sprint breakdown)
+
+> Master plan + per-session detail: [`docs/ml/optimization-roadmap.md`](docs/ml/optimization-roadmap.md).
+> Each sprint is one focused session. Trainer-side tooling = **Tier-1** (autonomous);
+> any new/edited `ml/configs/*.yaml` manifest or live-runtime/order-path change = **Tier-2/3**
+> (operator-gated). The plan *proposes*; the operator gates every shadow→advisory flip.
+> `/ml-review` reports progress against this table each run.
+
+**Recommended execution order** (not the numeric order): **S13 first** (per-bar regime
+scoring — independent, unblocks the whole regime promotion pipeline), then the **S1–S4**
+discipline foundation, then **S5–S6** (the data wall), then features/regime/MLOps as
+capacity allows. S1–S4 are prerequisites for trusting S5+ results.
+
+| Sprint | Phase | Title | Tier | Status |
+|---|---|---|---|---|
+| **S-MLOPT-S0** | — | Roadmap + sprint breakdown (this) | 1 | ✅ DONE 2026-06-03 |
+| **S-MLOPT-S1** | 0.1 | Purged & embargoed walk-forward CV splitter | 1 | 📋 NOT STARTED |
+| **S-MLOPT-S2** | 0.2 | Sample-uniqueness + recency weighting + window-length sweep (closes MB-20260601-001) | 1 / 3 | 📋 NOT STARTED |
+| **S-MLOPT-S3** | 0.3 | Optuna HPO (purged folds) + early stopping + class weights | 1 | 📋 NOT STARTED |
+| **S-MLOPT-S4** | 0.4 | Promotion gates that compute PASS/FAIL (enforce = Tier-3) | 1 / 3 | 📋 NOT STARTED |
+| **S-MLOPT-S5** | 1.1 | Triple-barrier labeler → `setup_candidates` dataset family | 1 | 📋 NOT STARTED |
+| **S-MLOPT-S6** | 1.2 | Meta-labeling decision model (the proper setup-quality) | 1 / 3 | 📋 NOT STARTED |
+| **S-MLOPT-S7** | 1.3 | Backtest-augmented per-trade labels (closes MB-20260530-001) | 1 | 📋 NOT STARTED |
+| **S-MLOPT-S8** | 1.4 | Cross-symbol transfer (joint BTC+MES) | 1 / 3 | 📋 NOT STARTED |
+| **S-MLOPT-S9** | 2.1 | Range-based vol estimators (Yang-Zhang / Garman-Klass) | 1 / 3 | 📋 NOT STARTED |
+| **S-MLOPT-S10** | 2.2 | Order-flow / microstructure features (OFI, VPIN) — needs live L2 capture | 2 | 📋 NOT STARTED |
+| **S-MLOPT-S11** | 2.3 | Crypto funding-rate + open-interest features | 1 / 3 | 📋 NOT STARTED |
+| **S-MLOPT-S12** | 2.4 | Cross-asset/macro for MES + wire unused `account_context` | 1 / 3 | 📋 NOT STARTED |
+| **S-MLOPT-S13** | 3.1 | **Per-bar regime scoring path** (closes MB-20260529-001 — highest-leverage unblock) | 2 | 📋 NOT STARTED |
+| **S-MLOPT-S14** | 3.2 | Causal (filtered) HMM / GMM regime family | 1 | 📋 NOT STARTED |
+| **S-MLOPT-S15** | 3.3 | Regime-router phase-4 detector wiring (closes MB-20260601-002) | 2 / 3 | 📋 NOT STARTED |
+| **S-MLOPT-S16** | 4.1 | Drift-triggered, recency-weighted retraining (ADWIN) | 1 / 2 | 📋 NOT STARTED |
+| **S-MLOPT-S17** | 4.2 | Experiment tracking + train/serve feature parity | 1 | 📋 NOT STARTED |
+| **S-MLOPT-S18** | 4.3 | Champion-challenger promotion automation | 1 / 3 | 📋 NOT STARTED |
+
+Phase **R** (RL, GAN/diffusion, end-to-end Transformers, zero-shot foundation models)
+is the **parked research shelf** — no sprint allocated; revisit only on the trigger
+conditions in the master plan.
+
 ### Active milestone queue (next 3)
 
 > **Cross-cutting (2026-06-02): Tradovate broker integration.** Drop-in
@@ -109,22 +152,29 @@
 > window.
 
 
-1. **Strategy Improvement Program (M7 + M8)** — multi-sprint program to
+1. **M14 — ML Optimization Program.** 18-sprint program to lift model
+   quality (validation discipline → data wall → features → regime
+   plumbing → MLOps). S0 (roadmap + sprint breakdown) done 2026-06-03;
+   recommended next is **S-MLOPT-S13** (per-bar regime scoring — the
+   highest-leverage unblock) or the **S1–S4** discipline foundation.
+   Plan: [`docs/ml/optimization-roadmap.md`](docs/ml/optimization-roadmap.md);
+   sprint table in § "M14 — ML Optimization Program" above.
+2. **Strategy Improvement Program (M7 + M8)** — multi-sprint program to
    improve profitability / cut bad trades, starting from the bybit_2
    vwap loss problem. Plan:
    [`docs/sprint-plans/STRATEGY-IMPROVEMENT-PROGRAM-2026-05-23.md`](docs/sprint-plans/STRATEGY-IMPROVEMENT-PROGRAM-2026-05-23.md).
    S0 (kickoff/architecture) done 2026-05-23; next is S1 (comms path)
    then S2 (full performance audit).
-2. **M12 — Native Android companion app.** 7-sprint program; S1 is the
+3. **M12 — Native Android companion app.** 7-sprint program; S1 is the
    FCM push end-to-end MVP (proves the server→phone pipe with the
    smallest possible app). Plan:
    [`docs/sprint-plans/ROADMAP-ANDROID-COMPANION-APP-2026-05-26.md`](docs/sprint-plans/ROADMAP-ANDROID-COMPANION-APP-2026-05-26.md).
-3. **M13 — AI Analyst (server-side LLM, bot repo).** New FastAPI router
+4. **M13 — AI Analyst (server-side LLM, bot repo).** New FastAPI router
    that emits natural-language insights + structured grades over the
    live trading data; cached output, no order-path influence. S1 in
    flight (2026-05-26): 5-PR scaffold per
    [`ROADMAP-AI-ANALYST-2026-05-26.md`](docs/sprint-plans/ROADMAP-AI-ANALYST-2026-05-26.md).
-4. **M6 — Web app UI (dashboard repo).**
+5. **M6 — Web app UI (dashboard repo).**
 
 > **AI-traders queue note:** WS1+WS2+WS3+WS4+WS5-A+WS4-FU+WS5-B-PART-1 closed
 > 2026-05-10. **Next on AI-traders track is WS5-B-PART-2** — regime
