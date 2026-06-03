@@ -31,8 +31,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from ml.experiments.runner import _load_jsonl  # noqa: E402

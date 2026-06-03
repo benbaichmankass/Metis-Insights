@@ -1,8 +1,6 @@
 """Tests for `ml.trainers.sample_weights` (S-MLOPT-S2 / M14 Session 0.2)."""
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from ml.trainers.sample_weights import (
