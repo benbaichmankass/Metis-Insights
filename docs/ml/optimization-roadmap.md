@@ -279,13 +279,25 @@ trust the result, and the live-vs-synthetic domain-shift check).
   training set) in the sprint log. Wiring the recorder into each harness (the opt-in money-DB
   write) is a one-call follow-up.
 
-### Session 1.4 — Cross-symbol transfer *(Tier-1 experiment; Tier-3 manifest)*
+### Session 1.4 — Cross-symbol transfer *(Tier-1 experiment; Tier-3 manifest)* — 🔄 IN REVIEW 2026-06-03 (S-MLOPT-S8)
 - **Deliverable:** joint BTC+MES training (or pretrain-on-liquid-proxy → fine-tune) for the
   regime and decision families — a cheap small-data lever we don't use, natural since we
   already run two symbols.
 - **Success:** transfer config beats the per-symbol model on the smaller-data symbol (MES)
   under purged WF-CV.
 - **Effort:** M.
+- **Shipped (Tier-1 enabler; Tier-3 manifest):** `setup_candidates.iter_rows` gained
+  `market_raw_paths` (a list, or comma-separated string from the build CLI) → builds a
+  **joint multi-symbol** dataset: each symbol is CUSUM-sampled + vol-bucketed against its
+  **own** distribution (BTC and MES volatilities differ) then concatenated, with the existing
+  `symbol` column carrying the source so a model can condition on / transfer across symbols.
+  Refactored into a per-symbol `_iter_one_symbol` helper (singular `market_raw_path` path
+  unchanged). New `ml/configs/setup-candidates-metalabel-xsym-v1.yaml` (Tier-3 proposal) =
+  the S6 meta-label with `symbol_scope: all` + a `symbol` categorical feature. Tests:
+  `_resolve_market_raw_paths` forms + joint build concatenates both symbols with per-symbol
+  bucketing (`tests/ml/test_cross_symbol.py`). The transfer experiment (joint BTC+MES vs
+  MES-only meta-label, scored on the REAL MES holdout) runs on the trainer VM — reported in
+  the sprint log. **Adopting the manifest / promoting past shadow is Tier-3 (operator-gated).**
 
 ---
 
