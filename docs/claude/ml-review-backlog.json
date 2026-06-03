@@ -257,6 +257,23 @@
       "status_history": "in_progress 2026-06-03 (S-MLOPT-S6-FU-2 — Tier-1 backtest-label enabler + Tier-3 manifest landed; trainer-VM eval pending); eval landed 2026-06-03 (#2718) — backtest labels are the best of three sources (acc 0.756 ties baseline, precision 0.50 > 0.244 base rate, brier 0.196 best-calibrated) but NOT a clean baseline-beat; eval incomplete (ict_scalp harness lacks --emit-trades; squeeze/fade ran on 1h base). Open for a cleaner re-run.",
       "snoozed_until": null,
       "trigger_condition": "Any /ml-review run; or when the S-MLOPT-S6-FU-2 trainer-VM eval completes."
+    },
+    {
+      "id": "MB-20260603-004",
+      "opened_at": "2026-06-03T17:30:00+00:00",
+      "opened_by": "claude (S-MLOPT-S9)",
+      "status": "in_progress",
+      "tier": 1,
+      "title": "Range-based vol estimators: A/B the Yang-Zhang regime head vs the close-to-close v2 head (quantify the f1_volatile lift)",
+      "description": "S-MLOPT-S9 (M14 Phase 2.1) added four range-based volatility estimators (Parkinson, Garman-Klass, Rogers-Satchell, Yang-Zhang) to the market_features family (builder_version v3), computed over the same past window as rolling_log_return_vol from each bar's full OHLC. New manifest btc-regime-1h-lgbm-yz-v1.yaml (research_only) is a clean A/B vs the champion btc-regime-1h-lgbm-v2 — identical trainer/split/weighting/dataset, only the vol feature set differs (adds the four estimators; freezes the live regime spec on yang_zhang_vol). The open step is the trainer-VM A/B: rebuild market_features on v3, run `python -m ml compare btc-regime-1h-lgbm-v2 btc-regime-1h-lgbm-yz-v1` under the Phase-0 CV, read the f1_volatile delta. Attacks gap G5 (no range-based vol estimators).",
+      "evidence_log": [
+        "2026-06-03 (S-MLOPT-S9 enabler): ml/datasets/volatility_estimators.py (Parkinson/Garman-Klass/Rogers-Satchell/Yang-Zhang variance estimators) + market_features 4 new past-window vol columns (parkinson_vol/garman_klass_vol/rogers_satchell_vol/yang_zhang_vol), builder_version v2->v3. New manifest btc-regime-1h-lgbm-yz-v1.yaml (research_only). Tests: test_volatility_estimators.py + market_features additions (50 core pass); ruff clean; manifest loads. Leakage-safe by construction (past-only window). A/B eval pending the v3 market_features rebuild."
+      ],
+      "resolution_criteria": "The Yang-Zhang (range-based-vol) regime head, A/B'd against btc-regime-1h-lgbm-v2 under the Phase-0 purged CV on a v3 market_features rebuild, shows a positive f1_volatile lift => propose promotion to shadow (operator-gated) + extend to 5m/15m/MES; OR no lift, documented, and the range-vol columns stay available for other consumers (e.g. setup_candidates features).",
+      "source": "S-MLOPT-S9 (M14 Phase 2.1) — gap G5 (no range-based vol estimators); the label-distribution arc (S6/S6-FU/S6-FU-2) pointed to features as the co-equal lever at n=352.",
+      "status_history": "in_progress 2026-06-03 (S-MLOPT-S9 — Tier-1 estimators + market_features columns + Tier-3 A/B manifest landed; trainer-VM compare pending)",
+      "snoozed_until": null,
+      "trigger_condition": "Any /ml-review run; or when the S-MLOPT-S9 trainer-VM A/B completes; or after the next market_features v3 rebuild."
     }
   ]
 }

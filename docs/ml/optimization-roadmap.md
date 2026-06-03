@@ -342,12 +342,21 @@ than a capacity problem. Range-based vol estimators and microstructure flow are 
 proven ROI per hour after Phase 1. Caveat from the research: **microstructure alpha decays**
 — engineer it, monitor it via drift, don't assume permanence.
 
-### Session 2.1 — Range-based volatility estimators *(Tier-1 family; Tier-3 manifest)*
+### Session 2.1 — Range-based volatility estimators *(Tier-1 family; Tier-3 manifest)* — 🔄 IN REVIEW 2026-06-03 (S-MLOPT-S9)
 - **Deliverable:** add **Yang-Zhang** (handles overnight gaps + drift, ~8× efficiency) and
   **Garman-Klass** vol to `market_features`; let regime manifests select the vol feature.
 - **Lowest-effort, near-free regime-separation fix.** Re-run the regime eval (under Phase 0
   CV) to quantify the f1_volatile lift vs the current close-to-close-ish rolling vol.
 - **Effort:** S.
+- **Shipped (S-MLOPT-S9, sprint log [`S-MLOPT-S9.md`](../sprint-logs/S-MLOPT-S9.md), `MB-20260603-004`):**
+  new `ml/datasets/volatility_estimators.py` (Parkinson / Garman-Klass / Rogers-Satchell /
+  Yang-Zhang variance estimators) + four new past-window `market_features` columns
+  (`parkinson_vol` / `garman_klass_vol` / `rogers_satchell_vol` / `yang_zhang_vol`),
+  `builder_version v2 → v3`. New manifest `btc-regime-1h-lgbm-yz-v1.yaml` (Tier-3,
+  `research_only`) is a clean A/B vs the v2 champion — identical everything except the vol
+  feature set (regime spec frozen on `yang_zhang_vol`). Leakage-safe by construction
+  (past-only window). The trainer-VM A/B (`python -m ml compare btc-regime-1h-lgbm-v2
+  btc-regime-1h-lgbm-yz-v1` on a v3 rebuild → `f1_volatile` delta) is the open step.
 
 ### Session 2.2 — Order-flow / microstructure features *(Tier-2 — needs live L2 capture)*
 - **Deliverable:** capture L1/L2 from Bybit + IBKR (new `market_raw` sub-stream + storage),
