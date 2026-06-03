@@ -216,7 +216,17 @@ Promotion gates (the lifecycle, `docs/claude/trainer-vm-mode.md` § 5):
   `promote-stage` action do the flip).
 - `shadow → advisory` is **the** live-trading gate — operator
   approval required. This is where /ml-review earns its keep:
-  recommend the promotion with evidence, or hold.
+  recommend the promotion with evidence, or hold. **Cite the computed
+  gate packet** — run `python -m ml gate-check <model_id> --db <journal>
+  --datasets-root <datasets-out>` on the trainer VM (S-MLOPT-S4) and
+  quote its `ready` verdict + any `blocking[]` gate names in the
+  `evidence` field. The gate is the mechanical, pre-registered
+  go/no-go (min shadow volume, min days in shadow, **OOS edge vs
+  baseline under purged WF-CV**, drift within KS/PSI bounds, live
+  agreement); /ml-review should not recommend `promote` while the
+  packet reports `ready: false`, and should quote the cleared gates
+  when it recommends one. Computing the packet is Tier-1; the flip
+  stays Tier-3.
 - `advisory → limited_live → live_approved` — same Tier-3 gate.
   Recommend only when the prior stage has produced
   statistically-meaningful evidence (typically multi-week shadow with

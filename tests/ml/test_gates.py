@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from ml.promotion.attribution import ModelAttribution
 from ml.promotion.gates import GateThresholds, evaluate_gates
+from ml.promotion.oos_edge import OOSEdgeResult
 from ml.registry.model_registry import RegistryEntry, RunRecord, StageEvent
 
 
@@ -53,6 +54,16 @@ def _good_attr() -> ModelAttribution:
     )
 
 
+def _good_oos_edge(edge: float = 0.02) -> OOSEdgeResult:
+    return OOSEdgeResult(
+        model_id="m", metric="mae", higher_is_better=False,
+        candidate_score=0.05, baseline_score=0.05 + edge, edge=edge,
+        n_folds=5, n_rows=2000,
+        candidate_trainer="ml.trainers.lightgbm_regression.LightGBMRegressionTrainer",
+        baseline_trainer="ml.trainers.constant_baseline.ConstantPredictionTrainer",
+    )
+
+
 def test_healthy_model_is_ready():
     entry = _entry(
         metrics={"macro_f1": 0.70, "f1_a": 0.73, "f1_b": 0.68, "n_eval": 5000},
@@ -61,8 +72,86 @@ def test_healthy_model_is_ready():
     )
     report = evaluate_gates(
         entry, attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+        oos_edge=_good_oos_edge(),
     )
     assert report.ready, report.to_dict()["blocking"]
+
+
+def test_missing_oos_edge_blocks_on_insufficient_data():
+    # No purged-WF-CV run → the offline champion-challenger gate cannot be
+    # certified, so a model that's otherwise healthy is NOT ready.
+    entry = _entry(
+        metrics={"macro_f1": 0.70, "f1_a": 0.73, "f1_b": 0.68, "n_eval": 5000},
+        runs=_runs("macro_f1", [0.70, 0.71, 0.69]),
+        created_days_ago=14,
+    )
+    report = evaluate_gates(
+        entry, attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+        oos_edge=None,
+    )
+    oe = next(r for r in report.results if r.name == "oos_edge")
+    assert oe.status == "insufficient_data"
+    assert not report.ready
+
+
+def test_oos_edge_boundary_pass_fail():
+    entry = _entry(
+        metrics={"macro_f1": 0.70, "f1_a": 0.73, "f1_b": 0.68, "n_eval": 5000},
+        runs=_runs("macro_f1", [0.70, 0.71, 0.69]),
+    )
+    th = GateThresholds(min_oos_edge=0.0)
+    # Exactly at the threshold (edge == 0.0): no edge over baseline → fail.
+    at = evaluate_gates(
+        entry, attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+        oos_edge=_good_oos_edge(edge=0.0), thresholds=th,
+    )
+    assert next(r for r in at.results if r.name == "oos_edge").status == "fail"
+    # Just above (edge strictly positive) → pass.
+    above = evaluate_gates(
+        entry, attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+        oos_edge=_good_oos_edge(edge=1e-4), thresholds=th,
+    )
+    assert next(r for r in above.results if r.name == "oos_edge").status == "pass"
+    # A candidate that LOSES to the baseline (negative oriented edge) fails.
+    below = evaluate_gates(
+        entry, attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+        oos_edge=_good_oos_edge(edge=-0.01), thresholds=th,
+    )
+    assert next(r for r in below.results if r.name == "oos_edge").status == "fail"
+
+
+def test_drift_ks_psi_numeric_boundary():
+    entry = _entry(
+        metrics={"macro_f1": 0.70, "f1_a": 0.73, "f1_b": 0.68, "n_eval": 5000},
+        runs=_runs("macro_f1", [0.70, 0.71, 0.69]),
+    )
+    th = GateThresholds(max_ks=0.2, max_psi=0.25)
+
+    class _Drift:
+        def __init__(self, ks, psi):
+            self.ks = ks
+            self.psi = psi
+            self.overall_verdict = "moderate"
+
+    # KS exactly at the ceiling + PSI under → pass (≤ is acceptable).
+    ok = evaluate_gates(
+        entry, attribution=_good_attr(), oos_edge=_good_oos_edge(),
+        drift=_Drift(ks=0.2, psi=0.10), thresholds=th,
+    )
+    assert next(r for r in ok.results if r.name == "drift_clean").status == "pass"
+    # KS just over the ceiling → fail, even though the verdict bucket alone
+    # might have been judged differently.
+    bad_ks = evaluate_gates(
+        entry, attribution=_good_attr(), oos_edge=_good_oos_edge(),
+        drift=_Drift(ks=0.21, psi=0.10), thresholds=th,
+    )
+    assert next(r for r in bad_ks.results if r.name == "drift_clean").status == "fail"
+    # PSI over the ceiling → fail.
+    bad_psi = evaluate_gates(
+        entry, attribution=_good_attr(), oos_edge=_good_oos_edge(),
+        drift=_Drift(ks=0.05, psi=0.30), thresholds=th,
+    )
+    assert next(r for r in bad_psi.results if r.name == "drift_clean").status == "fail"
 
 
 def test_degenerate_class_f1_fails_non_degenerate():

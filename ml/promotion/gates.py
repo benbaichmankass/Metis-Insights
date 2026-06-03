@@ -52,6 +52,17 @@ class GateThresholds:
     min_auc: float = 0.55
     min_brier_lift: float = 0.0
     score_spread_eps: float = 1e-6
+    # Offline champion-challenger edge (S-MLOPT-S4): the candidate must
+    # beat the baseline on purged WF-CV by a strictly-positive oriented
+    # margin (default 0.0 → "must beat the baseline at all"). Tighten per
+    # model family if a margin of safety is wanted.
+    min_oos_edge: float = 0.0
+    # Drift bounds (S-MLOPT-S4): the score-distribution must stay within
+    # these KS / PSI ceilings. Defaults are the industry-standard "moderate"
+    # thresholds from ml.shadow.drift (KS 0.2, PSI 0.25) — anything at or
+    # below is acceptable, above is blocking.
+    max_ks: float = 0.2
+    max_psi: float = 0.25
 
 
 @dataclass(frozen=True)
@@ -249,6 +260,34 @@ def _gate_beats_baseline(attribution: Any, th: GateThresholds) -> GateResult:
     )
 
 
+def _gate_oos_edge(oos_edge: Any, th: GateThresholds) -> GateResult:
+    """Offline champion-challenger gate: candidate beats baseline OOS.
+
+    ``oos_edge`` is an ``ml.promotion.oos_edge.OOSEdgeResult`` (or ``None``
+    when no purged WF-CV run was performed — e.g. ``gate-check`` invoked
+    without ``--datasets-root``). The edge is pre-oriented so positive =
+    candidate better; the model passes only when it beats the baseline by
+    a strictly-positive margin over ``min_oos_edge``. Measured **only** on
+    purged & embargoed walk-forward folds — never on a single holdout."""
+    if oos_edge is None:
+        return GateResult(
+            "oos_edge", "insufficient_data",
+            "no purged-WF-CV OOS edge computed (run gate-check with "
+            "--datasets-root on the trainer VM to populate it)",
+            threshold=th.min_oos_edge,
+        )
+    ok = oos_edge.edge > th.min_oos_edge
+    return GateResult(
+        "oos_edge",
+        "pass" if ok else "fail",
+        f"OOS edge on '{oos_edge.metric}' = {oos_edge.edge:+.5f} over "
+        f"{oos_edge.n_folds} purged WF-CV folds "
+        f"(candidate {oos_edge.candidate_score:.5f} vs baseline "
+        f"{oos_edge.baseline_score:.5f}; {oos_edge.baseline_trainer})",
+        value=oos_edge.edge, threshold=th.min_oos_edge,
+    )
+
+
 def _gate_sample_sufficiency(entry: Any, attribution: Any, th: GateThresholds) -> GateResult:
     if attribution is not None and attribution.n > 0:
         ok = attribution.n >= th.min_trades
@@ -349,12 +388,27 @@ def _gate_live_agreement(attribution: Any, th: GateThresholds) -> GateResult:
     )
 
 
-def _gate_drift_clean(drift: Any) -> GateResult:
+def _gate_drift_clean(drift: Any, th: GateThresholds) -> GateResult:
     if drift is None:
         return GateResult(
             "drift_clean", "insufficient_data",
             "no drift report supplied (shadow-drift needs both windows populated)",
         )
+    # Quantitative path: a real DriftReport carries the raw KS + PSI
+    # statistics — gate on the pre-registered numeric ceilings directly so
+    # the criterion is mechanical, not a verdict-bucket judgement call.
+    ks = getattr(drift, "ks", None)
+    psi = getattr(drift, "psi", None)
+    if ks is not None and psi is not None:
+        ok = float(ks) <= th.max_ks and float(psi) <= th.max_psi
+        return GateResult(
+            "drift_clean",
+            "pass" if ok else "fail",
+            f"score-distribution drift KS = {float(ks):.4f} (≤ {th.max_ks}), "
+            f"PSI = {float(psi):.4f} (≤ {th.max_psi})",
+            value=float(ks), threshold=th.max_ks,
+        )
+    # Fallback for the dict the shadow-drift CLI emits (verdict only).
     verdict = getattr(drift, "overall_verdict", None) or drift.get("overall_verdict")  # type: ignore[union-attr]
     ok = verdict in {"no_change", "minor"}
     return GateResult(
@@ -370,6 +424,7 @@ def evaluate_gates(
     target_stage: str = "advisory",
     attribution: Any = None,
     drift: Any = None,
+    oos_edge: Any = None,
     thresholds: GateThresholds | None = None,
 ) -> GateReport:
     """Evaluate the shadow→advisory promotion gates for one model.
@@ -378,16 +433,25 @@ def evaluate_gates(
     ``attribution`` is the matching ``ModelAttribution`` (or ``None``).
     ``drift`` is a ``ml.shadow.drift.DriftReport`` or the dict the
     ``shadow-drift`` CLI emits (or ``None``).
+    ``oos_edge`` is an ``ml.promotion.oos_edge.OOSEdgeResult`` (or ``None``)
+    — the offline candidate-vs-baseline edge measured on purged WF-CV.
+
+    Every gate is ``required``, so ``report.ready`` is ``True`` only when
+    all of them — including the offline OOS-edge and the live-attribution
+    gates — clear their pre-registered thresholds. A gate with no evidence
+    reports ``insufficient_data`` (treated as not-ready, never silently
+    skipped).
     """
     th = thresholds or GateThresholds()
     results = (
         _gate_non_degenerate(entry, attribution, th),
         _gate_beats_baseline(attribution, th),
+        _gate_oos_edge(oos_edge, th),
         _gate_sample_sufficiency(entry, attribution, th),
         _gate_cross_run_stability(entry, th),
         _gate_shadow_soak(entry, th),
         _gate_live_agreement(attribution, th),
-        _gate_drift_clean(drift),
+        _gate_drift_clean(drift, th),
     )
     return GateReport(
         model_id=entry.model_id,

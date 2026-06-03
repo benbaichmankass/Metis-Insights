@@ -90,6 +90,7 @@ def propose_for_model(
     *,
     attribution: Any = None,
     drift: Any = None,
+    oos_edge: Any = None,
     thresholds: GateThresholds | None = None,
 ) -> Proposal:
     """Pure proposal decision for one model (no I/O)."""
@@ -99,7 +100,8 @@ def propose_for_model(
     if stage == "shadow":
         report: GateReport = evaluate_gates(
             entry, target_stage="advisory",
-            attribution=attribution, drift=drift, thresholds=th,
+            attribution=attribution, drift=drift, oos_edge=oos_edge,
+            thresholds=th,
         )
         if report.ready:
             return Proposal(
@@ -171,11 +173,18 @@ def run_stage_guard(
     reference_days: float = 30.0,
     current_days: float = 7.0,
     include_demo: bool = False,
+    datasets_root: Path | str | None = None,
 ) -> list[Proposal]:
     """Evaluate every registered model and return its proposal.
 
     Loads attribution once (one DB + log pass) and computes per-model
     drift from the in-memory record set. Read-only throughout.
+
+    When ``datasets_root`` is supplied (the trainer VM, where the datasets
+    live), the offline purged-WF-CV OOS edge is computed for every
+    ``shadow``-stage model so the promote gate has its champion-challenger
+    evidence; without it those models hold on ``oos_edge`` insufficient
+    data — you cannot certify readiness without the OOS evidence.
     """
     registry = ModelRegistry(Path(registry_root))
     attribution = {
@@ -192,10 +201,16 @@ def run_stage_guard(
             records, entry.model_id,
             reference_days=reference_days, current_days=current_days,
         )
+        oos_edge = None
+        if datasets_root is not None and entry.target_deployment_stage == "shadow":
+            from .oos_edge import compute_oos_edge
+
+            oos_edge = compute_oos_edge(entry, datasets_root=datasets_root)
         proposals.append(propose_for_model(
             entry,
             attribution=attribution.get(entry.model_id),
             drift=drift,
+            oos_edge=oos_edge,
             thresholds=thresholds,
         ))
     return proposals

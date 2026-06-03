@@ -6,8 +6,19 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from ml.promotion.attribution import ModelAttribution
+from ml.promotion.oos_edge import OOSEdgeResult
 from ml.promotion.stage_guard import propose_for_model, run_stage_guard
 from ml.registry.model_registry import ModelRegistry, RegistryEntry, RunRecord
+
+
+def _good_oos_edge():
+    return OOSEdgeResult(
+        model_id="m", metric="mae", higher_is_better=False,
+        candidate_score=0.05, baseline_score=0.07, edge=0.02,
+        n_folds=5, n_rows=2000,
+        candidate_trainer="ml.trainers.lightgbm_regression.LightGBMRegressionTrainer",
+        baseline_trainer="ml.trainers.constant_baseline.ConstantPredictionTrainer",
+    )
 
 
 def _runs(vals):
@@ -42,9 +53,22 @@ def test_shadow_ready_proposes_promote():
     p = propose_for_model(
         _entry("shadow", runs=_runs([0.70, 0.71, 0.69])),
         attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+        oos_edge=_good_oos_edge(),
     )
     assert p.action == "promote"
     assert p.proposed_stage == "advisory"
+
+
+def test_shadow_without_oos_edge_holds():
+    # Otherwise-healthy shadow model with no purged-WF-CV evidence holds on
+    # the offline champion-challenger gate.
+    p = propose_for_model(
+        _entry("shadow", runs=_runs([0.70, 0.71, 0.69])),
+        attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+        oos_edge=None,
+    )
+    assert p.action == "hold"
+    assert any("oos_edge" in r for r in p.reasons)
 
 
 def test_shadow_not_ready_holds():
