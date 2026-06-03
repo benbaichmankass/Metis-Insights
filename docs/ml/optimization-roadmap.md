@@ -251,6 +251,18 @@ trust the result, and the live-vs-synthetic domain-shift check).
   the lever for the next sprints (wire logged signals as the event source; S7 backtest-
   augmented labels; S8 cross-symbol). **Adopting the manifest / promoting past shadow is
   Tier-3 (operator-gated).**
+- **S6 follow-up — signal-log event source (Tier-1, `MB-20260603-002`)** — 2026-06-03,
+  sprint log [`S-MLOPT-S6-FU.md`](../sprint-logs/S-MLOPT-S6-FU.md), PR #2712. The
+  highest-leverage S6 lever: `setup_candidates.py` gained a `signal_log_db` kwarg that
+  samples candidates from the strategies' **real decision points**
+  (`trade_journal.db::signals` buy/sell rows — the audit-log dual-write) and labels them
+  with the SAME triple-barrier as CUSUM. New `event_source ∈ {cusum, signal_log, live}`
+  schema column disambiguates the three samplers. New manifest
+  `ml/configs/setup-candidates-metalabel-siglog-v1.yaml` (Tier-3 proposal, `research_only`)
+  mirrors the S6 stack on the signal-log distribution. The headline trainer-VM eval
+  (signal-log meta-label vs majority baseline on the 352 real BTCUSDT holdout) lands in
+  `MB-20260603-002` `evidence_log`. Composes with S7 (enlarge the real holdout) + S8
+  (cross-symbol).
 
 ### Session 1.3 — Backtest-augmented per-trade labels *(Tier-1; closes MB-20260530-001)* — 🔄 IN REVIEW 2026-06-03 (S-MLOPT-S7)
 - **Deliverable:** have the backtest harnesses emit **per-trade rows** in the
