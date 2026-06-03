@@ -3,6 +3,22 @@
  "schema_version": 1,
  "items": [
   {
+   "id": "BL-20260603-001",
+   "opened_at": "2026-06-03T06:25:00+00:00",
+   "opened_by": "claude (/health-review)",
+   "source": "/health-review 2026-06-03 — root-causing a graceful ict-trader-live restart at 04:33:33Z (uptime 5954s at the 06:14Z pull).",
+   "title": "Nightly IBKR-reset: the 3 new MES/MGC/MHG futures strategies block the main-thread tick loop on IB socket timeouts long enough to stall the heartbeat and trip the liveness-watchdog autoheal (whole pipeline restarts, incl. live BTCUSDT)",
+   "description": "VERIFIED ON LIVE DATA 2026-06-03. During IBKR's overnight server-reset (~04:27Z) the IB Gateway session dropped (ict-trader-live journal: a flood of `Error 1100 Connectivity between IBKR and Trader Workstation has been lost` from 04:27:47, then usfarm/ushmds/secdefnj farms broke). The new daily futures strategies (mes_trend_long_1d / mgc_pullback_1d / mhg_pullback_1d, added 2026-06-02 in S-MEANTIME-WSA) each call IBMarketData.get_ohlcv on the MAIN-THREAD pipeline loop; with the gateway down each fetch blocks on a ~10s connect TimeoutError, and three of them per tick cycle (on top of BTCUSDT) pushed the per-tick wall time past the heartbeat-staleness threshold. Result: ict-liveness-watchdog journal (#2663) shows `[CRITICAL] Trader heartbeat stale` at 04:31:31 (last beat 5m), then at 04:33:34 `[ACTION] Autoheal dispatched: systemctl restart ict-trader-live.service. Trigger: heartbeat stale 7m, 3 consecutive checks. systemctl exit=0`. The trader restarted cleanly (Started 04:33:34, validation passed 04:33:50) and is healthy now (uptime ~100min at review, all 11 strategies eval'ing). So the autoheal worked AS DESIGNED — but a NIGHTLY ~7-min whole-pipeline stall + restart (which also interrupts live BTCUSDT order/monitor and fires a [CRITICAL] Telegram every reset) is an unwanted side-effect of the futures expansion. Pre-expansion, an IB market-data gap did not stall the heartbeat. Distinct from (but co-fired with) the IB-gateway-watchdog auto-heal (BL-20260528-001, which restarts the gateway container, not the trader) and surfaces BL-20260525-003 again (the IB 'no candle data' raises are swallowed as bare warnings, invisible on the diag audit surface). The liveness-watchdog boot-grace (--boot-grace-seconds 600) only covers a HOST boot, not this stall.",
+   "tier": 2,
+   "trigger_condition": "Any /health-review run; or whenever ict-trader-live shows a graceful systemd restart in the ~04:25-04:45Z IBKR-reset window with a liveness-watchdog `[ACTION] Autoheal dispatched` preceding it. Re-pull journalctl?unit=ict-liveness-watchdog.service and ?unit=ict-trader-live.service for the overnight window.",
+   "resolution_criteria": "The MES/MGC/MHG IB market-data fetch no longer stalls the main-thread heartbeat through an IBKR reset — e.g. (a) a tight per-fetch IB connect/read timeout (sub-second / 1-2s, not ~10s) so a wedged gateway can't accumulate enough blocking to cross the staleness threshold; and/or (b) move the IB candle fetch off the main thread / cache last-good candles across a transient gateway outage so the tick completes and the heartbeat keeps firing; and/or (c) have the liveness-watchdog suppress autoheal during the known nightly IBKR-reset window the same way boot-grace does. Verify across >=1 overnight reset that the trader does NOT restart and the heartbeat stays fresh while the IB-gateway-watchdog heals the gateway. Tier-2 (touches src/main.py tick loop / src/exchange/ib_connector / the watchdog) — operator-approved PR; not editable from /health-review.",
+   "status": "open",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution": null,
+   "snoozed_until": null
+  },
+  {
    "id": "BL-20260601-003",
    "opened_at": "2026-06-01T16:30:00+00:00",
    "opened_by": "claude (regime-router phase 1 ship)",
@@ -298,9 +314,9 @@
    "tier": 2,
    "trigger_condition": "Any /health-review run; investigate via gateway-logs + provision_ib_gateway.sh on the next 12-24h MES outage.",
    "resolution_criteria": "Either IBC's nightly auto-restart reliably re-establishes the upstream IB session (verifiable by 7 consecutive days with no `Up >20h with broken farm connections` state), or a sanctioned scheduled job replaces it (e.g. systemd timer triggering vm-ib-gateway-recover at 11:55 PM UTC, before IB's reset window).",
-   "status": "partially-resolved",
-   "resolved_at": "2026-05-28T07:05:00+00:00",
-   "resolved_by": "claude (working session, operator-directed)",
+   "status": "resolved",
+   "resolved_at": "2026-06-03T06:25:00+00:00",
+   "resolved_by": "claude (/health-review — auto-heal proven on a real wedge 2026-06-03; see BL-20260528-001)",
    "resolution": "ROOT CAUSE REFINED 2026-05-28 (corrects the original 2FA/nightly-restart hypotheses). gateway-logs (issue #2184) showed the container 'Up 13h' but logged OUT of IBKR since `2026-05-28 04:30:50 IBC: detected dialog entitled: Unrecognized Username or Password` — i.e. during IBKR's overnight server-reset window the Gateway's in-place re-login hit a TRANSIENT bad-credential dialog and IBC parked on it, never retrying. NOT 2FA (the paper account DUQ325724 logs in with no 2FA — confirmed by the #2185 recover log: 'Click button: Paper Log In' → 'Login has completed', no Mobile prompt). NOT a real bad password (a full container restart re-logins cleanly — that's why vm-ib-gateway-recover works). NOT `restart: unless-stopped` (the process hangs on the dialog, it never dies, so Docker never restarts it). The gap: nothing auto-recovers a stuck login-failure dialog (`TWOFA_TIMEOUT_ACTION=restart` only covers 2FA timeouts, which never fire for paper). FIX (operator-approved 2026-05-28, branch claude/health-check-CjAWV, draft PR #2183): a symptom-driven auto-heal watchdog — scripts/check_ib_gateway.py + deploy/ict-ib-gateway-watchdog.{service,timer}, firing every 5 min: probes ib_paper via ib_connect_check (healthy ⇔ connected AND net_liquidation populated — a logged-out gateway reports connected=true but net_liquidation=None), and after 2 consecutive wedged checks runs scripts/ops/restart_ib_gateway.sh, with max-restarts=3 + 20-min cooldown so a genuine bad-cred/lockout can never become a restart loop (then it alert-only escalates). The fixed daily scheduled-restart option was considered and DROPPED as non-structural per operator — the watchdog self-heals any wedge within ~5-10 min, fine for delayed paper data. REMAINING: operator merge + pull-and-deploy, then verify the watchdog auto-heals across a few overnight IBKR resets (target: no manual vm-ib-gateway-recover needed).",
    "triage_note": "2026-05-28 working session: RECURRED + diagnosed + fix built. gateway-logs caught the 04:30:50Z 'Unrecognized Username or Password' dialog (logged-out 2h+); restored live via vm-ib-gateway-recover #2185 (clean paper login, no 2FA). Auto-heal watchdog shipped to draft PR #2183. 2026-05-28 (S-MES-AUTOHEAL): MERGED (#2183 -> main 6972a9f) + DEPLOYED (4d4d0c3 via pull-and-deploy #2196); watchdog confirmed LIVE — timer active + healthy probe (probe: healthy=True net_liquidation=1000600.6 action=none) in the #2196 post-restart systemd dump. The HEALTHY path is proven; the RESTART path on a real wedge is not yet observed in prod — tracked for next-health-review verification as BL-20260528-001.",
    "snoozed_until": null
@@ -364,8 +380,10 @@
    "tier": 1,
    "trigger_condition": "Any /health-review run on or after 2026-05-29: pull `/api/diag/journalctl?unit=ict-ib-gateway-watchdog.service` covering the overnight window (use ?since=/?until= for the ~04:00-05:30 UTC reset) and read the per-fire `probe:` lines.",
    "resolution_criteria": "A /health-review confirms in the watchdog journal at least one real wedge that the watchdog auto-recovered: a probe `healthy=False` (net_liquidation=None) followed within ~2 checks by a logged `action=restart`, then a subsequent probe `healthy=True` — with NO manual vm-ib-gateway-recover dispatch in that window. Confirm across at least one (ideally a couple) overnight resets, then mark BL-20260527-003 fully resolved. If MES instead stayed healthy through the reset (no wedge to heal), record that and keep watching — absence of a wedge is not yet proof the restart path works. If guard rails tripped (`max-restarts 3` exhausted -> alert-only), surface to the operator: that means a genuine lockout the watchdog can't fix.",
-   "status": "open",
-   "triage_note": "2026-05-29 /health-review: HEALTHY PATH re-confirmed across the post-reset window — journalctl?unit=ict-ib-gateway-watchdog.service (issue #2291) shows the timer firing every ~5 min from 05:41Z through 09:42Z, EVERY probe `healthy=True net_liquidation=1000686.4 action=none`. No wedge occurred at this overnight IBKR reset, so the RESTART path is STILL unexercised in production (no action=restart line). Per resolution criteria, absence of a wedge is not proof — keep open and keep watching. (net_liquidation drifted 1000600.6->1000686.4 vs the 2026-05-28 dump; MES barely trading.)",
+   "status": "resolved",
+   "resolved_at": "2026-06-03T06:25:00+00:00",
+   "resolved_by": "claude (/health-review)",
+   "resolution": "RESTART PATH VERIFIED END-TO-END on a genuine overnight IBKR-reset wedge (2026-06-03). ict-ib-gateway-watchdog journal (diag issues #2662/#2664): 04:17+04:22 probe healthy=True; 04:27:40 probe healthy=False (TimeoutError, gateway unreachable) action=detected; 04:32:41 probe healthy=False action=restart -> `sudo docker restart ib-gateway` (restart attempt 1/3); 04:34:09 `[ACTION] IB Gateway auto-healed — restarted ib-gateway; IBC login completed`; 04:37:27 probe healthy=True net_liquidation=1001115.4 action=recovered `[OK] IB Gateway recovered. ib_paper reconnected; MES data flowing again.`; sustained healthy=True action=none every ~5 min 04:42->05:28. NO manual vm-ib-gateway-recover dispatch. Matches the resolution criteria (healthy=False -> action=restart within 2 checks -> subsequent healthy=True, no human). The guard rails were not exhausted (1/3). Closing this AND BL-20260527-003 (the IBC-nightly-restart root issue it gates) — the symptom-driven auto-heal is now proven on a real wedge. NOTE: a SEPARATE consequence of this same wedge is logged as BL-20260603-001 (the trader's main-thread IB-socket blocking stalled the heartbeat and tripped the liveness-watchdog autoheal).",
    "snoozed_until": null
   },
   {
@@ -595,5 +613,5 @@
    "resolution_note": null
   }
  ],
- "updated_at": "2026-06-02T17:55:00+00:00"
+ "updated_at": "2026-06-03T06:25:00+00:00"
 }
