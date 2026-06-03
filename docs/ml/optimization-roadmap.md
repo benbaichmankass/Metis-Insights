@@ -355,8 +355,10 @@ proven ROI per hour after Phase 1. Caveat from the research: **microstructure al
   `builder_version v2 → v3`. New manifest `btc-regime-1h-lgbm-yz-v1.yaml` (Tier-3,
   `research_only`) is a clean A/B vs the v2 champion — identical everything except the vol
   feature set (regime spec frozen on `yang_zhang_vol`). Leakage-safe by construction
-  (past-only window). The trainer-VM A/B (`python -m ml compare btc-regime-1h-lgbm-v2
-  btc-regime-1h-lgbm-yz-v1` on a v3 rebuild → `f1_volatile` delta) is the open step.
+  (past-only window). **A/B (#2720): POSITIVE** — on a v3 `market_features` rebuild, the yz
+  head beat the v2 champion on every metric (`f1_volatile` 0.4624 → 0.4724 +0.010, accuracy
+  +0.016, weighted_f1 +0.012) under `time_aware_holdout`. The Phase-0 purged-CV confirmation
+  is the open step before proposing promotion + extending to 5m/15m/MES (`MB-20260603-004`).
 
 ### Session 2.2 — Order-flow / microstructure features *(Tier-2 — needs live L2 capture)*
 - **Deliverable:** capture L1/L2 from Bybit + IBKR (new `market_raw` sub-stream + storage),

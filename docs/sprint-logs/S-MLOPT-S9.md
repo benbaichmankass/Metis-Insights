@@ -80,12 +80,28 @@ independent of the labeling arc (it runs in parallel).
   leakage gate still forbids `forward_log_return` / `forward_log_return_vol` /
   `regime_label`.
 
-## Trainer-VM A/B — ⏳ pending
-The headline number (rebuild `market_features` on `builder_version v3` →
-`python -m ml compare btc-regime-1h-lgbm-v2 btc-regime-1h-lgbm-yz-v1` under the
-Phase-0 CV → read the `f1_volatile` delta) runs on the trainer VM after the next
-daily build (or an on-demand rebuild). Result will be appended to
-`MB-20260603-004` and this section.
+## Trainer-VM A/B — ✅ positive (modest, consistent lift)
+Ran via `trainer-vm-diag` (#2720): rebuilt `market_features` BTCUSDT 1h v002 on
+`builder_version v3` (range-vol columns confirmed present), then trained the
+champion + challenger under the manifest `time_aware_holdout` (same split for
+both → the delta is apples-to-apples).
+
+| Metric | v2 (close-to-close) | yz-v1 (range-based) | Δ |
+|---|---|---|---|
+| **f1_volatile** | 0.4624 | **0.4724** | **+0.010** |
+| accuracy | 0.7444 | 0.7603 | +0.016 |
+| macro_f1 | 0.6474 | 0.6586 | +0.011 |
+| weighted_f1 | 0.7709 | 0.7830 | +0.012 |
+| precision_volatile | 0.3555 | 0.3724 | +0.017 |
+| recall_volatile | 0.6614 | 0.6456 | −0.016 |
+
+**Every headline metric improved** — `f1_volatile` +0.010 with a precision/recall
+trade favoring precision. The range-based vol features (regime spec frozen on
+`yang_zhang_vol`) genuinely help the regime head separate `volatile`, at near-zero
+cost. **CAVEAT:** this is the manifest's `time_aware_holdout`, not the Phase-0
+purged WF-CV — a purged-CV confirmation is the rigorous follow-up before any
+promotion. If the lift holds, propose promoting the yz head to `shadow`
+(operator-gated) and extend the range-vol variant to 5m/15m + MES.
 
 ## Documentation Updated
 - `docs/data/dataset-taxonomy.md` (market_features range-vol columns);
@@ -94,9 +110,10 @@ daily build (or an on-demand rebuild). Result will be appended to
   (`MB-20260603-004`, the A/B eval follow-up); this sprint log.
 
 ## Risks and Follow-Ups
-- **A/B eval is the open step** — the columns + estimators + manifest are
-  shipped and locally verified; the `f1_volatile` lift number needs the v3
-  `market_features` rebuild + the `compare` run (MB-20260603-004).
+- **A/B landed positive (#2720)** — every metric improved (f1_volatile
+  0.4624→0.4724) on `time_aware_holdout`. The **open step is the Phase-0
+  purged-CV confirmation** before proposing promotion (MB-20260603-004); the
+  holdout lift is real but the rigorous number is the purged-CV one.
 - **Other timeframes / symbols**: the columns land on every `market_features`
   build (1h/5m/15m BTC + MES), so 5m/15m YZ variants are a trivial follow-up if
   the 1h A/B is positive.
@@ -118,5 +135,6 @@ daily build (or an on-demand rebuild). Result will be appended to
 - [x] No pipeline stage / live-path file touched; manifest is a Tier-3 proposal.
 - [x] Roadmap status checked + updated.
 - [x] Contradictions were recorded (none new).
-- [x] Remaining unknowns stated clearly (the A/B `f1_volatile` number is pending
-      the v3 rebuild + compare run).
+- [x] Remaining unknowns stated clearly (A/B landed positive #2720, f1_volatile
+      +0.010 on holdout; the Phase-0 purged-CV confirm is the open step before
+      promotion).
