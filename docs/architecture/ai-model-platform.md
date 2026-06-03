@@ -61,7 +61,7 @@ Layer 5 is the immutable safety floor.
 | Setup-quality scorer baseline (WS5-C) | `ml/trainers/per_strategy_winrate.py` (extended), `ml/configs/baseline-setup-quality.yaml`, `ml/evaluators/regression.py` | **Adopted 2026-05-10.** Reuses `PerStrategyWinRateTrainer` with new `target_kind: numeric_mean` config knob (per-bucket mean of any numeric target, not just win rate). Pairs with `RegressionEvaluator` (MSE / MAE) targeting `r_multiple`. |
 | Training center (WS4) | `ml/{manifest, cli, __main__}.py`, `ml/{trainers, evaluators, experiments, registry, promotion, configs}/` | YAML manifests + ABCs + filesystem registry + runner + CLI. |
 | Predictor abstraction (WS4-FU) | `ml/predictors/` | Decouples evaluators from trainer state shape. |
-| Time-aware splitters (WS4-FU) | `ml/experiments/splitters.py` | `holdout` / `time_aware_holdout` / `walk_forward`. |
+| Time-aware splitters (WS4-FU; purged WF-CV S-MLOPT-S1) | `ml/experiments/splitters.py` | `holdout` / `time_aware_holdout` / `walk_forward` / `purged_walk_forward` (opt-in multi-fold purged & embargoed CV, de Prado AFML Ch. 7; runner pools per-fold metrics). |
 | `compare` CLI (WS4-FU) | `ml/cli.py` | Side-by-side metric diff. |
 | First baseline (WS5-A) | `ml/{trainers/per_strategy_winrate, evaluators/classification}.py`, paired manifests | Per-strategy historical winrate + global-only sanity. |
 | ML scaffolding (legacy) | `ml/config/`, `ml/src/` | Vestigial. WS10 cleanup. |
@@ -70,7 +70,8 @@ Layer 5 is the immutable safety floor.
 
 - Builders for `account_context`, `review_journal`.
 - WS5-D onwards (exec quality; post-trade review; prop mission policy).
-- Aggregated walk-forward.
+- Aggregated walk-forward for the plain `walk_forward` strategy (the
+  multi-fold averaged path now exists for `purged_walk_forward`, S-MLOPT-S1).
 - Per-strategy detail metrics artifact.
 - HF publication CLI subcommand.
 - Shadow-mode runtime hook (WS7).
@@ -127,3 +128,4 @@ Oracle / HF responsibilities, or anything in `Forbidden` changes.
 | 2026-05-10 | S-AI-WS5-B-PART-1 | `market_raw` adapter framework + CSV adapter + Bybit off-VM scaffold (env-gated; fetch wiring filed). New Forbidden rule: don't set `ICT_OFFVM_BUILD_HOST=1` on the live VM. | None — additive; Bybit shell raises NotImplementedError until operator wires the fetch. |
 | 2026-05-10 | S-AI-WS5-B-PART-2 PR 2B | `market_features` family (rolling vol + 3-class regime label, forward-window leakage discipline) + `RegimeClassifierTrainer` (per-bucket modal) + `MulticlassPredictor` + `MulticlassClassificationEvaluator` + `baseline-regime-classifier.yaml` manifest. New Forbidden rule: don't use forward-window or label columns as features against `regime_label`. | None — additive; research-only baseline. |
 | 2026-05-10 | S-AI-WS5-C | `setup_labels` family (CLOSED setup-tagged trades + r_multiple) + `PerStrategyWinRateTrainer` extended with `target_kind: numeric_mean` knob + `baseline-setup-quality.yaml` manifest. Architecture-canonical doc gains an explicit "AI-traders training workflow" section anchored on the `/health-review` skill's per-trade decision grades as labelled feedstock. | None — additive; research-only baseline. |
+| 2026-06-03 | S-MLOPT-S1 (M14 Phase 0.1) | Purged & embargoed walk-forward CV: `purged_walk_forward` splitter (de Prado AFML Ch. 7) + reusable two-sided `purge_and_embargo_indices` primitive + opt-in multi-fold runner path (pooled metrics + `cv_folds.json` + full-data refit) + `scripts/ml/eval_split_compare.py`. Master plan: `docs/ml/optimization-roadmap.md`. | None — additive, opt-in; no manifest default eval changed, no live-path file touched. |

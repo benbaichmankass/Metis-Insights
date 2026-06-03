@@ -85,8 +85,33 @@
 - Gaps not yet verified: see "Re-eval results" + "Risks".
 
 ## Re-eval results (purged WF-CV vs 80/20 holdout)
-<!-- FILLED FROM TRAINER-VM-DIAG ISSUE #2675 -->
-_Pending the trainer-relay run; appended on return._
+Ran on the trainer VM via `trainer-vm-diag` issue #2675 (real
+`datasets-out`; 5 folds, `min_train_fraction=0.5`, `embargo_fraction≈0.01–0.02`).
+Both models look **better under the optimistic holdout than under leak-free
+purged WF-CV** — the headline finding.
+
+| Model | Dataset (rows) | Metric | 80/20 holdout | Purged WF-CV (5-fold) | Δ (CV − holdout) |
+|---|---|---|---|---|---|
+| `btc-regime-1h-lgbm-v2` | market_features BTCUSDT 1h v002 (43,800) | `weighted_f1` | 0.7185 | 0.6742 | **−0.044** |
+| | | `accuracy` | — † | 0.6460 | — |
+| | | `macro_f1` | — † | 0.6093 | — |
+| `setup-quality-lgbm-v2` | setup_labels all v002 (399) | `MAE` | 0.0647 | 0.0857 | **+0.0211 (~+33%)** |
+| | | `MSE` | 0.00944 | 0.01745 | **+0.0080 (~+85%)** |
+
+† The regime model's full holdout block (accuracy/macro_f1) was truncated by
+the relay's `tail -120`; the comparable `weighted_f1` was captured. The CV
+column is the per-fold-pooled estimate (rates sample-weighted by `n_eval`).
+`label_horizon`: 20 rows for the 1h regime model, 1 row for setup_labels.
+
+**Interpretation / promotion-relevant note:** `setup-quality-lgbm-v2`'s honest
+WF-CV MAE (0.086) is **worse than the per-setup-mean baseline's reported
+holdout MAE (0.058)** in the manifest notes — under leak-free CV the v2 LGBM
+may not clear its own baseline. Caveat: the baseline was **not** re-run under
+WF-CV here, so this is not yet a strict apples-to-apples comparison; it is a
+flag for an S-MLOPT follow-up (re-run the baseline under the same folds before
+any promotion read). The regime model's −0.044 `weighted_f1` is a smaller,
+expected optimism gap. Neither result triggers any config/promotion change in
+this sprint (Tier-1).
 
 ## Documentation Updated
 - Rules doc updates: none required.
