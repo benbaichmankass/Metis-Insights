@@ -86,10 +86,32 @@
   per symbol" success bar) runs on the trainer VM against the real
   `market_raw` BTCUSDT/MES datasets — reported below once the build returns.
 
-## Density build (trainer VM)
-Pending — dispatched via the `trainer-vm-diag` relay: build `setup_candidates`
-over the existing `market_raw` datasets and report per-symbol row counts +
-label balance. (Results appended here.)
+## Density build (trainer VM) — ✅ success bar cleared
+Built `setup_candidates` over the real `market_raw` datasets via the
+`trainer-vm-diag` relay (#2692, branch `3535838` in a detached worktree). The
+"≥ low-thousands of labeled candidates per symbol" bar is **comfortably met** —
+from just the 1h / 15m datasets (the 1m/5m files hold far more):
+
+| `market_raw` dataset | bars | candidates | long / short | tp / sl / timeout | win_rate |
+|---|---|---|---|---|---|
+| BTCUSDT 1h (v002) | 43,824 | **15,732** | 8044 / 7688 | 7120 / 8478 / 134 | 0.457 |
+| MES 15m (v001) | 28,996 | **6,723** | 3474 / 3249 | 2722 / 3183 / 818 | 0.450 |
+
+vs the **~80** real closed trades the decision models train on today (G4). Reads:
+- **Balanced long/short** — the symmetric CUSUM filter samples both breach sides
+  evenly, as designed.
+- **Win rate sits just below 0.50** (0.45–0.46) with symmetric `pt_mult=sl_mult=1`
+  — the **conservative-fill discipline working**: the adverse-first straddle rule
+  resolves ambiguous bars to the stop, so the base rate is *not* optimistically
+  inflated above coin-flip. That sub-0.5 base rate is exactly what a meta-label
+  model (S-MLOPT-S6) must beat to earn its keep.
+- `tp + sl + timeout = rows` in both (sanity ✓); MES 15m's higher timeout share
+  (818) vs BTC 1h (134) reflects its different vol/horizon dynamics.
+- Note (relay mechanics): a first attempt looping over **all** datasets broke the
+  SSH pipe on the 3.2M-bar BTC 1m file — the family is fine; the relay just can't
+  load multi-GB JSONL + process it in one SSH session. Build per-dataset (or stream)
+  for the big timeframes; the dataset builder writes incrementally so a real
+  `python -m ml.datasets build setup_candidates` cycle is unaffected.
 
 ## Documentation Updated
 - `ROADMAP.md` S-MLOPT-S5 row; `docs/ml/optimization-roadmap.md` Session 1.1
