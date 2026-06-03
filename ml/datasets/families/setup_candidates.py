@@ -167,6 +167,32 @@ def _load_live_trades(db_path: Path | str, symbol: str) -> list[dict[str, Any]]:
     return out
 
 
+def _resolve_market_raw_paths(
+    market_raw_path: Path | str | None,
+    market_raw_paths: list[Path | str] | str | None,
+) -> list[Path]:
+    """Normalise the single/multi `market_raw` path inputs to a list of dirs.
+
+    Accepts a single `market_raw_path`, a list `market_raw_paths`, or a
+    comma-separated string (the build CLI passes family args as `key=value`
+    strings). Raises if neither is given."""
+    out: list[Path] = []
+    if market_raw_paths is not None:
+        items = (
+            market_raw_paths.split(",")
+            if isinstance(market_raw_paths, str)
+            else list(market_raw_paths)
+        )
+        out.extend(Path(str(p).strip()) for p in items if str(p).strip())
+    if market_raw_path is not None:
+        out.append(Path(str(market_raw_path)))
+    if not out:
+        raise ValueError(
+            "setup_candidates requires market_raw_path or market_raw_paths"
+        )
+    return out
+
+
 def _bar_index_at_or_before(sorted_ts: list[str], target_ts: str) -> int | None:
     """Index of the last bar whose ts is ≤ ``target_ts`` (None if none / blank)."""
     if not target_ts:
@@ -253,7 +279,8 @@ class SetupCandidatesBuilder(DatasetBuilder):
     def iter_rows(
         self,
         *,
-        market_raw_path: Path | str,
+        market_raw_path: Path | str | None = None,
+        market_raw_paths: list[Path | str] | str | None = None,
         vol_window_n: int = 20,
         momentum_window: int = 10,
         max_holding: int = 10,
@@ -266,6 +293,15 @@ class SetupCandidatesBuilder(DatasetBuilder):
         live_trades_db: Path | str | None = None,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
+        """Build candidate rows for one OR several symbols (S-MLOPT-S8).
+
+        Pass a single `market_raw_path`, or `market_raw_paths` (a list, or a
+        comma-separated string from the build CLI) to build a **joint
+        cross-symbol** dataset (BTC + MES) — each symbol's bars are CUSUM-sampled
+        + vol-bucketed against its OWN distribution (BTC and MES volatilities
+        differ), then concatenated; the `symbol` column lets a model condition on
+        / transfer across symbols. The smaller-data symbol (MES) borrows
+        statistical strength from the larger (BTC)."""
         if vol_window_n < 2:
             raise ValueError(f"vol_window_n must be >= 2; got {vol_window_n}")
         if momentum_window < 1:
@@ -278,7 +314,29 @@ class SetupCandidatesBuilder(DatasetBuilder):
             pt_mult=pt_mult, sl_mult=sl_mult,
             max_holding=max_holding, slippage=slippage,
         )
+        paths = _resolve_market_raw_paths(market_raw_path, market_raw_paths)
+        for path in paths:
+            yield from self._iter_one_symbol(
+                path, config=config, vol_window_n=vol_window_n,
+                momentum_window=momentum_window,
+                cusum_threshold_mult=cusum_threshold_mult,
+                n_vol_buckets=n_vol_buckets, include_synthetic=include_synthetic,
+                live_trades_db=live_trades_db,
+            )
 
+    def _iter_one_symbol(
+        self,
+        market_raw_path: Path | str,
+        *,
+        config: BarrierConfig,
+        vol_window_n: int,
+        momentum_window: int,
+        cusum_threshold_mult: float,
+        n_vol_buckets: int,
+        include_synthetic: bool,
+        live_trades_db: Path | str | None,
+    ) -> Iterator[Mapping[str, Any]]:
+        max_holding = config.max_holding
         rows = _load_market_raw_rows(Path(market_raw_path))
         rows.sort(key=lambda r: r.get("ts", ""))
         n = len(rows)
