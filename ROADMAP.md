@@ -115,7 +115,7 @@ capacity allows. S1–S4 are prerequisites for trusting S5+ results.
 | **S-MLOPT-S0** | — | Roadmap + sprint breakdown (this) | 1 | ✅ DONE 2026-06-03 |
 | **S-MLOPT-S1** | 0.1 | Purged & embargoed walk-forward CV splitter | 1 | ✅ DONE 2026-06-03 (PR #2674; [log](docs/sprint-logs/S-MLOPT-S1.md)) |
 | **S-MLOPT-S2** | 0.2 | Sample-uniqueness + recency weighting + window-length sweep (closes MB-20260601-001) | 1 / 3 | 🔄 IN PROGRESS — Tier-1 tooling landed: opt-in `sample_weight` knob (recency half-life decay + de Prado avg-uniqueness) in both LightGBM trainers + `scripts/ml/window_recency_sweep.py`; trainer-VM sweep result + manifest-default proposal (Tier-3) pending |
-| **S-MLOPT-S3** | 0.3 | Optuna HPO (purged folds) + early stopping + class weights | 1 | 📋 NOT STARTED |
+| **S-MLOPT-S3** | 0.3 | Optuna HPO (purged folds) + early stopping + class weights | 1 | 🔄 IN PROGRESS — Tier-1 HPO harness landed: `scripts/ml/hpo_sweep.py` (Optuna TPE + MedianPruner over the S1 purged WF-CV folds — no-leakage guardrail; optional `--tune-class-weight` for imbalanced models; emits a best-params **proposal**). Pure CV core unit-tested without Optuna. Trainer-VM HPO run (real OOS-lift demo) + per-model Tier-3 param proposals pending |
 | **S-MLOPT-S4** | 0.4 | Promotion gates that compute PASS/FAIL (enforce = Tier-3) | 1 / 3 | 📋 NOT STARTED |
 | **S-MLOPT-S5** | 1.1 | Triple-barrier labeler → `setup_candidates` dataset family | 1 | 📋 NOT STARTED |
 | **S-MLOPT-S6** | 1.2 | Meta-labeling decision model (the proper setup-quality) | 1 / 3 | 📋 NOT STARTED |

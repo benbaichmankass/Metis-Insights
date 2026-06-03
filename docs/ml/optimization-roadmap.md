@@ -131,7 +131,7 @@ honest promotion. Closes G1, G2, G3, G7.
 - NOTE: average-uniqueness on **fixed-horizon** bar labels is near-uniform (the active lever
   here is recency); uniqueness earns its keep once spans vary (Phase 1 triple-barrier).
 
-### Session 0.3 — HPO + early stopping + class weights *(Tier-1)*
+### Session 0.3 — HPO + early stopping + class weights *(Tier-1)* — 🔄 IN PROGRESS (S-MLOPT-S3)
 - **Deliverable:** an Optuna HPO harness that tunes LightGBM over **purged-CV folds**
   (TPE + pruning), early stopping on a validation fold, and class weights for the
   trade-outcome models (today they have none despite imbalance → `f1=0`). Save best params
@@ -140,6 +140,17 @@ honest promotion. Closes G1, G2, G3, G7.
 - **Success:** measurable OOS lift vs hard-coded defaults on ≥1 model under purged WF-CV;
   no leakage (verified by 0.1 test).
 - **Effort:** M.
+- **Shipped (Tier-1):** `scripts/ml/hpo_sweep.py` — Optuna TPE + MedianPruner over the
+  S-MLOPT-S1 `purged_walk_forward` folds (the manifest's own `split_strategy` is **ignored**
+  and forced to purged WF-CV, so HPO cannot tune to leakage). Searches `lgbm_params` +
+  `n_iter`; `--tune-class-weight <label>` adds the minority-class weight for imbalanced
+  trade-outcome models. Enqueues the manifest's current params as trial 0 → reports
+  **best-vs-baseline** on the same folds; emits a `proposed_trainer_config` patch (a
+  **proposal** — manifest adoption is Tier-3). The CV objective (`cv_evaluate`) is a pure
+  function unit-tested without Optuna (`tests/ml/test_hpo_sweep.py`).
+- **Pending:** trainer-VM HPO run on ≥1 model (real OOS-lift demo; install `optuna` into the
+  venv) → per-model Tier-3 param proposals. Early-stopping *inside the trainer* is folded
+  into the `n_iter` search for now; a trainer-level early-stop knob is a follow-up.
 
 ### Session 0.4 — Promotion gates that actually compute & (optionally) block *(Tier-1 to compute; Tier-3 to enforce)*
 - **Deliverable:** turn `ml/promotion/gates.py` from advisory into a real
