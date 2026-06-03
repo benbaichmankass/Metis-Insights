@@ -147,3 +147,101 @@ def test_run_experiment_empty_dataset_raises_distinct_error(tmp_path: Path):
 def test_empty_dataset_exit_code_pinned_to_78():
     """BSD `EX_CONFIG` convention — pin so the shell branch on rc=78 stays correct."""
     assert EMPTY_DATASET_EXIT_CODE == 78
+
+
+def _write_cv_manifest(tmp_path: Path, model_id: str = "demo-cv-v0") -> Path:
+    """Manifest opting into purged walk-forward CV via evaluator_config."""
+    payload = {
+        "manifest_version": "v1",
+        "model_id": model_id,
+        "model_family": "regression_baseline",
+        "trainer": "ml.trainers.constant_baseline.ConstantPredictionTrainer",
+        "trainer_config": {"target_column": "total_pnl_pct"},
+        "dataset": {
+            "family": "backtest_results",
+            "symbol_scope": "all",
+            "timeframe": "all",
+            "version": "v001",
+        },
+        "evaluator": "ml.evaluators.regression.RegressionEvaluator",
+        "evaluator_config": {
+            "target_column": "total_pnl_pct",
+            "metrics": ["mse", "mae"],
+            "split_strategy": "purged_walk_forward",
+            "time_column": "created_at",
+            "n_folds": 4,
+            "min_train_fraction": 0.5,
+            "label_horizon": 1,
+            "embargo_n": 1,
+        },
+        "target_deployment_stage": "research_only",
+        "notes": "cv test fixture",
+    }
+    path = tmp_path / "cv_manifest.yaml"
+    path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+    return path
+
+
+def test_run_experiment_purged_walk_forward_cv(tmp_path: Path):
+    """Opt-in purged WF-CV: runner iterates folds, writes a cv_folds.json
+    artifact, and registers pooled metrics + n_folds. Default holdout path
+    (other tests) is unaffected."""
+    rows = [
+        {
+            "id": i,
+            "total_pnl_pct": 0.1 + 0.01 * i,
+            "created_at": f"2026-05-{i + 1:02d}T00:00:00Z",
+        }
+        for i in range(20)
+    ]
+    datasets_root = _write_dataset(tmp_path, rows)
+    manifest_path = _write_cv_manifest(tmp_path)
+
+    artifacts, entry = run_experiment(
+        manifest_path=manifest_path,
+        datasets_root=datasets_root,
+        experiments_root=tmp_path / "exp",
+        registry_root=tmp_path / "reg",
+        code_revision="cv123",
+    )
+
+    # CV artifact written, with one entry per fold.
+    assert artifacts.cv_folds_path is not None
+    assert artifacts.cv_folds_path.is_file()
+    cv = json.loads(artifacts.cv_folds_path.read_text())
+    assert cv["split_strategy"] == "purged_walk_forward"
+    assert cv["n_folds"] == len(cv["folds"]) >= 2
+    # Every fold trained on a strictly smaller-than-full block (gap enforced).
+    for fold in cv["folds"]:
+        assert fold["n_train"] > 0
+        assert fold["n_eval"] > 0
+        assert fold["n_train"] + fold["n_eval"] < len(rows)
+
+    # Pooled metrics carry the fold count and a full-data refit marker.
+    metrics = json.loads(artifacts.metrics_path.read_text())
+    assert metrics["n_folds"] == float(cv["n_folds"])
+    assert metrics["n_train_final"] == float(len(rows))
+    assert "mae" in metrics and "mse" in metrics
+
+    # Deployable model_state is the full-data refit; registry holds pooled metrics.
+    assert entry is not None
+    assert entry.metrics["mae"] == metrics["mae"]
+
+
+def test_holdout_path_writes_no_cv_artifact(tmp_path: Path):
+    """The default single-split path must not emit a cv_folds.json."""
+    rows = [
+        {"id": i, "total_pnl_pct": 0.1 + 0.01 * i, "strategy_version": "v"}
+        for i in range(10)
+    ]
+    datasets_root = _write_dataset(tmp_path, rows)
+    manifest_path = _write_manifest(tmp_path, model_id="demo-holdout")
+    artifacts, _ = run_experiment(
+        manifest_path=manifest_path,
+        datasets_root=datasets_root,
+        experiments_root=tmp_path / "exp",
+        registry_root=tmp_path / "reg",
+        code_revision="h",
+    )
+    assert artifacts.cv_folds_path is None
+    assert not (artifacts.experiment_dir / "cv_folds.json").exists()
