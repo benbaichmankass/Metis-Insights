@@ -136,6 +136,28 @@ if [ -f "${_TGBOT_DROPIN_SRC}" ]; then
     fi
 fi
 
+# Why ict-health-snapshot needs the data-dir drop-in:
+#   write_health_snapshot.py resolves artifacts_dir() via src.utils.paths,
+#   which is DATA_DIR-aware. ict-web-api (the READER of latest.json /
+#   health_check_*.json) runs with DATA_DIR=/data/bot-data via its own
+#   drop-in. Without this drop-in the writer would inherit no DATA_DIR
+#   (stripped from .env), fall back to <repo>/artifacts, and write to a
+#   DIFFERENT directory than the API reads — the writer/reader path-split
+#   that froze the dashboard's health card at the 2026-05-11 snapshot
+#   (BL-20260529-005). Same generic data-dir.conf the trader/web-api/
+#   bridge/tgbot units carry, so writer and reader agree.
+_HEALTHSNAP_DROPIN_SRC="${REPO_DIR}/deploy/dropins/data-dir.conf"
+_HEALTHSNAP_DROPIN_DST="${SYSTEMD_DIR}/ict-health-snapshot.service.d/data-dir.conf"
+if [ -f "${_HEALTHSNAP_DROPIN_SRC}" ]; then
+    if [ ! -e "${_HEALTHSNAP_DROPIN_DST}" ] || ! cmp -s "${_HEALTHSNAP_DROPIN_SRC}" "${_HEALTHSNAP_DROPIN_DST}"; then
+        echo ">>> install_systemd_units: dropin data-dir.conf → ${_HEALTHSNAP_DROPIN_DST}"
+        "${SUDO[@]}" mkdir -p "$(dirname "${_HEALTHSNAP_DROPIN_DST}")"
+        "${SUDO[@]}" cp "${_HEALTHSNAP_DROPIN_SRC}" "${_HEALTHSNAP_DROPIN_DST}"
+        "${SUDO[@]}" chmod 0644 "${_HEALTHSNAP_DROPIN_DST}"
+        changed=1
+    fi
+fi
+
 # Why ict-claude-bridge needs the data-dir drop-in:
 #   The bridge is the SOLE drainer of the Claude update channel — it reads
 #   $DATA_DIR/runtime_logs/pending_claude_pings (via runtime_logs_dir()).
