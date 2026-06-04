@@ -62,7 +62,12 @@ evaluator_config:
   split_strategy: time_aware_holdout
   time_column: ts
   holdout_fraction: 0.2
-target_deployment_stage: shadow
+# S-MLOPT-S15 (MB-20260601-002): reconciled shadow -> research_only to match the
+# registry's effective stage (field-beats-comment). This baseline collapses to
+# majority class (f1_volatile=0), so it is NOT a viable phase-4 detector; the
+# trend-detector candidate is btc-regime-1h-trend-lgbm-v1 (trend axis) /
+# btc-regime-1h-lgbm-v2 (vol axis), not this model.
+target_deployment_stage: research_only
 notes: |
   WS5-B-PART-2 PR 2B baseline. 2-class regime classifier
   (range / volatile) with `vol_bucket` as the sole feature.

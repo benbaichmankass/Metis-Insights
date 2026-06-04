@@ -1,0 +1,66 @@
+# Causal Gaussian-HMM regime classifier — BTCUSDT @ 1h (S-MLOPT-S14, M14 Phase 3.2).
+#
+# An ALTERNATIVE regime model to the LightGBM heads: a small Gaussian HMM over
+# range-based volatility features (the S9 estimators), scored with the FILTERED
+# (forward-only) posterior — never Viterbi / forward-backward smoothing, which
+# leaks the future. The HMM's edge over the tree/per-bucket classifiers is
+# temporal persistence (the transition matrix smooths regime flicker) and
+# interpretability (each hidden state is a Gaussian vol regime).
+#
+# This is a clean A/B vs the current 1h shadow champion `btc-regime-1h-lgbm-v2`:
+# same market_features dataset + label + time split. Run the rigorous leak-free
+# comparison under the Phase-0 purged & embargoed WF-CV with:
+#   python scripts/ml/eval_split_compare.py \
+#     --baseline btc-regime-1h-lgbm-v2 --candidate btc-regime-1h-hmm-v1
+# and read the macro_f1 / f1_volatile deltas. Per the "illusion of regimes"
+# dissent, the HMM only earns a promotion if it adds OOS edge under that CV —
+# a negative is an acceptable, documented outcome.
+#
+# TIER: research_only proposal. Promotion past shadow (shadow->advisory) is
+# Tier-3, operator-gated; live per-bar scoring additionally depends on the
+# feature-parity work (MB-20260604-005) since the live regime row would have to
+# carry yang_zhang_vol.
+
+manifest_version: v1
+model_id: btc-regime-1h-hmm-v1
+description: "Causal (filtered) Gaussian-HMM regime classifier for BTCUSDT 1h — range vs volatile from a 2-state-plus vol HMM over yang_zhang_vol + rolling_log_return_vol; forward-only posterior (no smoothing). A/B vs btc-regime-1h-lgbm-v2 (S-MLOPT-S14, Phase 3.2)."
+model_family: classification_hmm
+trainer: ml.trainers.causal_hmm_regime.CausalHMMRegimeTrainer
+trainer_config:
+  target_column: regime_label
+  # The HMM observation vector. Range-based vol (S9) is the most informative
+  # regime feature; pair it with the close-to-close vol so the two volatility
+  # views jointly define the hidden states.
+  feature_columns:
+    - yang_zhang_vol
+    - rolling_log_return_vol
+  n_states: 3
+  n_em_iter: 50
+  seed: 42
+  time_column: ts
+  # Laplace smoothing so an unobserved transition / label-in-state never zeros.
+  transition_smoothing: 1.0
+  label_smoothing: 1.0
+  symbol: BTCUSDT
+  timeframe: 1h
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 1h
+  version: v002
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  S-MLOPT-S14 Phase 3.2. Causal Gaussian-HMM regime family. The model_state
+  carries the diagonal-Gaussian emissions (means/variances), the row-stochastic
+  transition matrix, the start distribution, and the per-state regime-label
+  distribution; the predictor runs the filtered forward recursion (pure-stdlib,
+  light on the live path) and is stateful per chronological pass with an
+  auto-reset on a non-monotonic ts (no cross-fold leak). Leakage gate forbids
+  forward_log_return / forward_log_return_vol / regime_label as features.
+  research_only until the purged-CV A/B vs btc-regime-1h-lgbm-v2 shows OOS edge.

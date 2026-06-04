@@ -484,7 +484,7 @@ model.
   lag/time features live) is the prerequisite for trusting the per-bar evidence enough to
   promote any head `shadow → advisory`. See Session 4.2 below.
 
-### Session 3.2 — Causal HMM / GMM regime family *(Tier-1 experiment)*
+### Session 3.2 — Causal HMM / GMM regime family *(Tier-1 experiment)* — 🔄 IN REVIEW 2026-06-04 (S-MLOPT-S14)
 - **Deliverable:** an alternative regime trainer using a **causal (filtered, not smoothed)**
   Gaussian HMM (`hmmlearn`) and/or GMM/change-point (`ruptures`) on range-based vol features
   (Phase 2.1) — naturally recency-weighted, interpretable, posterior-probability output.
@@ -493,14 +493,68 @@ model.
   "illusion of regimes" dissent: validate OOS under purged WF-CV, compare head-to-head vs
   the LightGBM regime head, and only keep it if it adds OOS edge.
 - **Effort:** M.
+- **Shipped (S-MLOPT-S14, sprint log [`S-MLOPT-S14.md`](../sprint-logs/S-MLOPT-S14.md)):** a
+  **self-contained Gaussian HMM** (no `hmmlearn`/`sklearn` dependency — `hmmlearn` was not a
+  dep and the predictor runs on the live trader if ever promoted, so it stays light).
+  `ml/trainers/causal_hmm_regime.py` (`CausalHMMRegimeTrainer`, NumPy, trainer-VM only):
+  diagonal-Gaussian **GMM EM** over the S9 range-vol features (deterministic quantile init,
+  seeded) → per-state emissions + a **transition matrix** from soft consecutive-bar
+  responsibilities + a **per-state regime-label distribution**. `ml/predictors/causal_hmm_regime.py`
+  (`CausalHMMRegimePredictor`, pure-stdlib): runs the **filtered forward recursion** only
+  (`alpha_t(k) ∝ e_k(x_t)·Σ_i alpha_{t-1}(i)·A[i,k]`) — the state posterior at bar *t* depends on
+  `x_1..x_t` only; **no Viterbi / forward-backward smoothing**. It is stateful across a
+  chronological pass (matching how `time_aware_holdout` / each `purged_walk_forward` fold feeds
+  the evaluator) with an **auto-reset on a non-monotonic `ts`** so there is no cross-fold leak.
+  Research_only A/B manifest `ml/configs/btc-regime-1h-hmm-v1.yaml` vs the `btc-regime-1h-lgbm-v2`
+  champion (same `market_features` dataset/label/split). 11 tests including the **causal-invariance**
+  test (the filtered posterior at *t* is byte-identical whether or not future bars are appended)
+  + an evaluator-integration test (>0.9 acc on cleanly-separated synthetic regimes via the standard
+  `PREDICTOR_CLASS` resolution); ruff clean; manifest loads via `TrainingManifest`. **Tier-1**
+  trainer/predictor/tests; the manifest is a **Tier-3 research_only proposal**. The trainer-VM
+  purged WF-CV A/B vs the LightGBM head (`eval_split_compare.py`, the leak-free comparator) is the
+  follow-up — per the dissent, the HMM is kept only if it adds OOS edge; a negative is an acceptable,
+  documented outcome (as S11 was).
+- **A/B result (#2784, 2026-06-04) — honest NEGATIVE.** Purged WF-CV on BTC 1h (n_eval=21,900,
+  5 folds): the HMM loses to `btc-regime-1h-lgbm-v2` on `macro_f1` (0.5675 vs **0.6537**, −0.086)
+  and `f1_volatile` (0.2688 vs **0.5010**, −0.232). The HMM's accuracy is higher (0.778 vs 0.725)
+  only because it rarely commits to volatile (precision_volatile 0.495 but **recall_volatile 0.189**
+  vs the LightGBM head's 0.636) — the filtered (honest, no-smoothing) posterior lags regime
+  transitions, so it under-detects the very class it exists for. **Not promoted; manifest stays
+  research_only;** the HMM family infra stands as reusable tooling. The discipline did its job — the
+  holdout looked respectable (and smoothing would have flattered it further) but the leak-free CV
+  correctly rejects it. Side benefit: the run reconfirmed the LightGBM head's real leak-free
+  strength (macro_f1 0.654 / f1_volatile 0.501) — the phase-4 detector candidate for S15.
 
-### Session 3.3 — Regime-router phase-4 detector *(ties to MB-20260601-002; Tier-2/3)*
+### Session 3.3 — Regime-router phase-4 detector *(ties to MB-20260601-002; Tier-2/3)* — 🔄 IN REVIEW 2026-06-04 (S-MLOPT-S15)
 - **Deliverable:** when the regime router's phase-4 is taken up, wire the best
   **non-collapsing** regime head (today `btc-regime-1h-lgbm-v2`, f1_vol 0.45 — NOT the
   collapsed `regime-classifier-baseline-v0`, f1_vol 0) as the classifier detector, after it
   has accrued a shadow track record (depends on 3.1). Reconcile the
   `regime-classifier-baseline-v0` manifest(shadow)/registry(research_only) stage drift.
 - **Effort:** S–M (mostly wiring + the stage-drift fix).
+- **Key scoping finding (S-MLOPT-S15):** phase-4 as written was a **category error** — the
+  ADX detector + policy table key on a **trend** axis (`chop`/`transitional`/`trending`), but
+  every registry regime model (incl. `btc-regime-1h-lgbm-v2` and the collapsed baseline)
+  predicts a **volatility** axis (`range`/`volatile`). A vol classifier cannot drop-in replace
+  the trend detector. Operator chose to pursue **both** fixes as separate tracks:
+  - **S15a (shipped, Tier-1 + Tier-3 manifest):** a **trend-regime model**. New
+    `ml/datasets/labeling/trend_regime.py` (Kaufman efficiency ratio of the forward window →
+    chop/transitional/trending) wired into `market_features` as `trend_regime_label`
+    (builder_version v6→v7, default-preserving, future-only label → leak-safe) + research_only
+    manifest `btc-regime-1h-trend-lgbm-v1.yaml` (same features/dataset/split as the v2 vol head).
+    This is the true ADX-detector drop-in candidate. **Stage drift reconciled**
+    (`baseline-regime-classifier.yaml` shadow→research_only). 16 tests + ruff clean.
+    **Trainer-VM purged-CV A/B (#2787) — POSITIVE-but-modest, leak-free:** macro_f1 0.325
+    (vs ~0.185 majority — does NOT collapse, predicts all 3 trend regimes), purged≈holdout
+    (no leakage), f1_chop 0.463 / f1_trending 0.348 / f1_transitional 0.163; balanced label
+    distribution from the default ER thresholds. A viable non-degenerate trend-axis detector
+    (the artifact that didn't exist before); research_only pending class-weight tuning +
+    a head-to-head vs ADX-14's forward-predictiveness.
+  - **S15b (queued, Tier-2/3, observe-only):** wire the existing vol classifier as a **second
+    regime axis** — extend `regime_shadow_gate` to a 2-D (trend×vol) policy that LOGS but does
+    not enforce, so it accrues shadow/backtest PnL evidence before any Tier-3 enforcement.
+- Live phase-4 enforcement (replacing ADX) stays Tier-3 + waits on a shadow track record (S13,
+  now flowing) + train/serve feature parity (`MB-20260604-005`).
 
 ---
 

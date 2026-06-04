@@ -1,0 +1,82 @@
+# Trend-regime classifier — BTCUSDT @ 1h (S-MLOPT-S15, M14 Phase 3.3).
+#
+# The phase-4 "trend-regime model": predicts the FORWARD trend regime
+# (chop / transitional / trending) from past features, so it can drop in for
+# the ADX-14 threshold detector at the regime-router seam
+# (src/runtime/regime/detector.py). This closes the taxonomy half of
+# MB-20260601-002 — the existing regime classifiers predict a VOLATILITY axis
+# (range/volatile), which the trend-keyed policy table cannot consume; this
+# model predicts the TREND axis the policy table actually keys on.
+#
+# Label: `trend_regime_label` (market_features v7) — Kaufman efficiency ratio
+# of the forward window, bucketed chop/transitional/trending. Same past feature
+# set + dataset + split as the btc-regime-1h-lgbm-v2 vol head, so the A/B
+# isolates "can a model forecast the trend regime better than the ADX
+# threshold". Run the leak-free comparison with:
+#   python -m scripts.ml.eval_split_compare \
+#     --manifest ml/configs/btc-regime-1h-trend-lgbm-v1.yaml \
+#     --datasets-root datasets-out --n-folds 5 --label-horizon 5 --embargo-fraction 0.01
+# and read macro_f1 / per-class f1 vs the ADX-14 base rates.
+#
+# TIER: research_only proposal. Wiring it as the live phase-4 detector
+# (replacing ADX) is Tier-3, operator-gated, and waits on (a) a shadow track
+# record and (b) the train/serve feature-parity work (MB-20260604-005), since
+# the live detector would have to compute these features per bar.
+
+manifest_version: v1
+model_id: btc-regime-1h-trend-lgbm-v1
+description: "Trend-regime classifier for BTCUSDT 1h — forecasts the forward TREND regime (chop/transitional/trending) via the Kaufman efficiency ratio label, from the same past features as the v2 vol head. The phase-4 ADX-detector drop-in candidate (S-MLOPT-S15, MB-20260601-002)."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: trend_regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  class_labels:
+    - chop
+    - transitional
+    - trending
+  seed: 42
+  n_iter: 200
+  # Same recency weighting as the 1h vol head (#2678, hl=90d) so the only
+  # moving part vs that head is the LABEL (trend vs vol) — a clean A/B.
+  sample_weight:
+    half_life_days: 90
+    time_column: ts
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 1h
+  version: v002
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: trend_regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  S-MLOPT-S15 Phase 3.3. The trend-axis counterpart to the vol-regime heads.
+  Requires a market_features rebuild on builder_version v7 (adds
+  trend_regime_label). Leakage gate forbids forward_log_return* / regime_label /
+  trend_regime_label as features. research_only until the purged-CV A/B vs the
+  ADX-14 base rates shows the model forecasts the trend regime usefully (not a
+  majority-class collapse); class-weight tuning is a follow-up once the first
+  cycle reveals the chop/transitional/trending distribution.
