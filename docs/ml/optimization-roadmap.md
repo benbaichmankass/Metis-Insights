@@ -449,7 +449,7 @@ the only head with shadow evidence (5m) is the weakest, the strong heads (1h/MES
 track record (G6, MB-20260529-001). This phase fixes the plumbing first, then improves the
 model.
 
-### Session 3.1 — Per-bar regime scoring path *(Tier-2 — live runtime; HIGHEST-LEVERAGE UNBLOCK)*
+### Session 3.1 — Per-bar regime scoring path *(Tier-2 — live runtime; HIGHEST-LEVERAGE UNBLOCK)* — 🔄 IN REVIEW 2026-06-04 (S-MLOPT-S13)
 - **Deliverable:** a per-bar/per-tick regime-scoring hook (`_emit_tick_level_predictions`,
   or equivalent) in the trading loop, independent of actionable-signal emission, so **every
   shadow-stage regime head logs predictions on its own (symbol,timeframe) bar cadence** —
@@ -460,6 +460,29 @@ model.
 - **Care:** write-rate control (don't flood `shadow_predictions.jsonl`); reuse the frozen
   `regime_spec` bucketing so live features match training.
 - **Effort:** M.
+- **Shipped (S-MLOPT-S13, sprint log [`S-MLOPT-S13.md`](../sprint-logs/S-MLOPT-S13.md)):**
+  new `src/runtime/regime_bar_scoring.py::emit_regime_bar_predictions`, called once per tick
+  from `src/runtime/pipeline.py::run_pipeline`. Discovers the `shadow`-stage model set
+  (same auto-wire source as the signal path), keeps the **regime** heads (those with a frozen
+  `regime_spec`), fetches each head's own market candles (`connector_for_symbol` → BTC/Bybit,
+  MES/IBKR), reuses `regime_shadow.feature_row_for_predictor` (live `vol_bucket` against the
+  frozen edges — so per-bar feature rows are **identical** to signal-time ones), and writes one
+  record to the same `runtime_logs/shadow_predictions.jsonl` via `with_shadow_preds` — so
+  `/api/bot/shadow/*`, `/api/bot/trades/scores` and the `gate-check` `shadow_soak` criterion
+  consume it unchanged. **Observe-only** (only `ShadowPredictor.predict`; no order-path reach),
+  **deduped to one record per closed bar** by `(model_id, last_bar_ts)` (write-rate control),
+  **never raises**, kill-switch `REGIME_BAR_SCORING_DISABLED` (default off → on). 19 new tests
+  (`tests/runtime/test_regime_bar_scoring.py`) + 39 reused-helper tests pass; ruff clean.
+  **Tier-2 — DRAFT PR pending operator approval before merge + deploy**, then on-VM
+  verification (confirm via the diag relay that the 1h/15m/MES heads emit non-zero continuous
+  counts). **Key finding → `MB-20260604-005` (this Phase 4.2 / train-serve parity):** the live
+  regime row carries `vol_bucket` + one vol value; the heads also train on the range-vol
+  estimators, log-return lags and time features (absent live → NaN), and the S9 yz heads'
+  frozen `vol_feature_column` (`yang_zhang_vol`) is computed live as close-to-close vol. This
+  is **pre-existing** (shared with the signal-time path + the v2 heads), so S13 reused the same
+  computation deliberately; closing the parity gap (compute the named range-vol estimator +
+  lag/time features live) is the prerequisite for trusting the per-bar evidence enough to
+  promote any head `shadow → advisory`. See Session 4.2 below.
 
 ### Session 3.2 — Causal HMM / GMM regime family *(Tier-1 experiment)*
 - **Deliverable:** an alternative regime trainer using a **causal (filtered, not smoothed)**

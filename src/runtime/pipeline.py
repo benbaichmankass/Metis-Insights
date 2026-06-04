@@ -326,6 +326,19 @@ def run_pipeline(
     """
     logger.info("Pipeline start")
 
+    # S-MLOPT-S13 (Phase 3.1): per-bar regime scoring. Fires once per tick so
+    # every shadow-stage regime head logs predictions on its own
+    # (symbol, timeframe) bar cadence — independent of whether a strategy
+    # emits an actionable signal (closes MB-20260529-001). Observe-only: it
+    # only writes shadow_predictions.jsonl, never the order path; dedup keeps
+    # it to one record per closed bar; it never raises. Kill-switch:
+    # REGIME_BAR_SCORING_DISABLED.
+    try:
+        from src.runtime.regime_bar_scoring import emit_regime_bar_predictions
+        emit_regime_bar_predictions(settings)
+    except Exception:  # noqa: BLE001 — observe-only hook must never break a tick
+        logger.warning("per-bar regime scoring hook failed", exc_info=False)
+
     strategy_name = str(os.environ.get("STRATEGY", "multiplexed")).strip().lower()
 
     if signal_builder is not None:
