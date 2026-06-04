@@ -609,7 +609,23 @@
    "resolved_at": null,
    "resolved_by": null,
    "resolution_note": null
+  },
+  {
+   "id": "BL-20260604-002",
+   "opened_at": "2026-06-04T05:30:00+00:00",
+   "opened_by": "claude (/performance-review)",
+   "source": "Rina performance-review 2026-06-04 — the perf-review skill's documented pulls (/api/bot/trades/closed, /api/bot/order-packages, /api/bot/performance, /api/bot/insights/*) are unreachable from a relay-only session.",
+   "title": "vm-diag-snapshot relay hardcodes /api/diag/ — perf-review's /api/bot/{performance,trades/closed,insights/*} pulls are unreachable from a Trusted-network (relay-only) session",
+   "description": ".github/workflows/vm-diag-snapshot.yml strips a leading /api/diag/ (line ~134) and curls a hardcoded 'http://127.0.0.1:8001/api/diag/<path>' (line ~185), so the relay can ONLY hit /api/diag/* endpoints. The performance-review SKILL.md § 'Fetching trade data' documents pulling /api/bot/trades/closed?since=&limit=500, /api/bot/order-packages?since=, /api/bot/performance?window=, and /api/bot/insights/{summary,recent,strategy,health} — NONE of which the relay can reach. A relay-only (default Trusted-network) review session therefore cannot get the clean windowed aggregates (/api/bot/performance) or the closed-trade list (/api/bot/trades/closed); it must fall back to /api/diag/journal?table=trades (reject-dominated, 55KB-truncated ~46 rows) + /api/diag/journal?table=insights_history (the M13 'recent' card, which DOES surface the last-20 closed trades — the practical workaround this review used). Net: per-strategy realized-PnL aggregation is hampered relay-only. Fix options: (a) extend vm-diag-snapshot.yml to allow an /api/bot/ prefix passthrough for the read-only GET aggregate endpoints (performance, trades/closed, order-packages); or (b) add /api/diag/performance + /api/diag/trades_closed mirrors; or (c) document insights_history as the canonical relay-only closed-trade source in the perf-review skill. Mirrors the BL-20260529-004 insights-relay-reach fix (which added insights_history/insights_usage to _JOURNAL_TABLES).",
+   "tier": 1,
+   "trigger_condition": "Any /performance-review or /health-review run from a relay-only session that needs /api/bot/ aggregate data; or next time someone extends the diag relay.",
+   "resolution_criteria": "Either the vm-diag relay can return /api/bot/performance + /api/bot/trades/closed (passthrough or /api/diag mirror), verified by a relay pull; OR the perf-review SKILL.md is updated to use the relay-reachable substitutes (journal?table=trades + insights_history) as the canonical relay-only path so a future session doesn't assume the /api/bot/ pulls work.",
+   "status": "open",
+   "snoozed_until": null,
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null
   }
  ],
- "updated_at": "2026-06-04T05:20:00+00:00"
+ "updated_at": "2026-06-04T05:30:00+00:00"
 }
