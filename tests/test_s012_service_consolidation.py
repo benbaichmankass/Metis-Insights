@@ -53,6 +53,13 @@ EXPECTED_SERVICES = {
     # BL-20260527-003). Timer-fired oneshot; pairs with
     # ict-ib-gateway-watchdog.timer.
     "ict-ib-gateway-watchdog.service",
+    # 2026-06-04: health-snapshot writer (BL-20260529-005). Timer-fired
+    # oneshot (ict-health-snapshot.timer, every 15 min) that writes
+    # artifacts/health/{latest,health_check_*}.json — revives the JSON
+    # producer the 2026-05-12 health-snapshot.yml refactor deleted, so
+    # /api/bot/health/* + the M13 health card stop serving a frozen
+    # 2026-05-11 snapshot.
+    "ict-health-snapshot.service",
 }
 
 # Trader-side units (i.e. units that run trading-strategy code). Used to
