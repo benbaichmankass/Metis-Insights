@@ -277,7 +277,7 @@ def test_pipeline_result_sections_omits_not_generated_on_no_signal_tick():
     feed when no signal had even been considered. The body's text
     references the legacy single-client validation path, which
     only makes sense when the strategy actually fired."""
-    from src.runtime.pipeline import _pipeline_result_sections
+    from src.runtime.pipeline_result import _pipeline_result_sections
 
     no_signal = {
         "symbol": "BTCUSDT",
@@ -302,7 +302,7 @@ def test_pipeline_result_sections_keeps_not_generated_when_actionable_but_missin
     didn't carry entry/sl/tp at the top level, the 'not generated'
     section is the operator's diagnostic for the legacy single-client
     fallback — it must keep firing in that case."""
-    from src.runtime.pipeline import _pipeline_result_sections
+    from src.runtime.pipeline_result import _pipeline_result_sections
 
     actionable_no_sltp = {
         "symbol": "BTCUSDT",

@@ -26,7 +26,7 @@ for _mod in (
 ):
     sys.modules.setdefault(_mod, MagicMock())
 
-from src.runtime.pipeline import _pipeline_result_sections  # noqa: E402
+from src.runtime.pipeline_result import _pipeline_result_sections  # noqa: E402
 
 
 def _sections(multi_results, status="dispatched"):
