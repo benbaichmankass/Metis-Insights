@@ -581,12 +581,21 @@ model.
   windows from Phase 0.2. Another angle on G3.
 - **Effort:** M.
 
-### Session 4.2 — Experiment tracking + train/serve parity *(Tier-1)*
+### Session 4.2 — Experiment tracking + train/serve parity *(Tier-1/2)* — 🔄 train/serve parity SHIPPED 2026-06-04 (S-MLOPT-S17)
 - **Deliverable:** lightweight run tracking (MLflow/W&B or a disciplined runs table in
   `trainer_store.db`) and a feature-versioning check that guarantees the live shadow path
   computes features identically to the trainer (catch the classic "feature computed
   differently in backtest vs live" bug). We already approximate a registry/feature store
   via the federated `trade_journal.db`/`trainer_store.db`.
+- **Train/serve parity (S-MLOPT-S17, shipped — closes `MB-20260604-005`):** the live regime
+  scoring row (`src/runtime/regime_shadow.py::feature_row_for_predictor`, used by both the
+  signal-time and per-bar shadow paths) now reproduces the full `market_features` row the
+  heads train on — the four range-vol estimators (reusing `ml/datasets/volatility_estimators.py`)
+  + log-return + its two lags + hour/day-of-week — and buckets `vol_bucket` against the
+  estimator named by each head's frozen `vol_feature_column` (the yz-head fix). Verified by a
+  parity test that uses `MarketFeaturesBuilder` itself as the oracle (live row == builder row
+  bit-for-bit). This was the gate on promoting ANY regime head past `shadow`; now unblocked on
+  the post-deploy track record. **Still TODO this session:** the experiment/run-tracking half.
 - **Effort:** M.
 
 ### Session 4.3 — Full champion-challenger automation *(Tier-1 compute; Tier-3 enforce)*
