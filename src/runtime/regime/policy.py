@@ -16,7 +16,7 @@ API
     missing or malformed — phase 2 is observability-only and must NEVER
     break a tick. Logs a warning.
 
-``would_gate(*, strategy, side, regime, policy) -> dict``
+``would_gate(*, strategy, side, regime, policy, vol_regime=None) -> dict``
     Evaluate one cell. Returns
     ``{gated: bool, reason: str, cell: "on"|"off"|"weight"|"default-on", regime, strategy, side}``.
     ``gated=True`` iff the cell is explicitly ``off`` for that direction.
@@ -24,6 +24,16 @@ API
     return ``gated=False`` with ``cell="default-on"`` — the permissive
     default that mirrors the YAML-default philosophy of the two execution
     gates.
+
+    **2-D vol axis (S-MLOPT-S15b).** When ``vol_regime`` is provided, the
+    verdict additionally carries ``{vol_regime, vol_gated, vol_cell,
+    vol_reason}`` from the optional ``trend_vol`` block of the policy
+    (``policy["trend_vol"][regime][vol_regime][strategy][side]``). This is
+    **observe-only** — the vol cell never changes the 1-D ``gated`` decision;
+    it accrues would-gate evidence for a later Tier-3 2-D enforcement decision.
+    When ``vol_regime`` is ``None`` the return is **byte-identical** to the
+    pre-S15b 1-D shape (no ``vol_*`` keys), so every existing caller is
+    unchanged.
 """
 from __future__ import annotations
 
@@ -40,6 +50,13 @@ _REGIME_POLICY_PATH = os.environ.get(
 )
 _VALID_REGIMES = {"chop", "transitional", "trending"}
 _VALID_SIDES = {"long", "short"}
+# Vol axis (S-MLOPT-S15b). 2-class to match the existing classifier; see
+# ``src.runtime.regime.vol_detector``.
+_VALID_VOL_REGIMES = {"calm", "volatile"}
+# Optional top-level block holding the 2-D trend × vol cells. Absent → the vol
+# axis is fully permissive (vol_cell="default-on") and the 1-D behaviour is
+# unchanged. Shape: ``{regime: {vol_regime: {strategy: {side: on|off}}}}``.
+_TREND_VOL_KEY = "trend_vol"
 
 
 def load_policy(path: Optional[str] = None) -> Dict[str, Any]:
@@ -71,14 +88,14 @@ def load_policy(path: Optional[str] = None) -> Dict[str, Any]:
     return raw
 
 
-def would_gate(
+def _evaluate_trend_cell(
     *,
     strategy: str,
     side: str,
     regime: Optional[str],
     policy: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Phase-2 cell evaluator. Returns the per-intent shadow-gate verdict.
+    """The 1-D trend-axis verdict (unchanged pre-S15b logic).
 
     Output is the audit-row payload (minus the ``event``/``ts`` envelope —
     those are added by the audit logger). Stable shape:
@@ -176,3 +193,109 @@ def would_gate(
         "strategy": strategy,
         "side": side,
     }
+
+
+def _evaluate_vol_cell(
+    *,
+    strategy: str,
+    side: str,
+    regime: Optional[str],
+    vol_regime: Optional[str],
+    policy: Dict[str, Any],
+) -> Dict[str, Any]:
+    """The 2-D ``trend × vol`` verdict (S-MLOPT-S15b, observe-only).
+
+    Returns ``{vol_regime, vol_gated, vol_cell, vol_reason}``. The cell is
+    looked up at ``policy["trend_vol"][regime][vol_regime][strategy][side]``;
+    every missing level is the permissive default (``vol_cell="default-on"``),
+    mirroring the 1-D evaluator. Same ``on``/``off``/numeric-weight tolerance.
+    Never gates on a non-directional side or an unknown trend/vol regime.
+    """
+    base = {
+        "vol_regime": vol_regime,
+        "vol_gated": False,
+        "vol_cell": "default-on",
+        "vol_reason": "vol_permissive_default",
+    }
+    if side not in _VALID_SIDES:
+        base["vol_reason"] = f"non_directional_side_{side}"
+        return base
+    if regime not in _VALID_REGIMES:
+        base["vol_cell"] = "trend-unknown"
+        base["vol_reason"] = f"trend_regime_unknown_{regime}"
+        return base
+    if vol_regime not in _VALID_VOL_REGIMES:
+        base["vol_cell"] = "vol-unknown"
+        base["vol_reason"] = f"vol_regime_unknown_{vol_regime}"
+        return base
+    trend_vol = policy.get(_TREND_VOL_KEY)
+    if not isinstance(trend_vol, dict):
+        return base  # no 2-D table → permissive
+    regime_block = trend_vol.get(regime)
+    if not isinstance(regime_block, dict):
+        return base
+    vol_block = regime_block.get(vol_regime)
+    if not isinstance(vol_block, dict):
+        return base
+    cell = vol_block.get(strategy)
+    if not isinstance(cell, dict):
+        return base
+    value = cell.get(side)
+    if value is False or value == "off":
+        return {
+            "vol_regime": vol_regime,
+            "vol_gated": True,
+            "vol_cell": "off",
+            "vol_reason": f"vol_gated_{regime}_{vol_regime}",
+        }
+    if value is True or value == "on":
+        return {
+            "vol_regime": vol_regime,
+            "vol_gated": False,
+            "vol_cell": "on",
+            "vol_reason": "vol_allow_explicit",
+        }
+    if isinstance(value, (int, float)):
+        return {
+            "vol_regime": vol_regime,
+            "vol_gated": False,
+            "vol_cell": "weight",
+            "vol_reason": "vol_weight_pending_phase4",
+        }
+    if value is None:
+        return base
+    return {
+        "vol_regime": vol_regime,
+        "vol_gated": False,
+        "vol_cell": "unknown-value",
+        "vol_reason": f"vol_unrecognised_cell_value_{type(value).__name__}",
+    }
+
+
+def would_gate(
+    *,
+    strategy: str,
+    side: str,
+    regime: Optional[str],
+    policy: Dict[str, Any],
+    vol_regime: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Per-intent shadow-gate verdict (trend axis, + optional vol axis).
+
+    Default-preserving: with ``vol_regime=None`` the return is the exact 1-D
+    trend verdict (no ``vol_*`` keys) — byte-identical to the pre-S15b shape,
+    so every existing caller is unchanged. With ``vol_regime`` supplied the
+    verdict is augmented with the **observe-only** 2-D ``trend × vol`` keys
+    ``{vol_regime, vol_gated, vol_cell, vol_reason}`` (see ``_evaluate_vol_cell``);
+    the 1-D ``gated`` decision is never altered by the vol axis.
+    """
+    trend = _evaluate_trend_cell(
+        strategy=strategy, side=side, regime=regime, policy=policy,
+    )
+    if vol_regime is None:
+        return trend
+    vol = _evaluate_vol_cell(
+        strategy=strategy, side=side, regime=regime,
+        vol_regime=vol_regime, policy=policy,
+    )
+    return {**trend, **vol}

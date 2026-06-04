@@ -36,7 +36,8 @@ def _capture_audit_rows() -> List[Dict[str, Any]]:
 
 
 def _make_intent(strategy: str, side: str, regime: str | None,
-                 adx_14: float | None = None) -> StrategyIntent:
+                 adx_14: float | None = None,
+                 vol_regime: str | None = None) -> StrategyIntent:
     return StrategyIntent(
         strategy=strategy,
         symbol="BTCUSDT",
@@ -44,6 +45,7 @@ def _make_intent(strategy: str, side: str, regime: str | None,
         target_qty=0.0,
         regime=regime,
         adx_14=adx_14,
+        vol_regime=vol_regime,
         entry=70000.0,
         sl=69000.0,
         tp=72000.0,
@@ -168,6 +170,89 @@ def test_phase_2_does_not_change_aggregator_decision():
     # AND a shadow row was emitted alongside.
     shadow = [r for r in captured if r.get("event") == "regime_shadow_gate"]
     assert len(shadow) == 1
+
+
+# === S-MLOPT-S15b — vol axis on the shadow gate ============================
+
+def test_strategy_intent_accepts_vol_regime_field():
+    intent = _make_intent("vwap", "long", "chop", adx_14=15.0, vol_regime="volatile")
+    assert intent.vol_regime == "volatile"
+
+
+def test_strategy_intent_defaults_vol_regime_to_none():
+    intent = StrategyIntent(
+        strategy="vwap", symbol="BTCUSDT", side="long", target_qty=0.0,
+    )
+    assert intent.vol_regime is None
+
+
+def test_intent_from_signal_pulls_vol_regime_from_meta():
+    signal = {
+        "symbol": "BTCUSDT", "side": "buy", "entry_price": 70000.0,
+        "meta": {"strategy_name": "vwap", "regime": "chop", "vol_regime": "calm"},
+    }
+    intent = intent_from_signal(signal)
+    assert intent is not None
+    assert intent.vol_regime == "calm"
+
+
+def test_trend_gated_row_carries_vol_axis_fields():
+    """A 1-D trend-gated intent (vwap long in chop) now also logs the vol
+    axis on the same row — observe-only, enforced:false."""
+    captured, spy = _capture_audit_rows()
+    intent = _make_intent("vwap", "long", "chop", adx_14=15.0, vol_regime="volatile")
+    with patch("src.utils.signal_audit_logger.log_signal", side_effect=spy):
+        _ = aggregate_intents([intent])
+    rows = [r for r in captured if r.get("event") == "regime_shadow_gate"]
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["gated"] is True            # trend axis
+    assert row["vol_regime"] == "volatile"
+    assert row["vol_gated"] is False       # empty trend_vol → permissive
+    assert row["vol_cell"] == "default-on"
+    assert row["enforced"] is False
+
+
+def test_vol_off_cell_fires_row_even_when_trend_is_on(monkeypatch):
+    """A 2-D off cell must emit a regime_shadow_gate row even when the 1-D
+    trend cell is permissive (gated=False) — the vol axis is independent."""
+    import src.runtime.intents as intents_mod
+    monkeypatch.setattr(
+        intents_mod, "_REGIME_POLICY_CACHE",
+        {"trend_vol": {"trending": {"volatile": {"trend_donchian": {"long": "off"}}}}},
+    )
+    captured, spy = _capture_audit_rows()
+    # trend_donchian long in trending is ON in the real matrix; here the
+    # in-memory policy has no 1-D cell so trend is permissive, but the 2-D
+    # cell is off → the row fires on the vol axis alone.
+    intent = _make_intent("trend_donchian", "long", "trending", adx_14=30.0,
+                          vol_regime="volatile")
+    with patch("src.utils.signal_audit_logger.log_signal", side_effect=spy):
+        result = aggregate_intents([intent])
+    rows = [r for r in captured if r.get("event") == "regime_shadow_gate"]
+    assert len(rows) == 1
+    assert rows[0]["gated"] is False       # 1-D permissive
+    assert rows[0]["vol_gated"] is True     # 2-D off
+    assert rows[0]["vol_cell"] == "off"
+    # Phase-2 invariant: the aggregator decision is unchanged.
+    assert result.side == "long"
+    assert result.winning_intent is intent
+
+
+def test_no_row_when_both_axes_permissive(monkeypatch):
+    import src.runtime.intents as intents_mod
+    monkeypatch.setattr(
+        intents_mod, "_REGIME_POLICY_CACHE",
+        {"trend_vol": {"trending": {"volatile": {"trend_donchian": {"long": "off"}}}}},
+    )
+    captured, spy = _capture_audit_rows()
+    # calm (not volatile) → 2-D cell absent → permissive; trend also permissive.
+    intent = _make_intent("trend_donchian", "long", "trending", adx_14=30.0,
+                          vol_regime="calm")
+    with patch("src.utils.signal_audit_logger.log_signal", side_effect=spy):
+        _ = aggregate_intents([intent])
+    rows = [r for r in captured if r.get("event") == "regime_shadow_gate"]
+    assert not rows
 
 
 def test_aggregator_survives_empty_policy(tmp_path, monkeypatch):
