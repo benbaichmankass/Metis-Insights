@@ -2,7 +2,8 @@
 
 ## Date Range
 - Start: 2026-06-04
-- End: 2026-06-04 (Tier-1 core; Tier-2 capture path gated on operator decisions)
+- End: 2026-06-04 (Tier-1 core + the operator-approved Tier-2 capture path BUILT;
+  deploy to the trainer on PR merge; data accrues forward)
 
 ## Objective
 M14 Phase 2.2 — microstructure flow is the highest-proven-ROI feature family
@@ -70,6 +71,30 @@ next sprint (2026-06-04).
   live-VM), transport (free Bybit REST polling vs paid ccxt.pro WS), scope
   (BTCUSDT-only to start vs MES/IBKR depth which needs a paid subscription).
 
+## Tier-2 build (operator-approved option 1, 2026-06-04)
+The operator chose **option 1**: build the capture path with the recommended
+config (trainer-VM side-car / free Bybit REST polling / BTCUSDT-only) + an
+ml-review monitor-when-enough-data note. Built:
+- **`scripts/ml/orderflow_capture.py`** — long-running capture side-car. Polls
+  Bybit public order-book + trades (~2 s), aggregates per-5m-bar OFI / taker
+  buy-sell volume / spread / micro-price lean → one `market_microstructure` row
+  per bar (append-only JSONL). off-VM-guarded (`ICT_OFFVM_BUILD_HOST=1`);
+  per-poll exceptions caught so a transient blip never kills the loop.
+- **`deploy/trainer/ict-orderflow-capture.service`** — trainer-only systemd unit
+  (`Restart=always`). Deliberately under `deploy/trainer/` so the live-VM
+  installer (`scripts/install_systemd_units.sh`, which globs `deploy/*.service`)
+  never picks it up — installed manually on the trainer via the relay.
+- **`market_features` `microstructure_path` join** — 6 past-only, as-of-aligned
+  columns (`ofi`/`ofi_zscore`/`vpin`/`order_imbalance`/`rel_spread_mean`/
+  `microprice_dev`), `builder_version v4 → v5`, default-preserving (omit → 0.0).
+- **`ml/configs/btc-regime-5m-lgbm-flow-v1.yaml`** (research_only) — the A/B vs
+  the 5m champion, evaluable only on the captured window once data accrues.
+- **`MB-20260604-002`** carries the monitor-and-review note (review the A/B once
+  ≥ ~4000 captured 5m bars accrue ≈ 2 weeks).
+
+**Deploy:** the side-car deploys to the trainer on PR merge (the trainer tracks
+`main`); data then accrues forward.
+
 ## Validation Performed
 - Local (sandbox, stdlib only): smoke-ran every estimator — micro-price between
   bid/ask + skews to the larger opposite size; OFI +5 on a rising ask, −5 on a
@@ -100,11 +125,13 @@ next sprint (2026-06-04).
   service is proposed, not built.
 
 ## Deferred Items
-- The entire Tier-2 build (capture service, `market_microstructure` storage,
-  mirror-sync, the `market_features` join columns, the A/B manifest) — gated on
-  the three operator decisions.
+- The OFI/VPIN **A/B itself** — blocked on forward data accrual (`MB-20260604-002`,
+  review once ≥ ~4000 captured 5m bars exist).
 - MES/IBKR depth capture (needs a paid subscription + shares the live IB
   session) — explicit phase-2 follow-up.
+- Wiring the captured `market_microstructure` into the trainer-mirror sync (if a
+  consumer outside the trainer ever needs it) — not required for the trainer-side
+  A/B.
 
 ## Next Recommended Sprint
 - If the operator green-lights the capture path: build the Tier-2
