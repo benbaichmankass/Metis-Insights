@@ -92,16 +92,27 @@ def _decode_notes_closed_at(notes: Any) -> Optional[str]:
 def _row_to_wire(row: sqlite3.Row) -> Dict[str, Any]:
     notes_closed_at = _decode_notes_closed_at(row["notes"])
     closed_at = row["op_updated_at"] or notes_closed_at
+    raw_pnl = row["pnl"]
     return {
         "id": str(row["id"]),
         "account": row["account_id"],
+        # 2026-06-04 reporting-cleanup: ``isDemo`` flag so consumers can
+        # split live vs demo into separate sections. Source of truth is
+        # ``trades.is_demo`` (mirrored from ``config/accounts.yaml``).
+        "isDemo": bool(row["is_demo"]),
         "symbol": row["symbol"],
         "side": _normalise_side(row["direction"]),
         "pattern": row["strategy_name"] if row["strategy_name"] else None,
         "qty": float(row["position_size"]) if row["position_size"] is not None else 0.0,
         "entryPrice": float(row["entry_price"]) if row["entry_price"] is not None else 0.0,
         "exitPrice": float(row["exit_price"]) if row["exit_price"] is not None else None,
-        "realizedPnl": round(float(row["pnl"] or 0.0), 4),
+        # 2026-06-04 reporting-cleanup: stop coercing NULL pnl to 0.0 —
+        # the reconciler fallback path closes trades with pnl=NULL when
+        # the broker close-pnl lookup fails (exit_reason ='reconciler_incomplete'
+        # marks them). Coercing to 0 used to render them as "$0.00 closed
+        # trade", indistinguishable from a real flat. Now they render as
+        # ``realizedPnl: null`` and the consumer shows an em-dash.
+        "realizedPnl": round(float(raw_pnl), 4) if raw_pnl is not None else None,
         "realizedPnlPct": (
             round(float(row["pnl_percent"]), 6)
             if row["pnl_percent"] is not None else None
@@ -115,6 +126,7 @@ def _row_to_wire(row: sqlite3.Row) -> Dict[str, Any]:
 def _query_closed_trades(
     db_path: Path, limit: int, since: Optional[str],
     account_id: Optional[str] = None,
+    include_demo: bool = False,
 ) -> List[Dict[str, Any]]:
     """Return up to *limit* closed trades, newest-first by closedAt
     (``op.updated_at``), filtered by *since* (ISO-8601 UTC) when provided.
@@ -123,6 +135,12 @@ def _query_closed_trades(
     ``op_updated_at = NULL``; those still appear in the result and use
     ``timestamp`` for ordering + ``notes.closed_at`` (when present) for
     the wire-shape ``closedAt``.
+
+    ``include_demo``: when True, demo-account rows are included alongside
+    live rows (each tagged via the ``isDemo`` field). When False (default),
+    demo rows are excluded — preserves the pre-2026-06-04 behavior. The
+    ``account_id`` filter, when set, always wins (returns only that
+    account's rows regardless of this flag).
     """
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
@@ -131,7 +149,7 @@ def _query_closed_trades(
         # the same expression filters *since*. Backtest rows are excluded
         # so the dashboard never shows synthetic trades.
         sql = """
-            SELECT t.id, t.account_id, t.symbol, t.direction, t.strategy_name,
+            SELECT t.id, t.account_id, t.is_demo, t.symbol, t.direction, t.strategy_name,
                    t.position_size, t.entry_price, t.exit_price,
                    t.pnl, t.pnl_percent,
                    t.timestamp, t.exit_reason, t.notes,
@@ -145,7 +163,7 @@ def _query_closed_trades(
         if account_id:
             sql += " AND t.account_id = ?"
             params.append(account_id)
-        else:
+        elif not include_demo:
             # Exclude demo account trades from the live journal view.
             sql += " AND COALESCE(t.is_demo, 0) = 0"
         if since:
@@ -169,11 +187,17 @@ async def get_closed_trades(
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     since: Optional[str] = Query(None, max_length=64),
     account_id: Optional[str] = Query(None, max_length=64),
+    include_demo: bool = Query(False),
 ) -> List[Dict[str, Any]]:
-    """Return up to ``limit`` closed (live, non-backtest) trades.
+    """Return up to ``limit`` closed (non-backtest) trades.
 
-    Pass ``account_id=bybit_1`` to get demo-account trades for the Demo tab.
-    Without ``account_id``, demo trades are excluded from the response.
+    Each row carries an ``isDemo`` flag so consumers can split live vs
+    demo in their UI.
+
+    Filters:
+      - ``account_id`` — return only that account's rows. Takes precedence.
+      - ``include_demo=true`` — include demo-account rows alongside live
+        (default false, preserves pre-2026-06-04 behavior).
 
     Best-effort: returns ``[]`` on missing DB, locked DB, or an
     unexpected sqlite error. The dashboard treats an empty list the
@@ -182,7 +206,9 @@ async def get_closed_trades(
     if not _DB_PATH.exists():
         return []
     try:
-        return _query_closed_trades(_DB_PATH, limit, since, account_id=account_id)
+        return _query_closed_trades(
+            _DB_PATH, limit, since, account_id=account_id, include_demo=include_demo,
+        )
     except sqlite3.Error:
         logger.exception("trades_closed: sqlite read failed")
         return []

@@ -99,8 +99,18 @@ def _empty(window: str, since: Optional[str]) -> Dict[str, Any]:
     }
 
 
-def _query(db_path: Path, since: Optional[str]) -> List[sqlite3.Row]:
-    """Closed (live, non-backtest, non-demo) trades within *since*, oldest→newest.
+def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqlite3.Row]:
+    """Closed (non-backtest) trades within *since*, oldest→newest.
+
+    ``demo=False`` (default) → live-money rows only.
+    ``demo=True``            → demo-account rows only.
+
+    Rows with ``pnl IS NULL`` are excluded — the reconciler fallback path
+    in ``order_monitor.py`` closes trades with a NULL pnl when the broker
+    close-pnl lookup fails (``exit_reason='reconciler_incomplete'``).
+    Including them in the aggregates either as zeros or as wins/losses
+    distorts win-rate / expectancy / equity curve in misleading ways
+    (the "0-pnl closed trade" complaint, 2026-06-04).
 
     Oldest-first ordering lets the caller build the cumulative equity curve in a
     single pass without re-sorting.
@@ -110,14 +120,15 @@ def _query(db_path: Path, since: Optional[str]) -> List[sqlite3.Row]:
     try:
         sql = """
             SELECT t.strategy_name,
-                   COALESCE(t.pnl, 0.0) AS pnl,
+                   t.pnl AS pnl,
                    COALESCE(op.updated_at, t.timestamp) AS closed_at
             FROM trades t
             LEFT JOIN order_packages op ON op.linked_trade_id = t.id
             WHERE t.status = 'closed'
               AND COALESCE(t.is_backtest, 0) = 0
-              AND COALESCE(t.is_demo, 0) = 0
+              AND t.pnl IS NOT NULL
         """
+        sql += " AND COALESCE(t.is_demo, 0) = 1" if demo else " AND COALESCE(t.is_demo, 0) = 0"
         params: List[Any] = []
         if since:
             sql += " AND datetime(COALESCE(op.updated_at, t.timestamp)) >= datetime(?)"
@@ -192,26 +203,51 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     }
 
 
+def _strip_envelope(agg: Dict[str, Any]) -> Dict[str, Any]:
+    """Drop the ``window`` / ``since`` envelope keys from an aggregate so
+    the demo sub-block doesn't carry duplicate metadata."""
+    return {k: v for k, v in agg.items() if k not in ("window", "since")}
+
+
 @router.get("/performance")
 async def get_performance(
     window: str = Query("all", max_length=8),
 ) -> Dict[str, Any]:
-    """Aggregate live-trade performance for the requested *window*.
+    """Aggregate trade performance for the requested *window*.
 
-    See module docstring for the wire shape. Returns a zeroed envelope (HTTP
-    200) on an unknown window token or a DB read error so the consumer's tab
-    stays usable instead of erroring.
+    The top-level fields (``totalTrades`` / ``wins`` / ``perStrategy`` / etc.)
+    are **live-money** aggregates — this preserves the existing consumer
+    contract. The 2026-06-04 reporting-cleanup additively returns a
+    ``demo`` sub-block carrying the same shape computed over demo-account
+    rows so a consumer can render Live and Demo as separate sections
+    without a second request.
+
+    Trades with ``pnl IS NULL`` are excluded from both — see ``_query`` for
+    why ("0-pnl closed trade" complaint, reconciler fallback path).
+
+    Returns a zeroed envelope (HTTP 200) on an unknown window token or a
+    DB read error so the consumer's tab stays usable instead of erroring.
     """
     window = window if window in _WINDOWS else "all"
     since = _window_since(window)
     if not _DB_PATH.exists():
-        return _empty(window, since)
+        env = _empty(window, since)
+        env["demo"] = _strip_envelope(_empty(window, since))
+        return env
     try:
-        rows = _query(_DB_PATH, since)
-        return _aggregate(rows, window, since)
+        live_rows = _query(_DB_PATH, since, demo=False)
+        live = _aggregate(live_rows, window, since)
+        demo_rows = _query(_DB_PATH, since, demo=True)
+        demo = _strip_envelope(_aggregate(demo_rows, window, since))
+        live["demo"] = demo
+        return live
     except sqlite3.Error:  # allow-silent: logged (logger.exception) + best-effort zeroed envelope so the Performance tab stays usable on a DB read failure
         logger.exception("performance: sqlite read failed")
-        return _empty(window, since)
+        env = _empty(window, since)
+        env["demo"] = _strip_envelope(_empty(window, since))
+        return env
     except Exception:  # noqa: BLE001  # allow-silent: logged (logger.exception) + best-effort zeroed envelope; never raise a 5xx for this Tier-1 read
         logger.exception("performance: unexpected error")
-        return _empty(window, since)
+        env = _empty(window, since)
+        env["demo"] = _strip_envelope(_empty(window, since))
+        return env

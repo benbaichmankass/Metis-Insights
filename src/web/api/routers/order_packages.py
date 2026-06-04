@@ -101,21 +101,28 @@ def _f(v: Any) -> Optional[float]:
 
 def _query_order_packages(
     db_path: Path, limit: int, since: Optional[str], strategy: Optional[str],
+    include_demo: bool = False,
 ) -> List[sqlite3.Row]:
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     try:
+        # 2026-06-04 reporting-cleanup: select trades.is_demo so the wire
+        # row carries the flag; demo rows are excluded by default so the
+        # current consumer behavior is preserved. Pass include_demo=true
+        # to get both segments (each row tagged via ``isDemo``).
         sql = """
             SELECT op.order_package_id, op.strategy_name, op.symbol, op.direction,
                    op.entry, op.sl, op.tp, op.confidence,
                    op.created_at, op.updated_at, op.status, op.close_reason,
                    op.linked_trade_id,
-                   t.pnl AS trade_pnl, t.status AS trade_status
+                   t.pnl AS trade_pnl, t.status AS trade_status,
+                   COALESCE(t.is_demo, 0) AS trade_is_demo
             FROM order_packages op
             LEFT JOIN trades t ON op.linked_trade_id = t.id
             WHERE COALESCE(t.is_backtest, 0) = 0
-              AND COALESCE(t.is_demo, 0) = 0
         """
+        if not include_demo:
+            sql += " AND COALESCE(t.is_demo, 0) = 0"
         params: List[Any] = []
         if strategy:
             sql += " AND op.strategy_name = ?"
@@ -135,9 +142,15 @@ async def get_order_packages(
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     since: Optional[str] = Query(None, max_length=64),
     strategy: Optional[str] = Query(None, max_length=64),
+    include_demo: bool = Query(False),
 ) -> Dict[str, Any]:
     """Return up to ``limit`` order packages (newest-first by created_at),
-    each enriched with its linked-trade PnL and the Claude decision score.
+    each enriched with its linked-trade PnL, the Claude decision score,
+    and the ``isDemo`` flag.
+
+    ``include_demo=true`` includes demo-account packages alongside live
+    (each row tagged via ``isDemo``). Default false preserves the prior
+    behavior (live only).
 
     Best-effort: returns an empty ``rows`` list on missing DB or sqlite
     error so the dashboard tab stays usable.
@@ -145,7 +158,9 @@ async def get_order_packages(
     if not _DB_PATH.exists():
         return {"rows": [], "count": 0, "claude_log_present": _CLAUDE_SCORES.is_file()}
     try:
-        rows = _query_order_packages(_DB_PATH, limit, since, strategy)
+        rows = _query_order_packages(
+            _DB_PATH, limit, since, strategy, include_demo=include_demo,
+        )
     except sqlite3.Error:  # allow-silent: best-effort read; logs + returns empty so the tab stays usable
         logger.exception("order_packages: sqlite read failed")
         return {"rows": [], "count": 0, "claude_log_present": _CLAUDE_SCORES.is_file()}
@@ -171,6 +186,7 @@ async def get_order_packages(
             "linkedTradeId": str(linked) if linked is not None else None,
             "pnl": _f(r["trade_pnl"]),
             "tradeStatus": r["trade_status"],
+            "isDemo": bool(r["trade_is_demo"]),
             "claudeScore": _claude_score_wire(claude.get(opid)),
         })
     return {

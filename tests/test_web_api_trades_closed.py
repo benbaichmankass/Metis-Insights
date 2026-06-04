@@ -74,6 +74,7 @@ def test_returns_closed_trade_with_full_shape(db, client):
     assert row == {
         "id": str(trade_id),
         "account": "bybit_2",
+        "isDemo": False,  # 2026-06-04 reporting-cleanup
         "symbol": "BTCUSDT",
         "side": "buy",  # long → buy
         "pattern": "turtle_soup",
@@ -281,7 +282,10 @@ def test_nullable_pnl_and_pattern(db, client):
     )
     row = client.get("/api/bot/trades/closed").json()[0]
     assert row["pattern"] is None
-    assert row["realizedPnl"] == 0.0  # NULL pnl → 0
+    # 2026-06-04 reporting-cleanup: NULL pnl now renders as null
+    # (was 0.0 — that coercion misled the operator into reading every
+    # "PnL-unknown" reconciler-incomplete row as a flat $0 trade).
+    assert row["realizedPnl"] is None
     assert row["realizedPnlPct"] is None  # NULL pct stays null
     assert row["closeReason"] is None
 
@@ -353,6 +357,42 @@ def test_since_filter(db, client):
 # ---------------------------------------------------------------------------
 # Tier-1 contract — no session required
 # ---------------------------------------------------------------------------
+
+
+def test_isdemo_flag_and_include_demo_split(db, client):
+    """2026-06-04 reporting-cleanup: every closed row carries an ``isDemo``
+    flag; ``?include_demo=true`` returns both live and demo segments so
+    the consumer can render them as separate sections. The default (no
+    flag) preserves live-only behavior."""
+    _insert_trade(
+        db,
+        timestamp="2026-05-08T10:00:00Z", symbol="BTCUSDT",
+        direction="long", entry_price=62000.0, exit_price=62150.0,
+        position_size=0.001, exit_reason="tp", pnl=0.15,
+        status="closed", is_backtest=0, is_demo=0,
+        account_id="bybit_2", strategy_name="turtle_soup",
+    )
+    _insert_trade(
+        db,
+        timestamp="2026-05-08T11:00:00Z", symbol="BTCUSDT",
+        direction="short", entry_price=62200.0, exit_price=62100.0,
+        position_size=0.002, exit_reason="tp", pnl=0.20,
+        status="closed", is_backtest=0, is_demo=1,
+        account_id="bybit_1", strategy_name="vwap",
+    )
+
+    # Default — live only, still tagged.
+    body = client.get("/api/bot/trades/closed").json()
+    assert len(body) == 1
+    assert body[0]["account"] == "bybit_2"
+    assert body[0]["isDemo"] is False
+
+    # Opted in — both segments, each tagged.
+    body = client.get("/api/bot/trades/closed?include_demo=true").json()
+    assert len(body) == 2
+    by_account = {r["account"]: r for r in body}
+    assert by_account["bybit_2"]["isDemo"] is False
+    assert by_account["bybit_1"]["isDemo"] is True
 
 
 def test_no_session_returns_200(db, client):

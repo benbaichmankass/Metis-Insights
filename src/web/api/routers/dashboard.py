@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from src.utils.paths import runtime_logs_dir, trade_journal_db_path
 
@@ -231,26 +231,32 @@ async def get_logs() -> list[dict[str, Any]]:
 
 
 @router.get("/positions")
-async def get_positions() -> list[dict[str, Any]]:
+async def get_positions(
+    include_demo: bool = Query(False),
+) -> list[dict[str, Any]]:
+    """Open positions (real-money by default). Each row carries an
+    ``isDemo`` flag; pass ``include_demo=true`` to also include the
+    demo-account positions alongside live (2026-06-04 reporting-cleanup).
+    """
     if not _DB_PATH.exists():
         return []
     try:
         conn = sqlite3.connect(str(_DB_PATH))
         try:
             cur = conn.cursor()
-            cur.execute(
-                """
+            sql = """
                 SELECT id, account_id, symbol, direction, position_size,
                        entry_price, COALESCE(pnl, 0), created_at,
-                       stop_loss, take_profit_1, strategy_name
+                       stop_loss, take_profit_1, strategy_name,
+                       COALESCE(is_demo, 0)
                 FROM trades
                 WHERE status = 'open'
                   AND COALESCE(is_backtest, 0) = 0
-                  AND COALESCE(is_demo, 0) = 0
-                ORDER BY created_at DESC
-                LIMIT 50
-                """
-            )
+            """
+            if not include_demo:
+                sql += " AND COALESCE(is_demo, 0) = 0"
+            sql += " ORDER BY created_at DESC LIMIT 50"
+            cur.execute(sql)
             rows = cur.fetchall()
         finally:
             conn.close()
@@ -270,6 +276,7 @@ async def get_positions() -> list[dict[str, Any]]:
             "stopLoss": float(r[8]) if r[8] is not None else None,
             "takeProfit": float(r[9]) if r[9] is not None else None,
             "pattern": r[10] if r[10] else None,
+            "isDemo": bool(r[11]),
         }
         for r in rows
     ]
