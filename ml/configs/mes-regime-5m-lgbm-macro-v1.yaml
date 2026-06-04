@@ -1,0 +1,93 @@
+# Cross-asset/macro-conditioned regime classifier — MES @ 5m (S-MLOPT-S12, Phase 2.4).
+#
+# A direct A/B against `mes-regime-5m-lgbm-v2` to quantify whether cross-asset /
+# macro conditioning separates the MES `f1_volatile` regime where same-OHLC vol
+# estimators did not (the range-vol A/B was *mixed* on MES — gap G5). Everything
+# is identical to the v2 head EXCEPT the added macro feature group the
+# `market_features` family now emits when built with `macro_path` (S-MLOPT-S12):
+#   vix_level, vix_zscore, vix_term_slope, dxy_zscore, dxy_return,
+#   ust10y_level, ust_slope_3m10y
+# — the volatility complex (VIX + its term structure), the dollar (DXY), and the
+# rates curve. MES is a macro-driven index instrument, so a *different kind* of
+# input (not another vol estimator on the same bars) is the lever with the best
+# shot at the volatile regime.
+#
+# Requires a `market_features` rebuild on `builder_version: v6` WITH a macro
+# side-stream: fetch it on the trainer
+#   ICT_OFFVM_BUILD_HOST=1 python -m scripts.ml.fetch_macro \
+#     --start 2015-01-01 --end <today> --out datasets-out/macro/MES/v001
+# then build MES market_features with `macro_path=datasets-out/macro/MES/v001`
+# (the daily `build_mes_market` does this when MES_MACRO=1). Run the A/B with:
+#   python -m ml compare mes-regime-5m-lgbm-v2 mes-regime-5m-lgbm-macro-v1
+# and read the `f1_volatile` delta under the Phase-0 purged CV.
+#
+# TIER: adopting / promoting this manifest past `research_only` is Tier-3
+# (operator-gated). Ships at `research_only` — a pure eval candidate.
+
+manifest_version: v1
+model_id: mes-regime-5m-lgbm-macro-v1
+description: "Macro-conditioned regime classifier for MES (Micro E-mini S&P 500) 5m — adds the cross-asset/macro feature group (VIX level/z + term-structure slope, DXY z/return, 10y level + 3m-10y slope) to the v2 head. A/B vs mes-regime-5m-lgbm-v2 (S-MLOPT-S12, gap G5)."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+    # Cross-asset / macro conditioning (S-MLOPT-S12) — the only change vs v2.
+    - vix_level
+    - vix_zscore
+    - vix_term_slope
+    - dxy_zscore
+    - dxy_return
+    - ust10y_level
+    - ust_slope_3m10y
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  freeze_regime_spec: true
+  # Regime spec frozen on the SAME vol feature as v2 so the only moving part is
+  # the added macro feature group (clean A/B isolation).
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  class_weight:
+    range: 1.0
+    volatile: 1.5
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: MES
+  timeframe: 5m
+  version: v002
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  S-MLOPT-S12 Phase 2.4. Clean A/B vs mes-regime-5m-lgbm-v2: identical trainer,
+  split, class weighting, dataset, and frozen regime spec — the ONLY change is
+  the added cross-asset/macro feature group. The macro side-stream is daily
+  (VIX/VIX3M/DXY/10y/3m via yfinance), computed + ONE-DAY-LAGGED by the producer
+  (macro_features.py) so the as-of join never serves a same-day close intraday
+  (leakage-safe). Requires market_features rebuilt on builder_version v6 with a
+  macro_path. Leakage gate forbids forward_log_return / forward_log_return_vol /
+  regime_label. If `f1_volatile` improves under the Phase-0 CV, propose promotion
+  to shadow (operator-gated). If it does not, that is an honest negative — log it
+  and move on (macro alpha for an intraday regime head is plausibly thin).

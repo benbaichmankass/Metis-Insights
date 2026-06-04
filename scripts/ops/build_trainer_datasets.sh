@@ -272,6 +272,41 @@ MES_YF_START="$(date -u -d '58 days ago' +%Y-%m-%d 2>/dev/null || echo "$MARKET_
 # / f1_volatile=0.543 on 1d, vs the 5m/15m modal collapse to 0).
 MES_1D_START="${MES_1D_START:-2015-01-01}"
 
+# Cross-asset/macro side-stream for the MES regime heads (S-MLOPT-S12, Phase
+# 2.4). Best-effort + NON-FATAL: fetched once per cycle into
+# $DATASETS_ROOT/macro/MES/$DATASET_VERSION and joined into every MES
+# market_features build via macro_path. When the fetch is unavailable (no
+# yfinance / no network / MES_MACRO=0) the path stays empty and the macro
+# columns emit 0.0 — every existing MES build is unchanged (default-preserving).
+MES_MACRO="${MES_MACRO:-1}"
+MES_MACRO_DIR=""   # set by ensure_mes_macro on success; read by build_mes_features_tf
+
+ensure_mes_macro() {  # fetch the daily macro side-stream once; set MES_MACRO_DIR
+  [ "$MES_MACRO" = "1" ] || { emit "$(printf '{"ts":"%s","status":"info","detail":"MES_MACRO=0; skipping macro side-stream"}' "$(iso_now)")"; return 0; }
+  local out="${DATASETS_ROOT}/macro/MES/${DATASET_VERSION}"
+  if ! python -c "import yfinance" 2>/dev/null; then
+    set +e; pip install --quiet "yfinance>=0.2"; set -e
+  fi
+  if ! python -c "import yfinance" 2>/dev/null; then
+    emit "$(printf '{"ts":"%s","status":"skipped","family":"macro","symbol":"MES","detail":"yfinance unavailable; macro columns emit 0.0"}' "$(iso_now)")"
+    return 0
+  fi
+  set +e
+  ICT_OFFVM_BUILD_HOST=1 python -m scripts.ml.fetch_macro \
+    --start "$MES_1D_START" --end "$MARKET_END" --out "$out" \
+    >"/tmp/mes_macro_$$.out" 2>"/tmp/mes_macro_$$.err"
+  local rc=$?
+  set -e
+  if [ "$rc" -eq 0 ] && [ -f "$out/data.jsonl" ]; then
+    MES_MACRO_DIR="$out"
+    emit "$(printf '{"ts":"%s","status":"ok","family":"macro","symbol":"MES","rows":"%s"}' "$(iso_now)" "$(wc -l < "$out/data.jsonl" | tr -d ' ')")"
+  else
+    local err; err="$(tail -n 2 "/tmp/mes_macro_$$.err" 2>/dev/null | tr '\n' ' ' | head -c 200)"
+    emit "$(python3 -c "import json,sys; print(json.dumps({'ts':sys.argv[1],'status':'warn','family':'macro','symbol':'MES','exit_code':int(sys.argv[2]),'stderr_tail':sys.argv[3]}))" "$(iso_now)" "$rc" "$err")"
+  fi
+  rm -f "/tmp/mes_macro_$$.out" "/tmp/mes_macro_$$.err"
+}
+
 mes_median_vt() {  # median forward_log_return_vol of a market_features dir
   python3 -c "import json,sys,statistics as s
 try:
@@ -308,17 +343,21 @@ build_mes_features_tf() {  # <tf> <raw_dir> — 2-pass median-calibrated feature
     emit "$(printf '{"ts":"%s","status":"skipped","family":"market_features","symbol":"MES","timeframe":"%s","detail":"no market_raw at %s"}' "$(iso_now)" "$tf" "$raw_dir")"
     return 0
   fi
+  # Join the macro side-stream when present (S-MLOPT-S12); empty arg otherwise
+  # leaves the macro columns at 0.0 (default-preserving).
+  local macro_arg=""
+  [ -n "$MES_MACRO_DIR" ] && macro_arg="macro_path=${MES_MACRO_DIR}"
   mes_build market_features \
     --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
     --source "$raw_dir" --symbol-scope MES --timeframe "$tf" --overwrite \
     "market_raw_path=${raw_dir}" "vol_window_n=20" "forward_window_m=5" \
-    "vol_threshold=0.001" "trend_threshold=0.001" "n_vol_buckets=3"
+    "vol_threshold=0.001" "trend_threshold=0.001" "n_vol_buckets=3" ${macro_arg:+"$macro_arg"}
   local vt; vt="$(mes_median_vt "$feat_dir")"
   mes_build market_features \
     --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
     --source "$raw_dir" --symbol-scope MES --timeframe "$tf" --overwrite \
     "market_raw_path=${raw_dir}" "vol_window_n=20" "forward_window_m=5" \
-    "vol_threshold=${vt}" "trend_threshold=${vt}" "n_vol_buckets=3"
+    "vol_threshold=${vt}" "trend_threshold=${vt}" "n_vol_buckets=3" ${macro_arg:+"$macro_arg"}
   emit "$(printf '{"ts":"%s","status":"ok","family":"market_features","symbol":"MES","timeframe":"%s","vol_threshold":"%s"}' "$(iso_now)" "$tf" "$vt")"
 }
 
@@ -335,6 +374,10 @@ build_mes_setup_labels() {
 build_mes_market() {
   local base_tf="5m"
   local base_raw="${DATASETS_ROOT}/market_raw/MES/${base_tf}/${DATASET_VERSION}"
+
+  # Fetch the cross-asset/macro side-stream once (S-MLOPT-S12); every MES
+  # market_features build below joins it via macro_path when present.
+  ensure_mes_macro
 
   # Prefer deep native MES history pulled from IBKR on the live VM (synced by
   # sync_trainer_data.sh into $DATA_DIR/ibkr_datasets) over the rolling ~60d
