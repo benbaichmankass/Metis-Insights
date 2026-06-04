@@ -31,6 +31,32 @@ Knobs (all kwargs):
   rolling vol (quantile-based). Bucket labels: `vol_b0`..`vol_bK-1`,
   where `vol_b0` is lowest. Bucket count is configurable so a
   follow-up can experiment with finer discretisation.
+- `funding_oi_path`  (path, default None) — optional directory holding a
+  funding-rate + open-interest side-stream (`data.jsonl`, rows
+  `{ts, symbol, funding_rate?, open_interest?}`, produced by
+  `scripts/ml/fetch_funding_oi.py`). When given, the funding/OI feature
+  columns (S-MLOPT-S11) are computed from an as-of (past-only) aligned
+  window of that stream; when omitted they emit `0.0` (default-preserving —
+  every non-crypto build is unchanged).
+- `funding_window_n` (int, default 168) — past window (in bars) for the
+  funding-rate z-score + open-interest change features. ~1 week on 1h bars.
+- `microstructure_path` (path, default None) — optional directory holding a
+  per-bar order-flow side-stream (`data.jsonl`, rows
+  `{ts, symbol, ofi, buy_vol, sell_vol, rel_spread_mean, microprice_dev}`,
+  captured forward by `scripts/ml/orderflow_capture.py`). When given, the
+  order-flow feature columns (S-MLOPT-S10) are computed from an as-of (past-only)
+  aligned window; when omitted they emit `0.0` (default-preserving).
+- `microstructure_window_n` (int, default 50) — past window (in bars) for the
+  OFI z-score + VPIN features.
+- `macro_path` (path, default None) — optional directory holding a daily
+  cross-asset/macro side-stream (`data.jsonl`, rows `{ts, vix_level, vix_zscore,
+  vix_term_slope, dxy_zscore, dxy_return, ust10y_level, ust_slope_3m10y}`,
+  produced by `scripts/ml/fetch_macro.py`). The features are **pre-computed at
+  daily cadence and one-day-lagged** by the producer (see `macro_features.py`),
+  so this builder only as-of carries each column forward onto the bars — no
+  re-windowing. When given, the macro conditioning columns (S-MLOPT-S12, MES
+  focus) are populated; when omitted they emit `0.0` (default-preserving). Meant
+  for MES (a macro-driven index instrument); harmless on any other symbol.
 
 ## Schema
 
@@ -46,6 +72,17 @@ Knobs (all kwargs):
 | `dayofweek` | int | UTC day-of-week of `ts`, 0=Monday..6=Sunday. Non-leaking. |
 | `log_return_lag_1` | float | `log_return[t-1]`. Past-only — non-leaking. `NaN` represented as 0.0 for the earliest bar where the lag is undefined (handled like other early-window incomplete rows). |
 | `log_return_lag_2` | float | `log_return[t-2]`. Same handling. |
+| `parkinson_vol` / `garman_klass_vol` / `rogers_satchell_vol` / `yang_zhang_vol` | float | Range-based vol estimators (S-MLOPT-S9) over the same past window as `rolling_log_return_vol`, emitted as a stdev. Past-only. |
+| `funding_rate` | float | As-of (past-only) perp funding rate at bar `t`; `0.0` when no `funding_oi_path`. |
+| `funding_rate_zscore` | float | Z-score of `funding_rate` over the past `funding_window_n` bars (the funding-extreme signal). |
+| `funding_rate_abs_z` | float | `abs(funding_rate_zscore)` — extreme magnitude (the research-favoured "signal is in the extremes" reading). |
+| `open_interest_change` | float | Log change of the as-of open interest over the past `funding_window_n` bars. |
+| `open_interest_change_zscore` | float | Z-score of the latest OI first-difference over the window (extreme-of-change). |
+| `ofi` / `ofi_zscore` | float | As-of Cont order-flow-imbalance level + its z-score over `microstructure_window_n` bars (S-MLOPT-S10); `0.0` when no `microstructure_path`. |
+| `vix_level` / `vix_zscore` / `vix_term_slope` / `dxy_zscore` / `dxy_return` / `ust10y_level` / `ust_slope_3m10y` | float | As-of daily cross-asset/macro conditioning (S-MLOPT-S12, MES focus): VIX level + z + term-structure slope (VIX/VIX3M−1, >0=backwardation/stress), DXY z + short return, 10y yield level + 3m-10y slope. Pre-computed + one-day-lagged by `fetch_macro.py`; `0.0` when no `macro_path`. |
+| `vpin` | float | Volume-synchronised flow toxicity over the trailing buy/sell-volume buckets. |
+| `order_imbalance` | float | Per-bar taker `(buy_vol − sell_vol)/(buy_vol + sell_vol)`. |
+| `rel_spread_mean` / `microprice_dev` | float | As-of mean relative spread + signed micro-price lean for the bar. |
 | `forward_log_return` | float | `ln(close[t + forward_window_m] / close[t])`. |
 | `forward_log_return_vol` | float | stdev of `log_return` over `[t + 1 .. t + forward_window_m]` (strictly after `t`). |
 | `regime_label` | str | One of `"range"`, `"volatile"` — derived from forward stats (2-class since S-ML-REGIME-CLASSIFIER-FIX). |
@@ -96,7 +133,16 @@ from pathlib import Path
 from typing import Any, ClassVar, Iterator, Mapping
 
 from ..builder import DatasetBuilder
+from ..funding_oi_features import (
+    _finite_or_zero,
+    change_zscore,
+    extreme_magnitude,
+    log_change,
+    rolling_zscore,
+)
+from ..macro_features import MACRO_FEATURE_COLUMNS
 from ..metadata import LeakageStatus
+from ..orderflow_features import vpin as _vpin
 from ..volatility_estimators import (
     _sqrt_or_zero,
     garman_klass_var,
@@ -196,6 +242,53 @@ def _parse_ts_hour_dow(ts_str: str) -> tuple[int, int]:
     return dt.hour, dt.weekday()
 
 
+def _load_funding_oi_rows(funding_oi_path: Path) -> list[dict[str, Any]]:
+    """Load the optional funding/OI side-stream (`data.jsonl` in the dir).
+
+    Rows are ``{ts, symbol, funding_rate?, open_interest?}`` produced by
+    ``scripts/ml/fetch_funding_oi.py`` (Bybit V5). Tolerant of a missing dir /
+    file → ``[]`` (the funding/OI feature columns then emit 0.0, exactly as when
+    ``funding_oi_path`` is omitted).
+    """
+    data_path = Path(funding_oi_path) / "data.jsonl"
+    if not data_path.is_file():
+        return []
+    rows: list[dict[str, Any]] = []
+    with data_path.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.rstrip("\n")
+            if not line:
+                continue
+            rows.append(json.loads(line))
+    rows.sort(key=lambda r: r.get("ts", ""))
+    return rows
+
+
+def _align_asof(
+    bar_ts: list[str],
+    series_ts: list[str],
+    series_val: list[float | None],
+) -> list[float | None]:
+    """As-of (past-only) align ``series`` onto ``bar_ts``.
+
+    ``out[i]`` is the most recent ``series_val`` whose ``series_ts`` is ``<=
+    bar_ts[i]`` (carry-forward; ``None`` until the first observation at/before
+    the bar). Both inputs must be ascending in ts. Leakage-safe: a bar never
+    sees a funding/OI observation timestamped after it.
+    """
+    out: list[float | None] = [None] * len(bar_ts)
+    j = 0
+    last: float | None = None
+    m = len(series_ts)
+    for i, bts in enumerate(bar_ts):
+        while j < m and series_ts[j] <= bts:
+            if series_val[j] is not None:
+                last = series_val[j]
+            j += 1
+        out[i] = last
+    return out
+
+
 def _load_market_raw_rows(market_raw_path: Path) -> list[dict[str, Any]]:
     data_path = market_raw_path / "data.jsonl"
     if not data_path.is_file():
@@ -219,10 +312,21 @@ class MarketFeaturesBuilder(DatasetBuilder):
     # v2: adds hour_of_day, dayofweek, log_return_lag_{1,2} (Phase-2 feature
     # expansion for the v2 LightGBM regime heads). v3 (S-MLOPT-S9): adds the
     # range-based vol estimators (parkinson/garman_klass/rogers_satchell/
-    # yang_zhang). Earlier baselines that only read `vol_bucket` /
-    # `rolling_log_return_vol` are unaffected by the wider schema; builder_version
-    # is metadata-only (it does not gate dataset path resolution).
-    builder_version: ClassVar[str] = "v3"
+    # yang_zhang). v4 (S-MLOPT-S11): adds the crypto funding-rate + open-interest
+    # features (funding_rate / funding_rate_zscore / funding_rate_abs_z /
+    # open_interest_change / open_interest_change_zscore) — populated from the
+    # optional `funding_oi_path` side-stream, 0.0 when it is absent. v5
+    # (S-MLOPT-S10): adds the order-flow / microstructure features (ofi /
+    # ofi_zscore / vpin / order_imbalance / rel_spread_mean / microprice_dev) —
+    # populated from the optional `microstructure_path` side-stream, 0.0 when it
+    # is absent. v6 (S-MLOPT-S12): adds the cross-asset/macro conditioning
+    # features (vix_level / vix_zscore / vix_term_slope / dxy_zscore / dxy_return
+    # / ust10y_level / ust_slope_3m10y) for MES — populated from the optional
+    # daily `macro_path` side-stream (pre-computed + one-day-lagged by the
+    # producer), 0.0 when it is absent. Earlier baselines that only read
+    # `vol_bucket` / `rolling_log_return_vol` are unaffected by the wider schema;
+    # builder_version is metadata-only (it does not gate dataset path resolution).
+    builder_version: ClassVar[str] = "v6"
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.PASSED
     label_version: ClassVar[str] = "regime-3class-v1"
     schema: ClassVar[Mapping[str, type]] = {
@@ -242,6 +346,40 @@ class MarketFeaturesBuilder(DatasetBuilder):
         "garman_klass_vol": float,
         "rogers_satchell_vol": float,
         "yang_zhang_vol": float,
+        # Crypto funding-rate + open-interest features (S-MLOPT-S11). Computed
+        # over an as-of (past-only) aligned window of the optional funding/OI
+        # side-stream — 0.0 on every row when no `funding_oi_path` is supplied.
+        # The signal is in the EXTREMES (z-score / |z|), not the level — funding
+        # is a trailing byproduct of momentum. Leakage-safe by construction.
+        "funding_rate": float,
+        "funding_rate_zscore": float,
+        "funding_rate_abs_z": float,
+        "open_interest_change": float,
+        "open_interest_change_zscore": float,
+        # Order-flow / microstructure features (S-MLOPT-S10). Computed over an
+        # as-of (past-only) aligned window of the optional `market_microstructure`
+        # side-stream (per-bar OFI / taker buy-sell volume / spread / micro-price
+        # lean captured forward by scripts/ml/orderflow_capture.py) — 0.0 on every
+        # row when no `microstructure_path` is supplied. Leakage-safe by
+        # construction.
+        "ofi": float,
+        "ofi_zscore": float,
+        "vpin": float,
+        "order_imbalance": float,
+        "rel_spread_mean": float,
+        "microprice_dev": float,
+        # Cross-asset / macro conditioning features (S-MLOPT-S12, MES focus).
+        # As-of carried from the optional daily `macro_path` side-stream (already
+        # one-day-lagged + windowed by the producer) — 0.0 on every row when no
+        # `macro_path` is supplied. Leakage-safe by construction (see
+        # macro_features.py § cadence + leakage discipline).
+        "vix_level": float,
+        "vix_zscore": float,
+        "vix_term_slope": float,
+        "dxy_zscore": float,
+        "dxy_return": float,
+        "ust10y_level": float,
+        "ust_slope_3m10y": float,
         "hour_of_day": int,
         "dayofweek": int,
         "log_return_lag_1": float,
@@ -261,6 +399,11 @@ class MarketFeaturesBuilder(DatasetBuilder):
         vol_threshold: float = 0.003,
         trend_threshold: float = 0.005,
         n_vol_buckets: int = 3,
+        funding_oi_path: Path | str | None = None,
+        funding_window_n: int = 168,
+        microstructure_path: Path | str | None = None,
+        microstructure_window_n: int = 50,
+        macro_path: Path | str | None = None,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         if vol_window_n < 2:
@@ -275,6 +418,14 @@ class MarketFeaturesBuilder(DatasetBuilder):
             raise ValueError(
                 f"trend_threshold must be >= 0; got {trend_threshold}"
             )
+        if funding_window_n < 2:
+            raise ValueError(
+                f"funding_window_n must be >= 2; got {funding_window_n}"
+            )
+        if microstructure_window_n < 2:
+            raise ValueError(
+                f"microstructure_window_n must be >= 2; got {microstructure_window_n}"
+            )
 
         rows = _load_market_raw_rows(Path(market_raw_path))
         rows.sort(key=lambda r: r.get("ts", ""))
@@ -288,6 +439,71 @@ class MarketFeaturesBuilder(DatasetBuilder):
         highs = [float(r.get("high", 0.0) or 0.0) for r in rows]
         lows = [float(r.get("low", 0.0) or 0.0) for r in rows]
         closes = [float(r.get("close", 0.0) or 0.0) for r in rows]
+
+        # Funding-rate + open-interest side-stream (S-MLOPT-S11), as-of aligned
+        # onto the bars (past-only carry-forward). All-`None` (→ feature 0.0)
+        # when no `funding_oi_path` is given — keeping the default build behaviour
+        # and every non-crypto symbol unchanged.
+        bar_ts = [str(r.get("ts", "")) for r in rows]
+        funding_aligned: list[float | None] = [None] * n
+        oi_aligned: list[float | None] = [None] * n
+        if funding_oi_path is not None:
+            fo_rows = _load_funding_oi_rows(Path(funding_oi_path))
+            if fo_rows:
+                fo_ts = [str(r.get("ts", "")) for r in fo_rows]
+                fr_val = [
+                    (float(r["funding_rate"]) if r.get("funding_rate") is not None else None)
+                    for r in fo_rows
+                ]
+                oi_val = [
+                    (float(r["open_interest"]) if r.get("open_interest") is not None else None)
+                    for r in fo_rows
+                ]
+                funding_aligned = _align_asof(bar_ts, fo_ts, fr_val)
+                oi_aligned = _align_asof(bar_ts, fo_ts, oi_val)
+
+        # Order-flow / microstructure side-stream (S-MLOPT-S10), as-of aligned
+        # onto the bars (past-only carry-forward). All-`None` (→ feature 0.0)
+        # when no `microstructure_path` is given.
+        ofi_aligned: list[float | None] = [None] * n
+        buy_aligned: list[float | None] = [None] * n
+        sell_aligned: list[float | None] = [None] * n
+        spread_aligned: list[float | None] = [None] * n
+        microdev_aligned: list[float | None] = [None] * n
+        if microstructure_path is not None:
+            ms_rows = _load_funding_oi_rows(Path(microstructure_path))
+            if ms_rows:
+                ms_ts = [str(r.get("ts", "")) for r in ms_rows]
+
+                def _col(name: str) -> list[float | None]:
+                    return [
+                        (float(r[name]) if r.get(name) is not None else None)
+                        for r in ms_rows
+                    ]
+
+                ofi_aligned = _align_asof(bar_ts, ms_ts, _col("ofi"))
+                buy_aligned = _align_asof(bar_ts, ms_ts, _col("buy_vol"))
+                sell_aligned = _align_asof(bar_ts, ms_ts, _col("sell_vol"))
+                spread_aligned = _align_asof(bar_ts, ms_ts, _col("rel_spread_mean"))
+                microdev_aligned = _align_asof(bar_ts, ms_ts, _col("microprice_dev"))
+
+        # Cross-asset / macro side-stream (S-MLOPT-S12), as-of aligned onto the
+        # bars. The producer already computed + one-day-lagged each column, so we
+        # just carry each forward (no windowing here). All-`None` (→ feature 0.0)
+        # when no `macro_path` is given.
+        macro_aligned: dict[str, list[float | None]] = {
+            col: [None] * n for col in MACRO_FEATURE_COLUMNS
+        }
+        if macro_path is not None:
+            mac_rows = _load_funding_oi_rows(Path(macro_path))
+            if mac_rows:
+                mac_ts = [str(r.get("ts", "")) for r in mac_rows]
+                for col in MACRO_FEATURE_COLUMNS:
+                    vals = [
+                        (float(r[col]) if r.get(col) is not None else None)
+                        for r in mac_rows
+                    ]
+                    macro_aligned[col] = _align_asof(bar_ts, mac_ts, vals)
 
         log_returns: list[float | None] = [None] * n
         for i in range(1, n):
@@ -365,6 +581,25 @@ class MarketFeaturesBuilder(DatasetBuilder):
             )
             w_prev_close = [closes[j - 1] if j - 1 >= 0 else None
                             for j in range(s, i + 1)]
+            # Funding/OI feature window: the inclusive past window
+            # `[i-funding_window_n+1 .. i]` of the as-of-aligned series.
+            fs = max(0, i - funding_window_n + 1)
+            funding_w = funding_aligned[fs : i + 1]
+            oi_w = oi_aligned[fs : i + 1]
+            funding_z = rolling_zscore(funding_w)
+            # Order-flow / microstructure feature window (S-MLOPT-S10): the
+            # inclusive past window `[i-microstructure_window_n+1 .. i]` of the
+            # as-of-aligned series. `ofi_zscore` over the OFI window; `vpin` over
+            # the trailing buy/sell volume buckets; `order_imbalance` per-bar.
+            ms = max(0, i - microstructure_window_n + 1)
+            ofi_w = ofi_aligned[ms : i + 1]
+            buy_w = [v for v in buy_aligned[ms : i + 1] if v is not None]
+            sell_w = [v for v in sell_aligned[ms : i + 1] if v is not None]
+            bv_i = buy_aligned[i] if buy_aligned[i] is not None else 0.0
+            sv_i = sell_aligned[i] if sell_aligned[i] is not None else 0.0
+            order_imbalance = (
+                (bv_i - sv_i) / (bv_i + sv_i) if (bv_i + sv_i) > 0 else None
+            )
             yield {
                 "ts": ts_str,
                 "symbol": str(rows[i].get("symbol", "")),
@@ -379,6 +614,24 @@ class MarketFeaturesBuilder(DatasetBuilder):
                     rogers_satchell_var(w_open, w_high, w_low, w_close)),
                 "yang_zhang_vol": _sqrt_or_zero(
                     yang_zhang_var(w_open, w_high, w_low, w_close, w_prev_close)),
+                "funding_rate": _finite_or_zero(funding_aligned[i]),
+                "funding_rate_zscore": _finite_or_zero(funding_z),
+                "funding_rate_abs_z": _finite_or_zero(extreme_magnitude(funding_z)),
+                "open_interest_change": _finite_or_zero(log_change(oi_w)),
+                "open_interest_change_zscore": _finite_or_zero(change_zscore(oi_w)),
+                "ofi": _finite_or_zero(ofi_aligned[i]),
+                "ofi_zscore": _finite_or_zero(rolling_zscore(ofi_w)),
+                "vpin": _finite_or_zero(_vpin(buy_w, sell_w)),
+                "order_imbalance": _finite_or_zero(order_imbalance),
+                "rel_spread_mean": _finite_or_zero(spread_aligned[i]),
+                "microprice_dev": _finite_or_zero(microdev_aligned[i]),
+                "vix_level": _finite_or_zero(macro_aligned["vix_level"][i]),
+                "vix_zscore": _finite_or_zero(macro_aligned["vix_zscore"][i]),
+                "vix_term_slope": _finite_or_zero(macro_aligned["vix_term_slope"][i]),
+                "dxy_zscore": _finite_or_zero(macro_aligned["dxy_zscore"][i]),
+                "dxy_return": _finite_or_zero(macro_aligned["dxy_return"][i]),
+                "ust10y_level": _finite_or_zero(macro_aligned["ust10y_level"][i]),
+                "ust_slope_3m10y": _finite_or_zero(macro_aligned["ust_slope_3m10y"][i]),
                 "hour_of_day": int(hour_of_day),
                 "dayofweek": int(dayofweek),
                 "log_return_lag_1": float(lag_1) if lag_1 is not None else 0.0,

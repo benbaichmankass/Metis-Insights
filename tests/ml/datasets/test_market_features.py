@@ -430,8 +430,8 @@ class TestV2FeatureExpansion:
                 abs_tol=1e-12,
             )
 
-    def test_builder_version_is_v3(self):
-        assert MarketFeaturesBuilder.builder_version == "v3"
+    def test_builder_version_is_v6(self):
+        assert MarketFeaturesBuilder.builder_version == "v6"
 
 
 class TestRangeVolEstimators:
@@ -466,6 +466,311 @@ class TestRangeVolEstimators:
             output_dir=tmp_path / "out", version="v001", source="csv",
             symbol_scope="BTCUSDT", timeframe="1h",
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+        )
+        report = validate_dataset(paths.root)
+        assert report.ok, report
+
+
+def _stage_funding_oi(
+    tmp_path: Path,
+    *,
+    base_ts_iso: str = "2025-01-01T00:00:00Z",
+    n_bars: int = 200,
+    bar_seconds: int = 3600,
+    funding_every: int = 8,
+    symbol: str = "BTCUSDT",
+) -> Path:
+    """Write a synthetic funding/OI side-stream dir (data.jsonl)."""
+    from datetime import datetime, timedelta
+
+    base = datetime.fromisoformat(base_ts_iso.replace("Z", "+00:00"))
+    root = tmp_path / "funding_oi" / symbol / "v001"
+    root.mkdir(parents=True, exist_ok=True)
+    rows: list[dict] = []
+    for i in range(0, n_bars, funding_every):
+        ts = (base + timedelta(seconds=bar_seconds * i)).isoformat().replace("+00:00", "Z")
+        rows.append({"ts": ts, "symbol": symbol,
+                     "funding_rate": 0.0001 * (1 + (i % 7)), "open_interest": None})
+    for i in range(n_bars):
+        ts = (base + timedelta(seconds=bar_seconds * i)).isoformat().replace("+00:00", "Z")
+        rows.append({"ts": ts, "symbol": symbol,
+                     "funding_rate": None, "open_interest": 1000.0 + i * 3.0})
+    rows.sort(key=lambda r: r["ts"])
+    (root / "data.jsonl").write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    return root
+
+
+class TestFundingOiFeatures:
+    """S-MLOPT-S11: funding-rate + open-interest feature columns."""
+
+    _COLS = (
+        "funding_rate",
+        "funding_rate_zscore",
+        "funding_rate_abs_z",
+        "open_interest_change",
+        "open_interest_change_zscore",
+    )
+
+    def test_columns_zero_without_funding_path(self, tmp_path: Path):
+        market_raw = _stage_market_raw(tmp_path, closes=_trending_then_choppy(80))
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+        ))
+        assert rows
+        for r in rows:
+            for c in self._COLS:
+                assert c in r and r[c] == 0.0
+        # range-vol features unaffected (still computed).
+        assert any(r["yang_zhang_vol"] > 0 for r in rows)
+
+    def test_columns_populated_with_funding_path(self, tmp_path: Path):
+        market_raw = _stage_market_raw(tmp_path, closes=[100.0 * (1.001 ** i) for i in range(200)])
+        funding_oi = _stage_funding_oi(tmp_path, n_bars=200)
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            funding_oi_path=funding_oi, funding_window_n=48,
+        ))
+        assert rows
+        # funding rate carried forward as-of (non-zero somewhere).
+        assert any(r["funding_rate"] > 0 for r in rows)
+        # rising OI => positive log change somewhere.
+        assert any(r["open_interest_change"] > 0 for r in rows)
+        # |z| equals abs(z) on every row.
+        for r in rows:
+            assert math.isclose(r["funding_rate_abs_z"], abs(r["funding_rate_zscore"]), abs_tol=1e-12)
+
+    def test_asof_alignment_is_past_only(self, tmp_path: Path):
+        # All funding observations timestamped AFTER the bar window => no bar may
+        # see a funding rate (carry-forward stays 0.0). Guards leakage.
+        market_raw = _stage_market_raw(tmp_path, closes=[100.0] * 120)
+        funding_oi = _stage_funding_oi(
+            tmp_path, base_ts_iso="2030-01-01T00:00:00Z", n_bars=120,
+        )
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            funding_oi_path=funding_oi, funding_window_n=48,
+        ))
+        assert rows
+        assert all(r["funding_rate"] == 0.0 for r in rows)
+
+    def test_funding_in_schema_and_validate(self, tmp_path: Path):
+        market_raw = _stage_market_raw(tmp_path, closes=[100.0 * (1.001 ** i) for i in range(160)])
+        funding_oi = _stage_funding_oi(tmp_path, n_bars=160)
+        builder = MarketFeaturesBuilder()
+        for c in self._COLS:
+            assert c in builder.schema
+        paths = builder.build(
+            output_dir=tmp_path / "out", version="v001", source="csv",
+            symbol_scope="BTCUSDT", timeframe="1h",
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            funding_oi_path=str(funding_oi), funding_window_n=48,
+        )
+        report = validate_dataset(paths.root)
+        assert report.ok, report
+
+    def test_invalid_funding_window_raises(self, tmp_path: Path):
+        market_raw = _stage_market_raw(tmp_path, closes=[100.0] * 100)
+        with pytest.raises(ValueError):
+            list(MarketFeaturesBuilder().iter_rows(
+                market_raw_path=market_raw, funding_window_n=1,
+            ))
+
+
+def _stage_microstructure(
+    tmp_path: Path,
+    *,
+    base_ts_iso: str = "2025-01-01T00:00:00Z",
+    n_bars: int = 200,
+    bar_seconds: int = 300,
+    symbol: str = "BTCUSDT",
+) -> Path:
+    """Write a synthetic market_microstructure side-stream dir (data.jsonl)."""
+    from datetime import datetime, timedelta
+
+    base = datetime.fromisoformat(base_ts_iso.replace("Z", "+00:00"))
+    root = tmp_path / "market_microstructure" / symbol / "5m" / "v001"
+    root.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for i in range(n_bars):
+        ts = (base + timedelta(seconds=bar_seconds * i)).isoformat().replace("+00:00", "Z")
+        rows.append({
+            "ts": ts, "symbol": symbol,
+            "ofi": float((i % 7) - 3),
+            "buy_vol": 5.0 + (i % 3), "sell_vol": 4.0,
+            "rel_spread_mean": 0.0005, "microprice_dev": 0.0001 * ((i % 5) - 2),
+            "n_snapshots": 30,
+        })
+    (root / "data.jsonl").write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    return root
+
+
+class TestMicrostructureFeatures:
+    """S-MLOPT-S10: order-flow / microstructure feature columns."""
+
+    _COLS = ("ofi", "ofi_zscore", "vpin", "order_imbalance", "rel_spread_mean", "microprice_dev")
+
+    def test_columns_zero_without_path(self, tmp_path: Path):
+        market_raw = _stage_market_raw(tmp_path, closes=_trending_then_choppy(80))
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+        ))
+        assert rows
+        for r in rows:
+            for c in self._COLS:
+                assert c in r and r[c] == 0.0
+
+    def test_columns_populated_with_path(self, tmp_path: Path):
+        market_raw = _stage_market_raw(
+            tmp_path, closes=[100.0 * (1.001 ** i) for i in range(200)], bar_seconds=300,
+            timeframe="5m",
+        )
+        micro = _stage_microstructure(tmp_path, n_bars=200)
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            microstructure_path=micro, microstructure_window_n=20,
+        ))
+        assert rows
+        assert any(r["ofi"] != 0.0 for r in rows)
+        assert all(0.0 <= r["vpin"] <= 1.0 for r in rows)
+        # buy_vol >= sell_vol in the fixture → non-negative order imbalance.
+        assert all(r["order_imbalance"] >= 0.0 for r in rows)
+
+    def test_asof_alignment_past_only(self, tmp_path: Path):
+        # Side-stream entirely AFTER the bars → no bar may see it (carry-forward 0).
+        market_raw = _stage_market_raw(tmp_path, closes=[100.0] * 120, bar_seconds=300, timeframe="5m")
+        micro = _stage_microstructure(tmp_path, base_ts_iso="2030-01-01T00:00:00Z", n_bars=120)
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            microstructure_path=micro, microstructure_window_n=20,
+        ))
+        assert rows
+        assert all(r["ofi"] == 0.0 and r["vpin"] == 0.0 for r in rows)
+
+    def test_in_schema_and_validate(self, tmp_path: Path):
+        market_raw = _stage_market_raw(
+            tmp_path, closes=[100.0 * (1.001 ** i) for i in range(160)], bar_seconds=300,
+            timeframe="5m",
+        )
+        micro = _stage_microstructure(tmp_path, n_bars=160)
+        builder = MarketFeaturesBuilder()
+        for c in self._COLS:
+            assert c in builder.schema
+        paths = builder.build(
+            output_dir=tmp_path / "out", version="v001", source="csv",
+            symbol_scope="BTCUSDT", timeframe="5m",
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            microstructure_path=str(micro), microstructure_window_n=20,
+        )
+        report = validate_dataset(paths.root)
+        assert report.ok, report
+
+    def test_invalid_window_raises(self, tmp_path: Path):
+        market_raw = _stage_market_raw(tmp_path, closes=[100.0] * 100)
+        with pytest.raises(ValueError):
+            list(MarketFeaturesBuilder().iter_rows(
+                market_raw_path=market_raw, microstructure_window_n=1,
+            ))
+
+
+def _stage_macro(
+    tmp_path: Path,
+    *,
+    base_ts_iso: str = "2025-01-01T00:00:00Z",
+    n_bars: int = 200,
+    bar_seconds: int = 300,
+) -> Path:
+    """Write a synthetic daily macro side-stream dir (data.jsonl).
+
+    Rows are the pre-computed, one-day-lagged feature columns the producer emits.
+    Stamps daily rows across the bar span so the as-of carry-forward populates.
+    """
+    from datetime import datetime, timedelta
+
+    base = datetime.fromisoformat(base_ts_iso.replace("Z", "+00:00"))
+    root = tmp_path / "macro" / "MES" / "v001"
+    root.mkdir(parents=True, exist_ok=True)
+    span_seconds = bar_seconds * n_bars
+    rows = []
+    day = 0
+    t = 0
+    while t <= span_seconds:
+        ts = (base + timedelta(seconds=t)).isoformat().replace("+00:00", "Z")
+        rows.append({
+            "ts": ts,
+            "vix_level": 15.0 + (day % 5),
+            "vix_zscore": float((day % 7) - 3),
+            "vix_term_slope": 0.01 * ((day % 3) - 1),
+            "dxy_zscore": float((day % 5) - 2),
+            "dxy_return": 0.001 * ((day % 4) - 1),
+            "ust10y_level": 40.0 + (day % 6) * 0.1,
+            "ust_slope_3m10y": 1.0 + 0.1 * (day % 3),
+        })
+        day += 1
+        t += 86400
+    (root / "data.jsonl").write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    return root
+
+
+class TestMacroFeatures:
+    """S-MLOPT-S12: cross-asset/macro conditioning columns (MES focus)."""
+
+    _COLS = (
+        "vix_level", "vix_zscore", "vix_term_slope",
+        "dxy_zscore", "dxy_return", "ust10y_level", "ust_slope_3m10y",
+    )
+
+    def test_columns_zero_without_macro_path(self, tmp_path: Path):
+        market_raw = _stage_market_raw(tmp_path, closes=_trending_then_choppy(80))
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+        ))
+        assert rows
+        for r in rows:
+            for c in self._COLS:
+                assert c in r and r[c] == 0.0
+
+    def test_columns_populated_with_macro_path(self, tmp_path: Path):
+        market_raw = _stage_market_raw(
+            tmp_path, closes=[100.0 * (1.001 ** i) for i in range(200)],
+            bar_seconds=300, timeframe="5m",
+        )
+        macro = _stage_macro(tmp_path, n_bars=200)
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            macro_path=macro,
+        ))
+        assert rows
+        # vix_level carried forward as-of (non-zero somewhere).
+        assert any(r["vix_level"] > 0 for r in rows)
+        assert any(r["ust10y_level"] > 0 for r in rows)
+
+    def test_asof_alignment_past_only(self, tmp_path: Path):
+        # Macro entirely AFTER the bars → no bar may see it (carry-forward 0).
+        market_raw = _stage_market_raw(
+            tmp_path, closes=[100.0] * 120, bar_seconds=300, timeframe="5m",
+        )
+        macro = _stage_macro(tmp_path, base_ts_iso="2030-01-01T00:00:00Z", n_bars=120)
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            macro_path=macro,
+        ))
+        assert rows
+        assert all(r["vix_level"] == 0.0 and r["ust10y_level"] == 0.0 for r in rows)
+
+    def test_in_schema_and_validate(self, tmp_path: Path):
+        market_raw = _stage_market_raw(
+            tmp_path, closes=[100.0 * (1.001 ** i) for i in range(160)],
+            bar_seconds=300, timeframe="5m",
+        )
+        macro = _stage_macro(tmp_path, n_bars=160)
+        builder = MarketFeaturesBuilder()
+        for c in self._COLS:
+            assert c in builder.schema
+        paths = builder.build(
+            output_dir=tmp_path / "out", version="v001", source="csv",
+            symbol_scope="MES", timeframe="5m",
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            macro_path=str(macro),
         )
         report = validate_dataset(paths.root)
         assert report.ok, report

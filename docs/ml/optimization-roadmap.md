@@ -347,7 +347,7 @@ than a capacity problem. Range-based vol estimators and microstructure flow are 
 proven ROI per hour after Phase 1. Caveat from the research: **microstructure alpha decays**
 — engineer it, monitor it via drift, don't assume permanence.
 
-### Session 2.1 — Range-based volatility estimators *(Tier-1 family; Tier-3 manifest)* — 🔄 IN REVIEW 2026-06-03 (S-MLOPT-S9)
+### Session 2.1 — Range-based volatility estimators *(Tier-1 family; Tier-3 manifest)* — ✅ DONE 2026-06-04 (S-MLOPT-S9)
 - **Deliverable:** add **Yang-Zhang** (handles overnight gaps + drift, ~8× efficiency) and
   **Garman-Klass** vol to `market_features`; let regime manifests select the vol feature.
 - **Lowest-effort, near-free regime-separation fix.** Re-run the regime eval (under Phase 0
@@ -362,10 +362,14 @@ proven ROI per hour after Phase 1. Caveat from the research: **microstructure al
   feature set (regime spec frozen on `yang_zhang_vol`). Leakage-safe by construction
   (past-only window). **A/B (#2720): POSITIVE** — on a v3 `market_features` rebuild, the yz
   head beat the v2 champion on every metric (`f1_volatile` 0.4624 → 0.4724 +0.010, accuracy
-  +0.016, weighted_f1 +0.012) under `time_aware_holdout`. The Phase-0 purged-CV confirmation
-  is the open step before proposing promotion + extending to 5m/15m/MES (`MB-20260603-004`).
+  +0.016, weighted_f1 +0.012) under `time_aware_holdout`. **The Phase-0 purged WF-CV confirm
+  (#2736, 2026-06-04) is also POSITIVE leak-free** — 1h yz beats v2 on `f1_volatile`
+  (0.5036 vs 0.5009, +0.0027), `macro_f1` (+0.0067), `accuracy` (+0.0114). Promotion proposal
+  written (`research_only → shadow`, Tier-3, operator-gated); full `shadow → advisory` blocked
+  by `MB-20260529-001` (per-bar scoring, S13). Extended to 5m/15m BTC + 5m/15m MES
+  (`*-lgbm-yz-v1.yaml`, research_only; A/B in `MB-20260603-004`). `MB-20260603-004` resolved.
 
-### Session 2.2 — Order-flow / microstructure features *(Tier-2 — needs live L2 capture)*
+### Session 2.2 — Order-flow / microstructure features *(Tier-1 core done; Tier-2 capture gated)* — 🔄 IN PROGRESS 2026-06-04 (S-MLOPT-S10)
 - **Deliverable:** capture L1/L2 from Bybit + IBKR (new `market_raw` sub-stream + storage),
   compute **Order-Flow Imbalance (OFI)**, **VPIN** (volume-bucketed flow toxicity), spread,
   microprice. Bigger lift (a live capture path + storage), so scoped as its own Tier-2
@@ -373,17 +377,67 @@ proven ROI per hour after Phase 1. Caveat from the research: **microstructure al
 - **Reference:** Easley/López de Prado/O'Hara VPIN (2012); DeepLOB shows microstructure
   features transfer across instruments.
 - **Effort:** L.
+- **Shipped (S-MLOPT-S10, sprint log [`S-MLOPT-S10.md`](../sprint-logs/S-MLOPT-S10.md), `MB-20260604-002`):**
+  the **Tier-1 estimator core** `ml/datasets/orderflow_features.py` (Cont OFI, Easley-LdP-O'Hara
+  VPIN + bulk-volume classification, Stoikov micro-price, relative spread) + 16 CI tests; ruff
+  clean. **Defining constraint:** unlike S9 (range-vol from OHLC) and S11 (funding/OI from REST
+  history), order-flow needs L1/L2 + tick data we neither capture nor can backfill — so it
+  **cannot be A/B'd offline**; the **Tier-2 live-capture path is the gate.** Design proposal
+  [`docs/ml/orderflow-capture-design.md`](orderflow-capture-design.md): store **per-bar
+  aggregates** (`ofi`/`vpin`/`rel_spread_mean`/`microprice_dev`) as a `market_microstructure`
+  side-stream that reuses the S11 as-of-join + drift machinery (storage-bounded), joined into
+  `market_features` via an optional `microstructure_path` (`builder_version v4 → v5`). **Three
+  operator decisions pending** before the Tier-2 build: capture host (trainer-VM side-car
+  preferred, WS9-safe) / transport (free REST polling vs paid ccxt.pro WS) / scope (BTCUSDT-only
+  to start). On sign-off: capture service → accrue → join columns + A/B manifest → purged-CV A/B
+  vs the v2/yz champions. Microstructure alpha decays — monitor via KS/PSI drift if promoted.
 
-### Session 2.3 — Crypto funding-rate + open-interest features *(Tier-1 family; Tier-3 manifest)*
+### Session 2.3 — Crypto funding-rate + open-interest features *(Tier-1 family; Tier-3 manifest)* — 🔄 IN REVIEW 2026-06-04 (S-MLOPT-S11)
 - **Deliverable:** funding-rate **z-score / extremes** and **open-interest change** from
   Bybit. Research nuance: funding is mostly a *trailing* byproduct of momentum — its signal
   is in the *extremes*, not the level. Cheap, high-value, unused today.
 - **Effort:** S–M.
+- **Shipped (S-MLOPT-S11, sprint log [`S-MLOPT-S11.md`](../sprint-logs/S-MLOPT-S11.md), `MB-20260604-001`):**
+  new `ml/datasets/funding_oi_features.py` (rolling z-score, extreme magnitude `|z|`,
+  log-change, change-z — the signal is in the EXTREMES, not the level) +
+  `ml/datasets/adapters/bybit_funding_oi.py` (off-VM Bybit V5 funding-rate +
+  open-interest history fetcher, ccxt-mocked in tests) + `scripts/ml/fetch_funding_oi.py`
+  (side-stream builder). `market_features` gains an optional `funding_oi_path` join → five
+  new past-only, **as-of-aligned** columns (`funding_rate` / `funding_rate_zscore` /
+  `funding_rate_abs_z` / `open_interest_change` / `open_interest_change_zscore`),
+  `builder_version v3 → v4`, **default-preserving** (omit the path → 0.0 columns, every
+  existing build + non-crypto symbol unchanged; leakage-safe by construction). New manifest
+  `btc-regime-1h-lgbm-funding-v1.yaml` (Tier-3, `research_only`) = a clean A/B vs the v2
+  champion. Opt-in daily-cycle wiring via `ICT_BUILD_FUNDING_OI=1` (default off). **A/B eval
+  (#2745) NEGATIVE** — funding-v1 `f1_volatile` 0.4859 vs v2 0.5009 (−0.0150) under purged
+  WF-CV. The off-VM adapter works end-to-end, but Bybit's public **OI history retention is
+  ~8 days** (191 rows vs funding's full 5y 5460 rows), so the OI features were effectively
+  untested and the funding-rate features added noise not signal on the *volatility-regime*
+  label. Infra stands; manifest stays `research_only`. Follow-up levers (`MB-20260604-001`):
+  wire funding into `setup_candidates` (a decision target may suit it better) / a rolling
+  forward OI capture. Mirrors the S9 shape exactly.
 
-### Session 2.4 — Cross-asset/macro for MES + wire `account_context` *(Tier-1 family; Tier-3 manifest)*
+### Session 2.4 — Cross-asset/macro for MES + wire `account_context` *(Tier-1 family; Tier-3 manifest)* — 🔄 PART A DONE 2026-06-04 (S-MLOPT-S12)
 - **Deliverable:** DXY / VIX-term-structure / rates conditioning features for MES; and wire
   the existing-but-**unused** `account_context` family (equity curve, daily PnL, open-trade
   count) into the decision models.
+- **Part A SHIPPED (S-MLOPT-S12, sprint log [`S-MLOPT-S12.md`](../sprint-logs/S-MLOPT-S12.md), `MB-20260604-004`):**
+  `ml/datasets/macro_features.py` (VIX level/z + term-structure slope `VIX/VIX3M−1`,
+  DXY z/return, 10y level + 3m-10y slope; pure, past-only, **one-day-lagged** so a daily
+  close never reaches a same-day intraday bar); off-VM `yfinance_macro` adapter +
+  `scripts/ml/fetch_macro.py`; `market_features` `builder_version v5→v6` (optional
+  `macro_path`, **default-preserving** → 0.0 when omitted, every existing build unchanged);
+  research_only A/B manifest `mes-regime-5m-lgbm-macro-v1` (identical to the v2 head except
+  the macro group, same frozen regime spec). Daily `build_mes_market` fetches the stream once
+  (`ensure_mes_macro`, `MES_MACRO=1`, non-fatal) and joins it on 5m/15m + the deep 1d head.
+  The A/B is **evaluable once the daily cycle rebuilds MES `market_features` on v6 with the
+  macro stream** — `MB-20260604-004` holds the review note. Macro alpha for an intraday regime
+  head is plausibly thin; a negative is an acceptable, documented outcome (as S11 was).
+- **Part B (`account_context` wiring) DEFERRED — `MB-20260604-003`:** the family is an orphan
+  (no manifest) and the equity/daily-PnL/open-trade-count it wants are **not recorded as
+  as-of-signal-time snapshots** (`daily_risk_state` is end-of-interval daily running values →
+  a post-hoc join leaks). Needs per-signal snapshot instrumentation (or a prop-account data-
+  volume check) first; both sub-options logged.
 - **Effort:** M.
 
 ---
