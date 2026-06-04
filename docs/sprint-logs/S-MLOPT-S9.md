@@ -153,10 +153,24 @@ recency/class weighting, only the vol feature set differs).
 New clean-A/B manifests cloned from each v2 champion (only the vol feature set
 differs; spec frozen on `yang_zhang_vol`): `btc-regime-{5m,15m}-lgbm-yz-v1.yaml`
 + `mes-regime-{5m,15m}-lgbm-yz-v1.yaml`. The range-vol columns land on every
-`market_features` build, so these are drop-in A/Bs. Purged-CV A/B results
-(trainer-vm-diag #2736 for BTC 5m/15m; a follow-up MES job) are appended to
-`MB-20260603-004` as they land; only positive, leak-free heads are proposed for
-`shadow`.
+`market_features` build, so these are drop-in A/Bs.
+
+**BTC 5m/15m purged WF-CV A/B (#2736) — POSITIVE on every timeframe, leak-free:**
+
+| TF | v2 f1_vol | yz f1_vol | Δ f1_vol | Δ macro_f1 | Δ accuracy |
+|---|---|---|---|---|---|
+| 1h | 0.5009 | **0.5036** | +0.0027 | +0.0067 | +0.0114 |
+| 5m | 0.1362 | **0.1535** | **+0.0173** | +0.0092 | +0.0025 |
+| 15m | 0.2316 | **0.2532** | **+0.0216** | +0.0149 | +0.0144 |
+
+All three BTC regime heads improve on `f1_volatile` under the rigorous purged
+WF-CV, with the **largest lifts at 5m/15m** (where the volatile class is rarest
+and close-to-close vol is noisiest — exactly where a more-efficient range
+estimator should help most). So the promotion proposal extends: advance
+`btc-regime-{1h,5m,15m}-lgbm-yz-v1` `research_only → shadow` (Tier-3,
+operator-gated). **MES** 5m/15m yz A/B (needs the median-calibrated MES
+`market_features` rebuild) is the remaining trainer job — results appended to
+`MB-20260603-004`; only positive, leak-free heads are proposed for `shadow`.
 
 ## Documentation Updated
 - `docs/data/dataset-taxonomy.md` (market_features range-vol columns);
