@@ -1,0 +1,95 @@
+# Funding/OI-augmented regime classifier — BTCUSDT @ 1h (S-MLOPT-S11, Phase 2.3).
+#
+# A direct A/B against `btc-regime-1h-lgbm-v2` to quantify the marginal
+# `f1_volatile` lift from crypto funding-rate + open-interest features. Identical
+# to the v2 champion EXCEPT it adds the S-MLOPT-S11 funding/OI columns the
+# `market_features` family now emits when a funding/OI side-stream is joined —
+#   funding_rate, funding_rate_zscore, funding_rate_abs_z,
+#   open_interest_change, open_interest_change_zscore
+# Research nuance baked into the feature set: funding is mostly a TRAILING
+# byproduct of momentum, so the signal is carried by the z-score / |z| extremes
+# (funding_rate_zscore, funding_rate_abs_z), not the raw level — and open
+# interest is fed as a CHANGE (log change + change-z), not a non-stationary level.
+#
+# Requires a `market_features` rebuild on `builder_version: v4` WITH a funding/OI
+# side-stream joined (otherwise these columns are all 0.0):
+#   export ICT_OFFVM_BUILD_HOST=1
+#   python -m scripts.ml.fetch_funding_oi --symbol BTCUSDT --start <s> --end <e> \
+#     --oi-interval 1h --out datasets-out/funding_oi/BTCUSDT/v001
+#   python -m ml build-dataset market_features --output-dir datasets-out \
+#     --version v002 --source <raw_1h> --symbol-scope BTCUSDT --timeframe 1h \
+#     --overwrite market_raw_path=<raw_1h> \
+#     funding_oi_path=datasets-out/funding_oi/BTCUSDT/v001 funding_window_n=168 \
+#     vol_window_n=20 forward_window_m=5 vol_threshold=0.005 n_vol_buckets=3
+#   python -m ml compare btc-regime-1h-lgbm-v2 btc-regime-1h-lgbm-funding-v1
+#
+# TIER: adopting / promoting this manifest past `research_only` is Tier-3
+# (operator-gated). Ships at `research_only` — a pure eval candidate. Can be
+# stacked with the S-MLOPT-S9 yang_zhang_vol head in a follow-up once both A/Bs
+# land positive.
+
+manifest_version: v1
+model_id: btc-regime-1h-lgbm-funding-v1
+description: "Funding/OI-augmented regime classifier for BTCUSDT 1h — adds Bybit funding-rate z-score/extremes + open-interest change to the v2 head (signal in the extremes, not the level). A/B vs btc-regime-1h-lgbm-v2 to quantify the f1_volatile lift (S-MLOPT-S11, Phase 2.3, gap G5)."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - funding_rate
+    - funding_rate_zscore
+    - funding_rate_abs_z
+    - open_interest_change
+    - open_interest_change_zscore
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  # Same recency weighting as the v2 head (#2678: hl=90d for 1h) so the only
+  # moving part vs the champion is the funding/OI feature set — a clean A/B.
+  sample_weight:
+    half_life_days: 90
+    time_column: ts
+  class_weight:
+    range: 1.0
+    volatile: 4.0
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 1h
+  version: v002
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  S-MLOPT-S11 Phase 2.3. Clean A/B vs btc-regime-1h-lgbm-v2: identical trainer,
+  split, recency + class weighting, dataset — the ONLY change is the addition of
+  the funding/OI feature columns. REQUIRES market_features rebuilt on
+  builder_version v4 with a funding/OI side-stream joined (funding_oi_path);
+  without it the funding/OI columns are 0.0 and this collapses to the v2 head.
+  Leakage gate forbids forward_log_return / forward_log_return_vol /
+  regime_label. If `f1_volatile` improves under the Phase-0 CV, propose
+  promotion to shadow (operator-gated).

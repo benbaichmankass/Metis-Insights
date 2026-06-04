@@ -412,5 +412,43 @@ build_mes_1d() {
 build_mes_market
 build_mes_1d
 
+# ---- Crypto funding-rate + open-interest features (S-MLOPT-S11) ----------
+# OPT-IN (default OFF): set ICT_BUILD_FUNDING_OI=1 to fetch the Bybit funding/OI
+# side-stream and REBUILD the BTCUSDT market_features with it joined (the v4
+# funding/OI columns become non-zero). Default off keeps the daily cycle's
+# market_features identical (funding columns emit 0.0) — the funding A/B
+# manifest (btc-regime-1h-lgbm-funding-v1) only needs this when it is being
+# evaluated. Non-fatal: a fetch hiccup just leaves the funding columns at 0.0.
+build_funding_oi() {
+  [ "${ICT_BUILD_FUNDING_OI:-0}" = "1" ] || return 0
+  local fo_dir="${DATASETS_ROOT}/funding_oi/BTCUSDT/v001"
+  emit "$(printf '{"ts":"%s","status":"building","family":"funding_oi","symbol":"BTCUSDT"}' "$(iso_now)")"
+  set +e
+  ICT_OFFVM_BUILD_HOST=1 python -m scripts.ml.fetch_funding_oi \
+    --symbol BTCUSDT --start "${MARKET_START}" --end "${MARKET_END}" \
+    --oi-interval 1h --out "$fo_dir" >/tmp/funding_oi_$$.out 2>/tmp/funding_oi_$$.err
+    local rc=$?
+  set -e
+  if [ "$rc" -ne 0 ]; then
+    emit "$(printf '{"ts":"%s","status":"skipped","family":"funding_oi","detail":"fetch failed rc=%d"}' "$(iso_now)" "$rc")"
+    rm -f "/tmp/funding_oi_$$.out" "/tmp/funding_oi_$$.err"
+    return 0
+  fi
+  rm -f "/tmp/funding_oi_$$.out" "/tmp/funding_oi_$$.err"
+  # Rebuild each BTC market_features shard WITH the funding/OI join.
+  for tf in 1h 5m 15m; do
+    local raw_path="${DATASETS_ROOT}/market_raw/BTCUSDT/${tf}/${DATASET_VERSION}"
+    [ -d "$raw_path" ] || continue
+    build_family market_features \
+      --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+      --source "${raw_path}" --symbol-scope BTCUSDT --timeframe "$tf" --overwrite \
+      "market_raw_path=${raw_path}" "funding_oi_path=${fo_dir}" "funding_window_n=168" \
+      "vol_window_n=20" "forward_window_m=5" \
+      "vol_threshold=0.005" "trend_threshold=0.005" "n_vol_buckets=3"
+  done
+}
+
+build_funding_oi
+
 emit "$(printf '{"ts":"%s","status":"build_end","overall_rc":%d}' "$(iso_now)" "$overall_rc")"
 exit "$overall_rc"

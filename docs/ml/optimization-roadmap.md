@@ -347,7 +347,7 @@ than a capacity problem. Range-based vol estimators and microstructure flow are 
 proven ROI per hour after Phase 1. Caveat from the research: **microstructure alpha decays**
 — engineer it, monitor it via drift, don't assume permanence.
 
-### Session 2.1 — Range-based volatility estimators *(Tier-1 family; Tier-3 manifest)* — 🔄 IN REVIEW 2026-06-03 (S-MLOPT-S9)
+### Session 2.1 — Range-based volatility estimators *(Tier-1 family; Tier-3 manifest)* — ✅ DONE 2026-06-04 (S-MLOPT-S9)
 - **Deliverable:** add **Yang-Zhang** (handles overnight gaps + drift, ~8× efficiency) and
   **Garman-Klass** vol to `market_features`; let regime manifests select the vol feature.
 - **Lowest-effort, near-free regime-separation fix.** Re-run the regime eval (under Phase 0
@@ -362,8 +362,12 @@ proven ROI per hour after Phase 1. Caveat from the research: **microstructure al
   feature set (regime spec frozen on `yang_zhang_vol`). Leakage-safe by construction
   (past-only window). **A/B (#2720): POSITIVE** — on a v3 `market_features` rebuild, the yz
   head beat the v2 champion on every metric (`f1_volatile` 0.4624 → 0.4724 +0.010, accuracy
-  +0.016, weighted_f1 +0.012) under `time_aware_holdout`. The Phase-0 purged-CV confirmation
-  is the open step before proposing promotion + extending to 5m/15m/MES (`MB-20260603-004`).
+  +0.016, weighted_f1 +0.012) under `time_aware_holdout`. **The Phase-0 purged WF-CV confirm
+  (#2736, 2026-06-04) is also POSITIVE leak-free** — 1h yz beats v2 on `f1_volatile`
+  (0.5036 vs 0.5009, +0.0027), `macro_f1` (+0.0067), `accuracy` (+0.0114). Promotion proposal
+  written (`research_only → shadow`, Tier-3, operator-gated); full `shadow → advisory` blocked
+  by `MB-20260529-001` (per-bar scoring, S13). Extended to 5m/15m BTC + 5m/15m MES
+  (`*-lgbm-yz-v1.yaml`, research_only; A/B in `MB-20260603-004`). `MB-20260603-004` resolved.
 
 ### Session 2.2 — Order-flow / microstructure features *(Tier-2 — needs live L2 capture)*
 - **Deliverable:** capture L1/L2 from Bybit + IBKR (new `market_raw` sub-stream + storage),
@@ -374,11 +378,30 @@ proven ROI per hour after Phase 1. Caveat from the research: **microstructure al
   features transfer across instruments.
 - **Effort:** L.
 
-### Session 2.3 — Crypto funding-rate + open-interest features *(Tier-1 family; Tier-3 manifest)*
+### Session 2.3 — Crypto funding-rate + open-interest features *(Tier-1 family; Tier-3 manifest)* — 🔄 IN REVIEW 2026-06-04 (S-MLOPT-S11)
 - **Deliverable:** funding-rate **z-score / extremes** and **open-interest change** from
   Bybit. Research nuance: funding is mostly a *trailing* byproduct of momentum — its signal
   is in the *extremes*, not the level. Cheap, high-value, unused today.
 - **Effort:** S–M.
+- **Shipped (S-MLOPT-S11, sprint log [`S-MLOPT-S11.md`](../sprint-logs/S-MLOPT-S11.md), `MB-20260604-001`):**
+  new `ml/datasets/funding_oi_features.py` (rolling z-score, extreme magnitude `|z|`,
+  log-change, change-z — the signal is in the EXTREMES, not the level) +
+  `ml/datasets/adapters/bybit_funding_oi.py` (off-VM Bybit V5 funding-rate +
+  open-interest history fetcher, ccxt-mocked in tests) + `scripts/ml/fetch_funding_oi.py`
+  (side-stream builder). `market_features` gains an optional `funding_oi_path` join → five
+  new past-only, **as-of-aligned** columns (`funding_rate` / `funding_rate_zscore` /
+  `funding_rate_abs_z` / `open_interest_change` / `open_interest_change_zscore`),
+  `builder_version v3 → v4`, **default-preserving** (omit the path → 0.0 columns, every
+  existing build + non-crypto symbol unchanged; leakage-safe by construction). New manifest
+  `btc-regime-1h-lgbm-funding-v1.yaml` (Tier-3, `research_only`) = a clean A/B vs the v2
+  champion. Opt-in daily-cycle wiring via `ICT_BUILD_FUNDING_OI=1` (default off). **A/B eval
+  (#2745) NEGATIVE** — funding-v1 `f1_volatile` 0.4859 vs v2 0.5009 (−0.0150) under purged
+  WF-CV. The off-VM adapter works end-to-end, but Bybit's public **OI history retention is
+  ~8 days** (191 rows vs funding's full 5y 5460 rows), so the OI features were effectively
+  untested and the funding-rate features added noise not signal on the *volatility-regime*
+  label. Infra stands; manifest stays `research_only`. Follow-up levers (`MB-20260604-001`):
+  wire funding into `setup_candidates` (a decision target may suit it better) / a rolling
+  forward OI capture. Mirrors the S9 shape exactly.
 
 ### Session 2.4 — Cross-asset/macro for MES + wire `account_context` *(Tier-1 family; Tier-3 manifest)*
 - **Deliverable:** DXY / VIX-term-structure / rates conditioning features for MES; and wire

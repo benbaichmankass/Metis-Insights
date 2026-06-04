@@ -103,6 +103,98 @@ purged WF-CV — a purged-CV confirmation is the rigorous follow-up before any
 promotion. If the lift holds, propose promoting the yz head to `shadow`
 (operator-gated) and extend the range-vol variant to 5m/15m + MES.
 
+## Purged-CV Confirmation + extension (S9 finish, 2026-06-04)
+The S9 A/B (#2720) was on the manifest's optimistic `time_aware_holdout`. The
+finish step ran the **rigorous Phase-0 purged & embargoed walk-forward CV**
+(`scripts/ml/eval_split_compare.py`, 5 folds, `label_horizon=5` to match the
+regime label's forward window, `embargo_fraction=0.01`) on BOTH the v2 champion
+AND the yz challenger over a freshly-rebuilt v4 `market_features` (range-vol
+columns present), identical folds → an apples-to-apples champion-vs-challenger.
+
+**1h — POSITIVE, leak-free (trainer-vm-diag #2736):**
+
+| Metric (purged WF-CV, 5 folds) | v2 champion | yz challenger | Δ (yz − v2) |
+|---|---|---|---|
+| **f1_volatile** | 0.5009 | **0.5036** | **+0.0027** |
+| macro_f1 | 0.6542 | **0.6609** | **+0.0067** |
+| accuracy | 0.7258 | **0.7372** | **+0.0114** |
+
+(For reference, the same run's `time_aware_holdout`: yz f1_volatile 0.4694 vs v2
+0.4655, +0.0039 — same sign, confirming the holdout lift was not an artifact.
+Note both heads' purged-CV f1_volatile (~0.50) exceeds their holdout (~0.47):
+the recent-20% holdout regime is the harder block; the pooled WF folds average
+higher. The A/B **delta** is positive on every headline metric either way.)
+
+The Yang-Zhang range-vol head beats the production champion `btc-regime-1h-lgbm-v2`
+**leak-free** on f1_volatile, macro_f1, AND accuracy. The S9 lift is real and
+not a holdout artifact. (The S4 `gate-check` oos_edge gate compares a candidate
+vs a *generic* baseline; this direct champion-vs-challenger purged-CV A/B is the
+stronger comparison — the yz head beats the current SHADOW champion, not just a
+naive majority baseline.)
+
+### Promotion packet (Tier-3 — operator-APPROVED 2026-06-04, landed in PR #2739)
+**Update 2026-06-04:** the operator approved this promotion; `target_deployment_stage`
+on `btc-regime-{1h,5m,15m}-lgbm-yz-v1` flipped `research_only → shadow` (the 5m/15m
+heads also cleared the same clean-win bar). At `shadow` they log predictions but never
+influence an order; full `shadow → advisory` stays operator-gated + blocked by
+`MB-20260529-001`. MES yz heads stay `research_only` (mixed result). Original proposal:
+
+**Proposal:** advance `btc-regime-1h-lgbm-yz-v1` from `research_only → shadow`
+as the new 1h regime champion candidate (it is a clean, leak-free improvement
+over the current shadow champion `btc-regime-1h-lgbm-v2`, same role + dataset +
+recency/class weighting, only the vol feature set differs).
+- **Evidence:** purged-CV A/B above (#2736) + the holdout A/B (#2720); past-only
+  features → leakage-safe by construction; `freeze_regime_spec` on `yang_zhang_vol`
+  so the live-scoring path buckets ticks against the trained edges.
+- **Mechanics (operator runs):** set `target_deployment_stage: shadow` on the
+  manifest (or supersede the v2 head with the range-vol feature set), Tier-3 edit.
+- **Caveat — full shadow→advisory is separately blocked by `MB-20260529-001`:**
+  1h regime heads emit ZERO shadow predictions today (`_emit_shadow_preds` fires
+  only on an actionable 5m signal), so even at `shadow` the yz head accrues no
+  order-influencing track record until the per-bar regime-scoring path (S-MLOPT-S13,
+  Phase 3.1) lands. So the realistic next step is `research_only → shadow` now;
+  `shadow → advisory` waits on S13 + an operator decision.
+
+### Extension to 5m/15m/MES (same A/B, research_only)
+New clean-A/B manifests cloned from each v2 champion (only the vol feature set
+differs; spec frozen on `yang_zhang_vol`): `btc-regime-{5m,15m}-lgbm-yz-v1.yaml`
++ `mes-regime-{5m,15m}-lgbm-yz-v1.yaml`. The range-vol columns land on every
+`market_features` build, so these are drop-in A/Bs.
+
+**BTC 5m/15m purged WF-CV A/B (#2736) — POSITIVE on every timeframe, leak-free:**
+
+| TF | v2 f1_vol | yz f1_vol | Δ f1_vol | Δ macro_f1 | Δ accuracy |
+|---|---|---|---|---|---|
+| 1h | 0.5009 | **0.5036** | +0.0027 | +0.0067 | +0.0114 |
+| 5m | 0.1362 | **0.1535** | **+0.0173** | +0.0092 | +0.0025 |
+| 15m | 0.2316 | **0.2532** | **+0.0216** | +0.0149 | +0.0144 |
+
+All three BTC regime heads improve on `f1_volatile` under the rigorous purged
+WF-CV, with the **largest lifts at 5m/15m** (where the volatile class is rarest
+and close-to-close vol is noisiest — exactly where a more-efficient range
+estimator should help most). So the promotion proposal extends: advance
+`btc-regime-{1h,5m,15m}-lgbm-yz-v1` `research_only → shadow` (Tier-3,
+operator-gated).
+
+**MES 5m/15m purged WF-CV A/B (#2745, median-calibrated build) — MIXED, NOT a
+clean win:**
+
+| TF | metric | v2 | yz | Δ |
+|---|---|---|---|---|
+| MES 5m | f1_volatile | 0.7261 | 0.7305 | +0.0044 |
+| MES 5m | macro_f1 | 0.5507 | 0.5329 | **−0.0178** |
+| MES 15m | f1_volatile | 0.6889 | 0.7108 | +0.0219 |
+| MES 15m | macro_f1 | 0.5573 | 0.5294 | **−0.0279** |
+
+On MES the regime classes are **median-calibrated (~balanced)**, so the
+range-vol feature shifts the precision/recall tradeoff *toward* the volatile
+class (f1_volatile + accuracy up) at the *expense* of the range class →
+`macro_f1` drops. This is the opposite of BTC, where the heavy range-imbalance
+means lifting volatile costs the macro nothing. **So range-vol is a clean win on
+the imbalanced BTC heads but inconclusive on the balanced MES heads** — the MES
+yz manifests stay `research_only` and are NOT proposed for `shadow` (the macro_f1
+regression is the blocker). Honest mixed result; documented in `MB-20260603-004`.
+
 ## Documentation Updated
 - `docs/data/dataset-taxonomy.md` (market_features range-vol columns);
   `docs/architecture/ai-model-platform.md` change-log; `docs/ml/optimization-roadmap.md`
@@ -110,13 +202,18 @@ promotion. If the lift holds, propose promoting the yz head to `shadow`
   (`MB-20260603-004`, the A/B eval follow-up); this sprint log.
 
 ## Risks and Follow-Ups
-- **A/B landed positive (#2720)** — every metric improved (f1_volatile
-  0.4624→0.4724) on `time_aware_holdout`. The **open step is the Phase-0
-  purged-CV confirmation** before proposing promotion (MB-20260603-004); the
-  holdout lift is real but the rigorous number is the purged-CV one.
-- **Other timeframes / symbols**: the columns land on every `market_features`
-  build (1h/5m/15m BTC + MES), so 5m/15m YZ variants are a trivial follow-up if
-  the 1h A/B is positive.
+- **Purged-CV confirm POSITIVE (#2736), 2026-06-04** — the yz head beats the v2
+  champion leak-free under the Phase-0 purged WF-CV (1h: f1_volatile +0.0027,
+  macro_f1 +0.0067, accuracy +0.0114). Promotion packet written above; the
+  Tier-3 `research_only → shadow` advance is the operator's call. The lift is
+  modest — a near-free feature win, not a step change.
+- **shadow → advisory blocked by `MB-20260529-001`** (no per-bar regime scoring →
+  1h heads accrue no shadow track record). The yz head can be advanced to
+  `shadow` now; the live-influence step waits on S-MLOPT-S13 (Phase 3.1).
+- **Other timeframes / symbols**: 5m/15m BTC + 5m/15m MES yz A/B manifests
+  shipped this finish (`research_only`); purged-CV A/B results land in
+  `MB-20260603-004` as the trainer jobs complete. Only positive, leak-free heads
+  are proposed for `shadow`.
 - **Garman-Klass / Rogers-Satchell per-bar terms can dip negative** on a single
   bar; the window-mean variance is clamped at 0 so the sqrt stays real (standard
   practice).
@@ -124,17 +221,21 @@ promotion. If the lift holds, propose promoting the yz head to `shadow`
   promotion past `shadow` is operator-gated.
 
 ## Next Recommended Sprint
-- **S-MLOPT-S9 follow-up**: if the 1h A/B shows a positive `f1_volatile` lift,
-  extend the YZ variant to 5m/15m + MES and propose promotion to `shadow`.
-- **S-MLOPT-S2.3 crypto funding-rate + open-interest features** (Tier-1) — the
-  next cheap, high-value, currently-unused feature family.
+- **S-MLOPT-S11 crypto funding-rate + open-interest features** (Tier-1) — the
+  next cheap, high-value, currently-unused feature family. **Started in the same
+  session** (sprint log [`S-MLOPT-S11.md`](S-MLOPT-S11.md)).
+- **S-MLOPT-S13 (Phase 3.1) per-bar regime scoring** (Tier-2, operator-gated) —
+  the highest-leverage unblock: without it no regime head (incl. this yz one)
+  can ever clear `shadow → advisory` on order-influencing evidence
+  (`MB-20260529-001`).
 
 ## Wrap-Up Check
 - [x] Code was inspected directly, not inferred only from summaries.
 - [x] Documentation was reviewed and updated as part of the sprint.
-- [x] No pipeline stage / live-path file touched; manifest is a Tier-3 proposal.
+- [x] No pipeline stage / live-path file touched; manifests are Tier-3 proposals.
 - [x] Roadmap status checked + updated.
 - [x] Contradictions were recorded (none new).
-- [x] Remaining unknowns stated clearly (A/B landed positive #2720, f1_volatile
-      +0.010 on holdout; the Phase-0 purged-CV confirm is the open step before
-      promotion).
+- [x] Remaining unknowns stated clearly: 1h purged-CV confirm POSITIVE (#2736,
+      f1_volatile +0.0027 leak-free); 5m/15m/MES purged-CV A/B + the MES build
+      land in `MB-20260603-004` as the trainer jobs finish; `shadow → advisory`
+      blocked on `MB-20260529-001`.
