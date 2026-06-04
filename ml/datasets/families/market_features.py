@@ -40,6 +40,14 @@ Knobs (all kwargs):
   every non-crypto build is unchanged).
 - `funding_window_n` (int, default 168) — past window (in bars) for the
   funding-rate z-score + open-interest change features. ~1 week on 1h bars.
+- `microstructure_path` (path, default None) — optional directory holding a
+  per-bar order-flow side-stream (`data.jsonl`, rows
+  `{ts, symbol, ofi, buy_vol, sell_vol, rel_spread_mean, microprice_dev}`,
+  captured forward by `scripts/ml/orderflow_capture.py`). When given, the
+  order-flow feature columns (S-MLOPT-S10) are computed from an as-of (past-only)
+  aligned window; when omitted they emit `0.0` (default-preserving).
+- `microstructure_window_n` (int, default 50) — past window (in bars) for the
+  OFI z-score + VPIN features.
 
 ## Schema
 
@@ -61,6 +69,10 @@ Knobs (all kwargs):
 | `funding_rate_abs_z` | float | `abs(funding_rate_zscore)` — extreme magnitude (the research-favoured "signal is in the extremes" reading). |
 | `open_interest_change` | float | Log change of the as-of open interest over the past `funding_window_n` bars. |
 | `open_interest_change_zscore` | float | Z-score of the latest OI first-difference over the window (extreme-of-change). |
+| `ofi` / `ofi_zscore` | float | As-of Cont order-flow-imbalance level + its z-score over `microstructure_window_n` bars (S-MLOPT-S10); `0.0` when no `microstructure_path`. |
+| `vpin` | float | Volume-synchronised flow toxicity over the trailing buy/sell-volume buckets. |
+| `order_imbalance` | float | Per-bar taker `(buy_vol − sell_vol)/(buy_vol + sell_vol)`. |
+| `rel_spread_mean` / `microprice_dev` | float | As-of mean relative spread + signed micro-price lean for the bar. |
 | `forward_log_return` | float | `ln(close[t + forward_window_m] / close[t])`. |
 | `forward_log_return_vol` | float | stdev of `log_return` over `[t + 1 .. t + forward_window_m]` (strictly after `t`). |
 | `regime_label` | str | One of `"range"`, `"volatile"` — derived from forward stats (2-class since S-ML-REGIME-CLASSIFIER-FIX). |
@@ -119,6 +131,7 @@ from ..funding_oi_features import (
     rolling_zscore,
 )
 from ..metadata import LeakageStatus
+from ..orderflow_features import vpin as _vpin
 from ..volatility_estimators import (
     _sqrt_or_zero,
     garman_klass_var,
@@ -291,11 +304,14 @@ class MarketFeaturesBuilder(DatasetBuilder):
     # yang_zhang). v4 (S-MLOPT-S11): adds the crypto funding-rate + open-interest
     # features (funding_rate / funding_rate_zscore / funding_rate_abs_z /
     # open_interest_change / open_interest_change_zscore) — populated from the
-    # optional `funding_oi_path` side-stream, 0.0 when it is absent. Earlier
-    # baselines that only read `vol_bucket` / `rolling_log_return_vol` are
-    # unaffected by the wider schema; builder_version is metadata-only (it does
-    # not gate dataset path resolution).
-    builder_version: ClassVar[str] = "v4"
+    # optional `funding_oi_path` side-stream, 0.0 when it is absent. v5
+    # (S-MLOPT-S10): adds the order-flow / microstructure features (ofi /
+    # ofi_zscore / vpin / order_imbalance / rel_spread_mean / microprice_dev) —
+    # populated from the optional `microstructure_path` side-stream, 0.0 when it
+    # is absent. Earlier baselines that only read `vol_bucket` /
+    # `rolling_log_return_vol` are unaffected by the wider schema; builder_version
+    # is metadata-only (it does not gate dataset path resolution).
+    builder_version: ClassVar[str] = "v5"
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.PASSED
     label_version: ClassVar[str] = "regime-3class-v1"
     schema: ClassVar[Mapping[str, type]] = {
@@ -325,6 +341,18 @@ class MarketFeaturesBuilder(DatasetBuilder):
         "funding_rate_abs_z": float,
         "open_interest_change": float,
         "open_interest_change_zscore": float,
+        # Order-flow / microstructure features (S-MLOPT-S10). Computed over an
+        # as-of (past-only) aligned window of the optional `market_microstructure`
+        # side-stream (per-bar OFI / taker buy-sell volume / spread / micro-price
+        # lean captured forward by scripts/ml/orderflow_capture.py) — 0.0 on every
+        # row when no `microstructure_path` is supplied. Leakage-safe by
+        # construction.
+        "ofi": float,
+        "ofi_zscore": float,
+        "vpin": float,
+        "order_imbalance": float,
+        "rel_spread_mean": float,
+        "microprice_dev": float,
         "hour_of_day": int,
         "dayofweek": int,
         "log_return_lag_1": float,
@@ -346,6 +374,8 @@ class MarketFeaturesBuilder(DatasetBuilder):
         n_vol_buckets: int = 3,
         funding_oi_path: Path | str | None = None,
         funding_window_n: int = 168,
+        microstructure_path: Path | str | None = None,
+        microstructure_window_n: int = 50,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         if vol_window_n < 2:
@@ -363,6 +393,10 @@ class MarketFeaturesBuilder(DatasetBuilder):
         if funding_window_n < 2:
             raise ValueError(
                 f"funding_window_n must be >= 2; got {funding_window_n}"
+            )
+        if microstructure_window_n < 2:
+            raise ValueError(
+                f"microstructure_window_n must be >= 2; got {microstructure_window_n}"
             )
 
         rows = _load_market_raw_rows(Path(market_raw_path))
@@ -399,6 +433,31 @@ class MarketFeaturesBuilder(DatasetBuilder):
                 ]
                 funding_aligned = _align_asof(bar_ts, fo_ts, fr_val)
                 oi_aligned = _align_asof(bar_ts, fo_ts, oi_val)
+
+        # Order-flow / microstructure side-stream (S-MLOPT-S10), as-of aligned
+        # onto the bars (past-only carry-forward). All-`None` (→ feature 0.0)
+        # when no `microstructure_path` is given.
+        ofi_aligned: list[float | None] = [None] * n
+        buy_aligned: list[float | None] = [None] * n
+        sell_aligned: list[float | None] = [None] * n
+        spread_aligned: list[float | None] = [None] * n
+        microdev_aligned: list[float | None] = [None] * n
+        if microstructure_path is not None:
+            ms_rows = _load_funding_oi_rows(Path(microstructure_path))
+            if ms_rows:
+                ms_ts = [str(r.get("ts", "")) for r in ms_rows]
+
+                def _col(name: str) -> list[float | None]:
+                    return [
+                        (float(r[name]) if r.get(name) is not None else None)
+                        for r in ms_rows
+                    ]
+
+                ofi_aligned = _align_asof(bar_ts, ms_ts, _col("ofi"))
+                buy_aligned = _align_asof(bar_ts, ms_ts, _col("buy_vol"))
+                sell_aligned = _align_asof(bar_ts, ms_ts, _col("sell_vol"))
+                spread_aligned = _align_asof(bar_ts, ms_ts, _col("rel_spread_mean"))
+                microdev_aligned = _align_asof(bar_ts, ms_ts, _col("microprice_dev"))
 
         log_returns: list[float | None] = [None] * n
         for i in range(1, n):
@@ -482,6 +541,19 @@ class MarketFeaturesBuilder(DatasetBuilder):
             funding_w = funding_aligned[fs : i + 1]
             oi_w = oi_aligned[fs : i + 1]
             funding_z = rolling_zscore(funding_w)
+            # Order-flow / microstructure feature window (S-MLOPT-S10): the
+            # inclusive past window `[i-microstructure_window_n+1 .. i]` of the
+            # as-of-aligned series. `ofi_zscore` over the OFI window; `vpin` over
+            # the trailing buy/sell volume buckets; `order_imbalance` per-bar.
+            ms = max(0, i - microstructure_window_n + 1)
+            ofi_w = ofi_aligned[ms : i + 1]
+            buy_w = [v for v in buy_aligned[ms : i + 1] if v is not None]
+            sell_w = [v for v in sell_aligned[ms : i + 1] if v is not None]
+            bv_i = buy_aligned[i] if buy_aligned[i] is not None else 0.0
+            sv_i = sell_aligned[i] if sell_aligned[i] is not None else 0.0
+            order_imbalance = (
+                (bv_i - sv_i) / (bv_i + sv_i) if (bv_i + sv_i) > 0 else None
+            )
             yield {
                 "ts": ts_str,
                 "symbol": str(rows[i].get("symbol", "")),
@@ -501,6 +573,12 @@ class MarketFeaturesBuilder(DatasetBuilder):
                 "funding_rate_abs_z": _finite_or_zero(extreme_magnitude(funding_z)),
                 "open_interest_change": _finite_or_zero(log_change(oi_w)),
                 "open_interest_change_zscore": _finite_or_zero(change_zscore(oi_w)),
+                "ofi": _finite_or_zero(ofi_aligned[i]),
+                "ofi_zscore": _finite_or_zero(rolling_zscore(ofi_w)),
+                "vpin": _finite_or_zero(_vpin(buy_w, sell_w)),
+                "order_imbalance": _finite_or_zero(order_imbalance),
+                "rel_spread_mean": _finite_or_zero(spread_aligned[i]),
+                "microprice_dev": _finite_or_zero(microdev_aligned[i]),
                 "hour_of_day": int(hour_of_day),
                 "dayofweek": int(dayofweek),
                 "log_return_lag_1": float(lag_1) if lag_1 is not None else 0.0,

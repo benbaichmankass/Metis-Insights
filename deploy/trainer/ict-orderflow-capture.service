@@ -1,0 +1,47 @@
+# ============================================
+# ICT ORDER-FLOW CAPTURE SIDE-CAR (S-MLOPT-S10, M14 Phase 2.2)
+# Runs scripts/ml/orderflow_capture.py as a long-lived service.
+#
+# Polls Bybit public order-book + trades for BTCUSDT and writes one
+# `market_microstructure` row per 5m bar (ofi / buy_vol / sell_vol /
+# rel_spread_mean / microprice_dev) that market_features joins as-of.
+#
+# **TRAINER VM ONLY** — never the Oracle live trader (WS9: no heavy
+# capture on the live VM). The capture script refuses to run unless
+# ICT_OFFVM_BUILD_HOST=1, which this unit sets.
+#
+# Storage-bounded: ~288 rows/day for BTCUSDT 5m, append-only JSONL.
+# Restart=always so a transient exchange/network blip self-heals; the
+# per-poll exceptions are already caught inside the script, so a restart
+# only fires on a hard process death.
+#
+# Lives in deploy/trainer/ (NOT deploy/) so the live-VM unit installer
+# (scripts/install_systemd_units.sh, which globs deploy/*.service) never picks
+# it up — TRAINER-only side-car, installed manually on the trainer via the relay.
+# Save to (trainer VM): /etc/systemd/system/ict-orderflow-capture.service
+# Install: cp deploy/trainer/ict-orderflow-capture.service /etc/systemd/system/
+#          && systemctl daemon-reload && systemctl enable --now
+#          ict-orderflow-capture.service
+# ============================================
+
+[Unit]
+Description=ICT Trading Bot — order-flow / microstructure capture (BTCUSDT, trainer VM)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+Environment=ICT_OFFVM_BUILD_HOST=1
+ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -m scripts.ml.orderflow_capture \
+  --symbol BTCUSDT \
+  --out /home/ubuntu/ict-trading-bot/datasets-out/market_microstructure/BTCUSDT/5m/v001 \
+  --bar-seconds 300 --poll-seconds 2.0 --depth 5
+Restart=always
+RestartSec=15
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
