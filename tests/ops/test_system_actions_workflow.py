@@ -85,6 +85,7 @@ EXPECTED_ACTIONS = {
     "backfill-closed-null-pnl": "backfill_closed_null_pnl_action.sh",
     "backfill-monitor-closed-pnl": "backfill_monitor_closed_pnl_action.sh",
     "revert-backfill-monitor-closed-pnl": "revert_backfill_monitor_closed_pnl_action.sh",
+    "mark-reconciler-incomplete": "mark_reconciler_incomplete_action.sh",
     "rebuild-pnl-from-bybit": "rebuild_pnl_from_bybit_action.sh",
     "backfill-shadow-predictions": "backfill_shadow_predictions_action.sh",
     # 2026-05-28 — paced IBKR MES historical pull on the live VM (MB-20260528-002).
@@ -129,6 +130,7 @@ TIER_2_ACTIONS = {
     "backfill-closed-null-pnl",
     "backfill-monitor-closed-pnl",
     "revert-backfill-monitor-closed-pnl",
+    "mark-reconciler-incomplete",
     "rebuild-pnl-from-bybit",
     "backfill-shadow-predictions",
     "pull-mes-ibkr-history",
