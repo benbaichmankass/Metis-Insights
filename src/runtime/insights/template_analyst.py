@@ -192,7 +192,13 @@ def summary_template(data: dict[str, Any]) -> dict[str, Any]:
 
 def recent_template(data: dict[str, Any], limit: int) -> dict[str, Any]:
     rows = (data.get("rows") or {}).get("trades") or []
-    closed = [t for t in rows if t.get("status") == "closed"]
+    # recent_data() already filters to closed, non-backtest, non-demo trades
+    # (WHERE t.status = 'closed') and does NOT select the `status` column, so
+    # re-filtering on t["status"] here matched NOTHING (key absent) and zeroed
+    # the header to "0W / 0L / $0.00" over a table of real closed trades
+    # (BL-20260529-006). Treat the provided rows as the closed set; only narrow
+    # if a `status` field is actually present and not "closed".
+    closed = [t for t in rows if t.get("status", "closed") == "closed"]
     pnls = [float(t.get("pnl") or 0.0) for t in closed]
     wins = sum(1 for p in pnls if p > 0)
     losses = sum(1 for p in pnls if p < 0)
