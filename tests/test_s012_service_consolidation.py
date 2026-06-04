@@ -60,6 +60,12 @@ EXPECTED_SERVICES = {
     # /api/bot/health/* + the M13 health card stop serving a frozen
     # 2026-05-11 snapshot.
     "ict-health-snapshot.service",
+    # 2026-06-04: web-api self-heal watchdog (BL-20260604-003). Timer-fired
+    # oneshot (ict-web-api-watchdog.timer, every 2 min) that probes
+    # 127.0.0.1:8001/api/health and restarts ict-web-api on a sustained
+    # wedge — VM-side recovery for the read surface, independent of the
+    # webhook-flaky GitHub vm-web-api-recover dispatch.
+    "ict-web-api-watchdog.service",
 }
 
 # Trader-side units (i.e. units that run trading-strategy code). Used to
