@@ -190,3 +190,99 @@ def test_default_policy_path_resolves_to_repo_config():
     expected_tail = "config/regime_policy.yaml"
     assert _REGIME_POLICY_PATH.endswith(expected_tail), _REGIME_POLICY_PATH
     assert Path(_REGIME_POLICY_PATH).is_file()
+
+
+# === S-MLOPT-S15b — 2-D trend × vol axis ===================================
+
+def test_would_gate_without_vol_regime_is_byte_identical_1d():
+    """Default-preserving: omitting vol_regime returns the exact 1-D shape —
+    no vol_* keys leak into a caller that didn't ask for the vol axis."""
+    policy = load_policy()
+    out = would_gate(strategy="vwap", side="long", regime="chop", policy=policy)
+    assert set(out.keys()) == {"gated", "reason", "cell", "regime", "strategy", "side"}
+    assert out["gated"] is True  # vwap off in chop (1-D unchanged)
+
+
+def test_would_gate_with_vol_regime_adds_vol_keys():
+    policy = load_policy()
+    out = would_gate(strategy="vwap", side="long", regime="chop",
+                     policy=policy, vol_regime="volatile")
+    # 1-D verdict unchanged…
+    assert out["gated"] is True
+    assert out["cell"] == "off"
+    # …plus the observe-only vol axis.
+    assert out["vol_regime"] == "volatile"
+    assert out["vol_gated"] is False  # shipped trend_vol is empty → permissive
+    assert out["vol_cell"] == "default-on"
+
+
+def test_would_gate_2d_off_cell_gates_vol_axis_only():
+    """A 2-D off cell sets vol_gated=True WITHOUT touching the 1-D decision."""
+    policy = {
+        "trend_vol": {
+            "trending": {"volatile": {"vwap": {"long": "off", "short": "on"}}}
+        }
+    }
+    out = would_gate(strategy="vwap", side="long", regime="trending",
+                     policy=policy, vol_regime="volatile")
+    # 1-D: trending/vwap not listed in this in-memory policy → permissive.
+    assert out["gated"] is False
+    assert out["cell"] == "default-on"
+    # 2-D: explicitly off → vol_gated.
+    assert out["vol_gated"] is True
+    assert out["vol_cell"] == "off"
+    assert out["vol_reason"] == "vol_gated_trending_volatile"
+    # The other side is explicitly on.
+    out2 = would_gate(strategy="vwap", side="short", regime="trending",
+                      policy=policy, vol_regime="volatile")
+    assert out2["vol_gated"] is False
+    assert out2["vol_cell"] == "on"
+
+
+def test_would_gate_2d_permissive_when_vol_cell_absent():
+    policy = {
+        "trend_vol": {"trending": {"volatile": {"vwap": {"long": "off"}}}}
+    }
+    # calm is not listed under trending → permissive default on the vol axis.
+    out = would_gate(strategy="vwap", side="long", regime="trending",
+                     policy=policy, vol_regime="calm")
+    assert out["vol_gated"] is False
+    assert out["vol_cell"] == "default-on"
+
+
+def test_would_gate_2d_unknown_vol_regime_is_permissive():
+    policy = {"trend_vol": {"chop": {"calm": {"vwap": {"long": "off"}}}}}
+    out = would_gate(strategy="vwap", side="long", regime="chop",
+                     policy=policy, vol_regime="unknown")
+    assert out["vol_gated"] is False
+    assert out["vol_cell"] == "vol-unknown"
+
+
+def test_would_gate_2d_unknown_trend_regime_is_permissive():
+    policy = {"trend_vol": {"chop": {"calm": {"vwap": {"long": "off"}}}}}
+    out = would_gate(strategy="vwap", side="long", regime=None,
+                     policy=policy, vol_regime="calm")
+    assert out["vol_gated"] is False
+    assert out["vol_cell"] == "trend-unknown"
+
+
+def test_would_gate_2d_flat_side_never_gates_vol():
+    policy = {"trend_vol": {"chop": {"calm": {"vwap": {"long": "off"}}}}}
+    out = would_gate(strategy="vwap", side="flat", regime="chop",
+                     policy=policy, vol_regime="calm")
+    assert out["vol_gated"] is False
+
+
+def test_would_gate_2d_empty_policy_is_permissive():
+    out = would_gate(strategy="vwap", side="long", regime="chop",
+                     policy={}, vol_regime="volatile")
+    assert out["vol_gated"] is False
+    assert out["vol_cell"] == "default-on"
+
+
+def test_shipped_policy_has_schema_2_and_empty_trend_vol():
+    """The committed table ships the trend_vol block (empty until a vol-split
+    of the matrix authors cells) at schema_version 2."""
+    policy = load_policy()
+    assert policy.get("schema_version") == 2
+    assert policy.get("trend_vol") == {}

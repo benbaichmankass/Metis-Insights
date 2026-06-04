@@ -12,13 +12,27 @@ from src.runtime.regime.detector import (
     wilder_adx,
 )
 from src.runtime.regime.policy import load_policy, would_gate
+from src.runtime.regime.vol_detector import (
+    VOL_CALM,
+    VOL_UNKNOWN,
+    VOL_VOLATILE,
+    detect_vol_regime,
+    resolve_vol_specs,
+    vol_regime_from_spec,
+)
 
 __all__ = [
     "CHOP_MAX_ADX",
     "TREND_MIN_ADX",
+    "VOL_CALM",
+    "VOL_UNKNOWN",
+    "VOL_VOLATILE",
     "detect_regime",
+    "detect_vol_regime",
     "load_policy",
     "regime_label",
+    "resolve_vol_specs",
+    "vol_regime_from_spec",
     "wilder_adx",
     "would_gate",
 ]

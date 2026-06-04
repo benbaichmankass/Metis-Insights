@@ -298,6 +298,14 @@ class StrategyIntent:
     # table in shadow mode (log only; no enforcement until phase 3).
     regime: Optional[str] = None
     adx_14: Optional[float] = None
+    # Volatility-axis regime tag (S-MLOPT-S15b) — ``calm`` / ``volatile`` from
+    # ``src.runtime.regime.vol_detector`` on the strategy's OWN candles, the
+    # second (orthogonal) axis to ``regime`` (trend). Stamped onto signal.meta
+    # by the builder (``_stamp_regime_on_meta``) and read by
+    # ``intent_from_signal``. Optional / default-None so the field stays
+    # backwards-compatible; ``_shadow_regime_gate`` reads it to evaluate the
+    # observe-only 2-D ``trend × vol`` policy cell (log only; no enforcement).
+    vol_regime: Optional[str] = None
     meta: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -498,6 +506,10 @@ def intent_from_signal(
     # the policy evaluator falls through to the permissive default.
     regime_value = meta.get("regime")
     adx_14_value = meta.get("adx_14")
+    # Vol-axis tag (S-MLOPT-S15b) — stamped alongside regime/adx_14 by
+    # _stamp_regime_on_meta. Absent on builders not yet wired / test paths →
+    # None, and the 2-D policy evaluator falls through to permissive.
+    vol_regime_value = meta.get("vol_regime")
     return StrategyIntent(
         strategy=str(strategy_name),
         symbol=str(signal.get("symbol") or "BTCUSDT"),
@@ -511,6 +523,7 @@ def intent_from_signal(
         confidence=float(meta.get("confidence") or 0.0),
         regime=str(regime_value) if regime_value is not None else None,
         adx_14=float(adx_14_value) if isinstance(adx_14_value, (int, float)) else None,
+        vol_regime=str(vol_regime_value) if vol_regime_value is not None else None,
         meta=meta,
     )
 
@@ -569,6 +582,14 @@ def _shadow_regime_gate(candidates: tuple) -> None:
     emit a ``regime_shadow_gate`` audit row when an OFF cell WOULD have
     suppressed it. Phase 2 — log only; never mutates the candidate set
     and never raises. The aggregator's downstream behaviour is unchanged.
+
+    S-MLOPT-S15b adds the **vol axis**: each intent carries an optional
+    ``vol_regime`` (``calm`` / ``volatile``) stamped by the signal builder, so
+    ``would_gate`` also returns the observe-only 2-D ``trend × vol`` verdict.
+    A row is emitted when the 1-D trend cell OR the 2-D vol cell would gate;
+    every row carries both axes (``regime``/``vol_regime`` + the per-axis cell)
+    so a later analysis can split would-gate evidence by volatility. Both axes
+    are ``enforced: false`` — phase-3 (Tier-3) is the enforcement gate.
     """
     try:
         from src.runtime.regime import would_gate
@@ -586,10 +607,13 @@ def _shadow_regime_gate(candidates: tuple) -> None:
                 side=intent.side,
                 regime=intent.regime,
                 policy=policy,
+                vol_regime=intent.vol_regime,
             )
         except Exception:  # noqa: BLE001
             continue
-        if not verdict.get("gated"):
+        trend_gated = bool(verdict.get("gated"))
+        vol_gated = bool(verdict.get("vol_gated"))
+        if not (trend_gated or vol_gated):
             continue
         try:
             log_signal({
@@ -597,14 +621,19 @@ def _shadow_regime_gate(candidates: tuple) -> None:
                 "strategy": intent.strategy,
                 "symbol": intent.symbol,
                 "side": intent.side,
+                # Trend axis (1-D) — unchanged fields.
                 "regime": intent.regime,
                 "adx_14": intent.adx_14,
-                "gated": True,
+                "gated": trend_gated,
                 "cell": verdict.get("cell"),
                 "reason": verdict.get("reason"),
-                # Phase 2: NOT acted on. The audit row exists to
-                # accumulate would-gate evidence for the phase-3
-                # decision.
+                # Vol axis (2-D, S-MLOPT-S15b) — observe-only.
+                "vol_regime": intent.vol_regime,
+                "vol_gated": vol_gated,
+                "vol_cell": verdict.get("vol_cell"),
+                "vol_reason": verdict.get("vol_reason"),
+                # Neither axis is acted on. The audit row exists to
+                # accumulate would-gate evidence for the phase-3 decision.
                 "enforced": False,
             })
         except Exception:  # noqa: BLE001

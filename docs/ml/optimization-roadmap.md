@@ -550,11 +550,22 @@ model.
     distribution from the default ER thresholds. A viable non-degenerate trend-axis detector
     (the artifact that didn't exist before); research_only pending class-weight tuning +
     a head-to-head vs ADX-14's forward-predictiveness.
-  - **S15b (queued, Tier-2/3, observe-only):** wire the existing vol classifier as a **second
-    regime axis** — extend `regime_shadow_gate` to a 2-D (trend×vol) policy that LOGS but does
-    not enforce, so it accrues shadow/backtest PnL evidence before any Tier-3 enforcement.
-- Live phase-4 enforcement (replacing ADX) stays Tier-3 + waits on a shadow track record (S13,
-  now flowing) + train/serve feature parity (`MB-20260604-005`).
+  - **S15b (shipped 2026-06-04, Tier-2, observe-only):** wired the existing vol classifier as a
+    **second, orthogonal regime axis**. New `src/runtime/regime/vol_detector.py::detect_vol_regime`
+    — a pure detector (parallel to the ADX `detector.py`) that buckets the live
+    `rolling_log_return_vol` against the deployed regime head's **frozen `vol_bucket` edges**
+    (resolved once/process from the registry shadow-stage specs via `regime_spec_of`, reusing
+    `regime_shadow` bucketing) and **collapses to 2-class `calm`/`volatile`** (lowest bucket→calm;
+    operator-chosen taxonomy). Parity guard: only adopts edges from heads whose `vol_feature_column`
+    is `rolling_log_return_vol` (skips the yz heads). `would_gate(..., vol_regime=)` evaluates a 2-D
+    `trend_vol` cell, **default-preserving** (byte-identical 1-D when no vol label);
+    `StrategyIntent.vol_regime` + `_stamp_regime_on_meta` (all 11 builders) + `_shadow_regime_gate`
+    thread/log the vol axis (`enforced:false`). `config/regime_policy.yaml` `schema_version 1→2` +
+    an EMPTY `trend_vol:{}` (authoring `off` cells needs a vol-split of the matrix — evidence
+    accruing now). 31 new tests; ruff clean. LOGS but never enforces.
+- Live phase-4 enforcement (replacing ADX, or authoring 2-D `off` cells) stays Tier-3 + waits on a
+  shadow track record (S13, now flowing) + train/serve feature parity (`MB-20260604-005`); the
+  trend axis additionally waits on the S15a class-weight + head-to-head-vs-ADX follow-ups.
 
 ---
 

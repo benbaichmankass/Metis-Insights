@@ -30,8 +30,25 @@
 # `src/runtime/regime/detector.py` (CHOP_MAX_ADX = 20, TREND_MIN_ADX = 25).
 # Per-strategy timeframe — each strategy's regime is the ADX-14 read of its
 # own candles (matches how the matrix was measured).
+#
+# 2-D VOL AXIS — `trend_vol` block (S-MLOPT-S15b, OBSERVE-ONLY)
+# ------------------------------------------------------------
+# The top-level regime blocks below (`trending`/`transitional`/`chop`) are the
+# 1-D TREND axis. S15b adds a second, orthogonal VOLATILITY axis (`calm` /
+# `volatile`) from `src/runtime/regime/vol_detector.py` — the live rolling vol
+# bucketed against the deployed regime head's frozen `vol_bucket` edges per
+# `(symbol, timeframe)`. The optional `trend_vol` block at the BOTTOM of this
+# file holds 2-D `trend × vol` cells; `would_gate(..., vol_regime=...)`
+# evaluates them ALONGSIDE (never instead of) the 1-D cell and emits the vol
+# verdict on the same `regime_shadow_gate` audit row (`vol_gated`/`vol_cell`,
+# `enforced: false`). It is shipped EMPTY: the 2-D OFF cells require a
+# vol-split of the regime-roster matrix (evidence accruing now via the stamped
+# `vol_regime` on every intent + would-gate row). Until cells are authored the
+# vol axis is fully permissive and the 1-D behaviour is unchanged. Same cell
+# semantics + permissive-default rule as the 1-D blocks. Authoring a 2-D OFF
+# cell — like the 1-D table — is a Tier-3 decision.
 
-schema_version: 1
+schema_version: 2
 
 trending:
   trend_donchian:        { long: on,  short: off }   # short −28 (matrix net R)
@@ -55,3 +72,21 @@ chop:
   htf_pullback_trend_2h: { long: off, short: off }   # long −8 / short −4, same shape as fvg
   fvg_range_15m:         { long: off, short: off }   # −17 loser, keep off everywhere
   vwap:                  { long: off, short: off }   # net −2,642 in chop
+
+# ---------------------------------------------------------------------------
+# 2-D trend × vol cells (S-MLOPT-S15b) — OBSERVE-ONLY, shipped EMPTY.
+# ---------------------------------------------------------------------------
+# Shape:  trend_vol: { <trend_regime>: { <vol_regime>: { <strategy>: { long: on|off, short: on|off } } } }
+#   <trend_regime> ∈ {chop, transitional, trending}   (the ADX-14 axis above)
+#   <vol_regime>   ∈ {calm, volatile}                  (the vol_detector axis)
+#
+# Authoring a cell mirrors the 1-D blocks (`off` logs a would-gate; unlisted →
+# permissive `on`). Left empty until a vol-split of the regime-roster matrix
+# justifies a cell — the stamped `vol_regime` on every intent + `regime_shadow_gate`
+# row is the evidence that will inform those decisions. Example (NOT active):
+#
+#   trend_vol:
+#     trending:
+#       volatile:
+#         vwap: { long: off, short: off }
+trend_vol: {}
