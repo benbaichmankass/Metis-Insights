@@ -192,6 +192,7 @@ def test_positions_returns_open_trade_against_canonical_schema(
         "stopLoss": None,
         "takeProfit": None,
         "pattern": None,
+        "isDemo": False,  # 2026-06-04 reporting-cleanup
     }
 
 
