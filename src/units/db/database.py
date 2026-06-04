@@ -391,10 +391,23 @@ class Database:
         
         cursor.execute(query, list(trade_data.values()))
         trade_id = cursor.lastrowid
-        
+
         conn.commit()
         conn.close()
-        
+
+        # M12 follow-up — fire trade_opened FCM push for new real-money
+        # trades. Best-effort, feature-flagged via MOBILE_PUSH_ENABLED;
+        # any failure is swallowed so the insert path stays intact.
+        try:
+            if (
+                str(trade_data.get("status", "open")).lower() == "open"
+                and not trade_data.get("is_backtest")
+                and not trade_data.get("is_demo")
+            ):
+                self._fire_trade_opened_event(int(trade_id))
+        except Exception:  # noqa: BLE001  # allow-silent: notifier hook must never propagate into the insert path
+            pass
+
         return trade_id
 
     def update_trade(self, trade_id, updates):
@@ -442,9 +455,16 @@ class Database:
         # The whole block is also wrapped here for defense-in-depth, so
         # a malformed import or a row-lookup glitch can't break the
         # close even if mobile_push itself has a bug.
-        if rowcount > 0 and str(row.get("status", "")).lower() == "closed":
+        if rowcount > 0:
+            status_str = str(row.get("status", "")).lower()
             try:
-                self._fire_trade_closed_event(int(trade_id))
+                if status_str == "closed":
+                    self._fire_trade_closed_event(int(trade_id))
+                elif ("sl" in row or "tp" in row) and status_str != "closed":
+                    # Monitor-driven SL/TP move on an still-open trade —
+                    # fire trade_updated so the operator's phone shows
+                    # the trail / BE flip without waiting for close.
+                    self._fire_trade_updated_event(int(trade_id))
             except Exception:  # noqa: BLE001  # allow-silent: M12 S1 observer hook — notifier failure must never propagate into trader close path
                 pass
         return rowcount
@@ -486,6 +506,79 @@ class Database:
                 "pnl": row["pnl"],
                 "pnl_percent": row["pnl_percent"],
                 "exit_reason": row["exit_reason"],
+                "strategy": row["strategy_name"],
+                "account": row["account_id"],
+            },
+        )
+
+    def _fire_trade_opened_event(self, trade_id: int) -> None:
+        """Read the just-inserted row and fire the trade_opened observer."""
+        from src.runtime.mobile_push import publish_event
+        from src.runtime.mobile_push.event_kinds import TRADE_OPENED
+
+        conn = self.connect()
+        try:
+            cur = conn.execute(
+                "SELECT symbol, direction, qty, entry_price, sl, tp, "
+                "strategy_name, account_id, is_backtest, is_demo "
+                "FROM trades WHERE id = ?",
+                (trade_id,),
+            )
+            row = cur.fetchone()
+        finally:
+            conn.close()
+        if row is None or row["is_backtest"] or row["is_demo"]:
+            return
+        publish_event(
+            TRADE_OPENED,
+            {
+                "trade_id": trade_id,
+                "symbol": row["symbol"],
+                "direction": row["direction"],
+                "qty": row["qty"],
+                "entry_price": row["entry_price"],
+                "sl": row["sl"],
+                "tp": row["tp"],
+                "strategy": row["strategy_name"],
+                "account": row["account_id"],
+            },
+        )
+
+    def _fire_trade_updated_event(self, trade_id: int) -> None:
+        """Read the just-updated open row and fire the trade_updated observer.
+
+        Fires on SL/TP moves while the row is still open. Skips
+        backtest + demo trades for the same reason ``_fire_trade_closed_event``
+        does — those aren't real-money events.
+        """
+        from src.runtime.mobile_push import publish_event
+        from src.runtime.mobile_push.event_kinds import TRADE_UPDATED
+
+        conn = self.connect()
+        try:
+            cur = conn.execute(
+                "SELECT symbol, direction, qty, entry_price, sl, tp, status, "
+                "strategy_name, account_id, is_backtest, is_demo "
+                "FROM trades WHERE id = ?",
+                (trade_id,),
+            )
+            row = cur.fetchone()
+        finally:
+            conn.close()
+        if row is None or row["is_backtest"] or row["is_demo"]:
+            return
+        if str(row["status"]).lower() == "closed":
+            return
+        publish_event(
+            TRADE_UPDATED,
+            {
+                "trade_id": trade_id,
+                "symbol": row["symbol"],
+                "direction": row["direction"],
+                "qty": row["qty"],
+                "entry_price": row["entry_price"],
+                "sl": row["sl"],
+                "tp": row["tp"],
                 "strategy": row["strategy_name"],
                 "account": row["account_id"],
             },

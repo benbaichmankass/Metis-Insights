@@ -37,6 +37,21 @@ from typing import Final
 
 # ---- IN FLIGHT --------------------------------------------------------------
 
+#: A real (non-backtest, non-demo) trade was just inserted into the
+#: ``trades`` table at ``status='open'``. Payload: ``trade_id, symbol,
+#: direction, qty, entry_price, sl, tp, strategy, account``. Emitted by
+#: ``Database._fire_trade_opened_event`` at the bottom of
+#: ``insert_trade``. Pairs with ``TRADE_CLOSED`` so the operator's phone
+#: shows the full trade lifecycle, not just the close.
+TRADE_OPENED: Final = "trade_opened"
+
+#: An existing open trade row had its SL or TP moved (monitor-driven
+#: trail, BE flip, partial-fill adjustment). Payload: ``trade_id,
+#: symbol, sl, tp, strategy, account``. Emitted by
+#: ``Database._fire_trade_updated_event`` from ``update_trade`` when
+#: ``sl`` or ``tp`` are in the update set and the row isn't closing.
+TRADE_UPDATED: Final = "trade_updated"
+
 #: A real (non-backtest, non-demo) trade transitioned to ``status='closed'``.
 #: Payload: ``trade_id, symbol, direction, pnl, pnl_percent, exit_reason,
 #: strategy, account``. Emitted by ``Database._fire_trade_closed_event``
@@ -44,48 +59,69 @@ from typing import Final
 #: kind — these are the money-event notifications.
 TRADE_CLOSED: Final = "trade_closed"
 
+#: Hourly operator summary — open positions, 24h P&L, win rate. Fired
+#: by ``scripts/send_hourly_now.py`` and the in-process hourly report
+#: scheduler. Payload mirrors the Telegram body. Renames the legacy
+#: ``pnl_digest`` slot; ``pnl_digest`` stays in ``ALL_KINDS`` so already
+#: installed apps whose subscription JSON references it keep working.
+HOURLY_SUMMARY: Final = "hourly_summary"
+
+#: Operator-actionable warning — watchdog stale-heartbeat, IB Gateway
+#: wedge, 7-point health red, systemd unit failed, risk caps violated.
+#: Loud channel by design; rolls up the legacy ``health_concern`` and
+#: ``service_down`` kinds (both kept in ``ALL_KINDS`` for back-compat).
+WARNING: Final = "warning"
+
+#: GitHub Actions workflow finished a system-action on the live VM
+#: (deploy, restart, account-mode flip, etc.). Payload: ``action,
+#: status, run_url, reason``. Fired by the operator workflow after the
+#: action lands; mirrored to Telegram by the same helper.
+WORKFLOW_UPDATE: Final = "workflow_update"
+
 #: Any message the bot would have sent to the operator's Telegram chat,
 #: mirrored to FCM so the phone can show it without the user opening
 #: Telegram. Payload: ``text, parse_mode``. Emitted by
 #: ``src.runtime.notify._publish_telegram_to_fcm``. Default-on
-#: subscription per the S2 wiring; some operators will want to silence
-#: this once the trade-close + signal kinds are louder.
+#: subscription per the S2 wiring; once the trade / hourly / warning /
+#: workflow kinds cover their content, expect to demote this kind so
+#: the same event doesn't fire two pushes.
 TELEGRAM: Final = "telegram"
 
-# ---- RESERVED (Android UI offers toggle; bot-side caller lands later) -------
+# ---- DEPRECATED (kept in ALL_KINDS so already-installed devices' --------
+# ---- subscription JSON keeps resolving; rotation per the rename rule) ---
 
-#: An ICT signal was detected and emitted to the order package layer.
-#: Future payload (S5 wire): ``symbol, side, strategy, confidence,
-#: pattern, price``. Useful for ``signal_emitted`` notifications that
-#: precede the order — operators on noisy strategies will want this off
-#: by default once it ships.
-SIGNAL_EMITTED: Final = "signal_emitted"
+#: Legacy kind — superseded by ``HOURLY_SUMMARY``. Kept so already
+#: installed apps whose subscription JSON references it keep working.
+PNL_DIGEST: Final = "pnl_digest"
 
-#: A health-check transitioned to ``"concern"`` (the 7-point suite
-#: produced a red status). Future payload: ``check, summary,
-#: action_required``. Loud channel — these are reasons to look at the
-#: dashboard now.
+#: Legacy kind — rolled up into ``WARNING``.
 HEALTH_CONCERN: Final = "health_concern"
 
-#: A systemd unit went inactive/failed. Future payload: ``unit, state,
-#: sub_state``. Loud channel by design.
+#: Legacy kind — rolled up into ``WARNING``.
 SERVICE_DOWN: Final = "service_down"
 
-#: Daily / hourly P&L digest. Future payload: ``window, pnl, win_rate,
-#: open_trades, summary_md``. Quiet by default — most operators will
-#: want this only as a low-priority morning summary, not a system shade
-#: pop.
-PNL_DIGEST: Final = "pnl_digest"
+# ---- RESERVED (Android UI offers toggle; bot-side caller lands later) ---
+
+#: An ICT signal was detected and emitted to the order package layer.
+#: Future payload: ``symbol, side, strategy, confidence, pattern, price``.
+SIGNAL_EMITTED: Final = "signal_emitted"
 
 
 #: Canonical list (insertion order = display order in the Android UI).
+#: The operator's four categories first, then the legacy / reserved
+#: slots.
 ALL_KINDS: Final[tuple[str, ...]] = (
+    TRADE_OPENED,
+    TRADE_UPDATED,
     TRADE_CLOSED,
+    HOURLY_SUMMARY,
+    WARNING,
+    WORKFLOW_UPDATE,
     TELEGRAM,
-    SIGNAL_EMITTED,
+    PNL_DIGEST,
     HEALTH_CONCERN,
     SERVICE_DOWN,
-    PNL_DIGEST,
+    SIGNAL_EMITTED,
 )
 
 #: Human-readable label for each kind. Used by the Android UI to render
@@ -93,22 +129,32 @@ ALL_KINDS: Final[tuple[str, ...]] = (
 #: covers. Kept on the bot side so the Python tests and the docs share
 #: one source.
 LABELS: Final[dict[str, str]] = {
+    TRADE_OPENED: "Trade opened",
+    TRADE_UPDATED: "Trade updated (SL/TP)",
     TRADE_CLOSED: "Trade closed",
+    HOURLY_SUMMARY: "Hourly summary",
+    WARNING: "Warning",
+    WORKFLOW_UPDATE: "Workflow update",
     TELEGRAM: "Telegram mirror",
+    PNL_DIGEST: "P&L digest (legacy)",
+    HEALTH_CONCERN: "Health concern (legacy)",
+    SERVICE_DOWN: "Service down (legacy)",
     SIGNAL_EMITTED: "Signal emitted",
-    HEALTH_CONCERN: "Health concern",
-    SERVICE_DOWN: "Service down",
-    PNL_DIGEST: "P&L digest",
 }
 
 #: One-line description per kind for the Android subscription screen.
 DESCRIPTIONS: Final[dict[str, str]] = {
+    TRADE_OPENED: "Each new real-money trade as it opens.",
+    TRADE_UPDATED: "Stop-loss / take-profit moves on an open trade.",
     TRADE_CLOSED: "Every closed real-money trade (not backtests / demos).",
-    TELEGRAM: "Every message the bot would have sent to Telegram.",
+    HOURLY_SUMMARY: "The hourly operator summary — P&L, open trades, win rate.",
+    WARNING: "Watchdog, IB Gateway, health-red, service-down, risk-cap.",
+    WORKFLOW_UPDATE: "GitHub Actions ops workflow finished (deploy, restart, mode flip).",
+    TELEGRAM: "Mirror of every Telegram message (catch-all fallback).",
+    PNL_DIGEST: "Legacy — use Hourly summary.",
+    HEALTH_CONCERN: "Legacy — use Warning.",
+    SERVICE_DOWN: "Legacy — use Warning.",
     SIGNAL_EMITTED: "Each ICT detection — fires once per buy/sell signal.",
-    HEALTH_CONCERN: "7-point health check turned red — reserved, M12 S6.",
-    SERVICE_DOWN: "systemd unit failed — reserved, M12 S6.",
-    PNL_DIGEST: "Daily / hourly P&L summary — reserved, M12 S7.",
 }
 
 #: The subset of kinds whose payload semantics the bot already emits.
@@ -116,7 +162,7 @@ DESCRIPTIONS: Final[dict[str, str]] = {
 #: call site (e.g. someone refactors ``_fire_trade_closed_event`` away)
 #: is loud.
 IN_FLIGHT: Final[frozenset[str]] = frozenset(
-    {TRADE_CLOSED, TELEGRAM, SIGNAL_EMITTED}
+    {TRADE_OPENED, TRADE_UPDATED, TRADE_CLOSED, TELEGRAM}
 )
 
 
@@ -131,12 +177,17 @@ def is_known(kind: str) -> bool:
 
 
 __all__ = [
+    "TRADE_OPENED",
+    "TRADE_UPDATED",
     "TRADE_CLOSED",
+    "HOURLY_SUMMARY",
+    "WARNING",
+    "WORKFLOW_UPDATE",
     "TELEGRAM",
-    "SIGNAL_EMITTED",
+    "PNL_DIGEST",
     "HEALTH_CONCERN",
     "SERVICE_DOWN",
-    "PNL_DIGEST",
+    "SIGNAL_EMITTED",
     "ALL_KINDS",
     "LABELS",
     "DESCRIPTIONS",

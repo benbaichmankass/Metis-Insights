@@ -43,10 +43,8 @@ from typing import Any, Callable, Dict, Optional  # noqa: E402
 from src.runtime.notify import send_to_operator  # noqa: E402
 from src.runtime.orders import safe_place_order  # noqa: E402
 from src.runtime.outcomes import Level, report  # noqa: E402
-from src.units.ui.telegram_format import render_html, render_plain  # noqa: E402
 from src.web.runtime_status import write_status  # noqa: E402
 # PR-8 / D1: formatting helpers extracted to pipeline_result.py.
-from src.runtime.pipeline_result import _pipeline_result_sections  # noqa: E402
 # PR-8 / D1: strategy-monocle DB-gate helpers extracted to strategy_monocle.py.
 from src.runtime.strategy_monocle import (  # noqa: E402
     _refusal_cooldown_seconds,  # noqa: F401  (re-export: tests import from pipeline)
@@ -823,28 +821,27 @@ def run_pipeline(
     if reason:
         header += f" | reason={reason}"
 
-    # Per-tick operator push is gated: a tick that produced no signal
-    # (status=skipped, reason=no_signal) is the overwhelming common case
-    # and floods the operator channel with non-actionable noise. Suppress
-    # ONLY that case — every other outcome (executed, rejected, refused,
-    # news-vetoed, error, any other skip reason) still pushes. Nothing is
-    # lost for diagnostics: the audit log (log_signal above), the
-    # runtime_status write below, and the logger.info line still record
-    # EVERY tick. Operator decision 2026-05-25.
-    _is_no_signal = status == "skipped" and (reason or "") == "no_signal"
-    if not _is_no_signal:
-        sections = _pipeline_result_sections(
-            signal=signal, result=result, strategy=_strategy,
-        )
-        html_body = render_html(header=header, sections=sections)
-        plain_body = render_plain(header=header, sections=sections)
-
-        try:
-            send_to_operator(plain_body, html_body, telegram_client=telegram_client)
-        except Exception:  # noqa: BLE001
-            logger.exception("pipeline: all notify paths failed")
-
-    logger.info("Pipeline complete: %s", result)
+    # Per-tick operator push is OFF (2026-06-04 reporting-cleanup sprint).
+    # Even the gated path here was too noisy: every rejected/refused/error
+    # tick still hit Telegram + FCM, drowning the actually-actionable
+    # events. The operator's notification contract is now:
+    #
+    #   - Trade lifecycle (open/update/close) → fired from
+    #     ``Database._fire_trade_{opened,updated,closed}_event``.
+    #   - Hourly summary → ``scripts/send_hourly_now.py`` + the in-process
+    #     scheduler (kind: HOURLY_SUMMARY).
+    #   - Warnings → watchdogs / health-check (kind: WARNING).
+    #   - Workflow updates → ops workflows post-completion
+    #     (kind: WORKFLOW_UPDATE).
+    #
+    # The audit log (log_signal above), the runtime_status write below,
+    # and the logger.info line still record EVERY tick — diagnostics
+    # are unaffected, only the operator-facing push is silenced.
+    logger.info(
+        "Pipeline result (operator push suppressed): %s | %s",
+        header,
+        result,
+    )
 
     write_status()
 
