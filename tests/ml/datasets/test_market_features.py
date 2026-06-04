@@ -430,8 +430,8 @@ class TestV2FeatureExpansion:
                 abs_tol=1e-12,
             )
 
-    def test_builder_version_is_v3(self):
-        assert MarketFeaturesBuilder.builder_version == "v3"
+    def test_builder_version_is_v4(self):
+        assert MarketFeaturesBuilder.builder_version == "v4"
 
 
 class TestRangeVolEstimators:
@@ -469,3 +469,108 @@ class TestRangeVolEstimators:
         )
         report = validate_dataset(paths.root)
         assert report.ok, report
+
+
+def _stage_funding_oi(
+    tmp_path: Path,
+    *,
+    base_ts_iso: str = "2025-01-01T00:00:00Z",
+    n_bars: int = 200,
+    bar_seconds: int = 3600,
+    funding_every: int = 8,
+    symbol: str = "BTCUSDT",
+) -> Path:
+    """Write a synthetic funding/OI side-stream dir (data.jsonl)."""
+    from datetime import datetime, timedelta
+
+    base = datetime.fromisoformat(base_ts_iso.replace("Z", "+00:00"))
+    root = tmp_path / "funding_oi" / symbol / "v001"
+    root.mkdir(parents=True, exist_ok=True)
+    rows: list[dict] = []
+    for i in range(0, n_bars, funding_every):
+        ts = (base + timedelta(seconds=bar_seconds * i)).isoformat().replace("+00:00", "Z")
+        rows.append({"ts": ts, "symbol": symbol,
+                     "funding_rate": 0.0001 * (1 + (i % 7)), "open_interest": None})
+    for i in range(n_bars):
+        ts = (base + timedelta(seconds=bar_seconds * i)).isoformat().replace("+00:00", "Z")
+        rows.append({"ts": ts, "symbol": symbol,
+                     "funding_rate": None, "open_interest": 1000.0 + i * 3.0})
+    rows.sort(key=lambda r: r["ts"])
+    (root / "data.jsonl").write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    return root
+
+
+class TestFundingOiFeatures:
+    """S-MLOPT-S11: funding-rate + open-interest feature columns."""
+
+    _COLS = (
+        "funding_rate",
+        "funding_rate_zscore",
+        "funding_rate_abs_z",
+        "open_interest_change",
+        "open_interest_change_zscore",
+    )
+
+    def test_columns_zero_without_funding_path(self, tmp_path: Path):
+        market_raw = _stage_market_raw(tmp_path, closes=_trending_then_choppy(80))
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+        ))
+        assert rows
+        for r in rows:
+            for c in self._COLS:
+                assert c in r and r[c] == 0.0
+        # range-vol features unaffected (still computed).
+        assert any(r["yang_zhang_vol"] > 0 for r in rows)
+
+    def test_columns_populated_with_funding_path(self, tmp_path: Path):
+        market_raw = _stage_market_raw(tmp_path, closes=[100.0 * (1.001 ** i) for i in range(200)])
+        funding_oi = _stage_funding_oi(tmp_path, n_bars=200)
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            funding_oi_path=funding_oi, funding_window_n=48,
+        ))
+        assert rows
+        # funding rate carried forward as-of (non-zero somewhere).
+        assert any(r["funding_rate"] > 0 for r in rows)
+        # rising OI => positive log change somewhere.
+        assert any(r["open_interest_change"] > 0 for r in rows)
+        # |z| equals abs(z) on every row.
+        for r in rows:
+            assert math.isclose(r["funding_rate_abs_z"], abs(r["funding_rate_zscore"]), abs_tol=1e-12)
+
+    def test_asof_alignment_is_past_only(self, tmp_path: Path):
+        # All funding observations timestamped AFTER the bar window => no bar may
+        # see a funding rate (carry-forward stays 0.0). Guards leakage.
+        market_raw = _stage_market_raw(tmp_path, closes=[100.0] * 120)
+        funding_oi = _stage_funding_oi(
+            tmp_path, base_ts_iso="2030-01-01T00:00:00Z", n_bars=120,
+        )
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            funding_oi_path=funding_oi, funding_window_n=48,
+        ))
+        assert rows
+        assert all(r["funding_rate"] == 0.0 for r in rows)
+
+    def test_funding_in_schema_and_validate(self, tmp_path: Path):
+        market_raw = _stage_market_raw(tmp_path, closes=[100.0 * (1.001 ** i) for i in range(160)])
+        funding_oi = _stage_funding_oi(tmp_path, n_bars=160)
+        builder = MarketFeaturesBuilder()
+        for c in self._COLS:
+            assert c in builder.schema
+        paths = builder.build(
+            output_dir=tmp_path / "out", version="v001", source="csv",
+            symbol_scope="BTCUSDT", timeframe="1h",
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            funding_oi_path=str(funding_oi), funding_window_n=48,
+        )
+        report = validate_dataset(paths.root)
+        assert report.ok, report
+
+    def test_invalid_funding_window_raises(self, tmp_path: Path):
+        market_raw = _stage_market_raw(tmp_path, closes=[100.0] * 100)
+        with pytest.raises(ValueError):
+            list(MarketFeaturesBuilder().iter_rows(
+                market_raw_path=market_raw, funding_window_n=1,
+            ))
