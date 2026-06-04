@@ -369,7 +369,7 @@ proven ROI per hour after Phase 1. Caveat from the research: **microstructure al
   by `MB-20260529-001` (per-bar scoring, S13). Extended to 5m/15m BTC + 5m/15m MES
   (`*-lgbm-yz-v1.yaml`, research_only; A/B in `MB-20260603-004`). `MB-20260603-004` resolved.
 
-### Session 2.2 — Order-flow / microstructure features *(Tier-2 — needs live L2 capture)*
+### Session 2.2 — Order-flow / microstructure features *(Tier-1 core done; Tier-2 capture gated)* — 🔄 IN PROGRESS 2026-06-04 (S-MLOPT-S10)
 - **Deliverable:** capture L1/L2 from Bybit + IBKR (new `market_raw` sub-stream + storage),
   compute **Order-Flow Imbalance (OFI)**, **VPIN** (volume-bucketed flow toxicity), spread,
   microprice. Bigger lift (a live capture path + storage), so scoped as its own Tier-2
@@ -377,6 +377,20 @@ proven ROI per hour after Phase 1. Caveat from the research: **microstructure al
 - **Reference:** Easley/López de Prado/O'Hara VPIN (2012); DeepLOB shows microstructure
   features transfer across instruments.
 - **Effort:** L.
+- **Shipped (S-MLOPT-S10, sprint log [`S-MLOPT-S10.md`](../sprint-logs/S-MLOPT-S10.md), `MB-20260604-002`):**
+  the **Tier-1 estimator core** `ml/datasets/orderflow_features.py` (Cont OFI, Easley-LdP-O'Hara
+  VPIN + bulk-volume classification, Stoikov micro-price, relative spread) + 16 CI tests; ruff
+  clean. **Defining constraint:** unlike S9 (range-vol from OHLC) and S11 (funding/OI from REST
+  history), order-flow needs L1/L2 + tick data we neither capture nor can backfill — so it
+  **cannot be A/B'd offline**; the **Tier-2 live-capture path is the gate.** Design proposal
+  [`docs/ml/orderflow-capture-design.md`](orderflow-capture-design.md): store **per-bar
+  aggregates** (`ofi`/`vpin`/`rel_spread_mean`/`microprice_dev`) as a `market_microstructure`
+  side-stream that reuses the S11 as-of-join + drift machinery (storage-bounded), joined into
+  `market_features` via an optional `microstructure_path` (`builder_version v4 → v5`). **Three
+  operator decisions pending** before the Tier-2 build: capture host (trainer-VM side-car
+  preferred, WS9-safe) / transport (free REST polling vs paid ccxt.pro WS) / scope (BTCUSDT-only
+  to start). On sign-off: capture service → accrue → join columns + A/B manifest → purged-CV A/B
+  vs the v2/yz champions. Microstructure alpha decays — monitor via KS/PSI drift if promoted.
 
 ### Session 2.3 — Crypto funding-rate + open-interest features *(Tier-1 family; Tier-3 manifest)* — 🔄 IN REVIEW 2026-06-04 (S-MLOPT-S11)
 - **Deliverable:** funding-rate **z-score / extremes** and **open-interest change** from
