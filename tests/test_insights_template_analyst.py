@@ -177,6 +177,14 @@ def test_template_recent_endpoint_table_rendering(template_env: dict[str, Path])
     md = payload["summary_md"]
     assert "| #" in md and "| strategy" in md
     assert "vwap" in md
+    # BL-20260529-006 regression: the header stats must reflect the SAME
+    # closed trades the table shows. recent_data() filters WHERE status='closed'
+    # but does NOT select the status column, so the template must not re-drop
+    # rows on an absent status key (which zeroed the header to 0W/0L/$0 over a
+    # populated table). One +$7 win => 1W / 0L / $7.00, not 0W / 0L / $0.00.
+    assert "1W / 0L" in md, md
+    assert "$7.00" in md
+    assert "0W / 0L" not in md
 
 
 def test_template_health_endpoint_missing_snapshot(template_env: dict[str, Path]) -> None:

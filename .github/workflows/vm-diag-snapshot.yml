@@ -134,10 +134,36 @@ jobs:
           path="${DIAG_PATH#/api/diag/}"
           path="${path#/}"
 
-          # Allowed chars: alphanumeric, slash, query separators (`?` `&` `=`),
-          # safe path/symbol chars (`_.-`), ISO-8601 colon (`:`) for
-          # journalctl ?since=/?until=, and URL-encoding (`%`) for any
-          # caller that prefers to URL-encode rather than rely on the
+          # Default upstream is the /api/diag/* surface. A caller may instead
+          # target an allowlisted READ-ONLY /api/bot/* Tier-1 GET endpoint —
+          # the aggregate/analytics routes relay-only (Trusted-network) review
+          # sessions need but that live OUTSIDE /api/diag/ (e.g.
+          # /api/bot/performance, /api/bot/trades/closed). BL-20260604-002.
+          # Only the explicit allowlist below is reachable; anything else
+          # stays diag-only. These are unauthenticated GET reads server-side,
+          # so the Bearer header is simply ignored on them.
+          upstream_prefix="/api/diag/"
+          case "$path" in
+            api/bot/*)
+              botpath="${path#api/bot/}"
+              botbase="${botpath%%\?*}"   # drop query string for the allowlist check
+              case "$botbase" in
+                performance|stats|positions|signals|strategies|backtests|backtests/sweeps|order-packages|trades/closed|trades/scores|pnl/history|candles|accounts/balances|liquidity|config|insights/summary|insights/recent|insights/health|insights/usage|insights/history|insights/strategy/*|health/latest|health/history|health/services|shadow/stats|shadow/drift|shadow/predictions)
+                  upstream_prefix="/api/bot/"
+                  path="$botpath"
+                  ;;
+                *)
+                  echo "::error::/api/bot/ path not in the relay read-only allowlist: $botbase"
+                  exit 1
+                  ;;
+              esac
+              ;;
+          esac
+
+          # Allowed chars (validate the FINAL path): alphanumeric, slash, query
+          # separators (`?` `&` `=`), safe path/symbol chars (`_.-`), ISO-8601
+          # colon (`:`) for journalctl ?since=/?until=, and URL-encoding (`%`)
+          # for any caller that prefers to URL-encode rather than rely on the
           # HTML-entity decode above. Still rejects shell metachars
           # (space, $, `, ;, &&, etc.) so an issue title can't smuggle
           # commands into the ssh + curl invocation below.
@@ -147,6 +173,7 @@ jobs:
           fi
           echo "diag_path_safe=$path" >>"$GITHUB_ENV"
           echo "diag_path_display=$DIAG_PATH" >>"$GITHUB_ENV"
+          echo "diag_upstream_prefix=$upstream_prefix" >>"$GITHUB_ENV"
 
       - name: Set up SSH key
         env:
@@ -182,7 +209,7 @@ jobs:
               "${VM_SSH_USER}@${VM_SSH_HOST}" \
               "curl -sS --fail --max-time 40 \
                     -H 'Authorization: Bearer ${DIAG_READ_TOKEN}' \
-                    'http://127.0.0.1:8001/api/diag/${diag_path_safe}'" \
+                    'http://127.0.0.1:8001${diag_upstream_prefix}${diag_path_safe}'" \
               > diag-output.json
           python3 -c "import json,sys; json.load(open('diag-output.json')); print('valid json,', __import__('os').path.getsize('diag-output.json'), 'bytes')"
 

@@ -1,0 +1,25 @@
+# ============================================
+# ICT WEB-API WATCHDOG SYSTEMD TIMER
+# Fires ict-web-api-watchdog.service every 2 minutes.
+#
+# 2-min cadence + --restart-after 2 → a wedged read surface self-heals
+# within ~4-6 min with no GitHub/operator in the loop (BL-20260604-003).
+#
+# Save to: /etc/systemd/system/ict-web-api-watchdog.timer
+# (installed + enabled --now automatically by
+#  scripts/install_systemd_units.sh during deploy_pull_restart.sh)
+# ============================================
+
+[Unit]
+Description=ICT Web-API Watchdog — fires every 2 min
+Requires=ict-web-api-watchdog.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=15s
+Persistent=true
+Unit=ict-web-api-watchdog.service
+
+[Install]
+WantedBy=timers.target

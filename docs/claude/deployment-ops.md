@@ -183,6 +183,7 @@ ict-heartbeat.service         # timer-driven
 ict-git-sync.service          # would refuse to restart from inside its own run
 ict-insights-generator.service  # M13 S1: oneshot, timer-driven (every 10 min)
 ict-health-snapshot.service   # oneshot, timer-driven (every 15 min) — writes artifacts/health/* (BL-20260529-005)
+ict-web-api-watchdog.service  # oneshot, timer-driven (every 2 min) — self-heals ict-web-api (BL-20260604-003)
 ```
 
 **Why enumeration?** The 2026-05-09 24+h-stale-code incident shipped
