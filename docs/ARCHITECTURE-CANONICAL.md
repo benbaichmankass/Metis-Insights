@@ -515,7 +515,7 @@ training sessions follow the established workflow:
    - [`ml/configs/baseline-trade-outcome-global.yaml`](../ml/configs/baseline-trade-outcome-global.yaml)
      (WS4-FU; global-mean sanity baseline).
    - [`ml/configs/baseline-regime-classifier.yaml`](../ml/configs/baseline-regime-classifier.yaml)
-     (WS5-B-PART-2; 3-class regime classifier on `market_features`).
+     (WS5-B-PART-2; 2-class range/volatile regime classifier on `market_features`).
    - [`ml/configs/baseline-setup-quality.yaml`](../ml/configs/baseline-setup-quality.yaml)
      (WS5-C; setup-quality scorer on `setup_labels`).
 4. **Compare runs.** `python -m ml compare <id-a> <id-b>` surfaces
