@@ -132,7 +132,13 @@ vs a *generic* baseline; this direct champion-vs-challenger purged-CV A/B is the
 stronger comparison — the yz head beats the current SHADOW champion, not just a
 naive majority baseline.)
 
-### Promotion packet (Tier-3 PROPOSAL — operator-gated, NOT flipped)
+### Promotion packet (Tier-3 — operator-APPROVED 2026-06-04, landed in PR #2739)
+**Update 2026-06-04:** the operator approved this promotion; `target_deployment_stage`
+on `btc-regime-{1h,5m,15m}-lgbm-yz-v1` flipped `research_only → shadow` (the 5m/15m
+heads also cleared the same clean-win bar). At `shadow` they log predictions but never
+influence an order; full `shadow → advisory` stays operator-gated + blocked by
+`MB-20260529-001`. MES yz heads stay `research_only` (mixed result). Original proposal:
+
 **Proposal:** advance `btc-regime-1h-lgbm-yz-v1` from `research_only → shadow`
 as the new 1h regime champion candidate (it is a clean, leak-free improvement
 over the current shadow champion `btc-regime-1h-lgbm-v2`, same role + dataset +
