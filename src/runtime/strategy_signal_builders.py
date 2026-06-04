@@ -275,6 +275,7 @@ def _emit_shadow_preds(
                 closes=closes,
                 symbol=sig_symbol,
                 timeframe=str(timeframe or ""),
+                candles_df=candles_df,
             )
             if row is None:
                 continue  # mismatched regime model — skip (don't log a constant)

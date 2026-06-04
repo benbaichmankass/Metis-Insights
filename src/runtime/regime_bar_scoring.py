@@ -230,7 +230,7 @@ def emit_regime_bar_predictions(
             }
             row = feature_row_for_predictor(
                 predictor, base_row, closes=closes,
-                symbol=symbol, timeframe=timeframe,
+                symbol=symbol, timeframe=timeframe, candles_df=candles_df,
             )
             if row is None:
                 continue  # mismatch / uncomputable vol — skip, don't log noise

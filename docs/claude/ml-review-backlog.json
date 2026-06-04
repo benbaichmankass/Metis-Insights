@@ -167,8 +167,11 @@
       "tier": 3,
       "trigger_condition": "Before promoting any regime head shadow→advisory on shadow-prediction evidence; or when Phase 4.2 (train/serve parity) is taken up; or next /ml-review.",
       "resolution_criteria": "The live regime feature row (regime_shadow + regime_bar_scoring) computes the same feature set the head trained on — at minimum the vol estimator named by vol_feature_column (range-vol via volatility_estimators.py) plus the log-return-lag + time features — verified by a parity test comparing a live-computed row to the training builder's row for the same bar; OR it is documented + accepted that regime heads are scored on vol_bucket only and their manifests are reduced to that feature set.",
-      "status": "open",
-      "snoozed_until": null
+      "status": "resolved_pending_deploy",
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-06-04 (S-MLOPT-S17): FIX SHIPPED (draft PR, Tier-2, observe-only). src/runtime/regime_shadow.feature_row_for_predictor now emits the full market_features superset (rolling_log_return_vol + parkinson/garman_klass/rogers_satchell/yang_zhang_vol + log_return + log_return_lag_1/2 + hour_of_day/dayofweek) computed live from the trailing vol_window_n OHLC window (new ohlc_from_candles + range_vol_estimators reusing ml/datasets/volatility_estimators.py + log_return_series + _latest_bar_hour_dow), and buckets vol_bucket against the value of the estimator NAMED BY the head's frozen vol_feature_column — so the v2 heads bucket rolling_log_return_vol and the yz heads bucket yang_zhang_vol (the core bug: close-to-close vol bucketed against yz-unit edges). Both callers (_emit_shadow_preds signal-time + regime_bar_scoring per-bar) pass candles_df= so per-bar == signal-time; a close-only fallback preserves legacy/test callers. RESOLUTION CRITERION MET: parity test (tests/runtime/test_regime_shadow_parity.py) uses MarketFeaturesBuilder itself as the oracle — the live row == the builder's row bit-for-bit (rel 1e-9) for the continuous features + a test proving the yz-bucket fix. 176 tests pass; ruff clean. CAVEATS: (1) status=resolved_pending_deploy — the track record accrued BEFORE the S17 deploy is still under-featured; promotion reads must use the record accrued AFTER pull-and-deploy. (2) The yz vol_bucket is an approximation by construction (the frozen yz edges are the per-bucket max of yang_zhang_vol where the bucket was defined by rolling_log_return_vol quantiles → monotonic-ish, not exact); the v2 heads are exact. NEXT: re-deploy, let the parity-correct record accrue, then /ml-review the strong heads (btc-regime-1h, mes-regime-1d) for a shadow->advisory promotion proposal (Tier-3, operator-gated)."
+      ]
     },
     {
       "id": "MB-20260530-001",
