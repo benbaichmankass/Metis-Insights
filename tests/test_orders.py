@@ -1,5 +1,4 @@
 """Unit tests for risk guards (M3a) and kill-switch (M3b)."""
-import os
 import sys
 from unittest.mock import MagicMock, patch
 
