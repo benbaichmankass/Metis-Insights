@@ -92,7 +92,16 @@ session — defer to a phase-2 follow-up.
 3. Scope: BTCUSDT-only to start (recommended), or also wire MES depth now?
 
 ## Status / next step
-Awaiting the three decisions above. On sign-off, the build order is: capture
-service (Tier-2) → accrue ≥ a few weeks of `market_microstructure` → build the
-join columns + A/B manifest (Tier-1/3) → purged-CV A/B vs the v2 / yz champions.
-Tracked in `MB-20260604-002`.
+**Operator decisions (2026-06-04): (1) trainer-VM side-car, (2) free Bybit REST
+polling, (3) BTCUSDT-only — the recommended config. BUILT + DEPLOYED.**
+- Capture side-car `scripts/ml/orderflow_capture.py` +
+  `deploy/trainer/ict-orderflow-capture.service` (BTCUSDT 5m bars, 2 s poll,
+  off-VM-guarded, kept out of the live-VM installer glob).
+- `market_features` `microstructure_path` join → the six columns
+  (`ofi`/`ofi_zscore`/`vpin`/`order_imbalance`/`rel_spread_mean`/`microprice_dev`),
+  `builder_version v4 → v5`, default-preserving.
+- A/B manifest `ml/configs/btc-regime-5m-lgbm-flow-v1.yaml` (`research_only`).
+
+**Now accruing forward** (no L2 history to backfill). The A/B can only run once
+enough captured bars exist — evaluate on the captured window only.
+`MB-20260604-002` carries the **monitor-and-review-when-enough-data** note.

@@ -430,8 +430,8 @@ class TestV2FeatureExpansion:
                 abs_tol=1e-12,
             )
 
-    def test_builder_version_is_v4(self):
-        assert MarketFeaturesBuilder.builder_version == "v4"
+    def test_builder_version_is_v5(self):
+        assert MarketFeaturesBuilder.builder_version == "v5"
 
 
 class TestRangeVolEstimators:
@@ -573,4 +573,100 @@ class TestFundingOiFeatures:
         with pytest.raises(ValueError):
             list(MarketFeaturesBuilder().iter_rows(
                 market_raw_path=market_raw, funding_window_n=1,
+            ))
+
+
+def _stage_microstructure(
+    tmp_path: Path,
+    *,
+    base_ts_iso: str = "2025-01-01T00:00:00Z",
+    n_bars: int = 200,
+    bar_seconds: int = 300,
+    symbol: str = "BTCUSDT",
+) -> Path:
+    """Write a synthetic market_microstructure side-stream dir (data.jsonl)."""
+    from datetime import datetime, timedelta
+
+    base = datetime.fromisoformat(base_ts_iso.replace("Z", "+00:00"))
+    root = tmp_path / "market_microstructure" / symbol / "5m" / "v001"
+    root.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for i in range(n_bars):
+        ts = (base + timedelta(seconds=bar_seconds * i)).isoformat().replace("+00:00", "Z")
+        rows.append({
+            "ts": ts, "symbol": symbol,
+            "ofi": float((i % 7) - 3),
+            "buy_vol": 5.0 + (i % 3), "sell_vol": 4.0,
+            "rel_spread_mean": 0.0005, "microprice_dev": 0.0001 * ((i % 5) - 2),
+            "n_snapshots": 30,
+        })
+    (root / "data.jsonl").write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    return root
+
+
+class TestMicrostructureFeatures:
+    """S-MLOPT-S10: order-flow / microstructure feature columns."""
+
+    _COLS = ("ofi", "ofi_zscore", "vpin", "order_imbalance", "rel_spread_mean", "microprice_dev")
+
+    def test_columns_zero_without_path(self, tmp_path: Path):
+        market_raw = _stage_market_raw(tmp_path, closes=_trending_then_choppy(80))
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+        ))
+        assert rows
+        for r in rows:
+            for c in self._COLS:
+                assert c in r and r[c] == 0.0
+
+    def test_columns_populated_with_path(self, tmp_path: Path):
+        market_raw = _stage_market_raw(
+            tmp_path, closes=[100.0 * (1.001 ** i) for i in range(200)], bar_seconds=300,
+            timeframe="5m",
+        )
+        micro = _stage_microstructure(tmp_path, n_bars=200)
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            microstructure_path=micro, microstructure_window_n=20,
+        ))
+        assert rows
+        assert any(r["ofi"] != 0.0 for r in rows)
+        assert all(0.0 <= r["vpin"] <= 1.0 for r in rows)
+        # buy_vol >= sell_vol in the fixture → non-negative order imbalance.
+        assert all(r["order_imbalance"] >= 0.0 for r in rows)
+
+    def test_asof_alignment_past_only(self, tmp_path: Path):
+        # Side-stream entirely AFTER the bars → no bar may see it (carry-forward 0).
+        market_raw = _stage_market_raw(tmp_path, closes=[100.0] * 120, bar_seconds=300, timeframe="5m")
+        micro = _stage_microstructure(tmp_path, base_ts_iso="2030-01-01T00:00:00Z", n_bars=120)
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            microstructure_path=micro, microstructure_window_n=20,
+        ))
+        assert rows
+        assert all(r["ofi"] == 0.0 and r["vpin"] == 0.0 for r in rows)
+
+    def test_in_schema_and_validate(self, tmp_path: Path):
+        market_raw = _stage_market_raw(
+            tmp_path, closes=[100.0 * (1.001 ** i) for i in range(160)], bar_seconds=300,
+            timeframe="5m",
+        )
+        micro = _stage_microstructure(tmp_path, n_bars=160)
+        builder = MarketFeaturesBuilder()
+        for c in self._COLS:
+            assert c in builder.schema
+        paths = builder.build(
+            output_dir=tmp_path / "out", version="v001", source="csv",
+            symbol_scope="BTCUSDT", timeframe="5m",
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            microstructure_path=str(micro), microstructure_window_n=20,
+        )
+        report = validate_dataset(paths.root)
+        assert report.ok, report
+
+    def test_invalid_window_raises(self, tmp_path: Path):
+        market_raw = _stage_market_raw(tmp_path, closes=[100.0] * 100)
+        with pytest.raises(ValueError):
+            list(MarketFeaturesBuilder().iter_rows(
+                market_raw_path=market_raw, microstructure_window_n=1,
             ))
