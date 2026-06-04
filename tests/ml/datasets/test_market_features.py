@@ -430,8 +430,9 @@ class TestV2FeatureExpansion:
                 abs_tol=1e-12,
             )
 
-    def test_builder_version_is_v6(self):
-        assert MarketFeaturesBuilder.builder_version == "v6"
+    def test_builder_version_is_v7(self):
+        # v6 -> v7: S-MLOPT-S15 added the trend_regime_label column.
+        assert MarketFeaturesBuilder.builder_version == "v7"
 
 
 class TestRangeVolEstimators:

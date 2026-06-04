@@ -525,13 +525,31 @@ model.
   correctly rejects it. Side benefit: the run reconfirmed the LightGBM head's real leak-free
   strength (macro_f1 0.654 / f1_volatile 0.501) — the phase-4 detector candidate for S15.
 
-### Session 3.3 — Regime-router phase-4 detector *(ties to MB-20260601-002; Tier-2/3)*
+### Session 3.3 — Regime-router phase-4 detector *(ties to MB-20260601-002; Tier-2/3)* — 🔄 IN REVIEW 2026-06-04 (S-MLOPT-S15)
 - **Deliverable:** when the regime router's phase-4 is taken up, wire the best
   **non-collapsing** regime head (today `btc-regime-1h-lgbm-v2`, f1_vol 0.45 — NOT the
   collapsed `regime-classifier-baseline-v0`, f1_vol 0) as the classifier detector, after it
   has accrued a shadow track record (depends on 3.1). Reconcile the
   `regime-classifier-baseline-v0` manifest(shadow)/registry(research_only) stage drift.
 - **Effort:** S–M (mostly wiring + the stage-drift fix).
+- **Key scoping finding (S-MLOPT-S15):** phase-4 as written was a **category error** — the
+  ADX detector + policy table key on a **trend** axis (`chop`/`transitional`/`trending`), but
+  every registry regime model (incl. `btc-regime-1h-lgbm-v2` and the collapsed baseline)
+  predicts a **volatility** axis (`range`/`volatile`). A vol classifier cannot drop-in replace
+  the trend detector. Operator chose to pursue **both** fixes as separate tracks:
+  - **S15a (shipped, Tier-1 + Tier-3 manifest):** a **trend-regime model**. New
+    `ml/datasets/labeling/trend_regime.py` (Kaufman efficiency ratio of the forward window →
+    chop/transitional/trending) wired into `market_features` as `trend_regime_label`
+    (builder_version v6→v7, default-preserving, future-only label → leak-safe) + research_only
+    manifest `btc-regime-1h-trend-lgbm-v1.yaml` (same features/dataset/split as the v2 vol head).
+    This is the true ADX-detector drop-in candidate. **Stage drift reconciled**
+    (`baseline-regime-classifier.yaml` shadow→research_only). 16 tests + ruff clean.
+    Trainer-VM purged-CV A/B vs the ADX base rates dispatched.
+  - **S15b (queued, Tier-2/3, observe-only):** wire the existing vol classifier as a **second
+    regime axis** — extend `regime_shadow_gate` to a 2-D (trend×vol) policy that LOGS but does
+    not enforce, so it accrues shadow/backtest PnL evidence before any Tier-3 enforcement.
+- Live phase-4 enforcement (replacing ADX) stays Tier-3 + waits on a shadow track record (S13,
+  now flowing) + train/serve feature parity (`MB-20260604-005`).
 
 ---
 

@@ -86,23 +86,24 @@ Knobs (all kwargs):
 | `forward_log_return` | float | `ln(close[t + forward_window_m] / close[t])`. |
 | `forward_log_return_vol` | float | stdev of `log_return` over `[t + 1 .. t + forward_window_m]` (strictly after `t`). |
 | `regime_label` | str | One of `"range"`, `"volatile"` — derived from forward stats (2-class since S-ML-REGIME-CLASSIFIER-FIX). |
+| `trend_regime_label` | str | One of `"chop"`, `"transitional"`, `"trending"` — the **trend**-axis label (S-MLOPT-S15) from the Kaufman efficiency ratio of the forward window `[t+1 .. t+forward_window_m]`. The taxonomy the regime-router policy table keys on; target for the phase-4 trend-detector model. |
 | `source` | str | Copied from `market_raw` (the upstream adapter name). |
 
 ## Leakage discipline
 
 Bar `t`'s features (`log_return`, `rolling_log_return_vol`,
 `vol_bucket`) read ONLY bars in the inclusive window
-`[t - vol_window_n + 1 .. t]`. Bar `t`'s label
-(`regime_label`, `forward_log_return*`) reads ONLY bars in the
-strictly-future window `[t + 1 .. t + forward_window_m]`. The
-two windows do not overlap, so features cannot leak the label.
+`[t - vol_window_n + 1 .. t]`. Bar `t`'s labels
+(`regime_label`, `trend_regime_label`, `forward_log_return*`) read
+ONLY bars in the strictly-future window `[t + 1 .. t + forward_window_m]`.
+The two windows do not overlap, so features cannot leak the label.
 
 A trainer consuming this family MUST NOT include
-`forward_log_return`, `forward_log_return_vol`, or
-`regime_label` itself as features. The first two are forward-
-looking derivatives of the label and are exposed in the
-dataset purely for analysis / sanity-checking; the third is
-the label.
+`forward_log_return`, `forward_log_return_vol`, `regime_label`, or
+`trend_regime_label` itself as features. The first two are forward-
+looking derivatives of the labels and are exposed in the
+dataset purely for analysis / sanity-checking; the last two are
+the labels.
 
 `vol_bucket` thresholds are quantile-derived from the full
 dataset (train + eval combined) at build time. For research-only
@@ -142,6 +143,7 @@ from ..funding_oi_features import (
 )
 from ..macro_features import MACRO_FEATURE_COLUMNS
 from ..metadata import LeakageStatus
+from ..labeling.trend_regime import efficiency_ratio, trend_regime_label
 from ..orderflow_features import vpin as _vpin
 from ..volatility_estimators import (
     _sqrt_or_zero,
@@ -326,7 +328,7 @@ class MarketFeaturesBuilder(DatasetBuilder):
     # producer), 0.0 when it is absent. Earlier baselines that only read
     # `vol_bucket` / `rolling_log_return_vol` are unaffected by the wider schema;
     # builder_version is metadata-only (it does not gate dataset path resolution).
-    builder_version: ClassVar[str] = "v6"
+    builder_version: ClassVar[str] = "v7"
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.PASSED
     label_version: ClassVar[str] = "regime-3class-v1"
     schema: ClassVar[Mapping[str, type]] = {
@@ -387,6 +389,7 @@ class MarketFeaturesBuilder(DatasetBuilder):
         "forward_log_return": float,
         "forward_log_return_vol": float,
         "regime_label": str,
+        "trend_regime_label": str,
         "source": str,
     }
 
@@ -398,6 +401,8 @@ class MarketFeaturesBuilder(DatasetBuilder):
         forward_window_m: int = 5,
         vol_threshold: float = 0.003,
         trend_threshold: float = 0.005,
+        trend_chop_max: float = 0.30,
+        trend_trend_min: float = 0.55,
         n_vol_buckets: int = 3,
         funding_oi_path: Path | str | None = None,
         funding_window_n: int = 168,
@@ -519,6 +524,11 @@ class MarketFeaturesBuilder(DatasetBuilder):
         past_vols: list[float | None] = [None] * n
         forward_log_returns: list[float | None] = [None] * n
         forward_vols: list[float | None] = [None] * n
+        # Forward trend-regime label (S-MLOPT-S15): chop/transitional/trending
+        # by the Kaufman efficiency ratio of the SAME forward window the vol
+        # label uses — a future-only label (never a feature), leak-safe by the
+        # same window separation as `regime_label`.
+        forward_trend_labels: list[str | None] = [None] * n
         for i in range(n):
             past_window = log_returns[max(0, i - vol_window_n + 1) : i + 1]
             past_window_clean = [v for v in past_window if v is not None]
@@ -541,6 +551,11 @@ class MarketFeaturesBuilder(DatasetBuilder):
             forward_window_clean = [v for v in forward_window if v is not None]
             if len(forward_window_clean) >= 2:
                 forward_vols[i] = statistics.pstdev(forward_window_clean)
+                forward_trend_labels[i] = trend_regime_label(
+                    efficiency_ratio(forward_window_clean),
+                    chop_max=trend_chop_max,
+                    trend_min=trend_trend_min,
+                )
 
         # Quantile-bucket past vol across all complete entries.
         complete_past_vols = [v for v in past_vols if v is not None]
@@ -644,5 +659,6 @@ class MarketFeaturesBuilder(DatasetBuilder):
                     trend_threshold=trend_threshold,
                     vol_threshold=vol_threshold,
                 ),
+                "trend_regime_label": forward_trend_labels[i] or "chop",
                 "source": str(rows[i].get("source", "")),
             }
