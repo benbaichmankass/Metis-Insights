@@ -518,7 +518,7 @@
    "tier": 1,
    "trigger_condition": "Next /health-review: pull journal?table=insights_history (endpoint=health) and /api/bot/health/latest (or services for the snapshot writer's timer if one exists) — confirm whether artifacts/health/latest.json has a recent generated_at. If still 2026-05-11, the snapshot writer is dead.",
    "resolution_criteria": "Root-caused WHY the health-snapshot writer stopped on 2026-05-11 (timer disabled? unit removed in a refactor? path moved under the OCI data-dir migration? cron never re-enabled after a deploy?), then either revived so artifacts/health/latest.json updates on cadence (M13 health insight grades on current data) OR the M13 health endpoint is repointed at a live source so it stops surfacing an 18-day-old snapshot as 'concern'.",
-   "status": "open",
+   "status": "resolved",
    "snoozed_until": null,
    "check_log": [
     {
@@ -526,7 +526,10 @@
      "by": "claude (/health-review — Rina)",
      "note": "FIX BUILT (PR #2728, branch claude/rina-health-strategy-review-9zqy1) — pending operator merge + deploy + verify. ROOT CAUSE confirmed: the 2026-05-12 health-snapshot.yml refactor deleted the JSON producer (scripts/run_health_check.py) and turned the cron into a passive artifact-collector; nothing has written the VM's artifacts/health/{latest.json,health_check_*.json} since, so /api/bot/health/latest + the M13 health card serve the 2026-05-11-frozen snapshot (verified live this review: insights_history id 4560 @05:12Z grades concern off ts 2026-05-11, age ~2.06Ms). FIX: (1) scripts/write_health_snapshot.py revives the JSON writer — calls src.runtime.health.run_all_checks() and writes latest.json + health_check_<TS>.json + health_snapshot.txt via artifacts_dir() (same resolver the API reads); (2) deploy/ict-health-snapshot.{service,timer} runs it every 15 min, auto-enabled by install_systemd_units.sh; (3) the data-dir.conf drop-in is wired in install_systemd_units.sh so the writer runs with DATA_DIR=/data/bot-data — same as ict-web-api — avoiding the 2026-05-12 writer/reader path-split; (4) src/runtime/insights/template_analyst.py::health_template now grades on the checks themselves (concern only on a CRITICAL check; warn/stale -> watch; all-ok+fresh -> good) instead of the trade-centric _grade() that pinned a no-trades window to watch and screamed concern on any non-ok. Tests: tests/test_write_health_snapshot.py (9, incl. a round-trip proving a healthy snapshot -> green M13 card) + 11 existing template-analyst tests still green; ruff clean. NOTE: the revived suite is the current 7-point src/runtime/health.py set (service/git_drift/git_fetch/tick/accounts_api/db/disk), not the deleted suite's 11 names — the card will show 7 checks. POST-DEPLOY VERIFY: pull journal?table=insights_history (endpoint=health) — snapshot ts should advance to ~now and grade flip off the stale concern; then mark resolved."
     }
-   ]
+   ],
+   "resolved_at": "2026-06-04T07:52:00+00:00",
+   "resolved_by": "claude (/health-review — Rina, verified live)",
+   "resolution_note": "VERIFIED RESOLVED in production. After PR #2728 merged + git-sync deployed, insights_history (relay #2733, 2026-06-04T07:48Z) shows the M13 `health` insight (id 4626, generated 07:39:10Z): Snapshot timestamp 2026-06-04T07:38:52Z, AGE 10s (was frozen at 2026-05-11 for 24 days), Checks 6/7, grade `watch` (was the false `concern` 0/11 all-failing). So the revived ict-health-snapshot writer is running on its 15-min timer and writing to the exact path the API reads (DATA_DIR drop-in alignment confirmed — no writer/reader path-split), and the M13 card now grades truthfully off current data. Resolution criteria met. The single failing check (`accounts_api`) is a NEW, separate refinement tracked as BL-20260604-004 (standalone-context artifact, not a real outage). Note: the suite is now the current 7-point health.py set, not the deleted 11-name set."
   },
   {
    "id": "BL-20260529-006",
@@ -661,7 +664,23 @@
      "note": "FIX BUILT (pending merge+deploy+verify). scripts/check_web_api.py — stdlib-only watchdog probing http://127.0.0.1:8001/api/health every 2 min (ict-web-api-watchdog.{service,timer}); after 2 consecutive failures runs scripts/ops/restart_web_api.sh, guard-railed --max-restarts 3 + --cooldown-min 10 (crashloop -> alert-escalate, not loop). Decision state machine is byte-identical to the proven check_ib_gateway.py::decide. --auto-restart enabled in the unit (read-only API = low blast radius). Registered in test_s012 EXPECTED_SERVICES + deployment-ops.md; timer auto-enabled by install_systemd_units.sh. Tests: tests/test_check_web_api.py (9). POST-DEPLOY VERIFY: confirm the timer is active + a healthy probe in journalctl (healthy path); the restart path proves out on a real/induced wedge. Closes the gap where the only web-api recovery lever (GitHub vm-web-api-recover) is webhook-flaky."
     }
    ]
+  },
+  {
+   "id": "BL-20260604-004",
+   "opened_at": "2026-06-04T07:52:00+00:00",
+   "opened_by": "claude (/health-review — Rina, post-deploy verify of BL-20260529-005)",
+   "source": "The revived ict-health-snapshot writer's first live runs grade `accounts_api` as failing (M13 card 6/7, grade watch) while the trader is healthy + trading — surfaced verifying BL-20260529-005.",
+   "title": "check_accounts_api fails in the standalone health-snapshot writer context (account_balance() returns None without the trader's live exchange clients) — card shows a perpetual accounts_api 'watch'",
+   "description": "src/runtime/health.py::check_accounts_api reuses src.bot.data_loaders.account_balance() per account and WARNs on any None. In the trader PROCESS this works (it holds the live exchange/IB clients). But ict-health-snapshot.service runs write_health_snapshot.py as a SEPARATE oneshot that has no such clients (e.g. the local smoke logged 'account_balance(ib_paper): ib_insync is not installed' and Bybit balance needs a live socket), so account_balance() returns None -> accounts_api WARN -> the M13 health card sits at 6/7 'watch' with accounts_api failing even though the live trader's accounts are fine. This is a CONTEXT artifact of running the check outside the trader, not a real outage (verified: the trader dispatched real trade 2428 + is healthy). Net effect: the card never shows fully-green when it should. Fix options: (a) point check_accounts_api at the CONNECTION-FREE balance snapshot (runtime_logs/balance_snapshots.json — the same source /api/bot/accounts/balances uses, 'never opens an exchange socket'), so it reflects the last recorded balance instead of trying to connect; or (b) have the standalone writer skip/soften the accounts_api check (env flag) when not in-process; or (c) accept the warn as a known standalone limitation and document it. (a) is the cleanest — it makes the check connection-free + context-independent. Tier-1 code (observability); not a money-path change.",
+   "tier": 1,
+   "trigger_condition": "Any /health-review run; or whenever the dashboard health card shows accounts_api failing while the live trader is confirmed healthy.",
+   "resolution_criteria": "check_accounts_api reports ok in the standalone ict-health-snapshot writer context when the trader's accounts are healthy (e.g. by reading the connection-free balance snapshot), so the M13 health card grades `good`/ok on a healthy system instead of a perpetual accounts_api `watch`. Verify via insights_history (endpoint=health) after the fix deploys.",
+   "status": "open",
+   "snoozed_until": null,
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null
   }
  ],
- "updated_at": "2026-06-04T08:05:00+00:00"
+ "updated_at": "2026-06-04T07:52:00+00:00"
 }
