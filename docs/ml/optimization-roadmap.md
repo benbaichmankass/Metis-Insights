@@ -417,10 +417,27 @@ proven ROI per hour after Phase 1. Caveat from the research: **microstructure al
   wire funding into `setup_candidates` (a decision target may suit it better) / a rolling
   forward OI capture. Mirrors the S9 shape exactly.
 
-### Session 2.4 — Cross-asset/macro for MES + wire `account_context` *(Tier-1 family; Tier-3 manifest)*
+### Session 2.4 — Cross-asset/macro for MES + wire `account_context` *(Tier-1 family; Tier-3 manifest)* — 🔄 PART A DONE 2026-06-04 (S-MLOPT-S12)
 - **Deliverable:** DXY / VIX-term-structure / rates conditioning features for MES; and wire
   the existing-but-**unused** `account_context` family (equity curve, daily PnL, open-trade
   count) into the decision models.
+- **Part A SHIPPED (S-MLOPT-S12, sprint log [`S-MLOPT-S12.md`](../sprint-logs/S-MLOPT-S12.md), `MB-20260604-004`):**
+  `ml/datasets/macro_features.py` (VIX level/z + term-structure slope `VIX/VIX3M−1`,
+  DXY z/return, 10y level + 3m-10y slope; pure, past-only, **one-day-lagged** so a daily
+  close never reaches a same-day intraday bar); off-VM `yfinance_macro` adapter +
+  `scripts/ml/fetch_macro.py`; `market_features` `builder_version v5→v6` (optional
+  `macro_path`, **default-preserving** → 0.0 when omitted, every existing build unchanged);
+  research_only A/B manifest `mes-regime-5m-lgbm-macro-v1` (identical to the v2 head except
+  the macro group, same frozen regime spec). Daily `build_mes_market` fetches the stream once
+  (`ensure_mes_macro`, `MES_MACRO=1`, non-fatal) and joins it on 5m/15m + the deep 1d head.
+  The A/B is **evaluable once the daily cycle rebuilds MES `market_features` on v6 with the
+  macro stream** — `MB-20260604-004` holds the review note. Macro alpha for an intraday regime
+  head is plausibly thin; a negative is an acceptable, documented outcome (as S11 was).
+- **Part B (`account_context` wiring) DEFERRED — `MB-20260604-003`:** the family is an orphan
+  (no manifest) and the equity/daily-PnL/open-trade-count it wants are **not recorded as
+  as-of-signal-time snapshots** (`daily_risk_state` is end-of-interval daily running values →
+  a post-hoc join leaks). Needs per-signal snapshot instrumentation (or a prop-account data-
+  volume check) first; both sub-options logged.
 - **Effort:** M.
 
 ---
