@@ -162,7 +162,7 @@ DESCRIPTIONS: Final[dict[str, str]] = {
 #: call site (e.g. someone refactors ``_fire_trade_closed_event`` away)
 #: is loud.
 IN_FLIGHT: Final[frozenset[str]] = frozenset(
-    {TRADE_OPENED, TRADE_UPDATED, TRADE_CLOSED, TELEGRAM}
+    {TRADE_OPENED, TRADE_UPDATED, TRADE_CLOSED, TELEGRAM, SIGNAL_EMITTED}
 )
 
 
