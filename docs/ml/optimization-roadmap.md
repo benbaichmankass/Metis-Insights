@@ -484,7 +484,7 @@ model.
   lag/time features live) is the prerequisite for trusting the per-bar evidence enough to
   promote any head `shadow → advisory`. See Session 4.2 below.
 
-### Session 3.2 — Causal HMM / GMM regime family *(Tier-1 experiment)*
+### Session 3.2 — Causal HMM / GMM regime family *(Tier-1 experiment)* — 🔄 IN REVIEW 2026-06-04 (S-MLOPT-S14)
 - **Deliverable:** an alternative regime trainer using a **causal (filtered, not smoothed)**
   Gaussian HMM (`hmmlearn`) and/or GMM/change-point (`ruptures`) on range-based vol features
   (Phase 2.1) — naturally recency-weighted, interpretable, posterior-probability output.
@@ -493,6 +493,27 @@ model.
   "illusion of regimes" dissent: validate OOS under purged WF-CV, compare head-to-head vs
   the LightGBM regime head, and only keep it if it adds OOS edge.
 - **Effort:** M.
+- **Shipped (S-MLOPT-S14, sprint log [`S-MLOPT-S14.md`](../sprint-logs/S-MLOPT-S14.md)):** a
+  **self-contained Gaussian HMM** (no `hmmlearn`/`sklearn` dependency — `hmmlearn` was not a
+  dep and the predictor runs on the live trader if ever promoted, so it stays light).
+  `ml/trainers/causal_hmm_regime.py` (`CausalHMMRegimeTrainer`, NumPy, trainer-VM only):
+  diagonal-Gaussian **GMM EM** over the S9 range-vol features (deterministic quantile init,
+  seeded) → per-state emissions + a **transition matrix** from soft consecutive-bar
+  responsibilities + a **per-state regime-label distribution**. `ml/predictors/causal_hmm_regime.py`
+  (`CausalHMMRegimePredictor`, pure-stdlib): runs the **filtered forward recursion** only
+  (`alpha_t(k) ∝ e_k(x_t)·Σ_i alpha_{t-1}(i)·A[i,k]`) — the state posterior at bar *t* depends on
+  `x_1..x_t` only; **no Viterbi / forward-backward smoothing**. It is stateful across a
+  chronological pass (matching how `time_aware_holdout` / each `purged_walk_forward` fold feeds
+  the evaluator) with an **auto-reset on a non-monotonic `ts`** so there is no cross-fold leak.
+  Research_only A/B manifest `ml/configs/btc-regime-1h-hmm-v1.yaml` vs the `btc-regime-1h-lgbm-v2`
+  champion (same `market_features` dataset/label/split). 11 tests including the **causal-invariance**
+  test (the filtered posterior at *t* is byte-identical whether or not future bars are appended)
+  + an evaluator-integration test (>0.9 acc on cleanly-separated synthetic regimes via the standard
+  `PREDICTOR_CLASS` resolution); ruff clean; manifest loads via `TrainingManifest`. **Tier-1**
+  trainer/predictor/tests; the manifest is a **Tier-3 research_only proposal**. The trainer-VM
+  purged WF-CV A/B vs the LightGBM head (`eval_split_compare.py`, the leak-free comparator) is the
+  follow-up — per the dissent, the HMM is kept only if it adds OOS edge; a negative is an acceptable,
+  documented outcome (as S11 was).
 
 ### Session 3.3 — Regime-router phase-4 detector *(ties to MB-20260601-002; Tier-2/3)*
 - **Deliverable:** when the regime router's phase-4 is taken up, wire the best
