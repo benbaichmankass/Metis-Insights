@@ -462,6 +462,7 @@ stay in place for any future browser-direct consumer.
 | `BACKTEST_DATA_PATH` | Override the candle CSV the M5 backtest runner reads |
 | `VALIDATION_LOG_PATH` | Override the M5 validation NDJSON path (default `runtime_logs/validation.jsonl`) |
 | `FLIP_POLICY` | Conflict-resolution behaviour in the intent layer when the desired net side opposes the held position (`src/runtime/intents.py`). **Default `hold` since 2026-05-31** (PR #2451, operator-approved after the 24-cell walk-forward verified PASS — `docs/audits/walkforward-flip-policy-2026-05-30.md`): keep the position; the position-owner's monitor()/SL/TP exits — removes flip-churn. Alternatives: `reverse` (legacy close-and-reopen — the rollback path; set `FLIP_POLICY=reverse` on the VM to revert without a redeploy), `flat` (close, no re-open). Mirrors `scripts/backtest_system.py --flip-policy`. |
+| `REGIME_BAR_SCORING_DISABLED` | Kill-switch for the **per-bar regime scoring** path (S-MLOPT-S13 / M14 Phase 3.1, `src/runtime/regime_bar_scoring.py`). Default off → on: each tick `run_pipeline` scores every `shadow`-stage regime head on its own `(symbol,timeframe)` bar cadence (independent of any actionable signal), writing to `runtime_logs/shadow_predictions.jsonl` so the strong regime heads (1h/MES) accrue an order-influencing track record (`MB-20260529-001`). **Observe-only** — only `ShadowPredictor.predict`, never the order path; deduped to one record per closed bar. Set truthy on the VM to disable without a redeploy. |
 
 ## Diagnostic API (S-051)
 
