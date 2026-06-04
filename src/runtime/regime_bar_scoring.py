@@ -76,7 +76,7 @@ def regime_bar_scoring_enabled() -> bool:
     per-bar track record without any extra wiring; flip the env var on the
     live VM to disable without a redeploy.
     """
-    raw = str(os.environ.get("REGIME_BAR_SCORING_DISABLED", "")).strip().lower()
+    raw = str(os.environ.get("REGIME_BAR_SCORING_DISABLED", "")).strip().lower()  # allow-silent: observe-only shadow-logging kill-switch, default-ON (inverse of the BUG-039 default-OFF capability gate); never touches the live/dry order path (RiskManager.dry_run stays the only execution switch)
     return raw not in ("1", "true", "yes", "on")
 
 
