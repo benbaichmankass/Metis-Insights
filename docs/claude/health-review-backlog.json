@@ -595,6 +595,22 @@
    "resolution_note": "Fixed this review (Tier-1 doc). Added a 'Canonical path note (2026-06-02)' callout to the rotate-account-keys carve-out in docs/claude/system-actions.md § 3 (the credential-rotation discussion): names .github/workflows/sync-vm-secrets.yml as the canonical broker-credential propagation path (REQUIRED_SECRETS+OPTIONAL_SECRETS, SSH SendEnv, value never in run log), tags rotate-account-keys as the legacy Bybit-only path pending a migration PR, and points at the credentials-and-vm-mutations skill. A fresh Claude reading the doc now picks sync-vm-secrets for a new broker. (Drained one rotation slot early — trigger said Wednesday/docs-claude, but it's a bounded Tier-1 doc fix so done now.)"
   },
   {
+   "id": "BL-20260603-001",
+   "opened_at": "2026-06-03T14:30:00+00:00",
+   "opened_by": "claude (S-MLOPT-S6-FU MES root-cause investigation)",
+   "source": "S-MLOPT-S8 surfaced 'MES has 0 real closed trades' as the reason cross-symbol transfer is unmeasurable. The 2026-06-03 follow-up traced this to the strategy being correctly inert (no Donchian-30 breakout fired in the ~30h since execution: live promotion). No bug. Filed here so a future /health-review doesn't re-raise 'MES never trades' as a regression.",
+   "title": "Add an alert for 'mes_trend_long_1d_eval rows stop appearing' (catches MES going actually dark, vs side=none being normal)",
+   "description": "MES currently produces a per-tick mes_trend_long_1d_eval row with side=none and reason='no breakout on the latest bar' — that's the strategy doing its job (Donchian-30 long-only on the daily, waiting for a breakout above the prior-30d high; today 7607 vs prior-high 7632.75). The pipeline is wired correctly. But there's currently NO alert that distinguishes 'strategy alive but no setup' (normal) from 'strategy stopped firing eval rows entirely' (real regression — broker dark, candle fetch dead, strategy crashed). Proposal: add a coarse monitor — if signal_audit.jsonl has no `event=mes_trend_long_1d_eval` row in the last 24h, alert. Same for mgc_pullback_1d_eval + mhg_pullback_1d_eval. Doesn't fire on the normal 'waiting for breakout' state; does fire if the strategy stops being evaluated. Composes with the existing liveness watchdog (process-level) — this is strategy-level coverage. Implementation likely belongs near scripts/check_heartbeat.py or as a new check in the health-snapshot timer.",
+   "tier": 1,
+   "trigger_condition": "Any /health-review run; or when the operator notices 'MES never trades' again and we want a faster real-vs-normal discrimination.",
+   "resolution_criteria": "A monitor exists that alerts if any of {mes_trend_long_1d_eval, mgc_pullback_1d_eval, mhg_pullback_1d_eval} hasn't logged an eval row in 24h. False-positive rate verified ≈0 on a normal day (where side=none rows are continuously emitted).",
+   "status": "open",
+   "snoozed_until": null,
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null
+  },
+  {
    "id": "BL-20260602-003",
    "opened_at": "2026-06-02T17:55:00+00:00",
    "opened_by": "claude (tradovate-integration session, doc-freshness sweep)",

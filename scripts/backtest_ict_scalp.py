@@ -168,6 +168,7 @@ def run_backtest(
     htf_ema_period: int = 20,
     min_confidence: float = 0.0,
     _collect_trades: bool = False,
+    emit_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
     htf_df = _build_htf_series(df, htf_rule=htf_rule, ema_period=htf_ema_period)
@@ -270,6 +271,20 @@ def run_backtest(
             )
         )
         next_eligible_idx = int(result["exit_index"]) + 1 + cooldown_bars
+
+    # Per-trade JSONL (one object per closed trade) for the ML backtest-label
+    # recorder — same schema squeeze/fade emit, consumed by
+    # scripts/ml/record_harness_trades.py (S-MLOPT-S6-FU-2). ict_scalp has no
+    # separate fee model, so gross_r == net_r == r_multiple.
+    if emit_path:
+        Path(emit_path).parent.mkdir(parents=True, exist_ok=True)
+        with open(emit_path, "w", encoding="utf-8") as fh:
+            for t in trades:
+                fh.write(json.dumps({
+                    "strategy": "ict_scalp_5m", "entry_time": str(t.entry_time),
+                    "direction": t.direction, "gross_r": t.r_multiple,
+                    "net_r": t.r_multiple,
+                    "confidence": t.confidence}, default=str) + "\n")
 
     summary = _summarize(trades, df, timeframe=timeframe, symbol=symbol)
     if _collect_trades:
@@ -462,6 +477,9 @@ def main(argv: List[str]) -> int:
                    help="Skip entries whose live order_package() confidence is below this.")
     p.add_argument("--confidence-sweep", default=None, metavar="GRID",
                    help="Sweep min_confidence over GRID ('0:0.6:0.05' or '0,0.1,0.2') and tabulate.")
+    p.add_argument("--emit-trades", default=None, metavar="PATH",
+                   help="Write one per-trade JSONL object per closed trade to PATH "
+                        "(for the ML backtest-label recorder; single-run only, not with --confidence-sweep).")
     args = p.parse_args(argv[1:])
 
     try:
@@ -487,7 +505,8 @@ def main(argv: List[str]) -> int:
             summary = _confidence_sweep(df, _parse_grid(args.confidence_sweep), bt_kwargs)
             print(_fmt_sweep(summary))
         else:
-            summary = run_backtest(df, min_confidence=float(args.min_confidence), **bt_kwargs)
+            summary = run_backtest(df, min_confidence=float(args.min_confidence),
+                                   emit_path=args.emit_trades, **bt_kwargs)
             print(_format_text(summary))
     except Exception as exc:
         print(f"ERROR: backtest failed: {exc}", file=sys.stderr)

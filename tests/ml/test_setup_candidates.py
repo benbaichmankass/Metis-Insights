@@ -174,3 +174,398 @@ def test_include_synthetic_false_emits_only_live(tmp_path: Path):
         include_synthetic=False, live_trades_db=db,
     ))
     assert rows and all(r["is_live_trade"] for r in rows)
+
+
+# -----------------------------------------------------------------------------
+# Signal-log event source (MB-20260603-002, S-MLOPT-S6 follow-up)
+# -----------------------------------------------------------------------------
+
+def _seed_signals(
+    db: Path,
+    entries: list[tuple[str, str, str, str]],
+) -> None:
+    """entries = [(iso_logged_at_utc, strategy, symbol, side), ...].
+
+    Mirrors `src.units.db.database` schema (signals: logged_at_utc, strategy,
+    symbol, side, qty, status, reason, meta) — only the columns the
+    setup_candidates reader needs.
+    """
+    conn = sqlite3.connect(str(db))
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS signals ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, logged_at_utc TEXT NOT NULL, "
+        "strategy TEXT, symbol TEXT, side TEXT, qty REAL, status TEXT, "
+        "reason TEXT, meta TEXT)"
+    )
+    for ts, strategy, symbol, side in entries:
+        conn.execute(
+            "INSERT INTO signals (logged_at_utc, strategy, symbol, side) "
+            "VALUES (?, ?, ?, ?)",
+            (ts, strategy, symbol, side),
+        )
+    conn.commit()
+    conn.close()
+
+
+def test_signal_log_rows_sampled_and_labeled(tmp_path: Path):
+    """Each buy/sell audit row produces one signal-log candidate, triple-barrier
+    labeled at the bar covering its logged ts."""
+    closes = _trending_closes()
+    ddir = _write_market_raw(tmp_path, closes)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    _seed_signals(db, [
+        ((base + timedelta(hours=40)).isoformat(), "ict_scalp", "BTCUSDT", "buy"),
+        ((base + timedelta(hours=80)).isoformat(), "ict_scalp", "BTCUSDT", "sell"),
+        ((base + timedelta(hours=120)).isoformat(), "vwap", "BTCUSDT", "none"),  # dropped
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, signal_log_db=db,
+    ))
+    sig = [r for r in rows if r["event_source"] == "signal_log"]
+    cusum = [r for r in rows if r["event_source"] == "cusum"]
+    assert len(cusum) >= 5  # CUSUM candidates still produced
+    assert len(sig) == 2    # only the two buy/sell rows; "none" is skipped
+    dirs = sorted(r["direction"] for r in sig)
+    assert dirs == [-1, 1]
+    for r in sig:
+        # Triple-barrier label, NOT 'live' — signal-log rows carry synthetic
+        # outcomes that ride the train side of live_holdout.
+        assert r["barrier_touched"] in {"tp", "sl", "timeout"}
+        assert r["is_live_trade"] is False
+        assert r["entry_price"] > 0  # next-bar-open entry (no look-ahead)
+        assert r["signal_vol"] > 0   # past-only feature window
+
+
+def test_signal_log_strategy_filter(tmp_path: Path):
+    """`signal_log_strategies` restricts to a subset of strategies."""
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    _seed_signals(db, [
+        ((base + timedelta(hours=30)).isoformat(), "ict_scalp", "BTCUSDT", "buy"),
+        ((base + timedelta(hours=60)).isoformat(), "vwap", "BTCUSDT", "buy"),
+        ((base + timedelta(hours=90)).isoformat(), "turtle_soup", "BTCUSDT", "sell"),
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, signal_log_db=db,
+        signal_log_strategies=("ict_scalp", "vwap"),
+    ))
+    sig = [r for r in rows if r["event_source"] == "signal_log"]
+    assert len(sig) == 2  # only ict_scalp + vwap; turtle_soup filtered out
+
+
+def test_signal_log_filters_by_symbol(tmp_path: Path):
+    """Signals for OTHER symbols are not located on this market_raw dataset."""
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    _seed_signals(db, [
+        ((base + timedelta(hours=40)).isoformat(), "ict_scalp", "BTCUSDT", "buy"),
+        ((base + timedelta(hours=50)).isoformat(), "mes_trend_long_1d", "MES", "buy"),
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, signal_log_db=db,
+    ))
+    sig = [r for r in rows if r["event_source"] == "signal_log"]
+    assert len(sig) == 1  # MES row not matched to BTCUSDT market_raw
+
+
+def test_signal_log_missing_db_is_noop(tmp_path: Path):
+    """A non-existent signal_log_db doesn't crash — just emits no signal_log rows."""
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5,
+        signal_log_db=tmp_path / "does-not-exist.db",
+    ))
+    assert rows  # CUSUM rows still emitted
+    assert all(r["event_source"] == "cusum" for r in rows)
+
+
+def test_signal_log_no_signals_table_is_noop(tmp_path: Path):
+    """Empty / signals-table-absent DB: best-effort -> no signal_log rows."""
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    db = tmp_path / "trade_journal.db"
+    sqlite3.connect(str(db)).close()  # empty DB, no signals table
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, signal_log_db=db,
+    ))
+    assert all(r["event_source"] == "cusum" for r in rows)
+
+
+def test_signal_log_and_cusum_disable(tmp_path: Path):
+    """`include_cusum=False` + `signal_log_db` set => only signal_log rows."""
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    _seed_signals(db, [
+        ((base + timedelta(hours=h)).isoformat(), "ict_scalp", "BTCUSDT", "buy")
+        for h in (20, 40, 60, 80, 100)
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, signal_log_db=db, include_cusum=False,
+    ))
+    assert rows
+    assert all(r["event_source"] == "signal_log" for r in rows)
+
+
+def test_signal_log_three_source_mix(tmp_path: Path):
+    """All three samplers compose: CUSUM + signal_log + live_trades_db."""
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    _seed_trades(db, [
+        ((base + timedelta(hours=30)).isoformat(), "buy", 9.0),
+    ])
+    _seed_signals(db, [
+        ((base + timedelta(hours=60)).isoformat(), "ict_scalp", "BTCUSDT", "buy"),
+        ((base + timedelta(hours=90)).isoformat(), "ict_scalp", "BTCUSDT", "sell"),
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5,
+        live_trades_db=db, signal_log_db=db,
+    ))
+    sources = {r["event_source"] for r in rows}
+    assert sources == {"cusum", "signal_log", "live"}
+    live = [r for r in rows if r["event_source"] == "live"]
+    sig = [r for r in rows if r["event_source"] == "signal_log"]
+    assert len(live) == 1
+    assert len(sig) == 2
+    # live_holdout discipline: live rows are eval-side, signal_log rows ride
+    # train-side alongside cusum.
+    assert all(r["is_live_trade"] for r in live)
+    assert not any(r["is_live_trade"] for r in sig)
+
+
+def test_signal_log_strategies_string_form(tmp_path: Path):
+    """The build CLI passes family args as `key=a,b`; comma strings work too."""
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    _seed_signals(db, [
+        ((base + timedelta(hours=40)).isoformat(), "ict_scalp", "BTCUSDT", "buy"),
+        ((base + timedelta(hours=80)).isoformat(), "vwap", "BTCUSDT", "buy"),
+        ((base + timedelta(hours=120)).isoformat(), "turtle_soup", "BTCUSDT", "sell"),
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, signal_log_db=db,
+        signal_log_strategies="ict_scalp,turtle_soup",
+    ))
+    # Strategy name isn't preserved on the emitted row (feature space stays
+    # fixed); the count proves the comma-string filter applied — ict_scalp +
+    # turtle_soup land, vwap is filtered out.
+    assert sum(1 for r in rows if r["event_source"] == "signal_log") == 2
+
+
+# -----------------------------------------------------------------------------
+# Backtest event source (S-MLOPT-S6-FU-2)
+# -----------------------------------------------------------------------------
+
+def _seed_journal(
+    db: Path,
+    *,
+    live: list[tuple[str, str, float]] | None = None,
+    backtest: list[tuple[str, str, float, str]] | None = None,
+) -> None:
+    """Create a trades table carrying both real (is_backtest=0) and recorded
+    backtest (is_backtest=1) rows in one DB — the single-journal layout the
+    S-MLOPT-S7 recorder demo produced (a TEMP copy with both row kinds).
+
+    live = [(iso_ts, direction, pnl), ...]
+    backtest = [(iso_ts, direction, pnl, strategy_name), ...]  (is_backtest=1)
+    """
+    conn = sqlite3.connect(str(db))
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS trades (id INTEGER PRIMARY KEY, symbol TEXT, "
+        "direction TEXT, timestamp TEXT, status TEXT, pnl REAL, pnl_percent REAL, "
+        "is_backtest INT, is_demo INT, strategy_name TEXT)"
+    )
+    rid = conn.execute("SELECT COALESCE(MAX(id), -1) + 1 FROM trades").fetchone()[0]
+    cols = ("id, symbol, direction, timestamp, status, pnl, pnl_percent, "
+            "is_backtest, is_demo, strategy_name")
+    for ts, direction, pnl in (live or []):
+        conn.execute(
+            f"INSERT INTO trades ({cols}) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (rid, "BTCUSDT", direction, ts, "closed", pnl, pnl / 100.0, 0, 0, ""),
+        )
+        rid += 1
+    for ts, direction, pnl, strat in (backtest or []):
+        conn.execute(
+            f"INSERT INTO trades ({cols}) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (rid, "BTCUSDT", direction, ts, "closed", pnl, pnl / 100.0, 1, 0, strat),
+        )
+        rid += 1
+    conn.commit()
+    conn.close()
+
+
+def test_backtest_rows_sampled_and_labeled(tmp_path: Path):
+    """Each is_backtest=1 row produces one backtest candidate, carrying the
+    harness's realized outcome (not a synthetic triple-barrier)."""
+    closes = _trending_closes()
+    ddir = _write_market_raw(tmp_path, closes)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "backtest_trades.db"
+    _seed_journal(db, backtest=[
+        ((base + timedelta(hours=50)).isoformat(), "buy", 1.8, "squeeze"),    # win
+        ((base + timedelta(hours=120)).isoformat(), "sell", -1.0, "fade"),    # loss
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, backtest_trades_db=db,
+    ))
+    bt = [r for r in rows if r["event_source"] == "backtest"]
+    cusum = [r for r in rows if r["event_source"] == "cusum"]
+    assert len(cusum) >= 5            # CUSUM candidates still produced
+    assert len(bt) == 2              # both backtest trades located + emitted
+    for r in bt:
+        # Real-execution outcome, NOT a synthetic barrier; train-side.
+        assert r["barrier_touched"] == "backtest"
+        assert r["is_live_trade"] is False
+        assert r["signal_vol"] > 0   # past-only feature window
+        assert r["vol_bucket"].startswith("vol_b")
+    won_row = next(r for r in bt if r["direction"] == 1)
+    lost_row = next(r for r in bt if r["direction"] == -1)
+    assert won_row["won"] == 1 and won_row["label"] == 1
+    assert lost_row["won"] == 0 and lost_row["label"] == -1
+    # The recorder stores realized R in pnl, so r_multiple recovers it.
+    assert won_row["r_multiple"] == 1.8
+    assert lost_row["r_multiple"] == -1.0
+
+
+def test_backtest_strategy_filter(tmp_path: Path):
+    """`backtest_strategies` restricts to a subset of harness strategies."""
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "backtest_trades.db"
+    _seed_journal(db, backtest=[
+        ((base + timedelta(hours=30)).isoformat(), "buy", 1.2, "squeeze"),
+        ((base + timedelta(hours=60)).isoformat(), "buy", 0.8, "fade"),
+        ((base + timedelta(hours=90)).isoformat(), "sell", -0.5, "trend"),
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, backtest_trades_db=db,
+        backtest_strategies=("squeeze", "fade"),
+    ))
+    bt = [r for r in rows if r["event_source"] == "backtest"]
+    assert len(bt) == 2  # squeeze + fade; trend filtered out
+
+
+def test_include_backtest_reuses_live_db(tmp_path: Path):
+    """`include_backtest=True` (no dedicated DB) reads is_backtest=1 rows from
+    `live_trades_db` — the single-journal S7 flow. Live rows stay eval-side;
+    backtest rows ride train-side."""
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    _seed_journal(
+        db,
+        live=[((base + timedelta(hours=30)).isoformat(), "buy", 9.0)],
+        backtest=[
+            ((base + timedelta(hours=60)).isoformat(), "buy", 1.5, "squeeze"),
+            ((base + timedelta(hours=90)).isoformat(), "sell", -1.0, "fade"),
+        ],
+    )
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db, include_backtest=True,
+    ))
+    live = [r for r in rows if r["event_source"] == "live"]
+    bt = [r for r in rows if r["event_source"] == "backtest"]
+    assert len(live) == 1 and len(bt) == 2
+    # live_holdout discipline: backtest rows train-side, live rows eval-side.
+    assert all(r["is_live_trade"] for r in live)
+    assert not any(r["is_live_trade"] for r in bt)
+
+
+def test_backtest_missing_db_is_noop(tmp_path: Path):
+    """A non-existent backtest_trades_db doesn't crash — just no backtest rows."""
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5,
+        backtest_trades_db=tmp_path / "does-not-exist.db",
+    ))
+    assert rows  # CUSUM rows still emitted
+    assert all(r["event_source"] == "cusum" for r in rows)
+
+
+def test_backtest_only_train_plus_real_eval(tmp_path: Path):
+    """The manifest's split: `include_cusum=False` + backtest (train) + live
+    (eval) → only backtest + live rows, cleanly partitionable by is_live_trade."""
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    _seed_journal(
+        db,
+        live=[((base + timedelta(hours=40)).isoformat(), "buy", 5.0)],
+        backtest=[
+            ((base + timedelta(hours=h)).isoformat(), "buy", 1.0, "squeeze")
+            for h in (20, 60, 100, 140)
+        ],
+    )
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, include_cusum=False,
+        backtest_trades_db=db, live_trades_db=db,
+    ))
+    sources = {r["event_source"] for r in rows}
+    assert sources == {"backtest", "live"}
+    assert sum(1 for r in rows if not r["is_live_trade"]) == 4  # train: backtest
+    assert sum(1 for r in rows if r["is_live_trade"]) == 1      # eval: real
+
+
+def test_four_source_mix(tmp_path: Path):
+    """All four samplers compose: CUSUM + signal_log + backtest + live."""
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    _seed_journal(
+        db,
+        live=[((base + timedelta(hours=30)).isoformat(), "buy", 9.0)],
+        backtest=[((base + timedelta(hours=110)).isoformat(), "buy", 1.0, "squeeze")],
+    )
+    _seed_signals(db, [
+        ((base + timedelta(hours=60)).isoformat(), "ict_scalp", "BTCUSDT", "buy"),
+        ((base + timedelta(hours=90)).isoformat(), "ict_scalp", "BTCUSDT", "sell"),
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5,
+        live_trades_db=db, signal_log_db=db, backtest_trades_db=db,
+    ))
+    assert {r["event_source"] for r in rows} == {
+        "cusum", "signal_log", "backtest", "live"
+    }
+    # Only the real trade is eval-side; cusum/signal_log/backtest are train-side.
+    assert all(r["is_live_trade"] for r in rows if r["event_source"] == "live")
+    assert not any(
+        r["is_live_trade"] for r in rows if r["event_source"] != "live"
+    )
+
+
+def test_backtest_strategies_string_form(tmp_path: Path):
+    """The build CLI passes family args as `key=a,b`; comma strings work too."""
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "backtest_trades.db"
+    _seed_journal(db, backtest=[
+        ((base + timedelta(hours=40)).isoformat(), "buy", 1.0, "squeeze"),
+        ((base + timedelta(hours=80)).isoformat(), "buy", 0.5, "fade"),
+        ((base + timedelta(hours=120)).isoformat(), "sell", -0.3, "trend"),
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, backtest_trades_db=db,
+        backtest_strategies="squeeze,trend",
+    ))
+    assert sum(1 for r in rows if r["event_source"] == "backtest") == 2

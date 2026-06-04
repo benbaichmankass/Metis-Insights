@@ -251,6 +251,45 @@ trust the result, and the live-vs-synthetic domain-shift check).
   the lever for the next sprints (wire logged signals as the event source; S7 backtest-
   augmented labels; S8 cross-symbol). **Adopting the manifest / promoting past shadow is
   Tier-3 (operator-gated).**
+- **S6 follow-up — signal-log event source (Tier-1, `MB-20260603-002`)** — 2026-06-03,
+  sprint log [`S-MLOPT-S6-FU.md`](../sprint-logs/S-MLOPT-S6-FU.md), PR #2712. The
+  highest-leverage S6 lever: `setup_candidates.py` gained a `signal_log_db` kwarg that
+  samples candidates from the strategies' **real decision points**
+  (`trade_journal.db::signals` buy/sell rows — the audit-log dual-write) and labels them
+  with the SAME triple-barrier as CUSUM. New `event_source ∈ {cusum, signal_log, live}`
+  schema column disambiguates the three samplers. New manifest
+  `ml/configs/setup-candidates-metalabel-siglog-v1.yaml` (Tier-3 proposal, `research_only`)
+  mirrors the S6 stack on the signal-log distribution. The headline trainer-VM eval
+  (signal-log meta-label vs majority baseline on the 352 real BTCUSDT holdout) lands in
+  `MB-20260603-002` `evidence_log`. Composes with S7 (enlarge the real holdout) + S8
+  (cross-symbol). **Eval result (#2716): honest negative** — signal-log acc 0.526 < the
+  S6 CUSUM run (0.670) < the 0.756 baseline. Win rate barely moved (CUSUM 0.457 →
+  signal-log 0.469), so the event sampler is NOT the lever; the synthetic triple-barrier
+  **label** is. `MB-20260603-002` RESOLVED-NEGATIVE.
+- **S6 follow-up 2 — backtest-label event source (Tier-1, `MB-20260603-003`)** — 2026-06-03,
+  sprint log [`S-MLOPT-S6-FU-2.md`](../sprint-logs/S-MLOPT-S6-FU-2.md). The next lever after
+  the signal-log negative isolated the synthetic **label** as the gap. `setup_candidates.py`
+  gained a `backtest_trades_db` kwarg (+ `include_backtest` convenience reusing
+  `live_trades_db`, + `backtest_strategies` filter) that reads the `is_backtest=1` rows the
+  S7 `backtest_recorder` writes from the strategies' standalone harnesses
+  (`scripts/backtest_{squeeze,fade,trend,ict_scalp}.py`, `src/backtest/run_backtest_vwap.py`)
+  and emits them tagged `event_source="backtest"` + `is_live_trade=False` (train side),
+  carrying the harness's **actual realized outcome** (real slippage + real entry/exit logic)
+  instead of a synthetic triple-barrier. New manifest
+  `ml/configs/setup-candidates-metalabel-backtest-v1.yaml` (Tier-3 proposal, `research_only`)
+  mirrors the S6/S6-FU live_holdout protocol on the backtest distribution — the
+  apples-to-apples backtest-train + real-eval the signal-log run approximated. **Eval
+  (#2718): the best of three label sources** — acc 0.756 (ties the baseline; vs CUSUM
+  0.670, signal-log 0.526), **precision 0.50 lifts off the 0.244 base rate**, brier 0.196
+  (best-calibrated) — but ties baseline by abstention (recall 0.047), not a clean beat.
+  **Cleaner re-run (#2724, all 3 harnesses native-TF, +ict_scalp `--emit-trades`): acc
+  0.741, prec 0.40 — still no baseline beat.** Across all FOUR label sources (CUSUM 0.670 /
+  signal-log 0.526 / backtest-1h 0.756 / backtest-native 0.741) backtest labels are the
+  best by precision (0.40-0.50 > the 0.244 base rate) but none beats the n=352 majority
+  baseline — a confirmed **data-scale floor**; the lever is more real data or better
+  features (S9), not another label distribution. `MB-20260603-003` **resolved**; the
+  backtest-label infra (event source + recorder bridge + ict_scalp `--emit-trades`) stands
+  as reusable tooling; manifest stays `research_only`.
 
 ### Session 1.3 — Backtest-augmented per-trade labels *(Tier-1; closes MB-20260530-001)* — 🔄 IN REVIEW 2026-06-03 (S-MLOPT-S7)
 - **Deliverable:** have the backtest harnesses emit **per-trade rows** in the
@@ -308,12 +347,23 @@ than a capacity problem. Range-based vol estimators and microstructure flow are 
 proven ROI per hour after Phase 1. Caveat from the research: **microstructure alpha decays**
 — engineer it, monitor it via drift, don't assume permanence.
 
-### Session 2.1 — Range-based volatility estimators *(Tier-1 family; Tier-3 manifest)*
+### Session 2.1 — Range-based volatility estimators *(Tier-1 family; Tier-3 manifest)* — 🔄 IN REVIEW 2026-06-03 (S-MLOPT-S9)
 - **Deliverable:** add **Yang-Zhang** (handles overnight gaps + drift, ~8× efficiency) and
   **Garman-Klass** vol to `market_features`; let regime manifests select the vol feature.
 - **Lowest-effort, near-free regime-separation fix.** Re-run the regime eval (under Phase 0
   CV) to quantify the f1_volatile lift vs the current close-to-close-ish rolling vol.
 - **Effort:** S.
+- **Shipped (S-MLOPT-S9, sprint log [`S-MLOPT-S9.md`](../sprint-logs/S-MLOPT-S9.md), `MB-20260603-004`):**
+  new `ml/datasets/volatility_estimators.py` (Parkinson / Garman-Klass / Rogers-Satchell /
+  Yang-Zhang variance estimators) + four new past-window `market_features` columns
+  (`parkinson_vol` / `garman_klass_vol` / `rogers_satchell_vol` / `yang_zhang_vol`),
+  `builder_version v2 → v3`. New manifest `btc-regime-1h-lgbm-yz-v1.yaml` (Tier-3,
+  `research_only`) is a clean A/B vs the v2 champion — identical everything except the vol
+  feature set (regime spec frozen on `yang_zhang_vol`). Leakage-safe by construction
+  (past-only window). **A/B (#2720): POSITIVE** — on a v3 `market_features` rebuild, the yz
+  head beat the v2 champion on every metric (`f1_volatile` 0.4624 → 0.4724 +0.010, accuracy
+  +0.016, weighted_f1 +0.012) under `time_aware_holdout`. The Phase-0 purged-CV confirmation
+  is the open step before proposing promotion + extending to 5m/15m/MES (`MB-20260603-004`).
 
 ### Session 2.2 — Order-flow / microstructure features *(Tier-2 — needs live L2 capture)*
 - **Deliverable:** capture L1/L2 from Bybit + IBKR (new `market_raw` sub-stream + storage),

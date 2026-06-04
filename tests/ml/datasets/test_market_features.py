@@ -430,5 +430,42 @@ class TestV2FeatureExpansion:
                 abs_tol=1e-12,
             )
 
-    def test_builder_version_is_v2(self):
-        assert MarketFeaturesBuilder.builder_version == "v2"
+    def test_builder_version_is_v3(self):
+        assert MarketFeaturesBuilder.builder_version == "v3"
+
+
+class TestRangeVolEstimators:
+    """S-MLOPT-S9: range-based vol estimator columns on every emitted row."""
+
+    _COLS = ("parkinson_vol", "garman_klass_vol", "rogers_satchell_vol", "yang_zhang_vol")
+
+    def test_columns_present_and_non_negative(self, tmp_path: Path):
+        market_raw = _stage_market_raw(
+            tmp_path, closes=_trending_then_choppy(n_per_phase=80)
+        )
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+        ))
+        assert rows
+        for r in rows:
+            for c in self._COLS:
+                assert c in r and isinstance(r[c], float)
+                assert r[c] >= 0.0
+        # The synthetic feed has real overnight moves, so YZ is strictly positive.
+        assert any(r["yang_zhang_vol"] > 0 for r in rows)
+        assert any(r["parkinson_vol"] > 0 for r in rows)
+
+    def test_range_vols_in_schema_and_validate(self, tmp_path: Path):
+        market_raw = _stage_market_raw(
+            tmp_path, closes=_trending_then_choppy(n_per_phase=80)
+        )
+        builder = MarketFeaturesBuilder()
+        for c in self._COLS:
+            assert c in builder.schema
+        paths = builder.build(
+            output_dir=tmp_path / "out", version="v001", source="csv",
+            symbol_scope="BTCUSDT", timeframe="1h",
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+        )
+        report = validate_dataset(paths.root)
+        assert report.ok, report

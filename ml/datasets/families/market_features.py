@@ -97,6 +97,13 @@ from typing import Any, ClassVar, Iterator, Mapping
 
 from ..builder import DatasetBuilder
 from ..metadata import LeakageStatus
+from ..volatility_estimators import (
+    _sqrt_or_zero,
+    garman_klass_var,
+    parkinson_var,
+    rogers_satchell_var,
+    yang_zhang_var,
+)
 
 _FAMILY = "market_features"
 
@@ -210,9 +217,12 @@ def _load_market_raw_rows(market_raw_path: Path) -> list[dict[str, Any]]:
 class MarketFeaturesBuilder(DatasetBuilder):
     family: ClassVar[str] = _FAMILY
     # v2: adds hour_of_day, dayofweek, log_return_lag_{1,2} (Phase-2 feature
-    # expansion for the v2 LightGBM regime heads). v1 baselines that only
-    # read `vol_bucket` are unaffected by the wider schema.
-    builder_version: ClassVar[str] = "v2"
+    # expansion for the v2 LightGBM regime heads). v3 (S-MLOPT-S9): adds the
+    # range-based vol estimators (parkinson/garman_klass/rogers_satchell/
+    # yang_zhang). Earlier baselines that only read `vol_bucket` /
+    # `rolling_log_return_vol` are unaffected by the wider schema; builder_version
+    # is metadata-only (it does not gate dataset path resolution).
+    builder_version: ClassVar[str] = "v3"
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.PASSED
     label_version: ClassVar[str] = "regime-3class-v1"
     schema: ClassVar[Mapping[str, type]] = {
@@ -222,6 +232,16 @@ class MarketFeaturesBuilder(DatasetBuilder):
         "log_return": float,
         "rolling_log_return_vol": float,
         "vol_bucket": str,
+        # Range-based vol estimators over the SAME past window as
+        # `rolling_log_return_vol` (S-MLOPT-S9). Each uses the bar OHLC (not just
+        # close-to-close), so it estimates vol more efficiently — the regime
+        # heads can select whichever separates `volatile` best. Emitted as a
+        # stdev (sqrt of the estimator variance) for comparability. Past-only →
+        # leakage-safe by construction.
+        "parkinson_vol": float,
+        "garman_klass_vol": float,
+        "rogers_satchell_vol": float,
+        "yang_zhang_vol": float,
         "hour_of_day": int,
         "dayofweek": int,
         "log_return_lag_1": float,
@@ -262,6 +282,12 @@ class MarketFeaturesBuilder(DatasetBuilder):
         if n < vol_window_n + forward_window_m + 1:
             # Need at least one bar with a full past + forward window.
             return
+
+        # OHLC arrays for the range-based vol estimators (S-MLOPT-S9).
+        opens = [float(r.get("open", 0.0) or 0.0) for r in rows]
+        highs = [float(r.get("high", 0.0) or 0.0) for r in rows]
+        lows = [float(r.get("low", 0.0) or 0.0) for r in rows]
+        closes = [float(r.get("close", 0.0) or 0.0) for r in rows]
 
         log_returns: list[float | None] = [None] * n
         for i in range(1, n):
@@ -329,6 +355,16 @@ class MarketFeaturesBuilder(DatasetBuilder):
             # the lag exists.
             lag_1 = log_returns[i - 1] if i - 1 >= 0 else None
             lag_2 = log_returns[i - 2] if i - 2 >= 0 else None
+            # Range-based vol estimators over the SAME inclusive past window as
+            # `rolling_log_return_vol` (`[s .. i]`) — past-only, leakage-safe.
+            # YZ's overnight term needs each window bar's prior close.
+            s = max(0, i - vol_window_n + 1)
+            w_open, w_high, w_low, w_close = (
+                opens[s : i + 1], highs[s : i + 1],
+                lows[s : i + 1], closes[s : i + 1],
+            )
+            w_prev_close = [closes[j - 1] if j - 1 >= 0 else None
+                            for j in range(s, i + 1)]
             yield {
                 "ts": ts_str,
                 "symbol": str(rows[i].get("symbol", "")),
@@ -336,6 +372,13 @@ class MarketFeaturesBuilder(DatasetBuilder):
                 "log_return": float(log_ret),
                 "rolling_log_return_vol": float(past_vol),
                 "vol_bucket": _bucket_for(past_vol, boundaries, bucket_labels),
+                "parkinson_vol": _sqrt_or_zero(parkinson_var(w_high, w_low)),
+                "garman_klass_vol": _sqrt_or_zero(
+                    garman_klass_var(w_open, w_high, w_low, w_close)),
+                "rogers_satchell_vol": _sqrt_or_zero(
+                    rogers_satchell_var(w_open, w_high, w_low, w_close)),
+                "yang_zhang_vol": _sqrt_or_zero(
+                    yang_zhang_var(w_open, w_high, w_low, w_close, w_prev_close)),
                 "hour_of_day": int(hour_of_day),
                 "dayofweek": int(dayofweek),
                 "log_return_lag_1": float(lag_1) if lag_1 is not None else 0.0,
