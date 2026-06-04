@@ -92,8 +92,13 @@ ml-review monitor-when-enough-data note. Built:
 - **`MB-20260604-002`** carries the monitor-and-review note (review the A/B once
   ≥ ~4000 captured 5m bars accrue ≈ 2 weeks).
 
-**Deploy:** the side-car deploys to the trainer on PR merge (the trainer tracks
-`main`); data then accrues forward.
+**Deploy — DONE + verified (trainer-vm-diag #2752):** after #2751 merged (main
+@ 8680a4a), installed `ict-orderflow-capture.service` on the trainer VM (cp →
+`/etc/systemd/system`, `daemon-reload`, `enable --now`). Verified **active
+(running)** since 2026-06-04T09:52:04Z (PID 764562, ccxt 4.5.53, zero journal
+errors); the `market_microstructure` out dir is created and the capture is
+**accruing forward** (one row per completed 5m bar). No live-VM impact (the unit
+is trainer-only). `MB-20260604-002` carries the review-when-≥~4000-rows note.
 
 ## Validation Performed
 - Local (sandbox, stdlib only): smoke-ran every estimator — micro-price between
