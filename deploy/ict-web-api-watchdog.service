@@ -1,0 +1,43 @@
+# ============================================
+# ICT WEB-API WATCHDOG SYSTEMD SERVICE
+# Runs scripts/check_web_api.py once per timer fire.
+#
+# Triggered by ict-web-api-watchdog.timer (every 2 min on the live VM).
+# Probes http://127.0.0.1:8001/api/health; after 2 consecutive failures
+# runs scripts/ops/restart_web_api.sh (systemctl restart + health probe),
+# guard-railed by --max-restarts 3 + --cooldown-min 10 so a genuine
+# crashloop alert-escalates to Telegram instead of looping. Closes the gap
+# where ict-web-api had no VM-side self-heal and the only autonomous lever
+# (the GitHub vm-web-api-recover dispatch) is webhook-flaky exactly when the
+# read surface is down (BL-20260604-003).
+#
+# Blast radius: ict-web-api serves the dashboard + /api/diag/* + /api/bot/*
+# READS only — restarting it bounces dashboard polling for a few seconds and
+# never touches the live trader, orders, or strategy state.
+#
+# Save to: /etc/systemd/system/ict-web-api-watchdog.service
+# (installed + enabled --now automatically by
+#  scripts/install_systemd_units.sh during deploy_pull_restart.sh)
+# ============================================
+
+[Unit]
+Description=ICT Trading Bot — Web-API Watchdog (read-surface self-heal)
+After=network-online.target ict-web-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+# .env carries the Telegram creds (alerting) + DATA_DIR (state path).
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
+# --auto-restart: the read-only API is safe to bounce, so enable the
+# systemctl-restart recovery (not alert-only). restart_web_api.sh handles
+# sudo internally. Guard rails: --restart-after 2 (~4 min wedge at the 2-min
+# cadence), --max-restarts 3, --cooldown-min 10.
+ExecStart=/usr/bin/python3 -u scripts/check_web_api.py --auto-restart --restart-after 2 --max-restarts 3 --cooldown-min 10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
