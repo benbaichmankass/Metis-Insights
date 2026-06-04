@@ -73,6 +73,32 @@
   `eval_split_compare` on the trend manifest, vs the ADX-14 base rates. Dispatched
   this session (trainer relay).
 
+## A/B Result (trainer-VM #2787, 2026-06-04) — POSITIVE-but-modest, leak-free
+Built `market_features` 1h on v7 (trend_regime_label confirmed on real data) and
+ran `eval_split_compare` on the trend manifest. Purged WF-CV (n_eval=21,900, 5 folds):
+
+| metric | value | note |
+|---|---|---|
+| macro_f1 | **0.3248** | vs ~0.185 majority-class baseline → **does NOT collapse** |
+| accuracy | 0.3677 | ≈ the 0.383 always-chop rate (spreads across classes) |
+| f1_chop | **0.4634** | prec 0.391 / rec 0.570 — the strongest, most-actionable regime |
+| f1_trending | 0.3479 | prec 0.363 / rec 0.337 — decent |
+| f1_transitional | 0.1632 | prec 0.265 / rec 0.118 — weak (the ambiguous middle class) |
+
+Label distribution (support): chop 38.3% / transitional 27.0% / trending 34.7% —
+sensibly balanced straight from the default ER thresholds (0.30 / 0.55), no tuning.
+**No leakage:** purged − holdout deltas are tiny and *positive* (macro_f1 +0.013), so
+the forward-ER label carries no optimism gap.
+
+**Verdict:** S15a produced a **viable, non-degenerate, leak-free trend-axis model** —
+the artifact that did not exist before (every prior regime model is vol-axis, and the
+old `regime-classifier-baseline-v0` collapsed). It is *modest*, not strong: chop is
+well-separated, trending is at the base rate, transitional is poorly predicted.
+**Stays research_only.** Two follow-ups before it could replace the ADX detector:
+(1) class-weight tuning to rescue transitional/trending (mirror the vol heads'
+`class_weight`); (2) a head-to-head vs ADX-14's own forward-predictiveness (does the
+ADX threshold at t predict the forward-ER regime better or worse than this model?).
+
 ## Documentation Updated
 - `ROADMAP.md` S15 row; `docs/ml/optimization-roadmap.md` Session 3.3;
   `docs/claude/ml-review-backlog.json` (`MB-20260601-002` progress;

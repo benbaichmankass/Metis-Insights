@@ -544,7 +544,12 @@ model.
     manifest `btc-regime-1h-trend-lgbm-v1.yaml` (same features/dataset/split as the v2 vol head).
     This is the true ADX-detector drop-in candidate. **Stage drift reconciled**
     (`baseline-regime-classifier.yaml` shadow→research_only). 16 tests + ruff clean.
-    Trainer-VM purged-CV A/B vs the ADX base rates dispatched.
+    **Trainer-VM purged-CV A/B (#2787) — POSITIVE-but-modest, leak-free:** macro_f1 0.325
+    (vs ~0.185 majority — does NOT collapse, predicts all 3 trend regimes), purged≈holdout
+    (no leakage), f1_chop 0.463 / f1_trending 0.348 / f1_transitional 0.163; balanced label
+    distribution from the default ER thresholds. A viable non-degenerate trend-axis detector
+    (the artifact that didn't exist before); research_only pending class-weight tuning +
+    a head-to-head vs ADX-14's forward-predictiveness.
   - **S15b (queued, Tier-2/3, observe-only):** wire the existing vol classifier as a **second
     regime axis** — extend `regime_shadow_gate` to a 2-D (trend×vol) policy that LOGS but does
     not enforce, so it accrues shadow/backtest PnL evidence before any Tier-3 enforcement.
