@@ -519,7 +519,14 @@
    "trigger_condition": "Next /health-review: pull journal?table=insights_history (endpoint=health) and /api/bot/health/latest (or services for the snapshot writer's timer if one exists) — confirm whether artifacts/health/latest.json has a recent generated_at. If still 2026-05-11, the snapshot writer is dead.",
    "resolution_criteria": "Root-caused WHY the health-snapshot writer stopped on 2026-05-11 (timer disabled? unit removed in a refactor? path moved under the OCI data-dir migration? cron never re-enabled after a deploy?), then either revived so artifacts/health/latest.json updates on cadence (M13 health insight grades on current data) OR the M13 health endpoint is repointed at a live source so it stops surfacing an 18-day-old snapshot as 'concern'.",
    "status": "open",
-   "snoozed_until": null
+   "snoozed_until": null,
+   "check_log": [
+    {
+     "at": "2026-06-04T07:20:00+00:00",
+     "by": "claude (/health-review — Rina)",
+     "note": "FIX BUILT (PR #2728, branch claude/rina-health-strategy-review-9zqy1) — pending operator merge + deploy + verify. ROOT CAUSE confirmed: the 2026-05-12 health-snapshot.yml refactor deleted the JSON producer (scripts/run_health_check.py) and turned the cron into a passive artifact-collector; nothing has written the VM's artifacts/health/{latest.json,health_check_*.json} since, so /api/bot/health/latest + the M13 health card serve the 2026-05-11-frozen snapshot (verified live this review: insights_history id 4560 @05:12Z grades concern off ts 2026-05-11, age ~2.06Ms). FIX: (1) scripts/write_health_snapshot.py revives the JSON writer — calls src.runtime.health.run_all_checks() and writes latest.json + health_check_<TS>.json + health_snapshot.txt via artifacts_dir() (same resolver the API reads); (2) deploy/ict-health-snapshot.{service,timer} runs it every 15 min, auto-enabled by install_systemd_units.sh; (3) the data-dir.conf drop-in is wired in install_systemd_units.sh so the writer runs with DATA_DIR=/data/bot-data — same as ict-web-api — avoiding the 2026-05-12 writer/reader path-split; (4) src/runtime/insights/template_analyst.py::health_template now grades on the checks themselves (concern only on a CRITICAL check; warn/stale -> watch; all-ok+fresh -> good) instead of the trade-centric _grade() that pinned a no-trades window to watch and screamed concern on any non-ok. Tests: tests/test_write_health_snapshot.py (9, incl. a round-trip proving a healthy snapshot -> green M13 card) + 11 existing template-analyst tests still green; ruff clean. NOTE: the revived suite is the current 7-point src/runtime/health.py set (service/git_drift/git_fetch/tick/accounts_api/db/disk), not the deleted suite's 11 names — the card will show 7 checks. POST-DEPLOY VERIFY: pull journal?table=insights_history (endpoint=health) — snapshot ts should advance to ~now and grade flip off the stale concern; then mark resolved."
+    }
+   ]
   },
   {
    "id": "BL-20260529-006",
@@ -646,5 +653,5 @@
    "resolution_note": null
   }
  ],
- "updated_at": "2026-06-04T06:25:00+00:00"
+ "updated_at": "2026-06-04T07:20:00+00:00"
 }
