@@ -1,0 +1,27 @@
+# ============================================
+# ICT HEALTH SNAPSHOT SYSTEMD TIMER
+# Fires ict-health-snapshot.service every 15 minutes.
+#
+# 15 min keeps the snapshot comfortably under the M13 health card's
+# ">1h stale" threshold (src/runtime/insights/template_analyst.py), so a
+# healthy live system renders a fresh, truthful grade instead of the
+# 2026-05-11-frozen FALSE "concern" (BL-20260529-005).
+#
+# Save to: /etc/systemd/system/ict-health-snapshot.timer
+# (installed + enabled --now automatically by
+#  scripts/install_systemd_units.sh during deploy_pull_restart.sh)
+# ============================================
+
+[Unit]
+Description=ICT Health Snapshot — fires every 15 min
+Requires=ict-health-snapshot.service
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=15min
+AccuracySec=30s
+Persistent=true
+Unit=ict-health-snapshot.service
+
+[Install]
+WantedBy=timers.target

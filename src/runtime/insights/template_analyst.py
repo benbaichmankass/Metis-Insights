@@ -344,14 +344,28 @@ def health_template(data: dict[str, Any]) -> dict[str, Any]:
             "note": f"Health snapshot is {age}s old (>1h).",
         })
 
-    grade = _grade(
-        trade_count=0,
-        win_rate=None,
-        net_pnl=0.0,
-        health_failing=bool(fail),
-    )
+    # Health is graded on the checks themselves — NOT the trade-centric
+    # _grade(), which defaults a no-trades window to "watch" (so it could
+    # never render a fully-green system as healthy) and graded "concern" on
+    # ANY non-ok check, including a benign warn. Per _grade()'s own
+    # documented intent ("critical health checks failing"): grade "concern"
+    # ONLY when a check is CRITICAL; a warn or a stale (>1h) snapshot is
+    # "watch"; all checks ok + fresh is "good"; an absent snapshot is
+    # "watch". (Grade vocab good|watch|concern matches the other endpoints;
+    # the snapshot's own ok|watch|concern `status` field is separate.)
+    critical = [
+        name for name, c in checks.items()
+        if isinstance(c, dict) and c.get("status") == "critical"
+    ]
+    stale = age is not None and age > 3600
     if not meta.get("present"):
         grade = "watch"
+    elif critical:
+        grade = "concern"
+    elif fail or stale:
+        grade = "watch"
+    else:
+        grade = "good"
     return {"summary_md": "\n".join(lines), "grade": grade, "signals": signals}
 
 

@@ -311,6 +311,19 @@ Out of scope for `system-actions` regardless of approval:
   (credential-touching + restart → operator OK in chat). *Generating* a
   new key at the exchange remains the human's job.
 
+  > **Canonical path note (2026-06-02):** `rotate-account-keys` is the
+  > **legacy Bybit-only** credential path. The canonical broker-credential
+  > propagation workflow is now
+  > [`.github/workflows/sync-vm-secrets.yml`](../../.github/workflows/sync-vm-secrets.yml)
+  > — it declares the full known credential set (`REQUIRED_SECRETS` +
+  > `OPTIONAL_SECRETS`) and mirrors Actions secrets to the live trader's
+  > `.env` over SSH `SendEnv` (values never reach the run log). Adding a
+  > new broker appends its env-var names there, not a new per-broker
+  > workflow. The operator originates the secret **value**; propagation is
+  > `sync-vm-secrets`'s job — see the `credentials-and-vm-mutations` skill.
+  > `rotate-account-keys` stays in place as the legacy Bybit path pending a
+  > migration PR.
+
 Everything else above stays Tier-3. If you want any of those, you
 do not want this workflow. Open a PR.
 

@@ -1,310 +1,337 @@
 {
-  "_comment": "Performance-review backlog — the parking lot for STRATEGY TRADING follow-ups: tweak ideas to revisit when more data lands, performance puzzles that need a second window, low-grade clusters worth investigating, comparisons to backtests/sweeps that prior sessions noticed but did not have enough evidence to propose as a Tier-3 change yet. The autonomous /performance-review skill drains this list every run: it triages each open item, acts on whatever the new window's data resolves, and either fires a proposed_tweaks[] entry, marks it resolved, or leaves it open with new evidence appended. Do NOT use this for system bugs (those go to health-review-backlog.json) or ML experiments (those go to ml-review-backlog.json). Item ids: PB-YYYYMMDD-NNN.",
-  "schema_version": 1,
-  "items": [
+ "_comment": "Performance-review backlog — the parking lot for STRATEGY TRADING follow-ups: tweak ideas to revisit when more data lands, performance puzzles that need a second window, low-grade clusters worth investigating, comparisons to backtests/sweeps that prior sessions noticed but did not have enough evidence to propose as a Tier-3 change yet. The autonomous /performance-review skill drains this list every run: it triages each open item, acts on whatever the new window's data resolves, and either fires a proposed_tweaks[] entry, marks it resolved, or leaves it open with new evidence appended. Do NOT use this for system bugs (those go to health-review-backlog.json) or ML experiments (those go to ml-review-backlog.json). Item ids: PB-YYYYMMDD-NNN.",
+ "schema_version": 1,
+ "items": [
+  {
+   "id": "PB-20260527-001",
+   "opened_at": "2026-05-27T08:00:00+00:00",
+   "opened_by": "claude (/performance-review)",
+   "source": "Investigation into the 4-hour trend_donchian short rejection cluster on 2026-05-27 03:50-05:24.",
+   "title": "Validate post-cap trend_donchian short fills on bybit_1 once PR (this branch) ships",
+   "description": "PR #2141 (entry*0.01 clamp) cleared the in-process tp>0 pre-flight but the orders STILL got rejected — this time by Bybit itself (ErrCode 10001 'TakeProfit < 10pct of base'). The same trend_donchian short cluster re-fired on 2026-05-27 13:39-13:47 against api-demo.bybit.com AND api.bybit.com (entry=74940.6, tp=749.40, ~99% below entry). Follow-up PR replaces the entry*0.01 floor with an entry*(1±_TP_SENTINEL_CAP_PCT) cap (9.9% from entry) on both the long and short branches of all three sentinel strategies, so the sentinel sits inside Bybit's TP-distance tolerance. Long path got the same treatment defensively — entry + 50*risk would also exceed 10% at BTC-scale risk. Verification after merge + deploy: (1) next trend_donchian short on bybit_1 fills with sized_qty>0 and status != exchange_rejected, (2) SL/TP shape on the live order: tp ≈ entry*0.901 for a short / entry*1.099 for a long, sl on the correct side of entry, (3) post-cap cohort grades cleanly against the Chandelier-trail actual exit (TP should never fill — trail is the exit). The bybit_2 sized_qty=0 issue (intent-mode at_target noop) is still SEPARATE and unaffected.",
+   "tier": 3,
+   "trigger_condition": "Next /performance-review window after this Tier-3 PR merges + deploys, when trend_donchian (or fade/squeeze) has fired at least one fresh live short.",
+   "resolution_criteria": "Window contains at least one bybit_1 trend_donchian short with status != exchange_rejected and TP within 10% of entry in the linked order package. Confirmed the trade journaled cleanly. If the same cluster recurs post-merge, the root cause is something other than the TP-distance constraint and needs re-investigation.",
+   "status": "resolved",
+   "resolved_at": "2026-05-28T07:30:00+00:00",
+   "resolved_by": "claude (/performance-review)",
+   "resolution_note": "TP-distance fix confirmed deployed. Post-deploy packages (2026-05-28) carry the capped sentinel: trend_donchian short pkg-064f723182d247f6 (04:23, status=orphaned NOT exchange_rejected, tp=6765.6 vs entry=7509 = 9.90% below) and fade_breakout_4h long pkg-7797912999504b17 (06:46, FILLED/open, tp=80365.5 vs entry=73126 = 9.90% above). Zero exchange_rejected after the pre-deploy 2026-05-27 13:32-13:54 cluster (4x ErrCode 10001, tp ~1% of entry). Root cause (TP<10% of base) cleared. Caveat: confirming trend short went orphaned not filled and account not separable from order_packages — the post-cap orphan/non-fill pattern is tracked separately in PB-20260528-001.",
+   "snoozed_until": null
+  },
+  {
+   "id": "PB-20260528-001",
+   "opened_at": "2026-05-28T07:30:00+00:00",
+   "opened_by": "claude (/performance-review)",
+   "source": "/performance-review window 2026-05-27T07:44:43 -> 2026-05-28T07:22Z. Two thin-evidence performance puzzles needing a second window.",
+   "title": "Watch (a) post-cap trend_donchian short fill rate on bybit_2 and (b) fade_breakout_4h very-low-confidence fills",
+   "description": "(a) After the TP-cap fix (PB-20260527-001 resolved) trend_donchian shorts now emit valid 9.90%-capped TPs but the one post-deploy short (pkg-064f723182d247f6, 2026-05-28 04:23) went ORPHANED rather than filling. This may be the SEPARATE bybit_2 sized_qty=0 / intent-mode at_target noop the prior item flagged as unaffected by the TP fix. Confirm next window whether post-cap trend_donchian shorts on bybit_2 actually FILL (status open/closed) or keep orphaning. (b) fade_breakout_4h is live (promoted 2026-05-25) and has NO min-confidence floor. The only closed live trade this window (trade 1785 / pkg-6bc3bcac517444e2) fired at confidence=0.1039 and lost -$0.70 (reconciler_filled). Other fade decisions ranged conf 0.39 (open, pkg-7797) to 0.71 (orphaned, pkg-021a18b6efe84211). n=1 close is far too thin to justify a Tier-3 min_confidence gate, but if a second window shows fade conf<0.2 fills clustering negative, propose adding fade_breakout_4h.min_confidence (~0.20-0.25).",
+   "tier": 3,
+   "trigger_condition": "Next /performance-review window with >=1 post-cap trend_donchian short on bybit_2 AND/OR >=3 additional closed fade_breakout_4h trades carrying a confidence value.",
+   "resolution_criteria": "(a) A post-cap trend_donchian short on bybit_2 reaches status open/closed (fill confirmed) -> close (a); if it keeps orphaning, escalate the sized_qty=0 path to the health-review backlog. (b) >=4 closed fade trades accumulated -> if conf<0.2 fills are net-negative as a cohort, fire a proposed_tweaks[] entry for fade_breakout_4h.min_confidence; if conf shows no relationship to outcome, close (b) as invalid.",
+   "status": "open",
+   "snoozed_until": null,
+   "check_log": [
     {
-      "id": "PB-20260527-001",
-      "opened_at": "2026-05-27T08:00:00+00:00",
-      "opened_by": "claude (/performance-review)",
-      "source": "Investigation into the 4-hour trend_donchian short rejection cluster on 2026-05-27 03:50-05:24.",
-      "title": "Validate post-cap trend_donchian short fills on bybit_1 once PR (this branch) ships",
-      "description": "PR #2141 (entry*0.01 clamp) cleared the in-process tp>0 pre-flight but the orders STILL got rejected — this time by Bybit itself (ErrCode 10001 'TakeProfit < 10pct of base'). The same trend_donchian short cluster re-fired on 2026-05-27 13:39-13:47 against api-demo.bybit.com AND api.bybit.com (entry=74940.6, tp=749.40, ~99% below entry). Follow-up PR replaces the entry*0.01 floor with an entry*(1±_TP_SENTINEL_CAP_PCT) cap (9.9% from entry) on both the long and short branches of all three sentinel strategies, so the sentinel sits inside Bybit's TP-distance tolerance. Long path got the same treatment defensively — entry + 50*risk would also exceed 10% at BTC-scale risk. Verification after merge + deploy: (1) next trend_donchian short on bybit_1 fills with sized_qty>0 and status != exchange_rejected, (2) SL/TP shape on the live order: tp ≈ entry*0.901 for a short / entry*1.099 for a long, sl on the correct side of entry, (3) post-cap cohort grades cleanly against the Chandelier-trail actual exit (TP should never fill — trail is the exit). The bybit_2 sized_qty=0 issue (intent-mode at_target noop) is still SEPARATE and unaffected.",
-      "tier": 3,
-      "trigger_condition": "Next /performance-review window after this Tier-3 PR merges + deploys, when trend_donchian (or fade/squeeze) has fired at least one fresh live short.",
-      "resolution_criteria": "Window contains at least one bybit_1 trend_donchian short with status != exchange_rejected and TP within 10% of entry in the linked order package. Confirmed the trade journaled cleanly. If the same cluster recurs post-merge, the root cause is something other than the TP-distance constraint and needs re-investigation.",
-      "status": "resolved",
-      "resolved_at": "2026-05-28T07:30:00+00:00",
-      "resolved_by": "claude (/performance-review)",
-      "resolution_note": "TP-distance fix confirmed deployed. Post-deploy packages (2026-05-28) carry the capped sentinel: trend_donchian short pkg-064f723182d247f6 (04:23, status=orphaned NOT exchange_rejected, tp=6765.6 vs entry=7509 = 9.90% below) and fade_breakout_4h long pkg-7797912999504b17 (06:46, FILLED/open, tp=80365.5 vs entry=73126 = 9.90% above). Zero exchange_rejected after the pre-deploy 2026-05-27 13:32-13:54 cluster (4x ErrCode 10001, tp ~1% of entry). Root cause (TP<10% of base) cleared. Caveat: confirming trend short went orphaned not filled and account not separable from order_packages — the post-cap orphan/non-fill pattern is tracked separately in PB-20260528-001.",
-      "snoozed_until": null
-    },
-    {
-      "id": "PB-20260528-001",
-      "opened_at": "2026-05-28T07:30:00+00:00",
-      "opened_by": "claude (/performance-review)",
-      "source": "/performance-review window 2026-05-27T07:44:43 -> 2026-05-28T07:22Z. Two thin-evidence performance puzzles needing a second window.",
-      "title": "Watch (a) post-cap trend_donchian short fill rate on bybit_2 and (b) fade_breakout_4h very-low-confidence fills",
-      "description": "(a) After the TP-cap fix (PB-20260527-001 resolved) trend_donchian shorts now emit valid 9.90%-capped TPs but the one post-deploy short (pkg-064f723182d247f6, 2026-05-28 04:23) went ORPHANED rather than filling. This may be the SEPARATE bybit_2 sized_qty=0 / intent-mode at_target noop the prior item flagged as unaffected by the TP fix. Confirm next window whether post-cap trend_donchian shorts on bybit_2 actually FILL (status open/closed) or keep orphaning. (b) fade_breakout_4h is live (promoted 2026-05-25) and has NO min-confidence floor. The only closed live trade this window (trade 1785 / pkg-6bc3bcac517444e2) fired at confidence=0.1039 and lost -$0.70 (reconciler_filled). Other fade decisions ranged conf 0.39 (open, pkg-7797) to 0.71 (orphaned, pkg-021a18b6efe84211). n=1 close is far too thin to justify a Tier-3 min_confidence gate, but if a second window shows fade conf<0.2 fills clustering negative, propose adding fade_breakout_4h.min_confidence (~0.20-0.25).",
-      "tier": 3,
-      "trigger_condition": "Next /performance-review window with >=1 post-cap trend_donchian short on bybit_2 AND/OR >=3 additional closed fade_breakout_4h trades carrying a confidence value.",
-      "resolution_criteria": "(a) A post-cap trend_donchian short on bybit_2 reaches status open/closed (fill confirmed) -> close (a); if it keeps orphaning, escalate the sized_qty=0 path to the health-review backlog. (b) >=4 closed fade trades accumulated -> if conf<0.2 fills are net-negative as a cohort, fire a proposed_tweaks[] entry for fade_breakout_4h.min_confidence; if conf shows no relationship to outcome, close (b) as invalid.",
-      "status": "open",
-      "snoozed_until": null,
-      "check_log": [
-        {
-          "at": "2026-05-29T19:55:20.246630+00:00",
-          "by": "claude (/performance-review)",
-          "note": "No qualifying data this window: zero trend_donchian short fills and zero fade_breakout_4h fills on bybit_2 (audit shows both eval'd non-actionable every tick — trend=no breakout, fade=regime not chop ADX>=20). Only fills/decisions in window were 1x ict_scalp_5m (graded B) + the vwap shadow-orphan cluster. (a) and (b) both still unmet -> stays open."
-        }
-      ],
-      "evidence_log": [
-        "2026-06-01 (/performance-review): (a) trend_donchian-SHORT fill watch is now MOOT: trend_donchian went LONG-ONLY (#2570, 2026-06-01), so no short intents fire on bybit_2; the chop-short edge is to be reclaimed via the regime router policy cell, not a live short. (b) fade_breakout_4h was DEMOTED live->shadow (#2540, 2026-06-01) so its no-min-confidence-floor live fills concern is also moot while shadow. Both legs superseded by today's Tier-3 roster moves; recommend closing next review if no regression."
-      ]
-    },
-    {
-      "id": "PB-20260529-001",
-      "opened_at": "2026-05-29T18:30:00+00:00",
-      "opened_by": "claude (order-rejection cap-fix session) — operator request",
-      "source": "Operator request: the /performance-review (strategy check) must verify that the percentage daily-loss cap (PR #2265) actually results in bybit_1 (+ other in-scope accounts) EXECUTING trades, not merely that it deployed. Mirrors health-review BL-20260529-001 on the trading side.",
-      "title": "RECURRING: confirm the %-based daily-loss cap (PR #2265) lets bybit_1 actually TRADE (sized_qty>0 fills), not just deploy",
-      "description": "PR #2265 (merged b149b15; now in main 9039511, deployed + restarted 2026-05-28T23:29:36Z) replaced bybit_1's hardcoded $100 daily-loss cap with daily_loss_pct=0.05 (5% of equity) on bybit_1/bybit_2/ib_paper/ib_live (prop unchanged). Verified deployed + healthy + unit-tested (tests/test_daily_loss_pct_cap.py). NOT YET observed on live data: an actual in-scope-account dispatch with sized_qty>0 since the deploy. Cause is benign — an extended flat/low-vol market (~16h+ as of 2026-05-29, confirmed via live journalctl with moving prices) produced NO actionable signal on any strategy (vwap regime-gated sideways/low; trend_donchian mid-channel; fade/squeeze need volatility; ict_scalp no sweep). So nothing dispatched on any account; newest trade row was still id 1866 @ 2026-05-28 22:25:01 (pre-deploy bybit_1/vwap risk_refused sized_qty=0). System-health verification is tracked in health-review-backlog BL-20260529-001; THIS is the trading-side mirror so a /performance-review confirms it when grading the post-deploy order-package cohort.",
-      "tier": 1,
-      "recurring": true,
-      "trigger_condition": "EVERY /performance-review until resolved. When grading the post-2026-05-28T23:29:36Z order-package / trade cohort, check whether bybit_1 (or bybit_2 / ib_paper) produced any dispatch with sized_qty>0 (status open/closed) vs continued sized_qty=0 / risk_refused rejections.",
-      "resolution_criteria": "RESOLVE when an in-scope-account order package created after the deploy links to a real trade (sized_qty>0, status open/closed) — i.e. the cap no longer zeroes sizing on a live signal. REGRESSION (escalate, do NOT close): a post-deploy sized_qty=0 / risk_refused rejection on an in-scope account while that account's realized daily loss is small relative to 5% of its equity — means the percentage cap did not take effect.",
-      "carry_forward_instructions": "Keep open across reviews until the resolution criteria are met. If a /performance-review window has no qualifying dispatch (quiet market), append a dated entry to check_log and leave status=open so the NEXT review continues the check. Cross-ref health-review BL-20260529-001 (same verification, system-health side).",
-      "check_log": [
-        {
-          "at": "2026-05-29T~14:30Z",
-          "by": "claude (cap-fix session)",
-          "note": "Monitored ~16h post-deploy: bot healthy + ticking on live mainnet data (prices moving each tick), all 6 strategies legitimately 'no actionable signal' (flat low-vol market). Zero dispatches on any account; no qualifying sized_qty>0 row yet. Cap fix confirmed deployed (71e7a44/9039511) + unit-tested; live trade proof pending a market signal."
-        }
-      ],
-      "status": "resolved",
-      "snoozed_until": null,
-      "resolved_at": "2026-05-29T19:55:20.246630+00:00",
-      "resolved_by": "claude (/performance-review)",
-      "resolution": "Observed the qualifying post-deploy live dispatch: order package pkg-5dc66cf92b5e407f (ict_scalp_5m long) linked to bybit_1 trade id=1867 created 2026-05-29T15:12:15Z, status=open, position_size=2.173 (>0), is_dry=false. The %-based daily-loss cap (PR #2265, daily_loss_pct=0.05) no longer zeroes bybit_1 sizing. No regression: the sibling bybit_2 leg (trade 1868) was intent_noop:at_target (already at 0.001 BTC), not a risk_refused/sized-0 rejection. Mirrors health BL-20260529-001 (also resolved this review)."
-    },
-    {
-      "id": "PERF-20260530-001",
-      "title": "Investigate 'hold' conflict policy for the intent layer (flip-churn is the roster's #1 drag) — WALK-FORWARD PASSED, awaiting Tier-3 operator decision",
-      "status": "resolved",
-      "priority": "high",
-      "tier": "tier-3",
-      "created": "2026-05-30",
-      "opened_by": "claude/fvg-range-mean-reversion (system-backtest session)",
-      "severity": "high",
-      "trigger_condition": "Operator decision on the proposed aggregate_intents change (drafted in docs/audits/walkforward-flip-policy-2026-05-30.md § Tier-3 design proposal). Re-trigger next /performance-review if not acted on.",
-      "resolution_criteria": "Operator approves (or declines) the Tier-3 aggregator behaviour change drafted in docs/audits/walkforward-flip-policy-2026-05-30.md. If approved, file the PR per that doc's § Pre-merge validation; resolve this item when the PR merges + deploys + a soak window confirms no regression. If declined, resolve as won't-fix with rationale and route the operator to the decider-v2 selection layer (DECIDER-SINGLE-ACCOUNT-2026-05-24.md v2 step 2/3) as the next research target.",
-      "description": "WALK-FORWARD COMPLETED 2026-05-30 — both criteria PASSED (verified from runtime_logs/system_backtest/walkforward/walkforward_20260530T211319Z.json). 24 cells (2 anchored folds × 2 halves × 2 rosters × 3 policies). Criterion 1 (4-member hold dominates reverse in net AND maxDD% across all 4 cells): PASS — A/train +$1242 swing, A/oos +$1293, B/train +$954, B/oos +$947; OOS lift bigger than train on both folds. Criterion 2 (6-member hold not worse than reverse OOS, both folds): PASS — A/oos +$5171 swing, B/oos +$5329 (hold halves the catastrophic outcome but the book still bleeds because turtle+ict_scalp lose in-system regardless of conflict policy). flat consistently sits between reverse and hold. reverse (live) is the worst policy on every 4-member cell and tied for worst on every 6-member cell. Tier-3 design proposal drafted in docs/audits/walkforward-flip-policy-2026-05-30.md § 'Tier-3 design proposal'; stops short of patching src/runtime/intents.py per session contract.",
-      "status_history": " | resolved 2026-06-01: walk-forward PASSED (24 cells) and the hold default SHIPPED in #2451 (FLIP_POLICY default reverse->hold, 2026-05-31, operator-approved). Tier-3 decision made + deployed; rollback path FLIP_POLICY=reverse documented.",
-      "evidence_log": [
-        "2026-06-01 (/performance-review): RESOLVED: #2451 shipped FLIP_POLICY default = hold on 2026-05-31 (operator-approved after the walk-forward PASS). The Tier-3 decision this item awaited is made and live. Rollback is the FLIP_POLICY=reverse env var (no redeploy). Closing."
-      ]
-    },
-    {
-      "id": "PERF-20260531-001",
-      "opened_at": "2026-05-31",
-      "created": "2026-05-31",
-      "opened_by": "claude (continuation session, SPX re-tune of trend_donchian)",
-      "source": "prem_runs/03 intent — trend_donchian donchian-lookback sweep on data/SPX500_1m.parquet (2.15M 1m rows, 2020-01 -> 2026-05) resampled to 2h, via standalone scripts/backtest_trend.py on the trainer VM. Net-of-fee 7.5 bps.",
-      "title": "trend_donchian on SPX: two-sided FAILS but the LONG side is a BTC-uncorrelated diversification candidate (+22.5 R long-only at donchian=20)",
-      "description": "Tested whether the one durable roster winner (trend_donchian) transfers to an uncorrelated market (SPX/MES) for diversification. RESULT: two-sided trend_donchian is net-NEGATIVE on SPX at every tested lookback (dc=20 net -13.5R, dc=30 -14.2, dc=40 -29.1, dc=55 -29.9). BUT the entire loss is the SHORT side; the LONG side is net-POSITIVE at every lookback: long-only net R = +22.45 (dc=20), +16.69 (dc=30), +9.45 (dc=40), +7.20 (dc=55). SPX's secular uptrend systematically punishes trend-breakout shorts (short-side net ~ -31..-38R across configs). Shorter lookback is clearly best (dc=20: 278 long trades, long-side exp ~ +0.08 R/trade, net-positive in 2021/2023/2024; longer lookbacks degrade both sides). maxDD grows with lookback (27.6R @ dc=20 -> 39R @ dc=55). LEAD: a long-only / long-biased trend_donchian on SPX/MES is a plausible diversification add — uncorrelated to the BTC roster, exploits the equity risk premium, positive long-side expectancy. CAVEATS: in-sample over the available 6.4y; SPX500 CFD prices (live is MES — execution/contract differ); long-side R is the long legs of the two-sided run (entries are independent, so it equals a true long-only run, but a dedicated long-only + walk-forward + corr-to-BTC-trend_donchian check should confirm before any proposal). [WALK-FORWARD ADDED 2026-05-31 — see walk_forward field: long side positive IS+OOS but thin OOS edge; dc=30 most robust.]",
-      "tier": "tier-3",
-      "priority": "low",
-      "severity": "medium",
-      "status": "open",
-      "trigger_condition": "Next /performance-review, or a strategy/model-training session with SPX/MES capacity.",
-      "resolution_criteria": "Confirm with a dedicated LONG-ONLY trend_donchian backtest on SPX/MES + walk-forward (in/out split) + low return-correlation to the live BTC trend_donchian. If it clears net-of-fee with acceptable DD, propose a long-only trend_donchian SPX/MES adapter as a Tier-3 PR for operator approval (the new-strategy wiring checklist applies). If it does not hold out-of-sample, resolve won't-fix with the evidence.",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
-      "snoozed_until": null,
-      "walk_forward": "Long-side walk-forward (SPX 2h, net-of-fee): dc=20 long-only IS(2020-2023)=+21.08R/169tr -> OOS(2024-2026)=+1.15R/109tr (nearly flat); dc=30 IS=+11.73R/158tr -> OOS=+4.73R/95tr (exp +0.05). QUALIFIED PASS: the long side stays POSITIVE in both windows (does not flip negative OOS) but the OOS edge is THIN, esp. dc=20; dc=30 holds up best proportionally. Read: a legitimate-but-MODEST BTC-uncorrelated diversification lead, not a slam-dunk. Short side negative in every window (confirmed). Before any Tier-3 proposal: build a true long-only adapter, validate on live MES (not SPX500 CFD) history, and measure return-correlation to the live BTC trend_donchian — the portfolio value is the low correlation even at a modest standalone edge.",
-      "mes_validation": "ATTEMPTED on the live instrument (MES) and INCONCLUSIVE: MES market_raw on the VM spans only 2025-01-03 -> 2026-05-22 (~16 months). trend_donchian long-only on MES 2h is NEGATIVE (dc=20 long -52.4R, dc=30 long -46.1R, win ~23%) — but this does NOT refute the SPX thesis, because MES's entire window (2025-2026) coincides with the years that were ALSO negative for SPX trend_donchian long (SPX 2025/2026 legs were the drag in the full-period sweep). The SPX long-only edge originated in 2021/2023/2024 — years MES has no data for. NET: cannot validate (or refute) the long-only diversification thesis on the real tradeable instrument until MES history covers a trend-up regime. This is a HARD BLOCKER on maturing the lead — acquire deeper MES/ES history (or accept SPX500-CFD as the proxy with the known instrument mismatch) before any Tier-3 step."
-    },
-    {
-      "id": "PERF-20260531-002",
-      "opened_at": "2026-05-31",
-      "created": "2026-05-31",
-      "opened_by": "claude (continuation session, htf_pullback param sweep + walk-forward)",
-      "source": "Standalone scripts/backtest_pullback.py on the full BTC 5m archive (market_raw v002, 525,888 bars) resampled to 2h, on the trainer VM. Net-of-fee 7.5 bps.",
-      "title": "htf_pullback_trend_2h: a tuned config (pullback_frac=0.5, trail_mult=5.0) PASSES net-of-fee + walk-forward on BTC 2h — genuine positive-expectancy diversification candidate",
-      "description": "The scaffolded candidate htf_pullback_trend_2h (inert, in PR #2466) FAILS at default params (trend_lookback=50/pullback_frac=0.33/trail_mult=3.0 -> net -12.1 R over 5y). An 18-cell param sweep found a clear, CONSISTENT improvement: deeper pullback entry (pullback_frac=0.5) + WIDER trailing stop (trail_mult=5.0) flips it strongly positive at every trend_lookback tested (net +50.5/+52.3/+55.0 R at tl=30/50/80 over the full 5y). Root reason: the default trail_mult=3.0 was cutting the trend-follower's runners too early; a low-win-rate (~37%) high-R-multiple trend follower needs a wide trail to capture the rare big winners. WALK-FORWARD PASSED (the key test): at pullback_frac=0.5/trail_mult=5.0, tl=50 -> IS(2021-2023) net +32.7 R / OOS(2024-2026) net +22.4 R (159 trades, exp +0.14 R/trade, long-side +24.9 OOS); tl=80 -> IS +42.0 / OOS +14.9. Net-positive in BOTH windows at both lookbacks; tl=50 retains ~70% of its in-sample edge out-of-sample. This is the strongest candidate result of the session (session_breakout_trend is dead; SPX trend_donchian long-only is thin). CAVEATS: low win rate => higher variance / deeper equity swings; the +50R full-period figure is the best of 18 post-hoc configs (overfit risk on magnitude), but the walk-forward + cross-lookback consistency argue the SIGN and rough size are real; single market (BTC), single fee assumption.",
-      "tier": "tier-3",
-      "priority": "high",
-      "severity": "medium",
-      "status": "resolved",
-      "trigger_condition": "Next /performance-review, or operator capacity to evaluate a new-strategy activation.",
-      "resolution_criteria": "Operator decision on maturing htf_pullback_trend_2h toward live: (1) confirm the tuned config (trend_lookback~50, pullback_frac=0.5, trail_mult=5.0) with a finer walk-forward / multiple OOS folds + a max-drawdown and return-correlation-to-roster check; (2) if it holds, wire the scaffold per the new-strategy checklist and ship execution: shadow first (Tier-3 PR, operator-approved) to collect live data before any live money. Resolve when shadow-wired or declined with rationale.",
-      "resolved_at": "2026-06-01T13:40:00+00:00",
-      "resolved_by": "claude (regime study, continuation session)",
-      "resolution_note": "Both resolution criteria are MET as of 2026-06-01. (1) The strategy was committed standalone and tagged by regime via #2573: 348 trades over 5+ years at the live params (trend_lookback=40, the slightly faster variant of the sweep's robust tl=50), net +26.3 R, long-led (+35L / -9S), maxDD 14.8 R — consistent with the original walk-forward's OOS magnitude (+22.4 R) and sign. Regime profile is decisive trend-continuation: trending +30.1 (own home), transitional +8.4, chop -12.2 (loser, same shape as fvg — gate it out of chop in the router). (2) The strategy is already wired live in shadow per config/strategies.yaml::htf_pullback_trend_2h (`execution: shadow`, routed to bybit_1 demo only, with the live params trend_lookback=40, pullback_frac=0.5, trail_mult=5.0). The next step (live-money graduation) is the regime-router work (PERF-20260601-002) — htf_pullback joins the policy table with two rows (long ON in trending/transitional, both off in chop) per docs/research/regime-router-design-2026-06-01.md. Updated regime matrix doc + router-design policy table accordingly.",
-      "snoozed_until": null
-    },
-    {
-      "id": "PERF-20260601-001",
-      "opened_at": "2026-06-01T08:50:00+00:00",
-      "opened_by": "claude (demotion review)",
-      "source": "Demotion-evidence pull (issues #2537/#2539): per-strategy live closed-trade PnL from the synced trade_journal.db.",
-      "title": "trend_donchian live record is 0% win / 19 trades / -198R despite being the research-BEST strategy — almost certainly an execution/monitor bug, not a dead edge",
-      "description": "While gathering demotion evidence, trend_donchian (the program's strongest backtested edge: +43R 1h walk-forward, the shadow A/B trend_donchian_1h just validated) shows a LIVE record of 19 closed trades, 0 wins, net -198R (bybit_1 demo -196.87; real-money bybit_2 -1.56/4). A 0% win rate on the research-best strategy is a red flag for an EXECUTION/exit problem, not edge failure. Candidate causes to investigate: (a) the Chandelier ATR trail exit not being applied in the live order_monitor (every trade SL-hits before the trail can run), (b) the TP-sentinel / TP-distance issues tracked in PB-20260527-001 / PB-20260528-001, (c) flip-churn before FLIP_POLICY=hold shipped 2026-05-31 (check whether the losses pre-date the flip-policy default flip). Do NOT demote trend_donchian on this — it is the roster's edge; fix the execution. Cross-ref: the 1h shadow A/B (trend_donchian_1h) and mes_trend_long_1d both reuse the same trend unit and backtest strongly, which isolates the problem to the LIVE execution/monitor path of the 2h instance.\n\n[2026-06-01 INVESTIGATION RESULT] Root-caused via the synced journal (issues #2542-#2547). NOT a dead edge and NOT a broken exit path: (a) reconciler_filled is the normal way a linear-perp exchange-side exit is journaled — fade (7/15 winners) and ict_scalp (8/11, +340) execute + win through the identical path; (b) the Chandelier trail DOES ratchet the live stop (squeeze 35/83 packages, trend_donchian 13/38). The 0%-win is substantially REGIME — trend_donchian + squeeze are breakout strategies and BTC ranged for the ~1-month live window (the channels logged are all ranges), so every breakout whipsawed. Two real execution bugs AMPLIFY it: (1) a re-entry storm — the open-package gate only blocks while a package is OPEN, so when one closes mid-bar the strategy re-fires within the same bar (9 packages in ~1h on a 2h strategy 2026-06-01), and the intent layer then no-ops the duplicate, flooding the journal with intent_noop rejection rows (969 for vwap, 106 squeeze) that skew per-strategy stats; (2) high orphan rates (trend 58%, vwap 63%, squeeze 29%, ict_scalp 31%) — positions open in DB then go flat on the exchange without a clean fill record. Fix (1) shipped as the bar-close debounce (this PR: _same_bar_entry_for_strategy in strategy_monocle.py + the pipeline gate). Fix (2) (orphan-rate root cause) tracked separately in health-review-backlog BL-20260601-001.",
-      "tier": 3,
-      "trigger_condition": "Next /performance-review or /health-review window; or a focused order_monitor investigation of trend_donchian's live exits.",
-      "resolution_criteria": "Re-entry storm eliminated (no >1 package per closed bar per strategy+symbol; intent_noop rejection rows drop sharply) after the bar-debounce deploys; and a fresh net-positive trend_donchian window once BTC trends again confirms the edge survives live. The orphan-rate half is BL-20260601-001.",
-      "status": "in_progress",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
-      "snoozed_until": null,
-      "evidence_log": [
-        "2026-06-01 (/performance-review): WINDOW EVIDENCE (thin, trades pull truncated to today ~12-16Z): trend_donchian shows 1 exchange_rejected (id 2062, entry 72381), 1 reconciler_filled-closed (id 2063, pnl not yet computed), 1 open (id 2064) + an orphaned MES package (pkg-0b8b1586, conf 0.392). The exchange_rejected + reconciler_filled + orphan pattern is consistent with the EXECUTION-FRICTION hypothesis (not a dead edge). Mitigations now live that should help: FLIP_POLICY=hold (#2451, 5/31) addresses cause (c) flip-churn; trend_donchian is now long-only (#2570) + retuned 1h/trail5.0 (#2554). STILL NEEDS: a clean look at the Chandelier ATR trail in the live order_monitor (cause a) over a post-5/31 window with enough closed fills - the 19-trade -198R sample predates these fixes and was ~all bybit_1 demo."
-      ]
-    },
-    {
-      "id": "PERF-20260601-002",
-      "opened_at": "2026-06-01T11:00:00+00:00",
-      "opened_by": "claude (regime study)",
-      "source": "Regime-aware-routing initiative (operator 2026-06-01: complementarity across REGIMES). Relays #2557-#2559; handoff docs/research/session-handoff-2026-06-01.md.",
-      "title": "Regime x strategy x direction matrix (roster) + regime router + the trend_donchian long-only-vs-chop-gated-short decision",
-      "description": "Flagship done: trend_donchian (gated, live 1h/trail5.0) long side = trend edge (+47R, wins trending/transitional); short side only works in chop (+16R chop, -52R trending/transitional) — BTC uptrend punishes trend-shorts. CRITICAL reconciliation: the research's BTC +43.8R OOS was over-optimistic (engine omitted the live min_confidence=0.30 gate -> -53R; gated +11R full / -6R OOS on fresh Bybit perp 1h; residual gap = data, research used a deleted /tmp/btc5m.csv 5m source). NEXT: build the same regime x direction matrix for fade/squeeze/fvg/vwap/htf/mes via each harness's --emit-trades hook driven with EXACT live params, then (a) decide trend_donchian long-only vs chop-gated-short, (b) re-promotion criteria for demoted squeeze/fade, (c) design the regime router (intent-layer weighting/gate keyed to detected regime; building blocks: existing ADX gates + regime-classifier-baseline-v0 shadow model). Tooling: scripts/research/regime_matrix.py + gated backtest_trend.py; data data/btc_1h_multiyear.csv on trainer (re-fetch via the ccxt loop if gone).",
-      "tier": 3,
-      "status": "open",
-      "trigger_condition": "Next session continues the broadened regime study.",
-      "resolution_criteria": "Full roster regime x direction matrix produced; long-vs-short/regime configs decided together; regime-router design proposed.",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": "2026-06-01 progress: full BTC roster matrix produced with exact live params (docs/research/regime-roster-matrix-2026-06-01.md). trend +10.9 (long +47/short -37), fade +19.4 (chop), squeeze +17.6 (every regime, low DD), fvg -16.9 (loser), htf_pullback_trend_2h +26.3 (trending-long +30, loses chop, added 2026-06-01 via #2573 once scripts/backtest_pullback.py committed), vwap -10,724 (live-gated, 40,650 trades, gross +3,399 / fees -14,123 — loser every regime; added 2026-06-01 via #2575+#2579 once src/backtest/run_backtest_vwap.py shipped the four exit-side gate CLI flags + BE ratchet). Matrix is now decision-grade for the ENTIRE roster — every strategy has a cell value, no permissive (`on`) defaults remaining. 3 Tier-3 proposals (trend long-only vs chop-gated-short; squeeze/fade re-promotion criteria; regime-router design) in the doc; decision-1 (trend long-only) SHIPPED+DEPLOYED 2026-06-01 (#2570); decision-2 (squeeze re-promotion) pre-approved + gated as PERF-20260601-005; decision-3 (router) design delivered, phase-1 build awaiting operator review of docs/research/regime-router-design-2026-06-01.md open questions. The router policy table is now complete: vwap is off in every regime (loudest gate — net -10,724 R), fvg off in every regime, trend short ON only in chop, htf_pullback long ON in trending/transitional, fade ON in chop, squeeze ON everywhere, trend long ON everywhere.",
-      "snoozed_until": null
-    },
-    {
-      "id": "PERF-20260601-003",
-      "opened_at": "2026-06-01T12:10:00+00:00",
-      "opened_by": "claude (regime study)",
-      "source": "Roster regime matrix (PERF-20260601-002). docs/research/regime-roster-matrix-2026-06-01.md.",
-      "title": "Re-run vwap regime matrix with its LIVE selectivity params (not bare --no-htf)",
-      "description": "The 2026-06-01 vwap regime run used bare --no-htf => 10188 trades / -3749 R, i.e. the unfiltered VWAP-touch strategy (~11 trades/day vs the live cadence). Thread the live selectivity gates (recent_context_filter 1h/24-bar, threshold 0.01, min_r_for_vwap_cross, be_at_r) into src/backtest/run_backtest_vwap.py (it exposes --entry-threshold etc.) so the trade count matches live, then re-tag with regime_tag_emitted.py. Until then vwap's regime profile is not decision-grade.",
-      "tier": 1,
-      "status": "resolved",
-      "trigger_condition": "Before vwap joins the decision-grade roster matrix / router policy table.",
-      "resolved_at": "2026-06-01T15:00:00+00:00",
-      "resolved_by": "claude (regime study, continuation session)",
-      "resolution_note": "Resolved on the multiyear 5m archive (data/backtest_BTCUSDT_5m.csv, 647,585 bars, 2020-03 -> 2026-05) via the detached-runner relay pattern (#2575 kick-off / #2579 result; the synchronous follow-up #2576 was killed by an SSH-pipe drop at ~6min but the setsid+nohup runner was unaffected). The harness now threads the four LIVE EXIT-SIDE gates (config 51a18e8 + e367495's branch HEAD): four new CLI flags (--min-r-for-vwap-cross, --min-hold-minutes-for-vwap-cross, --be-at-r, --be-offset-bps) + a BE ratchet in _simulate_trade + _vwap_cross_gates_allow() mirroring the live vwap._vwap_cross_gates_pass. Defaults preserve v1 behaviour. SCOPE NOTE: recent_context_filter was intentionally NOT threaded — per config/strategies.yaml line 369 and src/runtime/strategy_signal_builders.py line 631 it is 'Informational only - does not block entries'; the starter-prompt's framing of it as a selectivity filter was inaccurate. The three exit-side gates are the actual live difference. RESULT: 40,650 trades over 6+ years, gross +3,399 R, fees -14,123 R, NET -10,724 R, win rate 49.8% (the high WR is the BE-ratchet locking in many sub-fee small wins). Per-regime: trending -6,179 (long -2,970 / short -3,209), transitional -1,903, chop -2,642 — exp ~ -0.26 R/trade in every regime. The gates DO work on the gross side (the unfiltered run was gross-negative too); the failure mode they target ('VWAP drifted to price') was real and they fix it. But the BE ratchet exits sooner via BE-stop hits, the cooldown shortens, trade count rises (~18/day gated vs ~11/day unfiltered), the fee per trade is unchanged, and the fee:gross ratio of ~4.2x swamps the strategy edge. Confirms docs/audits/vwap-viability-verdict-2026-05-23.md ('vwap has no net-of-fee edge') on the full multiyear window with the precise live-gate path. Matrix row + structural read updated; router policy table now gates vwap off in EVERY regime (long+short, all three regimes) — same shape as fvg but ~600x the magnitude. Matrix is now decision-grade for every roster strategy.",
-      "snoozed_until": null
-    },
-    {
-      "id": "PERF-20260601-004",
-      "opened_at": "2026-06-01T12:10:00+00:00",
-      "opened_by": "claude (regime study)",
-      "source": "Roster regime matrix (PERF-20260601-002).",
-      "title": "Commit/port a standalone htf_pullback harness so htf_pullback_trend_2h joins the regime matrix",
-      "description": "htf_pullback_trend_2h has no committed standalone backtest harness (the overnight backtest_pullback.py was never committed). Port it (run_backtest(df,*,...) + --emit-trades writing the shared JSONL schema) driven with the live params (trend_lookback 40, pullback_lookback 10, pullback_frac 0.5, trail 5.0), then add its regime x direction row.",
-      "tier": 1,
-      "status": "resolved",
-      "trigger_condition": "To complete roster coverage for the regime router policy table.",
-      "resolved_at": "2026-06-01T13:40:00+00:00",
-      "resolved_by": "claude (regime study, continuation session)",
-      "resolution_note": "Committed scripts/backtest_pullback.py mirroring scripts/backtest_trend.py's shape: pullback entry from src/units/strategies/htf_pullback_trend_2h.order_package (Donchian-midline trend filter + close in lower/upper pullback_frac of the recent pullback_lookback range + confirmation bar) + shared Chandelier ATR trail (SL-first intrabar, no fixed TP), live-parity confidence (trend depth / ATR), --emit-trades writes the shared per-trade JSONL schema. Defaults are the live params (trend_lookback 40, pullback_lookback 10, pullback_frac 0.5, atr_period 14, atr_stop_mult 2.5, trail_mult 5.0). Trainer relay #2573 ran it against data/btc_1h_multiyear.csv resampled to 2h, 23,730 bars 2021-2026-06: 348 trades, net +26.3 R, 32.8% WR, long-led (+35L / -9S), maxDD 14.8 R. Per-regime: trending +30.1 (long +30.1 / short -0.05), transitional +8.4 (long +12.7 / short -4.3), chop -12.2 (long -7.9 / short -4.3). Decisive trend-continuation profile: owns trending long, loses chop both sides (same shape as fvg — should be off in chop in the router). Row added to docs/research/regime-roster-matrix-2026-06-01.md; policy table in docs/research/regime-router-design-2026-06-01.md updated with two new strategy rows (htf_pullback long ON in trending/transitional, both off in chop). Confirms PERF-20260531-002's walk-forward (IS +32.7 / OOS +22.4 at tl=50; +26.3 here at the live tl=40 over the full window).",
-      "snoozed_until": null
-    },
-    {
-      "id": "PERF-20260601-005",
-      "opened_at": "2026-06-01T12:40:00+00:00",
-      "opened_by": "claude (regime study)",
-      "source": "Roster regime matrix (PERF-20260601-002) + operator decision 2026-06-01 (re-promote squeeze, gated on debounce verify).",
-      "title": "Re-promote squeeze_breakout_4h shadow->live [Tier-3, operator-PRE-APPROVED, gated on debounce verification]",
-      "description": "Operator approved (2026-06-01) re-promoting squeeze_breakout_4h to execution:live — it is the strongest roster re-promotion candidate: +17.6 R multiyear, net-positive in EVERY regime (trending +5.1/transitional +1.6/chop +10.9), lowest DD (7.9 R), long-biased. It was demoted on a single ranging-month live read compounded by the re-entry storm that #2548 (bar-close debounce) fixed. GATING PREREQUISITE (do NOT promote until met): verify #2548 reduced the orphan/intent_noop/same-bar re-entry rate vs the pre-#2548 baseline (BL-20260601-001). As of 2026-06-01 12:40 UTC there is only ~2.6h of post-#2548 data (deployed 09:59 UTC) — INSUFFICIENT; needs a multi-day window before the before/after is meaningful. Once verified: (1) confirm accrued squeeze SHADOW net-R since demotion doesn't contradict the +17.6 backtest, (2) re-check monthly-corr to the live roster stays additive (hist ~0.30), (3) flip execution: shadow->live in config/strategies.yaml at current risk_pct, open Tier-3 PR, operator merges + pull-and-deploy. fade_breakout_4h is NOT in this item (held for the router/chop-gating given its 30 R DD).",
-      "tier": 3,
-      "status": "open",
-      "trigger_condition": "After the post-#2548 (deployed 2026-06-01 09:59 UTC) live window accrues enough data (multi-day) to verify the orphan/intent_noop/re-entry rate dropped (BL-20260601-001). A /health-review or /performance-review with that window triggers it.",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
-      "snoozed_until": null,
-      "evidence_log": [
-        "2026-06-01 (/performance-review): DEBOUNCE CONFIRMED FIRING but soak still too short. Live audit shows bar_debounce_blocked events (today's #2548 is live, deployed 09:59Z) deduping same-bar mes_trend_long_1d re-entry attempts. However the before/after orphan/intent_noop-rate comparison needs a MULTI-DAY post-#2548 window; only ~9h of post-deploy data as of this review. HOLD the squeeze re-promotion until a multi-day window lets the orphan-rate delta be measured (BL-20260601-001). Pre-approved but gated."
-      ]
-    },
-    {
-      "id": "PERF-20260601-006",
-      "opened_at": "2026-06-01T16:30:00+00:00",
-      "opened_by": "claude (regime-router phase 2 ship)",
-      "source": "Regime router phase 2 (PR #2583) shipped the shadow log. Phase 3 turns the OFF cells into hard gates.",
-      "title": "Regime router phase 3 — turn shadow OFF cells into hard gates [Tier-3, operator-approved]",
-      "description": "Phases 1+2 of the regime router are live (PRs #2582, #2583). Phase 2 emits `event=regime_shadow_gate` audit rows with `enforced: false` for every OFF-cell intent the policy table (config/regime_policy.yaml) WOULD suppress; the aggregator's decision is unchanged. Phase 3 is the operator-approved Tier-3 step that turns the OFF cells into hard gates inside aggregate_intents(), behind a single `REGIME_ROUTER_ENABLED` env-var with a one-flag rollback. Pre-conditions before opening the PR: (1) accrue at least a week of live shadow data (~7 days); (2) pull /api/diag/audit filtered to event=regime_shadow_gate, count per (strategy, regime, side); (3) cross-reference with the actual fills + closed PnL of those same intents — confirm the would-gate decisions correlate with the matrix's net-negative cells (vwap OFF everywhere, fvg OFF chop, trend-short OFF trending+transitional, htf_pullback OFF chop). If the live shadow data CONTRADICTS the matrix's verdict for any cell (e.g. vwap actually earned in trending despite the matrix saying -6,179 R), pause and re-investigate before turning the gate on. Implementation: in src/runtime/intents.py::aggregate_intents, drop OFF-cell candidates from `candidates` before the rest of the logic AND emit `event=regime_hard_gate` with `enforced: true`. Hidden behind `os.environ.get('REGIME_ROUTER_ENABLED', '0')` — operator flips the env on the live VM via set-env operator action; rollback is one env flip + restart. Tests: every existing phase-2 test extended with an `enabled` parameter that exercises both the log-only (current) and hard-gate (phase-3) code paths.",
-      "tier": 3,
-      "status": "open",
-      "trigger_condition": "After >= 7 days of post-#2583 live data accumulate enough regime_shadow_gate rows to cross-check the policy table against actual fills.",
-      "resolution_criteria": "Operator approves the phase-3 PR after the cross-check confirms the matrix's verdict on live data; the env flag flips ON on the live VM; trader restarts cleanly; the next batch of `regime_hard_gate` audit rows (with enforced: true) shows suppressed dispatches in the expected cells; no regression in the on-cell strategies' fill rate.",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
-      "snoozed_until": null,
-      "evidence_log": [
-        "2026-06-01 (/performance-review, operator decision): OPTION 2 CHOSEN. Operator accepted the regime-roster MATRIX as sufficient evidence to proceed to phase-3 hard gates (behind REGIME_ROUTER_ENABLED, one-flag rollback) rather than manufacturing live OFF-cell intents to grow the shadow soak (Option 1 explicitly rejected — it would mean placing -EV trades just to generate logging). RATIONALE confirmed in code: _shadow_regime_gate (intents.py:676) runs over ALL candidate intents BEFORE execution:shadow is resolved (multi_account_execute), so the would-gate stream IS accumulating — but it is dominated by vwap (execution:shadow), where a hard gate is REDUNDANT; no LIVE strategy currently sits in an OFF cell (trend_donchian + mes are long-only, long cells ON). So phase-3 gates are ~a no-op on today's live PnL and only bite once a two-sided strategy is re-promoted (e.g. squeeze PERF-20260601-005, or reclaiming trend's chop-short via a policy cell). PRE-CONDITION before flipping the flag: PERF-20260601-008 base-rate check must pass (live regime distribution ~= matrix base rates) — a detector/data mismatch would gate the wrong cells. Ongoing gate firing+performance monitoring tracked in PERF-20260601-011."
-      ]
-    },
-    {
-      "id": "PERF-20260601-007",
-      "opened_at": "2026-06-01T16:30:00+00:00",
-      "opened_by": "claude (regime-router phase 2 ship)",
-      "source": "Regime router design doc § 5.4. Phase 4 is the soft-weight graduation after hard gates prove out.",
-      "title": "Regime router phase 4 — graduate to soft weights + classifier-v0 detector [Tier-3]",
-      "description": "Phase 4 (the design doc's last step): once phase-3 hard gates have demonstrated lift in production for >= a few weeks, graduate the policy from binary on/off to soft confidence weights (numeric cells like 0.5 / 1.0 / 1.5 multiply intent.confidence before priority resolution). The phase-2 evaluator already parses `weight: N.N` cells and routes them as permissive with a tagged reason — phase 4 wires the multiplier in. Also: validate `regime-classifier-baseline-v0` (the shadow regime model in the registry) against ADX-14 on the same per-tick stream; if its predictions correlate >0.85 with ADX-14 and add value at the regime boundaries (the 18.5-22.5 ADX hysteresis zone the design doc Q4 flagged), swap the detector source from 'adx-14' to 'classifier-v0' in src/runtime/regime/detector.py (the audit-row `regime_source` field already supports this; consumer is forward-compatible).",
-      "tier": 3,
-      "status": "open",
-      "trigger_condition": "After phase-3 hard gates have been live for >= 2-3 weeks with measurable lift; OR when the ML lifecycle promotes regime-classifier-baseline-v0 past shadow.",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
-      "snoozed_until": null
-    },
-    {
-      "id": "PERF-20260601-008",
-      "opened_at": "2026-06-01T16:30:00+00:00",
-      "opened_by": "claude (regime-router phase 2 ship)",
-      "source": "PR #2582 (phase 1) and PR #2583 (phase 2) ship observability that needs verification against the matrix base rates on LIVE data before phase 3.",
-      "title": "Verify regime router phase 1+2 live deploy — base-rate match + shadow row volume [Tier-1]",
-      "description": "After PR #2583 deploys, the trader emits two new audit fields on every `*_eval` row (`regime`, `adx_14`, `regime_source`) and a new `regime_shadow_gate` event for every OFF-cell intent. Verify against the matrix's expected base rates: pull /api/diag/audit?limit=2000 across a 24-48h window after deploy, group by strategy + regime, confirm the distribution matches the matrix (BTC 1h: chop ~30% / transitional ~19% / trending ~51%; BTC 5m: chop ~35% / transitional ~20% / trending ~45%). If a strategy's regime distribution diverges from the matrix by >5 percentage points in any bucket, investigate (could be candles-fetch mismatch, detector bug, or a regime shift in BTC since the matrix was measured). Cross-tab the regime_shadow_gate event counts against the matrix's OFF cells — vwap should dominate the shadow rows (it fires on every 5m bar regardless of regime; OFF in all 3 regimes). Tier-1 (autonomous diag pulls + arithmetic; no live-path change). Resolution: a short note in docs/research/ or a backlog comment that the live regime stream matches the matrix; gate PERF-20260601-006 (phase 3) on this passing.",
-      "tier": 1,
-      "status": "open",
-      "trigger_condition": "After PR #2583 deploys to the live VM and 24-48h of post-deploy audit data accumulates.",
-      "resolution_criteria": "Live regime distribution matches the matrix's base rates within ±5 percentage points per bucket per strategy; regime_shadow_gate event volume is consistent with the OFF-cell coverage (vwap dominant, fvg + htf_pullback + trend-short in matching regimes).",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
-      "snoozed_until": null,
-      "evidence_log": [
-        "2026-06-01 (/performance-review): EXECUTED (phase-1 leg DONE; base-rate leg needs more time). Pulled live audit post-deploy (sha 4a8594d, contains #2582+#2583): 119/119 *_eval rows carry regime/adx_14/regime_source (100% stamping), ADX 15-32, regimes {trending,transitional,chop} all present and sane. PHASE-2 NUANCE: 0 regime_shadow_gate events have fired yet -> CORRECT, not a bug: under the current roster (vwap/fade/squeeze=execution:shadow, trend/mes=long-only) no actionable directional intent has hit an OFF cell. So phase-2 may accrue little/no would-gate evidence until the roster posture changes -> the phase-3 (PERF-20260601-006) evidence base could be thin. The >24-48h per-strategy base-rate-vs-matrix grouping is still pending (deploy was today). Keep open for the base-rate leg.",
-        "2026-06-01 (/performance-review, gate-firing verification): LOGIC CHAIN CONFIRMED end-to-end; live-emitted row still pending a qualifying signal. (1) Phase-1 stamping live across 4 windows (17:19/18:55/19:40Z + 19:01 snapshot), 119/119 eval rows carry regime+adx_14+regime_source. (2) On the DEPLOYED code, load_policy() returns the POPULATED table (chop/transitional/trending) — NOT the empty-permissive fallback — and would_gate gives the exact-correct verdicts for the shipped table: vwap-long gated in all 3 regimes; trend_donchian-short gated trending+transitional / ON in chop; trend_donchian-long never gated. (3) The in-process aggregator emission test (test_aggregate_intents_regime_shadow.py) passes: it emits regime_shadow_gate on an OFF-cell intent AND leaves the decision unchanged (log-only). So the only UNobserved link is a live-emitted gate row on the VM. ROOT CAUSE it's unobserved (NOT a bug): (a) the /api/diag/log_file (and audit) endpoint is BYTE-CAPPED at ~414KB ~= the last ~15 min of the busy audit log regardless of the lines= param, so the 12-16Z vwap storm is UNREACHABLE via the diag tail; (b) in every reachable post-deploy window vwap (the only live OFF-cell source under the long-only/shadow roster) is side:none — the market has been quiet for OFF-cell strategies since phase-2 deployed. So a live gate row will appear the next time vwap (or a re-promoted two-sided strategy) fires an actionable intent in a sampled window; recurring PERF-20260601-011 owns that catch. BASE-RATE leg also constrained by the ~15-min byte cap (can't pull a multi-hour distribution at once) — accumulate per-review samples; this window was trending-heavy (late-evening BTC)."
-      ]
-    },
-    {
-      "id": "PERF-20260601-009",
-      "opened_at": "2026-06-01T16:45:00+00:00",
-      "opened_by": "claude (session-end, operator-deferred design-doc Q3)",
-      "source": "docs/research/regime-router-design-2026-06-01.md § 6 Q3 — operator deferred the long_only retire decision to a phase-3 follow-up (\"leave that for now\").",
-      "title": "Retire the trend_donchian long_only flag once the regime router policy table subsumes it [Tier-3, follow-up to phase 3]",
-      "description": "trend_donchian's `long_only: true` flag in config/strategies.yaml was shipped as #2570 (2026-06-01) as a simple, robust win that dropped the strategy's -37 R short drag. The regime router's policy table independently mirrors the same constraint: trend_donchian.short is OFF in trending+transitional (the regimes where the -52 R loss concentrates) and ON in chop (the +16 R chop-short edge). Once phase 3 (PERF-20260601-006) is live and the table is enforcing those gates, the strategy-level long_only flag becomes redundant — both flags would be saying the same thing in trending/transitional, AND the table is the ONLY way to recover the chop-short edge. The cleanup is: flip `long_only: false` (or remove the field entirely) on trend_donchian in config/strategies.yaml AND remove the `_short_suppressed_long_only` branch in src/units/strategies/trend_donchian.py / strategy_signal_builders.py. The router policy table will then be the single source of truth for trend_donchian's direction gating. Operator's instruction 2026-06-01: \"leave that for now\" — keep long_only as defense-in-depth until phase 3 proves out the policy-table enforcement. Mechanical risk if NOT cleaned up after phase 3: when an operator-approved exception manually flips a cell in regime_policy.yaml (e.g. enable trend_donchian chop-short in some future regime study), the YAML-level long_only flag will silently override and suppress that intent — a confusing footgun.",
-      "tier": 3,
-      "status": "open",
-      "trigger_condition": "After PERF-20260601-006 (regime router phase 3 hard gates) has been live for >= 1-2 weeks with no regression in trend_donchian's fill rate or PnL.",
-      "resolution_criteria": "config/strategies.yaml::trend_donchian no longer carries `long_only: true`; the `short_suppressed_long_only` branch is removed from the signal builder; the existing test_trend_donchian_long_only.py is either deleted or rewritten to verify the SAME behaviour is produced via the regime router policy table cells. Operator-approved Tier-3 PR.",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
-      "snoozed_until": null
-    },
-    {
-      "id": "PERF-20260601-010",
-      "opened_at": "2026-06-01T19:30:00+00:00",
-      "opened_by": "claude (/performance-review)",
-      "source": "/performance-review 2026-06-01 — order_packages pull showed vwap AND htf_pullback_trend_2h emitting confidence=1.0 on every package.",
-      "title": "Degenerate signal confidence: vwap + htf_pullback_trend_2h emit confidence=1.0 on EVERY order package — carries no information for gating/sizing/ML",
-      "description": "In the 2026-06-01 window every vwap (17/17) and htf_pullback_trend_2h (2/2) order package carried confidence=1.0 exactly, while trend_donchian emitted a genuine graded value (0.392). A confidence hard-pinned at 1.0 is degenerate: it can't drive a min-confidence floor, can't size by conviction, and feeds the shadow ML models (setup_quality etc.) a constant feature. Likely the signal builders for these two strategies set confidence=1.0 as a placeholder rather than computing it from setup strength (e.g. vwap: distance-in-sigma from the band; htf: pullback depth / trend strength). NOT a live-capital bug today (vwap+htf are execution:shadow) but it (a) blunts any future min-confidence gate, (b) pollutes the ML feature, (c) makes per-decision grading rely on geometry alone. CHECK src/runtime/strategy_signal_builders.py for the vwap + htf confidence assignment.",
-      "tier": 3,
-      "trigger_condition": "Next /performance-review; or when wiring a min-confidence floor or confidence-weighted sizing for vwap/htf; or when reviewing ML feature quality.",
-      "resolution_criteria": "vwap and htf_pullback_trend_2h order packages carry a confidence that VARIES with setup strength (not a constant 1.0); OR it's confirmed by-design that these strategies don't expose a graded confidence and the placeholder is documented + excluded from ML features.",
-      "status": "open",
-      "snoozed_until": null
-    },
-    {
-      "id": "PERF-20260601-011",
-      "opened_at": "2026-06-01T19:45:00+00:00",
-      "opened_by": "claude (/performance-review, operator request)",
-      "source": "Operator 2026-06-01: after choosing Option 2 for the regime router, asked to log that the gates need to be tested periodically and their performance monitored — folded into the strategy review as a recurring check.",
-      "title": "RECURRING (every /performance-review): test the regime-router gates fire correctly + monitor gate performance",
-      "description": "Standing check the strategy review runs each pass, in two layers. (1) FIRING CORRECTNESS (phase 2+): pull a window where actionable directional intents fired (e.g. a vwap-active period) and confirm regime_shadow_gate events appear with the EXPECTED (strategy, side, regime, cell) per config/regime_policy.yaml + the regime-roster matrix, enforced:false in phase 2. Confirm the would-gate counts are sane (not zero when OFF-cell intents clearly fired; not gating ON-cell or unlisted strategies). NOTE the gate is event-driven on actionable intents, so a quiet window legitimately shows few/none — sample a busy window. (2) GATE PERFORMANCE: tally would-gate counts per (strategy, regime, side) vs ACTUAL fills, and once phase 3 is live (REGIME_ROUTER_ENABLED) verify the hard gates (a) are actually suppressing the OFF-cell intents they should, (b) are NOT suppressing winners — cross-check the regime-tagged decisions' realized PnL by regime against the matrix's expected sign, and flag any OFF cell that would have been net-POSITIVE live (regime shift since the matrix was measured) or any ON cell bleeding. Escalate a divergence >5pp on base rates (-> PERF-20260601-008) or a sign-flip on any cell as a tweak proposal / new backlog item.",
-      "tier": 1,
-      "trigger_condition": "EVERY /performance-review run (recurring; do not close on a single clean pass).",
-      "resolution_criteria": "RECURRING — never auto-resolves. Stays open as a standing checklist item; only closed if the regime router is retired. Each review appends a dated firing+performance reading to the evidence_log and raises a tweak/backlog item on any divergence.",
-      "status": "open",
-      "snoozed_until": null,
-      "evidence_log": [
-        "2026-06-01 (opened): baseline reading — phase 1 stamping live (119/119 eval rows carry regime/adx_14); phase 2 deployed log-only; firing-correctness spot-check still PENDING (the two audit windows sampled this session, 17:19Z + 18:55Z, did NOT overlap the 12-16Z vwap-active window, so regime_shadow_gate count was not positively confirmed yet). Next review: pull a vwap-active window and confirm the OFF-cell events fire as designed."
-      ]
+     "at": "2026-05-29T19:55:20.246630+00:00",
+     "by": "claude (/performance-review)",
+     "note": "No qualifying data this window: zero trend_donchian short fills and zero fade_breakout_4h fills on bybit_2 (audit shows both eval'd non-actionable every tick — trend=no breakout, fade=regime not chop ADX>=20). Only fills/decisions in window were 1x ict_scalp_5m (graded B) + the vwap shadow-orphan cluster. (a) and (b) both still unmet -> stays open."
     }
-  ],
-  "updated_at": "2026-06-01T16:45:00+00:00"
+   ],
+   "evidence_log": [
+    "2026-06-01 (/performance-review): (a) trend_donchian-SHORT fill watch is now MOOT: trend_donchian went LONG-ONLY (#2570, 2026-06-01), so no short intents fire on bybit_2; the chop-short edge is to be reclaimed via the regime router policy cell, not a live short. (b) fade_breakout_4h was DEMOTED live->shadow (#2540, 2026-06-01) so its no-min-confidence-floor live fills concern is also moot while shadow. Both legs superseded by today's Tier-3 roster moves; recommend closing next review if no regression.",
+    {
+     "at": "2026-06-04T05:30:00+00:00",
+     "by": "claude (/performance-review)",
+     "note": "2026-06-04 /performance-review: (a) trend_donchian short fills CONFIRMED working post-clamp — 2064 (+6.95) + 2056 (+0.80) filled+closed positive (reconciler_filled). (b) fade_breakout_4h was DEMOTED live->shadow 2026-06-01 (#2540) so the very-low-confidence live-fill watch is moot — fade no longer places live orders. Recommend narrowing this item to (a)-only or closing (b)."
+    }
+   ]
+  },
+  {
+   "id": "PB-20260529-001",
+   "opened_at": "2026-05-29T18:30:00+00:00",
+   "opened_by": "claude (order-rejection cap-fix session) — operator request",
+   "source": "Operator request: the /performance-review (strategy check) must verify that the percentage daily-loss cap (PR #2265) actually results in bybit_1 (+ other in-scope accounts) EXECUTING trades, not merely that it deployed. Mirrors health-review BL-20260529-001 on the trading side.",
+   "title": "RECURRING: confirm the %-based daily-loss cap (PR #2265) lets bybit_1 actually TRADE (sized_qty>0 fills), not just deploy",
+   "description": "PR #2265 (merged b149b15; now in main 9039511, deployed + restarted 2026-05-28T23:29:36Z) replaced bybit_1's hardcoded $100 daily-loss cap with daily_loss_pct=0.05 (5% of equity) on bybit_1/bybit_2/ib_paper/ib_live (prop unchanged). Verified deployed + healthy + unit-tested (tests/test_daily_loss_pct_cap.py). NOT YET observed on live data: an actual in-scope-account dispatch with sized_qty>0 since the deploy. Cause is benign — an extended flat/low-vol market (~16h+ as of 2026-05-29, confirmed via live journalctl with moving prices) produced NO actionable signal on any strategy (vwap regime-gated sideways/low; trend_donchian mid-channel; fade/squeeze need volatility; ict_scalp no sweep). So nothing dispatched on any account; newest trade row was still id 1866 @ 2026-05-28 22:25:01 (pre-deploy bybit_1/vwap risk_refused sized_qty=0). System-health verification is tracked in health-review-backlog BL-20260529-001; THIS is the trading-side mirror so a /performance-review confirms it when grading the post-deploy order-package cohort.",
+   "tier": 1,
+   "recurring": true,
+   "trigger_condition": "EVERY /performance-review until resolved. When grading the post-2026-05-28T23:29:36Z order-package / trade cohort, check whether bybit_1 (or bybit_2 / ib_paper) produced any dispatch with sized_qty>0 (status open/closed) vs continued sized_qty=0 / risk_refused rejections.",
+   "resolution_criteria": "RESOLVE when an in-scope-account order package created after the deploy links to a real trade (sized_qty>0, status open/closed) — i.e. the cap no longer zeroes sizing on a live signal. REGRESSION (escalate, do NOT close): a post-deploy sized_qty=0 / risk_refused rejection on an in-scope account while that account's realized daily loss is small relative to 5% of its equity — means the percentage cap did not take effect.",
+   "carry_forward_instructions": "Keep open across reviews until the resolution criteria are met. If a /performance-review window has no qualifying dispatch (quiet market), append a dated entry to check_log and leave status=open so the NEXT review continues the check. Cross-ref health-review BL-20260529-001 (same verification, system-health side).",
+   "check_log": [
+    {
+     "at": "2026-05-29T~14:30Z",
+     "by": "claude (cap-fix session)",
+     "note": "Monitored ~16h post-deploy: bot healthy + ticking on live mainnet data (prices moving each tick), all 6 strategies legitimately 'no actionable signal' (flat low-vol market). Zero dispatches on any account; no qualifying sized_qty>0 row yet. Cap fix confirmed deployed (71e7a44/9039511) + unit-tested; live trade proof pending a market signal."
+    }
+   ],
+   "status": "resolved",
+   "snoozed_until": null,
+   "resolved_at": "2026-05-29T19:55:20.246630+00:00",
+   "resolved_by": "claude (/performance-review)",
+   "resolution": "Observed the qualifying post-deploy live dispatch: order package pkg-5dc66cf92b5e407f (ict_scalp_5m long) linked to bybit_1 trade id=1867 created 2026-05-29T15:12:15Z, status=open, position_size=2.173 (>0), is_dry=false. The %-based daily-loss cap (PR #2265, daily_loss_pct=0.05) no longer zeroes bybit_1 sizing. No regression: the sibling bybit_2 leg (trade 1868) was intent_noop:at_target (already at 0.001 BTC), not a risk_refused/sized-0 rejection. Mirrors health BL-20260529-001 (also resolved this review)."
+  },
+  {
+   "id": "PERF-20260530-001",
+   "title": "Investigate 'hold' conflict policy for the intent layer (flip-churn is the roster's #1 drag) — WALK-FORWARD PASSED, awaiting Tier-3 operator decision",
+   "status": "resolved",
+   "priority": "high",
+   "tier": "tier-3",
+   "created": "2026-05-30",
+   "opened_by": "claude/fvg-range-mean-reversion (system-backtest session)",
+   "severity": "high",
+   "trigger_condition": "Operator decision on the proposed aggregate_intents change (drafted in docs/audits/walkforward-flip-policy-2026-05-30.md § Tier-3 design proposal). Re-trigger next /performance-review if not acted on.",
+   "resolution_criteria": "Operator approves (or declines) the Tier-3 aggregator behaviour change drafted in docs/audits/walkforward-flip-policy-2026-05-30.md. If approved, file the PR per that doc's § Pre-merge validation; resolve this item when the PR merges + deploys + a soak window confirms no regression. If declined, resolve as won't-fix with rationale and route the operator to the decider-v2 selection layer (DECIDER-SINGLE-ACCOUNT-2026-05-24.md v2 step 2/3) as the next research target.",
+   "description": "WALK-FORWARD COMPLETED 2026-05-30 — both criteria PASSED (verified from runtime_logs/system_backtest/walkforward/walkforward_20260530T211319Z.json). 24 cells (2 anchored folds × 2 halves × 2 rosters × 3 policies). Criterion 1 (4-member hold dominates reverse in net AND maxDD% across all 4 cells): PASS — A/train +$1242 swing, A/oos +$1293, B/train +$954, B/oos +$947; OOS lift bigger than train on both folds. Criterion 2 (6-member hold not worse than reverse OOS, both folds): PASS — A/oos +$5171 swing, B/oos +$5329 (hold halves the catastrophic outcome but the book still bleeds because turtle+ict_scalp lose in-system regardless of conflict policy). flat consistently sits between reverse and hold. reverse (live) is the worst policy on every 4-member cell and tied for worst on every 6-member cell. Tier-3 design proposal drafted in docs/audits/walkforward-flip-policy-2026-05-30.md § 'Tier-3 design proposal'; stops short of patching src/runtime/intents.py per session contract.",
+   "status_history": " | resolved 2026-06-01: walk-forward PASSED (24 cells) and the hold default SHIPPED in #2451 (FLIP_POLICY default reverse->hold, 2026-05-31, operator-approved). Tier-3 decision made + deployed; rollback path FLIP_POLICY=reverse documented.",
+   "evidence_log": [
+    "2026-06-01 (/performance-review): RESOLVED: #2451 shipped FLIP_POLICY default = hold on 2026-05-31 (operator-approved after the walk-forward PASS). The Tier-3 decision this item awaited is made and live. Rollback is the FLIP_POLICY=reverse env var (no redeploy). Closing."
+   ]
+  },
+  {
+   "id": "PERF-20260531-001",
+   "opened_at": "2026-05-31",
+   "created": "2026-05-31",
+   "opened_by": "claude (continuation session, SPX re-tune of trend_donchian)",
+   "source": "prem_runs/03 intent — trend_donchian donchian-lookback sweep on data/SPX500_1m.parquet (2.15M 1m rows, 2020-01 -> 2026-05) resampled to 2h, via standalone scripts/backtest_trend.py on the trainer VM. Net-of-fee 7.5 bps.",
+   "title": "trend_donchian on SPX: two-sided FAILS but the LONG side is a BTC-uncorrelated diversification candidate (+22.5 R long-only at donchian=20)",
+   "description": "Tested whether the one durable roster winner (trend_donchian) transfers to an uncorrelated market (SPX/MES) for diversification. RESULT: two-sided trend_donchian is net-NEGATIVE on SPX at every tested lookback (dc=20 net -13.5R, dc=30 -14.2, dc=40 -29.1, dc=55 -29.9). BUT the entire loss is the SHORT side; the LONG side is net-POSITIVE at every lookback: long-only net R = +22.45 (dc=20), +16.69 (dc=30), +9.45 (dc=40), +7.20 (dc=55). SPX's secular uptrend systematically punishes trend-breakout shorts (short-side net ~ -31..-38R across configs). Shorter lookback is clearly best (dc=20: 278 long trades, long-side exp ~ +0.08 R/trade, net-positive in 2021/2023/2024; longer lookbacks degrade both sides). maxDD grows with lookback (27.6R @ dc=20 -> 39R @ dc=55). LEAD: a long-only / long-biased trend_donchian on SPX/MES is a plausible diversification add — uncorrelated to the BTC roster, exploits the equity risk premium, positive long-side expectancy. CAVEATS: in-sample over the available 6.4y; SPX500 CFD prices (live is MES — execution/contract differ); long-side R is the long legs of the two-sided run (entries are independent, so it equals a true long-only run, but a dedicated long-only + walk-forward + corr-to-BTC-trend_donchian check should confirm before any proposal). [WALK-FORWARD ADDED 2026-05-31 — see walk_forward field: long side positive IS+OOS but thin OOS edge; dc=30 most robust.]",
+   "tier": "tier-3",
+   "priority": "low",
+   "severity": "medium",
+   "status": "open",
+   "trigger_condition": "Next /performance-review, or a strategy/model-training session with SPX/MES capacity.",
+   "resolution_criteria": "Confirm with a dedicated LONG-ONLY trend_donchian backtest on SPX/MES + walk-forward (in/out split) + low return-correlation to the live BTC trend_donchian. If it clears net-of-fee with acceptable DD, propose a long-only trend_donchian SPX/MES adapter as a Tier-3 PR for operator approval (the new-strategy wiring checklist applies). If it does not hold out-of-sample, resolve won't-fix with the evidence.",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null,
+   "snoozed_until": null,
+   "walk_forward": "Long-side walk-forward (SPX 2h, net-of-fee): dc=20 long-only IS(2020-2023)=+21.08R/169tr -> OOS(2024-2026)=+1.15R/109tr (nearly flat); dc=30 IS=+11.73R/158tr -> OOS=+4.73R/95tr (exp +0.05). QUALIFIED PASS: the long side stays POSITIVE in both windows (does not flip negative OOS) but the OOS edge is THIN, esp. dc=20; dc=30 holds up best proportionally. Read: a legitimate-but-MODEST BTC-uncorrelated diversification lead, not a slam-dunk. Short side negative in every window (confirmed). Before any Tier-3 proposal: build a true long-only adapter, validate on live MES (not SPX500 CFD) history, and measure return-correlation to the live BTC trend_donchian — the portfolio value is the low correlation even at a modest standalone edge.",
+   "mes_validation": "ATTEMPTED on the live instrument (MES) and INCONCLUSIVE: MES market_raw on the VM spans only 2025-01-03 -> 2026-05-22 (~16 months). trend_donchian long-only on MES 2h is NEGATIVE (dc=20 long -52.4R, dc=30 long -46.1R, win ~23%) — but this does NOT refute the SPX thesis, because MES's entire window (2025-2026) coincides with the years that were ALSO negative for SPX trend_donchian long (SPX 2025/2026 legs were the drag in the full-period sweep). The SPX long-only edge originated in 2021/2023/2024 — years MES has no data for. NET: cannot validate (or refute) the long-only diversification thesis on the real tradeable instrument until MES history covers a trend-up regime. This is a HARD BLOCKER on maturing the lead — acquire deeper MES/ES history (or accept SPX500-CFD as the proxy with the known instrument mismatch) before any Tier-3 step."
+  },
+  {
+   "id": "PERF-20260531-002",
+   "opened_at": "2026-05-31",
+   "created": "2026-05-31",
+   "opened_by": "claude (continuation session, htf_pullback param sweep + walk-forward)",
+   "source": "Standalone scripts/backtest_pullback.py on the full BTC 5m archive (market_raw v002, 525,888 bars) resampled to 2h, on the trainer VM. Net-of-fee 7.5 bps.",
+   "title": "htf_pullback_trend_2h: a tuned config (pullback_frac=0.5, trail_mult=5.0) PASSES net-of-fee + walk-forward on BTC 2h — genuine positive-expectancy diversification candidate",
+   "description": "The scaffolded candidate htf_pullback_trend_2h (inert, in PR #2466) FAILS at default params (trend_lookback=50/pullback_frac=0.33/trail_mult=3.0 -> net -12.1 R over 5y). An 18-cell param sweep found a clear, CONSISTENT improvement: deeper pullback entry (pullback_frac=0.5) + WIDER trailing stop (trail_mult=5.0) flips it strongly positive at every trend_lookback tested (net +50.5/+52.3/+55.0 R at tl=30/50/80 over the full 5y). Root reason: the default trail_mult=3.0 was cutting the trend-follower's runners too early; a low-win-rate (~37%) high-R-multiple trend follower needs a wide trail to capture the rare big winners. WALK-FORWARD PASSED (the key test): at pullback_frac=0.5/trail_mult=5.0, tl=50 -> IS(2021-2023) net +32.7 R / OOS(2024-2026) net +22.4 R (159 trades, exp +0.14 R/trade, long-side +24.9 OOS); tl=80 -> IS +42.0 / OOS +14.9. Net-positive in BOTH windows at both lookbacks; tl=50 retains ~70% of its in-sample edge out-of-sample. This is the strongest candidate result of the session (session_breakout_trend is dead; SPX trend_donchian long-only is thin). CAVEATS: low win rate => higher variance / deeper equity swings; the +50R full-period figure is the best of 18 post-hoc configs (overfit risk on magnitude), but the walk-forward + cross-lookback consistency argue the SIGN and rough size are real; single market (BTC), single fee assumption.",
+   "tier": "tier-3",
+   "priority": "high",
+   "severity": "medium",
+   "status": "resolved",
+   "trigger_condition": "Next /performance-review, or operator capacity to evaluate a new-strategy activation.",
+   "resolution_criteria": "Operator decision on maturing htf_pullback_trend_2h toward live: (1) confirm the tuned config (trend_lookback~50, pullback_frac=0.5, trail_mult=5.0) with a finer walk-forward / multiple OOS folds + a max-drawdown and return-correlation-to-roster check; (2) if it holds, wire the scaffold per the new-strategy checklist and ship execution: shadow first (Tier-3 PR, operator-approved) to collect live data before any live money. Resolve when shadow-wired or declined with rationale.",
+   "resolved_at": "2026-06-01T13:40:00+00:00",
+   "resolved_by": "claude (regime study, continuation session)",
+   "resolution_note": "Both resolution criteria are MET as of 2026-06-01. (1) The strategy was committed standalone and tagged by regime via #2573: 348 trades over 5+ years at the live params (trend_lookback=40, the slightly faster variant of the sweep's robust tl=50), net +26.3 R, long-led (+35L / -9S), maxDD 14.8 R — consistent with the original walk-forward's OOS magnitude (+22.4 R) and sign. Regime profile is decisive trend-continuation: trending +30.1 (own home), transitional +8.4, chop -12.2 (loser, same shape as fvg — gate it out of chop in the router). (2) The strategy is already wired live in shadow per config/strategies.yaml::htf_pullback_trend_2h (`execution: shadow`, routed to bybit_1 demo only, with the live params trend_lookback=40, pullback_frac=0.5, trail_mult=5.0). The next step (live-money graduation) is the regime-router work (PERF-20260601-002) — htf_pullback joins the policy table with two rows (long ON in trending/transitional, both off in chop) per docs/research/regime-router-design-2026-06-01.md. Updated regime matrix doc + router-design policy table accordingly.",
+   "snoozed_until": null
+  },
+  {
+   "id": "PERF-20260601-001",
+   "opened_at": "2026-06-01T08:50:00+00:00",
+   "opened_by": "claude (demotion review)",
+   "source": "Demotion-evidence pull (issues #2537/#2539): per-strategy live closed-trade PnL from the synced trade_journal.db.",
+   "title": "trend_donchian live record is 0% win / 19 trades / -198R despite being the research-BEST strategy — almost certainly an execution/monitor bug, not a dead edge",
+   "description": "While gathering demotion evidence, trend_donchian (the program's strongest backtested edge: +43R 1h walk-forward, the shadow A/B trend_donchian_1h just validated) shows a LIVE record of 19 closed trades, 0 wins, net -198R (bybit_1 demo -196.87; real-money bybit_2 -1.56/4). A 0% win rate on the research-best strategy is a red flag for an EXECUTION/exit problem, not edge failure. Candidate causes to investigate: (a) the Chandelier ATR trail exit not being applied in the live order_monitor (every trade SL-hits before the trail can run), (b) the TP-sentinel / TP-distance issues tracked in PB-20260527-001 / PB-20260528-001, (c) flip-churn before FLIP_POLICY=hold shipped 2026-05-31 (check whether the losses pre-date the flip-policy default flip). Do NOT demote trend_donchian on this — it is the roster's edge; fix the execution. Cross-ref: the 1h shadow A/B (trend_donchian_1h) and mes_trend_long_1d both reuse the same trend unit and backtest strongly, which isolates the problem to the LIVE execution/monitor path of the 2h instance.\n\n[2026-06-01 INVESTIGATION RESULT] Root-caused via the synced journal (issues #2542-#2547). NOT a dead edge and NOT a broken exit path: (a) reconciler_filled is the normal way a linear-perp exchange-side exit is journaled — fade (7/15 winners) and ict_scalp (8/11, +340) execute + win through the identical path; (b) the Chandelier trail DOES ratchet the live stop (squeeze 35/83 packages, trend_donchian 13/38). The 0%-win is substantially REGIME — trend_donchian + squeeze are breakout strategies and BTC ranged for the ~1-month live window (the channels logged are all ranges), so every breakout whipsawed. Two real execution bugs AMPLIFY it: (1) a re-entry storm — the open-package gate only blocks while a package is OPEN, so when one closes mid-bar the strategy re-fires within the same bar (9 packages in ~1h on a 2h strategy 2026-06-01), and the intent layer then no-ops the duplicate, flooding the journal with intent_noop rejection rows (969 for vwap, 106 squeeze) that skew per-strategy stats; (2) high orphan rates (trend 58%, vwap 63%, squeeze 29%, ict_scalp 31%) — positions open in DB then go flat on the exchange without a clean fill record. Fix (1) shipped as the bar-close debounce (this PR: _same_bar_entry_for_strategy in strategy_monocle.py + the pipeline gate). Fix (2) (orphan-rate root cause) tracked separately in health-review-backlog BL-20260601-001.",
+   "tier": 3,
+   "trigger_condition": "Next /performance-review or /health-review window; or a focused order_monitor investigation of trend_donchian's live exits.",
+   "resolution_criteria": "Re-entry storm eliminated (no >1 package per closed bar per strategy+symbol; intent_noop rejection rows drop sharply) after the bar-debounce deploys; and a fresh net-positive trend_donchian window once BTC trends again confirms the edge survives live. The orphan-rate half is BL-20260601-001.",
+   "status": "in_progress",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null,
+   "snoozed_until": null,
+   "evidence_log": [
+    "2026-06-01 (/performance-review): WINDOW EVIDENCE (thin, trades pull truncated to today ~12-16Z): trend_donchian shows 1 exchange_rejected (id 2062, entry 72381), 1 reconciler_filled-closed (id 2063, pnl not yet computed), 1 open (id 2064) + an orphaned MES package (pkg-0b8b1586, conf 0.392). The exchange_rejected + reconciler_filled + orphan pattern is consistent with the EXECUTION-FRICTION hypothesis (not a dead edge). Mitigations now live that should help: FLIP_POLICY=hold (#2451, 5/31) addresses cause (c) flip-churn; trend_donchian is now long-only (#2570) + retuned 1h/trail5.0 (#2554). STILL NEEDS: a clean look at the Chandelier ATR trail in the live order_monitor (cause a) over a post-5/31 window with enough closed fills - the 19-trade -198R sample predates these fixes and was ~all bybit_1 demo.",
+    {
+     "at": "2026-06-04T05:30:00+00:00",
+     "by": "claude (/performance-review)",
+     "note": "2026-06-04 /performance-review: PROGRESS evidence. M13 recent-closes (insights_history #2731) shows trend_donchian SHORTS now closing POSITIVE: trade 2064 +$6.95 + 2056 +$0.80 (both reconciler_filled, bybit), plus 1772/1766 $0.00 and 1732 -$0.49 — i.e. NOT 0% win anymore. Supports the thesis that the prior 0%-win/-198R record was the orphan/exit-attribution defect (health BL-20260601-001), not a bad entry edge. Regime-router remains the real fix; keep in_progress."
+    }
+   ]
+  },
+  {
+   "id": "PERF-20260601-002",
+   "opened_at": "2026-06-01T11:00:00+00:00",
+   "opened_by": "claude (regime study)",
+   "source": "Regime-aware-routing initiative (operator 2026-06-01: complementarity across REGIMES). Relays #2557-#2559; handoff docs/research/session-handoff-2026-06-01.md.",
+   "title": "Regime x strategy x direction matrix (roster) + regime router + the trend_donchian long-only-vs-chop-gated-short decision",
+   "description": "Flagship done: trend_donchian (gated, live 1h/trail5.0) long side = trend edge (+47R, wins trending/transitional); short side only works in chop (+16R chop, -52R trending/transitional) — BTC uptrend punishes trend-shorts. CRITICAL reconciliation: the research's BTC +43.8R OOS was over-optimistic (engine omitted the live min_confidence=0.30 gate -> -53R; gated +11R full / -6R OOS on fresh Bybit perp 1h; residual gap = data, research used a deleted /tmp/btc5m.csv 5m source). NEXT: build the same regime x direction matrix for fade/squeeze/fvg/vwap/htf/mes via each harness's --emit-trades hook driven with EXACT live params, then (a) decide trend_donchian long-only vs chop-gated-short, (b) re-promotion criteria for demoted squeeze/fade, (c) design the regime router (intent-layer weighting/gate keyed to detected regime; building blocks: existing ADX gates + regime-classifier-baseline-v0 shadow model). Tooling: scripts/research/regime_matrix.py + gated backtest_trend.py; data data/btc_1h_multiyear.csv on trainer (re-fetch via the ccxt loop if gone).",
+   "tier": 3,
+   "status": "open",
+   "trigger_condition": "Next session continues the broadened regime study.",
+   "resolution_criteria": "Full roster regime x direction matrix produced; long-vs-short/regime configs decided together; regime-router design proposed.",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": "2026-06-01 progress: full BTC roster matrix produced with exact live params (docs/research/regime-roster-matrix-2026-06-01.md). trend +10.9 (long +47/short -37), fade +19.4 (chop), squeeze +17.6 (every regime, low DD), fvg -16.9 (loser), htf_pullback_trend_2h +26.3 (trending-long +30, loses chop, added 2026-06-01 via #2573 once scripts/backtest_pullback.py committed), vwap -10,724 (live-gated, 40,650 trades, gross +3,399 / fees -14,123 — loser every regime; added 2026-06-01 via #2575+#2579 once src/backtest/run_backtest_vwap.py shipped the four exit-side gate CLI flags + BE ratchet). Matrix is now decision-grade for the ENTIRE roster — every strategy has a cell value, no permissive (`on`) defaults remaining. 3 Tier-3 proposals (trend long-only vs chop-gated-short; squeeze/fade re-promotion criteria; regime-router design) in the doc; decision-1 (trend long-only) SHIPPED+DEPLOYED 2026-06-01 (#2570); decision-2 (squeeze re-promotion) pre-approved + gated as PERF-20260601-005; decision-3 (router) design delivered, phase-1 build awaiting operator review of docs/research/regime-router-design-2026-06-01.md open questions. The router policy table is now complete: vwap is off in every regime (loudest gate — net -10,724 R), fvg off in every regime, trend short ON only in chop, htf_pullback long ON in trending/transitional, fade ON in chop, squeeze ON everywhere, trend long ON everywhere.",
+   "snoozed_until": null
+  },
+  {
+   "id": "PERF-20260601-003",
+   "opened_at": "2026-06-01T12:10:00+00:00",
+   "opened_by": "claude (regime study)",
+   "source": "Roster regime matrix (PERF-20260601-002). docs/research/regime-roster-matrix-2026-06-01.md.",
+   "title": "Re-run vwap regime matrix with its LIVE selectivity params (not bare --no-htf)",
+   "description": "The 2026-06-01 vwap regime run used bare --no-htf => 10188 trades / -3749 R, i.e. the unfiltered VWAP-touch strategy (~11 trades/day vs the live cadence). Thread the live selectivity gates (recent_context_filter 1h/24-bar, threshold 0.01, min_r_for_vwap_cross, be_at_r) into src/backtest/run_backtest_vwap.py (it exposes --entry-threshold etc.) so the trade count matches live, then re-tag with regime_tag_emitted.py. Until then vwap's regime profile is not decision-grade.",
+   "tier": 1,
+   "status": "resolved",
+   "trigger_condition": "Before vwap joins the decision-grade roster matrix / router policy table.",
+   "resolved_at": "2026-06-01T15:00:00+00:00",
+   "resolved_by": "claude (regime study, continuation session)",
+   "resolution_note": "Resolved on the multiyear 5m archive (data/backtest_BTCUSDT_5m.csv, 647,585 bars, 2020-03 -> 2026-05) via the detached-runner relay pattern (#2575 kick-off / #2579 result; the synchronous follow-up #2576 was killed by an SSH-pipe drop at ~6min but the setsid+nohup runner was unaffected). The harness now threads the four LIVE EXIT-SIDE gates (config 51a18e8 + e367495's branch HEAD): four new CLI flags (--min-r-for-vwap-cross, --min-hold-minutes-for-vwap-cross, --be-at-r, --be-offset-bps) + a BE ratchet in _simulate_trade + _vwap_cross_gates_allow() mirroring the live vwap._vwap_cross_gates_pass. Defaults preserve v1 behaviour. SCOPE NOTE: recent_context_filter was intentionally NOT threaded — per config/strategies.yaml line 369 and src/runtime/strategy_signal_builders.py line 631 it is 'Informational only - does not block entries'; the starter-prompt's framing of it as a selectivity filter was inaccurate. The three exit-side gates are the actual live difference. RESULT: 40,650 trades over 6+ years, gross +3,399 R, fees -14,123 R, NET -10,724 R, win rate 49.8% (the high WR is the BE-ratchet locking in many sub-fee small wins). Per-regime: trending -6,179 (long -2,970 / short -3,209), transitional -1,903, chop -2,642 — exp ~ -0.26 R/trade in every regime. The gates DO work on the gross side (the unfiltered run was gross-negative too); the failure mode they target ('VWAP drifted to price') was real and they fix it. But the BE ratchet exits sooner via BE-stop hits, the cooldown shortens, trade count rises (~18/day gated vs ~11/day unfiltered), the fee per trade is unchanged, and the fee:gross ratio of ~4.2x swamps the strategy edge. Confirms docs/audits/vwap-viability-verdict-2026-05-23.md ('vwap has no net-of-fee edge') on the full multiyear window with the precise live-gate path. Matrix row + structural read updated; router policy table now gates vwap off in EVERY regime (long+short, all three regimes) — same shape as fvg but ~600x the magnitude. Matrix is now decision-grade for every roster strategy.",
+   "snoozed_until": null
+  },
+  {
+   "id": "PERF-20260601-004",
+   "opened_at": "2026-06-01T12:10:00+00:00",
+   "opened_by": "claude (regime study)",
+   "source": "Roster regime matrix (PERF-20260601-002).",
+   "title": "Commit/port a standalone htf_pullback harness so htf_pullback_trend_2h joins the regime matrix",
+   "description": "htf_pullback_trend_2h has no committed standalone backtest harness (the overnight backtest_pullback.py was never committed). Port it (run_backtest(df,*,...) + --emit-trades writing the shared JSONL schema) driven with the live params (trend_lookback 40, pullback_lookback 10, pullback_frac 0.5, trail 5.0), then add its regime x direction row.",
+   "tier": 1,
+   "status": "resolved",
+   "trigger_condition": "To complete roster coverage for the regime router policy table.",
+   "resolved_at": "2026-06-01T13:40:00+00:00",
+   "resolved_by": "claude (regime study, continuation session)",
+   "resolution_note": "Committed scripts/backtest_pullback.py mirroring scripts/backtest_trend.py's shape: pullback entry from src/units/strategies/htf_pullback_trend_2h.order_package (Donchian-midline trend filter + close in lower/upper pullback_frac of the recent pullback_lookback range + confirmation bar) + shared Chandelier ATR trail (SL-first intrabar, no fixed TP), live-parity confidence (trend depth / ATR), --emit-trades writes the shared per-trade JSONL schema. Defaults are the live params (trend_lookback 40, pullback_lookback 10, pullback_frac 0.5, atr_period 14, atr_stop_mult 2.5, trail_mult 5.0). Trainer relay #2573 ran it against data/btc_1h_multiyear.csv resampled to 2h, 23,730 bars 2021-2026-06: 348 trades, net +26.3 R, 32.8% WR, long-led (+35L / -9S), maxDD 14.8 R. Per-regime: trending +30.1 (long +30.1 / short -0.05), transitional +8.4 (long +12.7 / short -4.3), chop -12.2 (long -7.9 / short -4.3). Decisive trend-continuation profile: owns trending long, loses chop both sides (same shape as fvg — should be off in chop in the router). Row added to docs/research/regime-roster-matrix-2026-06-01.md; policy table in docs/research/regime-router-design-2026-06-01.md updated with two new strategy rows (htf_pullback long ON in trending/transitional, both off in chop). Confirms PERF-20260531-002's walk-forward (IS +32.7 / OOS +22.4 at tl=50; +26.3 here at the live tl=40 over the full window).",
+   "snoozed_until": null
+  },
+  {
+   "id": "PERF-20260601-005",
+   "opened_at": "2026-06-01T12:40:00+00:00",
+   "opened_by": "claude (regime study)",
+   "source": "Roster regime matrix (PERF-20260601-002) + operator decision 2026-06-01 (re-promote squeeze, gated on debounce verify).",
+   "title": "Re-promote squeeze_breakout_4h shadow->live [Tier-3, operator-PRE-APPROVED, gated on debounce verification]",
+   "description": "Operator approved (2026-06-01) re-promoting squeeze_breakout_4h to execution:live — it is the strongest roster re-promotion candidate: +17.6 R multiyear, net-positive in EVERY regime (trending +5.1/transitional +1.6/chop +10.9), lowest DD (7.9 R), long-biased. It was demoted on a single ranging-month live read compounded by the re-entry storm that #2548 (bar-close debounce) fixed. GATING PREREQUISITE (do NOT promote until met): verify #2548 reduced the orphan/intent_noop/same-bar re-entry rate vs the pre-#2548 baseline (BL-20260601-001). As of 2026-06-01 12:40 UTC there is only ~2.6h of post-#2548 data (deployed 09:59 UTC) — INSUFFICIENT; needs a multi-day window before the before/after is meaningful. Once verified: (1) confirm accrued squeeze SHADOW net-R since demotion doesn't contradict the +17.6 backtest, (2) re-check monthly-corr to the live roster stays additive (hist ~0.30), (3) flip execution: shadow->live in config/strategies.yaml at current risk_pct, open Tier-3 PR, operator merges + pull-and-deploy. fade_breakout_4h is NOT in this item (held for the router/chop-gating given its 30 R DD).",
+   "tier": 3,
+   "status": "open",
+   "trigger_condition": "After the post-#2548 (deployed 2026-06-01 09:59 UTC) live window accrues enough data (multi-day) to verify the orphan/intent_noop/re-entry rate dropped (BL-20260601-001). A /health-review or /performance-review with that window triggers it.",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null,
+   "snoozed_until": null,
+   "evidence_log": [
+    "2026-06-01 (/performance-review): DEBOUNCE CONFIRMED FIRING but soak still too short. Live audit shows bar_debounce_blocked events (today's #2548 is live, deployed 09:59Z) deduping same-bar mes_trend_long_1d re-entry attempts. However the before/after orphan/intent_noop-rate comparison needs a MULTI-DAY post-#2548 window; only ~9h of post-deploy data as of this review. HOLD the squeeze re-promotion until a multi-day window lets the orphan-rate delta be measured (BL-20260601-001). Pre-approved but gated."
+   ]
+  },
+  {
+   "id": "PERF-20260601-006",
+   "opened_at": "2026-06-01T16:30:00+00:00",
+   "opened_by": "claude (regime-router phase 2 ship)",
+   "source": "Regime router phase 2 (PR #2583) shipped the shadow log. Phase 3 turns the OFF cells into hard gates.",
+   "title": "Regime router phase 3 — turn shadow OFF cells into hard gates [Tier-3, operator-approved]",
+   "description": "Phases 1+2 of the regime router are live (PRs #2582, #2583). Phase 2 emits `event=regime_shadow_gate` audit rows with `enforced: false` for every OFF-cell intent the policy table (config/regime_policy.yaml) WOULD suppress; the aggregator's decision is unchanged. Phase 3 is the operator-approved Tier-3 step that turns the OFF cells into hard gates inside aggregate_intents(), behind a single `REGIME_ROUTER_ENABLED` env-var with a one-flag rollback. Pre-conditions before opening the PR: (1) accrue at least a week of live shadow data (~7 days); (2) pull /api/diag/audit filtered to event=regime_shadow_gate, count per (strategy, regime, side); (3) cross-reference with the actual fills + closed PnL of those same intents — confirm the would-gate decisions correlate with the matrix's net-negative cells (vwap OFF everywhere, fvg OFF chop, trend-short OFF trending+transitional, htf_pullback OFF chop). If the live shadow data CONTRADICTS the matrix's verdict for any cell (e.g. vwap actually earned in trending despite the matrix saying -6,179 R), pause and re-investigate before turning the gate on. Implementation: in src/runtime/intents.py::aggregate_intents, drop OFF-cell candidates from `candidates` before the rest of the logic AND emit `event=regime_hard_gate` with `enforced: true`. Hidden behind `os.environ.get('REGIME_ROUTER_ENABLED', '0')` — operator flips the env on the live VM via set-env operator action; rollback is one env flip + restart. Tests: every existing phase-2 test extended with an `enabled` parameter that exercises both the log-only (current) and hard-gate (phase-3) code paths.",
+   "tier": 3,
+   "status": "open",
+   "trigger_condition": "After >= 7 days of post-#2583 live data accumulate enough regime_shadow_gate rows to cross-check the policy table against actual fills.",
+   "resolution_criteria": "Operator approves the phase-3 PR after the cross-check confirms the matrix's verdict on live data; the env flag flips ON on the live VM; trader restarts cleanly; the next batch of `regime_hard_gate` audit rows (with enforced: true) shows suppressed dispatches in the expected cells; no regression in the on-cell strategies' fill rate.",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null,
+   "snoozed_until": null,
+   "evidence_log": [
+    "2026-06-01 (/performance-review, operator decision): OPTION 2 CHOSEN. Operator accepted the regime-roster MATRIX as sufficient evidence to proceed to phase-3 hard gates (behind REGIME_ROUTER_ENABLED, one-flag rollback) rather than manufacturing live OFF-cell intents to grow the shadow soak (Option 1 explicitly rejected — it would mean placing -EV trades just to generate logging). RATIONALE confirmed in code: _shadow_regime_gate (intents.py:676) runs over ALL candidate intents BEFORE execution:shadow is resolved (multi_account_execute), so the would-gate stream IS accumulating — but it is dominated by vwap (execution:shadow), where a hard gate is REDUNDANT; no LIVE strategy currently sits in an OFF cell (trend_donchian + mes are long-only, long cells ON). So phase-3 gates are ~a no-op on today's live PnL and only bite once a two-sided strategy is re-promoted (e.g. squeeze PERF-20260601-005, or reclaiming trend's chop-short via a policy cell). PRE-CONDITION before flipping the flag: PERF-20260601-008 base-rate check must pass (live regime distribution ~= matrix base rates) — a detector/data mismatch would gate the wrong cells. Ongoing gate firing+performance monitoring tracked in PERF-20260601-011."
+   ]
+  },
+  {
+   "id": "PERF-20260601-007",
+   "opened_at": "2026-06-01T16:30:00+00:00",
+   "opened_by": "claude (regime-router phase 2 ship)",
+   "source": "Regime router design doc § 5.4. Phase 4 is the soft-weight graduation after hard gates prove out.",
+   "title": "Regime router phase 4 — graduate to soft weights + classifier-v0 detector [Tier-3]",
+   "description": "Phase 4 (the design doc's last step): once phase-3 hard gates have demonstrated lift in production for >= a few weeks, graduate the policy from binary on/off to soft confidence weights (numeric cells like 0.5 / 1.0 / 1.5 multiply intent.confidence before priority resolution). The phase-2 evaluator already parses `weight: N.N` cells and routes them as permissive with a tagged reason — phase 4 wires the multiplier in. Also: validate `regime-classifier-baseline-v0` (the shadow regime model in the registry) against ADX-14 on the same per-tick stream; if its predictions correlate >0.85 with ADX-14 and add value at the regime boundaries (the 18.5-22.5 ADX hysteresis zone the design doc Q4 flagged), swap the detector source from 'adx-14' to 'classifier-v0' in src/runtime/regime/detector.py (the audit-row `regime_source` field already supports this; consumer is forward-compatible).",
+   "tier": 3,
+   "status": "open",
+   "trigger_condition": "After phase-3 hard gates have been live for >= 2-3 weeks with measurable lift; OR when the ML lifecycle promotes regime-classifier-baseline-v0 past shadow.",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null,
+   "snoozed_until": null
+  },
+  {
+   "id": "PERF-20260601-008",
+   "opened_at": "2026-06-01T16:30:00+00:00",
+   "opened_by": "claude (regime-router phase 2 ship)",
+   "source": "PR #2582 (phase 1) and PR #2583 (phase 2) ship observability that needs verification against the matrix base rates on LIVE data before phase 3.",
+   "title": "Verify regime router phase 1+2 live deploy — base-rate match + shadow row volume [Tier-1]",
+   "description": "After PR #2583 deploys, the trader emits two new audit fields on every `*_eval` row (`regime`, `adx_14`, `regime_source`) and a new `regime_shadow_gate` event for every OFF-cell intent. Verify against the matrix's expected base rates: pull /api/diag/audit?limit=2000 across a 24-48h window after deploy, group by strategy + regime, confirm the distribution matches the matrix (BTC 1h: chop ~30% / transitional ~19% / trending ~51%; BTC 5m: chop ~35% / transitional ~20% / trending ~45%). If a strategy's regime distribution diverges from the matrix by >5 percentage points in any bucket, investigate (could be candles-fetch mismatch, detector bug, or a regime shift in BTC since the matrix was measured). Cross-tab the regime_shadow_gate event counts against the matrix's OFF cells — vwap should dominate the shadow rows (it fires on every 5m bar regardless of regime; OFF in all 3 regimes). Tier-1 (autonomous diag pulls + arithmetic; no live-path change). Resolution: a short note in docs/research/ or a backlog comment that the live regime stream matches the matrix; gate PERF-20260601-006 (phase 3) on this passing.",
+   "tier": 1,
+   "status": "open",
+   "trigger_condition": "After PR #2583 deploys to the live VM and 24-48h of post-deploy audit data accumulates.",
+   "resolution_criteria": "Live regime distribution matches the matrix's base rates within ±5 percentage points per bucket per strategy; regime_shadow_gate event volume is consistent with the OFF-cell coverage (vwap dominant, fvg + htf_pullback + trend-short in matching regimes).",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null,
+   "snoozed_until": null,
+   "evidence_log": [
+    "2026-06-01 (/performance-review): EXECUTED (phase-1 leg DONE; base-rate leg needs more time). Pulled live audit post-deploy (sha 4a8594d, contains #2582+#2583): 119/119 *_eval rows carry regime/adx_14/regime_source (100% stamping), ADX 15-32, regimes {trending,transitional,chop} all present and sane. PHASE-2 NUANCE: 0 regime_shadow_gate events have fired yet -> CORRECT, not a bug: under the current roster (vwap/fade/squeeze=execution:shadow, trend/mes=long-only) no actionable directional intent has hit an OFF cell. So phase-2 may accrue little/no would-gate evidence until the roster posture changes -> the phase-3 (PERF-20260601-006) evidence base could be thin. The >24-48h per-strategy base-rate-vs-matrix grouping is still pending (deploy was today). Keep open for the base-rate leg.",
+    "2026-06-01 (/performance-review, gate-firing verification): LOGIC CHAIN CONFIRMED end-to-end; live-emitted row still pending a qualifying signal. (1) Phase-1 stamping live across 4 windows (17:19/18:55/19:40Z + 19:01 snapshot), 119/119 eval rows carry regime+adx_14+regime_source. (2) On the DEPLOYED code, load_policy() returns the POPULATED table (chop/transitional/trending) — NOT the empty-permissive fallback — and would_gate gives the exact-correct verdicts for the shipped table: vwap-long gated in all 3 regimes; trend_donchian-short gated trending+transitional / ON in chop; trend_donchian-long never gated. (3) The in-process aggregator emission test (test_aggregate_intents_regime_shadow.py) passes: it emits regime_shadow_gate on an OFF-cell intent AND leaves the decision unchanged (log-only). So the only UNobserved link is a live-emitted gate row on the VM. ROOT CAUSE it's unobserved (NOT a bug): (a) the /api/diag/log_file (and audit) endpoint is BYTE-CAPPED at ~414KB ~= the last ~15 min of the busy audit log regardless of the lines= param, so the 12-16Z vwap storm is UNREACHABLE via the diag tail; (b) in every reachable post-deploy window vwap (the only live OFF-cell source under the long-only/shadow roster) is side:none — the market has been quiet for OFF-cell strategies since phase-2 deployed. So a live gate row will appear the next time vwap (or a re-promoted two-sided strategy) fires an actionable intent in a sampled window; recurring PERF-20260601-011 owns that catch. BASE-RATE leg also constrained by the ~15-min byte cap (can't pull a multi-hour distribution at once) — accumulate per-review samples; this window was trending-heavy (late-evening BTC).",
+    {
+     "at": "2026-06-04T05:30:00+00:00",
+     "by": "claude (/performance-review)",
+     "note": "2026-06-04 /performance-review: regime stamping CONFIRMED live — ict_scalp_5m order package pkg-cb3e57bea56c44cb (trade 2428) signal_logic carries regime:'trending', adx_14:29.7323, regime_source:'adx-14'. Base-rate/shadow-volume cross-check still pending a busier window; phase-1/2 stamping is live."
+    }
+   ]
+  },
+  {
+   "id": "PERF-20260601-009",
+   "opened_at": "2026-06-01T16:45:00+00:00",
+   "opened_by": "claude (session-end, operator-deferred design-doc Q3)",
+   "source": "docs/research/regime-router-design-2026-06-01.md § 6 Q3 — operator deferred the long_only retire decision to a phase-3 follow-up (\"leave that for now\").",
+   "title": "Retire the trend_donchian long_only flag once the regime router policy table subsumes it [Tier-3, follow-up to phase 3]",
+   "description": "trend_donchian's `long_only: true` flag in config/strategies.yaml was shipped as #2570 (2026-06-01) as a simple, robust win that dropped the strategy's -37 R short drag. The regime router's policy table independently mirrors the same constraint: trend_donchian.short is OFF in trending+transitional (the regimes where the -52 R loss concentrates) and ON in chop (the +16 R chop-short edge). Once phase 3 (PERF-20260601-006) is live and the table is enforcing those gates, the strategy-level long_only flag becomes redundant — both flags would be saying the same thing in trending/transitional, AND the table is the ONLY way to recover the chop-short edge. The cleanup is: flip `long_only: false` (or remove the field entirely) on trend_donchian in config/strategies.yaml AND remove the `_short_suppressed_long_only` branch in src/units/strategies/trend_donchian.py / strategy_signal_builders.py. The router policy table will then be the single source of truth for trend_donchian's direction gating. Operator's instruction 2026-06-01: \"leave that for now\" — keep long_only as defense-in-depth until phase 3 proves out the policy-table enforcement. Mechanical risk if NOT cleaned up after phase 3: when an operator-approved exception manually flips a cell in regime_policy.yaml (e.g. enable trend_donchian chop-short in some future regime study), the YAML-level long_only flag will silently override and suppress that intent — a confusing footgun.",
+   "tier": 3,
+   "status": "open",
+   "trigger_condition": "After PERF-20260601-006 (regime router phase 3 hard gates) has been live for >= 1-2 weeks with no regression in trend_donchian's fill rate or PnL.",
+   "resolution_criteria": "config/strategies.yaml::trend_donchian no longer carries `long_only: true`; the `short_suppressed_long_only` branch is removed from the signal builder; the existing test_trend_donchian_long_only.py is either deleted or rewritten to verify the SAME behaviour is produced via the regime router policy table cells. Operator-approved Tier-3 PR.",
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null,
+   "snoozed_until": null
+  },
+  {
+   "id": "PERF-20260601-010",
+   "opened_at": "2026-06-01T19:30:00+00:00",
+   "opened_by": "claude (/performance-review)",
+   "source": "/performance-review 2026-06-01 — order_packages pull showed vwap AND htf_pullback_trend_2h emitting confidence=1.0 on every package.",
+   "title": "Degenerate signal confidence: vwap + htf_pullback_trend_2h emit confidence=1.0 on EVERY order package — carries no information for gating/sizing/ML",
+   "description": "In the 2026-06-01 window every vwap (17/17) and htf_pullback_trend_2h (2/2) order package carried confidence=1.0 exactly, while trend_donchian emitted a genuine graded value (0.392). A confidence hard-pinned at 1.0 is degenerate: it can't drive a min-confidence floor, can't size by conviction, and feeds the shadow ML models (setup_quality etc.) a constant feature. Likely the signal builders for these two strategies set confidence=1.0 as a placeholder rather than computing it from setup strength (e.g. vwap: distance-in-sigma from the band; htf: pullback depth / trend strength). NOT a live-capital bug today (vwap+htf are execution:shadow) but it (a) blunts any future min-confidence gate, (b) pollutes the ML feature, (c) makes per-decision grading rely on geometry alone. CHECK src/runtime/strategy_signal_builders.py for the vwap + htf confidence assignment.",
+   "tier": 3,
+   "trigger_condition": "Next /performance-review; or when wiring a min-confidence floor or confidence-weighted sizing for vwap/htf; or when reviewing ML feature quality.",
+   "resolution_criteria": "vwap and htf_pullback_trend_2h order packages carry a confidence that VARIES with setup strength (not a constant 1.0); OR it's confirmed by-design that these strategies don't expose a graded confidence and the placeholder is documented + excluded from ML features.",
+   "status": "open",
+   "snoozed_until": null,
+   "evidence_log": [
+    {
+     "at": "2026-06-04T05:30:00+00:00",
+     "by": "claude (/performance-review)",
+     "note": "2026-06-04 /performance-review: RE-CONFIRMED. All 18 in-window vwap order_packages (06-04 01:02-05:06Z, issue #2730) carry confidence=1.0 verbatim (signal_logic 'confidence':1.0). ict_scalp_5m by contrast emits a genuine 0.7764. vwap confidence remains a hardcoded constant, unusable for sizing/ranking. Still open."
+    }
+   ]
+  },
+  {
+   "id": "PERF-20260601-011",
+   "opened_at": "2026-06-01T19:45:00+00:00",
+   "opened_by": "claude (/performance-review, operator request)",
+   "source": "Operator 2026-06-01: after choosing Option 2 for the regime router, asked to log that the gates need to be tested periodically and their performance monitored — folded into the strategy review as a recurring check.",
+   "title": "RECURRING (every /performance-review): test the regime-router gates fire correctly + monitor gate performance",
+   "description": "Standing check the strategy review runs each pass, in two layers. (1) FIRING CORRECTNESS (phase 2+): pull a window where actionable directional intents fired (e.g. a vwap-active period) and confirm regime_shadow_gate events appear with the EXPECTED (strategy, side, regime, cell) per config/regime_policy.yaml + the regime-roster matrix, enforced:false in phase 2. Confirm the would-gate counts are sane (not zero when OFF-cell intents clearly fired; not gating ON-cell or unlisted strategies). NOTE the gate is event-driven on actionable intents, so a quiet window legitimately shows few/none — sample a busy window. (2) GATE PERFORMANCE: tally would-gate counts per (strategy, regime, side) vs ACTUAL fills, and once phase 3 is live (REGIME_ROUTER_ENABLED) verify the hard gates (a) are actually suppressing the OFF-cell intents they should, (b) are NOT suppressing winners — cross-check the regime-tagged decisions' realized PnL by regime against the matrix's expected sign, and flag any OFF cell that would have been net-POSITIVE live (regime shift since the matrix was measured) or any ON cell bleeding. Escalate a divergence >5pp on base rates (-> PERF-20260601-008) or a sign-flip on any cell as a tweak proposal / new backlog item.",
+   "tier": 1,
+   "trigger_condition": "EVERY /performance-review run (recurring; do not close on a single clean pass).",
+   "resolution_criteria": "RECURRING — never auto-resolves. Stays open as a standing checklist item; only closed if the regime router is retired. Each review appends a dated firing+performance reading to the evidence_log and raises a tweak/backlog item on any divergence.",
+   "status": "open",
+   "snoozed_until": null,
+   "evidence_log": [
+    "2026-06-01 (opened): baseline reading — phase 1 stamping live (119/119 eval rows carry regime/adx_14); phase 2 deployed log-only; firing-correctness spot-check still PENDING (the two audit windows sampled this session, 17:19Z + 18:55Z, did NOT overlap the 12-16Z vwap-active window, so regime_shadow_gate count was not positively confirmed yet). Next review: pull a vwap-active window and confirm the OFF-cell events fire as designed.",
+    {
+     "at": "2026-06-04T05:30:00+00:00",
+     "by": "claude (/performance-review)",
+     "note": "2026-06-04 /performance-review: quiet window — live roster fired only 1 actionable signal (ict_scalp_5m short, trade 2428); no OFF-cell intent fired, so no regime-gate suppression event to observe this run (consistent with prior reviews). Recurring watch continues."
+    }
+   ]
+  }
+ ],
+ "updated_at": "2026-06-04T05:30:00+00:00"
 }

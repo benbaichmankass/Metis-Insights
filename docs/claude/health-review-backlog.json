@@ -454,8 +454,11 @@
    "trigger_condition": "Any /health-review run; or whenever a deploy of a docs/comms-only commit is observed to bounce the live trader, or a vm-web-api-recover dispatch is webhook-dropped.",
    "resolution_criteria": "PRIMARY: deploy_pull_restart.sh (or the git-sync path) skips the ict-trader-live restart when the pulled diff touches no runtime path (docs/comms-only) — verify a docs-only commit deploys without a trader uptime reset. SECONDARY: ict-web-api gets a VM-side auto-restart-on-unhealthy guard (systemd watchdog/timer probing local :8001 /api/health) so the read surface self-heals without a webhook-dependent dispatch. Both are Tier-2 deploy/runtime changes; not editable from /health-review — surface to the operator.",
    "triage_note": "2026-05-29T19:40Z /health-review: RECURRED AGAIN this review, both gaps. (1) A docs/comms-only commit (d4e4a0c, HEAD at 19:28:42Z) was pulled by ict-git-sync and ran the full deploy_pull_restart — status #2375 shows the live trader bounced to bot_uptime_s=31 at 19:35:46Z (git_sha d4e4a0c) and web-api was down 19:29-19:35Z. The first 7 diag pulls of this review (#2367-2371) failed during that window and 4 rapid re-fires (#2378-2381) webhook-dropped (BL-20260527-001 batching). (2) vm-web-api-recover #2373 FAILED (wrapper exit 1) — it ran mid-bounce: restart_web_api.sh saw ict-web-api stop-sigterm time out (SIGKILL at 19:32:57) then a slow uvicorn boot, so its /api/health probe got curl-7 connection-refused for ~60s and gave up; the service self-recovered by 19:35. Net: ~6 min read-surface blind + 1 unnecessary failed recover, no real trading outage, all self-healed. This is now the 2nd consecutive review (cf. the in-description 09:45Z event) where a non-runtime commit bounced the money-path trader — the PRIMARY gap (gate trader restart on whether the diff touches runtime paths) is worth prioritising with the operator. | 2026-06-01 /health-review: REPRODUCED A 3RD TIME. status pull (issue #2585, captured 16:57:17Z) shows bot_uptime_s=341 (~5.7 min → restart ~16:51:36Z) on git_sha=f91aa32, which is the 2026-06-01 'night session-end' DOCS-ONLY commit (#2584). So a documentation-only commit again ran the full deploy_pull_restart and bounced the live trader. The trader recovered healthy (heartbeat 'running' age 107s, last_tick 16:56:58Z, all 9 strategies loaded, no crashloop). Persistent low-grade trading/read-surface interruption on every docs commit; PRIMARY gap (gate the restart on runtime-path diffs) still the priority Tier-2 fix for the operator.",
-   "status": "open",
-   "snoozed_until": null
+   "status": "resolved",
+   "snoozed_until": null,
+   "resolved_at": "2026-06-04T06:25:00+00:00",
+   "resolved_by": "claude (/health-review — Rina, retroactive close)",
+   "resolution_note": "FIXED + DEPLOYED — the item was stale-open. PR #2595 (commit 4a8594d, 2026-06-01 21:21Z, a later same-day /health-review session) added the runtime-path gate to scripts/deploy_pull_restart.sh (lines ~142-181): it diffs PRE_SYNC_HEAD..POST_SYNC_HEAD and, when every changed path matches the safe set ^(docs/|tests/|\\.claude/|[^/]+\\.md$), SKIPS dependency-install + unit-refresh + service restart (exit 0) — so a docs/backlog/sprint-log commit no longer bounces the live trader. Fail-safe: empty/uncomputable diff OR any other path (src/ ml/ config/ deploy/ scripts/ comms/ requirements*/pyproject) falls through to the normal restart; DEPLOY_FORCE_RESTART=1 overrides. Confirmed in deployed HEAD e97991f (git merge-base --is-ancestor 4a8594d e97991f = true). The 2026-06-01 'reproduced 3rd time' triage note (16:57Z) predates the 21:21Z fix. This review's 04:39Z trader restart had git_sha UNCHANGED (not a deploy) — consistent with the gate. The PRIMARY gap is closed. SECONDARY gap (web-api has no VM-side self-heal; the GitHub vm-web-api-recover dispatch is webhook-flaky) is NOT addressed by #2595 — re-logging it as BL-20260604-003 so it isn't lost."
   },
   {
    "id": "BL-20260529-003",
@@ -516,7 +519,14 @@
    "trigger_condition": "Next /health-review: pull journal?table=insights_history (endpoint=health) and /api/bot/health/latest (or services for the snapshot writer's timer if one exists) — confirm whether artifacts/health/latest.json has a recent generated_at. If still 2026-05-11, the snapshot writer is dead.",
    "resolution_criteria": "Root-caused WHY the health-snapshot writer stopped on 2026-05-11 (timer disabled? unit removed in a refactor? path moved under the OCI data-dir migration? cron never re-enabled after a deploy?), then either revived so artifacts/health/latest.json updates on cadence (M13 health insight grades on current data) OR the M13 health endpoint is repointed at a live source so it stops surfacing an 18-day-old snapshot as 'concern'.",
    "status": "open",
-   "snoozed_until": null
+   "snoozed_until": null,
+   "check_log": [
+    {
+     "at": "2026-06-04T07:20:00+00:00",
+     "by": "claude (/health-review — Rina)",
+     "note": "FIX BUILT (PR #2728, branch claude/rina-health-strategy-review-9zqy1) — pending operator merge + deploy + verify. ROOT CAUSE confirmed: the 2026-05-12 health-snapshot.yml refactor deleted the JSON producer (scripts/run_health_check.py) and turned the cron into a passive artifact-collector; nothing has written the VM's artifacts/health/{latest.json,health_check_*.json} since, so /api/bot/health/latest + the M13 health card serve the 2026-05-11-frozen snapshot (verified live this review: insights_history id 4560 @05:12Z grades concern off ts 2026-05-11, age ~2.06Ms). FIX: (1) scripts/write_health_snapshot.py revives the JSON writer — calls src.runtime.health.run_all_checks() and writes latest.json + health_check_<TS>.json + health_snapshot.txt via artifacts_dir() (same resolver the API reads); (2) deploy/ict-health-snapshot.{service,timer} runs it every 15 min, auto-enabled by install_systemd_units.sh; (3) the data-dir.conf drop-in is wired in install_systemd_units.sh so the writer runs with DATA_DIR=/data/bot-data — same as ict-web-api — avoiding the 2026-05-12 writer/reader path-split; (4) src/runtime/insights/template_analyst.py::health_template now grades on the checks themselves (concern only on a CRITICAL check; warn/stale -> watch; all-ok+fresh -> good) instead of the trade-centric _grade() that pinned a no-trades window to watch and screamed concern on any non-ok. Tests: tests/test_write_health_snapshot.py (9, incl. a round-trip proving a healthy snapshot -> green M13 card) + 11 existing template-analyst tests still green; ruff clean. NOTE: the revived suite is the current 7-point src/runtime/health.py set (service/git_drift/git_fetch/tick/accounts_api/db/disk), not the deleted suite's 11 names — the card will show 7 checks. POST-DEPLOY VERIFY: pull journal?table=insights_history (endpoint=health) — snapshot ts should advance to ~now and grade flip off the stale concern; then mark resolved."
+    }
+   ]
   },
   {
    "id": "BL-20260529-006",
@@ -542,7 +552,7 @@
    "status": "open",
    "trigger_condition": "After the bar-debounce deploys (removes the re-entry-storm contributor), re-measure orphan rates; then root-cause the residual orphans with a live order-placement + Bybit get_closed_pnl trace for one fresh derivatives dispatch.",
    "resolution_criteria": "Orphan rate materially reduced and/or derivatives orphans get their realised PnL attributed (reconciler_filled with pnl) instead of orphaned-with-null-pnl. Per-strategy stats stop being polluted by phantom/orphan rows.",
-   "triage_note": "2026-06-01 /health-review: re-measured post bar-debounce (the audit tail now carries bar_debounce_blocked events, so the re-entry-storm contributor is deployed). order_packages pull (issue #2593, limit=40, 20 salvaged before the 55KB truncation): 18/20 recent packages still ORPHANED — but ALL are SHADOW strategies (16 vwap + 2 htf_pullback_trend_2h), i.e. data-only logging clutter, NOT a real-money position stranded. SL+TP present on all 20. The LIVE-path orphan concern (a real position going DB-open/exchange-flat with null pnl) was NOT exercised this quiet window — turtle_soup/trend_donchian(LONG-ONLY)/ict_scalp_5m all eval'd side=none, no live dispatch. So the residual orphans are dominated by shadow vwap (consistent with the 917/1460≈63% vwap rate in the original audit); the derivatives-PnL-attribution root-cause (order_monitor._classify_orphan_close) remains the open Tier-2 dev item. Graded health-review 'orders: watch'.",
+   "triage_note": "2026-06-01 /health-review: re-measured post bar-debounce (the audit tail now carries bar_debounce_blocked events, so the re-entry-storm contributor is deployed). order_packages pull (issue #2593, limit=40, 20 salvaged before the 55KB truncation): 18/20 recent packages still ORPHANED — but ALL are SHADOW strategies (16 vwap + 2 htf_pullback_trend_2h), i.e. data-only logging clutter, NOT a real-money position stranded. SL+TP present on all 20. The LIVE-path orphan concern (a real position going DB-open/exchange-flat with null pnl) was NOT exercised this quiet window — turtle_soup/trend_donchian(LONG-ONLY)/ict_scalp_5m all eval'd side=none, no live dispatch. So the residual orphans are dominated by shadow vwap (consistent with the 917/1460≈63% vwap rate in the original audit); the derivatives-PnL-attribution root-cause (order_monitor._classify_orphan_close) remains the open Tier-2 dev item. Graded health-review 'orders: watch'. | 2026-06-04 /health-review: SAME PATTERN. order_packages pull (snapshot?limit=15, issue #2726): 13/15 recent packages ORPHANED, ALL vwap (shadow, BTCUSDT, ltid=null) — data-only clutter. The 2 non-orphan rows are the live path working cleanly: a fresh ict_scalp_5m SHORT package (05:06:12Z) linked_trade_id=2428 status=open, and 1 closed vwap. SL+TP present on all 15. This review DID exercise the live path (ict_scalp_5m dispatched real-money trade 2428 on bybit_2, size 0.001 is_demo=0, correctly journaled + linked — no orphan). So the live-path orphan concern is still unexercised by a STRANDED real position; residual orphans remain shadow-vwap. Graded 'orders: watch'. Tier-2 derivatives-PnL-attribution dev item still open.",
    "resolved_at": null,
    "resolved_by": null,
    "resolution_note": null
@@ -572,11 +582,11 @@
    "tier": 1,
    "trigger_condition": "Next /health-review compliance-audit rotation hitting docs/claude/ (Wednesday slot per the schedule in .claude/skills/health-review/SKILL.md § Compliance audit rotation).",
    "resolution_criteria": "docs/claude/system-actions.md explicitly names sync-vm-secrets.yml as the canonical broker-credential propagation path and tags rotate-account-keys as the legacy Bybit-only path that will be migrated. A fresh Claude reading the doc end-to-end picks the right workflow without needing to cross-reference the skill files.",
-   "status": "open",
+   "status": "resolved",
    "snoozed_until": null,
-   "resolved_at": null,
-   "resolved_by": null,
-   "resolution_note": null
+   "resolved_at": "2026-06-04T05:20:00+00:00",
+   "resolved_by": "claude (/health-review)",
+   "resolution_note": "Fixed this review (Tier-1 doc). Added a 'Canonical path note (2026-06-02)' callout to the rotate-account-keys carve-out in docs/claude/system-actions.md § 3 (the credential-rotation discussion): names .github/workflows/sync-vm-secrets.yml as the canonical broker-credential propagation path (REQUIRED_SECRETS+OPTIONAL_SECRETS, SSH SendEnv, value never in run log), tags rotate-account-keys as the legacy Bybit-only path pending a migration PR, and points at the credentials-and-vm-mutations skill. A fresh Claude reading the doc now picks sync-vm-secrets for a new broker. (Drained one rotation slot early — trigger said Wednesday/docs-claude, but it's a bounded Tier-1 doc fix so done now.)"
   },
   {
    "id": "BL-20260603-001",
@@ -609,7 +619,55 @@
    "resolved_at": null,
    "resolved_by": null,
    "resolution_note": null
+  },
+  {
+   "id": "BL-20260604-001",
+   "opened_at": "2026-06-04T05:20:00+00:00",
+   "opened_by": "claude (/health-review compliance-audit rotation — Thursday/config slot)",
+   "source": "Thursday config/ compliance-audit rotation (per .claude/skills/health-review/SKILL.md). Bright-line scan of config/*.yaml + config/*.json against before-asking-the-operator + credentials-and-vm-mutations.",
+   "title": "config/accounts.yaml Tradovate hookup checklist (steps 2-4) attributes credential-propagation + VM CLI runs to the operator, routing around sync-vm-secrets.yml",
+   "description": "The tradovate_demo_1 'Hookup checklist (operator)' comment block (config/accounts.yaml ~L414-441, added in the 2026-06-02 Tradovate session) violates the current autonomy canon in three steps: (Step 2) 'Add the seven required env vars to GitHub Actions secrets AND to the live-trader systemd EnvironmentFile (the systemd unit picks them up on restart)' — the operator originates the secret VALUES (Actions secrets) but PROPAGATION to the VM .env/EnvironmentFile is NOT operator work; it's .github/workflows/sync-vm-secrets.yml's job (the canonical broker-credential propagation path, which already declares TRADOVATE_* in its secret set). Hand-editing the systemd EnvironmentFile is the bright-line 'on the VM, edit' pattern credentials-and-vm-mutations forbids. (Steps 3-4) 'Run `python -m src.units.accounts.tradovate.cli.list_accounts` on the VM' + 'Run the smoke test on the VM' — running a CLI on the live VM is runner-dispatchable (a system-action or a diag/trainer-style relay), not operator-attributed manual SSH work. Net: a fresh Claude reading this checklist would anchor on operator-does-VM-work precedent — exactly the failure mode the new skills prevent. HARMLESS to trading (the account is mode:dry_run, dry-run-guard:allow, inert phase-1). config/accounts.yaml is Tier-3 (operator-only) so /health-review cannot edit it.",
+   "tier": 3,
+   "trigger_condition": "Any /health-review run; or whenever a Tier-3 PR touches config/accounts.yaml (e.g. the Tradovate go-live) and the checklist can be rewritten in the same diff.",
+   "resolution_criteria": "The tradovate_demo_1 hookup checklist in config/accounts.yaml is rewritten so: step 2 says the operator adds the seven TRADOVATE_* VALUES to Actions secrets and then `sync-vm-secrets.yml` propagates them to the VM .env (no manual EnvironmentFile edit); steps 3-4's on-VM CLI runs are framed as Claude-dispatched (system-action / relay) rather than operator-attributed manual SSH. A fresh Claude reading it does not infer operator-does-VM-work. Operator-approved Tier-3 edit.",
+   "status": "open",
+   "snoozed_until": null,
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null
+  },
+  {
+   "id": "BL-20260604-002",
+   "opened_at": "2026-06-04T05:30:00+00:00",
+   "opened_by": "claude (/performance-review)",
+   "source": "Rina performance-review 2026-06-04 — the perf-review skill's documented pulls (/api/bot/trades/closed, /api/bot/order-packages, /api/bot/performance, /api/bot/insights/*) are unreachable from a relay-only session.",
+   "title": "vm-diag-snapshot relay hardcodes /api/diag/ — perf-review's /api/bot/{performance,trades/closed,insights/*} pulls are unreachable from a Trusted-network (relay-only) session",
+   "description": ".github/workflows/vm-diag-snapshot.yml strips a leading /api/diag/ (line ~134) and curls a hardcoded 'http://127.0.0.1:8001/api/diag/<path>' (line ~185), so the relay can ONLY hit /api/diag/* endpoints. The performance-review SKILL.md § 'Fetching trade data' documents pulling /api/bot/trades/closed?since=&limit=500, /api/bot/order-packages?since=, /api/bot/performance?window=, and /api/bot/insights/{summary,recent,strategy,health} — NONE of which the relay can reach. A relay-only (default Trusted-network) review session therefore cannot get the clean windowed aggregates (/api/bot/performance) or the closed-trade list (/api/bot/trades/closed); it must fall back to /api/diag/journal?table=trades (reject-dominated, 55KB-truncated ~46 rows) + /api/diag/journal?table=insights_history (the M13 'recent' card, which DOES surface the last-20 closed trades — the practical workaround this review used). Net: per-strategy realized-PnL aggregation is hampered relay-only. Fix options: (a) extend vm-diag-snapshot.yml to allow an /api/bot/ prefix passthrough for the read-only GET aggregate endpoints (performance, trades/closed, order-packages); or (b) add /api/diag/performance + /api/diag/trades_closed mirrors; or (c) document insights_history as the canonical relay-only closed-trade source in the perf-review skill. Mirrors the BL-20260529-004 insights-relay-reach fix (which added insights_history/insights_usage to _JOURNAL_TABLES).",
+   "tier": 1,
+   "trigger_condition": "Any /performance-review or /health-review run from a relay-only session that needs /api/bot/ aggregate data; or next time someone extends the diag relay.",
+   "resolution_criteria": "Either the vm-diag relay can return /api/bot/performance + /api/bot/trades/closed (passthrough or /api/diag mirror), verified by a relay pull; OR the perf-review SKILL.md is updated to use the relay-reachable substitutes (journal?table=trades + insights_history) as the canonical relay-only path so a future session doesn't assume the /api/bot/ pulls work.",
+   "status": "open",
+   "snoozed_until": null,
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null
+  },
+  {
+   "id": "BL-20260604-003",
+   "opened_at": "2026-06-04T06:25:00+00:00",
+   "opened_by": "claude (/health-review — Rina, split from BL-20260529-002 close)",
+   "source": "Closing BL-20260529-002 (deploy-restart gate fixed by #2595). Its SECONDARY gap is unaddressed and should not be lost on the close.",
+   "title": "ict-web-api has no VM-side self-heal; the only autonomous recover lever (GitHub vm-web-api-recover) is webhook-flaky exactly when needed",
+   "description": "BL-20260529-002's PRIMARY gap (docs-commit trader bounce) was fixed by PR #2595. Its SECONDARY gap remains: ict-web-api.service has no on-VM auto-restart-on-unhealthy guard, and the only autonomous recovery path (the GitHub-dispatched vm-web-api-recover workflow) is subject to the issues.opened webhook batch-drop (BL-20260527-001) precisely during a deploy bounce when the read surface is down — observed 2026-05-29 (#2297/#2299/#2300 all dropped) and the #2373 recover that ran mid-bounce failed. With the PRIMARY gap closed the read-surface blind windows are now rarer (docs commits no longer bounce anything), but a genuine web-api crash still has no VM-side self-heal. Fix: add a systemd watchdog/timer (mirror ict-liveness-watchdog / ict-ib-gateway-watchdog) that probes local 127.0.0.1:8001/api/health every ~2 min and restarts ict-web-api.service on N consecutive failures, with restart-cap + cooldown so a genuine crashloop alert-escalates rather than loops. Removes the webhook dependency for read-surface recovery.",
+   "tier": 2,
+   "trigger_condition": "Any /health-review run; or next time a vm-web-api-recover dispatch is webhook-dropped or ict-web-api is observed down with no autonomous recovery.",
+   "resolution_criteria": "ict-web-api gets a VM-side auto-restart-on-unhealthy guard (systemd timer probing local /api/health) that self-heals the read surface without a webhook-dependent GitHub dispatch; verified by inducing/observing one web-api outage that the watchdog recovers autonomously. Tier-2 deploy/runtime change — operator-approved PR.",
+   "status": "open",
+   "snoozed_until": null,
+   "resolved_at": null,
+   "resolved_by": null,
+   "resolution_note": null
   }
  ],
- "updated_at": "2026-06-03T14:30:00+00:00"
+ "updated_at": "2026-06-04T07:20:00+00:00"
 }

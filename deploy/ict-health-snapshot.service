@@ -1,0 +1,48 @@
+# ============================================
+# ICT HEALTH SNAPSHOT SYSTEMD SERVICE
+# Runs scripts/write_health_snapshot.py once per timer fire.
+#
+# Triggered by ict-health-snapshot.timer (every ~15 min on the live VM).
+# Calls src.runtime.health.run_all_checks() and writes the snapshot
+# artifacts the dashboard + M13 analyst read:
+#   <artifacts>/health/{latest.json, health_check_<TS>.json, health_snapshot.txt}
+# served by /api/bot/health/{latest,history,snapshot} and consumed by the
+# M13 `health` insight card.
+#
+# Revives the JSON producer deleted in the 2026-05-12 health-snapshot
+# refactor — without it the dashboard's health card has shown a permanent
+# FALSE "concern" off a 2026-05-11-frozen snapshot. See health-review
+# backlog BL-20260529-005.
+#
+# DATA_DIR: this unit MUST resolve artifacts_dir() to the SAME root as
+# ict-web-api (the reader). The install_systemd_units.sh-managed drop-in
+# /etc/systemd/system/ict-health-snapshot.service.d/data-dir.conf
+# (deploy/dropins/data-dir.conf) sets DATA_DIR=/data/bot-data. Without it
+# the writer emits to <repo>/artifacts while the API reads
+# /data/bot-data/artifacts — the path-split that caused the 2026-05-12
+# stale-data incident.
+#
+# Save to: /etc/systemd/system/ict-health-snapshot.service
+# (installed automatically by scripts/install_systemd_units.sh during
+#  deploy_pull_restart.sh)
+# ============================================
+
+[Unit]
+Description=ICT Trading Bot — Health Snapshot writer (artifacts/health for dashboard + M13)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+# Load the trader .env (operator overrides). DATA_DIR is supplied by the
+# data-dir.conf drop-in (same as ict-web-api/trader/bridge) so the writer
+# and the API resolve artifacts_dir() to the identical path.
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
+ExecStart=/usr/bin/python3 -u scripts/write_health_snapshot.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
