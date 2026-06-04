@@ -411,32 +411,37 @@ accounts:
   #   * tradovate_account_id: 0      — execute._submit_order refuses
   #                                    when 0/unset.
   #
-  # Hookup checklist (operator):
-  #   1. Sign up for the Tradovate free 14-day demo and create an
-  #      API app at trader.tradovate.com → Settings → API Access.
-  #      Grab the `cid` + `secret`.
-  #   2. Add the seven required env vars to GitHub Actions secrets
-  #      AND to the live-trader systemd EnvironmentFile (the systemd
-  #      unit picks them up on restart, no code change needed):
-  #        TRADOVATE_USERNAME
-  #        TRADOVATE_PASSWORD
-  #        TRADOVATE_APP_ID
-  #        TRADOVATE_APP_VERSION
-  #        TRADOVATE_CID
-  #        TRADOVATE_SECRET
+  # Hookup checklist (autonomy contract: operator ORIGINATES secret
+  # values only; Claude does the propagation + VM runs via workflows —
+  # see the `credentials-and-vm-mutations` + `before-asking-the-operator`
+  # skills. Do NOT hand-edit the VM .env / EnvironmentFile or SSH in.):
+  #   1. [operator] Sign up for the Tradovate free 14-day demo and create
+  #      an API app at trader.tradovate.com → Settings → API Access; grab
+  #      the `cid` + `secret`.
+  #   2. [operator originates values; Claude propagates] Put the seven
+  #      TRADOVATE_* VALUES into the GitHub Actions secrets (Claude can
+  #      pre-create the empty slots via the `init-actions-secrets`
+  #      workflow). Propagation to the live-trader `.env` is then
+  #      `sync-vm-secrets.yml`'s job — its REQUIRED/OPTIONAL secret set
+  #      already declares the TRADOVATE_* names; Claude dispatches it. The
+  #      operator never edits the VM EnvironmentFile by hand.
+  #        TRADOVATE_USERNAME  TRADOVATE_PASSWORD  TRADOVATE_APP_ID
+  #        TRADOVATE_APP_VERSION  TRADOVATE_CID  TRADOVATE_SECRET
   #        TRADOVATE_DEVICE_ID
-  #   3. Run `python -m src.units.accounts.tradovate.cli.list_accounts`
-  #      on the VM to discover the numeric simulation account id;
-  #      paste it into `tradovate_account_id` below.
-  #   4. Run the smoke test on the VM:
+  #   3. [Claude] Discover the numeric simulation account id by dispatching
+  #      `python -m src.units.accounts.tradovate.cli.list_accounts` on the
+  #      VM through the diag/system-action relay (not a manual SSH); record
+  #      it in `tradovate_account_id` below via a Tier-3 PR.
+  #   4. [Claude] Run the smoke test the same way (relay-dispatched, not
+  #      manual SSH):
   #        python -m src.units.accounts.tradovate.examples.smoke_test_demo \
   #            --symbol MESM6 --with-quotes
   #      Expect: authed=true, accounts_found>0, quote_seen=true.
-  #   5. Decide which strategies to assign (Tier-3) and add them to
-  #      `strategies:` once the operator approves a per-strategy
-  #      symbol-routing override (currently MES routes to ib_paper;
-  #      adding it here triggers a tie-break decision).
-  #   6. Promote `mode: dry_run` → `mode: live` via the
+  #   5. [operator-approved Tier-3] Decide which strategies to assign and
+  #      add them to `strategies:` once the operator approves a per-strategy
+  #      symbol-routing override (currently MES routes to ib_paper; adding
+  #      it here triggers a tie-break decision).
+  #   6. [operator action] Promote `mode: dry_run` → `mode: live` via the
   #      `set-account-mode` operator action only after steps 1-5 are
   #      complete and a paper trade is verified end-to-end.
   #
