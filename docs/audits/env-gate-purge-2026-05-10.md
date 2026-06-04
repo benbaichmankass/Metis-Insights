@@ -67,6 +67,42 @@ pattern with weaker semantics. So:
 The CI lint is the long-term enforcement; the doc + tests are the
 audit's record of the existing state.
 
+## New annotated survivor — `REGIME_BAR_SCORING_DISABLED` (S-MLOPT-S13, 2026-06-04)
+
+A third `os.environ.get` read matching the suspect pattern now lives
+under a protected path:
+
+* `src/runtime/regime_bar_scoring.py` —
+  `regime_bar_scoring_enabled()` reads `REGIME_BAR_SCORING_DISABLED`.
+
+It is registered here per the contract enforced by
+`tests/test_env_gate_survivors_no_risk_bypass.py::test_no_new_protected_env_gates_in_runtime`
+and `scripts/check_env_gate_in_diff.py` (inline `# allow-silent:`
+on the read line + audit-doc entry).
+
+**Why it is a legitimate survivor (matches the pattern, inverts the
+risk class):**
+
+* It is a **kill-switch, not a capability gate** — default **on**
+  (the env var is read as `*_DISABLED`; unset → scoring runs). The
+  BUG-039 risk class is a default-**off** `*_ENABLED` flag silently
+  *stranding* a capability (the MES-stranding pattern); a default-on
+  `*_DISABLED` switch cannot strand anything — omitting it keeps the
+  feature live.
+* It gates an **observe-only** path. `emit_regime_bar_predictions`
+  only calls `ShadowPredictor.predict` (appends to
+  `runtime_logs/shadow_predictions.jsonl`); there is **no** code path
+  from it to an order package, `RiskManager.evaluate/approve`, or the
+  live/dry decision. The per-account `RiskManager.dry_run` flag
+  remains the sole live/dry switch.
+* Its purpose is operability: let the operator disable the per-bar
+  shadow-logging path on the live VM without a redeploy if it ever
+  misbehaves (mirrors `SIGNAL_DUAL_WRITE_DISABLED`).
+
+So the survivor count is now **three** — two live-order-path
+reconciliation/dispatch gates (below) plus this observe-only
+shadow-logging kill-switch.
+
 ## Phase-1 PR scope (this DRAFT)
 
 * `docs/audits/env-gate-purge-2026-05-10.md` (this file).
