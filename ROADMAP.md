@@ -1,7 +1,8 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-06-03 (M14 ML-Optimization Program: S0 roadmap +
-> S1 purged & embargoed walk-forward CV done).
+> **Last Updated:** 2026-06-04 (M14 ML-Optimization Program: Phase 0 (S0–S4)
+> + Phase 1 (S5–S8) + Phase 2 "better features" (S9–S12) all shipped; S9
+> range-vol promoted to shadow on BTC; S13 per-bar regime scoring next).
 >
 > **This file is the single source of milestone + sprint state** — every
 > milestone and sprint, its status (done / in-progress / not-started), and
