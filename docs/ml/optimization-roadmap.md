@@ -514,6 +514,16 @@ model.
   purged WF-CV A/B vs the LightGBM head (`eval_split_compare.py`, the leak-free comparator) is the
   follow-up — per the dissent, the HMM is kept only if it adds OOS edge; a negative is an acceptable,
   documented outcome (as S11 was).
+- **A/B result (#2784, 2026-06-04) — honest NEGATIVE.** Purged WF-CV on BTC 1h (n_eval=21,900,
+  5 folds): the HMM loses to `btc-regime-1h-lgbm-v2` on `macro_f1` (0.5675 vs **0.6537**, −0.086)
+  and `f1_volatile` (0.2688 vs **0.5010**, −0.232). The HMM's accuracy is higher (0.778 vs 0.725)
+  only because it rarely commits to volatile (precision_volatile 0.495 but **recall_volatile 0.189**
+  vs the LightGBM head's 0.636) — the filtered (honest, no-smoothing) posterior lags regime
+  transitions, so it under-detects the very class it exists for. **Not promoted; manifest stays
+  research_only;** the HMM family infra stands as reusable tooling. The discipline did its job — the
+  holdout looked respectable (and smoothing would have flattered it further) but the leak-free CV
+  correctly rejects it. Side benefit: the run reconfirmed the LightGBM head's real leak-free
+  strength (macro_f1 0.654 / f1_volatile 0.501) — the phase-4 detector candidate for S15.
 
 ### Session 3.3 — Regime-router phase-4 detector *(ties to MB-20260601-002; Tier-2/3)*
 - **Deliverable:** when the regime router's phase-4 is taken up, wire the best

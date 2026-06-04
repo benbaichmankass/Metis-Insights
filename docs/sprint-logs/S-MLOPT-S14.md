@@ -110,9 +110,34 @@
   only if the purged-CV A/B shows OOS edge over the LightGBM head.
 - Blockers: none for the Tier-1 tooling.
 
+## A/B Result (trainer-VM #2784, 2026-06-04) — honest NEGATIVE
+Purged WF-CV on BTC 1h (`market_features` v002, n_eval=21,900, 5 folds):
+
+| Metric | HMM (`btc-regime-1h-hmm-v1`) | LightGBM (`btc-regime-1h-lgbm-v2`) | Δ (HMM − LGBM) |
+|---|---|---|---|
+| macro_f1 | 0.5675 | **0.6537** | −0.0862 |
+| f1_volatile | 0.2688 | **0.5010** | −0.2322 |
+| accuracy | **0.7776** | 0.7246 | +0.0530 |
+| precision_volatile | 0.4951 | 0.4199 | +0.0752 |
+| recall_volatile | 0.1888 | **0.6357** | −0.4469 |
+| weighted_f1 | 0.7378 | 0.7415 | −0.0037 |
+
+The HMM **does not beat** the LightGBM head — it loses decisively on `macro_f1`
+and `f1_volatile`. Its higher accuracy is an artifact of rarely committing to
+the volatile class (high precision, very low recall): the filtered (no-smoothing,
+causal) posterior lags regime transitions, so it under-detects volatility — the
+exact class the model exists for. **Decision: not promoted; manifest stays
+`research_only`.** The HMM family infra (trainer/predictor/tests) stands as
+reusable tooling (a feature-generator or a different-target experiment could
+revisit it). The discipline worked: the time-aware holdout looked respectable
+(macro_f1 0.541) and forward-backward smoothing would have flattered it further,
+but the leak-free purged CV correctly rejects it. The run also reconfirmed the
+LightGBM head's real leak-free strength (macro_f1 0.654 / f1_volatile 0.501) —
+the phase-4 detector candidate for S15.
+
 ## Deferred Items
-- Trainer-VM purged WF-CV A/B vs `btc-regime-1h-lgbm-v2` → follow-up (the
-  edge decision).
+- ~~Trainer-VM purged WF-CV A/B vs `btc-regime-1h-lgbm-v2`~~ **DONE (#2784,
+  negative — see above).**
 - 5m/15m/MES HMM A/B manifests → only if the 1h A/B is positive.
 - Live per-bar HMM scoring → depends on `MB-20260604-005` (feature parity) since
   the live regime row would need `yang_zhang_vol`.
