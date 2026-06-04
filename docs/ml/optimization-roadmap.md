@@ -394,9 +394,14 @@ proven ROI per hour after Phase 1. Caveat from the research: **microstructure al
   `builder_version v3 → v4`, **default-preserving** (omit the path → 0.0 columns, every
   existing build + non-crypto symbol unchanged; leakage-safe by construction). New manifest
   `btc-regime-1h-lgbm-funding-v1.yaml` (Tier-3, `research_only`) = a clean A/B vs the v2
-  champion. Opt-in daily-cycle wiring via `ICT_BUILD_FUNDING_OI=1` (default off). **The A/B
-  eval (funding-joined v4 rebuild → purged-CV f1_volatile delta vs v2) is the open step
-  (`MB-20260604-001`).** Mirrors the S9 shape exactly.
+  champion. Opt-in daily-cycle wiring via `ICT_BUILD_FUNDING_OI=1` (default off). **A/B eval
+  (#2745) NEGATIVE** — funding-v1 `f1_volatile` 0.4859 vs v2 0.5009 (−0.0150) under purged
+  WF-CV. The off-VM adapter works end-to-end, but Bybit's public **OI history retention is
+  ~8 days** (191 rows vs funding's full 5y 5460 rows), so the OI features were effectively
+  untested and the funding-rate features added noise not signal on the *volatility-regime*
+  label. Infra stands; manifest stays `research_only`. Follow-up levers (`MB-20260604-001`):
+  wire funding into `setup_candidates` (a decision target may suit it better) / a rolling
+  forward OI capture. Mirrors the S9 shape exactly.
 
 ### Session 2.4 — Cross-asset/macro for MES + wire `account_context` *(Tier-1 family; Tier-3 manifest)*
 - **Deliverable:** DXY / VIX-term-structure / rates conditioning features for MES; and wire

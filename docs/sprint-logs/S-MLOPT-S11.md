@@ -123,12 +123,22 @@ level is non-stationary and exchange-scale-dependent.
     computed**; emitted row keys == schema keys exactly. ✓
   - `ruff check` clean on all new/edited files; `bash -n` clean on the edited
     build script. ✓
-- **Trainer VM A/B — PENDING.** The funding A/B (`btc-regime-1h-lgbm-funding-v1`
-  vs `btc-regime-1h-lgbm-v2` under the Phase-0 purged WF-CV on a v4
-  funding-joined `market_features` rebuild) requires a Bybit funding/OI fetch on
-  the trainer (network + the off-VM guard). It is queued behind the S9 purged-CV
-  A/B job (the trainer-vm-diag relay serializes). Tracked in
-  `MB-20260604-001`; the headline f1_volatile delta lands there.
+- **Trainer VM A/B — DONE, honest NEGATIVE (#2745).** The off-VM Bybit V5
+  funding/OI adapter ran end-to-end on the trainer: `fetch_funding_oi` returned
+  **funding_rows=5460 (full 5y, 8h cadence)** but **open_interest_rows=191
+  (~8 days only — Bybit's public OI history retention is short)**. Rebuilt 1h
+  `market_features` v4 with the join; sanity check: the v2 champion on the
+  funding-joined dataset scores f1_volatile 0.5009 — *identical* to the
+  no-funding build, confirming v2 correctly ignores the funding columns.
+  **A/B (purged WF-CV, leak-free): `btc-regime-1h-lgbm-funding-v1` f1_volatile
+  0.4859 vs v2 0.5009 (−0.0150)**, macro_f1 −0.0029, accuracy +0.0070 →
+  funding/OI did NOT improve the regime head. HONEST READ: OI was effectively
+  untested (~8 days coverage → the OI columns are ~all-zero across the 5y
+  dataset), so only the funding-rate z-score/extreme features were really
+  exercised, and they added slight noise the booster overfit rather than signal
+  on the *volatility-regime* label. No promotion proposed; the manifest stays
+  `research_only`. The S11 infra (estimators + off-VM adapter + as-of join +
+  fetch CLI + opt-in build wiring) stands as reusable, leakage-safe tooling.
 
 ## Documentation Updated
 - `docs/data/dataset-taxonomy.md` (market_features funding/OI columns + the
@@ -142,11 +152,19 @@ level is non-stationary and exchange-scale-dependent.
   session — see S-MLOPT-S9 log; those are additive research_only manifests.)
 
 ## Risks and Follow-Ups
-- **A/B eval is the open step** (`MB-20260604-001`): does funding/OI add a
-  positive `f1_volatile` lift over the v2 champion under purged WF-CV? Until
-  measured, the manifest stays `research_only` — no claim of lift.
+- **A/B eval DONE — NEGATIVE** (`MB-20260604-001`, #2745): funding/OI did NOT add
+  an `f1_volatile` lift (−0.0150 vs v2 under purged WF-CV). The manifest stays
+  `research_only` — no claim of lift. **The OI half is the key blocker: Bybit's
+  public OI history retention is ~8 days, so the open-interest features were
+  effectively untested across the 5y dataset.** The funding-rate features (full
+  5y coverage) added noise, not signal, on the vol-regime label.
+- **Follow-up levers** (not pursued this session): (a) wire funding/OI into
+  `setup_candidates._feature_fields` — a momentum/positioning *decision* target
+  may suit funding better than the *volatility-regime* label; (b) a rolling
+  forward OI capture (accrue the OI history the public endpoint won't backfill);
+  (c) a different `funding_window_n`. Logged in `MB-20260604-001`.
 - **Microstructure alpha decays** (research caveat): if funding/OI earns
-  promotion, monitor it via the KS/PSI drift gate — don't assume permanence.
+  promotion later, monitor it via the KS/PSI drift gate — don't assume permanence.
 - **Funding/OI is crypto-perp-specific** — these columns are 0.0 for MES (no
   funding/OI side-stream), so the feature is BTCUSDT-only by nature.
 - **setup_candidates funding features** — the task allowed `market_features`
@@ -158,19 +176,20 @@ level is non-stationary and exchange-scale-dependent.
   promotion past `shadow` is operator-gated.
 
 ## Deferred Items
-- The trainer-VM funding/OI fetch + v4 rebuild + purged-CV A/B (queued; result
-  → `MB-20260604-001`).
-- `setup_candidates` funding/OI `_feature_fields` (decision-model side).
-- Auto-wiring funding/OI into the daily cycle by default (currently opt-in via
-  `ICT_BUILD_FUNDING_OI=1`) — revisit if/after the A/B is positive.
+- `setup_candidates` funding/OI `_feature_fields` (decision-model side) — the
+  funding A/B negative on the *vol-regime* label suggests funding may fit a
+  *decision* target better; a natural next lever.
+- A rolling forward OI capture (Bybit's public OI history is retention-limited to
+  ~8 days; accruing it forward would let the OI features be properly tested).
+- Auto-wiring funding/OI into the daily cycle by default stays OFF (opt-in via
+  `ICT_BUILD_FUNDING_OI=1`) — correct given the A/B negative.
 
 ## Next Recommended Sprint
-- Finish the S11 A/B (build the funding-joined v4 dataset, run the purged-CV
-  A/B), and if positive propose promotion + extend funding features to
-  `setup_candidates`. Otherwise document the negative and move to
-  **S-MLOPT-S12** (2.4 cross-asset/macro for MES + wire `account_context`), or
-  **S-MLOPT-S13** (3.1 per-bar regime scoring, Tier-2, the highest-leverage
-  regime unblock — `MB-20260529-001`).
+- The funding A/B landed negative (OI retention-limited); the S11 infra stands.
+  Move to **S-MLOPT-S12** (2.4 cross-asset/macro for MES + wire the unused
+  `account_context` family) or **S-MLOPT-S13** (3.1 per-bar regime scoring,
+  Tier-2 — the highest-leverage regime unblock, `MB-20260529-001`; also the gate
+  on promoting the S9 range-vol heads past `shadow`).
 
 ## Wrap-Up Check
 - [x] Code was inspected directly, not inferred only from summaries.
@@ -178,5 +197,8 @@ level is non-stationary and exchange-scale-dependent.
 - [x] No pipeline stage / live-path file touched; manifest is a Tier-3 proposal.
 - [x] Roadmap status checked + updated.
 - [x] Contradictions were recorded (none new).
-- [x] Remaining unknowns stated clearly (the trainer-VM A/B is PENDING; the
-      f1_volatile lift from funding/OI is unmeasured until `MB-20260604-001`).
+- [x] Remaining unknowns stated clearly: the trainer-VM A/B is DONE and NEGATIVE
+      (#2745, f1_volatile −0.0150); the OI half was effectively untested (Bybit
+      ~8-day OI retention); funding-rate features added noise on the vol-regime
+      label. Infra stands; manifest research_only; follow-up levers logged in
+      `MB-20260604-001`.

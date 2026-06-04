@@ -168,9 +168,26 @@ WF-CV, with the **largest lifts at 5m/15m** (where the volatile class is rarest
 and close-to-close vol is noisiest — exactly where a more-efficient range
 estimator should help most). So the promotion proposal extends: advance
 `btc-regime-{1h,5m,15m}-lgbm-yz-v1` `research_only → shadow` (Tier-3,
-operator-gated). **MES** 5m/15m yz A/B (needs the median-calibrated MES
-`market_features` rebuild) is the remaining trainer job — results appended to
-`MB-20260603-004`; only positive, leak-free heads are proposed for `shadow`.
+operator-gated).
+
+**MES 5m/15m purged WF-CV A/B (#2745, median-calibrated build) — MIXED, NOT a
+clean win:**
+
+| TF | metric | v2 | yz | Δ |
+|---|---|---|---|---|
+| MES 5m | f1_volatile | 0.7261 | 0.7305 | +0.0044 |
+| MES 5m | macro_f1 | 0.5507 | 0.5329 | **−0.0178** |
+| MES 15m | f1_volatile | 0.6889 | 0.7108 | +0.0219 |
+| MES 15m | macro_f1 | 0.5573 | 0.5294 | **−0.0279** |
+
+On MES the regime classes are **median-calibrated (~balanced)**, so the
+range-vol feature shifts the precision/recall tradeoff *toward* the volatile
+class (f1_volatile + accuracy up) at the *expense* of the range class →
+`macro_f1` drops. This is the opposite of BTC, where the heavy range-imbalance
+means lifting volatile costs the macro nothing. **So range-vol is a clean win on
+the imbalanced BTC heads but inconclusive on the balanced MES heads** — the MES
+yz manifests stay `research_only` and are NOT proposed for `shadow` (the macro_f1
+regression is the blocker). Honest mixed result; documented in `MB-20260603-004`.
 
 ## Documentation Updated
 - `docs/data/dataset-taxonomy.md` (market_features range-vol columns);
