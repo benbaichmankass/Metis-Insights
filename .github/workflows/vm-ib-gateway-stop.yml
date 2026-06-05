@@ -1,0 +1,189 @@
+name: vm-ib-gateway-stop
+
+# Autonomous "stop + diagnose" for the IB Gateway container on the live VM.
+#
+# Why this exists (distinct from vm-ib-gateway-recover.yml, which RESTARTS):
+#   When the ib-gateway container is UP but NOT logged in (IBC stuck in a
+#   login/exit-1112 loop), its API socket (4002) ACCEPTS connections and then
+#   HANGS on any authenticated request. That accept-then-hang is worse than a
+#   clean ConnectionRefused: it can stall the live trader's pipeline tick past
+#   the heartbeat window and trip the liveness-watchdog restart loop (incident
+#   2026-06-05). The known-good state for the trader is the gateway being
+#   fully DOWN — then IB connects fail fast and Bybit keeps trading.
+#
+#   This workflow:
+#     1. `sudo docker stop ib-gateway` — removes the accept-then-hang socket so
+#        the trader's IB connects fail fast (ConnectionRefused) and it recovers.
+#     2. `sudo systemctl disable --now ict-ib-gateway-watchdog.timer` — the
+#        MES auto-heal watchdog does `docker restart` on a wedged gateway, which
+#        would START the stopped container right back into the half-up state.
+#        Disable it so the gateway stays down until login is fixed + it is
+#        re-provisioned. (Reversible: enable --now to restore.)
+#     3. Greps the (persisted) container logs for the auth-failure reason so we
+#        learn WHY login fails (2FA / competing session / bad credentials)
+#        without a separate diagnostic round-trip.
+#
+# Blast radius: the ib-gateway container + its watchdog timer only. The live
+#   trader (ict-trader-live), Bybit/BTCUSDT, accounts.yaml, strategies.yaml,
+#   risk caps and order code are NOT touched. MES goes dark until the gateway
+#   is re-provisioned (provision-ib-gateway.yml) after the login cause is fixed.
+#
+# Trust contract mirrors vm-ib-gateway-recover.yml: fixed-form SSH, no freeform
+#   shell input, no edits, no deploys.
+#
+# Required repo secrets:  VM_SSH_KEY
+# Optional repo variables: VM_SSH_HOST (default 158.178.210.252), VM_SSH_USER (default ubuntu)
+#
+# To use from a sandbox session:
+#   mcp__github__issue_write(method='create',
+#       title='[ib-stop] stop ib-gateway + diagnose login',
+#       labels=['vm-ib-gateway-stop'],
+#       body='<reason — captured for audit>')
+# Then read the github-actions[bot] reply on the issue.
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why this run is happening (audit only)."
+        required: false
+        default: "manual operator dispatch"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vm-ib-gateway-stop
+  cancel-in-progress: false
+
+jobs:
+  stop:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'vm-ib-gateway-stop'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+    steps:
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset. Add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Stop ib-gateway + disable watchdog + diagnose
+        id: exec
+        run: |
+          set -euo pipefail
+          read -r -d '' REMOTE_SCRIPT <<'REMOTE' || true
+          set -uo pipefail
+          NAME=ib-gateway
+          command -v docker >/dev/null 2>&1 || { echo "docker not found"; exit 1; }
+
+          echo ">>> pre: $(sudo docker ps -a --filter name=^/${NAME}$ --format '{{.Status}}' || true)"
+
+          # Capture the auth-failure reason from the (still-present) logs BEFORE
+          # stopping, so a restart loop's root cause is visible. IBC never logs
+          # the password, so this is safe to surface.
+          echo "===== auth-relevant log lines (grep over full log, last 80) ====="
+          sudo docker logs "${NAME}" 2>&1 \
+            | grep -iE 'second[ -]?factor|2fa|authenticat|existing session|competing|already logged|login has completed|login failed|invalid|incorrect|password|denied|rejected|exit code|cannot connect|connection refused|no such|market data' \
+            | tail -80 || true
+
+          echo
+          echo ">>> stopping ${NAME}"
+          sudo docker stop "${NAME}" >/dev/null 2>&1 && echo "stopped=yes" || echo "stopped=no (already stopped or absent)"
+
+          echo ">>> disabling ict-ib-gateway-watchdog.timer (prevents auto docker-restart reviving the half-up gateway)"
+          sudo systemctl disable --now ict-ib-gateway-watchdog.timer 2>&1 || echo "watchdog disable: non-zero (may already be disabled)"
+          echo "watchdog_timer_state: $(systemctl is-enabled ict-ib-gateway-watchdog.timer 2>&1 || true) / $(systemctl is-active ict-ib-gateway-watchdog.timer 2>&1 || true)"
+
+          echo ">>> post: $(sudo docker ps -a --filter name=^/${NAME}$ --format '{{.Status}}' || true)"
+          echo ">>> port 4002 check (expect refused now):"
+          (exec 3<>/dev/tcp/127.0.0.1/4002) 2>/dev/null && { echo "4002=accepting (unexpected)"; exec 3>&- 3<&- 2>/dev/null || true; } || echo "4002=refused (good — trader IB connects now fail fast)"
+          REMOTE
+          set +e
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              "bash -s" <<<"$REMOTE_SCRIPT" \
+              > action-output.txt 2>&1
+          rc=$?
+          set -e
+          echo "exit_code=${rc}" >>"$GITHUB_OUTPUT"
+          echo ">>> Remote exit code: ${rc}"
+          if [ "$(wc -c <action-output.txt)" -gt 4000 ]; then
+            head -c 4000 action-output.txt; echo ""; echo "... (truncated; see issue comment)"
+          else
+            cat action-output.txt
+          fi
+          exit "${rc}"
+
+      - name: Upload action output
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-ib-gateway-stop-${{ github.run_id }}
+          path: action-output.txt
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Reply to issue with success
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('action-output.txt', 'utf8');
+            const MAX_BODY = 50_000;
+            const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const note = output.length > MAX_BODY ? `\n_(last ${MAX_BODY} of ${output.length} bytes)_\n` : '';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              body: `✅ **vm-ib-gateway-stop** completed.\nRun: ${runUrl}\nExit code: ${process.env.EXIT_CODE}\n` + note + `\n\`\`\`\n${tail}\n\`\`\``
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              state: 'closed', state_reason: 'completed'
+            });
+
+      - name: Reply to issue with failure
+        if: github.event_name == 'issues' && failure()
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            let output = '';
+            try { output = fs.readFileSync('action-output.txt', 'utf8'); } catch (_) { output = '(no output — failure before SSH ran)'; }
+            const MAX_BODY = 50_000;
+            const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              body: `❌ **vm-ib-gateway-stop failed.**\nRun: ${runUrl}\nExit code: ${process.env.EXIT_CODE || '(setup failed)'}\n\nCommon causes: VM_SSH_KEY unset; SSH unreachable; docker/systemctl perms.\n\n\`\`\`\n${tail}\n\`\`\``
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              state: 'closed', state_reason: 'not_planned'
+            });
