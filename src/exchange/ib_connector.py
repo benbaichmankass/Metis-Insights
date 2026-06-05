@@ -24,6 +24,7 @@ imports cleanly without the package installed.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Optional
 
 import pandas as pd
@@ -31,6 +32,23 @@ import pandas as pd
 from src.units.accounts.ib_client import DEFAULT_IB_HOST, IBClient, get_ib_client
 
 logger = logging.getLogger(__name__)
+
+# Hard wall-clock cap (seconds) on a single IB historical-data request.
+# WHY (2026-06-05 incident): a logged-out IB Gateway can ACCEPT the API
+# socket (so IBClient.connect() succeeds within its own timeout) yet never
+# return bars for reqHistoricalData — which, with no timeout, blocks the
+# caller indefinitely. The bot's pipeline fetches market data inline on the
+# single main-loop thread, so one hung IB fetch stalls the BTCUSDT/Bybit
+# tick AND starves the liveness heartbeat. Bounding reqHistoricalData keeps
+# a wedged/logged-out Gateway from ever blocking the live-money Bybit path:
+# on timeout ib_insync returns the (empty) bars it has, get_ohlcv returns
+# None, and fetch_candles degrades gracefully to its fallback. Override on
+# the VM via IB_FETCH_TIMEOUT_S without a redeploy.
+try:
+    _IB_FETCH_TIMEOUT_S = float(os.environ.get("IB_FETCH_TIMEOUT_S", "") or 8.0)
+except (TypeError, ValueError):
+    _IB_FETCH_TIMEOUT_S = 8.0
+
 
 # Map the bot's timeframe vocabulary to IB ``barSizeSetting`` strings.
 _BAR_SIZE = {
@@ -145,6 +163,11 @@ class IBMarketData:
             except Exception:  # noqa: BLE001
                 pass
             contract = self._client._build_contract(symbol)
+            # `timeout` is the hard cap that makes a logged-out/wedged
+            # Gateway unable to block the (single-threaded) trading loop —
+            # see _IB_FETCH_TIMEOUT_S above. On timeout ib_insync returns
+            # whatever bars arrived (typically none), which we treat as a
+            # graceful no-data result below.
             bars = ib.reqHistoricalData(
                 contract,
                 endDateTime="",
@@ -153,6 +176,7 @@ class IBMarketData:
                 whatToShow="TRADES",
                 useRTH=self.use_rth,
                 formatDate=2,
+                timeout=_IB_FETCH_TIMEOUT_S,
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning(

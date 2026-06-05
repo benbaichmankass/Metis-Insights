@@ -113,6 +113,8 @@ EXPECTED_ACTIONS = {
     # complete a tick + write a heartbeat. Symmetric pair.
     "pause-autoheal": "pause_autoheal.sh",
     "resume-autoheal": "resume_autoheal.sh",
+    # 2026-06-05 incident — diagnose + correct VM clock drift (NTP).
+    "sync-clock": "sync_clock.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -149,6 +151,7 @@ TIER_2_ACTIONS = {
     "scrub-env-noncompliant",
     "pause-autoheal",
     "resume-autoheal",
+    "sync-clock",
 }
 
 
