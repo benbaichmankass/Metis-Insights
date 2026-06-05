@@ -55,12 +55,43 @@ Hard rules respected (per CLAUDE.md):
 from __future__ import annotations
 
 import logging
+import os
 import threading
+import time
 from typing import Any, Callable, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_IB_HOST = "127.0.0.1"
+
+# ── IB-isolation guard rails (restart-loop incident, 2026-06-05) ────────────
+# A logged-out IB Gateway ACCEPTS the TCP socket (so ib.connect() returns
+# within its own timeout) but then never answers a single request —
+# accountSummary / portfolio / reqHistoricalData / status all hang with no
+# timeout. Because every IB method funnels through IBClient.connect(), and the
+# trader's main loop runs those synchronously, one wedged gateway used to hang
+# the WHOLE pipeline tick (incl. Bybit/BTCUSDT) AND starve the liveness
+# heartbeat → the watchdog autohealed in a perpetual restart loop. These bounds
+# keep IB fully isolated: connect() verifies the session with a hard-bounded
+# liveness probe and trips a per-endpoint circuit breaker so a dead gateway
+# fast-fails (raising IBConnectionError, which the executor/coordinator already
+# treat as "account not usable this tick") instead of blocking the loop.
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, "") or default)
+    except (TypeError, ValueError):
+        return default
+
+
+# Hard cap on the post-connect liveness probe (reqCurrentTime round-trip). A
+# healthy gateway answers in milliseconds; a logged-out one never answers, so
+# this is the bound that converts "hang forever" into "fail in N seconds".
+_IB_PROBE_TIMEOUT_S = _env_float("IB_PROBE_TIMEOUT_S", 5.0)
+# How long connect() fast-fails after a probe/connect failure before retrying
+# the gateway again. Long enough that a wedged gateway can't be hammered every
+# tick; short enough that a genuine recovery is picked up promptly.
+_IB_BREAKER_COOLDOWN_S = _env_float("IB_BREAKER_COOLDOWN_S", 120.0)
+
 # MES (CME) trades in 0.25 index-point ticks. SL/TP prices sent to IB
 # must be on the tick grid or the order is rejected.
 MES_TICK_SIZE = 0.25
@@ -191,6 +222,11 @@ class IBClient:
         self._ib: Any = None
         self._contract: Any = None
         self._loop: Any = None  # persistent asyncio loop the IB binds to
+        # Circuit-breaker state (restart-loop incident, 2026-06-05). While
+        # monotonic() < _breaker_open_until, connect() fast-fails without
+        # touching the socket, so a wedged gateway can't stall the loop.
+        self._breaker_open_until: float = 0.0
+        self._breaker_fail_count: int = 0
 
     # ------------------------------------------------------------------
     # Connection lifecycle
@@ -229,26 +265,136 @@ class IBClient:
         # 'MainThread'". _ensure_event_loop re-asserts THIS client's persistent
         # loop (the one the IB is bound to) so every downstream call resolves it.
         self._ensure_event_loop()
-        if self._ib is not None and self._is_connected(self._ib):
-            return self._ib
-        ib = self._new_ib()
-        try:
-            ib.connect(
-                self.host,
-                self.port,
-                clientId=self.client_id,
-                timeout=self.timeout,
-                readonly=self.readonly,
-            )
-        except Exception as exc:  # noqa: BLE001 — normalise every connect failure
+
+        # Circuit breaker: a recently-wedged gateway fast-fails here without
+        # touching the socket or issuing a request, so a logged-out IB Gateway
+        # can NEVER stall the trader loop (incl. Bybit) — see the module-level
+        # guard-rails note. The raised IBConnectionError is the same "account
+        # not usable this tick" signal the executor/coordinator already handle.
+        now = time.monotonic()
+        if now < self._breaker_open_until:
             raise IBConnectionError(
-                f"IBClient: failed to connect to IB Gateway at "
-                f"{self.host}:{self.port} (clientId={self.client_id}, "
-                f"account={self._masked_account()}): {type(exc).__name__}: {exc}. "
-                "Is IB Gateway / TWS running with the API enabled on this port?"
-            ) from exc
-        self._ib = ib
+                f"IBClient: circuit breaker OPEN for {self.host}:{self.port} "
+                f"(account={self._masked_account()}); gateway was unresponsive, "
+                f"retrying in {self._breaker_open_until - now:.0f}s. Suppressing "
+                "IB calls so the trader loop is not blocked."
+            )
+
+        if self._ib is not None and self._is_connected(self._ib):
+            ib = self._ib
+        else:
+            ib = self._new_ib()
+            try:
+                ib.connect(
+                    self.host,
+                    self.port,
+                    clientId=self.client_id,
+                    timeout=self.timeout,
+                    readonly=self.readonly,
+                )
+            except Exception as exc:  # noqa: BLE001 — normalise every connect failure
+                self._trip_breaker()
+                raise IBConnectionError(
+                    f"IBClient: failed to connect to IB Gateway at "
+                    f"{self.host}:{self.port} (clientId={self.client_id}, "
+                    f"account={self._masked_account()}): {type(exc).__name__}: {exc}. "
+                    "Is IB Gateway / TWS running with the API enabled on this port?"
+                ) from exc
+            self._ib = ib
+
+        # Post-connect liveness probe. ib.connect() succeeding only proves the
+        # socket was accepted — a logged-out Gateway accepts the socket but then
+        # hangs every request forever. Bound a cheap reqCurrentTime round-trip
+        # so a wedged gateway is caught here (and trips the breaker) instead of
+        # hanging the first real request (accountSummary / portfolio / bars).
+        if not self._probe_liveness(ib):
+            self._trip_breaker()
+            self._safe_disconnect(ib)
+            raise IBConnectionError(
+                f"IBClient: Gateway at {self.host}:{self.port} "
+                f"(account={self._masked_account()}) accepted the socket but did "
+                f"not answer a liveness probe within {_IB_PROBE_TIMEOUT_S:.0f}s "
+                "(likely logged out). Tripping circuit breaker so IB calls do "
+                "not block the trader loop."
+            )
+
+        # Healthy round-trip — clear any prior failure streak.
+        self._breaker_fail_count = 0
         return ib
+
+    def _trip_breaker(self) -> None:
+        """Open the circuit breaker for the cooldown window."""
+        self._breaker_fail_count += 1
+        self._breaker_open_until = time.monotonic() + _IB_BREAKER_COOLDOWN_S
+        logger.warning(
+            "IBClient: circuit breaker tripped for %s:%s (account=%s, "
+            "consecutive failures=%d); IB calls suppressed for %.0fs.",
+            self.host, self.port, self._masked_account(),
+            self._breaker_fail_count, _IB_BREAKER_COOLDOWN_S,
+        )
+
+    def _safe_disconnect(self, ib: Any) -> None:
+        """Drop a dead handle so the next connect() reconnects fresh."""
+        try:
+            ib.disconnect()
+        except Exception:  # noqa: BLE001
+            pass
+        self._ib = None
+        self._contract = None
+
+    def _probe_liveness(self, ib: Any) -> bool:
+        """Hard-bounded liveness check on the client's persistent loop.
+
+        Returns True when the gateway answered ``reqCurrentTime`` within
+        :data:`_IB_PROBE_TIMEOUT_S`, False otherwise. Built to be safe in
+        every context:
+
+        * Stub clients (``_ib_factory`` set, i.e. the test suite) skip the
+          probe — there is no real socket to verify.
+        * If we don't own a usable, non-running loop (the trader's
+          synchronous main thread always does), fall back to trusting
+          ``isConnected()`` rather than risk breaking a healthy gateway.
+        * Any unexpected error is treated as "not alive" — fail safe, the
+          breaker trips, IB is isolated, the loop keeps going.
+        """
+        if self._ib_factory is not None:
+            return True
+        import asyncio
+
+        loop = self._loop
+        if loop is None or loop.is_closed():
+            return True
+        try:
+            if loop.is_running():
+                # Can't run_until_complete on a running loop; don't break it.
+                return True
+        except Exception:  # noqa: BLE001
+            return True
+
+        req = getattr(ib, "reqCurrentTimeAsync", None)
+        if req is None:
+            # Unknown IB implementation — don't assume it's dead.
+            return True
+        try:
+            loop.run_until_complete(
+                asyncio.wait_for(req(), timeout=_IB_PROBE_TIMEOUT_S)
+            )
+            return True
+        except asyncio.TimeoutError:
+            logger.warning(
+                "IBClient: liveness probe timed out after %.0fs for %s:%s "
+                "(account=%s) — gateway likely logged out.",
+                _IB_PROBE_TIMEOUT_S, self.host, self.port,
+                self._masked_account(),
+            )
+            return False
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "IBClient: liveness probe error for %s:%s (account=%s): %s: %s",
+                self.host, self.port, self._masked_account(),
+                type(exc).__name__, exc,
+            )
+            return False
 
     def _ensure_event_loop(self) -> None:
         """Make this client's persistent asyncio loop the thread's current loop.

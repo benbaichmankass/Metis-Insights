@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 import types
 
 import pytest
@@ -485,6 +486,107 @@ class TestEventLoopResilience:
         assert df is not None
         assert len(df) == 1
         assert df.iloc[0]["close"] == 5300.0
+
+
+class TestIBIsolationGuardRails:
+    """Restart-loop incident (2026-06-05): a logged-out IB Gateway ACCEPTS the
+    socket but then hangs every request forever, which used to freeze the whole
+    pipeline tick (incl. Bybit) and starve the liveness heartbeat. connect()
+    now (a) verifies the session with a hard-bounded liveness probe and (b)
+    trips a circuit breaker so a dead gateway fast-fails instead of blocking
+    the loop. These tests pin both behaviours.
+    """
+
+    def test_connect_failure_trips_breaker(self):
+        # A refused socket trips the breaker; the next connect() fast-fails
+        # WITHOUT building/dialling a new IB at all.
+        builds = {"n": 0}
+
+        class Boom(FakeIB):
+            def connect(self, *a, **k):
+                raise OSError("connection refused")
+
+        def factory():
+            builds["n"] += 1
+            return Boom()
+
+        c = IBClient(port=7497, client_id=1, _ib_factory=factory)
+        with pytest.raises(IBConnectionError):
+            c.connect()
+        assert builds["n"] == 1
+        with pytest.raises(IBConnectionError) as ei:
+            c.connect()
+        assert "circuit breaker OPEN" in str(ei.value)
+        # Breaker short-circuited before touching the socket again.
+        assert builds["n"] == 1
+
+    def test_breaker_recovers_after_cooldown(self):
+        class Boom(FakeIB):
+            def connect(self, *a, **k):
+                raise OSError("connection refused")
+
+        c = IBClient(port=7497, client_id=2, _ib_factory=lambda: Boom())
+        with pytest.raises(IBConnectionError):
+            c.connect()
+        assert c._breaker_open_until > 0
+        # Simulate the cooldown elapsing — connect() must attempt again.
+        c._breaker_open_until = 0.0
+        with pytest.raises(IBConnectionError) as ei:
+            c.connect()
+        # Reached the socket again (real connect error), not the breaker arm.
+        assert "circuit breaker OPEN" not in str(ei.value)
+
+    def test_liveness_probe_timeout_is_bounded_and_trips_breaker(self, monkeypatch):
+        import src.units.accounts.ib_client as mod
+
+        monkeypatch.setattr(mod, "_IB_PROBE_TIMEOUT_S", 0.2)
+
+        class HangIB(FakeIB):
+            async def reqCurrentTimeAsync(self):
+                import asyncio
+
+                await asyncio.sleep(30)  # never answers within the probe bound
+
+        inj = types.ModuleType("ib_insync")
+        inj.IB = HangIB
+        monkeypatch.setitem(sys.modules, "ib_insync", inj)
+
+        # No _ib_factory → the real probe path runs.
+        c = IBClient(port=7497, client_id=3, account="DUQ325724")
+        t0 = time.monotonic()
+        with pytest.raises(IBConnectionError) as ei:
+            c.connect()
+        elapsed = time.monotonic() - t0
+        assert "liveness probe" in str(ei.value)
+        assert elapsed < 5.0, f"probe was not bounded (took {elapsed:.1f}s)"
+        # Breaker is now open — subsequent connect fast-fails.
+        with pytest.raises(IBConnectionError) as ei2:
+            c.connect()
+        assert "circuit breaker OPEN" in str(ei2.value)
+
+    def test_healthy_probe_connects_and_keeps_breaker_closed(self, monkeypatch):
+        class HealthyIB(FakeIB):
+            async def reqCurrentTimeAsync(self):
+                return 1_700_000_000
+
+        inj = types.ModuleType("ib_insync")
+        inj.IB = HealthyIB
+        monkeypatch.setitem(sys.modules, "ib_insync", inj)
+
+        c = IBClient(port=7497, client_id=4, account="DUQ325724")
+        ib = c.connect()
+        assert ib is not None
+        assert c.connected is True
+        assert c._breaker_open_until == 0.0
+        assert c._breaker_fail_count == 0
+
+    def test_stub_factory_skips_probe(self):
+        # FakeIB has no reqCurrentTimeAsync; with _ib_factory set the probe is
+        # skipped entirely so the existing test suite (and real stubs) connect.
+        c, _ = _client()
+        c.connect()
+        assert c.connected is True
+        assert c._breaker_open_until == 0.0
 
 
 # ---------------------------------------------------------------------------
