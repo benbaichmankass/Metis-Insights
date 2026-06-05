@@ -194,6 +194,14 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    pause-autoheal|resume-autoheal)
+        # 2026-06-05: pause/resume the liveness-watchdog autoheal timer.
+        tier=2
+        case "${exit_code}" in
+            0) result="ok"; priority="normal" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
     enable-mes|disable-mes)
         # PR #1656/#1670: IB MES multi-symbol activation toggle (restarts trader).
         tier=2

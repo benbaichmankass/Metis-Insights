@@ -107,6 +107,12 @@ EXPECTED_ACTIONS = {
     # (the orphan FCM-JSON-blob case that bled a PEM private key into the
     # journalctl tail on issue #2157). Tier 2: .env mutation + service restart.
     "scrub-env-noncompliant": "scrub_env_noncompliant.sh",
+    # 2026-06-05 restart-loop incident — pause/resume the liveness-watchdog
+    # autoheal loop (ict-liveness-watchdog.timer) so a trader stuck in a
+    # watchdog-restart loop (first tick slower than the autoheal window) can
+    # complete a tick + write a heartbeat. Symmetric pair.
+    "pause-autoheal": "pause_autoheal.sh",
+    "resume-autoheal": "resume_autoheal.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -141,6 +147,8 @@ TIER_2_ACTIONS = {
     "init-diag-token",
     "set-env",
     "scrub-env-noncompliant",
+    "pause-autoheal",
+    "resume-autoheal",
 }
 
 
