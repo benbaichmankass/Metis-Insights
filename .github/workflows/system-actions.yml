@@ -112,6 +112,7 @@ on:
           - scrub-env-noncompliant
           - pause-autoheal
           - resume-autoheal
+          - sync-clock
       reason:
         description: "Why this action is being run (audit trail; required for Tier-2)"
         required: false
@@ -374,7 +375,7 @@ jobs:
             status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|enable-mobile-push|disable-mobile-push|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|enable-mobile-push|disable-mobile-push|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -563,6 +564,7 @@ jobs:
             scrub-env-noncompliant)             SCRIPT="scrub_env_noncompliant.sh" ;;
             pause-autoheal)                     SCRIPT="pause_autoheal.sh" ;;
             resume-autoheal)                    SCRIPT="resume_autoheal.sh" ;;
+            sync-clock)                         SCRIPT="sync_clock.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
               exit 2
