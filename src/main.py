@@ -600,6 +600,19 @@ def main() -> None:
     last_tick_status = "starting"
     while True:
         tick_count += 1
+        # Refresh the heartbeat at tick-START, before any work. The IBKR
+        # restart-loop incident (2026-06-05) showed why "write only after
+        # a successful tick" can starve liveness: a slow tick (e.g. a
+        # logged-out IB Gateway making a request hang) holds the loop past
+        # the watchdog's stale threshold, the watchdog autoheals (kills)
+        # the trader before it ever reaches the post-tick write, and the
+        # process never gets to refresh the heartbeat → a perpetual
+        # restart loop. Stamping the heartbeat first means a tick that is
+        # merely *slow* (now bounded — every IB call has a hard timeout)
+        # still proves liveness; a genuine hang that outlives even this is
+        # the only thing that can now stall the beat. The post-tick write
+        # below still records the "ok"/"error" outcome.
+        write_heartbeat(status="tick_start", tick=tick_count)
         try:
             run_one_tick(settings, exchange_client, telegram_client)
 
