@@ -36,6 +36,11 @@ runtime_state/
 *.db
 *.sqlite
 *.sqlite3
+# SQLite WAL/SHM sidecars (created transiently when a test/process opens a DB)
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
 
 # Backup / temp
 *.bak
