@@ -84,6 +84,8 @@ Adding an action requires a PR that updates this doc, the workflow's
 | `fix-data-dir` | 2 | `scripts/ops/fix_data_dir.sh` | strips `DATA_DIR=` / `TRADE_JOURNAL_DB=` overrides from `.env` (backup retained), rsyncs `/home/ubuntu/ict-trading-bot/data/{runtime_logs,runtime_state,artifacts,data}/` → `/data/bot-data/<same>/` to align with the systemd drop-in's canonical mount, renames the legacy split path with a `MIGRATED-<ts>` suffix, then restarts every canonical unit. Added 2026-05-12 in response to the path-bifurcation incident (see § 2.2). |
 | `send-ping` | 1 | `scripts/ops/send_ping_action.sh` | **No mutation, no restart.** Enqueues one immediate Telegram message via `scripts/send_ping.py` (`target=claude` default → @claude_ict_comms_bot; the bridge drains within ~5 s). This is the autonomous "Claude wants to say something NOW" path — far faster than the ≤5-min `pending-pings.jsonl` git-relay. Params: `message:` (required), `priority:` (low\|normal\|high\|urgent, default normal), `target:` (claude\|trader, default claude). The transparency notify is skipped for it (the action IS the message). Added 2026-05-24. |
 | `set-env` | 2 | `scripts/ops/set_env.sh` | Idempotent single-key upsert into the VM `.env` (preserves all other lines/comments) + restart the named `service:` so systemd re-reads its `EnvironmentFile`. The autonomous "Claude owns + configures the VM env" path. Params: `env_key:` (required, `^[A-Z][A-Z0-9_]*$`), `env_value:` (omit for secret-backed keys — see below), `service:` (allowlisted unit, or `none` to skip restart). **Values are never logged or recorded in the audit JSON.** Secret-backed keys (e.g. `TELEGRAM_CLAUDE_BOT_TOKEN`) take their value from the matching `secrets.<KEY>` GitHub Actions secret when `env_value` is blank, so the secret never transits the (public) issue body or run log. Added 2026-05-24. |
+| `pause-autoheal` | 2 | `scripts/ops/pause_autoheal.sh` | `systemctl disable --now ict-liveness-watchdog.timer` — pauses the per-minute liveness watchdog (stale-heartbeat alert **and** auto-restart of `ict-trader-live.service`). Added 2026-06-05 for the restart-loop incident: when the trader's first pipeline tick runs longer than the autoheal window (e.g. a logged-out IB Gateway making every MES fetch time out, inflating the tick past ~3 min), the watchdog restarts the trader before it can complete a tick + write a heartbeat, so the heartbeat stays permanently stale and the autoheal fires forever (self-perpetuating loop). Pausing lets the running instance finish its slow first tick, write a heartbeat, and stabilise. **Pauses the dead-man switch** — resume promptly. Idempotent; does not touch `ict-trader-live.service` or any config. |
+| `resume-autoheal` | 2 | `scripts/ops/resume_autoheal.sh` | `systemctl enable --now ict-liveness-watchdog.timer` — symmetric undo of `pause-autoheal`; restores the dead-man switch + autoheal. Run once the trader is confirmed heartbeating (no boot-grace applies, so a still-stale heartbeat would autoheal on the next streak). Idempotent. |
 | `scrub-env-noncompliant` | 2 | `scripts/ops/scrub_env_noncompliant.sh` | Strips every line from `.env` that systemd's `EnvironmentFile` parser would reject (anything that isn't blank, a comment, or `KEY=...` with `KEY` matching `^[A-Za-z_][A-Za-z0-9_]*$`). The original is backed up to `${REPO_DIR}/.env.bak.<UTC-ts>` (mode 600) before the rewrite; the audit JSON records only counts (`kept`, `stripped`, `total`) and the backup path — never the stripped content. Then restarts `service:` (default `ict-trader-live.service`, allowlist same as `set-env`). Idempotent: a clean file exits 0 with `stripped=0` and no restart. **Use case:** a multi-line value (e.g. a service-account JSON's `private_key` field) was pasted directly into `.env` and is now bleeding into the journal on every restart as `Ignoring invalid environment assignment '<line>'` warnings. Removing the lines changes runtime behaviour zero ways (systemd was already ignoring them) and only stops the journal bleed. Added 2026-05-27 after the FCM-credential bleed exposed a PEM private key in the `pull-and-deploy` journalctl tail on issue #2157. |
 
 **Docker is intentionally absent.** The repo's canonical runtime is
@@ -228,6 +230,15 @@ Tier-2 actions:
 - `init-diag-token`
 - `set-env`
 - `scrub-env-noncompliant`
+- `pause-autoheal`
+- `resume-autoheal`
+
+`pause-autoheal` / `resume-autoheal` stop / start
+`ict-liveness-watchdog.timer` (the per-minute dead-man switch +
+autoheal). They are Tier-2 because pausing the watchdog removes the
+auto-restart safety net while paused; always resume once the trader is
+confirmed heartbeating. The incident rationale is in the § 2 allowlist
+row.
 
 `set-env` mutates the VM `.env` and restarts a bot service, so it is
 Tier-2 (requires a `reason`). It is the autonomous path for Claude to
