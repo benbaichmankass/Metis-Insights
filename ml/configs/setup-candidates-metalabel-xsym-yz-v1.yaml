@@ -1,0 +1,108 @@
+# Cross-symbol + range-vol meta-labeling model (S-MLOPT-S8 follow-up, M14).
+#
+# Combines the TWO independent levers the prior sprints isolated:
+#   * S-MLOPT-S8 (Phase 1.4) — JOINT BTC+MES training with `symbol` as a
+#     feature lifted the real-BTC meta-label holdout (joint acc 0.757 /
+#     precision 0.542 vs BTC-only 0.681 / 0.209), the first meta-label in this
+#     family to edge above the majority baseline (0.751).
+#   * S-MLOPT-S9 (Phase 2.1) — the range-based vol estimators (parkinson /
+#     garman_klass / rogers_satchell / yang_zhang) lifted the regime heads'
+#     f1_volatile (leak-free purged-WF confirm POSITIVE, MB-20260603-004).
+#
+# These are INDEPENDENT levers (one is data pooling, one is feature quality), so
+# this manifest stacks them: the cross-symbol joint setup_candidates meta-label
+# PLUS the four range-vol estimators in the feature set. Identical stack to
+# `setup-candidates-metalabel-xsym-v1` (LightGBM-regression -> `won` +
+# ClassificationEvaluator, joint dataset, `symbol` categorical); the ONLY
+# difference is the four range-vol features are added to `feature_columns`.
+#
+# The setup_candidates family (builder v2, S-MLOPT-S8 follow-up) now emits the
+# four range-vol estimators at signal time, computed from each candidate's
+# past-only OHLC window — the same computation `market_features` uses, so the
+# columns are comparable across families. Available for BOTH symbols (the family
+# is built from market_raw OHLC for each symbol).
+#
+# BUILD the JOINT dataset first (trainer VM), rebuilding on builder v2 so the
+# range-vol columns are present (note --overwrite):
+#   python -m ml.datasets build setup_candidates --output-dir datasets-out \
+#     --version v001 --source market_raw --symbol-scope all --timeframe all \
+#     --overwrite \
+#     -- "market_raw_paths=datasets-out/market_raw/BTCUSDT/1h/v002,datasets-out/market_raw/MES/15m/v001" \
+#        live_trades_db=data/trade_journal.db
+#
+# EVAL PROTOCOL: clean three-way ablation on the IDENTICAL real-BTC holdout
+# (the only real holdout we have — MES has 0 closed trades, MB-20260606-002):
+#   joint+yz (this manifest)  vs  joint-only (xsym-v1)  vs  BTC-only (metalabel-v1)
+# via scripts/ml/eval_split_compare.py (live_holdout + purged_walk_forward).
+# Honest outcome either way; cite the numbers in the sprint log + backlog.
+#
+# TIER: adopting this manifest / promoting past `shadow` is Tier-3
+# (operator-gated). Ships at `research_only`.
+
+manifest_version: v1
+model_id: setup-candidates-metalabel-xsym-yz-v1
+description: "Cross-symbol (BTC+MES joint) + range-vol meta-labeling model: predicts P(profitable) for a candidate setup from signal-time market features (incl. parkinson/garman_klass/rogers_satchell/yang_zhang range-vol) + the symbol, trained on the dense triple-barrier setup_candidates across both symbols. Stacks the S8 cross-symbol lever with the S9 range-vol lever."
+model_family: regression_lightgbm
+trainer: ml.trainers.lightgbm_regression.LightGBMRegressionTrainer
+trainer_config:
+  target_column: won
+  feature_columns:
+    - symbol
+    - direction
+    - rolling_log_return_vol
+    - parkinson_vol
+    - garman_klass_vol
+    - rogers_satchell_vol
+    - yang_zhang_vol
+    - log_return
+    - vol_bucket
+    - momentum
+    - hour_of_day
+    - dayofweek
+    - log_return_lag_1
+    - log_return_lag_2
+  categorical_columns:
+    - symbol
+    - direction
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  forbidden_features:
+    - won
+    - label
+    - r_multiple
+    - ret
+    - barrier_touched
+    - holding_bars
+    - is_live_trade
+    - entry_price
+    - signal_vol
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 15
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    lambda_l2: 1.0
+dataset:
+  family: setup_candidates
+  symbol_scope: all
+  timeframe: all
+  version: v001
+evaluator: ml.evaluators.classification.ClassificationEvaluator
+evaluator_config:
+  target_column: won
+  threshold: 0.5
+  split_strategy: live_holdout
+  live_flag_column: is_live_trade
+  time_column: ts
+target_deployment_stage: research_only
+notes: |
+  Cross-symbol + range-vol meta-label (S-MLOPT-S8 follow-up). Stacks the S8
+  joint BTC+MES pooling (`symbol` categorical) with the S9 range-vol estimators
+  in the feature set. Headline eval is live_holdout (train synthetic, score the
+  REAL trades). Three-way ablation vs setup-candidates-metalabel-xsym-v1
+  (joint-only) and setup-candidates-metalabel-v1 (BTC-only) on the identical
+  real-BTC holdout. Adoption / promotion past shadow are Tier-3 (operator-gated).

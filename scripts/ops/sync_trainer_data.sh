@@ -13,6 +13,18 @@
 #   signal_audit.jsonl   — pipeline audit log for setup_labels_audit.
 #                          Non-fatal if absent (means no signals yet;
 #                          setup_labels_audit will produce an empty dataset).
+#   shadow_predictions.jsonl (+ _backfill) — the live shadow-prediction log
+#                          (real-time + retroactive backfill). Needed so
+#                          `python -m ml gate-check` / `model-attribution` can
+#                          compute the live_agreement (AUC of scored win/loss)
+#                          and drift gates LOCALLY on the trainer — those
+#                          gates report `insufficient` today because the log
+#                          isn't on the trainer and /api/bot/trades/scores is
+#                          unreachable from a web session. Lands under
+#                          runtime_logs/ so the gate-check CLI defaults
+#                          (--shadow-log runtime_logs/shadow_predictions.jsonl)
+#                          find it. Non-fatal if absent. (S-MLOPT-S8 follow-up,
+#                          MB-20260527-004 / MB-20260529-001 unblock.)
 #
 # Every invocation appends a JSONL row to PULL_LOG_PATH so downstream
 # scripts can trace when data was last synced.
@@ -40,6 +52,13 @@
 #   VM_SSH_USER            — defaults to ubuntu
 #   DATA_DIR               — defaults to $REPO_ROOT/data
 #   PULL_LOG_PATH          — defaults to $REPO_ROOT/runtime_logs/trainer/db_pulls.jsonl
+#   LIVE_VM_SHADOW_PRED_PATH        — live shadow log; defaults to
+#                            /data/bot-data/runtime_logs/shadow_predictions.jsonl
+#   LIVE_VM_SHADOW_PRED_BACKFILL_PATH — live backfill log; defaults to
+#                            /data/bot-data/runtime_logs/shadow_predictions_backfill.jsonl
+#   RUNTIME_LOGS_DIR       — where the shadow logs land on the trainer;
+#                            defaults to $REPO_ROOT/runtime_logs (so the
+#                            gate-check CLI's relative defaults resolve to it)
 #
 # Exit codes:
 #   0   trade_journal.db synced (signal_audit.jsonl absence is non-fatal)
@@ -55,6 +74,9 @@ VM_SSH_USER="${VM_SSH_USER:-ubuntu}"
 VM_SSH_KEY="${VM_SSH_KEY:-$HOME/.ssh/ict-bot-ovm-private.key}"
 DATA_DIR="${DATA_DIR:-$REPO_ROOT/data}"
 PULL_LOG_PATH="${PULL_LOG_PATH:-$REPO_ROOT/runtime_logs/trainer/db_pulls.jsonl}"
+LIVE_VM_SHADOW_PRED_PATH="${LIVE_VM_SHADOW_PRED_PATH:-/data/bot-data/runtime_logs/shadow_predictions.jsonl}"
+LIVE_VM_SHADOW_PRED_BACKFILL_PATH="${LIVE_VM_SHADOW_PRED_BACKFILL_PATH:-/data/bot-data/runtime_logs/shadow_predictions_backfill.jsonl}"
+RUNTIME_LOGS_DIR="${RUNTIME_LOGS_DIR:-$REPO_ROOT/runtime_logs}"
 
 iso_now() { date -u +'%Y-%m-%dT%H:%M:%S+00:00'; }
 
@@ -120,6 +142,42 @@ else
   emit "$(printf '{"ts":"%s","status":"skipped","artifact":"signal_audit.jsonl","detail":"not found on live VM (no signals fired yet)","exit_code":%d}' \
     "$(iso_now)" "$rc")"
 fi
+
+# --- shadow_predictions.jsonl (+ backfill) (optional) ---------------------
+# The live shadow-prediction log + its retroactive backfill. Pulled so the
+# trainer can compute the live_agreement + drift promotion gates locally
+# (`python -m ml gate-check`) instead of reporting them `insufficient` because
+# the log lives only on the live VM. Lands under RUNTIME_LOGS_DIR so the
+# gate-check CLI's relative defaults (--shadow-log runtime_logs/...) find it.
+# Both are non-fatal: real-time absence means no shadow predictions yet; the
+# backfill log only exists after a `python -m ml backfill-shadow-predictions`.
+mkdir -p "$RUNTIME_LOGS_DIR"
+for pair in \
+  "shadow_predictions.jsonl|${LIVE_VM_SHADOW_PRED_PATH}" \
+  "shadow_predictions_backfill.jsonl|${LIVE_VM_SHADOW_PRED_BACKFILL_PATH}"; do
+  artifact="${pair%%|*}"
+  src_path="${pair##*|}"
+  emit "$(printf '{"ts":"%s","status":"pulling","artifact":"%s","src":"%s@%s:%s"}' \
+    "$(iso_now)" "$artifact" "$VM_SSH_USER" "$LIVE_VM_IP" "$src_path")"
+  set +e
+  rsync -az --checksum -e "ssh ${SSH_OPTS}" \
+    "${VM_SSH_USER}@${LIVE_VM_IP}:${src_path}" \
+    "${RUNTIME_LOGS_DIR}/${artifact}"
+  rc=$?
+  set -e
+  if [ "$rc" -eq 0 ] && [ -f "${RUNTIME_LOGS_DIR}/${artifact}" ]; then
+    lines="$(wc -l < "${RUNTIME_LOGS_DIR}/${artifact}" 2>/dev/null | tr -d ' ')"
+    emit "$(python3 -c "
+import json, sys
+print(json.dumps({'ts': sys.argv[1], 'status': 'ok', 'artifact': sys.argv[2],
+  'lines': int(sys.argv[3])}))" \
+      "$(iso_now)" "$artifact" "${lines:-0}")"
+  else
+    # Non-fatal: absent until shadow predictions (or a backfill run) exist.
+    emit "$(printf '{"ts":"%s","status":"skipped","artifact":"%s","detail":"not found on live VM","exit_code":%d}' \
+      "$(iso_now)" "$artifact" "$rc")"
+  fi
+done
 
 # --- IBKR MES market_raw shards (optional, deep history) ------------------
 # When the operator has run scripts/ops/pull_mes_ibkr_history.sh on the LIVE
