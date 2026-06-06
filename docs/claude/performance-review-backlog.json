@@ -28,8 +28,10 @@
    "tier": 3,
    "trigger_condition": "Next /performance-review window with >=1 post-cap trend_donchian short on bybit_2 AND/OR >=3 additional closed fade_breakout_4h trades carrying a confidence value.",
    "resolution_criteria": "(a) A post-cap trend_donchian short on bybit_2 reaches status open/closed (fill confirmed) -> close (a); if it keeps orphaning, escalate the sized_qty=0 path to the health-review backlog. (b) >=4 closed fade trades accumulated -> if conf<0.2 fills are net-negative as a cohort, fire a proposed_tweaks[] entry for fade_breakout_4h.min_confidence; if conf shows no relationship to outcome, close (b) as invalid.",
-   "status": "open",
-   "snoozed_until": null,
+   "status": "resolved",
+   "resolved_at": "2026-06-06T07:10:00+00:00",
+   "resolved_by": "claude (/performance-review)",
+   "resolution_note": "Both legs are permanently MOOT under the current roster posture (re-confirmed 6/6): (a) trend_donchian is LONG-ONLY (#2570) so no short intents fire on bybit_2 — the chop-short edge is to be reclaimed via the regime-router policy cell, not a live short (PERF-20260601-002/006), not via this item; (b) fade_breakout_4h was DEMOTED live->shadow (#2540) so its no-min-confidence-floor live-fill concern cannot recur while shadow. Neither leg can produce qualifying data again under the current config. Closing; if either strategy is re-promoted to two-sided live, open a fresh targeted item.",
    "check_log": [
     {
      "at": "2026-05-29T19:55:20.246630+00:00",
@@ -149,6 +151,11 @@
      "at": "2026-06-04T05:30:00+00:00",
      "by": "claude (/performance-review)",
      "note": "2026-06-04 /performance-review: PROGRESS evidence. M13 recent-closes (insights_history #2731) shows trend_donchian SHORTS now closing POSITIVE: trade 2064 +$6.95 + 2056 +$0.80 (both reconciler_filled, bybit), plus 1772/1766 $0.00 and 1732 -$0.49 — i.e. NOT 0% win anymore. Supports the thesis that the prior 0%-win/-198R record was the orphan/exit-attribution defect (health BL-20260601-001), not a bad entry edge. Regime-router remains the real fix; keep in_progress."
+    },
+    {
+     "at": "2026-06-06T07:10:00+00:00",
+     "by": "claude (/performance-review)",
+     "note": "2026-06-06 /performance-review: NO new trend_donchian fills this window (6/4 05:30->6/6 07:00) — the live audit shows trend_donchian_eval reaching side=none every tick (mid-channel, no breakout) in a quiet ranging market; newest trade of ANY strategy is id 2458 @ 6/5 02:01, ~28h flat. So no fresh trend exits to assess the Chandelier-trail hypothesis. Re-entry storm fix (bar-debounce) looks healthy: the vwap order-package stream is ~1 package per 5m bar (22:37/22:45/22:52/22:59/23:07Z...), NO same-bar duplicates. Stays in_progress pending a trending BTC window with trend_donchian fills."
     }
    ]
   },
@@ -213,7 +220,8 @@
    "resolution_note": null,
    "snoozed_until": null,
    "evidence_log": [
-    "2026-06-01 (/performance-review): DEBOUNCE CONFIRMED FIRING but soak still too short. Live audit shows bar_debounce_blocked events (today's #2548 is live, deployed 09:59Z) deduping same-bar mes_trend_long_1d re-entry attempts. However the before/after orphan/intent_noop-rate comparison needs a MULTI-DAY post-#2548 window; only ~9h of post-deploy data as of this review. HOLD the squeeze re-promotion until a multi-day window lets the orphan-rate delta be measured (BL-20260601-001). Pre-approved but gated."
+    "2026-06-01 (/performance-review): DEBOUNCE CONFIRMED FIRING but soak still too short. Live audit shows bar_debounce_blocked events (today's #2548 is live, deployed 09:59Z) deduping same-bar mes_trend_long_1d re-entry attempts. However the before/after orphan/intent_noop-rate comparison needs a MULTI-DAY post-#2548 window; only ~9h of post-deploy data as of this review. HOLD the squeeze re-promotion until a multi-day window lets the orphan-rate delta be measured (BL-20260601-001). Pre-approved but gated.",
+    "2026-06-06 (/performance-review): debounce soak now ~5 days post-#2548 (deployed 6/1 09:59Z). POSITIVE signal on the re-entry-storm fix: the vwap order-package stream is cleanly ~1 package per 5m bar (no same-bar duplicates in the 18-package 6/5 22:37->6/6 06:21Z sample), i.e. the same-bar re-entry storm that motivated #2548 is not recurring. HOWEVER squeeze_breakout_4h itself fired ZERO actionable signals this window (quiet ranging market; squeeze needs a volatility release), so its OWN shadow net-R since demotion still hasn't accrued enough to confirm vs the +17.6R backtest. STILL GATED: the debounce side looks resolved, but re-promotion needs (1) squeeze shadow net-R that doesn't contradict the backtest and (2) the monthly-corr-to-roster check — neither computable in a flat window. Hold; revisit when BTC volatility returns and squeeze accrues shadow fills."
    ]
   },
   {
@@ -308,6 +316,11 @@
      "at": "2026-06-04T05:30:00+00:00",
      "by": "claude (/performance-review)",
      "note": "2026-06-04 /performance-review: RE-CONFIRMED. All 18 in-window vwap order_packages (06-04 01:02-05:06Z, issue #2730) carry confidence=1.0 verbatim (signal_logic 'confidence':1.0). ict_scalp_5m by contrast emits a genuine 0.7764. vwap confidence remains a hardcoded constant, unusable for sizing/ranking. Still open."
+    },
+    {
+     "at": "2026-06-06T07:10:00+00:00",
+     "by": "claude (/performance-review)",
+     "note": "2026-06-06 /performance-review: RE-CONFIRMED AGAIN. All 18 in-window vwap order_packages (journal #2872, 6/5 22:37 -> 6/6 06:21Z) carry confidence exactly 1.0 (entry/sl/tp vary, conf does not). The shadow log feature_row for vwap-driven scores also shows confidence:1.0. Unchanged hardcoded constant; blunts any min-confidence gate + pollutes the ML setup_quality feature. Still open. Cheapest fix remains: derive vwap confidence from deviation-in-sigma (the std_dev + deviation_std are already in signal_logic)."
     }
    ]
   },
@@ -329,9 +342,27 @@
      "at": "2026-06-04T05:30:00+00:00",
      "by": "claude (/performance-review)",
      "note": "2026-06-04 /performance-review: quiet window — live roster fired only 1 actionable signal (ict_scalp_5m short, trade 2428); no OFF-cell intent fired, so no regime-gate suppression event to observe this run (consistent with prior reviews). Recurring watch continues."
+    },
+    {
+     "at": "2026-06-06T07:10:00+00:00",
+     "by": "claude (/performance-review)",
+     "note": "2026-06-06 /performance-review: FIRING CORRECTNESS finally OBSERVED. The snapshot audit_tail (diag #2861, ~06:45-06:47Z) carries 3x event=regime_shadow_gate alongside ~10 *_eval rows/strategy + vwap (15 intents) + multiplexed_intents (37). This is the first review to positively observe the gate firing on live OFF-cell intents (vwap is OFF in all regimes; enforced:false log-only in phase-2). Consistent with the policy table. PERFORMANCE leg: phase-3 not yet enabled (REGIME_ROUTER_ENABLED off) so no suppression to score; the only OFF-cell source firing is vwap (shadow), where a hard gate is redundant. Recurring watch continues; re-pull a busy window to tally per-(strategy,regime,side) gate counts vs the matrix."
     }
    ]
+  },
+  {
+   "id": "PB-20260606-001",
+   "opened_at": "2026-06-06T07:10:00+00:00",
+   "opened_by": "claude (/performance-review)",
+   "source": "/performance-review 2026-06-06: trades journal (#2874) shows htf_pullback_trend_2h FILLING on bybit_1 (status=closed, sized_qty>0) while the 2026-06-01 backlog (PERF-20260531-002) recorded it as execution: shadow routed to bybit_1 demo.",
+   "title": "Confirm htf_pullback_trend_2h execution gate: it is FILLING on bybit_1 (sizes 0.24-4.88) — verify it is a sanctioned live-on-demo soak (execution:live on the demo account), not a shadow-misroute",
+   "description": "In the 6/4->6/6 window htf_pullback_trend_2h produced bybit_1 fills with status=closed and sized_qty>0: id 2433 short closed pnl -7.25 (sz 0.243), 2438 long closed (sz 0.728), 2447 long closed (sz 0.717), 2457 long closed (sz 4.878), plus bybit_2 leg 2434 open sz 0.001; every bybit_2 (real-money) leg is rejected/sized-0 (intent_noop:at_target). Under the two-gate model an execution:shadow strategy folds to effective_dry and places NO order on ANY account, so filling on bybit_1 implies htf is execution:LIVE (trading the demo exchange via bybit_1), i.e. promoted from the 6/1 shadow state. This is plausibly a SANCTIONED live-on-demo soak (the sensible graduation path before real money), but it could not be CONFIRMED this run: /api/bot/config returned HTTP 500 (see anomalies / the /api/bot route degradation). NO REAL-MONEY EXPOSURE either way (bybit_2 legs all rejected). Verify the execution gate + that the change is in the strategy changelog; if it IS a live-on-demo soak, fold this into the htf graduation track (PERF-20260531-002 / regime-router) rather than leaving it implicit.",
+   "tier": 3,
+   "trigger_condition": "Next /performance-review when /api/bot/config (or the journal strategy_versions snapshot) is reachable; or any session reviewing the live strategy roster.",
+   "resolution_criteria": "config/strategies.yaml::htf_pullback_trend_2h.execution confirmed (live vs shadow) and reconciled with the observed bybit_1 fills + the strategy changelog. If live-on-demo, documented as a sanctioned soak with the promotion rationale; if a misroute (shadow strategy filling), escalate to the health-review backlog as an execution-gate bug.",
+   "status": "open",
+   "snoozed_until": null
   }
  ],
- "updated_at": "2026-06-04T05:30:00+00:00"
+ "updated_at": "2026-06-06T07:10:00+00:00"
 }
