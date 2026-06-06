@@ -167,11 +167,14 @@ print(json.dumps({
 ' "$(iso_now)" "$manifest" "$start" "$summary")"
   elif [ "$rc" -eq 78 ]; then
     # Exit 78 (BSD EX_CONFIG) — `python -m ml train` raised
-    # EmptyDatasetError. Dataset built fine but has 0 rows yet (live
-    # trader hasn't produced enough closed-trade history, or no
-    # health-review answers exist). Clean skip, not a failure:
-    # overall_rc unchanged so the cycle reports green when every
-    # manifest either trained or was correctly skipped for "no data".
+    # EmptyDatasetError (reason=empty_dataset: dataset built but 0 rows yet —
+    # live trader hasn't produced enough closed-trade history / no
+    # health-review answers exist) OR its DatasetMissingError subclass
+    # (reason=dataset_absent: the dataset file was never built, e.g. an orphan
+    # manifest whose dataset family the daily build doesn't produce —
+    # MB-20260606-001). BOTH are clean skips, not failures: overall_rc stays
+    # unchanged so the cycle reports green when every manifest either trained
+    # or was correctly skipped. The `reason` field below disambiguates them.
     summary="$(tail -n 50 "/tmp/train_$$.out" | grep -E '^\{' | tail -n 1 || true)"
     if [ -z "$summary" ]; then summary='{}'; fi
     emit "$(python -c '

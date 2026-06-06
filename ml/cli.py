@@ -30,6 +30,7 @@ from pathlib import Path
 from .datasets.cli import main as datasets_main
 from .experiments.runner import (
     EMPTY_DATASET_EXIT_CODE,
+    DatasetMissingError,
     EmptyDatasetError,
     run_experiment,
 )
@@ -55,12 +56,15 @@ def _cmd_train(args: argparse.Namespace) -> int:
             register=not args.no_register,
         )
     except EmptyDatasetError as exc:
-        # 0-row dataset is "data not ready yet", not a training failure.
-        # Emit a structured JSON line and exit 78 so run_training_cycle.sh
-        # can surface this as `manifest_skipped` rather than failed.
+        # Dataset not available — either absent (never built / orphan
+        # manifest) or built-but-0-rows ("data not ready yet"). Neither is a
+        # training failure. Emit a structured JSON line and exit 78 so
+        # run_training_cycle.sh surfaces it as `manifest_skipped` rather than
+        # `manifest_failed` (a missing dataset must not fail the whole cycle).
+        reason = "dataset_absent" if isinstance(exc, DatasetMissingError) else "empty_dataset"
         print(json.dumps({
             "skipped": True,
-            "reason": "empty_dataset",
+            "reason": reason,
             "dataset_path": str(exc.data_path),
             "detail": str(exc),
         }, indent=2, sort_keys=True))
