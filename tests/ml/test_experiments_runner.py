@@ -9,6 +9,7 @@ import yaml
 
 from ml.experiments.runner import (
     EMPTY_DATASET_EXIT_CODE,
+    DatasetMissingError,
     EmptyDatasetError,
     run_experiment,
 )
@@ -117,14 +118,24 @@ def test_run_experiment_no_register(tmp_path: Path):
 
 
 def test_run_experiment_missing_dataset(tmp_path: Path):
+    """A missing dataset file raises DatasetMissingError — a subclass of
+    EmptyDatasetError so the CLI maps it to exit 78 and run_training_cycle.sh
+    skips it (manifest_skipped, reason=dataset_absent) instead of failing the
+    whole cycle on an orphan/not-yet-built manifest (MB-20260606-001).
+    """
     manifest_path = _write_manifest(tmp_path)
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(DatasetMissingError) as exc_info:
         run_experiment(
             manifest_path=manifest_path,
             datasets_root=tmp_path / "nonexistent",
             experiments_root=tmp_path / "exp",
             registry_root=tmp_path / "reg",
         )
+    # Must ride the EmptyDatasetError exit-78 skip path, and the manual-run
+    # hint must survive in the message.
+    assert isinstance(exc_info.value, EmptyDatasetError)
+    assert exc_info.value.data_path.name == "data.jsonl"
+    assert "run `python -m ml.datasets build`" in str(exc_info.value)
 
 
 def test_run_experiment_empty_dataset_raises_distinct_error(tmp_path: Path):
@@ -245,3 +256,31 @@ def test_holdout_path_writes_no_cv_artifact(tmp_path: Path):
     )
     assert artifacts.cv_folds_path is None
     assert not (artifacts.experiment_dir / "cv_folds.json").exists()
+
+
+def test_cli_train_skips_missing_dataset(tmp_path: Path, capsys):
+    """Cycle-skip contract (MB-20260606-001 regression guard): `ml train` on a
+    manifest whose dataset FILE is absent must return exit 78 and print
+    reason=dataset_absent, so run_training_cycle.sh records `manifest_skipped`
+    (overall_rc stays 0) instead of `manifest_failed` (overall_rc=1) on an
+    orphan / not-yet-built manifest.
+    """
+    import argparse
+
+    from ml.cli import _cmd_train
+
+    manifest_path = _write_manifest(tmp_path)
+    args = argparse.Namespace(
+        manifest=str(manifest_path),
+        datasets_root=str(tmp_path / "nonexistent"),
+        experiments_root=str(tmp_path / "exp"),
+        registry_root=str(tmp_path / "reg"),
+        commit_sha="x",
+        no_register=True,
+    )
+    rc = _cmd_train(args)
+    assert rc == EMPTY_DATASET_EXIT_CODE
+    out = json.loads(capsys.readouterr().out)
+    assert out["skipped"] is True
+    assert out["reason"] == "dataset_absent"
+    assert out["dataset_path"].endswith("data.jsonl")

@@ -24,16 +24,39 @@ from .splitters import split as split_rows
 
 
 class EmptyDatasetError(RuntimeError):
-    """Raised when the dataset exists but has 0 rows.
+    """Raised when a manifest's dataset is not available for training.
 
-    Distinct from `FileNotFoundError` (build never ran). The CLI maps this
-    to exit code 78 (BSD `EX_CONFIG`) so `run_training_cycle.sh` can emit
-    a clean `manifest_skipped` status instead of `manifest_failed` —
-    distinguishes "no data yet" from real training failures.
+    Covers BOTH "the dataset file exists but has 0 rows" (this class) and
+    "the dataset file was never built" (the `DatasetMissingError` subclass).
+    The CLI maps this whole family to exit code 78 (BSD `EX_CONFIG`) so
+    `run_training_cycle.sh` emits a clean `manifest_skipped` instead of
+    `manifest_failed`. Rationale: a not-yet-built or orphan manifest (one
+    whose dataset the daily build step doesn't produce) must NOT fail the
+    whole cycle — that turned `overall_rc=1` on every run (MB-20260606-001).
+    Real training failures still raise other exceptions and exit non-78.
     """
 
     def __init__(self, data_path: Path):
         super().__init__(f"dataset at {data_path} is empty")
+        self.data_path = data_path
+
+
+class DatasetMissingError(EmptyDatasetError):
+    """The dataset file does not exist — its build step never produced it
+    (e.g. an orphan manifest whose dataset family the daily cycle doesn't
+    build). A subclass of `EmptyDatasetError` so it rides the same exit-78
+    `manifest_skipped` path: a missing dataset is "data not ready", not a
+    training failure. The build step + `dataset_builds.jsonl` remain the
+    place where a genuinely-wired dataset that fails to build is surfaced.
+    """
+
+    def __init__(self, data_path: Path):
+        # Keep the manual-run hint; bypass the parent's "is empty" message.
+        RuntimeError.__init__(
+            self,
+            f"dataset data not found at {data_path}; "
+            f"run `python -m ml.datasets build` first",
+        )
         self.data_path = data_path
 
 
@@ -145,10 +168,10 @@ def run_experiment(
     dataset_dir = manifest.dataset.path_under(datasets_root)
     data_path = dataset_dir / "data.jsonl"
     if not data_path.is_file():
-        raise FileNotFoundError(
-            f"dataset data not found at {data_path}; "
-            f"run `python -m ml.datasets build` first"
-        )
+        # Missing dataset file = "data not ready / orphan manifest", handled
+        # as a clean skip (exit 78), not a cycle-failing error. See
+        # DatasetMissingError + run_training_cycle.sh exit-78 handling.
+        raise DatasetMissingError(data_path)
     rows = _load_jsonl(data_path)
     if not rows:
         raise EmptyDatasetError(data_path)
