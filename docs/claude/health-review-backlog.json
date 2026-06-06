@@ -13,6 +13,13 @@
       "trigger_condition": "Any /health-review; prioritise — this is the mechanism that turned a slow first tick into a 4.5h outage. Also confirm autoheal has been resumed once the trader is healthy (BL-20260605-006).",
       "resolution_criteria": "scripts/check_heartbeat.py caps consecutive autoheal restarts with a cooldown (then alert-only) AND does not kill a trader still completing its first post-restart tick; verified by inducing a slow-first-tick and confirming no unbounded restart loop. CLAUDE.md liveness-watchdog note corrected. Operator-approved PR (live-VM-consumed unit + script).",
       "triage_note": "2026-06-06 /health-review: ROOT TRIGGER eliminated + verified, but the requested WATCHDOG-SIDE hardening is still unshipped. The 06-05 fixes (PRs #2814/#2827) attacked the cause — a hung IB gateway can no longer stall a tick (circuit breaker fail-fast, verified live in journal #2853) and the heartbeat now writes at tick-START — so a slow-first-tick can no longer feed the autoheal-every-3-min loop. Confirmed live: trader uptime stable 87+min (a loop would reset it every ~3min), autoheal re-armed (ict-liveness-watchdog.timer active, #2852). HOWEVER scripts/check_heartbeat.py still has NO consecutive-restart cap and CLAUDE.md's text is not confirmed corrected — the defense-in-depth the resolution_criteria asks for is pending a Tier-2 operator PR. Keep OPEN; loop is materially de-risked, not structurally capped.",
+      "check_log": [
+        {
+          "at": "2026-06-06T08:30:00+00:00",
+          "by": "claude (/health-review)",
+          "note": "FRESH RESTART CHURN observed AFTER this morning's 'uptime stable 87+min' reading: bot_uptime_s was 1666 @06:47Z (start ~06:19) then 4008 @08:23Z (start ~07:16), same git_sha 5fbee10 (NOT deploys) -> >=2 trader restarts in ~1h. Trader currently alive+ticking (heartbeat age 123s, last_tick 08:18Z). NUANCE: ~57-min spacing does NOT match the 3-min autoheal-loop signature, so the likely driver is an HOURLY trigger (IB-gateway wedge -> tick stall -> autoheal after 8min; cross-ref BL-20260605-004) rather than the slow-first-tick loop the #2814/#2827 fixes addressed. Could not capture the exact trigger: /api/diag/journalctl for ict-trader-live + ict-liveness-watchdog both FAILED via relay this session (high-volume trader log trips curl --max-time; see BL-20260606-001). The watchdog-side consecutive-restart CAP this item asks for remains unshipped and is now the prime hardening. Stays OPEN; re-confirmed live, NOT de-risked."
+        }
+      ],
       "status": "open",
       "resolved_at": null,
       "resolved_by": null,
@@ -785,6 +792,11 @@
           "at": "2026-06-04T08:05:00+00:00",
           "by": "claude (/health-review — Rina)",
           "note": "FIX BUILT (pending merge+deploy+verify). scripts/check_web_api.py — stdlib-only watchdog probing http://127.0.0.1:8001/api/health every 2 min (ict-web-api-watchdog.{service,timer}); after 2 consecutive failures runs scripts/ops/restart_web_api.sh, guard-railed --max-restarts 3 + --cooldown-min 10 (crashloop -> alert-escalate, not loop). Decision state machine is byte-identical to the proven check_ib_gateway.py::decide. --auto-restart enabled in the unit (read-only API = low blast radius). Registered in test_s012 EXPECTED_SERVICES + deployment-ops.md; timer auto-enabled by install_systemd_units.sh. Tests: tests/test_check_web_api.py (9). POST-DEPLOY VERIFY: confirm the timer is active + a healthy probe in journalctl (healthy path); the restart path proves out on a real/induced wedge. Closes the gap where the only web-api recovery lever (GitHub vm-web-api-recover) is webhook-flaky."
+        },
+        {
+          "at": "2026-06-06T08:30:00+00:00",
+          "by": "claude (/health-review)",
+          "note": "NEW EVIDENCE of the gap this item targets: this session, /api/bot/order-packages + /api/bot/config returned HTTP 500 transiently around the ~06:19/07:16 trader restarts (the heavier bot routes erroring while /api/diag/*, the Streamlit routine-poll set, and the insights cache stayed 200). They SELF-RECOVERED (config 200 + 8 Streamlit routes 200 OK by 08:06-08:20, same web-api PID 386690 = no restart) — so no recovery lever was needed THIS time, but it confirms the heavier endpoints wobble around restarts and the only autonomous recover (vm-web-api-recover) is still webhook-flaky. The scripts/check_web_api.py VM-side watchdog this item proposes is still pending merge+deploy. Status unchanged (open)."
         }
       ]
     },
@@ -817,7 +829,23 @@
       "resolved_by": "claude (/health-review)",
       "resolution_note": "FIXED this review (Tier-1 doc, within /health-review's allowed writes). Added the missing change-log row to docs/ARCHITECTURE-CANONICAL.md for 2026-06-04 S15b (2-D trend×vol observe-only vol axis, PR #2788) + S17 (regime train/serve feature parity, PR #2790, closes MB-20260604-005). Grounded in live evidence — the 2026-06-06 diag order_packages pull (#2852) shows packages now carry vol_regime/vol_regime_source in signal_logic, confirming both shipped. Also added a companion 2026-06-05 row for the IB-Gateway-wedge isolation incident fix (PRs #2814/#2827/#2838 — bounded IB fetch, liveness probe + circuit breaker, heartbeat at tick start), which was a separate undocumented architecture-impacting change verified deployed (HEAD fde45288) in the same review.",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260606-001",
+      "opened_at": "2026-06-06T08:30:00+00:00",
+      "opened_by": "claude (/health-review)",
+      "source": "/health-review 2026-06-06: /api/diag/journalctl relay calls for ict-trader-live.service (lines=90) AND ict-liveness-watchdog.service (lines=70) both failed (run failed / curl --fail/--max-time), while journalctl?unit=ict-web-api.service (lines=120), status, config, journal, and log_file all succeeded.",
+      "title": "Observability gap: /api/diag/journalctl fails for high-volume units (ict-trader-live) under the relay's curl --max-time, blocking restart-cause root-cause exactly when needed",
+      "description": "When investigating the 2026-06-06 trader restart churn (BL-20260605-001), the diag journalctl pulls for ict-trader-live.service and ict-liveness-watchdog.service both returned 'run failed' via the vm-diag relay, while the lighter ict-web-api.service journalctl (and status/config/journal/log_file) succeeded. The trader logs a large volume per tick, so a journalctl tail of 70-120 lines likely exceeds the relay's `curl -sS --fail --max-time 40` budget (slow/large response -> curl exit 28/timeout -> workflow reports failure), OR the response byte size trips the same ~414KB cap noted elsewhere. Net effect: the single most useful pull for diagnosing a restart loop (the trader + watchdog journals) is the one that fails, so the autoheal-vs-crash-vs-IB-wedge trigger could not be captured this session. Candidate fixes (Tier-1/2): (a) raise the journalctl curl --max-time in vm-diag-snapshot.yml for journalctl paths; (b) add `since=`/`until=` narrowing support guidance so callers pull a small time-window instead of N lines; (c) add a dedicated lightweight 'restart-cause' diag (e.g. systemctl show --property=NRestarts,ActiveEnterTimestamp + the last N ExecStart lines) that returns small output; (d) gzip/cap journalctl output server-side. Until fixed, restart-cause investigation must use systemctl show timestamps + smaller line counts.",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run that needs the trader or watchdog journal to root-cause a restart/stall; or the Tuesday compliance-audit rotation hitting .github/workflows/.",
+      "resolution_criteria": "A /api/diag/journalctl pull for ict-trader-live.service returns successfully via the relay at a useful line/time window (or a dedicated small restart-cause diag exists), so a future health-review can capture the autoheal/crash trigger without the pull failing.",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
     }
   ],
-  "updated_at": "2026-06-06T06:25:00+00:00"
+  "updated_at": "2026-06-06T08:30:00+00:00"
 }
