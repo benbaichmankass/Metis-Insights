@@ -34,7 +34,25 @@
 # (the only real holdout we have — MES has 0 closed trades, MB-20260606-002):
 #   joint+yz (this manifest)  vs  joint-only (xsym-v1)  vs  BTC-only (metalabel-v1)
 # via scripts/ml/eval_split_compare.py (live_holdout + purged_walk_forward).
-# Honest outcome either way; cite the numbers in the sprint log + backlog.
+#
+# EVAL RESULT (trainer-vm-diag #2906, 2026-06-06) — HONEST NEGATIVE: the two
+# levers do NOT stack. On the identical 354-trade real-BTC live_holdout
+# (majority baseline acc 0.7514, base rate 0.2486):
+#   joint+yz (this):   acc 0.7203  precision 0.2105  recall 0.0455  f1 0.0748  brier 0.2185
+#   joint-only (xsym): acc 0.7571  precision 0.5417  recall 0.1477  f1 0.2321  brier 0.2201
+#   BTC-only (v1):     acc 0.6808  precision 0.2093  recall 0.1023  f1 0.1374  brier 0.2220
+# Adding the range-vol estimators DEGRADED the cross-symbol meta-label: precision
+# collapsed 0.54 -> 0.21 (down to ~base rate) and accuracy fell BELOW the
+# majority baseline, erasing the S8 gain. (Purged-WF within-distribution is a
+# wash: joint+yz f1 0.246 vs joint-only 0.209 vs BTC-only 0.369.) The S9
+# range-vol lever is SPECIFIC to the volatility-regime label (where it lifted
+# f1_volatile, MB-20260603-004); it does not transfer to the win/loss DECISION
+# (meta-label) target — at n=354 the extra features add noise/overfit the
+# synthetic train distribution. Verdict: do NOT adopt; the joint-only
+# `setup-candidates-metalabel-xsym-v1` (research_only->shadow proposed, S8)
+# remains the family's best meta-label. This manifest stays `research_only` as a
+# documented negative. Full writeup: docs/sprint-logs/S-MLOPT-S8-FU.md,
+# docs/claude/ml-review-backlog.json MB-20260606-003.
 #
 # TIER: adopting this manifest / promoting past `shadow` is Tier-3
 # (operator-gated). Ships at `research_only`.
