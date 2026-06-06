@@ -318,7 +318,7 @@ trust the result, and the live-vs-synthetic domain-shift check).
   training set) in the sprint log. Wiring the recorder into each harness (the opt-in money-DB
   write) is a one-call follow-up.
 
-### Session 1.4 — Cross-symbol transfer *(Tier-1 experiment; Tier-3 manifest)* — 🔄 IN REVIEW 2026-06-03 (S-MLOPT-S8)
+### Session 1.4 — Cross-symbol transfer *(Tier-1 experiment; Tier-3 manifest)* — ✅ DONE 2026-06-06 (S-MLOPT-S8; QUALIFIED-POSITIVE, research_only→shadow proposed)
 - **Deliverable:** joint BTC+MES training (or pretrain-on-liquid-proxy → fine-tune) for the
   regime and decision families — a cheap small-data lever we don't use, natural since we
   already run two symbols.
@@ -337,6 +337,27 @@ trust the result, and the live-vs-synthetic domain-shift check).
   bucketing (`tests/ml/test_cross_symbol.py`). The transfer experiment (joint BTC+MES vs
   MES-only meta-label, scored on the REAL MES holdout) runs on the trainer VM — reported in
   the sprint log. **Adopting the manifest / promoting past shadow is Tier-3 (operator-gated).**
+- **EVAL DONE (S-MLOPT-S8, trainer-vm-diag #2891-#2894, 2026-06-06; sprint log
+  [`S-MLOPT-S8.md`](../sprint-logs/S-MLOPT-S8.md), `MB-20260606-002`):** the joint dataset
+  builds clean (22,814 rows: BTC synth 15,737 + MES synth 6,723 + BTC real 354 + MES real
+  **0**). **Data fact that reframes the experiment:** MES has ZERO closed trades — all 354
+  real trades are BTCUSDT — so there is **no real MES holdout** and the intended **BTC->MES
+  transfer is unmeasurable**. The only runnable test is the **reverse** (does pooling MES
+  synthetic + a `symbol` feature help the real-BTC holdout, the actual n~352 floor). Clean
+  ablation on the identical 354-trade real-BTC holdout (only diff = {+MES synthetic,
+  +symbol}): **JOINT acc 0.7571 / precision 0.5417 / f1 0.2321** vs **BTC-only acc 0.6808 /
+  precision 0.2093 / f1 0.1374**, majority baseline acc 0.7514 (base rate 0.2486). The joint
+  is the **first meta-label in this family to edge above the majority baseline** (0.7571 >
+  0.7514) with a decision-useful precision (0.54 = 2.2x base rate; BTC-only 0.21 is *below*
+  base rate). **QUALIFIED POSITIVE, not a decisive floor-break:** win is on BTC (reverse
+  transfer) not MES; leak-free purged-WF within-distribution does not corroborate; n=354 is
+  noisy. **Does cross-symbol pooling break the n~352 floor? Weakly / not decisively** — it
+  produces the best real-holdout meta-label to date but the binding constraint stays data
+  scale (354 BTC trades, 0 MES). **Proposal (Tier-3, operator-gated):** research_only ->
+  shadow so the model accrues an observe-only track record; daily rebuild wired opt-in/
+  default-off behind `ICT_BUILD_XSYM=1` in `build_trainer_datasets.sh`. Follow-up levers:
+  re-run with a real MES holdout once MES accrues closed trades (the *intended* transfer);
+  add MGC/MHG; combine with the S9 range-vol/yz features (the feature lever that *did* lift).
 
 ---
 

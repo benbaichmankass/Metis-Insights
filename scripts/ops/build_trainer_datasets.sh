@@ -493,5 +493,60 @@ build_funding_oi() {
 
 build_funding_oi
 
+# ---- Cross-symbol joint setup_candidates (S-MLOPT-S8 / M14 Phase 1.4) -----
+# OPT-IN (default OFF): set ICT_BUILD_XSYM=1 to build the JOINT BTC+MES
+# setup_candidates/all/all/v001 dataset that the cross-symbol meta-label
+# (ml/configs/setup-candidates-metalabel-xsym-v1.yaml, research_only) trains
+# on. Default off keeps the daily cycle byte-identical — the xsym manifest then
+# skips cleanly (`ml train` exit 78 / reason=dataset_absent, PR #2886), zero
+# cycle harm. Flip ICT_BUILD_XSYM=1 on the trainer unit once the operator
+# promotes the xsym model research_only -> shadow (Tier-3) so it retrains on
+# fresh data each cycle.
+#
+# S-MLOPT-S8 eval (trainer-vm-diag #2892-#2894, 2026-06-06): on the only real
+# holdout we have (354 closed BTCUSDT trades — MES has ZERO closed trades, so
+# the intended BTC->MES transfer is unmeasurable and this is REVERSE transfer),
+# the joint model is the FIRST meta-label in the family to edge above the BTC
+# majority baseline (acc 0.757 > 0.751) with precision 0.54 = 2.2x the 0.249
+# base rate, vs the clean BTC-only ablation (acc 0.681, precision 0.21 — below
+# base rate). Caveats: win is on BTC not MES; leak-free purged-WF does not
+# corroborate; n=354 is noisy. A qualified positive — observe-in-shadow, not a
+# decisive floor-break. Full writeup: docs/sprint-logs/S-MLOPT-S8.md.
+#
+# MES leg pinned to 15m/v001 (the deep ~29k-bar history the eval used — MES
+# contributes only SYNTHETIC candidates, so deeper history = more candidates;
+# the daily-refreshed MES v002 is the shallow ~5k-bar IBKR window). The BTC leg
+# (1h/$DATASET_VERSION) IS daily-refreshed, so the BTC synthetic rows + the
+# growing real-BTC holdout stay fresh. Non-fatal: a build hiccup just leaves the
+# xsym manifest to skip on the missing dataset.
+build_xsym_setup_candidates() {
+  [ "${ICT_BUILD_XSYM:-0}" = "1" ] || return 0
+  local btc="${DATASETS_ROOT}/market_raw/BTCUSDT/1h/${DATASET_VERSION}"
+  local mes="${DATASETS_ROOT}/market_raw/MES/15m/v001"
+  if [ ! -f "$btc/data.jsonl" ] || [ ! -f "$mes/data.jsonl" ]; then
+    emit "$(printf '{"ts":"%s","status":"skipped","family":"setup_candidates","scope":"all","detail":"BTC 1h or MES 15m/v001 market_raw missing"}' "$(iso_now)")"
+    return 0
+  fi
+  emit "$(printf '{"ts":"%s","status":"building","family":"setup_candidates","scope":"all"}' "$(iso_now)")"
+  set +e
+  python -m ml.datasets build setup_candidates \
+    --output-dir "$DATASETS_ROOT" --version v001 --source market_raw \
+    --symbol-scope all --timeframe all --overwrite \
+    -- "market_raw_paths=${btc},${mes}" "live_trades_db=${DB_PATH}" \
+    >"/tmp/xsym_$$.out" 2>"/tmp/xsym_$$.err"
+  local rc=$?
+  set -e
+  if [ "$rc" -eq 0 ]; then
+    emit "$(printf '{"ts":"%s","status":"ok","family":"setup_candidates","scope":"all"}' "$(iso_now)")"
+  else
+    local err; err="$(tail -n 2 "/tmp/xsym_$$.err" 2>/dev/null | tr '\n' ' ' | head -c 300)"
+    emit "$(python3 -c "import json,sys; print(json.dumps({'ts':sys.argv[1],'status':'warn','family':'setup_candidates','scope':'all','exit_code':int(sys.argv[2]),'stderr_tail':sys.argv[3]}))" \
+      "$(iso_now)" "$rc" "$err")"
+  fi
+  rm -f "/tmp/xsym_$$.out" "/tmp/xsym_$$.err"
+}
+
+build_xsym_setup_candidates
+
 emit "$(printf '{"ts":"%s","status":"build_end","overall_rc":%d}' "$(iso_now)" "$overall_rc")"
 exit "$overall_rc"
