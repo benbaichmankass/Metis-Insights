@@ -2,7 +2,7 @@
 
 ## Date Range
 - Start: 2026-06-03
-- End: 2026-06-03
+- End: 2026-06-06 (infra 06-03; train + evaluate + decide 06-06)
 
 ## Objective
 - Primary goal: **cross-symbol transfer** — train the decision model jointly on
@@ -83,9 +83,66 @@ Honest read:
   built, tested, and CI-green. The empirical transfer number is deferred to when
   an MES real (or backtest-augmented) holdout exists — not claimed prematurely.
 
+## FINISH — actually train + evaluate (2026-06-06, trainer-vm-diag #2891–#2894)
+
+The 06-03 infra sprint left the empirical number deferred and the daily build
+unwired, so the xsym manifest skipped every cycle (exit 78, `dataset_absent`;
+PR #2886). This finish trains + evaluates the model and decides the build wiring.
+
+**Data fact (unchanged, now n=354):** all 354 real closed trades are BTCUSDT;
+**MES still has ZERO closed trades.** So there is **no real MES holdout** and the
+intended **BTC→MES transfer remains unmeasurable**. The only runnable cross-symbol
+test is the **reverse** — does pooling MES *synthetic* + a `symbol` feature help
+the **real-BTC** holdout (the actual n~352 floor)?
+
+**Joint build (#2892):** `setup_candidates/all/all/v001` = 22,814 rows (BTC synth
+15,737 + MES synth 6,723 + BTC real 354 + MES real 0); `symbol` column present,
+both symbols present; synthetic win-rate 0.452 vs real-BTC 0.249.
+
+**Clean ablation (#2893–#2894)** via `eval_split_compare.py` on the **identical**
+354-trade real-BTC holdout (BTC-only rebuilt `--overwrite` from the **same** BTC
+1h v002 + live trades → the only diff vs joint is `{+MES synthetic, +symbol}`):
+
+| Model | acc | precision | recall | f1 | brier | purged-WF f1 |
+|---|---|---|---|---|---|---|
+| **JOINT (xsym)** | **0.7571** | **0.5417** | 0.1477 | 0.2321 | 0.2201 | 0.2092 |
+| BTC-only (v1) | 0.6808 | 0.2093 | 0.1023 | 0.1374 | 0.2220 | 0.3693 |
+| Majority baseline | 0.7514 | — (base rate 0.2486) | | | | |
+
+The joint beats BTC-only by **+0.076 acc / +0.33 precision** and is the **first
+meta-label in this family to clear the majority baseline** on the real holdout
+(0.7571 > 0.7514), with a decision-useful precision (0.54 = **2.2× base rate**;
+BTC-only 0.21 is *below* base rate).
+
+**Honest verdict — does cross-symbol pooling break the n~352 floor? Weakly / not
+decisively.** Best real-holdout meta-label to date, but: (1) win is on BTC
+(reverse transfer), not MES; (2) leak-free purged-WF does **not** corroborate
+(BTC-only f1 0.369 > joint 0.209 — though joint folds pool both symbols); (3)
+n=354 is noisy (BTC-only acc swung 0.68–0.74 across builds); (4) "cross-symbol"
+vs "more rows" (22k vs 16k) not fully disentangled. The binding constraint stays
+**data scale** (354 BTC trades, 0 MES).
+
+**Decisions:**
+- **Promotion (Tier-3, operator-gated):** **PROPOSE** `research_only → shadow`
+  (observe-only track record; never influences an order). **Not flipped
+  autonomously** — manifest stays `research_only`.
+- **Daily build:** wired **opt-in/default-off** — `build_xsym_setup_candidates()`
+  gated `ICT_BUILD_XSYM=1` in `scripts/ops/build_trainer_datasets.sh` (mirrors
+  `build_funding_oi`). Default off → cycle byte-identical, manifest keeps
+  skipping (PR #2886). Flip it on the trainer unit if/when the model is promoted.
+
+**Follow-up levers:** re-run with a real MES holdout once MES accrues closed
+trades (the *intended* transfer); add MGC/MHG; combine with the S9 range-vol/yz
+features (the lever that *did* lift, MB-20260603-004). Tracked in `MB-20260606-002`.
+
 ## Documentation Updated
-- `ROADMAP.md` S-MLOPT-S8 row; `docs/ml/optimization-roadmap.md` Session 1.4;
-  `docs/architecture/ai-model-platform.md` change-log; this sprint log.
+- `ROADMAP.md` S-MLOPT-S8 row; `docs/ml/optimization-roadmap.md` Session 1.4
+  (06-03 infra; 06-06 EVAL DONE block + status → DONE/qualified-positive);
+  `docs/architecture/ai-model-platform.md` change-log; this sprint log (FINISH
+  section); `ml/configs/setup-candidates-metalabel-xsym-v1.yaml` header/notes
+  (eval result + promotion proposal); `scripts/ops/build_trainer_datasets.sh`
+  (opt-in `build_xsym_setup_candidates`); `docs/claude/ml-review-backlog.json`
+  (`MB-20260606-002`).
 
 ## Risks and Follow-Ups
 - **MES real holdout is small** — the transfer claim is only as powerful as the

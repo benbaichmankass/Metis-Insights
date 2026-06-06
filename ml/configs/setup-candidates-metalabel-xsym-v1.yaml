@@ -20,6 +20,35 @@
 # the MES REAL-trade holdout. Compare via two runs (joint vs MES-only) scored on
 # REAL MES trades (`live_holdout`), or under purged_walk_forward.
 #
+# EVAL RESULT (S-MLOPT-S8, trainer-vm-diag #2891-#2894, 2026-06-06) — QUALIFIED
+# POSITIVE, reframed by a data fact: MES has ZERO closed trades (all 354 real
+# trades are BTCUSDT). So there is NO real MES holdout — the intended BTC->MES
+# transfer is UNMEASURABLE; the only runnable cross-symbol test is the REVERSE
+# (does pooling MES synthetic + a `symbol` feature help the REAL BTC holdout,
+# the actual n~352 floor). Clean ablation on the identical 354-trade real-BTC
+# holdout (only diff = {+MES synthetic, +symbol}):
+#   JOINT (xsym):    acc 0.7571  precision 0.5417  recall 0.1477  f1 0.2321  brier 0.2201
+#   BTC-only (v1):   acc 0.6808  precision 0.2093  recall 0.1023  f1 0.1374  brier 0.2220
+#   majority baseline acc 0.7514 (win base rate 0.2486)
+# The joint is the FIRST meta-label in this family to edge above the majority
+# baseline (0.7571 > 0.7514) with a decision-useful precision (0.54 = 2.2x base
+# rate; BTC-only 0.21 is BELOW base rate). CAVEATS that keep it short of a
+# decisive floor-break: (1) the win is on BTC (reverse transfer), not MES; (2)
+# leak-free purged-WF within-distribution does NOT corroborate (BTC-only f1
+# 0.369 > joint 0.209 there — though the joint folds pool both symbols, so not a
+# clean cross-model compare); (3) n=354 is noisy (BTC-only holdout acc swung
+# 0.68-0.74 across builds). Verdict: cross-symbol pooling is a WEAK-POSITIVE
+# lever worth observing in shadow, NOT a floor-breaker — the binding constraint
+# stays data scale (354 BTC trades, 0 MES). Full writeup: docs/sprint-logs/S-MLOPT-S8.md,
+# docs/claude/ml-review-backlog.json MB-20260606-002.
+#
+# PROMOTION PROPOSAL (Tier-3, operator-gated): advance research_only -> shadow so
+# the joint model accrues an observe-only live track record (shadow logs
+# predictions, never influences an order). Daily rebuild is wired opt-in/default-
+# off behind ICT_BUILD_XSYM=1 in scripts/ops/build_trainer_datasets.sh — flip it
+# on the trainer unit when promoting. NOT flipped autonomously; the operator
+# pulls the lever.
+#
 # TIER: adopting this manifest / promoting past `shadow` is Tier-3
 # (operator-gated). Ships at `research_only`.
 
