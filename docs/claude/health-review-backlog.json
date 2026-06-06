@@ -12,6 +12,7 @@
       "tier": 2,
       "trigger_condition": "Any /health-review; prioritise — this is the mechanism that turned a slow first tick into a 4.5h outage. Also confirm autoheal has been resumed once the trader is healthy (BL-20260605-006).",
       "resolution_criteria": "scripts/check_heartbeat.py caps consecutive autoheal restarts with a cooldown (then alert-only) AND does not kill a trader still completing its first post-restart tick; verified by inducing a slow-first-tick and confirming no unbounded restart loop. CLAUDE.md liveness-watchdog note corrected. Operator-approved PR (live-VM-consumed unit + script).",
+      "triage_note": "2026-06-06 /health-review: ROOT TRIGGER eliminated + verified, but the requested WATCHDOG-SIDE hardening is still unshipped. The 06-05 fixes (PRs #2814/#2827) attacked the cause — a hung IB gateway can no longer stall a tick (circuit breaker fail-fast, verified live in journal #2853) and the heartbeat now writes at tick-START — so a slow-first-tick can no longer feed the autoheal-every-3-min loop. Confirmed live: trader uptime stable 87+min (a loop would reset it every ~3min), autoheal re-armed (ict-liveness-watchdog.timer active, #2852). HOWEVER scripts/check_heartbeat.py still has NO consecutive-restart cap and CLAUDE.md's text is not confirmed corrected — the defense-in-depth the resolution_criteria asks for is pending a Tier-2 operator PR. Keep OPEN; loop is materially de-risked, not structurally capped.",
       "status": "open",
       "resolved_at": null,
       "resolved_by": null,
@@ -28,10 +29,10 @@
       "tier": 2,
       "trigger_condition": "Any /health-review; or whenever a market-data source (IBKR gateway / Bybit) outage coincides with trader heartbeat staleness.",
       "resolution_criteria": "A down IBKR gateway and/or a transient Bybit fetch failure no longer prevents the trader from completing a tick + writing a heartbeat within the watchdog window — verified by inducing an IBKR-down condition and confirming BTCUSDT keeps ticking + heartbeating. Tier-2 code (src/runtime market-data path + src/main heartbeat) — operator-approved PR.",
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-06T06:25:00+00:00",
+      "resolved_by": "claude (/health-review)",
+      "resolution": "FIXED + VERIFIED LIVE. PR #2814 (IB_FETCH_TIMEOUT_S default 8s) bounds every IB market-data fetch; PR #2827 added a post-connect liveness probe (IB_PROBE_TIMEOUT_S) + circuit breaker (IB_BREAKER_COOLDOWN_S) in IBClient.connect() AND moved the heartbeat write to tick-START as well as tick-end. Verified in this review's trader journal (issue #2853, 2026-06-06 06:08-06:12Z): with the IB gateway down (127.0.0.1:4002 ConnectionRefused) every IB connect fails FAST and trips 'circuit breaker OPEN ... Suppressing IB calls so the trader loop is not blocked'; meanwhile the BTCUSDT loop keeps ticking every ~60-75s and the heartbeat advances every 60s (status #2852: heartbeat age 8s, uptime stable 87min, last_tick current). A down gateway no longer stalls the tick or starves the heartbeat — resolution criteria met. The watchdog-side autoheal cap (defense-in-depth) is tracked separately under BL-20260605-001.",
       "snoozed_until": null
     },
     {
@@ -44,10 +45,10 @@
       "tier": 2,
       "trigger_condition": "Any /health-review; surface to operator immediately while the live trader is affected. Re-check whether pybit ErrCode 10002 lines persist.",
       "resolution_criteria": "Live VM clock disciplined to <1s of true time (NTP working), pybit ErrCode 10002 lines gone, Bybit signed requests succeed first-try. Operator fixes NTP/chrony, or a sanctioned time-sync path is added.",
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-06T06:25:00+00:00",
+      "resolved_by": "claude (/health-review)",
+      "resolution": "RESOLVED on current evidence (re-open if ErrCode 10002 recurs). PR #2814 added a sanctioned `sync-clock` system-action — the previously-missing Claude-dispatchable time-sync lever called for in the resolution_criteria. This review's live trader journal (issue #2853, 150-line tail through 2026-06-06 06:12Z) shows NO pybit ErrCode 10002 lines and Bybit 'market data environment: mainnet' signed requests succeeding on every tick — the ~6.5s skew that broke Bybit signed requests on 2026-06-05 is gone. Criteria 'ErrCode 10002 lines gone + Bybit signed requests succeed' met. Caveat: durable NTP/chrony discipline across multiple days was not separately confirmed this run — if 10002 reappears, re-open and dispatch sync-clock / escalate the underlying NTP egress.",
       "snoozed_until": null
     },
     {
@@ -60,6 +61,7 @@
       "tier": 2,
       "trigger_condition": "Any /health-review; cross-reference BL-20260527-003. Re-check IB gateway login state (gateway-logs) + whether MES fetches succeed.",
       "resolution_criteria": "IB Gateway logs in cleanly (ib_connect_check healthy=True, net_liquidation populated) and MES fetches succeed; or operator confirms+fixes the IBKR-side cause. Re-validate the ict-ib-gateway-watchdog restart-path actually re-establishes the session (cf. BL-20260528-001).",
+      "triage_note": "2026-06-06 /health-review: STILL UNRESOLVED — IB Gateway intentionally STOPPED since the 06-05 incident (#2839 stopped the up-but-unauthenticated container after IBC login wouldn't complete: exit-1112 loop / 'did not confirm login within 150s'). Live journal #2853 confirms 127.0.0.1:4002 ConnectionRefused on every tick → MES + MGC + MHG dark (strategies raise 'no candle data' and skip). NO trading-loop impact (PR #2827 circuit breaker isolates it cleanly — verified). MES/metals stay dark until the IBKR-login root cause is fixed and the gateway is re-provisioned. Carry forward; cross-ref BL-20260527-003 (same IBC login failure mode) and BL-20260605-005's note that ib_paper still reports account-mode live while the gateway is down.",
       "status": "open",
       "resolved_at": null,
       "resolved_by": null,
@@ -94,10 +96,17 @@
       "trigger_condition": "EVERY /health-review until resolved. Check `systemctl is-active ict-liveness-watchdog.timer` (status-check / services); inactive => dead-man switch still off.",
       "resolution_criteria": "ict-liveness-watchdog.timer enabled+active again (resume-autoheal dispatched) AND the trader confirmed heartbeating on a fresh signal — dead-man switch restored without re-creating the loop. Do NOT resume while the trader still cannot complete a tick.",
       "carry_forward_instructions": "Stay open and re-check on EVERY /health-review until the watchdog is confirmed re-enabled + the trader is heartbeating. Append a dated check_log entry each review with the timer state + heartbeat freshness.",
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "check_log": [
+        {
+          "at": "2026-06-06T06:25:00+00:00",
+          "by": "claude (/health-review)",
+          "note": "RESOLVED. Autoheal was RESUMED via the resume-autoheal system-action (issue #2846, 2026-06-05 17:17Z) once the trader stabilized post-incident, then a final stability check (#2847 17:25Z) confirmed steady pid. This review re-confirms the dead-man switch is restored WITHOUT re-creating the loop: services pull #2852 shows ict-liveness-watchdog.timer = active; the trader is heartbeating fresh (mtime 06:10:52Z, age 8s, label running) with a stable 87+min uptime (a relapsed loop would reset uptime every ~3min). Criteria met."
+        }
+      ],
+      "status": "resolved",
+      "resolved_at": "2026-06-06T06:25:00+00:00",
+      "resolved_by": "claude (/health-review)",
+      "resolution": "Autoheal dead-man switch RE-ARMED and confirmed not looping. resume-autoheal (#2846, 2026-06-05 17:17Z) re-enabled ict-liveness-watchdog.timer after the trader stabilized; this review verifies the timer is active (services #2852) and the trader is heartbeating fresh on a stable 87+min uptime. The pause was the incident-mitigation; it has been correctly reverted now that the trader can complete ticks (PR #2827). Note: ict-ib-gateway-watchdog.timer also reads active in #2852 — flagged as an anomaly for the operator since the incident intent (#2846) was to keep it disabled until IBKR login is fixed (PR #2827's breaker contains any blast radius, so low risk).",
       "snoozed_until": null
     },
     {
@@ -803,9 +812,12 @@
       "title": "ARCHITECTURE-CANONICAL change log missing rows for S15b (2-D trend×vol observe-only gate) + S17 (regime train/serve feature parity, MB-20260604-005)",
       "description": "Two notable regime-router changes shipped 2026-06-04 with no ARCHITECTURE-CANONICAL.md change-log entry: (1) S15b/PR #2788 — src/runtime/regime/vol_detector.py + a 2-D trend×vol observe-only shadow gate (would_gate vol_regime axis, config/regime_policy.yaml schema_version 2 + empty trend_vol block); (2) S17/PR #2790 — src/runtime/regime_shadow.feature_row_for_predictor now emits the full market_features superset (range-vol estimators + lags + time) and buckets vol_bucket against the head's vol_feature_column estimator (closes MB-20260604-005). Neither is a contradiction (the change log is append-only history), just a freshness gap. Add a combined change-log row on the next doc pass. Sprint logs S-MLOPT-S15b.md / S-MLOPT-S17.md + ROADMAP rows already capture the detail.",
       "severity": "low",
-      "status": "open",
+      "status": "resolved",
+      "resolved_at": "2026-06-06T06:25:00+00:00",
+      "resolved_by": "claude (/health-review)",
+      "resolution_note": "FIXED this review (Tier-1 doc, within /health-review's allowed writes). Added the missing change-log row to docs/ARCHITECTURE-CANONICAL.md for 2026-06-04 S15b (2-D trend×vol observe-only vol axis, PR #2788) + S17 (regime train/serve feature parity, PR #2790, closes MB-20260604-005). Grounded in live evidence — the 2026-06-06 diag order_packages pull (#2852) shows packages now carry vol_regime/vol_regime_source in signal_logic, confirming both shipped. Also added a companion 2026-06-05 row for the IB-Gateway-wedge isolation incident fix (PRs #2814/#2827/#2838 — bounded IB fetch, liveness probe + circuit breaker, heartbeat at tick start), which was a separate undocumented architecture-impacting change verified deployed (HEAD fde45288) in the same review.",
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-04T07:52:00+00:00"
+  "updated_at": "2026-06-06T06:25:00+00:00"
 }
