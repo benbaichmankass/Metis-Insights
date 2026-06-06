@@ -90,6 +90,46 @@ def test_builds_labeled_rows(tmp_path: Path):
         assert r["signal_vol"] > 0
 
 
+def test_range_vol_features_emitted(tmp_path: Path):
+    # builder v2 (S-MLOPT-S8 follow-up): every row carries the four range-based
+    # vol estimators, past-only over the same window as rolling_log_return_vol.
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5,
+    ))
+    assert rows
+    range_vol_cols = (
+        "parkinson_vol", "garman_klass_vol", "rogers_satchell_vol", "yang_zhang_vol",
+    )
+    for r in rows:
+        for col in range_vol_cols:
+            assert col in r, f"missing {col}"
+            assert isinstance(r[col], float)
+            assert r[col] >= 0.0  # emitted as a stdev (sqrt of a variance) or 0.0
+        # The widened ±0.4% high/low fixture gives a non-zero intrabar range,
+        # so at least the high-low Parkinson estimator must be strictly positive.
+        assert r["parkinson_vol"] > 0.0
+
+
+def test_range_vol_features_on_live_rows(tmp_path: Path):
+    # Real-trade rows live in the SAME feature space as synthetic rows, incl. the
+    # range-vol estimators (the live_holdout train/eval space must match).
+    closes = _trending_closes()
+    ddir = _write_market_raw(tmp_path, closes)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    _seed_trades(db, [((base + timedelta(hours=50)).isoformat(), "buy", 12.5)])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db,
+    ))
+    live = [r for r in rows if r["is_live_trade"]]
+    assert len(live) == 1
+    assert live[0]["yang_zhang_vol"] >= 0.0
+    assert live[0]["parkinson_vol"] > 0.0
+
+
 def test_build_writes_valid_schema(tmp_path: Path):
     ddir = _write_market_raw(tmp_path, _trending_closes())
     out = tmp_path / "datasets-out"

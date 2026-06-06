@@ -358,6 +358,21 @@ trust the result, and the live-vs-synthetic domain-shift check).
   default-off behind `ICT_BUILD_XSYM=1` in `build_trainer_datasets.sh`. Follow-up levers:
   re-run with a real MES holdout once MES accrues closed trades (the *intended* transfer);
   add MGC/MHG; combine with the S9 range-vol/yz features (the feature lever that *did* lift).
+- **FOLLOW-UP DONE (S-MLOPT-S8-FU, 2026-06-06; `MB-20260606-003`):** the
+  "combine with the S9 range-vol/yz features" lever was built + evaluated —
+  `setup_candidates` builder v1→v2 now emits the four range-vol estimators at
+  signal time, and `setup-candidates-metalabel-xsym-yz-v1` (research_only)
+  stacks the joint pooling with them. **HONEST NEGATIVE: the two levers do NOT
+  stack.** On the identical 354-trade real-BTC `live_holdout` (trainer-vm-diag
+  #2906): joint+yz acc 0.7203 / precision 0.2105 vs joint-only acc 0.7571 /
+  precision 0.5417 — the range-vol features *degraded* the meta-label (precision
+  back to base rate, accuracy below the majority baseline). The S9 lever is
+  specific to the **volatility-regime** label; it does not transfer to the
+  **win/loss decision** target, and at n=354 the extra features overfit. Verdict:
+  joint-only `xsym-v1` stays the family's best; `xsym-yz-v1` stays research_only
+  as a documented negative. Also re-confirmed Experiment 3: MES still has 0
+  closed trades, so the intended BTC→MES transfer remains unmeasurable. Sprint
+  log [`S-MLOPT-S8-FU.md`](../sprint-logs/S-MLOPT-S8-FU.md).
 
 ---
 
@@ -617,6 +632,16 @@ model.
   parity test that uses `MarketFeaturesBuilder` itself as the oracle (live row == builder row
   bit-for-bit). This was the gate on promoting ANY regime head past `shadow`; now unblocked on
   the post-deploy track record. **Still TODO this session:** the experiment/run-tracking half.
+- **Trainer-side realized join SHIPPED (S-MLOPT-S8-FU, 2026-06-06):** `gate-check`'s
+  `live_agreement` + `drift_clean` could not compute on the trainer because the live
+  `shadow_predictions.jsonl` wasn't synced there (and `/api/bot/trades/scores` is unreachable
+  from a web session). `scripts/ops/sync_trainer_data.sh` now pulls
+  `shadow_predictions.jsonl` (+ `_backfill`) into the trainer `runtime_logs/` the same way it
+  pulls `trade_journal.db`, so `python -m ml gate-check` / `model-attribution` compute the
+  realized join **locally**. Verified (trainer-vm-diag #2907-#2908): 28,666 fresh shadow lines
+  pulled; `gate-check btc-regime-1h-lgbm-yz-v1 → advisory` runs the join locally (READY:false —
+  `shadow_soak` 1.8/7d + the join is data-thin: the post-6/5 per-bar record doesn't yet overlap
+  a closed-BTC trade window). The infra unblock is durable; evidence accrues with the soak.
 - **Effort:** M.
 
 ### Session 4.3 — Full champion-challenger automation *(Tier-1 compute; Tier-3 enforce)*

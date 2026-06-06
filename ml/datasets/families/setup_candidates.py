@@ -104,6 +104,19 @@ eval-side population: the apples-to-apples backtest-train + real-eval the
 signal-log experiment approximated. ``backtest_strategies=("squeeze",...)``
 restricts to specific strategies; ``include_cusum=False`` + no ``signal_log_db``
 emits the pure backtest-train + real-eval split.
+
+## Range-based vol estimators (builder v2, S-MLOPT-S8 follow-up)
+
+Every emitted row carries the four range-based vol estimators from S-MLOPT-S9
+(``parkinson_vol`` / ``garman_klass_vol`` / ``rogers_satchell_vol`` /
+``yang_zhang_vol``), computed over the SAME inclusive past window as
+``rolling_log_return_vol`` from each candidate's OHLC (``ml.datasets.
+volatility_estimators`` — the same module + computation ``market_features``
+uses, so the columns are comparable across families). Past-only → leakage-safe
+by construction. S8 (cross-symbol pooling) and S9 (range-vol features) are two
+INDEPENDENT levers; ``setup-candidates-metalabel-xsym-yz-v1`` stacks both. The
+estimators are emitted for every population (CUSUM / signal-log / backtest /
+live) so the live-holdout feature space stays identical across train + eval.
 """
 from __future__ import annotations
 
@@ -120,6 +133,13 @@ from ..builder import DatasetBuilder
 from ..labeling import BarrierConfig, cusum_events, label_event
 from ..labeling.triple_barrier import log_prices
 from ..metadata import LeakageStatus
+from ..volatility_estimators import (
+    _sqrt_or_zero,
+    garman_klass_var,
+    parkinson_var,
+    rogers_satchell_var,
+    yang_zhang_var,
+)
 
 _FAMILY = "setup_candidates"
 
@@ -403,12 +423,29 @@ def _feature_fields(
     boundaries: list[float],
     bucket_labels: list[str],
     momentum_window: int,
+    *,
+    opens: list[float],
+    highs: list[float],
+    lows: list[float],
+    closes: list[float],
+    vol_window_n: int,
 ) -> dict[str, Any]:
     """Signal-time (past-only) feature fields shared by synthetic + live rows.
 
     Computed from bar ``e`` and the inclusive past window only — identical for a
     CUSUM-sampled synthetic candidate and a REAL trade located at bar ``e``, so
-    both populations live in one feature space (the live holdout is comparable)."""
+    both populations live in one feature space (the live holdout is comparable).
+
+    The four range-based vol estimators (S-MLOPT-S9: parkinson / garman_klass /
+    rogers_satchell / yang_zhang) are computed over the SAME inclusive past
+    window ``[e - vol_window_n + 1 .. e]`` as ``rolling_log_return_vol`` and
+    emitted as a stdev (``sqrt`` of the variance estimate), mirroring
+    ``market_features`` exactly so the two families' columns are comparable.
+    Past-only → leakage-safe by construction. The S9 finding is that
+    Yang-Zhang lifts the regime heads' separation; this makes those same
+    estimators available at signal time for the meta-label decision model
+    (S-MLOPT-S8 follow-up — cross-symbol + range-vol are two independent
+    levers, combined here)."""
     log_ret = log_returns[e]
     hour_of_day, dayofweek = _parse_ts_hour_dow(str(rows[e].get("ts", "")))
     lag_1 = log_returns[e - 1] if e - 1 >= 0 else None
@@ -417,6 +454,14 @@ def _feature_fields(
         v for v in log_returns[max(0, e - momentum_window + 1): e + 1]
         if v is not None
     ))
+    # Range-vol window: the inclusive past OHLC window `[s .. e]`, same as
+    # `rolling_log_return_vol`. YZ's overnight term needs each bar's prior close.
+    s = max(0, e - vol_window_n + 1)
+    w_open, w_high, w_low, w_close = (
+        opens[s : e + 1], highs[s : e + 1], lows[s : e + 1], closes[s : e + 1],
+    )
+    w_prev_close = [closes[j - 1] if j - 1 >= 0 else None
+                    for j in range(s, e + 1)]
     return {
         "ts": str(rows[e].get("ts", "")),
         "symbol": str(rows[e].get("symbol", "")),
@@ -426,6 +471,13 @@ def _feature_fields(
         "log_return": float(log_ret) if log_ret is not None else 0.0,
         "rolling_log_return_vol": float(vol),
         "vol_bucket": _bucket_for(vol, boundaries, bucket_labels),
+        "parkinson_vol": _sqrt_or_zero(parkinson_var(w_high, w_low)),
+        "garman_klass_vol": _sqrt_or_zero(
+            garman_klass_var(w_open, w_high, w_low, w_close)),
+        "rogers_satchell_vol": _sqrt_or_zero(
+            rogers_satchell_var(w_open, w_high, w_low, w_close)),
+        "yang_zhang_vol": _sqrt_or_zero(
+            yang_zhang_var(w_open, w_high, w_low, w_close, w_prev_close)),
         "momentum": momentum,
         "hour_of_day": int(hour_of_day),
         "dayofweek": int(dayofweek),
@@ -436,7 +488,11 @@ def _feature_fields(
 
 class SetupCandidatesBuilder(DatasetBuilder):
     family: ClassVar[str] = _FAMILY
-    builder_version: ClassVar[str] = "v1"
+    # v2 (S-MLOPT-S8 follow-up): added the four range-based vol estimators
+    # (parkinson/garman_klass/rogers_satchell/yang_zhang) at signal time, so the
+    # meta-label can combine the cross-symbol lever (S8) with the range-vol
+    # lever (S9). v1 emitted only rolling_log_return_vol + vol_bucket.
+    builder_version: ClassVar[str] = "v2"
     # Window separation (features past-only, label future-only) makes leakage
     # impossible by construction — same guarantee market_features stamps.
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.PASSED
@@ -454,6 +510,12 @@ class SetupCandidatesBuilder(DatasetBuilder):
         "log_return": float,
         "rolling_log_return_vol": float,
         "vol_bucket": str,
+        # range-based vol estimators (S-MLOPT-S9), past-only over the same
+        # window as rolling_log_return_vol — emitted as a stdev (sqrt of var).
+        "parkinson_vol": float,
+        "garman_klass_vol": float,
+        "rogers_satchell_vol": float,
+        "yang_zhang_vol": float,
         "momentum": float,           # cum log-return over the momentum window
         "hour_of_day": int,
         "dayofweek": int,
@@ -633,7 +695,9 @@ class SetupCandidatesBuilder(DatasetBuilder):
                     continue
                 yield {
                     **_feature_fields(rows, e, log_returns, vol,
-                                      boundaries, bucket_labels, momentum_window),
+                                      boundaries, bucket_labels, momentum_window,
+                                      opens=opens, highs=highs, lows=lows,
+                                      closes=closes, vol_window_n=vol_window_n),
                     "direction": int(side),
                     "entry_price": float(entry_price),
                     "barrier_touched": outcome.barrier,
@@ -684,7 +748,9 @@ class SetupCandidatesBuilder(DatasetBuilder):
                     continue
                 yield {
                     **_feature_fields(rows, e, log_returns, vol,
-                                      boundaries, bucket_labels, momentum_window),
+                                      boundaries, bucket_labels, momentum_window,
+                                      opens=opens, highs=highs, lows=lows,
+                                      closes=closes, vol_window_n=vol_window_n),
                     "direction": int(ev["direction"]),
                     "entry_price": float(entry_price),
                     "barrier_touched": outcome.barrier,
@@ -733,7 +799,9 @@ class SetupCandidatesBuilder(DatasetBuilder):
                 r_multiple = float(pnl) if pnl is not None else 0.0
                 yield {
                     **_feature_fields(rows, e, log_returns, vol,
-                                      boundaries, bucket_labels, momentum_window),
+                                      boundaries, bucket_labels, momentum_window,
+                                      opens=opens, highs=highs, lows=lows,
+                                      closes=closes, vol_window_n=vol_window_n),
                     "direction": int(tr["direction"]),
                     "entry_price": float(closes[e]),
                     "barrier_touched": "backtest",
@@ -768,7 +836,9 @@ class SetupCandidatesBuilder(DatasetBuilder):
                 ret = float(pnl_pct) / 100.0 if pnl_pct is not None else 0.0
                 yield {
                     **_feature_fields(rows, e, log_returns, vol,
-                                      boundaries, bucket_labels, momentum_window),
+                                      boundaries, bucket_labels, momentum_window,
+                                      opens=opens, highs=highs, lows=lows,
+                                      closes=closes, vol_window_n=vol_window_n),
                     "direction": int(tr["direction"]),
                     "entry_price": float(closes[e]),
                     "barrier_touched": "live",

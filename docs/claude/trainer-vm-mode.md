@@ -88,7 +88,10 @@ operator approval. There are no tiers, no Telegram acks, no
   `docs/ml/`, `docs/sprint-plans/ai-traders/`,
   `docs/sprint-logs/S-AI-*`, `tests/ml/`, `tests/test_*shadow*`,
   `tests/test_*train*`. Branch + PR + merge if CI is green.
-- **Data:** sync `trade_journal.db` read-only from the live VM (via
+- **Data:** sync `trade_journal.db`, `signal_audit.jsonl`,
+  `shadow_predictions.jsonl` (+ `_backfill`, for the `gate-check`
+  realized join — S-MLOPT-S8-FU), and the IBKR MES `market_raw`
+  shards read-only from the live VM (via `scripts/ops/sync_trainer_data.sh`,
   rsync over SSH using `VM_SSH_KEY`, or via the diag API at
   `:8001/api/diag/journal`); build / rebuild datasets under
   `ml/datasets/`; cache market data fetches from `bybit_offvm`;
