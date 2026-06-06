@@ -380,11 +380,13 @@
       "tier": 1,
       "trigger_condition": "Any /ml-review run; or any session looking at why ict-trainer.service is failed / cycle_end rc=1.",
       "resolution_criteria": "Next daily cycle shows setup-candidates-metalabel-xsym-v1 either manifest_ok (real shards) or manifest_skipped via empty_dataset, AND cycle_end overall_rc=0 with ict-trainer.service is-active=active(exit 0). OR the xsym manifest is removed from the daily set and the cycle returns rc=0.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "evidence_log": [
-        "2026-06-06 (/ml-review, trainer-vm-diag #2870): journal shows manifest_failed for setup-candidates-metalabel-xsym-v1.yaml with FileNotFoundError on datasets-out/setup_candidates/all/all/v001/data.jsonl on 6/4 00:12:36, 6/5 01:02:12, 6/6 00:13:43; each followed immediately by cycle_end overall_rc=1. build_end overall_rc=0 every cycle (datasets fine). 32 models in registry all carry fresh metrics. The xsym manifest is the sole failing unit."
-      ]
+        "2026-06-06 (/ml-review, trainer-vm-diag #2870): journal shows manifest_failed for setup-candidates-metalabel-xsym-v1.yaml with FileNotFoundError on datasets-out/setup_candidates/all/all/v001/data.jsonl on 6/4 00:12:36, 6/5 01:02:12, 6/6 00:13:43; each followed immediately by cycle_end overall_rc=1. build_end overall_rc=0 every cycle (datasets fine). 32 models in registry all carry fresh metrics. The xsym manifest is the sole failing unit.",
+        "2026-06-06 RESOLVED via PR #2886 (squash e9c3efa, merged to main): chose the robust fix (option b, future-proofed) over wiring this one dataset. run_experiment now raises DatasetMissingError (a subclass of EmptyDatasetError) for an absent dataset file instead of a bare FileNotFoundError, so `ml train` maps it to the existing exit-78 skip path and run_training_cycle.sh records manifest_skipped (reason=dataset_absent) with overall_rc unchanged. This protects the cycle from ANY orphan/not-yet-built manifest, not just xsym. VERIFIED LIVE on the trainer VM (HEAD=e9c3efa): `python -m ml train ml/configs/setup-candidates-metalabel-xsym-v1.yaml` returned EXIT=78 with {\"skipped\":true,\"reason\":\"dataset_absent\"} (was the lone overall_rc=1 driver). 9 unit tests pass (incl. a new CLI exit-78/dataset_absent regression guard); CI green. The next daily cycle should report cycle_end overall_rc=0 + ict-trainer.service active. NOTE: whether to actually BUILD the xsym all/all dataset (so the model trains rather than skips) remains a separate /ml-review experiment call (MB-20260603-002 cross-symbol family); this item only fixes the cycle-failure."
+      ],
+      "status_history": "open 2026-06-06 (/ml-review) -> resolved 2026-06-06 (PR #2886 e9c3efa, robust skip-on-missing-dataset fix, verified live on trainer EXIT=78/dataset_absent)"
     }
   ]
 }
