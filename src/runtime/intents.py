@@ -649,8 +649,14 @@ def _regime_router_enabled() -> bool:
     is one env flip + restart.
     """
     import os as _os
-    flag = _os.environ.get("REGIME_ROUTER_ENABLED", "0").strip().lower()
-    return flag in {"1", "true", "yes", "on"}
+    # PERF-20260601-006 operator-approved rollback switch for the regime
+    # router. This is the documented escape hatch (one env flip + restart,
+    # no redeploy), NOT a hidden trading-mode gate: it gates a regime-policy
+    # filter that is itself default-permissive, and the live/dry contract
+    # remains RiskManager.dry_run only. See docs/audits/env-gate-purge-2026-05-10.md
+    # + the ROADMAP.md PERF-20260601-006-REGIME-ROUTER-P3 row.
+    raw = _os.environ.get("REGIME_ROUTER_ENABLED", "0")  # allow-silent: PERF-20260601-006 regime-router rollback switch
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _hard_regime_gate(candidates: tuple) -> tuple:
