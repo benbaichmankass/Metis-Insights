@@ -179,7 +179,7 @@ jobs:
         with:
           name: vm-web-api-recover-${{ github.run_id }}
           path: action-output.txt
-          retention-days: 14
+          retention-days: 7
           if-no-files-found: warn
 
       # ────────────────────────────────────────────────────────────

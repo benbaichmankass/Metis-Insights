@@ -142,7 +142,7 @@ jobs:
         with:
           name: trainer-vm-diag-${{ github.run_id }}
           path: /tmp/trainer_diag_output.txt
-          retention-days: 14
+          retention-days: 7
           if-no-files-found: error
 
       - name: Post result to issue

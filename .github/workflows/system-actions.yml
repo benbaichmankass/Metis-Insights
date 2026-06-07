@@ -872,7 +872,7 @@ jobs:
             pre-state.json
             post-state.json
             action-output.txt
-          retention-days: 30
+          retention-days: 7
           if-no-files-found: warn
 
       # ────────────────────────────────────────────────────────────

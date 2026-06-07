@@ -40,7 +40,7 @@ jobs:
         with:
           name: repo-inventory
           path: artifacts/repo-inventory.txt
-          retention-days: 14
+          retention-days: 3
 
       # Advisory contract: never fail the workflow, even if the
       # script returns non-zero. Replace this `if: always()` step

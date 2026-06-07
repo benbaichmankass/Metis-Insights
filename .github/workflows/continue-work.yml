@@ -240,5 +240,5 @@ jobs:
         with:
           name: continue-work-${{ env.SPRINT_ID }}-${{ github.run_id }}
           path: ${{ env.HANDOFF_FILE }}
-          retention-days: 30
+          retention-days: 7
           if-no-files-found: warn
