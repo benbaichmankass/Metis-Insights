@@ -639,7 +639,8 @@ below are the contract.
   Workflows that need to be Claude-driven from a session must use
   an `issues.opened` (or `pull_request.opened`) trigger filtered to
   a label. Pattern is the diag relay (`vm-diag-snapshot.yml`),
-  `vm-web-api-recover.yml`, `init-actions-secrets.yml`, and now
+  `vm-web-api-recover.yml`, `init-actions-secrets.yml`,
+  `purge-artifacts.yml` (label `purge-artifacts-now`), and now
   `system-actions.yml` (whose Tier-2 ack is the operator's
   in-conversation approval — Claude carries that approval into the
   issue body).
