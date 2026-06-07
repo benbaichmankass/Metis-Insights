@@ -54,6 +54,118 @@ def _normalise_side(direction: Any) -> str:
     return _SIDE_MAP.get(direction.strip().lower(), direction.strip().lower())
 
 
+# ---------------------------------------------------------------------------
+# Broker-truth unrealised PnL for open positions (2026-06-07)
+# ---------------------------------------------------------------------------
+#
+# ``trades.pnl`` is the REALISED PnL column — filled in only on close.
+# Pre-this-PR /positions returned ``COALESCE(pnl, 0)`` for every open
+# row, so the dashboard always rendered $0.00 against a live trade.
+# The bot's monitor never wrote a per-tick mark/unrealised back to the
+# DB (that would put a write on every pipeline tick across every open
+# trade — not free).
+#
+# Fix: at read time, ask the broker. Bybit's /v5/position/list and IB's
+# accountSummary already return unrealised_pnl per open position;
+# ``src.units.accounts.clients.account_open_positions`` normalises both.
+# Match each DB row to the broker's view by (account_id, symbol, side).
+# Short TTL cache (10 s) so dashboard poll loops don't hammer Bybit.
+#
+# Fallback when the broker call fails or returns no matching position:
+# leave ``unrealizedPnl=None`` so the renderer treats it as "not
+# measured" (Position-shape contract — null != 0). The dashboard's
+# existing ``_position_upnl`` client-side fallback computes from the
+# last candle close when the API returns null.
+
+_POSITIONS_TTL_S = 10.0
+_BROKER_POSITIONS_CACHE: dict[str, tuple[float, Any]] = {}
+
+
+def _broker_positions_for(account_id: str) -> Any:
+    """Cached fetch of the broker's open-position list for an account.
+
+    Returns the list ``account_open_positions`` produced, or ``None``
+    on read failure / unknown account. Sentinel ``None`` is cached
+    too — a logged-out IB Gateway or a bad Bybit key shouldn't be
+    retried for every row in a positions response.
+    """
+    now = time.monotonic()
+    cached = _BROKER_POSITIONS_CACHE.get(account_id)
+    if cached is not None and (now - cached[0]) < _POSITIONS_TTL_S:
+        return cached[1]
+    try:
+        # Lazy import — keeps the router module load cheap and avoids
+        # dragging the accounts / exchange clients into every web-api
+        # request that doesn't hit /positions.
+        from src.runtime.order_monitor import _load_account_cfgs_for_reconcile
+        from src.units.accounts.clients import account_open_positions
+        cfg_map = _load_account_cfgs_for_reconcile()
+        cfg = cfg_map.get(str(account_id))
+        positions = account_open_positions(cfg) if cfg is not None else None
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort enrichment of a Tier-1 read endpoint — spans lazy imports + broker SDK calls (Bybit ccxt / IB ib_insync) whose failure modes are open-ended; a thrown exception here would 500 /api/bot/positions and break every dashboard surface that depends on it. The downstream consumer treats the None sentinel as "broker unavailable" and falls back to a computed mark-price PnL.
+        logger.warning(
+            "dashboard: broker-positions fetch failed for %s: %s",
+            account_id, exc,
+        )
+        positions = None
+    _BROKER_POSITIONS_CACHE[account_id] = (now, positions)
+    return positions
+
+
+# Side normalisation for the broker→DB match. Both sides have used
+# multiple conventions over time:
+#   * trades.direction: "long" / "short" / "buy" / "sell"
+#   * Bybit /position/list "side": "Buy" / "Sell" (sometimes "" on flat)
+#   * IB / binance via account_open_positions: "long" / "short"
+# Reduce everything to {"long", "short"} for matching.
+_BROKER_SIDE_TO_LONG_SHORT = {
+    "buy": "long", "long": "long",
+    "sell": "short", "short": "short",
+}
+
+
+def _to_long_short(side: Any) -> str:
+    if not isinstance(side, str):
+        return ""
+    return _BROKER_SIDE_TO_LONG_SHORT.get(side.strip().lower(), "")
+
+
+def _broker_unrealised_for_trade(
+    account_id: Any, symbol: Any, direction: Any,
+) -> tuple[Any, str]:
+    """Return ``(unrealised_pnl, source)``.
+
+    ``source`` is one of:
+      * ``"broker"`` — broker returned a matching position; value is
+        whatever it reported (may be ``0.0`` if price is at exact entry).
+      * ``"unavailable"`` — broker read failed (None) OR no matching
+        position. Value is ``None`` so the renderer treats it as "not
+        measured" and the dashboard's client-side ``_position_upnl``
+        fallback computes from the last candle close. Per CLAUDE.md
+        Position-shape contract: null != 0.
+    """
+    if not account_id or not symbol or not direction:
+        return None, "unavailable"
+    positions = _broker_positions_for(str(account_id))
+    if not positions:  # None (read fail) or [] (no positions)
+        return None, "unavailable"
+    want_side = _to_long_short(direction)
+    want_symbol = str(symbol).upper()
+    for p in positions:
+        if str(p.get("symbol", "")).upper() != want_symbol:
+            continue
+        if _to_long_short(p.get("side")) != want_side:
+            continue
+        upnl = p.get("unrealised_pnl")
+        if upnl is None:
+            return None, "unavailable"
+        try:
+            return round(float(upnl), 2), "broker"
+        except (TypeError, ValueError):
+            return None, "unavailable"
+    return None, "unavailable"
+
+
 def _bot_status() -> str:
     from src.runtime.heartbeat import heartbeat_label  # local import keeps router cheap
     if not _HEARTBEAT.exists():
@@ -244,9 +356,16 @@ async def get_positions(
         conn = sqlite3.connect(str(_DB_PATH))
         try:
             cur = conn.cursor()
+            # ``pnl`` (realised) is no longer projected into the response
+            # — for open rows it is NULL and pre-this-PR the COALESCE
+            # to 0 made the dashboard render $0.00 against live trades.
+            # ``unrealizedPnl`` is now sourced from the broker
+            # (Bybit/IB unrealised_pnl), with ``None`` as the honest
+            # fallback when the broker call fails or there is no
+            # matching position.
             sql = """
                 SELECT id, account_id, symbol, direction, position_size,
-                       entry_price, COALESCE(pnl, 0), created_at,
+                       entry_price, created_at,
                        stop_loss, take_profit_1, strategy_name,
                        COALESCE(is_demo, 0)
                 FROM trades
@@ -263,23 +382,25 @@ async def get_positions(
     except sqlite3.Error:
         logger.exception("dashboard: /positions sqlite read failed")
         return []
-    return [
-        {
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        upnl, upnl_source = _broker_unrealised_for_trade(r[1], r[2], r[3])
+        out.append({
             "id": str(r[0]),
             "account": r[1],
             "symbol": r[2],
             "side": _normalise_side(r[3]),
             "qty": r[4],
             "entryPrice": r[5],
-            "unrealizedPnl": round(float(r[6]), 2),
-            "openedAt": r[7],
-            "stopLoss": float(r[8]) if r[8] is not None else None,
-            "takeProfit": float(r[9]) if r[9] is not None else None,
-            "pattern": r[10] if r[10] else None,
-            "isDemo": bool(r[11]),
-        }
-        for r in rows
-    ]
+            "unrealizedPnl": upnl,
+            "unrealizedPnlSource": upnl_source,
+            "openedAt": r[6],
+            "stopLoss": float(r[7]) if r[7] is not None else None,
+            "takeProfit": float(r[8]) if r[8] is not None else None,
+            "pattern": r[9] if r[9] else None,
+            "isDemo": bool(r[10]),
+        })
+    return out
 
 
 @router.get("/signals")
