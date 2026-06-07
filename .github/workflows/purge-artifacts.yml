@@ -7,17 +7,21 @@ name: purge-artifacts
 # already-uploaded artifacts keep their original retention. This
 # workflow deletes them now.
 #
-# Two modes:
-#   - workflow_dispatch with `older_than_days=0` → delete ALL artifacts
-#     (one-shot recovery).
-#   - workflow_dispatch with `older_than_days=N` → delete artifacts
-#     older than N days (manual targeted purge).
+# Three triggers:
+#   - workflow_dispatch with `older_than_days=N` + `dry_run=BOOL`
+#     (operator clicks "Run workflow" in the Actions UI).
+#   - issues.opened with label `purge-artifacts-now` — Claude-driven
+#     path (the hosted GitHub MCP can open labelled issues but cannot
+#     dispatch workflows). Default behaviour is a one-shot total purge
+#     (older_than_days=0, dry_run=false). Optional issue-body overrides:
+#       older_than_days: <N>
+#       dry_run: <true|false>
 #   - schedule (daily 03:00 UTC) → delete artifacts older than 7 days
 #     as a safety net so storage stays trimmed even if a workflow
 #     re-introduces a long retention.
 #
-# Dry-run guard: set `dry_run=true` on dispatch to log the would-delete
-# list without calling DELETE. Default false on schedule.
+# The issue-driven path posts the result table back as an issue
+# comment and closes the issue.
 
 on:
   workflow_dispatch:
@@ -35,6 +39,8 @@ on:
         options:
           - "false"
           - "true"
+  issues:
+    types: [opened]
   schedule:
     # Daily 03:00 UTC safety net — keeps storage at < ~7 days of uploads.
     - cron: "0 3 * * *"
@@ -42,6 +48,7 @@ on:
 permissions:
   actions: write
   contents: read
+  issues: write
 
 concurrency:
   group: purge-artifacts
@@ -49,22 +56,44 @@ concurrency:
 
 jobs:
   purge:
+    # Issue trigger only fires for the dedicated label so that random
+    # repo issues don't dispatch a destructive workflow.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'purge-artifacts-now'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      summary_md: ${{ steps.purge.outputs.summary_md }}
     steps:
       - name: Purge artifacts
+        id: purge
         uses: actions/github-script@v7
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
         with:
           script: |
-            const olderThanDays = Number(
-              context.eventName === 'schedule'
-                ? 7
-                : (core.getInput('older_than_days') || '7')
-            );
-            const dryRun =
-              context.eventName === 'schedule'
-                ? false
-                : (core.getInput('dry_run') || 'false').toLowerCase() === 'true';
+            // ----- Resolve parameters by trigger -----
+            let olderThanDays;
+            let dryRun;
+            if (context.eventName === 'schedule') {
+              olderThanDays = 7;
+              dryRun = false;
+            } else if (context.eventName === 'workflow_dispatch') {
+              olderThanDays = Number(core.getInput('older_than_days') || '7');
+              dryRun = (core.getInput('dry_run') || 'false').toLowerCase() === 'true';
+            } else {
+              // issues.opened — default to one-shot total purge; allow
+              // body overrides for selective use.
+              olderThanDays = 0;
+              dryRun = false;
+              const body = process.env.ISSUE_BODY || '';
+              const mAge = body.match(/^\s*older_than_days\s*:\s*(\d+)\s*$/im);
+              if (mAge) olderThanDays = Number(mAge[1]);
+              const mDry = body.match(/^\s*dry_run\s*:\s*(true|false)\s*$/im);
+              if (mDry) dryRun = mDry[1].toLowerCase() === 'true';
+            }
 
             const cutoffMs =
               olderThanDays > 0
@@ -74,6 +103,7 @@ jobs:
             core.info(`mode=${context.eventName} olderThanDays=${olderThanDays} dryRun=${dryRun}`);
             core.info(`cutoff=${cutoffMs === null ? 'ALL' : new Date(cutoffMs).toISOString()}`);
 
+            // ----- List + filter artifacts -----
             const artifacts = await github.paginate(
               github.rest.actions.listArtifactsForRepo,
               { owner: context.repo.owner, repo: context.repo.repo, per_page: 100 }
@@ -86,30 +116,18 @@ jobs:
               );
             }
 
-            const totalBytes = artifacts.reduce(
-              (s, a) => s + (a.size_in_bytes || 0),
-              0
-            );
-            const reclaimBytes = toDelete.reduce(
-              (s, a) => s + (a.size_in_bytes || 0),
-              0
-            );
+            const totalBytes = artifacts.reduce((s, a) => s + (a.size_in_bytes || 0), 0);
+            const reclaimBytes = toDelete.reduce((s, a) => s + (a.size_in_bytes || 0), 0);
             const mib = (n) => (n / 1024 / 1024).toFixed(1);
 
-            core.info(
-              `found ${artifacts.length} artifact(s), total ${mib(totalBytes)} MiB`
-            );
-            core.info(
-              `will ${dryRun ? 'NOT delete (dry-run)' : 'delete'} ${toDelete.length} artifact(s), reclaim ${mib(reclaimBytes)} MiB`
-            );
+            core.info(`found ${artifacts.length} artifact(s), total ${mib(totalBytes)} MiB`);
+            core.info(`will ${dryRun ? 'NOT delete (dry-run)' : 'delete'} ${toDelete.length} artifact(s), reclaim ${mib(reclaimBytes)} MiB`);
 
+            // ----- Delete -----
             let deleted = 0;
             let failed = 0;
             for (const a of toDelete) {
-              const ageDays = (
-                (Date.now() - new Date(a.created_at).getTime()) /
-                86400000
-              ).toFixed(1);
+              const ageDays = ((Date.now() - new Date(a.created_at).getTime()) / 86400000).toFixed(1);
               const line = `  id=${a.id} name=${a.name} size=${mib(a.size_in_bytes || 0)}MiB age=${ageDays}d created=${a.created_at}`;
               if (dryRun) {
                 core.info(`DRY ${line}`);
@@ -129,18 +147,73 @@ jobs:
               }
             }
 
-            await core.summary
-              .addHeading('purge-artifacts')
-              .addTable([
-                [{ data: 'metric', header: true }, { data: 'value', header: true }],
-                ['mode', context.eventName],
-                ['olderThanDays', String(olderThanDays)],
-                ['dryRun', String(dryRun)],
-                ['artifacts found', String(artifacts.length)],
-                ['total size (MiB)', mib(totalBytes)],
-                ['matched for delete', String(toDelete.length)],
-                ['reclaimable (MiB)', mib(reclaimBytes)],
-                ['deleted', String(deleted)],
-                ['failed', String(failed)],
-              ])
-              .write();
+            // ----- Build result table + summary -----
+            const rows = [
+              [{ data: 'metric', header: true }, { data: 'value', header: true }],
+              ['mode', context.eventName],
+              ['olderThanDays', String(olderThanDays)],
+              ['dryRun', String(dryRun)],
+              ['artifacts found', String(artifacts.length)],
+              ['total size (MiB)', mib(totalBytes)],
+              ['matched for delete', String(toDelete.length)],
+              ['reclaimable (MiB)', mib(reclaimBytes)],
+              ['deleted', String(deleted)],
+              ['failed', String(failed)],
+            ];
+            await core.summary.addHeading('purge-artifacts').addTable(rows).write();
+
+            const md = [
+              '| metric | value |',
+              '|---|---|',
+              ...rows.slice(1).map((r) => `| ${r[0]} | ${r[1]} |`),
+            ].join('\n');
+            core.setOutput('summary_md', md);
+
+      - name: Reply to issue with result
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        env:
+          SUMMARY_MD: ${{ steps.purge.outputs.summary_md }}
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              '**purge-artifacts** result:',
+              '',
+              process.env.SUMMARY_MD,
+              '',
+              `Run: ${runUrl}`,
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'completed',
+            });
+
+      - name: Reply to issue with failure note
+        if: github.event_name == 'issues' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `❌ **purge-artifacts run failed.**\nRun: ${runUrl}\n\nCheck the run logs.`,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned',
+            });
