@@ -69,6 +69,7 @@ jobs:
           name: training-5m-results
           path: |
             experiments/2026-05-07-vwap-accuracy/results/5m/
+          retention-days: 7
 
       - name: Commit results back to branch
         if: github.event_name != 'pull_request'

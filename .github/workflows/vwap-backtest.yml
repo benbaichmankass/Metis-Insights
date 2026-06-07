@@ -305,7 +305,7 @@ jobs:
         with:
           name: vwap-backtest-${{ github.run_id }}
           path: backtest-result.json
-          retention-days: 14
+          retention-days: 7
           if-no-files-found: warn
 
       - name: Comment results on issue

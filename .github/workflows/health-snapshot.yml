@@ -194,7 +194,7 @@ jobs:
         with:
           name: health-snapshot-${{ github.run_id }}
           if-no-files-found: warn
-          retention-days: 30
+          retention-days: 7
           path: |
             artifacts/health/**
 

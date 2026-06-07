@@ -146,7 +146,7 @@ jobs:
         with:
           name: vm-ib-gateway-recover-${{ github.run_id }}
           path: action-output.txt
-          retention-days: 14
+          retention-days: 7
           if-no-files-found: warn
 
       - name: Reply to issue with success

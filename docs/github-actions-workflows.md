@@ -158,6 +158,7 @@ which would unlock these.
 | `training-rerun-5m.yml` | OPERATOR-APPROVAL | push to experiment paths | — |
 | `hf-cron.yml` | OPERATOR-APPROVAL | C (workflow_dispatch) | — |
 | `continue-work.yml` | AUTONOMOUS | C (workflow_dispatch) | — |
+| `purge-artifacts.yml` | AUTO | E (daily 03:00 UTC) + C (workflow_dispatch) | — |
 
 ---
 
@@ -188,6 +189,37 @@ list of blocking checks. Currently (2026-05-22): `["pytest-collect","pytest-run"
 ---
 
 ### Repo / branch admin
+
+#### `purge-artifacts.yml`
+
+**Autonomy:** AUTO (daily cron) / AUTONOMOUS (Claude may dispatch from
+the Actions UI to force a one-shot purge).
+
+**Trigger:** `schedule` (daily 03:00 UTC) + `workflow_dispatch`.
+
+**Purpose:** Reclaims GitHub Actions storage by deleting build
+artifacts. The free plan ships **0.5 GB** of Actions storage; once
+that fills, GitHub bills overage (or blocks the account if a $0 budget
+is set). Lowering `retention-days` on a producing workflow only affects
+*future* uploads — already-uploaded artifacts keep their original
+retention until expiry. This workflow deletes them now.
+
+**Behaviour:**
+- **Scheduled run** (03:00 UTC daily) deletes artifacts older than
+  **7 days**. Acts as a safety net so storage stays trimmed even if a
+  future workflow re-introduces a long retention.
+- **Manual dispatch** takes two inputs:
+  - `older_than_days` — `0` deletes ALL artifacts (one-shot recovery
+    when storage is full). `N > 0` deletes anything older than N days.
+  - `dry_run` — `true` logs the candidate set without calling DELETE.
+
+**Companion:** every artifact-uploading workflow in this repo is now
+capped at ≤ 7 days retention (most at exactly 7; `repo-inventory.yml`
+at 3; `get-diag-token.yml` at 1). Run logs persist 90 days
+independently and are the durable audit trail; artifacts are bounded
+working state, not records.
+
+---
 
 #### `bootstrap-labels.yml`
 
