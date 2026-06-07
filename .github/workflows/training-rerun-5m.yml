@@ -52,7 +52,7 @@ jobs:
       - name: Install runtime deps
         run: |
           python -m pip install --upgrade pip
-          pip install pandas numpy requests pyarrow yfinance
+          pip install pandas numpy requests pyarrow yfinance pyyaml
 
       - name: Fetch BTCUSDT 5m + 1h candles
         run: PYTHONPATH=. python experiments/2026-05-07-vwap-accuracy/fetch_data.py
