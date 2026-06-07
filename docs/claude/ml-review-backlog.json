@@ -3,6 +3,24 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "MB-20260607-002",
+      "opened_at": "2026-06-07T00:00:00+00:00",
+      "opened_by": "claude (S-MLOPT-S16 / S-MLOPT-S18 ship)",
+      "source": "Closes the MLOps half of Phase 4 (drift-triggered retrain + promotion-readiness automation). Phase 4.3 was the manual 'run gate-check per model + read the packet' loop the yz-1h ~6/12 hand-off was queued on; Phase 4.1 was the daily-cron-only retrain limitation that left every drift event waiting on the next 24h timer.",
+      "title": "S-MLOPT-S16 (ADWIN drift-retrain) + S-MLOPT-S18 (promotion-readiness report) -- Tier-1 trainer-side tooling shipped, awaiting trainer-VM enable + first live cycles.",
+      "tier": 1,
+      "trigger_condition": "Any /ml-review run; or any session deciding whether to enable the new trainer-VM timers (ict-drift-retrain.timer / ict-promotion-readiness.timer).",
+      "resolution_criteria": "Resolved when (a) both timers are enabled on the trainer VM via the trainer-vm-diag relay, (b) at least one full cycle has run for each (drift-retrain JSONL row + promotion-readiness report.json + SUMMARY.md visible under runtime_logs/trainer_mirror/), (c) the first promotion-readiness ping (if any model crosses the ready bar) is delivered to the operator chat, and (d) the yz-1h promotion check (MB-20260527-004) is run through the new report instead of an ad-hoc gate-check.",
+      "status": "open",
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-06-07 (S-MLOPT-S16 ship): SHIPPED ml/shadow/adwin.py (Bifet & Gavaldà 2007 Hoeffding-cut ADWIN, pure stdlib) + ml/shadow/drift_retrain.py (per-deployed-head scan + RetrainDecision rows: dispatch / skip_no_drift / skip_no_manifest / skip_thin_data) + `python -m ml drift-retrain` CLI + scripts/ops/run_drift_retrain.sh orchestrator (RETRAIN_PLAN_ONLY=1 default; flips to fire `python -m ml train <manifest>` per dispatch row, reusing the manifest's S-MLOPT-S2 sample_weight.half_life_days for recency weighting) + trainer-side ict-drift-retrain.{service,timer} (hourly, DISABLED by default) in deploy/training-vm-cloud-init.yaml. 17 tests (test_adwin.py + test_drift_retrain.py) pin the cut bound, the stationary / step-change / min-window / cap edge cases, the manifest resolver, the watched-stage filter, the backfill exclusion, the JSONL writer, and both CLI exit codes. Ruff clean.",
+        "2026-06-07 (S-MLOPT-S18 ship): SHIPPED ml/promotion/readiness_report.py (sweeps run_stage_guard across the registry; regime profile + oos_edge baseline auto-selected via the existing thresholds_for / run_stage_guard wiring; buckets into promote/demote/hold; renders JSON + Markdown) + `python -m ml promotion-readiness` CLI + scripts/ops/run_promotion_readiness.sh orchestrator (writes report to runtime_logs/trainer_mirror/promotion_readiness/<UTC-date>/ so publish_trainer_mirror.sh rsyncs it; on actionable proposals pushes a pending_pings/*.json onto the live VM via SCP using the same SSH key the trainer-publish step uses) + trainer-side ict-promotion-readiness.{service,timer} (daily, DISABLED by default) in deploy/training-vm-cloud-init.yaml. 13 tests (test_readiness_report.py + the promotion-readiness case in test_promotion_cli.py) pin bucketing, Markdown rendering, the missing-datasets_root warning, the quiet-vs-actionable ping message, JSON+MD persistence, build_readiness_report end-to-end, and the CLI's --output-dir write path. Reports only -- never auto-promotes. Ruff clean.",
+        "2026-06-07 (pending): enable both timers via trainer-vm-diag relay; let ict-drift-retrain run one RETRAIN_PLAN_ONLY cycle to confirm the log shape; let ict-promotion-readiness run one cycle to confirm the artifact lands in the mirror dir + the pending_pings push works end-to-end. The yz-1h ~6/12 check moves from MB-20260527-004's manual gate-check to a row in the daily report."
+      ],
+      "status_history": "open 2026-06-07 (tooling shipped, trainer-VM enable pending)."
+    },
+    {
       "id": "MB-20260606-003",
       "opened_at": "2026-06-06T21:10:00+00:00",
       "opened_by": "claude (model-training, S-MLOPT-S8-FU)",

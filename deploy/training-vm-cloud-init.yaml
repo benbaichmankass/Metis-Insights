@@ -111,6 +111,150 @@ write_files:
       [Install]
       WantedBy=timers.target
 
+  - path: /etc/systemd/system/ict-promotion-readiness.service
+    permissions: '0644'
+    owner: root:root
+    content: |
+      # S-MLOPT-S18 / M14 Phase 4.3: scheduled promotion-readiness sweep.
+      #
+      # DISABLED BY DEFAULT. Claude enables it autonomously via the
+      # trainer-vm-diag relay (trainer charter — trainer-side systemd
+      # changes are Tier-1 autonomous):
+      #
+      #   trainer-vm-diag-request issue body:
+      #     cmd: sudo systemctl enable --now ict-promotion-readiness.timer
+      #
+      # Wraps `scripts/ops/run_promotion_readiness.sh`, which runs
+      # `python -m ml promotion-readiness` across the registry, writes
+      # report.json + SUMMARY.md under
+      # runtime_logs/trainer_mirror/promotion_readiness/<UTC-date>/
+      # (mirrored to the live VM by ict-trainer-publish), and pushes
+      # a one-line operator ping into the live VM's pending_pings/
+      # queue when any model is promote-ready or demote-proposed.
+      # Reports only — never auto-promotes.
+      [Unit]
+      Description=ICT promotion-readiness sweep (S-MLOPT-S18)
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      User=ubuntu
+      WorkingDirectory=/home/ubuntu/ict-trading-bot
+      Environment=LIVE_VM_IP=158.178.210.252
+      Environment=LIVE_VM_USER=ubuntu
+      Environment=VM_SSH_KEY=/home/ubuntu/.ssh/id_ed25519
+      ExecStart=/bin/bash scripts/ops/run_promotion_readiness.sh
+      # Exit code 10 means "sweep ran + actionable proposals found" and
+      # is a normal outcome (the operator ping was queued) — do not let
+      # systemd treat it as a service failure.
+      SuccessExitStatus=10
+      StandardOutput=journal
+      StandardError=journal
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/systemd/system/ict-promotion-readiness.timer
+    permissions: '0644'
+    owner: root:root
+    content: |
+      # Daily cadence for the promotion-readiness sweep. Disabled by
+      # default at provision time; Claude enables it autonomously via
+      # the trainer-vm-diag relay:
+      #
+      #   trainer-vm-diag-request issue body:
+      #     cmd: sudo systemctl enable --now ict-promotion-readiness.timer
+      #
+      # One sweep per day after the daily training cycle finishes is the
+      # intended cadence (the report grades whatever the trainer just
+      # produced + accumulated shadow evidence).
+      [Unit]
+      Description=Periodic ICT promotion-readiness sweep
+
+      [Timer]
+      OnCalendar=daily
+      RandomizedDelaySec=30min
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+
+  - path: /etc/systemd/system/ict-drift-retrain.service
+    permissions: '0644'
+    owner: root:root
+    content: |
+      # S-MLOPT-S16 / M14 Phase 4.1: drift-triggered, recency-weighted
+      # retraining.
+      #
+      # DISABLED BY DEFAULT. Claude enables it autonomously via the
+      # trainer-vm-diag relay (trainer charter — trainer-side systemd
+      # changes are Tier-1 autonomous):
+      #
+      #   trainer-vm-diag-request issue body:
+      #     cmd: sudo systemctl enable --now ict-drift-retrain.timer
+      #
+      # Wraps `scripts/ops/run_drift_retrain.sh`, which runs
+      # `python -m ml drift-retrain` to ADWIN-scan every deployed
+      # head's real-time shadow scores. For each head the detector
+      # flags AND that resolves to a manifest under ml/configs/, fires
+      # `python -m ml train <manifest>` (the manifest's existing
+      # `sample_weight.half_life_days` from S-MLOPT-S2 carries the
+      # recency weighting). The dispatch is gated on
+      # RETRAIN_PLAN_ONLY=0 — the service ships with
+      # RETRAIN_PLAN_ONLY=1 so the first soak only writes the JSONL
+      # log; flip RETRAIN_PLAN_ONLY=0 in a drop-in once the operator
+      # has eyeballed a few cycles. The variable is scoped to this
+      # retrain orchestrator (NOT the deprecated DRY_RUN trading-mode
+      # flag the dry-run-guard forbids). Conservative: no
+      # auto-promotion past `shadow`, bounded by the trainer's
+      # registry-stage ceiling.
+      [Unit]
+      Description=ICT drift-triggered retraining (S-MLOPT-S16)
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      User=ubuntu
+      WorkingDirectory=/home/ubuntu/ict-trading-bot
+      Environment=RETRAIN_PLAN_ONLY=1
+      ExecStart=/bin/bash scripts/ops/run_drift_retrain.sh
+      # Exit code 11 means "scan ran + dispatch fired (or would in dry-run)"
+      # — a normal outcome, not a failure.
+      SuccessExitStatus=11
+      StandardOutput=journal
+      StandardError=journal
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/systemd/system/ict-drift-retrain.timer
+    permissions: '0644'
+    owner: root:root
+    content: |
+      # Hourly drift scan. Disabled by default at provision time;
+      # Claude enables it autonomously via the trainer-vm-diag relay:
+      #
+      #   trainer-vm-diag-request issue body:
+      #     cmd: sudo systemctl enable --now ict-drift-retrain.timer
+      #
+      # Hourly is conservative — ADWIN scans the head's full
+      # real-time score series each pass (no incremental state on
+      # disk), so cadence is purely "how often do we want to react to
+      # a fresh drift?" not a memory pressure. Composes with the
+      # daily ict-trainer.timer cron.
+      [Unit]
+      Description=Periodic ICT drift-retrain scan
+
+      [Timer]
+      OnCalendar=hourly
+      RandomizedDelaySec=5min
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+
   - path: /etc/systemd/system/ict-trainer-publish.service
     permissions: '0644'
     owner: root:root
@@ -192,6 +336,10 @@ final_message: |
   ict-trainer.timer:   installed, disabled (Claude enables via diag relay).
   ict-trainer-publish.service: installed, enabled (oneshot).
   ict-trainer-publish.timer:   installed, enabled (every 2 min).
+  ict-promotion-readiness.service: installed, disabled (Claude enables via diag relay).
+  ict-promotion-readiness.timer:   installed, disabled (Claude enables via diag relay).
+  ict-drift-retrain.service: installed, disabled (Claude enables via diag relay; RETRAIN_PLAN_ONLY=1 by default).
+  ict-drift-retrain.timer:   installed, disabled (Claude enables via diag relay).
   Live trader status: this VM is NOT the live trader.
   Claude enables training autonomously via trainer-vm-diag:
     cmd: sudo systemctl enable --now ict-trainer.timer
