@@ -103,6 +103,51 @@ So the survivor count is now **three** — two live-order-path
 reconciliation/dispatch gates (below) plus this observe-only
 shadow-logging kill-switch.
 
+## New annotated survivor — `REGIME_ROUTER_ENABLED` (PERF-20260601-006, 2026-06-07)
+
+A fourth `os.environ.get` read matching the suspect pattern now lives
+under a protected path:
+
+* `src/runtime/intents.py` — `_regime_router_enabled()` reads
+  `REGIME_ROUTER_ENABLED` (default `0` → off).
+
+Same contract: inline `# allow-silent:` on the read line + this
+audit-doc entry.
+
+**Why it is a legitimate survivor (matches the pattern, justified):**
+
+* It is the **operator-controlled rollback switch** for the regime
+  router's phase-3 hard gate (PERF-20260601-006). The phase-3 design
+  doc + the backlog item both name this exact env-var (with the
+  default-off semantics) as the canonical rollback mechanism: "one env
+  flip + restart, no redeploy." Removing the gate would force a code
+  deploy for every roll-forward / roll-back; that's the wrong cost
+  profile for a hard-gate that turns OFF live trade dispatches.
+* It **cannot suppress live exchange writes**. When truthy, the gate
+  *removes* OFF-cell candidate intents from `aggregate_intents()`
+  BEFORE the reinforcement / conflict-resolution logic runs — every
+  surviving intent still routes through the same per-account
+  `RiskManager.evaluate()` (the sole live/dry switch). The risk class
+  is "drops some intents" not "silently flips live → dry"; the
+  RiskManager.dry_run invariant is preserved.
+* It **does not strand a new capability when default-off**. The
+  BUG-039 risk pattern is a default-off `*_ENABLED` gate hiding a
+  capability the user expects to be live (the MES-stranding pattern).
+  When `REGIME_ROUTER_ENABLED` is unset/off, the existing
+  `_shadow_regime_gate` runs and the aggregator behaves exactly as it
+  did before this PR (phase 2, log-only, byte-identical decision).
+  Phase 3 is *new* code; nothing pre-existing is stranded by the
+  default-off posture.
+* **Fail-permissive on every exception** — a policy-load or per-intent
+  verdict failure keeps the intent (`kept.append(intent)`) so a bug in
+  the gate cannot silently strand a tradeable signal. The bias is
+  toward the pre-phase-3 behaviour.
+
+So the survivor count is now **four** — two live-order-path
+reconciliation/dispatch gates (below), one observe-only shadow-logging
+kill-switch (above), and this operator-controlled phase-3 hard-gate
+rollback switch.
+
 ## Phase-1 PR scope (this DRAFT)
 
 * `docs/audits/env-gate-purge-2026-05-10.md` (this file).

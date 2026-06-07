@@ -640,6 +640,103 @@ def _shadow_regime_gate(candidates: tuple) -> None:
             pass
 
 
+def _regime_router_enabled() -> bool:
+    """Phase-3 hard-gate kill-switch.
+
+    Returns True iff ``REGIME_ROUTER_ENABLED`` is set truthy. Default off
+    so deploying this code is a behaviour no-op; the operator flips the
+    env on the live VM via the ``set-env`` operator action and rollback
+    is one env flip + restart.
+    """
+    import os as _os
+    # PERF-20260601-006 operator-approved rollback switch for the regime
+    # router. This is the documented escape hatch (one env flip + restart,
+    # no redeploy), NOT a hidden trading-mode gate: it gates a regime-policy
+    # filter that is itself default-permissive, and the live/dry contract
+    # remains RiskManager.dry_run only. See docs/audits/env-gate-purge-2026-05-10.md
+    # + the ROADMAP.md PERF-20260601-006-REGIME-ROUTER-P3 row.
+    raw = _os.environ.get("REGIME_ROUTER_ENABLED", "0")  # allow-silent: PERF-20260601-006 regime-router rollback switch
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _hard_regime_gate(candidates: tuple) -> tuple:
+    """Phase 3 (PERF-20260601-006, Tier-3): drop OFF-cell candidates from
+    the aggregation AND emit a ``regime_hard_gate`` audit row with
+    ``enforced: true``. Returns the surviving tuple in input order.
+
+    Symmetric with ``_shadow_regime_gate`` so the OFF-cell verdict (per
+    ``would_gate``) is computed identically — phase 3 is "phase 2 + drop"
+    rather than a re-derived gate. The only differences vs phase 2:
+
+    - the gated intent is **removed** from the returned tuple (so the
+      aggregator never sees it for reinforcement / conflict);
+    - the audit event is ``regime_hard_gate`` (not ``regime_shadow_gate``)
+      and carries ``enforced: true`` so a later ``/performance-review``
+      can cleanly partition "would have gated" (phase 2 history) from
+      "did gate" (phase 3 history).
+
+    Best-effort: any exception in the policy load or per-intent verdict
+    falls back to keeping the intent (fail-permissive). A live-path
+    failure must never silently drop a tradeable signal — the bias is
+    toward the existing pre-phase-3 behaviour.
+    """
+    try:
+        from src.runtime.regime import would_gate
+        from src.utils.signal_audit_logger import log_signal
+        policy = _load_regime_policy()
+    except Exception:  # noqa: BLE001
+        return candidates
+    if not policy:
+        return candidates
+    kept: list = []
+    for intent in candidates:
+        try:
+            verdict = would_gate(
+                strategy=intent.strategy,
+                side=intent.side,
+                regime=intent.regime,
+                policy=policy,
+                vol_regime=intent.vol_regime,
+            )
+        except Exception:  # noqa: BLE001
+            # Fail-permissive: an unverifiable verdict keeps the intent
+            # so a policy-loader bug never silently strands a live
+            # signal. The shadow gate's matching exception path also
+            # skips the row rather than guessing.
+            kept.append(intent)
+            continue
+        trend_gated = bool(verdict.get("gated"))
+        vol_gated = bool(verdict.get("vol_gated"))
+        if not (trend_gated or vol_gated):
+            kept.append(intent)
+            continue
+        # Phase 3 enforcement: drop the intent + audit the action.
+        try:
+            log_signal({
+                "event": "regime_hard_gate",
+                "strategy": intent.strategy,
+                "symbol": intent.symbol,
+                "side": intent.side,
+                "regime": intent.regime,
+                "adx_14": intent.adx_14,
+                "gated": trend_gated,
+                "cell": verdict.get("cell"),
+                "reason": verdict.get("reason"),
+                "vol_regime": intent.vol_regime,
+                "vol_gated": vol_gated,
+                "vol_cell": verdict.get("vol_cell"),
+                "vol_reason": verdict.get("vol_reason"),
+                # PHASE 3: enforced -> the intent is dropped from the
+                # aggregator's candidate set right here, before the
+                # reinforcement / conflict-resolution logic runs.
+                "enforced": True,
+            })
+        except Exception:  # noqa: BLE001
+            pass
+        # NOTE: intent intentionally NOT appended to `kept` — drop it.
+    return tuple(kept)
+
+
 def aggregate_intents(
     intents: Iterable[StrategyIntent],
     *,
@@ -702,15 +799,27 @@ def aggregate_intents(
         if i.symbol == norm_symbol
     )
 
-    # Phase 2 of the regime router (PERF-20260601-002 §5.2):
-    # shadow-evaluate the regime × strategy × direction policy table
-    # against each candidate and emit an audit row for any would-gate
-    # decision. The aggregator's decision is UNCHANGED — phase 2 is
-    # observability-only; phase 3 (Tier-3) turns the off-cells into
-    # hard gates behind a flag. ``_shadow_regime_gate`` swallows all
+    # Regime router (PERF-20260601-002 §5):
+    #
+    # * **Phase 2 (default, observability-only)** — ``_shadow_regime_gate``
+    #   evaluates each candidate against the policy table and emits a
+    #   ``regime_shadow_gate`` audit row (``enforced: false``) for any
+    #   OFF-cell intent. The aggregator's decision is UNCHANGED.
+    # * **Phase 3 (PERF-20260601-006, Tier-3)** — when
+    #   ``REGIME_ROUTER_ENABLED`` is truthy, ``_hard_regime_gate``
+    #   **drops** OFF-cell intents from ``candidates`` BEFORE the
+    #   reinforcement / conflict-resolution logic runs AND emits a
+    #   ``regime_hard_gate`` row (``enforced: true``). Rollback is one
+    #   env flip + restart (no redeploy).
+    #
+    # Exactly one of the two runs per tick so the audit log cleanly
+    # partitions "would have gated" from "did gate". Both swallow all
     # failures internally so a missing policy file / bad cell cannot
     # break the tick.
-    _shadow_regime_gate(candidates)
+    if _regime_router_enabled():
+        candidates = _hard_regime_gate(candidates)
+    else:
+        _shadow_regime_gate(candidates)
 
     if not candidates:
         return _flat_position(
