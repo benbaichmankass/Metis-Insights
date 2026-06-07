@@ -278,12 +278,13 @@
       "tier": 1,
       "trigger_condition": "Next /ml-review, or before any setup-quality shadow->advisory promotion discussion.",
       "resolution_criteria": "Run scripts/ml/eval_split_compare.py (or an equivalent WF-CV pass) on BOTH setup-quality-baseline-v0 and setup-quality-lgbm-v2 with identical purged folds; record which wins MAE under honest CV. If the v2 LGBM does not beat the baseline under WF-CV, log a demotion/hold note instead of advancing it.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "evidence_log": [
-        "2026-06-03 (S-MLOPT-S1): WF-CV deltas captured in docs/sprint-logs/S-MLOPT-S1.md re-eval table — setup-quality MAE 0.065->0.086, btc-regime-1h weighted_f1 0.7185->0.6742. label_horizon=1 row for setup_labels is a conservative proxy for true trade-hold overlap; Session 0.2 sample-uniqueness weights (or a label-end-time horizon) would tighten this."
+        "2026-06-03 (S-MLOPT-S1): WF-CV deltas captured in docs/sprint-logs/S-MLOPT-S1.md re-eval table — setup-quality MAE 0.065->0.086, btc-regime-1h weighted_f1 0.7185->0.6742. label_horizon=1 row for setup_labels is a conservative proxy for true trade-hold overlap; Session 0.2 sample-uniqueness weights (or a label-end-time horizon) would tighten this.",
+        "2026-06-07 (autonomous-followups, trainer-vm-diag #2964 + #2965): RESOLVED — honest negative. Apples-to-apples re-eval of BOTH manifests via scripts/ml/eval_split_compare.py on the same 5-fold purged WF-CV (n=203 eval rows). setup-quality-baseline-v0 (per-setup-mean): purged MAE 0.07150 / MSE 0.01535; setup-quality-lgbm-v2: purged MAE 0.08249 / MSE 0.01683. **lgbm-v2 LOSES to its own per-group-mean baseline under leak-free CV** (MAE +0.011, ~15% worse). Holdout MAE was the optimistic flatterer (0.0299 baseline vs 0.0545 lgbm — still loses, but the gap looks smaller because both are inflated). Verdict: do NOT advance setup-quality-lgbm-v2 past its current research_only stage (already demoted from shadow → research_only in S-MLOPT-S5 per the original PR — no live behaviour change needed). The data-wall sub-program (S-MLOPT-S5/S6/S6-FU/S6-FU-2 meta-labeling on dense `setup_candidates`) is the path forward for setup-quality; this v2 LGBM stays parked as documented research_only history."
       ],
-      "status_history": "open 2026-06-03 (S-MLOPT-S1 / M14 Session 0.1 execution)"
+      "status_history": "open 2026-06-03 (S-MLOPT-S1 / M14 Session 0.1 execution) | resolved 2026-06-07 (autonomous-followups: leak-free purged-WF-CV apples-to-apples — lgbm-v2 loses to baseline; already at research_only so no demotion action needed)."
     },
     {
       "id": "MB-20260603-002",
