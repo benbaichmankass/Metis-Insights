@@ -1,0 +1,20 @@
+# ============================================
+# Daily cadence for the promotion-readiness sweep (S-MLOPT-S18).
+# Composes with the daily ict-trainer.timer cron — runs after the
+# typical training-cycle window so the report grades whatever the
+# trainer just produced + accumulated shadow evidence.
+#
+# Save to (trainer VM): /etc/systemd/system/ict-promotion-readiness.timer
+# Install: see ict-promotion-readiness.service header.
+# ============================================
+
+[Unit]
+Description=Periodic ICT promotion-readiness sweep
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
