@@ -63,7 +63,11 @@ jobs:
       github.event_name == 'schedule' ||
       (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'purge-artifacts-now'))
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Generous timeout — the first one-shot total purge on a full
+    # storage cap deletes thousands of artifacts; serial DELETEs are
+    # the bottleneck even with parallelism. Scheduled daily runs at
+    # 7-day retention finish in seconds.
+    timeout-minutes: 60
     outputs:
       summary_md: ${{ steps.purge.outputs.summary_md }}
     steps:
@@ -123,15 +127,23 @@ jobs:
             core.info(`found ${artifacts.length} artifact(s), total ${mib(totalBytes)} MiB`);
             core.info(`will ${dryRun ? 'NOT delete (dry-run)' : 'delete'} ${toDelete.length} artifact(s), reclaim ${mib(reclaimBytes)} MiB`);
 
-            // ----- Delete -----
+            // ----- Delete (parallel chunks of CONCURRENCY) -----
+            // Serial DELETEs at ~250ms each cap throughput at ~240/min;
+            // a fresh purge on a full 500MB cap holds thousands of
+            // artifacts. Parallel chunks 10x the throughput while
+            // staying well under GitHub's REST secondary rate limits.
+            const CONCURRENCY = 10;
             let deleted = 0;
             let failed = 0;
-            for (const a of toDelete) {
+            let logged = 0;
+
+            const deleteOne = async (a) => {
               const ageDays = ((Date.now() - new Date(a.created_at).getTime()) / 86400000).toFixed(1);
-              const line = `  id=${a.id} name=${a.name} size=${mib(a.size_in_bytes || 0)}MiB age=${ageDays}d created=${a.created_at}`;
+              const line = `id=${a.id} name=${a.name} size=${mib(a.size_in_bytes || 0)}MiB age=${ageDays}d`;
               if (dryRun) {
-                core.info(`DRY ${line}`);
-                continue;
+                if (logged < 50) core.info(`DRY ${line}`);
+                logged += 1;
+                return;
               }
               try {
                 await github.rest.actions.deleteArtifact({
@@ -139,13 +151,21 @@ jobs:
                   repo: context.repo.repo,
                   artifact_id: a.id,
                 });
-                core.info(`DEL ${line}`);
                 deleted += 1;
+                // Log only a sample — full per-artifact log is too noisy
+                // for thousands and the totals row carries the real signal.
+                if (deleted % 200 === 0) core.info(`progress: deleted=${deleted}/${toDelete.length}`);
               } catch (err) {
                 core.warning(`ERR ${line} :: ${err.message}`);
                 failed += 1;
               }
+            };
+
+            for (let i = 0; i < toDelete.length; i += CONCURRENCY) {
+              const chunk = toDelete.slice(i, i + CONCURRENCY);
+              await Promise.all(chunk.map(deleteOne));
             }
+            core.info(`final: deleted=${deleted} failed=${failed} dryRun_listed=${dryRun ? logged : 0}`);
 
             // ----- Build result table + summary -----
             const rows = [
@@ -169,20 +189,31 @@ jobs:
             ].join('\n');
             core.setOutput('summary_md', md);
 
+      # Reply step runs on ALL terminal states (success/failure/cancelled)
+      # so an operator/Claude waiting on the issue always gets a signal.
+      # The previous success()/failure() pair silently dropped the
+      # cancelled case — when the original 10-min timeout cancelled the
+      # first one-shot purge run, no comment was ever posted and the
+      # issue looked indistinguishable from a wedge.
       - name: Reply to issue with result
-        if: github.event_name == 'issues' && success()
+        if: always() && github.event_name == 'issues'
         uses: actions/github-script@v7
         env:
           SUMMARY_MD: ${{ steps.purge.outputs.summary_md }}
+          JOB_STATUS: ${{ job.status }}
         with:
           script: |
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const status = process.env.JOB_STATUS || 'unknown';
+            const icon = status === 'success' ? '✅' : status === 'cancelled' ? '⏱' : '❌';
+            const summary = process.env.SUMMARY_MD || '_(no summary — purge step did not complete; check run logs)_';
             const body = [
-              '**purge-artifacts** result:',
+              `${icon} **purge-artifacts** finished with status: \`${status}\``,
               '',
-              process.env.SUMMARY_MD,
+              summary,
               '',
               `Run: ${runUrl}`,
+              status === 'cancelled' ? '\n_(Cancelled — likely the 60-min job timeout. The deletes that DID land are gone for good; re-open another `purge-artifacts-now` issue to continue.)_' : '',
             ].join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -195,25 +226,5 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
               state: 'closed',
-              state_reason: 'completed',
-            });
-
-      - name: Reply to issue with failure note
-        if: github.event_name == 'issues' && failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `❌ **purge-artifacts run failed.**\nRun: ${runUrl}\n\nCheck the run logs.`,
-            });
-            await github.rest.issues.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              state: 'closed',
-              state_reason: 'not_planned',
+              state_reason: status === 'success' ? 'completed' : 'not_planned',
             });
