@@ -3,6 +3,24 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260607-001",
+      "opened_at": "2026-06-07T06:55:00+00:00",
+      "opened_by": "claude (push-ahead session — yz-1h promotion verification)",
+      "source": "trainer-vm-diag #2911 + #2915: scripts/ops/sync_trainer_data.sh failed 'Permission denied' on direct exec; ls -l showed mode -rw-r--r-- (lost +x). 'bash scripts/ops/sync_trainer_data.sh' works (pulled 103MB journal + 30088 shadow lines, overall_rc=0).",
+      "title": "Trainer sync_trainer_data.sh lost its exec bit -> bare './scripts/ops/sync_trainer_data.sh' fails 'Permission denied' and silently leaves gate-check inputs stale",
+      "description": "On the trainer VM the script is mode 0644. A bare-path invocation (as some skill examples do) fails 'Permission denied' and leaves the trainer's synced trade_journal.db / shadow_predictions.jsonl stale, so a subsequent gate-check/model-attribution reads empty data and reports a FALSE 'no live trades' -- exactly what wasted several relay cycles this session before the run was redirected through 'bash <script>'. FIX (this PR): restore +x in git so a fresh trainer checkout preserves it; longer-term, standardize callers (run_training_cycle.sh + model-training skill docs) on 'bash <script>'. Low severity (workaround exists) but it silently corrupts promotion-gate inputs.",
+      "tier": 1,
+      "trigger_condition": "Any trainer-side gate-check/model-attribution/training-cycle session, or any /health-review.",
+      "resolution_criteria": "scripts/ops/sync_trainer_data.sh is 100755 in git AND/OR all callers invoke it via 'bash <script>'; a fresh trainer checkout runs the daily-cycle sync without 'Permission denied'.",
+      "triage_note": "",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260605-001",
       "opened_at": "2026-06-05T09:20:00+00:00",
       "opened_by": "claude (/health-review — restart-loop incident)",
