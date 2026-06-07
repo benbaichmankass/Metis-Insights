@@ -1,0 +1,21 @@
+# ============================================
+# Hourly cadence for the drift-retrain scan (S-MLOPT-S16).
+# ADWIN scans the head's full real-time score series each pass (no
+# incremental on-disk state), so cadence is purely "how often do we
+# want to react to a fresh drift?" — not memory pressure. Composes
+# with the daily ict-trainer.timer cron.
+#
+# Save to (trainer VM): /etc/systemd/system/ict-drift-retrain.timer
+# Install: see ict-drift-retrain.service header.
+# ============================================
+
+[Unit]
+Description=Periodic ICT drift-retrain scan
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

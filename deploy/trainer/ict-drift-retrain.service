@@ -1,0 +1,50 @@
+# ============================================
+# ICT DRIFT-TRIGGERED RETRAIN (S-MLOPT-S16, M14 Phase 4.1)
+# Runs scripts/ops/run_drift_retrain.sh once per fire.
+#
+# `python -m ml drift-retrain` ADWIN-scans every deployed head's
+# real-time shadow scores; for each head the detector flags AND that
+# resolves to a manifest under ml/configs/, the orchestrator fires
+# `python -m ml train <manifest>` (the manifest's existing
+# sample_weight.half_life_days from S-MLOPT-S2 carries the recency
+# weighting). Conservative: ships with RETRAIN_PLAN_ONLY=1 so the
+# first soak only writes runtime_logs/drift_retrain.jsonl. Flip
+# RETRAIN_PLAN_ONLY=0 in a systemd drop-in once a few cycles look sane.
+#
+# The variable is scoped to this orchestrator — NOT the deprecated
+# DRY_RUN trading-mode flag the dry-run-guard forbids.
+#
+# **TRAINER VM ONLY** — never the Oracle live trader. Lives in
+# deploy/trainer/ so the live-VM unit installer
+# (scripts/install_systemd_units.sh, which globs deploy/*.service)
+# never picks it up.
+#
+# Save to (trainer VM): /etc/systemd/system/ict-drift-retrain.service
+# Install:  cp deploy/trainer/ict-drift-retrain.{service,timer} /etc/systemd/system/
+#           && systemctl daemon-reload
+#           && systemctl enable --now ict-drift-retrain.timer
+#
+# Mirrors the unit embedded in deploy/training-vm-cloud-init.yaml so a
+# freshly provisioned trainer + a long-running trainer end up with the
+# same unit body. Edits must stay in lock-step.
+# ============================================
+
+[Unit]
+Description=ICT drift-triggered retraining (S-MLOPT-S16)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+Environment=RETRAIN_PLAN_ONLY=1
+ExecStart=/bin/bash scripts/ops/run_drift_retrain.sh
+# Exit code 11 means "scan ran + dispatch fired (or would in plan-only)"
+# — a normal outcome, not a service failure.
+SuccessExitStatus=11
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
