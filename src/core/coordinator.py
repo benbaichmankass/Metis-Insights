@@ -981,6 +981,23 @@ class Coordinator:
             getattr(pkg, "trace_id", "?"), pkg.strategy, pkg.symbol, len(accounts),
         )
 
+        # S-MLOPT-S12 Part B: per-signal account-context snapshots. Capture
+        # equity / daily-PnL / daily-equity-high / drawdown / open-trade-count
+        # for each eligible account BEFORE the per-account RiskManager runs
+        # — so the resulting snapshot reflects state PRE-decision (leak-safe
+        # for the account_context family's later LEFT JOIN). Best-effort:
+        # the writer swallows every exception, so a SQLite hiccup never
+        # blocks the dispatch loop. Gated behind
+        # ACCOUNT_CONTEXT_SNAPSHOTS_DISABLED (default off → enabled); set
+        # truthy on the VM to disable without a redeploy.
+        if order_package_id and accounts:
+            _capture_account_context_snapshots(
+                order_package_id=order_package_id,
+                pkg=pkg,
+                accounts=accounts,
+                live_balances=live_balances,
+            )
+
         results = []
         for account in accounts:
             if account_type and account.account_type != account_type:
@@ -2251,6 +2268,93 @@ def _build_intent_legs(pkg: "OrderPackage", delta) -> List[Dict[str, Any]]:
         "filtered upstream)."
     )
 
+
+
+def _capture_account_context_snapshots(
+    *,
+    order_package_id: str,
+    pkg: "OrderPackage",
+    accounts: List[Any],
+    live_balances: Dict[str, Optional[float]],
+) -> None:
+    """S-MLOPT-S12 Part B: write one snapshot per `(order_package_id, account)`
+    BEFORE the per-account RiskManager runs.
+
+    Best-effort: every exception is swallowed and logged. The trader's
+    flow is never blocked on a snapshot write. Disabled via
+    ``ACCOUNT_CONTEXT_SNAPSHOTS_DISABLED`` (truthy → short-circuit).
+    """
+    import os as _os
+    import sqlite3 as _sqlite3
+
+    flag = _os.environ.get("ACCOUNT_CONTEXT_SNAPSHOTS_DISABLED", "").strip().lower()
+    if flag in {"1", "true", "yes", "on"}:
+        return
+
+    try:
+        from src.utils.paths import trade_journal_db_path
+        from src.units.accounts.context_snapshot import (
+            AccountContextSnapshot, daily_state_for, drawdown_pct,
+            now_utc, open_trades_count_for, write_snapshots,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[snapshot] import failed (%s); skipping capture", exc)
+        return
+
+    db_path = trade_journal_db_path()
+    captured_at = now_utc()
+    utc_date = captured_at.strftime("%Y-%m-%d")
+
+    snapshots = []
+    try:
+        # Read-only pass for daily-state + open-trade count. Done with a
+        # SHARED ro connection so each per-account lookup is O(1).
+        ro_conn = _sqlite3.connect(
+            f"file:{db_path}?mode=ro", uri=True,
+        )
+    except _sqlite3.Error as exc:
+        logger.warning("[snapshot] ro-connect failed (%s); skipping capture", exc)
+        return
+
+    try:
+        for acc in accounts:
+            account_id = getattr(acc, "name", None) or ""
+            if not account_id:
+                continue
+            equity = live_balances.get(account_id)
+            if equity is None:
+                cached = getattr(acc, "cached_balance_usd", None)
+                equity = float(cached) if cached is not None else None
+            daily_pnl, equity_high = daily_state_for(
+                ro_conn, account_id, utc_date=utc_date,
+            )
+            dd = drawdown_pct(equity, equity_high)
+            open_count = open_trades_count_for(ro_conn, account_id)
+            snapshots.append(AccountContextSnapshot(
+                captured_at_utc=captured_at,
+                order_package_id=order_package_id,
+                account_id=account_id,
+                strategy_name=getattr(pkg, "strategy", None),
+                symbol=getattr(pkg, "symbol", None),
+                direction=getattr(pkg, "direction", None),
+                equity=float(equity) if equity is not None else None,
+                daily_pnl_realized=daily_pnl,
+                daily_equity_high=equity_high,
+                daily_drawdown_pct=dd,
+                open_trades_count=open_count,
+            ))
+    finally:
+        try:
+            ro_conn.close()
+        except _sqlite3.Error:
+            pass
+
+    if not snapshots:
+        return
+    try:
+        write_snapshots(db_path, snapshots)
+    except Exception as exc:  # noqa: BLE001 — defence-in-depth, writer is already best-effort
+        logger.warning("[snapshot] write_snapshots failed (%s)", exc)
 
 
 def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:

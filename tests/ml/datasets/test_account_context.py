@@ -402,3 +402,129 @@ def test_registry_includes_account_context():
 
     assert "account_context" in list_families()
     assert isinstance(get_builder("account_context"), AccountContextBuilder)
+
+
+class TestSnapshotJoin:
+    """S-MLOPT-S12 Part B: optional LEFT JOIN against
+    `account_context_snapshots`. Default-off path is unchanged; opt-in
+    path attaches five `*_at_signal` columns (None when no match)."""
+
+    def _seed_with_snapshots(self, tmp_path: Path) -> tuple[Path, Path]:
+        rows = [
+            _row(status="open"),
+            _row(
+                status="rejected",
+                entry_reason="REJECTED: SKIP_MISSION_MET | vwap signal",
+                position_size=0.0,
+            ),
+        ]
+        db_path = _make_db(tmp_path, rows)
+        # The family JOIN goes trades.id → order_packages.linked_trade_id →
+        # snapshots.order_package_id, so we need both tables. Snapshot
+        # the FIRST trade only — the second should land with None columns.
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "CREATE TABLE order_packages (id TEXT PRIMARY KEY, "
+            "linked_trade_id INTEGER)"
+        )
+        conn.executemany(
+            "INSERT INTO order_packages(id, linked_trade_id) VALUES (?, ?)",
+            [("pkg-1", 1), ("pkg-2", 2)],
+        )
+        # Apply the snapshot writer's schema + insert one row matching
+        # trade #1.
+        from src.units.accounts.context_snapshot import (
+            ensure_schema as _ensure_schema,
+        )
+        _ensure_schema(conn)
+        conn.execute(
+            "INSERT INTO account_context_snapshots ("
+            "captured_at_utc, order_package_id, account_id, "
+            "strategy_name, symbol, direction, "
+            "equity, daily_pnl_realized, daily_equity_high, "
+            "daily_drawdown_pct, open_trades_count) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "2026-05-01T12:00:00.000000+00:00",
+                "pkg-1",
+                "prop_velotrade_1",
+                "vwap",
+                "BTCUSDT",
+                "long",
+                10000.0,
+                -150.5,
+                10200.0,
+                0.0196,
+                2,
+            ),
+        )
+        conn.commit()
+        conn.close()
+        yaml_path = _make_yaml(tmp_path)
+        return db_path, yaml_path
+
+    def test_default_off_emits_none_snapshot_columns(self, tmp_path: Path):
+        """Without `include_snapshots`, the SQL doesn't touch
+        order_packages / snapshots, and the five new columns serialize
+        as None — preserving v1's byte-identical behaviour on existing
+        builds."""
+        db_path, yaml_path = self._seed_with_snapshots(tmp_path)
+        builder = AccountContextBuilder()
+        rows = list(builder.iter_rows(
+            db_path=db_path, accounts_yaml_path=yaml_path,
+        ))
+        assert len(rows) == 2
+        for r in rows:
+            assert r["equity_at_signal"] is None
+            assert r["daily_pnl_realized_at_signal"] is None
+            assert r["open_trades_count_at_signal"] is None
+
+    def test_include_snapshots_joins_when_table_present(self, tmp_path: Path):
+        db_path, yaml_path = self._seed_with_snapshots(tmp_path)
+        builder = AccountContextBuilder()
+        rows = list(builder.iter_rows(
+            db_path=db_path, accounts_yaml_path=yaml_path,
+            include_snapshots=True,
+        ))
+        assert len(rows) == 2
+        first, second = rows
+        # Trade #1 has a matching snapshot.
+        assert first["equity_at_signal"] == 10000.0
+        assert first["daily_pnl_realized_at_signal"] == -150.5
+        assert first["daily_equity_high_at_signal"] == 10200.0
+        assert first["daily_drawdown_pct_at_signal"] == pytest.approx(0.0196)
+        assert first["open_trades_count_at_signal"] == 2
+        # Trade #2 has no matching snapshot → all None.
+        assert second["equity_at_signal"] is None
+        assert second["open_trades_count_at_signal"] is None
+
+    def test_include_snapshots_no_table_gracefully_falls_back(
+        self, tmp_path: Path,
+    ):
+        """If the caller opts in but the live DB hasn't been
+        instrumented yet (the snapshot table is absent), the JOIN is
+        suppressed and the rows fall through with None columns."""
+        rows = [_row(status="open")]
+        db_path = _make_db(tmp_path, rows)
+        yaml_path = _make_yaml(tmp_path)
+        builder = AccountContextBuilder()
+        emitted = list(builder.iter_rows(
+            db_path=db_path, accounts_yaml_path=yaml_path,
+            include_snapshots=True,  # opt-in honoured, but no table → no crash
+        ))
+        assert len(emitted) == 1
+        assert emitted[0]["equity_at_signal"] is None
+        assert emitted[0]["status"] == "open"
+
+    def test_builder_version_bumped_to_v2(self):
+        assert AccountContextBuilder.builder_version == "v2"
+
+    def test_schema_includes_snapshot_columns(self):
+        for col in (
+            "equity_at_signal",
+            "daily_pnl_realized_at_signal",
+            "daily_equity_high_at_signal",
+            "daily_drawdown_pct_at_signal",
+            "open_trades_count_at_signal",
+        ):
+            assert col in AccountContextBuilder.schema
