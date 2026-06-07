@@ -1862,7 +1862,6 @@ class TestStuckStrategyWatchdog:
         assert summary == {
             "checked": 0, "alerted": 0, "auto_cleared": 0,
             "deferred_position_alive": 0,
-            "released_alive": 0,
             "deferred_below_timeframe": 0,
             "skipped_position_read_failed": 0,
             "errors": 0,
@@ -1903,7 +1902,6 @@ class TestStuckStrategyWatchdog:
         assert second == {
             "checked": 0, "alerted": 0, "auto_cleared": 0,
             "deferred_position_alive": 0,
-            "released_alive": 0,
             "deferred_below_timeframe": 0,
             "skipped_position_read_failed": 0,
             "errors": 0,
@@ -2037,24 +2035,27 @@ class TestStuckStrategyWatchdog:
         assert _read_package(tmp_db, "pkg-read-failure")["status"] == "open"
         assert _read_trade(tmp_db, trade_id)["status"] == "open"
 
-    def test_position_alive_releases_package_after_release_threshold(
+    def test_position_alive_defers_indefinitely_for_long_silent_pkg(
         self, tmp_db, tmp_path, monkeypatch,
     ):
-        """RELEASE_STUCK_PKG_MINUTES contract (PR claude/watchdog-cadence-fix-JZkeL):
-        when the exchange-side position is still alive and the
-        package has been silent for at least the release threshold,
-        force-close the **package row alone** so the
-        strategy_monocle gate reopens for new dispatches. The trade
-        row stays ``status='open'`` — the monitor + per-trade
-        reconciler keep tracking the live position to its real
-        close.
+        """Position-alive defer is indefinite (2026-06-07): a package
+        silent for hours never gets force-closed by the watchdog when
+        the exchange still reports the position as alive. The strategy
+        keeps owning the trade via its ``monitor()`` hook, the gate
+        stays closed (one open package per strategy), and only the
+        per-trade reconciler / strategy verdict can close the package.
+
+        Replaces the 2026-05-16 ``RELEASE_STUCK_PKG_MINUTES`` knob,
+        which closed the package after 90 min on a wrong premise
+        (run_monitor_tick scans ``status='open'`` only, so closing
+        stranded the trade with no strategy monitoring).
         """
         monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
-        monkeypatch.setenv("RELEASE_STUCK_PKG_MINUTES", "90")
         trade_id = _insert_trade(tmp_db, status="open")
+        # 4h silent, well past any historic release threshold.
         self._insert_pkg_with_age(
-            tmp_db, pkg_id="pkg-release-after-90",
-            linked_trade_id=trade_id, age_minutes=95,
+            tmp_db, pkg_id="pkg-alive-long-silent",
+            linked_trade_id=trade_id, age_minutes=240,
         )
         pings_dir = tmp_path / "pings"
         monkeypatch.setattr(
@@ -2070,96 +2071,18 @@ class TestStuckStrategyWatchdog:
             summary = _watchdog_stuck_strategies(tmp_db)
 
         assert summary["deferred_position_alive"] == 1
-        assert summary["released_alive"] == 1
-        assert summary["auto_cleared"] == 0  # NOT the orphan path
+        assert summary["auto_cleared"] == 0
         assert summary["alerted"] == 1
         assert summary["errors"] == 0
-
-        # Package row force-closed with the new close_reason.
-        pkg = _read_package(tmp_db, "pkg-release-after-90")
-        assert pkg["status"] == "closed"
-        assert pkg["close_reason"] == "watchdog_released_alive"
-
-        # Trade row left ALIVE — the live position is still on
-        # Bybit, the existing reconciler will close it for real.
-        trade = _read_trade(tmp_db, trade_id)
-        assert trade["status"] == "open"
-        assert trade["exit_reason"] is None
-
-        # Alert fires with auto_cleared=True because the
-        # strategy_monocle gate WAS reopened by the package
-        # release — that's the observable system change the
-        # operator cares about.
+        # Package row stays OPEN — strategy monitor keeps running.
+        assert _read_package(tmp_db, "pkg-alive-long-silent")["status"] == "open"
+        # Trade row untouched.
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"
+        # Alert fires with auto_cleared=False — the gate is still closed.
         queued = sorted(pings_dir.glob("*.json"))
         assert len(queued) == 1
         evt = json.loads(queued[0].read_text())
-        assert "force-cleared" in evt["body"]
-
-    def test_position_alive_below_release_threshold_just_defers(
-        self, tmp_db, tmp_path, monkeypatch,
-    ):
-        """Below RELEASE_STUCK_PKG_MINUTES the watchdog must keep
-        the pre-2026-05-16 defer+alert-once behaviour — neither
-        the package nor the trade row is touched beyond a meta
-        stamp.
-        """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
-        monkeypatch.setenv("RELEASE_STUCK_PKG_MINUTES", "90")
-        trade_id = _insert_trade(tmp_db, status="open")
-        self._insert_pkg_with_age(
-            tmp_db, pkg_id="pkg-alive-50",
-            linked_trade_id=trade_id, age_minutes=50,
-        )
-        pings_dir = tmp_path / "pings"
-        monkeypatch.setattr(
-            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
-            pings_dir,
-        )
-        with patch(
-            "src.units.accounts.clients.account_open_positions",
-            return_value=[
-                {"symbol": "BTCUSDT", "side": "long", "size": 0.004},
-            ],
-        ):
-            summary = _watchdog_stuck_strategies(tmp_db)
-
-        assert summary["deferred_position_alive"] == 1
-        assert summary["released_alive"] == 0
-        assert _read_package(tmp_db, "pkg-alive-50")["status"] == "open"
-        assert _read_trade(tmp_db, trade_id)["status"] == "open"
-
-    def test_position_alive_release_disabled_when_env_zero(
-        self, tmp_db, tmp_path, monkeypatch,
-    ):
-        """``RELEASE_STUCK_PKG_MINUTES=0`` opts out of the release
-        path entirely — the watchdog reverts to the pre-2026-05-16
-        defer-forever behaviour for position-alive packages even
-        well past the release window.
-        """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
-        monkeypatch.setenv("RELEASE_STUCK_PKG_MINUTES", "0")
-        trade_id = _insert_trade(tmp_db, status="open")
-        self._insert_pkg_with_age(
-            tmp_db, pkg_id="pkg-release-disabled",
-            linked_trade_id=trade_id, age_minutes=240,  # 4h
-        )
-        pings_dir = tmp_path / "pings"
-        monkeypatch.setattr(
-            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
-            pings_dir,
-        )
-        with patch(
-            "src.units.accounts.clients.account_open_positions",
-            return_value=[
-                {"symbol": "BTCUSDT", "side": "long", "size": 0.004},
-            ],
-        ):
-            summary = _watchdog_stuck_strategies(tmp_db)
-
-        assert summary["deferred_position_alive"] == 1
-        assert summary["released_alive"] == 0
-        assert _read_package(tmp_db, "pkg-release-disabled")["status"] == "open"
-        assert _read_trade(tmp_db, trade_id)["status"] == "open"
+        assert "force-cleared" not in evt["body"]
 
     # -- Timeframe-aware quiet window (2026-05-25) -----------------------
 
@@ -2211,9 +2134,6 @@ class TestStuckStrategyWatchdog:
         monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         monkeypatch.delenv("STUCK_STRATEGY_THRESHOLD_MINUTES", raising=False)
         monkeypatch.delenv("STUCK_STRATEGY_TIMEFRAME_MULT", raising=False)
-        # Keep it in the defer (not release) path so we assert on the
-        # "still stuck" alert body specifically.
-        monkeypatch.setenv("RELEASE_STUCK_PKG_MINUTES", "9999")
         trade_id = _insert_trade(tmp_db, status="open")
         self._insert_pkg_with_age(
             tmp_db, pkg_id="pkg-2h-stuck", linked_trade_id=trade_id,
@@ -2249,7 +2169,6 @@ class TestStuckStrategyWatchdog:
         monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         monkeypatch.delenv("STUCK_STRATEGY_THRESHOLD_MINUTES", raising=False)
         monkeypatch.delenv("STUCK_STRATEGY_TIMEFRAME_MULT", raising=False)
-        monkeypatch.setenv("RELEASE_STUCK_PKG_MINUTES", "9999")
         trade_id = _insert_trade(tmp_db, status="open")
         self._insert_pkg_with_age(
             tmp_db, pkg_id="pkg-5m-stuck", linked_trade_id=trade_id,
