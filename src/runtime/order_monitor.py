@@ -2259,40 +2259,22 @@ def _stuck_strategy_threshold_minutes() -> float:
         return float(_DEFAULT_STUCK_STRATEGY_THRESHOLD_MINUTES)
 
 
-# Position-alive package release (PR claude/watchdog-cadence-fix-JZkeL).
-# When the watchdog's exchange cross-check confirms the position is
-# still live at Bybit but the package row has been silent for this
-# many minutes, close the package row alone — the strategy_monocle
-# gate reopens for new dispatches and the trade row stays open so
-# the existing monitor + reconciler keep tracking the live
-# position. Default 90 min: well above any healthy monitor verdict
-# cadence (vwap's 5 m candle path nudges SL on every cross), so a
-# normally-monitored trade never trips this.
-_DEFAULT_RELEASE_STUCK_PKG_MINUTES = 90
-
-
-def _release_stuck_pkg_minutes() -> float:
-    """Read ``RELEASE_STUCK_PKG_MINUTES`` at call time.
-
-    Threshold for releasing a position-alive but otherwise silent
-    package row so the strategy_monocle gate can reopen without
-    cascading the live trade row to ``orphaned``. Clamped to
-    ``>= threshold_minutes`` (releasing before the stuck-strategy
-    threshold itself is meaningless because the SQL filter already
-    skipped the row). Set to ``0`` to disable — the watchdog falls
-    back to the pre-2026-05-16 "defer forever, alert once"
-    behaviour in the position-alive branch.
-    """
-    raw = os.environ.get("RELEASE_STUCK_PKG_MINUTES")
-    if raw is None or str(raw).strip() == "":
-        return float(_DEFAULT_RELEASE_STUCK_PKG_MINUTES)
-    try:
-        v = float(raw)
-    except (TypeError, ValueError):
-        return float(_DEFAULT_RELEASE_STUCK_PKG_MINUTES)
-    if v <= 0:
-        return 0.0  # 0 = disabled
-    return v
+# PR claude/watchdog-cadence-fix-JZkeL (2026-05-16) added a flat
+# ``RELEASE_STUCK_PKG_MINUTES`` (default 90) that flipped a position-
+# alive package's status to ``closed`` so the strategy_monocle gate
+# would reopen. The premise — that ``run_monitor_tick`` would "keep
+# tracking the live position" via the existing reconciler — was
+# wrong: the monitor's main query is ``status='open'``, so closing
+# the package strands the trade with no strategy ``monitor()`` ticks
+# for the rest of its life (no chandelier trail, no time-decay,
+# nothing beyond Bybit's static server-side SL/TP). Removed
+# 2026-06-07. Position-alive packages now defer indefinitely (one
+# alert, stamp ``meta.stuck_alert_emitted_at``) — the pre-JZkeL
+# 2026-05-09 behaviour. The strategy_monocle gate stays closed
+# while the trade is alive, which is the correct one-package-per-
+# strategy semantics. Any "open trade with no open package" case is
+# a reconciliation concern — handled by
+# ``_reconcile_orphan_exchange_positions``, not the watchdog.
 
 
 # Timeframe-aware stuck threshold (2026-05-25). A package's ``updated_at``
@@ -2396,15 +2378,17 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
 
       * **Position alive at exchange** (the ``(symbol, direction)``
         pair shows up in the exchange's position list) → never
-        cascade the trade row, but if the package row itself has
-        been silent for at least ``RELEASE_STUCK_PKG_MINUTES``
-        (default 90 min) close the **package** row alone so the
-        strategy_monocle gate reopens for new dispatches; the
-        trade row stays ``status='open'`` and the existing monitor
-        + per-trade reconciler keep tracking the live position.
-        Below the release threshold, stamp the meta to silence
-        future ticks and emit the alert ONCE. PR
-        claude/watchdog-cadence-fix-JZkeL.
+        touch the package or trade row beyond a meta stamp
+        (``stuck_alert_emitted_at``) and one operator alert. The
+        package row stays ``status='open'`` so the strategy's
+        ``monitor()`` hook keeps firing on every tick (trailing
+        SL, time-decay close, structure exit). The
+        strategy_monocle gate stays closed for that strategy —
+        which is the correct "one open package per strategy"
+        semantics while a multi-hour trade rides. Pre-2026-06-07
+        a ``RELEASE_STUCK_PKG_MINUTES`` knob flipped the package
+        to ``closed`` after 90 min; that stranded the trade with
+        no strategy monitoring and was removed.
 
       * **Position flat at exchange** (read succeeded, no matching
         position) → genuine orphan. Force-close the package
@@ -2439,22 +2423,15 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
 
     Returns a summary
     ``{checked, alerted, auto_cleared, deferred_position_alive,
-       released_alive, skipped_position_read_failed, errors}`` so
-    the caller can log a per-tick line when non-zero.
-    ``released_alive`` counts position-alive packages that were
-    force-closed at the package level (gate reopens, trade row
-    untouched) per the new RELEASE_STUCK_PKG_MINUTES contract.
+       deferred_below_timeframe, skipped_position_read_failed,
+       errors}`` so the caller can log a per-tick line when
+    non-zero.
     """
     summary = {
         "checked": 0,
         "alerted": 0,
         "auto_cleared": 0,
         "deferred_position_alive": 0,
-        # PR claude/watchdog-cadence-fix-JZkeL: position-alive but
-        # otherwise silent packages get the package row force-closed
-        # after RELEASE_STUCK_PKG_MINUTES so the strategy_monocle
-        # gate reopens; the trade row stays open.
-        "released_alive": 0,
         # Position-alive packages skipped because they haven't been
         # silent for their TIMEFRAME-scaled quiet window yet (a healthy
         # 2h/4h trade that simply hasn't ratcheted) — no alert, no churn.
@@ -2567,31 +2544,18 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                 position_alive = (str(symbol), direction) in live_set
 
         if position_alive is True:
-            # Trade is alive at the exchange — never cascade the
-            # trade row. Two sub-cases:
+            # Trade is alive at the exchange. Defer indefinitely —
+            # never close the package, never cascade the trade row.
             #
-            #   * Package age < RELEASE_STUCK_PKG_MINUTES: defer.
-            #     Emit the alert ONCE so the operator knows the
-            #     strategy hasn't progressed; stamp the meta to
-            #     silence subsequent ticks. Same behaviour as the
-            #     2026-05-09 refinement.
-            #
-            #   * Package age >= RELEASE_STUCK_PKG_MINUTES: close
-            #     the PACKAGE row only (close_reason=
-            #     ``watchdog_released_alive``). The trade row
-            #     stays ``status='open'`` so the existing monitor
-            #     verdict path + per-trade reconciler keep
-            #     tracking the live position; the strategy_monocle
-            #     gate reopens for new dispatches. PR
-            #     claude/watchdog-cadence-fix-JZkeL.
-            # Timeframe-aware quiet window: a position-alive package is
-            # only "stuck" once it has been silent for its own
+            # Timeframe-aware quiet window: a position-alive package
+            # is only "stuck" once it has been silent for its own
             # bar-interval-scaled threshold (max(floor, mult x
-            # timeframe)). A healthy multi-hour trade that simply hasn't
-            # ratcheted its trail within the floor window is NOT stuck —
-            # skip it silently (no alert, no meta churn). Genuine orphans
-            # never reach here (handled by the position-flat branch
-            # below at the floor), so this only quiets benign alerts.
+            # timeframe)). A healthy multi-hour trade that hasn't
+            # ratcheted its trail within the floor window is NOT
+            # stuck — skip silently (no alert, no meta churn).
+            # Genuine orphans never reach here (handled by the
+            # position-flat branch below at the floor), so this
+            # only quiets benign alerts.
             pkg_threshold = _stuck_threshold_for_package(meta)
             age_minutes = _pkg_age_minutes(row["updated_at"])
             if age_minutes is not None and age_minutes < pkg_threshold:
@@ -2599,34 +2563,16 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                 continue
 
             summary["deferred_position_alive"] += 1
-            release_threshold = _release_stuck_pkg_minutes()
-            should_release_pkg = (
-                release_threshold > 0
-                and age_minutes is not None
-                and age_minutes >= release_threshold
-            )
             try:
-                updated_meta = dict(meta)
                 if not already_alerted:
+                    updated_meta = dict(meta)
                     updated_meta["stuck_alert_emitted_at"] = now_iso
                     updated_meta["stuck_position_alive_seen_at"] = now_iso
-                if should_release_pkg:
-                    updated_meta["stuck_force_cleared_at"] = now_iso
-                    updated_meta["stuck_force_cleared_by"] = (
-                        "watchdog_released_alive"
-                    )
-                    db.update_order_package(pkg_id, {
-                        "status": "closed",
-                        "close_reason": "watchdog_released_alive",
-                        "meta": updated_meta,
-                    })
-                    summary["released_alive"] += 1
-                elif not already_alerted:
                     db.update_order_package(pkg_id, {"meta": updated_meta})
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
-                    "_watchdog_stuck_strategies: position-alive update failed "
-                    "for pkg_id=%s: %s",
+                    "_watchdog_stuck_strategies: position-alive meta-stamp "
+                    "failed for pkg_id=%s: %s",
                     pkg_id, exc,
                 )
                 summary["errors"] += 1
@@ -2640,12 +2586,9 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                         # Report the per-package (timeframe-aware)
                         # threshold actually waited, not the flat floor.
                         stuck_minutes=int(pkg_threshold),
-                        # ``auto_cleared`` here flags whether the
-                        # strategy_monocle gate was reopened — the
-                        # released-alive path DOES reopen the gate,
-                        # so the operator's alert body matches the
-                        # observable system state.
-                        auto_cleared=should_release_pkg,
+                        # We did NOT clear the gate — the trade is
+                        # alive and the strategy keeps monitoring it.
+                        auto_cleared=False,
                     )
                     summary["alerted"] += 1
                 except Exception as exc:  # noqa: BLE001
@@ -2734,23 +2677,20 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
         summary["auto_cleared"]
         or summary["alerted"]
         or summary["deferred_position_alive"]
-        or summary["released_alive"]
         or summary["deferred_below_timeframe"]
         or summary["skipped_position_read_failed"]
     ):
         logger.info(
             "_watchdog_stuck_strategies: checked=%d alerted=%d "
             "auto_cleared=%d deferred_position_alive=%d "
-            "released_alive=%d deferred_below_timeframe=%d "
+            "deferred_below_timeframe=%d "
             "skipped_position_read_failed=%d "
-            "errors=%d (floor=%d min release=%d min mult=%.1f)",
+            "errors=%d (floor=%d min mult=%.1f)",
             summary["checked"], summary["alerted"], summary["auto_cleared"],
             summary["deferred_position_alive"],
-            summary["released_alive"],
             summary["deferred_below_timeframe"],
             summary["skipped_position_read_failed"],
             summary["errors"], int(threshold_minutes),
-            int(_release_stuck_pkg_minutes()),
             _stuck_strategy_timeframe_mult(),
         )
     return summary
@@ -3820,7 +3760,6 @@ def run_monitor_tick(
         if (
             watchdog_summary.get("alerted")
             or watchdog_summary.get("errors")
-            or watchdog_summary.get("released_alive")
         ):
             summaries["__stuck_strategy_watchdog__"] = watchdog_summary
     except Exception as exc:  # noqa: BLE001
