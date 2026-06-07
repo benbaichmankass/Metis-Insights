@@ -50,6 +50,11 @@ jobs:
                 description: 'Triggers the vm-diag-snapshot workflow (PM-side diag relay).',
               },
               {
+                name: 'cancel-queued-runs',
+                color: 'cfd3d7',
+                description: 'Triggers cancel-queued-runs workflow — bulk-cancel stale queued Actions runs (MCP token lacks actions:write).',
+              },
+              {
                 name: 'provision-ib-gateway',
                 color: '5319e7',
                 description: 'Triggers provision-ib-gateway workflow — headless IB Gateway (IBC) install/login on the live VM for MES.',

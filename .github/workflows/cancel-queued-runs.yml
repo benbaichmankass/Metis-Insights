@@ -1,0 +1,89 @@
+name: cancel-queued-runs
+
+# Bulk-cancel stale `queued` workflow runs that never got a runner and are
+# cluttering the Actions list.
+#
+# Why this exists:
+#   The hosted GitHub MCP token used by the PM-side sandbox session lacks
+#   `actions: write`, so it cannot cancel workflow runs directly (the API
+#   returns 403 "Resource not accessible by integration"). This workflow is
+#   the runner path — a workflow's built-in GITHUB_TOKEN *does* carry
+#   `actions: write`, so it can cancel runs on the session's behalf.
+#
+#   Issue-driven (mirrors vm-diag-snapshot.yml / vm-web-api-recover.yml): open
+#   an issue labelled `cancel-queued-runs`, the workflow cancels every queued
+#   run, comments the result back, and closes the issue. Also workflow_dispatch
+#   for the Actions UI.
+#
+# Scope / blast radius:
+#   * Cancels runs whose status is exactly `queued` — never `in_progress`, so
+#     it can NEVER interrupt active CI (including its own run).
+#   * No edits, no deploys, no VM access, no secrets. Read-only beyond the
+#     `gh run cancel` calls.
+#
+# To drive from a sandbox session:
+#   mcp__github__issue_write(method='create',
+#       title='[cancel-queued-runs] clear stale queued runs',
+#       labels=['cancel-queued-runs'], body='<reason — audit>')
+#   Then poll the issue comments for the github-actions[bot] reply.
+
+on:
+  workflow_dispatch:
+  issues:
+    types: [opened]
+
+permissions:
+  actions: write   # required to cancel workflow runs
+  issues: write    # comment + close the request issue
+  contents: read
+
+concurrency:
+  group: cancel-queued-runs
+  cancel-in-progress: false
+
+jobs:
+  cancel:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'cancel-queued-runs'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Cancel all queued workflow runs
+        id: cancel
+        run: |
+          set -euo pipefail
+          ids=$(gh run list --repo "$REPO" --status queued --limit 300 \
+                  --json databaseId --jq '.[].databaseId' || true)
+          if [ -z "$ids" ]; then
+            echo "no queued runs to cancel"
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            printf 'ids<<EOF\n(none)\nEOF\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          n=0
+          for id in $ids; do
+            if gh run cancel --repo "$REPO" "$id" 2>/dev/null; then
+              echo "cancelled $id"; n=$((n+1))
+            else
+              echo "skip $id (not cancellable)"
+            fi
+          done
+          echo "cancelled $n queued run(s)"
+          echo "count=$n" >> "$GITHUB_OUTPUT"
+          printf 'ids<<EOF\n%s\nEOF\n' "$ids" >> "$GITHUB_OUTPUT"
+
+      - name: Comment back + close issue
+        if: github.event_name == 'issues'
+        env:
+          NUM: ${{ github.event.issue.number }}
+          COUNT: ${{ steps.cancel.outputs.count }}
+          IDS: ${{ steps.cancel.outputs.ids }}
+        run: |
+          set -euo pipefail
+          gh issue comment "$NUM" --repo "$REPO" \
+            --body "$(printf 'cancel-queued-runs: cancelled %s queued run(s).\n\nrun ids:\n```\n%s\n```' "$COUNT" "$IDS")"
+          gh issue close "$NUM" --repo "$REPO"
