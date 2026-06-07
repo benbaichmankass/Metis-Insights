@@ -56,7 +56,9 @@ def _seed_log(path: Path):
 def test_subcommands_registered():
     parser = _build_parser()
     sub = next(a for a in parser._actions if a.dest == "cmd")
-    for cmd in ("model-attribution", "gate-check", "stage-guard"):
+    for cmd in (
+        "model-attribution", "gate-check", "stage-guard", "promotion-readiness",
+    ):
         assert cmd in sub.choices
 
 
@@ -123,3 +125,37 @@ def test_stage_guard_cli(tmp_path: Path):
     payload = json.loads(out)
     assert payload["summary"]["total"] == 1
     assert payload["proposals"][0]["model_id"] == "m"
+
+
+def test_promotion_readiness_cli_writes_report(tmp_path: Path):
+    # End-to-end: register a shadow model the gates can't pass, ensure the
+    # CLI writes the JSON + Markdown artifact, returns 0 (quiet day — no
+    # promote / demote), and the JSON summary matches the bucket count.
+    reg = tmp_path / "registry-store"
+    registry = ModelRegistry(reg)
+    registry.register(
+        model_id="m",
+        manifest={"model_id": "m", "target_deployment_stage": "shadow"},
+        model_state_path="x", metrics={"macro_f1": 0.7}, code_revision="a",
+    )
+    db = tmp_path / "j.db"
+    _seed_db(db)
+    log = tmp_path / "shadow.jsonl"
+    _seed_log(log)
+    out_dir = tmp_path / "readiness"
+    rc, out = _capture([
+        "promotion-readiness",
+        "--registry-root", str(reg),
+        "--db", str(db),
+        "--shadow-log", str(log),
+        "--output-dir", str(out_dir),
+    ])
+    assert rc == 0  # quiet day — no promote / demote
+    payload = json.loads(out)
+    assert payload["summary"]["total"] == 1
+    assert payload["summary"]["promote"] == []
+    assert payload["ping_message"] is None
+    assert payload["written"]["json"].endswith("report.json")
+    assert payload["written"]["markdown"].endswith("SUMMARY.md")
+    assert (out_dir / "report.json").is_file()
+    assert (out_dir / "SUMMARY.md").is_file()

@@ -18,6 +18,8 @@ Subcommands:
   model-attribution           — per-model live attribution: shadow scores vs realized outcomes (go-live)
   gate-check <id>             — computed shadow→advisory promotion gates (go/no-go packet; go-live)
   stage-guard                 — propose promote/demote/hold for every model (read-only; go-live)
+  promotion-readiness         — sweep the whole registry + render the operator's promote/hold/demote report (S-MLOPT-S18)
+  drift-retrain               — ADWIN-scan each deployed head's shadow scores + propose drift-triggered retrains (S-MLOPT-S16)
 """
 from __future__ import annotations
 
@@ -26,6 +28,7 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from .datasets.cli import main as datasets_main
 from .experiments.runner import (
@@ -428,6 +431,76 @@ def _cmd_gate_check(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_drift_retrain(args: argparse.Namespace) -> int:
+    # S-MLOPT-S16: ADWIN-driven drift detection per deployed head + a
+    # retrain-dispatch decision per head. Reports only — the shell
+    # orchestrator runs the actual `python -m ml train ...` subprocess
+    # for each `action == "dispatch"` row.
+    from .shadow.drift_retrain import evaluate_models, write_log
+
+    decisions = evaluate_models(
+        registry_root=args.registry_root,
+        shadow_log=args.shadow_log,
+        configs_root=args.configs_root,
+        delta=args.delta,
+        min_window=args.min_window,
+        max_window=args.max_window,
+    )
+    written = 0
+    if args.log_path:
+        written = write_log(decisions, args.log_path)
+    payload = {
+        "decisions": [d.to_dict() for d in decisions],
+        "summary": {
+            "total": len(decisions),
+            "dispatch": [d.model_id for d in decisions if d.action == "dispatch"],
+            "skip_no_drift": sum(1 for d in decisions if d.action == "skip_no_drift"),
+            "skip_no_manifest": sum(1 for d in decisions if d.action == "skip_no_manifest"),
+            "skip_thin_data": sum(1 for d in decisions if d.action == "skip_thin_data"),
+        },
+        "log_rows_written": written,
+    }
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    # Exit code 0 when nothing to retrain; 11 when ≥1 manifest dispatch
+    # is proposed. The orchestrator uses the code as the "should I
+    # actually fire `ml train`" signal instead of re-parsing JSON.
+    return 11 if payload["summary"]["dispatch"] else 0
+
+
+def _cmd_promotion_readiness(args: argparse.Namespace) -> int:
+    # S-MLOPT-S18: registry-wide promote/hold/demote sweep + report.
+    # Reports only; never mutates the registry or touches the order path.
+    from .promotion.readiness_report import (
+        build_readiness_report,
+        format_ping_message,
+        write_report,
+    )
+
+    report = build_readiness_report(
+        registry_root=args.registry_root,
+        db_path=args.db,
+        shadow_log=args.shadow_log,
+        backfill_log=args.backfill_log,
+        reference_days=args.reference_days,
+        current_days=args.current_days,
+        include_demo=args.include_demo,
+        datasets_root=args.datasets_root,
+    )
+    paths: tuple[Path, Path] | None = None
+    if args.output_dir:
+        paths = write_report(report, args.output_dir)
+    payload: dict[str, Any] = report.to_dict()
+    if paths is not None:
+        payload["written"] = {"json": str(paths[0]), "markdown": str(paths[1])}
+    ping = format_ping_message(report)
+    payload["ping_message"] = ping
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    # Exit code 0 when uneventful; 10 when any model is promote-ready or
+    # demote-proposed. The orchestrator uses the exit code as the "should
+    # I fire the operator ping" signal (avoids re-parsing JSON in bash).
+    return 10 if ping is not None else 0
+
+
 def _cmd_stage_guard(args: argparse.Namespace) -> int:
     # Evaluate every model: propose promote / demote / hold. Read-only —
     # the operator runs `promote-stage` to act on a proposal.
@@ -694,6 +767,76 @@ def _build_parser() -> argparse.ArgumentParser:
         help="embargo buffer as a fraction of the dataset for the OOS-edge gate",
     )
 
+    p_dr = sub.add_parser(
+        "drift-retrain",
+        help=(
+            "S-MLOPT-S16: ADWIN-scan each deployed head's real-time "
+            "shadow scores and emit one decision row per head "
+            "(dispatch / skip). The shell orchestrator runs the actual "
+            "`python -m ml train` for each dispatch row; the trainer's "
+            "existing manifest-level `sample_weight.half_life_days` "
+            "(S-MLOPT-S2) carries the recency weighting."
+        ),
+    )
+    p_dr.add_argument("--registry-root", default="./ml/registry-store")
+    p_dr.add_argument("--shadow-log", type=Path, default=_DEFAULT_SHADOW_LOG)
+    p_dr.add_argument("--configs-root", default="./ml/configs")
+    p_dr.add_argument(
+        "--delta", type=float, default=0.002,
+        help="ADWIN Hoeffding confidence; lower = stricter (default 0.002)",
+    )
+    p_dr.add_argument(
+        "--min-window", type=int, default=10,
+        help="ADWIN cut search is suppressed below this window length",
+    )
+    p_dr.add_argument(
+        "--max-window", type=int, default=10_000,
+        help="cap on per-head ADWIN window length (FIFO trim above this)",
+    )
+    p_dr.add_argument(
+        "--log-path", default=None,
+        help=(
+            "if set, append one JSONL row per decision here "
+            "(orchestrator default: runtime_logs/drift_retrain.jsonl)"
+        ),
+    )
+
+    p_ready = sub.add_parser(
+        "promotion-readiness",
+        help=(
+            "S-MLOPT-S18: sweep the whole registry and write the operator's "
+            "promote/hold/demote report (JSON + Markdown). Reports only — "
+            "never auto-promotes; the shadow→advisory flip stays Tier-3."
+        ),
+    )
+    p_ready.add_argument("--registry-root", default="./ml/registry-store")
+    p_ready.add_argument(
+        "--db", default=None,
+        help="trade_journal.db for the live-attribution signals (optional)",
+    )
+    p_ready.add_argument("--shadow-log", type=Path, default=_DEFAULT_SHADOW_LOG)
+    p_ready.add_argument("--backfill-log", type=Path, default=_DEFAULT_BACKFILL_LOG)
+    p_ready.add_argument("--reference-days", type=float, default=30.0)
+    p_ready.add_argument("--current-days", type=float, default=7.0)
+    p_ready.add_argument("--include-demo", action="store_true", default=False)
+    p_ready.add_argument(
+        "--datasets-root", default=None,
+        help=(
+            "datasets-out root (trainer VM). When set, computes the offline "
+            "OOS-edge gate for every shadow-stage model so promote proposals "
+            "carry champion-challenger evidence."
+        ),
+    )
+    p_ready.add_argument(
+        "--output-dir", default=None,
+        help=(
+            "if set, write report.json + SUMMARY.md under this directory. "
+            "The trainer orchestrator nests it under "
+            "runtime_logs/trainer_mirror/promotion_readiness/<UTC-date>/ so "
+            "the existing trainer-mirror rsync picks it up."
+        ),
+    )
+
     p_guard = sub.add_parser(
         "stage-guard",
         help=(
@@ -754,6 +897,8 @@ def main(argv: list[str] | None = None) -> int:
         "model-attribution": _cmd_model_attribution,
         "gate-check": _cmd_gate_check,
         "stage-guard": _cmd_stage_guard,
+        "promotion-readiness": _cmd_promotion_readiness,
+        "drift-retrain": _cmd_drift_retrain,
     }
     handler = dispatch.get(args.cmd)
     if handler is None:

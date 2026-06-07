@@ -611,11 +611,35 @@ model.
 "~70% there" polish that makes retraining efficient and promotion mechanical. Closes G3
 (retrain trigger) and G7 (gates).
 
-### Session 4.1 — Drift-triggered, recency-weighted retraining *(Tier-1/2)*
+### Session 4.1 — Drift-triggered, recency-weighted retraining *(Tier-1/2)* — 🔄 IN REVIEW 2026-06-07 (S-MLOPT-S16)
 - **Deliverable:** add **ADWIN** (`river`) online drift detection on streaming features so
   retrains fire on *drift*, not just the fixed daily timer; couple with the recency-weighted
   windows from Phase 0.2. Another angle on G3.
 - **Effort:** M.
+- **Shipped (Tier-1 trainer-side tooling):** pure-stdlib **ADWIN detector** in
+  `ml/shadow/adwin.py` (Bifet & Gavaldà 2007 — Hoeffding cut `ε = √((1/2m)·ln(4w/δ))` over
+  harmonic-mean sub-window sizes; default `δ=0.002` River-conservative, `min_window=10`,
+  `max_window=10k`; FIFO-trims past the cap, skips non-finite values silently). **Composes
+  with** — does not replace — the window-over-window KS/PSI in `ml/shadow/drift.py`: KS/PSI
+  is the daily snapshot comparator, ADWIN is the online change detector that fires retrains
+  *between* snapshots. New drift-retrain orchestrator `ml/shadow/drift_retrain.py::evaluate_models`
+  walks every deployed head (`shadow` / `advisory` / `limited_live` / `live_approved`), streams
+  the head's real-time shadow scores (backfill rows excluded — synthetic timestamps would
+  pollute the online detector), runs ADWIN, and emits one `RetrainDecision` row per head
+  (`dispatch` / `skip_no_drift` / `skip_no_manifest` / `skip_thin_data`). New
+  `python -m ml drift-retrain` CLI + `scripts/ops/run_drift_retrain.sh` orchestrator that
+  fires `python -m ml train <manifest>` per dispatch row — the trainer reuses whatever
+  `sample_weight.half_life_days` the manifest already declares (the S-MLOPT-S2 recency-decay
+  knob), so the retrain naturally down-weights the stale tail ADWIN told us to forget.
+  **Conservative + logged:** ships `DRY_RUN=1` so the first soak only writes
+  `runtime_logs/drift_retrain.jsonl`; flip to `DRY_RUN=0` once the operator has eyeballed a
+  few cycles. New trainer-side `ict-drift-retrain.{service,timer}` (hourly, **DISABLED by
+  default**) in `deploy/training-vm-cloud-init.yaml`. 17 tests
+  (`tests/ml/test_adwin.py` + `tests/ml/test_drift_retrain.py`) pin the cut bound, the
+  stationary / step-change / min-window / cap edge cases, the manifest resolver, the
+  watched-stage filter, the backfill exclusion, the JSONL writer, and both CLI exit codes;
+  ruff clean. **No auto-promotion past `shadow`** — trainer registers candidates,
+  `promotion-readiness` (S18) / operator decide what clears the bar.
 
 ### Session 4.2 — Experiment tracking + train/serve parity *(Tier-1/2)* — 🔄 train/serve parity SHIPPED 2026-06-04 (S-MLOPT-S17)
 - **Deliverable:** lightweight run tracking (MLflow/W&B or a disciplined runs table in
@@ -644,11 +668,32 @@ model.
   a closed-BTC trade window). The infra unblock is durable; evidence accrues with the soak.
 - **Effort:** M.
 
-### Session 4.3 — Full champion-challenger automation *(Tier-1 compute; Tier-3 enforce)*
+### Session 4.3 — Full champion-challenger automation *(Tier-1 compute; Tier-3 enforce)* — 🔄 IN REVIEW 2026-06-07 (S-MLOPT-S18)
 - **Deliverable:** close the loop on Phase 0.4 — every model carries a live PASS/FAIL gate
   status; `/ml-review` promotion recommendations are derived mechanically from it; the
   operator's role narrows to approving a green gate.
 - **Effort:** S.
+- **Shipped (Tier-1 trainer-side tooling):** new **promotion-readiness report generator**
+  `ml/promotion/readiness_report.py` — thin orchestrator on top of
+  `ml.promotion.stage_guard.run_stage_guard` that sweeps the whole registry (regime profile
+  auto-applied via `thresholds_for`, OOS-edge baseline auto-selected for regime heads in
+  `run_stage_guard` — so the yz-1h `~6/12` check and every future promotion is one CLI call,
+  not a per-model gate-check stitched together by hand), buckets the resulting proposals
+  into `promote` / `demote` / `hold`, and renders both a machine-readable `report.json` +
+  an operator-readable `SUMMARY.md`. New `python -m ml promotion-readiness` CLI +
+  `scripts/ops/run_promotion_readiness.sh` orchestrator that writes the artifact under
+  `runtime_logs/trainer_mirror/promotion_readiness/<UTC-date>/` (so the existing
+  `publish_trainer_mirror.sh` rsync picks it up) AND — when any model crosses the ready
+  bar (CLI exits 10) — pushes a one-line `pending_pings/*.json` onto the live VM via SCP
+  so `ict-telegram-bot.service` delivers the operator ping. Quiet days never push a ping.
+  New trainer-side `ict-promotion-readiness.{service,timer}` (daily, **DISABLED by
+  default**) in `deploy/training-vm-cloud-init.yaml`. 13 tests
+  (`tests/ml/test_readiness_report.py` + the promotion-readiness case in
+  `tests/ml/test_promotion_cli.py`) pin bucketing, Markdown rendering, the
+  missing-`datasets_root` warning, the quiet-vs-actionable ping message, JSON+MD
+  persistence, `build_readiness_report` end-to-end, and the CLI's `--output-dir` write
+  path; ruff clean. **Reports only — never auto-promotes.** The `shadow → advisory` flip
+  stays Tier-3: a `promote` proposal is an invitation, not an action.
 
 ---
 
