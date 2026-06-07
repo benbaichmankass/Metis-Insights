@@ -1,0 +1,49 @@
+# ============================================
+# ICT PROMOTION-READINESS SWEEP (S-MLOPT-S18, M14 Phase 4.3)
+# Runs scripts/ops/run_promotion_readiness.sh once per fire.
+#
+# Sweeps the whole registry via `python -m ml promotion-readiness` and
+# writes report.json + SUMMARY.md under
+#   runtime_logs/trainer_mirror/promotion_readiness/<UTC-date>/
+# so the existing publish_trainer_mirror.sh rsync picks it up. On any
+# actionable proposal (promote-ready / demote-proposed), drops a
+# pending_pings/*.json onto the live VM via SCP so
+# ict-telegram-bot.service delivers the operator ping.
+#
+# **TRAINER VM ONLY** — never the Oracle live trader. Lives in
+# deploy/trainer/ so the live-VM unit installer
+# (scripts/install_systemd_units.sh, which globs deploy/*.service)
+# never picks it up.
+#
+# Save to (trainer VM): /etc/systemd/system/ict-promotion-readiness.service
+# Install:  cp deploy/trainer/ict-promotion-readiness.{service,timer} /etc/systemd/system/
+#           && systemctl daemon-reload
+#           && systemctl enable --now ict-promotion-readiness.timer
+#
+# Mirrors the unit embedded in deploy/training-vm-cloud-init.yaml so a
+# freshly provisioned trainer + a long-running trainer end up with the
+# same unit body. Edits must stay in lock-step.
+# ============================================
+
+[Unit]
+Description=ICT promotion-readiness sweep (S-MLOPT-S18)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+Environment=LIVE_VM_IP=158.178.210.252
+Environment=LIVE_VM_USER=ubuntu
+Environment=VM_SSH_KEY=/home/ubuntu/.ssh/id_ed25519
+ExecStart=/bin/bash scripts/ops/run_promotion_readiness.sh
+# Exit code 10 means "sweep ran + actionable proposals found" and is a
+# normal outcome (the operator ping was queued) — do not let systemd
+# treat it as a service failure.
+SuccessExitStatus=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
