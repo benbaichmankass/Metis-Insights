@@ -3,6 +3,16 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260607-006",
+      "opened_at": "2026-06-07T17:10:00+00:00",
+      "opened_by": "claude (S-MLOPT-CLOSEOUT session, doc-freshness audit)",
+      "source": "doc-freshness audit at the end of S-MLOPT-CLOSEOUT-2026-06-07. `docs/ARCHITECTURE-CANONICAL.md` Change-log table ends at the 2026-06-05 IB-Gateway wedge isolation row. The 2026-06-07 closeout shipped four notable items not yet captured in the change log: S-MLOPT-S18 (champion-challenger promotion-readiness orchestrator + standalone systemd unit, trainer-side), S-MLOPT-S16 (ADWIN drift-triggered retraining tooling, trainer-side), S-MLOPT-S12 Part B (`account_context_snapshots` table + best-effort coordinator writer hook, runtime-observe-only gated by `ACCOUNT_CONTEXT_SNAPSHOTS_DISABLED`), PERF-20260601-006 phase 3 (regime-router hard-gate runtime path, gated by `REGIME_ROUTER_ENABLED`, default off → phase 2 shadow-log behaviour). All four are documented in `docs/sprint-logs/S-MLOPT-CLOSEOUT-2026-06-07.md`; `CLAUDE.md` Env Variables + Tables sections were updated for both new env-var gates and the new table. `arch-doc-guard` CI passed every PR this session without requiring an arch-log row.",
+      "title": "Consider an ARCHITECTURE-CANONICAL.md Change-log row for the 2026-06-07 closeout (S18 + S16 + S12 Part B + PERF-006 P3)",
+      "description": "The arch change log historically captures every persistence-contract change (new table) and every runtime-behaviour-changing kill-switch; the 2026-06-07 closeout adds both (`trade_journal.db::account_context_snapshots` + `REGIME_ROUTER_ENABLED` / `ACCOUNT_CONTEXT_SNAPSHOTS_DISABLED`). Decision deferred at session-end (a) to avoid scope creep on the sprint-log PR; (b) because each row in the log historically lands in its own enabling PR, not in a retroactive doc-only PR. A future `/health-review` should either write one consolidated 2026-06-07 row (citing PR numbers from this session's sprint log) or close this item as not-needed.",
+      "tier": 1,
+      "status": "open"
+    },
+    {
       "id": "BL-20260607-003",
       "opened_at": "2026-06-07T13:30:00+00:00",
       "opened_by": "claude (post-#2952 deploy verification — diag-request #2957)",
