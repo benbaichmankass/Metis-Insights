@@ -146,6 +146,11 @@ jobs:
                 color: 'b60205',
                 description: 'Triggers get-diag-token workflow — resolve the DIAG_READ_TOKEN value and deliver it to the repo owner.',
               },
+              {
+                name: 'purge-artifacts-now',
+                color: 'd93f0b',
+                description: 'Triggers purge-artifacts workflow — delete build artifacts to reclaim Actions storage.',
+              },
             ];
             for (const l of LABELS) {
               try {
