@@ -66,10 +66,16 @@ jobs:
           fi
           n=0
           for id in $ids; do
-            if gh run cancel --repo "$REPO" "$id" 2>/dev/null; then
+            # Normal cancel first; long-stuck queued runs reject it, so fall
+            # back to the force-cancel endpoint (the API path for runs that
+            # won't cancel normally). Surface the error if both fail.
+            if gh run cancel --repo "$REPO" "$id" 2>/tmp/cancel_err; then
               echo "cancelled $id"; n=$((n+1))
+            elif gh api --method POST "repos/$REPO/actions/runs/$id/force-cancel" \
+                   >/dev/null 2>>/tmp/cancel_err; then
+              echo "force-cancelled $id"; n=$((n+1))
             else
-              echo "skip $id (not cancellable)"
+              echo "skip $id: $(tail -n1 /tmp/cancel_err 2>/dev/null || echo 'unknown error')"
             fi
           done
           echo "cancelled $n queued run(s)"
