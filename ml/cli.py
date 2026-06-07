@@ -354,7 +354,12 @@ def _cmd_gate_check(args: argparse.Namespace) -> int:
     # Computed promotion gates for one model + target stage. Reports a
     # go/no-go packet; never promotes.
     from .promotion.attribution import compute_attribution
-    from .promotion.gates import evaluate_gates
+    from .promotion.gates import (
+        GateThresholds,
+        evaluate_gates,
+        is_regime_classifier,
+        regime_classifier_thresholds,
+    )
     from .promotion.stage_guard import _drift_for_model
 
     registry = ModelRegistry(Path(args.registry_root))
@@ -363,6 +368,31 @@ def _cmd_gate_check(args: argparse.Namespace) -> int:
     except RegistryError as exc:
         sys.stderr.write(f"gate-check failed: {exc}\n")
         return 1
+
+    # Gate profile. `auto` (default) gives a multiclass regime head the
+    # classifier-appropriate profile (small live floor; oos_edge carries the
+    # beats-baseline role) and any other model the decision-model profile.
+    if args.gate_profile == "regime":
+        regime, thresholds = True, regime_classifier_thresholds()
+    elif args.gate_profile == "default":
+        regime, thresholds = False, GateThresholds()
+    else:  # auto
+        regime = is_regime_classifier(entry)
+        thresholds = regime_classifier_thresholds() if regime else GateThresholds()
+    # A regime head needs an evaluator-compatible OOS-edge baseline: the
+    # default ConstantPredictionTrainer is a regression/constant baseline and
+    # silently yields oos_edge=None against the multiclass evaluator. Auto-pick
+    # the modal regime baseline unless the caller overrode it (BL-20260607-002).
+    baseline_trainer = args.baseline_trainer
+    if regime and baseline_trainer == "ml.trainers.constant_baseline.ConstantPredictionTrainer":
+        baseline_trainer = "ml.trainers.regime_classifier.RegimeClassifierTrainer"
+    sys.stderr.write(
+        f"gate-check profile: {'regime_classifier' if regime else 'decision_model'} "
+        f"(min_trades={thresholds.min_trades}, "
+        f"beats_baseline_required={thresholds.require_beats_baseline}, "
+        f"oos_baseline={baseline_trainer.rsplit('.', 1)[-1]})\n"
+    )
+
     attr = None
     if args.db:
         attrs = compute_attribution(
@@ -385,14 +415,14 @@ def _cmd_gate_check(args: argparse.Namespace) -> int:
         oos_edge = compute_oos_edge(
             entry,
             datasets_root=args.datasets_root,
-            baseline_trainer=args.baseline_trainer,
+            baseline_trainer=baseline_trainer,
             n_folds=args.n_folds,
             label_horizon=args.label_horizon,
             embargo_fraction=args.embargo_fraction,
         )
     report = evaluate_gates(
         entry, target_stage=args.target_stage, attribution=attr,
-        drift=drift, oos_edge=oos_edge,
+        drift=drift, oos_edge=oos_edge, thresholds=thresholds,
     )
     print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
     return 0
@@ -619,6 +649,16 @@ def _build_parser() -> argparse.ArgumentParser:
     p_gate.add_argument("model_id")
     p_gate.add_argument("--target-stage", default="advisory")
     p_gate.add_argument("--registry-root", default="./ml/registry-store")
+    p_gate.add_argument(
+        "--gate-profile", choices=("auto", "default", "regime"), default="auto",
+        help=(
+            "promotion-gate profile. 'auto' (default) detects a multiclass "
+            "regime head and applies the classifier profile (small live "
+            "sample floor; oos_edge carries the beats-baseline role); "
+            "'regime' forces it; 'default' forces the decision-model profile "
+            "(200-live-trade floor, live beats_baseline required)."
+        ),
+    )
     p_gate.add_argument(
         "--db", default=None,
         help="trade_journal.db for the live-attribution gates (optional)",
