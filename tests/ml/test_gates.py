@@ -333,3 +333,100 @@ def test_drift_significant_fails_drift_clean():
     dc = next(r for r in report.results if r.name == "drift_clean")
     assert dc.status == "fail"
     assert not report.ready
+
+
+# --- Regime-classifier gate profile (Tier-3, 2026-06-07) -------------------
+
+from types import SimpleNamespace  # noqa: E402
+
+from ml.promotion.gates import (  # noqa: E402
+    REGIME_MIN_LIVE_TRADES,
+    is_regime_classifier,
+    regime_classifier_thresholds,
+    thresholds_for,
+)
+
+
+def _thin_live_attr() -> ModelAttribution:
+    # A regime head with only a handful of overlapping live trades, all wins,
+    # so brier_lift is degenerate (base-rate brier 0.0) but rank-AUC is fine.
+    return ModelAttribution(
+        model_id="m", stage="shadow", n=REGIME_MIN_LIVE_TRADES, win_rate=0.6,
+        score_mean=0.5, score_min=0.1, score_max=0.9,
+        auc=0.62, brier=0.20, baseline_brier=0.0, brier_lift=None,
+    )
+
+
+def test_regime_profile_threshold_values():
+    th = regime_classifier_thresholds()
+    assert th.min_trades == REGIME_MIN_LIVE_TRADES
+    assert th.require_beats_baseline is False
+    # safety gates are untouched
+    assert th.shadow_soak_days == 7.0
+    assert th.min_oos_edge == 0.0
+    assert th.min_auc == 0.55
+    assert th.max_ks == 0.2 and th.max_psi == 0.25
+
+
+def test_is_regime_classifier_detection():
+    assert is_regime_classifier(
+        SimpleNamespace(manifest={"dataset": {"family": "market_features"}}, metrics={})
+    )
+    assert is_regime_classifier(
+        SimpleNamespace(manifest={"trainer_config": {"target_column": "regime_label"}}, metrics={})
+    )
+    assert is_regime_classifier(
+        SimpleNamespace(manifest={}, metrics={"f1_range": 0.5, "f1_volatile": 0.4})
+    )
+    # a single-probability decision model is NOT a regime head
+    assert not is_regime_classifier(
+        SimpleNamespace(manifest={"dataset": {"family": "trade_outcomes"}}, metrics={"brier": 0.2})
+    )
+
+
+def test_thresholds_for_selection():
+    regime = SimpleNamespace(manifest={}, metrics={"f1_a": 0.5, "f1_b": 0.4})
+    decision = SimpleNamespace(manifest={}, metrics={"brier": 0.2})
+    assert thresholds_for(regime).min_trades == REGIME_MIN_LIVE_TRADES  # auto
+    assert thresholds_for(decision).min_trades == 200  # auto → decision default
+    assert thresholds_for(regime, regime=False).min_trades == 200  # forced default
+    assert thresholds_for(decision, regime=True).min_trades == REGIME_MIN_LIVE_TRADES
+    override = GateThresholds(min_trades=42)
+    assert thresholds_for(regime, override=override).min_trades == 42  # override wins
+
+
+def test_regime_profile_ready_on_small_live_floor():
+    entry = _entry(
+        metrics={"macro_f1": 0.66, "f1_range": 0.73, "f1_volatile": 0.48, "n_eval": 8760},
+        runs=_runs("macro_f1", [0.66, 0.66, 0.66]),
+        created_days_ago=14,
+    )
+    report = evaluate_gates(
+        entry, attribution=_thin_live_attr(),
+        drift={"overall_verdict": "no_change"},
+        oos_edge=_good_oos_edge(), thresholds=regime_classifier_thresholds(),
+    )
+    assert report.ready, report.to_dict()["blocking"]
+    bb = next(r for r in report.results if r.name == "beats_baseline")
+    assert bb.required is False  # oos_edge carries the beats-baseline role
+    ss = next(r for r in report.results if r.name == "sample_sufficiency")
+    assert ss.status == "pass" and ss.threshold == float(REGIME_MIN_LIVE_TRADES)
+
+
+def test_default_profile_blocks_same_thin_model():
+    # The identical thin-live-trade regime head is NOT ready under the
+    # decision-model profile: it fails the 200-trade floor and the required
+    # live beats_baseline.
+    entry = _entry(
+        metrics={"macro_f1": 0.66, "f1_range": 0.73, "f1_volatile": 0.48, "n_eval": 8760},
+        runs=_runs("macro_f1", [0.66, 0.66, 0.66]),
+        created_days_ago=14,
+    )
+    report = evaluate_gates(
+        entry, attribution=_thin_live_attr(),
+        drift={"overall_verdict": "no_change"}, oos_edge=_good_oos_edge(),
+    )  # default thresholds
+    assert not report.ready
+    blocking = {r.name for r in report.blocking}
+    assert "sample_sufficiency" in blocking
+    assert "beats_baseline" in blocking

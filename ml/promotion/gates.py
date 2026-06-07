@@ -26,7 +26,7 @@ A gate is one of:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any
 
@@ -63,6 +63,82 @@ class GateThresholds:
     # below is acceptable, above is blocking.
     max_ks: float = 0.2
     max_psi: float = 0.25
+    # Whether the live `beats_baseline` (probability-calibrated brier_lift)
+    # gate is *required*. Default True for a trade-outcome decision model,
+    # whose live score IS a win-probability so brier_lift is meaningful. For
+    # a multiclass regime CLASSIFIER head the live "score" is a regime
+    # probability, not a win-probability, so brier-vs-trade-outcome is not a
+    # meaningful champion-challenger signal — the leak-free `oos_edge`
+    # (purged-WF-CV macro_f1 vs the modal baseline) is. The regime profile
+    # turns this off so a classifier isn't blocked on a degenerate live
+    # brier; `oos_edge` carries the beats-baseline role. (S-MLOPT regime
+    # gate profile, 2026-06-07.)
+    require_beats_baseline: bool = True
+
+
+# Regime-classifier promotion profile (2026-06-07, Tier-3 — operator-gated).
+# A regime head's promotion-worthy quality is its leak-free purged-WF-CV
+# macro_f1 edge over the modal baseline (`oos_edge`), NOT live-trade volume:
+# a 1h regime head joined to a thin-flow symbol accrues live scored trades
+# far too slowly to ever clear the 200-trade `min_trades` bar that's right
+# for a trade-outcome decision model. The regime profile keeps every quality
+# + safety gate (`oos_edge`, `non_degenerate`, `cross_run_stability`,
+# `shadow_soak` 7d, `live_agreement`, `drift_clean`) and only (a) lowers the
+# live sample floor to a small sanity count and (b) drops the degenerate live
+# `beats_baseline` requirement. It NEVER loosens `oos_edge`, `shadow_soak`,
+# `live_agreement`, or `drift_clean`.
+REGIME_MIN_LIVE_TRADES: int = 5
+
+
+def regime_classifier_thresholds(base: GateThresholds | None = None) -> GateThresholds:
+    """The classifier-appropriate gate profile (see `REGIME_MIN_LIVE_TRADES`)."""
+    return replace(
+        base or GateThresholds(),
+        min_trades=REGIME_MIN_LIVE_TRADES,
+        require_beats_baseline=False,
+    )
+
+
+def is_regime_classifier(entry: Any) -> bool:
+    """True when `entry` is a multiclass regime-classifier head.
+
+    Prefers the manifest's dataset family (`market_features` is the regime
+    family) so the classification is precise; falls back to "carries ≥2
+    per-class F1 metrics" for entries with no manifest (e.g. test fakes).
+    Never raises — an unreadable manifest just falls through to the metric
+    shape.
+    """
+    try:
+        manifest = dict(getattr(entry, "manifest", {}) or {})
+        dataset = manifest.get("dataset")
+        if isinstance(dataset, dict) and dataset.get("family") == "market_features":
+            return True
+        trainer_cfg = manifest.get("trainer_config")
+        if isinstance(trainer_cfg, dict) and trainer_cfg.get("target_column") == "regime_label":
+            return True
+    except (TypeError, AttributeError):
+        pass
+    metrics = dict(getattr(entry, "metrics", {}) or {})
+    return sum(1 for k in metrics if k.startswith("f1_")) >= 2
+
+
+def thresholds_for(
+    entry: Any,
+    *,
+    override: GateThresholds | None = None,
+    regime: bool | None = None,
+) -> GateThresholds:
+    """Select the gate profile for one model.
+
+    `override` wins outright. Otherwise `regime` forces (`True` → classifier
+    profile, `False` → default); `regime=None` auto-detects via
+    `is_regime_classifier`. Default callers that pass nothing keep the
+    decision-model profile, so `evaluate_gates`' own default is unchanged.
+    """
+    if override is not None:
+        return override
+    use_regime = is_regime_classifier(entry) if regime is None else regime
+    return regime_classifier_thresholds() if use_regime else GateThresholds()
 
 
 @dataclass(frozen=True)
@@ -247,8 +323,10 @@ def _gate_beats_baseline(attribution: Any, th: GateThresholds) -> GateResult:
     if attribution is None or attribution.brier_lift is None:
         return GateResult(
             "beats_baseline", "insufficient_data",
-            "no probability-calibrated live attribution (brier_lift) available",
-            required=True,
+            "no probability-calibrated live attribution (brier_lift) available"
+            + ("" if th.require_beats_baseline
+               else " — not required for a regime classifier (oos_edge carries it)"),
+            required=th.require_beats_baseline,
         )
     ok = attribution.brier_lift > th.min_brier_lift
     return GateResult(
@@ -257,6 +335,7 @@ def _gate_beats_baseline(attribution: Any, th: GateThresholds) -> GateResult:
         f"brier_lift = {attribution.brier_lift:.5f} "
         f"(model brier {attribution.brier:.5f} vs base-rate {attribution.baseline_brier:.5f})",
         value=attribution.brier_lift, threshold=th.min_brier_lift,
+        required=th.require_beats_baseline,
     )
 
 
