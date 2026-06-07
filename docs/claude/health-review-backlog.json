@@ -3,6 +3,24 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260607-002",
+      "opened_at": "2026-06-07T07:05:00+00:00",
+      "opened_by": "claude (push-ahead session — yz-1h promotion verification)",
+      "source": "trainer-vm-diag #2920/#2921: gate-check oos_edge returned 'insufficient_data' for the multiclass regime head btc-regime-1h-lgbm-yz-v1 even with --datasets-root + a current dataset; computed +0.373 macro_f1 (PASS) once --baseline-trainer was overridden to the modal regime baseline.",
+      "title": "gate-check oos_edge silently reports 'insufficient' for multiclass regime heads — default --baseline-trainer (ConstantPredictionTrainer) is incompatible with the multiclass evaluator",
+      "description": "ml/promotion/oos_edge.py::compute_oos_edge returns None (-> gate 'insufficient_data') when the baseline trainer is incompatible with the manifest's evaluator. The gate-check CLI defaults --baseline-trainer to ml.trainers.constant_baseline.ConstantPredictionTrainer, which is a regression/constant baseline incompatible with MulticlassClassificationEvaluator -- so EVERY regime classifier head (btc-regime-*-lgbm-*, mes-regime-*) silently fails oos_edge unless the operator/Claude knows to pass --baseline-trainer ml.trainers.regime_classifier.RegimeClassifierTrainer. Verified: with the modal baseline, oos_edge computes cleanly = +0.37254 macro_f1 (candidate 0.66301 vs baseline 0.29047, 5 purged WF-CV folds) for btc-regime-1h-lgbm-yz-v1. PROPOSED FIX (Tier-1 tooling): in gate-check, when the manifest's evaluator is multiclass, default the baseline trainer to RegimeClassifierTrainer (or have compute_oos_edge auto-pick an evaluator-compatible baseline) so oos_edge 'just works' for regime heads and the gate is not silently un-evaluable. Until fixed, always pass --baseline-trainer for regime heads.",
+      "tier": 1,
+      "trigger_condition": "Any gate-check / stage-guard / ml-review on a multiclass regime head; or any /health-review.",
+      "resolution_criteria": "gate-check on a multiclass regime head computes oos_edge without a manual --baseline-trainer override (auto-selects an evaluator-compatible baseline), OR the requirement is documented in the ml-review/model-training skills + stage_guard passes a compatible baseline by default.",
+      "triage_note": "",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260607-001",
       "opened_at": "2026-06-07T06:55:00+00:00",
       "opened_by": "claude (push-ahead session — yz-1h promotion verification)",
