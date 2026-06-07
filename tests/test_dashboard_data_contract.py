@@ -186,7 +186,12 @@ def test_positions_returns_open_trade_against_canonical_schema(
         "side": "buy",  # direction='long' normalises to wire-side 'buy'
         "qty": 0.001,
         "entryPrice": 60000.0,
-        "unrealizedPnl": 0.0,
+        # 2026-06-07: realised pnl no longer used as a stand-in for
+        # unrealised. With no broker creds in the test env the broker
+        # fetch falls through to "unavailable" and the renderer treats
+        # the null as "not measured" (Position-shape contract).
+        "unrealizedPnl": None,
+        "unrealizedPnlSource": "unavailable",
         "openedAt": "2026-05-09T10:00:00Z",
         # stopLoss, takeProfit, pattern added in ff2512e (shadow-backfill PR)
         "stopLoss": None,
@@ -241,6 +246,74 @@ def test_signals_price_fallback_chain(
     body = resp.json()
     assert len(body) == 1
     assert body[0]["price"] == 80000.0
+
+
+def test_positions_uses_broker_unrealised_when_available(
+    client: TestClient, isolate_paths: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """2026-06-07: /positions sources ``unrealizedPnl`` from the broker.
+
+    When the matched account_open_positions row carries an
+    ``unrealised_pnl``, it ends up on the wire as-is with
+    ``unrealizedPnlSource='broker'`` — a real $0.00 (price at exact
+    entry) is preserved as a measurement, not coerced to null.
+    """
+    db = isolate_paths / "trade_journal.db"
+    _make_canonical_trades_db(db)
+    _insert_trade(
+        db, timestamp="2026-05-09T10:00:00Z", symbol="BTCUSDT",
+        direction="short", entry_price=60000.0, position_size=0.001,
+        status="open", is_backtest=0, account_id="bybit_2",
+    )
+    # Empty cache so we hit the patched fetch path.
+    dashboard_router._BROKER_POSITIONS_CACHE.clear()
+    monkeypatch.setattr(
+        "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
+        lambda: {"bybit_2": {"account_id": "bybit_2", "exchange": "bybit"}},
+    )
+    monkeypatch.setattr(
+        "src.units.accounts.clients.account_open_positions",
+        lambda cfg: [
+            {"symbol": "BTCUSDT", "side": "Sell", "size": 0.001,
+             "entry_price": 60000.0, "unrealised_pnl": 12.34},
+        ],
+    )
+    resp = client.get("/api/bot/positions")
+    body = resp.json()
+    assert len(body) == 1
+    assert body[0]["unrealizedPnl"] == 12.34
+    assert body[0]["unrealizedPnlSource"] == "broker"
+
+
+def test_positions_unrealised_unavailable_when_broker_fails(
+    client: TestClient, isolate_paths: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Broker read failure → ``unrealizedPnl=None``,
+    ``unrealizedPnlSource='unavailable'`` (renderer treats null as
+    "not measured" per the Position-shape contract; the dashboard's
+    client-side fallback computes from the last candle close).
+    """
+    db = isolate_paths / "trade_journal.db"
+    _make_canonical_trades_db(db)
+    _insert_trade(
+        db, timestamp="2026-05-09T10:00:00Z", symbol="BTCUSDT",
+        direction="long", entry_price=60000.0, position_size=0.001,
+        status="open", is_backtest=0, account_id="bybit_2",
+    )
+    dashboard_router._BROKER_POSITIONS_CACHE.clear()
+    monkeypatch.setattr(
+        "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
+        lambda: {"bybit_2": {"account_id": "bybit_2", "exchange": "bybit"}},
+    )
+    monkeypatch.setattr(
+        "src.units.accounts.clients.account_open_positions",
+        lambda cfg: None,  # read failure
+    )
+    resp = client.get("/api/bot/positions")
+    body = resp.json()
+    assert len(body) == 1
+    assert body[0]["unrealizedPnl"] is None
+    assert body[0]["unrealizedPnlSource"] == "unavailable"
 
 
 def test_positions_excludes_closed_and_backtest_trades(
