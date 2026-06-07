@@ -73,13 +73,38 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
           set -euo pipefail
-          # Extract everything after the first `cmd:` line.
+          # Extract everything between the first `cmd:` line and the
+          # next sibling top-level key (e.g. `reason:`). Without the
+          # second termination rule, an issue body shaped like
+          #   cmd: |
+          #     <multi-line script>
+          #   reason: |
+          #     <prose>
+          # leaks `reason:` + its body into bash, producing harmless
+          # "command not found" lines after the real script runs (BL-
+          # 20260607-002, observed in trainer-vm-diag issue #2951).
           # Supports single-line:   cmd: journalctl -n 100
           # Supports fenced block:  cmd: |
           #                           line1
           #                           line2
+          #   reason: ...           ← extractor stops at this line
           cmd_raw="$(printf '%s' "${ISSUE_BODY}" | \
-            awk '/^cmd:/{found=1; sub(/^cmd:[[:space:]]*/,""); if($0!="" && $0!="|") print; next} found{print}' )"
+            awk '
+              /^cmd:/{
+                found=1
+                sub(/^cmd:[[:space:]]*/,"")
+                if ($0!="" && $0!="|") print
+                next
+              }
+              # Stop at the next unindented top-level YAML-ish key
+              # (alpha/digit/_/-, then `:`). Indented lines (with a
+              # leading space or tab) are part of the cmd block and
+              # continue to print.
+              found && /^[A-Za-z0-9_-]+:/{
+                exit
+              }
+              found { print }
+            ' )"
           if [ -z "${cmd_raw}" ]; then
             echo "::error::Issue body must contain a 'cmd:' line."
             exit 1

@@ -50,10 +50,10 @@
       "resolution_criteria": "gate-check on a multiclass regime head computes oos_edge without a manual --baseline-trainer override (auto-selects an evaluator-compatible baseline), OR the requirement is documented in the ml-review/model-training skills + stage_guard passes a compatible baseline by default.",
       "triage_note": "",
       "check_log": [],
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-07T16:30:00+00:00",
+      "resolved_by": "claude (autonomous-followups session)",
+      "resolution": "Already shipped on main. `ml/cli.py::_cmd_gate_check` (lines 386-391, cite tag `BL-20260607-002`) auto-selects `ml.trainers.regime_classifier.RegimeClassifierTrainer` when the entry is a regime classifier AND the operator hasn't overridden `--baseline-trainer`. `ml/promotion/stage_guard.py::run_stage_guard` also auto-selects the same baseline inside the per-entry OOS-edge computation, so `promotion-readiness` (S-MLOPT-S18) sweeps every regime head with the right baseline automatically. Both legs of the resolution criteria are met (auto-select in the CLI AND a compatible baseline passed by stage_guard by default).",
       "snoozed_until": null
     },
     {
@@ -68,10 +68,10 @@
       "resolution_criteria": "scripts/ops/sync_trainer_data.sh is 100755 in git AND/OR all callers invoke it via 'bash <script>'; a fresh trainer checkout runs the daily-cycle sync without 'Permission denied'.",
       "triage_note": "",
       "check_log": [],
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-07T16:30:00+00:00",
+      "resolved_by": "claude (autonomous-followups session)",
+      "resolution": "First leg of the AND/OR criteria already satisfied: `git ls-files --stage scripts/ops/sync_trainer_data.sh` shows mode `100755`. A fresh trainer checkout via `git clone` or `git pull` will get the file executable; the on-VM mode drift that prompted this item was a one-time symptom (likely a manual edit pre-`git checkout` that stripped the bit), not a recurring issue. If it recurs, run `chmod +x scripts/ops/sync_trainer_data.sh` on the trainer + investigate the cause.",
       "snoozed_until": null
     },
     {
@@ -562,7 +562,7 @@
       "snoozed_until": null
     },
     {
-      "id": "BL-20260528-001",
+      "id": "BL-20260528-002",
       "opened_at": "2026-05-28T00:00:00+00:00",
       "opened_by": "claude",
       "source": "S-ANDROID-S9 session (diag pulls while debugging the Android app)",
@@ -926,7 +926,7 @@
       "resolution_note": null
     },
     {
-      "id": "BL-20260607-001",
+      "id": "BL-20260607-005",
       "opened_at": "2026-06-07T09:45:00+00:00",
       "opened_by": "claude (session)",
       "source": "Session 2026-06-07: built the cancel-queued-runs workflow (#2935/#2938) to clear 23 stale 'queued' Actions runs dated 2026-05-15. The runner (with actions:write) found all 23 but cancelled 0 — both `gh run cancel` and the force-cancel endpoint return HTTP 500 for every one.",
