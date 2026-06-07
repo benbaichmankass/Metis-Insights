@@ -27,7 +27,13 @@ from ..registry.model_registry import ModelRegistry
 from ..shadow.drift import compute_drift
 from ..shadow.inspector import filter_records, iter_records
 from .attribution import compute_attribution
-from .gates import GateReport, GateThresholds, evaluate_gates
+from .gates import (
+    GateReport,
+    GateThresholds,
+    evaluate_gates,
+    is_regime_classifier,
+    thresholds_for,
+)
 
 # One-step rollback toward shadow (mirrors the registry's rollback edges).
 _DEMOTE_TARGET: dict[str, str] = {
@@ -94,7 +100,9 @@ def propose_for_model(
     thresholds: GateThresholds | None = None,
 ) -> Proposal:
     """Pure proposal decision for one model (no I/O)."""
-    th = thresholds or GateThresholds()
+    # Auto-select the classifier profile for a regime head when no explicit
+    # thresholds override is given; an explicit `thresholds` still wins.
+    th = thresholds_for(entry, override=thresholds)
     stage = entry.target_deployment_stage
 
     if stage == "shadow":
@@ -205,7 +213,15 @@ def run_stage_guard(
         if datasets_root is not None and entry.target_deployment_stage == "shadow":
             from .oos_edge import compute_oos_edge
 
-            oos_edge = compute_oos_edge(entry, datasets_root=datasets_root)
+            # A regime head needs the multiclass-compatible modal baseline;
+            # the compute_oos_edge default (constant baseline) silently yields
+            # None against the multiclass evaluator (BL-20260607-002).
+            oos_kwargs: dict[str, Any] = {"datasets_root": datasets_root}
+            if is_regime_classifier(entry):
+                oos_kwargs["baseline_trainer"] = (
+                    "ml.trainers.regime_classifier.RegimeClassifierTrainer"
+                )
+            oos_edge = compute_oos_edge(entry, **oos_kwargs)
         proposals.append(propose_for_model(
             entry,
             attribution=attribution.get(entry.model_id),
