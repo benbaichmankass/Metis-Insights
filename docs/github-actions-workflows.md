@@ -158,7 +158,7 @@ which would unlock these.
 | `training-rerun-5m.yml` | OPERATOR-APPROVAL | push to experiment paths | — |
 | `hf-cron.yml` | OPERATOR-APPROVAL | C (workflow_dispatch) | — |
 | `continue-work.yml` | AUTONOMOUS | C (workflow_dispatch) | — |
-| `purge-artifacts.yml` | AUTO | E (daily 03:00 UTC) + C (workflow_dispatch) | — |
+| `purge-artifacts.yml` | AUTO | E (daily 03:00 UTC) + C (workflow_dispatch) + A (`purge-artifacts-now`) | `purge-artifacts-now` |
 
 ---
 
@@ -192,10 +192,12 @@ list of blocking checks. Currently (2026-05-22): `["pytest-collect","pytest-run"
 
 #### `purge-artifacts.yml`
 
-**Autonomy:** AUTO (daily cron) / AUTONOMOUS (Claude may dispatch from
-the Actions UI to force a one-shot purge).
+**Autonomy:** AUTO (daily cron) / AUTONOMOUS (Claude dispatches via
+labelled issue; operator may dispatch via the Actions UI for a custom
+window).
 
-**Trigger:** `schedule` (daily 03:00 UTC) + `workflow_dispatch`.
+**Trigger:** `schedule` (daily 03:00 UTC) + `workflow_dispatch` +
+`issues.opened` filtered to label `purge-artifacts-now`.
 
 **Purpose:** Reclaims GitHub Actions storage by deleting build
 artifacts. The free plan ships **0.5 GB** of Actions storage; once
@@ -212,6 +214,20 @@ retention until expiry. This workflow deletes them now.
   - `older_than_days` — `0` deletes ALL artifacts (one-shot recovery
     when storage is full). `N > 0` deletes anything older than N days.
   - `dry_run` — `true` logs the candidate set without calling DELETE.
+- **Issue-driven** (Claude path, since the hosted GitHub MCP has no
+  `workflow_dispatch`): open an issue with label
+  `purge-artifacts-now`. Empty body → one-shot total purge
+  (`older_than_days=0`, `dry_run=false`); body may override with
+  `older_than_days: <N>` / `dry_run: <true|false>` lines. Result table
+  posts back as an issue comment, then the issue is closed. The reply
+  step uses `if: always()` so cancelled runs (e.g. job timeout) still
+  emit a `⏱` status note — never silently hung.
+
+**Performance:** deletes run in **parallel chunks of 10** via
+`Promise.all`. Job timeout is **60 minutes**, sized for the one-shot
+total-purge recovery scenario (thousands of artifacts on a maxed-out
+500 MB cap); scheduled daily runs at 7-day retention finish in
+seconds.
 
 **Companion:** every artifact-uploading workflow in this repo is now
 capped at ≤ 7 days retention (most at exactly 7; `repo-inventory.yml`

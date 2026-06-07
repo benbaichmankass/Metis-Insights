@@ -50,6 +50,11 @@ jobs:
                 description: 'Triggers the vm-diag-snapshot workflow (PM-side diag relay).',
               },
               {
+                name: 'cancel-queued-runs',
+                color: 'cfd3d7',
+                description: 'Triggers cancel-queued-runs — bulk-cancel stale queued Actions runs.',
+              },
+              {
                 name: 'provision-ib-gateway',
                 color: '5319e7',
                 description: 'Triggers provision-ib-gateway workflow — headless IB Gateway (IBC) install/login on the live VM for MES.',
@@ -152,6 +157,13 @@ jobs:
                 description: 'Triggers purge-artifacts workflow — delete build artifacts to reclaim Actions storage.',
               },
             ];
+            // Resilient bootstrap: one bad label must not abort the rest.
+            // GitHub caps label descriptions at 100 chars (422 otherwise), so
+            // truncate defensively; collect failures and surface them at the
+            // end instead of throwing mid-loop (the prior `throw e` left every
+            // label after the first failure uncreated and the run chronically
+            // red).
+            const failures = [];
             for (const l of LABELS) {
               try {
                 await github.rest.issues.getLabel({
@@ -160,15 +172,28 @@ jobs:
                   name: l.name,
                 });
                 core.info(`label '${l.name}' exists — leaving as-is`);
+                continue;
               } catch (e) {
-                if (e.status !== 404) throw e;
+                if (e.status !== 404) {
+                  core.warning(`getLabel '${l.name}' failed: ${e.message}`);
+                  failures.push(l.name);
+                  continue;
+                }
+              }
+              try {
                 await github.rest.issues.createLabel({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   name: l.name,
                   color: l.color,
-                  description: l.description,
+                  description: (l.description || '').slice(0, 100),
                 });
                 core.info(`created label '${l.name}'`);
+              } catch (ce) {
+                core.warning(`createLabel '${l.name}' failed: ${ce.message}`);
+                failures.push(l.name);
               }
+            }
+            if (failures.length) {
+              core.setFailed(`label bootstrap failed for: ${failures.join(', ')}`);
             }
