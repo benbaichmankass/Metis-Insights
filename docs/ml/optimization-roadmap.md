@@ -469,11 +469,22 @@ proven ROI per hour after Phase 1. Caveat from the research: **microstructure al
   The A/B is **evaluable once the daily cycle rebuilds MES `market_features` on v6 with the
   macro stream** — `MB-20260604-004` holds the review note. Macro alpha for an intraday regime
   head is plausibly thin; a negative is an acceptable, documented outcome (as S11 was).
-- **Part B (`account_context` wiring) DEFERRED — `MB-20260604-003`:** the family is an orphan
-  (no manifest) and the equity/daily-PnL/open-trade-count it wants are **not recorded as
-  as-of-signal-time snapshots** (`daily_risk_state` is end-of-interval daily running values →
-  a post-hoc join leaks). Needs per-signal snapshot instrumentation (or a prop-account data-
-  volume check) first; both sub-options logged.
+- **Part B (`account_context` wiring) SHIPPED 2026-06-07 (S-MLOPT-S12-PartB; `MB-20260604-003`):**
+  the per-signal snapshot enrichment landed. New `src/units/accounts/context_snapshot.py` +
+  new `trade_journal.db::account_context_snapshots` table (UNIQUE `(order_package_id,
+  account_id)`, 11 cols), written by `Coordinator.multi_account_execute` once per dispatch
+  **AFTER eligibility filtering, BEFORE the per-account RiskManager runs** — so the snapshot
+  is leak-safe by construction (state captured PRE-decision; `daily_risk_state`'s running
+  totals can't contaminate it). Best-effort writer (swallows every exception), gated by
+  `ACCOUNT_CONTEXT_SNAPSHOTS_DISABLED` (default off → enabled). `account_context` family
+  `builder_version v1 → v2`, adds `include_snapshots=True` opt-in + 5 nullable `*_at_signal`
+  columns; LEFT JOIN goes `trades.id → order_packages.linked_trade_id → snapshots.order_package_id`,
+  default-off so every existing v1 build is byte-identical. 30 new tests (writer helpers +
+  family LEFT JOIN + coordinator hook integration); ruff + canonical-db-resolver +
+  dry-run-guard + silent-empty-guard all clean. Tier-2 live-trader hook ships as draft PR
+  pending operator approval before merge+deploy; once enabled, evidence accrues for the
+  natural follow-up: a research_only `account-context-snapshot-v1` manifest that trains on
+  the populated `*_at_signal` columns (still unstarted — needs an accrual window first).
 - **Effort:** M.
 
 ---
