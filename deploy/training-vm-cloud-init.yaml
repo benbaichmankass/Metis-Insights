@@ -200,11 +200,15 @@ write_files:
       # flags AND that resolves to a manifest under ml/configs/, fires
       # `python -m ml train <manifest>` (the manifest's existing
       # `sample_weight.half_life_days` from S-MLOPT-S2 carries the
-      # recency weighting). The dispatch is gated on DRY_RUN=0 — the
-      # service ships with DRY_RUN=1 so the first soak only writes the
-      # JSONL log; flip DRY_RUN=0 in a drop-in once the operator has
-      # eyeballed a few cycles. Conservative: no auto-promotion past
-      # `shadow`, bounded by the trainer's registry-stage ceiling.
+      # recency weighting). The dispatch is gated on
+      # RETRAIN_PLAN_ONLY=0 — the service ships with
+      # RETRAIN_PLAN_ONLY=1 so the first soak only writes the JSONL
+      # log; flip RETRAIN_PLAN_ONLY=0 in a drop-in once the operator
+      # has eyeballed a few cycles. The variable is scoped to this
+      # retrain orchestrator (NOT the deprecated DRY_RUN trading-mode
+      # flag the dry-run-guard forbids). Conservative: no
+      # auto-promotion past `shadow`, bounded by the trainer's
+      # registry-stage ceiling.
       [Unit]
       Description=ICT drift-triggered retraining (S-MLOPT-S16)
       After=network-online.target
@@ -214,7 +218,7 @@ write_files:
       Type=oneshot
       User=ubuntu
       WorkingDirectory=/home/ubuntu/ict-trading-bot
-      Environment=DRY_RUN=1
+      Environment=RETRAIN_PLAN_ONLY=1
       ExecStart=/bin/bash scripts/ops/run_drift_retrain.sh
       # Exit code 11 means "scan ran + dispatch fired (or would in dry-run)"
       # — a normal outcome, not a failure.
@@ -334,7 +338,7 @@ final_message: |
   ict-trainer-publish.timer:   installed, enabled (every 2 min).
   ict-promotion-readiness.service: installed, disabled (Claude enables via diag relay).
   ict-promotion-readiness.timer:   installed, disabled (Claude enables via diag relay).
-  ict-drift-retrain.service: installed, disabled (Claude enables via diag relay; DRY_RUN=1 by default).
+  ict-drift-retrain.service: installed, disabled (Claude enables via diag relay; RETRAIN_PLAN_ONLY=1 by default).
   ict-drift-retrain.timer:   installed, disabled (Claude enables via diag relay).
   Live trader status: this VM is NOT the live trader.
   Claude enables training autonomously via trainer-vm-diag:

@@ -25,7 +25,9 @@
 #   VENV_DIR                     defaults to "$REPO_ROOT/.venv"
 #   REGISTRY_ROOT                defaults to "$REPO_ROOT/ml/registry-store"
 #   DATASETS_ROOT                defaults to "$REPO_ROOT/datasets-out"
-#   TRADE_JOURNAL_DB             defaults to "$REPO_ROOT/trade_journal.db"
+#   TRADE_JOURNAL_DB             resolved via scripts/ops/_lib.sh::runtime_db_path
+#                                (canonical resolver — honours the systemd drop-in's
+#                                 /data/bot-data/ pinning; never a CWD-relative fallback)
 #   SHADOW_LOG                   defaults to "$REPO_ROOT/runtime_logs/shadow_predictions.jsonl"
 #   BACKFILL_LOG                 defaults to "$REPO_ROOT/runtime_logs/shadow_predictions_backfill.jsonl"
 #   READINESS_MIRROR_ROOT        defaults to "$REPO_ROOT/runtime_logs/trainer_mirror/promotion_readiness"
@@ -43,10 +45,17 @@ set -euo pipefail
 
 SCRIPT_NAME="run_promotion_readiness"
 REPO_ROOT="${REPO_ROOT:-/home/ubuntu/ict-trading-bot}"
+# Resolve TRADE_JOURNAL_DB through the canonical resolver in _lib.sh —
+# the inline `${TRADE_JOURNAL_DB:-$REPO_ROOT/trade_journal.db}` idiom is
+# forbidden by the canonical-db-resolver CI guard (it misses the systemd
+# drop-in's /data/bot-data/ pinning, which is the bug load_runtime_env
+# exists to fix).
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/ops/_lib.sh"
 VENV_DIR="${VENV_DIR:-$REPO_ROOT/.venv}"
 REGISTRY_ROOT="${REGISTRY_ROOT:-$REPO_ROOT/ml/registry-store}"
 DATASETS_ROOT="${DATASETS_ROOT:-$REPO_ROOT/datasets-out}"
-TRADE_JOURNAL_DB="${TRADE_JOURNAL_DB:-$REPO_ROOT/trade_journal.db}"
+TRADE_JOURNAL_DB="$(runtime_db_path)"
 SHADOW_LOG="${SHADOW_LOG:-$REPO_ROOT/runtime_logs/shadow_predictions.jsonl}"
 BACKFILL_LOG="${BACKFILL_LOG:-$REPO_ROOT/runtime_logs/shadow_predictions_backfill.jsonl}"
 READINESS_MIRROR_ROOT="${READINESS_MIRROR_ROOT:-$REPO_ROOT/runtime_logs/trainer_mirror/promotion_readiness}"

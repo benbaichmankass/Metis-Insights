@@ -11,9 +11,9 @@
 # ADWIN told us to forget.
 #
 # **Conservative + logged**:
-#   - DRY_RUN=1 (the default) writes the JSONL log + prints the
+#   - RETRAIN_PLAN_ONLY=1 (the default) writes the JSONL log + prints the
 #     dispatch list but does NOT execute any `ml train` subprocess.
-#     Toggle DRY_RUN=0 once the operator has eyeballed a few cycles.
+#     Toggle RETRAIN_PLAN_ONLY=0 once the operator has eyeballed a few cycles.
 #   - Every decision (drift or not) lands as a JSON line in
 #     runtime_logs/drift_retrain.jsonl.
 #   - The trainer can only register up to `live_approved` and the
@@ -36,11 +36,11 @@
 #   ADWIN_DELTA           defaults to 0.002
 #   ADWIN_MIN_WINDOW      defaults to 10
 #   ADWIN_MAX_WINDOW      defaults to 10000
-#   DRY_RUN               defaults to 1 (true) — set 0 to actually fire retrains
+#   RETRAIN_PLAN_ONLY               defaults to 1 (true) — set 0 to actually fire retrains
 #
 # Exit codes:
 #   0   scan ran; no dispatch fired (no drift or dry run)
-#   11  scan ran; at least one dispatch fired (or would have, in DRY_RUN)
+#   11  scan ran; at least one dispatch fired (or would have, in RETRAIN_PLAN_ONLY)
 #   1   one or more dispatched `ml train` runs failed
 #   2   environment misconfigured
 set -euo pipefail
@@ -57,7 +57,7 @@ DRIFT_LOG_PATH="${DRIFT_LOG_PATH:-$REPO_ROOT/runtime_logs/drift_retrain.jsonl}"
 ADWIN_DELTA="${ADWIN_DELTA:-0.002}"
 ADWIN_MIN_WINDOW="${ADWIN_MIN_WINDOW:-10}"
 ADWIN_MAX_WINDOW="${ADWIN_MAX_WINDOW:-10000}"
-DRY_RUN="${DRY_RUN:-1}"
+RETRAIN_PLAN_ONLY="${RETRAIN_PLAN_ONLY:-1}"
 
 iso_now() { date -u +'%Y-%m-%dT%H:%M:%S+00:00'; }
 log_err() { printf '[%s] [%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$SCRIPT_NAME" "$*" >&2; }
@@ -102,15 +102,15 @@ payload = json.load(open('$SCAN_OUT'))
 print(len(payload['summary']['dispatch']))
 ")"
 
-log_err "scan complete: dispatch_count=$DISPATCH_COUNT cli_exit=$SCAN_RC dry_run=$DRY_RUN"
+log_err "scan complete: dispatch_count=$DISPATCH_COUNT cli_exit=$SCAN_RC plan_only=$RETRAIN_PLAN_ONLY"
 
 if [ "$SCAN_RC" -ne 11 ]; then
   exit 0
 fi
 
-case "${DRY_RUN,,}" in
+case "${RETRAIN_PLAN_ONLY,,}" in
   1|true|yes|on)
-    log_err "DRY_RUN active; logged ${DISPATCH_COUNT} would-have-dispatched manifests, no ml train"
+    log_err "RETRAIN_PLAN_ONLY active (plan-only); logged ${DISPATCH_COUNT} would-have-dispatched manifests, no ml train"
     exit 11
     ;;
 esac

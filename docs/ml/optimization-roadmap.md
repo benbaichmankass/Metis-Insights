@@ -631,8 +631,8 @@ model.
   fires `python -m ml train <manifest>` per dispatch row — the trainer reuses whatever
   `sample_weight.half_life_days` the manifest already declares (the S-MLOPT-S2 recency-decay
   knob), so the retrain naturally down-weights the stale tail ADWIN told us to forget.
-  **Conservative + logged:** ships `DRY_RUN=1` so the first soak only writes
-  `runtime_logs/drift_retrain.jsonl`; flip to `DRY_RUN=0` once the operator has eyeballed a
+  **Conservative + logged:** ships `RETRAIN_PLAN_ONLY=1` so the first soak only writes
+  `runtime_logs/drift_retrain.jsonl`; flip to `RETRAIN_PLAN_ONLY=0` once the operator has eyeballed a
   few cycles. New trainer-side `ict-drift-retrain.{service,timer}` (hourly, **DISABLED by
   default**) in `deploy/training-vm-cloud-init.yaml`. 17 tests
   (`tests/ml/test_adwin.py` + `tests/ml/test_drift_retrain.py`) pin the cut bound, the
