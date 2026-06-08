@@ -51,12 +51,25 @@ on:
         required: false
         default: ""
   issues:
-    # Only `opened` — when a session opens an issue *with* the label,
-    # GitHub fires both `opened` and `labeled` and the workflow would
-    # run twice. The session-driven path always opens-with-label, so
-    # `opened` alone is sufficient. If a human ever needs to label an
-    # already-open issue, they can use workflow_dispatch instead.
-    types: [opened]
+    # 2026-06-08: added `labeled` as a fallback for the dropped-webhook
+    # failure mode (BL-20260527-001 / diag-relay-sweep.yml). GitHub
+    # occasionally drops `issues.opened` events when several issues are
+    # filed within a few seconds — observed on the 2026-06-08
+    # /performance-review session where 4 diag-request issues fired in
+    # ~5s and 2 of them (#2969, #2972) never produced a comment because
+    # the workflow simply never started. The companion sweep workflow
+    # auto-closes the stale issues but does not recover the data, so the
+    # session loses the pull and has to refile.
+    #
+    # The dropped-webhook fix: also fire on `labeled` so the second
+    # event arrives even when `opened` is lost. The dedup-against-
+    # double-fire (the original 2026-05-16 concern when both events
+    # arrive) lives in the first job step below — it bails cleanly
+    # when a `github-actions[bot]` comment already exists on the
+    # issue. With `cancel-in-progress: false` two simultaneous fires
+    # serialize through the lane anyway; the dedup makes the second
+    # one a quick no-op instead of a double-comment.
+    types: [opened, labeled]
 
 permissions:
   contents: read
@@ -94,7 +107,38 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Dedup — bail if a bot comment already exists (2026-06-08)
+        # The `issues: [opened, labeled]` trigger fires twice when the
+        # session opens-with-label; this step short-circuits the second
+        # fire cleanly. Also covers the workflow_dispatch case where
+        # the operator re-runs after the issue was already answered.
+        if: github.event_name == 'issues'
+        id: dedup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const hasBotComment = comments.some(
+              c => c.user && c.user.login === 'github-actions[bot]'
+            );
+            if (hasBotComment) {
+              core.notice(
+                `Issue #${context.issue.number} already has a github-actions[bot] ` +
+                `comment — likely the labeled-fire after a successful opened-fire. ` +
+                `Skipping cleanly.`
+              );
+              core.setOutput('skip', 'true');
+            } else {
+              core.setOutput('skip', 'false');
+            }
+
       - name: Resolve and validate diag path
+        if: steps.dedup.outputs.skip != 'true'
         id: resolve
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -176,6 +220,7 @@ jobs:
           echo "diag_upstream_prefix=$upstream_prefix" >>"$GITHUB_ENV"
 
       - name: Set up SSH key
+        if: steps.dedup.outputs.skip != 'true'
         env:
           VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
           VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
@@ -192,6 +237,7 @@ jobs:
           ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Fetch diag endpoint
+        if: steps.dedup.outputs.skip != 'true'
         env:
           DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
           VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
@@ -214,6 +260,7 @@ jobs:
           python3 -c "import json,sys; json.load(open('diag-output.json')); print('valid json,', __import__('os').path.getsize('diag-output.json'), 'bytes')"
 
       - name: Pretty-print diag response (run-log preview)
+        if: steps.dedup.outputs.skip != 'true'
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -229,7 +276,7 @@ jobs:
           PY
 
       - name: Upload artifact
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && steps.dedup.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: vm-diag-snapshot${{ inputs.label && format('-{0}', inputs.label) || '' }}-${{ github.run_id }}
@@ -242,7 +289,7 @@ jobs:
       # ────────────────────────────────────────────────────────────
 
       - name: Reply to issue with diag result
-        if: github.event_name == 'issues'
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'
         uses: actions/github-script@v7
         env:
           DIAG_PATH_DISPLAY: ${{ env.diag_path_display }}
@@ -287,7 +334,7 @@ jobs:
             });
 
       - name: Reply to issue with failure note
-        if: github.event_name == 'issues' && failure()
+        if: github.event_name == 'issues' && failure() && steps.dedup.outputs.skip != 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -313,7 +360,7 @@ jobs:
       # preempted issue stays commentless and looks identical to a
       # wedge. With it, the operator sees "preempted, re-open to retry."
       - name: Reply to issue when run was cancelled
-        if: github.event_name == 'issues' && cancelled()
+        if: github.event_name == 'issues' && cancelled() && steps.dedup.outputs.skip != 'true'
         uses: actions/github-script@v7
         with:
           script: |
