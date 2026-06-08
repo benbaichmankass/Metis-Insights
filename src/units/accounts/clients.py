@@ -396,6 +396,7 @@ def _bybit_closed_pnl_lookup(
     entry_price_target: Optional[float] = None,
     entry_price_tolerance: float = 0.001,
     opened_at_ms: Optional[int] = None,
+    allow_wide_fallback: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """Find the Bybit V5 closed-pnl record matching a trade we know
     closed via broker-side SL/TP or external flatten.
@@ -445,6 +446,17 @@ def _bybit_closed_pnl_lookup(
         share ``(side, qty, entry±10bps)``, the matcher MUST also
         partition by time-after-open to pair each trade with its
         own close.
+      * ``allow_wide_fallback`` — optional, **demo-only** escape hatch
+        (BL-20260601-001). When the strict ``(side, qty, entry_price,
+        opened_at)`` chain leaves zero candidates AND this flag is set,
+        re-filter on ``side`` alone (within the same time window) and
+        return the most-recent close. Bybit DEMO closed-pnl rows carry
+        placeholder / zeroed ``avgEntryPrice`` and looser ``qty``
+        rounding, so the live-money disambiguators over-filter and
+        strand the realised PnL as NULL (5/5 demo ``htf_pullback``
+        closes in the 2026-06-08 window). LIVE accounts must NOT set
+        this — they keep the strict NULL-on-no-match contract that
+        the #1411 / #1419 fixes depend on.
 
     Returns the raw inner record dict for the best match. Selection
     order:
@@ -523,14 +535,36 @@ def _bybit_closed_pnl_lookup(
                 continue
         candidates.append(rec)
 
-    if not candidates:
-        return None
-
     def _ts(rec: Dict[str, Any]) -> int:
         try:
             return int(rec.get("updatedTime") or rec.get("createdTime") or 0)
         except (TypeError, ValueError):
             return 0
+
+    if not candidates:
+        # BL-20260601-001 — demo-fallback wide lookup. On a Bybit DEMO
+        # account the strict (side + qty±5% + avgEntryPrice±10bps +
+        # createdTime≥opened_at) chain returns no match far more often
+        # than on live: the demo venue's closed-pnl rows carry
+        # placeholder / zeroed avgEntryPrice and looser qty rounding, so
+        # the entry-price + qty disambiguators (added for the #1411 /
+        # #1419 LIVE-money collapse) over-filter and strand the realised
+        # PnL as NULL. Demo has no live-money disambiguation requirement,
+        # so widen to (side + closed-at-window) only and take the most
+        # recent matching close. LIVE accounts never reach this branch —
+        # they keep the strict NULL-on-no-match contract #1411 / #1419
+        # are built on.
+        if not allow_wide_fallback:
+            return None
+        for rec in records:
+            rec_side = str(rec.get("side") or "").lower()
+            if side_str and rec_side and rec_side != side_str:
+                continue
+            candidates.append(rec)
+        if not candidates:
+            return None
+        candidates.sort(key=_ts, reverse=True)
+        return candidates[0]
 
     if (entry_price_target is not None and entry_price_target > 0
             and opened_at_ms is not None):
@@ -584,6 +618,7 @@ def account_closed_pnl_for_trade(
     closed_at_ms: Optional[int] = None,
     qty: Optional[float] = None,
     entry_price: Optional[float] = None,
+    reduce_leg: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """Look up Bybit V5 closed-pnl for the position that opened with
     *direction* on *symbol* at ``opened_at_ms`` and closed before
@@ -626,6 +661,19 @@ def account_closed_pnl_for_trade(
         where every trade shares ``(side, qty)``. See
         :func:`_bybit_closed_pnl_lookup` for the full rationale and
         the 2026-05-18 incident (issue #1411) that motivated it.
+      * ``reduce_leg`` — set for an intent-mode reduce / close leg
+        (S-MSE-2, ``setup_type='intent_reduce'``). Such a row's
+        ``direction`` is the close-order side (e.g. ``long`` = a
+        buy-to-reduce on a held short) and its ``entry_price`` is the
+        primary leg's *intended* entry, NOT the reduced position's
+        actual entry — so both the close-side translation and the
+        ``entry_price`` filter point at the wrong record and strand
+        the realised PnL as NULL (BL-20260601-001, verified live trade
+        #2491). When set, the lookup matches by absolute position
+        movement (``qty`` + close-window + ``opened_at``) and skips the
+        unreliable ``side`` / ``entry_price`` disambiguators. Normal
+        trades leave it ``False`` and keep the strict #1411 / #1419
+        contract.
 
     Currently only ``bybit`` (``linear`` / ``inverse``) is wired.
     Spot accounts have no closed-pnl endpoint — they return
@@ -659,6 +707,22 @@ def account_closed_pnl_for_trade(
     # the bot's wall clock and Bybit's exec timestamps.
     start_ms = max(int(opened_at_ms) - 60_000, end_ms - 7 * 24 * 60 * 60 * 1000)
 
+    # Demo accounts opt into the wide (side + window) fallback when the
+    # strict disambiguator chain finds nothing — see BL-20260601-001 and
+    # ``_bybit_closed_pnl_lookup``'s ``allow_wide_fallback`` docstring.
+    # The parse mirrors ``bybit_client_for`` so a string "true"/"1"/"yes"
+    # all count as demo; live accounts stay on the strict contract.
+    is_demo = str(account.get("demo", "false")).strip().lower() in (
+        "true", "1", "yes",
+    )
+
+    # Reduce-leg lookup (BL-20260601-001 prong 2): the journal direction
+    # is the close-order side, not the reduced position's side, and the
+    # recorded entry is the primary leg's intent — both unreliable. Match
+    # by qty + close-window only (skip side + entry filters).
+    lookup_side = "" if reduce_leg else close_side
+    lookup_entry_price = None if reduce_leg else entry_price
+
     try:
         client = bybit_client_for(account)
         if client is None:
@@ -667,12 +731,13 @@ def account_closed_pnl_for_trade(
             client,
             category=category,
             symbol=symbol,
-            side=close_side,
+            side=lookup_side,
             start_ts_ms=start_ms,
             end_ts_ms=end_ms,
             qty_target=qty,
-            entry_price_target=entry_price,
+            entry_price_target=lookup_entry_price,
             opened_at_ms=int(opened_at_ms),
+            allow_wide_fallback=is_demo,
         )
     except Exception as exc:  # noqa: BLE001
         aid = account.get("account_id") or "unknown"

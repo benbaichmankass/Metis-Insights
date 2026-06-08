@@ -2988,6 +2988,23 @@ def _close_trade_from_order_status(
     # tests) or when the account can't supply it (spot category,
     # creds missing, network error). On skip we fall back to the
     # NULL-exit-price contract.
+    # BL-20260601-001 prong 2 — intent-reduce / close legs (S-MSE-2)
+    # carry a journal ``direction`` + ``entry_price`` that describe the
+    # PRIMARY leg's intent, NOT the position actually being reduced: a
+    # buy-to-reduce on a held short is journaled direction='long' with
+    # the primary leg's intended entry. So the strict closed-pnl side
+    # filter (long→Sell) is inverted and the entry±10bps filter points
+    # at the wrong price — both mismatch and the realised PnL strands as
+    # NULL (verified: live trade #2491, pkg-8596863669584ed5, the only
+    # LONG in the 2026-06-08 closed set). For these legs we tell the
+    # lookup to match by absolute position movement (qty + close-window)
+    # and skip the unreliable direction/entry disambiguators. Gated
+    # strictly on the reduce-leg markers so normal trades keep the
+    # #1411 / #1419 strict contract.
+    _setup_type = str(row.get("setup_type") or "").strip().lower()
+    is_reduce_leg = (
+        _setup_type == "intent_reduce" or bool(notes.get("intent_reduce"))
+    )
     closed_pnl_rec: Optional[Dict[str, Any]] = None
     if cfg is not None:
         try:
@@ -3003,6 +3020,7 @@ def _close_trade_from_order_status(
                     opened_at_ms=opened_at_ms,
                     qty=_safe_float(row.get("position_size")),
                     entry_price=_safe_float(row.get("entry_price")),
+                    reduce_leg=is_reduce_leg,
                 )
         except Exception as exc:  # noqa: BLE001
             logger.warning(

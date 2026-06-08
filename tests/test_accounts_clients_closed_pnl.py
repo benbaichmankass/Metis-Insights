@@ -426,3 +426,141 @@ class TestTemporalOrdering:
         assert abs(float(rec_a["closedPnl"]) - 0.4) < 1e-3
         assert abs(float(rec_b["closedPnl"]) - 0.6) < 1e-3
         assert abs(float(rec_c["closedPnl"]) - 0.8) < 1e-3
+
+
+class TestDemoWideFallback:
+    """BL-20260601-001 prong 1: ``allow_wide_fallback`` (demo-only).
+
+    Bybit DEMO closed-pnl rows carry placeholder / zeroed
+    ``avgEntryPrice``, so the live-money entry-price disambiguator
+    (#1411) over-filters every record and strands the realised PnL as
+    NULL (5/5 demo ``htf_pullback`` closes in the 2026-06-08 window).
+    The wide fallback re-filters on side alone and takes the most
+    recent close — but ONLY when the flag is set (demo). Live accounts
+    keep the strict NULL-on-no-match contract.
+    """
+
+    def _zeroed_entry_records(self):
+        """Two side-matching demo closes with avgEntryPrice=0 (the demo
+        venue's placeholder) — both fail the strict entry filter."""
+        return [
+            _rec(side="Sell", qty=0.059, entry=0.0, exit_=60500.0,
+                 pnl=-3.20, updated=1780777000000),
+            # most recent
+            _rec(side="Sell", qty=0.059, entry=0.0, exit_=60400.0,
+                 pnl=-5.00, updated=1780777459294),
+        ]
+
+    def test_strict_returns_none_when_entry_zeroed(self):
+        """Without the flag, zeroed-entry demo records → None (the
+        bug: pnl strands NULL). This is the LIVE-account contract."""
+        client = _make_client(self._zeroed_entry_records())
+        rec = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="Sell",
+            start_ts_ms=1780770000000, end_ts_ms=1780780000000,
+            qty_target=0.059, entry_price_target=60568.6,
+            opened_at_ms=1780776000000,
+            allow_wide_fallback=False,
+        )
+        assert rec is None
+
+    def test_wide_fallback_recovers_most_recent(self):
+        """With the flag set (demo), the same records resolve to the
+        most-recent side-matching close."""
+        client = _make_client(self._zeroed_entry_records())
+        rec = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="Sell",
+            start_ts_ms=1780770000000, end_ts_ms=1780780000000,
+            qty_target=0.059, entry_price_target=60568.6,
+            opened_at_ms=1780776000000,
+            allow_wide_fallback=True,
+        )
+        assert rec is not None
+        assert abs(float(rec["closedPnl"]) - (-5.00)) < 1e-6  # most recent
+        assert int(rec["updatedTime"]) == 1780777459294
+
+    def test_wide_fallback_still_respects_side(self):
+        """The wide fallback drops qty/entry/open filters but KEEPS the
+        close-side filter — a Buy close can't satisfy a Sell lookup."""
+        records = [
+            _rec(side="Buy", qty=0.059, entry=0.0, exit_=60400.0,
+                 pnl=99.0, updated=1780777459294),  # wrong side
+            _rec(side="Sell", qty=0.059, entry=0.0, exit_=60500.0,
+                 pnl=-3.20, updated=1780777000000),  # right side
+        ]
+        client = _make_client(records)
+        rec = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="Sell",
+            start_ts_ms=1780770000000, end_ts_ms=1780780000000,
+            qty_target=0.059, entry_price_target=60568.6,
+            opened_at_ms=1780776000000,
+            allow_wide_fallback=True,
+        )
+        assert rec is not None
+        assert abs(float(rec["closedPnl"]) - (-3.20)) < 1e-6
+        assert str(rec["side"]) == "Sell"
+
+    def test_wide_fallback_returns_none_when_no_side_match(self):
+        """Even with the flag, zero side-matching records → None (no
+        record to attribute)."""
+        records = [
+            _rec(side="Buy", qty=0.059, entry=0.0, exit_=60400.0,
+                 pnl=99.0, updated=1780777459294),
+        ]
+        client = _make_client(records)
+        rec = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="Sell",
+            start_ts_ms=1780770000000, end_ts_ms=1780780000000,
+            qty_target=0.059, entry_price_target=60568.6,
+            opened_at_ms=1780776000000,
+            allow_wide_fallback=True,
+        )
+        assert rec is None
+
+
+class TestReduceLegLookup:
+    """BL-20260601-001 prong 2: an intent-reduce / close leg whose
+    journal direction + entry are the PRIMARY leg's intent.
+
+    The reduce caller passes ``side=""`` (skip the close-side filter)
+    and ``entry_price_target=None`` (skip the entry filter), matching by
+    qty + close-window + opened_at only. Verified against live trade
+    #2491: a buy-to-reduce on a held short, journaled direction='long'
+    (→ would translate to a Sell lookup) with entry 60774.6 (the htf
+    primary-leg intent, ~29 bps off the reduced short's real entry).
+    """
+
+    def _reduce_records(self):
+        """The reduce close on Bybit: side='Buy' (closing a short),
+        avgEntryPrice ~ the short's real entry (60756.7), NOT the
+        recorded 60774.6."""
+        return [
+            _rec(side="Buy", qty=0.003, entry=60756.7, exit_=60050.0,
+                 pnl=2.0988, updated=1780793499383),
+        ]
+
+    def test_strict_long_lookup_misses_the_reduce_close(self):
+        """A direction='long' strict lookup → close_side='Sell' +
+        entry 60774.6: the real reduce close is a Buy at a 29-bps-off
+        entry, so the strict filters strand it as NULL."""
+        client = _make_client(self._reduce_records())
+        rec = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="Sell",
+            start_ts_ms=1780790000000, end_ts_ms=1780800000000,
+            qty_target=0.003, entry_price_target=60774.6,
+            opened_at_ms=1780793499000,
+        )
+        assert rec is None
+
+    def test_reduce_leg_lookup_matches_by_position_movement(self):
+        """Skipping the side + entry filters (the reduce-leg path)
+        recovers the close by qty + window."""
+        client = _make_client(self._reduce_records())
+        rec = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="",
+            start_ts_ms=1780790000000, end_ts_ms=1780800000000,
+            qty_target=0.003, entry_price_target=None,
+            opened_at_ms=1780793499000,
+        )
+        assert rec is not None
+        assert abs(float(rec["closedPnl"]) - 2.0988) < 1e-4
