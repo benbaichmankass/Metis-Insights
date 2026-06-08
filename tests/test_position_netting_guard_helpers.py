@@ -19,6 +19,8 @@ import pytest
 
 from src.runtime.positions import (
     has_open_trade_for_strategy,
+    position_netting_guard_accounts,
+    position_netting_guard_active_for,
     position_netting_guard_enabled,
 )
 
@@ -69,6 +71,50 @@ class TestGuardSwitch:
     def test_falsy_values_disable(self, monkeypatch, val):
         monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", val)
         assert position_netting_guard_enabled() is False
+
+
+class TestGuardAccountScope:
+    """``POSITION_NETTING_GUARD_ACCOUNTS`` narrows the (master-gated) scope
+    for the demo-only soak. Defaults permissive (unset → all accounts when
+    the master is on) so it is never a second default-off enable gate."""
+
+    def test_accounts_unset_is_none(self, monkeypatch):
+        monkeypatch.delenv("POSITION_NETTING_GUARD_ACCOUNTS", raising=False)
+        assert position_netting_guard_accounts() is None
+
+    def test_accounts_blank_is_none(self, monkeypatch):
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "  ")
+        assert position_netting_guard_accounts() is None
+
+    def test_accounts_single(self, monkeypatch):
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_1")
+        assert position_netting_guard_accounts() == frozenset({"bybit_1"})
+
+    def test_accounts_csv_trimmed(self, monkeypatch):
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", " bybit_1 , bybit_2 ")
+        assert position_netting_guard_accounts() == frozenset({"bybit_1", "bybit_2"})
+
+    def test_active_for_master_off_is_false(self, monkeypatch):
+        monkeypatch.delenv("POSITION_NETTING_GUARD_ENABLED", raising=False)
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_1")
+        assert position_netting_guard_active_for("bybit_1") is False
+
+    def test_active_for_no_allowlist_applies_to_all(self, monkeypatch):
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        monkeypatch.delenv("POSITION_NETTING_GUARD_ACCOUNTS", raising=False)
+        assert position_netting_guard_active_for("bybit_1") is True
+        assert position_netting_guard_active_for("bybit_2") is True
+
+    def test_active_for_allowlist_scopes(self, monkeypatch):
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_1")
+        assert position_netting_guard_active_for("bybit_1") is True
+        assert position_netting_guard_active_for("bybit_2") is False
+
+    def test_active_for_none_account_with_allowlist_is_false(self, monkeypatch):
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_1")
+        assert position_netting_guard_active_for(None) is False
 
 
 class TestHasOpenTradeForStrategy:

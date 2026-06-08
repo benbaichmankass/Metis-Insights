@@ -82,6 +82,41 @@ def position_netting_guard_enabled() -> bool:
     return str(raw).strip().lower() in _GUARD_TRUTHY
 
 
+def position_netting_guard_accounts() -> Optional[frozenset]:
+    """Optional account allowlist that NARROWS the guard's scope.
+
+    ``POSITION_NETTING_GUARD_ACCOUNTS`` is a comma-separated list of
+    account ids (e.g. ``bybit_1`` or ``bybit_1,bybit_2``). Returns the
+    parsed set, or ``None`` when the var is unset/blank.
+
+    **This is a scope refinement, not a second enable gate.** The master
+    switch is ``POSITION_NETTING_GUARD_ENABLED`` (default OFF — the one
+    gate). When the master is ON, this allowlist defaults **permissive**
+    (unset → applies to ALL accounts), so it never strands capability —
+    consistent with the Prime Directive's "no hidden default-off second
+    gate". Its purpose is the operator-watched **demo-only soak**: set the
+    master ON + ``POSITION_NETTING_GUARD_ACCOUNTS=bybit_1`` to activate the
+    guard on the demo account alone before widening to live.
+    """
+    raw = os.environ.get("POSITION_NETTING_GUARD_ACCOUNTS", "")  # allow-silent: guard SCOPE refinement (defaults permissive = all accounts when the master switch is on), not a live/dry gate
+    parts = {p.strip() for p in str(raw).split(",") if p.strip()}
+    return frozenset(parts) or None
+
+
+def position_netting_guard_active_for(account_id: Optional[str]) -> bool:
+    """Return True when the netting guard should act on *account_id*.
+
+    Master switch ON **and** (no allowlist set → all accounts, or
+    *account_id* is in the allowlist). This is the single predicate both
+    halves of the guard (monocle + reconciler) consult, so the
+    demo-only-soak scoping is enforced identically on each.
+    """
+    if not position_netting_guard_enabled():
+        return False
+    allow = position_netting_guard_accounts()
+    return allow is None or (account_id is not None and account_id in allow)
+
+
 def has_open_trade_for_strategy(
     account_id: str,
     symbol: str,

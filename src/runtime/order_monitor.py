@@ -1955,7 +1955,7 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
         enqueue_orphan_reconciliation,
         enqueue_orphan_rollup,
     )
-    from src.runtime.positions import position_netting_guard_enabled
+    from src.runtime.positions import position_netting_guard_active_for
 
     orphan_pings_emitted = 0
     orphan_pings_suppressed = 0
@@ -2074,7 +2074,7 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
             # (a second observation, ``RECONCILER_CLOSE_CONFIRM_SECONDS``
             # apart) before closing — so reduce/flip churn and index lag
             # can't prematurely close the row and free the strategy-monocle.
-            if position_netting_guard_enabled() and _tid is not None:
+            if position_netting_guard_active_for(aid) and _tid is not None:
                 _tid_int = int(_tid)
                 _first_flat = _PENDING_CLOSE_CONFIRM.get(_tid_int)
                 if _first_flat is None:

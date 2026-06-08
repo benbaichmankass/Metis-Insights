@@ -957,6 +957,50 @@ class TestNettingGuardMonocle:
         assert len(captured) == 1, "different-strategy open trade must not gate"
         assert pkg.meta["execution_delta"]["action"] == "increase"
 
+    def test_account_allowlist_excludes_this_account(
+        self, coord, accounts_yaml, trade_db, monkeypatch,
+    ):
+        """Master ON but allowlist=bybit_1 (demo-only soak) → the guard is
+        NOT active for bybit_2, so its add still dispatches."""
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_1")
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+
+        _insert_trade(
+            trade_db, account_id="bybit_2", symbol="BTCUSDT",
+            direction="long", position_size=0.05, strategy_name="turtle_soup",
+        )
+
+        pkg = _intent_pkg(direction="long")
+        coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
+        assert len(captured) == 1, "guard scoped to bybit_1 must not gate bybit_2"
+
+    def test_account_allowlist_includes_this_account(
+        self, coord, accounts_yaml, trade_db, monkeypatch,
+    ):
+        """allowlist=bybit_2 → guard active for bybit_2 → add suppressed."""
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_2")
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+
+        _insert_trade(
+            trade_db, account_id="bybit_2", symbol="BTCUSDT",
+            direction="long", position_size=0.05, strategy_name="turtle_soup",
+        )
+
+        pkg = _intent_pkg(direction="long")
+        results = coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
+        assert captured == [], "guard scoped to bybit_2 must suppress its add"
+        assert "reentry_suppressed_netting_guard" in (results[0]["error"] or "")
+
 
 class TestPackageIsIntentModeHelper:
     def test_true_when_marker_set(self):
