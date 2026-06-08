@@ -342,14 +342,29 @@ Full detail preserved in git history. Recent AI-traders sprints:
   `/stats` + `/performance`, so this is evaluation-fidelity, not
   money-at-risk. The live-money side of the original orphan-PnL bug
   (intent-reduce legs) is already fixed (PR #2985).
-  **Option A (operator-approved 2026-06-08) IMPLEMENTED behind the
-  `POSITION_NETTING_GUARD_ENABLED` kill-switch (default OFF) on branch
-  `claude/position-netting-sltp-fix-tYjPh`** — monocle suppresses
-  same-direction adds + reconciler requires an extra grace tick before
-  closing. Unit-tested; net-vs-suppress walk-forward shows no trade-count
-  / win-rate regression + lower max-DD (pyramiding upside removed). Tier-3:
-  draft PR open, pending operator approval before merge + flag-flip
-  (demo-soak first).
+  **Option A (operator-approved 2026-06-08) SHIPPED + LIVE.** Implemented
+  behind the `POSITION_NETTING_GUARD_ENABLED` kill-switch (default OFF):
+  the monocle suppresses same-direction adds (no pyramiding — restores
+  per-trade=per-position) + the reconciler requires an extra grace tick
+  before closing on a net-flat snapshot (transient flat clears on the next
+  "position open" tick). A per-account allowlist
+  `POSITION_NETTING_GUARD_ACCOUNTS` scopes it (added so the change could be
+  soaked demo-only first). Unit-tested (36 cases); net-vs-suppress
+  walk-forward (real BTCUSDT 5m, 2022-07..2024-12, 4 windows) showed no
+  trade-count / win-rate regression + lower max-DD in every window. Merged
+  PR #3023 (guard) + #3031 (account-scope), deployed, and activated:
+  demo-soak on `bybit_1` first, then widened to live —
+  `POSITION_NETTING_GUARD_ENABLED=true` +
+  `POSITION_NETTING_GUARD_ACCOUNTS=bybit_1,bybit_2` (both Bybit accounts;
+  IB futures excluded — the reconciler path is Bybit-specific). Rollback =
+  set `POSITION_NETTING_GUARD_ACCOUNTS` back to `bybit_1` or unset
+  `POSITION_NETTING_GUARD_ENABLED` + restart (no redeploy). Env vars +
+  tuning knob `RECONCILER_CLOSE_CONFIRM_SECONDS` documented in CLAUDE.md.
+  Remaining: observe live behaviour (per-trade closes with attributable
+  PnL; `reentry_suppressed_netting_guard` audit rows). Demo `bybit_1` PnL
+  attribution itself is still limited by Bybit's demo venue not populating
+  `/v5/position/closed-pnl` — but per-trade=per-position now holds, so
+  closed-pnl can repopulate as positions close discretely.
 
 ---
 
