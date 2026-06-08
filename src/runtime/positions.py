@@ -45,6 +45,88 @@ def _trade_journal_path() -> str:
     return trade_journal_db_path()
 
 
+# ---------------------------------------------------------------------------
+# Position-netting / per-trade SL/TP guard kill-switch (BL-20260608-DEMOPNL)
+# ---------------------------------------------------------------------------
+#
+# Option A from docs/audits/position-netting-sltp-2026-06-08.md. ONE env
+# switch gates BOTH halves of the fix so the operator can roll the whole
+# thing back with a single env flip + restart (no redeploy), mirroring the
+# FLIP_POLICY / REGIME_ROUTER_ENABLED pattern:
+#
+#   1. Monocle (coordinator intent path): suppress a same-direction
+#      re-entry (delta action ``open`` / ``increase``) for a
+#      ``(strategy, account, symbol)`` while it already holds an open
+#      trade — so a netted ADD can't be created, restoring the
+#      per-trade = per-position invariant. No pyramiding/scale-in.
+#   2. Reconciler (order_monitor close path): require the position to read
+#      net-flat across TWO observations (an extra grace tick) before
+#      closing a filled trade, so reduce/flip churn and open-positions
+#      index lag can't prematurely close a row and free the monocle.
+#
+# **Default OFF** — ships inert. The change is Tier-3 (order path +
+# reconciler + monocle); the operator flips ``POSITION_NETTING_GUARD_ENABLED``
+# on only after the walk-forward + demo-replay validation is approved.
+# Read at call time so the flip takes effect on the next tick.
+
+_GUARD_TRUTHY = frozenset({"1", "true", "yes", "on"})
+
+
+def position_netting_guard_enabled() -> bool:
+    """Return True when the position-netting / per-trade SL/TP guard is on.
+
+    Gated by ``POSITION_NETTING_GUARD_ENABLED`` (default OFF). See the
+    module-level note above and the env-var table in CLAUDE.md.
+    """
+    raw = os.environ.get("POSITION_NETTING_GUARD_ENABLED", "")  # allow-silent: position-netting guard kill-switch (no-pyramiding + close-confirm), NOT a live/dry gate — mirrors REGIME_ROUTER_ENABLED
+    return str(raw).strip().lower() in _GUARD_TRUTHY
+
+
+def has_open_trade_for_strategy(
+    account_id: str,
+    symbol: str,
+    strategy_name: Optional[str],
+    *,
+    db_path: Optional[str] = None,
+) -> bool:
+    """Return True if ``(strategy_name, account_id, symbol)`` already has an
+    open live trade in the journal.
+
+    Strategy-scoped sibling of ``_has_open_position`` (which is
+    account+symbol scoped). Used by the netting guard's monocle gate to
+    block a same-direction re-entry while the strategy still holds an
+    open position — independent of the order_packages status the legacy
+    strategy-monocle gate keys on (so a prematurely-closed package can't
+    free the gate while the position is genuinely still open).
+
+    Best-effort: a missing journal or read failure returns ``False``
+    (i.e. "no open trade known" → don't block) — fail-permissive, matching
+    every other guard helper so a transient SQLite hiccup never strands a
+    live signal.
+    """
+    if not strategy_name:
+        return False
+    path = db_path or _trade_journal_path()
+    if not os.path.exists(path):
+        return False
+    try:
+        with sqlite3.connect(path) as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM trades "
+                "WHERE account_id = ? AND symbol = ? AND strategy_name = ? "
+                "AND status = 'open' AND COALESCE(is_backtest, 0) = 0",
+                (account_id, symbol, strategy_name),
+            ).fetchone()
+        return bool(row and row[0] > 0)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "has_open_trade_for_strategy: read failed for account=%s "
+            "symbol=%s strategy=%s: %s (treating as no-open-trade)",
+            account_id, symbol, strategy_name, exc,
+        )
+        return False
+
+
 def current_net_position_qty(
     account_id: str,
     symbol: str,
