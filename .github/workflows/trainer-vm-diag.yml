@@ -48,7 +48,11 @@ on:
         required: true
         default: "systemctl status ict-trainer.service"
   issues:
-    types: [opened]
+    # 2026-06-08: added `labeled` as a fallback for the dropped-webhook
+    # failure mode (mirrors vm-diag-snapshot.yml). Dedup step below
+    # short-circuits the second fire cleanly when both `opened` and
+    # `labeled` arrive (the normal case for session-driven opens).
+    types: [opened, labeled]
 
 permissions:
   contents: read
@@ -66,9 +70,34 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Dedup — bail if a bot comment already exists (2026-06-08)
+        if: github.event_name == 'issues'
+        id: dedup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const hasBotComment = comments.some(
+              c => c.user && c.user.login === 'github-actions[bot]'
+            );
+            if (hasBotComment) {
+              core.notice(
+                `Issue #${context.issue.number} already has a github-actions[bot] ` +
+                `comment — skipping the duplicate labeled-fire cleanly.`
+              );
+              core.setOutput('skip', 'true');
+            } else {
+              core.setOutput('skip', 'false');
+            }
+
       - name: Parse command from issue body
         id: parse
-        if: github.event_name == 'issues'
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'
         env:
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
@@ -120,6 +149,7 @@ jobs:
         run: printf '%s\n' "${DISPATCH_CMD}" > /tmp/trainer_diag_cmd.sh
 
       - name: Set up SSH key
+        if: steps.dedup.outputs.skip != 'true'
         env:
           VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
           TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
@@ -135,6 +165,7 @@ jobs:
           ssh-keyscan -t ed25519,ecdsa,rsa "${TRAINER_IP}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Run command on trainer VM
+        if: steps.dedup.outputs.skip != 'true'
         env:
           TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
           TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
@@ -153,6 +184,7 @@ jobs:
           wc -c /tmp/trainer_diag_output.txt
 
       - name: Print output (run-log preview)
+        if: steps.dedup.outputs.skip != 'true'
         run: |
           bytes="$(wc -c < /tmp/trainer_diag_output.txt)"
           echo "=== trainer-vm-diag output (${bytes} bytes) ==="
@@ -162,7 +194,7 @@ jobs:
           fi
 
       - name: Upload artifact
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && steps.dedup.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: trainer-vm-diag-${{ github.run_id }}
@@ -171,7 +203,7 @@ jobs:
           if-no-files-found: error
 
       - name: Post result to issue
-        if: github.event_name == 'issues'
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -208,7 +240,7 @@ jobs:
             });
 
       - name: Post failure note to issue
-        if: github.event_name == 'issues' && failure()
+        if: github.event_name == 'issues' && failure() && steps.dedup.outputs.skip != 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -228,7 +260,7 @@ jobs:
             });
 
       - name: Post cancellation note to issue
-        if: github.event_name == 'issues' && cancelled()
+        if: github.event_name == 'issues' && cancelled() && steps.dedup.outputs.skip != 'true'
         uses: actions/github-script@v7
         with:
           script: |
