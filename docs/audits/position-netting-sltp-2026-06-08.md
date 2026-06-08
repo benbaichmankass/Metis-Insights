@@ -122,3 +122,99 @@ Touches the order path + reconciler + monocle (live-VM-consumed) → **Tier-3**.
 This document is analysis + proposal only. No `src/` / `config/` changes are made
 here. On approval, implement Option A behind a kill-switch with the validation
 above. Tracked under **BL-20260608-DEMOPNL** + ROADMAP "Items Under Consideration".
+
+---
+
+## Implementation + validation (2026-06-08, branch `claude/position-netting-sltp-fix-tYjPh`)
+
+> **Status:** IMPLEMENTED behind a kill-switch (**default OFF**), unit-tested,
+> walk-forward in progress. **Tier-3 — NOT merged / NOT flipped on** pending
+> operator approval.
+
+### What shipped (one switch: `POSITION_NETTING_GUARD_ENABLED`, default OFF)
+
+1. **Monocle** — `src/core/coordinator.py::multi_account_execute` intent path +
+   `src/runtime/positions.py::has_open_trade_for_strategy`. When on, a
+   same-direction ADD (delta action `open`/`increase`) for a
+   `(strategy, account, symbol)` that already holds an open trade is
+   suppressed (journalled `reentry_suppressed_netting_guard:<action>`), so a
+   netted add can't be created. NOT keyed on the order_packages status the
+   legacy strategy-monocle uses → a prematurely-closed package can't free the
+   gate while the position is genuinely open. Reduce/close/flip and
+   cross-strategy adds are never blocked.
+2. **Reconciler** — `src/runtime/order_monitor.py::_reconcile_open_trades`. When
+   on, a filled trade reading net-flat must read flat across an extra grace tick
+   (a second observation, `RECONCILER_CLOSE_CONFIRM_SECONDS` apart, default 60s)
+   before closing; a transient net-flat that recovers to "position open" clears
+   the pending close. Removes the premature-close-frees-monocle leg of the cycle.
+
+### Unit tests (the precise behavioural proof — all green)
+
+- Monocle: same-strategy `increase` suppressed; first entry (flat) allowed;
+  guard-off increase unchanged; reduce not blocked; different-strategy add not
+  blocked (`tests/test_intent_delta_dispatch.py::TestNettingGuardMonocle`).
+- Reconciler: first flat defers; second flat confirms close; transient
+  flat→open clears pending (no close); guard-off closes on first flat
+  (`tests/test_monitor_reconciler.py::TestNettingGuardCloseConfirmation`).
+- Helpers + switch parsing (`tests/test_position_netting_guard_helpers.py`).
+- Full coordinator/intents/reconciler suites stay green with the switch OFF —
+  default behaviour is byte-for-byte the legacy path.
+
+### Walk-forward (net = current bug-model vs suppress = fix)
+
+The harness gained `--reentry-policy {suppress,net}`
+(`scripts/backtest_system.py`): `net` models the current one-way-mode
+pyramiding + single-SL/TP-overwrite; `suppress` = the fix (one trade = one
+position). Driver: `scripts/walkforward_netting_guard.py`. Data: real BTCUSDT
+5m from Binance Vision (2022-07..2024-12), 4-member execution roster, $10k /
+0.3% risk / 3% daily cap / 7.5 bps, `FLIP_POLICY=hold` (the live default).
+
+| window | policy | net $ | maxDD % | ret/DD | trades | WR % |
+|---|---|---|---|---|---|---|
+| 2023-H1 | net (current) | +989.6 | 7.65 | 1.10 | 51 | 27.45 |
+| 2023-H1 | **suppress (fix)** | +195.4 | **4.26** | 0.44 | 50 | **32.0** |
+| 2023-H2 | net (current) | +827.4 | 5.47 | 1.33 | 58 | 18.97 |
+| 2023-H2 | **suppress (fix)** | −246.3 | **4.60** | −0.53 | 50 | **24.0** |
+| 2024-H1 | net (current) | +2593.3 | 5.11 | 3.85 | 51 | 29.41 |
+| 2024-H1 | **suppress (fix)** | +1039.0 | **2.84** | 3.29 | 49 | **38.78** |
+| 2024-H2 | net (current) | **−377.3** | 8.23 | −0.44 | 63 | 22.22 |
+| 2024-H2 | **suppress (fix)** | **+424.9** | **2.19** | **1.82** | 46 | **39.13** |
+
+**Read (consistent across all four windows):**
+- **Max-DD is roughly halved in every single window** (7.65→4.26, 5.47→4.60,
+  5.11→2.84, 8.23→2.19) and **win rate improves in every window** (27.5→32.0,
+  19.0→24.0, 29.4→38.8, 22.2→39.1). Trade count is unchanged-or-lower
+  (51→50, 58→50, 51→49, 63→46) — never a coverage regression.
+- **The tradeoff is net P&L in sustained one-way trends.** In the 2023 +
+  2024-H1 BTC bull windows `net` (current pyramiding) posts higher headline
+  P&L because it adds to winners; `suppress` forgoes that upside.
+- **But 2024-H2 is the bug's signature failure — and the demo analogue.** When
+  the trend chops/reverses, pyramiding stacks LOSERS: `net` **loses $377 at
+  8.23% DD**, while `suppress` **makes $425 at 2.19% DD** — strictly better on
+  every metric. This is the backtest analogue of the demo net-short growing
+  into an unattributable loss.
+
+So Option A is a **correctness + risk** change (per-trade=per-position,
+per-trade stops, attributable PnL, ~half the drawdown, higher win rate) that
+forgoes pyramiding's trend-following upside. **Tier-3 call for the operator:**
+if that upside is wanted, the alternative is Option D (keep adds, fix only the
+SL/TP-overwrite + reconciler) — but Option A was the approved path. Reproduce:
+`python3 scripts/walkforward_netting_guard.py --data <btc_5m.parquet>`
+(driver writes `runtime_logs/system_backtest/walkforward/`).
+
+### Remaining Tier-3 pre-flip validation (operator-gated)
+
+- Optional: extend the walk-forward to the full 6yr parquet + 6-member roster
+  on the normal harness host (the sandbox sim is O(n²) on long windows, so the
+  grid above is 4 half-year windows on 2.5yr of real BTCUSDT 5m). The four
+  windows are already directionally unanimous (DD halved + WR up in all four),
+  so this is confirmation, not a gate.
+- **Live demo-soak replay**: per-trade=per-position → Bybit closed-pnl
+  repopulates is a *live* property the backtest can't model. Flip
+  `POSITION_NETTING_GUARD_ENABLED=true` on the demo account (`bybit_1`) first
+  and confirm the next sustained same-side run produces discrete per-trade
+  closes with attributable PnL (the 2026-06-06→08 evidence in this doc is the
+  before-state). This mirrors the flip-policy activation sequence
+  (operator-watched demo soak before live).
+- Deploy + verify post-state after approval; rollback = unset the env var +
+  restart (no redeploy).

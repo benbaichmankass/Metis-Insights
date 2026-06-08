@@ -1221,6 +1221,20 @@ _ORPHAN_PING_CAP = 10
 # ``RECONCILER_GRACE_SECONDS``.
 _DEFAULT_RECONCILER_GRACE_SECONDS = 60
 
+# Position-netting guard — reconciler half (Option A, BL-20260608-DEMOPNL).
+# When POSITION_NETTING_GUARD_ENABLED is on, a filled trade that reads
+# net-flat is NOT closed on the first observation: it must read flat across
+# an extra grace tick (a second observation, ``RECONCILER_CLOSE_CONFIRM_SECONDS``
+# apart) before the close lands. A transient net-flat — an intent reduce/flip
+# leg momentarily flattening the net position, or the open-positions index
+# lagging — is cleared the next time the position reads open, so it can no
+# longer prematurely close a row and free the strategy-monocle gate (which
+# is what let the netted short keep growing on the demo account). In-process
+# state (keyed by trades.id); a restart simply re-arms the confirmation from
+# scratch — fail-safe (never closes early).
+_DEFAULT_CLOSE_CONFIRM_SECONDS = 60
+_PENDING_CLOSE_CONFIRM: Dict[int, datetime] = {}
+
 # Bybit V5 ``orderStatus`` values that mean "order is still live on
 # the exchange and has not reached a terminal state". A DB row whose
 # orderId reports any of these stays ``status='open'`` regardless of
@@ -1257,6 +1271,25 @@ def _grace_window_seconds() -> float:
         return max(0.0, float(raw))
     except (TypeError, ValueError):
         return float(_DEFAULT_RECONCILER_GRACE_SECONDS)
+
+
+def _close_confirm_seconds() -> float:
+    """Min seconds a filled trade must read net-flat (across at least two
+    observations) before the netting guard lets the reconciler close it.
+
+    Read ``RECONCILER_CLOSE_CONFIRM_SECONDS`` at call time; falls back to
+    ``_DEFAULT_CLOSE_CONFIRM_SECONDS`` on missing / unparseable values,
+    clamped to ``>= 0``. Only consulted when POSITION_NETTING_GUARD_ENABLED
+    is on. ``0`` keeps the extra-grace-tick requirement (a second
+    confirming observation) but with no extra time wait.
+    """
+    raw = os.environ.get("RECONCILER_CLOSE_CONFIRM_SECONDS")
+    if raw is None or str(raw).strip() == "":
+        return float(_DEFAULT_CLOSE_CONFIRM_SECONDS)
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        return float(_DEFAULT_CLOSE_CONFIRM_SECONDS)
 
 
 def _parse_created_at(value: Any) -> Optional[datetime]:
@@ -1860,6 +1893,7 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
         "checked": 0,
         "orphaned": 0,
         "closed": 0,
+        "pending_close": 0,
         "skipped_dry": 0,
         "skipped_no_creds": 0,
         "skipped_no_cfg": 0,
@@ -1921,6 +1955,7 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
         enqueue_orphan_reconciliation,
         enqueue_orphan_rollup,
     )
+    from src.runtime.positions import position_netting_guard_enabled
 
     orphan_pings_emitted = 0
     orphan_pings_suppressed = 0
@@ -2016,8 +2051,16 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
 
             sym = row["symbol"]
             side = str(row["direction"] or "").lower()
+            _tid = row.get("id")
             if (sym, side) in positions_cache:
                 # Order filled, position still open — trade is alive.
+                # Clear any pending close-confirmation: a net-flat we saw
+                # on a previous tick was transient (an intent reduce/flip
+                # leg or index lag), so it must NOT count toward closing
+                # this row. This clear is the crux of the netting guard's
+                # reconciler half — only a flat that PERSISTS closes a trade.
+                if _tid is not None:
+                    _PENDING_CLOSE_CONFIRM.pop(int(_tid), None)
                 continue
 
             # Order filled, position flat → trade closed by exchange
@@ -2025,6 +2068,29 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
             # price + exec time from order history (closes the PnL
             # gap the legacy reconciler-close path left as
             # exit_price=NULL).
+            #
+            # Netting-guard (Option A, BL-20260608-DEMOPNL): when on,
+            # require the flat to be confirmed across an extra grace tick
+            # (a second observation, ``RECONCILER_CLOSE_CONFIRM_SECONDS``
+            # apart) before closing — so reduce/flip churn and index lag
+            # can't prematurely close the row and free the strategy-monocle.
+            if position_netting_guard_enabled() and _tid is not None:
+                _tid_int = int(_tid)
+                _first_flat = _PENDING_CLOSE_CONFIRM.get(_tid_int)
+                if _first_flat is None:
+                    # First net-flat observation — arm the confirmation and
+                    # wait for the next tick to confirm.
+                    _PENDING_CLOSE_CONFIRM[_tid_int] = now
+                    summary["pending_close"] += 1
+                    continue
+                if (now - _first_flat).total_seconds() < _close_confirm_seconds():
+                    # Seen flat before but the confirm window hasn't elapsed
+                    # yet — keep waiting (still might recover to open).
+                    summary["pending_close"] += 1
+                    continue
+                # Flat confirmed across the window → close, clear the pending.
+                _PENDING_CLOSE_CONFIRM.pop(_tid_int, None)
+
             try:
                 _close_trade_from_order_status(db, row, order_status, cfg=cfg)
                 summary["closed"] += 1
@@ -2067,16 +2133,19 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
     if (
         summary["orphaned"]
         or summary["closed"]
+        or summary["pending_close"]
         or summary["errors"]
     ):
         logger.info(
             "_reconcile_open_trades: checked=%d orphaned=%d closed=%d "
-            "skipped_dry=%d skipped_no_creds=%d skipped_no_cfg=%d "
-            "skipped_recent=%d skipped_non_numeric=%d errors=%d",
+            "pending_close=%d skipped_dry=%d skipped_no_creds=%d "
+            "skipped_no_cfg=%d skipped_recent=%d skipped_non_numeric=%d "
+            "errors=%d",
             summary["checked"], summary["orphaned"], summary["closed"],
-            summary["skipped_dry"], summary["skipped_no_creds"],
-            summary["skipped_no_cfg"], summary["skipped_recent"],
-            summary["skipped_non_numeric"], summary["errors"],
+            summary["pending_close"], summary["skipped_dry"],
+            summary["skipped_no_creds"], summary["skipped_no_cfg"],
+            summary["skipped_recent"], summary["skipped_non_numeric"],
+            summary["errors"],
         )
     return summary
 

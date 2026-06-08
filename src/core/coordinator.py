@@ -1365,7 +1365,11 @@ class Coordinator:
                 intent_mode = package_is_intent_mode(pkg)
                 effective_qty = sized_qty
                 if intent_mode and not (pkg.meta and pkg.meta.get("is_test")):
-                    from src.runtime.positions import current_net_position_qty
+                    from src.runtime.positions import (
+                        current_net_position_qty,
+                        has_open_trade_for_strategy,
+                        position_netting_guard_enabled,
+                    )
                     current_signed_qty = current_net_position_qty(
                         account.name, pkg.symbol,
                     )
@@ -1382,6 +1386,55 @@ class Coordinator:
                         "current_qty": delta.current_qty,
                         "reason": delta.reason,
                     }
+                    # Position-netting guard — monocle half (Option A,
+                    # BL-20260608-DEMOPNL). In one-way mode every
+                    # same-direction re-entry NETS into the single shared
+                    # position and OVERWRITES its single SL/TP, so the
+                    # journal "trades" stop being independent positions
+                    # (no per-trade stop-out, no per-trade close to
+                    # attribute PnL from). Block a same-direction ADD
+                    # (delta action ``open``/``increase``) for this
+                    # (strategy, account, symbol) whenever it already holds
+                    # an open trade — restoring the per-trade=per-position
+                    # invariant. This is intentionally NOT gated on the
+                    # order_packages status the legacy strategy-monocle
+                    # keys on: a prematurely-closed package must not free
+                    # the gate while the position is genuinely still open.
+                    # Reduce / close / flip (position-management) deltas are
+                    # never blocked. Gated by POSITION_NETTING_GUARD_ENABLED
+                    # (default off → ships inert; one env flip to roll back).
+                    if (
+                        position_netting_guard_enabled()
+                        and delta.action in ("open", "increase")
+                        and has_open_trade_for_strategy(
+                            account.name, pkg.symbol, pkg.strategy,
+                        )
+                    ):
+                        _guard_reason = (
+                            f"reentry_suppressed_netting_guard:{delta.action}"
+                        )
+                        logger.info(
+                            "[coordinator] netting-guard: suppressing %s "
+                            "re-entry for %s/%s/%s — open trade already "
+                            "exists (no pyramiding; per-trade=per-position)",
+                            delta.action, account.name, pkg.symbol, pkg.strategy,
+                        )
+                        from src.units.accounts.execute import log_rejection_to_journal
+                        log_rejection_to_journal(
+                            pkg, account_cfg,
+                            reason=_guard_reason,
+                            status="rejected",
+                            sized_qty=0.0,
+                        )
+                        results.append({
+                            "name": account.name,
+                            "exchange": account.exchange,
+                            "account_type": account.account_type,
+                            "trade_id": None,
+                            "sized_qty": 0.0,
+                            "error": _guard_reason,
+                        })
+                        continue
                     if delta.action == "noop":
                         logger.info(
                             "[coordinator] intent-mode noop for %s/%s: %s",
