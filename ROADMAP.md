@@ -323,6 +323,23 @@ Full detail preserved in git history. Recent AI-traders sprints:
   Remaining IB follow-ups (not blockers): MES-specific ML models/training
   (needs accumulated MES paper trades), and promoting the real-money
   `ib_live` account (Tier-3, separate 2FA handling).
+- **Demo (bybit_1) realised-PnL source** (BL-20260608-DEMOPNL, deferred
+  2026-06-08). Demo closed trades carry `pnl=NULL`: Bybit's demo venue
+  does **not** populate `/v5/position/closed-pnl` (verified #2482/#2490),
+  and `/v5/execution/list` — while populated — shows the demo account
+  **nets every strategy fill into one position** that's flattened in
+  aggregate (one `Buy 0.505` closing many incremental `Sell` opens), so
+  there is no per-trade close to attribute. A real demo-PnL source
+  therefore needs a **position-accounting layer** (allocate each
+  aggregate close across its constituent opens, FIFO/avg), not just a
+  different endpoint read. Two sub-findings worth a look first: the demo
+  opens carry **no SL/TP** (`reduceOnly=False`, no `stopOrderType`) so
+  positions accumulate instead of closing per-trade like live `bybit_2`
+  does; and the reconciler marked these "closed" while the net position
+  was still open. Demo is already excluded from real-money `/stats` +
+  `/performance`, so this is evaluation-fidelity, not money-at-risk. The
+  live-money side of the original orphan-PnL bug (intent-reduce legs) is
+  already fixed (PR #2985).
 
 ---
 
