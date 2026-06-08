@@ -97,8 +97,21 @@ accounts:
     market_type: linear                # USDT-margined linear perpetuals — same
                                        # as bybit_2. set-leverage fires at boot
                                        # via _apply_per_account_leverage.
-    strategies: [trend_donchian, turtle_soup, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, vwap, fvg_range_15m, htf_pullback_trend_2h, trend_donchian_1h]
+    strategies: [trend_donchian, turtle_soup, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, fvg_range_15m, htf_pullback_trend_2h, trend_donchian_1h]
                                        # execution-priority order matches list order.
+                                       # 2026-06-08 (operator-approved, Tier-3, /performance-review
+                                       # PB-20260607-001): vwap REMOVED from bybit_1 routing.
+                                       # vwap was firing ~7 rejections/hour (33 in a 48h window)
+                                       # against the held htf_pullback short book — all
+                                       # `intent_noop:flip_suppressed_hold_policy` noise on
+                                       # the audit log. vwap has no live-money authority
+                                       # anywhere (`execution: shadow` in config/strategies.yaml,
+                                       # and regime-router policy table gates it OFF in every
+                                       # regime per PERF-20260601-003 — net -10,724 R over 6y
+                                       # multiyear backtest), so removing it from the demo
+                                       # book has zero execution-quality cost and collapses
+                                       # ~165 spurious rejections/24h of journal noise.
+                                       # ROLLBACK: re-add `vwap` to the list above.
                                        # htf_pullback_trend_2h added 2026-06-01,
                                        # PROMOTED to execution: live 2026-06-02
                                        # (operator policy: paper/demo always executes);
@@ -113,12 +126,17 @@ accounts:
                                        # promoted to `execution: live` in
                                        # config/strategies.yaml the same date. Every live
                                        # strategy here trades PAPER money (demo endpoint)
-                                       # — no real-money risk. vwap is the only remaining
-                                       # `execution: shadow` strategy here (data-only on
-                                       # every account, incl. this one). vwap was REMOVED
+                                       # — no real-money risk. vwap was REMOVED
                                        # from real-money bybit_2 on 2026-06-02 (no
-                                       # net-of-fee edge); it now logs only on no-risk
-                                       # paper/demo accounts. fvg_range_15m added
+                                       # net-of-fee edge), and from THIS demo account
+                                       # on 2026-06-08 (PB-20260607-001 — vwap fired
+                                       # ~7 rejections/hour against the held htf_pullback
+                                       # short book, all flip_suppressed_hold_policy noise).
+                                       # vwap stays `execution: shadow` in
+                                       # config/strategies.yaml so shadow models continue
+                                       # logging on the other accounts; this routing
+                                       # removal only drops the demo-book journal noise.
+                                       # fvg_range_15m added
                                        # 2026-05-30, PROMOTED to execution: live 2026-06-02
                                        # (operator policy: paper/demo always executes) —
                                        # DEMO account ONLY; NOT on bybit_2 (real money),
