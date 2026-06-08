@@ -332,14 +332,24 @@ Full detail preserved in git history. Recent AI-traders sprints:
   there is no per-trade close to attribute. A real demo-PnL source
   therefore needs a **position-accounting layer** (allocate each
   aggregate close across its constituent opens, FIFO/avg), not just a
-  different endpoint read. Two sub-findings worth a look first: the demo
-  opens carry **no SL/TP** (`reduceOnly=False`, no `stopOrderType`) so
-  positions accumulate instead of closing per-trade like live `bybit_2`
-  does; and the reconciler marked these "closed" while the net position
-  was still open. Demo is already excluded from real-money `/stats` +
-  `/performance`, so this is evaluation-fidelity, not money-at-risk. The
-  live-money side of the original orphan-PnL bug (intent-reduce legs) is
-  already fixed (PR #2985).
+  different endpoint read. Root cause (audit
+  `docs/audits/position-netting-sltp-2026-06-08.md`): in one-way mode each
+  same-direction re-entry **nets** into one position whose single SL/TP is
+  overwritten by each new entry (SL/TP **are** sent on demo entries — an
+  earlier "no SL/TP" reading was wrong, corrected in the audit), and the
+  reconciler marked rows "closed" on a transient net-flat while the
+  position was still open. Demo is already excluded from real-money
+  `/stats` + `/performance`, so this is evaluation-fidelity, not
+  money-at-risk. The live-money side of the original orphan-PnL bug
+  (intent-reduce legs) is already fixed (PR #2985).
+  **Option A (operator-approved 2026-06-08) IMPLEMENTED behind the
+  `POSITION_NETTING_GUARD_ENABLED` kill-switch (default OFF) on branch
+  `claude/position-netting-sltp-fix-tYjPh`** — monocle suppresses
+  same-direction adds + reconciler requires an extra grace tick before
+  closing. Unit-tested; net-vs-suppress walk-forward shows no trade-count
+  / win-rate regression + lower max-DD (pyramiding upside removed). Tier-3:
+  draft PR open, pending operator approval before merge + flag-flip
+  (demo-soak first).
 
 ---
 
