@@ -70,6 +70,61 @@ def _load_trade(db_path: str, trade_id: int) -> Optional[Dict[str, Any]]:
     return dict(row) if row else None
 
 
+def _dump_list(label: str, resp: Any, fields: tuple) -> int:
+    """Print the inner result.list of a Bybit V5 response, projecting
+    *fields*. Returns the record count."""
+    rows = ((resp or {}).get("result") or {}).get("list") or []
+    print(f"\n===== {label}: {len(rows)} record(s) =====")
+    for i, r in enumerate(rows[:50]):
+        proj = {f: r.get(f) for f in fields}
+        print(f"  [{i:02d}] " + "  ".join(f"{k}={v}" for k, v in proj.items()))
+    return len(rows)
+
+
+def _probe_alt_pnl_sources(client: Any, *, category: str, symbol: str,
+                           start_ms: int, end_ms: int) -> None:
+    """BL-20260608-DEMOPNL recon: dump the two endpoints that could
+    serve as a realised-PnL source when /v5/position/closed-pnl is
+    empty (as it is on the Bybit DEMO venue) — the per-fill execution
+    list and the order history. Read-only; every call is best-effort
+    so one unsupported endpoint doesn't abort the probe.
+
+    ``execList`` carries per-fill ``execPrice`` / ``execQty`` /
+    ``execFee`` / ``closedSize`` / ``execType`` (and sometimes
+    ``execPnl``) — enough to reconstruct an exit avg-price + realised
+    PnL for the closing fills. ``order/history`` carries the closing
+    order's ``avgPrice`` / ``cumExecQty`` / ``cumExecValue`` /
+    ``cumExecFee``. This probe tells us which (if either) the demo
+    venue actually populates before we build the recovery path.
+    """
+    try:
+        resp = client.get_executions(
+            category=category, symbol=symbol,
+            startTime=start_ms, endTime=end_ms, limit=100,
+        )
+        _dump_list(
+            "execution-list (/v5/execution/list)", resp,
+            ("execTime", "side", "execPrice", "execQty", "execFee",
+             "execType", "closedSize", "orderId"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"\n===== execution-list: get_executions raised: {exc} =====")
+
+    try:
+        resp = client.get_order_history(
+            category=category, symbol=symbol,
+            startTime=start_ms, endTime=end_ms, limit=50,
+        )
+        _dump_list(
+            "order-history (/v5/order/history)", resp,
+            ("updatedTime", "side", "orderStatus", "avgPrice",
+             "cumExecQty", "cumExecValue", "cumExecFee", "reduceOnly",
+             "stopOrderType", "orderId"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"\n===== order-history: get_order_history raised: {exc} =====")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trade-id", type=int, required=True,
@@ -168,12 +223,22 @@ def main() -> int:
         return 9
 
     records = ((resp.get("result") or {}).get("list") or [])
-    print(f"\n===== Bybit returned {len(records)} record(s) =====")
+    print(f"\n===== closed-pnl: Bybit returned {len(records)} record(s) =====")
 
     if not records:
         print("(window contains no closed-pnl rows — Bybit may have "
               "dropped them past the 7-day retention, OR the trade's "
-              "qty/symbol didn't actually transact)")
+              "qty/symbol didn't actually transact, OR — on the DEMO "
+              "venue — /v5/position/closed-pnl simply isn't populated; "
+              "see the execution-list + order-history probes below for "
+              "alternative PnL sources, BL-20260608-DEMOPNL)")
+        # Fall through to the alternative-source probes — on demo these
+        # are the only way to recover realised PnL.
+        _probe_alt_pnl_sources(
+            client, category=category,
+            symbol=str(trade.get("symbol") or ""),
+            start_ms=start_ms, end_ms=end_ms,
+        )
         return 0
 
     for i, rec in enumerate(records):
@@ -256,6 +321,13 @@ def main() -> int:
             print(f"  post-fix matcher pick:   None (no record within 10 bps of "
                   f"entry={entry_target})")
 
+    # Always show the alternative PnL sources too, so a single inspect
+    # call gives the full picture (closed-pnl + executions + orders).
+    _probe_alt_pnl_sources(
+        client, category=category,
+        symbol=str(trade.get("symbol") or ""),
+        start_ms=start_ms, end_ms=end_ms,
+    )
     return 0
 
 
