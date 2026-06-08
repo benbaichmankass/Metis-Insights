@@ -2728,3 +2728,60 @@ class TestNettingGuardCloseConfirmation:
         assert summary["closed"] == 1
         assert summary["pending_close"] == 0
         assert _read_trade(tmp_db, trade_id)["status"] == "closed"
+
+    def test_account_allowlist_excludes_closes_immediately(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """Master ON but allowlist=bybit_1 (demo-only soak) → the guard is
+        NOT active for bybit_2, so its net-flat trade closes on the first
+        observation (legacy behaviour), no deferral."""
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_1")
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        trade_id = _insert_trade(
+            tmp_db, account_id="bybit_2", trade_id="2200000000000000005",
+        )
+
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status("2200000000000000005"),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["closed"] == 1
+        assert summary["pending_close"] == 0
+        assert _read_trade(tmp_db, trade_id)["status"] == "closed"
+
+    def test_account_allowlist_includes_defers_close(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """allowlist=bybit_2 → guard active for bybit_2 → first net-flat
+        defers (extra grace tick), not closed."""
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_2")
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        trade_id = _insert_trade(
+            tmp_db, account_id="bybit_2", trade_id="2200000000000000006",
+        )
+
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status("2200000000000000006"),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["closed"] == 0
+        assert summary["pending_close"] == 1
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"

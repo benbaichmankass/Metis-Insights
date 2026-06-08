@@ -1368,7 +1368,7 @@ class Coordinator:
                     from src.runtime.positions import (
                         current_net_position_qty,
                         has_open_trade_for_strategy,
-                        position_netting_guard_enabled,
+                        position_netting_guard_active_for,
                     )
                     current_signed_qty = current_net_position_qty(
                         account.name, pkg.symbol,
@@ -1404,7 +1404,7 @@ class Coordinator:
                     # never blocked. Gated by POSITION_NETTING_GUARD_ENABLED
                     # (default off → ships inert; one env flip to roll back).
                     if (
-                        position_netting_guard_enabled()
+                        position_netting_guard_active_for(account.name)
                         and delta.action in ("open", "increase")
                         and has_open_trade_for_strategy(
                             account.name, pkg.symbol, pkg.strategy,
