@@ -42,10 +42,10 @@
       "resolution_criteria": "Trade #2493 has status='closed' (not 'orphaned') with non-NULL exit_price and non-NULL pnl. Bybit-side and journal-side PnL agree.",
       "triage_note": "",
       "check_log": [],
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-08T07:05:00+00:00",
+      "resolved_by": "claude (/health-review)",
+      "resolution": "Verified clean close. /api/diag/journal?table=trades pull this review (issue #2974) shows trade #2493 status='closed' with pnl=-1.70000368 and exit_reason='reconciler_filled'. The orphan carryover from pre-#2952 watchdog_released_alive reconciled cleanly via _sweep_pending_pnl_from_bybit as predicted — Bybit-side SL/TP closed the position and the sweep path attributed the PnL on the journal side. Resolution criteria met (status=closed, non-NULL pnl, not 'orphaned'). Note: 6 of the 7 other htf_pullback closed trades in the same window show pnl=None — that is the orphan-PnL attribution issue tracked under BL-20260601-001 / PERF-20260601-001, NOT a repeat of this item's pattern.",
       "snoozed_until": null
     },
     {

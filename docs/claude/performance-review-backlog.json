@@ -13,7 +13,10 @@
       "trigger_condition": "Next /performance-review window.",
       "resolution_criteria": "Either a routing decision lands (vwap dropped from bybit_1, or another strategy realignment) and the rejection cadence on bybit_1 demo collapses, OR the operator confirms the noise is acceptable and the item is closed 'won't fix'.",
       "status": "open",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-06-08 (/performance-review): STILL FIRING at the predicted cadence. /api/diag/journal?table=trades pull (issue #2974, window 2026-06-06->2026-06-08): 33 vwap rejections of 49 trade rows in the window, ALL on bybit_1 with reason 'REJECTED: intent_noop:flip_suppressed_hold_policy: desired long opposes current short'. bybit_2 (live) is clean — zero flip_suppressed rejections, pattern remains demo-only. Cadence ~7/hour, unchanged from the original observation. PROPOSING the tweak now: drop vwap from bybit_1 routing in config/accounts.yaml — vwap has no live-money authority anywhere (execution:shadow + regime-router OFF in every regime per PERF-20260601-003), so removing it from the demo book has zero execution-quality cost and immediately collapses ~165 rejections/24h of journal noise. Surfaced in this review's proposed_tweaks[]."
+      ]
     },
     {
       "id": "PB-20260527-001",
