@@ -646,3 +646,146 @@ class TestOrphanedPackagesAreNotClosedTrades:
         assert h["n_closed"] == 0
         assert packet["proposed_action"] == "hold"
         assert any("insufficient evidence" in r for r in packet["reasons"])
+
+
+# ---------------------------------------------------------------------------
+# Regime stamp resolution — read from order_packages.meta, not signals.meta.
+# ---------------------------------------------------------------------------
+
+
+class TestRegimeStampFromPkgMeta:
+    """Regression: every package emitted by the live trader carries
+    ``regime`` + ``vol_regime`` in ``order_packages.meta`` (the
+    strategy's signal builder calls ``_stamp_regime_on_meta`` before
+    the package is logged — diag #3116 verified this for ict_scalp_5m
+    and vwap under live traffic). The packet's original
+    ``pull_regime_stamp_index`` joined against ``signals.meta`` instead,
+    where the eval row doesn't carry ``order_package_id`` — so every
+    cell came back ``unknown``. The fix reads regime from ``pkg_meta``
+    directly (already loaded by ``pull_decisions``).
+    """
+
+    @pytest.fixture
+    def db_with_pkg_meta_regime(self, tmp_path: Path) -> Path:
+        path = tmp_path / "trade_journal.db"
+        make_canonical_db(path)
+        now = "2026-06-09T12:00:00+00:00"
+
+        conn = sqlite3.connect(str(path))
+        try:
+            for i, (regime, vol) in enumerate([
+                ("trending", "calm"),
+                ("trending", "volatile"),
+                ("chop", "calm"),
+            ]):
+                trade_id = conn.execute(
+                    "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
+                    "position_size, status, pnl, is_backtest, strategy_name, account_id) "
+                    "VALUES (?, 'BTCUSDT', 'long', 60000.0, 0.001, 'closed_tp', ?, 0, 'regime_test', 'bybit_2')",
+                    (now, 10.0 if i == 0 else -5.0),
+                ).lastrowid
+                # The strategy's signal builder writes regime + vol_regime
+                # into the package meta. Modelled here as a JSON string,
+                # which is what pull_decisions returns for op.meta.
+                meta_json = json.dumps({
+                    "strategy_name": "regime_test",
+                    "regime": regime,
+                    "vol_regime": vol,
+                    "adx_14": 28.0,
+                })
+                conn.execute(
+                    "INSERT INTO order_packages "
+                    "(order_package_id, strategy_name, symbol, direction, entry, sl, tp, "
+                    "confidence, created_at, updated_at, status, linked_trade_id, meta) "
+                    "VALUES (?, 'regime_test', 'BTCUSDT', 'long', 60000.0, 59000.0, 62000.0, "
+                    "0.7, ?, ?, 'closed', ?, ?)",
+                    (f"pkg-rg-{i}", now, now, trade_id, meta_json),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+        return path
+
+    def test_cells_resolve_from_pkg_meta_when_signals_join_empty(
+        self, db_with_pkg_meta_regime: Path
+    ):
+        from scripts.ml.strategy_review_packet import pull_decisions
+
+        ws = datetime(2026, 6, 8, tzinfo=timezone.utc)
+        we = datetime(2026, 6, 10, tzinfo=timezone.utc)
+        decisions = pull_decisions(
+            str(db_with_pkg_meta_regime), "regime_test", ws, we
+        )
+        assert len(decisions) == 3
+
+        # Empty signals index — exactly what the live VM was returning.
+        cells = compute_regime_cells(decisions, {}, {}, "regime_test")
+        by_cell = {(c.trend, c.vol): c for c in cells}
+        assert ("trending", "calm") in by_cell
+        assert ("trending", "volatile") in by_cell
+        assert ("chop", "calm") in by_cell
+        # The catastrophic-zone tracking still works:
+        c = by_cell[("trending", "calm")]
+        assert c.n_closed == 1
+        assert c.n_wins == 1
+        assert c.pnl_total == pytest.approx(10.0)
+
+    def test_pkg_meta_takes_precedence_over_signals_lookup(
+        self, db_with_pkg_meta_regime: Path
+    ):
+        """If both sources have data, pkg_meta wins (it's the
+        authoritative source — written at decision time, no JOIN
+        timing race)."""
+        from scripts.ml.strategy_review_packet import pull_decisions
+
+        ws = datetime(2026, 6, 8, tzinfo=timezone.utc)
+        we = datetime(2026, 6, 10, tzinfo=timezone.utc)
+        decisions = pull_decisions(
+            str(db_with_pkg_meta_regime), "regime_test", ws, we
+        )
+        # Bogus signals-lookup data — should be ignored when pkg_meta has it.
+        regime_index = {
+            "pkg-rg-0": {"regime": "WRONG", "vol_regime": "WRONG"},
+        }
+        cells = compute_regime_cells(decisions, regime_index, {}, "regime_test")
+        # pkg_meta says trending/calm — that's what wins, NOT WRONG.
+        assert ("trending", "calm") in {(c.trend, c.vol) for c in cells}
+
+    def test_signals_lookup_used_when_pkg_meta_missing_regime_field(
+        self, tmp_path: Path
+    ):
+        """Backwards-compat: packages with meta JSON that PREDATES
+        ``_stamp_regime_on_meta`` (no regime/vol_regime fields) still
+        resolve via the signals lookup."""
+        path = tmp_path / "trade_journal.db"
+        make_canonical_db(path)
+        now = "2026-06-09T12:00:00+00:00"
+        conn = sqlite3.connect(str(path))
+        try:
+            trade_id = conn.execute(
+                "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
+                "position_size, status, pnl, is_backtest, strategy_name, account_id) "
+                "VALUES (?, 'BTCUSDT', 'long', 60000.0, 0.001, 'closed_tp', 5.0, 0, 'legacy_pkg', 'bybit_2')",
+                (now,),
+            ).lastrowid
+            # Legacy meta JSON: no regime/vol_regime fields.
+            conn.execute(
+                "INSERT INTO order_packages "
+                "(order_package_id, strategy_name, symbol, direction, entry, sl, tp, "
+                "confidence, created_at, updated_at, status, linked_trade_id, meta) "
+                "VALUES ('pkg-legacy', 'legacy_pkg', 'BTCUSDT', 'long', 60000.0, 59000.0, 62000.0, "
+                "0.7, ?, ?, 'closed', ?, ?)",
+                (now, now, trade_id, json.dumps({"strategy_name": "legacy_pkg"})),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        from scripts.ml.strategy_review_packet import pull_decisions
+
+        ws = datetime(2026, 6, 8, tzinfo=timezone.utc)
+        we = datetime(2026, 6, 10, tzinfo=timezone.utc)
+        decisions = pull_decisions(str(path), "legacy_pkg", ws, we)
+        regime_index = {"pkg-legacy": {"regime": "chop", "vol_regime": "calm"}}
+        cells = compute_regime_cells(decisions, regime_index, {}, "legacy_pkg")
+        assert ("chop", "calm") in {(c.trend, c.vol) for c in cells}
