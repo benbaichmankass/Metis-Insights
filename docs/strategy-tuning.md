@@ -98,6 +98,37 @@ per-value param, or `native_sweep_flag` + `native_rows_key` +
 `native_value_key` for a built-in sweep. An unmapped pair raises with a pointer
 back to this section, so the gate never silently emits an unrunnable recipe.
 
+## Walk-forward / OOS validation (the go-live gate)
+
+A full-history sweep finds the **in-sample** optimum — which overfits. A tuning
+value only clears the go-live bar if it holds **out-of-sample**, the same
+discipline the live `trend_donchian` floor was set under. Pass `--oos-start
+DATE` (or `oos_start` in the recipe) to split chronologically:
+
+```
+train = [train-start, oos-start)      OOS = [oos-start, oos-end]
+```
+
+Each grid value is then run on **both** windows (via the harness's
+`--start`/`--end`). The result flips to **OOS-gated**: top-level grid metrics
+and all picks are OOS; the in-sample numbers are nested under each row's `train`
+key (and shown as extra columns). The recommendation carries
+`metric_basis: "oos"` and a `train_oos_consistent` flag (the OOS-optimal value
+must also be net-positive in-sample, else the OOS lead is likely noise).
+
+Without `--oos-start` the result is honest about its weakness: `metric_basis:
+"full_sample"`, the grid header reads **IN-SAMPLE**, and the recommendation
+detail says it has not cleared the go-live bar. **A merge-ready Tier-3 packet
+requires the OOS split.**
+
+```bash
+python scripts/ml/strategy_tune_sweep.py \
+  --target 'config/strategies.yaml::trend_donchian.min_confidence' --current-value 0.30 \
+  --search-space 'uniform [0.3, 0.9]' --harness scripts/backtest_trend.py \
+  --fixed-args '--timeframe 1h --donchian 20 --trail-mult 5.0 --long-only' \
+  --data data/btc_1h_multiyear.csv --oos-start 2025-01-01
+```
+
 ## Output
 
 ```
@@ -158,6 +189,9 @@ sandbox — see the `backtesting` skill § operator sweeps.
 
 ## Change log
 
+- **2026-06-09 (S2)** — added walk-forward / OOS validation (`--oos-start`):
+  each value run on train + OOS windows, picks gated on OOS, `train_oos_consistent`
+  flag, and an explicit IN-SAMPLE warning when no split is given. The go-live gate.
 - **2026-06-09** — created in sprint
   [`S-M8-STRATEGY-TUNING-S0`](sprint-logs/S-M8-STRATEGY-TUNING-S0.md); ships the
   canonical sweep harness, the search-space grammar, the dispatch registry

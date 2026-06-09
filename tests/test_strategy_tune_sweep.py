@@ -344,3 +344,85 @@ def test_extract_json_returns_outer_not_nested_object():
     got = sweep._extract_json(out)
     assert got["total_trades"] == 53 and got["net_total_r"] == 56.2
     assert "by_year" in got
+
+
+# --------------------------------------------------------------------------- #
+# S2 — walk-forward / OOS split
+# --------------------------------------------------------------------------- #
+def test_build_invocation_injects_window_flags():
+    spec = sweep._REGISTRY[("backtest_trend.py", "min_confidence")]
+    argv = sweep.build_invocation(
+        spec, value=0.3, data="d.csv", fee_bps=7.5, window_days=None,
+        window=("2020-01-01", "2025-01-01"),
+    )
+    assert argv[argv.index("--start") + 1] == "2020-01-01"
+    assert argv[argv.index("--end") + 1] == "2025-01-01"
+
+
+def test_build_invocation_window_open_ends_omit_flag():
+    spec = sweep._REGISTRY[("backtest_trend.py", "min_confidence")]
+    argv = sweep.build_invocation(
+        spec, value=0.3, data="d.csv", fee_bps=7.5, window_days=None,
+        window=(None, "2025-01-01"),
+    )
+    assert "--start" not in argv and argv[argv.index("--end") + 1] == "2025-01-01"
+
+
+def _wf_runner_factory(by_window_value):
+    """Runner keyed on (window-label, value). Window label derived from --end:
+    train ends at the split date, oos has no --end here (open) so label by --start."""
+
+    def runner(argv):
+        val = float(argv[argv.index("--min-confidence") + 1])
+        # train window passes --end SPLIT; oos passes --start SPLIT
+        label = "train" if "--end" in argv else "oos"
+        return by_window_value[(label, val)]
+
+    return runner
+
+
+def test_run_sweep_walk_forward_gates_on_oos():
+    recipe = sweep.TuneRecipe(
+        "config/strategies.yaml::trend_donchian.min_confidence",
+        current_value=0.3, search_space="[0.3, 0.6]",
+        harness="scripts/backtest_trend.py",
+    )
+    canned = {
+        # value 0.3: great in-sample, poor OOS
+        ("train", 0.3): {"total_trades": 300, "net_total_r": 80, "net_expectancy_r": 0.26},
+        ("oos", 0.3): {"total_trades": 100, "net_total_r": 5, "net_expectancy_r": 0.05},
+        # value 0.6: modest in-sample, best OOS
+        ("train", 0.6): {"total_trades": 250, "net_total_r": 60, "net_expectancy_r": 0.24},
+        ("oos", 0.6): {"total_trades": 90, "net_total_r": 30, "net_expectancy_r": 0.33},
+    }
+    wf = sweep.WalkForward(oos_start="2025-01-01")
+    result = sweep.run_sweep(recipe, data=None, fee_bps=7.5, samples=9,
+                             runner=_wf_runner_factory(canned), wf=wf)
+    assert result["metric_basis"] == "oos"
+    assert result["walk_forward"]["oos_start"] == "2025-01-01"
+    # top-level row metrics are OOS; in-sample nested under train
+    row06 = next(r for r in result["grid"] if r["value"] == 0.6)
+    assert row06["net_total"] == 30 and row06["train"]["net_total"] == 60
+    # OOS-best is 0.6 (30 > 5), NOT the in-sample-best 0.3
+    assert result["best_by_net_total"]["value"] == 0.6
+    rec = result["recommendation"]
+    assert rec["proposed_value"] == 0.6 and rec["metric_basis"] == "oos"
+    assert rec["train_oos_consistent"] is True  # 0.6 positive in both
+
+
+def test_run_sweep_full_sample_flags_not_oos_validated():
+    recipe = sweep.TuneRecipe(
+        "config/strategies.yaml::fade_breakout.min_confidence",
+        current_value=0.0, search_space="[0.0, 0.2]",
+        harness="scripts/backtest_fade.py",
+    )
+
+    def runner(argv):
+        v = float(argv[argv.index("--min-confidence") + 1])
+        return {"total_trades": 50, "net_total_r": v * 10, "net_expectancy_r": v}
+
+    result = sweep.run_sweep(recipe, data=None, fee_bps=7.5, samples=9, runner=runner, wf=None)
+    assert result["metric_basis"] == "full_sample"
+    assert result["walk_forward"] is None
+    assert "IN-SAMPLE" in result["recommendation"]["detail"] or \
+           "walk-forward split" in result["recommendation"]["detail"]
