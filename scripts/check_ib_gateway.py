@@ -226,6 +226,7 @@ def decide(
     cooldown_s: float,
     now: float,
     auto_restart: bool,
+    exhaustion_reset_s: float = 0.0,
 ) -> Dict[str, Any]:
     """Pure decision over current health + prior state.
 
@@ -234,6 +235,20 @@ def decide(
     ``alert`` is True when the caller should send the message for ``action``.
     With ``auto_restart=False`` the watchdog is alert-only: it detects + warns
     once per episode but never restarts (so no restart bookkeeping advances).
+
+    ``exhaustion_reset_s`` re-arms an exhausted restart budget after a long
+    back-off: once ``max_restarts`` is hit the watchdog normally goes
+    alert-only for the *entire* wedge episode (= until a probe reads healthy),
+    so a wedge whose first burst of restarts all land inside IBKR's overnight
+    server-reset window — when a re-login *cannot* re-establish the session —
+    strands MES for the rest of the (possibly multi-hour) episode even after
+    IBKR recovers (the 2026-06-09 incident, BL-20260605-004). When
+    ``exhaustion_reset_s > 0`` and that long has elapsed since the last
+    restart, the budget is reset to 0 so the watchdog tries again — by which
+    point IBKR's reset window is over and a restart can succeed. ``0`` (the
+    default) keeps the original give-up-for-the-episode behaviour. The
+    anti-lockout guarantee is preserved: re-arming only after a long quiet
+    gap means restarts can never become a tight loop.
     """
     s = dict(state)
     last_status = s.get("last_status")  # "ok" | "wedged" | None
@@ -261,6 +276,21 @@ def decide(
     # Alert-only mode, or not yet a sustained wedge → detect/alert, never restart.
     if not auto_restart or streak < restart_after:
         return _detect()
+
+    # Re-arm an exhausted budget after a long back-off so a wedge that
+    # outlasts the initial burst of restarts (e.g. one spanning IBKR's
+    # overnight reset window, when a re-login can't yet succeed) is retried
+    # once IBKR is healthy again — instead of giving up for the whole
+    # episode (BL-20260605-004). Still anti-lockout: the re-arm only fires
+    # after exhaustion_reset_s of no restart, so it can never tight-loop.
+    if (
+        attempts >= max_restarts
+        and exhaustion_reset_s > 0
+        and now - float(s.get("last_restart_ts") or 0.0) >= exhaustion_reset_s
+    ):
+        attempts = 0
+        s["restart_attempts"] = 0
+        s["exhausted_alerted"] = False
 
     # Eligible to restart: enforce max-attempts + cooldown so we never loop
     # (every restart is a fresh IBKR login; looping risks an account lockout).
@@ -337,6 +367,13 @@ def main(argv: Optional[list] = None) -> int:
     p.add_argument("--cooldown-min", type=float,
                    default=float(os.environ.get("IB_WATCHDOG_COOLDOWN_MIN", "20")),
                    help="Minimum minutes between restarts (default 20).")
+    p.add_argument("--exhaustion-reset-min", type=float,
+                   default=float(os.environ.get("IB_WATCHDOG_EXHAUSTION_RESET_MIN", "120")),
+                   help="After the restart budget is exhausted, re-arm it once "
+                        "this many minutes have elapsed since the last restart "
+                        "so a multi-hour wedge spanning IBKR's reset window is "
+                        "retried once IBKR recovers (default 120; 0 disables, "
+                        "reverting to give-up-for-the-episode).")
     p.add_argument("--auto-restart", action="store_true",
                    default=os.environ.get("IB_WATCHDOG_AUTO_RESTART", "").lower()
                    in ("1", "true", "yes"),
@@ -358,6 +395,7 @@ def main(argv: Optional[list] = None) -> int:
         cooldown_s=args.cooldown_min * 60.0,
         now=time.time(),
         auto_restart=args.auto_restart,
+        exhaustion_reset_s=args.exhaustion_reset_min * 60.0,
     )
     action = decision["action"]
     new_state = decision["new_state"]

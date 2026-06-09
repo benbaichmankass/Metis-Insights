@@ -70,10 +70,12 @@ def test_classify_garbage(wd):
 
 
 def _decide(wd, *, healthy, state, auto_restart=True, now=10_000.0,
-            restart_after=2, max_restarts=3, cooldown_s=1200.0):
+            restart_after=2, max_restarts=3, cooldown_s=1200.0,
+            exhaustion_reset_s=0.0):
     return wd.decide(healthy=healthy, state=state, restart_after=restart_after,
                      max_restarts=max_restarts, cooldown_s=cooldown_s, now=now,
-                     auto_restart=auto_restart)
+                     auto_restart=auto_restart,
+                     exhaustion_reset_s=exhaustion_reset_s)
 
 
 def test_healthy_from_clean_is_noop(wd):
@@ -142,3 +144,41 @@ def test_recovery_clears_exhausted_flag(wd):
     d = _decide(wd, healthy=True, state=state)
     assert d["action"] == "recovered"
     assert d["new_state"]["exhausted_alerted"] is False
+
+
+# --------------------------------------------------------------------------
+# decide — exhaustion re-arm (BL-20260605-004: a wedge spanning IBKR's reset
+# window must not strand MES for the whole episode after the budget is spent)
+# --------------------------------------------------------------------------
+
+
+def test_exhausted_stays_silent_when_rearm_disabled(wd):
+    # exhaustion_reset_s=0 (default) → original give-up-for-the-episode.
+    state = {"last_status": "wedged", "wedged_streak": 8, "restart_attempts": 3,
+             "last_restart_ts": 0.0, "exhausted_alerted": True}
+    d = _decide(wd, healthy=False, state=state, now=10_000.0,
+                max_restarts=3, exhaustion_reset_s=0.0)
+    assert d["action"] == "none" and d["alert"] is False
+    assert d["new_state"]["restart_attempts"] == 3  # not re-armed
+
+
+def test_exhausted_stays_silent_within_reset_window(wd):
+    # Budget spent and only 1h since the last restart < 2h reset → still silent.
+    state = {"last_status": "wedged", "wedged_streak": 8, "restart_attempts": 3,
+             "last_restart_ts": 6_400.0, "exhausted_alerted": True}
+    d = _decide(wd, healthy=False, state=state, now=10_000.0,  # 3600s elapsed
+                max_restarts=3, exhaustion_reset_s=7_200.0)
+    assert d["action"] == "none" and d["alert"] is False
+    assert d["new_state"]["restart_attempts"] == 3  # not yet re-armed
+
+
+def test_exhausted_rearms_after_reset_window_and_restarts(wd):
+    # Budget spent and >2h since the last restart → re-arm and restart again.
+    state = {"last_status": "wedged", "wedged_streak": 30, "restart_attempts": 3,
+             "last_restart_ts": 0.0, "exhausted_alerted": True}
+    d = _decide(wd, healthy=False, state=state, now=10_000.0,  # >7200s elapsed
+                max_restarts=3, cooldown_s=1200.0, exhaustion_reset_s=7_200.0)
+    assert d["action"] == "restart" and d["alert"] is True
+    assert d["new_state"]["restart_attempts"] == 1  # re-armed (0) then +1
+    assert d["new_state"]["exhausted_alerted"] is False
+    assert d["new_state"]["last_restart_ts"] == 10_000.0
