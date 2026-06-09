@@ -33,10 +33,22 @@ EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
 # `sudo -n systemctl restart ict-trader-live.service` and Telegrams
 # the systemctl exit code. The 3-check streak gate is independent of
 # alert deduping (stale_streak in state json) so dedup of repeat
-# alerts doesn't suppress escalation. last_autoheal_streak gates
-# re-fires so we won't get a restart-loop on a persistently broken
-# trader; the trader-side systemd Restart=always with RestartSec=10
-# handles the actual recovery.
+# alerts doesn't suppress escalation.
+#
+# Restart-loop containment (BL-20260605-001, hardened 2026-06-09):
+# --max-restarts 5 caps restarts per stall episode; once spent the
+# watchdog stops bouncing the trader and sends a one-shot [CRITICAL]
+# EXHAUSTED alert (then alert-only until the heartbeat recovers, which
+# resets the episode budget). --cooldown-min 3 spaces successive
+# restarts so we re-observe the trader between bounces. A restart that
+# fails to DISPATCH (e.g. systemctl timing out under CPU saturation —
+# the 2026-06-09 incident, BL-20260609-001) does NOT consume an attempt
+# or start the cooldown, so the watchdog retries next check instead of
+# going silent. --restart-startup-grace-seconds 180 skips a restart
+# when the trader (re)started within the last 3 min (still completing
+# its first tick → hasn't written the first heartbeat yet), so we never
+# kill a trader mid-first-tick. The trader-side systemd Restart=always
+# with RestartSec=10 still handles a clean exit.
 #
 # --boot-grace-seconds 600 → for the first 10 min after a host reboot,
 # suppress heartbeat missing/stale alerts (and autoheal): the trader is
@@ -47,7 +59,7 @@ EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
 # stale once the window closes, it alerts as a genuine failure-to-
 # recover. 0 = disabled. 10 min comfortably covers boot + venv + IB-
 # gateway startup.
-ExecStart=/usr/bin/python3 -u scripts/check_heartbeat.py --interval 60 --grace 5 --auto-restart-after 3 --boot-grace-seconds 600
+ExecStart=/usr/bin/python3 -u scripts/check_heartbeat.py --interval 60 --grace 5 --auto-restart-after 3 --max-restarts 5 --cooldown-min 3 --restart-startup-grace-seconds 180 --boot-grace-seconds 600
 StandardOutput=journal
 StandardError=journal
 

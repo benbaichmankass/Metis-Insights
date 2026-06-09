@@ -117,6 +117,49 @@ def _system_uptime_s() -> float:
         return float("inf")
 
 
+def _seconds_since_unit_active(unit: str) -> Optional[float]:
+    """Seconds since ``unit`` last entered the active state, or None.
+
+    Reads ``ActiveEnterTimestampMonotonic`` (microseconds since boot, on
+    CLOCK_MONOTONIC) via ``systemctl show`` and compares it to the current
+    monotonic clock. Used by the startup-grace gate so the watchdog does
+    not restart a trader that has only just (re)started and has not yet had
+    time to write its first heartbeat (BL-20260605-001 part b).
+
+    Fail-OPEN: returns ``None`` on any error (systemctl missing, parse
+    failure, value 0/unset) so a read failure NEVER suppresses a genuinely
+    needed restart — the caller treats None as "no startup-grace info,
+    proceed".
+    """
+    try:
+        proc = subprocess.run(
+            ["systemctl", "show", unit,
+             "--property=ActiveEnterTimestampMonotonic", "--value"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    raw = (proc.stdout or "").strip()
+    try:
+        enter_us = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if enter_us <= 0:
+        # 0 == never active (or systemd reports unset); no usable timestamp.
+        return None
+    try:
+        now_us = time.clock_gettime(time.CLOCK_MONOTONIC) * 1_000_000.0
+    except (OSError, AttributeError, ValueError):
+        return None
+    delta = (now_us - enter_us) / 1_000_000.0
+    # Clock domain mismatch / negative → treat as "no info" (fail-open).
+    return delta if delta >= 0 else None
+
+
 # ---------------------------------------------------------------------------
 # State helpers
 # ---------------------------------------------------------------------------
@@ -276,6 +319,70 @@ def render_autoheal_alert(
     )
 
 
+def render_autoheal_exhausted(
+    unit: str, max_restarts: int, stale_count: int, age_s: Optional[float]
+) -> str:
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    age_min = int(age_s // 60) if age_s else 0
+    return (
+        f"[CRITICAL] Autoheal EXHAUSTED ({ts})\n"
+        f"Unit: {unit}. {max_restarts} restarts did not keep the trader "
+        f"heartbeating (stale {age_min}m, {stale_count} consecutive checks).\n"
+        f"Watchdog is now alert-only for this episode — manual intervention "
+        f"required (the trader will not stay up)."
+    )
+
+
+def decide_autoheal(
+    *,
+    state: Dict[str, Any],
+    stale_streak: int,
+    threshold: int,
+    max_restarts: int,
+    cooldown_s: float,
+    now: float,
+    seconds_since_active: Optional[float],
+    startup_grace_s: float,
+) -> Dict[str, Any]:
+    """Pure decision over streak + prior autoheal bookkeeping.
+
+    Mirrors ``check_ib_gateway.decide``: enforces a per-episode restart
+    cap (then a one-shot EXHAUSTED escalation), a cooldown between
+    restarts, and a startup-grace so we never bounce a trader that has
+    only just (re)started. Returns
+    ``{action, new_state}`` where ``action`` ∈
+    ``{"none", "restart", "exhausted"}``.
+
+    Bookkeeping (``autoheal_attempts`` / ``last_autoheal_ts``) is NOT
+    advanced here — the effecting caller advances it ONLY when a restart
+    actually dispatches, so a restart that fails to dispatch (e.g.
+    systemctl timing out under CPU saturation — the 2026-06-09 failure
+    mode, BL-20260609-001) does not burn an attempt or start a cooldown,
+    and the watchdog retries on the next check instead of going quiet.
+    """
+    s = dict(state)
+    if threshold <= 0 or stale_streak < threshold:
+        return {"action": "none", "new_state": s}
+    attempts = int(s.get("autoheal_attempts") or 0)
+    if attempts >= max_restarts:
+        if not s.get("autoheal_exhausted_alerted"):
+            s["autoheal_exhausted_alerted"] = True
+            return {"action": "exhausted", "new_state": s}
+        return {"action": "none", "new_state": s}
+    if now - float(s.get("last_autoheal_ts") or 0.0) < cooldown_s:
+        return {"action": "none", "new_state": s}
+    if (
+        startup_grace_s > 0
+        and seconds_since_active is not None
+        and seconds_since_active < startup_grace_s
+    ):
+        # Trader (re)started very recently; it is still completing startup +
+        # its first tick and hasn't written the first heartbeat yet. Don't
+        # kill it mid-first-tick (BL-20260605-001 part b).
+        return {"action": "none", "new_state": s}
+    return {"action": "restart", "new_state": s}
+
+
 def render_alert(action: str, age_s: Optional[float], hb_path: Path) -> str:
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     if action == "missing":
@@ -349,6 +456,49 @@ def main(argv: Optional[list] = None) -> int:
         help="systemd unit to restart on autoheal (default: %(default)s).",
     )
     p.add_argument(
+        "--max-restarts",
+        type=int,
+        default=int(os.environ.get("LIVENESS_MAX_RESTARTS", "5")),
+        help=(
+            "Max autoheal restarts per stall episode before the watchdog "
+            "stops restarting and escalates to a one-shot [CRITICAL] "
+            "EXHAUSTED alert (then alert-only until the heartbeat recovers). "
+            "Mirrors check_ib_gateway.py's --max-restarts so a trader that "
+            "will not stay up cannot become an unbounded restart loop "
+            "(BL-20260605-001). The episode counter resets when the "
+            "heartbeat goes fresh again. Default: %(default)s."
+        ),
+    )
+    p.add_argument(
+        "--cooldown-min",
+        type=float,
+        default=float(os.environ.get("LIVENESS_COOLDOWN_MIN", "3")),
+        help=(
+            "Minimum minutes between autoheal restarts. A trader restart is "
+            "cheap/safe (no broker lockout risk, unlike IB) so this is "
+            "shorter than the IB watchdog's 20 min, but still spaces "
+            "successive restarts so we re-observe the trader between bounces. "
+            "Default: %(default)s."
+        ),
+    )
+    p.add_argument(
+        "--restart-startup-grace-seconds",
+        type=int,
+        default=int(
+            os.environ.get("LIVENESS_RESTART_STARTUP_GRACE_SECONDS", "180")
+        ),
+        help=(
+            "Do NOT autoheal-restart the trader if it (re)started more "
+            "recently than this many seconds ago — it is still completing "
+            "startup + its first tick and has not had a chance to write the "
+            "first heartbeat yet. Prevents the kill-a-trader-mid-first-tick "
+            "restart loop (BL-20260605-001 part b). Read from the unit's "
+            "ActiveEnterTimestampMonotonic via `systemctl show`; fail-open "
+            "(if that read fails we do NOT block the restart). 0 = disabled. "
+            "Default: %(default)s."
+        ),
+    )
+    p.add_argument(
         "--boot-grace-seconds",
         type=int,
         default=int(os.environ.get("LIVENESS_BOOT_GRACE_SECONDS", "0")),
@@ -389,6 +539,14 @@ def main(argv: Optional[list] = None) -> int:
     stale_streak = int(state.get("stale_streak") or 0)
     stale_streak = stale_streak + 1 if is_stale else 0
     state["stale_streak"] = stale_streak
+
+    # A fresh heartbeat ends the stall episode → reset the autoheal restart
+    # budget so the NEXT stall gets a full --max-restarts allowance and the
+    # cooldown/exhausted gates don't carry over from a prior episode.
+    if not is_stale:
+        state["autoheal_attempts"] = 0
+        state["autoheal_exhausted_alerted"] = False
+        state["last_autoheal_ts"] = 0.0
 
     if action == "ok":
         # No new alert needed. Autoheal can still fire here — alert
@@ -460,30 +618,67 @@ def _maybe_autoheal(
     stale_streak: int,
     age_s: Optional[float],
 ) -> None:
-    """Fire ``systemctl restart`` if the streak has reached threshold.
+    """Fire ``systemctl restart`` if eligible, with cap + cooldown + grace.
 
-    Mutates ``state`` in place when a restart is attempted so the
-    caller's ``save_state`` persists the autoheal-fire metadata.
-    Returns nothing — failures Telegram the operator but do not
-    propagate. ``--auto-restart-after 0`` disables this entirely.
+    Mutates ``state`` in place. ``--auto-restart-after 0`` disables this
+    entirely. The capped/cooled/grace-gated eligibility is decided by the
+    pure ``decide_autoheal``; this wrapper performs the side effects:
+      * action ``"restart"`` → dispatch ``systemctl restart`` and, ONLY if
+        the dispatch actually ran, advance ``autoheal_attempts`` +
+        ``last_autoheal_ts`` (so a dispatch that fails under CPU
+        saturation does not burn an attempt or start a cooldown — it is
+        retried next check; BL-20260609-001).
+      * action ``"exhausted"`` → one-shot [CRITICAL] EXHAUSTED ping.
+    Failures Telegram the operator but never propagate.
     """
     threshold = args.auto_restart_after
-    if threshold <= 0:
+    if threshold <= 0 or stale_streak < threshold:
+        # Cheap pre-gate: only probe the unit / run the decision once the
+        # stall is sustained enough to be restart-eligible. Avoids a
+        # `systemctl show` on every healthy tick.
         return
-    if stale_streak < threshold:
+
+    now_epoch = time.time()
+    seconds_since_active = _seconds_since_unit_active(args.restart_unit)
+    decision = decide_autoheal(
+        state=state,
+        stale_streak=stale_streak,
+        threshold=threshold,
+        max_restarts=args.max_restarts,
+        cooldown_s=args.cooldown_min * 60.0,
+        now=now_epoch,
+        seconds_since_active=seconds_since_active,
+        startup_grace_s=float(args.restart_startup_grace_seconds),
+    )
+    state.update(decision["new_state"])
+    action = decision["action"]
+
+    if action == "exhausted":
+        msg = render_autoheal_exhausted(
+            args.restart_unit, args.max_restarts, stale_streak, age_s
+        )
+        print(msg)
+        send_alert(msg)  # best-effort
         return
-    last_autoheal_streak = int(state.get("last_autoheal_streak") or 0)
-    if stale_streak - last_autoheal_streak < threshold:
+    if action != "restart":
         return
+
     result = try_autoheal_restart(args.restart_unit)
     autoheal_msg = render_autoheal_alert(
         args.restart_unit, result, stale_streak, age_s
     )
     print(autoheal_msg)
     send_alert(autoheal_msg)  # best-effort
-    state["last_autoheal_ts"] = datetime.now(timezone.utc).isoformat()
-    state["last_autoheal_streak"] = stale_streak
     state["last_autoheal_returncode"] = result.get("returncode")
+    state["last_autoheal_attempt_ts"] = datetime.now(timezone.utc).isoformat()
+    if result.get("ran"):
+        # Only a dispatched restart consumes an attempt + starts the
+        # cooldown. A failed dispatch (subprocess error / timeout under CPU
+        # load) is retried on the next check rather than going silent.
+        state["autoheal_attempts"] = int(state.get("autoheal_attempts") or 0) + 1
+        state["last_autoheal_ts"] = now_epoch
+        state["last_autoheal_ts_iso"] = datetime.now(timezone.utc).isoformat()
+        state["last_autoheal_streak"] = stale_streak
 
 
 if __name__ == "__main__":

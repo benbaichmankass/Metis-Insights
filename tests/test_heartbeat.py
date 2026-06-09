@@ -392,6 +392,7 @@ def test_autoheal_fires_after_threshold(tmp_path, watchdog_module):
         "last_status": "stale", "last_alert_age_s": 3500, "stale_streak": 2,
     }))
     watchdog_module.send_alert = lambda _msg: True
+    watchdog_module._seconds_since_unit_active = lambda unit: None  # no grace block
     calls = []
     watchdog_module.try_autoheal_restart = lambda unit: (
         calls.append(unit)
@@ -409,19 +410,22 @@ def test_autoheal_fires_after_threshold(tmp_path, watchdog_module):
     saved = json.loads(state.read_text())
     assert saved["last_autoheal_returncode"] == 0
     assert saved["last_autoheal_streak"] == 3
+    assert saved["autoheal_attempts"] == 1  # dispatched restart consumed one
 
 
-def test_autoheal_does_not_double_fire(tmp_path, watchdog_module):
-    """If autoheal already fired at streak N, don't re-fire until streak
-    advances by another full threshold."""
+def test_autoheal_cooldown_blocks_immediate_refire(tmp_path, watchdog_module):
+    """After a dispatched restart, the cooldown (not a streak gate) blocks
+    an immediate re-fire on the next stale check."""
     hb = _make_stale_hb(tmp_path)
     state = tmp_path / "state.json"
-    # streak=3, autoheal already fired at streak=3.
+    # One restart already dispatched this episode, just now → inside cooldown.
     state.write_text(json.dumps({
         "last_status": "stale", "last_alert_age_s": 3500,
-        "stale_streak": 3, "last_autoheal_streak": 3,
+        "stale_streak": 3, "autoheal_attempts": 1,
+        "last_autoheal_ts": time.time(),
     }))
     watchdog_module.send_alert = lambda _msg: True
+    watchdog_module._seconds_since_unit_active = lambda unit: None
     calls = []
     watchdog_module.try_autoheal_restart = lambda unit: calls.append(unit) or {
         "ran": True, "returncode": 0, "stdout": "", "stderr": "",
@@ -431,11 +435,117 @@ def test_autoheal_does_not_double_fire(tmp_path, watchdog_module):
         "--state", str(state),
         "--interval", "900", "--grace", "2",
         "--auto-restart-after", "3",
+        "--cooldown-min", "3",
     ])
     assert rc == 0
-    # streak is now 4 (one new stale check), but last_autoheal_streak=3,
-    # diff is 1, not >= threshold (3). So autoheal SHOULD NOT fire.
+    # Within the 3-min cooldown of the prior restart → must NOT re-fire.
     assert calls == []
+
+
+def test_autoheal_exhausted_after_max_restarts(tmp_path, watchdog_module):
+    """Once --max-restarts attempts are spent (and cooldown elapsed), the
+    watchdog stops restarting and escalates a one-shot EXHAUSTED alert."""
+    hb = _make_stale_hb(tmp_path)
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({
+        "last_status": "stale", "last_alert_age_s": 3500,
+        "stale_streak": 6, "autoheal_attempts": 2,
+        "last_autoheal_ts": 0.0,  # cooldown long elapsed
+    }))
+    msgs = []
+    watchdog_module.send_alert = lambda msg: msgs.append(msg) or True
+    watchdog_module._seconds_since_unit_active = lambda unit: None
+    calls = []
+    watchdog_module.try_autoheal_restart = lambda unit: calls.append(unit) or {
+        "ran": True, "returncode": 0, "stdout": "", "stderr": "",
+    }
+    rc = watchdog_module.main([
+        "--heartbeat", str(hb),
+        "--state", str(state),
+        "--interval", "900", "--grace", "2",
+        "--auto-restart-after", "3",
+        "--max-restarts", "2",
+    ])
+    assert rc == 0
+    assert calls == []  # cap reached → no further restart
+    assert any("EXHAUSTED" in m for m in msgs)
+    saved = json.loads(state.read_text())
+    assert saved["autoheal_exhausted_alerted"] is True
+
+
+def test_autoheal_failed_dispatch_does_not_consume_attempt(tmp_path, watchdog_module):
+    """A restart that fails to DISPATCH (e.g. systemctl timing out under CPU
+    saturation) must NOT burn an attempt or start the cooldown — so the
+    watchdog retries next check instead of going silent (BL-20260609-001)."""
+    hb = _make_stale_hb(tmp_path)
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({
+        "last_status": "stale", "last_alert_age_s": 3500, "stale_streak": 3,
+    }))
+    watchdog_module.send_alert = lambda _msg: True
+    watchdog_module._seconds_since_unit_active = lambda unit: None
+    watchdog_module.try_autoheal_restart = lambda unit: {
+        "ran": False, "returncode": -1, "stdout": "", "stderr": "timeout",
+    }
+    rc = watchdog_module.main([
+        "--heartbeat", str(hb),
+        "--state", str(state),
+        "--interval", "900", "--grace", "2",
+        "--auto-restart-after", "3",
+    ])
+    assert rc == 0
+    saved = json.loads(state.read_text())
+    # Dispatch failed → no attempt consumed, no cooldown started.
+    assert int(saved.get("autoheal_attempts") or 0) == 0
+    assert float(saved.get("last_autoheal_ts") or 0.0) == 0.0
+
+
+def test_autoheal_startup_grace_blocks_restart(tmp_path, watchdog_module):
+    """Don't bounce a trader that only just (re)started (mid-first-tick)."""
+    hb = _make_stale_hb(tmp_path)
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({
+        "last_status": "stale", "last_alert_age_s": 3500, "stale_streak": 3,
+    }))
+    watchdog_module.send_alert = lambda _msg: True
+    # Trader entered active 20 s ago → inside the 180 s startup grace.
+    watchdog_module._seconds_since_unit_active = lambda unit: 20.0
+    calls = []
+    watchdog_module.try_autoheal_restart = lambda unit: calls.append(unit) or {
+        "ran": True, "returncode": 0, "stdout": "", "stderr": "",
+    }
+    rc = watchdog_module.main([
+        "--heartbeat", str(hb),
+        "--state", str(state),
+        "--interval", "900", "--grace", "2",
+        "--auto-restart-after", "3",
+        "--restart-startup-grace-seconds", "180",
+    ])
+    assert rc == 0
+    assert calls == []  # still starting → no restart
+
+
+def test_autoheal_episode_resets_on_fresh_heartbeat(tmp_path, watchdog_module):
+    """A fresh heartbeat ends the episode and resets the restart budget."""
+    hb = tmp_path / "heartbeat.txt"
+    hb.write_text("fresh")
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({
+        "last_status": "stale", "stale_streak": 6,
+        "autoheal_attempts": 5, "autoheal_exhausted_alerted": True,
+        "last_autoheal_ts": time.time(),
+    }))
+    watchdog_module.send_alert = lambda _msg: True
+    rc = watchdog_module.main([
+        "--heartbeat", str(hb),
+        "--state", str(state),
+        "--interval", "900", "--grace", "2",
+        "--auto-restart-after", "3",
+    ])
+    assert rc == 0
+    saved = json.loads(state.read_text())
+    assert saved["autoheal_attempts"] == 0
+    assert saved["autoheal_exhausted_alerted"] is False
 
 
 def test_autoheal_recovered_resets_streak(tmp_path, watchdog_module):
