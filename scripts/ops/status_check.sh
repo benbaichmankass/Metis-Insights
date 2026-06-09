@@ -86,6 +86,28 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# CPU snapshot (added 2026-06-09, BL-20260609-001).
+#
+# The 2026-06-09 incident review could not identify WHAT was saturating the
+# live VM (CPU 95-100%, which wedged the trader) because there is no
+# arbitrary-bash relay for the live VM and this script captured no
+# per-process CPU. This block closes that gap: a /health-review (or the
+# status-check system-action) now surfaces the load average + the top CPU
+# consumers + per-service cgroup CPU, so the hog can be named without SSH.
+#
+# Read-only, best-effort, bounded (head + cut). Never affects the exit code.
+# ---------------------------------------------------------------------------
+echo
+echo "===== CPU snapshot (load + top consumers) ====="
+echo "loadavg: $(cat /proc/loadavg 2>/dev/null || echo '(unreadable)')   nproc: $(nproc 2>/dev/null || echo '?')"
+echo "--- ps: top 15 by %CPU (pid %cpu %mem etimes args, truncated) ---"
+ps -eo pid,%cpu,%mem,etimes,args --sort=-%cpu 2>/dev/null | head -16 | cut -c1-140 \
+    || echo "(ps unavailable)"
+echo "--- systemd-cgtop: one-shot, ordered by CPU (per-service) ---"
+timeout 8 systemd-cgtop --order=cpu --iterations=1 --batch 2>/dev/null | head -15 \
+    || echo "(systemd-cgtop unavailable)"
+
+# ---------------------------------------------------------------------------
 # Runtime-data path diagnostic (added 2026-05-11 after the heartbeat
 # writer froze silently and we couldn't tell whether it was failing or
 # writing to a different path).
