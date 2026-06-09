@@ -193,11 +193,15 @@ Claude may dispatch these without operator approval:
   `runtime_logs/strategy_reviews/<UTC-date>/`. Read-only with respect
   to the trade journal (`mode=ro`); no order-path interaction. Issue
   body fields: `strategy: <name[,name,…]>` OR `all_btc: true`,
-  optional `window_days: <int>` (default 7) and `shadow_soak_days:
+  optional `window_days: <int>` (default 7), `shadow_soak_days:
   <int>` (default 0, only matters when the matrix would emit
-  `promote`). The wrapper echoes each packet's `proposed_action` in
-  the issue-comment reply so the operator gets a one-line verdict
-  per strategy without a follow-up curl. Gate doc:
+  `promote`), and `print_packets: true` (default off; when truthy
+  the wrapper also cats each packet's Markdown summary in the
+  issue-comment reply — useful for sandbox sessions that can't curl
+  the live VM directly and need the matrix's `reasons[]` /
+  per-regime cell table inline). The wrapper echoes each packet's
+  `proposed_action` in the issue-comment reply so the operator gets
+  a one-line verdict per strategy without a follow-up curl. Gate doc:
   [`docs/strategy-review-gate.md`](../strategy-review-gate.md).
 
 `send-ping` is non-mutating (it enqueues one Telegram message, no
