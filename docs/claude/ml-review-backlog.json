@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "MB-20260609-001",
+      "opened_at": "2026-06-09T09:00:00+00:00",
+      "opened_by": "claude (/health-review CPU A/B → /ml-review follow-up)",
+      "source": "2026-06-09 live incident (health BL-20260609-001). An operator-approved A/B (set REGIME_BAR_SCORING_DISABLED=1, #3075) proved per-bar regime scoring (S-MLOPT-S13, src/runtime/regime_bar_scoring.py) was saturating the live VM CPU to 95-100% and starving the trader loop into a ~30-40min wedge (06:18-06:57Z). With it OFF, CPU = 0-10% across 18 min (#3076/#3077/#3078).",
+      "title": "Optimize live per-bar regime scoring (regime_bar_scoring.py) so it can be re-enabled without pegging the live VM — currently DISABLED, which pauses the strong regime heads' per-bar track-record accrual (blocks MB-20260529-001 / yz-1h soak)",
+      "description": "Per-bar regime scoring scores every shadow-stage regime head on every closed bar per (symbol, timeframe). On the small live VM that pegs CPU to 95-100% and (with no cgroup isolation) starves the trader's main loop → the 2026-06-09 wedge. Same cost CLASS as MB-20260531-001 (sim per-bar feature reconstruction, which was root-caused to an O(n^2) feature rebuild and fixed byte-identically in sim/engine.py) — but the LIVE path (src/runtime/regime_bar_scoring.py + the ShadowPredictor.predict per head) is unoptimized. It is now DISABLED on the live VM (REGIME_BAR_SCORING_DISABLED=1, observe-only so zero trading impact) — but that pauses the order-influencing per-bar track record the strong heads (1h/MES) need (MB-20260529-001), which gates the yz-1h shadow->advisory promotion evidence (MB-20260527-004). OPTIONS to evaluate: (a) batch/cache the per-bar feature build instead of rebuilding per bar+head (mirror the MB-20260531-001 sim fix); (b) limit per-bar scoring to ONLY the strong heads being promoted (e.g. btc-regime-1h-lgbm-yz-v1) rather than every shadow regime head; (c) coarsen the cadence (score the 1h head on 1h closes only, not every tick); (d) cgroup CPUWeight/nice the trader above the scoring + other sidecars (defense-in-depth, helps regardless). Then re-enable via set-env REGIME_BAR_SCORING_DISABLED=0 and re-run the CPU A/B to confirm it stays bounded.",
+      "tier": 1,
+      "trigger_condition": "Next /ml-review; or before re-enabling REGIME_BAR_SCORING on the live VM; or any session touching regime_bar_scoring.py / the yz-1h promotion (MB-20260527-004).",
+      "resolution_criteria": "regime_bar_scoring.py runs on the live VM with CPU staying bounded (no sustained >~50% attributable to scoring, verified via the new status_check.sh CPU snapshot / a re-run A/B) AND the strong regime heads resume accruing per-bar shadow records — so MB-20260529-001 / the yz-1h soak are unblocked. OR a decision that per-bar scoring stays off and the regime-head track record is sourced differently.",
+      "status": "open",
+      "snoozed_until": null,
+      "evidence_log": []
+    },
+    {
       "id": "MB-20260607-002",
       "opened_at": "2026-06-07T00:00:00+00:00",
       "opened_by": "claude (S-MLOPT-S16 / S-MLOPT-S18 ship)",
