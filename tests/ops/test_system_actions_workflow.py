@@ -102,6 +102,9 @@ EXPECTED_ACTIONS = {
     "init-diag-token": "init_diag_token.sh",
     # 2026-05-24 bots overhaul — autonomous Claude infra.
     "send-ping": "send_ping_action.sh",   # Tier 1: immediate ping, no restart
+    # M7 — autonomous strategy-review-packet generator (Tier 1: read-only
+    # SQL + write to runtime_logs/strategy_reviews/).
+    "generate-strategy-review-packets": "generate_strategy_review_packets_action.sh",
     "set-env": "set_env.sh",              # Tier 2: .env upsert + service restart
     # 2026-05-27 — strips systemd-EnvironmentFile-noncompliant lines from .env
     # (the orphan FCM-JSON-blob case that bled a PEM private key into the
