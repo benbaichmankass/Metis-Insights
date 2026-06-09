@@ -67,7 +67,7 @@ document with these top-level keys:
 |---|---|---|---|
 | `n_decisions` | int | `order_packages` rows in window with `strategy_name = X` | Includes shadow + live. |
 | `n_filled` | int | `order_packages` with non-null `linked_trade_id` | The packet bot acts on. |
-| `n_closed` | int | `trades` filtered to `status ∈ {closed_*}` joined via `order_package_id` | Closes are the only rows with realized PnL. |
+| `n_closed` | int | `trades` filtered to `status ∈ {closed_*}` joined via `order_package_id` — **filled trades only**. An orphaned package (`linked_trade_id IS NULL`) whose `order_packages.status` lands at `"closed"` without ever filling is **NOT** a closed trade; it's a decision that never executed and contributes zero realised PnL. Counting orphans as closed losses inflates the catastrophic-zone path and demoted `htf_pullback_trend_2h` on M7's first run — fixed 2026-06-09. | Closes are the only rows with realized PnL. |
 | `n_wins` | int | `pnl > 0` over `n_closed` | |
 | `win_rate` | float | `n_wins / n_closed` | NULL if `n_closed = 0`. |
 | `pnl_total` | float | sum(pnl) over closed | |
