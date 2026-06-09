@@ -99,3 +99,19 @@ def _advisory_mode_enabled(settings: dict) -> bool:
     if raw is None:
         raw = os.environ.get("ADVISORY_MODE", "false")
     return str(raw).strip().lower() in {"true", "1", "yes", "on"}
+
+
+def _news_influence_mode(settings: dict) -> str:
+    """Return the news-influence sizing mode: ``off`` | ``annotate`` | ``downsize``.
+
+    Feature flag for the M9 graduated "act" layer (`src/runtime/news_sizing.py`).
+    Default **off** — the live order path acts only on the news veto; the
+    reductive downsize hook is inert. Operator opt-in: export
+    ``NEWS_INFLUENCE_MODE=downsize`` (or set it in the settings dict). Unknown
+    values degrade to ``off`` (fail-safe — never silently downsizes on a typo).
+    """
+    raw = settings.get("NEWS_INFLUENCE_MODE") if isinstance(settings, dict) else None
+    if raw is None:
+        raw = os.environ.get("NEWS_INFLUENCE_MODE", "off")
+    mode = str(raw).strip().lower()
+    return mode if mode in {"off", "annotate", "downsize"} else "off"

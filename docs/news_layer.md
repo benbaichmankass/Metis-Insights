@@ -285,10 +285,14 @@ real closed trades **before** flipping it on live.
 > whether the news (and an injected `event_risk`) **supports the trade
 > direction or threatens to knock it off course** and returns a size factor in
 > `[size_floor, 1.0]` — reductive-only, default-off (`NEWS_INFLUENCE_MODE`).
-> It is **not yet wired** into `Coordinator.multi_account_execute` (step 2) and
-> the `event_risk` input is still injected, not fed from a real economic-calendar
-> source (step 3). Both are operator-gated. Until then the live path acts only on
-> the veto.
+> It **is now wired** into `Coordinator.multi_account_execute` (step 2,
+> `src/runtime/news_sizing.py`) — applied right after the advisory downsize and
+> composed multiplicatively with it, **default-off** via `NEWS_INFLUENCE_MODE`
+> (off/annotate/downsize). The pipeline stamps the news score onto `pkg.meta`;
+> the sizing hook reads it. The `event_risk` input is still stamped as `0.0`,
+> not fed from a real economic-calendar source (step 3, operator-gated). Applied
+> downsizes are logged to `news_decisions.jsonl` and surfaced at
+> `GET /api/bot/news/recent`. With the flag off the live path acts only on the veto.
 
 ## Adding a new data source (future)
 

@@ -24,6 +24,7 @@ from src.web.api.routers import diag as diag_router
 from src.web.api.routers import health_snapshots as health_snapshots_router
 from src.web.api.routers import insights as insights_router
 from src.web.api.routers import liquidity as liquidity_router
+from src.web.api.routers import news as news_router
 from src.web.api.routers import order_packages as order_packages_router
 from src.web.api.routers import pnl as pnl_router
 from src.web.api.routers import pnl_exchange as pnl_exchange_router
@@ -76,6 +77,7 @@ app.include_router(training_center_router.router)
 app.include_router(attribution_router.router)
 app.include_router(devices_router.router)
 app.include_router(insights_router.router)
+app.include_router(news_router.router)
 
 
 @app.get("/api/health", tags=["health"])

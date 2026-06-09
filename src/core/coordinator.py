@@ -1260,6 +1260,17 @@ class Coordinator:
             sized_qty = apply_advisory_downsize(
                 pkg, sized_qty, account_name=account.name,
             )
+
+            # M9 news influence (default-off, gated by NEWS_INFLUENCE_MODE).
+            # Reductive only — shrinks the qty toward a floor when the news (and
+            # any imminent event) opposes the trade's direction, never enlarges.
+            # Composed multiplicatively with the advisory downsize above; both
+            # factors are in [floor, 1.0] so the product stays <= 1.0. Inert
+            # (returns qty unchanged) when the flag is off.
+            from src.runtime.news_sizing import apply_news_downsize
+            sized_qty = apply_news_downsize(
+                pkg, sized_qty, account_name=account.name,
+            )
             sized_qty_by_account[account.name] = sized_qty
 
             # Latching daily-loss-cap notification (operator-approved
