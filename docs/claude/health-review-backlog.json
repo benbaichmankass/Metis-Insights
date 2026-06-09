@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260609-002",
+      "opened_at": "2026-06-09T10:50:00+00:00",
+      "opened_by": "claude (post-IB-credential-rotation session)",
+      "source": "Session that rotated IB Gateway to the new IBKR paper user (`zgjgxo511` → DUQ325724). Provision succeeded (#3083), IBC reached `Login has completed` at 09:46:30Z, trader IB-connected at 10:26:22Z (clientId 9574, usfarm OK). PR #3088 added the `vm-ib-gateway-watchdog-enable` workflow and the watchdog timer is now `enabled=enabled active=active` (issue #3096).",
+      "title": "Verify IB integration actually produces MES/MGC/MHG signals daily for the rest of this week (post-rotation soak)",
+      "description": "The IB Gateway login was verified and the trader's IB session is healthy, but the live strategies that consume MES candles (`mes_trend_long_1d`, `mgc_pullback_1d`, `mhg_pullback_1d`) are 1-day-cadence — they don't fire `*_eval` audit events on every tick, so a healthy IB session doesn't immediately prove the candle-fetch round-trip is producing usable data for the strategies. Each daily review (e.g. /health-review) should confirm: (a) `runtime_logs/ibkr_mes_pull.jsonl` gets fresh `status:ok` rows for the day (the candle pull side); (b) for each of MES/MGC/MHG, at least one `*_eval` audit row exists per UTC day under `/api/diag/audit_query?event=<strategy>_eval&symbol=<sym>&since=<midnight>` — these are emitted whenever the strategy ran against a fresh bar, regardless of whether the setup was actionable; (c) the IB Gateway container `Status` shows `Up` and `ict-ib-gateway-watchdog.timer` shows `active`. If (a) or (b) is missing on any day this week, the integration is silently broken — open a follow-up + check the gateway login state via `system-action: gateway-logs`. Run this check every health review through 2026-06-15.",
+      "tier": 1,
+      "trigger_condition": "EVERY /health-review until 2026-06-15. Self-resolve if all three checks pass on each day Mon-Fri 2026-06-09 through 2026-06-13 (and weekend if markets open partial bars).",
+      "resolution_criteria": "Five consecutive trading days (2026-06-09 through 2026-06-13) where (a) `ibkr_mes_pull.jsonl` has at least one `status:ok` row for MES that UTC day; (b) each of `mes_trend_long_1d_eval`, `mgc_pullback_1d_eval`, `mhg_pullback_1d_eval` appears at least once that UTC day in the audit log; (c) `ict-ib-gateway-watchdog.timer` stays active. Record results in `check_log[]`; close as `resolved` when all five days pass.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260609-001",
       "opened_at": "2026-06-09T08:15:00+00:00",
       "opened_by": "claude (/health-review)",
