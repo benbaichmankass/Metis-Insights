@@ -449,6 +449,76 @@
         "2026-06-06 (model-training, S-MLOPT-S8): SHIPPED (PR draft, branch claude/xsym-metalabel-training-3JvRb): (a) Tier-1 opt-in/default-off `build_xsym_setup_candidates()` in scripts/ops/build_trainer_datasets.sh (ICT_BUILD_XSYM=1 builds the joint all/all dataset daily; default off => byte-identical cycle + the xsym manifest keeps skipping via PR #2886); (b) manifest header + notes document the eval result, stage stays research_only; (c) docs/sprint-logs/S-MLOPT-S8.md + roadmap S-MLOPT-S8 line updated. PROPOSAL to operator: research_only -> shadow (Tier-3) so the joint model accrues an observe-only live track record + flip ICT_BUILD_XSYM=1. NOT flipped autonomously. FOLLOW-UP LEVERS once MES accrues real closed trades: (i) re-run with a true MES real holdout to measure the INTENDED BTC->MES transfer; (ii) extend to MGC/MHG when they trade; (iii) combine the joint dataset with the S9 range-vol / yz features (the one feature lever that DID lift) for a stronger meta-label."
       ],
       "status_history": "opened+resolved 2026-06-06 (model-training, S-MLOPT-S8): joint trained+evaluated; qualified-positive on the BTC holdout, BTC->MES transfer unmeasurable (0 MES trades); research_only->shadow proposed (Tier-3, operator-gated); daily build wired opt-in/default-off (ICT_BUILD_XSYM). Operator decides the promotion."
+    },
+    {
+      "id": "MB-20260609-001",
+      "opened_at": "2026-06-09T05:42:00+00:00",
+      "opened_by": "claude (S9 yz monitoring session, doc-freshness)",
+      "source": "Diag relays #3008, #3042, #3045: per-head shadow/stats for the three S9 yz BTC regime heads. row_keys_seen differs across heads.",
+      "title": "btc-regime-15m-lgbm-yz-v1 shadow rows missing 5 fields that 1h and 5m heads have (confidence, direction, killzone, setup_type, strategy_name)",
+      "description": "Snapshot 2026-06-09: btc-regime-1h-lgbm-yz-v1 and btc-regime-5m-lgbm-yz-v1 record row_keys_seen including {confidence, direction, killzone, setup_type, strategy_name} in addition to the bar-derived vol/return features. btc-regime-15m-lgbm-yz-v1 records only the bar-derived features (yz/GK/Parkinson/RS vols, log_returns + lags, symbol, timeframe, vol_bucket, hour_of_day, dayofweek, event_source) — the 5 signal-context fields are absent. That means the 15m head is scoring purely from bar features while the other two heads see strategy-signal context too. Determine if this is intended in ml/configs/btc-regime-15m-lgbm-yz-v1.yaml (legitimate scope difference — e.g. 15m head only scores bar-cadence and not signal events), or a wiring gap in the shadow predictor's feature builder for the 15m head. Block on diagnosis before any 15m promotion past shadow.",
+      "tier": 1,
+      "trigger_condition": "before any promotion of btc-regime-15m-lgbm-yz-v1 past shadow",
+      "resolution_criteria": "(a) confirm intended-by-design vs wiring-bug by reading the three manifests + shadow inference call site, (b) if wiring bug, ship a fix and re-validate row_keys; (c) if intended, document the reason in the manifest's description",
+      "status": "open",
+      "evidence_log": [
+        {
+          "ts": "2026-06-08T15:06:26+00:00",
+          "kind": "diag",
+          "ref": "issue 3008",
+          "note": "1h head row_keys include the 5 signal-context fields, count=127"
+        },
+        {
+          "ts": "2026-06-08T22:12:46+00:00",
+          "kind": "diag",
+          "ref": "issue 3042",
+          "note": "5m head row_keys include the 5 signal-context fields, count=1537"
+        },
+        {
+          "ts": "2026-06-09T05:10:51+00:00",
+          "kind": "diag",
+          "ref": "issue 3045",
+          "note": "15m head row_keys MISSING the 5 signal-context fields, count=390"
+        }
+      ],
+      "status_history": [
+        {
+          "ts": "2026-06-09T05:42:00+00:00",
+          "from": null,
+          "to": "open",
+          "note": "Opened by S9 yz monitoring session doc-freshness."
+        }
+      ],
+      "snoozed_until": null
+    },
+    {
+      "id": "MB-20260609-002",
+      "opened_at": "2026-06-09T05:42:00+00:00",
+      "opened_by": "claude (S9 yz monitoring session, doc-freshness)",
+      "source": "Diag relay #3042 to /api/bot/shadow/stats for btc-regime-5m-lgbm-yz-v1 returned count=1537 over 3.9 days, score_mean=0.93, score_min=0.50, score_max=0.9998.",
+      "title": "btc-regime-5m-lgbm-yz-v1 score distribution looks class-collapsed (mean 0.93, count ~36% above bar-cadence expectation)",
+      "description": "btc-regime-5m-lgbm-yz-v1 shows score_mean=0.9282 across 1,537 shadow predictions logged 2026-06-05 01:04 → 2026-06-08 22:10 (3.9 days). At a clean 12-bars/hour cadence that window is 12×24×3.9 = ~1,123 bars; the head logged ~36% more, so something is scoring more than once per closed 5m bar (likely signal events overlapping bar-scoring — consistent with the head having the 5 signal-context fields per MB-20260609-001). The high mean and skewed-right distribution (min still 0.50 but max effectively 1.0) suggest one regime class is dominating with near-saturated confidence — a class-collapse / overconfidence pattern. Before any 5m head shadow→advisory promotion (operator review ≈ 2026-06-12), pull the per-class prediction-share distribution and the model's training/eval class balance from the trainer registry, and verify the head is meaningfully discriminating between regimes rather than predicting one dominant class always-with-high-confidence. Compare against 1h head (score_mean 0.77, less skewed) and 15m head (score_mean 0.84). The same anti-pattern has historically gated other regime models past shadow.",
+      "tier": 1,
+      "trigger_condition": "before the operator's planned ~2026-06-12 promotion review of the S9 yz heads",
+      "resolution_criteria": "produce a per-predicted-class share table for the 5m head over the shadow window, confirm reasonable spread (no single class > ~75% of predictions, or document why the regime distribution genuinely justifies it); compare to the head's training-set class balance to rule out simple class-imbalance leakage",
+      "status": "open",
+      "evidence_log": [
+        {
+          "ts": "2026-06-08T22:12:46+00:00",
+          "kind": "diag",
+          "ref": "issue 3042",
+          "note": "5m head shadow/stats count=1537, score_mean=0.93, score_min=0.50, score_max=0.9998"
+        }
+      ],
+      "status_history": [
+        {
+          "ts": "2026-06-09T05:42:00+00:00",
+          "from": null,
+          "to": "open",
+          "note": "Opened by S9 yz monitoring session doc-freshness."
+        }
+      ],
+      "snoozed_until": null
     }
   ]
 }
