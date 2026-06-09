@@ -3,6 +3,32 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "PB-20260609-002",
+      "opened_at": "2026-06-09T21:30:00+00:00",
+      "opened_by": "claude (M7 closeout, S-M7-STRATEGY-REVIEW-GATE-2026-06-09 addendum)",
+      "source": "M7 packet runs surface every ict_scalp_5m cell with `policy: unknown` because `config/regime_policy.yaml` has no rows for ict_scalp_5m at all. This is intentional default-permissive behavior, but it means the gate can't read per-regime evidence for the strategy.",
+      "title": "Author config/regime_policy.yaml rows for ict_scalp_5m once enough closed trades accrue",
+      "description": "ict_scalp_5m has a real edge from limited live evidence (100% WR / +$3.28 over n_closed=2 on 2026-06-09). Once the strategy has ≥30 closed trades per regime cell, characterize per-(trend, vol) PnL via the same regime-roster matrix methodology used in `docs/research/regime-roster-matrix-2026-06-01.md` and propose a row block in `regime_policy.yaml`. Until then the gate fail-safes to permissive 'on' / 'unknown' which is correct — no false demotes — but the matrix can't surface a kill or demote_shadow on a regime-targeted basis.",
+      "tier": 3,
+      "trigger_condition": "ict_scalp_5m has ≥30 closed trades distributed across ≥3 (trend, vol) cells.",
+      "resolution_criteria": "A Tier-3 PR proposes the ict_scalp_5m block in regime_policy.yaml, citing the per-cell PnL evidence from a recent M7 packet run.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "PB-20260609-001",
+      "opened_at": "2026-06-09T21:30:00+00:00",
+      "opened_by": "claude (M7 closeout, S-M7-STRATEGY-REVIEW-GATE-2026-06-09 addendum)",
+      "source": "M7 packet output (final run, issue #3130) shows many cells with `vol: unknown` — packages carry `regime` but null `vol_regime`. The vol axis stamp comes from `src.runtime.regime.vol_detector` which requires frozen `vol_bucket` edges per `(symbol, timeframe)` — htf_pullback_trend_2h's 2h timeframe and ict_scalp_5m's 5m timeframe likely lack edges in `btc-regime-5m-baseline-v1`.",
+      "title": "Audit vol_regime stamp coverage — many M7 packets have vol:unknown",
+      "description": "M7's matrix doesn't read the vol axis yet, so this is observation-only — but if a future sprint extends the gate to the 2-D `trend_vol` cells in `regime_policy.yaml`, the missing vol stamps will gate the strategies' evidence collection. Investigation steps: (1) check which symbol/timeframe pairs lack vol_bucket edges; (2) decide whether to train per-(symbol, timeframe) regime heads for the gap-fillers, or accept vol_regime=None as the permissive default. NOT URGENT — the gate's 1-D trend axis works fine without vol.",
+      "tier": 1,
+      "trigger_condition": "Either a future M7-style sprint extends the gate's matrix to 2-D trend_vol cells, OR a `/ml-review` session decides to train additional regime heads.",
+      "resolution_criteria": "Either a Tier-1 audit doc lands explaining which (symbol, timeframe) pairs intentionally lack edges, OR new vol-detector edges land and the M7 packet's vol-axis coverage improves.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
       "id": "PB-20260607-001",
       "opened_at": "2026-06-07T13:30:00+00:00",
       "opened_by": "claude (post-#2952 deploy verification — diag-request #2958)",
