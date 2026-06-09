@@ -83,15 +83,16 @@ def _insert_trade(
     position_size: float,
     status: str = "open",
     is_backtest: int = 0,
+    strategy_name: str | None = None,
 ) -> None:
     with sqlite3.connect(path) as conn:
         conn.execute(
             "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
-            "position_size, status, is_backtest, account_id) VALUES "
-            "(?, ?, ?, ?, ?, ?, ?, ?)",
+            "position_size, status, is_backtest, account_id, strategy_name) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 "2026-05-14T00:00:00Z", symbol, direction, 50_000.0,
-                position_size, status, is_backtest, account_id,
+                position_size, status, is_backtest, account_id, strategy_name,
             ),
         )
 
@@ -824,6 +825,181 @@ class TestBuildIntentLegs:
             _build_intent_legs(
                 pkg, self._delta("noop", None, 0.0, 0.0, 0.0),
             )
+
+
+class TestNettingGuardMonocle:
+    """Position-netting guard — monocle half (Option A, BL-20260608-DEMOPNL).
+
+    When ``POSITION_NETTING_GUARD_ENABLED`` is on, a same-direction ADD
+    (delta action ``open``/``increase``) for a ``(strategy, account,
+    symbol)`` that already holds an open trade is suppressed — no
+    pyramiding, restoring per-trade=per-position. Reduce/close/flip
+    (position-management) deltas are never blocked, cross-strategy adds
+    are not blocked (the multiplexer aggregates those), and with the
+    switch OFF the legacy increase/open dispatch is unchanged.
+    """
+
+    def _balance_fetcher(self, account):
+        return 10_000.0
+
+    def test_guard_on_suppresses_same_strategy_increase(
+        self, coord, accounts_yaml, trade_db, monkeypatch,
+    ):
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+
+        # Existing 0.05 long for turtle_soup; risk target 0.2 → would
+        # otherwise increase by 0.15. Guard must suppress the add.
+        _insert_trade(
+            trade_db, account_id="bybit_2", symbol="BTCUSDT",
+            direction="long", position_size=0.05, strategy_name="turtle_soup",
+        )
+
+        pkg = _intent_pkg(direction="long")
+        results = coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
+        assert captured == [], "guard must suppress the netted add"
+        assert results[0]["trade_id"] is None
+        assert results[0]["sized_qty"] == 0.0
+        assert "reentry_suppressed_netting_guard:increase" in (
+            results[0]["error"] or ""
+        )
+        # The delta is still computed + logged for audit.
+        assert pkg.meta["execution_delta"]["action"] == "increase"
+
+    def test_guard_on_allows_first_entry_when_flat(
+        self, coord, accounts_yaml, trade_db, monkeypatch,
+    ):
+        """Flat account → action 'open' with no existing strategy trade is
+        NOT a re-entry, so the guard lets the first entry through."""
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+
+        pkg = _intent_pkg(direction="long", aggregated_target_qty=0.0)
+        results = coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
+        assert len(captured) == 1, "first entry must dispatch"
+        assert results[0]["error"] is None
+        assert pkg.meta["execution_delta"]["action"] == "open"
+
+    def test_guard_off_increase_still_dispatched(
+        self, coord, accounts_yaml, trade_db, monkeypatch,
+    ):
+        """Default (switch unset) → legacy increase dispatch is unchanged."""
+        monkeypatch.delenv("POSITION_NETTING_GUARD_ENABLED", raising=False)
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+
+        _insert_trade(
+            trade_db, account_id="bybit_2", symbol="BTCUSDT",
+            direction="long", position_size=0.05, strategy_name="turtle_soup",
+        )
+
+        pkg = _intent_pkg(direction="long")
+        coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
+        assert len(captured) == 1, "guard off → add still dispatched"
+        assert captured[0]["qty_override"] == pytest.approx(0.15, abs=1e-3)
+
+    def test_guard_on_does_not_block_reduce(
+        self, coord, accounts_yaml, trade_db, monkeypatch,
+    ):
+        """Reduce (position-management) is never blocked by the guard."""
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+
+        # Existing 0.5 long > target 0.2 → reduce by 0.3.
+        _insert_trade(
+            trade_db, account_id="bybit_2", symbol="BTCUSDT",
+            direction="long", position_size=0.5, strategy_name="turtle_soup",
+        )
+
+        pkg = _intent_pkg(direction="long")
+        results = coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
+        assert len(captured) == 1, "reduce must still dispatch"
+        assert captured[0]["reduce_only"] is True
+        assert pkg.meta["execution_delta"]["action"] == "reduce"
+        assert results[0]["error"] is None
+
+    def test_guard_on_does_not_block_other_strategy_increase(
+        self, coord, accounts_yaml, trade_db, monkeypatch,
+    ):
+        """The gate is (strategy, account, symbol)-scoped: an open trade
+        owned by a DIFFERENT strategy does not suppress this strategy's
+        add (cross-strategy aggregation is the multiplexer's job)."""
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+
+        # Open trade belongs to vwap; pkg is turtle_soup.
+        _insert_trade(
+            trade_db, account_id="bybit_2", symbol="BTCUSDT",
+            direction="long", position_size=0.05, strategy_name="vwap",
+        )
+
+        pkg = _intent_pkg(direction="long")  # strategy="turtle_soup"
+        coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
+        assert len(captured) == 1, "different-strategy open trade must not gate"
+        assert pkg.meta["execution_delta"]["action"] == "increase"
+
+    def test_account_allowlist_excludes_this_account(
+        self, coord, accounts_yaml, trade_db, monkeypatch,
+    ):
+        """Master ON but allowlist=bybit_1 (demo-only soak) → the guard is
+        NOT active for bybit_2, so its add still dispatches."""
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_1")
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+
+        _insert_trade(
+            trade_db, account_id="bybit_2", symbol="BTCUSDT",
+            direction="long", position_size=0.05, strategy_name="turtle_soup",
+        )
+
+        pkg = _intent_pkg(direction="long")
+        coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
+        assert len(captured) == 1, "guard scoped to bybit_1 must not gate bybit_2"
+
+    def test_account_allowlist_includes_this_account(
+        self, coord, accounts_yaml, trade_db, monkeypatch,
+    ):
+        """allowlist=bybit_2 → guard active for bybit_2 → add suppressed."""
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_2")
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+
+        _insert_trade(
+            trade_db, account_id="bybit_2", symbol="BTCUSDT",
+            direction="long", position_size=0.05, strategy_name="turtle_soup",
+        )
+
+        pkg = _intent_pkg(direction="long")
+        results = coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
+        assert captured == [], "guard scoped to bybit_2 must suppress its add"
+        assert "reentry_suppressed_netting_guard" in (results[0]["error"] or "")
 
 
 class TestPackageIsIntentModeHelper:

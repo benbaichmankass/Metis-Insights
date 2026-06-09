@@ -260,12 +260,27 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                         daily_loss_pct: float, signal_ttl_bars: int,
                         overrides: Dict[str, dict], refresh: bool,
                         clock_tf: str = "15m",
-                        flip_policy: str = "reverse") -> Dict[str, Any]:
+                        flip_policy: str = "reverse",
+                        reentry_policy: str = "suppress") -> Dict[str, Any]:
     """Drive all `roster` strategies through aggregate_intents on a shared
     account. Clock runs on `clock_tf` bars; at each tick we read each
     strategy's latest live signal (emitted within signal_ttl_bars), net them
     via the REAL aggregate_intents, then open/flip/close ONE shared position
-    sized against the running balance, and run the owner's REAL monitor()."""
+    sized against the running balance, and run the owner's REAL monitor().
+
+    ``reentry_policy`` governs what happens when a fresh same-direction
+    signal arrives while a position is already open (BL-20260608-DEMOPNL):
+
+      * ``"suppress"`` (default; models the Option-A FIX + the harness's
+        long-standing single-position behaviour) — ignore the re-entry; the
+        open position stands until its monitor()/SL/TP exits. One trade =
+        one position.
+      * ``"net"`` (models CURRENT LIVE one-way-mode behaviour) — ADD to the
+        position at the new signal's fill (weighted-average entry, summed
+        qty) and OVERWRITE the single SL/TP with the new entry's, exactly
+        as a Bybit one-way position nets same-side entries. This is the
+        bug the guard removes; comparing ``net`` vs ``suppress`` is the
+        walk-forward's apples-to-apples test."""
     # Sizing mirrors the live RiskManager.position_size math (src/units/
     # accounts/risk.py:141): risk_usd = balance * risk_pct; qty = risk_usd /
     # stop_distance. We use the formula directly rather than constructing a
@@ -420,6 +435,28 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                                     tp=row["tp"], owner=win_name, entry_ts=ts.iloc[i],
                                     entry_idx=i, meta=json.loads(row["meta_json"]),
                                     notional=qty * fill)
+            elif (
+                pos is not None and pos.side == des_side
+                and reentry_policy == "net" and not daily_halted
+                and i == latest_idx.get(win_name)
+            ):
+                # CURRENT-LIVE one-way netting: a FRESH same-direction signal
+                # (emitted this very bar) adds to the open position and
+                # overwrites its single SL/TP — the demo-account growing-short
+                # dynamic. ``suppress`` (default/fix) skips this branch so the
+                # position stands as one trade. Gated on signal freshness so
+                # a stale TTL-held signal doesn't pyramid every bar.
+                fill = c[i]
+                add_qty = _risk_qty(balance, risk_pct, fill, row["sl"])
+                add_qty = float(add_qty) if add_qty else 0.0
+                if add_qty > 0:
+                    new_qty = pos.qty + add_qty
+                    pos.entry = (pos.entry * pos.qty + fill * add_qty) / new_qty
+                    pos.qty = new_qty
+                    pos.sl = float(row["sl"])   # single SL/TP overwritten by
+                    pos.tp = float(row["tp"])   # each new entry (one-way mode)
+                    pos.owner = win_name
+                    pos.notional = new_qty * fill
             elif pos is not None and pos.side != des_side and not daily_halted:
                 # opposite net desire — behaviour governed by flip_policy:
                 #   "reverse" (default/live-faithful): close current + open the
@@ -459,6 +496,7 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                       params={"initial_balance": initial_balance, "risk_pct": risk_pct,
                               "daily_loss_pct": daily_loss_pct, "signal_ttl_bars": signal_ttl_bars,
                               "clock_tf": clock_tf, "flip_policy": flip_policy,
+                              "reentry_policy": reentry_policy,
                               "overrides": overrides},
                       data_start=str(ts.iloc[0]) if n else None,
                       data_end=str(ts.iloc[-1]) if n else None)
@@ -560,6 +598,11 @@ def main(argv: List[str]) -> int:
                    help="On an opposite net vote with a position open: reverse "
                         "(close+open new side, live-faithful), hold (ignore the "
                         "flip, let monitor/SL exit), or flat (close, stand aside).")
+    p.add_argument("--reentry-policy", default="suppress", choices=["suppress", "net"],
+                   help="Same-direction re-entry while a position is open: "
+                        "suppress (Option-A fix / single-position, default) or "
+                        "net (model current one-way-mode pyramiding+SL/TP "
+                        "overwrite). See BL-20260608-DEMOPNL.")
     p.add_argument("--fee-bps-roundtrip", type=float, default=FEE_BPS_ROUNDTRIP)
     p.add_argument("--override", action="append", default=[], metavar="STRAT.key=val",
                    help="Per-strategy param override, e.g. fade_breakout_4h.timeout_bars=0. Repeatable.")
@@ -592,7 +635,7 @@ def main(argv: List[str]) -> int:
         initial_balance=args.initial_balance, risk_pct=args.risk_pct,
         daily_loss_pct=args.daily_loss_pct, signal_ttl_bars=args.signal_ttl_bars,
         overrides=overrides, refresh=args.refresh_signals, clock_tf=args.clock_tf,
-        flip_policy=args.flip_policy)
+        flip_policy=args.flip_policy, reentry_policy=args.reentry_policy)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)
