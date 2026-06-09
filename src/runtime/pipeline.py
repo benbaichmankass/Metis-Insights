@@ -10,6 +10,7 @@ from src.news.news_pipeline import get_news_score
 from src.news.news_client import is_active as news_is_active
 from src.news.news_audit import log_news_decision
 from src.news.news_symbols import query_for_tags
+from src.news.news_events import event_risk_for_symbol
 # PR-6: signal builder functions extracted to strategy_signal_builders.py.
 # Re-exported here for back-compat (existing callers + tests import from pipeline).
 from src.runtime.strategy_signal_builders import (  # noqa: E402
@@ -443,13 +444,17 @@ def run_pipeline(
         # Stamp the news score onto the signal meta so it rides into pkg.meta
         # (order_bridge copies signal["meta"]) and the coordinator's reductive
         # news-influence sizing hook can read it without re-fetching. event_risk
-        # is reserved for the (future) economic-calendar feed — 0.0 until then.
+        # comes from the economic-calendar source — how much an imminent
+        # high-impact event could knock this trade off course (a consideration,
+        # never a blackout; 0.0 when no event is in window).
         try:
+            _event_risk, _event_meta = event_risk_for_symbol(_sym)
             signal.setdefault("meta", {})["news"] = {
                 "adjustment": news_result.adjustment,
                 "decision": news_result.decision,
                 "item_count": news_result.item_count,
-                "event_risk": 0.0,
+                "event_risk": _event_risk,
+                "event": _event_meta,
             }
         except Exception:  # noqa: BLE001 — stamping must never affect the trade
             logger.debug("news meta stamp failed", exc_info=True)

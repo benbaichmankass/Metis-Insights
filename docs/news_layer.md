@@ -289,10 +289,13 @@ real closed trades **before** flipping it on live.
 > `src/runtime/news_sizing.py`) — applied right after the advisory downsize and
 > composed multiplicatively with it, **default-off** via `NEWS_INFLUENCE_MODE`
 > (off/annotate/downsize). The pipeline stamps the news score onto `pkg.meta`;
-> the sizing hook reads it. The `event_risk` input is still stamped as `0.0`,
-> not fed from a real economic-calendar source (step 3, operator-gated). Applied
-> downsizes are logged to `news_decisions.jsonl` and surfaced at
-> `GET /api/bot/news/recent`. With the flag off the live path acts only on the veto.
+> the sizing hook reads it. The `event_risk` input is fed by the
+> **economic-calendar source** (`src/news/news_events.py` +
+> `config/economic_calendar.yaml`, step 3): `event_risk = impact × proximity`
+> for the traded symbol's relevant event classes, stamped onto `pkg.meta` (0.0
+> when no event is in window). Applied downsizes are logged to
+> `news_decisions.jsonl` and surfaced at `GET /api/bot/news/recent`. With the
+> flag off the live path acts only on the veto.
 
 ## Adding a new data source (future)
 
