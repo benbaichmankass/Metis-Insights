@@ -45,7 +45,15 @@ The harness consumes the M7 `tune_recipe` schema verbatim:
 | `search_space` | Expanded into a concrete grid — see grammar below. |
 | `harness` | Selects the backtester via the dispatch registry. Loose names are aliased (`scripts/backtest_vwap.py` → the vwap module). |
 | `evidence_window_days` | Passed through as the walk-forward window (recipe override of the harness default). |
+| `fixed_args` | Extra backtester flags forwarded verbatim to **every** run so the sweep pins the strategy's **live** params (timeframe, donchian, trail, …). A token list (`["--timeframe","1h","--donchian","20"]`) or a shell-style string. Without it the harness runs at its CLI defaults and the optimum shifts off the live config — the backtesting skill's "match the live params exactly or the optimum shifts" rule. The gate should author this from `config/strategies.yaml`; `--fixed-args '<...>'` augments it at the CLI. |
 | `note` | Carried into the result + Markdown for context; not interpreted. |
+
+> **A sweep is only valid evidence at the live params.** Always set `fixed_args`
+> (or `--fixed-args`) to the strategy's current `config/strategies.yaml` values
+> for everything *except* the swept parameter. A harness flag the strategy uses
+> but the backtester doesn't expose (e.g. trend's long-only gate) is a coverage
+> gap — note it in the result and, if it materially moves the optimum, add the
+> flag to the harness rather than running an unpinned sweep.
 
 ## Search-space grammar
 

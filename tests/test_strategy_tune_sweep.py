@@ -274,6 +274,37 @@ def test_write_outputs_emits_json_and_md(tmp_path):
     assert json.loads(json_path.read_text())["param"] == "min_confidence"
 
 
+def test_build_invocation_forwards_fixed_args_per_value():
+    spec = sweep._REGISTRY[("backtest_trend.py", "min_confidence")]
+    argv = sweep.build_invocation(
+        spec, value=0.3, data="data/btc_1h_multiyear.csv", fee_bps=7.5,
+        window_days=None, fixed_args=["--timeframe", "1h", "--donchian", "20", "--trail-mult", "5.0"],
+    )
+    # pinned live params present, and the swept value still injected
+    assert "--timeframe" in argv and argv[argv.index("--timeframe") + 1] == "1h"
+    assert "--trail-mult" in argv and "--donchian" in argv
+    assert argv[argv.index("--min-confidence") + 1] == "0.3"
+
+
+def test_fixed_args_coercion_from_string_and_list():
+    assert sweep._coerce_fixed_args("--timeframe 1h --donchian 20") == [
+        "--timeframe", "1h", "--donchian", "20"]
+    assert sweep._coerce_fixed_args(["--trail-mult", 5.0]) == ["--trail-mult", "5.0"]
+    assert sweep._coerce_fixed_args(None) == []
+
+
+def test_load_recipe_reads_fixed_args(tmp_path):
+    p = tmp_path / "r.json"
+    p.write_text(json.dumps({
+        "target": "config/strategies.yaml::trend_donchian.min_confidence",
+        "current_value": 0.3, "search_space": "[0.0, 0.3, 0.5]",
+        "harness": "scripts/backtest_trend.py",
+        "fixed_args": ["--timeframe", "1h", "--donchian", "20"],
+    }))
+    r = sweep.load_recipe(p)
+    assert r.fixed_args == ["--timeframe", "1h", "--donchian", "20"]
+
+
 def test_extract_json_tolerates_leading_table_text():
     out = "some table text\nmore lines\n{\"total_pnl\": 12.0}\n"
     assert sweep._extract_json(out) == {"total_pnl": 12.0}

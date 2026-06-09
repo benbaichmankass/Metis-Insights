@@ -81,6 +81,13 @@ class TuneRecipe:
     harness: str                      # "scripts/backtest_vwap.py"
     evidence_window_days: Optional[int] = None
     note: str = ""
+    # Extra backtester flags forwarded verbatim to every invocation, so the
+    # sweep pins the strategy's LIVE params (timeframe, donchian, trail, …).
+    # Without this the harness runs at its CLI defaults and the optimum shifts
+    # off the live config (the backtesting skill's "match the live params
+    # exactly or the optimum shifts" rule). Holds tokens already split, e.g.
+    # ["--timeframe", "1h", "--donchian", "20"].
+    fixed_args: list[str] = field(default_factory=list)
 
     # Derived (filled by parse_target)
     config_file: str = field(init=False, default="")
@@ -132,7 +139,19 @@ def load_recipe(path: Path) -> TuneRecipe:
         harness=obj.get("harness", ""),
         evidence_window_days=obj.get("evidence_window_days"),
         note=obj.get("note", ""),
+        fixed_args=_coerce_fixed_args(obj.get("fixed_args")),
     )
+
+
+def _coerce_fixed_args(raw: Any) -> list[str]:
+    """Accept fixed_args as a token list (preferred) or a shell-style string."""
+    if not raw:
+        return []
+    if isinstance(raw, str):
+        import shlex
+
+        return shlex.split(raw)
+    return [str(x) for x in raw]
 
 
 # --------------------------------------------------------------------------- #
@@ -355,7 +374,7 @@ def build_invocation(
     data: Optional[str],
     fee_bps: float,
     window_days: Optional[int],
-    native_grid: Optional[list[float]] = None,
+    fixed_args: Optional[list[str]] = None,
 ) -> list[str]:
     """Assemble the argv for one backtester call (per-value or native-sweep)."""
     argv = [_python()]
@@ -364,6 +383,8 @@ def build_invocation(
         argv += ["--data", data]
     argv += ["--fee-bps-roundtrip", str(fee_bps)]
     argv += spec.extra_args
+    if fixed_args:
+        argv += list(fixed_args)
     if spec.native_sweep_flag:
         # The native-sweep harness (vwap) prints its result dict to stdout
         # unconditionally and does not define a --json flag — don't pass one.
@@ -418,7 +439,8 @@ def run_sweep(
     if spec.native_sweep_flag:
         # One call; the harness walks its own grid. We re-key its rows onto value.
         argv = build_invocation(
-            spec, value=None, data=data, fee_bps=fee_bps, window_days=window_days
+            spec, value=None, data=data, fee_bps=fee_bps, window_days=window_days,
+            fixed_args=recipe.fixed_args,
         )
         out = runner(argv)
         native_rows = out.get(spec.native_rows_key or "", [])
@@ -428,7 +450,8 @@ def run_sweep(
     else:
         for value in grid:
             argv = build_invocation(
-                spec, value=value, data=data, fee_bps=fee_bps, window_days=window_days
+                spec, value=value, data=data, fee_bps=fee_bps, window_days=window_days,
+                fixed_args=recipe.fixed_args,
             )
             out = runner(argv)
             rows.append(normalize_row(value, out))
@@ -445,6 +468,7 @@ def run_sweep(
         "param": recipe.param,
         "target": recipe.target,
         "harness": recipe.harness,
+        "fixed_args": list(recipe.fixed_args),
         "fee_bps_roundtrip": fee_bps,
         "evidence_window_days": window_days,
         "note": recipe.note,
@@ -578,7 +602,11 @@ def write_outputs(result: dict[str, Any], out_dir: Optional[Path]) -> tuple[Path
 # --------------------------------------------------------------------------- #
 def _recipe_from_args(args: argparse.Namespace) -> TuneRecipe:
     if args.recipe:
-        return load_recipe(Path(args.recipe))
+        recipe = load_recipe(Path(args.recipe))
+        # CLI --fixed-args augments the recipe's (e.g. pin live params the gate
+        # didn't author into the packet yet).
+        recipe.fixed_args = recipe.fixed_args + _coerce_fixed_args(args.fixed_args)
+        return recipe
     if not (args.target and args.search_space and args.harness):
         raise SystemExit(
             "provide --recipe, or all of --target/--search-space/--harness"
@@ -591,6 +619,7 @@ def _recipe_from_args(args: argparse.Namespace) -> TuneRecipe:
         harness=args.harness,
         evidence_window_days=args.window_days,
         note=args.note or "",
+        fixed_args=_coerce_fixed_args(args.fixed_args),
     )
 
 
@@ -603,6 +632,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--harness", help="Backtester the param belongs to (e.g. scripts/backtest_fade.py).")
     p.add_argument("--window-days", type=int, default=None, help="Evidence window in days (recipe override).")
     p.add_argument("--note", default=None)
+    p.add_argument("--fixed-args", default=None,
+                   help="Extra backtester flags forwarded to every run, shell-quoted, "
+                        "to pin the strategy's live params, e.g. "
+                        "--fixed-args '--timeframe 1h --donchian 20 --trail-mult 5.0'.")
     p.add_argument("--data", default=None, help="Candle CSV; defaults to each harness's BACKTEST_DATA_PATH.")
     p.add_argument("--fee-bps-roundtrip", type=float, default=DEFAULT_FEE_BPS_ROUNDTRIP)
     p.add_argument("--samples", type=int, default=DEFAULT_SAMPLES, help="Points for a continuous search space.")
@@ -617,14 +650,18 @@ def main(argv: Optional[list[str]] = None) -> int:
         grid = parse_search_space(recipe.search_space, recipe.current_value, args.samples)
         print(f"strategy={recipe.strategy} param={recipe.param} harness={spec.module}")
         print(f"grid ({len(grid)}): {grid}")
+        if recipe.fixed_args:
+            print(f"fixed_args: {recipe.fixed_args}")
         if spec.native_sweep_flag:
             argv_ = build_invocation(spec, value=None, data=args.data,
-                                     fee_bps=args.fee_bps_roundtrip, window_days=recipe.evidence_window_days)
+                                     fee_bps=args.fee_bps_roundtrip, window_days=recipe.evidence_window_days,
+                                     fixed_args=recipe.fixed_args)
             print("native sweep:", " ".join(argv_))
         else:
             for v in grid:
                 argv_ = build_invocation(spec, value=v, data=args.data,
-                                         fee_bps=args.fee_bps_roundtrip, window_days=recipe.evidence_window_days)
+                                         fee_bps=args.fee_bps_roundtrip, window_days=recipe.evidence_window_days,
+                                         fixed_args=recipe.fixed_args)
                 print(f"  value={v}:", " ".join(argv_))
         return 0
 
