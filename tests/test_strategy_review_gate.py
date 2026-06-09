@@ -789,3 +789,178 @@ class TestRegimeStampFromPkgMeta:
         regime_index = {"pkg-legacy": {"regime": "chop", "vol_regime": "calm"}}
         cells = compute_regime_cells(decisions, regime_index, {}, "legacy_pkg")
         assert ("chop", "calm") in {(c.trend, c.vol) for c in cells}
+
+
+# ---------------------------------------------------------------------------
+# YAML boolean coercion (PyYAML reads `off` as False) — must normalize.
+# ---------------------------------------------------------------------------
+
+
+class TestPolicyValueNormalization:
+    """Regression: PyYAML 1.1 booleans (`off`/`on` unquoted) coerce to
+    Python `False`/`True`. The matrix's ``c.regime_policy_cell == "off"``
+    check never matches a boolean, so the all-cells-off escalation path
+    silently broke on the 2026-06-09 vwap packet (460 packages across
+    9 policy-OFF cells, matrix never escalated).
+    """
+
+    def test_yaml_bool_false_normalizes_to_off(self):
+        # Modelling exactly what yaml.safe_load returns for `off`.
+        policy = {"trending": {"vwap": {"long": False, "short": False}}}
+        assert regime_policy_cell_for(policy, "vwap", "trending") == "off"
+
+    def test_yaml_bool_true_normalizes_to_on(self):
+        policy = {"chop": {"trend_donchian": {"long": True, "short": True}}}
+        assert regime_policy_cell_for(policy, "trend_donchian", "chop") == "on"
+
+    def test_string_off_passes_through(self):
+        policy = {"trending": {"vwap": {"long": "off", "short": "off"}}}
+        assert regime_policy_cell_for(policy, "vwap", "trending") == "off"
+
+    def test_mixed_bool_yields_unknown(self):
+        policy = {"trending": {"trend_donchian": {"long": True, "short": False}}}
+        assert regime_policy_cell_for(policy, "trend_donchian", "trending") == "unknown"
+
+    def test_direction_hint_with_bool_value(self):
+        policy = {"trending": {"htf_pullback_trend_2h": {"long": True, "short": False}}}
+        # long-only packet → policy: on
+        assert (
+            regime_policy_cell_for(
+                policy, "htf_pullback_trend_2h", "trending", "long"
+            )
+            == "on"
+        )
+        # short-only packet → policy: off
+        assert (
+            regime_policy_cell_for(
+                policy, "htf_pullback_trend_2h", "trending", "short"
+            )
+            == "off"
+        )
+
+    def test_decide_kill_path_works_with_bool_policy_values(self):
+        """End-to-end: when every cell's policy is parsed as bool False
+        (PyYAML 1.1), the matrix's all-off escalation MUST fire."""
+        h = _headline(
+            n_closed=120, n_wins=10, win_rate=0.08, pnl_total=-500.0, expectancy=-4.16
+        )
+        # All cells policy: off, modelled as the bool False the YAML
+        # parser returns — the normalization should bridge so kill fires.
+        bool_off_cell = _cell(policy="off")  # already string via the helper
+        cells = [bool_off_cell for _ in range(3)]
+        d = decide(h, cells, _diag(), execution="live", shadow_soak_days=0)
+        assert d.action == "kill"
+
+
+# ---------------------------------------------------------------------------
+# Direction-aware policy lookup — per-cell direction hint.
+# ---------------------------------------------------------------------------
+
+
+class TestDirectionAwarePolicyLookup:
+    """Regression: htf_pullback_trend_2h's live packages on the 2026-06-09
+    run all fired ``direction=long``; ``regime_policy.yaml`` lists
+    ``trending: htf_pullback_trend_2h: { long: on, short: off }``. The
+    rolled-up verdict reads ``unknown`` (mixed) — but the cell is
+    unambiguously ``on`` for the actual direction (long). Bucketing
+    should pass the direction hint when all packages share one.
+    """
+
+    @pytest.fixture
+    def db_long_only_bucket(self, tmp_path: Path) -> Path:
+        path = tmp_path / "trade_journal.db"
+        make_canonical_db(path)
+        now = "2026-06-09T12:00:00+00:00"
+        conn = sqlite3.connect(str(path))
+        try:
+            for i in range(3):
+                trade_id = conn.execute(
+                    "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
+                    "position_size, status, pnl, is_backtest, strategy_name, account_id) "
+                    "VALUES (?, 'BTCUSDT', 'long', 60000.0, 0.001, 'closed_tp', -1.0, 0, "
+                    "'htf_pullback_trend_2h', 'bybit_2')",
+                    (now,),
+                ).lastrowid
+                meta_json = json.dumps({
+                    "strategy_name": "htf_pullback_trend_2h",
+                    "regime": "trending",
+                    "vol_regime": "calm",
+                })
+                conn.execute(
+                    "INSERT INTO order_packages "
+                    "(order_package_id, strategy_name, symbol, direction, entry, sl, tp, "
+                    "confidence, created_at, updated_at, status, linked_trade_id, meta) "
+                    "VALUES (?, 'htf_pullback_trend_2h', 'BTCUSDT', 'long', 60000.0, "
+                    "59000.0, 62000.0, 0.7, ?, ?, 'closed', ?, ?)",
+                    (f"pkg-hp-{i}", now, now, trade_id, meta_json),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+        return path
+
+    def test_long_only_bucket_resolves_long_direction_policy(
+        self, db_long_only_bucket: Path
+    ):
+        from scripts.ml.strategy_review_packet import pull_decisions
+
+        ws = datetime(2026, 6, 8, tzinfo=timezone.utc)
+        we = datetime(2026, 6, 10, tzinfo=timezone.utc)
+        decisions = pull_decisions(
+            str(db_long_only_bucket), "htf_pullback_trend_2h", ws, we
+        )
+        policy = {
+            "trending": {
+                "htf_pullback_trend_2h": {"long": "on", "short": "off"},
+            },
+        }
+        cells = compute_regime_cells(decisions, {}, policy, "htf_pullback_trend_2h")
+        # All three packages are direction=long → policy resolves to "on"
+        # (the long-direction policy), NOT the rolled-up "unknown".
+        assert len(cells) == 1
+        assert cells[0].regime_policy_cell == "on"
+
+    def test_mixed_direction_bucket_falls_back_to_rolled_up_verdict(
+        self, tmp_path: Path
+    ):
+        path = tmp_path / "trade_journal.db"
+        make_canonical_db(path)
+        now = "2026-06-09T12:00:00+00:00"
+        conn = sqlite3.connect(str(path))
+        try:
+            for i, direction in enumerate(["long", "short", "long"]):
+                trade_id = conn.execute(
+                    "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
+                    "position_size, status, pnl, is_backtest, strategy_name, account_id) "
+                    "VALUES (?, 'BTCUSDT', ?, 60000.0, 0.001, 'closed_tp', -1.0, 0, "
+                    "'mixed_strat', 'bybit_2')",
+                    (now, direction),
+                ).lastrowid
+                meta_json = json.dumps({
+                    "strategy_name": "mixed_strat",
+                    "regime": "trending",
+                    "vol_regime": "calm",
+                })
+                conn.execute(
+                    "INSERT INTO order_packages "
+                    "(order_package_id, strategy_name, symbol, direction, entry, sl, tp, "
+                    "confidence, created_at, updated_at, status, linked_trade_id, meta) "
+                    "VALUES (?, 'mixed_strat', 'BTCUSDT', ?, 60000.0, "
+                    "59000.0, 62000.0, 0.7, ?, ?, 'closed', ?, ?)",
+                    (f"pkg-mx-{i}", direction, now, now, trade_id, meta_json),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+        from scripts.ml.strategy_review_packet import pull_decisions
+
+        ws = datetime(2026, 6, 8, tzinfo=timezone.utc)
+        we = datetime(2026, 6, 10, tzinfo=timezone.utc)
+        decisions = pull_decisions(str(path), "mixed_strat", ws, we)
+        policy = {
+            "trending": {"mixed_strat": {"long": "on", "short": "off"}},
+        }
+        cells = compute_regime_cells(decisions, {}, policy, "mixed_strat")
+        # 2 longs + 1 short → no single direction → rolled-up "unknown"
+        assert cells[0].regime_policy_cell == "unknown"
