@@ -460,7 +460,7 @@
       "tier": 1,
       "trigger_condition": "before any promotion of btc-regime-15m-lgbm-yz-v1 past shadow",
       "resolution_criteria": "(a) confirm intended-by-design vs wiring-bug by reading the three manifests + shadow inference call site, (b) if wiring bug, ship a fix and re-validate row_keys; (c) if intended, document the reason in the manifest's description",
-      "status": "open",
+      "status": "resolved",
       "evidence_log": [
         {
           "ts": "2026-06-08T15:06:26+00:00",
@@ -487,6 +487,12 @@
           "from": null,
           "to": "open",
           "note": "Opened by S9 yz monitoring session doc-freshness."
+        },
+        {
+          "ts": "2026-06-09T06:35:00+00:00",
+          "from": "open",
+          "to": "resolved",
+          "note": "Intended, not a wiring gap. The five fields are signal-time correlation metadata, NOT model inputs; all three yz manifests share an identical 11-feature bar-derived set (verified against ml/predictors/shadow.py + regime_shadow.feature_row_for_predictor). The 15m head logs bar-cadence-only records because turtle_soup (its only 15m BTC strategy) rarely fires; the per-bar path (S13) still accrues its track record. See docs/audits/s9-yz-shadow-promotion-2026-06-09.md §2."
         }
       ],
       "snoozed_until": null
@@ -501,7 +507,7 @@
       "tier": 1,
       "trigger_condition": "before the operator's planned ~2026-06-12 promotion review of the S9 yz heads",
       "resolution_criteria": "produce a per-predicted-class share table for the 5m head over the shadow window, confirm reasonable spread (no single class > ~75% of predictions, or document why the regime distribution genuinely justifies it); compare to the head's training-set class balance to rule out simple class-imbalance leakage",
-      "status": "open",
+      "status": "resolved",
       "evidence_log": [
         {
           "ts": "2026-06-08T22:12:46+00:00",
@@ -516,6 +522,12 @@
           "from": null,
           "to": "open",
           "note": "Opened by S9 yz monitoring session doc-freshness."
+        },
+        {
+          "ts": "2026-06-09T06:35:00+00:00",
+          "from": "open",
+          "to": "resolved",
+          "note": "Not class-collapsed. The logged score is max-class probability (range [0.5,1] for these 2-class heads); the 5m head's high score_mean is confident RANGE prediction (range=99.65% of 5m bars) — it predicts volatile only 1.1% of the time. Per-class eval (run 20260609): 1h f1_vol 0.476 > 15m 0.247 > 5m 0.125 (precision_vol 0.082); the score_mean ordering is the inverse of detector quality. Promotion read: 1h promotable, 15m marginal, hold 5m. See docs/audits/s9-yz-shadow-promotion-2026-06-09.md §3."
         }
       ],
       "snoozed_until": null

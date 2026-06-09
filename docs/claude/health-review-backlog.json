@@ -991,7 +991,10 @@
       "title": "PR #3007 CI never triggered after push (0 check runs in 7+ h on SHA e286c4ea)",
       "description": "After opening PR #3007 against main from claude/vibrant-babbage-9Wbls, mcp__github__pull_request_read method=get_status returned state='pending', total_count=0 across 4+ polls over a 7-hour window. No workflow runs reference the head SHA in the Actions list for the period. Either (a) a path/branch filter excluded this PR's changes, (b) the push event was accepted but didn't fan out to workflow triggers, or (c) the runners were idle/wedged. Worth investigating because the same trigger anomaly would silently let other PRs from claude/* branches merge without CI. First step next session: check Actions for any run referencing e286c4ea; if absent, inspect the workflow trigger filters in .github/workflows/*.yml against the changed paths in #3007. An empty commit on the branch would kick the trigger as a workaround if the configs are correct but state is stale.",
       "tier": 1,
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-06-09T06:35:00+00:00",
+      "resolved_by": "claude (S9 yz loose-ends session)",
+      "resolution_note": "Not a CI bug. All 11 checks ran green on commit 1 (e286c4ea); commit 2 (61c64816) had 0 runs because the PR was dirty — the backlog-JSON appends conflicted with main, which blocks GitHub from building the merge ref, so the synchronize push triggered nothing. get_status/get_check_runs report only the head SHA, hence total_count=0. The path/branch-filter hypothesis is ruled out (no CI workflow has a path filter). Fixed by resolving the conflict and pushing 61c6481..2be6549; 11 checks re-fired green; #3007 merged. See docs/audits/s9-yz-shadow-promotion-2026-06-09.md §1."
     },
     {
       "id": "BL-20260609-002",
@@ -1011,8 +1014,11 @@
       "title": "Trainer backtest-sweep mirror publisher (scripts/ops/publish_trainer_mirror.sh) has not run for ~21.8 days",
       "description": "/data/bot-data/runtime_logs/trainer_mirror/backtests on the live VM has not received a new SUMMARY.md / all_metrics.json since 2026-05-17. This breaks the /api/bot/backtests/sweeps endpoint's freshness contract and hides any recent trainer-VM backtest sweeps from the dashboard's Backtesting tab. Investigate via trainer-vm-diag relay: (a) is the publisher timer/cron still installed and enabled, (b) when did it last attempt to run, (c) is the run failing or is the trigger not firing. If accumulated sweeps just need to be pushed, the fix is a one-shot rsync invocation; if the publisher's state was lost in a trainer-VM redeploy, re-arm the timer. Operator visibility into S10/S11 trainer work is blocked until this is fixed.",
       "tier": 2,
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-06-09T06:35:00+00:00",
+      "resolved_by": "claude (S9 yz loose-ends session)",
+      "resolution_note": "Corrected: the publisher is healthy, not stopped. ict-trainer-publish.timer fires every ~2 min (last ran 2026-06-09T06:09Z); trainer_status/training_cycle/registry are fresh on the live VM. Only backtest sweeps were stale because the generator scripts/ops/run_backtest_sweep.sh is on-demand (no timer/cron), last run 2026-05-17. Launched a fresh detached sweep (trainer-vm-diag #3047) to refresh /api/bot/backtests/sweeps. Recommendation: add a weekly ict-backtest-sweep.timer if recurring freshness is wanted; otherwise accept as on-demand by design. See docs/audits/s9-yz-shadow-promotion-2026-06-09.md §4."
     }
   ],
-  "updated_at": "2026-06-09T05:42:00+00:00"
+  "updated_at": "2026-06-09T06:35:00+00:00"
 }
