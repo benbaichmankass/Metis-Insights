@@ -17,7 +17,10 @@ import pytest
 from ml.predictors.base import Predictor
 from ml.predictors.shadow import ShadowPredictor
 from src.runtime.regime_bar_scoring import (
+    _BAR_SECONDS,
+    _FETCH_GATE_BUFFER_S,
     _last_bar_timestamp,
+    _should_fetch_now,
     emit_regime_bar_predictions,
     regime_bar_scoring_enabled,
 )
@@ -112,6 +115,7 @@ class TestEnabled:
             predictors=[pred],
             fetch_fn=lambda s, t: _candles(),
             seen={},
+            wall_cache={},
         )
         assert n == 0
         assert pred.wrapped.calls == []
@@ -136,6 +140,7 @@ class TestEmit:
             predictors=[pred],
             fetch_fn=lambda s, t: _candles(last_ts=1234),
             seen=seen,
+            wall_cache={},
         )
         assert n == 1
         assert len(pred.wrapped.calls) == 1
@@ -157,31 +162,49 @@ class TestEmit:
     def test_dedup_same_bar_scored_once(self, tmp_path):
         pred = _regime_predictor("btc-regime-5m", _spec(), tmp_path / "s.jsonl")
         seen = {}
-        kwargs = dict(
-            predictors=[pred],
-            fetch_fn=lambda s, t: _candles(last_ts=999),
-            seen=seen,
+        # Advance past the fetch-gate so the second call attempts a fetch and
+        # exercises the per-model_id dedup (not the wall-clock gate above it).
+        clock = [1_000_000.0]
+        now = lambda: clock[0]  # noqa: E731
+        wall: dict = {}
+        assert (
+            emit_regime_bar_predictions(
+                predictors=[pred], fetch_fn=lambda s, t: _candles(last_ts=999),
+                seen=seen, wall_cache=wall, now=now,
+            )
+            == 1
         )
-        assert emit_regime_bar_predictions(**kwargs) == 1
-        # Same bar timestamp → second call is a no-op.
-        assert emit_regime_bar_predictions(**kwargs) == 0
+        clock[0] += 300.0
+        assert (
+            emit_regime_bar_predictions(
+                predictors=[pred], fetch_fn=lambda s, t: _candles(last_ts=999),
+                seen=seen, wall_cache=wall, now=now,
+            )
+            == 0
+        )
         assert len(pred.wrapped.calls) == 1
 
     def test_new_bar_scores_again(self, tmp_path):
         pred = _regime_predictor("btc-regime-5m", _spec(), tmp_path / "s.jsonl")
         seen = {}
+        # Advancing wall-clock between calls so the per-(symbol, timeframe)
+        # fetch gate (MB-20260609-001) doesn't suppress the second fetch.
+        clock = [1_000_000.0]
+        now = lambda: clock[0]  # noqa: E731
+        wall: dict = {}
         assert (
             emit_regime_bar_predictions(
                 predictors=[pred], fetch_fn=lambda s, t: _candles(last_ts=1),
-                seen=seen,
+                seen=seen, wall_cache=wall, now=now,
             )
             == 1
         )
-        # A later closed bar → scored again.
+        # Advance past the gate (5m bar = 300 s, buffer = 30 s → 270 s gate).
+        clock[0] += 300.0
         assert (
             emit_regime_bar_predictions(
                 predictors=[pred], fetch_fn=lambda s, t: _candles(last_ts=2),
-                seen=seen,
+                seen=seen, wall_cache=wall, now=now,
             )
             == 1
         )
@@ -196,6 +219,7 @@ class TestEmit:
             predictors=[plain],
             fetch_fn=lambda s, t: _candles(),
             seen={},
+            wall_cache={},
         )
         assert n == 0
         assert plain.wrapped.calls == []
@@ -207,7 +231,7 @@ class TestEmit:
             raise RuntimeError("market data down")
 
         n = emit_regime_bar_predictions(
-            predictors=[pred], fetch_fn=_boom, seen={},
+            predictors=[pred], fetch_fn=_boom, seen={}, wall_cache={},
         )
         assert n == 0
         assert pred.wrapped.calls == []
@@ -216,6 +240,7 @@ class TestEmit:
         pred = _regime_predictor("btc-regime-5m", _spec(), tmp_path / "s.jsonl")
         n = emit_regime_bar_predictions(
             predictors=[pred], fetch_fn=lambda s, t: None, seen={},
+            wall_cache={},
         )
         assert n == 0
 
@@ -233,7 +258,7 @@ class TestEmit:
             return _candles(last_ts=hash((symbol, timeframe)) & 0xFFFF)
 
         n = emit_regime_bar_predictions(
-            predictors=[btc5, mes15], fetch_fn=_fetch, seen={},
+            predictors=[btc5, mes15], fetch_fn=_fetch, seen={}, wall_cache={},
         )
         assert n == 2
         assert len(btc5.wrapped.calls) == 1
@@ -252,7 +277,7 @@ class TestEmit:
             return _candles(last_ts=7)
 
         n = emit_regime_bar_predictions(
-            predictors=[bad, good], fetch_fn=_fetch, seen={},
+            predictors=[bad, good], fetch_fn=_fetch, seen={}, wall_cache={},
         )
         # The MES fetch failed but BTC still scored.
         assert n == 1
@@ -268,5 +293,158 @@ class TestEmit:
                                                "open": 100.0, "high": 100.0,
                                                "low": 100.0, "volume": 1.0}]),
             seen={},
+            wall_cache={},
         )
         assert n == 0
+
+
+class TestFetchGate:
+    """The wall-clock fetch gate is the MB-20260609-001 fix: per
+    (symbol, timeframe), skip the network fetch between bar closes so a 60 s
+    tick on a 1h-cadence head does not pay the fetch cost 60× per hour.
+    """
+
+    def test_should_fetch_first_call_true(self):
+        assert _should_fetch_now("BTCUSDT", "5m", {}, now=1000.0) is True
+
+    def test_should_fetch_unknown_tf_always_true(self):
+        # Unknown timeframe (no _BAR_SECONDS entry) → permissive fallback so a
+        # newly-added cadence cannot strand a head silently.
+        wall = {("BTCUSDT", "7m"): 999.0}
+        assert _should_fetch_now("BTCUSDT", "7m", wall, now=999.5) is True
+
+    def test_should_fetch_within_gate_false(self):
+        # 5m bar = 300 s, buffer = 30 s → gate = 270 s. 200 s elapsed → skip.
+        wall = {("BTCUSDT", "5m"): 1000.0}
+        assert _should_fetch_now("BTCUSDT", "5m", wall, now=1200.0) is False
+
+    def test_should_fetch_past_gate_true(self):
+        # 270 s elapsed at the threshold → fetch.
+        wall = {("BTCUSDT", "5m"): 1000.0}
+        gate = float(_BAR_SECONDS["5m"]) - _FETCH_GATE_BUFFER_S
+        assert _should_fetch_now("BTCUSDT", "5m", wall, now=1000.0 + gate) is True
+
+    def test_1h_gate_is_long(self):
+        # 1h bar = 3600 s, buffer = 30 s → gate = 3570 s. 60 s after the last
+        # fetch (i.e. the very next tick) is firmly inside the gate → skip.
+        wall = {("BTCUSDT", "1h"): 1000.0}
+        assert _should_fetch_now("BTCUSDT", "1h", wall, now=1060.0) is False
+        # And re-allowed once a full bar is up.
+        assert _should_fetch_now("BTCUSDT", "1h", wall, now=1000.0 + 3570.0) is True
+
+    def test_emit_within_gate_does_not_call_fetch(self, tmp_path):
+        # Two consecutive emit() calls within the 5m gate: only the FIRST
+        # should call the fetch fn (which is where the CPU saturation came
+        # from). The second short-circuits before the network.
+        pred = _regime_predictor("btc-regime-5m", _spec(), tmp_path / "s.jsonl")
+        calls: list = []
+
+        def _fetch(symbol, timeframe):
+            calls.append((symbol, timeframe))
+            return _candles(last_ts=42)
+
+        seen: dict = {}
+        wall: dict = {}
+        clock = [1_000_000.0]
+        now = lambda: clock[0]  # noqa: E731
+
+        assert (
+            emit_regime_bar_predictions(
+                predictors=[pred], fetch_fn=_fetch, seen=seen,
+                wall_cache=wall, now=now,
+            )
+            == 1
+        )
+        # 60 s later (one tick) — should NOT re-fetch.
+        clock[0] += 60.0
+        assert (
+            emit_regime_bar_predictions(
+                predictors=[pred], fetch_fn=_fetch, seen=seen,
+                wall_cache=wall, now=now,
+            )
+            == 0
+        )
+        assert len(calls) == 1
+
+    def test_emit_fetch_failure_does_not_arm_gate(self, tmp_path):
+        # A failed fetch must NOT delay the next retry: the wall-cache entry
+        # is only set AFTER a candle frame is in hand. Otherwise a transient
+        # exchange blip would silence a head for a full bar duration.
+        pred = _regime_predictor("btc-regime-5m", _spec(), tmp_path / "s.jsonl")
+        seen: dict = {}
+        wall: dict = {}
+        clock = [1_000_000.0]
+        now = lambda: clock[0]  # noqa: E731
+
+        def _boom(symbol, timeframe):
+            raise RuntimeError("market data down")
+
+        emit_regime_bar_predictions(
+            predictors=[pred], fetch_fn=_boom, seen=seen,
+            wall_cache=wall, now=now,
+        )
+        assert ("BTCUSDT", "5m") not in wall  # gate not armed by failure
+
+        # Next tick (60 s) — should attempt the fetch again (a real recovery).
+        clock[0] += 60.0
+        calls: list = []
+
+        def _ok(symbol, timeframe):
+            calls.append((symbol, timeframe))
+            return _candles(last_ts=99)
+
+        n = emit_regime_bar_predictions(
+            predictors=[pred], fetch_fn=_ok, seen=seen,
+            wall_cache=wall, now=now,
+        )
+        assert n == 1
+        assert calls == [("BTCUSDT", "5m")]
+
+
+class TestPredictorGrouping:
+    """Multiple shadow regime heads on the same (symbol, timeframe) must share
+    ONE network fetch per tick (the MB-20260609-001 fix). Pre-grouping the old
+    per-predictor loop fetched the same Bybit/IBKR candles once per head."""
+
+    def test_two_heads_same_symtf_share_one_fetch(self, tmp_path):
+        log = tmp_path / "s.jsonl"
+        a = _regime_predictor(
+            "btc-regime-5m-v1", _spec(symbol="BTCUSDT", timeframe="5m"), log
+        )
+        b = _regime_predictor(
+            "btc-regime-5m-v2", _spec(symbol="BTCUSDT", timeframe="5m"), log
+        )
+        calls: list = []
+
+        def _fetch(symbol, timeframe):
+            calls.append((symbol, timeframe))
+            return _candles(last_ts=777)
+
+        n = emit_regime_bar_predictions(
+            predictors=[a, b], fetch_fn=_fetch, seen={}, wall_cache={},
+        )
+        assert n == 2
+        assert len(calls) == 1  # one shared fetch, two scored heads
+        assert len(a.wrapped.calls) == 1
+        assert len(b.wrapped.calls) == 1
+
+    def test_different_symtf_independent_fetches(self, tmp_path):
+        # BTCUSDT/5m and BTCUSDT/1h are different groups → 2 fetches.
+        log = tmp_path / "s.jsonl"
+        btc5 = _regime_predictor(
+            "btc-regime-5m", _spec(symbol="BTCUSDT", timeframe="5m"), log
+        )
+        btc1h = _regime_predictor(
+            "btc-regime-1h", _spec(symbol="BTCUSDT", timeframe="1h"), log
+        )
+        calls: list = []
+
+        def _fetch(symbol, timeframe):
+            calls.append((symbol, timeframe))
+            return _candles(last_ts=hash((symbol, timeframe)) & 0xFFFF)
+
+        n = emit_regime_bar_predictions(
+            predictors=[btc5, btc1h], fetch_fn=_fetch, seen={}, wall_cache={},
+        )
+        assert n == 2
+        assert sorted(calls) == [("BTCUSDT", "1h"), ("BTCUSDT", "5m")]

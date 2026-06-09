@@ -33,6 +33,28 @@ emitter.
 bar** (dedup by ``(model_id, last_bar_timestamp)`` in a per-process cache), so
 calling this every tick never floods the log between bars.
 
+**Per-tick cost control (MB-20260609-001).** On the 2-core live VM the
+unoptimised path saturated CPU and starved the trader loop into a ~30-40 min
+wedge on 2026-06-09. Two changes here keep the per-tick cost bounded:
+
+1. **Predictors are grouped by ``(symbol, timeframe)``** — multiple shadow
+   regime heads on the same market (e.g. ``btc-regime-5m-v2`` +
+   ``btc-regime-5m-lgbm-yz-v1``) share ONE network fetch and ONE shared
+   ``closes`` view per tick instead of fetching the same Bybit/IBKR candles
+   per head. The per-head call into ``feature_row_for_predictor`` is still
+   independent (each head has its own frozen ``edges``/``labels``/
+   ``vol_feature_column``) but it runs over already-fetched data.
+2. **Wall-clock fetch gate** — per ``(symbol, timeframe)``, the network
+   fetch is skipped until ``bar_duration - 30 s`` have elapsed since the
+   last fetch (``_BAR_SECONDS`` + ``_FETCH_GATE_BUFFER_S``). A 1h-cadence
+   head is therefore fetched ~1×/hour instead of 60×; a 5m-cadence head
+   ~1×/5min instead of 5×. A failed fetch does NOT arm the gate, so a
+   transient exchange blip doesn't silence a head for a full bar duration.
+
+The exchange client is also cached per ``emit_regime_bar_predictions`` call
+inside ``_live_fetch_fn`` so multiple timeframes on the same symbol share
+one connector (the IB path's connect-probe + circuit-breaker is real cost).
+
 **Never raises.** Any failure is logged and the tick proceeds — the per-bar
 path must not be able to break the trading loop.
 
@@ -55,6 +77,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import Any, Callable, Mapping
 
 logger = logging.getLogger(__name__)
@@ -63,10 +86,38 @@ logger = logging.getLogger(__name__)
 # scored once per new closed bar; a process restart (every deploy) clears it.
 _REGIME_BAR_SEEN: dict[str, Any] = {}
 
+# Per-process wall-clock fetch gate: (symbol, timeframe) -> last fetch epoch s.
+# A second tick within the same bar window short-circuits BEFORE the network
+# fetch — the dominant CPU cost on the 2-core live VM (MB-20260609-001 / the
+# 2026-06-09 wedge). Cleared on process restart like _REGIME_BAR_SEEN.
+_REGIME_FETCH_WALL: dict[tuple[str, str], float] = {}
+
 # Per-process predictor cache, keyed by (registry_root, tuple(model_ids)) so a
 # config reload or registry promotion that changes the resolved shadow set gets
 # a fresh resolution — mirrors the signal-builder cache semantics.
 _PREDICTOR_CACHE: dict = {}
+
+# Nominal seconds-per-bar for the timeframes the live regime heads use. The
+# wall-clock fetch gate uses ``duration - _FETCH_GATE_BUFFER_S`` so the next
+# fetch lands a few seconds before the bar actually closes (catching the new
+# closed bar on its first eligible tick). Unknown timeframes fall through the
+# gate (return True → fetch every tick) — the old behaviour, so a new TF can't
+# silently strand a head.
+_BAR_SECONDS: dict[str, int] = {
+    "1m": 60,
+    "3m": 180,
+    "5m": 300,
+    "15m": 900,
+    "30m": 1_800,
+    "1h": 3_600,
+    "2h": 7_200,
+    "4h": 14_400,
+    "6h": 21_600,
+    "8h": 28_800,
+    "12h": 43_200,
+    "1d": 86_400,
+}
+_FETCH_GATE_BUFFER_S: float = 30.0
 
 
 def regime_bar_scoring_enabled() -> bool:
@@ -105,6 +156,39 @@ def _last_bar_timestamp(candles_df: Any) -> Any:
     return values[-1]
 
 
+def _bar_seconds(timeframe: str) -> int | None:
+    """Nominal seconds per bar for ``timeframe`` (lowercase lookup)."""
+    return _BAR_SECONDS.get(str(timeframe or "").strip().lower())
+
+
+def _should_fetch_now(
+    symbol: str,
+    timeframe: str,
+    wall_cache: dict[tuple[str, str], float],
+    now: float,
+) -> bool:
+    """Wall-clock fetch gate — True when a fresh fetch is due for ``(symbol, timeframe)``.
+
+    The dominant CPU cost in per-bar scoring is the per-tick network fetch
+    (``connector_for_symbol`` + ``get_ohlcv``), not the LGBM inference: rebuilt
+    every 60 s for every shadow regime head before this gate landed
+    (MB-20260609-001 / the 2026-06-09 wedge). After a successful fetch at wall
+    time ``T``, this returns ``False`` until ``T + dur - buffer`` — so a 1h
+    head is fetched once per hour instead of 60 times, and a 5m head once per
+    ~5 min instead of 5 times. An unknown timeframe (no entry in
+    ``_BAR_SECONDS``) returns ``True`` so a newly-added cadence cannot strand
+    a head silently.
+    """
+    dur = _bar_seconds(timeframe)
+    if dur is None:
+        return True  # unknown cadence — fall back to per-tick fetch
+    last = wall_cache.get((symbol, timeframe))
+    if last is None:
+        return True
+    min_interval = max(0.0, float(dur) - _FETCH_GATE_BUFFER_S)
+    return (now - last) >= min_interval
+
+
 def _resolve_regime_predictors(registry_root: Any, log_path: Any) -> list:
     """Resolve the cached list of shadow-stage predictors from the registry.
 
@@ -139,6 +223,8 @@ def emit_regime_bar_predictions(
     predictors: list | None = None,
     fetch_fn: Callable[[str, str], Any] | None = None,
     seen: dict | None = None,
+    wall_cache: dict[tuple[str, str], float] | None = None,
+    now: Callable[[], float] | None = None,
 ) -> int:
     """Score every shadow-stage regime head on its own bar cadence.
 
@@ -162,6 +248,13 @@ def emit_regime_bar_predictions(
     seen:
         Injected dedup cache (tests). When ``None`` the module-level
         ``_REGIME_BAR_SEEN`` is used.
+    wall_cache:
+        Injected wall-clock fetch cache (tests). When ``None`` the
+        module-level ``_REGIME_FETCH_WALL`` is used. The gate skips the
+        per-(symbol, timeframe) network fetch between bar closes — the
+        2026-06-09 CPU-wedge fix (MB-20260609-001).
+    now:
+        Wall-clock source (tests). When ``None`` ``time.time`` is used.
 
     Returns
     -------
@@ -198,8 +291,15 @@ def emit_regime_bar_predictions(
         if fetch_fn is None:
             fetch_fn = _live_fetch_fn(settings or {})
         cache = _REGIME_BAR_SEEN if seen is None else seen
+        wcache = _REGIME_FETCH_WALL if wall_cache is None else wall_cache
+        now_fn = time.time if now is None else now
 
-        written = 0
+        # Group predictors by (symbol, timeframe) — multiple shadow regime
+        # heads on the same market share one network fetch + one parity
+        # feature build per tick. Pre-grouping the old per-predictor loop
+        # repeated both N times (the 2026-06-09 wedge driver). Skips
+        # non-regime / mis-specified heads early so the grouping is clean.
+        groups: dict[tuple[str, str], list] = {}
         for predictor in predictors:
             spec = regime_spec_of(predictor)
             if spec is None:
@@ -207,6 +307,17 @@ def emit_regime_bar_predictions(
             symbol = str(spec.get("symbol") or "")
             timeframe = str(spec.get("timeframe") or "")
             if not symbol or not timeframe:
+                continue
+            groups.setdefault((symbol, timeframe), []).append(predictor)
+
+        written = 0
+        for (symbol, timeframe), group in groups.items():
+            current_now = float(now_fn())
+            # Wall-clock fetch gate: skip the (expensive) network fetch when
+            # the previous fetch landed less than ``bar_duration - buffer``
+            # seconds ago. ``_BAR_SECONDS`` maps the timeframes the regime
+            # heads use; an unknown TF is treated permissively (always fetch).
+            if not _should_fetch_now(symbol, timeframe, wcache, current_now):
                 continue
             try:
                 candles_df = fetch_fn(symbol, timeframe)
@@ -218,28 +329,36 @@ def emit_regime_bar_predictions(
                 continue
             if candles_df is None:
                 continue
-            model_id = getattr(predictor, "model_id", None) or id(predictor)
+            # Mark fetch wall-clock only AFTER a candle frame is in hand, so
+            # a transient fetch failure does not delay the next retry.
+            wcache[(symbol, timeframe)] = current_now
             bar_ts = _last_bar_timestamp(candles_df)
-            if bar_ts is not None and cache.get(model_id) == bar_ts:
-                continue  # already scored this closed bar — write-rate control
+            # Pre-compute the shared closes view once per (symbol, timeframe)
+            # — the per-head ``feature_row_for_predictor`` re-derives the OHLC
+            # subset for its bucket-by-edges step, but the inputs are stable
+            # across heads on the same market.
             closes = closes_from_candles(candles_df)
             base_row = {
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "event_source": "per_bar",
             }
-            row = feature_row_for_predictor(
-                predictor, base_row, closes=closes,
-                symbol=symbol, timeframe=timeframe, candles_df=candles_df,
-            )
-            if row is None:
-                continue  # mismatch / uncomputable vol — skip, don't log noise
-            # One predictor per call preserves with_shadow_preds' per-model
-            # try/except isolation + ShadowPredictor type-check. The carrier
-            # ({}) is returned unchanged — there is no decision here.
-            with_shadow_preds({}, predictors=[predictor], feature_row=row)
-            cache[model_id] = bar_ts
-            written += 1
+            for predictor in group:
+                model_id = getattr(predictor, "model_id", None) or id(predictor)
+                if bar_ts is not None and cache.get(model_id) == bar_ts:
+                    continue  # already scored this closed bar — write-rate control
+                row = feature_row_for_predictor(
+                    predictor, base_row, closes=closes,
+                    symbol=symbol, timeframe=timeframe, candles_df=candles_df,
+                )
+                if row is None:
+                    continue  # mismatch / uncomputable vol — skip, don't log noise
+                # One predictor per call preserves with_shadow_preds' per-model
+                # try/except isolation + ShadowPredictor type-check. The carrier
+                # ({}) is returned unchanged — there is no decision here.
+                with_shadow_preds({}, predictors=[predictor], feature_row=row)
+                cache[model_id] = bar_ts
+                written += 1
         return written
     except Exception:  # noqa: BLE001 — the per-bar path must never break a tick
         logger.warning("regime_bar: per-bar regime scoring failed", exc_info=False)
@@ -251,12 +370,22 @@ def _live_fetch_fn(settings: Mapping[str, Any]) -> Callable[[str, str], Any]:
 
     Routes each symbol to the exchange the strategies trade it on
     (``connector_for_symbol``: BTC -> Bybit, MES -> IBKR) and fetches enough
-    bars to cover the vol window.
+    bars to cover the vol window. The exchange client is cached **per call to
+    ``emit_regime_bar_predictions``** so multiple timeframes on the same symbol
+    (e.g. BTCUSDT 5m / 15m / 1h) share one connector — ``connector_for_symbol``
+    instantiates a fresh exchange client every call otherwise, which is a real
+    cost on the IB path (probe + circuit-breaker check).
     """
     from src.runtime.market_data import connector_for_symbol, fetch_candles
 
+    routed = dict(settings)
+    client_cache: dict[str, Any] = {}
+
     def _fetch(symbol: str, timeframe: str) -> Any:
-        client = connector_for_symbol(symbol, dict(settings))
+        client = client_cache.get(symbol)
+        if client is None:
+            client = connector_for_symbol(symbol, routed)
+            client_cache[symbol] = client
         return fetch_candles(
             symbol, timeframe, exchange_client=client, limit=120,
         )
