@@ -186,28 +186,67 @@ def load_regime_policy(path: Path = _REGIME_POLICY_YAML) -> Dict[str, Dict[str, 
     return out
 
 
+def _normalize_policy_value(v: Any) -> str:
+    """Normalize a regime-policy cell value to the canonical string the
+    matrix compares against.
+
+    PyYAML treats unquoted ``off`` / ``on`` / ``yes`` / ``no`` /
+    ``true`` / ``false`` as YAML 1.1 booleans, so
+    ``regime_policy.yaml``'s ``{ long: off, short: off }`` parses as
+    ``{"long": False, "short": False}`` — and the matrix's
+    ``c.regime_policy_cell == "off"`` check then never matches the
+    Python bool, leaving the all-off-cells escalation path silently
+    broken. (Surfaced on the 2026-06-09 vwap packet: 460 packages
+    correctly distributed across 9 cells, every cell rendered
+    ``policy: false``, matrix never escalated.)
+
+    Resolution:
+      - bool True  → "on"
+      - bool False → "off"
+      - string     → lowercased; "on"/"off" pass through, everything
+                     else maps to "unknown".
+      - None / anything else → "unknown".
+    """
+    if isinstance(v, bool):
+        return "on" if v else "off"
+    if isinstance(v, str):
+        s = v.strip().lower()
+        if s in ("on", "off"):
+            return s
+    return "unknown"
+
+
 def regime_policy_cell_for(
-    policy: Mapping[str, Mapping[str, Mapping[str, str]]],
+    policy: Mapping[str, Mapping[str, Mapping[str, Any]]],
     strategy: str,
     trend: str,
     long_short_hint: Optional[str] = None,
 ) -> str:
     """Return "on" / "off" / "unknown" for (strategy, trend) per regime_policy.
 
-    The matrix in regime_policy.yaml is keyed by direction; this helper
-    rolls long+short up: if BOTH directions are "off" return "off",
-    if BOTH are "on" return "on", else return "unknown" (mixed). If the
+    The matrix in regime_policy.yaml is keyed by direction. When the
+    caller knows the dominant direction of the packages in this cell
+    (``long`` / ``short``), pass it as ``long_short_hint`` so the
+    helper returns the direction-specific verdict — e.g.
+    ``trending: htf_pullback_trend_2h: { long: on, short: off }``
+    should return ``on`` for a long-only packet bucket, not the
+    rolled-up ``unknown``. Without the hint the helper rolls both
+    directions: if BOTH match return that value, else "unknown". If the
     trend / strategy is absent → "unknown" (default-permissive, matches
     the YAML).
+
+    All return values pass through ``_normalize_policy_value`` so YAML
+    1.1 boolean coercion (``off`` → ``False``) never leaks past this
+    boundary.
     """
     block = policy.get(trend) or {}
     cell = block.get(strategy)
     if not cell:
         return "unknown"
     if long_short_hint and long_short_hint in cell:
-        return cell[long_short_hint]
-    long_v = cell.get("long", "on")
-    short_v = cell.get("short", "on")
+        return _normalize_policy_value(cell[long_short_hint])
+    long_v = _normalize_policy_value(cell.get("long", "on"))
+    short_v = _normalize_policy_value(cell.get("short", "on"))
     if long_v == short_v:
         return long_v
     return "unknown"
@@ -589,7 +628,20 @@ def compute_regime_cells(
     for (trend, vol), rows in sorted(bucket.items()):
         cell = RegimeCell(trend=trend, vol=vol)
         cell.n_decisions = len(rows)
-        cell.regime_policy_cell = regime_policy_cell_for(policy, strategy, trend)
+        # Direction-aware policy lookup: when every package in the
+        # bucket fires in the same direction (e.g. htf_pullback_trend_2h
+        # is long-only), evaluate the policy for THAT direction —
+        # otherwise the rolled-up verdict reads ``unknown`` even when
+        # the actual direction's policy is unambiguously on/off and the
+        # matrix loses cell evidence it could have acted on.
+        directions = {
+            (r.get("direction") or "").lower() for r in rows
+            if (r.get("direction") or "").lower() in ("long", "short")
+        }
+        direction_hint = directions.pop() if len(directions) == 1 else None
+        cell.regime_policy_cell = regime_policy_cell_for(
+            policy, strategy, trend, direction_hint
+        )
         pnls: List[float] = []
         for r in rows:
             if _is_closed(r):
