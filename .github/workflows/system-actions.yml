@@ -108,6 +108,7 @@ on:
           - rotate-account-keys
           - init-diag-token
           - send-ping
+          - generate-strategy-review-packets
           - set-env
           - scrub-env-noncompliant
           - pause-autoheal
@@ -292,6 +293,22 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*window_days[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Ww]indow_days[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            # generate-strategy-review-packets params. `strategy:` may carry
+            # a comma-separated list; the wrapper splits on comma. `all_btc:`
+            # is a truthy gate that lets the operator iterate every BTCUSDT
+            # strategy without naming each one.
+            review_strategy=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*strategy[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ss]trategy[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
+            review_all_btc=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*all_btc[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Aa]ll_btc[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
+            review_shadow_soak_days=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*shadow_soak_days[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ss]hadow_soak_days[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             # bt_mode chosen distinct from `mode:` (which set-account-mode owns).
             # Used by vwap-backtest-sweep to select the run_backtest_vwap flag:
             # compare → --compare, threshold-sweep → --threshold-sweep,
@@ -349,6 +366,9 @@ jobs:
           echo "ACTION_WINDOW_DAYS=${window_days}" >>"$GITHUB_ENV"
           echo "ACTION_MODE=${bt_mode}" >>"$GITHUB_ENV"
           echo "ACTION_RECENT_ONLY_FRAC=${recent_only_frac}" >>"$GITHUB_ENV"
+          echo "ACTION_STRATEGY=${review_strategy:-}" >>"$GITHUB_ENV"
+          echo "ACTION_ALL_BTC=${review_all_btc:-}" >>"$GITHUB_ENV"
+          echo "ACTION_SHADOW_SOAK_DAYS=${review_shadow_soak_days:-}" >>"$GITHUB_ENV"
           # send-ping / set-env params. ACTION_MESSAGE + ENV_VALUE may
           # contain spaces, so they ride to later steps via $GITHUB_ENV
           # (env, not inline interpolation) for shell safety.
@@ -372,7 +392,7 @@ jobs:
         run: |
           set -euo pipefail
           case "${ACTION}" in
-            status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping)
+            status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|generate-strategy-review-packets)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
             pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|enable-mobile-push|disable-mobile-push|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock)
@@ -551,6 +571,7 @@ jobs:
             inspect-closed-pnl)                 SCRIPT="inspect_closed_pnl_action.sh" ;;
             bybit-account-audit)                SCRIPT="bybit_account_audit_action.sh" ;;
             strategy-performance-audit)         SCRIPT="strategy_performance_audit_action.sh" ;;
+            generate-strategy-review-packets)   SCRIPT="generate_strategy_review_packets_action.sh" ;;
             monitor-miss-analysis)              SCRIPT="monitor_miss_analysis_action.sh" ;;
             vwap-backtest-sweep)                SCRIPT="vwap_backtest_sweep_action.sh" ;;
             pull-mes-ibkr-history)              SCRIPT="pull_mes_ibkr_history.sh" ;;
@@ -638,6 +659,9 @@ jobs:
           fi
           if [ "${ACTION}" = "vwap-backtest-sweep" ]; then
             REMOTE_CMD="ACTION_MODE=$(printf '%q' "${ACTION_MODE}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ACTION_WINDOWS=$(printf '%q' "${ACTION_WINDOWS}") ACTION_WINDOW_DAYS=$(printf '%q' "${ACTION_WINDOW_DAYS}") ACTION_RECENT_ONLY_FRAC=$(printf '%q' "${ACTION_RECENT_ONLY_FRAC}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "generate-strategy-review-packets" ]; then
+            REMOTE_CMD="ACTION_STRATEGY=$(printf '%q' "${ACTION_STRATEGY}") ACTION_WINDOW_DAYS=$(printf '%q' "${ACTION_WINDOW_DAYS}") ACTION_ALL_BTC=$(printf '%q' "${ACTION_ALL_BTC}") ACTION_SHADOW_SOAK_DAYS=$(printf '%q' "${ACTION_SHADOW_SOAK_DAYS}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "send-ping" ]; then
             REMOTE_CMD="ACTION_MESSAGE=$(printf '%q' "${ACTION_MESSAGE}") ACTION_PRIORITY=$(printf '%q' "${ACTION_PRIORITY:-normal}") ACTION_TARGET=$(printf '%q' "${ACTION_TARGET:-claude}") ${REMOTE_CMD}"
