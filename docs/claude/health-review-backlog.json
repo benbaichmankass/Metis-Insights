@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260609-003",
+      "opened_at": "2026-06-09T22:50:00+00:00",
+      "opened_by": "claude (operator 'Latest Analyst Read 0/24h' investigation session)",
+      "source": "Operator flagged the dashboard 'Latest Analyst Read' card showing 0 trades / 0 order packages / 0 signals over 24h (template:v1, cache 13min old) and asked to investigate a suspected execution failure, granting pre-approval to implement fixes overnight. Verified live via the vm-diag-snapshot relay (issues #3160/#3162/#3165/#3170/#3171, 2026-06-09 ~22:25-22:43Z).",
+      "title": "Verification: dashboard '0 trades/24h' is benign (quiet market + shadow strategies); the only real lever is the KNOWN position-netting issue (BL-20260601-001 / BL-20260608-DEMOPNL) whose fix POSITION_NETTING_GUARD_ENABLED is built+shipped-OFF awaiting operator-watched demo soak (Tier-3)",
+      "description": "WHAT THE OPERATOR SAW: Analyst Read 0/0/0 over 24h. WHAT IS ACTUALLY TRUE (verified live): the bot is healthy and trading-capable — heartbeat fresh (age 30-54s, label running), pipeline ticking every cycle and evaluating all 10 loaded strategies, market data FRESH (vwap_eval shows BTC ~61.8k vs VWAP ~61.67k, live ADX/regime). Strategies cleanly return no_signal because BTC is hugging VWAP (deviation 0.38-0.54 std vs the 1.4+ that fired on 06-08) and ict_scalp sees 'no liquidity sweep in last 12 bars' — i.e. a genuinely QUIET market, not a stuck pipeline. Last order package was 06-08 21:09 (~25h ago), so the 0/24h count is accurate. CORRECTION TO AN EARLIER READ IN THIS SESSION: the orphaned 'aggregated_target_qty:0.0 / never executed' VWAP packages are NOT a sizing-to-zero execution bug — vwap is execution:shadow AND enabled:false in config/strategies.yaml (deployed sha matched local 1b0b75a), so its packages logging-then-orphaning is BY DESIGN (the CONSOLIDATION-ROADMAP-2026-05-31 §5 already adjudicated BUG-049 BENIGN). The live path WORKS: the one live-strategy fill in the window (trade #2529, ict_scalp_5m, bybit_1 demo, qty 4.146) executed and closed via reconciler. THE ONE REAL MECHANISM degrading trading is the ALREADY-KNOWN position-netting cycle (audit docs/audits/position-netting-sltp-2026-06-08.md; backlog BL-20260601-001 orphan rates + BL-20260608-DEMOPNL): Bybit one-way-mode same-direction re-entries net into one position whose single SL/TP is overwritten; the reconciler closes on net-flat and prematurely frees the strategy monocle, so the net position grows and never stops out per-trade. That stuck same-direction position then flip-suppresses every opposing signal under FLIP_POLICY=hold — exactly the wall of 'intent_noop:flip_suppressed_hold_policy: desired long opposes current short' REJECTED rows (trades #2516-#2528, 06-07). Right now nothing is being suppressed (quiet market, no signals). SIDE OBSERVATIONS: (a) the ~43min/~13min 'restarts' seen mid-session are routine ict-git-sync deploy churn (sha advanced 1b0b75a4 -> 5cea1bdc during the session), not crashes; (b) vm_health.cpu read 0 then 50 — the 0 was a psutil first-call artifact; (c) services all healthy (trader/web-api/telegram active, timers active).",
+      "tier": 3,
+      "trigger_condition": "OPERATOR DECISION PENDING — surfaced for the morning. The remediation (Option A = POSITION_NETTING_GUARD_ENABLED, already implemented and shipped DEFAULT-OFF per CLAUDE.md env table) is Tier-3 (order/execution semantics + risk) and its own rollout design calls for an operator-WATCHED demo-only soak. It was deliberately NOT enabled autonomously overnight: Tier-3 live-VM order-path change, no sanctioned autonomous wire to flip the env var, and the operator's pre-approval was given under the (now-corrected) belief that this was a code sizing bug. Prime Directive: no unattended live risk/order flips.",
+      "resolution_criteria": "Operator approves enabling the netting guard demo-first: set POSITION_NETTING_GUARD_ENABLED=1 + POSITION_NETTING_GUARD_ACCOUNTS=bybit_1 on the live VM (+ restart), watch a soak that demo closed-pnl repopulates (per-trade closes return) and flip-suppression rejections drop, then widen to bybit_2 for live. Until then this stays open and rolls up under BL-20260601-001 / BL-20260608-DEMOPNL.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260609-002",
       "opened_at": "2026-06-09T10:50:00+00:00",
       "opened_by": "claude (post-IB-credential-rotation session)",
@@ -1067,5 +1084,5 @@
       "resolution_note": "Corrected: the publisher is healthy, not stopped. ict-trainer-publish.timer fires every ~2 min (last ran 2026-06-09T06:09Z); trainer_status/training_cycle/registry are fresh on the live VM. Only backtest sweeps were stale because the generator scripts/ops/run_backtest_sweep.sh is on-demand (no timer/cron), last run 2026-05-17. Launched a fresh detached sweep (trainer-vm-diag #3047) to refresh /api/bot/backtests/sweeps. Recommendation: add a weekly ict-backtest-sweep.timer if recurring freshness is wanted; otherwise accept as on-demand by design. See docs/audits/s9-yz-shadow-promotion-2026-06-09.md §4."
     }
   ],
-  "updated_at": "2026-06-09T06:35:00+00:00"
+  "updated_at": "2026-06-09T22:50:00+00:00"
 }
