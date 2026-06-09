@@ -101,7 +101,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  atr_stop_mult: float, trail_mult: float, timeout_bars: int,
                  cooldown_bars: int, timeframe: str, symbol: str,
                  emit_path: Optional[str] = None,
-                 min_confidence: float = 0.0) -> Dict[str, Any]:
+                 min_confidence: float = 0.0,
+                 long_only: bool = False) -> Dict[str, Any]:
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
     # Channel from the PRIOR N bars only (shift(1)) — no lookahead. Same
@@ -134,6 +135,12 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
             direction = "short"
             breakout_depth = (lo - c) / atr
         if direction is None:
+            i += 1
+            continue
+        # Live-parity direction gate: trend_donchian is LONG-ONLY on the live
+        # config (2026-06-01, Tier-3), so a long-only sweep must skip shorts or
+        # the optimum reflects trades the strategy never takes.
+        if long_only and direction == "short":
             i += 1
             continue
         # Live-parity confidence + entry gate (mirrors a live min_confidence
@@ -337,6 +344,8 @@ def main(argv: List[str]) -> int:
     p.add_argument("--fee-bps-roundtrip", type=float, default=FEE_BPS_ROUNDTRIP)
     p.add_argument("--min-confidence", type=float, default=0.0,
                    help="Skip entries whose live-parity confidence (breakout/ATR) is below this.")
+    p.add_argument("--long-only", action="store_true",
+                   help="Skip short entries (matches the live LONG-ONLY config since 2026-06-01).")
     p.add_argument("--confidence-sweep", default=None, metavar="GRID",
                    help="Sweep min_confidence over GRID ('0:0.5:0.05' or '0,0.1,0.2') and tabulate.")
     p.add_argument("--json", dest="json_out", default=None)
@@ -355,7 +364,8 @@ def main(argv: List[str]) -> int:
     bt_kwargs = dict(donchian=args.donchian, atr_period=args.atr_period,
                      atr_stop_mult=args.atr_stop_mult, trail_mult=args.trail_mult,
                      timeout_bars=args.timeout_bars, cooldown_bars=args.cooldown_bars,
-                     timeframe=args.timeframe, symbol=args.symbol)
+                     timeframe=args.timeframe, symbol=args.symbol,
+                     long_only=args.long_only)
     if args.confidence_sweep:
         out = _confidence_sweep(df, _parse_grid(args.confidence_sweep), bt_kwargs)
         print(_fmt_sweep(out))
