@@ -35,11 +35,17 @@ STRATEGY="${ACTION_STRATEGY:-}"
 WINDOW_DAYS="${ACTION_WINDOW_DAYS:-7}"
 ALL_BTC="${ACTION_ALL_BTC:-}"
 SHADOW_SOAK_DAYS="${ACTION_SHADOW_SOAK_DAYS:-0}"
+PRINT_PACKETS="${ACTION_PRINT_PACKETS:-}"
 
 # Tolerate the truthy values the rest of the codebase accepts.
 case "${ALL_BTC,,}" in
     1|true|yes|on) ALL_BTC=1 ;;
     *) ALL_BTC=0 ;;
+esac
+
+case "${PRINT_PACKETS,,}" in
+    1|true|yes|on) PRINT_PACKETS=1 ;;
+    *) PRINT_PACKETS=0 ;;
 esac
 
 if [ "${ALL_BTC}" -ne 1 ] && [ -z "${STRATEGY}" ]; then
@@ -104,6 +110,22 @@ if [ -d "${REVIEW_DIR}" ]; then
         action="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('proposed_action','?'))" "${f}" 2>/dev/null || echo "?")"
         printf '  %-30s %s\n' "${name}" "${action}"
     done
+
+    # When ACTION_PRINT_PACKETS=true, also cat the full Markdown summary
+    # of each packet written this run. Useful for sandbox sessions
+    # (which can't reach the live VM directly) that need the matrix's
+    # reasons + headline / regime-cell table inline in the issue
+    # comment, not just the one-line verdict above. Kept opt-in so the
+    # default routine run stays terse.
+    if [ "${PRINT_PACKETS}" -eq 1 ]; then
+        for f in "${REVIEW_DIR}"/*.md; do
+            [ -f "${f}" ] || continue
+            name="$(basename "${f}" .md)"
+            echo
+            echo "===== packet: ${name}.md ====="
+            cat "${f}" || true
+        done
+    fi
 else
     echo "  (no packets written — review_dir absent)"
 fi
