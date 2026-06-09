@@ -7,6 +7,9 @@ from src.runtime.runtime_flags import _centralized_allocator_enabled, is_strateg
 from src.utils.signal_audit_logger import log_signal
 from src.runtime.risk_counters import inject_runtime_counters, inject_per_strategy_counters
 from src.news.news_pipeline import get_news_score
+from src.news.news_client import is_active as news_is_active
+from src.news.news_audit import log_news_decision
+from src.news.news_symbols import query_for_tags
 # PR-6: signal builder functions extracted to strategy_signal_builders.py.
 # Re-exported here for back-compat (existing callers + tests import from pipeline).
 from src.runtime.strategy_signal_builders import (  # noqa: E402
@@ -436,6 +439,22 @@ def run_pipeline(
             _base = _base[:-4]
         _tags = list(dict.fromkeys(t for t in [_base, _sym] if t))
         news_result = get_news_score(settings, symbol_tags=_tags)
+
+        # Shadow-soak: record what the news layer decided (observe-only) on every
+        # actionable signal once the layer is active, so we can validate the
+        # veto/influence against real trades before it ever gates live money.
+        try:
+            if news_is_active(settings):
+                log_news_decision(
+                    result=news_result,
+                    symbol=_sym,
+                    side=signal.get("side"),
+                    strategy=(signal.get("meta") or {}).get("strategy_name"),
+                    query=query_for_tags(_tags),
+                )
+        except Exception:  # noqa: BLE001 — soak logging must never affect the trade
+            logger.debug("news shadow-soak log failed", exc_info=True)
+
         if news_result.veto:
             logger.warning("news veto: %s", news_result.reason)
             result = {"status": "news_veto", "reason": news_result.reason, "signal": signal}

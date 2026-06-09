@@ -232,6 +232,59 @@ The pipeline derives `symbol_tags` automatically from `signal["symbol"]`:
 
 ---
 
+## Multi-asset support (2026-06-09)
+
+The v1 layer was **Bitcoin-only**: its relevance dictionary
+(`news_normalizer._SYMBOL_KEYWORDS`) only knew crypto tickers and it always
+fetched the hardcoded `"Bitcoin OR BTC"` query. As the bot expands to
+index/commodity futures (MES, MNQ, MGC, MHG, MCL …) that made the layer a
+**silent no-op for every non-crypto symbol** — relevance scored ~0, so every
+article was dropped before scoring.
+
+Per-symbol behaviour now lives in **`config/news_symbols.yaml`** (loaded by
+`src/news/news_symbols.py`). Each symbol *base* (the symbol with any
+`USDT`/`PERP`/`USD` suffix and quote stripped — `BTCUSDT`→`BTC`, `MES`→`MES`)
+maps to:
+
+| Field | Effect |
+|---|---|
+| `query` | the NewsAPI search query fetched when that symbol is trading (S&P/Fed news for MES, gold for MGC, copper for MHG, …) |
+| `keywords` | relevance keywords matched (lower-cased substring) in headline+summary |
+
+**Query precedence:** per-symbol config `query` → explicit `NEWS_QUERY` →
+the Bitcoin default. A config match wins so a global `NEWS_QUERY` can't
+re-break a futures instrument.
+
+**Relevance precedence:** `config/news_symbols.yaml` keywords → the built-in
+`_SYMBOL_KEYWORDS` crypto map → the base's own lower-cased token. The loader
+**never raises**: an absent/malformed file degrades to the built-in crypto
+behaviour. Adding a new instrument is a **YAML edit, not a code change**.
+
+## Shadow-soak log (`runtime_logs/news_decisions.jsonl`)
+
+Before the news veto/influence is ever allowed to gate live money, we accrue an
+**observe-only** track record — exactly like the shadow-model ladder. While the
+layer is active (`NEWS_ENABLED=true` + `NEWS_API_KEY` set), `src/news/news_audit.py`
+appends one JSON line per actionable signal it evaluated:
+
+```json
+{"ts":"…","symbol":"MES","side":"buy","strategy":"vwap","query":"S&P 500 …",
+ "decision":"reduce","adjustment":-0.21,"veto":false,"item_count":3,"reason":"…"}
+```
+
+The writer is **best-effort** (swallows all errors — a failed write never
+affects the trade) and **gated on `news_client.is_active`** so the log stays
+empty until the layer is enabled. Readable via the diag surface:
+`GET /api/diag/log_file?name=news_decisions&lines=N`. This is the data a later
+review uses to answer "would enabling this veto/influence have helped?" against
+real closed trades **before** flipping it on live.
+
+> **Still TODO (graduated influence, Tier-3):** the ±15 pp probability nudge
+> (`adjust_probability`) is computed and now logged to the soak, but is **not
+> yet wired into live sizing** — only the veto gates orders. Wiring it as a
+> reductive sizing factor (mirroring `src/runtime/advisory_influence.py`) is the
+> next, operator-gated step.
+
 ## Adding a new data source (future)
 
 1. Create `src/news/news_client_<source>.py` mirroring the `fetch_news(settings)`
