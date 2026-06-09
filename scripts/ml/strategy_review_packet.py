@@ -179,9 +179,17 @@ def load_regime_policy(path: Path = _REGIME_POLICY_YAML) -> Dict[str, Dict[str, 
         for strategy, cell in block.items():
             if not isinstance(cell, dict):
                 continue
+            # Use the same boundary normalization as
+            # ``regime_policy_cell_for``. The raw ``str(...).lower()``
+            # coercion that lived here turned PyYAML's
+            # ``{long: False, short: False}`` (from unquoted YAML 1.1
+            # ``off``) into the strings ``"false"`` / ``"false"``,
+            # which the matrix then treated as ``"unknown"`` —
+            # invalidating the same all-cells-off escalation path the
+            # 2026-06-09 vwap packet was supposed to surface.
             out[trend][strategy] = {
-                "long": str(cell.get("long", "on")).lower(),
-                "short": str(cell.get("short", "on")).lower(),
+                "long": _normalize_policy_value(cell.get("long", "on")),
+                "short": _normalize_policy_value(cell.get("short", "on")),
             }
     return out
 
