@@ -1,9 +1,11 @@
 # News influence operator — design (M9 graduated "act" layer)
 
-**Status:** step 1 (pure operator + policy + default-off gate) built — `src/news/news_influence.py`.
-Live-path wiring (step 2) and a real event-risk feed (step 3) are the remaining,
-operator-gated steps. Mirrors the WS7 advisory-influence rollout
-(`docs/sprint-plans/ai-traders/ws7-advisory-influence-operator-DESIGN.md`).
+**Status:** steps 1–2 built. Step 1 = the pure operator (`src/news/news_influence.py`).
+Step 2 = live-path wiring (`src/runtime/news_sizing.py`, applied in
+`Coordinator.multi_account_execute` right after the advisory downsize), **default-off**
+via `NEWS_INFLUENCE_MODE`. A real event-risk feed (step 3) is the remaining,
+operator-gated step (`event_risk` is stamped as `0.0` until then). Mirrors the WS7
+advisory-influence rollout (`docs/sprint-plans/ai-traders/ws7-advisory-influence-operator-DESIGN.md`).
 
 ## Problem
 

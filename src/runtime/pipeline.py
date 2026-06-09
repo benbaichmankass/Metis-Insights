@@ -440,6 +440,20 @@ def run_pipeline(
         _tags = list(dict.fromkeys(t for t in [_base, _sym] if t))
         news_result = get_news_score(settings, symbol_tags=_tags)
 
+        # Stamp the news score onto the signal meta so it rides into pkg.meta
+        # (order_bridge copies signal["meta"]) and the coordinator's reductive
+        # news-influence sizing hook can read it without re-fetching. event_risk
+        # is reserved for the (future) economic-calendar feed — 0.0 until then.
+        try:
+            signal.setdefault("meta", {})["news"] = {
+                "adjustment": news_result.adjustment,
+                "decision": news_result.decision,
+                "item_count": news_result.item_count,
+                "event_risk": 0.0,
+            }
+        except Exception:  # noqa: BLE001 — stamping must never affect the trade
+            logger.debug("news meta stamp failed", exc_info=True)
+
         # Shadow-soak: record what the news layer decided (observe-only) on every
         # actionable signal once the layer is active, so we can validate the
         # veto/influence against real trades before it ever gates live money.
