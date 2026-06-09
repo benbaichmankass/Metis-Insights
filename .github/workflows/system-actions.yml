@@ -529,6 +529,11 @@ jobs:
           # in the (public) issue body or run log. Add more here as new
           # secret-backed keys are needed.
           SECRET_TELEGRAM_CLAUDE_BOT_TOKEN: ${{ secrets.TELEGRAM_CLAUDE_BOT_TOKEN }}
+          # NEWS_API_KEY backs the M9 news layer (set-env env_key=NEWS_API_KEY,
+          # env_value blank). Lets Claude propagate the operator-provided NewsAPI
+          # key to the VM .env via set-env without it ever reaching the issue
+          # body or run log. Empty until the operator adds the NEWS_API_KEY secret.
+          SECRET_NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
           # FCM_SERVICE_ACCOUNT_JSON is the service-account JSON that the
           # mobile-push notifier uses to authenticate against FCM HTTP v1.
           # Consumed by the set-mobile-push-secrets action (and by set-env
