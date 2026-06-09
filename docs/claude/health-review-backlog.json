@@ -982,7 +982,37 @@
       "resolved_at": null,
       "resolved_by": null,
       "resolution_note": null
+    },
+    {
+      "id": "BL-20260609-001",
+      "opened_at": "2026-06-09T05:42:00+00:00",
+      "opened_by": "claude (S9 yz monitoring session, doc-freshness)",
+      "source": "Session-end observation: PR #3007 (branch claude/vibrant-babbage-9Wbls, head SHA e286c4ea) shows total_count=0 on get_status for 7+ hours after push. No check runs fired at all.",
+      "title": "PR #3007 CI never triggered after push (0 check runs in 7+ h on SHA e286c4ea)",
+      "description": "After opening PR #3007 against main from claude/vibrant-babbage-9Wbls, mcp__github__pull_request_read method=get_status returned state='pending', total_count=0 across 4+ polls over a 7-hour window. No workflow runs reference the head SHA in the Actions list for the period. Either (a) a path/branch filter excluded this PR's changes, (b) the push event was accepted but didn't fan out to workflow triggers, or (c) the runners were idle/wedged. Worth investigating because the same trigger anomaly would silently let other PRs from claude/* branches merge without CI. First step next session: check Actions for any run referencing e286c4ea; if absent, inspect the workflow trigger filters in .github/workflows/*.yml against the changed paths in #3007. An empty commit on the branch would kick the trigger as a workaround if the configs are correct but state is stale.",
+      "tier": 1,
+      "status": "open"
+    },
+    {
+      "id": "BL-20260609-002",
+      "opened_at": "2026-06-09T05:42:00+00:00",
+      "opened_by": "claude (S9 yz monitoring session, doc-freshness)",
+      "source": "Self-inflicted incident: vm-web-api-recover run 27150313822 (issue #3026) restarted a healthy ict-web-api.service, then the wrapper's 15-second post-restart health probe failed because cold-start exceeded 15 s, leaving the unit in unknown state and emitting a misleading 'unit did not return to a serving state' error.",
+      "title": "vm-web-api-recover wrapper's 15 s post-restart health probe is too tight for cold-start of ict-web-api.service",
+      "description": "scripts/ops/restart_web_api.sh probes /api/health for ~15 s after the systemctl restart returns. Observed timeline 16:02:23–16:03:01 UTC: systemd stopped uvicorn cleanly (16:02:23–16:02:41), check_data_dir.sh ran (16:02:43–16:02:44), systemd reported 'Started ICT Trading Bot — dashboard API' at 16:02:44, but uvicorn didn't bind port 8001 within the wrapper's 15 s probe window (curl exit 7 at 16:03:01). At 16:13:49 /api/diag/status returned 200 OK — so uvicorn DID come up, just slowly. The 15 s probe ceiling needs widening (suggest 60 s) or the wrapper should poll until ExecStartPost completes systemd-side. Secondary issue: the wrapper's failure message implies the unit is wedged, which led this session to escalate to the operator unnecessarily. Both behaviours wasted operator attention. Lower priority than BL-20260609-001's CI trigger bug but worth a small PR.",
+      "tier": 1,
+      "status": "open"
+    },
+    {
+      "id": "BL-20260609-003",
+      "opened_at": "2026-06-09T05:42:00+00:00",
+      "opened_by": "claude (S9 yz monitoring session, doc-freshness)",
+      "source": "Diag relay #3011 to /api/bot/backtests/sweeps?limit=5 returned mirror_age_seconds=1883725.9 (≈ 21.8 days). The newest mirrored sweep is dated 2026-05-17.",
+      "title": "Trainer backtest-sweep mirror publisher (scripts/ops/publish_trainer_mirror.sh) has not run for ~21.8 days",
+      "description": "/data/bot-data/runtime_logs/trainer_mirror/backtests on the live VM has not received a new SUMMARY.md / all_metrics.json since 2026-05-17. This breaks the /api/bot/backtests/sweeps endpoint's freshness contract and hides any recent trainer-VM backtest sweeps from the dashboard's Backtesting tab. Investigate via trainer-vm-diag relay: (a) is the publisher timer/cron still installed and enabled, (b) when did it last attempt to run, (c) is the run failing or is the trigger not firing. If accumulated sweeps just need to be pushed, the fix is a one-shot rsync invocation; if the publisher's state was lost in a trainer-VM redeploy, re-arm the timer. Operator visibility into S10/S11 trainer work is blocked until this is fixed.",
+      "tier": 2,
+      "status": "open"
     }
   ],
-  "updated_at": "2026-06-08T22:14:27Z"
+  "updated_at": "2026-06-09T05:42:00+00:00"
 }

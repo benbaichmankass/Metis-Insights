@@ -60,7 +60,15 @@ permissions:
 
 concurrency:
   group: trainer-vm-diag
-  cancel-in-progress: true
+  # 2026-06-08: ``false`` (was ``true``) — mirrors the 2026-05-16 fix on
+  # vm-diag-snapshot.yml. With ``cancel-in-progress: true``, the
+  # ``opened`` + ``labeled`` events that fire ~50 ms apart on a fresh
+  # issue race each other: the second cancels the first via concurrency
+  # before the dedup step can short-circuit it, and both runs end up
+  # ``cancelled`` (issue #3000). With ``false``, requests queue and
+  # execute serially; the dedup step (added 2026-06-08) catches the
+  # ``opened``+``labeled`` duplicate cleanly.
+  cancel-in-progress: false
 
 jobs:
   diag:
