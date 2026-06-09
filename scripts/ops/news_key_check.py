@@ -21,6 +21,7 @@ import urllib.request
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.news.news_client import fetch_news  # noqa: E402
+from src.news.news_normalizer import normalize_articles  # noqa: E402
 from src.news.news_pipeline import get_news_score  # noqa: E402
 from src.news.news_symbols import query_for_tags  # noqa: E402
 
@@ -62,11 +63,24 @@ def _probe_symbol(api_key: str, tags: list[str], label: str) -> str:
     query = query_for_tags(tags)
     arts = fetch_news(settings, query=query)
     result = get_news_score(settings, symbol_tags=tags)
+
+    # Diagnose *why* items did/didn't score: surface the freshness + relevance
+    # distribution so we can tell a free-tier staleness problem (all articles
+    # older than NEWS_MAX_AGE_MINUTES) from a relevance-keyword miss.
+    norm = normalize_articles(arts, symbol_tags=tags, settings=settings)
+    fresh = sorted(round(float(a.get("freshness_minutes", 9999)), 1) for a in norm)
+    rel = sorted(round(float(a.get("relevance_score", 0.0)), 2) for a in norm)
+    newest = fresh[0] if fresh else None
+    max_rel = max(rel) if rel else 0.0
+    n_fresh = sum(1 for f in fresh if f <= 120)
+    n_relevant = sum(1 for r in rel if r > 0.0)
     return (
         f"  [{label}] query={query!r}\n"
         f"    articles_fetched={len(arts)}  decision={result.decision}  "
         f"adjustment={result.adjustment:+.4f}  veto={result.veto}  "
-        f"items_scored={result.item_count}"
+        f"items_scored={result.item_count}\n"
+        f"    newest_article_age_min={newest}  fresh(<=120m)={n_fresh}/{len(norm)}  "
+        f"relevant(>0)={n_relevant}/{len(norm)}  max_relevance={max_rel}"
     )
 
 
