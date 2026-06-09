@@ -308,3 +308,20 @@ def test_load_recipe_reads_fixed_args(tmp_path):
 def test_extract_json_tolerates_leading_table_text():
     out = "some table text\nmore lines\n{\"total_pnl\": 12.0}\n"
     assert sweep._extract_json(out) == {"total_pnl": 12.0}
+
+
+def test_extract_json_skips_python_dict_repr_in_table():
+    # The trend/fade harnesses print a table containing a Python-dict repr
+    # (single quotes — not JSON) before the real json.dumps payload.
+    out = (
+        "trend_donchian backtest\n"
+        "config: {'donchian': 20, 'trail_mult': 5.0}\n"
+        "{\n  \"total_trades\": 559,\n  \"net_total_r\": 56.2,\n  \"net_expectancy_r\": 0.101\n}\n"
+    )
+    got = sweep._extract_json(out)
+    assert got["total_trades"] == 559 and got["net_total_r"] == 56.2
+
+
+def test_extract_json_picks_last_valid_object():
+    out = "{\"a\": 1}\nnoise\n{\"b\": 2}\n"
+    assert sweep._extract_json(out) == {"b": 2}

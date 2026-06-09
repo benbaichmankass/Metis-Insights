@@ -407,19 +407,33 @@ def _run_capture(argv: list[str]) -> dict[str, Any]:
 
 
 def _extract_json(stdout: str) -> dict[str, Any]:
-    """Pull the JSON object a harness printed (it may precede it with a table)."""
-    stdout = stdout.strip()
-    # Fast path: whole stdout is JSON.
+    """Pull the JSON object a harness printed to stdout.
+
+    The harnesses print a human-readable table first (which can itself contain a
+    Python-dict repr like ``{'donchian': 20}`` — single quotes, NOT JSON) and the
+    real ``json.dumps`` payload last. So a naive first-``{`` / last-``}`` span
+    captures the table junk. Instead scan every ``{`` position with a strict
+    decoder and keep the **last** one that parses cleanly — the payload.
+    """
+    s = stdout.strip()
     try:
-        return json.loads(stdout)
+        return json.loads(s)  # fast path: whole stdout is the JSON
     except json.JSONDecodeError:
         pass
-    # Otherwise take the last balanced {...} block.
-    start = stdout.find("{")
-    end = stdout.rfind("}")
-    if start == -1 or end == -1 or end < start:
+    decoder = json.JSONDecoder()
+    found: Optional[dict[str, Any]] = None
+    for i, ch in enumerate(s):
+        if ch != "{":
+            continue
+        try:
+            obj, _ = decoder.raw_decode(s[i:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict):
+            found = obj  # keep the last valid object (the harness prints it last)
+    if found is None:
         raise RuntimeError(f"no JSON object in harness stdout:\n{stdout[-2000:]}")
-    return json.loads(stdout[start : end + 1])
+    return found
 
 
 def run_sweep(
