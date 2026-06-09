@@ -31,6 +31,7 @@ from src.web.api.routers import pnl_history as pnl_history_router
 from src.web.api.routers import shadow as shadow_router
 from src.web.api.routers import status as status_router
 from src.web.api.routers import strategies as strategies_router
+from src.web.api.routers import strategy_review as strategy_review_router
 from src.web.api.routers import trade_scores as trade_scores_router
 from src.web.api.routers import trades_closed as trades_closed_router
 from src.web.api.routers import training_center as training_center_router
@@ -70,6 +71,7 @@ app.include_router(shadow_router.router)
 app.include_router(health_snapshots_router.router)
 app.include_router(trade_scores_router.router)
 app.include_router(strategies_router.router)
+app.include_router(strategy_review_router.router)
 app.include_router(training_center_router.router)
 app.include_router(attribution_router.router)
 app.include_router(devices_router.router)

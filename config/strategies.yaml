@@ -313,15 +313,28 @@ strategies:
   vwap:
     model: null
     signal_prefixes: [vwap]
-    enabled: true
-    # execution: shadow (S9, operator-approved 2026-05-24). vwap has no
-    # net-of-fee edge (docs/audits/vwap-viability-verdict-2026-05-23.md),
-    # so it does NOT trade real money — but it STILL runs and LOGS its
-    # order packages on every account it routes to (data collection +
-    # comparison). "shadow" = data-only everywhere; "live" (default) =
-    # eligible to execute. This is the per-strategy execution gate;
-    # accounts.yaml `mode:` remains the per-account gate. Promote back to
-    # `execution: live` only if vwap earns a net-positive edge.
+    # enabled: false (M7 kill, 2026-06-09, Tier-3 — operator-approval gate).
+    # Demoted by S-M7-STRATEGY-REVIEW-GATE-2026-06-09 after the first
+    # production run of `scripts/ml/strategy_review_packet.py` returned
+    # `proposed_action: kill`. The evidence path:
+    #   1. n=40,650 multiyear backtest (`docs/research/regime-roster-matrix-2026-06-01.md`)
+    #      shows **net loser in every regime cell** (trending -6179, transitional
+    #      -1903, chop -2642 R) even with the live gates threaded.
+    #   2. `config/regime_policy.yaml` already lists vwap as OFF in all three
+    #      1-D cells (no cell where the strategy is policy-permitted).
+    #   3. Live shadow soak (S9 demotion 2026-05-24 → present) produced ~133
+    #      orphaned packages / 24h on bybit_1 demo (PB-20260607-001 resolved
+    #      by dropping vwap from bybit_1 routing in PR #2982), every package
+    #      D-grade in `comms/claude_strategy_scores.jsonl` (1,323 vwap rows).
+    # The strategy still runs and logs order packages — execution: shadow
+    # (below) is preserved as the rollback path. Setting enabled: false
+    # short-circuits the signal builder to side=none everywhere so the
+    # journal noise stops; flipping back to enabled: true restores shadow
+    # execution unchanged. See docs/strategy-review-gate.md § "The five
+    # actions" for the semantics. Revert prerequisites are documented in
+    # docs/sprint-logs/S-M7-STRATEGY-REVIEW-GATE-2026-06-09.md § Risks and
+    # Follow-Ups.
+    enabled: false
     execution: shadow
     risk_pct: 1.0
     timeframe: "5m"
