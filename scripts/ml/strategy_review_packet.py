@@ -510,6 +510,45 @@ _TREND_VALUES = ("trending", "transitional", "chop", "unknown")
 _VOL_VALUES = ("calm", "volatile", "unknown")
 
 
+def _stamp_from_pkg_meta(row: Mapping[str, Any]) -> Dict[str, Optional[str]]:
+    """Parse ``regime`` / ``vol_regime`` directly out of
+    ``order_packages.meta`` (already loaded by ``pull_decisions`` as
+    ``pkg_meta``).
+
+    Every strategy's signal builder calls
+    ``_stamp_regime_on_meta(sig.meta, candles_df, ...)`` before the
+    intent multiplexer hands the package off, so by the time the row
+    lands in ``order_packages``, the strategy's meta JSON already
+    carries the trend (``regime``) and vol axes — verified live in
+    diag #3116 (every package sampled had both fields under live
+    production traffic).
+
+    The original ``pull_regime_stamp_index`` lookup against
+    ``signals.meta`` was a wiring miss: the dual-write fires on the
+    EVAL row (event name like ``htf_pullback_trend_2h_eval``) which
+    doesn't carry ``order_package_id``, so the join never matched and
+    every cell came back ``unknown``. Reading from ``pkg_meta``
+    bypasses the join entirely and is the authoritative source
+    anyway.
+
+    Returns ``{"regime": ..., "vol_regime": ...}`` with ``None`` for
+    any field that the JSON didn't carry.
+    """
+    raw = row.get("pkg_meta")
+    if not raw:
+        return {"regime": None, "vol_regime": None}
+    try:
+        meta = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError):
+        return {"regime": None, "vol_regime": None}
+    if not isinstance(meta, dict):
+        return {"regime": None, "vol_regime": None}
+    return {
+        "regime": meta.get("regime"),
+        "vol_regime": meta.get("vol_regime"),
+    }
+
+
 def compute_regime_cells(
     decisions: Sequence[Mapping[str, Any]],
     regime_index: Mapping[str, Mapping[str, Optional[str]]],
@@ -521,10 +560,23 @@ def compute_regime_cells(
     Cells are emitted only when `n_decisions ≥ 1`. The `regime_policy_cell`
     is the verdict the regime router would return for the cell —
     matched against `regime_policy.yaml` § 1-D trend axis.
+
+    Regime stamp resolution order:
+      1. ``order_packages.meta`` (preferred — authoritative, written by
+         the strategy's signal builder before the package is logged).
+      2. ``signals.meta`` lookup (legacy fallback — the original
+         implementation; kept for backwards-compatibility with
+         packages whose meta JSON predates the
+         ``_stamp_regime_on_meta`` rollout).
+      3. ``"unknown"`` — the matrix fail-safes to "mixed cells", which
+         caps the worst-case verdict at ``demote_shadow`` (never
+         ``kill``) when stamps are missing.
     """
     bucket: Dict[Tuple[str, str], List[Mapping[str, Any]]] = {}
     for row in decisions:
-        stamp = regime_index.get(str(row.get("order_package_id")), {})
+        stamp = _stamp_from_pkg_meta(row)
+        if not stamp.get("regime") and not stamp.get("vol_regime"):
+            stamp = dict(regime_index.get(str(row.get("order_package_id")), {}))
         trend = (stamp.get("regime") or "unknown").lower()
         vol = (stamp.get("vol_regime") or "unknown").lower()
         if trend not in _TREND_VALUES:
