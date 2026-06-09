@@ -249,8 +249,13 @@ run next. Schema:
 }
 ```
 
-M8 ships the canonical sweep harness; this M7 doc only **names** what
-the tune action points at. Until M8 lands, `tune_recipe` is advisory.
+This M7 doc only **names** what the tune action points at. M8 ships the
+canonical sweep harness that *executes* the recipe —
+[`scripts/ml/strategy_tune_sweep.py`](../scripts/ml/strategy_tune_sweep.py),
+documented in [`docs/strategy-tuning.md`](strategy-tuning.md). The harness
+runs the named net-of-fee sweep and reports the optimal value as an advisory
+Tier-3 proposal; applying it to `config/strategies.yaml` remains operator-gated
+(same boundary as `kill`).
 
 ## Where this lives in the system
 
