@@ -279,11 +279,16 @@ empty until the layer is enabled. Readable via the diag surface:
 review uses to answer "would enabling this veto/influence have helped?" against
 real closed trades **before** flipping it on live.
 
-> **Still TODO (graduated influence, Tier-3):** the ±15 pp probability nudge
-> (`adjust_probability`) is computed and now logged to the soak, but is **not
-> yet wired into live sizing** — only the veto gates orders. Wiring it as a
-> reductive sizing factor (mirroring `src/runtime/advisory_influence.py`) is the
-> next, operator-gated step.
+> **Graduated influence (Tier-3):** the reductive *operator* now exists —
+> `src/news/news_influence.py` (`news_size_factor`), designed in
+> [`docs/news-influence-DESIGN.md`](news-influence-DESIGN.md). It reasons about
+> whether the news (and an injected `event_risk`) **supports the trade
+> direction or threatens to knock it off course** and returns a size factor in
+> `[size_floor, 1.0]` — reductive-only, default-off (`NEWS_INFLUENCE_MODE`).
+> It is **not yet wired** into `Coordinator.multi_account_execute` (step 2) and
+> the `event_risk` input is still injected, not fed from a real economic-calendar
+> source (step 3). Both are operator-gated. Until then the live path acts only on
+> the veto.
 
 ## Adding a new data source (future)
 
