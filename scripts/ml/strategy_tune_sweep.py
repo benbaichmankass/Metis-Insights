@@ -411,9 +411,12 @@ def _extract_json(stdout: str) -> dict[str, Any]:
 
     The harnesses print a human-readable table first (which can itself contain a
     Python-dict repr like ``{'donchian': 20}`` — single quotes, NOT JSON) and the
-    real ``json.dumps`` payload last. So a naive first-``{`` / last-``}`` span
-    captures the table junk. Instead scan every ``{`` position with a strict
-    decoder and keep the **last** one that parses cleanly — the payload.
+    real ``json.dumps`` payload last. The payload also has **nested** objects
+    (e.g. trend's ``by_year``/``by_outcome``), so a naive first-``{``/last-``}``
+    span or a "last object found" scan grabs table junk or an inner sub-object.
+    Scan for **top-level** objects only: decode at each ``{``, and on success
+    skip past the consumed span (so nested braces inside it aren't considered),
+    keeping the last top-level object — the payload the harness prints last.
     """
     s = stdout.strip()
     try:
@@ -422,15 +425,19 @@ def _extract_json(stdout: str) -> dict[str, Any]:
         pass
     decoder = json.JSONDecoder()
     found: Optional[dict[str, Any]] = None
-    for i, ch in enumerate(s):
-        if ch != "{":
+    i, n = 0, len(s)
+    while i < n:
+        if s[i] != "{":
+            i += 1
             continue
         try:
-            obj, _ = decoder.raw_decode(s[i:])
+            obj, end = decoder.raw_decode(s[i:])
         except json.JSONDecodeError:
+            i += 1
             continue
         if isinstance(obj, dict):
-            found = obj  # keep the last valid object (the harness prints it last)
+            found = obj
+        i += end  # jump past the consumed object — don't descend into nested braces
     if found is None:
         raise RuntimeError(f"no JSON object in harness stdout:\n{stdout[-2000:]}")
     return found

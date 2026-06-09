@@ -322,6 +322,25 @@ def test_extract_json_skips_python_dict_repr_in_table():
     assert got["total_trades"] == 559 and got["net_total_r"] == 56.2
 
 
-def test_extract_json_picks_last_valid_object():
+def test_extract_json_picks_last_toplevel_object():
     out = "{\"a\": 1}\nnoise\n{\"b\": 2}\n"
     assert sweep._extract_json(out) == {"b": 2}
+
+
+def test_extract_json_returns_outer_not_nested_object():
+    # Regression: the real trend payload nests by_year/by_outcome; a "last object
+    # found" scan grabbed the inner {"trades":0,...} (which has trades but no net
+    # metrics — the exact first-real-run symptom). Must return the OUTER object.
+    out = (
+        "trend table\n"
+        "{\n"
+        '  "total_trades": 53,\n'
+        '  "net_total_r": 56.2,\n'
+        '  "net_expectancy_r": 0.101,\n'
+        '  "by_year": {"2023": {"trades": 10, "net_r": 1.2}},\n'
+        '  "by_outcome": {"win": {"trades": 30}}\n'
+        "}\n"
+    )
+    got = sweep._extract_json(out)
+    assert got["total_trades"] == 53 and got["net_total_r"] == 56.2
+    assert "by_year" in got
