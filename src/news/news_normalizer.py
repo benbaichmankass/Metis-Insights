@@ -24,6 +24,8 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Dict, FrozenSet, List, Optional
 
+from src.news.news_symbols import keywords_for_base as _config_keywords_for_base
+
 # ---------------------------------------------------------------------------
 # Sentiment keyword dictionaries
 # ---------------------------------------------------------------------------
@@ -91,6 +93,21 @@ _HIGH_IMPACT_PATTERNS: List[re.Pattern[str]] = [
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+def _resolve_keywords(base: str) -> List[str]:
+    """Relevance keywords for a symbol *base*.
+
+    Resolution order: ``config/news_symbols.yaml`` (multi-asset, operator-edited)
+    -> the built-in ``_SYMBOL_KEYWORDS`` crypto map -> the base's own lower-cased
+    token. The config layer is what lets index/commodity futures (MES, MGC, ...)
+    score non-zero relevance; without it they fell back to the literal ticker
+    string and were silently dropped.
+    """
+    cfg = _config_keywords_for_base(base)
+    if cfg:
+        return cfg
+    return _SYMBOL_KEYWORDS.get(base, [base.lower()])
+
+
 def _tokenize(text: str) -> List[str]:
     """Lower-case word tokens, stripping punctuation."""
     return re.findall(r"[a-zA-Z]+", text.lower())
@@ -147,7 +164,7 @@ def _score_relevance(text: str, symbol_tags: List[str]) -> float:
     hits = 0
     for sym in symbol_tags:
         base = sym.upper().replace("USDT", "").replace("PERP", "")
-        keywords = _SYMBOL_KEYWORDS.get(base, [base.lower()])
+        keywords = _resolve_keywords(base)
         if any(kw in text_lower for kw in keywords):
             hits += 1
     if not symbol_tags:
@@ -181,7 +198,7 @@ def _extract_symbol_tags(text: str, candidate_symbols: Optional[List[str]] = Non
     found = []
     for sym in candidates:
         base = sym.upper().replace("USDT", "").replace("PERP", "")
-        keywords = _SYMBOL_KEYWORDS.get(base, [base.lower()])
+        keywords = _resolve_keywords(base)
         if any(kw in text_lower for kw in keywords):
             found.append(base)
     return found

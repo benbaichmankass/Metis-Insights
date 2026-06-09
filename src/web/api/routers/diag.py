@@ -121,6 +121,7 @@ _ADVISORY_LOG = runtime_logs_dir() / "advisory_decisions.jsonl"
 _SHADOW_PRED_LOG = runtime_logs_dir() / "shadow_predictions.jsonl"
 _SHADOW_PRED_BACKFILL_LOG = runtime_logs_dir() / "shadow_predictions_backfill.jsonl"
 _IBKR_MES_PULL_LOG = runtime_logs_dir() / "ibkr_mes_pull.jsonl"
+_NEWS_DECISIONS_LOG = runtime_logs_dir() / "news_decisions.jsonl"
 
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
@@ -144,6 +145,12 @@ _LOG_FILES: dict[str, Path] = {
     # system-action). Detached + paced, so this tail is how a session monitors
     # it. Absent until the pull has been run at least once.
     "ibkr_mes_pull": _IBKR_MES_PULL_LOG,
+    # M9 news layer shadow-soak log. One JSON line per actionable signal the news
+    # layer evaluated (decision/adjustment/veto/query/symbol), written by
+    # src.news.news_audit only while the layer is active. Observe-only — the data
+    # we accrue to validate the news veto/influence before it can gate live money.
+    # Absent until the news layer is enabled (NEWS_ENABLED=true + NEWS_API_KEY).
+    "news_decisions": _NEWS_DECISIONS_LOG,
 }
 
 _DEFAULT_LIMIT = 100

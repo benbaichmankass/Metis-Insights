@@ -23,7 +23,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from src.news.news_cache import get_cache
 
@@ -42,6 +42,17 @@ def _is_enabled(settings: dict) -> bool:
 
 def _get_api_key(settings: dict) -> str:
     return str(settings.get("NEWS_API_KEY", os.environ.get("NEWS_API_KEY", ""))).strip()
+
+
+def is_active(settings: Optional[dict] = None) -> bool:
+    """True when the news layer is both enabled AND has an API key.
+
+    The single source of truth for "is the news hook live" — used to gate the
+    shadow-decision soak log so it stays empty (no per-tick noise) until the
+    layer is actually evaluating news.
+    """
+    settings = settings or {}
+    return _is_enabled(settings) and bool(_get_api_key(settings))
 
 
 def _get_query(settings: dict) -> str:
@@ -64,7 +75,7 @@ def _get_cache_ttl(settings: dict) -> float:
         return float(_DEFAULT_CACHE_TTL)
 
 
-def fetch_news(settings: dict) -> List[Dict[str, Any]]:
+def fetch_news(settings: dict, query: Optional[str] = None) -> List[Dict[str, Any]]:
     """Fetch raw news articles from NewsAPI.
 
     Returns a list of raw article dicts as returned by the NewsAPI
@@ -73,7 +84,7 @@ def fetch_news(settings: dict) -> List[Dict[str, Any]]:
       - no API key is configured, or
       - a network or API error occurs (logged at WARNING level).
 
-    The result is cached for ``NEWS_CACHE_TTL`` seconds.
+    The result is cached for ``NEWS_CACHE_TTL`` seconds (keyed by query).
 
     Parameters
     ----------
@@ -81,6 +92,11 @@ def fetch_news(settings: dict) -> List[Dict[str, Any]]:
         Dict of config/env values (same pattern as the rest of the pipeline).
         Keys accepted: NEWS_ENABLED, NEWS_API_KEY, NEWS_QUERY,
         NEWS_MAX_ARTICLES, NEWS_CACHE_TTL.
+    query:
+        Per-symbol search query override (resolved from ``config/news_symbols.yaml``
+        by the pipeline). When ``None`` falls back to ``NEWS_QUERY`` / the module
+        default — so a per-symbol query wins, an explicit ``NEWS_QUERY`` is next,
+        and the Bitcoin default is last.
     """
     if not _is_enabled(settings):
         logger.debug("news layer disabled (NEWS_ENABLED=false)")
@@ -91,7 +107,7 @@ def fetch_news(settings: dict) -> List[Dict[str, Any]]:
         logger.debug("news layer has no API key (NEWS_API_KEY not set); returning empty")
         return []
 
-    query = _get_query(settings)
+    query = (query.strip() if isinstance(query, str) and query.strip() else None) or _get_query(settings)
     page_size = _get_max_articles(settings)
     cache_ttl = _get_cache_ttl(settings)
     cache_key = f"newsapi:{query}:{page_size}"

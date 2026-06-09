@@ -45,6 +45,7 @@ from typing import Any, Dict, List, Optional
 from src.news.news_client import fetch_news
 from src.news.news_normalizer import normalize_articles
 from src.news.news_score import NewsScoreResult, score_news
+from src.news.news_symbols import query_for_tags
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +74,17 @@ def get_news_score(
     """
     settings = settings or {}
 
+    # Multi-asset: fetch the query that matches the traded symbol (S&P news for
+    # MES, gold news for MGC, ...). None -> fetch_news falls back to NEWS_QUERY /
+    # the Bitcoin default. A per-symbol config match takes precedence so a global
+    # NEWS_QUERY can't re-break a non-crypto instrument.
     try:
-        raw_articles = fetch_news(settings)
+        per_symbol_query = query_for_tags(symbol_tags)
+    except Exception:  # noqa: BLE001
+        per_symbol_query = None
+
+    try:
+        raw_articles = fetch_news(settings, query=per_symbol_query)
     except Exception as exc:  # noqa: BLE001
         logger.warning("news_pipeline: fetch_news raised unexpectedly — %s", exc)
         return NewsScoreResult(reason=f"fetch error: {exc}")

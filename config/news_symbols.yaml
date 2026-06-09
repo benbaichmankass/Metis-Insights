@@ -1,0 +1,122 @@
+# Per-symbol news configuration for the M9 news-augmented decision layer.
+#
+# WHY: the v1 news layer was Bitcoin-only — its relevance dictionary only knew
+# crypto tickers and it always fetched the hardcoded "Bitcoin OR BTC" query. As
+# the bot expands to index/commodity futures (MES, MNQ, MGC, MHG, MCL ...) that
+# made the layer a silent no-op for everything except BTC (relevance ~ 0 -> all
+# articles dropped). This file maps a traded symbol's BASE (the symbol with any
+# USDT/PERP suffix and quote stripped, e.g. BTCUSDT -> BTC, MES -> MES) to:
+#
+#   query    : the NewsAPI search query used when that symbol is the signal symbol
+#   keywords : relevance keywords (lower-cased substrings matched in headline+summary)
+#
+# Resolution / fallback (see src/news/news_symbols.py):
+#   - Unknown base   -> `defaults.query` for the fetch, and the base's own
+#                       lower-cased token as the sole relevance keyword (the
+#                       pre-config behaviour — never strands a symbol).
+#   - Missing file / parse error -> built-in crypto map in the normalizer only.
+#
+# This file changes NOTHING at runtime until the news layer is enabled
+# (NEWS_ENABLED=true + NEWS_API_KEY set). It is config-only — adding a new
+# instrument is an edit here, not a code change.
+
+defaults:
+  # Used when a traded symbol has no entry below. Broad macro query so a brand
+  # new instrument still pulls market-moving headlines rather than nothing.
+  query: "stock market OR federal reserve OR inflation OR economy OR interest rates"
+
+symbols:
+  # ---- Crypto ----
+  BTC:
+    query: "Bitcoin OR BTC OR cryptocurrency"
+    keywords: [bitcoin, btc, satoshi, crypto, cryptocurrency]
+  ETH:
+    query: "Ethereum OR ETH"
+    keywords: [ethereum, eth, ether]
+
+  # ---- Equity-index futures ----
+  MES:   # Micro E-mini S&P 500
+    query: "S&P 500 OR stock market OR Federal Reserve OR inflation OR FOMC OR jobs report"
+    keywords:
+      - "s&p"
+      - "s&p 500"
+      - spx
+      - "stock market"
+      - equities
+      - stocks
+      - "wall street"
+      - "federal reserve"
+      - fed
+      - fomc
+      - inflation
+      - cpi
+      - "interest rate"
+      - "interest rates"
+      - "dow jones"
+      - recession
+      - "jobs report"
+      - payrolls
+      - treasury
+      - yields
+  MNQ:   # Micro E-mini Nasdaq-100
+    query: "Nasdaq OR tech stocks OR Federal Reserve OR inflation OR interest rates"
+    keywords:
+      - nasdaq
+      - "nasdaq 100"
+      - "tech stocks"
+      - "big tech"
+      - "stock market"
+      - equities
+      - stocks
+      - "federal reserve"
+      - fed
+      - fomc
+      - inflation
+      - cpi
+      - "interest rate"
+      - "interest rates"
+
+  # ---- Metal futures ----
+  MGC:   # Micro Gold
+    query: "gold price OR gold OR precious metals OR Federal Reserve OR inflation"
+    keywords:
+      - gold
+      - "gold price"
+      - xau
+      - bullion
+      - "precious metals"
+      - "safe haven"
+      - "federal reserve"
+      - "interest rate"
+      - "interest rates"
+      - inflation
+      - dollar
+      - dxy
+  MHG:   # Micro Copper
+    query: "copper price OR copper OR industrial metals OR China economy OR manufacturing"
+    keywords:
+      - copper
+      - "copper price"
+      - "industrial metals"
+      - metals
+      - "china economy"
+      - "china demand"
+      - manufacturing
+      - pmi
+      - "supply chain"
+
+  # ---- Energy futures ----
+  MCL:   # Micro WTI Crude Oil
+    query: "crude oil OR oil price OR OPEC OR energy OR gasoline"
+    keywords:
+      - oil
+      - "crude oil"
+      - "oil price"
+      - opec
+      - wti
+      - brent
+      - energy
+      - "oil inventories"
+      - eia
+      - gasoline
+      - "energy demand"
