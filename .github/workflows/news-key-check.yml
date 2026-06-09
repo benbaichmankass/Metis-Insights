@@ -1,0 +1,99 @@
+name: news-key-check
+
+# Validate the NewsAPI key (NEWS_API_KEY secret) end-to-end through the bot's
+# own news code — WITHOUT enabling the layer on the live trader. Runs entirely
+# in the runner (which has the secret); no VM contact, read-only.
+#
+# Why: before flipping NEWS_ENABLED=true on the live VM (which lets the veto
+# refuse live trades), confirm the operator-provided key actually authenticates
+# and that the multi-asset wiring resolves + fetches the right news per symbol.
+#
+# Trust contract:
+#   * Read-only. Does not touch either VM, the journal, or any runtime state.
+#   * Runs scripts/ops/news_key_check.py, which never prints the key or full
+#     article text — only auth status + per-symbol article counts / decisions.
+#
+# Triggered by `issues.opened` filtered to label `news-key-check` (Claude can
+# drive it), or workflow_dispatch (operator click). Comments the result back on
+# the issue and closes it.
+#
+# To use from a sandbox session:
+#   mcp__github__issue_write(method='create',
+#       title='[news-key-check] validate NEWS_API_KEY',
+#       labels=['news-key-check'], body='<reason>')
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why this run is happening (audit only)."
+        required: false
+        default: "manual operator dispatch"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: news-key-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'news-key-check'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install minimal deps
+        run: pip install --quiet pyyaml
+
+      - name: Run NewsAPI key check
+        id: exec
+        env:
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+        run: |
+          set -euo pipefail
+          set +e
+          python scripts/ops/news_key_check.py > action-output.txt 2>&1
+          rc=$?
+          set -e
+          echo "exit_code=${rc}" >>"$GITHUB_OUTPUT"
+          cat action-output.txt
+          exit "${rc}"
+
+      - name: Reply to issue
+        if: always() && github.event_name == 'issues'
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            let output = '';
+            try { output = fs.readFileSync('action-output.txt', 'utf8'); }
+            catch (_) { output = '(no output — job failed before the probe ran)'; }
+            const rc = process.env.EXIT_CODE;
+            const passed = rc === '0';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const icon = passed ? '✅' : '❌';
+            const body =
+              `${icon} **news-key-check** (exit ${rc ?? '?'})\n` +
+              `Run: ${runUrl}\n` +
+              `\n\`\`\`\n${output.slice(-50000)}\n\`\`\``;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: 'closed',
+              state_reason: passed ? 'completed' : 'not_planned' });
