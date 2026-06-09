@@ -381,7 +381,7 @@ def test_disabled_flag_is_noop(tmp_db, monkeypatch):
         summary = _reconcile_open_trades(tmp_db)
 
     assert summary == {
-        "checked": 0, "orphaned": 0, "closed": 0,
+        "checked": 0, "orphaned": 0, "closed": 0, "pending_close": 0,
         "skipped_dry": 0, "skipped_no_creds": 0,
         "skipped_no_cfg": 0, "skipped_recent": 0,
         "skipped_non_numeric": 0, "errors": 0,
@@ -2588,3 +2588,200 @@ class TestExitPriceFromClosedPnl:
         assert row["exit_price"] is None
         notes = json.loads(row["notes"])
         assert notes["exit_price_source"] == "entry_order_avg_price_unreliable"
+
+
+# ---------------------------------------------------------------------------
+# Position-netting guard — reconciler half (Option A, BL-20260608-DEMOPNL)
+# ---------------------------------------------------------------------------
+
+
+class TestNettingGuardCloseConfirmation:
+    """When ``POSITION_NETTING_GUARD_ENABLED`` is on, a filled trade that
+    reads net-flat is not closed on the FIRST observation — it must read
+    flat across an extra grace tick (a second observation,
+    ``RECONCILER_CLOSE_CONFIRM_SECONDS`` apart) before the close lands. A
+    transient flat (an intent reduce/flip leg or index lag) that recovers
+    to "position open" on a later tick clears the pending confirmation, so
+    it can never prematurely close the row and free the strategy-monocle.
+
+    With the switch OFF (default) the close fires on the first flat, exactly
+    as the legacy SSOT reconciler does.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _clear_pending(self):
+        from src.runtime import order_monitor as _om
+        _om._PENDING_CLOSE_CONFIRM.clear()
+        yield
+        _om._PENDING_CLOSE_CONFIRM.clear()
+
+    def test_first_flat_observation_defers_close(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        trade_id = _insert_trade(tmp_db, trade_id="2200000000000000001")
+
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status("2200000000000000001"),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["closed"] == 0
+        assert summary["pending_close"] == 1
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"
+
+    def test_second_flat_observation_confirms_close(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        # Window 0 → the SECOND observation alone confirms (pure extra tick).
+        monkeypatch.setenv("RECONCILER_CLOSE_CONFIRM_SECONDS", "0")
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        trade_id = _insert_trade(tmp_db, trade_id="2200000000000000002")
+
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status("2200000000000000002"),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            s1 = _reconcile_open_trades(tmp_db)
+            s2 = _reconcile_open_trades(tmp_db)
+
+        assert s1["closed"] == 0 and s1["pending_close"] == 1
+        assert s2["closed"] == 1
+        assert _read_trade(tmp_db, trade_id)["status"] == "closed"
+
+    def test_transient_flat_then_open_clears_pending(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """A single net-flat tick followed by a "position open" tick must
+        NOT close the trade — the churn case the guard exists to fix."""
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        monkeypatch.setenv("RECONCILER_CLOSE_CONFIRM_SECONDS", "0")
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        trade_id = _insert_trade(
+            tmp_db, trade_id="2200000000000000003", direction="long",
+        )
+
+        flat = patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        )
+        open_pos = patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[{"symbol": "BTCUSDT", "side": "Buy", "size": 0.005}],
+        )
+        status = patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status("2200000000000000003"),
+        )
+
+        with status, flat:
+            s1 = _reconcile_open_trades(tmp_db)  # first flat → pending
+        with status, open_pos:
+            s2 = _reconcile_open_trades(tmp_db)  # position back → clears pending
+        with status, flat:
+            s3 = _reconcile_open_trades(tmp_db)  # flat again → pending, NOT close
+
+        assert s1["pending_close"] == 1 and s1["closed"] == 0
+        assert s2["closed"] == 0
+        assert s3["closed"] == 0, "transient flat must not have closed the row"
+        assert s3["pending_close"] == 1
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"
+
+    def test_guard_off_closes_on_first_flat(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """Switch unset (default) → legacy immediate close on first flat."""
+        monkeypatch.delenv("POSITION_NETTING_GUARD_ENABLED", raising=False)
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        trade_id = _insert_trade(tmp_db, trade_id="2200000000000000004")
+
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status("2200000000000000004"),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["closed"] == 1
+        assert summary["pending_close"] == 0
+        assert _read_trade(tmp_db, trade_id)["status"] == "closed"
+
+    def test_account_allowlist_excludes_closes_immediately(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """Master ON but allowlist=bybit_1 (demo-only soak) → the guard is
+        NOT active for bybit_2, so its net-flat trade closes on the first
+        observation (legacy behaviour), no deferral."""
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_1")
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        trade_id = _insert_trade(
+            tmp_db, account_id="bybit_2", trade_id="2200000000000000005",
+        )
+
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status("2200000000000000005"),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["closed"] == 1
+        assert summary["pending_close"] == 0
+        assert _read_trade(tmp_db, trade_id)["status"] == "closed"
+
+    def test_account_allowlist_includes_defers_close(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """allowlist=bybit_2 → guard active for bybit_2 → first net-flat
+        defers (extra grace tick), not closed."""
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_2")
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        trade_id = _insert_trade(
+            tmp_db, account_id="bybit_2", trade_id="2200000000000000006",
+        )
+
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status("2200000000000000006"),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["closed"] == 0
+        assert summary["pending_close"] == 1
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"

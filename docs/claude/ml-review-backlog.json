@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "MB-20260609-001",
+      "opened_at": "2026-06-09T09:00:00+00:00",
+      "opened_by": "claude (/health-review CPU A/B → /ml-review follow-up)",
+      "source": "2026-06-09 live incident (health BL-20260609-001). An operator-approved A/B (set REGIME_BAR_SCORING_DISABLED=1, #3075) proved per-bar regime scoring (S-MLOPT-S13, src/runtime/regime_bar_scoring.py) was saturating the live VM CPU to 95-100% and starving the trader loop into a ~30-40min wedge (06:18-06:57Z). With it OFF, CPU = 0-10% across 18 min (#3076/#3077/#3078).",
+      "title": "Optimize live per-bar regime scoring (regime_bar_scoring.py) so it can be re-enabled without pegging the live VM — currently DISABLED, which pauses the strong regime heads' per-bar track-record accrual (blocks MB-20260529-001 / yz-1h soak)",
+      "description": "Per-bar regime scoring scores every shadow-stage regime head on every closed bar per (symbol, timeframe). On the small live VM that pegs CPU to 95-100% and (with no cgroup isolation) starves the trader's main loop → the 2026-06-09 wedge. Same cost CLASS as MB-20260531-001 (sim per-bar feature reconstruction, which was root-caused to an O(n^2) feature rebuild and fixed byte-identically in sim/engine.py) — but the LIVE path (src/runtime/regime_bar_scoring.py + the ShadowPredictor.predict per head) is unoptimized. It is now DISABLED on the live VM (REGIME_BAR_SCORING_DISABLED=1, observe-only so zero trading impact) — but that pauses the order-influencing per-bar track record the strong heads (1h/MES) need (MB-20260529-001), which gates the yz-1h shadow->advisory promotion evidence (MB-20260527-004). OPTIONS to evaluate: (a) batch/cache the per-bar feature build instead of rebuilding per bar+head (mirror the MB-20260531-001 sim fix); (b) limit per-bar scoring to ONLY the strong heads being promoted (e.g. btc-regime-1h-lgbm-yz-v1) rather than every shadow regime head; (c) coarsen the cadence (score the 1h head on 1h closes only, not every tick); (d) cgroup CPUWeight/nice the trader above the scoring + other sidecars (defense-in-depth, helps regardless). Then re-enable via set-env REGIME_BAR_SCORING_DISABLED=0 and re-run the CPU A/B to confirm it stays bounded.",
+      "tier": 1,
+      "trigger_condition": "Next /ml-review; or before re-enabling REGIME_BAR_SCORING on the live VM; or any session touching regime_bar_scoring.py / the yz-1h promotion (MB-20260527-004).",
+      "resolution_criteria": "regime_bar_scoring.py runs on the live VM with CPU staying bounded (no sustained >~50% attributable to scoring, verified via the new status_check.sh CPU snapshot / a re-run A/B) AND the strong regime heads resume accruing per-bar shadow records — so MB-20260529-001 / the yz-1h soak are unblocked. OR a decision that per-bar scoring stays off and the regime-head track record is sourced differently.",
+      "status": "open",
+      "snoozed_until": null,
+      "evidence_log": []
+    },
+    {
       "id": "MB-20260607-002",
       "opened_at": "2026-06-07T00:00:00+00:00",
       "opened_by": "claude (S-MLOPT-S16 / S-MLOPT-S18 ship)",
@@ -17,7 +31,8 @@
         "2026-06-07 (S-MLOPT-S16 ship): SHIPPED ml/shadow/adwin.py (Bifet & Gavaldà 2007 Hoeffding-cut ADWIN, pure stdlib) + ml/shadow/drift_retrain.py (per-deployed-head scan + RetrainDecision rows: dispatch / skip_no_drift / skip_no_manifest / skip_thin_data) + `python -m ml drift-retrain` CLI + scripts/ops/run_drift_retrain.sh orchestrator (RETRAIN_PLAN_ONLY=1 default; flips to fire `python -m ml train <manifest>` per dispatch row, reusing the manifest's S-MLOPT-S2 sample_weight.half_life_days for recency weighting) + trainer-side ict-drift-retrain.{service,timer} (hourly, DISABLED by default) in deploy/training-vm-cloud-init.yaml. 17 tests (test_adwin.py + test_drift_retrain.py) pin the cut bound, the stationary / step-change / min-window / cap edge cases, the manifest resolver, the watched-stage filter, the backfill exclusion, the JSONL writer, and both CLI exit codes. Ruff clean.",
         "2026-06-07 (S-MLOPT-S18 ship): SHIPPED ml/promotion/readiness_report.py (sweeps run_stage_guard across the registry; regime profile + oos_edge baseline auto-selected via the existing thresholds_for / run_stage_guard wiring; buckets into promote/demote/hold; renders JSON + Markdown) + `python -m ml promotion-readiness` CLI + scripts/ops/run_promotion_readiness.sh orchestrator (writes report to runtime_logs/trainer_mirror/promotion_readiness/<UTC-date>/ so publish_trainer_mirror.sh rsyncs it; on actionable proposals pushes a pending_pings/*.json onto the live VM via SCP using the same SSH key the trainer-publish step uses) + trainer-side ict-promotion-readiness.{service,timer} (daily, DISABLED by default) in deploy/training-vm-cloud-init.yaml. 13 tests (test_readiness_report.py + the promotion-readiness case in test_promotion_cli.py) pin bucketing, Markdown rendering, the missing-datasets_root warning, the quiet-vs-actionable ping message, JSON+MD persistence, build_readiness_report end-to-end, and the CLI's --output-dir write path. Reports only -- never auto-promotes. Ruff clean.",
         "2026-06-07 (pending): enable both timers via trainer-vm-diag relay; let ict-drift-retrain run one RETRAIN_PLAN_ONLY cycle to confirm the log shape; let ict-promotion-readiness run one cycle to confirm the artifact lands in the mirror dir + the pending_pings push works end-to-end. The yz-1h ~6/12 check moves from MB-20260527-004's manual gate-check to a row in the daily report.",
-        "2026-06-08 (/ml-review): TIMERS CONFIRMED LIVE + FIRING. Trainer-vm-diag pull (issue #2970): systemctl is-enabled/is-active reports BOTH ict-drift-retrain.timer and ict-promotion-readiness.timer as enabled+active. The daily ict-trainer cycle ran cleanly 2026-06-08T00:20:25Z->00:24:31Z (36 manifests, overall_rc=0, publish_post_ok at 00:24:34Z). Promotion-readiness artifact dir `runtime_logs/trainer_mirror/promotion_readiness/2026-06-08/` exists (mtime 00:12:03Z by the early promotion-readiness cycle, before the trainer cycle ran). Resolution criteria (a) MET; (b) partially met (promotion-readiness dir present — SUMMARY.md content not pulled this review; drift-retrain JSONL rows pending pull). Criteria (c) + (d) gated on the yz-1h promotion check (MB-20260527-004, soak completes 2026-06-12); they'll resolve naturally once the next promotion-readiness report covers a model crossing the ready bar. Status: open -> in_progress; expect full resolution by /ml-review on/after 6/12."
+        "2026-06-08 (/ml-review): TIMERS CONFIRMED LIVE + FIRING. Trainer-vm-diag pull (issue #2970): systemctl is-enabled/is-active reports BOTH ict-drift-retrain.timer and ict-promotion-readiness.timer as enabled+active. The daily ict-trainer cycle ran cleanly 2026-06-08T00:20:25Z->00:24:31Z (36 manifests, overall_rc=0, publish_post_ok at 00:24:34Z). Promotion-readiness artifact dir `runtime_logs/trainer_mirror/promotion_readiness/2026-06-08/` exists (mtime 00:12:03Z by the early promotion-readiness cycle, before the trainer cycle ran). Resolution criteria (a) MET; (b) partially met (promotion-readiness dir present — SUMMARY.md content not pulled this review; drift-retrain JSONL rows pending pull). Criteria (c) + (d) gated on the yz-1h promotion check (MB-20260527-004, soak completes 2026-06-12); they'll resolve naturally once the next promotion-readiness report covers a model crossing the ready bar. Status: open -> in_progress; expect full resolution by /ml-review on/after 6/12.",
+        "2026-06-09 (/ml-review): RE-CONFIRMED both timers enabled+active (trainer-vm-diag #3054). ict-drift-retrain produced a clean cycle at 06:01:28Z — 8 RetrainDecision rows, all action=skip_no_drift (ADWIN no-cut), confirming the per-head scan + JSONL writer work end-to-end on real deployed heads. Promotion-readiness dir for 2026-06-09 EXISTS but SUMMARY.md was NOT present at pull time (`cat .../2026-06-09/SUMMARY.md` => No such file) — either the daily readiness cycle wrote a different filename (report.json only?) or it errored before rendering Markdown. ACTION for next /ml-review: pull `ls -la runtime_logs/trainer_mirror/promotion_readiness/<date>/` + the readiness service journal to confirm the SUMMARY.md render path; criteria (b) ('SUMMARY.md visible') not yet verifiable. Stays in_progress."
       ],
       "status_history": "open 2026-06-07 (tooling shipped, trainer-VM enable pending) | in_progress 2026-06-08 (/ml-review: both timers verified live + active; first promotion-readiness artifact dir exists; full resolution pending the 6/12 yz-1h soak completion)."
     },
@@ -128,6 +143,7 @@
       "status": "open",
       "snoozed_until": null,
       "evidence_log": [
+        "2026-06-09 (/ml-review): HOLD stands — soak completes 2026-06-12, ~3 days out. Trainer infra confirmed HEALTHY via trainer-vm-diag #3054: ict-trainer.timer + ict-drift-retrain.timer + ict-promotion-readiness.timer all enabled+active; today's daily cycle ran clean (training_cycle.jsonl cycle_end 2026-06-09T00:25, overall_rc=0); ict-drift-retrain fired 2026-06-09T06:01:28Z across all deployed shadow heads and returned skip_no_drift for every one (mes-regime-1d-lgbm-v2, mes-regime-5m{-baseline-v1,-lgbm-v2}, prop-mission-policy-baseline-v0, setup-quality + trade-outcome baselines) — ADWIN found no cut, so no drift-triggered retrain is warranted on the yz family's neighbours either. NOTE: promotion-readiness dir runtime_logs/trainer_mirror/promotion_readiness/2026-06-09/ EXISTS but SUMMARY.md was absent at pull time (cat failed) — minor: confirm the daily promotion-readiness report writes SUMMARY.md (or adjust the expected filename) next /ml-review; tracked alongside MB-20260607-002. No gate-check run this review (would need a trainer-vm-diag sync+gate-check cycle; deferred to the on/after-6/12 action already specified). No promotion recommended.",
         "2026-06-07 (session wrap): REGIME GATE PROFILE MERGED (PR #2919) + S15a trend-model tuned (PR #2928). Net state of the yz-1h promotion: oos_edge PASS +0.373 (leak-free purged-WF-CV), non_degenerate + cross_run_stability PASS. Under the now-live regime profile (gate-check auto-applies it) the ONLY remaining blockers are accrual: shadow_soak (2.3/7d -> completes ~2026-06-12T01:00Z), sample_sufficiency (now 2/5 live scored trades, was 2/200), live_agreement (needs >=1 winning AND >=1 LOSING scored BTC trade for AUC; both current scored closes are wins), drift_clean (needs the 2nd window). NEXT ACTION on/after 6/12: on the trainer, `bash scripts/ops/sync_trainer_data.sh` then `python -m ml gate-check btc-regime-1h-lgbm-yz-v1 --target-stage advisory --db data/trade_journal.db --shadow-log runtime_logs/shadow_predictions.jsonl --datasets-root datasets-out` (regime profile + modal baseline auto-selected); if ready=true, emit a promotion_recommendations[] packet and bring the operator the go/no-go (the shadow->advisory flip is Tier-3, operator-gated). HOLD until then.",
         "2026-06-07 (push-ahead session, trainer-vm-diag #2911-#2921): GATE RE-CHECK with corrected paths + dataset + baseline. Engineering fully landed+deployed (S13/S15b/S17 on main); yz 1h per-bar emission HEALTHY (63 records hourly, newest 2026-06-07T06:00Z, full S17 parity feature_row incl yang_zhang_vol). Correct read paths: db=data/trade_journal.db (2493 BTC / 515 closed), shadow=runtime_logs/shadow_predictions.jsonl. market_features BTCUSDT/1h/v002 is CURRENT (builder v7, generated 2026-06-07T00:25Z, 43800 rows) -- NOT stale. gate-check btc-regime-1h-lgbm-yz-v1->advisory = READY:FALSE. QUALITY GATES NOW ALL PASS: non_degenerate PASS (min f1 0.480); oos_edge PASS +0.37254 macro_f1 over 5 purged WF-CV folds (candidate 0.66301 vs modal baseline 0.29047) -- decisive leak-free win; cross_run_stability PASS (std 0.0020/3 runs). REMAINING fails are ALL live-data/time accrual: shadow_soak 2.25/7d (->~2026-06-12); sample_sufficiency FAIL 2/200 live scored trades; live_agreement insufficient (n=2 scored live BTC closes, both WINS, AUC needs a loser); beats_baseline FAIL (brier_lift -0.167 but base-rate brier 0.0 -> degenerate at n=2); drift_clean insufficient (needs 2 windows). At BTC close cadence (~2-3/day) the 200-live-trade sample_sufficiency bar is WEEKS out -- the binding constraint, much longer than the 7-day soak. GATE-CHECK WIRING FINDING (BL-20260607-002): oos_edge silently returns insufficient for ANY multiclass regime head unless gate-check is invoked with --baseline-trainer ml.trainers.regime_classifier.RegimeClassifierTrainer; the default ConstantPredictionTrainer is incompatible with the multiclass evaluator -> None. OPEN DECISION for operator: with oos_edge passing decisively, is the 200-live-trade sample_sufficiency the right bar for a regime CLASSIFIER, or should the regime-head gate lean on oos_edge + soak + drift with a small live floor? HOLD stands; no promotion.",
         "2026-06-06 (S-MLOPT-S8-FU, trainer-vm-diag #2907-#2908): REALIZED-JOIN UNBLOCK SHIPPED. scripts/ops/sync_trainer_data.sh now pulls the live VM's shadow_predictions.jsonl (+_backfill) into the trainer runtime_logs/ (same rsync pattern as trade_journal.db) so `python -m ml gate-check` can compute live_agreement + drift LOCALLY -- the /api/bot/trades/scores web-session unreachability (the standing blocker on this item) no longer applies. Verified: sync pulled 28,666 fresh shadow lines + 11,606 backfill; the yz head carries 51 per-bar records. gate-check btc-regime-1h-lgbm-yz-v1 -> advisory = READY:FALSE -- non_degenerate PASS (min per-class f1 0.483), sample_sufficiency PASS (n_eval 8760), shadow_soak FAIL 1.8/7d (stage entry 2026-06-05T00:59Z, young), beats_baseline/cross_run_stability/live_agreement/drift_clean insufficient. live_agreement now COMPUTES locally but is insufficient by DATA THINNESS not infra: model-attribution for the yz head returns [] -- the 51 records (~1.8d old) don't yet overlap a closed-BTC trade window (~0 closed BTC trades in that window). oos_edge insufficient even with --datasets-root (pre-existing: yz market_features v3 dataset not built in datasets-out; separate follow-up). NET: the honest-promotion-evidence infra the task asked for is wired + verified; HOLD stands -- let the post-6/5 soak + per-bar record accrue ~1-2 weeks, then re-run gate-check (the join will yield a real AUC once trades close inside the record window).",
@@ -449,6 +465,88 @@
         "2026-06-06 (model-training, S-MLOPT-S8): SHIPPED (PR draft, branch claude/xsym-metalabel-training-3JvRb): (a) Tier-1 opt-in/default-off `build_xsym_setup_candidates()` in scripts/ops/build_trainer_datasets.sh (ICT_BUILD_XSYM=1 builds the joint all/all dataset daily; default off => byte-identical cycle + the xsym manifest keeps skipping via PR #2886); (b) manifest header + notes document the eval result, stage stays research_only; (c) docs/sprint-logs/S-MLOPT-S8.md + roadmap S-MLOPT-S8 line updated. PROPOSAL to operator: research_only -> shadow (Tier-3) so the joint model accrues an observe-only live track record + flip ICT_BUILD_XSYM=1. NOT flipped autonomously. FOLLOW-UP LEVERS once MES accrues real closed trades: (i) re-run with a true MES real holdout to measure the INTENDED BTC->MES transfer; (ii) extend to MGC/MHG when they trade; (iii) combine the joint dataset with the S9 range-vol / yz features (the one feature lever that DID lift) for a stronger meta-label."
       ],
       "status_history": "opened+resolved 2026-06-06 (model-training, S-MLOPT-S8): joint trained+evaluated; qualified-positive on the BTC holdout, BTC->MES transfer unmeasurable (0 MES trades); research_only->shadow proposed (Tier-3, operator-gated); daily build wired opt-in/default-off (ICT_BUILD_XSYM). Operator decides the promotion."
+    },
+    {
+      "id": "MB-20260609-001",
+      "opened_at": "2026-06-09T05:42:00+00:00",
+      "opened_by": "claude (S9 yz monitoring session, doc-freshness)",
+      "source": "Diag relays #3008, #3042, #3045: per-head shadow/stats for the three S9 yz BTC regime heads. row_keys_seen differs across heads.",
+      "title": "btc-regime-15m-lgbm-yz-v1 shadow rows missing 5 fields that 1h and 5m heads have (confidence, direction, killzone, setup_type, strategy_name)",
+      "description": "Snapshot 2026-06-09: btc-regime-1h-lgbm-yz-v1 and btc-regime-5m-lgbm-yz-v1 record row_keys_seen including {confidence, direction, killzone, setup_type, strategy_name} in addition to the bar-derived vol/return features. btc-regime-15m-lgbm-yz-v1 records only the bar-derived features (yz/GK/Parkinson/RS vols, log_returns + lags, symbol, timeframe, vol_bucket, hour_of_day, dayofweek, event_source) — the 5 signal-context fields are absent. That means the 15m head is scoring purely from bar features while the other two heads see strategy-signal context too. Determine if this is intended in ml/configs/btc-regime-15m-lgbm-yz-v1.yaml (legitimate scope difference — e.g. 15m head only scores bar-cadence and not signal events), or a wiring gap in the shadow predictor's feature builder for the 15m head. Block on diagnosis before any 15m promotion past shadow.",
+      "tier": 1,
+      "trigger_condition": "before any promotion of btc-regime-15m-lgbm-yz-v1 past shadow",
+      "resolution_criteria": "(a) confirm intended-by-design vs wiring-bug by reading the three manifests + shadow inference call site, (b) if wiring bug, ship a fix and re-validate row_keys; (c) if intended, document the reason in the manifest's description",
+      "status": "resolved",
+      "evidence_log": [
+        {
+          "ts": "2026-06-08T15:06:26+00:00",
+          "kind": "diag",
+          "ref": "issue 3008",
+          "note": "1h head row_keys include the 5 signal-context fields, count=127"
+        },
+        {
+          "ts": "2026-06-08T22:12:46+00:00",
+          "kind": "diag",
+          "ref": "issue 3042",
+          "note": "5m head row_keys include the 5 signal-context fields, count=1537"
+        },
+        {
+          "ts": "2026-06-09T05:10:51+00:00",
+          "kind": "diag",
+          "ref": "issue 3045",
+          "note": "15m head row_keys MISSING the 5 signal-context fields, count=390"
+        }
+      ],
+      "status_history": [
+        {
+          "ts": "2026-06-09T05:42:00+00:00",
+          "from": null,
+          "to": "open",
+          "note": "Opened by S9 yz monitoring session doc-freshness."
+        },
+        {
+          "ts": "2026-06-09T06:35:00+00:00",
+          "from": "open",
+          "to": "resolved",
+          "note": "Intended, not a wiring gap. The five fields are signal-time correlation metadata, NOT model inputs; all three yz manifests share an identical 11-feature bar-derived set (verified against ml/predictors/shadow.py + regime_shadow.feature_row_for_predictor). The 15m head logs bar-cadence-only records because turtle_soup (its only 15m BTC strategy) rarely fires; the per-bar path (S13) still accrues its track record. See docs/audits/s9-yz-shadow-promotion-2026-06-09.md §2."
+        }
+      ],
+      "snoozed_until": null
+    },
+    {
+      "id": "MB-20260609-002",
+      "opened_at": "2026-06-09T05:42:00+00:00",
+      "opened_by": "claude (S9 yz monitoring session, doc-freshness)",
+      "source": "Diag relay #3042 to /api/bot/shadow/stats for btc-regime-5m-lgbm-yz-v1 returned count=1537 over 3.9 days, score_mean=0.93, score_min=0.50, score_max=0.9998.",
+      "title": "btc-regime-5m-lgbm-yz-v1 score distribution looks class-collapsed (mean 0.93, count ~36% above bar-cadence expectation)",
+      "description": "btc-regime-5m-lgbm-yz-v1 shows score_mean=0.9282 across 1,537 shadow predictions logged 2026-06-05 01:04 → 2026-06-08 22:10 (3.9 days). At a clean 12-bars/hour cadence that window is 12×24×3.9 = ~1,123 bars; the head logged ~36% more, so something is scoring more than once per closed 5m bar (likely signal events overlapping bar-scoring — consistent with the head having the 5 signal-context fields per MB-20260609-001). The high mean and skewed-right distribution (min still 0.50 but max effectively 1.0) suggest one regime class is dominating with near-saturated confidence — a class-collapse / overconfidence pattern. Before any 5m head shadow→advisory promotion (operator review ≈ 2026-06-12), pull the per-class prediction-share distribution and the model's training/eval class balance from the trainer registry, and verify the head is meaningfully discriminating between regimes rather than predicting one dominant class always-with-high-confidence. Compare against 1h head (score_mean 0.77, less skewed) and 15m head (score_mean 0.84). The same anti-pattern has historically gated other regime models past shadow.",
+      "tier": 1,
+      "trigger_condition": "before the operator's planned ~2026-06-12 promotion review of the S9 yz heads",
+      "resolution_criteria": "produce a per-predicted-class share table for the 5m head over the shadow window, confirm reasonable spread (no single class > ~75% of predictions, or document why the regime distribution genuinely justifies it); compare to the head's training-set class balance to rule out simple class-imbalance leakage",
+      "status": "resolved",
+      "evidence_log": [
+        {
+          "ts": "2026-06-08T22:12:46+00:00",
+          "kind": "diag",
+          "ref": "issue 3042",
+          "note": "5m head shadow/stats count=1537, score_mean=0.93, score_min=0.50, score_max=0.9998"
+        }
+      ],
+      "status_history": [
+        {
+          "ts": "2026-06-09T05:42:00+00:00",
+          "from": null,
+          "to": "open",
+          "note": "Opened by S9 yz monitoring session doc-freshness."
+        },
+        {
+          "ts": "2026-06-09T06:35:00+00:00",
+          "from": "open",
+          "to": "resolved",
+          "note": "Not class-collapsed. The logged score is max-class probability (range [0.5,1] for these 2-class heads); the 5m head's high score_mean is confident RANGE prediction (range=99.65% of 5m bars) — it predicts volatile only 1.1% of the time. Per-class eval (run 20260609): 1h f1_vol 0.476 > 15m 0.247 > 5m 0.125 (precision_vol 0.082); the score_mean ordering is the inverse of detector quality. Promotion read: 1h promotable, 15m marginal, hold 5m. See docs/audits/s9-yz-shadow-promotion-2026-06-09.md §3."
+        }
+      ],
+      "snoozed_until": null
     }
   ]
 }
