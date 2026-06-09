@@ -964,3 +964,75 @@ class TestDirectionAwarePolicyLookup:
         cells = compute_regime_cells(decisions, {}, policy, "mixed_strat")
         # 2 longs + 1 short → no single direction → rolled-up "unknown"
         assert cells[0].regime_policy_cell == "unknown"
+
+
+# ---------------------------------------------------------------------------
+# load_regime_policy() must normalize at the YAML boundary too.
+# ---------------------------------------------------------------------------
+
+
+class TestLoadRegimePolicyNormalization:
+    """Regression: ``load_regime_policy`` used to do
+    ``str(cell.get("long", "on")).lower()`` which turned PyYAML's
+    ``False`` (from unquoted ``off``) into the string ``"false"``.
+    That string then propagated through to ``regime_policy_cell_for``,
+    which (post the 2026-06-09 normalization fix) treats unknown
+    strings as ``"unknown"`` — silently breaking the all-cells-off
+    escalation path in a different place than the surface-level
+    bug it was supposed to plug.
+    """
+
+    def test_yaml_bool_off_loads_as_off(self, tmp_path: Path):
+        from scripts.ml.strategy_review_packet import load_regime_policy
+        path = tmp_path / "regime_policy.yaml"
+        # Mirrors the real config/regime_policy.yaml shape — unquoted
+        # off/on, PyYAML parses these as bool.
+        path.write_text(
+            "trending:\n"
+            "  vwap: { long: off, short: off }\n"
+            "chop:\n"
+            "  trend_donchian: { long: on, short: on }\n"
+        )
+        loaded = load_regime_policy(path)
+        assert loaded["trending"]["vwap"]["long"] == "off"
+        assert loaded["trending"]["vwap"]["short"] == "off"
+        assert loaded["chop"]["trend_donchian"]["long"] == "on"
+        assert loaded["chop"]["trend_donchian"]["short"] == "on"
+
+    def test_quoted_strings_pass_through(self, tmp_path: Path):
+        from scripts.ml.strategy_review_packet import load_regime_policy
+        path = tmp_path / "regime_policy.yaml"
+        path.write_text(
+            "trending:\n"
+            "  vwap: { long: \"off\", short: \"off\" }\n"
+        )
+        loaded = load_regime_policy(path)
+        assert loaded["trending"]["vwap"]["long"] == "off"
+        assert loaded["trending"]["vwap"]["short"] == "off"
+
+    def test_loaded_policy_drives_decide_kill_path(self, tmp_path: Path):
+        """End-to-end: a YAML with unquoted off (PyYAML bool) → load →
+        regime_policy_cell_for → decide() → kill."""
+        from scripts.ml.strategy_review_packet import load_regime_policy
+        path = tmp_path / "regime_policy.yaml"
+        path.write_text(
+            "trending:\n"
+            "  vwap: { long: off, short: off }\n"
+            "chop:\n"
+            "  vwap: { long: off, short: off }\n"
+            "transitional:\n"
+            "  vwap: { long: off, short: off }\n"
+        )
+        policy = load_regime_policy(path)
+        # Three cells, all from the loaded policy → all "off" via
+        # the regime_policy_cell_for helper.
+        cells = []
+        for trend in ("trending", "chop", "transitional"):
+            verdict = regime_policy_cell_for(policy, "vwap", trend)
+            assert verdict == "off"
+            cells.append(_cell(trend=trend, policy=verdict))
+        h = _headline(
+            n_closed=120, n_wins=10, win_rate=0.08, pnl_total=-500.0, expectancy=-4.16
+        )
+        d = decide(h, cells, _diag(), execution="live", shadow_soak_days=0)
+        assert d.action == "kill"
