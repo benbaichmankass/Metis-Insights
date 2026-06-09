@@ -346,6 +346,74 @@ def pull_regime_stamp_index(
 # ---------------------------------------------------------------------------
 
 
+_SWEEP_MIRROR_SUBPATH = ("trainer_mirror", "backtests")
+
+
+def _sweeps_root() -> Path:
+    """Return the trainer-mirror sweeps root on this VM.
+
+    Mirrors the resolver used by ``src/web/api/routers/backtests.py``
+    so producer and consumer agree on the same path.
+    """
+    return runtime_logs_dir().joinpath(*_SWEEP_MIRROR_SUBPATH)
+
+
+def load_backtest_anchor(strategy: str, root: Optional[Path] = None) -> Optional[Dict[str, Any]]:
+    """Return the most-recent trainer-mirror sweep that references *strategy*.
+
+    The trainer publishes per-run ``runtime_logs/trainer_mirror/backtests/
+    <UTC-date>/SUMMARY.md`` (+ ``all_metrics.json``) via
+    ``scripts/ops/publish_trainer_mirror.sh``. This helper walks those
+    dirs newest-first and returns the first one whose ``SUMMARY.md``
+    text mentions the strategy name (case-insensitive substring) — a
+    cheap, schema-agnostic "is there backtest context to anchor on?"
+    indicator the gate doc names as the optional ``backtest_anchor``
+    block.
+
+    Returns ``None`` if the mirror dir is missing or no sweep mentions
+    the strategy. The packet remains valid in either case — the gate
+    matrix does not depend on this block.
+
+    The shape is deliberately conservative: ``best_variant_net_r`` /
+    ``current_config_net_r`` are NOT populated here because
+    ``all_metrics.json`` shape varies by run mode (as documented in
+    the consumer router). A future sprint can extend the helper once
+    the harness publishes a per-strategy normalised summary; until
+    then this surfaces date + presence + a pointer.
+    """
+    sweeps_root = root or _sweeps_root()
+    if not sweeps_root.exists():
+        return None
+    try:
+        day_dirs = sorted(
+            (p for p in sweeps_root.iterdir() if p.is_dir()),
+            key=lambda p: p.name,
+            reverse=True,
+        )
+    except OSError:
+        return None
+    needle = strategy.lower()
+    for day_dir in day_dirs:
+        summary = day_dir / "SUMMARY.md"
+        if not summary.exists():
+            continue
+        try:
+            text = summary.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if needle in text.lower():
+            return {
+                "date": day_dir.name,
+                "summary_table_present": True,
+                "summary_path": str(summary),
+                "note": (
+                    f"trainer-mirror sweep dated {day_dir.name} references "
+                    f"{strategy}; consult SUMMARY.md for per-variant net R."
+                ),
+            }
+    return None
+
+
 def _safe_div(a: float, b: float) -> Optional[float]:
     return (a / b) if b else None
 
@@ -853,6 +921,13 @@ def render_markdown(packet: Dict[str, Any]) -> str:
         )
     else:
         lines.append("| confidence | _no decisions_ |")
+    anchor = packet.get("backtest_anchor")
+    if anchor:
+        lines.append("")
+        lines.append("## Backtest anchor")
+        lines.append("")
+        lines.append(f"- **Most recent sweep mentioning `{packet['strategy']}`:** `{anchor['date']}`")
+        lines.append(f"- {anchor.get('note', '')}")
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -920,7 +995,7 @@ def build_packet(
         "headline": headline.to_dict(),
         "regime_cells": [c.to_dict() for c in cells],
         "execution_diagnostics": diag.to_dict(),
-        "backtest_anchor": None,  # follow-up: wire the trainer-mirror lookup
+        "backtest_anchor": load_backtest_anchor(strategy),
         "proposed_action": decision.action,
         "reasons": decision.reasons,
         "alternative": decision.alternative,

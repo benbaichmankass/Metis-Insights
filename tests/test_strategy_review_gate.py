@@ -27,6 +27,7 @@ from scripts.ml.strategy_review_packet import (
     compute_headline,
     compute_regime_cells,
     decide,
+    load_backtest_anchor,
     regime_policy_cell_for,
 )
 from tests.fixtures.real_schema_db import make_canonical_db
@@ -466,3 +467,53 @@ class TestRegimeSlicerEndToEnd:
         )
         assert packet["proposed_action"] == "hold"
         assert any("execution_mode_mismatch" in r for r in packet["reasons"])
+
+
+# ---------------------------------------------------------------------------
+# Backtest anchor — trainer-mirror lookup.
+# ---------------------------------------------------------------------------
+
+
+class TestBacktestAnchor:
+    def test_no_mirror_dir_returns_none(self, tmp_path: Path):
+        # tmp_path has no `backtests/` subdir → helper returns None cleanly.
+        assert load_backtest_anchor("vwap", root=tmp_path) is None
+
+    def test_no_summary_mentioning_strategy_returns_none(self, tmp_path: Path):
+        day_dir = tmp_path / "2026-06-04"
+        day_dir.mkdir()
+        (day_dir / "SUMMARY.md").write_text(
+            "# trend_donchian only sweep\nfade_breakout net_r=12.4\n"
+        )
+        assert load_backtest_anchor("vwap", root=tmp_path) is None
+
+    def test_returns_most_recent_dir_mentioning_strategy(self, tmp_path: Path):
+        # Two days: only the older one mentions vwap. Helper still surfaces it.
+        old = tmp_path / "2026-05-30"
+        old.mkdir()
+        (old / "SUMMARY.md").write_text("vwap variant net_r=-8.2 ...\n")
+        new = tmp_path / "2026-06-01"
+        new.mkdir()
+        (new / "SUMMARY.md").write_text("trend_donchian only\n")
+        anchor = load_backtest_anchor("vwap", root=tmp_path)
+        assert anchor is not None
+        assert anchor["date"] == "2026-05-30"
+        assert anchor["summary_table_present"] is True
+        assert "vwap" in anchor["note"]
+
+    def test_newer_dir_wins_when_both_mention(self, tmp_path: Path):
+        old = tmp_path / "2026-05-30"
+        old.mkdir()
+        (old / "SUMMARY.md").write_text("vwap older\n")
+        new = tmp_path / "2026-06-04"
+        new.mkdir()
+        (new / "SUMMARY.md").write_text("vwap newer\n")
+        anchor = load_backtest_anchor("vwap", root=tmp_path)
+        assert anchor["date"] == "2026-06-04"
+
+    def test_case_insensitive_match(self, tmp_path: Path):
+        day = tmp_path / "2026-06-01"
+        day.mkdir()
+        (day / "SUMMARY.md").write_text("VWAP variant net_r ...\n")
+        anchor = load_backtest_anchor("vwap", root=tmp_path)
+        assert anchor is not None
