@@ -186,6 +186,19 @@ Claude may dispatch these without operator approval:
 - `monitor-miss-analysis`
 - `vwap-backtest-sweep`
 - `send-ping`
+- `generate-strategy-review-packets` — fires
+  `scripts/ml/strategy_review_packet.py` against the live
+  `trade_journal.db` and writes M7 review packets
+  (JSON + Markdown) under
+  `runtime_logs/strategy_reviews/<UTC-date>/`. Read-only with respect
+  to the trade journal (`mode=ro`); no order-path interaction. Issue
+  body fields: `strategy: <name[,name,…]>` OR `all_btc: true`,
+  optional `window_days: <int>` (default 7) and `shadow_soak_days:
+  <int>` (default 0, only matters when the matrix would emit
+  `promote`). The wrapper echoes each packet's `proposed_action` in
+  the issue-comment reply so the operator gets a one-line verdict
+  per strategy without a follow-up curl. Gate doc:
+  [`docs/strategy-review-gate.md`](../strategy-review-gate.md).
 
 `send-ping` is non-mutating (it enqueues one Telegram message, no
 restart) so it sits at Tier 1 — this is the autonomous path for Claude
