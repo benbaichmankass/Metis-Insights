@@ -130,7 +130,7 @@ def test_log_news_decision_writes_line(tmp_path, monkeypatch):
     assert news_audit.log_news_decision(
         result=result, symbol="MES", side="buy", strategy="vwap", query="S&P 500"
     ) is True
-    rows = [json.loads(l) for l in log.read_text().splitlines()]
+    rows = [json.loads(line) for line in log.read_text().splitlines()]
     assert len(rows) == 1
     assert rows[0]["symbol"] == "MES"
     assert rows[0]["decision"] == "reduce"
