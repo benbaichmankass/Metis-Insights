@@ -50,6 +50,11 @@ jobs:
                 description: 'Triggers the vm-diag-snapshot workflow (PM-side diag relay).',
               },
               {
+                name: 'news-key-check',
+                color: '1d76db',
+                description: 'Triggers news-key-check — validate the NEWS_API_KEY secret through the bot news code (off-VM, read-only).',
+              },
+              {
                 name: 'cancel-queued-runs',
                 color: 'cfd3d7',
                 description: 'Triggers cancel-queued-runs — bulk-cancel stale queued Actions runs.',
