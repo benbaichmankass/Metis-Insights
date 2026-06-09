@@ -130,6 +130,24 @@ ever holds on-demand `/test` runs.
 | `/test` audit trail | `runtime_logs/validation.jsonl` (one NDJSON row/run) |
 | Operator sweep summaries | `runtime_logs/trainer_mirror/backtests/<date>/` |
 
+## Tuning a parameter from a review-gate `tune` packet (M8)
+
+When the M7 strategy review gate emits `proposed_action: "tune"`, its
+`tune_recipe` block is executed by the **canonical M8 sweep harness**,
+`scripts/ml/strategy_tune_sweep.py` — don't hand-roll a sweep over the
+harnesses above. It ingests the recipe (a review packet or a bare recipe
+JSON), expands the `search_space`, dispatches to the right backtester here
+(research-harness `min_confidence` per-value; vwap `threshold` via
+`--threshold-sweep`), normalizes net-of-fee metrics, and writes a
+`strategy_tune_result/v1` packet to `runtime_logs/strategy_tunes/<date>/`
+with an **advisory** Tier-3 value proposal. It never writes
+`config/strategies.yaml`. Full reference: `docs/strategy-tuning.md`.
+
+```bash
+python scripts/ml/strategy_tune_sweep.py --recipe <packet.json> --data <csv>
+python scripts/ml/strategy_tune_sweep.py --recipe <packet.json> --dry-run   # plan only
+```
+
 ## What to report
 
 A backtest result that justifies a Tier-3 change must state: net (not
