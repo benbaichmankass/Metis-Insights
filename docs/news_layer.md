@@ -297,6 +297,30 @@ real closed trades **before** flipping it on live.
 > `news_decisions.jsonl` and surfaced at `GET /api/bot/news/recent`. With the
 > flag off the live path acts only on the veto.
 
+## Source selection — RSS (free, real-time) vs NewsAPI
+
+`NEWS_SOURCE` selects the feed backend (`news_pipeline._news_source`):
+
+| `NEWS_SOURCE` | Backend | Key? | Latency |
+|---|---|---|---|
+| `newsapi` (default) | `news_client.fetch_news` (NewsAPI `/v2/everything`) | **yes** (`NEWS_API_KEY`) | free tier ≈ **24h delayed** → articles fail the 120-min freshness gate → layer effectively inert |
+| `rss` | `news_client_rss.fetch_news_rss` | **no** | **real-time** (publisher `pubDate`, usually minutes old) |
+
+**RSS is the recommended source** — keyless and real-time, so it sidesteps the
+NewsAPI free-tier delay that otherwise leaves the layer scoring everything
+`neutral`. Feeds live in **`config/news_feeds.yaml`** (per-asset-class groups +
+a shared `global` group; `news_feeds.feeds_for_tags` resolves the set per traded
+symbol). The RSS client is stdlib-only (urllib + `xml.etree`), handles RSS 2.0
+and Atom, and emits the **same raw-article shape** the normalizer consumes, so
+scoring / veto / multi-asset relevance are unchanged. Both halves are gated by
+`NEWS_ENABLED`; RSS needs no key, so `news_client.is_active` treats
+`NEWS_SOURCE=rss` + `NEWS_ENABLED=true` as active.
+
+Enable RSS on the VM (no key needed):
+`set-env NEWS_SOURCE=rss` + `set-env NEWS_ENABLED=true` (service `ict-trader-live`).
+Verify fresh articles first with the `news-key-check` workflow (it reports
+`fresh(<=120m)` + `fresh&relevant` counts per symbol).
+
 ## Adding a new data source (future)
 
 1. Create `src/news/news_client_<source>.py` mirroring the `fetch_news(settings)`

@@ -1,0 +1,47 @@
+# Free RSS news feeds for the M9 news layer (NEWS_SOURCE=rss).
+#
+# RSS is keyless + real-time — publishers emit items as they're published, with
+# a pubDate usually minutes old — so it sidesteps the NewsAPI free-tier ~24h
+# delay that made the layer inert. No API key, no per-call cost.
+#
+# A traded symbol pulls the feeds of its mapped groups (see symbol_groups) plus
+# the `global` group. Articles are still scored for per-symbol relevance by the
+# normalizer's keyword match, so a broad feed only contributes the items that
+# actually mention the symbol. Adding/removing a feed is a YAML edit — the RSS
+# client (src/news/news_client_rss.py) is source-agnostic.
+#
+# Loader: src/news/news_feeds.py (never raises — missing/bad file => no feeds).
+# Feed URLs change over time; if one 404s the client skips it (best-effort).
+
+defaults:
+  max_items_per_feed: 25
+  timeout_seconds: 8
+
+groups:
+  # Macro / cross-asset — relevant to everything (Fed, rates, inflation, jobs).
+  global:
+    - https://www.federalreserve.gov/feeds/press_all.xml
+    - https://feeds.content.dowjones.io/public/rss/mw_topstories   # MarketWatch top stories
+  crypto:
+    - https://www.coindesk.com/arc/outboundfeeds/rss/
+    - https://cointelegraph.com/rss
+    - https://decrypt.co/feed
+  equities:
+    - https://www.cnbc.com/id/100003114/device/rss/rss.html        # CNBC Top News
+    - https://www.cnbc.com/id/20910258/device/rss/rss.html         # CNBC Economy
+    - https://www.cnbc.com/id/10000664/device/rss/rss.html         # CNBC Markets
+  energy:
+    - https://oilprice.com/rss/main
+    - https://www.cnbc.com/id/19836768/device/rss/rss.html         # CNBC Energy
+  metals:
+    - https://www.cnbc.com/id/10000664/device/rss/rss.html         # CNBC Markets (metals coverage)
+
+# Which feed groups each symbol base draws from (in addition to `global`).
+symbol_groups:
+  BTC: [crypto]
+  ETH: [crypto]
+  MES: [equities]
+  MNQ: [equities]
+  MGC: [equities, metals]
+  MHG: [equities, metals]
+  MCL: [energy]
