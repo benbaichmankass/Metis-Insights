@@ -44,15 +44,27 @@ def _get_api_key(settings: dict) -> str:
     return str(settings.get("NEWS_API_KEY", os.environ.get("NEWS_API_KEY", ""))).strip()
 
 
+def _news_source(settings: dict) -> str:
+    raw = settings.get("NEWS_SOURCE") if isinstance(settings, dict) else None
+    if raw is None:
+        raw = os.environ.get("NEWS_SOURCE", "newsapi")
+    return str(raw).strip().lower()
+
+
 def is_active(settings: Optional[dict] = None) -> bool:
-    """True when the news layer is both enabled AND has an API key.
+    """True when the news layer is enabled and has a usable source.
 
     The single source of truth for "is the news hook live" — used to gate the
     shadow-decision soak log so it stays empty (no per-tick noise) until the
-    layer is actually evaluating news.
+    layer is actually evaluating news. The RSS source needs no key; the NewsAPI
+    source needs a non-blank key.
     """
     settings = settings or {}
-    return _is_enabled(settings) and bool(_get_api_key(settings))
+    if not _is_enabled(settings):
+        return False
+    if _news_source(settings) == "rss":
+        return True
+    return bool(_get_api_key(settings))
 
 
 def _get_query(settings: dict) -> str:

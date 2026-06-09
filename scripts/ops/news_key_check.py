@@ -1,113 +1,127 @@
 #!/usr/bin/env python3
-"""Validate the NewsAPI key end-to-end through the bot's own news code.
+"""Validate the news layer's feed end-to-end through the bot's own code.
 
-Runs in GitHub Actions (where the ``NEWS_API_KEY`` secret is available) so we
-can confirm the key works — and that the multi-asset wiring resolves the right
-query per symbol — **without enabling the layer on the live trader**. No VM
-contact, read-only.
+Runs in GitHub Actions (open internet) so we can confirm the configured source
+returns **fresh, relevant** articles — and that the multi-asset wiring resolves
+the right feeds/query per symbol — **without enabling the layer on the live
+trader**. No VM contact, read-only.
 
-Prints a human-readable summary and never echoes the key or full article text.
-Exit 0 if the key authenticates; exit 1 on an invalid/exhausted key or no key.
+Leads with the RSS source (free, keyless, real-time — the path we use to dodge
+the NewsAPI free-tier ~24h delay). If a ``NEWS_API_KEY`` is present it also runs
+a NewsAPI auth + freshness check for comparison.
+
+Prints a human-readable summary; never echoes a key or full article text.
+Exit 0 if the RSS source yields fresh+relevant news for at least one symbol;
+exit 1 otherwise (so CI/the issue comment flags a dead feed set).
 """
 from __future__ import annotations
 
 import json
 import os
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 
-# Repo root on path so `src.news.*` imports resolve when run from CI.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.news.news_client import fetch_news  # noqa: E402
+from src.news.news_client_rss import fetch_news_rss  # noqa: E402
 from src.news.news_normalizer import normalize_articles  # noqa: E402
-from src.news.news_pipeline import get_news_score  # noqa: E402
+from src.news.news_score import score_news  # noqa: E402
 from src.news.news_symbols import query_for_tags  # noqa: E402
 
 _NEWSAPI_BASE = "https://newsapi.org/v2/everything"
+_SYMBOLS = [(["BTC", "BTCUSDT"], "BTC"), (["MES"], "MES"), (["MGC"], "MGC")]
 
 
-def _direct_status(api_key: str) -> tuple[bool, str]:
-    """Minimal direct NewsAPI call to validate the key. Returns (ok, detail).
-
-    Never prints/returns the key. Distinguishes a bad key (auth error) from a
-    valid key that simply returned no rows.
-    """
-    params = urllib.parse.urlencode(
-        {"q": "Bitcoin", "pageSize": 1, "language": "en", "apiKey": api_key}
+def _summarize(arts: list, tags: list, label: str, settings: dict) -> tuple[str, bool]:
+    """Normalize+score articles for *tags*; return (report_line, has_fresh_relevant)."""
+    norm = normalize_articles(arts, symbol_tags=tags, settings=settings)
+    result = score_news(norm, settings=settings)
+    fresh = sorted(round(float(a.get("freshness_minutes", 9999)), 1) for a in norm)
+    rel = [round(float(a.get("relevance_score", 0.0)), 2) for a in norm]
+    newest = fresh[0] if fresh else None
+    n_fresh = sum(1 for f in fresh if f <= 120)
+    n_rel = sum(1 for r in rel if r > 0.0)
+    n_fresh_rel = sum(
+        1 for a in norm
+        if float(a.get("freshness_minutes", 9999)) <= 120 and float(a.get("relevance_score", 0)) > 0
     )
+    line = (
+        f"  [{label}] fetched={len(arts)}  decision={result.decision}  "
+        f"adj={result.adjustment:+.4f}  veto={result.veto}  scored={result.item_count}\n"
+        f"    newest_age_min={newest}  fresh(<=120m)={n_fresh}/{len(norm)}  "
+        f"relevant(>0)={n_rel}/{len(norm)}  fresh&relevant={n_fresh_rel}"
+    )
+    return line, n_fresh_rel > 0
+
+
+def _rss_check() -> bool:
+    print("RSS source (free, keyless, real-time):")
+    settings = {"NEWS_ENABLED": "true", "NEWS_SOURCE": "rss", "NEWS_CACHE_TTL": "0"}
+    any_fresh_rel = False
+    for tags, label in _SYMBOLS:
+        try:
+            arts = fetch_news_rss(settings, symbol_tags=tags)
+            line, ok = _summarize(arts, tags, label, settings)
+            print(line)
+            any_fresh_rel = any_fresh_rel or ok
+        except Exception as exc:  # noqa: BLE001
+            print(f"  [{label}] RSS error: {exc}")
+    return any_fresh_rel
+
+
+def _newsapi_direct_status(api_key: str) -> str:
+    params = urllib.parse.urlencode({"q": "Bitcoin", "pageSize": 1, "language": "en", "apiKey": api_key})
     try:
-        req = urllib.request.Request(
-            f"{_NEWSAPI_BASE}?{params}", headers={"User-Agent": "ict-trading-bot/keycheck"}
-        )
+        req = urllib.request.Request(f"{_NEWSAPI_BASE}?{params}", headers={"User-Agent": "ict/keycheck"})
         with urllib.request.urlopen(req, timeout=15) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        # NewsAPI returns 401 with a JSON body for a bad key.
+    except urllib.error.HTTPError as exc:  # type: ignore[attr-defined]
         try:
             b = json.loads(exc.read().decode("utf-8"))
-            return False, f"HTTP {exc.code}: {b.get('code')} — {b.get('message')}"
+            return f"FAIL — HTTP {exc.code}: {b.get('code')} — {b.get('message')}"
         except Exception:  # noqa: BLE001
-            return False, f"HTTP {exc.code}: {exc.reason}"
+            return f"FAIL — HTTP {exc.code}"
     except Exception as exc:  # noqa: BLE001
-        return False, f"network error: {exc}"
+        return f"FAIL — {exc}"
     if body.get("status") != "ok":
-        return False, f"status={body.get('status')} code={body.get('code')} msg={body.get('message')}"
-    return True, f"ok — totalResults={body.get('totalResults')}"
+        return f"FAIL — status={body.get('status')} code={body.get('code')}"
+    return f"OK — totalResults={body.get('totalResults')}"
 
 
-def _probe_symbol(api_key: str, tags: list[str], label: str) -> str:
-    """Run a symbol's resolved query through fetch_news + get_news_score."""
-    settings = {"NEWS_ENABLED": "true", "NEWS_API_KEY": api_key}
-    query = query_for_tags(tags)
-    arts = fetch_news(settings, query=query)
-    result = get_news_score(settings, symbol_tags=tags)
-
-    # Diagnose *why* items did/didn't score: surface the freshness + relevance
-    # distribution so we can tell a free-tier staleness problem (all articles
-    # older than NEWS_MAX_AGE_MINUTES) from a relevance-keyword miss.
-    norm = normalize_articles(arts, symbol_tags=tags, settings=settings)
-    fresh = sorted(round(float(a.get("freshness_minutes", 9999)), 1) for a in norm)
-    rel = sorted(round(float(a.get("relevance_score", 0.0)), 2) for a in norm)
-    newest = fresh[0] if fresh else None
-    max_rel = max(rel) if rel else 0.0
-    n_fresh = sum(1 for f in fresh if f <= 120)
-    n_relevant = sum(1 for r in rel if r > 0.0)
-    return (
-        f"  [{label}] query={query!r}\n"
-        f"    articles_fetched={len(arts)}  decision={result.decision}  "
-        f"adjustment={result.adjustment:+.4f}  veto={result.veto}  "
-        f"items_scored={result.item_count}\n"
-        f"    newest_article_age_min={newest}  fresh(<=120m)={n_fresh}/{len(norm)}  "
-        f"relevant(>0)={n_relevant}/{len(norm)}  max_relevance={max_rel}"
-    )
+def _newsapi_check(api_key: str) -> None:
+    print("NewsAPI source (comparison; informational):")
+    print(f"  auth: {_newsapi_direct_status(api_key)}")
+    settings = {"NEWS_ENABLED": "true", "NEWS_SOURCE": "newsapi", "NEWS_API_KEY": api_key,
+                "NEWS_CACHE_TTL": "0"}
+    for tags, label in _SYMBOLS[:2]:
+        try:
+            arts = fetch_news(settings, query=query_for_tags(tags))
+            line, _ = _summarize(arts, tags, label, settings)
+            print(line)
+        except Exception as exc:  # noqa: BLE001
+            print(f"  [{label}] NewsAPI error: {exc}")
 
 
 def main() -> int:
+    print("=== news feed check (off-VM, read-only) ===")
+    rss_ok = _rss_check()
+
     api_key = (os.environ.get("NEWS_API_KEY") or "").strip()
-    print("=== NewsAPI key check (off-VM, read-only) ===")
-    if not api_key:
-        print("RESULT: FAIL — NEWS_API_KEY secret is empty/unset.")
-        return 1
+    if api_key:
+        _newsapi_check(api_key)
+    else:
+        print("NewsAPI source: (no NEWS_API_KEY secret — skipped)")
 
-    ok, detail = _direct_status(api_key)
-    print(f"Direct NewsAPI auth: {'OK' if ok else 'FAIL'} — {detail}")
-    if not ok:
-        print("RESULT: FAIL — the key did not authenticate. Check the NEWS_API_KEY secret value.")
-        return 1
-
-    print("Through-the-bot probe (multi-asset):")
-    try:
-        print(_probe_symbol(api_key, ["BTC", "BTCUSDT"], "BTC"))
-        print(_probe_symbol(api_key, ["MES"], "MES"))
-    except Exception as exc:  # noqa: BLE001
-        print(f"  pipeline error: {exc}")
-        print("RESULT: PARTIAL — key authenticates but the bot pipeline raised (see above).")
-        return 1
-
-    print("RESULT: PASS — key authenticates and the bot fetched + scored news for BTC and MES.")
-    return 0
+    if rss_ok:
+        print("RESULT: PASS — RSS yields fresh (<=120m) + relevant articles; "
+              "the layer would actually score/veto on live news.")
+        return 0
+    print("RESULT: FAIL — RSS returned no fresh+relevant articles. Check the feed "
+          "URLs in config/news_feeds.yaml (a feed may have moved/404'd).")
+    return 1
 
 
 if __name__ == "__main__":

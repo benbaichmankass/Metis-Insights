@@ -42,10 +42,22 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
+import os
+
 from src.news.news_client import fetch_news
+from src.news.news_client_rss import fetch_news_rss
 from src.news.news_normalizer import normalize_articles
 from src.news.news_score import NewsScoreResult, score_news
 from src.news.news_symbols import query_for_tags
+
+
+def _news_source(settings: dict) -> str:
+    """Selected feed source: ``newsapi`` (default) or ``rss``."""
+    raw = settings.get("NEWS_SOURCE") if isinstance(settings, dict) else None
+    if raw is None:
+        raw = os.environ.get("NEWS_SOURCE", "newsapi")
+    src = str(raw).strip().lower()
+    return src if src in {"newsapi", "rss"} else "newsapi"
 
 logger = logging.getLogger(__name__)
 
@@ -74,19 +86,22 @@ def get_news_score(
     """
     settings = settings or {}
 
-    # Multi-asset: fetch the query that matches the traded symbol (S&P news for
-    # MES, gold news for MGC, ...). None -> fetch_news falls back to NEWS_QUERY /
-    # the Bitcoin default. A per-symbol config match takes precedence so a global
-    # NEWS_QUERY can't re-break a non-crypto instrument.
+    # Source select: RSS (free, keyless, real-time) or NewsAPI. RSS resolves
+    # feeds per traded symbol; NewsAPI resolves a per-symbol query (S&P news for
+    # MES, gold for MGC, ...). Either way the downstream normalize/score is
+    # identical — the multi-asset relevance keywords filter the articles.
+    source = _news_source(settings)
     try:
-        per_symbol_query = query_for_tags(symbol_tags)
-    except Exception:  # noqa: BLE001
-        per_symbol_query = None
-
-    try:
-        raw_articles = fetch_news(settings, query=per_symbol_query)
+        if source == "rss":
+            raw_articles = fetch_news_rss(settings, symbol_tags=symbol_tags)
+        else:
+            try:
+                per_symbol_query = query_for_tags(symbol_tags)
+            except Exception:  # noqa: BLE001
+                per_symbol_query = None
+            raw_articles = fetch_news(settings, query=per_symbol_query)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("news_pipeline: fetch_news raised unexpectedly — %s", exc)
+        logger.warning("news_pipeline: fetch (%s) raised unexpectedly — %s", source, exc)
         return NewsScoreResult(reason=f"fetch error: {exc}")
 
     if not raw_articles:
