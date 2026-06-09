@@ -247,3 +247,207 @@
 - [x] Contradictions were recorded (vwap comment rewrite captured).
 - [x] Remaining unknowns were stated clearly (live-VM packet run
       pending deploy; backtest_anchor follow-up).
+
+---
+
+## Addendum: on-VM activation + accuracy hardening (2026-06-09 PM session)
+
+The original sprint log captured the framework + tests + first Tier-3
+application (VWAP demotion to `enabled: false`, PR #3100). After the
+operator merged + deployed that, the session continued through a
+ladder of small fixes that brought the gate from "shipped" to "fully
+accurate against live data". This addendum is the closeout.
+
+### What shipped after the initial PR
+
+| PR | Scope | Tier |
+|---|---|---|
+| #3100 | M7 framework + tests + `/api/bot/strategies/{name}/review` + vwap kill | Tier 1 + Tier 3 |
+| ict-trader-dashboard #85 | Strategies tab renders packets inline (M7 review packet card per strategy) | Tier 1 |
+| #3102 | `generate-strategy-review-packets` system-action allowlist + wrapper (Claude-driven on-VM activation path) | Tier 2 (allowlist add) → Tier 1 fire |
+| #3108 | `print_packets: true` flag — wrapper also cats packet Markdown in the issue-comment reply, so a sandbox session can read the gate's reasons without waiting for the dashboard | Tier 1 |
+| #3113 | Exclude orphaned packages from `n_closed` — htf_pullback false-positive fix (15 closes pre-fix vs 2 honest closes; matrix saw catastrophic where there was none) | Tier 1 |
+| #3118 | Read regime stamps from `order_packages.meta` instead of `signals.meta` (the JOIN never matched because the eval-row dual-write doesn't carry `order_package_id`) | Tier 1 |
+| #3121 | Normalize YAML 1.1 boolean `off`/`on` at `regime_policy_cell_for` boundary + direction-aware policy lookup | Tier 1 |
+| #3126 | Same normalization at `load_regime_policy` boundary (caught a second drift hazard from the prior PR) | Tier 1 |
+
+### Verified live state
+
+Final on-VM run dispatched via
+issue #3130 (`generate-strategy-review-packets all_btc:true window_days:7
+shadow_soak_days:16 print_packets:true`):
+
+```
+fade_breakout_4h               hold     (n=0)
+fvg_range_15m                  hold     chop/unknown cell, policy:off
+htf_pullback_trend_2h          hold     trending/unknown cell, policy:unknown (vol axis mixed),
+                                        50% WR over n_closed=2
+ict_scalp_5m                   hold     chop/volatile + trending/unknown, 100% WR over n_closed=2
+squeeze_breakout_4h            hold     (n=0)
+trend_donchian                 hold     (n=0)
+trend_donchian_1h              hold     (enabled:false)
+turtle_soup                    hold     (n=0)
+vwap                           hold     9 cells, all policy:off, n_closed=0
+```
+
+The matrix can now correctly read:
+- YAML's unquoted `off` as the string `"off"` (was: bool `False` → string `"false"` → "unknown").
+- Direction-specific policy when all packages in a cell share a direction (was: rolled up to "unknown" when long/short policies differed in the YAML).
+- Regime / vol_regime stamps directly from `order_packages.meta` (was: JOIN through `signals.meta` that never matched).
+- Filled-and-closed trades only, excluding orphaned shadow packages (was: pkg_status='closed' OR-branch inflated n_closed with orphans).
+
+### Honest residual
+
+Two `unknown` strands remain in the live packets — both correctly
+fail-safe (gate stays conservative) and both narrow follow-ups, not
+session blockers:
+
+1. **vol axis stamping gap.** Many packages carry a `regime` value but
+   `vol_regime: null` (rendered as `vol: unknown` in the cells). The
+   matrix doesn't read the vol axis yet, so this is observation-only;
+   a future sprint can audit the stamp coverage in
+   `src.runtime.regime.vol_detector` if the vol axis becomes
+   load-bearing.
+2. **ict_scalp_5m has no rows in `config/regime_policy.yaml`.** Every
+   ict_scalp cell renders `policy: unknown` because the helper returns
+   "unknown" when the strategy is absent from the policy table. This is
+   intentional default-permissive behavior, but a future sprint could
+   author rows for ict_scalp once enough closed trades accrue to
+   characterize per-regime PnL.
+
+Both logged to `docs/claude/performance-review-backlog.json` as
+follow-ups (PB-20260609-001 / 002).
+
+### M7 status
+
+M7 deliverables fully shipped + verified on the live VM. ROADMAP M7
+flipped IN PROGRESS → ✅ DONE.
+
+### Next session
+
+M8 — Strategy Tuning. The gate's `tune` action carries a `tune_recipe`
+pointer that M8 will make executable. Kickoff prompt for the new
+session lives at the end of this sprint log under "M8 kickoff prompt".
+
+---
+
+## M8 kickoff prompt (paste into a fresh session)
+
+> **M8 — Strategy Tuning**
+>
+> Start M8. M7 (Strategy Review Gate) is ✅ DONE — the gate is live,
+> verified, and the framework reserves a `tune_recipe` seam in the
+> packet for exactly this milestone.
+>
+> ### Read first
+> - `docs/CLAUDE-RULES-CANONICAL.md` (tiers + session discipline)
+> - `ROADMAP.md` § M7/M8 rows — M7 done, M8 next
+> - `docs/strategy-review-gate.md` — especially § M8 hook: `tune` recipe
+>   pointer (the `tune_recipe` block shape)
+> - `scripts/ml/strategy_review_packet.py` — see `Decision.action ==
+>   "tune"` and where it currently slots into the matrix
+> - `docs/sprint-logs/S-M7-STRATEGY-REVIEW-GATE-2026-06-09.md` § Addendum
+>   — full ladder of what M7 shipped, live state, the two backlog
+>   residuals
+> - `scripts/backtest_*.py` (especially `backtest_squeeze.py`,
+>   `backtest_fade.py`, `backtest_trend.py`,
+>   `src/backtest/run_backtest_vwap.py`) — the existing per-strategy
+>   research harnesses M8 will likely orchestrate
+> - `runtime_logs/trainer_mirror/backtests/<UTC-date>/SUMMARY.md` (most
+>   recent) — the shape the trainer publishes for completed sweeps
+> - The `backtesting` skill (`.claude/skills/backtesting/SKILL.md`) — M8
+>   is the **production sweep harness**; it does NOT replace
+>   `backtesting` (which is the on-demand research path), it makes the
+>   gate's tune action executable
+>
+> ### Context (from M7's live verdicts)
+> The gate currently has zero strategies in `tune` territory because
+> the live 7-day window is too quiet (most strategies have n_decisions
+> = 0). When n_closed crosses the mid-n band (30 ≤ n < 100) with
+> win_rate 40-50% and expectancy near zero, the matrix emits
+> `proposed_action: tune` with a `tune_recipe` block that names:
+> - `target`: e.g. `config/strategies.yaml::vwap.threshold`
+> - `current_value`: the live value
+> - `search_space`: e.g. `log-uniform [0.001, 0.05]`
+> - `harness`: e.g. `scripts/backtest_vwap.py`
+> - `evidence_window_days`: 90
+>
+> M8 makes that pointer **executable** — a sweep runner takes the
+> `tune_recipe`, runs the harness over the search space on the trainer
+> VM, and proposes the best variant back as a Tier-3 PR with the sweep
+> evidence attached.
+>
+> ### Scope of this session
+>
+> 1. **`docs/strategy-tuning.md`** — the canonical M8 doc. Defines:
+>    - The sweep runner contract: read `tune_recipe`, fan out across
+>      the search space, evaluate each variant on
+>      `evidence_window_days` of historical data, return ranked
+>      candidates with net-of-fee PnL + variance + walk-forward stability.
+>    - Decision matrix on TOP of the sweep results — when to ship the
+>      best variant as a Tier-3 PR, when to file as "no clear winner",
+>      when to escalate "no variant beats current" → `demote_shadow`
+>      proposal handed back to M7.
+>    - Search-space conventions per `param_kind` (log-uniform for
+>      thresholds, integer-grid for lookbacks, etc.)
+>    - Robustness checks: walk-forward consistency, fee headroom,
+>      per-regime cell PnL slice (re-uses M7's slicer).
+>    - Bounded SLA: when M7 emits `tune` and M8 runs, the sweep result
+>      ships as a draft Tier-3 PR within 14 days.
+>
+> 2. **`scripts/ml/run_tune_recipe.py`** — Tier-1 tool that takes a
+>    `tune_recipe` (read from a packet, or supplied via CLI), dispatches
+>    the per-variant runs (via existing `scripts/backtest_*.py`
+>    harnesses), aggregates results, writes the sweep summary to
+>    `runtime_logs/strategy_reviews/<date>/<strategy>.tune.md` next to
+>    the packet, and emits a `proposed_variant` block.
+>
+> 3. **First application** — pick whichever strategy has the most
+>    informative live signal:
+>    - `vwap` is `enabled: false` so it can't accrue more live data;
+>      a sweep should re-validate the kill verdict against deeper
+>      history (the original regime-roster matrix already characterized
+>      it as a loser, so a `tune` recommendation seems unlikely — but
+>      run it and document)
+>    - `htf_pullback_trend_2h` has 2 closes — too few for `tune`,
+>      should hold
+>    - **`trend_donchian`** is the natural first M8 sweep — already
+>      operator-tuned twice (S9 1h→2h, then 2h→1h trail=5.0), live with
+>      real money on bybit_2. The donchian-period × trail-mult grid is
+>      well-understood; M8's job is to make that sweep reproducible
+>      from the gate's perspective.
+>
+> 4. **Tests** for the sweep runner (mock the harness subprocess, verify
+>    the recipe parser + aggregation + proposed_variant emission).
+>
+> 5. **ROADMAP M8** → IN PROGRESS; sprint log written per
+>    `docs/SPRINT-LOG-TEMPLATE-CANONICAL.md`.
+>
+> ### Constraints
+> - **Don't modify the live order path.** `src/runtime/orders.py`,
+>   `src/runtime/risk_counters.py`, `src/runtime/intents.py` are not in
+>   scope.
+> - **Sweep execution runs on the trainer VM.** M8 doesn't run
+>   subprocesses on the live trader; it dispatches via
+>   `trainer-vm-diag` (autonomous, no operator gate). The packet output
+>   is mirrored back to the live VM via the existing
+>   `runtime_logs/trainer_mirror/` path.
+> - **Tier-3 strategy parameter changes ship as draft PRs.** The sweep
+>   runner *proposes* the best variant; the operator approves the
+>   merge.
+> - **Reuse M7's regime slicer** (`compute_regime_cells`) so per-regime
+>   PnL is comparable between the gate's packet and the sweep's
+>   robustness check.
+>
+> ### Definition of done
+> - M8 doc merged.
+> - Sweep runner runs end-to-end on the trainer VM and produces a
+>   sweep summary for ≥1 strategy.
+> - Draft Tier-3 PR opened for the first application's
+>   `proposed_variant` (or a clean "no winner found" packet if the
+>   sweep result doesn't beat current).
+> - ROADMAP M8 → IN PROGRESS.
+> - Sprint log written.
+>
+> End with: what shipped, the first-application recommendation, and
+> what M9-or-later needs.
