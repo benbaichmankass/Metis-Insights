@@ -309,6 +309,10 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*shadow_soak_days[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Ss]hadow_soak_days[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            review_print_packets=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*print_packets[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Pp]rint_packets[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             # bt_mode chosen distinct from `mode:` (which set-account-mode owns).
             # Used by vwap-backtest-sweep to select the run_backtest_vwap flag:
             # compare → --compare, threshold-sweep → --threshold-sweep,
@@ -369,6 +373,7 @@ jobs:
           echo "ACTION_STRATEGY=${review_strategy:-}" >>"$GITHUB_ENV"
           echo "ACTION_ALL_BTC=${review_all_btc:-}" >>"$GITHUB_ENV"
           echo "ACTION_SHADOW_SOAK_DAYS=${review_shadow_soak_days:-}" >>"$GITHUB_ENV"
+          echo "ACTION_PRINT_PACKETS=${review_print_packets:-}" >>"$GITHUB_ENV"
           # send-ping / set-env params. ACTION_MESSAGE + ENV_VALUE may
           # contain spaces, so they ride to later steps via $GITHUB_ENV
           # (env, not inline interpolation) for shell safety.
@@ -661,7 +666,7 @@ jobs:
             REMOTE_CMD="ACTION_MODE=$(printf '%q' "${ACTION_MODE}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ACTION_WINDOWS=$(printf '%q' "${ACTION_WINDOWS}") ACTION_WINDOW_DAYS=$(printf '%q' "${ACTION_WINDOW_DAYS}") ACTION_RECENT_ONLY_FRAC=$(printf '%q' "${ACTION_RECENT_ONLY_FRAC}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "generate-strategy-review-packets" ]; then
-            REMOTE_CMD="ACTION_STRATEGY=$(printf '%q' "${ACTION_STRATEGY}") ACTION_WINDOW_DAYS=$(printf '%q' "${ACTION_WINDOW_DAYS}") ACTION_ALL_BTC=$(printf '%q' "${ACTION_ALL_BTC}") ACTION_SHADOW_SOAK_DAYS=$(printf '%q' "${ACTION_SHADOW_SOAK_DAYS}") ${REMOTE_CMD}"
+            REMOTE_CMD="ACTION_STRATEGY=$(printf '%q' "${ACTION_STRATEGY}") ACTION_WINDOW_DAYS=$(printf '%q' "${ACTION_WINDOW_DAYS}") ACTION_ALL_BTC=$(printf '%q' "${ACTION_ALL_BTC}") ACTION_SHADOW_SOAK_DAYS=$(printf '%q' "${ACTION_SHADOW_SOAK_DAYS}") ACTION_PRINT_PACKETS=$(printf '%q' "${ACTION_PRINT_PACKETS}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "send-ping" ]; then
             REMOTE_CMD="ACTION_MESSAGE=$(printf '%q' "${ACTION_MESSAGE}") ACTION_PRIORITY=$(printf '%q' "${ACTION_PRIORITY:-normal}") ACTION_TARGET=$(printf '%q' "${ACTION_TARGET:-claude}") ${REMOTE_CMD}"
