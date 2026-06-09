@@ -434,11 +434,29 @@ def _isoparse(s: Optional[str]) -> Optional[datetime]:
 
 
 def _is_closed(row: Mapping[str, Any]) -> bool:
+    """A row counts as ``closed`` only when the package actually FILLED
+    AND the linked trade reached a ``closed_*`` status.
+
+    The gate doc's headline table defines ``n_closed`` as
+    ``trades filtered to status ∈ {closed_*} joined via order_package_id``
+    — i.e. only filled-and-closed money trades. An orphaned package whose
+    ``order_packages.status`` lands at ``"closed"`` without ever filling
+    (no ``linked_trade_id``, no ``trades`` row, ``pnl=NULL``) is NOT a
+    closed trade — it's a decision the strategy made that never executed.
+    Counting it as a closed loser inflates the catastrophic-zone path of
+    the matrix and demotes good strategies on shadow-mode noise (the
+    htf_pullback finding from M7's first-run had n_filled=2 but the prior
+    n_closed read 15 — 13 orphans masquerading as losses).
+
+    The previous OR-branch on ``pkg_status == "closed"`` originated from
+    the synthetic real-schema fixture (which writes both pkg + trade rows
+    with status=closed) and propagated to the live read path. This
+    aligns the code with the doc.
+    """
+    if not row.get("linked_trade_id"):
+        return False
     tstatus = (row.get("trade_status") or "").lower()
-    if tstatus.startswith("closed"):
-        return True
-    pstatus = (row.get("pkg_status") or "").lower()
-    return pstatus == "closed"
+    return tstatus.startswith("closed")
 
 
 def compute_headline(decisions: Sequence[Mapping[str, Any]]) -> Headline:

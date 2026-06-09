@@ -517,3 +517,132 @@ class TestBacktestAnchor:
         (day / "SUMMARY.md").write_text("VWAP variant net_r ...\n")
         anchor = load_backtest_anchor("vwap", root=tmp_path)
         assert anchor is not None
+
+
+# ---------------------------------------------------------------------------
+# Orphaned-package exclusion — the headline gate bug from the M7 first-run.
+# ---------------------------------------------------------------------------
+
+
+class TestOrphanedPackagesAreNotClosedTrades:
+    """Regression: a shadow / never-filled package whose ``order_packages.status``
+    happens to be ``"closed"`` (the trader marks an orphaned package closed
+    when the bar ends) must NOT count toward ``n_closed``. The gate doc's
+    headline-table definition (``trades`` JOIN where ``status ∈ closed_*``)
+    is the truth; the prior OR-branch on ``pkg_status == "closed"`` inflated
+    ``n_closed`` with orphans and pushed strategies with mostly-shadow
+    decisions into the catastrophic-zone path of the matrix.
+
+    The htf_pullback_trend_2h finding from M7's first on-VM run (2026-06-09)
+    surfaced this: n_decisions=18, n_filled=2, but the headline reported
+    n_closed=15 with win_rate=6.7% — 13 of those "closed losses" were
+    orphans masquerading as filled-then-closed trades, and the resulting
+    demote_shadow proposal would have been a false positive.
+    """
+
+    @pytest.fixture
+    def db_with_orphans(self, tmp_path: Path) -> Path:
+        """Two filled+closed trades (one win, one loss) PLUS thirteen
+        orphaned packages (``status='closed'``, no ``linked_trade_id``).
+        Honest n_closed = 2; pre-fix n_closed would have been 15.
+        """
+        path = tmp_path / "trade_journal.db"
+        make_canonical_db(path)
+        now = "2026-06-09T12:00:00+00:00"
+
+        conn = sqlite3.connect(str(path))
+        try:
+            # Two real fills: one win, one loss.
+            for i, (pnl, status) in enumerate([(50.0, "closed_tp"), (-30.0, "closed_sl")]):
+                trade_id = conn.execute(
+                    "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
+                    "position_size, status, pnl, is_backtest, strategy_name, account_id) "
+                    "VALUES (?, 'BTCUSDT', 'long', 60000.0, 0.001, ?, ?, 0, 'demo_strategy', 'bybit_2')",
+                    (now, status, pnl),
+                ).lastrowid
+                conn.execute(
+                    "INSERT INTO order_packages "
+                    "(order_package_id, strategy_name, symbol, direction, entry, sl, tp, "
+                    "confidence, created_at, updated_at, status, linked_trade_id) "
+                    "VALUES (?, 'demo_strategy', 'BTCUSDT', 'long', 60000.0, 59000.0, 62000.0, "
+                    "0.7, ?, ?, 'closed', ?)",
+                    (f"pkg-filled-{i}", now, now, trade_id),
+                )
+
+            # Thirteen orphans: pkg_status='closed', linked_trade_id NULL, no
+            # trades row. This is what a shadow strategy emits when the bar
+            # closes without the package ever filling.
+            for i in range(13):
+                conn.execute(
+                    "INSERT INTO order_packages "
+                    "(order_package_id, strategy_name, symbol, direction, entry, sl, tp, "
+                    "confidence, created_at, updated_at, status, linked_trade_id) "
+                    "VALUES (?, 'demo_strategy', 'BTCUSDT', 'long', 60000.0, 59000.0, 62000.0, "
+                    "0.7, ?, ?, 'closed', NULL)",
+                    (f"pkg-orphan-{i}", now, now),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+        return path
+
+    def test_headline_n_closed_only_counts_filled_trades(
+        self, db_with_orphans: Path
+    ):
+        from scripts.ml.strategy_review_packet import pull_decisions
+
+        window_start = datetime(2026, 6, 8, tzinfo=timezone.utc)
+        window_end = datetime(2026, 6, 10, tzinfo=timezone.utc)
+        decisions = pull_decisions(
+            str(db_with_orphans), "demo_strategy", window_start, window_end
+        )
+        assert len(decisions) == 15  # all decisions visible
+
+        h = compute_headline(decisions)
+        assert h.n_decisions == 15
+        assert h.n_filled == 2
+        assert h.n_closed == 2  # the bug: pre-fix this was 15
+        assert h.n_wins == 1
+        assert h.win_rate == pytest.approx(0.5)  # pre-fix: 1/15 = 6.7%
+
+    def test_orphan_only_strategy_yields_n_closed_zero_and_hold(
+        self, tmp_path: Path
+    ):
+        """A strategy whose entire window is orphans (e.g. execution=shadow
+        with zero fills) must surface as ``n_closed=0`` → ``hold`` for
+        insufficient evidence, not as ``n_closed=N → catastrophic``."""
+        path = tmp_path / "trade_journal.db"
+        make_canonical_db(path)
+        now = "2026-06-09T12:00:00+00:00"
+
+        conn = sqlite3.connect(str(path))
+        try:
+            for i in range(20):
+                conn.execute(
+                    "INSERT INTO order_packages "
+                    "(order_package_id, strategy_name, symbol, direction, entry, sl, tp, "
+                    "confidence, created_at, updated_at, status, linked_trade_id) "
+                    "VALUES (?, 'shadow_only', 'BTCUSDT', 'long', 60000.0, 59000.0, 62000.0, "
+                    "1.0, ?, ?, 'closed', NULL)",
+                    (f"pkg-orphan-{i}", now, now),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+        cfg = {"shadow_only": {"execution": "shadow", "enabled": True}}
+        packet = build_packet(
+            strategy="shadow_only",
+            db_path=str(path),
+            window_start=datetime(2026, 6, 8, tzinfo=timezone.utc),
+            window_end=datetime(2026, 6, 10, tzinfo=timezone.utc),
+            strategies_cfg=cfg,
+            regime_policy={},
+            shadow_soak_days=15,
+        )
+        h = packet["headline"]
+        assert h["n_decisions"] == 20
+        assert h["n_filled"] == 0
+        assert h["n_closed"] == 0
+        assert packet["proposed_action"] == "hold"
+        assert any("insufficient evidence" in r for r in packet["reasons"])
