@@ -14,24 +14,22 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
 from scripts.ml.strategy_review_packet import (
-    Decision,
     ExecutionDiagnostics,
     Headline,
     RegimeCell,
     build_packet,
-    compute_execution_diagnostics,
     compute_headline,
     compute_regime_cells,
     decide,
     regime_policy_cell_for,
 )
-from tests.fixtures.real_schema_db import insert_order_package, insert_trade, make_canonical_db
+from tests.fixtures.real_schema_db import make_canonical_db
 
 
 # ---------------------------------------------------------------------------
