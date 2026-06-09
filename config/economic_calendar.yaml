@@ -1,0 +1,41 @@
+# Economic-calendar event source for the M9 news influence layer (step 3).
+#
+# Provides the `event_risk ∈ [0, 1]` the news-influence operator folds in so a
+# trade can be downsized when an imminent high-impact scheduled event could knock
+# it off course. Per the operator directive this is a **consideration, not a
+# blackout**: event_risk only *reduces* exposure (and is discounted by the
+# influence operator when the trade is aligned with the prevailing news
+# direction — see docs/news-influence-DESIGN.md). It NEVER blocks a trade.
+#
+# event_risk = impact × proximity, where proximity ramps from 0 → 1 as `now`
+# approaches the event time within `pre_window_minutes`, holds at 1 across the
+# event, and decays back to 0 over `post_window_minutes` after. The most
+# threatening in-window event for the symbol wins (max).
+#
+# This file is operator-maintained for now; a scheduled job can later refresh
+# `events` from a live source (e.g. the Bigdata.com events_calendar) — the
+# loader + risk math are source-agnostic. Absent/malformed file → event_risk 0.0
+# everywhere (the layer simply acts on news direction alone). Times are UTC ISO-8601.
+
+defaults:
+  pre_window_minutes: 60    # risk ramps in over the hour before the event
+  post_window_minutes: 15   # and lingers briefly after the print
+
+# Which event classes are relevant to which traded symbol base.
+symbol_event_classes:
+  MES: [fomc, cpi, nfp, pce, gdp]
+  MNQ: [fomc, cpi, nfp, pce, gdp]
+  MGC: [fomc, cpi, pce, dxy]
+  MHG: [china_pmi, fomc]
+  MCL: [eia, opec]
+  BTC: [fomc, cpi]          # macro liquidity moves crypto too
+  ETH: [fomc, cpi]
+
+# Scheduled high-impact events. Keep this list pruned to the upcoming window;
+# past events are simply ignored (out of window → proximity 0). `impact ∈ [0,1]`.
+# Optional `pre_window_minutes` / `post_window_minutes` override the defaults
+# per event (e.g. a wider ramp for FOMC).
+events: []
+#  - {class: cpi,  time: "2026-06-10T12:30:00Z", impact: 0.9}
+#  - {class: fomc, time: "2026-06-18T18:00:00Z", impact: 1.0, pre_window_minutes: 120}
+#  - {class: nfp,  time: "2026-07-03T12:30:00Z", impact: 0.8}
