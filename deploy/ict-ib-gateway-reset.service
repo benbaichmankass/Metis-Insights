@@ -1,0 +1,38 @@
+# ============================================
+# ICT IB GATEWAY DAILY RESET (gateway-isolation redesign, 2026-06-10)
+# Runs ONE `docker restart ib-gateway` per day, timed just after IBKR's
+# overnight server-reset window. Deterministic recovery for the single known
+# failure mode (the in-place re-login wedges on the overnight reset → the
+# container is up but the IBKR session is dead). Replaces the reactive 5-min
+# probe + restart-loop watchdog pile with one scheduled restart — lean, no
+# band-aids.
+#
+# Runs ONLY on the dedicated IB-Gateway VM: the ConditionPathExists gate means
+# it is inert anywhere the gateway container isn't installed (e.g. the live
+# trader's micro after the gateway is moved off it). The gateway is isolated
+# from the live trader, so this restart can never touch the money loop.
+#
+# `docker restart` preserves the container's --cpus/--memory caps (set by
+# scripts/install_ib_gateway_docker.sh). Save to:
+# /etc/systemd/system/ict-ib-gateway-reset.service
+# ============================================
+
+[Unit]
+Description=ICT IB Gateway — daily container reset (deterministic overnight-wedge recovery)
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+# Only where the gateway container is actually installed (the gateway VM).
+ConditionPathExists=/etc/ict/ib-gateway-docker.env
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/docker restart ib-gateway
+# Log a short post-restart status so the journal shows the daily reset landed.
+ExecStartPost=/bin/sh -c 'sleep 5; /usr/bin/docker ps --filter name=ib-gateway --format "ib-gateway: {{.Status}}" || true'
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

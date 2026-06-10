@@ -1,28 +1,28 @@
 # ============================================
-# ICT IB GATEWAY WATCHDOG SYSTEMD TIMER
-# Fires ict-ib-gateway-watchdog.service every 5 min.
+# ICT IB GATEWAY HEALTH-CHECK TIMER (gateway-isolation redesign, 2026-06-10)
+# Fires ict-ib-gateway-watchdog.service once DAILY (alert-only).
 #
-# The wedge it heals (IBKR session dies on the overnight reset) is rare and
-# persists for hours once it happens, so a 5-min probe cadence keeps the MES
-# dark window small without hammering the Gateway. MES uses delayed (10-15 min)
-# data and is paper money, so a few minutes of catch-up gap is harmless.
+# Was: every 5 min, reactive auto-restart loop. Now: the deterministic daily
+# `docker restart` on the gateway VM (ict-ib-gateway-reset.timer) is the
+# recovery; this is just a once-daily alert-only probe so a persistently-dark
+# MES still pages the operator. Fires at 06:00 UTC — 30 min after the daily
+# reset (05:30 UTC) so it checks the post-reset session. MES is delayed paper
+# data, so daily-granularity alerting is fine; the trader-side connect breaker
+# handles intraday blips without paging.
 #
-# Auto-installed + enabled by scripts/install_systemd_units.sh (which does
-# `enable --now` on every deploy/*.timer).
-#
+# Auto-installed + enabled by scripts/install_systemd_units.sh.
 # Save to: /etc/systemd/system/ict-ib-gateway-watchdog.timer
 # ============================================
 
 [Unit]
-Description=ICT IB Gateway Watchdog — fires every 5 min
+Description=ICT IB Gateway health-check — fires daily (alert-only)
 Requires=ict-ib-gateway-watchdog.service
 
 [Timer]
-# First fire 3 min after boot so the trader + gateway have settled.
-OnBootSec=3min
-# Every 5 min relative to last activation.
-OnUnitActiveSec=5min
-AccuracySec=20s
+# Once daily at 06:00 UTC — 30 min after the daily reset (05:30) so it probes
+# the freshly-reset session.
+OnCalendar=*-*-* 06:00:00 UTC
+AccuracySec=1min
 Persistent=true
 Unit=ict-ib-gateway-watchdog.service
 
