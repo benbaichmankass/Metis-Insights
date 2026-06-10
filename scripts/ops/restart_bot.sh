@@ -48,6 +48,26 @@ log "Pre-restart state of ${UNIT}: ${pre_state}"
 echo "===== pre-restart status ====="
 "${SYSTEMCTL[@]}" status "${UNIT}" --no-pager -n 5 || true
 
+# Reconcile systemd units BEFORE the restart so the bounced trader picks up the
+# latest deploy/*.service (e.g. resource directives) — closing the 2026-06-10
+# deploy-guard gap. The normal deploy (deploy_pull_restart.sh) installs units
+# only when HEAD MOVES during its run; when git-sync has already advanced HEAD,
+# a subsequent pull-and-deploy sees "no new commits" and SKIPS the install +
+# restart, so a merged unit-file change can sit on disk un-applied (the cgroup
+# CPUWeight/IOWeight/Nice directives from #3232 hit exactly this). Re-running
+# the idempotent installer here means a manual restart-bot-service always
+# reconciles the installed units with the repo, then restarts. No-op when the
+# units already match.
+INSTALL_UNITS="${SCRIPT_DIR}/../install_systemd_units.sh"
+if [ -f "${INSTALL_UNITS}" ]; then
+    log "Reconciling systemd units (install_systemd_units.sh) before restart…"
+    if bash "${INSTALL_UNITS}"; then
+        log "Units reconciled (installed + daemon-reloaded if changed)."
+    else
+        log "WARNING: install_systemd_units.sh exited nonzero — restarting on the currently-installed units."
+    fi
+fi
+
 log "Restarting ${UNIT}…"
 "${SYSTEMCTL[@]}" restart "${UNIT}"
 
