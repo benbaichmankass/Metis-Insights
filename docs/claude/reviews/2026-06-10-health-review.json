@@ -1,0 +1,89 @@
+{
+  "request_id": "health-review-2026-06-10",
+  "reviewed_at": "2026-06-10T06:45:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-06-09T08:15:00+00:00",
+  "window_end": "2026-06-10T06:45:00+00:00",
+  "overall_assessment": "caution",
+  "findings": {
+    "liveness": {
+      "status": "ok",
+      "note": "heartbeat=running (age 0.3-20s across two pulls), last_tick 06:32:41Z fresh, bot ticking. Process restarted ~06:25Z (uptime 241s->448s climbing steadily = not a crash-loop; likely a deploy/git-sync restart onto sha 83d77efe)."
+    },
+    "vm_health_cpu": {
+      "status": "ok",
+      "note": "vm_health cpu=0% mem=67% disk=36.8%. The BL-20260609-001 live-VM CPU saturation (95-100%) is NOT recurring — the regime-bar-scoring grouping+fetch-gate fix (PR #3082, MB-20260609-001) is holding. CPU half of BL-20260609-001 confirmed resolved."
+    },
+    "services": {
+      "status": "ok",
+      "note": "ict-trader-live, ict-web-api, ict-telegram-bot all active; git-sync.timer, liveness-watchdog.timer (autoheal armed), ib-gateway-watchdog.timer, both insights-generator.timers active. Oneshot .services inactive between timer fires = normal."
+    },
+    "signal_to_order_plumbing": {
+      "status": "ok",
+      "note": "All 8 enabled live BTC strategies + 2 shadow emit *_eval (9-10 each in the 06:18-06:39 window). No order packages since 2026-06-08 21:09 (~33h) — explained: vwap (17/18 of the last decisions) was M7-killed 06-09; remaining strategies are low-frequency + quiet BTC regime. Not a plumbing break (pipeline is evaluating, producing no_signal)."
+    },
+    "order_to_trade_plumbing": {
+      "status": "watch",
+      "note": "Last trade row #2530 at 2026-06-08 21:09 reconciled; but 6 of 9 closed trades in the journal window carry pnl=NULL — the orphan-PnL attribution issue (BL-20260601-001 / PERF-20260601-001) persists. No new orphans created since the vwap kill."
+    },
+    "monitoring_cadence": {
+      "status": "ok",
+      "note": "pipeline_result ticks every ~3 min across BTCUSDT/MES/MGC/MHG (10 each in window). Monitor loop healthy."
+    },
+    "strategy_silence": {
+      "status": "ok",
+      "note": "Zero silence. Every enabled strategy (turtle_soup, trend_donchian, ict_scalp_5m, fvg_range_15m, htf_pullback_trend_2h + shadow fade/squeeze_4h) emits *_eval. MES/MGC/MHG_1d all show pipeline_result events today (BL-20260609-002 part b satisfied)."
+    },
+    "state_consistency": {
+      "status": "watch",
+      "note": "TWO items: (1) vwap is enabled:false (M7 kill, committed 34f6e43, live sha 83d77efe) and absent from the loaded-strategies set, yet emits vwap_eval x9 today — the eval/audit path does not honor enabled:false (no trading impact: vwap creates no order packages). Logged BL-20260610-001. (2) audit shows regime_hard_gate x3 (not regime_shadow_gate) => REGIME_ROUTER_ENABLED is now TRUE (phase-3 enforcing) on the live VM — consistent with PERF-20260601-006; flagged to /performance-review for gate-firing verification."
+    },
+    "db_integrity": {
+      "status": "ok",
+      "note": "journal newest rows recent, table totals non-decreasing run-over-run; trainer_store sidecar ingest healthy. integrity_check not fetched (relay can't run PRAGMA)."
+    },
+    "data_validity": {
+      "status": "watch",
+      "note": "Demo bleed: trade #2529 ict_scalp_5m on bybit_1 (DEMO) closed pnl=-2970.99 size=4.146 BTC — the position-netting pyramiding the POSITION_NETTING_GUARD targets (default OFF; demo soak not yet activated for bybit_1). Demo-only, no real-money risk, but the demo PnL/size remains distorted (BL-20260608-DEMOPNL)."
+    },
+    "alert_delivery": {
+      "status": "ok",
+      "note": "ict-telegram-bot.service active; no queued-but-undrained alert evidence in window."
+    },
+    "trainer_service": {
+      "status": "ok",
+      "note": "ict-trainer.timer enabled+active, ExecMainStatus=0, last cycle 2026-06-10 01:11Z overall_rc=0 + publish_post_ok. Model/dataset detail -> /ml-review."
+    },
+    "api_errors": {
+      "status": "watch",
+      "note": "Diag relay burst-collision: firing 8 vm-diag-request issues at once cancelled 3 runs (order_packages/trades/audit_query) with no comment (known failure mode, BL-20260527-001). Re-fired sequentially; one transient curl failure (#3197) recovered on retry. Relay-side only; web-api stayed up."
+    }
+  },
+  "anomalies": [
+    "vwap emits vwap_eval x9 on the live VM despite enabled:false (M7 kill) + absence from the loaded-strategies set; eval path runs pre-enable-gate. No order packages generated, so no money risk. -> BL-20260610-001.",
+    "REGIME_ROUTER_ENABLED appears TRUE on the live VM (regime_hard_gate x3 emitted, replacing regime_shadow_gate) — phase-3 hard gate is now enforcing OFF-cell drops (PERF-20260601-006). Verify intended.",
+    "No order packages / trades since 2026-06-08 21:09 (~33h) — vwap (the dominant generator, now killed) removal + quiet BTC regime; pipeline confirmed still evaluating.",
+    "Diag snapshot/journal pulls truncate at the ~55KB GitHub-comment cap; vm_health/services had to be pulled via dedicated small endpoints."
+  ],
+  "backlog_drain": [
+    {"id": "BL-20260609-001", "action": "updated", "note": "CPU half RESOLVED + reconfirmed this review: vm_health cpu=0% (was 95-100% at incident). Item stays open only on (2) autoheal-on-hang verification + (3) 48h no-stall soak; liveness-watchdog.timer confirmed active/armed. Priority low."},
+    {"id": "BL-20260609-002", "action": "check_log_appended", "note": "2026-06-10: (b) MES/MGC/MHG all show pipeline_result events today (06:34-06:39, ~3min cadence) = evaluating against fresh bars. (c) ib-gateway-watchdog.timer active. (a) ibkr_mes_pull.jsonl last wrote 2026-06-01 — but that log is the OFF-VM dataset-history pull, not the live per-tick candle fetch; the live 1d strategies evidently get candles (they evaluate). Day 2026-06-10 PASS on (b)+(c)."},
+    {"id": "BL-20260607-003", "action": "kept_open", "note": "Could not do the targeted position-flat orphan dive (the order_packages window only surfaced pre-06-08 vwap orphans + ict_scalp #2530 orphaned via stuck_strategy_watchdog). No NEW orphans since the vwap kill. Carry forward."},
+    {"id": "BL-20260607-006", "action": "kept_open", "note": "ARCHITECTURE-CANONICAL.md change-log row for the 2026-06-07 closeout still not written; defer to a doc-touching PR. Not blocking."}
+  ],
+  "sprint_doc_review": [
+    {"sprint": "S-M8-STRATEGY-TUNING-S3", "severity": "nit", "note": "Canonical, verified reality. The trend_donchian min_confidence 0.30->0.60 floor it proposed is committed (83d77ef) AND live (git_sha=83d77efe) — consistent, operator-approved per the log. No contradiction."},
+    {"sprint": "S-M8-STRATEGY-TUNING-S2", "severity": "nit", "note": "Canonical OOS-validation log; consistent with S3. OK."},
+    {"sprint": "S-M7-STRATEGY-REVIEW-GATE-2026-06-09", "severity": "drift", "note": "Log calls the vwap kill 'DRAFT, Tier-3 gated', but config/strategies.yaml has vwap enabled:false committed (34f6e43) AND deployed (live sha). The kill is LIVE, not draft. Minor: the live eval path still emits vwap_eval (BL-20260610-001) — disabled at order-gen, not at eval."}
+  ],
+  "compliance_audit": {
+    "section": ".claude/skills/",
+    "weekday": "Wed",
+    "artifacts_scanned": 20,
+    "findings": [],
+    "note": "Spot-scanned the review + ops skills (health-review, performance-review, ml-review, diag-data, vm-ops, model-training, credentials-and-vm-mutations) for bright-line operator-attributed VM/credential work that should route through workflows. No new violations: the skills already mandate autonomous diag-relay pulls + send-ping/system-actions and explicitly forbid asking the operator to paste/SSH. Compliant."
+  },
+  "recommended_action": "No operator action required. System is healthy (CPU saturation resolved, all services up, pipeline evaluating, zero strategy silence). Three low-priority follow-ups logged/kept: (1) gate vwap_eval emission on enabled:false (BL-20260610-001, wiring nit); (2) confirm REGIME_ROUTER_ENABLED=true on the live VM is intended (phase-3 enforcing); (3) activate POSITION_NETTING_GUARD on bybit_1 demo to stop the demo size/PnL distortion (#2529 -2970, size 4.146).",
+  "operator_attention_required": false,
+  "claude_channel_ping": "/health-review 6/10: CAUTION. CPU saturation RESOLVED (cpu=0%, regime-scoring fix holding); all services up; pipeline evaluating, 0 silence; MES/MGC/MHG live. Watches: vwap_eval fires though enabled:false (M7 kill, BL-20260610-001); REGIME_ROUTER phase-3 now enforcing; ~33h no fills (vwap killed + quiet). No operator action."
+}

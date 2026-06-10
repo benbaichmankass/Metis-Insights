@@ -1,0 +1,736 @@
+{
+  "request_id": "ml-review-2026-06-10",
+  "reviewed_at": "2026-06-10T06:45:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-06-06T07:10:00+00:00",
+  "window_end": "2026-06-10T06:45:00+00:00",
+  "overall_assessment": "caution",
+  "trainer_findings": {
+    "trainer_service": {
+      "status": "ok",
+      "note": "ict-trainer.timer enabled+active, ExecMainStatus=0. Last cycle 2026-06-10 01:11Z: manifests built rc=0, cycle_end overall_rc=0, publish_post_ok. Daily cadence healthy (prior cycles 06-09 00:21Z etc). Disk 19% (/home 37G free), RAM 5.9G ample."
+    },
+    "trainer_datasets": {
+      "status": "watch",
+      "note": "BTC + MES regime market_raw datasets build fine (n_eval 570-105173). But mes-setup-quality + mes-trade-outcome-winrate manifests SKIP every cycle with empty_dataset \u2014 too few MES journal trades to build setup-quality/outcome datasets (recurring; ties to MB-20260530-001)."
+    },
+    "trainer_registry": {
+      "status": "ok",
+      "note": "34 models registered, all status=candidate. 20 at shadow, 14 at research_only. No model above shadow (none influences orders). Registry healthy + growing."
+    },
+    "trainer_models": {
+      "status": "watch",
+      "note": "33/34 retrained clean in the 06-10 cycle (rev c65d7d20). mes-regime-classifier-baseline-v0 is STALE (runs=1, last 2026-05-22, rev c0b14ff1) \u2014 not in the daily cycle. Two research heads weak (btc-regime-1h-trend-lgbm-v1 macro_f1=0.337; mes-regime-15m-lgbm-yz-v1 0.285). None of these influence orders (all shadow-/research)."
+    }
+  },
+  "model_status": [
+    {
+      "model_id": "btc-regime-15m-baseline-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010823Z",
+        "headline_metric": "macro_f1=0.493 acc=0.973",
+        "n_eval": 35054,
+        "runs": 29,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "macro_f1=0.493 acc=0.973; stage=shadow, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-v2",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010802Z",
+        "headline_metric": "macro_f1=0.583 acc=0.899",
+        "n_eval": 35054,
+        "runs": 22,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "macro_f1=0.583 acc=0.899; stage=shadow, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-yz-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010819Z",
+        "headline_metric": "macro_f1=0.600 acc=0.914",
+        "n_eval": 35054,
+        "runs": 6,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "Strong shadow head (macro_f1=0.600 acc=0.914) \u2014 promotion-track. Retrained clean in 06-10 cycle."
+    },
+    {
+      "model_id": "btc-regime-1h-hmm-v1",
+      "stage": "research_only",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010825Z",
+        "headline_metric": "macro_f1=0.550 acc=0.818",
+        "n_eval": 8760,
+        "runs": 6,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(research_only)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "macro_f1=0.550 acc=0.818; stage=research_only, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "btc-regime-1h-lgbm-funding-v1",
+      "stage": "research_only",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010830Z",
+        "headline_metric": "macro_f1=0.650 acc=0.744",
+        "n_eval": 8760,
+        "runs": 6,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(research_only)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "macro_f1=0.650 acc=0.744; stage=research_only, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "btc-regime-1h-lgbm-v2",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010835Z",
+        "headline_metric": "macro_f1=0.650 acc=0.744",
+        "n_eval": 8760,
+        "runs": 16,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "Strong shadow head (macro_f1=0.650 acc=0.744) \u2014 promotion-track. Retrained clean in 06-10 cycle."
+    },
+    {
+      "model_id": "btc-regime-1h-lgbm-yz-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010841Z",
+        "headline_metric": "macro_f1=0.663 acc=0.757",
+        "n_eval": 8760,
+        "runs": 6,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "Strong shadow head (macro_f1=0.663 acc=0.757) \u2014 promotion-track. Retrained clean in 06-10 cycle."
+    },
+    {
+      "model_id": "btc-regime-1h-trend-lgbm-v1",
+      "stage": "research_only",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010848Z",
+        "headline_metric": "macro_f1=0.337 acc=0.342",
+        "n_eval": 8760,
+        "runs": 6,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(research_only)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "Weak research head (macro_f1=0.337 acc=0.342) \u2014 below/near modal baseline; not promotable. Stays research_only."
+    },
+    {
+      "model_id": "btc-regime-5m-baseline-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011112Z",
+        "headline_metric": "macro_f1=0.499 acc=0.997",
+        "n_eval": 105173,
+        "runs": 29,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "macro_f1=0.499 acc=0.997; stage=shadow, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "btc-regime-5m-lgbm-flow-v1",
+      "stage": "research_only",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010932Z",
+        "headline_metric": "macro_f1=0.552 acc=0.985",
+        "n_eval": 105173,
+        "runs": 6,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(research_only)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "macro_f1=0.552 acc=0.985; stage=research_only, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "btc-regime-5m-lgbm-v2",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011016Z",
+        "headline_metric": "macro_f1=0.552 acc=0.985",
+        "n_eval": 105173,
+        "runs": 22,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "macro_f1=0.552 acc=0.985; stage=shadow, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "btc-regime-5m-lgbm-yz-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011102Z",
+        "headline_metric": "macro_f1=0.556 acc=0.987",
+        "n_eval": 105173,
+        "runs": 6,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "macro_f1=0.556 acc=0.987; stage=shadow, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "execution-quality-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010744Z",
+        "headline_metric": "mae=3.2638",
+        "n_eval": 65,
+        "runs": 30,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "mae=3.2638; stage=shadow, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "mes-regime-15m-baseline-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011118Z",
+        "headline_metric": "macro_f1=0.397 acc=0.660",
+        "n_eval": 1072,
+        "runs": 27,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "macro_f1=0.397 acc=0.660; stage=shadow, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "mes-regime-15m-lgbm-v2",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011115Z",
+        "headline_metric": "macro_f1=0.520 acc=0.521",
+        "n_eval": 1072,
+        "runs": 16,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "macro_f1=0.520 acc=0.521; stage=shadow, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "mes-regime-15m-lgbm-yz-v1",
+      "stage": "research_only",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011118Z",
+        "headline_metric": "macro_f1=0.285 acc=0.355",
+        "n_eval": 1072,
+        "runs": 6,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(research_only)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "Weak research head (macro_f1=0.285 acc=0.355) \u2014 below/near modal baseline; not promotable. Stays research_only."
+    },
+    {
+      "model_id": "mes-regime-1d-lgbm-v2",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011120Z",
+        "headline_metric": "macro_f1=0.646 acc=0.646",
+        "n_eval": 570,
+        "runs": 12,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "Strong shadow head (macro_f1=0.646 acc=0.646) \u2014 promotion-track. Retrained clean in 06-10 cycle."
+    },
+    {
+      "model_id": "mes-regime-5m-baseline-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011130Z",
+        "headline_metric": "macro_f1=0.394 acc=0.651",
+        "n_eval": 3235,
+        "runs": 27,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "macro_f1=0.394 acc=0.651; stage=shadow, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "mes-regime-5m-lgbm-macro-v1",
+      "stage": "research_only",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011123Z",
+        "headline_metric": "macro_f1=0.566 acc=0.582",
+        "n_eval": 3235,
+        "runs": 6,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(research_only)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "macro_f1=0.566 acc=0.582; stage=research_only, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "mes-regime-5m-lgbm-v2",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011126Z",
+        "headline_metric": "macro_f1=0.621 acc=0.636",
+        "n_eval": 3235,
+        "runs": 16,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "Strong shadow head (macro_f1=0.621 acc=0.636) \u2014 promotion-track. Retrained clean in 06-10 cycle."
+    },
+    {
+      "model_id": "mes-regime-5m-lgbm-yz-v1",
+      "stage": "research_only",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011130Z",
+        "headline_metric": "macro_f1=0.507 acc=0.508",
+        "n_eval": 3235,
+        "runs": 6,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(research_only)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "macro_f1=0.507 acc=0.508; stage=research_only, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "mes-regime-classifier-baseline-v0",
+      "stage": "research_only",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260522T090539Z",
+        "headline_metric": "macro_f1=0.685 acc=0.748",
+        "n_eval": 1292,
+        "runs": 1,
+        "code_revision": "c0b14ff1",
+        "trend_vs_prior_run": "first_run"
+      },
+      "live_shadow": {
+        "influence": "none(research_only)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "STALE: only run=1 (20260522, rev c0b14ff1) \u2014 did not retrain in the 06-10 cycle. macro_f1=0.685 acc=0.748."
+    },
+    {
+      "model_id": "prop-mission-policy-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010744Z",
+        "headline_metric": "acc=1.000 f1=0.000",
+        "n_eval": 53,
+        "runs": 30,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "Degenerate constant baseline (f1=0, predicts majority class) \u2014 reference baseline, healthy/expected. acc=1.000 f1=0.000."
+    },
+    {
+      "model_id": "regime-classifier-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010745Z",
+        "headline_metric": "macro_f1=0.453 acc=0.827",
+        "n_eval": 8760,
+        "runs": 42,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "macro_f1=0.453 acc=0.827; stage=shadow, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "setup-candidates-metalabel-backtest-v1",
+      "stage": "research_only",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011133Z",
+        "headline_metric": "acc=0.681 f1=0.137",
+        "n_eval": 354,
+        "runs": 6,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(research_only)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "acc=0.681 f1=0.137; stage=research_only, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "setup-candidates-metalabel-siglog-v1",
+      "stage": "research_only",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011135Z",
+        "headline_metric": "acc=0.681 f1=0.137",
+        "n_eval": 354,
+        "runs": 6,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(research_only)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "acc=0.681 f1=0.137; stage=research_only, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "setup-candidates-metalabel-v1",
+      "stage": "research_only",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011137Z",
+        "headline_metric": "acc=0.681 f1=0.137",
+        "n_eval": 354,
+        "runs": 7,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(research_only)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "acc=0.681 f1=0.137; stage=research_only, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "setup-candidates-metalabel-xsym-v1",
+      "stage": "research_only",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011139Z",
+        "headline_metric": "acc=0.757 f1=0.232",
+        "n_eval": 354,
+        "runs": 4,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(research_only)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "acc=0.757 f1=0.232; stage=research_only, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "setup-candidates-metalabel-xsym-yz-v1",
+      "stage": "research_only",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011142Z",
+        "headline_metric": "acc=0.757 f1=0.232",
+        "n_eval": 354,
+        "runs": 4,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(research_only)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "acc=0.757 f1=0.232; stage=research_only, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "setup-quality-audit-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010746Z",
+        "headline_metric": "mae=0.0650",
+        "n_eval": 49,
+        "runs": 30,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "mae=0.0650; stage=shadow, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "setup-quality-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010746Z",
+        "headline_metric": "mae=0.1909",
+        "n_eval": 83,
+        "runs": 30,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "mae=0.1909; stage=shadow, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "setup-quality-lgbm-v2",
+      "stage": "research_only",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T011144Z",
+        "headline_metric": "mae=0.2118",
+        "n_eval": 83,
+        "runs": 12,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(research_only)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "mae=0.2118; stage=research_only, retrained 20260610. Stable."
+    },
+    {
+      "model_id": "trade-outcome-global-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010746Z",
+        "headline_metric": "acc=0.836 f1=0.000",
+        "n_eval": 73,
+        "runs": 30,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "Degenerate constant baseline (f1=0, predicts majority class) \u2014 reference baseline, healthy/expected. acc=0.836 f1=0.000."
+    },
+    {
+      "model_id": "trade-outcome-winrate-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260610T010746Z",
+        "headline_metric": "acc=0.836 f1=0.000",
+        "n_eval": 73,
+        "runs": 30,
+        "code_revision": "c65d7d20",
+        "trend_vs_prior_run": "stable"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": "see shadow_predictions.jsonl (regime heads accruing per-bar records since the regime-bar-scoring re-enable 06-09)",
+        "realized": "n/a \u2014 no model above shadow; 0 order influence"
+      },
+      "note": "Degenerate constant baseline (f1=0, predicts majority class) \u2014 reference baseline, healthy/expected. acc=0.836 f1=0.000."
+    }
+  ],
+  "promotion_recommendations": [
+    {
+      "model_id": "btc-regime-1h-lgbm-yz-v1",
+      "current_stage": "shadow",
+      "proposed_stage": "advisory",
+      "direction": "promote",
+      "tier": 3,
+      "evidence": "Best regime head: macro_f1=0.663 (vs modal baseline ~0.29, +0.37 OOS edge computed under purged WF-CV in a prior gate-check, MB-20260607-002), retrained clean 06-10. BUT the shadow-soak completes 2026-06-12 (MB-20260527-004) \u2014 NOT yet due. HOLD until 06-12, then run `python -m ml gate-check btc-regime-1h-lgbm-yz-v1 --baseline-trainer RegimeClassifierTrainer` and promote only if ready:true.",
+      "risk_note": "Do NOT promote before 06-12 (soak incomplete). Shadow->advisory is the order-influence gate (Tier-3, operator). Kill-switch: demote-stage back to shadow."
+    }
+  ],
+  "experiments_proposed": [
+    {
+      "kind": "new_dataset_family",
+      "name": "mes-decision-rows-from-backtest",
+      "rationale": "mes-setup-quality + mes-trade-outcome-winrate skip every cycle (empty_dataset) because live MES trades are too rare. Augment with per-trade BACKTEST rows so these journal-backed decision models can train (closes MB-20260530-001).",
+      "input_changes": "Feed scripts/backtest rows for MES into the setup-quality/trade-outcome dataset builders.",
+      "expected_metric_signal": "Non-empty MES setup-quality dataset (n_eval>0) + a non-degenerate f1 on the metalabel.",
+      "tier": 3,
+      "next_step": "Extend src/ml/datasets builders to ingest backtest decision rows for MES."
+    },
+    {
+      "kind": "hyperparam_sweep",
+      "name": "retire-or-fix-weak-research-heads",
+      "rationale": "btc-regime-1h-trend-lgbm-v1 (macro_f1=0.337) and mes-regime-15m-lgbm-yz-v1 (0.285) sit below/near the modal baseline after 6 runs \u2014 either feature-starved or mis-targeted. Decide: feature work or retire to stop spending cycle time.",
+      "input_changes": "Review the trend/yz feature sets for these two manifests; add regime-discriminative features or drop.",
+      "expected_metric_signal": "macro_f1 clears the modal baseline (>~0.40) within 2-3 runs, else retire.",
+      "tier": 3,
+      "next_step": "Audit ml/configs/btc-regime-1h-trend-lgbm-v1.yaml + mes-regime-15m-lgbm-yz-v1.yaml feature lists."
+    }
+  ],
+  "backlog_drain": [
+    {
+      "id": "MB-20260527-004",
+      "action": "kept_open",
+      "note": "yz-1h promotion soak completes 2026-06-12 \u2014 NOT yet due (today 06-10). Health check this review: btc-regime-1h-lgbm-yz-v1 macro_f1=0.663, retrained clean 06-10, stage=shadow. On track; re-run gate-check on/after 06-12 with --baseline-trainer RegimeClassifierTrainer (per MB-20260607-002, resolved)."
+    },
+    {
+      "id": "MB-20260530-001",
+      "action": "kept_open",
+      "note": "Re-confirmed need: mes-setup-quality + mes-trade-outcome-winrate STILL skip empty_dataset every cycle. The per-trade backtest-row augmentation is the fix \u2014 promoted to experiments_proposed this review."
+    },
+    {
+      "id": "MB-20260604-004",
+      "action": "updated",
+      "note": "Partial read: mes-regime-5m-lgbm-macro-v1 (macro_f1=0.566) currently TRAILS the plain mes-regime-5m-lgbm-v2 (0.621) \u2014 the macro/cross-asset features are NOT yet winning on macro_f1. Keep open; the A/B needs MES market_feature coverage + more eval before a verdict."
+    },
+    {
+      "id": "MB-20260604-003",
+      "action": "kept_open",
+      "note": "account_context decision-model wiring: the S12 Part B snapshot writer (account_context_snapshots) now exists (observe-only). Still needs the as-of-signal-time join into a decision model. Carry."
+    }
+  ],
+  "anomalies": [
+    "mes-regime-classifier-baseline-v0 has not retrained since 2026-05-22 (runs=1) while every other model retrains daily \u2014 dropped from the cycle? Verify it's intentionally retired vs silently broken.",
+    "mes-setup-quality + mes-trade-outcome-winrate skip empty_dataset every cycle (low MES journal volume) \u2014 recurring coverage gap.",
+    "All 34 models are status=candidate / stage shadow-or-below: nothing influences live orders. So no advisory/live_approved degradation risk this window.",
+    "list-models JSON is too verbose to pull whole through the diag relay (truncates at ~55KB); used a jq one-liner to extract per-model stage+metric. Heredoc python in the relay fails (the relay indents the cmd body) \u2014 jq is the reliable path."
+  ],
+  "recommended_action": "No operator action required now. Trainer clean (rc=0, 33/34 retrained); no model influences orders so nothing is degrading on live capital. ONE upcoming Tier-3 decision: btc-regime-1h-lgbm-yz-v1 (macro_f1=0.663) finishes its shadow soak 2026-06-12 \u2014 re-run gate-check then and, if ready:true, bring the shadow->advisory promotion to the operator. Forward work: augment MES decision-model datasets with backtest rows (unblocks the empty_dataset skips); audit/retire the two weak research heads.",
+  "operator_attention_required": false,
+  "claude_channel_ping": "/ml-review 6/6-6/10: 34 models (20 shadow/14 research), all retrained clean rc=0. trainer=ok. None above shadow (0 order influence). Top head btc-regime-1h-lgbm-yz-v1 macro_f1=0.663 \u2014 soak done 6/12, gate-check then. Watches: MES setup-quality empty_dataset; mes-regime-classifier-baseline-v0 stale (1 run). 2 experiments proposed."
+}
