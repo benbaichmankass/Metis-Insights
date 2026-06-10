@@ -14,7 +14,13 @@
 # Safety: --restart-after 2 (need ~10 min of wedge before acting),
 # --max-restarts 3 + --cooldown-min 20 so a genuinely bad credential /
 # IBKR lockout can NEVER turn into a restart loop (every restart is a fresh
-# IBKR login). Once exhausted the watchdog alert-only escalates.
+# IBKR login). Once exhausted the watchdog alert-only escalates — but
+# --exhaustion-reset-min 120 re-arms that budget after 2h of no restart, so a
+# multi-hour wedge whose first 3 restarts all land inside IBKR's overnight
+# server-reset window (when a re-login can't yet re-establish the session) is
+# retried once IBKR recovers, instead of stranding MES for the whole episode
+# (the 2026-06-09 incident, BL-20260605-004). Still loop-proof: the re-arm
+# only fires after a long quiet gap.
 #
 # Requires passwordless sudo for `docker restart` (same as the
 # vm-ib-gateway-recover workflow path) and ib_insync importable under the
@@ -38,7 +44,7 @@ EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
 # explicitly here — the watchdog writes its dedup/streak state to
 # $DATA_DIR/runtime_logs/ib_gateway_watchdog_state.json (canonical OCI data dir).
 Environment=DATA_DIR=/data/bot-data
-ExecStart=/usr/bin/python3 -u scripts/check_ib_gateway.py --probe-account ib_paper --auto-restart --restart-after 2 --max-restarts 3 --cooldown-min 20
+ExecStart=/usr/bin/python3 -u scripts/check_ib_gateway.py --probe-account ib_paper --auto-restart --restart-after 2 --max-restarts 3 --cooldown-min 20 --exhaustion-reset-min 120
 StandardOutput=journal
 StandardError=journal
 

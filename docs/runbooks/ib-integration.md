@@ -222,6 +222,25 @@ This automates the recovery that previously needed a manual
 is the overnight-reset login dialog (not 2FA, which the paper account doesn't
 use): health-review backlog `BL-20260527-003`.
 
+**Exhaustion re-arm (`--exhaustion-reset-min 120`, added 2026-06-09,
+BL-20260605-004).** `--max-restarts 3` is a *per-episode* cap, where an
+"episode" lasts until a probe reads healthy. The 2026-06-09 incident showed
+the failure mode this strands: a wedge began ~09:53 UTC and the watchdog's
+3 restarts were all spent early — inside IBKR's reset/maintenance window,
+when a container restart re-logins cleanly (farms report OK) but the upstream
+IBKR session still won't service `reqCurrentTime`/account-data — so the
+budget exhausted and the watchdog went **silent (`action=none`) for 5.5h+**,
+leaving MES/MGC/MHG dark for the whole day even after IBKR recovered. (A
+manual `vm-ib-gateway-recover` later, well past the window, also needed a
+clean session token; two clean restarts during/just-after the CME break did
+not re-establish it — confirming the residual cause is IBKR-side, not the
+container.) `--exhaustion-reset-min` closes the gap: once the budget is
+spent, it is re-armed after that many minutes of no restart (default 120),
+so a multi-hour wedge gets retried once IBKR's reset window is over. It stays
+loop-proof — the re-arm only fires after a long quiet gap — and `0` reverts
+to the original give-up-for-the-episode behaviour. Env override:
+`IB_WATCHDOG_EXHAUSTION_RESET_MIN`.
+
 ## Headless Gateway on the VM (IBC — superseded native install)
 
 > Superseded by the Docker path above; kept for historical record. The
