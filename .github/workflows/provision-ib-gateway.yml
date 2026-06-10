@@ -48,6 +48,10 @@ on:
         description: "Target VM IP (default: the live micro VM_SSH_HOST). Set to the dedicated gateway VM for gateway-isolation."
         required: false
         default: ""
+      bind_addr:
+        description: "Host interface to publish the gateway API on (default 127.0.0.1). Set to the gateway VM's private IP (e.g. 10.0.0.251) so the bind survives a re-install."
+        required: false
+        default: ""
   issues:
     types: [opened]
 
@@ -82,21 +86,28 @@ jobs:
           IN_PORT: ${{ inputs.ib_port }}
           IN_REASON: ${{ inputs.reason }}
           IN_HOST: ${{ inputs.host }}
+          IN_BIND_ADDR: ${{ inputs.bind_addr }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
           set -euo pipefail
           if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
-            MODE="${IN_MODE}"; PORT="${IN_PORT}"; REASON="${IN_REASON}"; HOST="${IN_HOST}"
+            MODE="${IN_MODE}"; PORT="${IN_PORT}"; REASON="${IN_REASON}"; HOST="${IN_HOST}"; BIND_ADDR="${IN_BIND_ADDR}"
           else
             MODE=$(printf '%s\n' "${ISSUE_BODY}" | grep -iE '^[[:space:]]*mode[[:space:]]*:' | head -1 | cut -d: -f2- | tr -d '[:space:]' || true)
             PORT=$(printf '%s\n' "${ISSUE_BODY}" | grep -iE '^[[:space:]]*port[[:space:]]*:' | head -1 | cut -d: -f2- | tr -d '[:space:]' || true)
             HOST=$(printf '%s\n' "${ISSUE_BODY}" | grep -iE '^[[:space:]]*host[[:space:]]*:' | head -1 | cut -d: -f2- | tr -d '[:space:]' || true)
+            BIND_ADDR=$(printf '%s\n' "${ISSUE_BODY}" | grep -iE '^[[:space:]]*bind(_addr)?[[:space:]]*:' | head -1 | cut -d: -f2- | tr -d '[:space:]' || true)
             REASON="issue-driven provision: ${ISSUE_TITLE}"
           fi
           MODE="${MODE:-paper}"; PORT="${PORT:-7497}"
           case "${MODE}" in paper|live) ;; *) echo "::error::mode must be paper|live"; exit 1 ;; esac
           case "${PORT}" in 7496|7497) ;; *) echo "::error::port must be 7496|7497"; exit 1 ;; esac
+          # The bind address must never be the all-interfaces wildcard — that
+          # would expose the unauthenticated broker socket on every NIC.
+          case "${BIND_ADDR:-}" in
+            0.0.0.0|"::") echo "::error::bind_addr must not be 0.0.0.0/:: (would expose the IB API on all interfaces). Use loopback or the private IP."; exit 1 ;;
+          esac
           {
             echo "TRADING_MODE=${MODE}"
             echo "IB_PORT=${PORT}"
@@ -109,7 +120,13 @@ jobs:
             echo "VM_SSH_HOST=${HOST}" >> "$GITHUB_ENV"
             echo ">>> target host overridden -> ${HOST}"
           fi
-          echo ">>> provisioning IB Gateway mode=${MODE} port=${PORT} host=${HOST:-<default micro>}"
+          # IB_BIND_ADDR makes the gateway's private-IP publish durable across a
+          # re-install (installer default is 127.0.0.1 when unset).
+          if [ -n "${BIND_ADDR:-}" ]; then
+            echo "IB_BIND_ADDR=${BIND_ADDR}" >> "$GITHUB_ENV"
+            echo ">>> gateway API will publish on ${BIND_ADDR}:4002"
+          fi
+          echo ">>> provisioning IB Gateway mode=${MODE} port=${PORT} host=${HOST:-<default micro>} bind=${BIND_ADDR:-127.0.0.1}"
 
       - name: Validate secret presence
         env:
@@ -165,6 +182,7 @@ jobs:
               "${VM_SSH_USER}@${VM_SSH_HOST}" \
               "TRADING_MODE=$(printf '%q' "${TRADING_MODE}") \
                IB_PORT=$(printf '%q' "${IB_PORT}") \
+               IB_BIND_ADDR=$(printf '%q' "${IB_BIND_ADDR:-127.0.0.1}") \
                bash /home/ubuntu/ict-trading-bot/scripts/ops/provision_ib_gateway.sh" \
               > action-output.txt 2>&1
           rc=$?

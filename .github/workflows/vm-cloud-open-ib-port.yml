@@ -1,0 +1,247 @@
+name: vm-cloud-open-ib-port
+
+# Tier-3 mutating action: ensure an Oracle Cloud Security List ingress rule
+# exists for the IB Gateway API port, scoped to the PRIVATE SUBNET ONLY.
+#
+# Why this is separate from vm-cloud-fix.yml:
+#   vm-cloud-fix opens the dashboard API port (8001) to the PUBLIC internet
+#   (0.0.0.0/0) and verifies by curling http://VM:8001/api/health from the
+#   runner. The IB Gateway API (4002) must NEVER be public — it is an
+#   unauthenticated broker socket reachable only by clientId. After the
+#   gateway-isolation redesign (2026-06-10, Plan B) the trader on the micro
+#   reaches the gateway on its own Ampere VM over the shared private subnet
+#   (10.0.0.0/24), so the cloud Security List needs an intra-subnet TCP/4002
+#   ingress rule. This workflow:
+#     * scopes the rule to INGRESS_SOURCE_CIDR (default 10.0.0.0/24) and HARD
+#       REFUSES any /0 (public) source — the broker port stays off the internet;
+#     * does NOT probe public reachability (there is, by design, none). MES
+#       restoration is verified out-of-band via the trader's logs (the IB
+#       circuit breaker for 10.0.0.251:4002 clearing + net_liquidation
+#       populating), not by an internet curl.
+#
+# Run it against the host whose VNIC subnet should carry the rule — the micro
+# (default VM_SSH_HOST) shares the 10.0.0.0/24 subnet with the gateway VM, so
+# opening it on the micro's subnet Security Lists covers both boxes.
+#
+# Triggers:
+#   1. workflow_dispatch — operator clicks "Run workflow" (can override port/source).
+#   2. issues.opened with label `vm-cloud-open-ib-port` (uses the safe defaults).
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   * VM_SSH_KEY, OCI_CLI_USER, OCI_CLI_FINGERPRINT, OCI_CLI_TENANCY,
+#     OCI_CLI_REGION, OCI_CLI_KEY_CONTENT  (same set as vm-cloud-fix).
+#
+# Trust contract:
+#   - Mutates Oracle Cloud Security List ingress rules only (idempotent ADD).
+#     Reversible by deleting the rule via console.
+#   - Never opens a public source. Never touches the VM-local firewall, the
+#     trader, accounts/strategies/risk, or any order code.
+#
+# To use from a sandbox session:
+#   mcp__github__issue_write(method='create',
+#       title='[ib-port] open intra-subnet TCP/4002 for the IB gateway',
+#       labels=['vm-cloud-open-ib-port'],
+#       body='<reason — captured for audit>')
+
+on:
+  workflow_dispatch:
+    inputs:
+      port:
+        description: "TCP port to open (default 4002, the IB Gateway API)"
+        required: false
+        default: "4002"
+      source_cidr:
+        description: "Source CIDR (must be a private subnet — /0 is refused)"
+        required: false
+        default: "10.0.0.0/24"
+      reason:
+        description: "Why this action is being run (audit trail)"
+        required: true
+        default: "open intra-subnet IB gateway port at cloud SL — gateway isolation"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vm-cloud-open-ib-port
+  cancel-in-progress: false
+
+jobs:
+  open:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'vm-cloud-open-ib-port'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+      DASHBOARD_PORT: ${{ inputs.port || '4002' }}
+      INGRESS_SOURCE_CIDR: ${{ inputs.source_cidr || '10.0.0.0/24' }}
+      INGRESS_DESC: "ict ib-gateway API (intra-subnet only)"
+    steps:
+      - name: Checkout (need scripts/ops/cloud_open_port.py)
+        uses: actions/checkout@v4
+
+      - name: Refuse a public source CIDR (the IB API must never be exposed)
+        run: |
+          set -euo pipefail
+          echo "Requested: TCP/${DASHBOARD_PORT} from ${INGRESS_SOURCE_CIDR}"
+          case "${INGRESS_SOURCE_CIDR}" in
+            */0|0.0.0.0/0|"::/0")
+              echo "::error::INGRESS_SOURCE_CIDR='${INGRESS_SOURCE_CIDR}' is public. The IB Gateway API must be intra-subnet only — use a private CIDR like 10.0.0.0/24."
+              exit 1
+              ;;
+          esac
+          echo "Source CIDR is non-public — proceeding."
+
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Read VM instance metadata via SSH + IMDS
+        id: imds
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              'curl -sS -H "Authorization: Bearer Oracle" --max-time 5 http://169.254.169.254/opc/v2/instance/' \
+              > imds.json
+          instance_id=$(python3 -c 'import json; print(json.load(open("imds.json"))["id"])')
+          compartment_id=$(python3 -c 'import json; print(json.load(open("imds.json"))["compartmentId"])')
+          region=$(python3 -c 'import json; print(json.load(open("imds.json"))["regionInfo"]["regionIdentifier"])')
+          echo "instance_id=${instance_id}" >> "$GITHUB_OUTPUT"
+          echo "compartment_id=${compartment_id}" >> "$GITHUB_OUTPUT"
+          echo "region=${region}" >> "$GITHUB_OUTPUT"
+          echo "Discovered: instance=${instance_id} compartment=${compartment_id} region=${region}"
+
+      - name: Validate OCI secrets are configured
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for v in OCI_CLI_USER OCI_CLI_FINGERPRINT OCI_CLI_TENANCY OCI_CLI_REGION OCI_CLI_KEY_CONTENT; do
+            if [ -z "${!v}" ]; then
+              echo "::error::repo secret ${v} is unset"
+              missing=1
+            fi
+          done
+          if [ "${missing}" -ne 0 ]; then
+            echo "::error::Add missing OCI_CLI_* secrets in Settings → Secrets and variables → Actions, then re-run."
+            exit 1
+          fi
+          echo "All OCI secrets present."
+
+      - name: Set up Python + OCI SDK
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install oci sdk
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --quiet 'oci>=2.119,<3'
+
+      - name: Apply Security List ingress rule via OCI API
+        id: apply
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION || steps.imds.outputs.region }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          DASHBOARD_PORT: ${{ env.DASHBOARD_PORT }}
+          INGRESS_SOURCE_CIDR: ${{ env.INGRESS_SOURCE_CIDR }}
+          INGRESS_DESC: ${{ env.INGRESS_DESC }}
+        run: |
+          set -uo pipefail
+          python3 scripts/ops/cloud_open_port.py \
+            "${{ steps.imds.outputs.instance_id }}" \
+            "${{ steps.imds.outputs.compartment_id }}" \
+            > apply.jsonl 2>apply.err
+          rc=$?
+          echo "APPLY_RC=${rc}" >> "$GITHUB_ENV"
+          echo "==== apply.jsonl ===="
+          cat apply.jsonl
+          if [ -s apply.err ]; then
+            echo "==== apply.err ===="
+            cat apply.err
+          fi
+          exit "${rc}"
+
+      - name: Reply to issue with result
+        if: github.event_name == 'issues' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const safeRead = (p, max = 12_000) => {
+              try { return fs.readFileSync(p, 'utf8').slice(0, max); } catch { return '(missing)'; }
+            };
+            const apply = safeRead('apply.jsonl');
+            const applyErr = safeRead('apply.err', 4_000);
+            const applyRc = process.env.APPLY_RC;
+            const ok = applyRc === '0';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const verdict = ok
+              ? 'SUCCESS — intra-subnet ingress rule present. Verify MES out-of-band via the trader logs (IB breaker for 10.0.0.251:4002 clears, net_liquidation populates).'
+              : 'FAILED — see the apply step output below. No public probe is done by design (the IB port is not public).';
+            const body = [
+              `**vm-cloud-open-ib-port** ${ok ? 'SUCCESS' : 'FAILED'}. Run: ${runUrl}`,
+              ``,
+              `Port: TCP/${process.env.DASHBOARD_PORT}  Source: ${process.env.INGRESS_SOURCE_CIDR}`,
+              ``,
+              `**Verdict:** ${verdict}`,
+              ``,
+              `### Apply (cloud_open_port.py exit ${applyRc})`,
+              '```',
+              apply,
+              applyErr && applyErr !== '(missing)' ? `--- stderr ---\n${applyErr}` : '',
+              '```',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: ok ? 'completed' : 'not_planned',
+            });
+
+      - name: Upload apply output (workflow_dispatch)
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-cloud-open-ib-port-${{ github.run_id }}
+          path: |
+            apply.jsonl
+            apply.err
+          retention-days: 7
+          if-no-files-found: warn

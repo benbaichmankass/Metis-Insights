@@ -132,6 +132,11 @@ jobs:
                 description: 'Triggers vm-cloud-fix workflow — Oracle Cloud Security List ingress for the dashboard API port.',
               },
               {
+                name: 'vm-cloud-open-ib-port',
+                color: 'b60205',
+                description: 'Triggers vm-cloud-open-ib-port — intra-subnet-only OCI SL ingress for the IB Gateway API port (never public).',
+              },
+              {
                 name: 'vm-net-diag-request',
                 color: '0e8a16',
                 description: 'Triggers vm-net-diag workflow — read-only network diagnostics for VM port reachability.',

@@ -239,7 +239,44 @@ watchdog escalations) instead of the disease.
 The live→3-OCPU trader migration is **paused**: with the gateway off the money
 box, the micro may hold the trader + web-api + sidecars on 2 cores (the
 #3232/#3202 isolation fixes already help). Measure the micro's load sans-gateway
-once it's moved; migrate live to 3 only if 2 cores can't hold it.
+once it's moved; migrate live to 3 only if 2 cores can't hold it. The paused
+migration plan is [`docs/runbooks/live-vm-migration-ampere.md`](live-vm-migration-ampere.md)
+(PR #3257) — kept as a contingency, **not** the active plan.
+
+### Networking the isolated gateway (private subnet only)
+
+The trader reaches the gateway across the private subnet, so two things must
+line up — and neither may expose the unauthenticated broker socket publicly:
+
+- **Container bind (durable).** `scripts/install_ib_gateway_docker.sh` publishes
+  the API with `-p ${IB_BIND_ADDR}:4002:4004` (default `127.0.0.1`). On the
+  gateway VM the provisioner passes **`IB_BIND_ADDR=10.0.0.251`** (the private
+  IP) — wired through `provision-ib-gateway.yml` (`bind_addr:` input / issue
+  body line) → `provision_ib_gateway.sh` → the installer. This makes the
+  private-IP bind **survive a full re-install**; without it a re-provision
+  silently reverts to loopback and MES goes dark across the subnet. Never set
+  `IB_BIND_ADDR=0.0.0.0` (the workflow refuses it).
+- **Cloud Security List (intra-subnet ingress).** OCI needs a TCP/4002 ingress
+  rule scoped to the private subnet (`10.0.0.0/24`) on the subnet's Security
+  Lists. Apply it with the **`vm-cloud-open-ib-port`** workflow (label
+  `vm-cloud-open-ib-port`), which parameterizes `scripts/ops/cloud_open_port.py`
+  via `INGRESS_SOURCE_CIDR` and **hard-refuses any `/0` (public) source** — and
+  does **no** public-internet `/api/health` probe (there is, by design, none).
+  Run it against the micro (it shares the `10.0.0.0/24` subnet with the gateway,
+  so the rule covers both boxes). Verify MES out-of-band via the trader logs:
+  the IB connect-breaker `OPEN for 10.0.0.251:4002` clears and `net_liquidation`
+  populates (`/api/diag/journalctl?unit=ict-trader-live` + `ib_connect_check`).
+
+### Decommissioning a stray gateway on the micro
+
+`vm-ib-gateway-stop` (label `vm-ib-gateway-stop`, default host = the micro) is
+now a **full teardown** for any gateway left on a host: it `docker stop` +
+`docker rm -f ib-gateway`, `systemctl disable --now` BOTH the
+`ict-ib-gateway-watchdog.timer` and the `ict-ib-gateway-reset.timer`, and
+`rm -f /etc/ict/ib-gateway-docker.env` (which makes `ict-ib-gateway-reset.service`
+inert via its `ConditionPathExists` gate). This is what neutralizes the daily
+05:30 UTC reset on the micro after the gateway is moved off it — otherwise the
+reset would `docker restart` and revive the container back onto the money box.
 
 The historical reactive-watchdog design below is **superseded** by the above —
 kept as the record of the failure mode + why the daily reset is sufficient.

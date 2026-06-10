@@ -15,18 +15,30 @@ DOCKER_ENV="${IB_DOCKER_ENV:-/etc/ict/ib-gateway-docker.env}"
 COMPOSE_SRC="${REPO_ROOT}/deploy/ib-gateway.compose.yml"
 COMPOSE_DST="${IB_COMPOSE:-/etc/ict/ib-gateway.compose.yml}"
 
-# Resource caps for the gateway container (2026-06-10, trader-connection-
-# stability). The IB Gateway is a heavy Java GUI app under Xvfb; an
-# unauthenticated re-login loop during IBKR's reset window can spin it hot, and
-# on the shared 2-core live VM that starved the trader's single-threaded main
-# loop (loadavg ~10, the 2026-06-10 cascade that wedged the trader ~25 min).
-# Cap CPU + memory so the gateway can NEVER dominate the box — the trader keeps
-# ticking even while the gateway churns, and `docker restart` (the watchdog's
-# recovery path) preserves these flags so restarts stay capped too. Setting
-# --memory-swap == --memory disables container swap (we saw kswapd thrashing
-# under the cascade). Override via env on the VM.
+# Resource caps for the gateway container (2026-06-10). The IB Gateway is a
+# heavy Java GUI app under Xvfb; an unauthenticated re-login loop during IBKR's
+# reset window can spin it hot. Historically (pre-isolation) the gateway shared
+# the 2-vCPU live micro and that hot-spin starved the trader's single-threaded
+# main loop (loadavg ~10, the 2026-06-10 cascade that wedged the trader ~25 min)
+# — which is why the gateway was moved to its own dedicated Ampere VM. The cap
+# now bounds the container on THAT box so it can't peg its own VM during a churn;
+# `docker restart` (the daily reset path) preserves these flags so restarts stay
+# capped too. Setting --memory-swap == --memory disables container swap (we saw
+# kswapd thrashing under the cascade). Override via env on the VM.
 IB_GATEWAY_CPUS="${IB_GATEWAY_CPUS:-0.75}"
 IB_GATEWAY_MEMORY="${IB_GATEWAY_MEMORY:-1500m}"
+
+# Host interface the container's API port (4002) is published on (gateway
+# isolation, 2026-06-10). DEFAULT 127.0.0.1 (loopback-only, the historical
+# same-box model). On the DEDICATED gateway VM the trader reaches the API
+# across the private subnet, so the provisioner passes IB_BIND_ADDR=<private IP>
+# (e.g. 10.0.0.251) to publish on that interface. This makes the private-IP
+# bind DURABLE across a full `install_ib_gateway_docker.sh` re-install — without
+# it, a re-provision silently reverts to loopback and MES goes dark across the
+# subnet. NEVER set this to 0.0.0.0 (would expose the unauthenticated broker
+# socket on every interface); the OCI Security List restricts 4002 to the
+# subnet, but the bind should stay tight too.
+IB_BIND_ADDR="${IB_BIND_ADDR:-127.0.0.1}"
 
 log() { echo "[install_ib_gateway_docker] $*"; }
 
@@ -110,8 +122,8 @@ log "starting container (literal --env-file)"
 # ("API connection failed: TimeoutError()"). socat listens on 4004, accepts the
 # non-localhost bridge connection, and relays it to the Gateway from 127.0.0.1
 # (which IBC trusts), so the handshake completes. This mirrors the upstream
-# compose mapping `127.0.0.1:4002:4004`; the bot connects to host 4002
-# (config/accounts.yaml ib_paper.ib_port).
+# compose mapping `<bind>:4002:4004`; the bot connects to ${IB_BIND_ADDR}:4002
+# (config/accounts.yaml ib_paper.ib_host/ib_port).
 sudo docker run -d \
   --name ib-gateway \
   --restart unless-stopped \
@@ -119,9 +131,9 @@ sudo docker run -d \
   --memory "${IB_GATEWAY_MEMORY}" \
   --memory-swap "${IB_GATEWAY_MEMORY}" \
   --env-file "${DOCKER_ENV}" \
-  -p 127.0.0.1:4002:4004 \
+  -p "${IB_BIND_ADDR}:4002:4004" \
   "${IMAGE}"
-log "container resource caps: --cpus=${IB_GATEWAY_CPUS} --memory=${IB_GATEWAY_MEMORY} (swap disabled)"
+log "container resource caps: --cpus=${IB_GATEWAY_CPUS} --memory=${IB_GATEWAY_MEMORY} (swap disabled); API published on ${IB_BIND_ADDR}:4002"
 sleep 8
 log "container state:"
 sudo docker ps --filter name=ib-gateway --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' || true

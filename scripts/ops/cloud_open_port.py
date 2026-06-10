@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
 """
 Idempotently ensure an Oracle Cloud Security List ingress rule exists
-for the dashboard API port on every Security List attached to the
-trading-bot VM's primary VNIC subnet.
+for a TCP port on every Security List attached to the trading-bot VM's
+primary VNIC subnet.
+
+Configurable via env:
+  * DASHBOARD_PORT       — TCP port to open (default 8001, the dashboard API).
+  * INGRESS_SOURCE_CIDR  — source CIDR for the rule (default 0.0.0.0/0, the
+                           public dashboard port). For non-public services
+                           (e.g. the IB Gateway API on 4002) pass a private
+                           subnet like 10.0.0.0/24 so the port is NEVER exposed
+                           to the internet.
+  * INGRESS_DESC         — human description stored on the rule.
+
+The (port, source) pair is the idempotency key: a rule for the SAME port from
+a DIFFERENT source is not treated as a match, so opening 4002 to 10.0.0.0/24
+never silently relies on (or is suppressed by) a pre-existing public rule.
 
 Reads OCI credentials from the standard env vars (OCI_CLI_USER,
 OCI_CLI_TENANCY, OCI_CLI_FINGERPRINT, OCI_CLI_REGION, OCI_CLI_KEY_CONTENT).
@@ -24,8 +37,8 @@ import sys
 import oci
 
 PORT = int(os.environ.get("DASHBOARD_PORT", "8001"))
-SOURCE_CIDR = "0.0.0.0/0"
-DESC = "ict-web-api dashboard"
+SOURCE_CIDR = os.environ.get("INGRESS_SOURCE_CIDR", "0.0.0.0/0")
+DESC = os.environ.get("INGRESS_DESC", "ict-web-api dashboard")
 
 
 def emit(action: str, **kw: object) -> None:
@@ -75,13 +88,19 @@ def main() -> int:
         def matches(r: oci.core.models.IngressSecurityRule) -> bool:
             if r.protocol != "6":  # 6 = TCP
                 return False
+            if r.source != SOURCE_CIDR:  # same port, different source ≠ match
+                return False
             if not r.tcp_options or not r.tcp_options.destination_port_range:
                 return False
             pr = r.tcp_options.destination_port_range
             return pr.min <= PORT <= pr.max
 
         if any(matches(r) for r in rules):
-            emit("skip", security_list_id=sl_id, reason=f"rule for TCP/{PORT} already present")
+            emit(
+                "skip",
+                security_list_id=sl_id,
+                reason=f"rule for TCP/{PORT} from {SOURCE_CIDR} already present",
+            )
             continue
 
         new_rule = oci.core.models.IngressSecurityRule(
@@ -100,7 +119,7 @@ def main() -> int:
                 ingress_security_rules=rules + [new_rule]
             ),
         )
-        emit("added", security_list_id=sl_id, port=PORT)
+        emit("added", security_list_id=sl_id, port=PORT, source=SOURCE_CIDR)
         rule_added_anywhere = True
 
     if rule_added_anywhere:
