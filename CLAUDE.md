@@ -196,8 +196,18 @@ wire-up. See trainer-vm-mode.md § 5 for the full lifecycle.
   deploy.
 - Never copy production secrets to the trainer.
 - Never provision past the OCI Always Free 4-OCPU / 24-GB tenancy
-  ceiling. Live trader holds 1 / 6; trainer holds 1 / 6; up to 2 / 12
-  remains for side-cars.
+  ceiling. As of 2026-06-10 the **live trader holds 2 OCPU** and the
+  **trainer holds 1 OCPU / 6 GB** (both `VM.Standard.A1.Flex`). The
+  2-core live VM has no CPU headroom — sidecars (IB-gateway Java, regime
+  scoring, web-api) periodically saturate it and starve the trader's
+  single-threaded loop (the 2026-06-10 wedge cascade). The sanctioned
+  remedy is the **`vm-resize-live`** workflow (`scripts/ops/resize_live_vm.py`),
+  which stops/resizes/starts the live VM to **3 OCPU / 18 GB** — which
+  with the trainer's 1 / 6 fills the pool exactly (4 / 24). Going to a
+  4-OCPU live VM is **not** possible while the trainer runs (A1.Flex has
+  a 1-OCPU floor, so live 4 + trainer 1 = 5 > 4). The resize is
+  operator-gated (brief live-trader outage; positions sit on broker
+  SL/TP meanwhile).
 
 When in doubt about scope, default to the **live-VM** rules and ask.
 
