@@ -47,8 +47,10 @@
 | **trend1d SPY** (MES-replacement mirror) | +16.0R / 14t | +9.2R / 12t, maxDD 2.7R | ✅ clean |
 | **pullback1d GLD** (MGC mirror) | +4.9R / 28t | +19.7R / 22t | ✅ positive both |
 | pullback1d COPPER (MHG mirror) | −9.6R / 66t | +5.2R / 31t | ⚠️ inconsistent (matches live MHG's lukewarm profile) |
-| ict_scalp QQQ 5m / SPY 5m | *pass-2 pending* | *pass-2 pending* | see NET section |
-| fvg_range QQQ / SPY 15m | −6.9R / −4.7R | +1.0R / +7.3R | ⚠️ sign-flips across windows |
+| **ict_scalp SPY 5m (NET, corrected RTH)** | **+6.9R / 82t** | **+4.6R / 23t** | ✅ modest but positive both, net of fees |
+| ict_scalp QQQ 5m (NET, corrected RTH) | −1.3R / 138t | +17.0R / 35t | ⚠️ train-flat, OOS-strong — unproven (same one-window pattern as the original 13-trade QQQ result) |
+| **fvg_range SPY 15m (corrected RTH)** | +7.4R / 87t | +7.9R / 27t | ✅ positive both |
+| fvg_range QQQ 15m (corrected RTH) | −23.0R / 112t | +1.3R / 30t | ❌ |
 | trend EURUSD 1h | −28.5R | +6.4R | ❌ |
 | trend EURUSD 4h | +7.4R | +2.2R | ⚠️ weakly positive both |
 | trend GBPUSD 1h / 4h | +21.1R / −8.0R | +0.6R / −2.6R | ❌ |
@@ -56,10 +58,24 @@
 | ict_scalp EURUSD / GBPUSD 15m | +7.9R / +3.1R (gross) | −0.1R / −0.8R (gross) | ❌ flat OOS before fees |
 | fvg_range EURUSD / GBPUSD 15m | 0–3 trades | 0 trades | ∅ uninformative — BTC-scale width filter never triggers on FX majors |
 
-### ict_scalp NET of fee (exact, pass 2)
+### ict_scalp NET of fee (exact, pass 2 — 2.0 bps roundtrip)
 
-*To be filled from `SUMMARY.md` § NET when the pass-2 rerun completes —
-includes corrected-RTH QQQ/SPY and the fee-adjusted XAU/EUR/GBP legs.*
+| run | trades | net win% | gross R | **NET R** | net exp R |
+|---|---|---|---|---|---|
+| XAUUSD 15m train | 203 | 58.1 | +47.3 | **+39.4** | +0.194 |
+| XAUUSD 15m OOS | 76 | 55.3 | +12.8 | **+10.2** | +0.134 |
+| SPY 5m train | 82 | 50.0 | +10.4 | **+6.9** | +0.084 |
+| SPY 5m OOS | 23 | 52.2 | +5.6 | **+4.6** | +0.201 |
+| QQQ 5m train | 138 | 46.4 | +4.2 | −1.3 | −0.009 |
+| QQQ 5m OOS | 35 | 65.7 | +18.4 | +17.0 | +0.487 |
+| EURUSD 15m train | 58 | 51.7 | +7.9 | +4.9 | +0.085 |
+| EURUSD 15m OOS | 17 | 47.1 | −0.1 | −1.2 | −0.070 |
+| GBPUSD 15m train | 107 | 46.7 | +3.1 | −2.1 | −0.020 |
+| GBPUSD 15m OOS | 15 | 53.3 | −0.8 | −1.8 | −0.122 |
+
+Fees matter exactly where expected: tight 15m/5m stops make 2 bps cost
+0.03–0.15R per trade. **XAU/USD and SPY survive net; EUR/GBP die; QQQ
+was never consistent to begin with.**
 
 ## Findings
 
@@ -78,20 +94,29 @@ includes corrected-RTH QQQ/SPY and the fee-adjusted XAU/EUR/GBP legs.*
 4. **The BTC fvg_range width filter is the wrong scale for FX** —
    0-trade cells. A re-parameterized FX variant is possible follow-up
    work, not a blocker.
-5. **QQQ/SPY intraday ict_scalp** — pass-1 numbers were inconsistent
-   across windows AND ran on mis-windowed session data; the pass-2
-   corrected-RTH + net-of-fee numbers (section above) are the ones to
-   trust. *(Interpretation to be added with the numbers.)*
+5. **SPY — not QQQ — is the intraday equities candidate.** On corrected
+   session data and net of fees, SPY is positive in both windows on TWO
+   families (ict_scalp 5m net +6.9R/+4.6R; fvg_range 15m +7.4R/+7.9R).
+   QQQ stays unproven: train-flat, OOS-strong — the same
+   one-window-only pattern that made the original 13-trade QQQ result
+   decay (see `market-alternatives-2026-06-10.md` §4). QQQ belongs in
+   shadow data collection, not promotion.
 
 ## Recommendation for Phase 2 (operator decision)
 
-*Finalized after pass 2; current evidence points to:* **wire OANDA
-first** — gold alone gives the 1h–4h trend/pullback family a validated
-new home and covers the metals exposure; the FX-major weakness doesn't
-matter because XAU_USD rides the same API. **Alpaca second** for the
-daily ETF replacement legs (validated) and any intraday equities work
-that survives pass 2. Both stay behind the existing gates: paper/practice
-accounts, `execution: shadow` first, Tier-3 promotion per strategy.
+**Wire OANDA first.** Gold alone gives the 1h–4h trend/pullback family a
+validated new home (the sweep's strongest cells), covers the metals
+exposure the futures legs were buying, and the ICT scalp logic survives
+fees there. The FX-major weakness doesn't matter — XAU_USD rides the
+same API. **Alpaca second**, carrying (a) the validated daily ETF
+replacement legs (trend1d QQQ/SPY ≈ `mes_trend_long_1d`, pullback1d GLD
+≈ `mgc_pullback_1d`) and (b) the SPY intraday candidates; QQQ runs in
+shadow only. Everything stays behind the existing gates:
+paper/practice accounts first, `execution: shadow` before paper-live,
+Tier-3 operator approval per strategy promotion. Promotion candidates
+must additionally pass the full M8-style validation (k-fold
+walk-forward, fee headroom) — this sweep is the screening pass, not the
+promotion evidence.
 
 ## Reproduction
 
