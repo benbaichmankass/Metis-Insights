@@ -1,0 +1,245 @@
+name: provision-live-vm
+
+# Provision the CANDIDATE live-trader VM on Ampere A1.Flex (3 OCPU / 18 GB)
+# for the E2.1.Micro -> A1.Flex migration. Runbook:
+# docs/runbooks/live-vm-migration-ampere.md.
+#
+# This CREATES a new Ampere instance (consumes 3 of the 4 Always-Free Ampere
+# OCPUs; the trainer holds the 4th). It does NOT touch the running live trader
+# on the micro — the new box boots into a verification state (deps + Docker +
+# repo + venv) with NO live services started. Cutover (Phase 3) is a separate,
+# operator-scheduled step.
+#
+# Triggers:
+#   1. workflow_dispatch — operator/Claude clicks "Run workflow".
+#   2. issues.opened/labeled with `provision-live-vm`. Body must contain
+#      `confirm: yes`.
+#
+# Mirrors provision-training-vm.yml's auth + IMDS pattern. Reuses
+# scripts/ops/provision_training_vm.py (OCPU/MEMORY/DISPLAY_NAME/CLOUD_INIT
+# are env-parameterized; the quota guard counts only Ampere A1.Flex OCPUs, so
+# the x86 micro does not falsely block the 3-OCPU launch).
+#
+# Required repo secrets: VM_SSH_KEY + OCI_CLI_{USER,FINGERPRINT,TENANCY,
+#   REGION,KEY_CONTENT}. Required label: provision-live-vm.
+
+on:
+  workflow_dispatch:
+    inputs:
+      display_name:
+        description: "Instance display name"
+        required: false
+        default: "ict-bot-arm"
+      reason:
+        description: "Why this is being run (audit trail)"
+        required: true
+        default: "live-VM migration — provision the Ampere A1.Flex candidate"
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: provision-live-vm
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'provision-live-vm'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+      DISPLAY_NAME: ${{ github.event.inputs.display_name || 'ict-bot-arm' }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Dedup — bail if a bot comment already exists
+        if: github.event_name == 'issues'
+        id: dedup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, per_page: 100,
+            });
+            core.setOutput('skip',
+              comments.some(c => c.user && c.user.login === 'github-actions[bot]') ? 'true' : 'false');
+
+      - name: Parse confirmation (issue path)
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          if ! grep -qE '^confirm:[[:space:]]*yes[[:space:]]*$' <<<"$ISSUE_BODY"; then
+            echo "::error::Issue body must contain a line 'confirm: yes' on its own."
+            exit 1
+          fi
+          echo "Confirmation present."
+
+      - name: Set up SSH key (and derive public half)
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
+          chmod 644 ~/.ssh/id_rsa.pub
+
+      - name: Discover OCI compartment + region via live-VM IMDS
+        id: imds
+        if: steps.dedup.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              'curl -sS -H "Authorization: Bearer Oracle" --max-time 5 http://169.254.169.254/opc/v2/instance/' \
+              > imds.json
+          instance_id=$(python3 -c 'import json;print(json.load(open("imds.json"))["id"])')
+          compartment_id=$(python3 -c 'import json;print(json.load(open("imds.json"))["compartmentId"])')
+          region=$(python3 -c 'import json;print(json.load(open("imds.json"))["regionInfo"]["regionIdentifier"])')
+          echo "compartment_id=${compartment_id}" >> "$GITHUB_OUTPUT"
+          echo "region=${region}" >> "$GITHUB_OUTPUT"
+          echo "live_instance_id=${instance_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python + OCI SDK
+        if: steps.dedup.outputs.skip != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install oci sdk
+        if: steps.dedup.outputs.skip != 'true'
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --quiet 'oci>=2.119,<3'
+
+      - name: Look up live-VM subnet via OCI API
+        id: subnet
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION || steps.imds.outputs.region }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, oci
+          cfg = {
+              "user": os.environ["OCI_CLI_USER"],
+              "key_content": os.environ["OCI_CLI_KEY_CONTENT"],
+              "fingerprint": os.environ["OCI_CLI_FINGERPRINT"],
+              "tenancy": os.environ["OCI_CLI_TENANCY"],
+              "region": os.environ["OCI_CLI_REGION"],
+          }
+          oci.config.validate_config(cfg)
+          compute = oci.core.ComputeClient(cfg)
+          vnet = oci.core.VirtualNetworkClient(cfg)
+          live_inst = "${{ steps.imds.outputs.live_instance_id }}"
+          comp = "${{ steps.imds.outputs.compartment_id }}"
+          atts = compute.list_vnic_attachments(compartment_id=comp, instance_id=live_inst).data
+          if not atts:
+              raise SystemExit("no VNIC attachments on live VM")
+          vnic = vnet.get_vnic(atts[0].vnic_id).data
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"subnet_id={vnic.subnet_id}\n")
+          PY
+
+      - name: Provision the Ampere candidate VM
+        id: provision
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION || steps.imds.outputs.region }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          COMPARTMENT_ID: ${{ steps.imds.outputs.compartment_id }}
+          SUBNET_ID: ${{ steps.subnet.outputs.subnet_id }}
+          OCPUS: "3"
+          MEMORY_GB: "18"
+          CLOUD_INIT_PATH: deploy/live-arm-cloud-init.yaml
+        run: |
+          set +e
+          set -uo pipefail
+          export SSH_AUTHORIZED_KEY="$(cat ~/.ssh/id_rsa.pub)"
+          python3 scripts/ops/provision_training_vm.py > result.jsonl 2>err.txt
+          echo "rc=$?" >> "$GITHUB_OUTPUT"
+          echo "---stdout (jsonl)---"; cat result.jsonl || true
+          echo "---stderr---"; cat err.txt || true
+          exit 0
+
+      - name: Compose result summary
+        id: summary
+        if: steps.dedup.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          events = []
+          try:
+              with open("result.jsonl") as fh:
+                  for line in fh:
+                      line = line.strip()
+                      if line:
+                          try: events.append(json.loads(line))
+                          except Exception: pass
+          except FileNotFoundError:
+              pass
+          terminals = {"ready", "already_exists", "quota_would_exceed",
+                       "provisioning_failed", "service_error",
+                       "unexpected_error", "config_error"}
+          final = next((e for e in reversed(events) if e.get("status") in terminals),
+                       {"status": "no_terminal_event_seen"})
+          out = ["### Ampere live-candidate provision result", "",
+                 f"**Status:** `{final['status']}`"]
+          for k, v in final.items():
+              if k == "status": continue
+              out.append(f"- **{k}**: `{json.dumps(v) if isinstance(v, dict) else v}`")
+          out += ["", "<details><summary>Full event stream</summary>", "", "```json"]
+          out += [json.dumps(e) for e in events]
+          out += ["```", "</details>"]
+          open("summary.md", "w").write("\n".join(out))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"terminal_status={final['status']}\n")
+          PY
+
+      - name: Post comment + close (issue path)
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = (() => { try { return fs.readFileSync('summary.md','utf8'); } catch { return 'provision step produced no summary — see run logs.'; } })();
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: 'closed',
+            });
+
+      - name: Emit summary (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"

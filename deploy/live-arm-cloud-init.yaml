@@ -1,0 +1,94 @@
+#cloud-config
+# Cloud-init bootstrap for the candidate LIVE-trader VM on Ampere A1.Flex
+# (the E2.1.Micro -> A1.Flex migration; runbook:
+# docs/runbooks/live-vm-migration-ampere.md).
+#
+# Injected via OCI instance metadata `user_data` (base64-encoded by
+# scripts/ops/provision_training_vm.py). Idempotent.
+#
+# SCOPE = Phase 1 + Phase 0 verification ONLY. This brings the box up to a
+# state where the ARM (aarch64) stack can be verified end-to-end BEFORE any
+# cutover:
+#   - base deps + Docker (for the IB-Gateway arm64 image test)
+#   - repo clone
+#   - a venv with the bot's requirements (proves the aarch64 wheels install)
+#   - a role marker + the /data/bot-data mountpoint dir
+#
+# It deliberately does NOT install or start ict-trader-live / ict-web-api /
+# the watchdogs / the IB gateway. The live trader stays on the micro until the
+# operator-scheduled cutover (Phase 3), which installs the units, attaches the
+# block volume, moves the IP, and starts the trader. Nothing here touches live
+# trading or money.
+
+package_update: true
+package_upgrade: false
+
+packages:
+  - python3.11
+  - python3.11-venv
+  - python3.11-dev
+  - python3-pip
+  - git
+  - curl
+  - jq
+  - rsync
+  - build-essential
+  - docker.io
+
+write_files:
+  - path: /etc/ict-role
+    permissions: '0644'
+    owner: root:root
+    content: |
+      live-trader-candidate
+      # Candidate live-trader VM (Ampere A1.Flex) for the micro->A1 migration.
+      # NOT yet the live trader — the cutover (Phase 3 of
+      # docs/runbooks/live-vm-migration-ampere.md) promotes it. Until then
+      # the live trader runs on the E2.1.Micro at 158.178.210.252.
+
+runcmd:
+  # Idempotent repo clone.
+  - |
+    if [ ! -d /home/ubuntu/ict-trading-bot/.git ]; then
+      sudo -u ubuntu git clone \
+        https://github.com/benbaichmankass/ict-trading-bot.git \
+        /home/ubuntu/ict-trading-bot
+    fi
+  - chown -R ubuntu:ubuntu /home/ubuntu/ict-trading-bot
+  # The block volume mounts here at cutover; create the dir now so the
+  # data-dir preflight has a target.
+  - mkdir -p /data/bot-data
+  - chown -R ubuntu:ubuntu /data
+  # Let ubuntu drive Docker (the IB-Gateway arm64 test in Phase 0).
+  - systemctl enable --now docker || true
+  - usermod -aG docker ubuntu || true
+  # --- Phase 0 verification: prove the aarch64 Python stack installs ---
+  # Build a venv + install the bot's runtime deps. Success here is the
+  # green light that the bot runs on ARM. Output lands in
+  # /var/log/cloud-init-output.log + the marker file below.
+  - |
+    sudo -u ubuntu bash -lc '
+      set -e
+      cd /home/ubuntu/ict-trading-bot
+      python3.11 -m venv .venv
+      . .venv/bin/activate
+      python -m pip install --upgrade pip wheel
+      if pip install -r requirements.txt; then
+        echo "aarch64 deps: OK" > /home/ubuntu/arm-verify.txt
+      else
+        echo "aarch64 deps: FAILED" > /home/ubuntu/arm-verify.txt
+      fi
+      python -c "import ccxt, pandas, numpy; print(\"imports OK\", ccxt.__version__)" >> /home/ubuntu/arm-verify.txt 2>&1 || true
+    ' || echo "venv bootstrap errored" > /home/ubuntu/arm-verify.txt
+  - python3.11 --version
+  - uname -m
+
+final_message: |
+  Candidate live-trader VM (Ampere A1.Flex) bootstrap complete.
+  Role marker: /etc/ict-role  (live-trader-candidate)
+  Repo:        /home/ubuntu/ict-trading-bot
+  ARM verify:  /home/ubuntu/arm-verify.txt  (aarch64 deps + import check)
+  Docker:      enabled (for the IB-Gateway arm64 test)
+  Data mount:  /data/bot-data created (block volume attaches at cutover)
+  Live trading: NOT started here — the live trader stays on the micro until
+  the operator-scheduled cutover (Phase 3 of the migration runbook).
