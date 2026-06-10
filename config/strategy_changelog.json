@@ -120,6 +120,11 @@
   ],
   "trend_donchian": [
     {
+      "date": "2026-06-10",
+      "ref": "min_confidence 0.30 -> 0.60 (M8 S3, #3181) - Tier-3, operator-approved",
+      "summary": "Live trend_donchian entry floor raised 0.30 -> 0.60. M8 canonical sweep (scripts/ml/strategy_tune_sweep.py) under OOS + 3-fold anchored walk-forward at the live 1h/trail-5.0/long-only params (BTC 2021-2026) found 0.30 net-positive in only 2/3 folds (loses the 2025-26 regime); 3/3 robustness begins at 0.60 (OOS net \u03a3 34.9->53.6 R, expectancy 0.111->0.215, maxDD 22.3->12.9 R). 0.60 is the conservative onset of the uniformly-robust 0.60-0.90 band. Evidence: docs/sprint-logs/S-M8-STRATEGY-TUNING-S3.md, trainer-vm-diag #3179."
+    },
+    {
       "date": "2026-06-01",
       "ref": "Re-tune 2h/trail3.5 -> 1h/trail5.0 (this PR) - Tier-3, operator-approved",
       "summary": "Live trend_donchian re-tuned to the overnight-research OOS-best corner: timeframe 2h->1h, trail_mult 3.5->5.0 (donchian 20 / atr_stop 2.5 unchanged). SUPERSEDES the 2026-05-24 S9 1h->2h walk-forward migration: the 2026-06-01 campaign (357 backtests, 3-fold robust) found 1h/trail5.0 is OOS-best (+43.8R OOS / +42.4R IS, 3-fold +14/+54/+24) \u2014 it tested the wide trail (~5.0 lifts net R in every family; default 3.0-3.5 cuts the fat-tail runners that ARE the trend edge) that the S9 analysis never did, and at trail 5.0 the 1h timeframe wins. The recent live 0%-win window was a ~1-month ranging regime + the re-entry storm (fixed by the bar-close debounce, #2548), not a disproven edge. Live on bybit_2 (real) + bybit_1 (demo)."
