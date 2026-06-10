@@ -131,6 +131,37 @@ def regime_bar_scoring_enabled() -> bool:
     return raw not in ("1", "true", "yes", "on")
 
 
+# Per-tick wall-clock budget (seconds) for the whole emit_regime_bar_predictions
+# call. The fetch gate + dedup caches are PER-PROCESS and EMPTY on a fresh
+# restart, so the FIRST tick after a restart would otherwise fetch every
+# (symbol, timeframe) group (incl. blocking IBKR fetches for MES) AND score
+# every shadow head synchronously on the main loop — a single mega-tick that
+# pegs the 2-core live VM and freezes the heartbeat (BL-20260609-001 / the
+# 2026-06-10 cold-start wedge). The budget caps how long one call may run:
+# once exceeded, remaining groups are deferred to the next tick (their fetch
+# gate is NOT armed and their heads are NOT marked seen, so they are picked up
+# whole next tick), spreading the cold-start burst across ticks instead of
+# stalling the loop. Default 6 s; ``0`` disables the budget (unlimited).
+_DEFAULT_BUDGET_S: float = 6.0
+
+
+def _budget_seconds() -> float:
+    """Per-tick wall-clock budget from ``REGIME_BAR_SCORING_BUDGET_S``.
+
+    Default ``_DEFAULT_BUDGET_S``; ``0`` (or negative) means unlimited — the
+    pre-budget behaviour. A non-numeric value falls back to the default so a
+    typo can never strand the budget.
+    """
+    raw = os.environ.get("REGIME_BAR_SCORING_BUDGET_S")
+    if raw is None or str(raw).strip() == "":
+        return _DEFAULT_BUDGET_S
+    try:
+        val = float(raw)
+    except (TypeError, ValueError):
+        return _DEFAULT_BUDGET_S
+    return val if val > 0 else 0.0
+
+
 def _last_bar_timestamp(candles_df: Any) -> Any:
     """Return the most recent bar's ``timestamp`` for dedup, or ``None``.
 
@@ -311,8 +342,21 @@ def emit_regime_bar_predictions(
             groups.setdefault((symbol, timeframe), []).append(predictor)
 
         written = 0
+        budget_s = _budget_seconds()
+        tick_start = float(now_fn())
+        deferred = 0
         for (symbol, timeframe), group in groups.items():
             current_now = float(now_fn())
+            # Per-tick wall-clock budget — defer the rest of the cold-start
+            # burst to the next tick rather than stall the main loop (and
+            # freeze the heartbeat) doing every group in one mega-tick. Checked
+            # at group granularity so a deferred group is never half-scored:
+            # its fetch gate stays un-armed + its heads stay unseen, so the
+            # whole group is picked up on a later tick. (BL-20260609-001
+            # cold-start fix.)
+            if budget_s > 0.0 and (current_now - tick_start) >= budget_s:
+                deferred = 1
+                break
             # Wall-clock fetch gate: skip the (expensive) network fetch when
             # the previous fetch landed less than ``bar_duration - buffer``
             # seconds ago. ``_BAR_SECONDS`` maps the timeframes the regime
@@ -359,6 +403,12 @@ def emit_regime_bar_predictions(
                 with_shadow_preds({}, predictors=[predictor], feature_row=row)
                 cache[model_id] = bar_ts
                 written += 1
+        if deferred:
+            logger.info(
+                "regime_bar: per-tick budget %.1fs reached after %d preds; "
+                "remaining groups deferred to next tick",
+                budget_s, written,
+            )
         return written
     except Exception:  # noqa: BLE001 — the per-bar path must never break a tick
         logger.warning("regime_bar: per-bar regime scoring failed", exc_info=False)

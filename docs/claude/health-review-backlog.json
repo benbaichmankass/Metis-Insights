@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260610-002",
+      "opened_at": "2026-06-10T07:15:00+00:00",
+      "opened_by": "claude (live-incident fix)",
+      "source": "2026-06-10 cold-start wedge (BL-20260609-001 recurrence). Fixed in code via REGIME_BAR_SCORING_BUDGET_S (per-tick wall-clock budget, src/runtime/regime_bar_scoring.py) + tests. REGIME_BAR_SCORING_DISABLED=1 was set on the live VM as the incident remediation (#3211).",
+      "title": "Re-enable REGIME_BAR_SCORING on the live VM after the cold-start-budget fix deploys + verify no restart wedge",
+      "description": "The per-bar regime scoring is currently DISABLED on the live VM (REGIME_BAR_SCORING_DISABLED=1, #3211) \u2014 so the strong shadow regime heads (1h/MES) are NOT accruing per-bar track record (touches MB-20260529-001 / yz-1h promotion soak, MB-20260527-004). Once this PR (REGIME_BAR_SCORING_BUDGET_S budget) is merged + deployed (pull-and-deploy), re-enable via set-env REGIME_BAR_SCORING_DISABLED=0 + restart, then VERIFY across the restart: (a) cpu does NOT peg at 100% post-restart (watch the first ~5 min \u2014 the budget should spread the cold-start over several ticks); (b) heartbeat keeps advancing (never label!=running) through the restart; (c) a `regime_bar: per-tick budget reached ... deferring` info line appears in journalctl on the cold-start tick(s), confirming the budget engaged; (d) shadow_predictions.jsonl resumes writing regime-head rows. If cpu still pegs, lower REGIME_BAR_SCORING_BUDGET_S (e.g. 3) or investigate per-head feature_row cost.",
+      "tier": 2,
+      "trigger_condition": "After this PR merges to main + deploys to the live VM. Also every /health-review until regime-bar-scoring is re-enabled and verified stable across a restart.",
+      "resolution_criteria": "REGIME_BAR_SCORING_DISABLED=0 on the live VM AND a trader restart (deploy or manual) completes with cpu never sustained at 100% + heartbeat continuously 'running' + the budget info-line observed + shadow_predictions resuming. Closed when one clean restart-with-scoring-on is observed.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260610-001",
       "opened_at": "2026-06-10T06:45:00+00:00",
       "opened_by": "claude (/health-review)",
@@ -1065,7 +1082,8 @@
       "resolved_by": "claude (S9 yz loose-ends session)",
       "resolution_note": "Not a CI bug. All 11 checks ran green on commit 1 (e286c4ea); commit 2 (61c64816) had 0 runs because the PR was dirty \u2014 the backlog-JSON appends conflicted with main, which blocks GitHub from building the merge ref, so the synchronize push triggered nothing. get_status/get_check_runs report only the head SHA, hence total_count=0. The path/branch-filter hypothesis is ruled out (no CI workflow has a path filter). Fixed by resolving the conflict and pushing 61c6481..2be6549; 11 checks re-fired green; #3007 merged. See docs/audits/s9-yz-shadow-promotion-2026-06-09.md \u00a71.",
       "check_log": [
-        "2026-06-10 /health-review: CPU half RE-CONFIRMED resolved \u2014 vm_health cpu=0% (mem 67%, disk 36.8%) across the status pull; the regime-bar-scoring fix (PR #3082) is holding, no recurrence. liveness-watchdog.timer active/armed. Item remains open ONLY on (2) autoheal-on-real-hang verification + (3) 48h no-multi-min-stall soak. Priority low."
+        "2026-06-10 /health-review: CPU half RE-CONFIRMED resolved \u2014 vm_health cpu=0% (mem 67%, disk 36.8%) across the status pull; the regime-bar-scoring fix (PR #3082) is holding, no recurrence. liveness-watchdog.timer active/armed. Item remains open ONLY on (2) autoheal-on-real-hang verification + (3) 48h no-multi-min-stall soak. Priority low.",
+        "2026-06-10 07:07Z LIVE INCIDENT (recurrence, COLD-START variant): a trader restart (07:02:50, enabling the netting guard) re-wedged the VM \u2014 cpu 72%->100%, heartbeat froze at 07:03:49, no tick since 07:01:56. Root cause IDENTIFIED + distinct from MB-20260609-001: the regime_bar_scoring fetch-gate + dedup caches are PER-PROCESS and EMPTY on a fresh restart, so the first post-restart tick fetched every (symbol,timeframe) group (incl. blocking IB/MES fetches) AND scored all ~20 shadow heads in ONE synchronous mega-tick on the main loop -> heartbeat (written between ticks) froze. MB-20260609-001 bounded steady-state per-tick cost but NOT the cold-start burst. Operator-approved remediation: set-env REGIME_BAR_SCORING_DISABLED=1 + restart (#3211, 07:10:56Z) -> cpu 100->52% + heartbeat resumed advancing (07:12:52, label running) = recovered. FIX shipped this PR: REGIME_BAR_SCORING_BUDGET_S (default 6s) caps per-call wall time, deferring remaining whole groups to the next tick. Regime-bar-scoring is DISABLED on the VM pending the fix deploy + re-enable (see BL-20260610-002)."
       ]
     },
     {
