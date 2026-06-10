@@ -195,19 +195,24 @@ wire-up. See trainer-vm-mode.md § 5 for the full lifecycle.
   ping the operator; once the operator approves, you may merge and
   deploy.
 - Never copy production secrets to the trainer.
-- Never provision past the OCI Always Free 4-OCPU / 24-GB tenancy
-  ceiling. As of 2026-06-10 the **live trader holds 2 OCPU** and the
-  **trainer holds 1 OCPU / 6 GB** (both `VM.Standard.A1.Flex`). The
-  2-core live VM has no CPU headroom — sidecars (IB-gateway Java, regime
-  scoring, web-api) periodically saturate it and starve the trader's
-  single-threaded loop (the 2026-06-10 wedge cascade). The sanctioned
-  remedy is the **`vm-resize-live`** workflow (`scripts/ops/resize_live_vm.py`),
-  which stops/resizes/starts the live VM to **3 OCPU / 18 GB** — which
-  with the trainer's 1 / 6 fills the pool exactly (4 / 24). Going to a
-  4-OCPU live VM is **not** possible while the trainer runs (A1.Flex has
-  a 1-OCPU floor, so live 4 + trainer 1 = 5 > 4). The resize is
-  operator-gated (brief live-trader outage; positions sit on broker
-  SL/TP meanwhile).
+- Never provision past the OCI Always Free 4-OCPU / 24-GB Ampere tenancy
+  ceiling. **Verified 2026-06-10 (via the `vm-resize-live` dry-run, issue
+  #3254):** the **live trader runs on `VM.Standard.E2.1.Micro` — 1 OCPU /
+  1 GB** (the Always-Free **AMD x86** micro; `nproc=2` is 1 OCPU × 2
+  hyperthreads, *not* 2 OCPU). The **trainer is `VM.Standard.A1.Flex`,
+  1 OCPU / 6 GB** (Ampere). The micro is **not resizable** — micro shapes
+  are fixed — so the live VM cannot be grown in place; the
+  `scripts/ops/resize_live_vm.py` + `vm-resize-live` tooling only applies
+  to A1.Flex instances (it refuses a non-Flex shape in preflight). The
+  1 GB RAM is the binding constraint: the box swap-thrashes under ~15
+  services (the 2026-06-10 wedge cascade). The sanctioned remedy is to
+  **migrate the live trader onto a new Ampere A1.Flex at 3 OCPU / 18 GB**
+  (the Ampere pool minus the trainer's 1 / 6 leaves exactly that) — a
+  *migration*, not an in-place resize. Runbook:
+  [`docs/runbooks/live-vm-migration-ampere.md`](docs/runbooks/live-vm-migration-ampere.md).
+  Until then the trader is kept alive by the cgroup priority (#3232) +
+  the IB-gateway cap; observe-only sidecars (regime-bar-scoring, M13
+  insights generators) are shed on the micro to free RAM.
 
 When in doubt about scope, default to the **live-VM** rules and ask.
 
