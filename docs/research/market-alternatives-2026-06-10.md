@@ -13,6 +13,24 @@
 > (direction-setting); the WS-A futures sweep results remain valid evidence
 > either way.
 
+## 0. Operator decisions (recorded 2026-06-10, post-review)
+
+The operator reviewed this memo in chat and decided:
+
+1. **Futures de-prioritisation confirmed.** The 2026-06-02 futures-first /
+   NinjaTrader directive is superseded; this memo is the standing direction.
+2. **Platforms: evaluate Alpaca AND OANDA — "we can also do both."**
+   Tradeoffs incl. fees in §5a. The residency/division question stays open
+   (§7) until the operator states country of residence.
+3. **Timeframes: intraday-first, same as the current roster** (5m/15m/1h/
+   2h/4h), *not* daily-first as §5 originally recommended. The live
+   equities account will be **>$25k**, so the PDT rule is not a
+   constraint. §5/§6 revised accordingly; the daily ETF replacement path
+   remains documented as the lower-research-risk option.
+4. **IBKR paper legs stay running.** The futures track still gets stood up
+   properly, but system expansion comes first; gateway retirement
+   (Phase 4) is deferred indefinitely, not scheduled.
+
 ## 1. Why we want off futures (the actual cost we pay today)
 
 The three futures strategies (`mes_trend_long_1d`, `mgc_pullback_1d`,
@@ -101,31 +119,69 @@ intraday is a **research candidate, not a migration target**. The
 near-term equities case rests on the daily-timeframe ETF trend/pullback
 replacements (§3), which inherit the already-validated SPX/metals logic.
 
-## 5. Recommendation
+## 5. Recommendation (revised per §0 — intraday-first, >$25k account)
 
-1. **Best easy-integration start: Alpaca, US ETFs, daily timeframe, paper
-   account first.** It directly retires the IB Gateway for the three
-   futures legs (same strategy units, symbols MES→SPY or QQQ, MGC→GLD,
-   MHG→CPER), the API is the simplest of any candidate, paper trading is
-   free and identical to live, and daily bars avoid PDT and minimize the
-   market-hours work. This replaces *transport*, not *strategy* — lowest
-   research risk of any option.
-2. **Zero-cost parallel move: Bybit alt expansion** (ETH/SOL/etc. perps).
+The intraday-first directive splits the roster across the two platforms by
+timeframe, because an equities RTH session is 6.5 h/day:
+
+| Roster timeframe | Bars per equities RTH day | Equities (Alpaca) | FX (OANDA) |
+|---|---|---|---|
+| 5m / 15m (`ict_scalp_5m`, `turtle_soup` 15m/1m, `fvg_range_15m`) | 78 / 26 | **Works** — with an RTH session gate (skip first/last minutes, no overnight holds without broker-side stops) | **Works as-is** (24/5) |
+| 1h (`trend_donchian`) | 6.5 | Marginal — channels span days, gaps dominate | **Works as-is** |
+| 2h / 4h (`htf_pullback_trend_2h`, fade/squeeze) | ~3 / ~1.6 | **Doesn't meaningfully exist** — feeds session-anchor these bars; the strategy becomes a different object | **Works as-is** |
+
+1. **Do both, split by timeframe.** **OANDA FX carries the 1h–4h
+   trend/pullback family unchanged** (all current timeframes survive; the
+   pipeline's continuous-market assumption nearly holds — only a weekend
+   gate is needed; turtle_soup/ict_scalp are conceptually FX-native).
+   **Alpaca equities carries the 5m/15m family** (ict_scalp / fvg_range /
+   the QQQ re-research) under an RTH session gate. Both paper/practice
+   environments are free, so running both costs only the integration work
+   (~one `new-broker` build each, the data connectors are ~150 lines each).
+2. **Exposure note (the original reason the futures legs exist):** only
+   Alpaca ETFs (SPY/QQQ, GLD, CPER) replace the equity-index + metals
+   diversification on a US-division account — OANDA US offers FX (+ XAU/
+   XAG) but not index CFDs; non-US OANDA divisions do offer index/metal
+   CFDs but their overnight financing drags on multi-week trend holds.
+   The daily-timeframe ETF replacement path from the original §5 remains
+   the lowest-research-risk way to keep that exposure, available whenever
+   wanted.
+3. **Zero-cost parallel move: Bybit alt expansion** (ETH/SOL/etc. perps).
    No new integration at all — but it deepens crypto concentration rather
    than replacing futures exposure, so it's a complement, not the answer.
-3. **Second-best / fallback: OANDA FX.** Cleanest API after Alpaca, 24/5
-   nearly matches the pipeline's continuous-market assumption, no PDT, and
-   the ICT-style strategies (turtle_soup, ict_scalp) are conceptually
-   FX-native. Pick this over Alpaca if (a) the operator's residency makes a
-   US brokerage account awkward, or (b) we decide intraday ICT — not daily
-   trend — is the priority. Requires the same `new-broker` build plus
-   weekend-gap handling.
 4. **Avoid for now:** options (order/execution complexity buys nothing for
    the current roster), fixed income (no strategy fit), Alpaca crypto
-   (strictly worse fees than Bybit), CFD brokers (regulatory ambiguity,
-   opaque pricing), additional crypto exchanges (redundant), and **intraday
-   equities at small account size** (PDT). NinjaTrader futures stays parked
-   as the "if we ever go back to futures" plan.
+   (strictly worse fees than Bybit), standalone CFD brokers (regulatory
+   ambiguity, opaque pricing), additional crypto exchanges (redundant).
+   NinjaTrader futures stays parked as the "if we ever go back to futures"
+   plan.
+
+### 5a. Alpaca vs OANDA — account-opening + cost tradeoffs (operator Q2)
+
+| | **Alpaca** | **OANDA** |
+|---|---|---|
+| **Who can open** | US brokerage account; international onboarding supported in ~195 countries (W-8BEN, identity verification via international providers), $1 minimum | Regional divisions (US / Canada / UK-EU / Asia-Pacific / Global-BVI) — the division your residency lands in fixes the product set, leverage cap, and protections |
+| **Leverage** | 4× intraday / 2× overnight (Reg-T margin, $2k min for margin) | US ~50:1 majors, EU 30:1, Global division higher — far more than the strategies need either way |
+| **Trading cost** | $0 commission; cost ≈ SPY/QQQ spread (~1bp) + tiny SEC/TAF sell fees | Spread-only ~0.8–1.6 pips, or core pricing ~0.2–0.4 pips + ~$5/100k commission (≈0.5–1.5bp round-trip on majors) |
+| **Holding cost** | None on cash equity positions (margin interest 6.5% only if levered) — **multi-day/week holds are free** | Daily tom-next financing on every overnight position — **a real drag on the multi-week trend/pullback holds**, fine for intraday |
+| **Funding friction** | Free ACH (US); international wires $50/transaction; Rapyd local funding in many countries | Local funding rails per division; $14/mo inactivity fee only after 12 idle months (irrelevant for a bot) |
+| **Asset coverage for our exposure goals** | Full ETF palette (equity index, gold, copper, anything) | FX majors everywhere; metals/index CFDs only on non-US divisions |
+| **Paper/practice** | Free, identical API to live | Free practice account, identical v20 API |
+
+**Net:** costs are comparable and small for intraday use; the real
+differentiators are (a) **holding cost** — Alpaca free for long holds, OANDA
+financing drags on them, which maps exactly onto the timeframe split in §5;
+and (b) **residency division** — determines whether OANDA can also cover the
+index/metals exposure or only FX. Doing both is realistic and is the
+recommended end-state; sequencing is in §6.
+
+§5a sources: [Alpaca non-US accounts](https://alpaca.markets/learn/live-trading-account-non-us),
+[supported countries](https://alpaca.markets/support/countries-alpaca-is-available),
+[transfer fees](https://alpaca.markets/support/fees-transfers-outside-us),
+[OANDA US pricing](https://www.oanda.com/us-en/trading/our-pricing/),
+[OANDA financing](https://www.oanda.com/us-en/trading/financing-fees/),
+[OANDA fees breakdown (BrokerChooser)](https://brokerchooser.com/broker-reviews/oanda-review/oanda-fees).
+Re-verify at account-opening time.
 
 ### Risk controls already in place vs missing (for any promotion talk)
 
@@ -142,48 +198,53 @@ stays Tier-3 (operator-approved), exactly as it was for MGC/MHG.
 
 ## 6. Phased migration plan (proposed next sprints)
 
-- **Phase 0 — evidence, no code** (trainer VM, existing harnesses, Tier 1):
-  pull daily SPY/QQQ/GLD/CPER history (and XAU/USD as the OANDA
-  cross-check), run the existing `backtest_{trend,pullback}` harnesses
-  net-of-fee with walk-forward, per the WS-A method. Output: ETF
-  generalization matrix. *Also:* Bybit alt sweep (already scoped in WS-A).
-- **Phase 1 — Alpaca data-only connector** (Tier 1): `get_ohlcv` via
-  `alpaca-py`, registered in `market_data.py::_build_exchange_client`
-  (~150 lines, no order path). Lets the live roster's signal builders and
-  the regime scorer see ETF bars; enables QQQ-FVG re-research with real
-  data and a proper sample.
-- **Phase 2 — Alpaca paper account, full wiring** (Tier 2; `new-broker`
-  skill checklist): account package, `EXCHANGE_MAP` entry, executor branch
-  using bracket orders, `accounts.yaml::alpaca_paper` (`mode: live`,
-  paper money — mirroring `ib_paper`), market-hours gate for the daily
-  strategies, secrets via `init-actions-secrets` + `sync-vm-secrets`.
-  Operator hand-off: create the Alpaca account, paste two API keys.
+- **Phase 0 — evidence, no code** (trainer VM, existing harnesses, Tier 1),
+  at the **current roster timeframes** per §0: (a) FX sweep — EUR/USD,
+  GBP/USD, XAU/USD on 15m/1h/2h/4h through `backtest_{trend,pullback,
+  ict_scalp,fvg_range}` (OANDA v20 candle history to 2005 is free via the
+  practice API); (b) equities sweep — QQQ/SPY 5m/15m **restricted to RTH**
+  (Alpaca free historical bars), incl. the QQQ-FVG re-research with a
+  ≥50-trade sample per the M7 gate; (c) the daily ETF replacement sweep
+  (SPY/QQQ/GLD/CPER) as the low-risk baseline; (d) Bybit alt sweep
+  (already scoped in WS-A). Output: one generalization matrix tagged by
+  venue, deciding which platform gets wired first.
+- **Phase 1 — data-only connectors** (Tier 1): `get_ohlcv` for Alpaca
+  (`alpaca-py`) and OANDA (v20 candles), registered in
+  `market_data.py::_build_exchange_client` (~150 lines each, no order
+  path), plus the **market-hours/session module** (RTH calendar for
+  equities, weekend gate for FX) — built once, venue-parametrised.
+- **Phase 2 — broker wiring, evidence-first order** (Tier 2; `new-broker`
+  skill checklist per platform): whichever venue Phase 0 favours gets
+  wired first — account package, `EXCHANGE_MAP` entry, executor branch
+  (Alpaca bracket orders / OANDA attached TP-SL), `accounts.yaml` entry
+  (`alpaca_paper` / `oanda_practice`, `mode: live`, paper money —
+  mirroring `ib_paper`), secrets via `init-actions-secrets` +
+  `sync-vm-secrets`. Operator hand-off per platform: open the account,
+  paste the API keys. The second platform follows once the first soaks
+  clean.
 - **Phase 3 — shadow → paper-live soak** (Tier 3 config PR per strategy):
-  clone `mes_trend_long_1d` → `spy_trend_long_1d` etc., `execution: shadow`
-  first, then paper-live on `alpaca_paper`. Run alongside the IBKR legs for
-  ≥4–6 weeks; compare fills/slippage/uptime.
-- **Phase 4 — retire the IB Gateway** (Tier 2/3, operator-approved): flip
-  the three futures strategies off, decommission the gateway container +
-  watchdog, reclaim ~0.75 CPU on the 2-core VM (a wedge-cascade win by
-  itself). OANDA decision point: only start the FX build if Phase 0/1
-  evidence says the intraday ICT strategies deserve a 24/5 venue.
+  new strategy entries with `execution: shadow` first, then paper-live.
+  Run alongside the IBKR legs (which **stay running**, per §0) for ≥4–6
+  weeks; compare fills/slippage/uptime.
+- **Phase 4 — IB Gateway retirement: deferred** (operator decision
+  2026-06-10 — keep expanding the system first). When eventually taken,
+  it reclaims ~0.75 CPU on the 2-core VM and removes the gateway watchdog
+  + breaker stack.
 
 ## 7. Open questions for the operator
 
-1. **Direction change vs the 2026-06-02 directive** (futures-first via
-   NinjaTrader): confirm this memo's de-prioritisation of futures is the
-   new standing directive.
-2. **Residency / eligibility:** Alpaca individual accounts are
-   US-jurisdiction brokerage accounts (international signups supported but
-   country-dependent); OANDA's division (and leverage caps) also depend on
-   residency. Which can you open?
-3. **Account size** for the eventual live equities account — under $25k
-   means daily-timeframe only (PDT); that's compatible with the
-   recommended Phase 3 roster but rules out intraday QQQ work going live.
-4. **Keep or kill the IBKR paper legs during the soak?** Recommendation:
-   keep until Phase 3 comparison data exists, then Phase 4 retires them.
-5. **Market data tier:** free IEX real-time is likely fine for daily bars;
-   approve the paid consolidated feed only if an intraday equities
-   strategy ever reaches Phase 3.
+Questions 1, 3, 4 from the original memo are **answered** — recorded in §0
+(directive confirmed; >$25k + intraday-first; IBKR legs stay). Still open:
+
+1. **Country of residence** — needed to pin (a) the OANDA division
+   (product set: FX-only vs FX+index/metal CFDs; leverage cap; financing
+   terms) and (b) Alpaca funding rails (free ACH vs $50 wires vs Rapyd
+   local methods). One-line answer in chat is enough; the memo gets
+   updated with the concrete division.
+2. **Market data tier for live intraday equities:** Alpaca's free
+   real-time feed is IEX-only (a thin slice of consolidated volume).
+   Likely fine for 5m/15m signal bars, but worth a paid consolidated-feed
+   trial (~$99/mo tier) before any equities strategy goes paper-live at
+   5m — decide at Phase 2.
 
 — Research memo only; nothing in this document changes runtime behaviour.
