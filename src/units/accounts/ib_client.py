@@ -359,6 +359,19 @@ class IBClient:
         """
         if self._ib_factory is not None:
             return True
+        if _IB_PROBE_TIMEOUT_S <= 0:
+            # Operator opt-out (IB_PROBE_TIMEOUT_S=0): skip the post-connect
+            # liveness probe. Added 2026-06-10 for the gateway-isolation
+            # topology: with the Gateway on its own VM reached over a socat
+            # relay, reqCurrentTime does not resolve on the persistent loop even
+            # though the connection is healthy (logs on, data farms OK,
+            # synchronisation completes, and the read path works) — so the probe
+            # false-trips the breaker and blocks MES. The per-fetch
+            # IB_FETCH_TIMEOUT_S bound is the backstop against a genuinely wedged
+            # gateway, and the gateway can no longer starve the trader's CPU
+            # (separate VM), so skipping the probe is safe here. Default (5s)
+            # keeps the probe ON for the same-box / loopback case.
+            return True
         import asyncio
 
         loop = self._loop

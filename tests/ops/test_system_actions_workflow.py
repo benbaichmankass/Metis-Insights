@@ -114,6 +114,11 @@ EXPECTED_ACTIONS = {
     "resume-autoheal": "resume_autoheal.sh",
     # 2026-06-05 incident — diagnose + correct VM clock drift (NTP).
     "sync-clock": "sync_clock.sh",
+    # 2026-06-10 — purge the retired Cloudflare tunnel unit from the live VM
+    # (the repo cleanup #3233 removed the unit file from source control but
+    # install_systemd_units.sh is install-only, so an already-installed
+    # ict-cloudflared-tunnel.service kept running). Idempotent no-op if absent.
+    "purge-cloudflared": "purge_cloudflared.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -147,6 +152,7 @@ TIER_2_ACTIONS = {
     "pause-autoheal",
     "resume-autoheal",
     "sync-clock",
+    "purge-cloudflared",
 }
 
 
