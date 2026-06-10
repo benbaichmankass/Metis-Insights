@@ -401,7 +401,7 @@ final pre-expiry alert (M1 P1-B) prevent silent expiry.
 | Claude bridge | `deploy/ict-claude-bridge.service` |
 | Env-check | `deploy/ict-env-check.service` |
 | Web API watchdog | `deploy/ict-web-api-watchdog.{service,timer}` — restarts `ict-web-api.service` when the FastAPI surface is unreachable |
-| IB Gateway + watchdog | `deploy/ib-gateway.service`, `deploy/ict-ib-gateway-watchdog.{service,timer}` — headless IB Gateway (Docker + socat) and the broker-session dead-man switch (2026-05-28). Runbook: `docs/runbooks/ib-integration.md` |
+| IB Gateway (isolated VM) | `deploy/ict-ib-gateway-reset.{service,timer}` — headless IB Gateway (Docker + socat) now runs on its **own dedicated Ampere VM** (`ict-ib-gateway`, `10.0.0.251`), off the live trader's micro (gateway-isolation, Plan B, 2026-06-10). Recovery is one deterministic daily `docker restart` (05:30 UTC, gated to the gateway VM by `ConditionPathExists=/etc/ict/ib-gateway-docker.env`); the reactive 5-min restart-loop watchdog is retired — `ict-ib-gateway-watchdog.{service,timer}` is now a once-daily **alert-only** probe. The trader-side connect breaker (`IB_PROBE_TIMEOUT_S`/`IB_BREAKER_COOLDOWN_S`) keeps a gateway/network blip off the BTCUSDT loop. Runbook: `docs/runbooks/ib-integration.md` § "Gateway isolation redesign" |
 | Health snapshot | `deploy/ict-health-snapshot.{service,timer}` — cron health-check report consumed by `/health-review` |
 | Insights generators (M13) | `deploy/ict-insights-generator.{service,timer}` (fast, 15 min) + `deploy/ict-insights-generator-strategies.{service,timer}` (slow, 60 min) — AI-Analyst cache writers behind `/api/bot/insights/*` |
 | Shadow-log rotation | `deploy/ict-shadow-log-rotate.{service,timer}` — size/age rotation of `shadow_predictions.jsonl` |
@@ -576,17 +576,30 @@ The full AI-platform architecture (five-layer model, leakage rules,
 forbidden behaviors, model registry append-only invariant) lives in
 [`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md).
 
-### Two-VM topology (S-AI-WS9)
+### VM topology (S-AI-WS9, updated 2026-06-10 gateway-isolation Plan B)
 
 The "no heavy training on the Oracle live VM" non-negotiable
-([`AI-TRADERS-ROADMAP.md`](AI-TRADERS-ROADMAP.md)) is now enforced
-by **topology**, not just policy. Two Always Free Ampere A1 VMs
-run side-by-side in the same compartment + VCN:
+([`AI-TRADERS-ROADMAP.md`](AI-TRADERS-ROADMAP.md)) is enforced by
+**topology**, not just policy. The system now spans **three** VMs in the
+same compartment + VCN — the money box is deliberately the smallest and
+most isolated:
 
-| VM | Role | Systemd units | Marker file |
-|---|---|---|---|
-| **Live trader VM** | Deterministic trade execution; FastAPI dashboard surface | `ict-trader-live.service`, `ict-web-api.service` | (none today; pre-WS9) |
-| **Training-center VM** | Model training, dataset builds, registry writes, experiment runs | `ict-trainer.service` (disabled by default), `ict-trainer.timer` (disabled by default) | `/etc/ict-trainer-vm.role` → `training-center` |
+| VM | Shape | Role | Systemd units | Marker file |
+|---|---|---|---|---|
+| **Live trader** (`158.178.210.252`) | `VM.Standard.E2.1.Micro` — **1 OCPU / 1 GB, x86** (a separate AMD Always-Free allocation, NOT the Ampere pool; fixed shape) | Deterministic trade execution; FastAPI dashboard surface | `ict-trader-live.service`, `ict-web-api.service` | (none today; pre-WS9) |
+| **Training-center** (`158.178.209.121`) | `VM.Standard.A1.Flex` 1 OCPU / 6 GB (Ampere) | Model training, dataset builds, registry writes, experiment runs | `ict-trainer.service` (disabled by default), `ict-trainer.timer` (disabled by default) | `/etc/ict-trainer-vm.role` → `training-center` |
+| **IB Gateway** (`ict-ib-gateway`, private IP `10.0.0.251`) | `VM.Standard.A1.Flex` 1 OCPU / 6 GB (Ampere) | Headless IB Gateway (Docker + socat) for MES/IBKR — isolated off the money box | `ict-ib-gateway-reset.{service,timer}` (daily 05:30 UTC `docker restart`) | `/etc/ict/ib-gateway-docker.env` (gates the reset.service) |
+
+**Ampere Always-Free budget:** trainer 1 + gateway 1 = **2 of 4 OCPUs.**
+The gateway was moved onto its own VM (Plan B) because the heavy
+Java/Xvfb/IBC gateway sharing the 1 GB micro with the trader caused the
+2026-06-10 CPU-wedge cascade; the trader now reaches it across the private
+subnet (`config/accounts.yaml::ib_paper.ib_host = 10.0.0.251`). The
+**live→3-OCPU Ampere migration is PAUSED** — with the gateway gone the
+micro may hold trader + web-api + sidecars on its 2 vCPU; measure first,
+migrate only if it can't. Full topology + rationale:
+[`docs/runbooks/ib-integration.md`](runbooks/ib-integration.md)
+§ "Gateway isolation redesign" and `CLAUDE.md` § "VM authority split".
 
 The training-center VM is provisioned via
 [`.github/workflows/provision-training-vm.yml`](../.github/workflows/provision-training-vm.yml)

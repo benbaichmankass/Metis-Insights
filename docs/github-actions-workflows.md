@@ -152,6 +152,7 @@ which would unlock these.
 | `system-actions.yml` | OPERATOR-APPROVAL | A | `system-action` |
 | `vm-net-fix.yml` | OPERATOR-APPROVAL | A | `vm-net-fix-request` |
 | `vm-cloud-fix.yml` | OPERATOR-APPROVAL | A | `vm-cloud-fix-request` |
+| `vm-cloud-open-ib-port.yml` | OPERATOR-APPROVAL | A | `vm-cloud-open-ib-port` |
 | `oci-storage-verify.yml` | AUTONOMOUS | C (workflow_dispatch) | — |
 | `oci-storage.yml` | OPERATOR-APPROVAL | C (workflow_dispatch) | — |
 | `training-run.yml` | OPERATOR-APPROVAL | push to `claude/training-plan-*` | — |
@@ -570,6 +571,28 @@ mcp__github__issue_write
 **Purpose:** Adds an Oracle Cloud Security List ingress rule for the
 dashboard API port. This is a cloud-side change (OCI VCN Security List),
 not a VM-local change.
+
+**Secrets:** `VM_SSH_KEY`, OCI CLI set (`OCI_CLI_USER`, `OCI_CLI_FINGERPRINT`,
+`OCI_CLI_TENANCY`, `OCI_CLI_REGION`, `OCI_CLI_KEY_CONTENT`).
+
+---
+
+#### `vm-cloud-open-ib-port.yml`
+
+**Autonomy:** OPERATOR-APPROVAL (Tier 3 — cloud-side infrastructure change).
+
+**Trigger:** `issues.opened` (label `vm-cloud-open-ib-port`),
+`workflow_dispatch`.
+
+**Purpose:** Adds an Oracle Cloud Security List ingress rule for the **IB
+Gateway API port (4002)** scoped to the **private subnet only**
+(`INGRESS_SOURCE_CIDR`, default `10.0.0.0/24`) — the trader on the micro
+reaches the isolated gateway VM (`10.0.0.251`) across the subnet
+(gateway-isolation, Plan B). Distinct from `vm-cloud-fix.yml`: it **hard-refuses
+any `/0` (public) source** and does **no** public-internet `/api/health` probe
+(the broker socket is never public; MES is verified via the trader logs). Shares
+`scripts/ops/cloud_open_port.py` (now `DASHBOARD_PORT` / `INGRESS_SOURCE_CIDR` /
+`INGRESS_DESC` parameterized).
 
 **Secrets:** `VM_SSH_KEY`, OCI CLI set (`OCI_CLI_USER`, `OCI_CLI_FINGERPRINT`,
 `OCI_CLI_TENANCY`, `OCI_CLI_REGION`, `OCI_CLI_KEY_CONTENT`).

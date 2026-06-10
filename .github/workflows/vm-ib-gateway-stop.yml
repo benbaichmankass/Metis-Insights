@@ -1,6 +1,6 @@
 name: vm-ib-gateway-stop
 
-# Autonomous "stop + diagnose" for the IB Gateway container on the live VM.
+# Autonomous "decommission the IB Gateway container on the target host."
 #
 # Why this exists (distinct from vm-ib-gateway-recover.yml, which RESTARTS):
 #   When the ib-gateway container is UP but NOT logged in (IBC stuck in a
@@ -9,24 +9,41 @@ name: vm-ib-gateway-stop
 #   clean ConnectionRefused: it can stall the live trader's pipeline tick past
 #   the heartbeat window and trip the liveness-watchdog restart loop (incident
 #   2026-06-05). The known-good state for the trader is the gateway being
-#   fully DOWN — then IB connects fail fast and Bybit keeps trading.
+#   fully GONE on its host — then IB connects fail fast and Bybit keeps trading.
+#
+#   Gateway-isolation note (2026-06-10, Plan B): the gateway now lives on its
+#   own dedicated Ampere VM, NOT the live trader's micro. This workflow's
+#   primary job is to FULLY DECOMMISSION any gateway left on the target host
+#   (default: the micro `158.178.210.252`) so nothing can revive it onto the
+#   money box. It removes the container AND neutralizes every restart path
+#   (watchdog timer, daily reset timer, the env file the reset.service is
+#   gated on). It is therefore a teardown tool, not a "pause" — to re-create a
+#   gateway on a host, run provision-ib-gateway.yml against that host.
 #
 #   This workflow:
 #     1. `sudo docker stop ib-gateway` — removes the accept-then-hang socket so
 #        the trader's IB connects fail fast (ConnectionRefused) and it recovers.
 #     2. `sudo systemctl disable --now ict-ib-gateway-watchdog.timer` — the
-#        MES auto-heal watchdog does `docker restart` on a wedged gateway, which
-#        would START the stopped container right back into the half-up state.
-#        Disable it so the gateway stays down until login is fixed + it is
-#        re-provisioned. (Reversible: enable --now to restore.)
-#     3. Greps the (persisted) container logs for the auth-failure reason so we
+#        legacy MES auto-heal watchdog does `docker restart` on a wedged
+#        gateway, which would START the stopped container right back up.
+#     3. `sudo systemctl disable --now ict-ib-gateway-reset.timer` — the daily
+#        05:30 UTC reset would otherwise `docker restart ib-gateway`, reviving
+#        a stopped container and re-loading this host. Disable it.
+#     4. `sudo docker rm -f ib-gateway` — remove the container outright so no
+#        restart path (timer / watchdog / manual) can bring it back here.
+#     5. `sudo rm -f /etc/ict/ib-gateway-docker.env` — the reset.service is
+#        gated on `ConditionPathExists=/etc/ict/ib-gateway-docker.env`;
+#        removing it makes the reset.service inert even if the timer is re-armed.
+#     6. Greps the (persisted) container logs for the auth-failure reason so we
 #        learn WHY login fails (2FA / competing session / bad credentials)
 #        without a separate diagnostic round-trip.
 #
-# Blast radius: the ib-gateway container + its watchdog timer only. The live
-#   trader (ict-trader-live), Bybit/BTCUSDT, accounts.yaml, strategies.yaml,
-#   risk caps and order code are NOT touched. MES goes dark until the gateway
-#   is re-provisioned (provision-ib-gateway.yml) after the login cause is fixed.
+# Blast radius: the ib-gateway container + its timer/env artifacts on the
+#   target host only. The live trader (ict-trader-live), Bybit/BTCUSDT,
+#   accounts.yaml, strategies.yaml, risk caps and order code are NOT touched.
+#   MES on the live trader is served by the gateway on the dedicated gateway VM
+#   (reached over the private subnet) — decommissioning a stray gateway on the
+#   micro does not affect it.
 #
 # Trust contract mirrors vm-ib-gateway-recover.yml: fixed-form SSH, no freeform
 #   shell input, no edits, no deploys.
@@ -85,7 +102,7 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Stop ib-gateway + disable watchdog + diagnose
+      - name: Decommission ib-gateway (stop + rm + disable timers + drop env) + diagnose
         id: exec
         run: |
           set -euo pipefail
@@ -111,6 +128,17 @@ jobs:
           echo ">>> disabling ict-ib-gateway-watchdog.timer (prevents auto docker-restart reviving the half-up gateway)"
           sudo systemctl disable --now ict-ib-gateway-watchdog.timer 2>&1 || echo "watchdog disable: non-zero (may already be disabled)"
           echo "watchdog_timer_state: $(systemctl is-enabled ict-ib-gateway-watchdog.timer 2>&1 || true) / $(systemctl is-active ict-ib-gateway-watchdog.timer 2>&1 || true)"
+
+          echo ">>> disabling ict-ib-gateway-reset.timer (the daily 05:30 UTC docker-restart would otherwise revive the stopped gateway and reload this host)"
+          sudo systemctl disable --now ict-ib-gateway-reset.timer 2>&1 || echo "reset timer disable: non-zero (may already be disabled / not installed)"
+          echo "reset_timer_state: $(systemctl is-enabled ict-ib-gateway-reset.timer 2>&1 || true) / $(systemctl is-active ict-ib-gateway-reset.timer 2>&1 || true)"
+
+          echo ">>> removing the ${NAME} container so no restart path (timer/watchdog/manual) can revive it on this host"
+          sudo docker rm -f "${NAME}" >/dev/null 2>&1 && echo "removed=yes" || echo "removed=no (already absent)"
+
+          echo ">>> removing /etc/ict/ib-gateway-docker.env (makes ict-ib-gateway-reset.service ConditionPathExists inert on this host)"
+          sudo rm -f /etc/ict/ib-gateway-docker.env && echo "docker_env_removed=requested" || echo "docker_env_removed=failed"
+          echo "docker_env_present: $([ -f /etc/ict/ib-gateway-docker.env ] && echo yes || echo no)"
 
           echo ">>> post: $(sudo docker ps -a --filter name=^/${NAME}$ --format '{{.Status}}' || true)"
           echo ">>> port 4002 check (expect refused now):"
