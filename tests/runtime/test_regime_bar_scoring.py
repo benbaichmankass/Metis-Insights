@@ -448,3 +448,88 @@ class TestPredictorGrouping:
         )
         assert n == 2
         assert sorted(calls) == [("BTCUSDT", "1h"), ("BTCUSDT", "5m")]
+
+
+class TestPerTickBudget:
+    """The cold-start wall-clock budget (BL-20260609-001 / 2026-06-10 wedge).
+
+    On a fresh restart the fetch-gate + dedup caches are empty, so without a
+    budget the first tick would fetch every group and score every head in one
+    synchronous mega-tick — pegging the 2-core VM and freezing the heartbeat.
+    The budget caps per-call wall time and defers remaining whole groups to the
+    next tick.
+    """
+
+    def _clock(self, values):
+        seq = list(values)
+        state = {"i": 0}
+
+        def _now():
+            i = state["i"]
+            state["i"] = min(i + 1, len(seq) - 1)
+            return seq[i]
+
+        return _now
+
+    def test_budget_defers_remaining_groups_to_next_tick(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("REGIME_BAR_SCORING_BUDGET_S", "6")
+        log = tmp_path / "s.jsonl"
+        btc5 = _regime_predictor(
+            "btc-regime-5m", _spec(symbol="BTCUSDT", timeframe="5m"), log
+        )
+        mes15 = _regime_predictor(
+            "mes-regime-15m", _spec(symbol="MES", timeframe="15m"), log
+        )
+
+        def _fetch(symbol, timeframe):
+            return _candles(last_ts=hash((symbol, timeframe)) & 0xFFFF)
+
+        seen: dict = {}
+        wall: dict = {}
+        # Tick 1: tick_start=0, group1(btc5)=0 (under budget, scores),
+        # group2(mes15)=10 (>=6, deferred — no fetch, no score).
+        n1 = emit_regime_bar_predictions(
+            predictors=[btc5, mes15], fetch_fn=_fetch, seen=seen,
+            wall_cache=wall, now=self._clock([0.0, 0.0, 10.0]),
+        )
+        assert n1 == 1
+        assert len(btc5.wrapped.calls) == 1
+        assert len(mes15.wrapped.calls) == 0          # deferred, not scored
+        assert ("MES", "15m") not in wall              # its fetch gate stays un-armed
+
+        # Tick 2: well within budget. btc5's group is fetch-gated (scored last
+        # tick), so the deferred mes15 group is the one that runs now.
+        n2 = emit_regime_bar_predictions(
+            predictors=[btc5, mes15], fetch_fn=_fetch, seen=seen,
+            wall_cache=wall, now=self._clock([1.0, 1.0, 1.0]),
+        )
+        assert n2 == 1
+        assert len(mes15.wrapped.calls) == 1           # picked up on the next tick
+
+    def test_budget_zero_is_unlimited(self, tmp_path, monkeypatch):
+        # Budget 0 => pre-budget behaviour: everything scored in one call even
+        # if the injected clock jumps far ahead.
+        monkeypatch.setenv("REGIME_BAR_SCORING_BUDGET_S", "0")
+        log = tmp_path / "s.jsonl"
+        btc5 = _regime_predictor(
+            "btc-regime-5m", _spec(symbol="BTCUSDT", timeframe="5m"), log
+        )
+        mes15 = _regime_predictor(
+            "mes-regime-15m", _spec(symbol="MES", timeframe="15m"), log
+        )
+
+        def _fetch(symbol, timeframe):
+            return _candles(last_ts=hash((symbol, timeframe)) & 0xFFFF)
+
+        n = emit_regime_bar_predictions(
+            predictors=[btc5, mes15], fetch_fn=_fetch, seen={}, wall_cache={},
+            now=self._clock([0.0, 100.0, 200.0]),
+        )
+        assert n == 2
+
+    def test_budget_default_when_env_unset(self, monkeypatch):
+        from src.runtime.regime_bar_scoring import _DEFAULT_BUDGET_S, _budget_seconds
+        monkeypatch.delenv("REGIME_BAR_SCORING_BUDGET_S", raising=False)
+        assert _budget_seconds() == _DEFAULT_BUDGET_S
+        monkeypatch.setenv("REGIME_BAR_SCORING_BUDGET_S", "not-a-number")
+        assert _budget_seconds() == _DEFAULT_BUDGET_S   # typo falls back, never strands

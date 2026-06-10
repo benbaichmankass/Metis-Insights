@@ -147,7 +147,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     if uptrend and pos_in_range <= pull_frac and close > prev_close:
         # Pullback into the lower third of the range + a bullish confirmation bar.
         direction = "long"
-        # Confidence: how strong the trend is (distance above midline / ATR).
+        # Trend-strength component (distance above the midline, in ATR units).
         depth = (close - mid) / atr
     elif downtrend and pos_in_range >= (1 - pull_frac) and close < prev_close:
         direction = "short"
@@ -170,7 +170,27 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     if risk <= 0:
         raise ValueError("Strategy 'htf_pullback_trend_2h': non-positive risk; skipping.")
 
-    confidence = round(min(max(depth, 0.0), 1.0), 4)
+    # Confidence — a blended [0, 1] score (mirrors turtle_soup / fvg_range /
+    # ict_scalp, which all combine two normalised components). The old
+    # `min(depth, 1.0)` saturated at 1.0 for *every* signal, because on a
+    # trend-pullback the close is almost always >= 1 ATR from the slow midline
+    # (PERF-20260601-010: htf_pullback emitted confidence=1.0 on every package).
+    # Blend now spreads across the range:
+    #   * TREND strength — `depth` (ATR from midline), normalised over ~2 ATR.
+    #   * PULLBACK quality — how deep into the actionable pullback zone the entry
+    #     sits (a deeper retrace = better R:R): 1.0 at the range extreme, 0.0 at
+    #     the `pull_frac` boundary.
+    # Confidence is metadata only — it is NOT a sizing input and NOT part of the
+    # intent-multiplexer selection key (target_qty/priority/timestamp/name); it
+    # feeds the dashboard, confidence-weighting analysis, and ML features.
+    trend_strength = min(max(depth, 0.0) / 2.0, 1.0)
+    _pf = max(pull_frac, 1e-9)
+    if direction == "long":
+        pullback_quality = (pull_frac - pos_in_range) / _pf
+    else:
+        pullback_quality = (pos_in_range - (1.0 - pull_frac)) / _pf
+    pullback_quality = min(max(pullback_quality, 0.0), 1.0)
+    confidence = round(min(0.5 * trend_strength + 0.5 * pullback_quality, 1.0), 4)
     min_confidence = float(params["min_confidence"])
     if confidence < min_confidence:
         raise ValueError(

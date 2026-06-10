@@ -82,6 +82,40 @@ def test_contract_never_raises_foreign_exception():
             pass
 
 
+def _firing_long_frame(pullback_low: float, confirm: float) -> pd.DataFrame:
+    """A clean HTF uptrend then a dip + a bullish confirmation bar that DOES
+    fire the long entry (close > prev_close, still in the lower `pullback_frac`
+    of the recent range). `pullback_low`/`confirm` tune the pullback depth."""
+    rows = []
+    for k in range(60):
+        base = 100.0 + k * 1.0
+        rows.append([base, base + 0.6, base - 0.4, base + 0.4])
+    top = rows[-1][3]                                    # ~160.4
+    for c in (top - 2, pullback_low, confirm):           # dip then confirm bar
+        rows.append([c - 0.2, c + 0.5, c - 0.6, c])
+    df = pd.DataFrame(rows, columns=["open", "high", "low", "close"])
+    df["ts"] = pd.date_range("2024-01-01", periods=len(df), freq="2h", tz="UTC")
+    return df
+
+
+def test_confidence_is_not_degenerately_pinned_at_one():
+    # Regression for PERF-20260601-010: the old `min(depth, 1.0)` saturated at
+    # 1.0 for every signal (close is always >> 1 ATR from the slow midline on a
+    # trend pullback). The blended score must sit strictly inside (0, 1).
+    pkg = order_package(_CFG, candles_df=_firing_long_frame(159.4 - 8, 159.4 - 7.5))
+    assert pkg["direction"] == "long"
+    conf = float(pkg["confidence"])
+    assert 0.0 < conf < 1.0, f"confidence should be non-degenerate, got {conf}"
+
+
+def test_confidence_rises_with_deeper_pullback():
+    # A deeper pullback (entry nearer the range low = better R:R) must score
+    # higher than a shallow one — confidence now carries real signal.
+    deep = order_package(_CFG, candles_df=_firing_long_frame(159.4 - 8, 159.4 - 7.5))
+    shallow = order_package(_CFG, candles_df=_firing_long_frame(159.4 - 6, 159.4 - 5.5))
+    assert float(deep["confidence"]) > float(shallow["confidence"])
+
+
 def test_intent_priority_registered_below_established_roster():
     from src.runtime.intents import DEFAULT_PRIORITIES
     assert DEFAULT_PRIORITIES.get("htf_pullback_trend_2h") == 2

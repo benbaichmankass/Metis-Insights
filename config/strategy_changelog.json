@@ -103,6 +103,11 @@
   ],
   "htf_pullback_trend_2h": [
     {
+      "date": "2026-06-10",
+      "ref": "Tier-3 (operator-approved): real confidence \u2014 performance-review 2026-06-10 / PERF-20260601-010",
+      "summary": "Replaced the saturating confidence = min((close-mid)/atr, 1.0) \u2014 which pinned confidence to 1.0 on every package because the close is ~always >= 1 ATR from the slow midline \u2014 with a blended [0,1] score: 50% trend strength (ATR-from-midline, normalised over ~2 ATR) + 50% pullback quality (how deep into the actionable pullback zone the entry sits). Metadata-only change: confidence is NOT a sizing input and NOT part of the intent-multiplexer selection key; entry/SL/TP geometry is unchanged. Makes confidence usable for the dashboard, confidence-weighting analysis, and ML features."
+    },
+    {
       "date": "2026-06-02",
       "ref": "Promote shadow -> live on bybit_1 demo (operator policy: paper/demo always execute) - Tier-3, operator-approved",
       "summary": "Promoted execution: shadow -> live. Routed to the bybit_1 DEMO account ONLY (paper money) - no real-money risk; graduation to real-money bybit_2 stays a separate Tier-3 gate. Operator directive: paper/demo accounts exist to test strategies, so they execute rather than log data-only. Now builds its live confirmation via real demo execution instead of shadow logging."

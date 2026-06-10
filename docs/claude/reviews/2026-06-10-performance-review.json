@@ -1,0 +1,98 @@
+{
+  "request_id": "performance-review-2026-06-10",
+  "reviewed_at": "2026-06-10T06:45:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-06-06T07:10:00+00:00",
+  "window_end": "2026-06-10T06:45:00+00:00",
+  "overall_assessment": "caution",
+  "strategy_performance": [
+    {
+      "strategy": "vwap",
+      "execution": "shadow->KILLED",
+      "n_decisions": 17,
+      "n_filled": 0,
+      "n_rejected_or_orphaned": 17,
+      "win_rate": null,
+      "pnl_total": null,
+      "note": "17 decisions in window, all 2026-06-08, all conf=1.0 (degenerate), 15 orphaned + 2 closed sl_cross, 0 live fills (execution:shadow). vwap was M7-KILLED 2026-06-09 (enabled:false) — this is its last activity. Net-negative every regime historically; the kill is well-supported by the grade history."
+    },
+    {
+      "strategy": "ict_scalp_5m",
+      "execution": "live",
+      "n_decisions": 1,
+      "n_filled": 1,
+      "n_rejected_or_orphaned": 1,
+      "win_rate": null,
+      "pnl_total": "demo: trade #2529 -2970.99 (bybit_1 DEMO, size 4.146 netting-inflated); #2530 orphaned pnl=NULL",
+      "note": "Only differentiated-confidence decision in window (pkg-bee264 conf=0.7049). Filled trade #2530 on bybit_2 then ORPHANED via stuck_strategy_watchdog (gate blocked >30min) — outcome obscured by orphan plumbing, not the setup. The -2970 on bybit_1 is the demo position-netting bleed, not a strategy result."
+    }
+  ],
+  "trade_decision_grades": [
+    {
+      "cohort": "vwap_06-08_shadow_orphans",
+      "order_package_ids": [
+        "pkg-d11b62d5fe574a37","pkg-7f7aad6f2cbe4855","pkg-38eb4d356ee64729","pkg-4bf20f0bf4fd4c1b",
+        "pkg-af296066dc174e91","pkg-d4f3e7f044c14ba0","pkg-f747e757530f4028","pkg-77b4520229fb4a71",
+        "pkg-5c48939ce1cc46d4","pkg-9f413a84b08c43d8","pkg-a24434bf8e5048fd","pkg-d0302918be114726",
+        "pkg-abb3eee275ef4638","pkg-6b3894a44890456c","pkg-7a0ab1ee30724d72","pkg-bbf1b040183642ce",
+        "pkg-d89c7943f6ac4713"
+      ],
+      "count": 17,
+      "decision_grade": "D",
+      "rationale": "Degenerate conf=1.0 on every package (no ranking/sizing signal), shadow-only so never a live order, 15/17 orphaned. Persisted individually to comms/claude_strategy_scores.jsonl. Strategy since KILLED (M7) — the D cohort is vindicated.",
+      "persisted": true
+    },
+    {
+      "order_package_id": "pkg-bee264ecfab84a4f",
+      "strategy": "ict_scalp_5m",
+      "linked_trade_id": 2530,
+      "decision_grade": "C",
+      "entry_quality": "acceptable",
+      "exit_quality": "unknown",
+      "risk_management": "unknown",
+      "rationale": "Real differentiated confidence (0.7049), plausible 5m wick-rejection setup. Filled then orphaned by the stuck_strategy_watchdog (BL-20260607-003) before a strategy-driven exit — graded on setup quality; exit unknown. C, not higher, because the entry fired into a window the watchdog could not monitor to completion.",
+      "persisted": true
+    }
+  ],
+  "insights_review": [
+    {
+      "severity": "nit",
+      "note": "Could NOT pull /api/bot/insights/{summary,recent,strategy,health} this review: those are /api/bot/* endpoints, not on the read-only /api/diag/* relay allowlist, and direct egress to the VM is firewalled at this session's Trusted network level. The ict-insights-generator.timer + ict-insights-generator-strategies.timer are both ACTIVE (so the cache IS being written) — I just can't read it through the relay. No cross-check performed; not a generator fault."
+    }
+  ],
+  "proposed_tweaks": [
+    {
+      "scope": "config/strategies.yaml::htf_pullback_trend_2h confidence computation",
+      "current_value": "confidence=1.0 emitted on every order package (degenerate)",
+      "proposed_value": "compute a real [0,1] confidence from setup strength (HTF-trend alignment magnitude + pullback depth)",
+      "evidence": "PERF-20260601-010 re-confirmed: with vwap killed, htf_pullback_trend_2h is now the remaining strategy emitting conf=1.0 on EVERY package. A constant confidence is unusable for sizing/ranking and blocks any confidence-gated risk logic.",
+      "tier": 3,
+      "risk_note": "Pure signal-metadata change; does not alter entry geometry. Backtest the confidence distribution before wiring to sizing."
+    },
+    {
+      "scope": "env POSITION_NETTING_GUARD_ENABLED + POSITION_NETTING_GUARD_ACCOUNTS=bybit_1",
+      "current_value": "OFF (guard inert; bybit_1 demo accumulates netted adds)",
+      "proposed_value": "ON, scoped to bybit_1 (operator-watched demo soak per CLAUDE.md)",
+      "evidence": "trade #2529 on bybit_1 closed -2970.99 at size 4.146 BTC — the netted pyramiding the guard's Monocle half suppresses. Demo-only soak is exactly the documented activation path.",
+      "tier": 3,
+      "risk_note": "Demo only; one env flip + restart to roll back. Widen to bybit_2 only after a clean demo soak."
+    }
+  ],
+  "backlog_drain": [
+    {"id": "PERF-20260601-006", "action": "updated", "note": "Regime router phase 3 is now LIVE: the audit shows regime_hard_gate x3 today (replacing regime_shadow_gate) => REGIME_ROUTER_ENABLED=true on the live VM, hard-gating OFF-cell candidate intents. Move from 'proposed' to 'verifying'."},
+    {"id": "PERF-20260601-011", "action": "checked", "note": "RECURRING gate-firing check: regime_hard_gate fired 3x in the 06:18-06:39 window = the phase-3 gate IS firing and enforcing. No fail-permissive errors observed. Healthy."},
+    {"id": "PERF-20260601-008", "action": "resolved", "note": "Phase 1+2 live deploy verification is subsumed — the system has advanced to phase-3 enforcing (regime_hard_gate live). The phase-2 shadow-log stage is verified-passed by virtue of the phase-3 rollout."},
+    {"id": "PERF-20260601-010", "action": "updated", "note": "Half resolved: the vwap conf=1.0 degeneracy is moot (vwap KILLED 06-09). htf_pullback_trend_2h still emits conf=1.0 — carried into proposed_tweaks this review."},
+    {"id": "PB-20260606-001", "action": "kept_open", "note": "htf_pullback_trend_2h execution-gate fill audit on bybit_1 not advanced this window (no htf fills; only flip_suppressed_hold_policy no-ops). Carry."},
+    {"id": "PB-20260609-002", "action": "kept_open", "note": "ict_scalp_5m regime_policy rows still blocked on closed-trade volume — only 1 ict_scalp decision in window, orphaned. Carry."},
+    {"id": "PB-20260609-001", "action": "kept_open", "note": "vol_regime stamp coverage (vol:unknown) not advanced — needs a packet pull when M7 packets regenerate. Carry."}
+  ],
+  "anomalies": [
+    "Window is unusually thin: ~0 real-money fills 6/6-6/10. The dominant decision generator (vwap, 17/18 of recent packages) was M7-killed 6/9, collapsing order-package volume. Remaining live strategies are low-frequency; BTC regime quiet.",
+    "Demo netting bleed continues on bybit_1 (#2529 -2970.99 @ size 4.146) — see proposed POSITION_NETTING_GUARD activation.",
+    "vwap still emits vwap_eval despite enabled:false (telemetry only) — cross-filed to /health-review BL-20260610-001."
+  ],
+  "recommended_action": "No urgent action. The strategy book is mid-transition: vwap (worst-graded, degenerate confidence) was correctly killed, leaving a thin, low-frequency book and a quiet tape. Two Tier-3 proposals for the operator: (1) give htf_pullback_trend_2h a real confidence (it inherited vwap's degenerate conf=1.0 role); (2) activate POSITION_NETTING_GUARD on bybit_1 demo to stop the size/PnL distortion. Regime router phase-3 is now enforcing — watch its gate-firing over the next window.",
+  "operator_attention_required": false,
+  "claude_channel_ping": "/performance-review 6/6-6/10: thin window, ~0 real-money fills. 18 decisions graded (17 vwap D conf=1.0 — strategy since M7-killed; 1 ict_scalp C, orphaned). Regime router phase-3 hard-gate now LIVE + firing (x3). 2 Tier-3 tweaks: htf_pullback real confidence + POSITION_NETTING_GUARD on bybit_1 demo (#2529 -2970)."
+}
