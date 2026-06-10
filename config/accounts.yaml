@@ -352,11 +352,17 @@ accounts:
     exchange: interactive_brokers
     mode: live                         # IB paper gateway — paper money (see header)
     market_type: futures
-    ib_host: 127.0.0.1
-    ib_port: 4002                      # host loopback → gnzsnz socat relay
-                                       # (-p 127.0.0.1:4002:4004) → Gateway paper
-                                       # API; socat presents the connection to
-                                       # the Gateway as trusted localhost
+    ib_host: 10.0.0.251                # DEDICATED IB-Gateway VM (ict-ib-gateway)
+                                       # private IP — gateway-isolation, 2026-06-10.
+                                       # The gateway moved OFF the trader's money
+                                       # box onto its own 1-OCPU Ampere VM (same
+                                       # OCI subnet 10.0.0.0/24), reached over the
+                                       # private network. Was 127.0.0.1 (local).
+    ib_port: 4002                      # gateway VM bind 10.0.0.251:4002 → gnzsnz
+                                       # socat relay (-p 10.0.0.251:4002:4004) →
+                                       # Gateway paper API; socat presents the
+                                       # connection to the Gateway as trusted
+                                       # localhost (TrustedIPs=127.0.0.1)
     ib_account: DUQ325724
     ib_client_id: 497                  # unique per concurrent socket
     strategies: [turtle_soup, vwap, ict_scalp_5m, mes_trend_long_1d, mgc_pullback_1d, mhg_pullback_1d]
