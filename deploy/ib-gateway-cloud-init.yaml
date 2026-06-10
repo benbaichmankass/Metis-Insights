@@ -1,0 +1,55 @@
+#cloud-config
+# Cloud-init for the DEDICATED IB-Gateway VM (2026-06-10 gateway-isolation,
+# Plan B). A small Ampere A1.Flex (1 OCPU / 6 GB) that runs ONLY the headless
+# IB Gateway (gnzsnz/ib-gateway Docker image) — isolated from the live trader
+# so a wedged/restarting gateway can never starve the money loop (the root
+# cause of the 2026-06-10 CPU-wedge cascade).
+#
+# Scope = just enough to host the gateway. The actual gateway install +
+# IBKR login runs afterward via the provision-ib-gateway workflow pointed at
+# this box (it stages /etc/ict/ib-gateway.env from the IB_USERNAME/IB_PASSWORD
+# repo secrets and runs scripts/install_ib_gateway_docker.sh). The trader
+# reaches this gateway over the private network via config/accounts.yaml::
+# ib_paper (ib_host/ib_port). No trader, no web-api, no money here.
+
+package_update: true
+package_upgrade: false
+
+packages:
+  - git
+  - curl
+  - jq
+  - docker.io
+
+write_files:
+  - path: /etc/ict-role
+    permissions: '0644'
+    owner: root:root
+    content: |
+      ib-gateway
+      # Dedicated IB-Gateway VM (Ampere A1.Flex 1 OCPU). Runs ONLY the
+      # headless gnzsnz/ib-gateway container. NOT the live trader — the
+      # trader lives on the E2.1.Micro and reaches this box over the
+      # network. Gateway-isolation plan, 2026-06-10.
+
+runcmd:
+  - |
+    if [ ! -d /home/ubuntu/ict-trading-bot/.git ]; then
+      sudo -u ubuntu git clone \
+        https://github.com/benbaichmankass/ict-trading-bot.git \
+        /home/ubuntu/ict-trading-bot
+    fi
+  - chown -R ubuntu:ubuntu /home/ubuntu/ict-trading-bot
+  # /etc/ict holds the staged gateway creds env (provision-ib-gateway writes it).
+  - install -d -m 0750 -o root -g ubuntu /etc/ict
+  - systemctl enable --now docker || true
+  - usermod -aG docker ubuntu || true
+  - uname -m
+
+final_message: |
+  Dedicated IB-Gateway VM bootstrap complete (Ampere A1.Flex 1 OCPU).
+  Role marker: /etc/ict-role (ib-gateway)
+  Docker:      enabled
+  Next: run the provision-ib-gateway workflow pointed at this box to install
+  the gateway container + log in (IBKR Mobile 2FA tap required), then wire the
+  trader's config/accounts.yaml::ib_paper.ib_host at this box's private IP.
