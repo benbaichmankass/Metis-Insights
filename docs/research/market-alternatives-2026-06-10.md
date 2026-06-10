@@ -247,9 +247,13 @@ stays Tier-3 (operator-approved), exactly as it was for MGC/MHG.
   Run alongside the IBKR legs (which **stay running**, per §0) for ≥4–6
   weeks; compare fills/slippage/uptime.
 - **Phase 4 — IB Gateway retirement: deferred** (operator decision
-  2026-06-10 — keep expanding the system first). When eventually taken,
-  it reclaims ~0.75 CPU on the 2-core VM and removes the gateway watchdog
-  + breaker stack.
+  2026-06-10 — keep expanding the system first). Note: the gateway
+  isolation redesign landed the same day (#3271/#3282 — gateway moved
+  off the live trader onto a dedicated VM at `10.0.0.251`, daily reset +
+  alert-only health check), which removes the CPU-contention half of the
+  futures pain immediately; what Phase 4 eventually retires is the
+  dedicated gateway VM itself plus the IB client/watchdog/breaker stack
+  and the delayed-data/entitlement constraints.
 
 ## 7. Open questions for the operator
 
