@@ -44,6 +44,10 @@ on:
         description: "Audit-trail note"
         required: true
         default: ""
+      host:
+        description: "Target VM IP (default: the live micro VM_SSH_HOST). Set to the dedicated gateway VM for gateway-isolation."
+        required: false
+        default: ""
   issues:
     types: [opened]
 
@@ -77,15 +81,17 @@ jobs:
           IN_MODE: ${{ inputs.trading_mode }}
           IN_PORT: ${{ inputs.ib_port }}
           IN_REASON: ${{ inputs.reason }}
+          IN_HOST: ${{ inputs.host }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
           set -euo pipefail
           if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
-            MODE="${IN_MODE}"; PORT="${IN_PORT}"; REASON="${IN_REASON}"
+            MODE="${IN_MODE}"; PORT="${IN_PORT}"; REASON="${IN_REASON}"; HOST="${IN_HOST}"
           else
             MODE=$(printf '%s\n' "${ISSUE_BODY}" | grep -iE '^[[:space:]]*mode[[:space:]]*:' | head -1 | cut -d: -f2- | tr -d '[:space:]' || true)
             PORT=$(printf '%s\n' "${ISSUE_BODY}" | grep -iE '^[[:space:]]*port[[:space:]]*:' | head -1 | cut -d: -f2- | tr -d '[:space:]' || true)
+            HOST=$(printf '%s\n' "${ISSUE_BODY}" | grep -iE '^[[:space:]]*host[[:space:]]*:' | head -1 | cut -d: -f2- | tr -d '[:space:]' || true)
             REASON="issue-driven provision: ${ISSUE_TITLE}"
           fi
           MODE="${MODE:-paper}"; PORT="${PORT:-7497}"
@@ -96,7 +102,14 @@ jobs:
             echo "IB_PORT=${PORT}"
             echo "REASON=${REASON}"
           } >> "$GITHUB_ENV"
-          echo ">>> provisioning IB Gateway mode=${MODE} port=${PORT}"
+          # Gateway-isolation: a `host:` (issue body) / host input retargets the
+          # install at the dedicated gateway VM, overriding the job-level
+          # VM_SSH_HOST default (the live micro) for the SSH steps below.
+          if [ -n "${HOST:-}" ]; then
+            echo "VM_SSH_HOST=${HOST}" >> "$GITHUB_ENV"
+            echo ">>> target host overridden -> ${HOST}"
+          fi
+          echo ">>> provisioning IB Gateway mode=${MODE} port=${PORT} host=${HOST:-<default micro>}"
 
       - name: Validate secret presence
         env:

@@ -51,6 +51,12 @@ EXPECTED_SERVICES = {
     # BL-20260527-003). Timer-fired oneshot; pairs with
     # ict-ib-gateway-watchdog.timer.
     "ict-ib-gateway-watchdog.service",
+    # 2026-06-10: IB Gateway daily reset (gateway-isolation redesign). One
+    # deterministic `docker restart ib-gateway`/day on the dedicated gateway
+    # VM (gated by ConditionPathExists=/etc/ict/ib-gateway-docker.env);
+    # replaces the reactive 5-min restart loop. Pairs with
+    # ict-ib-gateway-reset.timer.
+    "ict-ib-gateway-reset.service",
     # 2026-06-04: health-snapshot writer (BL-20260529-005). Timer-fired
     # oneshot (ict-health-snapshot.timer, every 15 min) that writes
     # artifacts/health/{latest,health_check_*}.json — revives the JSON
