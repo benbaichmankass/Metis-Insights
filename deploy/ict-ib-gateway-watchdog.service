@@ -53,7 +53,16 @@ Environment=DATA_DIR=/data/bot-data
 # high-priority so it itself isn't starved while acting.
 CPUWeight=9000
 Nice=-10
-ExecStart=/usr/bin/python3 -u scripts/check_ib_gateway.py --probe-account ib_paper --auto-restart --restart-after 2 --max-restarts 3 --cooldown-min 20 --exhaustion-reset-min 120
+# ALERT-ONLY (gateway-isolation redesign, 2026-06-10): NO --auto-restart. The
+# reactive 5-min probe + restart-loop pile (--restart-after/--max-restarts/
+# --cooldown-min/--exhaustion-reset-min) is retired in favour of one daily,
+# deterministic `docker restart` on the gateway VM (ict-ib-gateway-reset.timer).
+# This unit now just probes ib_paper (across the network, since the gateway
+# moved to its own VM) and Telegrams if MES is dark — no mutation. The
+# trader-side connect breaker (IB_PROBE_TIMEOUT_S / IB_BREAKER_COOLDOWN_S) keeps
+# a gateway/network blip from ever blocking the BTCUSDT loop. Manual emergency
+# restart still available via the vm-ib-gateway-recover workflow.
+ExecStart=/usr/bin/python3 -u scripts/check_ib_gateway.py --probe-account ib_paper
 StandardOutput=journal
 StandardError=journal
 

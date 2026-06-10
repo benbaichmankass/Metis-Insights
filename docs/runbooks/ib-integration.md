@@ -202,7 +202,49 @@ live Gateway needs an IBKR Mobile approval on (re)login; it stays
 `mode: dry_run` until proven and separately promoted (Tier-3). This is the
 one place a physical operator tap is unavoidable.
 
-**Auto-heal watchdog (`ict-ib-gateway-watchdog.{service,timer}`, 2026-05-28).**
+## Gateway isolation redesign (2026-06-10) — the gateway on its own VM
+
+The recurring 2026-06-10 CPU-wedge cascade had one root cause: the IB Gateway
+(a heavy headless Java/Xvfb/IBC desktop app in Docker + a socat relay) sharing
+the **2-core money box** with the live trader. A wedged or restarting gateway,
+plus the reactive 5-min watchdog's restart churn, plus the trader's per-tick
+connects, thrashed 2 cores (loadavg ~8.5) until the trader — and even the
+gateway-recovery workflow — timed out. We had been treating the feedback loop
+with band-aids (`IB_FETCH_TIMEOUT_S`, the connect breaker, CPU caps #3232,
+watchdog escalations) instead of the disease.
+
+**New topology (operator directive, Plan B):**
+
+- **The gateway runs on its own dedicated Ampere VM (`ict-ib-gateway`,
+  1 OCPU / 6 GB)**, isolated from the live trader (which stays on the
+  E2.1.Micro). The trader reaches it over the network via
+  `config/accounts.yaml::ib_paper` (`ib_host`/`ib_port`). A wedged or
+  restarting gateway can now never touch the money loop. OCPU budget:
+  trainer 1 + gateway 1 = 2 of the 4 Always-Free Ampere OCPUs.
+- **One scheduled `docker restart`/day** (`ict-ib-gateway-reset.{service,timer}`,
+  05:30 UTC, just after IBKR's overnight reset) — deterministic recovery for
+  the single known failure (the in-place re-login wedging on the reset). No
+  reactive probing. The reset unit is gated to the gateway VM via
+  `ConditionPathExists=/etc/ict/ib-gateway-docker.env`.
+- **The 5-min restart-loop watchdog is retired.** `check_ib_gateway.py` /
+  `ict-ib-gateway-watchdog.{service,timer}` is now a **once-daily, alert-only**
+  health probe (no `--auto-restart`): it runs on the trader, probes `ib_paper`
+  across the network, and Telegrams only if MES is dark. No restart loop, no
+  cooldown/exhaustion bookkeeping in the running path.
+- **The thin trader-side connect breaker stays** (`IB_PROBE_TIMEOUT_S` /
+  `IB_BREAKER_COOLDOWN_S`) so a gateway or network blip can never block the
+  BTCUSDT loop. Manual emergency restart remains via the `vm-ib-gateway-recover`
+  workflow.
+
+The live→3-OCPU trader migration is **paused**: with the gateway off the money
+box, the micro may hold the trader + web-api + sidecars on 2 cores (the
+#3232/#3202 isolation fixes already help). Measure the micro's load sans-gateway
+once it's moved; migrate live to 3 only if 2 cores can't hold it.
+
+The historical reactive-watchdog design below is **superseded** by the above —
+kept as the record of the failure mode + why the daily reset is sufficient.
+
+**Auto-heal watchdog (`ict-ib-gateway-watchdog.{service,timer}`, 2026-05-28) — SUPERSEDED 2026-06-10, see redesign above.**
 The Gateway can stay *up* yet lose its IBKR session during IBKR's overnight
 server-reset window: the in-place re-login hits a transient "Unrecognized
 Username or Password" dialog, IBC parks on it and never retries (`restart:
