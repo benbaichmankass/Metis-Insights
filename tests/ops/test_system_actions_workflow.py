@@ -180,15 +180,17 @@ def test_only_two_dispatch_paths(workflow_dict: dict) -> None:
 
 
 def test_issues_trigger_is_opened_or_labeled(workflow_dict: dict) -> None:
-    # The workflow fires on issue `opened` (body carries `action:`) and
-    # `labeled` (operator adds the `system-action` label to an existing
-    # issue). Both are gated by the label check in the job-level `if:`
-    # (see test_issue_dispatch_is_label_filtered). No other issue event
+    # The workflow fires on issue `opened` only (the body carries `action:`),
+    # gated by the label check in the job-level `if:` (see
+    # test_issue_dispatch_is_label_filtered). `labeled` was REMOVED 2026-06-10:
+    # a create-with-label dispatch fires BOTH `opened` and `labeled`, and the
+    # old two-branch `if:` ran the action twice (two pull-and-deploys from one
+    # request). `opened` alone fires exactly once. No other issue event
     # (edited/closed/…) may trigger a dispatch.
     issues_trigger = workflow_dict["on"]["issues"]
     assert isinstance(issues_trigger, dict)
-    assert issues_trigger.get("types") == ["opened", "labeled"], (
-        f"issues trigger must be types: [opened, labeled]; got: {issues_trigger}"
+    assert issues_trigger.get("types") == ["opened"], (
+        f"issues trigger must be types: [opened]; got: {issues_trigger}"
     )
 
 

@@ -1,0 +1,179 @@
+name: deploy-candidate
+
+# Phase 2 of the live-VM migration: deploy the bot stack onto the Ampere
+# candidate (ict-bot-arm) and dry-boot it. Runbook:
+# (plan branch) docs/runbooks/live-vm-migration-ampere.md.
+#
+# SAFETY — the candidate runs PARALLEL to the live micro, so it boots with
+# EVERY account forced to mode: dry_run (bybit_2 is real money; a live boot
+# here would double-trade the live accounts). It installs ONLY
+# ict-trader-live + ict-web-api — NOT ict-git-sync (which would auto-pull and
+# revert the dry_run edit) and NOT the watchdogs. Reversible: it's a fresh box.
+#
+# Trigger: issues.opened/labeled `deploy-candidate`. Body:
+#   host: 141.253.118.70
+#
+# Secrets: VM_SSH_KEY + the 4 Bybit creds (written into the candidate's .env
+# over an SSH stdin pipe — never echoed, never in run logs). Required label:
+# deploy-candidate.
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "Candidate VM public IP"
+        required: true
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: deploy-candidate
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'deploy-candidate'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Dedup
+        if: github.event_name == 'issues'
+        id: dedup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, per_page: 100 });
+            core.setOutput('skip',
+              comments.some(c => c.user && c.user.login === 'github-actions[bot]') ? 'true' : 'false');
+
+      - name: Parse host (issue path)
+        id: parse
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          host="$(printf '%s' "${ISSUE_BODY}" | awk -F: '/^[[:space:]]*host[[:space:]]*:/{gsub(/[[:space:]]/,"",$2);print $2;exit}')"
+          if [ -z "${host}" ]; then echo "::error::Body must contain a 'host:' line."; exit 1; fi
+          echo "host=${host}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up SSH
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          HOST: ${{ steps.parse.outputs.host || inputs.host }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then echo "::error::VM_SSH_KEY unset."; exit 1; fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/cand_key && chmod 600 ~/.ssh/cand_key
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Write .env on candidate (secrets via stdin — never logged)
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          HOST: ${{ steps.parse.outputs.host || inputs.host }}
+          BYBIT_API_KEY_1: ${{ secrets.BYBIT_API_KEY_1 }}
+          BYBIT_API_SECRET_1: ${{ secrets.BYBIT_API_SECRET_1 }}
+          BYBIT_API_KEY_2: ${{ secrets.BYBIT_API_KEY_2 }}
+          BYBIT_API_SECRET_2: ${{ secrets.BYBIT_API_SECRET_2 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          # Build the .env locally from secrets, then pipe it over SSH. No
+          # `echo` of any value; the file content never hits the run log.
+          {
+            printf 'DATA_DIR=/data/bot-data\n'
+            printf 'BYBIT_TESTNET=false\n'
+            printf 'BYBIT_API_KEY_1=%s\n' "${BYBIT_API_KEY_1}"
+            printf 'BYBIT_API_SECRET_1=%s\n' "${BYBIT_API_SECRET_1}"
+            printf 'BYBIT_API_KEY_2=%s\n' "${BYBIT_API_KEY_2}"
+            printf 'BYBIT_API_SECRET_2=%s\n' "${BYBIT_API_SECRET_2}"
+          } > /tmp/cand.env
+          ssh -i ~/.ssh/cand_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 "ubuntu@${HOST}" \
+              'umask 077; install -m600 /dev/stdin /home/ubuntu/ict-trading-bot/.env' < /tmp/cand.env
+          rm -f /tmp/cand.env
+          echo "wrote .env (${BYBIT_API_KEY_1:+key1-present}) — values not shown"
+
+      - name: Deploy + dry-boot on candidate
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          HOST: ${{ steps.parse.outputs.host || inputs.host }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/cand_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 "ubuntu@${HOST}" 'bash -s' > /tmp/out.txt 2>&1 <<'DEPLOY' || true
+          set -uo pipefail
+          REPO=/home/ubuntu/ict-trading-bot
+          VENV="$REPO/.venv/bin/python"
+          cd "$REPO"
+          echo "=== HEAD ==="; git log -1 --oneline
+          echo "=== venv python ==="; "$VENV" --version
+
+          # --- SAFETY: force every account to dry_run (parallel to live micro) ---
+          sed -i -E 's/^([[:space:]]*mode:[[:space:]]*)live/\1dry_run/' config/accounts.yaml
+          echo "=== account modes after force-dry_run ==="; grep -nE 'mode:[[:space:]]*(live|dry_run)' config/accounts.yaml
+
+          # --- /opt symlink (web-api WorkingDirectory) ---
+          [ -e /opt/ict-trading-bot ] || sudo ln -s "$REPO" /opt/ict-trading-bot
+          echo "=== /opt symlink ==="; ls -ld /opt/ict-trading-bot
+
+          # --- web-api.env (required EnvironmentFile) ---
+          sudo install -d -m 0750 -o root -g ubuntu /etc/ict-trader
+          if [ ! -f /etc/ict-trader/web-api.env ]; then
+            DIAG_TOK="$(openssl rand -hex 32)"
+            printf 'DIAG_READ_TOKEN=%s\nJWT_SIGNING_KEY=%s\nALLOWED_EMAIL=ben.baichmankass@gmail.com\n' \
+              "$DIAG_TOK" "$(openssl rand -hex 32)" | sudo install -m0640 -o root -g ubuntu /dev/stdin /etc/ict-trader/web-api.env
+            echo "web-api.env created"
+          else
+            echo "web-api.env already present"
+          fi
+
+          # --- data dir ---
+          sudo mkdir -p /data/bot-data && sudo chown -R ubuntu:ubuntu /data
+          echo "=== data dir ==="; ls -ld /data/bot-data
+
+          # --- install ONLY the two core units + .venv ExecStart drop-ins ---
+          sudo cp deploy/ict-trader-live.service deploy/ict-web-api.service /etc/systemd/system/
+          sudo mkdir -p /etc/systemd/system/ict-trader-live.service.d /etc/systemd/system/ict-web-api.service.d
+          printf '[Service]\nExecStart=\nExecStart=%s -u -B -m src.main\n' "$VENV" \
+            | sudo tee /etc/systemd/system/ict-trader-live.service.d/venv.conf >/dev/null
+          printf '[Service]\nExecStart=\nExecStart=%s -m uvicorn src.web.api.main:app --host 0.0.0.0 --port 8001\n' "$VENV" \
+            | sudo tee /etc/systemd/system/ict-web-api.service.d/venv.conf >/dev/null
+          sudo systemctl daemon-reload
+          sudo systemctl enable --now ict-trader-live.service ict-web-api.service
+
+          echo "=== waiting 40s for boot ==="; sleep 40
+          echo "=== systemctl is-active ==="
+          for u in ict-trader-live ict-web-api; do echo "$u: $(systemctl is-active $u)"; done
+          echo "=== /api/health ==="; curl -fsS --max-time 8 http://127.0.0.1:8001/api/health 2>&1 | head -c 400 || echo "(health failed)"
+          echo; echo "=== /api/bot/stats ==="; curl -fsS --max-time 8 http://127.0.0.1:8001/api/bot/stats 2>&1 | head -c 600 || echo "(stats failed)"
+          echo; echo "=== heartbeat file ==="; ls -l --time-style=full-iso /data/bot-data/runtime_logs/heartbeat.txt 2>/dev/null || ls -l "$REPO"/runtime_logs/heartbeat.txt 2>/dev/null || echo "(no heartbeat yet)"
+          echo "=== trader journal tail (last 25 lines) ==="; sudo journalctl -u ict-trader-live --no-pager -n 25 2>&1 | tail -25
+          echo "=== web-api journal tail (last 10) ==="; sudo journalctl -u ict-web-api --no-pager -n 10 2>&1 | tail -10
+          DEPLOY
+          echo "=== deploy output ==="; head -c 8000 /tmp/out.txt
+
+      - name: Post result
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const out = (() => { try { return fs.readFileSync('/tmp/out.txt','utf8'); } catch { return '(no output)'; } })();
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              body: `**deploy-candidate** result\nRun: ${runUrl}\n\n\`\`\`\n${out.slice(0,58000)}\n\`\`\`` });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              state: 'closed', state_reason: 'completed' });

@@ -55,7 +55,20 @@ fi
 
 echo
 echo "===== heartbeat ====="
-HEARTBEAT="${REPO_DIR}/runtime_logs/heartbeat.txt"
+# Resolve the heartbeat the same way the TRADER writes it. The trader runs with
+# DATA_DIR=/data/bot-data (the live-VM data-dir drop-in), so heartbeat.txt lives
+# under $DATA_DIR/runtime_logs — NOT the repo-relative runtime_logs. Reading only
+# the repo path reported a ~30-day-stale heartbeat on 2026-06-10 while the trader
+# was ticking fine (a false-alarm; exit 1 / "heartbeat missing"). Prefer the
+# DATA_DIR path, then the canonical /data/bot-data mount, then the repo path.
+HEARTBEAT=""
+for _hb in \
+    ${DATA_DIR:+"${DATA_DIR}/runtime_logs/heartbeat.txt"} \
+    "/data/bot-data/runtime_logs/heartbeat.txt" \
+    "${REPO_DIR}/runtime_logs/heartbeat.txt"; do
+    if [ -f "${_hb}" ]; then HEARTBEAT="${_hb}"; break; fi
+done
+[ -z "${HEARTBEAT}" ] && HEARTBEAT="${REPO_DIR}/runtime_logs/heartbeat.txt"
 if [ -f "${HEARTBEAT}" ]; then
     mtime="$(stat -c %Y "${HEARTBEAT}")"
     now="$(date +%s)"

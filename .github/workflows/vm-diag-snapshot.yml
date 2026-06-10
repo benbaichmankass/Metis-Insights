@@ -67,9 +67,11 @@ on:
     # arrive) lives in the first job step below — it bails cleanly
     # when a `github-actions[bot]` comment already exists on the
     # issue. With `cancel-in-progress: false` two simultaneous fires
-    # serialize through the lane anyway; the dedup makes the second
-    # one a quick no-op instead of a double-comment.
-    types: [opened, labeled]
+    # `opened` only (2026-06-10): a create-with-label dispatch fires both
+    # `opened` and `labeled`, so listening to both spawned two runs per
+    # request. `opened` alone (label checked in the job `if:`) spawns exactly
+    # one; the dedup step below stays as a belt-and-suspenders no-op.
+    types: [opened]
 
 permissions:
   contents: read
