@@ -29,8 +29,6 @@ EXPECTED_SERVICES = {
     "ict-trader-live.service",
     # S-013 M2 PR #1: read-only dashboard API.
     "ict-web-api.service",
-    # PR #978: Cloudflare tunnel carrying the dashboard upstream.
-    "ict-cloudflared-tunnel.service",
     # 2026-05-11: external liveness watchdog dead-man switch.
     "ict-liveness-watchdog.service",
     # Hourly snapshot collector.

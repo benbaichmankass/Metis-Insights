@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+import inspect
 
 import pytest
 import yaml
@@ -166,90 +166,32 @@ def test_config_missing_files_do_not_count_as_load_errors(
     assert resp.json()["config_load_errors"] == []
 
 
+
+
 # ---------------------------------------------------------------------------
-# Site #5 — runtime_status.build_status :: dry_run_overrides block
+# Site #5 — runtime_status.build_status :: live map from accounts.yaml
+# (the in-memory dry_run override layer was removed 2026-06-10; build_status
+#  now derives per-account live/dry straight from accounts.yaml::mode).
 # ---------------------------------------------------------------------------
 
 
-def test_build_status_swallows_overrides_failure_via_helper(
+def test_build_status_reads_live_map_from_accounts_yaml(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """When ``get_dry_run_overrides()`` raises, ``build_status``
-    must:
-      1. not propagate the exception (tick-loop never-raise contract);
-      2. fall back to ``dry_run_overrides = {}`` so the rest of the
-         payload still builds;
-      3. report the failure via ``_swallow_runtime_status`` so the
-         operator gets a Telegram alert (deduplicated by
-         ``outcomes.report``).
-
-    Pre-S-067 the failure was silently caught and the fallback was
-    ``{}`` with no log — every account would then be reported as
-    ``live`` (since the dry/live flip in ``_read_live_per_account``
-    keys off the override dict).
-    """
-    # Capture every _swallow_runtime_status call so we can assert the
-    # specific status string.
-    captured: List[Dict[str, Any]] = []
-
-    def spy(status: str, exc: BaseException, **ctx: Any) -> None:
-        captured.append({"status": status, "exc_type": type(exc).__name__, "ctx": ctx})
-
-    monkeypatch.setattr(runtime_status_mod, "_swallow_runtime_status", spy)
-
-    # Make the get_dry_run_overrides import inside build_status raise.
-    import src.units.accounts as accounts_mod
-
-    def boom() -> Dict[str, bool]:
-        raise RuntimeError("synthetic dry_run_overrides failure")
-
-    monkeypatch.setattr(accounts_mod, "get_dry_run_overrides", boom)
-
-    # Use absent yaml paths so the rest of the function builds quickly
-    # without depending on real config.
-    payload = runtime_status_mod.build_status(
-        now_utc=datetime(2026, 5, 10, 0, 0, 0, tzinfo=timezone.utc),
-        start_monotonic=0.0,
-        strategies_yaml=tmp_path / "missing-s.yaml",
-        accounts_yaml=tmp_path / "missing-a.yaml",
-        git_sha="deadbeef",
+    """build_status no longer takes a dry_run_overrides param and reads the
+    per-account live map straight from accounts.yaml::mode (no override
+    layer). Default-live, explicit dry_run honoured."""
+    assert (
+        "dry_run_overrides"
+        not in inspect.signature(runtime_status_mod.build_status).parameters
     )
-
-    # 1. No exception propagated (the call returned).
-    # 2. Fallback to empty live map.
-    assert payload["live"] == {}
-    # 3. The helper was called with the right status fingerprint.
-    statuses = [c["status"] for c in captured]
-    assert "dry_run_overrides_read_failed" in statuses
-    # And it carried a useful exception type for the dedup fingerprint.
-    overrides_call = next(
-        c for c in captured if c["status"] == "dry_run_overrides_read_failed"
-    )
-    assert overrides_call["exc_type"] == "RuntimeError"
-
-
-def test_build_status_passes_overrides_through_when_helper_succeeds(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Sanity: when ``get_dry_run_overrides()`` returns normally the
-    overrides flow through to ``_read_live_per_account`` and shape
-    the live map. Guards against the fix accidentally always
-    falling back to ``{}``."""
     accounts_yaml = tmp_path / "accounts.yaml"
     accounts_yaml.write_text(
-        yaml.safe_dump({
-            "accounts": {"bybit_1": {"mode": "live"}, "bybit_2": {"mode": "live"}},
-        }),
+        yaml.safe_dump(
+            {"accounts": {"bybit_1": {"mode": "live"}, "bybit_2": {"mode": "dry_run"}}}
+        ),
         encoding="utf-8",
     )
-
-    # bybit_1 → dry_run False → live True; bybit_2 → dry_run True → live False.
-    import src.units.accounts as accounts_mod
-    monkeypatch.setattr(
-        accounts_mod, "get_dry_run_overrides",
-        lambda: {"bybit_1": False, "bybit_2": True},
-    )
-
     payload = runtime_status_mod.build_status(
         now_utc=datetime(2026, 5, 10, 0, 0, 0, tzinfo=timezone.utc),
         start_monotonic=0.0,
@@ -257,5 +199,4 @@ def test_build_status_passes_overrides_through_when_helper_succeeds(
         accounts_yaml=accounts_yaml,
         git_sha="deadbeef",
     )
-
     assert payload["live"] == {"bybit_1": True, "bybit_2": False}

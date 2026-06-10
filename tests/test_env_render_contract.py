@@ -121,9 +121,6 @@ _IGNORE: frozenset[str] = frozenset({
     # Always-on reconciler flag (BUG-042); rendered unconditionally to
     # "true". Not in .env.example because it's always true in production.
     "MONITOR_RECONCILE_ENABLED",
-    # News feed toggle — rendered from news block in master secrets;
-    # not in .env.example because the feature flag is in the SOPS file.
-    "NEWS_ENABLED",
     # Derived from bybit.live.base_url in master secrets; not shown in the
     # example because it never changes between environments.
     "BYBIT_BASE_URL",

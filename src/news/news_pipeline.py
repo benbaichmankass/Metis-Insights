@@ -16,7 +16,8 @@ Usage
     print(result.reason)       # str
 
 The function is safe to call at every strategy tick:
-  - Returns a neutral result instantly when NEWS_ENABLED=false or no key.
+  - Returns a neutral result instantly when the source is unusable (the
+    newsapi source with no NEWS_API_KEY) — a cheap no-op until configured.
   - Network fetches are cached (default 5 min TTL via NEWS_CACHE_TTL).
   - Never raises; all errors are caught and logged at WARNING level.
 

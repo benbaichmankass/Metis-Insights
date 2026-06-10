@@ -1145,7 +1145,111 @@
       "resolved_at": "2026-06-09T06:35:00+00:00",
       "resolved_by": "claude (S9 yz loose-ends session)",
       "resolution_note": "Corrected: the publisher is healthy, not stopped. ict-trainer-publish.timer fires every ~2 min (last ran 2026-06-09T06:09Z); trainer_status/training_cycle/registry are fresh on the live VM. Only backtest sweeps were stale because the generator scripts/ops/run_backtest_sweep.sh is on-demand (no timer/cron), last run 2026-05-17. Launched a fresh detached sweep (trainer-vm-diag #3047) to refresh /api/bot/backtests/sweeps. Recommendation: add a weekly ict-backtest-sweep.timer if recurring freshness is wanted; otherwise accept as on-demand by design. See docs/audits/s9-yz-shadow-promotion-2026-06-09.md \u00a74."
+    },
+    {
+      "id": "BL-20260610-AUDIT-1",
+      "opened_at": "2026-06-10T09:30:00+00:00",
+      "opened_by": "claude (full-system-audit session)",
+      "source": "Full-system audit (3-repo structural-compliance + bug/optimization sweep, 2026-06-10). Deferred from the audit PRs (bot #3233, ict-trader-dashboard#88, ict-trader-android#43) to keep those diffs scoped/safe.",
+      "title": "regime_bar_scoring budget can starve later predictor groups (no per-tick rotation)",
+      "description": "emit_regime_bar_predictions (src/runtime/regime_bar_scoring.py:~348-359) iterates groups in fixed insertion order and breaks when the per-tick wall-clock budget (REGIME_BAR_SCORING_BUDGET_S) is hit; the budget check runs before the fetch-gate skip, so the same groups are always considered first each tick. Pathological case: one group whose single fetch always consumes the whole budget could indefinitely defer the groups after it (low practical risk - an already-fetched group is a cheap continue on most ticks). Fix: rotate the group start index per tick, or order by most-overdue-for-a-fetch. Observe-only path, Tier-1.",
+      "tier": 1,
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
+    },
+    {
+      "id": "BL-20260610-AUDIT-2",
+      "opened_at": "2026-06-10T09:30:00+00:00",
+      "opened_by": "claude (full-system-audit session)",
+      "source": "Full-system audit (3-repo structural-compliance + bug/optimization sweep, 2026-06-10). Deferred from the audit PRs (bot #3233, ict-trader-dashboard#88, ict-trader-android#43) to keep those diffs scoped/safe.",
+      "title": "_capture_account_context_snapshots opens a fresh read-only SQLite connection per signal",
+      "description": "src/core/coordinator.py:~2376 opens a new mode=ro connection on every order-package decision, then loops daily_state_for + open_trades_count_for per account (an N-account fan-out per signal). Best-effort + shares one connection across the account loop, but the connection is re-established each decision. Fix: cache a ro connection across decisions, or fold the per-account reads into one grouped query. Observe-only writer, Tier-1, minor.",
+      "tier": 1,
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
+    },
+    {
+      "id": "BL-20260610-AUDIT-3",
+      "opened_at": "2026-06-10T09:30:00+00:00",
+      "opened_by": "claude (full-system-audit session)",
+      "source": "Full-system audit (3-repo structural-compliance + bug/optimization sweep, 2026-06-10). Deferred from the audit PRs (bot #3233, ict-trader-dashboard#88, ict-trader-android#43) to keep those diffs scoped/safe.",
+      "title": "[dashboard] blocking time.sleep + st.rerun refresh fallback contradicts the 'non-blocking' design claim",
+      "description": "ict-trader-dashboard/streamlit_app.py: when streamlit-autorefresh is unavailable the refresh falls back to a blocking time.sleep(POLL_INTERVAL_S) + st.rerun(), freezing nav for up to POLL_INTERVAL_S - contradicting the module's 'non-blocking, nav takes effect immediately' claim. Rare (the dep is in requirements). Fix: drop the blocking-sleep fallback or gate it behind a much longer interval. Tier-1.",
+      "tier": 1,
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
+    },
+    {
+      "id": "BL-20260610-AUDIT-4",
+      "opened_at": "2026-06-10T09:30:00+00:00",
+      "opened_by": "claude (full-system-audit session)",
+      "source": "Full-system audit (3-repo structural-compliance + bug/optimization sweep, 2026-06-10). Deferred from the audit PRs (bot #3233, ict-trader-dashboard#88, ict-trader-android#43) to keep those diffs scoped/safe.",
+      "title": "[android] BacktestResult.{totalTrades,winningTrades,losingTrades} default to 0 instead of nullable",
+      "description": "ict-trader-android core/network/BotApi.kt: the bot doc marks these nullable (an aborted backtest lands with NULL counts). The DTO defaults them to 0, which won't crash but renders an aborted backtest's NULL counts as 0 instead of em-dash. Very low severity. Fix: Int? = null + render null as a dash. Tier-1.",
+      "tier": 1,
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
+    },
+    {
+      "id": "BL-20260610-AUDIT-5",
+      "opened_at": "2026-06-10T09:30:00+00:00",
+      "opened_by": "claude (full-system-audit session)",
+      "source": "Full-system audit (3-repo structural-compliance + bug/optimization sweep, 2026-06-10). Deferred from the audit PRs (bot #3233, ict-trader-dashboard#88, ict-trader-android#43) to keep those diffs scoped/safe.",
+      "title": "DECISION PENDING: flip NEWS_ENABLED code default from true to false (surfaced in PR #3233)",
+      "description": "_is_enabled() (src/news/news_client.py:39 / news_client_rss.py:40) defaults NEWS_ENABLED to 'true' (enabled-when-unset). The layer is inert by default ONLY because default NEWS_SOURCE=newsapi short-circuits without NEWS_API_KEY - but the doc-recommended keyless NEWS_SOURCE=rss would activate it, and a news_veto blocks a live trade (pipeline.py:477). CLAUDE.md was corrected to document the footgun this session. Open decision: flip the code default to false so 'off by default' is literally true (Tier-3, changes veto reachability). Operator-gated.",
+      "tier": 3,
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
+    },
+    {
+      "id": "BL-20260610-AUDIT-6",
+      "opened_at": "2026-06-10T09:30:00+00:00",
+      "opened_by": "claude (full-system-audit session)",
+      "source": "Full-system audit (3-repo structural-compliance + bug/optimization sweep, 2026-06-10). Deferred from the audit PRs (bot #3233, ict-trader-dashboard#88, ict-trader-android#43) to keep those diffs scoped/safe.",
+      "title": "DECISION PENDING: delete orphaned mode-override dead code (surfaced in PR #3233)",
+      "description": "_DRY_RUN_OVERRIDES + set_account_dry_run() (src/units/accounts/__init__.py:33,36), Coordinator.set_account_dry_run() (coordinator.py:1760), and the account_state.yaml dry-only override read (coordinator.py:1100) have no remaining caller - the breaker auto-flip is removed (rejection path coordinator.py:1669-1689 is alert-only) and the Telegram /accounts handler was removed in #1933. The architecture doc + Known-gaps were corrected this session. Open decision: delete the scaffolding. Low risk (no live caller). Tier-2.",
+      "tier": 2,
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
+    },
+    {
+      "id": "BL-20260610-AUDIT-7",
+      "opened_at": "2026-06-10T09:30:00+00:00",
+      "opened_by": "claude (full-system-audit session)",
+      "source": "Full-system audit (3-repo structural-compliance + bug/optimization sweep, 2026-06-10). Deferred from the audit PRs (bot #3233, ict-trader-dashboard#88, ict-trader-android#43) to keep those diffs scoped/safe.",
+      "title": "[dashboard] 'Cloudflare Pages' check fails on every PR (ict-trader-widget deploy)",
+      "description": "ict-trader-dashboard PR checks include a 'Cloudflare Pages' integration that instant-fails (completed_at==started_at) deploying a separate 'ict-trader-widget' Pages project. The dashboard repo has no Pages/wrangler/widget assets, so there is nothing for Pages to build - the check appears chronically failing and unrelated to repo content. Decide whether to disconnect the Cloudflare Pages integration from this repo or point it at the right project, so it stops adding a red X to every dashboard PR. Tier-1 infra/CI hygiene.",
+      "tier": 1,
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
+    },
+    {
+      "id": "BL-20260610-AUDIT-8",
+      "opened_at": "2026-06-10T09:30:00+00:00",
+      "opened_by": "claude (full-system-audit session)",
+      "source": "Full-system audit (3-repo structural-compliance + bug/optimization sweep, 2026-06-10). Deferred from the audit PRs (bot #3233, ict-trader-dashboard#88, ict-trader-android#43) to keep those diffs scoped/safe.",
+      "title": "[dashboard] verify Insights tab 'falls back to canonical 6-strategy list' doc claim vs code",
+      "description": "ict-trader-dashboard CLAUDE.md Insights row says the per-strategy selectbox 'falls back to the canonical 6-strategy list' on empty/error; the audit found no hardcoded 6-strategy fallback in page_insights (it just reads /api/bot/strategies). Low impact. Verify and either add the fallback or correct the doc. Tier-1.",
+      "tier": 1,
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
     }
   ],
-  "updated_at": "2026-06-09T06:35:00+00:00"
+  "updated_at": "2026-06-10T09:30:00+00:00"
 }

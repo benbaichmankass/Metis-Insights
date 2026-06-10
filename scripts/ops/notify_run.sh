@@ -149,14 +149,6 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
-    setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel)
-        tier=2
-        case "${exit_code}" in
-            0) result="ok"; priority="normal" ;;
-            3) result="deferred — vm-runner active, retry later"; priority="normal" ;;
-            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
-        esac
-        ;;
     setup-tailscale-funnel|teardown-tailscale-funnel)
         tier=2
         case "${exit_code}" in

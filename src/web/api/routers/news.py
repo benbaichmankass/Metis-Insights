@@ -3,8 +3,9 @@
 Surfaces the news shadow-soak log (`runtime_logs/news_decisions.jsonl`) so the
 dashboard can show what the news layer decided per actionable signal (decision,
 adjustment, veto, query, symbol) and any applied influence downsizes. Read-only;
-newest-first. Empty envelope (`present:false`) until the layer is enabled
-(`NEWS_ENABLED=true` + `NEWS_API_KEY`), which is when the writer begins logging.
+newest-first. Empty envelope (`present:false`) until the layer is active
+(`NEWS_SOURCE=rss`, or `newsapi` + `NEWS_API_KEY`), which is when the writer
+begins logging.
 """
 from __future__ import annotations
 

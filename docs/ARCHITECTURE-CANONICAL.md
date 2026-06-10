@@ -56,19 +56,27 @@ system-design counterpart.
    `.github/workflows/system-actions.yml`, landed in PR #978).
    Edits YAML, restarts the trader, Telegram-pings the operator with
    the diff via `scripts/ops/notify_run.sh`.
-3. **No runtime override layer.** The `_DRY_RUN_OVERRIDES` dict and
-   `set_account_dry_run()` function in `src/units/accounts/__init__.py`
-   are scheduled for deletion in the safeguards PR follow-on to
-   PR #978. After that PR lands, mode comes from YAML every call,
-   with no in-memory shim.
-4. **No auto-flip.** No code path inside `src/` may flip a mode
-   under any condition. The 2026-05-12 silent-flip incident drove
-   this: the breaker auto-flip in `src/core/coordinator.py:1048-1068`
-   ("3 consecutive exchange rejections → set_account_dry_run(True)")
-   protected the system into a dry state, but the operator wasn't
-   clearly notified and the bot sat off-live for hours. The auto-flip
-   is queued for deletion; the rejection counter remains as
-   RiskManager input only.
+3. **No runtime override layer (behaviour remediated; residual dead
+   code).** The `_DRY_RUN_OVERRIDES` dict and `set_account_dry_run()`
+   function in `src/units/accounts/__init__.py` (+ the
+   `Coordinator.set_account_dry_run()` wrapper at
+   `src/core/coordinator.py:1760`) **still exist on disk as of
+   2026-06-10**, but have **no remaining automatic or operator caller**:
+   the legacy Telegram `/accounts dry|live` writer was removed in #1933
+   (see closing paragraph) and mode flips now route through the
+   sanctioned `set_account_mode.sh` (item 2). The promised
+   safeguards-PR deletion never landed, so this is orphaned shim code,
+   not a live override path. **Cleanup proposed** (delete the dict +
+   both functions + the `account_state.yaml` dry-only override read at
+   `coordinator.py:1100`); tracked in the Known-gaps row below.
+4. **No auto-flip (verified).** No code path inside `src/` flips a mode.
+   The 2026-05-12 silent-flip incident drove this: the breaker auto-flip
+   that lived in `src/core/coordinator.py` ("3 consecutive exchange
+   rejections → set_account_dry_run(True)") **has been removed** — the
+   consecutive-rejection path at `src/core/coordinator.py:1669-1689` now
+   only pushes a critical Telegram alert ("Account stays live —
+   investigate and use set-account-mode") and never mutates mode. The
+   rejection counter remains as RiskManager input only.
 5. **Transient issues route through RiskManager.** When exchange
    rejections cluster, data quality degrades, or risk signals
    trip, `RiskManager.approve()` returns
@@ -160,29 +168,39 @@ Exchange connectors (`src/exchange/bybit_connector.py`,
 in `src/runtime/market_data.py` produce candles and tick state. The bot is
 **multi-symbol**: `connector_for_symbol(symbol)` routes each symbol to the
 right data source by its `config/instruments.yaml` exchange — BTCUSDT →
-Bybit, MES → Interactive Brokers (delayed CME bars via `reqHistoricalData`,
-no paid real-time subscription). See `docs/runbooks/ib-integration.md`.
+Bybit; MES (CME) / MGC + MHG (COMEX) → Interactive Brokers (delayed
+futures bars via `reqHistoricalData`, no paid real-time subscription).
+See `docs/runbooks/ib-integration.md`.
 
 ### Step 2 — Strategy evaluation
 Strategy modules in `src/units/strategies/` consume market data and emit
-signals. The current roster (5 registered; `squeeze_breakout_4h` pending
-merge in PRs #1907/#1908): `turtle_soup`, `vwap`, `ict_scalp_5m`,
-`trend_donchian`, `fade_breakout_4h`. Two classes:
-- **Symbol-parameterized** (`turtle_soup`, `vwap`, `ict_scalp_5m`) —
-  evaluate every configured symbol each tick (BTCUSDT and MES).
-- **BTC-tuned** (`trend_donchian`, `fade_breakout_4h`, `squeeze_breakout_4h`) — crypto-specific
-  Donchian breakout / failed-breakout fade; the params do not transfer to
-  MES (MES gets its own re-tuned configs when IBKR is live).
+signals. The roster has **12 strategies registered** in
+`config/strategies.yaml` (verified 2026-06-10). Each declares a
+`symbols:` list and is **scoped to it** by the per-strategy symbol gate
+(`intent_multiplexer._collect_intents`, 2026-06-02): a strategy is skipped
+on any tick symbol not in its `symbols:` — so a strategy no longer
+"evaluates every configured symbol each tick" (the earlier MES-mirror
+behaviour is intentionally retired). Current roster, by instrument:
+- **Crypto (BTCUSDT):** `turtle_soup`, `trend_donchian`, `ict_scalp_5m`,
+  `fvg_range_15m`, `htf_pullback_trend_2h` (all `execution: live`);
+  `fade_breakout_4h`, `squeeze_breakout_4h` (`execution: shadow` —
+  DEMOTED live→shadow 2026-06-01); `vwap` (`enabled: false` — M7
+  kill, no net-of-fee edge); `trend_donchian_1h` (`enabled: false` —
+  retired, config adopted into `trend_donchian`).
+- **Index/metals futures (IBKR `ib_paper`, paper money):**
+  `mes_trend_long_1d` (MES), `mgc_pullback_1d` (MGC),
+  `mhg_pullback_1d` (MHG) — all `execution: live`, validated params
+  per the 2026-06-02 WS-A metals sleeve.
 
 Each strategy carries a per-strategy `execution: live | shadow` gate in
 `config/strategies.yaml` (S9, 2026-05-24): `live` is eligible to execute;
 `shadow` runs + LOGS order packages everywhere (data collection) but never
-sends a live order. Live today: `turtle_soup`, `ict_scalp_5m`,
-`trend_donchian`, `fade_breakout_4h`, `squeeze_breakout_4h` (fade +
-squeeze promoted shadow→live on 2026-05-25, operator-approved, PR #1995;
-both bybit accounts now run the same six-strategy roster). Shadow: `vwap`
-only (no net-of-fee edge). Strategy logic is kept separate from broker
-execution.
+sends a live order. The separate per-strategy `enabled:` flag is the
+"does it run at all" switch (an explicit operator decision when set
+false). Strategy logic is kept separate from broker execution. The full
+per-strategy gate/symbol matrix is sourced from `config/strategies.yaml`
+and surfaced on `/api/bot/strategies`; the Change log below records each
+promotion/demotion.
 
 ### Step 3 — Strategy output normalization & the decider (intent aggregation)
 Signals are normalised to the internal order/intent representation used
@@ -389,6 +407,12 @@ final pre-expiry alert (M1 P1-B) prevent silent expiry.
 | Smoke once | `deploy/ict-smoke-once.service` |
 | Claude bridge | `deploy/ict-claude-bridge.service` |
 | Env-check | `deploy/ict-env-check.service` |
+| Web API watchdog | `deploy/ict-web-api-watchdog.{service,timer}` — restarts `ict-web-api.service` when the FastAPI surface is unreachable |
+| IB Gateway + watchdog | `deploy/ib-gateway.service`, `deploy/ict-ib-gateway-watchdog.{service,timer}` — headless IB Gateway (Docker + socat) and the broker-session dead-man switch (2026-05-28). Runbook: `docs/runbooks/ib-integration.md` |
+| Health snapshot | `deploy/ict-health-snapshot.{service,timer}` — cron health-check report consumed by `/health-review` |
+| Insights generators (M13) | `deploy/ict-insights-generator.{service,timer}` (fast, 15 min) + `deploy/ict-insights-generator-strategies.{service,timer}` (slow, 60 min) — AI-Analyst cache writers behind `/api/bot/insights/*` |
+| Shadow-log rotation | `deploy/ict-shadow-log-rotate.{service,timer}` — size/age rotation of `shadow_predictions.jsonl` |
+| Claude VM runner | `deploy/claude-vm-runner@.service` — self-hosted-runner wiring for VM-side workflows |
 | Deploy script | `scripts/deploy_diag.sh`, `scripts/deploy_pull_restart.sh` |
 | VM bootstrap | `scripts/vm_bootstrap.sh` |
 | Web API restart wrapper | `scripts/ops/restart_web_api.sh` |
@@ -676,6 +700,14 @@ tiers, Oracle/HF split) the corresponding doc to update is
 
 ## Verification Checklist (current state)
 
+> **Note (2026-06-10):** the checklist below is the 2026-05-10 foundational
+> snapshot — the named entrypoints/modules are still accurate, but the
+> **live strategy roster and service inventory have grown substantially
+> since** (5→12 strategies; IB-gateway / web-api / insights / shadow-rotate
+> units added). For current state see § "Step 2 — Strategy evaluation" and
+> the Deployment "Components" table above, both re-verified against
+> `config/strategies.yaml` + `deploy/` on 2026-06-10.
+
 Confirmed against the repo on 2026-05-10:
 
 - [x] Runtime entrypoint: `src/main.py` → `src/runtime/pipeline.py`
@@ -759,12 +791,12 @@ milestone.
 
 | Gap | Why deferred | Tracking |
 |---|---|---|
-| **Auto-flip code paths still in `src/`** | The doc-level Mode Mutation Contract is in place (§ above). The code-level deletion (the `_DRY_RUN_OVERRIDES` dict + `set_account_dry_run()` function in `src/units/accounts/__init__.py`, the breaker auto-flip in `src/core/coordinator.py:1048-1068`, and the Telegram `/accounts dry\|live` handler refactor) is the safeguards PR follow-on, kept separate from PR #978 so the diff stays reviewable. | Safeguards PR (2026-05-12 follow-up to PR #978). |
+| **Orphaned mode-override dead code in `src/`** | **Behaviour remediated; residual dead code only (verified 2026-06-10).** The two Prime-Directive-violating vectors are gone: the breaker auto-flip is removed (rejection path at `src/core/coordinator.py:1669-1689` is alert-only) and the Telegram `/accounts dry\|live` handler was removed in #1933. What remains is **orphaned shim code with no caller** — `_DRY_RUN_OVERRIDES` + `set_account_dry_run()` (`src/units/accounts/__init__.py:33,36`), `Coordinator.set_account_dry_run()` (`coordinator.py:1760`), and the `account_state.yaml` dry-only override read (`coordinator.py:1100`). The promised safeguards-PR deletion never landed. | Cleanup PR (delete the dead dict + functions + override read). Low risk — no live caller. |
 | **Per-trade RiskManager rejection → per-trade Telegram** | The Prime Directive (§ rules doc) requires every refusal to emit its own Telegram with account/symbol/side/qty/reason/exchange-error. Today's path uses aggregate alerts when conditions cluster. The per-trade wiring ships in the safeguards PR. | Safeguards PR. |
-| **WS5 baselines not yet at `shadow` in any registry** | `train_and_register_ws5_baselines.sh` is shipped on `main` (2026-05-11) and walks each baseline to `shadow` autonomously. Blocked only on the trainer VM coming up; the auto-retry workflow loops every 10 min until OCI Always Free A1 capacity lands. | WS5 / WS7 unlock; tracked by the open `[provision-training-vm]` issue chain and the auto-retry workflow. |
+| ~~**WS5 baselines not yet at `shadow` in any registry**~~ | **Resolved.** The trainer VM is provisioned and the M14 program has been running training cycles for weeks; baseline + regime heads sit at `shadow` and log predictions live (`runtime_logs/shadow_predictions.jsonl`, surfaced on `/api/bot/shadow/*` + `/api/bot/trades/scores`). | Closed (M14 in progress). |
 | **`shadow_model_ids` empty in production strategy YAML** | ~~Operator step~~. **Resolved 2026-05-19 by the default-flip + auto-wire.** Strategies that omit `shadow_model_ids` (or set it to `None`) auto-discover every model at `target_deployment_stage: shadow` and attach them as shadow predictors. The boundary between trainer-VM Claude and live trading moves from `shadow_model_ids` wiring to the `shadow → advisory` promotion gate; the latter still requires operator approval. | Closed. |
-| **Trainer VM not yet provisioned** | OCI Always Free Ampere A1 in `eu-paris-1` returns 500 / "Out of host capacity" intermittently. `.github/workflows/provision-training-vm-auto-retry.yml` is firing on a 10-minute cron with idempotent existence check; resolves itself when capacity opens. | S-AI-WS9; tracked by the `[trainer-vm-up]` notification issue that the auto-retry files on first success. |
-| **Trainer VM ↔ live VM data flow not yet wired** | WS9 ships trainer-VM topology + autonomous provisioning; cross-VM `trade_journal.db` access (rsync vs diag-API-over-HTTPS) is filed for Claude to decide post-provision per the trainer charter § 3.b. Both options are autonomous-Claude (read-only against the live VM). | WS9 follow-up. |
+| ~~**Trainer VM not yet provisioned**~~ | **Resolved.** `ict-trainer-vm` (`158.178.209.121`) is up and running the ML lifecycle; read it via the `trainer-vm-diag` relay. The M14 ML-Optimization Program (S0–S18) has executed numerous training cycles on it. | Closed. |
+| ~~**Trainer VM ↔ live VM data flow not yet wired**~~ | **Resolved.** The trainer pulls live `trade_journal.db` (read-only sync) and publishes its lifecycle artifacts back to the live VM via the trainer mirror (`runtime_logs/trainer_mirror/`), ingested into the federated `trainer_store.db` sidecar (`src/units/db/trainer_store.py`) and surfaced through `/api/bot/ml/*` + `/api/bot/backtests/sweeps`. | Closed (S-PERSIST-CANON). |
 | **No open-source model layer (HF transformers as `Predictor`)** | WS6 not started. Per the master plan, defer until the WS8 feedback loop is observable end-to-end (drift detector + dashboard panels are live as of 2026-05-11; missing piece is real shadow predictions in production, which lands when the trainer + YAML wiring resolve). | WS6. |
 | **`arch-doc-guard` is advisory, not blocking** | Hard-failing would push the team to bypass it. Upgrade path is a follow-up workstream once the workflow is fluent. The PR-template "Architecture impact: Not applicable" checkbox is the documented escape hatch when a change is contract-preserving. | Filed in S-AI-WS10 sprint log; revisit after ~20 successful PR cycles without bypass. |
 | **`arch_doc_guard.py` does not validate a Change-log row was added** | The current heuristic checks "did any arch-doc path get touched"; it does not check "was a new row appended to ARCHITECTURE-CANONICAL.md's Change log". Easy to add but premature without the upgrade-to-blocking decision above. | Filed against WS10; would also need to enforce row-shape. |

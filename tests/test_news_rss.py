@@ -88,8 +88,12 @@ def test_feeds_for_tags_includes_global_and_class(monkeypatch):
 
 # ── fetch + pipeline wiring (no network) ────────────────────────────────────
 
-def test_fetch_news_rss_disabled_returns_empty():
-    assert rss.fetch_news_rss({"NEWS_ENABLED": "false"}, ["BTC"]) == []
+def test_fetch_news_rss_no_feeds_returns_empty(monkeypatch):
+    # The RSS source has no enable gate (keyless, always active — the legacy
+    # NEWS_ENABLED flag was removed 2026-06-10); it returns [] only when no
+    # feeds resolve for the tags.
+    monkeypatch.setattr(rss, "feeds_for_tags", lambda tags: [])
+    assert rss.fetch_news_rss({}, ["BTC"]) == []
 
 
 def test_fetch_news_rss_aggregates(monkeypatch):
@@ -118,11 +122,14 @@ def test_pipeline_uses_rss_when_selected(monkeypatch):
     assert result.item_count >= 1  # fresh + relevant -> actually scored
 
 
-def test_is_active_rss_needs_no_key(monkeypatch):
+def test_is_active_source_driven(monkeypatch):
+    # Activation is source-driven (no NEWS_ENABLED gate — removed 2026-06-10):
+    # rss is keyless + always active; newsapi needs a key.
     monkeypatch.delenv("NEWS_API_KEY", raising=False)
-    assert is_active({"NEWS_ENABLED": "true", "NEWS_SOURCE": "rss"}) is True
-    assert is_active({"NEWS_ENABLED": "true", "NEWS_SOURCE": "newsapi"}) is False
-    assert is_active({"NEWS_ENABLED": "false", "NEWS_SOURCE": "rss"}) is False
+    assert is_active({"NEWS_SOURCE": "rss"}) is True
+    assert is_active({"NEWS_SOURCE": "newsapi"}) is False
+    # A leftover NEWS_ENABLED value is ignored — rss stays active.
+    assert is_active({"NEWS_ENABLED": "false", "NEWS_SOURCE": "rss"}) is True
 
 
 def test_news_source_selector():

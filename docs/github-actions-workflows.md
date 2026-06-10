@@ -439,7 +439,6 @@ body: |
 - `restart-bot-service` — `systemctl restart ict-trader-live.service` (Tier 2)
 - `reboot-vm` — full VM reboot (Tier 2)
 - `set-account-mode` — flip `mode: live|dry_run` in `accounts.yaml` (Tier 2, sanctioned wire)
-- `teardown-cloudflare-tunnel` — stops `ict-cloudflared-tunnel.service` (Tier 2)
 
 **Full contract:** [`docs/claude/system-actions.md`](claude/system-actions.md).
 

@@ -12,8 +12,9 @@ made the layer inert. No API key, no per-call quota.
 
 Stdlib only (urllib + xml.etree + email.utils) — no `feedparser` dependency,
 matching the rest of the package. Best-effort and total: any feed that errors
-is skipped; the function never raises and returns ``[]`` on total failure or
-when ``NEWS_ENABLED`` is false.
+is skipped; the function never raises and returns ``[]`` on total failure. The
+RSS source is keyless and always active — there is no enable gate (the legacy
+``NEWS_ENABLED`` flag was removed 2026-06-10).
 """
 from __future__ import annotations
 
@@ -34,11 +35,6 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_CACHE_TTL = 300  # seconds
 _UA = "ict-trading-bot/1.0 (+rss)"
-
-
-def _is_enabled(settings: dict) -> bool:
-    raw = str(settings.get("NEWS_ENABLED", os.environ.get("NEWS_ENABLED", "true"))).strip().lower()
-    return raw not in {"false", "0", "no"}
 
 
 def _get_cache_ttl(settings: dict) -> float:
@@ -159,12 +155,11 @@ def fetch_news_rss(
 ) -> List[Dict[str, Any]]:
     """Fetch + parse the RSS/Atom feeds for *symbol_tags*. Never raises.
 
-    Returns raw article dicts (NewsAPI-compatible shape). ``[]`` when the layer
-    is disabled, no feeds resolve, or every feed errors. Cached for
-    ``NEWS_CACHE_TTL`` seconds keyed by the resolved feed set.
+    Returns raw article dicts (NewsAPI-compatible shape). ``[]`` when no feeds
+    resolve or every feed errors. The RSS source is keyless and always active
+    (no enable gate). Cached for ``NEWS_CACHE_TTL`` seconds keyed by the
+    resolved feed set.
     """
-    if not _is_enabled(settings):
-        return []
     feeds = feeds_for_tags(symbol_tags)
     if not feeds:
         logger.debug("news_rss: no feeds resolved for tags=%s", symbol_tags)
