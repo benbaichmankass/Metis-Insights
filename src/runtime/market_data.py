@@ -72,6 +72,17 @@ def _build_exchange_client(settings: Dict[str, Any]):
     if exchange_name in ("interactive_brokers", "ib"):
         return _build_ib_market_data(settings)
 
+    if exchange_name == "alpaca":
+        from src.exchange.alpaca_connector import AlpacaMarketData
+        return AlpacaMarketData(
+            api_key=settings.get("ALPACA_API_KEY_ID"),
+            api_secret=settings.get("ALPACA_API_SECRET_KEY"),
+        )
+
+    if exchange_name == "oanda":
+        from src.exchange.oanda_connector import OandaMarketData
+        return OandaMarketData(api_token=settings.get("OANDA_API_TOKEN"))
+
     raise ValueError(f"Unsupported EXCHANGE value: {exchange_name}")
 
 
