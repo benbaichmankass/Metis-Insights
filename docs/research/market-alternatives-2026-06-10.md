@@ -30,6 +30,21 @@ The operator reviewed this memo in chat and decided:
 4. **IBKR paper legs stay running.** The futures track still gets stood up
    properly, but system expansion comes first; gateway retirement
    (Phase 4) is deferred indefinitely, not scheduled.
+5. **Both platforms, sequenced; US residency for both** (clarified in
+   chat, same day). End state is Alpaca AND OANDA — they carry different
+   halves of the roster (§5) — but integrations are built **one at a
+   time**: Phase 0 backtests on both markets decide which is wired first
+   (expected: OANDA, since more of the roster transfers unchanged).
+   The operator lives in Israel but can claim US residency and will use
+   the **US residency for both accounts**: Alpaca gets free ACH funding
+   (vs $50 international wires), and OANDA US removes the risk that its
+   divisions decline Israeli-resident retail FX clients (Israeli ISA
+   rules have pushed many foreign brokers to do so). Consequence: the
+   OANDA US division is **FX-only** (no index/metal CFDs), so the
+   index/metals exposure replacement belongs to Alpaca ETFs. Caveat
+   flagged: US-resident accounts mean W-9/US tax reporting — operator to
+   confirm with their tax adviser. No account needs to be opened until
+   Phase 2.
 
 ## 1. Why we want off futures (the actual cost we pay today)
 
@@ -233,18 +248,17 @@ stays Tier-3 (operator-approved), exactly as it was for MGC/MHG.
 
 ## 7. Open questions for the operator
 
-Questions 1, 3, 4 from the original memo are **answered** — recorded in §0
-(directive confirmed; >$25k + intraday-first; IBKR legs stay). Still open:
+All original questions are now **answered** — recorded in §0 (directive
+confirmed; >$25k + intraday-first; IBKR legs stay; both platforms under
+US residency, §0.5). Still open:
 
-1. **Country of residence** — needed to pin (a) the OANDA division
-   (product set: FX-only vs FX+index/metal CFDs; leverage cap; financing
-   terms) and (b) Alpaca funding rails (free ACH vs $50 wires vs Rapyd
-   local methods). One-line answer in chat is enough; the memo gets
-   updated with the concrete division.
-2. **Market data tier for live intraday equities:** Alpaca's free
+1. **Market data tier for live intraday equities:** Alpaca's free
    real-time feed is IEX-only (a thin slice of consolidated volume).
    Likely fine for 5m/15m signal bars, but worth a paid consolidated-feed
    trial (~$99/mo tier) before any equities strategy goes paper-live at
    5m — decide at Phase 2.
+2. **US tax confirmation** for opening both accounts under US residency
+   (W-9 / US reporting while living in Israel) — operator's tax adviser,
+   before Phase 2 account opening.
 
 — Research memo only; nothing in this document changes runtime behaviour.
