@@ -103,7 +103,7 @@ def test_runtime_status_accounts_yaml_failure_reports(captured, tmp_path):
     from src.web import runtime_status as rs
     bogus = tmp_path / "broken.yaml"
     bogus.write_text(": :: invalid yaml ::")
-    out = rs._read_live_per_account(bogus, {})
+    out = rs._read_live_per_account(bogus)
     assert out == {}
     matches = [r for r in captured
                if r["status"] == "accounts_yaml_read_failed"]

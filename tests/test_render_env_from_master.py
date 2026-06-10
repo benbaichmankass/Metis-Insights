@@ -515,18 +515,20 @@ FAKE_DATA_WITHOUT_NEWS_BLOCK = {k: v for k, v in FAKE_DATA.items() if k != "news
 class TestNewsRenderer:
     """Regression tests for _news_pairs() and its integration into profile builders."""
 
-    def test_disabled_default_emits_news_enabled_false(self):
+    def test_news_enabled_never_emitted(self):
+        # NEWS_ENABLED is no longer rendered (the enable gate was removed
+        # 2026-06-10; activation is source-driven).
         pairs = dict(mod._news_pairs(FAKE_DATA_WITH_NEWS_DISABLED))
-        assert pairs["NEWS_ENABLED"] == "false"
+        assert "NEWS_ENABLED" not in pairs
 
     def test_disabled_default_emits_empty_api_key(self):
         pairs = dict(mod._news_pairs(FAKE_DATA_WITH_NEWS_DISABLED))
         assert "NEWS_API_KEY" in pairs
         assert pairs["NEWS_API_KEY"] == ""
 
-    def test_enabled_emits_news_enabled_true(self):
+    def test_news_enabled_never_emitted_even_with_enabled_block(self):
         pairs = dict(mod._news_pairs(FAKE_DATA_WITH_NEWS_ENABLED))
-        assert pairs["NEWS_ENABLED"] == "true"
+        assert "NEWS_ENABLED" not in pairs
 
     def test_enabled_emits_api_key(self):
         pairs = dict(mod._news_pairs(FAKE_DATA_WITH_NEWS_ENABLED))
@@ -539,26 +541,28 @@ class TestNewsRenderer:
 
     def test_optional_tuning_knobs_absent_when_not_set(self):
         pairs = dict(mod._news_pairs(FAKE_DATA_WITH_NEWS_DISABLED))
-        # Only the two mandatory keys should be present
-        assert set(pairs.keys()) == {"NEWS_ENABLED", "NEWS_API_KEY"}
+        # Only the one mandatory key should be present (NEWS_ENABLED removed).
+        assert set(pairs.keys()) == {"NEWS_API_KEY"}
 
-    def test_missing_news_block_defaults_to_disabled(self):
-        """A master without a news: block must still emit NEWS_ENABLED=false."""
+    def test_missing_news_block_still_emits_api_key(self):
+        """A master without a news: block still emits NEWS_API_KEY (blank);
+        NEWS_ENABLED is no longer emitted."""
         pairs = dict(mod._news_pairs(FAKE_DATA_WITHOUT_NEWS_BLOCK))
-        assert pairs["NEWS_ENABLED"] == "false"
+        assert "NEWS_ENABLED" not in pairs
         assert "NEWS_API_KEY" in pairs
 
 
 class TestNewsDefaultInProfiles:
     """Integration: both profile builders include the news keys."""
 
-    def test_live_profile_contains_news_enabled(self):
+    def test_live_profile_contains_news_api_key(self):
         pairs = dict(mod.build_live(FAKE_DATA_WITH_NEWS_DISABLED))
-        assert "NEWS_ENABLED" in pairs
+        assert "NEWS_API_KEY" in pairs
+        assert "NEWS_ENABLED" not in pairs
 
-    def test_live_profile_news_disabled_by_default(self):
+    def test_live_profile_news_api_key_blank_by_default(self):
         pairs = dict(mod.build_live(FAKE_DATA_WITH_NEWS_DISABLED))
-        assert pairs["NEWS_ENABLED"] == "false"
+        assert pairs["NEWS_API_KEY"] == ""
 
     # ``build_vwap_btcusd_live`` was removed 2026-05-03 — the canonical
     # render path is ``build_live``, exercised by the two tests above.

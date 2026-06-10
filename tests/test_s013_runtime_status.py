@@ -26,7 +26,6 @@ def test_build_status_has_schema_v1_and_required_keys(tmp_path):
     payload = rs.build_status(
         accounts_yaml=accounts,
         strategies_yaml=strategies,
-        dry_run_overrides={},
         git_sha="abc1234",
     )
     assert payload["schema_version"] == 1
@@ -46,29 +45,11 @@ def test_uptime_tracks_start_monotonic(tmp_path):
     payload = rs.build_status(
         accounts_yaml=tmp_path / "missing-accounts.yaml",
         strategies_yaml=tmp_path / "missing-strategies.yaml",
-        dry_run_overrides={},
         git_sha="x",
         start_monotonic=time.monotonic() - 42.7,
     )
     # int() truncates toward zero, so 42.7s elapsed → 42 (allow ±1 for clock jitter).
     assert 41 <= payload["bot_uptime_s"] <= 44
-
-
-def test_live_only_true_when_override_flips_account_to_live(tmp_path):
-    accounts = _write_yaml(
-        tmp_path / "accounts.yaml",
-        "accounts:\n  a: {}\n  b: {}\n",
-    )
-    payload = rs.build_status(
-        accounts_yaml=accounts,
-        strategies_yaml=tmp_path / "missing.yaml",
-        dry_run_overrides={"a": False, "b": True},
-        git_sha="x",
-    )
-    # Override `False` means dry_run=False → account is live.
-    # Override `True` means dry_run=True → account is NOT live.
-    # Default for an absent override is dry_run=True (per S-012 PR E2).
-    assert payload["live"] == {"a": True, "b": False}
 
 
 def test_live_defaults_to_true_for_accounts_without_mode(tmp_path):
@@ -84,7 +65,6 @@ def test_live_defaults_to_true_for_accounts_without_mode(tmp_path):
     payload = rs.build_status(
         accounts_yaml=accounts,
         strategies_yaml=tmp_path / "missing.yaml",
-        dry_run_overrides={},
         git_sha="x",
     )
     assert payload["live"] == {"a": True, "b": True}
@@ -103,7 +83,6 @@ def test_strategies_only_returns_enabled_entries(tmp_path):
     payload = rs.build_status(
         accounts_yaml=tmp_path / "missing-accounts.yaml",
         strategies_yaml=strategies,
-        dry_run_overrides={},
         git_sha="x",
     )
     assert sorted(payload["strategies"]) == ["turtle_soup", "vwap"]
@@ -113,7 +92,6 @@ def test_missing_yaml_files_yield_empty_collections(tmp_path):
     payload = rs.build_status(
         accounts_yaml=tmp_path / "no-accounts.yaml",
         strategies_yaml=tmp_path / "no-strategies.yaml",
-        dry_run_overrides={},
         git_sha="x",
     )
     assert payload["live"] == {}
@@ -144,7 +122,6 @@ def test_write_status_creates_directory_and_uses_atomic_replace(tmp_path):
         path=target,
         accounts_yaml=tmp_path / "missing-accounts.yaml",
         strategies_yaml=tmp_path / "missing-strategies.yaml",
-        dry_run_overrides={},
         git_sha="x",
     )
     assert target.exists()

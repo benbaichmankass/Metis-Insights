@@ -7,8 +7,9 @@ regardless of its YAML `mode: live` declaration. Operators saw a
 permanent "runtime: dry" indicator on live accounts and either ignored
 it (cry-wolf) or, on 2026-05-10, escalated as a live-trading outage.
 
-After: the resolver mirrors `src.units.accounts._resolve_mode` —
-overrides win, then YAML `mode`, then default `live`.
+After: the resolver mirrors `src.units.accounts._resolve_mode` — YAML
+`mode`, then default `live`. (The in-memory override layer was removed
+2026-06-10; accounts.yaml `mode:` is the only source.)
 """
 from __future__ import annotations
 
@@ -23,8 +24,8 @@ def _write_yaml(tmp_path: Path, content: str) -> Path:
     return p
 
 
-def test_yaml_live_default_no_overrides_renders_live(tmp_path):
-    """A YAML-`live` account with no override must show `live=True`.
+def test_yaml_live_default_renders_live(tmp_path):
+    """A YAML-`live` account must show `live=True`.
 
     This is the regression case — pre-fix this returned `live=False`
     because `overrides.get(name, True)` defaulted to True (dry).
@@ -36,20 +37,20 @@ accounts:
   bybit_2:
     mode: live
 """)
-    assert _read_live_per_account(yaml_path, overrides={}) == {
+    assert _read_live_per_account(yaml_path) == {
         "bybit_1": True,
         "bybit_2": True,
     }
 
 
-def test_yaml_dry_default_no_overrides_renders_dry(tmp_path):
-    """A YAML-`dry_run` account with no override must show `live=False`."""
+def test_yaml_dry_default_renders_dry(tmp_path):
+    """A YAML-`dry_run` account must show `live=False`."""
     yaml_path = _write_yaml(tmp_path, """
 accounts:
   prop_velotrade_1:
     mode: dry_run
 """)
-    assert _read_live_per_account(yaml_path, overrides={}) == {
+    assert _read_live_per_account(yaml_path) == {
         "prop_velotrade_1": False,
     }
 
@@ -60,36 +61,11 @@ def test_yaml_omits_mode_defaults_to_live(tmp_path):
 accounts:
   bybit_1: {}
 """)
-    assert _read_live_per_account(yaml_path, overrides={}) == {"bybit_1": True}
+    assert _read_live_per_account(yaml_path) == {"bybit_1": True}
 
 
-def test_runtime_override_dry_wins_over_yaml_live(tmp_path):
-    """`/accounts dry bybit_1` must flip the dashboard to dry."""
-    yaml_path = _write_yaml(tmp_path, """
-accounts:
-  bybit_1:
-    mode: live
-""")
-    assert _read_live_per_account(yaml_path, overrides={"bybit_1": True}) == {
-        "bybit_1": False,
-    }
-
-
-def test_runtime_override_live_wins_over_yaml_dry(tmp_path):
-    """`/accounts live prop_velotrade_1` must flip the dashboard to live."""
-    yaml_path = _write_yaml(tmp_path, """
-accounts:
-  prop_velotrade_1:
-    mode: dry_run
-""")
-    assert _read_live_per_account(yaml_path, overrides={"prop_velotrade_1": False}) == {
-        "prop_velotrade_1": True,
-    }
-
-
-def test_mixed_accounts_some_overridden_some_not(tmp_path):
-    """Each account is resolved independently; an override on one must
-    not affect another's default resolution."""
+def test_mixed_accounts_resolve_independently(tmp_path):
+    """Each account is resolved independently from its own YAML `mode`."""
     yaml_path = _write_yaml(tmp_path, """
 accounts:
   bybit_1:
@@ -99,13 +75,10 @@ accounts:
   prop_velotrade_1:
     mode: dry_run
 """)
-    out = _read_live_per_account(
-        yaml_path, overrides={"bybit_2": True}  # operator forced bybit_2 dry
-    )
-    assert out == {
-        "bybit_1": True,        # YAML live, no override → live
-        "bybit_2": False,       # YAML live, but override = dry
-        "prop_velotrade_1": False,  # YAML dry_run, no override → dry
+    assert _read_live_per_account(yaml_path) == {
+        "bybit_1": True,
+        "bybit_2": True,
+        "prop_velotrade_1": False,
     }
 
 
@@ -119,5 +92,5 @@ accounts:
   d: {mode: paper}
   e: {mode: LIVE}
 """)
-    out = _read_live_per_account(yaml_path, overrides={})
+    out = _read_live_per_account(yaml_path)
     assert out == {"a": False, "b": False, "c": False, "d": False, "e": True}
