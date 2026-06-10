@@ -27,15 +27,24 @@ resizable)**, so the only way to get real capacity within Always-Free is to
 The migration is an **architecture change (x86 → ARM64)**, not a like-for-like
 move. Resolve all four before scheduling a cutover:
 
-1. **IB Gateway on ARM64 — the biggest risk.** The MES path uses the
-   `gnzsnz/ib-gateway` Docker image (IBKR's Java Gateway under Xvfb). IBKR
-   ships no official ARM build; confirm whether the image (or an alternative)
-   has a working `linux/arm64` variant, **or** plan to keep the Gateway on a
-   *separate* x86 micro (we have a 2nd free E2.1.Micro in the pool) and point
-   the trader at it over the private subnet. **Do not start the migration
-   until this is settled** — losing MES is not acceptable.
-   - Action: `docker manifest inspect ghcr.io/gnzsnz/ib-gateway:stable` for an
-     arm64 entry; test-run it on the trainer (also A1.Flex/ARM) before cutover.
+1. **IB Gateway on ARM64 — the biggest risk (now de-risked to "test it").**
+   The MES path uses the `gnzsnz/ib-gateway` Docker image (IBKR's Java Gateway
+   under Xvfb). **Researched 2026-06-10:** the image ships **experimental
+   aarch64 support** ("expects bugs") since **v10.37.1l / 10.39.1e** — the live
+   VM runs **10.45.1g**, so an arm64 variant *is* published for our version.
+   So ARM64 is **viable but unproven** for live MES; the plan is to **soak-test
+   it on an ARM box before cutover**, with a ready fallback.
+   - **Verify:** on an A1.Flex (the trainer is ARM), pull + run the arm64
+     image, log into `ib_paper`, confirm `ib_connect_check` returns
+     `net_liquidation` populated (not just a socket accept) and that
+     `reqHistoricalData` for MES returns bars — over a multi-hour soak
+     (the IBKR nightly-reset re-login is exactly where ARM bugs would surface).
+   - **Fallback if the arm64 Gateway is flaky:** keep the Gateway on the
+     **2nd free x86 E2.1.Micro** in the pool and point the ARM trader at it
+     over the private subnet (`IB_HOST`/`ib_port` → the micro's private IP).
+     This fully decouples the MES broker session from the arch change.
+   - **Do not cut over to ARM for live MES until the soak passes** — losing
+     MES is not acceptable. (Bybit/BTCUSDT is unaffected — pure Python/ccxt.)
 2. **Python deps on aarch64.** ccxt, ib_insync, pandas, numpy, oci, fastapi,
    uvicorn all publish aarch64 wheels — low risk, but do a clean
    `pip install -r requirements.txt` on an ARM box (the trainer) and run the
