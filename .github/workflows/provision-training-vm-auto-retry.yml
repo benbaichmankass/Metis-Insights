@@ -22,20 +22,21 @@ name: provision-training-vm-auto-retry
 #      same Out-of-Capacity error (now visible thanks to PR #838) and
 #      this retry loop will try again in 10 minutes.
 #
-# Stopping: there's no explicit stop. Once provisioning succeeds, the
-# existence check turns every subsequent tick into a no-op. To stop
-# the retries entirely, disable this workflow in Settings → Actions,
-# or delete the schedule trigger.
+# Stopping: the 10-minute `schedule:` cron was REMOVED 2026-06-10 — the
+# trainer VM has been provisioned and stable for weeks, so the every-tick
+# existence check was 144 no-op runs/day burning Actions minutes + SSHing
+# the live VM for nothing (Actions-budget cleanup). The workflow stays
+# `workflow_dispatch`-only: if the trainer VM is ever terminated and needs
+# re-provisioning, dispatch this manually (or call `provision-training-vm.yml`
+# directly). Re-add the cron only if OCI capacity becomes a recurring wall again.
 #
 # Authority: docs/claude/trainer-vm-mode.md — autonomous-Claude
-# trainer-VM scope. The retry never touches the live VM (read-only
-# IMDS curl + OCI list_instances + OCI get_vnic), never modifies the
+# trainer-VM scope. The retry never touches the live VM beyond a read-only
+# IMDS curl + OCI list_instances + OCI get_vnic, never modifies the
 # existing provision workflow, and never escalates if capacity is
-# permanently out (the operator can disable it at any time).
+# permanently out.
 
 on:
-  schedule:
-    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 permissions:
