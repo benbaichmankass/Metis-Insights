@@ -44,6 +44,15 @@ EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
 # explicitly here — the watchdog writes its dedup/streak state to
 # $DATA_DIR/runtime_logs/ib_gateway_watchdog_state.json (canonical OCI data dir).
 Environment=DATA_DIR=/data/bot-data
+# Resource priority (2026-06-10): so the probe + any `docker restart` it
+# dispatches run promptly even under load. The IB-gateway container itself is
+# CPU/memory-capped at `docker run` (scripts/install_ib_gateway_docker.sh:
+# --cpus/--memory), and `docker restart` preserves those flags — so the
+# restart churn this watchdog can produce during an IBKR reset window can no
+# longer saturate the 2-core VM (the 2026-06-10 cascade). The watchdog stays
+# high-priority so it itself isn't starved while acting.
+CPUWeight=9000
+Nice=-10
 ExecStart=/usr/bin/python3 -u scripts/check_ib_gateway.py --probe-account ib_paper --auto-restart --restart-after 2 --max-restarts 3 --cooldown-min 20 --exhaustion-reset-min 120
 StandardOutput=journal
 StandardError=journal

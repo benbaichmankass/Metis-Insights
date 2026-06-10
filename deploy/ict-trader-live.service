@@ -8,6 +8,18 @@ Type=simple
 User=ubuntu
 WorkingDirectory=/home/ubuntu/ict-trading-bot
 EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
+# Resource priority (2026-06-10, trader-connection-stability). The trader's
+# single-threaded main loop + the heartbeat it writes between ticks must NEVER
+# be starved by a misbehaving sidecar — the 2026-06-10 incident was exactly
+# that: the IB-gateway watchdog's docker-restart churn (heavy Java) saturated
+# the 2-core VM (loadavg ~10), the trader loop couldn't get scheduled, the
+# heartbeat froze, and the liveness watchdog (also starved) couldn't autoheal
+# for ~25 min. High CPUWeight + IOWeight (cgroup-v2 shares; translated to
+# CPUShares on v1) + a negative Nice guarantee the trader CPU + I/O first under
+# contention. These only bind UNDER contention — an idle box is unaffected.
+CPUWeight=10000
+IOWeight=10000
+Nice=-10
 # 2026-05-08 operator directive: tick every minute (still on 5-min
 # candles — strategy timeframe unchanged). HEARTBEAT_INTERVAL stays
 # at 60 s so liveness signal fires in lock-step with the tick. Both

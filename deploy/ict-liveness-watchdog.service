@@ -25,6 +25,14 @@ Type=oneshot
 User=ubuntu
 WorkingDirectory=/home/ubuntu/ict-trading-bot
 EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
+# Resource priority (2026-06-10): the dead-man switch must be able to RUN and
+# dispatch its `systemctl restart` even when the box is CPU-saturated — on
+# 2026-06-10 the watchdog itself was starved and its restart timed out,
+# delaying autoheal ~25 min. High CPUWeight + negative Nice keep it
+# schedulable under load (pairs with the trader's own high weight so the
+# restart it dispatches is served promptly).
+CPUWeight=9000
+Nice=-10
 # --interval 60 + --grace 5 → alert when heartbeat > 300 s stale (5 min).
 # Covers a normal RestartSec=10 + ~30 s startup without false positives.
 #
