@@ -121,6 +121,18 @@ Without `--oos-start` the result is honest about its weakness: `metric_basis:
 detail says it has not cleared the go-live bar. **A merge-ready Tier-3 packet
 requires the OOS split.**
 
+### k-fold anchored walk-forward (robustness across regimes)
+
+A single split can still be a lucky regime. `--wf-folds N --wf-start DATE
+--wf-end DATE` runs **anchored (expanding-window) k-fold**: the first
+`--wf-train-frac` (default 0.4) of the span is the initial train window; the
+rest is divided into N contiguous OOS segments, and fold *k* trains on
+everything before its segment. Each value's OOS metrics are **aggregated across
+folds** (net Σ, expectancy μ, drawdown = worst fold), and the recommendation
+adds a `robust` flag — true only when the pick is net-positive in **every**
+fold. This is the discipline the live `trend_donchian` floor was set under
+(3-fold). Per-fold detail is kept under each grid row's `folds`.
+
 ```bash
 python scripts/ml/strategy_tune_sweep.py \
   --target 'config/strategies.yaml::trend_donchian.min_confidence' --current-value 0.30 \

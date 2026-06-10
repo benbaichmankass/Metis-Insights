@@ -47,7 +47,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -297,6 +297,69 @@ class WalkForward:
     oos_end: Optional[str] = None
 
 
+@dataclass
+class KFold:
+    """Anchored (expanding-window) k-fold walk-forward over ``[wf_start, wf_end]``.
+
+    The first ``train_frac`` of the span is the initial train window; the
+    remaining span is split into ``folds`` equal OOS segments. Fold *k* trains on
+    everything before its OOS segment (expanding/anchored) and tests on the
+    segment. A tuning value that wins on a single split can be a lucky regime;
+    k-fold confirms it holds across several — the discipline the live
+    ``trend_donchian`` floor was originally set under (3-fold).
+    """
+
+    wf_start: str
+    wf_end: str
+    folds: int = 3
+    train_frac: float = 0.4
+
+
+def _parse_iso_date(s: str) -> datetime:
+    """Parse an ISO date/datetime (date-only accepted) to a UTC datetime."""
+    s = s.strip().replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(s)
+    except ValueError:
+        return datetime.fromisoformat(s + "T00:00:00")
+
+
+def _iso_day(dt: datetime) -> str:
+    return dt.strftime("%Y-%m-%d")
+
+
+def fold_windows(wf: Optional[WalkForward], kf: Optional[KFold]) -> Optional[
+    list[tuple[tuple[Optional[str], Optional[str]], tuple[Optional[str], Optional[str]]]]
+]:
+    """Return the list of ``((train_start, train_end), (oos_start, oos_end))``
+    windows for the run, or None for a full-sample (no-split) run.
+
+    A single ``WalkForward`` yields one fold; a ``KFold`` yields N anchored folds.
+    """
+    if kf is not None:
+        start, end = _parse_iso_date(kf.wf_start), _parse_iso_date(kf.wf_end)
+        total = (end - start).days
+        if total <= 0:
+            raise ValueError(f"kfold wf_end ({kf.wf_end}) must be after wf_start ({kf.wf_start})")
+        if kf.folds < 1:
+            raise ValueError("kfold folds must be >= 1")
+        if not 0.0 < kf.train_frac < 1.0:
+            raise ValueError("kfold train_frac must be in (0, 1)")
+        train_days = total * kf.train_frac
+        seg = (total - train_days) / kf.folds
+        if seg <= 0:
+            raise ValueError("kfold: train_frac leaves no room for OOS folds")
+        out = []
+        for k in range(kf.folds):
+            oos_s = start + timedelta(days=round(train_days + seg * k))
+            oos_e = start + timedelta(days=round(train_days + seg * (k + 1)))
+            out.append(((kf.wf_start, _iso_day(oos_s)), (_iso_day(oos_s), _iso_day(oos_e))))
+        return out
+    if wf is not None:
+        return [((wf.train_start, wf.oos_start), (wf.oos_start, wf.oos_end))]
+    return None
+
+
 # Registry keyed by (harness basename, param). Seeded with the verifiable cases;
 # the doc names this as the extension seam — add a row here to cover a new
 # (harness, param). An unknown pair raises with a pointer to docs/strategy-tuning.md.
@@ -389,6 +452,61 @@ def _wf_row(value: float, train_summary: dict, oos_summary: dict) -> dict[str, A
     row = normalize_row(value, oos_summary)  # top-level == OOS
     train = normalize_row(value, train_summary)
     row["train"] = {k: train[k] for k in _METRIC_FIELDS}
+    return row
+
+
+def _agg_sum(rows: list[dict], key: str) -> Optional[float]:
+    vals = [r[key] for r in rows if r.get(key) is not None]
+    return sum(vals) if vals else None
+
+
+def _agg_mean(rows: list[dict], key: str) -> Optional[float]:
+    vals = [r[key] for r in rows if r.get(key) is not None]
+    return (sum(vals) / len(vals)) if vals else None
+
+
+def _agg_worst(rows: list[dict], key: str) -> Optional[float]:
+    # max drawdown is reported as a positive magnitude → worst = max
+    vals = [r[key] for r in rows if r.get(key) is not None]
+    return max(vals) if vals else None
+
+
+def _aggregate_folds(value: float, fold_results: list[dict]) -> dict[str, Any]:
+    """Fold a value's per-fold (train, oos) summaries into one grid row.
+
+    Top-level metrics are the **OOS aggregate** (net_total summed across folds,
+    expectancy averaged, drawdown = worst fold), so the existing pickers select
+    on OOS. In-sample aggregate is under ``train``; per-fold detail under
+    ``folds``; ``folds_positive`` / ``n_folds`` drive the robustness gate. A
+    single fold reproduces the S2 single-split row exactly.
+    """
+    oos = [normalize_row(value, f["oos"]) for f in fold_results]
+    train = [normalize_row(value, f["train"]) for f in fold_results]
+    row: dict[str, Any] = {
+        "value": value,
+        "trades": _agg_sum(oos, "trades"),
+        "win_rate_pct": _agg_mean(oos, "win_rate_pct"),
+        "net_total": _agg_sum(oos, "net_total"),
+        "net_expectancy": _agg_mean(oos, "net_expectancy"),
+        "max_drawdown": _agg_worst(oos, "max_drawdown"),
+        "train": {
+            "trades": _agg_sum(train, "trades"),
+            "win_rate_pct": _agg_mean(train, "win_rate_pct"),
+            "net_total": _agg_sum(train, "net_total"),
+            "net_expectancy": _agg_mean(train, "net_expectancy"),
+            "max_drawdown": _agg_worst(train, "max_drawdown"),
+        },
+        "folds_positive": sum(1 for r in oos if (r.get("net_total") or 0) > 0),
+        "n_folds": len(oos),
+        "folds": [
+            {
+                "oos_start": f["oos_start"], "oos_end": f["oos_end"],
+                "oos": {k: o[k] for k in _METRIC_FIELDS},
+                "train": {k: t[k] for k in _METRIC_FIELDS},
+            }
+            for f, o, t in zip(fold_results, oos, train)
+        ],
+    }
     return row
 
 
@@ -491,18 +609,19 @@ def run_sweep(
     samples: int,
     runner: Callable[[list[str]], dict[str, Any]] = _run_capture,
     wf: Optional[WalkForward] = None,
+    kfold: Optional[KFold] = None,
 ) -> dict[str, Any]:
     """Execute the recipe's sweep and return the canonical tune result.
 
-    When ``wf`` is set, each value is run on the train AND OOS windows and the
-    grid rows + picks are gated on OOS (top-level metrics == OOS; in-sample
-    nested under ``train``).
+    With ``wf`` (single split) or ``kfold`` (N anchored folds) each value is run
+    on the train AND OOS windows per fold; grid rows + picks are gated on the OOS
+    aggregate (top-level metrics == OOS; in-sample under ``train``; per-fold under
+    ``folds``). Without either, the run is full-sample (in-sample only).
     """
     spec = resolve_spec(recipe)
     grid = parse_search_space(recipe.search_space, recipe.current_value, samples)
     window_days = recipe.evidence_window_days
-    train_win = (wf.train_start, wf.oos_start) if wf else None
-    oos_win = (wf.oos_start, wf.oos_end) if wf else None
+    folds = fold_windows(wf, kfold)
 
     def _invoke(value, window):
         return runner(build_invocation(
@@ -513,24 +632,47 @@ def run_sweep(
     rows: list[dict[str, Any]] = []
     if spec.native_sweep_flag:
         # The harness walks its own grid in one call; re-key its rows onto value.
-        if wf:
-            train_rows = _native_rows_by_value(_invoke(None, train_win), spec)
-            for v, r in _native_rows_by_value(_invoke(None, oos_win), spec).items():
-                rows.append(_wf_row(v, train_rows.get(v, {}), r))
-        else:
+        if folds is None:
             for v, r in _native_rows_by_value(_invoke(None, None), spec).items():
                 rows.append(normalize_row(v, r))
+        else:
+            per_value: dict[float, list[dict]] = {}
+            for tw, ow in folds:
+                train_by_val = _native_rows_by_value(_invoke(None, tw), spec)
+                for v, r in _native_rows_by_value(_invoke(None, ow), spec).items():
+                    per_value.setdefault(v, []).append(
+                        {"oos_start": ow[0], "oos_end": ow[1], "train": train_by_val.get(v, {}), "oos": r}
+                    )
+            for v, fl in per_value.items():
+                rows.append(_aggregate_folds(v, fl))
     else:
         for value in grid:
-            if wf:
-                rows.append(_wf_row(value, _invoke(value, train_win), _invoke(value, oos_win)))
-            else:
+            if folds is None:
                 rows.append(normalize_row(value, _invoke(value, None)))
+            else:
+                fl = [
+                    {"oos_start": ow[0], "oos_end": ow[1],
+                     "train": _invoke(value, tw), "oos": _invoke(value, ow)}
+                    for tw, ow in folds
+                ]
+                rows.append(_aggregate_folds(value, fl))
 
     rows.sort(key=lambda r: (r["value"] if r["value"] == r["value"] else math.inf))
     best_total = _best(rows, "net_total", min_trades=0)
     best_exp = _best(rows, "net_expectancy", min_trades=MIN_TRADES_FOR_EXPECTANCY)
     baseline = _baseline_row(rows, recipe.current_value)
+
+    if kfold is not None:
+        wf_env: Optional[dict] = {
+            "scheme": "kfold_anchored", "wf_start": kfold.wf_start, "wf_end": kfold.wf_end,
+            "folds": kfold.folds, "train_frac": kfold.train_frac,
+            "fold_windows": [{"train": list(tw), "oos": list(ow)} for tw, ow in (folds or [])],
+        }
+    elif wf is not None:
+        wf_env = {"scheme": "single_split", "train_start": wf.train_start,
+                  "oos_start": wf.oos_start, "oos_end": wf.oos_end}
+    else:
+        wf_env = None
 
     return {
         "schema": "strategy_tune_result/v1",
@@ -542,18 +684,16 @@ def run_sweep(
         "fixed_args": list(recipe.fixed_args),
         "fee_bps_roundtrip": fee_bps,
         "evidence_window_days": window_days,
-        "metric_basis": "oos" if wf else "full_sample",
-        "walk_forward": (
-            {"train_start": wf.train_start, "oos_start": wf.oos_start, "oos_end": wf.oos_end}
-            if wf else None
-        ),
+        "metric_basis": "oos" if folds is not None else "full_sample",
+        "walk_forward": wf_env,
         "note": recipe.note,
         "current_value": recipe.current_value,
         "grid": rows,
         "best_by_net_total": best_total,
         "best_by_net_expectancy_minN": best_exp,
         "baseline_row": baseline,
-        "recommendation": _recommendation(recipe, best_total, best_exp, baseline, wf=wf),
+        "recommendation": _recommendation(recipe, best_total, best_exp, baseline,
+                                          oos=folds is not None, kfold=kfold is not None),
     }
 
 
@@ -591,11 +731,13 @@ def _recommendation(
     best_total: Optional[dict],
     best_exp: Optional[dict],
     baseline: Optional[dict],
-    wf: Optional[WalkForward] = None,
+    oos: bool = False,
+    kfold: bool = False,
 ) -> dict[str, Any]:
     """Advisory only. Prefer the expectancy optimum (it carries the min-N floor);
     fall back to total. Under walk-forward the metrics are OOS, so the pick is
-    OOS-validated. Never returns a config write — names the Tier-3 line.
+    OOS-validated; under k-fold it must also win across folds. Never returns a
+    config write — names the Tier-3 line.
     """
     pick = best_exp or best_total
     if pick is None:
@@ -611,7 +753,12 @@ def _recommendation(
         and pick["net_total"] > baseline["net_total"] + 1e-9
         and pick["value"] != baseline["value"]
     )
-    basis = "OOS (walk-forward)" if wf else "full-sample (IN-SAMPLE — not OOS-validated)"
+    if kfold:
+        basis = "OOS (k-fold walk-forward)"
+    elif oos:
+        basis = "OOS (single-split walk-forward)"
+    else:
+        basis = "full-sample (IN-SAMPLE — not OOS-validated)"
     detail = (
         "ADVISORY — applying this is a Tier-3 config/strategies.yaml change the "
         f"operator approves; this harness never writes config. Metric basis: {basis}."
@@ -622,17 +769,25 @@ def _recommendation(
         "proposed_value": pick["value"],
         "yaml_line": f"{recipe.target} : {pick['value']}",
         "beats_baseline": bool(improves),
-        "metric_basis": "oos" if wf else "full_sample",
+        "metric_basis": "oos" if oos else "full_sample",
     }
-    if wf:
+    if oos:
         # Consistency gate: the OOS-optimal value should also be net-positive
         # in-sample, else the OOS lead may be noise rather than a robust edge.
         tr = (pick.get("train") or {}).get("net_total")
         rec["train_oos_consistent"] = bool(tr is not None and tr > 0 and (pick.get("net_total") or 0) > 0)
         if not rec["train_oos_consistent"]:
             detail += " ⚠ OOS pick is not net-positive in-sample — treat as weak."
-    else:
-        detail += " Add a walk-forward split (--oos-start) before this clears the go-live bar."
+    if kfold:
+        # Robustness gate: the pick should be net-positive in EVERY fold.
+        fp, nf = pick.get("folds_positive"), pick.get("n_folds")
+        rec["folds_positive"] = fp
+        rec["n_folds"] = nf
+        rec["robust"] = bool(nf and fp == nf)
+        if not rec["robust"]:
+            detail += f" ⚠ OOS pick positive in only {fp}/{nf} folds — not robust across regimes."
+    if not oos:
+        detail += " Add a walk-forward split (--oos-start / --wf-folds) before this clears the go-live bar."
     rec["detail"] = detail
     return rec
 
@@ -652,10 +807,29 @@ def render_markdown(result: dict[str, Any]) -> str:
     if result.get("note"):
         L.append(f"- **Recipe note:** {result['note']}")
     wf = result.get("walk_forward")
-    if wf:
-        L.append(f"- **Walk-forward:** train [{wf.get('train_start') or '…'}, {wf['oos_start']}) · "
+    scheme = wf.get("scheme") if wf else None
+    if scheme == "single_split":
+        L.append(f"- **Walk-forward (single split):** train [{wf.get('train_start') or '…'}, {wf['oos_start']}) · "
                  f"OOS [{wf['oos_start']}, {wf.get('oos_end') or '…'}] — metrics below are **OOS**.")
-    if wf:
+    elif scheme == "kfold_anchored":
+        L.append(f"- **Walk-forward (k-fold anchored):** {wf['folds']} folds over "
+                 f"[{wf['wf_start']}, {wf['wf_end']}], train_frac {wf['train_frac']} — metrics below are the **OOS aggregate** (net Σ, exp μ).")
+
+    if scheme == "kfold_anchored":
+        L += ["", "## Grid (net-of-fee · OOS aggregate across folds)", "",
+              "| value | OOS trades | OOS net Σ | OOS exp μ | OOS maxDD | folds+ | train net Σ |",
+              "|---|---|---|---|---|---|---|"]
+        for r in result["grid"]:
+            tr = r.get("train") or {}
+            L.append(
+                "| {v} | {t} | {nt} | {ne} | {dd} | {fp}/{nf} | {tnt} |".format(
+                    v=_fmt(r["value"]), t=_fmt(r["trades"], 0), nt=_fmt(r["net_total"]),
+                    ne=_fmt(r["net_expectancy"]), dd=_fmt(r["max_drawdown"]),
+                    fp=_fmt(r.get("folds_positive"), 0), nf=_fmt(r.get("n_folds"), 0),
+                    tnt=_fmt(tr.get("net_total")),
+                )
+            )
+    elif scheme == "single_split":
         L += ["", "## Grid (net-of-fee · OOS | train)", "",
               "| value | OOS trades | OOS net | OOS exp | OOS maxDD | train net | train exp |",
               "|---|---|---|---|---|---|---|"]
@@ -694,6 +868,8 @@ def render_markdown(result: dict[str, Any]) -> str:
         L.append(f"- **beats baseline:** {rec['beats_baseline']}")
         if "train_oos_consistent" in rec:
             L.append(f"- **train/OOS consistent:** {rec['train_oos_consistent']}")
+        if "robust" in rec:
+            L.append(f"- **robust across folds:** {rec['robust']} ({_fmt(rec.get('folds_positive'),0)}/{_fmt(rec.get('n_folds'),0)} OOS-positive)")
     L.append(f"- {rec['detail']}")
     return "\n".join(L) + "\n"
 
@@ -766,14 +942,26 @@ def main(argv: Optional[list[str]] = None) -> int:
                         "OOS=[oos-start, oos-end]. Metrics + picks become OOS-gated.")
     p.add_argument("--train-start", default=None, help="Walk-forward train-window start (default: data start).")
     p.add_argument("--oos-end", default=None, help="Walk-forward OOS-window end (default: data end).")
+    p.add_argument("--wf-folds", type=int, default=None,
+                   help="Enable k-fold anchored walk-forward with N folds over [--wf-start, --wf-end] "
+                        "(robustness across regimes). Overrides --oos-start.")
+    p.add_argument("--wf-start", default=None, help="K-fold span start (ISO date).")
+    p.add_argument("--wf-end", default=None, help="K-fold span end (ISO date).")
+    p.add_argument("--wf-train-frac", type=float, default=0.4,
+                   help="Fraction of the k-fold span used as the initial anchored train window (default 0.4).")
     p.add_argument("--dry-run", action="store_true", help="Print the grid + planned invocations; don't run.")
     args = p.parse_args(argv)
 
     recipe = _recipe_from_args(args)
-    wf = (
-        WalkForward(oos_start=args.oos_start, train_start=args.train_start, oos_end=args.oos_end)
-        if args.oos_start else None
-    )
+    kfold = None
+    wf = None
+    if args.wf_folds:
+        if not (args.wf_start and args.wf_end):
+            raise SystemExit("--wf-folds requires --wf-start and --wf-end")
+        kfold = KFold(wf_start=args.wf_start, wf_end=args.wf_end,
+                      folds=args.wf_folds, train_frac=args.wf_train_frac)
+    elif args.oos_start:
+        wf = WalkForward(oos_start=args.oos_start, train_start=args.train_start, oos_end=args.oos_end)
 
     if args.dry_run:
         spec = resolve_spec(recipe)
@@ -782,10 +970,16 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(f"grid ({len(grid)}): {grid}")
         if recipe.fixed_args:
             print(f"fixed_args: {recipe.fixed_args}")
-        windows = ([("train", (wf.train_start, wf.oos_start)), ("oos", (wf.oos_start, wf.oos_end))]
-                   if wf else [(None, None)])
-        if wf:
-            print(f"walk-forward: train=[{wf.train_start or '…'},{wf.oos_start}) oos=[{wf.oos_start},{wf.oos_end or '…'}]")
+        folds = fold_windows(wf, kfold)
+        if folds is None:
+            windows = [(None, None)]
+        else:
+            windows = []
+            for n, (tw, ow) in enumerate(folds):
+                windows.append((f"fold{n}-train", tw))
+                windows.append((f"fold{n}-oos", ow))
+            print(f"walk-forward ({'kfold' if kfold else 'single'}): "
+                  + " | ".join(f"oos[{ow[0]},{ow[1]}]" for _, ow in folds))
         if spec.native_sweep_flag:
             for label, win in windows:
                 argv_ = build_invocation(spec, value=None, data=args.data,
@@ -802,7 +996,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 0
 
     result = run_sweep(
-        recipe, data=args.data, fee_bps=args.fee_bps_roundtrip, samples=args.samples, wf=wf
+        recipe, data=args.data, fee_bps=args.fee_bps_roundtrip, samples=args.samples,
+        wf=wf, kfold=kfold,
     )
     out_dir = Path(args.out_dir) if args.out_dir else None
     json_path, md_path = write_outputs(result, out_dir)
