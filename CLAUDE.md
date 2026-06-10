@@ -195,19 +195,33 @@ wire-up. See trainer-vm-mode.md § 5 for the full lifecycle.
   ping the operator; once the operator approves, you may merge and
   deploy.
 - Never copy production secrets to the trainer.
-- Never provision past the OCI Always Free 4-OCPU / 24-GB tenancy
-  ceiling. As of 2026-06-10 the **live trader holds 2 OCPU** and the
-  **trainer holds 1 OCPU / 6 GB** (both `VM.Standard.A1.Flex`). The
-  2-core live VM has no CPU headroom — sidecars (IB-gateway Java, regime
-  scoring, web-api) periodically saturate it and starve the trader's
-  single-threaded loop (the 2026-06-10 wedge cascade). The sanctioned
-  remedy is the **`vm-resize-live`** workflow (`scripts/ops/resize_live_vm.py`),
-  which stops/resizes/starts the live VM to **3 OCPU / 18 GB** — which
-  with the trainer's 1 / 6 fills the pool exactly (4 / 24). Going to a
-  4-OCPU live VM is **not** possible while the trainer runs (A1.Flex has
-  a 1-OCPU floor, so live 4 + trainer 1 = 5 > 4). The resize is
-  operator-gated (brief live-trader outage; positions sit on broker
-  SL/TP meanwhile).
+- Never provision past the OCI Always Free 4-OCPU / 24-GB Ampere tenancy
+  ceiling. **Topology as of 2026-06-10 (gateway-isolation, Plan B):**
+  - **Live trader** — `VM.Standard.E2.1.Micro` (**1 OCPU / 1 GB, x86**, a
+    *separate* AMD Always-Free allocation, NOT the Ampere pool;
+    `158.178.210.252`). Fixed shape (micros aren't resizable).
+  - **Trainer** — `VM.Standard.A1.Flex` 1 OCPU / 6 GB (Ampere; `158.178.209.121`).
+  - **IB Gateway** — `VM.Standard.A1.Flex` 1 OCPU / 6 GB (Ampere; `ict-ib-gateway`,
+    private IP `10.0.0.251`) — its own dedicated box. **Ampere usage: trainer 1 +
+    gateway 1 = 2 of 4.**
+
+  The 2026-06-10 wedge cascade root cause was the **heavy IB-Gateway
+  (Java/Xvfb/IBC) sharing the 1 GB micro** with the trader → swap-thrash. The
+  fix was to **move the gateway off the money box onto its own Ampere VM**
+  (gateway isolation); the trader reaches it over the private subnet
+  (`config/accounts.yaml::ib_paper.ib_host = 10.0.0.251`). Recovery is now one
+  deterministic daily `docker restart` (`ict-ib-gateway-reset.timer`, 05:30 UTC,
+  on the gateway VM) + an alert-only daily health-check — the reactive 5-min
+  restart-loop watchdog is retired. Full topology + rationale:
+  [`docs/runbooks/ib-integration.md`](docs/runbooks/ib-integration.md) §
+  "Gateway isolation redesign".
+
+  The **live→3-OCPU Ampere migration is PAUSED**: with the gateway off the
+  micro, the 2 vCPU micro may hold the trader + web-api + sidecars (helped by
+  the #3232 cgroup priority + sidecar caps). Measure the micro's load
+  sans-gateway first; only migrate live to Ampere (3 OCPU / 18 GB via
+  `vm-resize-live` or a fresh A1.Flex) if 2 cores genuinely can't hold it. The
+  paused migration tooling (`provision-live-vm`, `terminate-instance`) remains.
 
 When in doubt about scope, default to the **live-VM** rules and ask.
 
@@ -702,7 +716,7 @@ uvicorn src.web.api.main:app --port 8001 --reload
 - `src/web/runtime_status.py` is imported by `src/runtime/pipeline.py` — do NOT delete it
 - `heartbeat.txt` mtime is the canonical "is the trader process responsive" signal. Refreshed every `HEARTBEAT_INTERVAL_SECONDS` (default 60 s) from inside `src/main.py`'s sleep loop — so it fires between ticks too, not just at tick completion. A pipeline hang stops the heartbeat (the loop is on the main thread, no daemon) so liveness still reflects pipeline health. Thresholds derived from the same cadence: `< cadence × 3` → running, `< cadence × 10` → paused, else stopped. Helper at `src/runtime/heartbeat.py::heartbeat_label`. Prior history: 2 min threshold (way too tight for a 15-min tick) → 10 min in 2026-05-07 → 18 min (tick × 1.2) on 2026-05-08 → finally cadence-based with 60 s heartbeat the same day, after the tick-coupled basis kept under-counting healthy idleness.
 - **External liveness watchdog (`ict-liveness-watchdog.{service,timer}`, 2026-05-11)** is the per-minute dead-man switch on top of the in-process heartbeat. Runs `scripts/check_heartbeat.py` every 60 s; Telegrams `[CRITICAL] Trader heartbeat stale` after 5 min of stale mtime; auto-restarts `ict-trader-live.service` after 8 min total stall (autoheal opt-in via `--auto-restart-after 3`, currently ON). **Restart-loop containment (`--max-restarts 5` / `--cooldown-min 3` / `--restart-startup-grace-seconds 180`, hardened 2026-06-09, BL-20260605-001):** restarts are capped per stall episode (then a one-shot `[CRITICAL] EXHAUSTED` ping + alert-only until the heartbeat recovers, which resets the budget), spaced by a cooldown, and skipped while the trader is inside its post-restart startup grace (so it's never killed mid-first-tick). A restart that fails to *dispatch* (e.g. `systemctl` timing out under CPU saturation — the 2026-06-09 incident, `BL-20260609-001`) does NOT consume an attempt or start the cooldown, so the watchdog retries next check instead of going silent. **Boot-grace (`--boot-grace-seconds 600`, added 2026-05-28):** for the first 10 min after a host boot the watchdog suppresses heartbeat missing/stale alerts AND autoheal (the trader is expected to be starting under systemd) and sends no "recovered" ping when it comes up — so a VM reboot no longer spams `[CRITICAL] heartbeat stale` + `[OK] recovered` on top of the reboot ping; a heartbeat still stale once the window closes alerts as a genuine failure-to-recover (uptime read from `/proc/uptime`, fail-open to "long up" so a real stall is never silently suppressed). Stdlib-only so it works even when the trader's venv is wedged. Full operator runbook: [`docs/runbooks/liveness-watchdog.md`](docs/runbooks/liveness-watchdog.md). Not to be confused with `ict-heartbeat.{service,timer}` which is the once-daily operator status digest at 13:00 UTC (`scripts/daily_heartbeat.py`). **Note (2026-05-12 incident):** the watchdog correctly auto-restarted the trader after the 16h heartbeat-writer silent failure, but the new process retained whatever state was making bybit_2 dry. The Prime Directive (above) addresses the conceptual root cause: no auto-flip code paths should exist. The watchdog's restart behaviour is unchanged — restarting is fine; what was wrong was the flip itself.
-- **IB Gateway auto-heal watchdog (`ict-ib-gateway-watchdog.{service,timer}`, 2026-05-28)** is the MES dead-man switch for the *broker session* — distinct from the liveness watchdog above, which guards the *trader process*. Fires `scripts/check_ib_gateway.py` every 5 min (timer `OnBootSec=3min` / `OnUnitActiveSec=5min`); probes `ib_paper` via `ib_connect_check` — a logged-out Gateway still reports `connected=true` but `net_liquidation=None`, so **health = connected AND net_liquidation populated** — and after 2 consecutive wedged checks runs `scripts/ops/restart_ib_gateway.sh` (the same `docker restart` as the manual `vm-ib-gateway-recover` workflow). Guard rails `--restart-after 2 --max-restarts 3 --cooldown-min 20` mean a genuine IBKR lockout can never become a restart loop; once exhausted it alert-only escalates to Telegram. Heals the overnight IBKR-reset wedge that used to leave MES dark for hours pending a manual recover. Full runbook: [`docs/runbooks/ib-integration.md`](docs/runbooks/ib-integration.md) § Auto-heal watchdog; the root-cause investigation (IBC nightly auto-restart unreliable) is health-review backlog `BL-20260527-003`. Queryable on the diag surface (`/api/diag/services` + `/api/diag/journalctl?unit=ict-ib-gateway-watchdog.service`) since it was added to `_CANONICAL_UNITS` (#2192).
+- **IB Gateway auto-heal watchdog (`ict-ib-gateway-watchdog.{service,timer}`, 2026-05-28)** — **SUPERSEDED 2026-06-10 by the gateway-isolation redesign** (gateway moved to its own VM; this unit is now a **daily alert-only** health-check and a separate `ict-ib-gateway-reset.timer` does one deterministic daily `docker restart`; the reactive 5-min restart-loop below is retired — see [`docs/runbooks/ib-integration.md`](docs/runbooks/ib-integration.md) § "Gateway isolation redesign"). The historical description below is kept as record. It is the MES dead-man switch for the *broker session* — distinct from the liveness watchdog above, which guards the *trader process*. Fired `scripts/check_ib_gateway.py` every 5 min (timer `OnBootSec=3min` / `OnUnitActiveSec=5min`); probes `ib_paper` via `ib_connect_check` — a logged-out Gateway still reports `connected=true` but `net_liquidation=None`, so **health = connected AND net_liquidation populated** — and after 2 consecutive wedged checks runs `scripts/ops/restart_ib_gateway.sh` (the same `docker restart` as the manual `vm-ib-gateway-recover` workflow). Guard rails `--restart-after 2 --max-restarts 3 --cooldown-min 20` mean a genuine IBKR lockout can never become a restart loop; once exhausted it alert-only escalates to Telegram. Heals the overnight IBKR-reset wedge that used to leave MES dark for hours pending a manual recover. Full runbook: [`docs/runbooks/ib-integration.md`](docs/runbooks/ib-integration.md) § Auto-heal watchdog; the root-cause investigation (IBC nightly auto-restart unreliable) is health-review backlog `BL-20260527-003`. Queryable on the diag surface (`/api/diag/services` + `/api/diag/journalctl?unit=ict-ib-gateway-watchdog.service`) since it was added to `_CANONICAL_UNITS` (#2192).
 - The old HTMX UI (`web/static/`, `web/templates/`, `src/web/api/routers/ui.py`) has been removed
 - The old Streamlit UIs (`src/web/backtest_ui.py`, `src/web/config_ui.py`) have been removed
 - The old `cf-worker/` directory was removed (2026-05-12), and the **entire Cloudflare tunnel integration was purged from the repo in the full-system-audit cleanup**: the `ict-cloudflared-tunnel` service unit + drop-in, the four `*_cloudflare_tunnel.sh` scripts, the `*-cloudflare-tunnel` system-actions (+ their tests/allowlist), and the `cloudflare-named-tunnel` runbook are all gone. The Streamlit dashboard makes its upstream call server-side and needs no tunnel. If the `ict-cloudflared-tunnel.service` unit is still installed on the live VM, stop + disable it (`sudo systemctl disable --now ict-cloudflared-tunnel.service`). Historical sprint logs/audit (`S-CFW-*`, `vercel-edge-vs-cf-worker.md`) are kept as the record of why CF was tried and retired.
