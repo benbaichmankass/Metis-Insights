@@ -1,0 +1,225 @@
+name: vm-resize-live
+
+# Resize the LIVE trader VM (Ampere A1.Flex) within the OCI Always-Free pool.
+#
+# WHY: the 2-core live VM has no CPU headroom — sidecars (IB-gateway Java,
+# regime scoring, web-api) periodically saturate it and starve the trader's
+# single-threaded loop (the 2026-06-10 wedge cascade). cgroup priority keeps
+# the trader alive but not snappy; the durable fix is more cores. The
+# Always-Free Ampere ceiling is 4 OCPU / 24 GB tenancy-wide, shared with the
+# trainer VM (1 OCPU / 6 GB), so the live VM can grow to 3 OCPU / 18 GB while
+# keeping the trainer alive.
+#
+# A1.Flex shape changes require the instance STOPPED, so this is a
+# stop -> update-shape -> start sequence. The live trader is DOWN for the
+# duration (typically 2-5 min); open positions sit on their broker-side
+# SL/TP, and the trader's systemd units bring it back on START.
+#
+# This is an operator-gated, live-impacting action — it interrupts the live
+# trader. Drive it only with explicit operator approval. Start with a
+# `dry_run: true` request to confirm the current shape + plan with no outage.
+#
+# Two trigger paths:
+#   1. workflow_dispatch — inputs ocpus / memory_gbs / dry_run.
+#   2. issues.opened/labeled with `vm-resize-live` — body:
+#        ocpus: 3
+#        memory_gbs: 18
+#        dry_run: false
+#        reason: <text>
+#
+# Required repo secrets: VM_SSH_KEY + OCI_CLI_{USER,FINGERPRINT,TENANCY,
+#   REGION,KEY_CONTENT} (same set the provision-training-vm workflow uses).
+# Required repo label: vm-resize-live (created by bootstrap-labels.yml).
+
+on:
+  workflow_dispatch:
+    inputs:
+      ocpus:
+        description: "Target OCPUs for the live VM (e.g. 3)"
+        required: true
+        default: "3"
+      memory_gbs:
+        description: "Target memory in GB (e.g. 18)"
+        required: true
+        default: "18"
+      dry_run:
+        description: "true = report current shape + plan only, no stop/resize"
+        required: false
+        default: "true"
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vm-resize-live
+  cancel-in-progress: false
+
+jobs:
+  resize:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'vm-resize-live'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VM_SSH_HOST: ${{ vars.LIVE_VM_IP || '158.178.210.252' }}
+      VM_SSH_USER: ${{ vars.LIVE_VM_USER || 'ubuntu' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dedup — bail if a bot comment already exists
+        if: github.event_name == 'issues'
+        id: dedup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const hasBotComment = comments.some(
+              c => c.user && c.user.login === 'github-actions[bot]'
+            );
+            core.setOutput('skip', hasBotComment ? 'true' : 'false');
+
+      - name: Parse target from issue body
+        id: parse
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          ocpus="$(printf '%s' "${ISSUE_BODY}" | awk -F: '/^[[:space:]]*ocpus[[:space:]]*:/{gsub(/[[:space:]]/,"",$2);print $2;exit}')"
+          mem="$(printf '%s' "${ISSUE_BODY}" | awk -F: '/^[[:space:]]*memory_gbs[[:space:]]*:/{gsub(/[[:space:]]/,"",$2);print $2;exit}')"
+          dry="$(printf '%s' "${ISSUE_BODY}" | awk -F: '/^[[:space:]]*dry_run[[:space:]]*:/{gsub(/[[:space:]]/,"",$2);print tolower($2);exit}')"
+          if [ -z "${ocpus}" ] || [ -z "${mem}" ]; then
+            echo "::error::Issue body must contain 'ocpus:' and 'memory_gbs:' lines."
+            exit 1
+          fi
+          # Default dry_run to true (safe) when unspecified.
+          [ -z "${dry}" ] && dry="true"
+          echo "ocpus=${ocpus}"       >> "$GITHUB_OUTPUT"
+          echo "memory_gbs=${mem}"    >> "$GITHUB_OUTPUT"
+          echo "dry_run=${dry}"       >> "$GITHUB_OUTPUT"
+
+      - name: Resolve effective inputs
+        id: inputs
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "ocpus=${{ inputs.ocpus }}"          >> "$GITHUB_OUTPUT"
+            echo "memory_gbs=${{ inputs.memory_gbs }}" >> "$GITHUB_OUTPUT"
+            echo "dry_run=${{ inputs.dry_run }}"       >> "$GITHUB_OUTPUT"
+          else
+            echo "ocpus=${{ steps.parse.outputs.ocpus }}"          >> "$GITHUB_OUTPUT"
+            echo "memory_gbs=${{ steps.parse.outputs.memory_gbs }}" >> "$GITHUB_OUTPUT"
+            echo "dry_run=${{ steps.parse.outputs.dry_run }}"       >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up SSH key
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Discover live instance OCID via IMDS
+        id: imds
+        if: steps.dedup.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              'curl -sS -H "Authorization: Bearer Oracle" --max-time 5 http://169.254.169.254/opc/v2/instance/' \
+              > imds.json
+          instance_id=$(python3 -c 'import json;print(json.load(open("imds.json"))["id"])')
+          region=$(python3 -c 'import json;print(json.load(open("imds.json"))["regionInfo"]["regionIdentifier"])')
+          echo "live_instance_id=${instance_id}" >> "$GITHUB_OUTPUT"
+          echo "region=${region}" >> "$GITHUB_OUTPUT"
+          echo "Live instance: ${instance_id} (region ${region})"
+
+      - name: Set up Python + OCI SDK
+        if: steps.dedup.outputs.skip != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install oci sdk
+        if: steps.dedup.outputs.skip != 'true'
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --quiet 'oci>=2.119,<3'
+
+      - name: Run resize
+        id: resize
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION || steps.imds.outputs.region }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          LIVE_INSTANCE_ID: ${{ steps.imds.outputs.live_instance_id }}
+          TARGET_OCPUS: ${{ steps.inputs.outputs.ocpus }}
+          TARGET_MEMORY_GBS: ${{ steps.inputs.outputs.memory_gbs }}
+          DRY_RUN: ${{ steps.inputs.outputs.dry_run }}
+        run: |
+          set +e
+          python3 scripts/ops/resize_live_vm.py | tee /tmp/resize_out.jsonl
+          echo "rc=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Post-resize verify (best effort)
+        id: verify
+        if: steps.dedup.outputs.skip != 'true' && steps.inputs.outputs.dry_run != 'true'
+        run: |
+          set +e
+          echo "Waiting for the VM to boot + trader to come up..."
+          sleep 100
+          ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              'echo "nproc: $(nproc)"; echo "mem_gb:"; free -g | awk "/Mem:/{print \$2}"; echo "trader: $(systemctl is-active ict-trader-live.service 2>/dev/null)"; echo "heartbeat mtime: $(stat -c %y /data/bot-data/runtime_logs/heartbeat.txt 2>/dev/null)"' \
+              > /tmp/verify.txt 2>&1
+          cat /tmp/verify.txt || true
+
+      - name: Post result to issue
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const read = (p) => { try { return fs.readFileSync(p, 'utf8'); } catch { return '(none)'; } };
+            const out = read('/tmp/resize_out.jsonl');
+            const verify = read('/tmp/verify.txt');
+            const rc = '${{ steps.resize.outputs.rc }}';
+            const dry = '${{ steps.inputs.outputs.dry_run }}';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const ok = rc === '0';
+            const head = `${ok ? '✅' : '❌'} **vm-resize-live** (${dry === 'true' ? 'DRY RUN' : 'LIVE'}) rc=${rc}\nRun: ${runUrl}`;
+            const body = [
+              head, '',
+              '**Resize phases:**', '```', out.slice(0, 30000), '```',
+              '**Post-resize verify:**', '```', verify.slice(0, 4000), '```',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed', state_reason: ok ? 'completed' : 'not_planned'
+            });
