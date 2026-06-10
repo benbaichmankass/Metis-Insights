@@ -426,3 +426,104 @@ def test_run_sweep_full_sample_flags_not_oos_validated():
     assert result["walk_forward"] is None
     assert "IN-SAMPLE" in result["recommendation"]["detail"] or \
            "walk-forward split" in result["recommendation"]["detail"]
+
+
+# --------------------------------------------------------------------------- #
+# S3 — k-fold anchored walk-forward
+# --------------------------------------------------------------------------- #
+def test_fold_windows_kfold_anchored_count_and_anchor():
+    kf = sweep.KFold(wf_start="2021-01-01", wf_end="2026-01-01", folds=4, train_frac=0.4)
+    fw = sweep.fold_windows(None, kf)
+    assert len(fw) == 4
+    # every fold trains from the span start (anchored/expanding)
+    assert all(tw[0] == "2021-01-01" for tw, ow in fw)
+    # OOS segments are contiguous and ordered
+    oos_starts = [ow[0] for tw, ow in fw]
+    assert oos_starts == sorted(oos_starts)
+    # first OOS starts after the initial train fraction (~2 of 5 years in)
+    assert fw[0][1][0] > "2022-01-01"
+
+
+def test_fold_windows_single_split_one_fold():
+    wf = sweep.WalkForward(oos_start="2025-01-01", oos_end="2026-01-01")
+    fw = sweep.fold_windows(wf, None)
+    assert fw == [((None, "2025-01-01"), ("2025-01-01", "2026-01-01"))]
+
+
+def test_fold_windows_none_when_no_wf():
+    assert sweep.fold_windows(None, None) is None
+
+
+@pytest.mark.parametrize("kf", [
+    sweep.KFold("2026-01-01", "2021-01-01", 4, 0.4),   # end before start
+    sweep.KFold("2021-01-01", "2026-01-01", 0, 0.4),   # zero folds
+    sweep.KFold("2021-01-01", "2026-01-01", 4, 1.5),   # bad train_frac
+])
+def test_fold_windows_kfold_rejects_bad(kf):
+    with pytest.raises(ValueError):
+        sweep.fold_windows(None, kf)
+
+
+def _kfold_runner_factory(by_fold_value):
+    """Runner keyed on (fold_index, window-label, value). Fold index derived from
+    the OOS-start date in argv; window label from presence of matching dates."""
+
+    def runner(argv):
+        val = float(argv[argv.index("--min-confidence") + 1])
+        # train windows carry --end == a fold boundary; oos carry --start == boundary
+        # We encode folds by the boundary date present.
+        start = argv[argv.index("--start") + 1] if "--start" in argv else None
+        end = argv[argv.index("--end") + 1] if "--end" in argv else None
+        label = "train" if end and start == "2021-01-01" and end != "2026-01-01" else "oos"
+        # fold key = the oos boundary date
+        key_date = end if label == "train" else start
+        return by_fold_value[(key_date, label, val)]
+
+    return runner
+
+
+def test_run_sweep_kfold_aggregates_and_gates_on_robustness():
+    recipe = sweep.TuneRecipe(
+        "config/strategies.yaml::trend_donchian.min_confidence",
+        current_value=0.3, search_space="[0.3, 0.6]",
+        harness="scripts/backtest_trend.py",
+    )
+    kf = sweep.KFold(wf_start="2021-01-01", wf_end="2026-01-01", folds=2, train_frac=0.4)
+    fw = sweep.fold_windows(None, kf)
+    # fold k keys on its OOS-start date (== that fold's train-end and oos-start)
+    b0 = fw[0][1][0]  # fold0 boundary
+    b1 = fw[1][1][0]  # fold1 boundary
+
+    def summ(net):
+        return {"total_trades": 60, "net_total_r": net, "net_expectancy_r": net / 60}
+
+    canned = {
+        # value 0.3: fold0 oos positive, fold1 oos NEGATIVE → not robust
+        (b0, "train", 0.3): summ(40), (b0, "oos", 0.3): summ(10),
+        (b1, "train", 0.3): summ(35), (b1, "oos", 0.3): summ(-8),
+        # value 0.6: positive in BOTH oos folds → robust
+        (b0, "train", 0.6): summ(30), (b0, "oos", 0.6): summ(6),
+        (b1, "train", 0.6): summ(28), (b1, "oos", 0.6): summ(9),
+    }
+    result = sweep.run_sweep(recipe, data=None, fee_bps=7.5, samples=9,
+                             runner=_kfold_runner_factory(canned), kfold=kf)
+    assert result["metric_basis"] == "oos"
+    assert result["walk_forward"]["scheme"] == "kfold_anchored"
+    row06 = next(r for r in result["grid"] if r["value"] == 0.6)
+    row03 = next(r for r in result["grid"] if r["value"] == 0.3)
+    # aggregate OOS net = sum across folds
+    assert row06["net_total"] == 15 and row06["folds_positive"] == 2 and row06["n_folds"] == 2
+    assert row03["net_total"] == 2 and row03["folds_positive"] == 1  # one fold negative
+    rec = result["recommendation"]
+    # best net_total = 0.6 (15 > 2); robust because positive in all folds
+    assert rec["proposed_value"] == 0.6
+    assert rec["robust"] is True and rec["folds_positive"] == 2
+
+
+def test_registry_trend_structural_params_dispatch():
+    for param, flag in [("trail_mult", "--trail-mult"), ("atr_stop_mult", "--atr-stop-mult"),
+                        ("donchian", "--donchian"), ("atr_period", "--atr-period")]:
+        r = sweep.TuneRecipe(f"config/strategies.yaml::trend_donchian.{param}",
+                             None, "[1,2]", "scripts/backtest_trend.py")
+        spec = sweep.resolve_spec(r)
+        assert spec.flag == flag and not spec.native_sweep_flag
