@@ -15,6 +15,19 @@ DOCKER_ENV="${IB_DOCKER_ENV:-/etc/ict/ib-gateway-docker.env}"
 COMPOSE_SRC="${REPO_ROOT}/deploy/ib-gateway.compose.yml"
 COMPOSE_DST="${IB_COMPOSE:-/etc/ict/ib-gateway.compose.yml}"
 
+# Resource caps for the gateway container (2026-06-10, trader-connection-
+# stability). The IB Gateway is a heavy Java GUI app under Xvfb; an
+# unauthenticated re-login loop during IBKR's reset window can spin it hot, and
+# on the shared 2-core live VM that starved the trader's single-threaded main
+# loop (loadavg ~10, the 2026-06-10 cascade that wedged the trader ~25 min).
+# Cap CPU + memory so the gateway can NEVER dominate the box — the trader keeps
+# ticking even while the gateway churns, and `docker restart` (the watchdog's
+# recovery path) preserves these flags so restarts stay capped too. Setting
+# --memory-swap == --memory disables container swap (we saw kswapd thrashing
+# under the cascade). Override via env on the VM.
+IB_GATEWAY_CPUS="${IB_GATEWAY_CPUS:-0.75}"
+IB_GATEWAY_MEMORY="${IB_GATEWAY_MEMORY:-1500m}"
+
 log() { echo "[install_ib_gateway_docker] $*"; }
 
 if [[ ! -f "${ENV_FILE}" ]]; then
@@ -102,9 +115,13 @@ log "starting container (literal --env-file)"
 sudo docker run -d \
   --name ib-gateway \
   --restart unless-stopped \
+  --cpus "${IB_GATEWAY_CPUS}" \
+  --memory "${IB_GATEWAY_MEMORY}" \
+  --memory-swap "${IB_GATEWAY_MEMORY}" \
   --env-file "${DOCKER_ENV}" \
   -p 127.0.0.1:4002:4004 \
   "${IMAGE}"
+log "container resource caps: --cpus=${IB_GATEWAY_CPUS} --memory=${IB_GATEWAY_MEMORY} (swap disabled)"
 sleep 8
 log "container state:"
 sudo docker ps --filter name=ib-gateway --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' || true
