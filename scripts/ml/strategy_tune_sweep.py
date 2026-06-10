@@ -377,6 +377,21 @@ _REGISTRY: dict[tuple[str, str], HarnessSpec] = {
     ("backtest_ict_scalp.py", "min_confidence"): HarnessSpec(
         module="scripts/backtest_ict_scalp.py", is_module=False, flag="--min-confidence"
     ),
+    # trend_donchian structural params (live strategy) — backtest_trend.py exposes
+    # each as a CLI flag, so the per-value driver sweeps them directly. The config
+    # param name maps to the harness flag; pin the rest via fixed_args.
+    ("backtest_trend.py", "trail_mult"): HarnessSpec(
+        module="scripts/backtest_trend.py", is_module=False, flag="--trail-mult"
+    ),
+    ("backtest_trend.py", "atr_stop_mult"): HarnessSpec(
+        module="scripts/backtest_trend.py", is_module=False, flag="--atr-stop-mult"
+    ),
+    ("backtest_trend.py", "donchian"): HarnessSpec(
+        module="scripts/backtest_trend.py", is_module=False, flag="--donchian"
+    ),
+    ("backtest_trend.py", "atr_period"): HarnessSpec(
+        module="scripts/backtest_trend.py", is_module=False, flag="--atr-period"
+    ),
     # vwap entry threshold is a module constant — only the native sweep reaches it.
     ("run_backtest_vwap.py", "threshold"): HarnessSpec(
         module="src.backtest.run_backtest_vwap",

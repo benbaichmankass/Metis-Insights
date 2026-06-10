@@ -518,3 +518,12 @@ def test_run_sweep_kfold_aggregates_and_gates_on_robustness():
     # best net_total = 0.6 (15 > 2); robust because positive in all folds
     assert rec["proposed_value"] == 0.6
     assert rec["robust"] is True and rec["folds_positive"] == 2
+
+
+def test_registry_trend_structural_params_dispatch():
+    for param, flag in [("trail_mult", "--trail-mult"), ("atr_stop_mult", "--atr-stop-mult"),
+                        ("donchian", "--donchian"), ("atr_period", "--atr-period")]:
+        r = sweep.TuneRecipe(f"config/strategies.yaml::trend_donchian.{param}",
+                             None, "[1,2]", "scripts/backtest_trend.py")
+        spec = sweep.resolve_spec(r)
+        assert spec.flag == flag and not spec.native_sweep_flag
