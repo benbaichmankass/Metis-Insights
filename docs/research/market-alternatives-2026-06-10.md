@@ -41,10 +41,15 @@ The operator reviewed this memo in chat and decided:
    divisions decline Israeli-resident retail FX clients (Israeli ISA
    rules have pushed many foreign brokers to do so). Consequence: the
    OANDA US division is **FX-only** (no index/metal CFDs), so the
-   index/metals exposure replacement belongs to Alpaca ETFs. Caveat
-   flagged: US-resident accounts mean W-9/US tax reporting — operator to
-   confirm with their tax adviser. No account needs to be opened until
-   Phase 2.
+   index/metals exposure replacement belongs to Alpaca ETFs. The tax
+   caveat is **resolved**: the operator is a **US citizen** (files US
+   taxes regardless of living in Israel), will use a US address/setup,
+   and set "everything through the US" as the standing preference. No
+   account needs to be opened until Phase 2.
+6. **Plan adopted** (chat, same day): operator approved the memo and the
+   phased plan; execution starts with **Phase 0 backtesting** — no
+   integration code before the sweeps. Registered as **M15** in
+   `ROADMAP.md`.
 
 ## 1. Why we want off futures (the actual cost we pay today)
 
@@ -250,15 +255,13 @@ stays Tier-3 (operator-approved), exactly as it was for MGC/MHG.
 
 All original questions are now **answered** — recorded in §0 (directive
 confirmed; >$25k + intraday-first; IBKR legs stay; both platforms under
-US residency, §0.5). Still open:
+the operator's US citizenship/setup, §0.5; tax caveat resolved — US
+citizen files US taxes regardless). Still open:
 
 1. **Market data tier for live intraday equities:** Alpaca's free
    real-time feed is IEX-only (a thin slice of consolidated volume).
    Likely fine for 5m/15m signal bars, but worth a paid consolidated-feed
    trial (~$99/mo tier) before any equities strategy goes paper-live at
    5m — decide at Phase 2.
-2. **US tax confirmation** for opening both accounts under US residency
-   (W-9 / US reporting while living in Israel) — operator's tax adviser,
-   before Phase 2 account opening.
 
 — Research memo only; nothing in this document changes runtime behaviour.
