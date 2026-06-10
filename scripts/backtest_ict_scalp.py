@@ -284,6 +284,8 @@ def run_backtest(
                     "strategy": "ict_scalp_5m", "entry_time": str(t.entry_time),
                     "direction": t.direction, "gross_r": t.r_multiple,
                     "net_r": t.r_multiple,
+                    "entry": t.entry, "sl": t.sl, "risk": t.risk,
+                    "outcome": t.outcome,
                     "confidence": t.confidence}, default=str) + "\n")
 
     summary = _summarize(trades, df, timeframe=timeframe, symbol=symbol)
