@@ -160,13 +160,21 @@ strategies:
     # single-trade excursion in 3yr backtest was ~11R, so 50R is safely
     # beyond reach.
     tp_r: 50.0
-    # Minimum-confidence entry gate (breakout depth / ATR). A 6yr BTC 2h
-    # sweep at the exact live params (donchian 20 / atr_stop 2.5 / trail 3.5)
-    # found 0.30 the PnL-optimal floor: net_R 45.0 -> 56.2 (+25%), expectancy
-    # 0.070 -> 0.101 (+44%), maxDD 22.9 -> 14.8 R (-35%), 644 -> 559 trades.
-    # Shallow breaks (the live -1R conf-0.05 stop-out was one) are where the
-    # follower bled. Tier-3; evidence: trainer-vm-diag confidence-sweep v3.
-    min_confidence: 0.30
+    # Minimum-confidence entry gate (breakout depth / ATR). RE-TUNED 0.30 -> 0.60
+    # 2026-06-10 (M8 S3, Tier-3, PROPOSED — operator-approved merge gates this).
+    # The prior 0.30 came from a 2h / trail-3.5 sweep that PRE-DATES the
+    # 2026-06-01 migration to the live 1h / trail-5.0 config. An M8 canonical
+    # parameter sweep (scripts/ml/strategy_tune_sweep.py) re-ran it at the CURRENT
+    # live params (1h / donchian 20 / atr_stop 2.5 / trail 5.0 / long-only) under
+    # OOS + 3-fold anchored walk-forward over BTC 2021-2026 and found 0.30 is
+    # net-positive in only 2 of 3 folds (it loses the 2025-26 regime), whereas
+    # 3/3 robustness begins at 0.60: OOS net Σ 34.9 -> 53.6 R, OOS expectancy
+    # ~2x (0.111 -> 0.215), OOS maxDD -42% (22.3 -> 12.9 R). The 0.60-0.90 band
+    # is uniformly 3/3-robust; 0.60 is the conservative onset (minimal change,
+    # biggest single expectancy/drawdown jump, not at the grid edge). Shallow
+    # breaks (the live -1R conf-0.05 stop-out) are where the follower bled.
+    # Evidence: docs/sprint-logs/S-M8-STRATEGY-TUNING-S3.md (trainer-vm-diag #3179).
+    min_confidence: 0.60
     # LONG-ONLY (2026-06-01, Tier-3, operator-approved). The regime×direction
     # matrix (docs/research/regime-roster-matrix-2026-06-01.md) showed the SHORT
     # side is a net −37 R drag over 2021-2026 that earns only in chop
