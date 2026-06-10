@@ -147,7 +147,7 @@ _LOG_FILES: dict[str, Path] = {
     # layer evaluated (decision/adjustment/veto/query/symbol), written by
     # src.news.news_audit only while the layer is active. Observe-only — the data
     # we accrue to validate the news veto/influence before it can gate live money.
-    # Absent until the news layer is enabled (NEWS_ENABLED=true + NEWS_API_KEY).
+    # Absent until the news layer is active (NEWS_SOURCE=rss, or newsapi + NEWS_API_KEY).
     "news_decisions": _NEWS_DECISIONS_LOG,
 }
 
