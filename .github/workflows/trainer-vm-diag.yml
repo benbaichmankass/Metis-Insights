@@ -50,9 +50,11 @@ on:
   issues:
     # 2026-06-08: added `labeled` as a fallback for the dropped-webhook
     # failure mode (mirrors vm-diag-snapshot.yml). Dedup step below
-    # short-circuits the second fire cleanly when both `opened` and
-    # `labeled` arrive (the normal case for session-driven opens).
-    types: [opened, labeled]
+    # `opened` only (2026-06-10): listening to both `opened` and `labeled`
+    # spawned two runs per create-with-label dispatch. `opened` alone (label
+    # checked in the job `if:`) spawns exactly one; the dedup step stays as a
+    # belt-and-suspenders no-op.
+    types: [opened]
 
 permissions:
   contents: read

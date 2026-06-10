@@ -47,7 +47,9 @@ on:
         required: false
         default: "true"
   issues:
-    types: [opened, labeled]
+    # `opened` only — single fire per create-with-label dispatch (2026-06-10);
+    # listening to `labeled` too spawned a redundant second run.
+    types: [opened]
 
 permissions:
   contents: read
