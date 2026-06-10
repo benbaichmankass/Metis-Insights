@@ -4,8 +4,7 @@
 # Edits config/accounts.yaml (the canonical source of truth per
 # src/units/accounts/__init__.py docstring) to set `mode:` for the
 # named account, then restarts ict-trader-live.service so the change
-# takes effect AND any in-memory `_DRY_RUN_OVERRIDES` from the prior
-# process is wiped.
+# takes effect on the next process start.
 #
 # Created 2026-05-12 in response to the silent-flip incident where
 # bybit_2 ended up live=false at runtime despite YAML declaring
@@ -172,8 +171,7 @@ if [ "${post_mode_yaml}" != "${MODE}" ]; then
     exit 1
 fi
 
-# Restart so the trader picks up the YAML AND wipes the prior
-# process's in-memory `_DRY_RUN_OVERRIDES` dict.
+# Restart so the trader picks up the updated YAML on the next start.
 echo "===== pre-restart status ====="
 "${SYSTEMCTL[@]}" status "${UNIT}" --no-pager -n 5 || true
 log "Restarting ${UNIT}..."

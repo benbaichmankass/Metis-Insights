@@ -74,14 +74,20 @@ def _stub_account_creds_and_balances(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _reset_circuit_breaker_state():
-    """Each test starts with empty rejection counters + clean dry-run
-    overrides."""
+    """Each test starts with empty rejection counters."""
     coord_mod._EXCHANGE_REJECTION_COUNTS.clear()
-    from src.units.accounts import _DRY_RUN_OVERRIDES
-    _DRY_RUN_OVERRIDES.clear()
     yield
     coord_mod._EXCHANGE_REJECTION_COUNTS.clear()
-    _DRY_RUN_OVERRIDES.clear()
+
+
+def _assert_no_flip_mechanism():
+    """Prime Directive (post-2026-06-10 dead-code cleanup): there is no
+    account-mode flip mechanism at all — the ``_DRY_RUN_OVERRIDES`` dict +
+    ``set_account_dry_run`` shim were removed, so the breaker structurally
+    cannot toggle an account to dry_run."""
+    import src.units.accounts as _acc
+    assert not hasattr(_acc, "set_account_dry_run")
+    assert not hasattr(_acc, "_DRY_RUN_OVERRIDES")
 
 
 def _pkg() -> OrderPackage:
@@ -150,8 +156,7 @@ def test_two_rejections_below_threshold_no_auto_pause(coord, live_yaml):
 
     # Two rejections accumulated — threshold is 3, so no auto-pause yet.
     assert coord_mod._EXCHANGE_REJECTION_COUNTS.get("bybit_live") == 2
-    from src.units.accounts import _DRY_RUN_OVERRIDES
-    assert "bybit_live" not in _DRY_RUN_OVERRIDES
+    _assert_no_flip_mechanism()
 
 
 def test_three_rejections_alerts_but_account_stays_live(coord, live_yaml):
@@ -174,8 +179,7 @@ def test_three_rejections_alerts_but_account_stays_live(coord, live_yaml):
     # Counter reflects the 3 consecutive rejections (not reset at threshold).
     assert coord_mod._EXCHANGE_REJECTION_COUNTS.get("bybit_live") == 3
     # The account is NOT auto-flipped to dry_run (Prime Directive).
-    from src.units.accounts import _DRY_RUN_OVERRIDES
-    assert "bybit_live" not in _DRY_RUN_OVERRIDES
+    _assert_no_flip_mechanism()
 
 
 def test_successful_placement_resets_counter(coord, live_yaml):
@@ -204,7 +208,6 @@ def test_successful_placement_resets_counter(coord, live_yaml):
 
     # And the next two rejections must not trip the breaker (they're a
     # fresh streak, not a continuation of the prior two).
-    from src.units.accounts import _DRY_RUN_OVERRIDES
     with patch(
         "src.units.accounts.execute.execute_pkg",
         side_effect=_stub_reject,
@@ -215,7 +218,7 @@ def test_successful_placement_resets_counter(coord, live_yaml):
         for _ in range(2):
             coord.multi_account_execute(_pkg(), accounts_path=live_yaml)
     assert coord_mod._EXCHANGE_REJECTION_COUNTS.get("bybit_live") == 2
-    assert "bybit_live" not in _DRY_RUN_OVERRIDES
+    _assert_no_flip_mechanism()
 
 
 def test_critical_alert_emitted_at_threshold(coord, live_yaml):
@@ -277,8 +280,7 @@ def test_breaker_never_auto_pauses_regardless_of_streak(coord, live_yaml):
     # Counter keeps climbing — the account is never auto-paused, so every
     # dispatch still reaches execute_pkg and rejects.
     assert coord_mod._EXCHANGE_REJECTION_COUNTS.get("bybit_live") == 5
-    from src.units.accounts import _DRY_RUN_OVERRIDES
-    assert "bybit_live" not in _DRY_RUN_OVERRIDES
+    _assert_no_flip_mechanism()
     # Critical alerts fire on each rejection at/after the threshold (3,4,5).
     critical = [a for a in captured_alerts if a.get("level") == "critical"]
     assert len(critical) == 3

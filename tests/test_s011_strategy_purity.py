@@ -160,25 +160,19 @@ class TestStrategySignalIsolation:
     """Signals are independent of account execution mode."""
 
     def test_vwap_signal_same_regardless_of_account_dry_run(self):
-        """Setting account dry_run does not affect signal output."""
-        import src.units.accounts as acc_pkg
-        acc_pkg._DRY_RUN_OVERRIDES.clear()
-
+        """Signal output is independent of account execution mode — the
+        signal builder never reads account state (and post-2026-06-10 no
+        in-memory mode-override mechanism exists at all)."""
         from src.units.strategies.vwap import order_package
         candles = _bullish_candles()
         cfg = {"symbol": "BTCUSDT", "risk_pct": 0.01}
 
         result_before = order_package(cfg, candles_df=candles)
-
-        # Toggle an account to live
-        acc_pkg._DRY_RUN_OVERRIDES["bybit_1"] = False
         result_after = order_package(cfg, candles_df=candles)
 
-        # Signal is identical — account mode has no effect
+        # Signal is identical — account mode has no effect on the builder.
         assert result_before["direction"] == result_after["direction"]
         assert result_before["symbol"] == result_after["symbol"]
-
-        acc_pkg._DRY_RUN_OVERRIDES.clear()
 
     def test_coordinator_strategy_order_pkg_has_no_dry_run_param(self):
         from src.core.coordinator import Coordinator

@@ -6,55 +6,43 @@ fully-configured TradingAccount instances, each with its own RiskManager.
 The dry/live toggle (operator directive 2026-05-03):
 * The YAML field ``mode: live | dry_run`` per account is the single
   source of truth. Default = ``live`` per the Autonomous live-trading
-  rule (CLAUDE.md).
+  rule (CLAUDE.md). The only sanctioned writer is the
+  ``set-account-mode`` system-action (``scripts/ops/set_account_mode.sh``),
+  which edits the YAML and restarts the trader.
 * The toggle lives on ``RiskManager.dry_run``. ``RiskManager.evaluate()``
   rejects with reason ``"account_mode_dry_run"`` so the executor logs
   the would-be trade but never calls the exchange.
-* ``set_account_dry_run()`` flips the value at runtime (Telegram
-  ``/accounts dry|live <name>``). The override is applied to every
-  subsequent ``load_accounts()`` call.
 
 This is the ONLY dry/live toggle in the codebase. There is no
-process-level interlock. ``DRY_RUN`` and ``ALLOW_LIVE_TRADING`` env vars
-were removed; ``MODE`` is no longer required.
+process-level interlock and no in-memory override layer (the legacy
+``_DRY_RUN_OVERRIDES`` / ``set_account_dry_run()`` shim was removed in
+the 2026-06-10 dead-code cleanup — it had no remaining caller once the
+breaker auto-flip and the Telegram ``/accounts`` writer were retired).
+``DRY_RUN`` and ``ALLOW_LIVE_TRADING`` env vars were removed; ``MODE``
+is no longer required.
 """
 from __future__ import annotations
 
 import os
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from src.utils.paths import repo_root as _repo_root
 
 _REPO_ROOT = _repo_root()
 _DEFAULT_ACCOUNTS_YAML = os.path.join(_REPO_ROOT, "config", "accounts.yaml")
 
-# Persistent dry/live overrides: {account_name: dry_run_bool}
-# Set via set_account_dry_run(); applied by load_accounts() on each call.
-_DRY_RUN_OVERRIDES: Dict[str, bool] = {}
-
-
-def set_account_dry_run(name: str, dry_run: bool) -> None:
-    """Persist a dry/live override for *name* across load_accounts() calls."""
-    _DRY_RUN_OVERRIDES[name] = dry_run
-
-
-def get_dry_run_overrides() -> Dict[str, bool]:
-    """Return a copy of the current override dict (for status display)."""
-    return dict(_DRY_RUN_OVERRIDES)
-
 
 def _resolve_mode(cfg: dict, name: str) -> bool:
     """Return True when the account is in dry_run mode.
 
     Resolution order:
-      1. Runtime override (``_DRY_RUN_OVERRIDES[name]``) — set by Telegram
-         ``/accounts dry|live <name>``.
-      2. YAML ``mode`` field — accepts case-insensitive
-         ``live`` / ``dry`` / ``dry_run``.
-      3. Default = ``live`` per Autonomous live-trading rule.
+      1. YAML ``mode`` field — accepts case-insensitive
+         ``live`` / ``dry`` / ``dry_run`` / ``paper``.
+      2. Default = ``live`` per Autonomous live-trading rule.
+
+    (``name`` is accepted for signature stability with the callers that
+    pass it; there is no longer a per-name override layer.)
     """
-    if name in _DRY_RUN_OVERRIDES:
-        return bool(_DRY_RUN_OVERRIDES[name])
     raw = str(cfg.get("mode", "live")).strip().lower()
     return raw in {"dry", "dry_run", "dry-run", "paper"}
 

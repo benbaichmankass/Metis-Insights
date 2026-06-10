@@ -89,29 +89,18 @@ def _read_strategy_names(strategies_yaml: Path) -> List[str]:
     ]
 
 
-def _read_live_per_account(
-    accounts_yaml: Path, overrides: Optional[Dict[str, bool]] = None
-) -> Dict[str, bool]:
+def _read_live_per_account(accounts_yaml: Path) -> Dict[str, bool]:
     """Per-account live=True/False projection for the dashboard.
 
-    Resolution order MUST match ``src.units.accounts._resolve_mode`` —
-    the canonical resolver the executor uses:
+    Resolution mirrors ``src.units.accounts._resolve_mode`` — the
+    canonical resolver the executor uses:
 
-      1. Runtime override (Telegram ``/accounts dry|live <name>``) wins.
-      2. YAML ``mode`` field — ``live`` | ``dry`` | ``dry_run`` | ``paper``.
-      3. Default ``live`` per the Autonomous live-trading rule
+      1. YAML ``mode`` field — ``live`` | ``dry`` | ``dry_run`` | ``paper``.
+      2. Default ``live`` per the Autonomous live-trading rule
          (``CLAUDE.md``).
 
-    Pre-fix this function defaulted every account to dry whenever the
-    override dict didn't carry an entry (``not overrides.get(name, True)``).
-    That was correct under the original S-012 "dry by default" baseline,
-    but the policy flipped to live-by-default and this resolver was
-    never updated — so the dashboard rendered every YAML-live account
-    as ``runtime: dry`` regardless of what the executor was actually
-    doing. The 2026-05-10 incident chain (operator panicked at the
-    dashboard, escalated as "VWAP missed because of a dry gate") was
-    rooted in this single off-by-default. Mirror the canonical
-    resolver so the dashboard agrees with the executor.
+    (The in-memory override layer was removed in the 2026-06-10
+    dead-code cleanup; ``mode:`` in accounts.yaml is the only source.)
     """
     from src.config.accounts_loader import load_accounts_dict
     errors: list = []
@@ -122,13 +111,8 @@ def _read_live_per_account(
             Exception(err.get("error", "parse error")),
             path=err.get("path", str(accounts_yaml)),
         )
-    overrides = overrides or {}
     out: Dict[str, bool] = {}
     for name, cfg in raw_cfgs.items():
-        if name in overrides:
-            # Override is dry_run=True/False; live = not dry_run.
-            out[name] = not bool(overrides[name])
-            continue
         cfg = cfg or {}
         raw_mode = str(cfg.get("mode", "live")).strip().lower()
         out[name] = raw_mode not in {"dry", "dry_run", "dry-run", "paper"}
@@ -148,7 +132,6 @@ def build_status(
     start_monotonic: Optional[float] = None,
     strategies_yaml: Optional[Path] = None,
     accounts_yaml: Optional[Path] = None,
-    dry_run_overrides: Optional[Dict[str, bool]] = None,
     git_sha: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build the runtime_status.json payload. Pure-function for tests."""
@@ -156,27 +139,10 @@ def build_status(
     start = start_monotonic if start_monotonic is not None else _START_MONOTONIC
     strategies_yaml = strategies_yaml or (_REPO_ROOT / "config" / "strategies.yaml")
     accounts_yaml = accounts_yaml or (_REPO_ROOT / "config" / "accounts.yaml")
-    if dry_run_overrides is None:
-        try:
-            from src.units.accounts import get_dry_run_overrides
-            dry_run_overrides = get_dry_run_overrides()
-        except Exception as exc:  # noqa: BLE001
-            # S-067: was silently `dry_run_overrides = {}`. A failure
-            # here makes the runtime-status file misreport every
-            # account as ``live`` (since the helper that translates
-            # overrides flips dry/live per-account from the override
-            # dict). Same risk class as PR #630
-            # (``MONITOR_APPLY_TO_EXCHANGE`` survivor) where a
-            # process-wide gate silently lost money. Pipe through the
-            # existing ``_swallow_runtime_status`` helper so the
-            # operator gets a deduplicated Telegram alert via
-            # ``outcomes.report``.
-            _swallow_runtime_status("dry_run_overrides_read_failed", exc)
-            dry_run_overrides = {}
     return {
         "schema_version": SCHEMA_VERSION,
         "bot_uptime_s": int(time.monotonic() - start),
-        "live": _read_live_per_account(accounts_yaml, dry_run_overrides),
+        "live": _read_live_per_account(accounts_yaml),
         "strategies": _read_strategy_names(strategies_yaml),
         "git_sha": git_sha if git_sha is not None else _resolve_git_sha(),
         "last_tick_utc": now.replace(microsecond=0)
