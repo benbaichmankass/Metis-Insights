@@ -275,6 +275,26 @@ class HarnessSpec:
     native_rows_key: Optional[str] = None   # top-level key holding the grid rows
     native_value_key: Optional[str] = None  # per-row key carrying the swept value
     extra_args: list[str] = field(default_factory=list)
+    # Date-window flags the harness accepts for a walk-forward split. All the
+    # research harnesses + vwap take "--start"/"--end" (inclusive ISO dates).
+    window_flags: tuple[str, str] = ("--start", "--end")
+
+
+@dataclass
+class WalkForward:
+    """A chronological train / out-of-sample holdout split.
+
+    Each grid value is evaluated on the train window AND the OOS window via the
+    harness's ``window_flags``; the recommendation is gated on **OOS** metrics —
+    an in-sample optimum that doesn't hold out-of-sample is not actionable
+    evidence (the live ``trend_donchian`` floor was set under walk-forward CV).
+    ``oos_start`` is the split boundary; train = ``[train_start, oos_start)``,
+    OOS = ``[oos_start, oos_end]`` (open ends default to the data extent).
+    """
+
+    oos_start: str
+    train_start: Optional[str] = None
+    oos_end: Optional[str] = None
 
 
 # Registry keyed by (harness basename, param). Seeded with the verifiable cases;
@@ -360,6 +380,18 @@ def _first_present(d: dict[str, Any], keys: tuple[str, ...]) -> Optional[float]:
     return None
 
 
+_METRIC_FIELDS = ("trades", "win_rate_pct", "net_total", "net_expectancy", "max_drawdown")
+
+
+def _wf_row(value: float, train_summary: dict, oos_summary: dict) -> dict[str, Any]:
+    """A walk-forward grid row: top-level = OOS metrics (so the pickers select on
+    OOS), with the in-sample metrics nested under ``train``."""
+    row = normalize_row(value, oos_summary)  # top-level == OOS
+    train = normalize_row(value, train_summary)
+    row["train"] = {k: train[k] for k in _METRIC_FIELDS}
+    return row
+
+
 # --------------------------------------------------------------------------- #
 # Backtester invocation
 # --------------------------------------------------------------------------- #
@@ -375,6 +407,7 @@ def build_invocation(
     fee_bps: float,
     window_days: Optional[int],
     fixed_args: Optional[list[str]] = None,
+    window: Optional[tuple[Optional[str], Optional[str]]] = None,
 ) -> list[str]:
     """Assemble the argv for one backtester call (per-value or native-sweep)."""
     argv = [_python()]
@@ -385,6 +418,13 @@ def build_invocation(
     argv += spec.extra_args
     if fixed_args:
         argv += list(fixed_args)
+    if window is not None:
+        start, end = window
+        start_flag, end_flag = spec.window_flags
+        if start:
+            argv += [start_flag, start]
+        if end:
+            argv += [end_flag, end]
     if spec.native_sweep_flag:
         # The native-sweep harness (vwap) prints its result dict to stdout
         # unconditionally and does not define a --json flag — don't pass one.
@@ -450,32 +490,42 @@ def run_sweep(
     fee_bps: float,
     samples: int,
     runner: Callable[[list[str]], dict[str, Any]] = _run_capture,
+    wf: Optional[WalkForward] = None,
 ) -> dict[str, Any]:
-    """Execute the recipe's sweep and return the canonical tune result."""
+    """Execute the recipe's sweep and return the canonical tune result.
+
+    When ``wf`` is set, each value is run on the train AND OOS windows and the
+    grid rows + picks are gated on OOS (top-level metrics == OOS; in-sample
+    nested under ``train``).
+    """
     spec = resolve_spec(recipe)
     grid = parse_search_space(recipe.search_space, recipe.current_value, samples)
     window_days = recipe.evidence_window_days
+    train_win = (wf.train_start, wf.oos_start) if wf else None
+    oos_win = (wf.oos_start, wf.oos_end) if wf else None
+
+    def _invoke(value, window):
+        return runner(build_invocation(
+            spec, value=value, data=data, fee_bps=fee_bps, window_days=window_days,
+            fixed_args=recipe.fixed_args, window=window,
+        ))
 
     rows: list[dict[str, Any]] = []
     if spec.native_sweep_flag:
-        # One call; the harness walks its own grid. We re-key its rows onto value.
-        argv = build_invocation(
-            spec, value=None, data=data, fee_bps=fee_bps, window_days=window_days,
-            fixed_args=recipe.fixed_args,
-        )
-        out = runner(argv)
-        native_rows = out.get(spec.native_rows_key or "", [])
-        for r in native_rows:
-            val = r.get(spec.native_value_key) if spec.native_value_key else None
-            rows.append(normalize_row(float(val) if val is not None else math.nan, r))
+        # The harness walks its own grid in one call; re-key its rows onto value.
+        if wf:
+            train_rows = _native_rows_by_value(_invoke(None, train_win), spec)
+            for v, r in _native_rows_by_value(_invoke(None, oos_win), spec).items():
+                rows.append(_wf_row(v, train_rows.get(v, {}), r))
+        else:
+            for v, r in _native_rows_by_value(_invoke(None, None), spec).items():
+                rows.append(normalize_row(v, r))
     else:
         for value in grid:
-            argv = build_invocation(
-                spec, value=value, data=data, fee_bps=fee_bps, window_days=window_days,
-                fixed_args=recipe.fixed_args,
-            )
-            out = runner(argv)
-            rows.append(normalize_row(value, out))
+            if wf:
+                rows.append(_wf_row(value, _invoke(value, train_win), _invoke(value, oos_win)))
+            else:
+                rows.append(normalize_row(value, _invoke(value, None)))
 
     rows.sort(key=lambda r: (r["value"] if r["value"] == r["value"] else math.inf))
     best_total = _best(rows, "net_total", min_trades=0)
@@ -492,14 +542,29 @@ def run_sweep(
         "fixed_args": list(recipe.fixed_args),
         "fee_bps_roundtrip": fee_bps,
         "evidence_window_days": window_days,
+        "metric_basis": "oos" if wf else "full_sample",
+        "walk_forward": (
+            {"train_start": wf.train_start, "oos_start": wf.oos_start, "oos_end": wf.oos_end}
+            if wf else None
+        ),
         "note": recipe.note,
         "current_value": recipe.current_value,
         "grid": rows,
         "best_by_net_total": best_total,
         "best_by_net_expectancy_minN": best_exp,
         "baseline_row": baseline,
-        "recommendation": _recommendation(recipe, best_total, best_exp, baseline),
+        "recommendation": _recommendation(recipe, best_total, best_exp, baseline, wf=wf),
     }
+
+
+def _native_rows_by_value(out: dict[str, Any], spec: HarnessSpec) -> dict[float, dict]:
+    """Index a native-sweep harness's grid rows by their swept value."""
+    by_val: dict[float, dict] = {}
+    for r in out.get(spec.native_rows_key or "", []):
+        val = r.get(spec.native_value_key) if spec.native_value_key else None
+        if val is not None:
+            by_val[float(val)] = r
+    return by_val
 
 
 def _best(rows: list[dict[str, Any]], key: str, *, min_trades: int) -> Optional[dict]:
@@ -526,9 +591,11 @@ def _recommendation(
     best_total: Optional[dict],
     best_exp: Optional[dict],
     baseline: Optional[dict],
+    wf: Optional[WalkForward] = None,
 ) -> dict[str, Any]:
     """Advisory only. Prefer the expectancy optimum (it carries the min-N floor);
-    fall back to total. Never returns a config write — names the Tier-3 line.
+    fall back to total. Under walk-forward the metrics are OOS, so the pick is
+    OOS-validated. Never returns a config write — names the Tier-3 line.
     """
     pick = best_exp or best_total
     if pick is None:
@@ -544,17 +611,30 @@ def _recommendation(
         and pick["net_total"] > baseline["net_total"] + 1e-9
         and pick["value"] != baseline["value"]
     )
-    return {
+    basis = "OOS (walk-forward)" if wf else "full-sample (IN-SAMPLE — not OOS-validated)"
+    detail = (
+        "ADVISORY — applying this is a Tier-3 config/strategies.yaml change the "
+        f"operator approves; this harness never writes config. Metric basis: {basis}."
+    )
+    rec: dict[str, Any] = {
         "tier": 3,
         "action": "propose_value" if improves or baseline is None else "hold_current",
         "proposed_value": pick["value"],
         "yaml_line": f"{recipe.target} : {pick['value']}",
         "beats_baseline": bool(improves),
-        "detail": (
-            "ADVISORY — applying this is a Tier-3 config/strategies.yaml change the "
-            "operator approves; this harness never writes config."
-        ),
+        "metric_basis": "oos" if wf else "full_sample",
     }
+    if wf:
+        # Consistency gate: the OOS-optimal value should also be net-positive
+        # in-sample, else the OOS lead may be noise rather than a robust edge.
+        tr = (pick.get("train") or {}).get("net_total")
+        rec["train_oos_consistent"] = bool(tr is not None and tr > 0 and (pick.get("net_total") or 0) > 0)
+        if not rec["train_oos_consistent"]:
+            detail += " ⚠ OOS pick is not net-positive in-sample — treat as weak."
+    else:
+        detail += " Add a walk-forward split (--oos-start) before this clears the go-live bar."
+    rec["detail"] = detail
+    return rec
 
 
 # --------------------------------------------------------------------------- #
@@ -571,16 +651,34 @@ def render_markdown(result: dict[str, Any]) -> str:
     ]
     if result.get("note"):
         L.append(f"- **Recipe note:** {result['note']}")
-    L += ["", "## Grid (net-of-fee)", "",
-          "| value | trades | win% | net_total | net_exp | maxDD |",
-          "|---|---|---|---|---|---|"]
-    for r in result["grid"]:
-        L.append(
-            "| {v} | {t} | {wr} | {nt} | {ne} | {dd} |".format(
-                v=_fmt(r["value"]), t=_fmt(r["trades"], 0), wr=_fmt(r["win_rate_pct"]),
-                nt=_fmt(r["net_total"]), ne=_fmt(r["net_expectancy"]), dd=_fmt(r["max_drawdown"]),
+    wf = result.get("walk_forward")
+    if wf:
+        L.append(f"- **Walk-forward:** train [{wf.get('train_start') or '…'}, {wf['oos_start']}) · "
+                 f"OOS [{wf['oos_start']}, {wf.get('oos_end') or '…'}] — metrics below are **OOS**.")
+    if wf:
+        L += ["", "## Grid (net-of-fee · OOS | train)", "",
+              "| value | OOS trades | OOS net | OOS exp | OOS maxDD | train net | train exp |",
+              "|---|---|---|---|---|---|---|"]
+        for r in result["grid"]:
+            tr = r.get("train") or {}
+            L.append(
+                "| {v} | {t} | {nt} | {ne} | {dd} | {tnt} | {tne} |".format(
+                    v=_fmt(r["value"]), t=_fmt(r["trades"], 0), nt=_fmt(r["net_total"]),
+                    ne=_fmt(r["net_expectancy"]), dd=_fmt(r["max_drawdown"]),
+                    tnt=_fmt(tr.get("net_total")), tne=_fmt(tr.get("net_expectancy")),
+                )
             )
-        )
+    else:
+        L += ["", "## Grid (net-of-fee · IN-SAMPLE)", "",
+              "| value | trades | win% | net_total | net_exp | maxDD |",
+              "|---|---|---|---|---|---|"]
+        for r in result["grid"]:
+            L.append(
+                "| {v} | {t} | {wr} | {nt} | {ne} | {dd} |".format(
+                    v=_fmt(r["value"]), t=_fmt(r["trades"], 0), wr=_fmt(r["win_rate_pct"]),
+                    nt=_fmt(r["net_total"]), ne=_fmt(r["net_expectancy"]), dd=_fmt(r["max_drawdown"]),
+                )
+            )
     bt, be = result["best_by_net_total"], result["best_by_net_expectancy_minN"]
     L += ["", "## Picks", ""]
     if bt:
@@ -594,6 +692,8 @@ def render_markdown(result: dict[str, Any]) -> str:
         L.append(f"- **proposed value:** `{rec['proposed_value']}`")
         L.append(f"- **YAML line:** `{rec['yaml_line']}`")
         L.append(f"- **beats baseline:** {rec['beats_baseline']}")
+        if "train_oos_consistent" in rec:
+            L.append(f"- **train/OOS consistent:** {rec['train_oos_consistent']}")
     L.append(f"- {rec['detail']}")
     return "\n".join(L) + "\n"
 
@@ -661,10 +761,19 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--fee-bps-roundtrip", type=float, default=DEFAULT_FEE_BPS_ROUNDTRIP)
     p.add_argument("--samples", type=int, default=DEFAULT_SAMPLES, help="Points for a continuous search space.")
     p.add_argument("--out-dir", default=None, help="Override output dir (default runtime_logs/strategy_tunes/<date>/).")
+    p.add_argument("--oos-start", default=None,
+                   help="Enable a walk-forward split at this ISO date: train=[train-start, oos-start), "
+                        "OOS=[oos-start, oos-end]. Metrics + picks become OOS-gated.")
+    p.add_argument("--train-start", default=None, help="Walk-forward train-window start (default: data start).")
+    p.add_argument("--oos-end", default=None, help="Walk-forward OOS-window end (default: data end).")
     p.add_argument("--dry-run", action="store_true", help="Print the grid + planned invocations; don't run.")
     args = p.parse_args(argv)
 
     recipe = _recipe_from_args(args)
+    wf = (
+        WalkForward(oos_start=args.oos_start, train_start=args.train_start, oos_end=args.oos_end)
+        if args.oos_start else None
+    )
 
     if args.dry_run:
         spec = resolve_spec(recipe)
@@ -673,21 +782,27 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(f"grid ({len(grid)}): {grid}")
         if recipe.fixed_args:
             print(f"fixed_args: {recipe.fixed_args}")
+        windows = ([("train", (wf.train_start, wf.oos_start)), ("oos", (wf.oos_start, wf.oos_end))]
+                   if wf else [(None, None)])
+        if wf:
+            print(f"walk-forward: train=[{wf.train_start or '…'},{wf.oos_start}) oos=[{wf.oos_start},{wf.oos_end or '…'}]")
         if spec.native_sweep_flag:
-            argv_ = build_invocation(spec, value=None, data=args.data,
-                                     fee_bps=args.fee_bps_roundtrip, window_days=recipe.evidence_window_days,
-                                     fixed_args=recipe.fixed_args)
-            print("native sweep:", " ".join(argv_))
+            for label, win in windows:
+                argv_ = build_invocation(spec, value=None, data=args.data,
+                                         fee_bps=args.fee_bps_roundtrip, window_days=recipe.evidence_window_days,
+                                         fixed_args=recipe.fixed_args, window=win)
+                print(f"native sweep{f' [{label}]' if label else ''}:", " ".join(argv_))
         else:
             for v in grid:
-                argv_ = build_invocation(spec, value=v, data=args.data,
-                                         fee_bps=args.fee_bps_roundtrip, window_days=recipe.evidence_window_days,
-                                         fixed_args=recipe.fixed_args)
-                print(f"  value={v}:", " ".join(argv_))
+                for label, win in windows:
+                    argv_ = build_invocation(spec, value=v, data=args.data,
+                                             fee_bps=args.fee_bps_roundtrip, window_days=recipe.evidence_window_days,
+                                             fixed_args=recipe.fixed_args, window=win)
+                    print(f"  value={v}{f' [{label}]' if label else ''}:", " ".join(argv_))
         return 0
 
     result = run_sweep(
-        recipe, data=args.data, fee_bps=args.fee_bps_roundtrip, samples=args.samples
+        recipe, data=args.data, fee_bps=args.fee_bps_roundtrip, samples=args.samples, wf=wf
     )
     out_dir = Path(args.out_dir) if args.out_dir else None
     json_path, md_path = write_outputs(result, out_dir)
