@@ -1,0 +1,133 @@
+name: arm-candidate-diag
+
+# SSH diag/verification relay for the migration's Ampere candidate VM
+# (`ict-bot-arm`, the E2.1.Micro -> A1.Flex migration). The existing relays
+# hardcode the micro/trainer IPs; this one targets a `host:` from the issue
+# body so Claude can drive Phase 0/2 verification on the new box (read
+# arm-verify.txt, test the IB-Gateway arm64 image, dry-boot checks, etc.).
+#
+# The candidate has the VM_SSH_KEY public half in authorized_keys (injected at
+# provision), so the same key reaches it. No live impact — the candidate runs
+# no live services until cutover.
+#
+# Trigger: issues.opened/labeled `arm-candidate-diag`. Body:
+#   host: 141.253.118.70
+#   cmd: |
+#     cat /home/ubuntu/arm-verify.txt
+#     uname -m
+#
+# Required secret: VM_SSH_KEY. Required label: arm-candidate-diag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "Candidate VM public IP"
+        required: true
+      cmd:
+        description: "Bash to run on the candidate"
+        required: true
+        default: "cat /home/ubuntu/arm-verify.txt; uname -m; cloud-init status"
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: arm-candidate-diag
+  cancel-in-progress: false
+
+jobs:
+  diag:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'arm-candidate-diag'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Dedup
+        if: github.event_name == 'issues'
+        id: dedup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, per_page: 100,
+            });
+            core.setOutput('skip',
+              comments.some(c => c.user && c.user.login === 'github-actions[bot]') ? 'true' : 'false');
+
+      - name: Parse host + cmd (issue path)
+        id: parse
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          host="$(printf '%s' "${ISSUE_BODY}" | awk -F: '/^[[:space:]]*host[[:space:]]*:/{gsub(/[[:space:]]/,"",$2);print $2;exit}')"
+          if [ -z "${host}" ]; then
+            echo "::error::Issue body must contain a 'host:' line."
+            exit 1
+          fi
+          # Extract the cmd: block (stop at the next top-level YAML-ish key).
+          printf '%s' "${ISSUE_BODY}" | awk '
+            /^cmd:/{found=1; sub(/^cmd:[[:space:]]*/,""); if ($0!="" && $0!="|") print; next}
+            found && /^[A-Za-z0-9_-]+:/{exit}
+            found{print}
+          ' > /tmp/cmd.sh
+          if [ ! -s /tmp/cmd.sh ]; then
+            echo "::error::Issue body must contain a 'cmd:' block."
+            exit 1
+          fi
+          echo "host=${host}" >> "$GITHUB_OUTPUT"
+
+      - name: Use dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          DISPATCH_CMD: ${{ inputs.cmd }}
+        run: printf '%s\n' "${DISPATCH_CMD}" > /tmp/cmd.sh
+
+      - name: Set up SSH key
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          HOST: ${{ steps.parse.outputs.host || inputs.host }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then echo "::error::VM_SSH_KEY unset."; exit 1; fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/cand_key
+          chmod 600 ~/.ssh/cand_key
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run command on candidate
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          HOST: ${{ steps.parse.outputs.host || inputs.host }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/cand_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 "ubuntu@${HOST}" 'bash -s' < /tmp/cmd.sh \
+              > /tmp/out.txt 2>&1 || true
+          echo "=== output ==="; head -c 8000 /tmp/out.txt
+
+      - name: Post result to issue
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const out = (() => { try { return fs.readFileSync('/tmp/out.txt','utf8'); } catch { return '(no output)'; } })();
+            const cmd = (() => { try { return fs.readFileSync('/tmp/cmd.sh','utf8'); } catch { return ''; } })();
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const MAX = 55000;
+            const body = `**arm-candidate-diag** result\nRun: ${runUrl}\n\n**Command:**\n\`\`\`bash\n${cmd.slice(0,500)}\n\`\`\`\n**Output:**\n\`\`\`\n${out.slice(0,MAX)}\n\`\`\``;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: 'closed', state_reason: 'completed' });
