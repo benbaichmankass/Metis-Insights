@@ -594,6 +594,13 @@ any `/0` (public) source** and does **no** public-internet `/api/health` probe
 `scripts/ops/cloud_open_port.py` (now `DASHBOARD_PORT` / `INGRESS_SOURCE_CIDR` /
 `INGRESS_DESC` parameterized).
 
+**Targeting the right subnet (host override):** OCI ingress rules govern traffic
+*into* the subnet they're attached to, so the rule must land on the **gateway's**
+subnet Security List. The issue body accepts `host:` / `source:` / `port:` lines
+(e.g. `host: <gateway public IP>`, `source: 10.0.0.0/16`) to point the run at the
+gateway VM's IMDS → its subnet SL, rather than the default SSH host (the micro).
+Added in #3312 after the micro-subnet rule alone didn't open the path.
+
 **Secrets:** `VM_SSH_KEY`, OCI CLI set (`OCI_CLI_USER`, `OCI_CLI_FINGERPRINT`,
 `OCI_CLI_TENANCY`, `OCI_CLI_REGION`, `OCI_CLI_KEY_CONTENT`).
 
