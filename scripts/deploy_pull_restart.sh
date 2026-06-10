@@ -290,9 +290,17 @@ if [ -f "${REPO_DIR}/runtime_flags/run_smoke_once.flag" ]; then
     fi
 fi
 
-echo ">>> Service status:"
+# Compact one-line-per-unit summary (is-active only). The previous
+# `systemctl status <unit> --no-pager` for every restarted unit read the
+# journal per unit and emitted ~10 lines each; on a CPU-constrained VM the
+# 14-unit dump ran long enough to push the whole pull-and-deploy past the
+# 15-min Actions job timeout → the job was cancelled and reported a
+# false-failure even though the deploy + restarts had succeeded. is-active
+# is instant and bounded. (oneshot/timer units legitimately read "inactive"
+# after a clean run — that's not a failure.)
+echo ">>> Service status (is-active; oneshot/timer units show inactive after a clean run):"
 for unit in "${RESTARTED_UNITS[@]}"; do
-    "${SYSTEMCTL[@]}" status "${unit}" --no-pager || true
+    printf '>>>   %-48s %s\n' "${unit}" "$("${SYSTEMCTL[@]}" is-active "${unit}" 2>/dev/null || true)"
 done
 
 # ---------------------------------------------------------------------------

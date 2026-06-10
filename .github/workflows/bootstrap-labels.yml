@@ -90,6 +90,11 @@ jobs:
                 description: 'Triggers arm-candidate-diag — SSH verification relay for the migration candidate VM (host: + cmd: in the body). No live impact.',
               },
               {
+                name: 'deploy-candidate',
+                color: 'b60205',
+                description: 'Triggers deploy-candidate — deploy + dry-boot the bot stack on the Ampere migration candidate (all accounts forced dry_run; parallel to the live micro).',
+              },
+              {
                 name: 'vm-web-api-recover',
                 color: 'b60205',
                 description: 'Triggers vm-web-api-recover workflow — self-heal restart of ict-web-api.service when the diag relay is exit-7-ing.',

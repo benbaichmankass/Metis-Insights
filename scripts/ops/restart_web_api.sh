@@ -78,7 +78,12 @@ log "Post-restart state of ${UNIT}: ${post_state}"
 # only declare success when the FastAPI process is actually serving.
 health_status="unknown"
 if [ "${post_state}" = "active" ]; then
-    health_deadline=$(( $(date +%s) + 15 ))
+    # 90 s window (was 15 s). On a CPU-constrained VM uvicorn's cold start +
+    # FastAPI import routinely exceeds 15 s, so the probe declared the unit
+    # "unreachable" and the wrapper false-failed even though the service came
+    # up fine seconds later (BL-20260609-002, recurred 2026-06-10). A genuine
+    # crashloop still fails the probe — it just gets a fair cold-start grace.
+    health_deadline=$(( $(date +%s) + 90 ))
     while [ "$(date +%s)" -lt "${health_deadline}" ]; do
         if curl -sS --fail --max-time 5 -o /dev/null "${HEALTH_URL}"; then
             health_status="ok"
