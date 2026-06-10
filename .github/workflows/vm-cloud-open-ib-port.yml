@@ -83,6 +83,26 @@ jobs:
       INGRESS_SOURCE_CIDR: ${{ inputs.source_cidr || '10.0.0.0/24' }}
       INGRESS_DESC: "ict ib-gateway API (intra-subnet only)"
     steps:
+      - name: Resolve params (issue-body overrides host/source/port)
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          # The SSH host decides WHOSE subnet Security List the rule lands on
+          # (OCI ingress rules govern traffic INTO the subnet they're attached
+          # to). To open 4002 toward the gateway VM, target the gateway host so
+          # the rule lands on the GATEWAY's subnet SL. Issue body may carry:
+          #   host: <ip>          source: <private CIDR>          port: <n>
+          if [ "${EVENT_NAME}" = "issues" ]; then
+            HOST=$(printf '%s\n' "${ISSUE_BODY}" | grep -iE '^[[:space:]]*host[[:space:]]*:' | head -1 | cut -d: -f2- | tr -d '[:space:]' || true)
+            SRC=$(printf '%s\n' "${ISSUE_BODY}" | grep -iE '^[[:space:]]*source(_cidr)?[[:space:]]*:' | head -1 | cut -d: -f2- | tr -d '[:space:]' || true)
+            PORT=$(printf '%s\n' "${ISSUE_BODY}" | grep -iE '^[[:space:]]*port[[:space:]]*:' | head -1 | cut -d: -f2- | tr -d '[:space:]' || true)
+            if [ -n "${HOST}" ]; then echo "VM_SSH_HOST=${HOST}" >> "$GITHUB_ENV"; echo ">>> host override -> ${HOST}"; fi
+            if [ -n "${SRC}" ]; then echo "INGRESS_SOURCE_CIDR=${SRC}" >> "$GITHUB_ENV"; echo ">>> source override -> ${SRC}"; fi
+            if [ -n "${PORT}" ]; then echo "DASHBOARD_PORT=${PORT}" >> "$GITHUB_ENV"; echo ">>> port override -> ${PORT}"; fi
+          fi
+
       - name: Checkout (need scripts/ops/cloud_open_port.py)
         uses: actions/checkout@v4
 
