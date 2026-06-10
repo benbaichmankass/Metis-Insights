@@ -114,13 +114,22 @@ def running_ocpu_total(
     compute: oci.core.ComputeClient,
     compartment_id: str,
 ) -> int:
-    """Sum OCPUs across all instances in the compartment that aren't
-    TERMINATED. Conservative — counts PROVISIONING / STARTING /
-    STOPPED as 'consuming quota' because they do."""
+    """Sum **Ampere A1.Flex** OCPUs across all non-TERMINATED instances in
+    the compartment. Conservative — counts PROVISIONING / STARTING /
+    STOPPED as 'consuming quota' because they do.
+
+    Only `VM.Standard.A1.Flex` OCPUs count against the 4-OCPU Always-Free
+    Ampere ceiling. x86 shapes (e.g. the live trader's
+    `VM.Standard.E2.1.Micro`) draw from a *separate* free allowance, so
+    including them here would let a 1-OCPU micro falsely trip the guard and
+    block a legitimate Ampere launch (e.g. the live-VM migration: trainer 1
+    + new live 3 = 4 ≤ 4, but +1 for the micro would read 5 and refuse)."""
     total = 0
     page = compute.list_instances(compartment_id=compartment_id).data
     for inst in page:
         if inst.lifecycle_state == "TERMINATED":
+            continue
+        if "A1.Flex" not in (inst.shape or ""):
             continue
         if inst.shape_config and inst.shape_config.ocpus:
             total += int(inst.shape_config.ocpus)
@@ -344,6 +353,15 @@ def main() -> int:
     display_name = os.environ.get("DISPLAY_NAME") or DEFAULT_DISPLAY_NAME
     cloud_init_path = os.environ.get("CLOUD_INIT_PATH") or None
     image_ocid = os.environ.get("IMAGE_OCID") or None
+    # OCPU / memory are env-overridable so the same provisioner serves both
+    # the trainer (default 1 / 6) and a larger live-trader Ampere VM (3 / 18,
+    # the live-VM migration). Defaults preserve the original trainer shape.
+    try:
+        ocpus = int(os.environ.get("OCPUS") or DEFAULT_OCPUS)
+        memory_gb = int(os.environ.get("MEMORY_GB") or DEFAULT_MEMORY_GB)
+    except ValueError:
+        emit("config_error", missing_env="OCPUS/MEMORY_GB (must be integers)")
+        return 2
     try:
         return provision(
             config,
@@ -353,6 +371,8 @@ def main() -> int:
             display_name=display_name,
             cloud_init_path=cloud_init_path,
             image_ocid=image_ocid,
+            ocpus=ocpus,
+            memory_gb=memory_gb,
         )
     except oci.exceptions.ServiceError as exc:  # type: ignore[attr-defined]
         emit(
