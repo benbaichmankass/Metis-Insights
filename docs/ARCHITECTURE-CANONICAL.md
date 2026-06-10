@@ -256,10 +256,7 @@ dispatches per account exchange — Bybit (`pybit`) for BTCUSDT, the
 `interactive_brokers` branch (`IBClient.place`, `src/units/accounts/ib_client.py`)
 for MES futures (native bracket: market entry + TP limit + SL stop, prices
 snapped to the 0.25 tick grid; IB uses no API keys — auth is the Gateway
-login session), and a `tradovate` branch (`TradovateAdapter.place_order`,
-`src/units/accounts/tradovate/`) as a parallel futures sleeve held
-**inert** pending operator provisioning (PR #2647 + #2649; see
-`docs/runbooks/tradovate-integration.md`). A symbol→exchange dispatch
+login session). A symbol→exchange dispatch
 gate in `src/core/coordinator.py` ensures a BTCUSDT signal can never
 route to a futures account and vice-versa. Per-account dry/live mode
 is set in `config/accounts.yaml` (`mode: live | dry_run`) and is the
@@ -267,19 +264,15 @@ only canonical execution gate; the **only** sanctioned mutation path
 for that field is the `set-account-mode` operator action (§ Mode
 Mutation Contract). The real-money `ib_live` account is held
 `mode: dry_run`; the `ib_paper` account runs `mode: live` (paper
-money) and went **live for MES on 2026-05-22**. `tradovate_demo_1`
-ships `mode: dry_run` with `strategies: []` and
-`tradovate_account_id: 0` — four independent gates keep it inert
-until the operator completes the hookup checklist. NOTE (2026-05-24):
+money) and went **live for MES on 2026-05-22**. NOTE (2026-05-24):
 the IBKR account is currently **offline pending new-user approval**,
 so MES is not executing right now even though the config still
 declares it live — the data, edge, and cross-asset diversification
 (corr 0.009 vs the BTC book) are validated and
 `data/SPX500_1m.parquet` (1m S&P 500, 2020–2026, Dukascopy) is cached
-on the trainer, so only the broker login waits. Long-term intent
-(2026-06-02): once Tradovate paper fills are validated equivalent or
-better than IBKR's, the futures sleeve cuts over to Tradovate and IB
-becomes optional.
+on the trainer, so only the broker login waits. **IBKR is the futures
+broker** (a Tradovate sleeve was evaluated and retired; its dead wiring
+was purged 2026-06-10).
 
 ### Step 7 — Logging and state updates
 The runtime records:

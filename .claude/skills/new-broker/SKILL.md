@@ -1,6 +1,6 @@
 ---
 name: new-broker
-description: Wire a new broker (futures, FX, crypto, prop firm) into the bot's execution path. Use when the operator says "add Tradovate", "integrate <broker>", "wire up a new exchange", or anything that adds a new entry to `src/units/accounts/integrator.py::EXCHANGE_MAP`. Covers credentials handoff (via the `credentials-and-vm-mutations` rule), the package + factory + integrator + executor wiring, `accounts.yaml` entry, and verification. NOT for tuning an existing broker's params and NOT for adding a strategy (that's `new-strategy`).
+description: Wire a new broker (futures, FX, crypto, prop firm) into the bot's execution path. Use when the operator says "integrate <broker>", "wire up a new exchange", or anything that adds a new entry to `src/units/accounts/integrator.py::EXCHANGE_MAP`. Covers credentials handoff (via the `credentials-and-vm-mutations` rule), the package + factory + integrator + executor wiring, `accounts.yaml` entry, and verification. NOT for tuning an existing broker's params and NOT for adding a strategy (that's `new-strategy`).
 ---
 
 # /new-broker — wire a new broker into the execution path
@@ -22,9 +22,8 @@ The operator does exactly three things, no more, no less:
 1. **Originate at the third party** — sign up at the broker, create an
    API app, capture cid/secret/keys, choose any device-id strings.
 2. **Add the values to GitHub Actions secrets** with the exact env-var
-   names from the broker's config dataclass (e.g.
-   `TradovateConfig.load()` reads `TRADOVATE_USERNAME`,
-   `TRADOVATE_PASSWORD`, `TRADOVATE_APP_ID`, …).
+   names the broker's config dataclass reads from the environment
+   (e.g. `<BROKER>_API_KEY`, `<BROKER>_API_SECRET`, …).
 3. **Ping you** when the secrets are in Actions.
 
 Everything else — propagating values to the VM, listing accounts on
@@ -45,16 +44,17 @@ is that EVERY new broker touches each of these.
    change), auth, REST / WS clients with retry + reconnect, internal
    domain models, services (account / market-data / order / position),
    risk manager, recorder, event bus, broker-agnostic
-   `<Broker>Adapter` facade. Mirror `src/units/accounts/tradovate/`.
+   `<Broker>Adapter` facade — a self-contained module under
+   `src/units/accounts/<broker>/`.
 2. **Factory** in `src/units/accounts/clients.py::<broker>_client_for(account)`
    — returns the adapter or `None` when creds are missing. Reads from
    `os.environ`; does its own cred validation before constructing the
-   adapter. Mirrors `velotrade_client_for` / `tradovate_client_for`.
+   adapter. Mirrors `velotrade_client_for`.
 3. **Integrator entry** in `src/units/accounts/integrator.py` —
    `<Broker>API` class + `EXCHANGE_MAP["<broker>"]` registration.
 4. **Executor branch** in `src/units/accounts/execute.py::_submit_order`
    for `exchange == "<broker>"` — same missing-client → ping contract
-   as the IB / Tradovate branches; translate the bot's order shape to
+   as the IB / Bybit branches; translate the bot's order shape to
    the broker's `OrderRequest`; translate broker errors to the
    `retCode`-style envelope the coordinator's diagnostic-ping wrapper
    formats.
