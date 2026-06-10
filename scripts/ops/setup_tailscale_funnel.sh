@@ -4,13 +4,13 @@
 # the resulting public HTTPS URL so the dashboard's vercel.json can
 # point at it.
 #
-# Why: the prior cloudflared quick-tunnel hostname changes on every
-# cloudflared restart, breaking the dashboard until a maintainer
-# repoints vercel.json. Tailscale Funnel exposes a *stable* HTTPS
-# URL of the form https://<vm-hostname>.<tailnet>.ts.net that
-# survives reboots, restarts, and key rotations — eliminating the
-# every-restart-breaks-the-dashboard failure mode tracked in
-# scripts/ops/setup_cloudflare_tunnel.sh "named-tunnel follow-up".
+# Why: Tailscale Funnel exposes a *stable* HTTPS URL of the form
+# https://<vm-hostname>.<tailnet>.ts.net that survives reboots,
+# restarts, and key rotations. (Note: the current Streamlit dashboard
+# makes its upstream call server-side and needs no tunnel at all, so
+# this funnel path is only relevant to a future browser-direct
+# consumer; the retired Cloudflare tunnel stack it replaced has been
+# purged from the repo.)
 #
 # Prerequisites (operator does ONCE before invoking this action, all
 # from the browser — no VM SSH required):

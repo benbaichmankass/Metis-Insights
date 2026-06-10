@@ -292,10 +292,13 @@ makes the upstream call to `http://158.178.210.252:8001` directly —
 no tunnel, no Vercel rewrite. Pre-2026-05-12 architectures (React on
 Vercel → CF named tunnel) are retired; see
 [ict-trader-dashboard/CLAUDE.md](https://github.com/benbaichmankass/ict-trader-dashboard/blob/main/CLAUDE.md)
-and [`docs/audit/vercel-edge-vs-cf-worker.md`](docs/audit/vercel-edge-vs-cf-worker.md).
-If the operator tears down `ict-cloudflared-tunnel.service` on the VM
-(via `teardown-cloudflare-tunnel` operator action), nothing downstream
-relies on it.
+and [`docs/audit/vercel-edge-vs-cf-worker.md`](docs/audit/vercel-edge-vs-cf-worker.md)
+(the latter kept as the historical record of why the CF stack was tried
+and abandoned). The Cloudflare tunnel integration has been **purged from
+the repo** (full-system-audit cleanup): the `ict-cloudflared-tunnel`
+service unit, its drop-in, the `*_cloudflare_tunnel.sh` scripts, and the
+`*-cloudflare-tunnel` system-actions are all gone — the Streamlit
+server-side upstream call needs no tunnel.
 
 ## Key Directories
 ```
@@ -691,4 +694,4 @@ uvicorn src.web.api.main:app --port 8001 --reload
 - **IB Gateway auto-heal watchdog (`ict-ib-gateway-watchdog.{service,timer}`, 2026-05-28)** is the MES dead-man switch for the *broker session* — distinct from the liveness watchdog above, which guards the *trader process*. Fires `scripts/check_ib_gateway.py` every 5 min (timer `OnBootSec=3min` / `OnUnitActiveSec=5min`); probes `ib_paper` via `ib_connect_check` — a logged-out Gateway still reports `connected=true` but `net_liquidation=None`, so **health = connected AND net_liquidation populated** — and after 2 consecutive wedged checks runs `scripts/ops/restart_ib_gateway.sh` (the same `docker restart` as the manual `vm-ib-gateway-recover` workflow). Guard rails `--restart-after 2 --max-restarts 3 --cooldown-min 20` mean a genuine IBKR lockout can never become a restart loop; once exhausted it alert-only escalates to Telegram. Heals the overnight IBKR-reset wedge that used to leave MES dark for hours pending a manual recover. Full runbook: [`docs/runbooks/ib-integration.md`](docs/runbooks/ib-integration.md) § Auto-heal watchdog; the root-cause investigation (IBC nightly auto-restart unreliable) is health-review backlog `BL-20260527-003`. Queryable on the diag surface (`/api/diag/services` + `/api/diag/journalctl?unit=ict-ib-gateway-watchdog.service`) since it was added to `_CANONICAL_UNITS` (#2192).
 - The old HTMX UI (`web/static/`, `web/templates/`, `src/web/api/routers/ui.py`) has been removed
 - The old Streamlit UIs (`src/web/backtest_ui.py`, `src/web/config_ui.py`) have been removed
-- The old `cf-worker/` directory has been removed (2026-05-12). It was a deprecated Cloudflare Worker proxy that never worked (CF error 1003: Workers can't fetch raw IPv4). With the dashboard now on Streamlit, no tunnel is needed at all. The `ict-cloudflared-tunnel.service` on the VM can be torn down via the existing `teardown-cloudflare-tunnel` operator action whenever you want — nothing depends on it anymore.
+- The old `cf-worker/` directory was removed (2026-05-12), and the **entire Cloudflare tunnel integration was purged from the repo in the full-system-audit cleanup**: the `ict-cloudflared-tunnel` service unit + drop-in, the four `*_cloudflare_tunnel.sh` scripts, the `*-cloudflare-tunnel` system-actions (+ their tests/allowlist), and the `cloudflare-named-tunnel` runbook are all gone. The Streamlit dashboard makes its upstream call server-side and needs no tunnel. If the `ict-cloudflared-tunnel.service` unit is still installed on the live VM, stop + disable it (`sudo systemctl disable --now ict-cloudflared-tunnel.service`). Historical sprint logs/audit (`S-CFW-*`, `vercel-edge-vs-cf-worker.md`) are kept as the record of why CF was tried and retired.

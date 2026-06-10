@@ -84,8 +84,6 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # switch is firing on cadence and inspect its decisions.
     "ict-liveness-watchdog.service",
     "ict-liveness-watchdog.timer",
-    # Named CF tunnel from PR #1006 (T1) carrying the dashboard upstream; exposing its state via /api/diag/services lets a layer-2 review verify FU-20260512-001's "tunnel still up" check without needing journalctl.
-    "ict-cloudflared-tunnel.service",
     # 2026-05-28 — IB Gateway auto-heal watchdog (BL-20260527-003). The
     # oneshot + its driving timer, queryable so a session can verify the
     # MES dead-man switch is enabled and firing on cadence (and read its

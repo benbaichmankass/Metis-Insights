@@ -12,7 +12,6 @@ are a parallel, additive layer that sidesteps that friction.
 |---|---|---|
 | [`data-dir.conf`](./data-dir.conf) | `ict-trader-live`, `ict-web-api`, `ict-claude-bridge`, `ict-telegram-bot` | Binds to `/data/bot-data` mount: `RequiresMountsFor`, `ExecStartPre=check_data_dir.sh`, `Environment=DATA_DIR=...`. **`ict-claude-bridge` + `ict-telegram-bot` are auto-installed by `scripts/install_systemd_units.sh` on every pull-and-deploy** (both are ping drainers — a missing drop-in silently darkens their channel). `ict-trader-live` + `ict-web-api` are still installed manually (one-time, below). |
 | [`watchdog-data-dir.conf`](./watchdog-data-dir.conf) | `ict-liveness-watchdog` | Minimal `Environment=DATA_DIR=/data/bot-data` only — no mount guard since the watchdog should alert, not block, when the mount is absent. **Auto-installed by `scripts/install_systemd_units.sh` on every pull-and-deploy.** |
-| [`cloudflared-token.conf`](./cloudflared-token.conf) | `ict-cloudflared-tunnel` | Overrides `ExecStart` to use `--token` mode (raw CF API token stored in `tunnel.env`), bypassing the URL-safe base64 decode that silently wrote an empty credentials file and caused cloudflared to crash-loop. **Auto-installed by `scripts/install_systemd_units.sh` on every pull-and-deploy.** |
 
 ## How to install data-dir.conf (one-time, per service)
 
@@ -40,16 +39,6 @@ if missing or changed. No manual step required. No service restart
 needed — the watchdog is a oneshot fired by its timer; the next timer
 tick (≤60 s) picks up the new environment.
 
-## How cloudflared-token.conf gets installed
-
-`scripts/install_systemd_units.sh` automatically installs
-`cloudflared-token.conf` to
-`/etc/systemd/system/ict-cloudflared-tunnel.service.d/token.conf`
-if missing or changed. **After the drop-in lands, run
-`setup-named-cloudflare-tunnel`** to write `tunnel.env` with the raw
-CF API token — the drop-in's `EnvironmentFile=` reads from this file.
-No `tunnel.env` = cloudflared starts but fails to authenticate.
-
 ## How to undo
 
 ```bash
@@ -73,9 +62,6 @@ systemctl show ict-trader-live.service | grep DATA_DIR
 # Verify watchdog drop-in is installed and active.
 systemctl cat ict-liveness-watchdog.service | grep DATA_DIR
 systemctl show ict-liveness-watchdog.service | grep DATA_DIR
-
-# Verify cloudflared drop-in is installed and --token is wired up.
-systemctl cat ict-cloudflared-tunnel.service | grep token
 
 # Process is reading from the mount.
 sudo lsof -p "$(systemctl show -p MainPID --value ict-trader-live)" \

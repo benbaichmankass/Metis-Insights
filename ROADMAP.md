@@ -293,22 +293,10 @@ Full detail preserved in git history. Recent AI-traders sprints:
 - Exchange Failover / Multi-Exchange Support.
 - Deployment Automation.
 - Tier 2 follow-up: live-path migration onto WS2 types.
-- **Cloudflare named tunnel migration** — replace the
-  ephemeral `*.trycloudflare.com` quick tunnel with a named
-  tunnel at `bot.<our-domain>` (now the only viable
-  stable-URL path after S-CFW-1-FU2 retired the Worker layer).
-  **Prereq:** operator adds a domain to Cloudflare (zone with
-  nameservers pointed at CF). When met, ~30 min sprint.
 - **CFI auto-flatten promotion** — if `runtime_logs/invariant_violations.jsonl`
   stays at zero through 2026-05-17 (7-day soak from the
   alert-only enable on 2026-05-10, issue #683), file the PR that
   promotes the invariant from alert-only to auto-flatten.
-- **Tunnel-URL auto-refresh** — VM-side hook that pushes the
-  new `*.trycloudflare.com` URL into Vercel (via API) every
-  time `setup_cloudflare_tunnel.sh` produces a new URL.
-  Eliminates the operator-update step on tunnel restart.
-  Smaller scope than the named-tunnel migration; useful
-  in-between if the named tunnel keeps slipping.
 - Per-family dataset builders for `market_features`, `setup_labels`,
   `account_context`, `review_journal`.
 - `python -m ml.datasets publish` HF subcommand.
