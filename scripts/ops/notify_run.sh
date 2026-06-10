@@ -202,6 +202,14 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    purge-cloudflared)
+        # 2026-06-10: purge the orphaned ict-cloudflared-tunnel.service from the VM.
+        tier=2
+        case "${exit_code}" in
+            0) result="ok"; priority="normal" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
     enable-mes|disable-mes)
         # PR #1656/#1670: IB MES multi-symbol activation toggle (restarts trader).
         tier=2
