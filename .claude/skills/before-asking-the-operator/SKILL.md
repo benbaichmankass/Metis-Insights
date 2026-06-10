@@ -105,9 +105,9 @@ mechanics:
 These have happened in this repo. If your draft has the same shape,
 stop and rewrite via the check above:
 
-- "SSH to the VM and add a systemd drop-in for the Tradovate env vars"
+- "SSH to the VM and add a systemd drop-in for a new broker's env vars"
   → wrong; `sync-vm-secrets.yml` does this.
-- "Run `gh secret set` locally for each Tradovate placeholder"
+- "Run `gh secret set` locally for each broker-credential placeholder"
   → wrong; `init-actions-secrets.yml` does this.
 - "Open a terminal and run `python -m ml backfill-…`"
   → wrong; the trainer-vm-diag relay's arbitrary-bash `cmd:` block

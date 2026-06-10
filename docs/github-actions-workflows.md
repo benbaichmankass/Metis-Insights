@@ -488,7 +488,7 @@ pending migration).
 
 **Secrets:** `VM_SSH_KEY`, all entries in `REQUIRED_SECRETS` (currently
 `BYBIT_API_KEY_1/2`, `BYBIT_API_SECRET_1/2`), and OPTIONAL ones for any
-broker that's been onboarded (currently the 7 Tradovate vars).
+broker that's been onboarded (the broker-credential vars for any onboarded broker).
 
 ---
 
