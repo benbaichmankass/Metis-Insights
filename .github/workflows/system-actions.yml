@@ -168,7 +168,13 @@ on:
   # autonomous-dispatch path; no operator click required. Label
   # `system-action` is created idempotently by bootstrap-labels.yml.
   issues:
-    types: [opened, labeled]
+    # `opened` only. When an issue is created WITH the `system-action` label
+    # (the dispatch path), GitHub fires BOTH `opened` and `labeled` — and the
+    # old two-branch `if:` matched both, running the action TWICE (e.g. two
+    # pull-and-deploys from one request, 2026-06-10). The label is checked in
+    # the job `if:` below, so `opened` alone fires exactly once. (Matches the
+    # single-fire pattern the other issue-driven workflows already use.)
+    types: [opened]
 
 permissions:
   contents: read
@@ -185,16 +191,17 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues' &&
-       (
-         (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'system-action')) ||
-         (github.event.action == 'labeled' && github.event.label.name == 'system-action')
-       )
-      )
+       github.event.action == 'opened' &&
+       contains(github.event.issue.labels.*.name, 'system-action'))
     runs-on: ubuntu-latest
     # 10 min covers status-check / restart-bot-service / reboot-vm.
-    # pull-and-deploy can pip-install on a cold cache, so allow more
-    # headroom; deploy_pull_restart.sh takes ~2-4 min on a typical run.
-    timeout-minutes: 15
+    # pull-and-deploy can pip-install on a cold cache + restart 14 units, so
+    # allow headroom; deploy_pull_restart.sh takes ~2-4 min on a typical run,
+    # more on a CPU-constrained VM. Bumped 15→20 (2026-06-10) so a slow-but-
+    # healthy deploy under VM load doesn't hit the cap and report a false
+    # failure (the verbose per-unit status dump that used to blow the budget
+    # was also slimmed to a one-line is-active summary in deploy_pull_restart.sh).
+    timeout-minutes: 20
     env:
       VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
