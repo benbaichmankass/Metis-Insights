@@ -28,13 +28,11 @@ log "Collecting recent logs…"
 # content has to live at the BOTTOM of the bundle so it survives
 # truncation. Order, lowest-priority first → highest-priority last:
 #
-#   1. status.json + cloudflared URL  (tiny + rarely useful)
+#   1. status.json                     (tiny + rarely useful)
 #   2. journalctl ict-web-api          (web-api context)
 #   3. journalctl ict-telegram-bot     (telegram-side errors)
 #   4. signal_audit.jsonl tail         (pipeline behaviour)
 #   5. journalctl ict-trader-live      (the bot's own python log)
-#   6. journalctl ict-cloudflared-tunnel (tunnel gateway — most relevant
-#                                         for Vercel 502 diagnostics)
 #
 # Pre-2026-05-11 the order was inverted and an incident's bot.log was
 # truncated out of the 50 KB window. Don't rearrange without measuring
@@ -46,17 +44,6 @@ if [ -f "${STATUS}" ]; then
     cat "${STATUS}"
 else
     echo "(no status.json yet)"
-fi
-echo
-
-# Cloudflare quick-tunnel URL — written by setup_cloudflare_tunnel.sh
-# on every (re)start.
-echo "===== runtime_logs/cloudflared_tunnel_url.txt ====="
-TUNNEL_URL="${REPO_DIR}/runtime_logs/cloudflared_tunnel_url.txt"
-if [ -f "${TUNNEL_URL}" ]; then
-    cat "${TUNNEL_URL}"
-else
-    echo "(no cloudflared tunnel URL recorded — tunnel may not be running)"
 fi
 echo
 
@@ -95,13 +82,6 @@ echo "===== journalctl -u ict-trader-live -n ${JOURNAL_LINES} ====="
 journalctl -u ict-trader-live.service -n "${JOURNAL_LINES}" --no-pager 2>/dev/null || \
     echo "(journalctl unavailable for ict-trader-live)"
 echo
-
-# Last on purpose — tunnel gateway is the primary signal for Vercel 502
-# on /api/bot/* routes; keeping it at the bottom ensures it survives
-# the 50 KB issue-comment truncation window.
-echo "===== journalctl -u ict-cloudflared-tunnel -n ${JOURNAL_LINES} ====="
-journalctl -u ict-cloudflared-tunnel.service -n "${JOURNAL_LINES}" --no-pager 2>/dev/null || \
-    echo "(journalctl unavailable for ict-cloudflared-tunnel)"
 
 record_audit "pull-latest-logs" "ok" \
     "{\"journal_lines\": ${JOURNAL_LINES}, \"audit_lines\": ${AUDIT_LINES}}" >/dev/null || true

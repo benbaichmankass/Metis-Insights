@@ -120,8 +120,8 @@ variables (same pattern as the rest of the pipeline).
 
 | Key | Default | Description |
 |---|---|---|
-| `NEWS_ENABLED` | `true` | Set to `false` to disable the entire module |
-| `NEWS_API_KEY` | — | NewsAPI key (required when enabled) |
+| `NEWS_SOURCE` | `newsapi` | Feed backend **and activation gate** — `rss` (keyless, always active) or `newsapi` (active only when `NEWS_API_KEY` is set). There is no separate enable flag (the legacy `NEWS_ENABLED` gate was removed 2026-06-10). |
+| `NEWS_API_KEY` | — | NewsAPI key — required for the `newsapi` source; its presence is that source's activation gate. Unused for `rss`. |
 | `NEWS_QUERY` | `"Bitcoin OR BTC"` | NewsAPI search query |
 | `NEWS_MAX_ARTICLES` | `10` | Articles fetched per call (1–100) |
 | `NEWS_CACHE_TTL` | `300` | Seconds to cache fetched articles |
@@ -172,15 +172,18 @@ tests/
 The news veto hook is wired into `src/runtime/pipeline.py`.  It runs on every
 actionable signal tick (after risk-counter injection, before `safe_place_order`).
 
-**Default posture: disabled.**  The `config/master-secrets.template.yaml`
-template ships with `news.enabled: "false"` and a blank `news.api_key`.
-`scripts/render_env_from_master.py` always writes `NEWS_ENABLED` and
-`NEWS_API_KEY` into the rendered `.env.live` — if either key is absent in a
-rendered env file, that is a config bug, not a silent default.
+**Default posture: inert (no usable source).**  The default `NEWS_SOURCE`
+is `newsapi` with a blank `news.api_key`, so the layer is a neutral no-op until
+either a `NEWS_API_KEY` is supplied (newsapi) or `NEWS_SOURCE=rss` is selected
+(keyless). `scripts/render_env_from_master.py` always writes `NEWS_API_KEY`
+into the rendered `.env.live` — its absence is a config bug, not a silent
+default. (`NEWS_ENABLED` is no longer rendered or read — the separate enable
+gate was removed 2026-06-10; activation is source-driven.)
 
-> **Warning:** if either `NEWS_ENABLED` or `NEWS_API_KEY` is absent or blank,
-> the hook is a **silent no-op** — the pipeline proceeds as if news were
-> disabled.  You must set **both** to activate the gate.
+> **Note:** the layer activates the moment a usable source is configured
+> (`NEWS_SOURCE=rss`, or `newsapi` + `NEWS_API_KEY`). A live source **can**
+> `news_veto` a trade — selecting a source is the deliberate activation, so
+> there's no separate flag to forget.
 
 ### Enabling the veto gate
 
@@ -312,12 +315,13 @@ NewsAPI free-tier delay that otherwise leaves the layer scoring everything
 a shared `global` group; `news_feeds.feeds_for_tags` resolves the set per traded
 symbol). The RSS client is stdlib-only (urllib + `xml.etree`), handles RSS 2.0
 and Atom, and emits the **same raw-article shape** the normalizer consumes, so
-scoring / veto / multi-asset relevance are unchanged. Both halves are gated by
-`NEWS_ENABLED`; RSS needs no key, so `news_client.is_active` treats
-`NEWS_SOURCE=rss` + `NEWS_ENABLED=true` as active.
+scoring / veto / multi-asset relevance are unchanged. Activation is
+source-driven (no `NEWS_ENABLED` gate): RSS needs no key, so
+`news_client.is_active` treats `NEWS_SOURCE=rss` as active outright; newsapi
+needs a key.
 
 Enable RSS on the VM (no key needed):
-`set-env NEWS_SOURCE=rss` + `set-env NEWS_ENABLED=true` (service `ict-trader-live`).
+`set-env NEWS_SOURCE=rss` (service `ict-trader-live`).
 Verify fresh articles first with the `news-key-check` workflow (it reports
 `fresh(<=120m)` + `fresh&relevant` counts per symbol).
 

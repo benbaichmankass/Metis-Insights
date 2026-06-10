@@ -117,10 +117,14 @@ def test_bitcoin_article_still_relevant():
 # --------------------------------------------------------------------------
 
 def test_is_active_gating(monkeypatch):
+    # Activation is source-driven (no NEWS_ENABLED gate — removed 2026-06-10):
+    # the default newsapi source is active iff a key is present; rss is keyless;
+    # a leftover NEWS_ENABLED value is ignored.
     monkeypatch.delenv("NEWS_API_KEY", raising=False)
-    assert news_client.is_active({"NEWS_ENABLED": "true"}) is False  # no key
-    assert news_client.is_active({"NEWS_ENABLED": "false", "NEWS_API_KEY": "k"}) is False
-    assert news_client.is_active({"NEWS_ENABLED": "true", "NEWS_API_KEY": "k"}) is True
+    assert news_client.is_active({}) is False  # newsapi default, no key
+    assert news_client.is_active({"NEWS_API_KEY": "k"}) is True
+    assert news_client.is_active({"NEWS_ENABLED": "false", "NEWS_API_KEY": "k"}) is True
+    assert news_client.is_active({"NEWS_SOURCE": "rss"}) is True  # keyless
 
 
 def test_log_news_decision_writes_line(tmp_path, monkeypatch):

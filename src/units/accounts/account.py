@@ -35,8 +35,9 @@ class TradingAccount:
         risk defaults.
     dry_run : bool
         When True (default), orders are simulated — no live exchange calls.
-        Toggle via ``/accounts dry|live <name>`` Telegram command or
-        ``Coordinator.set_account_dry_run()``.
+        Resolved from ``config/accounts.yaml::mode`` at load time; the only
+        sanctioned writer is the ``set-account-mode`` system-action
+        (``scripts/ops/set_account_mode.sh``).
     """
 
     def __init__(

@@ -1083,8 +1083,7 @@ class Coordinator:
             # round into that mode. When ``None`` (the production
             # default), the per-account ``mode`` field decides via
             # ``account.dry_run`` (already resolved by ``load_accounts``
-            # from ``cfg["mode"]`` + any ``set_account_dry_run`` runtime
-            # override). Per CLAUDE.md the per-account RiskManager is
+            # from ``cfg["mode"]``). Per CLAUDE.md the per-account RiskManager is
             # the single source of truth — pre-fix this method
             # defaulted to ``dry_run=True`` and silently overrode
             # every account's ``mode: live``.
@@ -1756,37 +1755,6 @@ class Coordinator:
             **summary,
         )
         return summary
-
-    def set_account_dry_run(self, account_name: str, dry_run: bool) -> Dict[str, Any]:
-        """Toggle the dry/live execution mode for *account_name*.
-
-        The state is persisted in the accounts package's ``_DRY_RUN_OVERRIDES``
-        dict and applied to every subsequent ``load_accounts()`` call.
-
-        Parameters
-        ----------
-        account_name : str
-            Name matching an entry in accounts.yaml (e.g. ``"bybit_1"``).
-        dry_run : bool
-            True → simulate (safe), False → live execution.
-
-        Returns
-        -------
-        dict
-            ``{account, dry_run, mode}`` confirmation dict.
-        """
-        from src.units.accounts import set_account_dry_run as _set
-
-        _set(account_name, dry_run)
-        mode = "dry" if dry_run else "live"
-        self.push_alert(
-            f"Account '{account_name}' set to {mode} mode",
-            source="accounts",
-            level="info",
-            account=account_name,
-            dry_run=dry_run,
-        )
-        return {"account": account_name, "dry_run": dry_run, "mode": mode}
 
     def reload_strategy_config(self, config_path: Optional[str] = None) -> Dict[str, Any]:
         """Verify strategies.yaml is readable and return the loaded config.

@@ -266,16 +266,16 @@ def _per_account_pairs(
 def _news_pairs(data: dict) -> list[tuple[str, str]]:
     """Render the news: block from the master secrets template.
 
-    NEWS_ENABLED and NEWS_API_KEY are always written so their absence in the
-    template is a detectable config bug rather than a silent default.
-    Optional tuning knobs are written only when explicitly present.
+    NEWS_API_KEY is always written so its absence in the template is a
+    detectable config bug rather than a silent default. Optional tuning knobs
+    are written only when explicitly present. (NEWS_ENABLED is no longer
+    emitted — the legacy enable gate was removed 2026-06-10; activation is
+    source-driven: the rss source is keyless, newsapi needs NEWS_API_KEY.)
     """
     news = data.get("news") or {}
     pairs: list[tuple[str, str]] = []
 
-    # Always-present keys (absence → detectable config bug, not silent default)
-    enabled = news.get("enabled", "false")
-    pairs.append(("NEWS_ENABLED", str(enabled) if enabled is not None else "false"))
+    # Always-present key (absence → detectable config bug, not silent default)
     api_key = news.get("api_key", "")
     pairs.append(("NEWS_API_KEY", str(api_key) if api_key is not None else ""))
 

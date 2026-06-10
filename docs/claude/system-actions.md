@@ -70,8 +70,6 @@ Adding an action requires a PR that updates this doc, the workflow's
 | `kick-insights` | 1 | `scripts/ops/kick_insights.sh` | Tier-1 manual-fire: runs `systemctl start ict-insights-generator.service` once, off the timer schedule. The unit is a oneshot so the wrapper completes synchronously; the action's comment-back includes the last 80 journal lines + the 5 newest `insights_usage` + `insights_history` rows. Useful for verifying provider changes (e.g. enabling the Gemini API in GCP) without waiting up to 15 min for the next scheduled fire. Same write surface as a timer-fired cycle — no other side effects. |
 | `enable-signal-dual-write` | 2 | `scripts/ops/enable_signal_dual_write.sh` | `.env` (`SIGNAL_DUAL_WRITE_DISABLED=false`) + restart `ict-trader-live.service` — hydrates `trade_journal.db::signals` per eval (S-034). Adds a SQLite write on the trading hot path; re-enable only when the table is needed. |
 | `disable-signal-dual-write` | 2 | `scripts/ops/disable_signal_dual_write.sh` | `.env` (`SIGNAL_DUAL_WRITE_DISABLED=true`) + restart `ict-trader-live.service` — rollback / pipeline-lag escape hatch (JSONL stays the source of truth). |
-| `setup-cloudflare-tunnel` | 2 | `scripts/ops/setup_cloudflare_tunnel.sh` | downloads `cloudflared` to `~/.local/bin`, launches a quick tunnel for `http://localhost:8001`, writes the URL to `runtime_logs/cloudflared_tunnel_url.txt`, installs an `@reboot` crontab entry |
-| `teardown-cloudflare-tunnel` | 2 | `scripts/ops/teardown_cloudflare_tunnel.sh` | stops the cloudflared process, strips the `@reboot` crontab entry, removes the URL file (binary stays on disk) |
 | `backfill-pnl-nulls` | 2 | `scripts/ops/backfill_pnl_nulls_action.sh` | `UPDATE trades SET pnl, pnl_percent WHERE status='closed' AND pnl IS NULL AND <complete inputs>` in `trade_journal.db`. No service touched. Idempotent (SQL guard `WHERE pnl IS NULL`). Filters: `status='closed'`, `COALESCE(is_backtest,0)=0`, full price/size triple, known direction. |
 | `backfill-orphan-pnl` | 2 | `scripts/ops/backfill_orphan_pnl_action.sh` | `UPDATE trades SET status='closed', exit_price, pnl, pnl_percent, notes, exit_reason='backfill_closed_pnl_recovery' WHERE status='orphaned' AND exit_reason='stuck_strategy_watchdog' AND exit_price IS NULL` in `trade_journal.db`. Recovers each row's real close fill from Bybit V5 `/v5/position/closed-pnl` via `account_closed_pnl_for_trade` (PR #1299). No service touched. Idempotent (SQL guard `WHERE status='orphaned'`). Bybit retains closed-pnl records for 7 days only — older orphans are listed in the skip section and remain `status='orphaned'`. Full runbook: `docs/runbooks/backfill-orphan-pnl.md`. |
 | `backfill-closed-null-pnl` | 2 | `scripts/ops/backfill_closed_null_pnl_action.sh` | `UPDATE trades SET exit_price, pnl, pnl_percent, notes, exit_reason='backfill_closed_pnl_recovery' WHERE status='closed' AND pnl IS NULL AND COALESCE(is_backtest,0)=0` in `trade_journal.db`. Covers the reconciler-fallback shape (`order_monitor.py:3131-3151`) where status='closed' was stamped without computing PnL when the broker close-pnl lookup failed. Re-uses `backfill_orphan_pnl.py`'s `_plan_row` / `_apply_updates` / silent-credential-failure warning — same Bybit V5 `/v5/position/closed-pnl` recovery as `backfill-orphan-pnl`, just a widened candidate filter. No service touched. Idempotent (SQL guard `WHERE pnl IS NULL`). Bybit's 7-day retention is the limiting factor; older rows are listed in the skip section. Added 2026-06-04 reporting-cleanup sprint (#2774). |
@@ -228,10 +226,6 @@ Tier-2 actions:
 - `disable-closed-flat-invariant`
 - `enable-m5-consumer`
 - `disable-m5-consumer`
-- `setup-cloudflare-tunnel`
-- `teardown-cloudflare-tunnel`
-- `setup-named-cloudflare-tunnel`
-- `teardown-named-cloudflare-tunnel`
 - `setup-tailscale-funnel`
 - `teardown-tailscale-funnel`
 - `backfill-pnl-nulls`
@@ -379,7 +373,6 @@ Tier-2 set for the table above is `pull-and-deploy`,
 `restart-bot-service`, `reboot-vm`,
 `enable-closed-flat-invariant`, `disable-closed-flat-invariant`,
 `enable-m5-consumer`, `disable-m5-consumer`,
-`setup-cloudflare-tunnel`, `teardown-cloudflare-tunnel`,
 `backfill-pnl-nulls`, `set-account-mode`, and `fix-data-dir`.
 
 Two corollaries that read as drift but are intentional:
