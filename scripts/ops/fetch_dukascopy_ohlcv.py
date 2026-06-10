@@ -18,8 +18,10 @@ Use ``--list <substring>`` to discover them.
 
 Equities/ETF CFDs trade nearly around the clock on Dukascopy's book but
 the strategies under test are RTH objects — pass ``--rth-only`` to keep
-only the US cash session (14:30–21:00 UTC; approximation that ignores
-the DST hour shift — fine for research sweeps, NOT a trading calendar).
+only the US cash session. DST is approximated by month (Apr–Oct →
+13:30–20:00 UTC, else 14:30–21:00 UTC; the same approximation as
+``src.runtime.market_hours``) — March/November transition weeks are
+off by an hour at the edges. Research-grade, NOT a trading calendar.
 
 Usage
 -----
@@ -41,8 +43,9 @@ import pandas as pd
 
 INTERVALS = ("1m", "5m", "15m", "1h", "4h", "1d")
 
-RTH_START_UTC = time(14, 30)
-RTH_END_UTC = time(21, 0)
+# Month-based DST approximation (mirrors src.runtime.market_hours):
+# Apr-Oct = full-DST months -> session 13:30-20:00 UTC; else 14:30-21:00.
+_FULL_DST_MONTHS = {4, 5, 6, 7, 8, 9, 10}
 
 
 def _interval_map():
@@ -83,7 +86,11 @@ def fetch(instrument_name: str, start: datetime, end: datetime, interval: str) -
 
 def rth_filter(df: pd.DataFrame) -> pd.DataFrame:
     t = df["timestamp"].dt.time
-    return df[(t >= RTH_START_UTC) & (t < RTH_END_UTC)].reset_index(drop=True)
+    dst = df["timestamp"].dt.month.isin(_FULL_DST_MONTHS)
+    in_dst_session = (t >= time(13, 30)) & (t < time(20, 0))
+    in_std_session = (t >= time(14, 30)) & (t < time(21, 0))
+    keep = (dst & in_dst_session) | (~dst & in_std_session)
+    return df[keep].reset_index(drop=True)
 
 
 def main(argv: list[str]) -> int:
