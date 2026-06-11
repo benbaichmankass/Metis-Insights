@@ -122,8 +122,10 @@ def _size_unbounded(
     unit/contract. It is ``1.0`` for crypto perps (a $1 price move on one
     coin-unit is $1), so the crypto path is unchanged. For futures like MES
     it is the contract multiplier ($5/index-point), so risk-per-contract is
-    ``risk_distance × contract_value_usd`` and the qty comes out in whole
-    contracts.
+    ``risk_distance × contract_value_usd``. NOTE: granularity comes from
+    ``qty_precision``, not from this factor — futures callers must pass
+    ``qty_precision=0`` (``RiskManager.position_size`` enforces this for
+    ``market_type: futures``; BL-20260611-001).
     """
     if balance_usdt <= 0:
         raise ValueError(f"balance_usdt must be positive, got {balance_usdt}")
@@ -563,18 +565,37 @@ class RiskManager:
 
         # Per-instrument contract value ($/point). 1.0 for crypto (path
         # unchanged); the MES contract multiplier ($5/point) for futures so
-        # qty comes out in whole contracts and the USD-loss math below is
-        # correct.
+        # the USD-loss math below is correct.
         cvu = contract_value_usd_for(getattr(package, "symbol", "") or "")
+
+        # Futures fill in WHOLE contracts only — IBKR rejects fractional
+        # qty, and the rejection is asynchronous so a fractional order
+        # silently never becomes a position (BL-20260611-001, trade #2531:
+        # 3.643 MHG contracts dispatched, orphaned 30 min later). Enforce
+        # integer granularity for every ``market_type: futures`` account
+        # here, regardless of the account's configured ``qty_precision`` /
+        # ``min_qty`` — the crypto-oriented defaults (3dp / 0.001 lot) are
+        # what produced the fractional size when an IB account omitted
+        # them. A computed size below 1 contract is a per-trade REFUSAL
+        # (0.0), never bumped up to a whole contract: the bump would
+        # exceed the configured risk cap.
+        is_futures = market_type == "futures"
+        eff_precision = 0 if is_futures else self.qty_precision
+        eff_min_qty = 1.0 if is_futures else self.min_qty
 
         qty = _size_unbounded(
             package,
             risk_pct=effective_risk_pct,
             balance_usdt=balance_usd,
-            min_qty=self.min_qty,
-            qty_precision=self.qty_precision,
+            # Futures: min_qty=0 so _size_unbounded's max(min_qty, floored)
+            # bump-up never manufactures a position — the refusal check
+            # below handles the sub-1-contract case instead.
+            min_qty=0.0 if is_futures else self.min_qty,
+            qty_precision=eff_precision,
             contract_value_usd=cvu,
         )
+        if is_futures and qty < eff_min_qty:
+            return 0.0
 
         # S-026 G3: daily-loss-budget gate. USD loss at SL is
         # qty × risk_distance × contract_value_usd (cvu=1.0 for crypto).
@@ -595,8 +616,8 @@ class RiskManager:
         max_loss_at_sl = qty * risk_distance * cvu
         if max_loss_at_sl > loss_budget_remaining:
             scaled = loss_budget_remaining / (risk_distance * cvu)
-            qty = _floor_to_step(scaled, self.qty_precision)
-            if qty < self.min_qty:
+            qty = _floor_to_step(scaled, eff_precision)
+            if qty < eff_min_qty:
                 return 0.0
 
         # === 2026-05-12 margin pre-flight cap ===
