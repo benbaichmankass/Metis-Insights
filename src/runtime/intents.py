@@ -62,7 +62,9 @@ Public surface
 - ``intent_from_signal``   — bridge a pipeline signal dict → StrategyIntent
 - ``DEFAULT_PRIORITIES``   — strategy-name → priority map (mutable; future
                              strategies append a row here)
-- ``SUPPORTED_SYMBOLS``    — whitelist; currently ``{"BTCUSDT"}``
+- ``SUPPORTED_SYMBOLS``    — static base whitelist; validation actually goes
+                             through ``supported_symbols()``, which unions in
+                             every symbol declared in config/accounts.yaml
 
 Future-strategy plug-in pattern
 -------------------------------
@@ -95,7 +97,54 @@ from typing import Any, Dict, Iterable, Optional
 # mhg_pullback_1d on ib_paper) — same per-symbol parametricity. This is a
 # validation whitelist, not a runtime on/off gate — accounts.yaml ``symbols``
 # drives what actually trades; ``mode:`` is the only execution gate.
+#
+# Config-driven since 2026-06-11: this frozenset is only the STATIC BASE.
+# Validation goes through ``supported_symbols()``, which unions in every
+# symbol declared on an account in ``config/accounts.yaml`` — so wiring a
+# new instrument (M15: XAUUSD on oanda_practice, SPY/QQQ/GLD on
+# alpaca_paper) never needs a code edit here again. The hand-maintained
+# base had already drifted behind accounts.yaml once (the M15 symbols),
+# which would have raised ``ValueError`` out of ``_collect_intents`` on
+# the first actionable signal.
 SUPPORTED_SYMBOLS: frozenset[str] = frozenset({"BTCUSDT", "MES", "MGC", "MHG"})
+
+# accounts.yaml-declared symbols, cached briefly so per-intent validation
+# doesn't re-read YAML on every construction. Fail-safe: a config-load
+# failure leaves the cached set empty and validation falls back to the
+# static base — never *narrower* than the pre-config-driven behaviour.
+_CONFIG_SYMBOLS_TTL_S = 60.0
+_config_symbols_state: Dict[str, Any] = {"at": 0.0, "symbols": frozenset()}
+
+
+def _reset_config_symbols_cache() -> None:
+    """Test hook — force the next ``supported_symbols()`` to re-read config."""
+    _config_symbols_state["at"] = 0.0
+    _config_symbols_state["symbols"] = frozenset()
+
+
+def supported_symbols() -> frozenset[str]:
+    """``SUPPORTED_SYMBOLS`` ∪ every symbol declared in ``config/accounts.yaml``.
+
+    accounts.yaml is the single source of truth for what trades (it drives
+    ``_resolve_tick_symbols``), so it is also the source of truth for what
+    the intent layer should accept. A typo'd symbol is still rejected —
+    no account declares it. Symbols are normalised (upper, ``/`` stripped)
+    to match ``StrategyIntent`` normalisation.
+    """
+    now = time.monotonic()
+    if now - _config_symbols_state["at"] > _CONFIG_SYMBOLS_TTL_S:
+        symbols: set = set()
+        try:
+            from src.config.accounts_loader import load_accounts_dict
+
+            for cfg in (load_accounts_dict() or {}).values():
+                for sym in (cfg or {}).get("symbols") or []:
+                    symbols.add(str(sym).upper().replace("/", ""))
+        except Exception:  # noqa: BLE001 — fail-safe to the static base
+            symbols = set()
+        _config_symbols_state["symbols"] = frozenset(symbols)
+        _config_symbols_state["at"] = now
+    return SUPPORTED_SYMBOLS | _config_symbols_state["symbols"]
 
 
 # Higher priority wins conflicts. Tiebreaker order is documented on
@@ -322,13 +371,14 @@ class StrategyIntent:
         if not self.strategy:
             raise ValueError("StrategyIntent.strategy must be non-empty")
         norm_symbol = self.symbol.upper().replace("/", "")
-        if norm_symbol not in SUPPORTED_SYMBOLS:
+        accepted = supported_symbols()
+        if norm_symbol not in accepted:
             raise ValueError(
                 f"StrategyIntent.symbol must be one of "
-                f"{sorted(SUPPORTED_SYMBOLS)}; got {self.symbol!r}. Add a "
-                "symbol to SUPPORTED_SYMBOLS only alongside its per-symbol "
-                "position-state wiring (open-package gate scoping + an "
-                "accounts.yaml account that trades it)."
+                f"{sorted(accepted)}; got {self.symbol!r}. A symbol becomes "
+                "supported by declaring it in the `symbols:` list of an "
+                "account in config/accounts.yaml (alongside its per-symbol "
+                "position-state wiring) — no code edit needed."
             )
         # Normalise via object.__setattr__ since the dataclass is frozen.
         object.__setattr__(self, "symbol", norm_symbol)
