@@ -421,7 +421,43 @@
       "resolution_criteria": "config/strategies.yaml::htf_pullback_trend_2h.execution confirmed (live vs shadow) and reconciled with the observed bybit_1 fills + the strategy changelog. If live-on-demo, documented as a sanctioned soak with the promotion rationale; if a misroute (shadow strategy filling), escalate to the health-review backlog as an execution-gate bug.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "PB-20260611-M15-1",
+      "opened_at": "2026-06-11T19:00:00+00:00",
+      "opened_by": "claude (M15 soak session)",
+      "source": "M15 WS-C alt sweep + k-fold validation (docs/research/m15-ws-c-alt-sweep-2026-06-11.md; trainer #3380/#3381). Operator endorsed the 3-fold gate and adopted eth_pullback_2h ONLY (#3378).",
+      "title": "Trend-4h alt cells (ETH/XRP/AVAX/SOL) \u2014 3-fold k-fold PASS, research-validated, NOT adopted: revisit for demo-book slots",
+      "description": "All four pass the operator-endorsed 3-fold gate at 7.5 bps with 2x fee headroom (totals: XRP +45.8R, ETH +27.9R, AVAX +27.6R, SOL +21.1R; every 3-fold positive). Deliberately not adopted 2026-06-11 ('merge ETH pullback only'). When revisiting: each is a separate Tier-3 PR mirroring eth_pullback_2h's wiring (per-symbol trend_donchian instance at the Phase-0 screening params donchian 20 / stop 2.5 / trail 3.0 bidirectional, bybit_1 demo only, execution: live per paper-accounts-execute). Weigh book concentration: all correlate 0.7-0.9 with BTC and with each other \u2014 adding several multiplies concurrent-drawdown exposure under the shared bybit_1 daily-loss cap.",
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
+    },
+    {
+      "id": "PB-20260611-M15-2",
+      "opened_at": "2026-06-11T19:00:00+00:00",
+      "opened_by": "claude (M15 soak session)",
+      "source": "eth_pullback_2h adopted + deployed 2026-06-11 (#3378/#3403, verified loaded #3408). NOTE: its first two signals (15:30Z/16:04Z shorts) were exchange-rejected on the lot-step bug fixed in #3406 (BL-20260611-002 flavour) \u2014 the soak clock effectively starts after that deploy (16:20Z).",
+      "title": "eth_pullback_2h demo soak review \u2014 compare first weeks of bybit_1 fills against the k-fold expectation",
+      "description": "After ~2-4 weeks of demo fills, compare realised expectancy/win profile vs the validation basis (OOS exp +0.36R/trade, 3-fold +22.2/+12.2/+23.6 at 7.5 bps). Check fill quality vs the flat-fee assumption (ETH perp spread/slippage), trade cadence (~1-2/week expected from 93 trades/1.5y OOS), that post-#3406 orders pass Bybit's lotSizeFilter (first two signals were qty-rejected pre-fix), and that the htf_pullback unit's monitor/trail exits behave on the second symbol. Real-money bybit_2 promotion remains a separate Tier-3 gate on this evidence.",
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
+    },
+    {
+      "id": "PB-20260611-M15-3",
+      "opened_at": "2026-06-11T19:00:00+00:00",
+      "opened_by": "claude (M15 soak session)",
+      "source": "WS-B verdict (docs/research/m15-ws-b-spy-qqq-walkforward-2026-06-11.md) + WS-C ict k-folds (#3418).",
+      "title": "Closed research lines, revisit conditions: SPY ict_scalp 5m (near-miss) and alt ict_scalp (fee-fragile)",
+      "description": "SPY ict_scalp 5m failed the every-fold gate on one thin 8-trade fold (-1.45R) with robust headroom (+8.6R at 4 bps) \u2014 revisit only with materially longer history or a per-symbol re-tune (a tuning project, against the screening discipline), or on Alpaca venue bars once the paper feed accrues. Alt ict_scalp (ADA/AVAX/ETH/LINK) is definitively closed: every cell deeply negative at 2x fee (-24 to -64R at 15 bps) despite positive gross \u2014 the 5m family does not survive realistic alt-perp costs. Do not re-screen without a fee/slippage model improvement.",
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
     }
   ],
-  "updated_at": "2026-06-06T07:10:00+00:00"
+  "updated_at": "2026-06-11T19:00:00+00:00"
 }

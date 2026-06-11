@@ -1486,7 +1486,20 @@
       "resolved_at": null,
       "resolved_by": null,
       "resolution_note": null
+    },
+    {
+      "id": "BL-20260611-M15-4",
+      "opened_at": "2026-06-11T19:00:00+00:00",
+      "opened_by": "claude (M15 soak session)",
+      "source": "Soak-watch handoff at session wrap (soak report docs/research/m15-soak-report-2026-06-11.md § Findings 5; sprint log S-M15-PHASE4-SOAK part 3).",
+      "title": "M15 soak-watch remainder: verify first practice fills (is_demo + broker-side SL/TP) and the FX weekend gate's first window",
+      "description": "Open observation items handed off from the 2026-06-11 soak session: (1) on the FIRST fill per new leg (xauusd_trend_1h on oanda_practice; spy/qqq/gld on alpaca_paper; eth_pullback_2h on bybit_1 — its first two signals were qty-rejected pre-#3406, so the first POST-fix fill is the one to verify) check the journal row carries is_demo=1 + the right account_id, OANDA orders carried stopLossOnFill/takeProfitOnFill, Alpaca orders were brackets, and the dashboard renders the account/strategy; (2) Fri 2026-06-12 21:00 UTC -> Sun 21:00 UTC: expect fx_market_closed eval rows from xauusd_trend_1h, no fetch-error noise, clean resume Sunday. Related open: BL-20260611-M15-2 (stale balance_snapshots.json) blocks the balance probe.",
+      "tier": 1,
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
     }
   ],
-  "updated_at": "2026-06-11T16:10:00+00:00"
+  "updated_at": "2026-06-11T19:00:00+00:00"
 }
