@@ -41,7 +41,8 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         on IBKR ib_paper, execution: live on PAPER money).
     Roster: turtle_soup + vwap + ict_scalp_5m + trend_donchian + fade_breakout_4h
     + squeeze_breakout_4h + fvg_range_15m + htf_pullback_trend_2h + trend_donchian_1h
-    + mes_trend_long_1d + mgc_pullback_1d + mhg_pullback_1d.
+    + mes_trend_long_1d + mgc_pullback_1d + mhg_pullback_1d + xauusd_trend_1h
+    (M15 Phase 3, 2026-06-11 — gold 1h trend on OANDA practice, execution: shadow).
     """
     from src.strategy_registry import load_strategies
     names = sorted(s["name"] for s in load_strategies())
@@ -49,6 +50,7 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         "fade_breakout_4h", "fvg_range_15m", "htf_pullback_trend_2h", "ict_scalp_5m",
         "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d", "squeeze_breakout_4h",
         "trend_donchian", "trend_donchian_1h", "turtle_soup", "vwap",
+        "xauusd_trend_1h",
     ]
 
 
