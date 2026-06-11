@@ -6,9 +6,13 @@
 # Runs detached on the trainer VM AFTER scripts/ops/m15_ws_c_fetch.sh.
 # Generalization SCREENING (the Phase-0 method) — no per-symbol tuning.
 #
-# Families + params (config/strategies.yaml live values, 2026-06-11):
-#   trend_donchian 1h      donchian 20 / stop 2.5 / trail 5.0 / long-only /
-#                          min_confidence 0.60
+# Families + params (the Phase-0 generalization pattern per the handoff
+# brief — harness defaults for trend, live-mirror for the rest):
+#   trend 1h + 4h          harness defaults (donchian 20 / stop 2.5 /
+#                          trail 3.0, bidirectional, min_confidence 0) —
+#                          the Phase-0 screening params; the BTC live
+#                          long-only + 0.60 floor is a BTC-specific M8
+#                          tune that deliberately does NOT carry
 #   htf_pullback 2h        lookback 40/10 / frac 0.5 / stop 2.5 / trail 5.0
 #                          (harness defaults == live config)
 #   fade_breakout 4h       donchian 20 / stop-buffer 0.5 / trail 3.5 /
@@ -53,8 +57,9 @@ for SYM in ETHUSDT SOLUSDT BNBUSDT XRPUSDT ADAUSDT LINKUSDT AVAXUSDT; do
   for WIN in train oos; do
     if [ "$WIN" = train ]; then WARGS=(--end "$SPLIT"); else WARGS=(--start "$SPLIT"); fi
     run "trend_${SYM}_1h_${WIN}" python3 scripts/backtest_trend.py --data "$D" --resample 1h --timeframe 1h \
-      --symbol "$SYM" --donchian 20 --atr-stop-mult 2.5 --trail-mult 5.0 --long-only \
-      --min-confidence 0.60 --fee-bps-roundtrip "$FEE" "${WARGS[@]}"
+      --symbol "$SYM" --fee-bps-roundtrip "$FEE" "${WARGS[@]}"
+    run "trend_${SYM}_4h_${WIN}" python3 scripts/backtest_trend.py --data "$D" --resample 4h --timeframe 4h \
+      --symbol "$SYM" --fee-bps-roundtrip "$FEE" "${WARGS[@]}"
     run "pullback_${SYM}_2h_${WIN}" python3 scripts/backtest_pullback.py --data "$D" --resample 2h --timeframe 2h \
       --symbol "$SYM" --trend-lookback 40 --pullback-lookback 10 --pullback-frac 0.5 \
       --atr-stop-mult 2.5 --trail-mult 5.0 --fee-bps-roundtrip "$FEE" "${WARGS[@]}"

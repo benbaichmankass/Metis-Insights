@@ -26,7 +26,6 @@ import argparse
 import json
 import statistics
 import sys
-from datetime import datetime, timezone
 
 import pandas as pd
 
