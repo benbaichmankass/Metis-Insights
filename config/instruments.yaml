@@ -112,3 +112,22 @@ instruments:
     contract_value_usd: 2500.0  # 2,500 lb per contract
     max_leverage: 0             # no leverage cap (futures margin set by broker)
     display_name: "Micro Copper (COMEX/IB)"
+
+  # ------------------------------------------------------------------
+  # XAUUSD — spot gold vs USD via OANDA v20 (practice account first).
+  # M15 Phase 3: traded by oanda_practice (paper money). OANDA-native
+  # name XAU_USD (the connector maps the compact form); units are whole
+  # troy ounces (integer), price precision 3dp.
+  # ------------------------------------------------------------------
+  XAUUSD:
+    exchange: oanda
+    category: spot
+    base_asset: XAU
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.001          # OANDA gold price precision (3dp)
+    min_qty: 1                # 1 unit = 1 troy oz (integer units)
+    qty_step: 1
+    contract_value_usd: 1.0   # spot: 1 USD per $1 move per oz
+    max_leverage: 20          # OANDA US metals leverage cap (conservative)
+    display_name: "Gold/USD spot (OANDA practice)"

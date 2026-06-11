@@ -819,3 +819,43 @@ strategies:
     min_confidence: 0.0
     shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring while
                               # this fresh data-collector builds a track record.
+
+  xauusd_trend_1h:
+    # XAU/USD (gold) 1h trend-follower — M15 Phase 3, the migration's first
+    # new-market strategy (S-M15-PHASE3-XAU-SHADOW). The STRONGEST cell of the
+    # Phase-0 generalization sweep (docs/research/m15-phase0-results-2026-06-10.md):
+    # Donchian-breakout + Chandelier ATR trail on gold 1h, net-of-fee
+    # train +78.4R / 1024 trades, OOS +36.8R / 245 trades, maxDD 9.2R OOS —
+    # at exactly the params pinned below (the harness defaults the sweep ran).
+    # Gold was positive train+OOS across FOUR families; this is the lead.
+    #
+    # BIDIRECTIONAL (both sides validated on gold — unlike the long-only
+    # equity-index variant). Routed ONLY to oanda_practice (paper money);
+    # the builder gates on the FX weekend (Fri 21:00 -> Sun 21:00 UTC,
+    # reason fx_market_closed) so stale closed-market candles never enter.
+    #
+    # STATUS: execution: shadow — logs order packages, sends nothing, while
+    # the OANDA practice account's creds + smoke test land. Per the operator
+    # policy "paper/demo accounts exist to TEST strategies" (see
+    # mes_trend_long_1d), the intended next step is shadow -> live-on-practice
+    # once the smoke test passes (Tier-3 flip, operator-approved).
+    model: null
+    signal_prefixes: [xauusd_trend]
+    enabled: true
+    execution: shadow        # data collection until creds + smoke test; the
+                             # live-on-practice flip is a separate Tier-3 approval.
+    risk_pct: 0.3            # conservative paper sizing (mirrors mes_trend_long_1d)
+    timeframe: "1h"
+    symbols:
+      - XAUUSD               # OANDA XAU_USD (practice). NOT BTCUSDT.
+    # Strategy params — EXACTLY the sweep-validated harness defaults. NOTE:
+    # min_confidence 0.0 is deliberate (the XAU edge was validated unfiltered);
+    # the BTC roster's 0.60 floor (M8 tune) is BTC-specific and does NOT carry.
+    donchian: 20
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 3.0
+    tp_r: 50.0               # trail-managed exits; TP effectively disabled
+    min_confidence: 0.0
+    shadow_model_ids: []     # opt out of ML shadow auto-wiring while this
+                             # fresh data-collector builds a track record.
