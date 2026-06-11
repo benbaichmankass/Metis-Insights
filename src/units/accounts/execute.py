@@ -431,6 +431,16 @@ def _fetch_balance(
                 or bal.get("available_funds")
                 or 0
             )
+        if exchange in ("oanda", "alpaca"):
+            # M15 brokers: OandaClient.balance() = account NAV;
+            # AlpacaClient.balance() = equity — both USD for the
+            # configured practice/paper accounts. Same role as the IB
+            # NetLiquidation branch above. Missing before
+            # BL-20260611-006: the fallthrough returned 0.0 and the risk
+            # gate refused every gold/ETF signal on gate_balance=0.00
+            # (trade #2536).
+            bal = client.balance() if client is not None else None
+            return float(bal or 0)
     except Exception as exc:
         logger.warning("_fetch_balance(%s): %s — defaulting to 0", exchange, exc)
     return 0.0
