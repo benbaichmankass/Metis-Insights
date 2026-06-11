@@ -55,7 +55,9 @@ def test_market_hours_fx_actually_closed_on_saturday():
 def test_strategy_yaml_pins_sweep_params():
     cfg = yaml.safe_load(open("config/strategies.yaml"))["strategies"]["xauusd_trend_1h"]
     assert cfg["enabled"] is True
-    assert cfg["execution"] == "shadow"
+    # PROMOTED shadow -> live-on-practice 2026-06-11 (operator: "go live
+    # on practice"); oanda_practice is paper money.
+    assert cfg["execution"] == "live"
     assert cfg["symbols"] == ["XAUUSD"]
     assert cfg["timeframe"] == "1h"
     # exactly the harness defaults the winning sweep cell ran

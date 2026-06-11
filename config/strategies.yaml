@@ -842,11 +842,12 @@ strategies:
     model: null
     signal_prefixes: [xauusd_trend]
     enabled: true
-    execution: shadow        # shadow-guard: allow — new strategy deliberately
-                             # ships in shadow for data collection until the OANDA
-                             # creds + smoke test land (operator-approved M15
-                             # Phase 3 plan); the live-on-practice flip is a
-                             # separate Tier-3 approval.
+    execution: live          # PROMOTED shadow -> live-on-practice 2026-06-11
+                             # (operator: "go live on practice"). oanda_practice
+                             # is PAPER money; per the operator policy
+                             # "paper/demo accounts exist to TEST strategies"
+                             # (see mes_trend_long_1d). Real-money OANDA stays a
+                             # separate Tier-3 gate (new keys + OANDA_ENV flip).
     risk_pct: 0.3            # conservative paper sizing (mirrors mes_trend_long_1d)
     timeframe: "1h"
     symbols:
@@ -862,3 +863,77 @@ strategies:
     min_confidence: 0.0
     shadow_model_ids: []     # opt out of ML shadow auto-wiring while this
                              # fresh data-collector builds a track record.
+
+  spy_trend_long_1d:
+    # SPY daily LONG-ONLY trend-follower — M15 Phase 4 buildout: the direct
+    # ETF replacement for the MES futures leg (same logic family as
+    # mes_trend_long_1d, same params). Phase-0 evidence
+    # (docs/research/m15-phase0-results-2026-06-10.md): trend1d SPY
+    # train +16.0R / OOS +9.2R, maxDD ~2.7R. Runs on alpaca_paper (PAPER
+    # money) with bracket orders (broker-side SL/TP); the builder gates on
+    # the US cash session (market_hours us_equity) so closed-market candles
+    # never produce entries. execution: live per the paper-accounts-execute
+    # operator policy (approved 2026-06-11).
+    model: null
+    signal_prefixes: [spy_trend_long, spy_trend]
+    enabled: true
+    execution: live
+    long_only: true
+    risk_pct: 0.3
+    timeframe: "1d"
+    symbols:
+      - SPY
+    donchian: 30
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 4.0
+    tp_r: 50.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  qqq_trend_long_1d:
+    # QQQ daily LONG-ONLY trend-follower — M15 Phase 4 buildout (equity-index
+    # ETF diversifier; mes_trend_long_1d mirror). Phase-0: trend1d QQQ train
+    # +16.2R / OOS +10.9R, maxDD ~3.1R. alpaca_paper (PAPER money), bracket
+    # orders, US-session gate. NOTE: distinct from the unproven QQQ 5m
+    # intraday research (shadow-only per the Phase-0 verdict) — this is the
+    # validated DAILY trend leg.
+    model: null
+    signal_prefixes: [qqq_trend_long, qqq_trend]
+    enabled: true
+    execution: live
+    long_only: true
+    risk_pct: 0.3
+    timeframe: "1d"
+    symbols:
+      - QQQ
+    donchian: 30
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 4.0
+    tp_r: 50.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  gld_pullback_1d:
+    # GLD daily HTF-pullback (bidirectional) — M15 Phase 4 buildout: the ETF
+    # replacement for the MGC futures leg (htf_pullback_trend_2h unit,
+    # mgc_pullback_1d params). Phase-0: pullback1d GLD train +4.9R /
+    # OOS +19.7R. alpaca_paper (PAPER money), bracket orders, US-session
+    # gate.
+    model: null
+    signal_prefixes: [gld_pullback]
+    enabled: true
+    execution: live
+    risk_pct: 0.3
+    timeframe: "1d"
+    symbols:
+      - GLD
+    trend_lookback: 40
+    pullback_lookback: 15
+    pullback_frac: 0.618
+    atr_period: 14
+    atr_stop_mult: 2.0
+    trail_mult: 4.0
+    min_confidence: 0.0
+    shadow_model_ids: []

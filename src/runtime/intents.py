@@ -150,6 +150,10 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # xauusd_trend_1h — gold 1h trend (M15 Phase 3); sole strategy on its
     # symbol/account, value 0 mirrors mes_trend_long_1d.
     "xauusd_trend_1h": 0,
+    # M15 Phase 4 ETF legs — sole strategy per symbol, value 0.
+    "spy_trend_long_1d": 0,
+    "qqq_trend_long_1d": 0,
+    "gld_pullback_1d": 0,
     # mgc_pullback_1d / mhg_pullback_1d — the WS-A metals sleeve (2026-06-02).
     # Micro Gold + Micro Copper daily HTF-pullback diversifiers. Each runs ALONE
     # on its own symbol (MGC / MHG) on ib_paper, so priority is moot — they never

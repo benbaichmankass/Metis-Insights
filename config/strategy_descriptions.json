@@ -50,5 +50,17 @@
   "xauusd_trend_1h": {
     "short": "Gold 1h trend-follower (OANDA practice) \u2014 Donchian-20 breakout with a Chandelier ATR trail, both directions.",
     "how_it_works": "Watches XAU/USD 1-hour candles on the OANDA practice account. When price breaks above (or below) the highest high (lowest low) of the prior 20 bars, it enters in the breakout direction with an initial stop 2.5x ATR(14) away, then trails the stop at 3.0x ATR so winners run and exits happen on the trail. Validated as the strongest cell of the M15 Phase-0 sweep (net-of-fee train +78.4R, out-of-sample +36.8R); parameters are pinned to exactly that validated configuration. The builder stands down over the FX weekend close (Fri 21:00 -> Sun 21:00 UTC) so stale candles never produce entries."
+  },
+  "spy_trend_long_1d": {
+    "short": "SPY daily long-only trend-follower (Alpaca paper) \u2014 Donchian-30 breakout with a 4x ATR trail; the ETF replacement for the MES futures leg.",
+    "how_it_works": "Watches the S&P 500 ETF on daily candles during US market hours. A close above the highest high of the prior 30 days triggers a long entry (shorts are suppressed - the equity-index edge is the long side) with a 2.5x ATR(14) initial stop, then a 4x ATR trailing stop manages the exit. Orders go to the Alpaca paper account as bracket orders so the stop and target live at the broker. Validated in the M15 Phase-0 sweep mirroring the live MES futures strategy (train +16.0R, out-of-sample +9.2R)."
+  },
+  "qqq_trend_long_1d": {
+    "short": "QQQ daily long-only trend-follower (Alpaca paper) \u2014 Donchian-30 breakout with a 4x ATR trail; equity-index ETF diversifier.",
+    "how_it_works": "Same logic as the SPY leg on the Nasdaq-100 ETF: daily Donchian-30 breakout entries, long-only, 2.5x ATR stop, 4x ATR trail, bracket orders on the Alpaca paper account during US market hours. Validated in the M15 Phase-0 sweep (train +16.2R, out-of-sample +10.9R). Distinct from the unproven QQQ 5-minute intraday research, which stays shadow-only."
+  },
+  "gld_pullback_1d": {
+    "short": "GLD daily pullback trader (Alpaca paper) \u2014 buys/sells pullbacks within the prevailing gold trend; the ETF replacement for the MGC futures leg.",
+    "how_it_works": "Watches the gold ETF on daily candles during US market hours. When a 40-day trend filter is in force and price pulls back into the deeper 61.8% zone of the recent 15-day range, it enters in the trend direction (both long and short validated) with a 2x ATR(14) stop and a 4x ATR trailing exit, via bracket orders on the Alpaca paper account. Validated in the M15 Phase-0 sweep mirroring the live Micro-Gold futures strategy (train +4.9R, out-of-sample +19.7R)."
   }
 }
