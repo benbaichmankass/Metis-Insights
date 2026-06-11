@@ -278,16 +278,22 @@ M15 Phase 2 (2026-06-10, S-M15-PHASE2-OANDA): an `oanda` branch in
 `src/units/accounts/oanda_client.py::OandaClient` (market order with
 broker-side `stopLossOnFill`/`takeProfitOnFill`; one bearer token +
 account id from env — `OANDA_API_TOKEN`/`OANDA_ACCOUNT_ID`, practice
-host unless `OANDA_ENV=live`). The `oanda_practice` account ships inert
-(`mode: dry_run` + `strategies: []` + creds unset, independent gates)
-until creds land and the Tier-3 strategy-assignment PR is approved —
-runbook: `docs/runbooks/oanda-integration.md`. **Alpaca** joined as the
+host unless `OANDA_ENV=live`). The `oanda_practice` account went **live-on-practice
+2026-06-11** (operator-approved; paper money — fxpractice host):
+`xauusd_trend_1h` executes practice orders with broker-side
+`stopLossOnFill`/`takeProfitOnFill`. Real-money OANDA remains gated
+(new keys + `OANDA_ENV=live` + set-account-mode). Runbook:
+`docs/runbooks/oanda-integration.md`. **Alpaca** joined as the
 US stocks/ETFs broker in M15 Phase 2b (2026-06-11): an `alpaca` branch
 dispatches to `src/units/accounts/alpaca_client.py::AlpacaClient`
 (**bracket** market orders — entry + TP limit + SL stop atomic; key pair
 `ALPACA_API_KEY_ID`/`ALPACA_API_SECRET_KEY`; paper host unless
-`ALPACA_ENV=live`). The `alpaca_paper` account ships inert behind the
-same independent gates — runbook: `docs/runbooks/alpaca-integration.md`.
+`ALPACA_ENV=live`). The `alpaca_paper` account went **live-on-paper 2026-06-11**
+(operator-approved): `spy_trend_long_1d` / `qqq_trend_long_1d` /
+`gld_pullback_1d` execute paper bracket orders during the US session
+(builders gate on `market_hours.is_market_open("us_equity")`).
+Real-money Alpaca remains gated (new keys + `ALPACA_ENV=live` +
+set-account-mode). Runbook: `docs/runbooks/alpaca-integration.md`.
 
 ### Step 7 — Logging and state updates
 The runtime records:
