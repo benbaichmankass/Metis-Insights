@@ -579,8 +579,10 @@ should not re-derive this — if the contract changes, edit here.
 
 **MCP tools available** — `mcp__github__*` (subset: issue
 read/write, PR read/write/merge, file read/create/update, branch
-create, secret scanning, **but no `create_label`, no `run_workflow`,
-no artifact download, no run-log read**), Google Drive (file search
+create, secret scanning, **but no `create_label`, no artifact download;
+**`run_workflow` 403s** (verified 2026-06-11) while `actions_list` /
+`get_job_logs` DO work — run-log read is available since the 2026-06
+MCP update**), Google Drive (file search
 + read), Hugging Face (hub search, doc fetch), Bigdata.com (market
 data), Gmail (read-only labels).
 
