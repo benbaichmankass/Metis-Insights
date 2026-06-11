@@ -842,8 +842,11 @@ strategies:
     model: null
     signal_prefixes: [xauusd_trend]
     enabled: true
-    execution: shadow        # data collection until creds + smoke test; the
-                             # live-on-practice flip is a separate Tier-3 approval.
+    execution: shadow        # shadow-guard: allow — new strategy deliberately
+                             # ships in shadow for data collection until the OANDA
+                             # creds + smoke test land (operator-approved M15
+                             # Phase 3 plan); the live-on-practice flip is a
+                             # separate Tier-3 approval.
     risk_pct: 0.3            # conservative paper sizing (mirrors mes_trend_long_1d)
     timeframe: "1h"
     symbols:
