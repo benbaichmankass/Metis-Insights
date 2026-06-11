@@ -50,6 +50,23 @@ instruments:
     display_name: "BTC/USDT Perp (Bybit)"
 
   # ------------------------------------------------------------------
+  # ETHUSDT — Bybit V5 USDT-margined linear perpetual
+  # M15 WS-C alt sleeve (2026-06-11): eth_pullback_2h on bybit_1 (demo).
+  # ------------------------------------------------------------------
+  ETHUSDT:
+    exchange: bybit
+    category: linear
+    base_asset: ETH
+    quote_currency: USDT
+    settlement_currency: USDT
+    tick_size: 0.01          # minimum price increment ($0.01)
+    min_qty: 0.01            # minimum order size (0.01 ETH)
+    qty_step: 0.01           # qty granularity
+    contract_value_usd: 1.0  # 1 USDT per $1 of ETH move (linear perp)
+    max_leverage: 100        # Bybit max for ETH linear
+    display_name: "ETH/USDT Perp (Bybit)"
+
+  # ------------------------------------------------------------------
   # MES — Micro E-mini S&P 500 futures via CME / Interactive Brokers
   # IB execution path wired 2026-05-21 (IBClient + ib_client_for +
   # execute._submit_order interactive_brokers branch). Traded by the
