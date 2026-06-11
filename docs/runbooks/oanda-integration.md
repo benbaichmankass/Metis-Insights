@@ -5,6 +5,9 @@
 > XAU/USD positive train+OOS across four strategy families). Practice
 > account first; live is a separate, operator-gated flip.
 
+> **STATUS 2026-06-11: LIVE-ON-PRACTICE.** Creds synced (#3333), deployed (#3337), account flipped live (#3338); `xauusd_trend_1h` executes practice orders. The §"After the ping" sequence below is the historical record; remaining verification (first-fill check, balance probe, Dukascopy-vs-OANDA candle fidelity) is tracked in the M15 soak handoff (`docs/research/session-handoff-m15-soak-2026-06-11.md`).
+
+
 ## What is wired (Claude-side, S-M15-PHASE2-OANDA)
 
 | Touch point | File |
