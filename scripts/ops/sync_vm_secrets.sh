@@ -10,8 +10,13 @@
 #                    (must all be set in this process's env on entry)
 #   SYNC_OPTIONAL — space-separated list of OPTIONAL env-var names
 #                    (synced only when set; absent → skipped + warning)
-#   Plus the values themselves, carried in this script's env via SSH
-#   SendEnv. The script reads them via indirect expansion (${!name}).
+#   Plus the values themselves, delivered via the --stdin transport:
+#   the workflow pipes NAME=VALUE lines over the encrypted SSH channel
+#   and this script exports them before validation. (The original SSH
+#   SendEnv transport never worked — the VM's sshd AcceptEnv allowlist
+#   only carries the legacy rotate names, so generic names were dropped
+#   silently; 2026-06-11 fix.) Values still never touch a command line,
+#   a log, or ps output on either end.
 #
 # The script never echoes a value; verification compares "is the var
 # present" rather than "is the var equal to <X>". Failures surface env-var
@@ -22,6 +27,20 @@
 # on success (including the no-change idempotent case).
 
 set -euo pipefail
+
+# ── --stdin transport: export NAME=VALUE pairs piped over SSH ────────────────
+if [ "${1:-}" = "--stdin" ]; then
+  while IFS= read -r _line; do
+    [ -z "${_line}" ] && continue
+    _name="${_line%%=*}"
+    _value="${_line#*=}"
+    case "${_name}" in
+      [A-Z_]*[A-Z0-9_]) export "${_name}=${_value}" ;;
+      *) echo "WARN: ignoring malformed stdin line (name only): ${_name}" >&2 ;;
+    esac
+  done
+  unset _line _name _value
+fi
 
 REPO_DIR="${BOT_REPO_DIR:-/home/ubuntu/ict-trading-bot}"
 # shellcheck source=scripts/ops/_lib.sh
