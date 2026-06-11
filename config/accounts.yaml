@@ -457,3 +457,37 @@ accounts:
       pos_size: 2000                   # $2000 max single position
       risk_pct: 0.005                  # 0.5% balance risked per trade (soak-conservative)
       min_balance_usd: 100             # refuse to size below $100
+
+  # alpaca_paper: M15 Phase 2b (S-M15-PHASE2B-ALPACA) — Alpaca Trading API
+  # paper account, the migration's second platform (daily ETF futures-
+  # replacements + SPY intraday per docs/research/m15-phase0-results-2026-06-10.md).
+  # Paper money only — the paper host is selected by ALPACA_ENV=paper (code
+  # default); the live host requires an explicit ALPACA_ENV=live flip.
+  #
+  # Ships INERT behind independent gates (new-broker checklist §5):
+  #   - mode: dry_run (CI-guarded)
+  #   - strategies: [] (coordinator per-account filter blocks every signal)
+  #   - creds unset (ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY env) →
+  #     factory returns None → configured: False, live actions refuse + ping.
+  # Flipping any single gate alone never wakes the account.
+  #
+  # Orders are bracket markets (entry + TP limit + SL stop in one atomic
+  # request) so protection is broker-side from the first fill.
+  alpaca_paper:
+    exchange: alpaca
+    mode: dry_run                      # dry-run-guard: allow — new Alpaca paper
+                                       # account, intentionally held dry until the
+                                       # operator provisions creds + approves the
+                                       # strategy-assignment PR (Tier-3).
+    demo: true                         # paper account = paper money; trade rows
+                                       # stamp is_demo like bybit_1 / oanda_practice.
+    strategies: []                     # empty until the Tier-3 assignment PR
+    symbols: [SPY, QQQ, GLD]           # instrument identity (Phase-0 verdict);
+                                       # strategies [] keeps them out of dispatch.
+    risk:
+      max_dd_pct: 0.05                 # 5% max intra-day drawdown
+      daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
+      daily_usd: 200                   # absolute fallback (no equity snapshot)
+      pos_size: 2000                   # $2000 max single position
+      risk_pct: 0.005                  # 0.5% balance risked per trade (soak-conservative)
+      min_balance_usd: 100             # refuse to size below $100

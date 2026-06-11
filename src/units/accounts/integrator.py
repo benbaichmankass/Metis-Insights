@@ -8,6 +8,7 @@ Supported exchanges:
   breakout  — Breakout prop firm API (deprecated stub; replaced by velotrade)
   velotrade — Velotrade DXtrade prop firm API (stub; dry-run only)
   oanda     — OANDA v20 FX/metals (M15 Phase 2; practice host by default)
+  alpaca    — Alpaca US stocks/ETFs (M15 Phase 2b; paper host by default)
 """
 from __future__ import annotations
 
@@ -146,6 +147,62 @@ class VelotradeAPI:
         raise RuntimeError(f"DXtrade rejected order: {reason}")
 
 
+class AlpacaAPI:
+    """Alpaca Trading API — M15 Phase 2b (second new-market wire).
+
+    Live placement is dispatched to an injected
+    :class:`src.units.accounts.alpaca_client.AlpacaClient`; the
+    canonical caller is ``execute_pkg`` (executor branch mirrors the
+    oanda/velotrade retCode contract).
+    """
+
+    def __init__(self, api_key_env: str, *, client: object = None) -> None:
+        self.api_key_env = api_key_env
+        self._client = client
+
+    def place(
+        self,
+        order: OrderPackage,
+        *,
+        dry_run: bool = True,
+        client: object = None,
+    ) -> str:
+        if dry_run:
+            trade_id = f"dry-alpaca-{uuid.uuid4().hex[:10]}"
+            logger.info("AlpacaAPI DRY-RUN %s → %s", order.symbol, trade_id)
+            return trade_id
+        from src.units.accounts.alpaca_client import (
+            AlpacaClient,
+            MissingCredentialsError,
+        )
+        cli = client or self._client
+        if cli is None:
+            raise MissingCredentialsError(
+                "AlpacaAPI: live placement requires an AlpacaClient "
+                "(ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY); call "
+                "execute_pkg with exchange_client=alpaca_client_for(account_cfg)."
+            )
+        if not isinstance(cli, AlpacaClient):
+            raise TypeError(
+                f"AlpacaAPI.place: expected AlpacaClient, got {type(cli).__name__}"
+            )
+        side = "Buy" if order.direction == "long" else "Sell"
+        resp = cli.place({
+            "symbol": order.symbol,
+            "side": side,
+            "qty": getattr(order, "qty", 1) or 1,
+            "sl": order.sl,
+            "tp": order.tp,
+            "strategy": order.strategy,
+        }) or {}
+        ret_code = resp.get("retCode")
+        if ret_code in (0, "0", None):
+            order_id = (resp.get("result") or {}).get("orderId")
+            return str(order_id or uuid.uuid4().hex)
+        reason = str(resp.get("retMsg") or f"retCode={ret_code}")
+        raise RuntimeError(f"Alpaca rejected order: {reason}")
+
+
 class OandaAPI:
     """OANDA v20 — M15 Phase 2 (first new-market wire, XAU/USD verdict).
 
@@ -212,6 +269,7 @@ EXCHANGE_MAP: dict[str, type] = {
     "breakout": BreakoutAPI,
     "velotrade": VelotradeAPI,
     "oanda": OandaAPI,
+    "alpaca": AlpacaAPI,
 }
 
 

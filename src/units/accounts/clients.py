@@ -116,6 +116,29 @@ def binance_conn_for(account: Dict[str, Any]):
     )
 
 
+def alpaca_client_for(account: Dict[str, Any]):
+    """Return an :class:`AlpacaClient` for *account*, or ``None`` if creds missing.
+
+    Alpaca's key pair lives at fixed env names (``ALPACA_API_KEY_ID`` /
+    ``ALPACA_API_SECRET_KEY``) shared with the data connector, so this
+    reads env directly (the oanda/ib pattern). ``None`` when either is
+    unset → coordinator treats the account as not-configured and pings.
+    ``ALPACA_ENV`` selects paper (default) vs live host; account-level
+    ``alpaca_env`` / ``base_url`` override.
+    """
+    api_key = os.environ.get("ALPACA_API_KEY_ID", "")
+    api_secret = os.environ.get("ALPACA_API_SECRET_KEY", "")
+    if not api_key or not api_secret:
+        return None
+    from src.units.accounts.alpaca_client import AlpacaClient
+    return AlpacaClient(
+        api_key=api_key,
+        api_secret=api_secret,
+        env=account.get("alpaca_env") or None,
+        base_url=account.get("base_url") or None,
+    )
+
+
 def oanda_client_for(account: Dict[str, Any]):
     """Return an :class:`OandaClient` for *account*, or ``None`` if creds missing.
 
