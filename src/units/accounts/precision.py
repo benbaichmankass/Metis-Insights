@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 import time
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -116,6 +116,97 @@ def quantize_price(value: float, tick: Decimal) -> str:
     d = Decimal(str(value))
     quotient = (d / tick).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     return str((quotient * tick).quantize(tick))
+
+
+# ---------------------------------------------------------------------------
+# Quantity lot-size alignment (BL-20260611-005, 2026-06-11)
+# ---------------------------------------------------------------------------
+# The price side has always been tick-aligned (above); the QUANTITY side was
+# not, and Bybit enforces ``lotSizeFilter.qtyStep`` per symbol the same way
+# it enforces tickSize. The account-level sizing precision (3dp, tuned for
+# BTCUSDT's 0.001 step) produced e.g. 14.937 ETH on a 0.01-step contract →
+# ``retCode 10001 Qty invalid`` on every eth_pullback_2h order. Same
+# cache → live → static → (None) resolution as get_tick_size; ``None``
+# means "rule unknown — submit unmodified" so an instruments-info outage
+# can never block the order path with a wrong guess.
+
+# (symbol, category) -> (qtyStep string, minOrderQty string). Fallback only;
+# live lookup takes priority.
+_STATIC_LOT_RULE: Dict[Tuple[str, str], Tuple[str, str]] = {
+    ("BTCUSDT", "linear"): ("0.001", "0.001"),
+    ("ETHUSDT", "linear"): ("0.01", "0.01"),
+    ("SOLUSDT", "linear"): ("0.1", "0.1"),
+}
+
+# (symbol, category) -> ((qtyStep, minOrderQty) strings, monotonic timestamp)
+_LOT_CACHE: Dict[Tuple[str, str], Tuple[Tuple[str, str], float]] = {}
+
+
+def _live_lot_rule(
+    client: Any, symbol: str, category: str,
+) -> Optional[Tuple[str, str]]:
+    """Fetch ``lotSizeFilter`` (qtyStep, minOrderQty) from instruments-info.
+
+    Spot symbols carry ``basePrecision`` instead of ``qtyStep``; both are
+    "the base-asset quantity granularity", so basePrecision is used when
+    qtyStep is absent. Returns ``None`` on any error / empty response.
+    """
+    try:
+        resp = client.get_instruments_info(category=category, symbol=symbol)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "lot_rule live lookup failed for %s %s: %s — submitting unmodified",
+            category, symbol, exc,
+        )
+        return None
+    items = ((resp or {}).get("result") or {}).get("list") or []
+    if not items:
+        return None
+    lot = (items[0] or {}).get("lotSizeFilter") or {}
+    step = lot.get("qtyStep") or lot.get("basePrecision")
+    min_qty = lot.get("minOrderQty") or step
+    if not step:
+        return None
+    return (str(step), str(min_qty))
+
+
+def get_lot_rule(
+    client: Any, symbol: str, category: str,
+) -> Optional[Tuple[Decimal, Decimal]]:
+    """Resolve ``(qtyStep, minOrderQty)`` for ``symbol``/``category``.
+
+    Order: cache (2-hour TTL) → live ``get_instruments_info`` → static
+    map → ``None`` (rule unknown; caller submits the qty unmodified —
+    today's behaviour — rather than aligning to a guessed step).
+    """
+    key = (symbol.upper(), category.lower())
+    now = time.monotonic()
+    entry = _LOT_CACHE.get(key)
+    if entry is not None:
+        rule, cached_at = entry
+        if now - cached_at < _CACHE_TTL_SECONDS:
+            return (Decimal(rule[0]), Decimal(rule[1]))
+        del _LOT_CACHE[key]
+    if client is not None:
+        live = _live_lot_rule(client, key[0], key[1])
+        if live:
+            _LOT_CACHE[key] = (live, now)
+            return (Decimal(live[0]), Decimal(live[1]))
+    static = _STATIC_LOT_RULE.get(key)
+    if static:
+        return (Decimal(static[0]), Decimal(static[1]))
+    return None
+
+
+def quantize_qty(value: float, step: Decimal) -> Decimal:
+    """Floor ``value`` DOWN to a multiple of ``step``.
+
+    Always rounds toward zero (S-026 G3: realised risk must never exceed
+    the sized cap) — the price side rounds half-up, quantity must not.
+    """
+    d = Decimal(str(value))
+    quotient = (d / step).to_integral_value(rounding=ROUND_DOWN)
+    return (quotient * step).quantize(step)
 
 
 def live_instrument_diagnostic(
