@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import requests
@@ -34,6 +35,37 @@ _TIMEFRAME_MAP = {
     "4h": "4Hour",
     "1d": "1Day",
 }
+
+# Bar span in minutes, used to derive the explicit ``start`` lookback below.
+_TIMEFRAME_MINUTES = {
+    "1m": 1, "5m": 5, "15m": 15, "30m": 30,
+    "1h": 60, "2h": 120, "4h": 240, "1d": 1440,
+}
+
+# Calendar slack multipliers: intraday bars only print during the ~6.5h RTH
+# session 5 days a week (24*7 / (6.5*5) ≈ 5.2 calendar-hours per session
+# hour — use 6 for holidays); daily bars only need the weekend/holiday
+# stretch (7/5 = 1.4 — use 1.6).
+_INTRADAY_CALENDAR_FACTOR = 6.0
+_DAILY_CALENDAR_FACTOR = 1.6
+_LOOKBACK_BUFFER_DAYS = 10
+
+
+def _lookback_start(timeframe_key: str, limit: int) -> str:
+    """RFC-3339 ``start`` reaching back far enough to cover *limit* bars.
+
+    Alpaca's ``/v2/stocks/{symbol}/bars`` defaults ``start`` to the
+    beginning of the CURRENT day (docs.alpaca.markets/reference/stockbars),
+    so omitting it returns at most today's bars — pre-market that is an
+    empty list, and during the session a single partial daily bar. The
+    daily ETF strategies need ~200 bars of history, so an explicit
+    lookback window is required (M15 soak finding, 2026-06-11).
+    """
+    minutes = _TIMEFRAME_MINUTES[timeframe_key]
+    factor = _DAILY_CALENDAR_FACTOR if minutes >= 1440 else _INTRADAY_CALENDAR_FACTOR
+    span = timedelta(minutes=minutes * max(int(limit), 1) * factor)
+    start = datetime.now(timezone.utc) - span - timedelta(days=_LOOKBACK_BUFFER_DAYS)
+    return start.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class AlpacaMarketData:
@@ -55,7 +87,8 @@ class AlpacaMarketData:
         timestamps are tz-aware UTC. Returns ``None`` on any error or
         empty response (the ``fetch_candles`` contract).
         """
-        tf = _TIMEFRAME_MAP.get(str(timeframe).lower())
+        tf_key = str(timeframe).lower()
+        tf = _TIMEFRAME_MAP.get(tf_key)
         if tf is None:
             logger.warning("alpaca: unsupported timeframe %r", timeframe)
             return None
@@ -65,6 +98,9 @@ class AlpacaMarketData:
                 params={
                     "timeframe": tf,
                     "limit": int(limit),
+                    # Explicit lookback — without it Alpaca only returns the
+                    # current day's bars (see _lookback_start docstring).
+                    "start": _lookback_start(tf_key, limit),
                     "adjustment": "split",
                     "feed": self.feed,
                     "sort": "desc",
@@ -78,6 +114,10 @@ class AlpacaMarketData:
             resp.raise_for_status()
             bars = (resp.json() or {}).get("bars") or []
             if not bars:
+                logger.warning(
+                    "alpaca: empty bars for %s %s (limit=%s feed=%s) — "
+                    "returning None", symbol, timeframe, limit, self.feed,
+                )
                 return None
             df = pd.DataFrame(
                 [

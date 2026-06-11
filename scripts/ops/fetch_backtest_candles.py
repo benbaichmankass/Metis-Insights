@@ -94,6 +94,14 @@ def fetch_klines(
                     raise
 
         data = resp.json()
+        if data.get("retCode") == 10006:
+            # API rate limit ("Too many visits"). Transport-level retries
+            # above don't cover this (HTTP 200 with an error retCode), and
+            # raising here is what killed 8 of 14 datasets in the M15 WS-C
+            # alt fetch (2026-06-11). Back off hard and retry the same page.
+            print("  rate-limited (retCode 10006) — sleeping 30s", file=sys.stderr)
+            time.sleep(30)
+            continue
         if data.get("retCode") != 0:
             raise RuntimeError(
                 f"Bybit API error: {data.get('retMsg')} (retCode {data.get('retCode')})"
@@ -135,6 +143,9 @@ def fetch_klines(
             f" ({len(rows)} bars so far)",
             file=sys.stderr,
         )
+        # Pace sustained pagination to stay under Bybit's public rate limit
+        # (long multi-symbol pulls tripped retCode 10006 without this).
+        time.sleep(0.25)
 
     return rows
 
