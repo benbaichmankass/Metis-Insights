@@ -1251,6 +1251,19 @@
       "resolution_note": null
     },
     {
+      "id": "BL-20260610-M15-1",
+      "opened_at": "2026-06-10T16:01:01.116561+00:00",
+      "opened_by": "claude (M15 Phase 0 session)",
+      "source": "M15 Phase 0 sweep prep (docs/research/market-alternatives-2026-06-10.md \u00a76): verified harness flags against code before scripting the sweep.",
+      "title": "backtesting skill overstates net-of-fee coverage \u2014 backtest_ict_scalp.py has no fee model",
+      "description": ".claude/skills/backtesting/SKILL.md says 'Every harness below takes --fee-bps-roundtrip', but scripts/backtest_ict_scalp.py has no such flag and its code comment (line ~278) states gross_r == net_r (no separate fee model). It also lacks --start/--end/--resample windowing. Fix the skill text (and optionally add a fee model + window flags to the harness). M15 Phase 0 works around it via pre-split CSVs + --emit-trades net post-processing (scripts/ops/m15_phase0_sweep.sh).",
+      "tier": 1,
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
+    },
+    {
       "id": "BL-20260610-009",
       "opened_at": "2026-06-10T22:10:00+00:00",
       "opened_by": "claude (gateway-isolation MES restore session)",
