@@ -633,6 +633,51 @@ def _bybit_response_error(resp: Any) -> Optional[str]:
     return f"Bybit error retCode={ret_code}: {ret_msg}"
 
 
+def _m15_client_balance_diagnostic(
+    ex: str, aid: str, account: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Balance diagnostic for the M15 brokers (OANDA / Alpaca).
+
+    Same ``{status, total_usdt, raw, error}`` shape as the other
+    branches of :func:`account_balance_with_diagnostic`. Both clients
+    expose ``balance()`` returning USD (OANDA NAV / Alpaca equity) or
+    ``None`` on any failure; their factories return ``None`` when the
+    fixed-name env credentials are unset (BL-20260611-006).
+    """
+    try:
+        if ex == "oanda":
+            from src.units.accounts.clients import oanda_client_for as _factory
+            _missing = "OANDA_API_TOKEN / OANDA_ACCOUNT_ID"
+        else:
+            from src.units.accounts.clients import alpaca_client_for as _factory
+            _missing = "ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY"
+        client = _factory(account)
+        if client is None:
+            return {"status": "missing_creds", "total_usdt": None,
+                    "raw": None,
+                    "error": f"{_missing} not in process env"}
+        bal = client.balance()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("account_balance(%s): %s", aid, exc)
+        err_str = f"{type(exc).__name__}: {exc}"
+        try:
+            from src.runtime.api_reporting import report_api_failure
+            report_api_failure(
+                exchange=ex, op="balance",
+                account_id=str(aid), error=err_str, exception=exc,
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        return {"status": "api_error", "total_usdt": None, "raw": None,
+                "error": err_str}
+    if bal is None:
+        return {"status": "api_error", "total_usdt": None, "raw": None,
+                "error": f"{ex} balance() returned None "
+                         "(API error or credentials rejected — see logs)"}
+    return {"status": "ok", "total_usdt": float(bal),
+            "raw": {"balance": float(bal)}, "error": None}
+
+
 def _ib_balance_diagnostic(account: Dict[str, Any], aid: str) -> Dict[str, Any]:
     """Balance diagnostic for an Interactive Brokers account.
 
@@ -724,6 +769,16 @@ def account_balance_with_diagnostic(
     # before the cred check.
     if ex in ("interactive_brokers", "ib"):
         return _ib_balance_diagnostic(account, str(aid))
+
+    # OANDA / Alpaca use FIXED env-name credentials (bearer token /
+    # key-pair), not the per-account ``api_key_env`` pattern, so they
+    # also dispatch before credentials_check() — the IB precedent.
+    # BL-20260611-006: before these branches existed the function fell
+    # through to "unsupported", the coordinator's live-balance cache
+    # stayed empty for both M15 accounts, and the risk gate refused
+    # every gold/ETF signal with gate_balance=0.00 (trade #2536).
+    if ex in ("oanda", "alpaca"):
+        return _m15_client_balance_diagnostic(ex, str(aid), account)
 
     # Step 1: cred presence check (no API call yet).
     cred_err = credentials_check(account)

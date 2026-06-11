@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260611-006",
+      "opened_at": "2026-06-11T18:15:00+00:00",
+      "opened_by": "claude (trade-monitor session, operator-approved mandate)",
+      "source": "Trade monitor check (#3422): trade #2536 (18:01Z) — xauusd_trend_1h's FIRST executable gold signal (confidence 1.0, long @ 4151.895) REJECTED 'below_min_balance: gate_balance=0.00 USD < min_balance_usd=100.00' on oanda_practice.",
+      "title": "OANDA/Alpaca balance fetch unwired — account_balance_with_diagnostic returned 'unsupported' and _fetch_balance fell through to 0.0, so the risk gate refused every gold/ETF signal",
+      "description": "Both clients ship balance() (OANDA NAV / Alpaca equity) and the factories exist, but neither balance read path had a branch for the M15 exchanges: the coordinator's live-balance cache stayed empty → gate_balance=0.00 → min-balance refusal on every signal. Also explains the cron health snapshot's accounts_api warn for both accounts and their absence from balance_snapshots (cross-ref BL-20260611-M15-2). FIX SHIPPED same session: _m15_client_balance_diagnostic in src/units/ui/data_loaders.py (dispatch BEFORE the generic credentials_check — fixed env names, the IB precedent; missing_creds/api_error surfaced with the env-var names) + oanda/alpaca branch in execute._fetch_balance mirroring the IB NetLiquidation branch.",
+      "tier": 2,
+      "trigger_condition": "Every /health-review until a gold or ETF signal passes the balance gate (sized > 0 or refused for a REAL risk reason, not gate_balance=0).",
+      "resolution_criteria": "An xauusd_trend_1h (or spy/qqq/gld) order package journals with a non-zero gate balance — either executed on the practice/paper account or refused by a genuine risk gate; the cron accounts_api check stops failing for oanda_practice/alpaca_paper.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260611-005",
       "opened_at": "2026-06-11T17:20:00+00:00",
       "opened_by": "claude (trade-monitor session, operator-approved sizing-bug mandate)",
