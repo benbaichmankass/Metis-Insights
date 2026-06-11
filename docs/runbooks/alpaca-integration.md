@@ -7,6 +7,9 @@
 > intraday candidates. Paper account first; live is a separate,
 > operator-gated `ALPACA_ENV` flip.
 
+> **STATUS 2026-06-11: LIVE-ON-PAPER.** Creds synced (#3333), deployed (#3337), account flipped live (#3339); the three ETF legs execute paper bracket orders during the US session. Remaining verification is tracked in the M15 soak handoff (`docs/research/session-handoff-m15-soak-2026-06-11.md`).
+
+
 ## What is wired (Claude-side, S-M15-PHASE2B-ALPACA)
 
 | Touch point | File |
