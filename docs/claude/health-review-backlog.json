@@ -1288,6 +1288,32 @@
       "resolved_at": null,
       "resolved_by": null,
       "resolution_note": null
+    },
+    {
+      "id": "BL-20260611-SYM-1",
+      "opened_at": "2026-06-11T11:06:18.099064+00:00",
+      "opened_by": "claude (dynamic-symbols UI session)",
+      "source": "doc-freshness pass after PR #3358 / ict-trader-dashboard#89 / ict-trader-android#46 (config-driven symbol enumeration).",
+      "title": "Dashboard Insights tab fallback strategy list is stale (6 names vs 16 configured)",
+      "description": "ict-trader-dashboard/streamlit_app.py hardcodes a 6-strategy fallback for the Insights selectbox, used only when /api/bot/strategies is unreachable. Harmless in normal operation (the live list is API-driven) but the fallback no longer reflects the roster. Either refresh the list or drop the fallback and render an outage note instead.",
+      "tier": 1,
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
+    },
+    {
+      "id": "BL-20260611-SYM-2",
+      "opened_at": "2026-06-11T11:06:18.099064+00:00",
+      "opened_by": "claude (dynamic-symbols UI session)",
+      "source": "ict-trader-android#46 (dynamic widget symbol chips).",
+      "title": "Android home-screen widget symbol chips can clip with 8+ instruments",
+      "description": "CandleChartWidget/DashboardWidget render one chip per traded symbol (now 8) on a single Glance Row; Glance rows don't scroll, so narrow widget placements may clip trailing chips. Degradation only \u2014 the in-app Overview row scrolls and shows everything. If the instrument count keeps growing, consider a two-row wrap or a widget-config symbol picker.",
+      "tier": 1,
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
     }
   ],
   "updated_at": "2026-06-11T09:17:59.349557+00:00"
