@@ -428,17 +428,21 @@ execution layer (a separate sprint) or you've taken a wrong turn.
 
 ## Multi-symbol support + the per-strategy symbol scope
 
-`src/runtime/intents.py::SUPPORTED_SYMBOLS` is `{"BTCUSDT", "MES",
-"MGC", "MHG"}` (multi-symbol is live as of 2026-05-22 for MES, extended
-2026-06-02 for the WS-A metals sleeve). The `StrategyIntent` constructor
-refuses symbols outside that whitelist at the type level, and per-symbol
-open-position state is wired (the aggregator/delta + the strategy-monocle
-open-package gates are symbol-scoped). To add a brand-new symbol you
-extend `SUPPORTED_SYMBOLS`, add the `config/instruments.yaml` profile
+Intent-layer symbol validation is **config-driven** (PR #3358,
+2026-06-11): `StrategyIntent` validates through
+`src/runtime/intents.py::supported_symbols()`, which unions the static
+base `SUPPORTED_SYMBOLS` (`{"BTCUSDT", "MES", "MGC", "MHG"}`) with every
+symbol declared in the `symbols:` list of an account in
+`config/accounts.yaml`. Per-symbol open-position state is wired (the
+aggregator/delta + the strategy-monocle open-package gates are
+symbol-scoped). To add a brand-new symbol you do **NOT** edit
+intents.py — declare it on the account that trades it in
+`config/accounts.yaml`, add the `config/instruments.yaml` profile
 (exchange routing), and — for an IB futures symbol — a `ContFuture`
 branch in `src/units/accounts/ib_client._build_contract`. See the
 `mgc_pullback_1d` / `mhg_pullback_1d` wiring (PR #2634) for a worked
-non-BTC example cloned from the `mes_trend_long_1d` sleeve.
+non-BTC example cloned from the `mes_trend_long_1d` sleeve (its
+`SUPPORTED_SYMBOLS +=` step is the part #3358 made obsolete).
 
 **Per-strategy symbol scope (2026-06-02, PR #2643).** A strategy
 evaluates/emits ONLY on the symbols it declares in `config/strategies.yaml
