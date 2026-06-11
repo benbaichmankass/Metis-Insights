@@ -58,8 +58,14 @@ _HALT_FLAG_PATH = "/tmp/trader_halt.flag"
 
 # Account fields the endpoint is allowed to surface. Anything outside
 # this set (notably ``api_key_env`` / ``api_secret_env``) is dropped.
+# ``symbols`` (2026-06-11): the per-account instrument list is the
+# canonical "what does the system trade" enumeration — consumers
+# (Streamlit dashboard, Android app) derive their symbol selectors from
+# it instead of hardcoding, so a new instrument shows up without an app
+# change.
 _ACCOUNT_PUBLIC_FIELDS = frozenset({
-    "type", "exchange", "market_type", "strategies", "risk", "enabled",
+    "type", "exchange", "market_type", "strategies", "symbols", "risk",
+    "enabled",
 })
 
 # Substrings that mark a key as secret-bearing at any depth. Case-

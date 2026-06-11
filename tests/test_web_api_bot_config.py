@@ -38,6 +38,7 @@ def fake_configs(tmp_path, monkeypatch):
                     "mode": "live",
                     "market_type": "spot",
                     "strategies": ["turtle_soup"],
+                    "symbols": ["BTCUSDT"],
                     "risk": {
                         "max_dd_pct": 0.05,
                         "daily_usd": 100,
@@ -124,6 +125,7 @@ def test_config_happy_path_returns_full_payload(fake_configs, client):
     assert a1["market_type"] == "spot"
     assert a1["yaml_mode"] == "live"
     assert a1["strategies"] == ["turtle_soup"]
+    assert a1["symbols"] == ["BTCUSDT"]  # consumers enumerate symbols from here
     assert a1["risk"]["max_dd_pct"] == 0.05
     assert a1["enabled"] is True  # default
 
