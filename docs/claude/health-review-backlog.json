@@ -1275,7 +1275,20 @@
       "resolved_at": null,
       "resolved_by": null,
       "resolution_note": null
+    },
+    {
+      "id": "BL-20260611-M15-1",
+      "opened_at": "2026-06-11T09:17:59.349557+00:00",
+      "opened_by": "claude (M15 go-live session)",
+      "source": "set-account-mode runs #3338/#3339 (2026-06-11): post-restart check printed 'runtime_status.live[oanda_practice/alpaca_paper] after restart: missing' though the flips succeeded.",
+      "title": "runtime_status live-map doesn't list the new oanda_practice/alpaca_paper accounts",
+      "description": "The set-account-mode post-check reads runtime_status.json's live map; the two new M15 accounts are absent (likely the status writer enumerates a fixed account set or only populates after a relevant tick). Cosmetic for the flip (script still verified the YAML edit) but weakens post-flip verification + dashboard account status. Check src/web/runtime_status.py / the hourly snapshot writer and include all configured accounts.",
+      "tier": 1,
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
     }
   ],
-  "updated_at": "2026-06-10T22:10:00+00:00"
+  "updated_at": "2026-06-11T09:17:59.349557+00:00"
 }

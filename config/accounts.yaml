@@ -438,10 +438,11 @@ accounts:
   # (stopLossOnFill/takeProfitOnFill) so protection is broker-side.
   oanda_practice:
     exchange: oanda
-    mode: dry_run                      # dry-run-guard: allow — new OANDA practice
-                                       # account, intentionally held dry until the
-                                       # operator provisions creds + approves the
-                                       # strategy-assignment PR (Tier-3).
+    mode: live                         # PRACTICE host = paper money. Flipped via
+                                       # the set-account-mode action 2026-06-11
+                                       # (#3338, operator-approved "go live on
+                                       # practice"); this line mirrors the VM so
+                                       # deploys don't revert it.
     demo: true                         # practice account = paper money; trade rows
                                        # stamp is_demo like bybit_1.
     strategies:
@@ -475,10 +476,11 @@ accounts:
   # request) so protection is broker-side from the first fill.
   alpaca_paper:
     exchange: alpaca
-    mode: dry_run                      # dry-run-guard: allow — new Alpaca paper
-                                       # account, intentionally held dry until the
-                                       # operator provisions creds + approves the
-                                       # strategy-assignment PR (Tier-3).
+    mode: live                         # PAPER host = paper money. Flipped via
+                                       # the set-account-mode action 2026-06-11
+                                       # (#3339, operator-approved "go live on
+                                       # practice"); this line mirrors the VM so
+                                       # deploys don't revert it.
     demo: true                         # paper account = paper money; trade rows
                                        # stamp is_demo like bybit_1 / oanda_practice.
     strategies:                        # M15 Phase 4 buildout (Tier-3,

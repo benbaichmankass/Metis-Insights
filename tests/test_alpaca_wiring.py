@@ -137,7 +137,7 @@ def test_client_close_idempotent_on_404(monkeypatch):
 def test_accounts_yaml_alpaca_paper_ships_inert():
     acct = yaml.safe_load(open("config/accounts.yaml"))["accounts"]["alpaca_paper"]
     assert acct["exchange"] == "alpaca"
-    assert acct["mode"] == "dry_run"  # account flip rides set-account-mode post-deploy
+    assert acct["mode"] == "live"  # practice/paper money; flipped 2026-06-11 (set-account-mode)
     # M15 Phase 4 buildout assigned the ETF legs (operator-approved).
     assert acct["strategies"] == [
         "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d"
