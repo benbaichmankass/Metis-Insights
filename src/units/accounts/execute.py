@@ -25,10 +25,12 @@ from typing import Any, Optional
 
 from src.core.coordinator import OrderPackage, is_paused
 from src.units.accounts.precision import (
+    get_lot_rule,
     get_tick_size,
     invalidate_tick_cache,
     live_instrument_diagnostic,
     quantize_price,
+    quantize_qty,
 )
 from src.units.accounts.risk import size_order_from_cfg
 
@@ -645,12 +647,43 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
         if exchange == "bybit":
             category = _bybit_category(account_cfg)
             tick = get_tick_size(client, order["symbol"], category)
+            # Align qty to the symbol's lotSizeFilter the same way price is
+            # tick-aligned (BL-20260611-005). The sizer's account-level
+            # precision (3dp, BTC-shaped) is not symbol-aware: 14.937 ETH on
+            # ETHUSDT's 0.01 qtyStep drew "retCode 10001 Qty invalid" on
+            # every eth_pullback_2h order. Floor (never round up — realised
+            # risk must not exceed the sized cap) and refuse pre-flight when
+            # the floored qty falls below the exchange minimum. Rule unknown
+            # (live lookup + static map both miss) → submit unmodified,
+            # exactly the pre-fix behaviour. The smoke-test path
+            # (_submit_test_order) is intentionally NOT aligned — its qty is
+            # meant to be sub-min-lot so the exchange rejects it.
+            qty_str = str(order["qty"])
+            lot_rule = get_lot_rule(client, order["symbol"], category)
+            if lot_rule is not None:
+                _step, _min_qty = lot_rule
+                _aligned = quantize_qty(order["qty"], _step)
+                if _aligned <= 0 or _aligned < _min_qty:
+                    raise RuntimeError(
+                        f"qty {order['qty']} for {order['symbol']} is below "
+                        f"the exchange lot minimum after step-alignment "
+                        f"(qtyStep={_step}, minOrderQty={_min_qty}) — "
+                        "refusing pre-flight."
+                    )
+                if float(_aligned) != float(order["qty"]):
+                    logger.warning(
+                        "_submit_order: aligning %s qty %s -> %s (qtyStep=%s)",
+                        order["symbol"], order["qty"], _aligned, _step,
+                    )
+                    # Write back so the journal row records what was sent.
+                    order["qty"] = float(_aligned)
+                qty_str = str(_aligned)
             kwargs = {
                 "category": category,
                 "symbol": order["symbol"],
                 "side": order["side"],
                 "orderType": "Market",
-                "qty": str(order["qty"]),
+                "qty": qty_str,
             }
             if category == "spot":
                 # Bybit V5 spot Market: qty is in base-coin units

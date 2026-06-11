@@ -650,3 +650,126 @@ class TestExecutorBranch:
         c, _ = _client()
         bal = _fetch_balance(c, {"exchange": "interactive_brokers"})
         assert bal == pytest.approx(52345.67)
+
+
+# ---------------------------------------------------------------------------
+# BL-20260611-001 — whole-contract floor + bounded post-place rejection check
+# ---------------------------------------------------------------------------
+
+
+class TestPlaceWholeContractFloor:
+    """IBKR futures fill whole contracts only; place() floors defensively
+    and refuses sub-1-contract orders instead of transmitting an order
+    that can never fill (the trade #2531 failure mode)."""
+
+    def test_fractional_qty_is_floored(self, fake_ib_module):
+        c, fake = _client()
+        resp = c.place({
+            "symbol": "MHG", "direction": "long", "qty": 3.643,
+            "sl": 5.9415, "tp": 6.892,
+        })
+        assert resp["retCode"] == 0
+        # Parent + both children carry the floored integer qty.
+        assert [o.totalQuantity for (_, o) in fake.placed] == [3.0, 3.0, 3.0]
+
+    def test_sub_one_contract_is_refused_nothing_transmitted(self, fake_ib_module):
+        c, fake = _client()
+        resp = c.place({
+            "symbol": "MES", "direction": "long", "qty": 0.4,
+            "sl": 5290.0, "tp": 5320.0,
+        })
+        assert resp["retCode"] == 1
+        assert "below 1 whole contract" in resp["retMsg"]
+        assert fake.placed == []
+
+    def test_integer_qty_unchanged(self, fake_ib_module):
+        c, fake = _client()
+        resp = c.place({
+            "symbol": "MES", "direction": "long", "qty": 2,
+            "sl": 5290.0, "tp": 5320.0,
+        })
+        assert resp["retCode"] == 0
+        assert [o.totalQuantity for (_, o) in fake.placed] == [2.0, 2.0, 2.0]
+
+
+class _RejectingIB(FakeIB):
+    """FakeIB whose parent order lands in a terminal dead state, the way
+    ib_insync surfaces an immediate IBKR rejection."""
+
+    def __init__(self, status="Inactive", message="invalid order size"):
+        super().__init__()
+        self._reject_status = status
+        self._reject_message = message
+
+    def placeOrder(self, contract, order):
+        trade = _FakeTrade(order)
+        if not self.placed:  # parent only; children irrelevant here
+            trade.orderStatus.status = self._reject_status
+            entry = types.SimpleNamespace(message=self._reject_message)
+            trade.log = [entry]
+        self.placed.append((contract, order))
+        return trade
+
+
+class TestPlacePostPlaceRejectionCheck:
+    """place() pumps the event loop briefly after transmitting and surfaces
+    an immediately-rejected parent as retCode 1 (pre-fix it returned
+    retCode 0 and the journal row was orphaned 30 min later)."""
+
+    def _rejecting_client(self, fake):
+        return IBClient(
+            host="127.0.0.1", port=7497, client_id=497,
+            account="DUQ325724", _ib_factory=lambda: fake,
+        )
+
+    def test_rejected_parent_surfaces_as_retcode_1(self, fake_ib_module):
+        fake = _RejectingIB(status="Inactive", message="invalid order size")
+        c = self._rejecting_client(fake)
+        resp = c.place({
+            "symbol": "MES", "direction": "long", "qty": 2,
+            "sl": 5290.0, "tp": 5320.0,
+        })
+        assert resp["retCode"] == 1
+        assert "status=Inactive" in resp["retMsg"]
+        assert "invalid order size" in resp["retMsg"]
+
+    def test_cancelled_parent_surfaces_as_retcode_1(self, fake_ib_module):
+        fake = _RejectingIB(status="Cancelled", message="")
+        c = self._rejecting_client(fake)
+        resp = c.place({
+            "symbol": "MES", "direction": "long", "qty": 1,
+            "sl": 5290.0, "tp": 5320.0,
+        })
+        assert resp["retCode"] == 1
+        assert "status=Cancelled" in resp["retMsg"]
+
+    def test_confirm_disabled_restores_fire_and_forget(self, fake_ib_module, monkeypatch):
+        monkeypatch.setenv("IB_PLACE_CONFIRM_S", "0")
+        fake = _RejectingIB(status="Inactive")
+        c = self._rejecting_client(fake)
+        resp = c.place({
+            "symbol": "MES", "direction": "long", "qty": 1,
+            "sl": 5290.0, "tp": 5320.0,
+        })
+        assert resp["retCode"] == 0
+
+    def test_accepted_parent_returns_ok(self, fake_ib_module):
+        # Default FakeIB parent status is "Submitted" → accepted instantly.
+        c, fake = _client()
+        resp = c.place({
+            "symbol": "MES", "direction": "long", "qty": 2,
+            "sl": 5290.0, "tp": 5320.0,
+        })
+        assert resp["retCode"] == 0
+
+    def test_pending_at_deadline_treated_as_accepted(self, fake_ib_module, monkeypatch):
+        # A parent stuck in PendingSubmit must NOT block past the bound nor
+        # be reported as a failure (slow-gateway tolerance).
+        monkeypatch.setenv("IB_PLACE_CONFIRM_S", "0.05")
+        fake = _RejectingIB(status="PendingSubmit")
+        c = self._rejecting_client(fake)
+        resp = c.place({
+            "symbol": "MES", "direction": "long", "qty": 1,
+            "sl": 5290.0, "tp": 5320.0,
+        })
+        assert resp["retCode"] == 0

@@ -115,6 +115,78 @@ class TestPositionSize:
         assert qty == pytest.approx(4.0)
 
 
+class TestFuturesWholeContractEnforcement:
+    """BL-20260611-001: ``market_type: futures`` forces integer-contract
+    sizing in ``position_size`` regardless of the account's configured
+    ``qty_precision`` / ``min_qty`` — the live ``ib_paper`` account omitted
+    both, fell back to the crypto defaults (3dp / 0.001), and dispatched a
+    3.643-contract MHG order that IBKR could never fill (trade #2531)."""
+
+    # Crypto-default risk config, exactly like the live ib_paper account
+    # (risk block has no min_qty / qty_precision).
+    _IB_PAPER_LIKE = {"risk_pct": 0.01, "daily_usd": 100000, "min_balance_usd": 50}
+
+    def test_futures_qty_is_integer_with_crypto_default_precision(self):
+        """Regression for trade #2531: same config shape as live ib_paper.
+
+        MHG entry 6.2715 / SL 5.94157143 (the real signal), cvu from
+        instruments.yaml; whatever the balance, the qty must come out a
+        whole number of contracts — never 3.643."""
+        rm = RiskManager(dict(self._IB_PAPER_LIKE))
+        pkg = _pkg("MHG", 6.2715, 5.94157143, 6.8923785)
+        for balance in (5_000, 10_000, 100_000, 1_000_000):
+            qty = rm.position_size(pkg, balance, market_type="futures")
+            assert qty == int(qty), (
+                f"fractional futures qty {qty} at balance={balance}"
+            )
+
+    def test_futures_sub_one_contract_is_refused_not_bumped(self):
+        """A computed size below 1 contract returns 0.0 (per-trade refusal)
+        — it must NOT be bumped up to min_qty (the crypto bump-up semantics)
+        nor to a whole contract (which would exceed the risk cap)."""
+        rm = RiskManager(dict(self._IB_PAPER_LIKE))
+        # MES: risk/contract = 50 pts * $5 = $250; 1% of $10k = $100 → 0.4.
+        pkg = _pkg("MES", 5800.0, 5750.0, 5900.0)
+        assert rm.position_size(pkg, 10_000, market_type="futures") == 0.0
+
+    def test_futures_explicit_fractional_precision_is_overridden(self):
+        """Even an explicit (mis)configured qty_precision=3 on a futures
+        account cannot produce fractional contracts."""
+        cfg = dict(self._IB_PAPER_LIKE, qty_precision=3, min_qty=0.001)
+        rm = RiskManager(cfg)
+        pkg = _pkg("MES", 5800.0, 5750.0, 5900.0)
+        qty = rm.position_size(pkg, 100_000, market_type="futures")
+        assert qty == pytest.approx(4.0)
+        assert qty == int(qty)
+
+    def test_futures_daily_budget_scaledown_stays_integer(self):
+        """The daily-loss-budget scale-down path floors to whole contracts
+        too (it re-floors with the account precision)."""
+        # Budget $600 < risk-based loss $1000 → scaled = 600/250 = 2.4 → 2.
+        cfg = dict(self._IB_PAPER_LIKE, daily_usd=600)
+        rm = RiskManager(cfg)
+        pkg = _pkg("MES", 5800.0, 5750.0, 5900.0)
+        qty = rm.position_size(pkg, 100_000, market_type="futures")
+        assert qty == pytest.approx(2.0)
+
+    def test_futures_daily_budget_scaledown_below_one_refused(self):
+        # Budget $200 → scaled = 200/250 = 0.8 → floor 0 → refusal.
+        cfg = dict(self._IB_PAPER_LIKE, daily_usd=200)
+        rm = RiskManager(cfg)
+        pkg = _pkg("MES", 5800.0, 5750.0, 5900.0)
+        assert rm.position_size(pkg, 100_000, market_type="futures") == 0.0
+
+    def test_crypto_path_semantics_unchanged(self):
+        """Linear/spot accounts keep the 3dp precision AND the bump-up-to-
+        min_qty behaviour — byte-identical to pre-fix."""
+        rm = RiskManager(dict(self._IB_PAPER_LIKE))
+        # Wide SL + small balance → raw qty (0.0001) floors to 0 at 3dp →
+        # bumped UP to the 0.001 min lot (the legacy crypto semantics).
+        pkg = _pkg("BTCUSDT", 80000.0, 70000.0, 95000.0)
+        qty = rm.position_size(pkg, 100, market_type="linear")
+        assert qty == pytest.approx(0.001)
+
+
 # ---------------------------------------------------------------------------
 # Per-symbol market-data routing
 # ---------------------------------------------------------------------------
