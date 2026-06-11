@@ -57,6 +57,7 @@ from src.runtime.strategy_signal_builders import (
     spy_trend_long_1d_signal_builder,
     qqq_trend_long_1d_signal_builder,
     gld_pullback_1d_signal_builder,
+    eth_pullback_2h_signal_builder,
     mgc_pullback_1d_signal_builder,
     mhg_pullback_1d_signal_builder,
     squeeze_breakout_4h_signal_builder,
@@ -133,6 +134,11 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         "spy_trend_long_1d": spy_trend_long_1d_signal_builder,
         "qqq_trend_long_1d": qqq_trend_long_1d_signal_builder,
         "gld_pullback_1d": gld_pullback_1d_signal_builder,
+        # eth_pullback_2h — M15 WS-C alt sleeve (2026-06-11): ETH/USDT 2h
+        # HTF-pullback on bybit_1 (demo, paper money), reusing the
+        # htf_pullback_trend_2h unit at the live BTC params. Sole strategy
+        # on its symbol, so arbitration never fires.
+        "eth_pullback_2h": eth_pullback_2h_signal_builder,
         # mgc_pullback_1d / mhg_pullback_1d: the WS-A metals sleeve (2026-06-02).
         # Micro Gold + Micro Copper daily HTF-pullback diversifiers on IBKR
         # ib_paper, execution: live (paper money). Each runs ALONE on its own

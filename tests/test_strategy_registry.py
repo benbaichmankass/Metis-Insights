@@ -174,8 +174,9 @@ def test_real_yaml_loads():
     # execution: shadow). Live turn-on is gated by each strategy's `enabled` /
     # `execution` flags in the YAML, not the count. 13 → 16 by the M15
     # Phase-4 ETF buildout (spy/qqq trend + gld pullback on alpaca_paper,
-    # 2026-06-11).
-    assert len(strategies) == 16
+    # 2026-06-11), then 16 → 17 by the M15 WS-C alt sleeve eth_pullback_2h
+    # (ETH/USDT 2h HTF-pullback on bybit_1 demo, 2026-06-11).
+    assert len(strategies) == 17
 
 
 def test_real_yaml_has_required_strategies():
@@ -187,6 +188,7 @@ def test_real_yaml_has_required_strategies():
         "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d",
         "xauusd_trend_1h",
         "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
+        "eth_pullback_2h",
     }
 
 

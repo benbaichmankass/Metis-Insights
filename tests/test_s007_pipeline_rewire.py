@@ -47,6 +47,7 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
     from src.strategy_registry import load_strategies
     names = sorted(s["name"] for s in load_strategies())
     assert names == [
+        "eth_pullback_2h",
         "fade_breakout_4h",
         "fvg_range_15m",
         "gld_pullback_1d",
