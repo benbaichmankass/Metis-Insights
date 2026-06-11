@@ -77,10 +77,13 @@ loss with the existing BTC roster.
 
 ## Tier-3 proposals (operator decision required — nothing wired)
 
-Shadow-first on **bybit_1 (demo)** only, mirroring the xauusd_trend_1h
-wiring pattern (per-symbol strategy instance + instrument profile +
-account routing); promotion past demo-shadow stays a separate gate.
-Ranked:
+On **bybit_1 (demo, paper money)** only, mirroring the per-symbol
+wiring pattern (strategy instance + instrument profile + account
+routing). Per the paper-accounts-execute policy (new-strategy skill,
+CI-enforced) a demo-only-routed leg ships `execution: live` — paper
+execution IS the data collection; `shadow` on a demo-only routing
+would strand it. Promotion to real-money bybit_2 stays a separate
+Tier-3 gate. Ranked:
 
 1. **`eth_pullback_2h`** — the matrix's strongest cell (+35.4/+33.5,
    OOS exp +0.36, 93 OOS trades), same family/params as the live BTC
@@ -94,7 +97,7 @@ Ranked:
    slippage sensitivity.
 
 Each adopted cell must first pass the k-fold anchored walk-forward
-(positive every fold + 2× fee headroom) before even a shadow slot —
+(positive every fold + 2× fee headroom) before even a demo slot —
 this sweep is the screen, not the evidence. BNB and LINK (ex-ict) drop
 from consideration; fade/squeeze/fvg_range alt variants are dead ends
 at current params.
