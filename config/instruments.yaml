@@ -131,3 +131,47 @@ instruments:
     contract_value_usd: 1.0   # spot: 1 USD per $1 move per oz
     max_leverage: 20          # OANDA US metals leverage cap (conservative)
     display_name: "Gold/USD spot (OANDA practice)"
+
+  # ------------------------------------------------------------------
+  # M15 Phase 4 — Alpaca paper ETFs (daily futures-replacement legs).
+  # Whole-share quantities (bracket orders disallow fractionals),
+  # 2dp ticks, traded by alpaca_paper (paper money).
+  # ------------------------------------------------------------------
+  SPY:
+    exchange: alpaca
+    category: spot
+    base_asset: SPY
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "SPDR S&P 500 ETF (Alpaca paper)"
+
+  QQQ:
+    exchange: alpaca
+    category: spot
+    base_asset: QQQ
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "Invesco QQQ ETF (Alpaca paper)"
+
+  GLD:
+    exchange: alpaca
+    category: spot
+    base_asset: GLD
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "SPDR Gold Shares ETF (Alpaca paper)"

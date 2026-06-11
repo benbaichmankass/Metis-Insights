@@ -152,6 +152,7 @@ def test_run_checks_strategies_match_roster():
         "squeeze_breakout_4h", "fvg_range_15m", "htf_pullback_trend_2h", "trend_donchian_1h",
         "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d",
         "xauusd_trend_1h",
+        "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
     }
 
 

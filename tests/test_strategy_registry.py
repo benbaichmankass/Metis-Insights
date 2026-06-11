@@ -172,8 +172,10 @@ def test_real_yaml_loads():
     # metals sleeve mgc_pullback_1d + mhg_pullback_1d (2026-06-02), then 12 → 13
     # by the M15 Phase-3 gold sleeve xauusd_trend_1h (2026-06-11, OANDA practice,
     # execution: shadow). Live turn-on is gated by each strategy's `enabled` /
-    # `execution` flags in the YAML, not the count.
-    assert len(strategies) == 13
+    # `execution` flags in the YAML, not the count. 13 → 16 by the M15
+    # Phase-4 ETF buildout (spy/qqq trend + gld pullback on alpaca_paper,
+    # 2026-06-11).
+    assert len(strategies) == 16
 
 
 def test_real_yaml_has_required_strategies():
@@ -184,6 +186,7 @@ def test_real_yaml_has_required_strategies():
         "squeeze_breakout_4h", "fvg_range_15m", "htf_pullback_trend_2h", "trend_donchian_1h",
         "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d",
         "xauusd_trend_1h",
+        "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
     }
 
 

@@ -47,9 +47,21 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
     from src.strategy_registry import load_strategies
     names = sorted(s["name"] for s in load_strategies())
     assert names == [
-        "fade_breakout_4h", "fvg_range_15m", "htf_pullback_trend_2h", "ict_scalp_5m",
-        "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d", "squeeze_breakout_4h",
-        "trend_donchian", "trend_donchian_1h", "turtle_soup", "vwap",
+        "fade_breakout_4h",
+        "fvg_range_15m",
+        "gld_pullback_1d",
+        "htf_pullback_trend_2h",
+        "ict_scalp_5m",
+        "mes_trend_long_1d",
+        "mgc_pullback_1d",
+        "mhg_pullback_1d",
+        "qqq_trend_long_1d",
+        "spy_trend_long_1d",
+        "squeeze_breakout_4h",
+        "trend_donchian",
+        "trend_donchian_1h",
+        "turtle_soup",
+        "vwap",
         "xauusd_trend_1h",
     ]
 
