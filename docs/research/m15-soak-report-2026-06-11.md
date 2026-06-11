@@ -15,9 +15,14 @@ occurred yet (expected), so fill-stamping (`is_demo`, broker-side
 SL/TP) remains to be verified on the first real fills.** The gold leg
 is provably evaluating live OANDA data every tick; the ETF legs are
 correctly session-gated until 13:30 UTC. The Phase-0 backtest data is
-faithful to the venue: OANDA XAU_USD 1h candles sit a median **0.73 bps**
-above the Dukascopy bid-side series (p95 |Δclose| 1.65 bps) over 482
-matched bars — immaterial against the strategy's 2.5×ATR stops.
+faithful to BOTH venues: OANDA XAU_USD 1h candles sit a median
+**0.73 bps** above the Dukascopy bid-side series (p95 |Δclose|
+1.65 bps, 482 bars), and post-fix Alpaca daily bars match the
+Dukascopy ETF dailies to ≈1 bps median on all three symbols.
+The soak's one real find — the Alpaca default-`start` window bug that
+would have silently no-opped all three daily ETF legs — was fixed,
+merged (#3360, operator-approved) and deployed (#3370) before the
+first US session tick.
 
 ## Evidence
 
@@ -29,7 +34,7 @@ matched bars — immaterial against the strategy's 2.5×ATR stops.
 | ETF legs session gate | `spy/qqq/gld`: `US market closed - side=none` each tick (journal); first live evaluation lands at 13:30 UTC | #3356 (`journalctl`) |
 | Practice fills | **None yet** — newest journal trade row is 2026-06-08 (pre-deploy, Bybit); no XAUUSD/SPY/QQQ/GLD order packages | #3349, #3351 |
 | Candle fidelity XAU_USD (OANDA vs Dukascopy 1h) | 482 matched bars 2026-05-12→06-10: Δclose median +0.73 bps signed (venue above bid — the spread), p95 abs 1.65 bps, max abs 59.8 bps (isolated session-edge bars); high/low deltas equivalent | #3355 (`m15_candle_fidelity.py` on the trainer) |
-| Candle fidelity SPY/QQQ/GLD (Alpaca vs Dukascopy 1d) | **Blocked** — `/api/bot/candles` returns `no_data` for the three ETFs (root cause below); the trader-side fetch is exercised first at 13:30 UTC | #3355 |
+| Candle fidelity SPY/QQQ/GLD (Alpaca vs Dukascopy 1d) | **PASS (post-fix re-run, 12:16 UTC)** — with the lookback fix deployed (#3370, VM at `0fb181e`), all three return 200 daily bars; vs Dukascopy over ~10 months: SPY median \|Δclose\| 0.68 bps / p95 3.9; QQQ 0.85 / 4.0; GLD 1.06 / 4.9 (GLD lows run ~+2.5 bps rich — CFD-vs-ETF low prints; immaterial against 2×ATR daily stops) | #3355 (pre-fix `no_data`), #3371 (post-fix) |
 | Balance probe | **Blocked at the snapshot endpoint** — `/api/bot/accounts/balances` is 17 days stale (as_of 2026-05-25) and carries only bybit_1/2 → logged BL-20260611-M15-2; OANDA token auth itself is proven by the working XAUUSD candle fetch + per-tick evaluation | #3352 |
 | FX weekend gate | Not yet exercised — first window Fri 2026-06-12 21:00 UTC; watch for `fx_market_closed` rows | — |
 
