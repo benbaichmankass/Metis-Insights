@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260611-008",
+      "opened_at": "2026-06-11T20:45:00+00:00",
+      "opened_by": "claude (trade-monitor session wrap-up, operator-directed)",
+      "source": "Operator session-end directive 2026-06-11 ~20:45Z: 'I'll run another health review in the morning so make a note in the backlog to pick up the trade monitor then.'",
+      "title": "MORNING HANDOFF — resume the trade-monitor verification in the next /health-review (open BTC legs + 3 pending fix verifications + gold decision)",
+      "description": "The 2026-06-11 session shipped four fixes (PRs #3406 IB whole-contract sizing + post-place rejection check; #3416 Bybit lotSizeFilter qty alignment; #3424 OANDA/Alpaca balance wiring — VERIFIED live via trade #2537's 1.864-unit sizing; #3413/#3433 docs/backlog) and ran a 30-min trade watch until ~20:45Z. The watch is now STOPPED. Next /health-review picks up: (1) OPEN POSITIONS — trend_donchian long BTCUSDT from 17:50Z, pkg-f061eafe563b4c6b, REAL leg trade #2535 (bybit_2, 0.001 @ 63604.2, SL 62525 / TP 69901) + demo leg #2534 (bybit_1, 0.736): check status/close/PnL attribution. (2) BL-20260611-005 — first ACCEPTED eth_pullback_2h order (none re-signalled post-fix as of 20:37Z). (3) BL-20260611-001 — first IB order journaling INTEGER contracts + filling (no MES/MGC/MHG signal post-fix yet). (4) BL-20260611-007 — gold blocked account-side on OANDA ('instrument not tradeable'); operator decision pending; check whether new XAUUSD exchange_rejected rows accumulated overnight (~1/signal, bounded). Method: pull journal?table=trades&limit=10 and compare against newest-known id 2537.",
+      "tier": 1,
+      "trigger_condition": "FIRST item in the next /health-review (morning 2026-06-12). Self-resolves once the four checks are folded into that review's findings/check_logs.",
+      "resolution_criteria": "The next /health-review records the BTC-leg outcomes and updates BL-20260611-001/-005/-007 check_logs; this handoff item is then closed.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260611-007",
       "opened_at": "2026-06-11T20:15:00+00:00",
       "opened_by": "claude (trade-monitor session)",
