@@ -53,6 +53,7 @@ from src.runtime.strategy_signal_builders import (
     fvg_range_15m_signal_builder,
     htf_pullback_trend_2h_signal_builder,
     mes_trend_long_1d_signal_builder,
+    xauusd_trend_1h_signal_builder,
     mgc_pullback_1d_signal_builder,
     mhg_pullback_1d_signal_builder,
     squeeze_breakout_4h_signal_builder,
@@ -118,6 +119,10 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # IBKR ib_paper, execution:shadow (2026-06-01); priority 0 (new floor).
         # Builder honours the YAML `enabled` flag.
         "mes_trend_long_1d": mes_trend_long_1d_signal_builder,
+        # xauusd_trend_1h: gold 1h trend-follower on oanda_practice (M15
+        # Phase 3) — the Phase-0 sweep's strongest cell. Sole strategy on
+        # its (symbol, account) so arbitration never fires.
+        "xauusd_trend_1h": xauusd_trend_1h_signal_builder,
         # mgc_pullback_1d / mhg_pullback_1d: the WS-A metals sleeve (2026-06-02).
         # Micro Gold + Micro Copper daily HTF-pullback diversifiers on IBKR
         # ib_paper, execution: live (paper money). Each runs ALONE on its own

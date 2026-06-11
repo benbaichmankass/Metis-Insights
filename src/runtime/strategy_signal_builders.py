@@ -1986,3 +1986,154 @@ def fvg_range_15m_signal_builder(settings: dict) -> Dict[str, Any]:
     )
     _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df, symbol=symbol, timeframe=timeframe)
     return _with_signal_package("fvg_range_15m", sig)
+
+
+def xauusd_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """XAU/USD 1h trend-follower (M15 Phase 3, S-M15-PHASE3-XAU-SHADOW).
+
+    The strongest cell of the M15 Phase-0 generalization sweep
+    (docs/research/m15-phase0-results-2026-06-10.md): Donchian-breakout +
+    Chandelier ATR trail on gold 1h, net-of-fee train +78.4R (1024
+    trades) / OOS +36.8R (245 trades) at the harness defaults pinned in
+    config/strategies.yaml. Reuses the SAME unit
+    (``src.units.strategies.trend_donchian.order_package``),
+    BIDIRECTIONAL — both sides validated on gold (unlike the long-only
+    equity-index variant). Routed only to the ``oanda_practice`` account
+    (paper money); ``fetch_candles`` routes XAUUSD to OANDA via the
+    instrument profile.
+
+    FX WEEKEND GATE: gold trades 24/5 — from Friday 21:00 UTC to Sunday
+    21:00 UTC the market is closed and the last fetched candles are
+    stale. The builder returns ``side=none`` (reason
+    ``fx_market_closed``) during that window so closed-market data can
+    never produce entries. Fail-permissive: only an explicit closed
+    verdict from ``src.runtime.market_hours`` gates.
+
+    Honours the YAML ``enabled`` flag as the single source of truth.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.trend_donchian import order_package
+    from src.runtime.market_data import fetch_candles
+    from src.runtime.market_hours import is_market_open
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 - never fail-open on a config error
+        strategies_cfg = {}
+    xau_cfg = strategies_cfg.get("xauusd_trend_1h", {}) or {}
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "XAUUSD"))
+
+    if not bool(xau_cfg.get("enabled", False)):
+        logger.info(
+            "xauusd_trend_1h: strategy disabled in config/strategies.yaml - "
+            "returning side=none"
+        )
+        return _with_signal_package("xauusd_trend_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "xauusd_trend_1h",
+                "reason": "disabled_in_yaml",
+            },
+        })
+
+    try:
+        fx_open = is_market_open("fx")
+    except Exception:  # noqa: BLE001 — gate is best-effort, never strands
+        fx_open = True
+    if not fx_open:
+        logger.info("xauusd_trend_1h: FX market closed (weekend) - side=none")
+        return _with_signal_package("xauusd_trend_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "xauusd_trend_1h",
+                "reason": "fx_market_closed",
+            },
+        })
+
+    timeframe = str(xau_cfg.get("timeframe") or "1h")
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(
+        symbol, timeframe, exchange_client=exchange, limit=200,
+    )
+    if candles_df is None:
+        raise RuntimeError(
+            f"xauusd_trend_1h: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the OANDA connection is "
+            "configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **xau_cfg}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("xauusd_trend_1h: no actionable signal (%s)", exc)
+        try:
+            log_signal(_stamp_regime({
+                "event": "xauusd_trend_1h_eval",
+                "strategy": "xauusd_trend_1h",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            }, candles_df))
+        except Exception:  # noqa: BLE001
+            logger.exception("xauusd_trend_1h: dedicated audit emit failed")
+        return _with_signal_package("xauusd_trend_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "xauusd_trend_1h",
+                "reason": str(exc),
+            },
+        })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "xauusd_trend_1h: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal(_stamp_regime({
+            "event": "xauusd_trend_1h_eval",
+            "strategy": "xauusd_trend_1h",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        }, candles_df))
+    except Exception:  # noqa: BLE001
+        logger.exception("xauusd_trend_1h: dedicated audit emit failed")
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "xauusd_trend_1h",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "xauusd_trend_1h",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+            "strategy_risk_pct": float(xau_cfg.get("risk_pct", 0.3) or 0.3),
+        },
+    }
+    _emit_shadow_preds(
+        "xauusd_trend_1h", sig, xau_cfg, symbol,
+        timeframe=timeframe, candles_df=candles_df,
+    )
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df, symbol=symbol, timeframe=timeframe)
+    return _with_signal_package("xauusd_trend_1h", sig)

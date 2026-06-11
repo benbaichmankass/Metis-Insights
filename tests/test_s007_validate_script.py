@@ -144,11 +144,14 @@ def test_run_checks_strategies_match_roster():
     # range member); htf_pullback_trend_2h + trend_donchian_1h + mes_trend_long_1d
     # at 2026-06-01; mgc_pullback_1d + mhg_pullback_1d at 2026-06-02 (the WS-A
     # metals sleeve — Micro Gold / Micro Copper daily HTF-pullback diversifiers
-    # on IBKR ib_paper, execution: live on PAPER money).
+    # on IBKR ib_paper, execution: live on PAPER money); xauusd_trend_1h at
+    # 2026-06-11 (M15 Phase 3 — gold 1h trend on OANDA practice, execution:
+    # shadow until the creds + smoke test land).
     assert names == {
         "turtle_soup", "vwap", "ict_scalp_5m", "trend_donchian", "fade_breakout_4h",
         "squeeze_breakout_4h", "fvg_range_15m", "htf_pullback_trend_2h", "trend_donchian_1h",
         "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d",
+        "xauusd_trend_1h",
     }
 
 
