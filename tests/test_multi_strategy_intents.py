@@ -99,11 +99,16 @@ def _intent(
 
 class TestStrategyIntentConstruction:
     def test_rejects_unsupported_symbol(self):
-        """Multi-symbol routing is intentionally out of scope this PR."""
+        """Symbols outside accounts.yaml + the static base set are rejected.
+
+        (ETHUSDT was the fixture here until the M15 WS-C alt sleeve added it
+        to bybit_1.symbols, 2026-06-11 — supported_symbols() is config-driven
+        since #3358, so the fixture must use a genuinely unrouted symbol.)
+        """
         with pytest.raises(ValueError, match="symbol must be one of"):
             StrategyIntent(
                 strategy="turtle_soup",
-                symbol="ETHUSDT",
+                symbol="DOGEUSDT",
                 side="long",
                 target_qty=0.01,
             )

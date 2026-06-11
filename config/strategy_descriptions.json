@@ -62,5 +62,9 @@
   "gld_pullback_1d": {
     "short": "GLD daily pullback trader (Alpaca paper) \u2014 buys/sells pullbacks within the prevailing gold trend; the ETF replacement for the MGC futures leg.",
     "how_it_works": "Watches the gold ETF on daily candles during US market hours. When a 40-day trend filter is in force and price pulls back into the deeper 61.8% zone of the recent 15-day range, it enters in the trend direction (both long and short validated) with a 2x ATR(14) stop and a 4x ATR trailing exit, via bracket orders on the Alpaca paper account. Validated in the M15 Phase-0 sweep mirroring the live Micro-Gold futures strategy (train +4.9R, out-of-sample +19.7R)."
+  },
+  "eth_pullback_2h": {
+    "short": "ETH/USDT 2h pullback trader (Bybit demo) \u2014 buys/sells pullbacks within the prevailing Ethereum trend; the alt-sleeve sibling of the live BTC pullback strategy.",
+    "how_it_works": "Watches ETH/USDT perpetuals on 2-hour candles around the clock. When a 40-bar trend filter is in force and price pulls back into the deeper half of the recent 10-bar range, it enters in the trend direction (both long and short) with a 2.5x ATR(14) stop and a 5x ATR trailing exit \u2014 exactly the parameters of the live BTC pullback strategy, which the M15 alt sweep validated unchanged on ETH (train +35.4R, out-of-sample +33.5R net of fees, the sweep's best out-of-sample expectancy). Runs on the Bybit demo account (paper money); note ETH moves largely with BTC, so this adds trade frequency rather than diversification."
   }
 }

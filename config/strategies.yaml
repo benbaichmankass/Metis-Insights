@@ -937,3 +937,42 @@ strategies:
     trail_mult: 4.0
     min_confidence: 0.0
     shadow_model_ids: []
+
+  eth_pullback_2h:
+    # ETH/USDT 2h HTF-pullback (bidirectional) — M15 WS-C alt sleeve: the
+    # strongest cell of the alt generalization sweep
+    # (docs/research/m15-ws-c-alt-sweep-2026-06-11.md): net of 7.5 bps,
+    # train +35.4R / OOS +33.5R, OOS expectancy +0.36R/trade (93 trades) —
+    # at EXACTLY the live BTC htf_pullback_trend_2h params pinned below.
+    # K-fold anchored walk-forward gate (positive every fold at 7.5 bps +
+    # 2x fee headroom) pending on the trainer — this entry merges only
+    # after that passes AND explicit operator approval (Tier-3).
+    #
+    # Routed ONLY to bybit_1 (Bybit demo — PAPER money). execution: live
+    # per the paper-accounts-execute operator policy (demo accounts exist
+    # to TEST strategies by trading them). Real-money bybit_2 stays a
+    # separate Tier-3 gate.
+    #
+    # CORRELATION CAVEAT: ETH correlates ~0.7–0.9 with BTC — this leg buys
+    # frequency, not diversification; the account-level daily-loss /
+    # drawdown caps assume concurrent loss with the BTC roster.
+    model: null
+    signal_prefixes: [eth_pullback]
+    enabled: true
+    execution: live
+    risk_pct: 0.3            # conservative initial sizing (mirrors the roster)
+    timeframe: "2h"          # served as Bybit 120m via CCXT.
+    symbols:
+      - ETHUSDT              # Bybit USDT linear perp. NOT BTCUSDT.
+    # Params — the live BTC htf_pullback_trend_2h values (== harness
+    # defaults), which the WS-C sweep validated unchanged on ETH.
+    trend_lookback: 40
+    pullback_lookback: 10
+    pullback_frac: 0.5
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    tp_r: 50.0               # trail-managed exits; TP effectively disabled
+    min_confidence: 0.0
+    shadow_model_ids: []     # opt out of ML shadow auto-wiring while this
+                             # fresh leg builds a track record.

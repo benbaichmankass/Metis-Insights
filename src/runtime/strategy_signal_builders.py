@@ -2551,3 +2551,119 @@ def gld_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     _emit_shadow_preds("gld_pullback_1d", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
     _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df, symbol=symbol, timeframe=timeframe)
     return _with_signal_package("gld_pullback_1d", sig)
+
+
+def eth_pullback_2h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """ETH/USDT 2h HTF-pullback (bidirectional) — M15 WS-C alt sleeve.
+
+    The strongest cell of the WS-C alt generalization sweep
+    (docs/research/m15-ws-c-alt-sweep-2026-06-11.md): net of 7.5 bps,
+    train +35.4R / OOS +33.5R with the matrix's best OOS expectancy
+    (+0.36R/trade, 93 trades). Reuses the
+    ``src.units.strategies.htf_pullback_trend_2h.order_package`` unit at
+    the SAME params as the live BTC leg (lookback 40/10, frac 0.5,
+    stop 2.5x, trail 5.0x). Routed ONLY to bybit_1 (Bybit demo — paper
+    money); per the paper-accounts-execute policy it ships
+    ``execution: live`` there. Crypto trades 24/7 — no session gate.
+
+    CORRELATION CAVEAT: ETH correlates ~0.7–0.9 with BTC; this leg buys
+    frequency, not diversification — size assuming concurrent drawdown
+    with the BTC roster. Honours the YAML ``enabled`` flag as the single
+    source of truth.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.htf_pullback_trend_2h import order_package
+    from src.runtime.market_data import fetch_candles
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 - never fail-open on a config error
+        strategies_cfg = {}
+    cfg_yaml = strategies_cfg.get("eth_pullback_2h", {}) or {}
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "ETHUSDT"))
+
+    if not bool(cfg_yaml.get("enabled", False)):
+        logger.info("eth_pullback_2h: strategy disabled in config/strategies.yaml - returning side=none")
+        return _with_signal_package("eth_pullback_2h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "eth_pullback_2h", "reason": "disabled_in_yaml"},
+        })
+
+    timeframe = str(cfg_yaml.get("timeframe") or "2h")
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    if candles_df is None:
+        raise RuntimeError(
+            f"eth_pullback_2h: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the Bybit connection is "
+            "configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("eth_pullback_2h: no actionable signal (%s)", exc)
+        try:
+            log_signal(_stamp_regime({
+                "event": "eth_pullback_2h_eval",
+                "strategy": "eth_pullback_2h",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            }, candles_df))
+        except Exception:  # noqa: BLE001
+            logger.exception("eth_pullback_2h: dedicated audit emit failed")
+        return _with_signal_package("eth_pullback_2h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "eth_pullback_2h", "reason": str(exc)},
+        })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "eth_pullback_2h: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal(_stamp_regime({
+            "event": "eth_pullback_2h_eval",
+            "strategy": "eth_pullback_2h",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        }, candles_df))
+    except Exception:  # noqa: BLE001
+        logger.exception("eth_pullback_2h: dedicated audit emit failed")
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "eth_pullback_2h",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "eth_pullback_2h",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
+        },
+    }
+    _emit_shadow_preds("eth_pullback_2h", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df, symbol=symbol, timeframe=timeframe)
+    return _with_signal_package("eth_pullback_2h", sig)

@@ -153,6 +153,7 @@ def test_run_checks_strategies_match_roster():
         "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d",
         "xauusd_trend_1h",
         "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
+        "eth_pullback_2h",
     }
 
 

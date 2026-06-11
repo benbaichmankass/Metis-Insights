@@ -203,6 +203,9 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     "spy_trend_long_1d": 0,
     "qqq_trend_long_1d": 0,
     "gld_pullback_1d": 0,
+    # eth_pullback_2h — M15 WS-C alt sleeve (2026-06-11); sole strategy on
+    # ETHUSDT (bybit_1 demo), value 0 mirrors the other single-symbol legs.
+    "eth_pullback_2h": 0,
     # mgc_pullback_1d / mhg_pullback_1d — the WS-A metals sleeve (2026-06-02).
     # Micro Gold + Micro Copper daily HTF-pullback diversifiers. Each runs ALONE
     # on its own symbol (MGC / MHG) on ib_paper, so priority is moot — they never
