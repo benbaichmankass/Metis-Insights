@@ -469,6 +469,46 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
     # the coordinator already treats that as the "account not fully
     # configured" path and emits a ping naming the missing env var.
     # The legacy `breakout` exchange stays inert (deprecated alias).
+    if exchange == "oanda":
+        # M15 Phase 2 — OANDA v20 (practice first; XAU/USD per the
+        # Phase-0 verdict). Mirrors the velotrade branch's contract:
+        # missing client → MissingCredentialsError naming the env vars;
+        # non-zero retCode → RuntimeError the coordinator's
+        # diagnostic-ping wrapper formats. SL/TP ride ON the order
+        # (stopLossOnFill / takeProfitOnFill) so protection is
+        # broker-side from the first fill.
+        from src.units.accounts.oanda_client import (
+            MissingCredentialsError as _OandaMissingCreds,
+            OandaClient,
+        )
+        if client is None:
+            raise _OandaMissingCreds(
+                f"oanda live placement: account "
+                f"'{account_cfg.get('account_id') or 'unknown'}' is not "
+                f"fully configured (no OandaClient injected — "
+                f"OANDA_API_TOKEN / OANDA_ACCOUNT_ID likely unset)."
+            )
+        if not isinstance(client, OandaClient):
+            raise TypeError(
+                f"oanda _submit_order: expected OandaClient, got "
+                f"{type(client).__name__}"
+            )
+        resp = client.place({
+            "symbol": order["symbol"],
+            "side": order["side"],
+            "qty": order["qty"],
+            "sl": order.get("sl"),
+            "tp": order.get("tp"),
+            "strategy": order.get("strategy"),
+        }) or {}
+        ret_code = resp.get("retCode")
+        if ret_code in (0, "0", None):
+            order_id = (resp.get("result") or {}).get("orderId")
+            return str(order_id or uuid.uuid4().hex)
+        reason = str(resp.get("retMsg") or f"retCode={ret_code}")
+        raise RuntimeError(
+            f"OANDA rejected order for {order['symbol']}: {reason}"
+        )
     if exchange == "velotrade":
         from src.units.accounts.dxtrade_client import (
             DXtradeClient,

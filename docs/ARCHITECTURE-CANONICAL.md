@@ -272,7 +272,16 @@ declares it live — the data, edge, and cross-asset diversification
 `data/SPX500_1m.parquet` (1m S&P 500, 2020–2026, Dukascopy) is cached
 on the trainer, so only the broker login waits. **IBKR is the futures
 broker** (a Tradovate sleeve was evaluated and retired; its dead wiring
-was purged 2026-06-10).
+was purged 2026-06-10). **OANDA v20** joined as the FX/metals broker in
+M15 Phase 2 (2026-06-10, S-M15-PHASE2-OANDA): an `oanda` branch in
+`execute._submit_order` dispatches to
+`src/units/accounts/oanda_client.py::OandaClient` (market order with
+broker-side `stopLossOnFill`/`takeProfitOnFill`; one bearer token +
+account id from env — `OANDA_API_TOKEN`/`OANDA_ACCOUNT_ID`, practice
+host unless `OANDA_ENV=live`). The `oanda_practice` account ships inert
+(`mode: dry_run` + `strategies: []` + creds unset, independent gates)
+until creds land and the Tier-3 strategy-assignment PR is approved —
+runbook: `docs/runbooks/oanda-integration.md`.
 
 ### Step 7 — Logging and state updates
 The runtime records:

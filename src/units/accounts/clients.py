@@ -116,6 +116,31 @@ def binance_conn_for(account: Dict[str, Any]):
     )
 
 
+def oanda_client_for(account: Dict[str, Any]):
+    """Return an :class:`OandaClient` for *account*, or ``None`` if creds missing.
+
+    OANDA auth is a single bearer token + account id (no key+secret
+    pair), so this reads ``OANDA_API_TOKEN`` / ``OANDA_ACCOUNT_ID``
+    directly from the environment — the ``ib_client_for`` pattern, not
+    :func:`resolve_credentials`. ``None`` when either is unset → the
+    coordinator treats the account as not-configured and emits the
+    diagnostic ping naming the missing env var. ``OANDA_ENV`` selects
+    practice (default) vs live host; account-level ``oanda_env`` /
+    ``base_url`` override it.
+    """
+    api_token = os.environ.get("OANDA_API_TOKEN", "")
+    account_id = os.environ.get("OANDA_ACCOUNT_ID", "")
+    if not api_token or not account_id:
+        return None
+    from src.units.accounts.oanda_client import OandaClient
+    return OandaClient(
+        api_token=api_token,
+        account_id=account_id,
+        env=account.get("oanda_env") or None,
+        base_url=account.get("base_url") or None,
+    )
+
+
 def velotrade_client_for(account: Dict[str, Any]):
     """Return a DXtrade client for *account*, or ``None`` if creds missing.
 
