@@ -12,7 +12,13 @@
       "tier": 2,
       "trigger_condition": "Next working session on the bot; every /health-review until an IB paper order fills end-to-end with integer qty.",
       "resolution_criteria": "IB-bound futures orders journal integer position_size; a paper MES/MGC/MHG order reaches IBKR and fills (or is journaled-rejected for size<1); no recurrence of the dispatched-but-never-positioned orphan pattern on ib_paper.",
-      "check_log": [],
+      "check_log": [
+        {
+          "at": "2026-06-11T16:25:00+00:00",
+          "by": "claude (fix session, operator-approved)",
+          "note": "FIX SHIPPED + DEPLOYED. PR #3406 (merged 792c818, CI 11/11 green, deployed via pull-and-deploy #3411, trader restarted clean 16:20Z): (1) position_size enforces whole-contract sizing for market_type=futures (sub-1-contract = refusal, never bumped); (2) IBClient.place floors defensively + refuses <1 contract; (3) NEW bounded post-place rejection check (IB_PLACE_CONFIRM_S, default 3s) surfaces async IBKR rejections as journaled failures — closes the fire-and-forget gap that made #2531 silent. OANDA/Alpaca verified already floored (no equivalent gap). REMAINING for resolution: observe the next IB-bound signal journal an INTEGER position_size and either fill end-to-end or journal a clean rejection — check every /health-review."
+        }
+      ],
       "status": "open",
       "resolved_at": null,
       "resolved_by": null,
@@ -1393,7 +1399,7 @@
       "opened_at": "2026-06-11T10:00:00+00:00",
       "opened_by": "claude (M15 soak session)",
       "source": "M15 Phase 4 soak balance probe: /api/bot/accounts/balances pull (issue #3352) returned as_of 2026-05-25T05:38:05Z (age ~17 days) with only bybit_1/bybit_2 keys.",
-      "title": "balance_snapshots.json stale since 2026-05-25 \u2014 hourly balance snapshot writer silent for ~17 days; new OANDA/Alpaca accounts never recorded",
+      "title": "balance_snapshots.json stale since 2026-05-25 — hourly balance snapshot writer silent for ~17 days; new OANDA/Alpaca accounts never recorded",
       "description": "runtime_logs/balance_snapshots.json (written by src/runtime/hourly_report.py so the hourly report can compute a 1h balance delta) was last written 2026-05-25 and carries only the Bybit accounts, so /api/bot/accounts/balances (the dashboard Accounts tab's tracked-balance source and the M15 soak's intended balance probe) is 17 days stale and blind to oanda_practice/alpaca_paper. Either the hourly report stopped running ~2026-05-25 or its snapshot write broke silently. Investigate the hourly-report path (service/timer or in-process cadence), restore the writer, and make sure account_snapshots() enumerates ALL configured accounts incl. the new brokers. Until fixed, balance probes must go through journalctl/exchange audit scripts.",
       "tier": 1,
       "status": "open",
@@ -1439,8 +1445,8 @@
       "opened_at": "2026-06-11T16:10:00+00:00",
       "opened_by": "claude (M15 soak session)",
       "source": "Session-end doc-freshness scan after PRs #3360/#3372/#3378/#3409.",
-      "title": "CLAUDE.md /api/bot/candles row lists only the pre-M15 symbol\u2192exchange examples",
-      "description": "The Dashboard REST API table's /api/bot/candles row says 'BTCUSDT \u2192 Bybit; MES/MGC/MHG \u2192 IBKR'. Since M15 the canonical fetcher also routes XAUUSD\u2192OANDA, SPY/QQQ/GLD\u2192Alpaca, and ETHUSDT\u2192Bybit (eth_pullback_2h, #3378). Cosmetic example drift \u2014 the route itself is symbol-driven via instruments.yaml so behaviour is correct; refresh the examples on the next CLAUDE.md touch.",
+      "title": "CLAUDE.md /api/bot/candles row lists only the pre-M15 symbol→exchange examples",
+      "description": "The Dashboard REST API table's /api/bot/candles row says 'BTCUSDT → Bybit; MES/MGC/MHG → IBKR'. Since M15 the canonical fetcher also routes XAUUSD→OANDA, SPY/QQQ/GLD→Alpaca, and ETHUSDT→Bybit (eth_pullback_2h, #3378). Cosmetic example drift — the route itself is symbol-driven via instruments.yaml so behaviour is correct; refresh the examples on the next CLAUDE.md touch.",
       "tier": 1,
       "status": "open",
       "resolved_at": null,
