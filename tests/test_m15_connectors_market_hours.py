@@ -52,6 +52,36 @@ def test_alpaca_get_ohlcv_normalises(monkeypatch):
     assert len(df) == 2
 
 
+def test_alpaca_get_ohlcv_passes_explicit_lookback_start(monkeypatch):
+    """Alpaca defaults ``start`` to the beginning of the CURRENT day, so the
+    connector must send an explicit lookback or daily strategies get at most
+    today's partial bar (M15 soak finding, 2026-06-11)."""
+    captured = {}
+
+    def fake_get(url, params=None, **kwargs):
+        captured["params"] = params or {}
+        return _Resp({"bars": [
+            {"t": "2026-06-10T15:00:00Z", "o": 2, "h": 3, "l": 1, "c": 2.5, "v": 100},
+        ]})
+
+    monkeypatch.setattr("src.exchange.alpaca_connector.requests.get", fake_get)
+
+    AlpacaMarketData(api_key="k", api_secret="s").get_ohlcv("SPY", "1d", limit=200)
+    start = captured["params"].get("start")
+    assert start, "explicit start param must be sent"
+    start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+    age_days = (datetime.now(timezone.utc) - start_dt).days
+    # 200 daily bars need ≥ 200 * 7/5 = 280 calendar days of lookback.
+    assert age_days >= 280, f"lookback too shallow for 200 daily bars: {age_days}d"
+
+    AlpacaMarketData(api_key="k", api_secret="s").get_ohlcv("SPY", "5m", limit=100)
+    start_dt = datetime.fromisoformat(
+        captured["params"]["start"].replace("Z", "+00:00"))
+    # 100 five-minute bars span ~8.3 session hours ≈ 2 calendar days
+    # at the 6x session-to-calendar factor (+10d buffer).
+    assert (datetime.now(timezone.utc) - start_dt).days >= 10
+
+
 def test_alpaca_returns_none_on_error_and_empty(monkeypatch):
     monkeypatch.setattr(
         "src.exchange.alpaca_connector.requests.get",
