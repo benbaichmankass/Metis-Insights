@@ -76,6 +76,6 @@ def test_instrument_profile_routes_to_oanda():
 def test_account_routing_and_description_present():
     acct = yaml.safe_load(open("config/accounts.yaml"))["accounts"]["oanda_practice"]
     assert acct["strategies"] == ["xauusd_trend_1h"]
-    assert acct["mode"] == "dry_run"  # still inert until creds + smoke test
+    assert acct["mode"] == "live"  # practice money; flipped 2026-06-11 (set-account-mode #3338)
     desc = json.load(open("config/strategy_descriptions.json"))
     assert "xauusd_trend_1h" in desc and desc["xauusd_trend_1h"]["short"]
