@@ -316,3 +316,80 @@ def test_log_170134_diagnostic_never_raises_even_if_client_is_none(caplog):
     # the diagnostic emits.
     matches = [r for r in caplog.records if "BUG-057-DIAG" in r.getMessage()]
     assert len(matches) == 1
+
+
+# ---------------------------------------------------------------------------
+# Lot-size alignment (BL-20260611-005) — quantize_qty / get_lot_rule
+# ---------------------------------------------------------------------------
+
+from src.units.accounts.precision import get_lot_rule, quantize_qty  # noqa: E402
+
+
+def test_quantize_qty_floors_eth_rejection_values():
+    """The exact quantities Bybit rejected with retCode 10001 on
+    eth_pullback_2h (trades #2532/#2533) must floor to ETHUSDT's
+    0.01 qtyStep."""
+    step = Decimal("0.01")
+    assert quantize_qty(14.937, step) == Decimal("14.93")
+    assert quantize_qty(12.771, step) == Decimal("12.77")
+
+
+def test_quantize_qty_never_rounds_up():
+    # 0.019 on a 0.01 step floors to 0.01 — NOT 0.02 (risk-cap discipline).
+    assert quantize_qty(0.019, Decimal("0.01")) == Decimal("0.01")
+    # Below one step floors to zero.
+    assert quantize_qty(0.009, Decimal("0.01")) == Decimal("0.00")
+
+
+def test_quantize_qty_already_aligned_unchanged():
+    assert quantize_qty(0.001, Decimal("0.001")) == Decimal("0.001")
+    assert quantize_qty(2.0, Decimal("1")) == Decimal("2")
+
+
+def test_get_lot_rule_prefers_live_lookup():
+    precision._LOT_CACHE.pop(("ETHUSDT", "linear"), None)
+
+    class LiveClient:
+        def get_instruments_info(self, *, category, symbol):
+            return {"result": {"list": [{"lotSizeFilter": {
+                "qtyStep": "0.01", "minOrderQty": "0.01"}}]}}
+
+    rule = get_lot_rule(LiveClient(), "ETHUSDT", "linear")
+    assert rule == (Decimal("0.01"), Decimal("0.01"))
+    precision._LOT_CACHE.pop(("ETHUSDT", "linear"), None)
+
+
+def test_get_lot_rule_spot_base_precision_fallback():
+    precision._LOT_CACHE.pop(("BTCUSDT", "spot"), None)
+
+    class SpotClient:
+        def get_instruments_info(self, *, category, symbol):
+            return {"result": {"list": [{"lotSizeFilter": {
+                "basePrecision": "0.000048", "minOrderQty": "0.000048"}}]}}
+
+    rule = get_lot_rule(SpotClient(), "BTCUSDT", "spot")
+    assert rule == (Decimal("0.000048"), Decimal("0.000048"))
+    precision._LOT_CACHE.pop(("BTCUSDT", "spot"), None)
+
+
+def test_get_lot_rule_static_fallback_on_failure():
+    precision._LOT_CACHE.pop(("ETHUSDT", "linear"), None)
+
+    class FailingClient:
+        def get_instruments_info(self, **_kw):
+            raise RuntimeError("simulated network failure")
+
+    assert get_lot_rule(FailingClient(), "ETHUSDT", "linear") == (
+        Decimal("0.01"), Decimal("0.01"))
+
+
+def test_get_lot_rule_unknown_symbol_returns_none():
+    """No live data + no static entry → None: the caller submits the
+    qty unmodified instead of aligning to a guessed step."""
+    precision._LOT_CACHE.pop(("DOGEUSDT", "linear"), None)
+
+    class FailingClient:
+        def get_instruments_info(self, **_kw):
+            raise RuntimeError("simulated network failure")
+
+    assert get_lot_rule(FailingClient(), "DOGEUSDT", "linear") is None

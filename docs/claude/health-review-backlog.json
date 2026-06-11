@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260611-005",
+      "opened_at": "2026-06-11T17:20:00+00:00",
+      "opened_by": "claude (trade-monitor session, operator-approved sizing-bug mandate)",
+      "source": "Trade monitor first check (#3415): trades #2532 (15:30Z) + #2533 (16:04Z), eth_pullback_2h short on bybit_1 demo, BOTH exchange_rejected by Bybit 'retCode 10001 Qty invalid' — qty 12.771 / 14.937 ETH on ETHUSDT linear whose lotSizeFilter.qtyStep is 0.01.",
+      "title": "Bybit qty not aligned to per-symbol lotSizeFilter.qtyStep — eth_pullback_2h orders 100% rejected (same bug class as BL-20260611-001, crypto flavour)",
+      "description": "The sizer's account-level qty_precision (3dp, tuned for BTCUSDT's 0.001 step) is not symbol-aware; ETHUSDT linear trades in 0.01 steps, so every eth_pullback_2h order drew retCode 10001 and the new strategy could not execute at all (clean journaled rejections — no silent orphans, unlike the IB flavour). FIX SHIPPED same session: precision.get_lot_rule (cache→live instruments-info→static→None, mirroring get_tick_size) + quantize_qty (floor, never up) + pre-flight alignment in _submit_order's bybit branch (refuse below minOrderQty; write aligned qty back so the journal records what was sent; smoke-test path deliberately unaligned). Unknown rule → submit unmodified (no guessed steps).",
+      "tier": 2,
+      "trigger_condition": "Every /health-review until the next eth_pullback_2h (or any non-BTC Bybit) order executes.",
+      "resolution_criteria": "A Bybit order for a non-0.001-step symbol (ETHUSDT) submits with step-aligned qty and is ACCEPTED by the exchange (journal row open/closed, not exchange_rejected), with journaled position_size matching the submitted qty.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260611-001",
       "opened_at": "2026-06-11T15:30:00+00:00",
       "opened_by": "claude (/health-review)",
