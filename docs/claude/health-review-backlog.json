@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260611-007",
+      "opened_at": "2026-06-11T20:15:00+00:00",
+      "opened_by": "claude (trade-monitor session)",
+      "source": "Trade monitor check (#3432): trade #2537 (20:00:26Z) — xauusd_trend_1h long, sized 1.864 units (balance fix verified), exchange_rejected by OANDA: 'The instrument specified is not tradeable by the Account'.",
+      "title": "OANDA practice account cannot trade XAU_USD — gold orders rejected account-side ('instrument not tradeable by the Account'); OPERATOR DECISION needed",
+      "description": "NOT a code bug: to_instrument maps XAUUSD->XAU_USD correctly, auth + sizing + the order request all work (the request reached OANDA's create endpoint and was refused by the ACCOUNT's permissions). Most likely cause: the practice account is under OANDA's US division, where CFTC/NFA rules prohibit retail gold/silver CFDs (XAU_USD/XAG_USD) — pricing/candles stream fine (which is why the M15 data-path smoke passed) but order placement is blocked. The M15 gold-first plan is blocked on this account. OPERATOR options: (a) confirm the account division and, if US, create a practice account under a non-US division and swap OANDA_ACCOUNT_ID/token via init-actions-secrets + sync-vm-secrets; (b) pick a permitted instrument for the sleeve (GET /v3/accounts/{id}/instruments lists what IS tradeable — could be exposed via a future diag endpoint); (c) route gold elsewhere. Until decided, xauusd_trend_1h signals (currently firing ~hourly at confidence 1.0) will keep journaling exchange_rejected rows — bounded noise, no risk.",
+      "tier": 3,
+      "trigger_condition": "Operator decision; every /health-review until gold orders stop being account-rejected.",
+      "resolution_criteria": "An xauusd_trend_1h order is ACCEPTED by OANDA (journal row open), or the operator re-routes/retires the gold-on-OANDA sleeve.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260611-006",
       "opened_at": "2026-06-11T18:15:00+00:00",
       "opened_by": "claude (trade-monitor session, operator-approved mandate)",
@@ -13,10 +30,10 @@
       "trigger_condition": "Every /health-review until a gold or ETF signal passes the balance gate (sized > 0 or refused for a REAL risk reason, not gate_balance=0).",
       "resolution_criteria": "An xauusd_trend_1h (or spy/qqq/gld) order package journals with a non-zero gate balance — either executed on the practice/paper account or refused by a genuine risk gate; the cron accounts_api check stops failing for oanda_practice/alpaca_paper.",
       "check_log": [],
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-11T20:15:00+00:00",
+      "resolved_by": "claude (trade-monitor session)",
+      "resolution": "VERIFIED LIVE within 2h of deploy. Trade #2537 (20:00:26Z, xauusd_trend_1h long): the sizer produced position_size=1.864 units from a REAL non-zero OANDA NAV — the gate_balance=0.00 refusal is gone (contrast #2536 pre-fix). The order reached OANDA's order endpoint (auth + balance + request path all working). The order was then rejected by OANDA for a DIFFERENT, account-level reason ('instrument not tradeable by the Account') — tracked separately as BL-20260611-007; not a balance-wiring issue.",
       "snoozed_until": null
     },
     {
