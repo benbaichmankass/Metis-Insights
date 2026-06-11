@@ -281,7 +281,13 @@ account id from env — `OANDA_API_TOKEN`/`OANDA_ACCOUNT_ID`, practice
 host unless `OANDA_ENV=live`). The `oanda_practice` account ships inert
 (`mode: dry_run` + `strategies: []` + creds unset, independent gates)
 until creds land and the Tier-3 strategy-assignment PR is approved —
-runbook: `docs/runbooks/oanda-integration.md`.
+runbook: `docs/runbooks/oanda-integration.md`. **Alpaca** joined as the
+US stocks/ETFs broker in M15 Phase 2b (2026-06-11): an `alpaca` branch
+dispatches to `src/units/accounts/alpaca_client.py::AlpacaClient`
+(**bracket** market orders — entry + TP limit + SL stop atomic; key pair
+`ALPACA_API_KEY_ID`/`ALPACA_API_SECRET_KEY`; paper host unless
+`ALPACA_ENV=live`). The `alpaca_paper` account ships inert behind the
+same independent gates — runbook: `docs/runbooks/alpaca-integration.md`.
 
 ### Step 7 — Logging and state updates
 The runtime records:

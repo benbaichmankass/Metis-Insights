@@ -469,6 +469,44 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
     # the coordinator already treats that as the "account not fully
     # configured" path and emits a ping naming the missing env var.
     # The legacy `breakout` exchange stays inert (deprecated alias).
+    if exchange == "alpaca":
+        # M15 Phase 2b — Alpaca Trading API (paper first; daily ETF
+        # futures-replacements + SPY intraday per the Phase-0 verdict).
+        # Bracket market order: SL/TP legs ride WITH the entry so
+        # protection is broker-side from the first fill. Same contract
+        # as the oanda/velotrade branches.
+        from src.units.accounts.alpaca_client import (
+            AlpacaClient,
+            MissingCredentialsError as _AlpacaMissingCreds,
+        )
+        if client is None:
+            raise _AlpacaMissingCreds(
+                f"alpaca live placement: account "
+                f"'{account_cfg.get('account_id') or 'unknown'}' is not "
+                f"fully configured (no AlpacaClient injected — "
+                f"ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY likely unset)."
+            )
+        if not isinstance(client, AlpacaClient):
+            raise TypeError(
+                f"alpaca _submit_order: expected AlpacaClient, got "
+                f"{type(client).__name__}"
+            )
+        resp = client.place({
+            "symbol": order["symbol"],
+            "side": order["side"],
+            "qty": order["qty"],
+            "sl": order.get("sl"),
+            "tp": order.get("tp"),
+            "strategy": order.get("strategy"),
+        }) or {}
+        ret_code = resp.get("retCode")
+        if ret_code in (0, "0", None):
+            order_id = (resp.get("result") or {}).get("orderId")
+            return str(order_id or uuid.uuid4().hex)
+        reason = str(resp.get("retMsg") or f"retCode={ret_code}")
+        raise RuntimeError(
+            f"Alpaca rejected order for {order['symbol']}: {reason}"
+        )
     if exchange == "oanda":
         # M15 Phase 2 — OANDA v20 (practice first; XAU/USD per the
         # Phase-0 verdict). Mirrors the velotrade branch's contract:
