@@ -12,13 +12,17 @@ source /home/ubuntu/ict-trading-bot/.venv/bin/activate 2>/dev/null \
   || source /home/ubuntu/ict-trading-bot/venv/bin/activate 2>/dev/null || true
 mkdir -p data
 
+# Resumable: existing outputs are skipped, so a rate-limit abort can be
+# re-run without re-pulling the completed datasets.
 for SYM in ETHUSDT SOLUSDT BNBUSDT XRPUSDT ADAUSDT LINKUSDT AVAXUSDT; do
-  echo "=== fetch ${SYM} 15m ==="
-  python3 scripts/ops/fetch_backtest_candles.py --symbol "$SYM" --interval 15 \
-    --start-date 2020-01-01 --output "data/${SYM}_15m.csv" || echo "FETCH_FAILED ${SYM} 15m"
-  echo "=== fetch ${SYM} 5m ==="
-  python3 scripts/ops/fetch_backtest_candles.py --symbol "$SYM" --interval 5 \
-    --start-date 2020-01-01 --output "data/${SYM}_5m.csv" || echo "FETCH_FAILED ${SYM} 5m"
+  for IV in 15 5; do
+    OUT="data/${SYM}_${IV}m.csv"
+    [ -s "$OUT" ] && { echo "=== skip ${SYM} ${IV}m (present) ==="; continue; }
+    echo "=== fetch ${SYM} ${IV}m ==="
+    python3 scripts/ops/fetch_backtest_candles.py --symbol "$SYM" --interval "$IV" \
+      --start-date 2020-01-01 --output "$OUT" || echo "FETCH_FAILED ${SYM} ${IV}m"
+    sleep 15
+  done
 done
 
 echo "WS_C_FETCH_DONE"
