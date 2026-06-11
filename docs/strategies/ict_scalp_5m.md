@@ -146,9 +146,12 @@ operator-approved Tier-3 PR citing the change in chat.
 * **Session filter off by default.** Crypto is 24/7; the filter exists
   in case the operator wants to scope to London + NY kill-zones
   (07-17 UTC).
-* **BTCUSDT-only.** The intent layer (`src/runtime/intents.py::SUPPORTED_SYMBOLS`)
-  is single-symbol for now; adding a symbol means wiring per-symbol
-  position state, not just adding to this strategy's `symbols` list.
+* **BTCUSDT-only** (this strategy's `config/strategies.yaml::symbols`
+  declaration — the per-strategy symbol-scope gate, PR #2643). The intent
+  layer itself is multi-symbol with config-driven validation since
+  PR #3358: `supported_symbols()` accepts any symbol declared on an
+  account in `config/accounts.yaml`. Widening THIS strategy to another
+  symbol is a Tier-3 `strategies.yaml` change, not an intents.py edit.
 * **Priority below VWAP and Turtle Soup.** Set to 30 in
   `DEFAULT_PRIORITIES` so accidental enablement cannot override the
   established strategies on a tie.
