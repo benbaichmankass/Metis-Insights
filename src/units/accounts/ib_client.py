@@ -55,6 +55,7 @@ Hard rules respected (per CLAUDE.md):
 from __future__ import annotations
 
 import logging
+import math
 import os
 import threading
 import time
@@ -91,6 +92,19 @@ _IB_PROBE_TIMEOUT_S = _env_float("IB_PROBE_TIMEOUT_S", 5.0)
 # the gateway again. Long enough that a wedged gateway can't be hammered every
 # tick; short enough that a genuine recovery is picked up promptly.
 _IB_BREAKER_COOLDOWN_S = _env_float("IB_BREAKER_COOLDOWN_S", 120.0)
+
+# Bounded post-place rejection window (seconds; <= 0 restores the legacy
+# fire-and-forget behaviour). ``IB.placeOrder`` is asynchronous — IBKR's
+# accept/reject arrives on the event loop AFTER the call returns, so a
+# fire-and-forget place() reported retCode 0 even when IBKR rejected the
+# order outright; the journal row stayed open with no position behind it
+# until the stuck-strategy watchdog orphaned it ~30 min later
+# (BL-20260611-001, trade #2531). place() now pumps the event loop up to
+# this many seconds and surfaces an immediately-rejected/cancelled parent
+# as retCode 1 so the executor journals a real failure. An order still
+# pending at the deadline is treated as accepted — the bound exists so a
+# slow gateway can never stall the trading tick.
+_IB_PLACE_CONFIRM_S = "IB_PLACE_CONFIRM_S"  # env name; read at call time
 
 # MES (CME) trades in 0.25 index-point ticks. SL/TP prices sent to IB
 # must be on the tick grid or the order is rejected.
@@ -551,6 +565,30 @@ class IBClient:
             return {"retCode": 1, "retMsg": f"invalid qty: {exc}"}
         if qty <= 0:
             return {"retCode": 1, "retMsg": f"non-positive qty {qty}"}
+        # IBKR futures fill in WHOLE contracts only. The futures-aware
+        # sizer (RiskManager.position_size, market_type="futures") already
+        # emits integers; this floor is defence-in-depth for any caller
+        # that bypasses it (BL-20260611-001: a 3.643-contract MHG order was
+        # transmitted, rejected asynchronously by IBKR, and the journal row
+        # was orphaned 30 min later). Refusing — rather than silently
+        # transmitting an unfillable order — turns the failure into a
+        # journaled exchange rejection the executor can act on.
+        whole_qty = math.floor(qty)
+        if whole_qty < 1:
+            return {
+                "retCode": 1,
+                "retMsg": (
+                    f"qty {qty} is below 1 whole contract after flooring — "
+                    "refusing fractional futures order"
+                ),
+            }
+        if whole_qty != qty:
+            logger.warning(
+                "IBClient.place: flooring fractional futures qty %s -> %d "
+                "for %s (caller bypassed futures-aware sizing?)",
+                qty, whole_qty, order.get("symbol"),
+            )
+        qty = float(whole_qty)
 
         tick = tick_size_for(order.get("symbol") or self.symbol)
         tp_price = _round_to_tick(float(order["tp"]), tick) if order.get("tp") else None
@@ -586,7 +624,7 @@ class IBClient:
                     sl.account = self.account
                 children.append(sl)
 
-            ib.placeOrder(contract, parent)
+            parent_trade = ib.placeOrder(contract, parent)
             for child in children:
                 ib.placeOrder(contract, child)
             # Let the event loop flush the placements to the Gateway.
@@ -600,11 +638,66 @@ class IBClient:
                 "retMsg": f"{type(exc).__name__}: {exc}",
             }
 
+        # Bounded post-place rejection check (see _IB_PLACE_CONFIRM_S note
+        # at the top of the module). Pump the event loop briefly so an
+        # immediate IBKR rejection of the parent surfaces here as a
+        # retCode 1 instead of vanishing into a fire-and-forget success.
+        rejected = self._await_parent_rejection(ib, parent_trade)
+        if rejected is not None:
+            return {"retCode": 1, "retMsg": rejected}
+
         return {
             "retCode": 0,
             "result": {"orderId": str(parent.orderId)},
             "retMsg": "OK",
         }
+
+    @staticmethod
+    def _await_parent_rejection(ib: Any, parent_trade: Any) -> Optional[str]:
+        """Watch a just-placed parent order for an immediate IBKR reject.
+
+        Returns a human-readable rejection reason when the parent order
+        reaches a terminal dead state (``Cancelled`` / ``ApiCancelled`` /
+        ``Inactive``) within ``IB_PLACE_CONFIRM_S`` seconds (default 3.0;
+        ``<= 0`` skips the check entirely — the legacy fire-and-forget
+        behaviour). Returns ``None`` when the order is accepted
+        (``PreSubmitted`` / ``Submitted`` / ``Filled``) or still pending at
+        the deadline — a pending market order is treated as accepted so a
+        slow gateway can never stall the trading tick beyond the bound.
+        """
+        confirm_s = _env_float("IB_PLACE_CONFIRM_S", 3.0)
+        if confirm_s <= 0 or parent_trade is None:
+            return None
+        _ACCEPTED = ("PreSubmitted", "Submitted", "Filled")
+        _DEAD = ("Cancelled", "ApiCancelled", "Inactive")
+        deadline = time.monotonic() + confirm_s
+        while True:
+            status = str(
+                getattr(getattr(parent_trade, "orderStatus", None), "status", "")
+                or ""
+            )
+            if status in _ACCEPTED:
+                return None
+            if status in _DEAD:
+                # Pull the last gateway message (ib_insync logs IBKR error
+                # strings onto trade.log) so the journal carries the cause.
+                detail = ""
+                try:
+                    entries = list(getattr(parent_trade, "log", None) or [])
+                    if entries:
+                        detail = str(getattr(entries[-1], "message", "") or "")
+                except Exception:  # noqa: BLE001
+                    detail = ""
+                return (
+                    f"IBKR rejected/cancelled parent order: status={status}"
+                    + (f" — {detail}" if detail else "")
+                )
+            if time.monotonic() >= deadline:
+                return None
+            try:
+                ib.sleep(0.25)
+            except Exception:  # noqa: BLE001
+                return None
 
     def cancel(self, order_id: str) -> Dict[str, Any]:
         """Cancel an open order by its (parent) order id."""
