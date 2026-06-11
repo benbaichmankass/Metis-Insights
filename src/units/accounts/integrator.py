@@ -7,6 +7,7 @@ Supported exchanges:
   bybit     — Bybit Unified Trading (live + dry-run)
   breakout  — Breakout prop firm API (deprecated stub; replaced by velotrade)
   velotrade — Velotrade DXtrade prop firm API (stub; dry-run only)
+  oanda     — OANDA v20 FX/metals (M15 Phase 2; practice host by default)
 """
 from __future__ import annotations
 
@@ -145,6 +146,63 @@ class VelotradeAPI:
         raise RuntimeError(f"DXtrade rejected order: {reason}")
 
 
+class OandaAPI:
+    """OANDA v20 — M15 Phase 2 (first new-market wire, XAU/USD verdict).
+
+    Live placement is dispatched to an injected
+    :class:`src.units.accounts.oanda_client.OandaClient`; the canonical
+    caller is ``execute_pkg`` (executor branch mirrors velotrade's
+    retCode contract). The bare :meth:`place` is kept for parity with
+    :class:`BybitAPI` / :class:`VelotradeAPI`.
+    """
+
+    def __init__(self, api_key_env: str, *, client: object = None) -> None:
+        self.api_key_env = api_key_env
+        self._client = client
+
+    def place(
+        self,
+        order: OrderPackage,
+        *,
+        dry_run: bool = True,
+        client: object = None,
+    ) -> str:
+        if dry_run:
+            trade_id = f"dry-oanda-{uuid.uuid4().hex[:10]}"
+            logger.info("OandaAPI DRY-RUN %s → %s", order.symbol, trade_id)
+            return trade_id
+        from src.units.accounts.oanda_client import (
+            MissingCredentialsError,
+            OandaClient,
+        )
+        cli = client or self._client
+        if cli is None:
+            raise MissingCredentialsError(
+                "OandaAPI: live placement requires an OandaClient "
+                "(OANDA_API_TOKEN / OANDA_ACCOUNT_ID); call execute_pkg "
+                "with exchange_client=oanda_client_for(account_cfg)."
+            )
+        if not isinstance(cli, OandaClient):
+            raise TypeError(
+                f"OandaAPI.place: expected OandaClient, got {type(cli).__name__}"
+            )
+        side = "Buy" if order.direction == "long" else "Sell"
+        resp = cli.place({
+            "symbol": order.symbol,
+            "side": side,
+            "qty": getattr(order, "qty", 1) or 1,
+            "sl": order.sl,
+            "tp": order.tp,
+            "strategy": order.strategy,
+        }) or {}
+        ret_code = resp.get("retCode")
+        if ret_code in (0, "0", None):
+            order_id = (resp.get("result") or {}).get("orderId")
+            return str(order_id or uuid.uuid4().hex)
+        reason = str(resp.get("retMsg") or f"retCode={ret_code}")
+        raise RuntimeError(f"OANDA rejected order: {reason}")
+
+
 # ---------------------------------------------------------------------------
 # Exchange registry
 # ---------------------------------------------------------------------------
@@ -153,6 +211,7 @@ EXCHANGE_MAP: dict[str, type] = {
     "bybit": BybitAPI,
     "breakout": BreakoutAPI,
     "velotrade": VelotradeAPI,
+    "oanda": OandaAPI,
 }
 
 

@@ -1043,7 +1043,7 @@ class Coordinator:
             from src.units.accounts.execute import execute_pkg
             from src.units.accounts.clients import (
                 bybit_client_for, binance_conn_for, velotrade_client_for,
-                ib_client_for,
+                ib_client_for, oanda_client_for,
             )
 
             account_cfg = {
@@ -1151,12 +1151,15 @@ class Coordinator:
                         client = binance_conn_for(account_cfg)
                     elif exchange_lc == "velotrade":
                         client = velotrade_client_for(account_cfg)
+                    elif exchange_lc == "oanda":
+                        client = oanda_client_for(account_cfg)
                     elif exchange_lc in ("interactive_brokers", "ib"):
                         client = ib_client_for(account_cfg)
                     else:
                         client_error = (
                             f"unsupported exchange '{exchange_lc}' "
-                            f"(expected bybit/binance/velotrade/interactive_brokers)"
+                            f"(expected bybit/binance/velotrade/oanda/"
+                            f"interactive_brokers)"
                         )
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(

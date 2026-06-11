@@ -418,3 +418,39 @@ accounts:
       pos_size: 2000                   # $2000 max single position (approval gate only)
       risk_pct: 0.01                   # 1% balance risked per trade
       min_balance_usd: 100             # refuse to size below $100
+
+  # oanda_practice: M15 Phase 2 (S-M15-PHASE2-OANDA) — OANDA v20 practice
+  # account, the Phase-0 verdict's first new-market wire (XAU/USD:
+  # docs/research/m15-phase0-results-2026-06-10.md). Paper money only —
+  # the practice host is selected by OANDA_ENV=practice (the code
+  # default); the live host requires an explicit OANDA_ENV=live flip.
+  #
+  # Ships INERT behind independent gates (new-broker checklist §5):
+  #   - mode: dry_run (CI-guarded)
+  #   - strategies: [] (coordinator per-account filter blocks every signal)
+  #   - creds unset (OANDA_API_TOKEN / OANDA_ACCOUNT_ID env) → factory
+  #     returns None → configured: False, live actions refuse + ping.
+  # Flipping any single gate alone never wakes the account.
+  #
+  # Auth is a single bearer token + account id read from env by
+  # src/units/accounts/clients.py::oanda_client_for (no api_key_env
+  # key+secret pair — the ib pattern). SL/TP ride on the order
+  # (stopLossOnFill/takeProfitOnFill) so protection is broker-side.
+  oanda_practice:
+    exchange: oanda
+    mode: dry_run                      # dry-run-guard: allow — new OANDA practice
+                                       # account, intentionally held dry until the
+                                       # operator provisions creds + approves the
+                                       # strategy-assignment PR (Tier-3).
+    demo: true                         # practice account = paper money; trade rows
+                                       # stamp is_demo like bybit_1.
+    strategies: []                     # empty until the Tier-3 assignment PR
+    symbols: [XAUUSD]                  # instrument identity (Phase-0 verdict);
+                                       # strategies [] keeps it out of dispatch.
+    risk:
+      max_dd_pct: 0.05                 # 5% max intra-day drawdown
+      daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
+      daily_usd: 200                   # absolute fallback (no equity snapshot)
+      pos_size: 2000                   # $2000 max single position
+      risk_pct: 0.005                  # 0.5% balance risked per trade (soak-conservative)
+      min_balance_usd: 100             # refuse to size below $100
