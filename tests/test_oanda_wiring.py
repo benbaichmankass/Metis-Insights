@@ -161,9 +161,9 @@ def test_accounts_yaml_oanda_practice_ships_inert():
     cfg = yaml.safe_load(open("config/accounts.yaml"))
     acct = cfg["accounts"]["oanda_practice"]
     assert acct["exchange"] == "oanda"
-    assert acct["mode"] == "live"  # practice money; flipped 2026-06-11 (set-account-mode)
-    # Phase 3 assigned xauusd_trend_1h (execution: shadow); inertness now
-    # rests on mode dry_run + missing creds + strategy-level shadow.
+    assert acct["mode"] == "dry_run"  # SHELVED 2026-06-12 (set-account-mode #3446):
+    # OANDA US can't trade XAU_USD (BL-20260611-007); gold is covered live on
+    # IBKR MGC + Alpaca GLD. Back to inert — mode dry_run gates the sleeve.
     assert acct["strategies"] == ["xauusd_trend_1h"]
     assert acct["demo"] is True
     assert acct["symbols"] == ["XAUUSD"]
