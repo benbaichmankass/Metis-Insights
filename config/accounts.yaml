@@ -446,19 +446,26 @@ accounts:
   # (stopLossOnFill/takeProfitOnFill) so protection is broker-side.
   oanda_practice:
     exchange: oanda
-    mode: live                         # PRACTICE host = paper money. Flipped via
-                                       # the set-account-mode action 2026-06-11
-                                       # (#3338, operator-approved "go live on
-                                       # practice"); this line mirrors the VM so
-                                       # deploys don't revert it.
+    mode: dry_run                      # SHELVED 2026-06-12 (set-account-mode
+                                       # #3446, operator-approved). Gold is
+                                       # already covered LIVE elsewhere — IBKR
+                                       # MGC micro-gold futures (mgc_pullback_1d)
+                                       # + Alpaca GLD (gld_pullback_1d) — while
+                                       # OANDA US can't trade XAU_USD
+                                       # (BL-20260611-007), so this sleeve ran
+                                       # live-but-rejected. Re-point to a
+                                       # tradeable instrument before flipping
+                                       # back to live. Mirrors the VM so deploys
+                                       # don't revert it.
     demo: true                         # practice account = paper money; trade rows
                                        # stamp is_demo like bybit_1.
     strategies:
-      - xauusd_trend_1h                # M15 Phase 3 (Tier-3 assignment PR);
-                                       # execution: shadow until the smoke
-                                       # test passes, so still no live order.
-    symbols: [XAUUSD]                  # instrument identity (Phase-0 verdict);
-                                       # strategies [] keeps it out of dispatch.
+      - xauusd_trend_1h                # M15 Phase 3. NOTE execution: live (field
+                                       # in strategies.yaml, promoted 2026-06-11)
+                                       # — but the account is dry_run above, the
+                                       # authoritative gate, so no live order
+                                       # ships while shelved.
+    symbols: [XAUUSD]                  # instrument identity (Phase-0 verdict).
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity

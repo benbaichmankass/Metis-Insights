@@ -834,11 +834,15 @@ strategies:
     # the builder gates on the FX weekend (Fri 21:00 -> Sun 21:00 UTC,
     # reason fx_market_closed) so stale closed-market candles never enter.
     #
-    # STATUS: execution: shadow — logs order packages, sends nothing, while
-    # the OANDA practice account's creds + smoke test land. Per the operator
-    # policy "paper/demo accounts exist to TEST strategies" (see
-    # mes_trend_long_1d), the intended next step is shadow -> live-on-practice
-    # once the smoke test passes (Tier-3 flip, operator-approved).
+    # STATUS: execution: live (field below; promoted 2026-06-11). The OANDA
+    # sleeve it routes to (oanda_practice) was SHELVED to mode: dry_run on
+    # 2026-06-12 (set-account-mode #3446) because OANDA US can't trade XAU_USD
+    # (BL-20260611-007) and gold is already covered live on IBKR MGC + Alpaca
+    # GLD. So this strategy is execution: live but the account gate stops it.
+    # The validated edge is the strongest cell of the Phase-0 sweep
+    # (docs/research/m15-phase0-results-2026-06-10.md); the live path for it is
+    # an `mgc_trend_1h` clone on IBKR (same gold underlying) — see backlog
+    # BL-20260611-007.
     model: null
     signal_prefixes: [xauusd_trend]
     enabled: true
