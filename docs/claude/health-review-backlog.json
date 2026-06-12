@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260612-001",
+      "opened_at": "2026-06-12T06:10:00+00:00",
+      "opened_by": "claude (/health-review)",
+      "source": "/health-review 2026-06-12 snapshot (#3438): trade #2539 (mhg_pullback_1d, ib_paper, 00:02:57Z) sized 3 WHOLE contracts (BL-20260611-001 integer-sizing fix VERIFIED) and reached IBKR, but IBKR rejected the parent: 'Error 10349, reqId 10: Order TIF was set to DAY based on order preset' (status=Cancelled) — journaled cleanly as exchange_rejected (post-place rejection check VERIFIED). Then at 04:41:22Z the reverse_reconciler adopted an open MHGN6 IB position (3 contracts @ 15989.72, NO SL/TP — naked_sltp_alerted) as trade #2540 (setup_type=adopted_orphan, status=open).",
+      "title": "IB futures orders rejected by IBKR Error 10349 (TIF forced to DAY by order preset) — blocks all MES/MGC/MHG fills on ib_paper; plus a resulting naked adopted-orphan IB position (#2540, no SL/TP)",
+      "description": "Two linked findings on the ib_paper live-execution path (paper money — IBKR paper account — so no real capital at risk, but a genuine live-path defect that strands the IB futures strategies). (1) IB ORDER TIF: the bot's IB order construction (src/units/accounts/ib_client.py) submits with a TIF that IBKR's account/order preset overrides to DAY, and IBKR then rejects/cancels the parent (Error 10349). Net effect: MES/MGC/MHG now size correctly (integer contracts, BL-20260611-001 fixed) but can NEVER fill — every IB futures order will draw 10349 until the TIF is set explicitly (likely GTC) or the IBKR account's order preset is changed. Tier-2/3 (live IB order path). (2) NAKED ORPHAN: trade #2540 — the reverse_reconciler found a real open MHGN6 position at IBKR (3 contracts @ 15989.72) with no matching trade row and adopted it; it has no SL/TP attached (naked_sltp_alerted_at set). Needs SL/TP attachment or a flatten — the IB order path produced/left a position without protective orders. Investigate whether the 10349-cancelled parent nonetheless left a child/leg filled, or whether this is a stale pre-existing paper position. SUGGESTED: (a) set the IB order TIF explicitly + verify a paper MES/MGC/MHG order fills end-to-end; (b) reconcile/flatten #2540 or attach SL/TP; (c) confirm no recurrence of naked adopted IB orphans.",
+      "tier": 2,
+      "trigger_condition": "Every /health-review until an IB futures order fills end-to-end (no 10349) AND no naked adopted-orphan IB position remains.",
+      "resolution_criteria": "A paper MES/MGC/MHG order reaches IBKR and FILLS with SL/TP attached (no Error 10349), and trade #2540 is closed/flattened or carries SL/TP. The IB futures path produces protected positions, not naked orphans.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260611-008",
       "opened_at": "2026-06-11T20:45:00+00:00",
       "opened_by": "claude (trade-monitor session wrap-up, operator-directed)",
@@ -12,11 +29,17 @@
       "tier": 1,
       "trigger_condition": "FIRST item in the next /health-review (morning 2026-06-12). Self-resolves once the four checks are folded into that review's findings/check_logs.",
       "resolution_criteria": "The next /health-review records the BTC-leg outcomes and updates BL-20260611-001/-005/-007 check_logs; this handoff item is then closed.",
-      "check_log": [],
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "check_log": [
+        {
+          "at": "2026-06-12T06:10:00+00:00",
+          "by": "claude (/health-review)",
+          "note": "HANDOFF COMPLETE. Folded into the 2026-06-12 review (snapshot #3438). (1) BTC legs: pkg-f061eafe563b4c6b still OPEN — real leg #2535 (bybit_2, 0.001) + demo leg #2534 (bybit_1, 0.736) both status=open, SL/TP wired, broker-protected, PnL not yet realized (package was flagged stuck-but-position-alive 20:50Z, not orphaned — correct). (2) BL-20260611-005 (eth qty step): no new eth_pullback_2h order post-deploy (eth eval'ing but non-actionable, chop adx~12); last order #2533 is pre-fix — carry. (3) BL-20260611-001 (IB integer sizing): VERIFIED — #2539 sized 3 whole contracts + clean exchange_rejected journaling; but NEW IBKR TIF=DAY rejection (Error 10349) + naked adopted orphan #2540 filed as BL-20260612-001. (4) BL-20260611-007 (gold): still account-rejected (#2537/#2538) — operator decision pending. All four recorded; closing handoff."
+        }
+      ],
+      "status": "resolved",
+      "resolved_at": "2026-06-12T06:10:00+00:00",
+      "resolved_by": "claude (/health-review)",
+      "resolution": "All four handoff checks folded into the 2026-06-12 /health-review findings + the relevant items' check_logs (see check_log). BTC legs still open + protected; eth fix unverified (no new order); IB integer-sizing verified with a new TIF blocker spun out to BL-20260612-001; gold still operator-pending.",
       "snoozed_until": null
     },
     {
@@ -29,7 +52,13 @@
       "tier": 3,
       "trigger_condition": "Operator decision; every /health-review until gold orders stop being account-rejected.",
       "resolution_criteria": "An xauusd_trend_1h order is ACCEPTED by OANDA (journal row open), or the operator re-routes/retires the gold-on-OANDA sleeve.",
-      "check_log": [],
+      "check_log": [
+        {
+          "at": "2026-06-12T06:10:00+00:00",
+          "by": "claude (/health-review)",
+          "note": "STILL BITING. Snapshot #3438: trade #2538 (23:01Z 06-11, 1.816 units) + #2537 (20:00Z, 1.864 units) both exchange_rejected by OANDA 'instrument not tradeable by the Account'. Sizing from real NAV (BL-20260611-006 fix holding); the block is purely account-permission. Bounded noise (~hourly at conf 1.0), no risk. Operator decision still pending."
+        }
+      ],
       "status": "open",
       "resolved_at": null,
       "resolved_by": null,
@@ -63,7 +92,13 @@
       "tier": 2,
       "trigger_condition": "Every /health-review until the next eth_pullback_2h (or any non-BTC Bybit) order executes.",
       "resolution_criteria": "A Bybit order for a non-0.001-step symbol (ETHUSDT) submits with step-aligned qty and is ACCEPTED by the exchange (journal row open/closed, not exchange_rejected), with journaled position_size matching the submitted qty.",
-      "check_log": [],
+      "check_log": [
+        {
+          "at": "2026-06-12T06:10:00+00:00",
+          "by": "claude (/health-review)",
+          "note": "UNVERIFIED — no new eth_pullback_2h order since the fix deployed. Newest ETH order is still #2533 (16:04Z 06-11, qty 14.937, pre-fix, exchange_rejected retCode 10001). eth_pullback_2h_eval is firing each tick (snapshot tail 06:02:16Z) but non-actionable (chop, adx~12-13), so no order to confirm the step-alignment. Carry."
+        }
+      ],
       "status": "open",
       "resolved_at": null,
       "resolved_by": null,
@@ -85,6 +120,11 @@
           "at": "2026-06-11T16:25:00+00:00",
           "by": "claude (fix session, operator-approved)",
           "note": "FIX SHIPPED + DEPLOYED. PR #3406 (merged 792c818, CI 11/11 green, deployed via pull-and-deploy #3411, trader restarted clean 16:20Z): (1) position_size enforces whole-contract sizing for market_type=futures (sub-1-contract = refusal, never bumped); (2) IBClient.place floors defensively + refuses <1 contract; (3) NEW bounded post-place rejection check (IB_PLACE_CONFIRM_S, default 3s) surfaces async IBKR rejections as journaled failures — closes the fire-and-forget gap that made #2531 silent. OANDA/Alpaca verified already floored (no equivalent gap). REMAINING for resolution: observe the next IB-bound signal journal an INTEGER position_size and either fill end-to-end or journal a clean rejection — check every /health-review."
+        },
+        {
+          "at": "2026-06-12T06:10:00+00:00",
+          "by": "claude (/health-review)",
+          "note": "BOTH FIXES VERIFIED LIVE. Snapshot #3438: trade #2539 (mhg_pullback_1d, ib_paper, 00:02:57Z) journaled position_size=3 — INTEGER whole contracts (no more 3.643 fractional). AND it reached IBKR and the async rejection was surfaced as a clean exchange_rejected row (status=exchange_rejected, not a silent 30-min orphan like #2531) — the post-place rejection check (IB_PLACE_CONFIRM_S) works. The fractional-sizing + silent-orphan defect this item tracked is CLOSED. The IB path still doesn't FILL — but for a NEW reason (IBKR Error 10349, TIF forced to DAY by order preset), spun out to BL-20260612-001 along with the resulting naked adopted-orphan #2540. Keeping this open only until an actual end-to-end fill is observed; the sizing/journaling half is done."
         }
       ],
       "status": "open",
@@ -216,6 +256,11 @@
           "at": "2026-06-11T15:32:00+00:00",
           "by": "claude (/health-review)",
           "note": "2026-06-11: CONFIRMED persisting after a fresh restart (14:40Z, sha e61a1de). audit_query (#3404) shows vwap_eval firing every tick 15:19-15:26Z incl. ACTIONABLE side=buy rows with entry/SL/TP and confidence 1.0, and the shadow predictors score those vwap signals (#3396). Order path correctly produces no packages. The eval/telemetry path definitively ignores enabled:false. Carry; fix is the gate-eval-emission-on-enabled change proposed in the item."
+        },
+        {
+          "at": "2026-06-12T06:10:00+00:00",
+          "by": "claude (/health-review)",
+          "note": "2026-06-12: STILL firing. Snapshot #3438 audit tail shows vwap_eval at 06:02:03Z (BTCUSDT 5m, reason 'regime_policy_skip: regime=sideways/low', confidence 0). vwap remains absent from the loaded-strategies list (15 loaded, vwap not among them) yet still emits eval — enabled:false still not honored by the eval/telemetry path. No trading impact (no packages). Carry; fix unchanged (gate eval emission on the loaded check)."
         }
       ],
       "status": "open",
@@ -234,7 +279,13 @@
       "tier": 1,
       "trigger_condition": "EVERY /health-review until 2026-06-15. Self-resolve if all three checks pass on each day Mon-Fri 2026-06-09 through 2026-06-13 (and weekend if markets open partial bars).",
       "resolution_criteria": "Five consecutive trading days (2026-06-09 through 2026-06-13) where (a) `ibkr_mes_pull.jsonl` has at least one `status:ok` row for MES that UTC day; (b) each of `mes_trend_long_1d_eval`, `mgc_pullback_1d_eval`, `mhg_pullback_1d_eval` appears at least once that UTC day in the audit log; (c) `ict-ib-gateway-watchdog.timer` stays active. Record results in `check_log[]`; close as `resolved` when all five days pass.",
-      "check_log": [],
+      "check_log": [
+        {
+          "at": "2026-06-12T06:10:00+00:00",
+          "by": "claude (/health-review)",
+          "note": "2026-06-12 PARTIAL PASS. IB live session is healthy: mhg_pullback_1d produced order #2539 that REACHED IBKR today (00:02Z) and the reverse_reconciler adopted an open IB MHGN6 position #2540 at 04:41Z — proving the trader↔IBKR round-trip works and MHG eval'd/ordered today. ict-ib-gateway-watchdog.timer = active (snapshot #3438 services). NOTE on criterion (a): ibkr_mes_pull.jsonl (#3440) is the BULK-HISTORY dataset-builder log (last row 2026-06-01, start=2019), NOT the live per-tick fetch — its staleness is expected and it is the wrong signal for daily liveness; the live MES fetch has no dedicated log. MES/MGC per-day eval not separately confirmed this pull (1d cadence; no order from them today). Resolution-criterion (a) should be re-pointed at the live fetch or dropped. Soak window ends 06-13; carry."
+        }
+      ],
       "status": "open",
       "resolved_at": null,
       "resolved_by": null,
@@ -253,7 +304,12 @@
       "trigger_condition": "EVERY /health-review until the CPU-saturation root cause is identified AND the autoheal-on-hang gap is closed. Re-pull `status` first thing; if cpu>=90 or heartbeat label!=running, the condition is recurring. ROOT CAUSE IDENTIFIED 2026-06-09 (regime bar scoring; see root_cause_found) — remaining work is (a) optimize-or-isolate before re-enabling regime scoring, (b) ship+verify the autoheal hardening (PR #3074), (c) confirm the live watchdog is armed.",
       "resolution_criteria": "(1) The live-VM CPU-saturation source is identified (operator top/ps during a spike or a process-level metric added to status_check.sh) and either tamed or accepted-with-headroom so it cannot starve the trader loop; (2) a genuine >8-min trader hang triggers a watchdog autoheal restart (verified by inducing/observing a stall the watchdog clears) — i.e. BL-20260605-001 hardening shipped + autoheal confirmed armed (BL-20260605-006); (3) no recurrence of a multi-minute heartbeat=stopped window over a 48h soak.",
       "check_log": [
-        "2026-06-09 (CPU half RESOLVED): MB-20260609-001 followed up the root cause — PR #3082 (group predictors by (symbol, timeframe) + wall-clock fetch gate _BAR_SECONDS - 30s + per-call exchange-client cache in src/runtime/regime_bar_scoring.py) merged at 834f7ae; pull-and-deploy #3092 landed cleanly; set-env REGIME_BAR_SCORING_DISABLED=0 (#3093) re-enabled regime bar scoring on the live VM; T+15min steady-state status-check #3097 = loadavg 0.96/0.40/0.66 → 1.34/0.54/0.69 (1m/5m/15m on 2-core; well under 2.0 saturation), trader steady at 14.5-14.6% CPU (vs 95-100% sustained at incident; ~5-10pp marginal cost for full regime-head coverage), heartbeat fresh (1-25s old), shadow_predictions.jsonl actively writing (strong heads accruing per-bar records → MB-20260529-001 / MB-20260527-004 unblocked). The CPU-saturation root cause is now identified AND tamed in code — criterion (1) MET. Remaining open work on this item: (2) autoheal-on-hang verification (BL-20260605-001 hardening shipped per #3074; needs a real-stall observation to confirm armed) and (3) 48h soak with no multi-minute heartbeat=stopped window. Stays open on (2)+(3); priority drops since the proximate trigger is gone."
+        "2026-06-09 (CPU half RESOLVED): MB-20260609-001 followed up the root cause — PR #3082 (group predictors by (symbol, timeframe) + wall-clock fetch gate _BAR_SECONDS - 30s + per-call exchange-client cache in src/runtime/regime_bar_scoring.py) merged at 834f7ae; pull-and-deploy #3092 landed cleanly; set-env REGIME_BAR_SCORING_DISABLED=0 (#3093) re-enabled regime bar scoring on the live VM; T+15min steady-state status-check #3097 = loadavg 0.96/0.40/0.66 → 1.34/0.54/0.69 (1m/5m/15m on 2-core; well under 2.0 saturation), trader steady at 14.5-14.6% CPU (vs 95-100% sustained at incident; ~5-10pp marginal cost for full regime-head coverage), heartbeat fresh (1-25s old), shadow_predictions.jsonl actively writing (strong heads accruing per-bar records → MB-20260529-001 / MB-20260527-004 unblocked). The CPU-saturation root cause is now identified AND tamed in code — criterion (1) MET. Remaining open work on this item: (2) autoheal-on-hang verification (BL-20260605-001 hardening shipped per #3074; needs a real-stall observation to confirm armed) and (3) 48h soak with no multi-minute heartbeat=stopped window. Stays open on (2)+(3); priority drops since the proximate trigger is gone.",
+        {
+          "at": "2026-06-12T06:10:00+00:00",
+          "by": "claude (/health-review)",
+          "note": "2026-06-12: no recurrence. Snapshot #3438 vm_health cpu=28% (mem=70%, disk=37%), heartbeat label=running (age 33s), last_tick fresh (06:02:17Z), bot_uptime ~82min (clean restart ~04:40Z, sha f2f6cb90) — no wedge, regime-bar-scoring still tamed. CPU half remains resolved. Still open only on (2) autoheal-on-real-hang verification + (3) 48h-soak with no heartbeat=stopped window; both need a future induced-stall observation. Memory at 70% on the 1GB micro is worth a passive watch."
+        }
       ],
       "status": "open",
       "resolved_at": null,
