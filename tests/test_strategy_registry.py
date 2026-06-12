@@ -175,8 +175,11 @@ def test_real_yaml_loads():
     # `execution` flags in the YAML, not the count. 13 → 16 by the M15
     # Phase-4 ETF buildout (spy/qqq trend + gld pullback on alpaca_paper,
     # 2026-06-11), then 16 → 17 by the M15 WS-C alt sleeve eth_pullback_2h
-    # (ETH/USDT 2h HTF-pullback on bybit_1 demo, 2026-06-11).
-    assert len(strategies) == 17
+    # (ETH/USDT 2h HTF-pullback on bybit_1 demo, 2026-06-11), then 17 → 18 by
+    # the mgc_trend_1h gold sleeve (IBKR MGC micro futures on ib_paper paper
+    # money, 2026-06-12 — the venue-swap sibling of xauusd_trend_1h after OANDA
+    # US blocked XAU_USD, BL-20260611-007).
+    assert len(strategies) == 18
 
 
 def test_real_yaml_has_required_strategies():
@@ -186,7 +189,7 @@ def test_real_yaml_has_required_strategies():
         "turtle_soup", "vwap", "ict_scalp_5m", "trend_donchian", "fade_breakout_4h",
         "squeeze_breakout_4h", "fvg_range_15m", "htf_pullback_trend_2h", "trend_donchian_1h",
         "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d",
-        "xauusd_trend_1h",
+        "xauusd_trend_1h", "mgc_trend_1h",
         "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
         "eth_pullback_2h",
     }
