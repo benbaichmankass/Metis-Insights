@@ -76,6 +76,7 @@ def test_instrument_profile_routes_to_oanda():
 def test_account_routing_and_description_present():
     acct = yaml.safe_load(open("config/accounts.yaml"))["accounts"]["oanda_practice"]
     assert acct["strategies"] == ["xauusd_trend_1h"]
-    assert acct["mode"] == "live"  # practice money; flipped 2026-06-11 (set-account-mode #3338)
+    assert acct["mode"] == "dry_run"  # SHELVED 2026-06-12 (set-account-mode #3446):
+    # gold covered live on IBKR MGC + Alpaca GLD; OANDA US can't trade XAU_USD.
     desc = json.load(open("config/strategy_descriptions.json"))
     assert "xauusd_trend_1h" in desc and desc["xauusd_trend_1h"]["short"]

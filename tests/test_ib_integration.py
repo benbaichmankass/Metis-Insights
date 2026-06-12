@@ -209,7 +209,7 @@ class TestAccountsYaml:
         # added 2026-06-02, execution: live on ib_paper PAPER money.
         assert paper["strategies"] == [
             "turtle_soup", "vwap", "ict_scalp_5m", "mes_trend_long_1d",
-            "mgc_pullback_1d", "mhg_pullback_1d",
+            "mgc_pullback_1d", "mhg_pullback_1d", "mgc_trend_1h",
         ]
 
         live = accts["ib_live"]
@@ -267,7 +267,7 @@ class TestLoadAccounts:
         assert paper.ib_client_id == 497
         assert paper.strategies == [
             "turtle_soup", "vwap", "ict_scalp_5m", "mes_trend_long_1d",
-            "mgc_pullback_1d", "mhg_pullback_1d",
+            "mgc_pullback_1d", "mhg_pullback_1d", "mgc_trend_1h",
         ]  # + long-only diversifier (2026-06-01) + WS-A metals sleeve (2026-06-02)
 
         live = accounts["ib_live"]
@@ -397,6 +397,62 @@ class TestIBClient:
         c, _ = _client(readonly=True)
         with pytest.raises(IBConnectionError):
             c.place({"symbol": "MES", "direction": "long", "qty": 1, "sl": 5290, "tp": 5320})
+
+    def test_place_protective_long_is_reverse_oca_gtc(self, fake_ib_module):
+        # A long position is protected by a SELL stop + SELL limit, OCA-paired,
+        # GTC, and crucially NO market parent (never opens/adds a position).
+        c, fake = _client()
+        resp = c.place_protective(
+            {"symbol": "MES", "direction": "long", "qty": 2, "sl": 5290.1, "tp": 5320.4}
+        )
+        assert resp["retCode"] == 0
+        assert len(fake.placed) == 2                      # SL + TP only, no parent
+        orders = [o for (_, o) in fake.placed]
+        assert all(o.action == "SELL" for o in orders)   # reverse of a long
+        assert all(o.tif == "GTC" for o in orders)        # persist past the session
+        groups = {o.ocaGroup for o in orders}
+        assert len(groups) == 1 and next(iter(groups))    # one shared OCA group
+        assert all(o.ocaType == 1 for o in orders)        # cancel-remaining-on-fill
+        assert all(o.account == "DUQ325724" for o in orders)
+        assert resp["result"]["ocaGroup"] == next(iter(groups))
+
+    def test_place_protective_short_is_buy(self, fake_ib_module):
+        c, fake = _client()
+        c.place_protective(
+            {"symbol": "MES", "direction": "short", "qty": 1, "sl": 5320, "tp": 5280}
+        )
+        assert all(o.action == "BUY" for (_, o) in fake.placed)  # reverse of a short
+
+    def test_place_protective_one_leg_when_only_sl(self, fake_ib_module):
+        c, fake = _client()
+        resp = c.place_protective(
+            {"symbol": "MES", "direction": "long", "qty": 1, "sl": 5290, "tp": None}
+        )
+        assert resp["retCode"] == 0
+        assert len(fake.placed) == 1
+
+    def test_place_protective_refuses_without_levels(self, fake_ib_module):
+        c, fake = _client()
+        resp = c.place_protective(
+            {"symbol": "MES", "direction": "long", "qty": 1, "sl": None, "tp": None}
+        )
+        assert resp["retCode"] != 0
+        assert not fake.placed                            # nothing transmitted
+
+    def test_place_protective_floors_subcontract_qty(self, fake_ib_module):
+        c, fake = _client()
+        resp = c.place_protective(
+            {"symbol": "MES", "direction": "long", "qty": 0.4, "sl": 5290, "tp": 5320}
+        )
+        assert resp["retCode"] != 0                       # <1 whole contract → refuse
+        assert not fake.placed
+
+    def test_readonly_refuses_place_protective(self, fake_ib_module):
+        c, _ = _client(readonly=True)
+        with pytest.raises(IBConnectionError):
+            c.place_protective(
+                {"symbol": "MES", "direction": "long", "qty": 1, "sl": 5290, "tp": 5320}
+            )
 
     def test_balance(self, fake_ib_module):
         c, _ = _client()

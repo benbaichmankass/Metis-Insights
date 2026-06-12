@@ -3338,6 +3338,108 @@ def _decode_notes(notes_raw: Optional[str]) -> Dict[str, Any]:
 
 _NAKED_POSITION_GRACE_SECONDS = 300  # 5 min after opening before alerting
 
+# Futures contract-month codes (CME/COMEX): one letter + 1-2 digit year,
+# e.g. "MHGN6" (July 2026 micro copper) -> base "MHG". Used to normalize an
+# adopted-orphan's specific-contract symbol back to the base symbol the rest
+# of the system (signal builders, order packages, _build_contract) speaks.
+_FUTURES_MONTH_SUFFIX = __import__("re").compile(r"^([A-Z]{2,})([FGHJKMNQUVXZ]\d{1,2})$")
+
+
+def _base_futures_symbol(symbol: Optional[str]) -> str:
+    """Strip a trailing futures contract-month code (``MHGN6`` -> ``MHG``).
+
+    Returns the symbol unchanged when it carries no month suffix (spot/crypto
+    like ``BTCUSDT``, or an already-base futures root like ``MES``)."""
+    s = str(symbol or "").strip().upper()
+    m = _FUTURES_MONTH_SUFFIX.match(s)
+    return m.group(1) if m else s
+
+
+def _resolve_protective_levels(db, symbol, direction):
+    """Best-effort (sl, tp) for a naked position from the most recent
+    matching order package. Matches on direction + the symbol or its base
+    futures root (an adopted ``MHGN6`` resolves against the ``MHG`` package
+    that spawned it). Returns ``(None, None)`` when nothing usable is found.
+    """
+    try:
+        base = _base_futures_symbol(symbol)
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            row = conn.execute(
+                "SELECT sl, tp FROM order_packages "
+                "WHERE direction=? AND symbol IN (?,?) "
+                "AND sl IS NOT NULL AND sl>0 AND tp IS NOT NULL AND tp>0 "
+                "ORDER BY created_at DESC LIMIT 1",
+                (str(direction or "").lower(), str(symbol or ""), base),
+            ).fetchone()
+        finally:
+            conn.close()
+        if row is None:
+            return (None, None)
+        return (row["sl"], row["tp"])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_resolve_protective_levels(%s): failed: %s", symbol, exc)
+        return (None, None)
+
+
+def _attempt_naked_autoprotect(row, sl, tp) -> bool:
+    """Attach reverse-side GTC SL/TP to a naked IB position via
+    ``IBClient.place_protective``. Returns True on a placed protective
+    bracket. IB-only for now (Bybit/OANDA/Alpaca attach SL/TP atomically at
+    entry, so a naked orphan there is out of scope for v1). Never raises.
+
+    Gated by the ``NAKED_POSITION_AUTOPROTECT`` env flag (default off) so the
+    behaviour ships inert and is enabled per the operator after review — a
+    new live-order surface, mirroring how the order-path features ship.
+    """
+    account_id = str(row["account_id"] or "")
+    symbol = str(row["symbol"] or "")
+    direction = str(row["direction"] or "")
+    try:
+        qty = float(row["position_size"])
+    except (KeyError, TypeError, ValueError, IndexError):
+        return False
+    if qty <= 0 or sl in (None, 0) or tp in (None, 0):
+        return False
+    try:
+        from src.bot import data_loaders
+        from src.units.accounts.clients import ib_client_for
+
+        accounts = data_loaders.list_accounts() or []
+        acc = next(
+            (a for a in accounts if a.get("account_id") == account_id), None
+        )
+        if acc is None:
+            return False
+        if str(acc.get("exchange", "")).lower() not in ("interactive_brokers", "ib"):
+            return False  # IB-only in v1
+        client = ib_client_for(acc, readonly=False)
+        if client is None:
+            return False
+        resp = client.place_protective(
+            {
+                "symbol": _base_futures_symbol(symbol),
+                "direction": direction,
+                "qty": qty,
+                "sl": sl,
+                "tp": tp,
+            }
+        )
+        if not resp or resp.get("retCode") != 0:
+            logger.warning(
+                "_attempt_naked_autoprotect: place_protective refused for "
+                "trade_id=%s: %r", row["id"], (resp or {}).get("retMsg"),
+            )
+            return False
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_attempt_naked_autoprotect: failed for trade_id=%s: %s",
+            row["id"], exc,
+        )
+        return False
+
 
 def _check_naked_positions(db) -> Dict[str, int]:
     """Scan open live trades for missing or non-positive SL/TP values.
@@ -3348,13 +3450,18 @@ def _check_naked_positions(db) -> Dict[str, int]:
 
     Returns ``{"checked", "naked", "alerted", "errors"}`` counts.
     """
-    summary: Dict[str, int] = {"checked": 0, "naked": 0, "alerted": 0, "errors": 0}
+    summary: Dict[str, int] = {
+        "checked": 0, "naked": 0, "alerted": 0, "protected": 0, "errors": 0,
+    }
+    autoprotect_on = str(
+        os.environ.get("NAKED_POSITION_AUTOPROTECT", "")
+    ).strip().lower() in ("1", "true", "yes", "on")
     try:
         conn = db.connect()
         try:
             conn.row_factory = __import__("sqlite3").Row
             rows = conn.execute(
-                "SELECT id, account_id, symbol, direction, "
+                "SELECT id, account_id, symbol, direction, position_size, "
                 "stop_loss, take_profit_1, created_at, notes "
                 "FROM trades "
                 "WHERE status='open' AND COALESCE(is_backtest,0)=0 "
@@ -3386,14 +3493,52 @@ def _check_naked_positions(db) -> Dict[str, int]:
 
         summary["naked"] += 1
         notes = _decode_notes(row["notes"])
-        if notes.get("naked_sltp_alerted_at"):
-            continue  # already alerted; skip
+        if notes.get("naked_sltp_alerted_at") or notes.get("naked_sltp_attached_at"):
+            continue  # already handled (alerted or auto-protected); skip
 
         sl = row["stop_loss"]
         tp = row["take_profit_1"]
         account = str(row["account_id"] or "unknown")
         symbol = str(row["symbol"] or "?")
         side = str(row["direction"] or "?")
+
+        # Auto-protect (gated, IB-only v1): try to attach reverse-side GTC
+        # SL/TP before falling back to the alert. Resolve missing levels from
+        # the originating order package (an adopted orphan carries NULL sl/tp).
+        if autoprotect_on:
+            a_sl = sl if (sl not in (None, 0) and sl > 0) else None
+            a_tp = tp if (tp not in (None, 0) and tp > 0) else None
+            if a_sl is None or a_tp is None:
+                r_sl, r_tp = _resolve_protective_levels(db, symbol, side)
+                a_sl = a_sl if a_sl is not None else r_sl
+                a_tp = a_tp if a_tp is not None else r_tp
+            if a_sl is not None and a_tp is not None and _attempt_naked_autoprotect(
+                row, a_sl, a_tp
+            ):
+                summary["protected"] += 1
+                attached_notes = dict(notes)
+                attached_notes["naked_sltp_attached_at"] = now.isoformat()
+                attached_notes["naked_sltp_attached_levels"] = {
+                    "sl": a_sl, "tp": a_tp,
+                }
+                try:
+                    db.update_trade(trade_id, {
+                        "stop_loss": a_sl,
+                        "take_profit_1": a_tp,
+                        "notes": json.dumps(attached_notes),
+                    })
+                except Exception as upd_exc:  # noqa: BLE001
+                    logger.warning(
+                        "_check_naked_positions: row update after attach "
+                        "failed for trade_id=%s: %s", trade_id, upd_exc,
+                    )
+                logger.info(
+                    "_check_naked_positions: auto-attached GTC SL/TP "
+                    "(sl=%s tp=%s) to naked trade_id=%s account=%s symbol=%s",
+                    a_sl, a_tp, trade_id, account, symbol,
+                )
+                continue  # protected; no naked alert needed
+
         logger.warning(
             "_check_naked_positions: open trade id=%s account=%s symbol=%s "
             "side=%s sl=%r tp=%r — naked position, SL/TP must be set manually",

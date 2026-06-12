@@ -55,6 +55,7 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         "ict_scalp_5m",
         "mes_trend_long_1d",
         "mgc_pullback_1d",
+        "mgc_trend_1h",
         "mhg_pullback_1d",
         "qqq_trend_long_1d",
         "spy_trend_long_1d",
