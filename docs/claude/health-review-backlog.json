@@ -12,7 +12,13 @@
       "tier": 2,
       "trigger_condition": "Every /health-review until an IB futures order fills end-to-end (no 10349) AND no naked adopted-orphan IB position remains.",
       "resolution_criteria": "A paper MES/MGC/MHG order reaches IBKR and FILLS with SL/TP attached (no Error 10349), and trade #2540 is closed/flattened or carries SL/TP. The IB futures path produces protected positions, not naked orphans.",
-      "check_log": [],
+      "check_log": [
+        {
+          "at": "2026-06-12T12:00:00+00:00",
+          "by": "claude (operator-directed fix session)",
+          "note": "TIF FIX SHIPPED + DEPLOYED LIVE (operator-approved). PR #3441 merged to main (ae7fae9); pull-and-deploy #3444 restarted ict-trader-live clean (f2f6cb9->ae7fae9, service active, pipeline ticking). Fix: explicit TIF on the IB bracket (parent DAY, SL/TP GTC) in src/units/accounts/ib_client.py — Error 10349 'TIF set by preset' can no longer fire, so the spurious-cancel-that-actually-fills desync that produced #2539(rejected)+#2540(naked filled) is closed for all FUTURE IB orders. Verifies on the next MES/MGC/MHG signal (1d cadence). TWO ITEMS REMAIN: (1) observe the next IB fill is clean; (2) attach SL/TP to the EXISTING naked orphan #2540 — operator chose 'Attach SL/TP'. (2) needs net-new live-order code (IBClient.place_protective: reverse-side STP+LMT, GTC, OCA, no market parent — current place() always opens a position) + a monitor hook in _check_naked_positions (currently alert-only) + kill-switch + tests. Scoped as a focused follow-up PR for operator review before it places live orders; #2540 is paper money (ib_paper) so it carries no real-capital risk while unprotected. SL/TP for #2540 derive from pkg-f58a249d119049ab / trade #2539: SL 6.045, TP 7.029 (price terms; IBKR avgCost 15989.72 = 6.396 x 2500 multiplier)."
+        }
+      ],
       "status": "open",
       "resolved_at": null,
       "resolved_by": null,
