@@ -603,6 +603,22 @@ class IBClient:
             parent = MarketOrder(action, qty)
             parent.orderId = ib.client.getReqId()
             parent.transmit = sl_price is None and tp_price is None
+            # Set the TIF EXPLICITLY. With an unset TIF, IBKR applies the
+            # account's GUI order-preset default (DAY) and emits a spurious
+            # "Error 10349 — Order TIF was set to DAY based on order preset"
+            # that arrives as a parent `Cancelled` event on the event loop —
+            # even though the order actually goes live and fills (a known
+            # ib_async/TWS inconsistency). That fooled the post-place
+            # rejection check below into journaling the fill as
+            # `exchange_rejected` while the position stayed open at IBKR,
+            # producing the BL-20260612-001 naked adopted-orphan desync
+            # (trade #2539 rejected-in-journal, #2540 filled-at-broker).
+            # An explicit TIF is no longer "based on order preset", so 10349
+            # never fires. The market entry uses DAY (it fills immediately);
+            # the protective legs use GTC so they survive past the session
+            # for multi-day holds (a DAY stop would cancel at the close and
+            # leave the position naked overnight).
+            parent.tif = "DAY"
             if self.account:
                 parent.account = self.account
 
@@ -612,6 +628,7 @@ class IBClient:
                 tp.orderId = ib.client.getReqId()
                 tp.parentId = parent.orderId
                 tp.transmit = sl_price is None  # last leg transmits the bracket
+                tp.tif = "GTC"
                 if self.account:
                     tp.account = self.account
                 children.append(tp)
@@ -620,6 +637,7 @@ class IBClient:
                 sl.orderId = ib.client.getReqId()
                 sl.parentId = parent.orderId
                 sl.transmit = True
+                sl.tif = "GTC"
                 if self.account:
                     sl.account = self.account
                 children.append(sl)

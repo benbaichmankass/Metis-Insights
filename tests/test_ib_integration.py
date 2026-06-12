@@ -61,6 +61,7 @@ class _FakeOrder:
         self.parentId = 0
         self.transmit = True
         self.account = None
+        self.tif = ""  # ib_insync Order default; IBClient.place sets it explicitly
 
 
 class _FakeRow:
@@ -363,6 +364,21 @@ class TestIBClient:
         assert "SELL" in actions[1:]         # bracket children reverse side
         for (_, o) in fake.placed:
             assert o.account == "DUQ325724"
+
+    def test_place_sets_explicit_tif(self, fake_ib_module):
+        # An unset TIF lets IBKR apply the account preset (DAY) and emit the
+        # spurious Error 10349 cancel that caused the BL-20260612-001 desync.
+        # The market entry must be DAY (fills now); the protective legs must
+        # be GTC so they survive past the session for multi-day holds.
+        c, fake = _client()
+        c.place({"symbol": "MES", "direction": "long", "qty": 2, "sl": 5290.1, "tp": 5320.4})
+        by_action = [(o.action, o.tif, o.lmtPrice, o.auxPrice) for (_, o) in fake.placed]
+        # every leg carries an explicit, non-empty TIF (never "" → no preset)
+        assert all(tif in ("DAY", "GTC") for (_, tif, _, _) in by_action)
+        parent = fake.placed[0][1]
+        assert parent.tif == "DAY"           # market entry fills immediately
+        children = [o for (_, o) in fake.placed[1:]]
+        assert children and all(o.tif == "GTC" for o in children)  # protective legs persist
 
     def test_place_rounds_prices_to_tick(self, fake_ib_module):
         c, fake = _client()
