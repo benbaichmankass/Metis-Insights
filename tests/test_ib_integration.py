@@ -209,7 +209,7 @@ class TestAccountsYaml:
         # added 2026-06-02, execution: live on ib_paper PAPER money.
         assert paper["strategies"] == [
             "turtle_soup", "vwap", "ict_scalp_5m", "mes_trend_long_1d",
-            "mgc_pullback_1d", "mhg_pullback_1d",
+            "mgc_pullback_1d", "mhg_pullback_1d", "mgc_trend_1h",
         ]
 
         live = accts["ib_live"]
@@ -267,7 +267,7 @@ class TestLoadAccounts:
         assert paper.ib_client_id == 497
         assert paper.strategies == [
             "turtle_soup", "vwap", "ict_scalp_5m", "mes_trend_long_1d",
-            "mgc_pullback_1d", "mhg_pullback_1d",
+            "mgc_pullback_1d", "mhg_pullback_1d", "mgc_trend_1h",
         ]  # + long-only diversifier (2026-06-01) + WS-A metals sleeve (2026-06-02)
 
         live = accounts["ib_live"]
