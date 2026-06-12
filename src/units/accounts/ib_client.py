@@ -670,6 +670,108 @@ class IBClient:
             "retMsg": "OK",
         }
 
+    def place_protective(self, order: Dict[str, Any]) -> Dict[str, Any]:
+        """Attach SL/TP to an **already-open** position (no market entry).
+
+        Unlike :meth:`place`, this never opens or adds to a position — it
+        places only the reverse-side protective legs for a position that
+        already exists at IBKR (e.g. a reconciler-adopted orphan that lost
+        its bracket). The legs are an OCA pair (one fills → the other
+        cancels): a stop at ``sl`` and a limit at ``tp``, both ``GTC`` so
+        they persist until the position closes. At least one of ``sl`` /
+        ``tp`` must be provided.
+
+        ``order`` keys: ``symbol``, ``direction`` (``"long"`` / ``"short"``
+        — the **position's** side; the protective legs are the reverse),
+        ``qty`` (whole contracts), ``sl``, ``tp``. Return envelope mirrors
+        :meth:`place`: ``{"retCode": 0, "result": {"orderId": ...}, ...}``
+        on success, ``{"retCode": <non-zero>, "retMsg": ...}`` on refusal.
+        """
+        if self.readonly:
+            raise IBConnectionError(
+                "IBClient.place_protective: client is read-only — refusing "
+                "to transmit an order. Construct without readonly=True."
+            )
+
+        tp_raw = order.get("tp")
+        sl_raw = order.get("sl")
+        if (tp_raw in (None, 0) or float(tp_raw) <= 0) and (
+            sl_raw in (None, 0) or float(sl_raw) <= 0
+        ):
+            return {
+                "retCode": 1,
+                "retMsg": "no protective levels (need at least one of sl/tp)",
+            }
+
+        direction = str(order.get("direction") or "").lower()
+        if direction not in ("long", "short"):
+            side = str(order.get("side") or "").lower()
+            direction = "long" if side in ("buy", "long") else "short"
+        # Protective legs CLOSE the position, so they take the reverse side.
+        reverse = "SELL" if direction == "long" else "BUY"
+
+        try:
+            qty = float(order["qty"])
+        except (KeyError, TypeError, ValueError) as exc:
+            return {"retCode": 1, "retMsg": f"invalid qty: {exc}"}
+        whole_qty = math.floor(qty)
+        if whole_qty < 1:
+            return {
+                "retCode": 1,
+                "retMsg": f"qty {qty} below 1 whole contract — refusing",
+            }
+        qty = float(whole_qty)
+
+        ib = self.connect()
+        contract = self._build_contract(order.get("symbol"))
+        tick = tick_size_for(order.get("symbol") or self.symbol)
+        tp_price = _round_to_tick(float(tp_raw), tick) if tp_raw else None
+        sl_price = _round_to_tick(float(sl_raw), tick) if sl_raw else None
+
+        try:
+            from ib_insync import LimitOrder, StopOrder  # type: ignore
+        except ImportError:
+            from ib_async import LimitOrder, StopOrder  # type: ignore
+
+        try:
+            # OCA group ties the legs together with no parent: when one
+            # fills, IBKR cancels the remaining leg (ocaType=1).
+            oca_group = f"oca-protect-{ib.client.getReqId()}"
+            legs = []
+            if tp_price is not None:
+                tp = LimitOrder(reverse, qty, tp_price)
+                tp.orderId = ib.client.getReqId()
+                legs.append(tp)
+            if sl_price is not None:
+                sl = StopOrder(reverse, qty, sl_price)
+                sl.orderId = ib.client.getReqId()
+                legs.append(sl)
+            for i, leg in enumerate(legs):
+                leg.ocaGroup = oca_group
+                leg.ocaType = 1
+                leg.tif = "GTC"
+                # Transmit only on the final leg so IBKR receives the OCA
+                # pair atomically (mirrors the bracket-transmit discipline
+                # in place()).
+                leg.transmit = i == len(legs) - 1
+                if self.account:
+                    leg.account = self.account
+
+            for leg in legs:
+                ib.placeOrder(contract, leg)
+            try:
+                ib.sleep(0)
+            except Exception:  # noqa: BLE001
+                pass
+        except Exception as exc:  # noqa: BLE001
+            return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
+
+        return {
+            "retCode": 0,
+            "result": {"orderId": str(legs[-1].orderId), "ocaGroup": oca_group},
+            "retMsg": "OK",
+        }
+
     @staticmethod
     def _await_parent_rejection(ib: Any, parent_trade: Any) -> Optional[str]:
         """Watch a just-placed parent order for an immediate IBKR reject.
