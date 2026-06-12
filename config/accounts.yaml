@@ -446,8 +446,9 @@ accounts:
   # (stopLossOnFill/takeProfitOnFill) so protection is broker-side.
   oanda_practice:
     exchange: oanda
-    mode: dry_run                      # SHELVED 2026-06-12 (set-account-mode
-                                       # #3446, operator-approved). Gold is
+    mode: dry_run                      # dry-run-guard: allow — operator-approved
+                                       # shelve 2026-06-12 (set-account-mode
+                                       # #3446). Gold is
                                        # already covered LIVE elsewhere — IBKR
                                        # MGC micro-gold futures (mgc_pullback_1d)
                                        # + Alpaca GLD (gld_pullback_1d) — while
