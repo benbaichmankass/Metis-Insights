@@ -54,6 +54,7 @@ from src.runtime.strategy_signal_builders import (
     htf_pullback_trend_2h_signal_builder,
     mes_trend_long_1d_signal_builder,
     xauusd_trend_1h_signal_builder,
+    mgc_trend_1h_signal_builder,
     spy_trend_long_1d_signal_builder,
     qqq_trend_long_1d_signal_builder,
     gld_pullback_1d_signal_builder,
@@ -127,6 +128,11 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # Phase 3) — the Phase-0 sweep's strongest cell. Sole strategy on
         # its (symbol, account) so arbitration never fires.
         "xauusd_trend_1h": xauusd_trend_1h_signal_builder,
+        # mgc_trend_1h: the IBKR sibling of xauusd_trend_1h — same gold edge,
+        # MGC micro-gold futures on ib_paper (paper money). Sole trend strategy
+        # on (MGC, ib_paper); arbitrates only vs mgc_pullback_1d (different
+        # timeframe/style) via the multiplexer. Backtest: OOS +32R @ 1.5bps.
+        "mgc_trend_1h": mgc_trend_1h_signal_builder,
         # M15 Phase 4 buildout — the daily ETF futures-replacements on
         # alpaca_paper (paper money): SPY/QQQ long-only trend (MES mirror)
         # + GLD pullback (MGC mirror). Each is the sole strategy on its

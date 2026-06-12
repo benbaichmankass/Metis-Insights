@@ -373,7 +373,7 @@ accounts:
                                        # localhost (TrustedIPs=127.0.0.1)
     ib_account: DUQ325724
     ib_client_id: 497                  # unique per concurrent socket
-    strategies: [turtle_soup, vwap, ict_scalp_5m, mes_trend_long_1d, mgc_pullback_1d, mhg_pullback_1d]
+    strategies: [turtle_soup, vwap, ict_scalp_5m, mes_trend_long_1d, mgc_pullback_1d, mhg_pullback_1d, mgc_trend_1h]
                                        # MES + the WS-A metals sleeve (MGC/MHG);
                                        # BTCUSDT is gated out by exchange (see
                                        # header). mes_trend_long_1d added

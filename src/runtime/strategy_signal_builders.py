@@ -2139,6 +2139,141 @@ def xauusd_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     return _with_signal_package("xauusd_trend_1h", sig)
 
 
+def mgc_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """MGC (micro gold futures) 1h trend-follower — the IBKR sibling of
+    ``xauusd_trend_1h``.
+
+    Same validated edge, same underlying (gold), different venue: MGC is
+    COMEX micro-gold futures on IBKR, so the strategy runs on the same
+    Donchian-breakout + Chandelier ATR trail
+    (``src.units.strategies.trend_donchian.order_package``), BIDIRECTIONAL,
+    at the params pinned in ``config/strategies.yaml``. Confirmatory backtest
+    (gold 1h at MGC-realistic 1.5 bps round-trip cost): TRAIN 2019-24 +49.4R /
+    1024t, OOS 2025-26 +32.2R / 245t (expectancy 0.13R, maxDD 9.1R), robust to
+    3 bps (+27.6R OOS). MGC's low futures cost (~1-1.5 bps) is why this venue
+    clears where OANDA spot was marginal — see the #3447/#3448 trainer
+    backtests. Routed to the IBKR ``ib_paper`` account (paper money);
+    ``fetch_candles`` routes MGC to IBKR via the instrument profile.
+
+    No FX weekend gate (unlike the OANDA-spot ``xauusd_trend_1h``): MGC is a
+    CME future, ``market_hours`` has no CME asset class, and the sibling IBKR
+    futures sleeves (``mes_trend_long_1d``, ``mgc_pullback_1d``) don't gate —
+    IBKR won't fire a fresh Donchian breakout on repeated stale closed-market
+    candles. Honours the YAML ``enabled`` flag as the single source of truth.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.trend_donchian import order_package
+    from src.runtime.market_data import fetch_candles
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 - never fail-open on a config error
+        strategies_cfg = {}
+    mgc_cfg = strategies_cfg.get("mgc_trend_1h", {}) or {}
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "MGC"))
+
+    if not bool(mgc_cfg.get("enabled", False)):
+        logger.info(
+            "mgc_trend_1h: strategy disabled in config/strategies.yaml - "
+            "returning side=none"
+        )
+        return _with_signal_package("mgc_trend_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "mgc_trend_1h",
+                "reason": "disabled_in_yaml",
+            },
+        })
+
+    timeframe = str(mgc_cfg.get("timeframe") or "1h")
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(
+        symbol, timeframe, exchange_client=exchange, limit=200,
+    )
+    if candles_df is None:
+        raise RuntimeError(
+            f"mgc_trend_1h: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the IBKR connection is "
+            "configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **mgc_cfg}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("mgc_trend_1h: no actionable signal (%s)", exc)
+        try:
+            log_signal(_stamp_regime({
+                "event": "mgc_trend_1h_eval",
+                "strategy": "mgc_trend_1h",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            }, candles_df))
+        except Exception:  # noqa: BLE001
+            logger.exception("mgc_trend_1h: dedicated audit emit failed")
+        return _with_signal_package("mgc_trend_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "mgc_trend_1h",
+                "reason": str(exc),
+            },
+        })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "mgc_trend_1h: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal(_stamp_regime({
+            "event": "mgc_trend_1h_eval",
+            "strategy": "mgc_trend_1h",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        }, candles_df))
+    except Exception:  # noqa: BLE001
+        logger.exception("mgc_trend_1h: dedicated audit emit failed")
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "mgc_trend_1h",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "mgc_trend_1h",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+            "strategy_risk_pct": float(mgc_cfg.get("risk_pct", 0.3) or 0.3),
+        },
+    }
+    _emit_shadow_preds(
+        "mgc_trend_1h", sig, mgc_cfg, symbol,
+        timeframe=timeframe, candles_df=candles_df,
+    )
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df, symbol=symbol, timeframe=timeframe)
+    return _with_signal_package("mgc_trend_1h", sig)
+
+
+
 def spy_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """SPY daily LONG-ONLY trend-follower (M15 Phase 4 buildout, S-M15-PHASE4).
 

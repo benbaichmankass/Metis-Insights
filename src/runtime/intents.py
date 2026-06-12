@@ -199,6 +199,10 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # xauusd_trend_1h — gold 1h trend (M15 Phase 3); sole strategy on its
     # symbol/account, value 0 mirrors mes_trend_long_1d.
     "xauusd_trend_1h": 0,
+    # mgc_trend_1h — gold 1h trend on MGC futures (ib_paper); IBKR sibling of
+    # xauusd_trend_1h. Shares (MGC, ib_paper) with mgc_pullback_1d but a
+    # different timeframe/style; value 0 mirrors the other trend sleeves.
+    "mgc_trend_1h": 0,
     # M15 Phase 4 ETF legs — sole strategy per symbol, value 0.
     "spy_trend_long_1d": 0,
     "qqq_trend_long_1d": 0,
