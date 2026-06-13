@@ -598,10 +598,10 @@
    "opened_at": "2026-06-13T18:30:00+00:00",
    "opened_by": "claude (operator session: models/strategies status + first promotion)",
    "source": "Operator review 2026-06-13: approved 'refines only, drop nothing' for the 15 research_only models. yz-1h promoted shadow->advisory same session (first ever past shadow).",
-   "title": "REFINE btc-regime-5m-lgbm-flow-v1 (VPIN/order-flow): add class weighting + re-eval as forward microstructure data accrues",
-   "description": "Order-flow/VPIN head (S10). accuracy 0.985 is class-collapse (predicts 'range' always): f1_volatile 0.119, only 367 volatile bars of 105k. Two levers: (1) class weighting / focal loss to stop the majority collapse; (2) the live microstructure side-car (market_microstructure, ~288 bars/day) is still accruing so a clean A/B is weeks out by design (MB-20260604-002). Refine: retrain with class weights now; re-run the A/B once forward capture is sufficient.",
+   "title": "VPIN/order-flow head (btc-regime-5m-lgbm-flow-v1): DATA-BLOCKED, not idle \u2014 awaits forward L2 capture",
+   "description": "Correction after reading the manifest (2026-06-13): this head CANNOT be retrained/A/B'd meaningfully now. Its ofi/vpin/order_imbalance/spread/microprice columns require a market_microstructure side-stream that is FORWARD-ONLY (no historical L2 to backfill); until the ict-orderflow-capture side-car accrues enough bars the columns are 0.0 and the head collapses to btc-regime-5m-lgbm-v2. class_weight is already volatile=50.0. So there is no useful trainer job to kick \u2014 the lever is TIME (capture accruing ~288 bars/day). Tracked jointly with MB-20260604-002. Action: when capture has months of data, rebuild market_features 5m v5 with microstructure_path, restrict eval to the captured window, compare vs v2.",
    "tier": "Tier 1 (trainer)",
-   "trigger_condition": "Class-weighted retrain now; forward A/B when market_microstructure has >= a few months capture.",
+   "trigger_condition": "market_microstructure side-car has accrued >= a few months of forward bars.",
    "resolution_criteria": "f1_volatile rises off the floor under purged CV with class weighting AND forward A/B is non-negative -> propose shadow.",
    "status": "open",
    "snoozed_until": null,
@@ -609,6 +609,10 @@
     {
      "at": "2026-06-13T18:30:00+00:00",
      "note": "Latest nightly-eval metrics pulled via trainer-vm-diag #3477."
+    },
+    {
+     "at": "2026-06-13T19:30:00+00:00",
+     "note": "Manifest review: forward-only capture, no L2 backfill; class_weight already 50.0. Not runnable now \u2014 corrected from the earlier 'add class weights' note."
     }
    ],
    "status_history": [
