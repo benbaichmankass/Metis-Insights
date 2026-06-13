@@ -137,6 +137,31 @@ if [ -f "${_HEALTHSNAP_DROPIN_SRC}" ]; then
     fi
 fi
 
+# Why ict-hourly-snapshot needs the data-dir drop-in:
+#   scripts/send_hourly_now.py (fired by ict-hourly-snapshot.timer) calls
+#   account_snapshots() in src/runtime/hourly_report.py, which WRITES
+#   runtime_logs/balance_snapshots.json via runtime_logs_dir() (DATA_DIR-aware).
+#   ict-web-api (the READER, /api/bot/accounts/balances) runs with
+#   DATA_DIR=/data/bot-data via its own drop-in. Without this drop-in the
+#   writer inherits no DATA_DIR (stripped from .env by fix_data_dir.sh),
+#   falls back to <repo>/runtime_logs, and writes to a DIFFERENT directory
+#   than the API reads — so the dashboard + risk-gate balance view froze at
+#   the data-dir migration (~2026-05-25) while the repo-path copy kept
+#   updating (BL-20260611-M15-2). Identical writer/reader path-split as the
+#   ict-health-snapshot case above (BL-20260529-005). oneshot+timer: the next
+#   timer tick (<=1h) picks up the new env after daemon-reload; no restart.
+_HOURLYSNAP_DROPIN_SRC="${REPO_DIR}/deploy/dropins/data-dir.conf"
+_HOURLYSNAP_DROPIN_DST="${SYSTEMD_DIR}/ict-hourly-snapshot.service.d/data-dir.conf"
+if [ -f "${_HOURLYSNAP_DROPIN_SRC}" ]; then
+    if [ ! -e "${_HOURLYSNAP_DROPIN_DST}" ] || ! cmp -s "${_HOURLYSNAP_DROPIN_SRC}" "${_HOURLYSNAP_DROPIN_DST}"; then
+        echo ">>> install_systemd_units: dropin data-dir.conf → ${_HOURLYSNAP_DROPIN_DST}"
+        "${SUDO[@]}" mkdir -p "$(dirname "${_HOURLYSNAP_DROPIN_DST}")"
+        "${SUDO[@]}" cp "${_HOURLYSNAP_DROPIN_SRC}" "${_HOURLYSNAP_DROPIN_DST}"
+        "${SUDO[@]}" chmod 0644 "${_HOURLYSNAP_DROPIN_DST}"
+        changed=1
+    fi
+fi
+
 # Why ict-claude-bridge needs the data-dir drop-in:
 #   The bridge is the SOLE drainer of the Claude update channel — it reads
 #   $DATA_DIR/runtime_logs/pending_claude_pings (via runtime_logs_dir()).
