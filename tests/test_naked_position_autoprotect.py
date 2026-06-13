@@ -102,14 +102,14 @@ def test_resolve_protective_levels_none_when_no_match(tmp_path):
     assert om._resolve_protective_levels(db, "MHGN6", "long") == (None, None)
 
 
-def _insert_naked(db, *, trade_id=2540, symbol="MHGN6"):
+def _insert_naked(db, *, trade_id=2540, symbol="MHGN6", notes="{}"):
     conn = db.connect()
     conn.execute(
         "INSERT INTO trades (id, account_id, symbol, direction, position_size, "
         "stop_loss, take_profit_1, created_at, notes, status, is_backtest) "
         "VALUES (?,?,?,?,?,?,?,?,?,?,0)",
         (trade_id, "ib_paper", symbol, "long", 3, None, None,
-         "2026-06-12T04:41:22+00:00", "{}", "open"),
+         "2026-06-12T04:41:22+00:00", notes, "open"),
     )
     # Originating package so levels resolve.
     conn.execute(
@@ -158,3 +158,45 @@ def test_autoprotect_on_attaches_and_stamps(tmp_path, monkeypatch):
     # Second pass is a no-op (idempotent — already stamped).
     summary2 = om._check_naked_positions(db)
     assert summary2["protected"] == 0
+
+
+def test_autoprotect_attaches_even_if_previously_alerted(tmp_path, monkeypatch):
+    # The #2540 case: a position alerted BEFORE the flag was enabled must still
+    # get protected once autoprotect is on — "alerted" is not "protected".
+    db = _FakeDB(tmp_path / "j.db")
+    _insert_naked(db, notes=json.dumps({"naked_sltp_alerted_at": "2026-06-12T04:50:00+00:00"}))
+    monkeypatch.setenv("NAKED_POSITION_AUTOPROTECT", "1")
+    monkeypatch.setattr(om, "_attempt_naked_autoprotect", lambda row, sl, tp: True)
+
+    summary = om._check_naked_positions(db)
+    assert summary["protected"] == 1
+    row = db.fetch(2540)
+    assert row["stop_loss"] == 6.045 and json.loads(row["notes"]).get("naked_sltp_attached_at")
+
+
+def test_alerted_position_not_realerted_when_autoprotect_off(tmp_path, monkeypatch):
+    # Alert-only mode: an already-alerted position is skipped (no re-alert spam).
+    db = _FakeDB(tmp_path / "j.db")
+    _insert_naked(db, notes=json.dumps({"naked_sltp_alerted_at": "2026-06-12T04:50:00+00:00"}))
+    monkeypatch.delenv("NAKED_POSITION_AUTOPROTECT", raising=False)
+    alerts = []
+    import src.runtime.execution_diagnostics as ed
+    monkeypatch.setattr(ed, "enqueue_naked_position_alert", lambda **k: alerts.append(k))
+
+    summary = om._check_naked_positions(db)
+    assert summary["alerted"] == 0 and alerts == []  # already alerted → skipped
+
+
+def test_autoprotect_failure_does_not_realert_previously_alerted(tmp_path, monkeypatch):
+    # autoprotect ON but the IB place fails: a previously-alerted position must
+    # NOT be re-alerted every tick (it waits for the next attach attempt).
+    db = _FakeDB(tmp_path / "j.db")
+    _insert_naked(db, notes=json.dumps({"naked_sltp_alerted_at": "2026-06-12T04:50:00+00:00"}))
+    monkeypatch.setenv("NAKED_POSITION_AUTOPROTECT", "1")
+    monkeypatch.setattr(om, "_attempt_naked_autoprotect", lambda row, sl, tp: False)
+    alerts = []
+    import src.runtime.execution_diagnostics as ed
+    monkeypatch.setattr(ed, "enqueue_naked_position_alert", lambda **k: alerts.append(k))
+
+    summary = om._check_naked_positions(db)
+    assert summary["protected"] == 0 and summary["alerted"] == 0 and alerts == []

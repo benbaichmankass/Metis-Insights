@@ -3493,8 +3493,15 @@ def _check_naked_positions(db) -> Dict[str, int]:
 
         summary["naked"] += 1
         notes = _decode_notes(row["notes"])
-        if notes.get("naked_sltp_alerted_at") or notes.get("naked_sltp_attached_at"):
-            continue  # already handled (alerted or auto-protected); skip
+        already_attached = bool(notes.get("naked_sltp_attached_at"))
+        already_alerted = bool(notes.get("naked_sltp_alerted_at"))
+        if already_attached:
+            continue  # already auto-protected; nothing to do
+        if already_alerted and not autoprotect_on:
+            continue  # already alerted; alert-only mode → don't re-alert each tick
+        # If autoprotect is ON, a position that was alerted-but-never-attached
+        # (e.g. an orphan alerted BEFORE the flag was enabled) still gets an
+        # attach attempt below — "alerted" is not "protected".
 
         sl = row["stop_loss"]
         tp = row["take_profit_1"]
@@ -3538,6 +3545,12 @@ def _check_naked_positions(db) -> Dict[str, int]:
                     a_sl, a_tp, trade_id, account, symbol,
                 )
                 continue  # protected; no naked alert needed
+
+        # Auto-protect didn't attach this tick (off, levels unresolved, or the
+        # IB place failed). If we already alerted on a prior tick, don't re-alert
+        # — just leave it for the next attach attempt.
+        if already_alerted:
+            continue
 
         logger.warning(
             "_check_naked_positions: open trade id=%s account=%s symbol=%s "
