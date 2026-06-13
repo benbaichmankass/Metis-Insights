@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260612-002",
+      "opened_at": "2026-06-12T20:10:00+00:00",
+      "opened_by": "claude (doc-freshness, session wrap)",
+      "source": "doc-freshness at end of the 2026-06-12 operator-directed session.",
+      "title": "Canonical-ledger entries for the 2026-06-12 session (mgc_trend_1h adoption, OANDA shelve, IB TIF fix, naked-position auto-protect)",
+      "description": "Doc-completeness (not a contradiction): the session shipped 4 things to main (PRs #3441, #3445) that lack canonical-ledger rows. Add: (1) ARCHITECTURE-CANONICAL.md change-log row + ROADMAP entry for mgc_trend_1h (gold 1h trend on ib_paper MGC, roster 17->18, the venue-swap sibling of xauusd_trend_1h; backtest OOS +32R @1.5bps); (2) note the OANDA gold sleeve shelved (oanda_practice -> dry_run, #3446) in the ROADMAP M15 row (gold now covered by MGC/GLD, OANDA US can't trade XAU_USD); (3) the IB TIF fix (#3441, Error 10349) + the naked-position auto-protect (NAKED_POSITION_AUTOPROTECT, now in the CLAUDE.md env table) in the architecture change log. A proper sprint log under docs/sprint-logs/ would also capture the session. Low urgency \u2014 code/config + CLAUDE.md env table are all current; this is the historical record catching up.",
+      "tier": 1,
+      "trigger_condition": "Next /health-review or doc pass.",
+      "resolution_criteria": "ARCHITECTURE-CANONICAL change-log + ROADMAP carry the 2026-06-12 session's changes.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260612-001",
       "opened_at": "2026-06-12T06:10:00+00:00",
       "opened_by": "claude (/health-review)",
