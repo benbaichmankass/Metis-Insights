@@ -577,12 +577,16 @@
    "tier": "Tier 1 (trainer)",
    "trigger_condition": "Operator/Claude kicks the trainer retrain (autonomous trainer territory).",
    "resolution_criteria": "New manifest trains cleanly with serveable-only features; f1_volatile within ~0.05 of the OI variant under purged CV -> propose shadow.",
-   "status": "open",
+   "status": "in_progress",
    "snoozed_until": null,
    "evidence_log": [
     {
      "at": "2026-06-13T18:30:00+00:00",
      "note": "Latest nightly-eval metrics pulled via trainer-vm-diag #3477."
+    },
+    {
+     "at": "2026-06-13T20:50:00+00:00",
+     "note": "DONE step 1: forked btc-regime-1h-lgbm-funding-svble-v1 (OI cols dropped, reuses market_features v002 - no rebuild). Trained + registered (research_only) via trainer #3482. Metrics retain the parent almost exactly: macro_f1 0.6563, f1_volatile 0.4789, recall_volatile 0.664 - so dropping the unserveable OI features cost nothing. NEXT: gate-check --datasets-root for oos_edge; if it passes, propose shadow promotion (the next advisory candidate, strong where yz-1h is weak)."
     }
    ],
    "status_history": [
@@ -590,6 +594,11 @@
      "at": "2026-06-13T18:30:00+00:00",
      "to": "open",
      "by": "claude (operator session: models/strategies status + first promotion)"
+    },
+    {
+     "at": "2026-06-13T20:50:00+00:00",
+     "to": "in_progress",
+     "by": "claude (refine execution)"
     }
    ]
   },
@@ -639,6 +648,10 @@
     {
      "at": "2026-06-13T18:30:00+00:00",
      "note": "Latest nightly-eval metrics pulled via trainer-vm-diag #3477."
+    },
+    {
+     "at": "2026-06-13T20:50:00+00:00",
+     "note": "BLOCKED on data: trainer #3480 shows datasets-out/market_features/MES is EMPTY (not built) and market_raw/MES has no 5m data; macro side-stream datasets-out/macro/MES/v002 IS present. So the MES macro A/B needs MES market_raw 5m built first, then market_features MES 5m v6 with macro_path. Not a one-shot - queue the MES raw 5m fetch/build before the A/B."
     }
    ],
    "status_history": [
