@@ -1256,10 +1256,12 @@ class Coordinator:
                 })
                 continue
 
-            # WS7 advisory influence (default-off, gated by ADVISORY_MODE).
-            # Reductive only — can shrink the RiskManager-sized qty toward a
-            # floor when a quorum of advisory-stage models is bearish, never
-            # enlarge it. Inert (returns qty unchanged) when the flag is off.
+            # WS7 advisory influence — gated by model STAGE alone (advisory /
+            # limited_live / live_approved); shadow only logs. Reductive only —
+            # can shrink the RiskManager-sized qty toward a floor when a quorum
+            # of advisory-stage models is bearish, never enlarge it. Per-strategy
+            # advisory_policy is permissive config (default annotate = log the
+            # would-be cut, no resize); demote a model to shadow to turn it off.
             from src.runtime.advisory_sizing import apply_advisory_downsize
             sized_qty = apply_advisory_downsize(
                 pkg, sized_qty, account_name=account.name,

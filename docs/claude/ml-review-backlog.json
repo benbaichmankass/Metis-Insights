@@ -650,17 +650,21 @@
    "opened_at": "2026-06-13T18:30:00+00:00",
    "opened_by": "claude (operator session: models/strategies status + first promotion)",
    "source": "Operator review 2026-06-13: approved 'refines only, drop nothing' for the 15 research_only models. yz-1h promoted shadow->advisory same session (first ever past shadow).",
-   "title": "ENABLE advisory influence for btc-regime-1h-lgbm-yz-v1 (now at advisory): the second gate that actually moves orders",
-   "description": "Promotion to advisory (done 2026-06-13) makes the model's scores ADVISORY-eligible but is inert on the live book: the advisory-influence operator (src/runtime/advisory_influence.py, reductive-only downsize) requires BOTH the ADVISORY_MODE env flag ON (default off) AND a per-strategy advisory_policy block (mode=downsize/annotate) on the target BTC strategy - neither is set. The regime ROUTER is a separate ADX-based path and does not consume this model's stage. To actually let yz-1h influence trades: (a) decide which BTC strategy(ies) carry an advisory_policy + the floor/quorum/threshold, (b) set ADVISORY_MODE on the live VM, (c) soak runtime_logs/advisory_decisions.jsonl in 'annotate' before 'downsize'. Each step is Tier-3, operator-gated.",
+   "title": "ENABLE downsize influence for advisory models (currently annotate-by-default after the 2026-06-13 gate collapse)",
+   "description": "After the 2026-06-13 gate collapse (PR on branch claude/models-strategies-status-qnmj8o), ADVISORY_MODE is gone and a model promoted past shadow influences by the deployment STAGE alone. The permissive default is mode=annotate: advisory-stage models (currently btc-regime-1h-lgbm-yz-v1) score every eligible BTC order and LOG the would-be reductive downsize to runtime_logs/advisory_decisions.jsonl, but DO NOT resize. To let them actually cut live size: set advisory_policy.mode=downsize on the chosen BTC strategy(ies) in config/strategies.yaml (+ optional size_floor/quorum/bearish_threshold). Off-switch = demote the model to shadow. Soak the annotate log first; flip to downsize once it looks sane. Tier-3.",
    "tier": "Tier 3 (live order path)",
-   "trigger_condition": "Operator decides to turn on advisory order-influence (separate explicit approval).",
-   "resolution_criteria": "advisory_policy wired on chosen strategy + ADVISORY_MODE on + annotate-mode soak clean -> operator approves downsize mode.",
+   "trigger_condition": "Operator reviews advisory_decisions.jsonl annotate soak and decides to arm downsize on a strategy.",
+   "resolution_criteria": "advisory_policy.mode=downsize set on chosen strategy after a clean annotate-mode soak; operator-approved Tier-3 merge.",
    "status": "open",
    "snoozed_until": null,
    "evidence_log": [
     {
      "at": "2026-06-13T18:30:00+00:00",
      "note": "Latest nightly-eval metrics pulled via trainer-vm-diag #3477."
+    },
+    {
+     "at": "2026-06-13T19:10:00+00:00",
+     "note": "Gate collapse implemented: ADVISORY_MODE removed; advisory_policy default=annotate; stage is the only gate; demote=off. yz-1h already at advisory, so it begins annotate-logging on deploy."
     }
    ],
    "status_history": [

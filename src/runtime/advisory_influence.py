@@ -6,12 +6,14 @@ ladder could *observe* (shadow logging) and *decide* (gate-check /
 stage-guard) but could not *act* — `log_advisory_scores` is explicitly
 "no order action taken."
 
-This module is **rollout step 1** of
-`docs/sprint-plans/ai-traders/ws7-advisory-influence-operator-DESIGN.md`:
-the pure operator + its config contract + the default-off gate. It is
-**not yet wired into any live strategy** — wiring onto a specific
-model/strategy is the separately operator-gated enablement step (rollout
-step 2+). With the flag off (the default) this code is inert.
+This module is the pure operator + its config contract. It is wired into
+the live order path by ``src/runtime/advisory_sizing.py`` (per-account
+sizing in ``Coordinator.multi_account_execute``). Whether it influences a
+given order is decided solely by the model's deployment STAGE plus the
+strategy's ``advisory_policy`` mode — there is **no separate enable flag**
+(the former ``ADVISORY_MODE`` env gate was removed 2026-06-13: it was a
+redundant default-off switch stacked on the stage gate, the exact
+"third gate" the Prime Directive forbids).
 
 Operator decisions (2026-05-25):
 
@@ -30,10 +32,15 @@ Non-negotiables enforced by construction:
   create a trade, enlarge ``qty``, widen the stop, move the take-profit,
   or flip side. The closing guard asserts ``final.qty <= intended.qty``
   and that every other order field is untouched.
-- **Default off.** Active only when ``ADVISORY_MODE`` is on AND the
-  strategy supplies an ``advisory_policy`` with a non-``off`` mode AND at
-  least one advisory-stage score is present. Any of those absent =
-  identity passthrough.
+- **Stage is the only gate.** A model influences orders iff it is at an
+  influence stage (``advisory`` / ``limited_live`` / ``live_approved``);
+  ``shadow`` only logs. Promotion past shadow turns influence ON, demotion
+  back to ``shadow`` turns it OFF — one operator-gated mechanism, no
+  separate enable flag. The per-strategy ``advisory_policy`` is **pure
+  config with a permissive default** (per the Prime Directive — omitting
+  it never strands capability): omit it ⇒ ``annotate`` (log the would-be
+  downsize, never resize); ``mode: off`` opts a strategy out; ``mode:
+  downsize`` applies the reductive size cut.
 - **Deterministic fallback.** Empty/`None` scores → identity. The caller
   wraps score collection in the existing per-predictor ``try/except`` so
   a broken model yields no score and the package passes through.
@@ -55,6 +62,14 @@ _VALID_MODES = frozenset({"off", "annotate", "downsize"})
 # Quorum sentinel: a majority of the advisory models that produced a score.
 _MAJORITY = "majority"
 
+# Default policy MODE when a strategy omits ``advisory_policy``. Permissive
+# per the Prime Directive: omitting a config never strands capability, so a
+# model promoted past shadow influences by default — but in the SAFEST way,
+# ``annotate`` (log what it WOULD downsize, never actually resize). The
+# operator flips a strategy to ``downsize`` once a soak of
+# advisory_decisions.jsonl looks clean. An explicit ``mode: off`` opts out.
+DEFAULT_MODE = "annotate"
+
 
 @dataclass(frozen=True)
 class AdvisoryPolicy:
@@ -69,7 +84,7 @@ class AdvisoryPolicy:
     hard veto, which we do not default to).
     """
 
-    mode: str = "off"
+    mode: str = DEFAULT_MODE
     bearish_threshold: float = 0.35
     size_floor: float = 0.5
     quorum: int | str = _MAJORITY
@@ -104,8 +119,11 @@ class AdvisoryPolicy:
 def parse_policy(cfg: Mapping[str, Any] | None) -> AdvisoryPolicy:
     """Build an :class:`AdvisoryPolicy` from a strategy cfg block.
 
-    A missing or empty ``advisory_policy`` yields the default (mode
-    ``off``) — i.e. omitting it opts the strategy out, no influence.
+    A missing or empty ``advisory_policy`` yields the **permissive default**
+    (mode ``annotate`` — log the would-be downsize, never resize). An
+    explicit ``mode: off`` is the opt-out; ``mode: downsize`` arms the
+    reductive size cut. This mirrors the strategy/account gates: omitting a
+    field never strands capability; demotion is explicit.
     """
     if not cfg:
         return AdvisoryPolicy()
@@ -117,7 +135,7 @@ def parse_policy(cfg: Mapping[str, Any] | None) -> AdvisoryPolicy:
         quorum_raw if isinstance(quorum_raw, str) else int(quorum_raw)
     )
     return AdvisoryPolicy(
-        mode=str(raw.get("mode", "off")),
+        mode=str(raw.get("mode", DEFAULT_MODE)),
         bearish_threshold=float(raw.get("bearish_threshold", 0.35)),
         size_floor=float(raw.get("size_floor", 0.5)),
         quorum=quorum,
