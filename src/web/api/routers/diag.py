@@ -113,6 +113,19 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     "ict-insights-generator.timer",
     "ict-insights-generator-strategies.service",
     "ict-insights-generator-strategies.timer",
+    # 2026-06-13 — the hourly + daily reporter oneshots and their timers.
+    # ict-hourly-snapshot is the SOLE writer of runtime_logs/balance_snapshots.json
+    # (the dashboard + risk-gate account-balance view); ict-health-snapshot is the
+    # SOLE writer of the artifacts/health/* cron snapshots. Both were invisible on
+    # the diag surface, so when ict-hourly-snapshot's balance write silently diverged
+    # to the repo path at the data-dir migration, the stall hid for ~3 weeks with no
+    # read path to catch it (BL-20260611-M15-2). Making them queryable lets a session
+    # verify the writer is firing on cadence and tail its journal for errors — same
+    # rationale as the watchdog / bridge / insights pairs above.
+    "ict-hourly-snapshot.service",
+    "ict-hourly-snapshot.timer",
+    "ict-health-snapshot.service",
+    "ict-health-snapshot.timer",
 )
 
 _ADVISORY_LOG = runtime_logs_dir() / "advisory_decisions.jsonl"

@@ -127,14 +127,15 @@
           "note": "UNVERIFIED — no new eth_pullback_2h order since the fix deployed. Newest ETH order is still #2533 (16:04Z 06-11, qty 14.937, pre-fix, exchange_rejected retCode 10001). eth_pullback_2h_eval is firing each tick (snapshot tail 06:02:16Z) but non-actionable (chop, adx~12-13), so no order to confirm the step-alignment. Carry."
         }
       ],
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-13T08:05:00+00:00",
+      "resolved_by": "claude (operator-directed verification)",
       "resolution": null,
       "snoozed_until": null,
       "evidence_log": [
         "2026-06-13 (/health-review): STILL FIRING. Live trades pull (#3462): eth_pullback_2h bybit_1 demo trades 2532 (15:30Z) + 2533 (16:04Z) on 6/11 both EXCHANGE_REJECTED 'Order submission failed for ETHUSDT: Qty invalid (ErrCode...)' = qty not aligned to ETHUSDT lotSizeFilter.qtyStep. eth_pullback_2h is the new M15 demo-soak strategy; the qtyStep rounding bug blocks its fills. Open."
-      ]
+      ],
+      "resolution_note": "ALREADY FIXED by PR #3416 (7cec7ba, merged 2026-06-11 17:25 UTC, in live HEAD cf95e332). execute.py:656-690 floors qty to lotSizeFilter.qtyStep (live get_lot_rule -> static map ETHUSDT linear 0.01/0.01) and refuses pre-flight below minOrderQty. The 'Qty invalid' rejections cited in the 6/13 review (trades 2532/2533) were at 15:30-16:04 UTC on 6/11 -- 1-2.5h BEFORE the fix existed. Verified: ZERO qty-error rejections after the deploy; every eth_pullback_2h rejection since is the demo-soak netting guard (reentry_suppressed), and eth fills+reduces on bybit_1 demo (e.g. closes 2547/2549/2550) -- proving alignment works. No further action."
     },
     {
       "id": "BL-20260611-001",
@@ -1560,7 +1561,7 @@
       "title": "balance_snapshots.json stale since 2026-05-25 — hourly balance snapshot writer silent for ~17 days; new OANDA/Alpaca accounts never recorded",
       "description": "runtime_logs/balance_snapshots.json (written by src/runtime/hourly_report.py so the hourly report can compute a 1h balance delta) was last written 2026-05-25 and carries only the Bybit accounts, so /api/bot/accounts/balances (the dashboard Accounts tab's tracked-balance source and the M15 soak's intended balance probe) is 17 days stale and blind to oanda_practice/alpaca_paper. Either the hourly report stopped running ~2026-05-25 or its snapshot write broke silently. Investigate the hourly-report path (service/timer or in-process cadence), restore the writer, and make sure account_snapshots() enumerates ALL configured accounts incl. the new brokers. Until fixed, balance probes must go through journalctl/exchange audit scripts.",
       "tier": 1,
-      "status": "open",
+      "status": "in_progress",
       "resolved_at": null,
       "resolved_by": null,
       "resolution_note": null,
@@ -1570,6 +1571,9 @@
           "by": "claude (/health-review)",
           "note": "CONFIRMED via /api/bot/accounts/balances (#3395): as_of 2026-05-25T05:38Z, age 1,503,510s (~17.4 days); only bybit_1/bybit_2 present — no ib/oanda/alpaca balances at all. Cross-ref: today's cron health snapshot accounts_api check reports oanda_practice + alpaca_paper API probes failing (M15 soak watch item). Carry; the hourly snapshot writer needs a dedicated fix session."
         }
+      ],
+      "evidence_log": [
+        "2026-06-13 (operator-directed root-cause): ROOT CAUSE = DATA_DIR drop-in coverage gap. ict-hourly-snapshot.service (scripts/send_hourly_now.py -> hourly_report.account_snapshots() -> _save_balance_snapshots -> runtime_logs/balance_snapshots.json) is NOT in install_systemd_units.sh's data-dir.conf auto-install list (which covers trader-live/web-api/telegram-bot/health-snapshot/claude-bridge/insights) and sets no Environment=DATA_DIR in its unit. fix_data_dir.sh STRIPS DATA_DIR from .env, so the hourly writer resolves runtime_logs_dir() to the REPO-relative path (paths._resolve_root unset->repo fallback) and writes the fresh balance file to <repo>/runtime_logs, while ict-web-api (has the drop-in) READS /data/bot-data/runtime_logs -> frozen at the data-dir migration (~5/25). Identical writer/reader path-split as the web-api 2026-05-11 incident and the ict-health-snapshot BL-20260529-005 fix. No code change 5/22-5/29 touched the writer chain (rules out a code regression); confirmed entirely from in-repo evidence (drop-in coverage list + unit file + _resolve_root). FIX STAGED (branch claude/health-strategy-ml-review-ceaa21, PR #3466): (1) install_systemd_units.sh installs data-dir.conf for ict-hourly-snapshot.service (mirrors the health-snapshot block); (2) diag.py _CANONICAL_UNITS gains ict-hourly-snapshot + ict-health-snapshot service+timer so the writer is observable (the 3-week stall hid because nothing watched it). Tier-2 deploy via pull-and-deploy pending operator OK; verify post-deploy that /api/bot/accounts/balances age_seconds drops + the hourly unit shows active on /api/diag/services."
       ]
     },
     {
