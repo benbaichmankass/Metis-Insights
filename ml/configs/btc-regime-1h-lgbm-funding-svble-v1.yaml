@@ -20,9 +20,12 @@
 # the parent / the v2 champion, so this stays a clean A/B that isolates the
 # marginal lift of the SERVEABLE funding features alone.
 #
-# REQUIRES a market_features rebuild with a FUNDING-ONLY side-stream joined
-# (funding_oi_path pointing at a funding-history pull; OI columns may be absent
-# or 0.0 — they are not referenced here). Eval recipe:
+# NO REBUILD NEEDED: reuses the EXISTING market_features BTCUSDT 1h v002 (the
+# funding/OI-joined build the parent funding head already trains on) — this
+# variant simply selects a feature SUBSET that excludes the two OI columns. The
+# "serveable" property is about LIVE serving (the live feature pipeline can
+# compute funding-z without OI), not the training dataset. Eval recipe:
+#   python -m ml train btc-regime-1h-lgbm-funding-svble-v1
 #   python -m ml compare btc-regime-1h-lgbm-v2 btc-regime-1h-lgbm-funding-svble-v1
 # If f1_volatile holds vs the parent AND the features are serveable live,
 # propose promotion to shadow (Tier-3, operator-gated) — the candidate to
@@ -75,7 +78,7 @@ dataset:
   family: market_features
   symbol_scope: BTCUSDT
   timeframe: 1h
-  version: v003
+  version: v002
 evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
 evaluator_config:
   target_column: regime_label
@@ -89,7 +92,7 @@ notes: |
   open_interest_change_zscore) that cannot be served live (Bybit OI history
   retention ~8d), keeps the funding-rate z-score/extreme features that ARE
   serveable. Clean A/B vs btc-regime-1h-lgbm-v2 isolates the serveable funding
-  lift. Requires market_features rebuilt with a funding-only side-stream
-  (dataset version v003). Leakage gate forbids forward_log_return /
+  lift. Reuses the existing market_features BTCUSDT 1h v002 (funding/OI-joined)
+  via a feature subset — no rebuild. Leakage gate forbids forward_log_return /
   forward_log_return_vol / regime_label. If f1_volatile holds and the features
   are confirmed live-serveable, propose promotion to shadow (operator-gated).
