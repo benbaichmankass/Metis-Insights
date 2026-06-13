@@ -1,5 +1,17 @@
 # WS7 — Advisory influence operator (DESIGN — operator sign-off required)
 
+> **UPDATE 2026-06-13 — gate collapse (operator-directed).** The `ADVISORY_MODE`
+> global enable flag has been **removed**. It was a redundant default-off switch
+> stacked on the deployment-stage gate — the "third gate" the Prime Directive
+> forbids. Advisory influence is now gated by the model's **deployment STAGE
+> alone** (advisory / limited_live / live_approved). The per-strategy
+> `advisory_policy` became **permissive config**: omitting it ⇒ `annotate` (log
+> the would-be downsize, never resize); explicit `mode: off` opts out; `mode:
+> downsize` arms the cut. **Promote past shadow = influence ON; demote to shadow
+> = influence OFF** (the single operator-gated mechanism — no env flag). The
+> body below is preserved as the original step-1 design; where it says
+> "`ADVISORY_MODE` off (the default)", read "stage = shadow, or `mode: off`".
+
 **Status:** 🔄 **Rollout step 1 BUILT (default-off, not wired)** — the
 operator + config contract + gate + invariant tests shipped as
 `src/runtime/advisory_influence.py` (2026-05-25). It is **inert**: with

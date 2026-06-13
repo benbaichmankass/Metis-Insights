@@ -148,6 +148,24 @@ def test_load_closed_trades_excludes_backtest_and_demo(tmp_path: Path):
     assert ids == {"1", "2"}
 
 
+def test_load_closed_trades_tolerates_unset_or_missing_db(tmp_path: Path):
+    # The trainer VM has no live trade_journal.db, so promotion-readiness /
+    # stage-guard pass db_path=None. That must read as "no live trades"
+    # (empty), not crash on Path(None) (the TypeError that broke
+    # `python -m ml promotion-readiness` on the trainer).
+    assert load_closed_trades(None) == []
+    assert load_closed_trades(tmp_path / "does-not-exist.db") == []
+
+
+def test_compute_attribution_no_db_yields_no_live_attribution(tmp_path: Path):
+    # With db_path=None there are no trades to join, so attribution is empty
+    # — the live-attribution gates downstream read as insufficient-data
+    # rather than the whole sweep aborting.
+    log = tmp_path / "shadow.jsonl"
+    log.write_text("")
+    assert compute_attribution(db_path=None, shadow_log=log) == []
+
+
 def test_compute_attribution_end_to_end(tmp_path: Path):
     db = tmp_path / "j.db"
     _seed_db(db)

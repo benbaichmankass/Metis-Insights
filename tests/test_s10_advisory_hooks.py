@@ -15,14 +15,12 @@ Validates:
 from __future__ import annotations
 
 import json
-import os
 from typing import Any, Mapping
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.runtime.shadow_adapter import with_shadow_preds_advisory
-from src.runtime.runtime_flags import _advisory_mode_enabled
 
 
 # ---------------------------------------------------------------------------
@@ -140,38 +138,6 @@ class TestWithShadowPredsAdvisory:
             "d", predictors=[pred], feature_row={}
         )
         assert scores == {}
-
-
-# ---------------------------------------------------------------------------
-# _advisory_mode_enabled
-# ---------------------------------------------------------------------------
-
-class TestAdvisoryModeEnabled:
-    def test_default_false_empty_settings(self):
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("ADVISORY_MODE", None)
-            assert _advisory_mode_enabled({}) is False
-
-    def test_settings_dict_true(self):
-        assert _advisory_mode_enabled({"ADVISORY_MODE": "true"}) is True
-
-    def test_settings_dict_false(self):
-        assert _advisory_mode_enabled({"ADVISORY_MODE": "false"}) is False
-
-    def test_settings_dict_one(self):
-        assert _advisory_mode_enabled({"ADVISORY_MODE": "1"}) is True
-
-    def test_env_var_true(self):
-        with patch.dict(os.environ, {"ADVISORY_MODE": "true"}):
-            assert _advisory_mode_enabled({}) is True
-
-    def test_env_var_false(self):
-        with patch.dict(os.environ, {"ADVISORY_MODE": "false"}):
-            assert _advisory_mode_enabled({}) is False
-
-    def test_settings_takes_precedence_over_env(self):
-        with patch.dict(os.environ, {"ADVISORY_MODE": "false"}):
-            assert _advisory_mode_enabled({"ADVISORY_MODE": "true"}) is True
 
 
 # ---------------------------------------------------------------------------

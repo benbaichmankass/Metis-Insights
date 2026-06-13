@@ -79,19 +79,37 @@ def test_discover_filters_to_influence_stages():
     assert discover_advisory_stage_model_ids(registry) == ["b", "c", "e"]
 
 
-# ---- compute_advisory_factor: default-off inertness -----------------------
+# ---- compute_advisory_factor: stage/mode gating ---------------------------
 
-def test_compute_disabled_when_flag_off(monkeypatch):
-    monkeypatch.delenv("ADVISORY_MODE", raising=False)
+def test_compute_off_mode_opts_out(monkeypatch):
+    # An explicit advisory_policy mode=off is the per-strategy opt-out: no
+    # model resolution, factor 1.0. (ADVISORY_MODE was removed 2026-06-13.)
+    import src.strategy_registry as sr
+    monkeypatch.setattr(
+        sr, "_strategy_cfg", lambda name: {"advisory_policy": {"mode": "off"}},
+    )
     factor, record = compute_advisory_factor(_pkg())
     assert factor == 1.0
-    assert record["action"] == "disabled"
+    assert record["action"] == "off"
+
+
+def test_compute_annotate_default_no_models_is_one(monkeypatch):
+    # Default (no advisory_policy) is annotate, but with no influence-stage
+    # models resolved the factor is still 1.0 (nothing to score).
+    import src.strategy_registry as sr
+    monkeypatch.setattr(sr, "_strategy_cfg", lambda name: {})
+    factor, record = compute_advisory_factor(_pkg())
+    assert factor == 1.0
+    assert record["action"] in ("no_advisory_models", "no_scores", "error", "annotate")
 
 
 # ---- apply_advisory_downsize ----------------------------------------------
 
-def test_apply_flag_off_returns_unchanged(monkeypatch):
-    monkeypatch.delenv("ADVISORY_MODE", raising=False)
+def test_apply_off_mode_returns_unchanged(monkeypatch):
+    import src.strategy_registry as sr
+    monkeypatch.setattr(
+        sr, "_strategy_cfg", lambda name: {"advisory_policy": {"mode": "off"}},
+    )
     p = _pkg()
     assert apply_advisory_downsize(p, 1.5) == 1.5
 

@@ -1,0 +1,98 @@
+# Serveable funding-augmented regime classifier — BTCUSDT @ 1h
+# (MB-20260613-001, refine of btc-regime-1h-lgbm-funding-v1).
+#
+# WHY THIS FORK: the parent funding head (btc-regime-1h-lgbm-funding-v1) is the
+# strongest 1h binary regime head measured (macro_f1 0.656, f1_volatile 0.479 —
+# it catches the VOLATILE regime far better than the shadow yz heads, whose
+# weak spot is exactly volatile recall). It is stuck at research_only ONLY
+# because two of its features come from open interest, whose Bybit history is
+# retention-limited (~8 days) and so cannot be served reliably live (S-MLOPT-S11
+# honest-negative). Funding-rate history, by contrast, IS available far back and
+# IS serveable live.
+#
+# THE CHANGE vs the parent: drop the two OI-derived feature columns
+#   - open_interest_change
+#   - open_interest_change_zscore
+# keeping the funding-rate features the parent's own notes call the carrying
+# signal (the z-score / |z| extremes, not the level):
+#   funding_rate, funding_rate_zscore, funding_rate_abs_z
+# Everything else (trainer, split, recency + class weighting) is identical to
+# the parent / the v2 champion, so this stays a clean A/B that isolates the
+# marginal lift of the SERVEABLE funding features alone.
+#
+# NO REBUILD NEEDED: reuses the EXISTING market_features BTCUSDT 1h v002 (the
+# funding/OI-joined build the parent funding head already trains on) — this
+# variant simply selects a feature SUBSET that excludes the two OI columns. The
+# "serveable" property is about LIVE serving (the live feature pipeline can
+# compute funding-z without OI), not the training dataset. Eval recipe:
+#   python -m ml train btc-regime-1h-lgbm-funding-svble-v1
+#   python -m ml compare btc-regime-1h-lgbm-v2 btc-regime-1h-lgbm-funding-svble-v1
+# If f1_volatile holds vs the parent AND the features are serveable live,
+# propose promotion to shadow (Tier-3, operator-gated) — the candidate to
+# become the next advisory head, strong exactly where yz-1h is weak.
+#
+# TIER: ships at research_only (pure eval candidate, refused by the shadow
+# factory). Promotion past research_only is Tier-3.
+
+manifest_version: v1
+model_id: btc-regime-1h-lgbm-funding-svble-v1
+description: "Serveable funding-augmented regime classifier for BTCUSDT 1h — the funding head minus the retention-limited open-interest columns (funding-rate z-score/extremes only, which the parent's notes identify as the carrying signal). Refine of btc-regime-1h-lgbm-funding-v1 toward a live-serveable shadow candidate (MB-20260613-001)."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - funding_rate
+    - funding_rate_zscore
+    - funding_rate_abs_z
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  sample_weight:
+    half_life_days: 90
+    time_column: ts
+  class_weight:
+    range: 1.0
+    volatile: 4.0
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 1h
+  version: v002
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  MB-20260613-001 (refine of S-MLOPT-S11). Serveable variant of
+  btc-regime-1h-lgbm-funding-v1: drops the OI columns (open_interest_change,
+  open_interest_change_zscore) that cannot be served live (Bybit OI history
+  retention ~8d), keeps the funding-rate z-score/extreme features that ARE
+  serveable. Clean A/B vs btc-regime-1h-lgbm-v2 isolates the serveable funding
+  lift. Reuses the existing market_features BTCUSDT 1h v002 (funding/OI-joined)
+  via a feature subset — no rebuild. Leakage gate forbids forward_log_return /
+  forward_log_return_vol / regime_label. If f1_volatile holds and the features
+  are confirmed live-serveable, propose promotion to shadow (operator-gated).

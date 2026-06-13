@@ -93,8 +93,13 @@ def load_closed_trades(
     Mirrors ``trades_closed._query_closed_trades`` /
     ``trade_scores._load_trade_windows`` (same COALESCE close-time
     derivation) so attribution sees exactly the trades the dashboard
-    journal shows. Best-effort: a missing DB returns ``[]``.
+    journal shows. Best-effort: an unset (``None``) or missing DB
+    returns ``[]`` — the trainer VM has no live ``trade_journal.db``,
+    so ``--db`` is optional for ``promotion-readiness`` / ``stage-guard``
+    and the live-attribution gates simply read as insufficient-data.
     """
+    if db_path is None:
+        return []
     path = Path(db_path)
     if not path.exists():
         return []

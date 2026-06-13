@@ -150,12 +150,18 @@ def test_resolve_quorum_majority():
     assert pol.resolve_quorum(4) == 3
 
 
-def test_parse_policy_defaults_to_off():
-    assert parse_policy(None).mode == "off"
-    assert parse_policy({}).mode == "off"
-    assert parse_policy({"advisory_policy": None}).mode == "off"
-    assert parse_policy({"other": 1}).mode == "off"
+def test_parse_policy_defaults_to_annotate():
+    # Permissive default (2026-06-13): omitting advisory_policy yields
+    # annotate (log the would-be downsize, never resize) — NOT off. An
+    # explicit mode:off is the opt-out. Mirrors the strategy/account gates:
+    # omitting a field never strands capability.
+    assert parse_policy(None).mode == "annotate"
+    assert parse_policy({}).mode == "annotate"
+    assert parse_policy({"advisory_policy": None}).mode == "annotate"
+    assert parse_policy({"other": 1}).mode == "annotate"
     assert parse_policy({}).quorum == "majority"
+    # explicit opt-out still honoured
+    assert parse_policy({"advisory_policy": {"mode": "off"}}).mode == "off"
 
 
 def test_parse_policy_reads_fields():
