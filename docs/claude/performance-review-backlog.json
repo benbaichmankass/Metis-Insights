@@ -469,7 +469,19 @@
       "resolved_at": null,
       "resolved_by": null,
       "resolution_note": null
+    },
+    {
+      "id": "PB-20260614-IBMHG-1",
+      "opened_at": "2026-06-14T07:30:00+00:00",
+      "opened_by": "claude (session close-out — IB position-read fix #3490)",
+      "source": "2026-06-14 session investigating the IB integration. trade #2539 (mhg_pullback_1d, ib_paper, 2026-06-12 00:02Z) was journalled exchange_rejected on IBKR Error 10349 (TIF=DAY) but ACTUALLY FILLED — a 3-contract MHG (Micro Copper) paper position exists on ib_paper. The reverse-reconciler has been adopting it as an orphan, closing on a transient disappear, and re-adopting (trades #2540 closed, #2575 open).",
+      "title": "Follow up the orphaned ib_paper MHG paper position from trade #2539's Error-10349 desync fill",
+      "description": "An unowned 3-contract MHG long sits on ib_paper (entry ~6.396) from #2539's filled-but-journalled-rejected order. Naked-position auto-protect attached reverse-side GTC SL/TP (sl 6.045 / tp 7.029), so it should exit on those. Two things to confirm in a future performance/health review: (1) the position actually closes cleanly via the attached SL/TP and stops the adopt/close/re-adopt churn; (2) AFTER the #3490 position-read fix (generic root symbol + per-unit entry price, deployed 2026-06-14 on 1fb82eff), the next adopted-orphan row records symbol=MHG and entry_price=6.396 (not MHGN6 / 15989.72). If the position is still churning or still mis-recorded, escalate. NOTE: arguably a health/pipeline item, parked here at operator request during the IB session close-out.",
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
     }
   ],
-  "updated_at": "2026-06-11T19:00:00+00:00"
+  "updated_at": "2026-06-14T07:30:00+00:00"
 }
