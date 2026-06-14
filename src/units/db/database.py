@@ -880,6 +880,26 @@ class Database:
         finally:
             conn.close()
 
+    def get_recent_order_packages_for_symbol(self, symbol, *, limit=30):
+        """Newest-first order packages for ``symbol`` (any strategy/status).
+
+        Used by the reverse reconciler to recover the originating strategy
+        (and its stored SL/TP) of an exchange orphan, so the position can be
+        re-attached to that strategy's monitoring instead of left as a bare
+        ``orphan_adopt`` row. Ordered by ``created_at`` DESC.
+        """
+        conn = self.connect()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT * FROM order_packages WHERE symbol = ? "
+                "ORDER BY datetime(created_at) DESC LIMIT ?",
+                [symbol, int(limit)],
+            )
+            return [dict(row) for row in cursor.fetchall()]
+        finally:
+            conn.close()
+
     def save_backtest_results(self, results):
         """
         Save backtest results
