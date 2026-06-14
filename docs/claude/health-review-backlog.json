@@ -1695,7 +1695,17 @@
       "description": "Live-trader cutover to the Ampere candidate ict-bot-arm (141.145.193.91) completed 2026-06-14 and is fully operational. The old x86 micro 158.178.210.252 is stopped + disabled + Bybit-frozen as the rollback target. Once the candidate soaks clean (revisit tomorrow), terminate the micro via the terminate-instance workflow (confirm: yes). Separate AMD Always-Free allocation, so retiring it costs no Ampere budget. Runbook: docs/runbooks/live-vm-migration-ampere.md. Do NOT terminate until the operator confirms.",
       "tier": 2,
       "status": "open"
+    },
+    {
+      "id": "BL-20260614-INSTALLER-GATEWAY-TIMERS",
+      "opened_at": "2026-06-14T17:05:00+00:00",
+      "opened_by": "claude (doc-freshness, Ampere cutover follow-up session)",
+      "source": "git-sync enablement on the candidate (split-topology wart).",
+      "title": "install_systemd_units.sh blanket enable --now activates IB-gateway timers on the trader box",
+      "description": "The timer-enable loop at the end of scripts/install_systemd_units.sh does `enable --now` on EVERY deploy/*.timer it finds, including ict-ib-gateway-watchdog.timer and ict-ib-gateway-reset.timer. Post gateway-isolation (2026-06-10) those belong on the dedicated IB-gateway VM, NOT the trader -- on the trader they probe a non-existent local container / unreachable IB and spam alerts. Pre-existing design wart (predates the split topology). Worked around on the candidate this session by `systemctl mask`-ing both timers so the blanket enable is a no-op for them. Durable fix: make the enable loop topology-aware (skip gateway timers unless the host IS the gateway VM, via a marker file or unit allowlist). Tier-2 (deploy tooling).",
+      "tier": 2,
+      "status": "open"
     }
   ],
-  "updated_at": "2026-06-14T16:50:00+00:00"
+  "updated_at": "2026-06-14T17:05:00+00:00"
 }
