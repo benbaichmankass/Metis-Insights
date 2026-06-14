@@ -253,41 +253,22 @@ _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
 }
 
 
-# Strategy → unit MODULE that owns its order_package()/monitor() logic.
-# Most strategies are their own module; the entries below are *aliased*
-# strategies (a distinct config instance that REUSES a base unit via its
-# signal builder — e.g. the WS-A metals sleeve + M15 equity/fx sleeve, and
-# ict_scalp_5m on the ict_scalp unit). The order-monitor loop imports a
-# strategy's module by name to call monitor(); without this map an aliased
-# strategy's open positions would never be actively monitored (the
-# same-name module doesn't exist) and would run on static SL/TP alone.
-# MUST stay in sync with _STRATEGY_BUILDERS — the drift guard
-# tests/test_strategy_monitor_unit_resolution.py fails CI if an entry here
-# (or a builder) resolves to a module with no monitor().
-_STRATEGY_MONITOR_UNIT: Dict[str, str] = {
-    "ict_scalp_5m": "ict_scalp",
-    "trend_donchian_1h": "trend_donchian",
-    "mes_trend_long_1d": "trend_donchian",
-    "mgc_trend_1h": "trend_donchian",
-    "xauusd_trend_1h": "trend_donchian",
-    "spy_trend_long_1d": "trend_donchian",
-    "qqq_trend_long_1d": "trend_donchian",
-    "mgc_pullback_1d": "htf_pullback_trend_2h",
-    "mhg_pullback_1d": "htf_pullback_trend_2h",
-    "gld_pullback_1d": "htf_pullback_trend_2h",
-    "eth_pullback_2h": "htf_pullback_trend_2h",
-}
-
-
 def monitor_unit_for(strategy_name: str) -> str:
     """Resolve a strategy name to the unit module that owns its ``monitor()``.
 
-    Aliased strategies map to their base unit; everything else is its own
-    module. This is the single resolver the order-monitor uses so an aliased
-    strategy's positions get the same active monitoring (break-even trail,
-    thesis/level-cross exit, time-decay) as the base unit's own positions.
+    Derived from the builder registry: an *aliased* strategy (a distinct
+    config instance that REUSES a base unit via its signal builder — the WS-A
+    metals + M15 equity/fx sleeves, ict_scalp_5m) carries a ``monitor_unit``
+    attribute on its builder (declared next to the builder in
+    ``strategy_signal_builders``); everything else is its own module. The
+    order-monitor uses this so an aliased strategy's positions get the same
+    active monitoring (break-even trail, thesis/level-cross exit, time-decay)
+    as the base unit's own positions — without it they'd run on static SL/TP.
+    The drift guard ``tests/test_strategy_monitor_unit_resolution.py`` fails
+    CI if any registered strategy resolves to a module with no ``monitor()``.
     """
-    return _STRATEGY_MONITOR_UNIT.get(strategy_name, strategy_name)
+    builder = _STRATEGY_BUILDERS.get(strategy_name)
+    return getattr(builder, "monitor_unit", strategy_name)
 
 
 def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
