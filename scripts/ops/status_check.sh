@@ -121,6 +121,30 @@ timeout 8 systemd-cgtop --order=cpu --iterations=1 --batch 2>/dev/null | head -1
     || echo "(systemd-cgtop unavailable)"
 
 # ---------------------------------------------------------------------------
+# Memory snapshot (added 2026-06-14). The CPU block above sorts ps by %CPU,
+# so a high-RSS but IDLE process (e.g. a leftover container, a heavy agent)
+# never appears — which is exactly the gap that left the 2026-06-14 90.4%
+# psutil reading un-attributed. This block sorts by RSS, shows free/swap,
+# per-service cgroup MEMORY, swappiness, and any docker/containerd container
+# (the IB gateway moved to its own VM on 2026-06-10, so the live micro should
+# normally have NONE). Read-only, best-effort, never affects the exit code.
+# ---------------------------------------------------------------------------
+echo
+echo "===== Memory snapshot (RSS-sorted; attribute used memory, not just CPU) ====="
+echo "--- free -m (used / available / swap) ---"
+free -m 2>/dev/null | head -3 || echo "(free unavailable)"
+echo "swappiness: $(cat /proc/sys/vm/swappiness 2>/dev/null || echo '?')"
+echo "--- ps: top 15 by RSS (pid %mem rss_kB etimes args, truncated) ---"
+ps -eo pid,%mem,rss,etimes,args --sort=-rss 2>/dev/null | head -16 | cut -c1-140 \
+    || echo "(ps unavailable)"
+echo "--- systemd-cgtop: one-shot, ordered by MEMORY (per-service) ---"
+timeout 8 systemd-cgtop --order=memory --iterations=1 --batch 2>/dev/null | head -15 \
+    || echo "(systemd-cgtop unavailable)"
+echo "--- docker/containerd containers (gateway isolated 2026-06-10 — expect none here) ---"
+(docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' 2>/dev/null \
+    || echo "(docker CLI unavailable / no perms / no daemon)") | head -10
+
+# ---------------------------------------------------------------------------
 # Runtime-data path diagnostic (added 2026-05-11 after the heartbeat
 # writer froze silently and we couldn't tell whether it was failing or
 # writing to a different path).
