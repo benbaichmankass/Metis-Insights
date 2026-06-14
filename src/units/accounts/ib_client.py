@@ -935,16 +935,42 @@ class IBClient:
                 if it_acct and str(it_acct) != str(self.account):
                     continue
             contract = getattr(it, "contract", None)
+            # Normalise the IB portfolio item to the SAME shape every other
+            # consumer (journal, reconcilers, dashboard, SL/TP math) speaks —
+            # the generic root symbol + a per-unit entry price, exactly like
+            # the Bybit/Binance position rows this method mirrors:
+            #
+            #  * Symbol — IB's ``localSymbol`` carries the expiry month code
+            #    (``MHGN6``, ``MESM6``); the bot trades by the generic root
+            #    (``MHG``, ``MES``), which IB exposes as ``contract.symbol``.
+            #    Emitting the localSymbol meant an owned IB trade (symbol
+            #    ``MHG``) could never reconcile against its own exchange
+            #    position (symbol ``MHGN6``) — it orphaned, and the adopted
+            #    orphan diverged from the strategy symbol forever.
+            #  * Entry price — IB's ``averageCost`` for a future is the
+            #    per-unit price TIMES the contract multiplier (MHG: 6.396 ×
+            #    2500 = 15989.72). Divide by the multiplier so ``entry_price``
+            #    is the per-unit price like every other exchange, instead of a
+            #    multiplier-inflated number that corrupts the adopted-orphan
+            #    entry, PnL display, and any entry-based math.
+            #    (BL-20260613-IBPOS: the 15989.72-entry / MHGN6-symbol
+            #    adopted-orphan corruption on ib_paper.)
             symbol = (
-                getattr(contract, "localSymbol", None)
-                or getattr(contract, "symbol", None)
+                getattr(contract, "symbol", None)
+                or getattr(contract, "localSymbol", None)
                 or self.symbol
             )
+            avg_cost = float(getattr(it, "averageCost", 0) or 0)
+            try:
+                multiplier = float(getattr(contract, "multiplier", "") or 0)
+            except (TypeError, ValueError):
+                multiplier = 0.0
+            entry_price = avg_cost / multiplier if multiplier > 0 else avg_cost
             out.append({
                 "symbol": symbol,
                 "side": "long" if size > 0 else "short",
                 "size": abs(size),
-                "entry_price": float(getattr(it, "averageCost", 0) or 0),
+                "entry_price": entry_price,
                 "unrealised_pnl": float(getattr(it, "unrealizedPNL", 0) or 0),
             })
         return out

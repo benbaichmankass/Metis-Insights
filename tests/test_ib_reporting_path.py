@@ -172,10 +172,15 @@ class TestAccountFieldPreservation:
 
 
 class _PortItem:
-    def __init__(self, position, account, symbol, avg, upnl):
+    def __init__(self, position, account, root, local, avg, upnl, multiplier):
         self.position = position
         self.account = account
-        self.contract = type("C", (), {"localSymbol": symbol, "symbol": symbol})()
+        # Real IB shape: ``symbol`` is the generic root (``MES``/``MHG``),
+        # ``localSymbol`` carries the expiry month code (``MESM6``/``MHGN6``),
+        # and ``averageCost`` is the per-unit price × the contract multiplier.
+        self.contract = type(
+            "C", (), {"localSymbol": local, "symbol": root, "multiplier": multiplier},
+        )()
         self.averageCost = avg
         self.unrealizedPNL = upnl
 
@@ -195,9 +200,19 @@ class _FakePortfolioIB:
 
     def portfolio(self):
         return [
-            _PortItem(1.0, "DUQ325724", "MESM6", 5300.0, 12.5),
-            _PortItem(0.0, "DUQ325724", "MESM6", 0.0, 0.0),   # flat → skipped
-            _PortItem(2.0, "OTHERACCT", "ESZ5", 100.0, 5.0),  # other acct → skipped
+            # MES: avgCost 26500 = 5300 × 5 multiplier → entry_price 5300.
+            _PortItem(1.0, "DUQ325724", "MES", "MESM6", 26500.0, 12.5, "5"),
+            _PortItem(0.0, "DUQ325724", "MES", "MESM6", 0.0, 0.0, "5"),   # flat → skipped
+            _PortItem(2.0, "OTHERACCT", "ES", "ESZ5", 100.0, 5.0, "50"),  # other acct → skipped
+        ]
+
+
+class _FakeMHGPortfolioIB(_FakePortfolioIB):
+    def portfolio(self):
+        # The ib_paper corruption case (BL-20260613-IBPOS): a Micro Copper
+        # position whose avgCost is 6.396 × 2500 = 15989.72.
+        return [
+            _PortItem(3.0, "DUQ325724", "MHG", "MHGN6", 15989.72, 4.0, "2500"),
         ]
 
 
@@ -208,7 +223,22 @@ class TestIBClientPositions:
             account="DUQ325724", _ib_factory=lambda: _FakePortfolioIB(),
         )
         out = c.positions()
+        # Emits the generic root symbol (not the localSymbol month code) and a
+        # per-unit entry price (avgCost ÷ multiplier).
         assert out == [{
-            "symbol": "MESM6", "side": "long", "size": 1.0,
+            "symbol": "MES", "side": "long", "size": 1.0,
             "entry_price": 5300.0, "unrealised_pnl": 12.5,
         }]
+
+    def test_futures_entry_price_divides_by_multiplier(self):
+        c = IBClient(
+            host="127.0.0.1", port=4002, client_id=9002,
+            account="DUQ325724", _ib_factory=lambda: _FakeMHGPortfolioIB(),
+        )
+        out = c.positions()
+        assert len(out) == 1
+        row = out[0]
+        assert row["symbol"] == "MHG"          # root, not MHGN6
+        assert row["size"] == 3.0
+        assert abs(row["entry_price"] - 6.39588) < 1e-4   # 15989.72 / 2500
+        assert row["entry_price"] < 10.0       # per-unit copper, not 15989.72
