@@ -130,3 +130,32 @@ def test_unfilled_package_has_null_pnl(db, client):
     row = body["rows"][0]
     assert row["pnl"] is None
     assert row["linkedTradeId"] is None
+
+
+def test_signal_logic_and_meta_decoded_when_json(db, client):
+    """signal_logic + meta (JSON TEXT columns) are decoded to objects so the
+    dashboard's trade-detail card can render the bot's recorded reasoning."""
+    tid = _trade(db, pnl=1.0)
+    _insert_package(
+        db, order_package_id="op-meta", linked_trade_id=tid,
+        created_at="2026-05-20T10:00:00Z",
+        signal_logic=json.dumps({"reason": "sweep + FVG", "bias": "bullish"}),
+        meta=json.dumps({"setup_type": "turtle_soup", "killzone": "london"}),
+    )
+    row = client.get("/api/bot/order-packages").json()["rows"][0]
+    assert row["signalLogic"] == {"reason": "sweep + FVG", "bias": "bullish"}
+    assert row["meta"] == {"setup_type": "turtle_soup", "killzone": "london"}
+
+
+def test_signal_logic_plain_text_and_meta_null(db, client):
+    """Plain-text signal_logic passes through as a string; an unset meta is
+    None (not the literal string 'None')."""
+    tid = _trade(db, pnl=1.0)
+    _insert_package(
+        db, order_package_id="op-txt", linked_trade_id=tid,
+        created_at="2026-05-20T10:00:00Z",
+        signal_logic="liquidity sweep below PDL",
+    )
+    row = client.get("/api/bot/order-packages").json()["rows"][0]
+    assert row["signalLogic"] == "liquidity sweep below PDL"
+    assert row["meta"] is None
