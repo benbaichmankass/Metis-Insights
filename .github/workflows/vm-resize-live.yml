@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      VM_SSH_HOST: ${{ vars.LIVE_VM_IP || '158.178.210.252' }}
+      VM_SSH_HOST: ${{ vars.LIVE_VM_IP || '141.145.193.91' }}
       VM_SSH_USER: ${{ vars.LIVE_VM_USER || 'ubuntu' }}
     steps:
       - name: Checkout

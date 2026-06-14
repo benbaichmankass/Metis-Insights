@@ -1651,7 +1651,27 @@
       "resolved_at": null,
       "resolved_by": null,
       "resolution_note": null
+    },
+    {
+      "id": "BL-20260614-SHADOWROT-NODATADIR",
+      "opened_at": "2026-06-14T16:10:00+00:00",
+      "opened_by": "claude (live-VM Ampere cutover follow-up session)",
+      "source": "Candidate observability/resilience-unit install audit (ict-bot-arm).",
+      "title": "ict-shadow-log-rotate.service has no EnvironmentFile -> rotates repo-relative shadow log, not the DATA_DIR one",
+      "description": "deploy/ict-shadow-log-rotate.service sets only ExecStart=python3 scripts/ops/rotate_shadow_log.py --gzip with NO EnvironmentFile and NO Environment=DATA_DIR. Without DATA_DIR the rotator resolves runtime_logs() to the repo-relative path and would rotate <repo>/runtime_logs/shadow_predictions.jsonl (an inert/stale leftover under the DATA_DIR regime) instead of the live /data/bot-data/runtime_logs/shadow_predictions.jsonl. Pre-existing (affects the block-volume micro too, not just the candidate). Consequence: the real shadow-prediction log is never rotated and can grow unbounded; the timer is currently NOT installed on the candidate (deliberately deferred this session to avoid improvising on the money box). Fix: add EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env to the unit (so it inherits DATA_DIR), OR add it to install_systemd_units.sh's data-dir drop-in list (now mount-aware), then enable the timer on the candidate. Tier-2 (unit-file + service enable).",
+      "tier": 2,
+      "status": "open"
+    },
+    {
+      "id": "BL-20260614-CANDIDATE-IB",
+      "opened_at": "2026-06-14T16:10:00+00:00",
+      "opened_by": "claude (live-VM Ampere cutover follow-up session)",
+      "source": "ict-health-snapshot first run on the Ampere candidate (ict-bot-arm).",
+      "title": "ib_insync not installed on the Ampere live candidate -> IB/MES balance + execution path unavailable",
+      "description": "The first health-snapshot run on the candidate logged: account_balance(ib_paper): 'ib_insync is not installed ... pip install ib_insync (or ib_async) to enable the IB execution path.' The Bybit money path is live on the candidate (retCode 0, open positions), but the IB/MES leg (ib_paper account -> IB Gateway VM 10.0.0.251) appears unwired: the venv lacks ib_insync/ib_async. Need to confirm whether MES is expected to trade from the candidate and, if so, install the IB client lib in the candidate venv + verify connectivity to the gateway VM over the private subnet. Until then MES is dark on the candidate. Tier-2 (dependency install on the live VM + connectivity verification).",
+      "tier": 2,
+      "status": "open"
     }
   ],
-  "updated_at": "2026-06-14T13:40:00+00:00"
+  "updated_at": "2026-06-14T16:10:00+00:00"
 }
