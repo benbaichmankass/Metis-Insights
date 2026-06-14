@@ -116,7 +116,17 @@ def _call_strategy_monitor(strategy_name: str, cfg: dict, candles_df,
     function are treated as "no opinion" — no error.
     """
     try:
-        mod = importlib.import_module(f"src.units.strategies.{strategy_name}")
+        # Resolve aliased strategies (WS-A metals / M15 sleeves, ict_scalp_5m,
+        # …) to the unit MODULE that owns their monitor(); a plain strategy is
+        # its own module. Without this an aliased strategy's positions would
+        # never be actively monitored (no same-name module) and would run on
+        # static SL/TP alone — see pipeline.monitor_unit_for.
+        try:
+            from src.runtime.pipeline import monitor_unit_for
+            module_name = monitor_unit_for(strategy_name)
+        except Exception:  # noqa: BLE001 — fall back to the same-name module
+            module_name = strategy_name
+        mod = importlib.import_module(f"src.units.strategies.{module_name}")
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "order_monitor: strategy module %r unavailable: %s",
@@ -1811,6 +1821,51 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
     return summary
 
 
+def _canon_dir(direction: Any) -> Optional[str]:
+    """Normalise buy/long → 'long', sell/short → 'short' (else None)."""
+    d = str(direction or "").lower()
+    if d in ("buy", "long"):
+        return "long"
+    if d in ("sell", "short"):
+        return "short"
+    return None
+
+
+def _recover_orphan_order_package(
+    *, db, symbol: str, direction: str, entry_price: float,
+    max_rel_diff: float = 0.02, limit: int = 30,
+) -> Optional[dict]:
+    """Best-effort find the order package that originally opened an exchange
+    orphan, so the position can be returned to its strategy's monitoring.
+
+    Matches newest-first on ``symbol`` + normalised ``direction``, requiring
+    the package ``entry`` within ``max_rel_diff`` (relative) of the exchange
+    entry to count as a confident match — so we never mis-attribute a
+    position to the wrong strategy (which would apply the wrong exit rules).
+    Returns the package dict, or ``None`` when no confident match exists
+    (caller then falls back to a bare ``orphan_adopt`` row).
+    """
+    want = _canon_dir(direction)
+    if not want or not entry_price:
+        return None
+    try:
+        candidates = db.get_recent_order_packages_for_symbol(symbol, limit=limit)
+    except Exception:  # noqa: BLE001 — best-effort; fall back to orphan_adopt
+        return None
+    for c in candidates:
+        if _canon_dir(c.get("direction")) != want:
+            continue
+        pe = c.get("entry")
+        if pe is None:
+            continue
+        try:
+            if abs(float(pe) - entry_price) / entry_price <= max_rel_diff:
+                return c
+        except (TypeError, ValueError, ZeroDivisionError):
+            continue
+    return None
+
+
 def _adopt_orphan_position(
     *,
     db,
@@ -1820,32 +1875,102 @@ def _adopt_orphan_position(
     size: float,
     entry_price: float,
 ) -> int:
-    """Insert a ``trades`` row tracking an exchange-side orphan position.
+    """Adopt an exchange-side orphan position into the journal.
 
     Used by :func:`_reconcile_orphan_exchange_positions` when
-    ``ORPHAN_POSITION_POLICY=adopt``. The row is intentionally
-    minimal:
+    ``ORPHAN_POSITION_POLICY=adopt``.
 
-    * ``setup_type='adopted_orphan'`` distinguishes it from real
-      strategy entries on every dashboard / report.
-    * ``strategy_name='orphan_adopt'`` — not a registered strategy,
-      so the monitor() loop never fires on it. The forward reconciler
-      will close the row when Bybit reports the position flat.
-    * ``stop_loss``, ``take_profit_*`` left NULL. The operator's
-      exchange-side conditional orders remain the actual risk control;
-      the bot does not synthesize stops for a position whose original
-      entry rationale it doesn't know.
+    **First choice — return it to its strategy.** We try to recover the
+    order package that originally opened this position
+    (:func:`_recover_orphan_order_package`, confident symbol+direction+entry
+    match). On success we insert the trade row attributed to that
+    **originating strategy** (carrying the package's stored SL/TP) and
+    **reopen + re-link** the package, so the normal monitor loop runs that
+    strategy's ``monitor()`` against it — break-even trail, level-cross /
+    thesis exit, time-decay — exactly as if the journal row had never been
+    lost. This is baseline correctness, not an optional mode.
+
+    **Fallback — bare adopt.** Only when the origin can't be confidently
+    recovered do we fall back to the minimal row (``strategy_name='orphan_adopt'``,
+    ``setup_type='adopted_orphan'``, NULL SL/TP) that the forward reconciler
+    closes when the exchange reports the position flat. We never fabricate a
+    strategy attribution or synthesize stops.
 
     Returns the new ``trades.id``.
     """
     now_iso = datetime.now(timezone.utc).isoformat()
+
+    recovered = _recover_orphan_order_package(
+        db=db, symbol=symbol, direction=direction, entry_price=entry_price,
+    )
+    if recovered is not None:
+        opid = recovered.get("order_package_id")
+        strategy_name = recovered.get("strategy_name")
+        sl = recovered.get("sl")
+        tp = recovered.get("tp")
+        notes_payload = json.dumps(
+            {
+                "adopted_at": now_iso,
+                "adopted_by": "reverse_reconciler",
+                "adopted_reason": (
+                    f"exchange reported an open {symbol} position on "
+                    f"{account_id} with no matching trades.status='open' row; "
+                    f"re-attached to originating strategy {strategy_name!r} "
+                    f"via order package {opid!r}"
+                ),
+                "reattached_order_package_id": opid,
+                "recovered_strategy": strategy_name,
+                "exchange_entry_price": entry_price,
+                "exchange_size": size,
+            },
+            ensure_ascii=False,
+        )[:500]
+        trade_data = {
+            "timestamp": now_iso,
+            "symbol": symbol,
+            "direction": direction,
+            "entry_price": entry_price,
+            "position_size": size,
+            "setup_type": "adopted_orphan",
+            "entry_reason": "reverse_reconciler_reattached_to_strategy",
+            "status": "open",
+            "notes": notes_payload,
+            "is_backtest": 0,
+            "strategy_name": strategy_name,
+            "stop_loss": sl,
+            "take_profit_1": tp,
+            "account_id": account_id,
+        }
+        trade_id = int(db.insert_trade(trade_data))
+        # Reopen + re-link the original package so run_monitor_tick picks it
+        # up under the recovered strategy and applies its monitor() exits.
+        try:
+            db.update_order_package(opid, {
+                "status": "open",
+                "linked_trade_id": trade_id,
+                "close_reason": None,
+            })
+        except Exception as exc:  # noqa: BLE001 — trade row already adopted; log only
+            logger.warning(
+                "_adopt_orphan_position: re-link of package %s failed: %s",
+                opid, exc,
+            )
+        logger.warning(
+            "_adopt_orphan_position: RE-ATTACHED orphan %s/%s to strategy "
+            "%s (package %s) as trade_id=%s — now under strategy monitoring",
+            symbol, direction, strategy_name, opid, trade_id,
+        )
+        return trade_id
+
+    # Fallback: bare orphan_adopt (origin not confidently recoverable).
     notes_payload = json.dumps(
         {
             "adopted_at": now_iso,
             "adopted_by": "reverse_reconciler",
             "adopted_reason": (
                 f"exchange reported an open {symbol} position on "
-                f"{account_id} with no matching trades.status='open' row"
+                f"{account_id} with no matching trades.status='open' row; "
+                "no originating order package recovered — bare adopt"
             ),
             "exchange_entry_price": entry_price,
             "exchange_size": size,
