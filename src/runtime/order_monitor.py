@@ -1572,10 +1572,26 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         # the policy=close summary key so the operator can distinguish
         # "active-trading close" from "journal cleanup close".
         "closed_disappeared": 0,
+        # Existing orphan_adopt rows repaired back to their originating
+        # strategy this pass (self-heal — orphan_adopt is a problem state,
+        # not a resting status).
+        "reattached_existing": 0,
         "errors": 0,
     }
     if not _reconcile_enabled():
         return summary
+
+    # Self-heal first: an `orphan_adopt` row is an unresolved problem, never a
+    # legitimate resting status — drive every existing one back to its
+    # originating strategy as soon as the origin is recoverable, so it gets
+    # active monitoring instead of sitting on static SL/TP. Runs every pass;
+    # idempotent; confident-match-or-skip (never mis-attributes). Independent
+    # of ORPHAN_POSITION_POLICY (repair is always correct when reconcile runs).
+    try:
+        _reattach_adopted_orphans(db, summary)
+    except Exception as exc:  # noqa: BLE001 — repair must never break reconcile
+        logger.warning("_reattach_adopted_orphans pass failed: %s", exc)
+        summary["errors"] += 1
 
     policy = _orphan_position_policy()
     cfgs = _load_account_cfgs_for_reconcile()
@@ -1864,6 +1880,71 @@ def _recover_orphan_order_package(
         except (TypeError, ValueError, ZeroDivisionError):
             continue
     return None
+
+
+def _reattach_adopted_orphans(db, summary: Dict[str, int]) -> None:
+    """Self-heal pass: re-attach every still-open ``orphan_adopt`` trade row
+    whose originating order package is now recoverable.
+
+    ``orphan_adopt`` is a problem indicator, not a legitimate resting status —
+    a position with no strategy attribution runs on static SL/TP with no
+    active ``monitor()``. This drives each one back to its real strategy on
+    every reconcile pass (idempotent), restoring the package's SL/TP and
+    reopening + re-linking it so ``run_monitor_tick`` governs it. Confident
+    match only (symbol + normalised direction + entry within tolerance); an
+    unrecoverable orphan is left untouched (it keeps alerting as an orphan).
+    Best-effort per row — one failure never aborts the pass.
+    """
+    import sqlite3 as _sqlite3
+
+    conn = db.connect()
+    try:
+        conn.row_factory = _sqlite3.Row
+        rows = conn.execute(
+            "SELECT id, symbol, direction, entry_price FROM trades "
+            "WHERE status='open' AND COALESCE(is_backtest,0)=0 "
+            "  AND strategy_name='orphan_adopt'",
+        ).fetchall()
+    finally:
+        conn.close()
+
+    for r in rows:
+        try:
+            entry_price = float(r["entry_price"] or 0.0)
+        except (TypeError, ValueError):
+            continue
+        recovered = _recover_orphan_order_package(
+            db=db, symbol=r["symbol"], direction=r["direction"],
+            entry_price=entry_price,
+        )
+        if recovered is None:
+            continue
+        opid = recovered.get("order_package_id")
+        strat = recovered.get("strategy_name")
+        try:
+            db.update_trade(int(r["id"]), {
+                "strategy_name": strat,
+                "stop_loss": recovered.get("sl"),
+                "take_profit_1": recovered.get("tp"),
+                "entry_reason": "reverse_reconciler_reattached_existing_orphan",
+            })
+            db.update_order_package(opid, {
+                "status": "open",
+                "linked_trade_id": int(r["id"]),
+                "close_reason": None,
+            })
+        except Exception as exc:  # noqa: BLE001 — best-effort per row
+            logger.warning(
+                "_reattach_adopted_orphans: re-attach of trade %s failed: %s",
+                r["id"], exc,
+            )
+            continue
+        summary["reattached_existing"] = summary.get("reattached_existing", 0) + 1
+        logger.warning(
+            "_reattach_adopted_orphans: RE-ATTACHED existing orphan trade %s "
+            "(%s/%s) to strategy %s via package %s — now under monitoring",
+            r["id"], r["symbol"], r["direction"], strat, opid,
+        )
 
 
 def _adopt_orphan_position(

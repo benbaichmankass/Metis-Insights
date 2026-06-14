@@ -12,12 +12,28 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from src.runtime.order_monitor import _adopt_orphan_position
+from src.runtime.order_monitor import (
+    _adopt_orphan_position,
+    _reattach_adopted_orphans,
+)
 from src.units.db.database import Database
 from tests.fixtures.real_schema_db import (
     insert_order_package as _insert_package,
+    insert_trade as _insert_trade,
     make_canonical_db,
 )
+
+
+def _orphan_adopt_trade(db: Database, **over) -> int:
+    fields = {
+        "timestamp": "2026-06-14T06:30:00Z", "symbol": "MHG",
+        "direction": "long", "entry_price": 6.40, "position_size": 3.0,
+        "status": "open", "is_backtest": 0, "is_demo": 0,
+        "strategy_name": "orphan_adopt", "setup_type": "adopted_orphan",
+        "account_id": "ib_paper",
+    }
+    fields.update(over)
+    return int(_insert_trade(db.db_path, **fields))
 
 
 def _db(tmp_path: Path) -> Database:
@@ -108,6 +124,41 @@ def test_no_confident_match_falls_back_to_orphan_adopt(tmp_path: Path):
     assert trade["take_profit_1"] is None
     # The far-off package is untouched (still closed).
     assert _pkg_row(db, "op-far")["status"] == "closed"
+
+
+def test_self_heal_reattaches_existing_orphan_adopt_row(tmp_path: Path):
+    """An already-adopted orphan_adopt row (created before the fix) is driven
+    back to its strategy on the next reconcile pass — orphan_adopt is a
+    problem state, not a resting status."""
+    db = _db(tmp_path)
+    tid = _orphan_adopt_trade(db)  # open orphan_adopt MHG row, no SL/TP
+    _insert_package(
+        db.db_path, order_package_id="op-mhg", strategy_name="mhg_pullback_1d",
+        symbol="MHG", direction="long", entry=6.40, sl=6.05, tp=7.03,
+        status="closed", created_at="2026-06-14T06:00:00Z",
+    )
+    summary: dict = {}
+    _reattach_adopted_orphans(db, summary)
+
+    trade = _trade_row(db, tid)
+    assert trade["strategy_name"] == "mhg_pullback_1d"
+    assert trade["stop_loss"] == 6.05
+    assert trade["take_profit_1"] == 7.03
+    assert summary.get("reattached_existing") == 1
+    pkg = _pkg_row(db, "op-mhg")
+    assert pkg["status"] == "open"
+    assert str(pkg["linked_trade_id"]) == str(tid)
+
+
+def test_self_heal_skips_unrecoverable_orphan(tmp_path: Path):
+    """No recoverable package → the orphan_adopt row is left untouched (it
+    keeps surfacing as an orphan rather than being mis-attributed)."""
+    db = _db(tmp_path)
+    tid = _orphan_adopt_trade(db)
+    summary: dict = {}
+    _reattach_adopted_orphans(db, summary)
+    assert _trade_row(db, tid)["strategy_name"] == "orphan_adopt"
+    assert summary.get("reattached_existing", 0) == 0
 
 
 def test_wrong_direction_does_not_match(tmp_path: Path):
