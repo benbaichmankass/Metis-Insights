@@ -47,6 +47,29 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _default_log() -> Path:
+    """Resolve the active shadow log under the canonical runtime_logs dir.
+
+    The live trader appends shadow_predictions.jsonl via
+    ``src.utils.paths.runtime_logs_dir()``, which honors ``DATA_DIR`` (e.g.
+    ``/data/bot-data`` on the live VMs). Resolving the rotation target the
+    same way means the rotator acts on the file the trader actually writes,
+    not the repo-relative ``runtime_logs/shadow_predictions.jsonl`` it would
+    pick up from ``WorkingDirectory`` alone — under DATA_DIR that repo-path
+    copy is a stale leftover that never grows, so rotating it is a permanent
+    no-op while the real /data log grows unbounded. Falls back to the
+    relative path if ``src`` isn't importable, preserving the stdlib-only
+    "log rotation must never crash" contract.
+    """
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+        from src.utils.paths import runtime_logs_dir
+
+        return runtime_logs_dir() / "shadow_predictions.jsonl"
+    except Exception:
+        return _DEFAULT_LOG
+
+
 def _should_rotate(
     log: Path,
     *,
@@ -150,8 +173,9 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
-        "--log", type=Path, default=_DEFAULT_LOG,
-        help=f"path to the active log (default: {_DEFAULT_LOG})",
+        "--log", type=Path, default=_default_log(),
+        help="path to the active log (default: DATA_DIR-aware "
+             "runtime_logs/shadow_predictions.jsonl)",
     )
     parser.add_argument(
         "--max-bytes", type=int, default=_DEFAULT_MAX_BYTES,
