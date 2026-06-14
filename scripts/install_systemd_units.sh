@@ -44,6 +44,31 @@ cd "$REPO_DIR"
 
 changed=0
 
+# ---------------------------------------------------------------------------
+# Select the data-dir drop-in flavor by mount topology.
+#
+# data-dir.conf binds units to the OCI block-storage mount
+# (RequiresMountsFor=/data/bot-data + ExecStartPre preflight) — correct on
+# the block-volume live VMs, where refusing to start on a broken mount is a
+# feature. But on a host where /data/bot-data is a plain directory on the
+# boot/root volume (the Ampere live candidate ict-bot-arm, post-2026-06-14
+# cutover), that binding holds every unit in "activating" forever waiting
+# for a mount unit that never appears — wedging the whole stack.
+#
+# So: pick the mount-binding data-dir.conf only when /data/bot-data is
+# actually a mount; otherwise use the env-only data-dir-nomount.conf
+# sibling (same DATA_DIR/TRADE_JOURNAL_DB env, no mount requirement). The
+# same deploy script is then safe on both topologies.
+# ---------------------------------------------------------------------------
+_DATA_MOUNT="${DATA_DIR:-/data/bot-data}"
+if mountpoint -q "$_DATA_MOUNT" 2>/dev/null; then
+    _DATADIR_DROPIN_SRC="${REPO_DIR}/deploy/dropins/data-dir.conf"
+    echo ">>> install_systemd_units: $_DATA_MOUNT is a mount — using data-dir.conf (mount-binding)"
+else
+    _DATADIR_DROPIN_SRC="${REPO_DIR}/deploy/dropins/data-dir-nomount.conf"
+    echo ">>> install_systemd_units: $_DATA_MOUNT is NOT a mount — using data-dir-nomount.conf (env-only)"
+fi
+
 shopt -s nullglob
 for unit_path in deploy/*.service deploy/*.timer; do
     unit_name=$(basename "$unit_path")
@@ -103,7 +128,7 @@ fi
 #   silently dropped trade-lifecycle + claude-channel pings (2026-05-25).
 #   This is the same generic data-dir.conf the trader/bridge/web-api units
 #   already carry, so the bot reads the canonical store too.
-_TGBOT_DROPIN_SRC="${REPO_DIR}/deploy/dropins/data-dir.conf"
+_TGBOT_DROPIN_SRC="${_DATADIR_DROPIN_SRC}"
 _TGBOT_DROPIN_DST="${SYSTEMD_DIR}/ict-telegram-bot.service.d/data-dir.conf"
 if [ -f "${_TGBOT_DROPIN_SRC}" ]; then
     if [ ! -e "${_TGBOT_DROPIN_DST}" ] || ! cmp -s "${_TGBOT_DROPIN_SRC}" "${_TGBOT_DROPIN_DST}"; then
@@ -125,7 +150,7 @@ fi
 #   that froze the dashboard's health card at the 2026-05-11 snapshot
 #   (BL-20260529-005). Same generic data-dir.conf the trader/web-api/
 #   bridge/tgbot units carry, so writer and reader agree.
-_HEALTHSNAP_DROPIN_SRC="${REPO_DIR}/deploy/dropins/data-dir.conf"
+_HEALTHSNAP_DROPIN_SRC="${_DATADIR_DROPIN_SRC}"
 _HEALTHSNAP_DROPIN_DST="${SYSTEMD_DIR}/ict-health-snapshot.service.d/data-dir.conf"
 if [ -f "${_HEALTHSNAP_DROPIN_SRC}" ]; then
     if [ ! -e "${_HEALTHSNAP_DROPIN_DST}" ] || ! cmp -s "${_HEALTHSNAP_DROPIN_SRC}" "${_HEALTHSNAP_DROPIN_DST}"; then
@@ -150,7 +175,7 @@ fi
 #   updating (BL-20260611-M15-2). Identical writer/reader path-split as the
 #   ict-health-snapshot case above (BL-20260529-005). oneshot+timer: the next
 #   timer tick (<=1h) picks up the new env after daemon-reload; no restart.
-_HOURLYSNAP_DROPIN_SRC="${REPO_DIR}/deploy/dropins/data-dir.conf"
+_HOURLYSNAP_DROPIN_SRC="${_DATADIR_DROPIN_SRC}"
 _HOURLYSNAP_DROPIN_DST="${SYSTEMD_DIR}/ict-hourly-snapshot.service.d/data-dir.conf"
 if [ -f "${_HOURLYSNAP_DROPIN_SRC}" ]; then
     if [ ! -e "${_HOURLYSNAP_DROPIN_DST}" ] || ! cmp -s "${_HOURLYSNAP_DROPIN_SRC}" "${_HOURLYSNAP_DROPIN_DST}"; then
@@ -177,7 +202,7 @@ fi
 #   deploy_pull_restart.sh's restart enumeration picks up the new env on
 #   the next deploy (it is not in DEPLOY_RESTART_SKIP). Idempotent: a no-op
 #   when the drop-in is already present and identical.
-_BRIDGE_DROPIN_SRC="${REPO_DIR}/deploy/dropins/data-dir.conf"
+_BRIDGE_DROPIN_SRC="${_DATADIR_DROPIN_SRC}"
 _BRIDGE_DROPIN_DST="${SYSTEMD_DIR}/ict-claude-bridge.service.d/data-dir.conf"
 if [ -f "${_BRIDGE_DROPIN_SRC}" ]; then
     if [ ! -e "${_BRIDGE_DROPIN_DST}" ] || ! cmp -s "${_BRIDGE_DROPIN_SRC}" "${_BRIDGE_DROPIN_DST}"; then
@@ -203,7 +228,7 @@ fi
 #   so DATA_DIR + TRADE_JOURNAL_DB are in the inherited env when the
 #   wrapper starts. Surfaced by the live-VM inspect-insights audit
 #   on 2026-05-26 (issue #2096).
-_INSIGHTS_DROPIN_SRC="${REPO_DIR}/deploy/dropins/data-dir.conf"
+_INSIGHTS_DROPIN_SRC="${_DATADIR_DROPIN_SRC}"
 _INSIGHTS_DROPIN_DST="${SYSTEMD_DIR}/ict-insights-generator.service.d/data-dir.conf"
 if [ -f "${_INSIGHTS_DROPIN_SRC}" ]; then
     if [ ! -e "${_INSIGHTS_DROPIN_DST}" ] || ! cmp -s "${_INSIGHTS_DROPIN_SRC}" "${_INSIGHTS_DROPIN_DST}"; then

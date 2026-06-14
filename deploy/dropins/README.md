@@ -12,6 +12,7 @@ are a parallel, additive layer that sidesteps that friction.
 |---|---|---|
 | [`data-dir.conf`](./data-dir.conf) | `ict-trader-live`, `ict-web-api`, `ict-claude-bridge`, `ict-telegram-bot` | Binds to `/data/bot-data` mount: `RequiresMountsFor`, `ExecStartPre=check_data_dir.sh`, `Environment=DATA_DIR=...`. **`ict-claude-bridge` + `ict-telegram-bot` are auto-installed by `scripts/install_systemd_units.sh` on every pull-and-deploy** (both are ping drainers — a missing drop-in silently darkens their channel). `ict-trader-live` + `ict-web-api` are still installed manually (one-time, below). |
 | [`watchdog-data-dir.conf`](./watchdog-data-dir.conf) | `ict-liveness-watchdog` | Minimal `Environment=DATA_DIR=/data/bot-data` only — no mount guard since the watchdog should alert, not block, when the mount is absent. **Auto-installed by `scripts/install_systemd_units.sh` on every pull-and-deploy.** |
+| [`data-dir-nomount.conf`](./data-dir-nomount.conf) | same set as `data-dir.conf` (topology-selected) | Env-only sibling of `data-dir.conf` (`DATA_DIR` + `TRADE_JOURNAL_DB`, **no** `RequiresMountsFor`/`ExecStartPre`). `scripts/install_systemd_units.sh` auto-selects this over `data-dir.conf` when `/data/bot-data` is **not** a mount (the Ampere live candidate `ict-bot-arm`, where `/data/bot-data` is a boot-volume dir) — the mount-binding flavor would otherwise wedge every unit in `activating` forever. On the block-volume live VMs `data-dir.conf` is still selected, unchanged. |
 
 ## How to install data-dir.conf (one-time, per service)
 
