@@ -49,21 +49,34 @@ _MIRROR_SUBPATH = "trainer_mirror"
 # trainer and follow a predictable shape, so this is permissive but bounded.
 _SAFE_ID = re.compile(r"^[A-Za-z0-9._\-]{1,128}$")
 
-# Two-bucket deployment view (per operator directive 2026-05-18). The
-# registry has 7 stages; from a runtime-impact perspective only two
-# matter: SHADOW (predictions logged in real-time but decisions
-# unchanged) or LIVE (predictions actually influence the trade
-# decision). OFFLINE = the model exists in the registry but no
-# strategy references it, so nothing happens at runtime.
+# Three-bucket deployment view (per operator directive 2026-05-18). The
+# registry has 7 stages; from a runtime-impact perspective three matter:
+#   LIVE    — model at an influence stage (advisory / limited_live /
+#             live_approved): the live order path's advisory hook
+#             (src/runtime/advisory_sizing.py::compute_advisory_factor)
+#             scores it and can downsize a real order. Stage-driven and
+#             registry-global (the advisory hook discovers influence-stage
+#             models across the whole registry, not via shadow_model_ids),
+#             so a model is LIVE on stage alone.
+#   SHADOW  — `shadow`-stage model wired into a strategy's predictor list
+#             (explicit shadow_model_ids or the auto-wire default):
+#             predictions are logged but decisions are unchanged.
+#   OFFLINE — exists in the registry but is neither influencing nor observed.
 #
-# Important: there is currently NO live-influence code path. Every
-# model wired into a strategy's ``shadow_model_ids`` is observe-only
-# regardless of registry stage. So today every wired model returns
-# SHADOW. ``LIVE`` is reserved for the future ``live_model_ids``
-# wiring (Phase 3 of the Models work).
+# History: until the advisory-influence path landed
+# (src/runtime/advisory_influence.py + advisory_sizing.py) there was no
+# live-influence code path, so this helper only ever returned SHADOW /
+# OFFLINE. It now returns LIVE for influence-stage models.
 _BUCKET_LIVE = "LIVE"
 _BUCKET_SHADOW = "SHADOW"
 _BUCKET_OFFLINE = "OFFLINE"
+
+# Stages whose models influence the live order package — mirrors
+# src/runtime/advisory_sizing.py::_ADVISORY_INFLUENCE_STAGES and the shadow
+# factory's LIVE_INFLUENCE_STAGES. `shadow` and below never influence.
+_LIVE_INFLUENCE_STAGES: frozenset[str] = frozenset(
+    {"advisory", "limited_live", "live_approved"}
+)
 
 
 def _mirror_root() -> Path:
@@ -239,16 +252,19 @@ def _auto_wire_strategy_names() -> list[str]:
     return names
 
 
-def _compute_deployment_bucket(linked_strategies: list[str]) -> str:
-    """Collapse the 7 registry stages to the operator's 2-bucket view.
+def _compute_deployment_bucket(stage: str, linked_strategies: list[str]) -> str:
+    """Collapse the 7 registry stages to the operator's deployment view.
 
-    Today: any model referenced by a strategy's ``shadow_model_ids`` is
-    SHADOW (predictions logged, decisions unchanged). Anything else is
-    OFFLINE. ``LIVE`` is not returned yet — the live-influence code path
-    doesn't exist; Phase 3 of the Models work adds ``live_model_ids``
-    and the decision-overlay hook, and this helper will be extended to
-    return LIVE when that lands.
+    * LIVE    — model at an influence stage (advisory / limited_live /
+      live_approved): the live order path's advisory hook scores it and can
+      downsize a real order. Stage-driven and registry-global, so LIVE on
+      stage alone — independent of ``shadow_model_ids``.
+    * SHADOW  — ``shadow``-stage model wired into a strategy's predictor list
+      (explicit or auto-wire): predictions logged, decisions unchanged.
+    * OFFLINE — neither influencing nor observed.
     """
+    if stage in _LIVE_INFLUENCE_STAGES:
+        return _BUCKET_LIVE
     return _BUCKET_SHADOW if linked_strategies else _BUCKET_OFFLINE
 
 
@@ -285,7 +301,7 @@ def _enrich_registry_row(
         linked_strategies = []
     enriched = dict(row)
     enriched["linked_strategies"] = linked_strategies
-    enriched["deployment_bucket"] = _compute_deployment_bucket(linked_strategies)
+    enriched["deployment_bucket"] = _compute_deployment_bucket(stage, linked_strategies)
     enriched["model_family"] = manifest.get("model_family")
     enriched["trainer"] = manifest.get("trainer")
     enriched["evaluator"] = manifest.get("evaluator")
@@ -307,10 +323,12 @@ def get_registry() -> dict[str, Any]:
       * ``linked_strategies`` — list of strategy names whose
         ``shadow_model_ids`` references this ``model_id``. Empty list
         means the model exists in the registry but no strategy uses it.
-      * ``deployment_bucket`` — ``"LIVE" | "SHADOW" | "OFFLINE"``. Today
-        any wired model is SHADOW (the live-influence path is not yet
-        implemented). The dashboard renders this as the headline pill on
-        each per-model card.
+      * ``deployment_bucket`` — ``"LIVE" | "SHADOW" | "OFFLINE"``. LIVE for
+        a model at an influence stage (advisory / limited_live /
+        live_approved — scored by the live order path's advisory hook),
+        SHADOW for a wired ``shadow``-stage model (logged, decisions
+        unchanged), OFFLINE otherwise. The dashboard renders this as the
+        headline pill on each per-model card.
       * ``model_family`` — flattened from ``manifest.model_family``
         (e.g. ``trade_outcome_classifier``).
       * ``trainer`` / ``evaluator`` — fully-qualified callable names
