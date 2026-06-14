@@ -16,6 +16,13 @@
 # =============================================================================
 
 ccxt>=4.0.0
+# Bybit V5 client (linear-perp order placement + set-leverage; demo + live).
+# Imported by src/units/accounts/clients.py (`from pybit.unified_trading import
+# HTTP`). pybit's internal V5 signer is the only one that works for set-leverage
+# on these keys (see src/main.py::_apply_per_account_leverage). >=5.7 supports
+# the demo endpoint (HTTP(demo=True)). Was an UNDECLARED dependency until the
+# 2026-06-14 Ampere-migration verification caught a fresh venv missing it.
+pybit>=5.7
 # Interactive Brokers TWS API (MES futures execution path). Connects to a
 # local IB Gateway / TWS socket — no API keys. The original package is no
 # longer actively maintained; the API-compatible fork is `ib_async`, which
