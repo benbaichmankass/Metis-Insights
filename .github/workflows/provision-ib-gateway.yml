@@ -23,7 +23,7 @@ name: provision-ib-gateway
 #     irreducible physical step).
 #
 # Required repo secrets: VM_SSH_KEY, IB_USERNAME, IB_PASSWORD
-# Optional repo variables: VM_SSH_HOST (default 158.178.210.252), VM_SSH_USER (default ubuntu)
+# Optional repo variables: VM_SSH_HOST (default 141.145.193.91 — live VM since the 2026-06-14 Ampere cutover), VM_SSH_USER (default ubuntu)
 
 on:
   workflow_dispatch:
@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
     steps:
       - name: Checkout
