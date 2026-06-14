@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
       DASHBOARD_PORT: ${{ inputs.port || '8001' }}
     steps:
@@ -101,7 +101,7 @@ jobs:
               "${VM_SSH_USER}@${VM_SSH_HOST}" 'bash -s' <<'REMOTE' > apply.txt 2>&1
           set +e
           PORT=8001
-          PUBLIC_IP=158.178.210.252
+          PUBLIC_IP=141.145.193.91
 
           echo "===== ufw (idempotent allow) ====="
           sudo -n ufw status verbose 2>&1 | head -3
