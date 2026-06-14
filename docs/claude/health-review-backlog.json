@@ -1672,8 +1672,30 @@
       "title": "ib_insync not installed on the Ampere live candidate -> IB/MES balance + execution path unavailable",
       "description": "The first health-snapshot run on the candidate logged: account_balance(ib_paper): 'ib_insync is not installed ... pip install ib_insync (or ib_async) to enable the IB execution path.' The Bybit money path is live on the candidate (retCode 0, open positions), but the IB/MES leg (ib_paper account -> IB Gateway VM 10.0.0.251) appears unwired: the venv lacks ib_insync/ib_async. Need to confirm whether MES is expected to trade from the candidate and, if so, install the IB client lib in the candidate venv + verify connectivity to the gateway VM over the private subnet. Until then MES is dark on the candidate. Tier-2 (dependency install on the live VM + connectivity verification).",
       "tier": 2,
+      "status": "resolved",
+      "resolved_at": "2026-06-14T16:50:00+00:00",
+      "resolution": "FALSE ALARM on the premise: ib_insync 0.9.86 IS installed in the trader venv (/home/ubuntu/ict-trading-bot/.venv), and the MES/MGC/MHG strategies run every tick with live IB data (verified: real prices evaluated, e.g. MES 7497.5, MGC 4240.3). The MES leg is NOT dark. The \"ib_insync not installed\" line came from ict-health-snapshot running under /usr/bin/python3 (system), not the venv -> see new BL-20260614-HEALTHSNAP-PY. Investigation DID surface a real, pre-existing bug: the order monitor fetched IB-futures candles from Bybit (\"bybit does not have market symbol MHG\") -> candles=None -> monitor() short-circuited, so bot-side exits never ran for IB positions (IBKR bracket still held the stop). Fixed in PR #3597 (per-symbol connector routing in _build_monitor_ohlcv_fetcher)."
+    },
+    {
+      "id": "BL-20260614-HEALTHSNAP-PY",
+      "opened_at": "2026-06-14T16:50:00+00:00",
+      "opened_by": "claude (live-VM Ampere cutover follow-up session)",
+      "source": "Spun off from BL-20260614-CANDIDATE-IB investigation.",
+      "title": "ict-health-snapshot runs under /usr/bin/python3 (system), not the trader venv -> ib_paper balance always 'unavailable'",
+      "description": "deploy/ict-health-snapshot.service ExecStart uses /usr/bin/python3, which lacks the venv packages (ib_insync etc.). So write_health_snapshot.py's account_balance(ib_paper) import of ib_insync fails and logs 'ib_insync is not installed', and the ib_paper balance in the health snapshot is always reported unavailable -- even though the trader venv has ib_insync 0.9.86 and trades IB fine. Cosmetic (the snapshot's IB balance line is wrong), but it produced a scary false-positive this session. Fix: point the health-snapshot unit's ExecStart at the venv python (/home/ubuntu/ict-trading-bot/.venv/bin/python) so it sees the same packages the trader does. Tier-2 (unit-file change).",
+      "tier": 2,
+      "status": "open"
+    },
+    {
+      "id": "BL-20260615-DECOMMISSION-MICRO",
+      "opened_at": "2026-06-14T16:50:00+00:00",
+      "opened_by": "claude (operator-requested, for tomorrow's health log)",
+      "source": "Operator: 'put that on the health log for tomorrow' (micro decommission).",
+      "title": "[FOR TOMORROW] Decommission the retired x86 micro (158.178.210.252) after soak",
+      "description": "The live trader cutover to the Ampere candidate ict-bot-arm (141.145.193.91) completed 2026-06-14 and is fully operational (Bybit live, observability + self-heal + git-sync all restored). The old x86 micro 158.178.210.252 is stopped + disabled + Bybit-frozen, kept as the rollback target. Once the candidate has soaked cleanly (operator said wait 'in the moment' -- revisit tomorrow), terminate the micro via the terminate-instance workflow (label terminate-instance, confirm: yes). It is a SEPARATE AMD Always-Free allocation, so retiring it costs/frees no Ampere budget. Runbook: docs/runbooks/live-vm-migration-ampere.md. Do NOT terminate until the operator confirms the soak looks good.",
+      "tier": 2,
       "status": "open"
     }
   ],
-  "updated_at": "2026-06-14T16:45:00+00:00"
+  "updated_at": "2026-06-14T16:50:00+00:00"
 }
