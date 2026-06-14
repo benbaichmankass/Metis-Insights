@@ -59,7 +59,7 @@ jobs:
       - name: Set up SSH key (for IMDS lookup)
         env:
           VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
-          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
         run: |
           set -euo pipefail
           if [ -z "${VM_SSH_KEY}" ]; then
@@ -76,7 +76,7 @@ jobs:
         id: imds
         env:
           VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
-          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
         run: |
           set -euo pipefail
           ssh -o StrictHostKeyChecking=accept-new \

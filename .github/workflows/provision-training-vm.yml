@@ -36,7 +36,8 @@ name: provision-training-vm
 # Required repo variables (Settings → Secrets and variables →
 # Actions → Variables):
 #   * VM_SSH_HOST           — live trader VM's public IP (used for
-#                              IMDS query). Defaults to 158.178.210.252.
+#                              IMDS query). Defaults to 141.145.193.91
+#                              (live VM since the 2026-06-14 Ampere cutover).
 #   * VM_SSH_USER           — defaults to ubuntu.
 #
 # Idempotency: scripts/ops/provision_training_vm.py refuses to
@@ -73,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
       DISPLAY_NAME: ${{ github.event.inputs.display_name || 'ict-trainer-vm' }}
     steps:
