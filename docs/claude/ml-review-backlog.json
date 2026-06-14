@@ -420,11 +420,12 @@
    "id": "MB-20260604-004",
    "opened_at": "2026-06-04T11:00:00+00:00",
    "opened_by": "claude (S-MLOPT-S12)",
-   "status": "open",
+   "status": "resolved",
    "tier": 3,
    "title": "Macro/cross-asset A/B for MES: eval mes-regime-5m-lgbm-macro-v1 vs mes-regime-5m-lgbm-v2 once MES market_features rebuilds on v6 with a macro side-stream",
    "description": "S-MLOPT-S12 (M14 Phase 2.4) shipped the cross-asset/macro feature group for MES: ml/datasets/macro_features.py (VIX level/z + term-structure slope VIX/VIX3M-1, DXY z+return, 10y level + 3m-10y slope), the off-VM yfinance_macro fetch adapter + scripts/ml/fetch_macro.py, market_features builder_version v5->v6 (optional macro_path, default-preserving 0.0), and the research_only manifest ml/configs/mes-regime-5m-lgbm-macro-v1.yaml (identical to v2 except the added macro group; same frozen regime spec). The daily build_trainer_datasets.sh fetches the macro stream once (ensure_mes_macro, MES_MACRO=1 default-on, NON-FATAL) and joins it into the 5m/15m + 1d MES market_features via macro_path. ACTION when the next daily cycle has rebuilt MES market_features on v6 WITH the macro stream present (check the build emit for family=macro status=ok + the v002 MES feature dir carries non-zero vix_level): run `python -m ml compare mes-regime-5m-lgbm-v2 mes-regime-5m-lgbm-macro-v1` and read the f1_volatile delta under the Phase-0 purged CV. If macro separates the MES volatile regime where same-OHLC vol did not -> propose promotion to shadow (operator-gated). If not -> HONEST NEGATIVE: log it here and move on (intraday macro alpha is plausibly thin; MES is daily-conditioned at best). Leakage discipline already enforced: daily features are one-day-lagged (a day-D row stamped D+1) + as-of past-only joined (unit-tested).",
    "evidence_log": [
+    "2026-06-14 (model-training, MES pull-fix session) — CLOSED NEGATIVE. Ran the formal `python -m ml compare mes-regime-5m-lgbm-v2 mes-regime-5m-lgbm-macro-v1` on FRESH NATIVE MES history. Backstory: the pull tool (scripts/ops/pull_mes_ibkr_history.sh) had been silently broken since the 2026-06-10 gateway-isolation — it still defaulted IB_HOST=127.0.0.1 (the retired same-box loopback), so every MES pull died in ~2s with ConnectionRefused. Fixed in #3500 (default -> 10.0.0.251, the dedicated gateway VM), deployed, re-ran: MES 5m=17,113 rows / 15m=5,717 (~1y native intraday). Cycle head=65a3b6e4 rebuilt MES market_features ON the native data (build emit 'using synced IBKR MES market_raw'). RESULT (holdout n_eval=3418, 20% of 17k): f1_volatile v2=0.623 vs macro-v1=0.459 (delta -0.164); recall_volatile collapsed 0.694->0.387; weighted_f1 0.686->0.637; precision flat (~0.565). Macro conditioning HURTS the MES 5m volatile regime — daily-lagged VIX/term-structure/DXY/rates carry no intraday (5m) vol-regime signal. Consistent with the 2026-06-06 holdout lean + the S9 balanced-class finding. DECISION: keep mes-regime-5m-lgbm-v2 (shadow, the better head); mes-regime-5m-lgbm-macro-v1 STAYS research_only — no promotion. Honest negative per the manifest's pre-registered call. Optional future probe (not queued): macro on the MES 1d TF, where the regime label separates best and daily macro alpha is more plausible than intraday.",
     "2026-06-06 (/ml-review): macro head TRAINED + leaning NEGATIVE on the holdout. Registry: mes-regime-5m-lgbm-macro-v1 (research_only) f1_volatile 0.484 / macro_f1 0.566 vs mes-regime-5m-lgbm-v2 f1_volatile 0.547 / macro_f1 0.621 \u2014 the macro-augmented head is WORSE than the plain v2 on both metrics at the same n_eval=3235. Consistent with the S9 MES finding that MES regime classes are median-calibrated/balanced, so added features that help imbalanced BTC don't help balanced MES. The formal `python -m ml compare ... ` purged-CV is the closing step, but the holdout already points negative. Recommend: run the purged-CV compare; if it confirms <v2, close NEGATIVE (macro stays research_only); optionally try macro on the MES 1d TF where the regime label separates best (daily macro alpha is more plausible than 5m).",
     "2026-06-04 (S-MLOPT-S12, branch claude/mlopt-s12-macro-mes): Part A shipped. 50 macro/market_features tests pass; 224 broader ML tests pass (ex pandas-only); ruff clean. End-to-end producer smoke confirmed sensible values + correct D+1 leakage stamp. Manifest at research_only; orchestrator wired (MES_MACRO=1 default-on, best-effort)."
    ],
@@ -652,13 +653,23 @@
     {
      "at": "2026-06-13T20:50:00+00:00",
      "note": "BLOCKED on data: trainer #3480 shows datasets-out/market_features/MES is EMPTY (not built) and market_raw/MES has no 5m data; macro side-stream datasets-out/macro/MES/v002 IS present. So the MES macro A/B needs MES market_raw 5m built first, then market_features MES 5m v6 with macro_path. Not a one-shot - queue the MES raw 5m fetch/build before the A/B."
+    },
+    {
+     "at": "2026-06-14T07:48:00+00:00",
+     "note": "RESOLVED NEGATIVE — refine ran end-to-end, macro head does NOT beat the baseline. Root of the prior block was a silently-broken pull tool (defaulted to the retired 127.0.0.1:4002 loopback gateway post-2026-06-10 isolation); fixed #3500 (IB_HOST default -> 10.0.0.251), re-ran the pull (MES 5m=17,113 / 15m=5,717 native rows), cycle head=65a3b6e4 rebuilt MES market_features on the native data + macro side-stream. A/B (holdout n=3418): f1_volatile v2=0.623 vs macro-v1=0.459 (delta -0.164); recall_volatile 0.694->0.387. Macro conditioning HURTS the MES 5m volatile regime. DECISION: macro-v1 stays research_only (NOT promoted to shadow); mes-regime-5m-lgbm-v2 remains the MES 5m shadow head. Full detail in MB-20260604-004. The native MES history is now the standing dataset for all MES heads, so future MES refines start from real intraday data."
     }
    ],
+   "status": "resolved",
    "status_history": [
     {
      "at": "2026-06-13T18:30:00+00:00",
      "to": "open",
      "by": "claude (operator session: models/strategies status + first promotion)"
+    },
+    {
+     "at": "2026-06-14T07:48:00+00:00",
+     "to": "resolved",
+     "by": "claude (MES pull-fix session)"
     }
    ]
   },
