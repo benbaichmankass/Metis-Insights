@@ -509,3 +509,43 @@ def test_registry_enrichment_shadow_bucket_via_auto_wire(
     orphan = rows["trade-outcome-winrate-v1"]
     assert orphan["deployment_bucket"] == "OFFLINE"
     assert orphan["linked_strategies"] == []
+
+
+def test_registry_enrichment_live_bucket_for_influence_stage(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A model at an influence stage (advisory / limited_live /
+    live_approved) is LIVE — the advisory hook in the live order path scores
+    it and can downsize a real order. LIVE is stage-driven and
+    registry-global, so it holds even with NO shadow_model_ids wiring (an
+    empty explicit map AND no auto-wire). A `shadow`-stage sibling stays
+    SHADOW; a research_only sibling stays OFFLINE."""
+    mirror = tmp_path / "runtime_logs" / "trainer_mirror"
+    mirror.mkdir(parents=True, exist_ok=True)
+    (mirror / "trainer_status.json").write_text(
+        json.dumps({"ts": "2026-06-14T00:00:00+00:00", "registry": {"models": 3}}),
+        encoding="utf-8",
+    )
+    _write_jsonl(
+        mirror / "registry.jsonl",
+        [
+            {"model_id": "advisory-model-v1", "target_deployment_stage": "advisory"},
+            {"model_id": "approved-model-v1", "target_deployment_stage": "live_approved"},
+            {"model_id": "shadow-model-v1", "target_deployment_stage": "shadow"},
+            {"model_id": "research-model-v1", "target_deployment_stage": "research_only"},
+        ],
+    )
+    # No explicit wiring and no auto-wire — proves LIVE comes from the stage,
+    # not from shadow_model_ids; the shadow model needs the auto-wire set.
+    _patch_shadow_wiring(monkeypatch, {})
+    monkeypatch.setattr(
+        "src.web.api.routers.training_center._auto_wire_strategy_names",
+        lambda: ["vwap"],
+    )
+    resp = client.get("/api/bot/ml/registry")
+    assert resp.status_code == 200
+    rows = {r["model_id"]: r for r in resp.json()["rows"]}
+    assert rows["advisory-model-v1"]["deployment_bucket"] == "LIVE"
+    assert rows["approved-model-v1"]["deployment_bucket"] == "LIVE"
+    assert rows["shadow-model-v1"]["deployment_bucket"] == "SHADOW"
+    assert rows["research-model-v1"]["deployment_bucket"] == "OFFLINE"
