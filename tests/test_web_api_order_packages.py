@@ -147,6 +147,35 @@ def test_signal_logic_and_meta_decoded_when_json(db, client):
     assert row["meta"] == {"setup_type": "turtle_soup", "killzone": "london"}
 
 
+def test_model_scores_decoded_when_json(db, client):
+    """model_scores (the per-model ML decision captured at signal time) is
+    projected as modelScores, decoded to a dict — a cheap SELECT instead of
+    recompiling from the shadow-prediction log."""
+    tid = _trade(db, pnl=1.0)
+    _insert_package(
+        db, order_package_id="op-ms", linked_trade_id=tid,
+        created_at="2026-05-20T10:00:00Z",
+        model_scores=json.dumps({
+            "btc-regime-5m-baseline-v1": {"stage": "shadow", "score": 0.62},
+            "btc-trade-outcome-v2": {"stage": "advisory", "score": 0.48},
+        }),
+    )
+    row = client.get("/api/bot/order-packages").json()["rows"][0]
+    assert row["modelScores"] == {
+        "btc-regime-5m-baseline-v1": {"stage": "shadow", "score": 0.62},
+        "btc-trade-outcome-v2": {"stage": "advisory", "score": 0.48},
+    }
+
+
+def test_model_scores_null_when_unset(db, client):
+    """An order package with no captured scores serializes modelScores=None."""
+    tid = _trade(db, pnl=1.0)
+    _insert_package(db, order_package_id="op-noms", linked_trade_id=tid,
+                    created_at="2026-05-20T10:00:00Z")
+    row = client.get("/api/bot/order-packages").json()["rows"][0]
+    assert row["modelScores"] is None
+
+
 def test_signal_logic_plain_text_and_meta_null(db, client):
     """Plain-text signal_logic passes through as a string; an unset meta is
     None (not the literal string 'None')."""

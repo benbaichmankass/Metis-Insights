@@ -82,6 +82,25 @@ def _migrate_add_order_package_id(cursor: sqlite3.Cursor) -> bool:
     return True
 
 
+def _migrate_add_order_package_model_scores(cursor: sqlite3.Cursor) -> bool:
+    """Add ``model_scores`` column to ``order_packages`` if absent.
+
+    Persists the per-model ML decision scores (shadow/advisory predictions)
+    that were part of the trade, as a JSON object ``{model_id: {stage, score}}``
+    — so consumers read them with a cheap SELECT instead of recompiling
+    per-trade aggregates from ``runtime_logs/shadow_predictions.jsonl`` on
+    every request. Observe-only metadata. Pre-existing rows stay NULL.
+
+    Idempotent: returns True only on the run that adds the column.
+    """
+    cursor.execute("PRAGMA table_info(order_packages)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "model_scores" in columns:
+        return False
+    cursor.execute("ALTER TABLE order_packages ADD COLUMN model_scores TEXT")
+    return True
+
+
 class Database:
     """Manages SQLite database for trade journal and backtest results"""
     
@@ -232,9 +251,12 @@ class Database:
                 linked_trade_id INTEGER,
                 close_reason TEXT,
                 meta TEXT,
+                model_scores TEXT,
                 FOREIGN KEY (linked_trade_id) REFERENCES trades(id)
             )
         ''')
+        # Idempotent migration for pre-existing DBs missing model_scores.
+        _migrate_add_order_package_model_scores(cursor)
         # Indexes — hourly report + UI helpers query by strategy and
         # by status; the per-strategy view is the primary access path
         # per Rule 4 ("order package logs per strategy").
@@ -647,6 +669,8 @@ class Database:
         row.setdefault("status", "open")
         if isinstance(row.get("meta"), dict):
             row["meta"] = _json.dumps(row["meta"], default=str)
+        if isinstance(row.get("model_scores"), (dict, list)):
+            row["model_scores"] = _json.dumps(row["model_scores"], default=str)
 
         conn = self.connect()
         cursor = conn.cursor()
