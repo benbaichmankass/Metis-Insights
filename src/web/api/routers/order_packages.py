@@ -9,6 +9,11 @@ the fill-level ``trades`` view. Each row is enriched with:
     ``comms/claude_strategy_scores.jsonl`` (written by ``/health-review`` /
     ``scripts/ops/score_order_packages.py``), keyed by ``order_package_id``.
     ``None`` until a health-review has scored that package.
+  * ``signalLogic`` / ``meta`` — the decision reasoning the bot recorded at
+    signal time (``order_packages.signal_logic`` / ``meta`` TEXT columns,
+    JSON-decoded to whatever shape the writer used; ``meta`` typically carries
+    setup_type / killzone / bias). Powers the dashboard's open-trade detail
+    card. ``None`` when the writer left the column empty.
 
 Per-model **shadow scores** are intentionally NOT joined here. They are
 keyed by trade and already served by ``/api/bot/trades/scores``; the
@@ -99,6 +104,28 @@ def _f(v: Any) -> Optional[float]:
         return None
 
 
+def _decode_json_field(v: Any) -> Any:
+    """Decode a TEXT column that holds JSON (``meta`` / ``signal_logic``).
+
+    The bot writes ``order_packages.meta`` and ``order_packages.signal_logic``
+    as JSON strings (decision reasoning: setup_type, killzone, bias, the
+    detector geometry, etc.). Return the parsed object when it's valid JSON,
+    the raw string when it's plain text, and ``None`` when empty/null — so a
+    consumer can render whatever shape the writer used without guessing.
+    """
+    if v is None:
+        return None
+    if not isinstance(v, str):
+        return v
+    s = v.strip()
+    if not s:
+        return None
+    try:
+        return json.loads(s)
+    except (json.JSONDecodeError, ValueError):
+        return s
+
+
 def _query_order_packages(
     db_path: Path, limit: int, since: Optional[str], strategy: Optional[str],
     include_demo: bool = False,
@@ -114,7 +141,7 @@ def _query_order_packages(
             SELECT op.order_package_id, op.strategy_name, op.symbol, op.direction,
                    op.entry, op.sl, op.tp, op.confidence,
                    op.created_at, op.updated_at, op.status, op.close_reason,
-                   op.linked_trade_id,
+                   op.linked_trade_id, op.signal_logic, op.meta,
                    t.pnl AS trade_pnl, t.status AS trade_status,
                    COALESCE(t.is_demo, 0) AS trade_is_demo
             FROM order_packages op
@@ -187,6 +214,13 @@ async def get_order_packages(
             "pnl": _f(r["trade_pnl"]),
             "tradeStatus": r["trade_status"],
             "isDemo": bool(r["trade_is_demo"]),
+            # Decision reasoning the bot recorded at signal time. Both are
+            # JSON-or-text TEXT columns; decoded to whatever shape the writer
+            # used (dict for structured meta/logic, str for plain text, None
+            # when unset). `meta` typically carries setup_type / killzone /
+            # bias; `signalLogic` the detector's decision trace.
+            "signalLogic": _decode_json_field(r["signal_logic"]),
+            "meta": _decode_json_field(r["meta"]),
             "claudeScore": _claude_score_wire(claude.get(opid)),
         })
     return {
