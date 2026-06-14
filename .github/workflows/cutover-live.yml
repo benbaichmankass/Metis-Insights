@@ -242,9 +242,13 @@ jobs:
           : > verify.txt
           if [ "${LIFE}" != "RESERVED" ]; then
             { echo "IP is ${LIFE} — candidate keeps ${CAND}. Update external refs:";
+              echo "  - !! Bybit API-key bound-IP allowlist (BYBIT_API_KEY_2 + _1) -> ${CAND}";
+              echo "       (broker-side, operator-only; missing this = ErrCode 10010, BL-20260614-BYBIT-IP)";
               echo "  - repo variable VM_SSH_HOST -> ${CAND}";
               echo "  - dashboard BOT_API_URL (Streamlit secret) -> http://${CAND}:8001";
-              echo "  - session DIAG_BASE_URL -> http://${CAND}:8001"; } | tee -a verify.txt
+              echo "  - session DIAG_BASE_URL -> http://${CAND}:8001";
+              echo "  - trainer LIVE_VM_IP drop-ins (ict-trainer-publish + ict-promotion-readiness) -> ${CAND}";
+              echo "  NOTE: adopt a RESERVED IP (reserve-live-ip.yml) to make ALL of the above moot on future moves."; } | tee -a verify.txt
           fi
           echo "::group::start trader + web-api on candidate"
           $S "${VM_SSH_USER}@${CAND}" 'sudo systemctl enable ict-trader-live.service ict-web-api.service; sudo systemctl restart ict-trader-live.service ict-web-api.service; sleep 55; echo "trader: $(systemctl is-active ict-trader-live)"; echo "web-api: $(systemctl is-active ict-web-api)"; echo "heartbeat_age_s (fresh <60 = journal path OK): $(python3 -c "import os,time;print(int(time.time()-os.path.getmtime(\"/data/bot-data/runtime_logs/heartbeat.txt\")))" 2>/dev/null || echo none)"; echo "health: $(curl -sS --max-time 5 http://127.0.0.1:8001/api/health || echo unreachable)"' | tee -a verify.txt
@@ -262,7 +266,7 @@ jobs:
             const ipnote = life === 'RESERVED'
               ? '✅ RESERVED → the IP moves to the candidate at cutover; **zero external ref changes**.'
               : (life === 'EPHEMERAL'
-                 ? '⚠️ EPHEMERAL → cutover updates external refs (VM_SSH_HOST var, dashboard BOT_API_URL, DIAG_BASE_URL).'
+                 ? '⚠️ EPHEMERAL → cutover updates external refs (**Bybit bound-IP allowlist** — operator-only, broker-side; VM_SSH_HOST var; dashboard BOT_API_URL; DIAG_BASE_URL; trainer LIVE_VM_IP). Adopt a RESERVED IP via reserve-live-ip.yml to make these moot on future moves.'
                  : '❓ IP lifetime undetermined — see run log.');
             const head = `**cutover-live** (${dry ? 'DRY-RUN — no mutation' : 'LIVE CUTOVER'})\n` +
               `Micro public IP \`${{ steps.plan.outputs.micro_public_ip }}\` — lifetime: **${life}**\n` + ipnote;
