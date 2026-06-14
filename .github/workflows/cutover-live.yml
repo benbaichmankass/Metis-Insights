@@ -198,8 +198,8 @@ jobs:
           set -euo pipefail
           S="ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20"
           CAND="${{ steps.inputs.outputs.candidate_ip }}"
-          echo "::group::stop trader on micro"
-          $S "${VM_SSH_USER}@${MICRO_HOST}" 'sudo systemctl stop ict-trader-live.service && echo stopped'
+          echo "::group::stop + DISABLE micro trader + liveness-watchdog (prevent auto-revival -> no double-trader)"
+          $S "${VM_SSH_USER}@${MICRO_HOST}" 'sudo systemctl disable --now ict-liveness-watchdog.timer ict-liveness-watchdog.service 2>/dev/null || true; sudo systemctl disable --now ict-trader-live.service; echo "micro trader: $(systemctl is-active ict-trader-live)/$(systemctl is-enabled ict-trader-live 2>/dev/null)"; echo "micro watchdog timer: $(systemctl is-active ict-liveness-watchdog.timer 2>/dev/null)"'
           echo "::endgroup::"
           echo "::group::replicate .env (piped via runner, not echoed)"
           $S "${VM_SSH_USER}@${MICRO_HOST}" 'cat /home/ubuntu/ict-trading-bot/.env' > env.tmp
@@ -212,6 +212,9 @@ jobs:
           rsync -az --delete -e "$S" "${VM_SSH_USER}@${MICRO_HOST}:/data/bot-data/" data_stage/
           rsync -az -e "$S" data_stage/ "${VM_SSH_USER}@${CAND}:/data/bot-data/"
           $S "${VM_SSH_USER}@${CAND}" 'echo "journal on candidate: $(ls -la /data/bot-data/trade_journal.db 2>/dev/null || echo MISSING)"'
+          echo "::endgroup::"
+          echo "::group::install DATA_DIR drop-in on candidate (journal+heartbeat resolve to /data/bot-data, not a stray repo DB)"
+          $S "${VM_SSH_USER}@${CAND}" 'set -e; for U in ict-trader-live ict-web-api; do sudo mkdir -p /etc/systemd/system/$U.service.d; printf "[Service]\nEnvironment=DATA_DIR=/data/bot-data\nEnvironment=TRADE_JOURNAL_DB=/data/bot-data/trade_journal.db\n" | sudo tee /etc/systemd/system/$U.service.d/data-dir.conf >/dev/null; done; sudo systemctl daemon-reload; echo "drop-ins: $(ls /etc/systemd/system/ict-trader-live.service.d/ /etc/systemd/system/ict-web-api.service.d/ 2>/dev/null | tr "\n" " ")"'
           echo "::endgroup::"
 
       # ---- LIVE: reserved-IP move (only when RESERVED). Clean col-0 python. ----
@@ -244,7 +247,7 @@ jobs:
               echo "  - session DIAG_BASE_URL -> http://${CAND}:8001"; } | tee -a verify.txt
           fi
           echo "::group::start trader + web-api on candidate"
-          $S "${VM_SSH_USER}@${CAND}" 'sudo systemctl enable --now ict-trader-live.service ict-web-api.service; sleep 50; echo "trader: $(systemctl is-active ict-trader-live)"; echo "web-api: $(systemctl is-active ict-web-api)"; echo "heartbeat: $(stat -c %y /data/bot-data/runtime_logs/heartbeat.txt 2>/dev/null || echo none)"; echo "health: $(curl -sS --max-time 5 http://127.0.0.1:8001/api/health || echo unreachable)"' | tee -a verify.txt
+          $S "${VM_SSH_USER}@${CAND}" 'sudo systemctl enable ict-trader-live.service ict-web-api.service; sudo systemctl restart ict-trader-live.service ict-web-api.service; sleep 55; echo "trader: $(systemctl is-active ict-trader-live)"; echo "web-api: $(systemctl is-active ict-web-api)"; echo "heartbeat_age_s (fresh <60 = journal path OK): $(python3 -c "import os,time;print(int(time.time()-os.path.getmtime(\"/data/bot-data/runtime_logs/heartbeat.txt\")))" 2>/dev/null || echo none)"; echo "health: $(curl -sS --max-time 5 http://127.0.0.1:8001/api/health || echo unreachable)"' | tee -a verify.txt
           echo "::endgroup::"
 
       - name: Post plan + result to issue
