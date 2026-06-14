@@ -1,11 +1,14 @@
 name: provision-live-vm
 
-# Provision the CANDIDATE live-trader VM on Ampere A1.Flex (3 OCPU / 18 GB)
+# Provision the CANDIDATE live-trader VM on Ampere A1.Flex (2 OCPU / 12 GB)
 # for the E2.1.Micro -> A1.Flex migration. Runbook:
 # docs/runbooks/live-vm-migration-ampere.md.
 #
-# This CREATES a new Ampere instance (consumes 3 of the 4 Always-Free Ampere
-# OCPUs; the trainer holds the 4th). It does NOT touch the running live trader
+# Shape is 2 OCPU / 12 GB (NOT 3/18): the Always-Free Ampere pool is 4 OCPU /
+# 24 GB, and the trainer (1/6) + IB gateway (1/6) already hold 2 OCPU / 12 GB,
+# so 2/12 is exactly the remaining headroom (fills the pool to 4/24, $0). A
+# 3-OCPU launch would exceed the free ceiling and the quota guard rejects it.
+# This CREATES a new Ampere instance and does NOT touch the running live trader
 # on the micro — the new box boots into a verification state (deps + Docker +
 # repo + venv) with NO live services started. Cutover (Phase 3) is a separate,
 # operator-scheduled step.
@@ -18,7 +21,7 @@ name: provision-live-vm
 # Mirrors provision-training-vm.yml's auth + IMDS pattern. Reuses
 # scripts/ops/provision_training_vm.py (OCPU/MEMORY/DISPLAY_NAME/CLOUD_INIT
 # are env-parameterized; the quota guard counts only Ampere A1.Flex OCPUs, so
-# the x86 micro does not falsely block the 3-OCPU launch).
+# the x86 micro does not falsely block the 2-OCPU launch).
 #
 # Required repo secrets: VM_SSH_KEY + OCI_CLI_{USER,FINGERPRINT,TENANCY,
 #   REGION,KEY_CONTENT}. Required label: provision-live-vm.
@@ -174,8 +177,8 @@ jobs:
           OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
           COMPARTMENT_ID: ${{ steps.imds.outputs.compartment_id }}
           SUBNET_ID: ${{ steps.subnet.outputs.subnet_id }}
-          OCPUS: "3"
-          MEMORY_GB: "18"
+          OCPUS: "2"
+          MEMORY_GB: "12"
           CLOUD_INIT_PATH: deploy/live-arm-cloud-init.yaml
         run: |
           set +e
