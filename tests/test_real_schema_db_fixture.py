@@ -46,6 +46,7 @@ _EXPECTED_ORDER_PACKAGES_COLS = {
     "order_package_id", "strategy_name", "symbol", "direction",
     "entry", "sl", "tp", "confidence", "signal_logic", "created_at",
     "updated_at", "status", "linked_trade_id", "close_reason", "meta",
+    "model_scores",
 }
 
 

@@ -250,7 +250,7 @@ def _emit_shadow_preds(
         predictors = _resolve_shadow_predictors(strategy_name, strat_cfg)
         if not predictors:
             return
-        from src.runtime.shadow_adapter import with_shadow_preds
+        from src.runtime.shadow_adapter import capture_shadow_preds
         from src.runtime.regime_shadow import (
             closes_from_candles,
             feature_row_for_predictor,
@@ -268,6 +268,7 @@ def _emit_shadow_preds(
             "killzone": str(meta.get("killzone") or ""),
         }
         closes = closes_from_candles(candles_df)
+        captured: dict[str, dict[str, Any]] = {}
         for predictor in predictors:
             row = feature_row_for_predictor(
                 predictor,
@@ -279,9 +280,29 @@ def _emit_shadow_preds(
             )
             if row is None:
                 continue  # mismatched regime model — skip (don't log a constant)
-            # One predictor per call preserves with_shadow_preds' per-model
-            # try/except isolation + ShadowPredictor type-check.
-            with_shadow_preds(sig, predictors=[predictor], feature_row=row)
+            # One predictor per call preserves the per-model try/except
+            # isolation + ShadowPredictor type-check. capture_shadow_preds
+            # runs the same single predict() (so the audit log is unchanged)
+            # but returns the score so we can persist the ML decisions onto
+            # the order package — observe-only, never fed back into the order.
+            captured.update(
+                capture_shadow_preds([predictor], row)
+            )
+        # Stamp the per-model scores onto the signal's meta so they flow with
+        # the signal → intent → order_packages.meta and get persisted as part
+        # of the trade record (a cheap SELECT later, instead of recompiling
+        # from the prediction log). Mutate sig["meta"] in place (sig.get(...)
+        # may have returned a detached copy above).
+        if captured:
+            sig_meta = sig.get("meta")
+            if not isinstance(sig_meta, dict):
+                sig_meta = {}
+                sig["meta"] = sig_meta
+            existing = sig_meta.get("model_scores")
+            if isinstance(existing, dict):
+                existing.update(captured)
+            else:
+                sig_meta["model_scores"] = captured
     except Exception:  # noqa: BLE001
         logger.warning(
             "%s: shadow prediction emit failed", strategy_name, exc_info=False

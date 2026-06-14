@@ -142,6 +142,50 @@ def with_shadow_pred(
     )
 
 
+def capture_shadow_preds(
+    predictors: Sequence[ShadowPredictor] | Iterable[ShadowPredictor] | None,
+    feature_row: Mapping[str, Any],
+    *,
+    logger: logging.Logger | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Run shadow predictors and RETURN each model's decision score.
+
+    Same observe-only contract as :func:`with_shadow_preds` — one
+    ``predict`` per predictor (so the WS7 audit log is written exactly as
+    before), each call independently wrapped so one model's failure never
+    masks another. The difference is the scores are *returned* (and meant to
+    be persisted onto the order package) instead of discarded. **Observe-only:
+    the returned scores are metadata for the journal — they must never be
+    read back into any sizing/gating decision (the shadow non-influence
+    contract above still holds).**
+
+    Returns ``{model_id: {"stage": <stage>, "score": <float>}}`` for every
+    predictor that scored successfully; empty dict on ``None``/empty input.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    if predictors is None:
+        return out
+    log = logger if logger is not None else _DEFAULT_LOGGER
+    for predictor in predictors:
+        if not isinstance(predictor, ShadowPredictor):
+            raise TypeError(
+                f"every entry in `predictors` must be a ShadowPredictor; "
+                f"got {type(predictor).__name__}"
+            )
+        try:
+            score = predictor.predict(feature_row)
+            out[predictor.model_id] = {
+                "stage": predictor.stage,
+                "score": float(score),
+            }
+        except Exception as exc:  # noqa: BLE001 — see contract above
+            log.warning(
+                "shadow_predict_failed model_id=%s stage=%s err=%s",
+                predictor.model_id, predictor.stage, exc,
+            )
+    return out
+
+
 def with_shadow_preds_advisory(
     decision: T,
     *,
