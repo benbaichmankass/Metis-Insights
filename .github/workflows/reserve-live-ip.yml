@@ -1,0 +1,187 @@
+name: reserve-live-ip
+# Make the LIVE trader's public IP a RESERVED (static) IP so it survives VM moves.
+#
+# WHY: the 2026-06-14 live->Ampere cutover left the live VM on an *ephemeral*
+# OCI public IP. Ephemeral IPs die with the instance, so a future move forces a
+# new address and breaks every external ref keyed to it — the Bybit API-key
+# bound-IP allowlist (ErrCode 10010, BL-20260614-BYBIT-IP), VM_SSH_HOST, the
+# dashboard BOT_API_URL, DIAG_BASE_URL, the trainer LIVE_VM_IP. A RESERVED IP
+# belongs to the role, not the box: cutover-live.yml already moves a RESERVED IP
+# to the new VM at cutover ("zero external ref changes"). This workflow adopts
+# one once so that path fires forever after.
+#
+# Modes (input `mode`):
+#   describe  read-only — report the live public IP + lifetime. No mutation.
+#   allocate  NON-disruptive — create a RESERVED public IP (floating, unassigned)
+#             so the operator can pre-bind it on Bybit before the swap. Idempotent.
+#   assign    MUTATING + briefly disruptive (requires confirm: yes) — delete the
+#             ephemeral public IP and assign the reserved one to the live VNIC.
+#             A few-second window with no public IP (SSH/dashboard/egress blink);
+#             open Bybit positions stay protected by native SL/TP brackets.
+#
+# Dispatch: workflow_dispatch, or open an issue labelled `reserve-live-ip` with a
+# body of `mode: <describe|allocate|assign>` (+ `reserved_ip_id: <ocid>` and
+# `confirm: yes` for assign). Mirrors cutover-live.yml's OCI auth + IMDS discovery.
+#
+# Secrets: VM_SSH_KEY + OCI_CLI_{USER,FINGERPRINT,TENANCY,REGION,KEY_CONTENT}.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "describe | allocate | assign"
+        required: true
+        default: "describe"
+      reserved_ip_id:
+        description: "RESERVED public IP OCID (assign mode; from a prior allocate run)"
+        required: false
+        default: ""
+      confirm:
+        description: "Must be 'yes' for mode=assign (the brief disruptive swap)"
+        required: false
+        default: "no"
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: reserve-live-ip
+  cancel-in-progress: false
+
+jobs:
+  reserve:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'reserve-live-ip'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LIVE_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dedup — bail if a bot comment already exists
+        if: github.event_name == 'issues'
+        id: dedup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, per_page: 100,
+            });
+            core.setOutput('skip',
+              comments.some(c => c.user && c.user.login === 'github-actions[bot]') ? 'true' : 'false');
+
+      - name: Parse inputs
+        if: steps.dedup.outputs.skip != 'true'
+        id: inputs
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          DISP_MODE: ${{ inputs.mode }}
+          DISP_RIP: ${{ inputs.reserved_ip_id }}
+          DISP_CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          field() { printf '%s' "$1" | awk -F: -v k="$2" '$1 ~ "^[[:space:]]*"k"[[:space:]]*$" {gsub(/^[[:space:]]+|[[:space:]]+$/,"",$2); print $2; exit}'; }
+          if [ "${EVENT_NAME}" = "issues" ]; then
+            mode="$(field "${ISSUE_BODY}" mode | tr '[:upper:]' '[:lower:]')"
+            rip="$(field "${ISSUE_BODY}" reserved_ip_id)"
+            confirm="$(field "${ISSUE_BODY}" confirm | tr '[:upper:]' '[:lower:]')"
+          else
+            mode="$(printf '%s' "${DISP_MODE}" | tr '[:upper:]' '[:lower:]')"
+            rip="${DISP_RIP}"
+            confirm="$(printf '%s' "${DISP_CONFIRM}" | tr '[:upper:]' '[:lower:]')"
+          fi
+          [ -z "${mode}" ] && mode="describe"
+          case "${mode}" in describe|allocate|assign) ;; *) echo "::error::bad mode '${mode}'"; exit 1;; esac
+          if [ "${mode}" = "assign" ] && [ "${confirm}" != "yes" ]; then
+            echo "::error::mode=assign requires 'confirm: yes'."; exit 1
+          fi
+          echo "mode=${mode}"               >> "$GITHUB_OUTPUT"
+          echo "reserved_ip_id=${rip}"      >> "$GITHUB_OUTPUT"
+          echo "confirm=${confirm}"         >> "$GITHUB_OUTPUT"
+
+      - name: Set up SSH key
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          [ -z "${VM_SSH_KEY}" ] && { echo "::error::VM_SSH_KEY unset"; exit 1; }
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${LIVE_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Set up Python + OCI SDK
+        if: steps.dedup.outputs.skip != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install oci sdk
+        if: steps.dedup.outputs.skip != 'true'
+        run: python3 -m pip install --quiet 'oci>=2.119,<3'
+
+      - name: Discover live instance via IMDS
+        if: steps.dedup.outputs.skip != 'true'
+        id: imds
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${LIVE_HOST}" \
+              'curl -sS -H "Authorization: Bearer Oracle" --max-time 5 http://169.254.169.254/opc/v2/instance/' > imds.json
+          python3 -c 'import json;d=json.load(open("imds.json"));print("inst="+d["id"]);print("comp="+d["compartmentId"]);print("region="+d["regionInfo"]["regionIdentifier"])' > imds.kv
+          echo "instance_id=$(grep ^inst= imds.kv|cut -d= -f2)" >> "$GITHUB_OUTPUT"
+          echo "compartment_id=$(grep ^comp= imds.kv|cut -d= -f2)" >> "$GITHUB_OUTPUT"
+          echo "region=$(grep ^region= imds.kv|cut -d= -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Run reserve_live_ip (${{ steps.inputs.outputs.mode }})
+        if: steps.dedup.outputs.skip != 'true'
+        id: run
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION || steps.imds.outputs.region }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          COMPARTMENT_ID: ${{ steps.imds.outputs.compartment_id }}
+          LIVE_INSTANCE_ID: ${{ steps.imds.outputs.instance_id }}
+          MODE: ${{ steps.inputs.outputs.mode }}
+          RESERVED_IP_ID: ${{ steps.inputs.outputs.reserved_ip_id }}
+          CONFIRM: ${{ steps.inputs.outputs.confirm }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/reserve_live_ip.py "${MODE}" | tee out.txt
+
+      - name: Post result to issue
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const read = (p) => { try { return fs.readFileSync(p,'utf8'); } catch { return '(no output — see run log)'; } };
+            const mode = '${{ steps.inputs.outputs.mode }}' || 'describe';
+            const body = [
+              `**reserve-live-ip** (mode: \`${mode}\`)`, '',
+              '```', read('out.txt').slice(0,6000), '```',
+              mode === 'allocate'
+                ? '_Next: bind the reserved address on Bybit (BYBIT_API_KEY_2), then dispatch `mode: assign` with `reserved_ip_id` + `confirm: yes` in a low-activity window._'
+                : (mode === 'assign'
+                   ? '_Verify Bybit is bound to the reserved address; update VM_SSH_HOST / BOT_API_URL / DIAG_BASE_URL only if the address changed._'
+                   : '_Read-only describe. RESERVED = stable. EPHEMERAL = run `mode: allocate` next._'),
+            ].join('\n');
+            await github.rest.issues.createComment({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,body});
+            await github.rest.issues.update({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,state:'closed'});
+
+      - name: Emit summary (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch' && steps.dedup.outputs.skip != 'true'
+        run: |
+          echo "### reserve-live-ip (mode: ${{ steps.inputs.outputs.mode }})" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"; cat out.txt >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"
