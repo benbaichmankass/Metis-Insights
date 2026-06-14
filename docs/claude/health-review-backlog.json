@@ -1705,7 +1705,17 @@
       "description": "The timer-enable loop at the end of scripts/install_systemd_units.sh does `enable --now` on EVERY deploy/*.timer it finds, including ict-ib-gateway-watchdog.timer and ict-ib-gateway-reset.timer. Post gateway-isolation (2026-06-10) those belong on the dedicated IB-gateway VM, NOT the trader -- on the trader they probe a non-existent local container / unreachable IB and spam alerts. Pre-existing design wart (predates the split topology). Worked around on the candidate this session by `systemctl mask`-ing both timers so the blanket enable is a no-op for them. Durable fix: make the enable loop topology-aware (skip gateway timers unless the host IS the gateway VM, via a marker file or unit allowlist). Tier-2 (deploy tooling).",
       "tier": 2,
       "status": "open"
+    },
+    {
+      "id": "BL-20260614-BYBIT-IP",
+      "opened_at": "2026-06-14T19:37:00+00:00",
+      "opened_by": "claude (operator-reported bybit IP-mismatch errors after the Ampere cutover)",
+      "source": "Operator pasted live ict-trading-bot ERROR logs: bybit_get_positions_failed / bybit_get_order_status_failed -> 'Unmatched IP, please check your API key's bound IP addresses (ErrCode: 10010)' on account=bybit_2, starting ~18:37 UTC (after the 2026-06-14 live->Ampere cutover).",
+      "title": "Bybit API-key bound-IP allowlist not updated for the new Ampere live VM -> ErrCode 10010 on bybit_2 (real-money money-path outage)",
+      "description": "ROOT CAUSE: the live->Ampere cutover (2026-06-14) moved the trader's egress IP from the micro 158.178.210.252 to the Ampere VM ict-bot-arm 141.145.193.91, but the Bybit API key BYBIT_API_KEY_2 (real money, mainnet api.bybit.com) still has its bound-IP allowlist set to the OLD micro IP. Bybit rejects every authed request from the new IP with ErrCode 10010 'Unmatched IP'. Effect: bybit_2 get_positions + get_order_status (and almost certainly order placement) fail every tick -> the real-money account is blind (cannot reconcile / monitor / open new trades). Native exchange-side SL/TP brackets still protect open positions (they fire on Bybit, not via the client). The cutover checklist in docs/runbooks/live-vm-migration-ampere.md NEVER included 'update the Bybit API-key IP allowlist' -- documented now as follow-up item 6. FIX (operator-only, broker-side, no workflow can do it): on Bybit -> API Management, add 141.145.193.91 to the bound-IP list for BYBIT_API_KEY_2 (keep 158.178.210.252 during the rollback soak; drop it at micro decommission). Also check/repeat for BYBIT_API_KEY_1 (demo, api-demo.bybit.com). NOTE the new VM's egress IP is its OCI public IP (1:1 NAT) = 141.145.193.91; if Bybit still rejects after binding, confirm the exact egress empirically before re-editing. Tier: operator broker-side action + Tier-1 doc fix (this entry + runbook item 6).",
+      "tier": 1,
+      "status": "open"
     }
   ],
-  "updated_at": "2026-06-14T17:05:00+00:00"
+  "updated_at": "2026-06-14T19:37:00+00:00"
 }

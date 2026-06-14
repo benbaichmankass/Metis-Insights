@@ -172,3 +172,24 @@ Most closed 2026-06-14 (same-day follow-up session):
 5. **Decommission the micro** (`terminate-instance` on its display name) after a
    24–48h soak. Stopped + Bybit-frozen, kept as the rollback target. Tracked for
    tomorrow as `BL-20260615-DECOMMISSION-MICRO` — operator-gated.
+6. ⚠️ **Bybit API-key IP allowlist must include the new VM egress IP**
+   (`BL-20260614-BYBIT-IP`, surfaced 2026-06-14 ~18:37 UTC). **This step was
+   MISSING from the cutover checklist and caused a real-money outage on
+   `bybit_2`.** The Bybit API keys (`BYBIT_API_KEY_2` real-money, and
+   `BYBIT_API_KEY_1` demo) have a **bound-IP allowlist** that was tied to the
+   micro's IP `158.178.210.252`; after the cutover the trader calls from the
+   Ampere VM's egress IP `141.145.193.91`, which Bybit rejects with
+   `ErrCode 10010 "Unmatched IP, please check your API key's bound IP addresses"`
+   on `get_positions` / `get_order_status` (and any order placement) — i.e. the
+   `bybit_2` money path was effectively blind since cutover. **This is an
+   operator-only, broker-side action** (no workflow can edit Bybit's API-key IP
+   settings — it lives behind the operator's Bybit login): on Bybit → API
+   Management → edit the key bound to `BYBIT_API_KEY_2` → **add** `141.145.193.91`
+   to the bound-IP list (Bybit allows multiple IPs). **Keep `158.178.210.252` in
+   the list during the 24–48h rollback soak** so a rollback still works; drop it
+   when the micro is decommissioned (item 5). Repeat the check for
+   `BYBIT_API_KEY_1` (demo, `api-demo.bybit.com`). Native exchange-side SL/TP
+   brackets keep protecting open positions while the API IP is mismatched (they
+   fire on Bybit, not via the client), but the bot cannot reconcile, monitor, or
+   open new `bybit_2` trades until the IP is bound. **Add this step to any future
+   VM-migration checklist** — egress IP changes whenever the live VM moves.
