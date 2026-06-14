@@ -93,12 +93,13 @@ def test_fetcher_passes_captured_exchange_and_args(monkeypatch, fake_exchange):
     assert seen["settings"] is settings
 
 
-def test_fetcher_returns_none_when_exchange_init_raises(monkeypatch):
-    """A connector init failure must not raise out of
-    ``_build_monitor_ohlcv_fetcher`` — the caller passes the result
-    straight to ``run_monitor_tick(ohlcv_fetcher=...)`` and a None
-    fetcher is the documented fallback (every strategy's
-    ``monitor()`` short-circuits on ``candles_df is None``)."""
+def test_fetcher_yields_none_when_connector_init_raises(monkeypatch):
+    """A per-symbol connector init failure must not raise or strand the
+    whole monitor. The fetcher is still returned (so OTHER symbols keep
+    fetching — a Bybit failure must not blind the IBKR symbols and vice
+    versa), and calling it for the failing symbol returns None, which
+    every strategy's ``monitor()`` short-circuits on (``candles_df is
+    None``)."""
     def _raise(_settings):
         raise RuntimeError("connector boom")
 
@@ -106,7 +107,8 @@ def test_fetcher_returns_none_when_exchange_init_raises(monkeypatch):
 
     fetcher = main_module._build_monitor_ohlcv_fetcher({"EXCHANGE": "bybit"})
 
-    assert fetcher is None
+    assert callable(fetcher)
+    assert fetcher("BTCUSDT", "5m") is None
 
 
 @pytest.mark.parametrize(

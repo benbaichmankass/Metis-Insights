@@ -298,13 +298,30 @@ def _build_monitor_ohlcv_fetcher(settings: dict):
     on init failure so the caller's ``run_monitor_tick`` falls back
     to the prior no-change behaviour.
     """
-    from src.runtime.market_data import fetch_candles, _build_exchange_client
+    from src.runtime.market_data import fetch_candles, connector_for_symbol
 
-    try:
-        exchange = _build_exchange_client(settings)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("monitor: ohlcv exchange init failed (%s)", exc)
-        return None
+    # Per-symbol connector cache. The monitor must route each symbol to the
+    # SAME exchange the signal builders use (BTCUSDT → Bybit; MES/MGC/MHG →
+    # IBKR, per config/instruments.yaml). A single default client asked Bybit
+    # for the IB futures ("bybit does not have market symbol MHG"), so open
+    # IB-futures positions got candles=None and the strategy monitor()
+    # short-circuited — bot-side TP/SL/time-decay exits never ran (the
+    # broker-side IBKR bracket still held the position). connector_for_symbol
+    # falls back to the default EXCHANGE for unprofiled symbols, so BTCUSDT
+    # routing is unchanged. Cached so the (possibly IBKR) client is built at
+    # most once per symbol per fetcher build.
+    _connector_cache: dict = {}
+
+    def _connector_for(symbol):
+        if symbol in _connector_cache:
+            return _connector_cache[symbol]
+        try:
+            client = connector_for_symbol(symbol, settings)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("monitor: connector init failed for %s (%s)", symbol, exc)
+            client = None
+        _connector_cache[symbol] = client
+        return client
 
     # Per-strategy default timeframes — fallback when a package's meta
     # JSON lacks ``timeframe``. Pre-2026-05-09 every package row was
@@ -330,10 +347,13 @@ def _build_monitor_ohlcv_fetcher(settings: dict):
             timeframe = _per_strategy_tf.get(strategy_name)
         if not timeframe:
             return None
+        client = _connector_for(symbol)
+        if client is None:
+            return None
         return fetch_candles(
             symbol, timeframe,
             settings=settings,
-            exchange_client=exchange,
+            exchange_client=client,
             limit=200,
         )
 
