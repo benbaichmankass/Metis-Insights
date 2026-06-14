@@ -231,9 +231,10 @@ wire-up. See trainer-vm-mode.md § 5 for the full lifecycle.
   for live, which is the verified shape of the candidate (`ict-bot-arm`,
   filling the pool to 4/24, $0). The x86 micro is a *separate* AMD Always-Free
   allocation, so retiring it costs no Ampere budget. **Post-cutover follow-ups**
-  (re-enable `ict-git-sync` on the candidate so it auto-deploys from `main`;
-  optional dedicated `/data` block volume; install `ib_insync` for the MES leg;
-  decommission the micro via `terminate-instance` after soak) are tracked in
+  (most closed 2026-06-14: ✅ `ict-git-sync` re-enabled — the candidate
+  auto-deploys from `main`; ✅ `ib_insync` confirmed already present in the trader
+  venv — MES/MGC/MHG trade live; remaining: optional dedicated `/data` block
+  volume; decommission the micro via `terminate-instance` after soak) are tracked in
   [`docs/runbooks/live-vm-migration-ampere.md`](docs/runbooks/live-vm-migration-ampere.md).
   Migration tooling (`provision-live-vm`, `cutover-live`, `terminate-instance`)
   remains for rollback / future moves.

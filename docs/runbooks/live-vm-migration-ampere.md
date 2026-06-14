@@ -150,16 +150,25 @@ Live trader is now `ict-bot-arm` (`141.145.193.91`), `VM.Standard.A1.Flex`
 
 ### Remaining follow-ups
 
-1. **Re-enable `ict-git-sync` on the candidate** so it auto-deploys from `main`
-   (currently OFF — the candidate runs the cutover commit and does not
-   auto-pull). Safe now that PR #3588 is merged: the first sync pulls the
-   mount-aware installer, then runs it. This restarts the trader on each `main`
-   push (the designed steady state) — coordinate before flipping.
-2. **`ib_insync` not installed** in the candidate venv → the IB/MES leg is dark
-   (Bybit unaffected). Backlog `BL-20260614-CANDIDATE-IB`.
-3. **`ict-shadow-log-rotate`** not enabled + has a `DATA_DIR` gap. Backlog
-   `BL-20260614-SHADOWROT-NODATADIR`.
+Most closed 2026-06-14 (same-day follow-up session):
+
+1. ✅ **`ict-git-sync` re-enabled on the candidate** (2026-06-14) — auto-deploys
+   from `main` every 5 min. The candidate was fast-forwarded to `main` first, so
+   the first sync was a no-op (no trader restart). The IB-gateway timers
+   (`ict-ib-gateway-watchdog`, `ict-ib-gateway-reset`) are **masked** on the
+   candidate so the installer's blanket `enable --now` can't activate them on the
+   trader box — they belong on the dedicated gateway VM (see
+   `BL-20260614-INSTALLER-GATEWAY-TIMERS`).
+2. ✅ **`ib_insync` was never missing** — `ib_insync 0.9.86` is in the trader venv
+   (`.venv`) and MES/MGC/MHG trade on live IB data. The earlier "not installed"
+   alarm came from `ict-health-snapshot` running under `/usr/bin/python3` (system),
+   not the venv — cosmetic, tracked as `BL-20260614-HEALTHSNAP-PY`. The
+   investigation surfaced + fixed a real pre-existing bug: the order monitor
+   fetched IB candles from Bybit (PR #3597, per-symbol connector routing).
+3. ✅ **`ict-shadow-log-rotate`** enabled + the `DATA_DIR` gap fixed (PR #3596) so
+   it rotates the real `/data/bot-data` log.
 4. **Optional dedicated `/data` block volume** for the candidate (today it's a
    boot-volume dir; fine, but a separate volume matches the micro's posture).
 5. **Decommission the micro** (`terminate-instance` on its display name) after a
-   24–48h soak. It's stopped + Bybit-frozen, kept as the rollback target.
+   24–48h soak. Stopped + Bybit-frozen, kept as the rollback target. Tracked for
+   tomorrow as `BL-20260615-DECOMMISSION-MICRO` — operator-gated.
