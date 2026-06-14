@@ -87,7 +87,7 @@ jobs:
               {
                 name: 'provision-live-vm',
                 color: 'b60205',
-                description: 'Triggers provision-live-vm workflow — provision the Ampere A1.Flex candidate for the live-trader migration (3 OCPU / 18 GB). No live impact; boots into a verification state.',
+                description: 'Triggers provision-live-vm workflow — provision the Ampere A1.Flex candidate for the live-trader migration (2 OCPU / 12 GB, free-tier-safe). No live impact; boots into a verification state.',
               },
               {
                 name: 'arm-candidate-diag',
@@ -98,6 +98,11 @@ jobs:
                 name: 'deploy-candidate',
                 color: 'b60205',
                 description: 'Triggers deploy-candidate — deploy + dry-boot the bot stack on the Ampere migration candidate (all accounts forced dry_run; parallel to the live micro).',
+              },
+              {
+                name: 'cutover-live',
+                color: 'b60205',
+                description: 'Triggers cutover-live — migrate the live trader micro -> Ampere candidate. dry_run reports the IP type + plan (no outage); dry_run:false + confirm:yes does the live cutover (stop micro, replicate .env + data, move/handle IP, start candidate).',
               },
               {
                 name: 'vm-web-api-recover',
