@@ -1245,6 +1245,21 @@ _DEFAULT_RECONCILER_GRACE_SECONDS = 60
 _DEFAULT_CLOSE_CONFIRM_SECONDS = 60
 _PENDING_CLOSE_CONFIRM: Dict[int, datetime] = {}
 
+# Reverse-reconciler half of the same idea (BL-20260614-ORPHANBLIP). The
+# close-on-disappear pass in ``_reconcile_orphan_exchange_positions`` must NOT
+# close an ``orphan_adopt`` row the first time the exchange snapshot omits its
+# (symbol, side) — a logged-out IB Gateway can return an *empty* portfolio
+# (``[]``, not a read failure → not ``None``), and a single such blip would
+# close the adopted row, only for the next healthy read to re-adopt it as a new
+# orphan (the MHG adopt→close→re-adopt flip-flop seen 2026-06-12..14). The
+# (symbol, side) must read absent across an extra grace tick (a second
+# observation) before the close lands; a snapshot that brings the position back
+# clears the pending close. In-process state keyed by trades.id; a restart
+# re-arms from scratch — fail-safe (never closes early). Reuses
+# ``_close_confirm_seconds()`` for the grace window (a tuning knob, not an
+# enable gate — the confirm is always on, per the no-third-gate Prime Directive).
+_PENDING_ORPHAN_DISAPPEAR_CONFIRM: Dict[int, datetime] = {}
+
 # Bybit V5 ``orderStatus`` values that mean "order is still live on
 # the exchange and has not reached a terminal state". A DB row whose
 # orderId reports any of these stays ``status='open'`` regardless of
@@ -1572,6 +1587,12 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         # the policy=close summary key so the operator can distinguish
         # "active-trading close" from "journal cleanup close".
         "closed_disappeared": 0,
+        # Adopted-orphan rows that read absent this pass but are inside the
+        # close-confirm window (armed or awaiting a second confirming read) —
+        # NOT yet closed. A logged-out-Gateway empty-portfolio blip surfaces
+        # here for one pass and clears when the position reads back open.
+        # BL-20260614-ORPHANBLIP.
+        "pending_disappear": 0,
         # Existing orphan_adopt rows repaired back to their originating
         # strategy this pass (self-heal — orphan_adopt is a problem state,
         # not a resting status).
@@ -1676,7 +1697,8 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         # fill record for an order we never placed. The operator's
         # exchange-side SL/TP (or manual close) is the source of truth
         # for the actual exit; the journal close is bookkeeping.
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso_dt = datetime.now(timezone.utc)
+        now_iso = now_iso_dt.isoformat()
         for r in open_rows:
             if str(r["strategy_name"] or "") != "orphan_adopt":
                 continue
@@ -1686,11 +1708,34 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                          "sell": "short", "short": "short"}.get(side)
             if not sym or not canonical:
                 continue
+            tid_int = int(r["id"])
             if (sym, canonical) in exchange_positions:
-                # Still alive on Bybit — leave it open.
+                # Still alive on the exchange — leave it open and clear any
+                # armed close-confirmation (a prior absent read was a blip).
+                _PENDING_ORPHAN_DISAPPEAR_CONFIRM.pop(tid_int, None)
                 continue
+            # Disappeared from this snapshot. Require a SECOND confirming
+            # observation (>= _close_confirm_seconds apart) before closing, so
+            # a logged-out-Gateway empty-portfolio blip can't close (and then
+            # re-orphan) the adopted row. BL-20260614-ORPHANBLIP.
+            _first_absent = _PENDING_ORPHAN_DISAPPEAR_CONFIRM.get(tid_int)
+            if _first_absent is None:
+                _PENDING_ORPHAN_DISAPPEAR_CONFIRM[tid_int] = now_iso_dt
+                summary["pending_disappear"] += 1
+                logger.info(
+                    "_reconcile_orphan_exchange_positions: ARMED close-confirm "
+                    "for disappeared adopted orphan — trade_id=%s account=%s "
+                    "symbol=%s side=%s (awaiting a second confirming read)",
+                    tid_int, aid, sym, canonical,
+                )
+                continue
+            if (now_iso_dt - _first_absent).total_seconds() < _close_confirm_seconds():
+                # Still inside the confirm window — wait for the next pass.
+                summary["pending_disappear"] += 1
+                continue
+            _PENDING_ORPHAN_DISAPPEAR_CONFIRM.pop(tid_int, None)
             try:
-                db.update_trade(int(r["id"]), {
+                db.update_trade(tid_int, {
                     "status": "closed",
                     "exit_reason": "adopted_orphan_disappeared",
                     "notes": json.dumps({
@@ -1823,16 +1868,17 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         or summary["adopted"]
         or summary["closed"]
         or summary["closed_disappeared"]
+        or summary["pending_disappear"]
         or summary["errors"]
     ):
         logger.info(
             "_reconcile_orphan_exchange_positions: accounts=%d positions=%d "
             "orphans=%d adopted=%d closed=%d closed_disappeared=%d "
-            "detect_only=%d errors=%d",
+            "pending_disappear=%d detect_only=%d errors=%d",
             summary["checked_accounts"], summary["checked_positions"],
             summary["orphans_found"], summary["adopted"], summary["closed"],
-            summary["closed_disappeared"], summary["detect_only"],
-            summary["errors"],
+            summary["closed_disappeared"], summary["pending_disappear"],
+            summary["detect_only"], summary["errors"],
         )
     return summary
 

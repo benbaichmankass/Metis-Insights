@@ -52,6 +52,15 @@ def tmp_db(tmp_path, monkeypatch):
     db_path = tmp_path / "trade_journal.db"
     monkeypatch.setenv("TRADE_JOURNAL_DB", str(db_path))
     monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+    # Close-on-disappear requires a SECOND confirming absent read
+    # (BL-20260614-ORPHANBLIP). Set the time window to 0 so two back-to-back
+    # ticks in a test confirm immediately — the 2-observation requirement still
+    # holds (one absent tick arms, the next closes). The standing per-process
+    # confirm-cache must also be cleared so trade ids reused across tests don't
+    # carry stale arming.
+    monkeypatch.setenv("RECONCILER_CLOSE_CONFIRM_SECONDS", "0")
+    import src.runtime.order_monitor as _om
+    _om._PENDING_ORPHAN_DISAPPEAR_CONFIRM.clear()
     db = Database(db_path=str(db_path))
 
     def _fake_cfgs():
@@ -415,13 +424,25 @@ def _adopt_via_reverse(tmp_db, monkeypatch, position):
 
 
 def test_close_disappear_closes_adopted_when_position_gone(tmp_db, monkeypatch):
-    """Adopt a position in tick 1, then tick 2 sees Bybit return [] →
-    the adopted row is closed with exit_reason='adopted_orphan_disappeared'.
+    """Adopt a position in tick 1; tick 2 sees Bybit return [] → ARMED only
+    (close-confirm, BL-20260614-ORPHANBLIP), still open; tick 3 sees [] again
+    → the adopted row is closed with exit_reason='adopted_orphan_disappeared'.
     exit_price stays NULL because we don't have a Bybit-side fill for an
     order we never placed."""
     _adopt_via_reverse(tmp_db, monkeypatch, _bybit_position())
     assert _open_trade_count(tmp_db) == 1
 
+    # First absent read — arms the close-confirm, does NOT close.
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        armed = _reconcile_orphan_exchange_positions(tmp_db)
+    assert armed["pending_disappear"] == 1
+    assert armed["closed_disappeared"] == 0
+    assert _open_trade_count(tmp_db) == 1
+
+    # Second confirming absent read — now closes.
     with patch(
         "src.units.accounts.clients.account_open_positions",
         return_value=[],
@@ -483,13 +504,20 @@ def test_close_disappear_partial(tmp_db, monkeypatch):
         _reconcile_orphan_exchange_positions(tmp_db)
     assert _open_trade_count(tmp_db) == 2
 
-    # Tick 2: only BTCUSDT remains on Bybit; ETHUSDT short is gone.
+    # Tick 2 + 3: only BTCUSDT remains on Bybit; ETHUSDT short is gone. The
+    # first absent read arms the close-confirm; the second confirms + closes
+    # (BL-20260614-ORPHANBLIP). BTCUSDT stays open throughout (still reported).
+    btc_only = [_bybit_position(
+        symbol="BTCUSDT", side="Buy", size=0.003, entry=80725.9,
+    )]
     with patch(
         "src.units.accounts.clients.account_open_positions",
-        return_value=[_bybit_position(
-            symbol="BTCUSDT", side="Buy", size=0.003, entry=80725.9,
-        )],
+        return_value=btc_only,
     ):
+        armed = _reconcile_orphan_exchange_positions(tmp_db)
+        assert armed["pending_disappear"] == 1
+        assert armed["closed_disappeared"] == 0
+        assert _open_trade_count(tmp_db) == 2
         summary = _reconcile_orphan_exchange_positions(tmp_db)
 
     assert summary["closed_disappeared"] == 1
@@ -530,6 +558,50 @@ def test_close_disappear_does_not_touch_non_adopted_rows(tmp_db, monkeypatch):
     assert _open_trade_count(tmp_db) == 1
 
 
+def test_blip_then_recover_does_not_close_adopted(tmp_db, monkeypatch):
+    """The MHG adopt→close→re-adopt churn (BL-20260614-ORPHANBLIP): a
+    logged-out IB Gateway can return an EMPTY portfolio ([], not a read
+    failure) for one tick, then report the position again. A single empty
+    read must only ARM the close-confirm; when the position reads back open
+    the next tick, the pending close is cleared and the adopted row survives
+    — no spurious close, no re-orphan."""
+    pos = _bybit_position()
+    _adopt_via_reverse(tmp_db, monkeypatch, pos)
+    assert _open_trade_count(tmp_db) == 1
+
+    # Tick 2: blip — exchange returns [] (connected but no portfolio yet).
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        armed = _reconcile_orphan_exchange_positions(tmp_db)
+    assert armed["pending_disappear"] == 1
+    assert armed["closed_disappeared"] == 0
+    assert _open_trade_count(tmp_db) == 1
+
+    # Tick 3: gateway recovers — position reported again. Pending close clears.
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[pos],
+    ):
+        recovered = _reconcile_orphan_exchange_positions(tmp_db)
+    assert recovered["closed_disappeared"] == 0
+    assert recovered["pending_disappear"] == 0
+    assert recovered["adopted"] == 0  # not re-adopted — the row is still there
+    assert _open_trade_count(tmp_db) == 1
+
+    # Tick 4: a fresh single absent read must ARM again (the prior arming was
+    # cleared by the recovery), not close immediately.
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        rearmed = _reconcile_orphan_exchange_positions(tmp_db)
+    assert rearmed["pending_disappear"] == 1
+    assert rearmed["closed_disappeared"] == 0
+    assert _open_trade_count(tmp_db) == 1
+
+
 def test_position_read_failure_does_not_close_adopted(tmp_db, monkeypatch):
     """account_open_positions returns None on a transient creds failure;
     the close pass must NOT fire (otherwise a single missed read would
@@ -548,15 +620,18 @@ def test_position_read_failure_does_not_close_adopted(tmp_db, monkeypatch):
 
 
 def test_close_disappear_idempotent(tmp_db, monkeypatch):
-    """After a close-on-disappear tick, a second tick with the same
-    empty positions list is a no-op (the row is now status='closed' and
-    the close query filters status='open')."""
+    """After a close-on-disappear close, a further tick with the same empty
+    positions list is a no-op (the row is now status='closed' and the close
+    query filters status='open'). Tick 1 arms, tick 2 closes, tick 3 no-op."""
     _adopt_via_reverse(tmp_db, monkeypatch, _bybit_position())
     with patch(
         "src.units.accounts.clients.account_open_positions",
         return_value=[],
     ):
-        _reconcile_orphan_exchange_positions(tmp_db)
-        summary2 = _reconcile_orphan_exchange_positions(tmp_db)
-    assert summary2["closed_disappeared"] == 0
-    assert summary2["errors"] == 0
+        _reconcile_orphan_exchange_positions(tmp_db)   # arm
+        closed = _reconcile_orphan_exchange_positions(tmp_db)   # close
+        summary3 = _reconcile_orphan_exchange_positions(tmp_db)  # no-op
+    assert closed["closed_disappeared"] == 1
+    assert summary3["closed_disappeared"] == 0
+    assert summary3["pending_disappear"] == 0
+    assert summary3["errors"] == 0
