@@ -216,12 +216,23 @@ wire-up. See trainer-vm-mode.md § 5 for the full lifecycle.
   [`docs/runbooks/ib-integration.md`](docs/runbooks/ib-integration.md) §
   "Gateway isolation redesign".
 
-  The **live→3-OCPU Ampere migration is PAUSED**: with the gateway off the
-  micro, the 2 vCPU micro may hold the trader + web-api + sidecars (helped by
-  the #3232 cgroup priority + sidecar caps). Measure the micro's load
-  sans-gateway first; only migrate live to Ampere (3 OCPU / 18 GB via
-  `vm-resize-live` or a fresh A1.Flex) if 2 cores genuinely can't hold it. The
-  paused migration tooling (`provision-live-vm`, `terminate-instance`) remains.
+  The **live→Ampere migration is PAUSED on the CPU axis but re-justified on the
+  MEMORY axis (2026-06-14):** with the gateway off the micro, the 2-vCPU / 1-GB
+  micro holds the trader + web-api + sidecars on CPU just fine (loadavg ~1.2 on
+  2 cores — not saturated), BUT memory reached 90%+ with `kswapd` active
+  (genuine reclaim pressure — the trader+web-api+telegram are only ~240 MB
+  combined; 1 GB is simply too small for the grown stack). **Free-tier ceiling
+  math (stay Always-Free):** the Ampere pool is 4 OCPU / 24 GB total; trainer
+  (1 OCPU / 6 GB) + gateway (1 OCPU / 6 GB) already use **2 OCPU / 12 GB**, so a
+  live Ampere VM must be **≤ 2 OCPU / 12 GB** — NOT the "3 OCPU / 18 GB" an
+  earlier note cited (that would be 5 OCPU / 30 GB tenancy-wide, over the free
+  ceiling). Target **2 OCPU / 12 GB** (fills Ampere to exactly 4/24, $0) via
+  `vm-resize-live` or a fresh A1.Flex; the x86 micro is a *separate* AMD
+  Always-Free allocation, so retiring it costs no Ampere budget. Any in-process
+  → sidecar split (e.g. moving per-bar regime scoring off the trader loop) adds
+  a second Python interpreter (~+85 MB net) and so should land AFTER this resize,
+  not on the 1-GB micro. The paused migration tooling (`provision-live-vm`,
+  `terminate-instance`) remains.
 
 When in doubt about scope, default to the **live-VM** rules and ask.
 
