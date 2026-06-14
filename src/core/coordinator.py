@@ -1703,14 +1703,20 @@ class Coordinator:
         # (2026-05-08, Bybit ErrCode 170131).
         # A round where EVERY account benignly no-op'd (already at target, or
         # an opposite-side signal held under FLIP_POLICY=hold, or a sub-min-lot
-        # delta) placed zero trades by DESIGN — that is not a dispatch failure.
+        # delta, or a same-direction re-entry suppressed by the position-netting
+        # guard) placed zero trades by DESIGN — that is not a dispatch failure.
         # Only escalate the 🚨 roll-up when at least one account failed for a
         # genuine reason (RiskBreach, exchange rejection, missing creds). Folding
         # the benign no-ops in here was firing false alarms on every flip-
-        # suppressed signal (health-review BL-20260531-002).
+        # suppressed signal (health-review BL-20260531-002) and, once the
+        # netting guard's demo soak began, on every suppressed re-entry too.
         def _is_benign_noop(result: dict) -> bool:
             err = str(result.get("error") or "")
-            return err.startswith("intent_noop:") or err == "intent_sub_min_qty_delta"
+            return (
+                err.startswith("intent_noop:")
+                or err == "intent_sub_min_qty_delta"
+                or err.startswith("reentry_suppressed_netting_guard:")
+            )
 
         any_trade_placed = any(r.get("trade_id") is not None for r in results)
         all_benign_noop = bool(results) and all(_is_benign_noop(r) for r in results)
