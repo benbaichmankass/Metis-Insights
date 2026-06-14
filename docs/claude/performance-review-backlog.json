@@ -3,6 +3,19 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "PB-20260614-001",
+      "opened_at": "2026-06-14T09:30:00+00:00",
+      "opened_by": "claude (/performance-review 2026-06-14)",
+      "source": "Window 2026-06-13..06-14 (weekend): 6 in-window decisions, all orphaned/unfilled. eth_pullback_2h fired LONG ETHUSDT 3x into a chop tape (ADX ~19.8 on the 08:09 pkg), conf 0.57-0.74 -- graded D x3, continuing the 6/13 D cluster. The reentries were suppressed by the bybit_1 demo netting guard (working as designed). Demo eth_pullback closes are ~flat (+5.82/-1.23/-0.46); demo htf_pullback_trend_2h is bleeding (-3.5 to -75).",
+      "title": "eth_pullback_2h keeps firing LONG in chop on the demo soak -- evaluate a trend/regime entry filter once the demo book has enough closes",
+      "description": "eth_pullback_2h is a trend-pullback strategy but is firing pullback-LONGs into non-trending (chop, ADX<20) ETH tape, which is low-edge. It is demo-only (bybit_1) and the netting guard prevents pyramiding, so risk is contained, but the decision quality is poor. Extends PB-20260611-M15-2 (eth demo soak). Candidate Tier-3 tweak once >=30 demo closes accrue: add an ADX/regime floor (skip longs when regime=chop / ADX<threshold), mirroring the regime gate the other trend strategies use. Do NOT propose yet -- demo eth PnL is ~flat, not clearly negative; needs a fuller demo window.",
+      "tier": 3,
+      "trigger_condition": "eth_pullback_2h accrues >=30 demo closed trades, OR demo eth PnL turns clearly negative over a multi-day window.",
+      "resolution_criteria": "A Tier-3 proposed_tweak adds an ADX/regime entry filter to eth_pullback_2h citing per-regime demo PnL, or the chop-long concern is shown EV-neutral and closed.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
       "id": "PB-20260609-002",
       "opened_at": "2026-06-09T21:30:00+00:00",
       "opened_by": "claude (M7 closeout, S-M7-STRATEGY-REVIEW-GATE-2026-06-09 addendum)",
@@ -483,5 +496,5 @@
       "resolution_note": null
     }
   ],
-  "updated_at": "2026-06-14T07:30:00+00:00"
+  "updated_at": "2026-06-14T09:30:00+00:00"
 }

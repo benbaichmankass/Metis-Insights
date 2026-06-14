@@ -3,6 +3,19 @@
  "schema_version": 1,
  "items": [
   {
+   "id": "MB-20260614-001",
+   "opened_at": "2026-06-14T09:30:00+00:00",
+   "opened_by": "claude (/ml-review 2026-06-14)",
+   "source": "btc-regime-1h-lgbm-yz-v1 was promoted shadow->advisory by the operator on 2026-06-13T18:26Z -- the FIRST order-influencing model in the registry (closes MB-20260527-004). As of 2026-06-14 it has emitted 5 advisory-stage shadow_predictions (score_mean 0.984, range 0.977-0.989) since promotion; its prior shadow-stage stream (305 preds) stopped at 18:13Z as expected on the stage flip.",
+   "title": "Monitor the first advisory model (btc-regime-1h-lgbm-yz-v1) post-promotion; gate advisory->limited_live on real-money fills",
+   "description": "Now that one model influences orders, /ml-review must watch it every run: (1) advisory-stage prediction volume + drift (currently n=5, drift insufficient to judge); (2) realized agreement once the real-money BTC book actually trades (it is FLAT today -- bybit_2 pinned 0.001, so live_agreement is still unmeasurable, which is exactly why the promotion overrode that red). Do NOT recommend advisory->limited_live until there are real-money closed BTC trades the model scored, with positive agreement. Demotion to shadow is the kill path if advisory preds drift (KS/PSI) or the model degrades on live data. Also consider MB-20260613-004 (arm downsize influence) now that an advisory model exists.",
+   "tier": 3,
+   "trigger_condition": "Every /ml-review while btc-regime-1h-lgbm-yz-v1 is at advisory+; or any session investigating the advisory model's live influence.",
+   "resolution_criteria": "The model accrues enough real-money-scored closed BTC trades to compute live_agreement, and /ml-review either recommends advisory->limited_live (Tier-3) with evidence or demotes to shadow.",
+   "status": "open",
+   "snoozed_until": null
+  },
+  {
    "id": "MB-20260609-001",
    "opened_at": "2026-06-09T09:00:00+00:00",
    "opened_by": "claude (/health-review CPU A/B \u2192 /ml-review follow-up)",
@@ -144,8 +157,8 @@
    "description": "btc-regime-15m-lgbm-v2 (macro_f1=0.568, f1_volatile=0.227, n=16834) and btc-regime-5m-lgbm-v2 (macro_f1=0.546) both beat their baselines (0.491 / 0.499 respectively \u2014 baselines collapse to majority with f1_volatile=0). After the 2026-05-26 retraining cycle they entered the current shadow stage at 16:08:23Z (15m) and 16:08:40Z (5m) per BL-20260526-001 \u2014 7-day soak targets ~2026-06-02 16:08Z. Engineering work is fully landed; only the time-based promotion gates remain (shadow_soak >= 7 days; beats_baseline / live_agreement / drift_clean from accumulating live shadow predictions). When the soak completes, this skill should: (1) pull shadow_predictions.jsonl + verify entries exist for both model_ids tied to closed live BTCUSDT trades; (2) compute brier_lift, AUC, and the shadow-drift report so beats_baseline/live_agreement/drift_clean clear; (3) emit a promotion_recommendations[] entry with evidence; the operator decides shadow\u2192advisory. Mirror of BL-20260526-001 (health-review backlog) \u2014 kept here too so /ml-review naturally picks it up on the 6/2 cadence.",
    "tier": 3,
    "trigger_condition": "Any /ml-review run on or after 2026-06-12; or any session investigating 'is btc-regime-1h-lgbm-yz-v1 ready to promote shadow->advisory?'. The lead candidate is the yz 1h head (NOT the older v2 heads).",
-   "resolution_criteria": "Verified: (1) shadow_predictions.jsonl carries entries for btc-regime-{5m,15m}-lgbm-v2 tied to closed live BTCUSDT trades; (2) brier_lift, AUC>0.55, drift report present so beats_baseline/live_agreement/drift_clean clear; (3) evidence packet prepared and an explicit promotion_recommendations[] entry emitted. Operator-gated decision; this skill prepares the packet.",
-   "status": "open",
+   "resolution_criteria": "Verified: (1) shadow_predictions.jsonl carries entries for btc-regime-{5m,15m}-lgbm-v2 tied to closed live BTCUSDT trades; (2) brier_lift, AUC>0.55, drift report present so beats_baseline/live_agreement/drift_clean clear; (3) evidence packet prepared and an explicit promotion_recommendations[] entry emitted. Operator-gated decision; this skill prepares the packet. RESOLVED 2026-06-14: the operator promoted btc-regime-1h-lgbm-yz-v1 shadow->advisory on 2026-06-13T18:26Z (first influence-stage model), overriding the unsatisfiable live_agreement(AUC 0.0)/sample_sufficiency reds that were stuck on the FLAT real-money BTC book; the satisfiable gates had cleared (oos_edge +0.376, soak 8.7d, drift KS0.096/PSI0.088, cross_run_stability 0.003). Post-promotion monitoring moves to MB-20260614-001.",
+   "status": "resolved",
    "snoozed_until": null,
    "evidence_log": [
     "2026-06-09 (/ml-review): HOLD stands \u2014 soak completes 2026-06-12, ~3 days out. Trainer infra confirmed HEALTHY via trainer-vm-diag #3054: ict-trainer.timer + ict-drift-retrain.timer + ict-promotion-readiness.timer all enabled+active; today's daily cycle ran clean (training_cycle.jsonl cycle_end 2026-06-09T00:25, overall_rc=0); ict-drift-retrain fired 2026-06-09T06:01:28Z across all deployed shadow heads and returned skip_no_drift for every one (mes-regime-1d-lgbm-v2, mes-regime-5m{-baseline-v1,-lgbm-v2}, prop-mission-policy-baseline-v0, setup-quality + trade-outcome baselines) \u2014 ADWIN found no cut, so no drift-triggered retrain is warranted on the yz family's neighbours either. NOTE: promotion-readiness dir runtime_logs/trainer_mirror/promotion_readiness/2026-06-09/ EXISTS but SUMMARY.md was absent at pull time (cat failed) \u2014 minor: confirm the daily promotion-readiness report writes SUMMARY.md (or adjust the expected filename) next /ml-review; tracked alongside MB-20260607-002. No gate-check run this review (would need a trainer-vm-diag sync+gate-check cycle; deferred to the on/after-6/12 action already specified). No promotion recommended.",

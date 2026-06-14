@@ -3,6 +3,17 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260614-001",
+      "opened_at": "2026-06-14T09:30:00+00:00",
+      "opened_by": "claude (/health-review 2026-06-14)",
+      "source": "During the 2026-06-14 review, the vm-diag relay fetch FAILED for /api/bot/order-packages?since=...&limit=500 and /api/bot/trades/closed?since=...&include_demo=true, while /api/bot/shadow/stats and /api/bot/insights/summary succeeded through the SAME relay (BL-20260604-002 routing is resolved). So the failure is endpoint-side, not relay routing. Corroborates the 2026-06-06 performance-review anomaly ('/api/bot order-pkgs+config 500 -> /health-review').",
+      "title": "/api/bot/order-packages + /api/bot/trades/closed appear to 500 (consumer-facing) — relay fetch fails on both while shadow/stats + insights succeed",
+      "description": "These two Tier-1 GET endpoints back the dashboard Order Packages tab + Positions closed-history. Reviews had to fall back to the diag journal (journal?table=order_packages/trades) to get the same data. Next step: direct curl on the live VM to capture the exact status code + traceback (likely an unhandled exception in the router under the since/include_demo params — note order-packages recently changed in #3508 to expose signalLogic+meta), then fix. /api/bot/config was also implicated on 2026-06-06.",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260612-002",
       "opened_at": "2026-06-12T20:10:00+00:00",
       "opened_by": "claude (doc-freshness, session wrap)",
@@ -1629,5 +1640,5 @@
       "resolution_note": null
     }
   ],
-  "updated_at": "2026-06-11T19:00:00+00:00"
+  "updated_at": "2026-06-14T09:30:00+00:00"
 }
