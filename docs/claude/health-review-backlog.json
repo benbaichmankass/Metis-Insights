@@ -1674,7 +1674,7 @@
       "tier": 2,
       "status": "resolved",
       "resolved_at": "2026-06-14T16:50:00+00:00",
-      "resolution": "FALSE ALARM on the premise: ib_insync 0.9.86 IS installed in the trader venv (/home/ubuntu/ict-trading-bot/.venv), and the MES/MGC/MHG strategies run every tick with live IB data (verified: real prices evaluated, e.g. MES 7497.5, MGC 4240.3). The MES leg is NOT dark. The \"ib_insync not installed\" line came from ict-health-snapshot running under /usr/bin/python3 (system), not the venv -> see new BL-20260614-HEALTHSNAP-PY. Investigation DID surface a real, pre-existing bug: the order monitor fetched IB-futures candles from Bybit (\"bybit does not have market symbol MHG\") -> candles=None -> monitor() short-circuited, so bot-side exits never ran for IB positions (IBKR bracket still held the stop). Fixed in PR #3597 (per-symbol connector routing in _build_monitor_ohlcv_fetcher)."
+      "resolution": "FALSE ALARM on the premise: ib_insync 0.9.86 IS installed in the trader venv and MES/MGC/MHG run every tick with live IB data (verified, e.g. MES 7497.5, MGC 4240.3). The MES leg is NOT dark. The \"ib_insync not installed\" line came from ict-health-snapshot running under /usr/bin/python3 (system), not the venv -> see BL-20260614-HEALTHSNAP-PY. Investigation surfaced a real, pre-existing bug: the order monitor fetched IB-futures candles from Bybit -> candles=None -> monitor() short-circuited, so bot-side exits never ran for IB positions (IBKR bracket still held the stop). Fixed in PR #3597 (per-symbol connector routing)."
     },
     {
       "id": "BL-20260614-HEALTHSNAP-PY",
@@ -1682,7 +1682,7 @@
       "opened_by": "claude (live-VM Ampere cutover follow-up session)",
       "source": "Spun off from BL-20260614-CANDIDATE-IB investigation.",
       "title": "ict-health-snapshot runs under /usr/bin/python3 (system), not the trader venv -> ib_paper balance always 'unavailable'",
-      "description": "deploy/ict-health-snapshot.service ExecStart uses /usr/bin/python3, which lacks the venv packages (ib_insync etc.). So write_health_snapshot.py's account_balance(ib_paper) import of ib_insync fails and logs 'ib_insync is not installed', and the ib_paper balance in the health snapshot is always reported unavailable -- even though the trader venv has ib_insync 0.9.86 and trades IB fine. Cosmetic (the snapshot's IB balance line is wrong), but it produced a scary false-positive this session. Fix: point the health-snapshot unit's ExecStart at the venv python (/home/ubuntu/ict-trading-bot/.venv/bin/python) so it sees the same packages the trader does. Tier-2 (unit-file change).",
+      "description": "deploy/ict-health-snapshot.service ExecStart uses /usr/bin/python3, which lacks the venv packages (ib_insync etc.). write_health_snapshot.py's account_balance(ib_paper) then logs 'ib_insync is not installed' and reports the ib_paper balance unavailable -- even though the trader venv has ib_insync 0.9.86 and trades IB fine. Cosmetic but a scary false-positive. Fix: point the unit's ExecStart at /home/ubuntu/ict-trading-bot/.venv/bin/python. Tier-2 (unit-file).",
       "tier": 2,
       "status": "open"
     },
@@ -1692,7 +1692,7 @@
       "opened_by": "claude (operator-requested, for tomorrow's health log)",
       "source": "Operator: 'put that on the health log for tomorrow' (micro decommission).",
       "title": "[FOR TOMORROW] Decommission the retired x86 micro (158.178.210.252) after soak",
-      "description": "The live trader cutover to the Ampere candidate ict-bot-arm (141.145.193.91) completed 2026-06-14 and is fully operational (Bybit live, observability + self-heal + git-sync all restored). The old x86 micro 158.178.210.252 is stopped + disabled + Bybit-frozen, kept as the rollback target. Once the candidate has soaked cleanly (operator said wait 'in the moment' -- revisit tomorrow), terminate the micro via the terminate-instance workflow (label terminate-instance, confirm: yes). It is a SEPARATE AMD Always-Free allocation, so retiring it costs/frees no Ampere budget. Runbook: docs/runbooks/live-vm-migration-ampere.md. Do NOT terminate until the operator confirms the soak looks good.",
+      "description": "Live-trader cutover to the Ampere candidate ict-bot-arm (141.145.193.91) completed 2026-06-14 and is fully operational. The old x86 micro 158.178.210.252 is stopped + disabled + Bybit-frozen as the rollback target. Once the candidate soaks clean (revisit tomorrow), terminate the micro via the terminate-instance workflow (confirm: yes). Separate AMD Always-Free allocation, so retiring it costs no Ampere budget. Runbook: docs/runbooks/live-vm-migration-ampere.md. Do NOT terminate until the operator confirms.",
       "tier": 2,
       "status": "open"
     }
