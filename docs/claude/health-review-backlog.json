@@ -1638,7 +1638,20 @@
       "resolved_at": null,
       "resolved_by": null,
       "resolution_note": null
+    },
+    {
+      "id": "BL-20260614-DOC-1",
+      "opened_at": "2026-06-14T13:40:00+00:00",
+      "opened_by": "claude (doc-freshness, orphan-blip-guard session)",
+      "source": "doc-freshness sweep after PR #3558 (BL-20260614-ORPHANBLIP).",
+      "title": "CLAUDE.md curated-subset note says MONITOR_RECONCILE_ENABLED 'gates the forward reconciler' — it gates the reverse reconciler too",
+      "description": "The env-var prelude note (CLAUDE.md, 'Environment Variables' curated-subset paragraph) describes MONITOR_RECONCILE_ENABLED as gating 'the forward reconciler'. In reality src/runtime/order_monitor.py guards BOTH reconcilers with _reconcile_enabled(): _reconcile_open_trades (forward) AND _reconcile_orphan_exchange_positions (reverse, incl. its new close-on-disappear 2-observation confirm). Pre-existing imprecision, made more visible by PR #3558. Tier-1 doc-only fix: reword to 'gates the forward + reverse reconcilers'.",
+      "tier": "tier1",
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
     }
   ],
-  "updated_at": "2026-06-14T09:30:00+00:00"
+  "updated_at": "2026-06-14T13:40:00+00:00"
 }
