@@ -4,12 +4,13 @@
 # that the trainer syncs for the MES regime models.
 #
 # WHY THIS RUNS ON THE LIVE VM (not the trainer):
-#   The IB Gateway is a loopback-only socket on the live VM
-#   (127.0.0.1:4002 via the gnzsnz socat relay). The trainer VM cannot reach
-#   it, and IBKR permits exactly ONE logged-in session per username — so we
-#   cannot stand up a second gateway on the trainer. Historical pulls
-#   therefore SHARE the live gateway on a DISTINCT clientId (default 450, vs
-#   the execution clients 497/496) and must be paced gently. This is the
+#   The IB Gateway lives on its OWN dedicated VM at 10.0.0.251:4002 (the
+#   2026-06-10 gateway-isolation; previously a 127.0.0.1:4002 loopback on the
+#   live micro). Only the live VM is on the private subnet that can reach it;
+#   the trainer VM cannot, and IBKR permits exactly ONE logged-in session per
+#   username — so we cannot stand up a second gateway on the trainer. Historical
+#   pulls therefore SHARE the live gateway on a DISTINCT clientId (default 450,
+#   vs the execution clients 497/496) and must be paced gently. This is the
 #   ibkr_offvm adapter's designed deployment (ml/datasets/adapters/ibkr_offvm.py).
 #
 #   This replaces the rolling ~60d ES=F yfinance window the trainer uses as a
@@ -32,9 +33,9 @@
 #   * Best run during the CME maintenance break / weekend when the live trader
 #     is idle. It is a one-shot, not a timer, by design — re-run only when you
 #     want to extend/refresh the window.
-#   * NEVER run this on the trainer VM (it would hit Error 162 "connected from
-#     a different IP" — the 2026-05-22 failure mode — or simply fail to reach
-#     the loopback gateway).
+#   * NEVER run this on the trainer VM (it is not on the gateway's private
+#     subnet — it would simply fail to reach 10.0.0.251:4002, or hit Error 162
+#     "connected from a different IP" — the 2026-05-22 failure mode).
 #
 # Output (under DATA_DIR so the trainer's sync_trainer_data.sh picks it up):
 #   $IBKR_OUT/market_raw/MES/{5m,15m}/$DATASET_VERSION/data.jsonl
@@ -52,8 +53,8 @@
 #   IBKR_OUT           $DATA_DIR/ibkr_datasets   (synced to the trainer)
 #   DATASET_VERSION    v002
 #   MES_SYMBOL         MES
-#   IB_HOST            127.0.0.1
-#   IB_PORT            4002                       (paper gateway via socat)
+#   IB_HOST            10.0.0.251                 (dedicated IB-Gateway VM)
+#   IB_PORT            4002                       (gateway VM bind; gnzsnz socat 4002->4004)
 #   IB_HIST_CLIENT_ID  450                        (distinct from 497/496)
 #   IB_HIST_PAUSE_S    20
 #   HEARTBEAT_FILE     /data/bot-data/runtime_logs/heartbeat.txt
@@ -86,7 +87,12 @@ DATA_DIR="${DATA_DIR:-/data/bot-data}"
 IBKR_OUT="${IBKR_OUT:-$DATA_DIR/ibkr_datasets}"
 DATASET_VERSION="${DATASET_VERSION:-v002}"
 MES_SYMBOL="${MES_SYMBOL:-MES}"
-IB_HOST="${IB_HOST:-127.0.0.1}"
+# 2026-06-14: default to the dedicated IB-Gateway VM (10.0.0.251:4002), NOT the
+# old same-box loopback. The 2026-06-10 gateway-isolation moved the gateway off
+# the live micro onto its own Ampere VM; the trader uses ib_host: 10.0.0.251
+# (config/accounts.yaml), so this pull must too. The retired 127.0.0.1:4002
+# loopback has no listener now → ConnectionRefused (the silent-break this fixes).
+IB_HOST="${IB_HOST:-10.0.0.251}"
 IB_PORT="${IB_PORT:-4002}"
 IB_HIST_CLIENT_ID="${IB_HIST_CLIENT_ID:-450}"
 IB_HIST_PAUSE_S="${IB_HIST_PAUSE_S:-20}"
