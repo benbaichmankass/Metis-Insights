@@ -26,7 +26,8 @@ name: get-diag-token
 #   * VM_SSH_KEY        — fallback source via SSH read
 #
 # Optional repo variables:
-#   * VM_SSH_HOST       — defaults to 158.178.210.252
+#   * VM_SSH_HOST       — defaults to 141.145.193.91 (Ampere live trader; was the
+#                         x86 micro 158.178.210.252 pre-2026-06-14 cutover)
 #   * VM_SSH_USER       — defaults to ubuntu
 
 on:
@@ -55,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
     steps:
       - name: Resolve token + write env block

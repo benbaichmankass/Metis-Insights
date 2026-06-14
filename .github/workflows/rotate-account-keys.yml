@@ -32,7 +32,8 @@ name: rotate-account-keys
 #   DIAG_READ_TOKEN      — bearer for post-action diag check (optional)
 #
 # Optional repo variables:
-#   VM_SSH_HOST          — defaults to 158.178.210.252
+#   VM_SSH_HOST          — defaults to 141.145.193.91 (Ampere live trader; was the
+#                          x86 micro 158.178.210.252 pre-2026-06-14 cutover)
 #   VM_SSH_USER          — defaults to ubuntu
 
 on:
@@ -62,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
       ACCOUNT_ID: ${{ inputs.account_id }}
       REASON: ${{ inputs.reason }}

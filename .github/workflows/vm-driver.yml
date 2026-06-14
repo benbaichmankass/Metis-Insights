@@ -16,7 +16,7 @@ name: vm-driver
 #       ---
 #       <bash to run on that VM, via stdin to `bash -s`>
 #   * The workflow SSHes to the target VM (trainer = 158.178.209.121,
-#     live = 158.178.210.252) with VM_SSH_KEY, runs the body, writes
+#     live = 141.145.193.91) with VM_SSH_KEY, runs the body, writes
 #     `automation/results/<name>.log`, removes the job file, and commits
 #     the result back to this branch.
 #   * Bot commits use GITHUB_TOKEN, which does NOT re-trigger workflows,
@@ -57,14 +57,14 @@ jobs:
           if [ -z "${VM_SSH_KEY}" ]; then echo "::error::VM_SSH_KEY unset"; exit 1; fi
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
-          for h in 158.178.209.121 158.178.210.252; do
+          for h in 158.178.209.121 141.145.193.91; do
             ssh-keyscan -t rsa,ecdsa,ed25519 "$h" >> ~/.ssh/known_hosts 2>/dev/null || true
           done
 
       - name: Run pending jobs
         env:
           TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
-          LIVE_IP: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+          LIVE_IP: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
           SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
         run: |
           set -uo pipefail
