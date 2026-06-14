@@ -253,6 +253,24 @@ _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
 }
 
 
+def monitor_unit_for(strategy_name: str) -> str:
+    """Resolve a strategy name to the unit module that owns its ``monitor()``.
+
+    Derived from the builder registry: an *aliased* strategy (a distinct
+    config instance that REUSES a base unit via its signal builder — the WS-A
+    metals + M15 equity/fx sleeves, ict_scalp_5m) carries a ``monitor_unit``
+    attribute on its builder (declared next to the builder in
+    ``strategy_signal_builders``); everything else is its own module. The
+    order-monitor uses this so an aliased strategy's positions get the same
+    active monitoring (break-even trail, thesis/level-cross exit, time-decay)
+    as the base unit's own positions — without it they'd run on static SL/TP.
+    The drift guard ``tests/test_strategy_monitor_unit_resolution.py`` fails
+    CI if any registered strategy resolves to a module with no ``monitor()``.
+    """
+    builder = _STRATEGY_BUILDERS.get(strategy_name)
+    return getattr(builder, "monitor_unit", strategy_name)
+
+
 def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     Loop STRATEGIES in order; return the first actionable signal.

@@ -2823,3 +2823,30 @@ def eth_pullback_2h_signal_builder(settings: dict) -> Dict[str, Any]:
     _emit_shadow_preds("eth_pullback_2h", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
     _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df, symbol=symbol, timeframe=timeframe)
     return _with_signal_package("eth_pullback_2h", sig)
+
+
+# ── Monitor-unit tags (aliased strategies) ─────────────────────────────────────
+# Aliased strategies are a distinct config instance that REUSES a base unit via
+# its signal builder (the WS-A metals + M15 equity/fx sleeves, ict_scalp_5m on
+# the ict_scalp unit). The order-monitor imports a strategy's module by NAME to
+# call monitor(); these strategies have no same-name module, so we tag each
+# builder with the base unit module that owns its monitor() — co-located with
+# the builders (the source of truth for which unit they reuse).
+# pipeline.monitor_unit_for() reads this off the builder registry; plain
+# strategies carry no tag and resolve to their own module. The drift guard
+# tests/test_strategy_monitor_unit_resolution.py fails CI if a registered
+# strategy ends up with no resolvable monitor().
+for _builder, _monitor_unit in (
+    (ict_scalp_signal_builder, "ict_scalp"),
+    (trend_donchian_1h_signal_builder, "trend_donchian"),
+    (mes_trend_long_1d_signal_builder, "trend_donchian"),
+    (mgc_trend_1h_signal_builder, "trend_donchian"),
+    (xauusd_trend_1h_signal_builder, "trend_donchian"),
+    (spy_trend_long_1d_signal_builder, "trend_donchian"),
+    (qqq_trend_long_1d_signal_builder, "trend_donchian"),
+    (mgc_pullback_1d_signal_builder, "htf_pullback_trend_2h"),
+    (mhg_pullback_1d_signal_builder, "htf_pullback_trend_2h"),
+    (gld_pullback_1d_signal_builder, "htf_pullback_trend_2h"),
+    (eth_pullback_2h_signal_builder, "htf_pullback_trend_2h"),
+):
+    _builder.monitor_unit = _monitor_unit
