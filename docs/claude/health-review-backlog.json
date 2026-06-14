@@ -1660,7 +1660,9 @@
       "title": "ict-shadow-log-rotate.service has no EnvironmentFile -> rotates repo-relative shadow log, not the DATA_DIR one",
       "description": "deploy/ict-shadow-log-rotate.service sets only ExecStart=python3 scripts/ops/rotate_shadow_log.py --gzip with NO EnvironmentFile and NO Environment=DATA_DIR. Without DATA_DIR the rotator resolves runtime_logs() to the repo-relative path and would rotate <repo>/runtime_logs/shadow_predictions.jsonl (an inert/stale leftover under the DATA_DIR regime) instead of the live /data/bot-data/runtime_logs/shadow_predictions.jsonl. Pre-existing (affects the block-volume micro too, not just the candidate). Consequence: the real shadow-prediction log is never rotated and can grow unbounded; the timer is currently NOT installed on the candidate (deliberately deferred this session to avoid improvising on the money box). Fix: add EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env to the unit (so it inherits DATA_DIR), OR add it to install_systemd_units.sh's data-dir drop-in list (now mount-aware), then enable the timer on the candidate. Tier-2 (unit-file + service enable).",
       "tier": 2,
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-06-14T16:45:00+00:00",
+      "resolution": "Fixed: rotate_shadow_log.py now resolves its default --log via src.utils.paths.runtime_logs_dir() (DATA_DIR-aware, stdlib fallback), and ict-shadow-log-rotate added to install_systemd_units.sh data-dir drop-in list (mount-aware flavor) so the unit receives DATA_DIR. Rotates the real /data/bot-data log now."
     },
     {
       "id": "BL-20260614-CANDIDATE-IB",
@@ -1673,5 +1675,5 @@
       "status": "open"
     }
   ],
-  "updated_at": "2026-06-14T16:10:00+00:00"
+  "updated_at": "2026-06-14T16:45:00+00:00"
 }

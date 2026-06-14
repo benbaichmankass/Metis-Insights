@@ -253,6 +253,26 @@ if [ -f "${_INSIGHTS_DROPIN_SRC}" ]; then
     fi
 fi
 
+# Why ict-shadow-log-rotate needs the data-dir drop-in:
+#   rotate_shadow_log.py resolves the active log under runtime_logs_dir()
+#   (DATA_DIR-aware) so it rotates the SAME /data/bot-data/runtime_logs/
+#   shadow_predictions.jsonl the live trader appends to. Without DATA_DIR in
+#   the unit's environment the resolver falls back to the repo-relative path
+#   — a stale leftover under the DATA_DIR regime that never grows — so the
+#   real log is never rotated and grows unbounded until it threatens the
+#   boot volume (BL-20260614-SHADOWROT-NODATADIR). Same generic data-dir
+#   drop-in (mount-aware flavor) the other writers carry.
+_SHADOWROT_DROPIN_DST="${SYSTEMD_DIR}/ict-shadow-log-rotate.service.d/data-dir.conf"
+if [ -f "${_DATADIR_DROPIN_SRC}" ]; then
+    if [ ! -e "${_SHADOWROT_DROPIN_DST}" ] || ! cmp -s "${_DATADIR_DROPIN_SRC}" "${_SHADOWROT_DROPIN_DST}"; then
+        echo ">>> install_systemd_units: dropin data-dir.conf → ${_SHADOWROT_DROPIN_DST}"
+        "${SUDO[@]}" mkdir -p "$(dirname "${_SHADOWROT_DROPIN_DST}")"
+        "${SUDO[@]}" cp "${_DATADIR_DROPIN_SRC}" "${_SHADOWROT_DROPIN_DST}"
+        "${SUDO[@]}" chmod 0644 "${_SHADOWROT_DROPIN_DST}"
+        changed=1
+    fi
+fi
+
 if [ "$changed" -eq 1 ]; then
     echo ">>> install_systemd_units: daemon-reload"
     if ! "${SUDO[@]}" systemctl daemon-reload 2>&1; then
