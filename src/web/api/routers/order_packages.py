@@ -141,7 +141,7 @@ def _query_order_packages(
             SELECT op.order_package_id, op.strategy_name, op.symbol, op.direction,
                    op.entry, op.sl, op.tp, op.confidence,
                    op.created_at, op.updated_at, op.status, op.close_reason,
-                   op.linked_trade_id, op.signal_logic, op.meta,
+                   op.linked_trade_id, op.signal_logic, op.meta, op.model_scores,
                    t.pnl AS trade_pnl, t.status AS trade_status,
                    COALESCE(t.is_demo, 0) AS trade_is_demo
             FROM order_packages op
@@ -221,6 +221,10 @@ async def get_order_packages(
             # bias; `signalLogic` the detector's decision trace.
             "signalLogic": _decode_json_field(r["signal_logic"]),
             "meta": _decode_json_field(r["meta"]),
+            # Per-model ML decision scores captured at signal time —
+            # {model_id: {stage, score}}. Cheap SELECT; replaces the
+            # per-request shadow-log recompile for the consumer cards.
+            "modelScores": _decode_json_field(r["model_scores"]),
             "claudeScore": _claude_score_wire(claude.get(opid)),
         })
     return {

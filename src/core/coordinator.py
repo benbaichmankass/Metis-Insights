@@ -2427,10 +2427,16 @@ def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
         from src.utils.paths import trade_journal_db_path
         path = trade_journal_db_path()
         db = Database(db_path=path)
+        # ``model_scores`` is the per-model ML decision captured at signal
+        # time (strategy_signal_builders._emit_shadow_preds →
+        # shadow_adapter.capture_shadow_preds). Persist it in its own column
+        # so consumers read the trade's ML decisions with a cheap SELECT;
+        # keep it out of the generic ``meta`` blob to avoid duplication.
         meta_for_log = {
             k: v for k, v in (pkg.meta or {}).items()
-            if k not in {"order_package_id"}
+            if k not in {"order_package_id", "model_scores"}
         }
+        model_scores = (pkg.meta or {}).get("model_scores")
         db.insert_order_package({
             "order_package_id": order_package_id,
             "strategy_name": pkg.strategy,
@@ -2443,6 +2449,7 @@ def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
             "signal_logic": _json.dumps(meta_for_log, default=str)[:1000],
             "status": "open",
             "meta": meta_for_log,
+            "model_scores": model_scores if isinstance(model_scores, (dict, list)) else None,
         })
         # Stamp the id back onto pkg.meta so the executor can read it.
         if pkg.meta is None:
