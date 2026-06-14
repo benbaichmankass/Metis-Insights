@@ -1,0 +1,277 @@
+name: cutover-live
+
+# ============================================================================
+# Live-VM CUTOVER — migrate the live trader from the x86 micro to the Ampere
+# candidate (ict-bot-arm). Money-path step of
+# docs/runbooks/live-vm-migration-ampere.md (Phase 3).
+#
+# DRY-RUN (default — SAFE, no mutation, no outage): determines the micro's
+# public-IP TYPE (RESERVED → movable; EPHEMERAL → refs update), confirms the
+# candidate is ready + has room, sizes the data, and prints the PLAN. Run this
+# FIRST — it answers the IP question with zero risk.
+#
+# LIVE (dry_run: false AND confirm: yes — money path down ~minutes):
+#   1. stop ict-trader-live on the micro (orders cease).
+#   2. replicate the micro's .env -> candidate (piped via runner, never echoed;
+#      the .env is in the repo dir, NOT on /data, so it doesn't ride the copy).
+#   3. rsync /data/bot-data micro -> candidate (trader stopped → quiescent copy;
+#      the micro KEEPS its data → rollback always available).
+#   4. IP: RESERVED → reassign the reserved public IP to the candidate's VNIC
+#      (zero external ref changes). EPHEMERAL → report the refs to update.
+#   5. start ict-trader-live + ict-web-api on the candidate; verify.
+# The micro is STOPPED but NOT terminated (rollback = restart it). Phase 4
+# (terminate-instance) is a separate later step after a soak.
+#
+# Triggers: issues.opened/labeled `cutover-live`. Body:
+#   candidate_ip: 141.145.193.91
+#   candidate_name: ict-bot-arm
+#   dry_run: true            # false for the real cutover
+#   confirm: yes             # REQUIRED when dry_run: false
+#
+# Secrets: VM_SSH_KEY + OCI_CLI_{USER,FINGERPRINT,TENANCY,REGION,KEY_CONTENT}.
+# Required label: cutover-live (bootstrap-labels.yml).
+# ============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_ip:
+        description: "Ampere candidate public IP"
+        required: true
+      candidate_name:
+        description: "Candidate display name"
+        required: false
+        default: "ict-bot-arm"
+      dry_run:
+        description: "true = plan + IP-type only, no mutation/outage"
+        required: false
+        default: "true"
+      confirm:
+        description: "Must be 'yes' for a LIVE cutover (dry_run: false)"
+        required: false
+        default: "no"
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: cutover-live
+  cancel-in-progress: false
+
+jobs:
+  cutover:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'cutover-live'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      MICRO_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dedup — bail if a bot comment already exists
+        if: github.event_name == 'issues'
+        id: dedup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, per_page: 100,
+            });
+            core.setOutput('skip',
+              comments.some(c => c.user && c.user.login === 'github-actions[bot]') ? 'true' : 'false');
+
+      - name: Parse inputs
+        if: steps.dedup.outputs.skip != 'true'
+        id: inputs
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          DISP_IP: ${{ inputs.candidate_ip }}
+          DISP_NAME: ${{ inputs.candidate_name }}
+          DISP_DRY: ${{ inputs.dry_run }}
+          DISP_CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          field() { printf '%s' "$1" | awk -F: -v k="$2" '$1 ~ "^[[:space:]]*"k"[[:space:]]*$" {gsub(/^[[:space:]]+|[[:space:]]+$/,"",$2); print $2; exit}'; }
+          if [ "${EVENT_NAME}" = "issues" ]; then
+            cand_ip="$(field "${ISSUE_BODY}" candidate_ip)"
+            cand_name="$(field "${ISSUE_BODY}" candidate_name)"
+            dry="$(field "${ISSUE_BODY}" dry_run | tr '[:upper:]' '[:lower:]')"
+            confirm="$(field "${ISSUE_BODY}" confirm | tr '[:upper:]' '[:lower:]')"
+          else
+            cand_ip="${DISP_IP}"; cand_name="${DISP_NAME}"
+            dry="$(printf '%s' "${DISP_DRY}" | tr '[:upper:]' '[:lower:]')"
+            confirm="$(printf '%s' "${DISP_CONFIRM}" | tr '[:upper:]' '[:lower:]')"
+          fi
+          [ -z "${cand_name}" ] && cand_name="ict-bot-arm"
+          [ -z "${dry}" ] && dry="true"
+          if ! printf '%s' "${cand_ip}" | grep -qE '^[0-9]{1,3}(\.[0-9]{1,3}){3}$'; then
+            echo "::error::candidate_ip missing or malformed: '${cand_ip}'"; exit 1
+          fi
+          if [ "${dry}" = "false" ] && [ "${confirm}" != "yes" ]; then
+            echo "::error::A LIVE cutover (dry_run: false) requires 'confirm: yes'."; exit 1
+          fi
+          echo "candidate_ip=${cand_ip}"     >> "$GITHUB_OUTPUT"
+          echo "candidate_name=${cand_name}" >> "$GITHUB_OUTPUT"
+          echo "dry_run=${dry}"              >> "$GITHUB_OUTPUT"
+
+      - name: Set up SSH key
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          [ -z "${VM_SSH_KEY}" ] && { echo "::error::VM_SSH_KEY unset"; exit 1; }
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          for h in "${MICRO_HOST}" "${{ steps.inputs.outputs.candidate_ip }}"; do
+            ssh-keyscan -t rsa,ecdsa,ed25519 "$h" >> ~/.ssh/known_hosts 2>/dev/null || true
+          done
+
+      - name: Set up Python + OCI SDK
+        if: steps.dedup.outputs.skip != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install oci sdk
+        if: steps.dedup.outputs.skip != 'true'
+        run: python3 -m pip install --quiet 'oci>=2.119,<3'
+
+      - name: Discover micro instance via IMDS
+        if: steps.dedup.outputs.skip != 'true'
+        id: imds
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${MICRO_HOST}" \
+              'curl -sS -H "Authorization: Bearer Oracle" --max-time 5 http://169.254.169.254/opc/v2/instance/' > imds.json
+          python3 -c 'import json;d=json.load(open("imds.json"));print("inst="+d["id"]);print("comp="+d["compartmentId"]);print("region="+d["regionInfo"]["regionIdentifier"])' > imds.kv
+          echo "instance_id=$(grep ^inst= imds.kv|cut -d= -f2)" >> "$GITHUB_OUTPUT"
+          echo "compartment_id=$(grep ^comp= imds.kv|cut -d= -f2)" >> "$GITHUB_OUTPUT"
+          echo "region=$(grep ^region= imds.kv|cut -d= -f2)" >> "$GITHUB_OUTPUT"
+
+      # ---- Plan: ALWAYS run. Determines IP type + readiness. No mutation. ----
+      - name: Plan (IP type + readiness)
+        if: steps.dedup.outputs.skip != 'true'
+        id: plan
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION || steps.imds.outputs.region }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          MICRO_INSTANCE_ID: ${{ steps.imds.outputs.instance_id }}
+          COMPARTMENT_ID: ${{ steps.imds.outputs.compartment_id }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/cutover_ip_describe.py > plan.kv
+          cat plan.kv
+          echo "micro_ip_lifetime=$(grep ^micro_ip_lifetime= plan.kv|cut -d= -f2)" >> "$GITHUB_OUTPUT"
+          echo "micro_public_ip=$(grep ^micro_public_ip= plan.kv|cut -d= -f2)" >> "$GITHUB_OUTPUT"
+          echo "micro_public_ip_id=$(grep ^micro_public_ip_id= plan.kv|cut -d= -f2)" >> "$GITHUB_OUTPUT"
+          : > plan.txt
+          echo "=== candidate readiness ===" >> plan.txt
+          ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${{ steps.inputs.outputs.candidate_ip }}" \
+              'echo "repo: $(ls -d /home/ubuntu/ict-trading-bot 2>/dev/null || echo MISSING)"; echo "venv: $(ls -d /home/ubuntu/ict-trading-bot/.venv 2>/dev/null || echo MISSING)"; echo "data_dir: $(ls -d /data/bot-data 2>/dev/null || echo MISSING)"; echo "pybit: $(/home/ubuntu/ict-trading-bot/.venv/bin/python -c "import pybit;print(pybit.__version__)" 2>/dev/null || echo MISSING)"; echo "disk_avail (/data):"; df -h /data 2>/dev/null | tail -1' \
+              >> plan.txt 2>&1 || echo "(candidate unreachable)" >> plan.txt
+          echo "=== micro data + env ===" >> plan.txt
+          ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${MICRO_HOST}" \
+              'echo "data_size: $(du -sh /data/bot-data 2>/dev/null | cut -f1)"; echo ".env: $(test -f /home/ubuntu/ict-trading-bot/.env && echo present || echo MISSING)"' \
+              >> plan.txt 2>&1 || true
+          cat plan.txt
+
+      # ---- LIVE: stop + replicate .env + rsync data (no IP, no start yet) ----
+      - name: Cutover — stop micro, replicate .env, rsync data
+        if: steps.dedup.outputs.skip != 'true' && steps.inputs.outputs.dry_run == 'false'
+        run: |
+          set -euo pipefail
+          S="ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20"
+          CAND="${{ steps.inputs.outputs.candidate_ip }}"
+          echo "::group::stop trader on micro"
+          $S "${VM_SSH_USER}@${MICRO_HOST}" 'sudo systemctl stop ict-trader-live.service && echo stopped'
+          echo "::endgroup::"
+          echo "::group::replicate .env (piped via runner, not echoed)"
+          $S "${VM_SSH_USER}@${MICRO_HOST}" 'cat /home/ubuntu/ict-trading-bot/.env' > env.tmp
+          test -s env.tmp || { echo "::error::micro .env empty/unreadable"; exit 1; }
+          $S "${VM_SSH_USER}@${CAND}" 'cat > /home/ubuntu/ict-trading-bot/.env && chmod 600 /home/ubuntu/ict-trading-bot/.env && echo "candidate .env bytes: $(wc -c < /home/ubuntu/ict-trading-bot/.env)"' < env.tmp
+          shred -u env.tmp 2>/dev/null || rm -f env.tmp
+          echo "::endgroup::"
+          echo "::group::rsync /data/bot-data micro -> runner -> candidate"
+          mkdir -p data_stage
+          rsync -az --delete -e "$S" "${VM_SSH_USER}@${MICRO_HOST}:/data/bot-data/" data_stage/
+          rsync -az -e "$S" data_stage/ "${VM_SSH_USER}@${CAND}:/data/bot-data/"
+          $S "${VM_SSH_USER}@${CAND}" 'echo "journal on candidate: $(ls -la /data/bot-data/trade_journal.db 2>/dev/null || echo MISSING)"'
+          echo "::endgroup::"
+
+      # ---- LIVE: reserved-IP move (only when RESERVED). Clean col-0 python. ----
+      - name: Cutover — move reserved public IP to candidate
+        if: steps.dedup.outputs.skip != 'true' && steps.inputs.outputs.dry_run == 'false' && steps.plan.outputs.micro_ip_lifetime == 'RESERVED'
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION || steps.imds.outputs.region }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          COMPARTMENT_ID: ${{ steps.imds.outputs.compartment_id }}
+          PUBLIC_IP_ID: ${{ steps.plan.outputs.micro_public_ip_id }}
+          CANDIDATE_NAME: ${{ steps.inputs.outputs.candidate_name }}
+        run: python3 scripts/ops/cutover_move_reserved_ip.py
+
+      # ---- LIVE: start candidate + verify; report ephemeral refs if needed ----
+      - name: Cutover — start candidate + verify
+        if: steps.dedup.outputs.skip != 'true' && steps.inputs.outputs.dry_run == 'false'
+        run: |
+          set -euo pipefail
+          S="ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20"
+          CAND="${{ steps.inputs.outputs.candidate_ip }}"
+          LIFE="${{ steps.plan.outputs.micro_ip_lifetime }}"
+          : > verify.txt
+          if [ "${LIFE}" != "RESERVED" ]; then
+            { echo "IP is ${LIFE} — candidate keeps ${CAND}. Update external refs:";
+              echo "  - repo variable VM_SSH_HOST -> ${CAND}";
+              echo "  - dashboard BOT_API_URL (Streamlit secret) -> http://${CAND}:8001";
+              echo "  - session DIAG_BASE_URL -> http://${CAND}:8001"; } | tee -a verify.txt
+          fi
+          echo "::group::start trader + web-api on candidate"
+          $S "${VM_SSH_USER}@${CAND}" 'sudo systemctl enable --now ict-trader-live.service ict-web-api.service; sleep 50; echo "trader: $(systemctl is-active ict-trader-live)"; echo "web-api: $(systemctl is-active ict-web-api)"; echo "heartbeat: $(stat -c %y /data/bot-data/runtime_logs/heartbeat.txt 2>/dev/null || echo none)"; echo "health: $(curl -sS --max-time 5 http://127.0.0.1:8001/api/health || echo unreachable)"' | tee -a verify.txt
+          echo "::endgroup::"
+
+      - name: Post plan + result to issue
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const read = (p) => { try { return fs.readFileSync(p,'utf8'); } catch { return '(none)'; } };
+            const dry = '${{ steps.inputs.outputs.dry_run }}' !== 'false';
+            const life = '${{ steps.plan.outputs.micro_ip_lifetime }}' || 'UNKNOWN';
+            const ipnote = life === 'RESERVED'
+              ? '✅ RESERVED → the IP moves to the candidate at cutover; **zero external ref changes**.'
+              : (life === 'EPHEMERAL'
+                 ? '⚠️ EPHEMERAL → cutover updates external refs (VM_SSH_HOST var, dashboard BOT_API_URL, DIAG_BASE_URL).'
+                 : '❓ IP lifetime undetermined — see run log.');
+            const head = `**cutover-live** (${dry ? 'DRY-RUN — no mutation' : 'LIVE CUTOVER'})\n` +
+              `Micro public IP \`${{ steps.plan.outputs.micro_public_ip }}\` — lifetime: **${life}**\n` + ipnote;
+            const body = [head, '', '**Readiness / plan:**', '```', read('plan.txt').slice(0,6000), '```',
+              dry ? '_Dry-run only. Re-run with `dry_run: false` + `confirm: yes` to execute._'
+                  : ['**Cutover verify:**','```',read('verify.txt').slice(0,4000),'```'].join('\n')
+            ].join('\n');
+            await github.rest.issues.createComment({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,body});
+            await github.rest.issues.update({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,state:'closed'});
+
+      - name: Emit summary (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch' && steps.dedup.outputs.skip != 'true'
+        run: |
+          echo "Micro IP lifetime: ${{ steps.plan.outputs.micro_ip_lifetime }}" >> "$GITHUB_STEP_SUMMARY"
+          cat plan.txt >> "$GITHUB_STEP_SUMMARY"
