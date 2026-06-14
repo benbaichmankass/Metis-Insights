@@ -260,7 +260,11 @@ class TestBenignNoopSuppression:
     def _should_fire(results):
         def _is_benign_noop(result):
             err = str(result.get("error") or "")
-            return err.startswith("intent_noop:") or err == "intent_sub_min_qty_delta"
+            return (
+                err.startswith("intent_noop:")
+                or err == "intent_sub_min_qty_delta"
+                or err.startswith("reentry_suppressed_netting_guard:")
+            )
 
         any_trade_placed = any(r.get("trade_id") is not None for r in results)
         all_benign_noop = bool(results) and all(_is_benign_noop(r) for r in results)
@@ -292,6 +296,18 @@ class TestBenignNoopSuppression:
             {"name": "bybit_2", "trade_id": None, "error": "intent_sub_min_qty_delta"},
         ]
         assert self._should_fire(results) is False
+
+    def test_netting_guard_suppressed_round_does_not_fire(self):
+        """The live 2026-06-14 case: eth_pullback_2h fired another buy while
+        bybit_1 (the netting-guard demo soak) already held an open long, so the
+        guard suppressed the pyramiding re-entry. That is a by-design no-op, not
+        a dispatch failure — it must not trip the 🚨 roll-up."""
+        for action in ("open", "increase"):
+            results = [
+                {"name": "bybit_1", "trade_id": None,
+                 "error": f"reentry_suppressed_netting_guard:{action}"},
+            ]
+            assert self._should_fire(results) is False
 
     def test_genuine_failure_still_fires(self):
         """A real error must still trip the alarm — the noop carve-out
