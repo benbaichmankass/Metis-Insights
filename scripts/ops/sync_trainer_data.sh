@@ -31,7 +31,7 @@
 #
 # Environment knobs:
 #   REPO_ROOT              — defaults to /home/ubuntu/ict-trading-bot
-#   LIVE_VM_IP             — defaults to 158.178.210.252
+#   LIVE_VM_IP             — defaults to 141.145.193.91 (Ampere live trader; was 158.178.210.252 pre-2026-06-14)
 #   LIVE_VM_DB_PATH        — defaults to /data/bot-data/trade_journal.db
 #                            (the canonical post-2026-05-12 data-dir mount;
 #                            see deploy/dropins/data-dir.conf and PR #1311.
@@ -67,7 +67,7 @@
 set -uo pipefail
 
 REPO_ROOT="${REPO_ROOT:-/home/ubuntu/ict-trading-bot}"
-LIVE_VM_IP="${LIVE_VM_IP:-158.178.210.252}"
+LIVE_VM_IP="${LIVE_VM_IP:-141.145.193.91}"
 LIVE_VM_DB_PATH="${LIVE_VM_DB_PATH:-/data/bot-data/trade_journal.db}"
 LIVE_VM_AUDIT_PATH="${LIVE_VM_AUDIT_PATH:-/data/bot-data/runtime_logs/signal_audit.jsonl}"
 VM_SSH_USER="${VM_SSH_USER:-ubuntu}"

@@ -1,6 +1,9 @@
 # Live-VM migration: x86 micro → Ampere A1.Flex (memory relief)
 
-**Status:** active plan (2026-06-14). **Driver:** the live `E2.1.Micro` (2 vCPU /
+**Status:** ✅ **CUTOVER COMPLETE (2026-06-14).** The live trader runs on the
+Ampere candidate `ict-bot-arm` (`141.145.193.91`); see "Cutover completed" at
+the bottom for the verified post-state + remaining follow-ups. The plan below is
+retained as the procedure record. **Original driver:** the live `E2.1.Micro` (2 vCPU /
 **1 GB**) hit **90%+ memory with `kswapd` active** — memory, not CPU, is the
 binding constraint (loadavg ~1.2 on 2 cores; the whole bot stack is only
 ~240 MB, so 1 GB is just too small for the grown trader + web-api + sidecars).
@@ -120,3 +123,43 @@ status to "complete."
   explicitly deferred to land *after* this resize, not on the micro).
 - **Doesn't change:** strategy logic, risk caps, the gateway (stays on its own
   Ampere VM at `10.0.0.251`), or the trainer. Pure infra.
+
+## Cutover completed — verified post-state (2026-06-14)
+
+Live trader is now `ict-bot-arm` (`141.145.193.91`), `VM.Standard.A1.Flex`
+**2 OCPU / 12 GB**, aarch64. Ampere pool is full: trainer (1/6) + gateway (1/6)
++ live (2/12) = **4 OCPU / 24 GB**. Verified this session:
+
+- **Money path:** `ict-trader-live` / `ict-web-api` / `ict-liveness-watchdog`
+  active; fresh `/data/bot-data/runtime_logs/heartbeat.txt`; Bybit live (retCode
+  0), open positions intact. (`/data/bot-data` is a **boot-volume directory, not
+  a mount** — units use the env-only `data-dir-nomount.conf` drop-in.)
+- **Relays repointed** (PR #3581): all live-trader workflow `VM_SSH_HOST`
+  fallbacks → `141.145.193.91` (the `vars.VM_SSH_HOST` repo variable resolves
+  empty at runtime, so the hardcoded fallback is the live target).
+- **Trainer→live ML mirror** repointed via `LIVE_VM_IP=141.145.193.91` systemd
+  drop-ins on `ict-trainer-publish` + `ict-promotion-readiness` (trainer reaches
+  the candidate with the existing `ict-bot-ovm` key). Verified publishing to
+  `…@141.145.193.91:/data/bot-data/runtime_logs/trainer_mirror`.
+- **Observability + self-heal restored** on the candidate (were missing):
+  installed base units (no mount drop-in) for `ict-insights-generator(+-strategies)`,
+  `ict-health-snapshot`, `ict-hourly-snapshot`, `ict-heartbeat`,
+  `ict-web-api-watchdog`; all timers active; insights + health write to `/data`.
+- **Deploy tooling** made mount-topology-aware (PR #3588) so a future deploy
+  won't wedge the candidate.
+
+### Remaining follow-ups
+
+1. **Re-enable `ict-git-sync` on the candidate** so it auto-deploys from `main`
+   (currently OFF — the candidate runs the cutover commit and does not
+   auto-pull). Safe now that PR #3588 is merged: the first sync pulls the
+   mount-aware installer, then runs it. This restarts the trader on each `main`
+   push (the designed steady state) — coordinate before flipping.
+2. **`ib_insync` not installed** in the candidate venv → the IB/MES leg is dark
+   (Bybit unaffected). Backlog `BL-20260614-CANDIDATE-IB`.
+3. **`ict-shadow-log-rotate`** not enabled + has a `DATA_DIR` gap. Backlog
+   `BL-20260614-SHADOWROT-NODATADIR`.
+4. **Optional dedicated `/data` block volume** for the candidate (today it's a
+   boot-volume dir; fine, but a separate volume matches the micro's posture).
+5. **Decommission the micro** (`terminate-instance` on its display name) after a
+   24–48h soak. It's stopped + Bybit-frozen, kept as the rollback target.

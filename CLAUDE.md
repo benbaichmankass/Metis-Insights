@@ -38,7 +38,7 @@ don't route around it.
 
 Everything you need is already wired into the repo:
 
-- **VMs** — the SSH key (`VM_SSH_KEY`) and diag token (`DIAG_READ_TOKEN`) live in Actions secrets. You read both VMs (live trader `158.178.210.252`; trainer `ict-trainer-vm`, `158.178.209.121`) and run tiered changes through GitHub Actions workflows you dispatch yourself — the diag relays for reads, `system-actions` for tiered mutations, and the direct diag API when the session is configured for it. Skills: `diag-data`, `vm-ops`, `git-actions`.
+- **VMs** — the SSH key (`VM_SSH_KEY`) and diag token (`DIAG_READ_TOKEN`) live in Actions secrets. You read both VMs (live trader `ict-bot-arm`, `141.145.193.91`; trainer `ict-trainer-vm`, `158.178.209.121`) and run tiered changes through GitHub Actions workflows you dispatch yourself — the diag relays for reads, `system-actions` for tiered mutations, and the direct diag API when the session is configured for it. Skills: `diag-data`, `vm-ops`, `git-actions`.
 - **Databases** — full read access via the diag/journal relays and the Data Explorer API. You validate integrity and wiring yourself (skill: `db-wiring`).
 - **GitHub** — issues, PRs, files, branches, CI, secret scanning via the GitHub MCP tools.
 
@@ -155,7 +155,7 @@ one of them at a time.
 
 | VM | Role | Trust contract | Default posture |
 |---|---|---|---|
-| `instance-20260414-1555` (`158.178.210.252`) | **Live trader** — runs `ict-trader-live.service`, holds money-at-risk | [`docs/claude/vm-operator-mode.md`](docs/claude/vm-operator-mode.md) | **Restricted.** Tier-1 read autonomous; Tier-2 mutations need operator ack (PM-side issue → `system-actions.yml`); Tier-3 paths (live order code, risk caps, key rotation) are hard-blocked. **Account-mode flips have a sanctioned wire: `set-account-mode` operator action; code paths that flip mode outside that action are Tier-3 violations.** |
+| `ict-bot-arm` (`141.145.193.91`, Ampere A1.Flex 2 OCPU / 12 GB; migrated off the x86 micro `158.178.210.252` on 2026-06-14) | **Live trader** — runs `ict-trader-live.service`, holds money-at-risk | [`docs/claude/vm-operator-mode.md`](docs/claude/vm-operator-mode.md) | **Restricted.** Tier-1 read autonomous; Tier-2 mutations need operator ack (PM-side issue → `system-actions.yml`); Tier-3 paths (live order code, risk caps, key rotation) are hard-blocked. **Account-mode flips have a sanctioned wire: `set-account-mode` operator action; code paths that flip mode outside that action are Tier-3 violations.** |
 | `ict-trainer-vm` (`VM.Standard.A1.Flex`, Ampere A1) | **Training center** — runs the ML lifecycle (datasets, training, registry, eval), no live trade authority of its own | [`docs/claude/trainer-vm-mode.md`](docs/claude/trainer-vm-mode.md) | **Autonomous.** Claude provisions, SSHes, installs, syncs read-only DB from live, runs training cycles, writes the registry up to `live_approved` stage, terminates + re-provisions — all without operator-in-the-loop. |
 
 The separation has two gates (2026-05-19 update; see
@@ -196,14 +196,21 @@ wire-up. See trainer-vm-mode.md § 5 for the full lifecycle.
   deploy.
 - Never copy production secrets to the trainer.
 - Never provision past the OCI Always Free 4-OCPU / 24-GB Ampere tenancy
-  ceiling. **Topology as of 2026-06-10 (gateway-isolation, Plan B):**
-  - **Live trader** — `VM.Standard.E2.1.Micro` (**1 OCPU / 1 GB, x86**, a
-    *separate* AMD Always-Free allocation, NOT the Ampere pool;
-    `158.178.210.252`). Fixed shape (micros aren't resizable).
+  ceiling. **Topology as of 2026-06-14 (live→Ampere cutover COMPLETE):**
+  - **Live trader** — `VM.Standard.A1.Flex` **2 OCPU / 12 GB** (Ampere, aarch64;
+    `ict-bot-arm`, `141.145.193.91`). Migrated off the x86 micro on 2026-06-14
+    via `.github/workflows/cutover-live.yml`. `/data/bot-data` is a directory on
+    the 45 GB boot volume (NOT a separate block-volume mount), so its units take
+    the env-only `data-dir-nomount.conf` drop-in, auto-selected by
+    `scripts/install_systemd_units.sh` — see
+    [`docs/runbooks/live-vm-migration-ampere.md`](docs/runbooks/live-vm-migration-ampere.md).
   - **Trainer** — `VM.Standard.A1.Flex` 1 OCPU / 6 GB (Ampere; `158.178.209.121`).
   - **IB Gateway** — `VM.Standard.A1.Flex` 1 OCPU / 6 GB (Ampere; `ict-ib-gateway`,
     private IP `10.0.0.251`) — its own dedicated box. **Ampere usage: trainer 1 +
-    gateway 1 = 2 of 4.**
+    gateway 1 + live 2 = 4 of 4 OCPU (12+6+6 = 24 of 24 GB) — the Always-Free
+    Ampere pool is now full.** The retired x86 micro `158.178.210.252` was a
+    *separate* AMD Always-Free allocation (retiring it frees/costs no Ampere
+    budget); it is stopped + Bybit-frozen, kept short-term as the rollback target.
 
   The 2026-06-10 wedge cascade root cause was the **heavy IB-Gateway
   (Java/Xvfb/IBC) sharing the 1 GB micro** with the trader → swap-thrash. The
@@ -216,23 +223,20 @@ wire-up. See trainer-vm-mode.md § 5 for the full lifecycle.
   [`docs/runbooks/ib-integration.md`](docs/runbooks/ib-integration.md) §
   "Gateway isolation redesign".
 
-  The **live→Ampere migration is PAUSED on the CPU axis but re-justified on the
-  MEMORY axis (2026-06-14):** with the gateway off the micro, the 2-vCPU / 1-GB
-  micro holds the trader + web-api + sidecars on CPU just fine (loadavg ~1.2 on
-  2 cores — not saturated), BUT memory reached 90%+ with `kswapd` active
-  (genuine reclaim pressure — the trader+web-api+telegram are only ~240 MB
-  combined; 1 GB is simply too small for the grown stack). **Free-tier ceiling
-  math (stay Always-Free):** the Ampere pool is 4 OCPU / 24 GB total; trainer
-  (1 OCPU / 6 GB) + gateway (1 OCPU / 6 GB) already use **2 OCPU / 12 GB**, so a
-  live Ampere VM must be **≤ 2 OCPU / 12 GB** — NOT the "3 OCPU / 18 GB" an
-  earlier note cited (that would be 5 OCPU / 30 GB tenancy-wide, over the free
-  ceiling). Target **2 OCPU / 12 GB** (fills Ampere to exactly 4/24, $0) via
-  `vm-resize-live` or a fresh A1.Flex; the x86 micro is a *separate* AMD
-  Always-Free allocation, so retiring it costs no Ampere budget. Any in-process
-  → sidecar split (e.g. moving per-bar regime scoring off the trader loop) adds
-  a second Python interpreter (~+85 MB net) and so should land AFTER this resize,
-  not on the 1-GB micro. The paused migration tooling (`provision-live-vm`,
-  `terminate-instance`) remains.
+  The **live→Ampere migration COMPLETED 2026-06-14.** Rationale (still valid):
+  with the gateway isolated, the 2-vCPU / 1-GB x86 micro held the trader on CPU
+  fine (loadavg ~1.2 on 2 cores) but hit 90%+ memory with `kswapd` active — 1 GB
+  was too small for the grown stack. Free-tier ceiling math: the Ampere pool is
+  4 OCPU / 24 GB; trainer (1/6) + gateway (1/6) leave exactly **2 OCPU / 12 GB**
+  for live, which is the verified shape of the candidate (`ict-bot-arm`,
+  filling the pool to 4/24, $0). The x86 micro is a *separate* AMD Always-Free
+  allocation, so retiring it costs no Ampere budget. **Post-cutover follow-ups**
+  (re-enable `ict-git-sync` on the candidate so it auto-deploys from `main`;
+  optional dedicated `/data` block volume; install `ib_insync` for the MES leg;
+  decommission the micro via `terminate-instance` after soak) are tracked in
+  [`docs/runbooks/live-vm-migration-ampere.md`](docs/runbooks/live-vm-migration-ampere.md).
+  Migration tooling (`provision-live-vm`, `cutover-live`, `terminate-instance`)
+  remains for rollback / future moves.
 
 When in doubt about scope, default to the **live-VM** rules and ask.
 
@@ -323,8 +327,10 @@ the API CHDIRs to a non-existent path and crashloops.
 
 The dashboard consumer is the **Streamlit** app at `benbaichmankass/ict-trader-dashboard`
 (`streamlit_app.py` on Streamlit Community Cloud). The Python server
-makes the upstream call to `http://158.178.210.252:8001` directly —
-no tunnel, no Vercel rewrite. Pre-2026-05-12 architectures (React on
+makes the upstream call to `http://141.145.193.91:8001` directly
+(the Ampere live trader since the 2026-06-14 cutover; was the x86 micro
+`158.178.210.252`) — no tunnel, no Vercel rewrite. The dashboard's
+`BOT_API_URL` was repointed at cutover. Pre-2026-05-12 architectures (React on
 Vercel → CF named tunnel) are retired; see
 [ict-trader-dashboard/CLAUDE.md](https://github.com/benbaichmankass/ict-trader-dashboard/blob/main/CLAUDE.md)
 and [`docs/audit/vercel-edge-vs-cf-worker.md`](docs/audit/vercel-edge-vs-cf-worker.md)

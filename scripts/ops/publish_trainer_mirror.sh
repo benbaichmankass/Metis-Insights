@@ -47,7 +47,7 @@
 #
 # Environment knobs (with defaults matching the rest of scripts/ops/):
 #   REPO_ROOT              — /home/ubuntu/ict-trading-bot
-#   LIVE_VM_IP             — 158.178.210.252
+#   LIVE_VM_IP             — 141.145.193.91 (Ampere live trader; was 158.178.210.252 pre-2026-06-14)
 #   LIVE_VM_USER           — ubuntu
 #   LIVE_VM_MIRROR_PATH    — /home/ubuntu/ict-trading-bot/runtime_logs/trainer_mirror
 #   VM_SSH_KEY             — ~/.ssh/ict-bot-ovm-private.key
@@ -64,7 +64,7 @@
 set -uo pipefail
 
 REPO_ROOT="${REPO_ROOT:-/home/ubuntu/ict-trading-bot}"
-LIVE_VM_IP="${LIVE_VM_IP:-158.178.210.252}"
+LIVE_VM_IP="${LIVE_VM_IP:-141.145.193.91}"
 LIVE_VM_USER="${LIVE_VM_USER:-ubuntu}"
 # Live VM resolves `runtime_logs_dir()` (src/utils/paths.py) through the
 # `DATA_DIR` umbrella env var set in `/etc/ict-trader/web-api.env` to
