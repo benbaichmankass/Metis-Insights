@@ -1671,7 +1671,7 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                         "closed_at": now_iso,
                         "closed_by": "reverse_reconciler",
                         "closed_reason": (
-                            "Bybit no longer reports the adopted position; "
+                            "exchange no longer reports the adopted position; "
                             "exchange-side SL/TP or manual close took it out"
                         ),
                     }, ensure_ascii=False)[:500],
@@ -1844,8 +1844,8 @@ def _adopt_orphan_position(
             "adopted_at": now_iso,
             "adopted_by": "reverse_reconciler",
             "adopted_reason": (
-                "Bybit reported open position with no matching "
-                "trades.status='open' row"
+                f"exchange reported an open {symbol} position on "
+                f"{account_id} with no matching trades.status='open' row"
             ),
             "exchange_entry_price": entry_price,
             "exchange_size": size,
