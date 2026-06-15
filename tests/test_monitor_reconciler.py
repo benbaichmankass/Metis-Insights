@@ -218,7 +218,6 @@ def tmp_db(tmp_path, monkeypatch):
         "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
         _fake_cfg_loader,
     )
-    monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
     return db
 
 
@@ -368,38 +367,6 @@ def test_dry_run_account_is_skipped(tmp_db):
     assert summary["orphaned"] == 0
     assert summary["skipped_dry"] == 1
     assert _read_trade(tmp_db, trade_id)["status"] == "open"
-
-
-def test_disabled_flag_is_noop(tmp_db, monkeypatch):
-    _insert_trade(tmp_db)
-    monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "false")
-
-    with patch(
-        "src.units.accounts.clients.account_order_status",
-        side_effect=AssertionError("reconciler must not run when disabled"),
-    ):
-        summary = _reconcile_open_trades(tmp_db)
-
-    assert summary == {
-        "checked": 0, "orphaned": 0, "closed": 0, "pending_close": 0,
-        "skipped_dry": 0, "skipped_no_creds": 0,
-        "skipped_no_cfg": 0, "skipped_recent": 0,
-        "skipped_non_numeric": 0, "errors": 0,
-    }
-
-
-def test_unset_flag_is_noop(tmp_db, monkeypatch):
-    _insert_trade(tmp_db)
-    monkeypatch.delenv("MONITOR_RECONCILE_ENABLED", raising=False)
-
-    with patch(
-        "src.units.accounts.clients.account_order_status",
-        side_effect=AssertionError("reconciler must not run when env var unset"),
-    ):
-        summary = _reconcile_open_trades(tmp_db)
-
-    assert summary["checked"] == 0
-    assert summary["orphaned"] == 0
 
 
 def test_multiple_orphans_in_same_account_all_swept(
@@ -949,7 +916,6 @@ class TestSweepUnlinkedPackages:
 
     def test_old_unlinked_package_marked_orphaned(
             self, tmp_db, monkeypatch):
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         self._insert_pkg(tmp_db, "pkg-old-unlinked", age_minutes=10)
         affected = _sweep_unlinked_packages(tmp_db)
         assert affected == 1
@@ -960,7 +926,6 @@ class TestSweepUnlinkedPackages:
             self, tmp_db, monkeypatch):
         """A package created less than 5 minutes ago with no linked trade
         is still being dispatched — do not orphan it prematurely."""
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         self._insert_pkg(tmp_db, "pkg-new-unlinked", age_minutes=1)
         affected = _sweep_unlinked_packages(tmp_db)
         assert affected == 0
@@ -970,17 +935,8 @@ class TestSweepUnlinkedPackages:
     def test_linked_open_package_not_swept(self, tmp_db, monkeypatch):
         """A linked open package (real broker position) must never be
         touched by the unlinked sweep."""
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         self._insert_pkg(tmp_db, "pkg-linked", linked_trade_id=7,
                          age_minutes=60)
-        affected = _sweep_unlinked_packages(tmp_db)
-        assert affected == 0
-        rows = tmp_db.get_order_packages_by_strategy("vwap")
-        assert rows[0]["status"] == "open"
-
-    def test_noop_when_reconcile_disabled(self, tmp_db, monkeypatch):
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "false")
-        self._insert_pkg(tmp_db, "pkg-disabled", age_minutes=60)
         affected = _sweep_unlinked_packages(tmp_db)
         assert affected == 0
         rows = tmp_db.get_order_packages_by_strategy("vwap")
@@ -1384,7 +1340,6 @@ class TestSweepStuckLinkedPackages:
     def test_sweep_force_closes_stuck_package_with_orphaned_trade(
         self, tmp_db, monkeypatch,
     ):
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         # Trade in terminal 'orphaned' state but the linked package is
         # still 'open' — the cascade-leak scenario.
         trade_id = _insert_trade(tmp_db, status="orphaned")
@@ -1407,7 +1362,6 @@ class TestSweepStuckLinkedPackages:
         and force-closing it would lose track of a real exchange
         position.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         trade_id = _insert_trade(tmp_db, status="open")
         self._insert_linked_pkg(
             tmp_db, pkg_id="pkg-live-001", linked_trade_id=trade_id,
@@ -1427,7 +1381,6 @@ class TestSweepStuckLinkedPackages:
         Drift in this list is the most likely way the gate gets stuck
         again, so it's worth pinning.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         for i, terminal in enumerate(
             ("orphaned", "exchange_rejected", "closed", "rejected",
              "rejected_too_small")
@@ -1445,7 +1398,6 @@ class TestSweepStuckLinkedPackages:
             assert pkg["close_reason"] == "stuck_cascade_recovered"
 
     def test_sweep_is_idempotent(self, tmp_db, monkeypatch):
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         trade_id = _insert_trade(tmp_db, status="orphaned")
         self._insert_linked_pkg(
             tmp_db, pkg_id="pkg-idem-001", linked_trade_id=trade_id,
@@ -1461,24 +1413,11 @@ class TestSweepStuckLinkedPackages:
         """Defence boundary: an open package with no linked_trade_id is
         the ``_sweep_unlinked_packages`` jurisdiction, not this one.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         self._insert_linked_pkg(
             tmp_db, pkg_id="pkg-unlinked", linked_trade_id=None,
         )
         affected = _sweep_stuck_linked_packages(tmp_db)
         assert affected == 0
-
-    def test_sweep_noop_when_reconcile_disabled(self, tmp_db, monkeypatch):
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "false")
-        trade_id = _insert_trade(tmp_db, status="orphaned")
-        self._insert_linked_pkg(
-            tmp_db, pkg_id="pkg-disabled", linked_trade_id=trade_id,
-        )
-
-        affected = _sweep_stuck_linked_packages(tmp_db)
-        assert affected == 0
-        # Package row untouched.
-        assert _read_package(tmp_db, "pkg-disabled")["status"] == "open"
 
 
 # ---------------------------------------------------------------------------
@@ -1690,7 +1629,6 @@ class TestStuckStrategyWatchdog:
         force-closed, the trade is orphaned, and a high-priority
         alert is emitted.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         trade_id = _insert_trade(tmp_db, status="open")
         self._insert_pkg_with_age(
             tmp_db, pkg_id="pkg-stuck-watchdog-1",
@@ -1739,7 +1677,6 @@ class TestStuckStrategyWatchdog:
         + stuck-linked sweep are the first lines of defence; the
         watchdog only fires after they've had ample time to act.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         trade_id = _insert_trade(tmp_db, status="open")
         self._insert_pkg_with_age(
             tmp_db, pkg_id="pkg-fresh", linked_trade_id=trade_id,
@@ -1760,7 +1697,6 @@ class TestStuckStrategyWatchdog:
         anyway (the gate's WHERE requires ``linked_trade_id IS NOT
         NULL``).
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         self._insert_pkg_with_age(
             tmp_db, pkg_id="pkg-unlinked-old",
             linked_trade_id=None, age_minutes=120,
@@ -1773,7 +1709,6 @@ class TestStuckStrategyWatchdog:
         """A package that's already ``status='closed'`` is past the
         watchdog's job — natural idempotency on the SQL match.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         trade_id = _insert_trade(tmp_db, status="closed")
         self._insert_pkg_with_age(
             tmp_db, pkg_id="pkg-already-closed",
@@ -1792,7 +1727,6 @@ class TestStuckStrategyWatchdog:
         rewrite the trade's status (which would lose information).
         Only ``status='open'`` trades get cascaded.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         trade_id = _insert_trade(tmp_db, status="orphaned")
         self._insert_pkg_with_age(
             tmp_db, pkg_id="pkg-trade-already-orphaned",
@@ -1817,7 +1751,6 @@ class TestStuckStrategyWatchdog:
         trader restart. With a 5 min override, a 10 min old package
         becomes eligible.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         monkeypatch.setenv("STUCK_STRATEGY_THRESHOLD_MINUTES", "5")
         trade_id = _insert_trade(tmp_db, status="open")
         self._insert_pkg_with_age(
@@ -1839,7 +1772,6 @@ class TestStuckStrategyWatchdog:
         back to 30 min so a typo can't accidentally trigger an
         aggressive sweep.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         monkeypatch.setenv("STUCK_STRATEGY_THRESHOLD_MINUTES", "not-a-number")
         trade_id = _insert_trade(tmp_db, status="open")
         # 10 min is well under the 30 min default — should NOT fire.
@@ -1851,25 +1783,6 @@ class TestStuckStrategyWatchdog:
         assert summary["checked"] == 0
         assert _read_package(tmp_db, "pkg-garbage-env")["status"] == "open"
 
-    def test_noop_when_reconcile_disabled(self, tmp_db, monkeypatch):
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "false")
-        trade_id = _insert_trade(tmp_db, status="open")
-        self._insert_pkg_with_age(
-            tmp_db, pkg_id="pkg-disabled-flag",
-            linked_trade_id=trade_id, age_minutes=120,
-        )
-        summary = _watchdog_stuck_strategies(tmp_db)
-        assert summary == {
-            "checked": 0, "alerted": 0, "auto_cleared": 0,
-            "deferred_position_alive": 0,
-            "deferred_below_timeframe": 0,
-            "skipped_position_read_failed": 0,
-            "errors": 0,
-        }
-        assert _read_package(
-            tmp_db, "pkg-disabled-flag",
-        )["status"] == "open"
-
     def test_idempotent_across_consecutive_ticks(
         self, tmp_db, tmp_path, monkeypatch,
     ):
@@ -1878,7 +1791,6 @@ class TestStuckStrategyWatchdog:
         package is now ``status='closed'`` so the WHERE no longer
         matches, AND no fresh alert ping is queued.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         trade_id = _insert_trade(tmp_db, status="open")
         self._insert_pkg_with_age(
             tmp_db, pkg_id="pkg-idem", linked_trade_id=trade_id,
@@ -1919,7 +1831,6 @@ class TestStuckStrategyWatchdog:
         price to reach VWAP), not stuck. Operator gets a single
         alert with auto_cleared=False so they know we backed off.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         trade_id = _insert_trade(tmp_db, status="open")
         self._insert_pkg_with_age(
             tmp_db, pkg_id="pkg-position-alive",
@@ -1976,7 +1887,6 @@ class TestStuckStrategyWatchdog:
         ``stuck_alert_emitted_at`` is sticky). If the position has
         gone flat, force-clear as a true orphan.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         trade_id = _insert_trade(tmp_db, status="open")
         self._insert_pkg_with_age(
             tmp_db, pkg_id="pkg-defer-idem",
@@ -2014,7 +1924,6 @@ class TestStuckStrategyWatchdog:
         force-clearing rather than nuke the package on a half-known
         view of exchange state.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         trade_id = _insert_trade(tmp_db, status="open")
         self._insert_pkg_with_age(
             tmp_db, pkg_id="pkg-read-failure",
@@ -2050,7 +1959,6 @@ class TestStuckStrategyWatchdog:
         (run_monitor_tick scans ``status='open'`` only, so closing
         stranded the trade with no strategy monitoring).
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         trade_id = _insert_trade(tmp_db, status="open")
         # 4h silent, well past any historic release threshold.
         self._insert_pkg_with_age(
@@ -2096,7 +2004,6 @@ class TestStuckStrategyWatchdog:
         within one bar), so the watchdog must skip it silently: no alert,
         no meta churn, package + trade untouched.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         monkeypatch.delenv("STUCK_STRATEGY_THRESHOLD_MINUTES", raising=False)
         monkeypatch.delenv("STUCK_STRATEGY_TIMEFRAME_MULT", raising=False)
         trade_id = _insert_trade(tmp_db, status="open")
@@ -2131,7 +2038,6 @@ class TestStuckStrategyWatchdog:
         defer + one alert), and the alert reports the per-package
         threshold (360 min), not the flat 30-min floor.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         monkeypatch.delenv("STUCK_STRATEGY_THRESHOLD_MINUTES", raising=False)
         monkeypatch.delenv("STUCK_STRATEGY_TIMEFRAME_MULT", raising=False)
         trade_id = _insert_trade(tmp_db, status="open")
@@ -2166,7 +2072,6 @@ class TestStuckStrategyWatchdog:
         so a 45-min-silent position-alive package still alerts — the
         change must not blind the watchdog on short timeframes.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         monkeypatch.delenv("STUCK_STRATEGY_THRESHOLD_MINUTES", raising=False)
         monkeypatch.delenv("STUCK_STRATEGY_TIMEFRAME_MULT", raising=False)
         trade_id = _insert_trade(tmp_db, status="open")
@@ -2198,7 +2103,6 @@ class TestStuckStrategyWatchdog:
         delayed to the 360-min timeframe threshold — so orphan cleanup
         stays fast and the strategy gate doesn't stay stuck.
         """
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         monkeypatch.delenv("STUCK_STRATEGY_THRESHOLD_MINUTES", raising=False)
         monkeypatch.delenv("STUCK_STRATEGY_TIMEFRAME_MULT", raising=False)
         trade_id = _insert_trade(tmp_db, status="open")

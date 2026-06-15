@@ -7,7 +7,7 @@ Sprint: BUG-042 PR 3/3.
 
 ## What the reconciler does
 
-On every monitor tick (when `MONITOR_RECONCILE_ENABLED=true`), the
+On every monitor tick (unconditionally — see "Always-on" below), the
 reconciler:
 
 1. Reads every row from `trades` where `status='open'` and
@@ -56,20 +56,17 @@ orphaned automatically — the operator cleans up those rows manually.
 
 ---
 
-## The `MONITOR_RECONCILE_ENABLED` flag
+## Always-on (the `MONITOR_RECONCILE_ENABLED` gate was REMOVED 2026-06-15)
 
-| Value | Behaviour |
-|---|---|
-| `false` (default, pre-PR-3) | Reconciler is a no-op. All counters stay `0`. |
-| `true` | Reconciler runs on every monitor tick. |
-
-The flag is re-read on **every tick** (no restart required). An operator
-can flip it live via `export MONITOR_RECONCILE_ENABLED=true` in the VM's
-systemd override or via a `.env` edit + `systemctl daemon-reload` +
-`systemctl restart ict-trader-live.service`.
-
-**Current default (post-PR-3): `true`.** See `.env.master` /
-`.env.live` templates.
+The reconciler runs **unconditionally on every monitor tick**. There is
+no enable gate. The old `MONITOR_RECONCILE_ENABLED` env flag — which
+defaulted off and could silently no-op the reconciler (the BUG-048
+config-drift incident, where a key rotation dropped the flag and ghost
+trades piled up for ~8 hours) — was **removed 2026-06-15**
+(BL-20260615-MGCNAKED). Self-heal of orphaned/ghost trade rows is
+baseline correctness, not a feature flag (Prime Directive: no default-off
+flag in front of a required capability). A leftover
+`MONITOR_RECONCILE_ENABLED` value in the environment is now ignored.
 
 ---
 
@@ -131,6 +128,6 @@ it, the exchange truly has no open position and the row was stale.
 | PR #367 | One-shot ghost-trade cleanup notebook |
 | PR #384 | BUG-042 PR 1/3 — `account_open_positions` lifted to accounts unit |
 | PR #385 | BUG-042 PR 2/3 — `_reconcile_open_trades` implementation |
-| This PR (BUG-042 PR 3/3) | Runbook + `MONITOR_RECONCILE_ENABLED` flip to `true` |
+| BUG-042 PR 3/3 | Runbook + `MONITOR_RECONCILE_ENABLED` flip to `true` (the gate was later REMOVED entirely 2026-06-15, BL-20260615-MGCNAKED — reconciler now unconditional) |
 | CP-2026-05-03-22 | Sprint kickoff checkpoint (PRs 1+2 merged) |
 | `docs/claude/bug-log.md` BUG-042 | Architectural analysis |

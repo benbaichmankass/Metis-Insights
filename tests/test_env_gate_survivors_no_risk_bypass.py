@@ -2,20 +2,22 @@
 
 The 2026-05-10 env-gate purge audit (PR #659, see
 ``docs/audits/env-gate-purge-2026-05-10.md``) identified two
-``os.environ.get`` survivors in the protected runtime path:
+``os.environ.get`` survivors in the protected runtime path. The
+``src/runtime/order_monitor.py`` / ``MONITOR_RECONCILE_ENABLED``
+survivor was **retired 2026-06-15** (BL-20260615-MGCNAKED): the gate
+was removed and the monitor reconciler / self-heal now runs
+unconditionally on every tick (baseline correctness, not a feature
+flag). The one remaining survivor is:
 
   * ``src/runtime/pipeline.py`` — ``_multi_account_dispatch_enabled``
     reads ``MULTI_ACCOUNT_DISPATCH``.
-  * ``src/runtime/order_monitor.py`` — ``_reconcile_enabled`` reads
-    ``MONITOR_RECONCILE_ENABLED``.
 
-Per the audit verdict, **both gates are legitimate survivors** —
-neither is a live/dry escape hatch (the per-account
+Per the audit verdict, this gate is a **legitimate survivor** — it
+is not a live/dry escape hatch (the per-account
 ``RiskManager.dry_run`` flag in ``config/accounts.yaml`` is the
 canonical live/dry switch, per BUG-039). But "legitimate today"
 isn't a permanent contract — a careless future refactor could wire
-one of these gates to bypass risk evaluation. These tests pin the
-contract.
+the gate to bypass risk evaluation. These tests pin the contract.
 
 Test pattern: static AST analysis of each survivor's call site.
 Walk the function body, find the ``os.environ.get(<NAME>, ...)``
@@ -112,14 +114,10 @@ def _calls_under_env_gate(
         # If's test calls the helper that reads the env var.
         for sub in ast.walk(if_node.test):
             if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name):
-                # Helper-name heuristic: matches "*_dispatch_enabled" or
-                # "*_reconcile_enabled" etc.
+                # Helper-name heuristic: matches "*_dispatch_enabled".
                 name = sub.func.id
                 if env_var_name == "MULTI_ACCOUNT_DISPATCH":
                     if name.endswith("dispatch_enabled"):
-                        return True
-                if env_var_name == "MONITOR_RECONCILE_ENABLED":
-                    if name == "_reconcile_enabled" or name.endswith("reconcile_enabled"):
                         return True
         return False
 
@@ -216,75 +214,15 @@ def test_pipeline_helper_signature_pinned():
 
 
 # ---------------------------------------------------------------------------
-# Survivor 2 — order_monitor.py / MONITOR_RECONCILE_ENABLED
-# ---------------------------------------------------------------------------
-
-
-def test_monitor_reconcile_enabled_does_not_gate_risk_evaluate():
-    """Flipping ``MONITOR_RECONCILE_ENABLED`` must not bypass any
-    ``RiskManager.evaluate`` / ``.approve`` call in order_monitor.py.
-    """
-    src = (_REPO_ROOT / "src" / "runtime" / "order_monitor.py").read_text(encoding="utf-8")
-    tree = ast.parse(src)
-    helpers = _seen_helper_names(tree)
-    assert "_reconcile_enabled" in helpers, (
-        "Sanity: the survivor function must still exist in order_monitor.py"
-    )
-    risk_calls = _find_risk_evaluate_calls(tree)
-    if not risk_calls:
-        # order_monitor doesn't directly call risk evaluation
-        # (per BUG-039 architecture: pipeline does evaluation; the
-        # monitor is post-hoc reconciliation). Empty set means the
-        # gate has nothing to bypass. Pass.
-        return
-    gated = _calls_under_env_gate(
-        tree, "MONITOR_RECONCILE_ENABLED", risk_calls,
-    )
-    assert not gated, (
-        "MONITOR_RECONCILE_ENABLED must NOT gate any "
-        "RiskManager.evaluate / .approve call. Found gated call(s) "
-        "at line(s): " + ", ".join(str(c.lineno) for c in gated)
-    )
-
-
-def test_monitor_helper_signature_pinned():
-    """Pin the signature shape of ``_reconcile_enabled``."""
-    src = (_REPO_ROOT / "src" / "runtime" / "order_monitor.py").read_text(encoding="utf-8")
-    tree = ast.parse(src)
-    helper = next(
-        (n for n in ast.walk(tree)
-         if isinstance(n, ast.FunctionDef)
-         and n.name == "_reconcile_enabled"),
-        None,
-    )
-    assert helper is not None, "_reconcile_enabled must exist"
-    env_reads: List[str] = []
-    for sub in ast.walk(helper):
-        if not isinstance(sub, ast.Call):
-            continue
-        f = sub.func
-        if isinstance(f, ast.Attribute) and f.attr == "get":
-            recv = f.value
-            if isinstance(recv, ast.Attribute) and recv.attr == "environ":
-                if sub.args and isinstance(sub.args[0], ast.Constant):
-                    env_reads.append(str(sub.args[0].value))
-        elif isinstance(f, ast.Attribute) and f.attr == "getenv":
-            if sub.args and isinstance(sub.args[0], ast.Constant):
-                env_reads.append(str(sub.args[0].value))
-    assert env_reads == ["MONITOR_RECONCILE_ENABLED"], (
-        f"_reconcile_enabled must read exactly "
-        f"MONITOR_RECONCILE_ENABLED; observed env reads: {env_reads}"
-    )
-
-
-# ---------------------------------------------------------------------------
 # Cross-cutting — no NEW survivors snuck in
 # ---------------------------------------------------------------------------
 
 
 def test_no_new_protected_env_gates_in_runtime():
-    """Defence in depth: the audit pinned exactly two surviving
-    ``os.environ.get(<suspect>)`` reads in src/runtime/. Anything new
+    """Defence in depth: after the 2026-06-15 removal of the
+    ``MONITOR_RECONCILE_ENABLED`` gate, exactly one suspect
+    ``os.environ.get(<suspect>)`` read survives in src/runtime/
+    (``pipeline.py`` / ``MULTI_ACCOUNT_DISPATCH``). Anything new
     must come with a fresh allow-silent + audit doc update.
 
     Suspect names are the same set the lint guard
@@ -331,13 +269,12 @@ def test_no_new_protected_env_gates_in_runtime():
                 survivors.append(f"{rel}:{lineno} ({name})")
 
     expected = {
-        # The two annotated survivors. The annotations get added
-        # under this PR's patch-doc instructions
-        # (docs/claude/env-gate-purge-phase2-annotations.md). Until
-        # they land in place, the test allows the un-annotated
-        # survivors at these specific paths.
+        # The one remaining annotated survivor. The annotations get
+        # added under the env-gate-purge patch-doc instructions
+        # (docs/claude/env-gate-purge-phase2-annotations.md). The
+        # order_monitor.py / MONITOR_RECONCILE_ENABLED survivor was
+        # removed 2026-06-15 (gate retired; self-heal is unconditional).
         "src/runtime/pipeline.py",
-        "src/runtime/order_monitor.py",
     }
     unexpected = [
         s for s in survivors

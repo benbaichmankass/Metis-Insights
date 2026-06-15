@@ -283,6 +283,33 @@ def test_workflow_requires_reason_for_tier2_actions() -> None:
     )
 
 
+def test_validate_step_classifies_every_action_into_a_tier() -> None:
+    """Every allowlisted action must be enumerated in the Validate step's
+    tier case (tier-1 OR tier-2 alternation), not merely present somewhere
+    in the file.
+
+    Regression guard (2026-06-15): backfill-account-class was added to the
+    choice options + the SCRIPT-name case but NOT to the Validate step's
+    tier alternation, so it fell through to `*) Unknown action; exit 2` —
+    which aborts the run BEFORE the "Set up SSH key" step, surfacing as a
+    confusing `Permission denied (publickey)` rather than an allowlist
+    error. The older `action in text` checks passed because the name DID
+    appear elsewhere in the file.
+    """
+    text = WORKFLOW.read_text()
+    marker = "Validate action and tier policy"
+    assert marker in text, "Validate step renamed? Update this guard."
+    seg = text.split(marker, 1)[1].split("- name:", 1)[0]
+    for action in EXPECTED_ACTIONS:
+        # Must appear as a `case` alternative: bounded by ( | or whitespace
+        # on the left and | or ) on the right.
+        assert re.search(rf'[(|\s]{re.escape(action)}[|)]', seg), (
+            f"Action '{action}' is not classified into a tier in the "
+            f"Validate step — it would hit the unknown-action branch and "
+            f"abort before SSH. Add it to the tier-1 or tier-2 alternation."
+        )
+
+
 def test_no_appleboy_or_other_third_party_ssh_action() -> None:
     text = WORKFLOW.read_text()
     assert "appleboy/ssh-action" not in text
