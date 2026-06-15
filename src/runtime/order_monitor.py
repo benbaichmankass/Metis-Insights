@@ -1985,6 +1985,18 @@ def _reattach_adopted_orphans(db, summary: Dict[str, int]) -> None:
                 r["id"], exc,
             )
             continue
+        # Re-arm the broker-side stop. The journal SL/TP above is only the
+        # dashboard view — the exchange position is still naked until we place
+        # a protective bracket. Unconditional: part of healing the orphan.
+        try:
+            _rearm_broker_protection_after_recovery(
+                db, int(r["id"]), recovered.get("sl"), recovered.get("tp"),
+            )
+        except Exception as exc:  # noqa: BLE001 — best-effort; never abort the pass
+            logger.warning(
+                "_reattach_adopted_orphans: broker re-arm failed for trade "
+                "%s: %s", r["id"], exc,
+            )
         summary["reattached_existing"] = summary.get("reattached_existing", 0) + 1
         logger.warning(
             "_reattach_adopted_orphans: RE-ATTACHED existing orphan trade %s "
@@ -2081,6 +2093,17 @@ def _adopt_orphan_position(
             logger.warning(
                 "_adopt_orphan_position: re-link of package %s failed: %s",
                 opid, exc,
+            )
+        # Re-arm the broker-side stop on the freshly-adopted position. The
+        # recovered SL/TP went onto the journal row above, but the exchange
+        # position is naked until a protective bracket is placed. Unconditional
+        # baseline behaviour — part of healing the orphan. BL-20260615-MGCNAKED.
+        try:
+            _rearm_broker_protection_after_recovery(db, trade_id, sl, tp)
+        except Exception as exc:  # noqa: BLE001 — best-effort; never abort adoption
+            logger.warning(
+                "_adopt_orphan_position: broker re-arm failed for trade_id=%s: %s",
+                trade_id, exc,
             )
         logger.warning(
             "_adopt_orphan_position: RE-ATTACHED orphan %s/%s to strategy "
@@ -3634,15 +3657,57 @@ def _resolve_protective_levels(db, symbol, direction):
         return (None, None)
 
 
+def _rearm_broker_protection_after_recovery(db, trade_id, sl, tp) -> bool:
+    """Re-place a broker-side GTC SL/TP bracket on an orphan the reverse
+    reconciler just adopted/re-attached.
+
+    The reconciler recovers a position's SL/TP from its originating order
+    package and writes them onto the journal row — but writing the *journal*
+    fields does NOT put a protective order back at the broker. A re-adopted
+    IBKR net position therefore stays NAKED at the exchange even though the
+    dashboard now shows an SL/TP (BL-20260615-MGCNAKED — the MGC ``orphan_adopt``
+    that sat with no stop). This re-arms the GTC OCA bracket via the same
+    IB-only path as the naked-position sweep
+    (:func:`_attempt_naked_autoprotect` -> ``IBClient.place_protective``).
+    Unconditional baseline behaviour — re-arming protection on a recovered
+    position is part of healing the orphan, not an opt-in feature.
+    Best-effort; never raises.
+    """
+    if sl in (None, 0) or tp in (None, 0):
+        return False
+    try:
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            row = conn.execute(
+                "SELECT id, account_id, symbol, direction, position_size "
+                "FROM trades WHERE id=?",
+                (int(trade_id),),
+            ).fetchone()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_rearm_broker_protection_after_recovery: read failed for "
+            "trade_id=%s: %s", trade_id, exc,
+        )
+        return False
+    if row is None:
+        return False
+    return _attempt_naked_autoprotect(row, sl, tp)
+
+
 def _attempt_naked_autoprotect(row, sl, tp) -> bool:
     """Attach reverse-side GTC SL/TP to a naked IB position via
     ``IBClient.place_protective``. Returns True on a placed protective
-    bracket. IB-only for now (Bybit/OANDA/Alpaca attach SL/TP atomically at
-    entry, so a naked orphan there is out of scope for v1). Never raises.
+    bracket. IB-only (Bybit/OANDA/Alpaca attach SL/TP atomically at entry, so a
+    naked orphan there can't occur). Never raises.
 
-    Gated by the ``NAKED_POSITION_AUTOPROTECT`` env flag (default off) so the
-    behaviour ships inert and is enabled per the operator after review — a
-    new live-order surface, mirroring how the order-path features ship.
+    Unconditional baseline behaviour — there is no enable flag. A live position
+    with no stop is an unacceptable state the system must always correct, the
+    same way an orphaned trade is a condition the reconciler always heals; it is
+    not an opt-in feature to be toggled (Prime Directive: no default-off gate in
+    front of a required capability).
     """
     account_id = str(row["account_id"] or "")
     symbol = str(row["symbol"] or "")
@@ -3704,9 +3769,6 @@ def _check_naked_positions(db) -> Dict[str, int]:
     summary: Dict[str, int] = {
         "checked": 0, "naked": 0, "alerted": 0, "protected": 0, "errors": 0,
     }
-    autoprotect_on = str(
-        os.environ.get("NAKED_POSITION_AUTOPROTECT", "")
-    ).strip().lower() in ("1", "true", "yes", "on")
     try:
         conn = db.connect()
         try:
@@ -3748,11 +3810,10 @@ def _check_naked_positions(db) -> Dict[str, int]:
         already_alerted = bool(notes.get("naked_sltp_alerted_at"))
         if already_attached:
             continue  # already auto-protected; nothing to do
-        if already_alerted and not autoprotect_on:
-            continue  # already alerted; alert-only mode → don't re-alert each tick
-        # If autoprotect is ON, a position that was alerted-but-never-attached
-        # (e.g. an orphan alerted BEFORE the flag was enabled) still gets an
-        # attach attempt below — "alerted" is not "protected".
+        # A position alerted-but-never-attached still gets an attach attempt
+        # every tick — "alerted" is not "protected". Re-arming a naked position
+        # is baseline correctness, not an opt-in: an open trade with no stop is
+        # an unacceptable state the system must always fix.
 
         sl = row["stop_loss"]
         tp = row["take_profit_1"]
@@ -3760,42 +3821,44 @@ def _check_naked_positions(db) -> Dict[str, int]:
         symbol = str(row["symbol"] or "?")
         side = str(row["direction"] or "?")
 
-        # Auto-protect (gated, IB-only v1): try to attach reverse-side GTC
-        # SL/TP before falling back to the alert. Resolve missing levels from
-        # the originating order package (an adopted orphan carries NULL sl/tp).
-        if autoprotect_on:
-            a_sl = sl if (sl not in (None, 0) and sl > 0) else None
-            a_tp = tp if (tp not in (None, 0) and tp > 0) else None
-            if a_sl is None or a_tp is None:
-                r_sl, r_tp = _resolve_protective_levels(db, symbol, side)
-                a_sl = a_sl if a_sl is not None else r_sl
-                a_tp = a_tp if a_tp is not None else r_tp
-            if a_sl is not None and a_tp is not None and _attempt_naked_autoprotect(
-                row, a_sl, a_tp
-            ):
-                summary["protected"] += 1
-                attached_notes = dict(notes)
-                attached_notes["naked_sltp_attached_at"] = now.isoformat()
-                attached_notes["naked_sltp_attached_levels"] = {
-                    "sl": a_sl, "tp": a_tp,
-                }
-                try:
-                    db.update_trade(trade_id, {
-                        "stop_loss": a_sl,
-                        "take_profit_1": a_tp,
-                        "notes": json.dumps(attached_notes),
-                    })
-                except Exception as upd_exc:  # noqa: BLE001
-                    logger.warning(
-                        "_check_naked_positions: row update after attach "
-                        "failed for trade_id=%s: %s", trade_id, upd_exc,
-                    )
-                logger.info(
-                    "_check_naked_positions: auto-attached GTC SL/TP "
-                    "(sl=%s tp=%s) to naked trade_id=%s account=%s symbol=%s",
-                    a_sl, a_tp, trade_id, account, symbol,
+        # Auto-protect (unconditional, IB-only): attach a reverse-side GTC SL/TP
+        # bracket before falling back to the alert. A naked position is an
+        # unacceptable state, not an opt-in feature — the system always re-arms
+        # it. Missing levels resolve from the originating order package (an
+        # adopted orphan carries NULL sl/tp); non-IB accounts no-op inside
+        # _attempt_naked_autoprotect and fall through to the alert below.
+        a_sl = sl if (sl not in (None, 0) and sl > 0) else None
+        a_tp = tp if (tp not in (None, 0) and tp > 0) else None
+        if a_sl is None or a_tp is None:
+            r_sl, r_tp = _resolve_protective_levels(db, symbol, side)
+            a_sl = a_sl if a_sl is not None else r_sl
+            a_tp = a_tp if a_tp is not None else r_tp
+        if a_sl is not None and a_tp is not None and _attempt_naked_autoprotect(
+            row, a_sl, a_tp
+        ):
+            summary["protected"] += 1
+            attached_notes = dict(notes)
+            attached_notes["naked_sltp_attached_at"] = now.isoformat()
+            attached_notes["naked_sltp_attached_levels"] = {
+                "sl": a_sl, "tp": a_tp,
+            }
+            try:
+                db.update_trade(trade_id, {
+                    "stop_loss": a_sl,
+                    "take_profit_1": a_tp,
+                    "notes": json.dumps(attached_notes),
+                })
+            except Exception as upd_exc:  # noqa: BLE001
+                logger.warning(
+                    "_check_naked_positions: row update after attach "
+                    "failed for trade_id=%s: %s", trade_id, upd_exc,
                 )
-                continue  # protected; no naked alert needed
+            logger.info(
+                "_check_naked_positions: auto-attached GTC SL/TP "
+                "(sl=%s tp=%s) to naked trade_id=%s account=%s symbol=%s",
+                a_sl, a_tp, trade_id, account, symbol,
+            )
+            continue  # protected; no naked alert needed
 
         # Auto-protect didn't attach this tick (off, levels unresolved, or the
         # IB place failed). If we already alerted on a prior tick, don't re-alert

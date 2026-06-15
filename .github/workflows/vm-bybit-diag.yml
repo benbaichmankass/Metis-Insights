@@ -136,6 +136,42 @@ jobs:
           fi
           echo
 
+          echo "===== DECISIVE: reproduce wallet-balance INSIDE the trader's exact environ (proxy/egress test) ====="
+          "$PY" - "${TPID:-}" <<'PY' 2>&1
+          import os, sys
+          pid = sys.argv[1] if len(sys.argv) > 1 else ''
+          if not pid:
+              print('no trader pid'); sys.exit(0)
+          env = {}
+          try:
+              with open('/proc/%s/environ' % pid, 'rb') as f:
+                  for kv in f.read().split(b'\x00'):
+                      if b'=' in kv:
+                          k, v = kv.split(b'=', 1)
+                          env[k.decode('utf-8', 'replace')] = v.decode('utf-8', 'replace')
+          except Exception as ex:
+              print('cannot read trader environ:', repr(ex)); sys.exit(0)
+          # Proxy/base-url vars are not secrets — show them (they decide egress routing)
+          for k in ('HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy',
+                    'NO_PROXY','no_proxy','BYBIT_BASE_URL','REQUESTS_CA_BUNDLE'):
+              if k in env:
+                  print('trader env  %-14s = %s' % (k, env[k]))
+          print('proxy vars present:', any(p in env for p in
+                ('HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy')))
+          # Reproduce the EXACT failing call with the trader's full environment (inherits proxy)
+          os.environ.clear(); os.environ.update(env)
+          k = env.get('BYBIT_API_KEY_2',''); s = env.get('BYBIT_API_SECRET_2','')
+          try:
+              from pybit.unified_trading import HTTP
+              cl = HTTP(testnet=False, api_key=k, api_secret=s)
+              r = cl.get_wallet_balance(accountType='UNIFIED')
+              print('TRADER-ENV WALLET-BALANCE: retCode=%s retMsg=%s' % (r.get('retCode'), r.get('retMsg')))
+          except Exception as ex:
+              print('TRADER-ENV WALLET-BALANCE ERROR:', repr(ex)[:400])
+          PY
+          echo "(if THIS errors 10010 while the .env repro above said OK, the trader's environ routes egress differently — proxy/var is the cause)"
+          echo
+
           echo "===== ALL processes carrying BYBIT_API_KEY_2 (masked key + cmd) — find the STALE one ====="
           for pe in /proc/[0-9]*/environ; do
             pid=$(echo "$pe" | sed 's#/proc/##; s#/environ##')
