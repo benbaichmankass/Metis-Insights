@@ -56,7 +56,17 @@ if ! sudo docker restart "${NAME}" >/dev/null 2>&1; then
     exit 1
 fi
 
-_log "Waiting up to ${LOGIN_TIMEOUT}s for IBC login + API port ${API_PORT}…"
+# Determine the host interface the API is actually published on. On the
+# dedicated gateway VM the container binds the PRIVATE IP (-p 10.0.0.251:4002),
+# NOT loopback, so a 127.0.0.1 probe there always reads "unreachable" even on a
+# healthy gateway. Same-box / legacy installs publish on 127.0.0.1. Read the
+# real HostIp from docker inspect; fall back to loopback when unset.
+API_HOST="${IB_GATEWAY_API_HOST:-$(sudo docker inspect "${NAME}" \
+    --format '{{range $p,$c := .NetworkSettings.Ports}}{{range $c}}{{.HostIp}} {{end}}{{end}}' 2>/dev/null \
+    | tr ' ' '\n' | grep -vE '^$|^0\.0\.0\.0$' | head -1)}"
+API_HOST="${API_HOST:-127.0.0.1}"
+
+_log "Waiting up to ${LOGIN_TIMEOUT}s for IBC login + API ${API_HOST}:${API_PORT}…"
 login_ok=no
 port_ok=no
 deadline=$(( $(date +%s) + LOGIN_TIMEOUT ))
@@ -66,14 +76,14 @@ while [ "$(date +%s)" -lt "${deadline}" ]; do
         login_ok=yes
     fi
     if [ "${port_ok}" != yes ] && \
-       (exec 3<>"/dev/tcp/127.0.0.1/${API_PORT}") 2>/dev/null; then
+       (exec 3<>"/dev/tcp/${API_HOST}/${API_PORT}") 2>/dev/null; then
         exec 3>&- 3<&- 2>/dev/null || true
         port_ok=yes
     fi
     [ "${login_ok}" = yes ] && [ "${port_ok}" = yes ] && break
     sleep 5
 done
-_log "login_completed=${login_ok} api_port_${API_PORT}_reachable=${port_ok}"
+_log "login_completed=${login_ok} api_${API_HOST}:${API_PORT}_reachable=${port_ok}"
 
 _log "Post-restart state:"
 sudo docker ps -a --filter "name=^/${NAME}$" --format '{{.Names}} | {{.Status}} | {{.Ports}}' || true

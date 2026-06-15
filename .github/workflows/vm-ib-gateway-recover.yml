@@ -1,33 +1,51 @@
 name: vm-ib-gateway-recover
 
-# Autonomous self-heal for the IB Gateway container on the live VM.
+# Autonomous self-heal for the IB Gateway container.
 #
 # Why this exists (separate from system-actions.yml):
 #   IB Gateway (the `ib-gateway` docker container) is the live trader's
-#   only path to IBKR for MES. When the account's market-data line gets
-#   bound to another session, IBKR rejects MES historical-data requests
-#   with error 162 ("Trading TWS session is connected from a different IP
-#   address") and MES goes dark — no candles, no signals, no trades.
-#   Closing the other login doesn't always release the line; the gateway
-#   has to re-login. This workflow lets a sandbox session restart the
-#   gateway autonomously (no operator click), mirroring vm-web-api-recover.
+#   only path to IBKR for MES/MGC/MHG. After IBKR's overnight server-reset
+#   the in-place re-login can wedge: the container stays UP and its socat
+#   relay keeps accepting TCP on :4002, but the IBKR *session* is dead, so
+#   every historical-data request times out, the trader's IB circuit breaker
+#   trips ("circuit breaker OPEN for 10.0.0.251:4002 … gateway was
+#   unresponsive"), and MES/MGC/MHG go dark. The fix is a `docker restart
+#   ib-gateway` to force a fresh login. This workflow lets a sandbox session
+#   do that autonomously (no operator click), mirroring vm-web-api-recover.
+#
+# Topology (gateway-isolation, 2026-06-10 — see docs/runbooks/ib-integration.md):
+#   The gateway no longer runs on the trader's box. It runs on its own
+#   dedicated Ampere VM (`ict-ib-gateway`) on the PRIVATE subnet
+#   (10.0.0.251) with NO public IP. A GitHub runner cannot reach it
+#   directly, so this workflow SSHes to it **via ProxyJump through the live
+#   trader** (141.145.193.91), which shares the 10.0.0.0/24 subnet and
+#   already reaches 10.0.0.251:4002. The same VM_SSH_KEY authorizes both
+#   hops (both VMs were provisioned with its public half), so the runner
+#   authenticates each hop itself — the jump host never holds the key.
 #
 # Trust contract:
-#   * The wrapper (scripts/ops/restart_ib_gateway.sh) is fixed-form:
-#     `sudo docker restart ib-gateway` + login/port probe + log tail. No
-#     freeform shell, no edits, no deploys.
-#   * Blast radius is the ib-gateway container only. ict-trader-live is
-#     NOT restarted (it reconnects on the next tick); BTCUSDT/Bybit is
+#   * The action is fixed-form: `docker restart ib-gateway` (via the wrapper
+#     scripts/ops/restart_ib_gateway.sh on the gateway VM, inline fallback)
+#     + login/port probe + log tail. No freeform shell, no edits, no deploys.
+#   * Blast radius is the ib-gateway container on the gateway VM only. The
+#     live trader (ict-trader-live) is NOT restarted — its IB breaker
+#     auto-clears once the gateway is healthy again; BTCUSDT/Bybit is
 #     unaffected; account-mode / strategy / risk flags are NOT touched.
+#     The gateway is paper-money (ib_paper, DUQ325724) — no real funds.
 #   * Triggered by `issues.opened` filtered to label
 #     `vm-ib-gateway-recover` (created idempotently by bootstrap-labels.yml).
+#   * If the gateway parks on an IBKR login / 2FA prompt, the restart cannot
+#     clear it autonomously — the log tail surfaces it and the failure
+#     comment flags the operator hand-off (approve the IBKR Mobile tap).
 #
 # Required repo secrets:
-#   * VM_SSH_KEY        — same key as vm-diag-snapshot / vm-web-api-recover
+#   * VM_SSH_KEY        — same key as vm-diag-snapshot / vm-web-api-recover;
+#                         authorizes BOTH the jump (trader) and the gateway VM.
 #
 # Optional repo variables:
-#   * VM_SSH_HOST       — defaults to 158.178.210.252
-#   * VM_SSH_USER       — defaults to ubuntu
+#   * VM_SSH_HOST       — the ProxyJump bastion (live trader). Default 141.145.193.91.
+#   * IB_GATEWAY_HOST   — the gateway VM target. Default 10.0.0.251 (private).
+#   * VM_SSH_USER       — defaults to ubuntu (used for both hops).
 #
 # To use from a sandbox session:
 #   mcp__github__issue_write(method='create',
@@ -60,9 +78,11 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'vm-ib-gateway-recover'))
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 8
     env:
-      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      # ProxyJump bastion (live trader, public) and the gateway VM (private).
+      JUMP_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      GATEWAY_HOST: ${{ vars.IB_GATEWAY_HOST || '10.0.0.251' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
     steps:
       - name: Set up SSH key
@@ -78,55 +98,81 @@ jobs:
           chmod 700 ~/.ssh
           printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+          # The jump host is public + scannable; the gateway VM is private and
+          # only reachable through the tunnel, so it relies on accept-new below.
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${JUMP_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Restart ib-gateway on VM
+      - name: Restart ib-gateway on the gateway VM (via ProxyJump)
         id: exec
         run: |
           set -euo pipefail
-          # Prefer the wrapper on the VM (richer audit + log tail); fall
-          # back to a fixed-form inline restart when it is not present yet
-          # (e.g. before this PR auto-deploys to the VM). Same docker
-          # invocation either way.
+          # Self-contained remote script: prefer the wrapper checked out on the
+          # gateway VM (cloud-init clones the repo there); inline fallback when
+          # it is absent. Same docker invocation either way. Runs ON the gateway
+          # VM (10.0.0.251), not the trader.
           read -r -d '' REMOTE_SCRIPT <<'REMOTE' || true
           set -uo pipefail
           REPO=/home/ubuntu/ict-trading-bot
           WRAPPER="$REPO/scripts/ops/restart_ib_gateway.sh"
           NAME=ib-gateway
-          API_PORT=4002
+          echo ">>> target host: $(hostname) [$(hostname -I 2>/dev/null | awk '{print $1}')]"
+          command -v docker >/dev/null 2>&1 || { echo "docker not found on this host — is this the gateway VM?"; exit 1; }
           # Refresh just the wrapper from origin/main so a stale VM checkout
           # doesn't run an older version of this script.
           git -C "$REPO" fetch -q origin main 2>/dev/null && \
             git -C "$REPO" checkout -q origin/main -- scripts/ops/restart_ib_gateway.sh 2>/dev/null || true
+          rc=0
           if [ -x "$WRAPPER" ]; then
-            echo ">>> Using wrapper: $WRAPPER"
-            bash "$WRAPPER"
-            exit $?
+            echo ">>> using wrapper: $WRAPPER"
+            bash "$WRAPPER"; rc=$?
+          else
+            echo ">>> wrapper not on VM — inline fallback restart of $NAME"
+            # Determine the published API host (gateway VM binds the PRIVATE IP,
+            # not loopback; same-box installs use 127.0.0.1).
+            API_PORT=4002
+            API_HOST="$(sudo docker inspect "$NAME" --format '{{range $p,$c := .NetworkSettings.Ports}}{{range $c}}{{.HostIp}} {{end}}{{end}}' 2>/dev/null | tr ' ' '\n' | grep -vE '^$|^0\.0\.0\.0$' | head -1)"
+            API_HOST="${API_HOST:-127.0.0.1}"
+            echo "pre: $(sudo docker ps -a --filter name=^/${NAME}$ --format '{{.Status}}' || true)"
+            sudo docker restart "$NAME" >/dev/null 2>&1 || { echo "sudo docker restart failed"; exit 1; }
+            login_ok=no; port_ok=no
+            deadline=$(( $(date +%s) + 150 ))
+            while [ "$(date +%s)" -lt "$deadline" ]; do
+              if [ "$login_ok" != yes ] && sudo docker logs --since 4m "$NAME" 2>&1 | grep -q "Login has completed"; then login_ok=yes; fi
+              if [ "$port_ok" != yes ] && (exec 3<>/dev/tcp/${API_HOST}/${API_PORT}) 2>/dev/null; then exec 3>&- 3<&- 2>/dev/null || true; port_ok=yes; fi
+              [ "$login_ok" = yes ] && [ "$port_ok" = yes ] && break
+              sleep 5
+            done
+            echo "login_completed=$login_ok api_${API_HOST}:${API_PORT}_reachable=$port_ok"
+            echo "post: $(sudo docker ps -a --filter name=^/${NAME}$ --format '{{.Status}}' || true)"
+            [ "$login_ok" = yes ] && rc=0 || rc=1
           fi
-          echo ">>> Wrapper not on VM yet — inline fallback restart of $NAME"
-          command -v docker >/dev/null 2>&1 || { echo "docker not found"; exit 1; }
-          echo "pre: $(sudo docker ps -a --filter name=^/${NAME}$ --format '{{.Status}}' || true)"
-          sudo docker restart "$NAME" >/dev/null 2>&1 || { echo "sudo docker restart failed"; exit 1; }
-          login_ok=no; port_ok=no
-          deadline=$(( $(date +%s) + 150 ))
-          while [ "$(date +%s)" -lt "$deadline" ]; do
-            if [ "$login_ok" != yes ] && sudo docker logs --since 4m "$NAME" 2>&1 | grep -q "Login has completed"; then login_ok=yes; fi
-            if [ "$port_ok" != yes ] && (exec 3<>/dev/tcp/127.0.0.1/${API_PORT}) 2>/dev/null; then exec 3>&- 3<&- 2>/dev/null || true; port_ok=yes; fi
-            [ "$login_ok" = yes ] && [ "$port_ok" = yes ] && break
-            sleep 5
-          done
-          echo "login_completed=$login_ok api_port_${API_PORT}_reachable=$port_ok"
-          echo "post: $(sudo docker ps -a --filter name=^/${NAME}$ --format '{{.Status}}' || true)"
-          echo "===== sudo docker logs --tail 40 $NAME ====="
+          echo
+          echo "===== auth-relevant log lines (login / 2FA / errors — last 60) ====="
+          sudo docker logs --since 6m "$NAME" 2>&1 \
+            | grep -iE 'second[ -]?factor|2fa|authenticat|existing session|competing|already logged|login has completed|login failed|invalid|incorrect|password|denied|rejected|exit code|cannot connect|connection refused|market data farm|forcing reauth|re-login' \
+            | tail -60 || true
+          echo
+          echo "===== docker logs --tail 40 $NAME ====="
           sudo docker logs --tail 40 "$NAME" 2>&1 | tail -40 || true
-          [ "$login_ok" = yes ] && exit 0 || exit 1
+          exit $rc
           REMOTE
+
+          # Build the ssh invocation: ProxyJump through the trader unless the
+          # gateway host IS the jump host (degenerate same-box config).
+          SSH_ARGS=( -i ~/.ssh/id_rsa
+                     -o BatchMode=yes
+                     -o StrictHostKeyChecking=accept-new
+                     -o ConnectTimeout=15 )
+          if [ "${GATEWAY_HOST}" != "${JUMP_HOST}" ]; then
+            SSH_ARGS+=( -o "ProxyJump=${VM_SSH_USER}@${JUMP_HOST}" )
+            echo ">>> reaching gateway ${GATEWAY_HOST} via ProxyJump ${VM_SSH_USER}@${JUMP_HOST}"
+          else
+            echo ">>> gateway host == jump host; connecting directly to ${GATEWAY_HOST}"
+          fi
+
           set +e
-          ssh -i ~/.ssh/id_rsa \
-              -o BatchMode=yes \
-              -o StrictHostKeyChecking=accept-new \
-              -o ConnectTimeout=15 \
-              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+          ssh "${SSH_ARGS[@]}" \
+              "${VM_SSH_USER}@${GATEWAY_HOST}" \
               "bash -s" <<<"$REMOTE_SCRIPT" \
               > action-output.txt 2>&1
           rc=$?
@@ -164,7 +210,7 @@ jobs:
             const note = output.length > MAX_BODY ? `\n_(last ${MAX_BODY} of ${output.length} bytes)_\n` : '';
             await github.rest.issues.createComment({
               owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
-              body: `✅ **vm-ib-gateway-recover** completed.\nRun: ${runUrl}\nExit code: ${process.env.EXIT_CODE}\n` + note + `\n\`\`\`\n${tail}\n\`\`\``
+              body: `✅ **vm-ib-gateway-recover** completed (gateway re-logged in).\nRun: ${runUrl}\nExit code: ${process.env.EXIT_CODE}\nThe trader's IB circuit breaker auto-clears within ~2 min — MES/MGC/MHG should resume.\n` + note + `\n\`\`\`\n${tail}\n\`\`\``
             });
             await github.rest.issues.update({
               owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
@@ -186,7 +232,7 @@ jobs:
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             await github.rest.issues.createComment({
               owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
-              body: `❌ **vm-ib-gateway-recover failed.**\nRun: ${runUrl}\nExit code: ${process.env.EXIT_CODE || '(setup failed)'}\n\nCommon causes: VM_SSH_KEY unset; SSH unreachable; container name not 'ib-gateway'; login needs 2FA (check the log tail below).\n\n\`\`\`\n${tail}\n\`\`\``
+              body: `❌ **vm-ib-gateway-recover failed.**\nRun: ${runUrl}\nExit code: ${process.env.EXIT_CODE || '(setup failed)'}\n\nCommon causes: VM_SSH_KEY unset; ProxyJump to the gateway VM unreachable (check the live trader is up + 10.0.0.251 on-subnet); container name not 'ib-gateway'; **login parked on an IBKR 2FA / credential prompt — see the log tail below** (that one needs the operator to approve the IBKR Mobile tap, or a full re-login via provision-ib-gateway).\n\n\`\`\`\n${tail}\n\`\`\``
             });
             await github.rest.issues.update({
               owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,

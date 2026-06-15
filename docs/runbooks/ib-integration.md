@@ -234,7 +234,17 @@ watchdog escalations) instead of the disease.
 - **The thin trader-side connect breaker stays** (`IB_PROBE_TIMEOUT_S` /
   `IB_BREAKER_COOLDOWN_S`) so a gateway or network blip can never block the
   BTCUSDT loop. Manual emergency restart remains via the `vm-ib-gateway-recover`
-  workflow.
+  workflow — which, since the gateway VM has **no public IP**, SSHes to it at
+  `10.0.0.251` **via ProxyJump through the live trader** (`VM_SSH_HOST`, the
+  on-subnet bastion) and runs the `docker restart ib-gateway` THERE (not on the
+  trader). The same `VM_SSH_KEY` authorizes both hops. Override the target with
+  the `IB_GATEWAY_HOST` repo variable if the gateway VM's private IP changes.
+  When the gateway parks on an IBKR login prompt the restart can't clear it
+  autonomously: a **fresh-provision** login needs the operator's IBKR-Mobile 2FA
+  tap (run `provision-ib-gateway` pointed at the gateway VM), whereas the common
+  **overnight-reset wedge** is a username/password re-login dialog (no 2FA — see
+  the auto-heal note below) that a plain `docker restart` clears. The recover
+  workflow's log tail surfaces which one it is.
 
 The live→3-OCPU trader migration is **paused**: with the gateway off the money
 box, the micro may hold the trader + web-api + sidecars on 2 cores (the
