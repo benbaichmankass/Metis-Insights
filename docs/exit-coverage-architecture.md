@@ -172,12 +172,18 @@ read can't trigger a spurious flatten. This **replaces** the bare-`orphan_adopt`
 (NULL SL/TP, held forever) fallback in `_adopt_orphan_position` and the
 "orphaned-but-untouched" terminal state of `_reconcile_open_trades`.
 
-### 4.4 Surface monitor-blindness
+### 4.4 Surface monitor-blindness — DONE
 
 Escalate the currently-silent degradations (module-missing, `monitor()` absent,
 candle-`None` for N consecutive ticks, `monitor()` raised) from logs to a real
 signal, so a trade losing its *primary* exit is visible in real time even while
-the backstop holds.
+the backstop holds. **Implemented:** `_call_strategy_monitor` returns
+`(verdict, status)` (`status="ok"` = ran, else the blindness reason);
+`run_monitor_tick` feeds `blind = candles is None or status != "ok"` into
+`_track_monitor_blindness`, a per-package consecutive-blind-tick counter that
+fires a one-shot `enqueue_monitor_blindness_alert` once blindness persists past
+`MONITOR_BLINDNESS_ALERT_TICKS` (default 3; a tuning knob, not an enable gate)
+and resets on any healthy tick. Observe-only — the order path is untouched.
 
 ## 5. Phased implementation plan
 
@@ -189,7 +195,7 @@ Each phase is a separate, reviewed PR; live order/monitor-path phases are Tier-3
 | **0 (done)** | #3662 sleeve `monitor()` resolution; #3674 unconditional backstop re-arm | — | merged + deployed; verified on VM |
 | **1** | **Remove `MONITOR_RECONCILE_ENABLED` entirely** (§4.2): retire `_reconcile_enabled()` + all guards, the renderer pin, and the gate's contract/no-op-when-disabled tests | 3 | prod `.env` already true → behavioural no-op; soak: orphans still detected/healed; no false orphaning |
 | **2** | `_assert_exit_coverage` single per-tick classification + reattach-or-**close** for `BACKSTOP_ONLY`/`UNCOVERED` (§4.1, §4.3), with the existing 2-observation confirm before any flatten | 3 | unit tests for each state incl. the close path; soak on a deliberately-stranded paper position; diag surfaces per-trade coverage |
-| **3** | Surface monitor-blindness (§4.4) — escalate module-missing / `monitor()`-raised / candle-`None`-for-N-ticks from silent logs to an alert | 2 | unit tests; alert fires on an induced blindness |
+| **3 (done)** | Surface monitor-blindness (§4.4) — `_call_strategy_monitor` now returns `(verdict, status)`; the loop tracks per-package consecutive blind ticks (`_track_monitor_blindness`) and fires a one-shot `enqueue_monitor_blindness_alert` past `MONITOR_BLINDNESS_ALERT_TICKS` (default 3); a healthy tick resets | 2 | `tests/test_monitor_blindness.py`; observe-only, never touches the order path |
 
 ## 6. Decisions (operator, 2026-06-15) — RESOLVED
 

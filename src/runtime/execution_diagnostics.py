@@ -485,6 +485,52 @@ def enqueue_naked_position_alert(
         return None
 
 
+def enqueue_monitor_blindness_alert(
+    *,
+    order_package_id: Any,
+    strategy: str,
+    symbol: str,
+    reason: str,
+    consecutive_ticks: int,
+    priority: str = "high",
+) -> Optional[Path]:
+    """Drop a Telegram-ready ping for an open position whose DYNAMIC exit (the
+    strategy ``monitor()``) has been unable to run for several consecutive
+    monitor ticks — module unresolvable, no monitor(), monitor() raising, or
+    candles persistently unavailable (exit-coverage Phase 3).
+
+    The broker SL/TP backstop (if armed) still protects the position, but its
+    primary, dynamic exit (break-even trail / thesis / level-cross / time-stop)
+    is dark. Fired once per blind episode by the monitor loop.
+    """
+    try:
+        body = (
+            "⚠️ MONITOR BLIND — open position has no live dynamic exit\n"
+            f"Order package: {order_package_id}\n"
+            f"Strategy: {strategy} | Symbol: {symbol}\n"
+            f"Reason: {reason} (for {consecutive_ticks} consecutive ticks)\n"
+            "Broker SL/TP backstop (if any) still holds, but monitor()-driven "
+            "exits are NOT running.\n"
+            "Action: check the strategy module / candle feed for this symbol."
+        )[:1024]
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-monitor-blind.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: monitor-blindness ping enqueue failed for "
+            "pkg=%s symbol=%s: %s",
+            order_package_id, symbol, exc,
+        )
+        return None
+
+
 def enqueue_orphan_rollup(
     *,
     suppressed_count: int,

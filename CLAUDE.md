@@ -518,7 +518,10 @@ stay in place for any future browser-direct consumer.
 > `ORPHAN_POSITION_POLICY`, `STUCK_STRATEGY_THRESHOLD_MINUTES` /
 > `STUCK_STRATEGY_TIMEFRAME_MULT`, `STRATEGY_REFUSAL_COOLDOWN_SECONDS`,
 > `CLOSED_FLAT_INVARIANT_ENABLED`, `HEARTBEAT_INTERVAL_SECONDS`,
-> `TICK_INTERVAL_SECONDS`, and `HALT_FLAG_PATH`.
+> `TICK_INTERVAL_SECONDS`, `HALT_FLAG_PATH`, and `MONITOR_BLINDNESS_ALERT_TICKS`
+> (`order_monitor.py`, default `3` — consecutive ticks a position's `monitor()`
+> may fail to run before the exit-coverage monitor-blindness alert fires; a
+> tuning knob, not an enable gate — the alerting is always on).
 
 | Variable | Purpose |
 |----------|---------|
