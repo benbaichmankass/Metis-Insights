@@ -1,0 +1,210 @@
+name: vm-ib-gateway-live-login-test
+
+# ONE-SHOT: verify the LIVE IBKR login + 2FA works, WITHOUT disturbing the
+# running paper gateway and WITHOUT enabling any live trading.
+#
+# What it does:
+#   * SSHes to the dedicated (private) gateway VM 10.0.0.251 via ProxyJump
+#     through the live trader (same pattern as vm-ib-gateway-recover — the
+#     gateway VM has no public IP).
+#   * Spins a THROWAWAY container `ib-gateway-livetest` from the same image,
+#     in TRADING_MODE=live, READ_ONLY_API=yes, and publishing NO port. The
+#     live account (U25907316) logs in → IBKR pushes a 2FA prompt to the
+#     operator's IBKR Mobile → operator taps → IBC logs "Login has completed".
+#   * Polls the container logs for login completion / 2FA / errors, reports
+#     the tail, then ALWAYS tears the container down (docker rm -f) so no
+#     real-money session lingers.
+#
+# Why this is safe:
+#   * The running `ib-gateway` (paper) container is NEVER touched — paper
+#     MES/MGC/MHG keep streaming.
+#   * The test container publishes no port and is READ_ONLY_API=yes, so even
+#     if something connected it could not place an order. The trader never
+#     connects to it (ib_live stays mode:dry_run in config; no code change).
+#   * Credentials ride in a file scp'd over the encrypted channel and shredded;
+#     they never appear in argv or logs. Container is removed on every exit.
+#   * The live account's *config* gate (accounts.yaml ib_live mode:dry_run) is
+#     untouched — this only validates that the login round-trip + 2FA works.
+#
+# Operator step: be ready at IBKR Mobile BEFORE dispatch; a 2FA push arrives
+# ~30-90 s after the run starts — approve it within the ~4-min poll window.
+#
+# Required repo secrets: VM_SSH_KEY, IB_USERNAME, IB_PASSWORD
+# Optional repo variables: VM_SSH_HOST (ProxyJump bastion / live trader),
+#   IB_GATEWAY_HOST (gateway VM, default 10.0.0.251), VM_SSH_USER (ubuntu).
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Audit-trail note"
+        required: false
+        default: "live IBKR login + 2FA validation"
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vm-ib-gateway-live-login-test
+  cancel-in-progress: false
+
+jobs:
+  livetest:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'vm-ib-gateway-live-login-test'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      JUMP_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      GATEWAY_HOST: ${{ vars.IB_GATEWAY_HOST || '10.0.0.251' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+    steps:
+      - name: Dedup — bail if a bot comment already exists
+        if: github.event_name == 'issues'
+        id: dedup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, per_page: 100,
+            });
+            core.setOutput('skip',
+              comments.some(c => c.user && c.user.login === 'github-actions[bot]') ? 'true' : 'false');
+
+      - name: Validate secrets
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          IB_USERNAME: ${{ secrets.IB_USERNAME }}
+          IB_PASSWORD: ${{ secrets.IB_PASSWORD }}
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          [ -z "${VM_SSH_KEY}" ] && { echo "::error::VM_SSH_KEY unset"; exit 1; }
+          { [ -z "${IB_USERNAME}" ] || [ -z "${IB_PASSWORD}" ]; } && { echo "::error::IB_USERNAME/IB_PASSWORD unset"; exit 1; }
+          echo "secrets present"
+
+      - name: Set up SSH key
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${JUMP_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Render live-test credential env (runner-local)
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          IB_USERNAME: ${{ secrets.IB_USERNAME }}
+          IB_PASSWORD: ${{ secrets.IB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          {
+            echo "TWS_USERID=${IB_USERNAME}"
+            echo "TWS_PASSWORD=${IB_PASSWORD}"
+            echo "TRADING_MODE=live"
+            echo "READ_ONLY_API=yes"
+            echo "TWOFA_TIMEOUT_ACTION=exit"
+            echo "TIME_ZONE=Etc/UTC"
+          } > /tmp/ib-livetest.env.staged
+
+      - name: Stage env on gateway VM (scp via ProxyJump; not in logs)
+        if: steps.dedup.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              -o "ProxyJump=${VM_SSH_USER}@${JUMP_HOST}" \
+              /tmp/ib-livetest.env.staged \
+              "${VM_SSH_USER}@${GATEWAY_HOST}:/tmp/ib-livetest.env.staged"
+          shred -u /tmp/ib-livetest.env.staged 2>/dev/null || rm -f /tmp/ib-livetest.env.staged
+
+      - name: Live login test (throwaway read-only container; always torn down)
+        if: steps.dedup.outputs.skip != 'true'
+        id: exec
+        run: |
+          set -euo pipefail
+          read -r -d '' REMOTE_SCRIPT <<'REMOTE' || true
+          set -uo pipefail
+          NAME=ib-gateway-livetest
+          ENVF=/tmp/ib-livetest.env.staged
+          IMAGE="ghcr.io/gnzsnz/ib-gateway:stable"
+          echo ">>> host: $(hostname) [$(hostname -I 2>/dev/null | awk '{print $1}')]"
+          command -v docker >/dev/null 2>&1 || { echo "docker not found"; rm -f "$ENVF"; exit 1; }
+          # Guarantee teardown + cred shred on ANY exit — no lingering live session.
+          cleanup() { sudo docker rm -f "$NAME" >/dev/null 2>&1 || true; sudo rm -f "$ENVF" 2>/dev/null || true; }
+          trap cleanup EXIT
+          echo ">>> paper gateway (untouched) pre-state: $(sudo docker ps --filter name=^/ib-gateway$ --format '{{.Status}}' || true)"
+          sudo docker rm -f "$NAME" >/dev/null 2>&1 || true
+          echo ">>> launching throwaway LIVE read-only container (no published port)"
+          sudo docker run -d --name "$NAME" --cpus 0.75 --memory 1500m --memory-swap 1500m \
+               --env-file "$ENVF" "$IMAGE" >/dev/null 2>&1 || { echo "docker run failed"; exit 1; }
+          # Env file no longer needed once the container has it.
+          sudo rm -f "$ENVF" 2>/dev/null || true
+          echo ">>> waiting up to 240s for IBKR login (approve the IBKR Mobile 2FA tap NOW)…"
+          login_ok=no; result=timeout
+          deadline=$(( $(date +%s) + 240 ))
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            logs="$(sudo docker logs --since 6m "$NAME" 2>&1)"
+            if printf '%s' "$logs" | grep -q "Login has completed"; then login_ok=yes; result=login_completed; break; fi
+            if printf '%s' "$logs" | grep -qiE 'Second Factor Authentication.*(timed out|timeout)|2fa.*timeout'; then result=twofa_timeout; break; fi
+            if printf '%s' "$logs" | grep -qiE 'Unrecognized Username or Password|Invalid|incorrect password|login failed'; then result=bad_credentials; break; fi
+            if printf '%s' "$logs" | grep -qiE 'existing session|competing|already logged in'; then result=competing_session; fi
+            # exited container?
+            st="$(sudo docker inspect -f '{{.State.Status}}' "$NAME" 2>/dev/null || echo gone)"
+            [ "$st" = "exited" ] && { result=container_exited; break; }
+            sleep 6
+          done
+          echo "login_completed=${login_ok} result=${result}"
+          echo
+          echo "===== ib-gateway-livetest log tail (auth-relevant) ====="
+          sudo docker logs --since 8m "$NAME" 2>&1 \
+            | grep -iE 'second[ -]?factor|2fa|authenticat|login has completed|paper log in|live log in|log in|farm connection|existing session|competing|already logged|invalid|incorrect|password|denied|rejected|starting application' \
+            | tail -50 || true
+          echo
+          echo ">>> tearing down test container (trap will also run)"
+          cleanup
+          echo ">>> paper gateway (untouched) post-state: $(sudo docker ps --filter name=^/ib-gateway$ --format '{{.Status}}' || true)"
+          [ "$login_ok" = yes ] && exit 0 || exit 1
+          REMOTE
+          set +e
+          ssh -i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 -o "ProxyJump=${VM_SSH_USER}@${JUMP_HOST}" \
+              "${VM_SSH_USER}@${GATEWAY_HOST}" "bash -s" <<<"$REMOTE_SCRIPT" > out.txt 2>&1
+          rc=$?
+          set -e
+          echo "exit_code=${rc}" >>"$GITHUB_OUTPUT"
+          echo ">>> remote exit: ${rc}"
+          cat out.txt
+
+      - name: Comment result + close issue
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true' && always()
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            let out = '(no output)'; try { out = fs.readFileSync('out.txt','utf8'); } catch {}
+            const ok = process.env.EXIT_CODE === '0';
+            const body = [
+              `${ok ? '✅' : '❌'} **vm-ib-gateway-live-login-test** (exit ${process.env.EXIT_CODE})`,
+              ok ? 'The LIVE IBKR account logged in (2FA approved) — the live login round-trip works. Throwaway container torn down; paper gateway untouched.'
+                 : 'Live login did NOT complete. See the tail below — common: 2FA not approved in time (result=twofa_timeout), or a competing-session/credential dialog. Throwaway container torn down regardless.',
+              '', '```', out.slice(-6000), '```',
+            ].join('\n');
+            await github.rest.issues.createComment({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,body});
+            await github.rest.issues.update({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,state:'closed'});
+
+      - name: Summary (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch' && steps.dedup.outputs.skip != 'true'
+        run: |
+          { echo '```'; cat out.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
