@@ -40,6 +40,10 @@ on:
         description: "Audit-trail note"
         required: false
         default: "live IBKR login + 2FA validation"
+      device:
+        description: "IBC SecondFactorDevice — the 2FA device label EXACTLY as it appears in IBKR's login picker (the bot user has 2 devices, so IBC must be told which). Default is IBKR's documented IB Key label."
+        required: false
+        default: "IB Key Security via IBKR Mobile"
   issues:
     types: [opened, labeled]
 
@@ -104,14 +108,31 @@ jobs:
         env:
           IB_USERNAME: ${{ secrets.IB_USERNAME }}
           IB_PASSWORD: ${{ secrets.IB_PASSWORD }}
+          EVENT_NAME: ${{ github.event_name }}
+          IN_DEVICE: ${{ inputs.device }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
           set -euo pipefail
+          # Resolve TWOFA_DEVICE (IBC SecondFactorDevice). The bot user has TWO
+          # enrolled 2FA devices, so IBC must be told EXACTLY which to use or the
+          # live login stalls on device-selection and never pushes. Default is
+          # IBKR's documented IB Key label; override via the dispatch input or an
+          # issue-body `device:` line (trim only the ends — the value has spaces).
+          DEVICE_DEFAULT="IB Key Security via IBKR Mobile"
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            DEVICE="${IN_DEVICE:-$DEVICE_DEFAULT}"
+          else
+            DEVICE="$(printf '%s\n' "${ISSUE_BODY}" | grep -iE '^[[:space:]]*device[[:space:]]*:' | head -1 | cut -d: -f2- | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' || true)"
+            [ -z "${DEVICE}" ] && DEVICE="${DEVICE_DEFAULT}"
+          fi
+          echo ">>> TWOFA_DEVICE (SecondFactorDevice) = '${DEVICE}'"
           umask 077
           {
             echo "TWS_USERID=${IB_USERNAME}"
             echo "TWS_PASSWORD=${IB_PASSWORD}"
             echo "TRADING_MODE=live"
             echo "READ_ONLY_API=yes"
+            echo "TWOFA_DEVICE=${DEVICE}"
             echo "TWOFA_TIMEOUT_ACTION=exit"
             echo "TIME_ZONE=Etc/UTC"
           } > /tmp/ib-livetest.env.staged
@@ -169,9 +190,12 @@ jobs:
           echo "login_completed=${login_ok} result=${result}"
           echo
           echo "===== ib-gateway-livetest log tail (auth-relevant) ====="
+          # 'could not find ... second factor device' + the device list tell us
+          # the EXACT picker label if TWOFA_DEVICE didn't match — pass the right
+          # one back via the issue-body `device:` line on the next run.
           sudo docker logs --since 8m "$NAME" 2>&1 \
-            | grep -iE 'second[ -]?factor|2fa|authenticat|login has completed|paper log in|live log in|log in|farm connection|existing session|competing|already logged|invalid|incorrect|password|denied|rejected|starting application' \
-            | tail -50 || true
+            | grep -iE 'second[ -]?factor|2fa|authenticat|could not find|in the list|select.*device|login has completed|paper log in|live log in|log in|farm connection|existing session|competing|already logged|invalid|incorrect|password|denied|rejected|starting application' \
+            | tail -60 || true
           echo
           echo ">>> tearing down test container (trap will also run)"
           cleanup
