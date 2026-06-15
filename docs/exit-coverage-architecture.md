@@ -136,38 +136,41 @@ trade, classifies coverage and drives healing:
 | State | Meaning | Action |
 |---|---|---|
 | `LIVE_MONITOR` | resolvable strategy module with `monitor()` **and** the loop is calling it | none |
-| `BACKSTOP_ONLY` | armed broker SL/TP but no resolvable live monitor (e.g. unrecovered `orphan_adopt`) | keep attempting reattach; if still unrecovered, attach a **generic fallback monitor** (§4.3); surface it |
-| `NAKED` | no armed SL/TP | re-arm backstop now (already unconditional); then treat as `BACKSTOP_ONLY` |
-| `UNCOVERED` | naked **and** no resolvable monitor **and** backstop re-arm failed (e.g. non-IB) | **alert immediately**; this is the unacceptable state |
+| `BACKSTOP_ONLY` | no resolvable live monitor (e.g. unrecovered `orphan_adopt`) | **reattach to a live order package; if none is found, CLOSE the trade** (§4.3). Keep the backstop armed only for the brief window until reattach-or-close resolves. |
+| `NAKED` | no armed SL/TP | re-arm backstop now (already unconditional) to protect the window; then resolve as `BACKSTOP_ONLY` (reattach-or-close) |
+| `UNCOVERED` | naked **and** no resolvable monitor **and** backstop re-arm failed (e.g. non-IB) | **alert + close** — no rational exit exists, so flatten |
 
 This turns "covered if six conditions happen to hold" into "covered, asserted,
 and healed every tick."
 
-### 4.2 De-gate the heal subsystem (Prime-Directive fix)
+### 4.2 De-gate the heal subsystem (Prime-Directive fix) — DECIDED
 
-`MONITOR_RECONCILE_ENABLED` should not be a default-off *enable* gate in front of
-baseline correctness. Convert it to one of:
+`MONITOR_RECONCILE_ENABLED` is **removed entirely** (operator decision
+2026-06-15). Not converted to a kill-switch — *removed*. The heal subsystem
+(orphan detect, adopt, **reattach-to-strategy**, stuck-watchdog, unlinked sweep,
+pending-PnL sweep) runs **unconditionally** every tick, exactly like the core
+`monitor()` loop and the backstop re-arm already do. This retires
+`_reconcile_enabled()`, its env read, every `if not _reconcile_enabled(): return`
+guard, the renderer pin in `scripts/render_env_from_master.py`, and the
+env-gate-survivor / render-contract tests that pinned the flag. The live `.env`
+value is already `true`, so the deploy is a behavioural no-op on prod; the change
+is what makes the guarantee survive a fresh deploy or a lost `.env` line.
+Tier-3.
 
-- **(preferred)** remove the enable-gate; the heal subsystem is always on,
-  mirroring how the backstop re-arm and the core monitor loop already run; **or**
-- a **default-on kill-switch** (`MONITOR_RECONCILE_DISABLED`, default off), the
-  pattern the repo already uses for `REGIME_BAR_SCORING_DISABLED` etc., so an
-  operator retains an emergency off without a default-off footgun.
+### 4.3 Un-attributable orphan → reattach, else CLOSE — DECIDED
 
-Either way the live `.env` value is verified first so the deploy is a **no-op on
-prod** (it's already on), and the change is what makes the guarantee survive a
-fresh deploy. Tier-3 (touches the live order/monitor path) → operator-approved
-PR.
-
-### 4.3 Generic fallback monitor for the un-reattachable
-
-A trade that cannot be returned to a real strategy (no recoverable package)
-should not rest as a static stop forever. Attach a **conservative generic
-`monitor()`** — break-even-trail + time-stop only, no new entries, no
-target-chasing — so even an unattributable orphan has a *living* exit that
-ratchets risk down and eventually times out, rather than a frozen backstop. This
-is the dynamic-vs-static point: a backstop that may never be hit is not, by
-itself, a rational exit.
+A trade without a live `monitor()` must **always first try to reattach to a live
+order package** (`_recover_orphan_order_package` / `_reattach_adopted_orphans`).
+If a relevant package **can** be found, it regains its real strategy's dynamic
+exit. If **no** relevant package exists, the trade has no rational exit strategy
+and is **closed (flattened) on the exchange** — operator decision 2026-06-15: we
+do **not** rest it on a static backstop or a generic time-stop monitor. A
+position with no brain is exited, not held. The close goes through the existing
+exchange-close path (broker-agnostic), is journalled with an explicit reason, and
+is confirmed across the reconciler's existing 2-observation window so a transient
+read can't trigger a spurious flatten. This **replaces** the bare-`orphan_adopt`
+(NULL SL/TP, held forever) fallback in `_adopt_orphan_position` and the
+"orphaned-but-untouched" terminal state of `_reconcile_open_trades`.
 
 ### 4.4 Surface monitor-blindness
 
@@ -184,24 +187,20 @@ Each phase is a separate, reviewed PR; live order/monitor-path phases are Tier-3
 | Phase | Change | Tier | Verification |
 |---|---|---|---|
 | **0 (done)** | #3662 sleeve `monitor()` resolution; #3674 unconditional backstop re-arm | — | merged + deployed; verified on VM |
-| **1** | De-gate the heal subsystem (§4.2) | 3 | confirm prod `.env` already true → no-op; soak: orphans still detected/healed; no false orphaning |
-| **2** | `_assert_exit_coverage` single per-tick classification + `UNCOVERED` alert (§4.1, §4.4) | 2 | unit tests for each state; dashboard/diag surfaces per-trade coverage |
-| **3** | Generic fallback monitor for un-reattachable orphans (§4.3) | 3 | unit tests; soak on a deliberately-stranded paper position |
+| **1** | **Remove `MONITOR_RECONCILE_ENABLED` entirely** (§4.2): retire `_reconcile_enabled()` + all guards, the renderer pin, and the gate's contract/no-op-when-disabled tests | 3 | prod `.env` already true → behavioural no-op; soak: orphans still detected/healed; no false orphaning |
+| **2** | `_assert_exit_coverage` single per-tick classification + reattach-or-**close** for `BACKSTOP_ONLY`/`UNCOVERED` (§4.1, §4.3), with the existing 2-observation confirm before any flatten | 3 | unit tests for each state incl. the close path; soak on a deliberately-stranded paper position; diag surfaces per-trade coverage |
+| **3** | Surface monitor-blindness (§4.4) — escalate module-missing / `monitor()`-raised / candle-`None`-for-N-ticks from silent logs to an alert | 2 | unit tests; alert fires on an induced blindness |
 
-## 6. Open decisions (operator)
+## 6. Decisions (operator, 2026-06-15) — RESOLVED
 
-1. **De-gating shape** — remove the gate entirely, or convert to a default-on
-   `*_DISABLED` kill-switch? (Recommendation: kill-switch — keeps an emergency
-   off without a default-off footgun.)
-2. **Generic fallback monitor policy** — exact behaviour for an un-reattachable
-   orphan: break-even-trail + time-stop only? what time-stop horizon? should it
-   ever *close* (vs only tighten)? This is risk-policy (Tier-3).
-3. **`UNCOVERED` response** — alert-only, or also auto-flatten after a grace
-   window if a position is genuinely naked-and-brainless on a broker that can't
-   re-arm? (Auto-flatten is Tier-3.)
-4. **Non-IB backstop** — Bybit/OANDA/Alpaca attach SL/TP at entry so naked
-   positions "can't" occur; do we want an active re-arm there too as defence in
-   depth, or keep alert-only?
+1. **De-gating shape** → **remove the gate entirely.** No kill-switch; the heal
+   subsystem is not gated at all.
+2. **Un-attributable orphan** → **reattach if a relevant live order package
+   exists; otherwise close (flatten) the trade.** No generic fallback monitor,
+   no resting on a static stop. A trade with no rational exit is exited.
+3. **`UNCOVERED` response** → **close** (consistent with #2) plus an alert.
+4. **Non-IB backstop** → the close fallback is broker-agnostic, so an
+   un-attributable non-IB orphan is closed rather than left alert-only.
 
 ## 7. References
 
