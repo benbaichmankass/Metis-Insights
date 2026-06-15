@@ -323,11 +323,6 @@ def build_live(
         ("BYBIT_API_KEY", _get(data, "bybit.live.api_key")),
         ("BYBIT_API_SECRET", _get(data, "bybit.live.api_secret")),
         ("BYBIT_BASE_URL", _get(data, "bybit.live.base_url")),
-        # Always-on monitor reconciler (BUG-042 PR 3/3, mirrors .env.example).
-        # Without this in the rendered env, _reconcile_open_trades() defaults
-        # to false → ghost trades pile up in the journal indefinitely
-        # (BUG-041 / BUG-042 surface).
-        ("MONITOR_RECONCILE_ENABLED", "true"),
     ]
     pairs.extend(_runtime_defaults(data))
     pairs.extend(_risk_pairs(data, "live"))

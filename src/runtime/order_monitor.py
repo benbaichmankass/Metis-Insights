@@ -1218,7 +1218,9 @@ def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
 # Cascade on close / orphan: the linked ``order_packages`` row is also
 # updated (close_reason = 'reconciler_filled' or 'reconciler').
 #
-# Gated by env var ``MONITOR_RECONCILE_ENABLED`` (default ``false``).
+# Runs unconditionally every monitor tick (the MONITOR_RECONCILE_ENABLED
+# gate was removed 2026-06-15, BL-20260615-MGCNAKED — self-heal is baseline
+# correctness, not a feature flag).
 
 _ORPHAN_PING_CAP = 10
 
@@ -1273,14 +1275,6 @@ _BYBIT_LIVE_ORDER_STATUSES = frozenset({
 _RECONCILE_TRADE_COLS = (
     "id", "account_id", "symbol", "direction", "notes", "created_at"
 )
-
-
-def _reconcile_enabled() -> bool:
-    """Read ``MONITOR_RECONCILE_ENABLED`` at call time so an operator
-    flag flip takes effect within the next tick without restarting
-    the trader. Default ``false`` for PR 2; PR 3 flips it on."""
-    raw = os.environ.get("MONITOR_RECONCILE_ENABLED", "false")
-    return str(raw).strip().lower() == "true"
 
 
 def _grace_window_seconds() -> float:
@@ -1561,9 +1555,10 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
       (active trading from a reconciler); requires explicit env
       flip after operator review.
 
-    Gated by ``MONITOR_RECONCILE_ENABLED`` (same flag as
-    :func:`_reconcile_open_trades`). Best-effort — every step is
-    wrapped; one bad position never aborts the sweep.
+    Runs unconditionally every monitor tick (the MONITOR_RECONCILE_ENABLED
+    gate was removed 2026-06-15, BL-20260615-MGCNAKED — self-heal is baseline
+    correctness). Best-effort — every step is wrapped; one bad position never
+    aborts the sweep.
 
     Returns
     -------
@@ -1599,8 +1594,6 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         "reattached_existing": 0,
         "errors": 0,
     }
-    if not _reconcile_enabled():
-        return summary
 
     # Self-heal first: an `orphan_adopt` row is an unresolved problem, never a
     # legitimate resting status — drive every existing one back to its
@@ -2160,9 +2153,10 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
     so the caller (``run_monitor_tick``) can emit an INFO log line
     for every tick that touched at least one row.
 
-    No-op when ``MONITOR_RECONCILE_ENABLED`` is unset or false. Best-
-    effort — every step is wrapped; one bad row never aborts the
-    sweep.
+    Runs unconditionally every monitor tick (the MONITOR_RECONCILE_ENABLED
+    gate was removed 2026-06-15, BL-20260615-MGCNAKED — self-heal is baseline
+    correctness). Best-effort — every step is wrapped; one bad row never
+    aborts the sweep.
     """
     summary = {
         "checked": 0,
@@ -2176,8 +2170,6 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
         "skipped_non_numeric": 0,
         "errors": 0,
     }
-    if not _reconcile_enabled():
-        return summary
 
     try:
         conn = db.connect()
@@ -2439,14 +2431,13 @@ def _sweep_unlinked_packages(db) -> int:
     dispatch pipeline on a package that was just logged and is about to
     be linked.
 
-    Gated by MONITOR_RECONCILE_ENABLED (same flag as _reconcile_open_trades).
-    Best-effort — never raises.
+    Runs unconditionally every monitor tick (the MONITOR_RECONCILE_ENABLED
+    gate was removed 2026-06-15, BL-20260615-MGCNAKED — self-heal is baseline
+    correctness). Best-effort — never raises.
 
     Returns:
         int: number of rows marked orphaned.
     """
-    if not _reconcile_enabled():
-        return 0
     try:
         conn = db.connect()
         try:
@@ -2514,14 +2505,14 @@ def _sweep_stuck_linked_packages(db) -> int:
          single stuck row blocks *every* future signal for that
          strategy.
 
-    This sweep is the second line of defence: idempotent, gated by
-    ``MONITOR_RECONCILE_ENABLED``, runs once per monitor tick.
+    This sweep is the second line of defence: idempotent, runs once per
+    monitor tick unconditionally (the MONITOR_RECONCILE_ENABLED gate was
+    removed 2026-06-15, BL-20260615-MGCNAKED — self-heal is baseline
+    correctness).
 
     Returns:
         int: number of rows force-closed this tick.
     """
-    if not _reconcile_enabled():
-        return 0
     try:
         conn = db.connect()
         try:
@@ -2763,7 +2754,9 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
     aware refinement (2026-05-09) keeps that automatic-reset
     contract — only the ``position-alive`` branch is new.
 
-    The whole helper is gated by ``MONITOR_RECONCILE_ENABLED``.
+    The whole helper runs unconditionally every monitor tick (the
+    MONITOR_RECONCILE_ENABLED gate was removed 2026-06-15,
+    BL-20260615-MGCNAKED — self-heal is baseline correctness).
 
     Returns a summary
     ``{checked, alerted, auto_cleared, deferred_position_alive,
@@ -2783,8 +2776,6 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
         "skipped_position_read_failed": 0,
         "errors": 0,
     }
-    if not _reconcile_enabled():
-        return summary
 
     threshold_minutes = _stuck_strategy_threshold_minutes()
 
@@ -3922,8 +3913,9 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
     monitor tick once Bybit's closed-pnl record is available (usually
     30-60 s after the close fill).
 
-    Gated by ``MONITOR_RECONCILE_ENABLED`` (same flag as the rest of
-    the reconciler family). Best-effort — never raises.
+    Runs unconditionally every monitor tick (the MONITOR_RECONCILE_ENABLED
+    gate was removed 2026-06-15, BL-20260615-MGCNAKED — self-heal is baseline
+    correctness). Best-effort — never raises.
 
     Returns:
         dict: ``{"scanned", "filled", "still_pending", "errors"}``
@@ -3935,8 +3927,6 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
     summary: Dict[str, int] = {
         "scanned": 0, "filled": 0, "still_pending": 0, "errors": 0,
     }
-    if not _reconcile_enabled():
-        return summary
 
     # Scope: closed, non-backtest, pnl IS NULL, opened within
     # Bybit's 7-day closed-pnl retention window. Cap at 50 to
@@ -4241,9 +4231,9 @@ def run_monitor_tick(
                 summary.no_change_count, summary.error_count,
             )
 
-    # BUG-042 PR 2: write-back reconciler. No-op when
-    # MONITOR_RECONCILE_ENABLED is false (the default for PR 2);
-    # PR 3 of the sprint flips that on after a soak window.
+    # BUG-042: write-back reconciler. Runs unconditionally every tick
+    # (the MONITOR_RECONCILE_ENABLED gate was removed 2026-06-15,
+    # BL-20260615-MGCNAKED — self-heal is baseline correctness).
     try:
         recon = _reconcile_open_trades(db)
         if recon.get("orphaned") or recon.get("errors"):
@@ -4255,9 +4245,9 @@ def run_monitor_tick(
     # direction — every exchange-side open position is checked for a
     # matching trades.status='open' row, and an orphan (Bybit-known,
     # journal-unknown) is either alerted, ADOPTed into the journal,
-    # or market-closed depending on ORPHAN_POSITION_POLICY. Same
-    # MONITOR_RECONCILE_ENABLED gate; runs after the forward reconciler
-    # so the journal mutations from forward-orphan closures don't
+    # or market-closed depending on ORPHAN_POSITION_POLICY. Runs
+    # unconditionally, after the forward reconciler so the journal
+    # mutations from forward-orphan closures don't
     # produce spurious reverse-orphan adoptions on the same tick.
     try:
         reverse_recon = _reconcile_orphan_exchange_positions(db)
@@ -4291,8 +4281,7 @@ def run_monitor_tick(
         )
 
     # BUG-049: sweep order_packages that are status='open' but have no
-    # linked_trade_id (never executed). Gated by the same
-    # MONITOR_RECONCILE_ENABLED flag as _reconcile_open_trades.
+    # linked_trade_id (never executed). Runs unconditionally.
     try:
         _sweep_unlinked_packages(db)
     except Exception as exc:  # noqa: BLE001
@@ -4303,7 +4292,7 @@ def run_monitor_tick(
     # exchange_rejected, closed, rejected, rejected_too_small). These
     # are the cascade-leak rows that keep the strategy-monocle gate
     # stuck and silently block every future signal for the strategy.
-    # Gated by MONITOR_RECONCILE_ENABLED (helper checks).
+    # Runs unconditionally.
     try:
         _sweep_stuck_linked_packages(db)
     except Exception as exc:  # noqa: BLE001
@@ -4314,7 +4303,7 @@ def run_monitor_tick(
     # the linked trade is genuinely status='open' but the strategy
     # somehow can't progress). Force-clears the package + cascades
     # the trade row + emits a high-priority operator alert.
-    # Gated by MONITOR_RECONCILE_ENABLED (helper checks).
+    # Runs unconditionally.
     try:
         watchdog_summary = _watchdog_stuck_strategies(db)
         if (

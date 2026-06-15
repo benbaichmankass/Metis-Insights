@@ -436,19 +436,9 @@ class TestSweepPendingPnlFromBybit:
         row.update(overrides)
         return db.insert_trade(row)
 
-    def test_sweep_noop_when_recon_disabled(self, tmp_db, monkeypatch):
-        monkeypatch.delenv("MONITOR_RECONCILE_ENABLED", raising=False)
-        self._seed_closed_pending(tmp_db)
-        summary = om._sweep_pending_pnl_from_bybit(tmp_db)
-        assert summary == {
-            "scanned": 0, "filled": 0,
-            "still_pending": 0, "errors": 0,
-        }
-
     def test_sweep_fills_pnl_from_bybit(self, tmp_db, monkeypatch):
         """Happy path: Bybit returns a record, sweep writes pnl +
         exit_price + notes stamp."""
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         trade_id = self._seed_closed_pending(tmp_db)
 
         # Stub the account-cfg loader so the sweep has a cfg to call
@@ -498,7 +488,6 @@ class TestSweepPendingPnlFromBybit:
         """Bybit hasn't booked the closed-pnl yet (typical for a
         trade that closed < 30s ago). Sweep returns 'still_pending'
         and the row stays at pnl=NULL for the next tick."""
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         trade_id = self._seed_closed_pending(tmp_db)
         monkeypatch.setattr(
             om, "_load_account_cfgs_for_reconcile",
@@ -521,7 +510,6 @@ class TestSweepPendingPnlFromBybit:
     ):
         """Short-side variant — same formula, different sign convention.
         Bybit's closed_pnl is already signed, we just write it through."""
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         trade_id = self._seed_closed_pending(
             tmp_db, direction="short", entry_price=77100.0,
             stop_loss=77200.0, take_profit_1=76900.0, exit_price=76990.0,
@@ -548,7 +536,6 @@ class TestSweepPendingPnlFromBybit:
     def test_sweep_skips_already_filled_rows(self, tmp_db, monkeypatch):
         """Rows that already have non-NULL pnl (reconciler-filled
         ones) must not be re-fetched — the SQL filter is the gate."""
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         # Seed a closed-and-already-filled trade.
         self._seed_closed_pending(tmp_db)
         # Now flip pnl to non-NULL to simulate a previously-filled row.
@@ -576,7 +563,6 @@ class TestSweepPendingPnlFromBybit:
     def test_sweep_skips_backtest_rows(self, tmp_db, monkeypatch):
         """Backtest trades have no Bybit counterpart — must not be
         scanned regardless of pnl state."""
-        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         self._seed_closed_pending(tmp_db, is_backtest=1)
         monkeypatch.setattr(
             om, "_load_account_cfgs_for_reconcile",

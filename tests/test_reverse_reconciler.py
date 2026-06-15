@@ -48,10 +48,9 @@ _CFGS = {
 
 @pytest.fixture
 def tmp_db(tmp_path, monkeypatch):
-    """Tmp trade journal + reconcile-enabled env + stubbed account cfg loader."""
+    """Tmp trade journal + stubbed account cfg loader."""
     db_path = tmp_path / "trade_journal.db"
     monkeypatch.setenv("TRADE_JOURNAL_DB", str(db_path))
-    monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
     # Close-on-disappear requires a SECOND confirming absent read
     # (BL-20260614-ORPHANBLIP). Set the time window to 0 so two back-to-back
     # ticks in a test confirm immediately — the 2-observation requirement still
@@ -120,20 +119,6 @@ def _bybit_position(symbol="BTCUSDT", side="Buy", size=0.003, entry=80725.9):
 # ────────────────────────────────────────────────────────────────────
 # Gate behaviour
 # ────────────────────────────────────────────────────────────────────
-
-
-def test_reverse_reconciler_noop_when_disabled(tmp_db, monkeypatch):
-    """MONITOR_RECONCILE_ENABLED=false → returns zero-counts dict, makes
-    no exchange call, mutates nothing."""
-    monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "false")
-    with patch(
-        "src.units.accounts.clients.account_open_positions"
-    ) as mock_positions:
-        summary = _reconcile_orphan_exchange_positions(tmp_db)
-    assert summary["checked_accounts"] == 0
-    assert summary["orphans_found"] == 0
-    assert summary["adopted"] == 0
-    mock_positions.assert_not_called()
 
 
 def test_reverse_reconciler_skips_dry_accounts(tmp_db):
