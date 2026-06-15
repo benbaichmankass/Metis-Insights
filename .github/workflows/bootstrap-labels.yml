@@ -152,6 +152,11 @@ jobs:
                 description: 'Triggers vm-cloud-open-ib-port — intra-subnet-only OCI SL ingress for the IB Gateway API port (never public).',
               },
               {
+                name: 'vm-bybit-diag',
+                color: '0e8a16',
+                description: 'Triggers vm-bybit-diag — reproduce the bot bybit_2 authenticated call on the VM (masked key + egress v4/v6) to pinpoint ErrCode 10010.',
+              },
+              {
                 name: 'vm-net-diag-request',
                 color: '0e8a16',
                 description: 'Triggers vm-net-diag workflow — read-only network diagnostics for VM port reachability.',
