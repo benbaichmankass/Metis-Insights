@@ -161,6 +161,69 @@ new `*_ENABLED` gate). Ships inert (floor `0`) and is raised deliberately.
    confidence-driven size that can scale up is *also* what unblocks accruing
    real-money evidence. Quantify the interaction.
 
+## 4a. P0 research findings (2026-06-15, code-verified)
+
+**Calibration data sources.**
+- Live join is clean: `order_packages.confidence`(+`model_scores`) ↔ `trades.pnl`
+  on `order_package_id`, filtered `status='closed' AND is_backtest=0`
+  (`src/units/db/database.py:179-297`). But **volume is the bottleneck**.
+- **The fix is already shipped:** the six per-strategy backtest harnesses
+  (`scripts/backtest_{trend,fade,squeeze,pullback,fvg_range,ict_scalp}.py`)
+  emit per-trade `(confidence, net_r)` JSONL via `--emit-trades` today →
+  the immediate high-volume calibration corpus. `ict_scalp` calls the **live**
+  `order_package()` (best fidelity). **Gaps:** `run_backtest_vwap.py` and
+  `backtest_system.py` carry confidence in-memory but don't emit it per-trade
+  (~40-line hook each, Tier-1). `src/backtest/backtester.py` (the M5 `/test`
+  → `backtest_results` table) is a *different* FVG/OB engine — **not** a
+  calibration source.
+
+**Calibration method.** Target basis = **P(win)** (what `trade_outcome_winrate`,
+the `won` label, and `brier_lift` already speak). Per-strategy **isotonic
+regression** raw_conf→P(win) (handles the saturation seen in the old
+`htf_pullback` 1.0 pathology); **Platt/logistic** fallback for small n;
+**decile equal-frequency binning** as the most robust small-sample fallback.
+Heads: `trade_outcome_winrate`/`prop_mission` already `[0,1]`; `setup_quality`
+R-multiple `[-3,3]`→isotonic; regime→a per-strategy **alignment scalar**
+(P(favorable regime)); `execution_quality` (bps) belongs to the **sizing lens**,
+not conviction. **Degenerate heads (regime f1=0) are excluded until they earn
+`rank_auc > 0.5`.**
+
+**Reuse, don't rebuild.** `ml/promotion/attribution.py:179-312` already does the
+trade↔score join + `rank_auc`/`brier`/`brier_lift` — it's the calibration-data
+assembler + reliability toolkit. Isotonic/Platt/reliability-curve code is
+**greenfield** (no such code in repo → sklearn/scipy dependency).
+
+**Concrete v1 conviction formula** (all inputs calibrated to `[0,1]` P(win)):
+```
+c_strat = conf_cal[strategy](raw_confidence)     # per-strategy calibrator
+c_setup = cal_setup(setup_quality)               # R-multiple → P(win)
+c_wr    = cal_wr(trade_outcome_winrate)          # recalibrated P(win)
+c_reg   = regime_alignment(regime_probs, dir)    # P(favorable regime)
+m_news  = news_multiplier ∈ [floor, 1]           # reductive only (existing layer)
+conviction = m_news × (0.45·c_strat + 0.20·c_setup + 0.20·c_wr + 0.15·c_reg)
+```
+Weights hand-set (tunable, § 4.2 sweep). **Missing-input rule:** renormalize
+weights over present inputs (a strategy with no heads → `conviction = c_strat`);
+fail-permissive, never zero a live signal. No-trade floor reads off `conviction`
+(ships at `0`, inert; refusal is journaled like a RiskManager per-trade refusal,
+not a gate).
+
+**P1 wiring (zero order-path change):** compute `conviction` + per-input
+breakdown at signal time and stamp it on `pkg.meta` exactly as `model_scores`
+already rides (`strategy_signal_builders._emit_shadow_preds:223-308` →
+`coordinator._log_new_order_package:2450-2463`). `StrategyIntent.confidence`
+(`intents.py:354`, carried-but-ignored today) is where a later phase routes it
+for arbitration; sizing application later sits beside `apply_advisory_downsize`
+(`coordinator.py:1276-1290`) — **not in P1**.
+
+**Next experiments (P0→P1):** (1) run the 6 harnesses with `--emit-trades` over
+full validated history (target ≥500–1000 rows/strategy); (2) add the
+`--emit-trades` hook to VWAP + the system harness (Tier-1); (3) fit per-strategy
+calibrators + reliability curves, cross-validate live-only vs backtest-augmented
+(weight live rows up — backtest `won` is a fee-modeled proxy); (4) per-head
+`rank_auc` readiness pass, calibrate only heads with `rank_auc>0.5`; (5) stamp
+observe-only `conviction` and soak before any influence.
+
 ## 5. Phased rollout
 
 | Phase | Scope | Gate |
