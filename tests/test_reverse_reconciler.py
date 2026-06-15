@@ -116,6 +116,18 @@ def _bybit_position(symbol="BTCUSDT", side="Buy", size=0.003, entry=80725.9):
     }
 
 
+def _insert_orphan_adopt(db, *, symbol="BTCUSDT", direction="long",
+                         account_id="bybit_2", size=0.003, entry=80725.9):
+    """Insert an open ``orphan_adopt`` row (no strategy attribution)."""
+    db.insert_trade({
+        "timestamp": "2026-06-15T07:00:00+00:00",
+        "symbol": symbol, "direction": direction, "entry_price": entry,
+        "position_size": size, "setup_type": "adopted_orphan", "status": "open",
+        "is_backtest": 0, "strategy_name": "orphan_adopt",
+        "account_id": account_id, "notes": "{}",
+    })
+
+
 # ────────────────────────────────────────────────────────────────────
 # Gate behaviour
 # ────────────────────────────────────────────────────────────────────
@@ -620,3 +632,86 @@ def test_close_disappear_idempotent(tmp_db, monkeypatch):
     assert summary3["closed_disappeared"] == 0
     assert summary3["pending_disappear"] == 0
     assert summary3["errors"] == 0
+
+
+# ────────────────────────────────────────────────────────────────────
+# Exit-coverage reattach-or-close (2026-06-15)
+# ────────────────────────────────────────────────────────────────────
+
+
+def test_unattributable_alive_orphan_is_flattened(tmp_db, monkeypatch):
+    """An orphan_adopt row that is STILL ALIVE on the exchange but has no
+    recoverable order package has no rational exit strategy → it is flattened
+    (reattach-or-close), confirmed across a 2nd observation."""
+    import src.runtime.order_monitor as _om
+    _om._PENDING_ORPHAN_NOSTRAT_CLOSE.clear()
+    monkeypatch.setenv("ORPHAN_POSITION_POLICY", "detect_only")
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_trade_close", lambda **k: None
+    )
+    closes: list = []
+    monkeypatch.setattr(
+        _om, "_send_close_to_exchange",
+        lambda mt: closes.append(mt) or {"ok": True, "skipped": None},
+    )
+    _insert_orphan_adopt(tmp_db, symbol="BTCUSDT", direction="long")
+
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[_bybit_position(symbol="BTCUSDT", side="Buy")],
+    ):
+        s1 = _reconcile_orphan_exchange_positions(tmp_db)   # alive + no pkg → arm
+        assert _open_trade_count(tmp_db) == 1               # not closed yet
+        assert s1.get("resolved_pending_close") == 1
+        assert not closes
+        s2 = _reconcile_orphan_exchange_positions(tmp_db)   # confirmed → flatten
+
+    assert len(closes) == 1 and closes[0]["symbol"] == "BTCUSDT"
+    conn = tmp_db.connect()
+    try:
+        row = conn.execute(
+            "SELECT status, exit_reason FROM trades WHERE setup_type='adopted_orphan'"
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row[0] == "closed" and row[1] == "exit_coverage_no_strategy"
+    assert s2.get("resolved_closed") == 1
+
+
+def test_alive_orphan_with_recoverable_package_reattached_not_flattened(tmp_db, monkeypatch):
+    """If a live order package exists, the alive orphan is REATTACHED at the top
+    of the pass (regains its strategy) and is never flattened."""
+    import src.runtime.order_monitor as _om
+    _om._PENDING_ORPHAN_NOSTRAT_CLOSE.clear()
+    monkeypatch.setenv("ORPHAN_POSITION_POLICY", "detect_only")
+    closes: list = []
+    monkeypatch.setattr(
+        _om, "_send_close_to_exchange",
+        lambda mt: closes.append(mt) or {"ok": True},
+    )
+    _insert_orphan_adopt(tmp_db, symbol="BTCUSDT", direction="long",
+                         entry=80725.9, size=0.003)
+    # A recoverable package (same symbol+dir, entry within tolerance).
+    tmp_db.insert_order_package({
+        "order_package_id": "op-btc", "strategy_name": "trend_donchian",
+        "symbol": "BTCUSDT", "direction": "long", "entry": 80700.0,
+        "sl": 79000.0, "tp": 83000.0, "status": "closed",
+        "created_at": "2026-06-15T06:00:00Z",
+    })
+
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[_bybit_position(symbol="BTCUSDT", side="Buy")],
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        _reconcile_orphan_exchange_positions(tmp_db)
+
+    assert not closes  # reattached, never flattened
+    conn = tmp_db.connect()
+    try:
+        strat = conn.execute(
+            "SELECT strategy_name, status FROM trades WHERE setup_type='adopted_orphan'"
+        ).fetchone()
+    finally:
+        conn.close()
+    assert strat[0] == "trend_donchian" and strat[1] == "open"

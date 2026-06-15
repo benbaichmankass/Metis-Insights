@@ -1247,6 +1247,16 @@ _DEFAULT_RECONCILER_GRACE_SECONDS = 60
 _DEFAULT_CLOSE_CONFIRM_SECONDS = 60
 _PENDING_CLOSE_CONFIRM: Dict[int, datetime] = {}
 
+# Exit-coverage reattach-or-close (2026-06-15): an open ``orphan_adopt`` trade
+# with NO recoverable order package has no rational exit strategy and is
+# flattened. Like ``_PENDING_CLOSE_CONFIRM`` above, the flatten waits for a 2nd
+# confirming observation (``_close_confirm_seconds`` apart) so a transient read
+# — the originating package simply not written yet — can't trigger a spurious
+# close. In-process, keyed by trades.id; a restart re-arms from scratch
+# (fail-safe — never closes early). Cleared the moment a row becomes
+# reattachable.
+_PENDING_ORPHAN_NOSTRAT_CLOSE: Dict[int, datetime] = {}
+
 # Reverse-reconciler half of the same idea (BL-20260614-ORPHANBLIP). The
 # close-on-disappear pass in ``_reconcile_orphan_exchange_positions`` must NOT
 # close an ``orphan_adopt`` row the first time the exchange snapshot omits its
@@ -1592,15 +1602,23 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         # strategy this pass (self-heal — orphan_adopt is a problem state,
         # not a resting status).
         "reattached_existing": 0,
+        # Un-attributable orphan_adopt rows flattened this pass because no
+        # live order package could be associated (exit-coverage reattach-or-
+        # close); and rows inside the close-confirm window awaiting a 2nd
+        # observation before that flatten.
+        "resolved_closed": 0,
+        "resolved_pending_close": 0,
         "errors": 0,
     }
 
     # Self-heal first: an `orphan_adopt` row is an unresolved problem, never a
-    # legitimate resting status — drive every existing one back to its
-    # originating strategy as soon as the origin is recoverable, so it gets
-    # active monitoring instead of sitting on static SL/TP. Runs every pass;
-    # idempotent; confident-match-or-skip (never mis-attributes). Independent
-    # of ORPHAN_POSITION_POLICY (repair is always correct when reconcile runs).
+    # legitimate resting status. Every existing one is RESOLVED each pass —
+    # reattached to its originating strategy when the origin is recoverable (so
+    # it regains active monitor()), else CLOSED, because a trade with no
+    # rational exit strategy must be exited, not left resting on a static stop
+    # (operator decision 2026-06-15, exit-coverage). Runs every pass;
+    # idempotent; confident-match reattach + 2-observation-confirmed close.
+    # Independent of ORPHAN_POSITION_POLICY (repair is always correct).
     try:
         _reattach_adopted_orphans(db, summary)
     except Exception as exc:  # noqa: BLE001 — repair must never break reconcile
@@ -1645,7 +1663,9 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
             try:
                 conn.row_factory = __import__("sqlite3").Row
                 open_rows = conn.execute(
-                    "SELECT id, symbol, direction, strategy_name FROM trades "
+                    "SELECT id, symbol, direction, strategy_name, account_id, "
+                    "       position_size, entry_price, notes, order_package_id "
+                    "FROM trades "
                     "WHERE status='open' AND COALESCE(is_backtest,0)=0 "
                     "  AND account_id=?",
                     (aid,),
@@ -1703,9 +1723,29 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                 continue
             tid_int = int(r["id"])
             if (sym, canonical) in exchange_positions:
-                # Still alive on the exchange — leave it open and clear any
-                # armed close-confirmation (a prior absent read was a blip).
+                # Still alive on the exchange — clear any disappear-confirm (a
+                # prior absent read was a blip).
                 _PENDING_ORPHAN_DISAPPEAR_CONFIRM.pop(tid_int, None)
+                # Exit-coverage reattach-or-close: this row is still
+                # orphan_adopt after the top-of-pass reattach, so it has no
+                # recoverable strategy — and it IS alive on the exchange. A
+                # position with no rational exit strategy is flattened
+                # (2-observation confirmed). Re-check recoverability first
+                # (cheap) so a row that just became reattachable is never closed.
+                try:
+                    if _recover_orphan_order_package(
+                        db=db, symbol=sym, direction=r["direction"],
+                        entry_price=float(r["entry_price"] or 0.0),
+                    ) is None:
+                        _close_unattributable_orphan(db, r, summary)
+                    else:
+                        _PENDING_ORPHAN_NOSTRAT_CLOSE.pop(tid_int, None)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "_reconcile_orphan_exchange_positions: exit-coverage "
+                        "close failed for trade_id=%s: %s", tid_int, exc,
+                    )
+                    summary["errors"] += 1
                 continue
             # Disappeared from this snapshot. Require a SECOND confirming
             # observation (>= _close_confirm_seconds apart) before closing, so
@@ -1922,17 +1962,23 @@ def _recover_orphan_order_package(
 
 
 def _reattach_adopted_orphans(db, summary: Dict[str, int]) -> None:
-    """Self-heal pass: re-attach every still-open ``orphan_adopt`` trade row
-    whose originating order package is now recoverable.
+    """Reattach every still-open ``orphan_adopt`` trade row whose originating
+    order package is recoverable (the first half of exit-coverage
+    reattach-or-close).
 
     ``orphan_adopt`` is a problem indicator, not a legitimate resting status —
-    a position with no strategy attribution runs on static SL/TP with no
-    active ``monitor()``. This drives each one back to its real strategy on
-    every reconcile pass (idempotent), restoring the package's SL/TP and
-    reopening + re-linking it so ``run_monitor_tick`` governs it. Confident
-    match only (symbol + normalised direction + entry within tolerance); an
-    unrecoverable orphan is left untouched (it keeps alerting as an orphan).
-    Best-effort per row — one failure never aborts the pass.
+    a position with no strategy attribution runs on static SL/TP with no active
+    ``monitor()``. This drives each recoverable one back to its real strategy on
+    every reconcile pass (confident symbol + normalised direction +
+    entry-within-tolerance match): restore the package's SL/TP, re-arm the
+    broker bracket, reopen + re-link the package so ``run_monitor_tick`` governs
+    it again. Idempotent; best-effort per row.
+
+    An **un-recoverable** orphan is left for the caller's per-account pass, which
+    has the exchange snapshot: a still-alive one is FLATTENED
+    (:func:`_close_unattributable_orphan` — a trade with no rational exit
+    strategy is exited, not rested on a static stop, operator decision
+    2026-06-15), a disappeared one is closed by the close-on-disappear pass.
     """
     import sqlite3 as _sqlite3
 
@@ -1940,7 +1986,8 @@ def _reattach_adopted_orphans(db, summary: Dict[str, int]) -> None:
     try:
         conn.row_factory = _sqlite3.Row
         rows = conn.execute(
-            "SELECT id, symbol, direction, entry_price FROM trades "
+            "SELECT id, symbol, direction, entry_price, account_id, "
+            "       position_size, notes, order_package_id FROM trades "
             "WHERE status='open' AND COALESCE(is_backtest,0)=0 "
             "  AND strategy_name='orphan_adopt'",
         ).fetchall()
@@ -1957,7 +2004,12 @@ def _reattach_adopted_orphans(db, summary: Dict[str, int]) -> None:
             entry_price=entry_price,
         )
         if recovered is None:
+            # Un-recoverable here. The flatten decision is made in the
+            # per-account loop below, where the position's exchange-aliveness is
+            # known (still-alive → flatten; disappeared → close-on-disappear).
             continue
+        # Recoverable → reattach; clear any pending exit-coverage close.
+        _PENDING_ORPHAN_NOSTRAT_CLOSE.pop(int(r["id"]), None)
         opid = recovered.get("order_package_id")
         strat = recovered.get("strategy_name")
         try:
@@ -1996,6 +2048,133 @@ def _reattach_adopted_orphans(db, summary: Dict[str, int]) -> None:
             "(%s/%s) to strategy %s via package %s — now under monitoring",
             r["id"], r["symbol"], r["direction"], strat, opid,
         )
+
+
+def _close_unattributable_orphan(db, row, summary: Dict[str, int]) -> None:
+    """Flatten an open ``orphan_adopt`` trade that has NO recoverable order
+    package — it has no rational exit strategy, so it is exited rather than
+    left resting on a static stop (exit-coverage reattach-or-close).
+
+    A 2-observation confirm (``_PENDING_ORPHAN_NOSTRAT_CLOSE`` +
+    ``_close_confirm_seconds``) guards against closing on a transient read where
+    the originating package simply hasn't been written yet. The exchange flatten
+    reuses the monitor's reduce-only close path (``_send_close_to_exchange``,
+    which short-circuits dry-run); on a failed close the row is left open and
+    retried next tick. Best-effort; never raises.
+    """
+    tid = int(row["id"])
+    now = datetime.now(timezone.utc)
+
+    first = _PENDING_ORPHAN_NOSTRAT_CLOSE.get(tid)
+    if first is None:
+        _PENDING_ORPHAN_NOSTRAT_CLOSE[tid] = now
+        summary["resolved_pending_close"] = summary.get("resolved_pending_close", 0) + 1
+        logger.warning(
+            "_reattach_adopted_orphans: orphan trade %s (%s/%s) has no "
+            "recoverable strategy — pending close (awaiting 2nd observation)",
+            tid, row["symbol"], row["direction"],
+        )
+        return
+    if (now - first).total_seconds() < _close_confirm_seconds():
+        summary["resolved_pending_close"] = summary.get("resolved_pending_close", 0) + 1
+        return
+
+    # Confirmed un-attributable across >= 2 observations → flatten.
+    try:
+        qty = float(row["position_size"] or 0.0)
+    except (TypeError, ValueError):
+        qty = 0.0
+
+    if qty > 0:
+        resp = _send_close_to_exchange({
+            "account_id": row["account_id"],
+            "symbol": row["symbol"],
+            "direction": row["direction"],
+            "position_size": qty,
+        })
+        if not (resp or {}).get("ok"):
+            summary["errors"] = summary.get("errors", 0) + 1
+            logger.warning(
+                "_reattach_adopted_orphans: exchange close FAILED for "
+                "un-attributable orphan trade %s: %r — retrying next tick",
+                tid, (resp or {}).get("error"),
+            )
+            return  # keep the pending entry; retry the close next tick
+        skipped = (resp or {}).get("skipped")
+    else:
+        # Zero/!known size — nothing to flatten on the exchange; just record
+        # the journal close so the row stops surfacing as an open orphan.
+        skipped = "zero_size"
+
+    now_iso = now.isoformat()
+    notes = _decode_notes(row["notes"]) if _row_has(row, "notes") else {}
+    notes.update({
+        "closed_at": now_iso,
+        "closed_by": "exit_coverage_resolver",
+        "closed_reason": (
+            "no recoverable strategy / order package — flattened "
+            "(exit-coverage reattach-or-close)"
+        ),
+        "exchange_close_skipped": skipped,
+    })
+    try:
+        db.update_trade(tid, {
+            "status": "closed",
+            "exit_reason": "exit_coverage_no_strategy",
+            "notes": json.dumps(notes, ensure_ascii=False)[:2000],
+        })
+    except Exception as exc:  # noqa: BLE001
+        summary["errors"] = summary.get("errors", 0) + 1
+        logger.warning(
+            "_reattach_adopted_orphans: DB close write failed for trade %s: %s",
+            tid, exc,
+        )
+        return  # keep pending; the exchange close already succeeded, retry DB
+
+    # Close any package still linked to this trade (best-effort).
+    opid = row["order_package_id"] if _row_has(row, "order_package_id") else None
+    if opid:
+        try:
+            db.update_order_package(opid, {
+                "status": "closed",
+                "close_reason": "exit_coverage_no_strategy",
+            })
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_reattach_adopted_orphans: package %s close failed for "
+                "trade %s: %s", opid, tid, exc,
+            )
+
+    _PENDING_ORPHAN_NOSTRAT_CLOSE.pop(tid, None)
+    summary["resolved_closed"] = summary.get("resolved_closed", 0) + 1
+    logger.warning(
+        "_reattach_adopted_orphans: CLOSED un-attributable orphan trade %s "
+        "(%s/%s)%s — no rational exit strategy could be associated",
+        tid, row["symbol"], row["direction"],
+        " (dry-run skip)" if skipped == "dry_run" else "",
+    )
+    # Best-effort operator alert (the close is already recorded).
+    try:
+        from src.runtime.execution_diagnostics import enqueue_trade_close
+        enqueue_trade_close(
+            symbol=row["symbol"] or "?",
+            account=row["account_id"],
+            strategy="orphan_adopt",
+            entry=row["entry_price"],
+            exit_price=None,
+            pnl=None,
+            reason="exit_coverage_no_strategy",
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _row_has(row, key: str) -> bool:
+    """True if a sqlite3.Row (or dict) carries *key*."""
+    try:
+        return key in row.keys()
+    except AttributeError:
+        return key in row
 
 
 def _adopt_orphan_position(
@@ -4254,6 +4433,8 @@ def run_monitor_tick(
         if (
             reverse_recon.get("orphans_found")
             or reverse_recon.get("closed_disappeared")
+            or reverse_recon.get("reattached_existing")
+            or reverse_recon.get("resolved_closed")
             or reverse_recon.get("errors")
         ):
             summaries["__reverse_reconciler__"] = reverse_recon
