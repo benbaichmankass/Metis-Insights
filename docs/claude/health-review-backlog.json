@@ -1687,6 +1687,16 @@
       "status": "open"
     },
     {
+      "id": "BL-20260615-HEARTBEAT-ENV",
+      "opened_at": "2026-06-15T16:45:00+00:00",
+      "opened_by": "claude (VM-cutover audit + retrospective session)",
+      "source": "Live diag snapshot (issue #3720) showed ict-heartbeat.service state=failed; journalctl (#3721) gave the cause.",
+      "title": "ict-heartbeat.service dead since the Ampere cutover -> daily operator digest never sent (stale .env.live EnvironmentFile)",
+      "description": "The daily 13:00 UTC operator status digest (deploy/ict-heartbeat.service -> scripts/daily_heartbeat.py) has failed every trigger since the 2026-06-14 cutover: 'Failed to load environment files: No such file or directory'. ROOT CAUSE: ict-heartbeat.service was the ONLY unit pointing at a non-optional EnvironmentFile=/home/ubuntu/ict-trading-bot/.env.live; every sibling unit (trader-live, telegram-bot, insights, liveness-watchdog, hourly/health-snapshot) uses .env, which is the canonical live-creds file the cutover replicated. No .env.live exists on the clean candidate -> the oneshot hard-fails before daily_heartbeat.py runs. Pre-existing latent bug the clean rebuild exposed. Not money-path-critical (the per-minute liveness watchdog is a separate, healthy unit) but the operator's daily digest has been silently dark since cutover. FIX (prepared in branch claude/vm-cutover-audit-retrospective-kkcj3y, draft PR): point the unit at -/home/ubuntu/ict-trading-bot/.env (optional + canonical) and make daily_heartbeat.py prefer .env (with .env.live back-compat). Resolves on merge + git-sync deploy. Tier-2 (unit file).",
+      "tier": 2,
+      "status": "open"
+    },
+    {
       "id": "BL-20260615-DECOMMISSION-MICRO",
       "opened_at": "2026-06-14T16:50:00+00:00",
       "opened_by": "claude (operator-requested, for tomorrow's health log)",

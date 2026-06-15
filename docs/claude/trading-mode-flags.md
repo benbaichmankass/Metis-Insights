@@ -105,10 +105,11 @@ self-heal now runs unconditionally on every tick (baseline correctness,
 not a feature flag). It was reads-only and never placed orders, so its
 removal does not touch the live/dry contract.
 
-Both are documented in the audit. The phase-2 follow-up PR (Tier 2,
-operator-ack required) will add inline `# allow-silent: …`
-annotations + per-survivor regression tests asserting the
-"can't suppress live writes" contract.
+With `MONITOR_RECONCILE_ENABLED` gone, `MULTI_ACCOUNT_DISPATCH` is the
+**sole remaining survivor**. The phase-2 follow-up PR (Tier 2,
+operator-ack required) will add an inline `# allow-silent: …`
+annotation + a regression test asserting its "can't suppress live
+writes" contract.
 
 ## Per-account override (current and queued)
 
