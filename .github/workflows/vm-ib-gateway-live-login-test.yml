@@ -153,14 +153,17 @@ jobs:
           login_ok=no; result=timeout
           deadline=$(( $(date +%s) + 240 ))
           while [ "$(date +%s)" -lt "$deadline" ]; do
-            logs="$(sudo docker logs --since 6m "$NAME" 2>&1)"
-            if printf '%s' "$logs" | grep -q "Login has completed"; then login_ok=yes; result=login_completed; break; fi
-            if printf '%s' "$logs" | grep -qiE 'Second Factor Authentication.*(timed out|timeout)|2fa.*timeout'; then result=twofa_timeout; break; fi
-            if printf '%s' "$logs" | grep -qiE 'Unrecognized Username or Password|Invalid|incorrect password|login failed'; then result=bad_credentials; break; fi
-            if printf '%s' "$logs" | grep -qiE 'existing session|competing|already logged in'; then result=competing_session; fi
-            # exited container?
+            # Success: IBC reports a completed login.
+            if sudo docker logs --since 6m "$NAME" 2>&1 | grep -q "Login has completed"; then login_ok=yes; result=login_completed; break; fi
+            # Terminal failure: the container exited. With TWOFA_TIMEOUT_ACTION=exit
+            # a real 2FA timeout (or a bad-credential / competing-session dialog)
+            # makes IBC exit — the authoritative failure signal. (We deliberately do
+            # NOT grep intermediate log lines: IBC dumps its settings at startup,
+            # incl. `on2fatimeout: exit` + `SecondFactorAuthenticationTimeout=180`,
+            # which an over-broad pattern match mistook for an actual timeout and
+            # aborted the run ~7 s in — the log tail below is for humans only.)
             st="$(sudo docker inspect -f '{{.State.Status}}' "$NAME" 2>/dev/null || echo gone)"
-            [ "$st" = "exited" ] && { result=container_exited; break; }
+            if [ "$st" != "running" ]; then result="container_${st}"; break; fi
             sleep 6
           done
           echo "login_completed=${login_ok} result=${result}"
