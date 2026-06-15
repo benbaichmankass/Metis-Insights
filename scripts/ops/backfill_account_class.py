@@ -40,10 +40,21 @@ Usage
 from __future__ import annotations
 
 import argparse
+import os
 import sqlite3
 import sys
 from pathlib import Path
 from typing import Dict, Optional
+
+# The script lives in scripts/ops/; the repo root is two levels up. Add it
+# to sys.path so `from src...` resolves when the wrapper invokes this by
+# absolute path (system python3, cwd != repo root) — mirrors the bootstrap
+# in backfill_orphan_pnl.py. Without it: ModuleNotFoundError: No module
+# named 'src' (the 2026-06-15 dispatch failure, issue #3708).
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 # Account ids that no longer exist in accounts.yaml but were PAPER money
 # historically. Absent ids otherwise default to real_money (the safe
