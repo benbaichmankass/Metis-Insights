@@ -76,22 +76,33 @@ jobs:
           echo "host: $(hostname)  ip(self): $(curl -4 -sS --max-time 6 https://api.ipify.org || echo '?')"
           echo
 
-          # Timers first so they can't auto-restart the trader, then the services.
-          UNITS="ict-liveness-watchdog.timer ict-git-sync.timer ict-trader-live.service ict-web-api.service ict-telegram-bot.service ict-claude-bridge.service"
-
-          echo "===== BEFORE ====="
-          for u in $UNITS; do printf '%-34s %s\n' "$u" "$(systemctl is-active "$u" 2>&1)"; done
+          echo "===== python / bybit-calling processes (the actual culprit) ====="
+          ps -eo pid,etimes,cmd 2>&1 | grep -iE 'src\.main|uvicorn|telegram_query|claude_bridge|insights|hourly|snapshot|check_web_api|python' | grep -v grep | cut -c1-140
           echo
 
-          echo "===== stop + disable ====="
-          for u in $UNITS; do
-            echo "--- $u ---"
-            sudo systemctl disable --now "$u" 2>&1 | sed 's/^/  /'
+          # Enumerate ALL ict-* units (services + timers) so nothing is missed.
+          # Timers/watchdogs first so they can't re-start the services mid-run.
+          UNITS="$(systemctl list-unit-files 'ict-*.timer' --no-legend 2>/dev/null | awk '{print $1}' | sort) \
+                 $(systemctl list-unit-files 'ict-*.service' --no-legend 2>/dev/null | awk '{print $1}' | sort)"
+
+          echo "===== BEFORE ====="
+          for u in $UNITS; do printf '%-40s %s\n' "$u" "$(systemctl is-active "$u" 2>&1)"; done
+          echo
+
+          echo "===== stop + disable ALL ict-* units (twice, to beat watchdog re-arm) ====="
+          for pass in 1 2; do
+            echo "--- pass $pass ---"
+            for u in $UNITS; do sudo systemctl disable --now "$u" >/dev/null 2>&1; done
           done
+          echo "done"
           echo
 
           echo "===== AFTER (should all be inactive/dead) ====="
-          for u in $UNITS; do printf '%-34s %s\n' "$u" "$(systemctl is-active "$u" 2>&1)"; done
+          for u in $UNITS; do printf '%-40s %s\n' "$u" "$(systemctl is-active "$u" 2>&1)"; done
+          echo
+
+          echo "===== residual python processes after shutdown ====="
+          ps -eo pid,cmd 2>&1 | grep -iE 'src\.main|uvicorn|telegram_query|insights|hourly|check_web_api' | grep -v grep | cut -c1-140 || echo "(none)"
           echo "(done)"
           REMOTE
           echo "exit=$?"
