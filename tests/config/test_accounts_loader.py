@@ -35,9 +35,9 @@ class TestRealYaml:
         for name, cfg in cfgs.items():
             assert isinstance(cfg, dict), f"{name} cfg is not a dict"
             # exchange + mode are the load-bearing identity / routing
-            # fields. market_type is optional (prop accounts like
-            # velotrade have no market type; bybit accounts default
-            # to "spot" via the consumer's normalisation).
+            # fields. market_type is optional (prop / FX accounts may
+            # have no market type; bybit accounts default to "spot" via
+            # the consumer's normalisation).
             assert "exchange" in cfg, f"{name} missing exchange"
             assert "mode" in cfg, f"{name} missing mode"
 

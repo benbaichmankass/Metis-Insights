@@ -1,6 +1,6 @@
 """Prop-account risk manager — mission-aware extension of RiskManager.
 
-Velotrade integration sprint (2026-05-03). Subclass of
+Prop-account integration sprint (2026-05-03). Subclass of
 :class:`src.units.accounts.risk.RiskManager` that adds three skip
 reasons on top of the base daily-loss / position-size / drawdown gates:
 
@@ -85,7 +85,7 @@ class PropRiskManager(RiskManager):
         self.min_active_days: int = int(phase.get("min_active_days", 4))
         self.min_daily_profit_pct: float = float(phase.get("min_daily_profit_pct", 0.0))
 
-        # Velotrade phase-2b: persistent prop-state. The JSON file is
+        # Prop-state persistence. The JSON file is
         # the live source of truth — it overrides the YAML seed when
         # present so a trader restart preserves mission progress.
         # YAML stays as the fallback seed for fresh installs / phase
@@ -102,10 +102,10 @@ class PropRiskManager(RiskManager):
         self._entry_date_iso: Optional[str] = seed.get("entry_date") or None
 
         # Default to False so legacy prop fixtures (test_coordinator_flow,
-        # test_s010_accounts) that pre-date the Velotrade integration
+        # test_s010_accounts) that pre-date the prop-risk integration
         # don't suddenly trip the overnight gate at certain UTC hours.
         # New prop accounts opt in by setting ``overnight_restricted:
-        # true`` in their YAML (see prop_velotrade_1).
+        # true`` in their YAML.
         self.overnight_restricted: bool = bool(config.get("overnight_restricted", False))
         window = config.get("overnight_window") or [
             _DEFAULT_OVERNIGHT_START_HOUR,
@@ -213,7 +213,7 @@ class PropRiskManager(RiskManager):
         omitted we fall back to ``self.current_equity`` if seeded, or
         leave the cumulative fraction unchanged if neither is known.
 
-        Velotrade phase-2b: writes the updated counters to
+        Prop-state persistence: writes the updated counters to
         ``runtime_state/prop_state.json`` so the next trader restart
         resumes from the same mission progress. Best-effort — a write
         failure logs a warning and does NOT raise into the caller.

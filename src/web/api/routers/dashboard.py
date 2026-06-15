@@ -54,6 +54,23 @@ def _normalise_side(direction: Any) -> str:
     return _SIDE_MAP.get(direction.strip().lower(), direction.strip().lower())
 
 
+# "Not paper" SQL predicate — excludes paper-money rows robustly even
+# before the account_class backfill runs. account_class is authoritative
+# when present; for old rows where it's NULL we fall back to is_demo.
+_NOT_PAPER_PREDICATE = (
+    " AND NOT (COALESCE(account_class,'')='paper'"
+    " OR (account_class IS NULL AND COALESCE(is_demo,0)=1))"
+)
+
+
+def _account_class_wire(account_class: Any, is_demo: Any) -> str:
+    """Derive the wire ``accountClass`` string, never null. Falls back to
+    is_demo when the row predates the account_class column / backfill."""
+    if account_class is not None and str(account_class).strip():
+        return str(account_class).strip().lower()
+    return "paper" if bool(is_demo) else "real_money"
+
+
 # ---------------------------------------------------------------------------
 # Broker-truth unrealised PnL for open positions (2026-06-07)
 # ---------------------------------------------------------------------------
@@ -214,8 +231,8 @@ def _pnl_stats() -> tuple[float, float, int, float]:
                     COUNT(CASE WHEN status!='open' AND pnl>0 THEN 1 END)
                 FROM trades
                 WHERE COALESCE(is_backtest,0)=0
-                  AND COALESCE(is_demo,0)=0
-                """,
+                """
+                + _NOT_PAPER_PREDICATE,
                 (today,),
             )
             row = cur.fetchone()
@@ -344,12 +361,16 @@ async def get_logs() -> list[dict[str, Any]]:
 
 @router.get("/positions")
 async def get_positions(
+    include_paper: bool = Query(False),
     include_demo: bool = Query(False),
 ) -> list[dict[str, Any]]:
-    """Open positions (real-money by default). Each row carries an
-    ``isDemo`` flag; pass ``include_demo=true`` to also include the
-    demo-account positions alongside live (2026-06-04 reporting-cleanup).
+    """Open positions (real-money by default). Each row carries
+    ``accountClass`` ("paper" | "real_money") plus the legacy ``isDemo``
+    flag; pass ``include_paper=true`` to also include paper-account
+    positions alongside real-money. ``include_demo`` is a deprecated alias
+    for ``include_paper`` (effective include = include_paper OR include_demo).
     """
+    effective_include = include_paper or include_demo
     if not _DB_PATH.exists():
         return []
     try:
@@ -367,13 +388,13 @@ async def get_positions(
                 SELECT id, account_id, symbol, direction, position_size,
                        entry_price, created_at,
                        stop_loss, take_profit_1, strategy_name,
-                       COALESCE(is_demo, 0)
+                       COALESCE(is_demo, 0), account_class
                 FROM trades
                 WHERE status = 'open'
                   AND COALESCE(is_backtest, 0) = 0
             """
-            if not include_demo:
-                sql += " AND COALESCE(is_demo, 0) = 0"
+            if not effective_include:
+                sql += _NOT_PAPER_PREDICATE
             sql += " ORDER BY created_at DESC LIMIT 50"
             cur.execute(sql)
             rows = cur.fetchall()
@@ -399,6 +420,7 @@ async def get_positions(
             "takeProfit": float(r[8]) if r[8] is not None else None,
             "pattern": r[9] if r[9] else None,
             "isDemo": bool(r[10]),
+            "accountClass": _account_class_wire(r[11], r[10]),
         })
     return out
 

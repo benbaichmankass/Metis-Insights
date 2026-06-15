@@ -1,4 +1,4 @@
-"""Velotrade phase-2b — runtime_state/prop_state.json persistence.
+"""Prop-account runtime_state/prop_state.json persistence.
 
 Covers:
 
@@ -239,8 +239,8 @@ _YAML_PROP = """
 accounts:
   prop_velo:
     type: prop
-    exchange: velotrade
-    api_key_env: VELOTRADE_API_KEY_X
+    exchange: prop_broker
+    api_key_env: PROP_API_KEY_X
     strategies: []
     account_state: evaluation
     phase_requirements:

@@ -6,7 +6,7 @@ futures-replacements (trend1d QQQ/SPY ≈ ``mes_trend_long_1d``,
 pullback1d GLD ≈ ``mgc_pullback_1d``) and the SPY intraday candidates
 (docs/research/m15-phase0-results-2026-06-10.md).
 
-Mirrors the OANDA/velotrade contract: ``place()`` returns a
+Mirrors the OANDA contract: ``place()`` returns a
 retCode-style envelope, missing creds raise
 :class:`MissingCredentialsError` naming the env vars (never values),
 and the factory (`clients.alpaca_client_for`) returns ``None`` when

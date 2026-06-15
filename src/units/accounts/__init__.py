@@ -76,11 +76,11 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
 
     accounts = []
     for name, cfg in (raw.get("accounts") or {}).items():
-        # Velotrade integration: prop accounts get the mission-aware
-        # PropRiskManager which adds account-state, mission, and
-        # overnight/weekend skip reasons on top of the base gates.
-        # Regular bybit accounts continue to use the unchanged
-        # RiskManager — keeps the live Bybit path bit-identical.
+        # Prop accounts get the mission-aware PropRiskManager which adds
+        # account-state, mission, and overnight/weekend skip reasons on
+        # top of the base gates. Regular bybit accounts continue to use
+        # the unchanged RiskManager — keeps the live Bybit path
+        # bit-identical.
         account_type = cfg.get("type", "regular")
         dry_run = _resolve_mode(cfg, name)
         if account_type == "prop":
@@ -90,16 +90,15 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
             rm = PropRiskManager(cfg, account_name=name, dry_run=dry_run)
         else:
             rm = RiskManager(cfg.get("risk") or {}, dry_run=dry_run, account_id=name)
-        # Forward-compat: skip accounts explicitly disabled in YAML.
-        # (Velotrade scaffold ships with ``enabled: false`` until
-        # credentials + SDK wiring land in a follow-up sprint.)
+        # Forward-compat: skip accounts explicitly disabled in YAML
+        # (``enabled: false``).
         if cfg.get("enabled") is False:
             continue
-        # Velotrade phase-2: detect "not fully configured" accounts
-        # (env-var creds missing). Such accounts still load — they
-        # appear in /accounts_status with ``configured=False`` and
-        # any live action against them refuses + emits a diagnostic
-        # ping naming the missing env var.
+        # Detect "not fully configured" accounts (env-var creds
+        # missing). Such accounts still load — they appear in
+        # /accounts_status with ``configured=False`` and any live
+        # action against them refuses + emits a diagnostic ping naming
+        # the missing env var.
         api_key_env = cfg.get("api_key_env", "") or ""
         configured = True
         configured_reason: Optional[str] = None
@@ -135,6 +134,10 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
             configured_reason=configured_reason,
             market_type=cfg.get("market_type", "spot"),
             demo=bool(cfg.get("demo", False)),
+            # Paper-vs-real-money funding category (single source of truth
+            # for the paper/real reporting axis). Default "real_money";
+            # TradingAccount normalises + coerces an invalid value.
+            account_class=str(cfg.get("account_class") or "real_money"),
             # Interactive Brokers connection identity (no API keys). None
             # for non-IB accounts; the coordinator forwards these into the
             # account_cfg dict consumed by ib_client_for.

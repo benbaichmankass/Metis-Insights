@@ -41,9 +41,9 @@ class TestAccountProfileSchemaFix:
         assert p.is_live is True
         assert p.account_type == "bybit_live"
 
-    def test_prop_velotrade_dry_run(self):
-        data = {"exchange": "velotrade", "mode": "dry_run"}
-        p = AccountProfile.from_dict("prop_velotrade_1", data)
+    def test_unknown_exchange_dry_run(self):
+        data = {"exchange": "prop_broker", "mode": "dry_run"}
+        p = AccountProfile.from_dict("prop_acct_1", data)
         assert p.dry_run is True
         assert p.is_live is False
         assert p.exchange == "unknown"
@@ -76,8 +76,8 @@ ACCOUNTS_YAML = textwrap.dedent("""\
         strategies: [vwap]
         risk:
           risk_pct: 0.01
-      prop_velotrade_1:
-        exchange: velotrade
+      prop_acct_1:
+        exchange: prop_broker
         mode: dry_run
         strategies: []
 """)
@@ -94,7 +94,7 @@ class TestLoadAccountProfiles:
         path = self._write_yaml(ACCOUNTS_YAML)
         try:
             profiles = load_account_profiles(path)
-            assert set(profiles.keys()) == {"bybit_1", "bybit_2", "prop_velotrade_1"}
+            assert set(profiles.keys()) == {"bybit_1", "bybit_2", "prop_acct_1"}
         finally:
             os.unlink(path)
 

@@ -41,6 +41,24 @@ _DB_PATH = Path(trade_journal_db_path())
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 200
 
+# "Not paper" SQL predicate — excludes paper-money rows robustly even
+# before the account_class backfill runs. account_class is authoritative
+# when present; for old rows where it's NULL we fall back to is_demo.
+# (A row is paper if account_class='paper', OR — only when account_class
+# is unset — if the legacy is_demo flag is 1.)
+_NOT_PAPER_PREDICATE = (
+    " AND NOT (COALESCE(t.account_class,'')='paper'"
+    " OR (t.account_class IS NULL AND COALESCE(t.is_demo,0)=1))"
+)
+
+
+def _account_class_wire(account_class: Any, is_demo: Any) -> str:
+    """Derive the wire ``accountClass`` string, never null. Falls back to
+    is_demo when the row predates the account_class column / backfill."""
+    if account_class is not None and str(account_class).strip():
+        return str(account_class).strip().lower()
+    return "paper" if bool(is_demo) else "real_money"
+
 # direction values seen in the wild + their wire-shape side equivalents.
 _SIDE_MAP = {
     "buy": "buy",
@@ -96,9 +114,13 @@ def _row_to_wire(row: sqlite3.Row) -> Dict[str, Any]:
     return {
         "id": str(row["id"]),
         "account": row["account_id"],
-        # 2026-06-04 reporting-cleanup: ``isDemo`` flag so consumers can
-        # split live vs demo into separate sections. Source of truth is
-        # ``trades.is_demo`` (mirrored from ``config/accounts.yaml``).
+        # ``accountClass`` ("paper" | "real_money") — the canonical
+        # paper/real funding category (trades.account_class, mirrored from
+        # config/accounts.yaml). Never null: falls back to is_demo for rows
+        # predating the column/backfill.
+        "accountClass": _account_class_wire(row["account_class"], row["is_demo"]),
+        # ``isDemo`` retained for back-compat (dual-emit). Source: the
+        # legacy trades.is_demo boolean, kept in sync with account_class.
         "isDemo": bool(row["is_demo"]),
         "symbol": row["symbol"],
         "side": _normalise_side(row["direction"]),
@@ -149,7 +171,8 @@ def _query_closed_trades(
         # the same expression filters *since*. Backtest rows are excluded
         # so the dashboard never shows synthetic trades.
         sql = """
-            SELECT t.id, t.account_id, t.is_demo, t.symbol, t.direction, t.strategy_name,
+            SELECT t.id, t.account_id, t.is_demo, t.account_class, t.symbol,
+                   t.direction, t.strategy_name,
                    t.position_size, t.entry_price, t.exit_price,
                    t.pnl, t.pnl_percent,
                    t.timestamp, t.exit_reason, t.notes,
@@ -164,8 +187,8 @@ def _query_closed_trades(
             sql += " AND t.account_id = ?"
             params.append(account_id)
         elif not include_demo:
-            # Exclude demo account trades from the live journal view.
-            sql += " AND COALESCE(t.is_demo, 0) = 0"
+            # Exclude paper-money trades from the live journal view.
+            sql += _NOT_PAPER_PREDICATE
         if since:
             sql += (
                 " AND datetime(COALESCE(op.updated_at, t.timestamp)) >= datetime(?)"
@@ -187,27 +210,32 @@ async def get_closed_trades(
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     since: Optional[str] = Query(None, max_length=64),
     account_id: Optional[str] = Query(None, max_length=64),
+    include_paper: bool = Query(False),
     include_demo: bool = Query(False),
 ) -> List[Dict[str, Any]]:
     """Return up to ``limit`` closed (non-backtest) trades.
 
-    Each row carries an ``isDemo`` flag so consumers can split live vs
-    demo in their UI.
+    Each row carries ``accountClass`` ("paper" | "real_money") plus the
+    legacy ``isDemo`` flag so consumers can split paper vs real in their UI.
 
     Filters:
       - ``account_id`` — return only that account's rows. Takes precedence.
-      - ``include_demo=true`` — include demo-account rows alongside live
-        (default false, preserves pre-2026-06-04 behavior).
+      - ``include_paper=true`` — include paper-money rows alongside
+        real-money (default false: real-money only).
+      - ``include_demo`` — DEPRECATED alias for ``include_paper`` (kept for
+        back-compat). Effective include = include_paper OR include_demo.
 
     Best-effort: returns ``[]`` on missing DB, locked DB, or an
     unexpected sqlite error. The dashboard treats an empty list the
     same as "no closed trades yet" and keeps the tab usable.
     """
+    effective_include = include_paper or include_demo
     if not _DB_PATH.exists():
         return []
     try:
         return _query_closed_trades(
-            _DB_PATH, limit, since, account_id=account_id, include_demo=include_demo,
+            _DB_PATH, limit, since, account_id=account_id,
+            include_demo=effective_include,
         )
     except sqlite3.Error:
         logger.exception("trades_closed: sqlite read failed")

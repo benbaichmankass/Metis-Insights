@@ -165,5 +165,7 @@ def test_accounts_yaml_oanda_practice_ships_inert():
     # OANDA US can't trade XAU_USD (BL-20260611-007); gold is covered live on
     # IBKR MGC + Alpaca GLD. Back to inert — mode dry_run gates the sleeve.
     assert acct["strategies"] == ["xauusd_trend_1h"]
-    assert acct["demo"] is True
+    # 2026-06-15: `demo: true` superseded by account_class (non-Bybit).
+    assert "demo" not in acct
+    assert acct["account_class"] == "paper"
     assert acct["symbols"] == ["XAUUSD"]

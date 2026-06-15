@@ -39,6 +39,44 @@ def _migrate_add_is_demo(cursor: sqlite3.Cursor) -> bool:
     return True
 
 
+def _migrate_add_account_class(cursor: sqlite3.Cursor) -> bool:
+    """Add ``account_class`` column to ``trades`` table if absent.
+
+    The paper-vs-real-money funding category (``'paper'`` / ``'real_money'``)
+    mirrored from ``config/accounts.yaml::account_class``. This is the
+    canonical paper/real reporting axis; ``is_demo`` is kept in sync for
+    back-compat but ``account_class`` is authoritative. Default NULL keeps
+    pre-existing rows un-stamped — readers fall back to ``is_demo`` for
+    NULL rows (see ``_row_is_paper`` and the API "not paper" predicates)
+    until the backfill (``scripts/ops/backfill_account_class.py``) runs.
+    Idempotent: returns True only on the run that adds the column.
+    """
+    cursor.execute("PRAGMA table_info(trades)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "account_class" in columns:
+        return False
+    cursor.execute("ALTER TABLE trades ADD COLUMN account_class TEXT")
+    return True
+
+
+def _row_is_paper(row: sqlite3.Row) -> bool:
+    """Return True when a ``trades`` row is a PAPER-money trade.
+
+    Authoritative axis is ``account_class`` (``'paper'`` / ``'real_money'``).
+    When the column is present and non-NULL, use it. When the column is
+    absent (old DB) or NULL (un-backfilled row), fall back to the legacy
+    ``is_demo`` boolean. Used by the notify-skip paths so paper trades
+    never fire a real-money phone notification.
+    """
+    try:
+        keys = row.keys()
+    except AttributeError:
+        keys = ()
+    if "account_class" in keys and row["account_class"] is not None:
+        return str(row["account_class"]).strip().lower() == "paper"
+    return bool(row["is_demo"])
+
+
 def _migrate_add_account_id(cursor: sqlite3.Cursor) -> bool:
     """Add ``account_id`` column to ``trades`` table if absent.
 
@@ -163,6 +201,7 @@ class Database:
                 strategy_name TEXT,
                 account_id TEXT NOT NULL DEFAULT 'live',
                 is_demo BOOLEAN DEFAULT 0,
+                account_class TEXT,
                 order_package_id TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
@@ -171,6 +210,7 @@ class Database:
         _migrate_add_strategy_name(cursor)
         _migrate_add_account_id(cursor)
         _migrate_add_is_demo(cursor)
+        _migrate_add_account_class(cursor)
         _migrate_add_order_package_id(cursor)
         # Index for efficient per-account trade history queries.
         cursor.execute(
@@ -421,10 +461,15 @@ class Database:
         # trades. Best-effort, feature-flagged via MOBILE_PUSH_ENABLED;
         # any failure is swallowed so the insert path stays intact.
         try:
+            _is_paper = (
+                str(trade_data.get("account_class")).strip().lower() == "paper"
+                if trade_data.get("account_class") is not None
+                else bool(trade_data.get("is_demo"))
+            )
             if (
                 str(trade_data.get("status", "open")).lower() == "open"
                 and not trade_data.get("is_backtest")
-                and not trade_data.get("is_demo")
+                and not _is_paper
             ):
                 self._fire_trade_opened_event(int(trade_id))
         except Exception:  # noqa: BLE001  # allow-silent: notifier hook must never propagate into the insert path
@@ -506,7 +551,7 @@ class Database:
         try:
             cur = conn.execute(
                 "SELECT symbol, direction, pnl, pnl_percent, exit_reason, "
-                "strategy_name, account_id, is_backtest, is_demo "
+                "strategy_name, account_id, is_backtest, is_demo, account_class "
                 "FROM trades WHERE id = ?",
                 (trade_id,),
             )
@@ -515,9 +560,10 @@ class Database:
             conn.close()
         if row is None:
             return
-        # Skip backtest + demo trades — they're not real money events
-        # the operator wants a phone notification for.
-        if row["is_backtest"] or row["is_demo"]:
+        # Skip backtest + paper trades — they're not real-money events
+        # the operator wants a phone notification for. account_class is
+        # authoritative; falls back to is_demo for un-backfilled rows.
+        if row["is_backtest"] or _row_is_paper(row):
             return
         publish_event(
             TRADE_CLOSED,
@@ -542,14 +588,14 @@ class Database:
         try:
             cur = conn.execute(
                 "SELECT symbol, direction, qty, entry_price, sl, tp, "
-                "strategy_name, account_id, is_backtest, is_demo "
+                "strategy_name, account_id, is_backtest, is_demo, account_class "
                 "FROM trades WHERE id = ?",
                 (trade_id,),
             )
             row = cur.fetchone()
         finally:
             conn.close()
-        if row is None or row["is_backtest"] or row["is_demo"]:
+        if row is None or row["is_backtest"] or _row_is_paper(row):
             return
         publish_event(
             TRADE_OPENED,
@@ -580,14 +626,14 @@ class Database:
         try:
             cur = conn.execute(
                 "SELECT symbol, direction, qty, entry_price, sl, tp, status, "
-                "strategy_name, account_id, is_backtest, is_demo "
+                "strategy_name, account_id, is_backtest, is_demo, account_class "
                 "FROM trades WHERE id = ?",
                 (trade_id,),
             )
             row = cur.fetchone()
         finally:
             conn.close()
-        if row is None or row["is_backtest"] or row["is_demo"]:
+        if row is None or row["is_backtest"] or _row_is_paper(row):
             return
         if str(row["status"]).lower() == "closed":
             return

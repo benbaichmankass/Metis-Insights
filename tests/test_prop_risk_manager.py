@@ -1,4 +1,4 @@
-"""Tests for PropRiskManager — Velotrade integration sprint.
+"""Tests for PropRiskManager — generic prop-account risk gates.
 
 Covers:
   - State machine: evaluation + mission complete → SKIP_MISSION_MET.
@@ -10,8 +10,9 @@ Covers:
   - Coordinator routing: skip reasons surface in result['error'].
   - Loader: type=prop → PropRiskManager; type=regular → RiskManager.
   - Loader: enabled=False accounts are filtered out at load.
-  - Velotrade phase-2 integration surface (DXtradeClient + executor
-    branch) is covered separately in test_velotrade_infrastructure.
+  - Deprecated breakout exchange stays inert.
+  - Config wiring: the dead velotrade integration is purged and every
+    account carries a valid account_class.
 """
 from __future__ import annotations
 
@@ -327,8 +328,8 @@ accounts:
 
   prop_velo:
     type: prop
-    exchange: velotrade
-    api_key_env: VELOTRADE_API_KEY_1
+    exchange: prop_broker
+    api_key_env: PROP_API_KEY_1
     strategies: [vwap]
     enabled: true
     account_state: evaluation
@@ -344,8 +345,8 @@ accounts:
 
   prop_disabled:
     type: prop
-    exchange: velotrade
-    api_key_env: VELOTRADE_API_KEY_2
+    exchange: prop_broker
+    api_key_env: PROP_API_KEY_2
     strategies: []
     enabled: false
     risk:
@@ -395,15 +396,15 @@ class TestLoader:
 class TestCoordinatorRouting:
     def test_skip_reason_in_error_field(self, accounts_yaml, monkeypatch):
         from src.core.coordinator import Coordinator
-        # _YAML_BODY uses BYBIT_API_KEY_1 / VELOTRADE_API_KEY_1.
+        # _YAML_BODY uses BYBIT_API_KEY_1 / PROP_API_KEY_1.
         # Without env vars the accounts are configured=False and
         # _eligible_for_dispatch drops them — results list comes back empty.
         # _derive_secret_env("BYBIT_API_KEY_1") → "BYBIT_API_SECRET_1" so
         # both key + secret must be set.
         monkeypatch.setenv("BYBIT_API_KEY_1", "test-key")
         monkeypatch.setenv("BYBIT_API_SECRET_1", "test-secret")
-        monkeypatch.setenv("VELOTRADE_API_KEY_1", "test-key")
-        monkeypatch.setenv("VELOTRADE_API_SECRET_1", "test-secret")
+        monkeypatch.setenv("PROP_API_KEY_1", "test-key")
+        monkeypatch.setenv("PROP_API_SECRET_1", "test-secret")
         # Force mission complete on prop_velo so the gate fires.
         from src.units.accounts import load_accounts
         accounts = load_accounts(accounts_yaml)
@@ -440,73 +441,11 @@ class TestCoordinatorRouting:
 
 
 # ---------------------------------------------------------------------------
-# Velotrade executor stub
+# Deprecated breakout exchange — still inert
 # ---------------------------------------------------------------------------
 
 
-class TestVelotradeExecutor:
-    def test_velotrade_in_exchange_map(self):
-        from src.units.accounts.integrator import EXCHANGE_MAP, VelotradeAPI
-        assert EXCHANGE_MAP["velotrade"] is VelotradeAPI
-
-    def test_velotrade_dry_run_returns_trade_id(self):
-        from src.units.accounts.integrator import VelotradeAPI
-        api = VelotradeAPI("VELOTRADE_API_KEY_1")
-        trade_id = api.place(_pkg(), dry_run=True)
-        assert trade_id.startswith("dry-velotrade-")
-
-    def test_velotrade_live_without_client_raises_missing_credentials(self):
-        # Phase-2: bare VelotradeAPI without an injected DXtradeClient
-        # raises MissingCredentialsError (the not-configured signal),
-        # not the pre-phase-2 NotImplementedError.
-        from src.units.accounts.integrator import VelotradeAPI
-        from src.units.accounts.dxtrade_client import MissingCredentialsError
-        api = VelotradeAPI("VELOTRADE_API_KEY_1")
-        with pytest.raises(MissingCredentialsError):
-            api.place(_pkg(), dry_run=False)
-
-    def test_velotrade_live_with_stub_client_raises_contract_pending(self):
-        # With a real DXtradeClient injected, the live path dispatches
-        # to client.place(), which still raises NotImplementedError
-        # until the operator drops the DXtrade contract.
-        from src.units.accounts.integrator import VelotradeAPI
-        from src.units.accounts.dxtrade_client import DXtradeClient
-        api = VelotradeAPI("VELOTRADE_API_KEY_1")
-        client = DXtradeClient(api_key="k", api_secret="s")
-        with pytest.raises(NotImplementedError, match="contract pending"):
-            api.place(_pkg(), dry_run=False, client=client)
-
-    def test_execute_pkg_velotrade_branch_missing_client(self):
-        # Executor branch: no client → MissingCredentialsError naming
-        # the env var so the diagnostic ping points at the right gap.
-        from src.units.accounts.execute import _submit_order
-        from src.units.accounts.dxtrade_client import MissingCredentialsError
-        with pytest.raises(MissingCredentialsError, match="VELOTRADE_API_KEY_1"):
-            _submit_order(
-                client=None,
-                order={"symbol": "BTCUSDT", "side": "Buy", "qty": 0.01,
-                       "sl": 99.0, "tp": 102.0, "account_id": "prop_velo"},
-                account_cfg={"exchange": "velotrade",
-                             "account_id": "prop_velo",
-                             "api_key_env": "VELOTRADE_API_KEY_1"},
-            )
-
-    def test_execute_pkg_velotrade_branch_with_stub_client(self):
-        # Executor branch: real DXtradeClient → SDK call raises
-        # NotImplementedError, executor wraps into RuntimeError.
-        from src.units.accounts.execute import _submit_order
-        from src.units.accounts.dxtrade_client import DXtradeClient
-        client = DXtradeClient(api_key="k", api_secret="s")
-        with pytest.raises(RuntimeError, match="DXtrade SDK contract pending"):
-            _submit_order(
-                client=client,
-                order={"symbol": "BTCUSDT", "side": "Buy", "qty": 0.01,
-                       "sl": 99.0, "tp": 102.0, "account_id": "prop_velo"},
-                account_cfg={"exchange": "velotrade",
-                             "account_id": "prop_velo",
-                             "api_key_env": "VELOTRADE_API_KEY_1"},
-            )
-
+class TestDeprecatedExchanges:
     def test_execute_pkg_breakout_still_inert(self):
         # Deprecated alias: still raises so legacy fixtures stay safe.
         from src.units.accounts.execute import _submit_order
@@ -521,42 +460,24 @@ class TestVelotradeExecutor:
 
 
 # ---------------------------------------------------------------------------
-# Config wiring sanity (the real prop_velotrade_1 in accounts.yaml)
+# Config wiring sanity (the real config/accounts.yaml)
 # ---------------------------------------------------------------------------
 
 
 class TestRealAccountsYaml:
-    def test_prop_velotrade_1_exists_and_not_configured(self, monkeypatch):
-        # Phase-2: prop_velotrade_1 is no longer disabled at YAML
-        # level — it loads as ``configured=False`` so the operator
-        # can see it in /accounts_status. ``enabled: false`` was the
-        # phase-1 safety; the new mechanism is "load + flag + ping
-        # on use" per the operator's clarification.
+    def test_velotrade_purged_and_accounts_carry_account_class(self):
+        # The dead prop_velotrade_1 / velotrade integration was purged
+        # (2026-06-15). Assert it's gone and that every remaining account
+        # carries the required account_class funding category.
         import yaml
         p = Path(__file__).resolve().parents[1] / "config" / "accounts.yaml"
         raw = yaml.safe_load(p.read_text())
-        assert "prop_velotrade_1" in raw["accounts"]
-        cfg = raw["accounts"]["prop_velotrade_1"]
-        # No ``enabled`` key — defaults to enabled at load time.
-        assert "enabled" not in cfg
-        assert cfg["exchange"] == "velotrade"
-        assert cfg["type"] == "prop"
-        assert cfg["account_state"] == "evaluation"
-        assert "phase_requirements" in cfg
-        assert cfg["overnight_restricted"] is True
-        # Belt-and-braces: empty strategies blocks any live signal
-        # routing even if the env-var creds get added before the
-        # operator wires the strategies list.
-        assert cfg.get("strategies") == []
-
-        # And the loader actually treats it as not-configured when
-        # the env vars are absent — strip them first to be sure.
-        monkeypatch.delenv("VELOTRADE_API_KEY_1", raising=False)
-        monkeypatch.delenv("VELOTRADE_API_SECRET_1", raising=False)
-        from src.units.accounts import load_accounts
-        accs = {a.name: a for a in load_accounts(str(p))}
-        assert "prop_velotrade_1" in accs
-        prop = accs["prop_velotrade_1"]
-        assert prop.configured is False
-        assert prop.configured_reason is not None
-        assert "VELOTRADE_API_KEY_1" in prop.configured_reason
+        accounts = raw["accounts"]
+        assert "prop_velotrade_1" not in accounts
+        for name, cfg in accounts.items():
+            assert cfg.get("exchange") != "velotrade", (
+                f"{name}: velotrade exchange should be purged"
+            )
+            assert cfg.get("account_class") in ("paper", "real_money"), (
+                f"{name}: missing/invalid account_class"
+            )

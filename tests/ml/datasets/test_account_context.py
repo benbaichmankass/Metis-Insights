@@ -44,7 +44,7 @@ CREATE TABLE trades (
 _PROP_YAML = textwrap.dedent(
     """
     accounts:
-      prop_velotrade_1:
+      prop_acct_1:
         type: prop
         account_state: evaluation
         phase_requirements:
@@ -59,7 +59,7 @@ _PROP_YAML = textwrap.dedent(
           daily_usd: 50
           pos_size: 200
           risk_pct: 0.005
-      prop_velotrade_2:
+      prop_acct_2:
         type: prop
         account_state: funded
         phase_requirements:
@@ -117,7 +117,7 @@ def _row(**overrides):
         pnl_percent=0.0,
         status="open",
         is_backtest=0,
-        account_id="prop_velotrade_1",
+        account_id="prop_acct_1",
         created_at="2026-05-01T12:30:00Z",
         entry_reason="vwap signal",
     )
@@ -225,9 +225,9 @@ class TestAccountContextBuilder:
     def test_only_prop_accounts_emitted(self, tmp_path: Path):
         # Live account should be filtered out — no mission rules apply.
         rows = [
-            _row(account_id="prop_velotrade_1"),
+            _row(account_id="prop_acct_1"),
             _row(account_id="live"),
-            _row(account_id="prop_velotrade_2"),
+            _row(account_id="prop_acct_2"),
         ]
         db_path = _make_db(tmp_path, rows)
         yaml_path = _make_yaml(tmp_path)
@@ -242,12 +242,12 @@ class TestAccountContextBuilder:
             if line
         ]
         ids = sorted(r["account_id"] for r in emitted)
-        assert ids == ["prop_velotrade_1", "prop_velotrade_2"]
+        assert ids == ["prop_acct_1", "prop_acct_2"]
 
     def test_account_filter(self, tmp_path: Path):
         rows = [
-            _row(account_id="prop_velotrade_1"),
-            _row(account_id="prop_velotrade_2"),
+            _row(account_id="prop_acct_1"),
+            _row(account_id="prop_acct_2"),
         ]
         db_path = _make_db(tmp_path, rows)
         yaml_path = _make_yaml(tmp_path)
@@ -255,7 +255,7 @@ class TestAccountContextBuilder:
         paths = builder.build(
             output_dir=tmp_path / "out", version="v001", source="x",
             commit_sha="x", db_path=db_path, accounts_yaml_path=yaml_path,
-            account_id="prop_velotrade_1",
+            account_id="prop_acct_1",
         )
         emitted = [
             json.loads(line)
@@ -263,13 +263,13 @@ class TestAccountContextBuilder:
             if line
         ]
         assert len(emitted) == 1
-        assert emitted[0]["account_id"] == "prop_velotrade_1"
+        assert emitted[0]["account_id"] == "prop_acct_1"
 
     def test_mission_rules_per_account(self, tmp_path: Path):
         # Different prop accounts pick up different mission rules.
         rows = [
-            _row(account_id="prop_velotrade_1"),
-            _row(account_id="prop_velotrade_2"),
+            _row(account_id="prop_acct_1"),
+            _row(account_id="prop_acct_2"),
         ]
         db_path = _make_db(tmp_path, rows)
         yaml_path = _make_yaml(tmp_path)
@@ -286,10 +286,10 @@ class TestAccountContextBuilder:
                 if line
             )
         }
-        assert emitted["prop_velotrade_1"]["max_dd_pct"] == pytest.approx(0.02)
-        assert emitted["prop_velotrade_1"]["overnight_restricted"] is True
-        assert emitted["prop_velotrade_2"]["max_dd_pct"] == pytest.approx(0.05)
-        assert emitted["prop_velotrade_2"]["overnight_restricted"] is False
+        assert emitted["prop_acct_1"]["max_dd_pct"] == pytest.approx(0.02)
+        assert emitted["prop_acct_1"]["overnight_restricted"] is True
+        assert emitted["prop_acct_2"]["max_dd_pct"] == pytest.approx(0.05)
+        assert emitted["prop_acct_2"]["overnight_restricted"] is False
 
     def test_skip_reason_parser(self, tmp_path: Path):
         rows = [
@@ -447,7 +447,7 @@ class TestSnapshotJoin:
             (
                 "2026-05-01T12:00:00.000000+00:00",
                 "pkg-1",
-                "prop_velotrade_1",
+                "prop_acct_1",
                 "vwap",
                 "BTCUSDT",
                 "long",

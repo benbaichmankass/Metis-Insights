@@ -36,6 +36,7 @@ extend-exclude = [
 # was fixed mechanically:
 # - src/runtime/pipeline.py: 9 × E402 → `# noqa: E402` per import
 # - src/units/accounts/dxtrade_client.py: F401 (unused `Any`) → removed
+#   (the whole file was later deleted in the velotrade purge, 2026-06-15)
 # - src/units/accounts/integrator.py: F401 (unused `os` + `Any`) → removed
 # - src/units/accounts/prop_risk.py: F401 (unused `time`) → removed
 # - src/units/accounts/execute.py: 2 × F541 → dropped `f` prefix on

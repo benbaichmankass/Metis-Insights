@@ -31,6 +31,11 @@ _EXPECTED_TRADES_COLS = {
     # Added in feat(shadow) #1538: marks trades executed on demo/paper accounts
     # so PnL/stats queries can exclude them from live-account reporting.
     "is_demo",
+    # Added 2026-06-15 (account_class convention): the paper/real-money
+    # funding category mirrored from config/accounts.yaml::account_class.
+    # Single source of truth for the paper/real reporting axis; is_demo is
+    # kept in sync for back-compat.
+    "account_class",
     # Added in PR #2046 (2026-05-26): many-to-one back-reference from a
     # trade row to the order_packages decision that produced it. Closes
     # the "(unlinked)" gap in the orphan-reconciler sweep ping for the

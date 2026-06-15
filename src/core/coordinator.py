@@ -933,7 +933,8 @@ class Coordinator:
         #
         # Three rules, in order:
         #   1. ``configured == False`` → drop. Scaffolded accounts (e.g.
-        #      ``prop_velotrade_1``) load with ``configured=False`` when
+        #      a prop or new-broker account whose env-var creds aren't set)
+        #      load with ``configured=False`` when
         #      env-var creds are missing; they exist for /accounts_status
         #      visibility but must never enter live dispatch. Pre-fix
         #      these were producing per-tick ``below_min_balance``
@@ -1029,6 +1030,12 @@ class Coordinator:
                 "api_key_env": getattr(account, "api_key_env", None),
                 "market_type": getattr(account, "market_type", "spot"),
                 "demo": getattr(account, "demo", False),
+                # Paper-vs-real-money funding category. The executor stamps
+                # trades.account_class from THIS cfg on the early-refusal
+                # paths (sizing_failed / sized_qty<=0), same reason ``demo``
+                # is carried here — without it those rows would be written
+                # without a category and fall back to is_demo only.
+                "account_class": getattr(account, "account_class", "real_money"),
             }
 
             # Build account_cfg, resolve effective_dry and exchange client
@@ -1042,7 +1049,7 @@ class Coordinator:
             # "0 fills despite N signals" bug).
             from src.units.accounts.execute import execute_pkg
             from src.units.accounts.clients import (
-                bybit_client_for, binance_conn_for, velotrade_client_for,
+                bybit_client_for, binance_conn_for,
                 ib_client_for, oanda_client_for, alpaca_client_for,
             )
 
@@ -1065,9 +1072,15 @@ class Coordinator:
                 # plumb-through the executor falls back to the default
                 # (spot) and ignores any per-account override.
                 "market_type": getattr(account, "market_type", "spot"),
-                # Forward demo flag so execute.py stamps is_demo on trade rows
-                # and Telegram notifications carry the DEMO TRADER prefix.
+                # Forward demo flag (Bybit-transport endpoint selector) so
+                # clients.py routes to api-demo.bybit.com and Telegram
+                # notifications carry the DEMO TRADER prefix.
                 "demo": getattr(account, "demo", False),
+                # Forward the paper/real funding category so execute.py
+                # stamps trades.account_class (and the synced is_demo) on
+                # every trade row. Single source of truth for the
+                # paper/real reporting axis; orthogonal to demo + mode.
+                "account_class": getattr(account, "account_class", "real_money"),
                 # Interactive Brokers connection params (no API keys — auth
                 # is the Gateway login session). Forwarded so ib_client_for
                 # can build the socket identity. None for non-IB accounts.
@@ -1149,8 +1162,6 @@ class Coordinator:
                         client = bybit_client_for(account_cfg)
                     elif exchange_lc == "binance":
                         client = binance_conn_for(account_cfg)
-                    elif exchange_lc == "velotrade":
-                        client = velotrade_client_for(account_cfg)
                     elif exchange_lc == "oanda":
                         client = oanda_client_for(account_cfg)
                     elif exchange_lc == "alpaca":
@@ -1160,7 +1171,7 @@ class Coordinator:
                     else:
                         client_error = (
                             f"unsupported exchange '{exchange_lc}' "
-                            f"(expected bybit/binance/velotrade/oanda/alpaca/"
+                            f"(expected bybit/binance/oanda/alpaca/"
                             f"interactive_brokers)"
                         )
                 except Exception as exc:  # noqa: BLE001
@@ -1354,7 +1365,7 @@ class Coordinator:
                 #    does not call account.risk_manager.approve()). Honour
                 #    smoke-test bypass via _is_test_order semantics.
                 #
-                # Velotrade integration: ``evaluate`` returns a
+                # Prop-risk integration: ``evaluate`` returns a
                 # structured reason on reject (DAILY_LOSS_CAP /
                 # POSITION_SIZE_CAP / INTRADAY_DRAWDOWN /
                 # SKIP_MISSION_MET / SKIP_OVERNIGHT_RESTRICTED /

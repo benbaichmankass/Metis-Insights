@@ -49,7 +49,7 @@ is that EVERY new broker touches each of these.
 2. **Factory** in `src/units/accounts/clients.py::<broker>_client_for(account)`
    — returns the adapter or `None` when creds are missing. Reads from
    `os.environ`; does its own cred validation before constructing the
-   adapter. Mirrors `velotrade_client_for`.
+   adapter. Mirrors `oanda_client_for` / `alpaca_client_for`.
 3. **Integrator entry** in `src/units/accounts/integrator.py` —
    `<Broker>API` class + `EXCHANGE_MAP["<broker>"]` registration.
 4. **Executor branch** in `src/units/accounts/execute.py::_submit_order`
@@ -60,6 +60,11 @@ is that EVERY new broker touches each of these.
    formats.
 5. **Accounts entry** in `config/accounts.yaml` — ships INERT with
    multiple independent gates:
+   - `account_class: paper | real_money` — **REQUIRED** on every account
+     (the paper/real funding category; CI-guarded by
+     `scripts/check_account_class.py`). A new broker is almost always
+     `paper` first (practice/demo venue). Do NOT use `demo: true` to
+     mean "paper" — `demo` is the Bybit-only transport flag.
    - `mode: dry_run` with inline `# dry-run-guard: allow — <reason>`
      marker (CI gate).
    - `strategies: []` (coordinator's per-account filter blocks every

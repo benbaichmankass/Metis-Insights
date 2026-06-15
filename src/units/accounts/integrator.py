@@ -5,8 +5,7 @@ Live exchange clients are injected at runtime; tests use dry-run mode.
 
 Supported exchanges:
   bybit     — Bybit Unified Trading (live + dry-run)
-  breakout  — Breakout prop firm API (deprecated stub; replaced by velotrade)
-  velotrade — Velotrade DXtrade prop firm API (stub; dry-run only)
+  breakout  — Breakout prop firm API (deprecated, inert stub)
   oanda     — OANDA v20 FX/metals (M15 Phase 2; practice host by default)
   alpaca    — Alpaca US stocks/ETFs (M15 Phase 2b; paper host by default)
 """
@@ -46,12 +45,11 @@ class BybitAPI:
 
 
 class BreakoutAPI:
-    """Breakout prop firm API stub — DEPRECATED.
+    """Breakout prop firm API stub — DEPRECATED and inert.
 
-    The platform has been replaced by Velotrade (DXtrade) for the
-    next prop onboarding. Kept as an alias to ``VelotradeAPI`` so any
-    existing fixtures that still reference ``exchange: breakout``
-    continue to load. New configs should use ``exchange: velotrade``.
+    Kept only so any legacy fixture that still references
+    ``exchange: breakout`` continues to load. Dry-run returns a stub
+    trade id; live placement is unsupported.
     """
 
     def __init__(self, api_key_env: str) -> None:
@@ -63,88 +61,8 @@ class BreakoutAPI:
             logger.info("BreakoutAPI DRY-RUN %s → %s", order.symbol, trade_id)
             return trade_id
         raise NotImplementedError(
-            "BreakoutAPI is deprecated; migrate to VelotradeAPI."
+            "BreakoutAPI is deprecated and unsupported for live placement."
         )
-
-
-class VelotradeAPI:
-    """Velotrade DXtrade prop firm API — phase-2 infrastructure.
-
-    Phase-2 (this PR) turns the phase-1 stub into the real
-    integration shape. Live placement is dispatched to an injected
-    :class:`src.units.accounts.dxtrade_client.DXtradeClient` so the
-    code path has the same routing skeleton as the bybit branch.
-    The DXtrade *SDK calls themselves* (HTTP / auth / response
-    parsing) live in :class:`DXtradeClient` and currently raise
-    ``NotImplementedError`` until the operator drops the API
-    contract — the rest of the pipeline (account loader, coordinator
-    routing, executor branch, diagnostic ping) is already wired.
-
-    Live placement preferred path is ``execute_pkg`` from
-    :mod:`src.units.accounts.execute`, which receives the
-    ``DXtradeClient`` from
-    :func:`src.units.accounts.clients.velotrade_client_for`. The bare
-    :meth:`place` here is kept for parity with :class:`BybitAPI` and
-    for legacy callers that still reach into the integrator directly.
-    """
-
-    def __init__(
-        self,
-        api_key_env: str,
-        *,
-        client: object = None,
-    ) -> None:
-        self.api_key_env = api_key_env
-        self._client = client
-
-    def place(
-        self,
-        order: OrderPackage,
-        *,
-        dry_run: bool = True,
-        client: object = None,
-    ) -> str:
-        if dry_run:
-            trade_id = f"dry-velotrade-{uuid.uuid4().hex[:10]}"
-            logger.info("VelotradeAPI DRY-RUN %s → %s", order.symbol, trade_id)
-            return trade_id
-        # Live path — the injected DXtradeClient owns the SDK call.
-        # The executor in src.units.accounts.execute._submit_order
-        # is the canonical caller and already mirrors bybit's
-        # retCode-style error handling. The bare class still raises
-        # if it's invoked without a client (legacy callers).
-        from src.units.accounts.dxtrade_client import (
-            DXtradeClient,
-            MissingCredentialsError,
-        )
-        cli = client or self._client
-        if cli is None:
-            raise MissingCredentialsError(
-                f"VelotradeAPI: live placement requires a DXtradeClient "
-                f"(api_key_env={self.api_key_env!r}); call execute_pkg "
-                f"with exchange_client=velotrade_client_for(account_cfg)."
-            )
-        if not isinstance(cli, DXtradeClient):
-            raise TypeError(
-                f"VelotradeAPI.place: expected DXtradeClient, got "
-                f"{type(cli).__name__}"
-            )
-        side = "Buy" if order.direction == "long" else "Sell"
-        resp = cli.place({
-            "symbol": order.symbol,
-            "side": side,
-            "direction": order.direction,
-            "entry": order.entry,
-            "sl": order.sl,
-            "tp": order.tp,
-            "strategy": order.strategy,
-        }) or {}
-        ret_code = resp.get("retCode")
-        if ret_code in (0, "0", None):
-            order_id = (resp.get("result") or {}).get("orderId")
-            return str(order_id or uuid.uuid4().hex)
-        reason = str(resp.get("retMsg") or f"retCode={ret_code}")
-        raise RuntimeError(f"DXtrade rejected order: {reason}")
 
 
 class AlpacaAPI:
@@ -153,7 +71,7 @@ class AlpacaAPI:
     Live placement is dispatched to an injected
     :class:`src.units.accounts.alpaca_client.AlpacaClient`; the
     canonical caller is ``execute_pkg`` (executor branch mirrors the
-    oanda/velotrade retCode contract).
+    oanda retCode contract).
     """
 
     def __init__(self, api_key_env: str, *, client: object = None) -> None:
@@ -208,9 +126,9 @@ class OandaAPI:
 
     Live placement is dispatched to an injected
     :class:`src.units.accounts.oanda_client.OandaClient`; the canonical
-    caller is ``execute_pkg`` (executor branch mirrors velotrade's
+    caller is ``execute_pkg`` (executor branch mirrors the bybit
     retCode contract). The bare :meth:`place` is kept for parity with
-    :class:`BybitAPI` / :class:`VelotradeAPI`.
+    :class:`BybitAPI`.
     """
 
     def __init__(self, api_key_env: str, *, client: object = None) -> None:
@@ -267,7 +185,6 @@ class OandaAPI:
 EXCHANGE_MAP: dict[str, type] = {
     "bybit": BybitAPI,
     "breakout": BreakoutAPI,
-    "velotrade": VelotradeAPI,
     "oanda": OandaAPI,
     "alpaca": AlpacaAPI,
 }
