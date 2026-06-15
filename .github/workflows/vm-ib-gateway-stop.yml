@@ -49,7 +49,11 @@ name: vm-ib-gateway-stop
 #   shell input, no edits, no deploys.
 #
 # Required repo secrets:  VM_SSH_KEY
-# Optional repo variables: VM_SSH_HOST (default 158.178.210.252), VM_SSH_USER (default ubuntu)
+# Optional repo variables: VM_SSH_HOST (default 141.145.193.91 — the live trader /
+#   money box, where a STRAY gateway would be a problem; override for another
+#   host), VM_SSH_USER (default ubuntu). NOTE: this targets the SSH host directly
+#   (no ProxyJump), so it cleans a stray gateway off a public box — it is NOT the
+#   path to the private dedicated gateway VM (use vm-ib-gateway-recover for that).
 #
 # To use from a sandbox session:
 #   mcp__github__issue_write(method='create',
@@ -84,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 6
     env:
-      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
     steps:
       - name: Set up SSH key
