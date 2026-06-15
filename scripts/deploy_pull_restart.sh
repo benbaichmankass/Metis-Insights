@@ -20,6 +20,23 @@ set -euo pipefail
 REPO_DIR="/home/ubuntu/ict-trading-bot"
 
 # ---------------------------------------------------------------------------
+# Self-heal a non-writable /dev/null BEFORE anything redirects to it.
+#
+# An OS-level host agent on this OCI VM (suspected oracle-cloud-agent
+# oci-wlp / workload-protection FIM) intermittently chmods /dev/null to
+# 0444. That makes every `>/dev/null` EACCES for this NON-root deploy user,
+# so the very next line — the `sudo -n systemctl ... >/dev/null 2>&1` probe —
+# fails and `set -e` aborts the whole deploy. On 2026-06-15 that wedged
+# auto-deploy for ~16h (a merged monitor fix never reached the trader).
+# `[ -w ]` is reliable here because this runs as `ubuntu` (non-root), so it
+# correctly sees the stripped write bit. Best-effort: if sudo can't chmod,
+# the standalone ict-devnull-guard.timer heals it within <=60 s anyway.
+if [ ! -w /dev/null ]; then
+    echo ">>> /dev/null not writable (perms stripped to 0444 by a host agent) — restoring 0666"
+    sudo -n chmod 0666 /dev/null || echo ">>> WARNING: could not chmod /dev/null (ict-devnull-guard.timer will heal it)"
+fi
+
+# ---------------------------------------------------------------------------
 # Detect sudo capability once at startup and build a reusable helper array.
 # Running as root: no sudo needed. Otherwise require NOPASSWD sudo for systemctl.
 # ---------------------------------------------------------------------------

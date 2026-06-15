@@ -157,6 +157,11 @@ jobs:
                 description: 'Triggers vm-fix-devnull — recreate a broken /dev/null char device on the live VM (rm + mknod c 1 3 + chmod 666).',
               },
               {
+                name: 'vm-devnull-deploy-bootstrap',
+                color: 'b60205',
+                description: 'Triggers vm-devnull-deploy-bootstrap — chmod 0666 /dev/null then run the deploy in the same fresh window to install ict-devnull-guard.timer (breaks the auto-deploy chicken-and-egg).',
+              },
+              {
                 name: 'vm-bybit-diag',
                 color: '0e8a16',
                 description: 'Triggers vm-bybit-diag — reproduce the bot bybit_2 authenticated call on the VM (masked key + egress v4/v6) to pinpoint ErrCode 10010.',
