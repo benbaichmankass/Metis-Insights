@@ -117,6 +117,25 @@ jobs:
               print('WALLET-BALANCE ERROR:', repr(ex)[:500])
           PY
           echo
+
+          echo "===== running trader's RUNTIME BYBIT_API_KEY_2 (from /proc/<pid>/environ, MASKED) ====="
+          TPID=$(pgrep -f 'src.main' | head -1)
+          echo "trader pid: ${TPID:-none}"
+          if [ -n "${TPID:-}" ] && [ -r "/proc/$TPID/environ" ]; then
+            RTK=$(tr '\0' '\n' < "/proc/$TPID/environ" | sed -n 's/^BYBIT_API_KEY_2=//p' | head -1)
+            RTT=$(tr '\0' '\n' < "/proc/$TPID/environ" | sed -n 's/^BYBIT_TESTNET=//p' | head -1)
+            if [ -n "$RTK" ]; then
+              echo "runtime BYBIT_API_KEY_2 : ${RTK:0:4}...${RTK: -2} (len ${#RTK})"
+            else
+              echo "runtime BYBIT_API_KEY_2 : NOT in trader environ (would fall through to default/unset)"
+            fi
+            echo "runtime BYBIT_TESTNET   : ${RTT:-(unset)}"
+            echo "(compare the masked head/tail+len against the .env value above — a mismatch == stale in-memory key)"
+          else
+            echo "cannot read /proc/$TPID/environ (perm or no trader process)"
+          fi
+          echo
+
           echo "(done)"
           REMOTE
           echo "exit=$?"
