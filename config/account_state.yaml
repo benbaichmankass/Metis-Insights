@@ -20,11 +20,8 @@
 #                    2026-05-20 — original dry set 2026-05-10 for unfunded
 #                    wallet no longer applies on the demo endpoint.
 #   bybit_2        — LIVE. Linear perps (BTCUSDT), 3x leverage, vwap+ts.
-#   prop_velotrade_1 — not yet connected; dry until hookup confirmed.
 accounts:
   bybit_1:
     dry_run: false
   bybit_2:
     dry_run: false
-  prop_velotrade_1:
-    dry_run: true

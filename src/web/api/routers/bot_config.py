@@ -66,6 +66,9 @@ _HALT_FLAG_PATH = "/tmp/trader_halt.flag"
 _ACCOUNT_PUBLIC_FIELDS = frozenset({
     "type", "exchange", "market_type", "strategies", "symbols", "risk",
     "enabled",
+    # account_class (2026-06-15): the paper/real funding category. Consumers
+    # (dashboard, Android) read the category from here. Not secret-bearing.
+    "account_class",
 })
 
 # Substrings that mark a key as secret-bearing at any depth. Case-

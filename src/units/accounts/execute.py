@@ -473,20 +473,20 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
     """Place the order via the exchange client and return a trade_id."""
     exchange = (account_cfg.get("exchange") or "bybit").lower()
 
-    # Velotrade integration phase-2: dispatch to the injected
-    # DXtradeClient. The bybit branch's retCode-style error handling
-    # is mirrored here so a non-zero retCode surfaces as a RuntimeError
-    # the coordinator's diagnostic-ping wrapper can format. A missing
-    # client (creds env var not set) raises MissingCredentialsError —
-    # the coordinator already treats that as the "account not fully
-    # configured" path and emits a ping naming the missing env var.
-    # The legacy `breakout` exchange stays inert (deprecated alias).
+    # Per-exchange live dispatch. Each broker branch mirrors the bybit
+    # branch's retCode-style error handling so a non-zero retCode
+    # surfaces as a RuntimeError the coordinator's diagnostic-ping
+    # wrapper can format. A missing client (creds env var not set)
+    # raises MissingCredentialsError — the coordinator already treats
+    # that as the "account not fully configured" path and emits a ping
+    # naming the missing env var. The legacy `breakout` exchange is
+    # deprecated and inert.
     if exchange == "alpaca":
         # M15 Phase 2b — Alpaca Trading API (paper first; daily ETF
         # futures-replacements + SPY intraday per the Phase-0 verdict).
         # Bracket market order: SL/TP legs ride WITH the entry so
         # protection is broker-side from the first fill. Same contract
-        # as the oanda/velotrade branches.
+        # as the oanda branch.
         from src.units.accounts.alpaca_client import (
             AlpacaClient,
             MissingCredentialsError as _AlpacaMissingCreds,
@@ -521,8 +521,8 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
         )
     if exchange == "oanda":
         # M15 Phase 2 — OANDA v20 (practice first; XAU/USD per the
-        # Phase-0 verdict). Mirrors the velotrade branch's contract:
-        # missing client → MissingCredentialsError naming the env vars;
+        # Phase-0 verdict). Contract: missing client →
+        # MissingCredentialsError naming the env vars;
         # non-zero retCode → RuntimeError the coordinator's
         # diagnostic-ping wrapper formats. SL/TP ride ON the order
         # (stopLossOnFill / takeProfitOnFill) so protection is
@@ -559,55 +559,13 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
         raise RuntimeError(
             f"OANDA rejected order for {order['symbol']}: {reason}"
         )
-    if exchange == "velotrade":
-        from src.units.accounts.dxtrade_client import (
-            DXtradeClient,
-            MissingCredentialsError,
-        )
-        if client is None:
-            raise MissingCredentialsError(
-                f"velotrade live placement: account "
-                f"'{account_cfg.get('account_id') or 'unknown'}' is not "
-                f"fully configured (no DXtradeClient injected — "
-                f"api_key_env="
-                f"{account_cfg.get('api_key_env', '')!r} likely unset)."
-            )
-        if not isinstance(client, DXtradeClient):
-            raise TypeError(
-                f"velotrade _submit_order: expected DXtradeClient, got "
-                f"{type(client).__name__}"
-            )
-        try:
-            resp = client.place({
-                "symbol": order["symbol"],
-                "side": order["side"],
-                "direction": order.get("direction"),
-                "entry": order.get("entry"),
-                "sl": order.get("sl"),
-                "tp": order.get("tp"),
-                "qty": order["qty"],
-                "strategy": order.get("strategy"),
-            }) or {}
-        except NotImplementedError as exc:
-            raise RuntimeError(
-                f"velotrade _submit_order: DXtrade SDK contract pending — {exc}"
-            ) from exc
-        ret_code = resp.get("retCode")
-        if ret_code in (0, "0", None):
-            order_id = (resp.get("result") or {}).get("orderId")
-            return str(order_id or uuid.uuid4().hex)
-        reason = str(resp.get("retMsg") or f"retCode={ret_code}")
-        raise RuntimeError(
-            f"DXtrade rejected order for {order['symbol']}: {reason}"
-        )
     if exchange == "breakout":
         raise RuntimeError(
-            "breakout exchange is deprecated; migrate the account to "
-            "exchange: velotrade in config/accounts.yaml."
+            "breakout exchange is deprecated and unsupported."
         )
 
     # Interactive Brokers (MES futures via ib_insync). Dispatches to the
-    # injected IBClient, mirroring the velotrade branch's retCode-style
+    # injected IBClient, mirroring the other broker branches' retCode-style
     # contract so a non-zero retCode surfaces as a RuntimeError the
     # coordinator's diagnostic-ping wrapper can format. A missing client
     # (Gateway unreachable or connection params unset) raises
@@ -929,7 +887,18 @@ def _log_trade_to_journal(
         # ``_resolve_linked_package_id``), and also fed to the
         # primary-leg ``linked_trade_id`` update below.
         pkg_id = (pkg.meta or {}).get("order_package_id")
-        is_demo_account = bool(account_cfg.get("demo", False))
+        # Paper-vs-real-money CATEGORY from account_class (the single source
+        # of truth for the paper/real reporting axis). Coerce an invalid /
+        # missing value to "real_money" so a config typo never silently
+        # mis-stamps a row. ``is_demo`` is kept in sync (= paper) for
+        # back-compat with consumers that haven't moved to account_class.
+        # NOTE: this is distinct from account_cfg["demo"] (Bybit-transport
+        # endpoint flag) — a real-money Bybit account never carries demo,
+        # and bybit_1 is account_class:paper AND demo:true.
+        account_class = str(account_cfg.get("account_class") or "real_money").strip().lower()
+        if account_class not in ("paper", "real_money"):
+            account_class = "real_money"
+        is_paper_account = (account_class == "paper")
         trade_row_id = db.insert_trade({
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "symbol": pkg.symbol,
@@ -942,7 +911,8 @@ def _log_trade_to_journal(
             "entry_reason": entry_reason[:500],
             "status": status,
             "is_backtest": 0,
-            "is_demo": int(is_demo_account),
+            "account_class": account_class,
+            "is_demo": int(is_paper_account),
             "strategy_name": pkg.strategy,
             "account_id": str(
                 account_cfg.get("account_id") or account_cfg.get("id") or "unknown"
@@ -973,7 +943,7 @@ def _log_trade_to_journal(
             status == "open"
             and trade_row_id is not None
             and not intent_reduce
-            and not is_demo_account
+            and not is_paper_account
         )
         if is_primary_entry and pkg_id:
             try:

@@ -198,6 +198,7 @@ def test_positions_returns_open_trade_against_canonical_schema(
         "takeProfit": None,
         "pattern": None,
         "isDemo": False,  # 2026-06-04 reporting-cleanup
+        "accountClass": "real_money",  # account_class convention (2026-06-15)
     }
 
 

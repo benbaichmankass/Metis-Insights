@@ -26,6 +26,34 @@
 # the Telegram /accounts command flips it at runtime via
 # `set_account_dry_run()`.
 #
+# ------------------------------------------------------------------
+# account_class — the paper-vs-real-money FUNDING CATEGORY (REQUIRED).
+# ------------------------------------------------------------------
+#   `account_class: paper | real_money`  — what KIND of money this
+#     account trades. This is the SINGLE SOURCE OF TRUTH for the
+#     paper/real reporting axis: it cascades into the
+#     `trades.account_class` DB column and the dashboard/Android
+#     `accountClass` field, and drives every "real-money only"
+#     aggregate (stats / pnl-history / performance) and the
+#     `include_paper` API filter. REQUIRED on every account; a CI
+#     guard (scripts/check_account_class.py) fails the build if any
+#     account omits it or sets an inconsistent value.
+#
+#   This axis is ORTHOGONAL to `mode:` (the technical execution gate):
+#     * A paper account is normally `mode: live` — it trades paper
+#       money against the broker's paper/demo venue (bybit_1 demo,
+#       ib_paper, oanda_practice, alpaca_paper).
+#     * A real-money account can be `mode: dry_run` — held safe with
+#       no orders sent (ib_live).
+#   So `account_class` answers "real or paper money?" and `mode:`
+#   answers "are we actually sending orders?" — independently.
+#
+#   `demo: true` is NOT the category. It is a Bybit-ONLY TRANSPORT flag
+#   that selects the api-demo.bybit.com endpoint (bybit_client_for()
+#   passes demo=True to pybit). Only bybit_1 carries it. Do not use
+#   `demo:` to mean "paper" on any non-Bybit account — use
+#   `account_class: paper` instead.
+#
 # Bybit V5 category routing (operator directives 2026-05-06 + 2026-05-10):
 #   `market_type: spot`         → Bybit spot cash market (place_order
 #                                 category="spot", marketUnit="baseCoin").
@@ -85,6 +113,8 @@ accounts:
   bybit_1:
     type: regular
     exchange: bybit
+    account_class: paper               # paper money (Bybit demo venue). The
+                                       # funding category — orthogonal to mode.
     api_key_env: BYBIT_API_KEY_1       # env var holding the actual key
     demo: true                         # Bybit demo trading endpoint
                                        # (https://api-demo.bybit.com).
@@ -206,6 +236,7 @@ accounts:
   bybit_2:
     type: regular
     exchange: bybit
+    account_class: real_money          # REAL MONEY (Bybit mainnet). Funding category.
     api_key_env: BYBIT_API_KEY_2
     mode: live                         # see header — ONLY dry/live toggle
     market_type: linear                # PR 3 — Bybit V5 USDT-margined
@@ -246,66 +277,6 @@ accounts:
       # restart the trader; the set-leverage call will apply the new
       # value at boot.
       leverage: 3
-
-  # prop_velotrade_1: NOT FULLY CONFIGURED — Velotrade DXtrade prop firm
-  # scaffold. Phase-2 (this commit) wires the integration infrastructure
-  # (DXtradeClient + velotrade_client_for + executor branch + coordinator
-  # routing) but no specific live account is hooked up yet. The account
-  # loads with ``configured: False`` because the env-var creds aren't
-  # set, exists in /accounts_status so the operator can see it, and
-  # any live action against it refuses + emits a diagnostic ping naming
-  # the missing env var.
-  #
-  # Strategies list is intentionally empty so the coordinator's
-  # ``account.strategies`` filter never routes a real signal here even
-  # if creds get added before the operator is ready to trade.
-  #
-  # Hookup checklist (operator):
-  #   1. Drop the DXtrade API contract under docs/integrations/ and
-  #      fill in the four ``NotImplementedError`` method bodies in
-  #      src/units/accounts/dxtrade_client.py (``place``, ``cancel``,
-  #      ``status``, ``balance``).
-  #   2. Provision VELOTRADE_API_KEY_1 + VELOTRADE_API_SECRET_1 on the
-  #      VM via notebooks/operator/rotate_api_keys.ipynb.
-  #   3. Set VELOTRADE_BASE_URL (or ``base_url:`` here) to the
-  #      sandbox / prod URL from the contract.
-  #   4. Add the assigned strategies (e.g. ``strategies: [vwap]``) so
-  #      the coordinator's per-account filter routes signals here.
-  #
-  # See docs/claude/prop-account-state.md for the full state-machine
-  # reference (evaluation vs funded, mission predicates, time windows).
-  prop_velotrade_1:
-    type: prop
-    exchange: velotrade
-    api_key_env: VELOTRADE_API_KEY_1
-    mode: dry_run                      # SDK contract not yet wired (see hookup checklist below)
-    strategies: []                     # empty: belt-and-braces — even
-                                       # if creds land before strategies
-                                       # are assigned, the per-account
-                                       # filter blocks any live signal.
-
-    # PropRiskManager-specific — drives the mission gate.
-    account_state: evaluation          # 'evaluation' | 'funded'
-    phase_requirements:
-      target_profit_pct: 0.05          # +5% to clear the evaluation
-      min_active_days: 4               # min trading days before pass
-      min_daily_profit_pct: 0.005      # informational (v1: not gated)
-    prop_state:                        # in-process counters seeded here
-      cumulative_pnl_pct: 0.0
-      active_days: 0
-      entry_date: null
-
-    # Overnight + weekend restrictions (UTC). Default window 22:00→06:00.
-    overnight_restricted: true
-    overnight_window: [22, 6]
-    weekend_restricted: true
-
-    risk:
-      max_dd_pct: 0.02                 # stricter: 2% max drawdown
-      daily_usd: 50                    # stricter: $50 max daily loss
-      pos_size: 200                    # stricter: $200 max position
-      risk_pct: 0.005                  # half-rate per trade for prop
-      min_balance_usd: 50
 
   # ------------------------------------------------------------------
   # Interactive Brokers — MES (Micro E-mini S&P 500) futures via CME.
@@ -358,6 +329,10 @@ accounts:
   ib_paper:
     type: regular
     exchange: interactive_brokers
+    account_class: paper               # PAPER money (IB paper gateway, port 4002).
+                                       # Fixes the pre-2026-06-15 bug where ib_paper
+                                       # carried no category stamp, so its paper
+                                       # trades were journaled is_demo=0 (real money).
     mode: live                         # IB paper gateway — paper money (see header)
     market_type: futures
     ib_host: 10.0.0.251                # DEDICATED IB-Gateway VM (ict-ib-gateway)
@@ -406,6 +381,9 @@ accounts:
   ib_live:
     type: regular
     exchange: interactive_brokers
+    account_class: real_money          # REAL MONEY (IB live gateway, port 7496).
+                                       # Held mode: dry_run — category is real even
+                                       # while the execution gate keeps it safe.
     mode: dry_run                      # dry-run-guard: allow — new IB real-money
                                        # account, intentionally held dry until
                                        # separately promoted (see header)
@@ -446,6 +424,9 @@ accounts:
   # (stopLossOnFill/takeProfitOnFill) so protection is broker-side.
   oanda_practice:
     exchange: oanda
+    account_class: paper               # PAPER money (OANDA practice host). Supersedes
+                                       # the old `demo: true` stamp (non-Bybit, so demo
+                                       # was only the category marker — now account_class).
     mode: dry_run                      # dry-run-guard: allow — operator-approved
                                        # shelve 2026-06-12 (set-account-mode
                                        # #3446). Gold is
@@ -458,8 +439,6 @@ accounts:
                                        # tradeable instrument before flipping
                                        # back to live. Mirrors the VM so deploys
                                        # don't revert it.
-    demo: true                         # practice account = paper money; trade rows
-                                       # stamp is_demo like bybit_1.
     strategies:
       - xauusd_trend_1h                # M15 Phase 3. NOTE execution: live (field
                                        # in strategies.yaml, promoted 2026-06-11)
@@ -492,13 +471,13 @@ accounts:
   # request) so protection is broker-side from the first fill.
   alpaca_paper:
     exchange: alpaca
+    account_class: paper               # PAPER money (Alpaca paper host). Supersedes
+                                       # the old `demo: true` stamp (non-Bybit).
     mode: live                         # PAPER host = paper money. Flipped via
                                        # the set-account-mode action 2026-06-11
                                        # (#3339, operator-approved "go live on
                                        # practice"); this line mirrors the VM so
                                        # deploys don't revert it.
-    demo: true                         # paper account = paper money; trade rows
-                                       # stamp is_demo like bybit_1 / oanda_practice.
     strategies:                        # M15 Phase 4 buildout (Tier-3,
       - spy_trend_long_1d              # operator-approved 2026-06-11 "go live
       - qqq_trend_long_1d              # on practice"): the daily ETF

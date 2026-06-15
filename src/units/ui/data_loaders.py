@@ -1101,7 +1101,7 @@ def recent_trades_for(account: Dict[str, Any], n: int = 5) -> List[Dict[str, Any
 #     account_mode_dry_run, DAILY_LOSS_CAP, POSITION_SIZE_CAP,
 #     INTRADAY_DRAWDOWN.
 #   - ``exchange_rejected``  — exchange-side error (PR #357 / CP-14):
-#     Bybit retCode != 0, DXtrade NotImplementedError, missing creds.
+#     Bybit retCode != 0, broker rejection, missing creds.
 #   - ``rejected_too_small`` — pre-existing smoke-test status set by
 #     ``scripts/smoke_test_trade.py`` when Bybit returns
 #     ``ErrCode: 10001`` ("contracts below minimum"). These are
@@ -1130,7 +1130,7 @@ def recent_rejections(n: int = 10) -> List[Dict[str, Any]]:
     Includes BOTH ``status='rejected'`` (RiskManager refusals —
     ``account_mode_dry_run``, ``DAILY_LOSS_CAP``, ``POSITION_SIZE_CAP``,
     ``INTRADAY_DRAWDOWN``) AND ``status='exchange_rejected'`` (Bybit
-    retCode != 0, DXtrade ``NotImplementedError``,
+    retCode != 0, broker rejection,
     ``MissingCredentialsError``, ``RuntimeError("Account is paused …")``).
 
     Newest first. Returns ``[]`` on any error.

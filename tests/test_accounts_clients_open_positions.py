@@ -173,8 +173,8 @@ def test_exchange_exception_returns_none_and_reports(bybit_account):
 
 def test_unsupported_exchange_returns_none():
     out = account_open_positions({
-        "account_id": "vt1",
-        "exchange": "velotrade",
+        "account_id": "x1",
+        "exchange": "not_a_real_exchange",
     })
     assert out is None
 

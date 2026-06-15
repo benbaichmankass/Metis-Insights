@@ -3,7 +3,7 @@
 Real REST integration for the OANDA practice/live API (the Phase-0
 verdict's first wire: XAU/USD; docs/research/m15-phase0-results-2026-06-10.md).
 Mirrors the contract the executor/coordinator already speak (the
-DXtrade/velotrade shape): ``place()`` returns a retCode-style envelope,
+bybit retCode-style shape): ``place()`` returns a retCode-style envelope,
 missing creds raise :class:`MissingCredentialsError` naming the env var
 (never the value), and the factory (`clients.oanda_client_for`) returns
 ``None`` when creds are absent so the account loads as
