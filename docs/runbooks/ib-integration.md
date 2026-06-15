@@ -34,6 +34,15 @@ account code. Because there is no `api_key_env`, IB accounts always load
 directive). Promoting `ib_live` to live money is a Tier-3 change via the
 `set-account-mode` operator action — never an inline YAML edit on `main`.
 
+> **Before `ib_live` can trade, the live *login* must work headlessly — and as
+> of 2026-06-15 it does NOT.** The bot user's IB Key 2FA is in
+> challenge/response mode (Seamless Authentication OFF), so a headless live login
+> hangs at "Authenticating…" with no push. Paper is 2FA-exempt and unaffected.
+> The fix (enable Seamless push for the bot user) + the read-only validation
+> tooling (`vm-ib-gateway-live-login-test`) are documented in
+> [`docs/runbooks/ib-live-login-2fa.md`](ib-live-login-2fa.md) (tracked:
+> `BL-20260615-IBLIVE-2FA`).
+
 **Activation is config-driven — there is no enable flag.** MES trades
 simply because `ib_paper` is configured (IB needs no creds) with
 `mode: live`, a non-empty `strategies` list, and `symbols: [MES]`. The
