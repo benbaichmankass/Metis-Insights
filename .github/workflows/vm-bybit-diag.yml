@@ -1,0 +1,139 @@
+name: vm-bybit-diag
+# One-shot decisive diagnostic for the bybit_2 ErrCode 10010 ("Unmatched IP")
+# that persists even though the egress IP (141.145.193.91) is bound on the keys.
+#
+# Reproduces the bot's OWN authenticated wallet-balance call for bybit_2 on the
+# live VM with its real creds, and reports (no secrets leave the VM):
+#   - the egress IP over IPv4 AND IPv6 (an IPv6 egress vs an IPv4-only allowlist
+#     is a classic 10010 cause),
+#   - getaddrinfo order for api.bybit.com (does the Python stack prefer IPv6?),
+#   - the MASKED bybit_2 API key (first4...last2 + length) so the operator can
+#     match it against the keys in the Bybit console,
+#   - the actual retCode/retMsg (10010 reproduced, or success),
+#   - the names (not values) of every BYBIT_* var in .env (reveals a stray key).
+#
+# Read-only: a wallet-balance GET, no order/mutation. NO '2>/dev/null' anywhere —
+# /dev/null on this VM is a broken root-owned file (BL: surfaced 2026-06-15).
+#
+# Trigger: workflow_dispatch, or an issue labeled `vm-bybit-diag`.
+# Secrets: VM_SSH_KEY. Result posted as an issue comment.
+
+on:
+  workflow_dispatch:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vm-bybit-diag
+  cancel-in-progress: false
+
+jobs:
+  diag:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'vm-bybit-diag'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+    steps:
+      - name: Dedup — bail if a bot comment already exists
+        if: github.event_name == 'issues'
+        id: dedup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, per_page: 100,
+            });
+            core.setOutput('skip',
+              comments.some(c => c.user && c.user.login === 'github-actions[bot]') ? 'true' : 'false');
+
+      - name: Set up SSH key
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          [ -z "${VM_SSH_KEY}" ] && { echo "::error::VM_SSH_KEY unset"; exit 1; }
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Reproduce bybit_2 auth call + egress check
+        if: steps.dedup.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 "${VM_SSH_USER}@${VM_SSH_HOST}" 'bash -s' > vm_bybit.txt 2>&1 <<'REMOTE'
+          set +e
+          cd /home/ubuntu/ict-trading-bot || cd /opt/ict-trading-bot || exit 9
+          PY=.venv/bin/python3; [ -x "$PY" ] || PY=python3
+
+          echo "===== egress IP (v4 then v6) ====="
+          echo "v4: $(curl -4 -sS --max-time 8 https://api.ipify.org || echo none)"
+          echo "v6: $(curl -6 -sS --max-time 8 https://api6.ipify.org || echo none)"
+          echo
+
+          echo "===== getaddrinfo api.bybit.com (resolution order the bot's stack sees) ====="
+          "$PY" -c "import socket; print(chr(10).join(sorted(set(('v6' if f==socket.AF_INET6 else 'v4')+' '+sa[0] for f,*_,sa in socket.getaddrinfo('api.bybit.com',443,type=socket.SOCK_STREAM)))))" 2>&1
+          echo
+
+          echo "===== BYBIT_* var NAMES in .env (names only) ====="
+          ENVF=.env; [ -f "$ENVF" ] || ENVF=/home/ubuntu/ict-trading-bot/.env
+          grep -oE '^[[:space:]]*BYBIT_[A-Z0-9_]+' "$ENVF" | tr -d ' ' | sort -u || echo "(no .env / no BYBIT_ vars)"
+          echo
+
+          echo "===== reproduce bybit_2 authenticated wallet-balance (real creds, MASKED) ====="
+          "$PY" - <<'PY' 2>&1
+          from pathlib import Path
+          def load_env(p):
+              d={}
+              for line in Path(p).read_text().splitlines():
+                  line=line.strip()
+                  if not line or line.startswith('#') or '=' not in line: continue
+                  k,_,v=line.partition('='); d[k.strip()]=v.strip().strip('"').strip("'")
+              return d
+          envp='.env' if Path('.env').exists() else '/home/ubuntu/ict-trading-bot/.env'
+          e=load_env(envp)
+          def mask(s): return (s[:4]+'...'+s[-2:]+' (len '+str(len(s))+')') if s and len(s)>8 else ('EMPTY' if not s else 'SHORT len'+str(len(s)))
+          k=e.get('BYBIT_API_KEY_2',''); s=e.get('BYBIT_API_SECRET_2','')
+          print('env file        :', envp)
+          print('BYBIT_API_KEY_2 :', mask(k))
+          print('SECRET_2 present:', bool(s), '| BYBIT_TESTNET:', e.get('BYBIT_TESTNET','(unset)'))
+          try:
+              from pybit.unified_trading import HTTP
+              cl=HTTP(testnet=False, api_key=k, api_secret=s)
+              r=cl.get_wallet_balance(accountType='UNIFIED')
+              print('WALLET-BALANCE  : retCode=%s retMsg=%s' % (r.get('retCode'), r.get('retMsg')))
+          except Exception as ex:
+              print('WALLET-BALANCE ERROR:', repr(ex)[:500])
+          PY
+          echo
+          echo "(done)"
+          REMOTE
+          echo "exit=$?"
+
+      - name: Post result to issue
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let out = '(no output)';
+            try { out = fs.readFileSync('vm_bybit.txt','utf8'); } catch {}
+            const body = ['**vm-bybit-diag** result', '', '```', out.slice(0,6000), '```'].join('\n');
+            await github.rest.issues.createComment({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,body});
+            await github.rest.issues.update({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,state:'closed'});
+
+      - name: Summary (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch' && steps.dedup.outputs.skip != 'true'
+        run: |
+          { echo '```'; cat vm_bybit.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
