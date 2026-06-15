@@ -136,6 +136,30 @@ jobs:
           fi
           echo
 
+          echo "===== ALL processes carrying BYBIT_API_KEY_2 (masked key + cmd) — find the STALE one ====="
+          for pe in /proc/[0-9]*/environ; do
+            pid=$(echo "$pe" | sed 's#/proc/##; s#/environ##')
+            [ -r "$pe" ] || continue
+            k=$(tr '\0' '\n' < "$pe" 2>&1 | sed -n 's/^BYBIT_API_KEY_2=//p' | head -1)
+            [ -n "$k" ] || continue
+            cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>&1 | cut -c1-90)
+            mk="${k:0:4}...${k: -2} (len ${#k})"
+            # mark whether this pid's key differs from the .env key head/tail
+            echo "pid=$pid key=$mk  cmd=$cmd"
+          done
+          echo "(any 'key=' line whose head/tail+len differs from the .env BYBIT_API_KEY_2 above is the STALE process emitting 10010)"
+          echo
+
+          echo "===== recent bybit api_call failures (outcomes.jsonl tail, last 15 matching) ====="
+          OJ=runtime_logs/outcomes.jsonl
+          [ -f "$OJ" ] || OJ=/data/bot-data/runtime_logs/outcomes.jsonl
+          if [ -f "$OJ" ]; then
+            grep -aE 'bybit|10010|wallet_balance|Unmatched' "$OJ" 2>&1 | tail -15 | cut -c1-300
+          else
+            echo "(no outcomes.jsonl found at runtime_logs/ or /data/bot-data/runtime_logs/)"
+          fi
+          echo
+
           echo "(done)"
           REMOTE
           echo "exit=$?"
