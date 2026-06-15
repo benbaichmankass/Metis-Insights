@@ -93,6 +93,7 @@ on:
           - mark-reconciler-incomplete
           - rebuild-pnl-from-bybit
           - backfill-shadow-predictions
+          - backfill-account-class
           - inspect-closed-pnl
           - bybit-account-audit
           - strategy-performance-audit
@@ -559,6 +560,7 @@ jobs:
             revert-backfill-monitor-closed-pnl) SCRIPT="revert_backfill_monitor_closed_pnl_action.sh" ;;
             rebuild-pnl-from-bybit)             SCRIPT="rebuild_pnl_from_bybit_action.sh" ;;
             backfill-shadow-predictions)        SCRIPT="backfill_shadow_predictions_action.sh" ;;
+            backfill-account-class)             SCRIPT="backfill_account_class_action.sh" ;;
             inspect-closed-pnl)                 SCRIPT="inspect_closed_pnl_action.sh" ;;
             bybit-account-audit)                SCRIPT="bybit_account_audit_action.sh" ;;
             strategy-performance-audit)         SCRIPT="strategy_performance_audit_action.sh" ;;
