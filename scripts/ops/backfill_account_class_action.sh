@@ -16,7 +16,9 @@
 #                            keeps is_demo in sync (= paper).
 #
 # Idempotent: re-running once every row already carries the correct
-# account_class is a no-op (0 changes). Does NOT restart any service.
+# account_class is a no-op (0 changes). Does NOT restart any service. The
+# Python helper self-ensures the account_class column (idempotent ALTER),
+# so this wrapper needs no sqlite3 CLI (which isn't on the live VM PATH).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -40,30 +42,21 @@ if [ ! -f "${DB_PATH}" ]; then
     exit 1
 fi
 
-# Defensive column-ensure. The deployed code adds account_class lazily on
-# Database() init (create_tables → _migrate_add_account_class), so after a
-# normal deploy+restart the column already exists. But if this action runs
-# before the trader/web-api has re-initialised, the helper's SELECT would
-# fail — so add the column here, idempotently, first. (ALTER TABLE ... ADD
-# COLUMN has no IF NOT EXISTS in SQLite, hence the PRAGMA guard.)
-has_col="$(sqlite3 "${DB_PATH}" \
-    "SELECT COUNT(*) FROM pragma_table_info('trades') WHERE name='account_class';" \
-    2>/dev/null || echo "?")"
-if [ "${has_col}" = "0" ]; then
-    log "account_class column absent — adding it (idempotent migration)."
-    sqlite3 "${DB_PATH}" "ALTER TABLE trades ADD COLUMN account_class TEXT;" || {
-        log "ERROR: failed to add account_class column."
-        record_audit "backfill-account-class" "error" \
-            "{\"reason\": \"alter failed\"}" >/dev/null || true
-        exit 1
-    }
-elif [ "${has_col}" != "1" ]; then
-    log "WARN: could not confirm account_class column presence (sqlite3 returned '${has_col}'); proceeding — the helper will error cleanly if it's truly absent."
-fi
+# NULL-account_class count via the python sqlite3 module (NOT the sqlite3
+# CLI, which isn't on PATH). Best-effort: prints "?" on any error. The
+# column may not exist yet on a brand-new DB; treat that as "all NULL".
+_null_count() {
+    python3 - "${DB_PATH}" <<'PY' 2>/dev/null || echo "?"
+import sqlite3, sys
+con = sqlite3.connect(sys.argv[1])
+cols = {r[1] for r in con.execute("PRAGMA table_info(trades)")}
+if "account_class" not in cols:
+    print(con.execute("SELECT COUNT(*) FROM trades").fetchone()[0]); sys.exit()
+print(con.execute("SELECT COUNT(*) FROM trades WHERE account_class IS NULL").fetchone()[0])
+PY
+}
 
-# Pre-snapshot: rows still missing a category (NULL account_class).
-pre_null="$(sqlite3 "${DB_PATH}" \
-    "SELECT COUNT(*) FROM trades WHERE account_class IS NULL;" 2>/dev/null || echo "?")"
+pre_null="$(_null_count)"
 log "Rows with NULL account_class (pre-backfill): ${pre_null}"
 
 echo
@@ -86,11 +79,8 @@ TRADE_JOURNAL_DB="${DB_PATH}" python3 "${PY_SCRIPT}" --apply
 apply_code=$?
 set -e
 
-post_null="$(sqlite3 "${DB_PATH}" \
-    "SELECT COUNT(*) FROM trades WHERE account_class IS NULL;" 2>/dev/null || echo "?")"
-post_paper="$(sqlite3 "${DB_PATH}" \
-    "SELECT COUNT(*) FROM trades WHERE account_class='paper';" 2>/dev/null || echo "?")"
-log "Post-backfill: NULL account_class=${post_null}, paper rows=${post_paper}"
+post_null="$(_null_count)"
+log "Post-backfill: NULL account_class=${post_null}"
 
 if [ "${apply_code}" -ne 0 ]; then
     record_audit "backfill-account-class" "failed" \
@@ -101,7 +91,7 @@ if [ "${apply_code}" -ne 0 ]; then
 fi
 
 record_audit "backfill-account-class" "ok" \
-    "{\"pre_null\": \"${pre_null}\", \"post_null\": \"${post_null}\", \"post_paper\": \"${post_paper}\"}" \
+    "{\"pre_null\": \"${pre_null}\", \"post_null\": \"${post_null}\"}" \
     >/dev/null || true
-log "Backfill complete. NULL account_class ${pre_null} → ${post_null}; paper rows now ${post_paper}."
+log "Backfill complete. NULL account_class ${pre_null} → ${post_null}."
 exit 0

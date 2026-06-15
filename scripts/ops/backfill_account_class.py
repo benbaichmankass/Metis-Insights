@@ -56,13 +56,18 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-# Account ids that no longer exist in accounts.yaml but were PAPER money
-# historically. Absent ids otherwise default to real_money (the safe
-# assumption for a removed real-money account). Currently empty: every
-# current paper account still exists in the YAML, so nothing needs a
-# manual override. Add ``"<account_id>": "paper"`` here only if a paper
-# account is ever removed from the YAML while its rows remain.
-_HISTORICAL_CLASS_OVERRIDES: Dict[str, str] = {}
+# Account ids that no longer exist in accounts.yaml but should be pinned to
+# a known class. Absent ids otherwise default to real_money (the safe
+# assumption for a removed real-money account). These two legacy prop
+# scaffolds were NEVER the operator's real money — prop_velotrade_1 was
+# `mode: dry_run` and never funded (purged 2026-06-15); prop_breakout_1 used
+# the deprecated `breakout` exchange — so their historical rows are pinned to
+# `paper` to keep real-money aggregates clean. Add ``"<account_id>": "paper"``
+# here when a paper account is removed from the YAML while its rows remain.
+_HISTORICAL_CLASS_OVERRIDES: Dict[str, str] = {
+    "prop_velotrade_1": "paper",
+    "prop_breakout_1": "paper",
+}
 
 _VALID_CLASSES = frozenset({"paper", "real_money"})
 
@@ -103,6 +108,15 @@ def plan_and_apply(
     conn.row_factory = sqlite3.Row
     try:
         cur = conn.cursor()
+        # Self-sufficient column-ensure: normally the deployed migration
+        # (_migrate_add_account_class) has already added the column on a
+        # service restart, but make the script robust when run standalone
+        # (idempotent — ALTER ... ADD COLUMN has no IF NOT EXISTS in SQLite,
+        # hence the PRAGMA guard). Removes the wrapper's dependence on the
+        # sqlite3 CLI, which isn't on the live VM's PATH.
+        existing_cols = {r[1] for r in cur.execute("PRAGMA table_info(trades)")}
+        if "account_class" not in existing_cols:
+            cur.execute("ALTER TABLE trades ADD COLUMN account_class TEXT")
         cur.execute(
             "SELECT id, account_id, account_class, COALESCE(is_demo, 0) AS is_demo "
             "FROM trades"

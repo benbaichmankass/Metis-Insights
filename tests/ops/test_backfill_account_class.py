@@ -152,3 +152,52 @@ def test_absent_account_defaults_real_money(tmp_path):
     # real_money, is_demo cleared to 0.
     assert rows[0]["account_class"] == "real_money"
     assert rows[0]["is_demo"] == 0
+
+
+def test_historical_override_pins_legacy_prop_to_paper(tmp_path):
+    """Legacy prop scaffolds absent from the YAML but in the override set
+    resolve to paper, not the real_money default (keeps real-money
+    aggregates clean)."""
+    mod = _load_module()
+    db = tmp_path / "j.db"
+    conn = sqlite3.connect(str(db))
+    conn.execute(
+        "CREATE TABLE trades (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "account_id TEXT, is_demo INTEGER DEFAULT 0, account_class TEXT)"
+    )
+    conn.executemany(
+        "INSERT INTO trades (account_id, is_demo, account_class) VALUES (?, ?, ?)",
+        [("prop_velotrade_1", 0, None), ("prop_breakout_1", 0, None)],
+    )
+    conn.commit()
+    conn.close()
+    class_map = mod.build_class_map(_make_accounts_yaml(tmp_path / "accounts.yaml"))
+    assert class_map["prop_velotrade_1"] == "paper"
+    assert class_map["prop_breakout_1"] == "paper"
+
+    mod.plan_and_apply(db, class_map, apply=True)
+    for r in _rows(db):
+        assert r["account_class"] == "paper"
+        assert r["is_demo"] == 1
+
+
+def test_plan_and_apply_adds_missing_account_class_column(tmp_path):
+    """Self-sufficient: a DB whose trades table predates the column gets it
+    added (idempotent ALTER) rather than erroring on the SELECT."""
+    mod = _load_module()
+    db = tmp_path / "j.db"
+    conn = sqlite3.connect(str(db))
+    # NOTE: no account_class column on this table.
+    conn.execute(
+        "CREATE TABLE trades (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "account_id TEXT, is_demo INTEGER DEFAULT 0)"
+    )
+    conn.execute("INSERT INTO trades (account_id, is_demo) VALUES ('ib_paper', 0)")
+    conn.commit()
+    conn.close()
+    class_map = mod.build_class_map(_make_accounts_yaml(tmp_path / "accounts.yaml"))
+
+    mod.plan_and_apply(db, class_map, apply=True)
+    rows = _rows(db)  # selects account_class — proves the column now exists
+    assert rows[0]["account_class"] == "paper"
+    assert rows[0]["is_demo"] == 1
