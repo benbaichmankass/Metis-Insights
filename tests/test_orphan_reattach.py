@@ -151,13 +151,15 @@ def test_self_heal_reattaches_existing_orphan_adopt_row(tmp_path: Path):
 
 
 def test_self_heal_skips_unrecoverable_orphan(tmp_path: Path):
-    """No recoverable package → the orphan_adopt row is left untouched (it
-    keeps surfacing as an orphan rather than being mis-attributed)."""
+    """No recoverable package → ``_reattach_adopted_orphans`` leaves the row
+    untouched (reattach-only). The flatten of a still-alive un-attributable
+    orphan happens in the per-account pass — see test_reverse_reconciler.py."""
     db = _db(tmp_path)
     tid = _orphan_adopt_trade(db)
     summary: dict = {}
     _reattach_adopted_orphans(db, summary)
     assert _trade_row(db, tid)["strategy_name"] == "orphan_adopt"
+    assert _trade_row(db, tid)["status"] == "open"
     assert summary.get("reattached_existing", 0) == 0
 
 

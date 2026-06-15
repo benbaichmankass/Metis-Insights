@@ -91,13 +91,19 @@ These were the legacy switches; **none remain in the codebase**:
 S-067 follow-up #4 (`docs/audits/env-gate-purge-2026-05-10.md`)
 audited every `MULTI_ACCOUNT_*`, `MONITOR_*`, `DISPATCH_*`,
 `*_APPLY_TO_*`, `*_DRY_*`, `*_ENABLED` site under `src/`. Only
-two survive, both with explicit operational purposes that **cannot
+one survives, with an explicit operational purpose that **cannot
 suppress live exchange writes**:
 
 | Env var | File:line | Default | Purpose |
 |---|---|---|---|
 | `MULTI_ACCOUNT_DISPATCH` | `src/runtime/pipeline.py:194` | `true` | Operator escape hatch — pin to legacy single-client path for single-account smoke deployments that don't load Coordinator. **Both branches route through `RiskManager.evaluate`**, so flipping this does not bypass the live/dry contract. |
-| `MONITOR_RECONCILE_ENABLED` | `src/runtime/order_monitor.py:680` | `false` | SSOT-from-Bybit reconciler gate (issue #502). Default off — explicit operator opt-in for the post-S-055 reconciler. **Reads only**, no order placement. |
+
+The second survivor — `MONITOR_RECONCILE_ENABLED` (`order_monitor.py`),
+the SSOT-from-Bybit reconciler gate — was **removed 2026-06-15**
+(BL-20260615-MGCNAKED): the gate is gone and the monitor reconciler /
+self-heal now runs unconditionally on every tick (baseline correctness,
+not a feature flag). It was reads-only and never placed orders, so its
+removal does not touch the live/dry contract.
 
 Both are documented in the audit. The phase-2 follow-up PR (Tier 2,
 operator-ack required) will add inline `# allow-silent: …`
