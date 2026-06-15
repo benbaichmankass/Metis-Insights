@@ -124,9 +124,15 @@ jobs:
           echo
 
           echo "===== PUBLIC EGRESS IP (what Bybit + the internet see for OUTBOUND from this VM) ====="
-          echo "ipify:    $(curl -sS --max-time 8 https://api.ipify.org 2>/dev/null || echo '(failed)')"
-          echo "ifconfig: $(curl -sS --max-time 8 https://ifconfig.me 2>/dev/null || echo '(failed)')"
-          echo "aws:      $(curl -sS --max-time 8 https://checkip.amazonaws.com 2>/dev/null || echo '(failed)')"
+          # NOTE: NO '2>/dev/null' here — /dev/null on this VM is a broken root-owned
+          # regular file (Permission denied), which silently killed the first probe.
+          # The SSH-level '2>&1' already captures stderr.
+          echo "ipify:    $(curl -sS --max-time 8 https://api.ipify.org || echo '(failed)')"
+          echo "ifconfig: $(curl -sS --max-time 8 https://ifconfig.me || echo '(failed)')"
+          echo "aws:      $(curl -sS --max-time 8 https://checkip.amazonaws.com || echo '(failed)')"
+          echo "icanhazip:$(curl -sS --max-time 8 https://icanhazip.com || echo '(failed)')"
+          echo "dns-opendns: $(dig +short +time=5 myip.opendns.com @resolver1.opendns.com || echo '(failed)')"
+          echo "bybit-reach: $(curl -sS --max-time 8 -w ' [http=%{http_code} remote_ip=%{remote_ip}]' https://api.bybit.com/v5/market/time || echo '(failed)')"
           echo "  (if these differ from the VM's inbound IP 141.145.193.91, egress is via a NAT gateway —"
           echo "   THIS egress address is the one that must be on the Bybit API-key allowlist.)"
           echo
