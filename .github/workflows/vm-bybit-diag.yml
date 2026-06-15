@@ -150,14 +150,25 @@ jobs:
           echo "(any 'key=' line whose head/tail+len differs from the .env BYBIT_API_KEY_2 above is the STALE process emitting 10010)"
           echo
 
-          echo "===== recent bybit api_call failures (outcomes.jsonl tail, last 15 matching) ====="
-          OJ=runtime_logs/outcomes.jsonl
-          [ -f "$OJ" ] || OJ=/data/bot-data/runtime_logs/outcomes.jsonl
-          if [ -f "$OJ" ]; then
-            grep -aE 'bybit|10010|wallet_balance|Unmatched' "$OJ" 2>&1 | tail -15 | cut -c1-300
-          else
-            echo "(no outcomes.jsonl found at runtime_logs/ or /data/bot-data/runtime_logs/)"
-          fi
+          echo "===== trader process start time (to correlate restarts vs failures) ====="
+          if [ -n "${TPID:-}" ]; then ls -ld --time-style=full-iso "/proc/$TPID" 2>&1 | awk '{print "trader pid '"$TPID"' started ~", $6, $7}'; fi
+          echo
+
+          echo "===== recent bybit api_call failures — CANONICAL outcomes.jsonl (last 10 matching, full ts) ====="
+          DD="${DATA_DIR:-/data/bot-data}"
+          for OJ in "$DD/runtime_logs/outcomes.jsonl" runtime_logs/outcomes.jsonl /data/bot-data/runtime_logs/outcomes.jsonl; do
+            [ -f "$OJ" ] || continue
+            echo "--- $OJ (mtime $(stat -c %y "$OJ" 2>&1 | cut -c1-19)) ---"
+            grep -aE 'bybit|10010|wallet_balance|Unmatched' "$OJ" 2>&1 | tail -10 \
+              | sed -E 's/.*"ts": "([^"]*)".*"status": "([^"]*)".*ErrTime: ([0-9:]*).*/ts=\1 status=\2 errtime=\3/' | cut -c1-160
+          done
+          echo "(if the newest ts is OLD/pre-restart, the alerts the operator sees are a delayed/queued flush, not fresh failures)"
+          echo
+
+          echo "===== pending alert queue depth (delayed Telegram flush?) ====="
+          for PQ in "$DD/runtime_logs/outcomes_pending.jsonl" runtime_logs/outcomes_pending.jsonl; do
+            [ -f "$PQ" ] && echo "$PQ: $(wc -l < "$PQ" 2>&1) queued lines (mtime $(stat -c %y "$PQ" 2>&1 | cut -c1-19))"
+          done
           echo
 
           echo "(done)"
