@@ -84,6 +84,9 @@ EXPECTED_ACTIONS = {
     "mark-reconciler-incomplete": "mark_reconciler_incomplete_action.sh",
     "rebuild-pnl-from-bybit": "rebuild_pnl_from_bybit_action.sh",
     "backfill-shadow-predictions": "backfill_shadow_predictions_action.sh",
+    # 2026-06-15 — retro-stamp trades.account_class from accounts.yaml,
+    # correcting historical ib_paper rows (paper trades that were is_demo=0).
+    "backfill-account-class": "backfill_account_class_action.sh",
     # 2026-05-28 — paced IBKR MES historical pull on the live VM (MB-20260528-002).
     "pull-mes-ibkr-history": "pull_mes_ibkr_history.sh",
     # 2026-06-01 — same wrapper baked to a DAILY multi-year pull (native MES 1d
@@ -141,6 +144,7 @@ TIER_2_ACTIONS = {
     "mark-reconciler-incomplete",
     "rebuild-pnl-from-bybit",
     "backfill-shadow-predictions",
+    "backfill-account-class",
     "pull-mes-ibkr-history",
     "pull-mes-ibkr-history-daily",
     "set-account-mode",

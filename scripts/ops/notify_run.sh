@@ -157,7 +157,7 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
-    backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|rotate-account-keys|init-diag-token)
+    backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|rotate-account-keys|init-diag-token)
         tier=2
         case "${exit_code}" in
             0) result="ok"; priority="normal" ;;
