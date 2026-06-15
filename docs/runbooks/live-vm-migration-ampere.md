@@ -93,6 +93,16 @@ Schedule a low-activity window (weekend / off-killzone). Then:
 
 1. `set-account-mode` all live accounts → `dry_run` **OR** stop
    `ict-trader-live` on the micro (trader down — orders cease).
+   **⚠️ Stopping `ict-trader-live` alone is NOT enough — `stop + disable` the
+   ENTIRE `ict-*` unit fleet on the old VM** (`systemctl disable --now` every
+   `ict-*.service` + `ict-*.timer`, **watchdogs/`git-sync` first** so they can't
+   re-arm). The timers (`ict-hourly-snapshot`, `ict-insights-generator`,
+   `ict-heartbeat`, …) each call Bybit account endpoints, and `ict-web-api`
+   keeps answering `:8001`. If left running, the old VM becomes a **zombie**:
+   it spams `bybit_2` `ErrCode 10010` from its now-unbound IP to the shared
+   Telegram channel and serves stale data to the Android app — the
+   `BL-20260615-MICRO-ZOMBIE` incident. Use the `stop-micro-zombie` workflow
+   (label `stop-micro-zombie`) which does exactly this, or power the VM off.
 2. **Move the data** — preferred: `oci compute volume-attachment detach` the
    `/data/bot-data` block volume from the micro, `attach` to the candidate, mount
    at `/data/bot-data`. *Alt (boot-volume case):* `rsync -a` `/data/bot-data` →
@@ -193,3 +203,9 @@ Most closed 2026-06-14 (same-day follow-up session):
    fire on Bybit, not via the client), but the bot cannot reconcile, monitor, or
    open new `bybit_2` trades until the IP is bound. **Add this step to any future
    VM-migration checklist** — egress IP changes whenever the live VM moves.
+   **⚠️ Binding the IP is necessary but NOT sufficient — after rebinding on
+   Bybit, RESTART `ict-trader-live` + `ict-web-api`** (`restart-bot-service` +
+   `vm-web-api-recover`). Both hold `BYBIT_API_KEY_2` in `os.environ` from their
+   last start and never re-read creds at runtime, so a process started before the
+   binding was corrected keeps failing `10010` indefinitely (`BL-20260614-BYBIT-IP`).
+   Verify with the `vm-bybit-diag` workflow (reproduces the bot's own authed call).

@@ -1,12 +1,10 @@
 """Config-drift contract test (Sprint S-021, PR 1 of 3).
 
-BUG-048 root cause: ``.env.example`` had ``MONITOR_RECONCILE_ENABLED=true``
-but ``scripts/render_env_from_master.py::build_live`` did not emit it, so
-every key rotation produced a ``.env`` without the flag — silently disabling
-the reconciler on the VM for ~8 hours.
-
-These three tests pin the contract so CI fails when ``.env.example`` and
-``build_live`` drift apart in either direction.
+These tests pin the config-drift contract so CI fails when ``.env.example``
+and ``build_live`` drift apart in either direction. (The original BUG-048
+``MONITOR_RECONCILE_ENABLED`` pin was retired 2026-06-15 when that env gate
+was removed and the monitor reconciler became unconditional — the renderer
+no longer emits the var.)
 
 Structure
 ---------
@@ -19,9 +17,7 @@ Structure
   must have a comment explaining why it is exempt.
 
 Adding a new key to either side without updating the other (and without
-adding the key to ``_IGNORE``) will fail one of the first two tests.
-Adding ``MONITOR_RECONCILE_ENABLED`` to ``_IGNORE`` will fail the explicit
-pin in ``test_monitor_reconcile_enabled_is_true_in_both``.
+adding the key to ``_IGNORE``) will fail one of the two contract tests.
 """
 from __future__ import annotations
 
@@ -118,9 +114,6 @@ _IGNORE: frozenset[str] = frozenset({
     "TIMEFRAME",
     # Risk pct from risk.live in master secrets.
     "RISK_PER_TRADE",
-    # Always-on reconciler flag (BUG-042); rendered unconditionally to
-    # "true". Not in .env.example because it's always true in production.
-    "MONITOR_RECONCILE_ENABLED",
     # Derived from bybit.live.base_url in master secrets; not shown in the
     # example because it never changes between environments.
     "BYBIT_BASE_URL",
@@ -219,27 +212,3 @@ def test_renderer_keys_present_in_env_example():
     )
 
 
-# ---------------------------------------------------------------------------
-# Contract 3: MONITOR_RECONCILE_ENABLED explicit pin (BUG-048 regression)
-# ---------------------------------------------------------------------------
-
-
-def test_monitor_reconcile_enabled_is_true_in_both():
-    """Belt-and-braces: MONITOR_RECONCILE_ENABLED must be present and set to
-    ``true`` in the renderer output (BUG-048 regression pin).
-
-    MONITOR_RECONCILE_ENABLED is renderer-only (always "true"); it lives in
-    _IGNORE because .env.example was created before it was added to build_live
-    and was never updated to include it (commit ff2512e). The renderer check
-    is the authoritative regression pin: even if the key accidentally drifts
-    into _IGNORE, this test still catches the BUG-048 regression shape.
-    """
-    # Check renderer
-    renderer_pairs = dict(_mod.build_live(FAKE_DATA))
-    assert "MONITOR_RECONCILE_ENABLED" in renderer_pairs, (
-        "build_live does not emit MONITOR_RECONCILE_ENABLED"
-    )
-    assert renderer_pairs["MONITOR_RECONCILE_ENABLED"].lower() == "true", (
-        f"build_live emits MONITOR_RECONCILE_ENABLED="
-        f"{renderer_pairs['MONITOR_RECONCILE_ENABLED']!r}, expected 'true'"
-    )
