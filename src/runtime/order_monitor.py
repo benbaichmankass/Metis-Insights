@@ -53,7 +53,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -108,12 +108,16 @@ def _resolve_db(db_path: Optional[str]):
 
 
 def _call_strategy_monitor(strategy_name: str, cfg: dict, candles_df,
-                           open_pkg: dict) -> Optional[Dict[str, Any]]:
+                           open_pkg: dict) -> Tuple[Optional[Dict[str, Any]], str]:
     """Import the strategy module and call its monitor() hook.
 
-    Returns the strategy's verdict, or None if anything goes wrong
-    (logged but never raised). Strategies without a monitor()
-    function are treated as "no opinion" — no error.
+    Returns ``(verdict, status)``. ``status`` is ``"ok"`` when ``monitor()``
+    actually RAN (the ``verdict`` may still be ``None`` — a healthy
+    ran-no-action tick); otherwise it is a *blindness reason* —
+    ``"module_unavailable"`` / ``"no_monitor"`` / ``"raised"`` — so the caller
+    can distinguish a position whose dynamic exit couldn't run (exit-coverage
+    Phase 3 monitor-blindness surfacing) from one where the strategy simply had
+    no opinion this tick. Never raises.
     """
     try:
         # Resolve aliased strategies (WS-A metals / M15 sleeves, ict_scalp_5m,
@@ -132,18 +136,78 @@ def _call_strategy_monitor(strategy_name: str, cfg: dict, candles_df,
             "order_monitor: strategy module %r unavailable: %s",
             strategy_name, exc,
         )
-        return None
+        return None, "module_unavailable"
     monitor_fn = getattr(mod, "monitor", None)
     if monitor_fn is None:
-        return None
+        return None, "no_monitor"
     try:
-        return monitor_fn(cfg, candles_df, open_pkg)
+        return monitor_fn(cfg, candles_df, open_pkg), "ok"
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "order_monitor: %s.monitor() raised on pkg %s: %s",
             strategy_name, open_pkg.get("order_package_id"), exc,
         )
-        return None
+        return None, "raised"
+
+
+# Exit-coverage Phase 3 — monitor-blindness surfacing. A position's PRIMARY
+# (dynamic) exit is its strategy ``monitor()``; the broker SL/TP is only a
+# backstop. When ``monitor()`` can't run — module unresolvable, no monitor(),
+# it raised, or candles were unavailable so it couldn't evaluate — that exit is
+# "blind". One blind tick is normal (a transient candle gap); PERSISTENT
+# blindness means the position is riding on its static backstop alone and must
+# be surfaced as a real alert, not a silent log. In-process per-package state
+# (keyed by order_package_id); a restart re-arms from scratch.
+_MONITOR_BLINDNESS: Dict[str, Dict[str, Any]] = {}
+
+
+def _monitor_blind_alert_ticks() -> int:
+    """Consecutive blind monitor ticks before alerting (tuning knob, not an
+    enable gate — alerting is always on). ``MONITOR_BLINDNESS_ALERT_TICKS``,
+    default 3, floored at 1."""
+    try:
+        return max(1, int(os.environ.get("MONITOR_BLINDNESS_ALERT_TICKS", "3")))
+    except (TypeError, ValueError):
+        return 3
+
+
+def _track_monitor_blindness(
+    *, pkg_id, strategy, symbol, blind: bool, reason: str,
+) -> None:
+    """Track per-package consecutive blind monitor ticks and emit a one-shot
+    alert when blindness persists past the threshold. A healthy (non-blind) tick
+    resets the counter. Observe-only — never touches the order path, never
+    raises.
+    """
+    if not pkg_id:
+        return
+    key = str(pkg_id)
+    if not blind:
+        _MONITOR_BLINDNESS.pop(key, None)
+        return
+    st = _MONITOR_BLINDNESS.get(key) or {"count": 0, "alerted": False}
+    st["count"] = int(st.get("count", 0)) + 1
+    st["reason"] = reason
+    if st["count"] >= _monitor_blind_alert_ticks() and not st.get("alerted"):
+        st["alerted"] = True
+        try:
+            from src.runtime.execution_diagnostics import (
+                enqueue_monitor_blindness_alert,
+            )
+            enqueue_monitor_blindness_alert(
+                order_package_id=key, strategy=str(strategy or "?"),
+                symbol=str(symbol or "?"), reason=str(reason),
+                consecutive_ticks=int(st["count"]),
+            )
+        except Exception:  # noqa: BLE001 — alerting must never break the loop
+            pass
+        logger.warning(
+            "order_monitor: MONITOR BLIND — pkg=%s strategy=%s symbol=%s has "
+            "had no live dynamic exit for %d ticks (reason=%s); riding on the "
+            "static backstop only",
+            key, strategy, symbol, st["count"], reason,
+        )
+    _MONITOR_BLINDNESS[key] = st
 
 
 def _apply_partial_close(
@@ -4377,7 +4441,19 @@ def run_monitor_tick(
                     "(monitor will short-circuit)",
                     strategy_name, pkg_id_log, symbol_log, tf_used,
                 )
-            verdict = _call_strategy_monitor(strategy_name, cfg, candles, normalised)
+            verdict, monitor_status = _call_strategy_monitor(
+                strategy_name, cfg, candles, normalised,
+            )
+            # Exit-coverage Phase 3: the dynamic exit is "blind" this tick when
+            # candles were unavailable (couldn't evaluate) OR monitor() couldn't
+            # run (module unresolvable / no monitor() / it raised). A healthy
+            # ran-no-action tick (status="ok", verdict None) is NOT blind.
+            _track_monitor_blindness(
+                pkg_id=pkg_id_log, strategy=strategy_name, symbol=symbol_log,
+                blind=(candles is None or monitor_status != "ok"),
+                reason=("candles_unavailable" if candles is None
+                        else monitor_status),
+            )
             if verdict is None:
                 summary.no_change_count += 1
                 if candles is not None:
