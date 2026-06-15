@@ -218,17 +218,57 @@ class FcmNotifier:
                 exc,
             )
             return stats
+        dead: set[str] = set()
         for token, subs_json in devices:
             if not _truthy_subscription(subs_json, kind):
                 stats["skipped_unsubscribed"] += 1
                 continue
             stats["attempted"] += 1
-            ok = self._publish_one(token=token, kind=kind, payload=payload)
+            ok = self._publish_one(
+                token=token, kind=kind, payload=payload, dead_out=dead
+            )
             if ok:
                 stats["succeeded"] += 1
             else:
                 stats["failed"] += 1
+        # Prune permanently-dead tokens (uninstalled app / rotated token /
+        # wrong sender) so we stop re-pushing to them on every event. Without
+        # this, a single stale token logs an FCM 404/400 on *every* signal of
+        # *every* tick forever (the 2026-06-15 log-spam incident). Best-effort:
+        # a failed prune just means we retry next event — never raises.
+        if dead:
+            self._prune_tokens(dead)
         return stats
+
+    def _prune_tokens(self, tokens: set[str]) -> None:
+        """Delete permanently-dead device tokens from the journal DB.
+
+        Opens a short-lived read-write connection (the publish cadence is
+        low). Swallows every exception — pruning is a cleanup optimisation,
+        never load-bearing for the publish path.
+        """
+        if not tokens:
+            return
+        try:
+            from src.utils.paths import trade_journal_db_path
+
+            db_path = trade_journal_db_path()
+            conn = sqlite3.connect(db_path)
+            try:
+                placeholders = ",".join("?" for _ in tokens)
+                conn.execute(
+                    f"DELETE FROM device_tokens WHERE token IN ({placeholders})",
+                    tuple(tokens),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            logger.info(
+                "FcmNotifier: pruned %d dead device token(s) (FCM 404/400/403)",
+                len(tokens),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("FcmNotifier: dead-token prune failed: %s", exc)
 
     def _load_devices(self) -> list[tuple[str, str | None]]:
         """Return ``[(token, subscriptions_json), ...]`` from the journal DB.
@@ -254,7 +294,17 @@ class FcmNotifier:
         token: str,
         kind: str,
         payload: dict[str, Any],
+        dead_out: set[str] | None = None,
     ) -> bool:
+        """Publish one message; return True on 2xx, False otherwise.
+
+        When the FCM response identifies the token as **permanently dead**
+        and ``dead_out`` is provided, the token is added to it so the caller
+        can prune it from ``device_tokens`` (and stop re-pushing every tick).
+        Permanently-dead = 404 (UNREGISTERED / NOT_FOUND — app uninstalled or
+        token expired), 400 INVALID_ARGUMENT (malformed registration token),
+        or 403 SENDER_ID_MISMATCH. 401/429/5xx are transient and never prune.
+        """
         try:
             access_token = self._get_access_token()
             if access_token is None:
@@ -271,16 +321,49 @@ class FcmNotifier:
             )
             if 200 <= resp.status_code < 300:
                 return True
-            logger.warning(
-                "FCM publish non-2xx: status=%s body=%s kind=%s",
-                resp.status_code,
-                resp.text[:200],
-                kind,
-            )
+            body = resp.text or ""
+            if self._is_dead_token(resp.status_code, body):
+                if dead_out is not None:
+                    dead_out.add(token)
+                # Demote to DEBUG: a dead token is expected churn, and at
+                # WARNING it floods the journal on every signal of every tick
+                # until pruned. The prune-summary INFO line is the signal.
+                logger.debug(
+                    "FCM dead token (status=%s) — will prune. kind=%s",
+                    resp.status_code,
+                    kind,
+                )
+            else:
+                logger.warning(
+                    "FCM publish non-2xx: status=%s body=%s kind=%s",
+                    resp.status_code,
+                    body[:200],
+                    kind,
+                )
             return False
         except Exception as exc:  # noqa: BLE001
             logger.warning("FCM publish exception (kind=%s): %s", kind, exc)
             return False
+
+    @staticmethod
+    def _is_dead_token(status_code: int, body: str) -> bool:
+        """True if an FCM non-2xx means the token is permanently unusable.
+
+        404 → UNREGISTERED / NOT_FOUND (the canonical dead-token signal in
+        HTTP v1). 400 → only when the body names the registration token /
+        INVALID_ARGUMENT (a 400 can also be a malformed message, which we
+        must NOT treat as a dead token). 403 → SENDER_ID_MISMATCH.
+        """
+        if status_code == 404:
+            return True
+        lowered = body.lower()
+        if status_code == 400 and (
+            "registration token" in lowered or "invalid_argument" in lowered
+        ):
+            return True
+        if status_code == 403 and "sender_id_mismatch" in lowered:
+            return True
+        return False
 
     def _build_message(
         self,
