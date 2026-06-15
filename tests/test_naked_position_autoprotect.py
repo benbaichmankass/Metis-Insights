@@ -7,9 +7,12 @@ open position (e.g. a reconciler-adopted IB orphan that lost its bracket):
   (``MHGN6``) back to the base root (``MHG``) the rest of the system speaks.
 * ``_resolve_protective_levels`` — recovers (sl, tp) from the originating
   order package when the adopted row carries NULL levels.
-* ``_check_naked_positions`` — the ``NAKED_POSITION_AUTOPROTECT`` env gate
-  drives attach-vs-alert; on a successful attach the trade row is updated and
-  stamped idempotently.
+* ``_check_naked_positions`` — UNCONDITIONAL attach-vs-alert: every naked open
+  position gets a re-arm attempt each tick (no enable flag — a position with no
+  stop is an unacceptable state the system must always fix). On a successful
+  attach the trade row is updated and stamped idempotently; when the attach is
+  unavailable (non-IB account / IB place failed) it falls back to a one-shot
+  alert.
 """
 from __future__ import annotations
 
@@ -120,7 +123,9 @@ def _insert_naked(db, *, trade_id=2540, symbol="MHGN6", notes="{}"):
     conn.close()
 
 
-def test_autoprotect_off_does_not_attempt(tmp_path, monkeypatch):
+def test_autoprotect_is_unconditional(tmp_path, monkeypatch):
+    # There is NO enable flag: a naked position is always an attach attempt.
+    # Re-arming a missing stop is baseline correctness, not an opt-in.
     db = _FakeDB(tmp_path / "j.db")
     _insert_naked(db)
     monkeypatch.delenv("NAKED_POSITION_AUTOPROTECT", raising=False)
@@ -132,14 +137,13 @@ def test_autoprotect_off_does_not_attempt(tmp_path, monkeypatch):
     monkeypatch.setattr(ed, "enqueue_naked_position_alert", lambda **k: None)
 
     summary = om._check_naked_positions(db)
-    assert calls == []                 # gate off → never tries to place
-    assert summary["protected"] == 0
+    assert len(calls) == 1             # no gate → always tries to place
+    assert summary["protected"] == 1
 
 
-def test_autoprotect_on_attaches_and_stamps(tmp_path, monkeypatch):
+def test_autoprotect_attaches_and_stamps(tmp_path, monkeypatch):
     db = _FakeDB(tmp_path / "j.db")
     _insert_naked(db)
-    monkeypatch.setenv("NAKED_POSITION_AUTOPROTECT", "1")
     seen = {}
     def _fake_attach(row, sl, tp):
         seen["levels"] = (sl, tp)
@@ -161,11 +165,10 @@ def test_autoprotect_on_attaches_and_stamps(tmp_path, monkeypatch):
 
 
 def test_autoprotect_attaches_even_if_previously_alerted(tmp_path, monkeypatch):
-    # The #2540 case: a position alerted BEFORE the flag was enabled must still
-    # get protected once autoprotect is on — "alerted" is not "protected".
+    # The #2540 case: a position alerted on a prior tick (before levels could be
+    # attached) must still get protected — "alerted" is not "protected".
     db = _FakeDB(tmp_path / "j.db")
     _insert_naked(db, notes=json.dumps({"naked_sltp_alerted_at": "2026-06-12T04:50:00+00:00"}))
-    monkeypatch.setenv("NAKED_POSITION_AUTOPROTECT", "1")
     monkeypatch.setattr(om, "_attempt_naked_autoprotect", lambda row, sl, tp: True)
 
     summary = om._check_naked_positions(db)
@@ -174,25 +177,25 @@ def test_autoprotect_attaches_even_if_previously_alerted(tmp_path, monkeypatch):
     assert row["stop_loss"] == 6.045 and json.loads(row["notes"]).get("naked_sltp_attached_at")
 
 
-def test_alerted_position_not_realerted_when_autoprotect_off(tmp_path, monkeypatch):
-    # Alert-only mode: an already-alerted position is skipped (no re-alert spam).
+def test_attach_failure_alerts_once_on_first_sighting(tmp_path, monkeypatch):
+    # Attach unavailable (non-IB account / IB place failed) and not yet alerted
+    # → fall back to a single naked-position alert.
     db = _FakeDB(tmp_path / "j.db")
-    _insert_naked(db, notes=json.dumps({"naked_sltp_alerted_at": "2026-06-12T04:50:00+00:00"}))
-    monkeypatch.delenv("NAKED_POSITION_AUTOPROTECT", raising=False)
+    _insert_naked(db)
+    monkeypatch.setattr(om, "_attempt_naked_autoprotect", lambda row, sl, tp: False)
     alerts = []
     import src.runtime.execution_diagnostics as ed
     monkeypatch.setattr(ed, "enqueue_naked_position_alert", lambda **k: alerts.append(k))
 
     summary = om._check_naked_positions(db)
-    assert summary["alerted"] == 0 and alerts == []  # already alerted → skipped
+    assert summary["protected"] == 0 and summary["alerted"] == 1 and len(alerts) == 1
 
 
-def test_autoprotect_failure_does_not_realert_previously_alerted(tmp_path, monkeypatch):
-    # autoprotect ON but the IB place fails: a previously-alerted position must
-    # NOT be re-alerted every tick (it waits for the next attach attempt).
+def test_attach_failure_does_not_realert_previously_alerted(tmp_path, monkeypatch):
+    # The IB place fails on a previously-alerted position: must NOT be re-alerted
+    # every tick (it waits for the next attach attempt).
     db = _FakeDB(tmp_path / "j.db")
     _insert_naked(db, notes=json.dumps({"naked_sltp_alerted_at": "2026-06-12T04:50:00+00:00"}))
-    monkeypatch.setenv("NAKED_POSITION_AUTOPROTECT", "1")
     monkeypatch.setattr(om, "_attempt_naked_autoprotect", lambda row, sl, tp: False)
     alerts = []
     import src.runtime.execution_diagnostics as ed
