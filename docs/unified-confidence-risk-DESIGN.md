@@ -73,7 +73,9 @@ its own inputs, floor, and soak:
 |---|---|---|---|
 | **Conviction** | Should we trade, and how strongly (directionally)? | strategy signal confidence (calibrated) · setup_quality · trade_outcome_winrate · regime alignment · **news veto/boost** | no-trade floor · size scalar · competing-trade arbitration |
 | **Sizing / feasibility** | How much can/should we put on? | **available margin** · per-trade risk budget · execution_quality (cost/slippage) · prop_mission_policy (funding/equity) · current portfolio exposure | final qty |
-| **Exposure (optional)** | Is the book over-extended? | concurrent open risk · correlation across positions | book-level throttle (damps qty as exposure rises) |
+| **Exposure** | Is the book over-extended? | concurrent open risk · correlation across positions | book-level throttle (damps qty as exposure rises) |
+
+*(Exposure lens is in-scope for the build, operator-decided 2026-06-15 — not deferred.)*
 
 Heads land in the lens that matches what they *measure*: `execution_quality`
 and `prop_mission_policy` are sizing/feasibility inputs; `setup_quality`,
@@ -105,8 +107,10 @@ final_qty  = min(desired, margin_cap [, exposure_throttle]) # → floor to excha
 - `per_trade_risk_budget` replaces today's flat `effective_risk_pct` as the
   *max* risk per trade; conviction scales **within** it (low conviction → small,
   high conviction → up to the budget).
-- **Available margin**: keep as a hard ceiling **and** (open fork, § 6) consider
-  a *proportional throttle* so the book self-damps as free margin fills.
+- **Available margin (operator-decided 2026-06-15): BOTH** — a *proportional
+  throttle* so the book self-damps as free margin fills, **and** the
+  `margin_cap` as the hard upper bound. Size scales down with shrinking free
+  margin and can never exceed the ceiling.
 - `pos_size` cap is **dropped** (dormant cleanup). `daily_loss_pct` +
   `max_dd_pct` remain the only account guards.
 
@@ -170,11 +174,11 @@ new `*_ENABLED` gate). Ships inert (floor `0`) and is raised deliberately.
 
 ## 6. Open operator decisions
 
-1. **Per-trade risk budget** — the max risk fraction conviction scales within.
-2. **No-trade floor threshold(s)** — per lens; ships at 0 (inert).
-3. **Available margin: hard ceiling vs proportional throttle vs both** (§ 3.3).
-4. **v1 blend weights** — sign off after the § 4.2 sweep.
-5. **Exposure lens** — build the optional book-level throttle now or defer.
+1. **Per-trade risk budget** — the max risk fraction conviction scales within. *(open — set from § 4.3 research)*
+2. **No-trade floor threshold(s)** — per lens; ships at 0 (inert). *(open — set from § 4 research)*
+3. ~~**Available margin: hard ceiling vs proportional throttle vs both**~~ — **DECIDED 2026-06-15: both** (§ 3.3).
+4. **v1 blend weights** — sign off after the § 4.2 sweep. *(open)*
+5. ~~**Exposure lens** — build now or defer~~ — **DECIDED 2026-06-15: build now** (in-scope, § 3.1).
 
 ## 7. Relationship to existing roadmap
 
