@@ -168,9 +168,14 @@ fi
 # docs commit reset the trader uptime.
 #
 # We diff PRE..POST and, if EVERY changed path is in a known-safe,
-# non-runtime set (docs/, tests/, .claude/, and top-level *.md), skip the
-# restart entirely: the working tree was already synced by the hard-reset
-# above and the Telegram pings already fired. ANYTHING else — src/, ml/,
+# non-runtime set (docs/, tests/, .claude/, .github/, and top-level *.md),
+# skip the restart entirely: the working tree was already synced by the
+# hard-reset above and the Telegram pings already fired. .github/ is safe
+# because Actions workflows run on GitHub-hosted runners, never on this VM,
+# so the long-running Python processes never load them — a workflow-only
+# merge (the bulk of the diag/ops PRs; 2026-06-15 had a full day of them,
+# each triggering a needless restart attempt) must not bounce the live
+# trader. ANYTHING else — src/, ml/,
 # config/, deploy/, scripts/, comms/ (read at runtime by the insights /
 # order-package / comms-handler paths), requirements*, pyproject, etc. —
 # falls through to the normal restart below.
@@ -186,7 +191,7 @@ if [ "${DEPLOY_FORCE_RESTART:-0}" != "1" ]; then
     if [ -n "${CHANGED_FILES}" ]; then
         # Strip the known-safe non-runtime paths; anything left needs a restart.
         RUNTIME_CHANGES="$(printf '%s\n' "${CHANGED_FILES}" \
-            | grep -vE '^(docs/|tests/|\.claude/|[^/]+\.md$)' || true)"
+            | grep -vE '^(docs/|tests/|\.claude/|\.github/|[^/]+\.md$)' || true)"
         if [ -z "${RUNTIME_CHANGES}" ]; then
             echo ">>> Non-runtime commit (${PRE_SYNC_HEAD:0:7} -> ${POST_SYNC_HEAD:0:7}): only docs/tests/.claude/top-level-markdown changed."
             echo ">>> Code synced + pings sent; skipping dependency install, unit refresh, and service restart (BL-20260529-002)."
@@ -252,15 +257,34 @@ SKIP_LIST="${DEPLOY_RESTART_SKIP:-${DEFAULT_SKIP}}"
 
 # list-units --all surfaces inactive units too; --type=service excludes
 # .timer/.socket/etc. so we don't try to "restart" a timer (systemctl
-# refuses). Some platforms emit padding spaces — awk handles both.
+# refuses). Some platforms emit padding spaces — awk handles both. Anchor
+# the awk output to real ict-*.service names so a stray header/blank line
+# can't sneak in.
 mapfile -t ICT_UNITS < <(
     "${SYSTEMCTL[@]}" list-units --all --type=service --plain --no-legend 'ict-*.service' \
-        2>/dev/null | awk '{print $1}' | sort -u
+        2>/dev/null | awk '{print $1}' | grep -E '^ict-.*\.service$' | sort -u
 )
 
+# BL-20260615-DEPLOY-NOOP: on the Ampere live VM, `list-units 'ict-*.service'`
+# was observed returning ZERO matches even though the units are active — so
+# every code deploy printed "enumeration: 0 ict-* unit(s)" and restarted
+# NOTHING, silently pinning the live trader to stale code (and forcing manual
+# restart-bot-service / pull-and-deploy actions all day, which looked like a
+# restart loop). A deploy must NEVER silently restart nothing. Fall back to
+# the unit-FILE view (independent of runtime load state), then to an explicit
+# canonical long-running-unit list as a last resort.
 if [ "${#ICT_UNITS[@]}" -eq 0 ]; then
-    echo ">>> WARNING: systemctl list-units returned no ict-*.service units."
-    echo ">>>   Is this a dev host without the deploy/*.service files installed?"
+    echo ">>> list-units matched no ict-*.service; falling back to list-unit-files."
+    mapfile -t ICT_UNITS < <(
+        "${SYSTEMCTL[@]}" list-unit-files --type=service --plain --no-legend 'ict-*.service' \
+            2>/dev/null | awk '{print $1}' | grep -E '^ict-.*\.service$' | sort -u
+    )
+fi
+if [ "${#ICT_UNITS[@]}" -eq 0 ]; then
+    echo ">>> WARNING: neither list-units nor list-unit-files matched ict-*.service."
+    echo ">>>   Using the explicit canonical long-running-unit list so the deploy"
+    echo ">>>   never silently restarts nothing (BL-20260615-DEPLOY-NOOP)."
+    ICT_UNITS=(ict-trader-live.service ict-web-api.service ict-telegram-bot.service)
 fi
 
 echo ">>> Restarting services (enumeration: ${#ICT_UNITS[@]} ict-* unit(s))..."

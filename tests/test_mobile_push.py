@@ -348,6 +348,85 @@ def test_publish_one_returns_false_on_non_2xx(
     assert ok is False
 
 
+def test_is_dead_token_classification() -> None:
+    """404 / 400-invalid-token / 403-sender-mismatch are dead; others aren't."""
+    assert FcmNotifier._is_dead_token(404, "Requested entity was not found.") is True
+    assert (
+        FcmNotifier._is_dead_token(
+            400, "The registration token is not a valid FCM registration token"
+        )
+        is True
+    )
+    assert FcmNotifier._is_dead_token(403, "SENDER_ID_MISMATCH") is True
+    # Transient / unrelated — must NOT prune.
+    assert FcmNotifier._is_dead_token(500, "Internal Server Error") is False
+    assert FcmNotifier._is_dead_token(401, "UNAUTHENTICATED") is False
+    assert FcmNotifier._is_dead_token(429, "Quota exceeded") is False
+    # A 400 that is NOT about the token (malformed message) must NOT prune.
+    assert FcmNotifier._is_dead_token(400, "Invalid value at message.data") is False
+
+
+def test_publish_one_flags_dead_token_for_prune(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 404 adds the token to dead_out so the caller can prune it."""
+    n = FcmNotifier(
+        service_account_info={
+            "project_id": "p",
+            "client_email": "x@y.iam.gserviceaccount.com",
+            "private_key": "stub",
+        },
+        project_id="p",
+    )
+    monkeypatch.setattr(n, "_get_access_token", lambda: "fake")
+
+    class _Resp:
+        status_code = 404
+        text = '{"error":{"status":"NOT_FOUND"}}'
+
+    class _Client:
+        def post(self, *_a: Any, **_k: Any) -> Any:
+            return _Resp()
+
+    n._http_client = _Client()  # type: ignore[assignment]
+    dead: set[str] = set()
+    ok = n._publish_one(token="deadtok", kind="trade_closed", payload={}, dead_out=dead)
+    assert ok is False
+    assert dead == {"deadtok"}
+
+
+def test_publish_to_subscribers_prunes_dead_tokens(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dead tokens surfaced during fan-out are passed to _prune_tokens."""
+    n = FcmNotifier(
+        service_account_info={
+            "project_id": "p",
+            "client_email": "x@y.iam.gserviceaccount.com",
+            "private_key": "stub",
+        },
+        project_id="p",
+    )
+    monkeypatch.setattr(
+        n, "_load_devices", lambda: [("good", None), ("bad", None)]
+    )
+
+    def _fake_publish(*, token: str, kind: str, payload: Any, dead_out: Any) -> bool:
+        if token == "bad":
+            dead_out.add(token)
+            return False
+        return True
+
+    monkeypatch.setattr(n, "_publish_one", _fake_publish)
+    pruned: dict[str, Any] = {}
+    monkeypatch.setattr(n, "_prune_tokens", lambda toks: pruned.update(seen=toks))
+
+    stats = n.publish_to_subscribers(kind="trade_closed", payload={})
+    assert stats["succeeded"] == 1
+    assert stats["failed"] == 1
+    assert pruned.get("seen") == {"bad"}
+
+
 def test_build_message_coerces_values_to_strings() -> None:
     """FCM data payloads require string values."""
     n = FcmNotifier.inert()
