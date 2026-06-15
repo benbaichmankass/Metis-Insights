@@ -99,11 +99,24 @@ def _empty(window: str, since: Optional[str]) -> Dict[str, Any]:
     }
 
 
+# "Paper" / "not paper" SQL predicates (joined ``trades`` alias ``t``).
+# account_class is authoritative; NULL rows fall back to the legacy
+# is_demo boolean so the split is correct even before the backfill runs.
+_PAPER_PREDICATE = (
+    " AND (COALESCE(t.account_class,'')='paper'"
+    " OR (t.account_class IS NULL AND COALESCE(t.is_demo,0)=1))"
+)
+_NOT_PAPER_PREDICATE = (
+    " AND NOT (COALESCE(t.account_class,'')='paper'"
+    " OR (t.account_class IS NULL AND COALESCE(t.is_demo,0)=1))"
+)
+
+
 def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqlite3.Row]:
     """Closed (non-backtest) trades within *since*, oldest→newest.
 
-    ``demo=False`` (default) → live-money rows only.
-    ``demo=True``            → demo-account rows only.
+    ``demo=False`` (default) → real-money rows only.
+    ``demo=True``            → paper-account rows only.
 
     Rows with ``pnl IS NULL`` are excluded — the reconciler fallback path
     in ``order_monitor.py`` closes trades with a NULL pnl when the broker
@@ -128,7 +141,7 @@ def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqli
               AND COALESCE(t.is_backtest, 0) = 0
               AND t.pnl IS NOT NULL
         """
-        sql += " AND COALESCE(t.is_demo, 0) = 1" if demo else " AND COALESCE(t.is_demo, 0) = 0"
+        sql += _PAPER_PREDICATE if demo else _NOT_PAPER_PREDICATE
         params: List[Any] = []
         if since:
             sql += " AND datetime(COALESCE(op.updated_at, t.timestamp)) >= datetime(?)"
@@ -216,11 +229,13 @@ async def get_performance(
     """Aggregate trade performance for the requested *window*.
 
     The top-level fields (``totalTrades`` / ``wins`` / ``perStrategy`` / etc.)
-    are **live-money** aggregates — this preserves the existing consumer
+    are **real-money** aggregates — this preserves the existing consumer
     contract. The 2026-06-04 reporting-cleanup additively returns a
-    ``demo`` sub-block carrying the same shape computed over demo-account
-    rows so a consumer can render Live and Demo as separate sections
-    without a second request.
+    ``demo`` sub-block carrying the same shape computed over paper-account
+    rows so a consumer can render Real and Paper as separate sections
+    without a second request. A ``paper`` sub-block carries the identical
+    payload under the clearer name (account_class convention, 2026-06-15);
+    ``demo`` is retained as a back-compat alias for the Android app.
 
     Trades with ``pnl IS NULL`` are excluded from both — see ``_query`` for
     why ("0-pnl closed trade" complaint, reconciler fallback path).
@@ -232,22 +247,29 @@ async def get_performance(
     since = _window_since(window)
     if not _DB_PATH.exists():
         env = _empty(window, since)
-        env["demo"] = _strip_envelope(_empty(window, since))
+        empty_sub = _strip_envelope(_empty(window, since))
+        env["demo"] = empty_sub
+        env["paper"] = empty_sub
         return env
     try:
         live_rows = _query(_DB_PATH, since, demo=False)
         live = _aggregate(live_rows, window, since)
-        demo_rows = _query(_DB_PATH, since, demo=True)
-        demo = _strip_envelope(_aggregate(demo_rows, window, since))
-        live["demo"] = demo
+        paper_rows = _query(_DB_PATH, since, demo=True)
+        paper = _strip_envelope(_aggregate(paper_rows, window, since))
+        live["demo"] = paper   # back-compat alias
+        live["paper"] = paper
         return live
     except sqlite3.Error:  # allow-silent: logged (logger.exception) + best-effort zeroed envelope so the Performance tab stays usable on a DB read failure
         logger.exception("performance: sqlite read failed")
         env = _empty(window, since)
-        env["demo"] = _strip_envelope(_empty(window, since))
+        empty_sub = _strip_envelope(_empty(window, since))
+        env["demo"] = empty_sub
+        env["paper"] = empty_sub
         return env
     except Exception:  # noqa: BLE001  # allow-silent: logged (logger.exception) + best-effort zeroed envelope; never raise a 5xx for this Tier-1 read
         logger.exception("performance: unexpected error")
         env = _empty(window, since)
-        env["demo"] = _strip_envelope(_empty(window, since))
+        empty_sub = _strip_envelope(_empty(window, since))
+        env["demo"] = empty_sub
+        env["paper"] = empty_sub
         return env

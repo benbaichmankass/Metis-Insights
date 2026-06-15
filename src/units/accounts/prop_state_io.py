@@ -1,4 +1,4 @@
-"""Per-account prop-state persistence (Velotrade phase-2b).
+"""Per-account prop-state persistence.
 
 Phase-1 + phase-2 left the prop counters (``cumulative_pnl_pct``,
 ``active_days``, ``entry_date``) as **in-process only** state seeded

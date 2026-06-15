@@ -1,0 +1,38 @@
+name: Account class guard
+
+# Fails the PR check when an account in config/accounts.yaml is missing
+# `account_class` (the paper/real funding category) or sets a value that
+# contradicts the Bybit-only `demo` transport flag.
+#
+# Motivation: account_class is the single source of truth for the
+# paper-vs-real-money reporting axis (trades.account_class → the
+# dashboard/Android `accountClass` field → every "real-money only"
+# aggregate). A missing or inconsistent value silently mis-attributes
+# paper trades as real money (the pre-2026-06-15 ib_paper bug), so the
+# invariant is frozen in CI.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  account-class-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Run guard
+        run: python scripts/check_account_class.py --list

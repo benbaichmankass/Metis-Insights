@@ -3216,7 +3216,6 @@ _SYNTHETIC_TRADE_ID_PREFIXES = (
     "closed-",               # idem
     "dry-bybit-",            # legacy integrator paths
     "dry-breakout-",
-    "dry-velotrade-",
 )
 
 

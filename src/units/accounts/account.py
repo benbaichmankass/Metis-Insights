@@ -6,10 +6,18 @@ does not affect others.
 """
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional
 
 from src.core.coordinator import OrderPackage
 from src.units.accounts.risk import RiskManager
+
+logger = logging.getLogger(__name__)
+
+# The two valid funding categories. account_class is the single source of
+# truth for the paper/real-money reporting axis; anything else coerces to
+# "real_money" (the safe, no-strand default) with a logged warning.
+_VALID_ACCOUNT_CLASSES = frozenset({"paper", "real_money"})
 
 
 class RiskBreach(Exception):
@@ -38,6 +46,16 @@ class TradingAccount:
         Resolved from ``config/accounts.yaml::mode`` at load time; the only
         sanctioned writer is the ``set-account-mode`` system-action
         (``scripts/ops/set_account_mode.sh``).
+    account_class : str
+        The paper-vs-real-money FUNDING category — ``"paper"`` or
+        ``"real_money"`` (default ``"real_money"``). Single source of truth
+        for the paper/real reporting axis, ORTHOGONAL to ``dry_run`` /
+        ``mode:`` (the technical execution gate). Resolved from
+        ``config/accounts.yaml::account_class``. An invalid value is coerced
+        to ``"real_money"`` with a logged WARNING — never raises, so a typo
+        in config can never break the trader boot (Prime Directive). Stamped
+        onto every trade row (``trades.account_class``) by the executor and
+        surfaced on the API as ``accountClass``.
     """
 
     def __init__(
@@ -53,6 +71,7 @@ class TradingAccount:
         configured_reason: Optional[str] = None,
         market_type: str = "spot",
         demo: bool = False,
+        account_class: str = "real_money",
         ib_host: Optional[str] = None,
         ib_port: Optional[int] = None,
         ib_account: Optional[str] = None,
@@ -76,16 +95,16 @@ class TradingAccount:
         # from "explicitly assigned no strategies" ([] → block all).
         # Pre-fix this collapsed both forms to ``[]`` and ``[]`` was
         # treated as "legacy fallthrough", which silently routed live
-        # signals to scaffolded accounts like ``prop_velotrade_1``.
+        # signals to scaffolded accounts that declared no strategies.
         self.strategies: Optional[List[str]] = (
             None if strategies is None else list(strategies)
         )
-        # Velotrade phase-2: ``configured`` reflects whether the
-        # account's env-var credentials are populated. False accounts
-        # still load (so /accounts_status can list them) but every
-        # action that needs creds refuses + emits a diagnostic ping.
-        # ``configured_reason`` carries a human-readable explanation
-        # for the operator (e.g. "VELOTRADE_API_KEY_1 not set").
+        # ``configured`` reflects whether the account's env-var
+        # credentials are populated. False accounts still load (so
+        # /accounts_status can list them) but every action that needs
+        # creds refuses + emits a diagnostic ping. ``configured_reason``
+        # carries a human-readable explanation for the operator
+        # (e.g. "OANDA_API_TOKEN not set").
         self.configured: bool = bool(configured)
         self.configured_reason: Optional[str] = configured_reason
         # Bybit V5 category — ``spot`` for cash market, ``linear`` for
@@ -95,9 +114,28 @@ class TradingAccount:
         self.market_type: str = str(market_type or "spot").strip().lower()
         # True when this account routes to Bybit's demo trading endpoint
         # (https://api-demo.bybit.com). Populated from accounts.yaml `demo: true`.
-        # Used by: coordinator (demo Telegram prefix), execute.py (is_demo DB flag),
-        # clients.py (demo=True to pybit HTTP).
+        # BYBIT-TRANSPORT ONLY — selects the demo endpoint; it is NOT the
+        # paper/real category (that's account_class below). Used by:
+        # clients.py (demo=True to pybit HTTP) and the Bybit-demo PnL
+        # fallback in execute.py / clients.py.
         self.demo: bool = bool(demo)
+        # Paper-vs-real-money FUNDING category — the single source of truth
+        # for the paper/real reporting axis, orthogonal to dry_run / mode.
+        # Populated from accounts.yaml `account_class:`. Normalised here;
+        # an invalid value coerces to "real_money" (the safe no-strand
+        # default) with a logged WARNING — never raises, so a config typo
+        # can't break the trader boot (Prime Directive). The executor
+        # stamps it onto every trade row (trades.account_class) and the API
+        # surfaces it as `accountClass`.
+        normalized_class = str(account_class or "real_money").strip().lower()
+        if normalized_class not in _VALID_ACCOUNT_CLASSES:
+            logger.warning(
+                "TradingAccount %r: invalid account_class %r — coercing to "
+                "'real_money'. Valid values: %s.",
+                name, account_class, sorted(_VALID_ACCOUNT_CLASSES),
+            )
+            normalized_class = "real_money"
+        self.account_class: str = normalized_class
         # Interactive Brokers connection identity (no API keys — auth is
         # the IB Gateway login session). Populated from accounts.yaml
         # ``ib_host`` / ``ib_port`` / ``ib_account`` / ``ib_client_id`` for
@@ -163,6 +201,7 @@ class TradingAccount:
             "name": self.name,
             "exchange": self.exchange,
             "account_type": self.account_type,
+            "account_class": self.account_class,
             "dry_run": self.dry_run,
             "configured": self.configured,
             "configured_reason": self.configured_reason,

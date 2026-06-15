@@ -69,8 +69,12 @@ def _query_history(
             base_where += " AND account_id = ?"
             params.append(account_id)
         else:
-            # Exclude demo trades from the live aggregate view.
-            base_where += " AND COALESCE(is_demo, 0) = 0"
+            # Exclude paper-money trades from the real-money aggregate view.
+            # account_class is authoritative; NULL rows fall back to is_demo.
+            base_where += (
+                " AND NOT (COALESCE(account_class,'')='paper'"
+                " OR (account_class IS NULL AND COALESCE(is_demo,0)=1))"
+            )
         cur.execute(
             f"""
             SELECT substr(COALESCE(created_at, timestamp), 1, 10) AS day,

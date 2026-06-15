@@ -47,11 +47,11 @@ def test_yaml_dry_default_renders_dry(tmp_path):
     """A YAML-`dry_run` account must show `live=False`."""
     yaml_path = _write_yaml(tmp_path, """
 accounts:
-  prop_velotrade_1:
+  ib_live:
     mode: dry_run
 """)
     assert _read_live_per_account(yaml_path) == {
-        "prop_velotrade_1": False,
+        "ib_live": False,
     }
 
 
@@ -72,13 +72,13 @@ accounts:
     mode: live
   bybit_2:
     mode: live
-  prop_velotrade_1:
+  ib_live:
     mode: dry_run
 """)
     assert _read_live_per_account(yaml_path) == {
         "bybit_1": True,
         "bybit_2": True,
-        "prop_velotrade_1": False,
+        "ib_live": False,
     }
 
 
