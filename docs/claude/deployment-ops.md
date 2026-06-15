@@ -322,6 +322,19 @@ systemctl list-timers --all | grep git-sync
 on demand by the timer. Do not `enable` the service unit itself — doing so would run
 the deploy script at every boot before the timer's `OnBootSec=2min` delay applies.
 
+**Root cause (2026-06-15): a broken `/dev/null` silently wedged auto-deploy.**
+An OS host agent on the Ampere live VM (suspected `oracle-cloud-agent` `oci-wlp`
+/ workload-protection FIM) intermittently chmods `/dev/null` to `0444`. The write
+bit is stripped for non-root users, so `deploy_pull_restart.sh` — run as `ubuntu`
+under `set -e` — EACCESes at its first `>/dev/null` redirect (the `sudo -n
+systemctl … >/dev/null 2>&1` probe) and exits 1 *before fetching or restarting*.
+`ict-git-sync` failed every 5 min for ~16h and a merged fix never reached the
+trader. Durable fix shipped: **`ict-devnull-guard.{service,timer}`** (root oneshot,
+every 60 s) re-asserts `/dev/null` is the `1:3` char device, mode `0666`; plus a
+self-heal at the top of `deploy_pull_restart.sh`. Manual unwedge:
+`vm-fix-devnull` (repair) then `vm-devnull-deploy-bootstrap` (chmod + deploy in
+one fresh window). Full runbook: [`docs/runbooks/devnull-guard.md`](../runbooks/devnull-guard.md).
+
 ---
 
 ## VM-resident Claude (S-014.5 — meta workflow)

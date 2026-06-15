@@ -1,0 +1,22 @@
+# ============================================
+# ICT /dev/null GUARD TIMER (2026-06-15)
+# Fires ict-devnull-guard.service every 60 s so a stripped /dev/null
+# (the OCI host agent resets it to 0444) self-heals within ≤1 min —
+# comfortably inside the 5-min ict-git-sync deploy cadence, so auto-deploy
+# can never stay wedged on it again. Cheap: the service is a no-op unless
+# /dev/null actually drifted.
+#
+# Save to: /etc/systemd/system/ict-devnull-guard.timer
+# ============================================
+
+[Unit]
+Description=ICT /dev/null guard — fire the re-assert every 60 s
+
+[Timer]
+OnBootSec=20s
+OnUnitActiveSec=60s
+AccuracySec=10s
+Unit=ict-devnull-guard.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,144 @@
+name: vm-devnull-deploy-bootstrap
+
+# ONE-SHOT bootstrap to break the /dev/null auto-deploy chicken-and-egg.
+#
+# The problem (2026-06-15): an OS host agent on the live VM keeps chmod-ing
+# /dev/null to 0444 (write stripped). Every `ubuntu`-run VM script that
+# redirects to /dev/null then EACCESes and aborts under `set -e` — including
+# scripts/deploy_pull_restart.sh (ict-git-sync) AND scripts/ops/_lib.sh
+# (the system-actions pull-and-deploy wrapper). So auto-deploy is wedged, and
+# the durable fix that would heal it (ict-devnull-guard.timer, shipped in this
+# same PR) can't get ONTO the VM because installing it REQUIRES a deploy.
+#
+# This breaks the cycle deterministically: in ONE SSH session it
+#   1. `sudo chmod 0666 /dev/null`  (restore write), then
+#   2. immediately runs `bash scripts/deploy_pull_restart.sh` in that fresh
+#      window — the deploy `git reset --hard origin/main`s (landing the new
+#      self-healing deploy script + the guard units), runs
+#      install_systemd_units.sh (which `enable --now`s ict-devnull-guard.timer),
+#      and restarts the trader (picking up any merged code, e.g. #3597).
+# Once ict-devnull-guard.timer is active it re-asserts /dev/null every 60 s, so
+# auto-deploy can never wedge on this again and this workflow is no longer
+# needed. Belt: it also runs install_systemd_units.sh explicitly afterward so
+# the guard timer is enabled even if the deploy's restart step had trouble.
+#
+# Trust contract: fixed-form (chmod /dev/null + the existing deploy script +
+# the existing unit installer). No freeform shell, no edits. Blast radius =
+# whatever origin/main deploys + a normal trader restart (the same as any
+# git-sync deploy). Tier-2 (sudo + service restart on the live VM).
+#
+# Trigger: workflow_dispatch, or an issue labeled `vm-devnull-deploy-bootstrap`.
+# Secrets: VM_SSH_KEY. Optional vars: VM_SSH_HOST (default the live trader),
+# VM_SSH_USER (default ubuntu).
+
+on:
+  workflow_dispatch:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vm-devnull-deploy-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'vm-devnull-deploy-bootstrap'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+    steps:
+      - name: Dedup — bail if a bot comment already exists
+        if: github.event_name == 'issues'
+        id: dedup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, per_page: 100,
+            });
+            core.setOutput('skip',
+              comments.some(c => c.user && c.user.login === 'github-actions[bot]') ? 'true' : 'false');
+
+      - name: Set up SSH key
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          [ -z "${VM_SSH_KEY}" ] && { echo "::error::VM_SSH_KEY unset"; exit 1; }
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: chmod /dev/null + deploy + ensure guard timer
+        if: steps.dedup.outputs.skip != 'true'
+        id: exec
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 "${VM_SSH_USER}@${VM_SSH_HOST}" 'bash -s' > out.txt 2>&1 <<'REMOTE'
+          set -uo pipefail
+          REPO=/home/ubuntu/ict-trading-bot
+          echo "===== /dev/null BEFORE ====="
+          ls -l /dev/null || true
+          echo "===== restore write (0666) ====="
+          sudo chmod 0666 /dev/null && echo "chmod 0666: applied" || echo "chmod 0666: FAILED"
+          ls -l /dev/null || true
+          echo "===== deploy (fresh /dev/null window; lands the guard timer + new self-healing deploy script) ====="
+          cd "$REPO" || { echo "repo dir missing"; exit 1; }
+          bash scripts/deploy_pull_restart.sh
+          dep_rc=$?
+          echo "deploy_exit=${dep_rc}"
+          echo "===== belt: ensure systemd units installed + guard timer enabled ====="
+          sudo chmod 0666 /dev/null 2>&1 || true
+          bash scripts/install_systemd_units.sh || echo "install_systemd_units exit nonzero"
+          sudo systemctl enable --now ict-devnull-guard.timer 2>&1 || echo "guard timer enable: nonzero"
+          echo "===== guard timer state ====="
+          echo "enabled: $(systemctl is-enabled ict-devnull-guard.timer 2>&1 || true)"
+          echo "active:  $(systemctl is-active ict-devnull-guard.timer 2>&1 || true)"
+          echo "===== trader uptime (confirm restart) ====="
+          systemctl show ict-trader-live.service -p ActiveEnterTimestamp 2>&1 || true
+          echo "===== /dev/null AFTER ====="
+          ls -l /dev/null || true
+          echo "(done; deploy_exit=${dep_rc})"
+          exit "${dep_rc}"
+          REMOTE
+          rc=$?
+          echo "exit_code=${rc}" >>"$GITHUB_OUTPUT"
+          echo "ssh/deploy exit=${rc}"
+          cat out.txt
+
+      - name: Post result to issue
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true' && always()
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            let out = '(no output)';
+            try { out = fs.readFileSync('out.txt','utf8'); } catch {}
+            const ok = (process.env.EXIT_CODE === '0');
+            const body = [
+              `${ok ? '✅' : '❌'} **vm-devnull-deploy-bootstrap** (exit ${process.env.EXIT_CODE})`,
+              ok ? 'Deploy ran in a fresh /dev/null window; ict-devnull-guard.timer should now keep it fixed (re-asserts every 60 s).'
+                 : 'Did not complete cleanly — check whether the deploy reached `git reset` (if so, the new self-healing deploy script is on disk and the next git-sync finishes the job).',
+              '', '```', out.slice(0,6000), '```',
+            ].join('\n');
+            await github.rest.issues.createComment({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,body});
+            await github.rest.issues.update({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,state:'closed'});
+
+      - name: Summary (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch' && steps.dedup.outputs.skip != 'true'
+        run: |
+          { echo '```'; cat out.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

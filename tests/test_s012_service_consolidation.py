@@ -70,6 +70,12 @@ EXPECTED_SERVICES = {
     # wedge — VM-side recovery for the read surface, independent of the
     # webhook-flaky GitHub vm-web-api-recover dispatch.
     "ict-web-api-watchdog.service",
+    # 2026-06-15: /dev/null guard (devnull-guard runbook). Timer-fired oneshot
+    # (ict-devnull-guard.timer, every 60 s) that re-asserts /dev/null is the
+    # 1:3 char device with mode 0666 — an OCI host agent intermittently chmods
+    # it to 0444, which EACCESes every non-root `>/dev/null` and silently
+    # wedged ict-git-sync auto-deploy for ~16h on 2026-06-15.
+    "ict-devnull-guard.service",
 }
 
 # Trader-side units (i.e. units that run trading-strategy code). Used to

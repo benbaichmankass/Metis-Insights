@@ -193,6 +193,7 @@ done
 # If a non-repo root resolves from env, dump that side too so we can
 # diff the two views side-by-side without a second roundtrip.
 ALT_ROOT=""
+data_dir=""
 if [ -n "${TRADER_PID}" ] && [ -r "/proc/${TRADER_PID}/environ" ]; then
     runtime_logs_override="$(tr '\0' '\n' < "/proc/${TRADER_PID}/environ" \
         | awk -F= '$1=="RUNTIME_LOGS_DIR"{print $2; exit}')"
