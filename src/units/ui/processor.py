@@ -129,7 +129,7 @@ def get_account_balances() -> List[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# /accounts_status block formatter (Velotrade phase-2b)
+# /accounts_status block formatter (prop-account support)
 # ---------------------------------------------------------------------------
 
 
@@ -153,7 +153,7 @@ def format_account_status_block(status: Dict[str, Any]) -> str:
     means the bot stays a thin shell (CLAUDE.md architecture rule 5)
     and the same renderer is unit-testable without importing the bot.
 
-    Velotrade phase-2 / 2b additions:
+    Prop-account additions:
 
     - **Configured / not-configured.** When ``status['configured']``
       is ``False``, a "⚙️ Not configured: <reason>" line shows the
@@ -186,7 +186,7 @@ def format_account_status_block(status: Dict[str, Any]) -> str:
     key_fp = status.get("api_key_fingerprint") or "—"
     fp_line = f"  🔑 Key: …{_h(key_fp)}\n"
 
-    # Velotrade phase-2: not-configured surface.
+    # Not-configured surface.
     cfg_line = ""
     if status.get("configured") is False:
         reason = status.get("configured_reason") or "credentials not set"
@@ -199,7 +199,7 @@ def format_account_status_block(status: Dict[str, Any]) -> str:
     else:
         api_line = "  🔌 API: ⚠️ no balance returned"
 
-    # Velotrade phase-2b: prop fields. Only shown when the dict
+    # Prop fields. Only shown when the dict
     # actually carries them (PropRiskManager.report() supplies them
     # for prop accounts).
     prop_lines = ""

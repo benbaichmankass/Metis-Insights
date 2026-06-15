@@ -142,5 +142,8 @@ def test_accounts_yaml_alpaca_paper_ships_inert():
     assert acct["strategies"] == [
         "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d"
     ]
-    assert acct["demo"] is True
+    # 2026-06-15: the old `demo: true` category stamp was superseded by
+    # account_class (non-Bybit, so demo was only the category marker).
+    assert "demo" not in acct
+    assert acct["account_class"] == "paper"
     assert acct["symbols"] == ["SPY", "QQQ", "GLD"]

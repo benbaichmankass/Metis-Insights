@@ -237,7 +237,7 @@ class TestReadFailure:
         assert account_order_status(linear_account, "1900000000000000007") is None
 
     def test_non_bybit_exchange_returns_none(self):
-        """Binance / DXtrade not yet wired through this primitive — the
+        """Non-bybit exchanges not yet wired through this primitive — the
         reconciler treats ``None`` as "skip the row this tick", which is
         the correct conservative semantic until the connector lookup
         lands."""

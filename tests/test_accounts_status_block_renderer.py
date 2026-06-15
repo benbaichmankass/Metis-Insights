@@ -1,4 +1,4 @@
-"""Velotrade phase-2b — /accounts_status block renderer.
+"""Prop-account /accounts_status block renderer.
 
 Tests for ``src.units.ui.processor.format_account_status_block`` —
 the helper that produces the HTML block per account for the
@@ -46,13 +46,13 @@ def _regular_status(**overrides):
 
 def _prop_status(**overrides):
     s = _regular_status(
-        name="prop_velotrade_1",
-        exchange="velotrade",
+        name="prop_acct_1",
+        exchange="prop_broker",
         account_type="prop",
         strategies=[],
         api_key_fingerprint=None,
         configured=False,
-        configured_reason="VELOTRADE_API_KEY_1 and/or VELOTRADE_API_SECRET_1 not set in env",
+        configured_reason="PROP_API_KEY_1 and/or PROP_API_SECRET_1 not set in env",
         live_balance_usdt=None,
         live_balance_error="missing API credentials",
         # PropRiskManager.report() fields:
@@ -151,7 +151,7 @@ class TestPropAccountRender:
     def test_evaluation_phase_in_progress(self):
         block = format_account_status_block(_prop_status())
         # Header line carries the prop account_type.
-        assert "(<code>velotrade</code> / prop)" in block
+        assert "(<code>prop_broker</code> / prop)" in block
         # Phase + mission flag.
         assert "🏷️ Phase: <code>evaluation</code>" in block
         assert "mission_complete=⏳" in block
@@ -180,7 +180,7 @@ class TestPropAccountRender:
         assert "<code>funded</code>" in block
 
     def test_not_configured_and_prop_block_coexist(self):
-        # The real prop_velotrade_1 ships not-configured by default.
+        # A scaffolded prop account ships not-configured by default.
         block = format_account_status_block(_prop_status())
         assert "⚙️ Not configured:" in block
         assert "🏷️ Phase:" in block

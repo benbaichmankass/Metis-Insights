@@ -40,6 +40,7 @@ def _make_journal(path: Path) -> Path:
             is_backtest INTEGER DEFAULT 0,
             account_id TEXT NOT NULL DEFAULT 'live',
             is_demo BOOLEAN DEFAULT 0,
+            account_class TEXT,
             created_at TEXT
         )
         """

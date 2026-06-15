@@ -77,7 +77,7 @@ def _stub_creds_for_yaml_keys(monkeypatch):
     """Set env vars for every BYBIT_KEY_* / BINANCE_KEY_* identifier used
     in this file's accounts.yaml fixtures so ``resolve_credentials``
     returns a populated dict and the loader marks the accounts
-    ``configured=True``. The post-velotrade-fix coordinator filter
+    ``configured=True``. The coordinator filter
     drops ``configured=False`` accounts before dispatch — these tests
     are pinning the strategy-filter, not the credential gate, so the
     fixture pretends every account has working creds.
@@ -244,8 +244,8 @@ class TestBackCompatNoStrategiesList:
 class TestExplicitEmptyStrategies:
     """Yaml ``strategies: []`` is the operator's belt-and-braces "do
     not route here yet" — distinct from omitting the key entirely
-    (which is legacy fallthrough). Covers the prop_velotrade_1
-    scaffold case: empty list should block all strategies even when
+    (which is legacy fallthrough). Covers the scaffolded-account
+    case: empty list should block all strategies even when
     there's a matching strategy active in the system.
     """
 
@@ -305,8 +305,8 @@ class TestExplicitEmptyStrategies:
 class TestUnconfiguredAccountFilter:
     """Accounts with ``configured=False`` (env-var creds missing) must
     be filtered out of dispatch entirely — same observable as
-    ``strategies: []`` but triggered by a different config gap.
-    Mirrors prop_velotrade_1 in production.
+    ``strategies: []`` but triggered by a different config gap
+    (a scaffolded account whose env-var creds aren't set).
     """
 
     def test_unconfigured_account_dropped_from_dispatch(

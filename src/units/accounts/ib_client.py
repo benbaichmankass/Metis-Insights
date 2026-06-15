@@ -2,9 +2,8 @@
 
 This module owns the *shape* of the IB integration for MES (Micro
 E-mini S&P 500) futures. It mirrors the per-exchange separation already
-used for Bybit (``pybit.unified_trading.HTTP``), Binance
-(``src.exchange.binance_connector.BinanceConnector``) and Velotrade
-(``src.units.accounts.dxtrade_client.DXtradeClient``): the accounts unit
+used for Bybit (``pybit.unified_trading.HTTP``) and Binance
+(``src.exchange.binance_connector.BinanceConnector``): the accounts unit
 owns the connection shape; the SDK detail is hidden behind a client
 class. The executor (`_submit_order`), coordinator (client-construction
 switch) and account loader all route through this surface.

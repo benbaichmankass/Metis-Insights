@@ -74,6 +74,7 @@ def test_returns_closed_trade_with_full_shape(db, client):
     assert row == {
         "id": str(trade_id),
         "account": "bybit_2",
+        "accountClass": "real_money",  # account_class convention (2026-06-15)
         "isDemo": False,  # 2026-06-04 reporting-cleanup
         "symbol": "BTCUSDT",
         "side": "buy",  # long → buy

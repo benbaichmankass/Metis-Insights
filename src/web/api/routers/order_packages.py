@@ -45,6 +45,22 @@ _CLAUDE_SCORES = _REPO_ROOT / "comms" / "claude_strategy_scores.jsonl"
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 200
 
+# "Not paper" SQL predicate (joined ``trades`` alias ``t``) — excludes
+# paper-money rows robustly even before the account_class backfill runs.
+# account_class is authoritative when present; NULL rows fall back to is_demo.
+_NOT_PAPER_PREDICATE = (
+    " AND NOT (COALESCE(t.account_class,'')='paper'"
+    " OR (t.account_class IS NULL AND COALESCE(t.is_demo,0)=1))"
+)
+
+
+def _account_class_wire(account_class: Any, is_demo: Any) -> str:
+    """Derive the wire ``accountClass`` string, never null. Falls back to
+    is_demo when the row predates the account_class column / backfill."""
+    if account_class is not None and str(account_class).strip():
+        return str(account_class).strip().lower()
+    return "paper" if bool(is_demo) else "real_money"
+
 
 def _load_claude_scores() -> Dict[str, Dict[str, Any]]:
     """Map ``order_package_id`` → the latest Claude decision-score row.
@@ -143,13 +159,14 @@ def _query_order_packages(
                    op.created_at, op.updated_at, op.status, op.close_reason,
                    op.linked_trade_id, op.signal_logic, op.meta, op.model_scores,
                    t.pnl AS trade_pnl, t.status AS trade_status,
-                   COALESCE(t.is_demo, 0) AS trade_is_demo
+                   COALESCE(t.is_demo, 0) AS trade_is_demo,
+                   t.account_class AS trade_account_class
             FROM order_packages op
             LEFT JOIN trades t ON op.linked_trade_id = t.id
             WHERE COALESCE(t.is_backtest, 0) = 0
         """
         if not include_demo:
-            sql += " AND COALESCE(t.is_demo, 0) = 0"
+            sql += _NOT_PAPER_PREDICATE
         params: List[Any] = []
         if strategy:
             sql += " AND op.strategy_name = ?"
@@ -169,24 +186,27 @@ async def get_order_packages(
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     since: Optional[str] = Query(None, max_length=64),
     strategy: Optional[str] = Query(None, max_length=64),
+    include_paper: bool = Query(False),
     include_demo: bool = Query(False),
 ) -> Dict[str, Any]:
     """Return up to ``limit`` order packages (newest-first by created_at),
     each enriched with its linked-trade PnL, the Claude decision score,
-    and the ``isDemo`` flag.
+    and the ``accountClass`` / ``isDemo`` flags.
 
-    ``include_demo=true`` includes demo-account packages alongside live
-    (each row tagged via ``isDemo``). Default false preserves the prior
-    behavior (live only).
+    ``include_paper=true`` includes paper-account packages alongside
+    real-money (each row tagged via ``accountClass``). Default false
+    preserves the prior behavior (real-money only). ``include_demo`` is a
+    deprecated alias (effective include = include_paper OR include_demo).
 
     Best-effort: returns an empty ``rows`` list on missing DB or sqlite
     error so the dashboard tab stays usable.
     """
+    effective_include = include_paper or include_demo
     if not _DB_PATH.exists():
         return {"rows": [], "count": 0, "claude_log_present": _CLAUDE_SCORES.is_file()}
     try:
         rows = _query_order_packages(
-            _DB_PATH, limit, since, strategy, include_demo=include_demo,
+            _DB_PATH, limit, since, strategy, include_demo=effective_include,
         )
     except sqlite3.Error:  # allow-silent: best-effort read; logs + returns empty so the tab stays usable
         logger.exception("order_packages: sqlite read failed")
@@ -214,6 +234,11 @@ async def get_order_packages(
             "pnl": _f(r["trade_pnl"]),
             "tradeStatus": r["trade_status"],
             "isDemo": bool(r["trade_is_demo"]),
+            # accountClass ("paper" | "real_money") — canonical funding
+            # category; never null (falls back to is_demo for old rows).
+            "accountClass": _account_class_wire(
+                r["trade_account_class"], r["trade_is_demo"],
+            ),
             # Decision reasoning the bot recorded at signal time. Both are
             # JSON-or-text TEXT columns; decoded to whatever shape the writer
             # used (dict for structured meta/logic, str for plain text, None

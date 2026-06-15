@@ -887,7 +887,7 @@ class TestRealOrderIdAndNotesExtraction:
     def test_dry_prefix_skipped(self):
         assert _is_real_order_id("dry-abc123def456") is False
         assert _is_real_order_id("dry-bybit-abc1234567") is False
-        assert _is_real_order_id("dry-velotrade-abc1234567") is False
+        assert _is_real_order_id("dry-breakout-abc1234567") is False
 
     def test_open_closed_fallback_prefix_skipped(self):
         # ``_log_trade_to_journal`` writes ``{status}-<hex>`` when

@@ -134,8 +134,8 @@ def _apply_per_account_leverage() -> None:
             continue
 
         if getattr(account, "exchange", "").lower() != "bybit":
-            # Velotrade / future non-bybit derivatives have their own
-            # leverage primitives; this helper is bybit-specific.
+            # Future non-bybit derivatives have their own leverage
+            # primitives; this helper is bybit-specific.
             continue
 
         leverage = _resolve_account_leverage(account)

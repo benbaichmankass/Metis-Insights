@@ -73,7 +73,7 @@ class TestAccountsDispatchedRenderer:
         secs = _sections([
             {"name": "bybit_1", "error": "skipped_not_assigned: vwap not in strategies", "sized_qty": 0.0},
             {"name": "bybit_2", "error": None, "sized_qty": 0.001},
-            {"name": "prop_velotrade_1", "error": "below_min_balance: balance=5.00 USD", "sized_qty": 0.0},
+            {"name": "ib_paper", "error": "below_min_balance: balance=5.00 USD", "sized_qty": 0.0},
         ])
         sec = _dispatch_section(secs)
         assert sec is not None
@@ -84,7 +84,7 @@ class TestAccountsDispatchedRenderer:
         # Each line has a recognisable name
         assert any("bybit_1" in ln for ln in lines)
         assert any("bybit_2" in ln and "ok" in ln for ln in lines)
-        assert any("prop_velotrade_1" in ln for ln in lines)
+        assert any("ib_paper" in ln for ln in lines)
         # No residual '?' placeholders
         assert not any(ln.startswith("?:") for ln in lines)
 
