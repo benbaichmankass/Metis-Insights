@@ -266,8 +266,32 @@ def monitor_unit_for(strategy_name: str) -> str:
     as the base unit's own positions — without it they'd run on static SL/TP.
     The drift guard ``tests/test_strategy_monitor_unit_resolution.py`` fails
     CI if any registered strategy resolves to a module with no ``monitor()``.
+
+    Roster note (BL-20260615-MGCNAKED): the IBKR/FX symbol sleeves
+    (``mgc_trend_1h``, ``xauusd_trend_1h``, ``spy_trend_long_1d``,
+    ``qqq_trend_long_1d``, ``gld_pullback_1d``, ``eth_pullback_2h``) live ONLY
+    in the intent-layer roster (``intent_multiplexer``), not in the legacy
+    ``_STRATEGY_BUILDERS`` below — signal generation runs through the intent
+    layer (``MULTI_STRATEGY_INTENT_LAYER`` default on). Without consulting that
+    superset roster, ``monitor_unit_for`` returned the strategy name verbatim
+    for those sleeves, the order-monitor failed to import a same-name module
+    (``No module named 'src.units.strategies.mgc_trend_1h'``), and their
+    positions ran with NO active ``monitor()`` — only static SL/TP, which is
+    how a netted IBKR MGC long drifted into a naked ``orphan_adopt``. We fall
+    back to the intent-layer roster so the sleeves resolve to their owning unit
+    (``trend_donchian`` / ``htf_pullback_trend_2h``) via the builder's
+    ``monitor_unit`` tag.
     """
     builder = _STRATEGY_BUILDERS.get(strategy_name)
+    if builder is None:
+        # Superset roster: the intent layer carries the symbol sleeves that the
+        # legacy multiplexer dict omits. Lazy import keeps the module-load order
+        # cheap and avoids a circular import at pipeline import time.
+        try:
+            from src.runtime.intent_multiplexer import _resolve_builders
+            builder = _resolve_builders().get(strategy_name)
+        except Exception:  # noqa: BLE001 — fall back to same-name module
+            builder = None
     return getattr(builder, "monitor_unit", strategy_name)
 
 

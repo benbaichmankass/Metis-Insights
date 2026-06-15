@@ -1985,6 +1985,18 @@ def _reattach_adopted_orphans(db, summary: Dict[str, int]) -> None:
                 r["id"], exc,
             )
             continue
+        # Re-arm the broker-side stop. The journal SL/TP above is only the
+        # dashboard view — the exchange position is still naked until we place
+        # a protective bracket (gated by NAKED_POSITION_AUTOPROTECT).
+        try:
+            _rearm_broker_protection_after_recovery(
+                db, int(r["id"]), recovered.get("sl"), recovered.get("tp"),
+            )
+        except Exception as exc:  # noqa: BLE001 — best-effort; never abort the pass
+            logger.warning(
+                "_reattach_adopted_orphans: broker re-arm failed for trade "
+                "%s: %s", r["id"], exc,
+            )
         summary["reattached_existing"] = summary.get("reattached_existing", 0) + 1
         logger.warning(
             "_reattach_adopted_orphans: RE-ATTACHED existing orphan trade %s "
@@ -2081,6 +2093,17 @@ def _adopt_orphan_position(
             logger.warning(
                 "_adopt_orphan_position: re-link of package %s failed: %s",
                 opid, exc,
+            )
+        # Re-arm the broker-side stop on the freshly-adopted position. The
+        # recovered SL/TP went onto the journal row above, but the exchange
+        # position is naked until a protective bracket is placed (gated by
+        # NAKED_POSITION_AUTOPROTECT). BL-20260615-MGCNAKED.
+        try:
+            _rearm_broker_protection_after_recovery(db, trade_id, sl, tp)
+        except Exception as exc:  # noqa: BLE001 — best-effort; never abort adoption
+            logger.warning(
+                "_adopt_orphan_position: broker re-arm failed for trade_id=%s: %s",
+                trade_id, exc,
             )
         logger.warning(
             "_adopt_orphan_position: RE-ATTACHED orphan %s/%s to strategy "
@@ -3633,6 +3656,50 @@ def _resolve_protective_levels(db, symbol, direction):
     except Exception as exc:  # noqa: BLE001
         logger.warning("_resolve_protective_levels(%s): failed: %s", symbol, exc)
         return (None, None)
+
+
+def _rearm_broker_protection_after_recovery(db, trade_id, sl, tp) -> bool:
+    """Re-place a broker-side GTC SL/TP bracket on an orphan the reverse
+    reconciler just adopted/re-attached.
+
+    The reconciler recovers a position's SL/TP from its originating order
+    package and writes them onto the journal row — but writing the *journal*
+    fields does NOT put a protective order back at the broker. A re-adopted
+    IBKR net position therefore stays NAKED at the exchange even though the
+    dashboard now shows an SL/TP (BL-20260615-MGCNAKED — the MGC ``orphan_adopt``
+    that sat with no stop). This re-arms the GTC OCA bracket via the same
+    IB-only path as the naked-position sweep
+    (:func:`_attempt_naked_autoprotect` -> ``IBClient.place_protective``),
+    gated by the SAME ``NAKED_POSITION_AUTOPROTECT`` flag so it shares one
+    live-order switch and ships inert until the operator enables it.
+    Best-effort; never raises.
+    """
+    if sl in (None, 0) or tp in (None, 0):
+        return False
+    if str(
+        os.environ.get("NAKED_POSITION_AUTOPROTECT", "")
+    ).strip().lower() not in ("1", "true", "yes", "on"):
+        return False
+    try:
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            row = conn.execute(
+                "SELECT id, account_id, symbol, direction, position_size "
+                "FROM trades WHERE id=?",
+                (int(trade_id),),
+            ).fetchone()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_rearm_broker_protection_after_recovery: read failed for "
+            "trade_id=%s: %s", trade_id, exc,
+        )
+        return False
+    if row is None:
+        return False
+    return _attempt_naked_autoprotect(row, sl, tp)
 
 
 def _attempt_naked_autoprotect(row, sl, tp) -> bool:
