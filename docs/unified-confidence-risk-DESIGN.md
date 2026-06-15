@@ -224,6 +224,36 @@ calibrators + reliability curves, cross-validate live-only vs backtest-augmented
 `rank_auc` readiness pass, calibrate only heads with `rank_auc>0.5`; (5) stamp
 observe-only `conviction` and soak before any influence.
 
+## 4b. P0 build status (2026-06-15) — Tier-1, no live path touched
+
+Shipped on the branch (tested + lint-clean; **nothing wired into the order
+path** — these are the offline calibration/observe-only building blocks):
+
+- **`ml/calibration/`** — `Calibrator` family (isotonic / Platt / decile /
+  constant) with a **pure-Python predict** (no sklearn at predict time;
+  serializes to plain dicts), `fit_calibrator(auto-selects by sample size)`,
+  and reliability/Brier/ECE metrics. 18 unit tests.
+- **`src/runtime/conviction.py`** — the v1 conviction blend as a pure,
+  stdlib-only, fail-permissive function (weight renormalization over present
+  inputs, reductive news multiplier, inert no-trade floor). 10 unit tests.
+- **`scripts/ml/build_calibration_corpus.py`** — runs the 6 per-strategy
+  harnesses with `--emit-trades` → the `(confidence, won)` corpus.
+- **`scripts/ml/fit_confidence_calibrators.py`** — fits per-strategy
+  calibrators + writes a reliability report (raw-vs-calibrated Brier/ECE).
+- **`src/backtest/run_backtest_vwap.py`** — fixed the `--emit-trades` hook to
+  emit vwap's real confidence (was hardcoded `None`).
+
+**End-to-end verified on the sample candle data** (illustrative, not production
+volume): calibration sharply improved reliability, e.g. trend_donchian
+ECE 0.30→0.011, squeeze 0.71→0.013, fade 0.19→0.012. The production fit needs
+the corpus run over full validated history (P0 next step).
+
+**Remaining for P0/P1 (not yet built):** run the corpus over full history + fit
+the real calibrators; per-head `rank_auc` readiness pass; the P1 observe-only
+`conviction` stamp in `_emit_shadow_preds` (the first signal-path touch — will
+be a separate, clearly-marked draft PR, observe-only, not merged without
+operator sign-off).
+
 ## 5. Phased rollout
 
 | Phase | Scope | Gate |
