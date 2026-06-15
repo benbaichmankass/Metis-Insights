@@ -193,3 +193,17 @@ Most closed 2026-06-14 (same-day follow-up session):
    fire on Bybit, not via the client), but the bot cannot reconcile, monitor, or
    open new `bybit_2` trades until the IP is bound. **Add this step to any future
    VM-migration checklist** — egress IP changes whenever the live VM moves.
+
+   **CRITICAL second half (added 2026-06-15):** binding the IP on Bybit is
+   necessary but **NOT sufficient** — you must then **restart
+   `ict-trader-live.service`** (`restart-bot-service` system-action). The trader
+   reads `BYBIT_API_KEY_2` via `os.environ[...]` at client-construction and
+   **never re-reads creds at runtime**, so a process started before the key/IP
+   was corrected keeps failing with `10010` indefinitely until restarted. This
+   was the actual blocker that left `bybit_2` failing into 2026-06-15 ~10:09 UTC
+   even though the IP had already been bound: a fresh process authenticated
+   `retCode=0 OK` while the long-running trader (PID 264895) kept getting `10010`.
+   The restart at 10:18:48 UTC (PID 300081) cleared it — verified via a full tick
+   with zero `10010` on live mainnet candles (`BL-20260614-BYBIT-IP` resolved).
+   To confirm before/after, dispatch the `vm-bybit-diag` workflow (reproduces the
+   bot's own authed `bybit_2` wallet-balance call on the VM, masked).
