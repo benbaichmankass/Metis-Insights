@@ -137,6 +137,18 @@ jobs:
           echo "   THIS egress address is the one that must be on the Bybit API-key allowlist.)"
           echo
 
+          echo "===== IB Gateway reachability (trader -> 10.0.0.251:4002) ====="
+          if timeout 6 bash -c '< /dev/tcp/10.0.0.251/4002'; then echo "TCP 10.0.0.251:4002 = OPEN (gateway reachable)"; else echo "TCP 10.0.0.251:4002 = CLOSED/UNREACHABLE"; fi
+          echo "ping: $(ping -c1 -W2 10.0.0.251 | grep -oE 'time=[0-9.]+ ms' || echo '(no reply)')"
+          echo "----- trader IB_* effective env (systemd, no secrets) -----"
+          systemctl show ict-trader-live.service -p Environment | tr ' ' '\n' | grep -E 'IB_|IBKR' || echo "(no IB_ in unit Environment=)"
+          echo "----- IB_* in .env (names+values are non-secret tuning knobs) -----"
+          ENVF=.env; [ -f "$ENVF" ] || ENVF=/home/ubuntu/ict-trading-bot/.env
+          grep -E '^[[:space:]]*IB_' "$ENVF" || echo "(no IB_ in .env)"
+          echo "----- IB_ in systemd drop-ins -----"
+          grep -rhE 'IB_' /etc/systemd/system/ict-trader-live.service.d/ 2>&1 || echo "(no drop-in IB_)"
+          echo
+
           echo "===== iptables -L INPUT -n -v (best-effort, may need sudo) ====="
           iptables -L INPUT -n -v 2>&1 || echo "(iptables not permitted without sudo)"
           echo
