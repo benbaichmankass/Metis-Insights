@@ -166,7 +166,7 @@ def _monitor_blind_alert_ticks() -> int:
     enable gate — alerting is always on). ``MONITOR_BLINDNESS_ALERT_TICKS``,
     default 3, floored at 1."""
     try:
-        return max(1, int(os.environ.get("MONITOR_BLINDNESS_ALERT_TICKS", "3")))
+        return max(1, int(os.environ.get("MONITOR_BLINDNESS_ALERT_TICKS", "3")))  # allow-silent: observe-only alert-cadence knob, never gates the risk/live order path
     except (TypeError, ValueError):
         return 3
 

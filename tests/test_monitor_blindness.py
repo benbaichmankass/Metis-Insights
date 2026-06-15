@@ -13,8 +13,6 @@ Covers:
 """
 from __future__ import annotations
 
-import pytest
-
 from src.runtime import order_monitor as om
 
 
