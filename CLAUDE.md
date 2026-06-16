@@ -467,9 +467,20 @@ Unauthenticated GET routes — Tier 1 read surface. See
   "winRate": 68.5,
   "status": "running",
   "datasource": "live",
-  "vmHealth": { "cpu": 32.1, "memory": 48.5, "disk": 21.0 }
+  "vmHealth": { "cpu": 32.1, "memory": 48.5, "disk": 21.0 },
+  "paperOpenTrades": 1,
+  "paper": { "pnl24h": 0.0, "totalPnL": 0.0, "openTrades": 1, "winRate": 0.0 }
 }
 ```
+
+The top-level `pnl24h` / `totalPnL` / `openTrades` / `winRate` are **real-money
+only** — paper rows are excluded (account_class-authoritative, is_demo
+fallback). **Real and paper performance are never blended** (P4 of the
+live-trade management contract, operator directive): the paper-side aggregates
+ride in an **additive `paper` sub-block** (same shape) plus a distinct
+`paperOpenTrades` count alongside the real `openTrades` KPI, so a consumer
+renders the two as separate sections — there is no combined real+paper total
+anywhere.
 
 ### `Position` shape (`/api/bot/positions`)
 ```json
