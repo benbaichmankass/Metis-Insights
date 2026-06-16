@@ -242,6 +242,63 @@ consumer-contract doc.
 
 ---
 
+## Scope expansion (2026-06-16) — writer-side conformance & data precedence
+
+Operator directive (second expansion): audit **everything that writes into the
+database**, confirm each writer conforms to the canonical schema/parameters,
+find **conflicting data points**, and where they exist declare the
+**authority/precedence hierarchy** for resolving them. Ensure every function
+reports what it is supposed to. Make **structural** fixes (schema constraints,
+one canonical writer per fact, CI guards that keep future builds compliant) —
+not read-side patches. This is a precondition for the Phase-1 fix being
+holistic: closing trades correctly (P1-B) is pointless if other writers keep
+injecting conflicting rows.
+
+New deliverables (feed Phase 1 + add a new Phase 1.5):
+
+- **W1 — Writer inventory & conflict map (canonical DB).** Every caller of
+  `insert_trade` / `update_trade` / `insert_order_package` /
+  `update_order_package` (and any raw SQL writer), field-by-field: what it
+  writes, the trigger, the value semantics. Flag every fact written by more than
+  one writer with divergent semantics, and every value that violates the
+  intended vocabulary. Known seeds: `trades.direction` stored as both
+  `long/short` and `buy/sell`; `account_class` vs `is_demo`; `setup_type` vs
+  `strategy_name`; `order_package_id` vs `linked_trade_id`; multi-source `pnl`.
+- **W2 — Parallel/duplicate truth-store audit.** Every JSONL/JSON file an API
+  endpoint or consumer reads **as a source of truth** instead of the canonical
+  DB (`signal_audit.jsonl`, `outcomes.jsonl`, `shadow_predictions*.jsonl`,
+  `balance_snapshots.json`, `liquidity_state.json`, `runtime_status.json`,
+  `news_decisions.jsonl`, `insights/*.json`, `validation.jsonl`,
+  `trainer_mirror/*`). For each: what facts it holds, whether those facts are
+  also in the DB, and where the two can diverge. Decide what must be
+  canonicalized into the DB vs. legitimately stay file-based (and why).
+- **W3 — Derived/aggregate-state writers.** `daily_risk_state`,
+  `strategy_versions`, `account_context_snapshots`, `backtest_results`,
+  `insights_history` / `insights_usage`, and the `trainer_store.db` ingest —
+  who writes them, whether they can drift from the `trades`-derived truth, and
+  the precedence rule.
+
+### Data-authority hierarchy (to be finalized by W1–W3)
+
+For every canonical fact there is **one** authoritative writer and a documented
+precedence when a secondary source disagrees. Draft top-level rule:
+
+1. **Broker/exchange truth** (filled PnL, fills, balances) wins for the facts it
+   owns, when available.
+2. **The canonical DB column** is the source of truth for consumers — never a
+   JSONL file and never a read-time re-derivation, once W1–W3 land the writers.
+3. **Local compute** (mark-to-market PnL, derived aggregates) is the explicit,
+   labelled fallback, never blended silently with broker truth.
+
+### Phase 1.5 — Writer conformance & structural constraints
+
+After W1–W3: one canonical writer per fact; normalize divergent vocabularies at
+the **write** boundary (e.g. `direction` stored canonically once); add schema
+constraints (NOT NULL / CHECK / the close-path invariants); and add **CI guards**
+so a future writer that bypasses the canonical path or emits a non-conforming
+value fails the build (siblings of the existing `account-class-guard` /
+`canonical-db-resolver` guards).
+
 ## Closed-loop verification
 
 Each Phase-1 PR is verified against live data via the diag relay (journal
