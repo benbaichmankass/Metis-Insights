@@ -29,7 +29,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "describe | allocate | assign"
+        description: "describe | allocate | assign | release"
         required: true
         default: "describe"
       reserved_ip_id:
@@ -100,9 +100,9 @@ jobs:
             confirm="$(printf '%s' "${DISP_CONFIRM}" | tr '[:upper:]' '[:lower:]')"
           fi
           [ -z "${mode}" ] && mode="describe"
-          case "${mode}" in describe|allocate|assign) ;; *) echo "::error::bad mode '${mode}'"; exit 1;; esac
-          if [ "${mode}" = "assign" ] && [ "${confirm}" != "yes" ]; then
-            echo "::error::mode=assign requires 'confirm: yes'."; exit 1
+          case "${mode}" in describe|allocate|assign|release) ;; *) echo "::error::bad mode '${mode}'"; exit 1;; esac
+          if { [ "${mode}" = "assign" ] || [ "${mode}" = "release" ]; } && [ "${confirm}" != "yes" ]; then
+            echo "::error::mode=${mode} requires 'confirm: yes'."; exit 1
           fi
           echo "mode=${mode}"               >> "$GITHUB_OUTPUT"
           echo "reserved_ip_id=${rip}"      >> "$GITHUB_OUTPUT"
@@ -175,7 +175,9 @@ jobs:
                 ? '_Next: bind the reserved address on Bybit (BYBIT_API_KEY_2), then dispatch `mode: assign` with `reserved_ip_id` + `confirm: yes` in a low-activity window._'
                 : (mode === 'assign'
                    ? '_Verify Bybit is bound to the reserved address; update VM_SSH_HOST / BOT_API_URL / DIAG_BASE_URL only if the address changed._'
-                   : '_Read-only describe. RESERVED = stable. EPHEMERAL = run `mode: allocate` next._'),
+                   : (mode === 'release'
+                      ? '_Released an unassigned reserved IP. The live VM keeps its current (ephemeral) public IP — unchanged. Re-run `mode: allocate` to stage one for a future move._'
+                      : '_Read-only describe. RESERVED = stable. EPHEMERAL = run `mode: allocate` next._')),
             ].join('\n');
             await github.rest.issues.createComment({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,body});
             await github.rest.issues.update({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,state:'closed'});

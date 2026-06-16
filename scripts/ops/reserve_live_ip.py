@@ -203,7 +203,41 @@ def do_assign() -> int:
     return 0
 
 
-_MODES = {"describe": do_describe, "allocate": do_allocate, "assign": do_assign}
+def do_release() -> int:
+    """Delete an UNASSIGNED reserved public IP (cleanup for an allocate that was
+    never assigned). Refuses to delete one still attached to a VNIC — unassign
+    via the live VNIC first. Gated by CONFIRM=yes."""
+    if os.environ.get("CONFIRM", "").strip().lower() != "yes":
+        print("ERROR: mode=release deletes a reserved public IP — set CONFIRM=yes.")
+        return 2
+    reserved_ip_id = os.environ.get("RESERVED_IP_ID", "").strip()
+    if not reserved_ip_id:
+        print("ERROR: RESERVED_IP_ID empty — pass the reserved IP OCID to release.")
+        return 2
+
+    _compute, net = _clients()
+    pip = net.get_public_ip(reserved_ip_id).data
+    if (pip.lifetime or "").upper() != "RESERVED":
+        print(f"ERROR: {reserved_ip_id} is not a RESERVED public IP "
+              f"(lifetime={pip.lifetime}). Refusing to delete.")
+        return 3
+    if pip.private_ip_id or pip.assigned_entity_id:
+        print(f"ERROR: reserved IP {pip.ip_address} is still ASSIGNED "
+              f"(private_ip_id={pip.private_ip_id}, entity={pip.assigned_entity_id}). "
+              f"Unassign it from the live VNIC before releasing. Refusing to delete.")
+        return 4
+
+    print(f"deleting UNASSIGNED reserved public IP {pip.ip_address} ({reserved_ip_id}) ...")
+    net.delete_public_ip(reserved_ip_id)
+    print(f"OK: released reserved public IP {pip.ip_address}")
+    print(f"released_ip={pip.ip_address}")
+    print("# The live VM keeps its current (ephemeral) public IP — unchanged. To adopt"
+          " a reserved IP on a FUTURE move, run mode=allocate again first.")
+    return 0
+
+
+_MODES = {"describe": do_describe, "allocate": do_allocate, "assign": do_assign,
+          "release": do_release}
 
 
 def main() -> int:
