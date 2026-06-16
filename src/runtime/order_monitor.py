@@ -4333,7 +4333,7 @@ def _local_pnl_compute_enabled() -> bool:
     """Local-PnL fallback is baseline correctness (no default-off gate, per the
     Prime Directive). Set ``LOCAL_PNL_COMPUTE_DISABLED`` truthy to roll it back
     without a redeploy. Default ON."""
-    raw = str(os.environ.get("LOCAL_PNL_COMPUTE_DISABLED", "")).strip().lower()
+    raw = str(os.environ.get("LOCAL_PNL_COMPUTE_DISABLED", "")).strip().lower()  # allow-silent: local-PnL fallback kill-switch, default-ON (inverse of the BUG-039 default-OFF capability gate — this gates a reporting/observability sweep, never execution; RiskManager.dry_run stays the only switch that decides whether an order is sent)
     return raw not in ("1", "true", "yes", "on")
 
 

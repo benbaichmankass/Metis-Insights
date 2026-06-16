@@ -209,7 +209,7 @@ def _local_unrealised_for_trade(
         if pnl is None:
             return None, "unavailable"
         return round(float(pnl), 2), "markprice_local"
-    except Exception as exc:  # noqa: BLE001 — best-effort enrichment of a Tier-1 read
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort mark-to-market enrichment of a Tier-1 read endpoint; spans a lazy import + a (possibly blocking IBKR) candle fetch whose failure modes are open-ended. Returns the null-not-zero sentinel so /api/bot/positions never 500s — the renderer treats null as "not measured", exactly the broker-unavailable fallback contract.
         logger.warning(
             "dashboard: local unrealised compute failed for %s: %s",
             symbol, exc,
