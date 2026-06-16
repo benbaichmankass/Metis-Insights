@@ -949,6 +949,13 @@ def account_open_positions(
     * missing creds (``bybit_client_for`` / ``binance_conn_for`` /
       ``alpaca_client_for`` returns ``None``)
     * exchange SDK exception (logged + ``report_api_failure``)
+    * **IB only:** an EMPTY snapshot from a Gateway that is NOT verified
+      logged-in (``net_liquidation`` not populated). A logged-out-but-
+      connected IB Gateway reports ``connected=true`` yet ``positions()``
+      returns ``[]`` — indistinguishable from genuinely flat — so the
+      empty case is gated on ``net_liquidation`` populated. A NON-empty
+      IB snapshot is itself proof of a live session and is returned as-is
+      with no extra health round-trip.
 
     Lifted from ``src/units/ui/data_loaders.py:account_open_positions``
     in the BUG-042 PR 1 foundation step. Behaviour-preserving — the UI
@@ -973,7 +980,7 @@ def account_open_positions(
                 return None
             from src.units.accounts.ib_client import IBConnectionError
             try:
-                return client.positions()
+                positions = client.positions()
             except IBConnectionError as exc:
                 # A down/evicted Gateway is an expected, recurring state —
                 # fail quietly (log only) instead of routing through the
@@ -984,6 +991,55 @@ def account_open_positions(
                     account.get("account_id") or "unknown", exc,
                 )
                 return None
+            # A NON-empty IB snapshot is proof of a live, logged-in session
+            # (a logged-out Gateway can't return positions), so trust it and
+            # return as-is — no extra health round-trip on the common path.
+            #
+            # An EMPTY snapshot is the ambiguous case: a logged-out-but-
+            # connected Gateway reports ``connected=true`` yet ``portfolio()``
+            # returns ``[]`` — indistinguishable from a genuinely-flat account.
+            # Verify the session is truly logged in via ``net_liquidation``
+            # populated (the SAME signal the IB-gateway watchdog uses for
+            # "truly logged in"; ``balance()`` reads the account summary, which
+            # a logged-out Gateway can't satisfy → ``net_liquidation`` 0.0 or
+            # an ``IBConnectionError``). Only when net_liq is populated is the
+            # empty ``[]`` a trustworthy "genuinely flat"; otherwise return
+            # ``None`` ("couldn't read — skip conservatively") so the reverse
+            # reconciler's ``if positions is None: continue`` guard prevents a
+            # false-close of a genuinely-open IB row during a sustained
+            # gateway logout (BL — logged-out gateway false-close).
+            if positions:
+                return positions
+            try:
+                net_liq = client.balance().get("net_liquidation")
+            except IBConnectionError as exc:
+                logger.warning(
+                    "account_open_positions(%s): IB empty snapshot but "
+                    "balance() unreachable (treating as read-failure, not "
+                    "flat): %s",
+                    account.get("account_id") or "unknown", exc,
+                )
+                return None
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "account_open_positions(%s): IB empty snapshot but "
+                    "balance() health-read failed (treating as read-failure, "
+                    "not flat): %s",
+                    account.get("account_id") or "unknown", exc,
+                )
+                return None
+            if not net_liq:
+                # net_liquidation None / 0.0 → Gateway is connected but not
+                # verified logged-in. Do NOT trust the empty snapshot.
+                logger.warning(
+                    "account_open_positions(%s): IB empty snapshot with "
+                    "net_liquidation=%r — gateway not verified logged-in; "
+                    "returning None (read-failure) not [] (flat).",
+                    account.get("account_id") or "unknown", net_liq,
+                )
+                return None
+            # Verified logged-in AND genuinely flat.
+            return []
         if ex == "bybit":
             client = bybit_client_for(account)
             if client is None:

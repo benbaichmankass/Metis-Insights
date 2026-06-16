@@ -253,6 +253,78 @@ def test_read_failure_none_never_closes(tmp_db):
     assert _status(tmp_db, tid) == "open"
 
 
+def test_logged_out_ib_gateway_never_closes_open_row(tmp_db, monkeypatch):
+    """END-TO-END: a logged-out-but-connected IB Gateway (empty positions()
+    snapshot, net_liquidation None) must NOT false-close a genuinely-open IB
+    row — even across TWO observations. This exercises the REAL
+    ``account_open_positions`` (not a patched return) so the net_liq gate is
+    proven to turn the ambiguous empty snapshot into a None read-failure, which
+    the reconciler's ``if positions is None: continue`` guard then skips.
+    """
+    _insert_open_trade(tmp_db, symbol="MES", direction="long")
+    tid = _only_open_trade_id(tmp_db)
+
+    class _LoggedOutIBClient:
+        """connected=true but logged out: positions()=[] and balance() has
+        net_liquidation=None — the exact ambiguous wedge signature."""
+
+        def positions(self):
+            return []
+
+        def balance(self):
+            return {"net_liquidation": None}
+
+        @property
+        def connected(self):
+            return True
+
+    monkeypatch.setattr(
+        "src.units.accounts.clients.ib_read_client_for",
+        lambda account: _LoggedOutIBClient(),
+    )
+
+    # Two observations — a sustained (>confirm-window) logout. account_open_
+    # positions returns None each time (net_liq gate), so the row never arms
+    # toward a close and never closes.
+    import src.runtime.order_monitor as _om
+    s1 = _reconcile_orphan_exchange_positions(tmp_db)
+    s2 = _reconcile_orphan_exchange_positions(tmp_db)
+
+    assert s1["snapshot_closed"] == 0 and s1["snapshot_pending"] == 0
+    assert s2["snapshot_closed"] == 0 and s2["snapshot_pending"] == 0
+    assert tid not in _om._PENDING_SNAPSHOT_DISAPPEAR_CONFIRM
+    assert _status(tmp_db, tid) == "open"  # genuinely-open row preserved
+
+
+def test_logged_in_ib_gateway_flat_closes_open_row(tmp_db, monkeypatch):
+    """Counter-case to the logged-out test: a VERIFIED logged-in IB Gateway
+    (net_liquidation populated) that reports an empty positions() snapshot IS
+    trustworthy "genuinely flat" — account_open_positions returns [] and the
+    snapshot reconciler closes the absent row after the 2-observation confirm.
+    Proves the net_liq gate doesn't over-block legitimate flat reconciliation.
+    """
+    _insert_open_trade(tmp_db, symbol="MES", direction="long")
+    tid = _only_open_trade_id(tmp_db)
+
+    class _LoggedInFlatIBClient:
+        def positions(self):
+            return []
+
+        def balance(self):
+            return {"net_liquidation": 10234.5}
+
+    monkeypatch.setattr(
+        "src.units.accounts.clients.ib_read_client_for",
+        lambda account: _LoggedInFlatIBClient(),
+    )
+
+    s1 = _reconcile_orphan_exchange_positions(tmp_db)  # arms
+    s2 = _reconcile_orphan_exchange_positions(tmp_db)  # confirms + closes
+    assert s1["snapshot_pending"] == 1 and s1["snapshot_closed"] == 0
+    assert s2["snapshot_closed"] == 1
+    assert _status(tmp_db, tid) == "closed"
+
+
 def test_read_failure_alone_never_closes(tmp_db):
     """A None snapshot on the very first observation does nothing — no arm, no
     close (the account-level None short-circuit skips it entirely)."""
