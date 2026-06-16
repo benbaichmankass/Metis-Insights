@@ -415,7 +415,59 @@ Corrected invariant:
 
 ## Closed-loop verification
 
-Each Phase-1 PR is verified against live data via the diag relay (journal
+Each Phase-1 change is verified against live data via the diag relay (journal
 snapshot before/after) and the INV checks, not against intent. A change is
 "done" only when the canonical column carries the truth and the corresponding
 read-time derivation has been deleted.
+
+## Progress log — 2026-06-16 (overnight autonomous session)
+
+**Landed on `main` (deployed via `ict-git-sync`):**
+- PR #3817 (foundation): the governing contract; **P1-A** (`trades.closed_at`
+  column + migration); **WC-4** (`account_context_snapshots` `utc_date`→`date`
+  bug + both masking test fixtures rebuilt from the canonical DDL).
+
+**Committed on `claude/streamlab-dashboard-audit-4popmq`** (draft PR #3818 —
+the money-path phase; merge gated on operator review):
+- **WC-1** — `/closeall` now closes canonically (JSON notes + `closed_at`
+  column + cascades the linked order package).
+- **P1-B.1** (write) — every `order_monitor` close site stamps the `closed_at`
+  column (6 functions; agent-drafted, human-reviewed diff).
+- **P1-B.2** (read) — `/trades/closed` resolves
+  `COALESCE(t.closed_at, op.updated_at, t.timestamp)` (column authoritative,
+  legacy chain as fallback); ordering + `since` use the same key.
+- **Phase 2** — `/performance` windows now key on the same canonical close-time
+  basis, so `window=24h` is a true rolling-24h-by-close-time window (the
+  server-side fix for the dashboards' 24h-PnL KPI). Verified: a trade closed 2h
+  ago but opened 30h ago now counts in the 24h window.
+
+All verified locally (SQL + compile + targeted tests); `closed_at` is now
+canonical end-to-end (written + read), and the 24h aggregate is close-time-correct.
+
+**NOT yet done — and the deliberately-deferred risky items (need verification I
+couldn't do unattended):**
+- **WC-3** (normalize `trades.direction` to `long/short` in
+  `ml/datasets/backtest_recorder.py`): deferred — could break ML training
+  dataset parity if the training pipeline expects `buy/sell`. Verify the
+  dataset consumers first.
+- **WC-2 write side** (stamp `account_class`/`is_demo`/`order_package_id` on the
+  reconciler orphan-adopt + smoke inserts): deferred — the orphan-adopt path is
+  rarely exercised and hard to test without a live trader; needs careful review.
+- **Read-side order-package link** (`/order-packages` join on the canonical
+  `trades.order_package_id` instead of `linked_trade_id`): needs a correlated
+  subquery to preserve one-row-per-package + paper-filter semantics — design +
+  test before shipping. This is the read-side half of the "trend trade with no
+  order package" fix.
+- **P1-B pnl-at-close** (non-broker accounts), **P1-E** (historical backfill),
+  **WC-5** (signals cutover / balances DB table / insights precedence),
+  **WC-6** (writer-conformance CI guard + CHECK constraints), **Phase 3**
+  (thin both dashboards — needs the preview app to verify rendering), **Phase 4**
+  (INV integrity check in `/health-review`).
+
+**Morning decisions for the operator:**
+1. Review + merge draft **#3818** (WC-1 + P1-B + Phase 2) — order-path code, so
+   it's gated on your OK. All CI-green, verified locally.
+2. WC-3 direction normalization: confirm the ML training datasets tolerate
+   `long/short` (vs `buy/sell`) before I flip the writer.
+3. Phase 3 dashboard UI changes will go to the **`claude/web-app-preview`**
+   branch for you to eyeball before prod (can't verify rendering from here).

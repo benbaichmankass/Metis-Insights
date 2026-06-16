@@ -254,6 +254,24 @@ def test_closed_at_prefers_package_over_notes(db, client):
     assert resp.json()[0]["closedAt"] == "2026-05-08T10:42:00Z"
 
 
+def test_closed_at_prefers_column_over_package_and_notes(db, client):
+    """P1-B: the canonical trades.closed_at COLUMN is authoritative — it
+    wins over both the order_packages.updated_at join and the notes JSON."""
+    trade_id = _insert_trade(
+        db,
+        timestamp="2026-05-08T10:00:00Z", symbol="BTCUSDT",
+        direction="long", entry_price=60000.0, exit_price=60500.0,
+        position_size=0.001, status="closed", is_backtest=0,
+        account_id="bybit_2",
+        closed_at="2026-05-08T11:30:00Z",
+        notes=json.dumps({"closed_at": "1999-01-01T00:00:00Z"}),
+    )
+    _insert_package(db, order_package_id="p-col", linked_trade_id=trade_id,
+                    updated_at="2026-05-08T10:42:00Z")
+    resp = client.get("/api/bot/trades/closed")
+    assert resp.json()[0]["closedAt"] == "2026-05-08T11:30:00Z"
+
+
 def test_malformed_notes_does_not_crash(db, client):
     _insert_trade(
         db,
