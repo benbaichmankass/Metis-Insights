@@ -7,13 +7,14 @@
 > the notifier (FCM outage, expired token, missing credentials) never
 > propagates into the trader.
 
-> **Status (2026-05-26):** the notifier module, `device_tokens`
-> table, `/api/bot/devices/*` router, and operator actions are
-> landed. The trade-close observer hook in `Database.update_trade`
-> that fans events into the notifier is **deferred to a follow-up PR**
-> while a CI test interaction is investigated. Until that lands,
-> `enable-mobile-push` flips the flag but no events fire — the
-> infrastructure is in place, the wire-up is one small commit away.
+> **Status (2026-06-16):** fully live. The notifier, `device_tokens`
+> table, `/api/bot/devices/*` router, and the observer hooks in
+> `Database.{insert_trade,update_trade}` all landed — trade
+> open/close/update events (real **and** paper) fan out to FCM **and**
+> the operator's Telegram. Mobile push is now **unconditional**: the
+> default-off `MOBILE_PUSH_ENABLED` enable-gate (and the
+> `enable-/disable-mobile-push` actions) were scrubbed as a silent
+> footgun. Configuring `FCM_SERVICE_ACCOUNT_JSON` is the only setup step.
 
 ## Architecture (quick reference)
 
@@ -37,8 +38,9 @@ trade_journal.db
 
 Two units involved:
 
-- **`ict-trader-live.service`** holds the notifier. The
-  `MOBILE_PUSH_ENABLED` env var lives here.
+- **`ict-trader-live.service`** holds the notifier. It is unconditional
+  (no enable flag); the FCM credential (`FCM_SERVICE_ACCOUNT_JSON`) lives
+  in its `.env`.
 - **`ict-web-api.service`** serves the `/api/bot/devices/*` router. No
   env vars required there — it just reads/writes the `device_tokens`
   table.
@@ -121,21 +123,14 @@ curl https://<bot-host>/api/bot/devices
 # → {"count": 1, "devices": [{"id": 1, "token_suffix": "...", ...}]}
 ```
 
-### 4. Enable the notifier
+### 4. (Nothing to enable)
 
-Open a labelled issue in `benbaichmankass/ict-trading-bot`:
-
-- **Label:** `system-action`
-- **Body:**
-  ```
-  action: enable-mobile-push
-  reason: <e.g. "M12 S1 — turn on phone notifications for trade closes">
-  ```
-
-The `system-actions.yml` workflow runs `scripts/ops/enable_mobile_push.sh`
-on the live VM, which sets `MOBILE_PUSH_ENABLED=1` in `.env` and
-restarts `ict-trader-live.service`. Posts result back on the issue and
-closes it.
+Mobile push is **unconditional** as of 2026-06-16 — there is no
+`enable-mobile-push` action and no `MOBILE_PUSH_ENABLED` flag. Once the
+FCM credentials from step 2 are on the VM (via `set-mobile-push-secrets`)
+and a device is registered (step 3), push is live; the next trade event
+fans out automatically. (The legacy default-off enable-gate was removed
+as a silent footgun — see `src/runtime/mobile_push/__init__.py`.)
 
 ### 5. Verify end-to-end
 
@@ -161,19 +156,12 @@ DB, see [Troubleshooting](#troubleshooting) below.
 
 ## Disabling
 
-Open a labelled issue:
-
-- **Label:** `system-action`
-- **Body:**
-  ```
-  action: disable-mobile-push
-  reason: <why>
-  ```
-
-The script sets `MOBILE_PUSH_ENABLED=0` and restarts the trader. The
-`/api/bot/devices/*` router stays available — devices can still
-register / be revoked. Push notifications resume the moment
-`enable-mobile-push` is re-run.
+There is **no disable flag** (the gate was scrubbed 2026-06-16). Mobile
+push is best-effort and inert when unconfigured, so the supported ways to
+stop it are: remove the FCM credential from `.env` (e.g. `set-env`
+clearing `FCM_SERVICE_ACCOUNT_JSON`), revoke the device(s) via
+`/api/bot/devices`, or, for a code-level kill, revert the notifier change
+and deploy. The `/api/bot/devices/*` router stays available regardless.
 
 ## Revoking a lost device
 
@@ -243,8 +231,8 @@ source of truth.
 
 Check, in order:
 
-1. **Is `MOBILE_PUSH_ENABLED=1` in `.env`?** Diag relay:
-   `grep MOBILE_PUSH_ENABLED /home/ubuntu/ict-trading-bot/.env`.
+1. **(No enable flag to check — push is unconditional.)** Skip straight
+   to the FCM credential check.
 2. **Is `FCM_SERVICE_ACCOUNT_JSON_PATH` set in `.env` AND does the
    target file exist + readable + valid JSON?**
    - `grep FCM_SERVICE_ACCOUNT_JSON_PATH /home/ubuntu/ict-trading-bot/.env`
@@ -306,7 +294,8 @@ hook are both wrapped in `try/except` that swallow every exception
 before it can propagate. If a crash genuinely correlates with enabling
 the notifier, immediately:
 
-1. Disable: open a `system-action` issue with `action: disable-mobile-push`.
+1. Kill the fan-out: clear `FCM_SERVICE_ACCOUNT_JSON` from `.env` (via
+   `set-env`) so the notifier goes inert, or revert the notifier change.
 2. Capture the crash:
    `journalctl -u ict-trader-live.service --since '5 min ago' > /tmp/crash.log`.
 3. File the log under `docs/audits/` with a `MOBILE-PUSH-INCIDENT-`
@@ -338,8 +327,9 @@ sqlite3 /data/bot-data/trade_journal.db \
 - `src/runtime/notify.py` — `send_telegram_direct` includes a Telegram
   → FCM mirror (every operator-facing Telegram fires
   `publish_event("telegram", {text, parse_mode})`).
-- `scripts/ops/enable_mobile_push.sh` / `disable_mobile_push.sh` /
-  `set_mobile_push_secrets.sh` — Tier-2 operator actions
+- `scripts/ops/set_mobile_push_secrets.sh` — Tier-2 operator action to
+  install/rotate the FCM credential (the only push toggle left — push
+  itself is unconditional)
 - `tests/test_mobile_push.py`, `tests/test_devices_router.py`,
   `tests/test_mobile_push_observer_hook.py`,
   `tests/test_notify_telegram_fcm_mirror.py` — coverage

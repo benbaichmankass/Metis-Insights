@@ -26,7 +26,8 @@
 # outside the GitHub Actions secret store and the on-disk file.
 #
 # What this does NOT touch:
-#   - MOBILE_PUSH_ENABLED (use enable-mobile-push / disable-mobile-push)
+#   - Mobile push is unconditional (no enable flag); setting these FCM
+#     credentials is the only thing needed to make push actually send.
 #   - Anything outside the trader's .env + the fcm_service_account.json file
 #   - Any service other than ict-trader-live.service
 #

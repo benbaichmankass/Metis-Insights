@@ -3,8 +3,8 @@
 Covers:
 
 - The ``publish_event`` module-level contract: must never raise into
-  caller, must respect ``MOBILE_PUSH_ENABLED`` flag, must short-circuit
-  to inert when credentials are missing.
+  caller, is unconditional (no enable/disable flag), and short-circuits to
+  an inert no-op when FCM credentials are missing.
 - ``FcmNotifier.from_env`` builds an inert notifier on missing /
   malformed env without raising.
 - Subscription filter logic (``_truthy_subscription``): default-permissive
@@ -50,21 +50,13 @@ def _reset_singleton(monkeypatch: pytest.MonkeyPatch) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_publish_event_is_noop_when_feature_flag_off(
+def test_publish_event_unconditional_is_safe_without_credentials(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Default-off: missing / falsey MOBILE_PUSH_ENABLED → no-op."""
-    monkeypatch.delenv("MOBILE_PUSH_ENABLED", raising=False)
-    # Should not raise, even with bogus payload.
-    mobile_push.publish_event("trade_closed", {"trade_id": 42})
-
-
-def test_publish_event_is_noop_when_credentials_missing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Flag on + credentials missing → inert; still no-op, no raise."""
-    monkeypatch.setenv("MOBILE_PUSH_ENABLED", "1")
+    """No enable/disable flag: with no FCM creds, publish_event still
+    attempts but degrades to an inert no-op (never raises)."""
     monkeypatch.delenv("FCM_SERVICE_ACCOUNT_JSON", raising=False)
+    # Should not raise, even with a bogus payload.
     mobile_push.publish_event("trade_closed", {"trade_id": 42})
 
 

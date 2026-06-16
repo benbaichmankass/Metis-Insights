@@ -67,8 +67,6 @@ EXPECTED_ACTIONS = {
     "disable-m5-consumer": "disable_m5_consumer.sh",
     "enable-signal-dual-write": "enable_signal_dual_write.sh",
     "disable-signal-dual-write": "disable_signal_dual_write.sh",
-    "enable-mobile-push": "enable_mobile_push.sh",
-    "disable-mobile-push": "disable_mobile_push.sh",
     "set-mobile-push-secrets": "set_mobile_push_secrets.sh",
     "enable-insights-generator": "enable_insights_generator.sh",
     "disable-insights-generator": "disable_insights_generator.sh",

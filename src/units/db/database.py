@@ -457,9 +457,10 @@ class Database:
         conn.commit()
         conn.close()
 
-        # M12 follow-up — fire trade_opened FCM push for new real-money
-        # trades. Best-effort, feature-flagged via MOBILE_PUSH_ENABLED;
-        # any failure is swallowed so the insert path stays intact.
+        # M12 follow-up — fire trade_opened notification for new trades
+        # (real + paper). Best-effort + unconditional (FCM has no enable
+        # flag — inert when unconfigured); any failure is swallowed so the
+        # insert path stays intact.
         try:
             _is_paper = (
                 str(trade_data.get("account_class")).strip().lower() == "paper"
@@ -517,8 +518,8 @@ class Database:
         # fan out a trade notification to subscribed devices AND the
         # operator's Telegram for any non-backtest trade — paper included
         # (the operator wants paper open/close/update pings too). The FCM
-        # publish is feature-flagged (``MOBILE_PUSH_ENABLED`` env, default
-        # off); the Telegram line runs off-thread (best-effort). Both
+        # publish is unconditional + best-effort (no enable flag — inert
+        # when FCM unconfigured); the Telegram line runs off-thread. Both
         # swallow every exception so a notification failure can never
         # propagate into the trader's close path.
         # The whole block is also wrapped here for defense-in-depth, so
