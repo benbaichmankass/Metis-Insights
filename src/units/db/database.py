@@ -120,6 +120,29 @@ def _migrate_add_order_package_id(cursor: sqlite3.Cursor) -> bool:
     return True
 
 
+def _migrate_add_closed_at(cursor: sqlite3.Cursor) -> bool:
+    """Add ``closed_at`` column to ``trades`` table if absent.
+
+    The **canonical close timestamp** of a trade — written as a real column on
+    every close path (P1-B), replacing the read-time derivation chain
+    (``order_packages.updated_at`` → parse ``notes.closed_at`` JSON → fall back
+    to the open time) that the dashboard/Android/API endpoints carry today.
+    See ``docs/audits/dashboard-truth-and-persistence-2026-06-16.md`` (defect
+    S2). NULL until a close path stamps it; the open-row state and terminal
+    rows that never opened a position (``rejected``/``exchange_rejected``)
+    legitimately leave it NULL. Pre-existing closed rows are backfilled by the
+    P1-E repair pass (``scripts/ops/backfill_closed_at.py``).
+
+    Idempotent: returns True only on the run that actually adds the column.
+    """
+    cursor.execute("PRAGMA table_info(trades)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "closed_at" in columns:
+        return False
+    cursor.execute("ALTER TABLE trades ADD COLUMN closed_at TEXT")
+    return True
+
+
 def _migrate_add_order_package_model_scores(cursor: sqlite3.Cursor) -> bool:
     """Add ``model_scores`` column to ``order_packages`` if absent.
 
@@ -203,6 +226,7 @@ class Database:
                 is_demo BOOLEAN DEFAULT 0,
                 account_class TEXT,
                 order_package_id TEXT,
+                closed_at TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -212,6 +236,7 @@ class Database:
         _migrate_add_is_demo(cursor)
         _migrate_add_account_class(cursor)
         _migrate_add_order_package_id(cursor)
+        _migrate_add_closed_at(cursor)
         # Index for efficient per-account trade history queries.
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_trades_account_created "
@@ -222,6 +247,13 @@ class Database:
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_trades_order_package_id "
             "ON trades (order_package_id)"
+        )
+        # Index for close-time-ordered queries (the canonical `closed_at`
+        # column replaces the read-time COALESCE(op.updated_at, …) ordering
+        # key — see dashboard-truth-and-persistence-2026-06-16.md S2).
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_trades_closed_at "
+            "ON trades (datetime(closed_at) DESC)"
         )
         
         # Backtest results table
