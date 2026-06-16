@@ -107,6 +107,7 @@ def test_cli_records_is_backtest_rows(tmp_path: Path, capsys):
     assert all(r["notes"] == "test-run" for r in rows)
     # pnl carries realized R (the recorder's R proxy) -> won = pnl > 0.
     by_strat = {(r["strategy_name"], r["direction"]): r["pnl"] for r in rows}
-    assert by_strat[("trend_donchian", "buy")] == 1.5
-    assert by_strat[("trend_donchian", "sell")] == -1.0
-    assert by_strat[("squeeze", "buy")] == 0.7
+    # WC-3: the recorder now writes canonical long/short (not buy/sell).
+    assert by_strat[("trend_donchian", "long")] == 1.5
+    assert by_strat[("trend_donchian", "short")] == -1.0
+    assert by_strat[("squeeze", "long")] == 0.7
