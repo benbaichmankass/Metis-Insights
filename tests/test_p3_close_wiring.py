@@ -430,13 +430,15 @@ def test_close_open_position_bybit_unchanged():
     assert kwargs["orderType"] == "Market"
 
 
-def test_close_open_position_oanda_still_unsupported():
-    """OANDA close is NOT wired (deferred) — unsupported-exchange refusal."""
+def test_close_open_position_unknown_exchange_unsupported():
+    """An exchange with no close wiring is refused (the unsupported-exchange
+    branch). OANDA was wired in S2 (tests/test_ltmgmt_oanda_wiring.py), so this
+    uses a genuinely-unknown exchange to exercise the refusal."""
     res = close_open_position(
-        object(), {"exchange": "oanda"}, symbol="XAU_USD", side="long", qty=1,
+        object(), {"exchange": "kraken"}, symbol="XBTUSD", side="long", qty=1,
     )
     assert res["ok"] is False
-    assert "oanda" in res["error"]
+    assert "kraken" in res["error"]
 
 
 # ---------------------------------------------------------------------------
@@ -451,8 +453,8 @@ def test_caps_declare_close_for_ib_and_alpaca():
     # modify was wired in S2 (tests/test_ltmgmt_modify_wiring.py); partial_close
     # is still out of scope.
     assert "partial_close" not in clients.exchange_management_caps("alpaca")
-    # OANDA still has no close.
-    assert "close" not in clients.exchange_management_caps("oanda")
+    # OANDA close was wired in S2 (BL-20260616-LTMGMT-OANDA).
+    assert "close" in clients.exchange_management_caps("oanda")
 
 
 def test_account_supports_management_close_true_for_ib():

@@ -37,8 +37,10 @@ from src.units.db.database import Database
 
 # IB (interactive_brokers) has caps {close, open_positions} — NO order_status,
 # so the snapshot reconciler owns it. Bybit has order_status — forward
-# reconciler owns it, snapshot pass skips it. oanda has empty caps (no
-# open_positions) — can't be reconciled this way, left as-is.
+# reconciler owns it, snapshot pass skips it. OANDA was wired in S2 and now also
+# has {close, open_positions}, so it IS snapshot-reconciled like IB. An exchange
+# with NO open_positions cap (here a genuinely-unknown ``kraken`` → empty caps)
+# is the one the snapshot pass must skip.
 _CFGS = {
     "ib_paper": {
         "account_id": "ib_paper",
@@ -53,6 +55,14 @@ _CFGS = {
     "oanda_live": {
         "account_id": "oanda_live",
         "exchange": "oanda",
+        "mode": "live",
+    },
+    # Uncapped integration — exchange_management_caps("kraken") == frozenset(),
+    # so account_supports_management(cfg, "open_positions") is False and the
+    # snapshot pass leaves its rows as-is.
+    "kraken_live": {
+        "account_id": "kraken_live",
+        "exchange": "kraken",
         "mode": "live",
     },
 }
@@ -368,16 +378,17 @@ def test_bybit_row_skipped_by_snapshot_pass(tmp_db):
 
 
 def test_integration_without_open_positions_skipped(tmp_db):
-    """An integration with no ``open_positions`` management cap (oanda) can't be
-    reconciled by snapshot — its DB-open rows are left as-is."""
+    """An integration with no ``open_positions`` management cap (an unknown
+    exchange → empty caps) can't be reconciled by snapshot — its DB-open rows
+    are left as-is. (OANDA used to be this example; S2 wired its cap, so it is
+    now reconciled like IB — see test_ltmgmt_oanda_wiring.py.)"""
     _insert_open_trade(
-        tmp_db, symbol="EUR_USD", direction="long",
-        account_id="oanda_live", strategy_name="fx_trend",
+        tmp_db, symbol="XBTUSD", direction="long",
+        account_id="kraken_live", strategy_name="fx_trend",
     )
-    tid = _only_open_trade_id(tmp_db, account_id="oanda_live")
-    # account_open_positions has no oanda branch → returns None (read failure
-    # for oanda anyway), but even a successful [] must not close it because the
-    # cap gate excludes oanda.
+    tid = _only_open_trade_id(tmp_db, account_id="kraken_live")
+    # Even a successful [] snapshot must not close it because the cap gate
+    # excludes an integration without the open_positions capability.
     with patch(
         "src.units.accounts.clients.account_open_positions",
         return_value=[],

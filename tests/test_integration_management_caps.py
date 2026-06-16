@@ -72,7 +72,12 @@ def test_alpaca_modify_close_and_open_positions_oanda_still_nothing():
         {"modify", "close", "open_positions"}
     )
     assert "partial_close" not in clients.exchange_management_caps("alpaca")
-    assert clients.exchange_management_caps("oanda") == frozenset()
+    # OANDA close + open_positions were wired in S2 (BL-20260616-LTMGMT-OANDA),
+    # before oanda_practice leaves dry_run; modify/partial_close still unwired.
+    assert clients.exchange_management_caps("oanda") == frozenset(
+        {"close", "open_positions"}
+    )
+    assert "modify" not in clients.exchange_management_caps("oanda")
 
 
 def test_unknown_exchange_safe_default_empty():
@@ -148,10 +153,10 @@ def test_modify_returns_unsupported_op_for_unwired_integration(monkeypatch, exch
     assert res["integration"] == exchange
 
 
-# P3 (close-first) wired close for IB + alpaca, so only OANDA still returns
-# unsupported_op:close. IB/alpaca close routing is covered by the P3 tests in
-# tests/test_p3_close_wiring.py.
-@pytest.mark.parametrize("exchange", ["oanda"])
+# P3 wired close for IB + alpaca; S2 wired it for OANDA. The remaining
+# integration in the caps map without a close cap is binance (open_positions
+# only), so it's the one that still honestly returns unsupported_op:close.
+@pytest.mark.parametrize("exchange", ["binance"])
 def test_close_returns_unsupported_op_for_unwired_integration(monkeypatch, exchange):
     _patch_build_client(monkeypatch, exchange, client=None)
     res = om._send_close_to_exchange(
