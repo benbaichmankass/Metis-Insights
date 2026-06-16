@@ -3,25 +3,27 @@
 - **Ruleset:** `breakout`
 - **Limits:** profit target 10.0%, daily-loss 3.0%, max-DD 6.0% (static), funded soak 30d
 - **Data window:** None → None (2023-01-01 00:00:00+00:00 → 2026-03-01 00:00:00+00:00)
-- **Generated:** 2026-06-16T15:02:48.027894+00:00
+- **Generated:** 2026-06-16T15:28:51.159399+00:00
 
-| Rank | Roster | Eval pass | Days→target | Active days | Worst-DD | Consistency worst-day | Funded survive | First breach | Net $ |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | `squeeze_breakout_4h,fvg_range_15m` | ✅ | 673 | 89 | 3.3% | 19.4% | ✅ | — | $2,520 |
-| 2 | `fade_breakout_4h,squeeze_breakout_4h,fvg_range_15m` | ✅ | 519 | 169 | 9.9% | 12.3% | ✅ | — | $922 |
-| 3 | `squeeze_breakout_4h` | ❌ | — | 55 | 2.4% | 19.7% | — | — | $915 |
-| 4 | `fvg_range_15m` | ❌ | — | 44 | 2.6% | 28.7% | — | — | $1,974 |
-| 5 | `trend_donchian,fvg_range_15m` | ❌ | 432 | 233 | 6.2% | 17.2% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $4,525 |
-| 6 | `trend_donchian` | ❌ | 428 | 216 | 6.3% | 18.9% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $4,125 |
-| 7 | `trend_donchian,squeeze_breakout_4h,fvg_range_15m` | ❌ | — | 226 | 6.9% | 4.0% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $1,387 |
-| 8 | `trend_donchian,squeeze_breakout_4h` | ❌ | — | 210 | 7.0% | 3.6% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $1,317 |
-| 9 | `trend_donchian,fade_breakout_4h,squeeze_breakout_4h` | ❌ | — | 260 | 7.2% | 5.5% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $759 |
-| 10 | `trend_donchian,fade_breakout_4h,squeeze_breakout_4h,fvg_range_15m` | ❌ | — | 271 | 7.2% | 5.2% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $702 |
-| 11 | `trend_donchian,fade_breakout_4h` | ❌ | 438 | 276 | 7.7% | 16.5% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $3,033 |
-| 12 | `trend_donchian,fade_breakout_4h,fvg_range_15m` | ❌ | 432 | 287 | 8.3% | 15.5% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $3,280 |
-| 13 | `fade_breakout_4h,fvg_range_15m` | ❌ | — | 156 | 8.7% | 12.8% | — | — | $829 |
-| 14 | `fade_breakout_4h,squeeze_breakout_4h` | ❌ | — | 137 | 10.8% | 12.2% | — | — | $-563 |
-| 15 | `fade_breakout_4h` | ❌ | — | 119 | 11.1% | 14.2% | — | — | $-1,162 |
+| Rank | Roster | Eval pass | Days→target | Active days | Off-start DD (rule) | Peak-trough DD | Consistency worst-day | Funded survive | First breach | Net $ |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | `squeeze_breakout_4h,fvg_range_15m` | ✅ | 673 | 89 | 0.2% | 3.3% | 19.4% | ✅ | — | $504 |
+| 2 | `fade_breakout_4h,squeeze_breakout_4h,fvg_range_15m` | ✅ | 519 | 169 | 0.0% | 9.9% | 12.3% | ✅ | — | $184 |
+| 3 | `squeeze_breakout_4h` | ❌ | — | 55 | 0.2% | 2.4% | 19.7% | — | — | $183 |
+| 4 | `fvg_range_15m` | ❌ | — | 44 | 0.0% | 2.6% | 28.7% | — | — | $395 |
+| 5 | `trend_donchian,fvg_range_15m` | ❌ | 432 | 233 | 7.5% | 6.2% | 17.2% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $905 |
+| 6 | `trend_donchian` | ❌ | 428 | 216 | 7.5% | 6.3% | 18.9% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $825 |
+| 7 | `trend_donchian,squeeze_breakout_4h,fvg_range_15m` | ❌ | — | 226 | 7.5% | 6.9% | 4.0% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $277 |
+| 8 | `trend_donchian,squeeze_breakout_4h` | ❌ | — | 210 | 7.5% | 7.0% | 3.6% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $263 |
+| 9 | `trend_donchian,fade_breakout_4h,squeeze_breakout_4h` | ❌ | — | 260 | 7.5% | 7.2% | 5.5% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $152 |
+| 10 | `trend_donchian,fade_breakout_4h,squeeze_breakout_4h,fvg_range_15m` | ❌ | — | 271 | 7.5% | 7.2% | 5.2% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $140 |
+| 11 | `trend_donchian,fade_breakout_4h` | ❌ | 438 | 276 | 7.5% | 7.7% | 16.5% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $607 |
+| 12 | `trend_donchian,fade_breakout_4h,fvg_range_15m` | ❌ | 432 | 287 | 7.5% | 8.3% | 15.5% | — | max_drawdown @ 2023-01-26 00:00:00+00:00 | $656 |
+| 13 | `fade_breakout_4h,fvg_range_15m` | ❌ | — | 156 | 0.0% | 8.7% | 12.8% | — | — | $166 |
+| 14 | `fade_breakout_4h,squeeze_breakout_4h` | ❌ | — | 137 | 3.7% | 10.8% | 12.2% | — | — | $-113 |
+| 15 | `fade_breakout_4h` | ❌ | — | 119 | 5.8% | 11.1% | 14.2% | — | — | $-232 |
+
+> **DD columns:** *Off-start DD (rule)* is measured off the **starting balance** — this is the measure the static-DD pass/fail verdict is based on. *Peak-trough DD* is the engine's secondary peak-to-trough stat; it can exceed the limit on a passing combo when the deep swing happened while the account was in profit (the off-start drop stayed under the floor).
 
 *15 combos evaluated. Headlines below.*
 
