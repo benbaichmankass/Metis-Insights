@@ -5,8 +5,19 @@
 > real orders), so every runtime/config step here ships only with explicit
 > operator approval, per `docs/CLAUDE-RULES-CANONICAL.md` § Permission Tiers.
 >
-> Status: **DESIGN — for operator review before build** (operator decision
-> 2026-06-16: "go with MetaCopier"). Companion to
+> **STATUS: PARKED (operator decision 2026-06-16).** This copier/DXTrade-API
+> track is **deferred until after the manual browser-Claude POC**
+> ([`breakout-poc-manual-bridge-DESIGN.md`](breakout-poc-manual-bridge-DESIGN.md)
+> is the ACTIVE track). Two questions to resume with when ready:
+> (1) the exact **DXTrade Server URL + Domain** for Breakout (from the dashboard
+> "Dashboard Details" / DXTrade terminal, not `app.breakoutprop.com`), and
+> (2) whether **Breakout's DXTrade API is enabled for a third-party copier** at
+> all (some firms disable it) — which is also the ToS gate-zero in
+> [`breakout-compliance-2026-06-16.md`](breakout-compliance-2026-06-16.md) §4.
+> Do not build this until both are answered.
+>
+> Original status: DESIGN — operator decision 2026-06-16 ("go with MetaCopier").
+> Companion to
 > [`docs/research/prop-firm-testing-tool-DESIGN.md`](../research/prop-firm-testing-tool-DESIGN.md)
 > (the offline evaluator) — that doc decides *which strategies* to run on the
 > prop account; **this** doc decides *how the orders reach it*.
