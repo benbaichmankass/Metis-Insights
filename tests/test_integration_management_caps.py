@@ -45,19 +45,34 @@ def test_binance_only_open_positions():
     )
 
 
-def test_interactive_brokers_only_open_positions():
-    # account_open_positions reads IB positions, but there is no IB modify/close
-    # primitive and account_order_status returns None for IB — P3 wires those.
+def test_interactive_brokers_close_and_open_positions():
+    # P3 (close-first) wired IBClient.close (cancel resting protective legs +
+    # opposing reduce market order) through execute.close_open_position +
+    # order_monitor._build_account_client, so ``close`` is now supported
+    # alongside ``open_positions``. ``modify`` (trailing-SL re-arm) +
+    # ``order_status`` remain unwired (deferred P3 follow-ups).
     assert clients.exchange_management_caps("interactive_brokers") == frozenset(
-        {"open_positions"}
+        {"close", "open_positions"}
     )
     # 'ib' alias (account_open_positions accepts both) resolves identically.
-    assert clients.exchange_management_caps("ib") == frozenset({"open_positions"})
+    assert clients.exchange_management_caps("ib") == frozenset(
+        {"close", "open_positions"}
+    )
+    # modify/partial_close/order_status still unsupported for IB.
+    assert "modify" not in clients.exchange_management_caps("interactive_brokers")
+    assert "order_status" not in clients.exchange_management_caps("ib")
 
 
-def test_alpaca_and_oanda_support_nothing_yet():
-    # account_open_positions has no alpaca/oanda branch, and no modify/close.
-    assert clients.exchange_management_caps("alpaca") == frozenset()
+def test_alpaca_close_and_open_positions_oanda_still_nothing():
+    # P3 (close-first) wired AlpacaClient.close (native idempotent flatten) +
+    # an alpaca branch in account_open_positions, so alpaca supports
+    # ``close`` + ``open_positions``. ``modify`` / ``partial_close`` remain
+    # unwired. OANDA is a later P3 item — still nothing.
+    assert clients.exchange_management_caps("alpaca") == frozenset(
+        {"close", "open_positions"}
+    )
+    assert "modify" not in clients.exchange_management_caps("alpaca")
+    assert "partial_close" not in clients.exchange_management_caps("alpaca")
     assert clients.exchange_management_caps("oanda") == frozenset()
 
 
@@ -83,13 +98,14 @@ def test_account_supports_management_resolver():
     assert clients.account_supports_management(bybit_acc, "close") is True
     assert clients.account_supports_management(bybit_acc, "partial_close") is True
 
-    # IB supports open_positions only — not modify/close.
+    # IB: P3 wired close + open_positions; modify still unsupported.
     assert clients.account_supports_management(ib_acc, "open_positions") is True
+    assert clients.account_supports_management(ib_acc, "close") is True
     assert clients.account_supports_management(ib_acc, "modify") is False
-    assert clients.account_supports_management(ib_acc, "close") is False
 
-    # Alpaca supports nothing yet.
-    assert clients.account_supports_management(alpaca_acc, "close") is False
+    # Alpaca: P3 wired close + open_positions; modify still unsupported.
+    assert clients.account_supports_management(alpaca_acc, "close") is True
+    assert clients.account_supports_management(alpaca_acc, "modify") is False
 
 
 def test_account_supports_management_never_raises_on_bad_input():
@@ -128,7 +144,10 @@ def test_modify_returns_unsupported_op_for_unwired_integration(monkeypatch, exch
     assert res["integration"] == exchange
 
 
-@pytest.mark.parametrize("exchange", ["interactive_brokers", "alpaca", "oanda"])
+# P3 (close-first) wired close for IB + alpaca, so only OANDA still returns
+# unsupported_op:close. IB/alpaca close routing is covered by the P3 tests in
+# tests/test_p3_close_wiring.py.
+@pytest.mark.parametrize("exchange", ["oanda"])
 def test_close_returns_unsupported_op_for_unwired_integration(monkeypatch, exchange):
     _patch_build_client(monkeypatch, exchange, client=None)
     res = om._send_close_to_exchange(
