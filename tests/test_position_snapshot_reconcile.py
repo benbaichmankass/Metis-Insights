@@ -1,0 +1,348 @@
+"""Universal position-snapshot reconciliation (P3b, live-trade-management
+contract — docs/audits/live-trade-management-contract-2026-06-16.md).
+
+Pins the contract for the position-snapshot pass inside
+``src.runtime.order_monitor._reconcile_orphan_exchange_positions``:
+a STRATEGY-ATTRIBUTED DB-open trade on an integration WITHOUT a per-order
+status reader (IB, Alpaca — everything except Bybit) whose ``(symbol, side)``
+is confirmed absent from a SUCCESSFUL ``account_open_positions`` snapshot is
+closed (``status='closed'``, ``exit_reason='exchange_flat_reconciled'``) after a
+2-observation confirm. The merged local-PnL sweep fills ``pnl`` later
+(mark-to-market), so the close itself leaves ``pnl`` NULL.
+
+SAFETY is paramount — a false close (closing a row whose position is still
+open) is the worst outcome. These tests pin the conservatism:
+
+* confirmed-absent-twice → closes,
+* absent-once → ARMED, NOT closed,
+* present in snapshot → not closed + pending cleared,
+* read failure (None snapshot) → NEVER closed,
+* Bybit row → skipped here (the forward reconciler owns it),
+* integration w/o ``open_positions`` cap → skipped (can't reconcile),
+* closed row carries ``pnl`` NULL (the sweep fills it later).
+
+Pairs with ``test_reverse_reconciler.py`` (exchange→DB orphan adoption) and
+``test_monitor_reconciler.py`` (Bybit forward order-status reconcile).
+"""
+from __future__ import annotations
+
+import json
+from unittest.mock import patch
+
+import pytest
+
+from src.runtime.order_monitor import _reconcile_orphan_exchange_positions
+from src.units.db.database import Database
+
+
+# IB (interactive_brokers) has caps {close, open_positions} — NO order_status,
+# so the snapshot reconciler owns it. Bybit has order_status — forward
+# reconciler owns it, snapshot pass skips it. oanda has empty caps (no
+# open_positions) — can't be reconciled this way, left as-is.
+_CFGS = {
+    "ib_paper": {
+        "account_id": "ib_paper",
+        "exchange": "interactive_brokers",
+        "mode": "live",
+    },
+    "bybit_2": {
+        "account_id": "bybit_2",
+        "exchange": "bybit",
+        "mode": "live",
+    },
+    "oanda_live": {
+        "account_id": "oanda_live",
+        "exchange": "oanda",
+        "mode": "live",
+    },
+}
+
+
+@pytest.fixture
+def tmp_db(tmp_path, monkeypatch):
+    """Tmp trade journal + stubbed account cfg loader + cleared confirm state."""
+    db_path = tmp_path / "trade_journal.db"
+    monkeypatch.setenv("TRADE_JOURNAL_DB", str(db_path))
+    # 2-observation confirm with a 0-second time window: the second absent read
+    # confirms immediately, so two back-to-back ticks close. The 2-observation
+    # requirement (one tick arms, the next closes) still holds — this only drops
+    # the wall-clock wait.
+    monkeypatch.setenv("RECONCILER_CLOSE_CONFIRM_SECONDS", "0")
+    # Local-PnL sweep is NOT invoked from the reconciler under test, but keep
+    # the env clean so the row's pnl stays NULL (we assert that).
+    monkeypatch.delenv("LOCAL_PNL_COMPUTE_DISABLED", raising=False)
+    import src.runtime.order_monitor as _om
+    _om._PENDING_SNAPSHOT_DISAPPEAR_CONFIRM.clear()
+    _om._PENDING_ORPHAN_DISAPPEAR_CONFIRM.clear()
+    db = Database(db_path=str(db_path))
+
+    monkeypatch.setattr(
+        "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
+        lambda: _CFGS,
+    )
+    # Stub the orphan-adoption alert enqueue so tests don't write to the real
+    # pending-pings dir.
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_exchange_orphan_adoption",
+        lambda **kw: None,
+    )
+    yield db
+
+
+def _insert_open_trade(
+    db, *, symbol, direction, account_id="ib_paper", strategy_name="mes_trend",
+    size=2.0, entry=5300.0,
+):
+    """Insert a status='open' strategy-attributed trade row."""
+    db.insert_trade({
+        "timestamp": "2026-06-16T07:00:00+00:00",
+        "symbol": symbol,
+        "direction": direction,
+        "entry_price": entry,
+        "position_size": size,
+        "setup_type": strategy_name,
+        "status": "open",
+        "is_backtest": 0,
+        "strategy_name": strategy_name,
+        "account_id": account_id,
+        "notes": "{}",
+    })
+
+
+def _ib_position(symbol="MES", side="long", size=2.0, entry=5300.0):
+    """Shape ``account_open_positions`` returns for IB/Alpaca (side long/short)."""
+    return {
+        "symbol": symbol,
+        "side": side,
+        "size": size,
+        "entry_price": entry,
+        "unrealised_pnl": 0.0,
+    }
+
+
+def _trade_row(db, trade_id):
+    conn = db.connect()
+    try:
+        conn.row_factory = __import__("sqlite3").Row
+        return conn.execute(
+            "SELECT * FROM trades WHERE id=?", (trade_id,)
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def _only_open_trade_id(db, account_id="ib_paper"):
+    conn = db.connect()
+    try:
+        row = conn.execute(
+            "SELECT id FROM trades WHERE account_id=? ORDER BY id DESC LIMIT 1",
+            (account_id,),
+        ).fetchone()
+        return int(row[0])
+    finally:
+        conn.close()
+
+
+def _status(db, trade_id):
+    return _trade_row(db, trade_id)["status"]
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Core: confirmed-absent-twice closes; absent-once arms
+# ─────────────────────────────────────────────────────────────────────
+
+
+def test_absent_once_arms_not_closed(tmp_db):
+    """First absent observation ARMS the close-confirm — the row stays open."""
+    _insert_open_trade(tmp_db, symbol="MES", direction="long")
+    tid = _only_open_trade_id(tmp_db)
+    # Snapshot is SUCCESSFUL ([] = no positions) but the row's (MES, long) is
+    # absent. First pass arms, does not close.
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+    assert summary["snapshot_pending"] == 1
+    assert summary["snapshot_closed"] == 0
+    assert _status(tmp_db, tid) == "open"
+
+
+def test_absent_twice_closes(tmp_db):
+    """Confirmed absent across TWO successful snapshots → row closed with
+    exit_reason='exchange_flat_reconciled' and closed_by note; pnl stays NULL."""
+    _insert_open_trade(tmp_db, symbol="MES", direction="long")
+    tid = _only_open_trade_id(tmp_db)
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        s1 = _reconcile_orphan_exchange_positions(tmp_db)  # arms
+        s2 = _reconcile_orphan_exchange_positions(tmp_db)  # confirms + closes
+    assert s1["snapshot_pending"] == 1 and s1["snapshot_closed"] == 0
+    assert s2["snapshot_closed"] == 1
+    row = _trade_row(tmp_db, tid)
+    assert row["status"] == "closed"
+    assert row["exit_reason"] == "exchange_flat_reconciled"
+    # PnL is left to the local-PnL sweep (mark-to-market) — NOT computed here.
+    assert row["pnl"] is None
+    note = json.loads(row["notes"])
+    assert note["closed_by"] == "position_snapshot_reconciler"
+
+
+def test_present_in_snapshot_not_closed_and_clears_pending(tmp_db):
+    """A row present in the snapshot is never closed, and a recovered position
+    CLEARS a prior absent arming (so a blip can't accumulate toward a close)."""
+    _insert_open_trade(tmp_db, symbol="MES", direction="long")
+    tid = _only_open_trade_id(tmp_db)
+    import src.runtime.order_monitor as _om
+    # Pass 1: absent → arms.
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)
+    assert tid in _om._PENDING_SNAPSHOT_DISAPPEAR_CONFIRM
+    # Pass 2: position present again → clears the arming, stays open.
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[_ib_position(symbol="MES", side="long")],
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+    assert tid not in _om._PENDING_SNAPSHOT_DISAPPEAR_CONFIRM
+    assert summary["snapshot_closed"] == 0
+    assert _status(tmp_db, tid) == "open"
+    # Pass 3: absent again → must RE-ARM (not close), proving the clear reset
+    # the 2-observation count.
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        summary3 = _reconcile_orphan_exchange_positions(tmp_db)
+    assert summary3["snapshot_pending"] == 1
+    assert summary3["snapshot_closed"] == 0
+    assert _status(tmp_db, tid) == "open"
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Safety: read failure never closes
+# ─────────────────────────────────────────────────────────────────────
+
+
+def test_read_failure_none_never_closes(tmp_db):
+    """account_open_positions returning None (read failure) must NEVER close —
+    even after arming on a prior successful-absent read, a None read leaves the
+    row open and does not advance the confirm."""
+    _insert_open_trade(tmp_db, symbol="MES", direction="long")
+    tid = _only_open_trade_id(tmp_db)
+    import src.runtime.order_monitor as _om
+    # Pass 1: successful empty snapshot → arms.
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)
+    assert tid in _om._PENDING_SNAPSHOT_DISAPPEAR_CONFIRM
+    # Pass 2: read FAILS (None) → account skipped entirely; row stays open.
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=None,
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+    assert summary["snapshot_closed"] == 0
+    assert _status(tmp_db, tid) == "open"
+
+
+def test_read_failure_alone_never_closes(tmp_db):
+    """A None snapshot on the very first observation does nothing — no arm, no
+    close (the account-level None short-circuit skips it entirely)."""
+    _insert_open_trade(tmp_db, symbol="MES", direction="long")
+    tid = _only_open_trade_id(tmp_db)
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=None,
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+    assert summary["snapshot_closed"] == 0
+    assert summary["snapshot_pending"] == 0
+    assert _status(tmp_db, tid) == "open"
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Scope: Bybit skipped; no-open_positions integration skipped
+# ─────────────────────────────────────────────────────────────────────
+
+
+def test_bybit_row_skipped_by_snapshot_pass(tmp_db):
+    """Bybit declares the order_status management cap → the forward reconciler
+    owns it. The snapshot pass must NOT close a Bybit row even when its
+    (symbol, side) is absent from the snapshot."""
+    _insert_open_trade(
+        tmp_db, symbol="BTCUSDT", direction="long",
+        account_id="bybit_2", strategy_name="vwap", size=0.003, entry=80000.0,
+    )
+    tid = _only_open_trade_id(tmp_db, account_id="bybit_2")
+    # Empty Bybit snapshot twice — absent both times. Forward reconciler owns
+    # Bybit closes; the snapshot pass must leave it open.
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+    assert summary["snapshot_closed"] == 0
+    assert summary["snapshot_pending"] == 0
+    assert _status(tmp_db, tid) == "open"
+
+
+def test_integration_without_open_positions_skipped(tmp_db):
+    """An integration with no ``open_positions`` management cap (oanda) can't be
+    reconciled by snapshot — its DB-open rows are left as-is."""
+    _insert_open_trade(
+        tmp_db, symbol="EUR_USD", direction="long",
+        account_id="oanda_live", strategy_name="fx_trend",
+    )
+    tid = _only_open_trade_id(tmp_db, account_id="oanda_live")
+    # account_open_positions has no oanda branch → returns None (read failure
+    # for oanda anyway), but even a successful [] must not close it because the
+    # cap gate excludes oanda.
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+    assert summary["snapshot_closed"] == 0
+    assert summary["snapshot_pending"] == 0
+    assert _status(tmp_db, tid) == "open"
+
+
+# ─────────────────────────────────────────────────────────────────────
+# orphan_adopt rows are owned by the close-on-disappear pass, not this one
+# ─────────────────────────────────────────────────────────────────────
+
+
+def test_orphan_adopt_row_not_double_handled(tmp_db):
+    """An orphan_adopt row absent from the snapshot is closed by the existing
+    close-on-disappear path (closed_disappeared), NOT counted as a
+    snapshot_closed — the two paths don't double-handle the same row."""
+    tmp_db.insert_trade({
+        "timestamp": "2026-06-16T07:00:00+00:00",
+        "symbol": "MES", "direction": "long", "entry_price": 5300.0,
+        "position_size": 2.0, "setup_type": "adopted_orphan", "status": "open",
+        "is_backtest": 0, "strategy_name": "orphan_adopt",
+        "account_id": "ib_paper", "notes": "{}",
+    })
+    tid = _only_open_trade_id(tmp_db)
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+    # Closed by the orphan_adopt close-on-disappear path, not the snapshot pass.
+    assert summary["snapshot_closed"] == 0
+    assert summary["closed_disappeared"] == 1
+    row = _trade_row(tmp_db, tid)
+    assert row["status"] == "closed"
+    assert row["exit_reason"] == "adopted_orphan_disappeared"

@@ -1465,6 +1465,35 @@ _PENDING_ORPHAN_NOSTRAT_CLOSE: Dict[int, datetime] = {}
 # enable gate — the confirm is always on, per the no-third-gate Prime Directive).
 _PENDING_ORPHAN_DISAPPEAR_CONFIRM: Dict[int, datetime] = {}
 
+# Universal position-snapshot reconciliation (P3b, live-trade-management
+# contract — docs/audits/live-trade-management-contract-2026-06-16.md). The
+# REVERSE reconciler (above) catches exchange→DB drift (a position live on the
+# exchange with no journal row). The FORWARD reconciler (_reconcile_open_trades)
+# catches DB→exchange drift for integrations with a per-order status reader —
+# but it short-circuits non-Bybit rows because account_order_status returns None
+# for them. That left DB-open *strategy-attributed* trades on non-order-status
+# integrations (IB, Alpaca — anything without the ``order_status`` management
+# cap) stuck ``status='open'`` forever once their entry bracket fired / they were
+# closed exchange-side: nothing reconciled them until the stuck-strategy watchdog
+# eventually orphaned the row (the #2596 class).
+#
+# This dict arms the SAME 2-observation close-confirm the orphan_adopt
+# close-on-disappear path uses, but for strategy-attributed rows on
+# non-order-status integrations: a DB-open row whose ``(symbol, side)`` is absent
+# from a SUCCESSFUL ``account_open_positions`` snapshot is closed only after it
+# reads absent across two observations (``_close_confirm_seconds`` apart). A
+# read failure (``None`` snapshot) NEVER closes and CLEARS any pending arming —
+# so a transient/empty-error snapshot can't false-close a live row. Kept separate
+# from the orphan_adopt dict so the two close paths can't cross-contaminate each
+# other's arming state. In-process, keyed by trades.id; a restart re-arms from
+# scratch (fail-safe — never closes early). The merged local-PnL sweep
+# (_sweep_local_pnl_for_unpriced) realises the closed row's PnL next tick
+# (mark-to-market); this path never computes PnL and never sends an exchange
+# order (the position is ALREADY closed exchange-side — this is reconciliation,
+# not a close-send). No kill-switch — baseline correctness per the Prime
+# Directive (mirrors the always-on reverse reconciler).
+_PENDING_SNAPSHOT_DISAPPEAR_CONFIRM: Dict[int, datetime] = {}
+
 # Bybit V5 ``orderStatus`` values that mean "order is still live on
 # the exchange and has not reached a terminal state". A DB row whose
 # orderId reports any of these stays ``status='open'`` regardless of
@@ -1801,6 +1830,13 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         # observation before that flatten.
         "resolved_closed": 0,
         "resolved_pending_close": 0,
+        # P3b universal position-snapshot reconciliation: strategy-attributed
+        # DB-open rows on NON-order-status integrations (IB / Alpaca — not
+        # Bybit, which the forward reconciler owns) confirmed absent from a
+        # SUCCESSFUL exchange snapshot and closed (snapshot_closed), or absent
+        # this pass but inside the 2-observation confirm window (snapshot_pending).
+        "snapshot_closed": 0,
+        "snapshot_pending": 0,
         "errors": 0,
     }
 
@@ -1823,7 +1859,10 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
     if not cfgs:
         return summary
 
-    from src.units.accounts.clients import account_open_positions
+    from src.units.accounts.clients import (
+        account_open_positions,
+        account_supports_management,
+    )
     from src.runtime.execution_diagnostics import (
         enqueue_exchange_orphan_adoption,
     )
@@ -1987,6 +2026,104 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                 )
                 summary["errors"] += 1
 
+        # ── P3b: universal position-snapshot reconciliation ──────────────
+        # Close STRATEGY-ATTRIBUTED DB-open rows (NOT orphan_adopt — those are
+        # handled above) on integrations WITHOUT a per-order status reader,
+        # when their (symbol, side) is confirmed absent from this SUCCESSFUL
+        # snapshot. Bybit declares the ``order_status`` management cap and is
+        # reconciled by the forward reconciler (_reconcile_open_trades), so it
+        # is skipped here — no double-handling. An integration that doesn't
+        # support the ``open_positions`` snapshot can't be reconciled this way
+        # and is left as-is (its rows stay open, exactly as before P3b).
+        #
+        # Safety (mirrors the orphan close-on-disappear path exactly):
+        #   * ``positions`` is non-None here (the None read-failure short-
+        #     circuit ``continue`` above already skipped this whole account),
+        #     so we only ever act on a SUCCESSFUL snapshot.
+        #   * a row reads absent → ARM (first observation), not close.
+        #   * absent again, ≥ _close_confirm_seconds later → CLOSE.
+        #   * present in the snapshot → CLEAR any pending arming (the prior
+        #     absent read was a blip) and leave the row open.
+        # PnL is left NULL: the merged local-PnL sweep fills it next tick
+        # (mark-to-market). No exchange order is sent — the position is already
+        # gone exchange-side; this is bookkeeping reconciliation.
+        _supports_order_status = account_supports_management(cfg, "order_status")
+        _supports_open_positions = account_supports_management(cfg, "open_positions")
+        if not _supports_order_status and _supports_open_positions:
+            for r in open_rows:
+                # orphan_adopt rows are owned by the close-on-disappear pass
+                # above; only reconcile genuine strategy-attributed trades.
+                if str(r["strategy_name"] or "") == "orphan_adopt":
+                    continue
+                sym = r["symbol"]
+                side = str(r["direction"] or "").lower()
+                canonical = {"buy": "long", "long": "long",
+                             "sell": "short", "short": "short"}.get(side)
+                if not sym or not canonical:
+                    continue
+                tid_int = int(r["id"])
+                if (sym, canonical) in exchange_positions:
+                    # Still open on the exchange — clear any pending arming.
+                    _PENDING_SNAPSHOT_DISAPPEAR_CONFIRM.pop(tid_int, None)
+                    continue
+                # Absent from a successful snapshot. Require a SECOND confirming
+                # observation (>= _close_confirm_seconds apart) before closing.
+                _first_absent = _PENDING_SNAPSHOT_DISAPPEAR_CONFIRM.get(tid_int)
+                if _first_absent is None:
+                    _PENDING_SNAPSHOT_DISAPPEAR_CONFIRM[tid_int] = now_iso_dt
+                    summary["snapshot_pending"] += 1
+                    logger.info(
+                        "_reconcile_orphan_exchange_positions: ARMED snapshot "
+                        "close-confirm — trade_id=%s account=%s symbol=%s side=%s "
+                        "(strategy=%s; absent from exchange snapshot, awaiting a "
+                        "second confirming read)",
+                        tid_int, aid, sym, canonical, r["strategy_name"],
+                    )
+                    continue
+                if (now_iso_dt - _first_absent).total_seconds() < _close_confirm_seconds():
+                    # Still inside the confirm window — wait for the next pass.
+                    summary["snapshot_pending"] += 1
+                    continue
+                _PENDING_SNAPSHOT_DISAPPEAR_CONFIRM.pop(tid_int, None)
+                try:
+                    db.update_trade(tid_int, {
+                        "status": "closed",
+                        "exit_reason": "exchange_flat_reconciled",
+                        "notes": json.dumps({
+                            "closed_at": now_iso,
+                            "closed_by": "position_snapshot_reconciler",
+                            "closed_reason": (
+                                "(symbol, side) confirmed absent from the "
+                                "exchange open-positions snapshot across two "
+                                "observations; integration has no per-order "
+                                "status reader (non-Bybit). PnL filled by the "
+                                "local-PnL sweep (mark-to-market)."
+                            ),
+                        }, ensure_ascii=False)[:500],
+                    })
+                    # Cascade-close the linked order package, like every other
+                    # reconciler close path.
+                    _cascade_close_linked_package(
+                        db, tid_int,
+                        close_reason="exchange_flat_reconciled",
+                        caller="_reconcile_orphan_exchange_positions(snapshot)",
+                    )
+                    summary["snapshot_closed"] += 1
+                    logger.warning(
+                        "_reconcile_orphan_exchange_positions: CLOSED via "
+                        "position-snapshot reconcile — trade_id=%s account=%s "
+                        "symbol=%s side=%s strategy=%s (confirmed absent from "
+                        "exchange snapshot; PnL via local sweep)",
+                        tid_int, aid, sym, canonical, r["strategy_name"],
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "_reconcile_orphan_exchange_positions: snapshot close "
+                        "failed for trade_id=%s account=%s symbol=%s: %s",
+                        r.get("id"), aid, sym, exc,
+                    )
+                    summary["errors"] += 1
+
         if not positions:
             # No exchange positions to walk for the adopt pass; the
             # close-on-disappear pass above already ran.
@@ -2095,15 +2232,19 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         or summary["closed"]
         or summary["closed_disappeared"]
         or summary["pending_disappear"]
+        or summary["snapshot_closed"]
+        or summary["snapshot_pending"]
         or summary["errors"]
     ):
         logger.info(
             "_reconcile_orphan_exchange_positions: accounts=%d positions=%d "
             "orphans=%d adopted=%d closed=%d closed_disappeared=%d "
-            "pending_disappear=%d detect_only=%d errors=%d",
+            "pending_disappear=%d snapshot_closed=%d snapshot_pending=%d "
+            "detect_only=%d errors=%d",
             summary["checked_accounts"], summary["checked_positions"],
             summary["orphans_found"], summary["adopted"], summary["closed"],
             summary["closed_disappeared"], summary["pending_disappear"],
+            summary["snapshot_closed"], summary["snapshot_pending"],
             summary["detect_only"], summary["errors"],
         )
     return summary
