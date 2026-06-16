@@ -67,6 +67,17 @@ _NOT_PAPER_PREDICATE = (
     " OR (account_class IS NULL AND COALESCE(is_demo,0)=1))"
 )
 
+# The inverse of ``_NOT_PAPER_PREDICATE`` — selects ONLY paper-money rows,
+# using the same account_class-authoritative / is_demo-fallback logic. P4 of
+# the live-trade management contract keeps real and paper performance strictly
+# separate (operator directive: never blend), so the paper-side aggregates on
+# ``/stats`` use this predicate while the real-money top-level block keeps the
+# NOT-paper one.
+_PAPER_PREDICATE = (
+    " AND (COALESCE(account_class,'')='paper'"
+    " OR (account_class IS NULL AND COALESCE(is_demo,0)=1))"
+)
+
 
 def _account_class_wire(account_class: Any, is_demo: Any) -> str:
     """Derive the wire ``accountClass`` string, never null. Falls back to
@@ -241,8 +252,11 @@ def _bot_status() -> str:
 from src.web.api._vm_health import vm_health as _vm_health  # noqa: E402
 
 
-def _pnl_stats() -> tuple[float, float, int, float]:
-    """Returns (pnl24h, totalPnL, openTrades, winRate).
+def _pnl_stats_for(predicate: str) -> tuple[float, float, int, float]:
+    """Returns (pnl24h, totalPnL, openTrades, winRate) over the rows matching
+    *predicate* (the funding-class filter — ``_NOT_PAPER_PREDICATE`` for
+    real-money, ``_PAPER_PREDICATE`` for paper). Real and paper are never
+    blended into one number (operator directive, P4).
 
     Raises ``sqlite3.Error`` on a structural DB failure (missing
     table / column, locked DB, corrupt file). The early-return-zeroes
@@ -271,7 +285,7 @@ def _pnl_stats() -> tuple[float, float, int, float]:
                 FROM trades
                 WHERE COALESCE(is_backtest,0)=0
                 """
-                + _NOT_PAPER_PREDICATE,
+                + predicate,
                 (today,),
             )
             row = cur.fetchone()
@@ -288,6 +302,17 @@ def _pnl_stats() -> tuple[float, float, int, float]:
         return float(pnl24h), float(total_pnl), int(open_trades), round(win_rate, 1)
     finally:
         conn.close()
+
+
+def _pnl_stats() -> tuple[float, float, int, float]:
+    """Real-money (non-paper) ``(pnl24h, totalPnL, openTrades, winRate)``.
+
+    Back-compat wrapper around :func:`_pnl_stats_for` — the top-level
+    ``/stats`` block has always excluded paper rows, so this keeps that exact
+    behaviour (and signature) for any other caller. The paper-side aggregates
+    are computed separately in :func:`get_stats` via ``_PAPER_PREDICATE``.
+    """
+    return _pnl_stats_for(_NOT_PAPER_PREDICATE)
 
 
 def _tail_jsonl(path: Path, n: int) -> list[dict]:
@@ -351,7 +376,17 @@ def _tail_plain_log(path: Path, n: int) -> list[dict]:
 @router.get("/stats")
 async def get_stats() -> dict[str, Any]:
     try:
-        pnl24h, total_pnl, open_trades, win_rate = _pnl_stats()
+        pnl24h, total_pnl, open_trades, win_rate = _pnl_stats_for(
+            _NOT_PAPER_PREDICATE
+        )
+        # P4 (live-trade management contract): real and paper performance are
+        # kept strictly separate (operator directive — never blend). The
+        # top-level block stays real-money-only (unchanged); the paper-side
+        # aggregates ride additively in a ``paper`` sub-block so a consumer
+        # renders them as their own section, and the real ``openTrades`` KPI is
+        # accompanied by a distinct ``paperOpenTrades`` count rather than a
+        # merged number.
+        p_pnl24h, p_total, p_open, p_win = _pnl_stats_for(_PAPER_PREDICATE)
     except sqlite3.Error as exc:
         # S-067: the DB is reachable-but-broken. Surface a real outage
         # rather than a fabricated `pnl24h: 0` that an operator would
@@ -371,6 +406,16 @@ async def get_stats() -> dict[str, Any]:
         "status": _bot_status(),
         "datasource": "live",
         "vmHealth": _vm_health(),
+        # Distinct paper open-count alongside the real-money KPI (never merged).
+        "paperOpenTrades": p_open,
+        # Full paper-side aggregate block (same shape as the real-money top
+        # level) — separate so nothing real+paper is ever summed together.
+        "paper": {
+            "pnl24h": round(p_pnl24h, 2),
+            "totalPnL": round(p_total, 2),
+            "openTrades": p_open,
+            "winRate": p_win,
+        },
     }
 
 
