@@ -19,7 +19,24 @@ if TYPE_CHECKING:
 
 
 class StrategyInterface(ABC):
-    """Contract every concrete strategy module must satisfy."""
+    """Contract every concrete strategy module must satisfy.
+
+    Live-trade management contract (P1)
+    -----------------------------------
+    Beyond signal/order construction, a strategy also **owns its live trade**:
+    while a trade it opened is open, the order-monitor calls the strategy's
+    module-level ``monitor(cfg, candles_df, open_pkg)`` once per tick
+    (``src/runtime/order_monitor.py::_call_strategy_monitor``). It returns a
+    **verdict** — adjust SL/TP, partial/full close — or ``None`` for no action.
+
+    The verdict shape is the canonical, validated schema in
+    ``src/runtime/strategy_verdict.py`` (``validate_verdict``). ``monitor`` is
+    a module-level convention (not an ``@abstractmethod`` here, since existing
+    live strategies use module functions rather than subclassing this ABC); the
+    CI guard ``tests/test_strategy_monitor_unit_resolution.py`` enforces that
+    every registered strategy resolves to a module exposing a callable
+    ``monitor(cfg, candles_df, open_pkg)``.
+    """
 
     # Must be set as a class attribute on concrete implementations
     strategy_id: str
