@@ -8,6 +8,9 @@
 > Status: **DESIGN — for operator review before build** (per operator decision
 > 2026-06-16). Build kicks off as a v1 evaluator on top of the existing
 > `scripts/backtest_system.py` portfolio engine once this is approved.
+>
+> Target account (operator decision 2026-06-16): **Breakout "1-Step Classic"** —
+> one-phase eval, 10% target / 3% daily loss / 6% static drawdown (§4).
 
 ## 1. Why this exists
 
@@ -99,54 +102,72 @@ Design choices:
 
 ## 4. The ruleset schema (`config/prop_rulesets/breakout.yaml`)
 
-Configurable, with **best-guess defaults clearly marked UNCONFIRMED** until the
-operator verifies Breakout's actual terms (operator decision 2026-06-16). The
-defaults below are typical crypto-prop-firm values and **must not be treated as
-Breakout's real numbers**.
+**Target account (operator decision 2026-06-16): Breakout "1-Step Classic"** —
+$45 one-time, one-phase evaluation, 80/20 profit split (upgradeable to 90/10 at
+$54). The headline rules are **confirmed from the firm's own plan card**
+(screenshot, 2026-06-16); two fields the card doesn't show remain
+**UNCONFIRMED** and are flagged inline.
+
+Confirmed from the plan card:
+
+| Rule | Value | Source |
+|---|---|---|
+| Profit target | **10%** | card |
+| Max daily loss | **3%** | card |
+| Max drawdown | **6%, STATIC** | card (note: *static*, off the starting balance — not trailing) |
+| Phases | **1** (one-phase eval) | card |
+
+Still unconfirmed (not on the card — operator to verify on Breakout's full
+rules page): **min trading days** and whether a **consistency rule** exists.
 
 ```yaml
 # config/prop_rulesets/breakout.yaml
-# !!! VALUES UNCONFIRMED — placeholders from typical crypto prop firms.
-# !!! Replace with Breakout's published evaluation terms before trusting output.
+# Breakout "1-Step Classic" — $45, one-phase eval, 80/20 split.
+# Headline limits CONFIRMED from the plan card (2026-06-16).
+# Fields tagged [UNCONFIRMED] are not on the card — verify before trusting.
 ruleset: breakout
-account_size_usd: 25000           # the funded/eval account notional
-unconfirmed: true                 # flips a loud banner on every report
+plan: 1-step-classic
+account_size_usd: 25000           # set to the actual account size purchased
+profit_split: 0.80               # 80/20 (90/10 upgrade = 0.90)
+unconfirmed: true                 # loud banner stays until the two fields below are verified
 
 phases:
   evaluation:
-    profit_target_pct: 0.08       # +8% to clear the eval        [UNCONFIRMED]
-    min_trading_days: 5           # days with >=1 trade          [UNCONFIRMED]
-    max_eval_days: null           # calendar cap, null = none    [UNCONFIRMED]
-  funded:
-    profit_target_pct: null       # no target once funded
+    profit_target_pct: 0.10       # +10% to clear            [CONFIRMED]
+    min_trading_days: 0           # not shown on card        [UNCONFIRMED — verify]
+    max_eval_days: null           # 1-Step Classic appears time-unlimited [UNCONFIRMED — verify]
+  funded:                         # one-phase: same limits continue post-pass
+    profit_target_pct: null
     min_trading_days: 0
 
-# Account-killers — breaching ANY of these = instant fail (eval and funded).
+# Account-killers — breaching ANY = instant fail (eval and funded).
 limits:
-  daily_loss_pct: 0.04            # max loss in one UTC day      [UNCONFIRMED]
-  max_drawdown_pct: 0.08          # overall drawdown limit       [UNCONFIRMED]
-  drawdown_type: trailing         # trailing | static (off start vs off peak) [UNCONFIRMED]
-  max_position_pct: null          # per-position notional cap, null = none [UNCONFIRMED]
+  daily_loss_pct: 0.03            # max loss in one day      [CONFIRMED]
+  max_drawdown_pct: 0.06          # overall drawdown limit   [CONFIRMED]
+  drawdown_type: static           # STATIC off starting balance, NOT trailing [CONFIRMED]
+  max_position_pct: null          # per-position cap, if any [UNCONFIRMED — verify]
 
-# Consistency rule — the silent algo-account killer.
+# Consistency rule — the silent algo-account killer. Presence not on the card.
 consistency:
-  enabled: true                                            # [UNCONFIRMED]
-  max_single_day_profit_share: 0.40  # no day > 40% of total profit [UNCONFIRMED]
+  enabled: false                  # flip to true if Breakout has one [UNCONFIRMED — verify]
+  max_single_day_profit_share: 0.40  # placeholder threshold if enabled [UNCONFIRMED]
 
 # Time restrictions (map onto PropRiskManager's existing gates).
 restrictions:
-  weekend_flat: false             # crypto trades weekends       [UNCONFIRMED]
-  overnight_flat: false           # 24/7 crypto, usually false   [UNCONFIRMED]
+  weekend_flat: false             # crypto trades weekends   [UNCONFIRMED — verify]
+  overnight_flat: false           # 24/7 crypto              [UNCONFIRMED — verify]
 
-# Payout / soak realism (funded-phase survival horizon).
-funded_soak_days: 30              # how long a "survives funded" check runs
+# Funded-phase survival horizon.
+funded_soak_days: 30
 ```
 
-Open questions the operator's Breakout-terms research must answer (these are
-exactly the fields above): static vs trailing drawdown, whether a consistency
-rule exists and its threshold, the real profit target + min days, max position
-size, and whether weekend/overnight holds are restricted. The schema is built
-to absorb each answer as a one-line YAML change.
+The **static 6% drawdown** is the dominant constraint for our roster: it is an
+absolute floor at 94% of starting balance that **never ratchets up with
+profit**, so an early loss is far more dangerous than under a trailing rule.
+Combined with the **3% daily loss** and a **10%** target, the evaluator's job is
+to find the combo that reaches +10% without the equity *ever* touching −6% from
+start or −3% in a day. The two open fields (min days, consistency) only make the
+pass *harder*, never easier, so a combo that fails with them off is already out.
 
 ## 5. The evaluator (`src/prop/evaluator.py`)
 
