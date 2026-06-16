@@ -486,6 +486,13 @@ def run_single(
 
         trade = _simulate_trade(df, i, direction, entry, sl, tp, vwap_anchor=vwap_anchor)
         if trade:
+            # Capture the signal's confidence for the calibration corpus
+            # (design § 4a). vwap DOES emit a varying confidence (sigma
+            # deviation / threshold) — earlier the emit hook hardcoded None.
+            _conf = signal.get("confidence")
+            if _conf is None:
+                _conf = signal.get("meta", {}).get("confidence")
+            trade["confidence"] = _conf
             trades.append(trade)
             in_trade_until = i + trade["duration_bars"]
 
@@ -535,8 +542,9 @@ def run_single(
         f"{htf_timeframe} EMA-{ema_period}" if use_htf else "no HTF filter"
     )
 
-    # Per-trade JSONL for the regime tagger (scripts/research/regime_tag_emitted.py).
-    # Same schema the standalone harnesses emit; vwap has no confidence score.
+    # Per-trade JSONL for the regime tagger (scripts/research/regime_tag_emitted.py)
+    # and the confidence-calibration corpus (design § 4a). Same schema the
+    # standalone harnesses emit; vwap's confidence is now captured per-trade.
     if emit_trades:
         import json as _json
 
@@ -550,7 +558,7 @@ def run_single(
                             "direction": _t["direction"],
                             "gross_r": _t["pnl_r"],
                             "net_r": _t["net_pnl_r"],
-                            "confidence": None,
+                            "confidence": _t.get("confidence"),
                         },
                         default=str,
                     )
