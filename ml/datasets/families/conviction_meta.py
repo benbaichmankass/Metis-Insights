@@ -65,6 +65,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Iterator, Mapping
 
 from src.runtime.conviction_inputs import build_conviction_inputs
+from src.runtime.local_pnl import canon_direction
 
 from ..builder import DatasetBuilder
 from ..metadata import LeakageStatus
@@ -253,7 +254,9 @@ class ConvictionMetaBuilder(DatasetBuilder):
                     "created_at": row["created_at"] or "",
                     "strategy_name": str(strategy),
                     "symbol": str(row["symbol"] or ""),
-                    "direction": str(row["direction"] or ""),
+                    "direction": str(
+                        canon_direction(row["direction"]) or row["direction"] or ""
+                    ),
                     "regime": ctx["regime"],
                     "adx_14": ctx["adx_14"],
                     "vol_regime": ctx["vol_regime"],

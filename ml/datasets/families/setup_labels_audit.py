@@ -34,6 +34,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, ClassVar, Iterator, Mapping
 
+from src.runtime.local_pnl import canon_direction
+
 from ..builder import DatasetBuilder
 from ..metadata import LeakageStatus
 
@@ -286,7 +288,7 @@ class SetupLabelsAuditBuilder(DatasetBuilder):
                     "trade_timestamp": row["timestamp"] or "",
                     "trade_created_at": row["created_at"] or "",
                     "symbol": trade_symbol,
-                    "direction": row["direction"] or "",
+                    "direction": canon_direction(row["direction"]) or row["direction"] or "",
                     "strategy_name": trade_strategy,
                     "setup_type": row["setup_type"] or "",
                     "killzone": row["killzone"] or "",

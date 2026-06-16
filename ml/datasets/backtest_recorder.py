@@ -56,7 +56,11 @@ def sim_trade_to_trade_row(
     r = float(r_multiple)
     meta = trade.get("meta") or {}
     direction_raw = str(trade.get("direction", "")).lower()
-    direction = "buy" if direction_raw in _LONG_ALIASES else "sell"
+    # WC-3: emit the canonical long/short vocabulary (matching live rows),
+    # not buy/sell — this was the only writer injecting buy/sell into
+    # trades.direction. Read-boundary normalization in the dataset families
+    # also handles historical buy/sell rows.
+    direction = "long" if direction_raw in _LONG_ALIASES else "short"
     strategy = str(trade.get("strategy", "") or "")
     setup_type = str(meta.get("setup_type") or strategy or "backtest")
     entry_ts = trade.get("entry_ts")

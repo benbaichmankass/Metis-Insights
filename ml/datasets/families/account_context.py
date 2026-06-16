@@ -59,6 +59,8 @@ from typing import Any, ClassVar, Iterator, Mapping
 
 import yaml
 
+from src.runtime.local_pnl import canon_direction
+
 from ..builder import DatasetBuilder
 from ..metadata import LeakageStatus
 
@@ -360,7 +362,10 @@ class AccountContextBuilder(DatasetBuilder):
                     "timestamp": _coerce_str(row["timestamp"]),
                     "created_at": _coerce_str(row["created_at"]),
                     "symbol": _coerce_str(row["symbol"]),
-                    "direction": _coerce_str(row["direction"]),
+                    "direction": (
+                        canon_direction(row["direction"])
+                        or _coerce_str(row["direction"])
+                    ),
                     "strategy_name": _coerce_str(row["strategy_name"]),
                     "setup_type": _coerce_str(row["setup_type"]),
                     "killzone": _coerce_str(row["killzone"]),
