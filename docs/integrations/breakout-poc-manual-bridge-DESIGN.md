@@ -74,6 +74,38 @@ strategy is fine). Channel: Telegram (the bot already has it).
 coordinator already emits notifications. Tier-1 to format/emit (no live order
 path of ours is touched — we're emitting a message, not placing an order).
 
+## Signal validity / staleness guards (outbound ticket)
+
+Tickets are placed **manually**, so there's lag between signal and execution.
+Every ticket therefore carries explicit validity guards, and the instruction
+block tells browser-Claude to **ABORT and reply "skipped: <reason>"** if any
+fails — a stale or out-of-range setup must never be entered.
+
+1. **Time-to-live (TTL).** Ticket carries `signal_time` + `valid_until`. TTL is
+   **timeframe-aware** (a fraction of the strategy's bar interval — a 15m signal
+   expires far sooner than a 4h one). `now > valid_until` → skip ("expired").
+2. **Entry price band.** Ticket carries `entry` plus `entry_min`/`entry_max` — a
+   band derived from a fraction of the entry→SL distance (default ≈0.25, tunable;
+   clamped so the band never crosses the SL). Before placing, browser-Claude
+   reads the **live price** on the terminal; if it's outside the band → skip
+   ("out of range"). This bounds how much the R:R can degrade from a late fill.
+3. **Already-ran check.** If price has blown past `entry` toward the TP (the move
+   happened without us), it's out of band → skip. The edge was entering *at* the
+   level, not chasing.
+4. **Preferred mechanism — limit entry + expiry.** Where the terminal supports
+   it, place a **LIMIT order at `entry` with the attached bracket and a
+   time-in-force/expiry (GTD/day)**. This makes both guards *intrinsic*: a stale
+   signal simply never fills (price moved away) and the expiry handles time —
+   rather than leaning on the agent's judgment. Use a market entry only if the
+   ticket explicitly flags it AND price is still in-band.
+5. **SL/TP are absolute prices**, so they stay valid for any in-band fill — the
+   band is what preserves the R:R; the protective levels themselves don't move.
+
+The bot computes `valid_until`, `entry_min`, `entry_max` at emit time and prints
+them in the ticket; the abort rules are stated in plain language in the
+instruction block so the agent can't miss them. TTL-per-timeframe and band width
+are tunable config.
+
 ## Inbound — report-back (no scraping)
 
 Browser-Claude (or the operator) pastes back two structured block types; the
@@ -124,3 +156,7 @@ DXTrade terminal is fine.
 2. First-POC routing: which single strategy / the survivor combo?
 3. Does Breakout offer a DXTrade **read** API (would automate inbound)?
 4. Notification channel confirmation (Telegram assumed).
+5. Validity-guard defaults: TTL per timeframe (e.g. 15m → ~1 bar, 4h → ~1 bar?)
+   and entry-band width (default ≈0.25 of entry→SL distance) — confirm/tune.
+6. Does Breakout's DXTrade support limit-entry + attached bracket + GTD expiry
+   (the preferred intrinsic-staleness mechanism in §"Signal validity")?
