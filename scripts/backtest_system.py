@@ -157,6 +157,23 @@ def _cache_key(name: str, base_path: str, start, end, overrides: dict) -> Path:
     return _SIG_CACHE / f"{name}_{h}.parquet"
 
 
+def _data_fingerprint(df: pd.DataFrame) -> str:
+    """Stable identity of the candle feed, for the signal-stream cache key.
+
+    Without this the key hardcoded a constant string, so two DIFFERENT symbols
+    over the same window+overrides collided and the second silently reused the
+    first's cached signals (a cross-symbol sweep returned identical EV for every
+    coin). Fingerprint = bar count + first/last timestamp + first/last close, so
+    BTCUSDT and ETHUSDT (etc.) get distinct keys.
+    """
+    try:
+        ts = df["timestamp"]
+        return (f"{len(df)}:{ts.iloc[0]}:{ts.iloc[-1]}:"
+                f"{float(df['close'].iloc[0]):.6f}:{float(df['close'].iloc[-1]):.6f}")
+    except Exception:  # noqa: BLE001 — a degenerate frame falls back to a constant
+        return "unknown-feed"
+
+
 def generate_signal_stream(name: str, base5m: pd.DataFrame, *, start, end,
                            overrides: dict, refresh: bool = False) -> pd.DataFrame:
     """Run the REAL order_package on every closed bar of the strategy's TF.
@@ -165,7 +182,7 @@ def generate_signal_stream(name: str, base5m: pd.DataFrame, *, start, end,
     row per bar where the strategy emitted a signal (ValueError = no row).
     Cached to parquet keyed by (strategy, data, window, overrides).
     """
-    cache = _cache_key(name, "6yr", start, end, overrides)
+    cache = _cache_key(name, _data_fingerprint(base5m), start, end, overrides)
     if cache.exists() and not refresh:
         return pd.read_parquet(cache)
 
