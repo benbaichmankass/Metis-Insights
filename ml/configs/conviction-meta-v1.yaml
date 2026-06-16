@@ -59,7 +59,11 @@ dataset:
   family: conviction_meta
   symbol_scope: all
   timeframe: all
-  version: v001
+  # Must match the trainer's DATASET_VERSION (build_trainer_datasets.sh, default
+  # v002) — `python -m ml train` resolves datasets-out/<family>/all/all/<version>
+  # exactly, so a v001 ref skips a v002-built dataset as empty_dataset. A brand-
+  # new family has only the current version (no stale v001 to fall back on).
+  version: v002
 evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
 evaluator_config:
   target_column: won
