@@ -25,7 +25,6 @@ so a future strategy / integration can't ship non-compliant:
 from __future__ import annotations
 
 import importlib
-import inspect
 
 import pytest
 
