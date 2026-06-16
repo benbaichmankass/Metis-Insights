@@ -25,9 +25,11 @@ def test_loads_breakout_confirmed_values():
     assert rs.funded_soak_days == 30
 
 
-def test_unconfirmed_flag_is_set():
+def test_confirmed_flag_is_false():
+    # Headline 1-Step Classic rules were confirmed from Breakout's FAQ
+    # (2026-06-16), so the ruleset is no longer a placeholder.
     rs = load_ruleset(_BREAKOUT)
-    assert rs.unconfirmed is True
+    assert rs.unconfirmed is False
 
 
 def test_unconfirmed_fields_present_and_tagged():
@@ -50,7 +52,7 @@ def test_to_dict_roundtrips_key_fields():
     rs = load_ruleset(_BREAKOUT)
     d = rs.to_dict()
     assert d["ruleset"] == "breakout"
-    assert d["unconfirmed"] is True
+    assert d["unconfirmed"] is False
     assert d["limits"]["drawdown_type"] == "static"
     assert d["evaluation"]["profit_target_pct"] == pytest.approx(0.10)
 
