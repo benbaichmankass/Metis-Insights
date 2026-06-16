@@ -527,6 +527,18 @@
       "trigger_condition": "Next /performance-review, or a dedicated OANDA/FX research session.",
       "resolution_criteria": "A backtest-validated OANDA-US-tradeable FX trend strategy is wired onto oanda_practice (mode: live), fills cleanly on the practice venue, and xauusd_trend_1h's removal is either permanent or the strategy is re-pointed.",
       "status": "open"
+    },
+    {
+      "id": "PB-20260616-002",
+      "title": "Verify ict_scalp_5m live edge — net-negative in 3-yr prop backtest",
+      "status": "open",
+      "tier": 3,
+      "opened_at": "2026-06-16T17:00:00+00:00",
+      "opened_by": "claude (Breakout prop POC session 2026-06-16)",
+      "source": "The Breakout prop-POC evaluation added ict_scalp_5m to the portfolio engine + Monte-Carlo rig (runtime_logs/prop_eval/2026-06-16-expanded/). Solo backtest over the qashdev BTCUSDT 5m feed (2023-01->2026-02): 474 trades, 36.9% win rate, 148 TP vs 324 SL, net ~ -93% on a $5k account — below the ~40% break-even for its 1.5R target. It also poisons otherwise-passing combos when netted into a shared position.",
+      "description": "ict_scalp_5m is LIVE on real money (bybit_2). This 3-yr backtest shows a clear negative edge. The backtest is a netted-portfolio sim and may not reflect live ML/regime gating, recent param tuning, or the live confidence filter — so verify against ACTUAL live closed trades before acting. If the negative edge is confirmed live, propose demote-to-shadow or a parameter review (Tier-3); if live materially differs, document why the backtest under-represents it.",
+      "resolution_criteria": "A /performance-review compares ict_scalp_5m's live closed-trade PnL + win rate (real money, bybit_2) against this backtest. Outcome is either (a) confirmed net-negative live -> Tier-3 proposal to demote/shadow or retune, or (b) live differs -> documented reconciliation of why.",
+      "trigger_condition": "Next /performance-review, or any review of bybit_2 real-money strategy performance."
     }
   ],
   "updated_at": "2026-06-16T08:10:00+00:00"
