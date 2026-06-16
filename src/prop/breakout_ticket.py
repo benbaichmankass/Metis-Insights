@@ -139,9 +139,9 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None) -> str:
         f"  Stop     : {s.sl}",
         f"  Target   : {s.tp}   (R:R ≈ {t.rr})",
         "",
-        f"  Order type: LIMIT at entry with attached bracket + day/GTD expiry if "
-        f"supported (so a stale signal simply doesn't fill); else market ONLY if "
-        f"price is in-band.",
+        "  Order type: LIMIT at entry with attached bracket + day/GTD expiry if "
+        "supported (so a stale signal simply doesn't fill); else market ONLY if "
+        "price is in-band.",
         f"  Signal time: {s.signal_time.astimezone(timezone.utc).isoformat()}",
         f"  Valid until: {t.valid_until.astimezone(timezone.utc).isoformat()}",
         "",

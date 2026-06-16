@@ -22,7 +22,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from src.prop.breakout_ticket import BreakoutSignal, TicketConfig, build_ticket, render_ticket
+from src.prop.breakout_ticket import BreakoutSignal, TicketConfig, build_ticket, render_ticket  # noqa: E402
 
 _ROUTING = _REPO_ROOT / "config" / "prop_rulesets" / "breakout_routing.yaml"
 
