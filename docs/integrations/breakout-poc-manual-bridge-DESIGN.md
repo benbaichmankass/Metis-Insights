@@ -74,6 +74,36 @@ strategy is fine). Channel: Telegram (the bot already has it).
 coordinator already emits notifications. Tier-1 to format/emit (no live order
 path of ours is touched — we're emitting a message, not placing an order).
 
+## Executors — who places the ticket (agent-agnostic)
+
+The ticket is a **single generic, self-contained instruction block** — it names
+no specific tool, so the same message can be handed to any capable executor. It
+opens with a one-line "you are placing a bracket order on the Breakout DXTrade
+terminal" preamble so whichever agent reads it knows its job.
+
+Known-viable executors (operator picks per session; no per-agent build needed):
+
+1. **Desktop browser-Claude** (Claude with browser / computer use) — places the
+   bracket on the DXTrade web terminal. Baseline.
+2. **Comet** (Perplexity's agentic browser, desktop) — same role, same ticket;
+   it's a real agentic browser that does multi-step web tasks.
+3. **Perplexity Assistant (phone) → Comet (desktop)** — cross-device dispatch.
+   **Pending operator verification** that Perplexity supports queuing a computer
+   task from the phone to run on desktop Comet (not confirmed; test on a trivial
+   action first).
+4. **Manual** — operator places it directly on the DXTrade app/web from the
+   ticket's human-readable card. Always the fallback; phone-native.
+
+Rules **every** executor must honor (printed in the ticket itself, so it travels
+with the message regardless of which agent gets it):
+- **Bracket SL+TP attached at entry — never place without both.**
+- **Supervised confirm** — review the filled order before submitting; agentic
+  browsers misclick, and this is a $5k account that breaches permanently.
+- **Honor the validity guards** (TTL + entry band; abort if stale / out-of-range).
+- The executor must be **logged into DXTrade** and able to **read the live price**
+  (to check the entry band).
+- **Do not manage the exit** — the broker-side bracket is the exit.
+
 ## Signal validity / staleness guards (outbound ticket)
 
 Tickets are placed **manually**, so there's lag between signal and execution.
