@@ -26,10 +26,17 @@ account), so we never need DXtrade API credentials or a custom adapter of our
 own. It is the "separate server, billed monthly" piece from the original
 discussion.
 
-> ⚠️ **Gate-zero (operator, before any build): confirm Breakout's ToS permits
-> trade-copying / automation.** Some prop firms forbid copiers or algo trading
-> outright, and a ToS breach is itself an account-closer. Nothing below matters
-> until this is confirmed in writing from Breakout.
+> ⚠️ **Gate-zero (operator, before any build): confirm with Breakout support, in
+> writing, that a third-party trade-copier is permitted.** The compliance
+> deep-dive ([`breakout-compliance-2026-06-16.md`](breakout-compliance-2026-06-16.md))
+> found that Breakout **allows algo trading** but **bans** "third-party/off-the-shelf
+> approaches marketed to pass evaluation" (item 6) and "account sharing incl.
+> sharing credentials" (item 11) — and a copier like MetaCopier is a third-party
+> tool that holds your Breakout login. Our copy is **self→self** (not the banned
+> cross-*user* copy), so it's not obviously prohibited, but it's not obviously
+> permitted. **Exact question to ask Breakout is in the compliance doc §4.**
+> Nothing below ships until that answer is in hand — a ToS breach permanently
+> disables the account.
 
 ## 2. What MetaCopier is (grounded)
 
@@ -84,12 +91,24 @@ point MetaCopier at it."
                                                   (observe what the slave actually did)
 ```
 
-- **The prop-master account** is a Bybit account in `config/accounts.yaml`
-  marked `type: prop` + `account_class: paper` (its own money is not the point —
-  the slave is what trades the firm's capital). `PropRiskManager` is constructed
-  with the **Breakout 1-Step Classic ruleset** (10% target / 3% daily / 6%
-  static DD), so the master refuses any order that would breach those limits —
-  meaning the mirrored slave stays inside the rules **by construction**.
+- **The prop-master account is `bybit_1`** (operator decision 2026-06-16) — the
+  existing Bybit **demo** account (`account_class: paper`), chosen because it
+  carries a high demo balance so its trades don't get floored on margin. Using
+  it as master means **(a) no new subaccount and no new GitHub secrets** — its
+  creds (`BYBIT_API_KEY_1`/`BYBIT_API_SECRET_1`) are already wired — and **(b)
+  zero real capital on our side** (demo money), so the only money at risk is the
+  $45 eval + the MetaCopier subscription. `PropRiskManager` (Breakout 1-Step
+  Classic ruleset: 10% target / 3% daily / 6% static DD) gates what bybit_1
+  trades, so the mirrored slave stays inside the rules **by construction**.
+  - **Open question this raises:** can MetaCopier read a Bybit **demo** account
+    as its copy source? (Bybit demo has API access — the bot already trades it —
+    but MetaCopier may expect a live Bybit account.) Confirm in MetaCopier
+    before relying on it; if demo isn't supported, fall back to a small dedicated
+    live subaccount (`BYBIT_API_KEY_3`/`_SECRET_3`).
+  - **Roster scoping:** bybit_1 currently runs the FULL demo roster on BTCUSDT +
+    ETHUSDT. MetaCopier must be configured to mirror **only Breakout-available
+    symbols** (filter to BTC; drop ETH if Breakout doesn't offer it), and we may
+    narrow bybit_1's copied set to the evaluator's survivor combo.
 - **MetaCopier** holds the DXtrade slave credentials (entered in *its* UI, never
   in our repo) and the multiplier. We never touch DXtrade directly.
 - **The webhook** posts trade events back to a small read-only sink
@@ -183,11 +202,14 @@ originates secret values; everything else is automated.**
 - **MetaCopier account + DXtrade slave creds:** entered by the operator in
   MetaCopier's web UI (the slave login + the MetaCopier subscription). These
   never enter our repo or VM.
-- **Bybit master API keys:** if the master is a new/dedicated Bybit
-  subaccount, its keys are added as Actions secrets by the operator and
-  propagated to the VM via the existing `init-actions-secrets` +
-  `sync-vm-secrets` workflows — the same path every broker uses. No new
-  mechanism.
+- **Bybit master API keys:** with the master = **bybit_1** (current decision),
+  the bot already has its creds (`BYBIT_API_KEY_1`/`BYBIT_API_SECRET_1`) — **no
+  new GitHub secret is needed bot-side.** Separately, the operator pastes a
+  bybit_1 API key into **MetaCopier's** dashboard (read access, so MetaCopier
+  can see the master's fills) — that copy lives in MetaCopier, not our repo.
+  (Only if we fall back to a dedicated live subaccount would we add
+  `BYBIT_API_KEY_3`/`BYBIT_API_SECRET_3` via `init-actions-secrets` +
+  `sync-vm-secrets`.)
 - **MetaCopier webhook ingest:** if we add the observe-only sink, its shared
   secret is an Actions secret too.
 
