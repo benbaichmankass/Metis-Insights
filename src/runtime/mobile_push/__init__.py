@@ -4,7 +4,7 @@ Pushes structured event notifications to registered Android devices via
 **Firebase Cloud Messaging HTTP v1**. The notifier is a *side observer*
 of existing event sinks (trade closes, signals, watchdog alerts) — it
 never sits on the order-execution path, never raises into callers, and
-is feature-flagged off by default.
+is best-effort and unconditional (no enable flag; inert when unconfigured).
 
 Trust contract (mirrors the dashboard's read-only consumer pattern):
 
@@ -13,8 +13,8 @@ Trust contract (mirrors the dashboard's read-only consumer pattern):
 - Best-effort: every publish is wrapped + logged; FCM 5xx, 4xx, network
   errors, OAuth2 failures, and missing credentials all silently degrade
   to "no notification sent" + a WARNING log line.
-- Feature-flagged: ``MOBILE_PUSH_ENABLED`` must be truthy or
-  ``publish_event`` is a no-op.
+- Unconditional: ``publish_event`` always attempts (best-effort). There is
+  no enable/disable flag — when FCM isn't configured it is simply inert.
 - Reductive: notifications can only *inform* the operator's phone; they
   cannot influence trader behavior. The notifier holds no decision
   authority and surfaces no inputs that re-enter the order pipeline.
@@ -32,8 +32,13 @@ do not rebuild it.
 
 Configuration (environment):
 
-- ``MOBILE_PUSH_ENABLED`` — "1"/"true"/"yes" to enable; anything else (or
-  unset) means publish is a no-op. Default off.
+There is **no enable/disable flag** — mobile push always runs (best-effort).
+When FCM credentials aren't configured it is simply inert (one WARNING, no
+sends). The prior ``MOBILE_PUSH_ENABLED`` default-off enable-gate was removed
+2026-06-16: it was a silent footgun (push quietly off until someone remembered
+to flip it), and per the Prime Directive a wanted capability gets no default-off
+gate. Configuring FCM is the only thing that makes push *do* anything.
+
 - ``FCM_SERVICE_ACCOUNT_JSON`` — the entire service-account JSON blob
   (downloaded from Firebase Console → Project Settings → Service
   accounts). Holds private_key + client_email; required for OAuth2.
@@ -46,7 +51,6 @@ Sprint plan: ``docs/sprint-plans/ROADMAP-ANDROID-COMPANION-APP-2026-05-26.md`` �
 from __future__ import annotations
 
 import logging
-import os
 import threading
 from typing import Any
 
@@ -54,27 +58,15 @@ from src.runtime.mobile_push.notifier import FcmNotifier
 
 logger = logging.getLogger(__name__)
 
-_TRUTHY = {"1", "true", "yes", "y", "on"}
-
 _singleton_lock = threading.Lock()
 _singleton: FcmNotifier | None = None
 
 
-def _is_enabled() -> bool:
-    # allow-silent: MOBILE_PUSH_ENABLED gates an out-of-band notification
-    # side-channel, NOT a trading capability. The BUG-039 "no third gate"
-    # rule applies to *_ENABLED flags that strand strategies/accounts on
-    # the order path; this one only controls whether trade-close events
-    # are mirrored to the operator's phone. Default-off is intentional —
-    # the notifier must be explicitly turned on after the operator has
-    # set FCM_SERVICE_ACCOUNT_JSON and registered at least one device.
-    return os.environ.get("MOBILE_PUSH_ENABLED", "").strip().lower() in _TRUTHY  # allow-silent: side-channel feature flag, not a trading gate
-
-
 def _get_notifier() -> FcmNotifier | None:
+    # No enable/disable gate — mobile push always builds its notifier and
+    # always attempts (best-effort). When FCM isn't configured, from_env()
+    # yields an inert notifier whose publish is a no-op (one WARNING).
     global _singleton
-    if not _is_enabled():
-        return None
     with _singleton_lock:
         if _singleton is None:
             try:
@@ -92,9 +84,8 @@ def _get_notifier() -> FcmNotifier | None:
 def publish_event(kind: str, payload: dict[str, Any]) -> None:
     """Fan out a structured event notification to every subscribed device.
 
-    Best-effort. Any failure path (feature flag off, credentials missing,
-    DB unavailable, FCM 5xx, network timeout) logs a WARNING and returns
-    cleanly — this function never raises into the caller. That is the
+    Best-effort. Any failure path (credentials missing, DB unavailable,
+    FCM 5xx, network timeout) logs a WARNING and returns cleanly — this function never raises into the caller. That is the
     load-bearing invariant: the trader must never crash because a phone
     notification failed.
 

@@ -5,8 +5,8 @@ trade event reaches the operator on **both** channels at once:
 
   1. **Typed FCM push** — ``publish_event(kind, payload)`` for the
      ``trade_opened`` / ``trade_closed`` / ``trade_updated`` kind, routed
-     per-device subscription. Gated by ``MOBILE_PUSH_ENABLED`` inside
-     ``publish_event`` (a no-op when off / no credentials).
+     per-device subscription. Unconditional + best-effort (no enable flag;
+     a no-op when FCM credentials aren't configured).
   2. **Telegram message** — a concise human line to the operator's chat
      via ``send_telegram_direct``. The mirror-to-FCM is disabled on this
      send (``mirror_to_fcm=False``) so the phone doesn't get a second,
@@ -33,8 +33,8 @@ Configuration (environment):
 
 - ``TRADE_EVENT_TELEGRAM_DISABLED`` — truthy to suppress the per-trade
   Telegram line (rollback lever; default off → Telegram on). The typed
-  FCM push stays governed by ``MOBILE_PUSH_ENABLED``. This is a
-  notification side-channel switch, not a trading gate.
+  FCM push is unconditional (no flag). This is a notification side-channel
+  switch, not a trading gate.
 """
 from __future__ import annotations
 
@@ -55,10 +55,10 @@ TRADE_UPDATED = "trade_updated"
 
 
 def _telegram_enabled() -> bool:
-    # allow-silent: notification side-channel kill-switch (mirrors
-    # MOBILE_PUSH_ENABLED), NOT a trading/live-dry gate — the BUG-039
-    # rule targets *_ENABLED/*_DISABLED flags that strand order-path
-    # capability; this one only mutes the per-trade Telegram line.
+    # allow-silent: notification side-channel kill-switch, NOT a
+    # trading/live-dry gate — the BUG-039 rule targets *_ENABLED/*_DISABLED
+    # flags that strand order-path capability; this one only mutes the
+    # per-trade Telegram line.
     raw = os.environ.get("TRADE_EVENT_TELEGRAM_DISABLED", "")  # allow-silent: see above — comms side-channel, not a trading gate
     return raw.strip().lower() not in _TRUTHY
 
