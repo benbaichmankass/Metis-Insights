@@ -261,7 +261,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                         overrides: Dict[str, dict], refresh: bool,
                         clock_tf: str = "15m",
                         flip_policy: str = "reverse",
-                        reentry_policy: str = "suppress") -> Dict[str, Any]:
+                        reentry_policy: str = "suppress",
+                        attach_full: bool = False) -> Dict[str, Any]:
     """Drive all `roster` strategies through aggregate_intents on a shared
     account. Clock runs on `clock_tf` bars; at each tick we read each
     strategy's latest live signal (emitted within signal_ttl_bars), net them
@@ -491,15 +492,26 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
         _close(pos, c[-1], ts.iloc[-1], "eod", n - 1)
         pos = None
 
-    return _summarize(closed, equity_curve, base_balance=initial_balance,
-                      util_bars=util_bars, total_bars=n, roster=roster,
-                      params={"initial_balance": initial_balance, "risk_pct": risk_pct,
-                              "daily_loss_pct": daily_loss_pct, "signal_ttl_bars": signal_ttl_bars,
-                              "clock_tf": clock_tf, "flip_policy": flip_policy,
-                              "reentry_policy": reentry_policy,
-                              "overrides": overrides},
-                      data_start=str(ts.iloc[0]) if n else None,
-                      data_end=str(ts.iloc[-1]) if n else None)
+    summary = _summarize(closed, equity_curve, base_balance=initial_balance,
+                         util_bars=util_bars, total_bars=n, roster=roster,
+                         params={"initial_balance": initial_balance, "risk_pct": risk_pct,
+                                 "daily_loss_pct": daily_loss_pct, "signal_ttl_bars": signal_ttl_bars,
+                                 "clock_tf": clock_tf, "flip_policy": flip_policy,
+                                 "reentry_policy": reentry_policy,
+                                 "overrides": overrides},
+                         data_start=str(ts.iloc[0]) if n else None,
+                         data_end=str(ts.iloc[-1]) if n else None)
+    if attach_full:
+        # Purely additive (default off): expose the FULL equity curve + closed
+        # ledger that _summarize otherwise discards (it serializes only
+        # equity_curve_tail). Used by the in-process prop-firm evaluator
+        # (scripts/prop/evaluate_prop.py) which needs per-trade pnl/owner/
+        # timestamps + the whole curve for daily-bucket / drawdown / consistency
+        # math. The CLI never sets this, so the printed + --json output is
+        # byte-for-byte unchanged.
+        summary["full_equity_curve"] = equity_curve
+        summary["closed_trades"] = closed
+    return summary
 
 
 def _winner_name(desired, latest) -> Optional[str]:
