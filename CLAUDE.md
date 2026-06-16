@@ -502,6 +502,19 @@ older rows or rows where the writer didn't populate the field serialize
 as `null`. Renderers must treat null as "not provided" (em-dash) rather
 than `0` / `"unknown"`.
 
+**PnL-resolution contract (2026-06-16, live-trade management contract — full
+record in the ARCHITECTURE-CANONICAL 2026-06-16 change-log row +
+`docs/audits/live-trade-management-contract-2026-06-16.md`):** every account
+resolves PnL the same way — **prefer broker truth, else local compute** —
+keyed on `contract_value_usd` (`config/instruments.yaml`). Whether an
+integration provides broker truth is a *declared capability*
+(`clients.BROKER_PNL_READER_EXCHANGES`, today `{bybit}`), default-local, no
+gate. So `unrealizedPnl` on `/positions` is broker-sourced when available, else
+a server-side mark-to-market fallback (`unrealizedPnlSource="markprice_local"`,
+multiplier-aware); and non-Bybit (IBKR/Alpaca/OANDA) *realised* PnL on
+`/trades/closed` is filled by `order_monitor._sweep_local_pnl_for_unpriced`
+(`notes.pnl_source="local_compute"`) rather than left NULL.
+
 ## CORS
 CORS is configured in `src/web/api/main.py`. Allowed origins:
 - `http://localhost:5173` (Vite dev) — legacy; no longer used by the live dashboard, harmless to leave in the list.

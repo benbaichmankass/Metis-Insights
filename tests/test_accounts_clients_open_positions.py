@@ -186,6 +186,144 @@ def test_non_dict_argument_returns_none():
 
 
 # ---------------------------------------------------------------------------
+# IB logged-out-but-connected gateway hardening (BL — logged-out false-close)
+# ---------------------------------------------------------------------------
+#
+# A logged-out IB Gateway reports connected=true but net_liquidation=None and
+# positions() returns [] — indistinguishable from genuinely flat. The empty
+# case must be gated on net_liquidation populated: populated → trustworthy []
+# (genuinely flat); not populated / balance() read-failure → None (skip
+# conservatively, so the reconciler never false-closes a genuinely-open row).
+# A NON-empty snapshot is proof of a live session → returned as-is with NO
+# extra balance() health round-trip.
+
+
+@pytest.fixture
+def ib_account():
+    return {
+        "account_id": "ib_paper",
+        "exchange": "interactive_brokers",
+        "mode": "live",
+    }
+
+
+class _FakeIBClient:
+    """Minimal stand-in for IBClient — records whether balance() was called."""
+
+    def __init__(self, positions, net_liq=None, balance_raises=None):
+        self._positions = positions
+        self._net_liq = net_liq
+        self._balance_raises = balance_raises
+        self.balance_calls = 0
+
+    def positions(self):
+        return self._positions
+
+    def balance(self):
+        self.balance_calls += 1
+        if self._balance_raises is not None:
+            raise self._balance_raises
+        return {"net_liquidation": self._net_liq}
+
+
+def test_ib_empty_positions_net_liq_populated_returns_flat(ib_account):
+    """Empty IB snapshot + net_liquidation populated → trustworthy [] (flat)."""
+    fake = _FakeIBClient(positions=[], net_liq=10234.5)
+    with patch(
+        "src.units.accounts.clients.ib_read_client_for",
+        return_value=fake,
+    ):
+        out = account_open_positions(ib_account)
+    assert out == []  # genuinely flat
+    assert fake.balance_calls == 1  # health checked on the empty path
+
+
+def test_ib_empty_positions_net_liq_none_returns_none(ib_account):
+    """Logged-out gateway: empty snapshot + net_liquidation None → None (read
+    failure), NOT [] — so downstream reconcilers skip and never false-close."""
+    fake = _FakeIBClient(positions=[], net_liq=None)
+    with patch(
+        "src.units.accounts.clients.ib_read_client_for",
+        return_value=fake,
+    ):
+        out = account_open_positions(ib_account)
+    assert out is None
+    assert fake.balance_calls == 1
+
+
+def test_ib_empty_positions_net_liq_zero_returns_none(ib_account):
+    """net_liquidation 0.0 (the logged-out balance() default — the tag is
+    absent) is also "not verified logged-in" → None, not []."""
+    fake = _FakeIBClient(positions=[], net_liq=0.0)
+    with patch(
+        "src.units.accounts.clients.ib_read_client_for",
+        return_value=fake,
+    ):
+        out = account_open_positions(ib_account)
+    assert out is None
+
+
+def test_ib_empty_positions_balance_raises_returns_none(ib_account):
+    """If the health balance() read itself raises (IBConnectionError or any
+    exception), treat the empty snapshot as a read-failure → None."""
+    from src.units.accounts.ib_client import IBConnectionError
+
+    fake = _FakeIBClient(
+        positions=[], balance_raises=IBConnectionError("accountSummary timed out")
+    )
+    with patch(
+        "src.units.accounts.clients.ib_read_client_for",
+        return_value=fake,
+    ):
+        out = account_open_positions(ib_account)
+    assert out is None
+    assert fake.balance_calls == 1
+
+
+def test_ib_nonempty_positions_returned_as_is_no_health_call(ib_account):
+    """A NON-empty IB snapshot is proof of a live session → returned as-is with
+    NO extra balance() round-trip (the common path adds no IB latency)."""
+    rows = [{
+        "symbol": "MES", "side": "long", "size": 2.0,
+        "entry_price": 5300.0, "unrealised_pnl": 1.5,
+    }]
+    fake = _FakeIBClient(positions=rows, net_liq=10234.5)
+    with patch(
+        "src.units.accounts.clients.ib_read_client_for",
+        return_value=fake,
+    ):
+        out = account_open_positions(ib_account)
+    assert out == rows
+    assert fake.balance_calls == 0  # NO health round-trip on the has-positions path
+
+
+def test_ib_positions_raises_connection_error_returns_none(ib_account):
+    """positions() raising IBConnectionError (down gateway) → None, unchanged
+    behaviour (and no balance() call — we never reach the empty-case gate)."""
+    from src.units.accounts.ib_client import IBConnectionError
+
+    class _Boom(_FakeIBClient):
+        def positions(self):
+            raise IBConnectionError("gateway unreachable")
+
+    fake = _Boom(positions=[], net_liq=10234.5)
+    with patch(
+        "src.units.accounts.clients.ib_read_client_for",
+        return_value=fake,
+    ):
+        out = account_open_positions(ib_account)
+    assert out is None
+    assert fake.balance_calls == 0
+
+
+def test_ib_dry_account_returns_none(ib_account):
+    """Dry IB account is never dialled → None (unchanged)."""
+    ib_account = dict(ib_account, mode="dry_run")
+    out = account_open_positions(ib_account)
+    assert out is None
+
+
+# ---------------------------------------------------------------------------
 # 5. Legacy UI delegate
 # ---------------------------------------------------------------------------
 
