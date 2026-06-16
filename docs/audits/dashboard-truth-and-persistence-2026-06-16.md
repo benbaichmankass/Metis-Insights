@@ -299,6 +299,120 @@ so a future writer that bypasses the canonical path or emits a non-conforming
 value fails the build (siblings of the existing `account-class-guard` /
 `canonical-db-resolver` guards).
 
+## Writer-audit consolidation (W1–W3 complete, 2026-06-16)
+
+### Concrete defects found (the structural bugs to fix, not patch)
+
+Ranked by impact on truth:
+
+1. **Operator `/closeall` writes a malformed, package-orphaning row.**
+   `src/units/ui/processor.py:1659` (`close_open_positions`) closes via **raw
+   SQL**, writes `notes` as the bare string `"closed_at=<iso>"` (not JSON, so
+   the read-side `_decode_notes_closed_at` can't parse it and any prior notes
+   JSON is clobbered), sets **no `pnl`**, and **never cascade-closes the linked
+   `order_packages` row** → leaves an open package (monocle leak). Highest-value
+   single fix: route it through the canonical close path.
+2. **Reconciler orphan-adopt inserts omit `account_class`/`is_demo`.**
+   `src/runtime/order_monitor.py:2626` and `:2687` (`_adopt_orphan_position`)
+   and the smoke insert `coordinator.py:2657` write neither column → they fall
+   to defaults (`is_demo=0`, `account_class=NULL`) → **a paper-account adopted
+   orphan is mis-classified as real_money** and leaks into real-money PnL/stats
+   until a backfill re-stamps it. Same inserts also omit `order_package_id`
+   (the trade→package link), relying solely on the package-side `linked_trade_id`.
+3. **`trades.direction` carries two vocabularies.** Live + reconciler writers
+   store `long`/`short`; `ml/datasets/backtest_recorder.py:59` is the sole writer
+   storing `buy`/`sell` (on `is_backtest=1` rows). The read-side `_SIDE_MAP`
+   normalizer exists only because of this. No CHECK constraint enforces a
+   vocabulary.
+4. **`account_context_snapshots` is permanently NULL on 2–3 columns** —
+   `src/units/accounts/context_snapshot.py:235` queries
+   `daily_risk_state.utc_date`, but the production column is `date`
+   (`risk.py:79-86`) → the query errors, is swallowed, and writes NULL
+   `daily_pnl`/`daily_equity_high`/`drawdown_pct` on every row. **Masked by a
+   unit-test fixture that builds the table with the wrong (`utc_date`) schema**
+   (`tests/test_account_context_snapshot.py:28`) — the "tests pass against a
+   schema production doesn't have" anti-pattern. Field beats test: fix the query
+   to `date`, fix the fixture, add a real-schema test.
+5. **`rebuild_pnl_from_bybit.py:327`** is the only unguarded `pnl` overwriter
+   (can clobber a fresher live-sweep value); **`cleanup_ghost_trades.ipynb`**
+   targets the stale CWD-relative DB path. Operator tools — fix or quarantine.
+6. **Signals + balances + insights are dual-homed / un-homed** (W2): signals read
+   from JSONL on `/api/bot/signals` but from the DB on `/api/diag/audit_query`
+   (stalled S-034 cutover, silent dual-write); balances have **no DB table**;
+   insights split file vs DB reads.
+
+### What is already correct (do NOT "fix")
+
+- **`pnl` precedence is real and enforced**: broker closed-pnl (Bybit) is
+  authoritative; close paths deliberately leave `pnl` NULL so the broker sweep
+  fills the fee-accurate number; the local mark-to-market sweep only fires past
+  the broker-retention window so it never pre-empts broker truth. **This is the
+  hierarchy — preserve it.**
+- **`order_package_id` (per-leg) ↔ `linked_trade_id` (primary-entry-only) is the
+  documented many-to-one design.** A package with `linked_trade_id=NULL` while
+  trades reference it via `order_package_id` is *expected*, not corruption. The
+  fix is read-side (join on the universal `order_package_id`) + always stamping
+  `order_package_id` (incl. reconciler inserts), not "repair the links."
+- All derived/aggregate tables (`daily_risk_state`, `strategy_versions`,
+  `backtest_results`, `insights_*`, `trainer_store.db`) are **rebuildable caches
+  or immutable history** — none can silently corrupt the `trades` truth.
+- The DB helpers raise on an unknown column (no silent-drop risk).
+
+### Finalized data-authority hierarchy (per fact)
+
+| Fact | Authoritative source | Precedence rule | Structural fix |
+|---|---|---|---|
+| realized `pnl` | broker closed-pnl → local compute → (bounded) NULL | broker > local > null; local never pre-empts broker within retention window | guard the rebuild tool; resolve local-at-close only for non-broker-reader accounts (P1-B refinement) |
+| `closed_at` | the close path that fires | the `closed_at` **column** (P1-B), never notes-JSON / `op.updated_at` derivation | P1-A column + P1-B writes |
+| `direction` | live/reconciler (`long`/`short`) | `long/short` canonical | normalize at write boundary (backtest_recorder) + CHECK |
+| `account_class`/`is_demo` | entry writer T1 (from `account_id`) | `account_class` authoritative, `is_demo` mirrors | default both inside `insert_trade`; stamp on reconciler/smoke inserts |
+| `status` | the lifecycle writer | documented enum state machine | document + CHECK; keep smoke strings out of `status` |
+| trade↔package link | `trades.order_package_id` (per-leg, universal) | order_package_id wins; read endpoints JOIN it; linked_trade_id is a convenience | stamp it on every insert (incl. adopt); switch read JOINs |
+| signals / balances / insights | the **DB table** | DB authoritative for reads; JSONL/JSON = append-only audit | finish signals cutover (fail-loud); add balances table; declare insights precedence |
+| daily/aggregate state | `trades` (recomputed) | trades is truth; caches are rebuildable | add `is_backtest=0` filter; fix `utc_date`→`date` |
+
+**One-line rule:** the canonical DB **column** is the source of truth for every
+consumer-rendered fact; broker truth wins for the facts it owns; local compute is
+the explicit, labelled fallback; files are append-only audit, never a read source
+for trade/decision/balance facts.
+
+### P1-B refinement forced by the audit
+
+The naive "resolve `pnl` at close so no closed row is ever NULL" would **violate**
+the broker>local precedence (it would pre-empt the fee-accurate Bybit number).
+Corrected invariant:
+- **`closed_at` column** is written unconditionally on every close (close time is
+  always known) — INV-1 stands as-is.
+- **`pnl`**: for accounts with **no broker pnl reader** (declared capability —
+  IBKR/Alpaca/OANDA), resolve local mark-to-market `pnl` **at close** (no broker
+  value is ever coming, so the NULL window serves no purpose). For broker-reader
+  accounts (Bybit), keep the deferred broker sweep but make INV-2 **time-bounded**
+  ("no closed row with NULL pnl older than the broker-retention window") and make
+  the local sweep the guaranteed backstop. INV-2 becomes a *convergence*
+  guarantee, not "never NULL at the instant of close."
+
+### Phase 1.5 — Writer conformance & structural constraints (expanded task list)
+
+- WC-1: route `/closeall` (`processor.py`) through the canonical close path
+  (JSON notes + `closed_at` + pnl resolution + package cascade).
+- WC-2: make `insert_trade` default `account_class` from `account_id` and derive
+  `is_demo`; stamp `order_package_id` — so reconciler/smoke inserts can't create
+  un-stamped/un-linked rows.
+- WC-3: normalize `direction` to `long/short` at the write boundary
+  (`backtest_recorder`) + add a CHECK (or `canonical_direction()` guard).
+- WC-4: fix `account_context_snapshots` `utc_date`→`date`, fix the fixture, add a
+  real-schema test; add `is_backtest=0` to `daily_risk_state` recompute.
+- WC-5: signals — finish the S-034 cutover (read DB, JSONL append-only audit,
+  fail-loud dual-write); add a `balance_snapshots` DB table; declare insights
+  precedence.
+- WC-6: new **writer-conformance CI guard** (fork `canonical-db-resolver` /
+  `account-class-guard`): a new `trades`/`order_packages` writer must use the
+  canonical helper, stamp `account_class`+`order_package_id`, and not introduce a
+  second `direction`/`status` vocabulary. Plus `status`/`direction` CHECK
+  constraints in the schema so the DB itself rejects non-conforming values.
+- WC-7: housekeeping — guard `rebuild_pnl_from_bybit.py`; quarantine/repath
+  `cleanup_ghost_trades.ipynb`; fix the stale VM IP in `oci-storage-verify.yml`.
+
 ## Closed-loop verification
 
 Each Phase-1 PR is verified against live data via the diag relay (journal
