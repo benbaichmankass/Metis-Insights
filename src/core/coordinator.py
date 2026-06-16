@@ -1296,6 +1296,27 @@ class Coordinator:
             sized_qty = apply_news_downsize(
                 pkg, sized_qty, account_name=account.name,
             )
+
+            # P2 conviction-driven sizing (default-off, gated by
+            # CONVICTION_SIZING_MODE + a demo-only CONVICTION_SIZING_ACCOUNTS
+            # allowlist). UNLIKE advisory/news this can ENLARGE the qty (up to
+            # the 2% per-trade risk budget) — so it is bounded by the
+            # available-margin ceiling + a proportional free-margin throttle and
+            # demo-scoped. annotate logs the would-be resize without changing
+            # qty; off/account-not-allowed/missing-conviction return qty
+            # unchanged. Fail-permissive. Reads the observe-only meta.conviction
+            # stamped at signal time.
+            from src.runtime.conviction_sizing import apply_conviction_sizing
+            sized_qty = apply_conviction_sizing(
+                pkg, sized_qty, account_name=account.name,
+                balance_usd=balance,
+                available_usd=available_usd,
+                total_account_usd=total_account_usd,
+                leverage=getattr(account.risk_manager, "leverage", 0),
+                market_type=_market_type,
+                min_qty=getattr(account.risk_manager, "min_qty", 0.0),
+                qty_precision=getattr(account.risk_manager, "qty_precision", 3),
+            )
             sized_qty_by_account[account.name] = sized_qty
 
             # Latching daily-loss-cap notification (operator-approved

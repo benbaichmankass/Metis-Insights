@@ -350,7 +350,14 @@ implementation plan is **§ 10 (ready to build)**.
    exchange minimum, which is accepted.
 2. **No-trade floor threshold(s)** — per lens; ships at 0 (inert). *(open — set from § 4 research)*
 3. ~~**Available margin: hard ceiling vs proportional throttle vs both**~~ — **DECIDED 2026-06-15: both** (§ 3.3).
-4. **v1 blend weights** — sign off after the § 4.2 sweep. *(open)*
+4. ~~**v1 blend weights**~~ — **RESOLVED 2026-06-16: keep the hand-set defaults**
+   (c_strat 0.45 / c_setup 0.20 / c_wr 0.20 / c_reg 0.15). The sweep harness
+   (`scripts/ml/sweep_conviction_weights.py`) shipped, but the multi-input corpus
+   is too thin to *identify* the head weights vs `c_strat` out-of-sample (the
+   `conviction_meta` corpus is the same n≈65 the degenerate v2 model trains on,
+   and backtest augmentation only adds `c_strat`-only rows). A `c_strat`-heavy
+   weighting is itself a valid finding. Full evidence + the auto re-run trigger
+   (multi-input rows ≥ 150): [`docs/audits/conviction-weight-sweep-2026-06-16.md`](audits/conviction-weight-sweep-2026-06-16.md). *(resolved — revisit when the soak matures)*
 5. ~~**Exposure lens** — build now or defer~~ — **DECIDED 2026-06-15: build now** (in-scope, § 3.1).
 
 ## 7. Relationship to existing roadmap
@@ -431,3 +438,33 @@ no-trade floor (start 0), the throttle curve shape. **Rollback:** flag → `off`
 conviction missing; `annotate` never changes qty; `apply` scales within
 `[0, margin_cap]`; fail-permissive on any exception. Drift guard that the flag
 isn't a `*_ENABLED` gate.
+
+### P2 build status (2026-06-16) — SHIPPED INERT, annotate-first
+
+Built on the branch (tested + lint/env-gate clean; **ships off by default**, no
+order-path behaviour change until the operator flips the flag on the demo
+account):
+
+- **STEP 1 (weight sweep)** — `scripts/ml/sweep_conviction_weights.py` +
+  `tests/ml/test_sweep_conviction_weights.py`. Finding: **keep the hand-set
+  defaults** (§ 6 #4 resolved; evidence in
+  [`docs/audits/conviction-weight-sweep-2026-06-16.md`](audits/conviction-weight-sweep-2026-06-16.md)).
+  `DEFAULT_CONVICTION_WEIGHTS` unchanged.
+- **STEP 2 (conviction sizing)** — `src/runtime/conviction_sizing.py`
+  (`apply_conviction_sizing`), wired in `coordinator.multi_account_execute` right
+  after `RiskManager.position_size`, beside `apply_advisory_downsize` /
+  `apply_news_downsize`. Flags `CONVICTION_SIZING_MODE` (off|annotate|apply) +
+  `CONVICTION_SIZING_ACCOUNTS` (demo allowlist; empty = no-op for P2) in
+  `runtime_flags.py`. Risk basis = free balance (matches `risk.py::_size_unbounded`);
+  enlarges up to `conviction × 2%`, bounded by the margin ceiling + a proportional
+  free-margin throttle; no-trade floor inert at 0. Soak log
+  `runtime_logs/conviction_sizing.jsonl`. 16 unit tests.
+
+**Gating remaining (operator-approved before each):** ① flip `annotate` on
+`bybit_1` (demo soak); ② flip `apply` once the soak + the v2 meta-model mature
+(currently degenerate, f1=0); ③ widen to real money. **Open numbers before
+`apply`:** the no-trade floor (ships 0), the throttle-curve shape, and whether
+`apply` should additionally respect the per-trade daily-loss budget (today a
+`sized_qty<=0` RiskManager refusal is preserved, but a daily-loss-*scaled*
+positive qty could be re-enlarged by conviction — acceptable demo-only + inert,
+flagged for the `apply` gate).

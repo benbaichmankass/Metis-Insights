@@ -104,3 +104,40 @@ def _news_influence_mode(settings: dict) -> str:
         raw = os.environ.get("NEWS_INFLUENCE_MODE", "off")
     mode = str(raw).strip().lower()
     return mode if mode in {"off", "annotate", "downsize"} else "off"
+
+
+def _conviction_sizing_mode(settings: dict) -> str:
+    """Return the conviction-sizing mode: ``off`` | ``annotate`` | ``apply``.
+
+    Feature flag for P2 of the unified-confidence redesign
+    (`src/runtime/conviction_sizing.py`). Default **off** — the conviction stamp
+    stays observe-only and the sizing hook is inert. Mirrors
+    ``NEWS_INFLUENCE_MODE`` (deliberately a mode, **not** a ``*_ENABLED`` gate, per
+    the Prime Directive / env-gate-guard). ``annotate`` logs the would-be resize
+    without changing qty; ``apply`` resizes. Unknown values degrade to ``off``
+    (fail-safe — never silently resizes on a typo).
+    """
+    raw = settings.get("CONVICTION_SIZING_MODE") if isinstance(settings, dict) else None
+    if raw is None:
+        raw = os.environ.get("CONVICTION_SIZING_MODE", "off")
+    mode = str(raw).strip().lower()
+    return mode if mode in {"off", "annotate", "apply"} else "off"
+
+
+def _conviction_sizing_accounts(settings: dict) -> frozenset[str]:
+    """Account allowlist for conviction sizing (comma-separated env / settings).
+
+    Conviction sizing can ENLARGE an order, so for P2 it is demo-scoped: the
+    allowlist must explicitly name the account (set to ``bybit_1`` for the demo
+    soak). An **empty** allowlist is a no-op — permissive-when-unset is deferred
+    until after real-money sign-off (starts strict, unlike
+    ``POSITION_NETTING_GUARD_ACCOUNTS`` which defaults permissive).
+    """
+    raw = (
+        settings.get("CONVICTION_SIZING_ACCOUNTS")
+        if isinstance(settings, dict)
+        else None
+    )
+    if raw is None:
+        raw = os.environ.get("CONVICTION_SIZING_ACCOUNTS", "")
+    return frozenset(a.strip() for a in str(raw).split(",") if a.strip())
