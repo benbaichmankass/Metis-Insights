@@ -46,8 +46,10 @@ def test_metalabel_manifest_is_valid():
     assert m.dataset.family == "setup_candidates"
     assert m.evaluator_config["split_strategy"] == "live_holdout"
     assert m.evaluator_config["target_column"] == "won"
-    # The model trains at research_only — promotion past shadow is Tier-3.
-    assert m.target_deployment_stage == "research_only"
+    # The manifest YAML declares the legacy `research_only` stage; the
+    # 3-stage collapse (2026-06-16) normalizes it to canonical `candidate`
+    # (pre-shadow) on load — promotion past shadow is still Tier-3.
+    assert m.target_deployment_stage == "candidate"
     # No outcome/label column leaks into the feature set.
     feats = set(m.trainer_config["feature_columns"])
     assert feats.isdisjoint({"won", "label", "r_multiple", "ret",

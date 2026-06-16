@@ -10,8 +10,9 @@ per-account qty.
 
 **Gated by model STAGE alone** (no separate enable flag — the former
 ``ADVISORY_MODE`` was removed 2026-06-13 as a redundant third gate). A
-model influences only at an influence stage (advisory / limited_live /
-live_approved); shadow only logs. The per-strategy ``advisory_policy`` is
+model influences only at the canonical ``advisory`` stage (the legacy
+``limited_live`` / ``live_approved`` normalize to it); ``shadow`` only
+logs. The per-strategy ``advisory_policy`` is
 permissive config: omit ⇒ ``annotate`` (log the would-be downsize, never
 resize); ``mode: off`` opts out; ``mode: downsize`` arms the cut. To turn
 a model's influence off, demote it to ``shadow``. Every step is wrapped so
@@ -32,17 +33,35 @@ from src.runtime.advisory_influence import advisory_downsize_factor, parse_polic
 
 logger = logging.getLogger(__name__)
 
-# Stages whose models are allowed to influence the order package. Mirrors
-# the shadow-factory stage gate; `shadow` and below never influence.
-_ADVISORY_INFLUENCE_STAGES = frozenset({"advisory", "limited_live", "live_approved"})
+# Canonical stage whose models are allowed to influence the order package.
+# 3-stage collapse (2026-06-16): the legacy `limited_live` / `live_approved`
+# both normalize to `advisory`, so a model stored under any of those three
+# old names still influences. `shadow` and `candidate` never influence.
+# Comparison is on the canonical form (`canonical_stage`), so behaviour is
+# IDENTICAL to the prior 3-of-7 set for every currently-deployed model.
+_ADVISORY_INFLUENCE_STAGES = frozenset({"advisory"})
+
+
+def _influences(stage: Any) -> bool:
+    """True when a (canonical-or-legacy) stage influences the order path.
+
+    Normalizes through the alias map; unrecognized stages are treated as
+    non-influencing (fail-safe — never enlarge influence on a bad value).
+    """
+    try:
+        from ml.manifest import canonical_stage
+        return canonical_stage(str(stage)) in _ADVISORY_INFLUENCE_STAGES
+    except Exception:  # noqa: BLE001 — fail-safe: unknown stage never influences
+        return False
 
 
 def discover_advisory_stage_model_ids(registry: Any) -> list[str]:
-    """Every model_id at an influence stage (advisory / limited_live /
-    live_approved). Alphabetical for stable behaviour."""
+    """Every model_id at an influence stage (canonical `advisory`; the
+    legacy `limited_live` / `live_approved` normalize to it). Alphabetical
+    for stable behaviour."""
     return sorted(
         e.model_id for e in registry.list()
-        if e.target_deployment_stage in _ADVISORY_INFLUENCE_STAGES
+        if _influences(e.target_deployment_stage)
     )
 
 
