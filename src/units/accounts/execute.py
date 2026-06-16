@@ -1140,7 +1140,19 @@ def close_open_position(
     the close order is the opposite side. *qty* is the position size
     to close (typically the size of the original entry).
 
-    Bybit-only for v1. Returns a result dict.
+    Wired integrations (P3 of the live-trade management contract —
+    docs/audits/live-trade-management-contract-2026-06-16.md):
+      * **bybit** — reduce-only market ``place_order`` (unchanged from v1).
+      * **interactive_brokers / ib** — :meth:`IBClient.close` (cancel the
+        resting protective bracket/OCA legs + opposing reduce market order
+        sized to the live position). IB futures have no reduceOnly flag.
+      * **alpaca** — :meth:`AlpacaClient.close` (idempotent native flatten,
+        ``DELETE /v2/positions/{symbol}``; a 404 = already-flat = ok).
+
+    Returns a result dict. Best-effort everywhere — a gateway-down /
+    API error returns ``{"ok": False, "error": ...}`` so the monitor
+    leaves the DB row open and retries next tick (never falsely marks
+    closed, never raises).
     """
     if exchange_client is None:
         return {"ok": False, "exchange_response": None, "exchange_order_id": None,
@@ -1187,6 +1199,78 @@ def close_open_position(
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "close_open_position: bybit raised for account=%s symbol=%s: %s",
+                account_cfg.get("account_id"), symbol, exc,
+            )
+            return {"ok": False, "exchange_response": None,
+                    "exchange_order_id": None,
+                    "error": f"{type(exc).__name__}: {exc}"}
+
+    if exchange in ("interactive_brokers", "ib"):
+        # IBClient.close: cancel resting protective legs + opposing reduce
+        # market order sized to the live position. Bounded + best-effort —
+        # never raises, returns its own retCode envelope.
+        try:
+            from src.units.accounts.ib_client import IBClient
+            if not isinstance(exchange_client, IBClient):
+                return {"ok": False, "exchange_response": None,
+                        "exchange_order_id": None,
+                        "error": (f"IB close: expected IBClient, got "
+                                  f"{type(exchange_client).__name__}")}
+            resp = exchange_client.close(symbol, direction, qty) or {}
+            ret_code = resp.get("retCode")
+            if ret_code in (0, "0", None):
+                order_id = (resp.get("result") or {}).get("orderId")
+                logger.info(
+                    "close_open_position: account=%s symbol=%s side=%s qty=%s "
+                    "→ IB orderId=%s",
+                    account_cfg.get("account_id"), symbol, close_side, qty,
+                    order_id,
+                )
+                return {"ok": True, "exchange_response": resp,
+                        "exchange_order_id": order_id, "error": None}
+            err = str(resp.get("retMsg") or f"retCode={ret_code}")
+            return {"ok": False, "exchange_response": resp,
+                    "exchange_order_id": None, "error": err}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "close_open_position: IB raised for account=%s symbol=%s: %s",
+                account_cfg.get("account_id"), symbol, exc,
+            )
+            return {"ok": False, "exchange_response": None,
+                    "exchange_order_id": None,
+                    "error": f"{type(exc).__name__}: {exc}"}
+
+    if exchange == "alpaca":
+        # AlpacaClient.close: idempotent native flatten (DELETE
+        # /v2/positions/{symbol}); a 404 (no open position) maps to
+        # retCode 0 in the client. Whole-position flatten only — Alpaca's
+        # close-position endpoint closes the entire symbol position, so the
+        # qty argument is informational here (partial-close is not wired).
+        try:
+            from src.units.accounts.alpaca_client import AlpacaClient
+            if not isinstance(exchange_client, AlpacaClient):
+                return {"ok": False, "exchange_response": None,
+                        "exchange_order_id": None,
+                        "error": (f"alpaca close: expected AlpacaClient, got "
+                                  f"{type(exchange_client).__name__}")}
+            resp = exchange_client.close(symbol) or {}
+            ret_code = resp.get("retCode")
+            if ret_code in (0, "0", None):
+                order_id = (resp.get("result") or {}).get("orderId")
+                logger.info(
+                    "close_open_position: account=%s symbol=%s side=%s qty=%s "
+                    "→ alpaca flatten (orderId=%s)",
+                    account_cfg.get("account_id"), symbol, close_side, qty,
+                    order_id,
+                )
+                return {"ok": True, "exchange_response": resp,
+                        "exchange_order_id": order_id, "error": None}
+            err = str(resp.get("retMsg") or f"retCode={ret_code}")
+            return {"ok": False, "exchange_response": resp,
+                    "exchange_order_id": None, "error": err}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "close_open_position: alpaca raised for account=%s symbol=%s: %s",
                 account_cfg.get("account_id"), symbol, exc,
             )
             return {"ok": False, "exchange_response": None,

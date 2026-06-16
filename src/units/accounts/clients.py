@@ -633,16 +633,24 @@ EXCHANGE_MANAGEMENT_CAPS: dict[str, frozenset[str]] = {
     # not in production).
     "binance": frozenset({"open_positions"}),
     # interactive_brokers (ib_paper, live): account_open_positions reads IB
-    # positions, but the order-monitor has no IB modify/close primitive (only
-    # IBClient.place_protective for the naked-autoprotect bracket re-arm, which
-    # is NOT the verdict path) and account_order_status returns None for IB.
-    # Wiring IB modify/close is P3.
-    "interactive_brokers": frozenset({"open_positions"}),
-    "ib": frozenset({"open_positions"}),  # alias seen in account_open_positions
-    # alpaca / oanda: live (alpaca_paper) / dry (oanda_practice) but NO management
-    # op is wired today — not even the open-positions snapshot
-    # (account_open_positions has no alpaca/oanda branch). Wiring these is P3.
-    "alpaca": frozenset(),
+    # positions; P3 (live-trade management contract) added IBClient.close
+    # (cancel resting bracket/OCA legs + opposing reduce market order) wired
+    # through execute.close_open_position + order_monitor._build_account_client,
+    # so ``close`` is now supported. ``modify`` (trailing-SL re-arm) is the
+    # deferred follow-up within P3; ``order_status`` is not wired (IBClient.status
+    # exists but account_order_status returns None for IB).
+    "interactive_brokers": frozenset({"close", "open_positions"}),
+    "ib": frozenset({"close", "open_positions"}),  # alias seen in account_open_positions
+    # alpaca (alpaca_paper, live): P3 wired the native idempotent flatten
+    # (AlpacaClient.close → DELETE /v2/positions/{symbol}) through
+    # execute.close_open_position, and account_open_positions now has an alpaca
+    # branch — so ``close`` + ``open_positions`` are supported. ``modify`` is the
+    # deferred P3 follow-up; ``partial_close`` is not wired (the flatten endpoint
+    # closes the whole position).
+    "alpaca": frozenset({"close", "open_positions"}),
+    # oanda (oanda_practice, dry): NO management op wired yet
+    # (account_open_positions has no oanda branch, no close primitive). Wiring
+    # OANDA is a later P3 item, before it's promoted off dry_run.
     "oanda": frozenset(),
 }
 
@@ -936,8 +944,10 @@ def account_open_positions(
     positions" (``[]``) from "could not read" (``None``):
 
     * non-dict / missing account argument
-    * unsupported exchange (anything other than ``bybit`` / ``binance``)
-    * missing creds (``bybit_client_for`` / ``binance_conn_for`` returns ``None``)
+    * unsupported exchange (anything other than ``bybit`` / ``binance`` /
+      ``interactive_brokers`` / ``alpaca``)
+    * missing creds (``bybit_client_for`` / ``binance_conn_for`` /
+      ``alpaca_client_for`` returns ``None``)
     * exchange SDK exception (logged + ``report_api_failure``)
 
     Lifted from ``src/units/ui/data_loaders.py:account_open_positions``
@@ -1027,6 +1037,38 @@ def account_open_positions(
                     "unrealised_pnl": _f(
                         p.get("unrealizedPnl", p.get("unrealised_pnl"))
                     ),
+                })
+            return out
+        if ex == "alpaca":
+            # Dry alpaca accounts are never dialled from the read path
+            # (mirrors the IB branch above) — return None ("could not read")
+            # rather than a false empty list.
+            mode = str(account.get("mode") or "live").lower()
+            if mode != "live":
+                return None
+            client = alpaca_client_for(account)
+            if client is None:
+                # No creds → can't read (factory returns None on unset keys).
+                return None
+            out = []
+            # AlpacaClient.positions() emits
+            # ``[{symbol, side, qty, avg_price, unrealized_pnl}]`` — normalise
+            # to the canonical ``{symbol, side, size, entry_price,
+            # unrealised_pnl}`` shape every other consumer speaks. ``side`` is
+            # already ``buy``/``sell``; map to ``long``/``short`` to match the
+            # IB/Bybit rows.
+            for p in (client.positions() or []):
+                size = _f(p.get("qty"))
+                if size <= 0:
+                    continue
+                raw_side = str(p.get("side") or "").lower()
+                side = "long" if raw_side in ("buy", "long") else "short"
+                out.append({
+                    "symbol": p.get("symbol"),
+                    "side": side,
+                    "size": size,
+                    "entry_price": _f(p.get("avg_price")),
+                    "unrealised_pnl": _f(p.get("unrealized_pnl")),
                 })
             return out
         return None
