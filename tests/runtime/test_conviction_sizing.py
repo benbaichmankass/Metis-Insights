@@ -8,8 +8,6 @@ fail-permissive, and the env-gate drift guard (the flag is a MODE, not a
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from src.runtime import conviction_sizing as cs

@@ -62,11 +62,15 @@ scarce multi-input rows to overfit a 4-way linear weighting would be exactly the
 overfitting the task warns against.
 
 > **Live-corpus confirmation:** a read-only trainer-relay pull of the current
-> `conviction_meta` row count + input-presence distribution was requested
-> (`trainer-vm-diag` issue, 2026-06-16) to anchor the n with a live measurement
-> rather than the design-doc figure alone. The recommendation does not change on
-> the result: the threshold logic is in the harness, so the moment the multi-input
-> count crosses 150 the sweep flips to `adopt_swept_weights` on its own evidence.
+> `conviction_meta` row count + input-presence was attempted (`trainer-vm-diag`,
+> 2026-06-16) but the relay's command parser truncates long one-liners, so a clean
+> live read wasn't obtained this session — the n rests on the design-doc-verified
+> figure (§ 4b, n≈65) plus the structural argument below. This does **not** change
+> the recommendation: the 150-multi-input-row threshold is baked into the harness,
+> so running it on the live VM (`--db /data/bot-data/trade_journal.db`) decides on
+> its own evidence and flips to `adopt_swept_weights` the moment the corpus is rich
+> enough. (To get the live number now: run the harness directly on the VM, or land
+> a short committed probe script the relay can call by name.)
 
 ## Decision
 
