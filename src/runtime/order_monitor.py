@@ -1094,6 +1094,7 @@ def _build_account_client(account_id):
         from src.units.accounts import load_accounts
         from src.units.accounts.clients import (
             bybit_client_for, binance_conn_for,
+            ib_client_for, alpaca_client_for,
         )
         for acc in load_accounts():
             if acc.name != account_id:
@@ -1114,12 +1115,33 @@ def _build_account_client(account_id):
                 # Required by bybit_client_for() to route demo accounts to
                 # api-demo.bybit.com instead of api.bybit.com.
                 "demo": getattr(acc, "demo", False),
+                # IB connection identity (no API keys — auth is the Gateway
+                # login session). ib_client_for() reads these from the cfg
+                # to build the socket; None for non-IB accounts. Required so
+                # the P3 IB close path (_send_close_to_exchange) can reach
+                # the gateway.
+                "ib_host": getattr(acc, "ib_host", None),
+                "ib_port": getattr(acc, "ib_port", None),
+                "ib_account": getattr(acc, "ib_account", None),
+                "ib_client_id": getattr(acc, "ib_client_id", None),
+                # Optional Alpaca host override (alpaca_client_for reads the
+                # key pair from env directly; these only steer paper vs live).
+                "alpaca_env": getattr(acc, "alpaca_env", None),
+                "base_url": getattr(acc, "base_url", None),
             }
             exchange_lc = (acc.exchange or "").lower()
             if exchange_lc == "bybit":
                 return bybit_client_for(cfg), cfg
             if exchange_lc == "binance":
                 return binance_conn_for(cfg), cfg
+            # P3 (live-trade management contract): build the IB / Alpaca
+            # clients too so the verdict senders can reach them for close.
+            # Reuses the SAME factories _submit_order uses at entry, so the
+            # management path and the entry path share one client model.
+            if exchange_lc in ("interactive_brokers", "ib"):
+                return ib_client_for(cfg), cfg
+            if exchange_lc == "alpaca":
+                return alpaca_client_for(cfg), cfg
             return None, cfg
         return None, None
     except Exception as exc:  # noqa: BLE001

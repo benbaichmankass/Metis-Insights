@@ -771,6 +771,188 @@ class IBClient:
             "retMsg": "OK",
         }
 
+    def close(
+        self,
+        symbol: Optional[str],
+        side: str,
+        qty: float,
+    ) -> Dict[str, Any]:
+        """Flatten an open IB position with an opposing reduce market order.
+
+        P3 of the live-trade management contract — the IB analogue of
+        Bybit's reduce-only close. IB futures have **no** ``reduceOnly``
+        flag, so a flatten is two steps that must both happen or the
+        position is left in a bad state:
+
+          1. **Cancel any resting protective orders for *symbol*** — the
+             entry bracket's GTC stop + take-profit (or a
+             ``place_protective`` OCA pair). If we placed an opposing
+             market order while those still rested, a later fill of one
+             leg would *re-open* a position in the opposite direction
+             (the bracket was sized to the now-closed position). Cancelling
+             first makes the close idempotent and naked-order-free.
+          2. **Place an opposing market order sized to the open position.**
+             ``side`` is the side of the original entry (``"long"`` /
+             ``"short"``); the close takes the reverse. ``qty`` is the
+             position size to flatten (whole contracts). We size the close
+             to ``min(requested_qty, live_exchange_qty)`` read from
+             :meth:`positions` so a stale DB qty can never transmit an
+             order larger than what IB actually holds (which on a one-way
+             futures account would *open* a reverse position rather than
+             flatten).
+
+        Bounded + best-effort, mirroring the rest of this client: never
+        raises, reuses the existing connect / circuit-breaker / fetch
+        timeouts, and returns the same envelope shape as :meth:`place` so
+        ``execute.close_open_position`` reads IB and Bybit identically:
+        ``{"retCode": 0, "result": {"orderId": ...}, "retMsg": "OK"}`` on
+        success; ``{"retCode": <non-zero>, "retMsg": "<reason>"}`` on any
+        refusal / failure (the monitor leaves the DB row open + retries).
+        """
+        if self.readonly:
+            return {
+                "retCode": 1,
+                "retMsg": "IBClient.close: client is read-only — refusing "
+                          "to transmit a close order.",
+            }
+        sym = str(symbol or self.symbol or "").upper()
+        try:
+            requested_qty = float(qty)
+        except (TypeError, ValueError) as exc:
+            return {"retCode": 1, "retMsg": f"invalid qty: {exc}"}
+        if requested_qty <= 0:
+            return {"retCode": 1, "retMsg": f"non-positive qty {requested_qty}"}
+
+        direction = str(side or "").lower()
+        if direction not in ("long", "short"):
+            explicit = str(side or "").lower()
+            direction = "long" if explicit in ("buy", "long") else "short"
+        # A close takes the REVERSE side of the held position.
+        close_action = "SELL" if direction == "long" else "BUY"
+
+        try:
+            ib = self.connect()
+        except IBConnectionError as exc:
+            return {"retCode": 1, "retMsg": f"IB connect failed: {exc}"}
+        except Exception as exc:  # noqa: BLE001
+            return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
+
+        # Step 0 — clamp the close qty to the live exchange position so a
+        # stale/oversized DB qty can never flip the position (one-way
+        # futures). When the read fails we keep the requested qty (the
+        # caller's best knowledge) rather than refusing to flatten.
+        try:
+            live_qty = self._live_position_qty(sym)
+        except Exception:  # noqa: BLE001
+            live_qty = None
+        if live_qty is not None:
+            if live_qty <= 0:
+                # IB reports flat already — nothing to close. Still cancel
+                # any stray resting protective orders, then return success
+                # (idempotent close, matching the Alpaca 404 → ok mapping).
+                self._cancel_resting_orders_for_symbol(ib, sym)
+                return {
+                    "retCode": 0,
+                    "result": {"orderId": None, "note": "already flat"},
+                    "retMsg": "OK",
+                }
+            close_qty = min(requested_qty, live_qty)
+        else:
+            close_qty = requested_qty
+
+        close_qty = float(math.floor(close_qty))
+        if close_qty < 1:
+            return {
+                "retCode": 1,
+                "retMsg": f"close qty {close_qty} below 1 whole contract — "
+                          "refusing fractional futures close",
+            }
+
+        # Step 1 — cancel resting protective orders for the symbol so the
+        # opposing market order can't leave a naked working order behind.
+        self._cancel_resting_orders_for_symbol(ib, sym)
+
+        # Step 2 — opposing market order to flatten.
+        try:
+            from ib_insync import MarketOrder  # type: ignore
+        except ImportError:
+            from ib_async import MarketOrder  # type: ignore
+
+        try:
+            contract = self._build_contract(sym)
+            close_order = MarketOrder(close_action, close_qty)
+            close_order.orderId = ib.client.getReqId()
+            close_order.transmit = True
+            close_order.tif = "DAY"
+            if self.account:
+                close_order.account = self.account
+            close_trade = ib.placeOrder(contract, close_order)
+            try:
+                ib.sleep(0)
+            except Exception:  # noqa: BLE001
+                pass
+        except Exception as exc:  # noqa: BLE001
+            return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
+
+        # Bounded post-place rejection check (same contract as place()): an
+        # immediate IBKR reject of the close surfaces as retCode 1 so the
+        # monitor leaves the DB row open and retries, rather than marking a
+        # phantom close.
+        rejected = self._await_parent_rejection(ib, close_trade)
+        if rejected is not None:
+            return {"retCode": 1, "retMsg": rejected}
+
+        return {
+            "retCode": 0,
+            "result": {"orderId": str(close_order.orderId)},
+            "retMsg": "OK",
+        }
+
+    def _live_position_qty(self, symbol: str) -> Optional[float]:
+        """Absolute open-position size for *symbol* from IB's portfolio.
+
+        Returns the absolute contract count (``0.0`` when flat) or
+        ``None`` when the read fails — so :meth:`close` can distinguish
+        "IB says flat" from "couldn't read IB". Matches by the generic
+        root symbol (``MES`` / ``MGC`` / ``MHG``), the same normalisation
+        :meth:`positions` applies.
+        """
+        sym = str(symbol or "").upper()
+        for pos in self.positions():
+            if str(pos.get("symbol") or "").upper() == sym:
+                try:
+                    return abs(float(pos.get("size") or 0.0))
+                except (TypeError, ValueError):
+                    return None
+        return 0.0
+
+    def _cancel_resting_orders_for_symbol(self, ib: Any, symbol: str) -> None:
+        """Cancel every open (resting) order on *symbol* — best-effort.
+
+        Sweeps the protective bracket / OCA legs so a subsequent opposing
+        market close can't leave a naked working order that later fills and
+        re-opens a position. Matches by the contract's generic root symbol
+        (``contract.symbol``), the same axis the journal + reconciler use.
+        Never raises — a cancel failure on one leg must not block the close.
+        """
+        sym = str(symbol or "").upper()
+        for trade in self._open_trades(ib):
+            try:
+                contract = getattr(trade, "contract", None)
+                trade_sym = str(getattr(contract, "symbol", "") or "").upper()
+                if sym and trade_sym and trade_sym != sym:
+                    continue
+                ib.cancelOrder(trade.order)
+            except Exception:  # noqa: BLE001
+                # Best-effort: a single un-cancellable leg must not abort
+                # the flatten; the naked-autoprotect / reconciler paths
+                # converge the remainder.
+                continue
+        try:
+            ib.sleep(0)
+        except Exception:  # noqa: BLE001
+            pass
+
     @staticmethod
     def _await_parent_rejection(ib: Any, parent_trade: Any) -> Optional[str]:
         """Watch a just-placed parent order for an immediate IBKR reject.
