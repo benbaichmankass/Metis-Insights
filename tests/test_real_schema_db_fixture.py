@@ -45,6 +45,13 @@ _EXPECTED_TRADES_COLS = {
     # "primary entry trade" — written only by the real-money primary
     # leg of the fanout.
     "order_package_id",
+    # Added 2026-06-16 (P1-A, dashboard-truth-and-persistence audit): the
+    # canonical close timestamp, written as a real column on every close path
+    # (P1-B) so close time stops being a read-time derivation
+    # (order_packages.updated_at -> notes.closed_at JSON -> open time). NULL
+    # until a close path stamps it; open rows and never-opened terminal rows
+    # (rejected/exchange_rejected) legitimately leave it NULL.
+    "closed_at",
 }
 
 _EXPECTED_ORDER_PACKAGES_COLS = {
