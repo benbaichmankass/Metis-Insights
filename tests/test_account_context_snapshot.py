@@ -15,6 +15,12 @@ from src.units.accounts.context_snapshot import (
     open_trades_count_for,
     write_snapshots,
 )
+# Build the daily_risk_state fixture from the SAME canonical DDL the
+# RiskManager uses in production, so the test schema can never drift from
+# the real one again. The prior hand-rolled fixture used a `utc_date`
+# column that production never had — masking the real bug where
+# daily_state_for queried a non-existent column.
+from src.units.accounts.risk import _CREATE_DAILY_RISK_STATE
 
 
 def _seed_live_db(path: Path) -> None:
@@ -24,11 +30,7 @@ def _seed_live_db(path: Path) -> None:
         "CREATE TABLE trades (id INTEGER PRIMARY KEY, account_id TEXT, "
         "status TEXT, is_backtest INT)"
     )
-    conn.execute(
-        "CREATE TABLE daily_risk_state (account_id TEXT, utc_date TEXT, "
-        "daily_pnl REAL, daily_high_equity REAL, "
-        "PRIMARY KEY (account_id, utc_date))"
-    )
+    conn.execute(_CREATE_DAILY_RISK_STATE)  # canonical schema (PK account_id, date)
     conn.commit()
     conn.close()
 
@@ -131,7 +133,7 @@ def test_daily_state_for_reads_running_totals(tmp_path: Path):
     _seed_live_db(db)
     conn = sqlite3.connect(str(db))
     conn.execute(
-        "INSERT INTO daily_risk_state(account_id, utc_date, daily_pnl, daily_high_equity)"
+        "INSERT INTO daily_risk_state(account_id, date, daily_pnl, daily_high_equity)"
         " VALUES (?, ?, ?, ?)",
         ("prop_1", "2026-06-07", -120.5, 10300.0),
     )
