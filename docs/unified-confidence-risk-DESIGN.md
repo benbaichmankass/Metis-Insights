@@ -315,10 +315,19 @@ ride the **trainer mirror** (like the registry / sweeps); the live loader reads
 the mirrored `calibrators.json`. No git commit of the artifact. Moot until the
 observe-only stamp deploys.
 
-**Remaining (NOT built — needs operator/data):** fold in the 5m calibrators;
-per-head `rank_auc` readiness pass; wire the calibrators onto the trainer mirror;
-the observe-only stamp (this branch) awaits operator review; **P2+ live
-influence** (sizing/arbitration off the conviction) — Tier-3, operator-gated.
+**Status as of 2026-06-16 (P1 complete + shipped):** the observe-only conviction
+stamp is **deployed** (live `git_sha 022d4332`, trader verified healthy) and
+soaking `meta.conviction`; the **calibration loop is shipped** (#3786 — auto-fit
+each trainer cycle via `scripts/ops/fit_calibrators.sh`, published on the trainer
+mirror, the live loader reads the mirrored `calibrators.json`, **5m `ict_scalp`
+folded in**); the v2 **`conviction-meta-v1`** model is **registered at
+`candidate`** (degenerate at n=65 — `f1_True=0`, expected at this volume; improves
+as the soak accrues, stays at `candidate` with no influence). OANDA `xauusd_trend_1h`
+paused (PB-20260616-001).
+
+**Remaining:** per-head `rank_auc` readiness pass; **P2+ live influence**
+(sizing/arbitration off the conviction) — Tier-3, operator-gated. The P2
+implementation plan is **§ 10 (ready to build)**.
 
 ## 5. Phased rollout
 
@@ -366,4 +375,59 @@ only its *order-influence* semantics change (continuous weight vs binary).
 
 - **OANDA re-point** (XAU→tradeable OANDA-US FX pair) — its own Phase-0 mini-plan
   (OANDA US is spot-FX-only; XAU not tradeable, which is why it was shelved
-  2026-06-12). Not part of this redesign.
+  2026-06-12). **`xauusd_trend_1h` PAUSED 2026-06-16** (removed from
+  `oanda_practice.strategies` to stop the orphan noise); re-point tracked as
+  `PB-20260616-001`. Not part of this redesign.
+
+## 10. P2 implementation plan (READY TO BUILD)
+
+P2 = **conviction-driven sizing on the demo account only**, behind an inert
+flag, annotate-first. Everything it needs is in place (the calibrated
+`meta.conviction` is stamped on every order package; calibrators ship via the
+mirror). This is the first time conviction *influences* an order, so it is
+demo-scoped and Tier-2/3.
+
+**Flag (mirror `NEWS_INFLUENCE_MODE`, NOT a `*_ENABLED` gate — env-gate-guard):**
+- `CONVICTION_SIZING_MODE` ∈ `off` (default) | `annotate` (log the would-be
+  resize, don't apply) | `apply` (resize). Read at call time.
+- `CONVICTION_SIZING_ACCOUNTS` — comma-separated allowlist (set to `bybit_1` for
+  the demo soak); permissive-when-unset *only after* real-money sign-off (mirror
+  `POSITION_NETTING_GUARD_ACCOUNTS` semantics). For P2, require it to name demo.
+
+**Integration point:** `src/core/coordinator.py::multi_account_execute`, right
+after `sized_qty = RiskManager.position_size(...)` and beside
+`apply_advisory_downsize` / `apply_news_downsize` (the existing post-sizing
+multiplier site, ~`coordinator.py:1276-1290`). Add
+`apply_conviction_sizing(pkg, sized_qty, account_name)` in a new
+`src/runtime/conviction_sizing.py` — **fail-permissive** (any error returns
+`sized_qty` unchanged), and a **no-op unless** `CONVICTION_SIZING_MODE != off`
+AND the account is in the allowlist.
+
+**Computation:** read the already-stamped `pkg.meta["conviction"]["conviction"]`
+(the calibrated blend; if absent/None → no-op). Then:
+```
+risk_qty  = (per_trade_risk_budget=0.02 × balance) / (stop_distance × contract_value)
+desired   = conviction × risk_qty
+margin_cap= (available_margin × leverage) / entry            # existing clamp
+throttle  = available_margin / total_account_margin          # proportional (§3.3)
+final     = min(desired × throttle, margin_cap)  → floor to exchange min
+if conviction < no_trade_floor (default 0, inert): journal a refusal, qty=0
+```
+**KEY difference from advisory/news:** conviction sizing can **enlarge** size
+(up to the 2% budget / margin), not only shrink — so it MUST be bounded by
+`margin_cap` and demo-scoped first. `annotate` mode logs `desired`/`final` to a
+`runtime_logs/conviction_sizing.jsonl` soak log without changing `sized_qty`.
+
+**Validation (demo):** run `annotate` on `bybit_1` first; compare the would-be
+conviction-sized qty vs the actual risk-sized qty over a soak window; only flip
+to `apply` once the conviction is non-degenerate (the v2 meta-model has matured
+past the current `f1_True=0`) and the annotate log looks sane.
+
+**Open numbers to set before `apply`:** per-trade risk budget (2% decided), the
+no-trade floor (start 0), the throttle curve shape. **Rollback:** flag → `off`
+(one env flip, no redeploy).
+
+**Tests:** `apply_conviction_sizing` no-ops when mode=off / account not allowed /
+conviction missing; `annotate` never changes qty; `apply` scales within
+`[0, margin_cap]`; fail-permissive on any exception. Drift guard that the flag
+isn't a `*_ENABLED` gate.
