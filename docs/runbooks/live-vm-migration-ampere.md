@@ -42,6 +42,47 @@ no Ampere budget either way.
 | `vm-resize-live.yml` | `vm-resize-live` | in-place A1.Flex shape change (only AFTER live is on Ampere; not the x86→ARM step) |
 | `terminate-instance.yml` | `terminate-instance` | terminate the micro after the soak |
 
+## Lessons from the 2026-06-14 move — the environment contract (fold into ANY future move)
+
+The mechanical migration (provision → verify wheels → dry-boot → data copy →
+start) went fine. **Every** incident came from things keyed to the OLD VM's
+*identity* that weren't enumerated before going live. Treat this as the
+pre-cutover checklist; each line is a real 2026-06-14 failure:
+
+1. **Egress IP → broker allowlists.** The new VM's egress IP must be added to
+   **every** broker API-key IP allowlist BEFORE/at cutover. Missing this blinded
+   real-money `bybit_2` with `ErrCode 10010` from cutover (`BL-20260614-BYBIT-IP`).
+   Broker-side + operator-only — schedule it. Binding is necessary but **not
+   sufficient**: restart `ict-trader-live` + `ict-web-api` after binding (they
+   cache the key in `os.environ`).
+2. **Prefer a RESERVED IP** (`reserve-live-ip.yml`). A reserved IP belongs to the
+   role, not the box, so `cutover-live.yml` moves it with **zero external ref
+   changes** and items 1/3/4 below largely disappear. An ephemeral IP forces a
+   new address on every move.
+3. **Host references.** `vars.VM_SSH_HOST` (and its hardcoded fallbacks across
+   ~100 workflows), dashboard `BOT_API_URL`, session `DIAG_BASE_URL`, trainer
+   `LIVE_VM_IP` drop-ins, and the IB-gateway recovery/MES-pull hosts all point at
+   an IP. `vars.*` resolved **empty** at cutover, so everything used the dead
+   fallback — verify the SoT actually resolves, don't trust the fallback.
+4. **Decommission hygiene — "stop the trader" ≠ "stop the box".** Watchdogs,
+   `ict-web-api`, and every timer that calls a broker will revive or keep calling
+   from the old (now de-allowlisted) IP — the **micro-zombie** that spammed 10010
+   into the shared Telegram channel and masked the diagnosis for hours
+   (`BL-20260615-MICRO-ZOMBIE`). Use the `stop-micro-zombie` workflow (disable the
+   ENTIRE `ict-*` fleet, watchdogs/git-sync first) or power the box off.
+5. **Deploy/observability portability.** Confirm on the new box, in dry-boot,
+   that: the installer doesn't wedge on storage topology (mount vs boot-volume
+   dir — `data-dir-nomount.conf`); `enable --now` doesn't start units that belong
+   on another box (gateway timers — `/etc/ict-vm-role`); the auto-deploy actually
+   *finds and restarts* units (`list-units 'ict-*'` returned 0 matches on Ampere →
+   silent no-op); and the full observability/self-heal fleet + every recovery
+   workflow's target host are present and re-verified.
+6. **Latent-bug amplification.** A clean rebuild surfaces bugs the old box hid
+   (`pybit` in no requirements file; `/dev/null` stripped by an OCI FIM agent;
+   monitor candle fetch hardcoded to Bybit; `ib_paper` polluting real-money PnL).
+   A periodic **fresh-VM rehearsal** catches these without a real money-path
+   outage.
+
 ## Phase 0 — pre-flight verification (do first; no mutations)
 
 1. **Confirm `/data/bot-data` is a separate block volume** (detachable), not a
@@ -64,6 +105,11 @@ no Ampere budget either way.
    - The gateway reaches the trader over the private subnet, and the trader
      reaches the gateway at `10.0.0.251` (private) — **unchanged** by a public
      IP move, since both stay on the same VCN/subnet.
+4. **Record the OLD box's OCI display name** (`oci compute instance list` /
+   console) in the cutover issue AND in Phase 4 below. `terminate-instance`
+   matches on the exact display name; if it isn't written down, decommission
+   stalls. (The 2026-06-14 micro's display name was never recorded — a real
+   gap that blocked its later termination.)
 
 ## Phase 1 — provision the Ampere candidate (non-trading, reversible)
 

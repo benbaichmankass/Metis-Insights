@@ -24,32 +24,49 @@ from pathlib import Path
 
 
 # ---------------------------------------------------------------------------
-# Env loading (python-dotenv if available, else manual .env.live parse)
+# Env loading (python-dotenv if available, else manual parse).
+#
+# The canonical live env file is `.env` (what the trader + ict-heartbeat.service
+# read). `.env.live` is a legacy filename kept only as a back-compat fallback —
+# on the Ampere live VM only `.env` exists, so preferring it is what makes this
+# digest work post-cutover (BL-20260615-HEARTBEAT-ENV). Note: when launched by
+# ict-heartbeat.service the systemd EnvironmentFile already injects `.env` into
+# the process environment, so this is belaboured belt-and-suspenders for manual
+# invocations.
 # ---------------------------------------------------------------------------
 
+_ENV_CANDIDATES = (".env", ".env.live")
+
+
+def _env_files() -> list[Path]:
+    root = Path(__file__).resolve().parents[1]
+    return [root / name for name in _ENV_CANDIDATES if (root / name).exists()]
+
+
 def _load_env() -> None:
+    paths = _env_files()
+    if not paths:
+        return
     try:
         from dotenv import load_dotenv  # type: ignore
-        env_path = Path(__file__).resolve().parents[1] / ".env.live"
-        if env_path.exists():
+        for env_path in paths:
             load_dotenv(env_path, override=False)
         return
     except ImportError:
         pass
 
-    # Fallback: parse .env.live manually (KEY=VALUE lines, skip comments)
-    env_path = Path(__file__).resolve().parents[1] / ".env.live"
-    if not env_path.exists():
-        return
-    with open(env_path, "r", encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, val = line.partition("=")
-            key = key.strip()
-            val = val.strip().strip('"').strip("'")
-            os.environ.setdefault(key, val)
+    # Fallback: parse manually (KEY=VALUE lines, skip comments). First file
+    # wins per key (setdefault), matching .env-preferred precedence above.
+    for env_path in paths:
+        with open(env_path, "r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                key = key.strip()
+                val = val.strip().strip('"').strip("'")
+                os.environ.setdefault(key, val)
 
 
 # ---------------------------------------------------------------------------

@@ -39,8 +39,12 @@ WorkingDirectory=/home/ubuntu/ict-trading-bot
 # Load the trader .env (operator overrides). DATA_DIR is supplied by the
 # data-dir.conf drop-in (same as ict-web-api/trader/bridge) so the writer
 # and the API resolve artifacts_dir() to the identical path.
+# Run under the trader venv (not system /usr/bin/python3) so the IB/ML deps
+# (ib_insync etc.) import — otherwise account_balance(ib_paper) logs a scary
+# false "ib_insync is not installed" even though the trader trades IB fine
+# (BL-20260614-HEALTHSNAP-PY).
 EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
-ExecStart=/usr/bin/python3 -u scripts/write_health_snapshot.py
+ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/write_health_snapshot.py
 StandardOutput=journal
 StandardError=journal
 
