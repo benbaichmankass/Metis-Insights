@@ -87,12 +87,21 @@ Known-viable executors (operator picks per session; no per-agent build needed):
    bracket on the DXTrade web terminal. Baseline.
 2. **Comet** (Perplexity's agentic browser, desktop) — same role, same ticket;
    it's a real agentic browser that does multi-step web tasks.
-3. **Perplexity Assistant (phone) → Comet (desktop)** — cross-device dispatch.
-   **Pending operator verification** that Perplexity supports queuing a computer
-   task from the phone to run on desktop Comet (not confirmed; test on a trivial
-   action first).
-4. **Manual** — operator places it directly on the DXTrade app/web from the
+3. **Comet, run on desktop** — start the agentic task *inside* desktop Comet
+   against the logged-in DXTrade tab (`@tab`), with a forced "pause for my
+   confirmation before submit" step. This is the supported Comet path.
+4. **Perplexity Assistant (phone) → Comet (desktop)** — **NOT supported as of
+   2026-06** (verified via Perplexity). Android Comet runs tasks only while the
+   app stays open; there is no documented phone→desktop remote hand-off. Use
+   option 3 (desktop Comet) directly; the phone is an alert channel only.
+5. **Manual** — operator places it directly on the DXTrade app/web from the
    ticket's human-readable card. Always the fallback; phone-native.
+
+**Agentic-browser caveats (Comet/any):** Comet treats financial sites as
+block-candidates and publishes no brokerage policy; agentic browsers also carry
+prompt-injection risk and are weaker on dynamic/modal-heavy trading UIs. So for
+*any* agent executor: **supervised confirm is mandatory, review every field, no
+full autonomy** — reinforcing the rules below.
 
 Rules **every** executor must honor (printed in the ticket itself, so it travels
 with the message regardless of which agent gets it):
