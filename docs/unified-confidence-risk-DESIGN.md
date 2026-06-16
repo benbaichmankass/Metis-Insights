@@ -477,3 +477,35 @@ deliberate change to the sizing path itself, governed by the existing account
 not the flip of a dormant switch installed in advance. **Open numbers for that
 future step:** the no-trade floor (computed as 0/inert today), the throttle-curve
 shape, and the per-trade daily-loss-budget interaction.
+
+### P3 build status (2026-06-16) — SHIPPED OBSERVE-ONLY, annotate-first
+
+P3 (§ 3.4 competing-trade arbitration) ships as the exact analogue of P2 —
+**advisory / observe-only with NO gate**:
+
+- **`src/runtime/conviction_arbitration.py`** (`annotate_conviction_arbitration`)
+  — wired into `intents.aggregate_intents` at **both** resolution branches
+  (same-direction *reinforcement* and long-vs-short *priority conflict*). It
+  computes what conviction-based arbitration *would* pick — the higher-`confidence`
+  intent on a conflict; a conviction-weighted reinforcement target instead of
+  plain `max(target_qty)` — and logs the would-be-vs-actual comparison to
+  `runtime_logs/conviction_arbitration.jsonl`, but the aggregator's returned
+  `DesiredPosition` is **byte-for-byte unchanged** (priority still wins conflicts,
+  max-qty still wins reinforcement). It is the intent-layer twin of the regime
+  router's `_shadow_regime_gate` observe-half — minus even an enforced sibling.
+- Conviction signal = `StrategyIntent.confidence` (the hook § 3.4 names as "already
+  exists, currently ignored"). The calibrated multi-lens blend (P1) is stamped on
+  the order *package* downstream of aggregation, so per-intent `confidence` is the
+  available proxy at aggregation time; swapping in the calibrated value later does
+  not change the observe-only contract. Fail-permissive (a logging/compute error
+  never touches the decision). 11 unit tests incl. the never-changes-the-decision
+  invariant + a no-gate/no-env guard.
+
+**No flag** (same rationale as P2). Graduation to actually arbitrating by
+conviction is a future deliberate change to `aggregate_intents` itself —
+replacing the priority/max-qty winner with the conviction winner — governed by
+the normal Tier-3 PR gate, **not** a dormant switch. The soak log accrues the
+"would conviction have picked differently, and was it right?" evidence that gates
+that decision. **Still open before graduation:** whether to arbitrate on raw
+`confidence` or the calibrated conviction blend, and the reinforcement target rule
+(conviction-winner's qty vs the conviction-weighted blend — both are logged now).
