@@ -655,10 +655,15 @@ EXCHANGE_MANAGEMENT_CAPS: dict[str, frozenset[str]] = {
     # of SL/TP the verdict changed. ``partial_close`` is not wired (the flatten
     # endpoint closes the whole position).
     "alpaca": frozenset({"modify", "close", "open_positions"}),
-    # oanda (oanda_practice, dry): NO management op wired yet
-    # (account_open_positions has no oanda branch, no close primitive). Wiring
-    # OANDA is a later P3 item, before it's promoted off dry_run.
-    "oanda": frozenset(),
+    # oanda (oanda_practice, currently dry_run): S2 (BL-20260616-LTMGMT-OANDA)
+    # wired ``close`` (OandaClient.close → v20 PUT positions/{instrument}/close,
+    # via execute.close_open_position + order_monitor._build_account_client) +
+    # ``open_positions`` (account_open_positions oanda branch). Done BEFORE any
+    # go-live so promoting oanda_practice off dry_run never recreates the
+    # unmanaged-live-position gap. ``modify`` / ``partial_close`` / ``order_status``
+    # remain unwired (OANDA SL/TP modify is a later follow-up; the static entry
+    # bracket + close cover the live-management baseline).
+    "oanda": frozenset({"close", "open_positions"}),
     # breakout (BreakoutAPI): an EXCHANGE_MAP stub integration with no
     # management primitives wired (no modify/close/order_status/open_positions).
     # Declared explicitly as the empty set so the P5 CI guard
@@ -960,9 +965,9 @@ def account_open_positions(
 
     * non-dict / missing account argument
     * unsupported exchange (anything other than ``bybit`` / ``binance`` /
-      ``interactive_brokers`` / ``alpaca``)
+      ``interactive_brokers`` / ``alpaca`` / ``oanda``)
     * missing creds (``bybit_client_for`` / ``binance_conn_for`` /
-      ``alpaca_client_for`` returns ``None``)
+      ``alpaca_client_for`` / ``oanda_client_for`` returns ``None``)
     * exchange SDK exception (logged + ``report_api_failure``)
     * **IB only:** an EMPTY snapshot from a Gateway that is NOT verified
       logged-in (``net_liquidation`` not populated). A logged-out-but-
@@ -1128,6 +1133,41 @@ def account_open_positions(
             # unrealised_pnl}`` shape every other consumer speaks. ``side`` is
             # already ``buy``/``sell``; map to ``long``/``short`` to match the
             # IB/Bybit rows.
+            for p in (client.positions() or []):
+                size = _f(p.get("qty"))
+                if size <= 0:
+                    continue
+                raw_side = str(p.get("side") or "").lower()
+                side = "long" if raw_side in ("buy", "long") else "short"
+                out.append({
+                    "symbol": p.get("symbol"),
+                    "side": side,
+                    "size": size,
+                    "entry_price": _f(p.get("avg_price")),
+                    "unrealised_pnl": _f(p.get("unrealized_pnl")),
+                })
+            return out
+        if ex == "oanda":
+            # Dry oanda accounts (oanda_practice is dry_run today) are never
+            # dialled from the read path — return None ("could not read")
+            # rather than a false empty list, exactly like the IB/alpaca
+            # branches. This is what makes the reverse reconciler skip OANDA
+            # rows while dry (never close on a None snapshot) and gives it
+            # real coverage the moment the account is promoted to live.
+            mode = str(account.get("mode") or "live").lower()
+            if mode != "live":
+                return None
+            client = oanda_client_for(account)
+            if client is None:
+                # No creds (OANDA_API_TOKEN / OANDA_ACCOUNT_ID unset) → can't
+                # read; factory returns None.
+                return None
+            out = []
+            # OandaClient.positions() emits
+            # ``[{symbol, side, qty, avg_price, unrealized_pnl}]`` (side is
+            # buy/sell). Normalise to the canonical
+            # ``{symbol, side, size, entry_price, unrealised_pnl}`` shape with
+            # side mapped to long/short, like the alpaca branch.
             for p in (client.positions() or []):
                 size = _f(p.get("qty"))
                 if size <= 0:

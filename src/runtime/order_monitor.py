@@ -1110,7 +1110,7 @@ def _build_account_client(account_id):
         from src.units.accounts import load_accounts
         from src.units.accounts.clients import (
             bybit_client_for, binance_conn_for,
-            ib_client_for, alpaca_client_for,
+            ib_client_for, alpaca_client_for, oanda_client_for,
         )
         for acc in load_accounts():
             if acc.name != account_id:
@@ -1144,6 +1144,11 @@ def _build_account_client(account_id):
                 # key pair from env directly; these only steer paper vs live).
                 "alpaca_env": getattr(acc, "alpaca_env", None),
                 "base_url": getattr(acc, "base_url", None),
+                # Optional OANDA host override (oanda_client_for reads the
+                # token + account id from env directly; this only steers
+                # practice vs live). Needed so the S2 OANDA close path can
+                # reach the v20 API once oanda_practice leaves dry_run.
+                "oanda_env": getattr(acc, "oanda_env", None),
             }
             exchange_lc = (acc.exchange or "").lower()
             if exchange_lc == "bybit":
@@ -1158,6 +1163,10 @@ def _build_account_client(account_id):
                 return ib_client_for(cfg), cfg
             if exchange_lc == "alpaca":
                 return alpaca_client_for(cfg), cfg
+            # S2 (BL-20260616-LTMGMT-OANDA): build the OANDA client too so the
+            # close verdict reaches the v20 API before oanda_practice goes live.
+            if exchange_lc == "oanda":
+                return oanda_client_for(cfg), cfg
             return None, cfg
         return None, None
     except Exception as exc:  # noqa: BLE001

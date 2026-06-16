@@ -1238,6 +1238,9 @@ def close_open_position(
         sized to the live position). IB futures have no reduceOnly flag.
       * **alpaca** — :meth:`AlpacaClient.close` (idempotent native flatten,
         ``DELETE /v2/positions/{symbol}``; a 404 = already-flat = ok).
+      * **oanda** — :meth:`OandaClient.close` (idempotent v20 closeout,
+        ``PUT /v3/accounts/{id}/positions/{instrument}/close``; no open
+        position = ok). S2 (BL-20260616-LTMGMT-OANDA), before go-live.
 
     Returns a result dict. Best-effort everywhere — a gateway-down /
     API error returns ``{"ok": False, "error": ...}`` so the monitor
@@ -1361,6 +1364,45 @@ def close_open_position(
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "close_open_position: alpaca raised for account=%s symbol=%s: %s",
+                account_cfg.get("account_id"), symbol, exc,
+            )
+            return {"ok": False, "exchange_response": None,
+                    "exchange_order_id": None,
+                    "error": f"{type(exc).__name__}: {exc}"}
+
+    if exchange == "oanda":
+        # OandaClient.close: idempotent v20 closeout (PUT
+        # /v3/accounts/{id}/positions/{instrument}/close with longUnits/
+        # shortUnits=ALL for the open leg(s)); no open position → retCode 0.
+        # Whole-position closeout only — the v20 close-position endpoint flattens
+        # the named instrument leg, so qty is informational (partial-close not
+        # wired). Wired in S2 (BL-20260616-LTMGMT-OANDA) before oanda_practice
+        # leaves dry_run.
+        try:
+            from src.units.accounts.oanda_client import OandaClient
+            if not isinstance(exchange_client, OandaClient):
+                return {"ok": False, "exchange_response": None,
+                        "exchange_order_id": None,
+                        "error": (f"oanda close: expected OandaClient, got "
+                                  f"{type(exchange_client).__name__}")}
+            resp = exchange_client.close(symbol) or {}
+            ret_code = resp.get("retCode")
+            if ret_code in (0, "0", None):
+                order_id = (resp.get("result") or {}).get("orderId")
+                logger.info(
+                    "close_open_position: account=%s symbol=%s side=%s qty=%s "
+                    "→ oanda closeout (orderId=%s)",
+                    account_cfg.get("account_id"), symbol, close_side, qty,
+                    order_id,
+                )
+                return {"ok": True, "exchange_response": resp,
+                        "exchange_order_id": order_id, "error": None}
+            err = str(resp.get("retMsg") or f"retCode={ret_code}")
+            return {"ok": False, "exchange_response": resp,
+                    "exchange_order_id": None, "error": err}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "close_open_position: oanda raised for account=%s symbol=%s: %s",
                 account_cfg.get("account_id"), symbol, exc,
             )
             return {"ok": False, "exchange_response": None,
