@@ -45,20 +45,22 @@ from typing import Any, Iterable, Sequence
 
 import yaml
 
+from ..manifest import canonical_stage
 from ..registry.model_registry import ModelRegistry
 from .adwin import DEFAULT_DELTA, DEFAULT_MAX_WINDOW, MIN_WINDOW, scan_stream
 from .inspector import ShadowRecord, filter_records, iter_records
 
 _LOGGER = logging.getLogger(__name__)
 
-# A model whose registry stage is in this set is considered "deployed"
-# enough to be worth watching for drift — anything still pre-shadow is
-# off the live evaluation path and doesn't benefit from drift-triggered
-# retrains. Stays in sync with the stage-guard ``_LIVE_STAGES`` set +
-# ``shadow``, which is the stage that accrues track records.
-WATCHED_STAGES: frozenset[str] = frozenset(
-    {"shadow", "advisory", "limited_live", "live_approved"}
-)
+# A model whose canonical registry stage is in this set is considered
+# "deployed" enough to be worth watching for drift — anything still
+# pre-shadow (canonical ``candidate``) is off the live evaluation path and
+# doesn't benefit from drift-triggered retrains. 3-stage collapse
+# (2026-06-16): ``shadow`` (track-record accrual) + ``advisory`` (influence;
+# legacy limited_live / live_approved normalize to it). Comparisons go
+# through ``canonical_stage`` so a stage stored under an old alias still
+# matches.
+WATCHED_STAGES: frozenset[str] = frozenset({"shadow", "advisory"})
 
 
 @dataclass(frozen=True)
@@ -147,10 +149,21 @@ def evaluate_models(
             r for r in iter_records(log_path)
             if r.backfill_kind is None
         ]
-    watched = set(watched_stages)
+    # Normalize the watched set so a caller passing legacy alias names still
+    # matches canonical registry stages.
+    watched = set()
+    for s in watched_stages:
+        try:
+            watched.add(canonical_stage(s))
+        except ValueError:
+            watched.add(s)
     decisions: list[RetrainDecision] = []
     for entry in registry.list():
-        if entry.target_deployment_stage not in watched:
+        try:
+            entry_stage = canonical_stage(entry.target_deployment_stage)
+        except ValueError:
+            entry_stage = entry.target_deployment_stage
+        if entry_stage not in watched:
             continue
         head_records = sorted(
             filter_records(records, model_id=entry.model_id),

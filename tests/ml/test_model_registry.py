@@ -239,77 +239,77 @@ class TestDeploymentStage:
         assert e2.stage_history[0].to_stage == "candidate"
 
     def test_promote_stage_forward(self, tmp_path: Path):
-        # Register a model into research_only explicitly (the default
-        # is now `shadow`, but the candidate transition test needs a
-        # model that starts pre-shadow).
+        # Canonical forward edge candidate → shadow. Register a model into
+        # `candidate` (pre-shadow) explicitly (the default is `shadow`).
         reg = ModelRegistry(tmp_path)
         reg.register(
             model_id="m-1",
             manifest={
                 "manifest_version": "v1",
-                "target_deployment_stage": "research_only",
+                "target_deployment_stage": "candidate",
             },
             model_state_path="/tmp/s.json", metrics={}, code_revision="x",
         )
         updated = reg.promote_stage(
-            "m-1", "candidate", by="op", reason="leakage_test_clean",
-        )
-        assert updated.target_deployment_stage == "candidate"
-        assert len(updated.stage_history) == 1
-        assert updated.stage_history[-1].from_stage == "research_only"
-        assert updated.stage_history[-1].to_stage == "candidate"
-
-    def test_promote_stage_rollback(self, tmp_path: Path):
-        reg = ModelRegistry(tmp_path)
-        reg.register(
-            model_id="m-1",
-            manifest={
-                "manifest_version": "v1",
-                "target_deployment_stage": "research_only",
-            },
-            model_state_path="/tmp/s.json", metrics={}, code_revision="x",
-        )
-        reg.promote_stage(
-            "m-1", "candidate", by="op", reason="leakage_test_clean",
-        )
-        reg.promote_stage(
-            "m-1", "backtest_approved", by="op", reason="walk_forward_ok",
-        )
-        rolled = reg.promote_stage(
-            "m-1", "candidate", by="op", reason="walk_forward_regressed",
-        )
-        assert rolled.target_deployment_stage == "candidate"
-        assert len(rolled.stage_history) == 3
-
-    def test_promote_stage_research_only_direct_to_shadow(self, tmp_path: Path):
-        # 2026-05-19: the legal graph allows a one-hop migration from
-        # `research_only` straight to `shadow`. Pre-shadow stages
-        # remain valid as explicit operator-demoted parks, but the
-        # default lifecycle bypasses them — and demoted models can be
-        # re-promoted in a single hop instead of walking back up the
-        # whole ladder.
-        reg = ModelRegistry(tmp_path)
-        reg.register(
-            model_id="m-1",
-            manifest={
-                "manifest_version": "v1",
-                "target_deployment_stage": "research_only",
-            },
-            model_state_path="/tmp/s.json", metrics={}, code_revision="x",
-        )
-        updated = reg.promote_stage(
-            "m-1", "shadow", by="op", reason="default-policy-2026-05-19",
+            "m-1", "shadow", by="op", reason="leakage_test_clean",
         )
         assert updated.target_deployment_stage == "shadow"
-        assert updated.stage_history[-1].from_stage == "research_only"
+        assert len(updated.stage_history) == 1
+        assert updated.stage_history[-1].from_stage == "candidate"
         assert updated.stage_history[-1].to_stage == "shadow"
 
-    def test_promote_stage_shadow_can_demote_to_research_only(
+    def test_promote_stage_rollback(self, tmp_path: Path):
+        # candidate → shadow → advisory → shadow (one-step rollback).
+        reg = ModelRegistry(tmp_path)
+        reg.register(
+            model_id="m-1",
+            manifest={
+                "manifest_version": "v1",
+                "target_deployment_stage": "candidate",
+            },
+            model_state_path="/tmp/s.json", metrics={}, code_revision="x",
+        )
+        reg.promote_stage(
+            "m-1", "shadow", by="op", reason="leakage_test_clean",
+        )
+        reg.promote_stage(
+            "m-1", "advisory", by="op", reason="walk_forward_ok",
+        )
+        rolled = reg.promote_stage(
+            "m-1", "shadow", by="op", reason="live_underperformed",
+        )
+        assert rolled.target_deployment_stage == "shadow"
+        assert len(rolled.stage_history) == 3
+
+    def test_promote_stage_alias_research_only_normalizes_to_candidate(
         self, tmp_path: Path
     ):
-        # The inverse of the direct shadow promotion edge: a misbehaving
-        # shadow model can be parked back in `research_only` in one hop,
-        # so the audit log captures the demotion intent cleanly.
+        # Backward-compat: registering with the legacy `research_only` name
+        # normalizes to canonical `candidate` on store, and the forward edge
+        # to `shadow` still works in one hop.
+        reg = ModelRegistry(tmp_path)
+        entry = reg.register(
+            model_id="m-1",
+            manifest={
+                "manifest_version": "v1",
+                "target_deployment_stage": "research_only",
+            },
+            model_state_path="/tmp/s.json", metrics={}, code_revision="x",
+        )
+        assert entry.target_deployment_stage == "candidate"
+        updated = reg.promote_stage(
+            "m-1", "shadow", by="op", reason="default-policy",
+        )
+        assert updated.target_deployment_stage == "shadow"
+        assert updated.stage_history[-1].from_stage == "candidate"
+        assert updated.stage_history[-1].to_stage == "shadow"
+
+    def test_promote_stage_shadow_can_demote_to_candidate(
+        self, tmp_path: Path
+    ):
+        # A misbehaving shadow model can be parked back in `candidate`
+        # (pre-shadow) in one hop, so the audit log captures the demotion
+        # intent cleanly. A legacy `research_only` request normalizes to it.
         reg = ModelRegistry(tmp_path)
         reg.register(
             model_id="m-1", manifest={"manifest_version": "v1"},
@@ -318,11 +318,11 @@ class TestDeploymentStage:
         assert reg.get("m-1").target_deployment_stage == "shadow"
         rolled = reg.promote_stage(
             "m-1",
-            "research_only",
+            "research_only",  # legacy alias → candidate
             by="op",
             reason="park-pending-investigation",
         )
-        assert rolled.target_deployment_stage == "research_only"
+        assert rolled.target_deployment_stage == "candidate"
 
     def test_promote_stage_unknown(self, tmp_path: Path):
         reg = ModelRegistry(tmp_path)
@@ -362,31 +362,43 @@ class TestDeploymentStage:
             )
 
     def test_promote_stage_full_ladder(self, tmp_path: Path):
-        # Walk a model all the way up the WS7 ladder.
+        # Walk a model up the canonical 3-stage ladder candidate → shadow →
+        # advisory. Start from `candidate` (default is `shadow`).
         reg = ModelRegistry(tmp_path)
         reg.register(
-            model_id="m-1", manifest={"manifest_version": "v1"},
+            model_id="m-1",
+            manifest={
+                "manifest_version": "v1",
+                "target_deployment_stage": "candidate",
+            },
             model_state_path="/tmp/s.json", metrics={}, code_revision="x",
         )
-        ladder = [
-            "candidate",
-            "backtest_approved",
-            "shadow",
-            "advisory",
-            "limited_live",
-            "live_approved",
-        ]
+        ladder = ["shadow", "advisory"]
         for stage in ladder:
             reg.promote_stage(
                 "m-1", stage, by="op", reason=f"promoted-to-{stage}",
             )
         final = reg.get("m-1")
-        assert final.target_deployment_stage == "live_approved"
-        assert len(final.stage_history) == 6
+        assert final.target_deployment_stage == "advisory"
+        assert len(final.stage_history) == 2
         assert (
             tuple(e.to_stage for e in final.stage_history)
             == tuple(ladder)
         )
+
+    def test_promote_stage_legacy_alias_accepted(self, tmp_path: Path):
+        # Backward-compat: a caller passing a legacy influence-stage name
+        # (`live_approved`) is accepted and stored as canonical `advisory`,
+        # not hard-broken.
+        reg = ModelRegistry(tmp_path)
+        reg.register(
+            model_id="m-1", manifest={"manifest_version": "v1"},
+            model_state_path="/tmp/s.json", metrics={}, code_revision="x",
+        )  # default shadow
+        updated = reg.promote_stage(
+            "m-1", "live_approved", by="op", reason="promote-to-influence",
+        )
+        assert updated.target_deployment_stage == "advisory"
 
     def test_status_promote_preserves_stage(self, tmp_path: Path):
         # Legacy status promote() should not disturb target_deployment_stage.
@@ -407,7 +419,11 @@ class TestDeploymentStage:
 
 
 def test_valid_deployment_stages_complete():
-    assert "research_only" in VALID_DEPLOYMENT_STAGES
-    assert "live_approved" in VALID_DEPLOYMENT_STAGES
+    # 3-stage collapse (2026-06-16): canonical stages are candidate / shadow
+    # / advisory. The legacy 7-stage names are no longer canonical — they
+    # resolve via the alias map (`ml.manifest.STAGE_ALIASES`).
+    assert "candidate" in VALID_DEPLOYMENT_STAGES
+    assert "shadow" in VALID_DEPLOYMENT_STAGES
+    assert "advisory" in VALID_DEPLOYMENT_STAGES
     assert len(set(VALID_DEPLOYMENT_STAGES)) == len(VALID_DEPLOYMENT_STAGES)
-    assert len(VALID_DEPLOYMENT_STAGES) == 7
+    assert len(VALID_DEPLOYMENT_STAGES) == 3

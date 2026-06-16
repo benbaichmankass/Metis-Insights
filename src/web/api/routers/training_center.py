@@ -50,9 +50,10 @@ _MIRROR_SUBPATH = "trainer_mirror"
 _SAFE_ID = re.compile(r"^[A-Za-z0-9._\-]{1,128}$")
 
 # Three-bucket deployment view (per operator directive 2026-05-18). The
-# registry has 7 stages; from a runtime-impact perspective three matter:
-#   LIVE    — model at an influence stage (advisory / limited_live /
-#             live_approved): the live order path's advisory hook
+# registry has 3 canonical stages; from a runtime-impact perspective:
+#   LIVE    — model at the influence stage (canonical `advisory`; legacy
+#             `limited_live` / `live_approved` normalize to it): the live
+#             order path's advisory hook
 #             (src/runtime/advisory_sizing.py::compute_advisory_factor)
 #             scores it and can downsize a real order. Stage-driven and
 #             registry-global (the advisory hook discovers influence-stage
@@ -71,12 +72,27 @@ _BUCKET_LIVE = "LIVE"
 _BUCKET_SHADOW = "SHADOW"
 _BUCKET_OFFLINE = "OFFLINE"
 
-# Stages whose models influence the live order package — mirrors
-# src/runtime/advisory_sizing.py::_ADVISORY_INFLUENCE_STAGES and the shadow
-# factory's LIVE_INFLUENCE_STAGES. `shadow` and below never influence.
-_LIVE_INFLUENCE_STAGES: frozenset[str] = frozenset(
-    {"advisory", "limited_live", "live_approved"}
-)
+# Canonical stage whose models influence the live order package — mirrors
+# src/runtime/advisory_sizing.py::_ADVISORY_INFLUENCE_STAGES. 3-stage collapse
+# (2026-06-16): the legacy `limited_live` / `live_approved` both normalize to
+# `advisory`. Comparison uses the canonical form, so a mirror row stored under
+# any old name still buckets as LIVE. `shadow` and `candidate` never influence.
+_LIVE_INFLUENCE_STAGES: frozenset[str] = frozenset({"advisory"})
+
+
+def _canonical_stage_or_raw(stage: str) -> str:
+    """Normalize a mirror row's stage to canonical, or pass it through.
+
+    The trainer mirror is just JSON the trainer wrote — a row may carry a
+    legacy 7-stage name (`limited_live`, `research_only`, …). Map it to the
+    canonical 3-stage value so bucketing matches the order path; an
+    unrecognized value falls through unchanged (rendered, never crashed).
+    """
+    try:
+        from ml.manifest import canonical_stage
+        return canonical_stage(stage)
+    except Exception:  # noqa: BLE001  # allow-silent: telemetry-only stage normalization — unknown value passes through unchanged, never 5xx
+        return stage
 
 
 def _mirror_root() -> Path:
@@ -253,17 +269,18 @@ def _auto_wire_strategy_names() -> list[str]:
 
 
 def _compute_deployment_bucket(stage: str, linked_strategies: list[str]) -> str:
-    """Collapse the 7 registry stages to the operator's deployment view.
+    """Collapse the canonical registry stages to the operator's deployment view.
 
-    * LIVE    — model at an influence stage (advisory / limited_live /
-      live_approved): the live order path's advisory hook scores it and can
+    * LIVE    — model at the influence stage (canonical `advisory`; legacy
+      `limited_live` / `live_approved` normalize to it): the live order
+      path's advisory hook scores it and can
       downsize a real order. Stage-driven and registry-global, so LIVE on
       stage alone — independent of ``shadow_model_ids``.
     * SHADOW  — ``shadow``-stage model wired into a strategy's predictor list
       (explicit or auto-wire): predictions logged, decisions unchanged.
     * OFFLINE — neither influencing nor observed.
     """
-    if stage in _LIVE_INFLUENCE_STAGES:
+    if _canonical_stage_or_raw(stage) in _LIVE_INFLUENCE_STAGES:
         return _BUCKET_LIVE
     return _BUCKET_SHADOW if linked_strategies else _BUCKET_OFFLINE
 
@@ -292,7 +309,7 @@ def _enrich_registry_row(
     runs = row.get("runs") if isinstance(row.get("runs"), list) else []
     latest_run = runs[-1] if runs else None
     explicit_linked = list(shadow_map.get(model_id, []))
-    stage = str(row.get("target_deployment_stage") or "")
+    stage = _canonical_stage_or_raw(str(row.get("target_deployment_stage") or ""))
     if explicit_linked:
         linked_strategies = explicit_linked
     elif stage == "shadow" and auto_wire_names:
@@ -324,8 +341,9 @@ def get_registry() -> dict[str, Any]:
         ``shadow_model_ids`` references this ``model_id``. Empty list
         means the model exists in the registry but no strategy uses it.
       * ``deployment_bucket`` — ``"LIVE" | "SHADOW" | "OFFLINE"``. LIVE for
-        a model at an influence stage (advisory / limited_live /
-        live_approved — scored by the live order path's advisory hook),
+        a model at the influence stage (canonical `advisory`; legacy
+        `limited_live` / `live_approved` normalize to it — scored by the
+        live order path's advisory hook),
         SHADOW for a wired ``shadow``-stage model (logged, decisions
         unchanged), OFFLINE otherwise. The dashboard renders this as the
         headline pill on each per-model card.
