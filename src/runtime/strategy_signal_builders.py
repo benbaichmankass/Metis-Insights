@@ -303,6 +303,28 @@ def _emit_shadow_preds(
                 existing.update(captured)
             else:
                 sig_meta["model_scores"] = captured
+        # OBSERVE-ONLY unified conviction (design doc § 3 / § 4a, P1). Blends the
+        # strategy's calibrated signal confidence with the captured model scores
+        # (each gated by its own stage) into a single conviction, stamped on meta
+        # alongside model_scores. NEVER read back into the order — pure logging,
+        # so the score can soak before any sizing/arbitration influence (P2+).
+        try:
+            from src.runtime.conviction import compute_conviction
+            from src.runtime.conviction_inputs import (
+                build_conviction_inputs,
+                load_calibrators_cached,
+            )
+
+            cal = load_calibrators_cached()
+            conv_inputs, conv_prov = build_conviction_inputs(
+                strategy_name, base_row["confidence"], captured, calibrators=cal
+            )
+            conv = compute_conviction(conv_inputs)
+            sig_meta2 = sig.get("meta")
+            if isinstance(sig_meta2, dict):
+                sig_meta2["conviction"] = {**conv.to_dict(), "provenance": conv_prov}
+        except Exception:  # noqa: BLE001 — observe-only, never strand a signal
+            pass
     except Exception:  # noqa: BLE001
         logger.warning(
             "%s: shadow prediction emit failed", strategy_name, exc_info=False
