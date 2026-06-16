@@ -210,6 +210,53 @@ def _track_monitor_blindness(
     _MONITOR_BLINDNESS[key] = st
 
 
+# ---------------------------------------------------------------------------
+# P2 — unsupported-management-op log throttle
+# ---------------------------------------------------------------------------
+#
+# When a strategy's verdict targets an integration that doesn't implement that
+# op today (the senders now return ``unsupported_op:<op>`` — see
+# ``account_supports_management`` + the three ``_send_*_to_exchange`` helpers),
+# the failure is BENIGN and EXPECTED (the entry bracket / reverse-reconcile
+# still cover the position; full management wiring is P3). Logging it at ERROR
+# every monitor tick is pure spam — e.g. MGC #2597's IB-live trailing-stop
+# modify error-looped ``no_client`` every tick for ~2 days.
+#
+# So an ``unsupported_op`` failure is logged at most ONCE per
+# ``(order_package_id, op)`` in-process, at WARNING (a real condition the
+# operator should see — a live trade whose dynamic management can't reach the
+# exchange — but not a per-tick alarm). A genuine failure on a SUPPORTED
+# integration (e.g. a Bybit retCode error) is NOT routed through here and keeps
+# logging at ERROR every tick, unchanged. In-process set; a restart re-arms.
+_UNSUPPORTED_OP_LOGGED: set[tuple[str, str]] = set()
+
+
+def _is_unsupported_op_error(err_str: Any) -> bool:
+    """True when an exchange-sender error string is the P2 ``unsupported_op``
+    sentinel (the integration doesn't implement that op today)."""
+    return str(err_str or "").startswith("unsupported_op")
+
+
+def _note_unsupported_management_op(
+    *, pkg_id: Any, op: str, account_id: Any, integration: Any, err_str: Any,
+) -> None:
+    """Log an ``unsupported_op`` management failure at most once per
+    ``(pkg_id, op)`` at WARNING. Idempotent + never raises; the second and
+    later ticks for the same (pkg, op) are silent."""
+    key = (str(pkg_id or "?"), str(op or "?"))
+    if key in _UNSUPPORTED_OP_LOGGED:
+        return
+    _UNSUPPORTED_OP_LOGGED.add(key)
+    logger.warning(
+        "order_monitor: %s verdict can't reach the exchange — integration "
+        "%r has no wired %s (account=%s pkg=%s error=%s). Leaving the DB "
+        "unchanged; the entry bracket / reconciler still cover the position. "
+        "Management wiring for this integration is deferred to P3. "
+        "(throttled: logged once per pkg+op)",
+        op, integration, op, account_id, pkg_id, err_str,
+    )
+
+
 def _apply_partial_close(
     db,
     open_pkg: dict,
@@ -338,12 +385,22 @@ def _apply_partial_close(
         # next monitor tick re-attempts and the strategy-monocle gate
         # continues to suppress duplicate signals.
         err_str = ex_result.get("error") or "unknown"
-        logger.error(
-            "order_monitor: exchange partial close failed — leaving DB open. "
-            "pkg=%s account=%s symbol=%s qty=%s error=%s",
-            pkg_id, trade.get("account_id"),
-            trade.get("symbol"), requested_qty, err_str,
-        )
+        if _is_unsupported_op_error(err_str):
+            # P2: integration doesn't implement partial_close today — log once
+            # per (pkg, op) at WARNING instead of an ERROR every tick. DB stays
+            # open (same as a genuine failure); P3 wires the op.
+            _note_unsupported_management_op(
+                pkg_id=pkg_id, op="partial_close",
+                account_id=trade.get("account_id"),
+                integration=ex_result.get("integration"), err_str=err_str,
+            )
+        else:
+            logger.error(
+                "order_monitor: exchange partial close failed — leaving DB open. "
+                "pkg=%s account=%s symbol=%s qty=%s error=%s",
+                pkg_id, trade.get("account_id"),
+                trade.get("symbol"), requested_qty, err_str,
+            )
         summary.error_count += 1
         summary.errors.append(
             f"{pkg_id}: exchange partial close failed: {err_str}"
@@ -692,6 +749,18 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                 ex_result = {"ok": True, "skipped": "already_closed_on_exchange",
                              "exchange_response": None, "exchange_order_id": None,
                              "error": None}
+            elif _is_unsupported_op_error(err_str):
+                # P2: integration doesn't implement close today — log once per
+                # (pkg, op) at WARNING instead of an ERROR every tick. DB stays
+                # open (same as a genuine failure); P3 wires the op.
+                _note_unsupported_management_op(
+                    pkg_id=pkg_id, op="close",
+                    account_id=matched_trade.get("account_id"),
+                    integration=ex_result.get("integration"), err_str=err_str,
+                )
+                summary.error_count += 1
+                summary.errors.append(f"{pkg_id}: exchange close failed: {err_str}")
+                return
             else:
                 # Exchange refused for an unrecognised reason. Leave DB open
                 # so the next monitor tick re-attempts.
@@ -877,13 +946,23 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
     )
     if not ex_result.get("ok"):
         err_str = ex_result.get("error") or "unknown"
-        logger.error(
-            "order_monitor: exchange modify failed — leaving DB unchanged. "
-            "pkg=%s account=%s symbol=%s sl=%s tp=%s error=%s",
-            pkg_id, matched_trade.get("account_id"),
-            matched_trade.get("symbol"),
-            updates.get("sl"), updates.get("tp"), err_str,
-        )
+        if _is_unsupported_op_error(err_str):
+            # P2: integration doesn't implement modify today — log once per
+            # (pkg, op) at WARNING instead of an ERROR every tick. DB is still
+            # left unchanged (same as a genuine failure); P3 wires the op.
+            _note_unsupported_management_op(
+                pkg_id=pkg_id, op="modify",
+                account_id=matched_trade.get("account_id"),
+                integration=ex_result.get("integration"), err_str=err_str,
+            )
+        else:
+            logger.error(
+                "order_monitor: exchange modify failed — leaving DB unchanged. "
+                "pkg=%s account=%s symbol=%s sl=%s tp=%s error=%s",
+                pkg_id, matched_trade.get("account_id"),
+                matched_trade.get("symbol"),
+                updates.get("sl"), updates.get("tp"), err_str,
+            )
         summary.error_count += 1
         summary.errors.append(f"{pkg_id}: exchange modify failed: {err_str}")
         return
@@ -1015,6 +1094,7 @@ def _build_account_client(account_id):
         from src.units.accounts import load_accounts
         from src.units.accounts.clients import (
             bybit_client_for, binance_conn_for,
+            ib_client_for, alpaca_client_for,
         )
         for acc in load_accounts():
             if acc.name != account_id:
@@ -1035,12 +1115,33 @@ def _build_account_client(account_id):
                 # Required by bybit_client_for() to route demo accounts to
                 # api-demo.bybit.com instead of api.bybit.com.
                 "demo": getattr(acc, "demo", False),
+                # IB connection identity (no API keys — auth is the Gateway
+                # login session). ib_client_for() reads these from the cfg
+                # to build the socket; None for non-IB accounts. Required so
+                # the P3 IB close path (_send_close_to_exchange) can reach
+                # the gateway.
+                "ib_host": getattr(acc, "ib_host", None),
+                "ib_port": getattr(acc, "ib_port", None),
+                "ib_account": getattr(acc, "ib_account", None),
+                "ib_client_id": getattr(acc, "ib_client_id", None),
+                # Optional Alpaca host override (alpaca_client_for reads the
+                # key pair from env directly; these only steer paper vs live).
+                "alpaca_env": getattr(acc, "alpaca_env", None),
+                "base_url": getattr(acc, "base_url", None),
             }
             exchange_lc = (acc.exchange or "").lower()
             if exchange_lc == "bybit":
                 return bybit_client_for(cfg), cfg
             if exchange_lc == "binance":
                 return binance_conn_for(cfg), cfg
+            # P3 (live-trade management contract): build the IB / Alpaca
+            # clients too so the verdict senders can reach them for close.
+            # Reuses the SAME factories _submit_order uses at entry, so the
+            # management path and the entry path share one client model.
+            if exchange_lc in ("interactive_brokers", "ib"):
+                return ib_client_for(cfg), cfg
+            if exchange_lc == "alpaca":
+                return alpaca_client_for(cfg), cfg
             return None, cfg
         return None, None
     except Exception as exc:  # noqa: BLE001
@@ -1065,7 +1166,17 @@ def _send_close_to_exchange(matched_trade: Dict[str, Any]) -> Dict[str, Any]:
     """
     try:
         from src.units.accounts.execute import close_open_position
+        from src.units.accounts.clients import account_supports_management
         client, cfg = _build_account_client(matched_trade.get("account_id"))
+        # P2 management-capability gate: if this integration doesn't implement
+        # ``close`` today, say so honestly (``unsupported_op``) instead of the
+        # misleading ``no_client`` (the client is None because it was never
+        # built, not because creds are missing). Bybit supports close so this
+        # branch is never taken for it — its path below is byte-for-byte
+        # unchanged. Wiring IB/Alpaca/OANDA close is P3.
+        if not account_supports_management(cfg, "close"):
+            return {"ok": False, "error": "unsupported_op:close",
+                    "integration": (cfg or {}).get("exchange")}
         if client is None or cfg is None:
             return {"ok": False, "error": "no_client"}
         if (cfg or {}).get("mode") == "dry_run":
@@ -1110,7 +1221,15 @@ def _send_partial_close_to_exchange(
     """
     try:
         from src.units.accounts.execute import close_open_position
+        from src.units.accounts.clients import account_supports_management
         client, cfg = _build_account_client(matched_trade.get("account_id"))
+        # P2 management-capability gate (see _send_close_to_exchange): honest
+        # ``unsupported_op`` instead of ``no_client`` for integrations without a
+        # wired partial-close. Bybit supports it → its path below is unchanged.
+        if not account_supports_management(cfg, "partial_close"):
+            return {"ok": False, "error": "unsupported_op:partial_close",
+                    "integration": (cfg or {}).get("exchange"),
+                    "exchange_order_id": None}
         if client is None or cfg is None:
             return {"ok": False, "error": "no_client",
                     "exchange_order_id": None}
@@ -1223,7 +1342,17 @@ def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
     """
     try:
         from src.units.accounts.execute import modify_open_order
+        from src.units.accounts.clients import account_supports_management
         client, cfg = _build_account_client(matched_trade.get("account_id"))
+        # P2 management-capability gate (see _send_close_to_exchange): honest
+        # ``unsupported_op`` instead of ``no_client`` for integrations without a
+        # wired SL/TP modify. This is what was error-looping ``no_client`` every
+        # tick for IB-live trailing-stop modifies (MGC #2597). Bybit supports
+        # modify → its path below is byte-for-byte unchanged. Wiring IB/Alpaca/
+        # OANDA modify is P3.
+        if not account_supports_management(cfg, "modify"):
+            return {"ok": False, "error": "unsupported_op:modify",
+                    "integration": (cfg or {}).get("exchange")}
         if client is None or cfg is None:
             return {"ok": False, "error": "no_client"}
         if (cfg or {}).get("mode") == "dry_run":
@@ -4329,14 +4458,6 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
     return summary
 
 
-def _local_pnl_compute_enabled() -> bool:
-    """Local-PnL fallback is baseline correctness (no default-off gate, per the
-    Prime Directive). Set ``LOCAL_PNL_COMPUTE_DISABLED`` truthy to roll it back
-    without a redeploy. Default ON."""
-    raw = str(os.environ.get("LOCAL_PNL_COMPUTE_DISABLED", "")).strip().lower()  # allow-silent: local-PnL fallback kill-switch, default-ON (inverse of the BUG-039 default-OFF capability gate — this gates a reporting/observability sweep, never execution; RiskManager.dry_run stays the only switch that decides whether an order is sent)
-    return raw not in ("1", "true", "yes", "on")
-
-
 _BROKER_PNL_RECOVERY_MS = 7 * 24 * 60 * 60 * 1000  # Bybit closed-pnl retention
 
 
@@ -4387,8 +4508,6 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
         "scanned": 0, "filled": 0, "relinked": 0,
         "still_pending": 0, "deferred_broker": 0, "errors": 0,
     }
-    if not _local_pnl_compute_enabled():
-        return summary
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
 
     try:

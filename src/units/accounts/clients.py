@@ -587,6 +587,103 @@ def account_has_broker_pnl_reader(account: Optional[Dict[str, Any]]) -> bool:
     return exchange_has_broker_pnl_reader(account.get("exchange"))
 
 
+# ---------------------------------------------------------------------------
+# Per-integration MANAGEMENT capability declaration (P2 of the live-trade
+# management contract — docs/audits/live-trade-management-contract-2026-06-16.md)
+# ---------------------------------------------------------------------------
+#
+# Sibling of ``BROKER_PNL_READER_EXCHANGES`` above: a declaration of which
+# post-entry / live-management operations each integration ACTUALLY implements
+# TODAY. This is the canonical answer to "can the order-monitor apply this
+# verdict op to this account's exchange?" — replacing the scattered ``== "bybit"``
+# branches with one resolver.
+#
+# Operations (the verdict-application + reconciliation primitives the monitor
+# drives while a trade is live):
+#   * ``modify``         — adjust SL/TP of an open position
+#                          (``execute.modify_open_order`` — bybit only in v1).
+#   * ``close``          — full reduce-only close
+#                          (``execute.close_open_position`` — bybit only in v1).
+#   * ``partial_close``  — partial reduce-only close (same ``close_open_position``
+#                          helper, sub-position qty — bybit only in v1).
+#   * ``order_status``   — per-order status lookup
+#                          (``account_order_status`` — ``if ex != "bybit": return None``).
+#   * ``open_positions`` — exchange-side open-positions snapshot
+#                          (``account_open_positions`` — wired for bybit + binance
+#                          + interactive_brokers; NOT alpaca/oanda).
+#
+# This map reflects CURRENT WIRED REALITY (verified against the code), NOT the
+# P3 aspiration of wiring IB/Alpaca/OANDA modify/close. When P3 adds those
+# primitives it extends BOTH the implementing code AND this map (mirroring how
+# adding a broker PnL reader extends both the dispatch and the reader set).
+#
+# **Safe default is "unsupported".** An integration absent from this map (or an
+# op absent from its set) resolves to "not supported" — so an op that hasn't
+# been wired fails honestly (``unsupported_op``) rather than misleadingly
+# (``no_client``) or by silently doing nothing. Unlike the PnL-reader set (where
+# the default — local compute — is a real universal fallback), there is NO
+# universal modify/close fallback today, so "unsupported" is the truthful
+# default until P3 wires the missing integrations.
+EXCHANGE_MANAGEMENT_CAPS: dict[str, frozenset[str]] = {
+    "bybit": frozenset(
+        {"modify", "close", "partial_close", "order_status", "open_positions"}
+    ),
+    # binance: only the open-positions snapshot is wired (account_open_positions);
+    # modify/close/order_status are NOT (execute.py rejects non-bybit; binance is
+    # not in production).
+    "binance": frozenset({"open_positions"}),
+    # interactive_brokers (ib_paper, live): account_open_positions reads IB
+    # positions; P3 (live-trade management contract) added IBClient.close
+    # (cancel resting bracket/OCA legs + opposing reduce market order) wired
+    # through execute.close_open_position + order_monitor._build_account_client,
+    # so ``close`` is now supported. ``modify`` (trailing-SL re-arm) is the
+    # deferred follow-up within P3; ``order_status`` is not wired (IBClient.status
+    # exists but account_order_status returns None for IB).
+    "interactive_brokers": frozenset({"close", "open_positions"}),
+    "ib": frozenset({"close", "open_positions"}),  # alias seen in account_open_positions
+    # alpaca (alpaca_paper, live): P3 wired the native idempotent flatten
+    # (AlpacaClient.close → DELETE /v2/positions/{symbol}) through
+    # execute.close_open_position, and account_open_positions now has an alpaca
+    # branch — so ``close`` + ``open_positions`` are supported. ``modify`` is the
+    # deferred P3 follow-up; ``partial_close`` is not wired (the flatten endpoint
+    # closes the whole position).
+    "alpaca": frozenset({"close", "open_positions"}),
+    # oanda (oanda_practice, dry): NO management op wired yet
+    # (account_open_positions has no oanda branch, no close primitive). Wiring
+    # OANDA is a later P3 item, before it's promoted off dry_run.
+    "oanda": frozenset(),
+}
+
+_EMPTY_CAPS: frozenset[str] = frozenset()
+
+
+def exchange_management_caps(exchange: Any) -> frozenset[str]:
+    """Return the set of management ops *exchange* supports today.
+
+    Pure, never raises. Unknown / falsy exchange → empty set (the safe
+    "supports nothing" default). See :data:`EXCHANGE_MANAGEMENT_CAPS`.
+    """
+    return EXCHANGE_MANAGEMENT_CAPS.get(
+        str(exchange or "").strip().lower(), _EMPTY_CAPS
+    )
+
+
+def account_supports_management(
+    account: Optional[Dict[str, Any]], op: str
+) -> bool:
+    """True when *account*'s integration implements management op *op* today.
+
+    *account* may be the loaded account dict or the order-monitor's resolved
+    cfg dict — both carry ``exchange``. Pure, never raises; safe default is
+    ``False`` (unsupported) on a missing/unknown account or op.
+    """
+    if not isinstance(account, dict) or not op:
+        return False
+    return str(op).strip().lower() in exchange_management_caps(
+        account.get("exchange")
+    )
+
+
 def account_closed_pnl_for_trade(
     account: Dict[str, Any],
     *,
@@ -847,8 +944,10 @@ def account_open_positions(
     positions" (``[]``) from "could not read" (``None``):
 
     * non-dict / missing account argument
-    * unsupported exchange (anything other than ``bybit`` / ``binance``)
-    * missing creds (``bybit_client_for`` / ``binance_conn_for`` returns ``None``)
+    * unsupported exchange (anything other than ``bybit`` / ``binance`` /
+      ``interactive_brokers`` / ``alpaca``)
+    * missing creds (``bybit_client_for`` / ``binance_conn_for`` /
+      ``alpaca_client_for`` returns ``None``)
     * exchange SDK exception (logged + ``report_api_failure``)
 
     Lifted from ``src/units/ui/data_loaders.py:account_open_positions``
@@ -938,6 +1037,38 @@ def account_open_positions(
                     "unrealised_pnl": _f(
                         p.get("unrealizedPnl", p.get("unrealised_pnl"))
                     ),
+                })
+            return out
+        if ex == "alpaca":
+            # Dry alpaca accounts are never dialled from the read path
+            # (mirrors the IB branch above) — return None ("could not read")
+            # rather than a false empty list.
+            mode = str(account.get("mode") or "live").lower()
+            if mode != "live":
+                return None
+            client = alpaca_client_for(account)
+            if client is None:
+                # No creds → can't read (factory returns None on unset keys).
+                return None
+            out = []
+            # AlpacaClient.positions() emits
+            # ``[{symbol, side, qty, avg_price, unrealized_pnl}]`` — normalise
+            # to the canonical ``{symbol, side, size, entry_price,
+            # unrealised_pnl}`` shape every other consumer speaks. ``side`` is
+            # already ``buy``/``sell``; map to ``long``/``short`` to match the
+            # IB/Bybit rows.
+            for p in (client.positions() or []):
+                size = _f(p.get("qty"))
+                if size <= 0:
+                    continue
+                raw_side = str(p.get("side") or "").lower()
+                side = "long" if raw_side in ("buy", "long") else "short"
+                out.append({
+                    "symbol": p.get("symbol"),
+                    "side": side,
+                    "size": size,
+                    "entry_price": _f(p.get("avg_price")),
+                    "unrealised_pnl": _f(p.get("unrealized_pnl")),
                 })
             return out
         return None

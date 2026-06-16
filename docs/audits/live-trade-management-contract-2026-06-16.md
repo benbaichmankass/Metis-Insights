@@ -148,9 +148,18 @@ skills.
   list rows — consistent; the aggregate separation is the remaining work).
 
 ### Rollout
-Phased, each behind a kill-switch mirroring `LOCAL_PNL_COMPUTE_DISABLED`, with
-unit tests before VM enablement; Tier-2 (live order-management path), so each
-phase is operator-gated:
+Phased, **Tier-2** (live order-management path), so each phase is
+operator-reviewed before merge. **No kill-switches.** Applying a strategy's
+update to the exchange and reconciling live state is **baseline required
+correctness, not an opt-in feature** — gating it behind a `*_DISABLED` /
+`*_ENABLED` flag would violate the Prime Directive (the same reason
+`NAKED_POSITION_AUTOPROTECT` and `MONITOR_RECONCILE_ENABLED` were *removed*:
+"self-heal is baseline correctness"). Safety comes from **correct-by-design
+logic** (the 2-observation close-confirm + conservative read-failure handling
+already in the reverse reconciler — never close on a bad/empty snapshot) +
+**paper-account scope** + tests; rollback for a genuine bug is the normal
+revert + redeploy, not a runtime toggle. Each phase ships with unit tests
+proving the Bybit path is unchanged before it reaches the VM:
 - **P1** Strategy-side contract + CI enforcement (no live-path risk).
 - **P2** Integration management interface + capability + adapter routing
   (refactor, behavior-preserving for Bybit).
@@ -169,3 +178,10 @@ phase is operator-gated:
    position-snapshot baseline for every integration including Bybit**; there is
    no per-broker default. Order-status is an optional *declared capability*
    (Bybit declares it today) layered on top — see §2.
+4. **RESOLVED (operator, 2026-06-16) — no kill-switches.** Live-trade management
+   + reconciliation is baseline correctness and ships **ON**, never behind a
+   `*_DISABLED`/`*_ENABLED` gate (Prime Directive; mirrors the removals of
+   `NAKED_POSITION_AUTOPROTECT` / `MONITOR_RECONCILE_ENABLED`). The pre-existing
+   `LOCAL_PNL_COMPUTE_DISABLED` (default-ON, reporting-sweep only, not the order
+   path) is the lone tolerated survivor — flagged for possible removal pending
+   operator call. See §Rollout.
