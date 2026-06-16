@@ -45,10 +45,19 @@ DEFAULT_COMBOS = [
     "fade_breakout_4h,squeeze_breakout_4h,fvg_range_15m",
     "trend_donchian",
     "trend_donchian,squeeze_breakout_4h,fvg_range_15m",
+    # ict_scalp_5m HIGH-FREQUENCY member (added 2026-06-16) — the speed lever
+    # the 4-strategy roster lacked. Both the leg alone and paired with the
+    # clean low-DD squeeze+fvg combo, to see whether more signal frequency
+    # buys a "fast" (median ≤60-day) pass at ≥95% 6mo survival.
+    "ict_scalp_5m",
+    "ict_scalp_5m,squeeze_breakout_4h,fvg_range_15m",
+    "ict_scalp_5m,squeeze_breakout_4h",
+    "ict_scalp_5m,fvg_range_15m",
 ]
 DEFAULT_RISK_GRID = [0.3, 0.5, 0.6, 0.75, 1.0]
 DEFAULT_ROSTER_MEMBERS = [
     "trend_donchian", "fade_breakout_4h", "squeeze_breakout_4h", "fvg_range_15m",
+    "ict_scalp_5m", "turtle_soup",
 ]
 
 

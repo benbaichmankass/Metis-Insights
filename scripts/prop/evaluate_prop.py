@@ -36,14 +36,21 @@ from src.prop.evaluator import TradeRecord, evaluate  # noqa: E402
 from src.prop.report import render_json, render_markdown  # noqa: E402
 from src.prop.ruleset import PropRuleset, load_ruleset  # noqa: E402
 
-# The cleanly-backtestable BTCUSDT roster the portfolio engine supports
-# (design §6 / backtest_system COVERAGE note — ict_scalp_5m + turtle_soup
-# deferred). Combo search enumerates non-empty subsets of this list.
+# The BTCUSDT roster the portfolio engine supports. ict_scalp_5m (5m-native)
+# was added 2026-06-16 (HIGH-FREQUENCY member) — the Monte-Carlo found the
+# 4-strategy roster too low-frequency to pass Breakout 1-Step "fast" (median
+# ≤60 days) at ≥95% 6mo survival, and ict_scalp_5m is the densest signal
+# source. It uses the engine's existing 1h-EMA HTF-bias injection
+# (generate_signal_stream special-cases it). turtle_soup is also in the engine
+# ROSTER (15m setup adapter) and included here for completeness. Combo search
+# enumerates non-empty subsets of this list. With 6 members "all" = 63 combos.
 DEFAULT_COMBO_ROSTER = [
     "trend_donchian",
     "fade_breakout_4h",
     "squeeze_breakout_4h",
     "fvg_range_15m",
+    "ict_scalp_5m",
+    "turtle_soup",
 ]
 
 
