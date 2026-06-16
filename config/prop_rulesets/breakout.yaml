@@ -5,7 +5,8 @@
 # docs/integrations/breakout-compliance-2026-06-16.md.
 ruleset: breakout
 plan: 1-step-classic
-account_size_usd: 25000           # set to the actual account size purchased
+account_size_usd: 5000            # 1-Step Classic $5k account (per account details, 2026-06-16)
+                                  # → 3% daily = $150, 6% static DD = $300
 profit_split: 0.80               # 80/20 (90/10 upgrade = 0.90)
 unconfirmed: false                # headline rules confirmed; only per-symbol
                                   # position caps remain (see limits.max_position_pct)
