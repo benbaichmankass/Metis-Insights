@@ -1296,6 +1296,27 @@ class Coordinator:
             sized_qty = apply_news_downsize(
                 pkg, sized_qty, account_name=account.name,
             )
+
+            # P2 conviction sizing — ADVISORY / observe-only, no gate. Computes
+            # the would-be conviction-driven size (conviction × 2% budget,
+            # bounded by the margin ceiling + free-margin throttle) and logs it
+            # to runtime_logs/conviction_sizing.jsonl, but ALWAYS returns the
+            # RiskManager qty unchanged — it never touches the order, exactly
+            # like the P1 meta.conviction stamp. When conviction graduates to
+            # actually driving size that's a deliberate sizing-path change
+            # (governed by account mode + the margin/daily-loss guards), not a
+            # switch flipped here. Fail-permissive.
+            from src.runtime.conviction_sizing import annotate_conviction_sizing
+            sized_qty = annotate_conviction_sizing(
+                pkg, sized_qty, account_name=account.name,
+                balance_usd=balance,
+                available_usd=available_usd,
+                total_account_usd=total_account_usd,
+                leverage=getattr(account.risk_manager, "leverage", 0),
+                market_type=_market_type,
+                min_qty=getattr(account.risk_manager, "min_qty", 0.0),
+                qty_precision=getattr(account.risk_manager, "qty_precision", 3),
+            )
             sized_qty_by_account[account.name] = sized_qty
 
             # Latching daily-loss-cap notification (operator-approved

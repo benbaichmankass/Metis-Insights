@@ -104,3 +104,13 @@ def _news_influence_mode(settings: dict) -> str:
         raw = os.environ.get("NEWS_INFLUENCE_MODE", "off")
     mode = str(raw).strip().lower()
     return mode if mode in {"off", "annotate", "downsize"} else "off"
+
+
+# NOTE: conviction sizing (`src/runtime/conviction_sizing.py`) has **no** flag.
+# It ships as always-on advisory/observe-only — it computes the would-be
+# conviction size and logs it on every order but NEVER changes qty, exactly like
+# the P1 `meta.conviction` stamp. A default-off ``*_MODE`` / ``*_ENABLED`` gate in
+# front of it would be the stranding trap the Prime Directive forbids; when
+# conviction graduates to actually driving size, that is a deliberate change to
+# the sizing path (governed by the account `mode` + the margin / daily-loss
+# guards), not the flip of a dormant switch.
