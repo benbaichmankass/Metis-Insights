@@ -52,6 +52,22 @@ PY
 }
 
 require_systemctl() {
+    # A clobbered /dev/null (recreated as a root-owned *regular* file, so the
+    # non-root SSH user can't write it) makes the `>/dev/null` redirect below
+    # fail with EACCES — which previously masqueraded as "systemctl not found"
+    # and sent operators chasing a non-existent systemd problem
+    # (BL-20260616-DEVNULL: a pull-and-deploy reported "this VM is not
+    # systemd-managed" when the real fault was an unwritable /dev/null). Probe
+    # /dev/null health FIRST, capturing the probe's stderr to a temp file (NOT
+    # /dev/null — that's the thing under test), and surface the real cause +
+    # the exact repair so the next hit is diagnosable in one read.
+    local _probe="${TMPDIR:-/tmp}/.devnull_probe.$$"
+    if ! ( : >/dev/null ) 2>"${_probe}"; then
+        rm -f "${_probe}" 2>&- || true
+        log "ERROR: /dev/null is not writable on this host — it has been clobbered into a regular file, so every '>/dev/null' redirect (and most operator-action wrappers) fail. This is NOT a systemd problem. Repair on the VM (needs root): sudo rm -f /dev/null && sudo mknod -m 666 /dev/null c 1 3"
+        return 1
+    fi
+    rm -f "${_probe}" 2>&- || true
     if ! command -v systemctl >/dev/null 2>&1; then
         log "ERROR: systemctl not found on PATH; this VM is not systemd-managed."
         return 1
