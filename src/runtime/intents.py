@@ -81,6 +81,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, Optional
 
+from src.runtime.conviction_arbitration import annotate_conviction_arbitration
+
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -927,6 +929,16 @@ def aggregate_intents(
             ),
         )
         contributing = same_side
+        # P3 conviction arbitration — OBSERVE-ONLY (design § 3.4, no gate). Log
+        # what conviction-weighted reinforcement WOULD pick vs today's max-qty
+        # winner; the decision below is unchanged. Fail-permissive.
+        annotate_conviction_arbitration(
+            same_side,
+            symbol=norm_symbol,
+            resolution="same_direction",
+            actual_winner_strategy=winner.strategy,
+            actual_target_qty=float(winner.target_qty),
+        )
         return DesiredPosition(
             symbol=norm_symbol,
             side=agreed_side,
@@ -964,6 +976,16 @@ def aggregate_intents(
     # same rule as the no-conflict branch, applied to the winning side.
     winning_side_intents = tuple(i for i in non_flat if i.side == winner.side)
     target_qty = max(i.target_qty for i in winning_side_intents)
+    # P3 conviction arbitration — OBSERVE-ONLY (design § 3.4, no gate). Log what
+    # the higher-conviction intent WOULD have been vs today's priority winner;
+    # the priority decision below is unchanged. Fail-permissive.
+    annotate_conviction_arbitration(
+        non_flat,
+        symbol=norm_symbol,
+        resolution="priority_conflict",
+        actual_winner_strategy=winner.strategy,
+        actual_target_qty=float(target_qty),
+    )
     return DesiredPosition(
         symbol=norm_symbol,
         side=winner.side,
