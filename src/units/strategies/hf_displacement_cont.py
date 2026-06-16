@@ -127,9 +127,12 @@ def _detect_displacement(df, *, sweep_idx, direction, atr_mult, min_body_to_rang
         atr = float(df["atr"].iloc[idx]) if pd.notna(df["atr"].iloc[idx]) else 0.0
         if atr <= 0:
             continue
-        op = float(df["open"].iloc[idx]); cl = float(df["close"].iloc[idx])
-        hi = float(df["high"].iloc[idx]); lo = float(df["low"].iloc[idx])
-        body = abs(cl - op); rng = max(hi - lo, 1e-12)
+        op = float(df["open"].iloc[idx])
+        cl = float(df["close"].iloc[idx])
+        hi = float(df["high"].iloc[idx])
+        lo = float(df["low"].iloc[idx])
+        body = abs(cl - op)
+        rng = max(hi - lo, 1e-12)
         if body < atr_mult * atr:
             continue
         if (body / rng) < min_body_to_range:
@@ -143,13 +146,16 @@ def _detect_displacement(df, *, sweep_idx, direction, atr_mult, min_body_to_rang
 
 
 def _detect_fvg_in_leg(df, *, start_idx, direction, min_size_bps):
-    n = len(df); last = None
+    n = len(df)
+    last = None
     lo_start = max(start_idx, 2)
     for i in range(lo_start, n):
         ref_price = float(df["close"].iloc[i])
         min_size = ref_price * (min_size_bps / 10_000.0)
-        h_im2 = float(df["high"].iloc[i - 2]); l_im2 = float(df["low"].iloc[i - 2])
-        l_i = float(df["low"].iloc[i]); h_i = float(df["high"].iloc[i])
+        h_im2 = float(df["high"].iloc[i - 2])
+        l_im2 = float(df["low"].iloc[i - 2])
+        l_i = float(df["low"].iloc[i])
+        h_i = float(df["high"].iloc[i])
         if direction == "long" and h_im2 < l_i:
             size = l_i - h_im2
             if size >= min_size:
@@ -235,11 +241,13 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
                           sweep_buffer_bps=float(params["sweep_buffer_bps"]))
     if sweep.get("direction") is None:
         raise ValueError("hf_displacement_cont: no sweep.")
-    direction = sweep["direction"]; sweep_idx = int(sweep["index"])
+    direction = sweep["direction"]
+    sweep_idx = int(sweep["index"])
 
     # HARD HTF trend-alignment gate (fails CLOSED when enabled + missing).
     if bool(params["htf_trend_filter_enabled"]):
-        htf_close = cfg.get("htf_close"); htf_ema = cfg.get("htf_ema")
+        htf_close = cfg.get("htf_close")
+        htf_ema = cfg.get("htf_ema")
         if htf_close is None or htf_ema is None:
             raise ValueError("hf_displacement_cont: HTF bias unavailable — gate fails closed.")
         try:
@@ -264,9 +272,12 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
 
     # Mitigation: wick-rejection at the FVG (same confirmation as ict_scalp v2).
     last_idx = len(df) - 1
-    lo_o = float(df["open"].iloc[last_idx]); lo_c = float(df["close"].iloc[last_idx])
-    lo_h = float(df["high"].iloc[last_idx]); lo_l = float(df["low"].iloc[last_idx])
-    bull_body = lo_c > lo_o; bear_body = lo_c < lo_o
+    lo_o = float(df["open"].iloc[last_idx])
+    lo_c = float(df["close"].iloc[last_idx])
+    lo_h = float(df["high"].iloc[last_idx])
+    lo_l = float(df["low"].iloc[last_idx])
+    bull_body = lo_c > lo_o
+    bear_body = lo_c < lo_o
     if direction == "long":
         if not (lo_l <= fvg["high"] and lo_c > fvg["high"] and bull_body):
             raise ValueError("hf_displacement_cont: no long wick-rejection at FVG.")
@@ -279,9 +290,11 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     atr_now = float(df["atr"].iloc[last_idx]) if pd.notna(df["atr"].iloc[last_idx]) else 0.0
     sl_buffer = float(params["atr_sl_buffer_mult"]) * atr_now
     if direction == "long":
-        sl = sweep["extreme"] - sl_buffer; risk = entry - sl
+        sl = sweep["extreme"] - sl_buffer
+        risk = entry - sl
     else:
-        sl = sweep["extreme"] + sl_buffer; risk = sl - entry
+        sl = sweep["extreme"] + sl_buffer
+        risk = sl - entry
     if risk <= 0:
         raise ValueError("hf_displacement_cont: non-positive risk.")
     tp_at_r = float(params["tp_at_r"])

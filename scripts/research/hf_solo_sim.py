@@ -139,7 +139,8 @@ def simulate(signals: pd.DataFrame, clock: pd.DataFrame, *, monitor_fn=None,
 
         if pos is not None:
             side, entry, slv, tpv, init_risk, eidx = pos
-            closed_px = None; reason = None
+            closed_px = None
+            reason = None
             if side == "long":
                 if lo[i] <= slv:
                     closed_px, reason = slv, "sl"
@@ -154,21 +155,25 @@ def simulate(signals: pd.DataFrame, clock: pd.DataFrame, *, monitor_fn=None,
                 # break-even-after-1R trail (mirrors monitor_breakeven_sl)
                 one_r = abs(entry - slv)
                 if side == "long" and c[i] >= entry + one_r and slv < entry:
-                    slv = entry; pos = (side, entry, slv, tpv, init_risk, eidx)
+                    slv = entry
+                    pos = (side, entry, slv, tpv, init_risk, eidx)
                 elif side == "short" and c[i] <= entry - one_r and slv > entry:
-                    slv = entry; pos = (side, entry, slv, tpv, init_risk, eidx)
+                    slv = entry
+                    pos = (side, entry, slv, tpv, init_risk, eidx)
             if closed_px is not None:
                 gross = (closed_px - entry) if side == "long" else (entry - closed_px)
                 fee = fee_rate * (entry + closed_px)
                 r = (gross - fee) / init_risk
-                trades.append(r); exits[reason] += 1
+                trades.append(r)
+                exits[reason] += 1
                 pos = None
 
         if pos is None and latest is not None and i == latest_idx:
             # open at this bar's close proxy (engine uses current close as fill)
             fill = c[i]
             side = latest["side"]
-            slv = float(latest["sl"]); tpv = float(latest["tp"])
+            slv = float(latest["sl"])
+            tpv = float(latest["tp"])
             init_risk = abs(fill - slv)
             if init_risk > 0:
                 pos = (side, fill, slv, tpv, init_risk, i)
@@ -178,7 +183,8 @@ def simulate(signals: pd.DataFrame, clock: pd.DataFrame, *, monitor_fn=None,
         closed_px = c[-1]
         gross = (closed_px - entry) if side == "long" else (entry - closed_px)
         fee = fee_rate * (entry + closed_px)
-        trades.append((gross - fee) / init_risk); exits["eod"] += 1
+        trades.append((gross - fee) / init_risk)
+        exits["eod"] += 1
 
     arr = np.array(trades) if trades else np.array([0.0])
     wins = int((arr > 0).sum())

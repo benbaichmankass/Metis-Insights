@@ -22,7 +22,7 @@ import argparse
 import itertools
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import numpy as np
 import pandas as pd
@@ -65,7 +65,8 @@ def _atr(df, period):
 
 def _adx(df, period):
     h, low, c = df["high"], df["low"], df["close"]
-    up = h.diff(); down = -low.diff()
+    up = h.diff()
+    down = -low.diff()
     plus_dm = ((up > down) & (up > 0)) * up.clip(lower=0)
     minus_dm = ((down > up) & (down > 0)) * down.clip(lower=0)
     pc = c.shift(1)
@@ -96,47 +97,60 @@ def signals_vwap_revert(df5: pd.DataFrame, p: Dict[str, Any]) -> pd.DataFrame:
     dev = df["close"] - vwap
     band_std = dev.rolling(int(p["band_std_lookback"]), min_periods=int(p["band_std_lookback"])).std()
 
-    o = df["open"].to_numpy(float); c = df["close"].to_numpy(float)
-    h = df["high"].to_numpy(float); lo = df["low"].to_numpy(float)
-    atr_a = atr.to_numpy(float); adx_a = adx.to_numpy(float)
-    vw = vwap.to_numpy(float); bs = band_std.to_numpy(float)
-    bk = float(p["band_k"]); adx_max = float(p["adx_max"])
-    upper = vw + bk * bs; lower = vw - bk * bs
+    o = df["open"].to_numpy(float)
+    c = df["close"].to_numpy(float)
+    h = df["high"].to_numpy(float)
+    lo = df["low"].to_numpy(float)
+    atr_a = atr.to_numpy(float)
+    adx_a = adx.to_numpy(float)
+    vw = vwap.to_numpy(float)
+    bs = band_std.to_numpy(float)
+    bk = float(p["band_k"])
+    adx_max = float(p["adx_max"])
+    upper = vw + bk * bs
+    lower = vw - bk * bs
 
     valid = (atr_a > 0) & ~np.isnan(vw) & ~np.isnan(bs) & (bs > 0) & \
             ~np.isnan(adx_a) & (adx_a < adx_max)
-    bull_body = c > o; bear_body = c < o
+    bull_body = c > o
+    bear_body = c < o
     short_sig = valid & (h >= upper) & (c < upper) & bear_body
     long_sig = valid & (lo <= lower) & (c > lower) & bull_body
     # if both (rare), prefer the one whose excursion is larger; resolve by upper first
     short_sig = short_sig & ~long_sig
 
     sl_buf = float(p["atr_stop_buffer"])
-    min_stop_atr = float(p["min_stop_atr"]); min_stop_pct = float(p["min_stop_pct"])
-    tp_frac = float(p["tp_anchor_frac"]); min_tp_r = float(p["min_tp_r"])
+    min_stop_atr = float(p["min_stop_atr"])
+    min_stop_pct = float(p["min_stop_pct"])
+    tp_frac = float(p["tp_anchor_frac"])
+    min_tp_r = float(p["min_tp_r"])
 
     rows = []
     idxs = np.where(long_sig | short_sig)[0]
     for i in idxs:
         if long_sig[i]:
-            side = "long"; exc = lo[i]
+            side = "long"
+            exc = lo[i]
             min_stop = max(min_stop_atr * atr_a[i], min_stop_pct * c[i])
             sl = min(exc - sl_buf * atr_a[i], c[i] - min_stop)
             risk = c[i] - sl
             if risk <= 0:
                 continue
-            anchor_tp = c[i] + tp_frac * (vw[i] - c[i]); floor_tp = c[i] + min_tp_r * risk
+            anchor_tp = c[i] + tp_frac * (vw[i] - c[i])
+            floor_tp = c[i] + min_tp_r * risk
             tp = max(anchor_tp, floor_tp)
             if tp <= c[i]:
                 continue
         else:
-            side = "short"; exc = h[i]
+            side = "short"
+            exc = h[i]
             min_stop = max(min_stop_atr * atr_a[i], min_stop_pct * c[i])
             sl = max(exc + sl_buf * atr_a[i], c[i] + min_stop)
             risk = sl - c[i]
             if risk <= 0:
                 continue
-            anchor_tp = c[i] - tp_frac * (c[i] - vw[i]); floor_tp = c[i] - min_tp_r * risk
+            anchor_tp = c[i] - tp_frac * (c[i] - vw[i])
+            floor_tp = c[i] - min_tp_r * risk
             tp = min(anchor_tp, floor_tp)
             if tp >= c[i]:
                 continue
@@ -168,10 +182,13 @@ def signals_displacement(df5: pd.DataFrame, p: Dict[str, Any], htf_close, htf_em
     df = df5.reset_index(drop=True).copy()
     n = len(df)
     atr = _atr(df, int(p["atr_period"])).to_numpy(float)
-    o = df["open"].to_numpy(float); c = df["close"].to_numpy(float)
-    h = df["high"].to_numpy(float); lo = df["low"].to_numpy(float)
+    o = df["open"].to_numpy(float)
+    c = df["close"].to_numpy(float)
+    h = df["high"].to_numpy(float)
+    lo = df["low"].to_numpy(float)
 
-    swing = int(p["swing_lookback_bars"]); sweep_lb = int(p["sweep_lookback_bars"])
+    swing = int(p["swing_lookback_bars"])
+    sweep_lb = int(p["sweep_lookback_bars"])
     buf_bps = float(p["sweep_buffer_bps"])
     prev_low = df["low"].rolling(swing).min().shift(1).to_numpy(float)
     prev_high = df["high"].rolling(swing).max().shift(1).to_numpy(float)
@@ -179,20 +196,30 @@ def signals_displacement(df5: pd.DataFrame, p: Dict[str, Any], htf_close, htf_em
     bull_swept = (lo < (prev_low - buffer)) & (c > prev_low)
     bear_swept = (h > (prev_high + buffer)) & (c < prev_high)
 
-    disp_mult = float(p["displacement_atr_mult"]); min_btr = float(p["min_displacement_body_to_range"])
-    body = np.abs(c - o); rng = np.maximum(h - lo, 1e-12)
+    disp_mult = float(p["displacement_atr_mult"])
+    min_btr = float(p["min_displacement_body_to_range"])
+    body = np.abs(c - o)
+    rng = np.maximum(h - lo, 1e-12)
     bull_disp = (body >= disp_mult * atr) & (body / rng >= min_btr) & (c > o)
     bear_disp = (body >= disp_mult * atr) & (body / rng >= min_btr) & (c < o)
 
     min_fvg = float(p["min_fvg_size_bps"])
     # bullish FVG at bar i: high[i-2] < low[i]
-    bull_fvg = np.zeros(n, bool); bull_fvg_lo = np.full(n, np.nan); bull_fvg_hi = np.full(n, np.nan)
-    bear_fvg = np.zeros(n, bool); bear_fvg_lo = np.full(n, np.nan); bear_fvg_hi = np.full(n, np.nan)
+    bull_fvg = np.zeros(n, bool)
+    bull_fvg_lo = np.full(n, np.nan)
+    bull_fvg_hi = np.full(n, np.nan)
+    bear_fvg = np.zeros(n, bool)
+    bear_fvg_lo = np.full(n, np.nan)
+    bear_fvg_hi = np.full(n, np.nan)
     for i in range(2, n):
         if h[i - 2] < lo[i] and (lo[i] - h[i - 2]) >= c[i] * min_fvg / 10_000.0:
-            bull_fvg[i] = True; bull_fvg_lo[i] = h[i - 2]; bull_fvg_hi[i] = lo[i]
+            bull_fvg[i] = True
+            bull_fvg_lo[i] = h[i - 2]
+            bull_fvg_hi[i] = lo[i]
         if lo[i - 2] > h[i] and (lo[i - 2] - h[i]) >= c[i] * min_fvg / 10_000.0:
-            bear_fvg[i] = True; bear_fvg_lo[i] = h[i]; bear_fvg_hi[i] = lo[i - 2]
+            bear_fvg[i] = True
+            bear_fvg_lo[i] = h[i]
+            bear_fvg_hi[i] = lo[i - 2]
 
     htf_on = bool(p["htf_trend_filter_enabled"])
     kz_on = bool(p["session_filter_enabled"])
@@ -207,7 +234,8 @@ def signals_displacement(df5: pd.DataFrame, p: Dict[str, Any], htf_close, htf_em
                 return True
         return False
 
-    sl_buf = float(p["atr_sl_buffer_mult"]); tp_r = float(p["tp_at_r"])
+    sl_buf = float(p["atr_sl_buffer_mult"])
+    tp_r = float(p["tp_at_r"])
     rows = []
     start = max(swing + 2, int(p["atr_period"]) + 2)
     for i in range(start, n):
@@ -217,17 +245,26 @@ def signals_displacement(df5: pd.DataFrame, p: Dict[str, Any], htf_close, htf_em
             continue
         # most-recent sweep within sweep_lb (mirror: scan back, freshest first)
         s0 = max(0, i - sweep_lb + 1)
-        direction = None; sweep_idx = -1; sweep_level = sweep_extreme = 0.0
+        direction = None
+        sweep_idx = -1
+        sweep_extreme = 0.0
         for k in range(i, s0 - 1, -1):
             if bull_swept[k]:
-                direction = "long"; sweep_idx = k; sweep_level = prev_low[k]; sweep_extreme = lo[k]; break
+                direction = "long"
+                sweep_idx = k
+                sweep_extreme = lo[k]
+                break
             if bear_swept[k]:
-                direction = "short"; sweep_idx = k; sweep_level = prev_high[k]; sweep_extreme = h[k]; break
+                direction = "short"
+                sweep_idx = k
+                sweep_extreme = h[k]
+                break
         if direction is None:
             continue
         # HTF hard gate (fails closed)
         if htf_on:
-            hc = htf_close[i]; he = htf_ema[i]
+            hc = htf_close[i]
+            he = htf_ema[i]
             if hc != hc or he != he:
                 continue
             if direction == "long" and hc <= he:
@@ -246,22 +283,27 @@ def signals_displacement(df5: pd.DataFrame, p: Dict[str, Any], htf_close, htf_em
             continue
         fk = sweep_idx + leg[-1]
         if direction == "long":
-            f_lo = bull_fvg_lo[fk]; f_hi = bull_fvg_hi[fk]
+            f_lo = bull_fvg_lo[fk]
+            f_hi = bull_fvg_hi[fk]
         else:
-            f_lo = bear_fvg_lo[fk]; f_hi = bear_fvg_hi[fk]
+            f_lo = bear_fvg_lo[fk]
+            f_hi = bear_fvg_hi[fk]
         # mitigation: wick-rejection at FVG on bar i
-        bull_body = c[i] > o[i]; bear_body = c[i] < o[i]
+        bull_body = c[i] > o[i]
+        bear_body = c[i] < o[i]
         if direction == "long":
             if not (lo[i] <= f_hi and c[i] > f_hi and bull_body):
                 continue
-            sl = sweep_extreme - sl_buf * atr[i]; risk = c[i] - sl
+            sl = sweep_extreme - sl_buf * atr[i]
+            risk = c[i] - sl
             if risk <= 0:
                 continue
             tp = c[i] + tp_r * risk
         else:
             if not (h[i] >= f_lo and c[i] < f_lo and bear_body):
                 continue
-            sl = sweep_extreme + sl_buf * atr[i]; risk = sl - c[i]
+            sl = sweep_extreme + sl_buf * atr[i]
+            risk = sl - c[i]
             if risk <= 0:
                 continue
             tp = c[i] - tp_r * risk
@@ -285,42 +327,62 @@ def build_htf(df5: pd.DataFrame, base5m: pd.DataFrame, ema_period: int, htf_tf="
 # Fast R-replay on the 5m clock (single position, intrabar SL-first then TP)
 # ---------------------------------------------------------------------------
 def replay(sigs: pd.DataFrame, df5: pd.DataFrame, *, be_after_1r=False, signal_ttl_bars=1):
-    c = df5["close"].to_numpy(float); h = df5["high"].to_numpy(float); lo = df5["low"].to_numpy(float)
+    c = df5["close"].to_numpy(float)
+    h = df5["high"].to_numpy(float)
+    lo = df5["low"].to_numpy(float)
     n = len(df5)
     sig_at = {int(r["idx"]): r for _, r in sigs.iterrows()}
     fee = FEE_BPS_ROUNDTRIP / 10_000.0
-    pos = None; trades = []; exits = {"tp": 0, "sl": 0, "eod": 0}
-    pending = None; pend_idx = -10**9
+    pos = None
+    trades = []
+    exits = {"tp": 0, "sl": 0, "eod": 0}
+    pending = None
+    pend_idx = -10**9
     for i in range(n):
         if i in sig_at:
-            pending = sig_at[i]; pend_idx = i
+            pending = sig_at[i]
+            pend_idx = i
         if pos is not None:
             side, entry, slv, tpv, risk0 = pos
-            px = None; reason = None
+            px = None
+            reason = None
             if side == "long":
-                if lo[i] <= slv: px, reason = slv, "sl"
-                elif h[i] >= tpv: px, reason = tpv, "tp"
+                if lo[i] <= slv:
+                    px, reason = slv, "sl"
+                elif h[i] >= tpv:
+                    px, reason = tpv, "tp"
             else:
-                if h[i] >= slv: px, reason = slv, "sl"
-                elif lo[i] <= tpv: px, reason = tpv, "tp"
+                if h[i] >= slv:
+                    px, reason = slv, "sl"
+                elif lo[i] <= tpv:
+                    px, reason = tpv, "tp"
             if px is None and be_after_1r:
                 r1 = abs(entry - slv)
                 if side == "long" and c[i] >= entry + r1 and slv < entry:
-                    slv = entry; pos = (side, entry, slv, tpv, risk0)
+                    slv = entry
+                    pos = (side, entry, slv, tpv, risk0)
                 elif side == "short" and c[i] <= entry - r1 and slv > entry:
-                    slv = entry; pos = (side, entry, slv, tpv, risk0)
+                    slv = entry
+                    pos = (side, entry, slv, tpv, risk0)
             if px is not None:
                 g = (px - entry) if side == "long" else (entry - px)
-                trades.append((g - fee * (entry + px)) / risk0); exits[reason] += 1; pos = None
+                trades.append((g - fee * (entry + px)) / risk0)
+                exits[reason] += 1
+                pos = None
         if pos is None and pending is not None and i == pend_idx:
-            side = pending["side"]; fill = c[i]; slv = float(pending["sl"]); tpv = float(pending["tp"])
+            side = pending["side"]
+            fill = c[i]
+            slv = float(pending["sl"])
+            tpv = float(pending["tp"])
             risk0 = abs(fill - slv)
             if risk0 > 0:
                 pos = (side, fill, slv, tpv, risk0)
     if pos is not None:
-        side, entry, slv, tpv, risk0 = pos; px = c[-1]
+        side, entry, slv, tpv, risk0 = pos
+        px = c[-1]
         g = (px - entry) if side == "long" else (entry - px)
-        trades.append((g - fee * (entry + px)) / risk0); exits["eod"] += 1
+        trades.append((g - fee * (entry + px)) / risk0)
+        exits["eod"] += 1
     arr = np.array(trades) if trades else np.array([0.0])
     return {"trades": len(trades), "win_rate": round(100 * (arr > 0).mean(), 2),
             "E_R": round(float(arr.mean()), 4), "total_R": round(float(arr.sum()), 2),
@@ -342,7 +404,8 @@ def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", default="/home/user/ict-trader-data/btc_5m.parquet")
     ap.add_argument("--cand", choices=["A", "B"], required=True)
-    ap.add_argument("--start", default=None); ap.add_argument("--end", default=None)
+    ap.add_argument("--start", default=None)
+    ap.add_argument("--end", default=None)
     ap.add_argument("--validate", action="store_true", help="compare vs module on a sample")
     ap.add_argument("--grid", action="store_true")
     args = ap.parse_args(argv[1:])
@@ -376,7 +439,8 @@ def _validate_B(base, df5, start, end):
     vec = signals_vwap_revert(df5, DEFAULTS_B)
     mod = sim.gen_signals("hf_vwap_revert", "src.units.strategies.hf_vwap_revert", "5m",
                           base, start=start, end=end, overrides={})
-    vts = set(pd.to_datetime(vec["ts"]).astype("int64")); mts = set(pd.to_datetime(mod["ts"]).astype("int64"))
+    vts = set(pd.to_datetime(vec["ts"]).astype("int64"))
+    mts = set(pd.to_datetime(mod["ts"]).astype("int64"))
     print(f"B validate: vec={len(vec)} mod={len(mod)} overlap={len(vts & mts)} "
           f"only_vec={len(vts - mts)} only_mod={len(mts - vts)}")
 
@@ -386,7 +450,8 @@ def _validate_A(base, df5, hc, he, start, end):
     vec = signals_displacement(df5, DEFAULTS_A, hc, he)
     mod = sim.gen_signals("hf_displacement_cont", "src.units.strategies.hf_displacement_cont", "5m",
                           base, start=start, end=end, overrides={})
-    vts = set(pd.to_datetime(vec["ts"]).astype("int64")); mts = set(pd.to_datetime(mod["ts"]).astype("int64"))
+    vts = set(pd.to_datetime(vec["ts"]).astype("int64"))
+    mts = set(pd.to_datetime(mod["ts"]).astype("int64"))
     print(f"A validate: vec={len(vec)} mod={len(mod)} overlap={len(vts & mts)} "
           f"only_vec={len(vts - mts)} only_mod={len(mts - vts)}")
 
@@ -396,7 +461,8 @@ def _grid_B(base, df5):
     res = []
     for band_k, adx_max, buf, tp_frac, min_tp_r, vwlb in itertools.product(
             [2.0, 2.5, 3.0, 3.5], [16, 20, 24], [0.3, 0.5, 1.0], [0.7, 1.0], [0.8, 1.0], [96, 144]):
-        p = dict(DEFAULTS_B); p.update(band_k=band_k, adx_max=float(adx_max), atr_stop_buffer=buf,
+        p = dict(DEFAULTS_B)
+        p.update(band_k=band_k, adx_max=float(adx_max), atr_stop_buffer=buf,
                                        tp_anchor_frac=tp_frac, min_tp_r=min_tp_r, vwap_lookback=vwlb,
                                        band_std_lookback=vwlb)
         s = signals_vwap_revert(df5, p)
@@ -421,7 +487,8 @@ def _grid_A(base, df5):
         if emaP not in htf_cache:
             htf_cache[emaP] = build_htf(df5, base, emaP)
         hc, he = htf_cache[emaP]
-        p = dict(DEFAULTS_A); p.update(displacement_atr_mult=disp, htf_filter_ema_period=emaP,
+        p = dict(DEFAULTS_A)
+        p.update(displacement_atr_mult=disp, htf_filter_ema_period=emaP,
                                        killzone_windows=kz, tp_at_r=tpr, atr_sl_buffer_mult=slbuf,
                                        min_displacement_body_to_range=minbtr,
                                        session_filter_enabled=(kz != "0-24"))

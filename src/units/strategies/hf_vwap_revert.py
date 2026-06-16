@@ -96,7 +96,8 @@ def _atr(df: pd.DataFrame, period: int) -> pd.Series:
 def _adx(df: pd.DataFrame, period: int) -> pd.Series:
     """Wilder's ADX — same formula as fvg_range_15m / fade_breakout_4h."""
     h, low, c = df["high"], df["low"], df["close"]
-    up = h.diff(); down = -low.diff()
+    up = h.diff()
+    down = -low.diff()
     plus_dm = ((up > down) & (up > 0)) * up.clip(lower=0)
     minus_dm = ((down > up) & (down > 0)) * down.clip(lower=0)
     pc = c.shift(1)
@@ -211,9 +212,12 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     upper = vwap + band_k * band_std
     lower = vwap - band_k * band_std
 
-    o = float(df["open"].iloc[i]); c = float(df["close"].iloc[i])
-    h = float(df["high"].iloc[i]); lo = float(df["low"].iloc[i])
-    bull_body = c > o; bear_body = c < o
+    o = float(df["open"].iloc[i])
+    c = float(df["close"].iloc[i])
+    h = float(df["high"].iloc[i])
+    lo = float(df["low"].iloc[i])
+    bull_body = c > o
+    bear_body = c < o
 
     # Direction + wick-rejection at the stretched band edge.
     if h >= upper:
