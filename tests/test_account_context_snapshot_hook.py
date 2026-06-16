@@ -13,6 +13,12 @@ from pathlib import Path
 
 import pytest
 
+# Build the daily_risk_state fixture from the canonical RiskManager DDL so the
+# test schema can never drift from production (the prior hand-rolled `utc_date`
+# column masked the real bug where daily_state_for queried a column production
+# never had — fixed in WC-4).
+from src.units.accounts.risk import _CREATE_DAILY_RISK_STATE
+
 
 @dataclass
 class _FakePkg:
@@ -33,11 +39,7 @@ def _seed_journal(path: Path) -> None:
         "CREATE TABLE trades (id INTEGER PRIMARY KEY, account_id TEXT, "
         "status TEXT, is_backtest INT)"
     )
-    conn.execute(
-        "CREATE TABLE daily_risk_state (account_id TEXT, utc_date TEXT, "
-        "daily_pnl REAL, daily_high_equity REAL, "
-        "PRIMARY KEY (account_id, utc_date))"
-    )
+    conn.execute(_CREATE_DAILY_RISK_STATE)  # canonical schema (PK account_id, date)
     conn.commit()
     conn.close()
 
