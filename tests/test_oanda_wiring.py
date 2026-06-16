@@ -164,7 +164,9 @@ def test_accounts_yaml_oanda_practice_ships_inert():
     assert acct["mode"] == "dry_run"  # SHELVED 2026-06-12 (set-account-mode #3446):
     # OANDA US can't trade XAU_USD (BL-20260611-007); gold is covered live on
     # IBKR MGC + Alpaca GLD. Back to inert — mode dry_run gates the sleeve.
-    assert acct["strategies"] == ["xauusd_trend_1h"]
+    # PAUSED 2026-06-16 (PB-20260616-001): xauusd_trend_1h removed from routing
+    # while OANDA US can't trade XAU_USD — re-point to a tradeable FX pair pending.
+    assert acct["strategies"] == []
     # 2026-06-15: `demo: true` superseded by account_class (non-Bybit).
     assert "demo" not in acct
     assert acct["account_class"] == "paper"
