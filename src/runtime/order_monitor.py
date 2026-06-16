@@ -4329,14 +4329,6 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
     return summary
 
 
-def _local_pnl_compute_enabled() -> bool:
-    """Local-PnL fallback is baseline correctness (no default-off gate, per the
-    Prime Directive). Set ``LOCAL_PNL_COMPUTE_DISABLED`` truthy to roll it back
-    without a redeploy. Default ON."""
-    raw = str(os.environ.get("LOCAL_PNL_COMPUTE_DISABLED", "")).strip().lower()  # allow-silent: local-PnL fallback kill-switch, default-ON (inverse of the BUG-039 default-OFF capability gate — this gates a reporting/observability sweep, never execution; RiskManager.dry_run stays the only switch that decides whether an order is sent)
-    return raw not in ("1", "true", "yes", "on")
-
-
 _BROKER_PNL_RECOVERY_MS = 7 * 24 * 60 * 60 * 1000  # Bybit closed-pnl retention
 
 
@@ -4387,8 +4379,6 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
         "scanned": 0, "filled": 0, "relinked": 0,
         "still_pending": 0, "deferred_broker": 0, "errors": 0,
     }
-    if not _local_pnl_compute_enabled():
-        return summary
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
 
     try:

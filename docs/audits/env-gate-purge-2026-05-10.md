@@ -148,44 +148,20 @@ reconciliation/dispatch gates (below), one observe-only shadow-logging
 kill-switch (above), and this operator-controlled phase-3 hard-gate
 rollback switch.
 
-## New annotated survivor — `LOCAL_PNL_COMPUTE_DISABLED` (BL-20260616-IBKRPNL, 2026-06-16)
+## Considered-and-removed — `LOCAL_PNL_COMPUTE_DISABLED` (added then removed 2026-06-16)
 
-A fifth `os.environ.get` read matching the suspect pattern now lives
-under a protected path:
-
-* `src/runtime/order_monitor.py` — `_local_pnl_compute_enabled()` reads
-  `LOCAL_PNL_COMPUTE_DISABLED` (default unset → fallback ON; truthy →
-  off).
-
-Same contract: inline `# allow-silent:` on the read line + this
-audit-doc entry. Full design: `docs/audits/local-pnl-fallback-2026-06-16.md`.
-
-**Why it is a legitimate survivor (matches the pattern, inverts the
-default):**
-
-* It is a **default-ON** kill-switch, not a default-off capability gate.
-  The BUG-039 risk pattern is a default-off `*_ENABLED` gate hiding a
-  capability the user expects to be live (the MES-stranding pattern).
-  This is the inverse: unset → the local-PnL fallback runs (baseline
-  correctness — non-Bybit closed/orphaned trades get a realised PnL
-  instead of NULL/$0.00). Setting it truthy is the operator rollback,
-  "one env flip + restart, no redeploy" — mirroring
-  `REGIME_BAR_SCORING_DISABLED`.
-* It **gates a reporting/observability sweep, never the order path.**
-  `_sweep_local_pnl_for_unpriced` only writes `pnl` / `pnl_percent` /
-  `exit_price` / `notes` + re-links `order_package_id` on already-closed
-  / orphaned rows. It never places, modifies, or cancels an order, and
-  it skips Bybit accounts entirely. `RiskManager.dry_run` remains the
-  sole live/dry execution switch.
-* It **cannot strand a capability when on (default).** With the gate
-  unset the sweep simply fills PnL the broker can't provide; with it set
-  the rows stay NULL exactly as they did pre-PR. Nothing tradeable is
-  affected either way.
-
-So the survivor count is now **five** — two live-order-path
-reconciliation/dispatch gates (below), one observe-only shadow-logging
-kill-switch, one phase-3 hard-gate rollback switch (above), and this
-default-ON local-PnL reporting kill-switch.
+The local-PnL fallback (BL-20260616-IBKRPNL) initially shipped with a
+default-ON `LOCAL_PNL_COMPUTE_DISABLED` kill-switch (a reporting-sweep
+toggle, never the order path). On operator review it was **removed the
+same day**: the local-PnL fallback is **baseline required correctness**,
+and even a default-ON reporting kill-switch is an unnecessary gate when
+revert + redeploy already covers a genuine bug. Removing it keeps the
+"don't build gates we don't need" contract clean and is consistent with
+the de-gating precedent (`NAKED_POSITION_AUTOPROTECT`,
+`MONITOR_RECONCILE_ENABLED`). `_sweep_local_pnl_for_unpriced` now runs
+unconditionally. The survivor count is back to **four** (the two
+live-order-path reconciliation/dispatch gates + the observe-only
+shadow-logging kill-switch + the phase-3 hard-gate rollback switch).
 
 ## Phase-1 PR scope (this DRAFT)
 
