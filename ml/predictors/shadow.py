@@ -53,7 +53,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
-from ..manifest import VALID_DEPLOYMENT_STAGES
+from ..manifest import canonical_stage
 from .base import Predictor
 
 
@@ -72,10 +72,9 @@ class ShadowPredictor(Predictor):
             )
         if not isinstance(model_id, str) or not model_id.strip():
             raise ValueError("model_id must be a non-empty string")
-        if stage not in VALID_DEPLOYMENT_STAGES:
-            raise ValueError(
-                f"stage must be one of {VALID_DEPLOYMENT_STAGES}; got {stage!r}"
-            )
+        # Normalize the stage through the alias map (accept a legacy 7-stage
+        # name, store/log the canonical one). Raises ValueError on garbage.
+        stage = canonical_stage(stage)
         self._wrapped = wrapped
         self._model_id = model_id
         self._stage = stage

@@ -3,10 +3,12 @@
 One JSON file per model id under the registry root. Status is the
 legacy WS4 backing state machine (5 states); `_ALLOWED_TRANSITIONS`
 enforces the legal edges. WS7 introduces a second, orthogonal
-`target_deployment_stage` field (7 stages from `ml.manifest`)
-representing where in the deployment pipeline the model
-currently sits; `_STAGE_TRANSITIONS` enforces those edges and
-`stage_history` records the events.
+`target_deployment_stage` field (3 canonical stages from
+`ml.manifest`: candidate → shadow → advisory) representing where in
+the deployment pipeline the model currently sits; `_STAGE_TRANSITIONS`
+enforces those edges and `stage_history` records the events. Legacy
+7-stage names are normalized to canonical via `canonical_stage` on
+read/register/promote so historical rows keep resolving.
 
 Promotion gates (the actual content of `reason`) live in
 `ml.promotion.checklist`.
@@ -19,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
-from ..manifest import VALID_DEPLOYMENT_STAGES
+from ..manifest import canonical_stage
 
 VALID_STATUSES: tuple[str, ...] = (
     "candidate",
@@ -39,29 +41,18 @@ _ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
     "champion": frozenset({"candidate"}),
 }
 
-# WS7 deployment-stage transitions. Every forward edge has a
-# rollback edge so an operator can demote a model that misbehaves.
-# `live_approved` has no further forward — once there, the only
-# legal move is back to `advisory` for re-evaluation.
-#
-# Direct `<pre-shadow stage> → shadow` edges (2026-05-19): the
-# default lifecycle is "every trained model lives in shadow."
-# `research_only` / `candidate` / `backtest_approved` remain
-# legal stages — they exist for models an operator has explicitly
-# retired or held back from the shadow channel — but they are
-# off the default path. The rollback edges to those pre-shadow
-# stages let an operator park a misbehaving shadow model in a
-# non-logging stage without an artificial multi-hop walk.
+# Deployment-stage transitions over the 3 canonical stages (3-stage
+# collapse, 2026-06-16). The ladder is `candidate → shadow → advisory`
+# with a one-step rollback for each forward edge:
+#   - candidate (pre-shadow; refused by the shadow factory) ↔ shadow
+#   - shadow (observe-only) ↔ advisory (influences the order)
+# Legacy alias stages (research_only / backtest_approved / limited_live /
+# live_approved) never appear here as keys — incoming and stored stages are
+# normalized to canonical via `canonical_stage` before any transition check.
 _STAGE_TRANSITIONS: dict[str, frozenset[str]] = {
-    "research_only": frozenset({"candidate", "shadow"}),
-    "candidate": frozenset({"backtest_approved", "research_only", "shadow"}),
-    "backtest_approved": frozenset({"shadow", "candidate"}),
-    "shadow": frozenset(
-        {"advisory", "backtest_approved", "candidate", "research_only"}
-    ),
-    "advisory": frozenset({"limited_live", "shadow"}),
-    "limited_live": frozenset({"live_approved", "advisory"}),
-    "live_approved": frozenset({"advisory"}),
+    "candidate": frozenset({"shadow"}),
+    "shadow": frozenset({"advisory", "candidate"}),
+    "advisory": frozenset({"shadow"}),
 }
 
 # Shadow is the default stage for a freshly-registered model
@@ -213,12 +204,16 @@ class RegistryEntry:
             )
         if not isinstance(self.model_id, str) or not self.model_id.strip():
             raise RegistryError("model_id must be a non-empty string")
-        if self.target_deployment_stage not in VALID_DEPLOYMENT_STAGES:
-            raise RegistryError(
-                f"target_deployment_stage must be one of "
-                f"{VALID_DEPLOYMENT_STAGES}; got "
-                f"{self.target_deployment_stage!r}"
-            )
+        # Normalize the CURRENT stage through the alias map so a historical
+        # entry whose stored `target_deployment_stage` is an old 7-stage name
+        # (e.g. `live_approved`) still loads — never fail to deserialize a
+        # registry row. `stage_history` records are left as-is (audit record).
+        try:
+            canonical = canonical_stage(self.target_deployment_stage)
+        except ValueError as exc:
+            raise RegistryError(str(exc)) from exc
+        if canonical != self.target_deployment_stage:
+            object.__setattr__(self, "target_deployment_stage", canonical)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -319,12 +314,14 @@ class ModelRegistry:
         derived from ``_now_utc()`` so callers that haven't been updated
         yet still work, but the runner always supplies it explicitly.
         """
-        stage = manifest.get("target_deployment_stage", _DEFAULT_STAGE)
-        if stage not in VALID_DEPLOYMENT_STAGES:
+        raw_stage = manifest.get("target_deployment_stage", _DEFAULT_STAGE)
+        # Normalize through the alias map (accept an old name, store canonical).
+        try:
+            stage = canonical_stage(raw_stage)
+        except ValueError as exc:
             raise RegistryError(
-                f"manifest.target_deployment_stage must be one of "
-                f"{VALID_DEPLOYMENT_STAGES}; got {stage!r}"
-            )
+                f"manifest.target_deployment_stage invalid: {exc}"
+            ) from exc
         now = _now_utc()
         if not run_id:
             run_id = now.strftime("%Y%m%dT%H%M%SZ")
@@ -444,21 +441,23 @@ class ModelRegistry:
     ) -> RegistryEntry:
         """WS7 deployment-stage promotion.
 
-        Walks the model along the
-        `research_only → candidate → backtest_approved → shadow →
-        advisory → limited_live → live_approved` ladder defined in
+        Walks the model along the canonical
+        `candidate → shadow → advisory` ladder defined in
         `ml.manifest.VALID_DEPLOYMENT_STAGES`, enforcing the
-        `_STAGE_TRANSITIONS` edges (forward + one-step rollback).
-        Recorded as a `StageEvent` on `stage_history`.
+        `_STAGE_TRANSITIONS` edges (forward + one-step rollback). The
+        requested stage is normalized through the alias map first, so an
+        old 7-stage name is accepted and stored canonical. Recorded as a
+        `StageEvent` on `stage_history`.
 
         Refuses no-op transitions explicitly so audit-log entries
         always represent real state changes.
         """
-        if new_stage not in VALID_DEPLOYMENT_STAGES:
-            raise RegistryError(
-                f"new_stage must be one of {VALID_DEPLOYMENT_STAGES}; "
-                f"got {new_stage!r}"
-            )
+        # Normalize the requested stage through the alias map: a caller may
+        # still pass an old name (e.g. `live_approved`); store the canonical.
+        try:
+            new_stage = canonical_stage(new_stage)
+        except ValueError as exc:
+            raise RegistryError(str(exc)) from exc
         if not isinstance(by, str) or not by.strip():
             raise RegistryError("by must be a non-empty string")
         if not isinstance(reason, str) or not reason.strip():

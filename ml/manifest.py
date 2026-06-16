@@ -16,15 +16,46 @@ import yaml
 
 MANIFEST_VERSION = "v1"
 
+# Canonical deployment stages (3-stage collapse, 2026-06-16, operator-approved).
+# Of the old 7 stages, three runtime states actually differed:
+#   - "pre-shadow" (refused by the shadow factory): research_only / candidate /
+#     backtest_approved → all collapse to ``candidate``.
+#   - "observe-only" (logs predictions, never influences orders): ``shadow``.
+#   - "influence" (changes the order via apply_advisory_downsize, identically):
+#     advisory / limited_live / live_approved → all collapse to ``advisory``.
 VALID_DEPLOYMENT_STAGES: tuple[str, ...] = (
-    "research_only",
     "candidate",
-    "backtest_approved",
     "shadow",
     "advisory",
-    "limited_live",
-    "live_approved",
 )
+
+# Backward-compatibility alias map: old stage name → canonical stage. Kept
+# **permanently** so historical registry entries / manifests using the old
+# 7-stage names keep resolving (never crash, never strand a model). The
+# canonical stages map to themselves.
+STAGE_ALIASES: dict[str, str] = {
+    "research_only": "candidate",
+    "backtest_approved": "candidate",
+    "limited_live": "advisory",
+    "live_approved": "advisory",
+}
+
+
+def canonical_stage(stage: str) -> str:
+    """Normalize a canonical-or-alias deployment-stage string to canonical.
+
+    Accepts any of the 3 canonical stages (returned unchanged) or any of the
+    legacy alias names (mapped via ``STAGE_ALIASES``). Raises ``ValueError``
+    on anything else — an unknown stage is a real error, not silently coerced.
+    """
+    if stage in VALID_DEPLOYMENT_STAGES:
+        return stage
+    if stage in STAGE_ALIASES:
+        return STAGE_ALIASES[stage]
+    raise ValueError(
+        f"deployment stage must be one of {VALID_DEPLOYMENT_STAGES} "
+        f"(or a legacy alias {tuple(STAGE_ALIASES)}); got {stage!r}"
+    )
 
 
 @dataclass(frozen=True)
@@ -83,11 +114,13 @@ class TrainingManifest:
             raise ValueError(
                 f"evaluator must be a fully-qualified callable; got {self.evaluator!r}"
             )
-        if self.target_deployment_stage not in VALID_DEPLOYMENT_STAGES:
-            raise ValueError(
-                f"target_deployment_stage must be one of {VALID_DEPLOYMENT_STAGES}; "
-                f"got {self.target_deployment_stage!r}"
-            )
+        # Normalize via the alias map (accept an old name, store the canonical
+        # one). `canonical_stage` raises ValueError on anything unrecognized,
+        # preserving the "invalid stage rejected" contract.
+        canonical = canonical_stage(self.target_deployment_stage)
+        if canonical != self.target_deployment_stage:
+            # frozen dataclass: rewrite the field to the canonical value.
+            object.__setattr__(self, "target_deployment_stage", canonical)
 
     @classmethod
     def from_yaml(cls, path: Path) -> "TrainingManifest":

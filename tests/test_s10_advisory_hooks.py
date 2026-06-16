@@ -125,19 +125,25 @@ class TestWithShadowPredsAdvisory:
         with pytest.raises(TypeError, match="ShadowPredictor"):
             with_shadow_preds_advisory("d", predictors=[_Bare()], feature_row={})
 
-    def test_limited_live_stage_not_captured_as_advisory(self):
+    def test_legacy_limited_live_normalizes_to_advisory_and_is_captured(self):
+        # 3-stage collapse (2026-06-16): `limited_live` normalizes to the
+        # canonical `advisory` stage on the ShadowPredictor, so it IS captured
+        # — these stages all influence identically, which is the whole point
+        # of the collapse.
         pred = _make_shadow_predictor("ll-model", "limited_live", score=0.9)
+        assert pred.stage == "advisory"
         _, scores = with_shadow_preds_advisory(
             "d", predictors=[pred], feature_row={}
         )
-        assert scores == {}
+        assert scores == {"ll-model": pytest.approx(0.9)}
 
-    def test_live_approved_stage_not_captured_as_advisory(self):
+    def test_legacy_live_approved_normalizes_to_advisory_and_is_captured(self):
         pred = _make_shadow_predictor("la-model", "live_approved", score=0.95)
+        assert pred.stage == "advisory"
         _, scores = with_shadow_preds_advisory(
             "d", predictors=[pred], feature_row={}
         )
-        assert scores == {}
+        assert scores == {"la-model": pytest.approx(0.95)}
 
 
 # ---------------------------------------------------------------------------

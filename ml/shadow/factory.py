@@ -6,27 +6,21 @@ is looked up in the model registry; the registry entry's
 `target_deployment_stage` gates whether the model is allowed to
 run in shadow mode at all.
 
-Stage gate (`LIVE_INFLUENCE_STAGES`):
+Stage gate (`LIVE_INFLUENCE_STAGES`), over the 3 canonical stages
+(stored stages and legacy aliases are normalized via `canonical_stage`):
 
-- `shadow`              ✅ allowed — the default stage for any
-                         registered model (2026-05-19 default
-                         flip). Auto-wires onto every strategy
-                         via `discover_shadow_stage_model_ids()`
-                         + `Coordinator._get_shadow_predictors`
-                         when the strategy YAML omits
-                         `shadow_model_ids`.
-- `advisory`            ✅ allowed — advisory mode displays the
-                         score; running it as a shadow side-channel
-                         is a strict subset.
-- `limited_live`        ✅ allowed — same reasoning.
-- `live_approved`       ✅ allowed — running an approved model in
-                         shadow against another strategy is fine.
-- `research_only`       ❌ refused — operator-parked. Pre-shadow
-                         stages now exist only as explicit
-                         demotion targets; they are not the
-                         default registration state.
-- `candidate`           ❌ refused — same.
-- `backtest_approved`   ❌ refused — same.
+- `shadow`     ✅ allowed — the default stage for any registered
+                 model (2026-05-19 default flip). Auto-wires onto
+                 every strategy via `discover_shadow_stage_model_ids()`
+                 + `Coordinator._get_shadow_predictors` when the
+                 strategy YAML omits `shadow_model_ids`.
+- `advisory`   ✅ allowed — advisory mode displays/uses the score;
+                 running it as a shadow side-channel is a strict
+                 subset. (Legacy `limited_live` / `live_approved`
+                 normalize to `advisory`, so they still load.)
+- `candidate`  ❌ refused — pre-shadow. (Legacy `research_only` /
+                 `backtest_approved` normalize to `candidate`, so
+                 they are likewise refused.)
 
 Refusal raises `ShadowFactoryError`. Per-model errors are
 collected when `resolve_predictors()` is called with multiple ids
@@ -64,6 +58,7 @@ import os
 from pathlib import Path
 from typing import Iterable, List
 
+from ..manifest import canonical_stage
 from ..predictors.base import Predictor
 from ..predictors.shadow import ShadowPredictor
 from ..registry.model_registry import ModelRegistry, RegistryEntry, RegistryError
@@ -89,9 +84,12 @@ def _resolve_default_registry_root() -> Path:
 DEFAULT_REGISTRY_ROOT = _resolve_default_registry_root()
 DEFAULT_LOG_PATH = Path("runtime_logs/shadow_predictions.jsonl")
 
-LIVE_INFLUENCE_STAGES: frozenset[str] = frozenset(
-    {"shadow", "advisory", "limited_live", "live_approved"}
-)
+# Canonical stages a model may be loaded as a shadow predictor at:
+# `shadow` (observe-only) and `advisory` (influence) — both run as a
+# logging side-channel. `candidate` (pre-shadow) is refused. Comparison is
+# done on the canonical form, so an entry stored as a legacy alias
+# (`limited_live` / `live_approved` → advisory) still loads.
+LIVE_INFLUENCE_STAGES: frozenset[str] = frozenset({"shadow", "advisory"})
 
 _DEFAULT_LOGGER = logging.getLogger(__name__)
 
@@ -202,11 +200,18 @@ def _resolve_state_path_via_mirror(
 
 
 def _check_stage(entry: RegistryEntry) -> None:
-    if entry.target_deployment_stage not in LIVE_INFLUENCE_STAGES:
+    try:
+        stage = canonical_stage(entry.target_deployment_stage)
+    except ValueError as exc:
+        raise ShadowFactoryError(
+            f"model {entry.model_id!r} has unrecognized stage "
+            f"{entry.target_deployment_stage!r}: {exc}"
+        ) from exc
+    if stage not in LIVE_INFLUENCE_STAGES:
         raise ShadowFactoryError(
             f"model {entry.model_id!r} is at stage "
             f"{entry.target_deployment_stage!r}; refusing to load — "
-            f"promote past `backtest_approved` first. Allowed stages: "
+            f"promote to `shadow` first. Allowed stages: "
             f"{sorted(LIVE_INFLUENCE_STAGES)}"
         )
 
@@ -222,9 +227,9 @@ def resolve_predictor(
     Steps:
 
     1. Look up `model_id` in the registry.
-    2. Verify `target_deployment_stage` is in `LIVE_INFLUENCE_STAGES`
-       (refuse to load a `research_only` / `candidate` /
-       `backtest_approved` model — operator should promote first).
+    2. Verify the canonical `target_deployment_stage` is in
+       `LIVE_INFLUENCE_STAGES` (refuse to load a `candidate`/pre-shadow
+       model — operator should promote to `shadow` first).
     3. Load model state JSON from `entry.model_state_path`.
     4. Resolve the predictor class via `state['trainer']` qualname.
     5. Instantiate the base predictor and wrap in `ShadowPredictor`.
@@ -256,9 +261,9 @@ def discover_shadow_stage_model_ids(registry: ModelRegistry) -> List[str]:
     Used by the coordinator's auto-wire path (2026-05-19): when a
     strategy's `shadow_model_ids` is missing/None (the default),
     every shadow-stage model in the registry is attached as a
-    shadow predictor on that strategy's signals. Higher stages
-    (`advisory` / `limited_live` / `live_approved`) are excluded —
-    those models have promotion responsibilities of their own and
+    shadow predictor on that strategy's signals. The influence stage
+    (`advisory`; legacy `limited_live` / `live_approved` normalize to it)
+    is excluded — those models have promotion responsibilities of their own and
     shouldn't be silently re-purposed as a per-strategy shadow
     side-channel.
 

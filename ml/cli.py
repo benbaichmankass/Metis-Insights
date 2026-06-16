@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from .datasets.cli import main as datasets_main
+from .manifest import canonical_stage
 from .experiments.runner import (
     EMPTY_DATASET_EXIT_CODE,
     DatasetMissingError,
@@ -99,19 +100,29 @@ def _cmd_promote(args: argparse.Namespace) -> int:
 
 
 def _cmd_promote_stage(args: argparse.Namespace) -> int:
-    # WS7 deployment-stage transition (orthogonal to legacy WS4 status).
-    # Bulk-friendly: if --all-pre-shadow is set, transition every model
-    # whose current stage is in {research_only, candidate, backtest_approved}
-    # to `shadow` in one invocation (legal one-hop per the 2026-05-19 graph).
+    # Deployment-stage transition (orthogonal to legacy WS4 status).
+    # Bulk-friendly: if --all-pre-shadow is set, transition every model whose
+    # current canonical stage is `candidate` (the pre-shadow state; legacy
+    # research_only / backtest_approved normalize to it) to `shadow` in one
+    # invocation. `--new-stage` is normalized through the alias map so a
+    # caller passing an old name (e.g. `live_approved`) is accepted, not hard-
+    # broken — `promote_stage` stores the canonical value.
     registry = ModelRegistry(Path(args.registry_root))
+    try:
+        requested_stage = canonical_stage(args.new_stage)
+    except ValueError as exc:
+        sys.stderr.write(f"promote-stage: {exc}\n")
+        return 2
     if args.all_pre_shadow:
-        if args.new_stage != "shadow":
+        if requested_stage != "shadow":
             sys.stderr.write(
                 "--all-pre-shadow only supports --new-stage=shadow; "
                 f"got {args.new_stage!r}\n"
             )
             return 2
-        pre_shadow = {"research_only", "candidate", "backtest_approved"}
+        # Registry entries are normalized to canonical on load, so the
+        # pre-shadow stage to migrate is exactly `candidate`.
+        pre_shadow = {"candidate"}
         transitioned: list[dict] = []
         skipped: list[dict] = []
         for entry in registry.list():
@@ -143,7 +154,7 @@ def _cmd_promote_stage(args: argparse.Namespace) -> int:
         return 2
     try:
         updated = registry.promote_stage(
-            args.model_id, args.new_stage, by=args.by, reason=args.reason,
+            args.model_id, requested_stage, by=args.by, reason=args.reason,
         )
     except RegistryError as exc:
         sys.stderr.write(f"promote-stage failed: {exc}\n")

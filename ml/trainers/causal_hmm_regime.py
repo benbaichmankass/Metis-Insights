@@ -24,7 +24,7 @@ Fit (NumPy, trainer-VM only):
    frequencies — this is what turns a hidden-state posterior into a
    class posterior.
 
-The model is a **Tier-3 research_only proposal**; promotion past ``shadow`` is
+The model is a **Tier-3 candidate proposal** (pre-shadow); promotion past ``shadow`` is
 operator-gated, and it must add OOS edge over the LightGBM regime head under
 the Phase-0 purged WF-CV before it earns anything (the "illusion of regimes"
 dissent — validate, don't assume).
