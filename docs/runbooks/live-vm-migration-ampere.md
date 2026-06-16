@@ -1,8 +1,10 @@
 # Live-VM migration: x86 micro → Ampere A1.Flex (memory relief)
 
-**Status:** ✅ **CUTOVER COMPLETE (2026-06-14).** The live trader runs on the
-Ampere candidate `ict-bot-arm` (`141.145.193.91`); see "Cutover completed" at
-the bottom for the verified post-state + remaining follow-ups. The plan below is
+**Status:** ✅ **CUTOVER COMPLETE (2026-06-14); micro DECOMMISSIONED (2026-06-16).**
+The live trader runs on the Ampere candidate `ict-bot-arm` (`141.145.193.91`); the
+retired x86 micro (`ict-bot`, `158.178.210.252`) was terminated 2026-06-16 via
+`terminate-instance` by OCID after a clean soak. See "Cutover completed" at the
+bottom for the verified post-state + remaining follow-ups. The plan below is
 retained as the procedure record. **Original driver:** the live `E2.1.Micro` (2 vCPU /
 **1 GB**) hit **90%+ memory with `kswapd` active** — memory, not CPU, is the
 binding constraint (loadavg ~1.2 on 2 cores; the whole bot stack is only
@@ -225,9 +227,14 @@ Most closed 2026-06-14 (same-day follow-up session):
    it rotates the real `/data/bot-data` log.
 4. **Optional dedicated `/data` block volume** for the candidate (today it's a
    boot-volume dir; fine, but a separate volume matches the micro's posture).
-5. **Decommission the micro** (`terminate-instance` on its display name) after a
-   24–48h soak. Stopped + Bybit-frozen, kept as the rollback target. Tracked for
-   tomorrow as `BL-20260615-DECOMMISSION-MICRO` — operator-gated.
+5. ✅ **Micro decommissioned (2026-06-16).** `terminate-instance` terminated the
+   micro (`ict-bot`, OCID `…anrwiljrnpsiupacbpuojiksc3dl4twmqlxndtc36jgx5sjq3452vflqr32q`,
+   `158.178.210.252`) **by OCID** after a clean soak (`BL-20260615-DECOMMISSION-MICRO`,
+   resolved). NB the terminate was done by **OCID, not display name** — the micro's
+   OS hostname (`instance-20260414-1555`) ≠ its OCI display name (`ict-bot`), so a
+   hostname-derived name returned `not_found` first. The `terminate-instance`
+   workflow gained a read-only `mode: list` + an `instance_id:` (OCID) path for
+   exactly this; see the `vm-migration` skill.
 6. ⚠️ **Bybit API-key IP allowlist must include the new VM egress IP**
    (`BL-20260614-BYBIT-IP`, surfaced 2026-06-14 ~18:37 UTC). **This step was
    MISSING from the cutover checklist and caused a real-money outage on

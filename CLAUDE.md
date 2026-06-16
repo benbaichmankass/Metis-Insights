@@ -213,7 +213,8 @@ wire-up. See trainer-vm-mode.md § 5 for the full lifecycle.
     gateway 1 + live 2 = 4 of 4 OCPU (12+6+6 = 24 of 24 GB) — the Always-Free
     Ampere pool is now full.** The retired x86 micro `158.178.210.252` was a
     *separate* AMD Always-Free allocation (retiring it frees/costs no Ampere
-    budget); it is stopped + Bybit-frozen, kept short-term as the rollback target.
+    budget); it was **terminated 2026-06-16** via `terminate-instance` (by OCID,
+    display_name `ict-bot`) after a clean soak — no longer a rollback target.
 
   The 2026-06-10 wedge cascade root cause was the **heavy IB-Gateway
   (Java/Xvfb/IBC) sharing the 1 GB micro** with the trader → swap-thrash. The
@@ -237,7 +238,7 @@ wire-up. See trainer-vm-mode.md § 5 for the full lifecycle.
   (most closed 2026-06-14: ✅ `ict-git-sync` re-enabled — the candidate
   auto-deploys from `main`; ✅ `ib_insync` confirmed already present in the trader
   venv — MES/MGC/MHG trade live; remaining: optional dedicated `/data` block
-  volume; decommission the micro via `terminate-instance` after soak) are tracked in
+  volume; ✅ micro decommissioned 2026-06-16 via `terminate-instance` by OCID) are tracked in
   [`docs/runbooks/live-vm-migration-ampere.md`](docs/runbooks/live-vm-migration-ampere.md).
   Migration tooling (`provision-live-vm`, `cutover-live`, `terminate-instance`)
   remains for rollback / future moves.
