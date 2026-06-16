@@ -114,11 +114,19 @@ skills.
   - **Alpaca**: add modify/close via the Alpaca client (replace / close-position
     APIs) + `account_open_positions` coverage.
   - **OANDA**: same, before it's promoted off `dry_run`.
-- **Universal reconciliation**: make **position-snapshot** reconciliation
-  (reuse the IB/Alpaca-aware `account_open_positions`) the default path for
-  integrations without an order-status reader — close a DB-open row only when
-  its `(symbol,side)` is absent across the existing 2-observation confirm window,
-  never on a read failure. Order-status stays the Bybit enhancement.
+- **Reconciliation — one uniform baseline for ALL integrations (no per-broker
+  default).** **Position-snapshot** is the universal baseline (every broker can
+  report its open positions): reuse the IB/Alpaca-aware `account_open_positions`
+  and close a DB-open row only when its `(symbol,side)` is absent across the
+  existing 2-observation confirm window, never on a read failure. **Order-status
+  is an optional *declared capability*, not a different default** (exactly like
+  `BROKER_PNL_READER_EXCHANGES`): an integration that has a reliable per-order
+  status API declares it and gets a faster/more-precise reconcile *on top of*
+  the baseline — notably distinguishing "cancelled/rejected before any fill"
+  from "filled then closed," which position-snapshot alone can't. Bybit has it
+  wired today and therefore *declares* it; it is not special by design. Any
+  integration that doesn't declare it relies on the universal baseline and is
+  fully reconciled.
 
 ### 3. Enforcement (so we stop patching)
 - CI guard: **every `EXCHANGE_MAP` integration must implement the management
@@ -151,13 +159,13 @@ phase is operator-gated:
 - **P4** Real/paper metric separation (bot + clients).
 - **P5** Build-workflow skills + CI guards (lock it in).
 
-## Open decisions for the operator
-1. Approve this whole-repo plan + phasing (vs. a narrower first cut on just the
-   two live integrations IB+Alpaca)?
-2. IB/Alpaca management: implement **modify (trailing SL)** now, or first just
-   **close** (thesis/SL-cross exits) since the entry bracket already holds a
-   static stop? (Close is the higher-value safety item; trailing-modify is
-   optimization.)
-3. Reconciliation default for non-Bybit: confirm **position-snapshot** (reuses
-   existing IB/Alpaca-aware `account_open_positions`, robust to missing
-   order-ids) over per-order order-status.
+## Decisions (status)
+1. **APPROVED (2026-06-16)** — whole-repo plan + phasing P1–P5.
+2. IB/Alpaca management sequencing — **close first** (thesis / SL-cross exits;
+   higher-value safety, entry bracket already holds a static stop), then
+   trailing-SL **modify** as a follow-up within P3. (Default unless the operator
+   says otherwise; not blocking P1/P2.)
+3. **RESOLVED (clarified 2026-06-16)** — reconciliation is **one uniform
+   position-snapshot baseline for every integration including Bybit**; there is
+   no per-broker default. Order-status is an optional *declared capability*
+   (Bybit declares it today) layered on top — see §2.
