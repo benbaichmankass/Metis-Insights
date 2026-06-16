@@ -78,12 +78,19 @@ economics:
     min_trading_days_before_payout: 0   # no min trading days                    [WEB; CONFIRM]
     processing_hours: 24           # paid within 24h in USDC (ERC-20)            [WEB; info]
 
-  withdrawal_policy:               # OUR tunable EV lever (NOT a Breakout rule):
-                                   # how the simulated trader banks profit. The 6%
-                                   # max-DD is STATIC off the starting balance and is
-                                   # NOT raised on payout, so withdrawing banks
-                                   # `profit_split` safely but SHRINKS the in-account
-                                   # cushion → the EV model sweeps this tradeoff.
-    mode: above_start              # withdraw equity above the starting balance…
-    buffer_usd: 0                  # …leaving this extra $ cushion above the floor
-    cadence_days: 7                # attempt a withdrawal this often (>= payout cadence)
+  withdrawal_policy:               # OPERATOR DIRECTIVE (2026-06-16): BANK ASAP.
+                                   # Always withdraw the maximum allowed at the
+                                   # earliest allowed moment; never leave realized
+                                   # profit in the account. Rationale: banked payouts
+                                   # are realized + safe, and the 6% max-DD is STATIC
+                                   # off the starting balance and NOT raised on payout,
+                                   # so money left in only adds breach exposure for ZERO
+                                   # upside. This is the FIXED default, not a knob tuned
+                                   # for survival; it stays parameterized only so the EV
+                                   # model can quantify the (rejected) less-aggressive
+                                   # alternatives for comparison.
+    mode: above_start              # withdraw ALL equity above the starting balance
+    buffer_usd: 0                  # leave no extra cushion — bank everything above start
+    bank_asap: true                # withdraw at the earliest allowed instant each window
+    cadence_days: 7                # every allowed window (first at
+                                   # payout.first_payout_after_days = 14, then weekly)
