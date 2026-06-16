@@ -1708,12 +1708,22 @@
    "status": "open"
   },
   {
+   "id": "BL-20260615-HEARTBEAT-ENV",
+   "opened_at": "2026-06-15T16:45:00+00:00",
+   "opened_by": "claude (VM-cutover audit + retrospective session)",
+   "source": "Live diag snapshot (issue #3720) showed ict-heartbeat.service state=failed; journalctl (#3721) gave the cause.",
+   "title": "ict-heartbeat.service dead since the Ampere cutover -> daily operator digest never sent (stale .env.live EnvironmentFile)",
+   "description": "The daily 13:00 UTC operator status digest (deploy/ict-heartbeat.service -> scripts/daily_heartbeat.py) has failed every trigger since the 2026-06-14 cutover: 'Failed to load environment files: No such file or directory'. ROOT CAUSE: ict-heartbeat.service was the ONLY unit pointing at a non-optional EnvironmentFile=.../.env.live; every sibling unit uses .env, which is the canonical live-creds file the cutover replicated. No .env.live exists on the clean candidate -> the oneshot hard-fails before daily_heartbeat.py runs. Pre-existing latent bug the clean rebuild exposed. Not money-path-critical (the per-minute liveness watchdog is a separate, healthy unit) but the operator's daily digest has been silently dark since cutover. FIX in PR #3724 (branch claude/vm-cutover-audit-retrospective-kkcj3y): point the unit at -.../.env (optional + canonical) and make daily_heartbeat.py prefer .env (with .env.live back-compat). Resolves on merge + git-sync deploy. Tier-2 (unit file).",
+   "tier": 2,
+   "status": "open"
+  },
+  {
    "id": "BL-20260615-DECOMMISSION-MICRO",
    "opened_at": "2026-06-14T16:50:00+00:00",
    "opened_by": "claude (operator-requested, for tomorrow's health log)",
    "source": "Operator: 'put that on the health log for tomorrow' (micro decommission).",
-   "title": "[FOR TOMORROW] Decommission the retired x86 micro (158.178.210.252) after soak",
-   "description": "Live-trader cutover to the Ampere candidate ict-bot-arm (141.145.193.91) completed 2026-06-14 and is fully operational. The old x86 micro 158.178.210.252 is stopped + disabled + Bybit-frozen as the rollback target. Once the candidate soaks clean (revisit tomorrow), terminate the micro via the terminate-instance workflow (confirm: yes). Separate AMD Always-Free allocation, so retiring it costs no Ampere budget. Runbook: docs/runbooks/live-vm-migration-ampere.md. Do NOT terminate until the operator confirms.",
+   "title": "Decommission the retired x86 micro (158.178.210.252) — operator-approved; terminate-instance returned not_found, needs the OCI display name (or an OCID-based terminate path)",
+   "description": "Operator approved termination 2026-06-15. Cutover to ict-bot-arm verified healthy (memory 9.5%, bybit_2 reconciling, no ErrCode 10010), so the soak is clean. ATTEMPT 2026-06-15 (issue #3725): fired terminate-instance with display_name='instance-20260414-1555' (the micro's OS hostname, recovered from its own pre-cutover systemd journal, issue #3454) -> result 'not_found'. The exact-match + single-match guard in scripts/ops/terminate_instance.py correctly refused to act, so NO instance was touched. not_found means the micro's OCI *display name* differs from its OS hostname (OCI default hostnames are instance-<date>-<time>, but a custom display name may have been set), OR the micro was already terminated. BLOCKER: cannot enumerate OCI instance display names autonomously from a web session (no read-only list-instances workflow exists on main; adding/triggering one needs a merge to main). The micro is stopped + disabled + Bybit-frozen + inert (zombie already killed, #3684) + $0 (separate AMD Always-Free allocation), so deferral is safe. RESOLUTION PATH (either): (a) operator pastes the micro's OCI-console Display Name (the stopped instance at 158.178.210.252, not ict-bot-arm/ict-trainer-vm/ict-ib-gateway) and Claude re-fires terminate-instance; or (b) add an instance_id: input to terminate-instance.yml + terminate_instance.py so the micro's OCID (captured in the cutover-live run logs) can be used directly, surviving any rename. Runbook: docs/runbooks/live-vm-migration-ampere.md.",
    "tier": 2,
    "status": "open"
   },

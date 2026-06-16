@@ -293,10 +293,27 @@ fi
 # Before this step the operator had to SSH and run `systemctl enable
 # --now ict-liveness-watchdog.timer` by hand, defeating the autonomous-
 # deploy contract this script was added for.
+#
+# Topology guard (BL-20260614-INSTALLER-GATEWAY-TIMERS): the IB-Gateway
+# timers belong ONLY on the dedicated gateway VM since the 2026-06-10
+# gateway-isolation split. Blanket `enable --now` on the trader box (where
+# they were installed by the deploy/*.timer glob) starts them probing a
+# non-existent local container / unreachable IB and spamming alerts — so the
+# Ampere cutover had to `systemctl mask` them by hand. Enable them only when
+# this host is the gateway VM, signalled by the role marker /etc/ict-vm-role
+# containing "gateway"; absent/any-other marker => trader box => skip. The
+# unit files are still copied above (inert, harmless) — only the auto-enable
+# is gated.
+_GATEWAY_ONLY_TIMERS=" ict-ib-gateway-watchdog.timer ict-ib-gateway-reset.timer "
+_VM_ROLE="$(tr -d '[:space:]' < /etc/ict-vm-role 2>/dev/null || true)"
 shopt -s nullglob
 for timer_path in deploy/*.timer; do
     timer_name=$(basename "$timer_path")
     if [[ "$timer_name" == *@* ]]; then
+        continue
+    fi
+    if [[ "$_GATEWAY_ONLY_TIMERS" == *" $timer_name "* ]] && [ "$_VM_ROLE" != "gateway" ]; then
+        echo ">>> install_systemd_units: skip enable $timer_name (gateway-only; host role='${_VM_ROLE:-unset}')"
         continue
     fi
     if "${SUDO[@]}" systemctl is-enabled "$timer_name" >/dev/null 2>&1 \

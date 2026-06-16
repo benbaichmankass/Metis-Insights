@@ -159,6 +159,16 @@ build_family trade_outcomes \
   --source "trade_journal.db" --overwrite \
   "db_path=${DB_PATH}"
 
+# conviction_meta — v2 conviction meta-model training rows (one per closed/
+# filled/non-backtest order package joined to its trade). Journal-backed; same
+# shape as trade_outcomes. Without this build line the conviction-meta-v1
+# manifest skips with empty_dataset (the dataset never gets built). Added
+# 2026-06-16 alongside the trades.order_package_id join fix.
+build_family conviction_meta \
+  --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+  --source "trade_journal.db" --overwrite \
+  "db_path=${DB_PATH}"
+
 build_family execution_quality \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
   --source "trade_journal.db" --overwrite \

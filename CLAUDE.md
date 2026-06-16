@@ -156,18 +156,21 @@ one of them at a time.
 | VM | Role | Trust contract | Default posture |
 |---|---|---|---|
 | `ict-bot-arm` (`141.145.193.91`, Ampere A1.Flex 2 OCPU / 12 GB; migrated off the x86 micro `158.178.210.252` on 2026-06-14) | **Live trader** — runs `ict-trader-live.service`, holds money-at-risk | [`docs/claude/vm-operator-mode.md`](docs/claude/vm-operator-mode.md) | **Restricted.** Tier-1 read autonomous; Tier-2 mutations need operator ack (PM-side issue → `system-actions.yml`); Tier-3 paths (live order code, risk caps, key rotation) are hard-blocked. **Account-mode flips have a sanctioned wire: `set-account-mode` operator action; code paths that flip mode outside that action are Tier-3 violations.** |
-| `ict-trainer-vm` (`VM.Standard.A1.Flex`, Ampere A1) | **Training center** — runs the ML lifecycle (datasets, training, registry, eval), no live trade authority of its own | [`docs/claude/trainer-vm-mode.md`](docs/claude/trainer-vm-mode.md) | **Autonomous.** Claude provisions, SSHes, installs, syncs read-only DB from live, runs training cycles, writes the registry up to `live_approved` stage, terminates + re-provisions — all without operator-in-the-loop. |
+| `ict-trainer-vm` (`VM.Standard.A1.Flex`, Ampere A1) | **Training center** — runs the ML lifecycle (datasets, training, registry, eval), no live trade authority of its own | [`docs/claude/trainer-vm-mode.md`](docs/claude/trainer-vm-mode.md) | **Autonomous.** Claude provisions, SSHes, installs, syncs read-only DB from live, runs training cycles, writes the registry up to `advisory` stage, terminates + re-provisions — all without operator-in-the-loop. |
 
 The separation has two gates (2026-05-19 update; see
 `docs/ARCHITECTURE-CANONICAL.md` § Change log for the
 shadow-default-flip rollout):
 
 1. **Stage gate** — autonomous-Claude on the trainer VM can write a
-   model into the registry up to `live_approved`, but only stages
-   in `{advisory, limited_live, live_approved}` ever influence the
-   order package. Models at `shadow` log predictions but never
-   change order decisions; models at `research_only` / `candidate`
-   / `backtest_approved` are refused by the shadow factory.
+   model into the registry up to `advisory`, but only the `advisory`
+   stage ever influences the order package. Models at `shadow` log
+   predictions but never change order decisions; models at `candidate`
+   are refused by the shadow factory. (Stage ladder collapsed 7→3 on
+   2026-06-16 — canonical `candidate → shadow → advisory`; the legacy
+   names `research_only`/`backtest_approved` alias to `candidate` and
+   `limited_live`/`live_approved` to `advisory` via
+   `ml.manifest.canonical_stage`, so old registry rows still resolve.)
 2. **Promotion gate** — the `shadow → advisory` transition (and
    every step beyond) is the operator-approved gate. Promoting
    past shadow is the move that turns a model from "observing" to
@@ -254,7 +257,7 @@ sessions are:
 |---|---|---|---|---|
 | `/health-review` | [`.claude/skills/health-review/SKILL.md`](.claude/skills/health-review/SKILL.md) | **Technical / pipeline / data health.** Pipeline plumbing (signal→order→trade), DB integrity + data validity, service state, alert delivery, monitor cadence, strategy silence, sprint-doc drift. Also reviews the cron health-snapshot report. Trainer **service** state only (model detail belongs to /ml-review). | [`comms/schema/health_review_response.template.json`](comms/schema/health_review_response.template.json) | [`docs/claude/health-review-backlog.json`](docs/claude/health-review-backlog.json) — **system bugs**, wiring gaps, minor doc drift. |
 | `/performance-review` | [`.claude/skills/performance-review/SKILL.md`](.claude/skills/performance-review/SKILL.md) | **Trading + strategy performance.** Per-strategy aggregates (win rate, PnL, hold times, rejection clusters), per-order-package A-F decision grading (anchored on `signal_logic`, persisted to [`comms/claude_strategy_scores.jsonl`](comms/claude_strategy_scores.jsonl)), comparison vs real closed-trade PnL, **M13 AI-analyst insights cache cross-check** (`/api/bot/insights/*`), Tier-3 tweak proposals. | [`comms/schema/performance_review_response.template.json`](comms/schema/performance_review_response.template.json) | [`docs/claude/performance-review-backlog.json`](docs/claude/performance-review-backlog.json) — **strategy follow-ups**, tweak ideas to revisit, performance puzzles. |
-| `/ml-review` | [`.claude/skills/ml-review/SKILL.md`](.claude/skills/ml-review/SKILL.md) | **ML lifecycle.** Trainer-VM service health, training cycles, dataset builds, the full registry; per-model status (latest training metric + shadow/live track record); promotion / demotion recommendations against the 7-stage ladder; forward-looking experiment proposals (new manifests, features, datasets, targets, sweeps). | [`comms/schema/ml_review_response.template.json`](comms/schema/ml_review_response.template.json) | [`docs/claude/ml-review-backlog.json`](docs/claude/ml-review-backlog.json) — **AI experiment follow-ups**, promotion-criteria notes. |
+| `/ml-review` | [`.claude/skills/ml-review/SKILL.md`](.claude/skills/ml-review/SKILL.md) | **ML lifecycle.** Trainer-VM service health, training cycles, dataset builds, the full registry; per-model status (latest training metric + shadow/live track record); promotion / demotion recommendations against the 3-stage ladder (`candidate → shadow → advisory`); forward-looking experiment proposals (new manifests, features, datasets, targets, sweeps). | [`comms/schema/ml_review_response.template.json`](comms/schema/ml_review_response.template.json) | [`docs/claude/ml-review-backlog.json`](docs/claude/ml-review-backlog.json) — **AI experiment follow-ups**, promotion-criteria notes. |
 
 For **all three:**
 

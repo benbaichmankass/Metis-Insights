@@ -14,7 +14,12 @@ Wants=network-online.target
 Type=oneshot
 User=ubuntu
 WorkingDirectory=/home/ubuntu/ict-trading-bot
-EnvironmentFile=/home/ubuntu/ict-trading-bot/.env.live
+# Canonical live env file is .env (what the trader + every sibling unit read).
+# Optional (leading '-') so a missing file never hard-fails this oneshot. The
+# legacy non-optional .env.live reference broke this unit on the Ampere
+# candidate at the 2026-06-14 cutover, which replicated only .env — the daily
+# operator digest was dead from cutover until 2026-06-15 (BL-20260615-HEARTBEAT-ENV).
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
 ExecStart=/usr/bin/python3 -u scripts/daily_heartbeat.py
 StandardOutput=journal
 StandardError=journal

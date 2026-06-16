@@ -27,13 +27,19 @@ YAML wire-up:
   `runtime_logs/shadow_predictions.jsonl` on every signal but
   **never change the order package** — that's the WS7
   non-negotiable.
-- Models at `advisory` / `limited_live` / `live_approved` are the
-  only stages that can influence the order package. Promotion
-  past `shadow` requires operator approval — that's the live-
-  trading switch.
-- Models at `research_only` / `candidate` / `backtest_approved`
-  are refused by the shadow factory entirely. These stages exist
-  as explicit operator-demotion parks, not as the default path.
+- Models at `advisory` are the only stage that can influence the
+  order package. Promotion past `shadow` requires operator approval
+  — that's the live-trading switch.
+- Models at `candidate` are refused by the shadow factory entirely.
+  This stage is the explicit operator-demotion / pre-shadow park,
+  not the default path.
+
+> **Stage ladder collapsed 7→3 (2026-06-16).** Canonical stages are
+> now `candidate → shadow → advisory`. The legacy names still resolve:
+> `research_only`/`backtest_approved → candidate` and
+> `limited_live`/`live_approved → advisory`, normalized by
+> `ml.manifest.canonical_stage` (existing registry rows / manifests
+> never strand). `advisory` is the single influence stage.
 
 A strategy can opt out of auto-wire by setting
 `shadow_model_ids: []` in its YAML; a non-empty list pins specific
@@ -102,9 +108,9 @@ operator approval. There are no tiers, no Telegram acks, no
   manifests under `ml/configs/`; benchmark predictors; spin up
   one-off Hugging Face Spaces / Hub queries.
 - **Registry:** call `python -m ml.registry register | promote_stage
-  | demote_stage` for **any** stage in the canonical ladder
-  (`research_only → candidate → backtest_approved → shadow →
-  advisory → limited_live → live_approved`). The registry's
+  | demote_stage` for **any** stage in the canonical 3-stage ladder
+  (`candidate → shadow → advisory`; the legacy 7-stage names alias
+  to these via `ml.manifest.canonical_stage`). The registry's
   append-only `StatusEvent` history is the audit trail — `--by`
   is set to `claude-trainer` and `--reason` carries the
   promotion rationale verbatim from the training summary.
@@ -123,14 +129,15 @@ artifact in the same PR / pushes the JSONL line in the same step.
   via SSH. Always uses `mode=ro` on the SQLite open. Logs the
   fetch as a JSONL row in `runtime_logs/trainer/db_pulls.jsonl`
   (path on the trainer VM, not the live VM).
-- **Promotion past `advisory`:** when promoting a model to
-  `limited_live` or `live_approved`, Claude additionally writes
+- **Promotion to `advisory`:** when promoting a model to `advisory`
+  (the single live-influence stage), Claude additionally writes
   a sprint-log entry under `docs/sprint-logs/S-AI-WS5-PROMOTION-*`
   with: model id, dataset hash, eval metrics, the decision rule
   that justified the promotion, and a "still operator-gated"
-  reminder for any promotion past `shadow` (the `shadow → advisory`
-  edge is where live influence begins, per the 2026-05-19 default
-  flip).
+  reminder (the `shadow → advisory` edge is where live influence
+  begins, per the 2026-05-19 default flip). The former
+  `limited_live` / `live_approved` tiers were collapsed into
+  `advisory` on 2026-06-16.
 - **Workflow dispatch:** when Claude fires
   `provision-training-vm`, `vm-web-api-recover`, or any other
   trainer-scoped workflow, the issue body it authors counts as
@@ -195,17 +202,15 @@ operator-approved gate where autonomy ends.
 |---|---|---|
 | Train + eval a model | Claude (trainer) | Pure trainer workload. |
 | Register at `shadow` (the default since 2026-05-19) | Claude (trainer) | Auto-wired onto every strategy via `Coordinator._get_shadow_predictors` on the next reload; predictions log but never influence the order package. |
-| Register at `research_only` / `candidate` / `backtest_approved` (only when explicitly demoted) | Claude (trainer) | Operator-park stages — refused by the shadow factory; predictions don't log. |
-| Promote `shadow → advisory` | Operator-approved (Claude proposes via PR + sprint-log entry) | **This is the live-trading switch.** `advisory` and higher stages can influence the order package. Sprint-log entry mandatory (§ 3.b). |
-| Promote `advisory → limited_live → live_approved` | Operator-approved (same flow) | Further along the live-influence ladder. |
+| Register at `candidate` (the pre-shadow park; only when explicitly demoted) | Claude (trainer) | Operator-park stage — refused by the shadow factory; predictions don't log. (Legacy `research_only`/`backtest_approved` alias to `candidate`.) |
+| Promote `shadow → advisory` | Operator-approved (Claude proposes via PR + sprint-log entry) | **This is the live-trading switch.** `advisory` is the single influence stage (the former `limited_live`/`live_approved` tiers collapsed into it 2026-06-16). Sprint-log entry mandatory (§ 3.b). |
 | (Optional) Pin or opt-out via `shadow_model_ids` in a strategy YAML | Operator (live VM) | Override the auto-wire default for a specific strategy. PR proposing the edit is fine; merging it requires operator approval per § 4. |
 | Reload the live `Coordinator` to pick up registry or YAML changes | Operator (Telegram `/vm_write` or `system-actions.yml` `restart-bot-service` / `pull-and-deploy`) | Live-VM action, Tier 2. |
 
 The boundary is the stage, not the YAML. A `shadow` model
 auto-wires onto every strategy with no manual YAML edit; a model
-at `research_only` / `candidate` / `backtest_approved` is refused
-even if pinned. Operator approval lives at the `shadow → advisory`
-transition.
+at `candidate` is refused even if pinned. Operator approval lives at
+the `shadow → advisory` transition.
 
 ---
 
