@@ -587,6 +587,95 @@ def account_has_broker_pnl_reader(account: Optional[Dict[str, Any]]) -> bool:
     return exchange_has_broker_pnl_reader(account.get("exchange"))
 
 
+# ---------------------------------------------------------------------------
+# Per-integration MANAGEMENT capability declaration (P2 of the live-trade
+# management contract — docs/audits/live-trade-management-contract-2026-06-16.md)
+# ---------------------------------------------------------------------------
+#
+# Sibling of ``BROKER_PNL_READER_EXCHANGES`` above: a declaration of which
+# post-entry / live-management operations each integration ACTUALLY implements
+# TODAY. This is the canonical answer to "can the order-monitor apply this
+# verdict op to this account's exchange?" — replacing the scattered ``== "bybit"``
+# branches with one resolver.
+#
+# Operations (the verdict-application + reconciliation primitives the monitor
+# drives while a trade is live):
+#   * ``modify``         — adjust SL/TP of an open position
+#                          (``execute.modify_open_order`` — bybit only in v1).
+#   * ``close``          — full reduce-only close
+#                          (``execute.close_open_position`` — bybit only in v1).
+#   * ``partial_close``  — partial reduce-only close (same ``close_open_position``
+#                          helper, sub-position qty — bybit only in v1).
+#   * ``order_status``   — per-order status lookup
+#                          (``account_order_status`` — ``if ex != "bybit": return None``).
+#   * ``open_positions`` — exchange-side open-positions snapshot
+#                          (``account_open_positions`` — wired for bybit + binance
+#                          + interactive_brokers; NOT alpaca/oanda).
+#
+# This map reflects CURRENT WIRED REALITY (verified against the code), NOT the
+# P3 aspiration of wiring IB/Alpaca/OANDA modify/close. When P3 adds those
+# primitives it extends BOTH the implementing code AND this map (mirroring how
+# adding a broker PnL reader extends both the dispatch and the reader set).
+#
+# **Safe default is "unsupported".** An integration absent from this map (or an
+# op absent from its set) resolves to "not supported" — so an op that hasn't
+# been wired fails honestly (``unsupported_op``) rather than misleadingly
+# (``no_client``) or by silently doing nothing. Unlike the PnL-reader set (where
+# the default — local compute — is a real universal fallback), there is NO
+# universal modify/close fallback today, so "unsupported" is the truthful
+# default until P3 wires the missing integrations.
+EXCHANGE_MANAGEMENT_CAPS: dict[str, frozenset[str]] = {
+    "bybit": frozenset(
+        {"modify", "close", "partial_close", "order_status", "open_positions"}
+    ),
+    # binance: only the open-positions snapshot is wired (account_open_positions);
+    # modify/close/order_status are NOT (execute.py rejects non-bybit; binance is
+    # not in production).
+    "binance": frozenset({"open_positions"}),
+    # interactive_brokers (ib_paper, live): account_open_positions reads IB
+    # positions, but the order-monitor has no IB modify/close primitive (only
+    # IBClient.place_protective for the naked-autoprotect bracket re-arm, which
+    # is NOT the verdict path) and account_order_status returns None for IB.
+    # Wiring IB modify/close is P3.
+    "interactive_brokers": frozenset({"open_positions"}),
+    "ib": frozenset({"open_positions"}),  # alias seen in account_open_positions
+    # alpaca / oanda: live (alpaca_paper) / dry (oanda_practice) but NO management
+    # op is wired today — not even the open-positions snapshot
+    # (account_open_positions has no alpaca/oanda branch). Wiring these is P3.
+    "alpaca": frozenset(),
+    "oanda": frozenset(),
+}
+
+_EMPTY_CAPS: frozenset[str] = frozenset()
+
+
+def exchange_management_caps(exchange: Any) -> frozenset[str]:
+    """Return the set of management ops *exchange* supports today.
+
+    Pure, never raises. Unknown / falsy exchange → empty set (the safe
+    "supports nothing" default). See :data:`EXCHANGE_MANAGEMENT_CAPS`.
+    """
+    return EXCHANGE_MANAGEMENT_CAPS.get(
+        str(exchange or "").strip().lower(), _EMPTY_CAPS
+    )
+
+
+def account_supports_management(
+    account: Optional[Dict[str, Any]], op: str
+) -> bool:
+    """True when *account*'s integration implements management op *op* today.
+
+    *account* may be the loaded account dict or the order-monitor's resolved
+    cfg dict — both carry ``exchange``. Pure, never raises; safe default is
+    ``False`` (unsupported) on a missing/unknown account or op.
+    """
+    if not isinstance(account, dict) or not op:
+        return False
+    return str(op).strip().lower() in exchange_management_caps(
+        account.get("exchange")
+    )
+
+
 def account_closed_pnl_for_trade(
     account: Dict[str, Any],
     *,
