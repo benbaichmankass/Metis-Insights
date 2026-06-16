@@ -39,26 +39,12 @@ import pytest
 def tmp_journal(tmp_path, monkeypatch):
     db_path = tmp_path / "trade_journal.db"
     monkeypatch.setenv("TRADE_JOURNAL_DB", str(db_path))
-    conn = sqlite3.connect(str(db_path))
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS trades (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT, symbol TEXT, direction TEXT, entry_price REAL,
-            exit_price REAL, stop_loss REAL,
-            take_profit_1 REAL, take_profit_2 REAL, take_profit_3 REAL,
-            position_size REAL, setup_type TEXT, killzone TEXT, bias TEXT,
-            entry_reason TEXT, exit_reason TEXT,
-            pnl REAL, pnl_percent REAL,
-            status TEXT DEFAULT 'open',
-            notes TEXT,
-            is_backtest INTEGER DEFAULT 0,
-            strategy_name TEXT,
-            account_id TEXT NOT NULL DEFAULT 'live',
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
-    conn.close()
+    # Build the CANONICAL schema (incl. closed_at + order_package_id + the
+    # order_packages table) via the production Database so this fixture can
+    # never drift from the real schema — the WC-1 close path stamps the
+    # closed_at column and cascade-closes the linked package.
+    from src.units.db.database import Database
+    Database(str(db_path))
     return db_path
 
 
@@ -85,7 +71,7 @@ def _trade_status(db_path, trade_id) -> dict:
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     row = conn.execute(
-        "SELECT status, exit_reason, notes FROM trades WHERE id = ?",
+        "SELECT status, exit_reason, notes, closed_at FROM trades WHERE id = ?",
         (trade_id,),
     ).fetchone()
     conn.close()
@@ -268,8 +254,11 @@ class TestDispatchThroughExecutePkg:
         row = _trade_status(tmp_journal, trade_id)
         assert row["status"] == "closed"
         assert row["exit_reason"] == "manual_closeall"
-        # Notes carries a closed_at timestamp.
-        assert "closed_at=" in (row.get("notes") or "")
+        # WC-1: notes is canonical JSON carrying closed_at, AND the canonical
+        # closed_at COLUMN is stamped (no more non-JSON "closed_at=<iso>" blob).
+        import json as _json
+        assert _json.loads(row["notes"])["closed_at"]
+        assert row["closed_at"]
 
     def test_failed_close_keeps_trade_open(self, tmp_journal, monkeypatch):
         from src.units.ui import processor
