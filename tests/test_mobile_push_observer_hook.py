@@ -6,8 +6,9 @@ Verifies:
   fires ``publish_event("trade_closed", {...})`` with the right payload.
 - Backtest trades do NOT fire the hook (we don't notify the operator
   about historical replays).
-- Demo trades do NOT fire (paper accounts under the same exchange's
-  demo umbrella).
+- Paper / demo trades DO fire now (the operator asked for paper
+  open/close/update notifications too); the payload carries the funding
+  class (``account_class`` / ``is_paper``) so the consumer tags them.
 - A failed publish (any exception) must NOT propagate into the close
   path. ``update_trade`` must return the rowcount unchanged.
 - Updates that don't set ``status`` (e.g. partial-fill updates) don't
@@ -130,19 +131,24 @@ def test_close_on_backtest_trade_does_not_fire(
     assert captured == []
 
 
-def test_close_on_demo_trade_does_not_fire(
+def test_close_on_demo_trade_fires_with_paper_tag(
     db: Database, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    captured: list[Any] = []
+    """Paper/demo closes now fire too — tagged via is_paper in the payload."""
+    captured: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
         "src.runtime.mobile_push.publish_event",
-        lambda *a, **kw: captured.append((a, kw)),
+        lambda kind, payload: captured.append((kind, payload)),
     )
 
     trade_id = _insert_demo_trade(db)
     db.update_trade(trade_id, {"status": "closed", "pnl": 0.5})
 
-    assert captured == []
+    assert len(captured) == 1
+    kind, payload = captured[0]
+    assert kind == "trade_closed"
+    assert payload["trade_id"] == trade_id
+    assert payload["is_paper"] is True
 
 
 def test_publish_exception_does_not_propagate(
