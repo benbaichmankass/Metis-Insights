@@ -140,6 +140,38 @@ Reference implementations:
 - `src/units/strategies/vwap.py` — VWAP mean-reversion
 - `src/units/strategies/ict_scalp.py` — sweep + displacement + FVG
 
+### 1b. Live-trade monitor — `def monitor(cfg, candles_df, open_pkg)`
+
+A strategy **owns the trade it opens**. The same module MUST expose a
+module-level `monitor(cfg, candles_df, open_pkg)` — the order-monitor
+calls it once per tick while the trade is open
+(`src/runtime/order_monitor.py::_call_strategy_monitor`) to get the
+strategy's live-management **verdict**. Without it the position runs
+blind on the static entry SL/TP backstop alone (the orphan-MHG gap), and
+the CI guard `tests/test_strategy_monitor_unit_resolution.py` fails.
+
+`monitor()` returns a **schema-valid verdict** — see the canonical schema
++ validator in `src/runtime/strategy_verdict.py` (`validate_verdict`).
+A verdict is exactly one of:
+
+- `None` — no action this tick (the common case; always valid).
+- `{"sl": <positive float>}` — move the live stop-loss to this price.
+- `{"tp": <positive float>}` — move the live take-profit to this price.
+- `{"action": "close", "reason": <str>, ...}` — close now. Optional:
+  `"close_qty_pct"` in `(0, 1]` for a partial scale-out (omitted/`1.0` =
+  full close), `"exit_price"` (positive float, the decided price), and
+  `"next_tp"` (positive float, the rolled-forward TP for the runner after
+  a partial). `sl`/`tp` adjust keys and `action` are **mutually
+  exclusive** — a verdict either adjusts or closes, never both.
+
+For the standard "trail SL to break-even after 1R" rule, delegate to
+`_base.monitor_breakeven_sl(open_pkg, candles_df, one_r_threshold=..., be_offset_bps=...)`
+(returns `{"sl": ...}` or `None`) and layer any earlier exit checks
+(SL/TP-cross close, time-decay, partial-roll) on top — the pattern in
+`trend_donchian` / `fade_breakout_4h` / `turtle_soup`. `monitor()` must
+**never raise** (the order-monitor catches and treats a raise as a blind
+tick); on bad/missing candles return `None`.
+
 ### 2. Signal builder — `src/runtime/strategy_signal_builders.py`
 
 Thin runtime wrapper that fetches candles for the strategy's
