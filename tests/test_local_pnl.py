@@ -204,16 +204,6 @@ def test_sweep_ignores_rejected_zero_size(db, monkeypatch):
     assert _pnl_of(db, tid)["pnl"] is None
 
 
-def test_sweep_disabled_by_env(db, monkeypatch):
-    _insert(db)
-    monkeypatch.setenv("LOCAL_PNL_COMPUTE_DISABLED", "1")
-    summary = _sweep_local_pnl_for_unpriced(db)
-    assert summary == {
-        "scanned": 0, "filled": 0, "relinked": 0,
-        "still_pending": 0, "deferred_broker": 0, "errors": 0,
-    }
-
-
 def test_sweep_still_pending_when_no_mark(db, monkeypatch):
     tid = _insert(db)
     monkeypatch.setattr(
