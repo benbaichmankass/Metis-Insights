@@ -219,6 +219,19 @@ done
 
 emit "$(printf '{"ts":"%s","status":"cycle_end","overall_rc":%d}' "$(iso_now)" "$overall_rc")"
 
+# --- Confidence calibrators (best-effort) ----------------------------------
+# Fit per-strategy confidence calibrators over the validated multiyear history
+# (unified-confidence design § 4a/4b) and write artifacts/calibration/{calibrators,report}.json.
+# Run AFTER training + BEFORE the post-cycle publish so the fresh calibrators
+# ride the same mirror push to the live VM (publish_trainer_mirror.sh sends
+# calibration/calibrators.json; the live observe-only conviction loader picks it
+# up read-only). Best-effort: fit_calibrators.sh always exits 0, and even a
+# dispatch failure here is non-fatal — it must NOT flip overall_rc (mirrors the
+# datasets_ok / publish best-effort style above).
+bash scripts/ops/fit_calibrators.sh >/dev/null 2>&1 \
+  && emit "$(printf '{"ts":"%s","status":"calibrators_ok"}' "$(iso_now)")" \
+  || emit "$(printf '{"ts":"%s","status":"calibrators_warn"}' "$(iso_now)")"
+
 # Mirror final state to the live VM so the dashboard reflects the
 # cycle's outcome (and any new registry rows). Non-fatal — the 2-min
 # heartbeat timer will pick it up on the next tick if this fails.
