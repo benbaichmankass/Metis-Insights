@@ -151,8 +151,42 @@ _cal_cache: dict[str, Calibrator] | None = None
 _cal_mtime: float | None = None
 
 
+def _mirrored_cal_path() -> str:
+    """The trainer-mirror calibrators path on the live VM.
+
+    Trainer-fit calibrators ride the trainer mirror (like the registry / sweeps)
+    and land under ``runtime_logs/trainer_mirror/calibration/calibrators.json``
+    on the live VM (published by ``scripts/ops/publish_trainer_mirror.sh``).
+    Resolved through the same ``runtime_logs_dir()`` helper the rest of the live
+    path uses, so it tracks ``DATA_DIR``. Best-effort: any import/resolution
+    error yields an empty string (treated as "not present" by the caller).
+    """
+    try:
+        from src.utils.paths import runtime_logs_dir
+
+        return str(runtime_logs_dir() / "trainer_mirror" / "calibration"
+                   / "calibrators.json")
+    except Exception:
+        return ""
+
+
 def _cal_path() -> str:
-    return os.environ.get("CONVICTION_CALIBRATORS_PATH") or _DEFAULT_CAL_PATH
+    """Resolve the calibrators artifact path, first existing file wins.
+
+    Order (fail-permissive — none existing → the default is returned and the
+    caller falls back to raw normalization):
+      1. ``CONVICTION_CALIBRATORS_PATH`` env override (always honored if set,
+         even when the file doesn't exist yet, so an operator pin is respected).
+      2. The mirrored live path (trainer-fit calibrators, the production source).
+      3. The legacy in-repo default ``artifacts/calibration/calibrators.json``.
+    """
+    env = os.environ.get("CONVICTION_CALIBRATORS_PATH")
+    if env:
+        return env
+    mirrored = _mirrored_cal_path()
+    if mirrored and os.path.exists(mirrored):
+        return mirrored
+    return _DEFAULT_CAL_PATH
 
 
 def load_calibrators(path: str) -> dict[str, Calibrator]:

@@ -7,6 +7,7 @@ import json
 
 import pytest
 
+import src.runtime.conviction_inputs as ci
 from ml.calibration.calibrators import PlattCalibrator
 from src.runtime.conviction_inputs import (
     INFLUENCE_STAGES,
@@ -108,6 +109,65 @@ def test_load_calibrators_roundtrip(tmp_path):
 
 def test_load_calibrators_missing_file_is_empty():
     assert load_calibrators("/nonexistent/cal.json") == {}
+
+
+# --------------------------------------------------------------------------- #
+# calibrator-path resolution order (env -> mirrored live path -> in-repo default)
+# --------------------------------------------------------------------------- #
+def test_cal_path_env_override_wins(monkeypatch, tmp_path):
+    """CONVICTION_CALIBRATORS_PATH is honored verbatim even before the file
+    exists (an operator pin is respected), ahead of the mirror + default."""
+    env_path = str(tmp_path / "operator_pin.json")
+    monkeypatch.setenv("CONVICTION_CALIBRATORS_PATH", env_path)
+    # mirror exists but must be ignored when the env override is set
+    monkeypatch.setattr(ci, "_mirrored_cal_path",
+                        lambda: str(tmp_path / "mirror.json"))
+    (tmp_path / "mirror.json").write_text("{}")
+    assert ci._cal_path() == env_path
+
+
+def test_cal_path_prefers_mirror_when_present(monkeypatch, tmp_path):
+    """With no env override and the mirrored file present, the mirror wins over
+    the in-repo default."""
+    monkeypatch.delenv("CONVICTION_CALIBRATORS_PATH", raising=False)
+    mirror = tmp_path / "mirror.json"
+    mirror.write_text("{}")
+    monkeypatch.setattr(ci, "_mirrored_cal_path", lambda: str(mirror))
+    assert ci._cal_path() == str(mirror)
+
+
+def test_cal_path_falls_back_to_default(monkeypatch):
+    """No env override and no mirrored file → the legacy in-repo default."""
+    monkeypatch.delenv("CONVICTION_CALIBRATORS_PATH", raising=False)
+    monkeypatch.setattr(ci, "_mirrored_cal_path",
+                        lambda: "/nonexistent/mirror/calibrators.json")
+    assert ci._cal_path() == ci._DEFAULT_CAL_PATH
+
+
+def test_cached_load_uses_mirror(monkeypatch, tmp_path):
+    """End-to-end: load_calibrators_cached reads the mirrored artifact when it is
+    the resolved path, still fail-permissive (a roundtrippable calibrator
+    deserializes)."""
+    mirror = tmp_path / "mirror.json"
+    mirror.write_text(json.dumps(
+        {"trend_donchian": PlattCalibrator(a=1.0, b=0.0).to_dict()}))
+    monkeypatch.delenv("CONVICTION_CALIBRATORS_PATH", raising=False)
+    monkeypatch.setattr(ci, "_mirrored_cal_path", lambda: str(mirror))
+    # reset the process cache so the mtime check re-reads
+    monkeypatch.setattr(ci, "_cal_cache", None)
+    monkeypatch.setattr(ci, "_cal_mtime", None)
+    cal = ci.load_calibrators_cached()
+    assert "trend_donchian" in cal
+
+
+def test_cached_load_missing_everywhere_is_empty(monkeypatch):
+    """No env, no mirror, no default file → {} (raw normalization)."""
+    monkeypatch.delenv("CONVICTION_CALIBRATORS_PATH", raising=False)
+    monkeypatch.setattr(ci, "_mirrored_cal_path", lambda: "")
+    monkeypatch.setattr(ci, "_DEFAULT_CAL_PATH", "/nonexistent/default.json")
+    monkeypatch.setattr(ci, "_cal_cache", None)
+    monkeypatch.setattr(ci, "_cal_mtime", None)
+    assert ci.load_calibrators_cached() == {}
 
 
 def test_never_raises_on_garbage():
