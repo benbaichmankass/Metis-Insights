@@ -17,10 +17,12 @@ Window (``?window=``):
   - ``30d`` — last 30 days.
   - ``all`` — all closed trades (default).
 
-The close-time basis mirrors ``trades_closed.py``:
-``COALESCE(op.updated_at, t.timestamp)`` (the trades table has no closed_at
-column of its own). Backtest + demo rows are excluded so the figures reflect
-live money, exactly like ``/api/bot/stats``.
+The close-time basis is the canonical ``trades.closed_at`` column (P1-B),
+falling back to ``COALESCE(t.closed_at, op.updated_at, t.timestamp)`` for rows predating
+that column / its backfill — i.e. ``COALESCE(t.closed_at, op.updated_at,
+t.timestamp)``. So ``window=24h`` is a true rolling-24h window keyed on real
+close time. Backtest + paper rows are excluded from the top-level figures so
+they reflect live money, exactly like ``/api/bot/stats``.
 
 Wire shape (camelCase):
 
@@ -134,7 +136,7 @@ def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqli
         sql = """
             SELECT t.strategy_name,
                    t.pnl AS pnl,
-                   COALESCE(op.updated_at, t.timestamp) AS closed_at
+                   COALESCE(t.closed_at, op.updated_at, t.timestamp) AS closed_at
             FROM trades t
             LEFT JOIN order_packages op ON op.linked_trade_id = t.id
             WHERE t.status = 'closed'
@@ -144,9 +146,9 @@ def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqli
         sql += _PAPER_PREDICATE if demo else _NOT_PAPER_PREDICATE
         params: List[Any] = []
         if since:
-            sql += " AND datetime(COALESCE(op.updated_at, t.timestamp)) >= datetime(?)"
+            sql += " AND datetime(COALESCE(t.closed_at, op.updated_at, t.timestamp)) >= datetime(?)"
             params.append(since)
-        sql += " ORDER BY datetime(COALESCE(op.updated_at, t.timestamp)) ASC"
+        sql += " ORDER BY datetime(COALESCE(t.closed_at, op.updated_at, t.timestamp)) ASC"
         return conn.execute(sql, params).fetchall()
     finally:
         conn.close()
