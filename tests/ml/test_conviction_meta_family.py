@@ -27,10 +27,13 @@ def _make_db(db: Path) -> None:
       (op_unlinked: order package with no linked trade -> EXCLUDED by the JOIN)
     """
     conn = sqlite3.connect(str(db))
+    # Mirror the real schema: `trades.order_package_id` is the populated
+    # back-reference; `order_packages.linked_trade_id` exists but is (almost
+    # always) NULL. The family joins on the back-reference.
     conn.execute(
         "CREATE TABLE trades ("
         "  id INTEGER PRIMARY KEY, status TEXT, is_backtest INT, "
-        "  pnl REAL, pnl_percent REAL)"
+        "  pnl REAL, pnl_percent REAL, order_package_id TEXT)"
     )
     conn.execute(
         "CREATE TABLE order_packages ("
@@ -40,13 +43,14 @@ def _make_db(db: Path) -> None:
     )
 
     trades = [
-        # id, status, is_backtest, pnl, pnl_percent
-        (1, "closed", 0, 12.5, 2.0),   # live winner
-        (2, "closed", 0, -8.0, -1.0),  # live loser
-        (3, "closed", 1, 5.0, 1.0),    # backtest -> excluded
-        (4, "open", 0, None, None),    # open -> excluded
+        # id, status, is_backtest, pnl, pnl_percent, order_package_id
+        (1, "closed", 0, 12.5, 2.0, "op_live_win"),   # live winner
+        (2, "closed", 0, -8.0, -1.0, "op_live_loss"),  # live loser
+        (3, "closed", 1, 5.0, 1.0, "op_backtest"),    # backtest -> excluded
+        (4, "open", 0, None, None, "op_open"),        # open -> excluded
+        (5, "closed", 0, 3.0, 0.5, None),             # NULL op_id -> excluded
     ]
-    conn.executemany("INSERT INTO trades VALUES (?,?,?,?,?)", trades)
+    conn.executemany("INSERT INTO trades VALUES (?,?,?,?,?,?)", trades)
 
     meta_win = json.dumps(
         {"regime": "trend", "adx_14": 27.5, "vol_regime": "volatile", "setup_type": "ob"}
@@ -61,23 +65,24 @@ def _make_db(db: Path) -> None:
         }
     )
     ops = [
-        # op_id, strat, symbol, dir, conf, signal_logic, created_at, meta, scores, tid
+        # op_id, strat, symbol, dir, conf, signal_logic, created_at, meta, scores,
+        # linked_trade_id (NULL in reality — the trade->package back-ref is the link)
         (
             "op_live_win", "trend_donchian", "BTCUSDT", "long", 0.62,
-            "{}", "2026-06-10T01:00:00Z", meta_win, scores_win, 1,
+            "{}", "2026-06-10T01:00:00Z", meta_win, scores_win, None,
         ),
         (
             "op_live_loss", "vwap", "BTCUSDT", "short", 0.30,
             json.dumps({"regime": "range"}), "2026-06-10T02:00:00Z",
-            "{}", None, 2,
+            "{}", None, None,
         ),
         (
             "op_backtest", "vwap", "BTCUSDT", "long", 0.5,
-            "{}", "2026-06-10T03:00:00Z", "{}", None, 3,
+            "{}", "2026-06-10T03:00:00Z", "{}", None, None,
         ),
         (
             "op_open", "vwap", "BTCUSDT", "long", 0.5,
-            "{}", "2026-06-10T04:00:00Z", "{}", None, 4,
+            "{}", "2026-06-10T04:00:00Z", "{}", None, None,
         ),
         (
             "op_unlinked", "vwap", "BTCUSDT", "long", 0.5,

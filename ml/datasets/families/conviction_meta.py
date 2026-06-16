@@ -11,7 +11,9 @@ plus the decision context the strategy recorded.
 ## Source-of-truth + row scope
 
 One row per **closed, filled, non-backtest** order package:
-`order_packages` JOIN `trades` ON `order_packages.linked_trade_id = trades.id`,
+`trades` JOIN `order_packages` ON `trades.order_package_id =
+order_packages.order_package_id` (the populated back-reference —
+`order_packages.linked_trade_id` is almost always NULL here),
 filtered to `trades.status = 'closed' AND trades.is_backtest = 0` with a
 non-null `trades.pnl` (an unlabelled outcome can't train a P(win) target). The
 order package is the canonical "decision" record (it carries the signal-time
@@ -190,11 +192,20 @@ class ConvictionMetaBuilder(DatasetBuilder):
                 "  t.id                  AS trade_id, "
                 "  t.pnl                 AS pnl, "
                 "  t.pnl_percent         AS pnl_percent "
-                "FROM order_packages op "
-                "JOIN trades t ON op.linked_trade_id = t.id "
+                # Join on the trade->package back-reference: in this system
+                # `trades.order_package_id` is the populated link, while
+                # `order_packages.linked_trade_id` is almost always NULL (a
+                # filled package closes via the reconciler without writing it
+                # back). Joining on linked_trade_id produced an EMPTY dataset
+                # (manifest_skipped:empty_dataset, 2026-06-16). One package can
+                # have multiple trades (per account); the closed/non-backtest/
+                # pnl filter keeps one row per filled close.
+                "FROM trades t "
+                "JOIN order_packages op ON t.order_package_id = op.order_package_id "
                 "WHERE t.status = 'closed' "
                 "  AND t.is_backtest = 0 "
-                "  AND t.pnl IS NOT NULL"
+                "  AND t.pnl IS NOT NULL "
+                "  AND t.order_package_id IS NOT NULL"
             )
             params: list[Any] = []
             if strategy_name is not None:
