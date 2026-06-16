@@ -55,10 +55,12 @@ TRADE_UPDATED = "trade_updated"
 
 
 def _telegram_enabled() -> bool:
-    return (
-        os.environ.get("TRADE_EVENT_TELEGRAM_DISABLED", "").strip().lower()
-        not in _TRUTHY
-    )
+    # allow-silent: notification side-channel kill-switch (mirrors
+    # MOBILE_PUSH_ENABLED), NOT a trading/live-dry gate — the BUG-039
+    # rule targets *_ENABLED/*_DISABLED flags that strand order-path
+    # capability; this one only mutes the per-trade Telegram line.
+    raw = os.environ.get("TRADE_EVENT_TELEGRAM_DISABLED", "")  # allow-silent: see above — comms side-channel, not a trading gate
+    return raw.strip().lower() not in _TRUTHY
 
 
 def _fmt_num(value: Any) -> str:
