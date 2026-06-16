@@ -1059,15 +1059,33 @@ def modify_open_order(
     symbol: str,
     sl: Optional[float] = None,
     tp: Optional[float] = None,
+    side: Optional[str] = None,
+    qty: Optional[float] = None,
+    cur_sl: Optional[float] = None,
+    cur_tp: Optional[float] = None,
 ) -> dict:
     """Modify SL/TP on an open position on the account's exchange.
 
-    Bybit Unified Trading: ``set_trading_stop(category=<resolved>,
-    symbol=…, stopLoss=…, takeProfit=…)`` — only valid for the
-    derivatives categories (``linear``/``inverse``). Spot accounts
-    return ``ok=False`` with a clear error and rely on the monitor
-    loop to enforce SL/TP via a market close. Binance is not yet
-    supported (only the live trader's Bybit accounts are wired).
+    Wired integrations:
+      * **bybit** — Unified Trading ``set_trading_stop(category=<resolved>,
+        symbol=…, stopLoss=…, takeProfit=…)`` — only valid for the derivatives
+        categories (``linear``/``inverse``). Spot accounts return ``ok=False``
+        and rely on the monitor's market-close exit. In-place modify: only the
+        ``sl`` / ``tp`` leg(s) actually passed are set (byte-unchanged from v1).
+      * **interactive_brokers / ib** — :meth:`IBClient.modify_protective`
+        (cancel the resting OCA legs + re-arm a fresh GTC OCA pair at the
+        MERGED levels). IB has no in-place modify, so it needs both effective
+        levels: the changed leg (``sl`` / ``tp``) merged with the current value
+        of the unchanged one (``cur_sl`` / ``cur_tp``, from the order package)
+        so re-arming never drops a leg. Needs ``side`` + ``qty`` (the
+        position's side + whole-contract size).
+      * **alpaca** — :meth:`AlpacaClient.modify_protective` (PATCH the resting
+        bracket leg's ``stop_price`` / ``limit_price`` for whichever of
+        ``sl`` / ``tp`` changed — leg-independent, so no ``cur_*`` merge).
+
+    The S2 (BL-20260616-LTMGMT-MODIFY) ``side`` / ``qty`` / ``cur_sl`` /
+    ``cur_tp`` kwargs are only consumed by the IB/Alpaca branches; the Bybit
+    branch ignores them, so its behaviour is byte-for-byte unchanged.
 
     Best-effort. Returns a result dict instead of raising so the
     caller (the monitor loop) can record the outcome on the
@@ -1117,6 +1135,78 @@ def modify_open_order(
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "modify_open_order: bybit raised for account=%s symbol=%s: %s",
+                account_cfg.get("account_id"), symbol, exc,
+            )
+            return {"ok": False, "exchange_response": None,
+                    "error": f"{type(exc).__name__}: {exc}"}
+
+    if exchange in ("interactive_brokers", "ib"):
+        # IB has no in-place SL/TP modify — re-arm the GTC OCA protective
+        # bracket at the MERGED levels (the changed leg + the current value of
+        # the unchanged one so neither stop nor target is dropped).
+        eff_sl = sl if sl is not None else cur_sl
+        eff_tp = tp if tp is not None else cur_tp
+        has_sl = eff_sl is not None and float(eff_sl) > 0
+        has_tp = eff_tp is not None and float(eff_tp) > 0
+        if not has_sl and not has_tp:
+            return {"ok": False, "exchange_response": None,
+                    "error": "no effective sl/tp to re-arm (need the changed "
+                             "leg or the current value of the unchanged one)"}
+        try:
+            from src.units.accounts.ib_client import IBClient
+            if not isinstance(exchange_client, IBClient):
+                return {"ok": False, "exchange_response": None,
+                        "error": (f"IB modify: expected IBClient, got "
+                                  f"{type(exchange_client).__name__}")}
+            resp = exchange_client.modify_protective({
+                "symbol": symbol,
+                "direction": side,
+                "qty": qty,
+                "sl": eff_sl if has_sl else None,
+                "tp": eff_tp if has_tp else None,
+            }) or {}
+            ret_code = resp.get("retCode")
+            if ret_code in (0, "0", None):
+                logger.info(
+                    "modify_open_order: account=%s symbol=%s sl=%s tp=%s "
+                    "→ IB re-arm OK",
+                    account_cfg.get("account_id"), symbol, eff_sl, eff_tp,
+                )
+                return {"ok": True, "exchange_response": resp, "error": None}
+            err = str(resp.get("retMsg") or f"retCode={ret_code}")
+            return {"ok": False, "exchange_response": resp, "error": err}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "modify_open_order: IB raised for account=%s symbol=%s: %s",
+                account_cfg.get("account_id"), symbol, exc,
+            )
+            return {"ok": False, "exchange_response": None,
+                    "error": f"{type(exc).__name__}: {exc}"}
+
+    if exchange == "alpaca":
+        # Alpaca bracket legs are independent working orders — PATCH the
+        # resting stop/limit leg for whichever of sl/tp the verdict changed.
+        # No cur_* merge: an un-touched leg stays exactly as it was.
+        try:
+            from src.units.accounts.alpaca_client import AlpacaClient
+            if not isinstance(exchange_client, AlpacaClient):
+                return {"ok": False, "exchange_response": None,
+                        "error": (f"alpaca modify: expected AlpacaClient, got "
+                                  f"{type(exchange_client).__name__}")}
+            resp = exchange_client.modify_protective(symbol, sl=sl, tp=tp) or {}
+            ret_code = resp.get("retCode")
+            if ret_code in (0, "0", None):
+                logger.info(
+                    "modify_open_order: account=%s symbol=%s sl=%s tp=%s "
+                    "→ alpaca leg replace OK",
+                    account_cfg.get("account_id"), symbol, sl, tp,
+                )
+                return {"ok": True, "exchange_response": resp, "error": None}
+            err = str(resp.get("retMsg") or f"retCode={ret_code}")
+            return {"ok": False, "exchange_response": resp, "error": err}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "modify_open_order: alpaca raised for account=%s symbol=%s: %s",
                 account_cfg.get("account_id"), symbol, exc,
             )
             return {"ok": False, "exchange_response": None,

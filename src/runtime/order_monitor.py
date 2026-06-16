@@ -935,10 +935,26 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         summary.errors.append(f"{pkg_id}: modify-path missing trade row")
         return
 
+    # S2 (BL-20260616-LTMGMT-MODIFY): forward the position side + size and the
+    # package's CURRENT sl/tp so the IB/Alpaca re-arm path can rebuild the
+    # protective bracket without dropping the leg the verdict didn't change.
+    # Bybit ignores these (byte-unchanged). ``open_pkg`` carries the active
+    # sl/tp this modify is about to overwrite — exactly the "unchanged leg"
+    # fallback the IB OCA re-arm needs.
+    def _coerce_float(value: Any) -> Optional[float]:
+        try:
+            return float(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
+
     ex_result = _send_modify_to_exchange(
         matched_trade,
         sl=updates.get("sl"),
         tp=updates.get("tp"),
+        side=matched_trade.get("direction"),
+        qty=_coerce_float(matched_trade.get("position_size")),
+        cur_sl=_coerce_float(open_pkg.get("sl")),
+        cur_tp=_coerce_float(open_pkg.get("tp")),
     )
     logger.info(
         "order_monitor: exchange modify for pkg=%s account=%s → %s",
@@ -1330,7 +1346,11 @@ def _capture_fill_details(
 
 def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
                              sl: Optional[float] = None,
-                             tp: Optional[float] = None) -> Dict[str, Any]:
+                             tp: Optional[float] = None,
+                             side: Optional[str] = None,
+                             qty: Optional[float] = None,
+                             cur_sl: Optional[float] = None,
+                             cur_tp: Optional[float] = None) -> Dict[str, Any]:
     """Send a SL/TP modify to the exchange for the matched trade row.
 
     Dry-run short-circuit (2026-05-18): when the resolved cfg has
@@ -1339,6 +1359,13 @@ def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
     ``modify_open_order``. Mirrors ``_send_close_to_exchange`` so the
     exchange-first modify flow in ``_apply_update`` writes the DB
     exactly as a live success would on paper accounts.
+
+    ``sl`` / ``tp`` are the verdict deltas (what changed). ``side`` / ``qty``
+    (the position's side + size) and ``cur_sl`` / ``cur_tp`` (the order
+    package's current levels) are forwarded for the IB/Alpaca re-arm path
+    (S2, BL-20260616-LTMGMT-MODIFY) — IB needs both effective levels to
+    re-arm its OCA bracket without dropping a leg. The Bybit branch of
+    ``modify_open_order`` ignores them, so its path stays byte-unchanged.
     """
     try:
         from src.units.accounts.execute import modify_open_order
@@ -1346,10 +1373,10 @@ def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
         client, cfg = _build_account_client(matched_trade.get("account_id"))
         # P2 management-capability gate (see _send_close_to_exchange): honest
         # ``unsupported_op`` instead of ``no_client`` for integrations without a
-        # wired SL/TP modify. This is what was error-looping ``no_client`` every
-        # tick for IB-live trailing-stop modifies (MGC #2597). Bybit supports
-        # modify → its path below is byte-for-byte unchanged. Wiring IB/Alpaca/
-        # OANDA modify is P3.
+        # wired SL/TP modify. Bybit supports modify → its path below is
+        # byte-for-byte unchanged. S2 wired IB + Alpaca modify (this is what was
+        # error-looping ``no_client`` every tick for IB-live trailing-stop
+        # modifies, MGC #2597); OANDA modify is still unwired.
         if not account_supports_management(cfg, "modify"):
             return {"ok": False, "error": "unsupported_op:modify",
                     "integration": (cfg or {}).get("exchange")}
@@ -1366,6 +1393,7 @@ def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
             client, cfg,
             symbol=matched_trade.get("symbol"),
             sl=sl, tp=tp,
+            side=side, qty=qty, cur_sl=cur_sl, cur_tp=cur_tp,
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("order_monitor: exchange modify failed: %s", exc)

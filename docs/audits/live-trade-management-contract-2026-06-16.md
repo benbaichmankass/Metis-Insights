@@ -174,6 +174,16 @@ proving the Bybit path is unchanged before it reaches the VM:
    higher-value safety, entry bracket already holds a static stop), then
    trailing-SL **modify** as a follow-up within P3. (Default unless the operator
    says otherwise; not blocking P1/P2.)
+   - **DONE — close** (#3792, P3) + **modify** (S2, BL-20260616-LTMGMT-MODIFY):
+     IB `modify` re-arms the GTC OCA bracket at the merged SL/TP via
+     `IBClient.modify_protective` → `place_protective` (cancel old + place new,
+     preserving the unchanged leg from the order package); Alpaca `modify`
+     PATCHes the resting bracket legs (`stop_price` / `limit_price`) for
+     whichever of SL/TP changed. Both wired through `execute.modify_open_order`
+     + declared in `EXCHANGE_MANAGEMENT_CAPS`; baseline-ON, no kill-switch;
+     Bybit `set_trading_stop` path byte-unchanged. The MGC trailing-SL ratchet
+     (the `mgc_pullback_1d` monitor on the live `ib_paper` long) now reaches
+     IBKR instead of `unsupported_op:modify`-looping every tick.
 3. **RESOLVED (clarified 2026-06-16)** — reconciliation is **one uniform
    position-snapshot baseline for every integration including Bybit**; there is
    no per-broker default. Order-status is an optional *declared capability*

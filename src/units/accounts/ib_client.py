@@ -771,6 +771,57 @@ class IBClient:
             "retMsg": "OK",
         }
 
+    def modify_protective(self, order: Dict[str, Any]) -> Dict[str, Any]:
+        """Re-arm the GTC OCA protective bracket at new SL/TP levels.
+
+        S2 of the live-trade management contract (BL-20260616-LTMGMT-MODIFY) —
+        the IB analogue of Bybit's in-place ``set_trading_stop``. IB working
+        orders can't be price-patched through this stateless client (no
+        cross-tick order references survive a fresh monitor build), so a SL/TP
+        modify is a **re-arm**: cancel the resting protective legs for *symbol*,
+        then place a fresh OCA pair at the supplied levels via
+        :meth:`place_protective`. The caller (``execute.modify_open_order``)
+        supplies BOTH the changed leg and the current value of the unchanged
+        one (merged from the order package) so neither stop nor target is
+        dropped — re-arming only the changed leg would leave the position half
+        protected. Reusing ``place_protective`` keeps the leg shape (GTC OCA,
+        reverse side, whole-contract qty, transmit-on-last) byte-identical to
+        the naked-autoprotect / entry path.
+
+        ``order`` keys mirror :meth:`place_protective`: ``symbol``,
+        ``direction`` (the **position's** side), ``qty`` (whole contracts),
+        ``sl``, ``tp``. Return envelope mirrors :meth:`place` /
+        :meth:`place_protective`: ``{"retCode": 0, "result": {"orderId": ...}}``
+        on success, ``{"retCode": <non-zero>, "retMsg": ...}`` on refusal.
+        Bounded + best-effort — never raises; a connect / cancel failure
+        returns ``retCode != 0`` so the monitor leaves the DB row + the
+        existing (un-cancelled) bracket in place and the strategy re-emits the
+        verdict next tick.
+        """
+        if self.readonly:
+            return {
+                "retCode": 1,
+                "retMsg": "IBClient.modify_protective: client is read-only — "
+                          "refusing to transmit a modify.",
+            }
+        sym = str(order.get("symbol") or self.symbol or "").upper()
+        try:
+            ib = self.connect()
+        except IBConnectionError as exc:
+            return {"retCode": 1, "retMsg": f"IB connect failed: {exc}"}
+        except Exception as exc:  # noqa: BLE001
+            return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
+        # Cancel the resting protective legs for the symbol, then re-place a
+        # fresh OCA pair at the new levels. There is a brief re-arm window
+        # between the cancel and the new legs landing — the same window the
+        # naked-autoprotect / close paths already accept — bounded by the
+        # strategy re-emitting next tick if placement fails.
+        try:
+            self._cancel_resting_orders_for_symbol(ib, sym)
+        except Exception as exc:  # noqa: BLE001
+            return {"retCode": 1, "retMsg": f"cancel-resting failed: {exc}"}
+        return self.place_protective({**order, "symbol": sym})
+
     def close(
         self,
         symbol: Optional[str],

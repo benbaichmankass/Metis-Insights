@@ -287,7 +287,7 @@ class TestExchangeDispatch:
         _seed(tmp_db)
 
         captured = []
-        def _stub_modify(matched, *, sl=None, tp=None):
+        def _stub_modify(matched, *, sl=None, tp=None, **kwargs):
             captured.append({"trade": matched, "sl": sl, "tp": tp})
             return {"ok": True}
 
@@ -363,7 +363,7 @@ class TestExchangeDispatch:
 
         call_order: list[str] = []
 
-        def _stub_modify(matched, *, sl=None, tp=None):
+        def _stub_modify(matched, *, sl=None, tp=None, **kwargs):
             # Capture the DB state visible to the exchange caller — if
             # exchange-first ordering holds, the DB row's sl/tp are
             # still the seed values (98.0 / 104.0).
