@@ -50,6 +50,43 @@ class RestrictionRules:
 
 
 @dataclass
+class PayoutRules:
+    """Firm-side funded-withdrawal rules (``economics.payout``)."""
+
+    first_payout_after_days: float = 14.0
+    payout_frequency_days: float = 7.0
+    min_withdrawal_usd: float = 0.0
+    min_trading_days_before_payout: int = 0
+    processing_hours: float = 24.0
+
+
+@dataclass
+class WithdrawalPolicy:
+    """OUR banking policy (``economics.withdrawal_policy``) — not a firm rule.
+
+    The default (``bank_asap``) withdraws all equity above the starting balance
+    at every allowed window: realised payouts are safe, and the static off-start
+    drawdown floor is never raised on payout, so retained profit only adds
+    breach exposure for zero upside.
+    """
+
+    mode: str = "above_start"
+    buffer_usd: float = 0.0
+    bank_asap: bool = True
+    cadence_days: float = 7.0
+
+
+@dataclass
+class Economics:
+    """Account economics for the cost-aware EV evaluation (``economics``)."""
+
+    account_fee_usd: float = 0.0
+    rebuy_fee_usd: float = 0.0
+    payout: PayoutRules = field(default_factory=PayoutRules)
+    withdrawal_policy: WithdrawalPolicy = field(default_factory=WithdrawalPolicy)
+
+
+@dataclass
 class PropRuleset:
     """A fully-parsed prop-firm ruleset.
 
@@ -69,6 +106,7 @@ class PropRuleset:
     consistency: ConsistencyRules = field(default_factory=ConsistencyRules)
     restrictions: RestrictionRules = field(default_factory=RestrictionRules)
     funded_soak_days: int = 30
+    economics: Economics = field(default_factory=Economics)
     raw: Dict[str, Any] = field(default_factory=dict)
 
     # -- convenience accessors --------------------------------------------
@@ -108,6 +146,22 @@ class PropRuleset:
                 "overnight_flat": self.restrictions.overnight_flat,
             },
             "funded_soak_days": self.funded_soak_days,
+            "economics": {
+                "account_fee_usd": self.economics.account_fee_usd,
+                "rebuy_fee_usd": self.economics.rebuy_fee_usd,
+                "payout": {
+                    "first_payout_after_days": self.economics.payout.first_payout_after_days,
+                    "payout_frequency_days": self.economics.payout.payout_frequency_days,
+                    "min_withdrawal_usd": self.economics.payout.min_withdrawal_usd,
+                    "min_trading_days_before_payout": self.economics.payout.min_trading_days_before_payout,
+                },
+                "withdrawal_policy": {
+                    "mode": self.economics.withdrawal_policy.mode,
+                    "buffer_usd": self.economics.withdrawal_policy.buffer_usd,
+                    "bank_asap": self.economics.withdrawal_policy.bank_asap,
+                    "cadence_days": self.economics.withdrawal_policy.cadence_days,
+                },
+            },
         }
 
 
@@ -199,6 +253,26 @@ def parse_ruleset(data: Dict[str, Any]) -> PropRuleset:
         overnight_flat=bool(restr_block.get("overnight_flat", False)),
     )
 
+    econ_block = data.get("economics") or {}
+    payout_block = (econ_block.get("payout") or {}) if isinstance(econ_block, dict) else {}
+    wd_block = (econ_block.get("withdrawal_policy") or {}) if isinstance(econ_block, dict) else {}
+    economics = Economics(
+        account_fee_usd=_as_float(econ_block.get("account_fee_usd", 0.0), "economics.account_fee_usd") or 0.0,
+        rebuy_fee_usd=_as_float(econ_block.get("rebuy_fee_usd", 0.0), "economics.rebuy_fee_usd") or 0.0,
+        payout=PayoutRules(
+            first_payout_after_days=_as_float(payout_block.get("first_payout_after_days", 14.0), "economics.payout.first_payout_after_days") or 0.0,
+            payout_frequency_days=_as_float(payout_block.get("payout_frequency_days", 7.0), "economics.payout.payout_frequency_days") or 7.0,
+            min_withdrawal_usd=_as_float(payout_block.get("min_withdrawal_usd", 0.0), "economics.payout.min_withdrawal_usd") or 0.0,
+            min_trading_days_before_payout=_as_int(payout_block.get("min_trading_days_before_payout", 0), "economics.payout.min_trading_days_before_payout"),
+        ),
+        withdrawal_policy=WithdrawalPolicy(
+            mode=str(wd_block.get("mode", "above_start")),
+            buffer_usd=_as_float(wd_block.get("buffer_usd", 0.0), "economics.withdrawal_policy.buffer_usd") or 0.0,
+            bank_asap=bool(wd_block.get("bank_asap", True)),
+            cadence_days=_as_float(wd_block.get("cadence_days", 7.0), "economics.withdrawal_policy.cadence_days") or 7.0,
+        ),
+    )
+
     return PropRuleset(
         ruleset=name,
         plan=str(data.get("plan", "")),
@@ -211,6 +285,7 @@ def parse_ruleset(data: Dict[str, Any]) -> PropRuleset:
         consistency=consistency,
         restrictions=restrictions,
         funded_soak_days=_as_int(data.get("funded_soak_days", 30), "funded_soak_days", default=30),
+        economics=economics,
         raw=dict(data),
     )
 

@@ -31,7 +31,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 import scripts.backtest_system as bt  # noqa: E402
-from src.prop.montecarlo import run_montecarlo  # noqa: E402
+from src.prop.montecarlo import run_ev_montecarlo, run_montecarlo  # noqa: E402
 from src.prop.ruleset import PropRuleset, load_ruleset  # noqa: E402
 
 # Combos to evaluate (design §6 roster). The pair the single-path eval flagged
@@ -115,6 +115,19 @@ def _run_one_combo(
         )
         cells.append(agg)
 
+    ev_cells: List[Dict[str, Any]] = []
+    if getattr(args, "cost_aware", False):
+        for rp in args.risk_pct_grid:
+            print(f"[mc]   EV risk_pct={rp} (cost-aware, {len(ledger)} ledger trades)",
+                  file=sys.stderr)
+            ev_cells.append(run_ev_montecarlo(
+                ledger, ruleset,
+                risk_pct=rp, base_risk_pct=args.base_risk_pct,
+                account_size=args.initial_balance,
+                n_paths=args.n_paths, block_len=args.block_len,
+                horizons_months=args.horizons, seed=args.seed,
+            ))
+
     return {
         "combo": roster_str,
         "n_ledger_trades": len(ledger),
@@ -126,6 +139,7 @@ def _run_one_combo(
             "win_rate_pct": summary.get("win_rate_pct"),
         },
         "cells": cells,
+        "ev_cells": ev_cells,
     }
 
 
@@ -209,6 +223,64 @@ def _render_markdown(
     return "\n".join(L)
 
 
+def _render_ev_markdown(
+    results: List[Dict[str, Any]],
+    *,
+    ruleset: PropRuleset,
+    args: argparse.Namespace,
+    data_window: Dict[str, Any],
+    generated_at: str,
+) -> str:
+    econ = ruleset.economics
+    L: List[str] = []
+    L.append("# Prop-firm Monte-Carlo — COST-AWARE EV sweep")
+    L.append("")
+    L.append(f"_Generated {generated_at}_")
+    L.append("")
+    L.append("> **Objective: expected $ netted per horizon, NET of fees, re-buying "
+             "a fresh account on each breach.** This credits a strategy that burns "
+             "an account fast but banks more than its fee in payouts first. Ranks by "
+             "EV ($), not by survival.")
+    L.append("")
+    L.append(f"**Economics:** account fee ${econ.account_fee_usd:.0f}, re-buy "
+             f"${econ.rebuy_fee_usd:.0f}, profit split {ruleset.profit_split*100:.0f}%, "
+             f"withdrawal = BANK-ASAP (all equity above start + ${econ.withdrawal_policy.buffer_usd:.0f} "
+             f"buffer; first payout day {econ.payout.first_payout_after_days:g}, then every "
+             f"{econ.payout.payout_frequency_days:g}d, ${econ.payout.min_withdrawal_usd:.0f} min).")
+    L.append("")
+    L.append(f"**Data:** {data_window.get('data_start')} → {data_window.get('data_end')} "
+             f"(clock_tf {args.clock_tf}, flip_policy {args.flip_policy}). "
+             f"{args.n_paths} paths, block_len {args.block_len}, seed {args.seed}.")
+    L.append("")
+    L.append("> Same realised-only caveat as the survival sheet: a per-trade "
+             "bootstrap has no intraday equity swing, so breaches (and thus fee "
+             "churn) are UNDER-counted → EV here is, if anything, optimistic.")
+    L.append("")
+    for m in args.horizons:
+        L.append(f"## {int(m)}-month horizon")
+        L.append("")
+        L.append("| combo | risk | mean net $ | median | p5 | p95 | P(net>0) | "
+                 "accts | fees $ | ROI/fees |")
+        L.append("|" + "---|" * 10)
+        rows = []
+        for res in results:
+            for ev in res.get("ev_cells", []):
+                h = ev.get("horizons", {}).get(str(float(m)))
+                if not h:
+                    continue
+                rows.append((h["mean_net_usd"], res["combo"], ev["risk_pct"], h))
+        for mean_net, combo, rp, h in sorted(rows, key=lambda r: r[0], reverse=True):
+            roi = _fmt(h["roi_on_fees"]) if h["roi_on_fees"] is not None else "—"
+            L.append(
+                f"| {combo} | {rp} | ${h['mean_net_usd']:,.0f} | "
+                f"${_fmt(h['median_net_usd'])} | ${_fmt(h['p5_net_usd'])} | "
+                f"${_fmt(h['p95_net_usd'])} | {h['p_profitable']*100:.0f}% | "
+                f"{_fmt(h['mean_accounts'])} | ${h['mean_fees_usd']:,.0f} | {roi} |"
+            )
+        L.append("")
+    return "\n".join(L)
+
+
 def run(args: argparse.Namespace) -> int:
     ruleset = load_ruleset(args.ruleset)
     rosters = _parse_combos(args.combos)
@@ -271,6 +343,18 @@ def run(args: argparse.Namespace) -> int:
 
     print(md)
     print(f"\nwrote {out_dir / 'montecarlo.md'} + montecarlo.json", file=sys.stderr)
+
+    if getattr(args, "cost_aware", False):
+        ev_md = _render_ev_markdown(results, ruleset=ruleset, args=args,
+                                    data_window=data_window, generated_at=generated_at)
+        (out_dir / "ev.md").write_text(ev_md)
+        (out_dir / "ev.json").write_text(json.dumps(
+            {"generated_at": generated_at, "ruleset": ruleset.to_dict(),
+             "params": payload["params"], "data_window": data_window,
+             "ev": [{"combo": r["combo"], "ev_cells": r.get("ev_cells", [])} for r in results]},
+            indent=2, default=str))
+        print(ev_md)
+        print(f"\nwrote {out_dir / 'ev.md'} + ev.json", file=sys.stderr)
     return 0
 
 
@@ -301,6 +385,9 @@ def main(argv: List[str]) -> int:
                    help="Comma list of survival horizons in months.")
     p.add_argument("--seed", type=int, default=1234)
     p.add_argument("--out-dir", default=None)
+    p.add_argument("--cost-aware", action="store_true",
+                   help="Also run the cost-aware EV sweep (expected $ net of fees, "
+                        "re-buying on breach; writes ev.{md,json}).")
     args = p.parse_args(argv[1:])
 
     args.risk_pct_grid = [float(x) for x in str(args.risk_pct_grid).split(",") if x.strip()]

@@ -448,3 +448,250 @@ def run_montecarlo(
             "median": round(float(median(end_returns)), 4) if end_returns else None,
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# Cost-aware EV (expected $ netted per horizon, net of fees, re-buying on breach)
+# ---------------------------------------------------------------------------
+@dataclass
+class EvPathResult:
+    """One EV path: realised payouts net of fees, snapshotted per horizon.
+
+    ``net_by_h`` maps a horizon (months) → (banked × profit_split − fees) at
+    that point in synthetic time. ``banked`` is the gross trader-share withdrawn
+    over the whole walk; ``fees`` the total spent on the first account + every
+    re-buy after a breach.
+    """
+
+    net_by_h: Dict[float, float]
+    banked: float
+    fees: float
+    n_accounts: int
+    n_pass: int
+    n_breach: int
+
+
+def _simulate_ev_path(
+    r_seq: Sequence[LedgerTrade],
+    idx: np.ndarray,
+    *,
+    account_size: float,
+    risk_pct: float,
+    target_pct: float,
+    daily_loss_pct: Optional[float],
+    static_dd_pct: Optional[float],
+    horizons_months: Sequence[float],
+    account_fee: float,
+    rebuy_fee: float,
+    profit_split: float,
+    first_payout_after_days: float,
+    payout_frequency_days: float,
+    min_withdrawal_usd: float,
+    buffer_usd: float,
+) -> EvPathResult:
+    """Walk one path as a RENEWABLE account: buy → (pass → bank-ASAP) → breach
+    → re-buy, over the longest horizon, snapshotting net-$ at each horizon.
+
+    The synthetic clock advances per-trade exactly as in :func:`_simulate_path`,
+    so re-buys consume the same calendar; an account that breaches fast simply
+    yields more accounts (more fees) in the same window. Withdrawals bank
+    ``profit_split`` of all equity above ``account_size + buffer_usd`` at every
+    allowed payout window (default: weekly from day ``first_payout_after_days``
+    post-funding) and reset the in-account balance to that floor — so banked cash
+    is safe but the static-DD cushion is never widened by retained profit.
+    """
+    risk_frac = risk_pct / 100.0
+    target_balance = account_size * (1.0 + target_pct)
+    static_floor = (
+        account_size * (1.0 - static_dd_pct) if static_dd_pct is not None else None
+    )
+    withdraw_above = account_size + max(0.0, buffer_usd)
+    horizon_days = sorted({float(m) * _DAYS_PER_MONTH for m in horizons_months})
+    max_h = horizon_days[-1] if horizon_days else 0.0
+
+    banked = 0.0
+    fees = 0.0
+    n_accounts = 0
+    n_pass = 0
+    n_breach = 0
+
+    # per-account state
+    balance = account_size
+    passed = False
+    next_payout_day: Optional[float] = None
+    day_start_balance = account_size
+    cur_day = 0
+
+    def _open_account(is_first: bool) -> None:
+        nonlocal balance, passed, next_payout_day, day_start_balance, cur_day, fees, n_accounts
+        balance = account_size
+        passed = False
+        next_payout_day = None
+        day_start_balance = account_size
+        cur_day = int(elapsed_days)
+        fees += account_fee if is_first else rebuy_fee
+        n_accounts += 1
+
+    elapsed_days = 0.0
+    _open_account(True)
+
+    snaps: Dict[float, float] = {}
+    hi = 0
+    n_seq = len(r_seq)
+
+    for k, ix in enumerate(idx):
+        if elapsed_days >= max_h:
+            break
+        trade = r_seq[int(ix) % n_seq] if n_seq else None
+        if trade is None:
+            break
+
+        elapsed_days += trade.gap_seconds / _SECONDS_PER_DAY
+        # snapshot net for any horizon we've now crossed
+        while hi < len(horizon_days) and elapsed_days >= horizon_days[hi]:
+            snaps[horizon_days[hi]] = banked - fees
+            hi += 1
+        if elapsed_days >= max_h:
+            break
+
+        new_day = int(elapsed_days)
+        if new_day != cur_day:
+            cur_day = new_day
+            day_start_balance = balance
+
+        balance += trade.r_multiple * (balance * risk_frac)
+
+        if not passed and balance >= target_balance:
+            passed = True
+            n_pass += 1
+            next_payout_day = elapsed_days + first_payout_after_days
+
+        # bank-ASAP withdrawal at each allowed window
+        if passed and next_payout_day is not None and elapsed_days >= next_payout_day:
+            withdrawable = balance - withdraw_above
+            if withdrawable >= max(0.0, min_withdrawal_usd):
+                banked += withdrawable * profit_split
+                balance -= withdrawable          # bank everything above the floor
+                day_start_balance = balance       # a withdrawal is not a trading loss
+            # advance to the next window (skip any windows the gap jumped over)
+            step = payout_frequency_days if payout_frequency_days > 0 else 7.0
+            while next_payout_day <= elapsed_days:
+                next_payout_day += step
+
+        breached = False
+        if static_floor is not None and balance <= static_floor + 1e-9:
+            breached = True
+        elif (
+            daily_loss_pct is not None
+            and day_start_balance > 0
+            and (day_start_balance - balance) / day_start_balance > daily_loss_pct + 1e-12
+        ):
+            breached = True
+
+        if breached:
+            n_breach += 1
+            if elapsed_days < max_h:
+                _open_account(False)   # re-buy and keep trading the remaining time
+
+    while hi < len(horizon_days):
+        snaps[horizon_days[hi]] = banked - fees
+        hi += 1
+
+    net_by_h = {float(m): snaps.get(float(m) * _DAYS_PER_MONTH, banked - fees)
+                for m in horizons_months}
+    return EvPathResult(
+        net_by_h=net_by_h, banked=banked, fees=fees,
+        n_accounts=n_accounts, n_pass=n_pass, n_breach=n_breach,
+    )
+
+
+def run_ev_montecarlo(
+    closed_trades: Sequence[Any],
+    ruleset: PropRuleset,
+    *,
+    risk_pct: float,
+    base_risk_pct: float,
+    account_size: Optional[float] = None,
+    n_paths: int = 5000,
+    block_len: int = 8,
+    horizons_months: Sequence[float] = (3.0, 6.0, 12.0),
+    seed: int = 1234,
+    path_trades: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Cost-aware EV sweep for one combo+sizing.
+
+    Reuses the same block-bootstrap of the real ledger as :func:`run_montecarlo`,
+    but each path is walked as a **renewable account** (buy → pass → bank-ASAP →
+    breach → re-buy) so the headline is **expected dollars netted per horizon,
+    net of fees** — the metric that credits a strategy which burns an account
+    fast but banks more than its fee first. Returns, per horizon: mean / median /
+    p5 / p95 net-$, P(net > 0), and mean accounts-burned / fees / ROI-on-fees.
+
+    Economics (fees, payout cadence, withdrawal policy) come from
+    ``ruleset.economics``; ``profit_split`` from ``ruleset.profit_split``.
+    """
+    acct = float(account_size) if account_size is not None else float(ruleset.account_size_usd)
+    target_pct = ruleset.evaluation.profit_target_pct or 0.0
+    daily_loss_pct = ruleset.limits.daily_loss_pct
+    static_dd_pct = (
+        ruleset.limits.max_drawdown_pct if ruleset.limits.drawdown_type == "static" else None
+    )
+    econ = ruleset.economics
+
+    r_seq = ledger_to_r_sequence(closed_trades, initial_balance=acct, base_risk_pct=base_risk_pct)
+    n_trades = len(r_seq)
+    base = {
+        "risk_pct": risk_pct, "base_risk_pct": base_risk_pct, "n_paths": n_paths,
+        "n_ledger_trades": n_trades, "account_size": acct,
+        "profit_split": ruleset.profit_split,
+        "account_fee_usd": econ.account_fee_usd, "rebuy_fee_usd": econ.rebuy_fee_usd,
+    }
+    if n_trades == 0:
+        return {**base, "error": "empty_ledger", "horizons": {}}
+
+    if path_trades is None:
+        max_h_days = max(float(m) * _DAYS_PER_MONTH for m in horizons_months)
+        gaps = [t.gap_seconds for t in r_seq if t.gap_seconds > 0]
+        med_gap_days = (median(gaps) / _SECONDS_PER_DAY) if gaps else 1.0
+        if med_gap_days <= 0:
+            med_gap_days = 1.0
+        need = int((max_h_days / med_gap_days) * 1.5) + block_len
+        path_trades = max(50, min(need, 40_000))
+
+    rng = np.random.default_rng(seed)
+    results: List[EvPathResult] = []
+    for _ in range(n_paths):
+        idx = _bootstrap_indices(n_trades, path_trades, block_len, rng)
+        results.append(_simulate_ev_path(
+            r_seq, idx,
+            account_size=acct, risk_pct=risk_pct, target_pct=target_pct,
+            daily_loss_pct=daily_loss_pct, static_dd_pct=static_dd_pct,
+            horizons_months=horizons_months,
+            account_fee=econ.account_fee_usd, rebuy_fee=econ.rebuy_fee_usd,
+            profit_split=ruleset.profit_split,
+            first_payout_after_days=econ.payout.first_payout_after_days,
+            payout_frequency_days=econ.payout.payout_frequency_days,
+            min_withdrawal_usd=econ.payout.min_withdrawal_usd,
+            buffer_usd=econ.withdrawal_policy.buffer_usd,
+        ))
+
+    n = len(results)
+    horizons_out: Dict[str, Any] = {}
+    for m in horizons_months:
+        nets = [r.net_by_h.get(float(m), 0.0) for r in results]
+        fees = [r.fees for r in results]
+        accts = [r.n_accounts for r in results]
+        mean_net = float(np.mean(nets)) if nets else 0.0
+        mean_fees = float(np.mean(fees)) if fees else 0.0
+        horizons_out[str(float(m))] = {
+            "mean_net_usd": round(mean_net, 2),
+            "median_net_usd": round(float(median(nets)), 2) if nets else None,
+            "p5_net_usd": round(_pctile(nets, 5), 2) if nets else None,
+            "p95_net_usd": round(_pctile(nets, 95), 2) if nets else None,
+            "p_profitable": round(sum(1 for x in nets if x > 0) / n, 4) if n else 0.0,
+            "mean_accounts": round(float(np.mean(accts)), 2) if accts else None,
+            "mean_fees_usd": round(mean_fees, 2),
+            "roi_on_fees": round(mean_net / mean_fees, 3) if mean_fees > 0 else None,
+        }
+
+    return {**base, "path_trades": path_trades, "block_len": block_len, "horizons": horizons_out}
