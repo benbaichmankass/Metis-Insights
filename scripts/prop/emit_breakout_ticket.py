@@ -46,6 +46,11 @@ def main(argv: list[str]) -> int:
     p = argparse.ArgumentParser(description="Render a Breakout trade-setup ticket (POC).")
     p.add_argument("--demo", action="store_true", help="Render a sample signal.")
     p.add_argument("--risk-pct", type=float, default=None)
+    p.add_argument("--send", action="store_true",
+                   help="Also FAN OUT the ticket as a prop_signal FCM push + a "
+                        "Telegram message (needs FCM creds + TELEGRAM_* env + "
+                        "registered devices — i.e. run on the live VM). Renders "
+                        "regardless; --send adds the notification.")
     args = p.parse_args(argv)
 
     if not args.demo:
@@ -64,6 +69,12 @@ def main(argv: list[str]) -> int:
     )
     ticket = build_ticket(sample, cfg)
     print(render_ticket(ticket))
+
+    if args.send:
+        from src.prop.breakout_notify import emit_prop_signal
+
+        res = emit_prop_signal(ticket)
+        print(f"\n[send] prop_signal push={res['push']} telegram={res['telegram']}")
     return 0
 
 
