@@ -69,6 +69,9 @@ def _register_models(tmp_path: Path, model_ids: list[str]) -> Path:
                 }
             )
         )
+        # Default registration lands at `shadow` (2026-05-19 default), which
+        # is exactly the stage these tests need. Post 3-stage collapse
+        # (2026-06-16) there are no intermediate pre-shadow hops to walk.
         registry.register(
             model_id=mid,
             manifest={"manifest_version": "v1"},
@@ -76,8 +79,6 @@ def _register_models(tmp_path: Path, model_ids: list[str]) -> Path:
             metrics={"mae": 0.1},
             code_revision="x",
         )
-        for step in ["candidate", "backtest_approved", "shadow"]:
-            registry.promote_stage(mid, step, by="op", reason="test")
     return registry_root
 
 

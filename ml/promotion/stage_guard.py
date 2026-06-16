@@ -23,6 +23,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from ..manifest import canonical_stage
 from ..registry.model_registry import ModelRegistry
 from ..shadow.drift import compute_drift
 from ..shadow.inspector import filter_records, iter_records
@@ -36,10 +37,11 @@ from .gates import (
 )
 
 # One-step rollback toward shadow (mirrors the registry's rollback edges).
+# 3-stage collapse (2026-06-16): the only canonical influence stage is
+# `advisory`, which demotes to `shadow`. Legacy `limited_live` /
+# `live_approved` normalize to `advisory` before the lookup.
 _DEMOTE_TARGET: dict[str, str] = {
     "advisory": "shadow",
-    "limited_live": "advisory",
-    "live_approved": "advisory",
 }
 _LIVE_STAGES = frozenset(_DEMOTE_TARGET)
 
@@ -103,7 +105,11 @@ def propose_for_model(
     # Auto-select the classifier profile for a regime head when no explicit
     # thresholds override is given; an explicit `thresholds` still wins.
     th = thresholds_for(entry, override=thresholds)
-    stage = entry.target_deployment_stage
+    # Normalize so a stage stored under a legacy alias still routes correctly.
+    try:
+        stage = canonical_stage(entry.target_deployment_stage)
+    except ValueError:
+        stage = entry.target_deployment_stage
 
     if stage == "shadow":
         report: GateReport = evaluate_gates(
@@ -143,8 +149,9 @@ def propose_for_model(
             },
         )
 
-    # Pre-shadow stages (research_only / candidate / backtest_approved):
-    # off the live evaluation path — nothing to propose.
+    # Pre-shadow stage (canonical `candidate`; legacy research_only /
+    # backtest_approved normalize to it): off the live evaluation path —
+    # nothing to propose.
     return Proposal(
         entry.model_id, stage, "hold", None,
         reasons=("pre-shadow stage; not in the live influence path",),
