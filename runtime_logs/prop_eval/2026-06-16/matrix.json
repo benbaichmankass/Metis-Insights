@@ -1,0 +1,419 @@
+{
+  "kind": "prop_eval_matrix",
+  "generated_at": "2026-06-16T13:44:37.643676+00:00",
+  "ruleset": {
+    "ruleset": "breakout",
+    "plan": "1-step-classic",
+    "account_size_usd": 25000.0,
+    "profit_split": 0.8,
+    "unconfirmed": true,
+    "evaluation": {
+      "profit_target_pct": 0.1,
+      "min_trading_days": 0,
+      "max_eval_days": null
+    },
+    "funded": {
+      "profit_target_pct": null,
+      "min_trading_days": 0
+    },
+    "limits": {
+      "daily_loss_pct": 0.03,
+      "max_drawdown_pct": 0.06,
+      "drawdown_type": "static",
+      "max_position_pct": null
+    },
+    "consistency": {
+      "enabled": false,
+      "max_single_day_profit_share": 0.4
+    },
+    "restrictions": {
+      "weekend_flat": false,
+      "overnight_flat": false
+    },
+    "funded_soak_days": 30
+  },
+  "data_window": {
+    "start": null,
+    "end": null,
+    "data_start": "2022-07-23 21:30:00+00:00",
+    "data_end": "2022-07-27 08:45:00+00:00"
+  },
+  "combos": [
+    {
+      "ruleset": "breakout",
+      "unconfirmed": true,
+      "roster": "trend_donchian",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": true,
+      "roster": "fade_breakout_4h",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": true,
+      "roster": "squeeze_breakout_4h",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": true,
+      "roster": "fvg_range_15m",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": true,
+      "roster": "trend_donchian,fade_breakout_4h",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": true,
+      "roster": "trend_donchian,squeeze_breakout_4h",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": true,
+      "roster": "trend_donchian,fvg_range_15m",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": true,
+      "roster": "fade_breakout_4h,squeeze_breakout_4h",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": true,
+      "roster": "fade_breakout_4h,fvg_range_15m",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": true,
+      "roster": "squeeze_breakout_4h,fvg_range_15m",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": true,
+      "roster": "trend_donchian,fade_breakout_4h,squeeze_breakout_4h",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": true,
+      "roster": "trend_donchian,fade_breakout_4h,fvg_range_15m",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": true,
+      "roster": "trend_donchian,squeeze_breakout_4h,fvg_range_15m",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": true,
+      "roster": "fade_breakout_4h,squeeze_breakout_4h,fvg_range_15m",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": true,
+      "roster": "trend_donchian,fade_breakout_4h,squeeze_breakout_4h,fvg_range_15m",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    }
+  ],
+  "count": 15
+}
