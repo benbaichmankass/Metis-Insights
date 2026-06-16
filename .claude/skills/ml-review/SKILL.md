@@ -1,6 +1,6 @@
 ---
 name: ml-review
-description: Autonomous review of the ICT bot's ML LIFECYCLE — trainer service health, training cycles since the last review, dataset builds, per-model status (latest training metrics + shadow/live track record), promotion/demotion recommendations against the 7-stage ladder, and AI-experiment proposals to continue expanding ML coverage. Owns docs/claude/ml-review-backlog.json (AI experiment follow-ups, new manifests to try, new features/feeds to engineer). Use when the operator says "run the ml review", "/ml-review", "how are the models doing", or "what should we train next". NOT for live trading promotion past shadow (Tier-3, operator-gated) — this skill proposes, the operator promotes. NOT for system health (use /health-review) and NOT for strategy trade scoring (use /performance-review).
+description: Autonomous review of the ICT bot's ML LIFECYCLE — trainer service health, training cycles since the last review, dataset builds, per-model status (latest training metrics + shadow/live track record), promotion/demotion recommendations against the 3-stage ladder (candidate→shadow→advisory), per-model fit within the unified-confidence framework, and AI-experiment proposals to continue expanding ML coverage. Owns docs/claude/ml-review-backlog.json (AI experiment follow-ups, new manifests to try, new features/feeds to engineer). Use when the operator says "run the ml review", "/ml-review", "how are the models doing", or "what should we train next". NOT for live trading promotion past shadow (Tier-3, operator-gated) — this skill proposes, the operator promotes. NOT for system health (use /health-review) and NOT for strategy trade scoring (use /performance-review).
 ---
 
 # /ml-review — model/training lifecycle review
@@ -32,7 +32,7 @@ performance / per-decision scoring* — STOP, use
    (§ "Trainer center rubric").
 5. **Emit a per-model status line** for every model in `python -m ml
    list-models` (§ "Per-model status — REQUIRED").
-6. **Identify promotion / demotion candidates** against the 7-stage
+6. **Identify promotion / demotion candidates** against the 3-stage
    ladder (§ "Promotion/demotion recommendations").
 7. **Propose AI experiments** — new manifests, new features, new
    datasets, new model families to try (§ "Experiment proposals").
@@ -93,7 +93,7 @@ cmd: |
 If the trainer relay errors, set the relevant findings to `skip` and
 note the failure mode in `anomalies[]`. The trainer is **not** a
 live-trading blocker — escalate trainer issues with lower urgency
-unless a `live_approved` model is involved.
+unless an `advisory` model is involved.
 
 ## Fetching live-VM ML state (use diag-data)
 
@@ -133,18 +133,17 @@ the trainer relay errored):
   families built within 72h. `concern` if no datasets dir or all
   builds error.
 - **`trainer_registry`** — `ok` if ≥1 model at `shadow`+. `concern` if
-  the registry is empty or all models stuck at `research_only` (training
+  the registry is empty or all models stuck at `candidate` (training
   runs, nothing passes eval).
 
 Roll up to `trainer_models` (`ok | watch | concern | skip`): `ok` when
 every model retrained in the last cycle with sane metrics; `watch`
 when a model's headline metric degraded run-over-run, or a `shadow`
 model still has zero predictions long after promotion to shadow;
-`concern` (⇒ `operator_attention_required`) only when an
-`advisory`+/`live_approved` model — one that influences orders — is
-degrading on live/shadow data. A registry of `candidate`/`shadow`
-models with healthy metrics and zero predictions is `ok` (expected
-pre-activation).
+`concern` (⇒ `operator_attention_required`) only when an `advisory`
+model — one that influences orders — is degrading on live/shadow data.
+A registry of `candidate`/`shadow` models with healthy metrics and zero
+predictions is `ok` (expected pre-activation).
 
 ## Per-model status — REQUIRED every run
 
@@ -154,7 +153,7 @@ list-models`. Each entry:
 ```
 {
   "model_id": "...",
-  "stage": "research_only | candidate | backtest_approved | shadow | advisory | limited_live | live_approved",
+  "stage": "candidate | shadow | advisory  (canonical 3-stage; normalize legacy names via ml.manifest.canonical_stage)",
   "registry_status": "candidate | promoted | ...",
   "last_training": {
     "run_id": "YYYYMMDDThhmmssZ",
@@ -206,14 +205,17 @@ when the data supports one:
 }
 ```
 
-The 7-stage ladder (low → high influence):
-`research_only → candidate → backtest_approved → shadow → advisory → limited_live → live_approved`.
+The **3-stage ladder** (canonical since the 2026-06-16 collapse, low →
+high influence): `candidate → shadow → advisory`. The legacy 7-stage
+names still resolve — `ml.manifest.canonical_stage` maps
+`research_only`/`backtest_approved → candidate` and
+`limited_live`/`live_approved → advisory`, so old registry rows / pasted
+output normalize cleanly; report the **canonical** stage.
 
 Promotion gates (the lifecycle, `docs/claude/trainer-vm-mode.md` § 5):
-- `research_only → candidate → backtest_approved → shadow` is the
-  autonomous trainer track. /ml-review notes when a model is *ready*
-  for shadow but does not flip it (the `model-training` skill +
-  `promote-stage` action do the flip).
+- `candidate → shadow` is the autonomous trainer track. /ml-review notes
+  when a model is *ready* for shadow but does not flip it (the
+  `model-training` skill + `promote-stage` action do the flip).
 - `shadow → advisory` is **the** live-trading gate — operator
   approval required. This is where /ml-review earns its keep:
   recommend the promotion with evidence, or hold. **Cite the computed
@@ -226,11 +228,8 @@ Promotion gates (the lifecycle, `docs/claude/trainer-vm-mode.md` § 5):
   agreement); /ml-review should not recommend `promote` while the
   packet reports `ready: false`, and should quote the cleared gates
   when it recommends one. Computing the packet is Tier-1; the flip
-  stays Tier-3.
-- `advisory → limited_live → live_approved` — same Tier-3 gate.
-  Recommend only when the prior stage has produced
-  statistically-meaningful evidence (typically multi-week shadow with
-  hundreds of joined trades).
+  stays Tier-3. `advisory` is now the single influence stage (the old
+  `limited_live`/`live_approved` tiers were collapsed into it).
 
 Demotion: any model influencing orders that degrades on live data is
 a candidate for demotion to `shadow`. Demotion to a lower influence
@@ -239,6 +238,43 @@ not enact.
 
 If a proposal isn't yet supportable, file it as a backlog item with
 the criteria it would need to meet next time.
+
+## Reviewing within the unified-confidence framework (2026-06-16)
+
+The target architecture is `docs/unified-confidence-risk-DESIGN.md`:
+model outputs no longer each carry a bespoke gate — they feed composite
+**confidence lenses** (conviction + sizing/feasibility + exposure), and
+a model's **stage** decides which conviction it feeds (`shadow` → the
+observed/logged conviction; `advisory` → the influencing conviction).
+So every per-model review now also asks **"how good an input is this to
+its lens?"** Concretely, /ml-review must additionally:
+
+1. **Review the conviction meta-model** — `conviction-meta-v1` (family
+   `conviction_meta`, a LightGBM stacker over the calibrated lens
+   inputs) is the **v2 learned conviction**. Treat it like any model in
+   `model_status[]` + the promotion gate, but call out that its
+   `shadow → advisory` promotion is **the** switch that turns the
+   *learned* conviction live (replacing the formulaic blend). It trains
+   on the order-package `(lens inputs → realized win)` rows produced by
+   the live observe-only `meta.conviction` soak — so flag if that soak
+   isn't accruing.
+2. **Check the calibration artifacts** — per-strategy confidence
+   calibrators fit by `scripts/ml/fit_confidence_calibrators.py`
+   (raw→P(win), isotonic/Platt/decile). Report coverage (which
+   strategies are fit; e.g. `ict_scalp_5m` may be pending), staleness,
+   and quality (Brier/ECE raw→calibrated). A missing/stale calibrator
+   means the live conviction stamp falls back to raw normalization for
+   that strategy — note it.
+3. **Tag each model's lens role** — regime heads → `c_reg`,
+   setup-quality → `c_setup`, trade-outcome → `c_wr` (conviction lens);
+   execution-quality / prop-mission → the **sizing** lens. A degenerate
+   head (f1=0 — e.g. the trade-outcome / prop baselines) feeding the
+   conviction is a *weak input*; surface it as a conviction-quality
+   concern, not just a training-metric note.
+4. **Stage = influence** under the framework: an `advisory` model's
+   output is in the influencing conviction; recommend `shadow→advisory`
+   only when the gate packet clears AND the model is a genuinely useful
+   lens input (per the calibration / track-record evidence).
 
 ## Experiment proposals
 
@@ -289,7 +325,7 @@ Every ml-review ends with a one-line update to
 ```
 action: send-ping
 target: claude
-priority: normal      # 'high' only if a live_approved/advisory model is degrading
+priority: normal      # 'high' only if an advisory (order-influencing) model is degrading
 message: /ml-review — <N> models, <K> retrained, <P> proposed promotions, <D> demotions, <E> experiments. trainer=<ok|watch|concern>.
 ```
 
