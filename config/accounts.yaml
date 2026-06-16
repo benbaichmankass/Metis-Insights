@@ -439,12 +439,16 @@ accounts:
                                        # tradeable instrument before flipping
                                        # back to live. Mirrors the VM so deploys
                                        # don't revert it.
-    strategies:
-      - xauusd_trend_1h                # M15 Phase 3. NOTE execution: live (field
-                                       # in strategies.yaml, promoted 2026-06-11)
-                                       # — but the account is dry_run above, the
-                                       # authoritative gate, so no live order
-                                       # ships while shelved.
+    strategies: []                     # PAUSED 2026-06-16 (operator-approved):
+                                       # xauusd_trend_1h removed from routing. OANDA
+                                       # US can't trade XAU_USD (BL-20260611-007), so
+                                       # while shelved the strategy only generated
+                                       # hourly BUG-049 orphans (package created on
+                                       # the dry-only account, never fills). Emptying
+                                       # the routing stops the orphan noise. RE-POINT
+                                       # to a tradeable OANDA-US FX pair is tracked in
+                                       # performance-review-backlog PB-20260616-001;
+                                       # re-add the (new) strategy here when it lands.
     symbols: [XAUUSD]                  # instrument identity (Phase-0 verdict).
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
