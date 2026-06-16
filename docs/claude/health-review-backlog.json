@@ -1803,7 +1803,9 @@
       "trigger_condition": "Next live-trade-management sprint (S-LIVETRADE-MGMT-S2).",
       "resolution_criteria": "account_supports_management(ib_cfg,'modify') True; _send_modify_to_exchange reaches IB/Alpaca; tests pin Bybit unchanged + IB re-arm.",
       "tier": "Tier-2/3 (live order-management path)",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-06-16T11:35:00+00:00",
+      "resolution": "Merged #3801 (S-LIVETRADE-MGMT-S2). IBClient.modify_protective (cancel resting OCA legs + re-arm GTC OCA via place_protective) + AlpacaClient.modify_protective (PATCH the resting bracket legs) wired through execute.modify_open_order (side/qty/cur_sl/cur_tp merge so the unchanged leg isn't dropped); 'modify' added to interactive_brokers/ib/alpaca caps; Bybit set_trading_stop byte-unchanged. tests/test_ltmgmt_modify_wiring.py."
     },
     {
       "id": "BL-20260616-LTMGMT-P4METRICS",
@@ -1815,7 +1817,9 @@
       "trigger_condition": "S-LIVETRADE-MGMT-S2 or a dashboard-metrics sprint.",
       "resolution_criteria": "No combined real+paper totals anywhere; paper has its own surfaced aggregates; openTrades KPI accompanied by a distinct paper count.",
       "tier": "Tier-1/2 (read paths + clients)",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-06-16T11:35:00+00:00",
+      "resolution": "Merged #3802 (S-LIVETRADE-MGMT-S2) — bot side. /api/bot/stats keeps the headline block real-money-only and adds an additive `paper` sub-block + distinct `paperOpenTrades` (never blended); _pnl_stats_for(predicate) + _PAPER_PREDICATE; CLAUDE.md BotStats shape updated. tests/test_ltmgmt_p4_metric_separation.py. NOTE: client-side consumption of the new paper aggregates (dashboard/android sections) is additive follow-up in those repos — lists already label paper rows."
     },
     {
       "id": "BL-20260616-LTMGMT-P5CI",
@@ -1827,7 +1831,9 @@
       "trigger_condition": "S-LIVETRADE-MGMT-S2.",
       "resolution_criteria": "CI fails when a new integration lacks management wiring or a strategy emits a non-schema verdict.",
       "tier": "Tier-1 (CI/tests)",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-06-16T11:35:00+00:00",
+      "resolution": "Merged #3803 (S-LIVETRADE-MGMT-S2). tests/test_ltmgmt_p5_contract_ci.py: (a) every EXCHANGE_MAP integration must declare an explicit EXCHANGE_MANAGEMENT_CAPS entry (surfaced + fixed the undeclared `breakout` gap → frozenset()); (b) every registered strategy's monitor() returns schema-valid verdicts (validate_verdict) across representative adjust/close/no-op scenarios, with a non-vacuous sanity check. Pure test/declaration; no order-path code."
     },
     {
       "id": "BL-20260616-LTMGMT-OANDA",
@@ -1839,7 +1845,9 @@
       "trigger_condition": "Before any set-account-mode flip of oanda_practice to live.",
       "resolution_criteria": "OANDA declares close+open_positions caps with wired primitives + tests.",
       "tier": "Tier-2/3",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-06-16T11:35:00+00:00",
+      "resolution": "Merged #3804 (S-LIVETRADE-MGMT-S2). OANDA caps {close, open_positions}; account_open_positions oanda branch (dry/no-creds → None, never a false empty list); execute.close_open_position routes oanda → OandaClient.close (v20 closeout); order_monitor._build_account_client builds the OANDA client. Ships inert while oanda_practice is dry_run; management is wired the moment it's promoted. modify/partial_close/order_status still unwired. tests/test_ltmgmt_oanda_wiring.py + snapshot-reconcile now includes OANDA."
     },
     {
       "id": "BL-20260616-DASH-UPNL-MULTIPLIER",
@@ -1851,7 +1859,8 @@
       "trigger_condition": "Next dashboard-repo sprint (preview-branch flow).",
       "resolution_criteria": "Client renders the API unrealizedPnl; no multiplier-blind local recompute.",
       "tier": "Tier-1 (dashboard read-only)",
-      "status": "open"
+      "status": "open",
+      "progress": "PR ict-trader-dashboard#103 open (S-LIVETRADE-MGMT-S2): _position_upnl/_open_upnl trust the API's multiplier-aware unrealizedPnl; dropped the (price-entry)*qty recompute + the dead last_price plumbing (Positions per-render candle fetch, _render_trade_card last_price param). ruff + py_compile clean. HELD for operator preview verification (pushed to claude/web-app-preview) before merge to main per the dashboard preview-first rule — not yet resolved until merged + verified live."
     },
     {
       "id": "BL-20260616-TRADE-EVENT-TELEGRAM-GATE",
