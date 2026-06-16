@@ -659,6 +659,14 @@ EXCHANGE_MANAGEMENT_CAPS: dict[str, frozenset[str]] = {
     # (account_open_positions has no oanda branch, no close primitive). Wiring
     # OANDA is a later P3 item, before it's promoted off dry_run.
     "oanda": frozenset(),
+    # breakout (BreakoutAPI): an EXCHANGE_MAP stub integration with no
+    # management primitives wired (no modify/close/order_status/open_positions).
+    # Declared explicitly as the empty set so the P5 CI guard
+    # (test_ltmgmt_p5_contract_ci) confirms every EXCHANGE_MAP integration has
+    # made a *conscious* management-caps declaration rather than silently
+    # defaulting to "supports nothing" — a missing declaration is the gap the
+    # guard exists to catch.
+    "breakout": frozenset(),
 }
 
 _EMPTY_CAPS: frozenset[str] = frozenset()

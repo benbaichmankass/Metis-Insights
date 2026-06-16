@@ -166,7 +166,13 @@ proving the Bybit path is unchanged before it reaches the VM:
 - **P3** Wire IB + Alpaca modify/close + universal position-snapshot reconcile
   (the live-management gap — the CRITICAL items).
 - **P4** Real/paper metric separation (bot + clients).
-- **P5** Build-workflow skills + CI guards (lock it in).
+- **P5** Build-workflow skills + CI guards (lock it in). **CI guards DONE**
+  (S2, BL-20260616-LTMGMT-P5CI, `tests/test_ltmgmt_p5_contract_ci.py`): (a)
+  every `EXCHANGE_MAP` integration must declare an explicit
+  `EXCHANGE_MANAGEMENT_CAPS` entry (a missing one fails CI — `breakout` was the
+  undeclared gap, now `frozenset()`); (b) every registered strategy's
+  `monitor()` returns schema-valid verdicts on representative input
+  (`validate_verdict`), beyond the existing existence/signature guards.
 
 ## Decisions (status)
 1. **APPROVED (2026-06-16)** — whole-repo plan + phasing P1–P5.
