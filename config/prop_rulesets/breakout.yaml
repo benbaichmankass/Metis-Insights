@@ -53,3 +53,37 @@ restrictions:
 
 # Funded-phase survival horizon (how long the "survives funded" check runs).
 funded_soak_days: 30
+
+# Account economics — drives the COST-AWARE EV evaluation (expected $ netted
+# per horizon, NET of fees, re-buying a fresh account on each breach), the
+# complement to the survival metrics. The point: an account that burns fast
+# but banks > its fee in payouts first is a +EV buy. Consumed by
+# scripts/prop/montecarlo_prop.py --cost-aware.
+#
+# Values here are LABELED, CONFIGURABLE DEFAULTS — fee/split are CONFIRMED
+# (plan card); the payout cadence/minimums are sourced from public third-party
+# reviews 2026-06-16 and NOT yet cross-checked against Breakout's own FAQ.
+# Update in place when confirmed (no code change — the EV model reads this).
+economics:
+  account_fee_usd: 45              # 1-Step Classic $5k eval fee   [CONFIRMED — plan card]
+  rebuy_fee_usd: 45               # cost of a fresh account after a breach
+                                  # [DEFAULT — assumes no reset discount; CONFIRM]
+  # profit_split is declared above (0.80; 0.90 upgrade; 0.95 after 3 profitable
+  # funded months) [CONFIRMED].
+
+  payout:                          # Breakout's funded-withdrawal RULES
+    first_payout_after_days: 14    # first withdrawal allowed 14d post-funding   [WEB; CONFIRM]
+    payout_frequency_days: 7       # weekly cadence thereafter                   [WEB; CONFIRM]
+    min_withdrawal_usd: 50         # smallest withdrawal (some sources say none) [WEB; CONFIRM]
+    min_trading_days_before_payout: 0   # no min trading days                    [WEB; CONFIRM]
+    processing_hours: 24           # paid within 24h in USDC (ERC-20)            [WEB; info]
+
+  withdrawal_policy:               # OUR tunable EV lever (NOT a Breakout rule):
+                                   # how the simulated trader banks profit. The 6%
+                                   # max-DD is STATIC off the starting balance and is
+                                   # NOT raised on payout, so withdrawing banks
+                                   # `profit_split` safely but SHRINKS the in-account
+                                   # cushion → the EV model sweeps this tradeoff.
+    mode: above_start              # withdraw equity above the starting balance…
+    buffer_usd: 0                  # …leaving this extra $ cushion above the floor
+    cadence_days: 7                # attempt a withdrawal this often (>= payout cadence)
