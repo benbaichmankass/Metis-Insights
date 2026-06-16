@@ -8,7 +8,7 @@ from entry × exit × qty × direction × contract multiplier.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -86,12 +86,25 @@ def test_pnl_percent_multiplier_cancels():
     assert pct == pytest.approx(13.4 / 4286.6 * 100, rel=1e-3)
 
 
-def test_account_is_bybit():
-    assert local_pnl.account_is_bybit({"exchange": "bybit"}) is True
-    assert local_pnl.account_is_bybit({"exchange": "Bybit"}) is True
-    assert local_pnl.account_is_bybit(
+def test_broker_pnl_reader_capability_is_declarative():
+    # The broker-vs-local decision is a declared integration capability,
+    # not a hardcoded "is it Bybit" check.
+    from src.units.accounts.clients import (
+        BROKER_PNL_READER_EXCHANGES,
+        account_has_broker_pnl_reader,
+        exchange_has_broker_pnl_reader,
+    )
+    assert "bybit" in BROKER_PNL_READER_EXCHANGES
+    assert exchange_has_broker_pnl_reader("bybit") is True
+    assert exchange_has_broker_pnl_reader("Bybit") is True
+    # Integrations with no wired reader → local fallback (default).
+    assert exchange_has_broker_pnl_reader("interactive_brokers") is False
+    assert exchange_has_broker_pnl_reader("alpaca") is False
+    assert exchange_has_broker_pnl_reader("oanda") is False
+    assert account_has_broker_pnl_reader({"exchange": "bybit"}) is True
+    assert account_has_broker_pnl_reader(
         {"exchange": "interactive_brokers"}) is False
-    assert local_pnl.account_is_bybit(None) is False
+    assert account_has_broker_pnl_reader(None) is False
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +156,9 @@ def test_sweep_computes_pnl_for_ibkr_orphan(db, monkeypatch):
     assert row["exit_price"] == pytest.approx(4300.0)
 
 
-def test_sweep_skips_bybit_accounts(db, monkeypatch):
+def test_sweep_defers_recent_broker_reader_rows(db, monkeypatch):
+    # A recent Bybit (broker-reader) row is deferred to the Bybit sweep so its
+    # fee-accurate PnL is never pre-empted by a local estimate.
     tid = _insert(db, symbol="BTCUSDT", account_id="bybit_2",
                   status="closed", entry_price=100.0, position_size=1.0)
     monkeypatch.setattr(
@@ -154,9 +169,28 @@ def test_sweep_skips_bybit_accounts(db, monkeypatch):
         "src.runtime.local_pnl.last_mark_price", lambda *a, **k: 110.0,
     )
     summary = _sweep_local_pnl_for_unpriced(db)
-    assert summary["skipped_bybit"] == 1
+    assert summary["deferred_broker"] == 1
     assert summary["filled"] == 0
     assert _pnl_of(db, tid)["pnl"] is None  # left for the Bybit sweep
+
+
+def test_sweep_rescues_abandoned_broker_row_past_window(db, monkeypatch):
+    # A Bybit row OLDER than the broker recovery window (broker can no longer
+    # price it) falls back to local compute instead of a permanent $0.00.
+    old = (datetime.now(timezone.utc) - timedelta(days=9)).isoformat()
+    tid = _insert(db, symbol="BTCUSDT", account_id="bybit_2",
+                  status="closed", entry_price=100.0, position_size=1.0,
+                  direction="long", created_at=old)
+    monkeypatch.setattr(
+        "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
+        lambda: {"bybit_2": {"exchange": "bybit"}},
+    )
+    monkeypatch.setattr(
+        "src.runtime.local_pnl.last_mark_price", lambda *a, **k: 110.0,
+    )
+    summary = _sweep_local_pnl_for_unpriced(db)
+    assert summary["filled"] == 1
+    assert _pnl_of(db, tid)["pnl"] == pytest.approx(10.0)  # (110-100)*1*1
 
 
 def test_sweep_ignores_rejected_zero_size(db, monkeypatch):
@@ -176,7 +210,7 @@ def test_sweep_disabled_by_env(db, monkeypatch):
     summary = _sweep_local_pnl_for_unpriced(db)
     assert summary == {
         "scanned": 0, "filled": 0, "relinked": 0,
-        "still_pending": 0, "skipped_bybit": 0, "errors": 0,
+        "still_pending": 0, "deferred_broker": 0, "errors": 0,
     }
 
 

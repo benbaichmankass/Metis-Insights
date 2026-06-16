@@ -136,14 +136,6 @@ def compute_pnl_percent(
     return round(p / notional * 100.0, 4)
 
 
-def account_is_bybit(cfg: Optional[Dict[str, Any]]) -> bool:
-    """True when the account routes to Bybit (whose closed-pnl sweep owns its
-    realised PnL). Used to decide whether the local fallback should engage."""
-    if not isinstance(cfg, dict):
-        return False
-    return str(cfg.get("exchange") or "").strip().lower() == "bybit"
-
-
 def contract_value_usd_for(symbol: Any) -> float:
     """USD-per-point contract value for *symbol* (1.0 default).
 

@@ -545,6 +545,48 @@ def _bybit_closed_pnl_lookup(
     return candidates[0]
 
 
+# ---------------------------------------------------------------------------
+# PnL source — declared per integration (canonical)
+# ---------------------------------------------------------------------------
+#
+# Every account resolves its realised PnL the same way: **prefer broker truth,
+# fall back to local compute**. Whether an integration *can* provide broker
+# truth is a property of the integration, not a per-account preference — it
+# depends on whether that exchange exposes (and we have wired) an authoritative
+# closed-pnl reader in ``account_closed_pnl_for_trade`` below.
+#
+# This set is the single source of truth for that capability. Membership is the
+# contract: an exchange in the set has a wired broker closed-pnl reader (its
+# trades' PnL is recovered fee-accurate from the broker by
+# ``order_monitor._sweep_pending_pnl_from_bybit``); an exchange NOT in the set
+# has no reader, so its trades' PnL is computed locally
+# (``order_monitor._sweep_local_pnl_for_unpriced`` → ``src.runtime.local_pnl``)
+# from entry/exit/qty × the per-contract multiplier.
+#
+# **Default is local** (the universal fallback) — a new integration that wires
+# no reader automatically gets correct local PnL with no extra step, so a
+# missing declaration never strands a trade at $0.00 (Prime Directive: no
+# default-off capability gate). Adding broker truth for a new exchange is the
+# explicit opt-in: extend ``account_closed_pnl_for_trade`` to handle it AND add
+# the exchange string here. The `new-broker` skill carries this as a wiring
+# step ("declare the integration's PnL source").
+BROKER_PNL_READER_EXCHANGES: frozenset[str] = frozenset({"bybit"})
+
+
+def exchange_has_broker_pnl_reader(exchange: Any) -> bool:
+    """True when *exchange* has a wired authoritative broker closed-pnl reader
+    (i.e. `account_closed_pnl_for_trade` can return real broker PnL for it)."""
+    return str(exchange or "").strip().lower() in BROKER_PNL_READER_EXCHANGES
+
+
+def account_has_broker_pnl_reader(account: Optional[Dict[str, Any]]) -> bool:
+    """True when *account*'s integration provides broker-truth PnL; False means
+    its realised PnL is resolved by the local-compute fallback."""
+    if not isinstance(account, dict):
+        return False
+    return exchange_has_broker_pnl_reader(account.get("exchange"))
+
+
 def account_closed_pnl_for_trade(
     account: Dict[str, Any],
     *,
@@ -618,7 +660,12 @@ def account_closed_pnl_for_trade(
     if not isinstance(account, dict) or not symbol or not direction:
         return None
     ex = (account.get("exchange") or "unknown").lower()
-    if ex != "bybit":
+    # Only integrations declared to have a broker closed-pnl reader (the
+    # canonical BROKER_PNL_READER_EXCHANGES set) are handled here; everything
+    # else resolves PnL via the local-compute fallback. Currently this reader
+    # implements Bybit; adding another broker means extending the dispatch
+    # below AND adding its exchange to that set.
+    if not account_has_broker_pnl_reader(account):
         return None
     try:
         from src.units.accounts.execute import _bybit_category

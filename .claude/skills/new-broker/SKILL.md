@@ -50,6 +50,26 @@ is that EVERY new broker touches each of these.
    — returns the adapter or `None` when creds are missing. Reads from
    `os.environ`; does its own cred validation before constructing the
    adapter. Mirrors `oanda_client_for` / `alpaca_client_for`.
+2b. **PnL source declaration** (same file, `clients.py`). Every account
+   resolves realised PnL the same way — *prefer broker truth, fall back to
+   local compute* — and which path applies is a **declared property of the
+   integration, not a per-account flag or a hardcoded special-case**. Decide:
+   does this broker expose an authoritative closed-PnL reader the bot will
+   consume?
+   - **No (the common case — futures/FX/most paper venues):** do nothing.
+     The integration is **local by default**: its closed/orphaned trades get
+     fee-blind-but-correct PnL from `order_monitor._sweep_local_pnl_for_unpriced`
+     → `src.runtime.local_pnl` (entry/exit/qty × `contract_value_usd` from
+     `config/instruments.yaml` — so **add the broker's instruments there with
+     the right `contract_value_usd`**, or PnL will be off by the multiplier).
+   - **Yes (broker has a closed-pnl endpoint, e.g. Bybit):** extend
+     `account_closed_pnl_for_trade` to read it AND add the exchange string to
+     `BROKER_PNL_READER_EXCHANGES`. That account's PnL is then recovered
+     fee-accurate by `_sweep_pending_pnl_from_bybit`; the local sweep only
+     backstops rows older than the broker's retention window.
+   Default-local means a forgotten declaration never strands a trade at
+   `$0.00` (Prime Directive). Add a `tests/test_<broker>_wiring.py` assertion
+   for the expected `exchange_has_broker_pnl_reader("<broker>")` value.
 3. **Integrator entry** in `src/units/accounts/integrator.py` —
    `<Broker>API` class + `EXCHANGE_MAP["<broker>"]` registration.
 4. **Executor branch** in `src/units/accounts/execute.py::_submit_order`
@@ -115,6 +135,12 @@ autonomously:
   `accounts.yaml`.
 - Run the broker's smoke test on the VM via the diag relay; report
   results.
+- **Verify PnL resolves end-to-end** once the account has a closed trade:
+  pull the journal row via the diag relay and confirm `pnl` is non-NULL
+  (broker-truth for a declared-broker integration; local-compute with
+  `notes.pnl_source="local_compute"` otherwise). A closed trade stuck at
+  `pnl NULL` / `$0.00` means the PnL source wasn't declared (step 2b) or the
+  instrument's `contract_value_usd` is missing.
 - Open the Tier-3 strategy-assignment PR (a strategy moves from
   another broker to this one, or a new shadow assignment is added);
   draft, wait for explicit operator approval, merge.

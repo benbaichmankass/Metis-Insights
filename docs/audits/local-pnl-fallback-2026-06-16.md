@@ -56,24 +56,50 @@ package with `meta=None` journaled its trade with a broken trade↔package link.
    use **mark-to-market** (last market close), stamped as an estimate.
 3. **Backfill + fix forward.**
 
+## The structural contract (not a Bybit band-aid)
+
+Realised PnL resolves the **same way for every account**: *prefer broker
+truth, fall back to local compute.* Whether an integration *can* provide
+broker truth is a **declared integration capability**, not a per-account flag
+or a hardcoded "is it Bybit" check:
+
+- **`src.units.accounts.clients.BROKER_PNL_READER_EXCHANGES`** is the single
+  source of truth — the set of exchanges with a wired authoritative closed-PnL
+  reader in `account_closed_pnl_for_trade` (today: `{"bybit"}`).
+  `account_has_broker_pnl_reader(account)` is the resolver every PnL path uses.
+- **Default is local** (the universal fallback): an integration with no reader
+  automatically gets correct local PnL — so a new broker never strands a trade
+  at `$0.00`, and there's no default-off capability gate (Prime Directive).
+  Adding broker truth is the explicit opt-in (extend the reader + add the
+  exchange to the set). This is now a **wiring step in the `new-broker` skill**
+  (step 2b) + an end-to-end PnL verification step, so every future integration
+  declares its source.
+
 ## Fix
 
 - **`src/runtime/local_pnl.py`** (new) — pure helpers: `compute_realized_pnl`,
-  `compute_unrealized_pnl`, `compute_pnl_percent`, `account_is_bybit`,
-  `contract_value_usd_for` (re-export), and `last_mark_price` (cached last
-  close from the canonical candle feed).
+  `compute_unrealized_pnl`, `compute_pnl_percent`, `contract_value_usd_for`
+  (re-export), and `last_mark_price` (cached last close from the canonical
+  candle feed). Exchange-agnostic — no broker-specific logic.
 - **`order_monitor._sweep_local_pnl_for_unpriced`** — runs every monitor tick
   after the Bybit sweep. Scans `status IN ('closed','orphaned') AND pnl IS NULL
-  AND position_size>0` (14-day window, ≤100/tick), **skips Bybit accounts**,
-  computes PnL from `exit_price` or mark-to-market, writes `pnl`/`pnl_percent`/
-  `exit_price` + `notes.{pnl_source,exit_price_source}`, and opportunistically
-  **re-links** a NULL `order_package_id`. Kill-switch `LOCAL_PNL_COMPUTE_DISABLED`
-  (default ON).
-- **`dashboard.py::_local_unrealised_for_trade`** — server-side mark-to-market
-  **unrealised** fallback for open positions when the broker read is
-  unavailable, multiplier-aware (`unrealizedPnlSource="markprice_local"`).
+  AND position_size>0` (14-day window, ≤100/tick) and fills PnL from
+  `exit_price` or mark-to-market, writing `pnl`/`pnl_percent`/`exit_price` +
+  `notes.{pnl_source,exit_price_source}` and re-linking a NULL
+  `order_package_id`. Source selection is **declarative**: integrations with no
+  broker reader are filled here; broker-reader integrations are **deferred to
+  the Bybit sweep within the broker retention window** (`_BROKER_PNL_RECOVERY_MS`,
+  7d) and only filled locally once older — so fee-accurate broker truth is never
+  pre-empted, while a genuinely-abandoned broker row is still rescued from a
+  permanent `$0.00`. Kill-switch `LOCAL_PNL_COMPUTE_DISABLED` (default ON).
+- **`dashboard.py::_local_unrealised_for_trade`** — same contract for **open**
+  positions: broker first (`_broker_unrealised_for_trade`), then a server-side
+  mark-to-market fallback (`unrealizedPnlSource="markprice_local"`),
+  multiplier-aware.
 - **`coordinator.py`** — initialise `pkg.meta = {}` before stamping
   `order_package_id` so every trade row carries the link (closes the #2578 gap).
+- **`.claude/skills/new-broker/SKILL.md`** — PnL-source declaration is now a
+  required wiring touch point (step 2b) + post-ping verification.
 
 ## Backfill
 
