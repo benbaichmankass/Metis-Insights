@@ -285,9 +285,39 @@ This is the shadow/observe-only stage: conviction is now *computed + logged on
 every signal* but influences nothing. **Stops exactly at the operator's "up
 until shadow" line.**
 
-**Remaining (NOT built — needs operator/data):** run the corpus over full
-history + fit the real calibrators (then the stamp auto-upgrades from raw→
-calibrated via the artifact); per-head `rank_auc` readiness pass; **P2+ live
+### Real calibration fit (2026-06-16, multiyear data on the trainer)
+
+First production fit over `btc_1h_multiyear.csv` (1h strategies) — calibration
+sharply improves reliability (ECE → ~0) on real history:
+
+| strategy | n | base_rate | method | Brier raw→cal | ECE raw→cal |
+|---|---|---|---|---|---|
+| trend_donchian | 1261 | 0.354 | isotonic | 0.340 → **0.224** | 0.281 → **0.000** |
+| fade_breakout_4h | 471 | 0.297 | isotonic | 0.264 → **0.205** | 0.187 → **0.000** |
+| squeeze_breakout_4h | 247 | 0.385 | platt | 0.516 → **0.235** | 0.501 → **0.013** |
+| htf_pullback_trend_2h | 348 | 0.325 | isotonic | 0.464 → **0.211** | 0.463 → **0.000** |
+| fvg_range_15m | 686 | 0.583 | isotonic | 0.359 → **0.243** | 0.327 → **0.000** |
+
+*(ict_scalp_5m + a from-5m fvg pass run detached on the trainer — fold in next.)*
+
+**Key finding (shapes the design):** the calibrated reliability curves show
+**several strategies' raw confidence barely discriminates win/loss** —
+`fvg_range` collapses to a near-constant ~base-rate (no rank signal),
+`trend_donchian` / `htf_pullback` concentrate ~75–95% of trades in one mid bin.
+So **`c_strat` alone is a weak conviction input** for most strategies —
+validating leaning on the ML head inputs (`c_setup` / `c_wr` / `c_reg`), and
+meaning the **v2 learned meta-model** (which can find interactions raw
+confidence misses) is where the real conviction signal will come from.
+`trend_donchian` has the most usable gradient.
+
+**Deployment path for fitted calibrators:** trainer-produced + regenerable →
+ride the **trainer mirror** (like the registry / sweeps); the live loader reads
+the mirrored `calibrators.json`. No git commit of the artifact. Moot until the
+observe-only stamp deploys.
+
+**Remaining (NOT built — needs operator/data):** fold in the 5m calibrators;
+per-head `rank_auc` readiness pass; wire the calibrators onto the trainer mirror;
+the observe-only stamp (this branch) awaits operator review; **P2+ live
 influence** (sizing/arbitration off the conviction) — Tier-3, operator-gated.
 
 ## 5. Phased rollout
