@@ -1,0 +1,38 @@
+# config/prop_rulesets/breakout.yaml
+# Breakout "1-Step Classic" — $45, one-phase eval, 80/20 split.
+# Headline limits CONFIRMED from the plan card (2026-06-16).
+# Fields tagged [UNCONFIRMED] are not on the card — verify before trusting.
+ruleset: breakout
+plan: 1-step-classic
+account_size_usd: 25000           # set to the actual account size purchased
+profit_split: 0.80               # 80/20 (90/10 upgrade = 0.90)
+unconfirmed: true                 # loud banner stays until the two fields below are verified
+
+phases:
+  evaluation:
+    profit_target_pct: 0.10       # +10% to clear            [CONFIRMED]
+    min_trading_days: 0           # not shown on card        [UNCONFIRMED — verify]
+    max_eval_days: null           # 1-Step Classic appears time-unlimited [UNCONFIRMED — verify]
+  funded:                         # one-phase: same limits continue post-pass
+    profit_target_pct: null
+    min_trading_days: 0
+
+# Account-killers — breaching ANY = instant fail (eval and funded).
+limits:
+  daily_loss_pct: 0.03            # max loss in one day      [CONFIRMED]
+  max_drawdown_pct: 0.06          # overall drawdown limit   [CONFIRMED]
+  drawdown_type: static           # STATIC off starting balance, NOT trailing [CONFIRMED]
+  max_position_pct: null          # per-position cap, if any [UNCONFIRMED — verify]
+
+# Consistency rule — the silent algo-account killer. Presence not on the card.
+consistency:
+  enabled: false                  # flip to true if Breakout has one [UNCONFIRMED — verify]
+  max_single_day_profit_share: 0.40  # placeholder threshold if enabled [UNCONFIRMED]
+
+# Time restrictions (map onto PropRiskManager's existing gates).
+restrictions:
+  weekend_flat: false             # crypto trades weekends   [UNCONFIRMED — verify]
+  overnight_flat: false           # 24/7 crypto              [UNCONFIRMED — verify]
+
+# Funded-phase survival horizon.
+funded_soak_days: 30
