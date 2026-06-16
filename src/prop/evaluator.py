@@ -83,6 +83,34 @@ def _breach(rule: str, ts: _TS, detail: str, **extra: Any) -> Dict[str, Any]:
     return out
 
 
+def worst_off_start_drawdown_pct(
+    curve: Sequence[EquityPoint],
+    account_size: float,
+) -> Optional[float]:
+    """The deepest drop below the STARTING balance over the whole curve, as a
+    fraction (0.06 == 6%).
+
+    This is the **rule measure** for a ``drawdown_type: static`` ruleset (the
+    Breakout 1-Step static 6% floor is off the starting balance, never the
+    running peak). It differs from the engine's ``max_drawdown_pct`` summary,
+    which is **peak-to-trough** — a point below the start may be deep
+    peak-to-trough yet shallow off-start (the account was in profit when the
+    swing happened), which is exactly the fade+squeeze+fvg reconciliation:
+    9.87% peak-to-trough but < 6% off-start.
+
+    Returns None for an empty curve / non-positive account size; clamps negative
+    values (equity always above start) to 0.0.
+    """
+    if account_size <= 0 or not curve:
+        return None
+    worst = 0.0
+    for _, eq in curve:
+        dd = (account_size - float(eq)) / account_size
+        if dd > worst:
+            worst = dd
+    return round(worst, 6)
+
+
 def _scan_equity_breaches(
     curve: Sequence[EquityPoint],
     ruleset: PropRuleset,
@@ -334,10 +362,32 @@ def evaluate(
 
     eval_passed = target_info["passed"] and first_breach is None
 
+    # --- rule-measure drawdown (the measure the static verdict is based on) ---
+    # The static 6% floor is off the STARTING balance, NOT peak-to-trough. We
+    # surface the off-start worst DROP explicitly so the report never has to
+    # reason from the engine's peak-to-trough max_drawdown_pct (a *different*
+    # measure). For a trailing ruleset this is informational only — the breach
+    # decision above already used the trailing reference.
+    static_dd_off_start = worst_off_start_drawdown_pct(curve, acct)
+    # equity at the eval-pass point (the balance when +target% was first hit),
+    # so a reader can see the account was in profit when a deep peak-to-trough
+    # swing happened. None when the target was never reached.
+    target_ts = target_info.get("target_ts")
+    equity_at_eval_pass: Optional[float] = None
+    if target_ts is not None:
+        for ts, eq in curve:
+            if ts == target_ts:
+                equity_at_eval_pass = round(float(eq), 2)
+                break
+
     eval_block = {
         "passed": bool(eval_passed),
         "days_to_target": target_info["days_to_target"],
         "active_trading_days": target_info["active_trading_days"],
+        # The measure the static-DD verdict is actually based on (off the
+        # STARTING balance). Peak-to-trough lives in metrics.max_drawdown_pct.
+        "static_dd_off_start_pct": static_dd_off_start,
+        "equity_at_eval_pass": equity_at_eval_pass,
         "first_breach": first_breach,
     }
 

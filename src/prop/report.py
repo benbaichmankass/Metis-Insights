@@ -86,12 +86,22 @@ def render_markdown(
         )
     lines.append("")
 
-    # The matrix.
+    # Which DD measure is the verdict based on? Off-start for a static ruleset,
+    # peak-to-trough only as a labelled secondary stat. The header names the
+    # rule measure so the matrix is unambiguous.
+    dd_type = (ruleset_view or {}).get("limits", {}).get("drawdown_type", "static")
+    rule_dd_label = "Off-start DD" if dd_type == "static" else "Trailing DD"
+
+    # The matrix. The verdict-measure DD column comes FIRST (off-start for
+    # static — what the pass/fail is judged on); peak-to-trough is a clearly
+    # labelled secondary column so a pass with a deep peak-to-trough swing
+    # (in-profit) doesn't read as a contradiction.
     header = (
-        "| Rank | Roster | Eval pass | Days→target | Active days | "
-        "Worst-DD | Consistency worst-day | Funded survive | First breach | Net $ |"
+        f"| Rank | Roster | Eval pass | Days→target | Active days | "
+        f"{rule_dd_label} (rule) | Peak-trough DD | Consistency worst-day | "
+        f"Funded survive | First breach | Net $ |"
     )
-    sep = "|---|---|---|---|---|---|---|---|---|---|"
+    sep = "|---|---|---|---|---|---|---|---|---|---|---|"
     lines.append(header)
     lines.append(sep)
     for i, v in enumerate(verdicts, start=1):
@@ -101,15 +111,19 @@ def render_markdown(
         eval_breach = ev.get("first_breach")
         funded_breach = fs.get("first_breach")
         first_breach = eval_breach or funded_breach
-        max_dd = m.get("max_drawdown_pct")
+        max_dd = m.get("max_drawdown_pct")  # peak-to-trough (engine summary)
         max_dd_str = f"{max_dd:.1f}%" if isinstance(max_dd, (int, float)) else "—"
+        # rule-measure DD: off-start (static) — already a fraction in the verdict
+        rule_dd = ev.get("static_dd_off_start_pct")
+        rule_dd_str = _fmt_pct(rule_dd)
         lines.append(
-            "| {rank} | `{roster}` | {ep} | {dtt} | {act} | {dd} | {cons} | {fs} | {fb} | {net} |".format(
+            "| {rank} | `{roster}` | {ep} | {dtt} | {act} | {rdd} | {dd} | {cons} | {fs} | {fb} | {net} |".format(
                 rank=i,
                 roster=v.get("roster", "?"),
                 ep=_yn(ev.get("passed")),
                 dtt=ev.get("days_to_target") if ev.get("days_to_target") is not None else "—",
                 act=ev.get("active_trading_days", "—"),
+                rdd=rule_dd_str,
                 dd=max_dd_str,
                 cons=_fmt_pct(m.get("consistency_worst_day_share")),
                 fs=_yn(fs.get("survived")) if ev.get("passed") else "—",
@@ -117,6 +131,15 @@ def render_markdown(
                 net=_fmt_num(m.get("net_pnl"), prefix="$"),
             )
         )
+    lines.append("")
+    lines.append(
+        f"> **DD columns:** *{rule_dd_label} (rule)* is measured off the "
+        f"**starting balance** — this is the measure the static-DD pass/fail "
+        f"verdict is based on. *Peak-trough DD* is the engine's secondary "
+        f"peak-to-trough stat; it can exceed the limit on a passing combo when "
+        f"the deep swing happened while the account was in profit (the off-start "
+        f"drop stayed under the floor)."
+    )
     lines.append("")
     lines.append(f"*{len(verdicts)} combos evaluated. Headlines below.*")
     lines.append("")

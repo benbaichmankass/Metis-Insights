@@ -12,7 +12,11 @@ from datetime import datetime, timezone
 
 import pytest
 
-from src.prop.evaluator import TradeRecord, evaluate
+from src.prop.evaluator import (
+    TradeRecord,
+    evaluate,
+    worst_off_start_drawdown_pct,
+)
 from src.prop.ruleset import parse_ruleset
 
 ACCOUNT = 25_000.0
@@ -177,6 +181,10 @@ def test_clean_pass_and_funded_survive():
     assert v["eval"]["days_to_target"] == 3  # day 4 minus day 1
     assert v["funded_soak"]["survived"] is True
     assert v["headline"] == "EVAL PASS / FUNDED SURVIVE"
+    # equity never dipped below start → off-start DD is 0; eval-pass equity is
+    # the balance when +10% was first crossed ($27_600 on day 4).
+    assert v["eval"]["static_dd_off_start_pct"] == 0.0
+    assert v["eval"]["equity_at_eval_pass"] == 27_600.0
 
 
 # ---------------------------------------------------------------------------
@@ -248,3 +256,57 @@ def test_trailing_drawdown_breach():
     v = evaluate(rs, curve, trades, account_size=ACCOUNT)
     assert v["eval"]["first_breach"]["rule"] == "max_drawdown"
     assert v["eval"]["first_breach"].get("drawdown_type") == "trailing"
+
+
+# ---------------------------------------------------------------------------
+# 9. worst_off_start_drawdown_pct — the rule-measure helper
+# ---------------------------------------------------------------------------
+def test_worst_off_start_drawdown_pct():
+    # Deepest point below start is $23_750 → (25_000-23_750)/25_000 = 5%.
+    curve = [
+        (_ts(1, 9), 25_000.0),
+        (_ts(1, 18), 23_750.0),  # −5% off start
+        (_ts(2, 18), 30_000.0),  # well into profit
+        (_ts(3, 18), 28_000.0),  # −6.7% peak-to-trough, but +12% off start
+    ]
+    assert worst_off_start_drawdown_pct(curve, ACCOUNT) == pytest.approx(0.05, abs=1e-9)
+    # equity always above start → clamps to 0.0
+    assert worst_off_start_drawdown_pct(
+        [(_ts(1), 25_100.0), (_ts(2), 26_000.0)], ACCOUNT
+    ) == 0.0
+    # empty curve / bad account → None
+    assert worst_off_start_drawdown_pct([], ACCOUNT) is None
+    assert worst_off_start_drawdown_pct(curve, 0.0) is None
+
+
+# ---------------------------------------------------------------------------
+# 10. RECONCILIATION: a static pass whose PEAK-TO-TROUGH DD exceeds the limit
+#     because the deep swing happened while the account was IN PROFIT. This is
+#     the fade+squeeze+fvg case from the 2026-06-16 matrix (9.87% peak-to-trough
+#     but <6% off-start) — proves the pass is legit, NOT a bug.
+# ---------------------------------------------------------------------------
+def test_static_pass_with_deep_peak_to_trough_in_profit():
+    rs = _ruleset()  # static 6% off start, +10% target
+    curve = [
+        (_ts(1, 9), 25_000.0),
+        # climb into profit first, never dipping below start
+        (_ts(2, 18), 25_500.0),
+        (_ts(3, 18), 28_000.0),   # +12% → crosses +10% target here
+        # now a deep peak-to-trough swing, but it stays ABOVE the start floor
+        (_ts(4, 18), 26_100.0),   # −6.8% from the 28_000 peak, still +4.4% off start
+        (_ts(5, 18), 28_500.0),   # recover
+    ]
+    trades = [
+        TradeRecord("s", _ts(1, 9), _ts(2, 18), 500.0),
+        TradeRecord("s", _ts(2, 9), _ts(3, 18), 2_500.0),
+        TradeRecord("s", _ts(3, 9), _ts(4, 18), -1_900.0),
+        TradeRecord("s", _ts(4, 9), _ts(5, 18), 2_400.0),
+    ]
+    v = evaluate(rs, curve, trades, account_size=ACCOUNT)
+    # The off-start DD never breached 6% → the verdict is a legit PASS.
+    assert v["eval"]["passed"] is True
+    assert v["eval"]["first_breach"] is None
+    # Rule measure (off-start) is 0% here — equity never dipped below start.
+    assert v["eval"]["static_dd_off_start_pct"] == 0.0
+    # Eval-pass equity recorded at the +10% crossing.
+    assert v["eval"]["equity_at_eval_pass"] == 28_000.0
