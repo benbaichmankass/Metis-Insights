@@ -37,11 +37,12 @@ from typing import Final
 
 # ---- IN FLIGHT --------------------------------------------------------------
 
-#: A real (non-backtest, non-demo) trade was just inserted into the
-#: ``trades`` table at ``status='open'``. Payload: ``trade_id, symbol,
-#: direction, qty, entry_price, sl, tp, strategy, account``. Emitted by
-#: ``Database._fire_trade_opened_event`` at the bottom of
-#: ``insert_trade``. Pairs with ``TRADE_CLOSED`` so the operator's phone
+#: A trade (real OR paper — backtests excluded) was just inserted into
+#: the ``trades`` table at ``status='open'``. Payload: ``trade_id, symbol,
+#: direction, qty, entry_price, sl, tp, strategy, account, account_class,
+#: is_paper``. Emitted by ``Database._fire_trade_opened_event`` at the
+#: bottom of ``insert_trade`` (via ``mobile_push.trade_events`` → typed
+#: FCM + Telegram). Pairs with ``TRADE_CLOSED`` so the operator's phone
 #: shows the full trade lifecycle, not just the close.
 TRADE_OPENED: Final = "trade_opened"
 
@@ -52,11 +53,12 @@ TRADE_OPENED: Final = "trade_opened"
 #: ``sl`` or ``tp`` are in the update set and the row isn't closing.
 TRADE_UPDATED: Final = "trade_updated"
 
-#: A real (non-backtest, non-demo) trade transitioned to ``status='closed'``.
-#: Payload: ``trade_id, symbol, direction, pnl, pnl_percent, exit_reason,
-#: strategy, account``. Emitted by ``Database._fire_trade_closed_event``
-#: at the bottom of ``update_trade``. The most operationally important
-#: kind — these are the money-event notifications.
+#: A trade (real OR paper — backtests excluded) transitioned to
+#: ``status='closed'``. Payload: ``trade_id, symbol, direction, pnl,
+#: pnl_percent, exit_reason, strategy, account, account_class, is_paper``.
+#: Emitted by ``Database._fire_trade_closed_event`` at the bottom of
+#: ``update_trade``. The most operationally important kind — these are
+#: the money-event notifications (paper tagged via ``is_paper``).
 TRADE_CLOSED: Final = "trade_closed"
 
 #: Hourly operator summary — open positions, 24h P&L, win rate. Fired
@@ -144,9 +146,9 @@ LABELS: Final[dict[str, str]] = {
 
 #: One-line description per kind for the Android subscription screen.
 DESCRIPTIONS: Final[dict[str, str]] = {
-    TRADE_OPENED: "Each new real-money trade as it opens.",
-    TRADE_UPDATED: "Stop-loss / take-profit moves on an open trade.",
-    TRADE_CLOSED: "Every closed real-money trade (not backtests / demos).",
+    TRADE_OPENED: "Each new trade (real or paper) as it opens.",
+    TRADE_UPDATED: "Stop-loss / take-profit moves on an open trade (real or paper).",
+    TRADE_CLOSED: "Every closed trade — real or paper (backtests excluded).",
     HOURLY_SUMMARY: "The hourly operator summary — P&L, open trades, win rate.",
     WARNING: "Watchdog, IB Gateway, health-red, service-down, risk-cap.",
     WORKFLOW_UPDATE: "GitHub Actions ops workflow finished (deploy, restart, mode flip).",

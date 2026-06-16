@@ -11,7 +11,12 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 
-def send_telegram_direct(message: str, *, parse_mode: Optional[str] = "HTML") -> None:
+def send_telegram_direct(
+    message: str,
+    *,
+    parse_mode: Optional[str] = "HTML",
+    mirror_to_fcm: bool = True,
+) -> None:
     """
     Stdlib-only direct POST to Telegram's sendMessage API.
 
@@ -56,10 +61,17 @@ def send_telegram_direct(message: str, *, parse_mode: Optional[str] = "HTML") ->
     # message, not the post-Telegram-formatting one — fine for plain text;
     # HTML/Markdown source survives intact and is human-readable on the
     # phone shade.
-    try:
-        _publish_telegram_to_fcm(message, parse_mode=parse_mode)
-    except Exception as exc:  # noqa: BLE001  # allow-silent: M12 S1 mirror — mobile_push failure must never propagate into the Telegram send path
-        logger.warning("notify: mobile_push mirror failed: %s", exc)
+    # ``mirror_to_fcm=False`` is for callers that already fire their own
+    # typed FCM event (e.g. the trade-lifecycle dispatch in
+    # ``mobile_push.trade_events``, which publishes ``trade_opened`` /
+    # ``trade_closed`` / ``trade_updated`` directly). Without this the phone
+    # would get TWO pushes for one event — the typed kind AND the generic
+    # ``telegram`` mirror — so those callers opt the mirror out.
+    if mirror_to_fcm:
+        try:
+            _publish_telegram_to_fcm(message, parse_mode=parse_mode)
+        except Exception as exc:  # noqa: BLE001  # allow-silent: M12 S1 mirror — mobile_push failure must never propagate into the Telegram send path
+            logger.warning("notify: mobile_push mirror failed: %s", exc)
 
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")

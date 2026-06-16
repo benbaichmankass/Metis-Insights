@@ -513,12 +513,14 @@ class Database:
             conn.close()
 
         # M12 S1 — mobile-push observer hook. When the update transitions
-        # a row to ``status='closed'`` and the row is a real (non-backtest,
-        # non-demo) trade, fan out a ``trade_closed`` notification to
-        # subscribed devices. The publish path is feature-flagged
-        # (``MOBILE_PUSH_ENABLED`` env, default off) and best-effort —
-        # ``publish_event`` swallows every exception so a notification
-        # failure can never propagate into the trader's close path.
+        # a row to ``status='closed'`` (or moves SL/TP on a still-open row),
+        # fan out a trade notification to subscribed devices AND the
+        # operator's Telegram for any non-backtest trade — paper included
+        # (the operator wants paper open/close/update pings too). The FCM
+        # publish is feature-flagged (``MOBILE_PUSH_ENABLED`` env, default
+        # off); the Telegram line runs off-thread (best-effort). Both
+        # swallow every exception so a notification failure can never
+        # propagate into the trader's close path.
         # The whole block is also wrapped here for defense-in-depth, so
         # a malformed import or a row-lookup glitch can't break the
         # close even if mobile_push itself has a bug.
@@ -544,8 +546,8 @@ class Database:
         stub it cleanly. The publish itself is best-effort — see
         ``src.runtime.mobile_push.publish_event``.
         """
-        from src.runtime.mobile_push import publish_event
         from src.runtime.mobile_push.event_kinds import TRADE_CLOSED
+        from src.runtime.mobile_push.trade_events import notify_trade_event
 
         conn = self.connect()
         try:
@@ -560,12 +562,13 @@ class Database:
             conn.close()
         if row is None:
             return
-        # Skip backtest + paper trades — they're not real-money events
-        # the operator wants a phone notification for. account_class is
-        # authoritative; falls back to is_demo for un-backfilled rows.
-        if row["is_backtest"] or _row_is_paper(row):
+        # Skip backtest replays only — they're not real events. Paper
+        # trades DO notify now (operator wants paper open/close/update
+        # pings too); the funding class rides in the payload so the
+        # consumer can tag the message [paper] / [live].
+        if row["is_backtest"]:
             return
-        publish_event(
+        notify_trade_event(
             TRADE_CLOSED,
             {
                 "trade_id": trade_id,
@@ -576,13 +579,15 @@ class Database:
                 "exit_reason": row["exit_reason"],
                 "strategy": row["strategy_name"],
                 "account": row["account_id"],
+                "account_class": row["account_class"],
+                "is_paper": _row_is_paper(row),
             },
         )
 
     def _fire_trade_opened_event(self, trade_id: int) -> None:
         """Read the just-inserted row and fire the trade_opened observer."""
-        from src.runtime.mobile_push import publish_event
         from src.runtime.mobile_push.event_kinds import TRADE_OPENED
+        from src.runtime.mobile_push.trade_events import notify_trade_event
 
         conn = self.connect()
         try:
@@ -595,9 +600,10 @@ class Database:
             row = cur.fetchone()
         finally:
             conn.close()
-        if row is None or row["is_backtest"] or _row_is_paper(row):
+        # Backtest replays don't notify; paper opens DO (see _fire_trade_closed_event).
+        if row is None or row["is_backtest"]:
             return
-        publish_event(
+        notify_trade_event(
             TRADE_OPENED,
             {
                 "trade_id": trade_id,
@@ -609,18 +615,19 @@ class Database:
                 "tp": row["tp"],
                 "strategy": row["strategy_name"],
                 "account": row["account_id"],
+                "account_class": row["account_class"],
+                "is_paper": _row_is_paper(row),
             },
         )
 
     def _fire_trade_updated_event(self, trade_id: int) -> None:
         """Read the just-updated open row and fire the trade_updated observer.
 
-        Fires on SL/TP moves while the row is still open. Skips
-        backtest + demo trades for the same reason ``_fire_trade_closed_event``
-        does — those aren't real-money events.
+        Fires on SL/TP moves while the row is still open. Skips backtest
+        replays only; paper trades notify too (see ``_fire_trade_closed_event``).
         """
-        from src.runtime.mobile_push import publish_event
         from src.runtime.mobile_push.event_kinds import TRADE_UPDATED
+        from src.runtime.mobile_push.trade_events import notify_trade_event
 
         conn = self.connect()
         try:
@@ -633,11 +640,12 @@ class Database:
             row = cur.fetchone()
         finally:
             conn.close()
-        if row is None or row["is_backtest"] or _row_is_paper(row):
+        # Backtest replays don't notify; paper updates DO (see _fire_trade_closed_event).
+        if row is None or row["is_backtest"]:
             return
         if str(row["status"]).lower() == "closed":
             return
-        publish_event(
+        notify_trade_event(
             TRADE_UPDATED,
             {
                 "trade_id": trade_id,
@@ -649,6 +657,8 @@ class Database:
                 "tp": row["tp"],
                 "strategy": row["strategy_name"],
                 "account": row["account_id"],
+                "account_class": row["account_class"],
+                "is_paper": _row_is_paper(row),
             },
         )
 

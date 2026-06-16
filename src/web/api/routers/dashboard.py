@@ -37,10 +37,15 @@ _DB_PATH = Path(trade_journal_db_path())
 # 2026-05-11 incident family (Signals tab blank, Bot Status stuck
 # "stopped"); T2 closes it.
 _AUDIT_LOG = runtime_logs_dir() / "signal_audit.jsonl"
+_OUTCOMES_LOG = runtime_logs_dir() / "outcomes.jsonl"
 _BOT_LOG = _REPO_ROOT / "bot.log"
 _HEARTBEAT = runtime_logs_dir() / "heartbeat.txt"
 _LOG_TAIL = 100
 _SIGNAL_TAIL = 50
+
+# Canonical log-level set the dashboard / Android Logs screen render as
+# colour-coded tag chips. Anything outside this set is normalised below.
+_LOG_LEVELS = ("info", "warn", "error", "trade")
 
 # trades.direction values seen in the wild and their dashboard-side
 # wire equivalents. The dashboard's Position type expects
@@ -369,28 +374,107 @@ async def get_stats() -> dict[str, Any]:
     }
 
 
+def _classify_level(raw: Any) -> str:
+    """Map a heterogeneous source token to a canonical log level.
+
+    Audit rows carry the decision in ``result`` (``buy``/``sell``/…) rather
+    than a syslog level, and outcomes rows carry ``critical`` — both of
+    which the old endpoint collapsed to ``info`` (the "only INFO ever
+    shows" bug). Signals map to ``trade``; critical folds into ``error``.
+    """
+    s = str(raw or "").strip().lower()
+    if s in ("buy", "sell", "long", "short", "trade", "order", "fill", "filled"):
+        return "trade"
+    if s in ("warn", "warning"):
+        return "warn"
+    if s in ("error", "err", "critical", "crit", "fatal", "exception"):
+        return "error"
+    if s in _LOG_LEVELS:
+        return s
+    return "info"
+
+
+def _parse_ts(value: Any) -> datetime | None:
+    """Parse an ISO-8601 timestamp (``Z`` / offset / naive) to aware UTC."""
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _audit_to_entry(e: dict) -> dict[str, Any]:
+    ts = e.get("ts", e.get("timestamp", datetime.now(timezone.utc).isoformat()))
+    return {
+        "id": e.get("id", str(uuid.uuid4())),
+        "timestamp": ts,
+        "level": _classify_level(e.get("level", e.get("result"))),
+        "message": e.get("message", e.get("msg", json.dumps(e))),
+        "source": "pipeline",
+    }
+
+
+def _outcome_to_entry(o: dict) -> dict[str, Any]:
+    action = o.get("action", "")
+    status = o.get("status", "")
+    reason = o.get("reason") or ""
+    head = " ".join(p for p in (str(action), str(status)) if p).strip()
+    message = f"{head}: {reason}".strip(": ").strip() or json.dumps(o)
+    return {
+        "id": o.get("id", str(uuid.uuid4())),
+        "timestamp": o.get("ts", o.get("timestamp", datetime.now(timezone.utc).isoformat())),
+        "level": _classify_level(o.get("level")),
+        "message": message,
+        "source": "outcome",
+    }
+
+
 @router.get("/logs")
-async def get_logs() -> list[dict[str, Any]]:
-    entries = _tail_jsonl(_AUDIT_LOG, _LOG_TAIL)
-    if entries:
-        out = []
-        for e in entries:
-            level = str(e.get("level", e.get("result", "info"))).lower()
-            if level not in ("info", "warn", "error", "trade"):
-                level = "info"
-            out.append(
-                {
-                    "id": e.get("id", str(uuid.uuid4())),
-                    "timestamp": e.get(
-                        "ts",
-                        e.get("timestamp", datetime.now(timezone.utc).isoformat()),
-                    ),
-                    "level": level,
-                    "message": e.get("message", e.get("msg", json.dumps(e))),
-                }
-            )
-        return out
-    return _tail_plain_log(_BOT_LOG, _LOG_TAIL)
+async def get_logs(
+    limit: int = Query(_LOG_TAIL, ge=1, le=1000),
+    since: str | None = Query(None, description="ISO-8601 UTC cutoff (oldest kept)"),
+    level: str | None = Query(None, description="CSV of levels to keep (info,warn,error,trade)"),
+) -> list[dict[str, Any]]:
+    """Merged, newest-first log feed for the dashboard / Android Logs screen.
+
+    Sources, merged then sorted by timestamp:
+      - ``signal_audit.jsonl`` — pipeline events (signals surface as
+        ``trade``, everything else ``info``); falls back to ``bot.log``
+        when the audit log is empty.
+      - ``outcomes.jsonl`` — operator WARN/ERROR/CRITICAL outcomes
+        (``critical`` → ``error``). This is what was missing before, so
+        the non-INFO tag chips never matched anything.
+
+    Params: ``limit`` (1..1000), ``since`` (drop older rows — drives the
+    app's 24h/7d time-frames), ``level`` (CSV filter). All optional;
+    no params ≈ the previous newest-100 behaviour, just with real levels.
+    """
+    rows: list[dict[str, Any]] = []
+    audit = _tail_jsonl(_AUDIT_LOG, max(limit, _LOG_TAIL))
+    if audit:
+        rows.extend(_audit_to_entry(e) for e in audit)
+    else:
+        rows.extend(_tail_plain_log(_BOT_LOG, _LOG_TAIL))
+    rows.extend(_outcome_to_entry(o) for o in _tail_jsonl(_OUTCOMES_LOG, max(limit, _LOG_TAIL)))
+
+    # Optional level filter (CSV, normalised the same way as the rows).
+    if level:
+        wanted = {_classify_level(tok) for tok in level.split(",") if tok.strip()}
+        if wanted:
+            rows = [r for r in rows if r["level"] in wanted]
+
+    # Optional since cutoff — rows with an unparseable ts are kept (better
+    # to over-show than silently drop on a malformed timestamp).
+    since_dt = _parse_ts(since)
+    if since_dt is not None:
+        rows = [r for r in rows if (_parse_ts(r["timestamp"]) or since_dt) >= since_dt]
+
+    # Newest first; rows with an unparseable ts sort oldest (epoch).
+    _epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    rows.sort(key=lambda r: _parse_ts(r["timestamp"]) or _epoch, reverse=True)
+    return rows[:limit]
 
 
 @router.get("/positions")
