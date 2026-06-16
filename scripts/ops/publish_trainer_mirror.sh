@@ -88,6 +88,12 @@ PUBLISH_LOG_PATH="${PUBLISH_LOG_PATH:-$REPO_ROOT/runtime_logs/trainer/publish.js
 # alongside them) — see the rsync filter below.
 ICT_TRADER_DATA_ROOT="${ICT_TRADER_DATA_ROOT:-/home/ubuntu/ict-trader-data}"
 BACKTESTS_ROOT="${BACKTESTS_ROOT:-$ICT_TRADER_DATA_ROOT/backtests}"
+# Confidence calibrators (unified-confidence design § 4a/4b). Fit each cycle by
+# scripts/ops/fit_calibrators.sh into $REPO_ROOT/artifacts/calibration/. Mirror
+# them to the live VM under <mirror>/calibration/ so the live observe-only
+# conviction loader (src/runtime/conviction_inputs.py::load_calibrators_cached)
+# reads the fitted calibrators instead of falling back to raw normalization.
+CALIBRATION_ROOT="${CALIBRATION_ROOT:-$REPO_ROOT/artifacts/calibration}"
 
 iso_now() { date -u +'%Y-%m-%dT%H:%M:%S+00:00'; }
 
@@ -427,7 +433,7 @@ SSH_OPTS="-i ${VM_SSH_KEY} -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o B
 # `models/` is read by the WS7 shadow factory; `trainer/` +
 # `experiments-runs/` are read by the dashboard router.
 ssh ${SSH_OPTS} "${LIVE_VM_USER}@${LIVE_VM_IP}" \
-  "mkdir -p '${LIVE_VM_MIRROR_PATH}/trainer' '${LIVE_VM_MIRROR_PATH}/experiments-runs' '${LIVE_VM_MIRROR_PATH}/models'" \
+  "mkdir -p '${LIVE_VM_MIRROR_PATH}/trainer' '${LIVE_VM_MIRROR_PATH}/experiments-runs' '${LIVE_VM_MIRROR_PATH}/models' '${LIVE_VM_MIRROR_PATH}/calibration'" \
   || { emit "$(printf '{"ts":"%s","status":"mkdir_failed"}' "$(iso_now)")"; exit 1; }
 
 push_one() {
@@ -446,6 +452,12 @@ push_one "$TRAINING_LOG_PATH"                                  "training_cycle.j
 push_one "$REGISTRY_ROOT/registry.jsonl"                       "registry.jsonl"              || overall_rc=1
 push_one "$REPO_ROOT/runtime_logs/trainer/dataset_builds.jsonl" "trainer/dataset_builds.jsonl" || overall_rc=1
 push_one "$REPO_ROOT/runtime_logs/trainer/db_pulls.jsonl"      "trainer/db_pulls.jsonl"       || overall_rc=1
+
+# Confidence calibrators + reliability report (unified-confidence § 4a/4b).
+# push_one no-ops if the file is absent (a cycle where fit_calibrators.sh hasn't
+# run yet), so this never fails an otherwise-clean publish.
+push_one "$CALIBRATION_ROOT/calibrators.json"                  "calibration/calibrators.json" || overall_rc=1
+push_one "$CALIBRATION_ROOT/report.json"                       "calibration/report.json"      || overall_rc=1
 
 # Per-model registry JSONs — the WS7 shadow factory in
 # `ml/shadow/factory.py` reads `<DATA_DIR>/runtime_logs/trainer_mirror/models`
