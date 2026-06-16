@@ -91,7 +91,7 @@ def _canonical_stage_or_raw(stage: str) -> str:
     try:
         from ml.manifest import canonical_stage
         return canonical_stage(stage)
-    except Exception:  # noqa: BLE001 — telemetry only; never 5xx on a bad stage
+    except Exception:  # noqa: BLE001  # allow-silent: telemetry-only stage normalization — unknown value passes through unchanged, never 5xx
         return stage
 
 
