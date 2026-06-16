@@ -90,11 +90,22 @@ Known-viable executors (operator picks per session; no per-agent build needed):
 3. **Comet, run on desktop** — start the agentic task *inside* desktop Comet
    against the logged-in DXTrade tab (`@tab`), with a forced "pause for my
    confirmation before submit" step. This is the supported Comet path.
-4. **Perplexity Assistant (phone) → Comet (desktop)** — **NOT supported as of
-   2026-06** (verified via Perplexity). Android Comet runs tasks only while the
-   app stays open; there is no documented phone→desktop remote hand-off. Use
-   option 3 (desktop Comet) directly; the phone is an alert channel only.
-5. **Manual** — operator places it directly on the DXTrade app/web from the
+4. **Comet for Android (native app)** — a **self-contained ON-PHONE executor**
+   (NEW; Android launch 2026-06, supersedes the "phone is alert-only" stance
+   below). Open the DXTrade tab inside Android Comet, log in, focus the
+   assistant on that one tab (`@tab` / open Assistant next to the tab), and run
+   the same supervised *fill-don't-submit* task there. Per Perplexity's Android
+   materials + the Play Store listing, the assistant works across the open tab,
+   supports voice mode, takes actions on your behalf, and **shows its actions
+   while letting you intervene at any time** — which is exactly the contained,
+   supervised control this workflow needs. So the **phone is now a first-class
+   executor, not only an alert channel**, and the same ticket runs on laptop
+   (option 3) or phone (this option) — whichever device is in hand.
+5. **Perplexity Assistant (phone) → Comet (desktop) remote hand-off** — still
+   **NOT supported** (no documented phone→desktop remote control of a live
+   desktop Comet session). No longer needed: option 4 runs the task on the phone
+   directly rather than dispatching to the desktop.
+6. **Manual** — operator places it directly on the DXTrade app/web from the
    ticket's human-readable card. Always the fallback; phone-native.
 
 **Agentic-browser caveats (Comet/any):** Comet treats financial sites as
