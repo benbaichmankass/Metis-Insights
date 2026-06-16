@@ -88,6 +88,15 @@ ROSTER: Dict[str, Dict[str, str]] = {
     "fvg_range_15m":       {"module": "src.units.strategies.fvg_range_15m", "tf": "15m"},
     "turtle_soup":         {"module": "src.units.strategies.turtle_soup", "tf": "15m"},
     "ict_scalp_5m":        {"module": "src.units.strategies.ict_scalp", "tf": "5m"},
+    # --- HF prop-pass research candidates (2026-06-16, RESEARCH-ONLY) ---
+    # Registered for the research harness ONLY (NOT config/strategies.yaml; NOT
+    # the live order path). See docs/research/hf-prop-strategy-research-plan-
+    # 2026-06-16.md + runtime_logs/prop_eval/2026-06-16-hf-research/NOTE.md.
+    # hf_displacement_cont takes the same per-bar 1h-EMA HTF-bias injection as
+    # ict_scalp_5m (generate_signal_stream special-cases both) so its hard
+    # HTF trend-alignment gate is fed live-faithfully.
+    "hf_displacement_cont": {"module": "src.units.strategies.hf_displacement_cont", "tf": "5m"},
+    "hf_vwap_revert":       {"module": "src.units.strategies.hf_vwap_revert", "tf": "5m"},
 }
 _PANDAS_TF = {"5m": "5min", "15m": "15min", "30m": "30min", "1h": "1h", "2h": "2h", "4h": "4h"}
 
@@ -175,7 +184,7 @@ def generate_signal_stream(name: str, base5m: pd.DataFrame, *, start, end,
     # EMA once over the FULL base feed and as-of-align it to each bar so the
     # in-system stream matches live behaviour. Other strategies: htf_series=None.
     htf_close_arr = htf_ema_arr = None
-    if name == "ict_scalp_5m" and bool(cfg.get("htf_trend_filter_enabled", True)):
+    if name in ("ict_scalp_5m", "hf_displacement_cont") and bool(cfg.get("htf_trend_filter_enabled", True)):
         htf_tf = _PANDAS_TF.get(str(cfg.get("htf_filter_timeframe") or "1h"), "1h")
         ema_period = int(cfg.get("htf_filter_ema_period") or 20)
         htf = _resample(base5m, htf_tf)

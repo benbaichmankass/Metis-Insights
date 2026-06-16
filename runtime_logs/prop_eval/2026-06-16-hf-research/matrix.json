@@ -1,0 +1,191 @@
+{
+  "kind": "prop_eval_matrix",
+  "generated_at": "2026-06-16T19:46:38.765838+00:00",
+  "ruleset": {
+    "ruleset": "breakout",
+    "plan": "1-step-classic",
+    "account_size_usd": 5000.0,
+    "profit_split": 0.8,
+    "unconfirmed": false,
+    "evaluation": {
+      "profit_target_pct": 0.1,
+      "min_trading_days": 0,
+      "max_eval_days": null
+    },
+    "funded": {
+      "profit_target_pct": null,
+      "min_trading_days": 0
+    },
+    "limits": {
+      "daily_loss_pct": 0.03,
+      "max_drawdown_pct": 0.06,
+      "drawdown_type": "static",
+      "max_position_pct": null
+    },
+    "consistency": {
+      "enabled": false,
+      "max_single_day_profit_share": 0.4
+    },
+    "restrictions": {
+      "weekend_flat": false,
+      "overnight_flat": false
+    },
+    "funded_soak_days": 30
+  },
+  "data_window": {
+    "start": "2025-02-01",
+    "end": "2026-02-01",
+    "data_start": "2025-02-01 00:00:00+00:00",
+    "data_end": "2026-02-01 00:00:00+00:00"
+  },
+  "combos": [
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "hf_vwap_revert",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 0,
+        "static_dd_off_start_pct": 0.0,
+        "equity_at_eval_pass": null,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 0.0,
+        "return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "max_drawdown_usd": 0.0,
+        "total_trades": 0,
+        "win_rate_pct": 0.0,
+        "consistency_worst_day_share": null
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "hf_vwap_revert,fvg_range_15m,squeeze_breakout_4h",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 27,
+        "static_dd_off_start_pct": 0.03479,
+        "equity_at_eval_pass": null,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 9.08,
+        "return_pct": 0.18,
+        "max_drawdown_pct": 4.77,
+        "max_drawdown_usd": 241.68,
+        "total_trades": 28,
+        "win_rate_pct": 39.29,
+        "consistency_worst_day_share": 0.31166
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "fvg_range_15m,squeeze_breakout_4h",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 27,
+        "static_dd_off_start_pct": 0.03479,
+        "equity_at_eval_pass": null,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 9.08,
+        "return_pct": 0.18,
+        "max_drawdown_pct": 4.77,
+        "max_drawdown_usd": 241.68,
+        "total_trades": 28,
+        "win_rate_pct": 39.29,
+        "consistency_worst_day_share": 0.31166
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "hf_displacement_cont",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 54,
+        "static_dd_off_start_pct": 0.135432,
+        "equity_at_eval_pass": null,
+        "first_breach": {
+          "rule": "max_drawdown",
+          "ts": "2025-11-17 13:00:00+00:00",
+          "detail": "static DD 6.09% > 6.00%",
+          "depth_pct": 0.060872,
+          "drawdown_type": "static"
+        }
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": -677.16,
+        "return_pct": -13.54,
+        "max_drawdown_pct": 15.58,
+        "max_drawdown_usd": 797.61,
+        "total_trades": 56,
+        "win_rate_pct": 44.64,
+        "consistency_worst_day_share": 0.086799
+      },
+      "headline": "EVAL FAIL (max_drawdown)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "hf_displacement_cont,fvg_range_15m,squeeze_breakout_4h",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 69,
+        "static_dd_off_start_pct": 0.143796,
+        "equity_at_eval_pass": null,
+        "first_breach": {
+          "rule": "max_drawdown",
+          "ts": "2025-10-27 14:00:00+00:00",
+          "detail": "static DD 6.47% > 6.00%",
+          "depth_pct": 0.064668,
+          "drawdown_type": "static"
+        }
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": -718.98,
+        "return_pct": -14.38,
+        "max_drawdown_pct": 16.79,
+        "max_drawdown_usd": 863.68,
+        "total_trades": 73,
+        "win_rate_pct": 41.1,
+        "consistency_worst_day_share": 0.088244
+      },
+      "headline": "EVAL FAIL (max_drawdown)"
+    }
+  ],
+  "count": 5
+}
