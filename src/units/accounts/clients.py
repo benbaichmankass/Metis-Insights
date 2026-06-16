@@ -612,10 +612,12 @@ def account_has_broker_pnl_reader(account: Optional[Dict[str, Any]]) -> bool:
 #                          (``account_open_positions`` — wired for bybit + binance
 #                          + interactive_brokers; NOT alpaca/oanda).
 #
-# This map reflects CURRENT WIRED REALITY (verified against the code), NOT the
-# P3 aspiration of wiring IB/Alpaca/OANDA modify/close. When P3 adds those
-# primitives it extends BOTH the implementing code AND this map (mirroring how
-# adding a broker PnL reader extends both the dispatch and the reader set).
+# This map reflects CURRENT WIRED REALITY (verified against the code). P3
+# wired IB/Alpaca ``close``; S2 (BL-20260616-LTMGMT-MODIFY) wired IB/Alpaca
+# ``modify``. Wiring a primitive extends BOTH the implementing code AND this
+# map (mirroring how adding a broker PnL reader extends both the dispatch and
+# the reader set). OANDA management is still unwired (later item, before it
+# leaves dry_run).
 #
 # **Safe default is "unsupported".** An integration absent from this map (or an
 # op absent from its set) resolves to "not supported" — so an op that hasn't
@@ -636,18 +638,23 @@ EXCHANGE_MANAGEMENT_CAPS: dict[str, frozenset[str]] = {
     # positions; P3 (live-trade management contract) added IBClient.close
     # (cancel resting bracket/OCA legs + opposing reduce market order) wired
     # through execute.close_open_position + order_monitor._build_account_client,
-    # so ``close`` is now supported. ``modify`` (trailing-SL re-arm) is the
-    # deferred follow-up within P3; ``order_status`` is not wired (IBClient.status
-    # exists but account_order_status returns None for IB).
-    "interactive_brokers": frozenset({"close", "open_positions"}),
-    "ib": frozenset({"close", "open_positions"}),  # alias seen in account_open_positions
+    # so ``close`` is supported. S2 (BL-20260616-LTMGMT-MODIFY) added
+    # ``modify`` (trailing-SL re-arm): IBClient.modify_protective cancels the
+    # resting OCA legs + re-places a fresh GTC OCA pair at the merged SL/TP via
+    # place_protective, wired through execute.modify_open_order. ``order_status``
+    # is not wired (IBClient.status exists but account_order_status returns None
+    # for IB).
+    "interactive_brokers": frozenset({"modify", "close", "open_positions"}),
+    "ib": frozenset({"modify", "close", "open_positions"}),  # alias seen in account_open_positions
     # alpaca (alpaca_paper, live): P3 wired the native idempotent flatten
     # (AlpacaClient.close → DELETE /v2/positions/{symbol}) through
     # execute.close_open_position, and account_open_positions now has an alpaca
-    # branch — so ``close`` + ``open_positions`` are supported. ``modify`` is the
-    # deferred P3 follow-up; ``partial_close`` is not wired (the flatten endpoint
-    # closes the whole position).
-    "alpaca": frozenset({"close", "open_positions"}),
+    # branch — so ``close`` + ``open_positions`` are supported. S2
+    # (BL-20260616-LTMGMT-MODIFY) added ``modify``: AlpacaClient.modify_protective
+    # PATCHes the resting bracket legs (stop_price / limit_price) for whichever
+    # of SL/TP the verdict changed. ``partial_close`` is not wired (the flatten
+    # endpoint closes the whole position).
+    "alpaca": frozenset({"modify", "close", "open_positions"}),
     # oanda (oanda_practice, dry): NO management op wired yet
     # (account_open_positions has no oanda branch, no close primitive). Wiring
     # OANDA is a later P3 item, before it's promoted off dry_run.

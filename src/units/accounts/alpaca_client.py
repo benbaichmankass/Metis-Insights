@@ -192,3 +192,81 @@ class AlpacaClient:
         if env.get("retCode") == 404:
             return {"retCode": 0, "result": {"note": "no open position"}}
         return env
+
+    def _open_orders_for_symbol(self, symbol: str) -> Optional[list]:
+        """Open (working) orders on *symbol*, including bracket child legs.
+
+        Returns the flattened order list (parents + nested ``legs``) filtered
+        to *symbol*, or ``None`` on a read failure (so the caller can refuse
+        to act rather than assume "no legs"). ``nested=true`` so an
+        un-triggered bracket's children come back attached to the parent;
+        once the entry fills the legs surface as top-level open orders too.
+        """
+        sym = str(symbol).upper()
+        env = self._request(
+            "GET", f"/v2/orders?status=open&nested=true&symbols={sym}"
+        )
+        if env.get("retCode") != 0:
+            return None
+        out: list = []
+        for o in env.get("result") or []:
+            out.append(o)
+            for leg in o.get("legs") or []:
+                out.append(leg)
+        return [o for o in out if str(o.get("symbol") or "").upper() == sym]
+
+    def modify_protective(
+        self,
+        symbol: str,
+        sl: Optional[float] = None,
+        tp: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Replace the resting SL/TP legs of the open bracket on *symbol*.
+
+        S2 of the live-trade management contract (BL-20260616-LTMGMT-MODIFY).
+        Alpaca bracket legs are independent working orders, so a SL/TP modify
+        is a leg **replace** (``PATCH /v2/orders/{id}``): the stop leg's
+        ``stop_price`` (when *sl* is given) and the limit leg's ``limit_price``
+        (when *tp* is given). Only the leg(s) the verdict changed are touched,
+        so the other leg's protection is never dropped — no naked re-arm
+        window, unlike the IB cancel-and-replace path.
+
+        retCode envelope: ``{"retCode": 0, "result": {"orderId": <last>,
+        "patched": [...]}}`` when at least one leg was patched;
+        ``{"retCode": <non-zero>, "retMsg": ...}`` on a read failure, a PATCH
+        failure, or no matching protective leg found.
+        """
+        self._require_creds("modify")
+        if sl is None and tp is None:
+            return {"retCode": -2, "retMsg": "no sl/tp provided — nothing to modify"}
+        legs = self._open_orders_for_symbol(symbol)
+        if legs is None:
+            return {"retCode": -1, "retMsg": "could not read open orders"}
+        patched: list = []
+        errors: list = []
+        for o in legs:
+            otype = str(o.get("type") or o.get("order_type") or "").lower()
+            oid = o.get("id")
+            if not oid:
+                continue
+            if sl is not None and "stop" in otype:
+                env = self._request(
+                    "PATCH", f"/v2/orders/{oid}",
+                    {"stop_price": f"{float(sl):.2f}"},
+                )
+                (patched if env.get("retCode") == 0 else errors).append(str(oid))
+            elif tp is not None and otype == "limit":
+                env = self._request(
+                    "PATCH", f"/v2/orders/{oid}",
+                    {"limit_price": f"{float(tp):.2f}"},
+                )
+                (patched if env.get("retCode") == 0 else errors).append(str(oid))
+        if errors:
+            return {"retCode": 1,
+                    "retMsg": f"leg replace failed for orders {errors}"}
+        if not patched:
+            return {"retCode": 1,
+                    "retMsg": "no matching protective leg found for "
+                              f"{str(symbol).upper()}"}
+        return {"retCode": 0,
+                "result": {"orderId": patched[-1], "patched": patched}}

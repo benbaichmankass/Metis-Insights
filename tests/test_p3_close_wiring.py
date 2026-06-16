@@ -448,8 +448,8 @@ def test_caps_declare_close_for_ib_and_alpaca():
     assert "close" in clients.exchange_management_caps("interactive_brokers")
     assert "close" in clients.exchange_management_caps("ib")
     assert "close" in clients.exchange_management_caps("alpaca")
-    # modify/partial_close NOT added (out of scope / deferred).
-    assert "modify" not in clients.exchange_management_caps("interactive_brokers")
+    # modify was wired in S2 (tests/test_ltmgmt_modify_wiring.py); partial_close
+    # is still out of scope.
     assert "partial_close" not in clients.exchange_management_caps("alpaca")
     # OANDA still has no close.
     assert "close" not in clients.exchange_management_caps("oanda")
