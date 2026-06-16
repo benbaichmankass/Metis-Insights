@@ -91,7 +91,9 @@ or a hardcoded "is it Bybit" check:
   the Bybit sweep within the broker retention window** (`_BROKER_PNL_RECOVERY_MS`,
   7d) and only filled locally once older — so fee-accurate broker truth is never
   pre-empted, while a genuinely-abandoned broker row is still rescued from a
-  permanent `$0.00`. Kill-switch `LOCAL_PNL_COMPUTE_DISABLED` (default ON).
+  permanent `$0.00`. Runs unconditionally — baseline correctness, no gate
+  (the initial `LOCAL_PNL_COMPUTE_DISABLED` kill-switch was removed 2026-06-16
+  on operator review; rollback for a bug is revert + redeploy).
 - **`dashboard.py::_local_unrealised_for_trade`** — same contract for **open**
   positions: broker first (`_broker_unrealised_for_trade`), then a server-side
   mark-to-market fallback (`unrealizedPnlSource="markprice_local"`),
