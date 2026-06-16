@@ -183,6 +183,40 @@ def _broker_unrealised_for_trade(
     return None, "unavailable"
 
 
+def _local_unrealised_for_trade(
+    *, symbol: Any, direction: Any, entry_price: Any, qty: Any,
+) -> tuple[Any, str]:
+    """Mark-to-market unrealised PnL when the broker can't provide it.
+
+    ``(round(pnl, 2), "markprice_local")`` from the last market close ×
+    contract multiplier, or ``(None, "unavailable")`` when no mark is
+    available (keeps the null-not-zero contract). Best-effort.
+    """
+    try:
+        from src.runtime.local_pnl import (
+            compute_unrealized_pnl,
+            contract_value_usd_for,
+            last_mark_price,
+        )
+        mark = last_mark_price(symbol)
+        if not mark or mark <= 0:
+            return None, "unavailable"
+        pnl = compute_unrealized_pnl(
+            entry_price=entry_price, mark_price=mark, qty=qty,
+            direction=direction,
+            contract_value_usd=contract_value_usd_for(symbol),
+        )
+        if pnl is None:
+            return None, "unavailable"
+        return round(float(pnl), 2), "markprice_local"
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort mark-to-market enrichment of a Tier-1 read endpoint; spans a lazy import + a (possibly blocking IBKR) candle fetch whose failure modes are open-ended. Returns the null-not-zero sentinel so /api/bot/positions never 500s — the renderer treats null as "not measured", exactly the broker-unavailable fallback contract.
+        logger.warning(
+            "dashboard: local unrealised compute failed for %s: %s",
+            symbol, exc,
+        )
+        return None, "unavailable"
+
+
 def _bot_status() -> str:
     from src.runtime.heartbeat import heartbeat_label  # local import keeps router cheap
     if not _HEARTBEAT.exists():
@@ -406,6 +440,17 @@ async def get_positions(
     out: list[dict[str, Any]] = []
     for r in rows:
         upnl, upnl_source = _broker_unrealised_for_trade(r[1], r[2], r[3])
+        # Server-side mark-to-market fallback (2026-06-16): when the broker
+        # read is unavailable (logged-out IB Gateway, no matching position),
+        # compute unrealised PnL from the last market close × the contract
+        # multiplier so IBKR/paper open positions show a real number instead
+        # of $0.00. The client-side candle fallback was multiplier-blind for
+        # futures (MGC=10× / MHG=2500×); this is computed where the canonical
+        # contract_value_usd lives. Marked with a distinct source.
+        if upnl is None and upnl_source == "unavailable":
+            upnl, upnl_source = _local_unrealised_for_trade(
+                symbol=r[2], direction=r[3], entry_price=r[5], qty=r[4],
+            )
         out.append({
             "id": str(r[0]),
             "account": r[1],

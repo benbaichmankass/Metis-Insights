@@ -148,6 +148,45 @@ reconciliation/dispatch gates (below), one observe-only shadow-logging
 kill-switch (above), and this operator-controlled phase-3 hard-gate
 rollback switch.
 
+## New annotated survivor — `LOCAL_PNL_COMPUTE_DISABLED` (BL-20260616-IBKRPNL, 2026-06-16)
+
+A fifth `os.environ.get` read matching the suspect pattern now lives
+under a protected path:
+
+* `src/runtime/order_monitor.py` — `_local_pnl_compute_enabled()` reads
+  `LOCAL_PNL_COMPUTE_DISABLED` (default unset → fallback ON; truthy →
+  off).
+
+Same contract: inline `# allow-silent:` on the read line + this
+audit-doc entry. Full design: `docs/audits/local-pnl-fallback-2026-06-16.md`.
+
+**Why it is a legitimate survivor (matches the pattern, inverts the
+default):**
+
+* It is a **default-ON** kill-switch, not a default-off capability gate.
+  The BUG-039 risk pattern is a default-off `*_ENABLED` gate hiding a
+  capability the user expects to be live (the MES-stranding pattern).
+  This is the inverse: unset → the local-PnL fallback runs (baseline
+  correctness — non-Bybit closed/orphaned trades get a realised PnL
+  instead of NULL/$0.00). Setting it truthy is the operator rollback,
+  "one env flip + restart, no redeploy" — mirroring
+  `REGIME_BAR_SCORING_DISABLED`.
+* It **gates a reporting/observability sweep, never the order path.**
+  `_sweep_local_pnl_for_unpriced` only writes `pnl` / `pnl_percent` /
+  `exit_price` / `notes` + re-links `order_package_id` on already-closed
+  / orphaned rows. It never places, modifies, or cancels an order, and
+  it skips Bybit accounts entirely. `RiskManager.dry_run` remains the
+  sole live/dry execution switch.
+* It **cannot strand a capability when on (default).** With the gate
+  unset the sweep simply fills PnL the broker can't provide; with it set
+  the rows stay NULL exactly as they did pre-PR. Nothing tradeable is
+  affected either way.
+
+So the survivor count is now **five** — two live-order-path
+reconciliation/dispatch gates (below), one observe-only shadow-logging
+kill-switch, one phase-3 hard-gate rollback switch (above), and this
+default-ON local-PnL reporting kill-switch.
+
 ## Phase-1 PR scope (this DRAFT)
 
 * `docs/audits/env-gate-purge-2026-05-10.md` (this file).
