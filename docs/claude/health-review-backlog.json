@@ -1852,7 +1852,19 @@
       "resolution_criteria": "Client renders the API unrealizedPnl; no multiplier-blind local recompute.",
       "tier": "Tier-1 (dashboard read-only)",
       "status": "open"
+    },
+    {
+      "id": "BL-20260616-TRADE-EVENT-TELEGRAM-GATE",
+      "opened_at": "2026-06-16T10:59:03+00:00",
+      "opened_by": "claude (android-ui-logging-updates session 2026-06-16)",
+      "source": "Operator flagged during the MOBILE_PUSH_ENABLED gate scrub (PR #3807): TRADE_EVENT_TELEGRAM_DISABLED looks like it may be another unnecessary gate. Deferred a deeper dive to the next health review.",
+      "title": "Re-evaluate TRADE_EVENT_TELEGRAM_DISABLED kill-switch — keep or scrub?",
+      "description": "src/runtime/mobile_push/trade_events.py reads TRADE_EVENT_TELEGRAM_DISABLED (default off -> per-trade Telegram on) as a rollback lever for the per-trade open/close/update Telegram line added in PR #3790. It carries an allow-silent annotation (notification side-channel, not a trading gate). Like MOBILE_PUSH_ENABLED (scrubbed in #3807), this may be an unnecessary footgun: the Telegram send is already best-effort + off-thread and degrades cleanly when creds are missing. Decide whether the kill-switch earns its keep (a concrete rollback scenario, e.g. Telegram spam from a runaway loop) or should be scrubbed for consistency with the no-default-gate-in-front-of-a-wanted-notification direction.",
+      "trigger_condition": "Next /health-review.",
+      "resolution_criteria": "Decision recorded: either (a) keep with a documented concrete rollback rationale, or (b) scrub the env read + allow-silent + update trade_events.py docstring/tests, mirroring the MOBILE_PUSH_ENABLED removal.",
+      "tier": "Tier-1 (notification side-channel; code-only change if scrubbed)",
+      "status": "open"
     }
   ],
-  "updated_at": "2026-06-16T09:40:00+00:00"
+  "updated_at": "2026-06-16T10:59:03+00:00"
 }
