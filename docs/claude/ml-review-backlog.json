@@ -745,6 +745,30 @@
    "resolution_criteria": "mes-regime-5m-lgbm-yz-v1 promoted to shadow and emitting predictions, OR a documented reason to keep it research_only.",
    "tier": 1,
    "status": "open"
+  },
+  {
+   "id": "MB-20260616-CONVICTION-P4-SIZING",
+   "opened_at": "2026-06-16T12:20:00+00:00",
+   "opened_by": "claude (M3 / unified-confidence, 2026-06-16)",
+   "source": "Unified-confidence risk redesign (docs/unified-confidence-risk-DESIGN.md § 5 P4). P1 meta.conviction stamp, P2 conviction sizing (#3796), P3 conviction arbitration (#3810) all ship observe-only/no-gate and now accrue soak evidence (runtime_logs/conviction_sizing.jsonl + conviction_arbitration.jsonl, tail-able via /api/diag/log_file?name=conviction_sizing|conviction_arbitration). P4 is the GRADUATION step: conviction actually DRIVES size.",
+   "title": "P4 — graduate conviction to drive real-money sizing (Tier-3, soak-gated, operator-approved)",
+   "description": "Replace effective_risk_pct sizing with per_trade_risk_budget(2%) × conviction × available-margin (design § 3.3); drop the dormant pos_size. This is a deliberate change to the sizing path itself (risk.py / coordinator), governed by the account mode gate + margin/daily-loss guards — NOT a switch flipped on the observe-only annotator. Demo-first (bybit_1), then real money. Open numbers (design § 6 #2, § 10): the no-trade floor (inert 0 today), the throttle-curve shape, the per-trade daily-loss-budget interaction. DO NOT start without explicit operator direction.",
+   "trigger_condition": "Conviction soak sufficient: review the conviction_sizing/arbitration distributions (would-be vs actual) once the multi-input corpus reaches the design's ≥150-row identifiability bar AND the degenerate v2 (conviction-meta-v1, n≈65) is non-degenerate; operator green-lights graduation.",
+   "resolution_criteria": "An operator-approved Tier-3 PR makes conviction drive size on at least the demo account, validated vs current sizing on the soak window, with the no-trade floor / throttle numbers decided from evidence.",
+   "tier": 3,
+   "status": "open"
+  },
+  {
+   "id": "MB-20260616-CONVICTION-P5-FUSION",
+   "opened_at": "2026-06-16T12:20:00+00:00",
+   "opened_by": "claude (M3 / unified-confidence, 2026-06-16)",
+   "source": "Unified-confidence risk redesign (docs/unified-confidence-risk-DESIGN.md § 5 P5 / § 3.2). v1 = hand-set formulaic conviction blend (DEFAULT_CONVICTION_WEIGHTS, kept per the 2026-06-16 sweep); v2 = learned LightGBM stacker (conviction-meta-v1) currently degenerate at n≈65 with f1=0 baselines (MB-20260615-DEGEN-BASELINES).",
+   "title": "P5 — promote each lens's fusion v1 formulaic → v2 learned (per-lens gate, soak-gated)",
+   "description": "Once the parallel shadow soak shows the v2 meta-model agreeing with / beating v1 on realized win/EV, promote per-lens from the formulaic blend to the learned stacker (design § 3.2). Blocked on the same data-sufficiency problem as P4 — the conviction_meta corpus is the n≈65 the degenerate v2 trains on; likely needs backtest-augmented per-trade rows (MB-20260530-001) first. The sweep harness (scripts/ml/sweep_conviction_weights.py) auto-revisits the v1 weights at ≥150 multi-input rows; v2 promotion is the next step beyond that. DO NOT start without explicit operator direction.",
+   "trigger_condition": "v2 conviction-meta-v1 trains non-degenerate (macro_f1>0 under purged CV, n_eval well above the current ≈65) AND its shadow predictions agree with / beat the v1 blend on the soak window.",
+   "resolution_criteria": "Per-lens fusion promoted v1→v2 via an operator-approved Tier-3 PR with documented v2>v1 soak evidence, OR a documented decision to keep v1.",
+   "tier": 3,
+   "status": "open"
   }
  ]
 }

@@ -133,6 +133,8 @@ _SHADOW_PRED_LOG = runtime_logs_dir() / "shadow_predictions.jsonl"
 _SHADOW_PRED_BACKFILL_LOG = runtime_logs_dir() / "shadow_predictions_backfill.jsonl"
 _IBKR_MES_PULL_LOG = runtime_logs_dir() / "ibkr_mes_pull.jsonl"
 _NEWS_DECISIONS_LOG = runtime_logs_dir() / "news_decisions.jsonl"
+_CONVICTION_SIZING_LOG = runtime_logs_dir() / "conviction_sizing.jsonl"
+_CONVICTION_ARBITRATION_LOG = runtime_logs_dir() / "conviction_arbitration.jsonl"
 
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
@@ -162,6 +164,18 @@ _LOG_FILES: dict[str, Path] = {
     # we accrue to validate the news veto/influence before it can gate live money.
     # Absent until the news layer is active (NEWS_SOURCE=rss, or newsapi + NEWS_API_KEY).
     "news_decisions": _NEWS_DECISIONS_LOG,
+    # Unified-confidence soak logs (observe-only, no order influence). Exposing
+    # the tail here is how a session VERIFIES the conviction soak is actually
+    # accruing evidence on the live VM before P4/P5 graduate it to driving
+    # money. ``conviction_sizing`` (P2, #3796): one line per order — the would-be
+    # conviction size vs the RiskManager qty. ``conviction_arbitration`` (P3,
+    # #3810): one line per multi-intent aggregation — the would-be conviction
+    # winner/target vs the actual priority/max-qty pick. Both written by the
+    # observe-only annotators; neither ever changes an order. Absent until the
+    # respective code path first runs (sizing: every order; arbitration: only
+    # when ≥2 conviction-bearing intents compete on a symbol).
+    "conviction_sizing": _CONVICTION_SIZING_LOG,
+    "conviction_arbitration": _CONVICTION_ARBITRATION_LOG,
 }
 
 _DEFAULT_LIMIT = 100
