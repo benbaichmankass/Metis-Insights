@@ -129,12 +129,29 @@ new `*_ENABLED` gate). Ships inert (floor `0`) and is raised deliberately.
 
 ### 3.6 What gets subsumed / deprecated
 
+**The per-model 7-stage ladder is UNCHANGED** (operator clarification
+2026-06-16). Each model keeps its own independent lifecycle
+(`research_only → … → shadow → advisory → limited_live → live_approved`) and
+its own training/promotion path. What changes is only what *consumes* the
+model's output: instead of each model having its own bespoke gate, **every
+model's result becomes an input to the relevant confidence lens**, and the
+model's **own stage governs which conviction it feeds**:
+
+- a model at **`shadow`** contributes to the **observed conviction** (logged,
+  no influence) — exactly its current "observe-only" semantics;
+- a model at **`advisory`+** additionally contributes to the **influencing
+  conviction** that drives sizing/arbitration.
+
+So the two-tier influence gate (shadow=observe, advisory+=influence) is
+preserved per-model; it just expresses itself as the model's weight/membership
+in the lens rather than a separate downsize hook. Concretely:
+
 - **Regime hard-gate** (`_hard_regime_gate`, `PERF-601-006/007`): becomes a
   conviction *input* (regime alignment), not a binary drop.
-- **Advisory downsize** (reductive-only): generalized into the sizing lens
-  (which can scale **up** within the risk budget, not only down).
-- **Discrete stage gate**: stage governs a model's **weight** in its lens
-  (continuous influence), instead of a hard advisory/shadow on-off.
+- **Advisory downsize** (reductive-only): generalized into the sizing/conviction
+  lenses (which can scale **up** within the 2% risk budget, not only down).
+- **Discrete stage→influence**: stays a per-model property, but its effect is
+  "feeds observed vs influencing conviction" rather than a standalone gate.
 
 ## 4. Research agenda (resolve before/with the build)
 
@@ -248,11 +265,30 @@ volume): calibration sharply improved reliability, e.g. trend_donchian
 ECE 0.30→0.011, squeeze 0.71→0.013, fade 0.19→0.012. The production fit needs
 the corpus run over full validated history (P0 next step).
 
-**Remaining for P0/P1 (not yet built):** run the corpus over full history + fit
-the real calibrators; per-head `rank_auc` readiness pass; the P1 observe-only
-`conviction` stamp in `_emit_shadow_preds` (the first signal-path touch — will
-be a separate, clearly-marked draft PR, observe-only, not merged without
-operator sign-off).
+**P1 observe-only path — BUILT 2026-06-16 (operator: "everything up until
+shadow"):**
+- **`src/runtime/conviction_inputs.py`** — adapter from `model_scores`
+  (`{model_id:{stage,score}}`) + strategy confidence → calibrated conviction
+  inputs. `classify_head` routes heads to slots (trade-outcome→`c_wr`,
+  setup-quality→`c_setup`, regime→`c_reg`; execution-quality/prop-mission →
+  sizing lens, excluded from conviction). **Per-model stage respected**:
+  `influencing_only=True` keeps only advisory+ heads (`c_strat` always live).
+  Read-only cached calibrator-artifact loader (no sklearn on the live path).
+  +12 tests.
+- **`_emit_shadow_preds` stamp** (`src/runtime/strategy_signal_builders.py`) —
+  computes the conviction observe-only and stamps `sig.meta.conviction`
+  (with per-input provenance) alongside `model_scores`. **Never read back into
+  the order** — fail-permissive, pure logging, so the score soaks before any
+  P2+ influence. Verified end-to-end at runtime.
+
+This is the shadow/observe-only stage: conviction is now *computed + logged on
+every signal* but influences nothing. **Stops exactly at the operator's "up
+until shadow" line.**
+
+**Remaining (NOT built — needs operator/data):** run the corpus over full
+history + fit the real calibrators (then the stamp auto-upgrades from raw→
+calibrated via the artifact); per-head `rank_auc` readiness pass; **P2+ live
+influence** (sizing/arbitration off the conviction) — Tier-3, operator-gated.
 
 ## 5. Phased rollout
 
@@ -267,7 +303,12 @@ operator sign-off).
 
 ## 6. Open operator decisions
 
-1. **Per-trade risk budget** — the max risk fraction conviction scales within. *(open — set from § 4.3 research)*
+1. ~~**Per-trade risk budget**~~ — **DECIDED 2026-06-16: 2%** — the max risk
+   fraction a `conviction=1.0` trade may take; conviction scales size *within*
+   this. (Today's `effective_risk_pct` is ~0.3-1%; 2% is the ceiling, reached
+   only at full conviction.) Real money stays small for now (operator: "leave it
+   small + loop") — the 2% ceiling applies but small balances still floor to the
+   exchange minimum, which is accepted.
 2. **No-trade floor threshold(s)** — per lens; ships at 0 (inert). *(open — set from § 4 research)*
 3. ~~**Available margin: hard ceiling vs proportional throttle vs both**~~ — **DECIDED 2026-06-15: both** (§ 3.3).
 4. **v1 blend weights** — sign off after the § 4.2 sweep. *(open)*
