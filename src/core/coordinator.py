@@ -907,7 +907,15 @@ class Coordinator:
         # so per-account result rows can reference it. Best-effort —
         # journal failures must never crash the dispatch.
         order_package_id = _log_new_order_package(pkg)
-        if order_package_id and isinstance(pkg.meta, dict):
+        if order_package_id:
+            # Always propagate the id onto the package so every trade row this
+            # decision fans out to carries ``order_package_id`` (the trade ↔
+            # package back-reference the reconciler + dashboard read). Pre-fix
+            # this was gated on ``pkg.meta`` already being a dict, so a package
+            # with ``meta=None`` journaled its trade with a NULL link (the MHG
+            # #2578 orphan, operator report 2026-06-16). Initialise meta first.
+            if not isinstance(pkg.meta, dict):
+                pkg.meta = {}
             pkg.meta["order_package_id"] = order_package_id
 
         # Per-account strategy filter (CLAUDE.md § Architecture rules

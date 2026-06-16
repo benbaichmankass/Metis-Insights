@@ -4329,6 +4329,192 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
     return summary
 
 
+def _local_pnl_compute_enabled() -> bool:
+    """Local-PnL fallback is baseline correctness (no default-off gate, per the
+    Prime Directive). Set ``LOCAL_PNL_COMPUTE_DISABLED`` truthy to roll it back
+    without a redeploy. Default ON."""
+    raw = str(os.environ.get("LOCAL_PNL_COMPUTE_DISABLED", "")).strip().lower()
+    return raw not in ("1", "true", "yes", "on")
+
+
+def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
+    """Compute ``pnl`` locally for closed / orphaned trades the broker can't
+    price — the non-Bybit fallback to :func:`_sweep_pending_pnl_from_bybit`.
+
+    The Bybit sweep recovers authoritative ``closedPnl`` from Bybit's
+    closed-pnl endpoint, but that endpoint is **Bybit-only**: IBKR (MES / MGC /
+    MHG on ``ib_paper``) and Alpaca / OANDA paper trades never get a realised
+    PnL, so their rows sit ``status closed/orphaned, pnl NULL`` forever and the
+    dashboard shows ``$0.00`` (operator report 2026-06-16, the MGC / MHG paper
+    orphans).
+
+    This sweep fills that gap from first principles — entry × exit × qty ×
+    direction × ``contract_value_usd`` (the per-contract multiplier from
+    ``config/instruments.yaml``). The exit price is the trade's recorded
+    ``exit_price`` when present, else a **mark-to-market** last close from the
+    bot's own candle feed (operator decision 2026-06-16: derive the exit when
+    no broker fill exists). It also opportunistically **re-links** a row whose
+    ``order_package_id`` is NULL back to its originating package, so the
+    trade ↔ order-package ↔ result chain is complete.
+
+    Scope guards:
+      * **Bybit accounts are skipped** — the closed-pnl sweep owns their PnL
+        (broker truth always wins; this is purely the can't-ask-the-broker
+        fallback).
+      * Only ``position_size > 0`` rows (a ``rejected`` / never-filled row has
+        no result and correctly stays NULL).
+      * 14-day window, capped at 100 rows/tick to bound per-tick cost.
+
+    Runs every monitor tick alongside the Bybit sweep. Best-effort — never
+    raises. Returns ``{"scanned", "filled", "relinked", "still_pending",
+    "skipped_bybit", "errors"}``.
+    """
+    summary: Dict[str, int] = {
+        "scanned": 0, "filled": 0, "relinked": 0,
+        "still_pending": 0, "skipped_bybit": 0, "errors": 0,
+    }
+    if not _local_pnl_compute_enabled():
+        return summary
+
+    try:
+        conn = db.connect()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, symbol, direction, position_size, "
+                "       entry_price, exit_price, account_id, created_at, "
+                "       notes, order_package_id "
+                "  FROM trades "
+                " WHERE status IN ('closed', 'orphaned') "
+                "   AND COALESCE(is_backtest, 0) = 0 "
+                "   AND pnl IS NULL "
+                "   AND COALESCE(position_size, 0) > 0 "
+                "   AND datetime(created_at) >= datetime('now', '-14 days') "
+                " ORDER BY datetime(created_at) DESC "
+                " LIMIT 100"
+            )
+            rows = [dict(r) for r in cursor.fetchall()]
+        finally:
+            try:
+                conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_sweep_local_pnl_for_unpriced: scan query failed: %s", exc)
+        return summary
+
+    if not rows:
+        return summary
+    summary["scanned"] = len(rows)
+
+    try:
+        cfgs = _load_account_cfgs_for_reconcile()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_sweep_local_pnl_for_unpriced: account cfg load failed: %s", exc,
+        )
+        cfgs = {}
+
+    try:
+        from src.runtime.local_pnl import (
+            account_is_bybit,
+            compute_pnl_percent,
+            compute_realized_pnl,
+            contract_value_usd_for,
+            last_mark_price,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_sweep_local_pnl_for_unpriced: import failed: %s", exc)
+        return summary
+
+    for row in rows:
+        try:
+            aid = row.get("account_id")
+            cfg = cfgs.get(aid) if aid else None
+            # Bybit's authoritative closed-pnl sweep owns these rows.
+            if account_is_bybit(cfg):
+                summary["skipped_bybit"] += 1
+                continue
+
+            symbol = str(row.get("symbol") or "")
+            entry = _safe_float(row.get("entry_price"))
+            qty = _safe_float(row.get("position_size"))
+
+            # Exit price: recorded fill first, else mark-to-market last close.
+            exit_price = _safe_float(row.get("exit_price"))
+            exit_source = "recorded_exit_price"
+            if not exit_price or exit_price <= 0:
+                exit_price = last_mark_price(symbol)
+                exit_source = "local_markprice"
+            if not exit_price or exit_price <= 0:
+                # No broker fill and no mark available this tick — retry later.
+                summary["still_pending"] += 1
+                continue
+
+            cvu = contract_value_usd_for(symbol)
+            pnl = compute_realized_pnl(
+                entry_price=entry, exit_price=exit_price,
+                qty=qty, direction=row.get("direction"),
+                contract_value_usd=cvu,
+            )
+            if pnl is None:
+                summary["still_pending"] += 1
+                continue
+
+            notes = _decode_notes(row.get("notes"))
+            notes["pnl_source"] = "local_compute"
+            notes["exit_price_source"] = exit_source
+            notes["contract_value_usd"] = cvu
+
+            updates: Dict[str, Any] = {
+                "pnl": pnl,
+                "exit_price": float(exit_price),
+                "notes": json.dumps(notes, ensure_ascii=False)[:500],
+            }
+            pct = compute_pnl_percent(
+                pnl=pnl, entry_price=entry, qty=qty, contract_value_usd=cvu,
+            )
+            if pct is not None:
+                updates["pnl_percent"] = pct
+
+            # Opportunistic re-link: a row with no order_package_id (the
+            # trade ↔ package gap the operator flagged) is matched back to its
+            # originating package by symbol + direction + entry-within-tolerance.
+            if not row.get("order_package_id") and entry:
+                try:
+                    recovered = _recover_orphan_order_package(
+                        db=db, symbol=symbol,
+                        direction=str(row.get("direction") or ""),
+                        entry_price=float(entry),
+                    )
+                    if recovered and recovered.get("order_package_id"):
+                        updates["order_package_id"] = str(
+                            recovered["order_package_id"]
+                        )
+                        summary["relinked"] += 1
+                except Exception:  # noqa: BLE001 — re-link is best-effort
+                    pass
+
+            db.update_trade(int(row["id"]), updates)
+            summary["filled"] += 1
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_sweep_local_pnl_for_unpriced: row %s raised: %s",
+                row.get("id"), exc,
+            )
+            summary["errors"] += 1
+
+    if summary["filled"] or summary["relinked"] or summary["errors"]:
+        logger.info(
+            "_sweep_local_pnl_for_unpriced: scanned=%d filled=%d relinked=%d "
+            "still_pending=%d skipped_bybit=%d errors=%d",
+            summary["scanned"], summary["filled"], summary["relinked"],
+            summary["still_pending"], summary["skipped_bybit"],
+            summary["errors"],
+        )
+    return summary
+
+
 def run_monitor_tick(
     *,
     db_path: Optional[str] = None,
@@ -4534,6 +4720,21 @@ def run_monitor_tick(
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "run_monitor_tick: pending-pnl sweep raised: %s", exc,
+        )
+
+    # 2026-06-16: local-PnL fallback sweep. The Bybit closed-pnl sweep above
+    # is Bybit-only, so IBKR (MES/MGC/MHG on ib_paper) + Alpaca/OANDA paper
+    # closed/orphaned trades never get a realised PnL and render $0.00. This
+    # computes it from entry/exit/qty/direction × contract multiplier (mark-
+    # to-market exit when no broker fill exists) and re-links any row missing
+    # its order_package_id. Skips Bybit accounts (broker truth owns those).
+    try:
+        local_pnl = _sweep_local_pnl_for_unpriced(db)
+        if local_pnl.get("filled") or local_pnl.get("errors"):
+            summaries["__local_pnl_sweep__"] = local_pnl
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "run_monitor_tick: local-pnl sweep raised: %s", exc,
         )
 
     # BUG-049: sweep order_packages that are status='open' but have no
