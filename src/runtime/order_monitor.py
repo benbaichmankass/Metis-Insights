@@ -561,9 +561,11 @@ def _full_close_trade_and_package(
         return
 
     try:
+        closed_at_iso = datetime.now(timezone.utc).isoformat()
         close_updates: Dict[str, Any] = {
             "status": "closed",
             "exit_reason": reason,
+            "closed_at": closed_at_iso,
         }
         if exit_price is not None:
             close_updates["exit_price"] = float(exit_price)
@@ -819,9 +821,11 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             return
 
         try:
+            closed_at_iso = datetime.now(timezone.utc).isoformat()
             close_updates: Dict[str, Any] = {
                 "status": "closed",
                 "exit_reason": reason,
+                "closed_at": closed_at_iso,
             }
             if actual_exit_price is not None:
                 close_updates["exit_price"] = actual_exit_price
@@ -2040,6 +2044,7 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                 db.update_trade(tid_int, {
                     "status": "closed",
                     "exit_reason": "adopted_orphan_disappeared",
+                    "closed_at": now_iso,
                     "notes": json.dumps({
                         "closed_at": now_iso,
                         "closed_by": "reverse_reconciler",
@@ -2126,6 +2131,7 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                     db.update_trade(tid_int, {
                         "status": "closed",
                         "exit_reason": "exchange_flat_reconciled",
+                        "closed_at": now_iso,
                         "notes": json.dumps({
                             "closed_at": now_iso,
                             "closed_by": "position_snapshot_reconciler",
@@ -2492,6 +2498,7 @@ def _close_unattributable_orphan(db, row, summary: Dict[str, int]) -> None:
         db.update_trade(tid, {
             "status": "closed",
             "exit_reason": "exit_coverage_no_strategy",
+            "closed_at": now_iso,
             "notes": json.dumps(notes, ensure_ascii=False)[:2000],
         })
     except Exception as exc:  # noqa: BLE001
@@ -3934,6 +3941,7 @@ def _close_trade_from_order_status(
             "status": "closed",
             "exit_reason": "reconciler_filled",
             "exit_price": avg_exit_price,
+            "closed_at": closed_at,
             "notes": json.dumps(notes, ensure_ascii=False)[:500],
         }
         # 2026-05-19: backfill entry_price from Bybit's entry-order
@@ -3989,6 +3997,7 @@ def _close_trade_from_order_status(
         updates = {
             "status": "closed",
             "exit_reason": "reconciler_filled",
+            "closed_at": closed_at,
             "notes": json.dumps(notes, ensure_ascii=False)[:500],
         }
         # 2026-05-19: same entry_price backfill as the closed_pnl
