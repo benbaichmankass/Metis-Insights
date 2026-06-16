@@ -6,6 +6,7 @@ from typing import Mapping, Type
 from .builder import DatasetBuilder
 from .families.account_context import AccountContextBuilder
 from .families.backtest_results import BacktestResultsBuilder
+from .families.conviction_meta import ConvictionMetaBuilder
 from .families.execution_quality import ExecutionQualityBuilder
 from .families.market_features import MarketFeaturesBuilder
 from .families.market_raw import MarketRawBuilder
@@ -18,6 +19,7 @@ from .families.trade_outcomes import TradeOutcomesBuilder
 FAMILY_REGISTRY: Mapping[str, Type[DatasetBuilder]] = {
     AccountContextBuilder.family: AccountContextBuilder,
     BacktestResultsBuilder.family: BacktestResultsBuilder,
+    ConvictionMetaBuilder.family: ConvictionMetaBuilder,
     ExecutionQualityBuilder.family: ExecutionQualityBuilder,
     MarketFeaturesBuilder.family: MarketFeaturesBuilder,
     MarketRawBuilder.family: MarketRawBuilder,
