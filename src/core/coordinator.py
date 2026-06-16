@@ -1297,17 +1297,17 @@ class Coordinator:
                 pkg, sized_qty, account_name=account.name,
             )
 
-            # P2 conviction-driven sizing (default-off, gated by
-            # CONVICTION_SIZING_MODE + a demo-only CONVICTION_SIZING_ACCOUNTS
-            # allowlist). UNLIKE advisory/news this can ENLARGE the qty (up to
-            # the 2% per-trade risk budget) — so it is bounded by the
-            # available-margin ceiling + a proportional free-margin throttle and
-            # demo-scoped. annotate logs the would-be resize without changing
-            # qty; off/account-not-allowed/missing-conviction return qty
-            # unchanged. Fail-permissive. Reads the observe-only meta.conviction
-            # stamped at signal time.
-            from src.runtime.conviction_sizing import apply_conviction_sizing
-            sized_qty = apply_conviction_sizing(
+            # P2 conviction sizing — ADVISORY / observe-only, no gate. Computes
+            # the would-be conviction-driven size (conviction × 2% budget,
+            # bounded by the margin ceiling + free-margin throttle) and logs it
+            # to runtime_logs/conviction_sizing.jsonl, but ALWAYS returns the
+            # RiskManager qty unchanged — it never touches the order, exactly
+            # like the P1 meta.conviction stamp. When conviction graduates to
+            # actually driving size that's a deliberate sizing-path change
+            # (governed by account mode + the margin/daily-loss guards), not a
+            # switch flipped here. Fail-permissive.
+            from src.runtime.conviction_sizing import annotate_conviction_sizing
+            sized_qty = annotate_conviction_sizing(
                 pkg, sized_qty, account_name=account.name,
                 balance_usd=balance,
                 available_usd=available_usd,

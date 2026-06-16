@@ -388,18 +388,25 @@ only its *order-influence* semantics change (continuous weight vs binary).
 
 ## 10. P2 implementation plan (READY TO BUILD)
 
-P2 = **conviction-driven sizing on the demo account only**, behind an inert
-flag, annotate-first. Everything it needs is in place (the calibrated
-`meta.conviction` is stamped on every order package; calibrators ship via the
-mirror). This is the first time conviction *influences* an order, so it is
-demo-scoped and Tier-2/3.
+> **CORRECTION (operator directive, 2026-06-16):** the flag design originally
+> written in this section was **rejected and removed** — a default-off
+> `CONVICTION_SIZING_MODE` / `_ACCOUNTS` gate is exactly the stranding trap the
+> Prime Directive forbids (§ 1, § 8), even when it's a tri-state "mode" rather
+> than a literal `*_ENABLED`. The pattern-match to `NEWS_INFLUENCE_MODE` /
+> `POSITION_NETTING_GUARD_*` was the "precedents are not authoritative" failure.
+> **What shipped instead:** P2 is **advisory / observe-only with no gate** — it
+> computes the would-be conviction size and logs it on every order but never
+> changes qty (see § 4b "P2 build status"). The text below is preserved as the
+> original (superseded) plan; the *computation* (budget / margin / throttle) is
+> still accurate, only the gating is not.
 
-**Flag (mirror `NEWS_INFLUENCE_MODE`, NOT a `*_ENABLED` gate — env-gate-guard):**
-- `CONVICTION_SIZING_MODE` ∈ `off` (default) | `annotate` (log the would-be
-  resize, don't apply) | `apply` (resize). Read at call time.
-- `CONVICTION_SIZING_ACCOUNTS` — comma-separated allowlist (set to `bybit_1` for
-  the demo soak); permissive-when-unset *only after* real-money sign-off (mirror
-  `POSITION_NETTING_GUARD_ACCOUNTS` semantics). For P2, require it to name demo.
+P2 = **conviction-driven sizing**, advisory-first. Everything it needs is in
+place (the calibrated `meta.conviction` is stamped on every order package;
+calibrators ship via the mirror).
+
+**~~Flag (mirror `NEWS_INFLUENCE_MODE`, NOT a `*_ENABLED` gate — env-gate-guard):~~** *(superseded — see correction above; no flag ships)*
+- ~~`CONVICTION_SIZING_MODE` ∈ `off` (default) | `annotate` | `apply`.~~
+- ~~`CONVICTION_SIZING_ACCOUNTS` — comma-separated allowlist.~~
 
 **Integration point:** `src/core/coordinator.py::multi_account_execute`, right
 after `sized_qty = RiskManager.position_size(...)` and beside
@@ -451,20 +458,22 @@ account):
   [`docs/audits/conviction-weight-sweep-2026-06-16.md`](audits/conviction-weight-sweep-2026-06-16.md)).
   `DEFAULT_CONVICTION_WEIGHTS` unchanged.
 - **STEP 2 (conviction sizing)** — `src/runtime/conviction_sizing.py`
-  (`apply_conviction_sizing`), wired in `coordinator.multi_account_execute` right
-  after `RiskManager.position_size`, beside `apply_advisory_downsize` /
-  `apply_news_downsize`. Flags `CONVICTION_SIZING_MODE` (off|annotate|apply) +
-  `CONVICTION_SIZING_ACCOUNTS` (demo allowlist; empty = no-op for P2) in
-  `runtime_flags.py`. Risk basis = free balance (matches `risk.py::_size_unbounded`);
-  enlarges up to `conviction × 2%`, bounded by the margin ceiling + a proportional
-  free-margin throttle; no-trade floor inert at 0. Soak log
-  `runtime_logs/conviction_sizing.jsonl`. 16 unit tests.
+  (`annotate_conviction_sizing`), wired in `coordinator.multi_account_execute`
+  right after `RiskManager.position_size`, beside `apply_advisory_downsize` /
+  `apply_news_downsize`. **Advisory / observe-only with NO gate** (operator
+  directive 2026-06-16, overriding the flag design in § 10 below — see the
+  correction there): it computes the would-be conviction size and logs it to
+  `runtime_logs/conviction_sizing.jsonl` on every order but **always returns the
+  RiskManager qty unchanged**, exactly like the P1 `meta.conviction` stamp. Risk
+  basis = free balance (matches `risk.py::_size_unbounded`); the would-be size is
+  `conviction × 2%` bounded by the margin ceiling + a proportional free-margin
+  throttle; no-trade floor inert at 0. 12 unit tests.
 
-**Gating remaining (operator-approved before each):** ① flip `annotate` on
-`bybit_1` (demo soak); ② flip `apply` once the soak + the v2 meta-model mature
-(currently degenerate, f1=0); ③ widen to real money. **Open numbers before
-`apply`:** the no-trade floor (ships 0), the throttle-curve shape, and whether
-`apply` should additionally respect the per-trade daily-loss budget (today a
-`sized_qty<=0` RiskManager refusal is preserved, but a daily-loss-*scaled*
-positive qty could be re-enlarged by conviction — acceptable demo-only + inert,
-flagged for the `apply` gate).
+**No flag.** A default-off `CONVICTION_SIZING_MODE` / `_ACCOUNTS` gate would be
+the stranding trap the Prime Directive forbids (§ 1, § 8) — so it was **removed**.
+When conviction graduates from advisory to *actually* driving size, that is a
+deliberate change to the sizing path itself, governed by the existing account
+`mode` gate + the margin / daily-loss guards like every other order behaviour —
+not the flip of a dormant switch installed in advance. **Open numbers for that
+future step:** the no-trade floor (computed as 0/inert today), the throttle-curve
+shape, and the per-trade daily-loss-budget interaction.
