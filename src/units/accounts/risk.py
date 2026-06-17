@@ -171,6 +171,44 @@ def contract_value_usd_for(symbol: str) -> float:
     return _CONTRACT_VALUE_CACHE.get(symbol, 1.0)
 
 
+# Lazy cache of symbol -> (platform_min_qty, qty_precision) from
+# config/instruments.yaml. Lets crypto sizing floor on the EXCHANGE minimum
+# instead of a hardcoded constant (BL-20260617-SIZEFLOOR). None for any symbol
+# without a profile, so the account-configured min_qty/precision stays the
+# fallback.
+_INSTRUMENT_MINQTY_CACHE: Optional[dict] = None
+
+
+def instrument_min_qty_step_for(symbol: str) -> Optional[tuple]:
+    """Return ``(platform_min_qty, qty_precision)`` for *symbol* from
+    config/instruments.yaml, or ``None`` when the symbol has no profile.
+
+    ``qty_precision`` is derived from the profile's ``qty_step`` (e.g. 0.001
+    -> 3dp). This is the exchange's own minimum tradeable size + granularity —
+    the only floor sizing may apply per the operator directive (no hardcoded
+    min-qty). Defaults to ``None`` so a missing/partial instruments.yaml leaves
+    the legacy account-level ``min_qty`` as the fallback.
+    """
+    global _INSTRUMENT_MINQTY_CACHE
+    if not symbol:
+        return None
+    if _INSTRUMENT_MINQTY_CACHE is None:
+        cache: dict = {}
+        try:
+            from src.core.profile_loader import load_instrument_profiles
+            for sym, p in (load_instrument_profiles() or {}).items():
+                step = float(getattr(p, "qty_step", 0.0) or 0.0)
+                mq = float(getattr(p, "min_qty", 0.0) or 0.0)
+                if step <= 0 or mq <= 0:
+                    continue
+                prec = max(0, -int(round(math.log10(step))))
+                cache[sym] = (mq, prec)
+        except Exception:  # noqa: BLE001
+            cache = {}
+        _INSTRUMENT_MINQTY_CACHE = cache
+    return _INSTRUMENT_MINQTY_CACHE.get(symbol)
+
+
 def size_order(
     pkg: OrderPackage,
     risk_pct: float,
@@ -580,21 +618,41 @@ class RiskManager:
         # (0.0), never bumped up to a whole contract: the bump would
         # exceed the configured risk cap.
         is_futures = market_type == "futures"
-        eff_precision = 0 if is_futures else self.qty_precision
-        eff_min_qty = 1.0 if is_futures else self.min_qty
+        if is_futures:
+            eff_precision = 0
+            eff_min_qty = 1.0
+        else:
+            # BL-20260617-SIZEFLOOR: the floor is the PLATFORM minimum from
+            # config/instruments.yaml (e.g. BTCUSDT 0.001), never a hardcoded
+            # 0.001 account default. Falls back to the account-configured
+            # min_qty/qty_precision only when the symbol has no instrument
+            # profile.
+            _plat = instrument_min_qty_step_for(
+                getattr(package, "symbol", "") or ""
+            )
+            if _plat is not None:
+                eff_min_qty, eff_precision = _plat
+            else:
+                eff_min_qty, eff_precision = self.min_qty, self.qty_precision
 
         qty = _size_unbounded(
             package,
             risk_pct=effective_risk_pct,
             balance_usdt=balance_usd,
-            # Futures: min_qty=0 so _size_unbounded's max(min_qty, floored)
-            # bump-up never manufactures a position — the refusal check
-            # below handles the sub-1-contract case instead.
-            min_qty=0.0 if is_futures else self.min_qty,
+            # min_qty=0.0 for EVERY market type: never bump a sub-floor size up
+            # to the minimum. The bump silently realises more than the
+            # configured risk budget and — when it equals a held min-lot —
+            # pins the account in a permanent at_target freeze (bybit_2,
+            # 2026-06-17). The refusal check below is the only floor.
+            min_qty=0.0,
             qty_precision=eff_precision,
             contract_value_usd=cvu,
         )
-        if is_futures and qty < eff_min_qty:
+        # Risk-based size below the platform/contract minimum -> per-trade
+        # REFUSAL (operator directive 2026-06-17, risk-faithful): the account
+        # equity is too small to take this trade at the configured risk. The
+        # account stays live; this single trade is refused with a logged cause.
+        if qty < eff_min_qty:
             return 0.0
 
         # S-026 G3: daily-loss-budget gate. USD loss at SL is
@@ -646,8 +704,8 @@ class RiskManager:
                     _margin_basis * effective_leverage * _MARGIN_SAFETY_BUFFER
                 ) / package.entry
             if qty > max_qty_by_margin:
-                capped = _floor_to_step(max_qty_by_margin, self.qty_precision)
-                if capped < self.min_qty:
+                capped = _floor_to_step(max_qty_by_margin, eff_precision)
+                if capped < eff_min_qty:
                     return 0.0
                 qty = capped
 

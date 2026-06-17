@@ -55,9 +55,13 @@ def _rm(min_balance_usd: float = 50.0) -> RiskManager:
 
 def test_total_account_usd_above_gate_passes_even_when_free_balance_below():
     rm = _rm(min_balance_usd=50.0)
-    # Free USDT $40 < $50 gate, but total equity $120 > $50 → trade proceeds.
+    # Free USDT $40 < $50 gate, but total equity $120 > $50 → gate passes.
+    # Tight stop so the small (but gate-clearing) balance still sizes at least
+    # the platform min-lot: post-BL-20260617-SIZEFLOOR a sub-min size is a
+    # refusal, so the gate-pass must be shown with a tradeable size (a wide
+    # stop would refuse on the floor and mask whether the GATE itself passed).
     qty = rm.position_size(
-        _pkg(),
+        _pkg(entry=70_000.0, sl=69_900.0, tp=70_300.0),
         balance_usd=40.0,
         total_account_usd=120.0,
     )

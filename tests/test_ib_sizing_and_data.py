@@ -176,15 +176,18 @@ class TestFuturesWholeContractEnforcement:
         pkg = _pkg("MES", 5800.0, 5750.0, 5900.0)
         assert rm.position_size(pkg, 100_000, market_type="futures") == 0.0
 
-    def test_crypto_path_semantics_unchanged(self):
-        """Linear/spot accounts keep the 3dp precision AND the bump-up-to-
-        min_qty behaviour — byte-identical to pre-fix."""
+    def test_crypto_path_refuses_below_platform_min(self):
+        """Linear/spot accounts keep the 3dp precision but NO LONGER bump a
+        sub-floor size up to min_qty: a risk-based size below the platform
+        minimum is a per-trade REFUSAL (BL-20260617-SIZEFLOOR, operator
+        directive 2026-06-17). Pre-fix this bumped 0.0001 -> 0.001 and pinned
+        small accounts (bybit_2) to a permanent at_target freeze."""
         rm = RiskManager(dict(self._IB_PAPER_LIKE))
-        # Wide SL + small balance → raw qty (0.0001) floors to 0 at 3dp →
-        # bumped UP to the 0.001 min lot (the legacy crypto semantics).
+        # Wide SL + small balance → raw qty (~0.0001) is below the BTCUSDT
+        # platform min (0.001) → refused (0.0), not bumped up.
         pkg = _pkg("BTCUSDT", 80000.0, 70000.0, 95000.0)
         qty = rm.position_size(pkg, 100, market_type="linear")
-        assert qty == pytest.approx(0.001)
+        assert qty == 0.0
 
 
 # ---------------------------------------------------------------------------
