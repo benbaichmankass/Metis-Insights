@@ -633,8 +633,14 @@
       "resolution_criteria": "Either a post-change bybit_2 close confirms turnover resumed, OR operator confirms min-qty-parked is the intended live posture and closes the item.",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-06-17T20:30:00+00:00",
+          "by": "claude (/performance-review follow-up 2026-06-17)",
+          "note": "2026-06-17 STATUS UPDATE \u2014 the sizing fix IS implemented + validated, pending merge. Commit a8a84af on PR #3910 (branch claude/sharp-galileo-7kc4ni): removed the hardcoded min_qty=0.001 bump (the at_target-freeze root cause); floor is now the PLATFORM minimum from config/instruments.yaml, and a risk-based size below it is a per-trade REFUSAL (operator chose risk-faithful). Validated: 422 local tests green (sizing/reconciler/accounts/smoke/routing) + ruff + silent-empty + db-resolver guards; first CI run was green except the closed_at assertion since fixed. The autonomous merge could NOT be executed 2026-06-17 (GitHub hosted MCP connector outage ~2.5h + main is branch-protected: direct git push to main returns 403 by design). Operator to MERGE PR #3910 from the GitHub UI (clean fast-forward, validated). CHECK-IN ITEMS for the next /performance-review: (1) confirm PR #3910 merged + ict-git-sync deployed a8a84af to the live trader; (2) verify the held bybit_2 0.001 BTC lot exited via its Bybit-atomic SL/TP bracket and the account read flat (pull exact bracket SL/TP levels via the vm-diag relay /api/bot/positions once it's reachable \u2014 could not pull 2026-06-17 due to the same outage); (3) confirm bybit_2 now REFUSES sub-budget BTC entries (no new intent_noop:at_target freeze) \u2014 or that turnover resumed if the account was funded enough that 0.3% risk buys >= one min-lot; (4) run the DEFERRED walk-forward across the bybit roster (trend_donchian, ict_scalp_5m, fvg_range_15m, htf_pullback_trend_2h on BTCUSDT) as post-merge validation of the refuse policy \u2014 it was not run 2026-06-17 (outage); (5) confirm no other small crypto account was unexpectedly silenced by the refuse policy. Rollback if needed = git revert a8a84af (no env switch \u2014 operator chose refuse globally, no subfloor_policy config field was added)."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-06-17T16:30:00+00:00"
+  "updated_at": "2026-06-17T20:30:00+00:00"
 }
