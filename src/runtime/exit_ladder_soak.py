@@ -27,7 +27,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -141,3 +141,88 @@ def record_exit_ladder_soak(**kwargs: Any) -> Optional[Dict[str, Any]]:
     except OSError as exc:
         logger.warning("record_exit_ladder_soak: could not write soak log: %s", exc)
     return record
+
+
+def soak_log_path():
+    """Resolve the soak-log path under the canonical runtime-logs dir."""
+    from src.utils.paths import runtime_logs_dir
+
+    return runtime_logs_dir() / SOAK_LOG_NAME
+
+
+def read_soak_records(
+    *,
+    limit: int = 100,
+    venue: Optional[str] = None,
+    account_id: Optional[str] = None,
+    only_differing: bool = False,
+) -> Dict[str, Any]:
+    """Read newest-first soak records + a small aggregate summary.
+
+    Pure read path for the dashboard/Android watcher — backs
+    ``/api/bot/exit-ladder/soak``. Filters (all optional): ``venue``
+    (``api``/``prop``), ``account_id``, and ``only_differing`` (rows where the
+    laddered exit actually differs from the single target). ``limit`` caps the
+    returned rows after filtering. **Never raises** — returns a well-formed
+    envelope (``present:false`` before the writer's first row, ``error`` on a
+    read failure).
+
+    The ``summary`` aggregates over **all** rows scanned (not just the returned
+    page): per-venue counts and how many differ from the single target — the
+    headline "is the ladder meaningfully different from what we place today?".
+    """
+    path = soak_log_path()
+    if not path.exists():
+        return {"present": False, "log_path": str(path), "count": 0,
+                "records": [], "summary": {}}
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            lines = fh.readlines()
+    except OSError as exc:
+        logger.warning("read_soak_records: could not read %s — %s", path, exc)
+        return {"present": True, "log_path": str(path), "count": 0,
+                "records": [], "summary": {}, "error": str(exc)}
+
+    v_filter = str(venue).lower() if venue else None
+    a_filter = str(account_id) if account_id else None
+
+    by_venue: Dict[str, int] = {}
+    differing = 0
+    total = 0
+    records: List[Dict[str, Any]] = []
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(rec, dict):
+            continue
+        if v_filter is not None and str(rec.get("venue", "")).lower() != v_filter:
+            continue
+        if a_filter is not None and str(rec.get("account_id", "")) != a_filter:
+            continue
+        diff = bool(rec.get("differs_from_single_target"))
+        if only_differing and not diff:
+            continue
+        total += 1
+        by_venue[str(rec.get("venue", ""))] = by_venue.get(str(rec.get("venue", "")), 0) + 1
+        if diff:
+            differing += 1
+        if len(records) < limit:
+            records.append(rec)
+
+    return {
+        "present": True,
+        "log_path": str(path),
+        "count": len(records),
+        "records": records,
+        "summary": {
+            "total_scanned": total,
+            "by_venue": by_venue,
+            "differing": differing,
+            "differing_pct": round(100.0 * differing / total, 1) if total else 0.0,
+        },
+    }

@@ -144,3 +144,68 @@ def test_record_returns_none_and_writes_nothing_on_bad_input(tmp_path, monkeypat
     )
     assert rec is None
     assert not (tmp_path / exit_ladder_soak.SOAK_LOG_NAME).exists()
+
+
+# --------------------------------------------------------------------------- #
+# Read path (backs /api/bot/exit-ladder/soak)
+# --------------------------------------------------------------------------- #
+
+def _seed(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "src.utils.paths.runtime_logs_dir", lambda: tmp_path, raising=True,
+    )
+    # 2 api turtle (differing), 1 api vwap (parity), 1 prop
+    record_exit_ladder_soak(venue="api", strategy="turtle_soup", symbol="BTCUSDT",
+                            direction="long", entry=100, sl=90, tp=110, qty=4.0,
+                            order_meta={"tp2": 120.0}, account_id="bybit_2")
+    record_exit_ladder_soak(venue="api", strategy="turtle_soup", symbol="BTCUSDT",
+                            direction="long", entry=100, sl=90, tp=110, qty=2.0,
+                            order_meta={"tp2": 120.0}, account_id="bybit_2")
+    record_exit_ladder_soak(venue="api", strategy="vwap", symbol="BTCUSDT",
+                            direction="long", entry=100, sl=90, tp=110, qty=1.0,
+                            account_id="bybit_1")
+    record_exit_ladder_soak(venue="prop", strategy="turtle_soup", symbol="MES",
+                            direction="long", entry=5000, sl=4980, tp=5040, qty=3.0,
+                            order_meta={"tp2": 5080.0}, account_id="breakout_1")
+
+
+def test_read_returns_present_false_before_any_write(tmp_path, monkeypatch):
+    monkeypatch.setattr("src.utils.paths.runtime_logs_dir", lambda: tmp_path, raising=True)
+    out = exit_ladder_soak.read_soak_records()
+    assert out["present"] is False
+    assert out["count"] == 0
+
+
+def test_read_newest_first_with_summary(tmp_path, monkeypatch):
+    _seed(tmp_path, monkeypatch)
+    out = exit_ladder_soak.read_soak_records()
+    assert out["present"] is True
+    assert out["count"] == 4
+    # newest-first: the prop record was written last
+    assert out["records"][0]["venue"] == "prop"
+    assert out["summary"]["total_scanned"] == 4
+    assert out["summary"]["by_venue"] == {"api": 3, "prop": 1}
+    assert out["summary"]["differing"] == 3       # 2 api turtle + 1 prop
+    assert out["summary"]["differing_pct"] == 75.0
+
+
+def test_read_venue_filter(tmp_path, monkeypatch):
+    _seed(tmp_path, monkeypatch)
+    out = exit_ladder_soak.read_soak_records(venue="api")
+    assert {r["venue"] for r in out["records"]} == {"api"}
+    assert out["summary"]["by_venue"] == {"api": 3}
+
+
+def test_read_account_and_differing_filters(tmp_path, monkeypatch):
+    _seed(tmp_path, monkeypatch)
+    out = exit_ladder_soak.read_soak_records(account_id="bybit_2", only_differing=True)
+    assert out["count"] == 2
+    assert all(r["account_id"] == "bybit_2" for r in out["records"])
+    assert all(r["differs_from_single_target"] for r in out["records"])
+
+
+def test_read_limit_caps_records_but_summary_scans_all(tmp_path, monkeypatch):
+    _seed(tmp_path, monkeypatch)
+    out = exit_ladder_soak.read_soak_records(limit=1)
+    assert out["count"] == 1                      # page capped
+    assert out["summary"]["total_scanned"] == 4   # summary over all
