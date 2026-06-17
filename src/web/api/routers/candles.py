@@ -94,8 +94,6 @@ def _settings() -> Dict[str, Any]:
         "EXCHANGE": os.environ.get("EXCHANGE", "bybit"),
         "BYBIT_API_KEY": os.environ.get("BYBIT_API_KEY"),
         "BYBIT_API_SECRET": os.environ.get("BYBIT_API_SECRET"),
-        "BINANCE_API_KEY": os.environ.get("BINANCE_API_KEY"),
-        "BINANCE_API_SECRET": os.environ.get("BINANCE_API_SECRET"),
         "IB_MD_CLIENT_ID": os.environ.get("IB_MD_CLIENT_ID", "600"),
     }
 

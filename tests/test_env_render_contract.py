@@ -58,9 +58,6 @@ from tests.test_render_env_from_master import FAKE_DATA  # noqa: E402
 _IGNORE: frozenset[str] = frozenset({
     # ---- .env.example-only (operator sets these manually on the VM) --------
 
-    # Binance is not the active exchange; only Bybit credentials are rendered.
-    "BINANCE_API_KEY",
-    "BINANCE_API_SECRET",
     # The Claude bridge bot uses a separate token and is managed by
     # ict-claude-bridge.service — not part of the live-trader env.
     "TELEGRAM_CLAUDE_BOT_TOKEN",
@@ -78,7 +75,6 @@ _IGNORE: frozenset[str] = frozenset({
     "COMMS_PUSH_ENABLED",
     # Testnet flags — controlled per-account in accounts.yaml, not rendered.
     "BYBIT_TESTNET",
-    "BINANCE_TESTNET",
     # DB path set in systemd drop-in to match the VM filesystem layout.
     "TRADE_JOURNAL_DB",
     # ICT strategy risk pct — legacy single-account env var, not rendered.

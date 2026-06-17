@@ -241,12 +241,12 @@ class TestReadFailure:
         reconciler treats ``None`` as "skip the row this tick", which is
         the correct conservative semantic until the connector lookup
         lands."""
-        binance_account = {
-            "account_id": "binance_1",
-            "exchange": "binance",
-            "api_key_env": "BINANCE_KEY_1",
+        oanda_account = {
+            "account_id": "oanda_1",
+            "exchange": "oanda",
+            "api_key_env": "OANDA_KEY_1",
         }
-        assert account_order_status(binance_account, "12345") is None
+        assert account_order_status(oanda_account, "12345") is None
 
     def test_unknown_exchange_returns_none(self):
         assert (

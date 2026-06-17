@@ -143,10 +143,10 @@ class TestModifyOpenOrder:
     def test_unsupported_exchange_returns_not_ok(self):
         client = _StubBybit()
         result = modify_open_order(
-            client, {"exchange": "binance"}, symbol="BTCUSDT", sl=49500.0,
+            client, {"exchange": "kraken"}, symbol="BTCUSDT", sl=49500.0,
         )
         assert result["ok"] is False
-        assert "binance" in result["error"]
+        assert "kraken" in result["error"]
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +213,7 @@ class TestCloseOpenPosition:
     def test_unsupported_exchange_returns_not_ok(self):
         client = _StubBybit()
         result = close_open_position(
-            client, {"exchange": "binance"},
+            client, {"exchange": "kraken"},
             symbol="BTCUSDT", side="long", qty=0.001,
         )
         assert result["ok"] is False

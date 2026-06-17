@@ -185,8 +185,6 @@ def _exchange_from_env(env_path: str) -> str:
         return "unknown"
     if "BYBIT_API_KEY" in blob:
         return "bybit"
-    if "BINANCE_API_KEY" in blob:
-        return "binance"
     return "unknown"
 
 
@@ -245,7 +243,7 @@ def _load_yaml_accounts() -> List[Dict[str, Any]]:
             "source": "yaml",
         }
         # S-023 PR2: preserve credential-resolution fields. The bot's
-        # bybit_client_for / binance_conn_for read these directly from
+        # bybit_client_for reads these directly from
         # the account dict — without preserving them here every account
         # silently fell through to the legacy env_path branch (which
         # doesn't exist for accounts.yaml-managed accounts), which was
@@ -558,7 +556,6 @@ def _read_env_file(env_path: str) -> Dict[str, str]:
 # existing call site (telegram_query_bot, coordinator, smoke tests).
 from src.units.accounts.clients import (  # noqa: E402
     bybit_client_for,
-    binance_conn_for,
 )
 
 
@@ -583,7 +580,7 @@ def credentials_check(account: Dict[str, Any]) -> Optional[str]:
     generic *"missing API creds or exchange rejected the request"*
     message that conflated three different failure modes.
 
-    Resolution order matches ``bybit_client_for`` / ``binance_conn_for``:
+    Resolution order matches ``bybit_client_for``:
       1. ``api_key_env`` (accounts.yaml contract): require both the
          declared key var and the derived (or explicit) secret var.
       2. ``env_path`` (legacy): require the .env file to exist.
@@ -682,7 +679,7 @@ def _ib_balance_diagnostic(account: Dict[str, Any], aid: str) -> Dict[str, Any]:
     """Balance diagnostic for an Interactive Brokers account.
 
     Returns the same ``{status, total_usdt, raw, error}`` shape as the
-    Bybit/Binance branches of :func:`account_balance_with_diagnostic`.
+    Bybit branch of :func:`account_balance_with_diagnostic`.
 
     * A **dry-run** IB account (``ib_live``) is reported as ``dry_run``
       WITHOUT opening a socket — the live gateway is never dialled from the
@@ -828,32 +825,6 @@ def account_balance_with_diagnostic(
                     for c in (lst[0].get("coin", []) if lst else []))
         return {"status": "ok", "total_usdt": total, "raw": resp,
                 "error": None}
-
-    if ex == "binance":
-        try:
-            conn = binance_conn_for(account)
-            if conn is None:
-                return {"status": "missing_creds", "total_usdt": None,
-                        "raw": None,
-                        "error": "binance connector could not be created"}
-            bal = conn.get_balance() or {}
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("account_balance(%s): %s", aid, exc)
-            err_str = f"{type(exc).__name__}: {exc}"
-            try:
-                from src.runtime.api_reporting import report_api_failure
-                report_api_failure(
-                    exchange="binance", op="get_balance",
-                    account_id=str(aid), error=err_str, exception=exc,
-                )
-            except Exception:  # noqa: BLE001
-                pass
-            return {"status": "api_error", "total_usdt": None, "raw": None,
-                    "error": err_str}
-        usdt = bal.get("USDT", {}) if isinstance(bal, dict) else {}
-        return {"status": "ok",
-                "total_usdt": _f((usdt or {}).get("total")),
-                "raw": bal, "error": None}
 
     return {"status": "unsupported", "total_usdt": None, "raw": None,
             "error": f"exchange '{ex}' is not supported by account_balance"}

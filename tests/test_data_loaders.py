@@ -122,18 +122,18 @@ def test_list_accounts_legacy_env_only(fake_repo):
 
 def test_list_accounts_multi_env(fake_repo):
     (fake_repo / ".env").write_text("BYBIT_API_KEY=abc\nBYBIT_API_SECRET=def\n")
-    (fake_repo / ".env.binance-sub-1").write_text(
-        "BINANCE_API_KEY=k\nBINANCE_API_SECRET=s\n"
+    (fake_repo / ".env.bybit-sub-1").write_text(
+        "BYBIT_API_KEY=k\nBYBIT_API_SECRET=s\n"
     )
     out = dl.list_accounts()
     ids = [a["account_id"] for a in out]
     assert "live" in ids
-    assert "binance-sub-1" in ids
-    sub = next(a for a in out if a["account_id"] == "binance-sub-1")
+    assert "bybit-sub-1" in ids
+    sub = next(a for a in out if a["account_id"] == "bybit-sub-1")
     # S-012 PR D2 (single-process): every env-discovered account routes
     # through ict-trader-live; per-account systemd units do not exist.
     assert sub["service"] == "ict-trader-live"
-    assert sub["exchange"] == "binance"
+    assert sub["exchange"] == "bybit"
 
 
 def test_list_accounts_empty_repo(fake_repo):

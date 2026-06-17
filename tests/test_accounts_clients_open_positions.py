@@ -15,7 +15,7 @@ Five contracts under test:
 2. Missing creds (``bybit_client_for`` returns ``None``) → ``None``.
 3. Exchange SDK exception → ``None`` + warning + ``report_api_failure``
    call (in-line, since the orig path swallowed exceptions).
-4. Non-bybit / non-binance exchange → ``None``.
+4. Unsupported exchange → ``None``.
 5. Legacy UI delegate (``data_loaders.account_open_positions``) still
    works and returns the new implementation's output.
 """
