@@ -45,13 +45,27 @@ def test_eth_shadow_has_guard_marker():
     assert "shadow-guard: allow" in raw  # marker exists in the file
 
 
-def test_prop_account_inert_and_routed():
+def test_prop_account_config():
     a = _accounts()["breakout_1"]
     assert a["exchange"] == "breakout"
-    assert a["mode"] == "dry_run"            # ships INERT
-    assert a["account_class"] == "paper"
+    assert a["type"] == "prop"                     # mission-aware PropRiskManager
+    assert a["account_class"] == "prop"            # third funding category
+    assert a["mode"] == "live"                     # always-live ping (operator gates per-signal)
+    assert a["account_state"] == "evaluation"      # eval→funded lifecycle tracked
+    assert a["phase_requirements"]["target_profit_pct"] == 0.10
     assert set(a["strategies"]) == {"trend_donchian_sol", "trend_donchian_eth"}
     assert set(a["symbols"]) == {"SOLUSDT", "ETHUSDT"}
+
+
+def test_prop_account_class_is_valid_and_separate():
+    # prop is a valid category, and excluded from the real-money predicate so it
+    # never contaminates real-money KPIs.
+    from src.units.accounts.account import _VALID_ACCOUNT_CLASSES
+    assert "prop" in _VALID_ACCOUNT_CLASSES
+    import pathlib
+    pred = (pathlib.Path(__file__).resolve().parents[1]
+            / "src/web/api/routers/dashboard.py").read_text()
+    assert "IN ('paper','prop')" in pred  # real-money predicate excludes prop
 
 
 def test_descriptions_and_changelog_present():

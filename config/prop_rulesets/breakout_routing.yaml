@@ -14,8 +14,9 @@ risk_pct: 1.5                       # PERCENT of balance per trade (validated
                                     # best-EV cell; the ticket sizes from THIS).
 
 # Strategies whose signals route to a Breakout ticket (documentation; the live
-# routing is config/accounts.yaml::breakout_1.strategies). The account-level
-# `mode: dry_run` keeps everything inert until the operator's smoke-test flip.
+# routing is config/accounts.yaml::breakout_1.strategies). The account is
+# mode: live (always-emit ping); the per-strategy execution: shadow gate
+# suppresses ETH until it graduates to live.
 strategies:
   - trend_donchian_sol
   - trend_donchian_eth

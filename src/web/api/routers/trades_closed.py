@@ -48,7 +48,7 @@ MAX_LIMIT = 200
 # (A row is paper if account_class='paper', OR — only when account_class
 # is unset — if the legacy is_demo flag is 1.)
 _NOT_PAPER_PREDICATE = (
-    " AND NOT (COALESCE(t.account_class,'')='paper'"
+    " AND NOT (COALESCE(t.account_class,'') IN ('paper','prop')"
     " OR (t.account_class IS NULL AND COALESCE(t.is_demo,0)=1))"
 )
 

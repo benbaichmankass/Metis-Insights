@@ -42,7 +42,9 @@ from typing import Any, Dict, List, Tuple
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _DEFAULT_ACCOUNTS_YAML = _REPO_ROOT / "config" / "accounts.yaml"
 
-_VALID_CLASSES = frozenset({"paper", "real_money"})
+# `prop` (2026-06-17): third funding category for prop-firm eval/funded accounts
+# (Breakout). Tracked separately from real_money + paper in the API aggregates.
+_VALID_CLASSES = frozenset({"paper", "real_money", "prop"})
 
 
 def _is_truthy_demo(value: Any) -> bool:

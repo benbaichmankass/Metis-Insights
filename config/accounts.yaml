@@ -496,33 +496,40 @@ accounts:
       min_balance_usd: 100             # refuse to size below $100
 
   # breakout_1: Breakout 1-Step Classic $5k PROP account (PB-20260616-004).
-  # Driven by the MANUAL BROWSER-BRIDGE — the bot never places a live order on
-  # Breakout's DXTrade terminal; a prop-routed strategy emits a paste-ready
-  # ticket (Telegram/FCM prop_signal) for a human/assistant to place under
-  # supervision, and the order package is journaled with a `prop-manual-<uuid>`
-  # id (NO live exchange position the monitor would manage). Design:
-  # docs/integrations/breakout-poc-manual-bridge-DESIGN.md; executor:
-  # src/prop/breakout_executor.py (execute_pkg breakout branch §6a).
+  # POC = TELEGRAM-PING bridge ONLY (no DXTrade API integration). When a
+  # prop-routed strategy fires, the bot emits a paste-ready trade-setup ticket
+  # (Telegram/FCM `prop_signal`) — a human/assistant decides whether to place it
+  # on the Breakout DXTrade terminal. `execute_pkg` returns a `prop-manual-<uuid>`
+  # marker so the order package journals WITHOUT a phantom exchange position the
+  # monitor would manage (design: docs/integrations/breakout-poc-manual-bridge-DESIGN.md;
+  # executor: src/prop/breakout_executor.py).
   #
-  # Ships INERT (new-broker checklist §5): mode: dry_run suppresses ticket
-  # emission entirely. Flip to mode: live via the set-account-mode action ONLY
-  # after the operator runs the live smoke test (verify a ticket reaches
-  # Telegram and the journal row is the manual-fill marker with no phantom
-  # position). The validated alt variants are ROUTED here but stay inert until
-  # that flip.
+  # mode: live — ALWAYS LIVE from the system's perspective: the bot always emits
+  # the ping; the operator decides per-signal whether to act on it. (There is no
+  # programmatic order, so "live" here only means "emit the Telegram ping".) The
+  # per-strategy `execution: shadow` gate still suppresses emission for
+  # trend_donchian_eth until it graduates to live.
   #
-  # account_class: paper — Breakout is a perpetual-futures-STYLE SIM venue and
-  # the bot holds no custody (manual fill), so it must NOT contaminate the
-  # real-money (Bybit) KPIs. [OPERATOR: confirm — payouts are real-money
-  # consequence; this is the reporting-axis choice, orthogonal to that.]
+  # account_class: prop — a THIRD funding category (alongside paper/real_money):
+  # a prop-firm sim account, NOT our custody. Tracked SEPARATELY — excluded from
+  # BOTH the real-money and paper KPIs (routers' NOT-paper / paper predicates).
+  #
+  # type: prop — drives the mission-aware PropRiskManager, which tracks the
+  # evaluation→funded lifecycle (account_state + phase_requirements below) and
+  # persists progress to runtime_state/prop_state.json.
   breakout_1:
     exchange: breakout
-    account_class: paper               # sim venue / no custody — keep out of the
-                                       # real-money aggregates (CI-guarded).
-    mode: dry_run                      # dry-run-guard: allow — ships INERT; emit tickets only after the operator smoke-test + set-account-mode flip (PB-20260616-004)
+    type: prop
+    account_class: prop
+    mode: live
+    account_state: evaluation          # eval → funded lifecycle (PropRiskManager).
+                                       # Flips to `funded` once the +10% target is
+                                       # cleared; the operator/system updates it.
+    phase_requirements:                # Breakout 1-Step Classic terms.
+      target_profit_pct: 0.10          # +10% to clear the evaluation.
+      min_active_days: 0               # no minimum trading days.
     backtest_ruleset: prop_rulesets/breakout.yaml   # the $5k 1-Step ruleset the
-                                       # gate EV used (metadata; the EV engine +
-                                       # validate_alt_prop read it directly).
+                                       # gate EV used (the EV engine reads it).
     account_size_usd: 5000             # 1-Step Classic $5k.
     strategies:                        # the validated alt variants (Tier-3):
       - trend_donchian_sol             #   SOL — robust gate PASS, execution: live
@@ -536,6 +543,5 @@ accounts:
       risk_pct: 0.015                  # 1.5% — the validated best-EV cell (the
                                        # ticket sizes from breakout_routing.yaml
                                        # risk_pct, in PERCENT; this fraction is
-                                       # the RiskManager mirror, unused on the
-                                       # manual path).
+                                       # the PropRiskManager mirror).
       min_balance_usd: 100

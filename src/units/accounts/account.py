@@ -14,10 +14,13 @@ from src.units.accounts.risk import RiskManager
 
 logger = logging.getLogger(__name__)
 
-# The two valid funding categories. account_class is the single source of
-# truth for the paper/real-money reporting axis; anything else coerces to
-# "real_money" (the safe, no-strand default) with a logged warning.
-_VALID_ACCOUNT_CLASSES = frozenset({"paper", "real_money"})
+# The valid funding categories. account_class is the single source of truth for
+# the paper/real-money reporting axis; anything else coerces to "real_money"
+# (the safe, no-strand default) with a logged warning.
+# `prop` (2026-06-17) is a THIRD category: a prop-firm evaluation/funded account
+# (e.g. Breakout). NOT our custody + a sim venue, so it's tracked SEPARATELY —
+# excluded from BOTH the real-money and paper aggregates (routers' predicates).
+_VALID_ACCOUNT_CLASSES = frozenset({"paper", "real_money", "prop"})
 
 
 class RiskBreach(Exception):
