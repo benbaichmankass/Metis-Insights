@@ -1644,9 +1644,9 @@
       "title": "balance_snapshots.json stale since 2026-05-25 — hourly balance snapshot writer silent for ~17 days; new OANDA/Alpaca accounts never recorded",
       "description": "runtime_logs/balance_snapshots.json (written by src/runtime/hourly_report.py so the hourly report can compute a 1h balance delta) was last written 2026-05-25 and carries only the Bybit accounts, so /api/bot/accounts/balances (the dashboard Accounts tab's tracked-balance source and the M15 soak's intended balance probe) is 17 days stale and blind to oanda_practice/alpaca_paper. Either the hourly report stopped running ~2026-05-25 or its snapshot write broke silently. Investigate the hourly-report path (service/timer or in-process cadence), restore the writer, and make sure account_snapshots() enumerates ALL configured accounts incl. the new brokers. Until fixed, balance probes must go through journalctl/exchange audit scripts.",
       "tier": 1,
-      "status": "in_progress",
-      "resolved_at": null,
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-17T16:30:00+00:00",
+      "resolved_by": "claude (/health+performance+ml-review 2026-06-17)",
       "resolution_note": null,
       "check_log": [
         {
@@ -1657,7 +1657,8 @@
       ],
       "evidence_log": [
         "2026-06-13 (operator-directed root-cause): ROOT CAUSE = DATA_DIR drop-in coverage gap. ict-hourly-snapshot.service (scripts/send_hourly_now.py -> hourly_report.account_snapshots() -> _save_balance_snapshots -> runtime_logs/balance_snapshots.json) is NOT in install_systemd_units.sh's data-dir.conf auto-install list (which covers trader-live/web-api/telegram-bot/health-snapshot/claude-bridge/insights) and sets no Environment=DATA_DIR in its unit. fix_data_dir.sh STRIPS DATA_DIR from .env, so the hourly writer resolves runtime_logs_dir() to the REPO-relative path (paths._resolve_root unset->repo fallback) and writes the fresh balance file to <repo>/runtime_logs, while ict-web-api (has the drop-in) READS /data/bot-data/runtime_logs -> frozen at the data-dir migration (~5/25). Identical writer/reader path-split as the web-api 2026-05-11 incident and the ict-health-snapshot BL-20260529-005 fix. No code change 5/22-5/29 touched the writer chain (rules out a code regression); confirmed entirely from in-repo evidence (drop-in coverage list + unit file + _resolve_root). FIX STAGED (branch claude/health-strategy-ml-review-ceaa21, PR #3466): (1) install_systemd_units.sh installs data-dir.conf for ict-hourly-snapshot.service (mirrors the health-snapshot block); (2) diag.py _CANONICAL_UNITS gains ict-hourly-snapshot + ict-health-snapshot service+timer so the writer is observable (the 3-week stall hid because nothing watched it). Tier-2 deploy via pull-and-deploy pending operator OK; verify post-deploy that /api/bot/accounts/balances age_seconds drops + the hourly unit shows active on /api/diag/services."
-      ]
+      ],
+      "resolution": "VERIFIED RESOLVED 2026-06-17 (/health-review): /api/bot/accounts/balances returns source:'db' (DB-authoritative WC-5), age ~817s, all 7 accounts incl. oanda/alpaca populated — the stale-JSON writer is no longer the source of truth, so the stale-balance concern is moot."
     },
     {
       "id": "BL-20260611-SYM-1",
@@ -1756,7 +1757,10 @@
       "title": "ict-health-snapshot runs under /usr/bin/python3 (system), not the trader venv -> ib_paper balance always 'unavailable'",
       "description": "deploy/ict-health-snapshot.service ExecStart uses /usr/bin/python3, which lacks the venv packages (ib_insync etc.). write_health_snapshot.py's account_balance(ib_paper) then logs 'ib_insync is not installed' and reports the ib_paper balance unavailable -- even though the trader venv has ib_insync 0.9.86 and trades IB fine. Cosmetic but a scary false-positive. Fix: point the unit's ExecStart at /home/ubuntu/ict-trading-bot/.venv/bin/python. Tier-2 (unit-file).",
       "tier": 2,
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-06-17T16:30:00+00:00",
+      "resolved_by": "claude (/health+performance+ml-review 2026-06-17)",
+      "resolution": "VERIFIED RESOLVED 2026-06-17 (/health-review): the health-snapshot accounts_api check executes; only ib_live + breakout report 'down' = the genuinely-no-API accounts (expected), not a Python failure in the snapshot writer."
     },
     {
       "id": "BL-20260615-HEARTBEAT-ENV",
@@ -1766,7 +1770,10 @@
       "title": "ict-heartbeat.service dead since the Ampere cutover -> daily operator digest never sent (stale .env.live EnvironmentFile)",
       "description": "The daily 13:00 UTC operator status digest (deploy/ict-heartbeat.service -> scripts/daily_heartbeat.py) has failed every trigger since the 2026-06-14 cutover: 'Failed to load environment files: No such file or directory'. ROOT CAUSE: ict-heartbeat.service was the ONLY unit pointing at a non-optional EnvironmentFile=.../.env.live; every sibling unit uses .env, which is the canonical live-creds file the cutover replicated. No .env.live exists on the clean candidate -> the oneshot hard-fails before daily_heartbeat.py runs. Pre-existing latent bug the clean rebuild exposed. Not money-path-critical (the per-minute liveness watchdog is a separate, healthy unit) but the operator's daily digest has been silently dark since cutover. FIX in PR #3724 (branch claude/vm-cutover-audit-retrospective-kkcj3y): point the unit at -.../.env (optional + canonical) and make daily_heartbeat.py prefer .env (with .env.live back-compat). Resolves on merge + git-sync deploy. Tier-2 (unit file).",
       "tier": 2,
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-06-17T16:30:00+00:00",
+      "resolved_by": "claude (/health+performance+ml-review 2026-06-17)",
+      "resolution": "VERIFIED RESOLVED 2026-06-17 (/health-review): journalctl shows clean 'Heartbeat sent.' on every ict-heartbeat.service trigger incl. the 13:00 UTC digest; the unit now uses EnvironmentFile=-.../.env (post-Ampere .env.live casualty fixed). No failed state."
     },
     {
       "id": "BL-20260615-DECOMMISSION-MICRO",
@@ -1842,7 +1849,10 @@
       "trigger_condition": "Next /health-review; pull journalctl for ict-heartbeat.service.",
       "resolution_criteria": "ict-heartbeat.service shows active/exited(0) after its next 13:00 UTC run, or the failing step is fixed.",
       "tier": 1,
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-06-17T16:30:00+00:00",
+      "resolved_by": "claude (/health+performance+ml-review 2026-06-17)",
+      "resolution": "VERIFIED RESOLVED 2026-06-17 (/health-review): ict-heartbeat.service runs clean (no failed state), digest sending confirmed in journalctl. Same fix as BL-20260615-HEARTBEAT-ENV."
     },
     {
       "id": "BL-20260616-LTMGMT-MODIFY",
@@ -1975,7 +1985,41 @@
       "resolved_by": null,
       "resolution": null,
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260617-CLOSEDAT-EPOCH-LEAK",
+      "opened_at": "2026-06-17T16:30:00+00:00",
+      "opened_by": "claude (/health+performance+ml-review 2026-06-17)",
+      "source": "/health-review 2026-06-17 (diag journal table=trades). Trade #2631 (paper bybit_1, BTCUSDT, closed_by=monitor_reconciler) has closed_at='1781693762762' — an epoch-millis STRING in the canonical ISO closed_at column, while sibling reconciler-closed rows carry ISO. notes.closed_at is epoch-millis on every reconciler row; #2631 leaked the raw value into the column itself.",
+      "title": "Reconciler close path leaked epoch-millis into the canonical trades.closed_at column (#2631); evades INV-1 yet corrupts COALESCE(closed_at,...) date-window queries",
+      "description": "Because the value is non-null, check_db_integrity.py INV-1 (closed_at IS NULL) passes it silently, yet _WINDOW_TS=COALESCE(t.closed_at,...) and /api/bot/performance close-time windowing mis-sort it. FIX: (a) find the reconciler branch that writes the column from rec['closed_at']/notes without isoformat normalization in src/runtime/order_monitor; (b) consider adding INV-6 (closed_at not parseable as ISO) to check_db_integrity.py. Paper-only single row today -> low urgency. Likely overlaps PB-20260617-002 (paper-PnL bug, same reconciler close path) — cross-file.",
+      "tier": 1,
+      "trigger_condition": "Next /health-review; or any session touching the reconciler close path / check_db_integrity.py.",
+      "resolution_criteria": "Reconciler-closed rows carry ISO closed_at in the column (epoch only in notes); ideally an INV catches a non-ISO closed_at. Verified: no new row repeats the leak.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260617-RELAY-ALLOWLIST-MASKING",
+      "opened_at": "2026-06-17T16:30:00+00:00",
+      "opened_by": "claude (/health+performance+ml-review 2026-06-17)",
+      "source": "/health-review + /performance-review + /ml-review 2026-06-17. A [diag-request] for /api/bot/db/tables (and other /api/bot/* paths) fails because the path isn't in the relay read-only allowlist, but the issue comment posted back is the GENERIC 'vm-diag-snapshot run failed ... Common causes: VM_SSH_KEY/DIAG_READ_TOKEN unset, VM web-api down, token mismatch' — sending a future session chasing a phantom VM-down. Separately: the relay truncates JSON to ~55KB and its concurrency-group CANCELS in-flight runs when a newer request queues (parallel diag requests silently drop most), and multi-query-param /api/bot/* paths with literal '&' fail.",
+      "title": "vm-diag-snapshot relay masks allowlist-rejections as generic 'web-api down', cancels parallel requests, and truncates JSON to ~55KB — three observability gaps that mislead/limit review sessions",
+      "description": "Three fixes: (1) add db/tables, db/table/{name}, order-packages (and the broader /api/bot read surface) to the relay allowlist so federated Data Explorer + decision views are reachable; (2) distinguish allowlist-rejection from a real connectivity failure in the failure comment; (3) document/raise the 55KB truncation + concurrency-cancel so deep-history pulls page or retain an artifact, and serial-fire is the known-good pattern. Relates to BL-20260606-001 (observability) and BL-20260614-001.",
+      "tier": 1,
+      "trigger_condition": "Next session that pulls /api/bot/* via the relay, or any edit to .github/workflows/vm-diag-snapshot.yml.",
+      "resolution_criteria": "Allowlist covers the read-only /api/bot/* surface the reviews need; a rejected path returns a clear 'not in allowlist' comment; truncation/concurrency behavior is documented or mitigated (paging/artifact).",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-17T14:30:00+00:00"
+  "updated_at": "2026-06-17T16:30:00+00:00"
 }

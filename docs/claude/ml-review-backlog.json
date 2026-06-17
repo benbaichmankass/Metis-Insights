@@ -14,7 +14,13 @@
    "resolution_criteria": "The long/short-keyed versions of conviction-meta-v1 + setup-quality-lgbm-v2 are at shadow stage and emitting predictions; the old buy/sell-keyed versions are demoted/superseded. Confirmed via list-models + shadow-stats.",
    "status": "open",
    "snoozed_until": null,
-   "updates": []
+   "updates": [
+    {
+     "at": "2026-06-17T16:30:00+00:00",
+     "by": "claude (/health+performance+ml-review 2026-06-17)",
+     "note": "2026-06-17 (/ml-review): conviction-meta-v1 + setup-quality-lgbm-v2 retrained on the 04:48Z cycle and are present in the registry, both at candidate. setup-quality-lgbm-v2 is intentionally candidate (MB-20260527-003 demote); only conviction-meta-v1 needs eval-then-promote and it is degenerate at n=17 -> blocked on corpus (MB-20260530-001). Promote candidate->shadow step NOT run this propose-only review. Keep open."
+    }
+   ]
   },
   {
    "id": "MB-20260614-001",
@@ -33,6 +39,11 @@
      "at": "2026-06-15T17:15:00+00:00",
      "by": "claude (/health+perf+ml-review 2026-06-15)",
      "note": "2026-06-15 gate-check (target advisory) READY=FALSE: shadow_soak 1.9d (need 7) FAIL; live_agreement rank-AUC(score vs realized win)=0.000 (need 0.55) FAIL — still ~no real-money-scored closed BTC trades to compute it (bybit_2 real-money nets to min qty / intent_noop:at_target, so the advisory model barely influences a real fill); a volume gate 3.0/5.0 FAIL; cross_run_stability (std macro_f1 0.0022) + drift_clean (KS 0.176<=0.2, PSI 0.245<=0.25) PASS. Training metric healthy (macro_f1 0.6585). RECOMMENDATION: HOLD at advisory; do NOT promote advisory->limited_live. Root blocker is real-money fill volume, not model quality."
+    },
+    {
+     "at": "2026-06-17T16:30:00+00:00",
+     "by": "claude (/health+performance+ml-review 2026-06-17)",
+     "note": "2026-06-17 (/ml-review): advisory model btc-regime-1h-lgbm-yz-v1 now has n=63 advisory predictions (mean 0.986). The promotion-readiness 'significant drift' demote flag is a FALSE ALARM (no same-stage reference window) — see MB-20260617-002. HOLD at advisory; do NOT promote past advisory (still flat real-money book, near-zero live influence in annotate mode). Keep open."
     }
    ]
   },
@@ -63,7 +74,7 @@
    "tier": 1,
    "trigger_condition": "Any /ml-review run; or any session deciding whether to enable the new trainer-VM timers (ict-drift-retrain.timer / ict-promotion-readiness.timer).",
    "resolution_criteria": "Resolved when (a) both timers are enabled on the trainer VM via the trainer-vm-diag relay, (b) at least one full cycle has run for each (drift-retrain JSONL row + promotion-readiness report.json + SUMMARY.md visible under runtime_logs/trainer_mirror/), (c) the first promotion-readiness ping (if any model crosses the ready bar) is delivered to the operator chat, and (d) the yz-1h promotion check (MB-20260527-004) is run through the new report instead of an ad-hoc gate-check.",
-   "status": "in_progress",
+   "status": "resolved",
    "snoozed_until": null,
    "evidence_log": [
     "2026-06-07 (S-MLOPT-S16 ship): SHIPPED ml/shadow/adwin.py (Bifet & Gavaldà 2007 Hoeffding-cut ADWIN, pure stdlib) + ml/shadow/drift_retrain.py (per-deployed-head scan + RetrainDecision rows: dispatch / skip_no_drift / skip_no_manifest / skip_thin_data) + `python -m ml drift-retrain` CLI + scripts/ops/run_drift_retrain.sh orchestrator (RETRAIN_PLAN_ONLY=1 default; flips to fire `python -m ml train <manifest>` per dispatch row, reusing the manifest's S-MLOPT-S2 sample_weight.half_life_days for recency weighting) + trainer-side ict-drift-retrain.{service,timer} (hourly, DISABLED by default) in deploy/training-vm-cloud-init.yaml. 17 tests (test_adwin.py + test_drift_retrain.py) pin the cut bound, the stationary / step-change / min-window / cap edge cases, the manifest resolver, the watched-stage filter, the backfill exclusion, the JSONL writer, and both CLI exit codes. Ruff clean.",
@@ -73,7 +84,14 @@
     "2026-06-09 (/ml-review): RE-CONFIRMED both timers enabled+active (trainer-vm-diag #3054). ict-drift-retrain produced a clean cycle at 06:01:28Z — 8 RetrainDecision rows, all action=skip_no_drift (ADWIN no-cut), confirming the per-head scan + JSONL writer work end-to-end on real deployed heads. Promotion-readiness dir for 2026-06-09 EXISTS but SUMMARY.md was NOT present at pull time (`cat .../2026-06-09/SUMMARY.md` => No such file) — either the daily readiness cycle wrote a different filename (report.json only?) or it errored before rendering Markdown. ACTION for next /ml-review: pull `ls -la runtime_logs/trainer_mirror/promotion_readiness/<date>/` + the readiness service journal to confirm the SUMMARY.md render path; criteria (b) ('SUMMARY.md visible') not yet verifiable. Stays in_progress.",
     "2026-06-13 (/ml-review): promotion-readiness CLI STILL crashing (criterion (b) SUMMARY.md blocked). ROOT-CAUSED via trainer #3459/#3463 cli_stderr.log: ml/promotion/readiness_report.py:92 build_readiness_report -> ml/promotion/stage_guard.py:200 run_stage_guard -> ml/promotion/attribution.py:318 compute_attribution -> attribution.py:98 load_closed_trades(db_path) -> Path(db_path) TypeError: expected str/bytes/os.PathLike, not NoneType. i.e. db_path is None — scripts/ops/run_promotion_readiness.sh (or build_readiness_report's caller) does NOT pass --db / db_path resolves None on the trainer, so run_stage_guard's attribution step dies before any report renders (today's + yesterday's dirs have a 1769-byte cli_stderr.log + EMPTY cli_stdout.json, no SUMMARY.md/report.json). PROPOSED FIX (Tier-1 trainer tooling, propose-only here): pass --db data/trade_journal.db in run_promotion_readiness.sh OR default db_path to trade_journal_db_path() in build_readiness_report. Drift-retrain timer is fine (fired 06:01:54Z, 1 dispatch execution-quality-baseline-v0 ADWIN cut, rest skip_no_drift). Stays in_progress."
    ],
-   "status_history": "open 2026-06-07 (tooling shipped, trainer-VM enable pending) | in_progress 2026-06-08 (/ml-review: both timers verified live + active; first promotion-readiness artifact dir exists; full resolution pending the 6/12 yz-1h soak completion)."
+   "status_history": "open 2026-06-07 (tooling shipped, trainer-VM enable pending) | in_progress 2026-06-08 (/ml-review: both timers verified live + active; first promotion-readiness artifact dir exists; full resolution pending the 6/12 yz-1h soak completion).",
+   "updates": [
+    {
+     "at": "2026-06-17T16:30:00+00:00",
+     "by": "claude (/health+performance+ml-review 2026-06-17)",
+     "note": "VERIFIED RESOLVED 2026-06-17 (/ml-review): promotion-readiness SUMMARY.md now renders cleanly (3213 bytes) and cli_stderr.log is 0 bytes — the db_path=None crash is fixed. ict-promotion-readiness.timer + ict-drift-retrain.timer both enabled+active; drift-retrain wrote rows. All resolution criteria met."
+    }
+   ]
   },
   {
    "id": "MB-20260606-003",
@@ -758,7 +776,14 @@
    "trigger_condition": "Next model-training session; verify yz-v1 holds macro_f1>=~0.66 on a fresh cycle, then promote-stage to shadow.",
    "resolution_criteria": "mes-regime-5m-lgbm-yz-v1 promoted to shadow and emitting predictions, OR a documented reason to keep it research_only.",
    "tier": 1,
-   "status": "open"
+   "status": "resolved",
+   "updates": [
+    {
+     "at": "2026-06-17T16:30:00+00:00",
+     "by": "claude (/health+performance+ml-review 2026-06-17)",
+     "note": "SUPERSEDED 2026-06-17 by MB-20260617-003 (same recommendation, promote mes-regime-5m-lgbm-yz-v1 candidate->shadow on the autonomous track). Closing as folded."
+    }
+   ]
   },
   {
    "id": "MB-20260616-CONVICTION-P4-SIZING",
@@ -783,6 +808,35 @@
    "resolution_criteria": "Per-lens fusion promoted v1→v2 via an operator-approved Tier-3 PR with documented v2>v1 soak evidence, OR a documented decision to keep v1.",
    "tier": 3,
    "status": "open"
+  },
+  {
+   "id": "MB-20260617-002",
+   "opened_at": "2026-06-17T16:30:00+00:00",
+   "opened_by": "claude (/health+performance+ml-review 2026-06-17)",
+   "source": "The 2026-06-17 promotion-readiness report recommends DEMOTE btc-regime-1h-lgbm-yz-v1 advisory->shadow on drift_verdict='significant' (attribution:null). Direct check: `ml shadow-drift --stage advisory` => verdict=insufficient_data, reference_count=0, current_count=63. The advisory score stream is FLAT (n=63 mean 0.9858 stdev 0.0026 range 0.9775-0.9885; first-half 0.9857 vs second-half 0.9859). The 'significant' verdict is the readiness report comparing the peaked advisory stream (mean 0.986) against the WIDER shadow-stage reference (mean 0.762) — a stage-transition artifact, not degradation. Quality gates healthy (non_degenerate PASS f1 0.491, oos_edge PASS +0.376, cross_run_stability 0.0021).",
+   "title": "promotion-readiness drift gate raises a spurious 'significant' DEMOTE on the first advisory model at the shadow->advisory transition (no same-stage reference window) — fix the reference selection",
+   "description": "The readiness/drift gate compares an advisory-stage current window against the SHADOW-stage reference, so a freshly-promoted advisory model is perpetually flagged. Make the gate compare advisory-vs-advisory (or report insufficient_data until a same-stage reference exists). RECOMMENDATION TO OPERATOR: HOLD btc-regime-1h-lgbm-yz-v1 at advisory; do NOT demote on this signal.",
+   "tier": 1,
+   "trigger_condition": "Next /ml-review while btc-regime-1h-lgbm-yz-v1 is at advisory; or any session touching ml/promotion/readiness_report.py / the drift gate.",
+   "resolution_criteria": "The drift gate compares an advisory-stage current window against an advisory-stage reference (or reports insufficient_data until one exists), so the first advisory model stops generating a false 'significant'-drift demote. Verified: a subsequent readiness report no longer lists it under Demote on stage-transition grounds.",
+   "status": "open",
+   "snoozed_until": null,
+   "updates": []
+  },
+  {
+   "id": "MB-20260617-003",
+   "opened_at": "2026-06-17T16:30:00+00:00",
+   "opened_by": "claude (/health+performance+ml-review 2026-06-17)",
+   "source": "Registry pull 2026-06-17 (cycle head 04:48Z): mes-regime-5m-lgbm-yz-v1 (candidate) macro_f1=0.6804 / f1_volatile=0.637 (n_eval=3418) — slightly BETTER than the already-shadow mes-regime-5m-lgbm-v2 (0.6740/0.623) on identical IBKR-deep MES 5m data. candidate->shadow is the AUTONOMOUS trainer track (not the operator gate).",
+   "title": "Promote mes-regime-5m-lgbm-yz-v1 candidate->shadow (autonomous) so it accrues a parallel track record vs the v2 head for a future shadow->advisory comparison",
+   "description": "Run `python -m ml promote-stage mes-regime-5m-lgbm-yz-v1 --new-stage shadow` via the model-training skill / trainer relay. Supersedes MB-20260615-MES5M-YZ-READY. Propose-only this review.",
+   "tier": 2,
+   "trigger_condition": "Next model-training session, or any session with the trainer relay running list-models + promote-stage.",
+   "resolution_criteria": "mes-regime-5m-lgbm-yz-v1 is at shadow stage and emitting predictions (visible in shadow-stats); the old candidate is superseded.",
+   "status": "open",
+   "snoozed_until": null,
+   "updates": []
   }
- ]
+ ],
+ "updated_at": null
 }
