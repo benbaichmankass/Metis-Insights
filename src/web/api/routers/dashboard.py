@@ -599,9 +599,37 @@ async def get_positions(
     return out
 
 
-@router.get("/signals")
-async def get_signals() -> list[dict[str, Any]]:
-    raw = _tail_jsonl(_AUDIT_LOG, _SIGNAL_TAIL)
+def _signals_db_rows() -> list[dict[str, Any]] | None:
+    """Last ``_SIGNAL_TAIL`` ``trade_journal.db::signals`` rows, or ``None``.
+
+    The DB-canonical source for ``/api/bot/signals`` (WC-5 cutover). Returns
+    ``None`` to signal "fall back to the JSONL audit" when (a) the dual-write is
+    disabled — the rollback, in which case the DB would be frozen — or (b) the
+    table is empty / the read raised. ``get_recent_signals`` already expands the
+    ``meta`` JSON back to top-level keys, so the mapped shape matches a JSONL
+    record (pattern / confidence / price / fvg_* / sweep_level all present).
+    """
+    try:
+        from src.utils.signal_audit_logger import signal_dual_write_enabled
+
+        if not signal_dual_write_enabled():
+            return None
+        from src.units.db.database import Database
+
+        rows = Database().get_recent_signals(limit=_SIGNAL_TAIL)
+    except Exception:  # noqa: BLE001  # allow-silent: returns None to fall back to the JSONL audit (present, slightly staler) — never an empty/silent result; the read path always has the JSONL source.
+        logger.warning("signals: DB read failed; falling back to JSONL audit", exc_info=True)
+        return None
+    return rows or None  # empty table → JSONL fallback (DB not hydrated yet)
+
+
+def _map_signals(raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Map raw signal rows (DB or JSONL) to the wire ``Signal[]`` shape.
+
+    Shared by both read sources so the cutover can't change the rendered shape.
+    Filters to actionable buy/sell/long/short rows and passes missing fields
+    through as ``None`` (the dashboard renders null as "not provided").
+    """
     out = []
     for e in raw:
         side = str(e.get("side", e.get("direction", ""))).lower()
@@ -629,7 +657,11 @@ async def get_signals() -> list[dict[str, Any]]:
         out.append(
             {
                 "id": e.get("id", str(uuid.uuid4())),
-                "timestamp": e.get("ts", e.get("timestamp", "")),
+                # Prefer the canonical column (DB rows carry logged_at_utc;
+                # JSONL rows carry it too via log_signal's setdefault), then
+                # the legacy ts/timestamp aliases.
+                "timestamp": e.get("logged_at_utc")
+                or e.get("ts", e.get("timestamp", "")),
                 "symbol": e.get("symbol", "BTCUSDT"),
                 "side": side,
                 # ``strategy`` lets the dashboard's overview chart offer
@@ -648,6 +680,21 @@ async def get_signals() -> list[dict[str, Any]]:
             }
         )
     return out
+
+
+@router.get("/signals")
+async def get_signals() -> list[dict[str, Any]]:
+    """Recent ICT detections — **DB-canonical** (WC-5 signals cutover).
+
+    Reads the ``trade_journal.db::signals`` table (the dual-write target), with
+    the ``runtime_logs/signal_audit.jsonl`` audit log as the fallback when the
+    dual-write is disabled (rollback) or the table isn't hydrated yet. Same
+    mapped shape either way (``_map_signals``).
+    """
+    rows = _signals_db_rows()
+    if rows is not None:
+        return _map_signals(rows)
+    return _map_signals(_tail_jsonl(_AUDIT_LOG, _SIGNAL_TAIL))
 
 
 def _signal_zones(e: dict[str, Any]) -> list[dict[str, Any]]:

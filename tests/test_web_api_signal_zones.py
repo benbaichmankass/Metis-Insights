@@ -28,10 +28,18 @@ def client() -> TestClient:
 
 @pytest.fixture
 def isolate_audit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Point the signals endpoint at an isolated audit log."""
+    """Point the signals endpoint at an isolated audit log.
+
+    Post-WC-5 cutover ``/api/bot/signals`` reads the DB first; force the JSONL
+    fallback (``SIGNAL_DUAL_WRITE_DISABLED``) so these zone-mapping tests
+    exercise the audit log they write. The DB-canonical path + the fallback
+    coupling are covered by ``tests/test_signals_db_cutover.py``. The mapping
+    itself (``_map_signals``) is shared by both sources.
+    """
     audit = tmp_path / "signal_audit.jsonl"
     audit.touch()
     monkeypatch.setattr(dashboard_router, "_AUDIT_LOG", audit)
+    monkeypatch.setenv("SIGNAL_DUAL_WRITE_DISABLED", "true")
     return audit
 
 

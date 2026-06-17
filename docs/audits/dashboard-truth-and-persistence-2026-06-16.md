@@ -499,12 +499,32 @@ account, with `delta_1h`/`open_positions`/`api_ok`), JSON snapshot = degraded
 fallback (`source` field records which served). Closes the audit's "balances
 have no DB table" gap. 40 tests green.
 
-**Still open in WC-5:** insights precedence (make `insights_history`
-canonical, cache = hot-read) and the signals cutover (flip `/api/bot/signals`
-to read the DB, JSONL → append-only audit, fail-loud dual-write — RISKIEST,
-live hot path, operator-gated draft).
+**WC-5 (part 2) — insights are DB-canonical.** `history.latest_payload` +
+generator writes `insights_history` **first** then the derived cache; the
+`/api/bot/insights/*` router falls back to the newest DB row on cache miss
+(`source: history_db`) before the placeholder. A wiped cache dir can no longer
+blank the dashboard. 41 insights tests green (PR #3837).
 
-**Cross-repo follow-up (operator directive 2026-06-17):** once the bot-side
-truth is fixed, verify the **Android app** consumes the same corrected
-endpoints (`/performance` 24h basis, `/order-packages` link, `accounts/balances`
-shape, `account_class` split) — parity audit pending.
+**WC-5 (part 3) — signals cutover DONE (the last WC-5 piece).**
+`/api/bot/signals` now reads `trade_journal.db::signals` (the dual-write
+target; `meta` expanded to top-level so the shape matches a JSONL record),
+with `signal_audit.jsonl` as the **coupled fallback**. The single rollback
+`SIGNAL_DUAL_WRITE_DISABLED` flips BOTH sides — writer off AND reader back to
+JSONL — so the reader is never left serving a frozen DB. The dual-write is now
+**fail-loud**: a DB-write failure escalates once per episode to an ERROR
+outcome (it can no longer diverge silently now that reads come from the DB) but
+still never raises into the pipeline hot path. Shared `_map_signals` keeps the
+rendered shape identical across both sources. 32 cutover/zones/storage tests
+green. **RISKIEST piece — live hot path; ships in an operator-gated draft and
+wants a dual-write-clean soak before merge.**
+
+**WC-5 COMPLETE** (balances + insights + signals). Doc-freshness: the CLAUDE.md
+`/accounts/balances` + `/signals` API rows and the `SIGNAL_DUAL_WRITE_DISABLED`
+env note were updated to match.
+
+**Cross-repo follow-up (operator directive 2026-06-17) — DONE.** Android
+parity audit complete (PR #56): JSON parsing is crash-safe (`ignoreUnknownKeys`);
+fixed two model gaps (`BotStats.paper` sub-block via a dedicated `BotStatsPaper`
+type; `/accounts/balances` health fields) + surfaced them in the UI (a separate
+paper-KPI section on Status, balance-health chips on Accounts). Gradle build
+green; on-device visual check pending.

@@ -23,31 +23,72 @@ SIGNAL_FILE = BASE / "signal_audit.jsonl"
 SUMMARY_FILE = BASE / "summary_markers.json"
 
 
-def _dual_write_to_db(payload: Dict[str, Any]) -> None:
-    """Best-effort: also write *payload* to ``trade_journal.db::signals``.
+def signal_dual_write_enabled() -> bool:
+    """Whether the SQL dual-write to ``trade_journal.db::signals`` is active.
 
-    S-034 (architecture-audit-2026-05-02 P2-9) transition: the JSONL
-    file remains the source of truth during the cutover. This dual-
-    write hydrates the SQL signals log so readers can flip over once
-    the operator has confirmed one full day of clean writes.
-
-    The opt-out env flag ``SIGNAL_DUAL_WRITE_DISABLED=true`` exists so
-    the operator can disable the SQL side cheaply if it ever causes
-    pipeline lag — the JSONL writer is unaffected.
-
-    Never raises. DB-side failures log a warning and return; JSONL
-    write happens unconditionally upstream.
+    Single source of the ``SIGNAL_DUAL_WRITE_DISABLED`` gate — consulted by the
+    writer here AND by the ``/api/bot/signals`` reader (WC-5 cutover). The
+    coupling matters: the reader is DB-canonical ONLY while the dual-write runs;
+    when the operator disables it (the rollback), the reader must fall back to
+    the JSONL audit, never serve a frozen DB. Read at call time (next-event).
     """
-    if os.environ.get("SIGNAL_DUAL_WRITE_DISABLED", "").strip().lower() in {
+    return os.environ.get("SIGNAL_DUAL_WRITE_DISABLED", "").strip().lower() not in {
         "true", "1", "yes", "on",
-    }:
+    }
+
+
+# Fail-loud dedup state: escalate the FIRST failure of an episode to an
+# ERROR outcome (surfaces on /api/bot/logs + alerts), then stay quiet until a
+# write succeeds again — so a persistently-broken DB doesn't flood per signal,
+# but a freshly-diverging dual-write (now that reads come from the DB) can't
+# fail silently the way the old best-effort `logger.warning` did.
+_dual_write_failing = False
+
+
+def _dual_write_to_db(payload: Dict[str, Any]) -> None:
+    """Also write *payload* to ``trade_journal.db::signals`` (fail-loud).
+
+    S-034 → WC-5 cutover: the SQL signals log is now the **canonical** read
+    source for ``/api/bot/signals``; the JSONL file is the append-only audit.
+    This dual-write keeps the SQL log current. The opt-out env flag
+    ``SIGNAL_DUAL_WRITE_DISABLED=true`` is the single rollback — it stops the
+    SQL write here AND flips the reader back to the JSONL audit.
+
+    **Never raises** (the JSONL write upstream is unconditional). But unlike the
+    pre-cutover best-effort version, a failure now escalates ONCE per failure
+    episode to an ERROR outcome — a silently-diverging DB would otherwise leave
+    the dashboard stale, since reads come from the DB.
+    """
+    global _dual_write_failing
+    if not signal_dual_write_enabled():
         return
     try:
         from src.units.db.database import Database
         db = Database()  # canonical resolver — never the bare-CWD fallback
         db.insert_signal(payload)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("signal_audit_logger: SQL dual-write failed: %s", exc)
+        if not _dual_write_failing:
+            _dual_write_failing = True
+            logger.error("signal_audit_logger: SQL dual-write FAILED: %s", exc)
+            try:
+                from src.runtime import outcomes
+
+                outcomes.report(
+                    "signal_dual_write",
+                    "failed",
+                    level=outcomes.Level.ERROR,
+                    reason=str(exc),
+                    note="/api/bot/signals reads the DB — a stalled dual-write "
+                    "leaves the Signals panel stale until this recovers.",
+                )
+            except Exception:  # noqa: BLE001  # allow-silent: alerting is best-effort; the JSONL audit + logger.error above already record the failure, and the writer must never raise into the pipeline.
+                pass
+        else:
+            logger.warning("signal_audit_logger: SQL dual-write still failing: %s", exc)
+        return
+    if _dual_write_failing:
+        _dual_write_failing = False
+        logger.info("signal_audit_logger: SQL dual-write recovered")
 
 
 def log_signal(event: Dict[str, Any]) -> None:
