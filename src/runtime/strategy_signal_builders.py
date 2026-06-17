@@ -1419,6 +1419,99 @@ def trend_donchian_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     return _with_signal_package("trend_donchian_1h", sig)
 
 
+def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]:
+    """Shared builder for the prop alt variants (trend_donchian_sol/_eth).
+
+    Reuses ``src.units.strategies.trend_donchian.order_package`` parametrised by
+    the variant's own ``<name>`` config block. The traded symbol is pinned from
+    the variant's ``symbols:`` (it is a single-instrument prop instance), NOT
+    from the tick settings — so the variant always evaluates its own alt even if
+    invoked on another tick symbol. BOTH-SIDES (no long_only) to match the
+    validated gate (PB-20260616-004). Honours ``enabled`` as the single source
+    of truth; the ``execution: live|shadow`` gate is enforced downstream.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.trend_donchian import order_package
+    from src.runtime.market_data import fetch_candles
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001
+        strategies_cfg = {}
+    vcfg = strategies_cfg.get(name, {}) or {}
+
+    syms = vcfg.get("symbols") or []
+    symbol = str(syms[0]) if syms else settings.get("SYMBOL", settings.get("symbol", ""))
+
+    if not bool(vcfg.get("enabled", False)):
+        return _with_signal_package(name, {
+            "symbol": symbol, "side": "none",
+            "meta": {"strategy_name": name, "reason": "disabled_in_yaml"},
+        })
+
+    timeframe = str(vcfg.get("timeframe") or "1h")
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    if candles_df is None:
+        raise RuntimeError(
+            f"{name}: no candle data for symbol={symbol} timeframe={timeframe}.")
+
+    _publish_liquidity_state(symbol, candles_df)
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **vcfg}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("%s: no actionable signal (%s)", name, exc)
+        try:
+            log_signal(_stamp_regime({
+                "event": f"{name}_eval", "strategy": name, "symbol": symbol,
+                "timeframe": timeframe, "side": "none", "reason": str(exc),
+            }, candles_df))
+        except Exception:  # noqa: BLE001
+            logger.exception("%s: dedicated audit emit failed", name)
+        return _with_signal_package(name, {
+            "symbol": symbol, "side": "none",
+            "meta": {"strategy_name": name, "reason": str(exc)},
+        })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal(_stamp_regime({
+            "event": f"{name}_eval", "strategy": name, "symbol": symbol,
+            "timeframe": timeframe, "side": side, "entry": pkg["entry"],
+            "stop_loss": pkg["sl"], "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        }, candles_df))
+    except Exception:  # noqa: BLE001
+        logger.exception("%s: dedicated audit emit failed", name)
+
+    sig = {
+        "symbol": symbol, "side": side, "price": pkg["entry"],
+        "entry_price": pkg["entry"], "stop_loss": pkg["sl"], "take_profit": pkg["tp"],
+        "pattern": name,
+        "meta": {
+            **pkg_meta, "strategy_name": name, "confidence": pkg["confidence"],
+            "direction": pkg["direction"], "timeframe": timeframe,
+            "strategy_risk_pct": float(vcfg.get("risk_pct", 1.0) or 1.0),
+        },
+    }
+    _emit_shadow_preds(name, sig, vcfg, symbol, timeframe=timeframe, candles_df=candles_df)
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df, symbol=symbol, timeframe=timeframe)
+    return _with_signal_package(name, sig)
+
+
+def trend_donchian_sol_signal_builder(settings: dict) -> Dict[str, Any]:
+    """trend_donchian on SOLUSDT for the Breakout prop account (PB-20260616-004)."""
+    return _trend_donchian_variant_builder("trend_donchian_sol", settings)
+
+
+def trend_donchian_eth_signal_builder(settings: dict) -> Dict[str, Any]:
+    """trend_donchian on ETHUSDT for the Breakout prop account (shadow soak)."""
+    return _trend_donchian_variant_builder("trend_donchian_eth", settings)
+
+
 def mes_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """MES daily LONG-ONLY trend-follower (overnight research 2026-06-01).
 

@@ -64,6 +64,8 @@ from src.runtime.strategy_signal_builders import (
     squeeze_breakout_4h_signal_builder,
     ict_scalp_signal_builder,
     trend_donchian_1h_signal_builder,
+    trend_donchian_eth_signal_builder,
+    trend_donchian_sol_signal_builder,
     trend_donchian_signal_builder,
     turtle_soup_signal_builder,
     vwap_signal_builder,
@@ -120,6 +122,12 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # collection; priority 1 (new floor) so a wiring slip can't override an
         # established member. Builder honours the YAML `enabled` flag.
         "trend_donchian_1h": trend_donchian_1h_signal_builder,
+        # trend_donchian_sol / _eth: PROP-account alt variants (PB-20260616-004)
+        # on the Breakout manual-bridge account. SOL live, ETH shadow. Each is
+        # sole on its (symbol, prop-account) so arbitration never fires. Builders
+        # honour the YAML `enabled` flag.
+        "trend_donchian_sol": trend_donchian_sol_signal_builder,
+        "trend_donchian_eth": trend_donchian_eth_signal_builder,
         # mes_trend_long_1d: MES daily long-only equity-index diversifier on
         # IBKR ib_paper, execution:shadow (2026-06-01); priority 0 (new floor).
         # Builder honours the YAML `enabled` flag.

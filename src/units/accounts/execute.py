@@ -259,6 +259,26 @@ def execute_pkg(
         pkg.entry, pkg.sl, pkg.tp, qty, is_dry, reduce_only,
     )
 
+    # 6a. Breakout prop account — manual browser-bridge (no exchange socket).
+    # A prop-routed strategy on an ``exchange: breakout`` account emits a
+    # paste-ready DXTrade ticket (Telegram/FCM ``prop_signal``) instead of
+    # placing an order; the order package is journaled but the returned
+    # ``prop-manual-<uuid>`` id marks a manual fill, so NO live exchange
+    # position is created (design: breakout-poc-manual-bridge). breakout never
+    # has an exchange_client, so the generic ``client is None → is_dry`` forcing
+    # above would otherwise suppress emission — handle it here, gated on the
+    # account's own ``mode`` (dry_run = inert, no ticket).
+    _exchange = str(account_cfg.get("exchange") or "").strip().lower()
+    if _exchange == "breakout":
+        _mode_raw = str(account_cfg.get("mode") or "live").strip().lower()
+        if _mode_raw in {"dry", "dry_run", "dry-run", "paper"}:
+            trade_id = f"dry-{uuid.uuid4().hex[:12]}"
+            logger.info("breakout dry_run — ticket NOT emitted (inert): %s", order)
+            return trade_id
+        from src.prop.breakout_executor import emit_prop_ticket
+        _tf = (getattr(pkg, "meta", None) or {}).get("timeframe")
+        return emit_prop_ticket(order, account_cfg, timeframe=_tf)
+
     # 6. Submit or simulate
     if is_dry:
         trade_id = f"dry-{uuid.uuid4().hex[:12]}"
@@ -560,9 +580,11 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
             f"OANDA rejected order for {order['symbol']}: {reason}"
         )
     if exchange == "breakout":
-        raise RuntimeError(
-            "breakout exchange is deprecated and unsupported."
-        )
+        # Manual browser-bridge: emit a paste-ready ticket instead of placing.
+        # The canonical entry is the execute_pkg breakout branch (§6a); this
+        # backstops any caller that reaches _submit_order directly.
+        from src.prop.breakout_executor import emit_prop_ticket
+        return emit_prop_ticket(order, account_cfg)
 
     # Interactive Brokers (MES futures via ib_insync). Dispatches to the
     # injected IBClient, mirroring the other broker branches' retCode-style
