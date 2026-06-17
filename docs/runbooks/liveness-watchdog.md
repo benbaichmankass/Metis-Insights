@@ -65,9 +65,12 @@ What to do:
    Telegram tagged `[ACTION] Autoheal dispatched` and within ~30 s a
    third tagged `[OK] Trader heartbeat recovered`. No further action.
 3. If autoheal fires and FAILS (rc≠0), you'll get a
-   `[CRITICAL] Autoheal restart returned rc=N` Telegram. SSH in:
-   `sudo systemctl status ict-trader-live`. Likely causes: unit
-   masked, sudo permission revoked, or systemd itself unresponsive.
+   `[CRITICAL] Autoheal restart returned rc=N` Telegram. Read the
+   trader's service state without SSH — dispatch the `status-check`
+   system-action, or pull it from the diag relay
+   (`/api/diag/services` + `/api/diag/journalctl?unit=ict-trader-live.service`).
+   Likely causes: unit masked, sudo permission revoked, or systemd
+   itself unresponsive.
 4. If you didn't enable autoheal (or 8 min hasn't passed), restart
    manually: dispatch the `restart-bot-service` system-action via
    `[system-action] restart-bot-service` issue.
@@ -140,8 +143,10 @@ After editing the service file, deploy via the standard
 `pull-and-deploy` system-action or `scripts/install_systemd_units.sh`;
 both call `daemon-reload` and re-trigger the timer.
 
-After editing `.env`: `sudo systemctl restart ict-liveness-watchdog.service`
-(or wait — the next timer fire 60 s later will pick up the new env).
+To change one of the `.env` knobs above, dispatch the `set-env`
+system-action (it upserts the live `.env` key + restarts the affected
+service) — no SSH. Or simply wait: the next timer fire 60 s later picks
+up the new env on its own.
 
 ## Verifying the watchdog is alive
 

@@ -61,7 +61,7 @@ Three signals, any one of which is sufficient:
    filter in `scripts/ops/provision_training_vm.py::DISPLAY_NAME`.
 3. The session is running an MCP-orchestrated action against the
    provisioned trainer instance (SSH, OCI compute, etc.) without
-   touching the live-VM IP `158.178.210.252` or its diag surface
+   touching the live-VM IP `141.145.193.91` or its diag surface
    at `:8001`.
 
 The **live VM marker** at `/etc/claude/vm-marker` is distinct and
@@ -150,7 +150,7 @@ artifact in the same PR / pushes the JSONL line in the same step.
 
 The trainer's autonomous authority **does not** extend to:
 
-- **Live VM filesystem.** Never SSH into `158.178.210.252` with
+- **Live VM filesystem.** Never SSH into `141.145.193.91` with
   intent to mutate. Read-only is fine (`/api/diag/*`, rsync `--dry-run`,
   `trade_journal.db` pull). Anything that would write to the live
   VM — including `apt`, `systemctl restart`, `git push` to a path on

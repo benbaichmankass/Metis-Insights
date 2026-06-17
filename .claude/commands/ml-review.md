@@ -1,5 +1,5 @@
 ---
-description: Run the autonomous ML lifecycle review — trainer health, per-model status, promotion/demotion recommendations against the 7-stage ladder, and experiment proposals.
+description: Run the autonomous ML lifecycle review — trainer health, per-model status, promotion/demotion recommendations against the 3-stage ladder (candidate→shadow→advisory), and experiment proposals.
 argument-hint: "[optional free-form hint, e.g. 'focus on btc-regime models']"
 ---
 
@@ -36,7 +36,7 @@ prediction stream and its joined realized-trade outcomes, grades
 trainer-center health (`trainer_service`, `trainer_datasets`,
 `trainer_registry`, `trainer_models`), emits a per-model status line
 for **every** model in `python -m ml list-models`, identifies
-promotion / demotion candidates against the 7-stage ladder, proposes
+promotion / demotion candidates against the 3-stage ladder (candidate→shadow→advisory), proposes
 AI experiments to expand coverage, drains
 `docs/claude/ml-review-backlog.json`, and posts a one-line update to
 the Claude channel.

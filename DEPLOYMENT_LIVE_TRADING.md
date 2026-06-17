@@ -1,7 +1,11 @@
 # Live Trading Deployment Guide
 
+> **Superseded** — canonical status, VM topology, and deployment ops live in
+> `CLAUDE.md` and `docs/ARCHITECTURE-CANONICAL.md` (§ VM topology). This guide is
+> kept as a historical snapshot; IPs/shape below may be stale.
+
 **Last Updated**: April 13, 2026  
-**Status**: Bot is running on Oracle VM (129.159.83.68) - currently monitoring, not trading
+**Status**: Bot is running on Oracle VM (141.145.193.91) - currently monitoring, not trading
 
 ---
 

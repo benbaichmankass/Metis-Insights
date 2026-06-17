@@ -159,10 +159,10 @@ the next month rolls or you bump the env var.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Cache file missing after 30+ min | Timer not enabled, or service failing | `systemctl status ict-insights-generator.timer` + `journalctl -u ict-insights-generator -n 50` |
-| All caches stuck at the same `generated_at` | `INSIGHTS_ENABLED=0` or budget exhausted | Check `.env`; query `insights_usage` for `status='budget_skipped'` rows |
-| Router returns `cache_present: false` for everything | Generator has never successfully run | First-time activation — run manually once: `sudo systemctl start ict-insights-generator.service` |
-| Generator logs say `anthropic call failed` repeatedly | `INSIGHTS_MODEL_MODE=anthropic` + API key missing / rate-limited / out of credit | Either top up Anthropic credit + check `ANTHROPIC_API_KEY` in `.env`, OR flip to `INSIGHTS_MODEL_MODE=template` (zero-cost rule-based mode — the default since M13 S2) |
-| Cache `model_id` says `template:v1` and the operator wanted LLM prose | `INSIGHTS_MODEL_MODE` is the default `template` | Set `INSIGHTS_MODEL_MODE=anthropic` in `.env` (and ensure `ANTHROPIC_API_KEY` is valid + the monthly budget allows it). Next cycle uses the LLM. |
+| All caches stuck at the same `generated_at` | `INSIGHTS_ENABLED=0` or budget exhausted | Dispatch the `inspect-insights` system-action to read the live generator state + `.env` flags; query `insights_usage` for `status='budget_skipped'` rows |
+| Router returns `cache_present: false` for everything | Generator has never successfully run | First-time activation — dispatch the `kick-insights` system-action (one-shot `systemctl start ict-insights-generator.service`) |
+| Generator logs say `anthropic call failed` repeatedly | `INSIGHTS_MODEL_MODE=anthropic` + API key missing / rate-limited / out of credit | Either top up Anthropic credit + confirm `ANTHROPIC_API_KEY` (dispatch `inspect-insights` to read the live `.env` flags), OR flip to `INSIGHTS_MODEL_MODE=template` via the `set-env` system-action (zero-cost rule-based mode — the default since M13 S2) |
+| Cache `model_id` says `template:v1` and the operator wanted LLM prose | `INSIGHTS_MODEL_MODE` is the default `template` | Dispatch the `set-env` system-action with `env_key=INSIGHTS_MODEL_MODE`, `env_value=anthropic` (it upserts the live `.env` + restarts) — and ensure `ANTHROPIC_API_KEY` is valid + the monthly budget allows it. Next cycle uses the LLM. |
 | `summary_md` cites no trade ids | Window had no closed trades | Working as designed — "no closed trades in the window" is the honest answer |
 | Cost climbing faster than expected | Prompt caching not hitting | Inspect `cache_creation_tokens` + `cache_read_tokens` in `insights_usage` — if `cache_read` stays at 0, the SDK call isn't using the cache hint |
 

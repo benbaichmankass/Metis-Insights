@@ -41,7 +41,7 @@ Two scopes (intentional split):
 | `OCI_CLI_REGION` | repo | `oci-storage` | `eu-paris-1` |
 | `OCI_CLI_FINGERPRINT` | repo | `oci-storage` | OCI API signing key fingerprint |
 | `OCI_CLI_KEY_CONTENT` | repo | `oci-storage` | PEM body of the OCI API signing key |
-| `VM_SSH_KEY` | repo | `oci-storage-verify`, `health-snapshot-pr`, every read-only VM SSH workflow | OpenSSH private key for `ubuntu@158.178.210.252`. Same value as `VM_SSH_PRIVATE_KEY` below; both are present because they're keyed differently in different workflows. Stripping CRs handled in-workflow. |
+| `VM_SSH_KEY` | repo | `oci-storage-verify`, `health-snapshot-pr`, every read-only VM SSH workflow | OpenSSH private key for `ubuntu@141.145.193.91`. Same value as `VM_SSH_PRIVATE_KEY` below; both are present because they're keyed differently in different workflows. Stripping CRs handled in-workflow. |
 | `VM_SSH_PRIVATE_KEY` | environment `production-oci` | `oci-storage` (mutating job only) | Same key material as `VM_SSH_KEY`. Lives on the environment so it inherits the approval gate. |
 
 The duplication is deliberate: read-only verification should be one-click,
@@ -225,7 +225,7 @@ the normal health-check loop:
 Quick spot-check from a local shell with the VM SSH key:
 
 ```bash
-ssh ubuntu@158.178.210.252 'df -h /data && systemctl show -p Environment --value ict-trader-live | tr " " "\n" | grep -E "DATA_DIR|TRADE_JOURNAL_DB"'
+ssh ubuntu@141.145.193.91 'df -h /data && systemctl show -p Environment --value ict-trader-live | tr " " "\n" | grep -E "DATA_DIR|TRADE_JOURNAL_DB"'
 ```
 
 ## 6. Failure modes

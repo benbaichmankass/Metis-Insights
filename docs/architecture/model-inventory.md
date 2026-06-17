@@ -21,9 +21,11 @@ replacement, for the deterministic baselines.
    model joins the inventory because a documented use case
    demands it. Vanity additions are rejected at review.
 2. **No model influences live trading without staged promotion.**
-   Same WS7 ladder applies — `research_only` → `candidate` →
-   `backtest_approved` → `shadow` → ... — regardless of where
-   the model came from.
+   Same 3-stage ladder applies — `candidate` → `shadow` →
+   `advisory` — regardless of where the model came from. (Ladder
+   collapsed 7→3 on 2026-06-16; legacy names alias via
+   `ml.manifest.canonical_stage`: `research_only`/`backtest_approved`
+   → `candidate`; `limited_live`/`live_approved` → `advisory`.)
 3. **No model runs on the live trader VM.** Inference for any
    external model runs either on the training-center VM
    (S-AI-WS9) or off-VM via HTTP API. The live trader stays
@@ -123,8 +125,8 @@ operator decision-grade composition.
 2. The PR enters the same review path as any WS5 baseline.
    No special fast-track for "AI" PRs.
 3. Once merged, the model lands in the registry at
-   `target_deployment_stage: research_only`. Promotion follows
-   the WS7 ladder.
+   `target_deployment_stage: candidate`. Promotion follows
+   the 3-stage ladder (`candidate → shadow → advisory`).
 
 ## What's deliberately NOT in this inventory yet
 

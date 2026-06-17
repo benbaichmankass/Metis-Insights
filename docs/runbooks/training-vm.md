@@ -167,7 +167,8 @@ What it does (per JSONL audit row in
 
 1. For each `ml/configs/baseline-*.yaml`:
    1. Runs `python -m ml train` (auto-registers at
-      `research_only`).
+      `research_only`, which aliases to `candidate` on read via
+      `ml.manifest.canonical_stage`).
    2. Walks the promotion ladder up to `shadow` by calling
       `python -m ml promote <model_id> <next_stage> --by claude-trainer
       --reason "..." --gates-acknowledged` once per step.
@@ -179,11 +180,15 @@ What it does (per JSONL audit row in
 **Knobs (env vars):**
 
 - `TARGET_STAGE` — defaults to `shadow`. Override to push further
-  (e.g. `advisory`). Per the trainer charter § 3.a, autonomous up
-  to `live_approved`. Stage transitions past `advisory` additionally
-  require a sprint-log entry under `docs/sprint-logs/S-AI-WS5-PROMOTION-*`
-  per § 3.b — this script doesn't write that log; Claude writes it
-  in the same PR that bumps `TARGET_STAGE`.
+  (e.g. `advisory`). Per the trainer charter § 3.a, Claude is
+  autonomous up to `shadow` (may write the registry up to `advisory`);
+  the `shadow → advisory` transition is the operator gate. The
+  `shadow → advisory` promotion additionally requires a sprint-log
+  entry under `docs/sprint-logs/S-AI-WS5-PROMOTION-*` per § 3.b — this
+  script doesn't write that log; Claude writes it in the same PR that
+  bumps `TARGET_STAGE`. (Ladder collapsed 7→3 on 2026-06-16; canonical
+  `candidate → shadow → advisory`; legacy `limited_live`/`live_approved`
+  alias to `advisory`.)
 - `PROMOTION_BY` — defaults to `claude-trainer`. Recorded on every
   `StatusEvent` row the registry appends.
 - `PROMOTION_REASON` — defaults to a structured boilerplate citing
@@ -231,9 +236,10 @@ the manifests under `ml/configs/` (or `TRAINING_MANIFESTS` if set),
 emits JSONL events to `runtime_logs/training_cycle.jsonl`, and
 short-circuits on the first manifest failure with overall_rc=1.
 
-The recurring cycle stops at `research_only` — that's the source
-of fresh candidates over time. The "First action" bootstrap above
-is what walks each one up to `shadow` so the WS7 harness can load
+The recurring cycle stops at `research_only` (which aliases to
+`candidate` on read via `ml.manifest.canonical_stage`) — that's the
+source of fresh candidates over time. The "First action" bootstrap
+above is what walks each one up to `shadow` so the harness can load
 them; the recurring cycle then keeps producing more candidates the
 operator can promote (or that a future "auto-promote on metric
 threshold" follow-up can promote autonomously).
@@ -322,8 +328,9 @@ the bootstrap.
 A specific promotion transition has additional gates that
 `--gates-acknowledged` couldn't bypass. Check
 `ml/promotion.py::gates_for` for the transition; some transitions
-(typically `backtest_approved → shadow` and beyond) require a
-metric threshold proof to be documented in the reason. Re-run with
+(typically `candidate → shadow` and beyond; the legacy
+`backtest_approved` aliases to `candidate`) require a metric threshold
+proof to be documented in the reason. Re-run with
 `PROMOTION_REASON` updated to include the proof, or lower
 `TARGET_STAGE` to a stage that doesn't require the gate.
 

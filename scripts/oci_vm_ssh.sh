@@ -7,12 +7,12 @@
 #   echo 'set -e; ls /data' | ./scripts/oci_vm_ssh.sh 'bash -s'
 #
 # Env:
-#   VM_HOST          — defaults to 158.178.210.252.
+#   VM_HOST          — defaults to 141.145.193.91.
 #   VM_USER          — defaults to ubuntu.
 #   VM_SSH_KEY_PATH  — path to private key, defaults to ~/.ssh/ict-bot-ovm-private.key.
 set -euo pipefail
 
-VM_HOST="${VM_HOST:-158.178.210.252}"
+VM_HOST="${VM_HOST:-141.145.193.91}"
 VM_USER="${VM_USER:-ubuntu}"
 SSH_KEY="${VM_SSH_KEY_PATH:-${HOME}/.ssh/ict-bot-ovm-private.key}"
 DRYRUN=false

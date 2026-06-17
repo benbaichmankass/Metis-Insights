@@ -43,7 +43,7 @@ All references below are to `src/runtime/order_monitor.py` unless noted.
 |---|---|---|---|
 | Primary (dynamic) | strategy `monitor()` | `run_monitor_tick` → `_call_strategy_monitor` → `pipeline.monitor_unit_for` → `src/units/strategies/<unit>.py::monitor` | **Unconditional** (runs every tick) |
 | Backstop (broker) | naked-position re-arm | `run_monitor_tick` → `_check_naked_positions` → `_attempt_naked_autoprotect` → `IBClient.place_protective` | **Unconditional** since PR #3674 (was the `NAKED_POSITION_AUTOPROTECT` flag; removed) |
-| Re-association (heal) | orphan detect / adopt / **reattach to strategy** / stuck-watchdog / unlinked sweep | `_reconcile_open_trades`, `_reconcile_orphan_exchange_positions` (+ `_reattach_adopted_orphans`, `_adopt_orphan_position`, `_recover_orphan_order_package`), `_watchdog_stuck_strategies`, `_sweep_unlinked_packages` | **`MONITOR_RECONCILE_ENABLED`** — `_reconcile_enabled()`, **code-default `false`** |
+| Re-association (heal) | orphan detect / adopt / **reattach to strategy** / stuck-watchdog / unlinked sweep | `_reconcile_open_trades`, `_reconcile_orphan_exchange_positions` (+ `_reattach_adopted_orphans`, `_adopt_orphan_position`, `_recover_orphan_order_package`), `_watchdog_stuck_strategies`, `_sweep_unlinked_packages` | **Unconditional** since the `MONITOR_RECONCILE_ENABLED` gate was removed 2026-06-15 (BL-20260615-MGCNAKED); the reconciler now runs every tick (was code-default-`false`) |
 
 ### 2.2 How the dynamic exit executes each tick
 
@@ -80,11 +80,14 @@ broker backstop, *if armed*, still protects the position.
 
 ### 2.4 Production state
 
-`MONITOR_RECONCILE_ENABLED` is **active on the live VM** (verified 2026-06-15 by
-observing `_watchdog_stuck_strategies` summaries in the trader journal — that
-helper early-returns unless `_reconcile_enabled()`), set via `.env`. The
-**code default is `false`**, so the guarantee currently depends on an
-environment override.
+The heal subsystem runs **unconditionally on every monitor tick**. The
+`MONITOR_RECONCILE_ENABLED` gate — which used to wrap it and defaulted `false`
+in code, so the guarantee depended on a live-VM `.env` override (verified
+active 2026-06-15 by observing `_watchdog_stuck_strategies` summaries in the
+trader journal) — was **removed 2026-06-15** (BL-20260615-MGCNAKED).
+`_reconcile_enabled()`, its env read, and every guard are gone; a leftover
+`.env` value is now ignored. The guarantee no longer depends on an environment
+override (see `docs/runbooks/monitor-reconciler.md` § "Always-on").
 
 ## 3. Failure-mode taxonomy (where the invariant breaks)
 
@@ -97,21 +100,21 @@ For each: is it **detected**? **self-healed** (monitor re-associated)? does the
 | 2 | `monitor()` absent on module | `getattr(mod,"monitor",None)` is None | **silent** | no | yes, if armed | — |
 | 3 | Candle fetch returns `None` | `run_monitor_tick` ohlcv path | logs INFO | n/a (one-tick) | yes, if armed | — |
 | 4 | `monitor()` raises | `_call_strategy_monitor` except | logs WARNING | retry next tick | yes, if armed | — |
-| 5 | Orphan-adopt, no recoverable package | `_adopt_orphan_position` bare path → `strategy_name='orphan_adopt'` | adoption logged | **only via reattach; never if package gone** | re-armed by `_check_naked_positions` | reconcile gate for adopt/reattach |
-| 6 | Reattach to wrong package | `_recover_orphan_order_package` confidence match | no | wrong exit thresholds | yes | reconcile gate |
-| 7 | Forward reconciler orphans a row | `_reconcile_open_trades` marks `orphaned`, closes package | ping | **no — terminal** | n/a (position read flat) | reconcile gate |
-| 8 | Whole heal subsystem dormant | `_reconcile_enabled()` false | **none** | no | backstop still re-arms (unconditional) | **`MONITOR_RECONCILE_ENABLED` default-off** |
+| 5 | Orphan-adopt, no recoverable package | `_adopt_orphan_position` bare path → `strategy_name='orphan_adopt'` | adoption logged | **only via reattach; never if package gone** | re-armed by `_check_naked_positions` | — (heal subsystem unconditional) |
+| 6 | Reattach to wrong package | `_recover_orphan_order_package` confidence match | no | wrong exit thresholds | yes | — (heal subsystem unconditional) |
+| 7 | Forward reconciler orphans a row | `_reconcile_open_trades` marks `orphaned`, closes package | ping | **no — terminal** | n/a (position read flat) | — (heal subsystem unconditional) |
+| 8 | ~~Whole heal subsystem dormant~~ | ~~`_reconcile_enabled()` false~~ | **RESOLVED** — gate removed 2026-06-15; the heal subsystem can no longer be turned off (it runs every tick) | n/a | n/a | — (gate removed) |
 | 9 | Non-IB naked position | `_attempt_naked_autoprotect` IB-only | alert | no | **no auto-rearm** (manual) | — |
 | 10 | dry_run account | reconciler skips dry accounts | n/a | by design | static SL/TP only | account mode |
 
 The structurally significant clusters:
 
-- **A — The monitor re-association layer is behind a default-off gate (#8).**
-  The backstop is baseline, but the path that gives a stranded trade its *brain*
-  back (adopt → reattach → stuck-watchdog) only runs when
-  `MONITOR_RECONCILE_ENABLED` is true. A fresh deploy / lost `.env` line silently
-  reverts the whole heal subsystem to dormant. This is the Prime-Directive
-  anti-pattern, one level up.
+- **A — ~~The monitor re-association layer is behind a default-off gate (#8).~~
+  RESOLVED 2026-06-15.** The heal subsystem (adopt → reattach → stuck-watchdog)
+  is now **unconditional**, exactly like the backstop re-arm — the
+  `MONITOR_RECONCILE_ENABLED` gate that used to wrap it (code-default `false`,
+  so a fresh deploy / lost `.env` line silently reverted it to dormant) was
+  removed (BL-20260615-MGCNAKED), closing this Prime-Directive anti-pattern.
 - **B — A stranded trade can be backstop-only forever (#5, #7).** An
   `orphan_adopt` with no recoverable package, or a row the forward reconciler
   marked `orphaned`, has a backstop (re-armed) but **no live monitor and no
@@ -143,19 +146,20 @@ trade, classifies coverage and drives healing:
 This turns "covered if six conditions happen to hold" into "covered, asserted,
 and healed every tick."
 
-### 4.2 De-gate the heal subsystem (Prime-Directive fix) — DECIDED
+### 4.2 De-gate the heal subsystem (Prime-Directive fix) — DONE (2026-06-15)
 
-`MONITOR_RECONCILE_ENABLED` is **removed entirely** (operator decision
-2026-06-15). Not converted to a kill-switch — *removed*. The heal subsystem
-(orphan detect, adopt, **reattach-to-strategy**, stuck-watchdog, unlinked sweep,
-pending-PnL sweep) runs **unconditionally** every tick, exactly like the core
-`monitor()` loop and the backstop re-arm already do. This retires
-`_reconcile_enabled()`, its env read, every `if not _reconcile_enabled(): return`
-guard, the renderer pin in `scripts/render_env_from_master.py`, and the
-env-gate-survivor / render-contract tests that pinned the flag. The live `.env`
-value is already `true`, so the deploy is a behavioural no-op on prod; the change
-is what makes the guarantee survive a fresh deploy or a lost `.env` line.
-Tier-3.
+`MONITOR_RECONCILE_ENABLED` was **removed entirely** (operator decision
+2026-06-15, BL-20260615-MGCNAKED). Not converted to a kill-switch — *removed*.
+The heal subsystem (orphan detect, adopt, **reattach-to-strategy**,
+stuck-watchdog, unlinked sweep, pending-PnL sweep) now runs **unconditionally**
+every tick, exactly like the core `monitor()` loop and the backstop re-arm.
+This retired `_reconcile_enabled()`, its env read, every
+`if not _reconcile_enabled(): return` guard, the renderer pin in
+`scripts/render_env_from_master.py`, and the env-gate-survivor / render-contract
+tests that pinned the flag. The live `.env` value was already `true`, so the
+deploy was a behavioural no-op on prod; the change is what makes the guarantee
+survive a fresh deploy or a lost `.env` line. A leftover `.env` value is now
+ignored. (Was Tier-3.) See `docs/runbooks/monitor-reconciler.md` § "Always-on".
 
 ### 4.3 Un-attributable orphan → reattach, else CLOSE — DECIDED
 
@@ -193,7 +197,7 @@ Each phase is a separate, reviewed PR; live order/monitor-path phases are Tier-3
 | Phase | Change | Tier | Verification |
 |---|---|---|---|
 | **0 (done)** | #3662 sleeve `monitor()` resolution; #3674 unconditional backstop re-arm | — | merged + deployed; verified on VM |
-| **1** | **Remove `MONITOR_RECONCILE_ENABLED` entirely** (§4.2): retire `_reconcile_enabled()` + all guards, the renderer pin, and the gate's contract/no-op-when-disabled tests | 3 | prod `.env` already true → behavioural no-op; soak: orphans still detected/healed; no false orphaning |
+| **1 (done)** | **Removed `MONITOR_RECONCILE_ENABLED` entirely** (§4.2, 2026-06-15, BL-20260615-MGCNAKED): retired `_reconcile_enabled()` + all guards, the renderer pin, and the gate's contract/no-op-when-disabled tests — reconciler now unconditional | 3 | prod `.env` already true → behavioural no-op; soak: orphans still detected/healed; no false orphaning |
 | **2** | `_assert_exit_coverage` single per-tick classification + reattach-or-**close** for `BACKSTOP_ONLY`/`UNCOVERED` (§4.1, §4.3), with the existing 2-observation confirm before any flatten | 3 | unit tests for each state incl. the close path; soak on a deliberately-stranded paper position; diag surfaces per-trade coverage |
 | **3 (done)** | Surface monitor-blindness (§4.4) — `_call_strategy_monitor` now returns `(verdict, status)`; the loop tracks per-package consecutive blind ticks (`_track_monitor_blindness`) and fires a one-shot `enqueue_monitor_blindness_alert` past `MONITOR_BLINDNESS_ALERT_TICKS` (default 3); a healthy tick resets | 2 | `tests/test_monitor_blindness.py`; observe-only, never touches the order path |
 
@@ -215,7 +219,8 @@ Each phase is a separate, reviewed PR; live order/monitor-path phases are Tier-3
   `_rearm_broker_protection_after_recovery`, `_reconcile_open_trades`,
   `_reconcile_orphan_exchange_positions`, `_reattach_adopted_orphans`,
   `_recover_orphan_order_package`, `_adopt_orphan_position`,
-  `_watchdog_stuck_strategies`, `_sweep_unlinked_packages`, `_reconcile_enabled`);
+  `_watchdog_stuck_strategies`, `_sweep_unlinked_packages`); `_reconcile_enabled`
+  was retired 2026-06-15 when the reconcile gate was removed;
   `src/runtime/pipeline.py::monitor_unit_for`; `src/units/strategies/*.py::monitor`;
   `src/units/accounts/ib_client.py::{place, place_protective}`.
 - Docs: [`docs/ARCHITECTURE-CANONICAL.md`](ARCHITECTURE-CANONICAL.md),
