@@ -1,0 +1,623 @@
+{
+  "generated_at": "2026-06-17T05:25:07.253306+00:00",
+  "ruleset": {
+    "ruleset": "breakout",
+    "plan": "1-step-classic",
+    "account_size_usd": 5000.0,
+    "profit_split": 0.8,
+    "unconfirmed": false,
+    "evaluation": {
+      "profit_target_pct": 0.1,
+      "min_trading_days": 0,
+      "max_eval_days": null
+    },
+    "funded": {
+      "profit_target_pct": null,
+      "min_trading_days": 0
+    },
+    "limits": {
+      "daily_loss_pct": 0.03,
+      "max_drawdown_pct": 0.06,
+      "drawdown_type": "static",
+      "max_position_pct": null
+    },
+    "consistency": {
+      "enabled": false,
+      "max_single_day_profit_share": 0.4
+    },
+    "restrictions": {
+      "weekend_flat": false,
+      "overnight_flat": false
+    },
+    "funded_soak_days": 30,
+    "economics": {
+      "account_fee_usd": 45.0,
+      "rebuy_fee_usd": 45.0,
+      "payout": {
+        "first_payout_after_days": 14.0,
+        "payout_frequency_days": 7.0,
+        "min_withdrawal_usd": 50.0,
+        "min_trading_days_before_payout": 0
+      },
+      "withdrawal_policy": {
+        "mode": "above_start",
+        "buffer_usd": 0.0,
+        "bank_asap": true,
+        "cadence_days": 7.0
+      }
+    }
+  },
+  "params": {
+    "n_paths": 3000,
+    "block_len": 8,
+    "seed": 1234,
+    "base_risk_pct": 0.5,
+    "risk_pct_grid": [
+      0.5,
+      1.0,
+      1.5
+    ],
+    "horizons_months": [
+      3.0,
+      6.0,
+      12.0
+    ],
+    "clock_tf": "1h",
+    "flip_policy": "hold",
+    "data": "/home/user/ict-trader-data/dogeusdt_5m.parquet"
+  },
+  "data_window": {
+    "data_start": "2023-01-01 00:00:00+00:00",
+    "data_end": "2026-02-28 23:55:00+00:00"
+  },
+  "ev": [
+    {
+      "combo": "fvg_range_15m",
+      "ev_cells": [
+        {
+          "risk_pct": 0.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 3000,
+          "n_ledger_trades": 26,
+          "account_size": 5000.0,
+          "profit_split": 0.8,
+          "account_fee_usd": 45.0,
+          "rebuy_fee_usd": 45.0,
+          "path_trades": 50,
+          "block_len": 8,
+          "horizons": {
+            "3.0": {
+              "mean_net_usd": -45.0,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -45.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0,
+              "mean_accounts": 1.0,
+              "mean_fees_usd": 45.18,
+              "roi_on_fees": -0.996
+            },
+            "6.0": {
+              "mean_net_usd": -45.0,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -45.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0,
+              "mean_accounts": 1.0,
+              "mean_fees_usd": 45.18,
+              "roi_on_fees": -0.996
+            },
+            "12.0": {
+              "mean_net_usd": -45.18,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -45.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0,
+              "mean_accounts": 1.0,
+              "mean_fees_usd": 45.18,
+              "roi_on_fees": -1.0
+            }
+          }
+        },
+        {
+          "risk_pct": 1.0,
+          "base_risk_pct": 0.5,
+          "n_paths": 3000,
+          "n_ledger_trades": 26,
+          "account_size": 5000.0,
+          "profit_split": 0.8,
+          "account_fee_usd": 45.0,
+          "rebuy_fee_usd": 45.0,
+          "path_trades": 50,
+          "block_len": 8,
+          "horizons": {
+            "3.0": {
+              "mean_net_usd": -45.0,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -45.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0,
+              "mean_accounts": 1.21,
+              "mean_fees_usd": 54.51,
+              "roi_on_fees": -0.826
+            },
+            "6.0": {
+              "mean_net_usd": -43.73,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -45.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.003,
+              "mean_accounts": 1.21,
+              "mean_fees_usd": 54.51,
+              "roi_on_fees": -0.802
+            },
+            "12.0": {
+              "mean_net_usd": -43.21,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -90.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0273,
+              "mean_accounts": 1.21,
+              "mean_fees_usd": 54.51,
+              "roi_on_fees": -0.793
+            }
+          }
+        },
+        {
+          "risk_pct": 1.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 3000,
+          "n_ledger_trades": 26,
+          "account_size": 5000.0,
+          "profit_split": 0.8,
+          "account_fee_usd": 45.0,
+          "rebuy_fee_usd": 45.0,
+          "path_trades": 50,
+          "block_len": 8,
+          "horizons": {
+            "3.0": {
+              "mean_net_usd": -21.53,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -90.0,
+              "p95_net_usd": 303.77,
+              "p_profitable": 0.0757,
+              "mean_accounts": 1.77,
+              "mean_fees_usd": 79.72,
+              "roi_on_fees": -0.27
+            },
+            "6.0": {
+              "mean_net_usd": -24.79,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -90.0,
+              "p95_net_usd": 258.77,
+              "p_profitable": 0.0823,
+              "mean_accounts": 1.77,
+              "mean_fees_usd": 79.72,
+              "roi_on_fees": -0.311
+            },
+            "12.0": {
+              "mean_net_usd": 24.46,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -135.0,
+              "p95_net_usd": 436.93,
+              "p_profitable": 0.2333,
+              "mean_accounts": 1.77,
+              "mean_fees_usd": 79.72,
+              "roi_on_fees": 0.307
+            }
+          }
+        }
+      ]
+    },
+    {
+      "combo": "squeeze_breakout_4h",
+      "ev_cells": [
+        {
+          "risk_pct": 0.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 3000,
+          "n_ledger_trades": 51,
+          "account_size": 5000.0,
+          "profit_split": 0.8,
+          "account_fee_usd": 45.0,
+          "rebuy_fee_usd": 45.0,
+          "path_trades": 50,
+          "block_len": 8,
+          "horizons": {
+            "3.0": {
+              "mean_net_usd": -45.0,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -45.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0,
+              "mean_accounts": 1.02,
+              "mean_fees_usd": 46.02,
+              "roi_on_fees": -0.978
+            },
+            "6.0": {
+              "mean_net_usd": -45.0,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -45.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0,
+              "mean_accounts": 1.02,
+              "mean_fees_usd": 46.02,
+              "roi_on_fees": -0.978
+            },
+            "12.0": {
+              "mean_net_usd": -46.02,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -45.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0,
+              "mean_accounts": 1.02,
+              "mean_fees_usd": 46.02,
+              "roi_on_fees": -1.0
+            }
+          }
+        },
+        {
+          "risk_pct": 1.0,
+          "base_risk_pct": 0.5,
+          "n_paths": 3000,
+          "n_ledger_trades": 51,
+          "account_size": 5000.0,
+          "profit_split": 0.8,
+          "account_fee_usd": 45.0,
+          "rebuy_fee_usd": 45.0,
+          "path_trades": 50,
+          "block_len": 8,
+          "horizons": {
+            "3.0": {
+              "mean_net_usd": -45.0,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -45.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0,
+              "mean_accounts": 1.37,
+              "mean_fees_usd": 61.53,
+              "roi_on_fees": -0.731
+            },
+            "6.0": {
+              "mean_net_usd": -48.55,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -90.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0,
+              "mean_accounts": 1.37,
+              "mean_fees_usd": 61.53,
+              "roi_on_fees": -0.789
+            },
+            "12.0": {
+              "mean_net_usd": -54.28,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -90.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0167,
+              "mean_accounts": 1.37,
+              "mean_fees_usd": 61.53,
+              "roi_on_fees": -0.882
+            }
+          }
+        },
+        {
+          "risk_pct": 1.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 3000,
+          "n_ledger_trades": 51,
+          "account_size": 5000.0,
+          "profit_split": 0.8,
+          "account_fee_usd": 45.0,
+          "rebuy_fee_usd": 45.0,
+          "path_trades": 50,
+          "block_len": 8,
+          "horizons": {
+            "3.0": {
+              "mean_net_usd": -49.27,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -90.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0,
+              "mean_accounts": 1.76,
+              "mean_fees_usd": 79.29,
+              "roi_on_fees": -0.621
+            },
+            "6.0": {
+              "mean_net_usd": -61.21,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -90.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.001,
+              "mean_accounts": 1.76,
+              "mean_fees_usd": 79.29,
+              "roi_on_fees": -0.772
+            },
+            "12.0": {
+              "mean_net_usd": -37.33,
+              "median_net_usd": -90.0,
+              "p5_net_usd": -135.0,
+              "p95_net_usd": 373.68,
+              "p_profitable": 0.0827,
+              "mean_accounts": 1.76,
+              "mean_fees_usd": 79.29,
+              "roi_on_fees": -0.471
+            }
+          }
+        }
+      ]
+    },
+    {
+      "combo": "squeeze_breakout_4h,fvg_range_15m",
+      "ev_cells": [
+        {
+          "risk_pct": 0.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 3000,
+          "n_ledger_trades": 73,
+          "account_size": 5000.0,
+          "profit_split": 0.8,
+          "account_fee_usd": 45.0,
+          "rebuy_fee_usd": 45.0,
+          "path_trades": 60,
+          "block_len": 8,
+          "horizons": {
+            "3.0": {
+              "mean_net_usd": -45.0,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -45.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0,
+              "mean_accounts": 1.14,
+              "mean_fees_usd": 51.27,
+              "roi_on_fees": -0.878
+            },
+            "6.0": {
+              "mean_net_usd": -45.98,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -45.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0,
+              "mean_accounts": 1.14,
+              "mean_fees_usd": 51.27,
+              "roi_on_fees": -0.897
+            },
+            "12.0": {
+              "mean_net_usd": -51.01,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -90.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0007,
+              "mean_accounts": 1.14,
+              "mean_fees_usd": 51.27,
+              "roi_on_fees": -0.995
+            }
+          }
+        },
+        {
+          "risk_pct": 1.0,
+          "base_risk_pct": 0.5,
+          "n_paths": 3000,
+          "n_ledger_trades": 73,
+          "account_size": 5000.0,
+          "profit_split": 0.8,
+          "account_fee_usd": 45.0,
+          "rebuy_fee_usd": 45.0,
+          "path_trades": 60,
+          "block_len": 8,
+          "horizons": {
+            "3.0": {
+              "mean_net_usd": -49.42,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -90.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0,
+              "mean_accounts": 1.66,
+              "mean_fees_usd": 74.73,
+              "roi_on_fees": -0.661
+            },
+            "6.0": {
+              "mean_net_usd": -54.48,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -90.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0053,
+              "mean_accounts": 1.66,
+              "mean_fees_usd": 74.73,
+              "roi_on_fees": -0.729
+            },
+            "12.0": {
+              "mean_net_usd": -40.65,
+              "median_net_usd": -90.0,
+              "p5_net_usd": -135.0,
+              "p95_net_usd": 359.08,
+              "p_profitable": 0.073,
+              "mean_accounts": 1.66,
+              "mean_fees_usd": 74.73,
+              "roi_on_fees": -0.544
+            }
+          }
+        },
+        {
+          "risk_pct": 1.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 3000,
+          "n_ledger_trades": 73,
+          "account_size": 5000.0,
+          "profit_split": 0.8,
+          "account_fee_usd": 45.0,
+          "rebuy_fee_usd": 45.0,
+          "path_trades": 60,
+          "block_len": 8,
+          "horizons": {
+            "3.0": {
+              "mean_net_usd": -38.62,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -90.0,
+              "p95_net_usd": 237.11,
+              "p_profitable": 0.0573,
+              "mean_accounts": 2.46,
+              "mean_fees_usd": 110.59,
+              "roi_on_fees": -0.349
+            },
+            "6.0": {
+              "mean_net_usd": -26.47,
+              "median_net_usd": -90.0,
+              "p5_net_usd": -135.0,
+              "p95_net_usd": 366.06,
+              "p_profitable": 0.1193,
+              "mean_accounts": 2.46,
+              "mean_fees_usd": 110.59,
+              "roi_on_fees": -0.239
+            },
+            "12.0": {
+              "mean_net_usd": 46.1,
+              "median_net_usd": -90.0,
+              "p5_net_usd": -180.0,
+              "p95_net_usd": 617.24,
+              "p_profitable": 0.3003,
+              "mean_accounts": 2.46,
+              "mean_fees_usd": 110.59,
+              "roi_on_fees": 0.417
+            }
+          }
+        }
+      ]
+    },
+    {
+      "combo": "trend_donchian",
+      "ev_cells": [
+        {
+          "risk_pct": 0.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 3000,
+          "n_ledger_trades": 273,
+          "account_size": 5000.0,
+          "profit_split": 0.8,
+          "account_fee_usd": 45.0,
+          "rebuy_fee_usd": 45.0,
+          "path_trades": 176,
+          "block_len": 8,
+          "horizons": {
+            "3.0": {
+              "mean_net_usd": -47.36,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -90.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0003,
+              "mean_accounts": 1.43,
+              "mean_fees_usd": 64.52,
+              "roi_on_fees": -0.734
+            },
+            "6.0": {
+              "mean_net_usd": -43.67,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -90.0,
+              "p95_net_usd": -45.0,
+              "p_profitable": 0.0237,
+              "mean_accounts": 1.43,
+              "mean_fees_usd": 64.52,
+              "roi_on_fees": -0.677
+            },
+            "12.0": {
+              "mean_net_usd": 1.42,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -135.0,
+              "p95_net_usd": 460.45,
+              "p_profitable": 0.1347,
+              "mean_accounts": 1.43,
+              "mean_fees_usd": 64.52,
+              "roi_on_fees": 0.022
+            }
+          }
+        },
+        {
+          "risk_pct": 1.0,
+          "base_risk_pct": 0.5,
+          "n_paths": 3000,
+          "n_ledger_trades": 273,
+          "account_size": 5000.0,
+          "profit_split": 0.8,
+          "account_fee_usd": 45.0,
+          "rebuy_fee_usd": 45.0,
+          "path_trades": 176,
+          "block_len": 8,
+          "horizons": {
+            "3.0": {
+              "mean_net_usd": -26.11,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -135.0,
+              "p95_net_usd": 353.05,
+              "p_profitable": 0.083,
+              "mean_accounts": 2.83,
+              "mean_fees_usd": 127.19,
+              "roi_on_fees": -0.205
+            },
+            "6.0": {
+              "mean_net_usd": 75.86,
+              "median_net_usd": -45.0,
+              "p5_net_usd": -135.0,
+              "p95_net_usd": 641.14,
+              "p_profitable": 0.301,
+              "mean_accounts": 2.83,
+              "mean_fees_usd": 127.19,
+              "roi_on_fees": 0.596
+            },
+            "12.0": {
+              "mean_net_usd": 282.75,
+              "median_net_usd": 266.37,
+              "p5_net_usd": -225.0,
+              "p95_net_usd": 1062.21,
+              "p_profitable": 0.6117,
+              "mean_accounts": 2.83,
+              "mean_fees_usd": 127.19,
+              "roi_on_fees": 2.223
+            }
+          }
+        },
+        {
+          "risk_pct": 1.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 3000,
+          "n_ledger_trades": 273,
+          "account_size": 5000.0,
+          "profit_split": 0.8,
+          "account_fee_usd": 45.0,
+          "rebuy_fee_usd": 45.0,
+          "path_trades": 176,
+          "block_len": 8,
+          "horizons": {
+            "3.0": {
+              "mean_net_usd": 40.12,
+              "median_net_usd": -90.0,
+              "p5_net_usd": -180.0,
+              "p95_net_usd": 652.62,
+              "p_profitable": 0.2607,
+              "mean_accounts": 5.62,
+              "mean_fees_usd": 252.71,
+              "roi_on_fees": 0.159
+            },
+            "6.0": {
+              "mean_net_usd": 219.23,
+              "median_net_usd": 128.77,
+              "p5_net_usd": -270.0,
+              "p95_net_usd": 992.74,
+              "p_profitable": 0.5533,
+              "mean_accounts": 5.62,
+              "mean_fees_usd": 252.71,
+              "roi_on_fees": 0.868
+            },
+            "12.0": {
+              "mean_net_usd": 586.77,
+              "median_net_usd": 525.26,
+              "p5_net_usd": -315.0,
+              "p95_net_usd": 1731.54,
+              "p_profitable": 0.8047,
+              "mean_accounts": 5.62,
+              "mean_fees_usd": 252.71,
+              "roi_on_fees": 2.322
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
