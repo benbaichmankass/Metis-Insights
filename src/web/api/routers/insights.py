@@ -54,7 +54,7 @@ _STRATEGY_NAME_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
 
 def _placeholder(cache_path: Path) -> dict[str, Any]:
-    """Envelope returned when the cache file is missing or unreadable.
+    """Envelope returned when neither the cache file nor the DB has a row.
 
     Status 200 with a neutral payload — the dashboard surfaces "not yet
     generated" rather than erroring, which matches the existing
@@ -72,33 +72,13 @@ def _placeholder(cache_path: Path) -> dict[str, Any]:
         "cache_age_seconds": None,
         "model_id": None,
         "cache_present": False,
+        "source": "placeholder",
         "cache_path": str(cache_path),
     }
 
 
-def _read_cache(cache_path: Path) -> dict[str, Any]:
-    """Read a cache file and stamp ``cache_age_seconds`` from its mtime.
-
-    Returns the placeholder envelope (200) on any failure (missing,
-    unreadable, malformed JSON). Logs a warning so the operator can
-    diagnose the generator if needed.
-    """
-    if not cache_path.exists():
-        return _placeholder(cache_path)
-    try:
-        with cache_path.open(encoding="utf-8") as fh:
-            payload = json.load(fh)
-    except (OSError, json.JSONDecodeError) as exc:
-        logger.warning("insights: failed to read %s: %s", cache_path, exc)
-        return _placeholder(cache_path)
-    if not isinstance(payload, dict):
-        logger.warning("insights: %s is not a JSON object", cache_path)
-        return _placeholder(cache_path)
-
-    age_seconds = max(
-        0,
-        int(datetime.now(timezone.utc).timestamp() - cache_path.stat().st_mtime),
-    )
+def _normalize(payload: dict[str, Any]) -> dict[str, Any]:
+    """Fill the headline defaults a consumer expects."""
     payload.setdefault("summary_md", "")
     payload.setdefault("grade", "good")
     payload.setdefault("signals", [])
@@ -106,15 +86,85 @@ def _read_cache(cache_path: Path) -> dict[str, Any]:
     payload.setdefault("row_counts", None)
     payload.setdefault("generated_at", None)
     payload.setdefault("model_id", None)
+    return payload
+
+
+def _age_seconds(generated_at: Any) -> int | None:
+    if not isinstance(generated_at, str):
+        return None
+    try:
+        ts = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return max(0, int(datetime.now(timezone.utc).timestamp() - ts.timestamp()))
+
+
+def _from_history(
+    cache_path: Path, endpoint: str, strategy_name: str | None
+) -> dict[str, Any]:
+    """DB-canonical fallback (WC-5): serve the newest ``insights_history`` row
+    for this endpoint when the cache file is absent/unreadable, so a wiped
+    cache dir doesn't blank the dashboard. Falls through to the placeholder
+    when the table is empty/absent or the read fails.
+    """
+    try:
+        from src.runtime.insights import history
+
+        payload = history.latest_payload(endpoint, strategy_name)
+    except Exception:  # noqa: BLE001  # allow-silent: best-effort DB fallback; on any error we serve the placeholder (200), never a 500. The cache-miss path is already a degraded state.
+        logger.warning("insights: history fallback failed for %s", endpoint, exc_info=True)
+        payload = None
+    if not isinstance(payload, dict):
+        return _placeholder(cache_path)
+    payload = _normalize(payload)
+    # cache_present stays False (the file genuinely isn't there); source marks
+    # that the DB served it, and the age is computed from the stored timestamp.
+    payload["cache_age_seconds"] = _age_seconds(payload.get("generated_at"))
+    payload["cache_present"] = False
+    payload["source"] = "history_db"
+    payload["cache_path"] = str(cache_path)
+    return payload
+
+
+def _read_cache(
+    cache_path: Path, endpoint: str, strategy_name: str | None = None
+) -> dict[str, Any]:
+    """Read a cache file and stamp ``cache_age_seconds`` from its mtime.
+
+    On any cache failure (missing, unreadable, malformed JSON) falls back to
+    the **DB-canonical** ``insights_history`` row (WC-5) and only then to the
+    placeholder — all still HTTP 200. Logs a warning so the operator can
+    diagnose the generator if needed.
+    """
+    if not cache_path.exists():
+        return _from_history(cache_path, endpoint, strategy_name)
+    try:
+        with cache_path.open(encoding="utf-8") as fh:
+            payload = json.load(fh)
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("insights: failed to read %s: %s", cache_path, exc)
+        return _from_history(cache_path, endpoint, strategy_name)
+    if not isinstance(payload, dict):
+        logger.warning("insights: %s is not a JSON object", cache_path)
+        return _from_history(cache_path, endpoint, strategy_name)
+
+    age_seconds = max(
+        0,
+        int(datetime.now(timezone.utc).timestamp() - cache_path.stat().st_mtime),
+    )
+    payload = _normalize(payload)
     payload["cache_age_seconds"] = age_seconds
     payload["cache_present"] = True
+    payload["source"] = "cache"
     payload["cache_path"] = str(cache_path)
     return payload
 
 
 @router.get("/summary")
 def get_summary() -> dict[str, Any]:
-    return _read_cache(_INSIGHTS_DIR / "summary.json")
+    return _read_cache(_INSIGHTS_DIR / "summary.json", "summary")
 
 
 @router.get("/recent")
@@ -128,7 +178,7 @@ def get_recent(
     request-time ``limit`` is echoed back so the consumer can compare
     against what the cache actually reflects.
     """
-    payload = _read_cache(_INSIGHTS_DIR / "recent.json")
+    payload = _read_cache(_INSIGHTS_DIR / "recent.json", "recent")
     payload["requested_limit"] = limit
     return payload
 
@@ -142,12 +192,14 @@ def get_strategy(name: str) -> dict[str, Any]:
     """
     if not _STRATEGY_NAME_PATTERN.match(name):
         raise HTTPException(status_code=400, detail="invalid strategy name")
-    return _read_cache(_INSIGHTS_DIR / f"strategy_{name}.json")
+    return _read_cache(
+        _INSIGHTS_DIR / f"strategy_{name}.json", "strategy", strategy_name=name
+    )
 
 
 @router.get("/health")
 def get_health() -> dict[str, Any]:
-    return _read_cache(_INSIGHTS_DIR / "health.json")
+    return _read_cache(_INSIGHTS_DIR / "health.json", "health")
 
 
 # ---------------------------------------------------------------------------
