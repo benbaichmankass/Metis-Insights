@@ -187,6 +187,28 @@ if [ -f "${_HOURLYSNAP_DROPIN_SRC}" ]; then
     fi
 fi
 
+# Why ict-db-integrity needs the data-dir drop-in:
+#   scripts/db_integrity_alert.py -> scripts/check_db_integrity.py resolves
+#   trade_journal_db_path() via src.utils.paths (DATA_DIR-aware) and opens the
+#   canonical DB read-only (mode=ro). ict-web-api / the trader run with
+#   DATA_DIR=/data/bot-data via their own drop-ins. Without this drop-in the
+#   checker inherits no DATA_DIR (stripped from .env by fix_data_dir.sh), falls
+#   back to <repo>/trade_journal.db, and reads a DIFFERENT (empty/stale) DB than
+#   the live trader writes — so the INV-1..5 guardrail would silently grade an
+#   empty DB clean. Same writer/reader path-split rationale as the
+#   ict-health-snapshot + ict-hourly-snapshot cases above.
+_DBINTEGRITY_DROPIN_SRC="${_DATADIR_DROPIN_SRC}"
+_DBINTEGRITY_DROPIN_DST="${SYSTEMD_DIR}/ict-db-integrity.service.d/data-dir.conf"
+if [ -f "${_DBINTEGRITY_DROPIN_SRC}" ]; then
+    if [ ! -e "${_DBINTEGRITY_DROPIN_DST}" ] || ! cmp -s "${_DBINTEGRITY_DROPIN_SRC}" "${_DBINTEGRITY_DROPIN_DST}"; then
+        echo ">>> install_systemd_units: dropin data-dir.conf → ${_DBINTEGRITY_DROPIN_DST}"
+        "${SUDO[@]}" mkdir -p "$(dirname "${_DBINTEGRITY_DROPIN_DST}")"
+        "${SUDO[@]}" cp "${_DBINTEGRITY_DROPIN_SRC}" "${_DBINTEGRITY_DROPIN_DST}"
+        "${SUDO[@]}" chmod 0644 "${_DBINTEGRITY_DROPIN_DST}"
+        changed=1
+    fi
+fi
+
 # Why ict-claude-bridge needs the data-dir drop-in:
 #   The bridge is the SOLE drainer of the Claude update channel — it reads
 #   $DATA_DIR/runtime_logs/pending_claude_pings (via runtime_logs_dir()).
