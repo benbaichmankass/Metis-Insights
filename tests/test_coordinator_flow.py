@@ -480,6 +480,45 @@ def _pkg(strategy="test", symbol="BTCUSDT", direction="long",
     )
 
 
+def _seed_breach_trade(db_path: str, account_id: str, pnl: float = -200.0) -> None:
+    """Seed a today-dated closed trade so the journal-sourced daily_pnl
+    rebuild puts *account_id* past its daily-loss cap.
+
+    PropRiskManager now wires ``account_name`` through as the base
+    RiskManager's ``account_id`` (BL-20260617-PROP-RISK-ACCOUNT-ID), so a
+    prop account's daily-loss cap is rebuilt from the canonical journal on
+    every gate check. A breach must therefore come from real journal
+    state; a poked-in-memory ``daily_pnl`` is overwritten by the rebuild."""
+    from datetime import datetime, timezone
+    from src.units.db.database import Database
+    today = datetime.now(timezone.utc).date()
+    Database(db_path=db_path).insert_trade({
+        "timestamp": f"{today}T12:00:00+00:00",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "entry_price": 50_000.0,
+        "position_size": 0.01,
+        "status": "closed",
+        "pnl": pnl,
+        "is_backtest": 0,
+        "account_id": account_id,
+        "created_at": f"{today} 12:00:00",
+    })
+
+
+@pytest.fixture()
+def prop_journal(tmp_path, monkeypatch):
+    """Isolated canonical journal for the prop-breach tests.
+
+    Points TRADE_JOURNAL_DB at a fresh temp DB and DATA_DIR at an empty
+    dir (so the balance-snapshot read finds nothing and can't perturb the
+    PnL-only assertions). Returns the DB path for ``_seed_breach_trade``."""
+    db_path = tmp_path / "trade_journal.db"
+    monkeypatch.setenv("TRADE_JOURNAL_DB", str(db_path))
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data-root"))
+    return str(db_path)
+
+
 class TestAccountsStatusFlow:
     def test_returns_list_of_three(self, coord, accounts_yaml):
         statuses = coord.accounts_status(accounts_yaml)
@@ -554,11 +593,14 @@ class TestMultiAccountExecuteFlow:
         )
         assert len(results) == 2
 
-    def test_risk_breach_captured_as_error(self, coord, accounts_yaml):
+    def test_risk_breach_captured_as_error(self, coord, accounts_yaml, prop_journal):
         from src.units.accounts import load_accounts
+        # Breach the prop account via real journal state (its daily-loss
+        # cap is rebuilt from the journal, not held purely in memory).
+        _seed_breach_trade(prop_journal, "prop_breakout_1")
         accounts = load_accounts(accounts_yaml)
         prop = next(a for a in accounts if a.name == "prop_breakout_1")
-        prop.risk_manager.daily_pnl = -200.0
+        assert prop.risk_manager.daily_pnl == pytest.approx(-200.0)
 
         # monkeypatch load_accounts inside coordinator to return accounts with breached one
         with patch("src.units.accounts.load_accounts", return_value=accounts):
@@ -572,11 +614,14 @@ class TestMultiAccountExecuteFlow:
         assert breached["trade_id"] is None
         assert breached["error"] is not None
 
-    def test_risk_breach_does_not_block_other_accounts(self, coord, accounts_yaml):
+    def test_risk_breach_does_not_block_other_accounts(self, coord, accounts_yaml, prop_journal):
         from src.units.accounts import load_accounts
+        # breach only prop account — via real journal state
+        _seed_breach_trade(prop_journal, "prop_breakout_1")
         accounts = load_accounts(accounts_yaml)
-        # breach only prop account
-        next(a for a in accounts if a.name == "prop_breakout_1").risk_manager.daily_pnl = -200.0
+        assert next(
+            a for a in accounts if a.name == "prop_breakout_1"
+        ).risk_manager.daily_pnl == pytest.approx(-200.0)
 
         with patch("src.units.accounts.load_accounts", return_value=accounts):
             results = coord.multi_account_execute(

@@ -77,7 +77,21 @@ class PropRiskManager(RiskManager):
         account_name: Optional[str] = None,
         dry_run: bool = False,
     ) -> None:
-        super().__init__(config.get("risk") or config, dry_run=dry_run)
+        # Wire account_name through as the base RiskManager's persistence
+        # key (account_id) so prop accounts get the SAME journal-based
+        # daily-risk-state self-healing rebuild every regular account
+        # already gets (loader: RiskManager(..., account_id=name)). Without
+        # it the base ran in-memory only, so a prop account's daily-loss /
+        # drawdown caps reset to 0 on every restart — they never accumulated
+        # across a session or survived a process bounce
+        # (BL-20260617-PROP-RISK-ACCOUNT-ID). ``or ""`` preserves the
+        # in-memory contract for nameless test/one-off constructions
+        # (account_id="" disables persistence + the journal rebuild).
+        super().__init__(
+            config.get("risk") or config,
+            dry_run=dry_run,
+            account_id=account_name or "",
+        )
         self.account_name: Optional[str] = account_name
         self.account_state: str = str(config.get("account_state") or "evaluation").lower()
         phase = config.get("phase_requirements") or {}
