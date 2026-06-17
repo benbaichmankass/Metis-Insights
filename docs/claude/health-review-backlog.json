@@ -1924,7 +1924,58 @@
       "resolution_criteria": "Decision recorded: either (a) keep with a documented concrete rollback rationale, or (b) scrub the env read + allow-silent + update trade_events.py docstring/tests, mirroring the MOBILE_PUSH_ENABLED removal.",
       "tier": "Tier-1 (notification side-channel; code-only change if scrubbed)",
       "status": "open"
+    },
+    {
+      "id": "BL-20260617-PROP-RISK-ACCOUNT-ID",
+      "opened_at": "2026-06-17T14:30:00+00:00",
+      "opened_by": "claude (S-AUDIT-COMPLIANCE-2026-06-17 wrap-up)",
+      "source": "Part-2 audit (bot code review). PropRiskManager.__init__ (src/units/accounts/prop_risk.py) calls super().__init__ WITHOUT account_id, so the base RiskManager runs in-memory only — the journal-based daily-risk-state self-healing rebuild is disabled for prop accounts; daily-loss/drawdown caps reset to 0 on every restart. Split out of PR #3865 because passing account_id changes daily_pnl sourcing and breaks 4 prop-breach tests that set daily_pnl in-memory.",
+      "title": "Tier-3: PropRiskManager misses account_id — daily-risk-state persistence off for prop accounts",
+      "description": "ACTION FOR CLAUDE: own PR. Add account_id=account_name to PropRiskManager.__init__'s super() call, then rework the 4 prop-breach tests to seed daily_pnl via the journal/fixture rather than the now-overridden in-memory field. Tier-3 (risk-state for a live account class) — operator approval to merge. Latent: prop accounts are not live yet (Telegram-ticket execution), so no urgency.",
+      "tier": 3,
+      "trigger_condition": "Next prop-accounts work, or next /performance-review touching prop risk.",
+      "resolution_criteria": "PR merged with account_id wired AND full pytest-run green AND prop-breach detection confirmed still firing under journal-sourced daily_pnl.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260617-DASH-CHART-TZ",
+      "opened_at": "2026-06-17T14:30:00+00:00",
+      "opened_by": "claude (S-AUDIT-COMPLIANCE-2026-06-17 wrap-up)",
+      "source": "Part-2 audit (dashboard code review). In ict-trader-dashboard streamlit_app.py, _lc_candle_data/_lc_ema_data/_lc_volume_data call int(ts.timestamp()) on tz-NAIVE timestamps (host-local epoch), while _lc_markers uses tz-aware UTC. On a UTC host (Streamlit Cloud prod) they agree; on any non-UTC host candles/EMA/volume shift vs signal/trade markers by the UTC offset.",
+      "title": "Dashboard chart timezone divergence (candle/EMA/volume tz-naive vs UTC markers)",
+      "description": "ACTION FOR CLAUDE: localize candle/EMA/volume timestamps to UTC before .timestamp() (pd.to_datetime(..., utc=True) + tz_localize('UTC')) so all series share one epoch basis. This is a UI-rendering change → must go through the dashboard preview-app verification workflow (claude/web-app-preview), NOT straight to main. Low urgency (production runs UTC, masked).",
+      "tier": 1,
+      "trigger_condition": "Next dashboard chart work, or next time the preview app is in use.",
+      "resolution_criteria": "Fix verified on the preview app and merged to dashboard main.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260617-ANDROID-LINT-PROMOTE",
+      "opened_at": "2026-06-17T14:30:00+00:00",
+      "opened_by": "claude (S-AUDIT-COMPLIANCE-2026-06-17 wrap-up)",
+      "source": "Part-2 audit (android CI parity, PR #59). release.yml now runs testDebugUnitTest (blocking) + lintDebug (report-only, continue-on-error + app lint{abortOnError=false}). Lint was left non-blocking because the existing-warning baseline is unknown and could block PRs.",
+      "title": "Android lintDebug is report-only — promote to blocking after a warning-baseline cleanup",
+      "description": "ACTION FOR CLAUDE: do a lint-baseline cleanup pass on ict-trader-android, then promote lint to blocking (flip app build.gradle.kts lint{abortOnError=true} and drop continue-on-error on the CI step). Also consider broadening the seed unit-test coverage beyond NotificationKindsTest.",
+      "tier": 1,
+      "trigger_condition": "Next android CI/quality pass.",
+      "resolution_criteria": "lintDebug is a blocking PR gate with a clean baseline; abortOnError=true.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-16T10:59:03+00:00"
+  "updated_at": "2026-06-17T14:30:00+00:00"
 }
