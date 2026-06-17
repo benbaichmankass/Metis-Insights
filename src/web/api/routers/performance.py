@@ -109,7 +109,7 @@ _PAPER_PREDICATE = (
     " OR (t.account_class IS NULL AND COALESCE(t.is_demo,0)=1))"
 )
 _NOT_PAPER_PREDICATE = (
-    " AND NOT (COALESCE(t.account_class,'')='paper'"
+    " AND NOT (COALESCE(t.account_class,'') IN ('paper','prop')"
     " OR (t.account_class IS NULL AND COALESCE(t.is_demo,0)=1))"
 )
 

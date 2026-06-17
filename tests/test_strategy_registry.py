@@ -179,7 +179,9 @@ def test_real_yaml_loads():
     # the mgc_trend_1h gold sleeve (IBKR MGC micro futures on ib_paper paper
     # money, 2026-06-12 — the venue-swap sibling of xauusd_trend_1h after OANDA
     # US blocked XAU_USD, BL-20260611-007).
-    assert len(strategies) == 18
+    # 18 → 20 by the prop alt variants trend_donchian_sol + trend_donchian_eth
+    # (2026-06-17, PB-20260616-004 — routed to the breakout_1 prop account).
+    assert len(strategies) == 20
 
 
 def test_real_yaml_has_required_strategies():
@@ -192,6 +194,7 @@ def test_real_yaml_has_required_strategies():
         "xauusd_trend_1h", "mgc_trend_1h",
         "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
         "eth_pullback_2h",
+        "trend_donchian_sol", "trend_donchian_eth",
     }
 
 

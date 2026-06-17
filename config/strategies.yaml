@@ -685,6 +685,66 @@ strategies:
     shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring while
                               # this fresh data-collector builds a track record.
 
+  trend_donchian_sol:
+    # PROP-account alt variant of trend_donchian on SOLUSDT (PB-20260616-004).
+    # Reuses the SAME unit (src/units/strategies/trend_donchian.py) parametrised
+    # by THIS block — a distinct strategy instance, NOT a change to the BTC
+    # flagship. Routed to the Breakout prop account (manual browser-bridge:
+    # emits a DXTrade ticket, no live exchange order). The +EV finding
+    # (runtime_logs/prop_eval/2026-06-16-bybit-multisymbol/, Binance-spot)
+    # RE-VALIDATED on real Bybit linear-perp 5m + the Breakout daily-swap
+    # holding cost + a 4-fold walk-forward
+    # (runtime_logs/prop_eval/2026-06-17-validate-real/): GATE = robust PASS
+    # (pre-swap realised +$2,150; 15% swap drag; funded 12-mo EV +$1,693 @1.5%
+    # risk, 94% P(net>0); 4/4 OOS folds positive). The strongest alt candidate.
+    #
+    # DIRECTION NOTE: the BTC flagship is long_only (a BTC regime decision); this
+    # variant is intentionally BOTH-SIDES to match exactly what the gate
+    # validated (scripts/backtest_system.py does not apply long_only). A
+    # long-only A/B re-validation is the recommended refinement before sizing up.
+    model: null
+    signal_prefixes: [trend_donchian_sol, donchian_sol]
+    enabled: true
+    execution: live          # the strong, robust gate candidate → live (emits
+                             # prop tickets for supervised manual placement).
+    risk_pct: 1.0            # multiplier; the prop account carries the 1.5%
+                             # validated per-trade sizing (config/accounts.yaml).
+    timeframe: "1h"          # the validated trend_donchian config (1h).
+    symbols:
+      - SOLUSDT
+    donchian: 20
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    tp_r: 50.0
+    min_confidence: 0.60
+    shadow_model_ids: []      # keep the fresh prop signal log clean of ML preds.
+
+  trend_donchian_eth:
+    # PROP-account alt variant of trend_donchian on ETHUSDT (PB-20260616-004).
+    # Same reuse + manual-bridge routing as trend_donchian_sol. Gate
+    # (runtime_logs/prop_eval/2026-06-17-validate-real/): marginal PASS — the
+    # Breakout daily swap eats 57% of the realised gross (pre +$671 → post
+    # +$285); funded 12-mo EV +$1,050 @1.5% (92% P>0), 4/4 OOS folds positive,
+    # but +EV only materialises at risk ≥1.0%. Thin edge → SHADOW first (data
+    # collection on the real prop feed) before any live ticket emission. Same
+    # both-sides direction note as trend_donchian_sol.
+    model: null
+    signal_prefixes: [trend_donchian_eth, donchian_eth]
+    enabled: true
+    execution: shadow        # shadow-guard: allow — operator-approved 2026-06-17 (ETH edge marginal after swap; soak before live; PB-20260616-004)
+    risk_pct: 1.0            # multiplier; moot while execution: shadow.
+    timeframe: "1h"
+    symbols:
+      - ETHUSDT
+    donchian: 20
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    tp_r: 50.0
+    min_confidence: 0.60
+    shadow_model_ids: []
+
   mes_trend_long_1d:
     # MES daily LONG-ONLY trend-follower (overnight research 2026-06-01). A
     # BTC-uncorrelated EQUITY-INDEX diversifier: Donchian-breakout + Chandelier

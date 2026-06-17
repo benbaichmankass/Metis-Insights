@@ -91,6 +91,13 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # pair above.
     "ict-ib-gateway-watchdog.service",
     "ict-ib-gateway-watchdog.timer",
+    # 2026-06-17 — DB-integrity checker (dashboard-truth Phase 4). The hourly
+    # oneshot + its driving timer, queryable so a session can verify the
+    # "alert us when intake breaks" check is enabled and firing on cadence
+    # (and tail its WARN/CRITICAL decisions) — same rationale as the watchdog
+    # pairs above.
+    "ict-db-integrity.service",
+    "ict-db-integrity.timer",
     # 2026-05-29 — the Claude update-channel drainer (@claude_ict_comms_bot).
     # It is the SOLE consumer of runtime_logs/pending_claude_pings, but was
     # never queryable from the diag surface, so when the channel went silent

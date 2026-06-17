@@ -72,7 +72,7 @@ def _query_history(
             # Exclude paper-money trades from the real-money aggregate view.
             # account_class is authoritative; NULL rows fall back to is_demo.
             base_where += (
-                " AND NOT (COALESCE(account_class,'')='paper'"
+                " AND NOT (COALESCE(account_class,'') IN ('paper','prop')"
                 " OR (account_class IS NULL AND COALESCE(is_demo,0)=1))"
             )
         cur.execute(

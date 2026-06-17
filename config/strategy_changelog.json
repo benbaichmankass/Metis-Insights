@@ -153,5 +153,19 @@
       "ref": "Overnight strategy-research campaign (this PR) - DRAFT, Tier-3, execution: shadow",
       "summary": "New strategy wired execution: shadow on the IBKR ib_paper account. MES daily LONG-ONLY trend-follower: Donchian 30 / trail_mult 4.0 on the 1d candle, reusing the trend_donchian unit with short signals suppressed (the equity-index edge is long-only). Validated on SPX500-CFD (the proxy, 2020-2026): long-only trend net-positive IS+OOS across three independent families (trend/TSMOM/MA-cross), near-zero correlation to the BTC roster, tiny drawdown (2-7R). CAVEAT - validated on the CFD proxy, NOT live MES (short ~16mo history); shadow collects the live-instrument data needed before any promotion. Routed to ib_paper (IBKR paper) ONLY; never real money. Evidence: docs/research/overnight-strategy-research-2026-06-01.md (PERF-20260531-001)."
     }
+  ],
+  "trend_donchian_sol": [
+    {
+      "date": "2026-06-17",
+      "ref": "trend_donchian_sol created \u2014 PROP alt variant (PB-20260616-004), Tier-3 draft",
+      "summary": "New prop-account variant of trend_donchian on SOLUSDT, routed to the Breakout manual-bridge account. The trend_donchian-on-alts +EV finding (Binance-spot research) re-validated on real Bybit linear-perp 5m + the Breakout daily-swap holding cost + a 4-fold walk-forward (runtime_logs/prop_eval/2026-06-17-validate-real/): robust PASS (pre-swap realised +$2,150, 15% drag, funded 12-mo EV +$1,693 @1.5% risk / 94% P(net>0), 4/4 OOS folds). Reuses the trend_donchian unit; execution: live (emits supervised DXTrade tickets). Both-sides to match the validation (a long-only re-validation is the recommended refinement)."
+    }
+  ],
+  "trend_donchian_eth": [
+    {
+      "date": "2026-06-17",
+      "ref": "trend_donchian_eth created \u2014 PROP alt variant shadow (PB-20260616-004), Tier-3 draft",
+      "summary": "New prop-account variant of trend_donchian on ETHUSDT, routed to the Breakout manual-bridge account. Gate = marginal PASS: the Breakout daily swap eats 57% of the realised gross (pre +$671 -> post +$285); funded 12-mo EV +$1,050 @1.5% (4/4 OOS folds) but +EV only at risk>=1.0%. Shipped execution: shadow to soak on the real prop feed before live ticket emission."
+    }
   ]
 }

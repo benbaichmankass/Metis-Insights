@@ -494,3 +494,54 @@ accounts:
       pos_size: 2000                   # $2000 max single position
       risk_pct: 0.005                  # 0.5% balance risked per trade (soak-conservative)
       min_balance_usd: 100             # refuse to size below $100
+
+  # breakout_1: Breakout 1-Step Classic $5k PROP account (PB-20260616-004).
+  # POC = TELEGRAM-PING bridge ONLY (no DXTrade API integration). When a
+  # prop-routed strategy fires, the bot emits a paste-ready trade-setup ticket
+  # (Telegram/FCM `prop_signal`) — a human/assistant decides whether to place it
+  # on the Breakout DXTrade terminal. `execute_pkg` returns a `prop-manual-<uuid>`
+  # marker so the order package journals WITHOUT a phantom exchange position the
+  # monitor would manage (design: docs/integrations/breakout-poc-manual-bridge-DESIGN.md;
+  # executor: src/prop/breakout_executor.py).
+  #
+  # mode: live — ALWAYS LIVE from the system's perspective: the bot always emits
+  # the ping; the operator decides per-signal whether to act on it. (There is no
+  # programmatic order, so "live" here only means "emit the Telegram ping".) The
+  # per-strategy `execution: shadow` gate still suppresses emission for
+  # trend_donchian_eth until it graduates to live.
+  #
+  # account_class: prop — a THIRD funding category (alongside paper/real_money):
+  # a prop-firm sim account, NOT our custody. Tracked SEPARATELY — excluded from
+  # BOTH the real-money and paper KPIs (routers' NOT-paper / paper predicates).
+  #
+  # type: prop — drives the mission-aware PropRiskManager, which tracks the
+  # evaluation→funded lifecycle (account_state + phase_requirements below) and
+  # persists progress to runtime_state/prop_state.json.
+  breakout_1:
+    exchange: breakout
+    type: prop
+    account_class: prop
+    mode: live
+    account_state: evaluation          # eval → funded lifecycle (PropRiskManager).
+                                       # Flips to `funded` once the +10% target is
+                                       # cleared; the operator/system updates it.
+    phase_requirements:                # Breakout 1-Step Classic terms.
+      target_profit_pct: 0.10          # +10% to clear the evaluation.
+      min_active_days: 0               # no minimum trading days.
+    backtest_ruleset: prop_rulesets/breakout.yaml   # the $5k 1-Step ruleset the
+                                       # gate EV used (the EV engine reads it).
+    account_size_usd: 5000             # 1-Step Classic $5k.
+    strategies:                        # the validated alt variants (Tier-3):
+      - trend_donchian_sol             #   SOL — robust gate PASS, execution: live
+      - trend_donchian_eth             #   ETH — marginal, execution: shadow (soak)
+    symbols: [SOLUSDT, ETHUSDT]        # the validated prop instruments.
+    risk:
+      max_dd_pct: 0.06                 # Breakout STATIC 6% max-DD = $300.
+      daily_loss_pct: 0.03             # Breakout 3% daily-loss = $150.
+      daily_usd: 150                   # absolute fallback (= 3% of $5k).
+      pos_size: 7500                   # <= 1.5x notional headroom on $5k.
+      risk_pct: 0.015                  # 1.5% — the validated best-EV cell (the
+                                       # ticket sizes from breakout_routing.yaml
+                                       # risk_pct, in PERCENT; this fraction is
+                                       # the PropRiskManager mirror).
+      min_balance_usd: 100

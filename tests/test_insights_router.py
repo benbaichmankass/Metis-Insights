@@ -55,6 +55,19 @@ def insights_dir(
     return insights
 
 
+@pytest.fixture(autouse=True)
+def _isolate_router_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Resolve the canonical DB to a fresh per-test file for EVERY router test.
+
+    The cache-miss path now falls back to the DB-canonical ``insights_history``
+    row (WC-5), so a router test must not read the repo-root journal — that
+    would make the placeholder vs DB-fallback outcome non-deterministic. Points
+    at the same path ``isolated_db`` uses, so the history tests that seed rows
+    and the default empty-DB tests agree on one file.
+    """
+    monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "trade_journal.db"))
+
+
 @pytest.fixture
 def client(insights_dir: Path) -> TestClient:
     # Mount just the insights router on a minimal app; avoids pulling
@@ -175,6 +188,7 @@ def test_summary_cache_miss_returns_placeholder(
     out = resp.json()
 
     assert out["cache_present"] is False
+    assert out["source"] == "placeholder"  # empty DB → placeholder, not history
     assert "not yet generated" in out["summary_md"]
     assert out["grade"] == "good"
     assert out["signals"] == []
@@ -203,7 +217,80 @@ def test_malformed_cache_falls_back_to_placeholder(
     resp = client.get("/api/bot/insights/summary")
     assert resp.status_code == 200
     out = resp.json()
-    assert out["cache_present"] is False  # JSON decode failed → placeholder.
+    assert out["cache_present"] is False  # JSON decode failed → DB/placeholder.
+
+
+# ---------------------------------------------------------------------------
+# DB-canonical fallback (WC-5) — cache miss serves the latest insights_history
+# row before the placeholder, so a wiped cache dir can't blank the dashboard.
+# ---------------------------------------------------------------------------
+
+
+def test_cache_miss_serves_latest_history_row(
+    client: TestClient, insights_dir: Path
+) -> None:
+    from src.runtime.insights import history as history_mod
+
+    # Two rows; the newer one must win.
+    history_mod.append_history(endpoint="summary", payload={
+        "summary_md": "OLD read.", "grade": "mixed", "signals": [],
+        "generated_at": "2026-05-26T00:00:00+00:00", "model_id": "m1",
+    })
+    history_mod.append_history(endpoint="summary", payload={
+        "summary_md": "NEWEST read.", "grade": "good",
+        "signals": [{"kind": "x", "severity": "low", "note": "n"}],
+        "generated_at": datetime.now(timezone.utc).isoformat(), "model_id": "m2",
+    })
+
+    # No cache file written → must fall back to the DB.
+    out = client.get("/api/bot/insights/summary").json()
+    assert out["source"] == "history_db"
+    assert out["cache_present"] is False
+    assert out["summary_md"] == "NEWEST read."
+    assert out["grade"] == "good"
+    assert out["model_id"] == "m2"
+    assert isinstance(out["cache_age_seconds"], int)  # derived from generated_at
+
+
+def test_cache_hit_wins_over_history(
+    client: TestClient, insights_dir: Path
+) -> None:
+    from src.runtime.insights import history as history_mod
+
+    history_mod.append_history(endpoint="summary", payload={
+        "summary_md": "from DB", "grade": "concerning", "signals": [],
+        "generated_at": datetime.now(timezone.utc).isoformat(), "model_id": "db",
+    })
+    _write_cache(insights_dir, "summary.json", _sample_payload())
+
+    out = client.get("/api/bot/insights/summary").json()
+    assert out["source"] == "cache"
+    assert out["cache_present"] is True
+    assert "All five strategies" in out["summary_md"]
+
+
+def test_strategy_cache_miss_falls_back_to_per_strategy_history(
+    client: TestClient, insights_dir: Path
+) -> None:
+    from src.runtime.insights import history as history_mod
+
+    # Row for a different strategy must NOT leak into this one's fallback.
+    history_mod.append_history(endpoint="strategy", strategy_name="other", payload={
+        "summary_md": "other strat", "grade": "good", "signals": [],
+        "generated_at": datetime.now(timezone.utc).isoformat(), "model_id": "m",
+    })
+    history_mod.append_history(endpoint="strategy", strategy_name="vwap", payload={
+        "summary_md": "vwap strat read", "grade": "mixed", "signals": [],
+        "generated_at": datetime.now(timezone.utc).isoformat(), "model_id": "m",
+    })
+
+    out = client.get("/api/bot/insights/strategy/vwap").json()
+    assert out["source"] == "history_db"
+    assert out["summary_md"] == "vwap strat read"
+
+    # A strategy with no history row at all → placeholder.
+    out2 = client.get("/api/bot/insights/strategy/missing").json()
+    assert out2["source"] == "placeholder"
 
 
 # ---------------------------------------------------------------------------
