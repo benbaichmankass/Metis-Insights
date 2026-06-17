@@ -5,7 +5,7 @@ Live exchange clients are injected at runtime; tests use dry-run mode.
 
 Supported exchanges:
   bybit     — Bybit Unified Trading (live + dry-run)
-  breakout  — Breakout prop firm API (deprecated, inert stub)
+  breakout  — Breakout prop firm (manual browser-bridge ticket emitter)
   oanda     — OANDA v20 FX/metals (M15 Phase 2; practice host by default)
   alpaca    — Alpaca US stocks/ETFs (M15 Phase 2b; paper host by default)
 """
@@ -45,11 +45,16 @@ class BybitAPI:
 
 
 class BreakoutAPI:
-    """Breakout prop firm API stub — DEPRECATED and inert.
+    """Breakout prop firm — manual browser-bridge ticket emitter.
 
-    Kept only so any legacy fixture that still references
-    ``exchange: breakout`` continues to load. Dry-run returns a stub
-    trade id; live placement is unsupported.
+    Breakout has no order API we use: a prop-routed strategy emits a
+    paste-ready DXTrade ticket (Telegram/FCM ``prop_signal``) for a human /
+    assistant to place under supervision (design:
+    ``docs/integrations/breakout-poc-manual-bridge-DESIGN.md``). So "live"
+    placement here is a **ticket emission**, not an exchange call, and returns a
+    ``prop-manual-<uuid>`` marker (no live position created). The canonical
+    caller is ``execute_pkg`` (breakout branch); this is kept for the
+    ``route_order`` parity path.
     """
 
     def __init__(self, api_key_env: str) -> None:
@@ -60,9 +65,18 @@ class BreakoutAPI:
             trade_id = f"dry-breakout-{uuid.uuid4().hex[:10]}"
             logger.info("BreakoutAPI DRY-RUN %s → %s", order.symbol, trade_id)
             return trade_id
-        raise NotImplementedError(
-            "BreakoutAPI is deprecated and unsupported for live placement."
-        )
+        from src.prop.breakout_executor import emit_prop_ticket
+        order_dict = {
+            "symbol": order.symbol,
+            "direction": order.direction,
+            "side": "Buy" if order.direction == "long" else "Sell",
+            "entry": order.entry,
+            "sl": order.sl,
+            "tp": order.tp,
+            "strategy": getattr(order, "strategy", "prop"),
+        }
+        return emit_prop_ticket(order_dict, {"account_id": "breakout"},
+                                timeframe=(getattr(order, "meta", None) or {}).get("timeframe"))
 
 
 class AlpacaAPI:

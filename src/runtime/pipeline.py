@@ -23,6 +23,8 @@ from src.runtime.strategy_signal_builders import (  # noqa: E402
     squeeze_breakout_4h_signal_builder,
     ict_scalp_signal_builder,
     trend_donchian_1h_signal_builder,
+    trend_donchian_eth_signal_builder,
+    trend_donchian_sol_signal_builder,
     trend_donchian_signal_builder,
     turtle_soup_signal_builder,
     vwap_signal_builder,
@@ -232,6 +234,12 @@ _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     # the trend_donchian unit via its own config; execution:shadow, never sends
     # a live order. Honours the YAML `enabled` flag.
     "trend_donchian_1h": trend_donchian_1h_signal_builder,
+    # trend_donchian_sol / _eth — PROP-account alt variants (PB-20260616-004).
+    # Reuse the trend_donchian unit on SOLUSDT / ETHUSDT, routed to the Breakout
+    # manual-bridge account (ticket emit, no live exchange order). SOL execution:
+    # live, ETH execution: shadow. Honour the YAML `enabled` flag.
+    "trend_donchian_sol": trend_donchian_sol_signal_builder,
+    "trend_donchian_eth": trend_donchian_eth_signal_builder,
     # mes_trend_long_1d — MES daily LONG-ONLY trend-follower (overnight research
     # 2026-06-01). BTC-uncorrelated equity-index diversifier on IBKR ib_paper;
     # reuses the trend_donchian unit, suppresses shorts. execution:shadow, never

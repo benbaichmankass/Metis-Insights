@@ -63,7 +63,7 @@ def _normalise_side(direction: Any) -> str:
 # before the account_class backfill runs. account_class is authoritative
 # when present; for old rows where it's NULL we fall back to is_demo.
 _NOT_PAPER_PREDICATE = (
-    " AND NOT (COALESCE(account_class,'')='paper'"
+    " AND NOT (COALESCE(account_class,'') IN ('paper','prop')"
     " OR (account_class IS NULL AND COALESCE(is_demo,0)=1))"
 )
 

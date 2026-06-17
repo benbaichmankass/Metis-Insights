@@ -446,17 +446,21 @@ class TestCoordinatorRouting:
 
 
 class TestDeprecatedExchanges:
-    def test_execute_pkg_breakout_still_inert(self):
-        # Deprecated alias: still raises so legacy fixtures stay safe.
+    def test_execute_pkg_breakout_emits_manual_ticket(self):
+        # Breakout is the manual browser-bridge ticket emitter (REVIVED
+        # 2026-06-17, PB-20260616-004 — no longer a deprecated inert stub):
+        # _submit_order builds the per-account leg + emits prop_signal and
+        # returns a prop-manual-<uuid> marker (no live exchange position).
         from src.units.accounts.execute import _submit_order
-        with pytest.raises(RuntimeError, match="deprecated"):
-            _submit_order(
-                client=None,
-                order={"symbol": "BTCUSDT", "side": "Buy", "qty": 0.01,
-                       "sl": 99.0, "tp": 102.0, "account_id": "prop_breakout"},
-                account_cfg={"exchange": "breakout",
-                             "account_id": "prop_breakout"},
-            )
+        tid = _submit_order(
+            client=None,
+            order={"symbol": "SOLUSDT", "side": "Buy", "direction": "long",
+                   "entry": 150.0, "sl": 145.0, "tp": 162.0, "qty": 0.0,
+                   "strategy": "trend_donchian_sol", "account_id": "breakout_1"},
+            account_cfg={"exchange": "breakout", "account_id": "breakout_1",
+                         "risk": {"risk_pct": 0.015}},
+        )
+        assert tid.startswith("prop-manual-")
 
 
 # ---------------------------------------------------------------------------
@@ -478,6 +482,6 @@ class TestRealAccountsYaml:
             assert cfg.get("exchange") != "velotrade", (
                 f"{name}: velotrade exchange should be purged"
             )
-            assert cfg.get("account_class") in ("paper", "real_money"), (
+            assert cfg.get("account_class") in ("paper", "real_money", "prop"), (
                 f"{name}: missing/invalid account_class"
             )

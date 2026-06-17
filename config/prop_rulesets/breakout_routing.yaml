@@ -1,28 +1,44 @@
 # config/prop_rulesets/breakout_routing.yaml
-# Which strategy signals get turned into a Breakout "trade setup" ticket, and
-# how they're sized for the $5k 1-Step Classic account. Consumed by
-# src/prop/breakout_ticket.py (POC). Updated from the evaluation tool's
-# combo+sizing recommendation.
+# Sizing + symbol-mapping knobs for the Breakout "trade setup" ticket. Consumed
+# by src/prop/breakout_ticket.py (POC) and src/prop/breakout_executor.py (the
+# execute_pkg breakout branch). Updated from the prop EV validation gate.
 #
-# NOTE: default combo/risk = the single-historical-path sweep recommendation
-# (squeeze_breakout_4h + fvg_range_15m @ risk 0.6). The Monte Carlo
-# survival/speed analysis may revise this — update `strategies` / `risk_pct`
-# here when it lands; no code change needed.
+# UPDATED 2026-06-17 (PB-20260616-004): the validated capability is
+# trend_donchian on the high-vol alts (SOL live, ETH shadow), routed via the
+# config/accounts.yaml::breakout_1 account → these strategies. Per-trade sizing
+# is the validated best-EV cell (1.5% of the $5k account). Per-symbol DXTrade
+# symbol + contract size still need in-terminal confirmation (see `symbols`).
 
 account_size_usd: 5000
-risk_pct: 0.6                       # PERCENT of balance per trade
+risk_pct: 1.5                       # PERCENT of balance per trade (validated
+                                    # best-EV cell; the ticket sizes from THIS).
 
-# Strategies whose signals route to the Breakout ticket (the survivor combo).
+# Strategies whose signals route to a Breakout ticket (documentation; the live
+# routing is config/accounts.yaml::breakout_1.strategies). The account is
+# mode: live (always-emit ping); the per-strategy execution: shadow gate
+# suppresses ETH until it graduates to live.
 strategies:
-  - squeeze_breakout_4h
-  - fvg_range_15m
+  - trend_donchian_sol
+  - trend_donchian_eth
 
-# Symbol mapping: bot symbol -> Breakout/DXTrade symbol. [TODO confirm in Terminal]
+# Per-symbol overrides read by breakout_executor._per_symbol: the DXTrade symbol
+# and the $-risk per 1.0 unit per 1 price-point (contract size). Crypto-native
+# default 1.0; VERIFY each against the DXTrade instrument info at wire time.
+symbols:
+  SOLUSDT:
+    dxtrade_symbol: null             # [TODO confirm in Terminal — e.g. "SOLUSD"]
+    contract_value_usd_per_point: 1.0
+  ETHUSDT:
+    dxtrade_symbol: null             # [TODO confirm in Terminal — e.g. "ETHUSD"]
+    contract_value_usd_per_point: 1.0
+
+# Legacy single-symbol map (kept for back-compat with breakout_ticket.py).
 symbol_map:
-  BTCUSDT: null                     # set to Breakout's BTC symbol (e.g. "BTCUSD")
+  BTCUSDT: null
+  SOLUSDT: null
+  ETHUSDT: null
 
-# Sizing: $ risk per 1.0 unit per 1 price-point. Crypto-native default (1.0).
-# VERIFY against the DXTrade instrument's contract size at wire time.
+# Default sizing fallback when a symbol has no per-symbol override above.
 contract_value_usd_per_point: 1.0
 
 # Validity guards.

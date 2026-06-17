@@ -218,6 +218,12 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # arbitrate against another strategy. Value 0 follows mes_trend_long_1d.
     "mgc_pullback_1d": 0,
     "mhg_pullback_1d": 0,
+    # trend_donchian_sol / _eth — PROP-account alt variants (PB-20260616-004) on
+    # the Breakout manual-bridge account. Each runs ALONE on its (symbol,
+    # prop-account), so priority is moot — they never arbitrate against another
+    # strategy. Value 0 follows the other single-symbol legs.
+    "trend_donchian_sol": 0,
+    "trend_donchian_eth": 0,
 }
 
 # Priority used when a strategy is not listed in DEFAULT_PRIORITIES and

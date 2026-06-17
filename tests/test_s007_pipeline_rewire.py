@@ -62,6 +62,8 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         "squeeze_breakout_4h",
         "trend_donchian",
         "trend_donchian_1h",
+        "trend_donchian_eth",
+        "trend_donchian_sol",
         "turtle_soup",
         "vwap",
         "xauusd_trend_1h",
