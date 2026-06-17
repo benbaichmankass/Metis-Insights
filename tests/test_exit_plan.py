@@ -10,8 +10,6 @@ Covers:
 """
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from src.runtime.exit_plan import (
