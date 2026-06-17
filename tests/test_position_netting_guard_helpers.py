@@ -1,12 +1,13 @@
 """Position-netting guard — pure helpers (Option A, BL-20260608-DEMOPNL).
 
-Covers the two shared helpers in ``src/runtime/positions.py`` that gate
-the guard:
+Covers the shared helpers in ``src/runtime/positions.py``:
 
-  * ``position_netting_guard_enabled`` — the single env kill-switch
-    (default OFF) that gates BOTH halves of the fix (monocle +
-    reconciler), so the operator can roll the whole thing back with one
-    env flip + restart.
+  * ``position_netting_guard_active_for`` — the single predicate both halves
+    of the guard (monocle + reconciler) consult. **BASELINE (2026-06-17)**:
+    the guard is unconditional, so this always returns True regardless of env
+    (the default-off ``POSITION_NETTING_GUARD_ENABLED`` gate +
+    ``POSITION_NETTING_GUARD_ACCOUNTS`` scope were removed — a required
+    correctness capability must not sit behind a default-off flag).
   * ``has_open_trade_for_strategy`` — the strategy-scoped open-trade read
     the monocle uses to decide whether a same-direction re-entry would
     net into an existing position.
@@ -15,13 +16,9 @@ from __future__ import annotations
 
 import sqlite3
 
-import pytest
-
 from src.runtime.positions import (
     has_open_trade_for_strategy,
-    position_netting_guard_accounts,
     position_netting_guard_active_for,
-    position_netting_guard_enabled,
 )
 
 
@@ -57,64 +54,23 @@ def _insert(path, *, account_id, symbol, strategy_name, direction="long",
         )
 
 
-class TestGuardSwitch:
-    def test_default_off(self, monkeypatch):
+class TestGuardBaseline:
+    """The guard is BASELINE / unconditional — ``active_for`` always True,
+    independent of any env (the gate + scope were removed 2026-06-17)."""
+
+    def test_active_for_always_true_no_env(self, monkeypatch):
         monkeypatch.delenv("POSITION_NETTING_GUARD_ENABLED", raising=False)
-        assert position_netting_guard_enabled() is False
-
-    @pytest.mark.parametrize("val", ["1", "true", "TRUE", "yes", "on", " On "])
-    def test_truthy_values_enable(self, monkeypatch, val):
-        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", val)
-        assert position_netting_guard_enabled() is True
-
-    @pytest.mark.parametrize("val", ["0", "false", "no", "off", "", "garbage"])
-    def test_falsy_values_disable(self, monkeypatch, val):
-        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", val)
-        assert position_netting_guard_enabled() is False
-
-
-class TestGuardAccountScope:
-    """``POSITION_NETTING_GUARD_ACCOUNTS`` narrows the (master-gated) scope
-    for the demo-only soak. Defaults permissive (unset → all accounts when
-    the master is on) so it is never a second default-off enable gate."""
-
-    def test_accounts_unset_is_none(self, monkeypatch):
-        monkeypatch.delenv("POSITION_NETTING_GUARD_ACCOUNTS", raising=False)
-        assert position_netting_guard_accounts() is None
-
-    def test_accounts_blank_is_none(self, monkeypatch):
-        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "  ")
-        assert position_netting_guard_accounts() is None
-
-    def test_accounts_single(self, monkeypatch):
-        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_1")
-        assert position_netting_guard_accounts() == frozenset({"bybit_1"})
-
-    def test_accounts_csv_trimmed(self, monkeypatch):
-        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", " bybit_1 , bybit_2 ")
-        assert position_netting_guard_accounts() == frozenset({"bybit_1", "bybit_2"})
-
-    def test_active_for_master_off_is_false(self, monkeypatch):
-        monkeypatch.delenv("POSITION_NETTING_GUARD_ENABLED", raising=False)
-        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_1")
-        assert position_netting_guard_active_for("bybit_1") is False
-
-    def test_active_for_no_allowlist_applies_to_all(self, monkeypatch):
-        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
         monkeypatch.delenv("POSITION_NETTING_GUARD_ACCOUNTS", raising=False)
         assert position_netting_guard_active_for("bybit_1") is True
         assert position_netting_guard_active_for("bybit_2") is True
+        assert position_netting_guard_active_for("ib_paper") is True
+        assert position_netting_guard_active_for(None) is True
 
-    def test_active_for_allowlist_scopes(self, monkeypatch):
-        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
+    def test_active_for_ignores_legacy_gate_env(self, monkeypatch):
+        # Leftover env from the soak era must not re-introduce gating.
+        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "false")
         monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_1")
-        assert position_netting_guard_active_for("bybit_1") is True
-        assert position_netting_guard_active_for("bybit_2") is False
-
-    def test_active_for_none_account_with_allowlist_is_false(self, monkeypatch):
-        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
-        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_1")
-        assert position_netting_guard_active_for(None) is False
+        assert position_netting_guard_active_for("bybit_2") is True
 
 
 class TestHasOpenTradeForStrategy:

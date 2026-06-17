@@ -46,13 +46,10 @@ def _trade_journal_path() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Position-netting / per-trade SL/TP guard kill-switch (BL-20260608-DEMOPNL)
+# Position-netting / per-trade=per-position guard (BL-20260608-DEMOPNL)
 # ---------------------------------------------------------------------------
 #
-# Option A from docs/audits/position-netting-sltp-2026-06-08.md. ONE env
-# switch gates BOTH halves of the fix so the operator can roll the whole
-# thing back with a single env flip + restart (no redeploy), mirroring the
-# FLIP_POLICY / REGIME_ROUTER_ENABLED pattern:
+# Option A from docs/audits/position-netting-sltp-2026-06-08.md. Two halves:
 #
 #   1. Monocle (coordinator intent path): suppress a same-direction
 #      re-entry (delta action ``open`` / ``increase``) for a
@@ -64,57 +61,31 @@ def _trade_journal_path() -> str:
 #      closing a filled trade, so reduce/flip churn and open-positions
 #      index lag can't prematurely close a row and free the monocle.
 #
-# **Default OFF** — ships inert. The change is Tier-3 (order path +
-# reconciler + monocle); the operator flips ``POSITION_NETTING_GUARD_ENABLED``
-# on only after the walk-forward + demo-replay validation is approved.
-# Read at call time so the flip takes effect on the next tick.
-
-_GUARD_TRUTHY = frozenset({"1", "true", "yes", "on"})
-
-
-def position_netting_guard_enabled() -> bool:
-    """Return True when the position-netting / per-trade SL/TP guard is on.
-
-    Gated by ``POSITION_NETTING_GUARD_ENABLED`` (default OFF). See the
-    module-level note above and the env-var table in CLAUDE.md.
-    """
-    raw = os.environ.get("POSITION_NETTING_GUARD_ENABLED", "")  # allow-silent: position-netting guard kill-switch (no-pyramiding + close-confirm), NOT a live/dry gate — mirrors REGIME_ROUTER_ENABLED
-    return str(raw).strip().lower() in _GUARD_TRUTHY
-
-
-def position_netting_guard_accounts() -> Optional[frozenset]:
-    """Optional account allowlist that NARROWS the guard's scope.
-
-    ``POSITION_NETTING_GUARD_ACCOUNTS`` is a comma-separated list of
-    account ids (e.g. ``bybit_1`` or ``bybit_1,bybit_2``). Returns the
-    parsed set, or ``None`` when the var is unset/blank.
-
-    **This is a scope refinement, not a second enable gate.** The master
-    switch is ``POSITION_NETTING_GUARD_ENABLED`` (default OFF — the one
-    gate). When the master is ON, this allowlist defaults **permissive**
-    (unset → applies to ALL accounts), so it never strands capability —
-    consistent with the Prime Directive's "no hidden default-off second
-    gate". Its purpose is the operator-watched **demo-only soak**: set the
-    master ON + ``POSITION_NETTING_GUARD_ACCOUNTS=bybit_1`` to activate the
-    guard on the demo account alone before widening to live.
-    """
-    raw = os.environ.get("POSITION_NETTING_GUARD_ACCOUNTS", "")  # allow-silent: guard SCOPE refinement (defaults permissive = all accounts when the master switch is on), not a live/dry gate
-    parts = {p.strip() for p in str(raw).split(",") if p.strip()}
-    return frozenset(parts) or None
+# **BASELINE / unconditional** (2026-06-17). This was previously gated by a
+# default-OFF ``POSITION_NETTING_GUARD_ENABLED`` flag during its soak. The soak
+# + walk-forward validation passed and it ran live on both Bybit accounts from
+# 2026-06-08 — until the 2026-06-14 Ampere migration dropped the .env vars and
+# the fix silently regressed (paper netting artifacts reappeared on 2026-06-15;
+# real-money bybit_2 was exposed via the same gate). Per-trade=per-position is
+# the canonical model the whole system assumes (pyramiding was never a feature)
+# and the reconciler close-confirm is pure safety, so the guard is now
+# unconditional — no env flag to drop. This mirrors how NAKED_POSITION_AUTOPROTECT
+# and the MONITOR_RECONCILE_ENABLED gate were removed: a required correctness
+# capability must not sit behind a default-off flag (Prime Directive).
+# ``RECONCILER_CLOSE_CONFIRM_SECONDS`` remains as the close-confirm tuning knob.
 
 
 def position_netting_guard_active_for(account_id: Optional[str]) -> bool:
-    """Return True when the netting guard should act on *account_id*.
+    """Return True — the position-netting / per-trade=per-position guard is
+    BASELINE (unconditional) as of 2026-06-17.
 
-    Master switch ON **and** (no allowlist set → all accounts, or
-    *account_id* is in the allowlist). This is the single predicate both
-    halves of the guard (monocle + reconciler) consult, so the
-    demo-only-soak scoping is enforced identically on each.
+    Kept as the single predicate both halves of the guard (monocle +
+    reconciler) consult, so the call sites are unchanged; it no longer reads
+    any env flag. ``account_id`` is retained for signature stability (the guard
+    applies to every account — it is a no-op where it can't apply, e.g.
+    brokers that attach SL/TP atomically and never net same-direction adds).
     """
-    if not position_netting_guard_enabled():
-        return False
-    allow = position_netting_guard_accounts()
-    return allow is None or (account_id is not None and account_id in allow)
+    return True
 
 
 def has_open_trade_for_strategy(

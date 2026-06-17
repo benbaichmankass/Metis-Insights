@@ -363,25 +363,6 @@ def test_check_never_raises_on_open_positions_failure(trades_db, tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Env gate
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    "raw,expected",
-    [("1", True), ("true", True), ("True", True), ("yes", True),
-     ("on", True), ("0", False), ("false", False), ("", False),
-     (None, False)],
-)
-def test_is_enabled_env_gate(monkeypatch, raw, expected):
-    if raw is None:
-        monkeypatch.delenv("CLOSED_FLAT_INVARIANT_ENABLED", raising=False)
-    else:
-        monkeypatch.setenv("CLOSED_FLAT_INVARIANT_ENABLED", raw)
-    assert inv.is_enabled() is expected
-
-
-# ---------------------------------------------------------------------------
 # Multi-trade batch
 # ---------------------------------------------------------------------------
 

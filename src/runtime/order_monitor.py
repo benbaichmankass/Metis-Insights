@@ -5164,11 +5164,12 @@ def run_monitor_tick(
     except Exception as exc:  # noqa: BLE001
         logger.warning("run_monitor_tick: naked-position check raised: %s", exc)
 
-    # S-067 follow-up #3 Phase-2: closed → exchange-flat invariant check.
-    # Gated by ``CLOSED_FLAT_INVARIANT_ENABLED`` env (default false).
-    # Alert-only — promotion to auto-flatten is a separate Tier-2 PR after
-    # a 7-day soak. The helper never raises; the orphan reconciler above
-    # remains the eventual safety net during the soak window. See
+    # S-067 follow-up #3: closed → exchange-flat invariant check.
+    # BASELINE (2026-06-17) — runs unconditionally (was default-OFF gated by
+    # CLOSED_FLAT_INVARIANT_ENABLED, a safety invariant behind a default-off
+    # flag = Prime-Directive anti-pattern). Alert-only — promotion to
+    # auto-flatten remains a separate, deliberately-unbuilt step. The helper
+    # never raises; the orphan reconciler above remains the safety net. See
     # ``docs/claude/closed-flat-invariant.md`` for the full design.
     from src.runtime._closed_flat_wiring import maybe_run_closed_flat_check
     maybe_run_closed_flat_check(db, summaries)
