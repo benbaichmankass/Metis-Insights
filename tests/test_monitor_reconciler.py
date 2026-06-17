@@ -41,6 +41,37 @@ from src.runtime.order_monitor import (
 from src.units.db.database import Database
 
 
+def _reconcile_to_close(db):
+    """Drive ``_reconcile_open_trades`` to a settled close.
+
+    BASELINE (2026-06-17): the netting-guard close-confirm is unconditional —
+    a filled trade reading net-flat is never closed on the FIRST observation;
+    it must read flat across a second observation
+    (``RECONCILER_CLOSE_CONFIRM_SECONDS`` apart) before the close lands. Tests
+    that assert the eventual close state therefore need two observations. This
+    helper sets the confirm window to 0 (so the second observation alone
+    confirms), runs two ticks, and returns the SECOND summary (the one that
+    performed the close). Use it in place of a single
+    ``_reconcile_open_trades(db)`` call wherever the test asserts a flat trade
+    ends up closed.
+    """
+    import os
+
+    from src.runtime import order_monitor as _om
+
+    prev = os.environ.get("RECONCILER_CLOSE_CONFIRM_SECONDS")
+    os.environ["RECONCILER_CLOSE_CONFIRM_SECONDS"] = "0"
+    _om._PENDING_CLOSE_CONFIRM.clear()
+    try:
+        _om._reconcile_open_trades(db)          # 1st flat → arms pending
+        return _om._reconcile_open_trades(db)   # 2nd flat → confirms + closes
+    finally:
+        if prev is None:
+            os.environ.pop("RECONCILER_CLOSE_CONFIRM_SECONDS", None)
+        else:
+            os.environ["RECONCILER_CLOSE_CONFIRM_SECONDS"] = prev
+
+
 _ACCOUNTS_YAML = textwrap.dedent("""\
     accounts:
       bybit_2:
@@ -520,7 +551,7 @@ class TestSSOTReconciler:
             "src.units.accounts.clients.account_open_positions",
             return_value=[],
         ):
-            summary = _reconcile_open_trades(tmp_db)
+            summary = _reconcile_to_close(tmp_db)
 
         assert summary["closed"] == 1
         assert summary["orphaned"] == 0
@@ -587,7 +618,7 @@ class TestSSOTReconciler:
             "src.units.accounts.clients.account_open_positions",
             return_value=[],
         ):
-            summary = _reconcile_open_trades(tmp_db)
+            summary = _reconcile_to_close(tmp_db)
 
         assert summary["skipped_non_numeric"] == 0
         assert summary["closed"] == 1
@@ -747,6 +778,12 @@ class TestSSOTReconciler:
             positions_calls.append(cfg)
             return []
 
+        # BASELINE close-confirm: the first net-flat tick arms the pending
+        # close; the second confirms it. The per-account caching invariant is
+        # PER TICK, so assert the call count on a SINGLE tick.
+        from src.runtime import order_monitor as _om
+        monkeypatch.setenv("RECONCILER_CLOSE_CONFIRM_SECONDS", "0")
+        _om._PENDING_CLOSE_CONFIRM.clear()
         with patch(
             "src.units.accounts.clients.account_order_status",
             side_effect=lambda cfg, oid: _filled_status(str(oid)),
@@ -754,9 +791,13 @@ class TestSSOTReconciler:
             "src.units.accounts.clients.account_open_positions",
             side_effect=fake_positions,
         ):
-            summary = _reconcile_open_trades(tmp_db)
+            s1 = _reconcile_open_trades(tmp_db)   # 1st flat → all 3 pending
+            assert len(positions_calls) == 1, "one positions call on tick 1"
+            assert s1["closed"] == 0 and s1["pending_close"] == 3
+            positions_calls.clear()
+            summary = _reconcile_open_trades(tmp_db)  # 2nd flat → confirms close
         assert summary["closed"] == 3
-        assert len(positions_calls) == 1
+        assert len(positions_calls) == 1, "one positions call on tick 2"
 
     def test_position_read_failure_after_filled_skips_row(self, tmp_db):
         """Order is filled but the cross-check ``account_open_positions``
@@ -1529,7 +1570,7 @@ class TestOrphanReconcilerEmitsClassification:
             "src.units.accounts.clients.account_open_positions",
             return_value=[],
         ):
-            summary = _reconcile_open_trades(tmp_db)
+            summary = _reconcile_to_close(tmp_db)
 
         assert summary["closed"] == 1
         assert _read_trade(tmp_db, trade_id)["status"] == "closed"
@@ -1571,7 +1612,7 @@ class TestOrphanReconcilerEmitsClassification:
             "src.units.accounts.clients.account_open_positions",
             return_value=[],
         ):
-            _reconcile_open_trades(tmp_db)
+            _reconcile_to_close(tmp_db)
 
         queued = sorted(pings_dir.glob("*.json"))
         assert len(queued) == 1
@@ -2276,7 +2317,7 @@ class TestPackageCascadeByLinkedTradeId:
             "src.units.accounts.clients.account_open_positions",
             return_value=[],
         ):
-            _reconcile_open_trades(tmp_db)
+            _reconcile_to_close(tmp_db)
 
         pkg = _read_package(tmp_db, "pkg-prod-shape")
         assert pkg["status"] == "closed"
@@ -2370,7 +2411,7 @@ class TestExitPriceFromClosedPnl:
             "src.units.accounts.clients.account_closed_pnl_for_trade",
             return_value=closed_pnl_payload,
         ):
-            summary = _reconcile_open_trades(tmp_db)
+            summary = _reconcile_to_close(tmp_db)
 
         assert summary["closed"] == 1
         row = _read_trade_full(tmp_db, trade_id)
@@ -2410,7 +2451,7 @@ class TestExitPriceFromClosedPnl:
             "src.units.accounts.clients.account_closed_pnl_for_trade",
             return_value=None,
         ):
-            _reconcile_open_trades(tmp_db)
+            _reconcile_to_close(tmp_db)
 
         row = _read_trade_full(tmp_db, trade_id)
         assert row["status"] == "closed"
@@ -2447,7 +2488,7 @@ class TestExitPriceFromClosedPnl:
             return_value={"avg_exit_price": 0.0, "closed_pnl": 0.0,
                           "qty": 0.005, "side": "Sell", "closed_at": None},
         ):
-            _reconcile_open_trades(tmp_db)
+            _reconcile_to_close(tmp_db)
 
         row = _read_trade_full(tmp_db, trade_id)
         assert row["status"] == "closed"
@@ -2485,7 +2526,7 @@ class TestExitPriceFromClosedPnl:
             "src.units.accounts.clients.account_closed_pnl_for_trade",
             side_effect=RuntimeError("simulated SDK explosion"),
         ):
-            _reconcile_open_trades(tmp_db)
+            _reconcile_to_close(tmp_db)
 
         row = _read_trade_full(tmp_db, trade_id)
         assert row["status"] == "closed"
@@ -2500,16 +2541,18 @@ class TestExitPriceFromClosedPnl:
 
 
 class TestNettingGuardCloseConfirmation:
-    """When ``POSITION_NETTING_GUARD_ENABLED`` is on, a filled trade that
-    reads net-flat is not closed on the FIRST observation — it must read
-    flat across an extra grace tick (a second observation,
+    """**BASELINE (2026-06-17): the close-confirm is unconditional.** A filled
+    trade that reads net-flat is not closed on the FIRST observation — it must
+    read flat across an extra grace tick (a second observation,
     ``RECONCILER_CLOSE_CONFIRM_SECONDS`` apart) before the close lands. A
     transient flat (an intent reduce/flip leg or index lag) that recovers
     to "position open" on a later tick clears the pending confirmation, so
     it can never prematurely close the row and free the strategy-monocle.
 
-    With the switch OFF (default) the close fires on the first flat, exactly
-    as the legacy SSOT reconciler does.
+    The default-off ``POSITION_NETTING_GUARD_ENABLED`` gate and the
+    ``POSITION_NETTING_GUARD_ACCOUNTS`` scope were removed — the close-confirm
+    now applies to every account, regardless of env (a leftover env value is
+    ignored). ``RECONCILER_CLOSE_CONFIRM_SECONDS`` remains as the timing knob.
     """
 
     @pytest.fixture(autouse=True)
@@ -2609,10 +2652,11 @@ class TestNettingGuardCloseConfirmation:
         assert s3["pending_close"] == 1
         assert _read_trade(tmp_db, trade_id)["status"] == "open"
 
-    def test_guard_off_closes_on_first_flat(
+    def test_no_env_still_defers_on_first_flat(
         self, tmp_db, tmp_path, monkeypatch,
     ):
-        """Switch unset (default) → legacy immediate close on first flat."""
+        """No env (gate removed) → the close-confirm STILL applies: the first
+        net-flat defers (baseline / unconditional)."""
         monkeypatch.delenv("POSITION_NETTING_GUARD_ENABLED", raising=False)
         monkeypatch.setattr(
             "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
@@ -2629,16 +2673,16 @@ class TestNettingGuardCloseConfirmation:
         ):
             summary = _reconcile_open_trades(tmp_db)
 
-        assert summary["closed"] == 1
-        assert summary["pending_close"] == 0
-        assert _read_trade(tmp_db, trade_id)["status"] == "closed"
+        assert summary["closed"] == 0
+        assert summary["pending_close"] == 1
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"
 
-    def test_account_allowlist_excludes_closes_immediately(
+    def test_legacy_scope_env_excluding_account_is_ignored(
         self, tmp_db, tmp_path, monkeypatch,
     ):
-        """Master ON but allowlist=bybit_1 (demo-only soak) → the guard is
-        NOT active for bybit_2, so its net-flat trade closes on the first
-        observation (legacy behaviour), no deferral."""
+        """A leftover ``POSITION_NETTING_GUARD_ACCOUNTS=bybit_1`` no longer
+        scopes the guard OUT for bybit_2 — the close-confirm STILL applies, so
+        the bybit_2 net-flat trade defers (the scope env is a no-op)."""
         monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
         monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_1")
         monkeypatch.setattr(
@@ -2658,17 +2702,15 @@ class TestNettingGuardCloseConfirmation:
         ):
             summary = _reconcile_open_trades(tmp_db)
 
-        assert summary["closed"] == 1
-        assert summary["pending_close"] == 0
-        assert _read_trade(tmp_db, trade_id)["status"] == "closed"
+        assert summary["closed"] == 0
+        assert summary["pending_close"] == 1
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"
 
-    def test_account_allowlist_includes_defers_close(
+    def test_defers_close_for_any_account(
         self, tmp_db, tmp_path, monkeypatch,
     ):
-        """allowlist=bybit_2 → guard active for bybit_2 → first net-flat
-        defers (extra grace tick), not closed."""
-        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
-        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_2")
+        """The close-confirm applies to every account unconditionally → a
+        bybit_2 first net-flat defers (extra grace tick), not closed."""
         monkeypatch.setattr(
             "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
             tmp_path / "pings",

@@ -830,13 +830,16 @@ class TestBuildIntentLegs:
 class TestNettingGuardMonocle:
     """Position-netting guard — monocle half (Option A, BL-20260608-DEMOPNL).
 
-    When ``POSITION_NETTING_GUARD_ENABLED`` is on, a same-direction ADD
-    (delta action ``open``/``increase``) for a ``(strategy, account,
-    symbol)`` that already holds an open trade is suppressed — no
-    pyramiding, restoring per-trade=per-position. Reduce/close/flip
-    (position-management) deltas are never blocked, cross-strategy adds
-    are not blocked (the multiplexer aggregates those), and with the
-    switch OFF the legacy increase/open dispatch is unchanged.
+    **BASELINE (2026-06-17): the guard is unconditional.** A same-direction
+    ADD (delta action ``open``/``increase``) for a ``(strategy, account,
+    symbol)`` that already holds an open trade is ALWAYS suppressed — no
+    pyramiding, restoring per-trade=per-position — for every account,
+    regardless of env. The default-off ``POSITION_NETTING_GUARD_ENABLED``
+    gate and the ``POSITION_NETTING_GUARD_ACCOUNTS`` scope were removed (a
+    required correctness capability must not sit behind a default-off flag);
+    any leftover env value is ignored. Reduce/close/flip
+    (position-management) deltas are never blocked, and cross-strategy adds
+    are not blocked (the multiplexer aggregates those).
     """
 
     def _balance_fetcher(self, account):
@@ -888,10 +891,11 @@ class TestNettingGuardMonocle:
         assert results[0]["error"] is None
         assert pkg.meta["execution_delta"]["action"] == "open"
 
-    def test_guard_off_increase_still_dispatched(
+    def test_no_env_still_suppresses_increase(
         self, coord, accounts_yaml, trade_db, monkeypatch,
     ):
-        """Default (switch unset) → legacy increase dispatch is unchanged."""
+        """No env (gate removed) → the same-direction add is STILL suppressed
+        (the guard is baseline / unconditional)."""
         monkeypatch.delenv("POSITION_NETTING_GUARD_ENABLED", raising=False)
         captured = []
         _patch_dispatch_deps(monkeypatch, captured)
@@ -902,12 +906,16 @@ class TestNettingGuardMonocle:
         )
 
         pkg = _intent_pkg(direction="long")
-        coord.multi_account_execute(
+        results = coord.multi_account_execute(
             pkg, accounts_path=accounts_yaml,
             balance_fetcher=self._balance_fetcher,
         )
-        assert len(captured) == 1, "guard off → add still dispatched"
-        assert captured[0]["qty_override"] == pytest.approx(0.15, abs=1e-3)
+        assert captured == [], "guard is unconditional → add suppressed"
+        assert results[0]["trade_id"] is None
+        assert results[0]["sized_qty"] == 0.0
+        assert "reentry_suppressed_netting_guard:increase" in (
+            results[0]["error"] or ""
+        )
 
     def test_guard_on_does_not_block_reduce(
         self, coord, accounts_yaml, trade_db, monkeypatch,
@@ -957,34 +965,14 @@ class TestNettingGuardMonocle:
         assert len(captured) == 1, "different-strategy open trade must not gate"
         assert pkg.meta["execution_delta"]["action"] == "increase"
 
-    def test_account_allowlist_excludes_this_account(
+    def test_legacy_scope_env_excluding_account_is_ignored(
         self, coord, accounts_yaml, trade_db, monkeypatch,
     ):
-        """Master ON but allowlist=bybit_1 (demo-only soak) → the guard is
-        NOT active for bybit_2, so its add still dispatches."""
+        """A leftover ``POSITION_NETTING_GUARD_ACCOUNTS=bybit_1`` no longer
+        scopes the guard OUT for bybit_2 — there is no scoping now, so the
+        bybit_2 add is STILL suppressed (the scope env is a no-op)."""
         monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
         monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_1")
-        captured = []
-        _patch_dispatch_deps(monkeypatch, captured)
-
-        _insert_trade(
-            trade_db, account_id="bybit_2", symbol="BTCUSDT",
-            direction="long", position_size=0.05, strategy_name="turtle_soup",
-        )
-
-        pkg = _intent_pkg(direction="long")
-        coord.multi_account_execute(
-            pkg, accounts_path=accounts_yaml,
-            balance_fetcher=self._balance_fetcher,
-        )
-        assert len(captured) == 1, "guard scoped to bybit_1 must not gate bybit_2"
-
-    def test_account_allowlist_includes_this_account(
-        self, coord, accounts_yaml, trade_db, monkeypatch,
-    ):
-        """allowlist=bybit_2 → guard active for bybit_2 → add suppressed."""
-        monkeypatch.setenv("POSITION_NETTING_GUARD_ENABLED", "true")
-        monkeypatch.setenv("POSITION_NETTING_GUARD_ACCOUNTS", "bybit_2")
         captured = []
         _patch_dispatch_deps(monkeypatch, captured)
 
@@ -998,7 +986,30 @@ class TestNettingGuardMonocle:
             pkg, accounts_path=accounts_yaml,
             balance_fetcher=self._balance_fetcher,
         )
-        assert captured == [], "guard scoped to bybit_2 must suppress its add"
+        assert captured == [], (
+            "scope env is ignored → guard applies to bybit_2 unconditionally"
+        )
+        assert "reentry_suppressed_netting_guard" in (results[0]["error"] or "")
+
+    def test_guard_suppresses_add_for_any_account(
+        self, coord, accounts_yaml, trade_db, monkeypatch,
+    ):
+        """The guard applies to every account unconditionally → a bybit_2
+        same-direction add is suppressed."""
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+
+        _insert_trade(
+            trade_db, account_id="bybit_2", symbol="BTCUSDT",
+            direction="long", position_size=0.05, strategy_name="turtle_soup",
+        )
+
+        pkg = _intent_pkg(direction="long")
+        results = coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
+        assert captured == [], "guard must suppress the bybit_2 add"
         assert "reentry_suppressed_netting_guard" in (results[0]["error"] or "")
 
 

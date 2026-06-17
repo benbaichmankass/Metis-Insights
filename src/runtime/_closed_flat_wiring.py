@@ -74,8 +74,14 @@ def maybe_run_closed_flat_check(
         )
         return None
 
-    if not closed_flat_invariant.is_enabled():
-        return None
+    # BASELINE (2026-06-17): the closed→exchange-flat invariant check is now
+    # unconditional. It was previously gated default-OFF by
+    # CLOSED_FLAT_INVARIANT_ENABLED "until the operator opts in" — a safety
+    # invariant behind a default-off flag, the Prime-Directive anti-pattern.
+    # The check is ALERT-ONLY (logs + Telegrams a DB-closed-but-exchange-open
+    # violation; never mutates a position — the orphan reconciler is the
+    # safety net), so making it always-run is low risk and the compliant
+    # baseline. Auto-flatten remains a separate, deliberately-unbuilt step.
 
     try:
         # Lazy-import the cfg loader so unit tests can monkeypatch

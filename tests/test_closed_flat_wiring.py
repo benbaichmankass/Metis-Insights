@@ -1,17 +1,23 @@
 """Regression for ``src/runtime/_closed_flat_wiring.py`` (S-067 fu A).
 
-Three contracts under test (matching the lessons of CP-2026-05-10-04
-§ Lessons Learned #1 — narrow-then-sentinel pattern; here the
-"sentinel" is the env gate):
+**BASELINE (2026-06-17): the invariant check is UNCONDITIONAL.** The
+default-OFF ``CLOSED_FLAT_INVARIANT_ENABLED`` gate was removed — a safety
+invariant must not sit behind a default-off flag (Prime-Directive
+anti-pattern). The check now runs every tick regardless of env; a leftover
+env value is ignored. The check stays **alert-only** (logs/Telegrams a
+violation, never mutates a position).
 
-1. **Env gate OFF (default)** — ``closed_flat_invariant.check`` is NOT
-   called. Helper returns ``None`` and does not mutate ``summaries``.
-2. **Env gate ON, no violations** — check IS called, returns ``[]``,
-   helper returns ``None`` and does not mutate ``summaries``.
-3. **Env gate ON, violations present** — check returns a list of
-   ``InvariantViolation``; helper returns the summary entry
-   ``{"violations": N, "phase": "alert_only"}`` and writes it into
-   ``summaries["__closed_flat_invariant__"]``.
+Contracts under test:
+
+1. **No env / explicit false** — the env is now a no-op: the check still
+   RUNS. With no violations it returns ``[]`` so the helper returns ``None``
+   and does not mutate ``summaries`` (``None`` means "ran, found nothing",
+   NOT "gated off").
+2. **No violations** — check IS called, returns ``[]``, helper returns
+   ``None`` and does not mutate ``summaries``.
+3. **Violations present** — check returns a list of ``InvariantViolation``;
+   helper returns the summary entry ``{"violations": N, "phase":
+   "alert_only"}`` and writes it into ``summaries["__closed_flat_invariant__"]``.
 
 Plus the never-raise contract (4) and the resolver-shape contract (5):
 
@@ -27,43 +33,55 @@ from src.runtime import _closed_flat_wiring as wiring
 
 
 # ---------------------------------------------------------------------------
-# Contract 1 — env gate OFF
+# Contract 1 — env is a no-op: check runs unconditionally (BASELINE)
 # ---------------------------------------------------------------------------
 
 
-def test_env_gate_off_by_default(monkeypatch):
-    """``CLOSED_FLAT_INVARIANT_ENABLED`` unset → no-op."""
+def test_check_runs_with_no_env(monkeypatch):
+    """No ``CLOSED_FLAT_INVARIANT_ENABLED`` env → check still RUNS (baseline).
+
+    With no violations it returns ``[]`` so the helper returns ``None`` and
+    does not mutate ``summaries`` — ``None`` means "ran, found nothing", NOT
+    "gated off"."""
     monkeypatch.delenv("CLOSED_FLAT_INVARIANT_ENABLED", raising=False)
-    fake_check = MagicMock()
+    monkeypatch.setattr(
+        "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
+        lambda: {"bybit_2": {"account_id": "bybit_2"}},
+    )
+    fake_check = MagicMock(return_value=[])
     monkeypatch.setattr(
         "src.runtime.closed_flat_invariant.check", fake_check,
     )
     summaries: dict = {}
     result = wiring.maybe_run_closed_flat_check(db=object(), summaries=summaries)
-    assert result is None, "helper must return None when env gate is off"
+    assert result is None, "no violations → None (ran, found nothing)"
     assert "__closed_flat_invariant__" not in summaries
-    fake_check.assert_not_called()
+    fake_check.assert_called_once()
 
 
-def test_env_gate_explicit_false(monkeypatch):
-    """``CLOSED_FLAT_INVARIANT_ENABLED=false`` → no-op."""
+def test_check_runs_with_legacy_false_env(monkeypatch):
+    """Leftover ``CLOSED_FLAT_INVARIANT_ENABLED=false`` is ignored → check
+    still RUNS (the gate was removed; the env value is a no-op)."""
     monkeypatch.setenv("CLOSED_FLAT_INVARIANT_ENABLED", "false")
-    fake_check = MagicMock()
+    monkeypatch.setattr(
+        "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
+        lambda: {"bybit_2": {"account_id": "bybit_2"}},
+    )
+    fake_check = MagicMock(return_value=[])
     monkeypatch.setattr(
         "src.runtime.closed_flat_invariant.check", fake_check,
     )
     assert wiring.maybe_run_closed_flat_check(db=object()) is None
-    fake_check.assert_not_called()
+    fake_check.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
-# Contract 2 — env gate ON, no violations
+# Contract 2 — no violations
 # ---------------------------------------------------------------------------
 
 
-def test_env_gate_on_no_violations(monkeypatch):
-    """Gate on + check returns [] → helper returns None, summaries untouched."""
-    monkeypatch.setenv("CLOSED_FLAT_INVARIANT_ENABLED", "true")
+def test_check_runs_no_violations(monkeypatch):
+    """check returns [] → helper returns None, summaries untouched."""
     monkeypatch.setattr(
         "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
         lambda: {"bybit_2": {"account_id": "bybit_2"}},
@@ -80,13 +98,12 @@ def test_env_gate_on_no_violations(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Contract 3 — env gate ON, violations present
+# Contract 3 — violations present
 # ---------------------------------------------------------------------------
 
 
-def test_env_gate_on_violations_recorded_in_summaries(monkeypatch):
-    """Gate on + violations → helper writes summary entry + returns it."""
-    monkeypatch.setenv("CLOSED_FLAT_INVARIANT_ENABLED", "1")
+def test_violations_recorded_in_summaries(monkeypatch):
+    """Violations → helper writes summary entry + returns it."""
     monkeypatch.setattr(
         "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
         lambda: {"bybit_2": {"account_id": "bybit_2"}},
@@ -111,7 +128,6 @@ def test_env_gate_on_violations_recorded_in_summaries(monkeypatch):
 
 def test_check_raising_is_swallowed(monkeypatch):
     """If ``check()`` raises, helper catches + returns None (never-raise)."""
-    monkeypatch.setenv("CLOSED_FLAT_INVARIANT_ENABLED", "true")
     monkeypatch.setattr(
         "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
         lambda: {},
@@ -129,7 +145,6 @@ def test_check_raising_is_swallowed(monkeypatch):
 
 def test_cfg_loader_raising_is_swallowed(monkeypatch):
     """If the cfg loader raises, helper catches + returns None."""
-    monkeypatch.setenv("CLOSED_FLAT_INVARIANT_ENABLED", "true")
 
     def _boom():
         raise RuntimeError("cfg load failure")
@@ -154,7 +169,6 @@ def test_cfg_loader_raising_is_swallowed(monkeypatch):
 def test_resolver_returns_cfg_for_known_id(monkeypatch):
     """The resolver passed to ``check`` returns the cfg dict for known ids
     and ``None`` for unknown ones."""
-    monkeypatch.setenv("CLOSED_FLAT_INVARIANT_ENABLED", "true")
     cfg_map = {
         "bybit_1": {"account_id": "bybit_1", "exchange": "bybit"},
         "bybit_2": {"account_id": "bybit_2", "exchange": "bybit"},
