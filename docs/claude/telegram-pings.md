@@ -1,15 +1,26 @@
 # Telegram pings — what triggers what, and where the wiring lives
 
+> **Bot-role restructure (2026-06-17, in progress).** `@claude_ict_comms_bot` is
+> being **repurposed as the dedicated PROP-ACCOUNT bot** — it carries the prop
+> trade-setup tickets (`prop_signal`) the supervised assistant (Comet/Claude)
+> picks up. Claude's *own* operational updates (sprint / health / training /
+> blocker / merge) **fold into the trader bot `@bict_trading_bot`**.
+> **Status:** prop-ticket routing is DONE — `src/prop/breakout_notify.py` sends
+> via `TELEGRAM_PROP_BOT_TOKEN` (falling back to the existing
+> `TELEGRAM_CLAUDE_BOT_TOKEN`), no new token required. **PENDING:** the
+> `ict-claude-bridge` service still delivers Claude's updates on its own token;
+> re-pointing that delivery to the trader bot is the remaining step (see "Bot
+> restructure — remaining" at the bottom).
+
 The system uses two bots:
 - **@bict_trading_bot** — operator command bot (the 4-item menu) + trade and
-  hourly notifications. Spec: `docs/TELEGRAM-SPEC.md`.
-- **@claude_ict_comms_bot** — **one-way** outbound channel for everything
-  *Claude* is doing: sprint open/close + checkpoints, health-review open/close,
-  training-session open/close (+ results), "waiting-for-input" pings, system-
-  health snapshots, blocker and merge-review pings. **No operator response
-  path exists.** The operator reads via Telegram; any reply is handled through
-  GitHub (PR/issue comments) or a new Claude session reading repo state. This
-  is intentional — the channel is send-only.
+  hourly notifications **+ (target) all Claude operational updates** once the
+  bridge fold lands. Spec: `docs/TELEGRAM-SPEC.md`.
+- **@claude_ict_comms_bot** — **being repurposed as the PROP-ACCOUNT bot**
+  (`prop_signal` tickets; reuses `TELEGRAM_CLAUDE_BOT_TOKEN`, override with
+  `TELEGRAM_PROP_BOT_TOKEN`). Historically the one-way Claude-updates channel
+  (sprint/health/training/blocker/merge pings); those updates move to the trader
+  bot per the restructure above. **Send-only — no operator response path.**
 
 This is the **single source of truth** for the Claude update channel
 (`src/bot/claude_bridge.py`). The bridge is strictly send-only: as of the
@@ -315,3 +326,24 @@ prefix here.
   generic PR-opened ping.
 - `docs/claude/bug-log.md` — entry BUG-018 tracks "operator not
   receiving sprint progress pings".
+
+## Bot restructure — remaining (the Claude-updates fold)
+
+**Done (2026-06-17):** prop tickets route to the prop bot — `breakout_notify`
+sends via `TELEGRAM_PROP_BOT_TOKEN` || `TELEGRAM_CLAUDE_BOT_TOKEN` (the additive
+`bot_token=` param on `notify.send_telegram_direct`). No new token; inert until a
+prop account emits `prop_signal`.
+
+**Remaining (a deployed-service change — do with care):** fold Claude's own
+operational updates onto the trader bot so `@claude_ict_comms_bot` becomes
+**prop-only**. The single change point is the `ict-claude-bridge` service
+(`src/bot/claude_bridge.py`): its pending-ping drain (`_drain_pending_claude_pings`)
+delivers via `context.bot` (the claude-bot token). Re-point that delivery to the
+trader bot (`notify.send_telegram_direct(..., bot_token=TELEGRAM_BOT_TOKEN)` or
+the trader bot's send path), preserving the priority-icon + thread handling.
+Then update the `send-ping` system-action `target` options (fold `claude` →
+`trader`; keep/add `prop`) and the systemd unit's role/env if needed. It is a
+live operator-notification path, so verify on the VM after deploy that Claude
+updates land on `@bict_trading_bot` and prop tickets on the prop bot. (Scoped
+out of the 2026-06-17 session to avoid rushing a live-comms-service change while
+context-saturated; the prop-routing half above is the safe, shipped part.)
