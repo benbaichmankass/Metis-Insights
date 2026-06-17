@@ -159,6 +159,11 @@
       "date": "2026-06-17",
       "ref": "trend_donchian_sol created \u2014 PROP alt variant (PB-20260616-004), Tier-3 draft",
       "summary": "New prop-account variant of trend_donchian on SOLUSDT, routed to the Breakout manual-bridge account. The trend_donchian-on-alts +EV finding (Binance-spot research) re-validated on real Bybit linear-perp 5m + the Breakout daily-swap holding cost + a 4-fold walk-forward (runtime_logs/prop_eval/2026-06-17-validate-real/): robust PASS (pre-swap realised +$2,150, 15% drag, funded 12-mo EV +$1,693 @1.5% risk / 94% P(net>0), 4/4 OOS folds). Reuses the trend_donchian unit; execution: live (emits supervised DXTrade tickets). Both-sides to match the validation (a long-only re-validation is the recommended refinement)."
+    },
+    {
+      "date": "2026-06-17",
+      "ref": "trend_donchian_sol \u2014 LONG-ONLY (PR #3848, Tier-3, operator-approved)",
+      "summary": "Flipped to long_only: true after the Breakout daily-swap long-only A/B: SOL's edge HOLDS long-only (pre-swap +$1,325 -> post +$1,158; funded 12-mo EV +$1,131 @1.5%, 86% P>0; 4/4 OOS folds, cleaner per-fold dispersion). The live builder (_trend_donchian_variant_builder) now suppresses shorts. Matches the BTC flagship's directional discipline."
     }
   ],
   "trend_donchian_eth": [
@@ -166,6 +171,11 @@
       "date": "2026-06-17",
       "ref": "trend_donchian_eth created \u2014 PROP alt variant shadow (PB-20260616-004), Tier-3 draft",
       "summary": "New prop-account variant of trend_donchian on ETHUSDT, routed to the Breakout manual-bridge account. Gate = marginal PASS: the Breakout daily swap eats 57% of the realised gross (pre +$671 -> post +$285); funded 12-mo EV +$1,050 @1.5% (4/4 OOS folds) but +EV only at risk>=1.0%. Shipped execution: shadow to soak on the real prop feed before live ticket emission."
+    },
+    {
+      "date": "2026-06-17",
+      "ref": "trend_donchian_eth \u2014 stays TWO-SIDED + promoted SHADOW \u2192 LIVE (PRs #3848/#3852, Tier-3, operator-approved)",
+      "summary": "The long-only A/B FLIPPED ETH negative (pre +$23 -> post -$181; EV@1.5% +$415/66%, only 3/4 folds, fold-1 -$166) \u2014 ETH's edge is short-side-dependent, so it keeps both sides (no long_only). Promoted shadow -> live (operator-approved): emits supervised prop tickets like SOL; the operator gates each placement, so the marginal-but-consistent edge is run live on a manual-bridge ping (reversible to shadow with one flip)."
     }
   ]
 }

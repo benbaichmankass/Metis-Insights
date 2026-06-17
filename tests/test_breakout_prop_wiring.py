@@ -27,7 +27,8 @@ def test_variants_present_and_scoped():
     assert s["trend_donchian_sol"]["symbols"] == ["SOLUSDT"]
     assert s["trend_donchian_eth"]["symbols"] == ["ETHUSDT"]
     assert s["trend_donchian_sol"]["execution"] == "live"
-    assert s["trend_donchian_eth"]["execution"] == "shadow"
+    # ETH promoted shadow → live 2026-06-17 (operator-approved, PB-20260616-004)
+    assert s["trend_donchian_eth"]["execution"] == "live"
     # directional discipline from the long-only A/B (PB-20260616-004):
     # SOL's edge holds long-only → long_only:true; ETH's edge is short-side-
     # dependent (long-only flips it negative) → stays two-sided.
@@ -40,10 +41,13 @@ def test_variants_present_and_scoped():
         assert s[v]["min_confidence"] == 0.60
 
 
-def test_eth_shadow_has_guard_marker():
-    # CI dry-run-guard requires an inline shadow-guard marker for execution: shadow
-    raw = (_ROOT / "config" / "strategies.yaml").read_text()
-    assert "shadow-guard: allow" in raw  # marker exists in the file
+def test_both_variants_live_no_shadow_marker_needed():
+    # ETH was promoted shadow → live 2026-06-17, so both prop variants are
+    # execution: live and neither needs a `shadow-guard: allow` marker. (The
+    # CI dry-run-guard only requires the marker on an execution: shadow line.)
+    s = _strategies()
+    assert s["trend_donchian_sol"]["execution"] == "live"
+    assert s["trend_donchian_eth"]["execution"] == "live"
 
 
 def test_prop_account_config():
