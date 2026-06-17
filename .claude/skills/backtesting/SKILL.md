@@ -14,6 +14,25 @@ mislead — S-STRAT-IMPROVE-S2/S4-A showed vwap was gross-positive /
 net-negative once round-trip fees were charged. Every harness below
 takes `--fee-bps-roundtrip`; quote net metrics, not gross.
 
+## MANDATORY: the per-account compatibility matrix (every strategy)
+
+Before a strategy is proposed for live routing, run it against **every account's
+ruleset** — the top-down "which strategy on which account" gate (design:
+`docs/integrations/prop-accounts-architecture-DESIGN.md`):
+
+```bash
+python scripts/prop/account_compat_matrix.py --strategy <name> --data <feed>
+```
+
+For each account (`src.prop.account_rulesets.all_account_units`): **prop**
+accounts are scored on the cost-aware EV + survival gate under their prop ruleset
+(breach rules + economics); **standard** accounts on net-of-fee performance at
+their own risk. Output: `runtime_logs/prop_eval/<date>/compat_<strategy>.{md,json}`
+with a **ROUTE / skip verdict per account**. A strategy is never routed to an
+account it wasn't evaluated against under that account's rules. (Prop verdicts are
+research on the configured feed — revalidate on the account's real venue data
+before any Tier-3 live wire.)
+
 ## Where backtest code lives (on `main`)
 
 | Entry point | Strategy | Invocation |
