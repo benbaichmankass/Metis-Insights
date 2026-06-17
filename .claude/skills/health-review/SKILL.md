@@ -207,6 +207,18 @@ service stale, see /ml-review").
   with open rows. Bad values → `watch`; systemic corruption signals →
   `concern` with `operator_attention_required: true`. Use the
   `db-wiring` skill's checks as the reference.
+- **`db_write_path_integrity`** (Phase-4 guardrail) — run
+  `scripts/check_db_integrity.py` (read-only, `mode=ro`) for the INV-1..5
+  write-path invariants from
+  `docs/audits/dashboard-truth-and-persistence-2026-06-16.md`. It separates a
+  RECENT regression (`recent_count > 0` ⇒ `alert` ⇒ a live write-path bug, e.g.
+  a row that just closed without `closed_at`/`pnl`/`account_class` or with a
+  broken package link) from the LEGACY pre-backfill backlog (`total_count` only
+  ⇒ informational, the P1-E backfill clears it). Grade any `recent_count > 0`
+  as `concern`; legacy-only as `watch`/note. The hourly `ict-db-integrity.timer`
+  already pings `[WARN] DB integrity: …` on a recent regression — cross-check
+  that the alert fired. (Pull it via the diag relay or, when configured, run
+  the checker directly against the live DB.)
 
 ## Sprint-doc review
 

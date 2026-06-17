@@ -5,7 +5,7 @@ Handles SQLite database operations for storing trades, backtests, and strategy v
 
 import sqlite3
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 
 
@@ -466,6 +466,33 @@ class Database:
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_insights_usage_ts "
             "ON insights_usage (datetime(ts) DESC)"
+        )
+
+        # Account balance snapshots (WC-5, dashboard-truth 2026-06-16).
+        # Append-only history of the per-account tracked balance the
+        # hourly-report writer already computes. The JSON file
+        # runtime_logs/balance_snapshots.json holds only the LATEST reading
+        # per account (overwritten each cycle), so there was no DB home for
+        # balances and no balance-over-time history — the audit's "balances
+        # have no DB table" gap. This table is the canonical source: the
+        # writer appends one row per (account, cycle); /api/bot/accounts/balances
+        # reads the latest row per account here (JSON = degraded fallback).
+        # api_ok=0 rows record a failed reading (balance NULL) so a gap is
+        # visible rather than silently dropped. Read-only of the order path.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS balance_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_id TEXT NOT NULL,
+                balance REAL,
+                delta_1h REAL,
+                open_positions INTEGER,
+                api_ok INTEGER NOT NULL DEFAULT 1,
+                ts TEXT NOT NULL
+            )
+        ''')
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_balance_snapshots_account_ts "
+            "ON balance_snapshots (account_id, datetime(ts) DESC)"
         )
 
         conn.commit()
@@ -1085,6 +1112,86 @@ class Database:
             version['config'] = json.loads(version['config'])
             return version
         return None
+
+    def insert_balance_snapshot(
+        self,
+        account_id,
+        *,
+        balance=None,
+        delta_1h=None,
+        open_positions=None,
+        api_ok=True,
+        ts=None,
+    ):
+        """Append one account balance reading to ``balance_snapshots`` (WC-5).
+
+        Canonical writer for the append-only balance history. Called by the
+        hourly-report ``account_snapshots()`` once per (account, cycle). A
+        failed reading is recorded with ``api_ok=False`` + ``balance=None`` so
+        a gap is visible in history rather than silently dropped.
+
+        ``ts`` defaults to now (UTC ISO-8601). Returns the new row id.
+        """
+        if ts is None:
+            ts = datetime.now(timezone.utc).isoformat()
+        conn = self.connect()
+        cursor = conn.cursor()
+        cursor.execute(
+            '''
+            INSERT INTO balance_snapshots
+                (account_id, balance, delta_1h, open_positions, api_ok, ts)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ''',
+            (
+                str(account_id),
+                None if balance is None else float(balance),
+                None if delta_1h is None else float(delta_1h),
+                None if open_positions is None else int(open_positions),
+                1 if api_ok else 0,
+                ts,
+            ),
+        )
+        row_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return row_id
+
+    def get_latest_balance_snapshots(self):
+        """Return the latest ``balance_snapshots`` row per account (WC-5).
+
+        Powers ``/api/bot/accounts/balances`` (DB-authoritative). Returns a
+        dict ``{account_id: {balance, delta_1h, open_positions, api_ok, ts}}``
+        — the newest row per account by ``ts``. Empty dict when the table has
+        no rows (the reader then falls back to the JSON snapshot).
+        """
+        conn = self.connect()
+        cursor = conn.cursor()
+        cursor.execute(
+            '''
+            SELECT bs.account_id, bs.balance, bs.delta_1h, bs.open_positions,
+                   bs.api_ok, bs.ts
+            FROM balance_snapshots bs
+            JOIN (
+                SELECT account_id, MAX(datetime(ts)) AS mx
+                FROM balance_snapshots
+                GROUP BY account_id
+            ) latest
+              ON latest.account_id = bs.account_id
+             AND datetime(bs.ts) = latest.mx
+            '''
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        out = {}
+        for row in rows:
+            out[row["account_id"]] = {
+                "balance": row["balance"],
+                "delta_1h": row["delta_1h"],
+                "open_positions": row["open_positions"],
+                "api_ok": bool(row["api_ok"]),
+                "ts": row["ts"],
+            }
+        return out
 
 
 # Convenience function

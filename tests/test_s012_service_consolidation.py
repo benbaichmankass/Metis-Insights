@@ -76,6 +76,13 @@ EXPECTED_SERVICES = {
     # it to 0444, which EACCESes every non-root `>/dev/null` and silently
     # wedged ict-git-sync auto-deploy for ~16h on 2026-06-15.
     "ict-devnull-guard.service",
+    # 2026-06-17: DB-integrity checker (dashboard-truth Phase 4). Timer-fired
+    # oneshot (ict-db-integrity.timer, hourly) that runs
+    # scripts/check_db_integrity.py over trade_journal.db and Telegrams a
+    # [WARN]/[CRITICAL] when intake breaks (orphan trades, NULL pnl past the
+    # bounded window, account_class gaps, closed_at gaps) — the DB tells us
+    # when persistence drifts instead of the dashboard silently mis-rendering.
+    "ict-db-integrity.service",
 }
 
 # Trader-side units (i.e. units that run trading-strategy code). Used to

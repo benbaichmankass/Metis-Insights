@@ -471,3 +471,40 @@ couldn't do unattended):**
    `long/short` (vs `buy/sell`) before I flip the writer.
 3. Phase 3 dashboard UI changes will go to the **`claude/web-app-preview`**
    branch for you to eyeball before prod (can't verify rendering from here).
+
+## Progress log — 2026-06-17 (widest-scope continuation)
+
+**Phase 4 — DB-integrity alerting (the DB tells us when intake breaks).** PR
+**#3829**: `scripts/check_db_integrity.py` (orphan trades, NULL-pnl past the
+bounded window, account_class / closed_at gaps, direction-vocabulary drift) +
+`scripts/db_integrity_alert.py` + `ict-db-integrity.{service,timer}` (hourly
+oneshot, Telegrams `[WARN]`/`[CRITICAL]`) + the `/health-review` SKILL hook.
+Registered the new unit in the S-012 canonical service set + deployment-ops doc.
+
+**P1-E — historical backfill, wired for live-DB execution.** The dry-run pivot
+(trainer-VM journal copies are empty stubs) is resolved by the new
+**`backfill-closed-at` system-action** (Tier-2): runs `backfill_closed_at.py`
+DRY-RUN → `--apply` on the live VM, with `--also-account-class` (operator
+widest-scope directive) so the same audited pass also closes any residual
+`account_class` gap. Allowlisted through all four workflow surfaces + tests +
+doc. **Operator action:** dispatch `backfill-closed-at` (issue label
+`system-action`) to preview, review the dry-run counts, approve the apply.
+
+**WC-5 (part 1) — balances now have a DB home.** New canonical
+`trade_journal.db::balance_snapshots` table (append-only history) + canonical
+writer `Database.insert_balance_snapshot` / reader `get_latest_balance_snapshots`.
+The hourly-report `account_snapshots()` best-effort dual-writes each reading;
+`/api/bot/accounts/balances` is now **DB-authoritative** (latest row per
+account, with `delta_1h`/`open_positions`/`api_ok`), JSON snapshot = degraded
+fallback (`source` field records which served). Closes the audit's "balances
+have no DB table" gap. 40 tests green.
+
+**Still open in WC-5:** insights precedence (make `insights_history`
+canonical, cache = hot-read) and the signals cutover (flip `/api/bot/signals`
+to read the DB, JSONL → append-only audit, fail-loud dual-write — RISKIEST,
+live hot path, operator-gated draft).
+
+**Cross-repo follow-up (operator directive 2026-06-17):** once the bot-side
+truth is fixed, verify the **Android app** consumes the same corrected
+endpoints (`/performance` 24h basis, `/order-packages` link, `accounts/balances`
+shape, `account_class` split) — parity audit pending.
