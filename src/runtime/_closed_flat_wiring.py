@@ -15,10 +15,13 @@ orphan reconcilers and **before** ``return summaries``::
 
 The helper:
 
-* Reads ``CLOSED_FLAT_INVARIANT_ENABLED`` (default false). When
-  unset/falsy, this is a no-op — Phase-2 ships in alert-only mode
-  for a 7-day soak before the auto-flatten promotion PR.
-* When enabled, builds an account resolver from
+* Runs **unconditionally** (BASELINE since 2026-06-17). The check was
+  previously gated default-OFF behind ``CLOSED_FLAT_INVARIANT_ENABLED``;
+  that flag was retired (a safety invariant behind a default-off flag is
+  the Prime-Directive anti-pattern) and is no longer read. The check is
+  alert-only — it never mutates a position; the orphan reconciler is the
+  safety net.
+* Builds an account resolver from
   ``order_monitor._load_account_cfgs_for_reconcile`` and calls
   ``closed_flat_invariant.check`` with it. Violations are logged to
   ``runtime_logs/invariant_violations.jsonl`` and Telegram'd via

@@ -1,6 +1,6 @@
 """S-014 — Dashboard data feed endpoints.
 
-Exposes four read-only endpoints consumed by the Vercel React dashboard.
+Exposes four read-only endpoints consumed by the Streamlit dashboard.
 No authentication is required for GET requests — all data is operational
 telemetry with no secrets. Restrict network-level access via firewall.
 

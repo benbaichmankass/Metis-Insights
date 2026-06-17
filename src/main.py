@@ -705,7 +705,7 @@ def main() -> None:
                 # Status reflects the last completed tick — refreshes
                 # mtime so liveness checks see a fresh signal without
                 # losing the "ok / error" state of the most recent run.
-                write_heartbeat(status="ok", tick=tick_count)
+                write_heartbeat(status=last_tick_status, tick=tick_count)
 
 
 if __name__ == "__main__":

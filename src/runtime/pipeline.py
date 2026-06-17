@@ -104,13 +104,6 @@ logger = logging.getLogger(__name__)
 
 
 
-def default_signal_builder(settings: dict) -> Dict[str, Any]:
-    return {
-        "symbol": settings.get("SYMBOL", settings.get("symbol", "BTCUSDT")),
-        "side": "buy",
-    }
-
-
 def _multi_account_dispatch_enabled(settings: dict) -> bool:
     """Return True when pipeline signals should fan out to every account.
 

@@ -1,6 +1,6 @@
 """S-014 M0 PR #1 — GET /api/pnl/history.
 
-Per-day realised P&L history backing the Vercel dashboard's Performance
+Per-day realised P&L history backing the Streamlit dashboard's Performance
 tab (daily bars + cumulative line + drawdown).
 
 Reads ``trade_journal.db`` directly (single source of truth — no caching,

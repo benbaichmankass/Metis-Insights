@@ -11,8 +11,6 @@ from __future__ import annotations
 import pytest
 
 from src.runtime.strategy_verdict import (
-    CLOSE_ACTION,
-    is_close_verdict,
     validate_verdict,
 )
 
@@ -125,10 +123,3 @@ def test_validator_never_raises_on_weird_input():
         ok, reason = validate_verdict(weird)
         assert ok is False
         assert isinstance(reason, str)
-
-
-def test_is_close_verdict_helper():
-    assert is_close_verdict({"action": CLOSE_ACTION, "reason": "x"}) is True
-    assert is_close_verdict({"sl": 1.0}) is False
-    assert is_close_verdict(None) is False
-    assert is_close_verdict("close") is False

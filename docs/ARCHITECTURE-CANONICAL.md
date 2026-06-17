@@ -56,19 +56,20 @@ system-design counterpart.
    `.github/workflows/system-actions.yml`, landed in PR #978).
    Edits YAML, restarts the trader, Telegram-pings the operator with
    the diff via `scripts/ops/notify_run.sh`.
-3. **No runtime override layer (behaviour remediated; residual dead
-   code).** The `_DRY_RUN_OVERRIDES` dict and `set_account_dry_run()`
-   function in `src/units/accounts/__init__.py` (+ the
-   `Coordinator.set_account_dry_run()` wrapper at
-   `src/core/coordinator.py:1760`) **still exist on disk as of
-   2026-06-10**, but have **no remaining automatic or operator caller**:
-   the legacy Telegram `/accounts dry|live` writer was removed in #1933
-   (see closing paragraph) and mode flips now route through the
-   sanctioned `set_account_mode.sh` (item 2). The promised
-   safeguards-PR deletion never landed, so this is orphaned shim code,
-   not a live override path. **Cleanup proposed** (delete the dict +
-   both functions + the `account_state.yaml` dry-only override read at
-   `coordinator.py:1100`); tracked in the Known-gaps row below.
+3. **No runtime override layer (deleted).** The `_DRY_RUN_OVERRIDES`
+   dict and `set_account_dry_run()` function in
+   `src/units/accounts/__init__.py` (+ the
+   `Coordinator.set_account_dry_run()` wrapper) **were deleted** in the
+   2026-06-10 dead-code cleanup — they had no remaining automatic or
+   operator caller once the breaker auto-flip and the legacy Telegram
+   `/accounts dry|live` writer (#1933) were retired and all mode flips
+   routed through the sanctioned `set_account_mode.sh` (item 2). There
+   is no in-memory override layer: `_resolve_mode()` reads
+   `config/accounts.yaml` `mode:` directly on every call. A regression
+   test asserts their absence
+   (`tests/test_exchange_rejection_circuit_breaker.py` —
+   `assert not hasattr(_acc, "set_account_dry_run")` /
+   `_DRY_RUN_OVERRIDES`).
 4. **No auto-flip (verified).** No code path inside `src/` flips a mode.
    The 2026-05-12 silent-flip incident drove this: the breaker auto-flip
    that lived in `src/core/coordinator.py` ("3 consecutive exchange
@@ -770,10 +771,11 @@ Confirmed against the repo on 2026-05-10:
       [`architecture/ai-model-platform.md`](architecture/ai-model-platform.md)
       (S-AI-WS1, 2026-05-10)
 - [x] Mode Mutation Contract (§ above): `scripts/ops/set_account_mode.sh`
-      operator action shipped in PR #978 (2026-05-12). Doc-level contract in
-      this commit; code-level cleanup of `_DRY_RUN_OVERRIDES` +
-      `set_account_dry_run` + the breaker auto-flip pending in the
-      safeguards PR follow-on.
+      operator action shipped in PR #978 (2026-05-12). Code-level cleanup of
+      `_DRY_RUN_OVERRIDES` + `set_account_dry_run` + the breaker auto-flip
+      **done** (2026-06-10 dead-code cleanup); a regression test
+      (`tests/test_exchange_rejection_circuit_breaker.py`) asserts their
+      absence.
 
 ---
 
