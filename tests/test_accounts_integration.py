@@ -71,6 +71,46 @@ def _pkg(strategy="ict", symbol="BTCUSDT", direction="long",
     )
 
 
+def _seed_breach_trade(db_path: str, account_id: str, pnl: float = -200.0) -> None:
+    """Seed a today-dated closed trade so the journal-sourced daily_pnl
+    rebuild puts *account_id* past its daily-loss cap.
+
+    PropRiskManager now wires ``account_name`` through as the base
+    RiskManager's ``account_id`` (BL-20260617-PROP-RISK-ACCOUNT-ID), so a
+    prop account's daily-loss cap is rebuilt from the canonical journal on
+    every gate check — exactly like a regular account. A breach must
+    therefore come from real journal state; a poked-in-memory ``daily_pnl``
+    would be overwritten by the rebuild on the next ``evaluate()``."""
+    from datetime import datetime, timezone
+    from src.units.db.database import Database
+    today = datetime.now(timezone.utc).date()
+    Database(db_path=db_path).insert_trade({
+        "timestamp": f"{today}T12:00:00+00:00",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "entry_price": 50_000.0,
+        "position_size": 0.01,
+        "status": "closed",
+        "pnl": pnl,
+        "is_backtest": 0,
+        "account_id": account_id,
+        "created_at": f"{today} 12:00:00",
+    })
+
+
+@pytest.fixture()
+def prop_journal(tmp_path, monkeypatch):
+    """Isolated canonical journal for the prop-breach tests.
+
+    Points TRADE_JOURNAL_DB at a fresh temp DB and DATA_DIR at an empty
+    dir (so the balance-snapshot read finds nothing and can't perturb the
+    PnL-only assertions). Returns the DB path for ``_seed_breach_trade``."""
+    db_path = tmp_path / "trade_journal.db"
+    monkeypatch.setenv("TRADE_JOURNAL_DB", str(db_path))
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data-root"))
+    return str(db_path)
+
+
 # ---------------------------------------------------------------------------
 # Full load → place_order path
 # ---------------------------------------------------------------------------
@@ -103,13 +143,17 @@ class TestAccountsYamlToPlaceOrder:
         tid = prop.place_order(_pkg(), dry_run=True)
         assert tid.startswith("dry-breakout-")
 
-    def test_risk_state_isolated_between_accounts(self, accounts_yaml):
+    def test_risk_state_isolated_between_accounts(self, accounts_yaml, prop_journal):
         from src.units.accounts import load_accounts
         from src.units.accounts.account import RiskBreach
+        # Exhaust the prop account via real journal state (its daily-loss
+        # cap is rebuilt from the journal, so a poked-in-memory daily_pnl
+        # would be overwritten on the next gate check).
+        _seed_breach_trade(prop_journal, "prop_breakout")
         accounts = load_accounts(accounts_yaml)
-        # Exhaust prop account
         prop = next(a for a in accounts if a.name == "prop_breakout")
-        prop.risk_manager.daily_pnl = -200.0
+        # The journal rebuild populated daily_pnl past the -50 cap.
+        assert prop.risk_manager.daily_pnl == pytest.approx(-200.0)
         # Regular accounts still work
         regular = [a for a in accounts if a.account_type == "regular"]
         for acc in regular:
@@ -194,10 +238,13 @@ class TestCoordinatorMultiAccountExecute:
         )
         assert len(results) == 2
 
-    def test_risk_breach_on_one_does_not_block_others(self, coord, accounts_yaml):
+    def test_risk_breach_on_one_does_not_block_others(self, coord, accounts_yaml, prop_journal):
         from src.units.accounts import load_accounts
+        _seed_breach_trade(prop_journal, "prop_breakout")
         accounts = load_accounts(accounts_yaml)
-        next(a for a in accounts if a.name == "prop_breakout").risk_manager.daily_pnl = -200.0
+        assert next(
+            a for a in accounts if a.name == "prop_breakout"
+        ).risk_manager.daily_pnl == pytest.approx(-200.0)
         with patch("src.units.accounts.load_accounts", return_value=accounts):
             results = coord.multi_account_execute(
                 _pkg(), accounts_path=accounts_yaml, dry_run=True,

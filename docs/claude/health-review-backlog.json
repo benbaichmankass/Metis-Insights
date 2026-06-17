@@ -1924,6 +1924,23 @@
       "resolution_criteria": "Decision recorded: either (a) keep with a documented concrete rollback rationale, or (b) scrub the env read + allow-silent + update trade_events.py docstring/tests, mirroring the MOBILE_PUSH_ENABLED removal.",
       "tier": "Tier-1 (notification side-channel; code-only change if scrubbed)",
       "status": "open"
+    },
+    {
+      "id": "BL-20260617-PROP-RISK-ACCOUNT-ID",
+      "opened_at": "2026-06-17T00:00:00+00:00",
+      "opened_by": "claude (deferred Tier-3 split-out of PR #3865 repo-compliance audit)",
+      "source": "PR #3865 (repo-compliance audit) found PropRiskManager.__init__ called super().__init__(...) WITHOUT account_id, so the base RiskManager ran in-memory only for prop accounts: the journal-based daily-risk-state self-healing rebuild was disabled and daily-loss / drawdown caps reset to 0 on every restart (and never accumulated across a session). Regular accounts already wired account_id via the loader (RiskManager(..., account_id=name)); prop accounts dropped it. The one-line fix was split out of #3865 because passing account_id switches on the journal-sourced daily_pnl rebuild, which broke 4 prop-breach tests that seeded daily_pnl in memory.",
+      "title": "PropRiskManager dropped account_id → prop daily-loss/drawdown caps reset to 0 on every restart (in-memory only)",
+      "description": "FIX (Tier-3, risk-state for a live account class): src/units/accounts/prop_risk.py PropRiskManager.__init__ now passes account_id=account_name (or \"\" for nameless test/one-off constructions) to super().__init__, so prop accounts get the same journal-based daily-risk-state self-healing rebuild every regular account already gets. Reworked the 4 prop-breach tests (tests/test_accounts_integration.py, tests/test_coordinator_flow.py) to seed the breaching daily loss as a real today-dated closed trade in an isolated temp journal (TRADE_JOURNAL_DB + DATA_DIR fixtures + _seed_breach_trade helper) so they exercise the now-journal-sourced path instead of poking in-memory daily_pnl. Added a TestJournalSourcedDailyRisk regression guard in tests/test_prop_risk_manager.py proving account_name wires to account_id, the cap engages from journal PnL, the breach survives a restart, and a clean journal still allows (positive control).",
+      "tier": 3,
+      "trigger_condition": "Resolved this session (deferred-item completion).",
+      "resolution_criteria": "account_id wired through; full prop/risk/accounts/coordinator test set green; prop-breach detection verified to fire from journal-sourced daily_pnl without weakening assertions.",
+      "check_log": [],
+      "status": "resolved",
+      "resolved_at": "2026-06-17T00:00:00+00:00",
+      "resolved_by": "claude (branch claude/prop-risk-account-id-gn4zgk, draft PR)",
+      "resolution": "Added account_id=account_name to PropRiskManager's super().__init__ call (src/units/accounts/prop_risk.py). Reworked the 4 in-memory prop-breach tests to seed daily_pnl via the journal and added a journal-sourced regression guard. Verified: the affected test files pass (PropRiskManager / prop-state-persistence / accounts-integration / coordinator-flow) and the breach fires from journal PnL. Pre-existing sandbox-only smoke-test failures (MagicMock→Decimal, missing pybit) are unrelated and fail identically on baseline.",
+      "snoozed_until": null
     }
   ],
   "updated_at": "2026-06-16T10:59:03+00:00"

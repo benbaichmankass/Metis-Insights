@@ -309,6 +309,79 @@ class TestStateUpdates:
 
 
 # ---------------------------------------------------------------------------
+# Journal-sourced daily-risk state (BL-20260617-PROP-RISK-ACCOUNT-ID)
+# ---------------------------------------------------------------------------
+
+
+class TestJournalSourcedDailyRisk:
+    """PropRiskManager wires ``account_name`` through as the base
+    RiskManager's ``account_id``, so its daily-loss cap is rebuilt from the
+    canonical journal (and survives a restart) instead of resetting to 0 in
+    memory. Regular accounts already got this via
+    ``RiskManager(..., account_id=name)`` in the loader; prop accounts were
+    dropping it (the in-memory-only bug)."""
+
+    def test_account_name_wires_through_to_account_id(self):
+        rm = PropRiskManager(_base_cfg(), account_name="prop_x")
+        assert rm.account_id == "prop_x"
+
+    def test_no_account_name_stays_in_memory(self):
+        # Nameless construction (unit tests / one-off callers) keeps the
+        # in-memory contract — account_id="" disables the journal rebuild.
+        rm = PropRiskManager(_base_cfg())
+        assert rm.account_id == ""
+
+    def _seed(self, db_path, account_id, pnl):
+        from datetime import datetime, timezone
+        from src.units.db.database import Database
+        today = datetime.now(timezone.utc).date()
+        Database(db_path=str(db_path)).insert_trade({
+            "timestamp": f"{today}T12:00:00+00:00",
+            "symbol": "BTCUSDT", "direction": "long",
+            "entry_price": 100.0, "position_size": 1.0,
+            "status": "closed", "pnl": pnl, "is_backtest": 0,
+            "account_id": account_id, "created_at": f"{today} 12:00:00",
+        })
+
+    def test_daily_cap_engages_from_journal(self, tmp_path, monkeypatch):
+        db = tmp_path / "trade_journal.db"
+        monkeypatch.setenv("TRADE_JOURNAL_DB", str(db))
+        monkeypatch.setenv("DATA_DIR", str(tmp_path / "data-root"))
+        # _base_cfg daily_usd is 50 → a -200 realized loss is well past it.
+        self._seed(db, "prop_x", -200.0)
+
+        rm = PropRiskManager(_base_cfg(), account_name="prop_x")
+        # daily_pnl rebuilt from the journal, not poked in memory.
+        assert rm.daily_pnl == pytest.approx(-200.0)
+        ok, reason = rm.evaluate(_pkg())
+        assert ok is False
+        assert reason == "DAILY_LOSS_CAP"
+
+    def test_state_survives_restart(self, tmp_path, monkeypatch):
+        db = tmp_path / "trade_journal.db"
+        monkeypatch.setenv("TRADE_JOURNAL_DB", str(db))
+        monkeypatch.setenv("DATA_DIR", str(tmp_path / "data-root"))
+        self._seed(db, "prop_x", -200.0)
+        # A fresh instance (process "restart") rebuilds the same breach
+        # state — the bug this fix closes was the cap resetting to 0.
+        revived = PropRiskManager(_base_cfg(), account_name="prop_x")
+        assert revived.daily_pnl == pytest.approx(-200.0)
+        ok, reason = revived.evaluate(_pkg())
+        assert ok is False
+        assert reason == "DAILY_LOSS_CAP"
+
+    def test_clean_journal_allows(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "trade_journal.db"))
+        monkeypatch.setenv("DATA_DIR", str(tmp_path / "data-root"))
+        # Positive control: no seeded loss → the cap is NOT tripped, so the
+        # rework can't be passing only because the gate always refuses.
+        rm = PropRiskManager(_base_cfg(), account_name="prop_clean")
+        ok, reason = rm.evaluate(_pkg())
+        assert ok is True
+        assert reason is None
+
+
+# ---------------------------------------------------------------------------
 # Loader: type=prop instantiates PropRiskManager
 # ---------------------------------------------------------------------------
 
