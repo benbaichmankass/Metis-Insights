@@ -229,6 +229,42 @@ def _save_balance_snapshots(data: Dict[str, Any]) -> None:
         logger.warning("hourly_report: balance snapshot write failed: %s", exc)
 
 
+def _record_balance_snapshot_to_db(
+    account_id: str,
+    *,
+    balance: Optional[float],
+    delta_1h: Optional[float],
+    open_positions: Optional[int],
+    api_ok: bool,
+    ts: str,
+) -> None:
+    """Best-effort append of one balance reading to the canonical DB table
+    (WC-5, dashboard-truth 2026-06-16).
+
+    The JSON snapshot above keeps only the LATEST reading per account; this
+    appends to ``trade_journal.db::balance_snapshots`` so balances get a real
+    DB home + history (the audit's "balances have no DB table" gap). Swallows
+    all exceptions — the hourly report must never fail because the DB is
+    momentarily locked or the column set drifted.
+    """
+    try:
+        from src.units.db.database import Database
+
+        Database().insert_balance_snapshot(
+            account_id,
+            balance=balance,
+            delta_1h=delta_1h,
+            open_positions=open_positions,
+            api_ok=api_ok,
+            ts=ts,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "hourly_report: balance snapshot DB write(%s) failed: %s",
+            account_id, exc,
+        )
+
+
 def account_snapshots() -> Optional[List[Dict[str, Any]]]:
     """Return one dict per account: balance, 1h delta, API ok/err, open pos count.
 
@@ -279,6 +315,10 @@ def account_snapshots() -> Optional[List[Dict[str, Any]]]:
                 "api_ok": False,
                 "open_positions": None,
             })
+            _record_balance_snapshot_to_db(
+                aid, balance=None, delta_1h=None,
+                open_positions=None, api_ok=False, ts=now_iso,
+            )
             continue
 
         total = float(bal.get("total_usdt") or 0.0)
@@ -301,6 +341,10 @@ def account_snapshots() -> Optional[List[Dict[str, Any]]]:
             "api_ok": True,
             "open_positions": open_count,
         })
+        _record_balance_snapshot_to_db(
+            aid, balance=total, delta_1h=delta,
+            open_positions=open_count, api_ok=True, ts=now_iso,
+        )
 
     if new_snap:
         _save_balance_snapshots(new_snap)
