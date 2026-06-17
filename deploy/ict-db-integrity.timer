@@ -1,0 +1,26 @@
+# ============================================
+# ICT DB-INTEGRITY ALERTER SYSTEMD TIMER
+# Fires ict-db-integrity.service hourly.
+#
+# Hourly is frequent enough to catch a write-path regression within the
+# review cadence yet far below a noise threshold (the checker's RECENT window
+# defaults to 48h and dedups by alert fingerprint, so an unchanged finding
+# does not re-ping every hour).
+#
+# Save to: /etc/systemd/system/ict-db-integrity.timer
+# (installed + enabled --now automatically by
+#  scripts/install_systemd_units.sh during deploy_pull_restart.sh)
+# ============================================
+
+[Unit]
+Description=ICT DB integrity alerter — fires hourly
+
+[Timer]
+OnBootSec=8min
+OnUnitActiveSec=1h
+AccuracySec=1min
+Persistent=true
+Unit=ict-db-integrity.service
+
+[Install]
+WantedBy=timers.target

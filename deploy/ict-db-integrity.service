@@ -1,0 +1,48 @@
+# ============================================
+# ICT DB-INTEGRITY ALERTER SYSTEMD SERVICE
+# Runs scripts/db_integrity_alert.py once per timer fire.
+#
+# Triggered by ict-db-integrity.timer (hourly on the live VM). Runs the
+# read-only scripts/check_db_integrity.py checker (INV-1..5, the Phase-4
+# guardrail of the dashboard-truth-and-persistence-2026-06-16 effort) and
+# pings the operator [WARN] DB integrity: ... when a RECENT write-path
+# regression is detected (recent_count > 0). The LEGACY pre-backfill backlog
+# never alerts.
+#
+# READ-ONLY: opens trade_journal.db with a SQLite mode=ro connection and
+# never writes the money DB; the only file it writes is its own dedup state
+# under runtime_logs/. Tier-1 read surface; the ALERT path reuses
+# src.runtime.notify.send_telegram_direct (the same chokepoint the watchdog +
+# daily heartbeat use).
+#
+# DATA_DIR: this unit MUST resolve trade_journal_db_path() to the SAME DB as
+# the trader/web-api. The install_systemd_units.sh-managed drop-in
+# /etc/systemd/system/ict-db-integrity.service.d/data-dir.conf
+# (deploy/dropins/data-dir.conf) sets DATA_DIR=/data/bot-data. Without it the
+# checker would resolve a repo-relative path and read the wrong (empty) DB.
+#
+# Save to: /etc/systemd/system/ict-db-integrity.service
+# (installed automatically by scripts/install_systemd_units.sh during
+#  deploy_pull_restart.sh)
+# ============================================
+
+[Unit]
+Description=ICT Trading Bot — DB integrity alerter (INV-1..5 write-path guardrail)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+# Load the trader .env (TELEGRAM_BOT_TOKEN/CHAT_ID for the alert path).
+# DATA_DIR is supplied by the data-dir.conf drop-in (same as ict-web-api/
+# trader) so the checker resolves trade_journal_db_path() to the canonical DB.
+# Run under the trader venv so src.* imports (paths resolver, notify) work.
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
+ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/db_integrity_alert.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
