@@ -539,6 +539,18 @@
       "description": "ict_scalp_5m is LIVE on real money (bybit_2). This 3-yr backtest shows a clear negative edge. The backtest is a netted-portfolio sim and may not reflect live ML/regime gating, recent param tuning, or the live confidence filter — so verify against ACTUAL live closed trades before acting. If the negative edge is confirmed live, propose demote-to-shadow or a parameter review (Tier-3); if live materially differs, document why the backtest under-represents it.",
       "resolution_criteria": "A /performance-review compares ict_scalp_5m's live closed-trade PnL + win rate (real money, bybit_2) against this backtest. Outcome is either (a) confirmed net-negative live -> Tier-3 proposal to demote/shadow or retune, or (b) live differs -> documented reconciliation of why.",
       "trigger_condition": "Next /performance-review, or any review of bybit_2 real-money strategy performance."
+    },
+    {
+      "id": "PB-20260616-004",
+      "title": "trend_donchian is +EV on Bybit high-vol alts (SOL/ETH/BNB) — prop candidate to validate + wire (Tier-3)",
+      "status": "open",
+      "tier": 3,
+      "opened_at": "2026-06-17T05:40:00+00:00",
+      "opened_by": "claude (Breakout prop EV sweep 2026-06-16)",
+      "source": "Cost-aware EV sweep runtime_logs/prop_eval/2026-06-16-bybit-multisymbol/. trend_donchian (a BTC loser) is strongly +EV on every high-vol alt, out-of-sample (BTC-tuned, no per-symbol re-tuning), top cell @1.5% risk for all 5: SOL +$1,707/12mo (95% P(net>0), 9.5x ROI on fees), ETH +$1,183 (93%), BNB +$1,101 (92%), DOGE +$587 (80%), XRP +$576 (76%) on the $5k Breakout 1-Step ruleset. Works via bank-ASAP economics (breaches+rebuys ~4-6 accounts/yr but banks more than fees first). First genuine +EV prop candidate found; ~4-5x the BTC baseline.",
+      "description": "This is research on Binance Vision SPOT 5m (Bybit-perp proxy, ~0-10bps basis) with the EV model's realised-only optimism. Before any live wiring (Tier-3, operator-gated): (a) re-validate on REAL Bybit perp candles + funding, (b) per-alt walk-forward to confirm the trend edge isn't a single-window artifact (the 5/5 consistency argues real), (c) pick execution path (prop_signal/Comet manual bridge for supervised soak, or MetaCopier unattended). Best risk-adjusted cell: SOL @1.0% (+$1,018, 87%, 11x ROI, only ~2 accounts/yr).",
+      "resolution_criteria": "Either trend_donchian-on-an-alt is validated on real Bybit perp data + walk-forward and the operator approves a Tier-3 wire onto the prop account, OR the edge fails revalidation (perp basis / funding / OOS) and is documented as not live-worthy.",
+      "trigger_condition": "Next /performance-review, or a dedicated prop-account go-live decision."
     }
   ],
   "updated_at": "2026-06-16T08:10:00+00:00"
