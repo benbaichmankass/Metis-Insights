@@ -1,0 +1,1698 @@
+{
+  "generated_at": "2026-06-16T17:15:22.795542+00:00",
+  "ruleset": {
+    "ruleset": "breakout",
+    "plan": "1-step-classic",
+    "account_size_usd": 5000.0,
+    "profit_split": 0.8,
+    "unconfirmed": false,
+    "evaluation": {
+      "profit_target_pct": 0.1,
+      "min_trading_days": 0,
+      "max_eval_days": null
+    },
+    "funded": {
+      "profit_target_pct": null,
+      "min_trading_days": 0
+    },
+    "limits": {
+      "daily_loss_pct": 0.03,
+      "max_drawdown_pct": 0.06,
+      "drawdown_type": "static",
+      "max_position_pct": null
+    },
+    "consistency": {
+      "enabled": false,
+      "max_single_day_profit_share": 0.4
+    },
+    "restrictions": {
+      "weekend_flat": false,
+      "overnight_flat": false
+    },
+    "funded_soak_days": 30
+  },
+  "params": {
+    "n_paths": 5000,
+    "block_len": 8,
+    "seed": 1234,
+    "base_risk_pct": 0.5,
+    "risk_pct_grid": [
+      0.3,
+      0.5,
+      0.6,
+      0.75,
+      1.0
+    ],
+    "horizons_months": [
+      3.0,
+      6.0,
+      12.0
+    ],
+    "clock_tf": "1h",
+    "flip_policy": "hold",
+    "data": "/home/user/ict-trader-data/btc_5m.parquet"
+  },
+  "data_window": {
+    "data_start": "2023-01-01 00:00:00+00:00",
+    "data_end": "2026-02-28 23:55:00+00:00"
+  },
+  "results": [
+    {
+      "combo": "ict_scalp_5m",
+      "n_ledger_trades": 472,
+      "engine_metrics": {
+        "net_pnl": -4642.43,
+        "return_pct": -92.85,
+        "max_drawdown_pct": 93.03,
+        "total_trades": 472,
+        "win_rate_pct": 36.86
+      },
+      "cells": [
+        {
+          "risk_pct": 0.3,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 472,
+          "path_trades": 299,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.0668,
+            "static_drawdown": 0.9332
+          },
+          "trades_to_pass": {
+            "median": null,
+            "p5": null,
+            "p95": null
+          },
+          "days_to_pass": {
+            "median": null,
+            "p5": null,
+            "p95": null
+          },
+          "survival": {
+            "3.0": 0.3058,
+            "6.0": 0.0276,
+            "12.0": 0.0002
+          },
+          "end_return": {
+            "mean": -0.094,
+            "median": -0.0629
+          }
+        },
+        {
+          "risk_pct": 0.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 472,
+          "path_trades": 299,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0006,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.2072,
+            "static_drawdown": 0.7928
+          },
+          "trades_to_pass": {
+            "median": 14,
+            "p5": 13.1,
+            "p95": 18.5
+          },
+          "days_to_pass": {
+            "median": 31.2,
+            "p5": 28.9,
+            "p95": 38.9
+          },
+          "survival": {
+            "3.0": 0.097,
+            "6.0": 0.0058,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.0965,
+            "median": -0.0635
+          }
+        },
+        {
+          "risk_pct": 0.6,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 472,
+          "path_trades": 299,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0026,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.275,
+            "static_drawdown": 0.725
+          },
+          "trades_to_pass": {
+            "median": 24,
+            "p5": 10.0,
+            "p95": 49.8
+          },
+          "days_to_pass": {
+            "median": 46.1,
+            "p5": 24.6,
+            "p95": 109.0
+          },
+          "survival": {
+            "3.0": 0.0624,
+            "6.0": 0.0024,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.097,
+            "median": -0.0636
+          }
+        },
+        {
+          "risk_pct": 0.75,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 472,
+          "path_trades": 299,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0076,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.219,
+            "static_drawdown": 0.781
+          },
+          "trades_to_pass": {
+            "median": 16.5,
+            "p5": 5.0,
+            "p95": 36.1
+          },
+          "days_to_pass": {
+            "median": 31.7,
+            "p5": 6.8,
+            "p95": 81.3
+          },
+          "survival": {
+            "3.0": 0.0396,
+            "6.0": 0.0018,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.1052,
+            "median": -0.0649
+          }
+        },
+        {
+          "risk_pct": 1.0,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 472,
+          "path_trades": 299,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0144,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.2824,
+            "static_drawdown": 0.7176
+          },
+          "trades_to_pass": {
+            "median": 9.5,
+            "p5": 2.0,
+            "p95": 26.7
+          },
+          "days_to_pass": {
+            "median": 25.8,
+            "p5": 3.7,
+            "p95": 68.8
+          },
+          "survival": {
+            "3.0": 0.0184,
+            "6.0": 0.0012,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.1072,
+            "median": -0.0651
+          }
+        }
+      ]
+    },
+    {
+      "combo": "ict_scalp_5m,squeeze_breakout_4h,fvg_range_15m",
+      "n_ledger_trades": 485,
+      "engine_metrics": {
+        "net_pnl": -4451.11,
+        "return_pct": -89.02,
+        "max_drawdown_pct": 89.43,
+        "total_trades": 485,
+        "win_rate_pct": 37.94
+      },
+      "cells": [
+        {
+          "risk_pct": 0.3,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 485,
+          "path_trades": 316,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0002,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.0904,
+            "static_drawdown": 0.9096
+          },
+          "trades_to_pass": {
+            "median": 51,
+            "p5": 51.0,
+            "p95": 51.0
+          },
+          "days_to_pass": {
+            "median": 89.5,
+            "p5": 89.5,
+            "p95": 89.5
+          },
+          "survival": {
+            "3.0": 0.4352,
+            "6.0": 0.1018,
+            "12.0": 0.0044
+          },
+          "end_return": {
+            "mean": -0.0974,
+            "median": -0.0626
+          }
+        },
+        {
+          "risk_pct": 0.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 485,
+          "path_trades": 316,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0084,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.2358,
+            "static_drawdown": 0.7642
+          },
+          "trades_to_pass": {
+            "median": 19.0,
+            "p5": 10.0,
+            "p95": 50.9
+          },
+          "days_to_pass": {
+            "median": 54.1,
+            "p5": 16.8,
+            "p95": 133.0
+          },
+          "survival": {
+            "3.0": 0.1696,
+            "6.0": 0.0188,
+            "12.0": 0.0006
+          },
+          "end_return": {
+            "mean": -0.0976,
+            "median": -0.0631
+          }
+        },
+        {
+          "risk_pct": 0.6,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 485,
+          "path_trades": 316,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.018,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.312,
+            "static_drawdown": 0.688
+          },
+          "trades_to_pass": {
+            "median": 10.0,
+            "p5": 1.0,
+            "p95": 40.6
+          },
+          "days_to_pass": {
+            "median": 24.1,
+            "p5": 0.6,
+            "p95": 116.0
+          },
+          "survival": {
+            "3.0": 0.1072,
+            "6.0": 0.0108,
+            "12.0": 0.0002
+          },
+          "end_return": {
+            "mean": -0.0963,
+            "median": -0.0626
+          }
+        },
+        {
+          "risk_pct": 0.75,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 485,
+          "path_trades": 316,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0306,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.2616,
+            "static_drawdown": 0.7384
+          },
+          "trades_to_pass": {
+            "median": 8,
+            "p5": 1.0,
+            "p95": 37.0
+          },
+          "days_to_pass": {
+            "median": 20.6,
+            "p5": 0.6,
+            "p95": 100.4
+          },
+          "survival": {
+            "3.0": 0.0744,
+            "6.0": 0.006,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.1027,
+            "median": -0.0637
+          }
+        },
+        {
+          "risk_pct": 1.0,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 485,
+          "path_trades": 316,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0434,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.353,
+            "static_drawdown": 0.647
+          },
+          "trades_to_pass": {
+            "median": 8,
+            "p5": 1.0,
+            "p95": 33.2
+          },
+          "days_to_pass": {
+            "median": 18.3,
+            "p5": 0.6,
+            "p95": 77.8
+          },
+          "survival": {
+            "3.0": 0.0356,
+            "6.0": 0.002,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.1039,
+            "median": -0.0635
+          }
+        }
+      ]
+    },
+    {
+      "combo": "ict_scalp_5m,squeeze_breakout_4h",
+      "n_ledger_trades": 461,
+      "engine_metrics": {
+        "net_pnl": -4505.07,
+        "return_pct": -90.1,
+        "max_drawdown_pct": 90.47,
+        "total_trades": 461,
+        "win_rate_pct": 37.09
+      },
+      "cells": [
+        {
+          "risk_pct": 0.3,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 461,
+          "path_trades": 308,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0002,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.079,
+            "static_drawdown": 0.921
+          },
+          "trades_to_pass": {
+            "median": 30,
+            "p5": 30.0,
+            "p95": 30.0
+          },
+          "days_to_pass": {
+            "median": 74.2,
+            "p5": 74.2,
+            "p95": 74.2
+          },
+          "survival": {
+            "3.0": 0.4006,
+            "6.0": 0.07,
+            "12.0": 0.0018
+          },
+          "end_return": {
+            "mean": -0.0973,
+            "median": -0.0626
+          }
+        },
+        {
+          "risk_pct": 0.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 461,
+          "path_trades": 308,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0022,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.2178,
+            "static_drawdown": 0.7822
+          },
+          "trades_to_pass": {
+            "median": 28,
+            "p5": 14.5,
+            "p95": 54.0
+          },
+          "days_to_pass": {
+            "median": 72.1,
+            "p5": 19.2,
+            "p95": 132.8
+          },
+          "survival": {
+            "3.0": 0.1452,
+            "6.0": 0.0116,
+            "12.0": 0.0004
+          },
+          "end_return": {
+            "mean": -0.0977,
+            "median": -0.0632
+          }
+        },
+        {
+          "risk_pct": 0.6,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 461,
+          "path_trades": 308,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0052,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.2964,
+            "static_drawdown": 0.7036
+          },
+          "trades_to_pass": {
+            "median": 19.0,
+            "p5": 10.2,
+            "p95": 39.8
+          },
+          "days_to_pass": {
+            "median": 49.9,
+            "p5": 12.9,
+            "p95": 118.4
+          },
+          "survival": {
+            "3.0": 0.0932,
+            "6.0": 0.0058,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.0964,
+            "median": -0.063
+          }
+        },
+        {
+          "risk_pct": 0.75,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 461,
+          "path_trades": 308,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0124,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.2434,
+            "static_drawdown": 0.7566
+          },
+          "trades_to_pass": {
+            "median": 12.5,
+            "p5": 5.0,
+            "p95": 28.9
+          },
+          "days_to_pass": {
+            "median": 21.9,
+            "p5": 6.8,
+            "p95": 91.9
+          },
+          "survival": {
+            "3.0": 0.0622,
+            "6.0": 0.003,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.1036,
+            "median": -0.0643
+          }
+        },
+        {
+          "risk_pct": 1.0,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 461,
+          "path_trades": 308,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0258,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.3128,
+            "static_drawdown": 0.6872
+          },
+          "trades_to_pass": {
+            "median": 8,
+            "p5": 2.0,
+            "p95": 23.6
+          },
+          "days_to_pass": {
+            "median": 20.7,
+            "p5": 3.7,
+            "p95": 73.5
+          },
+          "survival": {
+            "3.0": 0.03,
+            "6.0": 0.0008,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.1066,
+            "median": -0.0642
+          }
+        }
+      ]
+    },
+    {
+      "combo": "ict_scalp_5m,fvg_range_15m",
+      "n_ledger_trades": 502,
+      "engine_metrics": {
+        "net_pnl": -4584.4,
+        "return_pct": -91.69,
+        "max_drawdown_pct": 91.89,
+        "total_trades": 502,
+        "win_rate_pct": 38.45
+      },
+      "cells": [
+        {
+          "risk_pct": 0.3,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 502,
+          "path_trades": 316,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.0788,
+            "static_drawdown": 0.9212
+          },
+          "trades_to_pass": {
+            "median": null,
+            "p5": null,
+            "p95": null
+          },
+          "days_to_pass": {
+            "median": null,
+            "p5": null,
+            "p95": null
+          },
+          "survival": {
+            "3.0": 0.3536,
+            "6.0": 0.0536,
+            "12.0": 0.002
+          },
+          "end_return": {
+            "mean": -0.0956,
+            "median": -0.0628
+          }
+        },
+        {
+          "risk_pct": 0.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 502,
+          "path_trades": 316,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0034,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.2378,
+            "static_drawdown": 0.7622
+          },
+          "trades_to_pass": {
+            "median": 25,
+            "p5": 9.8,
+            "p95": 70.0
+          },
+          "days_to_pass": {
+            "median": 49.2,
+            "p5": 24.2,
+            "p95": 158.1
+          },
+          "survival": {
+            "3.0": 0.113,
+            "6.0": 0.0104,
+            "12.0": 0.0002
+          },
+          "end_return": {
+            "mean": -0.096,
+            "median": -0.0632
+          }
+        },
+        {
+          "risk_pct": 0.6,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 502,
+          "path_trades": 316,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0082,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.2996,
+            "static_drawdown": 0.7004
+          },
+          "trades_to_pass": {
+            "median": 15,
+            "p5": 1.0,
+            "p95": 46.0
+          },
+          "days_to_pass": {
+            "median": 32.0,
+            "p5": 0.6,
+            "p95": 137.3
+          },
+          "survival": {
+            "3.0": 0.075,
+            "6.0": 0.006,
+            "12.0": 0.0002
+          },
+          "end_return": {
+            "mean": -0.0962,
+            "median": -0.063
+          }
+        },
+        {
+          "risk_pct": 0.75,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 502,
+          "path_trades": 316,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.023,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.2512,
+            "static_drawdown": 0.7488
+          },
+          "trades_to_pass": {
+            "median": 6,
+            "p5": 1.0,
+            "p95": 33.0
+          },
+          "days_to_pass": {
+            "median": 13.1,
+            "p5": 0.6,
+            "p95": 74.3
+          },
+          "survival": {
+            "3.0": 0.0502,
+            "6.0": 0.0042,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.1029,
+            "median": -0.0642
+          }
+        },
+        {
+          "risk_pct": 1.0,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 502,
+          "path_trades": 316,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0364,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.3128,
+            "static_drawdown": 0.6872
+          },
+          "trades_to_pass": {
+            "median": 8.0,
+            "p5": 2.0,
+            "p95": 25.9
+          },
+          "days_to_pass": {
+            "median": 19.1,
+            "p5": 3.2,
+            "p95": 60.8
+          },
+          "survival": {
+            "3.0": 0.0226,
+            "6.0": 0.0016,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.1045,
+            "median": -0.0646
+          }
+        }
+      ]
+    },
+    {
+      "combo": "ict_scalp_5m,fvg_range_15m,squeeze_breakout_4h,fade_breakout_4h",
+      "n_ledger_trades": 544,
+      "engine_metrics": {
+        "net_pnl": -4469.59,
+        "return_pct": -89.39,
+        "max_drawdown_pct": 90.16,
+        "total_trades": 544,
+        "win_rate_pct": 36.95
+      },
+      "cells": [
+        {
+          "risk_pct": 0.3,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 544,
+          "path_trades": 325,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0026,
+          "p_breach": 0.9998,
+          "breach_by_cause": {
+            "daily_loss": 0.0384,
+            "static_drawdown": 0.9614
+          },
+          "trades_to_pass": {
+            "median": 38,
+            "p5": 13.6,
+            "p95": 95.6
+          },
+          "days_to_pass": {
+            "median": 68.7,
+            "p5": 28.3,
+            "p95": 179.5
+          },
+          "survival": {
+            "3.0": 0.4302,
+            "6.0": 0.1042,
+            "12.0": 0.0064
+          },
+          "end_return": {
+            "mean": -0.1023,
+            "median": -0.0629
+          }
+        },
+        {
+          "risk_pct": 0.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 544,
+          "path_trades": 325,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0176,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.201,
+            "static_drawdown": 0.799
+          },
+          "trades_to_pass": {
+            "median": 22.0,
+            "p5": 10.0,
+            "p95": 71.9
+          },
+          "days_to_pass": {
+            "median": 50.1,
+            "p5": 17.6,
+            "p95": 156.4
+          },
+          "survival": {
+            "3.0": 0.1642,
+            "6.0": 0.023,
+            "12.0": 0.0012
+          },
+          "end_return": {
+            "mean": -0.0983,
+            "median": -0.0631
+          }
+        },
+        {
+          "risk_pct": 0.6,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 544,
+          "path_trades": 325,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0328,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.274,
+            "static_drawdown": 0.726
+          },
+          "trades_to_pass": {
+            "median": 14.0,
+            "p5": 1.0,
+            "p95": 52.5
+          },
+          "days_to_pass": {
+            "median": 30.0,
+            "p5": 0.6,
+            "p95": 128.1
+          },
+          "survival": {
+            "3.0": 0.1038,
+            "6.0": 0.0138,
+            "12.0": 0.0002
+          },
+          "end_return": {
+            "mean": -0.0965,
+            "median": -0.0628
+          }
+        },
+        {
+          "risk_pct": 0.75,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 544,
+          "path_trades": 325,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0514,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.253,
+            "static_drawdown": 0.747
+          },
+          "trades_to_pass": {
+            "median": 11,
+            "p5": 1.0,
+            "p95": 48.2
+          },
+          "days_to_pass": {
+            "median": 21.4,
+            "p5": 0.6,
+            "p95": 112.0
+          },
+          "survival": {
+            "3.0": 0.07,
+            "6.0": 0.0086,
+            "12.0": 0.0002
+          },
+          "end_return": {
+            "mean": -0.1012,
+            "median": -0.0635
+          }
+        },
+        {
+          "risk_pct": 1.0,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 544,
+          "path_trades": 325,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0672,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.3652,
+            "static_drawdown": 0.6348
+          },
+          "trades_to_pass": {
+            "median": 10.0,
+            "p5": 1.0,
+            "p95": 31.0
+          },
+          "days_to_pass": {
+            "median": 19.0,
+            "p5": 2.7,
+            "p95": 72.5
+          },
+          "survival": {
+            "3.0": 0.0334,
+            "6.0": 0.0022,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.0995,
+            "median": -0.063
+          }
+        }
+      ]
+    },
+    {
+      "combo": "turtle_soup",
+      "n_ledger_trades": 266,
+      "engine_metrics": {
+        "net_pnl": -3030.98,
+        "return_pct": -60.62,
+        "max_drawdown_pct": 60.62,
+        "total_trades": 266,
+        "win_rate_pct": 41.73
+      },
+      "cells": [
+        {
+          "risk_pct": 0.3,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 266,
+          "path_trades": 284,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.1274,
+            "static_drawdown": 0.8726
+          },
+          "trades_to_pass": {
+            "median": null,
+            "p5": null,
+            "p95": null
+          },
+          "days_to_pass": {
+            "median": null,
+            "p5": null,
+            "p95": null
+          },
+          "survival": {
+            "3.0": 0.7722,
+            "6.0": 0.4902,
+            "12.0": 0.1332
+          },
+          "end_return": {
+            "mean": -0.084,
+            "median": -0.0633
+          }
+        },
+        {
+          "risk_pct": 0.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 266,
+          "path_trades": 284,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0002,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.377,
+            "static_drawdown": 0.623
+          },
+          "trades_to_pass": {
+            "median": 63,
+            "p5": 63.0,
+            "p95": 63.0
+          },
+          "days_to_pass": {
+            "median": 288.2,
+            "p5": 288.2,
+            "p95": 288.2
+          },
+          "survival": {
+            "3.0": 0.5066,
+            "6.0": 0.2074,
+            "12.0": 0.0304
+          },
+          "end_return": {
+            "mean": -0.0797,
+            "median": -0.0622
+          }
+        },
+        {
+          "risk_pct": 0.6,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 266,
+          "path_trades": 284,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0014,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.3962,
+            "static_drawdown": 0.6038
+          },
+          "trades_to_pass": {
+            "median": 36,
+            "p5": 30.1,
+            "p95": 54.7
+          },
+          "days_to_pass": {
+            "median": 160.5,
+            "p5": 98.0,
+            "p95": 239.3
+          },
+          "survival": {
+            "3.0": 0.446,
+            "6.0": 0.1572,
+            "12.0": 0.018
+          },
+          "end_return": {
+            "mean": -0.0834,
+            "median": -0.0622
+          }
+        },
+        {
+          "risk_pct": 0.75,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 266,
+          "path_trades": 284,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.005,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.3532,
+            "static_drawdown": 0.6468
+          },
+          "trades_to_pass": {
+            "median": 35,
+            "p5": 20.2,
+            "p95": 65.8
+          },
+          "days_to_pass": {
+            "median": 139.4,
+            "p5": 63.9,
+            "p95": 264.7
+          },
+          "survival": {
+            "3.0": 0.3704,
+            "6.0": 0.1162,
+            "12.0": 0.011
+          },
+          "end_return": {
+            "mean": -0.0901,
+            "median": -0.0632
+          }
+        },
+        {
+          "risk_pct": 1.0,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 266,
+          "path_trades": 284,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0142,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.4292,
+            "static_drawdown": 0.5708
+          },
+          "trades_to_pass": {
+            "median": 26,
+            "p5": 13.0,
+            "p95": 60.0
+          },
+          "days_to_pass": {
+            "median": 95.8,
+            "p5": 44.0,
+            "p95": 235.4
+          },
+          "survival": {
+            "3.0": 0.2604,
+            "6.0": 0.0634,
+            "12.0": 0.0046
+          },
+          "end_return": {
+            "mean": -0.0748,
+            "median": -0.0626
+          }
+        }
+      ]
+    },
+    {
+      "combo": "ict_scalp_5m,turtle_soup",
+      "n_ledger_trades": 709,
+      "engine_metrics": {
+        "net_pnl": -4846.35,
+        "return_pct": -96.93,
+        "max_drawdown_pct": 96.95,
+        "total_trades": 709,
+        "win_rate_pct": 38.93
+      },
+      "cells": [
+        {
+          "risk_pct": 0.3,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 709,
+          "path_trades": 458,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.1026,
+            "static_drawdown": 0.8974
+          },
+          "trades_to_pass": {
+            "median": null,
+            "p5": null,
+            "p95": null
+          },
+          "days_to_pass": {
+            "median": null,
+            "p5": null,
+            "p95": null
+          },
+          "survival": {
+            "3.0": 0.1418,
+            "6.0": 0.0056,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.0918,
+            "median": -0.0631
+          }
+        },
+        {
+          "risk_pct": 0.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 709,
+          "path_trades": 458,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0002,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.2538,
+            "static_drawdown": 0.7462
+          },
+          "trades_to_pass": {
+            "median": 16,
+            "p5": 16.0,
+            "p95": 16.0
+          },
+          "days_to_pass": {
+            "median": 27.2,
+            "p5": 27.2,
+            "p95": 27.2
+          },
+          "survival": {
+            "3.0": 0.0268,
+            "6.0": 0.0002,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.0925,
+            "median": -0.0634
+          }
+        },
+        {
+          "risk_pct": 0.6,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 709,
+          "path_trades": 458,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.001,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.3082,
+            "static_drawdown": 0.6918
+          },
+          "trades_to_pass": {
+            "median": 14,
+            "p5": 11.2,
+            "p95": 18.6
+          },
+          "days_to_pass": {
+            "median": 15.6,
+            "p5": 12.5,
+            "p95": 19.6
+          },
+          "survival": {
+            "3.0": 0.0136,
+            "6.0": 0.0,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.0933,
+            "median": -0.0633
+          }
+        },
+        {
+          "risk_pct": 0.75,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 709,
+          "path_trades": 458,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.004,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.3054,
+            "static_drawdown": 0.6946
+          },
+          "trades_to_pass": {
+            "median": 13.0,
+            "p5": 9.0,
+            "p95": 31.5
+          },
+          "days_to_pass": {
+            "median": 13.2,
+            "p5": 7.2,
+            "p95": 65.5
+          },
+          "survival": {
+            "3.0": 0.0078,
+            "6.0": 0.0,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.0969,
+            "median": -0.0639
+          }
+        },
+        {
+          "risk_pct": 1.0,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 709,
+          "path_trades": 458,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.0118,
+          "p_breach": 1.0,
+          "breach_by_cause": {
+            "daily_loss": 0.3232,
+            "static_drawdown": 0.6768
+          },
+          "trades_to_pass": {
+            "median": 13,
+            "p5": 2.9,
+            "p95": 29.0
+          },
+          "days_to_pass": {
+            "median": 17.0,
+            "p5": 3.7,
+            "p95": 46.3
+          },
+          "survival": {
+            "3.0": 0.003,
+            "6.0": 0.0,
+            "12.0": 0.0
+          },
+          "end_return": {
+            "mean": -0.0991,
+            "median": -0.0646
+          }
+        }
+      ]
+    },
+    {
+      "combo": "squeeze_breakout_4h,fvg_range_15m",
+      "n_ledger_trades": 91,
+      "engine_metrics": {
+        "net_pnl": 852.21,
+        "return_pct": 17.04,
+        "max_drawdown_pct": 5.5,
+        "total_trades": 91,
+        "win_rate_pct": 43.96
+      },
+      "cells": [
+        {
+          "risk_pct": 0.3,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 91,
+          "path_trades": 53,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.2306,
+          "p_breach": 0.0026,
+          "breach_by_cause": {
+            "static_drawdown": 0.0026
+          },
+          "trades_to_pass": {
+            "median": 40,
+            "p5": 18.6,
+            "p95": 52.0
+          },
+          "days_to_pass": {
+            "median": 472.7,
+            "p5": 199.5,
+            "p95": 687.2
+          },
+          "survival": {
+            "3.0": 1.0,
+            "6.0": 1.0,
+            "12.0": 1.0
+          },
+          "end_return": {
+            "mean": 0.0584,
+            "median": 0.0552
+          }
+        },
+        {
+          "risk_pct": 0.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 91,
+          "path_trades": 53,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.5538,
+          "p_breach": 0.0426,
+          "breach_by_cause": {
+            "static_drawdown": 0.0426
+          },
+          "trades_to_pass": {
+            "median": 31,
+            "p5": 11.0,
+            "p95": 51.0
+          },
+          "days_to_pass": {
+            "median": 375.7,
+            "p5": 109.6,
+            "p95": 635.8
+          },
+          "survival": {
+            "3.0": 1.0,
+            "6.0": 0.9994,
+            "12.0": 0.976
+          },
+          "end_return": {
+            "mean": 0.0972,
+            "median": 0.092
+          }
+        },
+        {
+          "risk_pct": 0.6,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 91,
+          "path_trades": 53,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.6396,
+          "p_breach": 0.0734,
+          "breach_by_cause": {
+            "static_drawdown": 0.0734
+          },
+          "trades_to_pass": {
+            "median": 27.0,
+            "p5": 4.0,
+            "p95": 50.0
+          },
+          "days_to_pass": {
+            "median": 327.2,
+            "p5": 41.2,
+            "p95": 614.8
+          },
+          "survival": {
+            "3.0": 1.0,
+            "6.0": 0.9946,
+            "12.0": 0.952
+          },
+          "end_return": {
+            "mean": 0.1157,
+            "median": 0.1102
+          }
+        },
+        {
+          "risk_pct": 0.75,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 91,
+          "path_trades": 53,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.708,
+          "p_breach": 0.1284,
+          "breach_by_cause": {
+            "static_drawdown": 0.1284
+          },
+          "trades_to_pass": {
+            "median": 23.0,
+            "p5": 4.0,
+            "p95": 49.0
+          },
+          "days_to_pass": {
+            "median": 275.4,
+            "p5": 41.6,
+            "p95": 595.8
+          },
+          "survival": {
+            "3.0": 0.9986,
+            "6.0": 0.963,
+            "12.0": 0.9022
+          },
+          "end_return": {
+            "mean": 0.1407,
+            "median": 0.135
+          }
+        },
+        {
+          "risk_pct": 1.0,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 91,
+          "path_trades": 53,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.7172,
+          "p_breach": 0.2232,
+          "breach_by_cause": {
+            "static_drawdown": 0.2232
+          },
+          "trades_to_pass": {
+            "median": 17.0,
+            "p5": 4.0,
+            "p95": 45.0
+          },
+          "days_to_pass": {
+            "median": 204.1,
+            "p5": 41.6,
+            "p95": 536.0
+          },
+          "survival": {
+            "3.0": 0.9954,
+            "6.0": 0.884,
+            "12.0": 0.8148
+          },
+          "end_return": {
+            "mean": 0.1769,
+            "median": 0.1673
+          }
+        }
+      ]
+    },
+    {
+      "combo": "fvg_range_15m",
+      "n_ledger_trades": 45,
+      "engine_metrics": {
+        "net_pnl": 663.52,
+        "return_pct": 13.27,
+        "max_drawdown_pct": 4.34,
+        "total_trades": 45,
+        "win_rate_pct": 51.11
+      },
+      "cells": [
+        {
+          "risk_pct": 0.3,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 45,
+          "path_trades": 50,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.4648,
+          "p_breach": 0.0002,
+          "breach_by_cause": {
+            "static_drawdown": 0.0002
+          },
+          "trades_to_pass": {
+            "median": 38.0,
+            "p5": 21.0,
+            "p95": 49.0
+          },
+          "days_to_pass": {
+            "median": 641.8,
+            "p5": 332.6,
+            "p95": 902.0
+          },
+          "survival": {
+            "3.0": 1.0,
+            "6.0": 1.0,
+            "12.0": 1.0
+          },
+          "end_return": {
+            "mean": 0.0888,
+            "median": 0.0874
+          }
+        },
+        {
+          "risk_pct": 0.5,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 45,
+          "path_trades": 50,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.8108,
+          "p_breach": 0.0094,
+          "breach_by_cause": {
+            "static_drawdown": 0.0094
+          },
+          "trades_to_pass": {
+            "median": 27.0,
+            "p5": 11.0,
+            "p95": 47.0
+          },
+          "days_to_pass": {
+            "median": 464.1,
+            "p5": 170.6,
+            "p95": 835.1
+          },
+          "survival": {
+            "3.0": 1.0,
+            "6.0": 1.0,
+            "12.0": 0.9956
+          },
+          "end_return": {
+            "mean": 0.1503,
+            "median": 0.1477
+          }
+        },
+        {
+          "risk_pct": 0.6,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 45,
+          "path_trades": 50,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.8702,
+          "p_breach": 0.0182,
+          "breach_by_cause": {
+            "static_drawdown": 0.0182
+          },
+          "trades_to_pass": {
+            "median": 23,
+            "p5": 8.0,
+            "p95": 45.0
+          },
+          "days_to_pass": {
+            "median": 394.0,
+            "p5": 108.2,
+            "p95": 799.5
+          },
+          "survival": {
+            "3.0": 1.0,
+            "6.0": 0.9958,
+            "12.0": 0.9884
+          },
+          "end_return": {
+            "mean": 0.1812,
+            "median": 0.1781
+          }
+        },
+        {
+          "risk_pct": 0.75,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 45,
+          "path_trades": 50,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.9044,
+          "p_breach": 0.0406,
+          "breach_by_cause": {
+            "static_drawdown": 0.0406
+          },
+          "trades_to_pass": {
+            "median": 18.0,
+            "p5": 3.0,
+            "p95": 42.0
+          },
+          "days_to_pass": {
+            "median": 314.8,
+            "p5": 45.6,
+            "p95": 743.4
+          },
+          "survival": {
+            "3.0": 1.0,
+            "6.0": 0.9852,
+            "12.0": 0.97
+          },
+          "end_return": {
+            "mean": 0.2264,
+            "median": 0.224
+          }
+        },
+        {
+          "risk_pct": 1.0,
+          "base_risk_pct": 0.5,
+          "n_paths": 5000,
+          "n_ledger_trades": 45,
+          "path_trades": 50,
+          "block_len": 8,
+          "account_size": 5000.0,
+          "p_pass": 0.9036,
+          "p_breach": 0.0804,
+          "breach_by_cause": {
+            "static_drawdown": 0.0804
+          },
+          "trades_to_pass": {
+            "median": 14.0,
+            "p5": 3.0,
+            "p95": 36.0
+          },
+          "days_to_pass": {
+            "median": 248.6,
+            "p5": 45.6,
+            "p95": 646.1
+          },
+          "survival": {
+            "3.0": 1.0,
+            "6.0": 0.9618,
+            "12.0": 0.9366
+          },
+          "end_return": {
+            "mean": 0.3013,
+            "median": 0.2998
+          }
+        }
+      ]
+    }
+  ]
+}

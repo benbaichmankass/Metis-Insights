@@ -1,0 +1,96 @@
+# config/prop_rulesets/breakout.yaml
+# Breakout "1-Step Classic" — $45, one-phase eval, 80/20 split.
+# Values CONFIRMED from the Breakout FAQ Center (intercom.help/breakoutprop)
+# + the plan card, 2026-06-16. Full sourcing + compliance analysis in
+# docs/integrations/breakout-compliance-2026-06-16.md.
+ruleset: breakout
+plan: 1-step-classic
+account_size_usd: 5000            # 1-Step Classic $5k account (per account details, 2026-06-16)
+                                  # → 3% daily = $150, 6% static DD = $300
+profit_split: 0.80               # 80/20 (90/10 upgrade = 0.90)
+unconfirmed: false                # headline rules confirmed; only per-symbol
+                                  # position caps remain (see limits.max_position_pct)
+
+phases:
+  evaluation:
+    profit_target_pct: 0.10       # +10% to clear ($10k on $100k)   [CONFIRMED — FAQ + card]
+    min_trading_days: 0           # NONE — can pass in 1 trade, paid next day [CONFIRMED — FAQ]
+    max_eval_days: null           # no time limit on the evaluation [CONFIRMED — FAQ]
+  funded:                         # one-phase: same limits continue post-pass
+    profit_target_pct: null
+    min_trading_days: 0
+
+# Account-killers — breaching EITHER = instant breach: all positions
+# auto-closed, account PERMANENTLY disabled. [CONFIRMED — FAQ]
+limits:
+  daily_loss_pct: 0.03            # 3% across all 1-Step variants   [CONFIRMED — FAQ]
+  # Daily-loss mechanics: the limit AMOUNT is recalculated each day at
+  # 00:30 UTC from the BALANCE at that time (excluding open positions);
+  # the BREACH triggers when intraday EQUITY (including open positions)
+  # falls to/through that limit. Evaluator buckets days on the 00:30-UTC
+  # boundary and uses equity (mark-to-market), not realized-only.
+  daily_loss_reset_utc: "00:30"
+  daily_loss_basis: equity_vs_daystart_balance
+
+  max_drawdown_pct: 0.06          # 6% for 1-Step Classic           [CONFIRMED — FAQ + card]
+  drawdown_type: static           # STATIC, balance-based, off the STARTING balance;
+                                  # NOT trailing and NOT locked/raised on payout [CONFIRMED — FAQ]
+  max_position_pct: null          # per-INSTRUMENT cap, set in the Breakout Terminal
+                                  # (breakoutprop.com/symbols) — not a single % we can
+                                  # encode globally. [PARTIAL — pull per-symbol caps at wire time]
+
+# Consistency rule — Breakout has NONE. No consistency rule, no profit cap,
+# no risk-per-trade rule, no anti-gambling rule. [CONFIRMED — FAQ]
+consistency:
+  enabled: false
+  max_single_day_profit_share: null
+
+# Time restrictions — crypto trades 24/7; Breakout imposes no weekend/
+# overnight flat rule. [CONFIRMED — no such rule in the FAQ]
+restrictions:
+  weekend_flat: false
+  overnight_flat: false
+
+# Funded-phase survival horizon (how long the "survives funded" check runs).
+funded_soak_days: 30
+
+# Account economics — drives the COST-AWARE EV evaluation (expected $ netted
+# per horizon, NET of fees, re-buying a fresh account on each breach), the
+# complement to the survival metrics. The point: an account that burns fast
+# but banks > its fee in payouts first is a +EV buy. Consumed by
+# scripts/prop/montecarlo_prop.py --cost-aware.
+#
+# Values here are LABELED, CONFIGURABLE DEFAULTS — fee/split are CONFIRMED
+# (plan card); the payout cadence/minimums are sourced from public third-party
+# reviews 2026-06-16 and NOT yet cross-checked against Breakout's own FAQ.
+# Update in place when confirmed (no code change — the EV model reads this).
+economics:
+  account_fee_usd: 45              # 1-Step Classic $5k eval fee   [CONFIRMED — plan card]
+  rebuy_fee_usd: 45               # cost of a fresh account after a breach
+                                  # [DEFAULT — assumes no reset discount; CONFIRM]
+  # profit_split is declared above (0.80; 0.90 upgrade; 0.95 after 3 profitable
+  # funded months) [CONFIRMED].
+
+  payout:                          # Breakout's funded-withdrawal RULES
+    first_payout_after_days: 14    # first withdrawal allowed 14d post-funding   [WEB; CONFIRM]
+    payout_frequency_days: 7       # weekly cadence thereafter                   [WEB; CONFIRM]
+    min_withdrawal_usd: 50         # smallest withdrawal (some sources say none) [WEB; CONFIRM]
+    min_trading_days_before_payout: 0   # no min trading days                    [WEB; CONFIRM]
+    processing_hours: 24           # paid within 24h in USDC (ERC-20)            [WEB; info]
+
+  withdrawal_policy:               # OPERATOR DIRECTIVE (2026-06-16): BANK ASAP.
+                                   # Always withdraw the maximum allowed at the
+                                   # earliest allowed moment; never leave realized
+                                   # profit in the account. Rationale: banked payouts
+                                   # are realized + safe, and the 6% max-DD is STATIC
+                                   # off the starting balance and NOT raised on payout,
+                                   # so money left in only adds breach exposure for ZERO
+                                   # upside. This is the FIXED default, not a knob tuned
+                                   # for survival; it stays parameterized only so the EV
+                                   # model can quantify the (rejected) less-aggressive
+                                   # alternatives for comparison.
+    mode: above_start              # withdraw ALL equity above the starting balance
+    buffer_usd: 0                  # leave no extra cushion — bank everything above start
+    bank_asap: true                # withdraw at the earliest allowed instant each window
+    cadence_days: 7                # every allowed window (first at
+                                   # payout.first_payout_after_days = 14, then weekly)

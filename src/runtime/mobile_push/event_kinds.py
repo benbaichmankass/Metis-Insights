@@ -108,6 +108,16 @@ SERVICE_DOWN: Final = "service_down"
 #: Future payload: ``symbol, side, strategy, confidence, pattern, price``.
 SIGNAL_EMITTED: Final = "signal_emitted"
 
+#: A Breakout prop-firm "trade setup" ticket — a paste-ready bracket-order
+#: instruction (entry band / SL / TP / size / validity) for the prop account.
+#: Payload: ``strategy, symbol, side, direction, entry, entry_min, entry_max,
+#: sl, tp, rr, qty, risk_usd, valid_until, text`` (``text`` carries the full
+#: rendered ticket for the notification body). Emitted by
+#: ``src.prop.breakout_notify.emit_prop_signal`` (Breakout POC). Kept distinct
+#: from the live ``trade_opened`` / ``trade_closed`` money events so the
+#: operator can route/silence it on its own Android channel.
+PROP_SIGNAL: Final = "prop_signal"
+
 
 #: Canonical list (insertion order = display order in the Android UI).
 #: The operator's four categories first, then the legacy / reserved
@@ -124,6 +134,7 @@ ALL_KINDS: Final[tuple[str, ...]] = (
     HEALTH_CONCERN,
     SERVICE_DOWN,
     SIGNAL_EMITTED,
+    PROP_SIGNAL,
 )
 
 #: Human-readable label for each kind. Used by the Android UI to render
@@ -142,6 +153,7 @@ LABELS: Final[dict[str, str]] = {
     HEALTH_CONCERN: "Health concern (legacy)",
     SERVICE_DOWN: "Service down (legacy)",
     SIGNAL_EMITTED: "Signal emitted",
+    PROP_SIGNAL: "Prop trade setup",
 }
 
 #: One-line description per kind for the Android subscription screen.
@@ -157,6 +169,7 @@ DESCRIPTIONS: Final[dict[str, str]] = {
     HEALTH_CONCERN: "Legacy — use Warning.",
     SERVICE_DOWN: "Legacy — use Warning.",
     SIGNAL_EMITTED: "Each ICT detection — fires once per buy/sell signal.",
+    PROP_SIGNAL: "Breakout prop-firm trade-setup tickets — entry/SL/TP to place.",
 }
 
 #: The subset of kinds whose payload semantics the bot already emits.
@@ -164,7 +177,7 @@ DESCRIPTIONS: Final[dict[str, str]] = {
 #: call site (e.g. someone refactors ``_fire_trade_closed_event`` away)
 #: is loud.
 IN_FLIGHT: Final[frozenset[str]] = frozenset(
-    {TRADE_OPENED, TRADE_UPDATED, TRADE_CLOSED, TELEGRAM, SIGNAL_EMITTED}
+    {TRADE_OPENED, TRADE_UPDATED, TRADE_CLOSED, TELEGRAM, SIGNAL_EMITTED, PROP_SIGNAL}
 )
 
 
@@ -190,6 +203,7 @@ __all__ = [
     "HEALTH_CONCERN",
     "SERVICE_DOWN",
     "SIGNAL_EMITTED",
+    "PROP_SIGNAL",
     "ALL_KINDS",
     "LABELS",
     "DESCRIPTIONS",
