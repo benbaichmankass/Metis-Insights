@@ -15,6 +15,7 @@ from pathlib import Path
 from src.runtime.order_monitor import (
     _adopt_orphan_position,
     _reattach_adopted_orphans,
+    _resolve_account_class,
 )
 from src.units.db.database import Database
 from tests.fixtures.real_schema_db import (
@@ -161,6 +162,109 @@ def test_self_heal_skips_unrecoverable_orphan(tmp_path: Path):
     assert _trade_row(db, tid)["strategy_name"] == "orphan_adopt"
     assert _trade_row(db, tid)["status"] == "open"
     assert summary.get("reattached_existing", 0) == 0
+
+
+# ---------------------------------------------------------------------------
+# WC-2: paper/real_money + order_package_id stamping at the adopt insert.
+# A PAPER adopted-orphan must not be mis-classified as real_money (the column
+# defaults — is_demo=0, account_class=NULL→real_money — leak it into real-money
+# PnL/stats); the recovered branch must also link the trade to its package via
+# the canonical trades.order_package_id.
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_account_class_canonical_coercion():
+    """Mirror execute.py: paper→paper, real_money→real_money, missing/invalid
+    →real_money, unknown account→real_money, lookup failure→real_money."""
+    cfgs = {
+        "p": {"account_class": "Paper"},          # case-insensitive
+        "r": {"account_class": "real_money"},
+        "blank": {"account_class": ""},            # falsy → real_money
+        "weird": {"account_class": "demo"},        # invalid → real_money
+        "none": {},                                # absent → real_money
+    }
+    assert _resolve_account_class("p", cfgs) == "paper"
+    assert _resolve_account_class("r", cfgs) == "real_money"
+    assert _resolve_account_class("blank", cfgs) == "real_money"
+    assert _resolve_account_class("weird", cfgs) == "real_money"
+    assert _resolve_account_class("none", cfgs) == "real_money"
+    assert _resolve_account_class("missing_account", cfgs) == "real_money"
+    # Best-effort: a malformed cfgs map never raises — falls back to real_money.
+    assert _resolve_account_class("p", cfgs={"p": "not-a-dict"}) == "real_money"
+
+
+def test_recovered_branch_paper_account_stamps_paper_and_links_package(tmp_path: Path):
+    """(a) recovered branch on a PAPER account (ib_paper, account_class:paper in
+    config/accounts.yaml) → account_class='paper', is_demo=1, and
+    order_package_id == the recovered package id."""
+    db = _db(tmp_path)
+    _insert_package(
+        db.db_path, order_package_id="op-mhg", strategy_name="mhg_pullback_1d",
+        symbol="MHG", direction="long", entry=6.40, sl=6.05, tp=7.03,
+        status="closed", created_at="2026-06-14T06:00:00Z",
+    )
+    tid = _adopt_orphan_position(
+        db=db, account_id="ib_paper", symbol="MHG", direction="long",
+        size=3.0, entry_price=6.40,
+    )
+    trade = _trade_row(db, tid)
+    assert trade["strategy_name"] == "mhg_pullback_1d"   # recovered branch
+    assert trade["account_class"] == "paper"
+    assert int(trade["is_demo"]) == 1
+    assert trade["order_package_id"] == "op-mhg"
+    # The existing re-link write-back is unchanged.
+    assert str(_pkg_row(db, "op-mhg")["linked_trade_id"]) == str(tid)
+
+
+def test_recovered_branch_real_money_account_stamps_real_and_links_package(tmp_path: Path):
+    """(b) recovered branch on a REAL_MONEY account (bybit_2, account_class:
+    real_money in config/accounts.yaml) → account_class='real_money',
+    is_demo=0, order_package_id set."""
+    db = _db(tmp_path)
+    _insert_package(
+        db.db_path, order_package_id="op-btc", strategy_name="trend_donchian",
+        symbol="BTCUSDT", direction="long", entry=80000.0, sl=79000.0, tp=82000.0,
+        status="closed", created_at="2026-06-14T06:00:00Z",
+    )
+    tid = _adopt_orphan_position(
+        db=db, account_id="bybit_2", symbol="BTCUSDT", direction="long",
+        size=0.01, entry_price=80050.0,
+    )
+    trade = _trade_row(db, tid)
+    assert trade["strategy_name"] == "trend_donchian"    # recovered branch
+    assert trade["account_class"] == "real_money"
+    assert int(trade["is_demo"]) == 0
+    assert trade["order_package_id"] == "op-btc"
+
+
+def test_bare_branch_stamps_account_class_with_null_order_package(tmp_path: Path):
+    """(c) bare branch (no recoverable package) → account_class stamped from the
+    account, is_demo consistent, order_package_id NULL (no package)."""
+    # PAPER account, no package recovered → bare orphan_adopt, paper-stamped.
+    db = _db(tmp_path)
+    tid = _adopt_orphan_position(
+        db=db, account_id="ib_paper", symbol="MHG", direction="long",
+        size=3.0, entry_price=6.40,
+    )
+    trade = _trade_row(db, tid)
+    assert trade["strategy_name"] == "orphan_adopt"      # bare branch
+    assert trade["account_class"] == "paper"
+    assert int(trade["is_demo"]) == 1
+    assert trade["order_package_id"] is None             # no package → NULL
+
+    # REAL_MONEY account, no package recovered → bare, real_money-stamped.
+    rm_dir = tmp_path / "rm"
+    rm_dir.mkdir()
+    db2 = _db(rm_dir)
+    tid2 = _adopt_orphan_position(
+        db=db2, account_id="bybit_2", symbol="BTCUSDT", direction="long",
+        size=0.01, entry_price=80050.0,
+    )
+    trade2 = _trade_row(db2, tid2)
+    assert trade2["strategy_name"] == "orphan_adopt"
+    assert trade2["account_class"] == "real_money"
+    assert int(trade2["is_demo"]) == 0
+    assert trade2["order_package_id"] is None
 
 
 def test_wrong_direction_does_not_match(tmp_path: Path):
