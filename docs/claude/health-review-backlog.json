@@ -1441,7 +1441,7 @@
       "resolution_note": null
     },
     {
-      "id": "BL-20260609-001",
+      "id": "BL-20260609-004",
       "opened_at": "2026-06-09T05:42:00+00:00",
       "opened_by": "claude (S9 yz monitoring session, doc-freshness)",
       "source": "Session-end observation: PR #3007 (branch claude/vibrant-babbage-9Wbls, head SHA e286c4ea) shows total_count=0 on get_status for 7+ hours after push. No check runs fired at all.",
@@ -1463,7 +1463,7 @@
       ]
     },
     {
-      "id": "BL-20260609-002",
+      "id": "BL-20260609-005",
       "opened_at": "2026-06-09T05:42:00+00:00",
       "opened_by": "claude (S9 yz monitoring session, doc-freshness)",
       "source": "Self-inflicted incident: vm-web-api-recover run 27150313822 (issue #3026) restarted a healthy ict-web-api.service, then the wrapper's 15-second post-restart health probe failed because cold-start exceeded 15 s, leaving the unit in unknown state and emitting a misleading 'unit did not return to a serving state' error.",

@@ -11,7 +11,8 @@ reasons on top of the base daily-loss / position-size / drawdown gates:
     positions through the close.
   - ``SKIP_WEEKEND_RESTRICTED`` — Sat/Sun UTC. Same rationale.
 
-Account state machine (config-driven, no live state writes in v1):
+Account state machine (config-driven; live state persists across
+trader restarts — see "State persistence" below):
   ``account_state == 'evaluation'``:
     - if profit_target_met AND min_active_days_met → SKIP (mission done).
     - else → allow (subject to base risk gates).
@@ -19,10 +20,21 @@ Account state machine (config-driven, no live state writes in v1):
     - identical to base RiskManager (subject to overnight / weekend
       restrictions if ``overnight_restricted`` is True).
 
-State inputs are seeded from the YAML ``prop_state:`` block on each
-``load_accounts()`` call. Persistence (write-through to a runtime
-state file on every ``record_trade_result``) is deferred to a follow-up
-PR — current contract is "operator updates the YAML between sessions".
+State persistence (two mechanisms, both live — the earlier "deferred to
+a follow-up PR / operator updates the YAML between sessions" note is
+obsolete):
+  - **Mission counters** (``cumulative_pnl_pct`` / ``active_days`` /
+    ``entry_date``) are seeded from the YAML ``prop_state:`` block on
+    each ``load_accounts()`` call, then the live
+    ``runtime_state/prop_state.json`` section (when present) overrides
+    that seed so progress survives a restart. ``record_trade_result``
+    writes the counters back atomically (see ``prop_state_io`` +
+    ``_persist_state``).
+  - **Base daily-loss / drawdown caps** persist separately via the
+    journal-sourced ``daily_risk_state`` self-healing rebuild, which is
+    active because ``__init__`` passes ``account_id=account_name`` to
+    the base ``RiskManager`` (BL-20260617-PROP-RISK-ACCOUNT-ID) — the
+    same path every regular account uses.
 """
 from __future__ import annotations
 
