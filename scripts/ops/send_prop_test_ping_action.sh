@@ -28,6 +28,25 @@ source "${SCRIPT_DIR}/_lib.sh"
 # the same environment the live trader emits prop signals under.
 load_runtime_env
 
+# load_runtime_env's whitelist covers only data-path keys (DATA_DIR, …), NOT
+# the comms creds the trader uses for Telegram/FCM — so without this the ping
+# subprocess can't actually deliver (the legs no-op as "credentials missing").
+# Export exactly the keys emit_prop_signal needs, read straight from the VM
+# .env the trader already runs under. Token routing: prop bot → claude bot →
+# default trader bot; destination is TELEGRAM_CHAT_ID; FCM = the service
+# account for Android. Values are never echoed/logged (no `set -x`, no print).
+COMMS_KEYS="TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID TELEGRAM_PROP_BOT_TOKEN TELEGRAM_CLAUDE_BOT_TOKEN FCM_SERVICE_ACCOUNT_JSON_PATH FCM_SERVICE_ACCOUNT_JSON FCM_PROJECT_ID"
+if [ -f "${REPO_DIR}/.env" ]; then
+    for ckey in ${COMMS_KEYS}; do
+        cval="$(grep -E "^${ckey}=" "${REPO_DIR}/.env" | tail -n1 | cut -d= -f2-)" || true
+        if [ -n "${cval}" ]; then
+            cval="${cval%\"}"; cval="${cval#\"}"
+            cval="${cval%\'}"; cval="${cval#\'}"
+            export "${ckey}=${cval}"
+        fi
+    done
+fi
+
 TEST_PING="${REPO_DIR}/scripts/prop/send_test_ping.py"
 SYMBOL="${ACTION_SYMBOL:-SOLUSDT}"
 STRATEGY="${ACTION_STRATEGY:-trend_donchian_sol}"

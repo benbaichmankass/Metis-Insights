@@ -93,6 +93,26 @@ def main() -> int:
     def _emitter(ticket):
         return emit_prop_signal(ticket, push=not args.no_push, telegram=not args.no_telegram)
 
+    import os
+
+    # Presence-only (never the values) so the action log shows whether delivery
+    # could actually happen — emit_prop_signal's own legs return True even when
+    # they no-op on missing creds, so these booleans are the real signal.
+    telegram_token_present = bool(
+        os.environ.get("TELEGRAM_PROP_BOT_TOKEN")
+        or os.environ.get("TELEGRAM_CLAUDE_BOT_TOKEN")
+        or os.environ.get("TELEGRAM_BOT_TOKEN")
+    )
+    creds = {
+        "telegram_token": telegram_token_present,
+        "telegram_chat_id": bool(os.environ.get("TELEGRAM_CHAT_ID")),
+        "fcm": bool(
+            os.environ.get("FCM_SERVICE_ACCOUNT_JSON_PATH")
+            or os.environ.get("FCM_SERVICE_ACCOUNT_JSON")
+        ),
+    }
+    telegram_deliverable = creds["telegram_token"] and creds["telegram_chat_id"]
+
     try:
         trade_id = emit_prop_ticket(order, account_cfg, timeframe=args.timeframe, _emitter=_emitter)
     except Exception as exc:  # noqa: BLE001
@@ -108,9 +128,23 @@ def main() -> int:
         "tp": order["tp"],
         "trade_id": trade_id,
         "manual_fill_marker": is_manual_fill_id(trade_id),
-        "note": "TEST ping only — nothing journaled, no exchange socket opened.",
+        "creds_present": creds,
+        "telegram_deliverable": telegram_deliverable,
+        "note": (
+            "TEST ping only — nothing journaled, no exchange socket opened. "
+            "If telegram_deliverable is false, the ticket built fine but no "
+            "message was sent (missing token/chat-id in the action env)."
+        ),
     }
     print(json.dumps(result, indent=2))
+    # Surface a non-fatal warning line so the action log flags an undeliverable
+    # ping without failing the action (the trade-flow logic still succeeded).
+    if not telegram_deliverable:
+        print(
+            "WARNING: telegram not deliverable (token/chat-id absent) — the "
+            "ticket was built but not sent.",
+            file=sys.stderr,
+        )
     return 0
 
 
