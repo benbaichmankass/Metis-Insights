@@ -154,6 +154,7 @@ def test_run_checks_strategies_match_roster():
         "xauusd_trend_1h", "mgc_trend_1h",
         "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
         "eth_pullback_2h",
+        "trend_donchian_sol", "trend_donchian_eth",
     }
 
 
