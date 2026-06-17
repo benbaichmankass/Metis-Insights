@@ -1230,17 +1230,27 @@ class Coordinator:
                     try:
                         from src.units.accounts.execute import (
                             _fetch_linear_available_balance,
+                            _fetch_linear_total_equity,
                         )
                         available_usd = _fetch_linear_available_balance(client)
+                        # S-052: total cross-margin equity is the correct
+                        # equity basis for the min-balance gate, daily-loss
+                        # budget, and margin buffer fallback on a Bybit
+                        # UNIFIED account (the position is backed by total
+                        # equity, not just the free wallet balance). Best-
+                        # effort — None leaves the sizer on the current
+                        # free-balance behaviour (no regression).
+                        total_account_usd = _fetch_linear_total_equity(client)
                         logger.debug(
-                            "multi_account_execute: linear available-balance "
-                            "account=%s available_usd=%s",
+                            "multi_account_execute: linear balances "
+                            "account=%s available_usd=%s total_account_usd=%s",
                             account.name,
                             f"{available_usd:.4f}" if available_usd is not None else "n/a",
+                            f"{total_account_usd:.4f}" if total_account_usd is not None else "n/a",
                         )
                     except Exception as _lin_exc:  # noqa: BLE001
                         logger.warning(
-                            "multi_account_execute: linear available-balance "
+                            "multi_account_execute: linear balance "
                             "fetch failed for %s: %s — sizer falls back to buffer",
                             account.name, _lin_exc,
                         )
