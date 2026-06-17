@@ -3,14 +3,14 @@
 Investigation of four loose ends carried from the 2026-06-08 S9 yz monitoring
 session, ahead of the operator's ~2026-06-12 promotion review of the three
 range-vol (Yang-Zhang) BTC regime heads. Resolves/updates backlog items
-`MB-20260609-001`, `MB-20260609-002`, `BL-20260609-001`, `BL-20260609-003`.
+`MB-20260609-001`, `MB-20260609-002`, `BL-20260609-004`, `BL-20260609-003`.
 
 Live/eval state pulled via the diag relays (trainer-vm-diag issue #3046; CI
 state via the GitHub Actions API). All three heads are at stage `shadow`.
 
 ---
 
-## 1. PR #3007 — CI never triggered after the 2nd push (BL-20260609-001)
+## 1. PR #3007 — CI never triggered after the 2nd push (BL-20260609-004; was BL-20260609-001, renumbered 2026-06-17 to clear an id collision with the live-VM CPU-saturation incident)
 
 **Not a CI bug. Root cause: a merge conflict left the PR `dirty`, which blocks
 GitHub from building the merge ref, so the second push never triggered the
