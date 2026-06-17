@@ -698,10 +698,13 @@ strategies:
     # (pre-swap realised +$2,150; 15% swap drag; funded 12-mo EV +$1,693 @1.5%
     # risk, 94% P(net>0); 4/4 OOS folds positive). The strongest alt candidate.
     #
-    # DIRECTION NOTE: the BTC flagship is long_only (a BTC regime decision); this
-    # variant is intentionally BOTH-SIDES to match exactly what the gate
-    # validated (scripts/backtest_system.py does not apply long_only). A
-    # long-only A/B re-validation is the recommended refinement before sizing up.
+    # DIRECTION NOTE: LONG-ONLY (operator-approved 2026-06-16), matching the BTC
+    # flagship's directional discipline. The Breakout daily-swap long-only A/B
+    # (runtime_logs/prop_eval/2026-06-17-validate-real/breakout-swap-longonly/)
+    # showed SOL's edge HOLDS long-only — pre-swap +$1,325 → post +$1,158; funded
+    # 12-mo EV +$1,131 @1.5% (86% P>0); 4/4 OOS folds positive, with cleaner
+    # per-fold dispersion than both-sides. The live builder
+    # (_trend_donchian_variant_builder) honours this flag and suppresses shorts.
     model: null
     signal_prefixes: [trend_donchian_sol, donchian_sol]
     enabled: true
@@ -710,6 +713,7 @@ strategies:
     risk_pct: 1.0            # multiplier; the prop account carries the 1.5%
                              # validated per-trade sizing (config/accounts.yaml).
     timeframe: "1h"          # the validated trend_donchian config (1h).
+    long_only: true          # suppress shorts — SOL's edge holds long-only (A/B).
     symbols:
       - SOLUSDT
     donchian: 20
@@ -727,8 +731,11 @@ strategies:
     # Breakout daily swap eats 57% of the realised gross (pre +$671 → post
     # +$285); funded 12-mo EV +$1,050 @1.5% (92% P>0), 4/4 OOS folds positive,
     # but +EV only materialises at risk ≥1.0%. Thin edge → SHADOW first (data
-    # collection on the real prop feed) before any live ticket emission. Same
-    # both-sides direction note as trend_donchian_sol.
+    # collection on the real prop feed) before any live ticket emission.
+    # DIRECTION NOTE: intentionally BOTH-SIDES (no long_only) — unlike SOL, ETH's
+    # edge is short-side-dependent: the long-only A/B FLIPPED it negative
+    # (pre +$23 → post −$181; EV@1.5% +$415/66%, only 3/4 folds, fold-1 −$166),
+    # so the short side carries the edge here. Keep two-sided.
     model: null
     signal_prefixes: [trend_donchian_eth, donchian_eth]
     enabled: true
