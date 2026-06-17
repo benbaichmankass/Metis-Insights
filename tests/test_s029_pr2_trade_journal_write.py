@@ -198,3 +198,73 @@ class TestNoWriteOnAlternatePaths:
             except Exception:
                 pass
             journal_stub.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# WC-2: the smoke-journal insert must stamp account_class / is_demo so a smoke
+# row on a PAPER account is not mis-classified as real_money (column defaults
+# is_demo=0, account_class=NULL→real_money would otherwise leak it into
+# real-money stats). No order package → no order_package_id.
+# ---------------------------------------------------------------------------
+
+
+def _smoke_trade_row(db_path):
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    try:
+        r = conn.execute(
+            "SELECT * FROM trades WHERE strategy_name = 'smoke_test' "
+            "ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        return dict(r) if r is not None else None
+    finally:
+        conn.close()
+
+
+def test_smoke_journal_stamps_paper_account_class(tmp_path):
+    """ib_paper is account_class:paper in config/accounts.yaml → the smoke row
+    is stamped paper / is_demo=1, with no order_package_id."""
+    from src.core.coordinator import _log_smoke_to_journal
+    from tests.fixtures.real_schema_db import make_canonical_db
+
+    db_path = tmp_path / "trade_journal.db"
+    make_canonical_db(db_path)
+
+    pkg = OrderPackage(
+        strategy="smoke", symbol="MHG", direction="long",
+        entry=6.40, sl=6.05, tp=7.03, confidence=0.5,
+        meta={"test_qty": 1.0, "smoke_id": "smoke-paper"},
+    )
+    result = {"account_id": "ib_paper", "trade_id": "tx-p",
+              "status": "dry_run", "reason": "ok"}
+    assert _log_smoke_to_journal(pkg, result, db_path=str(db_path)) is True
+
+    row = _smoke_trade_row(db_path)
+    assert row is not None
+    assert row["account_class"] == "paper"
+    assert int(row["is_demo"]) == 1
+    assert row["order_package_id"] is None
+
+
+def test_smoke_journal_stamps_real_money_account_class(tmp_path):
+    """bybit_2 is account_class:real_money → real_money / is_demo=0."""
+    from src.core.coordinator import _log_smoke_to_journal
+    from tests.fixtures.real_schema_db import make_canonical_db
+
+    db_path = tmp_path / "trade_journal.db"
+    make_canonical_db(db_path)
+
+    pkg = OrderPackage(
+        strategy="smoke", symbol="BTCUSDT", direction="long",
+        entry=80_000.0, sl=79_000.0, tp=82_000.0, confidence=0.5,
+        meta={"test_qty": 0.001, "smoke_id": "smoke-real"},
+    )
+    result = {"account_id": "bybit_2", "trade_id": "tx-r",
+              "status": "dry_run", "reason": "ok"}
+    assert _log_smoke_to_journal(pkg, result, db_path=str(db_path)) is True
+
+    row = _smoke_trade_row(db_path)
+    assert row is not None
+    assert row["account_class"] == "real_money"
+    assert int(row["is_demo"]) == 0
+    assert row["order_package_id"] is None
