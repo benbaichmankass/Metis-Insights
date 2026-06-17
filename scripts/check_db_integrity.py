@@ -8,7 +8,7 @@
 > backlog (informational — un-backfilled old rows the P1-E pass clears,
 > NOT an alert).
 
-This implements the INV-1..5 integrity invariants from
+This implements the INV-1..6 integrity invariants from
 ``docs/audits/dashboard-truth-and-persistence-2026-06-16.md`` § "Integrity
 invariants (Phase-4 guardrail)". Each invariant is computed over a
 configurable RECENT window (default 48h, keyed on
@@ -44,6 +44,10 @@ Invariants
   (``trades.order_package_id`` is a different package id, i.e. a concrete
   mismatch — NULL back-refs are the documented many-to-one design and are
   NOT flagged).
+- **INV-6**  ``status='closed'`` with a non-ISO ``closed_at`` (non-backtest):
+  the column holds a bare epoch-ms / epoch-seconds string instead of ISO-8601
+  (``closed_at NOT LIKE '%-%'``). The guardrail INV-1 (NULL-only) can't give —
+  the value is non-null yet corrupts ``COALESCE(closed_at, …)`` windowing.
 
 Output
 ------
@@ -199,7 +203,7 @@ def run_checks(
     pnl_grace_hours: float = DEFAULT_PNL_GRACE_HOURS,
     now: Optional[datetime] = None,
 ) -> Dict[str, Any]:
-    """Run all five integrity invariants and assemble the report dict.
+    """Run all six integrity invariants and assemble the report dict.
 
     Pure read path. ``now`` is injectable for deterministic tests.
     """
@@ -296,6 +300,15 @@ def run_checks(
             )
         )
 
+        # INV-6 — closed row whose closed_at column is a non-ISO (epoch-ms)
+        # string. Custom check (own recency basis) — see _inv6_check.
+        checks.append(
+            _inv6_check(
+                conn,
+                since_iso=since_iso,
+            )
+        )
+
         any_alert = any(c["alert"] for c in checks)
         return {
             "generated_at": _iso(now),
@@ -380,6 +393,64 @@ def _inv5_check(conn: sqlite3.Connection, *, since_iso: str) -> Dict[str, Any]:
     return {
         "id": "INV-5",
         "title": "terminal order_package whose linked_trade_id disagrees with the trade back-ref",
+        "recent_count": recent_count,
+        "total_count": total_count,
+        "sample_ids": recent_sample if recent_count else total_sample,
+        "alert": recent_count > 0,
+    }
+
+
+# INV-6 recency basis deliberately EXCLUDES closed_at: an INV-6 row's closed_at
+# IS the corrupt (epoch-ms) value, so COALESCEing on it (as _WINDOW_TS does)
+# would push the row out of every ISO window and silently suppress the alert —
+# exactly the failure mode that let trade #2631 evade INV-1. created_at /
+# timestamp are reliable ISO, so they drive recency here.
+_INV6_WINDOW_TS = "COALESCE(t.created_at, t.timestamp)"
+
+
+def _inv6_check(conn: sqlite3.Connection, *, since_iso: str) -> Dict[str, Any]:
+    """INV-6: closed trade whose ``closed_at`` COLUMN is non-ISO (epoch-ms leak).
+
+    The canonical ``closed_at`` column is ISO-8601 and therefore always
+    contains a ``'-'`` (the date separators). A bare epoch-ms / epoch-seconds
+    string (e.g. ``'1781693762762'``) has none, so ``closed_at NOT LIKE '%-%'``
+    flags the leak (BL-20260617-CLOSEDAT-EPOCH-LEAK — the Bybit reconciler
+    close path stamping ``updatedTime`` straight into the column). This is the
+    guardrail INV-1 (NULL-only) could not provide: the value is non-null yet
+    corrupts every ``COALESCE(closed_at, …)`` date-window query.
+    """
+    base_where = (
+        f"{_NON_BACKTEST} AND t.status = 'closed' "
+        "AND t.closed_at IS NOT NULL "
+        "AND t.closed_at NOT LIKE '%-%'"
+    )
+
+    def _cas(where: str, params: List[Any]) -> tuple[int, List[Any]]:
+        n = int(
+            conn.execute(
+                f"SELECT COUNT(*) AS n FROM trades t WHERE {where}",  # noqa: S608 — static where, bound params
+                params,
+            ).fetchone()["n"]
+        )
+        sample: List[Any] = []
+        if n:
+            sample = [
+                r["id"]
+                for r in conn.execute(
+                    f"SELECT t.id AS id FROM trades t WHERE {where} "  # noqa: S608
+                    f"ORDER BY {_INV6_WINDOW_TS} DESC LIMIT {_SAMPLE_LIMIT}",
+                    params,
+                ).fetchall()
+            ]
+        return n, sample
+
+    recent_count, recent_sample = _cas(
+        f"({base_where}) AND {_INV6_WINDOW_TS} >= ?", [since_iso]
+    )
+    total_count, total_sample = _cas(base_where, [])
+    return {
+        "id": "INV-6",
+        "title": "closed trade with non-ISO closed_at (epoch-ms leak)",
         "recent_count": recent_count,
         "total_count": total_count,
         "sample_ids": recent_sample if recent_count else total_sample,

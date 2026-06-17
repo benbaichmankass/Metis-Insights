@@ -435,9 +435,12 @@ class TestDemoWideFallback:
     ``avgEntryPrice``, so the live-money entry-price disambiguator
     (#1411) over-filters every record and strands the realised PnL as
     NULL (5/5 demo ``htf_pullback`` closes in the 2026-06-08 window).
-    The wide fallback re-filters on side alone and takes the most
-    recent close — but ONLY when the flag is set (demo). Live accounts
-    keep the strict NULL-on-no-match contract.
+    The wide fallback re-filters on side + open-time and takes the
+    EARLIEST close at/after the trade's open (the #1419 ordering) — but
+    ONLY when the flag is set (demo). Live accounts keep the strict
+    NULL-on-no-match contract. (BL-20260617-DEMOPNL: the original
+    most-recent pick collapsed consecutive demo trades onto a single
+    later close — #2618/#2621/#2623 all got closedPnl=-767.21917054.)
     """
 
     def _zeroed_entry_records(self):
@@ -464,9 +467,11 @@ class TestDemoWideFallback:
         )
         assert rec is None
 
-    def test_wide_fallback_recovers_most_recent(self):
-        """With the flag set (demo), the same records resolve to the
-        most-recent side-matching close."""
+    def test_wide_fallback_recovers_earliest_after_open(self):
+        """With the flag set (demo), two side-matching closes both AFTER the
+        trade's open resolve to the EARLIEST (the #1419 ordering), not the
+        most-recent — that most-recent pick is BL-20260617-DEMOPNL's
+        consecutive-trade collapse."""
         client = _make_client(self._zeroed_entry_records())
         rec = _bybit_closed_pnl_lookup(
             client, category="linear", symbol="BTCUSDT", side="Sell",
@@ -476,8 +481,8 @@ class TestDemoWideFallback:
             allow_wide_fallback=True,
         )
         assert rec is not None
-        assert abs(float(rec["closedPnl"]) - (-5.00)) < 1e-6  # most recent
-        assert int(rec["updatedTime"]) == 1780777459294
+        assert abs(float(rec["closedPnl"]) - (-3.20)) < 1e-6  # earliest after open
+        assert int(rec["updatedTime"]) == 1780777000000
 
     def test_wide_fallback_still_respects_side(self):
         """The wide fallback drops qty/entry/open filters but KEEPS the
@@ -564,3 +569,77 @@ class TestReduceLegLookup:
         )
         assert rec is not None
         assert abs(float(rec["closedPnl"]) - 2.0988) < 1e-4
+
+
+class TestDemoWideFallbackPartition:
+    """BL-20260617-DEMOPNL: the demo wide fallback must partition by open-time
+    so one Bybit close record can't be claimed by every demo trade in the
+    window. Live evidence was trades #2618/#2621/#2623 all collapsing onto a
+    single record (closedPnl=-767.21917054), #2623 even reading entry==exit.
+
+    These records carry a zeroed avgEntryPrice (the demo venue's placeholder),
+    so the strict entry-price discriminator misses and the WIDE fallback runs.
+    """
+
+    @staticmethod
+    def _rec_demo(*, exit_, pnl, updated):
+        return _rec(side="buy", qty=0.001, entry=0, exit_=exit_, pnl=pnl,
+                    updated=updated)
+
+    def test_close_before_open_not_matched(self):
+        """A close that happened BEFORE the trade opened cannot be its close —
+        the exact pre-fix defect (a later-opened trade claiming an earlier
+        record)."""
+        client = _make_client([self._rec_demo(exit_=66066.9, pnl=-767.22,
+                                              updated=1000)])
+        rec = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="buy",
+            start_ts_ms=0, end_ts_ms=10_000,
+            entry_price_target=66000.0,   # forces strict miss (rec entry=0)
+            opened_at_ms=5000,            # trade opened AFTER the close
+            allow_wide_fallback=True,
+        )
+        assert rec is None
+
+    def test_close_after_open_is_matched(self):
+        client = _make_client([self._rec_demo(exit_=66066.9, pnl=-767.22,
+                                              updated=5000)])
+        rec = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="buy",
+            start_ts_ms=0, end_ts_ms=10_000,
+            entry_price_target=66000.0,
+            opened_at_ms=500,             # trade opened BEFORE the close
+            allow_wide_fallback=True,
+        )
+        assert rec is not None
+        assert abs(float(rec["closedPnl"]) - (-767.22)) < 1e-6
+
+    def test_earliest_close_after_open_selected(self):
+        """Two qualifying closes → the EARLIEST after open binds, not the
+        most-recent (the old reverse sort, which collapsed consecutive
+        trades onto a single later close)."""
+        client = _make_client([
+            self._rec_demo(exit_=66066.9, pnl=-767.22, updated=1000),
+            self._rec_demo(exit_=66100.0, pnl=10.0, updated=5000),
+        ])
+        rec = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="buy",
+            start_ts_ms=0, end_ts_ms=10_000,
+            entry_price_target=66000.0, opened_at_ms=500,
+            allow_wide_fallback=True,
+        )
+        assert rec is not None
+        assert rec["updatedTime"] == "1000"   # earliest, not 5000
+
+    def test_live_never_takes_wide_fallback(self):
+        """allow_wide_fallback=False (real money) keeps the strict
+        NULL-on-no-match contract — the partition fix never weakens it."""
+        client = _make_client([self._rec_demo(exit_=66066.9, pnl=-767.22,
+                                              updated=1000)])
+        rec = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="buy",
+            start_ts_ms=0, end_ts_ms=10_000,
+            entry_price_target=66000.0, opened_at_ms=500,
+            allow_wide_fallback=False,
+        )
+        assert rec is None

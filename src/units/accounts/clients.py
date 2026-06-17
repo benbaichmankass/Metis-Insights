@@ -476,10 +476,25 @@ def _bybit_closed_pnl_lookup(
             rec_side = str(rec.get("side") or "").lower()
             if side_str and rec_side and rec_side != side_str:
                 continue
+            # BL-20260617-DEMOPNL: even the wide demo fallback MUST partition
+            # by open-time. Without it, every demo trade in the window whose
+            # strict lookup missed resolves to the SAME most-recent record —
+            # one closedPnl/avgExitPrice copied onto unrelated trades (live:
+            # trades #2618/#2621/#2623 all carried closedPnl=-767.21917054 from
+            # a single record, with #2623 reading entry==exit). A close cannot
+            # precede the open of the position it closes; the 2 s slack mirrors
+            # the strict path above.
+            if opened_at_ms is not None:
+                rec_ts = _ts(rec)
+                if rec_ts and rec_ts + 2_000 < int(opened_at_ms):
+                    continue
             candidates.append(rec)
         if not candidates:
             return None
-        candidates.sort(key=_ts, reverse=True)
+        # Earliest qualifying close is the one bound to THIS trade's open (the
+        # #1419 ordering). The old most-recent (reverse) sort is exactly what
+        # re-collapsed consecutive demo trades onto a single later close.
+        candidates.sort(key=_ts)
         return candidates[0]
 
     if (entry_price_target is not None and entry_price_target > 0

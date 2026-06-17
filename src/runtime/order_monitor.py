@@ -1630,6 +1630,44 @@ def _isoformat_to_ms(value: Any) -> Optional[int]:
     return int(dt.timestamp() * 1000)
 
 
+def _normalize_closed_at_iso(value: Any) -> Optional[str]:
+    """Normalise a recovered ``closed_at`` value to canonical ISO-8601.
+
+    Bybit's closed-pnl record carries ``closed_at`` as ``updatedTime`` — an
+    epoch-MILLISECOND string (e.g. ``"1781693762762"``). The
+    ``trades.closed_at`` COLUMN is canonical ISO-8601, so the raw ms must be
+    converted before it touches the column (BL-20260617-CLOSEDAT-EPOCH-LEAK:
+    trade #2631 leaked ``"1781693762762"`` straight into the column, evading
+    INV-1's non-null check yet corrupting every ``COALESCE(closed_at, …)``
+    date-window query). Already-ISO values pass through unchanged; epoch ms
+    (13 digits) and epoch seconds (10 digits) are both handled. ``None`` when
+    the value is missing or unparseable, so the caller can fall back to
+    ``datetime.now()``.
+    """
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    # Already ISO / SQLite-timestamp → keep it.
+    dt = _parse_created_at(s)
+    if dt is not None:
+        return dt.isoformat()
+    # Epoch fallback: Bybit ms (>= 1e12) or seconds (>= 1e9).
+    try:
+        num = float(s)
+    except (TypeError, ValueError):
+        return None
+    if num <= 0:
+        return None
+    if num >= 1_000_000_000_000:  # milliseconds
+        num /= 1000.0
+    try:
+        return datetime.fromtimestamp(num, tz=timezone.utc).isoformat()
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
 def _safe_float(value: Any) -> Optional[float]:
     """Best-effort coerce to float. ``None`` on failure or NaN.
 
@@ -3973,10 +4011,12 @@ def _close_trade_from_order_status(
     if closed_pnl_rec is not None and closed_pnl_rec.get("avg_exit_price"):
         # Real close fill recovered.
         avg_exit_price = float(closed_pnl_rec["avg_exit_price"])
+        # BL-20260617-CLOSEDAT-EPOCH-LEAK: closed_pnl_rec["closed_at"] is Bybit
+        # updatedTime (epoch-ms STRING). The trades.closed_at COLUMN is
+        # canonical ISO-8601 — normalise before it (and notes) are written.
         closed_at = (
-            str(closed_pnl_rec.get("closed_at"))
-            if closed_pnl_rec.get("closed_at")
-            else datetime.now(timezone.utc).isoformat()
+            _normalize_closed_at_iso(closed_pnl_rec.get("closed_at"))
+            or datetime.now(timezone.utc).isoformat()
         )
         notes.update({
             "closed_at": closed_at,

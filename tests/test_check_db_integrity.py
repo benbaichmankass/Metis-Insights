@@ -469,3 +469,56 @@ def test_build_alert_message_only_lists_alerts(real_schema_db):
     assert "INV-4" in msg
     # Non-alerting checks not enumerated.
     assert "INV-1:" not in msg
+
+
+# ---------------------------------------------------------------------------
+# INV-6 — non-ISO (epoch-ms) closed_at leak (BL-20260617-CLOSEDAT-EPOCH-LEAK)
+# ---------------------------------------------------------------------------
+
+
+def test_inv6_non_iso_closed_at_alerts(real_schema_db):
+    db = real_schema_db()
+    # Recent leak: closed_at is a bare epoch-ms string (the Bybit reconciler
+    # leak). created_at/timestamp stay ISO so the row still registers recent
+    # despite the corrupt closed_at (which the standard window basis would
+    # otherwise drop — the whole reason INV-6 uses its own recency basis).
+    insert_trade(
+        db, is_backtest=0, status="closed", account_class="paper",
+        symbol="BTCUSDT", direction="long", entry_price=66000.0,
+        position_size=0.001, pnl=-1.0,
+        closed_at="1781693762762",
+        created_at=_recent_ts(), timestamp=_recent_ts(),
+    )
+    # Legacy leak: counts in total, not recent.
+    insert_trade(
+        db, is_backtest=0, status="closed", account_class="paper",
+        symbol="BTCUSDT", direction="long", entry_price=66000.0,
+        position_size=0.001, pnl=-1.0,
+        closed_at="1779000000000",
+        created_at=_legacy_ts(), timestamp=_legacy_ts(),
+    )
+    # Clean ISO closed_at — must NOT be flagged.
+    insert_trade(
+        db, is_backtest=0, status="closed", account_class="paper",
+        symbol="BTCUSDT", direction="long", entry_price=66000.0,
+        position_size=0.001, pnl=2.0,
+        closed_at=_recent_ts(), created_at=_recent_ts(), timestamp=_recent_ts(),
+    )
+    inv6 = _check(_run(db), "INV-6")
+    assert inv6["recent_count"] == 1
+    assert inv6["total_count"] == 2
+    assert inv6["alert"] is True
+
+
+def test_inv6_clean_when_all_iso(real_schema_db):
+    db = real_schema_db()
+    insert_trade(
+        db, is_backtest=0, status="closed", account_class="paper",
+        symbol="BTCUSDT", direction="long", entry_price=66000.0,
+        position_size=0.001, pnl=2.0,
+        closed_at=_recent_ts(), created_at=_recent_ts(), timestamp=_recent_ts(),
+    )
+    inv6 = _check(_run(db), "INV-6")
+    assert inv6["recent_count"] == 0
+    assert inv6["total_count"] == 0
+    assert inv6["alert"] is False
