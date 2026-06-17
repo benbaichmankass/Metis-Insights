@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260617-MHGN6-CANDLEROUTE",
+      "opened_at": "2026-06-17T10:40:00+00:00",
+      "opened_by": "claude (noticed during #3848 pull-and-deploy)",
+      "source": "Observed in the live-VM deploy log during the 2026-06-16 #3844 pull-and-deploy (and again in passing this session): a candle/market fetch raised 'bybit does not have market symbol MHGN6'. MHGN6 is the IBKR contract-month-qualified symbol for MHG (micro copper, June-2026 expiry). The fetch was routed to Bybit, which has no such market.",
+      "title": "Candle/market fetch for IBKR contract-month symbols (e.g. MHGN6) misroutes to Bybit — connector_for_symbol profile lookup is keyed by root, not the contract-qualified symbol",
+      "description": "src/runtime/market_data.py::connector_for_symbol looks up the instrument profile by EXACT symbol (load_instrument_profiles().get(symbol)). config/instruments.yaml keys metals/index futures by ROOT (MHG/MES/MGC), so a contract-month-qualified symbol like 'MHGN6' misses the profile, exchange stays None, and it falls back to the process default EXCHANGE (bybit) → 'bybit does not have market symbol MHGN6'. The qualified symbol most likely enters the fetch path via an adopted-orphan IB position / order-monitor mark-price lookup (the reverse_reconciler adopts IB positions under their contract-qualified symbol, cf. trade #2540's MHGN6 in BL-20260612-001). Best-effort path (fetch_candles logs + returns None), so no crash — but it means no candle/mark data for that position and a noisy error per attempt. FIX (Tier-1/2): in connector_for_symbol, when the exact-symbol profile lookup misses, fall back to a futures-root normalization (strip the contract-month suffix, e.g. MHGN6→MHG) before defaulting to the process EXCHANGE — mirror the base-futures-root resolution already used in order_monitor._resolve_protective_levels / positions symbol-or-base-futures-root matching. Verify MHGN6/MESM6/etc. route to IBKR.",
+      "tier": 1,
+      "trigger_condition": "Next /health-review, or when touching market_data symbol routing / instrument profiles.",
+      "resolution_criteria": "connector_for_symbol routes a contract-month-qualified futures symbol (MHGN6, MESM6, MGCQ6, …) to its root's exchange (IBKR), not the bybit default; no 'bybit does not have market symbol <root><month>' errors in the live log.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260617-GATE-MIGRATION",
       "opened_at": "2026-06-17T09:30:00+00:00",
       "opened_by": "claude (operator-flagged: noncompliant gates)",
