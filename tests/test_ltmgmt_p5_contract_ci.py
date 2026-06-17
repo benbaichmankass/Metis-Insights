@@ -31,6 +31,10 @@ import pytest
 from src.units.accounts import clients
 from src.units.accounts.integrator import EXCHANGE_MAP
 from src.runtime.strategy_verdict import validate_verdict
+from src.runtime.exit_plan import (
+    build_exit_plan_from_legacy,
+    validate_exit_plan,
+)
 
 pytest.importorskip("pandas")
 import pandas as pd  # noqa: E402
@@ -209,3 +213,67 @@ def test_validate_verdict_is_importable_and_pure():
                     {"action": "close", "reason": "ok"}, {"sl": 100.0}):
         ok, reason = validate_verdict(hostile)
         assert isinstance(ok, bool) and isinstance(reason, str)
+
+
+# ---------------------------------------------------------------------------
+# (c) Strategy side — every strategy yields a schema-valid ExitPlan
+#     (explicit module-level exit_plan() OR the legacy derivation)
+# ---------------------------------------------------------------------------
+
+
+def test_every_strategy_yields_a_schema_valid_exit_plan():
+    """Dynamic-take-profit consistency (P1): every registered strategy must
+    either expose a schema-valid ``exit_plan()`` or produce a valid plan via
+    ``build_exit_plan_from_legacy`` on a representative package — so the
+    materializer (P2+) always has a valid plan to rest, by construction. A
+    strategy whose explicit ``exit_plan()`` returns a malformed plan fails CI.
+    """
+    bad = []
+    for strategy_name in _all_registered_strategies():
+        module_name = monitor_unit_for(strategy_name)
+        try:
+            mod = importlib.import_module(f"src.units.strategies.{module_name}")
+        except Exception:  # noqa: BLE001 — resolution covered by the sibling guard
+            continue
+        # Representative package (entry=100, long, distinct TP1/TP2 so the
+        # ladder branch of the legacy derivation is exercised).
+        pkg = _open_pkg("long", entry=100.0, sl=95.0, tp=110.0)
+        pkg["strategy_name"] = strategy_name
+        pkg["meta"] = {"tp2": 120.0, "timeframe": "1h"}
+        candles = _candles(108.0, start=100.0)
+
+        explicit = getattr(mod, "exit_plan", None)
+        plan = None
+        if callable(explicit):
+            try:
+                plan = explicit({}, candles, pkg)
+            except Exception:  # noqa: BLE001
+                # A raise on synthetic input is tolerated (the build path wraps
+                # it); the legacy derivation below is the always-available floor.
+                plan = None
+            if plan is not None:
+                ok, reason = validate_exit_plan(plan)
+                if not ok:
+                    bad.append(f"{strategy_name} exit_plan(): invalid plan {plan!r}: {reason}")
+                    continue
+        if plan is None:
+            derived = build_exit_plan_from_legacy(pkg, {})
+            ok, reason = validate_exit_plan(derived)
+            if not ok:
+                bad.append(
+                    f"{strategy_name} derived plan invalid {derived!r}: {reason}"
+                )
+    assert not bad, (
+        "Strategy ExitPlan contract violated (src/runtime/exit_plan.py): "
+        + "; ".join(bad)
+    )
+
+
+def test_validate_exit_plan_is_importable_and_pure():
+    """The ExitPlan validator stays pure + non-raising on hostile input."""
+    for hostile in (None, {}, 42, "x", {"version": 1},
+                    {"version": 1, "rungs": [], "final": {"kind": "fixed", "price": -1},
+                     "stop": {"price": 1}}):
+        ok, reason = validate_exit_plan(hostile)
+        assert isinstance(ok, bool) and isinstance(reason, str)
+        assert ok is False  # none of these are valid plans

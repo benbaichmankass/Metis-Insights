@@ -162,6 +162,32 @@ def _migrate_add_order_package_model_scores(cursor: sqlite3.Cursor) -> bool:
     return True
 
 
+def _migrate_add_order_package_exit_plan(cursor: sqlite3.Cursor) -> bool:
+    """Add ``exit_plan`` + ``exit_plan_state`` columns to ``order_packages``.
+
+    ``exit_plan`` is the strategy-declared (or legacy-derived) ExitPlan JSON
+    captured at signal time — the static description of the whole intended exit
+    (ladder rungs + final target + stop + trailing rule; see
+    ``src/runtime/exit_plan.py``). ``exit_plan_state`` is the evolving state the
+    materializer/monitor write as the plan is rested and re-materialised (rungs
+    filled, current materialised SL/TP, prop-update count, and the
+    ``materializations[]`` audit list — the SL/TP-modification history the
+    2026-06-16 contract noted was missing). Both are observe-only JSON metadata;
+    pre-existing rows stay NULL.
+
+    Idempotent: returns True only on the run that actually adds the columns.
+    """
+    cursor.execute("PRAGMA table_info(order_packages)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "exit_plan" in columns and "exit_plan_state" in columns:
+        return False
+    if "exit_plan" not in columns:
+        cursor.execute("ALTER TABLE order_packages ADD COLUMN exit_plan TEXT")
+    if "exit_plan_state" not in columns:
+        cursor.execute("ALTER TABLE order_packages ADD COLUMN exit_plan_state TEXT")
+    return True
+
+
 class Database:
     """Manages SQLite database for trade journal and backtest results"""
     
@@ -337,11 +363,14 @@ class Database:
                 close_reason TEXT,
                 meta TEXT,
                 model_scores TEXT,
+                exit_plan TEXT,
+                exit_plan_state TEXT,
                 FOREIGN KEY (linked_trade_id) REFERENCES trades(id)
             )
         ''')
-        # Idempotent migration for pre-existing DBs missing model_scores.
+        # Idempotent migrations for pre-existing DBs missing these columns.
         _migrate_add_order_package_model_scores(cursor)
+        _migrate_add_order_package_exit_plan(cursor)
         # Indexes — hourly report + UI helpers query by strategy and
         # by status; the per-strategy view is the primary access path
         # per Rule 4 ("order package logs per strategy").
@@ -779,9 +808,10 @@ class Database:
             package_data (dict): Must contain order_package_id (TEXT),
                 strategy_name, symbol, direction, entry, sl, tp.
                 Optional: confidence, signal_logic, status (defaults
-                to 'open'), linked_trade_id, close_reason, meta
-                (dict — serialised to JSON). created_at / updated_at
-                default to UTC now if absent.
+                to 'open'), linked_trade_id, close_reason, meta,
+                model_scores, exit_plan, exit_plan_state (dicts/lists
+                — serialised to JSON). created_at / updated_at default
+                to UTC now if absent.
 
         Returns:
             str: The order_package_id.
@@ -800,6 +830,10 @@ class Database:
             row["meta"] = _json.dumps(row["meta"], default=str)
         if isinstance(row.get("model_scores"), (dict, list)):
             row["model_scores"] = _json.dumps(row["model_scores"], default=str)
+        if isinstance(row.get("exit_plan"), (dict, list)):
+            row["exit_plan"] = _json.dumps(row["exit_plan"], default=str)
+        if isinstance(row.get("exit_plan_state"), (dict, list)):
+            row["exit_plan_state"] = _json.dumps(row["exit_plan_state"], default=str)
 
         conn = self.connect()
         cursor = conn.cursor()

@@ -392,6 +392,47 @@ def _build_shadow_feature_row(package: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# exit_plan() — reference Tier-A declaration (dynamic-take-profit consistency P1)
+# ---------------------------------------------------------------------------
+
+
+def exit_plan(cfg, candles_df, package):
+    """Declare turtle_soup's intended exit as a canonical ``ExitPlan``.
+
+    Reference implementation of the optional module-level ``exit_plan()``
+    convention (sibling of ``monitor()``): a strategy that wants its scale-out
+    structure materialised on the broker declares it here, at order-package
+    build time, instead of leaving the materializer to *derive* one from the
+    legacy ``entry``/``sl``/``tp`` fields (``exit_plan.build_exit_plan_from_legacy``).
+
+    turtle_soup's exit is exactly the TP1/TP2 scale-out its ``monitor()`` already
+    drives: bank ``partial_close_pct`` (default 0.25) at TP1, run the remainder
+    to ``meta.tp2``, stop at ``sl``, and trail to break-even after ``be_at_r`` R.
+    This is the explicit form of what ``build_exit_plan_from_legacy`` derives —
+    kept faithful so the two agree.
+
+    Pure; **never raises** — returns ``None`` if the package can't be read,
+    falling the caller back to the legacy derivation. Not yet consumed in P1
+    (the materializer that reads it is P2+); declared so the contract + CI guard
+    have a reference and so the structure is journaled the moment P2 wires it.
+    """
+    try:
+        from src.runtime.exit_plan import build_exit_plan_from_legacy
+        if not isinstance(package, dict):
+            return None
+        # Delegate to the canonical derivation, passing cfg so partial_close_pct
+        # / be_at_r are honoured — the package already carries entry/sl/tp +
+        # meta.tp2 from order_package(), so the two paths produce the same plan.
+        plan = build_exit_plan_from_legacy(package, cfg if isinstance(cfg, dict) else {})
+        if plan is not None and isinstance(plan.get("meta"), dict):
+            plan["meta"]["source"] = "turtle_soup"
+            plan["meta"]["derived"] = False
+        return plan
+    except Exception:  # noqa: BLE001 — declarative helper, never blocks the build
+        return None
+
+
+# ---------------------------------------------------------------------------
 # monitor() — S-030 PR2 (architecture-audit-2026-05-02 P1-4)
 # ---------------------------------------------------------------------------
 
