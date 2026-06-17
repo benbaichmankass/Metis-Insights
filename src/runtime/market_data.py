@@ -14,7 +14,7 @@ builders can call a single helper and stay focused on signal logic.
 The two existing builders both did the same shape of work:
 
   1. Pick the connector based on ``settings["EXCHANGE"]``.
-  2. Honour ``BYBIT_TESTNET`` / ``BINANCE_TESTNET``.
+  2. Honour ``BYBIT_TESTNET``.
   3. Call ``get_ohlcv(symbol, timeframe, limit=N)``.
   4. Convert list-of-rows → ``pandas.DataFrame`` with the canonical
      column ordering.
@@ -52,14 +52,6 @@ def _build_exchange_client(settings: Dict[str, Any]):
         os.environ.get("BYBIT_TESTNET", "true")
     ).strip().lower()
     testnet = bybit_testnet_raw not in {"false", "0", "no"}
-
-    if exchange_name == "binance":
-        from src.exchange.binance_connector import BinanceConnector
-        return BinanceConnector(
-            api_key=settings.get("BINANCE_API_KEY"),
-            api_secret=settings.get("BINANCE_API_SECRET"),
-            testnet=testnet,
-        )
 
     if exchange_name == "bybit":
         from src.exchange.bybit_connector import BybitConnector
@@ -209,8 +201,7 @@ def fetch_candles(
         Pipeline settings — used to pick the connector + read API
         creds when ``exchange_client`` is not provided. Fields
         consulted: ``EXCHANGE`` / ``exchange`` (default bybit),
-        ``BYBIT_API_KEY``, ``BYBIT_API_SECRET``, ``BINANCE_API_KEY``,
-        ``BINANCE_API_SECRET``.
+        ``BYBIT_API_KEY``, ``BYBIT_API_SECRET``.
     limit : int
         Number of candles to fetch.
     exchange_client : object, optional

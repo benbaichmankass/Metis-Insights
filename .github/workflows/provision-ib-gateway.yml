@@ -12,7 +12,8 @@ name: provision-ib-gateway
 #
 # The workflow renders the IB_USERNAME / IB_PASSWORD repo secrets into an
 # env file ON THE RUNNER, scps it to the VM over the encrypted SSH channel,
-# then runs the idempotent installer + (re)starts ib-gateway.service.
+# then runs the idempotent Docker installer (install_ib_gateway_docker.sh
+# via provision_ib_gateway.sh) + (re)starts the ib-gateway container.
 #
 # Security contract (mirrors rotate-account-keys):
 #   * Credentials never appear in argv or run logs — they ride in a file

@@ -348,19 +348,27 @@ The production bot runs on the OCI live VM, so the IB Gateway must run there
 too (the bot connects to `127.0.0.1:<port>`). A logged-in Gateway is the one
 hard prerequisite for any IB order to execute — no Gateway, no fills.
 
-**Artifacts (native IBC — no longer used):**
-- `deploy/ib-gateway.service` — systemd unit running IB Gateway under `xvfb`
-  via IBC. **Independent of `ict-trader-live`** so bot deploys/restarts never
-  re-auth IBKR.
-- `deploy/ibc/config.ini.template` — IBC config (auto-restart mode, loopback
-  API bind, auto-accept connection). Credentials substituted at render time.
-- `scripts/install_ib_gateway.sh` — idempotent installer (xvfb, IB Gateway
-  standalone, IBC, config render, unit install).
-- `scripts/ops/provision_ib_gateway.sh` — VM-side: installs the staged
-  credential env file (0600 root) + runs the installer + restarts.
-- `.github/workflows/provision-ib-gateway.yml` — renders creds from the
-  `IB_USERNAME` / `IB_PASSWORD` repo secrets, scps them to the VM (encrypted,
-  never in logs), runs the provisioner.
+**Artifacts (native IBC — REMOVED; superseded by the Docker gateway above):**
+The native-IBC files were deleted from the repo once the Docker gateway on its
+own VM became the live path (the flat standalone Gateway 10.45 is incompatible
+with native IBC). Kept here only as historical record of what used to exist:
+- `deploy/ib-gateway.service` — **REMOVED.** Was a systemd unit running IB
+  Gateway under `xvfb` via IBC, independent of `ict-trader-live`.
+- `deploy/ibc/config.ini.template` — **REMOVED.** Was the IBC config
+  (auto-restart mode, loopback API bind, auto-accept connection), credentials
+  substituted at render time.
+- `scripts/install_ib_gateway.sh` — **REMOVED.** Was the idempotent native
+  installer (xvfb, IB Gateway standalone, IBC, config render, unit install).
+- `scripts/ib_gateway_start.sh` — **REMOVED.** Was the native unit's
+  `ExecStart` wrapper (auto-detected the Gateway version + exec'd IBC's
+  `ibcstart.sh`).
+
+The Docker-path files remain LIVE and are documented in the Docker section
+above — `scripts/ops/provision_ib_gateway.sh` (VM-side: stages creds + runs the
+**Docker** installer `scripts/install_ib_gateway_docker.sh`) and
+`.github/workflows/provision-ib-gateway.yml` (renders creds from the
+`IB_USERNAME` / `IB_PASSWORD` repo secrets, scps them to the VM, runs the
+provisioner). These were never native artifacts.
 
 ## Market data (delayed by default)
 

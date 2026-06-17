@@ -42,7 +42,6 @@ def test_data_loaders_re_exports_match():
     """Back-compat shim: bot.data_loaders re-exports from accounts.clients."""
     from src.bot import data_loaders as dl
     assert dl.bybit_client_for is clients.bybit_client_for
-    assert dl.binance_conn_for is clients.binance_conn_for
 
 
 def test_two_accounts_with_different_env_vars_resolve_distinctly(monkeypatch):

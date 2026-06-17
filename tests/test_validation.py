@@ -17,9 +17,9 @@ from src.runtime.validation import validate_startup, build_settings_from_env
 # ---------------------------------------------------------------------------
 
 BASE_ENV = {
-    "EXCHANGE":            "binance",
-    "BINANCE_API_KEY":     "test-key",
-    "BINANCE_API_SECRET":  "test-secret",
+    "EXCHANGE":            "bybit",
+    "BYBIT_API_KEY":       "test-key",
+    "BYBIT_API_SECRET":    "test-secret",
     "TELEGRAM_BOT_TOKEN": "tok",
     "TELEGRAM_CHAT_ID":   "123",
     "MODE":               "BACKTEST",
@@ -52,21 +52,9 @@ def run(overrides=None, remove=None):
 # Happy-path
 # ---------------------------------------------------------------------------
 
-def test_binance_passes_without_bybit_keys():
-    """EXCHANGE=binance must not require BYBIT keys."""
-    run(remove=["BYBIT_API_KEY", "BYBIT_API_SECRET"])
-
-
-def test_bybit_passes_without_binance_keys():
-    """EXCHANGE=bybit must not require BINANCE keys."""
-    run(
-        overrides={
-            "EXCHANGE": "bybit",
-            "BYBIT_API_KEY": "bk",
-            "BYBIT_API_SECRET": "bs",
-        },
-        remove=["BINANCE_API_KEY", "BINANCE_API_SECRET"],
-    )
+def test_bybit_passes_with_keys():
+    """EXCHANGE=bybit passes with its key pair."""
+    run()
 
 
 def test_live_trading_interlock_allowed():
@@ -93,25 +81,11 @@ def test_build_settings_from_env_keys():
         # MAX_QTY from settings (orders.py:203).
         "MAX_QTY",
     }
-    assert s["exchange"] == "binance"
+    assert s["exchange"] == "bybit"
     assert s["risk_per_trade"] == 0.01
     assert s["tick_interval"] == 900
     assert s["loop"] is True
     assert s["MAX_QTY"] == s["max_qty"]
-
-
-# ---------------------------------------------------------------------------
-# Binance credential requirements
-# ---------------------------------------------------------------------------
-
-def test_binance_requires_api_key():
-    with pytest.raises(EnvironmentError, match="BINANCE_API_KEY"):
-        run(remove=["BINANCE_API_KEY"])
-
-
-def test_binance_requires_api_secret():
-    with pytest.raises(EnvironmentError, match="BINANCE_API_SECRET"):
-        run(remove=["BINANCE_API_SECRET"])
 
 
 # ---------------------------------------------------------------------------
@@ -120,18 +94,12 @@ def test_binance_requires_api_secret():
 
 def test_bybit_requires_api_key():
     with pytest.raises(EnvironmentError, match="BYBIT_API_KEY"):
-        run(
-            overrides={"EXCHANGE": "bybit", "BYBIT_API_SECRET": "bs"},
-            remove=["BYBIT_API_KEY", "BINANCE_API_KEY", "BINANCE_API_SECRET"],
-        )
+        run(remove=["BYBIT_API_KEY"])
 
 
 def test_bybit_requires_api_secret():
     with pytest.raises(EnvironmentError, match="BYBIT_API_SECRET"):
-        run(
-            overrides={"EXCHANGE": "bybit", "BYBIT_API_KEY": "bk"},
-            remove=["BYBIT_API_SECRET", "BINANCE_API_KEY", "BINANCE_API_SECRET"],
-        )
+        run(remove=["BYBIT_API_SECRET"])
 
 
 # ---------------------------------------------------------------------------

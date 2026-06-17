@@ -4,7 +4,7 @@ Ref: docs/audits/live-trade-management-contract-2026-06-16.md § Design plan §2
 
 These tests pin:
   1. The capability declaration matches CURRENT WIRED REALITY (verified against
-     the code: account_open_positions covers bybit+binance+IB; modify/close/
+     the code: account_open_positions covers bybit+IB; modify/close/
      order_status are bybit-only).
   2. The three order-monitor senders return ``unsupported_op:<op>`` (NOT the
      misleading ``no_client``) for an unsupported integration (IB / Alpaca),
@@ -34,14 +34,6 @@ def test_bybit_supports_all_management_ops():
     caps = clients.exchange_management_caps("bybit")
     assert caps == frozenset(
         {"modify", "close", "partial_close", "order_status", "open_positions"}
-    )
-
-
-def test_binance_only_open_positions():
-    # account_open_positions has a binance branch; modify/close/order_status do
-    # not (execute.py rejects non-bybit; account_order_status returns None).
-    assert clients.exchange_management_caps("binance") == frozenset(
-        {"open_positions"}
     )
 
 
@@ -129,7 +121,7 @@ def test_account_supports_management_never_raises_on_bad_input():
 def _patch_build_client(monkeypatch, exchange, *, client):
     """Make _build_account_client return (client, cfg) for the given exchange.
 
-    Mirrors the real contract: bybit/binance build a client; everything else
+    Mirrors the real contract: bybit builds a client; everything else
     returns (None, cfg) from the live ``_build_account_client``.
     """
     cfg = {"account_id": "acct", "exchange": exchange, "mode": "live",
@@ -150,21 +142,6 @@ def test_modify_returns_unsupported_op_for_unwired_integration(monkeypatch, exch
                                       sl=1990.0)
     assert res["ok"] is False
     assert res["error"] == "unsupported_op:modify"
-    assert res["integration"] == exchange
-
-
-# P3 wired close for IB + alpaca; S2 wired it for OANDA. The remaining
-# integration in the caps map without a close cap is binance (open_positions
-# only), so it's the one that still honestly returns unsupported_op:close.
-@pytest.mark.parametrize("exchange", ["binance"])
-def test_close_returns_unsupported_op_for_unwired_integration(monkeypatch, exchange):
-    _patch_build_client(monkeypatch, exchange, client=None)
-    res = om._send_close_to_exchange(
-        {"account_id": "acct", "symbol": "MGC", "direction": "long",
-         "position_size": 1}
-    )
-    assert res["ok"] is False
-    assert res["error"] == "unsupported_op:close"
     assert res["integration"] == exchange
 
 
