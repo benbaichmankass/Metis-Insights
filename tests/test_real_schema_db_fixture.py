@@ -59,6 +59,9 @@ _EXPECTED_ORDER_PACKAGES_COLS = {
     "entry", "sl", "tp", "confidence", "signal_logic", "created_at",
     "updated_at", "status", "linked_trade_id", "close_reason", "meta",
     "model_scores",
+    # ExitPlan layer (dynamic-take-profit consistency, P1): the static
+    # exit-structure plan captured at signal time + its evolving state.
+    "exit_plan", "exit_plan_state",
 }
 
 
