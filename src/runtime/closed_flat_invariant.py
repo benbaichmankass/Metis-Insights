@@ -1,9 +1,13 @@
 """Closed → exchange-flat invariant reconciler (S-067 follow-up #3).
 
-**Tier 2 / live-order path.** This module ships in **alert-only**
-mode for phase-1 — auto-flatten is filed for a follow-up sprint
-gated on a per-account flag and one full week of clean alert-only
-soak.
+**Alert-only, BASELINE (2026-06-17).** The invariant CHECK runs
+unconditionally on every monitor tick — it was previously gated
+default-OFF by ``CLOSED_FLAT_INVARIANT_ENABLED`` "until the operator
+opts in", a safety invariant behind a default-off flag (the
+Prime-Directive anti-pattern; removed alongside the same-class
+``NAKED_POSITION_AUTOPROTECT`` / ``MONITOR_RECONCILE_ENABLED`` gates).
+It only LOGS + ALERTS a violation; **auto-flatten remains a separate,
+deliberately-unbuilt step** (the orphan reconciler is the safety net).
 
 See ``docs/claude/closed-flat-invariant.md`` for the full design
 memo, including rollout plan and trade-#1049 retrospective.
@@ -360,11 +364,3 @@ def _default_alerter() -> Optional[Callable[[str, str, dict], None]]:
             "closed_flat_invariant: outcomes.report unavailable: %s", exc,
         )
         return None
-
-
-def is_enabled() -> bool:
-    """Return True if the env gate ``CLOSED_FLAT_INVARIANT_ENABLED``
-    is set truthy. Default False — the wiring PR (separate Tier-2
-    follow-up) will check this gate at the call site."""
-    raw = os.environ.get("CLOSED_FLAT_INVARIANT_ENABLED", "false")  # allow-silent: feature-flag gate; default=false keeps invariant inert until operator opts in via the Tier-2 wiring PR
-    return raw.strip().lower() in ("1", "true", "yes", "on")

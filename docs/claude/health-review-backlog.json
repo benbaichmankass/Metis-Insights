@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260617-GATE-MIGRATION",
+      "opened_at": "2026-06-17T09:30:00+00:00",
+      "opened_by": "claude (operator-flagged: noncompliant gates)",
+      "source": "Operator flagged that the session walked past noncompliant default-off gates. Investigation: POSITION_NETTING_GUARD_ENABLED (correctness fix) + CLOSED_FLAT_INVARIANT_ENABLED (safety invariant) were both default-OFF *_ENABLED flags in front of required capabilities — the Prime-Directive anti-pattern (same class as the removed NAKED_POSITION_AUTOPROTECT / MONITOR_RECONCILE_ENABLED). PROOF of harm: the netting guard ran live on both Bybit accounts from 2026-06-08, but the 2026-06-14 Ampere migration dropped its .env vars and the fix silently regressed — paper netting artifacts (side/qty NULL, reconciler_filled, duplicated -767.22 pnl on netted legs) reappeared on bybit_1 ~2026-06-15 (#2618/2621/2623+), and real-money bybit_2 was exposed via the same gate. A capability behind a config-only flag vanishes on a migration/config-reset; one baked into code cannot.",
+      "title": "Audit ALL env gates for migration/config-reset survival — config-only capabilities silently regress on VM migration (root cause of the 2026-06-15 netting regression)",
+      "description": "RESOLVED for the two found gates in the same session: PR (claude/baseline-correctness-gates) makes the netting guard + closed-flat invariant BASELINE (removed POSITION_NETTING_GUARD_ENABLED / POSITION_NETTING_GUARD_ACCOUNTS / CLOSED_FLAT_INVARIANT_ENABLED; behavior now unconditional in code). REMAINING systemic follow-up: (1) audit the other default-off *_ENABLED-style flags that gate real behavior (REGIME_ROUTER_ENABLED is default-off but fail-permissive = rollout of an optional restriction, defensible; re-confirm) and baseline any that gate a REQUIRED capability; (2) the live-VM .env is NOT reproducible from source — the 6/14 migration dropping the guard vars proves operator-set env can silently differ from intent. Consider a checked-in canonical .env manifest + a deploy-time diff/alert when the live .env is missing an expected key, OR move all non-secret behavioral flags out of .env into versioned config; (3) verify on the live VM that no OTHER soaked-then-baked fix regressed at the 6/14 migration the same way.",
+      "tier": 2,
+      "trigger_condition": "Next /health-review, or when touching VM env / migration tooling.",
+      "resolution_criteria": "No required capability is gated by a default-off env flag; live-VM .env drift from intent is detectable (manifest/diff) so a migration can't silently drop a behavioral flag again.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260614-001",
       "opened_at": "2026-06-14T09:30:00+00:00",
       "opened_by": "claude (/health-review 2026-06-14)",
