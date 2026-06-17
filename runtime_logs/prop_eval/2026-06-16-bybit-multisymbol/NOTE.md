@@ -28,7 +28,16 @@ All `trend_donchian @ risk 1.5`; $5k Breakout 1-Step (fee $45, 80/20, 6% static 
 | **BNBUSDT** | **+$1,101** | 92% | +$1,033 | −$225 | 5.6 | $251 | 4.4× |
 | DOGEUSDT | +$587 | 80% | — | — | 5.6 | $252 | 2.3× |
 | XRPUSDT | +$576 | 76% | +$495 | −$315 | 5.7 | $255 | 2.3× |
-| _BTCUSDT (baseline)_ | _(computing — fold in)_ | | | | | | |
+
+**BTC baseline (the contrast that makes this striking):** `trend_donchian` is a
+**loser on BTC** — in the `../2026-06-16-expanded/` matrix it *breached* (EVAL FAIL
+/ max_drawdown, net-negative), and BTC's only durable pass was the *slow*
+`fvg_range_15m`/`squeeze_breakout_4h` combo (~250-430-day median, low EV). So the
+exact same BTC-tuned `trend_donchian` config flips from net-negative on BTC to
+strongly +EV on every high-vol alt — the edge is the alt volatility, not a
+re-tune. (A precise cost-aware BTC EV row was deprioritized — the BTC run's
+per-bar 15m signal regen under the new cache key was the slow tail and isn't
+needed for the comparison.)
 
 EV scales with realised volatility (SOL > ETH ≈ BNB > XRP ≈ DOGE). At 1.0% risk
 the EV is lower but P(net>0) and ROI/fee hold up (e.g. SOL @1.0 = +$1,018, 87%,
