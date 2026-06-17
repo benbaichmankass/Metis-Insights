@@ -188,6 +188,34 @@ def execute_pkg(
     else:
         _mode_raw = str(account_cfg.get("mode") or "live").strip().lower()
         is_dry = _mode_raw in {"dry", "dry_run", "dry-run", "paper"}
+
+    # Breakout prop account — manual browser-bridge (no exchange socket). A
+    # prop-routed strategy emits a paste-ready DXTrade ticket (Telegram/FCM
+    # prop_signal) instead of placing an order; the order package journals but
+    # the returned `prop-manual-<uuid>` marks a manual fill, so NO live exchange
+    # position is created (design: breakout-poc-manual-bridge). Gated on the
+    # CALLER's dry-ness (which already folds in the account `mode:` AND the
+    # per-strategy `execution: shadow` gate) — so a shadow strategy / dry account
+    # does NOT emit — and evaluated BEFORE the `client is None → is_dry` forcing
+    # below (breakout never has a client, so that forcing would otherwise
+    # suppress every ticket).
+    _exchange = str(account_cfg.get("exchange") or "").strip().lower()
+    if _exchange == "breakout":
+        if is_dry:
+            trade_id = f"dry-{uuid.uuid4().hex[:12]}"
+            logger.info("breakout: dry/shadow — ticket NOT emitted: %s %s",
+                        getattr(pkg, "strategy", "?"), getattr(pkg, "symbol", "?"))
+            return trade_id
+        from src.prop.breakout_executor import emit_prop_ticket
+        order = {
+            "symbol": pkg.symbol, "direction": pkg.direction,
+            "side": "Buy" if pkg.direction == "long" else "Sell",
+            "entry": pkg.entry, "sl": pkg.sl, "tp": pkg.tp,
+            "strategy": getattr(pkg, "strategy", account_id),
+        }
+        return emit_prop_ticket(order, account_cfg,
+                                timeframe=(getattr(pkg, "meta", None) or {}).get("timeframe"))
+
     if exchange_client is None:
         is_dry = True
 
@@ -560,9 +588,11 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
             f"OANDA rejected order for {order['symbol']}: {reason}"
         )
     if exchange == "breakout":
-        raise RuntimeError(
-            "breakout exchange is deprecated and unsupported."
-        )
+        # Manual browser-bridge: emit a paste-ready ticket instead of placing.
+        # The canonical entry is the execute_pkg breakout branch (§6a); this
+        # backstops any caller that reaches _submit_order directly.
+        from src.prop.breakout_executor import emit_prop_ticket
+        return emit_prop_ticket(order, account_cfg)
 
     # Interactive Brokers (MES futures via ib_insync). Dispatches to the
     # injected IBClient, mirroring the other broker branches' retCode-style
