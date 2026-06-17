@@ -29,6 +29,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar, Iterator, Mapping
 
+from src.runtime.local_pnl import canon_direction
+
 from ..builder import DatasetBuilder
 from ..metadata import LeakageStatus
 
@@ -174,6 +176,8 @@ class SetupLabelsBuilder(DatasetBuilder):
                         payload[col] = float(value) if value is not None else 0.0
                     elif col == "id":
                         payload[col] = int(value)
+                    elif col == "direction":
+                        payload[col] = canon_direction(value) or value
                     else:
                         payload[col] = value
                 payload["won"] = bool(payload["pnl"] > 0)

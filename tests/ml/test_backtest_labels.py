@@ -73,7 +73,9 @@ def test_mapper_closed_and_open():
     assert rows[2] is None  # open trade skipped
     win, loss = rows[0], rows[1]
     assert win["is_backtest"] == 1 and win["status"] == "closed"
-    assert win["direction"] == "buy" and loss["direction"] == "sell"
+    # WC-3: the recorder now emits the canonical long/short vocabulary
+    # (matching live rows), not buy/sell.
+    assert win["direction"] == "long" and loss["direction"] == "short"
     assert win["pnl"] == 2.0 and win["pnl_percent"] == 2.0  # risk_pct default 1.0
     assert win["setup_type"] == "fvg"          # from meta
     assert loss["setup_type"] == "ict_scalp"   # falls back to strategy
