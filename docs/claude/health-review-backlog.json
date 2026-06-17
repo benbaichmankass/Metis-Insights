@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260617-WC5-SIGNALS-SOAK",
+      "opened_at": "2026-06-17T10:50:00+00:00",
+      "opened_by": "claude (session wrap-up — ensure the soak is pick-up-able)",
+      "source": "WC-5 Half B (PR #3841, branch claude/wc5-signals-cutover) flips /api/bot/signals to read trade_journal.db::signals (DB-canonical, dual-write target) with runtime_logs/signal_audit.jsonl as the coupled fallback. It is split out of #3837 (merged) to ride a dual-write-clean SOAK before merge (operator direction 2026-06-17). The dual-write itself is ALREADY running live (S-034); the reader cutover is what's gated. Governing doc: docs/audits/dashboard-truth-and-persistence-2026-06-16.md § WC-5 (part 3).",
+      "title": "WC-5 signals cutover (#3841) — run the dual-write-clean soak, then update-from-main + operator-gated merge",
+      "description": "Operator-gated Tier-2 SOAK follow-up (logged here because a future /health-review reads this backlog, not the open-PR list). SOAK STEPS before merge: (1) watch /api/bot/logs (or /api/diag/log_file?name=bot_log) for any 'signal_dual_write failed' ERROR outcome — none = healthy; (2) spot-check that /api/diag/audit_query (DB-backed) and /api/diag/log_file?name=audit (JSONL tail) track the SAME recent buy/sell signals over a window; (3) after ~a day clean, the reader flip is safe. MERGE MECHANICS: the PR branch is BEHIND main and mergeable_state was 'dirty' (conflict) as of 2026-06-17 — UPDATE-FROM-MAIN (merge origin/main into claude/wc5-signals-cutover locally, resolve, push; GitHub's 'Update branch' button does NOT trigger CI) immediately before merging, not now (main keeps moving during the ~day soak). Rollback after merge is one env flip: SIGNAL_DUAL_WRITE_DISABLED flips BOTH writer-off AND reader-back-to-JSONL (shared signal_dual_write_enabled() gate). Do NOT merge until the operator confirms the soak is clean.",
+      "tier": 2,
+      "trigger_condition": "Next /health-review, or ~24h after 2026-06-17T09:04Z (PR #3841 open) when the soak window has elapsed.",
+      "resolution_criteria": "Either #3841 is updated-from-main, CI-green, soak-clean, operator-approved and MERGED (reader serves DB-canonical signals with the JSONL fallback coupled), OR the soak surfaces a dual-write divergence and the cutover is reworked/deferred with the cause documented.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260617-MHGN6-CANDLEROUTE",
       "opened_at": "2026-06-17T10:40:00+00:00",
       "opened_by": "claude (noticed during #3848 pull-and-deploy)",

@@ -542,8 +542,8 @@
     },
     {
       "id": "PB-20260616-004",
-      "title": "trend_donchian is +EV on Bybit high-vol alts (SOL/ETH/BNB) \u2014 prop candidate to validate + wire (Tier-3)",
-      "status": "validated_partial",
+      "title": "trend_donchian is +EV on Bybit high-vol alts (SOL/ETH/BNB) \u2014 prop candidate validated + WIRED (SOL live long-only, ETH shadow); soak follow-ups remain (Tier-3)",
+      "status": "in_progress",
       "tier": 3,
       "opened_at": "2026-06-17T05:40:00+00:00",
       "opened_by": "claude (Breakout prop EV sweep 2026-06-16)",
@@ -552,7 +552,15 @@
       "resolution_criteria": "Either trend_donchian-on-an-alt is validated on real Bybit perp data + walk-forward and the operator approves a Tier-3 wire onto the prop account, OR the edge fails revalidation (perp basis / funding / OOS) and is documented as not live-worthy.",
       "trigger_condition": "Next /performance-review, or a dedicated prop-account go-live decision.",
       "validated_at": "2026-06-17T07:50:00+00:00",
-      "validation_result": "RE-VALIDATED on real Bybit LINEAR-PERP 5m (2023-01..2026-02, 332k bars/sym) with the Breakout venue cost model (flat ~0.09%/day daily SWAP \u2014 perp-futures-style sim, NOT Bybit 8h funding) + a 4-fold per-alt walk-forward. Harness: scripts/prop/validate_alt_prop.py + src/prop/funding.py (run on trainer VM). GATE result: SOL = robust PASS (pre-swap realised +$2,150; 15% drag; EV@1.5% +$1,693, 94% P>0; 4/4 OOS folds). ETH = marginal PASS (57% swap drag eats the edge; pre +$671 -> post +$285; EV@1.5% +$1,050; 4/4 folds). BNB = label-only PASS \u2014 realised ledger NEGATIVE pre & post swap (pre -$37 -> post -$524); the +EV is EV-model renewable-account optimism only -> EXCLUDED. Recommendation: wire SOL (and optionally ETH as shadow); drop BNB. Results: runtime_logs/prop_eval/2026-06-17-validate-real/."
+      "validation_result": "RE-VALIDATED on real Bybit LINEAR-PERP 5m (2023-01..2026-02, 332k bars/sym) with the Breakout venue cost model (flat ~0.09%/day daily SWAP \u2014 perp-futures-style sim, NOT Bybit 8h funding) + a 4-fold per-alt walk-forward. Harness: scripts/prop/validate_alt_prop.py + src/prop/funding.py (run on trainer VM). GATE result: SOL = robust PASS (pre-swap realised +$2,150; 15% drag; EV@1.5% +$1,693, 94% P>0; 4/4 OOS folds). ETH = marginal PASS (57% swap drag eats the edge; pre +$671 -> post +$285; EV@1.5% +$1,050; 4/4 folds). BNB = label-only PASS \u2014 realised ledger NEGATIVE pre & post swap (pre -$37 -> post -$524); the +EV is EV-model renewable-account optimism only -> EXCLUDED. Recommendation: wire SOL (and optionally ETH as shadow); drop BNB. Results: runtime_logs/prop_eval/2026-06-17-validate-real/.",
+      "wired_at": "2026-06-17T10:42:00+00:00",
+      "shipped": "WIRED + DEPLOYED live (operator-approved). PR #3840 (executor + breakout_1 prop account + alt variants), PR #3848 (directional A/B → SOL long-only / ETH two-sided + builder enforcement). A Breakout daily-swap long-only A/B (runtime_logs/prop_eval/2026-06-17-validate-real/, --long-only) split the variants: SOL HOLDS long-only (pre-swap +$1,325 -> post +$1,158; EV@1.5% +$1,131, 86% P>0; 4/4 folds, cleaner dispersion) -> trend_donchian_sol = execution:live + long_only:true; ETH's edge is short-side-dependent (long-only FLIPS it negative: pre +$23 -> post -$181; EV@1.5% +$415, 66%, 3/4 folds, fold-1 -$166) -> trend_donchian_eth = execution:shadow, two-sided. breakout_1 is account_class:prop, mode:live (always-on Telegram/FCM ping; operator decides per-signal whether to place — no broker API). BNB EXCLUDED. Deployed via pull-and-deploy (issue #3849, b2afabb->cdb4f8b, ict-trader-live active; post-deploy journal confirms trend_donchian_eth evaluating live).",
+      "follow_ups": [
+        "SOL LIVE-TICKET SOAK: confirm trend_donchian_sol emits prop_signal tickets on real SOLUSDT breakouts (Telegram/FCM to the prop bot), LONG-only (no shorts), and that they journal as prop-manual-<uuid> order packages WITHOUT a phantom exchange position the monitor would orphan-close.",
+        "ETH SHADOW->LIVE PROMOTION (Tier-3, operator-gated): trend_donchian_eth runs execution:shadow for data collection on the real prop feed; after a clean soak, decide whether the marginal two-sided edge (EV@1.5% +$1,050, 92%, but 57% swap drag) justifies flipping to live, or keep shadow-only.",
+        "SWAP-RATE CONFIRMATION before sizing real capital: the 0.0009/day (~0.09%/day) Breakout daily swap is a THIRD-PARTY-REVIEW figure (UNCONFIRMED in-terminal). Confirm the actual per-symbol holding/swap cost from the Breakout/DXTrade instrument spec; the model takes it as the --swap-rate-daily knob, so re-run the gate if it differs materially (ETH is the sensitive one at 57% drag).",
+        "BNB / DOGE / XRP: documented NOT live-worthy at the Breakout daily-swap cost (BNB realised-negative; DOGE/XRP not re-validated on real perp). Revisit only if the venue cost model changes."
+      ]
     }
   ],
   "updated_at": "2026-06-16T08:10:00+00:00"
