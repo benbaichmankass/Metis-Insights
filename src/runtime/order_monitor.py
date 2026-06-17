@@ -1687,6 +1687,39 @@ def _load_account_cfgs_for_reconcile() -> Dict[str, Dict[str, Any]]:
     return out
 
 
+def _resolve_account_class(
+    account_id: str,
+    cfgs: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> str:
+    """Best-effort canonical paper/real_money class for *account_id*.
+
+    Mirrors the single source of truth in
+    ``src.units.accounts.execute`` (``account_class = str(
+    account_cfg.get("account_class") or "real_money").strip().lower()``):
+    coerce a missing/invalid value to ``"real_money"`` so a config typo
+    never silently mis-stamps a row, and never raise — a lookup failure
+    falls back to ``"real_money"`` so the reconciler (best-effort) is
+    never crashed by a config-load error.
+
+    Reads ``config/accounts.yaml`` through the canonical
+    ``load_accounts_dict`` reader (the ``canonical-config-loaders`` CI
+    guard forbids hand-rolled parsers). Pass *cfgs* to inject an
+    already-loaded ``{account_id: cfg}`` map (e.g. in tests or to avoid
+    re-reading the YAML).
+    """
+    try:
+        if cfgs is None:
+            from src.config.accounts_loader import load_accounts_dict
+            cfgs = load_accounts_dict()
+        cfg = cfgs.get(str(account_id)) or {}
+        account_class = str(cfg.get("account_class") or "real_money").strip().lower()
+        if account_class not in ("paper", "real_money"):
+            account_class = "real_money"
+        return account_class
+    except Exception:  # noqa: BLE001 — best-effort; never crash the reconciler
+        return "real_money"
+
+
 def _classify_orphan_close(account_cfg: Dict[str, Any]) -> Dict[str, Optional[str]]:
     """Classify a DB-open / exchange-flat orphan to help the operator
     distinguish "operator manually closed" from "fill anomaly /
@@ -2589,6 +2622,14 @@ def _adopt_orphan_position(
     """
     now_iso = datetime.now(timezone.utc).isoformat()
 
+    # Paper-vs-real-money CATEGORY for the adopted row — stamped at insert so
+    # an adopted PAPER orphan is never mis-classified as real_money (the column
+    # defaults — is_demo=0, account_class=NULL→real_money — would otherwise leak
+    # a paper orphan into real-money PnL/stats). Canonical resolution (mirrors
+    # execute.py); best-effort, falls back to real_money on any lookup failure.
+    account_class = _resolve_account_class(account_id)
+    is_demo = int(account_class == "paper")
+
     recovered = _recover_orphan_order_package(
         db=db, symbol=symbol, direction=direction, entry_price=entry_price,
     )
@@ -2625,6 +2666,9 @@ def _adopt_orphan_position(
             "status": "open",
             "notes": notes_payload,
             "is_backtest": 0,
+            "account_class": account_class,
+            "is_demo": is_demo,
+            "order_package_id": opid,
             "strategy_name": strategy_name,
             "stop_loss": sl,
             "take_profit_1": tp,
@@ -2688,6 +2732,9 @@ def _adopt_orphan_position(
         "status": "open",
         "notes": notes_payload,
         "is_backtest": 0,
+        "account_class": account_class,
+        "is_demo": is_demo,
+        # No order package recovered → order_package_id legitimately unset (NULL).
         "strategy_name": "orphan_adopt",
         "account_id": account_id,
     }

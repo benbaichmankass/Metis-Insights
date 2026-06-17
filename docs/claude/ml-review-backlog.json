@@ -3,6 +3,20 @@
  "schema_version": 1,
  "items": [
   {
+   "id": "MB-20260617-001",
+   "opened_at": "2026-06-17T05:20:00+00:00",
+   "opened_by": "claude (dashboard-truth / WC-3 session)",
+   "source": "WC-3 direction normalization (#3819, merged 2026-06-17, commit 1bbc6171) made trades.direction canonical long/short at the ML dataset read boundary (6 families: trade_outcomes, setup_labels, setup_labels_audit, conviction_meta, account_context, execution_quality) + the backtest_recorder writer. The 04:47Z trainer cycle (head 1bbc6171, cycle_end overall_rc=0 at 04:51:52Z) retrained all manifests on the normalized direction, producing fresh long/short-keyed versions of the two direction-categorical models: conviction-meta-v1 (manifest_ok 04:51:20Z) and setup-quality-lgbm-v2 (manifest_ok 04:51:52Z; e.g. registry run 20260617T045151Z).",
+   "title": "Promote the WC-3-retrained long/short versions of conviction-meta-v1 + setup-quality-lgbm-v2 to shadow (supersede the old buy/sell-keyed shadow versions)",
+   "description": "Both models freeze a categorical map keyed on `direction` at train time and map any unseen value to the -1 'unknown' sentinel at inference (ml/predictors/lightgbm.py:83). The OLD shadow-wired versions learned buy/sell, so after WC-3 they silently encode live long/short rows as -1 — the direction feature is effectively dead for them (a quality regression, NOT a live-trade or correctness risk: these are shadow/observe-only and never influence an order). The new candidate versions retrained 2026-06-17 key on long/short and encode correctly. ACTION for /ml-review: verify the new versions in the registry (list-models), promote candidate->shadow (autonomous, observe-only), and confirm via shadow-stats that the new shadow stream scores sanely; then the old versions are superseded. The setup-candidates-metalabel-* family is unaffected (it already normalized direction to +/-1) and the regime LGBM models do not use direction.",
+   "tier": 2,
+   "trigger_condition": "Next /ml-review, or any session reviewing the shadow registry.",
+   "resolution_criteria": "The long/short-keyed versions of conviction-meta-v1 + setup-quality-lgbm-v2 are at shadow stage and emitting predictions; the old buy/sell-keyed versions are demoted/superseded. Confirmed via list-models + shadow-stats.",
+   "status": "open",
+   "snoozed_until": null,
+   "updates": []
+  },
+  {
    "id": "MB-20260614-001",
    "opened_at": "2026-06-14T09:30:00+00:00",
    "opened_by": "claude (/ml-review 2026-06-14)",

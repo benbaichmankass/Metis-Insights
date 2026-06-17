@@ -2654,6 +2654,14 @@ def _log_smoke_to_journal(
             f"trade_id={result.get('trade_id')} "
             f"reason={result.get('reason', '')[:240]}"
         )
+        smoke_account_id = str(result.get("account_id") or "unknown")
+        # Stamp the paper/real_money category at insert so a smoke row on a
+        # PAPER account is never mis-classified as real_money (column defaults
+        # — is_demo=0, account_class=NULL→real_money — would otherwise leak it
+        # into real-money PnL/stats). Canonical best-effort resolution (mirrors
+        # execute.py); falls back to real_money on any lookup failure.
+        from src.runtime.order_monitor import _resolve_account_class
+        smoke_account_class = _resolve_account_class(smoke_account_id)
         db.insert_trade({
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "symbol": pkg.symbol,
@@ -2668,8 +2676,10 @@ def _log_smoke_to_journal(
             "status": str(result.get("status") or "smoke_test"),
             "notes": notes,
             "is_backtest": 0,
+            "account_class": smoke_account_class,
+            "is_demo": int(smoke_account_class == "paper"),
             "strategy_name": "smoke_test",
-            "account_id": str(result.get("account_id") or "unknown"),
+            "account_id": smoke_account_id,
         })
         return True
     except Exception as exc:  # noqa: BLE001
