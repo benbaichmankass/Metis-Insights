@@ -2954,6 +2954,8 @@ def eth_pullback_2h_signal_builder(settings: dict) -> Dict[str, Any]:
 for _builder, _monitor_unit in (
     (ict_scalp_signal_builder, "ict_scalp"),
     (trend_donchian_1h_signal_builder, "trend_donchian"),
+    (trend_donchian_sol_signal_builder, "trend_donchian"),
+    (trend_donchian_eth_signal_builder, "trend_donchian"),
     (mes_trend_long_1d_signal_builder, "trend_donchian"),
     (mgc_trend_1h_signal_builder, "trend_donchian"),
     (xauusd_trend_1h_signal_builder, "trend_donchian"),
