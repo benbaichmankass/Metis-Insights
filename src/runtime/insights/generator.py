@@ -431,12 +431,16 @@ def generate(
             return None
 
         payload = _envelope(endpoint, data, parsed, model_id)
-        cache.write_cache(_cache_name_for(endpoint, strategy_name), payload)
+        # Durable canonical record FIRST (WC-5): insights_history is the source
+        # of truth, the cache file is a derived hot-read. Writing history first
+        # means a crash between the two leaves the canonical row intact and the
+        # cache simply catches up next cycle (never the reverse).
         history.append_history(
             endpoint=endpoint,
             payload=payload,
             strategy_name=strategy_name,
         )
+        cache.write_cache(_cache_name_for(endpoint, strategy_name), payload)
         usage.record_usage(
             endpoint=endpoint,
             model_id=model_id,
@@ -481,14 +485,16 @@ def generate(
     parsed = _parse_model_output(result.get("text", "") or "")
     payload = _envelope(endpoint, data, parsed, model_id)
 
-    cache_name = _cache_name_for(endpoint, strategy_name)
-    cache.write_cache(cache_name, payload)
-
+    # Durable canonical record FIRST (WC-5), then the derived hot-read cache —
+    # see the template-path note above. History is the source of truth.
     history.append_history(
         endpoint=endpoint,
         payload=payload,
         strategy_name=strategy_name,
     )
+    cache_name = _cache_name_for(endpoint, strategy_name)
+    cache.write_cache(cache_name, payload)
+
     usage.record_usage(
         endpoint=endpoint,
         model_id=model_id,

@@ -94,6 +94,53 @@ def append_history(
         conn.close()
 
 
+def latest_payload(
+    endpoint: str,
+    strategy_name: str | None = None,
+) -> dict[str, Any] | None:
+    """Return the newest stored ``payload`` for an endpoint, or ``None``.
+
+    The **DB-canonical fallback** for the read path (WC-5, dashboard-truth
+    2026-06-16): ``insights_history`` is the durable source of truth for what
+    the analyst last said; the cache file under ``runtime_logs/insights/`` is a
+    derived hot-read. When the cache is missing/unreadable the router serves
+    this row instead of a blank placeholder, so a wiped cache dir can't blank
+    the dashboard. **No time window** — the most recent row regardless of age
+    (unlike ``recent_history``, which is the windowed history view). Returns
+    ``None`` when the table is empty/absent or on any DB error.
+    """
+    try:
+        conn = _connect()
+    except sqlite3.Error as exc:
+        logger.warning("insights.history: cannot open DB for latest: %s", exc)
+        return None
+    try:
+        if strategy_name is not None:
+            cur = conn.execute(
+                "SELECT payload_json FROM insights_history "
+                "WHERE endpoint = ? AND strategy_name = ? "
+                "ORDER BY datetime(generated_at) DESC LIMIT 1",
+                (endpoint, strategy_name),
+            )
+        else:
+            cur = conn.execute(
+                "SELECT payload_json FROM insights_history "
+                "WHERE endpoint = ? "
+                "ORDER BY datetime(generated_at) DESC LIMIT 1",
+                (endpoint,),
+            )
+        row = cur.fetchone()
+        if not row or not row["payload_json"]:
+            return None
+        try:
+            payload = json.loads(row["payload_json"])
+        except json.JSONDecodeError:
+            return None
+        return payload if isinstance(payload, dict) else None
+    finally:
+        conn.close()
+
+
 def recent_history(
     endpoint: str,
     hours: int = 24,
