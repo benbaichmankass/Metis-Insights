@@ -153,6 +153,46 @@ def _query_order_packages(
         # row carries the flag; demo rows are excluded by default so the
         # current consumer behavior is preserved. Pass include_demo=true
         # to get both segments (each row tagged via ``isDemo``).
+        # Resolve each package to ONE representative trade row.
+        #
+        # ``order_packages.linked_trade_id`` is only written for the
+        # real-money *primary OPEN entry*. Packages whose fill was a
+        # demo/paper leg, an ``intent_reduce`` leg, or an orphan-adopt
+        # leave ``linked_trade_id`` NULL — those trades reference the
+        # package via the canonical ``trades.order_package_id`` column
+        # instead. So a join on ``linked_trade_id`` alone leaves MANY
+        # filled packages showing ``linkedTradeId: null`` + no PnL +
+        # ``tradeStatus: null`` (the read-side of the
+        # "trade with no order package" defect).
+        #
+        # Resolution rule (preserves one-row-per-package):
+        #   1. prefer ``op.linked_trade_id`` (the existing primary-entry
+        #      link — unchanged when present), else
+        #   2. fall back to a trade where
+        #      ``trades.order_package_id = op.order_package_id``. When
+        #      several legs reference the package we pick ONE
+        #      deterministically — a non-backtest leg, preferring an
+        #      OPEN leg, then the most-recent id. This best matches what
+        #      ``linked_trade_id`` would have pointed at (the live
+        #      primary entry):
+        #          ORDER BY (status='open') DESC, id DESC LIMIT 1
+        #
+        # ``op.linked_trade_id`` is still what the wire ``linkedTradeId``
+        # reports (the package's own declared link — meaning unchanged);
+        # only pnl / tradeStatus / accountClass / isDemo now resolve via
+        # this fallback ``t``.
+        #
+        # The paper/backtest WHERE filter still evaluates on the resolved
+        # ``t`` (alias unchanged), so its semantics are preserved:
+        #   * a package whose ONLY trade is paper → the resolved ``t`` is
+        #     that paper row → _NOT_PAPER_PREDICATE excludes it by default;
+        #   * a package with NO trade at all → ``t.*`` is NULL →
+        #     COALESCE(t.is_backtest,0)=0 passes and the NULL-tolerant
+        #     NOT-paper predicate passes → it still appears (unexecuted).
+        # The fallback sub-SELECT already restricts to non-backtest legs
+        # so a package whose only ``order_package_id``-linked trade is a
+        # backtest row resolves ``t`` to NULL and is treated as unexecuted
+        # (not silently dropped by the outer is_backtest filter).
         sql = """
             SELECT op.order_package_id, op.strategy_name, op.symbol, op.direction,
                    op.entry, op.sl, op.tp, op.confidence,
@@ -162,7 +202,14 @@ def _query_order_packages(
                    COALESCE(t.is_demo, 0) AS trade_is_demo,
                    t.account_class AS trade_account_class
             FROM order_packages op
-            LEFT JOIN trades t ON op.linked_trade_id = t.id
+            LEFT JOIN trades t ON t.id = COALESCE(
+                op.linked_trade_id,
+                (SELECT tx.id FROM trades tx
+                  WHERE tx.order_package_id = op.order_package_id
+                    AND COALESCE(tx.is_backtest, 0) = 0
+                  ORDER BY (tx.status = 'open') DESC, tx.id DESC
+                  LIMIT 1)
+            )
             WHERE COALESCE(t.is_backtest, 0) = 0
         """
         if not include_demo:
