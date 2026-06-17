@@ -2,9 +2,10 @@
 
 Tier-1 read endpoint for the dashboard's Journals tab. Reads
 ``trade_journal.db::trades`` rows with ``status='closed'`` and the
-non-backtest filter, joining ``order_packages.updated_at`` as the
-authoritative ``closed_at`` (the trades table has no closed_at column
-of its own — see comment in ``src/runtime/order_monitor.py:2277``).
+non-backtest filter. ``closedAt`` prefers the canonical ``trades.closed_at``
+column (P1-B, written by every close path); for rows predating that column /
+its backfill it falls back to the legacy derivation
+(``order_packages.updated_at`` via the join, then ``notes.closed_at`` JSON).
 
 The dashboard already has a fallback path that derives best-effort
 closed-trade rows from ``/api/bot/logs`` when this endpoint isn't
@@ -109,7 +110,10 @@ def _decode_notes_closed_at(notes: Any) -> Optional[str]:
 
 def _row_to_wire(row: sqlite3.Row) -> Dict[str, Any]:
     notes_closed_at = _decode_notes_closed_at(row["notes"])
-    closed_at = row["op_updated_at"] or notes_closed_at
+    # Prefer the canonical closed_at COLUMN (P1-B); fall back to the legacy
+    # derivation (order_packages.updated_at -> notes.closed_at) for rows that
+    # predate the column / its backfill.
+    closed_at = row["closed_at"] or row["op_updated_at"] or notes_closed_at
     raw_pnl = row["pnl"]
     return {
         "id": str(row["id"]),
@@ -167,7 +171,7 @@ def _query_closed_trades(
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     try:
-        # COALESCE(op.updated_at, t.timestamp) is the ordering key — and
+        # COALESCE(t.closed_at, op.updated_at, t.timestamp) is the ordering key — and
         # the same expression filters *since*. Backtest rows are excluded
         # so the dashboard never shows synthetic trades.
         sql = """
@@ -175,7 +179,7 @@ def _query_closed_trades(
                    t.direction, t.strategy_name,
                    t.position_size, t.entry_price, t.exit_price,
                    t.pnl, t.pnl_percent,
-                   t.timestamp, t.exit_reason, t.notes,
+                   t.timestamp, t.closed_at, t.exit_reason, t.notes,
                    op.updated_at AS op_updated_at
             FROM trades t
             LEFT JOIN order_packages op ON op.linked_trade_id = t.id
@@ -191,11 +195,11 @@ def _query_closed_trades(
             sql += _NOT_PAPER_PREDICATE
         if since:
             sql += (
-                " AND datetime(COALESCE(op.updated_at, t.timestamp)) >= datetime(?)"
+                " AND datetime(COALESCE(t.closed_at, op.updated_at, t.timestamp)) >= datetime(?)"
             )
             params.append(since)
         sql += (
-            " ORDER BY datetime(COALESCE(op.updated_at, t.timestamp)) DESC LIMIT ?"
+            " ORDER BY datetime(COALESCE(t.closed_at, op.updated_at, t.timestamp)) DESC LIMIT ?"
         )
         params.append(limit)
         cur = conn.execute(sql, params)

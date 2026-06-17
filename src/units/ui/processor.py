@@ -1652,15 +1652,50 @@ def close_open_positions(
 
         if ok:
             try:
+                import json
                 conn = sqlite3.connect(db_path)
                 try:
                     now = datetime.now(timezone.utc).isoformat()
+                    # WC-1 (dashboard-truth-and-persistence audit): the prior raw
+                    # write stored notes as the non-JSON string "closed_at=<iso>"
+                    # (which the read-side JSON parser could not decode, and which
+                    # clobbered any prior notes), left the canonical closed_at
+                    # COLUMN unset, and never cascade-closed the linked order
+                    # package — stranding it open (a monocle leak). Merge the
+                    # close metadata into the notes JSON, stamp the closed_at
+                    # column, and cascade the package via the canonical
+                    # trades.order_package_id link. pnl is intentionally left for
+                    # the Bybit closed-pnl sweep so the broker>local precedence
+                    # holds (this path only closes bybit accounts).
+                    prow = conn.execute(
+                        "SELECT notes, order_package_id FROM trades WHERE id = ?",
+                        (trade_id,),
+                    ).fetchone()
+                    try:
+                        notes = json.loads(prow[0]) if prow and prow[0] else {}
+                        if not isinstance(notes, dict):
+                            notes = {}
+                    except (json.JSONDecodeError, TypeError):
+                        notes = {}
+                    notes.update({
+                        "closed_at": now,
+                        "closed_by": "manual_closeall",
+                        "closed_reason": "operator manual close-all",
+                    })
                     conn.execute(
                         "UPDATE trades SET status = 'closed', "
-                        "exit_reason = 'manual_closeall', notes = ? "
-                        "WHERE id = ?",
-                        (f"closed_at={now}", trade_id),
+                        "exit_reason = 'manual_closeall', closed_at = ?, "
+                        "notes = ? WHERE id = ?",
+                        (now, json.dumps(notes)[:2000], trade_id),
                     )
+                    opid = prow[1] if prow else None
+                    if opid:
+                        conn.execute(
+                            "UPDATE order_packages SET status = 'closed', "
+                            "close_reason = 'manual_closeall', updated_at = ? "
+                            "WHERE order_package_id = ? AND status != 'closed'",
+                            (now, opid),
+                        )
                     conn.commit()
                 finally:
                     conn.close()

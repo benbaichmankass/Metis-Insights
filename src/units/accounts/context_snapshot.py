@@ -230,9 +230,15 @@ def daily_state_for(
     if utc_date is None:
         utc_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     try:
+        # The canonical daily_risk_state schema keys the day on `date`
+        # (src/units/accounts/risk.py::_CREATE_DAILY_RISK_STATE, PRIMARY KEY
+        # (account_id, date)). The prior `utc_date` here matched no production
+        # column, so this SELECT raised OperationalError → swallowed → every
+        # snapshot stored NULL daily_pnl/daily_equity_high/drawdown_pct. Field
+        # beats the stale query: filter on the real `date` column.
         cur = conn.execute(
             "SELECT daily_pnl, daily_high_equity FROM daily_risk_state "
-            "WHERE account_id = ? AND utc_date = ?",
+            "WHERE account_id = ? AND date = ?",
             (account_id, utc_date),
         )
         row = cur.fetchone()
