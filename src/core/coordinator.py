@@ -2485,6 +2485,24 @@ def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
             if k not in {"order_package_id", "model_scores"}
         }
         model_scores = (pkg.meta or {}).get("model_scores")
+        # ExitPlan (P1, dynamic-take-profit consistency): the static
+        # description of the whole intended exit, derived here from the
+        # package's own entry/sl/tp(+meta.tp2) fields. Journaled only in P1 —
+        # nothing reads it back to drive behaviour yet (the materializer is
+        # P2+), so this is observe-only and best-effort: a derivation failure
+        # never blocks the order log.
+        exit_plan = None
+        try:
+            from src.runtime.exit_plan import build_exit_plan_from_legacy
+            exit_plan = build_exit_plan_from_legacy({
+                "strategy_name": pkg.strategy,
+                "entry": float(pkg.entry),
+                "sl": float(pkg.sl),
+                "tp": float(pkg.tp),
+                "meta": pkg.meta or {},
+            })
+        except Exception as exc:  # noqa: BLE001 — observe-only metadata
+            logger.debug("exit_plan derivation skipped for %s: %s", pkg.strategy, exc)
         db.insert_order_package({
             "order_package_id": order_package_id,
             "strategy_name": pkg.strategy,
@@ -2498,6 +2516,7 @@ def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
             "status": "open",
             "meta": meta_for_log,
             "model_scores": model_scores if isinstance(model_scores, (dict, list)) else None,
+            "exit_plan": exit_plan,
         })
         # Stamp the id back onto pkg.meta so the executor can read it.
         if pkg.meta is None:
