@@ -103,7 +103,7 @@ def _from_db() -> Optional[Dict[str, Any]]:
         from src.units.db.database import Database
 
         rows = Database().get_latest_balance_snapshots()
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001  # allow-silent: returns None to fall back to the JSON snapshot (degraded but present), not an empty/silent result — the JSON path still serves balances and logs the DB failure with a stack trace. Narrowing isn't possible (the import + sqlite layer raise heterogeneous types).
         logger.warning("accounts: DB balance read failed; falling back to JSON", exc_info=True)
         return None
     if not rows:

@@ -258,7 +258,7 @@ def _record_balance_snapshot_to_db(
             api_ok=api_ok,
             ts=ts,
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort DB dual-write of an already-rendered balance; the hourly report (and JSON snapshot) must never fail because the DB is momentarily locked. The reading is still returned + saved to JSON; the warning is logged.
         logger.warning(
             "hourly_report: balance snapshot DB write(%s) failed: %s",
             account_id, exc,
