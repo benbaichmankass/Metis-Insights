@@ -188,3 +188,109 @@ def test_signal_logic_plain_text_and_meta_null(db, client):
     row = client.get("/api/bot/order-packages").json()["rows"][0]
     assert row["signalLogic"] == "liquidity sweep below PDL"
     assert row["meta"] is None
+
+
+# ---------------------------------------------------------------------------
+# Trade resolution via the canonical trades.order_package_id fallback.
+#
+# linked_trade_id is written ONLY for the real-money primary OPEN entry.
+# Packages whose fill was a demo leg / intent_reduce leg / orphan-adopt leave
+# linked_trade_id NULL — those trades reference the package via the canonical
+# trades.order_package_id column. The endpoint must still surface their PnL /
+# status / accountClass while preserving one-row-per-package + paper filters.
+# ---------------------------------------------------------------------------
+
+
+def test_resolves_trade_via_order_package_id_when_linked_trade_id_null(db, client):
+    """(a) linked_trade_id NULL but a real-money closed trade references the
+    package via trades.order_package_id → the row now shows that trade's pnl /
+    tradeStatus / accountClass='real_money' (previously null)."""
+    _trade(
+        db, pnl=33.0, status="closed", account_class="real_money", is_demo=0,
+        order_package_id="op-fallback", strategy_name="vwap",
+    )
+    _insert_package(
+        db, order_package_id="op-fallback", linked_trade_id=None,
+        strategy_name="vwap", created_at="2026-05-20T10:00:00Z", status="closed",
+    )
+    body = client.get("/api/bot/order-packages").json()
+    assert body["count"] == 1
+    row = body["rows"][0]
+    # linkedTradeId reflects the package's OWN declared link (still NULL) —
+    # its documented meaning is unchanged. The PnL/status/accountClass come
+    # from the resolved fallback trade.
+    assert row["linkedTradeId"] is None
+    assert row["pnl"] == 33.0
+    assert row["tradeStatus"] == "closed"
+    assert row["accountClass"] == "real_money"
+    assert row["isDemo"] is False
+
+
+def test_resolved_trade_prefers_open_leg_then_newest(db, client):
+    """When multiple non-backtest legs reference the package via
+    order_package_id, the deterministic rule (status='open' DESC, id DESC)
+    picks the OPEN leg — matching what linked_trade_id would have pointed at."""
+    # An earlier closed leg + a later open leg, both linked by order_package_id.
+    _trade(db, pnl=10.0, status="closed", order_package_id="op-multi",
+           account_class="real_money")
+    _trade(db, pnl=None, status="open", order_package_id="op-multi",
+           account_class="real_money")
+    _insert_package(db, order_package_id="op-multi", linked_trade_id=None,
+                    created_at="2026-05-20T10:00:00Z", status="open")
+    body = client.get("/api/bot/order-packages").json()
+    assert body["count"] == 1
+    row = body["rows"][0]
+    assert row["tradeStatus"] == "open"
+    assert row["pnl"] is None  # the open leg has no realised PnL yet
+
+
+def test_linked_trade_id_still_resolves_exactly_that_trade(db, client):
+    """(b) When linked_trade_id IS set, resolution is unchanged — it resolves
+    to that exact trade even if other order_package_id-linked legs exist."""
+    primary = _trade(db, pnl=7.5, status="closed", strategy_name="vwap",
+                     account_class="real_money")
+    # A second leg referencing the same package by order_package_id that must
+    # NOT win over the explicit linked_trade_id.
+    _trade(db, pnl=99.0, status="open", order_package_id="op-linked",
+           account_class="real_money")
+    _insert_package(db, order_package_id="op-linked", linked_trade_id=primary,
+                    strategy_name="vwap", created_at="2026-05-20T10:00:00Z",
+                    status="closed")
+    body = client.get("/api/bot/order-packages").json()
+    assert body["count"] == 1
+    row = body["rows"][0]
+    assert row["linkedTradeId"] == str(primary)
+    assert row["pnl"] == 7.5
+    assert row["tradeStatus"] == "closed"
+
+
+def test_fallback_paper_only_trade_excluded_then_included(db, client):
+    """(c) A package whose only order_package_id-linked trade is PAPER is
+    excluded by default and included with include_paper=true."""
+    _trade(db, pnl=5.0, status="closed", is_demo=1, account_class="paper",
+           order_package_id="op-paper")
+    _insert_package(db, order_package_id="op-paper", linked_trade_id=None,
+                    created_at="2026-05-20T10:00:00Z", status="closed")
+
+    default_body = client.get("/api/bot/order-packages").json()
+    assert default_body["count"] == 0  # resolved trade is paper → excluded
+
+    incl_body = client.get("/api/bot/order-packages?include_paper=true").json()
+    assert incl_body["count"] == 1
+    row = incl_body["rows"][0]
+    assert row["accountClass"] == "paper"
+    assert row["isDemo"] is True
+    assert row["pnl"] == 5.0
+
+
+def test_fallback_package_with_no_trade_still_returned(db, client):
+    """(d) A package with NO trade at all (truly unexecuted) still appears with
+    null pnl — the NULL-tolerant backtest + not-paper predicates pass."""
+    _insert_package(db, order_package_id="op-empty", linked_trade_id=None,
+                    status="cancelled", created_at="2026-05-20T10:00:00Z")
+    body = client.get("/api/bot/order-packages").json()
+    assert body["count"] == 1
+    row = body["rows"][0]
+    assert row["pnl"] is None
+    assert row["tradeStatus"] is None
+    assert row["linkedTradeId"] is None
