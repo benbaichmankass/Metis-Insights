@@ -1,0 +1,30 @@
+# config/prop_rulesets/breakout_routing.yaml
+# Which strategy signals get turned into a Breakout "trade setup" ticket, and
+# how they're sized for the $5k 1-Step Classic account. Consumed by
+# src/prop/breakout_ticket.py (POC). Updated from the evaluation tool's
+# combo+sizing recommendation.
+#
+# NOTE: default combo/risk = the single-historical-path sweep recommendation
+# (squeeze_breakout_4h + fvg_range_15m @ risk 0.6). The Monte Carlo
+# survival/speed analysis may revise this — update `strategies` / `risk_pct`
+# here when it lands; no code change needed.
+
+account_size_usd: 5000
+risk_pct: 0.6                       # PERCENT of balance per trade
+
+# Strategies whose signals route to the Breakout ticket (the survivor combo).
+strategies:
+  - squeeze_breakout_4h
+  - fvg_range_15m
+
+# Symbol mapping: bot symbol -> Breakout/DXTrade symbol. [TODO confirm in Terminal]
+symbol_map:
+  BTCUSDT: null                     # set to Breakout's BTC symbol (e.g. "BTCUSD")
+
+# Sizing: $ risk per 1.0 unit per 1 price-point. Crypto-native default (1.0).
+# VERIFY against the DXTrade instrument's contract size at wire time.
+contract_value_usd_per_point: 1.0
+
+# Validity guards.
+entry_band_frac: 0.25              # entry band = ± this × (entry->SL distance)
+ttl_bars: 1.0                      # ticket valid for this many bars after signal_time

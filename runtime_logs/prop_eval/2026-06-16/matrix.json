@@ -1,0 +1,497 @@
+{
+  "kind": "prop_eval_matrix",
+  "generated_at": "2026-06-16T15:28:51.159399+00:00",
+  "ruleset": {
+    "ruleset": "breakout",
+    "plan": "1-step-classic",
+    "account_size_usd": 5000.0,
+    "profit_split": 0.8,
+    "unconfirmed": false,
+    "evaluation": {
+      "profit_target_pct": 0.1,
+      "min_trading_days": 0,
+      "max_eval_days": null
+    },
+    "funded": {
+      "profit_target_pct": null,
+      "min_trading_days": 0
+    },
+    "limits": {
+      "daily_loss_pct": 0.03,
+      "max_drawdown_pct": 0.06,
+      "drawdown_type": "static",
+      "max_position_pct": null
+    },
+    "consistency": {
+      "enabled": false,
+      "max_single_day_profit_share": 0.4
+    },
+    "restrictions": {
+      "weekend_flat": false,
+      "overnight_flat": false
+    },
+    "funded_soak_days": 30
+  },
+  "data_window": {
+    "start": null,
+    "end": null,
+    "data_start": "2023-01-01 00:00:00+00:00",
+    "data_end": "2026-03-01 00:00:00+00:00"
+  },
+  "combos": [
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "squeeze_breakout_4h,fvg_range_15m",
+      "eval": {
+        "passed": true,
+        "days_to_target": 673,
+        "active_trading_days": 89,
+        "static_dd_off_start_pct": 0.00216,
+        "equity_at_eval_pass": 5539.86,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": true,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 504.03,
+        "return_pct": 10.08,
+        "max_drawdown_pct": 3.33,
+        "max_drawdown_usd": 185.91,
+        "total_trades": 91,
+        "win_rate_pct": 43.96,
+        "consistency_worst_day_share": 0.194398
+      },
+      "headline": "EVAL PASS / FUNDED SURVIVE"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "fade_breakout_4h,squeeze_breakout_4h,fvg_range_15m",
+      "eval": {
+        "passed": true,
+        "days_to_target": 519,
+        "active_trading_days": 169,
+        "static_dd_off_start_pct": 0.000338,
+        "equity_at_eval_pass": 5501.94,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": true,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 184.38,
+        "return_pct": 3.69,
+        "max_drawdown_pct": 9.87,
+        "max_drawdown_usd": 556.35,
+        "total_trades": 182,
+        "win_rate_pct": 36.26,
+        "consistency_worst_day_share": 0.122604
+      },
+      "headline": "EVAL PASS / FUNDED SURVIVE"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "squeeze_breakout_4h",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 55,
+        "static_dd_off_start_pct": 0.00216,
+        "equity_at_eval_pass": null,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 183.02,
+        "return_pct": 3.66,
+        "max_drawdown_pct": 2.39,
+        "max_drawdown_usd": 125.32,
+        "total_trades": 56,
+        "win_rate_pct": 42.86,
+        "consistency_worst_day_share": 0.197333
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "fvg_range_15m",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 44,
+        "static_dd_off_start_pct": 0.000312,
+        "equity_at_eval_pass": null,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 394.74,
+        "return_pct": 7.89,
+        "max_drawdown_pct": 2.64,
+        "max_drawdown_usd": 144.07,
+        "total_trades": 45,
+        "win_rate_pct": 51.11,
+        "consistency_worst_day_share": 0.287486
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "trend_donchian,fvg_range_15m",
+      "eval": {
+        "passed": false,
+        "days_to_target": 432,
+        "active_trading_days": 233,
+        "static_dd_off_start_pct": 0.074646,
+        "equity_at_eval_pass": 5532.04,
+        "first_breach": {
+          "rule": "max_drawdown",
+          "ts": "2023-01-26 00:00:00+00:00",
+          "detail": "static DD 6.43% > 6.00%",
+          "depth_pct": 0.064346,
+          "drawdown_type": "static"
+        }
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 904.97,
+        "return_pct": 18.1,
+        "max_drawdown_pct": 6.2,
+        "max_drawdown_usd": 373.23,
+        "total_trades": 246,
+        "win_rate_pct": 39.02,
+        "consistency_worst_day_share": 0.171611
+      },
+      "headline": "EVAL FAIL (max_drawdown)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "trend_donchian",
+      "eval": {
+        "passed": false,
+        "days_to_target": 428,
+        "active_trading_days": 216,
+        "static_dd_off_start_pct": 0.074646,
+        "equity_at_eval_pass": 5504.77,
+        "first_breach": {
+          "rule": "max_drawdown",
+          "ts": "2023-01-26 00:00:00+00:00",
+          "detail": "static DD 6.43% > 6.00%",
+          "depth_pct": 0.064346,
+          "drawdown_type": "static"
+        }
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 825.01,
+        "return_pct": 16.5,
+        "max_drawdown_pct": 6.29,
+        "max_drawdown_usd": 373.23,
+        "total_trades": 228,
+        "win_rate_pct": 38.16,
+        "consistency_worst_day_share": 0.188816
+      },
+      "headline": "EVAL FAIL (max_drawdown)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "trend_donchian,squeeze_breakout_4h,fvg_range_15m",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 226,
+        "static_dd_off_start_pct": 0.074646,
+        "equity_at_eval_pass": null,
+        "first_breach": {
+          "rule": "max_drawdown",
+          "ts": "2023-01-26 00:00:00+00:00",
+          "detail": "static DD 6.43% > 6.00%",
+          "depth_pct": 0.064346,
+          "drawdown_type": "static"
+        }
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 277.31,
+        "return_pct": 5.55,
+        "max_drawdown_pct": 6.94,
+        "max_drawdown_usd": 373.23,
+        "total_trades": 242,
+        "win_rate_pct": 40.08,
+        "consistency_worst_day_share": 0.039728
+      },
+      "headline": "EVAL FAIL (max_drawdown)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "trend_donchian,squeeze_breakout_4h",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 210,
+        "static_dd_off_start_pct": 0.074646,
+        "equity_at_eval_pass": null,
+        "first_breach": {
+          "rule": "max_drawdown",
+          "ts": "2023-01-26 00:00:00+00:00",
+          "detail": "static DD 6.43% > 6.00%",
+          "depth_pct": 0.064346,
+          "drawdown_type": "static"
+        }
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 263.31,
+        "return_pct": 5.27,
+        "max_drawdown_pct": 6.96,
+        "max_drawdown_usd": 373.23,
+        "total_trades": 225,
+        "win_rate_pct": 40.0,
+        "consistency_worst_day_share": 0.035908
+      },
+      "headline": "EVAL FAIL (max_drawdown)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "trend_donchian,fade_breakout_4h,squeeze_breakout_4h",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 260,
+        "static_dd_off_start_pct": 0.074646,
+        "equity_at_eval_pass": null,
+        "first_breach": {
+          "rule": "max_drawdown",
+          "ts": "2023-01-26 00:00:00+00:00",
+          "detail": "static DD 6.43% > 6.00%",
+          "depth_pct": 0.064346,
+          "drawdown_type": "static"
+        }
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 151.89,
+        "return_pct": 3.04,
+        "max_drawdown_pct": 7.15,
+        "max_drawdown_usd": 373.23,
+        "total_trades": 284,
+        "win_rate_pct": 37.68,
+        "consistency_worst_day_share": 0.055128
+      },
+      "headline": "EVAL FAIL (max_drawdown)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "trend_donchian,fade_breakout_4h,squeeze_breakout_4h,fvg_range_15m",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 271,
+        "static_dd_off_start_pct": 0.074646,
+        "equity_at_eval_pass": null,
+        "first_breach": {
+          "rule": "max_drawdown",
+          "ts": "2023-01-26 00:00:00+00:00",
+          "detail": "static DD 6.43% > 6.00%",
+          "depth_pct": 0.064346,
+          "drawdown_type": "static"
+        }
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 140.48,
+        "return_pct": 2.81,
+        "max_drawdown_pct": 7.25,
+        "max_drawdown_usd": 382.97,
+        "total_trades": 298,
+        "win_rate_pct": 37.58,
+        "consistency_worst_day_share": 0.052424
+      },
+      "headline": "EVAL FAIL (max_drawdown)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "trend_donchian,fade_breakout_4h",
+      "eval": {
+        "passed": false,
+        "days_to_target": 438,
+        "active_trading_days": 276,
+        "static_dd_off_start_pct": 0.074646,
+        "equity_at_eval_pass": 5510.45,
+        "first_breach": {
+          "rule": "max_drawdown",
+          "ts": "2023-01-26 00:00:00+00:00",
+          "detail": "static DD 6.43% > 6.00%",
+          "depth_pct": 0.064346,
+          "drawdown_type": "static"
+        }
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 606.64,
+        "return_pct": 12.13,
+        "max_drawdown_pct": 7.7,
+        "max_drawdown_usd": 443.59,
+        "total_trades": 300,
+        "win_rate_pct": 36.33,
+        "consistency_worst_day_share": 0.165372
+      },
+      "headline": "EVAL FAIL (max_drawdown)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "trend_donchian,fade_breakout_4h,fvg_range_15m",
+      "eval": {
+        "passed": false,
+        "days_to_target": 432,
+        "active_trading_days": 287,
+        "static_dd_off_start_pct": 0.074646,
+        "equity_at_eval_pass": 5503.84,
+        "first_breach": {
+          "rule": "max_drawdown",
+          "ts": "2023-01-26 00:00:00+00:00",
+          "detail": "static DD 6.43% > 6.00%",
+          "depth_pct": 0.064346,
+          "drawdown_type": "static"
+        }
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 655.97,
+        "return_pct": 13.12,
+        "max_drawdown_pct": 8.35,
+        "max_drawdown_usd": 489.43,
+        "total_trades": 315,
+        "win_rate_pct": 36.83,
+        "consistency_worst_day_share": 0.155175
+      },
+      "headline": "EVAL FAIL (max_drawdown)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "fade_breakout_4h,fvg_range_15m",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 156,
+        "static_dd_off_start_pct": 1e-05,
+        "equity_at_eval_pass": null,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": 165.8,
+        "return_pct": 3.32,
+        "max_drawdown_pct": 8.68,
+        "max_drawdown_usd": 477.46,
+        "total_trades": 172,
+        "win_rate_pct": 37.79,
+        "consistency_worst_day_share": 0.127746
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "fade_breakout_4h,squeeze_breakout_4h",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 137,
+        "static_dd_off_start_pct": 0.037316,
+        "equity_at_eval_pass": null,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": -112.63,
+        "return_pct": -2.25,
+        "max_drawdown_pct": 10.85,
+        "max_drawdown_usd": 586.04,
+        "total_trades": 149,
+        "win_rate_pct": 34.23,
+        "consistency_worst_day_share": 0.122448
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    },
+    {
+      "ruleset": "breakout",
+      "unconfirmed": false,
+      "roster": "fade_breakout_4h",
+      "eval": {
+        "passed": false,
+        "days_to_target": null,
+        "active_trading_days": 119,
+        "static_dd_off_start_pct": 0.057532,
+        "equity_at_eval_pass": null,
+        "first_breach": null
+      },
+      "funded_soak": {
+        "survived": false,
+        "first_breach": null
+      },
+      "metrics": {
+        "net_pnl": -232.44,
+        "return_pct": -4.65,
+        "max_drawdown_pct": 11.12,
+        "max_drawdown_usd": 589.5,
+        "total_trades": 132,
+        "win_rate_pct": 33.33,
+        "consistency_worst_day_share": 0.142447
+      },
+      "headline": "EVAL NOT REACHED (target not hit)"
+    }
+  ],
+  "count": 15
+}

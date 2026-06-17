@@ -88,6 +88,15 @@ ROSTER: Dict[str, Dict[str, str]] = {
     "fvg_range_15m":       {"module": "src.units.strategies.fvg_range_15m", "tf": "15m"},
     "turtle_soup":         {"module": "src.units.strategies.turtle_soup", "tf": "15m"},
     "ict_scalp_5m":        {"module": "src.units.strategies.ict_scalp", "tf": "5m"},
+    # --- HF prop-pass research candidates (2026-06-16, RESEARCH-ONLY) ---
+    # Registered for the research harness ONLY (NOT config/strategies.yaml; NOT
+    # the live order path). See docs/research/hf-prop-strategy-research-plan-
+    # 2026-06-16.md + runtime_logs/prop_eval/2026-06-16-hf-research/NOTE.md.
+    # hf_displacement_cont takes the same per-bar 1h-EMA HTF-bias injection as
+    # ict_scalp_5m (generate_signal_stream special-cases both) so its hard
+    # HTF trend-alignment gate is fed live-faithfully.
+    "hf_displacement_cont": {"module": "src.units.strategies.hf_displacement_cont", "tf": "5m"},
+    "hf_vwap_revert":       {"module": "src.units.strategies.hf_vwap_revert", "tf": "5m"},
 }
 _PANDAS_TF = {"5m": "5min", "15m": "15min", "30m": "30min", "1h": "1h", "2h": "2h", "4h": "4h"}
 
@@ -148,6 +157,23 @@ def _cache_key(name: str, base_path: str, start, end, overrides: dict) -> Path:
     return _SIG_CACHE / f"{name}_{h}.parquet"
 
 
+def _data_fingerprint(df: pd.DataFrame) -> str:
+    """Stable identity of the candle feed, for the signal-stream cache key.
+
+    Without this the key hardcoded a constant string, so two DIFFERENT symbols
+    over the same window+overrides collided and the second silently reused the
+    first's cached signals (a cross-symbol sweep returned identical EV for every
+    coin). Fingerprint = bar count + first/last timestamp + first/last close, so
+    BTCUSDT and ETHUSDT (etc.) get distinct keys.
+    """
+    try:
+        ts = df["timestamp"]
+        return (f"{len(df)}:{ts.iloc[0]}:{ts.iloc[-1]}:"
+                f"{float(df['close'].iloc[0]):.6f}:{float(df['close'].iloc[-1]):.6f}")
+    except Exception:  # noqa: BLE001 — a degenerate frame falls back to a constant
+        return "unknown-feed"
+
+
 def generate_signal_stream(name: str, base5m: pd.DataFrame, *, start, end,
                            overrides: dict, refresh: bool = False) -> pd.DataFrame:
     """Run the REAL order_package on every closed bar of the strategy's TF.
@@ -156,7 +182,7 @@ def generate_signal_stream(name: str, base5m: pd.DataFrame, *, start, end,
     row per bar where the strategy emitted a signal (ValueError = no row).
     Cached to parquet keyed by (strategy, data, window, overrides).
     """
-    cache = _cache_key(name, "6yr", start, end, overrides)
+    cache = _cache_key(name, _data_fingerprint(base5m), start, end, overrides)
     if cache.exists() and not refresh:
         return pd.read_parquet(cache)
 
@@ -175,7 +201,7 @@ def generate_signal_stream(name: str, base5m: pd.DataFrame, *, start, end,
     # EMA once over the FULL base feed and as-of-align it to each bar so the
     # in-system stream matches live behaviour. Other strategies: htf_series=None.
     htf_close_arr = htf_ema_arr = None
-    if name == "ict_scalp_5m" and bool(cfg.get("htf_trend_filter_enabled", True)):
+    if name in ("ict_scalp_5m", "hf_displacement_cont") and bool(cfg.get("htf_trend_filter_enabled", True)):
         htf_tf = _PANDAS_TF.get(str(cfg.get("htf_filter_timeframe") or "1h"), "1h")
         ema_period = int(cfg.get("htf_filter_ema_period") or 20)
         htf = _resample(base5m, htf_tf)
@@ -261,7 +287,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                         overrides: Dict[str, dict], refresh: bool,
                         clock_tf: str = "15m",
                         flip_policy: str = "reverse",
-                        reentry_policy: str = "suppress") -> Dict[str, Any]:
+                        reentry_policy: str = "suppress",
+                        attach_full: bool = False) -> Dict[str, Any]:
     """Drive all `roster` strategies through aggregate_intents on a shared
     account. Clock runs on `clock_tf` bars; at each tick we read each
     strategy's latest live signal (emitted within signal_ttl_bars), net them
@@ -491,15 +518,26 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
         _close(pos, c[-1], ts.iloc[-1], "eod", n - 1)
         pos = None
 
-    return _summarize(closed, equity_curve, base_balance=initial_balance,
-                      util_bars=util_bars, total_bars=n, roster=roster,
-                      params={"initial_balance": initial_balance, "risk_pct": risk_pct,
-                              "daily_loss_pct": daily_loss_pct, "signal_ttl_bars": signal_ttl_bars,
-                              "clock_tf": clock_tf, "flip_policy": flip_policy,
-                              "reentry_policy": reentry_policy,
-                              "overrides": overrides},
-                      data_start=str(ts.iloc[0]) if n else None,
-                      data_end=str(ts.iloc[-1]) if n else None)
+    summary = _summarize(closed, equity_curve, base_balance=initial_balance,
+                         util_bars=util_bars, total_bars=n, roster=roster,
+                         params={"initial_balance": initial_balance, "risk_pct": risk_pct,
+                                 "daily_loss_pct": daily_loss_pct, "signal_ttl_bars": signal_ttl_bars,
+                                 "clock_tf": clock_tf, "flip_policy": flip_policy,
+                                 "reentry_policy": reentry_policy,
+                                 "overrides": overrides},
+                         data_start=str(ts.iloc[0]) if n else None,
+                         data_end=str(ts.iloc[-1]) if n else None)
+    if attach_full:
+        # Purely additive (default off): expose the FULL equity curve + closed
+        # ledger that _summarize otherwise discards (it serializes only
+        # equity_curve_tail). Used by the in-process prop-firm evaluator
+        # (scripts/prop/evaluate_prop.py) which needs per-trade pnl/owner/
+        # timestamps + the whole curve for daily-bucket / drawdown / consistency
+        # math. The CLI never sets this, so the printed + --json output is
+        # byte-for-byte unchanged.
+        summary["full_equity_curve"] = equity_curve
+        summary["closed_trades"] = closed
+    return summary
 
 
 def _winner_name(desired, latest) -> Optional[str]:
