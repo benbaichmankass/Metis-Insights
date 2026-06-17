@@ -499,12 +499,24 @@ account, with `delta_1h`/`open_positions`/`api_ok`), JSON snapshot = degraded
 fallback (`source` field records which served). Closes the audit's "balances
 have no DB table" gap. 40 tests green.
 
-**Still open in WC-5:** insights precedence (make `insights_history`
-canonical, cache = hot-read) and the signals cutover (flip `/api/bot/signals`
-to read the DB, JSONL → append-only audit, fail-loud dual-write — RISKIEST,
-live hot path, operator-gated draft).
+**WC-5 (part 2) — insights are DB-canonical.** `history.latest_payload` +
+generator writes `insights_history` **first** then the derived cache; the
+`/api/bot/insights/*` router falls back to the newest DB row on cache miss
+(`source: history_db`) before the placeholder. A wiped cache dir can no longer
+blank the dashboard. 41 insights tests green. Plus a diag observability add:
+`ict-db-integrity.{service,timer}` are now in the diag `_CANONICAL_UNITS`
+allowlist so the Phase-4 alert timer is queryable.
 
-**Cross-repo follow-up (operator directive 2026-06-17):** once the bot-side
-truth is fixed, verify the **Android app** consumes the same corrected
-endpoints (`/performance` 24h basis, `/order-packages` link, `accounts/balances`
-shape, `account_class` split) — parity audit pending.
+**WC-5 (part 3) — signals cutover: built, split to its own SOAK PR.**
+`/api/bot/signals` reads `trade_journal.db::signals` with `signal_audit.jsonl`
+as the coupled fallback (single rollback `SIGNAL_DUAL_WRITE_DISABLED` flips both
+sides); the dual-write is now fail-loud. Because it's the live-hot-path piece it
+rides a **dual-write-clean soak** before merge — separated onto
+`claude/wc5-signals-cutover` (its own PR) so the safe insights half (this PR)
+merges first. 32 cutover/zones/storage tests green.
+
+**Cross-repo follow-up (operator directive 2026-06-17) — DONE.** Android parity
+audit complete (separate PR): JSON parsing is crash-safe (`ignoreUnknownKeys`);
+fixed two model gaps (`BotStats.paper` sub-block via a dedicated `BotStatsPaper`
+type; `/accounts/balances` health fields) + surfaced them in the UI. Gradle
+build green; on-device visual check pending.
