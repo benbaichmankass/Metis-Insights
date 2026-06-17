@@ -497,6 +497,34 @@ def _fetch_linear_available_balance(client: Any) -> Optional[float]:
         return None
 
 
+def _fetch_linear_total_equity(client: Any) -> Optional[float]:
+    """Return total USD cross-margin equity for a Bybit UNIFIED account.
+
+    For a UNIFIED (cross-margin) linear-perp account the position is backed
+    by the *total* account equity, not just the free wallet balance — so the
+    risk-manager's min-balance gate, daily-loss-budget basis, and margin
+    buffer fallback (S-052) all want total equity as the equity figure.
+    Reads the account-level ``totalEquity`` from the same
+    ``get_wallet_balance(accountType="UNIFIED")`` response shape used by
+    ``_fetch_linear_available_balance``, falling back to
+    ``totalWalletBalance`` when ``totalEquity`` is absent. Returns None on
+    any error / missing field so the caller can fall back to the current
+    free-balance behaviour.
+    """
+    try:
+        resp = client.get_wallet_balance(accountType="UNIFIED") or {}
+        wallet_list = (resp.get("result") or {}).get("list") or [{}]
+        account = wallet_list[0] if wallet_list else {}
+        for field in ("totalEquity", "totalWalletBalance"):
+            raw = account.get(field)
+            if raw not in (None, "", "null"):
+                return max(0.0, float(raw))
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_fetch_linear_total_equity: %s", exc)
+        return None
+
+
 def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
     """Place the order via the exchange client and return a trade_id."""
     exchange = (account_cfg.get("exchange") or "bybit").lower()
