@@ -4,18 +4,30 @@
 Generalises ``fetch_qashdev_btc_archive.py`` (which is BTCUSDT-only, off a GitHub
 mirror) to ANY Binance-listed symbol straight from the canonical public archive
 ``data.binance.vision`` — verified reachable from the sandbox (Bybit's own REST
-is 403-blocked here). Binance SPOT 5m matches Bybit linear-perp within the
-spot-perp basis (~0-10 bps), so it is a sound proxy for a *relative* prop-eval
-sweep across Bybit-tradeable coins.
+is 403-blocked here).
 
-Output: ``<DATA_ROOT>/<symbol_lower>_5m.parquet`` in the SAME schema the
-backtest engine's ``_load_candles`` expects (timestamp[UTC], open, high, low,
-close, volume). Monthly raw ZIPs are cached under ``<DATA_ROOT>/raw/`` so a
-re-run is incremental.
+Two markets via ``--market``:
+
+  * ``spot`` (default) — ``.../data/spot/monthly/klines/...``; matches Bybit
+    linear-perp within the spot-perp basis (~0-10 bps), a sound proxy for a
+    *relative* prop-eval sweep.
+  * ``futures/um`` — Binance **USD-M PERPETUAL** futures
+    (``.../data/futures/um/monthly/klines/...``). This is the RIGHT proxy for a
+    Bybit LINEAR PERP: same USDT-margined perpetual contract, ~same funding/basis
+    regime, far closer than spot for absolute EV. Output filename gets a ``_perp``
+    tag so the perp cache never collides with the spot cache.
+
+Output: ``<DATA_ROOT>/<symbol_lower>_5m.parquet`` (spot) or
+``<DATA_ROOT>/<symbol_lower>_perp_5m.parquet`` (futures/um), in the SAME schema
+the backtest engine's ``_load_candles`` expects (timestamp[UTC], open, high, low,
+close, volume). Monthly raw ZIPs are cached under ``<DATA_ROOT>/raw/`` (namespaced
+by market) so a re-run is incremental.
 
 Usage:
     python scripts/ops/fetch_binance_vision.py --symbol ETHUSDT --start 2023-01 --end 2026-02
     python scripts/ops/fetch_binance_vision.py --symbol SOLUSDT   # defaults 2023-01..2026-02
+    # PERPETUAL futures (the Bybit-perp proxy):
+    python scripts/ops/fetch_binance_vision.py --symbol SOLUSDT --market futures/um
 
 Env:
     ICT_TRADER_DATA_ROOT   default /home/user/ict-trader-data
@@ -36,7 +48,13 @@ import pandas as pd
 from dateutil.relativedelta import relativedelta
 
 DATA_ROOT = Path(os.environ.get("ICT_TRADER_DATA_ROOT", "/home/user/ict-trader-data"))
-BASE = "https://data.binance.vision/data/spot/monthly/klines"
+# Market → (URL path segment, output-filename tag, raw-cache subdir tag). Spot
+# keeps the legacy bare names so existing caches/commands are unaffected.
+_MARKETS = {
+    "spot": ("spot", "", "spot"),
+    "futures/um": ("futures/um", "_perp", "futures_um"),
+}
+_BASE_HOST = "https://data.binance.vision/data"
 _BINANCE_COLS = [
     "open_time", "open", "high", "low", "close", "volume", "close_time",
     "quote_volume", "count", "taker_buy_volume", "taker_buy_quote_volume", "ignore",
@@ -53,12 +71,12 @@ def _months(start: str, end: str) -> List[str]:
     return out
 
 
-def _fetch_month(symbol: str, ym: str, raw_dir: Path) -> Path | None:
+def _fetch_month(symbol: str, ym: str, raw_dir: Path, url_segment: str) -> Path | None:
     """Download + extract one monthly kline CSV; cached. Returns the CSV path or None."""
     csv_path = raw_dir / f"{symbol}-5m-{ym}.csv"
     if csv_path.exists() and csv_path.stat().st_size > 0:
         return csv_path
-    url = f"{BASE}/{symbol}/5m/{symbol}-5m-{ym}.zip"
+    url = f"{_BASE_HOST}/{url_segment}/monthly/klines/{symbol}/5m/{symbol}-5m-{ym}.zip"
     try:
         with urllib.request.urlopen(url, timeout=60) as resp:
             blob = resp.read()
@@ -96,17 +114,22 @@ def main(argv: List[str]) -> int:
     p.add_argument("--symbol", required=True, help="e.g. ETHUSDT")
     p.add_argument("--start", default="2023-01", help="YYYY-MM (inclusive)")
     p.add_argument("--end", default="2026-02", help="YYYY-MM (inclusive)")
+    p.add_argument("--market", default="spot", choices=list(_MARKETS.keys()),
+                   help="spot (default) or futures/um (USD-M PERPETUAL — the Bybit-perp proxy)")
     p.add_argument("--force", action="store_true", help="rebuild parquet even if newer than raw")
     args = p.parse_args(argv)
 
     symbol = args.symbol.upper()
-    raw_dir = DATA_ROOT / "raw"
+    url_segment, fname_tag, raw_tag = _MARKETS[args.market]
+    # Namespace the raw-ZIP cache per market so spot and perp CSVs of the same
+    # symbol/month don't overwrite each other.
+    raw_dir = DATA_ROOT / "raw" / raw_tag if raw_tag != "spot" else DATA_ROOT / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
-    out_path = DATA_ROOT / f"{symbol.lower()}_5m.parquet"
+    out_path = DATA_ROOT / f"{symbol.lower()}{fname_tag}_5m.parquet"
 
     frames: List[pd.DataFrame] = []
     for ym in _months(args.start, args.end):
-        csv_path = _fetch_month(symbol, ym, raw_dir)
+        csv_path = _fetch_month(symbol, ym, raw_dir, url_segment)
         if csv_path is not None:
             frames.append(_load_csv(csv_path))
     if not frames:
