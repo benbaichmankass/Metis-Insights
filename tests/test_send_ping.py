@@ -276,20 +276,19 @@ def test_claude_bridge_drain_sends_each_file_and_deletes(
     p1 = send_ping.enqueue("checkpoint X", priority="normal", target="claude")
     p2 = send_ping.enqueue("BLOCKED Y", priority="urgent", target="claude")
 
+    # Bot restructure (2026-06-17): the drain now delivers via the TRADER bot
+    # through notify.send_telegram_direct, not its own ctx.bot.send_message.
     sent: list = []
-    bot_mock = MagicMock()
-    bot_mock.send_message = AsyncMock(side_effect=lambda **kw: sent.append(kw))
-    ctx = MagicMock()
-    ctx.bot = bot_mock
+    import src.runtime.notify as notify
+    monkeypatch.setattr(notify, "send_telegram_direct",
+                        lambda message, **kw: sent.append(message))
+    ctx = MagicMock()   # ctx.bot is no longer used by the drain
 
     _drive(bridge._drain_pending_claude_pings(ctx))
 
     assert len(sent) == 2
-    bodies = [s["text"] for s in sent]
-    assert any("ℹ️ checkpoint X" in b for b in bodies)
-    assert any("🚨 URGENT BLOCKED Y" in b for b in bodies)
-    # Both went to the operator chat ID, not some other chat.
-    assert all(s["chat_id"] == 9999 for s in sent)
+    assert any("ℹ️ checkpoint X" in b for b in sent)
+    assert any("🚨 URGENT BLOCKED Y" in b for b in sent)
     # Files removed on success.
     assert not p1.exists()
     assert not p2.exists()
@@ -344,13 +343,14 @@ def test_claude_bridge_drain_leaves_file_on_send_failure(tmp_path, monkeypatch):
     send_ping.PENDING_CLAUDE_PINGS_DIR = tmp_path
     p = send_ping.enqueue("retry me", priority="normal", target="claude")
 
-    async def _boom(**kw):
+    # Failure now comes from the trader-bot delivery path (send_telegram_direct).
+    import src.runtime.notify as notify
+
+    def _boom(message, **kw):
         raise RuntimeError("telegram 503")
 
-    bot_mock = MagicMock()
-    bot_mock.send_message = _boom
+    monkeypatch.setattr(notify, "send_telegram_direct", _boom)
     ctx = MagicMock()
-    ctx.bot = bot_mock
 
     _drive(bridge._drain_pending_claude_pings(ctx))
     assert p.exists()

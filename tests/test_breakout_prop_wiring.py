@@ -76,12 +76,14 @@ def test_descriptions_and_changelog_present():
         assert v in c and isinstance(c[v], list) and c[v]
 
 
-def test_compat_matrix_routes_sol_to_breakout_only():
+def test_breakout_account_resolves_to_prop_unit():
+    # The canonical account→ruleset binding: breakout_1 resolves to a PROP unit
+    # sized at 1.5% of the $5k breakout ruleset (drives the executor leg).
     import sys
     sys.path.insert(0, str(_ROOT))
-    from scripts.prop.account_compat_matrix import compat_row
-    strategies, accounts = _strategies(), _accounts()
-    routed = [aid for aid, acct in accounts.items()
-              if compat_row("trend_donchian_sol", strategies["trend_donchian_sol"],
-                            aid, acct)["verdict"] == "ROUTE"]
-    assert routed == ["breakout_1"]
+    from src.prop.account_rulesets import unit_for_account
+    unit = unit_for_account("breakout_1", _accounts()["breakout_1"])
+    assert unit.kind == "prop"
+    assert unit.account_class == "prop"
+    assert abs(unit.risk_pct - 1.5) < 1e-9          # 0.015 → 1.5%
+    assert unit.account_size_usd == 5000.0

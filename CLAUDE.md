@@ -118,6 +118,31 @@ trades are refused with a logged cause. Full Prime Directive + enforcement:
 [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § Prime Directive;
 mode-mutation contract in [`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md).
 
+## Prop-trading accounts (scalable architecture)
+
+Prop-firm accounts (e.g. Breakout) are first-class, multi-account, and integrated
+into the **standard** strategy flow — full design:
+[`docs/integrations/prop-accounts-architecture-DESIGN.md`](docs/integrations/prop-accounts-architecture-DESIGN.md).
+The model:
+
+- **Account → ruleset binding.** Every account resolves (via
+  `src/prop/account_rulesets.py`) to a backtest unit: prop accounts → their
+  prop ruleset (`config/prop_rulesets/*.yaml`: breach rules + `economics` +
+  BANK-ASAP withdrawal); all others → a `standard` ruleset from the account's
+  `risk` block.
+- **Mandatory per-account compatibility.** The `backtesting` and `new-strategy`
+  skills require running `scripts/prop/account_compat_matrix.py` so a strategy is
+  never routed to an account it wasn't evaluated against under that account's
+  rules (prop → cost-aware EV+survival via `src/prop/montecarlo.py::run_ev_montecarlo`;
+  standard → net-of-fee performance).
+- **Telegram-ping execution.** A prop account "executes" by emitting a
+  `prop_signal` ticket (FCM + Telegram) for a supervised assistant to place — NOT
+  a broker API. Built multi-account: one signal → per-account legs with a
+  discrepancy banner (`src/prop/multi_account_ticket.py` +
+  `src/prop/breakout_notify.py`). The live wiring (alt-variant strategies, the
+  prop account in `accounts.yaml`, the executor) is **Tier-3**, gated on
+  real-venue validation + operator approval.
+
 ## Skills (composable workflows) — skill-first lookup is binding
 
 Concrete workflows live as skills under [`.claude/skills/`](.claude/skills/),

@@ -16,6 +16,7 @@ def send_telegram_direct(
     *,
     parse_mode: Optional[str] = "HTML",
     mirror_to_fcm: bool = True,
+    bot_token: Optional[str] = None,
 ) -> None:
     """
     Stdlib-only direct POST to Telegram's sendMessage API.
@@ -73,11 +74,14 @@ def send_telegram_direct(
         except Exception as exc:  # noqa: BLE001  # allow-silent: M12 S1 mirror — mobile_push failure must never propagate into the Telegram send path
             logger.warning("notify: mobile_push mirror failed: %s", exc)
 
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    # ``bot_token`` lets a caller target a SPECIFIC bot (e.g. the prop-account
+    # bot) instead of the default operator/trader bot; default None keeps the
+    # historical TELEGRAM_BOT_TOKEN behaviour.
+    token = bot_token or os.environ.get("TELEGRAM_BOT_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not token or not chat_id:
         logger.warning(
-            "Telegram credentials missing (TELEGRAM_BOT_TOKEN or "
+            "Telegram credentials missing (bot token or "
             "TELEGRAM_CHAT_ID); skipping send"
         )
         return

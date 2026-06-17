@@ -1,134 +1,155 @@
 #!/usr/bin/env python3
-"""Per-account compatibility matrix for a strategy (PB-20260616-004 step 3).
+"""Per-account compatibility matrix — run ONE strategy against EVERY account's ruleset.
 
-Answers "which accounts can this strategy actually trade on?" by checking each
-account in ``config/accounts.yaml`` against the strategy's declared symbols and
-the broker's constraints, emitting a **ROUTE / SKIP** verdict per account with
-reasons. Used to confirm a new prop variant routes only to the prop account
-(and not, say, a Bybit account that doesn't offer the alt as a prop instrument).
+The **mandatory** evidence step in the strategy flow (see the `backtesting` and
+`new-strategy` skills + `docs/integrations/prop-accounts-architecture-DESIGN.md`):
+it produces the top-down "which strategy belongs on which account" answer, so a
+strategy is never routed to an account it wasn't evaluated against under that
+account's rules.
 
-Checks per (strategy, account):
+For each account (resolved via `src.prop.account_rulesets.all_account_units`):
+  - **prop** account  → cost-aware EV + survival (`run_ev_montecarlo`) under its
+    prop ruleset (breach rules + economics) at the account's risk_pct.
+  - **standard** account → net-of-fee performance (`run_montecarlo` end-return +
+    P(breach) against the account's own soft limits) at its risk_pct.
 
-  1. **symbol overlap** — strategy ``symbols`` ∩ account ``symbols`` non-empty.
-     No shared instrument → SKIP (the per-strategy symbol scope means it would
-     never fire there anyway).
-  2. **exchange leverage cap** — for ``exchange: breakout`` accounts, the
-     notional at the account's per-trade risk must fit the venue leverage cap
-     (Breakout: 5× BTC/ETH, 2× other alts). A breach → WARN (not a hard SKIP;
-     sizing can be reduced).
-  3. **already routed** — whether the strategy is already in the account's
-     ``strategies`` list (informational).
+One engine run per (strategy, data); every account eval reuses that single
+sizing-independent ledger (the same pattern as `montecarlo_prop`). Multi-account
+by construction — a new/added account is picked up automatically.
 
-Tier-1 read-only tooling: reads YAML, writes nothing, places no orders.
-
-Usage:
-    python scripts/prop/account_compat_matrix.py --strategy trend_donchian_sol
-    python scripts/prop/account_compat_matrix.py --strategy trend_donchian_eth --json
+Output: `runtime_logs/prop_eval/<date>/compat_<strategy>.{json,md}`.
+Tier-1 research tooling — no live order path.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import sys
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
-# Breakout per-asset leverage caps (public materials, 2026-06-17): 5x BTC/ETH,
-# 2x everything else. Used to flag a notional that would exceed the cap.
-_BREAKOUT_LEVERAGE = {"BTCUSDT": 5.0, "ETHUSDT": 5.0}
-_BREAKOUT_LEVERAGE_DEFAULT = 2.0
-
-
-def _load_yaml(path: Path) -> Dict[str, Any]:
-    import yaml
-    with open(path) as fh:
-        return yaml.safe_load(fh) or {}
+import scripts.backtest_system as bt  # noqa: E402
+from src.prop.account_rulesets import all_account_units  # noqa: E402
+from src.prop.montecarlo import run_ev_montecarlo, run_montecarlo  # noqa: E402
 
 
-def _account_risk_pct(acct: Dict[str, Any]) -> float:
-    r = acct.get("risk") or {}
-    # risk.risk_pct is a fraction (0.015 = 1.5%)
-    return float(r.get("risk_pct") or acct.get("risk_pct") or 0.0)
-
-
-def compat_row(strategy: str, scfg: Dict[str, Any], acct_id: str,
-               acct: Dict[str, Any]) -> Dict[str, Any]:
-    s_syms = set(scfg.get("symbols") or [])
-    a_syms = set(acct.get("symbols") or [])
-    shared = sorted(s_syms & a_syms)
-    exchange = str(acct.get("exchange") or "")
-    reasons: List[str] = []
-    verdict = "ROUTE"
-
-    if not shared:
-        verdict = "SKIP"
-        reasons.append(
-            f"no shared symbol (strategy {sorted(s_syms)} ∩ account {sorted(a_syms)} = ∅)")
-        return {"account": acct_id, "exchange": exchange, "verdict": verdict,
-                "shared_symbols": shared, "reasons": reasons,
-                "already_routed": strategy in (acct.get("strategies") or [])}
-
-    # leverage headroom (breakout only) at the account's risk_pct
-    if exchange == "breakout":
-        risk_frac = _account_risk_pct(acct)
-        size = float(acct.get("account_size_usd") or (acct.get("risk") or {}).get("pos_size") or 5000.0)
-        for sym in shared:
-            cap = _BREAKOUT_LEVERAGE.get(sym, _BREAKOUT_LEVERAGE_DEFAULT)
-            # A trade risks risk_frac×size at the stop; notional = risk$/stop_frac.
-            # Without a live stop distance we can't compute exact notional, so we
-            # only flag the gross cap: max notional = cap × size. The realised
-            # gate kept notional well under 2× at 1.5% risk, so this is advisory.
-            max_notional = cap * size
-            reasons.append(
-                f"{sym}: Breakout leverage cap {cap:g}× → max notional "
-                f"${max_notional:,.0f} (risk {risk_frac*100:.2f}% of ${size:,.0f}; "
-                f"verify per-trade notional stays under at wire time)")
-
-    return {"account": acct_id, "exchange": exchange, "verdict": verdict,
-            "shared_symbols": shared, "reasons": reasons,
-            "already_routed": strategy in (acct.get("strategies") or [])}
+def _evaluate_account(unit, ledger, args, horizon: float) -> Dict[str, Any]:
+    """Evaluate the strategy ledger against one account's ruleset → a matrix row."""
+    common = dict(
+        risk_pct=unit.risk_pct, base_risk_pct=args.base_risk_pct,
+        account_size=unit.account_size_usd, n_paths=args.n_paths,
+        block_len=args.block_len, horizons_months=(horizon,), seed=args.seed,
+    )
+    if unit.kind == "prop":
+        ev = run_ev_montecarlo(ledger, unit.ruleset, **common)
+        h = ev.get("horizons", {}).get(str(float(horizon)), {})
+        mean_net = h.get("mean_net_usd")
+        p_prof = h.get("p_profitable")
+        route = bool(mean_net is not None and mean_net > 0 and (p_prof or 0) >= args.min_p_profitable)
+        return {
+            "account": unit.account_id, "kind": "prop", "class": unit.account_class,
+            "risk_pct": unit.risk_pct, "account_size_usd": unit.account_size_usd,
+            "metric": "ev_net_usd", "value": mean_net, "p_profitable": p_prof,
+            "mean_accounts": h.get("mean_accounts"), "roi_on_fees": h.get("roi_on_fees"),
+            "verdict": "ROUTE" if route else "skip",
+        }
+    # standard account → performance + soft-breach view
+    mc = run_montecarlo(ledger, unit.ruleset, **common)
+    er = (mc.get("end_return") or {}).get("mean")
+    p_breach = mc.get("p_breach")
+    route = bool(er is not None and er > 0)
+    return {
+        "account": unit.account_id, "kind": "standard", "class": unit.account_class,
+        "risk_pct": unit.risk_pct, "account_size_usd": unit.account_size_usd,
+        "metric": "end_return_mean", "value": er, "p_breach": p_breach,
+        "verdict": "ROUTE" if route else "skip",
+    }
 
 
 def run(args: argparse.Namespace) -> int:
-    strategies = _load_yaml(_REPO_ROOT / "config" / "strategies.yaml").get("strategies", {})
-    accounts = _load_yaml(_REPO_ROOT / "config" / "accounts.yaml").get("accounts", {})
-    scfg = strategies.get(args.strategy)
-    if scfg is None:
-        print(f"ERROR: strategy '{args.strategy}' not in config/strategies.yaml", file=sys.stderr)
+    units = all_account_units()
+    if args.accounts:
+        keep = {a.strip() for a in args.accounts.split(",") if a.strip()}
+        units = {k: v for k, v in units.items() if k in keep}
+    if not units:
+        print("ERROR: no accounts resolved", file=sys.stderr)
+        return 2
+    if args.strategy not in bt.ROSTER:
+        print(f"ERROR: strategy {args.strategy!r} not in backtest ROSTER {list(bt.ROSTER)}", file=sys.stderr)
         return 2
 
-    rows = [compat_row(args.strategy, scfg, aid, acct) for aid, acct in accounts.items()]
-    route = [r for r in rows if r["verdict"] == "ROUTE"]
+    base5m = bt._load_candles(args.data)
+    print(f"[compat] engine run: {args.strategy} (base risk {args.base_risk_pct})", file=sys.stderr)
+    summary = bt.run_system_backtest(
+        base5m, roster=[args.strategy], start=args.start, end=args.end,
+        initial_balance=args.base_account_size, risk_pct=args.base_risk_pct,
+        daily_loss_pct=3.0, signal_ttl_bars=1, overrides={}, refresh=args.refresh_signals,
+        clock_tf=args.clock_tf, flip_policy="hold", reentry_policy="suppress", attach_full=True,
+    )
+    ledger = summary.get("closed_trades", []) or []
+    horizon = float(args.horizon_months)
 
-    if args.json:
-        print(json.dumps({"strategy": args.strategy,
-                          "route_accounts": [r["account"] for r in route],
-                          "rows": rows}, indent=2))
-        return 0
+    rows: List[Dict[str, Any]] = []
+    for aid, unit in units.items():
+        print(f"[compat]   account {aid} ({unit.kind})", file=sys.stderr)
+        rows.append(_evaluate_account(unit, ledger, args, horizon))
 
-    print(f"# account compatibility — {args.strategy} (symbols {scfg.get('symbols')})\n")
-    print(f"{'account':<16} {'exchange':<10} {'verdict':<7} {'routed':<7} shared")
-    print("-" * 60)
-    for r in rows:
-        print(f"{r['account']:<16} {r['exchange']:<10} {r['verdict']:<7} "
-              f"{'yes' if r['already_routed'] else 'no':<7} {','.join(r['shared_symbols']) or '—'}")
-    print(f"\nROUTE-verdict accounts: {[r['account'] for r in route] or '(none)'}")
-    for r in rows:
-        if r["reasons"]:
-            print(f"\n{r['account']} ({r['verdict']}):")
-            for rs in r["reasons"]:
-                print(f"  - {rs}")
+    out_dir = Path(args.out_dir) if args.out_dir else (
+        _REPO_ROOT / "runtime_logs" / "prop_eval" / date.today().isoformat()
+    )
+    out_dir.mkdir(parents=True, exist_ok=True)
+    generated_at = datetime.now(timezone.utc).isoformat()
+    payload = {
+        "generated_at": generated_at, "strategy": args.strategy, "data": args.data,
+        "n_ledger_trades": len(ledger), "horizon_months": horizon, "rows": rows,
+    }
+    (out_dir / f"compat_{args.strategy}.json").write_text(json.dumps(payload, indent=2, default=str))
+
+    L = [f"# Per-account compatibility — `{args.strategy}` ({horizon:.0f}-mo)", "",
+         f"_Generated {generated_at}; {len(ledger)} ledger trades; data {args.data}_", "",
+         "| account | kind | class | risk% | size$ | metric | value | extra | verdict |",
+         "|---|---|---|---|---|---|---|---|---|"]
+    for r in sorted(rows, key=lambda x: (x["value"] is None, -(x["value"] or 0))):
+        extra = (f"P(net>0)={r.get('p_profitable')}" if r["kind"] == "prop"
+                 else f"P(breach)={r.get('p_breach')}")
+        val = "—" if r["value"] is None else (f"${r['value']:,.0f}" if r["metric"] == "ev_net_usd"
+                                              else f"{r['value']*100:.1f}%")
+        L.append(f"| {r['account']} | {r['kind']} | {r['class']} | {r['risk_pct']} | "
+                 f"{r['account_size_usd']:.0f} | {r['metric']} | {val} | {extra} | **{r['verdict']}** |")
+    L += ["", "Verdict: **ROUTE** = positive under the account's own ruleset "
+          "(prop: +EV @ P(net>0) ≥ threshold; standard: positive mean end-return). "
+          "Prop verdicts are research on the configured feed — revalidate on the "
+          "account's real venue data before live wiring (Tier-3)."]
+    (out_dir / f"compat_{args.strategy}.md").write_text("\n".join(L))
+    print("\n".join(L))
+    print(f"\nwrote {out_dir / ('compat_' + args.strategy + '.md')}", file=sys.stderr)
     return 0
 
 
 def main(argv: List[str]) -> int:
-    p = argparse.ArgumentParser(description="Per-account compatibility matrix for a strategy.")
-    p.add_argument("--strategy", required=True)
-    p.add_argument("--json", action="store_true")
+    p = argparse.ArgumentParser(description="Per-account compatibility matrix for one strategy.")
+    p.add_argument("--strategy", required=True, help="A name in scripts.backtest_system.ROSTER.")
+    p.add_argument("--data", default="/home/user/ict-trader-data/btc_5m.parquet")
+    p.add_argument("--accounts", default=None, help="Optional CSV filter of account ids.")
+    p.add_argument("--start", default=None)
+    p.add_argument("--end", default=None)
+    p.add_argument("--base-account-size", type=float, default=5000.0)
+    p.add_argument("--base-risk-pct", type=float, default=0.5)
+    p.add_argument("--clock-tf", default="1h", choices=list(bt._PANDAS_TF.keys()))
+    p.add_argument("--horizon-months", type=float, default=12.0)
+    p.add_argument("--n-paths", type=int, default=3000)
+    p.add_argument("--block-len", type=int, default=8)
+    p.add_argument("--seed", type=int, default=1234)
+    p.add_argument("--min-p-profitable", type=float, default=0.5)
+    p.add_argument("--refresh-signals", action="store_true")
+    p.add_argument("--out-dir", default=None)
     return run(p.parse_args(argv[1:]))
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    raise SystemExit(main(sys.argv))

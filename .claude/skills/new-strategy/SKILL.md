@@ -49,6 +49,24 @@ trying to bypass an invariant. The right move is almost always to
 adjust the strategy's intent fields (priority, target_qty) rather
 than the aggregator.
 
+## MANDATORY: per-account compatibility before routing
+
+A new strategy is not "done" when it runs — it's done when you know WHICH
+accounts it belongs on. Before routing it to any account (and as part of the PR),
+run the per-account compatibility matrix (see the `backtesting` skill +
+`docs/integrations/prop-accounts-architecture-DESIGN.md`):
+
+```bash
+python scripts/prop/account_compat_matrix.py --strategy <name> --data <feed>
+```
+
+Route the strategy only to accounts whose row verdict is **ROUTE** (prop: +EV
+under the firm ruleset; standard: positive net performance). For a prop account,
+the live route is Tier-3 and additionally requires revalidation on the account's
+**real venue data** + operator approval. Prop accounts that route the same
+signal aggregate into ONE per-account ticket (`src.prop.multi_account_ticket`)
+with a discrepancy banner — never assume a single account.
+
 ## Inputs the operator should give you before starting
 
 - **Strategy name** in `snake_case_with_timeframe`, e.g. `ict_scalp_5m`.

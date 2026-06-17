@@ -24,6 +24,16 @@ def _order(**over):
     return o
 
 
+def _acct(**over):
+    # a prop account_cfg shape: unit_for_account resolves it to the breakout
+    # ruleset (account_size $5k) and converts risk 0.015 → 1.5%.
+    a = {"account_id": "breakout_1", "exchange": "breakout",
+         "backtest_ruleset": "prop_rulesets/breakout.yaml",
+         "risk": {"risk_pct": 0.015}}
+    a.update(over)
+    return a
+
+
 def test_emits_ticket_and_returns_manual_marker():
     captured = {}
 
@@ -31,25 +41,21 @@ def test_emits_ticket_and_returns_manual_marker():
         captured["ticket"] = ticket
         return {"push": True, "telegram": True}
 
-    tid = emit_prop_ticket(_order(), {"account_id": "breakout_1"}, _emitter=fake_emit)
+    tid = emit_prop_ticket(_order(), _acct(), _emitter=fake_emit)
     assert tid.startswith(MANUAL_FILL_PREFIX)
     assert is_manual_fill_id(tid)
     t = captured["ticket"]
     assert t.signal.symbol == "SOLUSDT"
     assert t.signal.direction == "long"
     assert t.side == "Buy"
-    # risk_usd = risk_pct% of account size (routing default 0.6% of 5000 = 30,
-    # unless account_cfg overrides) — positive sizing computed
     assert t.risk_usd > 0
     assert t.qty_units > 0
 
 
-def test_account_cfg_overrides_risk_and_size():
+def test_sizing_from_account_ruleset():
+    # 1.5% of the breakout $5k ruleset = $75 risk (canonical account→ruleset path)
     seen = {}
-    tid = emit_prop_ticket(
-        _order(), {"account_id": "breakout_1", "risk_pct": 1.5, "account_size_usd": 5000.0},
-        _emitter=lambda t: seen.setdefault("t", t))
-    # 1.5% of 5000 = $75 risk
+    tid = emit_prop_ticket(_order(), _acct(), _emitter=lambda t: seen.setdefault("t", t))
     assert abs(seen["t"].risk_usd - 75.0) < 1e-6
     assert is_manual_fill_id(tid)
 
@@ -58,14 +64,14 @@ def test_short_maps_to_sell():
     seen = {}
     emit_prop_ticket(
         _order(direction="short", side="Sell", entry=150.0, sl=155.0, tp=138.0),
-        {"account_id": "breakout_1"}, _emitter=lambda t: seen.setdefault("t", t))
+        _acct(), _emitter=lambda t: seen.setdefault("t", t))
     assert seen["t"].side == "Sell"
     assert seen["t"].signal.direction == "short"
 
 
 def test_invalid_levels_raise():
     with pytest.raises(ValueError):
-        emit_prop_ticket(_order(sl=0.0), {"account_id": "x"}, _emitter=lambda t: None)
+        emit_prop_ticket(_order(sl=0.0), _acct(), _emitter=lambda t: None)
 
 
 def test_emit_failure_is_swallowed_journal_row_survives():
@@ -73,7 +79,7 @@ def test_emit_failure_is_swallowed_journal_row_survives():
         raise RuntimeError("telegram down")
 
     # a delivery failure must NOT prevent the manual-fill id (the journal row)
-    tid = emit_prop_ticket(_order(), {"account_id": "breakout_1"}, _emitter=boom)
+    tid = emit_prop_ticket(_order(), _acct(), _emitter=boom)
     assert is_manual_fill_id(tid)
 
 
