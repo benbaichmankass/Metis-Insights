@@ -28,8 +28,10 @@ def test_variants_present_and_scoped():
     assert s["trend_donchian_eth"]["symbols"] == ["ETHUSDT"]
     assert s["trend_donchian_sol"]["execution"] == "live"
     assert s["trend_donchian_eth"]["execution"] == "shadow"
-    # both-sides to match the validated gate — no long_only on the variants
-    assert not s["trend_donchian_sol"].get("long_only", False)
+    # directional discipline from the long-only A/B (PB-20260616-004):
+    # SOL's edge holds long-only → long_only:true; ETH's edge is short-side-
+    # dependent (long-only flips it negative) → stays two-sided.
+    assert s["trend_donchian_sol"].get("long_only", False) is True
     assert not s["trend_donchian_eth"].get("long_only", False)
     # validated params mirrored from the flagship
     for v in ("trend_donchian_sol", "trend_donchian_eth"):

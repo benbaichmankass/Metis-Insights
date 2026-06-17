@@ -73,7 +73,8 @@ def _engine_ledger(
         base5m, roster=[strategy], start=start, end=end,
         initial_balance=args.initial_balance, risk_pct=args.base_risk_pct,
         daily_loss_pct=args.daily_loss_pct, signal_ttl_bars=args.signal_ttl_bars,
-        overrides={}, refresh=args.refresh_signals, clock_tf=args.clock_tf,
+        overrides=({strategy: {"long_only": True}} if getattr(args, "long_only", False) else {}),
+        refresh=args.refresh_signals, clock_tf=args.clock_tf,
         flip_policy=args.flip_policy, reentry_policy="suppress", attach_full=True,
     )
     return summary.get("closed_trades", []) or []
@@ -214,6 +215,7 @@ def run(args: argparse.Namespace) -> int:
         "symbol": args.symbol,
         "strategy": args.strategy,
         "verdict": verdict,
+        "direction": "long_only" if getattr(args, "long_only", False) else "both_sides",
         "funding_mode": funding_mode,
         "funding_summary": fsum,
         "data_window": {"start": str(data_start), "end": str(data_end)},
@@ -335,6 +337,10 @@ def main(argv: List[str]) -> int:
     p.add_argument("--horizons", default="3,6,12")
     p.add_argument("--seed", type=int, default=1234)
     p.add_argument("--folds", type=int, default=4)
+    p.add_argument("--long-only", action="store_true",
+                   help="Suppress short signals (engine never opens a short) — the "
+                        "directional A/B vs the both-sides default; matches the "
+                        "trend_donchian flagship's long-only discipline.")
     p.add_argument("--const-rate-8h", type=float, default=1e-4,
                    help="Fallback constant 8h funding rate when --funding is absent.")
     p.add_argument("--cost-model", default="perp_funding",

@@ -66,3 +66,48 @@ def test_default_two_sided_still_shorts(monkeypatch):
     sig = _wire(monkeypatch, _trend_frame("down"), long_only=False)
     assert sig["side"] in ("sell", "none")
     assert sig["meta"].get("reason") != "short_suppressed_long_only"
+
+
+def _wire_variant(monkeypatch, name, symbol, frame, *, long_only: bool):
+    """Wire the prop alt variant builder (_trend_donchian_variant_builder).
+
+    The variant reads its config block via load_strategy_config()[name] and
+    pins its symbol from that block's ``symbols:`` — so we stub a one-key cfg.
+    """
+    cfg = {
+        "enabled": True, "timeframe": "1h", "donchian": 20, "atr_period": 14,
+        "atr_stop_mult": 2.5, "trail_mult": 5.0, "tp_r": 50.0,
+        "min_confidence": 0.0, "symbols": [symbol],
+    }
+    if long_only:
+        cfg["long_only"] = True
+    import src.units.strategies as units
+    monkeypatch.setattr(
+        units, "load_strategy_config",
+        lambda *a, **k: {name: cfg}, raising=False,
+    )
+    import src.runtime.market_data as md
+    monkeypatch.setattr(md, "fetch_candles", lambda *a, **k: frame, raising=False)
+    monkeypatch.setattr(ssb, "_build_killzone_exchange", lambda settings: None)
+    monkeypatch.setattr(ssb, "_publish_liquidity_state", lambda *a, **k: None)
+    monkeypatch.setattr(ssb, "_emit_shadow_preds", lambda *a, **k: None)
+    return ssb._trend_donchian_variant_builder(name, {"SYMBOL": symbol})
+
+
+def test_variant_short_suppressed_when_long_only(monkeypatch):
+    # trend_donchian_sol ships long_only:true — a downtrend must yield none,
+    # never a sell (mirrors the flagship gate for the prop alt variant).
+    sig = _wire_variant(
+        monkeypatch, "trend_donchian_sol", "SOLUSDT",
+        _trend_frame("down"), long_only=True)
+    assert sig["side"] == "none"
+    assert sig["meta"].get("reason") == "short_suppressed_long_only"
+
+
+def test_variant_two_sided_still_shorts(monkeypatch):
+    # trend_donchian_eth stays two-sided (no long_only) — a downtrend may sell.
+    sig = _wire_variant(
+        monkeypatch, "trend_donchian_eth", "ETHUSDT",
+        _trend_frame("down"), long_only=False)
+    assert sig["side"] in ("sell", "none")
+    assert sig["meta"].get("reason") != "short_suppressed_long_only"

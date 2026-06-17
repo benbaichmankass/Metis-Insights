@@ -1426,9 +1426,10 @@ def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]
     the variant's own ``<name>`` config block. The traded symbol is pinned from
     the variant's ``symbols:`` (it is a single-instrument prop instance), NOT
     from the tick settings — so the variant always evaluates its own alt even if
-    invoked on another tick symbol. BOTH-SIDES (no long_only) to match the
-    validated gate (PB-20260616-004). Honours ``enabled`` as the single source
-    of truth; the ``execution: live|shadow`` gate is enforced downstream.
+    invoked on another tick symbol. Honours an opt-in per-variant ``long_only``
+    flag (PB-20260616-004 A/B: SOL holds long-only, ETH stays two-sided) and
+    ``enabled`` as the single source of truth; the ``execution: live|shadow``
+    gate is enforced downstream.
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.trend_donchian import order_package
@@ -1473,6 +1474,31 @@ def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]
         return _with_signal_package(name, {
             "symbol": symbol, "side": "none",
             "meta": {"strategy_name": name, "reason": str(exc)},
+        })
+
+    # LONG-ONLY gate (operator-approved 2026-06-16, Tier-3). Mirrors the
+    # flagship trend_donchian builder's directional discipline. The Breakout
+    # daily-swap walk-forward A/B (PB-20260616-004) showed SOL's edge survives
+    # long-only (pre +$1,325 → post +$1,158, EV@1.5% +$1,131/86%, 4/4 folds)
+    # while ETH's edge is short-side-dependent (long-only flips it negative) —
+    # so trend_donchian_sol sets ``long_only: true`` and trend_donchian_eth
+    # stays two-sided. Honoured per-variant from strategies.yaml; default off.
+    if bool(vcfg.get("long_only", False)) and pkg["direction"] != "long":
+        logger.info("%s: short signal suppressed (long_only)", name)
+        try:
+            log_signal(_stamp_regime({
+                "event": f"{name}_eval", "strategy": name, "symbol": symbol,
+                "timeframe": timeframe, "side": "none",
+                "reason": "short_suppressed_long_only",
+            }, candles_df))
+        except Exception:  # noqa: BLE001
+            logger.exception("%s: dedicated audit emit failed", name)
+        return _with_signal_package(name, {
+            "symbol": symbol, "side": "none",
+            "meta": {
+                "strategy_name": name,
+                "reason": "short_suppressed_long_only",
+            },
         })
 
     side = "buy" if pkg["direction"] == "long" else "sell"

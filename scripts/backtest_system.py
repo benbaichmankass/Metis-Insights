@@ -237,6 +237,13 @@ def generate_signal_stream(name: str, base5m: pd.DataFrame, *, start, end,
             continue
         except Exception:  # noqa: BLE001 — a strategy bug must not abort the sweep
             continue
+        # Opt-in long-only research filter (default OFF): drop short signals so
+        # the engine never opens a short — used to A/B a strategy's directional
+        # discipline (the trend_donchian flagship is long-only; the prop alt
+        # variants were first validated both-sides). No effect unless
+        # cfg["long_only"] is truthy (set via the strategy YAML or an override).
+        if cfg.get("long_only") and str(pkg.get("direction")) == "short":
+            continue
         rows.append({
             "ts": ts.iloc[i], "side": pkg["direction"],
             "entry": float(pkg["entry"]), "sl": float(pkg["sl"]),
