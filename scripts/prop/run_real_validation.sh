@@ -47,14 +47,24 @@ echo "window $START -> $END | strategy $STRATEGY | out $OUT"
 
 for S in $SYMBOLS; do
   s="$(echo "$S" | tr '[:upper:]' '[:lower:]')"
-  echo "================ $S : candles ================"
-  "$PY" scripts/ops/fetch_backtest_candles.py --symbol "$S" --interval 5 \
-      --start-date "$START" --end-date "$END" --output "$DATADIR/${s}_5m.csv" \
-      || { echo "CANDLE FETCH FAILED $S"; continue; }
-  echo "================ $S : funding ================"
-  "$PY" scripts/ops/fetch_bybit_funding.py --symbol "$S" \
-      --start-date "$START" --end-date "$END" --output "$DATADIR/${s}_funding.csv" \
-      || echo "FUNDING FETCH FAILED $S (will fall back to constant rate)"
+  # reuse an already-downloaded dataset (re-runs after a code change shouldn't
+  # re-page Bybit); a candle file with >100k lines is a complete multi-year pull.
+  if [ "$(wc -l < "$DATADIR/${s}_5m.csv" 2>/dev/null || echo 0)" -gt 100000 ]; then
+    echo "================ $S : candles (reusing cached $DATADIR/${s}_5m.csv) ================"
+  else
+    echo "================ $S : candles ================"
+    "$PY" scripts/ops/fetch_backtest_candles.py --symbol "$S" --interval 5 \
+        --start-date "$START" --end-date "$END" --output "$DATADIR/${s}_5m.csv" \
+        || { echo "CANDLE FETCH FAILED $S"; continue; }
+  fi
+  if [ "$(wc -l < "$DATADIR/${s}_funding.csv" 2>/dev/null || echo 0)" -gt 100 ]; then
+    echo "================ $S : funding (reusing cached) ================"
+  else
+    echo "================ $S : funding ================"
+    "$PY" scripts/ops/fetch_bybit_funding.py --symbol "$S" \
+        --start-date "$START" --end-date "$END" --output "$DATADIR/${s}_funding.csv" \
+        || echo "FUNDING FETCH FAILED $S (will fall back to constant rate)"
+  fi
   fundarg=""
   [ -s "$DATADIR/${s}_funding.csv" ] && fundarg="--funding $DATADIR/${s}_funding.csv"
   # GATE: Breakout venue cost model — flat CFD-style daily swap (~0.09%/day).
