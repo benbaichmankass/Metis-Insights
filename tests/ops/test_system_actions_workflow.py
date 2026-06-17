@@ -103,6 +103,9 @@ EXPECTED_ACTIONS = {
     "init-diag-token": "init_diag_token.sh",
     # 2026-05-24 bots overhaul — autonomous Claude infra.
     "send-ping": "send_ping_action.sh",   # Tier 1: immediate ping, no restart
+    # 2026-06-17 — fire one TEST prop ticket through the real prop_signal path
+    # (FCM + prop Telegram bot). Tier 1: notify-only, nothing journaled.
+    "send-prop-test-ping": "send_prop_test_ping_action.sh",
     # M7 — autonomous strategy-review-packet generator (Tier 1: read-only
     # SQL + write to runtime_logs/strategy_reviews/).
     "generate-strategy-review-packets": "generate_strategy_review_packets_action.sh",

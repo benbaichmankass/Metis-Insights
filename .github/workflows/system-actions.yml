@@ -105,6 +105,7 @@ on:
           - rotate-account-keys
           - init-diag-token
           - send-ping
+          - send-prop-test-ping
           - generate-strategy-review-packets
           - set-env
           - scrub-env-noncompliant
@@ -390,7 +391,7 @@ jobs:
         run: |
           set -euo pipefail
           case "${ACTION}" in
-            status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|generate-strategy-review-packets)
+            status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
             pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared)
@@ -572,6 +573,7 @@ jobs:
             rotate-account-keys)                SCRIPT="rotate_account_keys.sh" ;;
             init-diag-token)                    SCRIPT="init_diag_token.sh" ;;
             send-ping)                          SCRIPT="send_ping_action.sh" ;;
+            send-prop-test-ping)                SCRIPT="send_prop_test_ping_action.sh" ;;
             set-env)                            SCRIPT="set_env.sh" ;;
             scrub-env-noncompliant)             SCRIPT="scrub_env_noncompliant.sh" ;;
             pause-autoheal)                     SCRIPT="pause_autoheal.sh" ;;
@@ -657,6 +659,9 @@ jobs:
           fi
           if [ "${ACTION}" = "send-ping" ]; then
             REMOTE_CMD="ACTION_MESSAGE=$(printf '%q' "${ACTION_MESSAGE}") ACTION_PRIORITY=$(printf '%q' "${ACTION_PRIORITY:-normal}") ACTION_TARGET=$(printf '%q' "${ACTION_TARGET:-claude}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "send-prop-test-ping" ]; then
+            REMOTE_CMD="ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL:-SOLUSDT}") ACTION_STRATEGY=$(printf '%q' "${ACTION_STRATEGY:-trend_donchian_sol}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "set-env" ]; then
             env_value="${ENV_VALUE}"
