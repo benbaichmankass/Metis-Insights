@@ -279,7 +279,6 @@ def _render_md(p: Dict[str, Any], args: argparse.Namespace) -> str:
              f"clock {args.clock_tf}, flip {args.flip_policy}, "
              f"{p['full_period']['n_ledger_trades']} ledger trades")
     L.append("")
-    bh = p["full_period"].get("best_12mo") or {}
     L.append(f"### Full-period funded 12-mo EV (best cell @ risk "
              f"{p['full_period'].get('best_risk_pct')})")
     L.append("")

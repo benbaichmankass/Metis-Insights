@@ -41,7 +41,6 @@ def test_variants_present_and_scoped():
 def test_eth_shadow_has_guard_marker():
     # CI dry-run-guard requires an inline shadow-guard marker for execution: shadow
     raw = (_ROOT / "config" / "strategies.yaml").read_text()
-    block = raw.split("trend_donchian_eth:", 1)[1].split("trend_donchian", 1)[0]
     assert "shadow-guard: allow" in raw  # marker exists in the file
 
 
