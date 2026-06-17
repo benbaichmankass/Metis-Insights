@@ -4071,10 +4071,13 @@ def _close_trade_from_order_status(
         # Fallback: gate clears but exit_price stays NULL with the
         # unreliable-source flag (pre-2026-05-16 contract preserved
         # for the no-cfg path + the no-record path).
+        # BL-20260617-CLOSEDAT-EPOCH-LEAK: exec_time is a Bybit epoch-ms
+        # string; normalise to ISO before it touches the closed_at column
+        # (the same leak as the avg_exit_price branch above).
         exec_time = order_status.get("exec_time")
         closed_at = (
-            str(exec_time) if exec_time
-            else datetime.now(timezone.utc).isoformat()
+            _normalize_closed_at_iso(exec_time)
+            or datetime.now(timezone.utc).isoformat()
         )
         notes.update({
             "closed_at": closed_at,

@@ -561,7 +561,9 @@ class TestSSOTReconciler:
         assert row["exit_price"] is None
         notes = json.loads(row["notes"])
         assert notes["closed_by"] == "monitor_reconciler"
-        assert notes["closed_at"] == "1762620000000"
+        # BL-20260617-CLOSEDAT-EPOCH-LEAK: exec_time epoch-ms is now normalised
+        # to ISO before it's written (1762620000000 ms = 2025-11-08T16:40:00Z).
+        assert notes["closed_at"] == "2025-11-08T16:40:00+00:00"
         assert notes["exit_price_source"] == "entry_order_avg_price_unreliable"
         # 2026-05-19 entry_price backfill: the trade was opened at the
         # intent (80000.0 — see _insert_trade) but Bybit reported the
@@ -2422,7 +2424,10 @@ class TestExitPriceFromClosedPnl:
         notes = json.loads(row["notes"])
         assert notes["exit_price_source"] == "bybit_closed_pnl"
         assert notes["bybit_closed_pnl"] == -3.82
-        assert notes["closed_at"] == "1762620000000"
+        # BL-20260617-CLOSEDAT-EPOCH-LEAK: Bybit epoch-ms closed_at is now
+        # normalised to ISO before it's written (1762620000000 ms =
+        # 2025-11-08T16:40:00Z).
+        assert notes["closed_at"] == "2025-11-08T16:40:00+00:00"
 
     def test_close_falls_back_to_null_when_closed_pnl_unavailable(
         self, tmp_db, tmp_path, monkeypatch,
