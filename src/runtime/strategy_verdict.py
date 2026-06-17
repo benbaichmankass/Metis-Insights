@@ -66,7 +66,7 @@ from __future__ import annotations
 import math
 from typing import Any, Tuple
 
-__all__ = ["validate_verdict", "is_close_verdict", "CLOSE_ACTION"]
+__all__ = ["validate_verdict", "CLOSE_ACTION"]
 
 # The only recognised value of the ``action`` key.
 CLOSE_ACTION = "close"
@@ -91,15 +91,6 @@ def _is_positive_number(value: Any) -> bool:
     except (TypeError, ValueError):
         return False
     return math.isfinite(f) and f > 0.0
-
-
-def is_close_verdict(verdict: Any) -> bool:
-    """True iff ``verdict`` is a dict requesting a close (``action == close``).
-
-    Cheap structural check used by callers that branch on close-vs-adjust
-    without re-validating; pair with :func:`validate_verdict` for correctness.
-    """
-    return isinstance(verdict, dict) and verdict.get("action") == CLOSE_ACTION
 
 
 def validate_verdict(verdict: Any) -> Tuple[bool, str]:

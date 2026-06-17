@@ -725,12 +725,14 @@ note rather than silently editing it.
 - This rules doc and `ARCHITECTURE-CANONICAL.md` should be reviewed at
   the start of every sprint until the milestone roadmap (M0..M10) is
   closed.
-- Safeguards follow-on to PR #978: the *live* auto-flip vectors under
-  § Prime Directive · "What this rules out" are **behaviourally removed** —
-  the breaker auto-flip in `src/core/coordinator.py` is gone (now alert-only)
-  and the legacy Telegram `/accounts dry|live` writer was removed in #1933.
-  What REMAINS is orphaned dead-code cleanup only: the `_DRY_RUN_OVERRIDES`
-  dict + `set_account_dry_run()` (+ the `Coordinator.set_account_dry_run()`
-  wrapper) still sit on disk with **no caller** — see
-  [`ARCHITECTURE-CANONICAL.md`](ARCHITECTURE-CANONICAL.md) § Mode Mutation
-  Contract item 3. Delete them in a Tier-2 cleanup PR (Part-2 audit item).
+- Safeguards follow-on to PR #978: **DONE.** The *live* auto-flip vectors under
+  § Prime Directive · "What this rules out" are behaviourally removed — the
+  breaker auto-flip in `src/core/coordinator.py` is gone (now alert-only) and
+  the legacy Telegram `/accounts dry|live` writer was removed in #1933. The
+  orphaned dead-code cleanup is also complete: the `_DRY_RUN_OVERRIDES` dict +
+  `set_account_dry_run()` (+ the `Coordinator.set_account_dry_run()` wrapper)
+  were **deleted** in the 2026-06-10 dead-code cleanup; `_resolve_mode()` reads
+  YAML directly and a regression test
+  (`tests/test_exchange_rejection_circuit_breaker.py`) asserts their absence —
+  see [`ARCHITECTURE-CANONICAL.md`](ARCHITECTURE-CANONICAL.md) § Mode Mutation
+  Contract item 3.

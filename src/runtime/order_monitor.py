@@ -1468,8 +1468,10 @@ _ORPHAN_PING_CAP = 10
 _DEFAULT_RECONCILER_GRACE_SECONDS = 60
 
 # Position-netting guard — reconciler half (Option A, BL-20260608-DEMOPNL).
-# When POSITION_NETTING_GUARD_ENABLED is on, a filled trade that reads
-# net-flat is NOT closed on the first observation: it must read flat across
+# The netting guard is now BASELINE (unconditional — the
+# POSITION_NETTING_GUARD_ENABLED gate was removed 2026-06-17). A filled trade
+# that reads net-flat is NOT closed on the first observation: it must read flat
+# across
 # an extra grace tick (a second observation, ``RECONCILER_CLOSE_CONFIRM_SECONDS``
 # apart) before the close lands. A transient net-flat — an intent reduce/flip
 # leg momentarily flattening the net position, or the open-positions index
@@ -1571,9 +1573,11 @@ def _close_confirm_seconds() -> float:
 
     Read ``RECONCILER_CLOSE_CONFIRM_SECONDS`` at call time; falls back to
     ``_DEFAULT_CLOSE_CONFIRM_SECONDS`` on missing / unparseable values,
-    clamped to ``>= 0``. Only consulted when POSITION_NETTING_GUARD_ENABLED
-    is on. ``0`` keeps the extra-grace-tick requirement (a second
-    confirming observation) but with no extra time wait.
+    clamped to ``>= 0``. The netting guard is now BASELINE (unconditional —
+    the ``POSITION_NETTING_GUARD_ENABLED`` gate was removed 2026-06-17), so
+    this confirm window applies on every tick. ``0`` keeps the
+    extra-grace-tick requirement (a second confirming observation) but with
+    no extra time wait.
     """
     raw = os.environ.get("RECONCILER_CLOSE_CONFIRM_SECONDS")
     if raw is None or str(raw).strip() == "":

@@ -91,6 +91,12 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # pair above.
     "ict-ib-gateway-watchdog.service",
     "ict-ib-gateway-watchdog.timer",
+    # Web-API self-heal watchdog. The oneshot + its driving timer, queryable
+    # so a session can verify the ict-web-api.service dead-man switch is
+    # enabled and firing on cadence (and read its probe/restart decisions) —
+    # same rationale as the watchdog pairs above.
+    "ict-web-api-watchdog.service",
+    "ict-web-api-watchdog.timer",
     # 2026-06-17 — DB-integrity checker (dashboard-truth Phase 4). The hourly
     # oneshot + its driving timer, queryable so a session can verify the
     # "alert us when intake breaks" check is enabled and firing on cadence
