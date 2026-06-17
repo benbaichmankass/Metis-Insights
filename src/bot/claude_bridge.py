@@ -43,7 +43,6 @@ from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
 from telegram import BotCommand, Update
-from telegram.error import BadRequest
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from src.utils.paths import runtime_logs_dir
@@ -124,11 +123,11 @@ async def _one_way_notice(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 async def _drain_pending_claude_pings(context: ContextTypes.DEFAULT_TYPE) -> None:
     """JobQueue task — scan the Claude inbox, send each, delete on success.
 
-    Every message is pinned to ``THREAD_ID`` (when set) so updates stay in
-    a single thread. Failures (Telegram 4xx, malformed JSON) move the
-    offending file aside with a ``.broken`` suffix so the drainer doesn't
-    loop on it. Files are sorted by name so the 12-digit numeric prefix
-    preserves rough enqueue order.
+    Delivery goes to the **trader bot** (`@bict_trading_bot`) as of the 2026-06-17
+    bot restructure — Claude's updates were folded off the comms bot (now the
+    prop-account bot). A malformed JSON file is moved aside with a ``.broken``
+    suffix; a send failure leaves the file in place to retry next tick. Files are
+    sorted by name so the 12-digit numeric prefix preserves rough enqueue order.
     """
     try:
         PENDING_CLAUDE_PINGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -167,46 +166,23 @@ async def _drain_pending_claude_pings(context: ContextTypes.DEFAULT_TYPE) -> Non
         prefix = _PRIORITY_ICONS.get(priority, _PRIORITY_ICONS["normal"])
         text = f"{prefix} {body}"
 
-        send_kwargs = {
-            "chat_id": ALLOWED_CHAT_ID,
-            "text": text,
-            "disable_web_page_preview": True,
-        }
-        if THREAD_ID is not None:
-            send_kwargs["message_thread_id"] = THREAD_ID
-
+        # Bot restructure (2026-06-17): Claude's operational updates now deliver
+        # via the TRADER bot (@bict_trading_bot, TELEGRAM_BOT_TOKEN) — folded off
+        # the comms bot, which is being repurposed as the prop-account bot. The
+        # trader bot uses no Claude thread, so the message lands in the operator's
+        # main chat (the claude-thread pinning is intentionally dropped here).
+        # Sent via the stdlib direct path so delivery no longer depends on this
+        # service's own (prop-bot) Application; success → delete, failure → keep
+        # for the next-tick retry (semantics unchanged).
         try:
-            await context.bot.send_message(**send_kwargs)
-        except BadRequest as exc:
-            # A stale/deleted TELEGRAM_CLAUDE_THREAD_ID makes Telegram 400
-            # ("message thread not found") on EVERY send — the channel goes
-            # dark and the inbox loops forever. Rather than silently drop
-            # updates, fall back to a thread-less send so the operator still
-            # gets the message (it lands in the chat's General view). Only
-            # for thread errors; other BadRequests retry as before.
-            if THREAD_ID is not None and "thread" in str(exc).lower():
-                logger.warning(
-                    "claude ping inbox: thread_id=%s rejected (%s) — resending "
-                    "without message_thread_id so the update still delivers; "
-                    "check TELEGRAM_CLAUDE_THREAD_ID", THREAD_ID, exc,
-                )
-                try:
-                    await context.bot.send_message(
-                        chat_id=ALLOWED_CHAT_ID,
-                        text=text,
-                        disable_web_page_preview=True,
-                    )
-                except Exception as exc2:  # noqa: BLE001
-                    logger.warning(
-                        "claude ping inbox: thread-less fallback failed for %s — %s",
-                        name, exc2,
-                    )
-                    continue   # leave file in place; retry next tick
-            else:
-                logger.warning("claude ping inbox: send failed for %s — %s", name, exc)
-                continue   # leave file in place; retry next tick
+            from src.runtime.notify import send_telegram_direct
+
+            send_telegram_direct(
+                text, parse_mode=None, mirror_to_fcm=False,
+                bot_token=os.environ.get("TELEGRAM_BOT_TOKEN"),
+            )
         except Exception as exc:  # noqa: BLE001
-            logger.warning("claude ping inbox: send failed for %s — %s", name, exc)
+            logger.warning("claude ping inbox: trader-bot send failed for %s — %s", name, exc)
             continue   # leave file in place; retry next tick
 
         try:
