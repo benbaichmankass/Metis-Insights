@@ -77,6 +77,7 @@ Composable workflows — prefer a skill over improvising; chain them.
 - `exchange-truth-attribution.md`: exchange-truth P&L attribution.
 - `closed-flat-invariant.md`: the closed → exchange-flat reconciler.
 - `prop-account-state.md`: prop-account configuration & gating.
+- `../integrations/prop-accounts-architecture-DESIGN.md`: **scalable prop-trading architecture** — account→ruleset binding, mandatory per-account compatibility matrix, multi-account ticket + discrepancy banner, Telegram-ping execution. **Reference before building any prop-account logic.**
 - `ui-processor-audit.md`: which Telegram handlers read DB/env/Coordinator directly (webapp-UI migration order).
 
 ## VM ops, access & automation

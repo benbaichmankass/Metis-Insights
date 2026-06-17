@@ -81,3 +81,24 @@ def test_push_only_and_telegram_only(monkeypatch):
     breakout_notify.emit_prop_signal(_ticket(), telegram=False)
     breakout_notify.emit_prop_signal(_ticket(), push=False)
     assert calls == {"push": 1, "tg": 1}
+
+
+def test_telegram_routes_to_prop_bot_token(monkeypatch):
+    """The prop ping must target the dedicated PROP bot token, not the trader bot."""
+    import src.runtime.mobile_push as mp
+    import src.runtime.notify as notify
+    monkeypatch.setenv("TELEGRAM_PROP_BOT_TOKEN", "PROPTOKEN123")
+    monkeypatch.setattr(mp, "publish_event", lambda *a, **k: None)
+    tg = {}
+    monkeypatch.setattr(notify, "send_telegram_direct", lambda message, **kw: tg.update(kw=kw))
+
+    breakout_notify.emit_prop_signal(_ticket())
+    assert tg["kw"].get("bot_token") == "PROPTOKEN123"
+    assert tg["kw"].get("mirror_to_fcm") is False   # no double push
+
+    # falls back to the repurposed claude-bot token when no dedicated prop token
+    monkeypatch.delenv("TELEGRAM_PROP_BOT_TOKEN", raising=False)
+    monkeypatch.setenv("TELEGRAM_CLAUDE_BOT_TOKEN", "CLAUDEBOT456")
+    tg.clear()
+    breakout_notify.emit_prop_signal(_ticket())
+    assert tg["kw"].get("bot_token") == "CLAUDEBOT456"
