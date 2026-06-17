@@ -72,6 +72,26 @@ def test_constant_fallback_prorates_by_hold_time():
     assert abs(funded[0]["funding_cost"] - 0.06) < 1e-9
 
 
+def test_daily_swap_flat_debit_both_sides():
+    # Breakout CFD-style daily swap: flat debit on notional × hold_days,
+    # side-agnostic. 24h hold, notional 200, swap 0.0009/day → 200*0.0009*1 = 0.18
+    longt = {
+        "side": "long", "entry": 100.0, "exit": 105.0, "qty": 2.0, "pnl": 10.0,
+        "entry_ts": "2023-01-01 00:00:00", "exit_ts": "2023-01-02 00:00:00",
+    }
+    shortt = dict(longt, side="short")
+    fl = apply_funding_to_ledger([longt], swap_rate_daily=0.0009)
+    fs = apply_funding_to_ledger([shortt], swap_rate_daily=0.0009)
+    assert abs(fl[0]["funding_cost"] - 0.18) < 1e-9
+    # short pays the SAME swap debit (a holding fee, not directional funding)
+    assert abs(fs[0]["funding_cost"] - 0.18) < 1e-9
+    # swap takes precedence over any supplied funding series
+    fl2 = apply_funding_to_ledger(
+        [longt], funding_series=[{"timestamp": "2023-01-01 08:00:00", "funding_rate": 0.5}],
+        swap_rate_daily=0.0009)
+    assert abs(fl2[0]["funding_cost"] - 0.18) < 1e-9
+
+
 def test_summary_aggregates():
     trades = [{
         "side": "long", "entry": 100.0, "exit": 105.0, "qty": 1.0, "pnl": 5.0,

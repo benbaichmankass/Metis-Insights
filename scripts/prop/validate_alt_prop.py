@@ -126,8 +126,18 @@ def run(args: argparse.Namespace) -> int:
         print(f"ERROR: candle load failed ({args.data}): {exc}", file=sys.stderr)
         return 1
 
-    funding_rows = _load_funding_rows(args.funding)
-    funding_mode = "real_series" if funding_rows else f"constant_{args.const_rate_8h:g}/8h"
+    # Cost model: Breakout is perpetual-futures-STYLE but charges a flat
+    # CFD-style DAILY SWAP (~0.09%/day per public reviews), not Bybit's 8h
+    # funding — so the venue-correct gate uses daily_swap. perp_funding (real
+    # Bybit series) is kept as a lighter-cost comparison.
+    swap_daily = args.swap_rate_daily if args.cost_model == "daily_swap" else None
+    funding_rows = _load_funding_rows(args.funding) if swap_daily is None else None
+    if swap_daily is not None:
+        funding_mode = f"daily_swap_{swap_daily:g}/day (Breakout venue model)"
+    elif funding_rows:
+        funding_mode = "perp_funding_real_series (Bybit 8h)"
+    else:
+        funding_mode = f"perp_funding_constant_{args.const_rate_8h:g}/8h"
 
     ts = base5m["timestamp"]
     data_start, data_end = ts.iloc[0], ts.iloc[-1]
@@ -135,7 +145,8 @@ def run(args: argparse.Namespace) -> int:
     # ---- full-period funded EV --------------------------------------------
     ledger = _engine_ledger(base5m, args.strategy, args, args.start, args.end)
     funded = apply_funding_to_ledger(
-        ledger, funding_series=funding_rows, const_rate_8h=args.const_rate_8h)
+        ledger, funding_series=funding_rows, const_rate_8h=args.const_rate_8h,
+        swap_rate_daily=swap_daily)
     fsum = funding_summary(funded)
     full_cells = _ev_over_grid(funded, ruleset, args)
     best = _best_cell(full_cells)
@@ -160,7 +171,8 @@ def run(args: argparse.Namespace) -> int:
             base5m, args.strategy, args,
             _naive(f_start), _naive(f_end))
         f_funded = apply_funding_to_ledger(
-            f_ledger, funding_series=funding_rows, const_rate_8h=args.const_rate_8h)
+            f_ledger, funding_series=funding_rows, const_rate_8h=args.const_rate_8h,
+            swap_rate_daily=swap_daily)
         # evaluate the walk-forward at the full-period best risk (or first grid pt)
         rp = best["risk_pct"] if best else args.risk_pct_grid[0]
         ev = run_ev_montecarlo(
@@ -326,6 +338,13 @@ def main(argv: List[str]) -> int:
     p.add_argument("--folds", type=int, default=4)
     p.add_argument("--const-rate-8h", type=float, default=1e-4,
                    help="Fallback constant 8h funding rate when --funding is absent.")
+    p.add_argument("--cost-model", default="perp_funding",
+                   choices=["perp_funding", "daily_swap"],
+                   help="perp_funding=Bybit 8h funding (proxy); daily_swap=Breakout "
+                        "flat CFD-style daily swap (the venue-correct gate).")
+    p.add_argument("--swap-rate-daily", type=float, default=9e-4,
+                   help="Daily swap rate for --cost-model daily_swap "
+                        "(default 0.0009 = 0.09%%/day, the Breakout review figure).")
     p.add_argument("--out-dir", default=None)
     args = p.parse_args(argv[1:])
     args.risk_pct_grid = [float(x) for x in str(args.risk_pct_grid).split(",") if x.strip()]

@@ -133,13 +133,31 @@ def _funding_cost(
     exit_dt: Any,
     funding_series: Optional[List[Tuple[Any, float]]],
     const_rate_8h: float,
+    swap_rate_daily: Optional[float] = None,
 ) -> float:
-    """Funding cash bled by one trade over its holding window (see module doc)."""
+    """Holding cash bled by one trade over its window (see module doc).
+
+    ``swap_rate_daily`` selects the **CFD-style daily-swap** model used by the
+    Breakout prop sim (perpetual-futures-*style* but charged as a flat daily
+    swap, ~0.09%/day per the public reviews — NOT Bybit's directional 8h
+    funding). When set, the cost is a pure DEBIT on notional prorated by holding
+    days, charged regardless of side (a swap is a holding fee, not a directional
+    funding payment), and it takes precedence over the perp-funding paths. When
+    ``None``, the perp-funding model (real series → constant fallback) is used.
+    """
     notional = abs(float(entry) * float(qty))
-    sign = _side_sign(side)
     if notional <= 0 or entry_dt is None or exit_dt is None:
         return 0.0
 
+    if swap_rate_daily is not None:
+        try:
+            hold_seconds = max(0.0, (exit_dt - entry_dt).total_seconds())
+        except Exception:  # noqa: BLE001
+            return 0.0
+        hold_days = hold_seconds / 86_400.0
+        return swap_rate_daily * notional * hold_days  # flat debit, side-agnostic
+
+    sign = _side_sign(side)
     if funding_series:
         rate_sum = 0.0
         for ts, rate in funding_series:
@@ -166,16 +184,22 @@ def apply_funding_to_ledger(
     *,
     funding_series: Optional[Sequence[Any]] = None,
     const_rate_8h: float = 1e-4,
+    swap_rate_daily: Optional[float] = None,
 ) -> List[Dict[str, Any]]:
     """Return a funding-adjusted copy of the ledger (list of dicts).
 
     Each output row carries every original field (``pnl`` reduced by the
-    trade's funding cost) plus ``funding_cost`` (the cash subtracted) and
+    trade's holding cost) plus ``funding_cost`` (the cash subtracted) and
     ``pnl_pre_funding`` (the original). Non-invasive: the engine ledger is not
     mutated; the dicts drop straight into ``run_montecarlo`` /
     ``run_ev_montecarlo``.
+
+    ``swap_rate_daily`` (when set) selects the Breakout CFD-style flat
+    daily-swap holding cost instead of the perp-funding model — see
+    :func:`_funding_cost`.
     """
-    series = normalize_funding_series(funding_series) if funding_series else None
+    series = (normalize_funding_series(funding_series)
+              if (funding_series and swap_rate_daily is None) else None)
     out: List[Dict[str, Any]] = []
     for t in closed_trades or []:
         pnl = float(_get(t, "pnl", 0.0) or 0.0)
@@ -196,6 +220,7 @@ def apply_funding_to_ledger(
         cost = _funding_cost(
             entry=entry, qty=qty, side=side, entry_dt=entry_dt, exit_dt=exit_dt,
             funding_series=series, const_rate_8h=const_rate_8h,
+            swap_rate_daily=swap_rate_daily,
         )
         out.append({
             "owner": _get(t, "owner"),

@@ -57,13 +57,24 @@ for S in $SYMBOLS; do
       || echo "FUNDING FETCH FAILED $S (will fall back to constant rate)"
   fundarg=""
   [ -s "$DATADIR/${s}_funding.csv" ] && fundarg="--funding $DATADIR/${s}_funding.csv"
-  echo "================ $S : validate ================"
+  # GATE: Breakout venue cost model — flat CFD-style daily swap (~0.09%/day).
+  echo "================ $S : validate (Breakout daily-swap GATE) ================"
+  "$PY" scripts/prop/validate_alt_prop.py --symbol "$S" \
+      --data "$DATADIR/${s}_5m.csv" \
+      --cost-model daily_swap --swap-rate-daily "${SWAP_RATE_DAILY:-0.0009}" \
+      --strategy "$STRATEGY" --out-dir "$OUT/breakout-swap" \
+      || echo "VALIDATE(swap) FAILED $S"
+  # COMPARISON: lighter Bybit 8h perp funding (real series), for context only.
+  echo "================ $S : validate (Bybit perp-funding compare) ================"
   "$PY" scripts/prop/validate_alt_prop.py --symbol "$S" \
       --data "$DATADIR/${s}_5m.csv" $fundarg \
-      --strategy "$STRATEGY" --out-dir "$OUT" \
-      || echo "VALIDATE FAILED $S"
+      --cost-model perp_funding \
+      --strategy "$STRATEGY" --out-dir "$OUT/bybit-funding" \
+      || echo "VALIDATE(funding) FAILED $S"
 done
 
-echo "================ SUMMARY ================"
-grep -H "VERDICT" "$OUT"/*.md 2>/dev/null || echo "(no verdict files written)"
+echo "================ SUMMARY (GATE = Breakout daily-swap) ================"
+grep -H "VERDICT" "$OUT"/breakout-swap/*.md 2>/dev/null || echo "(no gate verdict files)"
+echo "---- comparison (Bybit perp-funding) ----"
+grep -H "VERDICT" "$OUT"/bybit-funding/*.md 2>/dev/null || echo "(no compare verdict files)"
 echo "ALL DONE -> $OUT"
