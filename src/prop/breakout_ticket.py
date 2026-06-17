@@ -3,7 +3,7 @@
 Turns a strategy signal into a single, self-contained, **agent-agnostic**
 instruction block that the operator pastes into a supervised executor
 (desktop browser-Claude / Comet / manual) to place a BRACKET order on the
-Breakout DXTrade terminal. See
+Breakout terminal. See
 ``docs/integrations/breakout-poc-manual-bridge-DESIGN.md``.
 
 Tier-1: this module only *formats* a message. It places no live order and is
@@ -115,16 +115,16 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None) -> str:
     """Render the paste-ready, agent-agnostic ticket message."""
     s = t.signal
     c = t.cfg
-    sym = c.dxtrade_symbol or f"{s.symbol} (⚠ set DXTrade symbol)"
+    sym = c.dxtrade_symbol or s.symbol
     daily_cap = 0.03 * c.account_size_usd
     dd_floor = 0.06 * c.account_size_usd
     contract_note = (
         f"{t.qty_units} {s.symbol.replace('USDT','')} "
         f"(= ${t.risk_usd:.2f} risk at the stop; "
-        f"convert to DXTrade contracts per the instrument's contract size)"
+        f"size as shown in the Breakout terminal)"
     )
     lines = [
-        "BREAKOUT TRADE SETUP — place a BRACKET order on the Breakout DXTrade terminal.",
+        "BREAKOUT TRADE SETUP — place a BRACKET order on the Breakout terminal.",
         "RULES (do all): attach SL **and** TP at entry; never place without both. "
         "Pause for my confirmation before you submit. If now is past 'Valid until' "
         "OR the live price is outside the entry band, DO NOT place — reply "

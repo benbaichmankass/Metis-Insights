@@ -74,6 +74,15 @@ for S in $SYMBOLS; do
       --cost-model daily_swap --swap-rate-daily "${SWAP_RATE_DAILY:-0.0009}" \
       --strategy "$STRATEGY" --out-dir "$OUT/breakout-swap" \
       || echo "VALIDATE(swap) FAILED $S"
+  # DIRECTIONAL A/B: same Breakout daily-swap gate but LONG-ONLY (matches the
+  # trend_donchian flagship's directional discipline; the both-sides run above
+  # is what the original gate validated).
+  echo "================ $S : validate (Breakout daily-swap, LONG-ONLY) ================"
+  "$PY" scripts/prop/validate_alt_prop.py --symbol "$S" \
+      --data "$DATADIR/${s}_5m.csv" \
+      --cost-model daily_swap --swap-rate-daily "${SWAP_RATE_DAILY:-0.0009}" --long-only \
+      --strategy "$STRATEGY" --out-dir "$OUT/breakout-swap-longonly" \
+      || echo "VALIDATE(swap,long-only) FAILED $S"
   # COMPARISON: lighter Bybit 8h perp funding (real series), for context only.
   echo "================ $S : validate (Bybit perp-funding compare) ================"
   "$PY" scripts/prop/validate_alt_prop.py --symbol "$S" \
@@ -83,8 +92,11 @@ for S in $SYMBOLS; do
       || echo "VALIDATE(funding) FAILED $S"
 done
 
-echo "================ SUMMARY (GATE = Breakout daily-swap) ================"
-grep -H "VERDICT" "$OUT"/breakout-swap/*.md 2>/dev/null || echo "(no gate verdict files)"
-echo "---- comparison (Bybit perp-funding) ----"
-grep -H "VERDICT" "$OUT"/bybit-funding/*.md 2>/dev/null || echo "(no compare verdict files)"
+echo "================ SUMMARY ================"
+echo "---- GATE: Breakout daily-swap, BOTH-SIDES (what shipped) ----"
+grep -H "VERDICT" "$OUT"/breakout-swap/*.md 2>/dev/null || echo "(none)"
+echo "---- A/B: Breakout daily-swap, LONG-ONLY (directional discipline) ----"
+grep -H "VERDICT" "$OUT"/breakout-swap-longonly/*.md 2>/dev/null || echo "(none)"
+echo "---- comparison: Bybit perp-funding ----"
+grep -H "VERDICT" "$OUT"/bybit-funding/*.md 2>/dev/null || echo "(none)"
 echo "ALL DONE -> $OUT"
