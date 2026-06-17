@@ -2,7 +2,7 @@
 
 Companion to ``src/units/accounts/ib_client.py`` (which owns *execution*).
 This module owns *market data*: it exposes the same ``get_ohlcv(symbol,
-timeframe, limit)`` surface as ``BybitConnector`` / ``BinanceConnector``
+timeframe, limit)`` surface as ``BybitConnector``
 so it is a drop-in connector for ``src/runtime/market_data.fetch_candles``
 and the per-symbol data routing in the multi-symbol pipeline.
 

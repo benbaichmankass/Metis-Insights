@@ -29,7 +29,7 @@ def validate_startup() -> None:
 
     # ---- Exchange selection ------------------------------------------------
     exchange = _env("EXCHANGE").lower()
-    valid_exchanges = ("binance", "bybit")
+    valid_exchanges = ("bybit",)
     if exchange not in valid_exchanges:
         errors.append(
             f"EXCHANGE must be one of {valid_exchanges}, got {exchange!r}"
@@ -37,10 +37,7 @@ def validate_startup() -> None:
     else:
         # ---- Exchange-specific API keys ------------------------------------
         # Only require keys for the *configured* exchange.
-        if exchange == "binance":
-            for key in _missing(["BINANCE_API_KEY", "BINANCE_API_SECRET"]):
-                errors.append(f"Missing required Binance credential: {key}")
-        elif exchange == "bybit":
+        if exchange == "bybit":
             for key in _missing(["BYBIT_API_KEY", "BYBIT_API_SECRET"]):
                 errors.append(f"Missing required Bybit credential: {key}")
 

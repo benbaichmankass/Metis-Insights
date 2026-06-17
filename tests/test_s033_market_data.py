@@ -216,24 +216,6 @@ class TestBuildExchangeClient:
         assert isinstance(client, _FakeBybit)
         assert called["kind"] == "bybit"
 
-    def test_binance_path_used(self, monkeypatch):
-        from src.runtime import market_data
-        try:
-            import src.exchange.binance_connector  # noqa: F401
-        except ImportError as exc:
-            pytest.skip(f"binance_connector import failed in sandbox: {exc}")
-
-        class _FakeBinance:
-            def __init__(self, **kw):
-                self.kw = kw
-
-        monkeypatch.setattr(
-            "src.exchange.binance_connector.BinanceConnector",
-            _FakeBinance,
-        )
-        client = market_data._build_exchange_client({"EXCHANGE": "binance"})
-        assert isinstance(client, _FakeBinance)
-
 
 # ---------------------------------------------------------------------------
 # pipeline back-compat shim

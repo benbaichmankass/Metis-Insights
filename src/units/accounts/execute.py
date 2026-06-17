@@ -444,10 +444,6 @@ def _fetch_balance(
             lst = (resp.get("result") or {}).get("list") or []
             coins = lst[0].get("coin", []) if lst else []
             return sum(float(c.get("usdValue") or 0) for c in coins)
-        if exchange == "binance":
-            bal = client.get_balance() or {}
-            usdt = (bal.get("USDT") or {}) if isinstance(bal, dict) else {}
-            return float((usdt or {}).get("total") or 0)
         if exchange in ("interactive_brokers", "ib"):
             # IB account equity in USD — NetLiquidation from the account
             # summary, fed to the sizer the same way as Bybit's USD wallet
@@ -735,25 +731,6 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
                     )
             resp = client.place_order(**kwargs)
             return str((resp.get("result") or {}).get("orderId") or uuid.uuid4().hex)
-        if exchange == "binance":
-            if not order.get("reduce_only"):
-                # SL/TP attachment for Binance requires separate
-                # STOP_MARKET + TAKE_PROFIT_MARKET orders; that wiring
-                # is not yet implemented. Block live open-position orders
-                # until it is, so we never place a naked entry.
-                raise NotImplementedError(
-                    "Binance live orders are blocked: SL/TP attachment "
-                    "(separate stop-market / take-profit-market orders) "
-                    "is not yet wired in _submit_order. Implement before "
-                    "enabling a Binance account in config/accounts.yaml."
-                )
-            # Reduce-only (close/trim) legs carry no SL/TP by design.
-            resp = client.place_market_order(
-                symbol=order["symbol"],
-                side=order["side"].upper(),
-                amount=order["qty"],
-            )
-            return str((resp or {}).get("id") or (resp or {}).get("orderId") or uuid.uuid4().hex)
     except Exception as exc:
         logger.error("_submit_order(%s): %s", exchange, exc)
         # BUG-057 reopen (2026-05-06): Bybit still rejects spot SL/TP

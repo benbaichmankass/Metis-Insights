@@ -75,11 +75,7 @@ def resolve_credentials(account: Dict[str, Any]) -> Optional[Dict[str, str]]:
             return {"api_key": api_key, "api_secret": api_secret}
         return None
     env = _read_env_file(account.get("env_path") or "")
-    exchange = str(account.get("exchange", "")).lower()
-    if exchange == "binance":
-        key, secret = env.get("BINANCE_API_KEY"), env.get("BINANCE_API_SECRET")
-    else:
-        key, secret = env.get("BYBIT_API_KEY"), env.get("BYBIT_API_SECRET")
+    key, secret = env.get("BYBIT_API_KEY"), env.get("BYBIT_API_SECRET")
     if key and secret:
         return {"api_key": key, "api_secret": secret}
     return None
@@ -98,22 +94,6 @@ def bybit_client_for(account: Dict[str, Any]):
         return HTTP(demo=True, api_key=creds["api_key"], api_secret=creds["api_secret"])
     testnet = str(os.environ.get("BYBIT_TESTNET", "false")).strip().lower() == "true"
     return HTTP(testnet=testnet, api_key=creds["api_key"], api_secret=creds["api_secret"])
-
-
-def binance_conn_for(account: Dict[str, Any]):
-    """Return a Binance connector for *account*, or ``None`` if creds missing."""
-    creds = resolve_credentials(account)
-    if not creds:
-        return None
-    import sys as _sys
-    _sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
-    from exchange.binance_connector import BinanceConnector  # type: ignore
-    testnet = str(os.environ.get("BINANCE_TESTNET", "false")).strip().lower() == "true"
-    return BinanceConnector(
-        api_key=creds["api_key"],
-        api_secret=creds["api_secret"],
-        testnet=testnet,
-    )
 
 
 def alpaca_client_for(account: Dict[str, Any]):
@@ -609,7 +589,7 @@ def account_has_broker_pnl_reader(account: Optional[Dict[str, Any]]) -> bool:
 #   * ``order_status``   — per-order status lookup
 #                          (``account_order_status`` — ``if ex != "bybit": return None``).
 #   * ``open_positions`` — exchange-side open-positions snapshot
-#                          (``account_open_positions`` — wired for bybit + binance
+#                          (``account_open_positions`` — wired for bybit
 #                          + interactive_brokers; NOT alpaca/oanda).
 #
 # This map reflects CURRENT WIRED REALITY (verified against the code). P3
@@ -630,10 +610,6 @@ EXCHANGE_MANAGEMENT_CAPS: dict[str, frozenset[str]] = {
     "bybit": frozenset(
         {"modify", "close", "partial_close", "order_status", "open_positions"}
     ),
-    # binance: only the open-positions snapshot is wired (account_open_positions);
-    # modify/close/order_status are NOT (execute.py rejects non-bybit; binance is
-    # not in production).
-    "binance": frozenset({"open_positions"}),
     # interactive_brokers (ib_paper, live): account_open_positions reads IB
     # positions; P3 (live-trade management contract) added IBClient.close
     # (cancel resting bracket/OCA legs + opposing reduce market order) wired
@@ -897,18 +873,15 @@ def account_order_status(
         denies any record of this order" verdict and the reconciler
         is allowed to orphan-stamp on it.
 
-    Currently only ``bybit`` is implemented — ``binance`` returns
-    ``None`` so the reconciler skips Binance accounts (they are not
-    in production yet).
+    Currently only ``bybit`` is implemented — other exchanges return
+    ``None`` so the reconciler skips those accounts.
     """
     if not isinstance(account, dict) or not order_id:
         return None
     ex = (account.get("exchange") or "unknown").lower()
     if ex != "bybit":
-        # Binance / others: not yet wired through this primitive. Returning
-        # None makes the reconciler skip the row (conservative). When the
-        # operator turns on a Binance account, lift this guard and add the
-        # connector-side lookup.
+        # Other exchanges: not wired through this primitive. Returning
+        # None makes the reconciler skip the row (conservative).
         return None
     try:
         client = bybit_client_for(account)
@@ -964,9 +937,9 @@ def account_open_positions(
     positions" (``[]``) from "could not read" (``None``):
 
     * non-dict / missing account argument
-    * unsupported exchange (anything other than ``bybit`` / ``binance`` /
+    * unsupported exchange (anything other than ``bybit`` /
       ``interactive_brokers`` / ``alpaca`` / ``oanda``)
-    * missing creds (``bybit_client_for`` / ``binance_conn_for`` /
+    * missing creds (``bybit_client_for`` /
       ``alpaca_client_for`` / ``oanda_client_for`` returns ``None``)
     * exchange SDK exception (logged + ``report_api_failure``)
     * **IB only:** an EMPTY snapshot from a Gateway that is NOT verified
@@ -1094,25 +1067,6 @@ def account_open_positions(
                     "size": size,
                     "entry_price": _f(p.get("avgPrice")),
                     "unrealised_pnl": _f(p.get("unrealisedPnl")),
-                })
-            return out
-        if ex == "binance":
-            conn = binance_conn_for(account)
-            if conn is None:
-                return None
-            out = []
-            for p in (conn.get_positions() or []):
-                size = _f(p.get("contracts", p.get("positionAmt")))
-                if size == 0:
-                    continue
-                out.append({
-                    "symbol": p.get("symbol"),
-                    "side": p.get("side") or ("long" if size > 0 else "short"),
-                    "size": abs(size),
-                    "entry_price": _f(p.get("entryPrice")),
-                    "unrealised_pnl": _f(
-                        p.get("unrealizedPnl", p.get("unrealised_pnl"))
-                    ),
                 })
             return out
         if ex == "alpaca":

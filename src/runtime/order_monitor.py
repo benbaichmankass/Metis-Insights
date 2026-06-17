@@ -1113,7 +1113,7 @@ def _build_account_client(account_id):
     try:
         from src.units.accounts import load_accounts
         from src.units.accounts.clients import (
-            bybit_client_for, binance_conn_for,
+            bybit_client_for,
             ib_client_for, alpaca_client_for, oanda_client_for,
         )
         for acc in load_accounts():
@@ -1157,8 +1157,6 @@ def _build_account_client(account_id):
             exchange_lc = (acc.exchange or "").lower()
             if exchange_lc == "bybit":
                 return bybit_client_for(cfg), cfg
-            if exchange_lc == "binance":
-                return binance_conn_for(cfg), cfg
             # P3 (live-trade management contract): build the IB / Alpaca
             # clients too so the verdict senders can reach them for close.
             # Reuses the SAME factories _submit_order uses at entry, so the

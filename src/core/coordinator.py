@@ -965,7 +965,7 @@ class Coordinator:
             #     account,
             # regardless of feature flags — making it safe to assign the
             # crypto strategies to ib_paper. Legacy crypto cross-account
-            # dispatch (bybit/binance/breakout among themselves) is left
+            # dispatch (bybit/breakout among themselves) is left
             # untouched, so existing dispatch behaviour/tests are unchanged.
             inst_exchange = _instrument_exchange_for(getattr(pkg, "symbol", "") or "")
             acct_exchange = str(getattr(account_obj, "exchange", "") or "").lower()
@@ -1057,7 +1057,7 @@ class Coordinator:
             # "0 fills despite N signals" bug).
             from src.units.accounts.execute import execute_pkg
             from src.units.accounts.clients import (
-                bybit_client_for, binance_conn_for,
+                bybit_client_for,
                 ib_client_for, oanda_client_for, alpaca_client_for,
             )
 
@@ -1168,8 +1168,6 @@ class Coordinator:
                 try:
                     if exchange_lc == "bybit":
                         client = bybit_client_for(account_cfg)
-                    elif exchange_lc == "binance":
-                        client = binance_conn_for(account_cfg)
                     elif exchange_lc == "oanda":
                         client = oanda_client_for(account_cfg)
                     elif exchange_lc == "alpaca":
@@ -1179,7 +1177,7 @@ class Coordinator:
                     else:
                         client_error = (
                             f"unsupported exchange '{exchange_lc}' "
-                            f"(expected bybit/binance/oanda/alpaca/"
+                            f"(expected bybit/oanda/alpaca/"
                             f"interactive_brokers)"
                         )
                 except Exception as exc:  # noqa: BLE001

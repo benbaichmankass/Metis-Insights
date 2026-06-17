@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # VM-side step of the IB Gateway provisioning. Installs the staged credential
 # env file (scp'd by the workflow over the encrypted SSH channel — never in
-# run logs), then runs the idempotent installer and restarts the Gateway.
+# run logs), then runs the idempotent Docker installer
+# (scripts/install_ib_gateway_docker.sh) and restarts the Gateway container.
 #
 # Invoked by .github/workflows/provision-ib-gateway.yml after it scps the
 # rendered env file to ${IB_ENV_STAGED}. The workflow renders that file from
@@ -25,7 +26,7 @@ echo "[provision_ib_gateway] installing ${ENV_FILE} (0600, ubuntu) from staged f
 sudo mkdir -p "$(dirname "${ENV_FILE}")"
 # Owned by ubuntu (not root): the IBC service runs as User=ubuntu and the
 # installer (run as ubuntu) sources this file to render config.ini. A
-# root-only 0600 file broke install_ib_gateway.sh with "Permission denied".
+# root-only 0600 file broke the (now-removed native) installer with "Permission denied".
 # 0600 keeps it secret; ubuntu already holds the creds (it runs the Gateway).
 sudo install -m 0600 -o ubuntu -g ubuntu "${ENV_STAGED}" "${ENV_FILE}"
 shred -u "${ENV_STAGED}" 2>/dev/null || rm -f "${ENV_STAGED}"
