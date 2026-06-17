@@ -127,6 +127,8 @@ above. Tracked under **BL-20260608-DEMOPNL** + ROADMAP "Items Under Consideratio
 
 ## Implementation + validation (2026-06-08, branch `claude/position-netting-sltp-fix-tYjPh`)
 
+> **SUPERSEDED 2026-06-17:** the netting guard was made BASELINE (unconditional, all accounts); `POSITION_NETTING_GUARD_ENABLED`/`_ACCOUNTS` were removed. The "default OFF / not flipped on" framing below is the 2026-06-08 point-in-time state, kept as record.
+
 > **Status:** IMPLEMENTED behind a kill-switch (**default OFF**), unit-tested,
 > walk-forward in progress. **Tier-3 — NOT merged / NOT flipped on** pending
 > operator approval.

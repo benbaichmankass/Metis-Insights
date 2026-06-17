@@ -752,7 +752,7 @@ All already in place except the optional reboot sudoers entry.
 
 | Name | Default | Override when |
 |---|---|---|
-| `VM_SSH_HOST` | `158.178.210.252` | VM moved |
+| `VM_SSH_HOST` | `141.145.193.91` | VM moved |
 | `VM_SSH_USER` | `ubuntu` | VM user changed |
 
 ---

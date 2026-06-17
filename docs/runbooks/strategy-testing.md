@@ -205,10 +205,14 @@ audit trail (what lands in the validation log).
   - **Telegram reply:** none initially; the comms stuck-alert fires
     after the threshold ("`Comms request <id> is stuck …`").
   - **Validation log:** no row.
-  - **Fix:** verify the env gate (`systemctl show
-    ict-trader-telegram-bot | grep M5_CONSUMER_ENABLED`), restart the
-    bot, OR cancel the artifact: edit the JSON, set
-    `status: cancelled`, commit, push.
+  - **Fix:** verify the env gate via the diag relay
+    (`/api/diag/journalctl?unit=ict-trader-telegram-bot.service`, or a
+    `status-check` system-action) rather than SSHing in to
+    `systemctl show … | grep M5_CONSUMER_ENABLED`; re-enable it with the
+    `enable-m5-consumer` system-action (toggle off with
+    `disable-m5-consumer` — both documented below under "Activation"),
+    OR cancel the artifact: edit the JSON, set `status: cancelled`,
+    commit, push.
 
 ---
 

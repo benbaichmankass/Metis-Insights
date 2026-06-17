@@ -191,9 +191,11 @@ gate was removed 2026-06-10; activation is source-driven.)
 2. In `config/master-secrets.yaml` (plaintext, never committed), set:
    ```yaml
    news:
-     enabled: "true"
      api_key: "your_newsapi_key_here"
    ```
+   (Supplying the key activates the `newsapi` source; there is no separate
+   `enabled` flag — the legacy `NEWS_ENABLED` gate was removed 2026-06-10.
+   For the keyless real-time path, set `NEWS_SOURCE=rss` instead.)
 3. Re-render `.env.live`:
    ```bash
    python scripts/render_env_from_master.py \
@@ -267,7 +269,7 @@ behaviour. Adding a new instrument is a **YAML edit, not a code change**.
 
 Before the news veto/influence is ever allowed to gate live money, we accrue an
 **observe-only** track record — exactly like the shadow-model ladder. While the
-layer is active (`NEWS_ENABLED=true` + `NEWS_API_KEY` set), `src/news/news_audit.py`
+layer is active (`NEWS_SOURCE=rss`, or `newsapi` + `NEWS_API_KEY`), `src/news/news_audit.py`
 appends one JSON line per actionable signal it evaluated:
 
 ```json

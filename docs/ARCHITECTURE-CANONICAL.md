@@ -124,7 +124,7 @@ Idea generation, backtesting, dry-run qualification:
 - `notebooks/`,
 - `experiments/`,
 - `src/backtest/`,
-- `src/ml/` (where present),
+- `ml/` (model training, datasets, registry, manifests — see [`architecture/ai-model-platform.md`](architecture/ai-model-platform.md)),
 - backtest dispatch from `src/bot/test_strategy_consumer.py`
   (auto-consumed `test_strategy:<name>` requests).
 
@@ -223,8 +223,9 @@ crypto fund. **Decider-v2** (research) makes the selection smart
 live — a naive greedy decider lets the high-frequency 2h trend hog the
 book and forfeits ~half the blend's return + diversification, so v2's job
 is genuine selection. Design + single-account simulation:
-[`docs/sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md`](sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md),
-`scripts/research_decider.py`.
+[`docs/sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md`](sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md).
+The decider remains research-stage — no live simulator script is wired
+yet; research harnesses live under `scripts/research/`.
 
 ### Step 4 — Risk gating
 Before any order reaches broker execution, risk controls decide whether
@@ -593,37 +594,46 @@ models-in-the-loop belongs here, NOT the per-strategy entry filter,
 which failed because the trend edge is exit-driven): it is research-
 stage and should be added as a manifest only **once ≥2 members are
 live** (until then it has insufficient multi-member feedstock). Design:
-[`docs/sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md`](sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md);
-simulator: `scripts/research_decider.py`.
+[`docs/sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md`](sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md).
+The decider remains research-stage (no simulator script wired yet;
+research harnesses live under `scripts/research/`).
 
 The full AI-platform architecture (five-layer model, leakage rules,
 forbidden behaviors, model registry append-only invariant) lives in
 [`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md).
 
-### VM topology (S-AI-WS9, updated 2026-06-10 gateway-isolation Plan B)
+### VM topology (CANONICAL — single source of truth; live→Ampere migration COMPLETE 2026-06-14)
+
+> **This table is the single canonical VM topology.** Every other doc,
+> skill, runbook, and script should LINK here rather than re-state a VM IP
+> or shape. When the topology changes, update THIS table and its mirror in
+> `CLAUDE.md` § "VM authority split" — nothing else should hardcode a VM IP.
 
 The "no heavy training on the Oracle live VM" non-negotiable
 ([`AI-TRADERS-ROADMAP.md`](AI-TRADERS-ROADMAP.md)) is enforced by
-**topology**, not just policy. The system now spans **three** VMs in the
-same compartment + VCN — the money box is deliberately the smallest and
-most isolated:
+**topology**, not just policy. The system spans **three** Ampere VMs in the
+same compartment + VCN — the money box is deliberately isolated:
 
 | VM | Shape | Role | Systemd units | Marker file |
 |---|---|---|---|---|
-| **Live trader** (`158.178.210.252`) | `VM.Standard.E2.1.Micro` — **1 OCPU / 1 GB, x86** (a separate AMD Always-Free allocation, NOT the Ampere pool; fixed shape) | Deterministic trade execution; FastAPI dashboard surface | `ict-trader-live.service`, `ict-web-api.service` | (none today; pre-WS9) |
+| **Live trader** `ict-bot-arm` (`141.145.193.91`) | `VM.Standard.A1.Flex` — **2 OCPU / 12 GB, Ampere aarch64** | Deterministic trade execution; FastAPI dashboard surface (`:8001`) | `ict-trader-live.service`, `ict-web-api.service` | `data-dir-nomount.conf` drop-in (`/data/bot-data` on boot volume) |
 | **Training-center** (`158.178.209.121`) | `VM.Standard.A1.Flex` 1 OCPU / 6 GB (Ampere) | Model training, dataset builds, registry writes, experiment runs | `ict-trainer.service` (disabled by default), `ict-trainer.timer` (disabled by default) | `/etc/ict-trainer-vm.role` → `training-center` |
 | **IB Gateway** (`ict-ib-gateway`, private IP `10.0.0.251`) | `VM.Standard.A1.Flex` 1 OCPU / 6 GB (Ampere) | Headless IB Gateway (Docker + socat) for MES/IBKR — isolated off the money box | `ict-ib-gateway-reset.{service,timer}` (daily 05:30 UTC `docker restart`) | `/etc/ict/ib-gateway-docker.env` (gates the reset.service) |
 
-**Ampere Always-Free budget:** trainer 1 + gateway 1 = **2 of 4 OCPUs.**
-The gateway was moved onto its own VM (Plan B) because the heavy
-Java/Xvfb/IBC gateway sharing the 1 GB micro with the trader caused the
-2026-06-10 CPU-wedge cascade; the trader now reaches it across the private
-subnet (`config/accounts.yaml::ib_paper.ib_host = 10.0.0.251`). The
-**live→3-OCPU Ampere migration is PAUSED** — with the gateway gone the
-micro may hold trader + web-api + sidecars on its 2 vCPU; measure first,
-migrate only if it can't. Full topology + rationale:
+**Ampere Always-Free budget: trainer 1 + gateway 1 + live 2 = 4 of 4 OCPUs
+(6 + 6 + 12 = 24 of 24 GB) — the pool is now FULL.** The **live→Ampere
+migration COMPLETED 2026-06-14** (`.github/workflows/cutover-live.yml`); the
+retired x86 micro `158.178.210.252` (a *separate* AMD Always-Free allocation,
+display name `ict-bot`) was **terminated 2026-06-16** and is no longer a
+rollback target. The gateway was moved onto its own VM (gateway-isolation,
+Plan B) because the heavy Java/Xvfb/IBC gateway sharing the old 1 GB micro
+with the trader caused the 2026-06-10 CPU-wedge cascade; the trader now
+reaches it across the private subnet
+(`config/accounts.yaml::ib_paper.ib_host = 10.0.0.251`). Full topology +
+rationale:
+[`docs/runbooks/live-vm-migration-ampere.md`](runbooks/live-vm-migration-ampere.md),
 [`docs/runbooks/ib-integration.md`](runbooks/ib-integration.md)
-§ "Gateway isolation redesign" and `CLAUDE.md` § "VM authority split".
+§ "Gateway isolation redesign", and `CLAUDE.md` § "VM authority split".
 
 The training-center VM is provisioned via
 [`.github/workflows/provision-training-vm.yml`](../.github/workflows/provision-training-vm.yml)

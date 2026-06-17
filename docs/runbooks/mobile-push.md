@@ -276,15 +276,13 @@ made the M12 S1 push pipe silently inert until 2026-05-26.)
 
 The new notifier prefers `FCM_SERVICE_ACCOUNT_JSON_PATH` and
 ignores the orphan `FCM_SERVICE_ACCOUNT_JSON=…` lines, so pushes
-work despite the journal noise. To clean up the spam:
-
-1. SSH-relay or trainer-VM-diag to read the .env.
-2. Delete the `FCM_SERVICE_ACCOUNT_JSON=` line **and every orphan
-   continuation line** (lines starting with `"…":` or naked text
-   that systemd is rejecting).
-3. Restart `ict-trader-live.service` once.
-
-There is no automated cleanup wrapper yet — small operator task. The
+work despite the journal noise. To clean up the spam, dispatch the
+**`scrub-env-noncompliant`** system-action (see
+[`docs/claude/system-actions.md`](../claude/system-actions.md)) — it
+strips the non-compliant multi-line `FCM_SERVICE_ACCOUNT_JSON=` line
+(and any orphan continuation lines systemd is rejecting) from the live
+`.env` and restarts the trader in one audited run. No SSH, no
+trainer-relay (the trainer relay cannot reach the live VM anyway). The
 runtime impact is zero, only journal cleanliness.
 
 ### Trader crashed after enabling

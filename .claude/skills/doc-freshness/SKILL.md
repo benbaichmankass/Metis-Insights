@@ -53,14 +53,53 @@ Then, scoped to what changed this session:
      are described consistently everywhere; nothing still says `mode:` is the
      only gate, and nothing introduces a hidden third gate.
    - The **permission tiers** match across CLAUDE.md and canonical.
+   - The **instruction hierarchy** in `CLAUDE.md` § "Instruction hierarchy"
+     is identical (same docs, same order) to
+     `docs/CLAUDE-RULES-CANONICAL.md` § "Document Priority". They must mirror.
+   - The **VM topology** is single-sourced: only `ARCHITECTURE-CANONICAL.md`
+     § "VM topology" (and its `CLAUDE.md` § "VM authority split" mirror) state
+     VM IPs/shapes; no other operating doc, skill, or script hardcodes a VM
+     IP, and the terminated micro `158.178.210.252` never appears as the
+     *current* live VM.
+   - No **removed gate** is described as live. The removed set:
+     `MULTI_SYMBOL_ENABLED`, `NEWS_ENABLED`, `NAKED_POSITION_AUTOPROTECT`,
+     `MONITOR_RECONCILE_ENABLED`, `POSITION_NETTING_GUARD_ENABLED`,
+     `POSITION_NETTING_GUARD_ACCOUNTS` — each may only appear flagged as
+     removed/historical, never as an active toggle.
+   - The **ML deployment ladder** is the 3-stage `candidate → shadow →
+     advisory` everywhere; no skill/command/active-doc presents the old
+     7-stage ladder unflagged (legacy stage names must carry an "aliases to"
+     note).
    - No re-introduced "banned phrase" lists and no "operator does X manually /
      SSHes / runs X" framing — the model is autonomous Claude + tier-based
-     approval.
+     approval. Any operator-facing manual step must be one of the three
+     genuine hand-offs (secret-value origination, OCI console/CAPTCHA,
+     one-time sudoers bootstrap) — everything else routes through a
+     `system-actions` workflow.
    - References to renamed or removed things resolve (e.g. `system-actions`,
      not `operator-actions`; no Telegram-ping / Colab-key-rotation workflows
      presented as current).
    - `docs/claude/INDEX.md` lists the files that actually exist; no dangling
      doc links.
+
+   **Mechanical scans (run these every time — they are what the
+   `canonical-doc-coherence` CI guard also runs; do them by hand here so you
+   catch drift before the PR, not after):**
+
+   ```bash
+   # Fast guard: run the CI checker locally over the working tree.
+   python scripts/ci/check_canonical_doc_coherence.py
+
+   # Or the raw greps it wraps, if you want to eyeball:
+   #  - terminated micro IP presented as live (should only match historical lines):
+   rg -n '158\.178\.210\.252' CLAUDE.md docs/ .claude/ scripts/ | rg -v -i 'terminat|retir|histor|pre-2026-06-14|migration source|decommiss|supersed|old x86|former'
+   #  - removed gates presented as live (should only match removal/historical lines):
+   rg -n 'MULTI_SYMBOL_ENABLED|NEWS_ENABLED|NAKED_POSITION_AUTOPROTECT|MONITOR_RECONCILE_ENABLED|POSITION_NETTING_GUARD_(ENABLED|ACCOUNTS)' CLAUDE.md docs/ .claude/ | rg -v -i 'remov|retir|supersed|histor|ignored|baseline|no longer|legacy|deprecat|example|stranded'
+   #  - stale 7-stage ladder in the skill/command catalog (should be empty):
+   rg -n -i '7[- ]stage' .claude/skills/ .claude/commands/
+   ```
+   A non-empty result from any of these (after the allow-list filter) is drift
+   to fix in this session, not to defer.
 5. **Triage minor leftovers.** Anything real but too small to fix now goes
    into the appropriate review backlog as a new `open` item so a future
    review drains it. Don't silently walk past it. Pick the right bin

@@ -1,0 +1,33 @@
+name: canonical-doc-coherence
+
+# Mechanical guard against governance-doc drift — the "teeth" behind the
+# doc-freshness skill. Catches stale VM topology, removed gates described as
+# live, the retired 7-stage ML ladder, and the two instruction-hierarchy lists
+# falling out of sync. See scripts/ci/check_canonical_doc_coherence.py.
+
+on:
+  pull_request:
+    paths:
+      - "CLAUDE.md"
+      - "docs/**"
+      - ".claude/**"
+      - "scripts/ci/check_canonical_doc_coherence.py"
+      - ".github/workflows/canonical-doc-coherence.yml"
+  push:
+    branches: [main]
+    paths:
+      - "CLAUDE.md"
+      - "docs/**"
+      - ".claude/**"
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run canonical-doc-coherence guard
+        run: python scripts/ci/check_canonical_doc_coherence.py

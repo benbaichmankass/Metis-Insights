@@ -6,7 +6,12 @@
 
 **You have full, autonomous access to all VM data, logs, the SSH key (`VM_SSH_KEY`), and the diag token (`DIAG_READ_TOKEN`) — all wired into GitHub Actions secrets.** Retrieve whatever state you need yourself via the workflows below; you don't wait on the operator to look something up. If a relay genuinely fails or a capability truly isn't wired yet, say so plainly and verifiably — never guess at state you couldn't actually read.
 
-### How to get LIVE_TRADER (158.178.210.252) data
+### How to get LIVE_TRADER (`ict-bot-arm`, 141.145.193.91) data
+
+> Canonical VM topology (IPs/shapes) lives in **one** place —
+> [`ARCHITECTURE-CANONICAL.md`](ARCHITECTURE-CANONICAL.md) § "VM topology".
+> The live trader migrated to Ampere on 2026-06-14; the old x86 micro
+> `158.178.210.252` was terminated 2026-06-16 and is gone.
 
 Open a GitHub issue with label `vm-diag-request`. The `vm-diag-snapshot.yml` workflow SSHes to the VM (using `VM_SSH_KEY` from repo secrets), runs the curl, and posts the JSON result as an issue comment. Claude reads the comment.
 
@@ -102,15 +107,20 @@ system design and end-to-end repo structure live in
 
 ## Document Priority
 
-When instructions conflict, use this order:
+When instructions conflict, use this order (highest precedence first). This
+list is mirrored verbatim in the root `CLAUDE.md` § "Instruction hierarchy" —
+**the two must always agree** (the `canonical-doc-coherence` CI check enforces
+it).
 
 1. `docs/CLAUDE-RULES-CANONICAL.md` (this doc)
 2. `docs/ARCHITECTURE-CANONICAL.md`
 3. `ROADMAP.md`
-4. The current sprint log
-5. Focused implementation specs (e.g. sprint prompts, subsystem specs)
-6. Skill documents and workflow helpers
-7. Older sprint plans, PR summaries, and historical notes
+4. The current sprint log (`docs/sprint-logs/`)
+5. Skills under `.claude/skills/` (binding, composable workflows)
+6. The root `CLAUDE.md` (repo orientation + dashboard REST-API reference)
+7. Focused implementation specs (sprint prompts, subsystem specs) and
+   workflow-helper docs (e.g. `docs/github-actions-workflows.md`)
+8. `docs/claude/*` and older sprint plans, PR summaries, and historical notes
 
 Historical notes remain available for context only. **Newer canonical
 documents override older materials.**
@@ -662,9 +672,9 @@ cross-asset members). It uses two kinds of branch — keep them separate:
 1. **Persistent program branch** — `claude/strategy-improvement-program-EZi1X`
    (PR #1787 is its living research ledger: kept open, **not** a merge
    candidate). This is where research **tooling and artifacts** accumulate
-   across sessions — backtest/validation harnesses (`scripts/backtest_*.py`,
-   `scripts/research_decider.py`, `scripts/ops/fetch_dukascopy_index.py`),
-   audit docs, sprint logs, and design docs. **Future research sessions
+   across sessions — backtest/validation harnesses (`scripts/research/*.py`,
+   `scripts/ops/fetch_dukascopy_ohlcv.py`), audit docs, sprint logs, and
+   design docs. **Future research sessions
    continue on this branch** so the harnesses are not re-derived each
    session.
 2. **Fresh, focused branches cut from current `main`** — for anything that
@@ -715,7 +725,12 @@ note rather than silently editing it.
 - This rules doc and `ARCHITECTURE-CANONICAL.md` should be reviewed at
   the start of every sprint until the milestone roadmap (M0..M10) is
   closed.
-- Safeguards PR (follow-on to PR #978): deletes the code-level
-  auto-flip vectors enumerated under § Prime Directive · "What this
-  rules out." Doc-level contract is in this commit; code-level
-  enforcement ships separately so the diff stays reviewable.
+- Safeguards follow-on to PR #978: the *live* auto-flip vectors under
+  § Prime Directive · "What this rules out" are **behaviourally removed** —
+  the breaker auto-flip in `src/core/coordinator.py` is gone (now alert-only)
+  and the legacy Telegram `/accounts dry|live` writer was removed in #1933.
+  What REMAINS is orphaned dead-code cleanup only: the `_DRY_RUN_OVERRIDES`
+  dict + `set_account_dry_run()` (+ the `Coordinator.set_account_dry_run()`
+  wrapper) still sit on disk with **no caller** — see
+  [`ARCHITECTURE-CANONICAL.md`](ARCHITECTURE-CANONICAL.md) § Mode Mutation
+  Contract item 3. Delete them in a Tier-2 cleanup PR (Part-2 audit item).

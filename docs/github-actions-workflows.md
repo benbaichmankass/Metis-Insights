@@ -956,7 +956,7 @@ download + paste the artifact content.
 
 | Variable | Default | Used by |
 |---|---|---|
-| `VM_SSH_HOST` | `158.178.210.252` | Live VM SSH workflows |
+| `VM_SSH_HOST` | `141.145.193.91` | Live VM SSH workflows |
 | `VM_SSH_USER` | `ubuntu` | Live VM SSH workflows |
 | `TRAINER_VM_IP` | `158.178.209.121` | `trainer-vm-diag.yml`, `deploy-trainer-bootstrap.yml` |
 | `TRAINER_VM_USER` | `ubuntu` | `trainer-vm-diag.yml` |

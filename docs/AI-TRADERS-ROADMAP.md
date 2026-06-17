@@ -77,11 +77,12 @@
    provisioned (tracked by the `[provision-training-vm]` auto-retry
    loop), Claude trains + registers the WS5 baselines at `shadow`
    (the 2026-05-19 default) and promotes them through the ladder
-   up to `live_approved` as warranted. Shadow models auto-wire onto
-   every strategy's predictor list — no per-model YAML edit
-   required. The live-trading switch is the `shadow → advisory`
-   transition (and every step beyond), which remains operator-
-   controlled.
+   up to `advisory` as warranted. (Stage ladder collapsed 7→3 on
+   2026-06-16; canonical `candidate → shadow → advisory`; legacy
+   names alias via `ml.manifest.canonical_stage`.) Shadow models
+   auto-wire onto every strategy's predictor list — no per-model YAML
+   edit required. The live-trading switch is the `shadow → advisory`
+   transition, which remains operator-controlled.
 9. **WS8 (monitoring) — ✅ DONE 2026-05-10 + 2026-05-11 dashboard.**
    PART-1 CLI (`python -m ml shadow-inspect / shadow-stats`).
    PART-2 dashboard endpoints (`/api/bot/shadow/predictions`,
@@ -108,10 +109,10 @@
 - No heavy training on the Oracle live VM (WS9).
 - **No promotion past `shadow` without operator approval**
   (2026-05-19 clarification, supersedes the 2026-05-11 YAML-wiring
-  rule). Stages `advisory` / `limited_live` / `live_approved` are
-  the only ones that can influence the order package; the
-  `shadow → advisory` transition is the live-trading switch and
-  every step beyond is operator-gated. Registering at `shadow`
+  rule). The `advisory` stage is the only one that can influence the
+  order package (the legacy `limited_live` / `live_approved` alias to
+  `advisory`); the `shadow → advisory` transition is the
+  operator-gated live-trading switch. Registering at `shadow`
   (the current default) and promoting from below up to `shadow`
   is autonomous-Claude. Shadow models auto-wire onto every
   strategy's predictor list and log to
@@ -129,10 +130,9 @@
 - Registry promotions still require `--by` + `--reason` for
   audit (S-AI-WS4). Autonomous-Claude promotions use
   `--by=claude-trainer` with the training-summary rationale in
-  `--reason`. Promotions past `advisory` (i.e. to `limited_live`
-  or `live_approved`) additionally require a sprint-log entry
-  under `docs/sprint-logs/S-AI-WS5-PROMOTION-*` per the trainer
-  charter § 3.b.
+  `--reason`. The `shadow → advisory` promotion additionally requires
+  a sprint-log entry under `docs/sprint-logs/S-AI-WS5-PROMOTION-*` per
+  the trainer charter § 3.b.
 - No outcome columns as features against `won` on
   `trade_outcomes` (S-AI-WS5-A).
 - **No `ICT_OFFVM_BUILD_HOST=1` on the Oracle live VM**
@@ -143,9 +143,9 @@
   `fit(...)` time.
 - No loading a model into shadow mode below stage `shadow`
   (S-AI-WS7-PART-4). `ml.shadow.factory.LIVE_INFLUENCE_STAGES`
-  enforces this at resolve time — `research_only`, `candidate`,
-  and `backtest_approved` are refused with a logged skip.
-  Operator must `promote_stage` past `backtest_approved` before
+  enforces this at resolve time — `candidate` (and its legacy aliases
+  `research_only` / `backtest_approved`) is refused with a logged skip.
+  Operator must `promote_stage` past `candidate` to `shadow` before
   any model can be wired, even as a side-channel observer.
 
 ---

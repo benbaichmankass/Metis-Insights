@@ -93,7 +93,7 @@ Schema in [`ml/manifest.py`](../../ml/manifest.py)
 | `trainer` / `trainer_config` | Fully-qualified trainer + its kwargs. |
 | `dataset` | `{family, symbol_scope, timeframe, version}`. |
 | `evaluator` / `evaluator_config` | Fully-qualified evaluator + its kwargs. Includes split config (see below). |
-| `target_deployment_stage` | One of `research_only`..`live_approved`. |
+| `target_deployment_stage` | One of `candidate` / `shadow` / `advisory` (legacy `research_only`..`live_approved` alias in via `ml.manifest.canonical_stage`). |
 | `notes` | Free-form. |
 
 ## Predictor abstraction (WS4-FU)
@@ -273,8 +273,9 @@ this workflow rather than reinventing:
    variant) so the operator can verify the feature actually carries
    signal.
 5. **Promotion is operator-gated.** Even a clean training run
-   lands at `target_deployment_stage: research_only`. Promotion
-   to `staged` / `live-approved` / `champion` requires
+   lands at `target_deployment_stage: candidate`. Promotion to
+   `shadow` / `advisory` (the `shadow → advisory` step is the
+   operator-approved live-influence switch) requires
    `python -m ml promote --by <name> --reason <text>` and
    operator approval. The registry is append-only; past
    `StatusEvent` entries are NEVER edited.

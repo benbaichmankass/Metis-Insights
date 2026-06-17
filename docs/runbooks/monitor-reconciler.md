@@ -109,14 +109,19 @@ SET status = 'open'
 WHERE linked_trade_id = ?;
 ```
 
-Replace `?` with the trade `id` from the ping. Run this on the VM:
+Replace `?` with the trade `id` from the ping (the canonical money DB on
+the live VM is `/data/bot-data/trade_journal.db`).
 
-```bash
-sqlite3 ~/ict-trading-bot/data/trade_journal.db
-```
+This ad-hoc money-DB fix has **no allowlisted wrapper yet**, and a bare
+interactive `sqlite3` session on the live money DB is the anti-pattern —
+per the Ship-Autonomously Rule, add one (e.g. a `mark-reconciler-open`
+backfill system-action, alongside the existing backfill family like
+`backfill-pnl-nulls` / `mark-reconciler-incomplete`) in the sprint that
+needs it, rather than hand-running SQL over SSH.
 
-Then monitor the next tick — if the reconciler immediately re-orphans
-it, the exchange truly has no open position and the row was stale.
+After applying it, monitor the next tick — if the reconciler immediately
+re-orphans the row, the exchange truly has no open position and the row
+was stale.
 
 ---
 

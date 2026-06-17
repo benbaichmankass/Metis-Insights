@@ -12,7 +12,7 @@
 # Direct access requires these env vars (set in the cloud environment's
 # Environment variables field) AND a Network access level that permits
 # egress to the host:
-#   DIAG_BASE_URL    e.g. http://158.178.210.252:8001  (or an https host)
+#   DIAG_BASE_URL    e.g. http://141.145.193.91:8001  (or an https host)
 #   DIAG_READ_TOKEN  the bearer (see the get-diag-token workflow)
 #
 # Usage:   scripts/ops/diag_fetch.sh '<diag-path>'

@@ -347,7 +347,7 @@ side: install, smoke test, rollback.
 ### One-time bootstrap
 
 The PM (or any operator with sudo on the VM) runs this **once** from
-Oracle Cloud Shell or any local SSH session into `ubuntu@158.178.210.252`:
+Oracle Cloud Shell or any local SSH session into `ubuntu@141.145.193.91`:
 
 ```bash
 cd /home/ubuntu/ict-trading-bot

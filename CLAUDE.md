@@ -16,13 +16,18 @@ run commands on your behalf.
 
 ### Instruction hierarchy (highest precedence first)
 
+This list is mirrored verbatim in [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)
+§ "Document Priority" — **the two must always agree** (enforced by the
+`canonical-doc-coherence` CI check).
+
 1. **[`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)** — how you operate: access, honesty, permission tiers, workflows, session discipline.
 2. **[`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md)** — system architecture, trade/comms pipeline, contracts.
 3. **[`ROADMAP.md`](ROADMAP.md)** — the centralized record: every milestone/sprint, status, and dates.
 4. **The current sprint log** under `docs/sprint-logs/`.
-5. **Skills** under [`.claude/skills/`](.claude/skills/) — concrete, composable workflows.
+5. **Skills** under [`.claude/skills/`](.claude/skills/) — binding, composable workflows.
 6. **This file (`CLAUDE.md`)** — repo orientation + dashboard REST-API reference.
-7. **`docs/claude/*` and historical notes** — supporting detail.
+7. **Focused implementation specs** (sprint prompts, subsystem specs) and workflow-helper docs (e.g. [`docs/github-actions-workflows.md`](docs/github-actions-workflows.md)).
+8. **`docs/claude/*` and historical notes** — supporting detail.
 
 When sources disagree, the higher one wins. If a higher doc is silent, defer to
 the next. If you find a contradiction, fix it (run the `doc-freshness` skill) —
@@ -584,7 +589,7 @@ stay in place for any future browser-direct consumer.
 | `TRADE_JOURNAL_DB` | Canonical trade-journal SQLite path (live VM: `/data/bot-data/trade_journal.db`). Resolved by the single Python resolver `src.utils.paths.trade_journal_db_path()` (env → `$DATA_DIR/trade_journal.db` → repo-root; never a CWD-relative basename). The `canonical-db-resolver` CI guard forbids re-introducing the old inline `os.environ.get("TRADE_JOURNAL_DB") or "trade_journal.db"` fallback that seeded the stray duplicate journals. |
 | `TRAINER_STORE_DB` | Path to the trainer-store sidecar SQLite (default `$DATA_DIR/trainer_store.db`). Holds trainer/ML lifecycle data ingested from `runtime_logs/trainer_mirror/`; federated into the Data Explorer alongside `trade_journal.db`. Resolved by `src.utils.paths.trainer_store_db_path()`. Read-mostly — ingest writers never touch the money DB. |
 | `DIAG_READ_TOKEN` | Bearer for `/api/diag/*` (read-only). Unset → endpoints return 503 |
-| `M5_CONSUMER_ENABLED` | Auto-install the M5 backtest consumer in the comms poll loop. Default off; set to `1`/`true` on the VM systemd unit. Operator runbook: `docs/runbooks/strategy-testing.md` |
+| `M5_CONSUMER_ENABLED` | Auto-install the M5 backtest consumer in the comms poll loop. Default off; set to `1`/`true` on the VM systemd unit. **Optional research tooling, NOT a required capability** — so default-off is intentional and Prime-Directive-compliant (the no-`*_ENABLED`-gate rule applies to *required* capabilities, not opt-in tooling that adds load to the live trader's poll loop). Explicitly carved out in `docs/audits/env-gate-purge-2026-05-10.md` § exclusions; toggle via the `enable-m5-consumer`/`disable-m5-consumer` system-actions. Operator runbook: `docs/runbooks/strategy-testing.md` |
 | `M5_BACKTEST_TIMEOUT_S` | Wall-clock cap per backtest subprocess (default 120s) |
 | `BACKTEST_DATA_PATH` | Override the candle CSV the M5 backtest runner reads |
 | `VALIDATION_LOG_PATH` | Override the M5 validation NDJSON path (default `runtime_logs/validation.jsonl`) |

@@ -21,8 +21,9 @@
 > command surface it described is the part that is gone.
 
 > **Scope:** This doc governs **only** the live trader VM
-> (`instance-20260414-1555` — `158.178.210.252`, `eu-paris-1`,
-> `VM.Standard.E2.1.Micro`) and any Telegram-dispatched invocation
+> (`ict-bot-arm` — `141.145.193.91`, `VM.Standard.A1.Flex` 2 OCPU /
+> 12 GB Ampere; canonical topology: ARCHITECTURE-CANONICAL.md § VM
+> topology) and any Telegram-dispatched invocation
 > that reaches it. The trainer VM (`ict-trainer-vm`) is governed by
 > a separate, more permissive contract at
 > [`trainer-vm-mode.md`](trainer-vm-mode.md). A session is either
@@ -283,7 +284,7 @@ If `DIAG_READ_TOKEN` is unset on the VM, the diag endpoints return
 
 A Claude Code on the web session **cannot egress to the VM at all**
 (the platform allowlist accepts `*.github.com`, `*.vercel.app`,
-`*.anthropic.com`, etc., not `158.178.210.252:*`). The bridge is a
+`*.anthropic.com`, etc., not `141.145.193.91:*`). The bridge is a
 GitHub Actions workflow `vm-diag-snapshot` that:
 
 1. Triggers on `issues.opened` filtered to label `vm-diag-request`

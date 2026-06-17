@@ -1,16 +1,16 @@
 ---
 name: model-training
-description: Trigger, monitor, and analyze ML model training for the ICT bot. The actual training RUNS on the trainer VM (ict-trainer.service → scripts/ops/run_training_cycle.sh); Claude drives it autonomously through the trainer-vm-diag relay — kick a cycle, watch the journal, read the registry, analyze the result. Covers the `python -m ml ...` CLI (train, list-models, promote-stage, shadow-*, build-dataset), the manifests in ml/configs/, dataset families, and the 7-stage deployment ladder. Use when the operator says "train the models", "run a training cycle", "check the trainer", "what's in the registry", or "promote model X". NOT for live promotion past shadow (Tier-3, operator-gated).
+description: Trigger, monitor, and analyze ML model training for the ICT bot. The actual training RUNS on the trainer VM (ict-trainer.service → scripts/ops/run_training_cycle.sh); Claude drives it autonomously through the trainer-vm-diag relay — kick a cycle, watch the journal, read the registry, analyze the result. Covers the `python -m ml ...` CLI (train, list-models, promote-stage, shadow-*, build-dataset), the manifests in ml/configs/, dataset families, and the 3-stage deployment ladder (candidate→shadow→advisory). Use when the operator says "train the models", "run a training cycle", "check the trainer", "what's in the registry", or "promote model X". NOT for live promotion past shadow (Tier-3, operator-gated).
 ---
 
 # /model-training — drive the ICT bot's ML training lifecycle
 
 Training is **autonomous trainer-VM territory** (CLAUDE.md § VM authority
 split). Claude provisions, kicks cycles, reads the registry, and analyzes
-results without operator-in-the-loop — up to writing a model to
-`live_approved` in the registry. The one gate Claude does NOT cross alone
-is **promotion past `shadow`** (shadow → advisory and beyond is the
-operator-approved live-influence switch).
+results without operator-in-the-loop — up to `advisory` in the registry
+(autonomous only up to `shadow`; `shadow → advisory` is the operator gate).
+The one gate Claude does NOT cross alone is **promotion past `shadow`**
+(shadow → advisory is the operator-approved live-influence switch).
 
 **The training run happens on the trainer VM, never in this session.** The
 sandbox has no SSH and no GPU; it drives the trainer through the
@@ -124,16 +124,21 @@ Routed through `ml/__main__.py` → `ml/cli.py`. Subcommands (verified):
 - **Registry** — `ml/registry-store/` (append-only; never edit a past
   `StageEvent`). Read with `list-models`.
 
-## The 7-stage deployment ladder (WS7)
+## The 3-stage deployment ladder
 
-`research_only → candidate → backtest_approved → shadow → advisory →
-limited_live → live_approved`
+`candidate → shadow → advisory`
 
-- `shadow` and below: model logs predictions, **never** changes an order.
+(Stage ladder collapsed 7→3 on 2026-06-16; legacy names alias via
+`ml.manifest.canonical_stage`: `research_only`/`backtest_approved` →
+`candidate`; `limited_live`/`live_approved` → `advisory`. Old registry rows
+still resolve.)
+
+- `candidate`: refused by the shadow factory (never wired onto a strategy).
+- `shadow`: model logs predictions, **never** changes an order.
   A `shadow` model auto-wires onto every strategy whose YAML omits
   `shadow_model_ids` — shadow logging is enabled-by-default for newly
   trained models, so Claude does not hand-wire it.
-- `advisory` and above: model output influences the order package. The
+- `advisory`: model output influences the order package. The
   **`shadow → advisory` transition is the live switch — operator-approved
   (Tier-3) only.** Claude prepares the `promote-stage` call and the
   evidence; the operator authorizes.
@@ -144,5 +149,5 @@ After a cycle: which manifests trained vs skipped (and why — usually
 empty dataset, which is fine early), any `manifest_failed` with stderr
 tail, new `model_id`s and their metrics, and whether the registry
 progressed. For drift on a live shadow model use `shadow-drift`. Flag a
-model that's been stuck at `research_only` across cycles (training runs
+model that's been stuck at `candidate` across cycles (training runs
 but nothing passes eval) — that's a `concern`, not silent.
