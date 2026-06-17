@@ -2503,6 +2503,23 @@ def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
             })
         except Exception as exc:  # noqa: BLE001 — observe-only metadata
             logger.debug("exit_plan derivation skipped for %s: %s", pkg.strategy, exc)
+        # Materialized exit (P2, observe-only): translate the static ExitPlan into
+        # the concrete, ordered exit instructions a broker/ticket would rest
+        # (account-agnostic fractional qtys — the package is logged pre-sizing).
+        # Journaled into the ``exit_plan_state`` column for soak; nothing reads it
+        # back to drive an order yet (live re-materialization is P3/P4).
+        exit_plan_state = None
+        if exit_plan is not None:
+            try:
+                from src.runtime.exit_plan_materializer import materialize_exit_plan
+                exit_plan_state = materialize_exit_plan(
+                    exit_plan,
+                    direction=pkg.direction,
+                    entry=float(pkg.entry),
+                    stop=float(pkg.sl),
+                )
+            except Exception as exc:  # noqa: BLE001 — observe-only metadata
+                logger.debug("exit_plan materialization skipped for %s: %s", pkg.strategy, exc)
         db.insert_order_package({
             "order_package_id": order_package_id,
             "strategy_name": pkg.strategy,
@@ -2517,6 +2534,7 @@ def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
             "meta": meta_for_log,
             "model_scores": model_scores if isinstance(model_scores, (dict, list)) else None,
             "exit_plan": exit_plan,
+            "exit_plan_state": exit_plan_state,
         })
         # Stamp the id back onto pkg.meta so the executor can read it.
         if pkg.meta is None:
