@@ -25,8 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import yaml
-
+from src.config.accounts_loader import load_accounts_dict
 from src.prop.ruleset import (
     Economics,
     LimitRules,
@@ -36,7 +35,6 @@ from src.prop.ruleset import (
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_ACCOUNTS_YAML = _REPO_ROOT / "config" / "accounts.yaml"
 _RULESETS_DIR = _REPO_ROOT / "config"
 
 # Default notional for the synthesized `standard` ruleset when an account
@@ -141,15 +139,15 @@ def unit_for_account(account_id: str, account: Dict[str, Any]) -> AccountBacktes
 def all_account_units(accounts_path: Optional[Path] = None) -> Dict[str, AccountBacktestUnit]:
     """Resolve a backtest unit for EVERY account in ``accounts.yaml``.
 
-    The compat-matrix runner iterates this — so a new account automatically gets
-    evaluated, and a new prop account is picked up with no code change.
+    Reads through the canonical ``src.config.accounts_loader.load_accounts_dict``
+    (the single source of truth — never a hand-rolled parser, per the
+    ``canonical-config-loaders`` CI guard). The compat-matrix runner iterates
+    this, so a new account is evaluated automatically and a new prop account is
+    picked up with no code change.
     """
-    path = accounts_path or _ACCOUNTS_YAML
-    data = yaml.safe_load(Path(path).read_text()) or {}
-    accounts = data.get("accounts", data)
+    accounts = load_accounts_dict(accounts_path)
     out: Dict[str, AccountBacktestUnit] = {}
-    for acct_id, acct in (accounts.items() if isinstance(accounts, dict) else []):
-        if not isinstance(acct, dict):
-            continue
-        out[acct_id] = unit_for_account(acct_id, acct)
+    for acct_id, acct in accounts.items():
+        if isinstance(acct, dict):
+            out[acct_id] = unit_for_account(acct_id, acct)
     return out
