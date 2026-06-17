@@ -212,6 +212,9 @@ def execute_pkg(
             "side": "Buy" if pkg.direction == "long" else "Sell",
             "entry": pkg.entry, "sl": pkg.sl, "tp": pkg.tp,
             "strategy": getattr(pkg, "strategy", account_id),
+            # meta carries the exit structure (e.g. tp2 for a TP1→TP2 ladder) so
+            # the P3 observe-only prop-ladder soak can derive the real ExitPlan.
+            "meta": (getattr(pkg, "meta", None) or {}),
         }
         return emit_prop_ticket(order, account_cfg,
                                 timeframe=(getattr(pkg, "meta", None) or {}).get("timeframe"))
@@ -338,6 +341,29 @@ def execute_pkg(
         pkg, account_cfg, order, trade_id=trade_id, is_dry=is_dry,
         intent_reduce=reduce_only,
     )
+
+    # P3 observe-only exit-ladder soak: for a live OPENING order (reduce-only
+    # legs are closes, not new exits), log the laddered exit that WOULD be used
+    # (the materialized ExitPlan sized to the placed qty) next to the single
+    # SL/TP bracket actually placed. Best-effort — never changes or blocks the
+    # order; nothing reads it back (graduation to a real laddered exit is the
+    # backtest-gated P4).
+    if not reduce_only:
+        try:
+            from src.runtime.exit_ladder_soak import record_exit_ladder_soak
+            record_exit_ladder_soak(
+                venue="api",
+                strategy=pkg.strategy, symbol=pkg.symbol, direction=pkg.direction,
+                entry=pkg.entry, sl=pkg.sl, tp=pkg.tp, qty=qty,
+                account_id=account_id,
+                account_class=str(account_cfg.get("account_class") or ""),
+                timeframe=str((getattr(pkg, "meta", None) or {}).get("timeframe") or ""),
+                order_meta=(getattr(pkg, "meta", None) or {}),
+                extra={"side": side, "exchange": _exchange},
+            )
+        except Exception as exc:  # noqa: BLE001 — observe-only metadata
+            logger.debug("exit_ladder_soak(api) skipped for %s: %s", pkg.symbol, exc)
+
     return trade_id
 
 

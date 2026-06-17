@@ -148,6 +148,7 @@ _IBKR_MES_PULL_LOG = runtime_logs_dir() / "ibkr_mes_pull.jsonl"
 _NEWS_DECISIONS_LOG = runtime_logs_dir() / "news_decisions.jsonl"
 _CONVICTION_SIZING_LOG = runtime_logs_dir() / "conviction_sizing.jsonl"
 _CONVICTION_ARBITRATION_LOG = runtime_logs_dir() / "conviction_arbitration.jsonl"
+_EXIT_LADDER_SOAK_LOG = runtime_logs_dir() / "exit_ladder_soak.jsonl"
 
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
@@ -189,6 +190,13 @@ _LOG_FILES: dict[str, Path] = {
     # when ≥2 conviction-bearing intents compete on a symbol).
     "conviction_sizing": _CONVICTION_SIZING_LOG,
     "conviction_arbitration": _CONVICTION_ARBITRATION_LOG,
+    # Exit-ladder soak (P3, dynamic-take-profit consistency): one line per
+    # executed order (venue=api live broker order / venue=prop manual ticket) —
+    # the materialized laddered exit that WOULD be used vs the single SL/TP
+    # bracket actually placed. Observe-only; never changes an exit. Tail it to
+    # verify the soak is accruing before P4 graduates the ladder to the real
+    # exit. Absent until the first live opening order runs.
+    "exit_ladder_soak": _EXIT_LADDER_SOAK_LOG,
 }
 
 _DEFAULT_LIMIT = 100

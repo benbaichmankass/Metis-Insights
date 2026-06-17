@@ -137,6 +137,25 @@ def emit_prop_ticket(
         )
         return trade_id
 
+    # P3 observe-only soak: log the laddered ticket that WOULD be emitted (the
+    # materialized ExitPlan sized against this leg) next to the single-target
+    # ticket actually sent. Best-effort — never changes or blocks the emission.
+    try:
+        from src.runtime.exit_ladder_soak import record_exit_ladder_soak
+        record_exit_ladder_soak(
+            venue="prop",
+            strategy=sig.strategy, symbol=symbol, direction=sig.direction,
+            entry=sig.entry, sl=sig.sl, tp=sig.tp, qty=leg.ticket.qty_units,
+            account_id=account_id,
+            account_class=str(getattr(leg, "account_class", "") or ""),
+            timeframe=sig.timeframe,
+            order_meta=(order.get("meta") if isinstance(order.get("meta"), dict) else None),
+            extra={"side": leg.ticket.side, "rr": leg.ticket.rr,
+                   "qty_units": leg.ticket.qty_units},
+        )
+    except Exception as exc:  # noqa: BLE001 — observe-only metadata
+        logger.debug("exit_ladder_soak(prop) skipped for %s: %s", symbol, exc)
+
     emitter = _emitter
     if emitter is None:
         from src.prop.breakout_notify import emit_prop_signal as emitter  # type: ignore
