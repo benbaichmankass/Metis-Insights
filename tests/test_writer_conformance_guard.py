@@ -121,6 +121,25 @@ def test_does_not_flag_select_only() -> None:
     assert guard.scan_diff(diff) == []
 
 
+@pytest.mark.parametrize(
+    "comment_line",
+    [
+        # pure-comment lines naming the bad idioms (the database.py:203 TODO
+        # that tripped the guard on its own PR #3827 was exactly this shape)
+        "+    # historical rows: legacy direction='buy' on is_backtest=1 rows",
+        '+    # do NOT hand-roll an UPDATE trades SET ... outside this module',
+        "+    # e.g. INSERT INTO order_packages by hand is forbidden",
+        # trailing comment on an innocuous code line
+        '+    x = compute()  # was direction = "buy" in the old code',
+    ],
+)
+def test_does_not_flag_patterns_inside_comments(comment_line: str) -> None:
+    """A ``#`` comment that merely NAMES a bad idiom is prose, not a
+    violation — only the code portion of an added line is matched."""
+    diff = _diff("src/runtime/order_monitor.py", comment_line + "\n")
+    assert guard.scan_diff(diff) == []
+
+
 # ---------------------------------------------------------------------------
 # Rule 2 — non-canonical direction value: MUST flag
 # ---------------------------------------------------------------------------

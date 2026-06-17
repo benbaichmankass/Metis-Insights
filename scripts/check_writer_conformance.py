@@ -155,6 +155,44 @@ _BAD_DIRECTION_PATTERNS: List[Tuple[re.Pattern, str]] = [
 _ALLOW_RE = re.compile(r"#\s*writer-conformance:\s*allow\b", re.IGNORECASE)
 
 
+def _strip_inline_comment(line: str) -> str:
+    """Return *line* with any Python ``#`` comment removed.
+
+    Prose that NAMES a bad idiom inside a comment (e.g. a docstring/TODO
+    mentioning ``direction='buy'`` or ``INSERT INTO trades``) must not trip
+    the guard — only real code counts. Tracks simple single/double-quote
+    state so a ``#`` inside a string literal is preserved. Over-stripping a
+    pathological ``#`` inside an unterminated literal only risks a false
+    NEGATIVE (a missed violation), never a false positive that blocks a PR.
+    """
+    out: List[str] = []
+    quote: str | None = None
+    i, n = 0, len(line)
+    while i < n:
+        c = line[i]
+        if quote:
+            out.append(c)
+            if c == "\\" and i + 1 < n:
+                out.append(line[i + 1])
+                i += 2
+                continue
+            if c == quote:
+                quote = None
+            i += 1
+            continue
+        if c in ("'", '"'):
+            quote = c
+            out.append(c)
+            i += 1
+            continue
+        if c == "#":
+            break  # start of a comment — drop the rest
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
+
 def _path_is_protected(path: str) -> bool:
     """True if *path* is in scope (i.e. NOT allowlisted)."""
     if path in _ALLOWLIST_FILES:
@@ -208,13 +246,16 @@ def scan_diff(diff_text: str) -> List[str]:
             continue
         if _ALLOW_RE.search(content):
             continue
+        # Match patterns against the CODE portion only — a ``#`` comment that
+        # merely names the bad idiom (a TODO / docstring) is not a violation.
+        code = _strip_inline_comment(content)
         # Rule 1 — raw writers, scoped to the protected (non-allowlisted)
         # tree. Only python sources can hold the offending SQL in a way
         # that bypasses the canonical writer; restrict to .py so a YAML /
         # SQL-schema file that legitimately names the table isn't caught.
         if path.endswith(".py") and _path_is_protected(path):
             for pattern, label in _RAW_WRITE_PATTERNS:
-                if pattern.search(content):
+                if pattern.search(code):
                     findings.append(
                         f"{path}:{lineno} — {label} outside the canonical "
                         f"writer (src/units/db/database.py): "
@@ -229,7 +270,7 @@ def scan_diff(diff_text: str) -> List[str]:
             _path_is_protected(path) or path in _ALLOWLIST_FILES
         ):
             for pattern, label in _BAD_DIRECTION_PATTERNS:
-                if pattern.search(content):
+                if pattern.search(code):
                     findings.append(
                         f"{path}:{lineno} — {label}: {content.strip()[:120]}"
                     )
