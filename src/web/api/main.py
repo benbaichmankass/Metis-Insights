@@ -23,6 +23,7 @@ from src.web.api.routers import devices as devices_router
 from src.web.api.routers import diag as diag_router
 from src.web.api.routers import health_snapshots as health_snapshots_router
 from src.web.api.routers import insights as insights_router
+from src.web.api.routers import exit_ladder as exit_ladder_router
 from src.web.api.routers import liquidity as liquidity_router
 from src.web.api.routers import news as news_router
 from src.web.api.routers import order_packages as order_packages_router
@@ -80,6 +81,7 @@ app.include_router(attribution_router.router)
 app.include_router(devices_router.router)
 app.include_router(insights_router.router)
 app.include_router(news_router.router)
+app.include_router(exit_ladder_router.router)
 
 
 @app.get("/api/health", tags=["health"])
