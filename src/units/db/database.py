@@ -198,6 +198,19 @@ class Database:
         cursor = conn.cursor()
         
         # Trades table - stores all executed trades (backtest or live)
+        #
+        # TODO(WC-6 follow-up): once the P1-E backfill has cleaned the
+        # historical rows (legacy direction='buy' on is_backtest=1 rows +
+        # any non-vocabulary status), add CHECK constraints
+        #   direction IN ('long','short')
+        #   status IN (<documented status vocabulary>)
+        # via an EXPLICIT rebuild migration, NOT here. A CHECK added only
+        # to this `CREATE TABLE IF NOT EXISTS` is inert for the existing
+        # live DB (the table already exists) and would only constrain
+        # fresh/test DBs — breaking tests that seed non-conforming fixture
+        # rows. Adding a CHECK to the live table requires a full
+        # table-rebuild that would FAIL on the legacy 'buy'/'sell' rows.
+        # Ship the constraint as a separate change after the backfill.
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS trades (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1,0 +1,75 @@
+name: Writer-conformance guard
+
+# Pings the operator (and fails the PR check) when a pull request adds a
+# non-canonical write to the canonical store:
+#   1. a raw INSERT/UPDATE against trades / order_packages OUTSIDE the
+#      canonical writer module (src/units/db/database.py), or
+#   2. a non-canonical trades.direction value ("buy"/"sell" instead of
+#      long/short),
+# without an explicit `# writer-conformance: allow <reason>` justification.
+# See scripts/check_writer_conformance.py (WC-6).
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  writer-conformance-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute diff against base
+        # Full history (fetch-depth: 0 above) keeps origin/main intact so
+        # the three-dot merge-base diff is correct — see the same note in
+        # silent-empty-guard.yml / dry-run-guard.yml.
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          git diff "origin/${{ github.base_ref }}"...HEAD > /tmp/pr.diff
+          wc -l /tmp/pr.diff
+
+      - name: Scan for new non-canonical canonical-store writers
+        id: scan
+        run: |
+          set +e
+          python scripts/check_writer_conformance.py /tmp/pr.diff
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: Notify operator on hit
+        if: steps.scan.outputs.exit != '0'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "::warning::Telegram secrets not configured; skipping ping."
+            exit 0
+          fi
+          MESSAGE=$(cat <<EOF
+          🚨 writer-conformance guard: PR #${{ github.event.pull_request.number }}
+          ${{ github.event.pull_request.html_url }}
+          A non-canonical write to the canonical store was added (raw
+          INSERT/UPDATE on trades/order_packages outside
+          src/units/db/database.py, or a buy/sell trades.direction).
+          Route it through the canonical Database helper / use long|short,
+          or add an inline \`# writer-conformance: allow <reason>\` comment.
+          EOF
+          )
+          curl -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "text=${MESSAGE}" >/dev/null
+
+      - name: Fail the check on hit
+        if: steps.scan.outputs.exit != '0'
+        run: |
+          echo "::error::writer-conformance guard tripped — see job output."
+          exit 1
