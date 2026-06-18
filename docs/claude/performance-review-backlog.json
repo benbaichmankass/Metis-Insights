@@ -628,7 +628,17 @@
       "resolution_criteria": "Reconciler bug fixed (health-review) AND a clean window shows mgc_trend_1h with de-duplicated trades; then assess the real edge.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "PB-20260618-010",
+      "opened_at": "2026-06-18T16:00:00+00:00",
+      "opened_by": "claude (S-CROSS-ASSET-DIVERSIFY)",
+      "source": "S-CROSS-ASSET-DIVERSIFY Direction-1 robustness pass",
+      "title": "mgc_trend_1h not validated through portfolio_robustness \u2014 no <=1h gold history on the trainer",
+      "description": "Direction-1 cross-asset validation ran the 3 daily futures cells (mes_trend_long_1d, mgc_pullback_1d, mhg_pullback_1d) + 3 daily equity/gold cells through portfolio_robustness.py (all robust). mgc_trend_1h (1h MGC trend) could NOT be validated: the trainer has only daily gold (GC_F.csv) \u2014 can't upsample to 1h \u2014 and spot XAUUSD_15m as a possible proxy. Follow-up: pull/ build a <=1h micro-gold (or XAUUSD spot) history, generate the emit with the live params (donchian 20, atr_stop_mult 2.5, trail_mult 3.0), and run it through the same gate. Until then mgc_trend_1h rides on ib_paper unvalidated-by-this-gate (paper only).",
+      "status": "open",
+      "tier": "Tier-1 (research)"
     }
   ],
-  "updated_at": "2026-06-18T11:45:00+00:00"
+  "updated_at": "2026-06-18T16:00:00+00:00"
 }
