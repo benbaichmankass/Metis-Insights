@@ -1,0 +1,40 @@
+# job=xa-eth-ablation target=trainer ip=158.178.209.121 started=2026-06-18T21:02:23Z
+===== sync branch into a throwaway worktree =====
+From https://github.com/benbaichmankass/ict-trading-bot
+ * branch              claude/ict-strategy-expansion-awpv8x -> FETCH_HEAD
+   c3161057..ef0326fc  claude/ict-strategy-expansion-awpv8x -> origin/claude/ict-strategy-expansion-awpv8x
+Preparing worktree (detached HEAD ef0326fc)
+HEAD is now at ef0326fc vm-driver: ablate which cross-asset columns carry the ETH edge (purged-WF-CV)
+ef0326fc vm-driver: ablate which cross-asset columns carry the ETH edge (purged-WF-CV)
+===== reusing datasets at /tmp/xa-data (43800 rows) =====
+===== generate ablation manifests (purged-WF-CV) =====
+wrote full xa_cols= 13
+wrote base xa_cols= 0
+wrote no_sol xa_cols= 7
+wrote no_btc xa_cols= 7
+wrote no_leadlag xa_cols= 11
+wrote no_relstr xa_cols= 11
+wrote no_beta xa_cols= 9
+wrote comove_only xa_cols= 3
+wrote leadlag_only xa_cols= 3
+===== train all ablation variants =====
+--- train eth-xa-abl-full ---
+full          wf=0.6233 f1_range=0.6175 recall_range=0.5204 f1_vol=0.6189 acc=0.6265
+--- train eth-xa-abl-base ---
+base          wf=0.5974 f1_range=0.5742 recall_range=0.4580 f1_vol=0.6193 acc=0.6058
+--- train eth-xa-abl-no_sol ---
+no_sol        wf=0.6046 f1_range=0.5901 recall_range=0.4824 f1_vol=0.6144 acc=0.6103
+--- train eth-xa-abl-no_btc ---
+no_btc        wf=0.6175 f1_range=0.6074 recall_range=0.5071 f1_vol=0.6194 acc=0.6215
+--- train eth-xa-abl-no_leadlag ---
+no_leadlag    wf=0.6211 f1_range=0.6134 recall_range=0.5142 f1_vol=0.6198 acc=0.6249
+--- train eth-xa-abl-no_relstr ---
+no_relstr     wf=0.6128 f1_range=0.6024 recall_range=0.5026 f1_vol=0.6153 acc=0.6175
+--- train eth-xa-abl-no_beta ---
+no_beta       wf=0.6133 f1_range=0.6002 recall_range=0.4945 f1_vol=0.6211 acc=0.6186
+--- train eth-xa-abl-comove_only ---
+comove_only   wf=0.6032 f1_range=0.5838 recall_range=0.4708 f1_vol=0.6196 acc=0.6102
+--- train eth-xa-abl-leadlag_only ---
+leadlag_only  wf=0.6016 f1_range=0.5803 recall_range=0.4663 f1_vol=0.6208 acc=0.6095
+===== done (delta vs base/full computed on landing) =====
+# exit=0 finished=2026-06-18T21:05:38Z
