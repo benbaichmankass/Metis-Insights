@@ -167,6 +167,37 @@ recognize *calm/range* (the entire edge is in range recall + f1). The
 single-holdout caveat is resolved; the vol-regime-proxy caveat stands (the
 directional target is § 6 step 3).
 
+### 5.2 Ablation — which columns carry the edge (purged-WF-CV)
+
+Same leak-free split, the xasset feature group ablated one sub-block at a time
+(`automation/results/xa-eth-ablation.txt`, exit 0). base weighted-f1 = 0.5974,
+full = 0.6233 (total edge **+0.0259**).
+
+| variant | xa cols | weighted_f1 | f1_range | recall_range |
+|---|---|---|---|---|
+| **full** (all) | 13 | 0.6233 | 0.6175 | 0.5204 |
+| base (none) | 0 | 0.5974 | 0.5742 | 0.4580 |
+| drop SOL peer | 7 | 0.6046 | 0.5901 | 0.4824 |
+| drop rel_strength | 11 | 0.6128 | 0.6024 | 0.5026 |
+| drop beta+residual | 9 | 0.6133 | 0.6002 | 0.4945 |
+| drop BTC peer | 7 | 0.6175 | 0.6074 | 0.5071 |
+| drop lead-lag | 11 | 0.6211 | 0.6134 | 0.5142 |
+| keep co-move only | 3 | 0.6032 | 0.5838 | 0.4708 |
+| keep lead-lag only | 3 | 0.6016 | 0.5803 | 0.4663 |
+
+**Edge lost when a sub-block is dropped** (full − variant): **SOL peer −0.0187
+(≈72% of the edge!)**, rel_strength −0.0105, beta+residual −0.0100, BTC peer
+−0.0058, lead-lag −0.0022 (negligible).
+
+**Read:** the edge is broad-based but **SOL is the load-bearing peer** — a
+higher-beta alt that exaggerates/leads ETH's regime, so its presence carries most
+of the lift; **relative-strength + beta/residual** (the *relative / idiosyncratic*
+geometry) matter more than raw co-movement, and the **lead-lag** ("what peers did
+one bar ago") is nearly worthless — it is the *contemporaneous* relative structure
+that predicts ETH's state. Design steer for the directional follow-up: **keep SOL
++ rel_strength + beta; drop lead-lag**; a richer/closer-correlated peer set
+(more alts) is worth trying since SOL >> BTC here.
+
 ## 6. Next (the green-light follow-ups)
 
 1. **Corroborate** under purged-WF-CV (the leak-free splitter) — confirm the lift
