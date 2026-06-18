@@ -256,7 +256,18 @@ accounts:
     market_type: linear                # PR 3 — Bybit V5 USDT-margined
                                        # linear perpetuals. Was
                                        # spot-margin pre-cutover.
-    strategies: [trend_donchian, ict_scalp_5m, fvg_range_15m, htf_pullback_trend_2h]
+    strategies: [trend_donchian, ict_scalp_5m, fvg_range_15m, htf_pullback_trend_2h, eth_pullback_2h]
+                                       # eth_pullback_2h added to REAL MONEY 2026-06-18
+                                       # (Tier-3, operator-directed — deliberate override
+                                       # of the paper-first/account_compat gate: "bybit_2 is
+                                       # a test account; I want to see how ETH performs there").
+                                       # Runs the SAME ADX>=25-gated eth_pullback_2h config as
+                                       # bybit_1 (OOP-holdout validated). CAVEAT: ETH ~0.7-0.9
+                                       # correlated to BTC (adds correlated real-money exposure,
+                                       # not diversification); no prior real-money track record;
+                                       # account_compat_matrix NOT run (BTC/ROSTER-centric).
+                                       # Governed by bybit_2's caps (risk_pct 1%, daily-loss 5%,
+                                       # 3x leverage). ROLLBACK: remove eth_pullback_2h here.
                                        # 2026-06-02 (operator-approved, Tier-3):
                                        # REAL-MONEY ROSTER = passed-backtest winners
                                        # ONLY (operator directive). KEEP trend_donchian
@@ -273,7 +284,10 @@ accounts:
                                        # normally via native Bybit SL/TP brackets (S3:
                                        # 96% native bracket fires) — de-routing stops
                                        # NEW entries + trail updates, not exits.
-    symbols: [BTCUSDT]                  # all on BTCUSDT (bybit perps)
+    symbols: [BTCUSDT, ETHUSDT]         # BTCUSDT + ETHUSDT (bybit perps). ETHUSDT added
+                                       # 2026-06-18 (Tier-3) for the eth_pullback_2h real-money
+                                       # test (above). Drives the tick-loop union + per-account
+                                       # set-leverage (3x applied to ETHUSDT at boot).
     risk:
       max_dd_pct: 0.05
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity (real money;
