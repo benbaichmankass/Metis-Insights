@@ -1,0 +1,53 @@
+# job=mgc-1h-validate target=trainer ip=158.178.209.121 started=2026-06-18T16:12:26Z
+PY=.venv/bin/python
+=== gold proxy data ===
+timestamp,open,high,low,close,volume
+2019-01-01 23:00:00+00:00,1282.295,1282.345,1281.248,1281.248,0.13388
+rows=175859 first=2019-01-01 23:00:00+00:00 last=2026-06-10 14:30:00+00:00
+=== mgc_trend_1h emit (XAUUSD_15m -> 1h SPOT proxy; live params donchian20/atr2.5/trail3.0, NOT long-only) ===
+trend_donchian — MGC 1h {'donchian': 20, 'atr_stop_mult': 2.5, 'trail_mult': 3.0, 'min_confidence': 0.0}
+  data 2019-01-01 23:00:00+00:00 -> 2026-06-10 15:00:00+00:00  trades=1269
+  win_rate=37.83%  net_r=-50.735 (exp -0.04, L/S 696/573, netL/S 36.3096/-87.0445)
+  avg_win_r=1.3808 max_mfe_r=14.606 maxdd_r=74.4609 by={'trail_stop': 1046, 'stop': 222, 'timeout': 1}
+  by_year={'2019': {'trades': 172, 'net_r': -11.7856}, '2020': {'trades': 166, 'net_r': 3.3238}, '2021': {'trades': 172, 'net_r': -8.8087}, '2022': {'trades': 167, 'net_r': -17.5436}, '2023': {'trades': 166, 'net_r': -4.0547}, '2024': {'trades': 181, 'net_r': -25.6759}, '2025': {'trades': 173, 'net_r': -3.6234}, '2026': {'trades': 72, 'net_r': 17.4332}}
+emit_lines=1269
+=== single-cell robustness ===
+manifest written
+=== Diversified book robustness — 1 cells, 1269 trades (2019-01-03 .. 2026-06-09) ===
+HEADLINE: net_r=-50.7  mean=-0.0400R  sharpe=-1.05  maxDD=74.5R
+
+-- per-year net_r --
+  2019: n=  172 net_r=   -11.8 mean=-0.0685 sharpe=-0.64  <== NEGATIVE YEAR
+  2020: n=  166 net_r=     3.3 mean=+0.0200 sharpe= 0.18
+  2021: n=  172 net_r=    -8.8 mean=-0.0512 sharpe=-0.42  <== NEGATIVE YEAR
+  2022: n=  167 net_r=   -17.5 mean=-0.1051 sharpe=-1.33  <== NEGATIVE YEAR
+  2023: n=  166 net_r=    -4.1 mean=-0.0244 sharpe=-0.24  <== NEGATIVE YEAR
+  2024: n=  181 net_r=   -25.7 mean=-0.1419 sharpe=-1.45  <== NEGATIVE YEAR
+  2025: n=  173 net_r=    -3.6 mean=-0.0209 sharpe=-0.22  <== NEGATIVE YEAR
+  2026: n=   72 net_r=    17.4 mean=+0.2421 sharpe= 1.38
+
+-- holdout net_r across cutoffs (train < cutoff <= holdout) --
+  >= 2023-07-01: n=  505 holdout net_r=    -7.1 sharpe=-0.23 maxDD=  36.3  <== NEGATIVE HOLDOUT
+  >= 2024-01-01: n=  426 holdout net_r=   -11.9 sharpe=-0.43 maxDD=  36.3  <== NEGATIVE HOLDOUT
+  >= 2024-07-01: n=  334 holdout net_r=    13.4 sharpe= 0.54 maxDD=  14.3
+  >= 2025-01-01: n=  245 holdout net_r=    13.8 sharpe= 0.66 maxDD=  11.1
+  >= 2025-07-01: n=  155 holdout net_r=    16.0 sharpe= 0.90 maxDD=  11.1
+
+-- leave-one-cell-out (book net_r with each cell removed) --
+  worst (most load-bearing) cell: mgc_trend_1h -> book without it = 0.0R (full book -50.7R)
+  leave-one-family-out: {'mgc': '0.0R'}
+
+-- added cost-per-trade headroom (extra R subtracted per trade) --
+  +0.00 R/trade: book net_r=   -50.7  <== flat/negative
+  +0.01 R/trade: book net_r=   -63.4  <== flat/negative
+  +0.02 R/trade: book net_r=   -76.1  <== flat/negative
+  +0.03 R/trade: book net_r=   -88.8  <== flat/negative
+  +0.05 R/trade: book net_r=  -114.2  <== flat/negative
+  BREAKEVEN added cost = -0.0400 R/trade (the book stays +EV until per-trade cost rises this much)
+
+-- block bootstrap (3000 resamples, 90 monthly blocks) --
+  P(book net_r > 0) = 0.127 | 5th pct net_r = -121.6 | median = -51.7
+
+VERDICT: NOT fully robust (years+ False, holdouts+ False, LOO-cell+ False, boot P+ 0.13, boot-p5 -122)
+MGC1H_DONE
+# exit=0 finished=2026-06-18T16:12:40Z

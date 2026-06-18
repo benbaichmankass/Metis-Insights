@@ -1,0 +1,113 @@
+# job=direction2-collect2 target=trainer ip=158.178.209.121 started=2026-06-18T16:17:56Z
+running_procs=0
+0
+  paper_ready trend_SOLUSDT_4h_adxmin25_trail3_conf0  net=6.6928
+  paper_ready trend_ADAUSDT_4h_adxmin20_trail3_conf0.6  net=6.0157
+  paper_ready trend_AVAXUSDT_4h_adxmin20_trail5_conf0  net=5.6595
+  paper_ready pullback_SOLUSDT_2h_adxmin20_trail3_conf0  net=5.0314
+completed tuples: 90 | tiers: {'live_ready': 9, 'paper_ready': 67, 'reject': 14}
+
+SURVIVORS (paper_ready/live_ready): 76
+  live_ready  pullback_ETHUSDT_2h_adxmin25_trail5_conf0      net=63.1082 2x=59.5447
+  paper_ready pullback_ETHUSDT_2h_adxmin20_trail5_conf0      net=62.6983 2x=58.5747
+  paper_ready pullback_ETHUSDT_2h_adxnone_trail5_conf0       net=59.032 2x=54.2229
+  paper_ready pullback_ADAUSDT_2h_adxmin25_trail5_conf0      net=53.7258 2x=51.2442
+  paper_ready pullback_AVAXUSDT_2h_adxnone_trail3_conf0      net=52.2873 2x=47.3607
+  live_ready  pullback_AVAXUSDT_2h_adxmin20_trail3_conf0     net=51.7698 2x=47.8449
+  paper_ready trend_XRPUSDT_4h_adxnone_trail3_conf0          net=45.0436 2x=42.3414
+  live_ready  pullback_AVAXUSDT_2h_adxmin25_trail3_conf0     net=42.8766 2x=39.6236
+  paper_ready trend_ETHUSDT_4h_adxmin20_trail3_conf0         net=42.2673 2x=39.7359
+  paper_ready pullback_ADAUSDT_2h_adxmin20_trail5_conf0      net=41.3835 2x=37.8656
+  paper_ready trend_XRPUSDT_4h_adxnone_trail5_conf0          net=39.252 2x=37.5076
+  paper_ready pullback_ADAUSDT_2h_adxmin25_trail3_conf0      net=38.5843 2x=35.2067
+  paper_ready pullback_SOLUSDT_2h_adxnone_trail5_conf0       net=37.5901 2x=34.1862
+  paper_ready trend_XRPUSDT_4h_adxmin20_trail5_conf0         net=37.4475 2x=35.8236
+  live_ready  trend_SOLUSDT_4h_adxmin20_trail5_conf0.6       net=34.4747 2x=33.6066
+  paper_ready trend_ETHUSDT_4h_adxmin20_trail3_conf0.6       net=34.0666 2x=32.2993
+  paper_ready pullback_ETHUSDT_2h_adxnone_trail3_conf0       net=33.0542 2x=25.0076
+  paper_ready trend_SOLUSDT_4h_adxmin20_trail5_conf0         net=32.1253 2x=30.9632
+  live_ready  trend_SOLUSDT_4h_adxnone_trail5_conf0.6        net=30.4842 2x=29.402
+  paper_ready trend_ADAUSDT_4h_adxnone_trail3_conf0          net=30.0446 2x=27.4303
+  paper_ready pullback_ADAUSDT_2h_adxnone_trail5_conf0       net=30.0309 2x=25.7207
+  paper_ready trend_ETHUSDT_4h_adxmin25_trail3_conf0         net=29.9624 2x=27.9598
+  live_ready  trend_ETHUSDT_4h_adxmin20_trail5_conf0.6       net=29.102 2x=27.7198
+  paper_ready trend_SOLUSDT_4h_adxnone_trail5_conf0          net=28.9407 2x=27.6551
+  paper_ready trend_ETHUSDT_4h_adxmin20_trail5_conf0         net=28.5088 2x=26.481
+  paper_ready trend_ETHUSDT_4h_adxnone_trail3_conf0.6        net=27.9451 2x=25.4773
+  paper_ready trend_ETHUSDT_4h_adxnone_trail3_conf0          net=27.9362 2x=24.3374
+  live_ready  trend_SOLUSDT_4h_adxnone_trail3_conf0.6        net=27.8152 2x=26.3653
+  paper_ready trend_ETHUSDT_4h_adxmin25_trail5_conf0         net=27.7443 2x=26.1196
+  paper_ready pullback_XRPUSDT_2h_adxnone_trail3_conf0       net=27.3403 2x=20.5581
+  paper_ready trend_AVAXUSDT_4h_adxnone_trail3_conf0         net=26.8884 2x=24.7948
+  paper_ready trend_ADAUSDT_4h_adxmin25_trail5_conf0         net=26.4924 2x=25.5327
+  paper_ready trend_ADAUSDT_4h_adxmin20_trail5_conf0         net=26.483 2x=25.1307
+  paper_ready trend_ETHUSDT_4h_adxnone_trail5_conf0          net=25.9233 2x=23.3133
+  paper_ready pullback_AVAXUSDT_2h_adxmin25_trail5_conf0     net=24.2927 2x=21.7754
+  paper_ready pullback_XRPUSDT_2h_adxmin20_trail3_conf0      net=23.8277 2x=18.2725
+  paper_ready trend_ADAUSDT_4h_adxmin20_trail3_conf0         net=23.6572 2x=21.7923
+  paper_ready trend_AVAXUSDT_4h_adxnone_trail3_conf0.6       net=23.568 2x=22.0666
+  live_ready  trend_ETHUSDT_4h_adxnone_trail5_conf0.6        net=23.0168 2x=21.0779
+  live_ready  trend_SOLUSDT_4h_adxmin20_trail3_conf0.6       net=22.2446 2x=21.1628
+  paper_ready trend_ADAUSDT_4h_adxnone_trail5_conf0          net=22.2201 2x=20.5688
+  paper_ready pullback_XRPUSDT_2h_adxmin25_trail5_conf0      net=21.401 2x=18.5812
+  paper_ready trend_SOLUSDT_4h_adxnone_trail3_conf0          net=21.0674 2x=18.9774
+  paper_ready pullback_ADAUSDT_2h_adxnone_trail3_conf0       net=20.8237 2x=14.3158
+  paper_ready trend_XRPUSDT_4h_adxnone_trail3_conf0.6        net=20.6447 2x=18.4743
+  paper_ready pullback_SOLUSDT_2h_adxmin20_trail5_conf0      net=20.4583 2x=17.6555
+  paper_ready trend_ADAUSDT_4h_adxmin25_trail3_conf0         net=19.9181 2x=18.6196
+  paper_ready pullback_SOLUSDT_2h_adxmin25_trail5_conf0      net=19.8672 2x=17.7447
+  paper_ready pullback_XRPUSDT_2h_adxnone_trail5_conf0       net=19.5051 2x=15.2362
+  paper_ready trend_XRPUSDT_4h_adxmin20_trail3_conf0         net=19.3311 2x=17.1952
+  paper_ready trend_XRPUSDT_4h_adxmin25_trail3_conf0         net=18.7329 2x=17.1906
+  paper_ready trend_SOLUSDT_4h_adxmin25_trail3_conf0.6       net=18.0749 2x=17.3549
+  paper_ready pullback_SOLUSDT_2h_adxnone_trail3_conf0       net=18.052 2x=12.7132
+  paper_ready pullback_XRPUSDT_2h_adxmin25_trail3_conf0      net=17.1319 2x=13.1397
+  paper_ready pullback_ADAUSDT_2h_adxmin20_trail3_conf0      net=16.5905 2x=11.7082
+  paper_ready pullback_ETHUSDT_2h_adxmin20_trail3_conf0      net=16.1443 2x=9.8603
+  paper_ready pullback_AVAXUSDT_2h_adxnone_trail5_conf0      net=16.0284 2x=12.77
+  paper_ready trend_SOLUSDT_4h_adxmin20_trail3_conf0         net=15.979 2x=14.2692
+  paper_ready trend_XRPUSDT_4h_adxmin25_trail5_conf0         net=15.8887 2x=14.6931
+  paper_ready trend_ADAUSDT_4h_adxnone_trail5_conf0.6        net=15.5689 2x=14.1897
+  paper_ready trend_AVAXUSDT_4h_adxnone_trail5_conf0.6       net=15.091 2x=14.0475
+  paper_ready pullback_AVAXUSDT_2h_adxmin20_trail5_conf0     net=14.9323 2x=11.9958
+  paper_ready trend_ADAUSDT_4h_adxnone_trail3_conf0.6        net=13.6998 2x=11.912
+  paper_ready trend_SOLUSDT_4h_adxmin25_trail5_conf0.6       net=13.4571 2x=12.8279
+  paper_ready trend_ETHUSDT_4h_adxmin25_trail3_conf0.6       net=13.4327 2x=12.0008
+  paper_ready trend_AVAXUSDT_4h_adxmin20_trail3_conf0        net=12.7503 2x=11.0537
+  paper_ready trend_SOLUSDT_4h_adxmin25_trail5_conf0         net=12.7297 2x=11.7773
+  paper_ready pullback_XRPUSDT_2h_adxmin20_trail5_conf0      net=9.7306 2x=6.1089
+  paper_ready trend_AVAXUSDT_4h_adxmin20_trail3_conf0.6      net=9.6103 2x=8.4534
+  paper_ready trend_ETHUSDT_4h_adxmin25_trail5_conf0.6       net=9.5664 2x=8.3303
+  paper_ready trend_XRPUSDT_4h_adxnone_trail5_conf0.6        net=9.0171 2x=7.1727
+  paper_ready pullback_ETHUSDT_2h_adxmin25_trail3_conf0      net=8.515 2x=3.7292
+  paper_ready trend_SOLUSDT_4h_adxmin25_trail3_conf0         net=6.6928 2x=5.2851
+  paper_ready trend_ADAUSDT_4h_adxmin20_trail3_conf0.6       net=6.0157 2x=4.7463
+  paper_ready trend_AVAXUSDT_4h_adxmin20_trail5_conf0        net=5.6595 2x=4.4793
+  paper_ready pullback_SOLUSDT_2h_adxmin20_trail3_conf0      net=5.0314 2x=0.9218
+
+TOP 15 by net_r (all tiers):
+  live_ready  pullback_ETHUSDT_2h_adxmin25_trail5_conf0      net=63.1082 2x=59.5447
+  paper_ready pullback_ETHUSDT_2h_adxmin20_trail5_conf0      net=62.6983 2x=58.5747
+  paper_ready pullback_ETHUSDT_2h_adxnone_trail5_conf0       net=59.032 2x=54.2229
+  paper_ready pullback_ADAUSDT_2h_adxmin25_trail5_conf0      net=53.7258 2x=51.2442
+  paper_ready pullback_AVAXUSDT_2h_adxnone_trail3_conf0      net=52.2873 2x=47.3607
+  live_ready  pullback_AVAXUSDT_2h_adxmin20_trail3_conf0     net=51.7698 2x=47.8449
+  paper_ready trend_XRPUSDT_4h_adxnone_trail3_conf0          net=45.0436 2x=42.3414
+  live_ready  pullback_AVAXUSDT_2h_adxmin25_trail3_conf0     net=42.8766 2x=39.6236
+  paper_ready trend_ETHUSDT_4h_adxmin20_trail3_conf0         net=42.2673 2x=39.7359
+  paper_ready pullback_ADAUSDT_2h_adxmin20_trail5_conf0      net=41.3835 2x=37.8656
+  paper_ready trend_XRPUSDT_4h_adxnone_trail5_conf0          net=39.252 2x=37.5076
+  paper_ready pullback_ADAUSDT_2h_adxmin25_trail3_conf0      net=38.5843 2x=35.2067
+  paper_ready pullback_SOLUSDT_2h_adxnone_trail5_conf0       net=37.5901 2x=34.1862
+  paper_ready trend_XRPUSDT_4h_adxmin20_trail5_conf0         net=37.4475 2x=35.8236
+  live_ready  trend_SOLUSDT_4h_adxmin20_trail5_conf0.6       net=34.4747 2x=33.6066
+
+BY-FAMILY x REGIME tier counts:
+   ('pullback', 'none') {'paper_ready': 10}
+   ('pullback', 'strong_trend_only') {'live_ready': 2, 'paper_ready': 7, 'reject': 1}
+   ('pullback', 'trend_only') {'live_ready': 1, 'paper_ready': 9}
+   ('trend', 'none') {'live_ready': 3, 'paper_ready': 16, 'reject': 1}
+   ('trend', 'strong_trend_only') {'paper_ready': 12, 'reject': 8}
+   ('trend', 'trend_only') {'live_ready': 3, 'paper_ready': 13, 'reject': 4}
+COLLECT2_DONE
+# exit=0 finished=2026-06-18T16:17:58Z

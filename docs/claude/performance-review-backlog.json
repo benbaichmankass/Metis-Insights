@@ -636,9 +636,31 @@
       "source": "S-CROSS-ASSET-DIVERSIFY Direction-1 robustness pass",
       "title": "mgc_trend_1h not validated through portfolio_robustness \u2014 no <=1h gold history on the trainer",
       "description": "Direction-1 cross-asset validation ran the 3 daily futures cells (mes_trend_long_1d, mgc_pullback_1d, mhg_pullback_1d) + 3 daily equity/gold cells through portfolio_robustness.py (all robust). mgc_trend_1h (1h MGC trend) could NOT be validated: the trainer has only daily gold (GC_F.csv) \u2014 can't upsample to 1h \u2014 and spot XAUUSD_15m as a possible proxy. Follow-up: pull/ build a <=1h micro-gold (or XAUUSD spot) history, generate the emit with the live params (donchian 20, atr_stop_mult 2.5, trail_mult 3.0), and run it through the same gate. Until then mgc_trend_1h rides on ib_paper unvalidated-by-this-gate (paper only).",
+      "status": "resolved-negative",
+      "tier": "Tier-1 (research)",
+      "resolved_at": "2026-06-18T16:20:00+00:00",
+      "resolution": "Validated via XAUUSD_15m->1h SPOT proxy (S-RECOMB-SWEEP): net -50.7R / Sharpe -1.05 / boot P(+)=0.13 \u2014 REJECT on every axis. Caveat: spot != COMEX micro future. mgc_trend_1h is execution:live on ib_paper (paper, no real-money risk) \u2014 Tier-3 demote-to-shadow/removal candidate pending REAL MGC <=1h data; operator decides. No config change made. || CONFIRMED 2026-06-18 on REAL GC=F 1h (yfinance 2.4y/353tr): net -15.5R (2024 -19.4, 2025 -11.9, 2026 +15.8) \u2014 net-negative like the spot proxy, NOT a proxy artifact. RECOMMEND Tier-3 demote mgc_trend_1h live->shadow on ib_paper (mgc_pullback_1d daily +56R stays the gold sleeve)."
+    },
+    {
+      "id": "PB-20260618-011",
+      "opened_at": "2026-06-18T16:20:00+00:00",
+      "opened_by": "claude (S-RECOMB-SWEEP)",
+      "source": "Direction-2 recombination sweep",
+      "title": "eth_pullback ADX>=25 refinement \u2014 out-of-pool holdout PASSED; ready for Tier-3 strategies.yaml proposal",
+      "description": "The recombination sweep's top live_ready cell is pullback_ETHUSDT_2h_adxmin25_trail5 (+63.1R, 2x +59.5R) vs the no-ADX baseline +59.0R (paper_ready). Confirms the regime-map Step-1 thesis (pullback wants high ADX). Before proposing an adx_min on the live eth_pullback_2h (and the other pullback alt cells) in config/strategies.yaml (Tier-3), run an OUT-OF-POOL symbol/period holdout (DESIGN section 6) to rule out the 76/90-survivor multiple-comparisons risk. If it holds OOP, propose the strategies.yaml adx_min edit via draft PR + ping. || UPDATE 2026-06-18: OOP holdout DONE (research-followup) \u2014 ADX>=25 improves pullback on out-of-pool BNBUSDT (reject->paper_ready, +8->+14R) AND LINKUSDT (+13->+20R), plus ETH ref ->live_ready (+59->+63R). Generalizes to unseen symbols = real regime effect, clears DESIGN section 6. NEXT: propose adx_min:25 on the live pullback alt cells (eth/sol/xrp/ada/avax_pullback_2h) on bybit_1 PAPER via draft strategies.yaml PR + ping (Tier-3, operator-gated).",
       "status": "open",
-      "tier": "Tier-1 (research)"
+      "tier": "Tier-3 (proposal-gated)"
+    },
+    {
+      "id": "PB-20260618-012",
+      "opened_at": "2026-06-18T16:20:00+00:00",
+      "opened_by": "claude (S-RECOMB-SWEEP)",
+      "source": "Direction-1/2 follow-up #2",
+      "title": "account_compat_matrix is BTC/ROSTER-centric \u2014 needs futures/daily extension for non-crypto real-money gate",
+      "description": "scripts/prop/account_compat_matrix.py builds ledgers via scripts.backtest_system.ROSTER (BTC-only strategies, symbol hardcoded BTCUSDT, _PANDAS_TF has no '1d'). To run the rigorous per-contract EV/survival gate on the non-crypto daily cells (mhg/mgc/mes/spy/qqq/gld), extend ROSTER+backtest_system for daily futures/equity + per-contract cost, OR add a path that consumes a precomputed emit ledger directly. Until then the per-contract cost answer is the reasoned estimate (~0.005-0.013 R/trade vs +0.43 R/trade headroom = negligible). Required before any non-crypto real-money (Tier-3) proposal.",
+      "status": "open",
+      "tier": "Tier-1 (tooling)"
     }
   ],
-  "updated_at": "2026-06-18T16:00:00+00:00"
+  "updated_at": "2026-06-18T16:45:00+00:00"
 }

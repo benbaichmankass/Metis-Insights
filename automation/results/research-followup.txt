@@ -1,0 +1,24 @@
+# job=research-followup target=trainer ip=158.178.209.121 started=2026-06-18T16:41:33Z
+PY=.venv/bin/python
+##################### PART A — ETH ADX>=25 OUT-OF-POOL SYMBOL TEST #####################
+# live eth_pullback_2h params (= harness defaults): tl40 pl10 frac0.5 atr2.5 trail5.0
+# OOP symbols BNBUSDT,LINKUSDT (NOT in the 5-alt sweep pool); ETHUSDT as in-pool reference
+--- BNBUSDT ---
+  pullback_BNBUSDT_2h_adxnone        tier=reject      net=8.0497 2x=2.596 allfolds+=False
+  pullback_BNBUSDT_2h_adxmin25       tier=paper_ready net=14.2457 2x=10.4 allfolds+=False
+--- LINKUSDT ---
+  pullback_LINKUSDT_2h_adxnone       tier=paper_ready net=13.0442 2x=8.6421 allfolds+=False
+  pullback_LINKUSDT_2h_adxmin25      tier=paper_ready net=19.9653 2x=17.098 allfolds+=False
+--- ETHUSDT ---
+  pullback_ETHUSDT_2h_adxnone        tier=paper_ready net=59.032 2x=54.2229 allfolds+=False
+  pullback_ETHUSDT_2h_adxmin25       tier=live_ready  net=63.1082 2x=59.5447 allfolds+=True
+##################### PART B — MGC real GC=F 1h (vs spot-proxy -50.7R) #####################
+  pulled GC=F 1h: 13747 rows 2024-01-26 05:00:00+00:00 .. 2026-06-18 16:00:00+00:00 -> data/GC_F_1h.csv
+--- mgc_trend_1h on REAL GC=F 1h (live params donchian20/atr2.5/trail3.0) ---
+trend_donchian — MGC 1h {'donchian': 20, 'atr_stop_mult': 2.5, 'trail_mult': 3.0, 'min_confidence': 0.0}
+  data 2024-01-26 05:00:00+00:00 -> 2026-06-18 16:00:00+00:00  trades=353
+  win_rate=38.81%  net_r=-15.4513 (exp -0.0438, L/S 206/147, netL/S 16.9994/-32.4506)
+  avg_win_r=1.3027 max_mfe_r=6.532 maxdd_r=37.7834 by={'stop': 80, 'trail_stop': 271, 'timeout': 2}
+  by_year={'2024': {'trades': 133, 'net_r': -19.4206}, '2025': {'trades': 150, 'net_r': -11.8569}, '2026': {'trades': 70, 'net_r': 15.8253}}
+RESEARCH_FOLLOWUP_DONE
+# exit=0 finished=2026-06-18T16:42:07Z
