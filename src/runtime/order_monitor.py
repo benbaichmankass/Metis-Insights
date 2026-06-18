@@ -51,7 +51,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -1481,6 +1481,18 @@ _DEFAULT_RECONCILER_GRACE_SECONDS = 60
 _DEFAULT_CLOSE_CONFIRM_SECONDS = 60
 _PENDING_CLOSE_CONFIRM: Dict[int, datetime] = {}
 
+# Re-adopt guard window (BL-20260618-RECONCILE-DUP, 2026-06-18). When an IB
+# gateway flaps (logged-out → empty portfolio → back) during the broker reset
+# window, the reverse reconciler could adopt the SAME exchange position, have
+# the re-attached strategy's monitor close the DB row at an sl_cross (the IB
+# exchange position itself never closed), then RE-ADOPT it next pass — looping
+# N times and booking N phantom losses (one MGC position became 18 closed
+# trades, -$20,127). The guard refuses to re-adopt a (account, symbol,
+# direction) whose ``adopted_orphan`` row closed within this window — a
+# just-closed adopted orphan that reappears is a flap, not a genuinely new
+# position. ``0`` disables the guard. Read at call time (next-tick effect).
+_DEFAULT_READOPT_GUARD_SECONDS = 300
+
 # Exit-coverage reattach-or-close (2026-06-15): an open ``orphan_adopt`` trade
 # with NO recoverable order package has no rational exit strategy and is
 # flattened. Like ``_PENDING_CLOSE_CONFIRM`` above, the flatten waits for a 2nd
@@ -1584,6 +1596,72 @@ def _close_confirm_seconds() -> float:
         return max(0.0, float(raw))
     except (TypeError, ValueError):
         return float(_DEFAULT_CLOSE_CONFIRM_SECONDS)
+
+
+def _reconciler_readopt_guard_seconds() -> float:
+    """Window (seconds) within which a just-closed ``adopted_orphan`` must NOT
+    be re-adopted — the BL-20260618-RECONCILE-DUP flap guard.
+
+    Reads ``RECONCILER_READOPT_GUARD_SECONDS`` at call time; falls back to
+    ``_DEFAULT_READOPT_GUARD_SECONDS`` on missing / unparseable values, clamped
+    ``>= 0``. ``0`` disables the guard (legacy re-adopt-immediately behaviour).
+    """
+    raw = os.environ.get("RECONCILER_READOPT_GUARD_SECONDS")
+    if raw is None or str(raw).strip() == "":
+        return float(_DEFAULT_READOPT_GUARD_SECONDS)
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        return float(_DEFAULT_READOPT_GUARD_SECONDS)
+
+
+def _recently_closed_adopted_orphan(
+    db, *, account_id: str, symbol: str, direction: str, window_seconds: float,
+) -> Optional[dict]:
+    """Return the most-recently-closed ``adopted_orphan`` trade for this
+    ``(account_id, symbol, direction)`` whose ``closed_at`` is within
+    ``window_seconds`` of now, else ``None``.
+
+    Backs the re-adopt flap guard (BL-20260618-RECONCILE-DUP): a position that
+    matches an adopted orphan closed seconds ago is a gateway flap, not a new
+    position — re-adopting it loops and books phantom losses. Matches BOTH the
+    bare ``orphan_adopt`` rows and the strategy-reattached adopted orphans
+    (both carry ``setup_type='adopted_orphan'``). Best-effort: any DB error
+    returns ``None`` (fail-open — never blocks a genuine adoption on an error).
+    """
+    if window_seconds <= 0:
+        return None
+    canonical = {"buy": "long", "long": "long",
+                 "sell": "short", "short": "short"}.get(str(direction or "").lower())
+    if not symbol or not canonical:
+        return None
+    try:
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            rows = conn.execute(
+                "SELECT id, symbol, direction, closed_at, pnl, order_package_id "
+                "FROM trades "
+                "WHERE status='closed' AND COALESCE(is_backtest,0)=0 "
+                "  AND account_id=? AND symbol=? AND setup_type='adopted_orphan' "
+                "  AND closed_at IS NOT NULL "
+                "ORDER BY closed_at DESC LIMIT 8",
+                (account_id, symbol),
+            ).fetchall()
+        finally:
+            conn.close()
+    except Exception:  # noqa: BLE001 - fail-open: never block a real adopt on a read error
+        return None
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=window_seconds)
+    for r in rows:
+        rdir = {"buy": "long", "long": "long",
+                "sell": "short", "short": "short"}.get(str(r["direction"] or "").lower())
+        if rdir != canonical:
+            continue
+        closed_dt = _parse_created_at(r["closed_at"])
+        if closed_dt is not None and closed_dt >= cutoff:
+            return {k: r[k] for k in r.keys()}
+    return None
 
 
 def _parse_created_at(value: Any) -> Optional[datetime]:
@@ -1913,6 +1991,11 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         # this pass but inside the 2-observation confirm window (snapshot_pending).
         "snapshot_closed": 0,
         "snapshot_pending": 0,
+        # Adoptions SUPPRESSED this pass because the position matches an
+        # adopted_orphan that closed within the re-adopt guard window — a
+        # gateway flap, not a new position (BL-20260618-RECONCILE-DUP). Stops
+        # one exchange position being re-adopted N times into N phantom trades.
+        "readopt_suppressed": 0,
         "errors": 0,
     }
 
@@ -2230,6 +2313,53 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
             note: Optional[str] = None
 
             if policy == "adopt":
+                # Re-adopt flap guard (BL-20260618-RECONCILE-DUP): if this
+                # (account, symbol, side) matches an adopted_orphan that closed
+                # within the guard window, the exchange position is flapping
+                # (gateway logout → empty → back, or a DB-only sl_cross close on
+                # a position the broker never actually closed) — re-adopting it
+                # loops and books phantom losses. Suppress + alert; the real
+                # exchange position is still operator-/SL-protected.
+                _recent_closed = _recently_closed_adopted_orphan(
+                    db,
+                    account_id=aid,
+                    symbol=str(sym),
+                    direction=canonical_side,
+                    window_seconds=_reconciler_readopt_guard_seconds(),
+                )
+                if _recent_closed is not None:
+                    summary["readopt_suppressed"] += 1
+                    note = (
+                        "re-adopt suppressed: adopted_orphan trade_id="
+                        f"{_recent_closed.get('id')} for {sym}/{canonical_side} "
+                        f"on {aid} closed within the re-adopt guard window "
+                        "(BL-20260618-RECONCILE-DUP flap guard) — not re-adopting"
+                    )
+                    logger.warning(
+                        "_reconcile_orphan_exchange_positions: RE-ADOPT "
+                        "SUPPRESSED — account=%s symbol=%s side=%s matches "
+                        "recently-closed adopted_orphan trade_id=%s (flap "
+                        "guard); enqueueing alert instead of re-adopting",
+                        aid, sym, canonical_side, _recent_closed.get("id"),
+                    )
+                    try:
+                        enqueue_exchange_orphan_adoption(
+                            account=aid,
+                            symbol=str(sym),
+                            side=canonical_side,
+                            size=size,
+                            entry_price=entry_price,
+                            db_trade_id=None,
+                            policy="detect_only",
+                            note=note,
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "_reconcile_orphan_exchange_positions: alert enqueue "
+                            "failed (readopt-suppressed) account=%s symbol=%s: %s",
+                            aid, sym, exc,
+                        )
+                    continue
                 try:
                     db_trade_id = _adopt_orphan_position(
                         db=db,
@@ -2312,18 +2442,19 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         or summary["pending_disappear"]
         or summary["snapshot_closed"]
         or summary["snapshot_pending"]
+        or summary["readopt_suppressed"]
         or summary["errors"]
     ):
         logger.info(
             "_reconcile_orphan_exchange_positions: accounts=%d positions=%d "
             "orphans=%d adopted=%d closed=%d closed_disappeared=%d "
             "pending_disappear=%d snapshot_closed=%d snapshot_pending=%d "
-            "detect_only=%d errors=%d",
+            "readopt_suppressed=%d detect_only=%d errors=%d",
             summary["checked_accounts"], summary["checked_positions"],
             summary["orphans_found"], summary["adopted"], summary["closed"],
             summary["closed_disappeared"], summary["pending_disappear"],
             summary["snapshot_closed"], summary["snapshot_pending"],
-            summary["detect_only"], summary["errors"],
+            summary["readopt_suppressed"], summary["detect_only"], summary["errors"],
         )
     return summary
 
