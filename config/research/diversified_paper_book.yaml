@@ -1,0 +1,44 @@
+# Diversified paper book — the validated 10-cell cohort
+# ====================================================
+# The diversified alt portfolio whose out-of-sample robustness was banked
+# 2026-06-18 (docs/research/regime-map-step1-results-2026-06-18.md, Step 3):
+# net +409.8R / Sharpe 4.03 over 2021-2026, all 5 holdout cutoffs positive,
+# leave-one-cell-out + both families independently positive, fee-robust to
+# +0.13R/trade, bootstrap P(net>0)=0.984.
+#
+# All 10 cells are wired enabled+execution:live on the bybit_1 PAPER account
+# (config/accounts.yaml::bybit_1, account_class: paper — Bybit demo venue, no
+# real-money risk). This file is the named cohort the paper-book tracker
+# (scripts/ops/paper_book_tracker.py) and the /performance-review skill use to
+# watch the live paper trajectory — specifically whether the 2026-YTD flatness
+# (the one robustness blemish) is early alpha-decay or partial-year noise.
+#
+# Tier-1 research config — read by tooling + the review skill; NOT a live-path
+# file (the live wiring is config/accounts.yaml + config/strategies.yaml, which
+# stay the source of truth for what actually runs). Keep this list in sync with
+# the bybit_1 alt cells there if the book changes.
+name: diversified_paper_book
+account: bybit_1
+account_class: paper
+cells:
+  - trend_donchian_eth_4h
+  - trend_donchian_sol_4h
+  - trend_donchian_xrp_4h
+  - trend_donchian_ada_4h
+  - trend_donchian_avax_4h
+  - eth_pullback_2h
+  - sol_pullback_2h
+  - xrp_pullback_2h
+  - ada_pullback_2h
+  - avax_pullback_2h
+families:
+  trend: [trend_donchian_eth_4h, trend_donchian_sol_4h, trend_donchian_xrp_4h, trend_donchian_ada_4h, trend_donchian_avax_4h]
+  pullback: [eth_pullback_2h, sol_pullback_2h, xrp_pullback_2h, ada_pullback_2h, avax_pullback_2h]
+# Decay watch — the tracker flags the book if, over recent_window_days, the
+# realised paper PnL goes net-negative AND its per-trade mean falls below
+# decay_mean_floor_usd (i.e. not just one flat week — a sustained sag). These
+# are watch thresholds for a human/Claude read, not an automated action.
+watch:
+  recent_window_days: 30
+  decay_mean_floor_usd: 0.0
+  baseline_note: "2026-YTD backtest was flat (-1.7R, mean -0.005R); watching live paper for decay vs noise."

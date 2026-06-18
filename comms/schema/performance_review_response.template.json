@@ -75,6 +75,16 @@
       "note": "<= 160 chars"
     }
   ],
+  "paper_book_tracker": {
+    "_comment": "Diversified paper-book read (config/research/diversified_paper_book.yaml — 10 alt cells on bybit_1 paper). Append a snapshot via scripts/ops/paper_book_tracker.py, then summarize here. Watches the live paper trajectory for alpha-decay vs noise after the 2026-06-18 robustness bank. null only if the cohort pull failed (note in anomalies).",
+    "snapshot_appended": true,
+    "book": { "n": 0, "net_usd": 0.0, "win_rate": 0.0 },
+    "recent_vs_prior": { "recent_net_usd": 0.0, "prior_net_usd": 0.0, "recent_window_days": 30 },
+    "per_family_net_usd": { "trend": 0.0, "pullback": 0.0 },
+    "decay_flag": false,
+    "delta_since_last": { "trades": 0, "net_usd": 0.0 },
+    "assessment": "healthy | noise | decay-watch — <= 160 chars citing the numbers"
+  },
   "anomalies": [
     "free-form list of notable items (grade drift, unexpected attribution, etc.)"
   ],
