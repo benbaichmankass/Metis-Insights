@@ -65,9 +65,18 @@ def classify_tier(
     if headroom is None:
         headroom = double is not None and double > 0
     all_folds_pos = report.get("gate_all_folds_positive")
-    # m15_ws_b_fold_report.py names the base-fee per-fold list `folds_base_fee`;
-    # accept a plain `folds` too (other harnesses / hand-built reports).
-    folds = report.get("folds") or report.get("folds_base_fee") or []
+    # Resolve the per-fold list. m15_ws_b_fold_report.py names it `folds_base_fee`
+    # AND additionally emits a scalar `folds` (the fold *count*); a plain `folds`
+    # list is the hand-built / other-harness shape. Prefer `folds_base_fee`, then
+    # a list-valued `folds`, and guard against the scalar `folds` shadowing the
+    # list — that collision made this function iterate an int and raise
+    # TypeError, which the fold-report's bare `except` swallowed, silently
+    # voiding the tier stamp on every real report until the 2026-06-18 fix.
+    folds = report.get("folds_base_fee")
+    if not isinstance(folds, list):
+        folds = report.get("folds")
+    if not isinstance(folds, list):
+        folds = []
     fold_nets = [f.get("net_r") for f in folds if isinstance(f, Mapping) and f.get("net_r") is not None]
     worst_fold = min(fold_nets) if fold_nets else None
 

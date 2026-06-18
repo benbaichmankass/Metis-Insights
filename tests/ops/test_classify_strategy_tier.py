@@ -40,6 +40,26 @@ def test_paper_ready_net_positive_one_negative_fold():
     assert "not yet fold-robust" in res["reasons"][0]
 
 
+def test_real_fold_report_shape_scalar_folds_does_not_shadow_list():
+    """Regression (2026-06-18): a real m15_ws_b_fold_report.py report carries a
+    scalar ``folds`` (the fold *count*) alongside the per-fold ``folds_base_fee``
+    list. The classifier must read the list, not iterate the int — the scalar
+    used to shadow it and raise TypeError (swallowed by the report's bare
+    except), silently voiding the tier stamp on every real report."""
+    r = {
+        "total_oos_net_r_base": 26.89,
+        "total_oos_net_r_double": 24.79,
+        "gate_2x_fee_headroom": True,
+        "gate_all_folds_positive": False,
+        "folds": 5,  # scalar count — must NOT be iterated
+        "folds_base_fee": [{"net_r": x} for x in (10.0, 9.0, 8.0, 5.5, -5.59)],
+    }
+    res = classify_tier(r)  # must not raise
+    assert res["tier"] == "paper_ready", res
+    assert res["metrics"]["worst_fold_net_r"] == -5.59
+    assert res["metrics"]["n_folds"] == 5
+
+
 def test_reject_net_negative():
     r = _report(-14.0, -28.0, False, [-2.0, -3.0, -9.0])
     assert classify_tier(r)["tier"] == "reject"

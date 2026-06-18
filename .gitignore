@@ -116,3 +116,7 @@ experiments/**/*
 !experiments/**/results/**/*.png
 !experiments/**/results/**/*.svg
 !experiments/**/results/**/*.txt
+
+# Recombination sweep outputs (research-only artifacts; regenerated per run).
+# See scripts/ops/recombination_sweep.py + docs/research/strategy-primitives-recombination-DESIGN.md.
+results/recombination/
