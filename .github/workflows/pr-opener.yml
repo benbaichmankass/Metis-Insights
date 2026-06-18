@@ -1,0 +1,84 @@
+name: pr-opener
+
+# Git-push-triggered PR opener — the MCP-independent PR-creation path.
+#
+# Companion to vm-driver.yml. When the GitHub MCP is unavailable, a sandbox
+# session can `git push` (the git proxy is independent) but cannot create PRs
+# (that needs the GitHub API). This workflow turns a pushed request file into a
+# PR opened by the runner (which has GITHUB_TOKEN + the `gh` CLI), and writes
+# the resulting URL back to the repo so the session reads it via `git fetch`.
+#
+# Contract:
+#   * Drop a JSON file at `automation/pr-requests/<name>.json` and push it:
+#       {"head": "<branch with the changes>",
+#        "base": "main",            # optional, default main
+#        "title": "...",
+#        "body":  "...",            # markdown
+#        "draft": true}             # optional, default true
+#   * The runner runs `gh pr create`, writes the URL (or error) to
+#     `automation/pr-results/<name>.txt`, removes the request, and commits the
+#     result back to the pushed branch with [skip ci] (no re-trigger loop —
+#     pr-results/** is not a trigger path).
+#
+# Blast radius: opens PRs only (PRs never auto-merge). contents+pull-requests
+# write. The head branch must already exist on origin.
+
+on:
+  push:
+    paths: ['automation/pr-requests/**']
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pr-opener
+  cancel-in-progress: false
+
+jobs:
+  open:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Open pending PR requests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          mkdir -p automation/pr-results
+          shopt -s nullglob
+          for req in automation/pr-requests/*.json; do
+            base="$(basename "$req" .json)"
+            head="$(jq -r '.head' "$req")"
+            target="$(jq -r '.base // "main"' "$req")"
+            title="$(jq -r '.title' "$req")"
+            jq -r '.body // ""' "$req" > /tmp/pr_body.md
+            draft_flag=""
+            [ "$(jq -r '.draft // true' "$req")" = "true" ] && draft_flag="--draft"
+            out="automation/pr-results/${base}.txt"
+            if [ -z "$head" ] || [ "$head" = "null" ]; then
+              echo "ERROR: request $base has no .head branch" > "$out"
+            else
+              url="$(gh pr create --repo "$GITHUB_REPOSITORY" --head "$head" --base "$target" \
+                       --title "$title" --body-file /tmp/pr_body.md $draft_flag 2>&1)" \
+                && echo "$url" > "$out" \
+                || printf 'FAILED:\n%s\n' "$url" > "$out"
+            fi
+            echo ">>> ${base}: $(head -1 "$out")"
+            git rm -q "$req" || rm -f "$req"
+          done
+
+      - name: Commit results back to branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f automation/pr-results
+          if git diff --cached --quiet; then echo "no changes"; exit 0; fi
+          git commit -m "pr-opener: results [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
