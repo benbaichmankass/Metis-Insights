@@ -1,0 +1,19 @@
+TARGET=trainer
+---
+set -uo pipefail
+cd /home/ubuntu/ict-trading-bot
+git fetch origin main -q; git checkout -f main -q 2>/dev/null; git reset --hard origin/main -q
+git fetch origin claude/system-audit-strategy-ml-srcwda -q
+git checkout origin/claude/system-audit-strategy-ml-srcwda -- scripts/ops/regime_weight_overlay.py
+source .venv/bin/activate 2>/dev/null || source venv/bin/activate 2>/dev/null || true
+R=results/m15_regime_map
+[ -f "$R/manifest.json" ] || { echo "MISSING manifest $R/manifest.json — run regime-overlay first"; exit 0; }
+echo "manifest:"; cat "$R/manifest.json" | python3 -c "import json,sys; print(len(json.load(sys.stdin)),'cells')"
+for GRP in cell family; do
+  for CUT in 2025-01-01 2024-07-01; do
+    echo ""; echo "########## GROUP=$GRP  CUTOFF=$CUT ##########"
+    python3 scripts/ops/regime_weight_overlay.py --manifest "$R/manifest.json" \
+      --cutoff "$CUT" --min-n 20 --group "$GRP" --json "$R/overlay_${GRP}_${CUT}.json"
+  done
+done
+echo "REGIME_FAMILY_DONE"
