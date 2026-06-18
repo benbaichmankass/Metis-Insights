@@ -83,7 +83,8 @@ def _build_trades(manifest: list[dict], vol_window: int = 20) -> pd.DataFrame:
                 continue
             bar = df.iloc[idx]
             vb = None if pd.isna(bar["vol"]) else ("loVol" if bar["vol"] < q1 else "midVol" if bar["vol"] < q2 else "hiVol")
-            rows.append({"cell": cell["label"], "time": et, "net_r": float(t.get("net_r", 0.0)),
+            rows.append({"cell": cell["label"], "family": str(cell["label"]).split("_")[0],
+                         "time": et, "net_r": float(t.get("net_r", 0.0)),
                          "adx_b": bar["adx_b"], "vol_b": vb})
     return pd.DataFrame(rows)
 
@@ -94,11 +95,17 @@ def _bucket(row, regime_def: str):
     return f"{row['adx_b']}/{row['vol_b']}"
 
 
-def _fit_weights(train: pd.DataFrame, regime_def: str, scheme: str, min_n: int):
-    """Return {(cell, bucket): w in [0,1]} learned on the TRAIN slice only."""
+def _fit_weights(train: pd.DataFrame, regime_def: str, scheme: str, min_n: int, group_col: str = "cell"):
+    """Return {(group_val, bucket): w in [0,1]} learned on the TRAIN slice only.
+
+    group_col selects the granularity the weight is fit at: ``cell`` (per
+    strategy x symbol x band — most parameters, most overfit-prone) or
+    ``family`` (one weight per family x band, e.g. "pullback in chop" — far
+    fewer params, the less-overfit variant the Step-2 results pointed to).
+    """
     w = {}
     train = train.assign(bucket=train.apply(lambda r: _bucket(r, regime_def), axis=1))
-    g = train.groupby(["cell", "bucket"])["net_r"]
+    g = train.groupby([group_col, "bucket"])["net_r"]
     means, wins, counts = g.mean(), g.apply(lambda s: (s > 0).mean()), g.size()
     pos_means = means[means > 0]
     scale = pos_means.quantile(0.8) if not pos_means.empty else 1.0  # robust upper for grading
@@ -119,11 +126,11 @@ def _fit_weights(train: pd.DataFrame, regime_def: str, scheme: str, min_n: int):
     return w
 
 
-def _apply(slice_df: pd.DataFrame, weights: dict, regime_def: str) -> pd.Series:
+def _apply(slice_df: pd.DataFrame, weights: dict, regime_def: str, group_col: str = "cell") -> pd.Series:
     def w_of(r):
         if not weights:
             return 1.0
-        return weights.get((r["cell"], _bucket(r, regime_def)), 1.0)  # unseen bucket -> 1.0
+        return weights.get((r[group_col], _bucket(r, regime_def)), 1.0)  # unseen bucket -> 1.0
     return slice_df["net_r"] * slice_df.apply(w_of, axis=1)
 
 
@@ -143,6 +150,8 @@ def main(argv: list[str]) -> int:
     p.add_argument("--manifest", required=True)
     p.add_argument("--cutoff", default="2025-01-01", help="train < cutoff <= holdout (UTC date)")
     p.add_argument("--min-n", type=int, default=20, help="min train samples in a bucket to gate it")
+    p.add_argument("--group", choices=("cell", "family"), default="cell",
+                   help="granularity the weight is fit at: per cell (default) or per family (fewer params, less overfit-prone)")
     p.add_argument("--json", dest="json_out", default=None)
     a = p.parse_args(argv)
 
@@ -159,12 +168,13 @@ def main(argv: list[str]) -> int:
     print(f"baseline (un-weighted): train netR={base_train:.1f}  holdout netR={base_hold:.1f}\n")
 
     results = []
+    print(f"weight granularity: {a.group}\n")
     print(f"{'regime_def':9} {'scheme':10} | {'TRAIN netR':>10} | {'HOLDOUT netR':>12} {'vs base':>8} {'sharpe':>7} {'maxDD':>7} | {'train->hold degrade':>20}")
     for regime_def in ("adx", "adxvol"):
         for scheme in ("baseline", "hard_sign", "graded", "winrate"):
-            w = _fit_weights(train, regime_def, scheme, a.min_n)
-            tr = _metrics(_apply(train, w, regime_def))
-            ho = _metrics(_apply(holdout, w, regime_def))
+            w = _fit_weights(train, regime_def, scheme, a.min_n, a.group)
+            tr = _metrics(_apply(train, w, regime_def, a.group))
+            ho = _metrics(_apply(holdout, w, regime_def, a.group))
             vs = ho["net_r"] - base_hold
             degrade = round((tr["net_r"] / base_train if base_train else 0) - (ho["net_r"] / base_hold if base_hold else 0), 2)
             results.append({"regime_def": regime_def, "scheme": scheme, "train": tr, "holdout": ho,
@@ -172,7 +182,8 @@ def main(argv: list[str]) -> int:
             flag = "  <== beats baseline OOS" if (scheme != "baseline" and vs > 0) else ""
             print(f"{regime_def:9} {scheme:10} | {tr['net_r']:>10.1f} | {ho['net_r']:>12.1f} {vs:>+8.1f} {ho['sharpe']:>7.2f} {ho['max_dd_r']:>7.1f} | {degrade:>20}{flag}")
     if a.json_out:
-        json.dump({"cutoff": a.cutoff, "baseline": {"train": base_train, "holdout": base_hold}, "matrix": results},
+        json.dump({"cutoff": a.cutoff, "group": a.group,
+                   "baseline": {"train": base_train, "holdout": base_hold}, "matrix": results},
                   open(a.json_out, "w"), indent=2)
     return 0
 
