@@ -1,0 +1,18 @@
+# Cross-asset peer map (S-CROSS-ASSET-PROBE → M16 c_reg lens, D2a, 2026-06-18).
+#
+# Target symbol -> ordered peer symbols (positional slots peer1, peer2, …) used
+# by the LIVE cross-asset feature computation (`src/runtime/cross_asset_live.py`)
+# to feed the cross-asset regime head (`eth-regime-1h-lgbm-xasset-v1`) at score
+# time. The slot order MUST match the order the offline side-stream producer used
+# (`scripts/ml/build_cross_asset.py --peer …`) so live features == train
+# features. The probe's ablation found SOL the load-bearing peer for ETH, BTC a
+# smaller additive contributor.
+#
+# Observe-only: this only conditions a shadow-stage regime head's features; it
+# never influences an order. A symbol with no entry here gets no cross-asset
+# features (the head degrades to NaN xa columns, which LightGBM handles). Kill
+# switch: CROSS_ASSET_LIVE_DISABLED.
+
+ETHUSDT:
+  - BTCUSDT
+  - SOLUSDT

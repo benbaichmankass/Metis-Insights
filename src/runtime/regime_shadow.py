@@ -369,6 +369,7 @@ def feature_row_for_predictor(
     symbol: str,
     timeframe: str,
     candles_df: Any = None,
+    cross_asset_row: Mapping[str, Any] | None = None,
 ) -> Mapping[str, Any] | None:
     """Build the feature row a single predictor should be scored on.
 
@@ -430,7 +431,11 @@ def feature_row_for_predictor(
         bucket = bucket_for_vol(float(vol_value), edges, labels)
         if bucket is None:
             return None
-        return {**base_row, **parity, feature_col: bucket}
+        # Cross-asset peer-feature block (S-CROSS-ASSET-PROBE D2a). Merged for
+        # the cross-asset regime head; non-cross-asset heads project only their
+        # own feature columns, so the extra ``xa_*`` keys are inert for them.
+        xa = dict(cross_asset_row) if cross_asset_row else {}
+        return {**base_row, **parity, **xa, feature_col: bucket}
 
     # Legacy close-only fallback (no OHLC available): pre-S17 behaviour.
     bucket = bucket_for_vol(rolling_vol, edges, labels)

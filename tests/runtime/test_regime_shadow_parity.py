@@ -145,6 +145,34 @@ def test_live_row_matches_builder_continuous_features(tmp_path: Path):
     assert live["dayofweek"] == ref["dayofweek"]
 
 
+def test_cross_asset_row_merged_into_parity(tmp_path: Path):
+    """S-CROSS-ASSET-PROBE D2a: a provided cross_asset_row is merged into the
+    regime head's parity feature row (extra xa_* cols; the bucket still wins)."""
+    closes = _varied_closes(40)
+    _market_raw, raw = _stage_market_raw(tmp_path, closes)
+    i = 30
+    candles_df = _candles_df(raw, i)
+    closes_list = [r["close"] for r in raw[: i + 1]]
+    pred = _FakePredictor(_spec("rolling_log_return_vol", [0.05, 0.2],
+                                ["vol_b0", "vol_b1", "vol_b2"]))
+    xa = {"xa_peer1_ret": 0.01, "xa_peer1_beta": 1.2, "xa_breadth_up": 1.0}
+    live = feature_row_for_predictor(
+        pred, {}, closes=closes_list, symbol=_SYMBOL,
+        timeframe=_TIMEFRAME, candles_df=candles_df, cross_asset_row=xa,
+    )
+    assert live is not None
+    for k, v in xa.items():
+        assert live[k] == v
+    # the parity continuous cols + the bucket are still present
+    assert "rolling_log_return_vol" in live and "vol_bucket" in live
+    # and a None cross_asset_row is a no-op (no xa keys leak in)
+    live_none = feature_row_for_predictor(
+        pred, {}, closes=closes_list, symbol=_SYMBOL,
+        timeframe=_TIMEFRAME, candles_df=candles_df, cross_asset_row=None,
+    )
+    assert not any(str(k).startswith("xa_") for k in live_none)
+
+
 def test_yz_head_buckets_against_yang_zhang_not_close_to_close(tmp_path: Path):
     """The S17 fix: a vol_feature_column=yang_zhang_vol head must bucket the YZ
     value. With an edge placed strictly between the live YZ and rolling vols,

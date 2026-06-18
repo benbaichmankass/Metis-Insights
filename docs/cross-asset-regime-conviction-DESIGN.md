@@ -104,12 +104,22 @@ fit offline by `fit_confidence_calibrators.py`). All Tier-1 / offline.
 
 ## 4. Rollout (mirrors the M16 phases + the regime-bar-scoring soak)
 
-| Phase | Scope | Gate |
-|---|---|---|
-| **D1** | This design, operator review | — |
-| **D2** | `cross_asset_live.py` + `config/cross_asset.yaml` + the `c_reg` alignment/calibrator, all **observe-only** (feeds the shadow predictor + the already-soaking `meta.conviction` stamp; never the order path). Promote the model to `shadow`. | Tier-2 deploy ack + Tier-3 promotion |
-| **D3** | Soak: `c_reg` now contributes to the observe-only conviction; verify via the conviction soak log (`conviction_sizing`) that the cross-asset-fed `c_reg` is populated, sane, and moves with regime. No influence. | soak accrues |
-| **D4** | Graduate `c_reg` into the **influencing** conviction (sizing) — only after the M16 P2+ gate (backtest of conviction-sized vs flat) AND the cross-asset `c_reg` is shown to improve it. | Tier-3, operator + backtest |
+| Phase | Scope | Gate | Status |
+|---|---|---|---|
+| **D1** | This design, operator review | — | ✅ approved 2026-06-18 ("that's a go") |
+| **D2a** | `config/cross_asset.yaml` + `src/runtime/cross_asset_live.py` + wiring into the **per-bar regime scorer** (`regime_bar_scoring.py`) so the cross-asset regime head scores with correct live `xa_*` features → `shadow_predictions.jsonl`. Observe-only, kill-switched (`CROSS_ASSET_LIVE_DISABLED`), fail-permissive (peer error → NaN xa, never fabricated zeros), peers ride the target's gated fetch cadence. Reuses the offline pure fns (live==train). | Tier-2 (touches live feature path; observe-only) | ✅ BUILT 2026-06-18 (this PR; 19 tests, ruff clean). Needs: trainer registers + promotes `eth-regime-1h-lgbm-xasset-v1` to `shadow`, then live deploy. |
+| **D2b** | Feed `xa_*` at **signal time** too (`strategy_signal_builders` shadow capture — needs a bounded peer fetch on the signal path) + expose the regime **class-probability vector** from the predictor + the `c_reg` `regime_alignment(probs, dir)` map/calibrator in `conviction_inputs.py` (so `c_reg` stops being skipped). Still observe-only — feeds the already-soaking `meta.conviction`, never the order. | Tier-2 + Tier-3 promotion | ⏳ next |
+| **D3** | Soak: `c_reg` now contributes to the observe-only conviction; verify via the conviction soak log (`conviction_sizing`) that the cross-asset-fed `c_reg` is populated, sane, and moves with regime. No influence. | soak accrues | — |
+| **D4** | Graduate `c_reg` into the **influencing** conviction (sizing) — only after the M16 P2+ gate (backtest of conviction-sized vs flat) AND the cross-asset `c_reg` is shown to improve it. | Tier-3, operator + backtest | — |
+
+**D2a → D2b split (why):** the predictor's `predict()` returns a single scalar;
+a real `c_reg` needs the regime **class-probability vector** — a deeper
+predictor-interface change. D2a ships the safe, isolated piece (the per-bar scorer
+soak with correct features) so the cross-asset head accrues a clean live track
+record now; D2b does the prob-vector + signal-time + `c_reg` wiring. Until D2b,
+the signal-time path scores the head with NaN `xa_*` (LightGBM handles missing) —
+degraded but safe, and distinguishable in the shadow log (`event_source` ≠
+`per_bar`); the per-bar scorer is the clean soak source.
 
 D4 is the same operator/backtest gate as all M16 live influence — this design
 does **not** front-run it; it gets the validated regime signal *soaking* in the
