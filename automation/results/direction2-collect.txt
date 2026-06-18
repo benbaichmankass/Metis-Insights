@@ -1,0 +1,14 @@
+# job=direction2-collect target=trainer ip=158.178.209.121 started=2026-06-18T16:13:57Z
+=== sweep process state ===
+running_procs=1
+=== sweep.log tail (progress) ===
+=== [49/90] trend_AVAXUSDT_4h_adxnone_trail5_conf0 ===
+=== [50/90] trend_AVAXUSDT_4h_adxnone_trail5_conf0.6 ===
+=== [51/90] trend_AVAXUSDT_4h_adxnone_trail3_conf0 ===
+=== [52/90] trend_AVAXUSDT_4h_adxnone_trail3_conf0.6 ===
+=== [53/90] trend_AVAXUSDT_4h_adxmin20_trail5_conf0 ===
+=== [54/90] trend_AVAXUSDT_4h_adxmin20_trail5_conf0.6 ===
+=== summary.json present? ===
+summary.json NOT YET written — sweep still running
+COLLECT_DONE
+# exit=0 finished=2026-06-18T16:13:59Z
