@@ -1077,10 +1077,14 @@ strategies:
     model: null
     signal_prefixes: [mgc_trend]
     enabled: true
-    execution: live          # ib_paper is PAPER money — it EXECUTES (paper soak),
-                             # which is the point of a paper account. (Routing
-                             # a paper-only strategy as `shadow` would strand it,
-                             # per the MES incident — new-strategy skill rule 2.)
+    execution: shadow        # shadow-guard: allow — operator-approved 2026-06-18 ("move on both").
+                             # DEMOTED live -> shadow 2026-06-18 (Tier-3): net-negative
+                             # on BOTH the XAUUSD spot proxy (-50.7R) AND real GC=F 1h
+                             # (-15.5R, 2.4y) — see docs/research/recombination-sweep-2026-06-18.md
+                             # follow-up. A 1h donchian-trend on gold is far more chop-exposed
+                             # than the daily mgc_pullback_1d (+56R, robust) which stays the gold
+                             # sleeve. shadow keeps it LOGGING order packages (data) but sends no
+                             # paper order — it has no validated edge to soak. ROLLBACK: execution: live.
     risk_pct: 0.3            # conservative paper sizing (mirrors xauusd_trend_1h)
     timeframe: "1h"
     symbols:
@@ -1208,6 +1212,7 @@ strategies:
     trail_mult: 5.0
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
     min_confidence: 0.0
+    adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
     # ETHUSDT signals auto-wire the symbol-agnostic decision/meta models (the
     # symbol filter keeps BTC/MES regime heads off). Observe-only.
@@ -1249,6 +1254,7 @@ strategies:
     trail_mult: 5.0
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
     min_confidence: 0.0
+    adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   xrp_pullback_2h:
@@ -1268,6 +1274,7 @@ strategies:
     trail_mult: 5.0
     tp_r: 50.0
     min_confidence: 0.0
+    adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   ada_pullback_2h:
@@ -1287,6 +1294,7 @@ strategies:
     trail_mult: 5.0
     tp_r: 50.0
     min_confidence: 0.0
+    adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   avax_pullback_2h:
@@ -1306,4 +1314,5 @@ strategies:
     trail_mult: 5.0
     tp_r: 50.0
     min_confidence: 0.0
+    adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.

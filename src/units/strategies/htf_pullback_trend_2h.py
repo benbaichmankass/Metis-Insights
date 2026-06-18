@@ -67,6 +67,15 @@ _DEFAULTS: Dict[str, Any] = {
     "tp_r": 50.0,
     "timeframe": "2h",
     "min_confidence": 0.0,
+    # ADX regime filter (recombination lever, SRQ-20260618-001/-002). Default
+    # None/None = OFF → behaviour-preserving (no gate), exactly as before. When
+    # adx_min (and/or adx_max) is set in config/strategies.yaml, an actionable
+    # setup is admitted only if its Wilder ADX(adx_period) on the closed signal
+    # bar sits inside the band — VERBATIM the gate scripts/backtest_pullback.py
+    # validated, so live == backtest. A NaN (warm-up) ADX is never admitted.
+    "adx_min": None,
+    "adx_max": None,
+    "adx_period": 14,
 }
 
 _TP_SENTINEL_CAP_PCT = 0.099
@@ -81,6 +90,28 @@ def _atr(df: pd.DataFrame, period: int) -> pd.Series:
     pc = c.shift(1)
     tr = pd.concat([(h - low), (h - pc).abs(), (low - pc).abs()], axis=1).max(axis=1)
     return tr.rolling(period, min_periods=1).mean()
+
+
+def _adx(df: pd.DataFrame, period: int) -> pd.Series:
+    """Wilder's ADX — VERBATIM copy of scripts/backtest_pullback.py::_adx so the
+    live regime gate matches the validated backtest bar-for-bar. +DM/-DM →
+    Wilder-smoothed (EWM alpha=1/period) +DI/-DI → DX → ADX (Wilder-smoothed DX).
+    min_periods=period leaves warm-up bars NaN (an undefined-regime bar is never
+    admitted by a band)."""
+    h, low, c = df["high"], df["low"], df["close"]
+    up = h.diff()
+    down = -low.diff()
+    plus_dm = ((up > down) & (up > 0)).astype(float) * up.clip(lower=0)
+    minus_dm = ((down > up) & (down > 0)).astype(float) * down.clip(lower=0)
+    pc = c.shift(1)
+    tr = pd.concat([(h - low), (h - pc).abs(), (low - pc).abs()], axis=1).max(axis=1)
+    alpha = 1.0 / period
+    atr_w = tr.ewm(alpha=alpha, adjust=False, min_periods=period).mean()
+    plus_di = 100.0 * plus_dm.ewm(alpha=alpha, adjust=False, min_periods=period).mean() / atr_w
+    minus_di = 100.0 * minus_dm.ewm(alpha=alpha, adjust=False, min_periods=period).mean() / atr_w
+    di_sum = (plus_di + minus_di).replace(0.0, float("nan"))
+    dx = 100.0 * (plus_di - minus_di).abs() / di_sum
+    return dx.ewm(alpha=alpha, adjust=False, min_periods=period).mean()
 
 
 def _coerce_float(value: Any) -> Optional[float]:
@@ -108,6 +139,9 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     timeframe = str(cfg.get("timeframe") or params["timeframe"])
 
     needed = trend_lb + atr_period + 2
+    if params.get("adx_min") is not None or params.get("adx_max") is not None:
+        # Wilder ADX needs ~2×period bars to converge off the NaN warm-up.
+        needed = max(needed, int(params.get("adx_period") or 14) * 2 + 2)
     if len(candles_df) < needed:
         raise ValueError(
             f"Strategy 'htf_pullback_trend_2h': need at least {needed} candles "
@@ -157,6 +191,34 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             "Strategy 'htf_pullback_trend_2h': no trend-pullback-confirmation "
             "setup on the latest bar (non-actionable)."
         )
+
+    # ADX regime gate (recombination lever) — admit the confirmed setup only if
+    # its Wilder ADX on the closed signal bar sits inside [adx_min, adx_max].
+    # OFF by default (both None) → no-op. Matches scripts/backtest_pullback.py
+    # bar-for-bar (ADX read on the entry bar; NaN warm-up rejected).
+    adx_min_p = _coerce_float(params.get("adx_min"))
+    adx_max_p = _coerce_float(params.get("adx_max"))
+    adx_val: Optional[float] = None
+    if adx_min_p is not None or adx_max_p is not None:
+        adx_period_p = int(params.get("adx_period") or 14)
+        adx_series = _adx(df, adx_period_p)
+        adx_last = adx_series.iloc[-1] if len(adx_series) else float("nan")
+        if pd.isna(adx_last):
+            raise ValueError(
+                "Strategy 'htf_pullback_trend_2h': ADX undefined (warm-up) — "
+                "regime filter active, non-actionable."
+            )
+        adx_val = float(adx_last)
+        if adx_min_p is not None and adx_val < adx_min_p:
+            raise ValueError(
+                f"Strategy 'htf_pullback_trend_2h': ADX {adx_val:.2f} < adx_min "
+                f"{adx_min_p} — regime filter, non-actionable."
+            )
+        if adx_max_p is not None and adx_val > adx_max_p:
+            raise ValueError(
+                f"Strategy 'htf_pullback_trend_2h': ADX {adx_val:.2f} > adx_max "
+                f"{adx_max_p} — regime filter, non-actionable."
+            )
 
     entry = close
     if direction == "long":
@@ -221,6 +283,9 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             "risk_per_unit": float(risk),
             "entry_time": entry_time,
             "timeframe": timeframe,
+            "adx": adx_val,
+            "adx_min": adx_min_p,
+            "adx_max": adx_max_p,
         },
     }
 
