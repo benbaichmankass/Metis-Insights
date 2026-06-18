@@ -30,7 +30,10 @@ def test_yaml_entry_pins_validated_params():
     assert (s["trend_lookback"], s["pullback_lookback"], s["pullback_frac"]) == (40, 10, 0.5)
     assert (s["atr_stop_mult"], s["trail_mult"]) == (2.5, 5.0)
     assert s["min_confidence"] == 0.0
-    assert s["shadow_model_ids"] == []
+    # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
+    # the opt-out was removed so ETH signals auto-wire the symbol-agnostic
+    # decision/meta models; the symbol filter keeps BTC/MES regime heads off.
+    assert "shadow_model_ids" not in s
     btc = cfg["htf_pullback_trend_2h"]
     for k in ("trend_lookback", "pullback_lookback", "pullback_frac",
               "atr_period", "atr_stop_mult", "trail_mult"):
