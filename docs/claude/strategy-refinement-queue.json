@@ -1,0 +1,51 @@
+{
+  "_comment": "Strategy refinement queue (2026-06-18) — the active pipeline for `paper_ready` cells (docs/strategy-readiness-ladder.md). A paper_ready cell is a net-of-fee-positive edge that is NOT yet fold-robust (cleared the demo bar, missed the live-money bar). Each row records WHY it missed live + a concrete refinement HYPOTHESIS to test. /performance-review + the backtesting skill drain this: re-test the hypothesis on the harness, re-tier with scripts/ops/classify_strategy_tier.py, then advance (paper->live proposal), iterate, or reject with evidence. This is distinct from: performance-review-backlog.json (live-strategy tweak puzzles), ml-review-backlog.json (model experiments), health-review-backlog.json (system bugs). Item ids: SRQ-YYYYMMDD-NNN.",
+  "schema_version": 1,
+  "items": [
+    {
+      "id": "SRQ-20260618-001",
+      "opened_at": "2026-06-18T07:30:00+00:00",
+      "opened_by": "claude (system-audit / strategy-expansion session)",
+      "source": "M15 WS-C alt k-fold gate (detached sweep, trainer-vm-diag #3930/#3936), scripts/ops/m15_ws_c_kfold.sh over freshly-fetched Bybit alt perps. 5-fold anchored walk-forward, net-of-fee 7.5 + 15 bps.",
+      "cell": "trend_4h on {ETHUSDT, SOLUSDT, XRPUSDT, ADAUSDT, AVAXUSDT}",
+      "family": "trend_donchian",
+      "tier": "paper_ready",
+      "gate_verdict": "FAIL (strict every-fold) — but net-of-fee positive overall + 2x-fee headroom; e.g. one cell +26.9R OOS / survives 15 bps. The 5-fold every-fold gate fails them because the most-recent fold (~2025-11-15 -> 2026-06-11) is net-negative (e.g. -5.6R / 35 trades).",
+      "missed_live_because": "Edge is positive across the full OOS window and most folds, but degrades in the recent (late-2025 -> 2026) regime — consistent with a chop/range regime where a breakout-trend follower whipsaws (the same failure mode trend_donchian/fade already gate against on BTC).",
+      "refinement_hypothesis": "Add an ADX / regime entry gate (skip entries when ADX < ~threshold or detected regime = chop), mirroring the live trend_donchian long-only + regime-router treatment, then re-run the k-fold. If the recent losing fold turns flat/positive without killing the trending-regime edge, the cell advances toward live_money_ready. Secondary lever: a min_confidence floor sweep (the harness emits live-parity confidence; --confidence-sweep).",
+      "next_step": "Wire the family to bybit_1 DEMO (execution: live, demo-only) for decision/ML soak [Tier-3 PR], AND run the ADX/regime-gated re-sweep on the trainer; re-tier with classify_strategy_tier.py.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "SRQ-20260618-002",
+      "opened_at": "2026-06-18T07:30:00+00:00",
+      "opened_by": "claude (system-audit / strategy-expansion session)",
+      "source": "Same WS-C alt k-fold gate run as SRQ-20260618-001 (trainer-vm-diag #3936).",
+      "cell": "htf_pullback_2h on {ETHUSDT, ADAUSDT, SOLUSDT, XRPUSDT, AVAXUSDT}",
+      "family": "htf_pullback_trend_2h",
+      "tier": "paper_ready",
+      "gate_verdict": "FAIL (strict every-fold) — net-of-fee positive overall + 2x-fee headroom, fails only the every-fold gate on the recent fold. (eth_pullback_2h is already live on bybit_1 demo from the looser 3-fold WS-C adoption; the 5-fold gate is stricter and it does not clear it — informative, not a regression: it is demo-only.)",
+      "missed_live_because": "Same shape as the trend family — the pullback-continuation edge holds across the full window but the recent regime fold goes negative.",
+      "refinement_hypothesis": "Add an ADX/regime entry gate (pullback-continuation only in trending/transitional regimes, skip chop) + re-test; this is the exact router-policy treatment htf_pullback already has on BTC (long ON in trending/transitional, off in chop). Re-run the k-fold gated and re-tier.",
+      "next_step": "For the not-yet-wired symbols (SOL/ADA/XRP/AVAX): wire to bybit_1 DEMO for soak [Tier-3 PR]; run the regime-gated re-sweep. eth_pullback_2h: feed the same refinement.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "SRQ-20260618-003",
+      "opened_at": "2026-06-18T07:30:00+00:00",
+      "opened_by": "claude (system-audit / strategy-expansion session)",
+      "source": "Same WS-C alt k-fold gate run; ict_scalp 5m k-fold still executing at session time (multi-year 5m, slow — ADAUSDT in progress per trainer-vm-diag #3936).",
+      "cell": "ict_scalp_5m on {ADAUSDT, AVAXUSDT, ETHUSDT, LINKUSDT}",
+      "family": "ict_scalp_5m",
+      "tier": "pending_gate",
+      "gate_verdict": "PENDING — the multi-year 5m k-fold had not finished when this row was opened. ict_scalp is the highest decision-frequency family (300-1600 trades/window/symbol) so it is the most valuable soak candidate; it is also the most fee/slippage-sensitive on thin alt books (fine on demo, flag before any real-money step).",
+      "missed_live_because": "TBD — tier once the fold report lands.",
+      "refinement_hypothesis": "Tier with classify_strategy_tier.py when fold_ict_scalp_*.json exist. If paper_ready: wire to bybit_1 demo (highest soak value). If a fold fails on a specific regime/session, test a session/killzone filter (the strategy already has session_filter_enabled) or an HTF-bias tightening.",
+      "next_step": "Run classify_strategy_tier.py over results/m15_ws_c_kfold/fold_ict_scalp_*.json once the sweep COMPLETEs; update this row's tier + verdict.",
+      "status": "open",
+      "snoozed_until": null
+    }
+  ]
+}

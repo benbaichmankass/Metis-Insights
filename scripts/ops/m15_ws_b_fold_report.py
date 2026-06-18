@@ -154,6 +154,16 @@ def main(argv):
         "gate_2x_fee_headroom": headroom_ok,
         "verdict": "PASS" if (all_pos and headroom_ok) else "FAIL",
     }
+    # Readiness tier (reject / paper_ready / live_money_ready) so the gate stops
+    # discarding genuine-but-not-yet-robust edges — docs/strategy-readiness-ladder.md.
+    try:
+        import os as _os
+        import sys as _sys
+        _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+        from classify_strategy_tier import classify_tier as _classify_tier
+        out["tier"] = _classify_tier(out)["tier"]
+    except Exception:  # never let tiering break the report
+        pass
     text = json.dumps(out, indent=2)
     print(text)
     if a.json_out:
