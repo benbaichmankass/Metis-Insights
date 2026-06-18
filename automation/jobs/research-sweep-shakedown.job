@@ -1,0 +1,21 @@
+TARGET=trainer
+---
+set -uo pipefail
+cd ~/ict-trading-bot
+git fetch -q origin claude/ict-strategy-expansion-awpv8x 2>&1 | tail -1
+for f in scripts/ops/research_sweep.py config/research/studies/eth_pullback_adx.yaml \
+         scripts/ops/classify_strategy_tier.py scripts/ops/m15_ws_b_fold_report.py \
+         scripts/backtest_pullback.py; do
+  git checkout origin/claude/ict-strategy-expansion-awpv8x -- "$f" 2>/dev/null || echo "checkout missed $f"
+done
+PY=""
+for c in .venv/bin/python venv/bin/python "$(command -v python3)"; do
+  [ -n "$c" ] && [ -x "$c" ] && "$c" -c "import pandas,numpy,yaml" 2>/dev/null && { PY="$c"; break; }
+done
+[ -z "$PY" ] && { echo NO_PY; exit 0; }
+echo "PY=$PY"
+ls -la data/ETHUSDT_15m.csv 2>&1 | head -1
+echo "=== research_sweep shakedown: eth_pullback_adx ==="
+"$PY" scripts/ops/research_sweep.py --study config/research/studies/eth_pullback_adx.yaml \
+  --out results/studies/eth_pullback_adx 2>&1
+echo "RESEARCH_SWEEP_DONE"
