@@ -46,3 +46,16 @@ docs/research/recombination-sweep-2026-06-18.md (sweep + OOP holdout + mgc real-
 - [x] Tier-3 changes proposed via draft PR #3962, not merged without approval.
 - [x] Tests + ruff + YAML validated locally.
 - [x] Recorded in ROADMAP + this sprint log.
+
+## Addendum — eth_pullback_2h promoted to bybit_2 REAL MONEY (operator-directed, PR #3963)
+Same day, the operator reversed the bybit_2 hold and directed putting eth_pullback_2h
+live on **bybit_2 (real money)** as a deliberate live test ("bybit_2 is a test account;
+I want to see how ETH performs there") — explicitly accepting the override of the
+paper-first / account_compat gate. Change: add `eth_pullback_2h` to `bybit_2.strategies`
++ `ETHUSDT` to `bybit_2.symbols` (config/accounts.yaml); same ADX≥25-gated config as
+bybit_1. Wiring test updated (now asserts present on both accounts).
+**Caveats (operator eyes-open):** ETH ~0.7-0.9 BTC-correlated (correlated real-money
+exposure, not diversification); no prior real-money track record; account_compat_matrix
+not run (BTC/ROSTER-centric). Governed by bybit_2 caps (1% risk, 5% daily-loss, 3x).
+ROLLBACK: remove from bybit_2.strategies. #3962 (mgc demote + bybit_1 ADX gate) merged;
+#3963 (bybit_2 real-money) pending operator merge.
