@@ -1,0 +1,42 @@
+# Study spec — ETH pullback ADX (research_sweep v1 shakedown), 2026-06-18.
+# RESEARCH-ONLY, Tier-1. Read by scripts/ops/research_sweep.py; touches nothing live.
+#
+# Purpose: validate the research framework's sweep + ablation against a KNOWN answer.
+# The recombination sweep + out-of-pool holdout already established that ADX>=25 lifts
+# eth_pullback from paper_ready (+59.0R) to live_ready (+63.1R). This study should
+# reproduce that: the leaderboard ranks the adx variants, and the regime_gate ablation
+# Δ should be ~+4R (base adx25 live_ready − ablated no-adx paper_ready).
+#
+# base.args = the LIVE eth_pullback_2h config (== harness defaults) + adx-min 25
+# (the merged refinement). Keys are the harness CLI flag names (kebab-case).
+schema_version: 1
+name: eth_pullback_adx
+harness: backtest_pullback.py
+
+base:
+  data: data/ETHUSDT_15m.csv     # trainer-side; resampled to 2h
+  resample: 2h
+  symbol: ETHUSDT
+  args:
+    trend-lookback: 40
+    pullback-lookback: 10
+    pullback-frac: 0.5
+    atr-stop-mult: 2.5
+    trail-mult: 5.0
+    adx-min: 25
+    min-confidence: 0.0
+
+# Variation matrix — each a delta vs base.args (drop: remove flags / set: override).
+variants:
+  - {name: adx_none,  drop: [adx-min]}
+  - {name: adx20,     set: {adx-min: 20}}
+  - {name: adx30,     set: {adx-min: 30}}
+  - {name: trail3,    set: {trail-mult: 3.0}}
+  - {name: trail3_adx25, set: {trail-mult: 3.0, adx-min: 25}}
+
+# Ablations — component toggled OFF; Δ-vs-base reported (how much the component adds).
+ablations:
+  - {name: regime_gate, drop: [adx-min, adx-max]}
+
+kfold: {folds: 5, train_frac: 0.4, wf_end: "2026-06-11"}
+fees:  {base_bps: 7.5, double_bps: 15.0}

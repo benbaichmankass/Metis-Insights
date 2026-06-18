@@ -1,0 +1,26 @@
+# job=research-sweep-shakedown target=trainer ip=158.178.209.121 started=2026-06-18T20:24:44Z
+PY=.venv/bin/python
+-rw-rw-r-- 1 ubuntu ubuntu 11961474 Jun 18 06:26 data/ETHUSDT_15m.csv
+=== research_sweep shakedown: eth_pullback_adx ===
+=== [1/7] base:base ===
+=== [2/7] variant:adx_none ===
+=== [3/7] variant:adx20 ===
+=== [4/7] variant:adx30 ===
+=== [5/7] variant:trail3 ===
+=== [6/7] variant:trail3_adx25 ===
+=== [7/7] ablation:regime_gate ===
+
+# study 'eth_pullback_adx' — 7/7 runs -> results/studies/eth_pullback_adx/summary.json
+kind       name                   tier               net        2x  folds+
+base       base                   live_ready       63.11     59.54    True
+variant    adx20                  paper_ready      62.70     58.57   False
+variant    adx_none               paper_ready      59.03     54.22   False
+ablation   regime_gate            paper_ready      59.03     54.22   False
+variant    adx30                  paper_ready      25.14     22.63   False
+variant    trail3                 paper_ready       8.52      3.73   False
+variant    trail3_adx25           paper_ready       8.52      3.73   False
+
+# ATTRIBUTION (Δnet_r = base − ablated; +ve = component helps):
+  regime_gate            Δ=   +4.08R  (base 63.1082 [live_ready] → ablated 59.032 [paper_ready])
+RESEARCH_SWEEP_DONE
+# exit=0 finished=2026-06-18T20:25:23Z
