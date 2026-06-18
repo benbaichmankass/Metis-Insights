@@ -1,0 +1,42 @@
+# job=xa-eth-direction target=trainer ip=158.178.209.121 started=2026-06-18T21:18:13Z
+===== sync branch into a throwaway worktree =====
+From https://github.com/benbaichmankass/ict-trading-bot
+ * branch              claude/ict-strategy-expansion-awpv8x -> FETCH_HEAD
+   ef0326fc..c9f05e35  claude/ict-strategy-expansion-awpv8x -> origin/claude/ict-strategy-expansion-awpv8x
+Preparing worktree (detached HEAD c9f05e35)
+HEAD is now at c9f05e35 vm-driver: directional ETH cross-asset A/B (base/full/lean, purged-WF-CV)
+c9f05e35 vm-driver: directional ETH cross-asset A/B (base/full/lean, purged-WF-CV)
+===== rebuild market_features at v9 (adds direction_label) =====
+wrote dataset under /tmp/xa-data/datasets-out/market_features/ETHUSDT/1h/v001
+--- direction_label class balance ---
+{'up': 22110, 'down': 21662, 'flat': 28}
+===== generate direction manifests (purged-WF-CV) + a lean variant =====
+wrote base(own)/xasset(full)/lean(SOL+relstr+beta)
+===== train all three under purged-WF-CV =====
+--- eth-dir-base ---
+  accuracy=0.5056 f1_down=0.4955 f1_up=0.5151 macro_f1=0.3369 n_eval=21900.0000 n_folds=5.0000 precision_down=0.4988 precision_up=0.5126 recall_down=0.4931 recall_up=0.5185 weighted_f1=0.5053
+--- eth-dir-xasset ---
+  accuracy=0.5153 f1_down=0.5061 f1_up=0.5233 macro_f1=0.3431 n_eval=21900.0000 n_folds=5.0000 precision_down=0.5092 precision_up=0.5226 recall_down=0.5054 recall_up=0.5264 weighted_f1=0.5145
+--- eth-dir-lean ---
+  accuracy=0.5112 f1_down=0.4958 f1_up=0.5246 macro_f1=0.3401 n_eval=21900.0000 n_folds=5.0000 precision_down=0.5048 precision_up=0.5185 recall_down=0.4898 recall_up=0.5336 weighted_f1=0.5101
+===== compare base vs xasset (delta = xasset - base) =====
+  accuracy         base=0.5056 xa=0.5153 delta=+0.0097
+  f1_down          base=0.4955 xa=0.5061 delta=+0.0105
+  f1_flat          base=0.0000 xa=0.0000 delta=+0.0000
+  f1_up            base=0.5151 xa=0.5233 delta=+0.0082
+  macro_f1         base=0.3369 xa=0.3431 delta=+0.0063
+  n_eval           base=21900.0000 xa=21900.0000 delta=+0.0000
+  n_folds          base=5.0000 xa=5.0000 delta=+0.0000
+  n_train_final    base=43800.0000 xa=43800.0000 delta=+0.0000
+  precision_down   base=0.4988 xa=0.5092 delta=+0.0104
+  precision_flat   base=0.0000 xa=0.0000 delta=+0.0000
+  precision_up     base=0.5126 xa=0.5226 delta=+0.0100
+  recall_down      base=0.4931 xa=0.5054 delta=+0.0123
+  recall_flat      base=0.0000 xa=0.0000 delta=+0.0000
+  recall_up        base=0.5185 xa=0.5264 delta=+0.0079
+  support_down     base=10790.0000 xa=10790.0000 delta=+0.0000
+  support_flat     base=4.0000 xa=4.0000 delta=+0.0000
+  support_up       base=11106.0000 xa=11106.0000 delta=+0.0000
+  weighted_f1      base=0.5053 xa=0.5145 delta=+0.0092
+===== done =====
+# exit=0 finished=2026-06-18T21:19:53Z
