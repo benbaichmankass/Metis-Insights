@@ -29,7 +29,7 @@ name: vm-driver
 
 on:
   push:
-    branches: [claude/system-audit-strategy-ml-srcwda]
+    branches: ['claude/**']
     paths: ['automation/jobs/**']
 
 permissions:
