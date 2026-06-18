@@ -3,6 +3,26 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "PB-20260617-002",
+      "opened_at": "2026-06-17T22:00:00+00:00",
+      "opened_by": "claude (S-DTP-EXITPLAN-2026-06-17)",
+      "source": "Dynamic-take-profit consistency ExitPlan layer P1-P3 + watcher endpoint shipped observe-only (PRs #3920/#3921/#3922/#3923, main @ 2ebd035). The exit-ladder soak (runtime_logs/exit_ladder_soak.jsonl, also at /api/bot/exit-ladder/soak) now records, per live executed order, the materialized laddered exit (partial-TP rungs + final + stop, sized to the real qty) vs the single SL/TP target actually placed. Nothing reads it back yet.",
+      "title": "Graduate the ExitPlan ladder to the real exit (P4 API / P3-live prop) once the soak has accrued enough evidence",
+      "description": "P4 is the behavior-changing, Tier-3, backtest-gated step: make the materialized ladder the ACTUAL exit (rest the partial-TP rungs + trail on the broker for API accounts; emit a laddered prop ticket for Breakout) instead of the single SL/TP target. BEFORE proposing it: (1) confirm via diag (log_file?name=exit_ladder_soak) that the soak is actually accruing on the live VM; (2) characterize laddered-vs-single across strategies/symbols from the soak (how often it differs, where the ladder would have banked partials vs the single TP); (3) run the standalone backtest harness before/after on the same history (win rate, expectancy, PnL, hold time, TP-reach / partial-fill distribution) + a fresh scripts/prop/account_compat_matrix.py PASS for prop. Attach that evidence to the Tier-3 PR. Also: P4 must add the ARCHITECTURE-CANONICAL change-log row this feature deliberately skipped while observe-only. Do NOT propose until the soak window is meaningful.",
+      "tier": 3,
+      "trigger_condition": "exit_ladder_soak accrues a meaningful window of live API records (e.g. >=30 with differs_from_single_target=true across >=2 strategies), AND the live-VM accrual is diag-confirmed.",
+      "resolution_criteria": "A Tier-3 PR proposes graduating the materialized ladder to the real exit for a named venue/strategy set, citing the soak distribution + before/after backtest evidence (+ account_compat_matrix PASS for prop), with the ARCHITECTURE-CANONICAL row added.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-06-17T22:00:00+00:00",
+          "by": "claude (S-DTP-EXITPLAN-2026-06-17)",
+          "note": "Open follow-ups at session close: (a) live-VM accrual of exit_ladder_soak.jsonl is UNVERIFIED -- first task next session is to diag-confirm it populates after the next live opening order; (b) dashboard PR ict-trader-dashboard#107 (Exit Ladder tab) is DRAFT pending operator preview on the preview app -- merge to production only after approval; (c) P5 empirical reach-distribution feed for exit_plan_realism is deferred."
+        }
+      ]
+    },
+    {
       "id": "PB-20260614-001",
       "opened_at": "2026-06-14T09:30:00+00:00",
       "opened_by": "claude (/performance-review 2026-06-14)",
