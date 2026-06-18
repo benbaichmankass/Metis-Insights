@@ -1,0 +1,6 @@
+# Diversified paper-book tracker — append-only snapshot history (one JSON/line).
+# Written by scripts/ops/paper_book_tracker.py, reviewed by /performance-review.
+# Cohort: config/research/diversified_paper_book.yaml (10 alt cells on bybit_1 paper).
+# Purpose: watch the live paper trajectory for alpha-decay vs noise after the
+# 2026-06-18 robustness bank (the 2026-YTD-flat blemish). Lines starting with #
+# are ignored by the tracker's "previous snapshot" read.
