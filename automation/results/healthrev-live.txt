@@ -1,0 +1,25 @@
+# job=healthrev-live target=live ip=141.145.193.91 started=2026-06-18T13:06:55Z
+=== host / uptime ===
+ict-bot-arm
+ 13:06:57 up 4 days,  1:33,  0 users,  load average: 0.11, 0.17, 0.17
+=== systemctl is-active/enabled (bot units) ===
+ict-trader-live.service            active / enabled
+ict-web-api.service                active / enabled
+ict-liveness-watchdog.timer        active / enabled
+ict-git-sync.timer                 active / enabled
+ict-ib-gateway-watchdog.timer      inactive / masked
+=== heartbeat mtime ===
+/data/bot-data/runtime_logs/heartbeat.txt age=43s
+/home/ubuntu/ict-trading-bot/runtime_logs/heartbeat.txt age=342675s
+=== DB ===
+-rw-r--r-- 1 ubuntu ubuntu 189046784 Jun 18 13:06 /data/bot-data/trade_journal.db
+=== RECONCILER DOUBLE-ADOPTION: adopted_orphan rows grouped by order_package (last 3d, n>1) ===
+bash: line 13: sqlite3: command not found
+=== is re-adopt churn STILL happening? (journal last 12h) ===
+(journalctl unavailable)
+=== open trades by account ===
+bash: line 17: sqlite3: command not found
+=== pipeline alive: signal_audit tail ===
+{"event": "trend_donchian_sol_eval", "strategy": "trend_donchian_sol", "symbol": "SOLUSDT", "timeframe": "1h", "side": "none", "reason": "Strategy 'trend_donchian': no breakout on 
+{"event": "trend_donchian_sol_4h_eval", "strategy": "trend_donchian_sol_4h", "symbol": "SOLUSDT", "timeframe": "4h", "side": "none", "reason": "Strategy 'trend_donchian': no breako
+# exit=0 finished=2026-06-18T13:06:58Z
