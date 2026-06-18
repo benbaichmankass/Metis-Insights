@@ -50,14 +50,16 @@
           "outcome": "BREAKTHROUGH (with overfit caveat): 4 of 10 cells reach a clean every-fold pass (live_ready) at a PER-CELL tuned ADX threshold — pullback_ETH@25 (+63.1R), pullback_ADA@30 (+60.9R), pullback_SOL@15 (+43.8R), trend_XRP@15 (+40.5R). Optimal threshold differs per cell, confirming a single global gate is wrong but per-cell regime gating graduates ~40% of the book. Other 6 stay paper_ready.",
           "caveat": "Thresholds were SELECTED on the same k-fold (best of 15/20/25/30 per cell) — mild in-sample-selection/overfit risk. These are live_ready CANDIDATES, not auto-promote.",
           "next": "Out-of-pool HOLDOUT before any real-money (Tier-3) proposal: re-test each candidate's tuned threshold on a withheld period (e.g. 2026 H2 as it accrues) and/or a held-out symbol, to confirm the tuned ADX generalizes. If it holds → Tier-3 demo→bybit_2 promotion proposal per cell with the tuned adx_min. The 6 non-graduating cells continue demo soak / try the exit-manager or confidence-floor axes."
+        },
+        {
+          "at": "2026-06-18T13:43:00+00:00",
+          "by": "ADX holdout/overfit check (vm-driver)",
+          "outcome": "ALL 4 live_ready candidates FAIL the holdout -> they were in-sample artifacts, NOT robust. The every-fold-positive 'pass' holds ONLY at the exact 5-fold/0.40 split and breaks at k=6, k=7, train_frac 0.35/0.45 (1/5 fold-configs pass for every candidate). Threshold-band plateau was mixed (ETH 5/5 robust, SOL knife-edge 1/5). Net: NONE qualifies for a real-money (Tier-3) promotion.",
+          "decision": "REJECT all 4 as live_ready. They remain genuinely paper_ready (net-of-fee positive + 2x headroom across the FULL window is robust) and stay on bybit_1 demo soak. The holdout did its job: caught the overfit before any capital was risked.",
+          "methodology_followup": "The classify_strategy_tier 'live_ready' gate (every fold positive at ONE k-fold config) is too weak — single-split every-fold pass is overfit-prone. Strengthen it to require robustness across multiple fold-configs (e.g. pass at k=5/6/7 AND train_frac 0.35-0.45) before stamping live_ready. Logged as a tooling follow-up.",
+          "next_refinement": "Backtest threshold-tuning has hit diminishing returns on these cells (further tuning just overfits). Better levers: (a) the exit-manager axis (SRQ-003 style) or a softer regime-WEIGHT (DESIGN phase 3+) rather than a hard gate; (b) let TIME + the live demo soak accrue real out-of-sample decisions be the arbiter rather than more in-sample backtests."
         }
-      ],
-      "live_ready_candidates": {
-        "trend_XRPUSDT": {
-          "adx_min": 15,
-          "net_r": 40.5
-        }
-      }
+      ]
     },
     {
       "id": "SRQ-20260618-002",
@@ -105,22 +107,16 @@
           "outcome": "BREAKTHROUGH (with overfit caveat): 4 of 10 cells reach a clean every-fold pass (live_ready) at a PER-CELL tuned ADX threshold — pullback_ETH@25 (+63.1R), pullback_ADA@30 (+60.9R), pullback_SOL@15 (+43.8R), trend_XRP@15 (+40.5R). Optimal threshold differs per cell, confirming a single global gate is wrong but per-cell regime gating graduates ~40% of the book. Other 6 stay paper_ready.",
           "caveat": "Thresholds were SELECTED on the same k-fold (best of 15/20/25/30 per cell) — mild in-sample-selection/overfit risk. These are live_ready CANDIDATES, not auto-promote.",
           "next": "Out-of-pool HOLDOUT before any real-money (Tier-3) proposal: re-test each candidate's tuned threshold on a withheld period (e.g. 2026 H2 as it accrues) and/or a held-out symbol, to confirm the tuned ADX generalizes. If it holds → Tier-3 demo→bybit_2 promotion proposal per cell with the tuned adx_min. The 6 non-graduating cells continue demo soak / try the exit-manager or confidence-floor axes."
-        }
-      ],
-      "live_ready_candidates": {
-        "pullback_ETHUSDT": {
-          "adx_min": 25,
-          "net_r": 63.1
         },
-        "pullback_ADAUSDT": {
-          "adx_min": 30,
-          "net_r": 60.9
-        },
-        "pullback_SOLUSDT": {
-          "adx_min": 15,
-          "net_r": 43.8
+        {
+          "at": "2026-06-18T13:43:00+00:00",
+          "by": "ADX holdout/overfit check (vm-driver)",
+          "outcome": "ALL 4 live_ready candidates FAIL the holdout -> they were in-sample artifacts, NOT robust. The every-fold-positive 'pass' holds ONLY at the exact 5-fold/0.40 split and breaks at k=6, k=7, train_frac 0.35/0.45 (1/5 fold-configs pass for every candidate). Threshold-band plateau was mixed (ETH 5/5 robust, SOL knife-edge 1/5). Net: NONE qualifies for a real-money (Tier-3) promotion.",
+          "decision": "REJECT all 4 as live_ready. They remain genuinely paper_ready (net-of-fee positive + 2x headroom across the FULL window is robust) and stay on bybit_1 demo soak. The holdout did its job: caught the overfit before any capital was risked.",
+          "methodology_followup": "The classify_strategy_tier 'live_ready' gate (every fold positive at ONE k-fold config) is too weak — single-split every-fold pass is overfit-prone. Strengthen it to require robustness across multiple fold-configs (e.g. pass at k=5/6/7 AND train_frac 0.35-0.45) before stamping live_ready. Logged as a tooling follow-up.",
+          "next_refinement": "Backtest threshold-tuning has hit diminishing returns on these cells (further tuning just overfits). Better levers: (a) the exit-manager axis (SRQ-003 style) or a softer regime-WEIGHT (DESIGN phase 3+) rather than a hard gate; (b) let TIME + the live demo soak accrue real out-of-sample decisions be the arbiter rather than more in-sample backtests."
         }
-      }
+      ]
     },
     {
       "id": "SRQ-20260618-003",
@@ -165,5 +161,5 @@
       ]
     }
   ],
-  "updated_at": "2026-06-18T13:33:00+00:00"
+  "updated_at": "2026-06-18T13:43:00+00:00"
 }
