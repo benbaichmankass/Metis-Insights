@@ -1,0 +1,84 @@
+# Baseline LightGBM regime classifier — ETHUSDT @ 1h (S-CROSS-ASSET-PROBE).
+#
+# The BASE leg of the cross-asset feature probe: the proven v2 LightGBM regime
+# recipe (identical to btc-regime-1h-lgbm-v2) ported to ETHUSDT 1h, with NO
+# cross-asset features. Its only purpose is to be the clean control in the A/B
+# against `eth-regime-1h-lgbm-xasset-v1` — same trainer, split, weighting, frozen
+# regime spec, and SAME market_features dataset (built WITH a cross_asset
+# side-stream); the ONLY moving part between the two is whether the
+# `xa_peer{1,2}_*` + `xa_breadth_up` columns appear in `feature_columns`.
+#
+# Build the ETHUSDT 1h market_features WITH a cross_asset side-stream first
+# (trainer VM) so both legs read it; the base leg simply ignores the extra cols:
+#   python -m scripts.ml.build_cross_asset \
+#     --target datasets-out/market_raw/ETHUSDT/1h/v002 \
+#     --peer datasets-out/market_raw/BTCUSDT/1h/v002 \
+#     --peer datasets-out/market_raw/SOLUSDT/1h/v002 \
+#     --out datasets-out/cross_asset/ETHUSDT/1h/v001
+#   python -m ml build-dataset market_features --output-dir datasets-out \
+#     --version v001 --source datasets-out/market_raw/ETHUSDT/1h/v002 \
+#     --symbol-scope ETHUSDT --timeframe 1h --overwrite \
+#     market_raw_path=datasets-out/market_raw/ETHUSDT/1h/v002 \
+#     cross_asset_path=datasets-out/cross_asset/ETHUSDT/1h/v001 \
+#     vol_window_n=20 forward_window_m=5
+# then run the A/B:
+#   python -m ml compare eth-regime-1h-lgbm-v1 eth-regime-1h-lgbm-xasset-v1
+#
+# TIER: adopting / promoting this manifest past `research_only` is Tier-3
+# (operator-gated). Ships at `research_only` — a pure eval control.
+
+manifest_version: v1
+model_id: eth-regime-1h-lgbm-v1
+description: "Baseline LightGBM regime classifier for ETHUSDT 1h (range vs volatile from continuous vol + log-return features) — the no-cross-asset control for the S-CROSS-ASSET-PROBE A/B."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  sample_weight:
+    half_life_days: 90
+    time_column: ts
+  class_weight:
+    range: 1.0
+    volatile: 4.0
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: ETHUSDT
+  timeframe: 1h
+  version: v001
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  S-CROSS-ASSET-PROBE base leg. Identical to btc-regime-1h-lgbm-v2 except the
+  symbol (ETHUSDT) and the dataset version. Pair with
+  eth-regime-1h-lgbm-xasset-v1 (same dataset, same split) and read the
+  f1_volatile / accuracy delta under the time-aware holdout. Leakage gate forbids
+  forward_log_return / forward_log_return_vol / regime_label.
