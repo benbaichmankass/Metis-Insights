@@ -1,0 +1,91 @@
+# Cross-asset directional classifier — ETHUSDT @ 1h (S-CROSS-ASSET-PROBE step 3).
+#
+# The TREATMENT leg of the DIRECTIONAL cross-asset probe. Identical to the base
+# `eth-direction-1h-lgbm-v1` EXCEPT the added peer-asset feature group (BTC/SOL
+# co-movement, lead-lag, relative strength, rolling beta + idiosyncratic residual,
+# breadth). The regime-proxy probe (S-CROSS-ASSET-PROBE step 1) confirmed peer
+# features lift an ETH STATE head leak-free; this asks the decision-relevant
+# question: do they help predict ETH's forward DIRECTION? The step-1 ablation said
+# SOL + relative-strength + beta carry the edge and lead-lag is near-worthless —
+# this leg keeps the FULL block so a follow-up ablation can re-confirm that on the
+# directional target.
+#
+# Requires the ETHUSDT 1h market_features rebuilt on builder_version v9 (adds
+# direction_label) WITH a cross_asset side-stream (see eth-regime-1h-lgbm-v1 for
+# the build). Run the A/B with:
+#   python -m ml compare eth-direction-1h-lgbm-v1 eth-direction-1h-lgbm-xasset-v1
+# and read the accuracy / macro_f1 delta under the Phase-0 purged-WF-CV.
+#
+# TIER: adopting / promoting past `research_only` is Tier-3 (operator-gated).
+# Ships at `research_only` — a pure eval candidate.
+
+manifest_version: v1
+model_id: eth-direction-1h-lgbm-xasset-v1
+description: "Cross-asset directional classifier for ETHUSDT 1h (up/down forward sign) — adds the peer-asset feature group (BTC/SOL co-movement, lead-lag, relative strength, rolling beta + residual, breadth) to the v1 head. A/B vs eth-direction-1h-lgbm-v1 (S-CROSS-ASSET-PROBE step 3)."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: direction_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+    # Cross-asset / peer-asset conditioning (S-CROSS-ASSET-PROBE) — the only
+    # change vs eth-direction-1h-lgbm-v1.
+    - xa_peer1_ret
+    - xa_peer1_ret_lag1
+    - xa_peer1_vol
+    - xa_peer1_rel_strength
+    - xa_peer1_beta
+    - xa_peer1_beta_residual
+    - xa_peer2_ret
+    - xa_peer2_ret_lag1
+    - xa_peer2_vol
+    - xa_peer2_rel_strength
+    - xa_peer2_beta
+    - xa_peer2_beta_residual
+    - xa_breadth_up
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  forbidden_features:
+    - forward_log_return
+    - forward_log_return_vol
+    - regime_label
+    - trend_regime_label
+    - direction_label
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: ETHUSDT
+  timeframe: 1h
+  version: v001
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: direction_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  S-CROSS-ASSET-PROBE step 3 treatment leg. Clean A/B vs eth-direction-1h-lgbm-v1:
+  identical trainer, split, dataset — the ONLY change is the added cross-asset
+  feature group. Directional edge on a 5-bar forward sign is thin; a small but
+  leak-free accuracy/macro_f1 lift over the own-features base IS the tradeable
+  signal (sized appropriately). If positive under purged-WF-CV → ablate on the
+  directional target (expect SOL+rel_strength+beta to dominate) and propose a
+  Tier-3 cross-asset wire. If flat → honest negative: peer info conditions ETH's
+  vol regime but not its direction at this horizon; log it and move on.

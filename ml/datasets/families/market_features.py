@@ -97,6 +97,7 @@ Knobs (all kwargs):
 | `forward_log_return_vol` | float | stdev of `log_return` over `[t + 1 .. t + forward_window_m]` (strictly after `t`). |
 | `regime_label` | str | One of `"range"`, `"volatile"` — derived from forward stats (2-class since S-ML-REGIME-CLASSIFIER-FIX). |
 | `trend_regime_label` | str | One of `"chop"`, `"transitional"`, `"trending"` — the **trend**-axis label (S-MLOPT-S15) from the Kaufman efficiency ratio of the forward window `[t+1 .. t+forward_window_m]`. The taxonomy the regime-router policy table keys on; target for the phase-4 trend-detector model. |
+| `direction_label` | str | One of `"up"`, `"down"`, (`"flat"` only when `direction_threshold>0`) — the **directional** label (S-CROSS-ASSET-PROBE step 3): sign of `forward_log_return` over `[t+1 .. t+forward_window_m]`, with an optional `direction_threshold` dead-band. Forward-only (never a feature); leak-safe by the same window separation as `regime_label`. Target for the directional cross-asset A/B. |
 | `source` | str | Copied from `market_raw` (the upstream adapter name). |
 
 ## Leakage discipline
@@ -340,11 +341,14 @@ class MarketFeaturesBuilder(DatasetBuilder):
     # cross-asset / peer-asset conditioning features (xa_peer{1,2}_* + breadth)
     # for the "does peer-asset info predict this asset?" A/B (ETH ← BTC/SOL) —
     # populated from the optional `cross_asset_path` side-stream (computed at the
-    # target's bar cadence, past-only), 0.0 when it is absent. Earlier baselines
-    # that only read `vol_bucket` / `rolling_log_return_vol` are unaffected by the
-    # wider schema; builder_version is metadata-only (it does not gate dataset
-    # path resolution).
-    builder_version: ClassVar[str] = "v8"
+    # target's bar cadence, past-only), 0.0 when it is absent. v9
+    # (S-CROSS-ASSET-PROBE step 3): adds the directional forward label
+    # `direction_label` (sign of forward_log_return, optional dead-band) — a
+    # forward-only label like regime_label, target for the directional A/B.
+    # Earlier baselines that only read `vol_bucket` / `rolling_log_return_vol`
+    # are unaffected by the wider schema; builder_version is metadata-only (it
+    # does not gate dataset path resolution).
+    builder_version: ClassVar[str] = "v9"
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.PASSED
     label_version: ClassVar[str] = "regime-3class-v1"
     schema: ClassVar[Mapping[str, type]] = {
@@ -412,6 +416,11 @@ class MarketFeaturesBuilder(DatasetBuilder):
         "forward_log_return_vol": float,
         "regime_label": str,
         "trend_regime_label": str,
+        # Directional forward label (S-CROSS-ASSET-PROBE step 3): sign of
+        # forward_log_return with an optional dead-band. Forward-only label —
+        # never a feature; leak-safe by the same window separation as
+        # regime_label.
+        "direction_label": str,
         "source": str,
     }
 
@@ -423,6 +432,7 @@ class MarketFeaturesBuilder(DatasetBuilder):
         forward_window_m: int = 5,
         vol_threshold: float = 0.003,
         trend_threshold: float = 0.005,
+        direction_threshold: float = 0.0,
         trend_chop_max: float = 0.30,
         trend_trend_min: float = 0.55,
         n_vol_buckets: int = 3,
@@ -706,5 +716,10 @@ class MarketFeaturesBuilder(DatasetBuilder):
                     vol_threshold=vol_threshold,
                 ),
                 "trend_regime_label": forward_trend_labels[i] or "chop",
+                "direction_label": (
+                    "up" if forward_lr > direction_threshold
+                    else "down" if forward_lr < -direction_threshold
+                    else "flat"
+                ),
                 "source": str(rows[i].get("source", "")),
             }

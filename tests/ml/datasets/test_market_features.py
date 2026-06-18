@@ -430,10 +430,11 @@ class TestV2FeatureExpansion:
                 abs_tol=1e-12,
             )
 
-    def test_builder_version_is_v8(self):
+    def test_builder_version_is_v9(self):
         # v6 -> v7: S-MLOPT-S15 added the trend_regime_label column.
         # v7 -> v8: S-CROSS-ASSET-PROBE added the xa_peer{1,2}_* + breadth columns.
-        assert MarketFeaturesBuilder.builder_version == "v8"
+        # v8 -> v9: S-CROSS-ASSET-PROBE step 3 added the direction_label column.
+        assert MarketFeaturesBuilder.builder_version == "v9"
 
 
 class TestRangeVolEstimators:
@@ -749,6 +750,41 @@ def _stage_cross_asset(
     (root / "data.jsonl").write_text(
         "\n".join(json.dumps(r) for r in rows), encoding="utf-8")
     return root
+
+
+class TestDirectionLabel:
+    """S-CROSS-ASSET-PROBE step 3: directional forward label."""
+
+    def test_binary_up_down_sign_default(self, tmp_path: Path):
+        # Monotonic-up closes → forward return > 0 → every label "up".
+        market_raw = _stage_market_raw(
+            tmp_path, closes=[100.0 + i for i in range(60)])
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5))
+        assert rows
+        assert all(r["direction_label"] == "up" for r in rows)
+        assert all("direction_label" in r for r in rows)
+
+    def test_down_when_falling(self, tmp_path: Path):
+        market_raw = _stage_market_raw(
+            tmp_path, closes=[200.0 - i for i in range(60)])
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5))
+        assert rows
+        assert all(r["direction_label"] == "down" for r in rows)
+
+    def test_deadband_emits_flat(self, tmp_path: Path):
+        # A big dead-band swallows small moves into "flat".
+        market_raw = _stage_market_raw(
+            tmp_path, closes=[100.0 + (i % 2) * 0.01 for i in range(80)])
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            direction_threshold=0.5))
+        assert rows
+        assert any(r["direction_label"] == "flat" for r in rows)
+
+    def test_in_schema(self):
+        assert MarketFeaturesBuilder.schema["direction_label"] is str
 
 
 class TestCrossAssetFeatures:

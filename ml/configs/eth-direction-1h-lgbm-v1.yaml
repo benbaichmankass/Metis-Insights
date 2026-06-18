@@ -1,0 +1,67 @@
+# Baseline directional classifier — ETHUSDT @ 1h (S-CROSS-ASSET-PROBE step 3).
+#
+# The BASE leg of the DIRECTIONAL cross-asset probe: predicts ETH's forward
+# direction (`direction_label` = sign of forward_log_return over the next
+# forward_window_m bars) from ETH's OWN features only — no cross-asset block. The
+# control in the A/B against `eth-direction-1h-lgbm-xasset-v1`. This is the test
+# that maps to actual trading edge (vs the regime-proxy A/B): does peer-asset
+# information help predict where ETH GOES, not just its volatility state?
+#
+# Read the accuracy / macro_f1 lift vs the ~50% directional base rate, and the
+# delta vs the xasset leg, under the Phase-0 purged-WF-CV (the directional signal
+# in a 5-bar forward sign is thin, so corroborate leak-free, never on one split).
+#
+# TIER: adopting / promoting past `research_only` is Tier-3 (operator-gated).
+# Ships at `research_only` — a pure eval control.
+
+manifest_version: v1
+model_id: eth-direction-1h-lgbm-v1
+description: "Baseline directional classifier for ETHUSDT 1h (up/down sign of the forward return) from ETH's own features — the no-cross-asset control for the S-CROSS-ASSET-PROBE directional A/B."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: direction_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  forbidden_features:
+    - forward_log_return
+    - forward_log_return_vol
+    - regime_label
+    - trend_regime_label
+    - direction_label
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: ETHUSDT
+  timeframe: 1h
+  version: v001
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: direction_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  S-CROSS-ASSET-PROBE step 3 base leg. Pair with eth-direction-1h-lgbm-xasset-v1
+  (same dataset, same split) and read the accuracy / macro_f1 delta. Directional
+  edge on a 5-bar forward sign is inherently thin — the question is whether the
+  cross-asset block lifts it above the own-features base, leak-free.
