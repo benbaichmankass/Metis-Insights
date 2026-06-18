@@ -37,9 +37,8 @@ from ml.datasets.cross_asset_features import (
 
 def cross_asset_live_disabled() -> bool:
     """``CROSS_ASSET_LIVE_DISABLED`` truthy → skip live cross-asset features."""
-    return os.environ.get("CROSS_ASSET_LIVE_DISABLED", "").strip().lower() in (
-        "1", "true", "yes", "on",
-    )
+    raw = os.environ.get("CROSS_ASSET_LIVE_DISABLED", "").strip().lower()  # allow-silent: observe-only shadow-feature kill-switch, default-ON (inverse of the BUG-039 default-OFF capability gate); only conditions a shadow regime head's features, never the live/dry order path (RiskManager.dry_run stays the only execution switch)
+    return raw in ("1", "true", "yes", "on")
 
 
 # --------------------------------------------------------------------------- #
