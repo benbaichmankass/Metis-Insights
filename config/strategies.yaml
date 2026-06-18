@@ -1077,10 +1077,13 @@ strategies:
     model: null
     signal_prefixes: [mgc_trend]
     enabled: true
-    execution: live          # ib_paper is PAPER money — it EXECUTES (paper soak),
-                             # which is the point of a paper account. (Routing
-                             # a paper-only strategy as `shadow` would strand it,
-                             # per the MES incident — new-strategy skill rule 2.)
+    execution: shadow        # DEMOTED live -> shadow 2026-06-18 (Tier-3): net-negative
+                             # on BOTH the XAUUSD spot proxy (-50.7R) AND real GC=F 1h
+                             # (-15.5R, 2.4y) — see docs/research/recombination-sweep-2026-06-18.md
+                             # follow-up. A 1h donchian-trend on gold is far more chop-exposed
+                             # than the daily mgc_pullback_1d (+56R, robust) which stays the gold
+                             # sleeve. shadow keeps it LOGGING order packages (data) but sends no
+                             # paper order — it has no validated edge to soak. ROLLBACK: execution: live.
     risk_pct: 0.3            # conservative paper sizing (mirrors xauusd_trend_1h)
     timeframe: "1h"
     symbols:
