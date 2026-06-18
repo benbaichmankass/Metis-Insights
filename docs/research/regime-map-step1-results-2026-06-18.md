@@ -111,3 +111,78 @@ hard_sign config looked like a +44R train win).
 - **Methodology:** the existing `btc-regime` classifier predates the
   variation-matrix discipline; it should be re-validated the same way
   (matrix + train/holdout) before being trusted as a weighting input.
+
+---
+
+# Step 3 — bank the diversification win + family-level regime variant (2026-06-18)
+
+Two trainer runs on the cached 10-cell map (`results/m15_regime_map`), via
+`vm-driver` (`automation/results/portfolio-robust.txt`, `regime-family.txt`):
+
+1. `scripts/ops/portfolio_robustness.py` — multi-angle robustness of the
+   un-weighted book, the gate before it becomes a Tier-3 portfolio proposal.
+2. `scripts/ops/regime_weight_overlay.py --group family` — the fewer-parameter
+   regime-weight variant Step 2 flagged, vs the per-cell form, at both cutoffs.
+
+## 3a. Diversified book is robust on every axis except a flat 2026-YTD
+
+3,147 trades, **2021-03 .. 2026-06**. Full book **net +409.8R**, mean +0.130R,
+**Sharpe 4.03**, max drawdown 96.2R.
+
+| Robustness axis | Result | Pass? |
+|---|---|---|
+| Per-year net-R | 2022 +32 · 2023 +181 · 2024 +56 · 2025 +142 · **2026-YTD −1.7** (316 tr, mean −0.005R) | all but 2026-YTD |
+| Holdout sweep (5 cutoffs) | +341.7 / +196.0 / +198.3 / +140.0 / +123.4R — **all positive** | ✅ |
+| Leave-one-cell-out (10) | worst (pullback_ETHUSDT) still leaves **+341.2R**; all 10 positive | ✅ |
+| Leave-one-family-out | trend-only **+169.7R**, pullback-only **+240.1R** — both families independently strong | ✅ |
+| Added-cost headroom | breakeven **+0.130R/trade**; at +0.05R/trade extra cost still +252R | ✅ |
+| Block bootstrap (3000×, monthly) | **P(net>0)=0.984**, 5th-pct **+98.1R**, median 406.6R | ✅ |
+
+The tool's single composite flag reads **NOT fully robust** — but that is driven
+**entirely** by the `all_years_positive` check failing on **2026-YTD = −1.7R**, a
+dead-flat partial year (mean −0.005R over 316 trades), not a losing one. Every
+other axis — cutoffs, per-cell, per-family, fees, bootstrap — passes strongly.
+
+**Honest read:** the diversified book is genuinely robust; the one blemish is
+that **2026-YTD is flat** while 2025 was strongly +142R. That is a real
+**watch-item** (early alpha decay vs partial-year noise — can't distinguish yet
+on 5.5 months) but does **not** sink the thesis. The win is bankable, with the
+2026 flatness called out as the thing to resolve before any real-money step.
+
+## 3b. Family-level weighting kills the overfit but is only a risk-adjusted wash
+
+`--group family` fits one weight per (family × regime-band) — ~2 params/band
+instead of one per (cell × band). The overfit signature **collapsed**:
+train→holdout degradation fell from the per-cell **0.30–0.76** to **0.08–0.31**
+(fewer parameters generalize, exactly as predicted).
+
+Best variant — **`adxvol / hard_sign / family`** (drop a family's net-negative
+regime bands only):
+
+| cutoff | baseline holdout | family hard_sign holdout | vs base | Sharpe (base→fam) | maxDD (base→fam) |
+|---|---|---|---|---|---|
+| 2025-01-01 | 140.0R | **157.2R** | **+17.2** | 2.33 → **2.91** | 27.3 → **19.7** |
+| 2024-07-01 | 198.3R | 185.7R | −12.6 | 2.96 → **3.05** | 24.3 → **20.1** |
+
+So on **net-R it's a wash** (+17 / −13 across the two cutoffs — does not reliably
+beat diversification), but it improves **Sharpe and lowers max-drawdown at both
+cutoffs**. Every other scheme (graded, winrate; per-cell anything) still loses
+OOS, often badly.
+
+**Verdict:** regime weighting still does **not** deliver a clear PnL win over the
+un-weighted book — diversification remains the edge. The family-level reductive
+`hard_sign` is the **only** variant that isn't a loser: net-neutral but
+risk-adjusted-better (higher Sharpe, ~25% lower drawdown). That makes it a
+legitimate **future soft-weight candidate** (Phase-4 of the regime router, as a
+drawdown-reducer rather than a return-enhancer) — but not something to promote
+now. The classifier-driven variant (`btc-regime-*`) stays on hold for a later
+session, to be validated under this same matrix discipline.
+
+## Where this lands
+
+- **Bank:** the diversified 10-cell un-weighted book is the realistic
+  overall-P&L-positive portfolio — robust across cutoffs, cells, families, fees,
+  and bootstrap. Watch-item: 2026-YTD is flat (resolve before a real-money step).
+- **Regime layer:** parked as a **drawdown-reduction** soft-weight idea (family
+  reductive hard_sign), not a return booster. Re-open with the classifier under
+  the matrix discipline in a dedicated session.
