@@ -48,14 +48,15 @@ def test_instrument_profile_routes_to_bybit():
     assert eth["quote_currency"] == "USDT"
 
 
-def test_routed_to_demo_only():
+def test_routed_to_bybit_1_and_2():
+    # 2026-06-18 (Tier-3, operator-directed): eth_pullback_2h PROMOTED to real-money
+    # bybit_2 as a deliberate live test ("bybit_2 is a test account; I want to see how
+    # ETH performs there"), running the same ADX>=25-gated config as the bybit_1 demo.
     accounts = yaml.safe_load(open("config/accounts.yaml"))["accounts"]
-    assert "eth_pullback_2h" in accounts["bybit_1"]["strategies"], \
-        "must run on bybit_1 (demo)"
-    assert "eth_pullback_2h" not in accounts["bybit_2"]["strategies"], \
-        "must NOT be on bybit_2 (real money) until promoted (Tier-3)"
+    assert "eth_pullback_2h" in accounts["bybit_1"]["strategies"], "runs on bybit_1 (demo)"
+    assert "eth_pullback_2h" in accounts["bybit_2"]["strategies"], "runs on bybit_2 (real-money test)"
     assert "ETHUSDT" in accounts["bybit_1"]["symbols"]
-    assert "ETHUSDT" not in accounts["bybit_2"]["symbols"]
+    assert "ETHUSDT" in accounts["bybit_2"]["symbols"]
 
 
 def test_registered_in_multiplexer_and_priorities():
