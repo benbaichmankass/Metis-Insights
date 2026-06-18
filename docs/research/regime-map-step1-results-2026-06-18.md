@@ -65,3 +65,49 @@ by its regime's sign/magnitude), run `scripts/backtest_system.py` un-weighted vs
 regime-weighted over a **train period**, and evaluate net PnL / drawdown /
 Sharpe on a **held-out period**. If the weighted book beats the un-weighted one
 out-of-sample, graduate toward the regime-router soft-weight phase.
+
+---
+
+# Step 2 results — regime-weight overlay MATRIX (2026-06-18)
+
+Tool: `scripts/ops/regime_weight_overlay.py`. Matrix `regime_def {adx, adxvol} x
+scheme {baseline, hard_sign, graded, winrate}`, weights **fit on train, scored
+on holdout**, at two cutoffs (2025-01-01, 2024-07-01). 3,147 trades across the
+10 cells.
+
+## Two findings
+
+**1. The un-weighted 10-cell portfolio is already robustly net-positive OOS:
+holdout +140.0R (cutoff 2025-01-01) / +198.3R (cutoff 2024-07-01).** This is the
+overall-P&L-positive book — achieved by *diversification* across 10 cells x 5
+symbols x 2 complementary families, NOT by regime weighting. None of these cells
+passes the every-fold gate standalone, yet the aggregate is strongly +OOS.
+
+**2. Regime weighting — in this per-(cell, regime-band) point-estimate form —
+does NOT beat the un-weighted baseline out-of-sample, at either cutoff.** Every
+scheme's holdout `vs base` is negative; the gating schemes show high
+train->holdout degradation (0.3-0.76) and several have HIGHER train net-R than
+baseline but LOWER holdout — the overfit signature. `hard_sign` came closest
+(~-19R, with lower drawdown — roughly a wash); `graded`/`winrate` over-zeroed.
+
+## Interpretation
+
+Step 1's regime concentration is real in-sample but **does not generalize via a
+naive per-cell-per-band weight** — it moves the overfit up a level (the DESIGN's
+named risk). The variation matrix is what caught it (a single in-sample
+hard_sign config looked like a +44R train win).
+
+## Where this leaves the initiative
+
+- **Banked win:** the diversified un-weighted alt book is the realistic
+  overall-P&L-positive portfolio. That stands on its own.
+- **Regime layer — not dead, but the bar is now "beat the already-strong
+  +140-198R OOS baseline."** The next variations to test (fewer parameters =
+  less overfit): (a) a **family-level** rule (one weight for "pullback in chop",
+  not per-cell), (b) the **regularized regime classifier** (`btc-regime-*`)
+  rather than raw bucket means, (c) **reductive-only, gentle** down-weighting.
+  If none beats diversification OOS, the honest answer is "diversification is
+  the edge; regime weighting doesn't add value here" — and we stop.
+- **Methodology:** the existing `btc-regime` classifier predates the
+  variation-matrix discipline; it should be re-validated the same way
+  (matrix + train/holdout) before being trusted as a weighting input.
