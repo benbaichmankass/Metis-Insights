@@ -105,6 +105,54 @@ Read the `f1_volatile` / accuracy delta under the time-aware holdout.
   a vol-regime head may simply be thin; the regime target is a proxy, not the
   thing we ultimately want to predict.
 
-## 5. Results (trainer A/B)
+## 5. Results (trainer A/B) — POSITIVE
 
-_To be filled from the vm-driver result._
+Run on the trainer via `vm-driver` (`automation/results/xa-eth-probe.txt`, exit 0,
+2026-06-18). 5y of 1h bars (ETH/BTC/SOL market_raw = 43,824 each; SOL listed
+later so its early bars carry-forward as 0 until present), one cross_asset
+side-stream (peer1=BTCUSDT, peer2=SOLUSDT; all 43,800 feature rows carry non-zero
+xa values), one ETH `market_features` dataset both legs read. Time-aware holdout =
+the last 20% (n_eval = 8,760 = exactly one year of 1h bars).
+
+| metric | base (v1) | +cross-asset (xasset-v1) | Δ |
+|---|---|---|---|
+| accuracy | 0.5727 | 0.6114 | **+0.0387** |
+| macro_f1 | 0.5673 | 0.6113 | **+0.0440** |
+| weighted_f1 | 0.5560 | 0.6095 | **+0.0535** |
+| f1_range | 0.5188 | 0.6038 | **+0.0850** |
+| f1_volatile | 0.6157 | 0.6187 | +0.0030 |
+| precision_volatile | 0.4701 | 0.4961 | +0.0261 |
+| recall_range | 0.3738 | 0.4805 | +0.1067 |
+| recall_volatile | 0.8923 | 0.8218 | −0.0705 |
+
+**Read:** cross-asset features add edge to the ETH regime head — broadly and
+materially (every aggregate metric up; +5.4 weighted-f1). The base over-commits
+to *volatile* (recall_volatile 0.89, recall_range 0.37 — it rarely calls a calm
+bar); the cross-asset model **rebalances** (recall_range 0.37→0.48, recall_volatile
+0.89→0.82), so the lift is concentrated in the **range (calm) regime** (+0.085
+f1_range). That is the intuitive direction: when BTC/SOL are quiet and ETH is
+co-moving calmly, ETH is more reliably in range — and the peer block is what lets
+the model see it. It is *not* a leakage artifact (clean isolation: the ONLY change
+between the two runs is the feature list; the side-stream is past-only).
+
+**Verdict:** GREEN by the §4 decision rule. Cross-asset information carries
+predictive signal for an ETH state head. Caveats kept honest: (1) a single
+time-aware holdout, not purged-WF-CV or multi-fold — the magnitude wants
+corroboration under the leak-free splitter before any strong claim; (2) this is a
+**vol-regime proxy**, not a directional/PnL target — "improves a regime
+classifier" is the green light to invest in the directional probe, not yet
+"tradeable edge."
+
+## 6. Next (the green-light follow-ups)
+
+1. **Corroborate** under purged-WF-CV (the leak-free splitter) — confirm the lift
+   isn't a lucky split.
+2. **Ablate** which xa columns carry it (drop peer1/peer2 blocks, lead-lag-only,
+   beta-only) — the framework's component-attribution applied to the manifest
+   feature groups; expectation from the range-recall lift is that co-movement +
+   relative-strength dominate.
+3. **Widen to a directional / trade-outcome target** — the natural home for
+   cross-asset alpha (predict ETH forward direction / P(profitable) conditioned on
+   the peer block), the more decision-relevant test than a regime proxy.
+4. Only after 1–3 read positive: draft a **Tier-3** cross-asset strategy wire
+   (operator-gated).
