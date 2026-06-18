@@ -25,6 +25,7 @@ def _make_registered_model(
     *,
     model_id: str,
     stage: str,
+    symbol_scope: str | None = None,
 ) -> tuple[ModelRegistry, Path]:
     """Register a model in `tmp_path/registry-store` and return
     (registry, model_state_path) for use by tests.
@@ -52,6 +53,8 @@ def _make_registered_model(
     # legal.
     pre_shadow = {"research_only", "candidate", "backtest_approved"}
     manifest: dict = {"manifest_version": "v1"}
+    if symbol_scope is not None:
+        manifest["dataset"] = {"symbol_scope": symbol_scope}
     if stage in pre_shadow:
         manifest["target_deployment_stage"] = stage
     registry.register(
@@ -260,6 +263,78 @@ class TestDiscoverShadowStageModelIds:
         assert discover_shadow_stage_model_ids(registry) == [
             "aaa", "mmm", "zzz",
         ]
+
+
+class TestSymbolAwareAutoWire:
+    """`discover_shadow_stage_model_ids(registry, symbol=...)` restricts the
+    auto-wire set to the strategy's symbol + symbol-agnostic (`all`/unset)
+    models, so an alt/futures strategy never auto-wires a different-symbol
+    regime head (2026-06-18, soak-everything)."""
+
+    def _registry(self, tmp_path: Path) -> ModelRegistry:
+        _make_registered_model(
+            tmp_path, model_id="btc-regime", stage="shadow",
+            symbol_scope="BTCUSDT",
+        )
+        _make_registered_model(
+            tmp_path, model_id="mes-regime", stage="shadow",
+            symbol_scope="MES",
+        )
+        _make_registered_model(
+            tmp_path, model_id="decision-all", stage="shadow",
+            symbol_scope="all",
+        )
+        # No dataset/symbol_scope at all → treated as agnostic (fail-permissive).
+        _make_registered_model(tmp_path, model_id="no-scope", stage="shadow")
+        return ModelRegistry(tmp_path / "registry-store")
+
+    def test_btc_symbol_excludes_mes_head(self, tmp_path: Path):
+        from ml.shadow.factory import discover_shadow_stage_model_ids
+
+        assert discover_shadow_stage_model_ids(
+            self._registry(tmp_path), symbol="BTCUSDT",
+        ) == ["btc-regime", "decision-all", "no-scope"]
+
+    def test_mes_symbol_excludes_btc_head(self, tmp_path: Path):
+        from ml.shadow.factory import discover_shadow_stage_model_ids
+
+        assert discover_shadow_stage_model_ids(
+            self._registry(tmp_path), symbol="MES",
+        ) == ["decision-all", "mes-regime", "no-scope"]
+
+    def test_alt_symbol_gets_only_agnostic(self, tmp_path: Path):
+        from ml.shadow.factory import discover_shadow_stage_model_ids
+
+        # SOLUSDT has no symbol-specific head → only the `all`/unset models.
+        assert discover_shadow_stage_model_ids(
+            self._registry(tmp_path), symbol="SOLUSDT",
+        ) == ["decision-all", "no-scope"]
+
+    def test_no_symbol_returns_all_backcompat(self, tmp_path: Path):
+        from ml.shadow.factory import discover_shadow_stage_model_ids
+
+        assert discover_shadow_stage_model_ids(self._registry(tmp_path)) == [
+            "btc-regime", "decision-all", "mes-regime", "no-scope",
+        ]
+
+    def test_symbol_scope_case_insensitive(self, tmp_path: Path):
+        from ml.shadow.factory import discover_shadow_stage_model_ids
+
+        _make_registered_model(
+            tmp_path, model_id="btc-lower", stage="shadow",
+            symbol_scope="btcusdt",
+        )
+        assert discover_shadow_stage_model_ids(
+            ModelRegistry(tmp_path / "registry-store"), symbol="BTCUSDT",
+        ) == ["btc-lower"]
+
+    def test_model_symbol_scope_helper(self, tmp_path: Path):
+        from ml.shadow.factory import model_symbol_scope
+
+        by_id = {e.model_id: e for e in self._registry(tmp_path).list()}
+        assert model_symbol_scope(by_id["btc-regime"]) == "BTCUSDT"
+        assert model_symbol_scope(by_id["decision-all"]) == "ALL"
+        assert model_symbol_scope(by_id["no-scope"]) is None
 
 
 class TestResolveDefaultRegistryRoot:

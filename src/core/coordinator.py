@@ -527,7 +527,13 @@ class Coordinator:
         )
         registry = ModelRegistry(registry_root)
         if auto_wire:
-            ids = discover_shadow_stage_model_ids(registry)
+            # Symbol-aware auto-wire (2026-06-18): only models trained on this
+            # strategy's symbol (or symbol-agnostic `all` decision models), so
+            # an alt/futures strategy never auto-wires a different-symbol regime
+            # head and pollutes that head's shadow track record.
+            _syms = cfg.get("symbols") or []
+            _strat_symbol = _syms[0] if _syms else None
+            ids = discover_shadow_stage_model_ids(registry, symbol=_strat_symbol)
             if not ids:
                 # No shadow-stage models in the registry yet — cache
                 # the empty list and bail. Will repopulate the next
