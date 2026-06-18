@@ -1,0 +1,7 @@
+{
+  "head": "claude/session-review-artifacts",
+  "base": "main",
+  "draft": true,
+  "title": "docs(reviews): perf+health review artifacts + ADX regime-swap research",
+  "body": "## /performance-review + /health-review artifacts + regime-swap research\n\nTier-1 review/research artifacts (no live-path changes). Opened via the **pr-opener** runner-side path (dogfooding the MCP-independent PR creation).\n\n- **health-review-backlog.json** \u2014 `BL-20260618-RECONCILE-DUP` (reconciler double-adoption: 19x MGC -$23.7K + MHG, episodic, confirmed live) + `BL-20260618-STALEHEARTBEAT`.\n- **strategy-refinement-queue.json** \u2014 the ADX regime-swap results: a flat `adx_min=20` graduated nothing, but a **per-cell ADX threshold sweep found 4 live_ready candidates** (pullback ETH@25 +63R / ADA@30 +61R / SOL@15 +44R, trend XRP@15 +40R) \u2014 pending an out-of-pool holdout before any Tier-3 real-money proposal (overfit guard).\n- **pending-pings.jsonl** \u2014 queued Claude-channel review pings.\n\nThe reconciler *code fix* is the separate Tier-2 PR #3949.\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.com/claude-code)"
+}
