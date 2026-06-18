@@ -1975,7 +1975,20 @@
       "resolved_by": null,
       "resolution": null,
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260618-RECONCILE-DUP",
+      "opened_at": "2026-06-18T12:15:00+00:00",
+      "opened_by": "claude (/health-review, from /performance-review handoff)",
+      "source": "journal table=trades — pkg-81602a3b78e14f",
+      "severity": "high",
+      "title": "Reverse reconciler re-adopts ONE orphan exchange position as N separate trades (18x MGC, -$20,127 phantom)",
+      "description": "One mgc_trend_1h MGC position (order_package pkg-81602a3b78e14f) appears as 18 CLOSED trade rows, ALL with identical entry_price 4318.872 + position_size 8, ALL notes.adopted_by=reverse_reconciler, adopted_at spanning 06-17 18:48->19:20 UTC, each booking a phantom sl_cross loss (sum -$20,127.68) on ib_paper. ROOT CAUSE: _reconcile_orphan_exchange_positions (src/runtime/order_monitor.py) creates a NEW orphan_adopt trade each time it sees the position unmatched, instead of recognising the prior adoption's open row as already covering it — so a flapping IB-gateway portfolio (empty->present->empty during the 06-17 evening IBKR reset window) spawns a fresh adopted trade per blip. ADOPT-side sibling of BL-20260614-ORPHANBLIP (which fixed the CLOSE-side re-orphan via the 2-observation close-confirm). Pollutes mgc_trend_1h stats; risks N-way realised-PnL double-count if it hits real-money bybit_2.",
+      "suggested_fix": "Before creating an orphan_adopt row, check for an EXISTING open trade on the same (account,symbol,side,~entry/size) and re-attach/skip rather than adopt-again; or key adoption idempotency on the exchange position id. Add a regression test replaying empty->present->empty gateway snapshots. Consider a 2-observation confirm on the ADOPT side too.",
+      "tier": 2,
+      "status": "open",
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-17T14:30:00+00:00"
+  "updated_at": "2026-06-18T12:15:00+00:00"
 }
