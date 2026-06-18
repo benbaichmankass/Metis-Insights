@@ -45,7 +45,10 @@ If the user asked about *technical/pipeline health* — STOP, use
    evidence (§ "Proposed tweaks").
 9. **Drain the performance-review backlog** — strategy follow-ups from
    prior sessions (§ "Draining the backlog").
-10. **Emit the response JSON** + **post a one-line update to the Claude
+10. **Update the diversified paper-book tracker** — append a dated
+    snapshot of the 10-cell paper cohort + review what's new
+    (§ "Diversified paper-book tracker").
+11. **Emit the response JSON** + **post a one-line update to the Claude
     channel** (§ "Output" + § "Posting to the Claude channel").
 
 ## Out of scope (DO NOT do here)
@@ -83,6 +86,7 @@ pulls:
 |---|---|---|
 | Order packages (decision-level) | `GET /api/bot/order-packages?since=<iso>&limit=500` | one row per decision; includes `claudeScore` from prior reviews so dedupe is trivial |
 | Closed trades | `GET /api/bot/trades/closed?since=<iso>&limit=500` | realized PnL + exit reason |
+| Paper-book trades | `GET /api/bot/trades/closed?account_id=bybit_1&limit=500` | the diversified paper cohort's closed trades, for the tracker (§ "Diversified paper-book tracker"). `account_id=` returns that account incl. paper; pull the **full** book (no `since`) so the tracker's recency split + cumulative trajectory are correct |
 | Journal — order_packages | `journal?table=order_packages&limit=200` (diag) | redundant cross-check; carries `signal_logic` blob |
 | Journal — trades | `journal?table=trades&limit=200` (diag) | exit_reason, pnl, position_size |
 | Audit tail | `audit?limit=600` (diag) | `*_eval` events for context around each decision |
@@ -264,6 +268,53 @@ This is the onboarding half of the lifecycle; the M7 review gate
 is to refine the marginal-but-real edges instead of only ever shipping the
 absolute winners.
 
+## Diversified paper-book tracker
+
+The 10-cell diversified alt book
+(`config/research/diversified_paper_book.yaml`) was banked 2026-06-18 as
+robustly +OOS in backtest, with one blemish: 2026-YTD was flat in
+backtest. All 10 cells run **enabled + `execution: live` on the
+`bybit_1` PAPER account**, so the live paper trade book is the standing
+evidence for whether that flatness is **alpha-decay or noise**. This
+step keeps that watch alive across reviews.
+
+Every run:
+
+1. **Fetch the cohort's closed trades** — the `account_id=bybit_1` pull
+   above (full book, no `since`).
+2. **Append a snapshot + read the delta** — pipe the rows to the
+   tracker:
+   ```
+   python3 scripts/ops/paper_book_tracker.py --trades-json <rows.json>
+   ```
+   It filters to the 10 cohort cells, computes book + per-cell +
+   per-family + recency-split aggregates, appends one snapshot line to
+   `docs/research/paper-book-tracker.jsonl`, and prints the Δ vs the
+   previous snapshot + a `decay_flag`. (Pass `--no-append` only for a
+   dry read.)
+3. **Review what's new** — judge the live paper trajectory:
+   - Is the **book net-positive** and is the **recent window** holding
+     up vs prior (decay watch)? A `decay_flag` (recent window
+     net-negative + mean below floor over ≥10 trades) is a **caution**
+     signal, not proof — note it and keep watching.
+   - **Per-cell / per-family**: any cell that's a sustained net loser on
+     live paper (not just a flat week) is a candidate for the
+     `performance-review-backlog` — a future tweak or a
+     `DEMOTE_SHADOW`/`KILL` proposal (Tier-3, *proposed* not enacted).
+   - Cross-check against the backtest expectation (the families were
+     complementary: trend wants low-moderate ADX, pullback wants high
+     ADX). A family inverting its expected sign on live paper is a real
+     finding.
+4. **Record it** in the response under `paper_book_tracker` (§ Output)
+   and, if a cell/family warrants follow-up, add a `SRQ-…` item to the
+   backlog.
+
+The tracker file is append-only history — **never rewrite prior
+snapshot lines** (same discipline as the scores jsonl). Updating the
+cohort itself (adding/removing a cell) is a Tier-3 config change to
+`accounts.yaml`/`strategies.yaml` — propose it, don't edit the yaml
+here; the cohort yaml is kept in sync *after* that lands.
+
 ## Posting to the Claude channel
 
 Every performance-review run ends with a one-line update to
@@ -295,6 +346,11 @@ Emit a single JSON object conforming to
 - `proposed_tweaks[]` — Tier-3 proposals with evidence.
 - `backlog_drain[]` — actions taken on
   `docs/claude/performance-review-backlog.json`.
+- `paper_book_tracker` — the diversified paper-book read: this run's
+  snapshot summary (book `n`/`net_usd`/`win_rate`, recent-vs-prior,
+  per-family net, `decay_flag`), the Δ vs the previous snapshot, and a
+  one-line `assessment` (decay / noise / healthy). `null` only if the
+  cohort pull failed (note it in `anomalies[]`).
 - `anomalies[]` — free-form notable items (grade drift, unexpected
   attribution, etc.).
 - `recommended_action`, `operator_attention_required`.
@@ -310,6 +366,8 @@ fast.
   (keyed by `order_package_id`, dedup-on-append).
 - Edit `docs/claude/performance-review-backlog.json` to drain + add
   new items.
+- Append a snapshot line to `docs/research/paper-book-tracker.jsonl`
+  (append-only, via `paper_book_tracker.py`; never rewrite prior lines).
 - Post the Claude-channel ping (via `send-ping` system-action; fall
   back to `docs/claude/pending-pings.jsonl`).
 - The read-only diag-trigger issues (`vm-diag-request`,

@@ -1,6 +1,6 @@
 ---
 name: doc-freshness
-description: Session-end (and on-demand) check that the canonical instruction docs do not contradict each other, the code/config on disk, or the changes this session made. Use at the end of every session per docs/CLAUDE-RULES-CANONICAL.md, when the operator says "/doc-freshness" or "check the docs are up to date", or whenever you suspect documentation drift. Fixes Tier-1 doc contradictions in place; logs minor leftovers to the health-review backlog; flags anything needing a code/config change for the operator.
+description: Session-end (and on-demand) check that the canonical instruction docs do not contradict each other, the code/config on disk, or the changes this session made — AND that this session's material decisions actually landed in every durable surface they belong in (roadmap + sprint log + the right review backlog), so nothing flows through the cracks. Use at the end of every session per docs/CLAUDE-RULES-CANONICAL.md, when the operator says "/doc-freshness" or "check the docs are up to date", or whenever you suspect documentation drift. Fixes Tier-1 doc contradictions + missing roadmap/sprint-log records in place; logs minor leftovers to the health-review backlog; flags anything needing a code/config change for the operator.
 ---
 
 # /doc-freshness — keep the instruction corpus internally consistent
@@ -100,7 +100,37 @@ Then, scoped to what changed this session:
    ```
    A non-empty result from any of these (after the allow-list filter) is drift
    to fix in this session, not to defer.
-5. **Triage minor leftovers.** Anything real but too small to fix now goes
+5. **Decision-landing completeness — did this session's material decisions get
+   recorded in EVERY surface they belong in?** Consistency (steps 2-4) checks
+   that what IS written doesn't contradict; this step checks that what was
+   DECIDED isn't *missing* from a surface it should be in. This is the
+   "stuff flows through the cracks" guard: a material decision/finding/outcome
+   must be categorized into ALL of its required durable surfaces, not just one.
+   For each material item this session produced (a shipped/abandoned
+   initiative, a strategy/account/risk change, a milestone status change, a
+   validated/rejected research finding, a live-VM action), confirm it landed
+   in every required surface below — and if a surface is missing it, add it now
+   (docs are Tier-1):
+
+   | Decision/outcome type | ROADMAP.md (milestone record) | `docs/sprint-logs/<ID>.md` (execution record) | review backlog (follow-ups) | other |
+   |---|---|---|---|---|
+   | Milestone/sprint completed or status-changed | **required** (row or status update) | **required** | follow-ups only | — |
+   | Research initiative concluded (incl. honest negatives) | **required** (incl. ON-HOLD/abandoned + why) | **required** | open follow-ups | results doc under `docs/research/` |
+   | Strategy/account/risk Tier-3 change (proposed or shipped) | **required** | **required** | — | the PR + `config/*` |
+   | Live-VM action (deploy/mode-flip/restart) | if it changes a milestone's state | **required** | — | the system-action issue/audit |
+   | Per-trade / strategy-perf finding | — | if part of a sprint | `performance-review-backlog.json` | `claude_strategy_scores.jsonl` |
+   | ML experiment outcome | M14 row if it moves a sprint | if part of a sprint | `ml-review-backlog.json` | manifest/registry |
+
+   The two surfaces that most often get skipped are **ROADMAP.md** (a decision
+   lands in a sprint log or a research doc but the centralized record never
+   learns the milestone moved) and the **sprint log** (work ships but no
+   execution record is written). Treat a material decision that exists in only
+   one surface as drift to fix here. **An ON-HOLD / abandoned / negative
+   outcome is a decision too** — it must be recorded (with the reason) in the
+   roadmap + sprint log, not just dropped, or a future session re-litigates it.
+   (Use the `sprint-format` skill for the sprint-log shape.)
+
+6. **Triage minor leftovers.** Anything real but too small to fix now goes
    into the appropriate review backlog as a new `open` item so a future
    review drains it. Don't silently walk past it. Pick the right bin
    (three-way split 2026-05-26):
@@ -121,6 +151,10 @@ A short report, no padding:
 - **Contradictions found** — each with file + line on both sides, and which one
   is wrong (by precedence or by reality).
 - **Fixed this session** — the doc edits you made.
+- **Decision-landing** — for each material decision this session, the surfaces
+  it should be in vs where it actually is; any gaps you filled (e.g. "added
+  missing ROADMAP row", "wrote the sprint log"). "All material decisions landed
+  in roadmap + sprint log + backlog" is a complete result.
 - **Logged to backlog** — item ids you appended.
 - **Needs operator** — contradictions that require a code/config change, with
   the proposed resolution.
