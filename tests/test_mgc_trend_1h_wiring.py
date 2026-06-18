@@ -37,9 +37,11 @@ def test_builder_disabled_returns_none(monkeypatch):
 def test_strategy_yaml_pins_sweep_params():
     cfg = yaml.safe_load(open("config/strategies.yaml"))["strategies"]["mgc_trend_1h"]
     assert cfg["enabled"] is True
-    # ib_paper is paper money — a paper-only strategy EXECUTES (new-strategy
-    # skill rule 2); routing it shadow would strand it (the MES incident).
-    assert cfg["execution"] == "live"
+    # DEMOTED live -> shadow 2026-06-18 (Tier-3, operator-approved): net-negative
+    # on both the XAUUSD spot proxy (-50.7R) AND real GC=F 1h (-15.5R) — no
+    # validated edge to soak, so it logs order packages but sends no paper order
+    # (docs/research/recombination-sweep-2026-06-18.md follow-up).
+    assert cfg["execution"] == "shadow"
     assert cfg["symbols"] == ["MGC"]
     assert cfg["timeframe"] == "1h"
     # exactly the sweep-validated xauusd_trend_1h defaults (same gold underlying)
