@@ -198,16 +198,70 @@ that predicts ETH's state. Design steer for the directional follow-up: **keep SO
 + rel_strength + beta; drop lead-lag**; a richer/closer-correlated peer set
 (more alts) is worth trying since SOL >> BTC here.
 
-## 6. Next (the green-light follow-ups)
+## 5.3 Directional probe (step 3) — WEAK-POSITIVE
 
-1. **Corroborate** under purged-WF-CV (the leak-free splitter) — confirm the lift
-   isn't a lucky split.
-2. **Ablate** which xa columns carry it (drop peer1/peer2 blocks, lead-lag-only,
-   beta-only) — the framework's component-attribution applied to the manifest
-   feature groups; expectation from the range-recall lift is that co-movement +
-   relative-strength dominate.
-3. **Widen to a directional / trade-outcome target** — the natural home for
-   cross-asset alpha (predict ETH forward direction / P(profitable) conditioned on
-   the peer block), the more decision-relevant test than a regime proxy.
-4. Only after 1–3 read positive: draft a **Tier-3** cross-asset strategy wire
-   (operator-gated).
+Operator greenlit widening from the regime *proxy* to the decision-relevant
+target: predict ETH's forward **direction** (`direction_label` = sign of the
+5-bar forward return; class balance up 22,110 / down 21,662 / flat 28 ≈ 50/50).
+3-way A/B under purged-WF-CV (`automation/results/xa-eth-direction.txt`, exit 0,
+n_eval 21,900 pooled, 5 folds):
+
+| model | features | accuracy | weighted_f1 | macro_f1 |
+|---|---|---|---|---|
+| base | ETH own | 0.5056 | 0.5053 | 0.3369 |
+| **+ full cross-asset** | own + 13 xa | **0.5153** | 0.5145 | 0.3431 |
+| + lean | own + SOL/rel-str/beta (9 xa) | 0.5112 | 0.5101 | 0.3401 |
+
+Δ (full − base): accuracy **+0.0097**, weighted_f1 +0.0092, symmetric across both
+classes (precision_up +0.010, precision_down +0.010, recall_up +0.008,
+recall_down +0.012).
+
+**Read — weak-positive.** The own-features base is a **coin flip** (50.6% — ETH's
+own 1h features barely predict its own 5-bar forward sign). Cross-asset lifts it
+to **51.5%**, leak-free and directionally symmetric — ~2.9 std-errors
+(SE≈0.34pp at p=0.5, n=21,900), so real but small. The full block beats the
+ablation-lean here (51.5 > 51.1), so for *direction* the wider block earns its
+keep (unlike the regime target where lean was competitive).
+
+**The honest caveat that gates the next step:** +0.97pp is **far weaker than the
+regime lift** (+4.3pp f1_range, § 5.1–5.2). Peer information strongly conditions
+ETH's *state* (calm/range) but only faintly predicts its *direction* at this
+horizon. And accuracy is a **classifier metric, not a PnL edge** — a 51.5%
+sign-accuracy ignores move *size* and transaction costs; being right 51.5% of the
+time loses money if the 48.5% wrong moves are bigger or fees eat the edge.
+
+## 7. Strategic read + recommendation
+
+The two probes together draw a clear, coherent line:
+
+- **Cross-asset is a strong REGIME conditioner** (+4.3pp f1_range, leak-free) —
+  peer state reliably tells you *what kind of market ETH is in*.
+- **Cross-asset is a weak DIRECTIONAL signal** (+0.97pp sign-accuracy over a
+  coin-flip base) — it barely tells you *which way ETH goes next*.
+
+That points away from a standalone "cross-asset directional strategy" and toward
+using the cross-asset signal as a **regime / confidence / sizing lens** — exactly
+the M16 unified-confidence direction (a conditioner that advises sizing &
+arbitration, not a standalone entry signal). The recommended next move is
+therefore NOT a Tier-3 directional wire on a 1pp edge (too thin to deploy on
+faith), but one of:
+
+1. **Convert-to-PnL gate (cheap, decisive):** turn the directional signal into
+   entries and run it through the net-of-fee backtest + readiness ladder — does
+   the 51.5% sign-edge survive costs as positive expectancy? If yes, *that* is the
+   tradeable result; if no, the directional angle is closed honestly.
+2. **Regime-conditioner wire (the stronger signal):** feed the validated
+   cross-asset *regime* read into the confidence/sizing path (M16), where a +4.3pp
+   regime-separation lift is the kind of edge that improves sizing decisions
+   without needing standalone directional alpha.
+
+Both are follow-ups for operator steer; neither is auto-fired.
+
+## 8. Original follow-up checklist (status)
+
+1. ✅ **Corroborate** under purged-WF-CV — done (§ 5.1): lift survives leak-free.
+2. ✅ **Ablate** which xa columns carry it — done (§ 5.2): SOL + rel-strength/beta.
+3. ✅ **Widen to a directional target** — done (§ 5.3): weak-positive (+0.97pp).
+4. ⏸ **Tier-3 wire** — NOT recommended on the 1pp directional edge; superseded by
+   the § 7 recommendation (convert-to-PnL gate, or regime-conditioner into M16).
+   Operator-gated either way.
