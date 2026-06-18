@@ -72,3 +72,42 @@ This is the directional, robust takeaway: the regime-filter primitive swap is re
   ping; before any real-money step, an out-of-pool holdout + `account_compat_matrix`.
 - **Deferred (DESIGN _deferred):** cross-family entry×exit + maker-band exit (the fee-bleed
   attack) need the Phase-3 harness refactor.
+
+---
+
+# Follow-up: out-of-pool holdout (eth) + real-futures (mgc) — 2026-06-18
+
+Raw: `automation/results/research-followup.txt`.
+
+## ETH ADX≥25 — out-of-pool symbol holdout PASSED (DESIGN §6)
+
+The live `eth_pullback_2h` params equal the pullback harness defaults, so the sweep's
+winning variant *is* the live config + `adx_min 25`. Applied to **out-of-pool symbols**
+never in the sweep (BNBUSDT, LINKUSDT), the ADX≥25 floor improves the pullback cell on
+**both**:
+
+| symbol | no-ADX | ADX≥25 |
+|---|---|---|
+| BNBUSDT (OOP) | reject, +8.0R | **paper_ready, +14.2R** |
+| LINKUSDT (OOP) | paper_ready, +13.0R | **paper_ready, +20.0R** |
+| ETHUSDT (in-pool ref) | paper_ready, +59.0R | **live_ready, +63.1R** |
+
+ADX≥25 helps **every** pullback cell tested, in-pool and out-of-pool — the regime-filter
+effect **generalizes to unseen symbols**, so it's a genuine regime phenomenon, not
+ETH-specific overfit. The refinement clears the out-of-pool bar. (OOP magnitudes are
+modest — BNB/LINK pullback edges are small to begin with — but the direction is unanimous.)
+
+**Ready to propose (Tier-3, operator-gated):** add `adx_min: 25` to the live pullback alt
+cells (eth/sol/xrp/ada/avax `_pullback_2h`) on `bybit_1` PAPER, via a draft `strategies.yaml`
+PR + ping.
+
+## MGC `mgc_trend_1h` — confirmed net-negative on REAL futures 1h
+
+Pulled real `GC=F` 1h (yfinance, 2.4y / 353 trades, 2024-01..2026-06) and re-ran the live
+cell (donchian20/atr2.5/trail3.0): net **−15.5R** (2024 −19.4, 2025 −11.9, 2026 +15.8).
+Net-negative like the XAUUSD spot proxy (−50.7R) — **not a proxy artifact, a genuine
+REJECT**. (Both samples agree on sign + on a positive 2026-YTD blip.)
+
+**Recommended (Tier-3, operator-gated):** demote `mgc_trend_1h` from `execution: live` →
+`shadow` on `ib_paper` — it currently trades paper money with no validated edge. The daily
+`mgc_pullback_1d` (+56R, robust) stays the gold sleeve.

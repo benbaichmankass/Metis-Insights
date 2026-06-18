@@ -639,15 +639,15 @@
       "status": "resolved-negative",
       "tier": "Tier-1 (research)",
       "resolved_at": "2026-06-18T16:20:00+00:00",
-      "resolution": "Validated via XAUUSD_15m->1h SPOT proxy (S-RECOMB-SWEEP): net -50.7R / Sharpe -1.05 / boot P(+)=0.13 \u2014 REJECT on every axis. Caveat: spot != COMEX micro future. mgc_trend_1h is execution:live on ib_paper (paper, no real-money risk) \u2014 Tier-3 demote-to-shadow/removal candidate pending REAL MGC <=1h data; operator decides. No config change made."
+      "resolution": "Validated via XAUUSD_15m->1h SPOT proxy (S-RECOMB-SWEEP): net -50.7R / Sharpe -1.05 / boot P(+)=0.13 \u2014 REJECT on every axis. Caveat: spot != COMEX micro future. mgc_trend_1h is execution:live on ib_paper (paper, no real-money risk) \u2014 Tier-3 demote-to-shadow/removal candidate pending REAL MGC <=1h data; operator decides. No config change made. || CONFIRMED 2026-06-18 on REAL GC=F 1h (yfinance 2.4y/353tr): net -15.5R (2024 -19.4, 2025 -11.9, 2026 +15.8) \u2014 net-negative like the spot proxy, NOT a proxy artifact. RECOMMEND Tier-3 demote mgc_trend_1h live->shadow on ib_paper (mgc_pullback_1d daily +56R stays the gold sleeve)."
     },
     {
       "id": "PB-20260618-011",
       "opened_at": "2026-06-18T16:20:00+00:00",
       "opened_by": "claude (S-RECOMB-SWEEP)",
       "source": "Direction-2 recombination sweep",
-      "title": "eth_pullback_2h + ADX>=25 entry-floor \u2014 top recombination live_ready (+63.1R) \u2014 needs out-of-pool holdout before Tier-3 proposal",
-      "description": "The recombination sweep's top live_ready cell is pullback_ETHUSDT_2h_adxmin25_trail5 (+63.1R, 2x +59.5R) vs the no-ADX baseline +59.0R (paper_ready). Confirms the regime-map Step-1 thesis (pullback wants high ADX). Before proposing an adx_min on the live eth_pullback_2h (and the other pullback alt cells) in config/strategies.yaml (Tier-3), run an OUT-OF-POOL symbol/period holdout (DESIGN section 6) to rule out the 76/90-survivor multiple-comparisons risk. If it holds OOP, propose the strategies.yaml adx_min edit via draft PR + ping.",
+      "title": "eth_pullback ADX>=25 refinement \u2014 out-of-pool holdout PASSED; ready for Tier-3 strategies.yaml proposal",
+      "description": "The recombination sweep's top live_ready cell is pullback_ETHUSDT_2h_adxmin25_trail5 (+63.1R, 2x +59.5R) vs the no-ADX baseline +59.0R (paper_ready). Confirms the regime-map Step-1 thesis (pullback wants high ADX). Before proposing an adx_min on the live eth_pullback_2h (and the other pullback alt cells) in config/strategies.yaml (Tier-3), run an OUT-OF-POOL symbol/period holdout (DESIGN section 6) to rule out the 76/90-survivor multiple-comparisons risk. If it holds OOP, propose the strategies.yaml adx_min edit via draft PR + ping. || UPDATE 2026-06-18: OOP holdout DONE (research-followup) \u2014 ADX>=25 improves pullback on out-of-pool BNBUSDT (reject->paper_ready, +8->+14R) AND LINKUSDT (+13->+20R), plus ETH ref ->live_ready (+59->+63R). Generalizes to unseen symbols = real regime effect, clears DESIGN section 6. NEXT: propose adx_min:25 on the live pullback alt cells (eth/sol/xrp/ada/avax_pullback_2h) on bybit_1 PAPER via draft strategies.yaml PR + ping (Tier-3, operator-gated).",
       "status": "open",
       "tier": "Tier-3 (proposal-gated)"
     },
@@ -662,5 +662,5 @@
       "tier": "Tier-1 (tooling)"
     }
   ],
-  "updated_at": "2026-06-18T16:20:00+00:00"
+  "updated_at": "2026-06-18T16:45:00+00:00"
 }
