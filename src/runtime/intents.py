@@ -224,6 +224,20 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # strategy. Value 0 follows the other single-symbol legs.
     "trend_donchian_sol": 0,
     "trend_donchian_eth": 0,
+    # trend_4h + pullback_2h alt cells (2026-06-18) — bybit_1 DEMO soak,
+    # paper_ready (WS-C k-fold: net-of-fee positive + 2x-fee headroom, fail only
+    # the strict every-fold gate; SRQ-20260618-001 / -002). Each runs ALONE on
+    # its (symbol, bybit_1) so priority is moot — never arbitrates against
+    # another strategy. Value 0 follows the other single-symbol legs.
+    "trend_donchian_eth_4h": 0,
+    "trend_donchian_sol_4h": 0,
+    "trend_donchian_xrp_4h": 0,
+    "trend_donchian_ada_4h": 0,
+    "trend_donchian_avax_4h": 0,
+    "sol_pullback_2h": 0,
+    "xrp_pullback_2h": 0,
+    "ada_pullback_2h": 0,
+    "avax_pullback_2h": 0,
 }
 
 # Priority used when a strategy is not listed in DEFAULT_PRIORITIES and

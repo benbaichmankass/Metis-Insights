@@ -59,6 +59,10 @@ from src.runtime.strategy_signal_builders import (
     qqq_trend_long_1d_signal_builder,
     gld_pullback_1d_signal_builder,
     eth_pullback_2h_signal_builder,
+    sol_pullback_2h_signal_builder,
+    xrp_pullback_2h_signal_builder,
+    ada_pullback_2h_signal_builder,
+    avax_pullback_2h_signal_builder,
     mgc_pullback_1d_signal_builder,
     mhg_pullback_1d_signal_builder,
     squeeze_breakout_4h_signal_builder,
@@ -66,6 +70,11 @@ from src.runtime.strategy_signal_builders import (
     trend_donchian_1h_signal_builder,
     trend_donchian_eth_signal_builder,
     trend_donchian_sol_signal_builder,
+    trend_donchian_eth_4h_signal_builder,
+    trend_donchian_sol_4h_signal_builder,
+    trend_donchian_xrp_4h_signal_builder,
+    trend_donchian_ada_4h_signal_builder,
+    trend_donchian_avax_4h_signal_builder,
     trend_donchian_signal_builder,
     turtle_soup_signal_builder,
     vwap_signal_builder,
@@ -128,6 +137,19 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # honour the YAML `enabled` flag.
         "trend_donchian_sol": trend_donchian_sol_signal_builder,
         "trend_donchian_eth": trend_donchian_eth_signal_builder,
+        # trend_4h alt cells (2026-06-18): five symbol-pinned trend_donchian
+        # instances on the 4h candle (ETH/SOL/XRP/ADA/AVAX), routed to bybit_1
+        # (Bybit demo — paper money) for decision/ML soak. WS-C k-fold classed
+        # them `paper_ready` (net-of-fee positive + 2x-fee headroom; fail only
+        # the strict every-fold gate — SRQ-20260618-001). Demo-only, both-sides
+        # (no long_only); NOT live-money-ready. Each is sole on its (symbol,
+        # account) so arbitration never fires. Builders honour the YAML
+        # `enabled` flag.
+        "trend_donchian_eth_4h": trend_donchian_eth_4h_signal_builder,
+        "trend_donchian_sol_4h": trend_donchian_sol_4h_signal_builder,
+        "trend_donchian_xrp_4h": trend_donchian_xrp_4h_signal_builder,
+        "trend_donchian_ada_4h": trend_donchian_ada_4h_signal_builder,
+        "trend_donchian_avax_4h": trend_donchian_avax_4h_signal_builder,
         # mes_trend_long_1d: MES daily long-only equity-index diversifier on
         # IBKR ib_paper, execution:shadow (2026-06-01); priority 0 (new floor).
         # Builder honours the YAML `enabled` flag.
@@ -153,6 +175,18 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # htf_pullback_trend_2h unit at the live BTC params. Sole strategy
         # on its symbol, so arbitration never fires.
         "eth_pullback_2h": eth_pullback_2h_signal_builder,
+        # pullback_2h alt cells (2026-06-18): four symbol-pinned
+        # htf_pullback_trend_2h instances on the 2h candle (SOL/XRP/ADA/AVAX),
+        # routed to bybit_1 (Bybit demo — paper money) for decision/ML soak.
+        # WS-C k-fold classed them `paper_ready` (net-of-fee positive + 2x-fee
+        # headroom; fail only the strict every-fold gate — SRQ-20260618-002).
+        # Mirror eth_pullback_2h's params exactly (only the symbol differs).
+        # Demo-only; NOT live-money-ready. Each is sole on its symbol, so
+        # arbitration never fires. Builders honour the YAML `enabled` flag.
+        "sol_pullback_2h": sol_pullback_2h_signal_builder,
+        "xrp_pullback_2h": xrp_pullback_2h_signal_builder,
+        "ada_pullback_2h": ada_pullback_2h_signal_builder,
+        "avax_pullback_2h": avax_pullback_2h_signal_builder,
         # mgc_pullback_1d / mhg_pullback_1d: the WS-A metals sleeve (2026-06-02).
         # Micro Gold + Micro Copper daily HTF-pullback diversifiers on IBKR
         # ib_paper, execution: live (paper money). Each runs ALONE on its own

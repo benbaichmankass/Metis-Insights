@@ -764,6 +764,114 @@ strategies:
     # ETHUSDT signals auto-wire the symbol-agnostic decision/meta models (the
     # symbol filter keeps BTC/MES regime heads off). Observe-only.
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # trend_4h alt cells — bybit_1 DEMO soak (paper_ready, 2026-06-18, Tier-3)
+  # ──────────────────────────────────────────────────────────────────────────
+  # Five symbol-pinned trend_donchian instances on the 4h candle (ETH/SOL/XRP/
+  # ADA/AVAX), each reusing the SAME unit (src/units/strategies/trend_donchian.py)
+  # parametrised by its own block — distinct instances, NOT a change to the BTC
+  # flagship. Routed to bybit_1 (Bybit demo — PAPER money) ONLY for decision/ML
+  # soak; real-money bybit_2 stays a separate Tier-3 gate. execution: live per the
+  # paper-accounts-execute operator policy (demo accounts exist to TEST strategies
+  # by trading them).
+  #
+  # GATE: the M15 WS-C k-fold sweep (scripts/ops/m15_ws_c_kfold.sh, 5-fold anchored
+  # walk-forward, net-of-fee 7.5 + 15 bps) classified the trend_4h cell PAPER_READY
+  # — net-of-fee positive overall + survives 2x fees, failing ONLY the strict
+  # every-fold gate on the recent (late-2025 → 2026) regime. NOT live-money-ready
+  # (SRQ-20260618-001; refinement = ADX/regime entry gate, re-sweep, re-tier).
+  #
+  # DIRECTION: BOTH-SIDES (no long_only) — matches the WS-C validation run (unlike
+  # the prop trend_donchian_sol long-only cell, which was a separate Breakout
+  # daily-swap A/B). The shared _trend_donchian_variant_builder honours `enabled`
+  # as the single source of truth and pins the symbol from `symbols:`.
+  trend_donchian_eth_4h:
+    model: null
+    signal_prefixes: [trend_donchian_eth_4h, donchian_eth_4h]
+    enabled: true
+    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    risk_pct: 0.3            # conservative initial sizing (mirrors the roster).
+    timeframe: "4h"
+    symbols:
+      - ETHUSDT
+    donchian: 20
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    tp_r: 50.0
+    min_confidence: 0.60
+    # shadow_model_ids OMITTED (soak-everything, symbol-aware auto-wire): ETHUSDT
+    # signals auto-wire the symbol-agnostic decision/meta models; the symbol
+    # filter keeps BTC/MES regime heads off. Observe-only.
+
+  trend_donchian_sol_4h:
+    model: null
+    signal_prefixes: [trend_donchian_sol_4h, donchian_sol_4h]
+    enabled: true
+    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    risk_pct: 0.3
+    timeframe: "4h"
+    symbols:
+      - SOLUSDT
+    donchian: 20
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    tp_r: 50.0
+    min_confidence: 0.60
+    # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
+
+  trend_donchian_xrp_4h:
+    model: null
+    signal_prefixes: [trend_donchian_xrp_4h, donchian_xrp_4h]
+    enabled: true
+    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    risk_pct: 0.3
+    timeframe: "4h"
+    symbols:
+      - XRPUSDT
+    donchian: 20
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    tp_r: 50.0
+    min_confidence: 0.60
+    # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
+
+  trend_donchian_ada_4h:
+    model: null
+    signal_prefixes: [trend_donchian_ada_4h, donchian_ada_4h]
+    enabled: true
+    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    risk_pct: 0.3
+    timeframe: "4h"
+    symbols:
+      - ADAUSDT
+    donchian: 20
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    tp_r: 50.0
+    min_confidence: 0.60
+    # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
+
+  trend_donchian_avax_4h:
+    model: null
+    signal_prefixes: [trend_donchian_avax_4h, donchian_avax_4h]
+    enabled: true
+    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    risk_pct: 0.3
+    timeframe: "4h"
+    symbols:
+      - AVAXUSDT
+    donchian: 20
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    tp_r: 50.0
+    min_confidence: 0.60
+    # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
+
   mes_trend_long_1d:
     # MES daily LONG-ONLY trend-follower (overnight research 2026-06-01). A
     # BTC-uncorrelated EQUITY-INDEX diversifier: Donchian-breakout + Chandelier
@@ -1103,3 +1211,99 @@ strategies:
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
     # ETHUSDT signals auto-wire the symbol-agnostic decision/meta models (the
     # symbol filter keeps BTC/MES regime heads off). Observe-only.
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # pullback_2h alt cells — bybit_1 DEMO soak (paper_ready, 2026-06-18, Tier-3)
+  # ──────────────────────────────────────────────────────────────────────────
+  # Four symbol-pinned htf_pullback_trend_2h instances on the 2h candle (SOL/XRP/
+  # ADA/AVAX), each reusing the SAME unit (src/units/strategies/htf_pullback_trend_2h.py)
+  # at eth_pullback_2h's EXACT params (== the live BTC leg) — only the symbol
+  # differs. Routed to bybit_1 (Bybit demo — PAPER money) ONLY for decision/ML
+  # soak; real-money bybit_2 stays a separate Tier-3 gate. execution: live per the
+  # paper-accounts-execute operator policy. eth_pullback_2h (the fifth cell) is
+  # already wired above (M15 WS-C, looser 3-fold adoption).
+  #
+  # GATE: the M15 WS-C k-fold sweep classified the htf_pullback_2h cell
+  # PAPER_READY — net-of-fee positive overall + survives 2x fees, failing ONLY the
+  # strict every-fold gate on the recent regime. NOT live-money-ready
+  # (SRQ-20260618-002; refinement = ADX/regime entry gate, re-sweep, re-tier).
+  #
+  # CORRELATION CAVEAT: these alts correlate strongly with BTC/ETH — they buy
+  # frequency, not diversification; the account-level caps assume concurrent loss.
+  # The shared _htf_pullback_variant_builder honours `enabled` and pins the symbol.
+  sol_pullback_2h:
+    model: null
+    signal_prefixes: [sol_pullback, sol_pullback_2h]
+    enabled: true
+    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    risk_pct: 0.3            # conservative initial sizing (mirrors the roster).
+    timeframe: "2h"          # served as Bybit 120m via CCXT.
+    symbols:
+      - SOLUSDT              # Bybit USDT linear perp.
+    # Params — eth_pullback_2h's exact (== live BTC htf_pullback_trend_2h) values.
+    trend_lookback: 40
+    pullback_lookback: 10
+    pullback_frac: 0.5
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    tp_r: 50.0               # trail-managed exits; TP effectively disabled
+    min_confidence: 0.0
+    # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
+
+  xrp_pullback_2h:
+    model: null
+    signal_prefixes: [xrp_pullback, xrp_pullback_2h]
+    enabled: true
+    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    risk_pct: 0.3
+    timeframe: "2h"
+    symbols:
+      - XRPUSDT
+    trend_lookback: 40
+    pullback_lookback: 10
+    pullback_frac: 0.5
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    tp_r: 50.0
+    min_confidence: 0.0
+    # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
+
+  ada_pullback_2h:
+    model: null
+    signal_prefixes: [ada_pullback, ada_pullback_2h]
+    enabled: true
+    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    risk_pct: 0.3
+    timeframe: "2h"
+    symbols:
+      - ADAUSDT
+    trend_lookback: 40
+    pullback_lookback: 10
+    pullback_frac: 0.5
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    tp_r: 50.0
+    min_confidence: 0.0
+    # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
+
+  avax_pullback_2h:
+    model: null
+    signal_prefixes: [avax_pullback, avax_pullback_2h]
+    enabled: true
+    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    risk_pct: 0.3
+    timeframe: "2h"
+    symbols:
+      - AVAXUSDT
+    trend_lookback: 40
+    pullback_lookback: 10
+    pullback_frac: 0.5
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    tp_r: 50.0
+    min_confidence: 0.0
+    # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.

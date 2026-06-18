@@ -181,7 +181,12 @@ def test_real_yaml_loads():
     # US blocked XAU_USD, BL-20260611-007).
     # 18 → 20 by the prop alt variants trend_donchian_sol + trend_donchian_eth
     # (2026-06-17, PB-20260616-004 — routed to the breakout_1 prop account).
-    assert len(strategies) == 20
+    # 20 → 29 by the 9 paper_ready alt cells wired to bybit_1 DEMO (2026-06-18,
+    # Tier-3): 5 trend_4h (trend_donchian_{eth,sol,xrp,ada,avax}_4h) + 4
+    # pullback_2h ({sol,xrp,ada,avax}_pullback_2h). WS-C k-fold paper_ready
+    # (net-of-fee positive + 2x-fee headroom; fail only the strict every-fold
+    # gate — SRQ-20260618-001/-002). Demo-only soak, NOT live-money-ready.
+    assert len(strategies) == 29
 
 
 def test_real_yaml_has_required_strategies():
@@ -195,6 +200,10 @@ def test_real_yaml_has_required_strategies():
         "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
         "eth_pullback_2h",
         "trend_donchian_sol", "trend_donchian_eth",
+        # 9 paper_ready alt cells on bybit_1 DEMO (2026-06-18, Tier-3):
+        "trend_donchian_eth_4h", "trend_donchian_sol_4h", "trend_donchian_xrp_4h",
+        "trend_donchian_ada_4h", "trend_donchian_avax_4h",
+        "sol_pullback_2h", "xrp_pullback_2h", "ada_pullback_2h", "avax_pullback_2h",
     }
 
 

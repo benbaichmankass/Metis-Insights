@@ -13,7 +13,13 @@
       "gate_verdict": "FAIL (strict every-fold) — but net-of-fee positive overall + 2x-fee headroom; e.g. one cell +26.9R OOS / survives 15 bps. The 5-fold every-fold gate fails them because the most-recent fold (~2025-11-15 -> 2026-06-11) is net-negative (e.g. -5.6R / 35 trades).",
       "missed_live_because": "Edge is positive across the full OOS window and most folds, but degrades in the recent (late-2025 -> 2026) regime — consistent with a chop/range regime where a breakout-trend follower whipsaws (the same failure mode trend_donchian/fade already gate against on BTC).",
       "refinement_hypothesis": "Add an ADX / regime entry gate (skip entries when ADX < ~threshold or detected regime = chop), mirroring the live trend_donchian long-only + regime-router treatment, then re-run the k-fold. If the recent losing fold turns flat/positive without killing the trending-regime edge, the cell advances toward live_money_ready. Secondary lever: a min_confidence floor sweep (the harness emits live-parity confidence; --confidence-sweep).",
-      "next_step": "Wire the family to bybit_1 DEMO (execution: live, demo-only) for decision/ML soak [Tier-3 PR], AND run the ADX/regime-gated re-sweep on the trainer; re-tier with classify_strategy_tier.py.",
+      "next_step": "WIRED 2026-06-18: all 5 cells (trend_donchian_{eth,sol,xrp,ada,avax}_4h) are live on bybit_1 DEMO (execution: live, demo-only, both-sides) for decision/ML soak. REMAINING: run the ADX/regime-gated re-sweep on the trainer; re-tier with classify_strategy_tier.py once folds land; a clean every-fold pass + operator approval graduates the family toward real-money bybit_2 (separate Tier-3 gate).",
+      "wired_to_demo": {
+        "at": "2026-06-18",
+        "account": "bybit_1",
+        "strategies": ["trend_donchian_eth_4h", "trend_donchian_sol_4h", "trend_donchian_xrp_4h", "trend_donchian_ada_4h", "trend_donchian_avax_4h"],
+        "note": "execution: live on demo (paper money); observe-for-soak, NOT live-money-ready."
+      },
       "status": "open",
       "snoozed_until": null
     },
@@ -28,7 +34,13 @@
       "gate_verdict": "FAIL (strict every-fold) — net-of-fee positive overall + 2x-fee headroom, fails only the every-fold gate on the recent fold. (eth_pullback_2h is already live on bybit_1 demo from the looser 3-fold WS-C adoption; the 5-fold gate is stricter and it does not clear it — informative, not a regression: it is demo-only.)",
       "missed_live_because": "Same shape as the trend family — the pullback-continuation edge holds across the full window but the recent regime fold goes negative.",
       "refinement_hypothesis": "Add an ADX/regime entry gate (pullback-continuation only in trending/transitional regimes, skip chop) + re-test; this is the exact router-policy treatment htf_pullback already has on BTC (long ON in trending/transitional, off in chop). Re-run the k-fold gated and re-tier.",
-      "next_step": "For the not-yet-wired symbols (SOL/ADA/XRP/AVAX): wire to bybit_1 DEMO for soak [Tier-3 PR]; run the regime-gated re-sweep. eth_pullback_2h: feed the same refinement.",
+      "next_step": "WIRED 2026-06-18: the 4 not-yet-wired symbols ({sol,xrp,ada,avax}_pullback_2h) are now live on bybit_1 DEMO (execution: live, demo-only) for soak; eth_pullback_2h was already wired. REMAINING: run the regime-gated re-sweep on the trainer; re-tier with classify_strategy_tier.py; feed the same ADX/regime refinement to all 5 cells. Graduation to real-money bybit_2 is a separate Tier-3 gate.",
+      "wired_to_demo": {
+        "at": "2026-06-18",
+        "account": "bybit_1",
+        "strategies": ["sol_pullback_2h", "xrp_pullback_2h", "ada_pullback_2h", "avax_pullback_2h"],
+        "note": "eth_pullback_2h already wired (M15 WS-C). execution: live on demo (paper money); observe-for-soak, NOT live-money-ready."
+      },
       "status": "open",
       "snoozed_until": null
     },
@@ -39,11 +51,22 @@
       "source": "Same WS-C alt k-fold gate run; ict_scalp 5m k-fold still executing at session time (multi-year 5m, slow — ADAUSDT in progress per trainer-vm-diag #3936).",
       "cell": "ict_scalp_5m on {ADAUSDT, AVAXUSDT, ETHUSDT, LINKUSDT}",
       "family": "ict_scalp_5m",
-      "tier": "pending_gate",
-      "gate_verdict": "PENDING — the multi-year 5m k-fold had not finished when this row was opened. ict_scalp is the highest decision-frequency family (300-1600 trades/window/symbol) so it is the most valuable soak candidate; it is also the most fee/slippage-sensitive on thin alt books (fine on demo, flag before any real-money step).",
-      "missed_live_because": "TBD — tier once the fold report lands.",
-      "refinement_hypothesis": "Tier with classify_strategy_tier.py when fold_ict_scalp_*.json exist. If paper_ready: wire to bybit_1 demo (highest soak value). If a fold fails on a specific regime/session, test a session/killzone filter (the strategy already has session_filter_enabled) or an HTF-bias tightening.",
-      "next_step": "Run classify_strategy_tier.py over results/m15_ws_c_kfold/fold_ict_scalp_*.json once the sweep COMPLETEs; update this row's tier + verdict.",
+      "tier": "reject",
+      "gate_verdict": "REJECT (fee-bleed confirmed 2026-06-18) — the multi-year 5m k-fold completed and the edge is FEE-FRAGILE: gross-positive but it does not survive realistic fees on thin alt books. ADAUSDT: +50R @ 7.5 bps / -38R @ 15 bps; AVAXUSDT: +65R @ 7.5 bps / -26R @ 15 bps. The 7.5 bps -> 15 bps doubling flips both cells from strongly positive to strongly negative, so the strategy lives entirely inside the round-trip cost band — the highest decision frequency (300-1600 trades/window/symbol) that made it the most valuable SOAK candidate is exactly what makes it the most fee-sensitive. NOT paper_ready as-is (a demo soak would generate volume but no net-of-fee edge worth promoting).",
+      "missed_live_because": "Edge sits below the 2x-fee survival bar — the per-trade R is smaller than the fee-doubling delta, so the family is structurally fee-bound at 5m on alt perps. This is a different failure mode from the trend/pullback cells (which are net-of-fee positive overall and fail only the recent-regime fold); ict_scalp 5m fails the fee-headroom bar itself.",
+      "refinement_hypothesis": "Do NOT soak the 5m alt cells as-is. Instead test lower-frequency / higher-edge-per-trade variants that escape the fee band: (a) ict_scalp at 15m (fewer, larger-R trades — same logic, longer hold, less round-trip drag); (b) a higher-selectivity parameter set (raise min_confidence / tighten the HTF-bias + session/killzone filter — the unit already has session_filter_enabled — to trade only the strongest setups, lifting per-trade R above the fee band); (c) a displacement-continuation momentum scalp (enter on a confirmed displacement leg + FVG continuation rather than every mean-reversion tag — fewer, trend-aligned entries); (d) a maker-entry VWAP-band mean-reversion (post-only limit entries at the VWAP band edges to EARN the maker rebate / pay zero taker fee, directly attacking the fee bleed rather than the signal).",
+      "next_step": "REJECTED for direct demo soak (fee-bleed). Open a fresh research thread on the four low-TF/higher-edge alternatives above; backtest each on the same alt panel under the 7.5/15 bps net-of-fee k-fold; re-tier any survivor with classify_strategy_tier.py and open a new SRQ row if a variant clears paper_ready. The 5m ict_scalp alt cells themselves are not advanced.",
+      "rejected": {
+        "at": "2026-06-18",
+        "reason": "fee_bleed",
+        "evidence": {"ADAUSDT": {"r_7_5bps": 50, "r_15bps": -38}, "AVAXUSDT": {"r_7_5bps": 65, "r_15bps": -26}},
+        "alternatives_to_test": [
+          "ict_scalp @ 15m (lower frequency, larger R/trade)",
+          "higher-selectivity params (raise min_confidence + session/killzone + HTF-bias tightening)",
+          "displacement-continuation momentum scalp (trend-aligned entries only)",
+          "maker-entry VWAP-band mean-reversion (post-only limits to earn maker rebate / avoid taker fee)"
+        ]
+      },
       "status": "open",
       "snoozed_until": null
     }
