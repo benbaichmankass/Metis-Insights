@@ -97,21 +97,58 @@ def _atr(df: pd.DataFrame, period: int) -> pd.Series:
     return tr.rolling(period, min_periods=1).mean()
 
 
+def _adx(df: pd.DataFrame, period: int) -> pd.Series:
+    """Wilder's Average Directional Index (regime-strength filter, shared lever).
+
+    Standard construction: +DM/-DM from the directional moves, true range,
+    Wilder-smoothed (EWM with alpha=1/period) +DI/-DI, DX, then ADX as the
+    Wilder-smoothed DX. ``min_periods`` leaves the warm-up bars NaN so an
+    ADX band cannot admit an undefined-regime bar. Recombination-pool axis
+    (SRQ-20260618-001/-002): the highest-value entry-regime lever.
+    """
+    h, low, c = df["high"], df["low"], df["close"]
+    up = h.diff()
+    down = -low.diff()
+    plus_dm = ((up > down) & (up > 0)).astype(float) * up.clip(lower=0)
+    minus_dm = ((down > up) & (down > 0)).astype(float) * down.clip(lower=0)
+    pc = c.shift(1)
+    tr = pd.concat([(h - low), (h - pc).abs(), (low - pc).abs()], axis=1).max(axis=1)
+    alpha = 1.0 / period
+    atr_w = tr.ewm(alpha=alpha, adjust=False, min_periods=period).mean()
+    plus_di = 100.0 * plus_dm.ewm(alpha=alpha, adjust=False, min_periods=period).mean() / atr_w
+    minus_di = 100.0 * minus_dm.ewm(alpha=alpha, adjust=False, min_periods=period).mean() / atr_w
+    di_sum = (plus_di + minus_di).replace(0.0, float("nan"))
+    dx = 100.0 * (plus_di - minus_di).abs() / di_sum
+    return dx.ewm(alpha=alpha, adjust=False, min_periods=period).mean()
+
+
 def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  atr_stop_mult: float, trail_mult: float, timeout_bars: int,
                  cooldown_bars: int, timeframe: str, symbol: str,
                  emit_path: Optional[str] = None,
                  min_confidence: float = 0.0,
-                 long_only: bool = False) -> Dict[str, Any]:
+                 long_only: bool = False,
+                 adx_min: Optional[float] = None,
+                 adx_max: Optional[float] = None,
+                 adx_period: int = 14) -> Dict[str, Any]:
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
     # Channel from the PRIOR N bars only (shift(1)) — no lookahead. Same
     # construction as the live strategy and the fade mirror.
     df["dc_hi"] = df["high"].rolling(donchian).max().shift(1)
     df["dc_lo"] = df["low"].rolling(donchian).min().shift(1)
+    # ADX regime filter (recombination lever): only computed/consulted when a
+    # band is set, so the default (None/None) run is byte-identical to before.
+    adx_active = adx_min is not None or adx_max is not None
+    if adx_active:
+        df["adx"] = _adx(df, adx_period)
     trades: List[Trade] = []
     n = len(df)
+    # Warm-up start: ensure both the channel/ATR indicators AND (when a band is
+    # set) the ADX are defined. ADX needs ~2×period bars to converge from NaN.
     i = donchian + atr_period + 1
+    if adx_active:
+        i = max(i, adx_period + 1)
     next_idx = i
     while i < n - 1:
         if i < next_idx:
@@ -143,6 +180,20 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         if long_only and direction == "short":
             i += 1
             continue
+        # Regime filter (recombination lever): admit the bar only if its ADX sits
+        # inside the [adx_min, adx_max] band. A NaN (warm-up) ADX is never
+        # admitted when any band is set. No-op when both bands are None.
+        if adx_active:
+            adx_val = float(df["adx"].iloc[i])
+            if pd.isna(adx_val):
+                i += 1
+                continue
+            if adx_min is not None and adx_val < adx_min:
+                i += 1
+                continue
+            if adx_max is not None and adx_val > adx_max:
+                i += 1
+                continue
         # Live-parity confidence + entry gate (mirrors a live min_confidence
         # floor: skipping a low-confidence break lets the next qualifying bar
         # fire, exactly as the live builder would).
@@ -202,9 +253,15 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                     "direction": t.direction, "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - fr, 4),
                     "confidence": t.confidence}, default=str) + "\n")
-    return _summarize(trades, df, timeframe=timeframe, symbol=symbol,
-                      params={"donchian": donchian, "atr_stop_mult": atr_stop_mult,
-                              "trail_mult": trail_mult, "min_confidence": min_confidence})
+    params: Dict[str, Any] = {"donchian": donchian, "atr_stop_mult": atr_stop_mult,
+                              "trail_mult": trail_mult, "min_confidence": min_confidence}
+    if adx_min is not None:
+        params["adx_min"] = adx_min
+    if adx_max is not None:
+        params["adx_max"] = adx_max
+    if adx_active:
+        params["adx_period"] = adx_period
+    return _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params)
 
 
 def _fee_r(t: Trade) -> float:
@@ -346,6 +403,12 @@ def main(argv: List[str]) -> int:
                    help="Skip entries whose live-parity confidence (breakout/ATR) is below this.")
     p.add_argument("--long-only", action="store_true",
                    help="Skip short entries (matches the live LONG-ONLY config since 2026-06-01).")
+    p.add_argument("--adx-min", type=float, default=None,
+                   help="Regime filter: skip entries whose Wilder ADX is below this (None=off).")
+    p.add_argument("--adx-max", type=float, default=None,
+                   help="Regime filter: skip entries whose Wilder ADX is above this (None=off).")
+    p.add_argument("--adx-period", type=int, default=14,
+                   help="Wilder ADX period for the regime filter (default 14).")
     p.add_argument("--confidence-sweep", default=None, metavar="GRID",
                    help="Sweep min_confidence over GRID ('0:0.5:0.05' or '0,0.1,0.2') and tabulate.")
     p.add_argument("--json", dest="json_out", default=None)
@@ -365,7 +428,9 @@ def main(argv: List[str]) -> int:
                      atr_stop_mult=args.atr_stop_mult, trail_mult=args.trail_mult,
                      timeout_bars=args.timeout_bars, cooldown_bars=args.cooldown_bars,
                      timeframe=args.timeframe, symbol=args.symbol,
-                     long_only=args.long_only)
+                     long_only=args.long_only,
+                     adx_min=args.adx_min, adx_max=args.adx_max,
+                     adx_period=args.adx_period)
     if args.confidence_sweep:
         out = _confidence_sweep(df, _parse_grid(args.confidence_sweep), bt_kwargs)
         print(_fmt_sweep(out))

@@ -1,0 +1,131 @@
+# Strategy-primitives recombination pool (RESEARCH-ONLY, Tier-1).
+#
+# Declares the primitive pool + coherence mask the orchestrator
+# (scripts/ops/recombination_sweep.py) reads to enumerate the constrained
+# Cartesian product of cells, run each through the harnesses, and tier it via
+# the existing k-fold gate. Nothing here touches the live order path,
+# config/strategies.yaml, config/accounts.yaml, or any unit the live VM
+# consumes — it is offline backtest tooling that only *proposes* cells.
+#
+# Design: docs/research/strategy-primitives-recombination-DESIGN.md
+#   - §3 decomposition model (the four orthogonal primitive slots + the table
+#     this file's `axes` map to)
+#   - §4 four-stage sweep funnel (the gate this pool feeds)
+#   - §7 first probes (the SRQ hypotheses these axes encode)
+#
+# v1 scope: only the primitive axes the two harnesses ALREADY expose as CLI
+# levers — entry-trigger (which harness), symbol, timeframe, regime_filter
+# (ADX band, the flagship lever added alongside this file), exit_trail
+# (--trail-mult), and selectivity (--min-confidence). Cross-family
+# entry×exit recombination (one family's entry geometry with another's exit
+# manager) needs the Phase-3 harness refactor that exposes the exit manager as
+# an injectable primitive — see the `_deferred` block at the bottom (TODO).
+schema_version: 1
+
+# Fee model: base = the standard 7.5 bps round-trip the harnesses default to;
+# double = the 2× headroom bar the readiness ladder demands (classify_strategy_tier).
+fees:
+  base_bps: 7.5
+  double_bps: 15.0
+
+# K-fold gate parameters, forwarded verbatim to m15_ws_b_fold_report.py
+# (anchored walk-forward, same as scripts/ops/m15_ws_c_kfold.sh).
+kfold:
+  folds: 5
+  train_frac: 0.4
+  wf_end: "2026-06-11"
+
+# Entry-trigger primitive → which standalone harness materializes it + its
+# strategy family (DESIGN §3 "Entry trigger" slot). v1 reuses the two
+# fixed-param trend/pullback harnesses unchanged; their `family` drives the
+# per-family timeframe + selectivity coherence rules below.
+entries:
+  trend_donchian:
+    harness: backtest_trend.py
+    family: trend
+  htf_pullback:
+    harness: backtest_pullback.py
+    family: pullback
+
+# The swept primitive axes. Each maps to a DESIGN §3 slot and (in v1) to a
+# harness CLI lever. The orchestrator takes the constrained Cartesian product
+# of these per entry family.
+axes:
+  # Instrument axis — the WS-C validated-alt panel (PR #3941). BTCUSDT is the
+  # base/native symbol the in-sandbox data/backtest_candles.csv stands in for;
+  # the alts need data/<SYM>_*.csv on the trainer VM (this sandbox has only the
+  # BTC candle file, so those tuples skip with a clear note when run here).
+  symbol: [ETHUSDT, SOLUSDT, XRPUSDT, ADAUSDT, AVAXUSDT]
+
+  # Bar cadence of the entry feed (DESIGN §3 "Timeframe" slot), per family —
+  # the cadence each family's live unit + WS-C cell trades on (trend 4h,
+  # pullback 2h). Threaded as --resample + --timeframe.
+  timeframe:
+    trend: ["4h"]
+    pullback: ["2h"]
+
+  # Regime filter (DESIGN §3 "Regime filter" slot) — THE FLAGSHIP AXIS. ADX
+  # band variants that attack the paper_ready→live gap (SRQ-20260618-001/-002:
+  # the recent-chop fold). `none` is the behaviour-preserving baseline (no ADX
+  # flag); the trend-only variants raise an --adx-min floor so only
+  # strong-trend bars enter.
+  regime_filter:
+    - {name: none}
+    - {name: trend_only, adx_min: 20}
+    - {name: strong_trend_only, adx_min: 25}
+
+  # Exit manager (DESIGN §3 "Exit manager" slot) — v1 exposes only the
+  # ATR-trail-distance lever the harnesses share (--trail-mult). `baseline` is
+  # each family's live default trail; `tight` is a faster give-back that trades
+  # off run-capture for lower drawdown. (Maker-band / partial-ladder exits are
+  # the deferred cross-family work below.)
+  exit_trail:
+    - {name: baseline, trail_mult: 5.0}
+    - {name: tight, trail_mult: 3.0}
+
+  # Selectivity (a sub-lever of the entry trigger) — the --min-confidence
+  # floor. TREND-ONLY: trend_donchian's confidence is the breakout-depth/ATR
+  # the live builder gates on, so a selective floor is meaningful. pullback's
+  # confidence is structural (trend-depth/ATR) and the live unit runs it at
+  # 0.0, so the coherence mask pins pullback to `base` (see below).
+  selectivity:
+    - {name: base, min_confidence: 0.0}
+    - {name: selective, min_confidence: 0.6}
+
+# Coherence mask — drop incoherent tuples (DESIGN §4.1). Documented rules,
+# applied by the orchestrator's enumeration:
+coherence:
+  rules:
+    # The pullback unit's confidence is structural (it runs at min_confidence
+    # 0.0 live); a `selective` floor would silence it entirely and doesn't
+    # correspond to any live lever. So selectivity.selective applies to the
+    # TREND entry family only; pullback is pinned to selectivity.base.
+    - selectivity_selective_trend_only
+  # Which selectivity variants each family may use. A family absent here admits
+  # all selectivity variants.
+  selectivity_by_family:
+    trend: [base, selective]
+    pullback: [base]
+
+# ---------------------------------------------------------------------------
+# DEFERRED (Phase-3, NOT swept in v1) — recorded so the pool documents the full
+# DESIGN §3 model, not just the harness-exposed slice. TODO: these need the
+# harness refactor that turns the exit manager into an injectable primitive
+# (DESIGN §5 "fee reduction is a first-class output") and adds the
+# cross-family entry×exit machinery, so an entry geometry from one family can
+# be paired with another family's exit manager.
+_deferred:
+  exit_manager:        # full exit-manager axis beyond trail-distance
+    - fixed_r_tp
+    - exit_plan_partial_ladder   # already soaking: /api/bot/exit-ladder/soak
+    - maker_band_post_only       # earns the rebate — attacks ict_scalp fee-bleed (SRQ-20260618-003)
+  cross_family_entry_x_exit: true   # one family's entry × another's exit (needs Phase-3 harness)
+  extra_entries:       # other pool entry triggers (other standalone harnesses)
+    - ict_scalp
+    - hf_displacement_cont
+    - vwap_band_revert
+    - fade_breakout
+    - squeeze_expansion
+    - fvg_range
+  extra_timeframes: ["5m", "15m", "1h", "1d"]
+  direction_policy: [both_sides, long_only, short_only]
