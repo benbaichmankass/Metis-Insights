@@ -1,0 +1,50 @@
+# job=futures-prep target=trainer ip=158.178.209.121 started=2026-06-18T15:49:30Z
+=== fetch portfolio_robustness.py from main (non-destructive single-file checkout) ===
+GOT_TOOL
+-rw-rw-r-- 1 ubuntu ubuntu 7883 Jun 18 13:15 scripts/ops/classify_strategy_tier.py
+-rw-rw-r-- 1 ubuntu ubuntu 7907 Jun 18 15:49 scripts/ops/portfolio_robustness.py
+bash: line 7: python: command not found
+=== inspect candle files (header + rowcount + first/last ts) ===
+--- /home/ubuntu/ws_a_sweep_out/2026-06-02/data/ES_F.csv ---
+timestamp,open,high,low,close
+2000-09-18,1485.25,1489.75,1462.25,1467.5
+rows=6491 first=2000-09-18 last=2026-06-02
+--- /home/ubuntu/ws_a_sweep_out/2026-06-02/data/GC_F.csv ---
+timestamp,open,high,low,close
+2000-08-30,273.8999938964844,273.8999938964844,273.8999938964844,273.8999938964844
+rows=6463 first=2000-08-30 last=2026-06-02
+--- /home/ubuntu/ws_a_sweep_out/2026-06-02/data/HG_F.csv ---
+timestamp,open,high,low,close
+2000-08-30,0.8790000081062317,0.8870000243186951,0.8769999742507935,0.8849999904632568
+rows=6468 first=2000-08-30 last=2026-06-02
+--- /home/ubuntu/m15-phase0/data/SPY_1d.csv ---
+timestamp,open,high,low,close,volume
+2017-02-16 00:00:00+00:00,234.658,234.948,233.85,234.726,58.20847
+rows=2341 first=2017-02-16 00:00:00+00:00 last=2026-06-09 00:00:00+00:00
+--- /home/ubuntu/m15-phase0/data/QQQ_1d.csv ---
+timestamp,open,high,low,close,volume
+2017-03-01 00:00:00+00:00,131.339,131.67,131.31,131.428,11.175837
+rows=2333 first=2017-03-01 00:00:00+00:00 last=2026-06-09 00:00:00+00:00
+--- /home/ubuntu/m15-phase0/data/GLD_1d.csv ---
+timestamp,open,high,low,close,volume
+2017-03-01 00:00:00+00:00,118.82,119.119,118.67,119.037,17.019243
+rows=2317 first=2017-03-01 00:00:00+00:00 last=2026-06-09 00:00:00+00:00
+--- /home/ubuntu/m15-phase0/data/COPPER_1d.csv ---
+timestamp,open,high,low,close,volume
+2012-03-01 00:00:00+00:00,3.861,3.937,3.829,3.933,0.0
+rows=4432 first=2012-03-01 00:00:00+00:00 last=2026-06-09 00:00:00+00:00
+--- data/backtest_ESF_1h.csv ---
+timestamp,open,high,low,close,volume
+2024-01-02 05:00:00+00:00,4820.75,4823.5,4820.75,4822.25,4575
+rows=13697 first=2024-01-02 05:00:00+00:00 last=2026-05-22 20:00:00+00:00
+=== hunt for an intraday (<=1h) gold file for mgc_trend_1h ===
+/home/ubuntu/m15-phase0/data/XAUUSD_15m_train.csv
+/home/ubuntu/m15-phase0/data/XAUUSD_15m.csv
+/home/ubuntu/m15-phase0/data/XAUUSD_15m_oos.csv
+/home/ubuntu/ws_a_sweep_out/2026-06-02/data/GC_F.csv
+=== smoke-test trend harness on ES_F (1d, 5 trades emit) ===
+bash: line 27: python: command not found
+smoke_emit_lines=0
+PREP_DONE
+bash: line 30: /tmp/smoke_mes.jsonl: No such file or directory
+# exit=0 finished=2026-06-18T15:49:33Z
