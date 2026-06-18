@@ -145,3 +145,28 @@ attribution table.
    build. Start serial and add sharding once a study is too slow?
 3. **Scope of the first study** — propose the ETH/pullback ADX study (we have the
    data + a known answer to validate the framework against) as the v1 shakedown.
+
+---
+
+## 8. v1 SHIPPED + shakedown VALIDATED (2026-06-18)
+
+`scripts/ops/research_sweep.py` v1 (study-spec + component ablation, serial) is built
+(6 unit tests, ruff clean) and validated on the trainer against a known answer
+(`config/research/studies/eth_pullback_adx.yaml`; raw
+`automation/results/research-sweep-shakedown.txt`):
+
+| kind | name | tier | net_r | 2×-fee | folds+ |
+|---|---|---|---|---|---|
+| base | base (adx≥25) | **live_ready** | 63.11 | 59.54 | ✅ |
+| variant | adx20 | paper_ready | 62.70 | 58.57 | — |
+| variant | adx_none | paper_ready | 59.03 | 54.22 | — |
+| ablation | regime_gate | paper_ready | 59.03 | 54.22 | — |
+| variant | adx30 | paper_ready | 25.14 | 22.63 | — |
+| variant | trail3 | paper_ready | 8.52 | 3.73 | — |
+
+**Attribution:** `regime_gate` Δ=**+4.08R** (base live_ready → ablated paper_ready) —
+reproduces the recombination/OOP result exactly, confirming the ablation engine is
+correct. New insights surfaced for free: ADX≥25 is the sweet spot (adx20 ≈ net but
+fails every-fold; adx30 over-tightens), and the tight trail badly hurts pullback
+(trail3 → +8.5R). **Next study:** the cross-asset feature probe (§5 build-order step 4 +
+the cross-asset scope doc).
