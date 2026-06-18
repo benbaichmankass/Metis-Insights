@@ -1975,7 +1975,52 @@
       "resolved_by": null,
       "resolution": null,
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260618-RECONCILE-DUP",
+      "opened_at": "2026-06-18T12:15:00+00:00",
+      "opened_by": "claude (/health-review, from /performance-review handoff)",
+      "source": "journal table=trades — pkg-81602a3b78e14f",
+      "severity": "high",
+      "title": "Reverse reconciler re-adopts ONE orphan exchange position as N trades (19x MGC -$23,773 + 3x MHG; episodic on IB-gateway flap)",
+      "description": "One mgc_trend_1h MGC position (order_package pkg-81602a3b78e14f) appears as 18 CLOSED trade rows, ALL with identical entry_price 4318.872 + position_size 8, ALL notes.adopted_by=reverse_reconciler, adopted_at spanning 06-17 18:48->19:20 UTC, each booking a phantom sl_cross loss (sum -$20,127.68) on ib_paper. ROOT CAUSE: _reconcile_orphan_exchange_positions (src/runtime/order_monitor.py) creates a NEW orphan_adopt trade each time it sees the position unmatched, instead of recognising the prior adoption's open row as already covering it — so a flapping IB-gateway portfolio (empty->present->empty during the 06-17 evening IBKR reset window) spawns a fresh adopted trade per blip. ADOPT-side sibling of BL-20260614-ORPHANBLIP (which fixed the CLOSE-side re-orphan via the 2-observation close-confirm). Pollutes mgc_trend_1h stats; risks N-way realised-PnL double-count if it hits real-money bybit_2.",
+      "suggested_fix": "Before creating an orphan_adopt row, check for an EXISTING open trade on the same (account,symbol,side,~entry/size) and re-attach/skip rather than adopt-again; or key adoption idempotency on the exchange position id. Add a regression test replaying empty->present->empty gateway snapshots. Consider a 2-observation confirm on the ADOPT side too.",
+      "tier": 2,
+      "status": "open",
+      "snoozed_until": null,
+      "confirmed": {
+        "at": "2026-06-18T13:15:00+00:00",
+        "via": "vm-driver live diag (python3 sqlite, read-only)",
+        "mgc": {
+          "order_package_id": "pkg-81602a3b78e14f7e",
+          "n": 19,
+          "phantom_pnl": -23773.44,
+          "window": "2026-06-17T18:20→19:36"
+        },
+        "mhg": {
+          "order_package_id": null,
+          "symbol": "MHGN6",
+          "n": 3,
+          "window": "2026-06-12→14",
+          "pnl": 0.0
+        },
+        "episodic": "adopted_orphan counts by day: 06-14 n=2, 06-17 n=20, 06-18 n=0 — fires only during IB-gateway reset/flap windows, NOT ongoing",
+        "residue": "id 2683 MGC still status=open + id 2682 MGC status=orphaned on ib_paper (06-17) — lingering rows to reconcile/clean",
+        "fix_status": "FIX IMPLEMENTED in c897eec (re-adopt flap guard, RECONCILER_READOPT_GUARD_SECONDS) — pushed, NOT yet deployed (Tier-2 PR pending)"
+      }
+    },
+    {
+      "id": "BL-20260618-STALEHEARTBEAT",
+      "opened_at": "2026-06-18T13:15:00+00:00",
+      "opened_by": "claude (/health-review via vm-driver)",
+      "source": "vm-driver live diag",
+      "severity": "low",
+      "title": "Stale duplicate heartbeat.txt under repo runtime_logs/ (4d old) vs fresh canonical /data/bot-data",
+      "description": "/home/ubuntu/ict-trading-bot/runtime_logs/heartbeat.txt is frozen at 2026-06-14 13:55 (age ~4d) while the canonical /data/bot-data/runtime_logs/heartbeat.txt is fresh (43s). A stray duplicate left from before the /data/bot-data DATA_DIR cutover — harmless (the watchdog reads the canonical path) but a confusing artifact. Remove the repo-dir copy or symlink it. Same stray-duplicate class as the duplicate-journal guard.",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-17T14:30:00+00:00"
+  "updated_at": "2026-06-18T13:15:00+00:00"
 }
