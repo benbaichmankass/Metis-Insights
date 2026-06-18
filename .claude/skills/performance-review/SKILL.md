@@ -239,6 +239,31 @@ Each item carries `id`, `opened_at`, `opened_by`, `source`, `title`,
 `resolution_criteria`, `status` ∈ `open | resolved | invalid |
 snoozed`.
 
+### Draining the strategy-refinement queue
+
+Also drain **`docs/claude/strategy-refinement-queue.json`** — the active
+pipeline for **`paper_ready`** cells (`docs/strategy-readiness-ladder.md`):
+backtested edges that are net-of-fee positive but **not yet fold-robust**, so
+they run on demo for soak AND are queued for *refinement* rather than shelved.
+For each open item:
+
+1. Triage: has its refinement hypothesis been tested yet? did a fresh
+   backtest / k-fold land?
+2. **Act on what you can** — if a re-sweep exists, re-tier with
+   `scripts/ops/classify_strategy_tier.py` and either advance the cell
+   (a `paper_ready → live_money_ready` Tier-3 proposal in `proposed_tweaks[]`,
+   with the gate evidence), iterate the hypothesis, or mark it `rejected`
+   with the evidence. If the refinement still needs a backtest, that's the
+   `backtesting` skill — note it and leave the item `open`.
+3. Edit the queue file: update `tier` / `status` / append evidence. Record
+   each action in `backlog_drain[]` (tag the item id `SRQ-…`).
+
+This is the onboarding half of the lifecycle; the M7 review gate
+(`/api/bot/strategies/{name}/review`) handles already-live strategies. A
+`paper_ready` cell is a **work item**, not a dead backtest — the whole point
+is to refine the marginal-but-real edges instead of only ever shipping the
+absolute winners.
+
 ## Posting to the Claude channel
 
 Every performance-review run ends with a one-line update to
