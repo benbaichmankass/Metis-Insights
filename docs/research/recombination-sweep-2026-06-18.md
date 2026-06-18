@@ -57,9 +57,11 @@ This is the directional, robust takeaway: the regime-filter primitive swap is re
    signal is the **relative** ADX-on-vs-off comparison *within* a (symbol, family).
 3. **Crypto-correlated.** These cells correlate with the existing bybit_1 paper book — same
    diversification caveat as the alt cells.
-4. **No out-of-pool holdout yet.** DESIGN §6 requires an out-of-pool symbol/period holdout
-   before any cell goes past demo. live_ready here = passed the in-pool every-fold gate, not
-   a real-money clearance.
+4. **Out-of-pool holdout — now DONE for the eth_pullback ADX refinement** (see the
+   follow-up section below: it generalizes to unseen symbols BNB/LINK). DESIGN §6 requires
+   an out-of-pool symbol/period holdout before any cell goes past demo; that bar is cleared
+   for the ADX≥25 pullback refinement, still pending for the trend-side live_ready cells.
+   live_ready alone = passed the in-pool every-fold gate, not a real-money clearance.
 
 ## Where this lands
 - **Banked finding:** the regime-filter primitive is a *family-specific* lever — ADX-floor
