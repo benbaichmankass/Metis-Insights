@@ -1,0 +1,31 @@
+TARGET=trainer
+---
+set -uo pipefail
+cd /home/ubuntu/ict-trading-bot
+git fetch origin main -q; git checkout -f main -q 2>/dev/null; git reset --hard origin/main -q
+# grab the Step-1 tool from the working branch (not yet on main)
+git fetch origin claude/system-audit-strategy-ml-srcwda -q
+git checkout origin/claude/system-audit-strategy-ml-srcwda -- scripts/ops/regime_performance_map.py
+source .venv/bin/activate 2>/dev/null || source venv/bin/activate 2>/dev/null || true
+R=results/m15_regime_map; mkdir -p "$R"
+run(){ # run <fam> <script> <rs> <sym>
+  local fam=$1 scr=$2 rs=$3 sym=$4 D="data/$4_15m.csv"
+  [ -f "$D" ] || { echo "MISSING $D"; return; }
+  python3 "scripts/$scr" --data "$D" --resample "$rs" --timeframe "$rs" --symbol "$sym" \
+    --emit-trades "$R/${fam}_${sym}.jsonl" --json /dev/null >/dev/null 2>&1
+  python3 scripts/ops/regime_performance_map.py --data "$D" --resample "$rs" \
+    --emit "$R/${fam}_${sym}.jsonl" --label "${fam}_${sym}_${rs}" --min-bucket 20 \
+    --json "$R/regmap_${fam}_${sym}.json"
+}
+for SYM in ETHUSDT SOLUSDT XRPUSDT ADAUSDT AVAXUSDT; do
+  run trend backtest_trend.py 4h "$SYM"
+  run pullback backtest_pullback.py 2h "$SYM"
+done
+echo "=== SUMMARY: favorable +EV ADX regimes per cell ==="
+python3 - <<'PY'
+import json,glob,os
+for f in sorted(glob.glob("results/m15_regime_map/regmap_*.json")):
+    d=json.load(open(f)); v=d.get("verdict",{})
+    print(f"{d['label']:26} total={d['total_net_r']:7.1f} fav={v.get('favorable_adx_regimes')} best={v.get('best_band')} conc={v.get('best_band_share_pct')}%")
+PY
+echo "REGIME_MAP_DONE"
