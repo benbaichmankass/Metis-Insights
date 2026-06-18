@@ -266,10 +266,12 @@ strategies:
     # NOT an alpha boost. Set 0 to disable. Tier-3; evidence:
     # docs/audits/fade-breakout-complement-2026-05-24.md § time-stop addendum.
     timeout_bars: 48
-    # shadow_model_ids: [] — opt out of ML shadow-prediction auto-wiring on
-    # this strategy for now (keep its signal log clean of model predictions
-    # until it has a live track record). Independent of `execution:`.
-    shadow_model_ids: []
+    # shadow_model_ids OMITTED 2026-06-18 (soak-everything, system-audit session,
+    # operator-directed): re-enabled ML shadow auto-wiring so this BTCUSDT
+    # strategy's signals feed the decision/setup/meta/conviction models. Was an
+    # `[]` opt-out — removed because the goal is now to maximise decision-model
+    # soak volume, and the BTC shadow corpus is symbol-appropriate here.
+    # Observe-only; zero order-path effect (shadow predictions never size/gate).
 
   squeeze_breakout_4h:
     # Volatility-squeeze breakout (S-STRAT-IMPROVE-S9) — Bollinger-in-Keltner
@@ -316,7 +318,9 @@ strategies:
     # No fixed TP — the Chandelier trail is the sole profit-exit; tp_r is a
     # far ~50R sentinel satisfying the pipeline's SL/TP dispatch gate.
     tp_r: 50.0
-    shadow_model_ids: []     # opt out of ML shadow-prediction auto-wiring.
+    # shadow_model_ids OMITTED 2026-06-18 (soak-everything): re-enabled ML shadow
+    # auto-wiring (was `[]`). BTCUSDT → BTC shadow corpus is symbol-appropriate;
+    # observe-only, zero order-path effect. Feeds the decision/meta models.
 
   vwap:
     model: null
@@ -573,10 +577,9 @@ strategies:
     # regime gates already do the filtering). Wired (default 0.0) for a future
     # regime warrant.
     min_confidence: 0.0
-    shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring —
-                              # keep this fresh data-collector's signal log
-                              # clean of model predictions until it has a track
-                              # record. Independent of `execution:`.
+    # shadow_model_ids OMITTED 2026-06-18 (soak-everything): re-enabled ML shadow
+    # auto-wiring (was `[]`). BTCUSDT → BTC shadow corpus is symbol-appropriate;
+    # observe-only, zero order-path effect. Feeds the decision/meta models.
 
   htf_pullback_trend_2h:
     # HTF-pullback trend-follower (overnight research 2026-06-01). Requires an
@@ -631,8 +634,9 @@ strategies:
     # the pipeline's full-SL/TP dispatch gate.
     tp_r: 50.0
     min_confidence: 0.0
-    shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring while
-                              # this fresh data-collector builds a track record.
+    # shadow_model_ids OMITTED 2026-06-18 (soak-everything): re-enabled ML shadow
+    # auto-wiring (was `[]`). BTCUSDT → BTC shadow corpus is symbol-appropriate;
+    # observe-only, zero order-path effect. Feeds the decision/meta models.
 
   trend_donchian_1h:
     # Faster-timeframe / wider-trail shadow A/B of the LIVE trend_donchian
