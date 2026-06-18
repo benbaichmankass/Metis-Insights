@@ -138,10 +138,34 @@ between the two runs is the feature list; the side-stream is past-only).
 **Verdict:** GREEN by the §4 decision rule. Cross-asset information carries
 predictive signal for an ETH state head. Caveats kept honest: (1) a single
 time-aware holdout, not purged-WF-CV or multi-fold — the magnitude wants
-corroboration under the leak-free splitter before any strong claim; (2) this is a
-**vol-regime proxy**, not a directional/PnL target — "improves a regime
-classifier" is the green light to invest in the directional probe, not yet
-"tradeable edge."
+corroboration under the leak-free splitter before any strong claim
+(**done — see § 5.1**); (2) this is a **vol-regime proxy**, not a directional/PnL
+target — "improves a regime classifier" is the green light to invest in the
+directional probe, not yet "tradeable edge."
+
+### 5.1 Corroboration under purged-WF-CV — CONFIRMED
+
+Re-ran the identical A/B with the leak-free splitter (`automation/results/xa-eth-pwf.txt`,
+exit 0): `split_strategy: purged_walk_forward`, 5 folds, `embargo_n=10`,
+`min_train_fraction=0.5` — pooled `n_eval = 21,900` across folds. The lift
+**survives**, same direction, same concentration in the range regime:
+
+| metric | base (v1) | +cross-asset | Δ (pwf) | Δ (single holdout, § 5) |
+|---|---|---|---|---|
+| weighted_f1 | 0.5974 | 0.6233 | **+0.0259** | +0.0535 |
+| accuracy | 0.6058 | 0.6265 | +0.0206 | +0.0387 |
+| macro_f1 | 0.5968 | 0.6182 | +0.0215 | +0.0440 |
+| f1_range | 0.5742 | 0.6175 | **+0.0433** | +0.0850 |
+| recall_range | 0.4580 | 0.5204 | +0.0624 | +0.1067 |
+| f1_volatile | 0.6193 | 0.6189 | −0.0004 | +0.0030 |
+
+The magnitude is roughly half the single-holdout's (expected — the § 5 holdout was
+a favorable recent year; the 5-fold pooled estimate is the honest one) but
+**unambiguously positive and leak-free**. f1_volatile is flat under BOTH splits —
+the cross-asset block does not help ETH detect *volatility*; it helps ETH
+recognize *calm/range* (the entire edge is in range recall + f1). The
+single-holdout caveat is resolved; the vol-regime-proxy caveat stands (the
+directional target is § 6 step 3).
 
 ## 6. Next (the green-light follow-ups)
 
