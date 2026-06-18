@@ -29,7 +29,7 @@ name: vm-driver
 
 on:
   push:
-    branches: [claude/mes-training-dashboard-tabs-zDNzM]
+    branches: ['claude/**']
     paths: ['automation/jobs/**']
 
 permissions:
@@ -46,7 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: claude/mes-training-dashboard-tabs-zDNzM
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
 
       - name: Set up SSH key
@@ -101,4 +101,4 @@ jobs:
           git add -f automation/results
           if git diff --cached --quiet; then echo "no changes"; exit 0; fi
           git commit -m "vm-driver: job results [skip ci]"
-          git push origin HEAD:claude/mes-training-dashboard-tabs-zDNzM
+          git push origin HEAD:${{ github.ref_name }}
