@@ -1,5 +1,6 @@
 {
   "_comment": "Strategy refinement queue (2026-06-18) — the active pipeline for `paper_ready` cells (docs/strategy-readiness-ladder.md). A paper_ready cell is a net-of-fee-positive edge that is NOT yet fold-robust (cleared the demo bar, missed the live-money bar). Each row records WHY it missed live + a concrete refinement HYPOTHESIS to test. /performance-review + the backtesting skill drain this: re-test the hypothesis on the harness, re-tier with scripts/ops/classify_strategy_tier.py, then advance (paper->live proposal), iterate, or reject with evidence. This is distinct from: performance-review-backlog.json (live-strategy tweak puzzles), ml-review-backlog.json (model experiments), health-review-backlog.json (system bugs). Item ids: SRQ-YYYYMMDD-NNN.",
+  "_see_also": "docs/research/strategy-primitives-recombination-DESIGN.md — the combinatorial primitive-recombination initiative (operator direction 2026-06-18). Its first probes drain SRQ-20260618-001/-002 (regime-filter swap) and -003 (exit-manager swap) by treating each refinement hypothesis as a (entry, filter, exit, timeframe) tuple to sweep + re-tier via classify_strategy_tier.py. DESIGN — for operator review; trainer-gated.",
   "schema_version": 1,
   "items": [
     {
