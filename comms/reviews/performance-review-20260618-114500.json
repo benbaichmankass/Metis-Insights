@@ -1,0 +1,107 @@
+{
+  "reviewed_at": "2026-06-18T11:45:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-06-15T17:15:00+00:00",
+  "window_end": "2026-06-18T11:45:00+00:00",
+  "overall_assessment": "investigate",
+  "data_provenance": "diag relay journal?table=order_packages&limit=200 + table=trades&limit=150 (both BYTE-CAPPED by the relay's 55KB comment cap \u2192 17 packages + 46 trades recovered, partial). audit?limit=600 reused from earlier pull. /api/bot/insights/* NOT reachable via the /api/diag-only relay \u2192 M13 cross-check NOT performed this pass.",
+  "strategy_performance": [
+    {
+      "name": "mgc_trend_1h",
+      "n_decisions": 1,
+      "n_filled": "18 (RECONCILER-DUPLICATED)",
+      "win_rate_pct": 11,
+      "pnl_total": -20127.68,
+      "account": "ib_paper(paper)",
+      "note": "1 position (pkg-81602a3b78e14f, entry 4318.872 size 8) booked as 18 phantom sl_cross losses by the reverse_reconciler \u2014 NOT real performance. See anomalies."
+    },
+    {
+      "name": "eth_pullback_2h",
+      "n_decisions": 8,
+      "n_filled": 0,
+      "status": "all at_target no-op (holds 1 ETH long, re-signals each 2h bar)",
+      "account": "bybit_1(paper)",
+      "note": "8 LONGs across mixed regimes (trending adx26-31 / transitional / 2 chop-tail conf<0.15). Netting guard contains it."
+    },
+    {
+      "name": "htf_pullback_trend_2h",
+      "n_decisions": "3+",
+      "n_filled": 0,
+      "status": "at_target no-op (bybit_1 + bybit_2)",
+      "account": "bybit_1+bybit_2",
+      "note": "real-money bybit_2 BTC pullback decisions all intent_noop:at_target \u2014 already holding the 0.001 BTC long; no new real-money fills."
+    },
+    {
+      "name": "ict_scalp_5m",
+      "n_decisions": 0,
+      "note": "NO trades in the recovered window \u2014 real-money edge check (PB-20260616-002) NOT closeable this pass."
+    }
+  ],
+  "trade_decision_grades_summary": {
+    "appended": 16,
+    "distribution": {
+      "C": 13,
+      "F": 2,
+      "B": 1
+    },
+    "keyed_by": "order_package_id",
+    "persisted_to": "comms/claude_strategy_scores.jsonl"
+  },
+  "insights_review": [
+    {
+      "severity": "note",
+      "item": "M13 /api/bot/insights/* NOT pulled \u2014 only /api/diag/* is reachable via the relay this session; cross-check deferred."
+    }
+  ],
+  "proposed_tweaks": [
+    {
+      "scope": "config/strategies.yaml::eth_pullback_2h.adx_min (new entry gate)",
+      "current_value": "none (min_confidence 0.0)",
+      "proposed_value": "~20 (ADX-14 floor)",
+      "evidence": "8 LONGs this window; the 2 F-grade decisions are conf 0.09/0.12 in chop (adx~20). WS-C k-fold: net-positive overall but recent (chop) fold negative. adx_min~20 cuts the weak tail, keeps trending longs (adx26-31). Recombination orchestrator #3945 can tier this exactly.",
+      "tier": 3,
+      "risk_note": "Reduces trade frequency; TEST via the recombination regime-swap sweep on the trainer BEFORE applying. Applies to the 5 pullback alt cells too (SRQ-20260618-002)."
+    }
+  ],
+  "backlog_drain": [
+    {
+      "id": "PB-20260614-001",
+      "action": "updated",
+      "note": "refined w/ live grading; ADX lever+orchestrator now shipped; kept open pending trainer re-sweep"
+    },
+    {
+      "id": "PB-20260616-002",
+      "action": "updated",
+      "note": "could not verify \u2014 no ict_scalp_5m fills in recovered window; kept open"
+    },
+    {
+      "id": "PERF-20260601-011",
+      "action": "updated",
+      "note": "regime stamps present+populated (layer-1 OK); layer-2 gate-correctness not verifiable via byte-capped relay; recurring, kept open"
+    },
+    {
+      "id": "PB-20260618-001",
+      "action": "added",
+      "note": "mgc_trend_1h reconciler double-adoption blocks performance read (tier-2, cross-ref health)"
+    },
+    {
+      "id": "SRQ-20260618-001/-002/-003",
+      "action": "annotated",
+      "note": "orchestrator+ADX lever shipped; probes trainer-gated behind WS-C"
+    }
+  ],
+  "anomalies": [
+    {
+      "severity": "high",
+      "id": "reconciler-double-adoption",
+      "detail": "pkg-81602a3b78e14f (mgc_trend_1h MGC long) \u2192 18 CLOSED trades, identical entry 4318.872 + size 8, all adopted_by reverse_reconciler in a 30-min window (06-17 18:48-19:20), each a phantom sl_cross loss totalling -$20,127.68 on ib_paper. ROOT CAUSE = reconciler re-adopting one exchange position N times (IB-gateway empty-portfolio blip class, BL-20260614-ORPHANBLIP / RECONCILER_CLOSE_CONFIRM_SECONDS). HEALTH-REVIEW territory; pollutes mgc stats + risks double-count on real money. RECOMMEND: run /health-review."
+    },
+    {
+      "severity": "low",
+      "id": "order-package-orphan-rate",
+      "detail": "13/17 recent order_packages status=orphaned w/ linked_trade_id=null \u2014 created but never trade-linked. Likely the same reconciler family; verify in /health-review."
+    }
+  ],
+  "recommended_action": "Run /health-review next to root-cause the reverse-reconciler double-adoption (high; possible real-money double-count). Then run the recombination regime-swap sweep on the trainer (after WS-C) to validate the eth_pullback adx_min~20 tweak before any Tier-3 apply.",
+  "operator_attention_required": true
+}
