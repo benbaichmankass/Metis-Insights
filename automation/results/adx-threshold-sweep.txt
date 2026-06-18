@@ -1,0 +1,50 @@
+# job=adx-threshold-sweep target=trainer ip=158.178.209.121 started=2026-06-18T13:28:48Z
+=== ADX threshold matrix (net / 2x / every-fold-pass / worst) — LIVE_READY = allpos True ===
+pullback_ADAUSDT_a15         net=  23.25 2x=  19.13 allpos=False tier=paper_ready
+pullback_ADAUSDT_a20         net=  41.38 2x=  37.87 allpos=False tier=paper_ready
+pullback_ADAUSDT_a25         net=  53.73 2x=  51.24 allpos=False tier=paper_ready
+pullback_ADAUSDT_a30         net=  60.88 2x=  59.08 allpos=True  tier=live_ready <== LIVE_READY
+pullback_AVAXUSDT_a15        net=  16.48 2x=  13.23 allpos=False tier=paper_ready
+pullback_AVAXUSDT_a20        net=  14.93 2x=  12.00 allpos=False tier=paper_ready
+pullback_AVAXUSDT_a25        net=  24.29 2x=  21.78 allpos=False tier=paper_ready
+pullback_AVAXUSDT_a30        net=   6.81 2x=   5.05 allpos=False tier=paper_ready
+pullback_ETHUSDT_a15         net=  54.51 2x=  49.83 allpos=False tier=paper_ready
+pullback_ETHUSDT_a20         net=  62.70 2x=  58.57 allpos=False tier=paper_ready
+pullback_ETHUSDT_a25         net=  63.11 2x=  59.54 allpos=True  tier=live_ready <== LIVE_READY
+pullback_ETHUSDT_a30         net=  25.14 2x=  22.63 allpos=False tier=paper_ready
+pullback_SOLUSDT_a15         net=  43.80 2x=  40.67 allpos=True  tier=live_ready <== LIVE_READY
+pullback_SOLUSDT_a20         net=  20.46 2x=  17.66 allpos=False tier=paper_ready
+pullback_SOLUSDT_a25         net=  19.87 2x=  17.74 allpos=False tier=paper_ready
+pullback_SOLUSDT_a30         net=  22.79 2x=  21.24 allpos=False tier=paper_ready
+pullback_XRPUSDT_a15         net=  12.91 2x=   8.77 allpos=False tier=paper_ready
+pullback_XRPUSDT_a20         net=   9.73 2x=   6.11 allpos=False tier=paper_ready
+pullback_XRPUSDT_a25         net=  21.40 2x=  18.58 allpos=False tier=paper_ready
+pullback_XRPUSDT_a30         net=  18.27 2x=  15.99 allpos=False tier=paper_ready
+trend_ADAUSDT_a15            net=  21.77 2x=  19.29 allpos=False tier=paper_ready
+trend_ADAUSDT_a20            net=  23.66 2x=  21.79 allpos=False tier=paper_ready
+trend_ADAUSDT_a25            net=  19.92 2x=  18.62 allpos=False tier=paper_ready
+trend_ADAUSDT_a30            net=  12.02 2x=  11.07 allpos=False tier=paper_ready
+trend_AVAXUSDT_a15           net=  25.13 2x=  23.15 allpos=False tier=paper_ready
+trend_AVAXUSDT_a20           net=  12.75 2x=  11.05 allpos=False tier=paper_ready
+trend_AVAXUSDT_a25           net=   0.01 2x=  -1.28 allpos=False tier=reject
+trend_AVAXUSDT_a30           net=  -6.41 2x=  -7.35 allpos=False tier=reject
+trend_ETHUSDT_a15            net=  31.63 2x=  28.28 allpos=False tier=paper_ready
+trend_ETHUSDT_a20            net=  42.27 2x=  39.74 allpos=False tier=paper_ready
+trend_ETHUSDT_a25            net=  29.96 2x=  27.96 allpos=False tier=paper_ready
+trend_ETHUSDT_a30            net=  13.67 2x=  12.26 allpos=False tier=paper_ready
+trend_SOLUSDT_a15            net=  24.17 2x=  22.19 allpos=False tier=paper_ready
+trend_SOLUSDT_a20            net=  15.98 2x=  14.27 allpos=False tier=paper_ready
+trend_SOLUSDT_a25            net=   6.69 2x=   5.29 allpos=False tier=paper_ready
+trend_SOLUSDT_a30            net=   3.62 2x=   2.66 allpos=False tier=paper_ready
+trend_XRPUSDT_a15            net=  40.45 2x=  37.89 allpos=True  tier=live_ready <== LIVE_READY
+trend_XRPUSDT_a20            net=  19.33 2x=  17.20 allpos=False tier=paper_ready
+trend_XRPUSDT_a25            net=  18.73 2x=  17.19 allpos=False tier=paper_ready
+trend_XRPUSDT_a30            net=  14.96 2x=  13.95 allpos=False tier=paper_ready
+
+>>> cells reaching every-fold-positive (live_ready candidates): 4
+    pullback_ADAUSDT_a30 net 60.8807
+    pullback_ETHUSDT_a25 net 63.1082
+    pullback_SOLUSDT_a15 net 43.8035
+    trend_XRPUSDT_a15 net 40.4517
+ADX_THRESH_DONE
+# exit=0 finished=2026-06-18T13:31:34Z
