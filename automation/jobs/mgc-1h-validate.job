@@ -1,0 +1,30 @@
+TARGET=trainer
+---
+set -uo pipefail
+cd ~/ict-trading-bot
+git checkout origin/main -- scripts/ops/portfolio_robustness.py 2>/dev/null || true
+PY=""
+for cand in .venv/bin/python venv/bin/python "$(command -v python3)"; do
+  [ -n "$cand" ] && [ -x "$cand" ] && "$cand" -c "import pandas,numpy" 2>/dev/null && { PY="$cand"; break; }
+done
+[ -z "$PY" ] && { echo "NO_PY_WITH_DEPS"; exit 0; }
+echo "PY=$PY"
+GOLD=~/m15-phase0/data/XAUUSD_15m.csv
+OUT=results/cross_asset
+mkdir -p "$OUT"
+echo "=== gold proxy data ==="
+head -2 "$GOLD"; echo "rows=$(wc -l < "$GOLD") first=$(sed -n '2p' "$GOLD" | cut -d, -f1) last=$(tail -1 "$GOLD" | cut -d, -f1)"
+echo "=== mgc_trend_1h emit (XAUUSD_15m -> 1h SPOT proxy; live params donchian20/atr2.5/trail3.0, NOT long-only) ==="
+"$PY" scripts/backtest_trend.py --data "$GOLD" --resample 1h --symbol MGC \
+  --donchian 20 --atr-stop-mult 2.5 --trail-mult 3.0 \
+  --emit-trades "$OUT/mgc_trend_1h.jsonl" 2>&1 | tail -8
+echo "emit_lines=$(wc -l < "$OUT/mgc_trend_1h.jsonl" 2>/dev/null || echo 0)"
+echo "=== single-cell robustness ==="
+"$PY" - "$OUT" <<'PYEOF'
+import json,sys
+out=sys.argv[1]
+json.dump([{"label":"mgc_trend_1h","emit":f"{out}/mgc_trend_1h.jsonl"}], open(f"{out}/manifest_mgc1h.json","w"))
+print("manifest written")
+PYEOF
+"$PY" scripts/ops/portfolio_robustness.py --manifest "$OUT/manifest_mgc1h.json" --boot 3000 --json "$OUT/robust_mgc1h.json" 2>&1
+echo "MGC1H_DONE"
