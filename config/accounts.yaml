@@ -127,7 +127,16 @@ accounts:
     market_type: linear                # USDT-margined linear perpetuals — same
                                        # as bybit_2. set-leverage fires at boot
                                        # via _apply_per_account_leverage.
-    strategies: [trend_donchian, turtle_soup, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, fvg_range_15m, htf_pullback_trend_2h, trend_donchian_1h, eth_pullback_2h]
+    strategies: [trend_donchian, turtle_soup, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, fvg_range_15m, htf_pullback_trend_2h, trend_donchian_1h, eth_pullback_2h, trend_donchian_eth_4h, trend_donchian_sol_4h, trend_donchian_xrp_4h, trend_donchian_ada_4h, trend_donchian_avax_4h, sol_pullback_2h, xrp_pullback_2h, ada_pullback_2h, avax_pullback_2h]
+                                       # 9 alt cells added 2026-06-18 (Tier-3):
+                                       # 5 trend_4h (ETH/SOL/XRP/ADA/AVAX) + 4
+                                       # pullback_2h (SOL/XRP/ADA/AVAX). WS-C
+                                       # k-fold paper_ready (net-of-fee positive +
+                                       # 2x-fee headroom; fail only the strict
+                                       # every-fold gate — SRQ-20260618-001/-002).
+                                       # DEMO-ONLY (not on bybit_2); observe-for-soak,
+                                       # NOT live-money-ready. Graduation to real
+                                       # money is a separate Tier-3 gate.
                                        # eth_pullback_2h added 2026-06-11 (M15
                                        # WS-C alt sleeve, Tier-3 PR) — ETH/USDT
                                        # 2h HTF-pullback, DEMO-ONLY (not on
@@ -177,7 +186,8 @@ accounts:
                                        # (operator policy: paper/demo always executes) —
                                        # DEMO account ONLY; NOT on bybit_2 (real money),
                                        # whose addition stays a separate Tier-3 gate.
-    symbols: [BTCUSDT, ETHUSDT]        # instrument(s) this account trades. The
+    symbols: [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, ADAUSDT, AVAXUSDT]
+                                       # instrument(s) this account trades. The
                                        # multi-symbol tick loop unions every
                                        # configured account's symbols, so this
                                        # is the source of truth for "trade BTCUSDT
@@ -185,6 +195,10 @@ accounts:
                                        # by symbol→exchange (coordinator gate).
                                        # ETHUSDT added 2026-06-11 (M15 WS-C alt
                                        # sleeve — eth_pullback_2h, demo-only).
+                                       # SOLUSDT, XRPUSDT, ADAUSDT, AVAXUSDT added
+                                       # 2026-06-18 (Tier-3) for the trend_4h +
+                                       # pullback_2h alt-cell soak (paper_ready,
+                                       # demo-only). All Bybit USDT linear perps.
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity

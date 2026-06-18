@@ -155,6 +155,10 @@ def test_run_checks_strategies_match_roster():
         "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
         "eth_pullback_2h",
         "trend_donchian_sol", "trend_donchian_eth",
+        # 9 paper_ready alt cells on bybit_1 DEMO (2026-06-18, Tier-3):
+        "trend_donchian_eth_4h", "trend_donchian_sol_4h", "trend_donchian_xrp_4h",
+        "trend_donchian_ada_4h", "trend_donchian_avax_4h",
+        "sol_pullback_2h", "xrp_pullback_2h", "ada_pullback_2h", "avax_pullback_2h",
     }
 
 

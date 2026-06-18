@@ -1545,6 +1545,43 @@ def trend_donchian_eth_signal_builder(settings: dict) -> Dict[str, Any]:
     return _trend_donchian_variant_builder("trend_donchian_eth", settings)
 
 
+# ── trend_4h alt cells — bybit_1 DEMO soak (paper_ready, WS-C-validated) ────────
+# Five symbol-pinned trend_donchian instances on the 4h candle (ETH/SOL/XRP/ADA/
+# AVAX), routed to bybit_1 (Bybit demo — paper money) for decision/ML soak. The
+# M15 WS-C k-fold sweep classified the trend_4h cell `paper_ready`: net-of-fee
+# positive overall + survives 2x fees, failing only the strict every-fold gate on
+# the recent (late-2025) regime (SRQ-20260618-001). Demo-only, observe-for-soak —
+# NOT live-money-ready (real-money bybit_2 stays a separate Tier-3 gate). Each is
+# BOTH-SIDES (no long_only — matches the WS-C validation run, unlike the prop
+# trend_donchian_sol long-only cell). All reuse the symbol-generic
+# _trend_donchian_variant_builder, which pins the traded symbol from each
+# variant's own `symbols:` block and honours `enabled` as the single source of
+# truth (2026-06-18, Tier-3).
+def trend_donchian_eth_4h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """trend_donchian on ETHUSDT 4h — bybit_1 demo soak (paper_ready)."""
+    return _trend_donchian_variant_builder("trend_donchian_eth_4h", settings)
+
+
+def trend_donchian_sol_4h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """trend_donchian on SOLUSDT 4h — bybit_1 demo soak (paper_ready)."""
+    return _trend_donchian_variant_builder("trend_donchian_sol_4h", settings)
+
+
+def trend_donchian_xrp_4h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """trend_donchian on XRPUSDT 4h — bybit_1 demo soak (paper_ready)."""
+    return _trend_donchian_variant_builder("trend_donchian_xrp_4h", settings)
+
+
+def trend_donchian_ada_4h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """trend_donchian on ADAUSDT 4h — bybit_1 demo soak (paper_ready)."""
+    return _trend_donchian_variant_builder("trend_donchian_ada_4h", settings)
+
+
+def trend_donchian_avax_4h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """trend_donchian on AVAXUSDT 4h — bybit_1 demo soak (paper_ready)."""
+    return _trend_donchian_variant_builder("trend_donchian_avax_4h", settings)
+
+
 def mes_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """MES daily LONG-ONLY trend-follower (overnight research 2026-06-01).
 
@@ -2857,6 +2894,126 @@ def gld_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     return _with_signal_package("gld_pullback_1d", sig)
 
 
+def _htf_pullback_variant_builder(
+    name: str, settings: dict, *, default_symbol: str = "",
+) -> Dict[str, Any]:
+    """Shared builder for the htf_pullback_trend_2h alt-cell variants.
+
+    Symbol-generic refactor (2026-06-18) of the original
+    ``eth_pullback_2h_signal_builder``: reads the named ``<name>`` config
+    block, pins the traded symbol from that block's ``symbols:`` (a
+    single-instrument crypto instance, like the trend_donchian variant
+    builder), fetches that symbol's candles, runs the
+    ``src.units.strategies.htf_pullback_trend_2h.order_package`` unit at the
+    block's params, emits shadow predictions, and honours ``enabled`` as the
+    single source of truth. Behaviour-preserving for ``eth_pullback_2h``
+    (the symbol resolves the same way — its ``symbols: [ETHUSDT]`` block pins
+    ETHUSDT, with the ``settings``/``default_symbol`` chain preserved as the
+    fallback for an un-pinned call). Backs ``eth_pullback_2h`` plus the four
+    WS-C ``paper_ready`` alt cells (SOL/XRP/ADA/AVAX 2h) on bybit_1 demo.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.htf_pullback_trend_2h import order_package
+    from src.runtime.market_data import fetch_candles
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 - never fail-open on a config error
+        strategies_cfg = {}
+    cfg_yaml = strategies_cfg.get(name, {}) or {}
+
+    syms = cfg_yaml.get("symbols") or []
+    symbol = (
+        str(syms[0]) if syms
+        else settings.get("SYMBOL", settings.get("symbol", default_symbol))
+    )
+
+    if not bool(cfg_yaml.get("enabled", False)):
+        logger.info("%s: strategy disabled in config/strategies.yaml - returning side=none", name)
+        return _with_signal_package(name, {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": name, "reason": "disabled_in_yaml"},
+        })
+
+    timeframe = str(cfg_yaml.get("timeframe") or "2h")
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    if candles_df is None:
+        raise RuntimeError(
+            f"{name}: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the Bybit connection is "
+            "configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("%s: no actionable signal (%s)", name, exc)
+        try:
+            log_signal(_stamp_regime({
+                "event": f"{name}_eval",
+                "strategy": name,
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            }, candles_df))
+        except Exception:  # noqa: BLE001
+            logger.exception("%s: dedicated audit emit failed", name)
+        return _with_signal_package(name, {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": name, "reason": str(exc)},
+        })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "%s: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        name, side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal(_stamp_regime({
+            "event": f"{name}_eval",
+            "strategy": name,
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        }, candles_df))
+    except Exception:  # noqa: BLE001
+        logger.exception("%s: dedicated audit emit failed", name)
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": name,
+        "meta": {
+            **pkg_meta,
+            "strategy_name": name,
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
+        },
+    }
+    _emit_shadow_preds(name, sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df, symbol=symbol, timeframe=timeframe)
+    return _with_signal_package(name, sig)
+
+
 def eth_pullback_2h_signal_builder(settings: dict) -> Dict[str, Any]:
     """ETH/USDT 2h HTF-pullback (bidirectional) — M15 WS-C alt sleeve.
 
@@ -2873,104 +3030,46 @@ def eth_pullback_2h_signal_builder(settings: dict) -> Dict[str, Any]:
     CORRELATION CAVEAT: ETH correlates ~0.7–0.9 with BTC; this leg buys
     frequency, not diversification — size assuming concurrent drawdown
     with the BTC roster. Honours the YAML ``enabled`` flag as the single
-    source of truth.
+    source of truth. Delegates to the symbol-generic
+    ``_htf_pullback_variant_builder`` (2026-06-18 refactor; behaviour-
+    preserving — its ``symbols: [ETHUSDT]`` block pins the same symbol).
     """
-    from src.units.strategies import load_strategy_config
-    from src.units.strategies.htf_pullback_trend_2h import order_package
-    from src.runtime.market_data import fetch_candles
+    return _htf_pullback_variant_builder(
+        "eth_pullback_2h", settings, default_symbol="ETHUSDT")
 
-    try:
-        strategies_cfg = load_strategy_config()
-    except Exception:  # noqa: BLE001 - never fail-open on a config error
-        strategies_cfg = {}
-    cfg_yaml = strategies_cfg.get("eth_pullback_2h", {}) or {}
 
-    symbol = settings.get("SYMBOL", settings.get("symbol", "ETHUSDT"))
+# ── pullback_2h alt cells — bybit_1 DEMO soak (paper_ready, WS-C-validated) ─────
+# Four symbol-pinned htf_pullback_trend_2h instances on the 2h candle (SOL/XRP/
+# ADA/AVAX), routed to bybit_1 (Bybit demo — paper money) for decision/ML soak.
+# The M15 WS-C k-fold sweep classified the htf_pullback_2h cell `paper_ready`:
+# net-of-fee positive overall + survives 2x fees, failing only the strict
+# every-fold gate on the recent regime (SRQ-20260618-002). Demo-only,
+# observe-for-soak — NOT live-money-ready (real-money bybit_2 stays a separate
+# Tier-3 gate). Each mirrors eth_pullback_2h's params EXACTLY (lookback 40/10,
+# frac 0.5, stop 2.5x, trail 5.0x, min_confidence 0.0) — only the symbol differs;
+# all delegate to the shared _htf_pullback_variant_builder (2026-06-18, Tier-3).
+def sol_pullback_2h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """SOLUSDT 2h HTF-pullback — bybit_1 demo soak (paper_ready)."""
+    return _htf_pullback_variant_builder(
+        "sol_pullback_2h", settings, default_symbol="SOLUSDT")
 
-    if not bool(cfg_yaml.get("enabled", False)):
-        logger.info("eth_pullback_2h: strategy disabled in config/strategies.yaml - returning side=none")
-        return _with_signal_package("eth_pullback_2h", {
-            "symbol": symbol,
-            "side": "none",
-            "meta": {"strategy_name": "eth_pullback_2h", "reason": "disabled_in_yaml"},
-        })
 
-    timeframe = str(cfg_yaml.get("timeframe") or "2h")
+def xrp_pullback_2h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """XRPUSDT 2h HTF-pullback — bybit_1 demo soak (paper_ready)."""
+    return _htf_pullback_variant_builder(
+        "xrp_pullback_2h", settings, default_symbol="XRPUSDT")
 
-    exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
-    if candles_df is None:
-        raise RuntimeError(
-            f"eth_pullback_2h: no candle data returned for symbol={symbol} "
-            f"timeframe={timeframe}. Check that the Bybit connection is "
-            "configured and the symbol is valid."
-        )
 
-    _publish_liquidity_state(symbol, candles_df)
+def ada_pullback_2h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """ADAUSDT 2h HTF-pullback — bybit_1 demo soak (paper_ready)."""
+    return _htf_pullback_variant_builder(
+        "ada_pullback_2h", settings, default_symbol="ADAUSDT")
 
-    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
 
-    try:
-        pkg = order_package(cfg, candles_df=candles_df)
-    except ValueError as exc:
-        logger.info("eth_pullback_2h: no actionable signal (%s)", exc)
-        try:
-            log_signal(_stamp_regime({
-                "event": "eth_pullback_2h_eval",
-                "strategy": "eth_pullback_2h",
-                "symbol": symbol,
-                "timeframe": timeframe,
-                "side": "none",
-                "reason": str(exc),
-            }, candles_df))
-        except Exception:  # noqa: BLE001
-            logger.exception("eth_pullback_2h: dedicated audit emit failed")
-        return _with_signal_package("eth_pullback_2h", {
-            "symbol": symbol,
-            "side": "none",
-            "meta": {"strategy_name": "eth_pullback_2h", "reason": str(exc)},
-        })
-
-    side = "buy" if pkg["direction"] == "long" else "sell"
-    logger.info(
-        "eth_pullback_2h: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
-        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
-    )
-    pkg_meta = pkg.get("meta") or {}
-    try:
-        log_signal(_stamp_regime({
-            "event": "eth_pullback_2h_eval",
-            "strategy": "eth_pullback_2h",
-            "symbol": symbol,
-            "timeframe": timeframe,
-            "side": side,
-            "entry": pkg["entry"],
-            "stop_loss": pkg["sl"],
-            "take_profit": pkg["tp"],
-            "confidence": pkg["confidence"],
-        }, candles_df))
-    except Exception:  # noqa: BLE001
-        logger.exception("eth_pullback_2h: dedicated audit emit failed")
-
-    sig = {
-        "symbol": symbol,
-        "side": side,
-        "price": pkg["entry"],
-        "entry_price": pkg["entry"],
-        "stop_loss": pkg["sl"],
-        "take_profit": pkg["tp"],
-        "pattern": "eth_pullback_2h",
-        "meta": {
-            **pkg_meta,
-            "strategy_name": "eth_pullback_2h",
-            "confidence": pkg["confidence"],
-            "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
-        },
-    }
-    _emit_shadow_preds("eth_pullback_2h", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
-    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df, symbol=symbol, timeframe=timeframe)
-    return _with_signal_package("eth_pullback_2h", sig)
+def avax_pullback_2h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """AVAXUSDT 2h HTF-pullback — bybit_1 demo soak (paper_ready)."""
+    return _htf_pullback_variant_builder(
+        "avax_pullback_2h", settings, default_symbol="AVAXUSDT")
 
 
 # ── Monitor-unit tags (aliased strategies) ─────────────────────────────────────
@@ -2989,6 +3088,12 @@ for _builder, _monitor_unit in (
     (trend_donchian_1h_signal_builder, "trend_donchian"),
     (trend_donchian_sol_signal_builder, "trend_donchian"),
     (trend_donchian_eth_signal_builder, "trend_donchian"),
+    # trend_4h alt cells — bybit_1 demo soak (paper_ready, 2026-06-18).
+    (trend_donchian_eth_4h_signal_builder, "trend_donchian"),
+    (trend_donchian_sol_4h_signal_builder, "trend_donchian"),
+    (trend_donchian_xrp_4h_signal_builder, "trend_donchian"),
+    (trend_donchian_ada_4h_signal_builder, "trend_donchian"),
+    (trend_donchian_avax_4h_signal_builder, "trend_donchian"),
     (mes_trend_long_1d_signal_builder, "trend_donchian"),
     (mgc_trend_1h_signal_builder, "trend_donchian"),
     (xauusd_trend_1h_signal_builder, "trend_donchian"),
@@ -2998,5 +3103,10 @@ for _builder, _monitor_unit in (
     (mhg_pullback_1d_signal_builder, "htf_pullback_trend_2h"),
     (gld_pullback_1d_signal_builder, "htf_pullback_trend_2h"),
     (eth_pullback_2h_signal_builder, "htf_pullback_trend_2h"),
+    # pullback_2h alt cells — bybit_1 demo soak (paper_ready, 2026-06-18).
+    (sol_pullback_2h_signal_builder, "htf_pullback_trend_2h"),
+    (xrp_pullback_2h_signal_builder, "htf_pullback_trend_2h"),
+    (ada_pullback_2h_signal_builder, "htf_pullback_trend_2h"),
+    (avax_pullback_2h_signal_builder, "htf_pullback_trend_2h"),
 ):
     _builder.monitor_unit = _monitor_unit

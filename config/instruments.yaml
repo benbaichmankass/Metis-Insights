@@ -67,6 +67,68 @@ instruments:
     display_name: "ETH/USDT Perp (Bybit)"
 
   # ------------------------------------------------------------------
+  # SOL/XRP/ADA/AVAX USDT — Bybit V5 USDT-margined linear perpetuals
+  # Added 2026-06-18 (Tier-3) for the trend_4h + pullback_2h alt-cell soak
+  # on bybit_1 (Bybit DEMO — paper money). `exchange: bybit` is the
+  # connector-routing key (connector_for_symbol). tick_size / qty_step /
+  # min_qty here are STATIC FALLBACKS only — Bybit's live get_instruments_info
+  # is authoritative on the demo venue (src/units/accounts/precision.py), so a
+  # stale value can never block the order path. contract_value_usd: 1.0 (linear
+  # perp: 1 USDT per $1 underlying move) drives local PnL resolution.
+  # ------------------------------------------------------------------
+  SOLUSDT:
+    exchange: bybit
+    category: linear
+    base_asset: SOL
+    quote_currency: USDT
+    settlement_currency: USDT
+    tick_size: 0.001         # fallback — live lookup authoritative
+    min_qty: 0.1
+    qty_step: 0.1
+    contract_value_usd: 1.0
+    max_leverage: 100
+    display_name: "SOL/USDT Perp (Bybit)"
+
+  XRPUSDT:
+    exchange: bybit
+    category: linear
+    base_asset: XRP
+    quote_currency: USDT
+    settlement_currency: USDT
+    tick_size: 0.0001        # fallback — live lookup authoritative
+    min_qty: 1.0
+    qty_step: 1.0
+    contract_value_usd: 1.0
+    max_leverage: 100
+    display_name: "XRP/USDT Perp (Bybit)"
+
+  ADAUSDT:
+    exchange: bybit
+    category: linear
+    base_asset: ADA
+    quote_currency: USDT
+    settlement_currency: USDT
+    tick_size: 0.0001        # fallback — live lookup authoritative
+    min_qty: 1.0
+    qty_step: 1.0
+    contract_value_usd: 1.0
+    max_leverage: 100
+    display_name: "ADA/USDT Perp (Bybit)"
+
+  AVAXUSDT:
+    exchange: bybit
+    category: linear
+    base_asset: AVAX
+    quote_currency: USDT
+    settlement_currency: USDT
+    tick_size: 0.001         # fallback — live lookup authoritative
+    min_qty: 0.1
+    qty_step: 0.1
+    contract_value_usd: 1.0
+    max_leverage: 100
+    display_name: "AVAX/USDT Perp (Bybit)"
+
+  # ------------------------------------------------------------------
   # MES — Micro E-mini S&P 500 futures via CME / Interactive Brokers
   # IB execution path wired 2026-05-21 (IBClient + ib_client_for +
   # execute._submit_order interactive_brokers branch). Traded by the

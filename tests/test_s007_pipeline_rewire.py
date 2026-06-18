@@ -46,7 +46,12 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
     """
     from src.strategy_registry import load_strategies
     names = sorted(s["name"] for s in load_strategies())
+    # 2026-06-18 (Tier-3): 9 paper_ready alt cells wired to bybit_1 DEMO —
+    # 5 trend_4h (trend_donchian_{eth,sol,xrp,ada,avax}_4h) + 4 pullback_2h
+    # ({sol,xrp,ada,avax}_pullback_2h). WS-C k-fold paper_ready; demo-only soak.
     assert names == [
+        "ada_pullback_2h",
+        "avax_pullback_2h",
         "eth_pullback_2h",
         "fade_breakout_4h",
         "fvg_range_15m",
@@ -58,15 +63,22 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         "mgc_trend_1h",
         "mhg_pullback_1d",
         "qqq_trend_long_1d",
+        "sol_pullback_2h",
         "spy_trend_long_1d",
         "squeeze_breakout_4h",
         "trend_donchian",
         "trend_donchian_1h",
+        "trend_donchian_ada_4h",
+        "trend_donchian_avax_4h",
         "trend_donchian_eth",
+        "trend_donchian_eth_4h",
         "trend_donchian_sol",
+        "trend_donchian_sol_4h",
+        "trend_donchian_xrp_4h",
         "turtle_soup",
         "vwap",
         "xauusd_trend_1h",
+        "xrp_pullback_2h",
     ]
 
 
