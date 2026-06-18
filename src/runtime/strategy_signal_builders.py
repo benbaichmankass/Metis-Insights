@@ -201,9 +201,16 @@ def _resolve_shadow_predictors(strategy_name: str, strat_cfg: dict) -> list:
             else runtime_logs_dir() / "shadow_predictions.jsonl"
         )
         registry = ModelRegistry(registry_root)
+        # Symbol-aware auto-wire (2026-06-18): restrict the auto-discovered
+        # shadow set to models trained on THIS strategy's symbol (or the
+        # symbol-agnostic `symbol_scope: all` decision models). Without this,
+        # an alt/futures strategy auto-wires BTC-only regime heads that score
+        # it out-of-distribution and pollute those heads' shadow track record.
+        _syms = strat_cfg.get("symbols") or []
+        _strat_symbol = _syms[0] if _syms else None
         ids = (
-            discover_shadow_stage_model_ids(registry) if auto_wire
-            else explicit_ids
+            discover_shadow_stage_model_ids(registry, symbol=_strat_symbol)
+            if auto_wire else explicit_ids
         )
         if not ids:
             return []

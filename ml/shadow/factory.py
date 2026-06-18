@@ -255,8 +255,36 @@ def resolve_predictor(
     )
 
 
-def discover_shadow_stage_model_ids(registry: ModelRegistry) -> List[str]:
-    """Return every model_id currently at `target_deployment_stage == "shadow"`.
+# A model trained across symbols (`symbol_scope: all`) is symbol-agnostic —
+# it auto-wires onto a strategy regardless of that strategy's instrument.
+_SYMBOL_AGNOSTIC = "ALL"
+
+
+def model_symbol_scope(entry: RegistryEntry) -> str | None:
+    """Return the model's declared training-symbol scope, normalized upper-case.
+
+    Reads `manifest.dataset.symbol_scope` (the canonical field; falls back to
+    `dataset.symbol` then a top-level `symbol_scope`). Returns `"ALL"` for a
+    symbol-agnostic model (trained across symbols), a specific symbol (e.g.
+    `"BTCUSDT"` / `"MES"`), or `None` when the manifest declares no scope at
+    all (treated as agnostic by the symbol filter, fail-permissive).
+    """
+    manifest = getattr(entry, "manifest", None) or {}
+    dataset = manifest.get("dataset") or {}
+    scope = (
+        dataset.get("symbol_scope")
+        or dataset.get("symbol")
+        or manifest.get("symbol_scope")
+    )
+    if scope is None:
+        return None
+    return str(scope).strip().upper()
+
+
+def discover_shadow_stage_model_ids(
+    registry: ModelRegistry, *, symbol: str | None = None,
+) -> List[str]:
+    """Return shadow-stage model_ids, optionally filtered to one symbol.
 
     Used by the coordinator's auto-wire path (2026-05-19): when a
     strategy's `shadow_model_ids` is missing/None (the default),
@@ -267,6 +295,17 @@ def discover_shadow_stage_model_ids(registry: ModelRegistry) -> List[str]:
     shouldn't be silently re-purposed as a per-strategy shadow
     side-channel.
 
+    **Symbol-aware filtering (2026-06-18).** When `symbol` is given, the
+    auto-wire set is restricted to models whose declared `symbol_scope`
+    is that symbol OR is symbol-agnostic (`"ALL"` / unset). This stops a
+    strategy on symbol S from auto-wiring a model trained on a *different*
+    specific symbol — which would score it out-of-distribution and pollute
+    that model's shadow track record (drift / live-agreement promotion
+    stats). `symbol=None` (the default) preserves the legacy
+    all-shadow-models behaviour for callers without a single-symbol context
+    (e.g. the historical backfill, which scores every model on every trade
+    via its own per-trade symbol join).
+
     Strategies that opt out by setting `shadow_model_ids: []` get
     an empty list, not the auto-discovered set; strategies with an
     explicit non-empty list get exactly that list. The auto path
@@ -274,11 +313,16 @@ def discover_shadow_stage_model_ids(registry: ModelRegistry) -> List[str]:
 
     Ordered alphabetically for stable cache identity across reloads.
     """
-    ids = [
-        entry.model_id
-        for entry in registry.list()
-        if entry.target_deployment_stage == "shadow"
-    ]
+    want = symbol.strip().upper() if symbol else None
+    ids: List[str] = []
+    for entry in registry.list():
+        if entry.target_deployment_stage != "shadow":
+            continue
+        if want is not None:
+            scope = model_symbol_scope(entry)
+            if scope is not None and scope != _SYMBOL_AGNOSTIC and scope != want:
+                continue
+        ids.append(entry.model_id)
     return sorted(ids)
 
 
