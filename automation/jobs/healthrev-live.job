@@ -1,0 +1,21 @@
+TARGET=live
+---
+set -uo pipefail
+echo "=== host / uptime ==="; hostname; uptime
+echo "=== systemctl is-active/enabled (bot units) ==="
+for u in ict-trader-live.service ict-web-api.service ict-liveness-watchdog.timer ict-git-sync.timer ict-ib-gateway-watchdog.timer; do
+  printf "%-34s %s / %s\n" "$u" "$(systemctl is-active "$u" 2>/dev/null)" "$(systemctl is-enabled "$u" 2>/dev/null)"
+done
+echo "=== heartbeat mtime ==="
+for p in /data/bot-data/runtime_logs/heartbeat.txt /home/ubuntu/ict-trading-bot/runtime_logs/heartbeat.txt; do
+  [ -f "$p" ] && echo "$p age=$(( $(date +%s) - $(date -r "$p" +%s) ))s"
+done
+DB=/data/bot-data/trade_journal.db; echo "=== DB ==="; ls -la "$DB" 2>/dev/null
+echo "=== RECONCILER DOUBLE-ADOPTION: adopted_orphan rows grouped by order_package (last 3d, n>1) ==="
+sqlite3 -readonly "$DB" "SELECT order_package_id, symbol, account_id, COUNT(*) n, MIN(timestamp) first, MAX(closed_at) last, ROUND(SUM(COALESCE(pnl,0)),2) pnl FROM trades WHERE setup_type='adopted_orphan' AND COALESCE(is_backtest,0)=0 AND timestamp > datetime('now','-3 day') GROUP BY order_package_id HAVING n>1 ORDER BY n DESC LIMIT 20;" 2>&1
+echo "=== is re-adopt churn STILL happening? (journal last 12h) ==="
+journalctl -u ict-trader-live.service --since '-12 hours' 2>/dev/null | grep -iE "ADOPTED|RE-ADOPT SUPPRESSED|readopt_suppressed|reverse_reconciler: CLOSED" | tail -20 || echo "(journalctl unavailable)"
+echo "=== open trades by account ==="
+sqlite3 -readonly "$DB" "SELECT account_id, COUNT(*) FROM trades WHERE status='open' AND COALESCE(is_backtest,0)=0 GROUP BY account_id;" 2>&1
+echo "=== pipeline alive: signal_audit tail ==="
+( tail -2 /data/bot-data/runtime_logs/signal_audit.jsonl 2>/dev/null || tail -2 /home/ubuntu/ict-trading-bot/runtime_logs/signal_audit.jsonl 2>/dev/null ) | cut -c1-180
