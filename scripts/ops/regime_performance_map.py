@@ -102,8 +102,8 @@ def main(argv: list[str]) -> int:
         print(f"=== {label}: no trades joined to candles ===")
         return 0
 
-    total = R["net_r"].sum()
-    out: dict = {"label": label, "n_trades": len(R), "total_net_r": round(total, 2), "by_adx": {}, "by_adx_vol": {}}
+    total = float(R["net_r"].sum())
+    out: dict = {"label": label, "n_trades": int(len(R)), "total_net_r": round(total, 2), "by_adx": {}, "by_adx_vol": {}}
     print(f"\n=== {label}: {len(R)} trades, total net_r {total:.1f} ===")
     print("-- by ADX regime --")
     for b in _ADX_BANDS:
@@ -112,7 +112,7 @@ def main(argv: list[str]) -> int:
             continue
         wr = 100 * (s["net_r"] > 0).mean()
         share = 100 * s["net_r"].sum() / total if total else 0.0
-        out["by_adx"][b] = {"n": len(s), "net_r": round(s["net_r"].sum(), 1), "mean": round(s["net_r"].mean(), 3), "wr": round(wr, 0)}
+        out["by_adx"][b] = {"n": int(len(s)), "net_r": round(float(s["net_r"].sum()), 1), "mean": round(float(s["net_r"].mean()), 3), "wr": round(float(wr), 0)}
         print(f"  ADX {b:6} n={len(s):4} netR={s['net_r'].sum():8.1f} mean={s['net_r'].mean():+.3f} wr={wr:4.0f}% share={share:5.0f}%")
     print(f"-- by ADX x Vol (n>={a.min_bucket}) --")
     for ab in _ADX_BANDS:
@@ -120,7 +120,7 @@ def main(argv: list[str]) -> int:
             s = R[(R["adx_b"] == ab) & (R["vol_b"] == vb)]
             if len(s) < a.min_bucket:
                 continue
-            out["by_adx_vol"][f"{ab}/{vb}"] = {"n": len(s), "net_r": round(s["net_r"].sum(), 1), "mean": round(s["net_r"].mean(), 3)}
+            out["by_adx_vol"][f"{ab}/{vb}"] = {"n": int(len(s)), "net_r": round(float(s["net_r"].sum()), 1), "mean": round(float(s["net_r"].mean()), 3)}
             print(f"  {ab:6} {vb:6} n={len(s):4} netR={s['net_r'].sum():8.1f} mean={s['net_r'].mean():+.3f} wr={100*(s['net_r']>0).mean():4.0f}%")
 
     # Verdict: which regimes are +EV with a real sample (reported even when the
@@ -132,7 +132,7 @@ def main(argv: list[str]) -> int:
         top = max(out["by_adx"], key=lambda b: out["by_adx"][b]["net_r"])
         top_share = round(100 * out["by_adx"][top]["net_r"] / total, 0) if total else None
         out["verdict"] = {"favorable_adx_regimes": fav, "best_band": top, "best_band_share_pct": top_share,
-                          "net_negative_overall": total <= 0}
+                          "net_negative_overall": bool(total <= 0)}
         share_txt = f" | edge concentrated in {top} ({top_share:.0f}% of total)" if total else f" | best band {top}"
         print(f"VERDICT: +EV ADX regimes (mean>0, n>={a.min_bucket}): {fav or 'NONE'}{share_txt}"
               + (" [strategy is net-NEGATIVE overall — these regimes are where it'd be worth listening]" if total <= 0 and fav else ""))
