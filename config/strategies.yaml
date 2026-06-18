@@ -1077,7 +1077,8 @@ strategies:
     model: null
     signal_prefixes: [mgc_trend]
     enabled: true
-    execution: shadow        # DEMOTED live -> shadow 2026-06-18 (Tier-3): net-negative
+    execution: shadow        # shadow-guard: allow — operator-approved 2026-06-18 ("move on both").
+                             # DEMOTED live -> shadow 2026-06-18 (Tier-3): net-negative
                              # on BOTH the XAUUSD spot proxy (-50.7R) AND real GC=F 1h
                              # (-15.5R, 2.4y) — see docs/research/recombination-sweep-2026-06-18.md
                              # follow-up. A 1h donchian-trend on gold is far more chop-exposed
