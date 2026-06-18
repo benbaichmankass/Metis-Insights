@@ -1212,6 +1212,7 @@ strategies:
     trail_mult: 5.0
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
     min_confidence: 0.0
+    adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
     # ETHUSDT signals auto-wire the symbol-agnostic decision/meta models (the
     # symbol filter keeps BTC/MES regime heads off). Observe-only.
@@ -1253,6 +1254,7 @@ strategies:
     trail_mult: 5.0
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
     min_confidence: 0.0
+    adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   xrp_pullback_2h:
@@ -1272,6 +1274,7 @@ strategies:
     trail_mult: 5.0
     tp_r: 50.0
     min_confidence: 0.0
+    adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   ada_pullback_2h:
@@ -1291,6 +1294,7 @@ strategies:
     trail_mult: 5.0
     tp_r: 50.0
     min_confidence: 0.0
+    adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   avax_pullback_2h:
@@ -1310,4 +1314,5 @@ strategies:
     trail_mult: 5.0
     tp_r: 50.0
     min_confidence: 0.0
+    adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
