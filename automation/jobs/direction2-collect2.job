@@ -1,0 +1,28 @@
+TARGET=trainer
+---
+set -uo pipefail
+cd ~/ict-trading-bot
+echo "running_procs=$(pgrep -fc recombination_sweep.py || echo 0)"
+tail -4 results/recombination/sweep.log 2>&1
+if [ -f results/recombination/summary.json ]; then
+  .venv/bin/python - <<'PYEOF'
+import json,collections
+rows=json.load(open("results/recombination/summary.json"))
+tc=collections.Counter(r.get("tier") for r in rows)
+print("completed tuples:",len(rows),"| tiers:",dict(tc))
+sur=[r for r in rows if r.get("tier") in ("paper_ready","live_ready")]
+print("\nSURVIVORS (paper_ready/live_ready):",len(sur))
+for r in sorted(sur,key=lambda x:-(x.get("total_oos_net_r_base") or -1e9)):
+    print(f"  {r['tier']:<11} {r['label']:<46} net={r.get('total_oos_net_r_base')} 2x={r.get('total_oos_net_r_double')}")
+print("\nTOP 15 by net_r (all tiers):")
+for r in sorted(rows,key=lambda x:-(x.get("total_oos_net_r_base") or -1e9))[:15]:
+    print(f"  {str(r.get('tier')):<11} {r['label']:<46} net={r.get('total_oos_net_r_base')} 2x={r.get('total_oos_net_r_double')}")
+print("\nBY-FAMILY x REGIME tier counts:")
+fr=collections.defaultdict(collections.Counter)
+for r in rows: fr[(r.get('family'),r.get('regime_filter'))][r.get('tier')]+=1
+for k,c in sorted(fr.items()): print("  ",k,dict(c))
+PYEOF
+else
+  echo "summary.json STILL not written"
+fi
+echo "COLLECT2_DONE"
