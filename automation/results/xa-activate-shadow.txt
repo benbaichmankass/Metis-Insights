@@ -1,0 +1,159 @@
+# job=xa-activate-shadow target=trainer ip=158.178.209.121 started=2026-06-18T22:32:52Z
+===== sync trainer repo to merged main =====
+From https://github.com/benbaichmankass/ict-trading-bot
+ * branch              main       -> FETCH_HEAD
+   b4f7b4fe..3a771e58  main       -> origin/main
+HEAD is now at 3a771e58 research: cross-asset feature probe — peer-asset block + ETH A/B (S-CROSS-ASSET-PROBE) (#3965)
+3a771e58 research: cross-asset feature probe — peer-asset block + ETH A/B (S-CROSS-ASSET-PROBE) (#3965)
+===== 1. market_raw ETH/BTC/SOL 1h -> production datasets-out =====
+wrote dataset under /home/ubuntu/ict-trading-bot/datasets-out/market_raw/ETHUSDT/1h/v002
+43824 /home/ubuntu/ict-trading-bot/datasets-out/market_raw/ETHUSDT/1h/v002/data.jsonl
+wrote dataset under /home/ubuntu/ict-trading-bot/datasets-out/market_raw/BTCUSDT/1h/v002
+43824 /home/ubuntu/ict-trading-bot/datasets-out/market_raw/BTCUSDT/1h/v002/data.jsonl
+wrote dataset under /home/ubuntu/ict-trading-bot/datasets-out/market_raw/SOLUSDT/1h/v002
+40968 /home/ubuntu/ict-trading-bot/datasets-out/market_raw/SOLUSDT/1h/v002/data.jsonl
+===== 2. cross_asset side-stream + 3. market_features ETH 1h v001 =====
+{"family": "cross_asset_raw", "peer_slots": {"peer1": "BTCUSDT", "peer2": "SOLUSDT"}, "row_count": 43824, "target_symbol": "ETHUSDT"}
+wrote dataset under /home/ubuntu/ict-trading-bot/datasets-out/market_features/ETHUSDT/1h/v001
+===== 4. train + register eth-regime-1h-lgbm-xasset-v1 (candidate) =====
+{
+  "experiment_dir": "/home/ubuntu/ict-trading-bot/ml/experiments-runs/eth-regime-1h-lgbm-xasset-v1/20260618T223408Z",
+  "metrics": {
+    "accuracy": 0.6114155251141552,
+    "f1_range": 0.6038175046554934,
+    "f1_volatile": 0.6187275985663082,
+    "macro_f1": 0.6112725516109008,
+    "n_eval": 8760.0,
+    "precision_range": 0.8124021296586282,
+    "precision_volatile": 0.49613795581102926,
+    "recall_range": 0.4804593443230228,
+    "recall_volatile": 0.8217792323713181,
+    "support_range": 5399.0,
+    "support_volatile": 3361.0,
+    "weighted_f1": 0.6095381468511839
+  },
+  "model_id": "eth-regime-1h-lgbm-xasset-v1",
+  "registered": true
+}
+===== 5. promote candidate -> shadow (autonomous; observe-only) =====
+{
+  "code_revision": "3a771e58",
+  "created_at": "2026-06-18T22:34:08.840691+00:00",
+  "history": [
+    {
+      "at": "2026-06-18T22:34:08.840691+00:00",
+      "by": "experiments-runner",
+      "from_status": null,
+      "reason": "initial registration",
+      "to_status": "candidate"
+    }
+  ],
+  "manifest": {
+    "dataset": {
+      "family": "market_features",
+      "symbol_scope": "ETHUSDT",
+      "timeframe": "1h",
+      "version": "v001"
+    },
+    "description": "Cross-asset-conditioned LightGBM regime classifier for ETHUSDT 1h \u2014 adds the peer-asset feature group (BTC/SOL co-movement, lead-lag, relative strength, rolling beta + idiosyncratic residual, breadth) to the v1 head. A/B vs eth-regime-1h-lgbm-v1 (S-CROSS-ASSET-PROBE).",
+    "evaluator": "ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator",
+    "evaluator_config": {
+      "holdout_fraction": 0.2,
+      "split_strategy": "time_aware_holdout",
+      "target_column": "regime_label",
+      "time_column": "ts"
+    },
+    "manifest_version": "v1",
+    "model_family": "classification_lightgbm",
+    "model_id": "eth-regime-1h-lgbm-xasset-v1",
+    "notes": "S-CROSS-ASSET-PROBE treatment leg. Clean A/B vs eth-regime-1h-lgbm-v1:\nidentical trainer, split, weighting, frozen regime spec, and dataset \u2014 the ONLY\nchange is the added cross-asset feature group. The cross_asset side-stream is\ncomputed at the ETH bar cadence from BTC/SOL market_raw (past-only, leakage-safe\n\u2014 same-cadence peers close with the target). Leakage gate forbids\nforward_log_return / forward_log_return_vol / regime_label. If f1_volatile /\naccuracy improves materially under the Phase-0 CV, that is the green light to\n(a) widen the probe to a directional / trade-outcome target and (b) propose a\ncross-asset strategy wire (Tier-3). If it does not, that is an honest negative \u2014\nlog it and move on (cross-asset alpha for a vol-regime head may be thin; the\ndirectional target is the more natural home for it).\n",
+    "target_deployment_stage": "candidate",
+    "trainer": "ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer",
+    "trainer_config": {
+      "categorical_columns": [
+        "vol_bucket",
+        "hour_of_day",
+        "dayofweek"
+      ],
+      "class_weight": {
+        "range": 1.0,
+        "volatile": 4.0
+      },
+      "feature_columns": [
+        "vol_bucket",
+        "rolling_log_return_vol",
+        "log_return",
+        "log_return_lag_1",
+        "log_return_lag_2",
+        "hour_of_day",
+        "dayofweek",
+        "xa_peer1_ret",
+        "xa_peer1_ret_lag1",
+        "xa_peer1_vol",
+        "xa_peer1_rel_strength",
+        "xa_peer1_beta",
+        "xa_peer1_beta_residual",
+        "xa_peer2_ret",
+        "xa_peer2_ret_lag1",
+        "xa_peer2_vol",
+        "xa_peer2_rel_strength",
+        "xa_peer2_beta",
+        "xa_peer2_beta_residual",
+        "xa_breadth_up"
+      ],
+      "freeze_regime_spec": true,
+      "lgbm_params": {
+        "bagging_fraction": 0.9,
+        "bagging_freq": 5,
+        "feature_fraction": 0.9,
+        "learning_rate": 0.05,
+        "min_data_in_leaf": 50,
+        "num_leaves": 31
+      },
+      "n_iter": 200,
+      "sample_weight": {
+        "half_life_days": 90,
+        "time_column": "ts"
+      },
+      "seed": 42,
+      "target_column": "regime_label",
+      "vol_feature_column": "rolling_log_return_vol",
+      "vol_window_n": 20
+    }
+  },
+  "metrics": {
+    "accuracy": 0.6114155251141552,
+    "f1_range": 0.6038175046554934,
+    "f1_volatile": 0.6187275985663082,
+    "macro_f1": 0.6112725516109008,
+    "n_eval": 8760.0,
+    "precision_range": 0.8124021296586282,
+    "precision_volatile": 0.49613795581102926,
+    "recall_range": 0.4804593443230228,
+    "recall_volatile": 0.8217792323713181,
+    "support_range": 5399.0,
+    "support_volatile": 3361.0,
+    "weighted_f1": 0.6095381468511839
+  },
+  "model_id": "eth-regime-1h-lgbm-xasset-v1",
+  "model_state_path": "/home/ubuntu/ict-trading-bot/ml/experiments-runs/eth-regime-1h-lgbm-xasset-v1/20260618T223408Z/model_state.json",
+  "notes": "S-CROSS-ASSET-PROBE treatment leg. Clean A/B vs eth-regime-1h-lgbm-v1:\nidentical trainer, split, weighting, frozen regime spec, and dataset \u2014 the ONLY\nchange is the added cross-asset feature group. The cross_asset side-stream is\ncomputed at the ETH bar cadence from BTC/SOL market_raw (past-only, leakage-safe\n\u2014 same-cadence peers close with the target). Leakage gate forbids\nforward_log_return / forward_log_return_vol / regime_label. If f1_volatile /\naccuracy improves materially under the Phase-0 CV, that is the green light to\n(a) widen the probe to a directional / trade-outcome target and (b) propose a\ncross-asset strategy wire (Tier-3). If it does not, that is an honest negative \u2014\nlog it and move on (cross-asset alpha for a vol-regime head may be thin; the\ndirectional target is the more natural home for it).\n",
+  "runs": [],
+  "stage_history": [
+    {
+      "at": "2026-06-18T22:34:09.269997+00:00",
+      "by": "claude",
+      "from_stage": "candidate",
+      "reason": "S-CROSS-ASSET-PROBE D2a: activate observe-only cross-asset regime soak (operator-approved 2026-06-18)",
+      "to_stage": "shadow"
+    }
+  ],
+  "status": "candidate",
+  "target_deployment_stage": "shadow"
+}
+===== 6. publish trainer mirror -> live VM =====
+registry_synth_ok models=37 path=/home/ubuntu/ict-trading-bot/ml/registry-store/registry.jsonl
+trainer_status_built /home/ubuntu/ict-trading-bot/runtime_logs/trainer_status.json
+{"ts":"2026-06-18T22:34:09+00:00","status":"status_built","path":"/home/ubuntu/ict-trading-bot/runtime_logs/trainer_status.json"}
+{"ts":"2026-06-18T22:34:12+00:00","status":"published","dest":"ubuntu@141.145.193.91:/data/bot-data/runtime_logs/trainer_mirror"}
+# exit=0 finished=2026-06-18T22:34:12Z

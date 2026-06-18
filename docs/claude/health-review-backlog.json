@@ -2020,7 +2020,19 @@
       "tier": 1,
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260618-CLOSEDFLAT-MALFORMED-JSON",
+      "opened_at": "2026-06-18T22:45:00+00:00",
+      "opened_by": "claude (S-CROSS-ASSET-PROBE D2a wrap, noticed-not-fixed)",
+      "source": "Live VM journalctl during the 2026-06-18 D2a restart (issue #3968): repeated `WARNING | src.runtime.closed_flat_invariant | closed_flat_invariant: trades query failed: malformed JSON`. Pre-existing, unrelated to the cross-asset work.",
+      "severity": "low",
+      "title": "closed_flat_invariant trades query fails with 'malformed JSON' on the live VM",
+      "description": "The closed-flat invariant check logs 'trades query failed: malformed JSON' each tick on the live trader. Likely a row in trade_journal.db with a malformed JSON column (meta/notes/exit_plan_state) that the invariant query json-parses, or a query that hit a partial write. Non-fatal (warning, the tick continues) but it means the closed-flat invariant isn't actually validating. Investigate: find the offending trade row(s) + harden the parse (skip/repair malformed JSON) so the invariant runs. Pre-existing — noticed during the D2a restart, not caused by it.",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-18T13:15:00+00:00"
+  "updated_at": "2026-06-18T22:45:00+00:00"
 }
