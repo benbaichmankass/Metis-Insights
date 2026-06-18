@@ -1,0 +1,117 @@
+# job=wsc-trainer target=trainer ip=158.178.209.121 started=2026-06-18T13:06:58Z
+=== host / load ===
+ict-trainer-vm
+ 13:07:00 up 37 days, 21:16,  0 users,  load average: 0.02, 0.13, 0.07
+nproc=1
+=== WS-C sweep process running? ===
+NO sweep process running
+=== fold result files (m15_ws_c_kfold) ===
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/fold_ict_scalp_ADAUSDT_5m.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/fold_ict_scalp_AVAXUSDT_5m.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/fold_ict_scalp_ETHUSDT_5m.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/fold_ict_scalp_LINKUSDT_5m.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/fold_pullback_ADAUSDT_2h.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/fold_pullback_AVAXUSDT_2h.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/fold_pullback_ETHUSDT_2h.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/fold_pullback_SOLUSDT_2h.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/fold_pullback_XRPUSDT_2h.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/fold_trend_ADAUSDT_4h.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/fold_trend_AVAXUSDT_4h.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/fold_trend_ETHUSDT_4h.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/fold_trend_SOLUSDT_4h.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/fold_trend_XRPUSDT_4h.json
+/home/ubuntu/m15-phase0/results/m15_ws_c_kfold/fold_ict_scalp_ADAUSDT_5m.json
+/home/ubuntu/m15-phase0/results/m15_ws_c_kfold/fold_ict_scalp_AVAXUSDT_5m.json
+/home/ubuntu/m15-phase0/results/m15_ws_c_kfold/fold_ict_scalp_ETHUSDT_5m.json
+/home/ubuntu/m15-phase0/results/m15_ws_c_kfold/fold_ict_scalp_LINKUSDT_5m.json
+/home/ubuntu/m15-phase0/results/m15_ws_c_kfold/fold_pullback_ADAUSDT_2h.json
+/home/ubuntu/m15-phase0/results/m15_ws_c_kfold/fold_pullback_AVAXUSDT_2h.json
+/home/ubuntu/m15-phase0/results/m15_ws_c_kfold/fold_pullback_ETHUSDT_2h.json
+/home/ubuntu/m15-phase0/results/m15_ws_c_kfold/fold_pullback_SOLUSDT_2h.json
+/home/ubuntu/m15-phase0/results/m15_ws_c_kfold/fold_pullback_XRPUSDT_2h.json
+/home/ubuntu/m15-phase0/results/m15_ws_c_kfold/fold_trend_ADAUSDT_4h.json
+/home/ubuntu/m15-phase0/results/m15_ws_c_kfold/fold_trend_AVAXUSDT_4h.json
+/home/ubuntu/m15-phase0/results/m15_ws_c_kfold/fold_trend_ETHUSDT_4h.json
+/home/ubuntu/m15-phase0/results/m15_ws_c_kfold/fold_trend_SOLUSDT_4h.json
+/home/ubuntu/m15-phase0/results/m15_ws_c_kfold/fold_trend_XRPUSDT_4h.json
+=== WS_C_KFOLD_DONE marker ===
+/home/ubuntu/m15-phase0/scripts/ops/m15_ws_c_kfold.sh
+/home/ubuntu/m15-phase0/results/ws_c_kfold.log
+/home/ubuntu/ict-trading-bot/scripts/ops/m15_ws_c_kfold.sh
+/home/ubuntu/ict-trading-bot/runtime_logs/ws_c_kfold.log
+/home/ubuntu/prop-validate-wt/scripts/ops/m15_ws_c_kfold.sh
+=== newest m15_ws_c artifacts (last 2d) ===
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/pullback_SOLUSDT_2h_fee15.0_trades.jsonl
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/pullback_SOLUSDT_2h_fee7.5.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/pullback_SOLUSDT_2h_fee7.5_trades.jsonl
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/pullback_XRPUSDT_2h_fee15.0.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/pullback_XRPUSDT_2h_fee15.0_trades.jsonl
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/pullback_XRPUSDT_2h_fee7.5.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/pullback_XRPUSDT_2h_fee7.5_trades.jsonl
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_ADAUSDT_4h_fee15.0.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_ADAUSDT_4h_fee15.0_trades.jsonl
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_ADAUSDT_4h_fee7.5.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_ADAUSDT_4h_fee7.5_trades.jsonl
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_AVAXUSDT_4h_fee15.0.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_AVAXUSDT_4h_fee15.0_trades.jsonl
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_AVAXUSDT_4h_fee7.5.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_AVAXUSDT_4h_fee7.5_trades.jsonl
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_ETHUSDT_4h_fee15.0.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_ETHUSDT_4h_fee15.0_trades.jsonl
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_ETHUSDT_4h_fee7.5.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_ETHUSDT_4h_fee7.5_trades.jsonl
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_SOLUSDT_4h_fee15.0.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_SOLUSDT_4h_fee15.0_trades.jsonl
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_SOLUSDT_4h_fee7.5.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_SOLUSDT_4h_fee7.5_trades.jsonl
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_XRPUSDT_4h_fee15.0.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_XRPUSDT_4h_fee15.0_trades.jsonl
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_XRPUSDT_4h_fee7.5.json
+/home/ubuntu/ict-trading-bot/results/m15_ws_c_kfold/trend_XRPUSDT_4h_fee7.5_trades.jsonl
+/home/ubuntu/prop-validate-wt/scripts/ops/m15_ws_c_fetch.sh
+/home/ubuntu/prop-validate-wt/scripts/ops/m15_ws_c_kfold.sh
+/home/ubuntu/prop-validate-wt/scripts/ops/m15_ws_c_sweep.sh
+=== sweep/nohup log tails ===
+--- /home/ubuntu/m15-phase0/results/ws_c_fetch_retry.log ---
+-rw-rw-r-- 1 ubuntu ubuntu 10023571 Jun 11 09:59 data/SOLUSDT_15m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 29832773 Jun 11 10:32 data/SOLUSDT_5m.csv
+-rw-rw-r-- 1 ubuntu ubuntu  9174259 Jun 11 10:53 data/SOLUSDT_5m_oos.csv
+-rw-rw-r-- 1 ubuntu ubuntu 20658551 Jun 11 10:53 data/SOLUSDT_5m_train.csv
+-rw-rw-r-- 1 ubuntu ubuntu 11291846 Jun 11 10:42 data/XRPUSDT_15m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 33581634 Jun 11 10:48 data/XRPUSDT_5m.csv
+--- /home/ubuntu/m15-phase0/results/ws_c_fetch.log ---
+-rw-rw-r-- 1 ubuntu ubuntu  9919281 Jun 11 10:05 data/AVAXUSDT_15m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 29480595 Jun 11 10:08 data/AVAXUSDT_5m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 11918251 Jun 11 09:54 data/ETHUSDT_15m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 35471780 Jun 11 09:58 data/ETHUSDT_5m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 35381089 Jun 11 10:04 data/LINKUSDT_5m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 10023571 Jun 11 09:59 data/SOLUSDT_15m.csv
+--- /home/ubuntu/m15-phase0/results/ws_c_sweep.log ---
+| ict_scalp_LINKUSDT_5m_train (NET 7.5bps) | 1607 | 253.5934 | 108.7906 | 0.0677 | 51.21 | |
+| ict_scalp_SOLUSDT_5m_oos (NET 7.5bps) | 379 | 74.8148 | 38.9538 | 0.1028 | 51.45 | |
+| ict_scalp_SOLUSDT_5m_train (NET 7.5bps) | 871 | 88.3682 | -20.9981 | -0.0241 | 47.76 | |
+| ict_scalp_XRPUSDT_5m_oos (NET 7.5bps) | 346 | 33.8383 | -1.7334 | -0.005 | 46.24 | |
+| ict_scalp_XRPUSDT_5m_train (NET 7.5bps) | 856 | 184.1416 | 98.0864 | 0.1146 | 51.29 | |
+WS_C_SWEEP_DONE
+--- /home/ubuntu/m15-phase0/results/ws_c_kfold.log ---
+  "label": "pullback_XRPUSDT_2h",	  "verdict": "FAIL"
+  "label": "trend_ADAUSDT_4h",	  "verdict": "FAIL"
+  "label": "trend_AVAXUSDT_4h",	  "verdict": "FAIL"
+  "label": "trend_ETHUSDT_4h",	  "verdict": "FAIL"
+  "label": "trend_SOLUSDT_4h",	  "verdict": "FAIL"
+  "label": "trend_XRPUSDT_4h",	  "verdict": "FAIL"
+--- /home/ubuntu/ict-trading-bot/runtime_logs/ws_c_fetch.log ---
+-rw-rw-r-- 1 ubuntu ubuntu 35493834 Jun 18 07:12 data/LINKUSDT_5m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 10061741 Jun 18 06:33 data/SOLUSDT_15m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 29945803 Jun 18 06:38 data/SOLUSDT_5m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 11333437 Jun 18 06:48 data/XRPUSDT_15m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 33705202 Jun 18 06:54 data/XRPUSDT_5m.csv
+-rw-rw-r-- 1 ubuntu ubuntu 41294721 May 22 17:13 data/backtest_BTCUSDT_5m.csv
+--- /home/ubuntu/ict-trading-bot/runtime_logs/ws_c_kfold.log ---
+  "label": "pullback_XRPUSDT_2h",	  "verdict": "FAIL"
+  "label": "trend_ADAUSDT_4h",	  "verdict": "FAIL"
+  "label": "trend_AVAXUSDT_4h",	  "verdict": "FAIL"
+  "label": "trend_ETHUSDT_4h",	  "verdict": "FAIL"
+  "label": "trend_SOLUSDT_4h",	  "verdict": "FAIL"
+  "label": "trend_XRPUSDT_4h",	  "verdict": "FAIL"
+# exit=0 finished=2026-06-18T13:08:55Z

@@ -1,0 +1,24 @@
+# job=healthrev-live2 target=live ip=141.145.193.91 started=2026-06-18T13:11:25Z
+=== reconciler double-adoption confirm (python3 stdlib sqlite, read-only) ===
+-- adopted_orphan dup groups (n>1, last 7d) --
+{'order_package_id': 'pkg-81602a3b78e14f7e', 'symbol': 'MGC', 'account_id': 'ib_paper', 'n': 19, 'first': '2026-06-17T18:20:02.487319+00:00', 'last': '2026-06-17T19:36:47.904284+00:00', 'pnl': -23773.44}
+{'order_package_id': None, 'symbol': 'MHGN6', 'account_id': 'ib_paper', 'n': 3, 'first': '2026-06-12T04:41:22.172257+00:00', 'last': '2026-06-14T06:21:32.382025+00:00', 'pnl': 0.0}
+-- adopted_orphan count by day (last 5d) — is churn ongoing? --
+{'d': '2026-06-14', 'n': 2}
+{'d': '2026-06-17', 'n': 20}
+-- newest adopted_orphan rows --
+{'id': 2683, 'symbol': 'MGC', 'account_id': 'ib_paper', 'status': 'open', 'timestamp': '2026-06-17T20:24:05.522014+00:00', 'closed_at': None, 'pnl': 0.0}
+{'id': 2682, 'symbol': 'MGC', 'account_id': 'ib_paper', 'status': 'orphaned', 'timestamp': '2026-06-17T19:36:49.546754+00:00', 'closed_at': None, 'pnl': -3645.76}
+{'id': 2681, 'symbol': 'MGC', 'account_id': 'ib_paper', 'status': 'closed', 'timestamp': '2026-06-17T19:20:38.840926+00:00', 'closed_at': '2026-06-17T19:36:47.904284+00:00', 'pnl': -4437.76}
+{'id': 2680, 'symbol': 'MGC', 'account_id': 'ib_paper', 'status': 'closed', 'timestamp': '2026-06-17T19:17:08.227108+00:00', 'closed_at': '2026-06-17T19:20:37.167079+00:00', 'pnl': -2741.76}
+{'id': 2679, 'symbol': 'MGC', 'account_id': 'ib_paper', 'status': 'closed', 'timestamp': '2026-06-17T19:08:10.004853+00:00', 'closed_at': '2026-06-17T19:17:06.267229+00:00', 'pnl': -2517.76}
+-- open trades by account --
+{'account_id': 'alpaca_paper', 'n': 1}
+{'account_id': 'bybit_1', 'n': 1}
+{'account_id': 'bybit_2', 'n': 1}
+{'account_id': 'ib_paper', 'n': 2}
+=== reconciler ADOPTED / reverse_reconciler lines in bot logs (journalctl needs sudo) ===
+(no matching log lines / logs not at expected path)
+=== stale duplicate heartbeat note ===
+-rw------- 1 ubuntu ubuntu 38 Jun 14 13:55 /home/ubuntu/ict-trading-bot/runtime_logs/heartbeat.txt
+# exit=0 finished=2026-06-18T13:11:27Z

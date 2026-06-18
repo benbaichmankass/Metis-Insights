@@ -1,0 +1,24 @@
+# job=regime-map2 target=trainer ip=158.178.209.121 started=2026-06-18T14:03:20Z
+=== REGIME-CONDITIONAL EDGE per cell — favorable ADX regimes + concentration ===
+pullback_ADAUSDT_2h      total=   63.9 | fav=['15-25', '25-35', '>35']    best=25-35  conc=40.0%
+   ADX-mean-R: <15:-0.08(23)  15-25:+0.15(124)  25-35:+0.25(103)  >35:+0.24(92)
+pullback_AVAXUSDT_2h     total=   30.7 | fav=['25-35', '>35']             best=>35    conc=63.0%
+   ADX-mean-R: <15:+0.02(17)  15-25:-0.02(102)  25-35:+0.14(96)  >35:+0.18(106)
+pullback_ETHUSDT_2h      total=   68.6 | fav=['25-35', '>35']             best=25-35  conc=101.0%
+   ADX-mean-R: <15:+0.04(19)  15-25:-0.13(105)  25-35:+0.67(103)  >35:+0.12(105)
+pullback_SOLUSDT_2h      total=   54.8 | fav=['15-25', '>35']             best=>35    conc=70.0%
+   ADX-mean-R: <15:-0.59(13)  15-25:+0.20(133)  25-35:-0.03(82)  >35:+0.43(89)
+pullback_XRPUSDT_2h      total=   22.1 | fav=['25-35', '>35']             best=25-35  conc=112.0%
+   ADX-mean-R: <15:-0.30(17)  15-25:-0.17(122)  25-35:+0.24(101)  >35:+0.23(103)
+trend_ADAUSDT_4h         total=   39.5 | fav=['<15', '15-25', '25-35', '>35'] best=15-25  conc=39.0%
+   ADX-mean-R: <15:+0.26(27)  15-25:+0.09(171)  25-35:+0.10(74)  >35:+0.22(43)
+trend_AVAXUSDT_4h        total=   27.0 | fav=['<15', '15-25']             best=15-25  conc=75.0%
+   ADX-mean-R: <15:+0.51(28)  15-25:+0.13(151)  25-35:-0.06(88)  >35:-0.08(34)
+trend_ETHUSDT_4h         total=   40.5 | fav=['<15', '15-25', '25-35']    best=15-25  conc=66.0%
+   ADX-mean-R: <15:+0.37(21)  15-25:+0.17(161)  25-35:+0.12(81)  >35:-0.10(42)
+trend_SOLUSDT_4h         total=   27.3 | fav=['15-25', '25-35', '>35']    best=25-35  conc=44.0%
+   ADX-mean-R: <15:-0.01(19)  15-25:+0.06(127)  25-35:+0.13(90)  >35:+0.19(43)
+trend_XRPUSDT_4h         total=   35.4 | fav=['15-25', '25-35', '>35']    best=15-25  conc=55.0%
+   ADX-mean-R: <15:-0.15(27)  15-25:+0.14(145)  25-35:+0.15(79)  >35:+0.20(41)
+REGIME_MAP_DONE
+# exit=0 finished=2026-06-18T14:04:25Z

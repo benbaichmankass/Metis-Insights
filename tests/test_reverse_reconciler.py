@@ -16,6 +16,7 @@ walk from.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -715,3 +716,109 @@ def test_alive_orphan_with_recoverable_package_reattached_not_flattened(tmp_db, 
     finally:
         conn.close()
     assert strat[0] == "trend_donchian" and strat[1] == "open"
+
+
+# ────────────────────────────────────────────────────────────────────
+# Re-adopt flap guard (BL-20260618-RECONCILE-DUP)
+# ────────────────────────────────────────────────────────────────────
+# One MGC position was adopted, the re-attached strategy's monitor closed the
+# DB row at an sl_cross (the IB exchange position itself never closed), and the
+# still-present exchange position was RE-ADOPTED next pass — 18 times, booking
+# -$20,127 of phantom losses. The guard refuses to re-adopt a (account, symbol,
+# direction) whose adopted_orphan closed within RECONCILER_READOPT_GUARD_SECONDS.
+
+def _insert_closed_adopted_orphan(db, *, symbol="MGCUSD", direction="long",
+                                  account_id="bybit_2", entry=4318.872,
+                                  size=8.0, closed_at):
+    """Insert a CLOSED adopted_orphan row with an explicit closed_at."""
+    db.insert_trade({
+        "timestamp": "2026-06-17T18:40:00+00:00",
+        "symbol": symbol, "direction": direction, "entry_price": entry,
+        "position_size": size, "setup_type": "adopted_orphan", "status": "closed",
+        "exit_reason": "sl_cross", "pnl": -1100.0, "closed_at": closed_at,
+        "is_backtest": 0, "strategy_name": "mgc_trend_1h",
+        "account_id": account_id, "notes": '{"adopted_by": "reverse_reconciler"}',
+    })
+
+
+def test_readopt_guard_suppresses_flapping_position(tmp_db, monkeypatch):
+    """An exchange position matching an adopted_orphan that closed seconds ago
+    is a flap — it must NOT be re-adopted; suppressed + alerted instead."""
+    monkeypatch.setenv("ORPHAN_POSITION_POLICY", "adopt")
+    monkeypatch.setenv("RECONCILER_READOPT_GUARD_SECONDS", "300")
+    enqueued: list = []
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_exchange_orphan_adoption",
+        lambda **kw: enqueued.append(kw),
+    )
+    # An adopted_orphan that closed 10s ago (well inside the 300s guard window).
+    recent = (datetime.now(timezone.utc) - timedelta(seconds=10)).isoformat()
+    _insert_closed_adopted_orphan(tmp_db, closed_at=recent)
+
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[_bybit_position(
+            symbol="MGCUSD", side="Buy", size=8.0, entry=4318.872,
+        )],
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+
+    assert summary["readopt_suppressed"] == 1
+    assert summary["adopted"] == 0
+    # NO new open row created — the whole point: one position, not N phantom rows.
+    assert _open_trade_count(tmp_db) == 0
+    # Operator still gets an alert (detect_only) so the real exchange position
+    # isn't silently dropped.
+    assert len(enqueued) == 1
+    assert enqueued[0]["policy"] == "detect_only"
+    assert "re-adopt suppressed" in (enqueued[0]["note"] or "")
+
+
+def test_readopt_guard_stale_close_allows_adopt(tmp_db, monkeypatch):
+    """A genuinely-new position (the prior adopted_orphan closed long ago,
+    outside the guard window) is adopted normally — the guard is not a
+    permanent block on a symbol."""
+    monkeypatch.setenv("ORPHAN_POSITION_POLICY", "adopt")
+    monkeypatch.setenv("RECONCILER_READOPT_GUARD_SECONDS", "300")
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_exchange_orphan_adoption",
+        lambda **kw: None,
+    )
+    stale = (datetime.now(timezone.utc) - timedelta(seconds=3600)).isoformat()
+    _insert_closed_adopted_orphan(tmp_db, closed_at=stale)
+
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[_bybit_position(
+            symbol="MGCUSD", side="Buy", size=8.0, entry=4318.872,
+        )],
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+
+    assert summary["readopt_suppressed"] == 0
+    assert summary["adopted"] == 1
+    assert _open_trade_count(tmp_db) == 1
+
+
+def test_readopt_guard_disabled_with_zero_window(tmp_db, monkeypatch):
+    """RECONCILER_READOPT_GUARD_SECONDS=0 disables the guard (legacy
+    re-adopt-immediately behaviour) — a recently-closed match is re-adopted."""
+    monkeypatch.setenv("ORPHAN_POSITION_POLICY", "adopt")
+    monkeypatch.setenv("RECONCILER_READOPT_GUARD_SECONDS", "0")
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_exchange_orphan_adoption",
+        lambda **kw: None,
+    )
+    recent = (datetime.now(timezone.utc) - timedelta(seconds=10)).isoformat()
+    _insert_closed_adopted_orphan(tmp_db, closed_at=recent)
+
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[_bybit_position(
+            symbol="MGCUSD", side="Buy", size=8.0, entry=4318.872,
+        )],
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+
+    assert summary["readopt_suppressed"] == 0
+    assert summary["adopted"] == 1

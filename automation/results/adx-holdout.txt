@@ -1,0 +1,20 @@
+# job=adx-holdout target=trainer ip=158.178.209.121 started=2026-06-18T13:40:35Z
+=== HOLDOUT VERDICT per candidate ===
+
+pullback_ETHUSDT @ADX25: FRAGILE ⚠
+  threshold band: a23:P(63.9) a24:P(59.2) a25:P(63.1) a26:P(44.8) a27:P(48.2) -> 5/5 pass
+  fold configs:   k5_t0.4:P k6_t0.4:f k7_t0.4:f k5_t0.35:f k5_t0.45:f -> 1/5 pass
+
+pullback_ADAUSDT @ADX30: FRAGILE ⚠
+  threshold band: a28:P(57.1) a29:P(62.4) a30:P(60.9) a31:P(51.7) a32:f(42.2) -> 4/5 pass
+  fold configs:   k5_t0.4:P k6_t0.4:f k7_t0.4:f k5_t0.35:f k5_t0.45:f -> 1/5 pass
+
+pullback_SOLUSDT @ADX15: FRAGILE ⚠
+  threshold band: a13:f(43.6) a14:f(43.3) a15:P(43.8) a16:f(29.6) a17:f(36.2) -> 1/5 pass
+  fold configs:   k5_t0.4:P k6_t0.4:f k7_t0.4:f k5_t0.35:f k5_t0.45:f -> 1/5 pass
+
+trend_XRPUSDT @ADX15: FRAGILE ⚠
+  threshold band: a13:f(43.2) a14:f(43.3) a15:P(40.5) a16:P(35.9) a17:f(30.0) -> 2/5 pass
+  fold configs:   k5_t0.4:P k6_t0.4:f k7_t0.4:f k5_t0.35:f k5_t0.45:f -> 1/5 pass
+ADX_HOLDOUT_DONE
+# exit=0 finished=2026-06-18T13:42:10Z
