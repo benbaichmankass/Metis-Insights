@@ -430,9 +430,11 @@ class TestV2FeatureExpansion:
                 abs_tol=1e-12,
             )
 
-    def test_builder_version_is_v7(self):
+    def test_builder_version_is_v9(self):
         # v6 -> v7: S-MLOPT-S15 added the trend_regime_label column.
-        assert MarketFeaturesBuilder.builder_version == "v7"
+        # v7 -> v8: S-CROSS-ASSET-PROBE added the xa_peer{1,2}_* + breadth columns.
+        # v8 -> v9: S-CROSS-ASSET-PROBE step 3 added the direction_label column.
+        assert MarketFeaturesBuilder.builder_version == "v9"
 
 
 class TestRangeVolEstimators:
@@ -710,6 +712,127 @@ def _stage_macro(
         t += 86400
     (root / "data.jsonl").write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
     return root
+
+
+def _stage_cross_asset(
+    tmp_path: Path,
+    *,
+    base_ts_iso: str = "2025-01-01T00:00:00Z",
+    n_bars: int = 80,
+    bar_seconds: int = 3600,
+) -> Path:
+    """Write a synthetic cross_asset side-stream keyed at the bar grid.
+
+    Uses the producer's own pure function so the test exercises the real
+    column set + emit shape (peer1/peer2 rising peers + a target).
+    """
+    from datetime import datetime, timedelta
+
+    from ml.datasets.cross_asset_features import compute_cross_asset_feature_rows
+
+    base = datetime.fromisoformat(base_ts_iso.replace("Z", "+00:00"))
+
+    def _bars(start: float, step: float):
+        out = []
+        for i in range(n_bars):
+            ts = (base + timedelta(seconds=bar_seconds * i)).isoformat().replace(
+                "+00:00", "Z")
+            out.append({"ts": ts, "close": start + step * i})
+        return out
+
+    target = _bars(100.0, 1.0)
+    peer1 = _bars(200.0, 1.3)
+    peer2 = _bars(50.0, 0.7)
+    rows = compute_cross_asset_feature_rows(
+        target, [peer1, peer2], vol_window_n=5, beta_window_n=10)
+    root = tmp_path / "cross_asset" / "ETHUSDT" / "1h" / "v001"
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "data.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    return root
+
+
+class TestDirectionLabel:
+    """S-CROSS-ASSET-PROBE step 3: directional forward label."""
+
+    def test_binary_up_down_sign_default(self, tmp_path: Path):
+        # Monotonic-up closes → forward return > 0 → every label "up".
+        market_raw = _stage_market_raw(
+            tmp_path, closes=[100.0 + i for i in range(60)])
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5))
+        assert rows
+        assert all(r["direction_label"] == "up" for r in rows)
+        assert all("direction_label" in r for r in rows)
+
+    def test_down_when_falling(self, tmp_path: Path):
+        market_raw = _stage_market_raw(
+            tmp_path, closes=[200.0 - i for i in range(60)])
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5))
+        assert rows
+        assert all(r["direction_label"] == "down" for r in rows)
+
+    def test_deadband_emits_flat(self, tmp_path: Path):
+        # A big dead-band swallows small moves into "flat".
+        market_raw = _stage_market_raw(
+            tmp_path, closes=[100.0 + (i % 2) * 0.01 for i in range(80)])
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            direction_threshold=0.5))
+        assert rows
+        assert any(r["direction_label"] == "flat" for r in rows)
+
+    def test_in_schema(self):
+        assert MarketFeaturesBuilder.schema["direction_label"] is str
+
+
+class TestCrossAssetFeatures:
+    """S-CROSS-ASSET-PROBE: peer-asset conditioning columns (ETH ← BTC/SOL)."""
+
+    from ml.datasets.cross_asset_features import CROSS_ASSET_FEATURE_COLUMNS as _COLS
+
+    def test_columns_zero_without_cross_asset_path(self, tmp_path: Path):
+        market_raw = _stage_market_raw(tmp_path, closes=_trending_then_choppy(60))
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+        ))
+        assert rows
+        for r in rows:
+            for c in self._COLS:
+                assert c in r and r[c] == 0.0
+
+    def test_columns_populated_with_cross_asset_path(self, tmp_path: Path):
+        market_raw = _stage_market_raw(
+            tmp_path, symbol="ETHUSDT", closes=[100.0 + i for i in range(80)])
+        xa = _stage_cross_asset(tmp_path, n_bars=80)
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            cross_asset_path=xa,
+        ))
+        assert rows
+        assert any(r["xa_peer1_beta"] != 0.0 for r in rows)
+        assert any(r["xa_peer2_ret"] != 0.0 for r in rows)
+        assert any(r["xa_breadth_up"] > 0 for r in rows)
+
+    def test_asof_alignment_past_only(self, tmp_path: Path):
+        # Side-stream entirely AFTER the bars → no bar may see it (carry 0).
+        market_raw = _stage_market_raw(
+            tmp_path, symbol="ETHUSDT", closes=[100.0] * 80)
+        xa = _stage_cross_asset(
+            tmp_path, base_ts_iso="2030-01-01T00:00:00Z", n_bars=80)
+        rows = list(MarketFeaturesBuilder().iter_rows(
+            market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
+            cross_asset_path=xa,
+        ))
+        assert rows
+        assert all(r["xa_peer1_beta"] == 0.0 and r["xa_peer2_ret"] == 0.0
+                   for r in rows)
+
+    def test_in_schema(self, tmp_path: Path):
+        builder = MarketFeaturesBuilder()
+        for c in self._COLS:
+            assert c in builder.schema
 
 
 class TestMacroFeatures:

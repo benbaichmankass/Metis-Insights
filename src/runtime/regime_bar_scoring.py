@@ -387,6 +387,25 @@ def emit_regime_bar_predictions(
                 "timeframe": timeframe,
                 "event_source": "per_bar",
             }
+            # Cross-asset peer-feature block (S-CROSS-ASSET-PROBE D2a): computed
+            # ONCE per (symbol, timeframe) group, only when a head in the group
+            # trained on xa_* columns AND the symbol has configured peers. Reuses
+            # the same gated ``fetch_fn`` (peers ride the target's fetch cadence).
+            # Fail-permissive → None, leaving the head's xa columns missing (NaN)
+            # — the honest degraded state the LightGBM head handles. Observe-only.
+            cross_asset_row = None
+            try:
+                from src.runtime.cross_asset_live import (
+                    compute_live_cross_asset_row,
+                    group_needs_cross_asset,
+                )
+
+                if group_needs_cross_asset(symbol, group):
+                    cross_asset_row = compute_live_cross_asset_row(
+                        symbol, timeframe, candles_df, fetch_fn,
+                    )
+            except Exception:  # noqa: BLE001 — never break the tick
+                cross_asset_row = None
             for predictor in group:
                 model_id = getattr(predictor, "model_id", None) or id(predictor)
                 if bar_ts is not None and cache.get(model_id) == bar_ts:
@@ -394,6 +413,7 @@ def emit_regime_bar_predictions(
                 row = feature_row_for_predictor(
                     predictor, base_row, closes=closes,
                     symbol=symbol, timeframe=timeframe, candles_df=candles_df,
+                    cross_asset_row=cross_asset_row,
                 )
                 if row is None:
                     continue  # mismatch / uncomputable vol — skip, don't log noise

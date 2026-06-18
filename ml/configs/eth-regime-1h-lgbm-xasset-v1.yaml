@@ -1,0 +1,100 @@
+# Cross-asset-conditioned regime classifier — ETHUSDT @ 1h (S-CROSS-ASSET-PROBE).
+#
+# The TREATMENT leg of the cross-asset feature probe. Everything is identical to
+# the base `eth-regime-1h-lgbm-v1` EXCEPT the added peer-asset feature group the
+# `market_features` family now emits when built with `cross_asset_path`
+# (S-CROSS-ASSET-PROBE):
+#   xa_peer1_ret, xa_peer1_ret_lag1, xa_peer1_vol, xa_peer1_rel_strength,
+#   xa_peer1_beta, xa_peer1_beta_residual,  (peer1 = BTCUSDT)
+#   xa_peer2_*  (peer2 = SOLUSDT),
+#   xa_breadth_up
+# — co-movement, the lead signal (peer's PRIOR bar), relative momentum, rolling
+# beta, the idiosyncratic residual, and a cross-sectional breadth read. This is
+# the cheap "does peer-asset information add edge to an ETH head?" test the
+# operator asked for, before any live cross-asset strategy wiring.
+#
+# Requires the ETHUSDT 1h market_features rebuilt on builder_version v8 WITH a
+# cross_asset side-stream (see eth-regime-1h-lgbm-v1 header for the exact build).
+# Run the A/B with:
+#   python -m ml compare eth-regime-1h-lgbm-v1 eth-regime-1h-lgbm-xasset-v1
+# and read the f1_volatile / accuracy delta under the Phase-0 time-aware holdout.
+#
+# TIER: adopting / promoting this manifest past `research_only` is Tier-3
+# (operator-gated). Ships at `research_only` — a pure eval candidate.
+
+manifest_version: v1
+model_id: eth-regime-1h-lgbm-xasset-v1
+description: "Cross-asset-conditioned LightGBM regime classifier for ETHUSDT 1h — adds the peer-asset feature group (BTC/SOL co-movement, lead-lag, relative strength, rolling beta + idiosyncratic residual, breadth) to the v1 head. A/B vs eth-regime-1h-lgbm-v1 (S-CROSS-ASSET-PROBE)."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+    # Cross-asset / peer-asset conditioning (S-CROSS-ASSET-PROBE) — the only
+    # change vs eth-regime-1h-lgbm-v1.
+    - xa_peer1_ret
+    - xa_peer1_ret_lag1
+    - xa_peer1_vol
+    - xa_peer1_rel_strength
+    - xa_peer1_beta
+    - xa_peer1_beta_residual
+    - xa_peer2_ret
+    - xa_peer2_ret_lag1
+    - xa_peer2_vol
+    - xa_peer2_rel_strength
+    - xa_peer2_beta
+    - xa_peer2_beta_residual
+    - xa_breadth_up
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  sample_weight:
+    half_life_days: 90
+    time_column: ts
+  class_weight:
+    range: 1.0
+    volatile: 4.0
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: ETHUSDT
+  timeframe: 1h
+  version: v001
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  S-CROSS-ASSET-PROBE treatment leg. Clean A/B vs eth-regime-1h-lgbm-v1:
+  identical trainer, split, weighting, frozen regime spec, and dataset — the ONLY
+  change is the added cross-asset feature group. The cross_asset side-stream is
+  computed at the ETH bar cadence from BTC/SOL market_raw (past-only, leakage-safe
+  — same-cadence peers close with the target). Leakage gate forbids
+  forward_log_return / forward_log_return_vol / regime_label. If f1_volatile /
+  accuracy improves materially under the Phase-0 CV, that is the green light to
+  (a) widen the probe to a directional / trade-outcome target and (b) propose a
+  cross-asset strategy wire (Tier-3). If it does not, that is an honest negative —
+  log it and move on (cross-asset alpha for a vol-regime head may be thin; the
+  directional target is the more natural home for it).

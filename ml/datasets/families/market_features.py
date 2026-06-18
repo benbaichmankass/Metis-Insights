@@ -57,6 +57,16 @@ Knobs (all kwargs):
   re-windowing. When given, the macro conditioning columns (S-MLOPT-S12, MES
   focus) are populated; when omitted they emit `0.0` (default-preserving). Meant
   for MES (a macro-driven index instrument); harmless on any other symbol.
+- `cross_asset_path` (path, default None) — optional directory holding a
+  peer-asset conditioning side-stream (`data.jsonl`, rows `{ts, xa_peer1_ret,
+  xa_peer1_ret_lag1, …, xa_breadth_up}`, produced by
+  `scripts/ml/build_cross_asset.py` from peer `market_raw`). Pre-computed at the
+  TARGET's bar cadence by the producer (see `cross_asset_features.py`), so this
+  builder only as-of carries each column forward onto the bars — no re-windowing.
+  When given, the cross-asset conditioning columns (S-CROSS-ASSET-PROBE) are
+  populated; when omitted they emit `0.0` (default-preserving). Meant for the
+  "does peer-asset info predict this asset?" A/B (ETH ← BTC/SOL); harmless on any
+  other symbol.
 
 ## Schema
 
@@ -87,6 +97,7 @@ Knobs (all kwargs):
 | `forward_log_return_vol` | float | stdev of `log_return` over `[t + 1 .. t + forward_window_m]` (strictly after `t`). |
 | `regime_label` | str | One of `"range"`, `"volatile"` — derived from forward stats (2-class since S-ML-REGIME-CLASSIFIER-FIX). |
 | `trend_regime_label` | str | One of `"chop"`, `"transitional"`, `"trending"` — the **trend**-axis label (S-MLOPT-S15) from the Kaufman efficiency ratio of the forward window `[t+1 .. t+forward_window_m]`. The taxonomy the regime-router policy table keys on; target for the phase-4 trend-detector model. |
+| `direction_label` | str | One of `"up"`, `"down"`, (`"flat"` only when `direction_threshold>0`) — the **directional** label (S-CROSS-ASSET-PROBE step 3): sign of `forward_log_return` over `[t+1 .. t+forward_window_m]`, with an optional `direction_threshold` dead-band. Forward-only (never a feature); leak-safe by the same window separation as `regime_label`. Target for the directional cross-asset A/B. |
 | `source` | str | Copied from `market_raw` (the upstream adapter name). |
 
 ## Leakage discipline
@@ -141,6 +152,7 @@ from ..funding_oi_features import (
     log_change,
     rolling_zscore,
 )
+from ..cross_asset_features import CROSS_ASSET_FEATURE_COLUMNS
 from ..macro_features import MACRO_FEATURE_COLUMNS
 from ..metadata import LeakageStatus
 from ..labeling.trend_regime import efficiency_ratio, trend_regime_label
@@ -325,10 +337,18 @@ class MarketFeaturesBuilder(DatasetBuilder):
     # features (vix_level / vix_zscore / vix_term_slope / dxy_zscore / dxy_return
     # / ust10y_level / ust_slope_3m10y) for MES — populated from the optional
     # daily `macro_path` side-stream (pre-computed + one-day-lagged by the
-    # producer), 0.0 when it is absent. Earlier baselines that only read
-    # `vol_bucket` / `rolling_log_return_vol` are unaffected by the wider schema;
-    # builder_version is metadata-only (it does not gate dataset path resolution).
-    builder_version: ClassVar[str] = "v7"
+    # producer), 0.0 when it is absent. v8 (S-CROSS-ASSET-PROBE): adds the
+    # cross-asset / peer-asset conditioning features (xa_peer{1,2}_* + breadth)
+    # for the "does peer-asset info predict this asset?" A/B (ETH ← BTC/SOL) —
+    # populated from the optional `cross_asset_path` side-stream (computed at the
+    # target's bar cadence, past-only), 0.0 when it is absent. v9
+    # (S-CROSS-ASSET-PROBE step 3): adds the directional forward label
+    # `direction_label` (sign of forward_log_return, optional dead-band) — a
+    # forward-only label like regime_label, target for the directional A/B.
+    # Earlier baselines that only read `vol_bucket` / `rolling_log_return_vol`
+    # are unaffected by the wider schema; builder_version is metadata-only (it
+    # does not gate dataset path resolution).
+    builder_version: ClassVar[str] = "v9"
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.PASSED
     label_version: ClassVar[str] = "regime-3class-v1"
     schema: ClassVar[Mapping[str, type]] = {
@@ -382,6 +402,12 @@ class MarketFeaturesBuilder(DatasetBuilder):
         "dxy_return": float,
         "ust10y_level": float,
         "ust_slope_3m10y": float,
+        # Cross-asset / peer-asset conditioning features (S-CROSS-ASSET-PROBE).
+        # As-of carried from the optional `cross_asset_path` side-stream (already
+        # computed at the target's bar cadence + past-only by the producer) —
+        # 0.0 on every row when no `cross_asset_path` is supplied. Leakage-safe
+        # by construction (see cross_asset_features.py § cadence + leakage).
+        **{col: float for col in CROSS_ASSET_FEATURE_COLUMNS},
         "hour_of_day": int,
         "dayofweek": int,
         "log_return_lag_1": float,
@@ -390,6 +416,11 @@ class MarketFeaturesBuilder(DatasetBuilder):
         "forward_log_return_vol": float,
         "regime_label": str,
         "trend_regime_label": str,
+        # Directional forward label (S-CROSS-ASSET-PROBE step 3): sign of
+        # forward_log_return with an optional dead-band. Forward-only label —
+        # never a feature; leak-safe by the same window separation as
+        # regime_label.
+        "direction_label": str,
         "source": str,
     }
 
@@ -401,6 +432,7 @@ class MarketFeaturesBuilder(DatasetBuilder):
         forward_window_m: int = 5,
         vol_threshold: float = 0.003,
         trend_threshold: float = 0.005,
+        direction_threshold: float = 0.0,
         trend_chop_max: float = 0.30,
         trend_trend_min: float = 0.55,
         n_vol_buckets: int = 3,
@@ -409,6 +441,7 @@ class MarketFeaturesBuilder(DatasetBuilder):
         microstructure_path: Path | str | None = None,
         microstructure_window_n: int = 50,
         macro_path: Path | str | None = None,
+        cross_asset_path: Path | str | None = None,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         if vol_window_n < 2:
@@ -509,6 +542,25 @@ class MarketFeaturesBuilder(DatasetBuilder):
                         for r in mac_rows
                     ]
                     macro_aligned[col] = _align_asof(bar_ts, mac_ts, vals)
+
+        # Cross-asset / peer-asset side-stream (S-CROSS-ASSET-PROBE), as-of
+        # aligned onto the bars. The producer already computed each column at the
+        # target's bar cadence (past-only), so we just carry each forward. The
+        # producer keys rows at the target grid, so the as-of match is exact.
+        # All-`None` (→ feature 0.0) when no `cross_asset_path` is given.
+        xa_aligned: dict[str, list[float | None]] = {
+            col: [None] * n for col in CROSS_ASSET_FEATURE_COLUMNS
+        }
+        if cross_asset_path is not None:
+            xa_rows = _load_funding_oi_rows(Path(cross_asset_path))
+            if xa_rows:
+                xa_ts = [str(r.get("ts", "")) for r in xa_rows]
+                for col in CROSS_ASSET_FEATURE_COLUMNS:
+                    vals = [
+                        (float(r[col]) if r.get(col) is not None else None)
+                        for r in xa_rows
+                    ]
+                    xa_aligned[col] = _align_asof(bar_ts, xa_ts, vals)
 
         log_returns: list[float | None] = [None] * n
         for i in range(1, n):
@@ -647,6 +699,10 @@ class MarketFeaturesBuilder(DatasetBuilder):
                 "dxy_return": _finite_or_zero(macro_aligned["dxy_return"][i]),
                 "ust10y_level": _finite_or_zero(macro_aligned["ust10y_level"][i]),
                 "ust_slope_3m10y": _finite_or_zero(macro_aligned["ust_slope_3m10y"][i]),
+                **{
+                    col: _finite_or_zero(xa_aligned[col][i])
+                    for col in CROSS_ASSET_FEATURE_COLUMNS
+                },
                 "hour_of_day": int(hour_of_day),
                 "dayofweek": int(dayofweek),
                 "log_return_lag_1": float(lag_1) if lag_1 is not None else 0.0,
@@ -660,5 +716,10 @@ class MarketFeaturesBuilder(DatasetBuilder):
                     vol_threshold=vol_threshold,
                 ),
                 "trend_regime_label": forward_trend_labels[i] or "chop",
+                "direction_label": (
+                    "up" if forward_lr > direction_threshold
+                    else "down" if forward_lr < -direction_threshold
+                    else "flat"
+                ),
                 "source": str(rows[i].get("source", "")),
             }

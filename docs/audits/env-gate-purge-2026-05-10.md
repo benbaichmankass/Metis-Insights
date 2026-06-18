@@ -163,6 +163,29 @@ unconditionally. The survivor count is back to **four** (the two
 live-order-path reconciliation/dispatch gates + the observe-only
 shadow-logging kill-switch + the phase-3 hard-gate rollback switch).
 
+## New annotated survivor — `CROSS_ASSET_LIVE_DISABLED` (S-CROSS-ASSET-PROBE D2a, 2026-06-18)
+
+`src/runtime/cross_asset_live.py::cross_asset_live_disabled()` reads
+`CROSS_ASSET_LIVE_DISABLED`. Same class as `REGIME_BAR_SCORING_DISABLED`
+above — an **observe-only kill-switch**, NOT a live/dry capability gate.
+
+**Why it is a legitimate survivor (matches the `*_DISABLED` pattern, inverts
+the BUG-039 default-OFF footgun):** it is **default-ON** (the feature runs
+unless explicitly disabled), so it never strands a capability behind a
+default-off flag — the inverse of the BUG-039 anti-pattern. When on, it only
+controls whether the per-bar regime scorer computes the cross-asset `xa_*`
+feature block for a **shadow-stage** regime head (→ `shadow_predictions.jsonl`);
+it cannot suppress or enable a live exchange write. The per-account
+`RiskManager.dry_run` remains the only live/dry switch. Contract: inline
+`# allow-silent:` on the read line + covered by the same regression test
+(`test_no_new_protected_env_gates_in_runtime`) and the lint guard
+(`scripts/check_env_gate_in_diff.py`).
+
+So the survivor count is now **five** — two live-order-path
+reconciliation/dispatch gates, two observe-only shadow-logging kill-switches
+(`REGIME_BAR_SCORING_DISABLED` + this), and the phase-3 hard-gate rollback
+switch (`REGIME_ROUTER_ENABLED`).
+
 ## Phase-1 PR scope (this DRAFT)
 
 * `docs/audits/env-gate-purge-2026-05-10.md` (this file).

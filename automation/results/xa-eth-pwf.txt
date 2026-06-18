@@ -1,0 +1,165 @@
+# job=xa-eth-pwf target=trainer ip=158.178.209.121 started=2026-06-18T20:58:08Z
+===== sync branch into a throwaway worktree =====
+From https://github.com/benbaichmankass/ict-trading-bot
+ * branch              claude/ict-strategy-expansion-awpv8x -> FETCH_HEAD
+   763ee25a..c3161057  claude/ict-strategy-expansion-awpv8x -> origin/claude/ict-strategy-expansion-awpv8x
+Preparing worktree (detached HEAD c3161057)
+HEAD is now at c3161057 vm-driver: corroborate ETH cross-asset A/B under purged-WF-CV
+c3161057 vm-driver: corroborate ETH cross-asset A/B under purged-WF-CV
+===== building datasets into /tmp/xa-data =====
+wrote dataset under /tmp/xa-data/datasets-out/market_raw/ETHUSDT/1h/v002
+wrote dataset under /tmp/xa-data/datasets-out/market_raw/BTCUSDT/1h/v002
+wrote dataset under /tmp/xa-data/datasets-out/market_raw/SOLUSDT/1h/v002
+{"family": "cross_asset_raw", "peer_slots": {"peer1": "BTCUSDT", "peer2": "SOLUSDT"}, "row_count": 43824, "target_symbol": "ETHUSDT"}
+wrote dataset under /tmp/xa-data/datasets-out/market_features/ETHUSDT/1h/v001
+===== flip both manifests to purged_walk_forward (5 folds, embargo) =====
+patched eth-regime-1h-lgbm-v1 -> purged_walk_forward
+patched eth-regime-1h-lgbm-xasset-v1 -> purged_walk_forward
+===== train both legs under purged-WF-CV =====
+--- train eth-regime-1h-lgbm-v1 (pwf) ---
+{
+  "experiment_dir": "/tmp/xa-pwf/ml/experiments-runs/eth-regime-1h-lgbm-v1/20260618T205936Z",
+  "metrics": {
+    "accuracy": 0.6058447488584475,
+    "f1_range": 0.5742085843568784,
+    "f1_volatile": 0.6193131962999957,
+    "macro_f1": 0.596760890328437,
+    "n_eval": 21900.0,
+    "n_folds": 5.0,
+    "n_train_final": 43800.0,
+    "precision_range": 0.7986429579321735,
+    "precision_volatile": 0.5028572316793842,
+    "recall_range": 0.45799843055719475,
+    "recall_volatile": 0.8166126925835305,
+    "support_range": 13150.0,
+    "support_volatile": 8750.0,
+    "weighted_f1": 0.5974176535393662
+  },
+  "model_id": "eth-regime-1h-lgbm-v1",
+  "registered": true
+}
+--- train eth-regime-1h-lgbm-xasset-v1 (pwf) ---
+{
+  "experiment_dir": "/tmp/xa-pwf/ml/experiments-runs/eth-regime-1h-lgbm-xasset-v1/20260618T210001Z",
+  "metrics": {
+    "accuracy": 0.6264840182648402,
+    "f1_range": 0.6175327179692889,
+    "f1_volatile": 0.618926261892727,
+    "macro_f1": 0.6182294899310079,
+    "n_eval": 21900.0,
+    "n_folds": 5.0,
+    "n_train_final": 43800.0,
+    "precision_range": 0.7811040675937234,
+    "precision_volatile": 0.5216107275396338,
+    "recall_range": 0.5204132383736669,
+    "recall_volatile": 0.7725755064914877,
+    "support_range": 13150.0,
+    "support_volatile": 8750.0,
+    "weighted_f1": 0.6233287117078845
+  },
+  "model_id": "eth-regime-1h-lgbm-xasset-v1",
+  "registered": true
+}
+===== A/B compare under purged-WF-CV (delta = xasset - base) =====
+{
+  "a_only_metrics": [],
+  "b_only_metrics": [],
+  "metric_diffs": [
+    {
+      "a": 0.6058447488584475,
+      "b": 0.6264840182648402,
+      "delta": 0.020639269406392713,
+      "metric": "accuracy"
+    },
+    {
+      "a": 0.5742085843568784,
+      "b": 0.6175327179692889,
+      "delta": 0.0433241336124105,
+      "metric": "f1_range"
+    },
+    {
+      "a": 0.6193131962999957,
+      "b": 0.618926261892727,
+      "delta": -0.0003869344072686687,
+      "metric": "f1_volatile"
+    },
+    {
+      "a": 0.596760890328437,
+      "b": 0.6182294899310079,
+      "delta": 0.02146859960257086,
+      "metric": "macro_f1"
+    },
+    {
+      "a": 21900.0,
+      "b": 21900.0,
+      "delta": 0.0,
+      "metric": "n_eval"
+    },
+    {
+      "a": 5.0,
+      "b": 5.0,
+      "delta": 0.0,
+      "metric": "n_folds"
+    },
+    {
+      "a": 43800.0,
+      "b": 43800.0,
+      "delta": 0.0,
+      "metric": "n_train_final"
+    },
+    {
+      "a": 0.7986429579321735,
+      "b": 0.7811040675937234,
+      "delta": -0.01753889033845013,
+      "metric": "precision_range"
+    },
+    {
+      "a": 0.5028572316793842,
+      "b": 0.5216107275396338,
+      "delta": 0.018753495860249547,
+      "metric": "precision_volatile"
+    },
+    {
+      "a": 0.45799843055719475,
+      "b": 0.5204132383736669,
+      "delta": 0.062414807816472184,
+      "metric": "recall_range"
+    },
+    {
+      "a": 0.8166126925835305,
+      "b": 0.7725755064914877,
+      "delta": -0.04403718609204288,
+      "metric": "recall_volatile"
+    },
+    {
+      "a": 13150.0,
+      "b": 13150.0,
+      "delta": 0.0,
+      "metric": "support_range"
+    },
+    {
+      "a": 8750.0,
+      "b": 8750.0,
+      "delta": 0.0,
+      "metric": "support_volatile"
+    },
+    {
+      "a": 0.5974176535393662,
+      "b": 0.6233287117078845,
+      "delta": 0.025911058168518353,
+      "metric": "weighted_f1"
+    }
+  ],
+  "model_a": {
+    "code_revision": "c3161057",
+    "id": "eth-regime-1h-lgbm-v1",
+    "status": "candidate"
+  },
+  "model_b": {
+    "code_revision": "c3161057",
+    "id": "eth-regime-1h-lgbm-xasset-v1",
+    "status": "candidate"
+  }
+}
+===== done =====
+# exit=0 finished=2026-06-18T21:00:01Z
