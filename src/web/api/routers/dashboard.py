@@ -275,13 +275,18 @@ def _pnl_stats_for(predicate: str) -> tuple[float, float, int, float]:
         try:
             cur.execute(
                 """
+                -- Canonical "closed trade" basis: status='closed' (matches
+                -- /performance, /trades/closed, /pnl/history). Previously this
+                -- used status!='open', which also counted non-closed terminal
+                -- rows (cancelled/error) — a divergence from every other
+                -- endpoint. openTrades stays status='open'.
                 SELECT
                     COALESCE(SUM(CASE WHEN substr(COALESCE(created_at,timestamp),1,10)=?
-                                      AND status!='open' THEN pnl ELSE 0 END),0),
-                    COALESCE(SUM(CASE WHEN status!='open' THEN pnl ELSE 0 END),0),
+                                      AND status='closed' THEN pnl ELSE 0 END),0),
+                    COALESCE(SUM(CASE WHEN status='closed' THEN pnl ELSE 0 END),0),
                     COUNT(CASE WHEN status='open' THEN 1 END),
-                    COUNT(CASE WHEN status!='open' AND pnl IS NOT NULL THEN 1 END),
-                    COUNT(CASE WHEN status!='open' AND pnl>0 THEN 1 END)
+                    COUNT(CASE WHEN status='closed' AND pnl IS NOT NULL THEN 1 END),
+                    COUNT(CASE WHEN status='closed' AND pnl>0 THEN 1 END)
                 FROM trades
                 WHERE COALESCE(is_backtest,0)=0
                 """

@@ -77,7 +77,12 @@ def _load_trade_windows(limit: int, include_open: bool) -> list[dict[str, Any]]:
             SELECT t.id, t.symbol, t.status, t.timestamp AS opened_at,
                    t.notes, op.updated_at AS op_updated_at
             FROM trades t
-            LEFT JOIN order_packages op ON op.linked_trade_id = t.id
+            LEFT JOIN (
+                SELECT linked_trade_id, MIN(updated_at) AS updated_at
+                FROM order_packages
+                WHERE linked_trade_id IS NOT NULL
+                GROUP BY linked_trade_id
+            ) op ON op.linked_trade_id = t.id
             WHERE COALESCE(t.is_backtest, 0) = 0
               {status_filter}
             ORDER BY datetime(COALESCE(op.updated_at, t.timestamp)) DESC
