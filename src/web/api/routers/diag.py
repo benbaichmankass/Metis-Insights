@@ -1028,3 +1028,70 @@ async def get_shadow_stats(
         "records": rows,
         "count": len(rows),
     }
+
+
+@router.get("/exchange_positions")
+async def get_exchange_positions(
+    request: Request,
+    account_id: str | None = None,
+) -> dict[str, Any]:
+    """Read-only **exchange-side** open positions per account — the BROKER's
+    truth, not the journal.
+
+    Added 2026-06-19 (BL-20260618-RECONCILE-DUP residual / BL-20260619): a
+    web/PM session has no other way to confirm whether a journal orphan
+    actually exists on the broker before any cleanup. This mirrors
+    ``get_account_balances`` exactly — it opens a brief read-only client per
+    account via ``account_open_positions`` (the same primitive the live
+    reconciler calls each tick), so it adds no new connection class and places
+    NO order.
+
+    ``account_id`` filters to one account. Per-account ``positions`` is:
+      * ``null``  — could-not-read (logged-out IB gateway / missing creds /
+        SDK error). NOT the same as flat.
+      * ``[]``    — genuinely flat on the exchange.
+      * ``[{symbol, side, size, entry_price, unrealised_pnl}, ...]`` — live.
+
+    Tier 1 — read-only, token-gated, best-effort per account.
+    """
+    _require_diag_token(request)
+    try:
+        from src.units.ui.data_loaders import account_open_positions, list_accounts
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("get_exchange_positions: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "data_loaders_unavailable", "detail": str(exc)},
+        ) from exc
+
+    try:
+        accounts = list_accounts() or []
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("get_exchange_positions: list_accounts failed: %s", exc)
+        accounts = []
+
+    out: list[dict[str, Any]] = []
+    for acc in accounts:
+        aid = (acc or {}).get("account_id")
+        if account_id and aid != account_id:
+            continue
+        positions: Any = None
+        err: str | None = None
+        try:
+            positions = account_open_positions(acc)
+        except Exception as exc:  # noqa: BLE001 — never let one account fail the call
+            err = f"{type(exc).__name__}: {exc}"
+            logger.warning("get_exchange_positions: %s raised %s", aid, exc)
+        out.append({
+            "account_id": aid,
+            "exchange": (acc or {}).get("exchange"),
+            # null = could-not-read; [] = flat; list = live positions.
+            "positions": positions,
+            "count": (len(positions) if isinstance(positions, list) else None),
+            "error": err,
+        })
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "requested_account_id": account_id,
+        "accounts": out,
+    }
