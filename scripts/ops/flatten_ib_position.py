@@ -42,6 +42,16 @@ import os
 import sys
 from typing import Any, Dict, Optional
 
+# The script lives in scripts/ops/; the repo root is two levels up. Add it
+# to sys.path so `from src...` resolves when the wrapper invokes this by
+# absolute path (system python3, cwd != repo root) — mirrors the bootstrap
+# in backfill_account_class.py. Without it: ModuleNotFoundError: No module
+# named 'src' (the dispatch failure on issue #3999).
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
 
 def _ib_ops_client_id() -> int:
     """A place-capable, process-unique IB clientId for one-shot ops flattens.
