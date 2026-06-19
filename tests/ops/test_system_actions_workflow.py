@@ -127,6 +127,9 @@ EXPECTED_ACTIONS = {
     # install_systemd_units.sh is install-only, so an already-installed
     # ict-cloudflared-tunnel.service kept running). Idempotent no-op if absent.
     "purge-cloudflared": "purge_cloudflared.sh",
+    # 2026-06-19 — one-shot guarded flatten of a single IB exchange position
+    # (BL-20260618-RECONCILE-DUP residual: the stranded ib_paper MGC short).
+    "flatten-ib-position": "flatten_ib_position_action.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -163,6 +166,7 @@ TIER_2_ACTIONS = {
     "resume-autoheal",
     "sync-clock",
     "purge-cloudflared",
+    "flatten-ib-position",
 }
 
 
