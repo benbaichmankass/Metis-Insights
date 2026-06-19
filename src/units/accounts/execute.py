@@ -900,8 +900,8 @@ def _log_trade_to_journal(
     Tests that don't care about the journal patch this helper directly.
     """
     try:
-        import json
         from datetime import datetime, timezone
+        from src.utils.json_notes import dump_capped
         from src.units.db.database import Database
         from src.utils.paths import trade_journal_db_path
 
@@ -978,7 +978,7 @@ def _log_trade_to_journal(
             "account_id": str(
                 account_cfg.get("account_id") or account_cfg.get("id") or "unknown"
             ),
-            "notes": json.dumps(notes_payload, ensure_ascii=False)[:500],
+            "notes": dump_capped(notes_payload, 500),
             "order_package_id": pkg_id,
         })
         # Wire the package → trade link so the strategy_monocle gate

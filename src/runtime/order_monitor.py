@@ -58,6 +58,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 from src.utils.paths import repo_root as _repo_root_fn  # noqa: E402
+from src.utils.json_notes import dump_capped  # noqa: E402
 _REPO_ROOT = Path(_repo_root_fn())
 
 
@@ -469,7 +470,7 @@ def _apply_partial_close(
     try:
         db.update_trade(int(linked_trade_id), {
             "position_size": new_position_size,
-            "notes": json.dumps(trade_notes, ensure_ascii=False)[:2000],
+            "notes": dump_capped(trade_notes, 2000),
         })
     except Exception as exc:  # noqa: BLE001
         logger.warning(
@@ -574,7 +575,7 @@ def _full_close_trade_and_package(
             rows = db.get_trades(filters={"id": linked_trade_id})
             existing_notes = _decode_notes(rows[0].get("notes") if rows else None)
             existing_notes.update(extra_notes)
-            close_updates["notes"] = json.dumps(existing_notes, ensure_ascii=False)[:2000]
+            close_updates["notes"] = dump_capped(existing_notes, 2000)
         db.update_trade(linked_trade_id, close_updates)
     except Exception as exc:  # noqa: BLE001
         logger.warning(
@@ -2665,7 +2666,7 @@ def _close_unattributable_orphan(db, row, summary: Dict[str, int]) -> None:
             "status": "closed",
             "exit_reason": "exit_coverage_no_strategy",
             "closed_at": now_iso,
-            "notes": json.dumps(notes, ensure_ascii=False)[:2000],
+            "notes": dump_capped(notes, 2000),
         })
     except Exception as exc:  # noqa: BLE001
         summary["errors"] = summary.get("errors", 0) + 1
@@ -3715,7 +3716,7 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                 db.update_trade(int(trade_row["id"]), {
                     "status": "orphaned",
                     "exit_reason": "stuck_strategy_watchdog",
-                    "notes": json.dumps(trade_notes, ensure_ascii=False)[:500],
+                    "notes": dump_capped(trade_notes, 500),
                 })
         except Exception as exc:  # noqa: BLE001
             logger.warning(
@@ -4122,7 +4123,7 @@ def _close_trade_from_order_status(
             "exit_reason": "reconciler_filled",
             "exit_price": avg_exit_price,
             "closed_at": closed_at,
-            "notes": json.dumps(notes, ensure_ascii=False)[:500],
+            "notes": dump_capped(notes, 500),
         }
         # 2026-05-19: backfill entry_price from Bybit's entry-order
         # avg_price when available. Pre-fix, `entry_price` was the
@@ -4178,7 +4179,7 @@ def _close_trade_from_order_status(
             "status": "closed",
             "exit_reason": "reconciler_filled",
             "closed_at": closed_at,
-            "notes": json.dumps(notes, ensure_ascii=False)[:500],
+            "notes": dump_capped(notes, 500),
         }
         # 2026-05-19: same entry_price backfill as the closed_pnl
         # branch above — the entry order's avg_price is still
@@ -4236,7 +4237,7 @@ def _mark_orphaned(db, row: Dict[str, Any]) -> None:
     db.update_trade(int(row["id"]), {
         "status": "orphaned",
         "exit_reason": "reconciler",
-        "notes": json.dumps(notes, ensure_ascii=False)[:500],
+        "notes": dump_capped(notes, 500),
     })
     # Cascade by canonical link (order_packages.linked_trade_id),
     # with a second attempt on transient failures. Pre-2026-05-16
@@ -4781,7 +4782,7 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
 
             updates: Dict[str, Any] = {
                 "exit_price": avg_exit_price,
-                "notes": json.dumps(notes, ensure_ascii=False)[:500],
+                "notes": dump_capped(notes, 500),
             }
             if closed_pnl is not None:
                 try:
@@ -4975,7 +4976,7 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
             updates: Dict[str, Any] = {
                 "pnl": pnl,
                 "exit_price": float(exit_price),
-                "notes": json.dumps(notes, ensure_ascii=False)[:500],
+                "notes": dump_capped(notes, 500),
             }
             pct = compute_pnl_percent(
                 pnl=pnl, entry_price=entry, qty=qty, contract_value_usd=cvu,

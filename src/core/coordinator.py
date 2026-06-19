@@ -2470,8 +2470,8 @@ def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
     ``linked_only=True`` filter actually find anything to gate on.
     """
     try:
-        import json as _json
         import uuid
+        from src.utils.json_notes import dump_capped
         from src.units.db.database import Database
 
         order_package_id = (
@@ -2535,7 +2535,7 @@ def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
             "sl": float(pkg.sl),
             "tp": float(pkg.tp),
             "confidence": float(getattr(pkg, "confidence", 0.0) or 0.0),
-            "signal_logic": _json.dumps(meta_for_log, default=str)[:1000],
+            "signal_logic": dump_capped(meta_for_log, 1000, ensure_ascii=True),
             "status": "open",
             "meta": meta_for_log,
             "model_scores": model_scores if isinstance(model_scores, (dict, list)) else None,
