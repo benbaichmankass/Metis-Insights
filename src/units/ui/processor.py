@@ -1653,6 +1653,7 @@ def close_open_positions(
         if ok:
             try:
                 import json
+                from src.utils.json_notes import dump_capped
                 conn = sqlite3.connect(db_path)
                 try:
                     now = datetime.now(timezone.utc).isoformat()
@@ -1686,7 +1687,7 @@ def close_open_positions(
                         "UPDATE trades SET status = 'closed', "
                         "exit_reason = 'manual_closeall', closed_at = ?, "
                         "notes = ? WHERE id = ?",
-                        (now, json.dumps(notes)[:2000], trade_id),
+                        (now, dump_capped(notes, 2000, ensure_ascii=True), trade_id),
                     )
                     opid = prow[1] if prow else None
                     if opid:
