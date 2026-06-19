@@ -105,6 +105,14 @@ class PropRiskManager(RiskManager):
             account_id=account_name or "",
         )
         self.account_name: Optional[str] = account_name
+        # Nominal account equity (e.g. the $5k 1-Step Classic size). A prop
+        # account has NO live broker-balance API — it "executes" by emitting a
+        # manual Telegram ticket — so the coordinator cannot supply a live
+        # balance and ``_fetch_balance`` returns 0.0. This nominal is the
+        # sizing/pre-screen basis used by ``position_size`` below when no live
+        # balance is available (the placer recomputes the FINAL size against
+        # the live platform balance from the ticket's risk framework).
+        self.account_size_usd: float = float(config.get("account_size_usd") or 0.0)
         self.account_state: str = str(config.get("account_state") or "evaluation").lower()
         phase = config.get("phase_requirements") or {}
         self.target_profit_pct: float = float(phase.get("target_profit_pct", 0.05))
@@ -192,6 +200,70 @@ class PropRiskManager(RiskManager):
     # ------------------------------------------------------------------
     # Gate
     # ------------------------------------------------------------------
+
+    def position_size(
+        self,
+        package: OrderPackage,
+        balance_usd: float,
+        *,
+        market_type: str = "spot",
+        available_usd: Optional[float] = None,
+        total_account_usd: Optional[float] = None,
+    ) -> float:
+        """Size a prop trade against the NOMINAL account equity when no live
+        balance is available.
+
+        A prop account has no live broker-balance API: it "executes" by
+        emitting a manual Telegram ticket, so the coordinator's balance
+        fetch (``_fetch_balance`` for ``exchange: breakout``) returns 0.0.
+        The base ``RiskManager.position_size`` would then refuse on
+        ``gate_balance=0.00 < min_balance_usd`` (the prop-account no-trades
+        cause, BL-20260619-PROP-GATE-BALANCE) and the ticket would never be
+        emitted.
+
+        Prop sizing is intentionally split (operator design, 2026-06-19):
+          * the BOT sizes + pre-screens against the **nominal** account
+            equity (``current_equity`` if the journal rebuild seeded it,
+            else the configured ``account_size_usd``) — so the nominal
+            daily-loss / drawdown caps in the base gate still apply; and
+          * the PLACER computes the **final** size against the live platform
+            balance from the risk framework rendered on the ticket
+            (``risk_pct`` × live balance ÷ risk-per-unit).
+
+        So when ``balance_usd`` (and ``total_account_usd``) come through
+        unavailable (``<= 0``/``None``), substitute the nominal equity and
+        defer to the base sizer. The returned qty is a nominal suggestion;
+        the breakout executor re-sizes the emitted ticket from the nominal
+        itself and the placer finalizes — the coordinator only needs a
+        positive qty to route the package to ``emit_prop_ticket``. When a
+        live balance IS supplied (tests / a future balance source), the base
+        behaviour is unchanged.
+        """
+        if _is_test_order(package):
+            return super().position_size(
+                package, balance_usd, market_type=market_type,
+                available_usd=available_usd, total_account_usd=total_account_usd,
+            )
+        nominal = (
+            self.current_equity
+            if (self.current_equity and self.current_equity > 0)
+            else self.account_size_usd
+        )
+        # Only substitute the nominal when NO live balance signal is present at
+        # all (both the spot balance and the derivatives total come through
+        # unavailable — the breakout case). A genuine live balance, even one
+        # below the floor, is left untouched so the base min-balance gate still
+        # refuses it (we don't blanket-bypass the gate for prop).
+        has_live_balance = (balance_usd and balance_usd > 0) or (
+            total_account_usd is not None and total_account_usd > 0
+        )
+        if nominal and nominal > 0 and not has_live_balance:
+            balance_usd = nominal
+            total_account_usd = nominal
+        return super().position_size(
+            package, balance_usd, market_type=market_type,
+            available_usd=available_usd, total_account_usd=total_account_usd,
+        )
 
     def evaluate(
         self,
