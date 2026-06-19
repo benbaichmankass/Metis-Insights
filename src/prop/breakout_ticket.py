@@ -118,10 +118,18 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None) -> str:
     sym = c.dxtrade_symbol or s.symbol
     daily_cap = 0.03 * c.account_size_usd
     dd_floor = 0.06 * c.account_size_usd
+    base_coin = s.symbol.replace("USDT", "")
+    # Risk per 1 unit at the stop ($). The bot CANNOT see the live platform
+    # balance (prop accounts have no balance API), so qty_units below is only a
+    # SUGGESTION sized off the nominal account size. The placer must recompute
+    # the FINAL size against the real live balance — this is the per-unit risk
+    # that makes that a one-line calc.
+    sl_dist = abs(s.entry - s.sl)
+    risk_per_unit = sl_dist * c.contract_value_usd_per_point
     contract_note = (
-        f"{t.qty_units} {s.symbol.replace('USDT','')} "
-        f"(= ${t.risk_usd:.2f} risk at the stop; "
-        f"size as shown in the Breakout terminal)"
+        f"{t.qty_units} {base_coin} — SUGGESTED size at the nominal "
+        f"${c.account_size_usd:.0f} (= ${t.risk_usd:.2f} risk at the stop). "
+        f"RECOMPUTE against your live balance (see Sizing)."
     )
     lines = [
         "BREAKOUT TRADE SETUP — place a BRACKET order on the Breakout terminal.",
@@ -135,6 +143,10 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None) -> str:
         f"  Symbol   : {sym}",
         f"  Side     : {t.side} ({s.direction})",
         f"  Size     : {contract_note}",
+        f"  Sizing   : RISK {c.risk_pct}% of your CURRENT live balance. "
+        f"Risk per 1 {base_coin} at the stop = ${risk_per_unit:.4f}. "
+        f"FINAL size = ({c.risk_pct}% × your live balance) ÷ ${risk_per_unit:.4f}. "
+        f"Last step before placing: read the live balance, do this calc, then size.",
         f"  Entry    : {s.entry}   (only if live price is within {t.entry_min} … {t.entry_max})",
         f"  Stop     : {s.sl}",
         f"  Target   : {s.tp}   (R:R ≈ {t.rr})",

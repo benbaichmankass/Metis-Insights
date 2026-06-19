@@ -558,3 +558,49 @@ class TestRealAccountsYaml:
             assert cfg.get("account_class") in ("paper", "real_money", "prop"), (
                 f"{name}: missing/invalid account_class"
             )
+
+
+# ---------------------------------------------------------------------------
+# Nominal-equity sizing (BL-20260619-PROP-GATE-BALANCE)
+# ---------------------------------------------------------------------------
+
+
+class TestNominalSizing:
+    """Prop accounts have no live balance API, so the coordinator passes
+    balance_usd=0.0; position_size must size off the nominal account equity
+    instead of refusing on below_min_balance — otherwise no ticket ever
+    emits (the prop-account no-trades cause)."""
+
+    def test_sizes_off_nominal_when_no_live_balance(self):
+        cfg = _base_cfg(account_size_usd=5000)
+        cfg["risk"]["min_balance_usd"] = 100  # the real prop floor
+        rm = PropRiskManager(cfg)
+        # balance_usd=0.0 is exactly what _fetch_balance(breakout) returns.
+        qty = rm.position_size(_pkg(), 0.0)
+        assert qty > 0, "prop trade must size off the $5k nominal, not refuse on $0"
+
+    def test_refuses_when_no_nominal_and_no_balance(self):
+        # No account_size_usd and no live balance → no sizing basis → refuse.
+        # (We never fabricate a size out of nothing.)
+        cfg = _base_cfg()  # account_size_usd defaults to 0.0
+        cfg["risk"]["min_balance_usd"] = 100
+        rm = PropRiskManager(cfg)
+        assert rm.position_size(_pkg(), 0.0) == 0.0
+
+    def test_real_below_min_balance_still_refuses(self):
+        # The nominal substitution triggers ONLY when balance is missing
+        # (<=0). A genuine live balance below the floor still refuses — we
+        # don't blanket-bypass the min-balance gate.
+        cfg = _base_cfg(account_size_usd=5000)
+        cfg["risk"]["min_balance_usd"] = 100
+        rm = PropRiskManager(cfg)
+        assert rm.position_size(_pkg(), 10.0) == 0.0
+
+    def test_nominal_daily_cap_prescreen(self):
+        # The nominal basis means the base daily-loss cap still pre-screens:
+        # an already-exhausted daily budget refuses even with $0 live balance.
+        cfg = _base_cfg(account_size_usd=5000)
+        cfg["risk"]["min_balance_usd"] = 100
+        rm = PropRiskManager(cfg)
+        rm.daily_pnl = -10_000.0  # blow past any nominal daily cap
+        assert rm.position_size(_pkg(), 0.0) == 0.0
