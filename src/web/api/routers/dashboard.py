@@ -280,7 +280,7 @@ def _pnl_stats_for(predicate: str) -> tuple[float, float, int, float]:
                                       AND status!='open' THEN pnl ELSE 0 END),0),
                     COALESCE(SUM(CASE WHEN status!='open' THEN pnl ELSE 0 END),0),
                     COUNT(CASE WHEN status='open' THEN 1 END),
-                    COUNT(CASE WHEN status!='open' THEN 1 END),
+                    COUNT(CASE WHEN status!='open' AND pnl IS NOT NULL THEN 1 END),
                     COUNT(CASE WHEN status!='open' AND pnl>0 THEN 1 END)
                 FROM trades
                 WHERE COALESCE(is_backtest,0)=0
@@ -298,6 +298,15 @@ def _pnl_stats_for(predicate: str) -> tuple[float, float, int, float]:
             logger.exception("dashboard: _pnl_stats sqlite read failed")
             raise
         pnl24h, total_pnl, open_trades, closed, winners = row
+        # win-rate denominator is RESOLVED closed trades only (pnl IS NOT NULL),
+        # matching /api/bot/performance (performance.py: `AND t.pnl IS NOT NULL`).
+        # A closed trade with NULL pnl (reconciler-incomplete: the broker
+        # close-pnl lookup failed) carries no win/loss signal, so counting it in
+        # the denominator silently deflated the rate — stats read 6.3% while
+        # /performance read 25.6% over the same real-money trades (the unresolved
+        # rows, not real losses; live diag 2026-06-19). winners (pnl>0) already
+        # excludes NULL. The volume of NULL-pnl real-money rows is a separate
+        # data-quality follow-up for /health-review.
         win_rate = (winners / closed * 100.0) if closed else 0.0
         return float(pnl24h), float(total_pnl), int(open_trades), round(win_rate, 1)
     finally:
