@@ -31,8 +31,22 @@ PnL source priority:
 1. ``notes.bybit_closed_pnl`` — net-of-fees PnL from Bybit's
    closed-pnl API (written by the reconciler path since
    2026-05-16). Most accurate.
-2. Gross-PnL formula from entry/exit/size. Fees not deducted; the
-   pnl_percent is computed from the same position notional.
+2. Local multiplier-aware compute via ``src.runtime.local_pnl``
+   (``compute_realized_pnl`` + ``contract_value_usd_for``) — the SAME
+   maths the live per-tick sweep ``order_monitor._sweep_local_pnl_for_unpriced``
+   uses, so the one-shot backfill and the sweep never disagree. Correct for
+   futures (``contract_value_usd`` > 1: MES=5, MGC=10, MHG=2500) as well as
+   crypto perps (cvu=1). Fees are not deducted (gross) — immaterial for the
+   paper accounts this fills, and the one place real money lands (Bybit) is
+   covered by source 1 above whenever the reconciler stored the net figure.
+
+   The 2026-06-19 hardening: the pre-existing formula was
+   ``(exit − entry) × size`` with **no** ``contract_value_usd`` multiplier,
+   so it silently UNDERCOUNTED every IBKR futures row by its multiplier
+   (e.g. MGC by 10×). Real money (``bybit_2``, crypto, cvu=1) was unaffected,
+   but the historical NULL-pnl backlog is dominated by IBKR-futures paper rows
+   (some mis-stamped ``is_demo=0`` before the account_class backfill), so the
+   undercount mattered the moment this one-shot was pointed at them.
 """
 from __future__ import annotations
 
@@ -42,6 +56,20 @@ import os
 import sqlite3
 import sys
 from typing import Dict, List, Optional
+
+# src/ on path before importing the canonical PnL helpers (same prologue the
+# sibling backfill_closed_null_pnl.py uses).
+_REPO_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from src.runtime.local_pnl import (  # noqa: E402
+    compute_pnl_percent,
+    compute_realized_pnl,
+    contract_value_usd_for,
+)
 
 
 def _connect(db_path: str) -> sqlite3.Connection:
@@ -83,14 +111,19 @@ def _bybit_closed_pnl_from_notes(row: sqlite3.Row) -> Optional[float]:
 
 
 def _compute(row: sqlite3.Row) -> Dict[str, float] | None:
-    direction = (row["direction"] or "").lower()
     try:
         entry = float(row["entry_price"])
-        exit_p = float(row["exit_price"])
         size = float(row["position_size"])
     except (TypeError, ValueError):
         return None
-    notional = entry * size
+
+    # contract_value_usd multiplier (1.0 for crypto perps; the futures
+    # multiplier for MES/MGC/MHG). Canonical resolver — the SAME one the live
+    # _sweep_local_pnl_for_unpriced sweep uses — so the one-shot and the
+    # per-tick sweep agree (no divergent maths). Multiplier-aware notional so
+    # pnl_percent is correct for futures too.
+    cvu = contract_value_usd_for(row["symbol"])
+    notional = entry * size * cvu
     if notional == 0:
         return None
 
@@ -103,17 +136,25 @@ def _compute(row: sqlite3.Row) -> Dict[str, float] | None:
             "_source": "bybit_closed_pnl",
         }
 
-    if direction == "long":
-        gross_pnl = (exit_p - entry) * size
-    elif direction == "short":
-        gross_pnl = (entry - exit_p) * size
-    else:
+    # Local multiplier-aware compute (gross). Returns None on unknown
+    # direction / degenerate input → the row is reported as skipped, never
+    # written with a bogus value.
+    pnl = compute_realized_pnl(
+        entry_price=entry,
+        exit_price=row["exit_price"],
+        qty=size,
+        direction=row["direction"],
+        contract_value_usd=cvu,
+    )
+    if pnl is None:
         return None
-    pnl_percent = (gross_pnl / notional) * 100.0
+    pct = compute_pnl_percent(
+        pnl=pnl, entry_price=entry, qty=size, contract_value_usd=cvu,
+    )
     return {
-        "pnl": round(gross_pnl, 2),
-        "pnl_percent": round(pnl_percent, 4),
-        "_source": "gross_formula",
+        "pnl": pnl,
+        "pnl_percent": pct if pct is not None else 0.0,
+        "_source": "local_compute",
     }
 
 
