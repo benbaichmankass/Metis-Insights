@@ -2032,6 +2032,11 @@
           "at": "2026-06-19T06:10:00+00:00",
           "by": "claude (/health-review 2026-06-19)",
           "note": "Fix DEPLOYED: RECONCILER_READOPT_GUARD_SECONDS (PR #3953) is in live HEAD ea2a883d. VERIFIED HOLDING: trades pull (issue #3976) shows the newest adopted_orphan row is id 2683 @ 2026-06-17T20:24Z (PRE-fix); ZERO new adopted_orphan rows 6/18->6/19 -- no re-adoption storm recurred. RESIDUAL (keep open): id 2683 still OPEN (MGC short qty=232 ib_paper PAPER) + id 2682 orphaned -3645.76 -- the incident's leftover phantom rows are uncleaned and id 2683's open qty=232 is implausible; needs a focused ib_paper exchange-portfolio-vs-journal reconcile + journal cleanup (Tier-2). Downstream symptom: the open orphan short drives the hourly mgc_trend_1h intent_reduce_requires_derivatives rejection cluster (new BL-20260619-MGC-REDUCE-GUARD). Soak guard 1.5d clean; hold until residual cleaned + multi-day soak."
+        },
+        {
+          "at": "2026-06-19T06:55:00+00:00",
+          "by": "claude (/health-review 2026-06-19, operator cleanup ask)",
+          "note": "RESIDUAL ORPHAN CLEANUP -- blocked on missing tooling, NOT safe to blind-close. id 2683 (MGC short qty 232 ib_paper PAPER, open since 6/17 20:24Z) cannot be journal-closed blind: (a) PAPER so no real money, but (b) the readopt-guard only blocks re-adoption for RECONCILER_READOPT_GUARD_SECONDS=300s, so if the IB paper gateway still reports the position the reverse-reconciler would RE-ADOPT it ~5min after a close -> re-creating the phantom (defeats the purpose). The correct resolution depends on IB-paper exchange truth: if the gateway truly holds it -> FLATTEN on the broker (no system-action exists for IB flatten); if it does NOT -> the on-VM reconciler's orphan-close-on-disappear (2-obs confirm) SHOULD have closed it and hasn't in ~2d, implying the gateway is unreachable/logged-out or a qty-match bug. From a web session there is NO relay endpoint exposing the IB paper portfolio and no allowlisted action to flatten/close an open IBKR orphan (mark-reconciler-incomplete only re-labels CLOSED+null-pnl rows). PROPOSED (Tier-1 enabler): add an IB-portfolio inspect to /api/diag/* (or a status-check field) so a session can confirm the exchange state, then a guarded close/flatten action. Until then this residual stays open. Downstream symptom unchanged: hourly mgc_trend_1h intent_reduce_requires_derivatives cluster (BL-20260619-MGC-REDUCE-GUARD)."
         }
       ]
     },
@@ -2082,6 +2087,19 @@
       "tier": 1,
       "trigger_condition": "Next time a web-session /performance-review needs the M13 cross-check.",
       "resolution_criteria": "Either the diag relay exposes the insights cache / insights_history (allowlist extension) so a web session can cross-check it, or the limitation is documented in the performance-review SKILL.md as a known web-session gap.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260619-PROP-GATE-BALANCE",
+      "opened_at": "2026-06-19T06:55:00+00:00",
+      "opened_by": "claude (/health-review 2026-06-19, operator prop-account check)",
+      "source": "Operator asked to confirm the prop (breakout_1) account is correct. trades pull #3976 rows 2660 + 2688 + code read.",
+      "title": "PROP ACCOUNT EMITS ZERO TICKETS: breakout_1 every signal rejected 'below_min_balance gate_balance=0.00' -- _fetch_balance() has no breakout/prop branch, so prop equity (account_size_usd $5000) never reaches the risk gate",
+      "description": "CONFIRMED ROOT CAUSE of the prop-account no-trades (the 2026-06-18 operator ask). breakout_1 is wired live (trend_donchian_sol execution:live long-only SOL + trend_donchian_eth execution:live ETH, promoted 6/17 #3868-era) and its strategies DO fire real signals (e.g. trade 2688 trend_donchian_eth ETHUSDT short conf 0.6407 @ 6/18 15:38; trade 2660 conf 0.822 @ 6/17 12:24) -- but EVERY one is rejected: 'REJECTED: below_min_balance: gate_balance=0.00 USD < min_balance_usd=100.00'. So emit_prop_ticket is NEVER reached -> ZERO prop tickets emitted since the account went live (account_state still 'evaluation'). MECHANISM: RiskManager.position_size (src/units/accounts/risk.py:555-558) sets gate_balance from total_account_usd/balance_usd, which trace to _fetch_balance(exchange) (src/units/accounts/execute.py) -- that has branches for bybit/ib/oanda/alpaca but NONE for exchange=='breakout', so it falls through to `return 0.0`. A prop account has no broker balance API (it 'executes' via Telegram ticket), so its equity must be seeded from accounts.yaml::breakout_1.account_size_usd ($5000) / the PropRiskManager tracked equity (account_size_usd + journal realized PnL) -- not a broker call. SAME CLASS as BL-20260611-006 (the oanda/alpaca gate_balance=0 fix that refused every gold/ETF signal, trade #2536). FIX (Tier-2/3 order-path, operator-gated -- starts real prop-ticket activity): give _fetch_balance / get_account_balances a breakout/prop branch returning account_size_usd (or PropRiskManager.current_equity), so the standard min-balance + daily-loss gate sizes off the $5000 eval equity. Then verify a SOL/ETH signal emits a prop_signal ticket (logger 'breakout_executor: emitted prop ticket' + a prop-manual-<uuid> journal row).",
+      "tier": 3,
+      "trigger_condition": "Operator decision to make the prop account live-active; or next /health-review.",
+      "resolution_criteria": "_fetch_balance resolves breakout_1 equity from account_size_usd/PropRiskManager (not 0.00); a live trend_donchian_sol/eth signal passes the risk gate and emit_prop_ticket fires a prop_signal ticket (Telegram/FCM + prop-manual journal row); below_min_balance rejections on breakout_1 stop.",
       "status": "open",
       "snoozed_until": null
     }

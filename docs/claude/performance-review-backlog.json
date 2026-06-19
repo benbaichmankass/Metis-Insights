@@ -3,6 +3,19 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "PB-20260619-001",
+      "opened_at": "2026-06-19T06:55:00+00:00",
+      "opened_by": "claude (/performance-review 2026-06-19)",
+      "source": "Operator prop-account check. trades 2660/2688 (breakout_1).",
+      "title": "Prop-account no-trades cause CONFIRMED = gate_balance=0.00 (system bug BL-20260619-PROP-GATE-BALANCE) -- ict_scalp/BTC correctly NOT routed to prop",
+      "description": "Answering the 6/18 operator ask + this session's check: (1) the bybit_2 ict_scalp_5m BTC win has NO breakout_1 counterpart and SHOULD NOT -- breakout_1 is wired only to trend_donchian_sol + trend_donchian_eth on [SOLUSDT, ETHUSDT]; ict_scalp_5m/BTC is not a prop strategy. Correct, no missing step. (2) The prop account's OWN wired strategies fire real signals but every one is rejected at gate_balance=0.00 -> ZERO prop tickets ever emitted. That is the system bug BL-20260619-PROP-GATE-BALANCE (_fetch_balance has no breakout branch). Performance verdict: the prop sleeve has produced no decisions to grade because none reach execution; once the balance-seed fix lands, grade the first trend_donchian_sol/eth prop tickets. Cross-ref the doc-drift nit: accounts.yaml comment still calls trend_donchian_eth 'execution: shadow (soak)' but the field is execution:live (promoted 6/17).",
+      "tier": 3,
+      "trigger_condition": "After BL-20260619-PROP-GATE-BALANCE fix lands and the first prop ticket emits.",
+      "resolution_criteria": "Grade the first emitted trend_donchian_sol/eth prop tickets against the prop ruleset EV; confirm breakout_1 below_min_balance rejections stopped.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
       "id": "PB-20260617-002",
       "opened_at": "2026-06-17T22:00:00+00:00",
       "opened_by": "claude (S-DTP-EXITPLAN-2026-06-17)",
