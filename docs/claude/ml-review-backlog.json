@@ -44,6 +44,11 @@
           "at": "2026-06-19T06:08:00+00:00",
           "by": "claude (/ml-review 2026-06-19)",
           "note": "DRIFT TRIPPED -> DEMOTION RECOMMENDED. The 2026-06-19 promotion-readiness report (37 models, trainer #3978/#3983) emits exactly ONE actionable proposal: DEMOTE btc-regime-1h-lgbm-yz-v1 advisory->shadow, reason 'score-distribution drift verdict is significant', evidence{attribution:null, drift_verdict:significant}. attribution is null because the real-money BTC book is still near-flat (only 1 real ict_scalp BTC close +$0.98 this window), so live_agreement remains uncomputable -- the demotion is driven purely by the advisory-stage score-distribution drift. This is exactly the kill-path this item set up. RECOMMENDATION: demote yz-1h advisory->shadow (Tier-3, operator-gated; risk-REDUCING -- removes the only order-influencing model). Trainer cmd: python -m ml promote-stage btc-regime-1h-lgbm-yz-v1 --new-stage shadow. Awaiting operator decision."
+        },
+        {
+          "at": "2026-06-19T06:30:00+00:00",
+          "by": "claude (/ml-review 2026-06-19, operator decision)",
+          "note": "OPERATOR DECISION 2026-06-19: HOLD at advisory, watch (declined the readiness gate's demote-to-shadow proposal). Rationale: the real-money BTC book is near-flat (only 1 real ict_scalp close +$0.98 this window) so the model's actual live influence is minimal, and the 'significant' score-drift verdict may be a low-volume artifact. ACTION for next /ml-review: re-run the gate-check; if drift stays 'significant' AND the real book starts trading the model's signals (live_agreement becomes computable + poor), escalate the demote again. Kill-switch path unchanged: promote-stage --new-stage shadow."
         }
       ]
     },
