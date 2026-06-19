@@ -149,6 +149,16 @@ def _fetch_recently_closed(
         # Subquery handles the closed-at fallback. The notes JSON
         # extraction is sqlite3's json_extract — present on every
         # CPython 3.11 stdlib build.
+        #
+        # The ``json_valid(t.notes)`` guard is load-bearing: bare
+        # ``json_extract`` over the whole table raises ``malformed JSON``
+        # and aborts the ENTIRE query the moment a *single* closed row has
+        # a non-JSON ``notes`` blob — which silently disabled this safety
+        # invariant every tick (a truncated ``json.dumps(...)[:N]`` writer
+        # produced one such row; see BL-20260619 / the order_monitor
+        # truncation fix). Guarding per-row degrades a bad ``notes`` to
+        # NULL → the COALESCE falls through to ``t.created_at`` for that
+        # row only, instead of failing the check for all rows.
         cur = conn.execute(
             """
             SELECT t.id, t.account_id, t.symbol, t.direction
@@ -159,7 +169,9 @@ def _fetch_recently_closed(
               AND datetime(
                     COALESCE(
                         op.updated_at,
-                        json_extract(t.notes, '$.closed_at'),
+                        CASE WHEN json_valid(t.notes)
+                             THEN json_extract(t.notes, '$.closed_at')
+                        END,
                         t.created_at
                     )
                   ) >= datetime(?)
