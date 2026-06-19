@@ -73,3 +73,23 @@ def test_render_flags_expired():
     later = t.valid_until + timedelta(minutes=1)
     assert "ALREADY EXPIRED" in render_ticket(t, now=later)
     assert "ALREADY EXPIRED" not in render_ticket(t, now=t.valid_until - timedelta(minutes=1))
+
+
+def test_render_carries_live_balance_sizing_instruction():
+    # The bot can't see the live prop-platform balance, so the ticket must
+    # tell the placer to recompute the FINAL size against the live balance:
+    # the risk %, the per-unit risk, and the formula must all be present, and
+    # the bot's qty must be labelled a SUGGESTION (BL-20260619-PROP-GATE-BALANCE
+    # + the prop sizing-framework split).
+    t = build_ticket(
+        _long_sig(),  # entry 60000, sl 58800 → stop distance 1200
+        TicketConfig(account_size_usd=5000, risk_pct=1.5,
+                     contract_value_usd_per_point=1.0),
+    )
+    out = render_ticket(t)
+    assert "Sizing" in out
+    assert "1.5% of your CURRENT live balance" in out
+    assert "FINAL size" in out
+    assert "SUGGESTED size at the nominal" in out
+    # per-unit risk = stop distance (1200) × contract_value (1.0) = $1200.0000
+    assert "1200.0000" in out
