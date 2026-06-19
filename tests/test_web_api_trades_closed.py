@@ -90,6 +90,30 @@ def test_returns_closed_trade_with_full_shape(db, client):
     }
 
 
+def test_multiple_order_packages_do_not_duplicate_trade(db, client):
+    """De-dup regression: a trade with >1 linked order package must appear
+    exactly ONCE. The raw ``LEFT JOIN order_packages`` fanned out — listing
+    the trade N times, eating into the limit, and double-counting it in the
+    aggregate endpoints (the /stats-vs-/performance divergence). The join is
+    now collapsed to one row per trade via a MIN(updated_at) subquery."""
+    trade_id = _insert_trade(
+        db,
+        timestamp="2026-05-08T10:00:00Z", symbol="BTCUSDT",
+        direction="long", entry_price=62000.0, exit_price=62150.0,
+        position_size=0.001, pnl=0.15, status="closed", is_backtest=0,
+        account_id="bybit_2", strategy_name="vwap",
+    )
+    _insert_package(db, order_package_id="pkg-a", linked_trade_id=trade_id,
+                    updated_at="2026-05-08T10:10:00Z")
+    _insert_package(db, order_package_id="pkg-b", linked_trade_id=trade_id,
+                    updated_at="2026-05-08T10:42:00Z")
+    body = client.get("/api/bot/trades/closed").json()
+    assert len(body) == 1
+    assert body[0]["id"] == str(trade_id)
+    # MIN(updated_at) is the de-duped closed_at proxy (no column/notes here).
+    assert body[0]["closedAt"] == "2026-05-08T10:10:00Z"
+
+
 def test_excludes_open_trades(db, client):
     _insert_trade(
         db,

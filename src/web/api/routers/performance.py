@@ -133,12 +133,26 @@ def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqli
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     try:
+        # De-dup the order_packages join to exactly one row per trade. A raw
+        # `LEFT JOIN order_packages ON linked_trade_id = t.id` FANS OUT when a
+        # trade has >1 linked order package (entry + protective re-arm, retries,
+        # etc.) — that trade's pnl/win would then be counted N times, inflating
+        # totalTrades / winRate / totalPnl. Pre-aggregating to one updated_at
+        # per linked_trade_id keeps the join 1:1 so each trade contributes
+        # exactly once — the canonical "one row per closed trade" basis the rest
+        # of the API uses, and the reason /performance could disagree with
+        # /stats on real-money totals (single source of truth).
         sql = """
             SELECT t.strategy_name,
                    t.pnl AS pnl,
                    COALESCE(t.closed_at, op.updated_at, t.timestamp) AS closed_at
             FROM trades t
-            LEFT JOIN order_packages op ON op.linked_trade_id = t.id
+            LEFT JOIN (
+                SELECT linked_trade_id, MIN(updated_at) AS updated_at
+                FROM order_packages
+                WHERE linked_trade_id IS NOT NULL
+                GROUP BY linked_trade_id
+            ) op ON op.linked_trade_id = t.id
             WHERE t.status = 'closed'
               AND COALESCE(t.is_backtest, 0) = 0
               AND t.pnl IS NOT NULL
