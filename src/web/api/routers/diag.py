@@ -1057,7 +1057,7 @@ async def get_exchange_positions(
     _require_diag_token(request)
     try:
         from src.units.ui.data_loaders import account_open_positions, list_accounts
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
         logger.warning("get_exchange_positions: import failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -1066,7 +1066,7 @@ async def get_exchange_positions(
 
     try:
         accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
         logger.warning("get_exchange_positions: list_accounts failed: %s", exc)
         accounts = []
 
@@ -1079,7 +1079,7 @@ async def get_exchange_positions(
         err: str | None = None
         try:
             positions = account_open_positions(acc)
-        except Exception as exc:  # noqa: BLE001 — never let one account fail the call
+        except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row (error + positions=null), logged; one account must not fail the call
             err = f"{type(exc).__name__}: {exc}"
             logger.warning("get_exchange_positions: %s raised %s", aid, exc)
         out.append({
