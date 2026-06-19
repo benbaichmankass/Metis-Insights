@@ -2042,9 +2042,11 @@
       "title": "High volume of NULL-pnl real-money CLOSED trades (unresolved realised PnL)",
       "description": "ACTION FOR A FUTURE /health-review or /performance-review: investigate why a large share of real-money CLOSED trades have pnl IS NULL. Win-rate is now correct (#3992 excludes them from the denominator), but unresolved realised PnL also means totalPnL / expectancy / the equity curve undercount real performance. Likely cause: the non-Bybit (IBKR/Alpaca/OANDA) local-compute sweep (order_monitor._sweep_local_pnl_for_unpriced) not backfilling these rows, or reconciler_incomplete closes leaving pnl NULL. Quantify via Data Explorer / diag journal: COUNT(*) FROM trades WHERE status!='open' AND pnl IS NULL AND COALESCE(is_backtest,0)=0 grouped by account_class / exit_reason / account; then backfill realised pnl where resolvable and harden the sweep so future closes resolve.",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
+      "resolved_at": "2026-06-19T11:25:00+00:00",
+      "resolution": "Investigated + drained 2026-06-19. The '~1100' was a large overcount (stats/perf snapshot mixed already-resolved + paper + pre-account-class-backfill rows). Authoritative live count via the ict-db-integrity checker (INV-2, /api/diag/journalctl): 102 closed pnl-IS-NULL rows, recent=0 (none in the last 48h — the live multiplier-aware sweep keeps current closes clean). PR #4017 hardened scripts/ops/backfill_pnl_nulls.py to delegate to the canonical src.runtime.local_pnl helpers (contract_value_usd multiplier) — it previously undercounted IBKR futures (MGC 10x / MES 5x / MHG 2500x) via a raw (exit-entry)*size formula; real-money bybit_2 (crypto, cvu=1) was unaffected. Ran backfill-pnl-nulls (#4023) -> 0 recomputable candidates (the live sweep had already drained every closed row that has an exit_price), and mark-reconciler-incomplete (#4024) -> 0 reconciler_filled residual. The residual 102 rows all LACK an exit_price (so local compute is impossible and marking to today's price would be wrong) and are old (recent=0); they are correctly NULL and already excluded from /performance + /stats aggregates, so headline totalPnL / expectancy / equity are correct. The sweep's 14-day window is correct as-is (mark-to-market only makes sense for recent closes), so no sweep change is warranted. RESIDUAL OPTION (not done; low value): a historical-candle close-time mark could best-effort recover some of the 102 old (mostly paper, some orphan-adopted) rows, but it would be approximate and several are unlinked orphans (INV-3 overlap) with uncertain fills.",
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-19T08:45:00+00:00"
+  "updated_at": "2026-06-19T11:25:00+00:00"
 }
