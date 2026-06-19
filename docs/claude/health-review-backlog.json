@@ -2032,7 +2032,19 @@
       "tier": 1,
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260619-NULLPNL-REALMONEY-CLOSED",
+      "opened_at": "2026-06-19T08:45:00+00:00",
+      "opened_by": "claude (dashboard/android redesign session — follow-up to win-rate fix #3992)",
+      "source": "Live diag 2026-06-19: /api/bot/stats real-money winRate read 6.3% vs /api/bot/performance?window=all 25.6% (92 wins / 360 RESOLVED). The /stats denominator bug was fixed in PR #3992 (now excludes pnl IS NULL). The remaining item is the underlying VOLUME of NULL-pnl real-money CLOSED rows: /performance counts only 360 resolved while /stats saw ~1460 non-open real-money rows, implying ~1100 closed real-money trades carry pnl IS NULL.",
+      "severity": "medium",
+      "title": "High volume of NULL-pnl real-money CLOSED trades (unresolved realised PnL)",
+      "description": "ACTION FOR A FUTURE /health-review or /performance-review: investigate why a large share of real-money CLOSED trades have pnl IS NULL. Win-rate is now correct (#3992 excludes them from the denominator), but unresolved realised PnL also means totalPnL / expectancy / the equity curve undercount real performance. Likely cause: the non-Bybit (IBKR/Alpaca/OANDA) local-compute sweep (order_monitor._sweep_local_pnl_for_unpriced) not backfilling these rows, or reconciler_incomplete closes leaving pnl NULL. Quantify via Data Explorer / diag journal: COUNT(*) FROM trades WHERE status!='open' AND pnl IS NULL AND COALESCE(is_backtest,0)=0 grouped by account_class / exit_reason / account; then backfill realised pnl where resolvable and harden the sweep so future closes resolve.",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-18T22:45:00+00:00"
+  "updated_at": "2026-06-19T08:45:00+00:00"
 }
