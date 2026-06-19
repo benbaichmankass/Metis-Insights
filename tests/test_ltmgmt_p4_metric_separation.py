@@ -102,6 +102,48 @@ def test_stats_separates_real_and_paper(client: TestClient, isolated_db: Path):
     assert paper["pnl24h"] == 17.0
 
 
+def test_stats_winrate_excludes_null_pnl_closed(
+    client: TestClient, isolated_db: Path,
+):
+    """A closed real-money trade with NULL pnl (reconciler_incomplete) must NOT
+    dilute the win-rate denominator — it carries no win/loss signal. The
+    denominator counts RESOLVED closed trades only (pnl IS NOT NULL), matching
+    /api/bot/performance. Regression for the stats-vs-performance winRate gap
+    (live diag 2026-06-19: stats 6.3% while /performance read 25.6%)."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    conn = sqlite3.connect(str(isolated_db))
+    conn.executescript(
+        """
+        CREATE TABLE trades (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT, created_at TEXT, status TEXT, pnl REAL,
+            is_backtest INTEGER DEFAULT 0, account_class TEXT,
+            is_demo INTEGER DEFAULT 0
+        );
+        """
+    )
+    rows = [
+        # real-money: 1 win (+10), 1 loss (-5), 3 closed with NULL pnl.
+        (today, today, "closed", 10.0, 0, "real_money", 0),
+        (today, today, "closed", -5.0, 0, "real_money", 0),
+        (today, today, "closed", None, 0, "real_money", 0),
+        (today, today, "closed", None, 0, "real_money", 0),
+        (today, today, "closed", None, 0, "real_money", 0),
+    ]
+    conn.executemany(
+        "INSERT INTO trades "
+        "(timestamp, created_at, status, pnl, is_backtest, account_class, is_demo) "
+        "VALUES (?,?,?,?,?,?,?)",
+        rows,
+    )
+    conn.commit()
+    conn.close()
+
+    body = client.get("/api/bot/stats").json()
+    # 1 win of 2 RESOLVED closed = 50%, NOT 1/5 = 20% (NULL rows excluded).
+    assert body["winRate"] == 50.0
+
+
 def test_stats_blocks_are_not_blended(client: TestClient, isolated_db: Path):
     """The headline openTrades is real-only (1), NOT the merged real+paper (3)."""
     _seed(isolated_db)
