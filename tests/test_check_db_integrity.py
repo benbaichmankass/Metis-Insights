@@ -46,6 +46,17 @@ def _recent_ts() -> str:
     return _iso(NOW - timedelta(hours=2))
 
 
+def _recent_wallclock_ts() -> str:
+    # 2h before REAL now — for tests that drive the CLI path (cdi.main),
+    # which computes its window against datetime.now() and CANNOT be injected
+    # with the fixed NOW. Seeding against the fixed NOW time-bombed: once
+    # real-now passed NOW+48h (2026-06-19T10:00Z) the "recent" row aged out of
+    # the default 48h window, the alert stopped firing, and the --fail-on-alert
+    # exit-code assertion flipped 1→0 (BL-20260619). Anchoring to real now keeps
+    # the seeded row genuinely recent on any run date.
+    return _iso(datetime.now(timezone.utc) - timedelta(hours=2))
+
+
 def _recent_past_grace_ts() -> str:
     # 10h ago — recent (< 48h) but past the 6h pnl-sweep grace.
     return _iso(NOW - timedelta(hours=10))
@@ -417,15 +428,17 @@ def test_any_alert_aggregates(real_schema_db):
 
 def test_fail_on_alert_exit_codes(real_schema_db):
     db = real_schema_db()
-    # Seed a recent INV-4 regression.
+    # Seed a recent INV-4 regression. cdi.main() uses REAL now (no inject),
+    # so anchor the seed to wall-clock now — not the fixed NOW — or the row
+    # ages out of the 48h window and the alert silently stops firing.
     insert_trade(
         db, is_backtest=0, status="open", account_class=None,
         symbol="BTCUSDT", direction="long", entry_price=1.0, position_size=1.0,
         order_package_id="op-x",
-        created_at=_recent_ts(), timestamp=_recent_ts(),
+        created_at=_recent_wallclock_ts(), timestamp=_recent_wallclock_ts(),
     )
     insert_order_package(db, order_package_id="op-x", status="open",
-                         linked_trade_id=1, updated_at=_recent_ts())
+                         linked_trade_id=1, updated_at=_recent_wallclock_ts())
 
     # Without --fail-on-alert: exit 0 even with an alert.
     rc = cdi.main(["--db", str(db)])
