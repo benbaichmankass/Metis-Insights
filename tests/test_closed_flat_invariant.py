@@ -492,3 +492,120 @@ def test_fetch_recently_closed_accepts_path_like(trades_db, tmp_path):
     )
     assert rows_from_path == []
     assert rows_from_str == []
+
+
+# ---------------------------------------------------------------------------
+# BL-20260619 — malformed `notes` must not abort the whole query
+# ---------------------------------------------------------------------------
+#
+# A truncated ``json.dumps(...)[:N]`` writer can persist a non-JSON
+# ``notes`` blob. Bare ``json_extract(t.notes, '$.closed_at')`` over the
+# table then raises sqlite3 "malformed JSON" and aborts the ENTIRE query,
+# silently disabling the invariant every tick. The ``json_valid`` guard
+# must degrade the bad row to its ``created_at`` fallback while still
+# scanning every other closed row.
+
+
+def _close_trade_with_raw_notes(db_path: Path, trade_id: int, *,
+                                closed_at: str, notes: str) -> None:
+    """Mark *trade_id* closed with an arbitrary (possibly non-JSON) notes."""
+    conn = sqlite3.connect(str(db_path))
+    try:
+        conn.execute(
+            "UPDATE trades SET status='closed', closed_at=?, notes=? WHERE id=?",
+            (closed_at, notes, trade_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_malformed_notes_does_not_abort_query(trades_db, tmp_path):
+    """A closed row with truncated/non-JSON notes must not break the
+    query — a real violation on a *sibling* well-formed row still fires."""
+    from tests.fixtures.real_schema_db import insert_trade
+
+    # Row A: closed in DB with a TRUNCATED json.dumps payload (invalid JSON),
+    # still open on the exchange → a genuine violation, but its notes is the
+    # poison pill that used to abort the whole query.
+    # created_at is in-window: the malformed notes degrades to the
+    # created_at fallback (not the unreadable closed_at), so the row is
+    # still scanned rather than lost.
+    bad_id = insert_trade(
+        trades_db,
+        timestamp="2026-05-10T10:00:00+00:00",
+        symbol="MGC", direction="short", entry_price=4300.0,
+        position_size=232.0, status="open", is_backtest=0,
+        account_id="ib_paper", created_at="2026-05-10T10:00:00+00:00",
+    )
+    truncated = json.dumps({"closed_at": "2026-05-10T10:00:00+00:00",
+                            "closed_reason": "x" * 50})[:40]  # cut mid-string
+    assert _is_invalid_json(truncated)  # precondition: the blob is not valid JSON
+    _close_trade_with_raw_notes(
+        trades_db, bad_id, closed_at="2026-05-10T10:00:00+00:00", notes=truncated,
+    )
+
+    # Row B: a normal closed row, also still open on the exchange.
+    good_id = insert_trade(
+        trades_db,
+        timestamp="2026-05-10T09:56:00+00:00",
+        symbol="BTCUSDT", direction="long", entry_price=60000.0,
+        position_size=0.001, status="open", is_backtest=0,
+        account_id="bybit_2", created_at="2026-05-10T09:56:00+00:00",
+    )
+    _close_trade(trades_db, good_id, closed_at="2026-05-10T10:00:00+00:00")
+
+    account_map = {
+        "ib_paper": _StubAccount(positions=[
+            {"symbol": "MGC", "side": "Sell", "qty": 232.0},
+        ]),
+        "bybit_2": _StubAccount(positions=[
+            {"symbol": "BTCUSDT", "side": "Buy", "qty": 0.001},
+        ]),
+    }
+    log = tmp_path / "violations.jsonl"
+    _captured, alerter = _alerter_capture()
+
+    # Must NOT raise, and must still surface both violations — the bad-notes
+    # row falls back to created_at (in-window) rather than poisoning the query.
+    violations = inv.check(
+        sqlite3.connect(str(trades_db)),
+        _resolver(account_map),
+        window_seconds=60,
+        now=datetime(2026, 5, 10, 10, 0, 30, tzinfo=timezone.utc),
+        violations_log=log,
+        alerter=alerter,
+    )
+    ids = {v.trade_id for v in violations}
+    assert ids == {bad_id, good_id}
+
+
+def test_fetch_recently_closed_tolerates_malformed_notes(trades_db):
+    """_fetch_recently_closed itself must not raise on a non-JSON notes row."""
+    from tests.fixtures.real_schema_db import insert_trade
+
+    tid = insert_trade(
+        trades_db,
+        timestamp="2026-05-10T09:55:00+00:00",
+        symbol="MGC", direction="short", entry_price=4300.0,
+        position_size=1.0, status="open", is_backtest=0,
+        account_id="ib_paper", created_at="2026-05-10T09:55:00+00:00",
+    )
+    _close_trade_with_raw_notes(
+        trades_db, tid, closed_at="2026-05-10T10:00:00+00:00",
+        notes='{"closed_at": "2026-05-10T10:00:00+00:00", "trunc',  # invalid JSON
+    )
+    # No raise; the row is found via the created_at fallback.
+    rows = inv._fetch_recently_closed(
+        sqlite3.connect(str(trades_db)),
+        cutoff_iso="2026-05-10T00:00:00+00:00",
+    )
+    assert any(r["id"] == tid for r in rows)
+
+
+def _is_invalid_json(s: str) -> bool:
+    try:
+        json.loads(s)
+        return False
+    except ValueError:
+        return True
