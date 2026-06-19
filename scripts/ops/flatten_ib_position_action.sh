@@ -17,6 +17,22 @@ source "${SCRIPT_DIR}/_lib.sh"  # sets REPO_DIR (canonical /home/ubuntu/ict-trad
 
 cd "${REPO_DIR}"
 
+# Inherit the live trader's runtime env (.env): IB connection tuning +
+# exchange creds, so this one-shot ops client connects to the IB gateway
+# exactly like ict-trader-live.service does — not from a bare SSH shell.
+# Without it the ops client ran the IB liveness probe at the default 5s and
+# tripped the circuit breaker on the isolated (cross-host) gateway, where
+# reqCurrentTime false-trips even on a healthy connection (the #4004 apply
+# failure). load_runtime_secrets sources .env in full (set -a).
+load_runtime_secrets
+
+# Isolated-gateway escape hatch: skip the false-tripping post-connect
+# liveness probe (sanctioned for the cross-host relay topology — the gateway
+# is on its own VM so it can't starve the trader, and IB_FETCH_TIMEOUT_S still
+# bounds each call). Honour an explicit .env value if present; else default to
+# skip. The flatten's own position read already proves the gateway is live.
+export IB_PROBE_TIMEOUT_S="${IB_PROBE_TIMEOUT_S:-0}"
+
 ACCOUNT_ID="${ACCOUNT_ID:?ACCOUNT_ID required}"
 ACTION_SYMBOL="${ACTION_SYMBOL:?ACTION_SYMBOL required}"
 ACTION_APPLY="${ACTION_APPLY:-}"
