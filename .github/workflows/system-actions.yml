@@ -113,6 +113,7 @@ on:
           - resume-autoheal
           - sync-clock
           - purge-cloudflared
+          - flatten-ib-position
       reason:
         description: "Why this action is being run (audit trail; required for Tier-2)"
         required: false
@@ -348,6 +349,11 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*service[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Ss]ervice[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            # flatten-ib-position: apply gates dry-run (default) vs execute.
+            apply=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*apply[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Aa]pply[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             if [ -z "${action}" ]; then
               echo "::error::Issue body must contain a line of the form 'action: <name>'. Title was: ${ISSUE_TITLE}"
               exit 1
@@ -385,6 +391,7 @@ jobs:
             echo "__ENVVAL_EOF__"
           } >>"$GITHUB_ENV"
           echo "ENV_SERVICE=${service}" >>"$GITHUB_ENV"
+          echo "ACTION_APPLY=${apply:-}" >>"$GITHUB_ENV"
           echo ">>> Resolved ACTION=${action} REASON=${reason} ACCOUNT_ID=${account_id} MODE=${mode} TRADE_ID=${trade_id} SYMBOL=${symbol} DAYS=${days} WINDOWS=${windows} WINDOW_DAYS=${window_days} BT_MODE=${bt_mode} RECENT_ONLY_FRAC=${recent_only_frac} (event=${{ github.event_name }})"
 
       - name: Validate action and tier policy
@@ -394,7 +401,7 @@ jobs:
             status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|flatten-ib-position)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -457,6 +464,34 @@ jobs:
               echo "::error::set-env env_key '${ENV_KEY}' invalid (allowed: ^[A-Z][A-Z0-9_]*$)."
               exit 1
             fi
+          fi
+          # flatten-ib-position requires account_id + symbol; apply (if set)
+          # must be true|false. The wrapper defaults to a DRY-RUN unless
+          # apply=true, so a missing/blank apply is safe (preview only).
+          if [ "${ACTION}" = "flatten-ib-position" ]; then
+            if [ -z "${ACCOUNT_ID// }" ]; then
+              echo "::error::flatten-ib-position requires 'account: <id>' (issue body) or 'account_id' input."
+              exit 1
+            fi
+            if [ -z "${ACTION_SYMBOL// }" ]; then
+              echo "::error::flatten-ib-position requires 'symbol: <SYM>' (issue body)."
+              exit 1
+            fi
+            if ! printf '%s' "${ACCOUNT_ID}" | grep -Eq '^[A-Za-z0-9_-]+$'; then
+              echo "::error::flatten-ib-position account_id '${ACCOUNT_ID}' invalid (allowed: A-Z a-z 0-9 _ -)."
+              exit 1
+            fi
+            if ! printf '%s' "${ACTION_SYMBOL}" | grep -Eq '^[A-Za-z0-9_]+$'; then
+              echo "::error::flatten-ib-position symbol '${ACTION_SYMBOL}' invalid (allowed: A-Z a-z 0-9 _)."
+              exit 1
+            fi
+            case "${ACTION_APPLY:-}" in
+              ""|true|false|True|False) ;;
+              *)
+                echo "::error::flatten-ib-position apply must be true or false (got '${ACTION_APPLY}')."
+                exit 1
+                ;;
+            esac
           fi
           echo ">>> Resolved tier: $(grep tier= "$GITHUB_ENV" | tail -1)"
 
@@ -580,6 +615,7 @@ jobs:
             resume-autoheal)                    SCRIPT="resume_autoheal.sh" ;;
             sync-clock)                         SCRIPT="sync_clock.sh" ;;
             purge-cloudflared)                  SCRIPT="purge_cloudflared.sh" ;;
+            flatten-ib-position)                SCRIPT="flatten_ib_position_action.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
               exit 2
@@ -662,6 +698,9 @@ jobs:
           fi
           if [ "${ACTION}" = "send-prop-test-ping" ]; then
             REMOTE_CMD="ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL:-SOLUSDT}") ACTION_STRATEGY=$(printf '%q' "${ACTION_STRATEGY:-trend_donchian_sol}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "flatten-ib-position" ]; then
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "set-env" ]; then
             env_value="${ENV_VALUE}"
