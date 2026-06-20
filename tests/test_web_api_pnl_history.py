@@ -26,7 +26,7 @@ def client():
 
 def _make_journal(path: Path) -> Path:
     conn = sqlite3.connect(str(path))
-    conn.execute(
+    conn.executescript(
         """
         CREATE TABLE trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
