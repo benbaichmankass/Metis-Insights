@@ -44,6 +44,51 @@
 
 ---
 
+## 0b. Wave-1 results (run on the trainer, 2026-06-20)
+
+Both Wave-1 study specs ran through `research_sweep.py` → k-fold gate on the trainer
+(raw: `automation/results/expansion-sweep-v2.txt`). Two clear outcomes:
+
+**(1) Trend-side out-of-pool holdout — FAILS. (PB-20260618-014 resolves NEGATIVE.)**
+The `trend_donchian_4h` long-only cell does **not** generalize to symbols outside the
+recombination sweep pool:
+
+| OOP symbol | base net R | 2×-fee | every-fold? | tier |
+|---|---|---|---|---|
+| **BNB** | +10.0 | +8.4 | ❌ no | paper_ready |
+| **LINK** | **−4.9** | −6.1 | ❌ no | **reject** |
+
+Every BNB variant is paper_ready-at-best and **none is positive in every fold**; every
+LINK variant is a reject. Per the program's own multiple-comparisons discipline
+(`strategy-primitives-recombination-DESIGN.md` §6), this means the trend-side
+recombination survivors are **pool-overfit** → **do NOT propose any trend-side
+`config/strategies.yaml` refinement.** This is the gate working as designed: a negative
+result that prevents an overfit live change. It also reinforces the strategic pivot —
+*more crypto-trend cells are not the expansion*; the uncorrelated edge types are.
+
+**(2) Pullback exit / fee-headroom study — the exit is the dominant lever, and the live
+config is robustly near-optimal.**
+
+| variant | net R | 2×-fee | every-fold? | tier |
+|---|---|---|---|---|
+| **base (trail5, live)** | 63.1 | 59.5 | ✅ | **live_ready** |
+| stop3_trail5 | 49.8 | 47.0 | ✅ | **live_ready** |
+| stop2_trail5 | **78.7** | 73.9 | ❌ | paper_ready |
+| trail7 | 50.9 | 47.7 | ❌ | paper_ready |
+| trail3 (tight) | 7.3 | **2.4** | ❌ | paper_ready |
+
+Ablation: the trail manager is worth **+55.8R** (base 63.1 → trail-neutralized 7.3) — the
+single largest component of the cell's edge. The base run reproduces the 2026-06-18
+shakedown's +63.11R exactly, validating the harness + dispatch end-to-end. Takeaways:
+the **live trail5 exit is robustly near-optimal** (only base + stop3_trail5 clear
+every-fold); a tighter stop (stop2) lifts headline net but loses robustness; and the
+**tight trail is fee-fragile** (7.3 → 2.4 at 2× fee) while the wide trail keeps its
+headroom (63.1 → 59.5). So the fee-reduction work (the rank-5 maker-band exit) should aim
+at **wider / rebate-earning exits, not tighter** ones.
+
+**Net effect on the plan:** the crypto-trend expansion lane is closed (OOP-fail); focus
+shifts fully onto the **uncorrelated edge types** (carry, pairs, ETF-breadth) per §6.
+
 ## 1. The full picture (what we have, tested, and rejected)
 
 ### 1.1 Money-at-risk vs paper vs prop
