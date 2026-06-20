@@ -1,0 +1,23 @@
+TARGET=trainer
+---
+set -uo pipefail
+cd /home/ubuntu/ict-trading-bot || { echo "NO REPO"; exit 1; }
+BR=claude/expansion-backtesting-research-y74054
+echo "== fetch study specs from $BR (no working-tree change) =="
+git fetch -q origin "$BR" 2>&1 | tail -2 || echo "fetch warn"
+mkdir -p /tmp/studies
+for s in trend_oop_holdout pullback_exit_feebleed; do
+  if git show "origin/$BR:config/research/studies/$s.yaml" > /tmp/studies/$s.yaml 2>/dev/null; then echo "got $s"; else echo "MISSING spec $s"; fi
+done
+# LINK sibling of the OOP holdout (the second out-of-pool symbol; PB-20260618-014)
+sed -e 's/BNBUSDT/LINKUSDT/g' -e 's/trend_oop_holdout_bnb/trend_oop_holdout_link/' \
+    /tmp/studies/trend_oop_holdout.yaml > /tmp/studies/trend_oop_holdout_link.yaml && echo "made link sibling"
+
+for s in trend_oop_holdout trend_oop_holdout_link pullback_exit_feebleed; do
+  echo ""
+  echo "######################## RUN $s ########################"
+  timeout 2400 python3 scripts/ops/research_sweep.py --study /tmp/studies/$s.yaml --out /tmp/out_$s 2>&1 | tail -70
+  echo "---- summary.json (first 1800 chars) [$s] ----"
+  head -c 1800 /tmp/out_$s/summary.json 2>/dev/null; echo
+done
+echo "== ALL DONE =="
