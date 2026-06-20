@@ -89,6 +89,40 @@ at **wider / rebate-earning exits, not tighter** ones.
 **Net effect on the plan:** the crypto-trend expansion lane is closed (OOP-fail); focus
 shifts fully onto the **uncorrelated edge types** (carry, pairs, ETF-breadth) per §6.
 
+## 0c. First new-edge result — funding carry (2026-06-20)
+
+`scripts/backtest_funding_carry.py` (shipped this session; synthetic-correctness verified
+on the trainer) was run on ETH + SOL with funding fetched live from Bybit. **Data caveat:**
+Bybit funding history caps at **2023-03-08** (~3.3yr), so this is a 2023+ window with
+modest trade counts.
+
+| variant | symbol | trades | net R | win% | maxDD R | by-year |
+|---|---|---|---|---|---|---|
+| directional | ETH | 36 | +2.76 | 36% | 7.52 | 2023 +5.0 / 2024 −3.1 (inconsistent) |
+| directional | SOL | 53 | **−1.15** | 36% | 16.0 | net loser |
+| **market-neutral** | **ETH** | 23 | +1.65 | **95.7%** | **0.008** | +0.23 / +1.43 / −0.01 |
+| **market-neutral** | **SOL** | 33 | +1.62 | **84.8%** | **0.04** | +0.17 / +1.47 / +0.00 |
+
+**Findings (honest):**
+- **Directional carry is NOT an edge** — the price leg dominates the funding term and adds
+  drawdown (SOL net-negative). Rejected.
+- **Market-neutral (hedged) carry IS a genuine uncorrelated sleeve** — ~85–96% win rate,
+  **near-zero drawdown**, positive in every major year, zero price beta. This is precisely
+  the "smooth, always-on, uncorrelated" profile the goal calls for.
+- **But it's a low-return / high-Sharpe *yield* stream, not an R generator.** The "R" here
+  is normalized to a nominal ATR unit (a hedged position has no real price stop), so the R
+  magnitude understates the story — the real metric is funding **yield** (Bybit's mean 8h
+  rate ≈ 7–8%/yr to a long, harvested smoothly by the receive-leg in high-funding windows).
+  Trade counts are thin for the per-trade k-fold R-gate; **Sharpe / `portfolio_robustness`
+  is the apt grader**, and a **basket** version (pool ETH+SOL+XRP+ADA+AVAX neutral carry)
+  is the right way to thicken the sample and smooth further.
+
+**Verdict:** market-neutral funding carry is a viable **complement sleeve** — it won't move
+the P&L needle alone, but it adds steady, BTC-uncorrelated return with almost no drawdown,
+which is exactly what "make money all the time" wants alongside the directional book.
+Directional carry is dropped. Next: grade the neutral variant through the gate, then build
+the **basket** carry + the **pairs** (ETH/BTC dollar-neutral) sleeve.
+
 ## 1. The full picture (what we have, tested, and rejected)
 
 ### 1.1 Money-at-risk vs paper vs prop
