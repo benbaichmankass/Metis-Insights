@@ -1,0 +1,33 @@
+# Study spec — ETF-breadth daily PULLBACK (uncorrelated-sleeve expansion), 2026-06-20.
+# RESEARCH-ONLY, Tier-1. Read by scripts/ops/research_sweep.py; touches nothing live.
+#
+# Mirrors the validated live daily pullback family (gld_/mgc_/mhg_pullback_1d:
+# htf_pullback_trend_2h unit on daily bars — trend-lookback 40, pullback-frac 0.5,
+# atr-stop 2.5, trail 5.0; trades BOTH directions) applied to the NEW diversifying
+# ETFs. The pullback family is naturally two-sided, so it suits bonds (TLT/IEF)
+# and commodities that mean-revert within a range. SPY is the template; the
+# dispatch job seds per symbol.
+schema_version: 1
+name: etf_pullback_SPY
+harness: backtest_pullback.py
+
+base:
+  data: data/SPY_1d.csv
+  symbol: SPY
+  args:
+    trend-lookback: 40
+    pullback-lookback: 10
+    pullback-frac: 0.5
+    atr-stop-mult: 2.5
+    trail-mult: 5.0
+    min-confidence: 0.0
+
+variants:
+  - {name: frac618, set: {pullback-frac: 0.618}}
+  - {name: trend30, set: {trend-lookback: 30}}
+  - {name: trail4, set: {trail-mult: 4.0}}
+
+ablations: []
+
+kfold: {folds: 5, train_frac: 0.4, wf_end: "2026-06-18"}
+fees:  {base_bps: 7.5, double_bps: 15.0}
