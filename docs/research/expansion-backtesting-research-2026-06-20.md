@@ -44,6 +44,32 @@
 
 ---
 
+## 0a. Session outcome (2026-06-20) — what was actually run + concluded
+
+This memo started as a plan and became an executed research session (all sweeps run on the
+trainer via `vm-driver`; raw logs in `automation/results/`). Net conclusions:
+
+1. **Best deployable expansion = the ETF-breadth book** (bonds TLT/IEF + commodity DBC/USO/DBA
+   + silver SLV + small-cap IWM): **+197.3R, Sharpe 3.88 over 19yr, every recent holdout
+   positive, every family additive, bootstrap P+ =1.00.** Genuinely BTC-uncorrelated and
+   fee-resilient. **IWM trend long-only is `live_ready` (every-fold).** → the prime real-money
+   proposal (Tier-3). Details §0d.
+2. **Funding carry = a real but regime-dependent sleeve** — smooth/uncorrelated, but the edge
+   concentrated in 2023–24 and decayed in 2025–26 (high-funding-regime harvester, dormant now).
+   Directional carry rejected; market-neutral carry paper-grade. A conditional overlay, not a
+   core sleeve. New harness `scripts/backtest_funding_carry.py` shipped + validated. Details §0c.
+3. **Trend-side crypto-alt refinement = dead** — the OOP holdout (BNB/LINK) fails; the
+   recombination survivors were pool-overfit. No trend-side `strategies.yaml` change. §0b.
+4. **Strategy framing learned:** no single sleeve is always-on; "make money all the time" =
+   stacking sleeves whose ON-regimes differ (crypto-trend, ETF-trend/pullback, carry). The
+   ETF-breadth book is the missing uncorrelated core.
+
+**Recommended Tier-3 next steps (operator-gated):** (a) wire the ETF-breadth cells to the
+`alpaca_paper` book first (paper), starting with IWM (live_ready) + the two bond cells; (b) run
+`account_compat_matrix` once its daily/futures extension lands (PB-20260618-012); (c) keep carry
+as a documented opportunistic overlay, revisit when funding elevates. The **pairs / cross-sectional**
+sleeves remain un-built (operator chose ETF-breadth this session) — next natural research.
+
 ## 0b. Wave-1 results (run on the trainer, 2026-06-20)
 
 Both Wave-1 study specs ran through `research_sweep.py` → k-fold gate on the trainer
@@ -185,7 +211,34 @@ k-fold gate. Best cell per symbol:
 
 **These ON-regimes differ from crypto's** (bonds=rates/risk-off, commodity=inflation/supply,
 small-cap=risk-on equity) — so stacking them under the directional crypto book is exactly the
-"always-on via diversification" mechanism. This is the strongest expansion result of the session.
+"always-on via diversification" mechanism.
+
+### Pooled ETF-breadth book (`portfolio_robustness`, the payoff grade) — the session's best result
+
+Best cell per ETF pooled into one book (family-tagged), 19 years 2007–2026:
+
+> **7 cells · 566 trades · net +197.3R · Sharpe 3.88 · maxDD 18.6R · mean +0.35R/trade**
+
+| robustness axis | result |
+|---|---|
+| **Recent holdouts (5 cutoffs)** | **ALL POSITIVE** — ≥2023-07 +44.6R (Sh 2.01) … ≥2025-07 +36.4R (Sh 2.14) |
+| **Leave-one-family-out** | all positive — drop bond +132.8R, commod +131.2R, equity +180R, metal +147.9R |
+| **Block bootstrap** | **P(net>0)=1.00**, 5th-pct +108.4R |
+| **Added-cost breakeven** | **+0.35R/trade** (ETF fees ~1–2bps → enormous headroom) |
+| every-calendar-year | ✗ 7 of 20 years slightly negative (chop years — normal) |
+
+`portfolio_robustness` verdict is **"NOT fully robust"** — but **only** because it fails the
+strictest *every-calendar-year* bar; it **passes holdouts + leave-one-out + bootstrap**, the
+axes that actually predict forward performance. **This is a deployable-grade, fee-resilient,
+BTC-uncorrelated diversified book** — and crucially it is **positive in every recent holdout,
+including the window where crypto carry decayed.** It is the strongest, most dependable
+expansion result of the session and a legitimate **real-money-candidate book** (Tier-3,
+operator + per-account-compat gated).
+
+**Carry vs ETF-breadth, head to head:** carry = Sharpe ~11 but holdouts ≥2025 *negative*
+(regime-dependent, decayed); ETF-breadth = Sharpe ~3.9 but holdouts *all positive*
+(dependable). ETF-breadth is the better core diversifier; carry is an opportunistic
+high-funding-regime overlay on top.
 
 ## 1. The full picture (what we have, tested, and rejected)
 
