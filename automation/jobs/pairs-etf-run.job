@@ -1,0 +1,50 @@
+TARGET=trainer
+---
+set -uo pipefail
+cd /home/ubuntu/ict-trading-bot || { echo "NO REPO"; exit 1; }
+BR=claude/expansion-backtesting-research-y74054
+git fetch -q origin "$BR" 2>&1 | tail -1 || true
+PY=""
+for c in .venv/bin/python venv/bin/python $(find /home/ubuntu -maxdepth 5 -path '*/bin/python' 2>/dev/null); do
+  if [ -x "$c" ] && "$c" -c "import pandas,numpy" 2>/dev/null; then PY="$c"; break; fi
+done
+[ -z "$PY" ] && { echo "no pandas python"; exit 0; }
+echo "PY=$PY"
+git show "origin/$BR:scripts/backtest_pairs.py" > /tmp/backtest_pairs.py
+
+run_pair () {  # A B TF DATA_A DATA_B  -> sweep z-grid, grade best
+  local A="$1" B="$2" TF="$3" DA="$4" DB="$5"
+  [ -s "$DA" ] && [ -s "$DB" ] || { echo "  SKIP $A/$B $TF (missing data)"; return; }
+  echo ""
+  echo "######## PAIR $A/$B ($TF) ########"
+  local best_emit="" best_net="-1e9"
+  for LB in 20 40; do
+    for EZ in 1.5 2.0 2.5; do
+      local tag="${A}${B}_${TF}_lb${LB}_ez${EZ}"
+      local EM="/tmp/pe_${tag}.jsonl"
+      local out
+      out=$("$PY" /tmp/backtest_pairs.py --data-a "$DA" --data-b "$DB" \
+            --symbol-a "$A" --symbol-b "$B" --timeframe "$TF" \
+            --lookback "$LB" --entry-z "$EZ" --exit-z 0.5 --stop-z 2.0 \
+            --max-hold-bars 30 --emit-trades "$EM" 2>&1)
+      local net
+      net=$(echo "$out" | grep -oE "net_r=[-0-9.]+" | head -1 | cut -d= -f2)
+      echo "  [lb${LB} ez${EZ}] $(echo "$out" | sed -n '2,3p' | tr '\n' ' ')"
+      if [ -n "${net:-}" ] && "$PY" -c "import sys;sys.exit(0 if float('$net')>float('$best_net') else 1)" 2>/dev/null; then
+        best_net="$net"; best_emit="$EM"
+      fi
+    done
+  done
+  if [ -n "$best_emit" ] && [ -s "$best_emit" ]; then
+    echo "  -- best $A/$B $TF -> net_r=$best_net :: robustness --"
+    printf '[{"label": "pairs_%s%s", "emit": "%s"}]\n' "$A" "$B" "$best_emit" > /tmp/pe_mani.json
+    timeout 200 "$PY" scripts/ops/portfolio_robustness.py --manifest /tmp/pe_mani.json 2>&1 | sed -n '1,3p;/VERDICT/p;/holdout net_r across/,/leave-one-cell/p'
+  fi
+}
+
+# Gold/Silver ratio + Treasury duration spread — textbook mean-reverting ratios.
+run_pair GLD SLV 1d  data/GLD_1d.csv data/SLV_1d.csv
+run_pair GLD SLV 1h  data/GLD_1h.csv data/SLV_1h.csv
+run_pair TLT IEF 1d  data/TLT_1d.csv data/IEF_1d.csv
+run_pair TLT IEF 1h  data/TLT_1h.csv data/IEF_1h.csv
+echo "== DONE =="
