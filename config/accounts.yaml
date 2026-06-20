@@ -534,9 +534,11 @@ accounts:
   #
   # mode: live — ALWAYS LIVE from the system's perspective: the bot always emits
   # the ping; the operator decides per-signal whether to act on it. (There is no
-  # programmatic order, so "live" here only means "emit the Telegram ping".) The
-  # per-strategy `execution: shadow` gate still suppresses emission for
-  # trend_donchian_eth until it graduates to live.
+  # programmatic order, so "live" here only means "emit the Telegram ping".) Both
+  # routed strategies (trend_donchian_sol AND trend_donchian_eth) are
+  # `execution: live` as of 2026-06-17 (PB-20260616-004), so both emit prop
+  # tickets; the per-strategy `execution: shadow` gate would suppress emission,
+  # so demote either back to shadow in strategies.yaml to halt its tickets.
   #
   # account_class: prop — a THIRD funding category (alongside paper/real_money):
   # a prop-firm sim account, NOT our custody. Tracked SEPARATELY — excluded from
