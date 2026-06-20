@@ -146,14 +146,19 @@ def run_backtest(df: pd.DataFrame, fund: pd.DataFrame, *, atr_period: int,
     feat = bars["feat"].to_numpy()
 
     # Exact funding accrual scaffold: cumulative rate over settlement events.
-    f_ts = fund["ts"].to_numpy().astype("datetime64[ns]")
+    # Work in naive-UTC int64 ns to avoid the tz-aware datetime64 warning and
+    # guarantee both sides of the searchsorted compare in the same units.
+    f_ts = fund["ts"].dt.tz_localize(None).to_numpy().astype("datetime64[ns]").astype("int64")
     f_rate = fund["rate"].to_numpy()
     f_cum = np.concatenate([[0.0], np.cumsum(f_rate)])  # f_cum[k] = sum of first k rates
 
+    def _ns(ts) -> int:
+        return int(pd.Timestamp(ts).tz_convert("UTC").tz_localize(None).value)
+
     def accrued_rate(entry_ts, exit_ts) -> float:
         """Sum of funding rates settled in (entry_ts, exit_ts]."""
-        lo = int(np.searchsorted(f_ts, np.datetime64(pd.Timestamp(entry_ts).to_datetime64()), side="right"))
-        hi = int(np.searchsorted(f_ts, np.datetime64(pd.Timestamp(exit_ts).to_datetime64()), side="right"))
+        lo = int(np.searchsorted(f_ts, _ns(entry_ts), side="right"))
+        hi = int(np.searchsorted(f_ts, _ns(exit_ts), side="right"))
         return float(f_cum[hi] - f_cum[lo])
 
     neutral = hedge == "neutral"
