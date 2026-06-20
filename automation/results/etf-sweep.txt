@@ -1,0 +1,212 @@
+# job=etf-sweep target=trainer ip=158.178.209.121 started=2026-06-20T16:52:16Z
+PY=.venv/bin/python
+
+######## trend TLT ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+
+######## pullback TLT ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+
+######## trend IEF ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+
+######## pullback IEF ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+
+######## trend DBC ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+
+######## pullback DBC ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+
+######## trend USO ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+
+######## pullback USO ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+
+######## trend UNG ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+
+######## pullback UNG ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+
+######## trend DBA ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+
+######## pullback DBA ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+
+######## trend SLV ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+
+######## pullback SLV ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+
+######## trend IWM ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+
+######## pullback IWM ########
+Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 289, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 246, in main
+    runs = build_runs(study)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/ict-trading-bot/scripts/ops/research_sweep.py", line 108, in build_runs
+    common = dict(data=base["data"], resample=str(base["resample"]), symbol=base["symbol"])
+                                                  ~~~~^^^^^^^^^^^^
+KeyError: 'resample'
+== DONE ==
+# exit=0 finished=2026-06-20T16:52:20Z
