@@ -153,6 +153,8 @@ def test_run_checks_strategies_match_roster():
         "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d",
         "xauusd_trend_1h", "mgc_trend_1h",
         "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
+        # ETF-breadth daily sweep (2026-06-20, Tier-3) — 3 new daily-ETF cells:
+        "iwm_trend_long_1d", "tlt_pullback_1d", "ief_pullback_1d",
         "eth_pullback_2h",
         "trend_donchian_sol", "trend_donchian_eth",
         # 9 paper_ready alt cells on bybit_1 DEMO (2026-06-18, Tier-3):

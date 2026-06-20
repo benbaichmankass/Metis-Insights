@@ -59,9 +59,21 @@
     "short": "QQQ daily long-only trend-follower (Alpaca paper) \u2014 Donchian-30 breakout with a 4x ATR trail; equity-index ETF diversifier.",
     "how_it_works": "Same logic as the SPY leg on the Nasdaq-100 ETF: daily Donchian-30 breakout entries, long-only, 2.5x ATR stop, 4x ATR trail, bracket orders on the Alpaca paper account during US market hours. Validated in the M15 Phase-0 sweep (train +16.2R, out-of-sample +10.9R). Distinct from the unproven QQQ 5-minute intraday research, which stays shadow-only."
   },
+  "iwm_trend_long_1d": {
+    "short": "IWM daily long-only trend-follower (Alpaca paper) — Donchian-30 breakout with a 4x ATR trail; small-cap (Russell 2000) breadth leg.",
+    "how_it_works": "Same logic as the SPY/QQQ legs on the Russell-2000 small-cap ETF: a daily close above the highest high of the prior 30 days triggers a long entry (shorts suppressed), with a 2.5x ATR(14) initial stop and a 4x ATR trailing exit, via bracket orders on the Alpaca paper account during US market hours. Adds small-cap breadth to the large-cap SPY/QQQ legs. From the ETF-breadth daily sweep (2026-06-20) it was the only live_ready cell, positive in every walk-forward fold (pooled book Sharpe 3.88, all holdouts positive)."
+  },
   "gld_pullback_1d": {
     "short": "GLD daily pullback trader (Alpaca paper) \u2014 buys/sells pullbacks within the prevailing gold trend; the ETF replacement for the MGC futures leg.",
     "how_it_works": "Watches the gold ETF on daily candles during US market hours. When a 40-day trend filter is in force and price pulls back into the deeper 61.8% zone of the recent 15-day range, it enters in the trend direction (both long and short validated) with a 2x ATR(14) stop and a 4x ATR trailing exit, via bracket orders on the Alpaca paper account. Validated in the M15 Phase-0 sweep mirroring the live Micro-Gold futures strategy (train +4.9R, out-of-sample +19.7R)."
+  },
+  "tlt_pullback_1d": {
+    "short": "TLT daily pullback trader (Alpaca paper) — buys/sells pullbacks within the prevailing 20+ year Treasury bond trend; long-duration rates leg.",
+    "how_it_works": "Same logic as the GLD leg on the 20+ year Treasury bond ETF: when a 40-day trend filter is in force and price pulls back into the 61.8% zone of the recent 10-day range, it enters in the trend direction (both long and short) with a 2.5x ATR(14) stop and a 5x ATR trailing exit, via bracket orders on the Alpaca paper account during US market hours. Adds a duration/rates leg uncorrelated with the equity and gold legs. From the ETF-breadth daily sweep (2026-06-20) it was paper_ready and fee-robust (pooled book Sharpe 3.88, all holdouts positive)."
+  },
+  "ief_pullback_1d": {
+    "short": "IEF daily pullback trader (Alpaca paper) — buys/sells pullbacks within the prevailing 7-10 year Treasury bond trend; intermediate-duration rates leg.",
+    "how_it_works": "Same logic as the GLD/TLT legs on the 7-10 year Treasury bond ETF: when a 30-day trend filter is in force and price pulls back into the 50% zone of the recent 10-day range, it enters in the trend direction (both long and short) with a 2.5x ATR(14) stop and a 5x ATR trailing exit, via bracket orders on the Alpaca paper account during US market hours. The intermediate-duration complement to TLT's long duration. From the ETF-breadth daily sweep (2026-06-20) it was paper_ready and fee-robust (pooled book Sharpe 3.88, all holdouts positive)."
   },
   "eth_pullback_2h": {
     "short": "ETH/USDT 2h pullback trader (Bybit demo) \u2014 buys/sells pullbacks within the prevailing Ethereum trend; the alt-sleeve sibling of the live BTC pullback strategy.",

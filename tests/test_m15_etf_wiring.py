@@ -66,9 +66,10 @@ def test_instrument_profiles_route_to_alpaca():
 
 def test_account_routing_and_descriptions():
     acct = yaml.safe_load(open("config/accounts.yaml"))["accounts"]["alpaca_paper"]
-    assert acct["strategies"] == [
-        "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d"
-    ]
+    # The original M15 Phase-4 legs are still routed (now alongside the
+    # 2026-06-20 ETF-breadth cells iwm/tlt/ief — see test_etf_breadth_alpaca_wiring).
+    for name in ("spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d"):
+        assert name in acct["strategies"]
     desc = json.load(open("config/strategy_descriptions.json"))
     for name in _BUILDERS:
         assert name in desc and desc[name]["short"]
