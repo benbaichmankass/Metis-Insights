@@ -278,9 +278,24 @@ self-test: +96R, 84% win). But ETH/BTC is not a reversion edge: 5m native is fee
 (−24,000R, 32k trades); daily-resampled is marginally +25R (Sharpe 1.27, 77 trades) but
 `portfolio_robustness` fails every axis — **all holdouts from 2024-01 on are negative**
 (≥2025-07: −4.2R), bootstrap P=0.91 / p5=−3.5. ETH/BTC *co-trends* (0.7–0.9 corr); the ratio
-doesn't mean-revert. **The right pairs candidates are mean-reverting ratios — GLD/SLV
-(gold-silver ratio), TLT/IEF (duration spread)** — not crypto majors. The harness is ready to
-test those; that's the next pairs step.
+doesn't mean-revert.
+
+**ETF pairs (GLD/SLV gold-silver ratio, TLT/IEF duration) — also REJECT.** Tested the proper
+mean-reverting ratio candidates at daily + 1h through `portfolio_robustness`:
+- GLD/SLV 1d: +16.6R (Sharpe 1.31) but ALL holdouts negative, bootstrap p5 −6 — not robust.
+- GLD/SLV 1h: +25.1R (Sharpe 0.89), mixed holdouts, bootstrap p5 −17 — mediocre.
+- TLT/IEF 1d: only +7.2R but holdouts ALL positive (Sharpe 1.0–1.6) — the one bright spot, yet
+  marginal (+0.03R/trade, bootstrap P 0.69).
+- TLT/IEF 1h: **−44.5R** — fee-destroyed (820 low-vol trades).
+
+**Verdict on the pairs/stat-arb axis: REJECT for this universe (crypto + ETFs).** The telling
+result: GLD and SLV *individually* are the session's strongest intraday cells (+70–85R,
+live_ready), but their **spread** is barely tradeable (+16–25R, not robust). The edge lives in
+each instrument's directional move, not its relative value — these assets co-trend, so the ratio
+is mostly noise + fees. The harness (`backtest_pairs.py`) is validated + reusable for a future
+genuinely-cointegrated pair, but **the money in this universe is directional trend/pullback on
+individual instruments, not market-neutral pairs.** Cross-sectional (rank-N long/short) — pairs'
+cousin — is deprioritized accordingly.
 
 ## 1. The full picture (what we have, tested, and rejected)
 
