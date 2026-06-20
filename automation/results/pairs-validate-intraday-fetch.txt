@@ -1,0 +1,19 @@
+# job=pairs-validate-intraday-fetch target=trainer ip=158.178.209.121 started=2026-06-20T17:25:52Z
+PY=.venv/bin/python
+== (a) pairs harness self-test (synthetic OU spread) ==
+  win_rate=83.58%  net_r=96.3018 (exp 0.3515, L/S 147/127)
+  maxdd_r=2.0704 by={'revert': 242, 'stop': 32}
+  by_year={'2020': {'trades': 274, 'net_r': 96.302}}
+SELF-TEST PASS (trades=274 net_r=96.3018 win=83.58%)
+
+== (b) fetch Dukascopy 1h RTH for the intraday-covered ETFs ==
+SPY: 13854 rows  2017-02-16 15:00:00+00:00 -> 2026-06-18 19:00:00+00:00
+QQQ: 13782 rows  2017-03-01 18:00:00+00:00 -> 2026-06-18 19:00:00+00:00
+GLD: 13800 rows  2017-03-01 18:00:00+00:00 -> 2026-06-18 19:00:00+00:00
+IWM: 13814 rows  2017-03-01 18:00:00+00:00 -> 2026-06-18 19:00:00+00:00
+SLV: 12431 rows  2018-02-01 15:00:00+00:00 -> 2026-06-18 19:00:00+00:00
+USO: 13808 rows  2017-03-01 18:00:00+00:00 -> 2026-06-18 19:00:00+00:00
+TLT: 13812 rows  2017-03-01 18:00:00+00:00 -> 2026-06-18 19:00:00+00:00
+IEF: 12416 rows  2018-02-01 15:00:00+00:00 -> 2026-06-18 19:00:00+00:00
+== DONE ==
+# exit=0 finished=2026-06-20T17:26:10Z
