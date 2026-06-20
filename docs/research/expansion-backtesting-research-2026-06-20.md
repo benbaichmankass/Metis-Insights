@@ -240,6 +240,48 @@ operator + per-account-compat gated).
 (dependable). ETF-breadth is the better core diversifier; carry is an opportunistic
 high-funding-regime overlay on top.
 
+## 0e. Intraday (1h) ETF sweep + crypto pairs (2026-06-20)
+
+**Intraday timeframe — the operator ask "find fits on smaller timeframes too" paid off.**
+1h RTH bars (Dukascopy ETF-CFD, ~9yr 2017→2026) through the same k-fold gate. The 1h
+basket produced MORE every-fold `live_ready` cells than daily — more trades → better
+statistics, and these liquid ETFs mean-revert/trend cleanly intraday. Best cell per symbol:
+
+| ETF | best intraday (1h) cell | tier | net R | 2×-fee |
+|---|---|---|---|---|
+| **SLV** | trend both_donch24 | **live_ready ✅** | 85.5 | 77.2 |
+| **GLD** | pullback trail4 | **live_ready ✅** | 78.9 | 61.5 |
+| **TLT** | pullback trail4 | **live_ready ✅** | 50.6 | 34.0 |
+| **QQQ** | pullback frac618 | **live_ready ✅** | 45.3 | 36.7 |
+| **SPY** | pullback frac618 | **live_ready ✅** | 42.0 | 30.6 |
+| **USO** | trend donch24 | **live_ready ✅** | 39.5 | 35.2 |
+| **IEF** | pullback frac618 | live_ready (FEE-FRAGILE) | 42.9 | 7.6 ⚠ |
+| **IWM** | trend trail6 | paper_ready (weak) | 3.8 | 0.8 |
+
+**Findings:**
+- **GLD + SLV intraday are exceptional** — GLD pullback is live_ready on *all four* variants;
+  SLV trend on four. Precious-metals intraday mean-reversion/trend is the strongest edge found
+  all session, fee-robust at 2×.
+- **SPY/QQQ pullback + USO/TLT** are clean live_ready with good 2×-fee headroom — a real
+  intraday sleeve.
+- **IEF is live_ready but fee-fragile** (2× headroom +7.6) — low-vol bond, small moves eaten by
+  fees; wire only with realistic (low) ETF fees, or skip.
+- **IWM inverts daily↔intraday** — daily live_ready, intraday REJECT. So IWM belongs on the
+  *daily* sleeve, the metals/index ETFs on the *intraday* sleeve. The timeframe is per-symbol,
+  not one-size-fits-all.
+- Honest caveat: 1h backtests assume 7.5bps/side; the 2×-fee column is the load-bearing check.
+  The cells above (except IEF) clear it. Live intraday also needs the bot to fetch 1h candles +
+  manage intraday exits — an operational step beyond the daily cells.
+
+**Crypto pairs (ETH/BTC) — REJECT.** New `scripts/backtest_pairs.py` validated (synthetic OU
+self-test: +96R, 84% win). But ETH/BTC is not a reversion edge: 5m native is fee-destroyed
+(−24,000R, 32k trades); daily-resampled is marginally +25R (Sharpe 1.27, 77 trades) but
+`portfolio_robustness` fails every axis — **all holdouts from 2024-01 on are negative**
+(≥2025-07: −4.2R), bootstrap P=0.91 / p5=−3.5. ETH/BTC *co-trends* (0.7–0.9 corr); the ratio
+doesn't mean-revert. **The right pairs candidates are mean-reverting ratios — GLD/SLV
+(gold-silver ratio), TLT/IEF (duration spread)** — not crypto majors. The harness is ready to
+test those; that's the next pairs step.
+
 ## 1. The full picture (what we have, tested, and rejected)
 
 ### 1.1 Money-at-risk vs paper vs prop
