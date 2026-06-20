@@ -58,11 +58,21 @@ def _query_history(
     conn = sqlite3.connect(str(db_path))
     try:
         cur = conn.cursor()
+        # Canonical CLOSE-TIME basis: COALESCE(closed_at, op.updated_at,
+        # timestamp), the same one /performance + /stats use, so the Accounts
+        # daily-realised chart dates a trade's PnL on the day it CLOSED — not
+        # the day it opened (the old substr(created_at,...) basis mis-dated
+        # cross-midnight trades). status='closed' (not 'open' also counted
+        # cancelled/error/orphaned terminal rows the other endpoints exclude),
+        # and pnl IS NOT NULL drops reconciler-incomplete rows so the daily sum
+        # + trade count reflect resolved trades only (matches /performance).
+        close_day = "substr(COALESCE(closed_at, op.updated_at, timestamp), 1, 10)"
         base_where = (
             "COALESCE(is_backtest, 0) = 0"
-            " AND status != 'open'"
-            " AND substr(COALESCE(created_at, timestamp), 1, 10) >= ?"
-            " AND substr(COALESCE(created_at, timestamp), 1, 10) <= ?"
+            " AND status = 'closed'"
+            " AND pnl IS NOT NULL"
+            f" AND {close_day} >= ?"
+            f" AND {close_day} <= ?"
         )
         params: list = [start.isoformat(), today_utc.isoformat()]
         if account_id:
@@ -77,10 +87,16 @@ def _query_history(
             )
         cur.execute(
             f"""
-            SELECT substr(COALESCE(created_at, timestamp), 1, 10) AS day,
+            SELECT {close_day} AS day,
                    COALESCE(SUM(pnl), 0)                         AS realized,
                    COUNT(*)                                       AS trades
               FROM trades
+              LEFT JOIN (
+                  SELECT linked_trade_id, MIN(updated_at) AS updated_at
+                  FROM order_packages
+                  WHERE linked_trade_id IS NOT NULL
+                  GROUP BY linked_trade_id
+              ) op ON op.linked_trade_id = trades.id
              WHERE {base_where}
              GROUP BY day
             """,

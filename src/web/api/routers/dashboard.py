@@ -271,7 +271,6 @@ def _pnl_stats_for(predicate: str) -> tuple[float, float, int, float]:
     conn = sqlite3.connect(str(_DB_PATH))
     try:
         cur = conn.cursor()
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         try:
             cur.execute(
                 """
@@ -280,18 +279,36 @@ def _pnl_stats_for(predicate: str) -> tuple[float, float, int, float]:
                 -- used status!='open', which also counted non-closed terminal
                 -- rows (cancelled/error) — a divergence from every other
                 -- endpoint. openTrades stays status='open'.
+                --
+                -- pnl24h is a ROLLING 24h window on CLOSE-TIME
+                -- (COALESCE(closed_at, op.updated_at, timestamp)) — the SAME
+                -- basis /performance?window=24h uses, so the two never
+                -- disagree. It previously keyed on substr(created_at,1,10)=today
+                -- (the trade's OPEN calendar-day), which reported $0.00 for a
+                -- trade closed in the last 24h but opened earlier / before the
+                -- UTC midnight roll (the "24h P&L is wrongly 0" bug). The
+                -- order_packages LEFT JOIN is pre-aggregated to one row per
+                -- trade (MIN(updated_at)) so the close-time fallback matches
+                -- /performance and the join can't fan-out the sums.
                 SELECT
-                    COALESCE(SUM(CASE WHEN substr(COALESCE(created_at,timestamp),1,10)=?
-                                      AND status='closed' THEN pnl ELSE 0 END),0),
+                    COALESCE(SUM(CASE WHEN status='closed' AND pnl IS NOT NULL
+                        AND datetime(COALESCE(closed_at, op.updated_at, timestamp))
+                            >= datetime('now','-24 hours')
+                        THEN pnl ELSE 0 END),0),
                     COALESCE(SUM(CASE WHEN status='closed' THEN pnl ELSE 0 END),0),
                     COUNT(CASE WHEN status='open' THEN 1 END),
                     COUNT(CASE WHEN status='closed' AND pnl IS NOT NULL THEN 1 END),
                     COUNT(CASE WHEN status='closed' AND pnl>0 THEN 1 END)
                 FROM trades
+                LEFT JOIN (
+                    SELECT linked_trade_id, MIN(updated_at) AS updated_at
+                    FROM order_packages
+                    WHERE linked_trade_id IS NOT NULL
+                    GROUP BY linked_trade_id
+                ) op ON op.linked_trade_id = trades.id
                 WHERE COALESCE(is_backtest,0)=0
                 """
                 + predicate,
-                (today,),
             )
             row = cur.fetchone()
         except sqlite3.Error:

@@ -115,17 +115,29 @@ def _query_stats(db_path: Path) -> Dict[str, Dict[str, Any]]:
         conn = sqlite3.connect(str(db_path))
         conn.row_factory = sqlite3.Row
         try:
+            # Real-money only (account_class authoritative, is_demo fallback;
+            # excludes paper AND prop). Previously NO paper filter → paper/prop
+            # trades blended into the Strategies tab's lifetime per-strategy
+            # stats ("real and paper never blended" contract). `resolved` counts
+            # trades with a non-NULL pnl; win_rate / avg_pnl are computed over
+            # `resolved` (not `total_trades`) so a reconciler-incomplete NULL-pnl
+            # row no longer counts as a loss / deflates expectancy — matching
+            # /performance. `total_trades` stays the full closed count so the
+            # exit_reasons breakdown still covers every closed trade.
             rows = conn.execute(
                 """
                 SELECT
                     COALESCE(strategy_name, 'unknown') AS strategy_name,
                     COUNT(*) AS total_trades,
-                    SUM(CASE WHEN COALESCE(pnl, 0) > 0 THEN 1 ELSE 0 END) AS wins,
-                    ROUND(SUM(COALESCE(pnl, 0)), 4) AS total_pnl,
+                    SUM(CASE WHEN pnl IS NOT NULL THEN 1 ELSE 0 END) AS resolved,
+                    SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) AS wins,
+                    ROUND(SUM(pnl), 4) AS total_pnl,
                     exit_reason
                 FROM trades
                 WHERE status = 'closed'
                   AND COALESCE(is_backtest, 0) = 0
+                  AND NOT (COALESCE(account_class,'') IN ('paper','prop')
+                           OR (account_class IS NULL AND COALESCE(is_demo,0)=1))
                 GROUP BY strategy_name, exit_reason
                 """
             ).fetchall()
@@ -142,12 +154,14 @@ def _query_stats(db_path: Path) -> Dict[str, Dict[str, Any]]:
         if name not in by_strategy:
             by_strategy[name] = {
                 "total_trades": 0,
+                "resolved": 0,
                 "wins": 0,
                 "total_pnl": 0.0,
                 "exit_reasons": {},
             }
         s = by_strategy[name]
         s["total_trades"] += row["total_trades"]
+        s["resolved"] += (row["resolved"] or 0)
         s["wins"] += row["wins"]
         s["total_pnl"] = round(s["total_pnl"] + (row["total_pnl"] or 0.0), 4)
         reason = _normalise_exit_reason(row["exit_reason"])
@@ -156,16 +170,20 @@ def _query_stats(db_path: Path) -> Dict[str, Dict[str, Any]]:
     result: Dict[str, Dict[str, Any]] = {}
     for name, s in by_strategy.items():
         total = s["total_trades"]
+        resolved = s["resolved"]
         wins = s["wins"]
-        losses = total - wins
+        # losses over the RESOLVED set (win-rate denominator), so an unresolved
+        # NULL-pnl closed trade is neither a win nor a loss.
+        losses = resolved - wins
         total_pnl = s["total_pnl"]
         result[name] = {
             "total_trades": total,
+            "resolved_trades": resolved,
             "wins": wins,
             "losses": losses,
-            "win_rate_pct": round(wins / total * 100, 1) if total else 0.0,
+            "win_rate_pct": round(wins / resolved * 100, 1) if resolved else 0.0,
             "total_pnl": total_pnl,
-            "avg_pnl_per_trade": round(total_pnl / total, 4) if total else 0.0,
+            "avg_pnl_per_trade": round(total_pnl / resolved, 4) if resolved else 0.0,
             "exit_reasons": s["exit_reasons"],
         }
     return result
@@ -191,6 +209,7 @@ def _normalise_exit_reason(raw: Optional[str]) -> str:
 def _empty_stats() -> Dict[str, Any]:
     return {
         "total_trades": 0,
+        "resolved_trades": 0,
         "wins": 0,
         "losses": 0,
         "win_rate_pct": 0.0,
@@ -286,6 +305,13 @@ async def get_strategies() -> Dict[str, Any]:
         out.append({
             "name": name,
             "enabled": bool(cfg.get("enabled", True)),
+            # Strategy-level execution gate (config/strategies.yaml::execution).
+            # Default-permissive: omitted → "live" (the canonical gate — what's
+            # declared runs). Surfaced as a clean top-level field so consumers
+            # can count the fleet by stage (live / shadow / disabled) without
+            # digging into raw `config` — the authoritative source for the
+            # dashboard + Android "strategy fleet" executive summary.
+            "execution": str(cfg.get("execution", "live")).strip().lower() or "live",
             # Live-runtime truth (vs the static `enabled` flag above).
             "loaded": loaded,
             "running": bool(loaded and bot_running),

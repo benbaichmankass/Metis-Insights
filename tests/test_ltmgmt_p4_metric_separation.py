@@ -50,11 +50,20 @@ def _seed(db: Path) -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT,
             created_at TEXT,
+            closed_at TEXT,
             status TEXT,
             pnl REAL,
             is_backtest INTEGER DEFAULT 0,
             account_class TEXT,
             is_demo INTEGER DEFAULT 0
+        );
+        -- pnl24h now joins order_packages for its close-time fallback
+        -- (COALESCE(closed_at, op.updated_at, timestamp)); an empty table keeps
+        -- the LEFT JOIN a no-op so the close-time falls back to timestamp.
+        CREATE TABLE order_packages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            linked_trade_id INTEGER,
+            updated_at TEXT
         );
         """
     )
@@ -116,9 +125,13 @@ def test_stats_winrate_excludes_null_pnl_closed(
         """
         CREATE TABLE trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT, created_at TEXT, status TEXT, pnl REAL,
+            timestamp TEXT, created_at TEXT, closed_at TEXT, status TEXT, pnl REAL,
             is_backtest INTEGER DEFAULT 0, account_class TEXT,
             is_demo INTEGER DEFAULT 0
+        );
+        CREATE TABLE order_packages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            linked_trade_id INTEGER, updated_at TEXT
         );
         """
     )
