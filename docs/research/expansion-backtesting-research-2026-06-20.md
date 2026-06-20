@@ -152,6 +152,41 @@ Carry earns its place as the high-funding-regime contributor. The next sleeves t
 *different* ON-regimes: **pairs/ratio reversion** (range/divergence regimes) and **ETF-breadth
 incl. bonds** (macro/risk-off regimes BTC can't provide).
 
+## 0d. ETF-breadth result — bonds + commodity + small-cap (2026-06-20)
+
+The Part-1 symbol-expansion thesis tested: run the validated daily trend (long & both-sides)
++ pullback families on 8 new diversifying ETFs (19yr daily history, yfinance), through the
+k-fold gate. Best cell per symbol:
+
+| ETF | class | best cell | tier | net R | 2×-fee |
+|---|---|---|---|---|---|
+| **IWM** | small-cap eq | **trend long-only (base)** | **live_ready ✅ every-fold** | 9.0 | 8.4 |
+| **SLV** | silver | pullback (trend30) | paper_ready | **29.3** | 28.3 |
+| **TLT** | 20yr bonds | pullback (frac618) | paper_ready | 25.4 | 23.9 |
+| **IEF** | 7-10yr bonds | pullback (trend30) | paper_ready | 24.7 | 21.9 |
+| **USO** | crude | **trend BOTH-SIDES** | paper_ready | 21.9 | 21.1 |
+| **DBC** | broad commodity | pullback (trail4) | paper_ready | 15.1 | 13.8 |
+| **DBA** | agriculture | trend long-only | paper_ready | 12.7 | 11.5 |
+| **UNG** | natural gas | trend both-sides | paper_ready | 6.9 | 6.5 (weakest) |
+
+**Findings:**
+- **IWM small-cap trend long-only is the single `live_ready` (every-fold) cell in the entire
+  session** — the validated equity-trend template generalizes cleanly to small-caps. A genuine
+  real-money candidate (Tier-3, OOP + operator gated).
+- **Bonds (TLT/IEF) — the prized BTC-uncorrelated macro exposure — work via PULLBACK**
+  (~+25R each, fee-robust). This is the diversification win Part-1 was reaching for.
+- **Silver (SLV) is the standout** (both families strong); **DBC/USO/DBA** are solid paper_ready.
+- **Shorting earns its place (operator's instinct confirmed):** USO both-sides trend (+21.9R)
+  beats long-only (+12.6R) — commodities/bonds trend *down* hard, unlike equities. The
+  both-sides variant is the right default for non-equity ETFs.
+- All except IWM are paper_ready (fee-robust) rather than every-fold live_ready — same pattern
+  as carry: the per-cell R-gate is strict; the real payoff is the **pooled book's Sharpe +
+  BTC-uncorrelation**, graded next via `portfolio_robustness.py`.
+
+**These ON-regimes differ from crypto's** (bonds=rates/risk-off, commodity=inflation/supply,
+small-cap=risk-on equity) — so stacking them under the directional crypto book is exactly the
+"always-on via diversification" mechanism. This is the strongest expansion result of the session.
+
 ## 1. The full picture (what we have, tested, and rejected)
 
 ### 1.1 Money-at-risk vs paper vs prop
