@@ -1,0 +1,64 @@
+TARGET=trainer
+---
+set -uo pipefail
+cd /home/ubuntu/ict-trading-bot || { echo "NO REPO"; exit 1; }
+BR=claude/expansion-backtesting-research-y74054
+git fetch -q origin "$BR" 2>&1 | tail -1 || true
+PY=""
+for c in .venv/bin/python venv/bin/python $(find /home/ubuntu -maxdepth 5 -path '*/bin/python' 2>/dev/null); do
+  if [ -x "$c" ] && "$c" -c "import pandas,numpy" 2>/dev/null; then PY="$c"; break; fi
+done
+[ -z "$PY" ] && { echo "no pandas python"; exit 0; }
+echo "PY=$PY"
+git show "origin/$BR:scripts/backtest_pairs.py" > /tmp/backtest_pairs.py
+
+echo "== discover crypto candle data =="
+ls -la data/ 2>/dev/null | grep -iE "BTC|ETH|SOL|BNB" | head -30 || echo "(none in data/)"
+
+pick () {  # echo the largest CSV whose name matches $1 (case-insensitive)
+  ls -S data/ 2>/dev/null | grep -iE "$1" | grep -iE "\.csv$" | head -1
+}
+BTC=$(pick "btc"); ETH=$(pick "eth")
+echo "BTC candle -> ${BTC:-NONE}"
+echo "ETH candle -> ${ETH:-NONE}"
+[ -z "${BTC:-}" ] || [ -z "${ETH:-}" ] && { echo "need both BTC + ETH candles — stopping"; exit 0; }
+
+echo ""
+echo "== peek headers/timeframe =="
+"$PY" - "data/$BTC" "data/$ETH" <<'PYEOF'
+import sys, pandas as pd
+for p in sys.argv[1:]:
+    df = pd.read_csv(p, nrows=5)
+    tc = [c for c in df.columns if c.lower()=="timestamp"]
+    print(p, "cols=", list(df.columns)[:6], "rows_head_ts=", (df[tc[0]].iloc[0] if tc else "?"))
+PYEOF
+
+echo ""
+echo "== ETH/BTC pairs param grid (native tf + 1D resample) =="
+best_emit=""; best_net="-1e9"
+for RS in "" "--resample 1D"; do
+  for LB in 20 48; do
+    for EZ in 2.0 2.5; do
+      tag="rs$(echo $RS|tr -d ' -')_lb${LB}_ez${EZ}"
+      EM="/tmp/pairs_ethbtc_${tag}.jsonl"
+      out=$("$PY" /tmp/backtest_pairs.py --data-a "data/$ETH" --data-b "data/$BTC" \
+            --symbol-a ETH --symbol-b BTC $RS --lookback "$LB" --entry-z "$EZ" \
+            --exit-z 0.5 --stop-z 2.0 --max-hold-bars 48 --emit-trades "$EM" 2>&1)
+      net=$(echo "$out" | grep -oE "net_r=[-0-9.]+" | head -1 | cut -d= -f2)
+      echo "[$tag] $(echo "$out" | sed -n '2,3p' | tr '\n' ' ')"
+      if [ -n "${net:-}" ] && "$PY" -c "import sys; sys.exit(0 if float('$net')>float('$best_net') else 1)" 2>/dev/null; then
+        best_net="$net"; best_emit="$EM"
+      fi
+    done
+  done
+done
+
+echo ""
+echo "== best cell -> $best_emit (net_r=$best_net) :: portfolio_robustness =="
+if [ -n "$best_emit" ] && [ -s "$best_emit" ]; then
+  printf '[{"label": "pairs_ETHBTC", "emit": "%s"}]\n' "$best_emit" > /tmp/pairs_mani.json
+  timeout 300 "$PY" scripts/ops/portfolio_robustness.py --manifest /tmp/pairs_mani.json 2>&1 | tail -40
+else
+  echo "no positive cell to grade"
+fi
+echo "== DONE =="
