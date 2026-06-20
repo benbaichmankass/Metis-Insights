@@ -56,6 +56,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Query
 
 from src.utils.paths import trade_journal_db_path
+from src.web.api._asset_class import CLASS_ORDER, asset_class_for_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -86,17 +87,26 @@ def _window_since(window: str) -> Optional[str]:
     return (datetime.now(timezone.utc) - delta).isoformat()
 
 
-def _empty(window: str, since: Optional[str]) -> Dict[str, Any]:
+def _empty(window: str, since: Optional[str], error: bool = False) -> Dict[str, Any]:
+    """Zeroed aggregate. ``error`` distinguishes a genuine *no-trades* window
+    (``error=False``) from a DB read failure (``error=True``) so a consumer
+    never renders a fabricated ``$0.00`` over an outage — it can show "—"
+    instead. ``profitFactor`` / ``maxDrawdown`` are null (not 0) when there is
+    nothing to compute them from."""
     return {
         "window": window,
         "since": since,
+        "error": error,
         "totalTrades": 0,
         "wins": 0,
         "losses": 0,
         "winRate": 0.0,
         "totalPnl": 0.0,
         "expectancy": 0.0,
+        "profitFactor": None,
+        "maxDrawdown": None,
         "perStrategy": [],
+        "perAssetClass": [],
         "equity": [],
     }
 
@@ -144,6 +154,7 @@ def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqli
         # /stats on real-money totals (single source of truth).
         sql = """
             SELECT t.strategy_name,
+                   t.symbol AS symbol,
                    t.pnl AS pnl,
                    COALESCE(t.closed_at, op.updated_at, t.timestamp) AS closed_at
             FROM trades t
@@ -186,22 +197,42 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         return _empty(window, since)
 
     wins = 0
+    gross_profit = 0.0   # sum of winning-trade pnl (for profit factor)
+    gross_loss = 0.0     # abs sum of losing-trade pnl
     total_pnl = 0.0
     per: Dict[str, Dict[str, float]] = {}
+    per_class: Dict[str, Dict[str, float]] = {}
     equity: List[Dict[str, Any]] = []
     cum = 0.0
+    peak = 0.0           # running equity peak for max-drawdown
+    max_dd = 0.0         # most negative (peak - trough) seen, <= 0
     for r in rows:
         pnl = float(r["pnl"] or 0.0)
         total_pnl += pnl
         if pnl > 0:
             wins += 1
+            gross_profit += pnl
+        elif pnl < 0:
+            gross_loss += -pnl
         name = r["strategy_name"] or "(unknown)"
         bucket = per.setdefault(name, {"trades": 0.0, "wins": 0.0, "pnl": 0.0})
         bucket["trades"] += 1
         if pnl > 0:
             bucket["wins"] += 1
         bucket["pnl"] += pnl
+        # asset-class breakdown (crypto / index / commodity / equity / fx)
+        cls = asset_class_for_symbol(r["symbol"])
+        cbucket = per_class.setdefault(cls, {"trades": 0.0, "wins": 0.0, "pnl": 0.0})
+        cbucket["trades"] += 1
+        if pnl > 0:
+            cbucket["wins"] += 1
+        cbucket["pnl"] += pnl
         cum += pnl
+        if cum > peak:
+            peak = cum
+        drawdown = cum - peak  # <= 0
+        if drawdown < max_dd:
+            max_dd = drawdown
         equity.append({"t": r["closed_at"], "cum": round(cum, 4)})
 
     losses = total - wins
@@ -218,24 +249,52 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     ]
     per_strategy.sort(key=lambda s: s["totalPnl"], reverse=True)
 
+    per_asset_class = [
+        {
+            "assetClass": cls,
+            "trades": int(b["trades"]),
+            "wins": int(b["wins"]),
+            "winRate": round(b["wins"] / b["trades"] * 100.0, 1) if b["trades"] else 0.0,
+            "totalPnl": round(b["pnl"], 4),
+            "expectancy": round(b["pnl"] / b["trades"], 4) if b["trades"] else 0.0,
+        }
+        for cls, b in per_class.items()
+    ]
+    # stable, business-readable ordering (crypto, index, commodity, equity, fx…)
+    per_asset_class.sort(key=lambda c: (CLASS_ORDER.index(c["assetClass"])
+                                        if c["assetClass"] in CLASS_ORDER else 99))
+
+    # Profit factor: gross profit / gross loss. None when there are no losing
+    # trades (undefined / infinite) or no trades — never a fabricated 0.
+    profit_factor: Optional[float] = (
+        round(gross_profit / gross_loss, 4) if gross_loss > 0 else None
+    )
+    # Max drawdown is <= 0; None when there were no trades.
+    max_drawdown: Optional[float] = round(max_dd, 4) if total else None
+
     return {
         "window": window,
         "since": since,
+        "error": False,
         "totalTrades": total,
         "wins": wins,
         "losses": losses,
         "winRate": round(wins / total * 100.0, 1) if total else 0.0,
         "totalPnl": round(total_pnl, 4),
         "expectancy": round(total_pnl / total, 4) if total else 0.0,
+        "profitFactor": profit_factor,
+        "maxDrawdown": max_drawdown,
         "perStrategy": per_strategy,
+        "perAssetClass": per_asset_class,
         "equity": _downsample(equity, _MAX_EQUITY_POINTS),
     }
 
 
 def _strip_envelope(agg: Dict[str, Any]) -> Dict[str, Any]:
-    """Drop the ``window`` / ``since`` envelope keys from an aggregate so
-    the demo sub-block doesn't carry duplicate metadata."""
-    return {k: v for k, v in agg.items() if k not in ("window", "since")}
+    """Drop the ``window`` / ``since`` / ``error`` envelope keys from an
+    aggregate so the demo/paper sub-block doesn't carry duplicate metadata
+    (``error`` is an envelope-level signal, not per-sub-block)."""
+    return {k: v for k, v in agg.items() if k not in ("window", "since", "error")}
 
 
 @router.get("/performance")
@@ -277,14 +336,14 @@ async def get_performance(
         return live
     except sqlite3.Error:  # allow-silent: logged (logger.exception) + best-effort zeroed envelope so the Performance tab stays usable on a DB read failure
         logger.exception("performance: sqlite read failed")
-        env = _empty(window, since)
+        env = _empty(window, since, error=True)
         empty_sub = _strip_envelope(_empty(window, since))
         env["demo"] = empty_sub
         env["paper"] = empty_sub
         return env
     except Exception:  # noqa: BLE001  # allow-silent: logged (logger.exception) + best-effort zeroed envelope; never raise a 5xx for this Tier-1 read
         logger.exception("performance: unexpected error")
-        env = _empty(window, since)
+        env = _empty(window, since, error=True)
         empty_sub = _strip_envelope(_empty(window, since))
         env["demo"] = empty_sub
         env["paper"] = empty_sub

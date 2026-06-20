@@ -26,7 +26,7 @@ def client():
 
 def _make_journal(path: Path) -> Path:
     conn = sqlite3.connect(str(path))
-    conn.execute(
+    conn.executescript(
         """
         CREATE TABLE trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,7 +41,16 @@ def _make_journal(path: Path) -> Path:
             account_id TEXT NOT NULL DEFAULT 'live',
             is_demo BOOLEAN DEFAULT 0,
             account_class TEXT,
-            created_at TEXT
+            created_at TEXT,
+            closed_at TEXT
+        );
+        -- /pnl/history now buckets on CLOSE-time COALESCE(closed_at,
+        -- op.updated_at, timestamp) and LEFT JOINs order_packages; an empty
+        -- table keeps the join a no-op (close-time falls back to timestamp).
+        CREATE TABLE order_packages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            linked_trade_id INTEGER,
+            updated_at TEXT
         )
         """
     )

@@ -2046,7 +2046,21 @@
       "resolved_at": "2026-06-19T11:25:00+00:00",
       "resolution": "Investigated + drained 2026-06-19. The '~1100' was a large overcount (stats/perf snapshot mixed already-resolved + paper + pre-account-class-backfill rows). Authoritative live count via the ict-db-integrity checker (INV-2, /api/diag/journalctl): 102 closed pnl-IS-NULL rows, recent=0 (none in the last 48h — the live multiplier-aware sweep keeps current closes clean). PR #4017 hardened scripts/ops/backfill_pnl_nulls.py to delegate to the canonical src.runtime.local_pnl helpers (contract_value_usd multiplier) — it previously undercounted IBKR futures (MGC 10x / MES 5x / MHG 2500x) via a raw (exit-entry)*size formula; real-money bybit_2 (crypto, cvu=1) was unaffected. Ran backfill-pnl-nulls (#4023) -> 0 recomputable candidates (the live sweep had already drained every closed row that has an exit_price), and mark-reconciler-incomplete (#4024) -> 0 reconciler_filled residual. The residual 102 rows all LACK an exit_price (so local compute is impossible and marking to today's price would be wrong) and are old (recent=0); they are correctly NULL and already excluded from /performance + /stats aggregates, so headline totalPnL / expectancy / equity are correct. The sweep's 14-day window is correct as-is (mark-to-market only makes sense for recent closes), so no sweep change is warranted. RESIDUAL OPTION (not done; low value): a historical-candle close-time mark could best-effort recover some of the 102 old (mostly paper, some orphan-adopted) rows, but it would be approximate and several are unlinked orphans (INV-3 overlap) with uncertain fills.",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260620-CLOSEDPNL-LOOKUP-MISMATCH-DEMO",
+      "opened_at": "2026-06-20T08:00:00+00:00",
+      "opened_by": "claude (dashboard-audit session — backfill-closed-null-pnl investigation)",
+      "source": "system-action backfill-closed-null-pnl (issue #4037, 2026-06-20): of 103 closed+NULL-pnl candidates, the 84 'recoverable' rows shown were all on bybit_1 (DEMO) and resolved to IDENTICAL per-side values (every long exit=63787.8 pnl=+3847.2941; every short exit=62353.0 pnl=+3545.7803) despite distinct entries/sizes — account_closed_pnl_for_trade returned a single shared Bybit closed-pnl record for many trades, and the recovered pnl SIGN contradicted the entry->exit move (a +3847 'profit' on a long that fell ~18%). The --apply wrote 0 rows. The 19 skipped candidates (lookup returned None) were not enumerated by account in the run output and may include real-money non-Bybit / 7-day-expired rows.",
+      "severity": "medium",
+      "title": "backfill closed-pnl recovery returns a mismatched/shared Bybit record for bybit_1 (demo) trades",
+      "description": "MITIGATED (symptom): added a sign-consistency guard in scripts/ops/backfill_orphan_pnl.py::_plan_row (shared by backfill_closed_null_pnl) that refuses to write a recovered closed_pnl whose sign contradicts the trade's own >0.2% directional entry->exit move — a mismatched record can no longer fabricate a profit/loss into the journal. ROOT CAUSE OPEN: why does account_closed_pnl_for_trade (src/units/accounts/clients.py) return a shared record for distinct bybit_1 trades despite the qty(5%)/entry_price(10bps) disambiguators? Hypotheses: Bybit DEMO closed-pnl history is sparse so the filters fall through to a single latest record; or the demo venue endpoint behaves differently. HEALTH-REVIEW ACTION: pull bybit_1 raw closed-pnl via diag, confirm lookup-vs-demo-data fault, and decide whether to exclude demo accounts from closed-pnl recovery entirely (they are paper — pnl can be local-computed or left honest). Also enumerate the 19 skipped rows by account to confirm whether any real-money rows are genuinely stranded. Cross-ref BL-20260619-NULLPNL-REALMONEY-CLOSED.",
+      "tier": 1,
+      "status": "open",
+      "resolved_at": null,
+      "resolution": null,
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-19T11:25:00+00:00"
+  "updated_at": "2026-06-20T08:00:37+00:00"
 }

@@ -88,30 +88,45 @@ def _query_attribution(db_path: Path) -> List[Dict[str, Any]]:
         conn = sqlite3.connect(str(db_path))
         conn.row_factory = sqlite3.Row
         try:
+            # Real-money only (account_class authoritative, is_demo fallback;
+            # excludes paper AND prop) — the canonical filter the rest of the
+            # API uses. attribution previously applied NO paper filter, so paper
+            # /prop trades leaked into the "real" lifetime per-strategy stats
+            # ("real and paper never blended" contract). And win/loss/total are
+            # restricted to resolved trades (pnl IS NOT NULL) so the win-rate
+            # denominator matches /performance — a reconciler-incomplete NULL-pnl
+            # row was previously counted as a loss, deflating the rate.
+            _not_paper = (
+                " AND NOT (COALESCE(account_class,'') IN ('paper','prop')"
+                " OR (account_class IS NULL AND COALESCE(is_demo,0)=1))"
+            )
             closed_rows = conn.execute(
-                """
+                f"""
                 SELECT
                     COALESCE(strategy_name, 'unknown') AS strategy,
                     COUNT(*) AS closed_trades,
-                    SUM(CASE WHEN COALESCE(pnl, 0) > 0 THEN 1 ELSE 0 END) AS winning,
-                    SUM(CASE WHEN COALESCE(pnl, 0) <= 0 THEN 1 ELSE 0 END) AS losing,
-                    SUM(COALESCE(pnl, 0.0)) AS total_pnl
+                    SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) AS winning,
+                    SUM(CASE WHEN pnl <= 0 THEN 1 ELSE 0 END) AS losing,
+                    SUM(pnl) AS total_pnl
                 FROM trades
                 WHERE status = 'closed'
                   AND COALESCE(is_backtest, 0) = 0
+                  AND pnl IS NOT NULL
+                  {_not_paper}
                 GROUP BY strategy
                 ORDER BY total_pnl DESC
                 """
             ).fetchall()
 
             open_rows = conn.execute(
-                """
+                f"""
                 SELECT
                     COALESCE(strategy_name, 'unknown') AS strategy,
                     COUNT(*) AS open_trades
                 FROM trades
                 WHERE status = 'open'
                   AND COALESCE(is_backtest, 0) = 0
+                  {_not_paper}
                 GROUP BY strategy
                 """
             ).fetchall()
