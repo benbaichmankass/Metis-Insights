@@ -1,0 +1,69 @@
+# job=pairs-crypto-run target=trainer ip=158.178.209.121 started=2026-06-20T17:39:02Z
+PY=.venv/bin/python
+== discover crypto candle data ==
+-rw-rw-r--  1 ubuntu ubuntu  10242803 Jun 18 06:41 BNBUSDT_15m.csv
+-rw-rw-r--  1 ubuntu ubuntu  30436092 Jun 18 06:47 BNBUSDT_5m.csv
+-rw-rw-r--  1 ubuntu ubuntu  11961474 Jun 18 06:26 ETHUSDT_15m.csv
+-rw-rw-r--  1 ubuntu ubuntu  35600463 Jun 18 06:31 ETHUSDT_5m.csv
+-rw-rw-r--  1 ubuntu ubuntu  10061741 Jun 18 06:33 SOLUSDT_15m.csv
+-rw-rw-r--  1 ubuntu ubuntu  29945803 Jun 18 06:38 SOLUSDT_5m.csv
+-rw-rw-r--  1 ubuntu ubuntu  41294721 May 22 17:13 backtest_BTCUSDT_5m.csv
+-rw-rw-r--  1 ubuntu ubuntu   3003254 Jun  1 10:32 btc_1h_multiyear.csv
+-rw-rw-r--  1 ubuntu ubuntu    641850 May 11 15:52 btc_1m_sample.csv
+-rw-rw-r--  1 ubuntu ubuntu    235949 May 24 10:53 funding_BTCUSDT.csv
+-rw-rw-r--  1 ubuntu ubuntu    126538 Jun 20 13:32 funding_ETHUSDT.csv
+-rw-rw-r--  1 ubuntu ubuntu    126523 Jun 20 13:32 funding_SOLUSDT.csv
+BTC candle -> backtest_BTCUSDT_5m.csv
+ETH candle -> ETHUSDT_5m.csv
+
+== peek headers/timeframe ==
+data/backtest_BTCUSDT_5m.csv cols= ['timestamp', 'open', 'high', 'low', 'close', 'volume'] rows_head_ts= 2020-03-25T10:35:00Z
+data/ETHUSDT_5m.csv cols= ['timestamp', 'open', 'high', 'low', 'close', 'volume'] rows_head_ts= 2021-03-15 00:00:00+00:00
+
+== ETH/BTC pairs param grid (native tf + 1D resample) ==
+[rs_lb20_ez2.0]   data 2021-03-15 00:00:00+00:00 -> 2026-05-21 23:55:00+00:00  trades=32261   win_rate=29.92%  net_r=-24358.6261 (exp -0.755, L/S 16582/15679) 
+[rs_lb20_ez2.5]   data 2021-03-15 00:00:00+00:00 -> 2026-05-21 23:55:00+00:00  trades=21923   win_rate=32.68%  net_r=-16612.4814 (exp -0.7578, L/S 11270/10653) 
+[rs_lb48_ez2.0]   data 2021-03-15 00:00:00+00:00 -> 2026-05-21 23:55:00+00:00  trades=17739   win_rate=42.47%  net_r=-7957.6397 (exp -0.4486, L/S 9191/8548) 
+[rs_lb48_ez2.5]   data 2021-03-15 00:00:00+00:00 -> 2026-05-21 23:55:00+00:00  trades=11885   win_rate=43.88%  net_r=-5208.6342 (exp -0.4383, L/S 6129/5756) 
+[rsresample1D_lb20_ez2.0]   data 2021-03-15 00:00:00+00:00 -> 2026-05-22 00:00:00+00:00  trades=109   win_rate=53.21%  net_r=20.1754 (exp 0.1851, L/S 58/51) 
+[rsresample1D_lb20_ez2.5]   data 2021-03-15 00:00:00+00:00 -> 2026-05-22 00:00:00+00:00  trades=77   win_rate=50.65%  net_r=25.2017 (exp 0.3273, L/S 38/39) 
+[rsresample1D_lb48_ez2.0]   data 2021-03-15 00:00:00+00:00 -> 2026-05-22 00:00:00+00:00  trades=55   win_rate=56.36%  net_r=4.2885 (exp 0.078, L/S 37/18) 
+[rsresample1D_lb48_ez2.5]   data 2021-03-15 00:00:00+00:00 -> 2026-05-22 00:00:00+00:00  trades=37   win_rate=54.05%  net_r=1.772 (exp 0.0479, L/S 27/10) 
+
+== best cell -> /tmp/pairs_ethbtc_rsresample1D_lb20_ez2.5.jsonl (net_r=25.2017) :: portfolio_robustness ==
+=== Diversified book robustness — 1 cells, 77 trades (2021-04-05 .. 2026-05-18) ===
+HEADLINE: net_r=25.2  mean=+0.3273R  sharpe=1.27  maxDD=7.8R
+
+-- per-year net_r --
+  2021: n=   10 net_r=    -5.8 mean=-0.5821 sharpe=-2.44  <== NEGATIVE YEAR
+  2022: n=   12 net_r=    20.5 mean=+1.7120 sharpe= 1.21
+  2023: n=   16 net_r=    11.7 mean=+0.7337 sharpe= 2.02
+  2024: n=   14 net_r=     4.5 mean=+0.3234 sharpe= 1.04
+  2025: n=   18 net_r=    -6.4 mean=-0.3528 sharpe=-1.59  <== NEGATIVE YEAR
+  2026: n=    7 net_r=     0.6 mean=+0.0802 sharpe= 0.18
+
+-- holdout net_r across cutoffs (train < cutoff <= holdout) --
+  >= 2023-07-01: n=   46 holdout net_r=     2.5 sharpe= 0.33 maxDD=   7.8
+  >= 2024-01-01: n=   39 holdout net_r=    -1.3 sharpe=-0.19 maxDD=   7.8  <== NEGATIVE HOLDOUT
+  >= 2024-07-01: n=   34 holdout net_r=    -3.9 sharpe=-0.67 maxDD=   7.8  <== NEGATIVE HOLDOUT
+  >= 2025-01-01: n=   25 holdout net_r=    -5.8 sharpe=-1.15 maxDD=   6.9  <== NEGATIVE HOLDOUT
+  >= 2025-07-01: n=   15 holdout net_r=    -4.2 sharpe=-1.05 maxDD=   4.7  <== NEGATIVE HOLDOUT
+
+-- leave-one-cell-out (book net_r with each cell removed) --
+  worst (most load-bearing) cell: pairs_ETHBTC -> book without it = 0.0R (full book 25.2R)
+  leave-one-family-out: {'pairs': '0.0R'}
+
+-- added cost-per-trade headroom (extra R subtracted per trade) --
+  +0.00 R/trade: book net_r=    25.2
+  +0.01 R/trade: book net_r=    24.4
+  +0.02 R/trade: book net_r=    23.7
+  +0.03 R/trade: book net_r=    22.9
+  +0.05 R/trade: book net_r=    21.4
+  BREAKEVEN added cost = +0.3273 R/trade (the book stays +EV until per-trade cost rises this much)
+
+-- block bootstrap (2000 resamples, 52 monthly blocks) --
+  P(book net_r > 0) = 0.908 | 5th pct net_r = -3.5 | median = 22.4
+
+VERDICT: NOT fully robust (years+ False, holdouts+ False, LOO-cell+ False, boot P+ 0.91, boot-p5 -3)
+== DONE ==
+# exit=0 finished=2026-06-20T17:39:43Z

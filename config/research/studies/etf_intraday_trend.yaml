@@ -1,0 +1,35 @@
+# Study spec — ETF-breadth INTRADAY (1h RTH) TREND, 2026-06-20.
+# RESEARCH-ONLY, Tier-1. Read by scripts/ops/research_sweep.py.
+#
+# Smaller-timeframe companion to the daily ETF-breadth work (operator ask:
+# "find fits on smaller timeframes in that basket too"). Donchian-breakout +
+# Chandelier ATR trail on 1h RTH bars (Dukascopy ETF-CFD, deep history). Params
+# scaled to the 1h cadence: donchian 48 ≈ ~1 trading-week of RTH hours. Both a
+# long-only (equity-drift) base and a both_sides variant (bonds/commodity trend
+# down too). SPY is the template; the dispatch job seds per symbol.
+schema_version: 1
+name: etf_intraday_trend_SPY
+harness: backtest_trend.py
+
+base:
+  data: data/SPY_1h.csv
+  resample: 1h                 # data already 1h RTH; 1h resample is a no-op
+  symbol: SPY
+  args:
+    donchian: 48
+    atr-period: 14
+    atr-stop-mult: 2.5
+    trail-mult: 4.0
+    min-confidence: 0.0
+    long-only: true
+
+variants:
+  - {name: both_sides, drop: [long-only]}
+  - {name: donch24, set: {donchian: 24}}
+  - {name: trail6, set: {trail-mult: 6.0}}
+  - {name: both_donch24, drop: [long-only], set: {donchian: 24}}
+
+ablations: []
+
+kfold: {folds: 5, train_frac: 0.4, wf_end: "2026-06-18"}
+fees:  {base_bps: 7.5, double_bps: 15.0}
