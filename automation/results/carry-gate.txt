@@ -1,0 +1,32 @@
+# job=carry-gate target=trainer ip=158.178.209.121 started=2026-06-20T13:36:31Z
+PY=.venv/bin/python
+got spec
+synced harness to working tree
+
+######################## GATE carry_neutral ########################
+=== [1/4] base:base ===
+=== [2/4] variant:thr2 ===
+=== [3/4] variant:thr4 ===
+=== [4/4] variant:thr5 ===
+
+# study 'carry_neutral_eth' — 4/4 runs -> /tmp/out_carry_neutral/summary.json
+kind       name                   tier               net        2x  folds+
+variant    thr2                   paper_ready       2.26      1.34   False
+base       base                   paper_ready       1.65      0.97   False
+variant    thr4                   paper_ready       1.02      0.55   False
+variant    thr5                   paper_ready       0.59      0.35   False
+
+######################## GATE carry_neutral_sol ########################
+=== [1/4] base:base ===
+=== [2/4] variant:thr2 ===
+=== [3/4] variant:thr4 ===
+=== [4/4] variant:thr5 ===
+
+# study 'carry_neutral_sol' — 4/4 runs -> /tmp/out_carry_neutral_sol/summary.json
+kind       name                   tier               net        2x  folds+
+base       base                   paper_ready       1.63      1.08   False
+variant    thr2                   paper_ready       1.59      0.64   False
+variant    thr4                   paper_ready       1.23      0.88   False
+variant    thr5                   paper_ready       1.20      0.90   False
+== DONE ==
+# exit=0 finished=2026-06-20T13:37:04Z
