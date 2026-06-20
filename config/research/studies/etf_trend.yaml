@@ -14,6 +14,7 @@ harness: backtest_trend.py
 
 base:
   data: data/SPY_1d.csv
+  resample: 1D                 # data is already daily; 1D resample is a no-op (research_sweep requires the key)
   symbol: SPY
   args:
     donchian: 30

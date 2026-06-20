@@ -1,0 +1,25 @@
+TARGET=trainer
+---
+set -uo pipefail
+cd /home/ubuntu/ict-trading-bot || { echo "NO REPO"; exit 1; }
+BR=claude/expansion-backtesting-research-y74054
+git fetch -q origin "$BR" 2>&1 | tail -1 || true
+PY=""
+for c in .venv/bin/python venv/bin/python $(find /home/ubuntu -maxdepth 5 -path '*/bin/python' 2>/dev/null); do
+  if [ -x "$c" ] && "$c" -c "import pandas,numpy" 2>/dev/null; then PY="$c"; break; fi
+done
+[ -z "$PY" ] && { echo "no pandas python"; exit 0; }
+echo "PY=$PY"
+git show "origin/$BR:config/research/studies/etf_trend.yaml"    > /tmp/etf_trend.tpl    || { echo "no trend tpl"; exit 1; }
+git show "origin/$BR:config/research/studies/etf_pullback.yaml" > /tmp/etf_pullback.tpl || { echo "no pullback tpl"; exit 1; }
+
+for S in TLT IEF DBC USO UNG DBA SLV IWM; do
+  [ -s "data/${S}_1d.csv" ] || { echo "SKIP $S — no data/${S}_1d.csv"; continue; }
+  for fam in trend pullback; do
+    sed "s/SPY/${S}/g" /tmp/etf_${fam}.tpl > /tmp/etf_${fam}_${S}.yaml
+    echo ""
+    echo "######## ${fam} ${S} ########"
+    timeout 1200 "$PY" scripts/ops/research_sweep.py --study /tmp/etf_${fam}_${S}.yaml --out /tmp/o_${fam}_${S} 2>&1 | tail -12
+  done
+done
+echo "== DONE =="
