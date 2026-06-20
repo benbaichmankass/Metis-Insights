@@ -1,0 +1,16 @@
+# job=verify-etf-activation target=live ip=141.145.193.91 started=2026-06-20T22:15:56Z
+== trader service start time + PID ==
+MainPID=2550405
+ActiveEnterTimestamp=Sat 2026-06-20 18:22:48 UTC
+
+== running HEAD ==
+4c1a0d5c
+
+== is the new code loaded? grep the 3 cells in the running roster ==
+runtime.loaded_strategies: ['ada_pullback_2h', 'avax_pullback_2h', 'eth_pullback_2h', 'fade_breakout_4h', 'fvg_range_15m', 'gld_pullback_1d', 'htf_pullback_trend_2h', 'ict_scalp_5m', 'ief_pullback_1d', 'iwm_trend_long_1d', 'mes_trend_long_1d', 'mgc_pullback_1d', 'mgc_trend_1h', 'mhg_pullback_1d', 'qqq_trend_long_1d', 'sol_pullback_2h', 'spy_trend_long_1d', 'squeeze_breakout_4h', 'tlt_pullback_1d', 'trend_donchian', 'trend_donchian_ada_4h', 'trend_donchian_avax_4h', 'trend_donchian_eth', 'trend_donchian_eth_4h', 'trend_donchian_sol', 'trend_donchian_sol_4h', 'trend_donchian_xrp_4h', 'turtle_soup', 'xauusd_trend_1h', 'xrp_pullback_2h']
+bot_running: True tick_age_s: 37.8
+  iwm_trend_long_1d: in_config=True
+  tlt_pullback_1d: in_config=True
+  ief_pullback_1d: in_config=True
+== DONE ==
+# exit=0 finished=2026-06-20T22:15:57Z
