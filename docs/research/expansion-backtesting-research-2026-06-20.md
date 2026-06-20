@@ -120,8 +120,16 @@ modest trade counts.
 **Verdict:** market-neutral funding carry is a viable **complement sleeve** — it won't move
 the P&L needle alone, but it adds steady, BTC-uncorrelated return with almost no drawdown,
 which is exactly what "make money all the time" wants alongside the directional book.
-Directional carry is dropped. Next: grade the neutral variant through the gate, then build
-the **basket** carry + the **pairs** (ETH/BTC dollar-neutral) sleeve.
+Directional carry is dropped.
+
+**Gate result (k-fold, 2026-06-20):** both ETH and SOL neutral carry grade **`paper_ready`**
+across all funding thresholds — net-positive AND **fee-robust at 2× fees** (ETH base 1.65→0.97,
+SOL 1.63→1.08) — but **not every-fold** (the thin ~23–33-trade sample can't clear the strict
+live_ready every-fold bar). Expected for a low-R yield stream; it clears the bar that matters
+for "is this a real, fee-surviving edge" (yes) and confirms the per-trade R-gate is the wrong
+grader. **Next: the basket version** — pool ETH+SOL+XRP+ADA+AVAX neutral carry and grade it
+through `portfolio_robustness.py` (Sharpe / holdout / bootstrap), which both thickens the
+sample and is the apt grader; then the **pairs** (ETH/BTC dollar-neutral) sleeve.
 
 ## 1. The full picture (what we have, tested, and rejected)
 

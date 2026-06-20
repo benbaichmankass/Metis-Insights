@@ -1,0 +1,47 @@
+TARGET=trainer
+---
+set -uo pipefail
+cd /home/ubuntu/ict-trading-bot || { echo "NO REPO"; exit 1; }
+BR=claude/expansion-backtesting-research-y74054
+git fetch -q origin "$BR" 2>&1 | tail -1 || true
+git show "origin/$BR:scripts/backtest_funding_carry.py" > /tmp/bfc.py 2>/dev/null && echo "got harness" || { echo "MISSING harness"; exit 1; }
+PY=""
+for c in .venv/bin/python venv/bin/python $(find /home/ubuntu -maxdepth 5 -path '*/bin/python' 2>/dev/null); do
+  if [ -x "$c" ] && "$c" -c "import pandas,numpy" 2>/dev/null; then PY="$c"; break; fi
+done
+[ -z "$PY" ] && { echo "no pandas python"; exit 0; }
+echo "PY=$PY"
+
+echo "########## FETCH funding for the full alt basket ##########"
+for S in ETHUSDT SOLUSDT XRPUSDT ADAUSDT AVAXUSDT; do
+  if [ ! -s "data/funding_${S}.csv" ]; then
+    timeout 300 "$PY" scripts/ops/fetch_bybit_funding.py --symbol "$S" --days 1200 --output "data/funding_${S}.csv" 2>&1 | tail -2 || echo "fetch $S failed"
+  fi
+done
+
+echo "########## per-symbol neutral carry emits ##########"
+MANI="/tmp/carry_basket_manifest.json"; echo "[" > "$MANI"; first=1
+emit_one () {  # SYM PRICE
+  S="$1"; PX="$2"; F="data/funding_${S}.csv"; E="/tmp/carry_${S}.jsonl"
+  [ -s "$F" ] && [ -s "$PX" ] || { echo "SKIP $S"; return; }
+  timeout 600 "$PY" /tmp/bfc.py --data "$PX" --funding-data "$F" --symbol "$S" \
+    --timeframe 1h --resample 1h --funding-window 3 --funding-lag-settlements 1 \
+    --funding-threshold 0.0003 --funding-exit-threshold 0.0001 --max-hold-bars 72 \
+    --hedge neutral --emit-trades "$E" >/dev/null 2>&1 || { echo "run $S failed"; return; }
+  nrows=$(wc -l < "$E" 2>/dev/null || echo 0)
+  echo "  $S -> $nrows trades"
+  [ "$first" = 1 ] || echo "," >> "$MANI"; first=0
+  printf '  {"label": "carry_%s", "emit": "%s"}' "$S" "$E" >> "$MANI"
+}
+emit_one ETHUSDT  data/ETHUSDT_15m.csv
+emit_one SOLUSDT  data/SOLUSDT_15m.csv
+emit_one XRPUSDT  data/XRPUSDT_15m.csv
+emit_one ADAUSDT  data/ADAUSDT_15m.csv
+emit_one AVAXUSDT data/AVAXUSDT_15m.csv
+echo "" >> "$MANI"; echo "]" >> "$MANI"
+echo "-- manifest --"; cat "$MANI"
+
+echo ""
+echo "########## PORTFOLIO ROBUSTNESS — pooled neutral-carry basket ##########"
+timeout 600 "$PY" scripts/ops/portfolio_robustness.py --manifest "$MANI" 2>&1 | tail -60
+echo "== DONE =="
