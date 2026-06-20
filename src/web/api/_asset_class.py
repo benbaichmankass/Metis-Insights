@@ -102,7 +102,7 @@ def _table() -> Dict[str, str]:
                 )
     except FileNotFoundError:
         logger.debug("_asset_class: instruments.yaml not found; heuristic-only")
-    except Exception:  # noqa: BLE001  # reporting-only: never break /performance on a config parse error
+    except Exception:  # noqa: BLE001  # allow-silent: reporting-only resolver — a config parse error is logged (logger.warning, exc_info) and falls back to the per-symbol heuristic; it must never break the /performance read path
         logger.warning("_asset_class: failed to load instruments.yaml", exc_info=True)
     return table
 
