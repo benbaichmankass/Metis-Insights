@@ -1,0 +1,141 @@
+# job=expansion-sweep target=trainer ip=158.178.209.121 started=2026-06-20T13:22:07Z
+== fetch study specs from claude/expansion-backtesting-research-y74054 (no working-tree change) ==
+got trend_oop_holdout
+got pullback_exit_feebleed
+made link sibling
+
+######################## RUN trend_oop_holdout ########################
+=== [1/6] base:base ===
+RUN_FAILED base fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_trend.py", line 38, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [2/6] variant:minconf_30 ===
+RUN_FAILED minconf_30 fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_trend.py", line 38, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [3/6] variant:minconf_45 ===
+RUN_FAILED minconf_45 fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_trend.py", line 38, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [4/6] variant:trail4 ===
+RUN_FAILED trail4 fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_trend.py", line 38, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [5/6] variant:trail6 ===
+RUN_FAILED trail6 fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_trend.py", line 38, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [6/6] ablation:regime_gate ===
+RUN_FAILED regime_gate fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_trend.py", line 38, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+
+# study 'trend_oop_holdout_bnb' — 0/6 runs -> /tmp/out_trend_oop_holdout/summary.json
+kind       name                   tier               net        2x  folds+
+---- summary.json (first 1800 chars) [trend_oop_holdout] ----
+{
+  "study": "trend_oop_holdout_bnb",
+  "harness": "backtest_trend.py",
+  "runs": [],
+  "attribution": []
+}
+
+
+######################## RUN trend_oop_holdout_link ########################
+=== [1/6] base:base ===
+RUN_FAILED base fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_trend.py", line 38, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [2/6] variant:minconf_30 ===
+RUN_FAILED minconf_30 fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_trend.py", line 38, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [3/6] variant:minconf_45 ===
+RUN_FAILED minconf_45 fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_trend.py", line 38, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [4/6] variant:trail4 ===
+RUN_FAILED trail4 fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_trend.py", line 38, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [5/6] variant:trail6 ===
+RUN_FAILED trail6 fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_trend.py", line 38, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [6/6] ablation:regime_gate ===
+RUN_FAILED regime_gate fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_trend.py", line 38, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+
+# study 'trend_oop_holdout_link' — 0/6 runs -> /tmp/out_trend_oop_holdout_link/summary.json
+kind       name                   tier               net        2x  folds+
+---- summary.json (first 1800 chars) [trend_oop_holdout_link] ----
+{
+  "study": "trend_oop_holdout_link",
+  "harness": "backtest_trend.py",
+  "runs": [],
+  "attribution": []
+}
+
+
+######################## RUN pullback_exit_feebleed ########################
+=== [1/7] base:base ===
+RUN_FAILED base fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_pullback.py", line 34, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [2/7] variant:trail3 ===
+RUN_FAILED trail3 fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_pullback.py", line 34, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [3/7] variant:trail7 ===
+RUN_FAILED trail7 fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_pullback.py", line 34, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [4/7] variant:stop2_trail5 ===
+RUN_FAILED stop2_trail5 fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_pullback.py", line 34, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [5/7] variant:stop3_trail5 ===
+RUN_FAILED stop3_trail5 fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_pullback.py", line 34, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [6/7] variant:trail7_stop3 ===
+RUN_FAILED trail7_stop3 fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_pullback.py", line 34, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+=== [7/7] ablation:trail ===
+RUN_FAILED trail fee=7.5: rc=1 Traceback (most recent call last):
+  File "/home/ubuntu/ict-trading-bot/scripts/backtest_pullback.py", line 34, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+
+# study 'pullback_exit_feebleed' — 0/7 runs -> /tmp/out_pullback_exit_feebleed/summary.json
+kind       name                   tier               net        2x  folds+
+---- summary.json (first 1800 chars) [pullback_exit_feebleed] ----
+{
+  "study": "pullback_exit_feebleed",
+  "harness": "backtest_pullback.py",
+  "runs": [],
+  "attribution": []
+}
+
+== ALL DONE ==
+# exit=0 finished=2026-06-20T13:22:12Z
