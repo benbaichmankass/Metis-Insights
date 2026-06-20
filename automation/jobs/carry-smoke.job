@@ -1,0 +1,55 @@
+TARGET=trainer
+---
+set -uo pipefail
+cd /home/ubuntu/ict-trading-bot || { echo "NO REPO"; exit 1; }
+BR=claude/expansion-backtesting-research-y74054
+git fetch -q origin "$BR" 2>&1 | tail -1 || true
+git show "origin/$BR:scripts/backtest_funding_carry.py" > /tmp/bfc.py 2>/dev/null && echo "got harness" || { echo "MISSING harness"; exit 1; }
+PY=""
+for c in .venv/bin/python venv/bin/python $(find /home/ubuntu -maxdepth 5 -path '*/bin/python' 2>/dev/null); do
+  if [ -x "$c" ] && "$c" -c "import pandas,numpy" 2>/dev/null; then PY="$c"; break; fi
+done
+[ -z "$PY" ] && { echo "no pandas python"; exit 0; }
+echo "PY=$PY"; "$PY" -c "import pandas,numpy;print('ok')"
+
+echo ""
+echo "########## SYNTHETIC CORRECTNESS CHECK ##########"
+"$PY" - <<'PYEOF'
+import pandas as pd, numpy as np, subprocess, json, sys, tempfile, os
+ts = pd.date_range("2025-01-01", periods=240, freq="1h", tz="UTC")
+price = 100 + np.linspace(0, 5, 240)            # price drifts UP (a short loses on price)
+pd.DataFrame({"timestamp": ts, "open": price, "high": price*1.002,
+              "low": price*0.998, "close": price}).to_csv("/tmp/syn_price.csv", index=False)
+fts = pd.date_range("2025-01-01", periods=30, freq="8h", tz="UTC")
+pd.DataFrame({"timestamp": fts, "funding_rate":[0.001]*30}).to_csv("/tmp/syn_fund.csv", index=False)  # +0.1%/8h -> SHORT receives
+r = subprocess.run([sys.executable, "/tmp/bfc.py", "--data","/tmp/syn_price.csv",
+   "--funding-data","/tmp/syn_fund.csv","--symbol","TESTUSDT","--funding-window","3",
+   "--funding-lag-settlements","1","--funding-threshold","0.0005","--funding-exit-threshold","0.0001",
+   "--max-hold-bars","48","--atr-stop-mult","3.0","--emit-trades","/tmp/syn_emit.jsonl","--json","-"],
+   capture_output=True, text=True)
+print(r.stdout[-1200:]); print(r.stderr[-300:])
+rows=[json.loads(l) for l in open("/tmp/syn_emit.jsonl")] if os.path.exists("/tmp/syn_emit.jsonl") else []
+print("EMITTED", len(rows), "trades")
+if rows:
+    shorts=[x for x in rows if x["direction"]=="short"]
+    pos_fund=[x for x in rows if x["funding_r"]>0]
+    print("ASSERT all short:", all(x["direction"]=="short" for x in rows))
+    print("ASSERT funding_r>0 on all:", all(x["funding_r"]>0 for x in rows))
+    print("sample:", rows[0])
+PYEOF
+
+echo ""
+echo "########## REAL BTC SMOKE (data/backtest_candles.csv + data/funding_BTCUSDT.csv) ##########"
+ls -la data/funding_BTCUSDT.csv data/backtest_candles.csv 2>&1 | head
+echo "-- directional, 1h resample --"
+timeout 600 "$PY" /tmp/bfc.py --data data/backtest_candles.csv --funding-data data/funding_BTCUSDT.csv \
+  --symbol BTCUSDT --timeframe 1h --resample 1h --funding-window 3 --funding-lag-settlements 1 \
+  --funding-threshold 0.0003 --funding-exit-threshold 0.0001 --max-hold-bars 72 2>&1 | tail -12
+echo "-- market-neutral --"
+timeout 600 "$PY" /tmp/bfc.py --data data/backtest_candles.csv --funding-data data/funding_BTCUSDT.csv \
+  --symbol BTCUSDT --timeframe 1h --resample 1h --funding-threshold 0.0003 --hedge neutral \
+  --max-hold-bars 72 2>&1 | tail -12
+echo "-- threshold sweep (directional) --"
+timeout 600 "$PY" /tmp/bfc.py --data data/backtest_candles.csv --funding-data data/funding_BTCUSDT.csv \
+  --symbol BTCUSDT --timeframe 1h --resample 1h --funding-threshold-sweep '0.0001:0.0006:0.0001' 2>&1 | tail -25
+echo "== DONE =="
