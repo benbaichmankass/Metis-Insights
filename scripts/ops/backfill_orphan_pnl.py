@@ -210,6 +210,42 @@ def _plan_row(
     if closed_pnl is None:
         return None, "recovered closed_pnl=None"
 
+    # Sign-consistency sanity guard (2026-06-20 dashboard-audit).
+    # A recovered closed_pnl whose SIGN contradicts the trade's own
+    # entry→exit price move is almost certainly a MISMATCHED Bybit
+    # closed-pnl record (the lookup returned a shared/wrong row — observed
+    # on the bybit_1 DEMO account, where every long resolved to an identical
+    # +3847.29 even though the exit was ~18% adverse to entry: writing it
+    # would fabricate a profit on a losing trade). Refuse to write it and
+    # leave the row honest (pnl stays NULL → /performance excludes it) rather
+    # than corrupt the journal. Only fires when (a) we have a usable entry
+    # price and (b) the price move is materially directional (>0.2%, well
+    # above fee/funding noise) — so a near-breakeven trade whose net-of-fees
+    # pnl legitimately flips sign is never rejected.
+    try:
+        cp = float(closed_pnl)
+        if entry_price and entry_price > 0:
+            move = float(avg_exit_price) - entry_price
+            if str(row["direction"] or "").lower() == "short":
+                move = -move
+            move_frac = move / entry_price  # >0 favorable, <0 adverse
+            if move_frac < -0.002 and cp > 0:
+                return None, (
+                    f"recovered closed_pnl=+{cp:.4f} but {row['direction']} exit "
+                    f"{avg_exit_price} is {abs(move_frac) * 100:.1f}% ADVERSE to entry "
+                    f"{entry_price} — mismatched Bybit closed-pnl record; refusing to "
+                    f"write a fabricated profit"
+                )
+            if move_frac > 0.002 and cp < 0:
+                return None, (
+                    f"recovered closed_pnl={cp:.4f} but {row['direction']} exit "
+                    f"{avg_exit_price} is {move_frac * 100:.1f}% FAVORABLE to entry "
+                    f"{entry_price} — mismatched Bybit closed-pnl record; refusing to "
+                    f"write a fabricated loss"
+                )
+    except (TypeError, ValueError):
+        pass
+
     pnl_percent = _compute_pnl_percent(row, float(closed_pnl), float(avg_exit_price))
 
     new_notes = dict(notes)
