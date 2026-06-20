@@ -209,6 +209,12 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     "spy_trend_long_1d": 0,
     "qqq_trend_long_1d": 0,
     "gld_pullback_1d": 0,
+    # ETF-breadth daily sweep (2026-06-20) — IWM small-cap trend + TLT/IEF bond
+    # pullback on alpaca_paper. Each is sole on its symbol, value 0 mirrors the
+    # other single-symbol ETF legs.
+    "iwm_trend_long_1d": 0,
+    "tlt_pullback_1d": 0,
+    "ief_pullback_1d": 0,
     # eth_pullback_2h — M15 WS-C alt sleeve (2026-06-11); sole strategy on
     # ETHUSDT (bybit_1 demo), value 0 mirrors the other single-symbol legs.
     "eth_pullback_2h": 0,

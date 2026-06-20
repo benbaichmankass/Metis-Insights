@@ -138,12 +138,14 @@ def test_accounts_yaml_alpaca_paper_ships_inert():
     acct = yaml.safe_load(open("config/accounts.yaml"))["accounts"]["alpaca_paper"]
     assert acct["exchange"] == "alpaca"
     assert acct["mode"] == "live"  # practice/paper money; flipped 2026-06-11 (set-account-mode)
-    # M15 Phase 4 buildout assigned the ETF legs (operator-approved).
+    # M15 Phase 4 buildout assigned the ETF legs (operator-approved); the
+    # ETF-breadth daily sweep (2026-06-20) added iwm/tlt/ief (Tier-3).
     assert acct["strategies"] == [
-        "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d"
+        "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
+        "iwm_trend_long_1d", "tlt_pullback_1d", "ief_pullback_1d",
     ]
     # 2026-06-15: the old `demo: true` category stamp was superseded by
     # account_class (non-Bybit, so demo was only the category marker).
     assert "demo" not in acct
     assert acct["account_class"] == "paper"
-    assert acct["symbols"] == ["SPY", "QQQ", "GLD"]
+    assert acct["symbols"] == ["SPY", "QQQ", "GLD", "IWM", "TLT", "IEF"]
