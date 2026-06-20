@@ -1180,6 +1180,20 @@ class Coordinator:
                         client = alpaca_client_for(account_cfg)
                     elif exchange_lc in ("interactive_brokers", "ib"):
                         client = ib_client_for(account_cfg)
+                    elif exchange_lc == "breakout":
+                        # Prop manual-bridge (Breakout) — NO broker socket.
+                        # execute_pkg's breakout branch emits a Telegram/FCM
+                        # prop ticket (emit_prop_ticket) and never touches an
+                        # exchange client, so leave client unset and DON'T set
+                        # client_error: tripping the live-credential gate below
+                        # (~"if not effective_dry and client_error is not None:
+                        # raise") would abort before execute_pkg is reached, so
+                        # the ticket is never emitted and the account logs
+                        # "unsupported exchange 'breakout'" consecutive-rejection
+                        # alerts instead (PB-20260616-004 live bridge). Mirror of
+                        # src/units/accounts/execute.py::execute_pkg; design:
+                        # docs/integrations/breakout-poc-manual-bridge-DESIGN.md.
+                        client = None
                     else:
                         client_error = (
                             f"unsupported exchange '{exchange_lc}' "
@@ -1197,13 +1211,19 @@ class Coordinator:
                         f"{type(exc).__name__}: {exc}"
                     )
                     client = None
-                if client is None and client_error is None:
+                if (
+                    client is None
+                    and client_error is None
+                    and exchange_lc != "breakout"
+                ):
                     # Resolution returned None silently — account is
                     # loaded into the accounts unit but its env-var
                     # creds aren't set. Surface a clear "not fully
                     # configured" message so the operator's diagnostic
                     # ping points straight at the missing env var
                     # instead of looking like a generic exchange error.
+                    # (Breakout is exempt: it intentionally has no client —
+                    # execute_pkg emits a prop ticket, see the branch above.)
                     client_error = (
                         f"account '{account.name}' is not fully "
                         f"configured: api_key_env="
