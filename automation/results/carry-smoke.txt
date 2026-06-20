@@ -1,0 +1,98 @@
+# job=carry-smoke target=trainer ip=158.178.209.121 started=2026-06-20T13:30:04Z
+got harness
+PY=.venv/bin/python
+ok
+
+########## SYNTHETIC CORRECTNESS CHECK ##########
+atr_stop_mult': 3.0, 'funding_window': 3, 'funding_lag': 1, 'funding_threshold': 0.0005, 'funding_exit_threshold': 0.0001, 'max_hold_bars': 48}
+  data 2025-01-01 00:00:00+00:00 -> 2025-01-10 23:00:00+00:00  trades=5
+  win_rate=0.0%  net_r=-1.9287 (exp -0.3857, L/S 0/5)
+  net_funding_r=2.0862 net_price_r=-3.7005 maxdd_r=1.9287 by={'stop': 1, 'timeout': 4}
+  by_year={'2025': {'trades': 5, 'net_r': -1.9288}}
+{
+  "strategy": "funding_carry",
+  "symbol": "TESTUSDT",
+  "timeframe": "1h",
+  "params": {
+    "hedge": "none",
+    "atr_stop_mult": 3.0,
+    "funding_window": 3,
+    "funding_lag": 1,
+    "funding_threshold": 0.0005,
+    "funding_exit_threshold": 0.0001,
+    "max_hold_bars": 48
+  },
+  "total_trades": 5,
+  "fee_bps_roundtrip": 7.5,
+  "data_start": "2025-01-01 00:00:00+00:00",
+  "data_end": "2025-01-10 23:00:00+00:00",
+  "run_date": "2026-06-20",
+  "win_rate_pct": 0.0,
+  "net_total_r": -1.9287,
+  "net_expectancy_r": -0.3857,
+  "net_funding_r": 2.0862,
+  "net_price_r": -3.7005,
+  "trades_long": 0,
+  "trades_short": 5,
+  "max_drawdown_r": 1.9287,
+  "by_outcome": {
+    "stop": 1,
+    "timeout": 4
+  },
+  "by_year": {
+    "2025": {
+      "trades": 5,
+      "net_r": -1.9288
+    }
+  }
+}
+
+/tmp/bfc.py:149: UserWarning: no explicit representation of timezones available for np.datetime64
+  f_ts = fund["ts"].to_numpy().astype("datetime64[ns]")
+
+EMITTED 5 trades
+ASSERT all short: True
+ASSERT funding_r>0 on all: True
+sample: {'strategy': 'funding_carry', 'entry_time': '2025-01-02 00:00:00+00:00', 'direction': 'short', 'gross_r': -0.4993, 'price_r': -1.0, 'funding_r': 0.5007, 'net_r': -0.5623, 'confidence': 1.0}
+
+########## REAL BTC SMOKE (data/backtest_candles.csv + data/funding_BTCUSDT.csv) ##########
+-rw-rw-r-- 1 ubuntu ubuntu 353300 May 11 15:52 data/backtest_candles.csv
+-rw-rw-r-- 1 ubuntu ubuntu 235949 May 24 10:53 data/funding_BTCUSDT.csv
+-- directional, 1h resample --
+/tmp/bfc.py:149: UserWarning: no explicit representation of timezones available for np.datetime64
+  f_ts = fund["ts"].to_numpy().astype("datetime64[ns]")
+funding_carry — BTCUSDT 1h {'hedge': 'none', 'atr_stop_mult': 2.5, 'funding_window': 3, 'funding_lag': 1, 'funding_threshold': 0.0003, 'funding_exit_threshold': 0.0001, 'max_hold_bars': 72}
+  data 2022-07-23 22:00:00+00:00 -> 2022-07-27 09:00:00+00:00  trades=0
+-- market-neutral --
+/tmp/bfc.py:149: UserWarning: no explicit representation of timezones available for np.datetime64
+  f_ts = fund["ts"].to_numpy().astype("datetime64[ns]")
+funding_carry — BTCUSDT 1h {'hedge': 'neutral', 'atr_stop_mult': 2.5, 'funding_window': 3, 'funding_lag': 1, 'funding_threshold': 0.0003, 'funding_exit_threshold': 3e-05, 'max_hold_bars': 72, 'hedge_cost_bps': 2.0}
+  data 2022-07-23 22:00:00+00:00 -> 2022-07-27 09:00:00+00:00  trades=0
+-- threshold sweep (directional) --
+      "funding_threshold": 0.0005,
+      "trades": 0,
+      "win_rate_pct": 0.0,
+      "net_total_r": 0.0,
+      "net_expectancy_r": 0.0,
+      "max_drawdown_r": 0.0
+    },
+    {
+      "funding_threshold": 0.0006,
+      "trades": 0,
+      "win_rate_pct": 0.0,
+      "net_total_r": 0.0,
+      "net_expectancy_r": 0.0,
+      "max_drawdown_r": 0.0
+    }
+  ],
+  "best_by_net_total_r": {
+    "funding_threshold": 0.0001,
+    "trades": 1,
+    "win_rate_pct": 100.0,
+    "net_total_r": 1.0771,
+    "net_expectancy_r": 1.0771,
+    "max_drawdown_r": 0.0
+  }
+}
+== DONE ==
+# exit=0 finished=2026-06-20T13:30:10Z

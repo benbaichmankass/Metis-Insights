@@ -1,0 +1,53 @@
+# Study spec — trend_donchian 4h OUT-OF-POOL holdout (PB-20260618-014), 2026-06-20.
+# RESEARCH-ONLY, Tier-1. Read by scripts/ops/research_sweep.py; touches nothing live.
+#
+# Purpose: the Direction-2 recombination sweep tiered the trend_donchian_4h alt cells
+# (ETH/SOL/XRP/ADA/AVAX) — but those symbols WERE the sweep pool, so the survivors are
+# in-pool only (multiple-comparisons caveat, strategy-primitives-recombination-DESIGN §6).
+# Before ANY trend-side refinement reaches config/strategies.yaml, the live cell must
+# replicate on a symbol that was NEVER in the pool. BNBUSDT + LINKUSDT have data already
+# fetched (m15_ws_c_fetch.sh) and were screened out of the live book as non-generalizing —
+# exactly the right OUT-OF-POOL holdout symbols.
+#
+# Pass bar: the base cell clears the every-fold k-fold gate (live_ready) net-of-fee AND at
+# 2x fee on BNB. A clean pass = the trend-side recombination edge is real, not a pool
+# artifact, and a trend-side strategies.yaml proposal becomes defensible. A fail = the
+# trend-side survivors are overfit to the alt pool; do NOT propose them.
+#
+# base.args mirrors the LIVE trend_donchian_4h alt cell (config/strategies.yaml). Keys are
+# backtest_trend.py CLI flag names (kebab-case); `long-only: true` -> the store_true flag.
+#
+# SIBLING RUN: copy this file to trend_oop_holdout_link.yaml with symbol/data -> LINKUSDT
+# (the harness is single-symbol per study). Both must pass for PB-20260618-014 to close.
+schema_version: 1
+name: trend_oop_holdout_bnb
+harness: backtest_trend.py
+
+base:
+  data: data/BNBUSDT_15m.csv      # trainer-side; resampled to 4h
+  resample: 4h
+  symbol: BNBUSDT
+  args:
+    donchian: 20
+    atr-period: 14
+    atr-stop-mult: 2.5
+    trail-mult: 5.0
+    min-confidence: 0.60
+    long-only: true
+
+# Variation matrix — param-sensitivity around the live cell (delta vs base.args).
+# If the edge only survives at one knife-edge param, that is an overfit tell.
+variants:
+  - {name: minconf_30,  set: {min-confidence: 0.30}}   # the pre-M8 floor
+  - {name: minconf_45,  set: {min-confidence: 0.45}}
+  - {name: trail4,      set: {trail-mult: 4.0}}
+  - {name: trail6,      set: {trail-mult: 6.0}}
+
+# Ablations — confirm no hidden regime gate is load-bearing (trend wants NONE per the
+# recombination finding: high ADX hurts trend). regime_gate ablation should be a no-op here
+# since base carries no adx flag; included as the discipline check.
+ablations:
+  - {name: regime_gate, drop: [adx-min, adx-max]}
+
+kfold: {folds: 5, train_frac: 0.4, wf_end: "2026-06-18"}
+fees:  {base_bps: 7.5, double_bps: 15.0}

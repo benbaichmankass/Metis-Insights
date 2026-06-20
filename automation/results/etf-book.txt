@@ -1,0 +1,66 @@
+# job=etf-book target=trainer ip=158.178.209.121 started=2026-06-20T16:58:34Z
+PY=.venv/bin/python
+== build best-cell-per-ETF book ==
+  equity_IWM -> 54 trades
+  commod_USO -> 107 trades
+  commod_DBA -> 56 trades
+  metal_SLV -> 88 trades
+  bond_TLT -> 84 trades
+  bond_IEF -> 80 trades
+  commod_DBC -> 97 trades
+-- manifest --
+[
+  {"label": "equity_IWM", "emit": "/tmp/e_IWM.jsonl"},  {"label": "commod_USO", "emit": "/tmp/e_USO.jsonl"},  {"label": "commod_DBA", "emit": "/tmp/e_DBA.jsonl"},  {"label": "metal_SLV", "emit": "/tmp/e_SLV.jsonl"},  {"label": "bond_TLT", "emit": "/tmp/e_TLT.jsonl"},  {"label": "bond_IEF", "emit": "/tmp/e_IEF.jsonl"},  {"label": "commod_DBC", "emit": "/tmp/e_DBC.jsonl"}
+]
+
+########## PORTFOLIO ROBUSTNESS — pooled ETF-breadth book ##########
+=== Diversified book robustness — 7 cells, 566 trades (2007-03-23 .. 2026-06-12) ===
+HEADLINE: net_r=197.3  mean=+0.3486R  sharpe=3.88  maxDD=18.6R
+
+-- per-year net_r --
+  2007: n=   32 net_r=    22.9 mean=+0.7143 sharpe= 2.26
+  2008: n=   21 net_r=    20.0 mean=+0.9532 sharpe= 1.98
+  2009: n=   27 net_r=    -3.4 mean=-0.1265 sharpe=-0.48  <== NEGATIVE YEAR
+  2010: n=   34 net_r=    11.4 mean=+0.3363 sharpe= 1.02
+  2011: n=   28 net_r=   -10.3 mean=-0.3688 sharpe=-1.64  <== NEGATIVE YEAR
+  2012: n=   29 net_r=    -3.6 mean=-0.1228 sharpe=-0.51  <== NEGATIVE YEAR
+  2013: n=   27 net_r=     3.7 mean=+0.1382 sharpe= 0.38
+  2014: n=   23 net_r=    28.2 mean=+1.2255 sharpe= 1.58
+  2015: n=   30 net_r=    -2.8 mean=-0.0947 sharpe=-0.33  <== NEGATIVE YEAR
+  2016: n=   28 net_r=    14.6 mean=+0.5219 sharpe= 1.53
+  2017: n=   29 net_r=     5.6 mean=+0.1914 sharpe= 0.66
+  2018: n=   30 net_r=     3.9 mean=+0.1292 sharpe= 0.36
+  2019: n=   34 net_r=    24.7 mean=+0.7273 sharpe= 1.32
+  2020: n=   21 net_r=    28.2 mean=+1.3451 sharpe= 1.63
+  2021: n=   35 net_r=    15.2 mean=+0.4329 sharpe= 1.48
+  2022: n=   32 net_r=    -2.6 mean=-0.0826 sharpe=-0.43  <== NEGATIVE YEAR
+  2023: n=   30 net_r=    -2.1 mean=-0.0690 sharpe=-0.26  <== NEGATIVE YEAR
+  2024: n=   39 net_r=     2.3 mean=+0.0593 sharpe= 0.21
+  2025: n=   24 net_r=    25.3 mean=+1.0527 sharpe= 1.61
+  2026: n=   13 net_r=    16.2 mean=+1.2472 sharpe= 1.71
+
+-- holdout net_r across cutoffs (train < cutoff <= holdout) --
+  >= 2023-07-01: n=   92 holdout net_r=    44.6 sharpe= 2.01 maxDD=  10.4
+  >= 2024-01-01: n=   76 holdout net_r=    43.8 sharpe= 2.03 maxDD=  10.4
+  >= 2024-07-01: n=   57 holdout net_r=    38.8 sharpe= 2.04 maxDD=   8.4
+  >= 2025-01-01: n=   37 holdout net_r=    41.5 sharpe= 2.29 maxDD=   4.0
+  >= 2025-07-01: n=   23 holdout net_r=    36.4 sharpe= 2.14 maxDD=   2.3
+
+-- leave-one-cell-out (book net_r with each cell removed) --
+  worst (most load-bearing) cell: metal_SLV -> book without it = 147.9R (full book 197.3R)
+  leave-one-family-out: {'bond': '132.8R', 'commod': '131.2R', 'equity': '180.0R', 'metal': '147.9R'}
+
+-- added cost-per-trade headroom (extra R subtracted per trade) --
+  +0.00 R/trade: book net_r=   197.3
+  +0.01 R/trade: book net_r=   191.7
+  +0.02 R/trade: book net_r=   186.0
+  +0.03 R/trade: book net_r=   180.3
+  +0.05 R/trade: book net_r=   169.0
+  BREAKEVEN added cost = +0.3486 R/trade (the book stays +EV until per-trade cost rises this much)
+
+-- block bootstrap (2000 resamples, 215 monthly blocks) --
+  P(book net_r > 0) = 1.000 | 5th pct net_r = 108.4 | median = 196.8
+
+VERDICT: NOT fully robust (years+ False, holdouts+ True, LOO-cell+ True, boot P+ 1.00, boot-p5 108)
+== DONE ==
+# exit=0 finished=2026-06-20T16:58:42Z

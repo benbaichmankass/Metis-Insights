@@ -101,4 +101,18 @@ jobs:
           git add -f automation/results
           if git diff --cached --quiet; then echo "no changes"; exit 0; fi
           git commit -m "vm-driver: job results [skip ci]"
-          git push origin HEAD:${{ github.ref_name }}
+          # Rebase-before-push: a concurrent manual push (a session pushing
+          # the next job while this run is mid-flight) advances the branch and
+          # would non-fast-forward this result push, discarding the captured
+          # output. Re-fetch + rebase the result commit on top and retry.
+          for attempt in 1 2 3 4 5; do
+            if git push origin HEAD:${{ github.ref_name }}; then
+              echo "pushed results (attempt ${attempt})"; exit 0
+            fi
+            echo "push rejected — rebasing onto remote (attempt ${attempt})"
+            git fetch origin ${{ github.ref_name }}
+            git rebase "origin/${{ github.ref_name }}" || { git rebase --abort || true; }
+            sleep $((attempt * 2))
+          done
+          echo "::error::could not push vm-driver results after 5 attempts"; exit 1
+

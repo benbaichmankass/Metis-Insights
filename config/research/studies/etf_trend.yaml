@@ -1,0 +1,36 @@
+# Study spec — ETF-breadth daily TREND (uncorrelated-sleeve expansion), 2026-06-20.
+# RESEARCH-ONLY, Tier-1. Read by scripts/ops/research_sweep.py; touches nothing live.
+#
+# Mirrors the validated live daily trend family (mes_/spy_/qqq_trend_long_1d:
+# donchian 30, atr-stop 2.5, trail 4.0, long-only) and applies it to the NEW
+# diversifying ETFs (bonds TLT/IEF, commodity DBC/USO, small-cap IWM). The goal
+# is uncorrelated exposure (esp. bonds = macro/risk-off, which BTC can't give),
+# so a `both_sides` variant is included: equities drift up (long-only fits) but
+# BONDS/commodities trend DOWN too (rate-hike / risk-off regimes), and shorting
+# is now in scope. SPY is the template; the dispatch job seds per symbol.
+schema_version: 1
+name: etf_trend_SPY
+harness: backtest_trend.py
+
+base:
+  data: data/SPY_1d.csv
+  resample: 1D                 # data is already daily; 1D resample is a no-op (research_sweep requires the key)
+  symbol: SPY
+  args:
+    donchian: 30
+    atr-period: 14
+    atr-stop-mult: 2.5
+    trail-mult: 4.0
+    min-confidence: 0.0
+    long-only: true
+
+variants:
+  - {name: both_sides, drop: [long-only]}        # bonds/commodities trend both ways
+  - {name: donch20, set: {donchian: 20}}
+  - {name: trail5, set: {trail-mult: 5.0}}
+  - {name: both_donch20, drop: [long-only], set: {donchian: 20}}
+
+ablations: []
+
+kfold: {folds: 5, train_frac: 0.4, wf_end: "2026-06-18"}
+fees:  {base_bps: 7.5, double_bps: 15.0}
