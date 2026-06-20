@@ -125,11 +125,32 @@ Directional carry is dropped.
 **Gate result (k-fold, 2026-06-20):** both ETH and SOL neutral carry grade **`paper_ready`**
 across all funding thresholds — net-positive AND **fee-robust at 2× fees** (ETH base 1.65→0.97,
 SOL 1.63→1.08) — but **not every-fold** (the thin ~23–33-trade sample can't clear the strict
-live_ready every-fold bar). Expected for a low-R yield stream; it clears the bar that matters
-for "is this a real, fee-surviving edge" (yes) and confirms the per-trade R-gate is the wrong
-grader. **Next: the basket version** — pool ETH+SOL+XRP+ADA+AVAX neutral carry and grade it
-through `portfolio_robustness.py` (Sharpe / holdout / bootstrap), which both thickens the
-sample and is the apt grader; then the **pairs** (ETH/BTC dollar-neutral) sleeve.
+live_ready every-fold bar).
+
+**Basket result (`portfolio_robustness.py`, 5-alt pooled neutral carry, 152 trades 2023-04 →
+2026-02) — the decisive grade, and it's nuanced:**
+- Headline: **Sharpe 11.56**, net +9.1R, **maxDD 0.1R**, bootstrap P(net>0)=1.00, breakeven
+  added-cost +0.060 R/trade. A near-riskless yield stream on its face.
+- **But: 2025 is a negative year (−0.1R, only 10 trades) and every holdout cutoff ≥2025-01-01
+  is negative.** `portfolio_robustness` verdict: **NOT fully robust** (years+ False, holdouts+
+  False; LOO-cell+ True, bootstrap P+ 1.00).
+
+**Honest final verdict on carry:** the edge is **real, mechanically correct, fee-robust, and
+exceptionally smooth — but concentrated in 2023–2024 and DECAYED in 2025–26.** As funding
+normalized, the elevated-funding episodes the strategy harvests became rare (only ~10
+basket-trades in all of 2025), so the carry went dormant. Carry is therefore a
+**regime-dependent yield harvester** — valuable when perp funding is hot (leverage-demand /
+bull phases), near-zero otherwise — **not the dependable always-on earner the first per-symbol
+read suggested.** It's a legitimate *conditional* complement (turn it up when funding is
+elevated), not a steady standalone sleeve in the current low-funding regime. This is exactly
+the kind of decay the holdout gate exists to catch.
+
+**Implication for the always-on goal:** no single sleeve is always-on — carry pays in
+high-funding regimes, trend pays in trending regimes, etc. "Makes money all the time" comes
+from **stacking sleeves whose ON-regimes differ** so the book always has *something* working.
+Carry earns its place as the high-funding-regime contributor. The next sleeves to test for
+*different* ON-regimes: **pairs/ratio reversion** (range/divergence regimes) and **ETF-breadth
+incl. bonds** (macro/risk-off regimes BTC can't provide).
 
 ## 1. The full picture (what we have, tested, and rejected)
 
