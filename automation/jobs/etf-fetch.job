@@ -1,0 +1,37 @@
+TARGET=trainer
+---
+set -uo pipefail
+cd /home/ubuntu/ict-trading-bot || { echo "NO REPO"; exit 1; }
+PY=""
+for c in .venv/bin/python venv/bin/python $(find /home/ubuntu -maxdepth 5 -path '*/bin/python' 2>/dev/null); do
+  if [ -x "$c" ] && "$c" -c "import pandas" 2>/dev/null; then PY="$c"; break; fi
+done
+[ -z "$PY" ] && { echo "no pandas python"; exit 0; }
+echo "PY=$PY"
+echo "== yfinance available? =="; "$PY" -c "import yfinance; print('yfinance', yfinance.__version__)" 2>&1 | head -1
+echo "== existing ETF/daily data =="; ls -la data/ 2>/dev/null | grep -iE "TLT|IEF|DBC|USO|IWM|SPY|QQQ|GLD|_1d" || echo "(none)"
+echo "== dukascopy/equity fetch scripts =="; ls scripts/ops/ 2>/dev/null | grep -iE "dukascopy|ohlc|index|equit|etf|alpaca" || echo "(none)"
+
+echo "== attempt yfinance daily fetch =="
+"$PY" - <<'PYEOF'
+try:
+    import yfinance as yf
+except Exception as e:
+    print("NO yfinance:", repr(e)[:150]); raise SystemExit(0)
+import pandas as pd
+syms = ["TLT","IEF","DBC","USO","IWM","SPY","QQQ","GLD","DBA","SLV","UNG"]
+for s in syms:
+    try:
+        df = yf.download(s, start="2007-01-01", interval="1d", auto_adjust=True, progress=False)
+        if df is None or len(df) == 0:
+            print(f"{s}: EMPTY"); continue
+        df = df.reset_index()
+        df.columns = [c[0].lower() if isinstance(c, tuple) else str(c).lower() for c in df.columns]
+        keep = [c for c in ["timestamp","date","open","high","low","close","volume"] if c in df.columns]
+        out = df[keep].rename(columns={"date": "timestamp"})
+        out.to_csv(f"data/{s}_1d.csv", index=False)
+        print(f"{s}: {len(out)} rows  {out['timestamp'].iloc[0]} -> {out['timestamp'].iloc[-1]}")
+    except Exception as e:
+        print(f"{s}: ERR {repr(e)[:140]}")
+PYEOF
+echo "== DONE =="
