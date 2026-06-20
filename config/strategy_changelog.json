@@ -177,5 +177,12 @@
       "ref": "trend_donchian_eth \u2014 stays TWO-SIDED + promoted SHADOW \u2192 LIVE (PRs #3848/#3852, Tier-3, operator-approved)",
       "summary": "The long-only A/B FLIPPED ETH negative (pre +$23 -> post -$181; EV@1.5% +$415/66%, only 3/4 folds, fold-1 -$166) \u2014 ETH's edge is short-side-dependent, so it keeps both sides (no long_only). Promoted shadow -> live (operator-approved): emits supervised prop tickets like SOL; the operator gates each placement, so the marginal-but-consistent edge is run live on a manual-bridge ping (reversible to shadow with one flip)."
     }
+  ],
+  "eth_pullback_2h": [
+    {
+      "date": "2026-06-20",
+      "ref": "Tier-3 (operator-directed): raise ETH risk on bybit_2 to clear the Bybit 0.01 ETH minimum order",
+      "summary": "Raised eth_pullback_2h risk_pct 0.3 -> 0.6. On the small (~$100) bybit_2 real-money test account the effective per-trade risk (account 0.01 x strategy 0.3 = 0.003 = 0.3% equity) sized ETH below Bybit's 0.01 ETH minimum order (~0.0084 ETH at a 2.5xATR(2h) ~$36 stop, ETH ~$1730), so the orders were rejected as sub-minimum and never opened. 0.6 (= 0.006 = 0.6% equity/trade) sizes ~0.0167 ETH at current vol, clearing 0.01 with ~67% ATR headroom; per-trade risk stays ~$0.60, well inside the account's 5% daily-loss cap. risk_pct is shared with bybit_1 (demo/paper), which also sizes 2x larger there (benign - paper money, R-multiples invariant). Strategy-level bump chosen because there is no per-(account,strategy) override and the account-level risk_pct would hit all 5 real-money strategies. ROLLBACK: restore risk_pct: 0.3."
+    }
   ]
 }
