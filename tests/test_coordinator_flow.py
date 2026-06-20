@@ -593,6 +593,47 @@ class TestMultiAccountExecuteFlow:
         )
         assert len(results) == 2
 
+    def test_live_prop_breakout_emits_ticket_not_unsupported_exchange(
+        self, coord, accounts_yaml, monkeypatch
+    ):
+        """Regression (PB-20260616-004 live manual-bridge): a LIVE
+        prop-breakout dispatch must route to execute_pkg's prop-ticket
+        emitter, NOT trip the coordinator's broker-client gate.
+
+        Pre-fix, multi_account_execute built its own exchange client for
+        every live account but had no ``breakout`` branch, so the prop
+        account set client_error="unsupported exchange 'breakout'" and the
+        live-credential gate raised RuntimeError BEFORE execute_pkg was ever
+        reached — the ticket was never emitted and the operator saw repeated
+        "consecutive exchange rejections" + "ALL accounts failed to dispatch"
+        alerts. Every other multi_account_execute test runs dry_run=True (which
+        skips client construction entirely), so the live path was uncovered."""
+        emitted: dict = {}
+
+        def _fake_emit(order, account_cfg, *, timeframe=None):
+            emitted["order"] = order
+            return "prop-manual-deadbeef01"
+
+        # execute_pkg imports emit_prop_ticket at call time, so patching the
+        # module attribute is sufficient (and keeps the test off the network).
+        monkeypatch.setattr(
+            "src.prop.breakout_executor.emit_prop_ticket", _fake_emit,
+        )
+
+        results = coord.multi_account_execute(
+            _pkg(symbol="ETHUSDT"), accounts_path=accounts_yaml,
+            account_type="prop",
+            dry_run=False,  # force the LIVE dispatch path (the broken one)
+            balance_fetcher=self._balance_fetcher,
+        )
+
+        assert len(results) == 1
+        r = results[0]
+        assert r["name"] == "prop_breakout_1"
+        assert r["error"] is None, f"unexpected dispatch error: {r['error']}"
+        assert r["trade_id"] == "prop-manual-deadbeef01"
+        assert emitted, "emit_prop_ticket was never called — ticket not emitted"
+
     def test_risk_breach_captured_as_error(self, coord, accounts_yaml, prop_journal):
         from src.units.accounts import load_accounts
         # Breach the prop account via real journal state (its daily-loss
