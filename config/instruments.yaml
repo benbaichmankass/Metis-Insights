@@ -18,6 +18,13 @@
 #   contract_value_usd:  USD notional per contract (futures); 1.0 for crypto perps
 #   max_leverage:        maximum allowed leverage (0 = no cap / spot)
 #   display_name:        human-readable label for UI / logs
+#   asset_class:         OPTIONAL reporting override — crypto | index | commodity
+#                        | equity | fx. Consumed ONLY by the reporting layer
+#                        (src/web/api/_asset_class.py → /performance perAssetClass
+#                        breakdown); never the order path. When omitted it is
+#                        inferred from exchange/category/base_asset, so this is a
+#                        pin for the ambiguous cases (a gold ETF on an equity
+#                        venue, an index future on IB, …).
 #
 # Adding a new instrument:
 #   1. Add entry here following the schema above.
@@ -40,6 +47,7 @@ instruments:
     exchange: bybit
     category: linear
     base_asset: BTC
+    asset_class: crypto
     quote_currency: USDT
     settlement_currency: USDT
     tick_size: 0.1           # minimum price increment ($0.10)
@@ -57,6 +65,7 @@ instruments:
     exchange: bybit
     category: linear
     base_asset: ETH
+    asset_class: crypto
     quote_currency: USDT
     settlement_currency: USDT
     tick_size: 0.01          # minimum price increment ($0.01)
@@ -80,6 +89,7 @@ instruments:
     exchange: bybit
     category: linear
     base_asset: SOL
+    asset_class: crypto
     quote_currency: USDT
     settlement_currency: USDT
     tick_size: 0.001         # fallback — live lookup authoritative
@@ -93,6 +103,7 @@ instruments:
     exchange: bybit
     category: linear
     base_asset: XRP
+    asset_class: crypto
     quote_currency: USDT
     settlement_currency: USDT
     tick_size: 0.0001        # fallback — live lookup authoritative
@@ -106,6 +117,7 @@ instruments:
     exchange: bybit
     category: linear
     base_asset: ADA
+    asset_class: crypto
     quote_currency: USDT
     settlement_currency: USDT
     tick_size: 0.0001        # fallback — live lookup authoritative
@@ -119,6 +131,7 @@ instruments:
     exchange: bybit
     category: linear
     base_asset: AVAX
+    asset_class: crypto
     quote_currency: USDT
     settlement_currency: USDT
     tick_size: 0.001         # fallback — live lookup authoritative
@@ -140,6 +153,7 @@ instruments:
     exchange: interactive_brokers
     category: futures
     base_asset: ES              # underlying E-mini S&P 500
+    asset_class: index          # equity-index future
     quote_currency: USD
     settlement_currency: USD
     tick_size: 0.25             # $0.25 per index point
@@ -162,6 +176,7 @@ instruments:
     exchange: interactive_brokers
     category: futures
     base_asset: GC              # underlying Gold (COMEX listing)
+    asset_class: commodity      # gold
     quote_currency: USD
     settlement_currency: USD
     tick_size: 0.10             # $1.00 per tick (10 troy oz x $0.10)
@@ -183,6 +198,7 @@ instruments:
     exchange: interactive_brokers
     category: futures
     base_asset: HG              # underlying Copper (COMEX listing)
+    asset_class: commodity      # copper
     quote_currency: USD
     settlement_currency: USD
     tick_size: 0.0005           # $1.25 per tick (2,500 lb x $0.0005)
@@ -202,6 +218,7 @@ instruments:
     exchange: oanda
     category: spot
     base_asset: XAU
+    asset_class: commodity     # spot gold (metal)
     quote_currency: USD
     settlement_currency: USD
     tick_size: 0.001          # OANDA gold price precision (3dp)
@@ -220,6 +237,7 @@ instruments:
     exchange: alpaca
     category: spot
     base_asset: SPY
+    asset_class: equity
     quote_currency: USD
     settlement_currency: USD
     tick_size: 0.01
@@ -233,6 +251,7 @@ instruments:
     exchange: alpaca
     category: spot
     base_asset: QQQ
+    asset_class: equity
     quote_currency: USD
     settlement_currency: USD
     tick_size: 0.01
@@ -246,6 +265,7 @@ instruments:
     exchange: alpaca
     category: spot
     base_asset: GLD
+    asset_class: commodity     # gold-tracking ETF
     quote_currency: USD
     settlement_currency: USD
     tick_size: 0.01
