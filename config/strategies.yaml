@@ -1198,7 +1198,22 @@ strategies:
     signal_prefixes: [eth_pullback]
     enabled: true
     execution: live
-    risk_pct: 0.3            # conservative initial sizing (mirrors the roster)
+    risk_pct: 0.6            # raised 0.3 -> 0.6 (2026-06-20, Tier-3, operator-directed):
+                            # the bybit_2 REAL-MONEY test account is small (~$100), so at
+                            # 0.3 the effective per-trade risk (account 0.01 x 0.3 = 0.003 =
+                            # 0.3% equity) sized ETH BELOW Bybit's 0.01 ETH minimum order
+                            # (0.0084 ETH @ a 2.5xATR(2h)~$36 stop, ETH ~$1730) -> the orders
+                            # were rejected as sub-minimum and never opened. 0.6 (= account
+                            # 0.01 x 0.6 = 0.006 = 0.6% equity/trade) sizes ~0.0167 ETH at
+                            # current vol — clears 0.01 with headroom (the 2h ATR would have to
+                            # rise ~67% to drop a fill back under the floor). Per-trade $ risk
+                            # is still tiny (~$0.60) and well inside bybit_2's 5% daily-loss cap.
+                            # NOTE: this risk_pct is SHARED with bybit_1 (demo/paper), so the
+                            # demo ETH soak also sizes 2x larger — paper money, R-multiples
+                            # invariant, benign. There is no per-(account,strategy) risk
+                            # override, and raising bybit_2's account risk_pct would hit all 5
+                            # real-money strategies, so the strategy-level bump is the right
+                            # lever. ROLLBACK: restore risk_pct: 0.3.
     timeframe: "2h"          # served as Bybit 120m via CCXT.
     symbols:
       - ETHUSDT              # Bybit USDT linear perp. NOT BTCUSDT.
