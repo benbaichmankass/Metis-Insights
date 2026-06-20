@@ -323,3 +323,22 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "iShares 7-10 Year Treasury Bond ETF (Alpaca paper)"
+
+  # ------------------------------------------------------------------
+  # Intraday ETF pilot (2026-06-20 § 0e) — new Alpaca-paper silver ETF for the
+  # slv_trend_1h cell (GLD's intraday gld_pullback_1h sibling already reuses the
+  # existing GLD profile above). Same whole-share / 2dp / alpaca-paper profile.
+  # ------------------------------------------------------------------
+  SLV:
+    exchange: alpaca
+    category: spot
+    base_asset: SLV
+    asset_class: equity        # silver-tracking ETF
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "iShares Silver Trust ETF (Alpaca paper)"

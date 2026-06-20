@@ -61,6 +61,8 @@ from src.runtime.strategy_signal_builders import (
     gld_pullback_1d_signal_builder,
     tlt_pullback_1d_signal_builder,
     ief_pullback_1d_signal_builder,
+    gld_pullback_1h_signal_builder,
+    slv_trend_1h_signal_builder,
     eth_pullback_2h_signal_builder,
     sol_pullback_2h_signal_builder,
     xrp_pullback_2h_signal_builder,
@@ -182,6 +184,14 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         "iwm_trend_long_1d": iwm_trend_long_1d_signal_builder,
         "tlt_pullback_1d": tlt_pullback_1d_signal_builder,
         "ief_pullback_1d": ief_pullback_1d_signal_builder,
+        # Intraday ETF pilot (2026-06-20 § 0e, Tier-3) — the first INTRADAY (1h)
+        # cells in the ETF family on alpaca_paper (paper money): GLD 1h
+        # bidirectional pullback (gld_pullback_1d sibling) + SLV 1h
+        # BIDIRECTIONAL Donchian trend (spy clone but both-sides — silver trends
+        # down too). Rollout A pilot for the intraday ETF-breadth sleeve. Each is
+        # the sole strategy on its (symbol, timeframe), so arbitration never fires.
+        "gld_pullback_1h": gld_pullback_1h_signal_builder,
+        "slv_trend_1h": slv_trend_1h_signal_builder,
         # eth_pullback_2h — M15 WS-C alt sleeve (2026-06-11): ETH/USDT 2h
         # HTF-pullback on bybit_1 (demo, paper money), reusing the
         # htf_pullback_trend_2h unit at the live BTC params. Sole strategy

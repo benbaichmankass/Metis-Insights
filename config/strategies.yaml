@@ -1264,6 +1264,60 @@ strategies:
     min_confidence: 0.0
     shadow_model_ids: []
 
+  gld_pullback_1h:
+    # GLD INTRADAY (1h) HTF-pullback (bidirectional) — the first INTRADAY cell
+    # in the daily-ETF family (same logic as gld_pullback_1d, the
+    # htf_pullback_trend_2h unit, on the 1-hour timeframe). PROVENANCE: intraday
+    # 1h ETF sweep 2026-06-20 § 0e — GLD pullback trail4 live_ready +78.9R /
+    # 2x-fee +61.5R (see docs/research/expansion-backtesting-research-2026-06-20.md).
+    # Pilot for the intraday ETF sleeve (operator-approved rollout A, risk_pct
+    # 0.3). Runs on alpaca_paper (PAPER money) with bracket orders (broker-side
+    # SL/TP); the builder gates on the US cash session (market_hours us_equity).
+    # execution: live per the paper-accounts-execute operator policy.
+    model: null
+    signal_prefixes: [gld_pullback_1h]
+    enabled: true
+    execution: live
+    risk_pct: 0.3
+    timeframe: "1h"
+    symbols:
+      - GLD
+    trend_lookback: 60
+    pullback_lookback: 12
+    pullback_frac: 0.5
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 4.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  slv_trend_1h:
+    # SLV INTRADAY (1h) BIDIRECTIONAL Donchian trend-follower — a new INTRADAY
+    # cell. Structurally a clone of spy_trend_long_1d (the trend_donchian unit)
+    # BUT trades BOTH directions (no long_only key, no short suppression in the
+    # builder) — silver trends down as well as up. PROVENANCE: intraday 1h ETF
+    # sweep 2026-06-20 § 0e — SLV trend both_donch24 live_ready +85.5R / 2x-fee
+    # +77R (see docs/research/expansion-backtesting-research-2026-06-20.md).
+    # Pilot for the intraday ETF sleeve (operator-approved rollout A, risk_pct
+    # 0.3). Runs on alpaca_paper (PAPER money) with bracket orders (broker-side
+    # SL/TP); the builder gates on the US cash session (market_hours us_equity).
+    # execution: live per the paper-accounts-execute operator policy.
+    model: null
+    signal_prefixes: [slv_trend]
+    enabled: true
+    execution: live
+    risk_pct: 0.3
+    timeframe: "1h"
+    symbols:
+      - SLV
+    donchian: 24
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 4.0
+    tp_r: 50.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
   eth_pullback_2h:
     # ETH/USDT 2h HTF-pullback (bidirectional) — M15 WS-C alt sleeve: the
     # strongest cell of the alt generalization sweep
