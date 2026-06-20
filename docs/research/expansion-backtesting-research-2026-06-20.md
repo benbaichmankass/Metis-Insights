@@ -223,16 +223,31 @@ Sequenced by ROI and by what's runnable *today* vs needs a small build first.
 
 ---
 
-## 6. Open questions
+## 6. Operator decisions (answered 2026-06-20)
 
-1. For symbols: confirm the diversification goal is **uncorrelated exposure** (→ bonds/
-   commodity ETFs, carry, pairs) over **trade frequency** (→ more alts). I've assumed the
-   former.
-2. For new strategies: is a **market-neutral sleeve** (pairs / cross-sectional) in scope, or
-   do you want to keep everything net-long-biased directional? It changes which of ranks 2–4
-   leads.
-3. Compute: the trainer VM shares cores with training cycles — OK to run Wave-1 sweeps now,
-   or hold for a quiet window?
+1. **Diversification goal = uncorrelated exposure first** — and that uncorrelated exposure
+   should *also* widen trade frequency via diversification. The overarching objective is
+   **"the system makes money all the time"** (smoother, always-on equity), with diversity of
+   *trades* a wanted side effect. → favours bonds/commodity ETFs, carry, pairs, and a
+   broader concurrent book.
+2. **Market-neutral sleeve is in scope. Shorting any market is fair game.** → elevates the
+   **pairs/ratio reversion** and **cross-sectional momentum** harnesses (both inherently
+   short-capable + dollar-neutral), and the **hedged (market-neutral) funding-carry** variant,
+   to first-class build targets — not just the long-biased directional book. (Honest caveat
+   carried forward: naive *trend-short* was already shown to be a net drag, −37R; the
+   productive short exposure is the neutral/relative-value kind + chop mean-reversion, not
+   trend-short.)
+3. **Special sweeps approved — run them.** Wave-1 dispatched to the trainer; the new-edge
+   harnesses build next, starting **funding-carry + ETF-breadth**, then the market-neutral
+   pair/cross-sectional pair.
+
+### Build order locked from the above
+1. Wave-1 sweeps (trend OOP holdout + exit/fee study) — *dispatched*.
+2. ETF-breadth daily sweep incl. **bonds/commodity** for uncorrelated exposure — fetch + run.
+3. **Funding-carry harness** (`backtest_funding_carry.py`) incl. the hedged market-neutral
+   variant — highest uncorrelated payoff, data + math already in repo.
+4. **Pairs/ratio reversion** (`backtest_pairs_revert.py`) — the dollar-neutral sleeve.
+5. **Cross-sectional momentum** (`backtest_xsec_momentum.py`) — portfolio-graded book.
 
 ---
 
