@@ -1,0 +1,28 @@
+TARGET=trainer
+---
+set -uo pipefail
+cd /home/ubuntu/ict-trading-bot || { echo "NO REPO"; exit 1; }
+BR=claude/expansion-backtesting-research-y74054
+git fetch -q origin "$BR" 2>&1 | tail -1 || true
+PY=""
+for c in .venv/bin/python venv/bin/python $(find /home/ubuntu -maxdepth 5 -path '*/bin/python' 2>/dev/null); do
+  if [ -x "$c" ] && "$c" -c "import pandas,numpy" 2>/dev/null; then PY="$c"; break; fi
+done
+[ -z "$PY" ] && { echo "no pandas python"; exit 0; }
+echo "PY=$PY"
+mkdir -p /tmp/studies
+git show "origin/$BR:config/research/studies/carry_neutral.yaml" > /tmp/studies/carry_neutral.yaml 2>/dev/null && echo "got spec" || { echo "MISSING spec"; exit 1; }
+# ensure the carry harness on disk is current (research_sweep runs scripts/<harness>)
+git show "origin/$BR:scripts/backtest_funding_carry.py" > scripts/backtest_funding_carry.py 2>/dev/null && echo "synced harness to working tree"
+# SOL sibling
+sed -e 's/ETHUSDT/SOLUSDT/g' -e 's/carry_neutral_eth/carry_neutral_sol/' \
+    /tmp/studies/carry_neutral.yaml > /tmp/studies/carry_neutral_sol.yaml
+
+for s in carry_neutral carry_neutral_sol; do
+  echo ""
+  echo "######################## GATE $s ########################"
+  timeout 1800 "$PY" scripts/ops/research_sweep.py --study /tmp/studies/$s.yaml --out /tmp/out_$s 2>&1 | tail -40
+done
+# leave the trainer checkout clean (the harness lives only on the branch, untracked here)
+rm -f scripts/backtest_funding_carry.py
+echo "== DONE =="
