@@ -1,0 +1,53 @@
+# Study spec — exit-manager / fee-headroom sweep on the pullback family, 2026-06-20.
+# RESEARCH-ONLY, Tier-1. Read by scripts/ops/research_sweep.py; touches nothing live.
+#
+# Purpose: the recombination program's SECOND-highest-value axis is the EXIT manager —
+# SRQ-20260618-003 rejected ict_scalp 5m because its per-trade R sits inside the round-trip
+# cost band (fee-bleed). The eventual fix (strategy-primitives-recombination-DESIGN §5 +
+# recombination_pool.yaml::_deferred.exit_manager) is a maker-band post-only exit that earns
+# the rebate — but that needs the Phase-3 harness refactor that injects the exit as a
+# primitive. This study is the CHEAP PRECURSOR using the one exit lever the harness already
+# exposes (--trail-mult / --atr-stop-mult): quantify how much of a cell's net-R the EXIT
+# alone moves, and how that survives 2x fees, BEFORE investing in the maker-band build.
+#
+# The leaderboard's base_bps vs double_bps columns make the fee-headroom of each exit
+# explicit: an exit whose edge collapses from 7.5->15 bps is fee-fragile (the ict_scalp
+# failure mode); one that holds its tier at 2x fee has real headroom. That comparison is the
+# evidence for whether the exit axis is worth a harness build (rank 5 in the 2026-06-20 memo).
+#
+# Cell under study: the live eth_pullback_2h geometry (ADX>=25 gate, the strongest validated
+# alt cell) held FIXED while only the exit varies. backtest_pullback.py CLI flag names.
+schema_version: 1
+name: pullback_exit_feebleed
+harness: backtest_pullback.py
+
+base:
+  data: data/ETHUSDT_15m.csv      # trainer-side; resampled to 2h
+  resample: 2h
+  symbol: ETHUSDT
+  args:
+    trend-lookback: 40
+    pullback-lookback: 10
+    pullback-frac: 0.5
+    atr-stop-mult: 2.5
+    trail-mult: 5.0          # the live exit (baseline)
+    adx-min: 25
+    min-confidence: 0.0
+
+# Variation matrix — EXIT axis only (entry/regime/timeframe held constant), so every Δ is
+# attributable to the exit. Wide trail = capture runs (fewer round-trips, less fee drag);
+# tight trail = lower drawdown but more give-back + more fee events.
+variants:
+  - {name: trail3,        set: {trail-mult: 3.0}}   # tight (known to hurt pullback ~-55R)
+  - {name: trail7,        set: {trail-mult: 7.0}}   # wide — fewer exits, less fee drag
+  - {name: stop2_trail5,  set: {atr-stop-mult: 2.0}}
+  - {name: stop3_trail5,  set: {atr-stop-mult: 3.0}}
+  - {name: trail7_stop3,  set: {trail-mult: 7.0, atr-stop-mult: 3.0}}
+
+# Ablation — neutralize the trail to the harness baseline to size the trail's marginal
+# contribution to net-R (Δ = base - ablated), the "what the exit is worth" number.
+ablations:
+  - {name: trail, set: {trail-mult: 3.0}}
+
+kfold: {folds: 5, train_frac: 0.4, wf_end: "2026-06-18"}
+fees:  {base_bps: 7.5, double_bps: 15.0}
