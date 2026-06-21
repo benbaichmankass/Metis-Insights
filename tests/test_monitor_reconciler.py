@@ -1712,6 +1712,109 @@ class TestStuckStrategyWatchdog:
         assert "pkg-stuck-watchdog-1" in evt["body"]
         assert "force-cleared" in evt["body"]
 
+    def test_position_flat_recovers_close_from_broker_pnl_not_orphan(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """BL-20260620-WATCHDOGORPHAN: when the position is FLAT at a
+        broker-truth exchange (Bybit) and Bybit's closed-pnl confirms a
+        real close, the watchdog must finalise the trade as
+        ``status='closed'`` with the recovered exit_price + pnl + closed_at
+        — NOT orphan it with NULL pnl (which strands the close out of
+        /api/bot/trades/closed and unmatched against Bybit's own ledger).
+        The package is still force-closed (gate must clear).
+        """
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-watchdog-recover",
+            linked_trade_id=trade_id, age_minutes=45,
+        )
+
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ), patch(
+            "src.units.accounts.clients.account_has_broker_pnl_reader",
+            return_value=True,
+        ), patch(
+            "src.units.accounts.clients.account_closed_pnl_for_trade",
+            return_value={
+                "avg_exit_price": 80500.0,
+                "avg_entry_price": 80000.0,
+                "closed_pnl": 0.9795,
+                "qty": 0.005,
+                "side": "Sell",
+                "closed_at": "1762620000000",
+            },
+        ):
+            summary = _watchdog_stuck_strategies(tmp_db)
+
+        assert summary["auto_cleared"] == 1
+        assert summary["recovered_closed"] == 1
+        assert summary["errors"] == 0
+
+        # Package force-closed (gate clears) as before.
+        pkg = _read_package(tmp_db, "pkg-watchdog-recover")
+        assert pkg["status"] == "closed"
+
+        # Trade FINALISED as a real close — not orphaned.
+        trade = _read_trade_full(tmp_db, trade_id)
+        assert trade["status"] == "closed"
+        assert trade["exit_reason"] == "reconciler_filled"
+        assert abs(trade["exit_price"] - 80500.0) < 1e-6
+        assert abs(trade["pnl"] - 0.9795) < 1e-6
+        notes = json.loads(trade["notes"])
+        assert notes["exit_price_source"] == "bybit_closed_pnl"
+        assert notes["closed_by"] == "stuck_strategy_watchdog"
+        assert notes["closed_at"]
+
+    def test_position_flat_no_broker_record_falls_back_to_orphan(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """When the position is flat but Bybit's closed-pnl has NO matching
+        record (lookup returns None — e.g. retention expired, or a genuine
+        orphan with no real close), the watchdog falls back to the legacy
+        ``status='orphaned'`` mark. Recovery is best-effort and never
+        fabricates a close.
+        """
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-watchdog-norec",
+            linked_trade_id=trade_id, age_minutes=45,
+        )
+
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ), patch(
+            "src.units.accounts.clients.account_has_broker_pnl_reader",
+            return_value=True,
+        ), patch(
+            "src.units.accounts.clients.account_closed_pnl_for_trade",
+            return_value=None,
+        ):
+            summary = _watchdog_stuck_strategies(tmp_db)
+
+        assert summary["auto_cleared"] == 1
+        assert summary["recovered_closed"] == 0
+        assert summary["errors"] == 0
+
+        trade = _read_trade_full(tmp_db, trade_id)
+        assert trade["status"] == "orphaned"
+        assert trade["exit_reason"] == "stuck_strategy_watchdog"
+        assert trade["pnl"] is None
+
     def test_recent_package_not_touched(self, tmp_db, monkeypatch):
         """Defence boundary: a package stuck only 5 min (under the
         30 min default) must NOT be touched. The orphan reconciler
@@ -1854,6 +1957,7 @@ class TestStuckStrategyWatchdog:
         assert first["auto_cleared"] == 1
         assert second == {
             "checked": 0, "alerted": 0, "auto_cleared": 0,
+            "recovered_closed": 0,
             "deferred_position_alive": 0,
             "deferred_below_timeframe": 0,
             "skipped_position_read_failed": 0,
