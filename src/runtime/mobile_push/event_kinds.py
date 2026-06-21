@@ -118,6 +118,21 @@ SIGNAL_EMITTED: Final = "signal_emitted"
 #: operator can route/silence it on its own Android channel.
 PROP_SIGNAL: Final = "prop_signal"
 
+#: A Breakout prop ticket was reported FILLED / opened on the terminal — the
+#: inbound report-back the operator/executor posts after placing a ticket
+#: (manual-bridge P2). Payload: ``account, symbol, direction, qty, entry_price,
+#: ticket_id, external_order_id``. Emitted by ``src.prop.prop_report.ingest_report``.
+#: Distinct from the live ``trade_opened`` money event — prop is a third funding
+#: class, tracked separately.
+PROP_FILL: Final = "prop_fill"
+
+#: A Breakout prop trade was reported CLOSED — the trade-close follow-up the
+#: operator was missing (manual-bridge P2). Payload: ``account, symbol,
+#: direction, pnl, pnl_percent, exit_price, reason, ticket_id``. Emitted by
+#: ``src.prop.prop_report.ingest_report`` when a fill/close report carries
+#: ``status='closed'``. Distinct from the live ``trade_closed`` money event.
+PROP_CLOSED: Final = "prop_closed"
+
 
 #: Canonical list (insertion order = display order in the Android UI).
 #: The operator's four categories first, then the legacy / reserved
@@ -135,6 +150,8 @@ ALL_KINDS: Final[tuple[str, ...]] = (
     SERVICE_DOWN,
     SIGNAL_EMITTED,
     PROP_SIGNAL,
+    PROP_FILL,
+    PROP_CLOSED,
 )
 
 #: Human-readable label for each kind. Used by the Android UI to render
@@ -154,6 +171,8 @@ LABELS: Final[dict[str, str]] = {
     SERVICE_DOWN: "Service down (legacy)",
     SIGNAL_EMITTED: "Signal emitted",
     PROP_SIGNAL: "Prop trade setup",
+    PROP_FILL: "Prop trade filled",
+    PROP_CLOSED: "Prop trade closed",
 }
 
 #: One-line description per kind for the Android subscription screen.
@@ -170,6 +189,8 @@ DESCRIPTIONS: Final[dict[str, str]] = {
     SERVICE_DOWN: "Legacy — use Warning.",
     SIGNAL_EMITTED: "Each ICT detection — fires once per buy/sell signal.",
     PROP_SIGNAL: "Breakout prop-firm trade-setup tickets — entry/SL/TP to place.",
+    PROP_FILL: "A prop ticket reported filled/opened on the terminal.",
+    PROP_CLOSED: "A prop trade reported closed — PnL + exit reason.",
 }
 
 #: The subset of kinds whose payload semantics the bot already emits.
@@ -177,7 +198,8 @@ DESCRIPTIONS: Final[dict[str, str]] = {
 #: call site (e.g. someone refactors ``_fire_trade_closed_event`` away)
 #: is loud.
 IN_FLIGHT: Final[frozenset[str]] = frozenset(
-    {TRADE_OPENED, TRADE_UPDATED, TRADE_CLOSED, TELEGRAM, SIGNAL_EMITTED, PROP_SIGNAL}
+    {TRADE_OPENED, TRADE_UPDATED, TRADE_CLOSED, TELEGRAM, SIGNAL_EMITTED,
+     PROP_SIGNAL, PROP_FILL, PROP_CLOSED}
 )
 
 
@@ -204,6 +226,8 @@ __all__ = [
     "SERVICE_DOWN",
     "SIGNAL_EMITTED",
     "PROP_SIGNAL",
+    "PROP_FILL",
+    "PROP_CLOSED",
     "ALL_KINDS",
     "LABELS",
     "DESCRIPTIONS",

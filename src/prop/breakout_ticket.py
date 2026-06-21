@@ -13,10 +13,14 @@ operator-gated step.
 Hard invariants baked into every ticket (printed in the instruction block so
 they travel with the message regardless of which agent reads it):
   * SL + TP attached at entry — never place without both.
-  * Supervised confirm — review the filled order before submit.
   * Validity guards — abort if past ``valid_until`` or if live price is outside
     the entry band.
   * Do not manage the exit — the broker-side bracket is the exit.
+
+The ticket does NOT ask the executor to pause for operator confirmation before
+submitting — the prop bridge is meant to run as automatically as the executor
+allows. The broker-side bracket (SL+TP at entry) + the TTL / entry-band validity
+guards are the safety net, not a manual confirm step.
 """
 from __future__ import annotations
 
@@ -134,7 +138,7 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None) -> str:
     lines = [
         "BREAKOUT TRADE SETUP — place a BRACKET order on the Breakout terminal.",
         "RULES (do all): attach SL **and** TP at entry; never place without both. "
-        "Pause for my confirmation before you submit. If now is past 'Valid until' "
+        "If now is past 'Valid until' "
         "OR the live price is outside the entry band, DO NOT place — reply "
         "'skipped: stale/out-of-range'. Do NOT manage the exit yourself — the "
         "bracket is the exit.",

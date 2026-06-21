@@ -418,7 +418,12 @@ trade_journal.db        — canonical SQLite (live VM: /data/bot-data/trade_jour
                           drawdown%, open-trades-count — keyed by
                           (order_package_id, account_id); S-MLOPT-S12 Part B,
                           best-effort writer in src.units.accounts.context_snapshot,
-                          gated by ACCOUNT_CONTEXT_SNAPSHOTS_DISABLED).
+                          gated by ACCOUNT_CONTEXT_SNAPSHOTS_DISABLED),
+                          prop_tickets / prop_fills / prop_account_status
+                          (Breakout manual-bridge P2/P3 — outbound prop tickets,
+                          inbound fill/close + account-status report-backs;
+                          ISOLATED from `trades` so prop never leaks into the
+                          real-money/paper KPIs; src/prop/prop_journal.py).
 trainer_store.db        — federated read-mostly sidecar (live VM:
                           /data/bot-data/trainer_store.db). Trainer/ML lifecycle
                           data ingested from runtime_logs/trainer_mirror/:
@@ -489,6 +494,11 @@ Unauthenticated GET routes — Tier 1 read surface. See
 | `GET /api/pnl/history?days=N&account_id=X` | `PnlHistoryPoint[]` (S-063) — `account_id=X` scopes to one account (default: all real-money accounts; **paper excluded** via the `account_class`-aware predicate, falling back to `is_demo` for un-backfilled rows). | `trade_journal.db` (closed trades, realised PnL per UTC day) |
 | `GET /api/bot/news/recent?limit=N` | `{present, log_path, count, records[]}` — newest-first tail of the M9 news layer's shadow-soak log (per-actionable-signal decision/adjustment/veto/query/symbol + applied influence downsizes). `present:false` until the layer is active (`NEWS_SOURCE=rss`, or `newsapi` + `NEWS_API_KEY`). Tier 1 | `runtime_logs/news_decisions.jsonl` (written by `src.news.news_audit` + `src.runtime.news_sizing`) |
 | `GET /api/bot/exit-ladder/soak?limit=N&venue=api\|prop&account_id=X&differing=BOOL` | `{present, log_path, count, records[], summary{total_scanned, by_venue, differing, differing_pct}}` — newest-first tail of the **ExitPlan exit-ladder shadow-soak** (dynamic-take-profit consistency P3). One row per executed order: the **laddered exit that would be used** (materialized ExitPlan sized to the order's real qty) vs the **single SL/TP target actually placed** (`differs_from_single_target`). Observe-only — nothing reads it back to drive an exit (graduation to the real laddered exit is the backtest-gated P4). `present:false` until the first live opening order writes a row. Tier 1 | `runtime_logs/exit_ladder_soak.jsonl` (written by `src.runtime.exit_ladder_soak` from `execute.py` (venue=api) + `breakout_executor.py` (venue=prop)) |
+| `POST /api/bot/prop/report` | ingest the **inbound prop fill/close or account-status report-back** (Breakout manual-bridge P2). Body is JSON: a **fill/close** (`account_id, symbol, direction, status∈{open,filled,closed,skipped}, entry_price, exit_price, qty, pnl, pnl_percent, reason, ticket_id?`) or an **account status** (`kind:"account_status", account_id, balance, equity, realized_today, unrealized, day_start_balance?`). A `status:"closed"` fill fires the `prop_closed` notification (the trade-close follow-up). Writes the prop journal, links the fill to its outbound ticket, advances the ticket lifecycle. **Tier 2** (DB write + notification); **token-gated via `DASHBOARD_API_TOKEN`** when set. 400 on a structurally-bad report. | `trade_journal.db::{prop_fills,prop_account_status,prop_tickets}` via `src.prop.prop_report.ingest_report` |
+| `GET /api/bot/prop/fills?account_id=X&limit=N` | `{present, count, fills[]}` — inbound prop fill/close reports, newest-first | `trade_journal.db::prop_fills` |
+| `GET /api/bot/prop/tickets?account_id=X&status=Y&limit=N` | `{present, count, tickets[]}` — OUTBOUND prop tickets the bot emitted (`emitted`/`filled`/`closed`/`skipped`), newest-first | `trade_journal.db::prop_tickets` (written by `breakout_executor.emit_prop_ticket`) |
+| `GET /api/bot/prop/status?account_id=X` | `{account_id, present, status, rule_distance}` — latest account-status snapshot + **computed rule-distance**: distance to the daily-loss limit ($150 = 3% on the $5k account) and the static-DD floor ($300 / $4700 floor), resolved from the account's prop ruleset. Drives the dashboard rule-distance panel. Null any value not derivable from the snapshot. Tier 1 | `trade_journal.db::prop_account_status` + `config/prop_rulesets/breakout.yaml` |
+| `GET /api/bot/prop/reconcile?account_id=X` | `{present, summary{tickets_total, fills_total, unacted_count}, unacted_tickets[]}` — **un-acted tickets** (emitted, past `valid_until`, no matching fill reported back) — the P3 drift alert. Tier 1 | `trade_journal.db::{prop_tickets,prop_fills}` via `src.prop.prop_reconcile` |
 
 ### `BotStats` shape
 ```json
