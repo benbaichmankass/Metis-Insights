@@ -63,6 +63,10 @@ from src.runtime.strategy_signal_builders import (
     ief_pullback_1d_signal_builder,
     gld_pullback_1h_signal_builder,
     slv_trend_1h_signal_builder,
+    spy_pullback_1h_signal_builder,
+    qqq_pullback_1h_signal_builder,
+    tlt_pullback_1h_signal_builder,
+    uso_trend_1h_signal_builder,
     eth_pullback_2h_signal_builder,
     sol_pullback_2h_signal_builder,
     xrp_pullback_2h_signal_builder,
@@ -192,6 +196,16 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # the sole strategy on its (symbol, timeframe), so arbitration never fires.
         "gld_pullback_1h": gld_pullback_1h_signal_builder,
         "slv_trend_1h": slv_trend_1h_signal_builder,
+        # Intraday ETF rollout 2b (2026-06-20 § 0e, Tier-3) — completes the
+        # intraday ETF-breadth sleeve (6 cells total with the pilot): SPY/QQQ/TLT
+        # 1h BIDIRECTIONAL pullback (gld_pullback_1h siblings) + USO 1h LONG-ONLY
+        # Donchian trend (the both-sides variant was REJECTED in the sweep, so
+        # USO is long-only). Each is the sole strategy on its (symbol, timeframe),
+        # so arbitration never fires.
+        "spy_pullback_1h": spy_pullback_1h_signal_builder,
+        "qqq_pullback_1h": qqq_pullback_1h_signal_builder,
+        "tlt_pullback_1h": tlt_pullback_1h_signal_builder,
+        "uso_trend_1h": uso_trend_1h_signal_builder,
         # eth_pullback_2h — M15 WS-C alt sleeve (2026-06-11): ETH/USDT 2h
         # HTF-pullback on bybit_1 (demo, paper money), reusing the
         # htf_pullback_trend_2h unit at the live BTC params. Sole strategy

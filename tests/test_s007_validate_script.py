@@ -157,6 +157,9 @@ def test_run_checks_strategies_match_roster():
         "iwm_trend_long_1d", "tlt_pullback_1d", "ief_pullback_1d",
         # Intraday ETF pilot (2026-06-20 § 0e, Tier-3) — 2 new INTRADAY ETF cells:
         "gld_pullback_1h", "slv_trend_1h",
+        # Intraday ETF rollout 2b (2026-06-20 § 0e, Tier-3) — 4 cells completing
+        # the intraday ETF sleeve (SPY/QQQ/TLT 1h pullback + USO 1h long-only trend):
+        "spy_pullback_1h", "qqq_pullback_1h", "tlt_pullback_1h", "uso_trend_1h",
         "eth_pullback_2h",
         "trend_donchian_sol", "trend_donchian_eth",
         # 9 paper_ready alt cells on bybit_1 DEMO (2026-06-18, Tier-3):

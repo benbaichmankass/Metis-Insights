@@ -1318,6 +1318,116 @@ strategies:
     min_confidence: 0.0
     shadow_model_ids: []
 
+  spy_pullback_1h:
+    # SPY INTRADAY (1h) HTF-pullback (bidirectional) — round 2b completing the
+    # intraday ETF sleeve (same logic as gld_pullback_1h, the
+    # htf_pullback_trend_2h unit, on SPY). PROVENANCE: intraday 1h ETF sweep
+    # 2026-06-20 § 0e — SPY pullback frac618 +42R / 2x-fee +30.6R
+    # (see docs/research/expansion-backtesting-research-2026-06-20.md).
+    # Round 2b completing the intraday ETF sleeve (operator-approved, risk_pct
+    # 0.3). Runs on alpaca_paper (PAPER money) with bracket orders (broker-side
+    # SL/TP); the builder gates on the US cash session (market_hours us_equity).
+    # execution: live per the paper-accounts-execute operator policy.
+    model: null
+    signal_prefixes: [spy_pullback]
+    enabled: true
+    execution: live
+    risk_pct: 0.3
+    timeframe: "1h"
+    symbols:
+      - SPY
+    trend_lookback: 60
+    pullback_lookback: 12
+    pullback_frac: 0.618
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  qqq_pullback_1h:
+    # QQQ INTRADAY (1h) HTF-pullback (bidirectional) — round 2b completing the
+    # intraday ETF sleeve (gld_pullback_1h sibling on QQQ, same frac618 params
+    # as spy_pullback_1h). PROVENANCE: intraday 1h ETF sweep 2026-06-20 § 0e —
+    # QQQ pullback frac618 +45.3R / 2x-fee +36.7R
+    # (see docs/research/expansion-backtesting-research-2026-06-20.md).
+    # Round 2b completing the intraday ETF sleeve (operator-approved, risk_pct
+    # 0.3). Runs on alpaca_paper (PAPER money) with bracket orders (broker-side
+    # SL/TP); the builder gates on the US cash session (market_hours us_equity).
+    # execution: live per the paper-accounts-execute operator policy.
+    model: null
+    signal_prefixes: [qqq_pullback]
+    enabled: true
+    execution: live
+    risk_pct: 0.3
+    timeframe: "1h"
+    symbols:
+      - QQQ
+    trend_lookback: 60
+    pullback_lookback: 12
+    pullback_frac: 0.618
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  tlt_pullback_1h:
+    # TLT INTRADAY (1h) HTF-pullback (bidirectional) — round 2b completing the
+    # intraday ETF sleeve (gld_pullback_1h sibling on the long-duration Treasury
+    # bond ETF; frac 0.5, trail 4.0). PROVENANCE: intraday 1h ETF sweep
+    # 2026-06-20 § 0e — TLT pullback trail4 +50.6R / 2x-fee +34R
+    # (see docs/research/expansion-backtesting-research-2026-06-20.md).
+    # Round 2b completing the intraday ETF sleeve (operator-approved, risk_pct
+    # 0.3). Runs on alpaca_paper (PAPER money) with bracket orders (broker-side
+    # SL/TP); the builder gates on the US cash session (market_hours us_equity).
+    # execution: live per the paper-accounts-execute operator policy.
+    model: null
+    signal_prefixes: [tlt_pullback_1h]
+    enabled: true
+    execution: live
+    risk_pct: 0.3
+    timeframe: "1h"
+    symbols:
+      - TLT
+    trend_lookback: 60
+    pullback_lookback: 12
+    pullback_frac: 0.5
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 4.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  uso_trend_1h:
+    # USO INTRADAY (1h) LONG-ONLY Donchian trend-follower — round 2b completing
+    # the intraday ETF sleeve. Structurally a clone of spy_trend_long_1d /
+    # iwm_trend_long_1d (the trend_donchian unit) and LONG-ONLY (the builder
+    # keeps the short-suppression block; the both-sides USO variant was REJECTED
+    # in the sweep). PROVENANCE: intraday 1h ETF sweep 2026-06-20 § 0e — USO
+    # trend donch24 long-only +39.5R / 2x-fee +35.2R
+    # (see docs/research/expansion-backtesting-research-2026-06-20.md).
+    # Round 2b completing the intraday ETF sleeve (operator-approved, risk_pct
+    # 0.3). Runs on alpaca_paper (PAPER money) with bracket orders (broker-side
+    # SL/TP); the builder gates on the US cash session (market_hours us_equity).
+    # execution: live per the paper-accounts-execute operator policy.
+    model: null
+    signal_prefixes: [uso_trend]
+    enabled: true
+    execution: live
+    long_only: true
+    risk_pct: 0.3
+    timeframe: "1h"
+    symbols:
+      - USO
+    donchian: 24
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 4.0
+    tp_r: 50.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
   eth_pullback_2h:
     # ETH/USDT 2h HTF-pullback (bidirectional) — M15 WS-C alt sleeve: the
     # strongest cell of the alt generalization sweep
