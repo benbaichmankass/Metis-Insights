@@ -520,9 +520,14 @@ accounts:
       - gld_pullback_1h                # Intraday ETF pilot (2026-06-20 § 0e,
       - slv_trend_1h                   # Tier-3): GLD 1h pullback + SLV 1h
                                        # bidirectional trend (paper money).
-    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV]   # instrument identity (Phase-0 +
+      - spy_pullback_1h                # Intraday ETF rollout 2b (2026-06-20
+      - qqq_pullback_1h                # § 0e, Tier-3): SPY/QQQ/TLT 1h
+      - tlt_pullback_1h                # bidirectional pullback + USO 1h
+      - uso_trend_1h                   # LONG-ONLY trend (paper money).
+    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO]   # instrument identity (Phase-0 +
                                        # ETF-breadth daily 2026-06-20 + intraday
-                                       # ETF pilot 2026-06-20 § 0e adds SLV).
+                                       # ETF pilot 2026-06-20 § 0e adds SLV +
+                                       # rollout 2b 2026-06-20 § 0e adds USO).
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity

@@ -220,6 +220,13 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # value 0 mirrors the other single-symbol ETF legs.
     "gld_pullback_1h": 0,
     "slv_trend_1h": 0,
+    # Intraday ETF rollout 2b (2026-06-20 § 0e) — SPY/QQQ/TLT 1h pullback + USO
+    # 1h long-only trend on alpaca_paper. Each sole on its (symbol, timeframe),
+    # value 0 mirrors the other single-symbol ETF legs.
+    "spy_pullback_1h": 0,
+    "qqq_pullback_1h": 0,
+    "tlt_pullback_1h": 0,
+    "uso_trend_1h": 0,
     # eth_pullback_2h — M15 WS-C alt sleeve (2026-06-11); sole strategy on
     # ETHUSDT (bybit_1 demo), value 0 mirrors the other single-symbol legs.
     "eth_pullback_2h": 0,
