@@ -117,12 +117,21 @@ full autonomy** — reinforcing the rules below.
 Rules **every** executor must honor (printed in the ticket itself, so it travels
 with the message regardless of which agent gets it):
 - **Bracket SL+TP attached at entry — never place without both.**
-- **Supervised confirm** — review the filled order before submitting; agentic
-  browsers misclick, and this is a $5k account that breaches permanently.
 - **Honor the validity guards** (TTL + entry band; abort if stale / out-of-range).
 - The executor must be **logged into DXTrade** and able to **read the live price**
   (to check the entry band).
 - **Do not manage the exit** — the broker-side bracket is the exit.
+
+> **Update 2026-06-21 — no manual confirmation pause.** The ticket previously
+> printed a "pause for my confirmation before you submit" rule. That was removed
+> at operator direction: the prop bridge is meant to run as automatically as the
+> executor allows, not gate on a manual per-trade confirm. The safety net is the
+> **broker-side bracket (SL+TP at entry)** plus the **TTL / entry-band validity
+> guards** baked into every ticket — those survive a dropped session and bound a
+> stale/out-of-range fill — so the per-trade human confirm was redundant friction
+> against the automation goal. The agentic-browser caveats below are retained as
+> background, but "supervised confirm is mandatory" is no longer an invariant of
+> the ticket.
 
 ## Signal validity / staleness guards (outbound ticket)
 

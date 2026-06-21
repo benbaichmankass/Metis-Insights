@@ -59,7 +59,11 @@ def test_render_contains_invariants():
     # The hard invariants must travel in the message text.
     assert "BRACKET" in out
     assert "SL" in out and "TP" in out
-    assert "confirmation before you submit" in out
+    # The manual "pause for confirmation" step was intentionally removed — the
+    # prop bridge runs as automatically as the executor allows; the bracket +
+    # validity guards are the safety net, not a manual confirm.
+    assert "confirmation before you submit" not in out
+    assert "Pause for my confirmation" not in out
     assert "skipped: stale/out-of-range" in out
     assert "Valid until" in out
     assert "BTCUSD" in out
