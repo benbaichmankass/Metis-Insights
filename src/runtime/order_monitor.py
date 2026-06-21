@@ -3440,6 +3440,98 @@ def _pkg_age_minutes(updated_at: Any) -> Optional[float]:
     return delta.total_seconds() / 60.0
 
 
+def _recover_close_from_broker_pnl(
+    trade_row: Any,
+    cfg: Optional[Dict[str, Any]],
+    now_iso: str,
+) -> Optional[Dict[str, Any]]:
+    """Best-effort: turn a position-flat trade into a finalised CLOSE using
+    the broker's authoritative closed-pnl record, instead of orphaning it.
+
+    Used by :func:`_watchdog_stuck_strategies` for the position-flat branch.
+    Mirrors the recovery the forward reconciler's close path
+    (:func:`_close_trade_from_order_status`) and the one-shot
+    ``scripts/ops/backfill_orphan_pnl.py`` already perform — same
+    :func:`account_closed_pnl_for_trade` lookup, same write shape.
+
+    Returns the ``update_trade`` dict (status='closed' + exit_price + pnl +
+    closed_at + audit notes) on a confident broker close, or ``None`` when
+    recovery isn't possible/safe (no cfg, no broker reader, lookup miss,
+    degenerate/missing fill) so the caller falls back to the legacy orphan
+    mark. Fail-safe: every failure path returns ``None``; it never raises.
+    """
+    if cfg is None or trade_row is None:
+        return None
+    try:
+        from src.units.accounts.clients import (
+            account_closed_pnl_for_trade,
+            account_has_broker_pnl_reader,
+        )
+        # Only broker-truth integrations (Bybit today) have a closed-pnl
+        # endpoint to recover from; everything else stays on the orphan path
+        # (the local-PnL sweep fills those rows' pnl separately).
+        if not account_has_broker_pnl_reader(cfg):
+            return None
+
+        opened_at_ms = _isoformat_to_ms(trade_row["created_at"])
+        if opened_at_ms is None:
+            return None
+
+        rec = account_closed_pnl_for_trade(
+            cfg,
+            symbol=str(trade_row["symbol"] or ""),
+            direction=str(trade_row["direction"] or ""),
+            opened_at_ms=opened_at_ms,
+            qty=_safe_float(trade_row["position_size"]),
+            entry_price=_safe_float(trade_row["entry_price"]),
+        )
+    except Exception as exc:  # noqa: BLE001 — best-effort; fall back to orphan
+        logger.warning(
+            "_recover_close_from_broker_pnl: lookup raised for trade_id=%s: %s",
+            (trade_row["id"] if trade_row is not None else None), exc,
+        )
+        return None
+
+    if rec is None:
+        return None
+    avg_exit_price = rec.get("avg_exit_price")
+    if not avg_exit_price or float(avg_exit_price) <= 0:
+        return None
+    closed_pnl = rec.get("closed_pnl")
+    if closed_pnl is None:
+        return None
+
+    closed_at = (
+        str(rec.get("closed_at")) if rec.get("closed_at") else now_iso
+    )
+    notes = _decode_notes(trade_row["notes"])
+    notes.update({
+        "closed_at": closed_at,
+        "closed_by": "stuck_strategy_watchdog",
+        "closed_reason": (
+            "watchdog — position flat at exchange; recovered the real close "
+            "from Bybit closed-pnl rather than orphaning"
+        ),
+        "exit_price_source": "bybit_closed_pnl",
+        "bybit_closed_pnl": closed_pnl,
+    })
+    updates: Dict[str, Any] = {
+        "status": "closed",
+        "exit_reason": "reconciler_filled",
+        "exit_price": float(avg_exit_price),
+        "pnl": round(float(closed_pnl), 4),
+        "closed_at": closed_at,
+        "notes": dump_capped(notes, 500),
+    }
+    entry = _safe_float(trade_row["entry_price"])
+    qty = _safe_float(trade_row["position_size"])
+    if entry and qty and entry * qty > 0:
+        updates["pnl_percent"] = round(
+            float(closed_pnl) / (entry * qty) * 100, 4
+        )
+    return updates
+
+
 def _watchdog_stuck_strategies(db) -> Dict[str, int]:
     """Detect + recover packages stuck at ``status='open'`` AND
     ``linked_trade_id IS NOT NULL`` for longer than the configured
@@ -3506,6 +3598,10 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
         "checked": 0,
         "alerted": 0,
         "auto_cleared": 0,
+        # Position-flat trades rescued from the orphan path by a confirmed
+        # broker closed-pnl recovery (finalised status='closed' with real
+        # exit_price+pnl rather than orphaned with NULL pnl).
+        "recovered_closed": 0,
         "deferred_position_alive": 0,
         # Position-alive packages skipped because they haven't been
         # silent for their TIMEFRAME-scaled quiet window yet (a healthy
@@ -3574,7 +3670,8 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
             try:
                 db_conn.row_factory = __import__("sqlite3").Row
                 trade_row = db_conn.execute(
-                    "SELECT id, status, notes, account_id "
+                    "SELECT id, status, notes, account_id, symbol, "
+                    "       direction, position_size, entry_price, created_at "
                     "FROM trades WHERE id=?",
                     (trade_id,),
                 ).fetchone()
@@ -3702,22 +3799,69 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
             summary["errors"] += 1
 
         # Cascade the linked trade if it's still open.
+        #
+        # BL-20260620-WATCHDOGORPHAN: a position that reads FLAT at a
+        # broker-truth exchange (Bybit) most often means the broker-side
+        # SL/TP already CLOSED it — a real exit with a realised PnL Bybit
+        # still holds in /v5/position/closed-pnl (7-day retention). The
+        # forward reconciler (_reconcile_open_trades) finalises that case
+        # as status='closed' via _close_trade_from_order_status, but it
+        # is bypassed whenever account_order_status can no longer resolve
+        # the aged entry order (returns not_found). The trade then survives
+        # to here and was force-marked 'orphaned' with NULL pnl — invisible
+        # to /api/bot/trades/closed and unmatched against Bybit's own
+        # closed-pnl (the bybit_2 "missing close" the scripts/ops/
+        # backfill_orphan_pnl.py one-shot was written to repair after the
+        # fact). PR #1299 closed the forward-reconciler half of this but
+        # left this watchdog branch un-recovered, so new orphans of the
+        # exact shape kept appearing (e.g. trade #2708, 2026-06-19).
+        #
+        # So before orphaning, try the same closed-pnl recovery the close
+        # path uses: if Bybit confirms a real close, finalise the row as
+        # 'closed' with the recovered exit_price + pnl + closed_at. Only
+        # when no broker close record exists (lookup None / no broker
+        # reader / read error) do we fall back to the legacy 'orphaned'
+        # mark. Fail-safe: any error in the recovery attempt drops cleanly
+        # to the orphan path — the gate has already cleared (package
+        # force-closed above), so the trader is never stranded.
         try:
             if trade_row and str(trade_row["status"]) == "open":
-                trade_notes = _decode_notes(trade_row["notes"])
-                trade_notes.update({
-                    "orphaned_at": now_iso,
-                    "orphaned_by": "stuck_strategy_watchdog",
-                    "orphaned_reason": (
-                        "watchdog — package stuck > "
-                        f"{int(threshold_minutes)} min; gate was blocked"
-                    ),
-                })
-                db.update_trade(int(trade_row["id"]), {
-                    "status": "orphaned",
-                    "exit_reason": "stuck_strategy_watchdog",
-                    "notes": dump_capped(trade_notes, 500),
-                })
+                recovered = _recover_close_from_broker_pnl(
+                    trade_row, cfg, now_iso,
+                )
+                if recovered is not None:
+                    db.update_trade(int(trade_row["id"]), recovered)
+                    _cascade_close_linked_package(
+                        db, trade_row["id"],
+                        close_reason="reconciler_filled",
+                        caller="_watchdog_stuck_strategies(broker_pnl_recovery)",
+                    )
+                    summary["recovered_closed"] = (
+                        summary.get("recovered_closed", 0) + 1
+                    )
+                    logger.warning(
+                        "_watchdog_stuck_strategies: RECOVERED close via "
+                        "broker closed-pnl instead of orphaning — trade_id=%s "
+                        "account=%s symbol=%s side=%s pnl=%s (position flat at "
+                        "exchange; Bybit closed-pnl confirmed a real close)",
+                        trade_row["id"], aid, symbol, direction,
+                        recovered.get("pnl"),
+                    )
+                else:
+                    trade_notes = _decode_notes(trade_row["notes"])
+                    trade_notes.update({
+                        "orphaned_at": now_iso,
+                        "orphaned_by": "stuck_strategy_watchdog",
+                        "orphaned_reason": (
+                            "watchdog — package stuck > "
+                            f"{int(threshold_minutes)} min; gate was blocked"
+                        ),
+                    })
+                    db.update_trade(int(trade_row["id"]), {
+                        "status": "orphaned",
+                        "exit_reason": "stuck_strategy_watchdog",
+                        "notes": dump_capped(trade_notes, 500),
+                    })
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "_watchdog_stuck_strategies: trade cascade failed for "
@@ -3749,17 +3893,19 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
     if (
         summary["auto_cleared"]
         or summary["alerted"]
+        or summary["recovered_closed"]
         or summary["deferred_position_alive"]
         or summary["deferred_below_timeframe"]
         or summary["skipped_position_read_failed"]
     ):
         logger.info(
             "_watchdog_stuck_strategies: checked=%d alerted=%d "
-            "auto_cleared=%d deferred_position_alive=%d "
+            "auto_cleared=%d recovered_closed=%d deferred_position_alive=%d "
             "deferred_below_timeframe=%d "
             "skipped_position_read_failed=%d "
             "errors=%d (floor=%d min mult=%.1f)",
             summary["checked"], summary["alerted"], summary["auto_cleared"],
+            summary["recovered_closed"],
             summary["deferred_position_alive"],
             summary["deferred_below_timeframe"],
             summary["skipped_position_read_failed"],

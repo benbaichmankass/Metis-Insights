@@ -17,8 +17,8 @@ Source of truth, in order:
      ``base_asset`` fields (so an *untagged* new instrument still classifies
      sensibly with no edit).
 
-Canonical class tokens: ``crypto``, ``index``, ``commodity``, ``equity``,
-``fx``, ``unknown``.
+Canonical class tokens: ``crypto``, ``index``, ``commodity``, ``bond``,
+``equity``, ``fx``, ``unknown``.
 """
 
 from __future__ import annotations
@@ -32,12 +32,13 @@ logger = logging.getLogger(__name__)
 CRYPTO = "crypto"
 INDEX = "index"
 COMMODITY = "commodity"
+BOND = "bond"
 EQUITY = "equity"
 FX = "fx"
 UNKNOWN = "unknown"
 
 # Display order the consumers iterate (stable, business-readable).
-CLASS_ORDER = [CRYPTO, INDEX, COMMODITY, EQUITY, FX, UNKNOWN]
+CLASS_ORDER = [CRYPTO, INDEX, COMMODITY, BOND, EQUITY, FX, UNKNOWN]
 
 # Heuristic roots (fallback only — the explicit override always wins). These
 # are base-asset / symbol roots, not an exhaustive registry; they exist so an
@@ -47,6 +48,10 @@ _INDEX_ROOTS = {"ES", "NQ", "YM", "RTY", "MES", "MNQ", "MYM", "M2K"}
 _COMMODITY_ROOTS = {
     "GC", "SI", "HG", "PL", "PA", "CL", "NG", "MGC", "MHG",
     "XAU", "XAG", "GLD", "SLV", "USO",
+}
+_BOND_ROOTS = {
+    "TLT", "IEF", "AGG", "BND", "LQD", "HYG", "SHY", "TLH", "IEI", "SHV",
+    "BNDX", "TIP",
 }
 _EQUITY_ROOTS = {"SPY", "QQQ", "IWM", "DIA", "VOO", "VTI"}
 
@@ -62,6 +67,8 @@ def _infer(symbol: str, exchange: str, category: str, base_asset: str) -> str:
     # (interactive_brokers / alpaca) is ambiguous on its own.
     if b in _COMMODITY_ROOTS or s in _COMMODITY_ROOTS:
         return COMMODITY
+    if b in _BOND_ROOTS or s in _BOND_ROOTS:
+        return BOND
     if b in _INDEX_ROOTS or s in _INDEX_ROOTS:
         return INDEX
     if e == "bybit" or c in ("linear", "inverse"):

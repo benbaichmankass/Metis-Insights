@@ -115,7 +115,7 @@ def test_instrument_profiles_route_to_alpaca():
         assert inst[sym]["qty_step"] == 1
         assert inst[sym]["tick_size"] == 0.01
     slv = inst["SLV"]
-    assert slv["asset_class"] == "equity"
+    assert slv["asset_class"] == "commodity"  # silver ETF (corrected from equity 2026-06-20)
     assert slv["contract_value_usd"] == 1.0
     assert slv["max_leverage"] == 4
     assert slv["display_name"] == "iShares Silver Trust ETF (Alpaca paper)"

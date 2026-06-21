@@ -19,7 +19,7 @@
 #   max_leverage:        maximum allowed leverage (0 = no cap / spot)
 #   display_name:        human-readable label for UI / logs
 #   asset_class:         OPTIONAL reporting override — crypto | index | commodity
-#                        | equity | fx. Consumed ONLY by the reporting layer
+#                        | bond | equity | fx. Consumed ONLY by the reporting layer
 #                        (src/web/api/_asset_class.py → /performance perAssetClass
 #                        breakdown); never the order path. When omitted it is
 #                        inferred from exchange/category/base_asset, so this is a
@@ -298,8 +298,8 @@ instruments:
     exchange: alpaca
     category: spot
     base_asset: TLT
-    asset_class: equity        # 20+yr Treasury-bond ETF (no "bond" class
-                               # token; bucketed as equity like any Alpaca ETF)
+    asset_class: bond          # 20+yr Treasury-bond ETF (reporting bucket;
+                               # never the order path)
     quote_currency: USD
     settlement_currency: USD
     tick_size: 0.01
@@ -313,8 +313,8 @@ instruments:
     exchange: alpaca
     category: spot
     base_asset: IEF
-    asset_class: equity        # 7-10yr Treasury-bond ETF (no "bond" class
-                               # token; bucketed as equity like any Alpaca ETF)
+    asset_class: bond          # 7-10yr Treasury-bond ETF (reporting bucket;
+                               # never the order path)
     quote_currency: USD
     settlement_currency: USD
     tick_size: 0.01
@@ -333,7 +333,7 @@ instruments:
     exchange: alpaca
     category: spot
     base_asset: SLV
-    asset_class: equity        # silver-tracking ETF
+    asset_class: commodity     # silver-tracking ETF
     quote_currency: USD
     settlement_currency: USD
     tick_size: 0.01
@@ -342,3 +342,23 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "iShares Silver Trust ETF (Alpaca paper)"
+
+  # ------------------------------------------------------------------
+  # Intraday ETF rollout 2b (2026-06-20 § 0e) — new Alpaca-paper crude-oil ETF
+  # for the uso_trend_1h cell (SPY/QQQ/TLT already have profiles above; the 1h
+  # pullback cells reuse them). Same whole-share / 2dp / alpaca-paper profile
+  # as GLD.
+  # ------------------------------------------------------------------
+  USO:
+    exchange: alpaca
+    category: spot
+    base_asset: USO
+    asset_class: commodity     # crude-oil-tracking ETF
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "United States Oil Fund ETF (Alpaca paper)"
