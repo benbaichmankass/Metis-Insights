@@ -247,6 +247,141 @@ def list_tickets(
         conn.close()
 
 
+def _prop_scope(account_id: Optional[str] = None) -> set:
+    """Resolve the strategy names that belong to prop accounts.
+
+    Prop tickets are journaled as ordinary ``order_packages`` (that table has no
+    account column), so we identify a prop ticket by the prop accounts'
+    configured strategy names — read from ``accounts.yaml`` via the canonical
+    loader, never hardcoded. ``account_id`` narrows to one account; otherwise the
+    union across every prop account.
+    """
+    try:
+        from src.config.accounts_loader import load_accounts_dict
+
+        accts = load_accounts_dict()
+    except Exception as exc:  # noqa: BLE001 — fail soft to "no scope"
+        logger.warning("prop_journal: accounts.yaml load failed: %s", exc)
+        return set()
+    strategies: set = set()
+    for aid, a in (accts or {}).items():
+        if not isinstance(a, dict):
+            continue
+        is_prop = (
+            str(a.get("exchange", "")).lower() == "breakout"
+            or str(a.get("account_class", "")).lower() == "prop"
+            or str(a.get("type", "")).lower() == "prop"
+            or bool(a.get("backtest_ruleset")
+                    and str(a.get("backtest_ruleset")) != "standard")
+        )
+        if not is_prop:
+            continue
+        if account_id and aid != account_id:
+            continue
+        for s in (a.get("strategies") or []):
+            strategies.add(str(s))
+    return strategies
+
+
+def list_outbound_tickets(
+    *, account_id: Optional[str] = None, status: Optional[str] = None,
+    limit: int = 100,
+) -> List[Dict[str, Any]]:
+    """The canonical 'prop tickets sent' view.
+
+    Single source of truth = ``order_packages`` (every prop decision is
+    journaled there), filtered to the prop accounts' strategies, **enriched** by
+    the ``prop_tickets`` sidecar (the rendered message + validity/qty captured at
+    emit time). Historical tickets emitted before the sidecar existed still show
+    up because ``order_packages`` has them — that was the wiring bug this
+    replaces. Any sidecar row without a matching order package is still
+    surfaced so nothing is hidden.
+    """
+    strategies = _prop_scope(account_id)
+    conn = _connect(read_only=True)
+    try:
+        present = {
+            r[0] for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        cap = max(int(limit) * 3, int(limit))
+        op_rows = []
+        if "order_packages" in present and strategies:
+            qmarks = ",".join("?" * len(strategies))
+            op_rows = conn.execute(
+                f"SELECT order_package_id, created_at, updated_at, strategy_name, "
+                f"symbol, direction, entry, sl, tp, status, close_reason, "
+                f"linked_trade_id FROM order_packages "
+                f"WHERE strategy_name IN ({qmarks}) "
+                f"ORDER BY created_at DESC LIMIT ?",
+                (*sorted(strategies), cap),
+            ).fetchall()
+        tk_rows = []
+        if "prop_tickets" in present:
+            tk_rows = conn.execute(
+                "SELECT * FROM prop_tickets ORDER BY created_at DESC LIMIT ?",
+                (cap,),
+            ).fetchall()
+    finally:
+        conn.close()
+
+    tk_by_op: Dict[str, Dict[str, Any]] = {}
+    tk_orphans: List[Dict[str, Any]] = []
+    for r in tk_rows:
+        d = _ticket_row(r)
+        opid = d.get("order_package_id")
+        if opid:
+            tk_by_op[opid] = d
+        else:
+            tk_orphans.append(d)
+
+    out: List[Dict[str, Any]] = []
+    seen: set = set()
+
+    def _emit(op: Optional[Dict[str, Any]], tk: Dict[str, Any]) -> Dict[str, Any]:
+        op = op or {}
+        return {
+            "order_package_id": op.get("order_package_id") or tk.get("order_package_id"),
+            "ticket_id": tk.get("ticket_id"),
+            "created_at": op.get("created_at") or tk.get("created_at"),
+            "signal_time": tk.get("signal_time") or op.get("created_at"),
+            "strategy": op.get("strategy_name") or tk.get("strategy"),
+            "symbol": op.get("symbol") or tk.get("symbol"),
+            "direction": op.get("direction") or tk.get("direction"),
+            "entry": op.get("entry") if op.get("entry") is not None else tk.get("entry"),
+            "sl": op.get("sl") if op.get("sl") is not None else tk.get("sl"),
+            "tp": op.get("tp") if op.get("tp") is not None else tk.get("tp"),
+            "qty": tk.get("qty"),
+            "risk_usd": tk.get("risk_usd"),
+            "valid_until": tk.get("valid_until"),
+            # Status: the sidecar's emission/fill lifecycle when known, else the
+            # order package's own status (open/closed/orphaned/rejected).
+            "status": tk.get("status") or op.get("status"),
+            "op_status": op.get("status"),
+            "close_reason": op.get("close_reason"),
+            "message": tk.get("message"),
+            "source": "order_package" if op else "prop_ticket",
+        }
+
+    for r in op_rows:
+        d = dict(r)
+        opid = d.get("order_package_id")
+        seen.add(opid)
+        out.append(_emit(d, tk_by_op.get(opid, {})))
+    # Sidecar tickets whose order package wasn't in the prop-strategy slice
+    # (e.g. a strategy renamed, or scope couldn't resolve) — surface anyway.
+    for opid, tk in tk_by_op.items():
+        if opid not in seen:
+            out.append(_emit(None, tk))
+    for tk in tk_orphans:
+        out.append(_emit(None, tk))
+
+    if status:
+        out = [r for r in out if str(r.get("status")) == status]
+    out.sort(key=lambda r: str(r.get("created_at") or ""), reverse=True)
+    return out[:limit]
+
+
 # ── Inbound fills ─────────────────────────────────────────────────────
 
 def insert_fill(fill: Dict[str, Any]) -> int:
