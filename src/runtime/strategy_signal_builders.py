@@ -3297,6 +3297,268 @@ def ief_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     return _with_signal_package("ief_pullback_1d", sig)
 
 
+def gld_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """GLD INTRADAY (1h) HTF-pullback (bidirectional) (intraday ETF sweep 2026-06-20).
+
+    Intraday (1h) sibling of gld_pullback_1d — the same gold-ETF bidirectional
+    HTF-pullback logic on the 1-hour timeframe. PROVENANCE: intraday 1h ETF
+    sweep (2026-06-20, § 0e) — GLD pullback trail4 was live_ready (+78.9R,
+    2x-fee +61.5R; see docs/research/expansion-backtesting-research-2026-06-20.md).
+    Pilot for the intraday ETF-breadth sleeve. Runs on the ``alpaca_paper``
+    account (PAPER money; bracket orders carry broker-side SL/TP). Reuses the
+    ``src.units.strategies.htf_pullback_trend_2h.order_package`` unit (trades
+    both directions — no long-only gate).
+
+    US-SESSION GATE: evaluation is skipped outside the US cash session
+    (``market_hours.is_market_open("us_equity")`` → side=none, reason
+    ``us_market_closed``) so closed-market candles never produce
+    entries. Fail-permissive on gate errors. Honours the YAML
+    ``enabled`` flag as the single source of truth.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.htf_pullback_trend_2h import order_package
+    from src.runtime.market_data import fetch_candles
+    from src.runtime.market_hours import is_market_open
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 - never fail-open on a config error
+        strategies_cfg = {}
+    cfg_yaml = strategies_cfg.get("gld_pullback_1h", {}) or {}
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "GLD"))
+
+    if not bool(cfg_yaml.get("enabled", False)):
+        logger.info("gld_pullback_1h: strategy disabled in config/strategies.yaml - returning side=none")
+        return _with_signal_package("gld_pullback_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "gld_pullback_1h", "reason": "disabled_in_yaml"},
+        })
+
+    try:
+        us_open = is_market_open("us_equity")
+    except Exception:  # noqa: BLE001 — gate is best-effort, never strands
+        us_open = True
+    if not us_open:
+        logger.info("gld_pullback_1h: US market closed - side=none")
+        return _with_signal_package("gld_pullback_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "gld_pullback_1h", "reason": "us_market_closed"},
+        })
+
+    timeframe = str(cfg_yaml.get("timeframe") or "1h")
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    if candles_df is None:
+        raise RuntimeError(
+            f"gld_pullback_1h: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the Alpaca connection is "
+            "configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("gld_pullback_1h: no actionable signal (%s)", exc)
+        try:
+            log_signal(_stamp_regime({
+                "event": "gld_pullback_1h_eval",
+                "strategy": "gld_pullback_1h",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            }, candles_df))
+        except Exception:  # noqa: BLE001
+            logger.exception("gld_pullback_1h: dedicated audit emit failed")
+        return _with_signal_package("gld_pullback_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "gld_pullback_1h", "reason": str(exc)},
+        })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "gld_pullback_1h: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal(_stamp_regime({
+            "event": "gld_pullback_1h_eval",
+            "strategy": "gld_pullback_1h",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        }, candles_df))
+    except Exception:  # noqa: BLE001
+        logger.exception("gld_pullback_1h: dedicated audit emit failed")
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "gld_pullback_1h",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "gld_pullback_1h",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
+        },
+    }
+    _emit_shadow_preds("gld_pullback_1h", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df, symbol=symbol, timeframe=timeframe)
+    return _with_signal_package("gld_pullback_1h", sig)
+
+
+def slv_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """SLV INTRADAY (1h) BIDIRECTIONAL Donchian trend-follower (intraday ETF sweep 2026-06-20).
+
+    Silver-ETF intraday (1h) Donchian trend leg. Structurally a clone of
+    spy_trend_long_1d (the ``trend_donchian`` unit) BUT trades BOTH directions
+    — silver trends down as well as up, so there is NO long-only suppression
+    here (buy for long, sell for short). PROVENANCE: intraday 1h ETF sweep
+    (2026-06-20, § 0e) — SLV trend both_donch24 was live_ready (+85.5R, 2x-fee
+    +77R; see docs/research/expansion-backtesting-research-2026-06-20.md). Pilot
+    for the intraday ETF-breadth sleeve. Runs on the ``alpaca_paper`` account
+    (PAPER money; bracket orders carry broker-side SL/TP). Reuses the
+    ``src.units.strategies.trend_donchian.order_package`` unit.
+
+    US-SESSION GATE: evaluation is skipped outside the US cash session
+    (``market_hours.is_market_open("us_equity")`` → side=none, reason
+    ``us_market_closed``) so closed-market candles never produce
+    entries. Fail-permissive on gate errors. Honours the YAML
+    ``enabled`` flag as the single source of truth.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.trend_donchian import order_package
+    from src.runtime.market_data import fetch_candles
+    from src.runtime.market_hours import is_market_open
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 - never fail-open on a config error
+        strategies_cfg = {}
+    cfg_yaml = strategies_cfg.get("slv_trend_1h", {}) or {}
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "SLV"))
+
+    if not bool(cfg_yaml.get("enabled", False)):
+        logger.info("slv_trend_1h: strategy disabled in config/strategies.yaml - returning side=none")
+        return _with_signal_package("slv_trend_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "slv_trend_1h", "reason": "disabled_in_yaml"},
+        })
+
+    try:
+        us_open = is_market_open("us_equity")
+    except Exception:  # noqa: BLE001 — gate is best-effort, never strands
+        us_open = True
+    if not us_open:
+        logger.info("slv_trend_1h: US market closed - side=none")
+        return _with_signal_package("slv_trend_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "slv_trend_1h", "reason": "us_market_closed"},
+        })
+
+    timeframe = str(cfg_yaml.get("timeframe") or "1h")
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    if candles_df is None:
+        raise RuntimeError(
+            f"slv_trend_1h: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the Alpaca connection is "
+            "configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("slv_trend_1h: no actionable signal (%s)", exc)
+        try:
+            log_signal(_stamp_regime({
+                "event": "slv_trend_1h_eval",
+                "strategy": "slv_trend_1h",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            }, candles_df))
+        except Exception:  # noqa: BLE001
+            logger.exception("slv_trend_1h: dedicated audit emit failed")
+        return _with_signal_package("slv_trend_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "slv_trend_1h", "reason": str(exc)},
+        })
+
+    # BIDIRECTIONAL: no long-only suppression — silver trends both ways, so
+    # both the long and short sides are traded (the validated short side was
+    # net-positive in the intraday 1h sweep).
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "slv_trend_1h: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal(_stamp_regime({
+            "event": "slv_trend_1h_eval",
+            "strategy": "slv_trend_1h",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        }, candles_df))
+    except Exception:  # noqa: BLE001
+        logger.exception("slv_trend_1h: dedicated audit emit failed")
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "slv_trend_1h",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "slv_trend_1h",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
+        },
+    }
+    _emit_shadow_preds("slv_trend_1h", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df, symbol=symbol, timeframe=timeframe)
+    return _with_signal_package("slv_trend_1h", sig)
+
+
 def _htf_pullback_variant_builder(
     name: str, settings: dict, *, default_symbol: str = "",
 ) -> Dict[str, Any]:
@@ -3512,6 +3774,11 @@ for _builder, _monitor_unit in (
     # bond-pullback siblings of gld (reuse the htf_pullback_trend_2h unit).
     (tlt_pullback_1d_signal_builder, "htf_pullback_trend_2h"),
     (ief_pullback_1d_signal_builder, "htf_pullback_trend_2h"),
+    # gld_pullback_1h / slv_trend_1h — intraday 1h ETF pilot (2026-06-20 § 0e):
+    # GLD 1h bidirectional pullback (htf_pullback_trend_2h unit) + SLV 1h
+    # bidirectional Donchian trend (trend_donchian unit, both-sides).
+    (gld_pullback_1h_signal_builder, "htf_pullback_trend_2h"),
+    (slv_trend_1h_signal_builder, "trend_donchian"),
     (eth_pullback_2h_signal_builder, "htf_pullback_trend_2h"),
     # pullback_2h alt cells — bybit_1 demo soak (paper_ready, 2026-06-18).
     (sol_pullback_2h_signal_builder, "htf_pullback_trend_2h"),

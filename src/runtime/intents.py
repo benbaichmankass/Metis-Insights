@@ -215,6 +215,11 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     "iwm_trend_long_1d": 0,
     "tlt_pullback_1d": 0,
     "ief_pullback_1d": 0,
+    # Intraday ETF pilot (2026-06-20 § 0e) — GLD 1h pullback + SLV 1h
+    # bidirectional trend on alpaca_paper. Each sole on its (symbol, timeframe),
+    # value 0 mirrors the other single-symbol ETF legs.
+    "gld_pullback_1h": 0,
+    "slv_trend_1h": 0,
     # eth_pullback_2h — M15 WS-C alt sleeve (2026-06-11); sole strategy on
     # ETHUSDT (bybit_1 demo), value 0 mirrors the other single-symbol legs.
     "eth_pullback_2h": 0,
