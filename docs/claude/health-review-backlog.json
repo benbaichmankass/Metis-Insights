@@ -2097,23 +2097,23 @@
       "opened_at": "2026-06-21T17:35:00+00:00",
       "opened_by": "claude (/health-review 2026-06-21)",
       "source": "Live diag trades pull (issue #4091): breakout_1 (account_class=prop, exchange=breakout) trades #2734/#2735/#2736 (trend_donchian_sol/eth) carry status=exchange_rejected with 'RuntimeError: unsupported exchange \\'breakout\\' (expected bybit/oanda/alpaca/ib...)'. The prop account's orders are reaching the STANDARD exchange dispatcher (integrator EXCHANGE_MAP) instead of the breakout_executor prop-ticket path (src/prop/breakout_executor.py, which should return a prop-manual-<uuid> marker + emit a Telegram/FCM prop_signal ticket).",
-      "severity": "high",
-      "title": "breakout_1 prop orders routed to standard exchange executor -> 'unsupported exchange breakout' exchange_rejected (prop tickets may not be emitting)",
+      "severity": "low",
+      "title": "[RESOLVED-already-fixed] breakout_1 prop exchange_rejected rows predate the #4029 routing fix",
       "description": "Prop POC routes trend_donchian_sol (execution: live) + trend_donchian_eth on breakout_1 via Telegram-ping ticket, NOT a broker API. The exchange_rejected rows indicate the dispatch is hitting the standard integrator (no 'breakout' in EXCHANGE_MAP) and erroring, so the prop ticket may be lost rather than emitted. Verify whether emit_prop_ticket still fires (pull /api/bot/prop/tickets) and fix the routing so a breakout/prop account NEVER reaches the standard exchange path. Tier-2 order-path wiring; propose fix, operator-approve. If tickets ARE emitting in parallel and exchange_rejected is a benign artifact, downgrade + document.",
       "tier": "2",
-      "status": "open",
-      "resolved_at": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-21T18:05:00+00:00",
+      "resolution": "FALSE ALARM / already fixed. Root-caused 2026-06-21: the exchange_rejected rows #2734-2736 are dated 2026-06-20 04:38-05:14 UTC, which PREDATE the fix 'f47b039 fix(coordinator): route live prop-breakout dispatch to the ticket emitter (#4029)' merged 2026-06-20 05:56:59 UTC (now in deployed 49ceb76). Current code handles exchange=='breakout' in coordinator.multi_account_execute (client=None, no client_error), execute.py::execute_pkg (emit_prop_ticket branch), AND integrator.py (EXCHANGE_MAP['breakout']=BreakoutAPI). No code change needed. VERIFY on the next trend_donchian_sol/eth breakout that breakout_1 emits a prop ticket (status emitted, prop-manual-<uuid>) rather than exchange_rejected — pull /api/bot/prop/tickets after the next SOL/ETH Donchian break.",
       "snoozed_until": null
     },
     {
       "id": "BL-20260621-BYBIT2-ETH-MINQTY",
       "opened_at": "2026-06-21T17:35:00+00:00",
       "opened_by": "claude (/health-review 2026-06-21)",
-      "source": "Live diag trades pull (issue #4091): bybit_2 (real_money) ETHUSDT eth_pullback_2h trades #2710/#2715/#2719/#2722/#2724 status=exchange_rejected 'Order submission failed for ETHUSDT: qty 0.005-0.007 for ETHUSDT is ...' (below Bybit min order qty/notional). Repeated across the window -> the real-money ETH sleeve cannot fill.",
-      "severity": "medium",
-      "title": "bybit_2 real-money ETHUSDT (eth_pullback_2h) orders rejected — qty 0.005-0.007 below Bybit minimum",
-      "description": "bybit_2 real-money equity is small enough that eth_pullback_2h position sizing rounds below Bybit's ETHUSDT min order qty/notional, so every ETH order is exchange-rejected and the real book stays flat for ETH. Sibling of the resolved lotSize-step issue (BL-20260611-005) but this is min-notional, not step. Options: raise risk_pct/min stake for the ETH sleeve on bybit_2, gate eth_pullback_2h off bybit_2 until equity supports min size, or flag a per-trade refusal earlier (RiskManager) instead of an exchange round-trip. Tier-3 (sizing/risk + account routing) — propose, operator-approve. Cross-ref perf PB-20260618-015.",
+      "source": "Live diag trades pull (issue #4091): bybit_2 (real_money) ETHUSDT eth_pullback_2h trades #2710/#2715/#2719/#2722/#2724 (2026-06-19 14:00-22:01) status=exchange_rejected with the bot's OWN pre-flight guard: 'qty 0.005-0.007 for ETHUSDT is below the exchange lot minimum after step-alignment (qtyStep=0.01, minOrderQty=0.01) — refusing pre-flight' (execute.py:767). The guard is working AS DESIGNED — it refuses BEFORE hitting the exchange, no spam. No new occurrences in the 2026-06-21 window (ETH hasn't signaled on bybit_2 since 06-19). NOT a code bug.",
+      "severity": "low",
+      "title": "bybit_2 real-money ETH can't trade — equity too small to size ETHUSDT above Bybit's 0.01 min (clean pre-flight refusal, Tier-3 routing call)",
+      "description": "This is an ACCOUNT-SIZING reality, not a defect: the pre-flight min-qty guard (execute.py:_submit_order, ~line 767) correctly refuses an ETH order whose risk-sized qty (0.005-0.007 ETH at ~1% risk on bybit_2's small real equity) rounds below ETHUSDT minOrderQty=0.01. BTC works on the same account (0.001 BTC >= BTC min 0.001); ETH doesn't because its min lot is 50x larger relative to the risk-implied qty. Options (Tier-3, operator decides): (A) remove eth_pullback_2h from bybit_2's strategy routing in config/accounts.yaml until equity grows — stops the recurring refusals (cleanest); (B) leave as-is — the refusals are clean/harmless and ETH will trade once equity supports the min; (C) raise the ETH sleeve's risk_pct on bybit_2 to push qty over min (NOT recommended — oversizes a tiny real account). Recommend (A) or (B); do NOT change risk sizing.",
       "tier": "3",
       "status": "open",
       "resolved_at": null,
@@ -2121,5 +2121,5 @@
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-21T17:35:00+00:00"
+  "updated_at": "2026-06-21T18:05:00+00:00"
 }
