@@ -342,3 +342,23 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "iShares Silver Trust ETF (Alpaca paper)"
+
+  # ------------------------------------------------------------------
+  # Intraday ETF rollout 2b (2026-06-20 § 0e) — new Alpaca-paper crude-oil ETF
+  # for the uso_trend_1h cell (SPY/QQQ/TLT already have profiles above; the 1h
+  # pullback cells reuse them). Same whole-share / 2dp / alpaca-paper profile
+  # as GLD.
+  # ------------------------------------------------------------------
+  USO:
+    exchange: alpaca
+    category: spot
+    base_asset: USO
+    asset_class: equity        # crude-oil-tracking ETF
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "United States Oil Fund ETF (Alpaca paper)"

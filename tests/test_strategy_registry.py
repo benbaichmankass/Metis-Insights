@@ -192,7 +192,11 @@ def test_real_yaml_loads():
     # 32 → 34 by the intraday ETF pilot (2026-06-20 § 0e, Tier-3): gld_pullback_1h
     # (GLD 1h bidirectional pullback) + slv_trend_1h (SLV 1h bidirectional Donchian
     # trend) — the first INTRADAY ETF cells on alpaca_paper (paper money).
-    assert len(strategies) == 34
+    # 34 → 38 by the intraday ETF rollout 2b (2026-06-20 § 0e, Tier-3) completing
+    # the intraday ETF sleeve: spy_pullback_1h + qqq_pullback_1h + tlt_pullback_1h
+    # (1h bidirectional pullback) + uso_trend_1h (1h LONG-ONLY Donchian trend) on
+    # alpaca_paper (paper money).
+    assert len(strategies) == 38
 
 
 def test_real_yaml_has_required_strategies():
@@ -208,6 +212,9 @@ def test_real_yaml_has_required_strategies():
         "iwm_trend_long_1d", "tlt_pullback_1d", "ief_pullback_1d",
         # Intraday ETF pilot (2026-06-20 § 0e, Tier-3) — 2 new INTRADAY ETF cells:
         "gld_pullback_1h", "slv_trend_1h",
+        # Intraday ETF rollout 2b (2026-06-20 § 0e, Tier-3) — 4 cells completing
+        # the intraday ETF sleeve (SPY/QQQ/TLT 1h pullback + USO 1h long-only trend):
+        "spy_pullback_1h", "qqq_pullback_1h", "tlt_pullback_1h", "uso_trend_1h",
         "eth_pullback_2h",
         "trend_donchian_sol", "trend_donchian_eth",
         # 9 paper_ready alt cells on bybit_1 DEMO (2026-06-18, Tier-3):
