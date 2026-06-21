@@ -156,6 +156,33 @@ def emit_prop_ticket(
     except Exception as exc:  # noqa: BLE001 — observe-only metadata
         logger.debug("exit_ladder_soak(prop) skipped for %s: %s", symbol, exc)
 
+    # Record the OUTBOUND ticket to the prop journal so the inbound report-back
+    # (P2) can reconcile a fill against it and un-acted tickets are detectable
+    # (P3). Best-effort — a journal hiccup must never block the emission.
+    try:
+        from src.prop import prop_journal
+
+        prop_journal.record_ticket({
+            "ticket_id": trade_id,
+            "account_id": account_id,
+            "strategy": sig.strategy,
+            "symbol": symbol,
+            "direction": sig.direction,
+            "side": leg.ticket.side,
+            "entry": sig.entry,
+            "sl": sig.sl,
+            "tp": sig.tp,
+            "qty": leg.ticket.qty_units,
+            "risk_usd": leg.ticket.risk_usd,
+            "signal_time": sig.signal_time.isoformat(),
+            "valid_until": leg.ticket.valid_until.isoformat(),
+            "status": "emitted",
+            "order_package_id": order.get("order_package_id"),
+        })
+    except Exception as exc:  # noqa: BLE001 — journaling never blocks emission
+        logger.warning("breakout_executor: ticket journal failed for %s: %s",
+                       symbol, exc)
+
     emitter = _emitter
     if emitter is None:
         from src.prop.breakout_notify import emit_prop_signal as emitter  # type: ignore

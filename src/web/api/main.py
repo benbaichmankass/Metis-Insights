@@ -28,6 +28,7 @@ from src.web.api.routers import liquidity as liquidity_router
 from src.web.api.routers import news as news_router
 from src.web.api.routers import order_packages as order_packages_router
 from src.web.api.routers import pnl as pnl_router
+from src.web.api.routers import prop as prop_router
 from src.web.api.routers import pnl_exchange as pnl_exchange_router
 from src.web.api.routers import pnl_history as pnl_history_router
 from src.web.api.routers import shadow as shadow_router
@@ -50,7 +51,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
     allow_credentials=True,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -82,6 +83,7 @@ app.include_router(devices_router.router)
 app.include_router(insights_router.router)
 app.include_router(news_router.router)
 app.include_router(exit_ladder_router.router)
+app.include_router(prop_router.router)
 
 
 @app.get("/api/health", tags=["health"])

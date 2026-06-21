@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import timezone
-from typing import Dict
+from typing import Any, Dict, Optional
 
 from src.prop.breakout_ticket import Ticket, render_ticket
 
@@ -86,12 +86,99 @@ def emit_prop_signal(ticket: Ticket, *, push: bool = True, telegram: bool = True
             # (None) the default trader bot. mirror_to_fcm=False: the typed
             # prop_signal push above already covers Android; the generic
             # `telegram` mirror would double-notify the same event.
-            prop_token = (os.environ.get("TELEGRAM_PROP_BOT_TOKEN")
-                          or os.environ.get("TELEGRAM_CLAUDE_BOT_TOKEN"))
             send_telegram_direct(fields["text"], parse_mode=None,
-                                 mirror_to_fcm=False, bot_token=prop_token)
+                                 mirror_to_fcm=False, bot_token=_prop_bot_token())
             out["telegram"] = True
         except Exception as exc:  # noqa: BLE001
             logger.warning("emit_prop_signal: telegram send failed: %s", exc)
+
+    return out
+
+
+def _prop_bot_token() -> Optional[str]:
+    """The PROP Telegram bot token, falling back to the repurposed comms bot."""
+    return (os.environ.get("TELEGRAM_PROP_BOT_TOKEN")
+            or os.environ.get("TELEGRAM_CLAUDE_BOT_TOKEN"))
+
+
+def _fmt(value: Any) -> str:
+    if value is None:
+        return "—"
+    if isinstance(value, (int, float)):
+        return f"{value:,.4f}".rstrip("0").rstrip(".") or "0"
+    return str(value)
+
+
+def render_fill_message(fill: Dict[str, Any]) -> str:
+    """Human-readable Telegram line for an inbound prop fill/close report."""
+    sym = fill.get("symbol") or "?"
+    direction = str(fill.get("direction") or "").upper()
+    account = fill.get("account_id") or fill.get("account") or "prop"
+    if str(fill.get("status") or "").lower() == "closed":
+        pnl = fill.get("pnl")
+        emoji = "⚪"
+        if isinstance(pnl, (int, float)):
+            emoji = "🟢" if pnl > 0 else ("🔴" if pnl < 0 else "⚪")
+        pct = fill.get("pnl_percent")
+        pct_str = f" ({_fmt(pct)}%)" if pct is not None else ""
+        reason = fill.get("reason") or "—"
+        return (
+            f"{emoji} PROP CLOSE {sym} {direction} [{account}] "
+            f"PnL {_fmt(pnl)}{pct_str} · exit {_fmt(fill.get('exit_price'))} · {reason}"
+        )
+    return (
+        f"🟪 PROP FILL {sym} {direction} [{account}] "
+        f"{_fmt(fill.get('qty'))} @ {_fmt(fill.get('entry_price'))}"
+    )
+
+
+def emit_prop_fill(fill: Dict[str, Any], *, push: bool = True,
+                   telegram: bool = True) -> Dict[str, bool]:
+    """Fan an inbound prop fill/close out as a typed push + Telegram line.
+
+    Fires ``PROP_CLOSED`` when ``fill['status'] == 'closed'`` (the trade-close
+    follow-up the operator was missing), else ``PROP_FILL`` (a ticket was
+    placed). Best-effort + fully isolated — a leg failure logs a WARNING and is
+    reported in the return dict but never raises.
+    """
+    from src.runtime.mobile_push.event_kinds import PROP_CLOSED, PROP_FILL
+
+    is_closed = str(fill.get("status") or "").lower() == "closed"
+    kind = PROP_CLOSED if is_closed else PROP_FILL
+    text = render_fill_message(fill)
+    payload = {
+        "account": str(fill.get("account_id") or fill.get("account") or ""),
+        "symbol": str(fill.get("symbol") or ""),
+        "direction": str(fill.get("direction") or ""),
+        "qty": _fmt(fill.get("qty")),
+        "entry_price": _fmt(fill.get("entry_price")),
+        "exit_price": _fmt(fill.get("exit_price")),
+        "pnl": _fmt(fill.get("pnl")),
+        "pnl_percent": _fmt(fill.get("pnl_percent")),
+        "reason": str(fill.get("reason") or ""),
+        "ticket_id": str(fill.get("ticket_id") or ""),
+        "external_order_id": str(fill.get("external_order_id") or ""),
+        "text": text,
+    }
+    out = {"push": False, "telegram": False}
+
+    if push:
+        try:
+            from src.runtime.mobile_push import publish_event
+
+            publish_event(kind, payload)
+            out["push"] = True
+        except Exception as exc:  # noqa: BLE001 — notification never fatal
+            logger.warning("emit_prop_fill: FCM push failed: %s", exc)
+
+    if telegram:
+        try:
+            from src.runtime.notify import send_telegram_direct
+
+            send_telegram_direct(text, parse_mode=None, mirror_to_fcm=False,
+                                 bot_token=_prop_bot_token())
+            out["telegram"] = True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("emit_prop_fill: telegram send failed: %s", exc)
 
     return out

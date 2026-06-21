@@ -179,10 +179,13 @@ the Breakout account) surfaced on the dashboard:
    and **distance to static-DD floor ($300)** — the numbers that actually
    matter for a prop account.
 
-Ingest path: a Telegram command (e.g. `/prop_report <json>`) or a small
-paste-to-file step → writes the prop journal. Manual cadence is acceptable per
-the safety distinction above; the operator pulls a status block whenever they
-want a fresh read (and always after a fill/close).
+Ingest path (built 2026-06-21): **`POST /api/bot/prop/report`** with the report
+JSON (auto-detects fill/close vs account-status, or set `kind`) → writes the
+prop journal + fires the `prop_closed`/`prop_fill` notification. The dashboard
+ships a paste-form over the same endpoint; the automated executor can POST
+directly. Manual cadence is acceptable per the safety distinction above; the
+operator (or executor) posts a status block whenever they want a fresh read
+(and always after a fill/close).
 
 **Cleaner long-term alternative:** if Breakout enables the **DXTrade read API**
 (positions + balance), inbound becomes automated and continuous — same "is the
@@ -202,11 +205,26 @@ DXTrade terminal is fine.
 ## Build phases
 
 1. **P1 — outbound emitter** (Tier-1): `breakout_ticket.py` formatter +
-   prop-routing config + Telegram emit + tests. The buildable piece now.
-2. **P2 — inbound ingest + dashboard** (Tier-1/2): prop-account journal table,
-   `/prop_report` ingest, dashboard "rule-distance" panel.
-3. **P3 — reconciliation** (Tier-2): match inbound fills to outbound tickets;
-   alert on un-acted tickets or drift.
+   prop-routing config + Telegram emit + tests. ✅ **DONE.**
+2. **P2 — inbound ingest + dashboard** (Tier-2): ✅ **DONE 2026-06-21.**
+   prop-account journal (`src/prop/prop_journal.py` — `prop_tickets` /
+   `prop_fills` / `prop_account_status` tables in `trade_journal.db`, isolated
+   from `trades`), `POST /api/bot/prop/report` ingest
+   (`src/prop/prop_report.py` + `src/web/api/routers/prop.py`), a
+   `prop_closed` / `prop_fill` notification (the trade-close follow-up;
+   `breakout_notify.emit_prop_fill`), and the dashboard rule-distance panel
+   (`GET /api/bot/prop/status`).
+3. **P3 — reconciliation** (Tier-2): ✅ **DONE 2026-06-21.**
+   `src/prop/prop_reconcile.py` — the executor records each outbound ticket at
+   emit time; inbound fills are matched back (`match_fill_to_ticket`); un-acted
+   tickets (emitted, past `valid_until`, no matching fill) surface at
+   `GET /api/bot/prop/reconcile`.
+
+> **Ingest channel (decided 2026-06-21):** a **REST endpoint**
+> (`POST /api/bot/prop/report`) + a dashboard paste-form, NOT a Telegram
+> command — chosen for the automation goal (the browser/Comet executor can POST
+> the fill back itself) and because no freeform inbound Telegram command
+> dispatcher exists. Token-gated via `DASHBOARD_API_TOKEN` when set.
 
 ## Open questions
 
