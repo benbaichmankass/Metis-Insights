@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260621-ACCOUNT-HISTORY-PULL",
+      "opened_at": "2026-06-21T05:30:00+00:00",
+      "opened_by": "claude (operator directive 2026-06-21 \u2014 track for a follow-up ask)",
+      "source": "bybit_2 missing-close investigation (2026-06-20/21). The automated recovery path (scripts/ops/backfill_orphan_pnl.py + the new in-line watchdog recovery in PR #4058) can only reconstruct a real exit/PnL from Bybit's /v5/position/closed-pnl, which Bybit retains for ONLY ~7 days. Trade #2708 was recovered in-window (status='closed', pnl=+0.8252). But the 2026-06-21 backfill run found 15 OLD orphans (trade ids 990-1000, 1046-1048, 1454) that ALL returned account_closed_pnl=None \u2014 i.e. they are past Bybit's 7-day window and are PERMANENTLY unrecoverable via the exchange API. The only way to enter their true exit/PnL (and any other historically-missing closes) into trade_journal.db is a FULL manual account-history export from the exchange UI, which the operator must pull by hand. Operator asked (2026-06-21) to log this so the next session proactively requests that export.",
+      "title": "ASK OPERATOR: manually export FULL exchange account history (bybit_2 + all real-money accounts) so pre-7-day-window orphaned/missing trades can be entered into trade_journal.db",
+      "description": "ACTION FOR CLAUDE at the next session that touches trade reconciliation / account history (or the next /health-review that surfaces this item): proactively ASK the operator to manually export the COMPLETE trade history for each real-money exchange account (Bybit bybit_2 first; extend to every real-money account) from the exchange's own UI/CSV/API export \u2014 because the bot's automated orphan-PnL backfill only reaches Bybit's ~7-day closed-pnl retention window and CANNOT recover older closes. Once the operator provides the export, ingest the historical closed trades into trade_journal.db (set status='closed' + authoritative exit_price + realised pnl + closed_at, with a provenance note e.g. exit_price_source='operator_manual_export') so /api/bot/trades/closed, /api/bot/performance, and the dashboard reflect TRUE lifetime history rather than the partial picture left by the 7-day window. This is the HISTORICAL-gap remediation; the code fixes #4066 (visibility) + #4057 (clean refusal) + #4058 (watchdog recover-before-orphan) only stop NEW orphans from being created going forward and do not retroactively fill rows already past the window. Known unrecoverable-via-API rows as of 2026-06-21: trade ids 990-1000, 1046-1048, 1454.",
+      "tier": "The ASK itself is Tier-1 (operator request). The subsequent ingest of operator-supplied history into trade_journal.db is a Tier-2 data writeback to the live money DB \u2014 get an explicit operator OK on the exact import before running it, validate row counts/PnL before/after, and never overwrite an existing well-formed closed row.",
+      "trigger_condition": "Next session touching trade-history reconciliation / the journal DB / closed-trade analytics, OR the next /health-review run, OR the next operator check-in \u2014 whichever comes first. Proactively raise the ASK; do not wait for the operator to remember.",
+      "resolution_criteria": "Operator has exported the full account history from each real-money exchange AND Claude has ingested the historical closed trades into trade_journal.db (status/exit_price/pnl/closed_at) with provenance \u2014 OR the operator explicitly decides the pre-window historical gap is not worth backfilling and says to close this item.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260617-ANDROID-56-VISUAL",
       "opened_at": "2026-06-17T11:05:00+00:00",
       "opened_by": "claude (operator directive 2026-06-17 \u2014 track for a follow-up ask)",
