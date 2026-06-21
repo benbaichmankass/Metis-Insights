@@ -471,3 +471,123 @@ def test_corrupt_db_returns_empty_list(tmp_path, monkeypatch, client):
     resp = client.get("/api/bot/trades/closed")
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+# ---------------------------------------------------------------------------
+# Epoch-ms closed_at regression (reconciler-filled writer)
+#
+# The reconciler-filled close path (order_monitor._close_trade_from_order_
+# status + _bybit_closed_pnl_recovery) writes Bybit's updatedTime — a raw
+# epoch-MILLISECONDS string like "1781839121796" — straight into the
+# closed_at COLUMN, which every other writer fills with ISO-8601. An
+# unguarded `datetime(closed_at)` returns NULL for that value, so the row
+# sank below the LIMIT and never appeared in the dashboard's closed-trade
+# feed (real-money bybit_2 Jun-8..19 reconciler closes vanished, leaving
+# only the ISO-stamped backfill_closed_pnl_recovery row visible). These
+# tests call _query_closed_trades directly so they don't need httpx/Starlette.
+# ---------------------------------------------------------------------------
+
+# 2026-06-19T03:18:41.796+00:00 in epoch-ms — the format the reconciler
+# writer actually persists (Bybit updatedTime).
+_MS_CLOSED_AT = "1781839121796"
+_MS_AS_ISO = "2026-06-19T03:18:41.796000+00:00"
+
+
+def test_epoch_ms_closed_at_row_is_visible_and_dated(db):
+    """A reconciler-filled close with a raw epoch-ms closed_at COLUMN must
+    appear (not be NULL-buried) and surface dated by its TRUE close time
+    (ms→ISO), not by the open timestamp and not as the raw ms string."""
+    trade_id = _insert_trade(
+        db,
+        timestamp="2026-06-18T21:16:38Z", symbol="BTCUSDT",
+        direction="short", entry_price=62914.7, exit_price=62353.1,
+        position_size=0.002, exit_reason="reconciler_filled", pnl=0.9795,
+        status="closed", is_backtest=0, account_id="bybit_2",
+        closed_at=_MS_CLOSED_AT,
+        notes=json.dumps({"closed_at": _MS_CLOSED_AT,
+                          "closed_by": "monitor_reconciler",
+                          "exit_price_source": "bybit_closed_pnl"}),
+    )
+    rows = trades_closed_router._query_closed_trades(
+        db, limit=trades_closed_router.DEFAULT_LIMIT, since=None,
+    )
+    assert [r["id"] for r in rows] == [str(trade_id)]
+    # Wire closedAt is the normalised ISO time, NOT the opaque ms string.
+    assert rows[0]["closedAt"] == _MS_AS_ISO
+    assert rows[0]["closeReason"] == "reconciler"
+
+
+def test_epoch_ms_closed_at_orders_by_true_close_time(db):
+    """Ordering must use the normalised (ms-aware) close time. A row with a
+    LATER epoch-ms closed_at must sort ABOVE one whose ISO closed_at is
+    earlier — regression for the pre-fix behaviour where the ms row
+    datetime()'d to NULL and always sorted last."""
+    iso_earlier = _insert_trade(
+        db,
+        timestamp="2026-06-17T00:00:00Z", symbol="ETHUSDT",
+        direction="long", entry_price=3000.0, exit_price=3050.0,
+        position_size=0.1, status="closed", is_backtest=0,
+        account_id="bybit_2", closed_at="2026-06-18T00:00:00Z",
+    )
+    ms_later = _insert_trade(
+        db,
+        timestamp="2026-06-18T21:16:38Z", symbol="BTCUSDT",
+        direction="short", entry_price=62914.7, exit_price=62353.1,
+        position_size=0.002, exit_reason="reconciler_filled", pnl=0.9795,
+        status="closed", is_backtest=0, account_id="bybit_2",
+        closed_at=_MS_CLOSED_AT,  # 2026-06-19 > 2026-06-18
+    )
+    rows = trades_closed_router._query_closed_trades(db, limit=50, since=None)
+    assert [r["id"] for r in rows] == [str(ms_later), str(iso_earlier)]
+
+
+def test_epoch_ms_closed_at_passes_since_filter(db):
+    """The `since` window must measure an epoch-ms closed_at by its true
+    close time. A ms row that closed AFTER `since` must be returned; the
+    pre-fix datetime()→NULL made `NULL >= datetime(since)` false, dropping
+    every reconciler-filled close from any windowed (24h/7d/30d) view."""
+    trade_id = _insert_trade(
+        db,
+        timestamp="2026-06-18T21:16:38Z", symbol="BTCUSDT",
+        direction="short", entry_price=62914.7, exit_price=62353.1,
+        position_size=0.002, exit_reason="reconciler_filled", pnl=0.9795,
+        status="closed", is_backtest=0, account_id="bybit_2",
+        closed_at=_MS_CLOSED_AT,  # 2026-06-19T03:18Z
+    )
+    # since BEFORE the true close → included.
+    rows = trades_closed_router._query_closed_trades(
+        db, limit=50, since="2026-06-19T00:00:00Z",
+    )
+    assert [r["id"] for r in rows] == [str(trade_id)]
+    # since AFTER the true close → excluded.
+    rows = trades_closed_router._query_closed_trades(
+        db, limit=50, since="2026-06-20T00:00:00Z",
+    )
+    assert rows == []
+
+
+def test_iso_closed_at_unaffected_by_ms_normaliser(db):
+    """The normaliser must leave an ordinary ISO-8601 closed_at untouched
+    (the common case) — no regression to the P1-B column-preference path."""
+    trade_id = _insert_trade(
+        db,
+        timestamp="2026-06-18T10:00:00Z", symbol="BTCUSDT",
+        direction="long", entry_price=60000.0, exit_price=60500.0,
+        position_size=0.001, status="closed", is_backtest=0,
+        account_id="bybit_2", closed_at="2026-06-20T05:13:07.700908+00:00",
+    )
+    rows = trades_closed_router._query_closed_trades(db, limit=50, since=None)
+    assert [r["id"] for r in rows] == [str(trade_id)]
+    assert rows[0]["closedAt"] == "2026-06-20T05:13:07.700908+00:00"
+
+
+def test_normalize_closed_at_value_helper():
+    """Unit-level: the wire normaliser converts epoch-ms → ISO, passes ISO
+    through, and returns None for empty/None."""
+    fn = trades_closed_router._normalize_closed_at_value
+    assert fn(_MS_CLOSED_AT) == _MS_AS_ISO
+    assert fn("2026-06-20T05:13:07+00:00") == "2026-06-20T05:13:07+00:00"
+    assert fn(None) is None
+    assert fn("") is None
+    # A short numeric (not a 13-digit ms epoch) is NOT treated as ms.
+    assert fn("123") == "123"
