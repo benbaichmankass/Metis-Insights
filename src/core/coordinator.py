@@ -1351,6 +1351,70 @@ class Coordinator:
                 min_qty=getattr(account.risk_manager, "min_qty", 0.0),
                 qty_precision=getattr(account.risk_manager, "qty_precision", 3),
             )
+
+            # Clean per-trade refusal when the risk-sized qty is below the
+            # EXCHANGE lot minimum (BL-20260619-ETHMIN). The account-level
+            # sizing precision/min_qty is not symbol-aware (3dp / 0.001 lot,
+            # BTC-shaped), so on a small balance a strategy can size below the
+            # venue minimum for a higher-priced symbol — e.g. ~$100 on bybit_2
+            # at ~0.26% risk sizes ~0.005-0.007 ETH while Bybit's ETHUSDT
+            # minOrderQty is 0.01. Pre-fix that sub-min qty reached the
+            # ``_submit_order`` pre-flight and was journaled as
+            # ``exchange_rejected`` on every recurring signal — noisy churn
+            # that looks like a broker/exec failure. Refuse it HERE as a clean
+            # risk refusal (``status='rejected'``, distinct
+            # ``below_venue_min_qty`` cause) instead. We do NOT floor the qty
+            # up — that would silently exceed the configured risk. Prime
+            # Directive preserved: the account stays live; only this one trade
+            # is refused; the next signal is sized fresh. ``None`` venue-min
+            # (rule unknown / non-Bybit) → no change, exactly the pre-fix path.
+            _pkg_is_test = bool(getattr(pkg, "meta", None) and (pkg.meta or {}).get("is_test"))
+            if sized_qty > 0 and not effective_dry and not _pkg_is_test:
+                try:
+                    from src.units.accounts.execute import venue_min_qty_for
+                    _venue_min = venue_min_qty_for(
+                        client, _early_account_cfg, pkg.symbol,
+                    )
+                except Exception as _vexc:  # noqa: BLE001 — never block on lookup
+                    _venue_min = None
+                    logger.debug(
+                        "multi_account_execute: venue-min lookup failed for "
+                        "%s/%s: %s", account.name, pkg.symbol, _vexc,
+                    )
+                if _venue_min is not None and sized_qty < _venue_min:
+                    error_msg = (
+                        f"below_venue_min_qty: sized_qty={sized_qty:g} < "
+                        f"venue minOrderQty={_venue_min:g} for {pkg.symbol} "
+                        f"(account={account.name}, balance={balance:.2f}) — "
+                        "risk-sized qty is below the exchange lot minimum; "
+                        "raise per-trade risk % or fund the account to clear "
+                        "the venue minimum."
+                    )
+                    from src.units.accounts.execute import log_rejection_to_journal
+                    log_rejection_to_journal(
+                        pkg, _early_account_cfg,
+                        reason=error_msg,
+                        status="rejected",
+                        sized_qty=0.0,
+                    )
+                    _emit_execution_failure_ping(
+                        account=account.name,
+                        pkg=pkg,
+                        qty=sized_qty,
+                        reason=error_msg,
+                        demo=getattr(account, "demo", False),
+                    )
+                    sized_qty_by_account[account.name] = 0.0
+                    results.append({
+                        "name": account.name,
+                        "exchange": account.exchange,
+                        "account_type": account.account_type,
+                        "trade_id": None,
+                        "sized_qty": 0.0,
+                        "error": error_msg,
+                    })
+                    continue
+
             sized_qty_by_account[account.name] = sized_qty
 
             # Latching daily-loss-cap notification (operator-approved
