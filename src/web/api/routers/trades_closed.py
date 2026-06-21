@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -41,6 +42,69 @@ _DB_PATH = Path(trade_journal_db_path())
 
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 200
+
+
+def _closed_at_norm_sql(col: str) -> str:
+    """Return a SQLite expression that normalises a ``closed_at``-style
+    column *col* to a ``datetime()``-parseable value.
+
+    The reconciler-filled close path (``order_monitor._close_trade_from_
+    order_status`` + ``_bybit_closed_pnl_recovery``) writes Bybit's
+    ``updatedTime`` — a **raw epoch-milliseconds string** like
+    ``"1781839121796"`` — straight into the ``closed_at`` column, which
+    every other writer fills with an ISO-8601 string (see
+    ``clients.account_closed_pnl_for_trade``: *"closed_at is the Bybit
+    updatedTime string (epoch ms)"*). ``datetime("1781839121796")``
+    returns NULL in SQLite, so an unguarded ``datetime(closed_at)`` in the
+    ORDER BY / since filter silently buried every reconciler-filled real
+    close below the LIMIT — the dashboard's "missing recent closes" bug
+    (real-money ``bybit_2`` Jun-8..19 reconciler closes vanished).
+
+    This guard detects an all-digit, >=12-char value as epoch-ms and
+    converts it (``CAST(... AS INTEGER)/1000`` then ``'unixepoch'``);
+    anything else (ISO-8601, SQLite ``CURRENT_TIMESTAMP``) flows through
+    the plain ``datetime()`` parse unchanged. Idempotent and side-effect
+    free — a pure read-path normalisation; it does NOT rewrite the column
+    (the writer-side correctness fix is tracked separately).
+    """
+    return (
+        f"CASE WHEN {col} IS NOT NULL AND {col} <> '' "
+        f"AND {col} GLOB '[0-9]*' AND NOT {col} GLOB '*[^0-9]*' "
+        f"AND length({col}) >= 12 "
+        f"THEN datetime(CAST({col} AS INTEGER)/1000, 'unixepoch') "
+        f"ELSE datetime({col}) END"
+    )
+
+
+# The ordering / since key: normalise closed_at first (epoch-ms aware),
+# then fall back to the order_packages.updated_at join, then the open
+# timestamp — mirroring the wire ``closedAt`` derivation in _row_to_wire.
+_CLOSED_AT_SORT_SQL = (
+    f"COALESCE({_closed_at_norm_sql('t.closed_at')}, "
+    f"datetime(op.updated_at), datetime(t.timestamp))"
+)
+
+
+def _normalize_closed_at_value(value: Any) -> Optional[str]:
+    """Render a ``closed_at``-style value as an ISO-8601 UTC string,
+    converting a raw epoch-milliseconds string (the reconciler-filled
+    writer's format — see :func:`_closed_at_norm_sql`) to ISO so the
+    wire ``closedAt`` shows the trade's true close time rather than an
+    opaque ``"1781839121796"``. ISO inputs pass through unchanged;
+    unparseable / empty inputs return ``None``."""
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    if s.isdigit() and len(s) >= 12:
+        try:
+            return datetime.fromtimestamp(
+                int(s) / 1000, tz=timezone.utc
+            ).isoformat()
+        except (ValueError, OverflowError, OSError):
+            return None
+    return s
 
 # "Not paper" SQL predicate — excludes paper-money rows robustly even
 # before the account_class backfill runs. account_class is authoritative
@@ -112,8 +176,14 @@ def _row_to_wire(row: sqlite3.Row) -> Dict[str, Any]:
     notes_closed_at = _decode_notes_closed_at(row["notes"])
     # Prefer the canonical closed_at COLUMN (P1-B); fall back to the legacy
     # derivation (order_packages.updated_at -> notes.closed_at) for rows that
-    # predate the column / its backfill.
-    closed_at = row["closed_at"] or row["op_updated_at"] or notes_closed_at
+    # predate the column / its backfill. The column / notes value may be a
+    # raw epoch-ms string (reconciler-filled writer) — normalise it to ISO
+    # so the dashboard shows a real timestamp, not "1781839121796".
+    closed_at = (
+        _normalize_closed_at_value(row["closed_at"])
+        or row["op_updated_at"]
+        or _normalize_closed_at_value(notes_closed_at)
+    )
     raw_pnl = row["pnl"]
     return {
         "id": str(row["id"]),
@@ -171,9 +241,12 @@ def _query_closed_trades(
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     try:
-        # COALESCE(t.closed_at, op.updated_at, t.timestamp) is the ordering key — and
-        # the same expression filters *since*. Backtest rows are excluded
-        # so the dashboard never shows synthetic trades.
+        # _CLOSED_AT_SORT_SQL — COALESCE(normalised(t.closed_at),
+        # datetime(op.updated_at), datetime(t.timestamp)) — is the ordering
+        # key, and the same expression filters *since*. The normalisation
+        # converts a raw epoch-ms closed_at (reconciler-filled writer) so it
+        # doesn't datetime()-to-NULL and sink below the LIMIT. Backtest rows
+        # are excluded so the dashboard never shows synthetic trades.
         sql = """
             SELECT t.id, t.account_id, t.is_demo, t.account_class, t.symbol,
                    t.direction, t.strategy_name,
@@ -199,13 +272,9 @@ def _query_closed_trades(
             # Exclude paper-money trades from the live journal view.
             sql += _NOT_PAPER_PREDICATE
         if since:
-            sql += (
-                " AND datetime(COALESCE(t.closed_at, op.updated_at, t.timestamp)) >= datetime(?)"
-            )
+            sql += f" AND {_CLOSED_AT_SORT_SQL} >= datetime(?)"
             params.append(since)
-        sql += (
-            " ORDER BY datetime(COALESCE(t.closed_at, op.updated_at, t.timestamp)) DESC LIMIT ?"
-        )
+        sql += f" ORDER BY {_CLOSED_AT_SORT_SQL} DESC LIMIT ?"
         params.append(limit)
         cur = conn.execute(sql, params)
         rows = cur.fetchall()
