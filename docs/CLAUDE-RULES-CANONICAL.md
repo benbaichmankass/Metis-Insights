@@ -313,6 +313,42 @@ written. Being in the repo is not evidence of being current. Finding
 non-compliance in a precedent is part of the work, not a distraction
 from it.
 
+### Rule 3 — Compliance gate before merge (2026-06-21, binding)
+
+No work is complete and **no PR is merged** until Claude has audited the
+finished change against the canonical docs and the skills catalog. This is
+the step whose absence keeps reproducing the same class of failure: the
+code "works" in isolation, the tests pass, and it ships **non-compliant**
+anyway (the 2026-06-21 prop-tickets incident — a new parallel table read
+instead of projecting over the canonical `order_packages`, shipped green
+because unit tests on a fresh DB can never catch a wiring error).
+
+Before merging any PR — and before declaring a session done:
+
+1. **Re-read the rules that govern what you just built** — the relevant
+   skill (e.g. `db-wiring` for anything that reads or writes data) and the
+   canonical sections it touches. **Green unit tests are not compliance:**
+   a new table on a fresh test DB always passes and proves nothing about
+   whether the data is wired to the single source of truth.
+2. **Audit the change against them, against reality.** For data work
+   specifically: identify the canonical source **first** and **project over
+   it**; a new table/store is the exception, not the default, and requires
+   (a) the operator's explicit OK and (b) a backfill so history isn't
+   blank. Verify the feature against **LIVE data** (a diag pull) — confirm
+   existing production records actually appear in the new view — before
+   calling it done.
+3. **If it doesn't comply:** fix it in the same PR. If a deviation from the
+   rules is genuinely warranted, **ASK the operator before merging** and get
+   explicit approval. Never merge a known deviation silently.
+
+"It works" is not the bar. "It complies, and I verified it against
+reality" is. A deviation that is neither fixed nor explicitly approved
+**blocks the merge.** Mechanical backstop: the `new-table-wiring` CI guard
+(`.github/workflows/new-table-wiring-guard.yml` +
+`scripts/check_new_table_wiring.py`) fails any PR that adds a persistent
+table without a declared `# data-wiring:` canonical-source relationship —
+docs alone get skipped, so the recurring bug class gets a CI gate too.
+
 ## Ship-Autonomously Rule
 
 A sprint is **not done** when the code lands on `main`. A sprint is
