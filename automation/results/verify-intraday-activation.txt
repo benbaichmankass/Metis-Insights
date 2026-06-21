@@ -1,0 +1,15 @@
+# job=verify-intraday-activation target=live ip=141.145.193.91 started=2026-06-21T04:28:29Z
+== trader service start time + PID ==
+MainPID=2729969
+ActiveEnterTimestamp=Sun 2026-06-21 04:25:53 UTC
+
+== running HEAD ==
+b25b05f6
+
+== are the 2 intraday pilot cells loaded? ==
+bot_running: True tick_age_s: 70.3
+  gld_pullback_1h: in_config=True  in_loaded_runtime=True
+  slv_trend_1h: in_config=True  in_loaded_runtime=True
+total strategies in config: 34
+== DONE ==
+# exit=0 finished=2026-06-21T04:28:31Z
