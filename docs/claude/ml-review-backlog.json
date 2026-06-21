@@ -758,7 +758,9 @@
       "trigger_condition": "Next model-training session; verify yz-v1 holds macro_f1>=~0.66 on a fresh cycle, then promote-stage to shadow.",
       "resolution_criteria": "mes-regime-5m-lgbm-yz-v1 promoted to shadow and emitting predictions, OR a documented reason to keep it research_only.",
       "tier": 1,
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-06-21T17:35:00+00:00",
+      "resolution": "RESOLVED 2026-06-21: registry (issue #4096) shows mes-regime-5m-lgbm-yz-v1 target_deployment_stage=shadow (promoted off research_only/candidate). macro_f1 holds at 0.6804 (acc 0.6864, n_eval=3418), now accruing a shadow track record alongside mes-regime-5m-lgbm-v2 (0.674)."
     },
     {
       "id": "MB-20260616-CONVICTION-P4-SIZING",
@@ -819,6 +821,19 @@
       "resolution_criteria": "Soak confirmed healthy + accruing (feeds D2b), or the kill-switch/demote rollback exercised with the cause logged.",
       "tier": 2,
       "status": "open"
+    },
+    {
+      "id": "MB-20260621-ZEROROW-DECISION-DATASETS",
+      "opened_at": "2026-06-21T17:35:00+00:00",
+      "opened_by": "claude (/ml-review 2026-06-21)",
+      "source": "Trainer cycle log (issue #4089), 2026-06-21T00:24 build: dataset families trade_outcomes row_count=0, execution_quality=0, setup_labels=0, review_journal=0 (vs conviction_meta=125, account_context=267, setup_labels_audit=247). The journal-backed DECISION models (trade-outcome-*, execution-quality-*, setup-quality-*) are starved: they sit at n_eval 49-100 and cannot improve because the real-money book is flat (1 real closed trade in the 3-day window) and review_journal isn't accruing.",
+      "title": "Decision-model dataset families build 0 rows (trade_outcomes/execution_quality/setup_labels/review_journal) — starved by the flat real book",
+      "description": "The conviction lens's c_setup/c_wr/sizing inputs (setup-quality, trade-outcome, execution-quality baselines) are stuck at tiny n and partly degenerate because their training families build 0 rows each cycle. Root cause is upstream (no real fills -> no trade_outcomes; no scored review_journal sync). Until real fills resume, consider (a) feeding PAPER closed trades into trade_outcomes/execution_quality with an account_class flag so the models train on the paper cohort, and (b) verifying the performance-review review_journal sync path actually lands rows on the trainer. Cross-ref MB-20260615-DEGEN-BASELINES.",
+      "trigger_condition": "Next trainer cycle still builds these families at row_count=0 while paper closed trades exist.",
+      "resolution_criteria": "Decision-model families build >0 rows/cycle (paper-fed or real), or a documented decision to keep them real-only and accept the freeze until the real book trades.",
+      "tier": 2,
+      "status": "open"
     }
-  ]
+  ],
+  "updated_at": "2026-06-21T17:35:00+00:00"
 }
