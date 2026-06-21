@@ -162,7 +162,7 @@ def test_instrument_profiles_route_to_alpaca():
         assert inst[sym]["qty_step"] == 1
         assert inst[sym]["tick_size"] == 0.01
     uso = inst["USO"]
-    assert uso["asset_class"] == "equity"
+    assert uso["asset_class"] == "commodity"  # oil ETF (corrected from equity 2026-06-20)
     assert uso["contract_value_usd"] == 1.0
     assert uso["max_leverage"] == 4
     assert uso["display_name"] == "United States Oil Fund ETF (Alpaca paper)"
