@@ -162,6 +162,17 @@ def emit_prop_ticket(
     try:
         from src.prop import prop_journal
 
+        # Capture the rendered ticket text so the dashboard can show the exact
+        # message that was sent out (best-effort — a render hiccup just stores
+        # no message, never blocks the journal write).
+        ticket_message = None
+        try:
+            from src.prop.breakout_notify import ticket_to_fields
+
+            ticket_message = ticket_to_fields(leg.ticket).get("text")
+        except Exception:  # noqa: BLE001 — message capture is cosmetic
+            ticket_message = None
+
         prop_journal.record_ticket({
             "ticket_id": trade_id,
             "account_id": account_id,
@@ -178,6 +189,7 @@ def emit_prop_ticket(
             "valid_until": leg.ticket.valid_until.isoformat(),
             "status": "emitted",
             "order_package_id": order.get("order_package_id"),
+            "message": ticket_message,
         })
     except Exception as exc:  # noqa: BLE001 — journaling never blocks emission
         logger.warning("breakout_executor: ticket journal failed for %s: %s",

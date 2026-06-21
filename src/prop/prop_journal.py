@@ -75,6 +75,7 @@ _DDL = (
         valid_until      TEXT,
         status           TEXT NOT NULL DEFAULT 'emitted',
         order_package_id TEXT,
+        message          TEXT,
         meta             TEXT,
         created_at       TEXT NOT NULL
     )
@@ -128,6 +129,12 @@ def ensure_tables(conn: Optional[sqlite3.Connection] = None) -> None:
     try:
         for ddl in _DDL:
             c.execute(ddl)
+        # Forward-compat migration: add `message` to a prop_tickets table that
+        # predates the column (CREATE TABLE IF NOT EXISTS won't add it). Cheap +
+        # idempotent — skip silently when the column is already present.
+        cols = {r[1] for r in c.execute("PRAGMA table_info(prop_tickets)")}
+        if "message" not in cols:
+            c.execute("ALTER TABLE prop_tickets ADD COLUMN message TEXT")
         if own:
             c.commit()
     finally:
@@ -174,12 +181,13 @@ def record_ticket(ticket: Dict[str, Any]) -> str:
             INSERT INTO prop_tickets
                 (ticket_id, account_id, strategy, symbol, direction, side,
                  entry, sl, tp, qty, risk_usd, signal_time, valid_until,
-                 status, order_package_id, meta, created_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 status, order_package_id, message, meta, created_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(ticket_id) DO UPDATE SET
                 status = excluded.status,
                 qty = excluded.qty,
-                valid_until = excluded.valid_until
+                valid_until = excluded.valid_until,
+                message = COALESCE(excluded.message, prop_tickets.message)
             """,
             (
                 ticket_id, account_id, ticket.get("strategy"),
@@ -189,6 +197,7 @@ def record_ticket(ticket: Dict[str, Any]) -> str:
                 ticket.get("signal_time"), ticket.get("valid_until"),
                 str(ticket.get("status") or "emitted"),
                 ticket.get("order_package_id"),
+                ticket.get("message"),
                 json.dumps(meta) if isinstance(meta, (dict, list)) else None,
                 _now_iso(),
             ),

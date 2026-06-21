@@ -53,11 +53,14 @@ def test_journal_ticket_and_fill_roundtrip(isolated_db: Path) -> None:
         "symbol": "SOLUSDT",
         "direction": "long",
         "entry": 73.32, "sl": 71.65, "tp": 80.57, "qty": 14.97,
+        "message": "🟢 BUY SOLUSDT @ 73.32 SL 71.65 TP 80.57",
     })
     tickets = prop_journal.list_tickets(account_id="breakout_1")
     assert len(tickets) == 1
     assert tickets[0]["ticket_id"] == "prop-manual-abc123"
     assert tickets[0]["status"] == "emitted"
+    # The rendered message round-trips so the dashboard can show it verbatim.
+    assert tickets[0]["message"] == "🟢 BUY SOLUSDT @ 73.32 SL 71.65 TP 80.57"
 
     fid = prop_journal.insert_fill({
         "account_id": "breakout_1", "ticket_id": "prop-manual-abc123",
