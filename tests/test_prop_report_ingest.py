@@ -72,6 +72,30 @@ def test_journal_ticket_and_fill_roundtrip(isolated_db: Path) -> None:
     assert len(fills) == 1 and fills[0]["pnl"] == 108.75
 
 
+def test_outbound_tickets_project_over_order_packages(isolated_db: Path) -> None:
+    """Regression for the wiring bug: a prop ticket lives in order_packages
+    (the canonical store). The 'tickets sent' view must surface it even when
+    the prop_tickets sidecar has NO matching row (e.g. emitted before the
+    sidecar existed) — i.e. don't read a parallel empty table."""
+    from src.units.db.database import Database
+    from src.prop import prop_journal
+
+    db = Database()  # creates order_packages + the rest of the schema
+    db.insert_order_package({
+        "order_package_id": "pkg-test-sol",
+        "strategy_name": "trend_donchian_sol",  # a breakout_1 prop strategy
+        "symbol": "SOLUSDT", "direction": "long",
+        "entry": 73.0, "sl": 71.0, "tp": 80.0, "status": "orphaned",
+    })
+    rows = prop_journal.list_outbound_tickets(account_id="breakout_1")
+    by_id = {r["order_package_id"]: r for r in rows}
+    assert "pkg-test-sol" in by_id, "canonical order_package must appear with no sidecar"
+    r = by_id["pkg-test-sol"]
+    assert r["symbol"] == "SOLUSDT"
+    assert r["status"] == "orphaned"   # falls back to the order-package status
+    assert r["message"] is None        # no sidecar message yet — still visible
+
+
 def test_tables_absent_reads_are_empty(isolated_db: Path) -> None:
     from src.prop import prop_journal
 

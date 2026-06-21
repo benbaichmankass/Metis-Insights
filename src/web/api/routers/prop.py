@@ -93,9 +93,13 @@ async def get_tickets(
     from src.prop import prop_journal
 
     limit = max(1, min(int(limit), 500))
-    rows = prop_journal.list_tickets(account_id=account_id, status=status, limit=limit)
-    return {"present": bool(prop_journal.tables_present()), "count": len(rows),
-            "tickets": rows}
+    # Canonical view: project over order_packages (every prop decision is
+    # journaled there) enriched by the prop_tickets sidecar — NOT the sidecar
+    # alone, so tickets emitted before the sidecar existed still appear.
+    rows = prop_journal.list_outbound_tickets(
+        account_id=account_id, status=status, limit=limit)
+    return {"present": bool(rows) or bool(prop_journal.tables_present()),
+            "count": len(rows), "tickets": rows}
 
 
 @router.get("/status")
