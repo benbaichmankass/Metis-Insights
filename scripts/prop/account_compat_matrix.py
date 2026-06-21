@@ -38,6 +38,44 @@ from src.prop.account_rulesets import all_account_units  # noqa: E402
 from src.prop.montecarlo import run_ev_montecarlo, run_montecarlo  # noqa: E402
 
 
+def synth_ledger_from_emit(
+    rows: List[Dict[str, Any]],
+    *,
+    base_account_size: float,
+    base_risk_pct: float,
+) -> List[Dict[str, Any]]:
+    """Synthesize a closed-trade ledger from a harness ``--emit-trades`` JSONL.
+
+    The ETF / alt research cells live in the standalone harnesses (not the BTC
+    system engine `scripts.backtest_system.ROSTER`), so they can't be scored by
+    the engine path below. Each emit row carries a per-trade ``net_r`` (R already
+    net of fees) + an entry/exit timestamp. We replay the SAME compounding
+    balance walk that :func:`src.prop.montecarlo.ledger_to_r_sequence` reads back
+    (``R_k = pnl_k / (balance_before_k * base_risk_pct/100)``) so the round-trip
+    is exact: we set ``pnl_k = net_r_k * balance_before_k * risk_frac`` and let
+    the same accumulator recover ``net_r_k``.
+
+    Keys populated match exactly what ``ledger_to_r_sequence`` reads via its
+    ``_get``/``_exit_key`` accessors: ``pnl`` and ``exit_ts`` (+ ``entry_ts``
+    for completeness). The extra mirror keys are harmless metadata.
+    """
+    balance = float(base_account_size)
+    risk_frac = float(base_risk_pct) / 100.0
+    ledger: List[Dict[str, Any]] = []
+    for r in rows:
+        nr = float(r.get("net_r", 0.0) or 0.0)
+        pnl = nr * balance * risk_frac  # reproduces the exact compounding walk
+        et = r.get("entry_time") or r.get("exit_time") or r.get("entry_ts") or r.get("exit_ts")
+        ledger.append({
+            "pnl": pnl,
+            "exit_ts": et,      # the key ledger_to_r_sequence._exit_key reads
+            "entry_ts": et,     # the key ledger_to_r_sequence reads for entry
+            "r_multiple": nr,   # mirror of the input net_r (metadata)
+        })
+        balance += pnl
+    return ledger
+
+
 def _evaluate_account(unit, ledger, args, horizon: float) -> Dict[str, Any]:
     """Evaluate the strategy ledger against one account's ruleset → a matrix row."""
     common = dict(
@@ -79,19 +117,39 @@ def run(args: argparse.Namespace) -> int:
     if not units:
         print("ERROR: no accounts resolved", file=sys.stderr)
         return 2
-    if args.strategy not in bt.ROSTER:
-        print(f"ERROR: strategy {args.strategy!r} not in backtest ROSTER {list(bt.ROSTER)}", file=sys.stderr)
-        return 2
 
-    base5m = bt._load_candles(args.data)
-    print(f"[compat] engine run: {args.strategy} (base risk {args.base_risk_pct})", file=sys.stderr)
-    summary = bt.run_system_backtest(
-        base5m, roster=[args.strategy], start=args.start, end=args.end,
-        initial_balance=args.base_account_size, risk_pct=args.base_risk_pct,
-        daily_loss_pct=3.0, signal_ttl_bars=1, overrides={}, refresh=args.refresh_signals,
-        clock_tf=args.clock_tf, flip_policy="hold", reentry_policy="suppress", attach_full=True,
-    )
-    ledger = summary.get("closed_trades", []) or []
+    # Output label: the strategy name when scoring a ROSTER cell via the engine,
+    # else the ledger filename stem when scoring a harness emit directly.
+    label = args.strategy or (Path(args.ledger).stem if args.ledger else None)
+
+    if args.ledger:
+        # --- harness-emit path (aliased ETF / alt cells, outside bt.ROSTER) ---
+        # SKIP both the ROSTER check AND the engine run; synthesize the ledger
+        # straight from the emit so it round-trips exactly through
+        # montecarlo.ledger_to_r_sequence.
+        ledger_path = Path(args.ledger)
+        rows = [json.loads(line) for line in ledger_path.read_text().splitlines() if line.strip()]
+        print(f"[compat] ledger run: {label} ({len(rows)} emit rows, base risk {args.base_risk_pct})",
+              file=sys.stderr)
+        ledger = synth_ledger_from_emit(
+            rows, base_account_size=args.base_account_size, base_risk_pct=args.base_risk_pct,
+        )
+        data_src = str(ledger_path)
+    else:
+        # --- engine path (BTC system ROSTER cell) — UNCHANGED ---
+        if args.strategy not in bt.ROSTER:
+            print(f"ERROR: strategy {args.strategy!r} not in backtest ROSTER {list(bt.ROSTER)}", file=sys.stderr)
+            return 2
+        base5m = bt._load_candles(args.data)
+        print(f"[compat] engine run: {args.strategy} (base risk {args.base_risk_pct})", file=sys.stderr)
+        summary = bt.run_system_backtest(
+            base5m, roster=[args.strategy], start=args.start, end=args.end,
+            initial_balance=args.base_account_size, risk_pct=args.base_risk_pct,
+            daily_loss_pct=3.0, signal_ttl_bars=1, overrides={}, refresh=args.refresh_signals,
+            clock_tf=args.clock_tf, flip_policy="hold", reentry_policy="suppress", attach_full=True,
+        )
+        ledger = summary.get("closed_trades", []) or []
+        data_src = args.data
     horizon = float(args.horizon_months)
 
     rows: List[Dict[str, Any]] = []
@@ -105,13 +163,13 @@ def run(args: argparse.Namespace) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     generated_at = datetime.now(timezone.utc).isoformat()
     payload = {
-        "generated_at": generated_at, "strategy": args.strategy, "data": args.data,
+        "generated_at": generated_at, "strategy": label, "data": data_src,
         "n_ledger_trades": len(ledger), "horizon_months": horizon, "rows": rows,
     }
-    (out_dir / f"compat_{args.strategy}.json").write_text(json.dumps(payload, indent=2, default=str))
+    (out_dir / f"compat_{label}.json").write_text(json.dumps(payload, indent=2, default=str))
 
-    L = [f"# Per-account compatibility — `{args.strategy}` ({horizon:.0f}-mo)", "",
-         f"_Generated {generated_at}; {len(ledger)} ledger trades; data {args.data}_", "",
+    L = [f"# Per-account compatibility — `{label}` ({horizon:.0f}-mo)", "",
+         f"_Generated {generated_at}; {len(ledger)} ledger trades; data {data_src}_", "",
          "| account | kind | class | risk% | size$ | metric | value | extra | verdict |",
          "|---|---|---|---|---|---|---|---|---|"]
     for r in sorted(rows, key=lambda x: (x["value"] is None, -(x["value"] or 0))):
@@ -125,15 +183,23 @@ def run(args: argparse.Namespace) -> int:
           "(prop: +EV @ P(net>0) ≥ threshold; standard: positive mean end-return). "
           "Prop verdicts are research on the configured feed — revalidate on the "
           "account's real venue data before live wiring (Tier-3)."]
-    (out_dir / f"compat_{args.strategy}.md").write_text("\n".join(L))
+    (out_dir / f"compat_{label}.md").write_text("\n".join(L))
     print("\n".join(L))
-    print(f"\nwrote {out_dir / ('compat_' + args.strategy + '.md')}", file=sys.stderr)
+    print(f"\nwrote {out_dir / ('compat_' + str(label) + '.md')}", file=sys.stderr)
     return 0
 
 
 def main(argv: List[str]) -> int:
     p = argparse.ArgumentParser(description="Per-account compatibility matrix for one strategy.")
-    p.add_argument("--strategy", required=True, help="A name in scripts.backtest_system.ROSTER.")
+    p.add_argument("--strategy", default=None,
+                   help="A name in scripts.backtest_system.ROSTER (engine path). "
+                        "Not required when --ledger is given; then it only labels the output "
+                        "(defaults to the ledger filename stem).")
+    p.add_argument("--ledger", default=None,
+                   help="Path to a harness --emit-trades JSONL ({entry_time, net_r, ...}). "
+                        "Scores an aliased ETF / alt cell directly (SKIPS the ROSTER check + "
+                        "engine run); the synthesized ledger round-trips exactly through "
+                        "src.prop.montecarlo.ledger_to_r_sequence.")
     p.add_argument("--data", default="/home/user/ict-trader-data/btc_5m.parquet")
     p.add_argument("--accounts", default=None, help="Optional CSV filter of account ids.")
     p.add_argument("--start", default=None)
@@ -148,7 +214,10 @@ def main(argv: List[str]) -> int:
     p.add_argument("--min-p-profitable", type=float, default=0.5)
     p.add_argument("--refresh-signals", action="store_true")
     p.add_argument("--out-dir", default=None)
-    return run(p.parse_args(argv[1:]))
+    args = p.parse_args(argv[1:])
+    if not args.strategy and not args.ledger:
+        p.error("one of --strategy or --ledger is required")
+    return run(args)
 
 
 if __name__ == "__main__":

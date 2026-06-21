@@ -690,7 +690,46 @@
       "description": "Once trades accrue: (a) review eth_pullback_2h real PnL on bybit_2 (real-money test cell; ETH-BTC correlation + no-prior-track-record caveats stand; rollback = remove from bybit_2.strategies), and (b) confirm the new ADX>=25 entry gate is actually firing/rejecting on the bybit_1 paper pullback cells (audit *_eval rows carry adx_14; gate raises ValueError below 25). Cross-check the live behavior matches the backtested OOP expectation.",
       "status": "open",
       "tier": "Tier-3 (real-money cell under watch)"
+    },
+    {
+      "id": "PB-20260620-001",
+      "opened_at": "2026-06-20T18:00:00+00:00",
+      "opened_by": "claude (S-EXPANSION-ETF-BREADTH-2026-06-20 wrap-up)",
+      "source": "Expansion-backtesting sprint: the 6 intraday ETF cells (gld/slv/spy/qqq/tlt/uso `_1h`) were wired to alpaca_paper ahead of soak (PRs #4067 intraday pilot + #4069 rollout-2b, both deployed). They have NOT yet been observed producing live paper fills — wired ahead of the next US RTH session.",
+      "title": "Verify the 6 intraday ETF cells (gld/slv/spy/qqq/tlt/uso _1h) produce live paper fills on alpaca_paper during the next US RTH",
+      "description": "First operational validation of the intraday ETF sleeve. During the next US regular-trading-hours session, confirm via diag/journal + /performance that the intraday cells: (a) fire entries on CLOSED 1h bars (not mid-bar), (b) run the intraday trail/exit cadence correctly (these are 1h cells, distinct from the daily ETF cells), and (c) land bracket fills on alpaca_paper. This is paper-only (alpaca_paper); no real money at risk. Until a live RTH window with ETF activity is observed, the intraday sleeve is wired-but-unverified.",
+      "tier": 1,
+      "trigger_condition": "Next /performance-review whose window includes a US RTH session with alpaca_paper ETF activity.",
+      "resolution_criteria": "At least one intraday ETF cell shows a clean closed-1h-bar entry + bracket fill on alpaca_paper in the journal, with the intraday exit cadence behaving as designed. If entries fire mid-bar or the trail/exit misbehaves, escalate the specific defect to the health-review backlog.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "PB-20260620-002",
+      "opened_at": "2026-06-20T18:00:00+00:00",
+      "opened_by": "claude (S-EXPANSION-ETF-BREADTH-2026-06-20 wrap-up)",
+      "source": "Expansion-backtesting research (docs/research/expansion-backtesting-research-2026-06-20.md § 0c): the funding-carry sleeve (scripts/backtest_funding_carry.py) was investigated and found dormant/regime-dependent — the 2023-24 perp-funding edge had decayed by 2025-26.",
+      "title": "Funding-carry sleeve is dormant/regime-dependent — revisit wiring a market-neutral carry cell when perp funding elevates",
+      "description": "The funding-carry harness (scripts/backtest_funding_carry.py) showed a real edge in 2023-24 that decayed in 2025-26 — carry is regime-dependent on the perp-funding environment. NOT wired (no live/paper cell). Revisit a market-neutral carry cell when perp funding elevates again (monitor funding rates); the harness exists, so re-running it on a fresh elevated-funding window is the cheap check before any proposal. Evidence: docs/research/expansion-backtesting-research-2026-06-20.md § 0c.",
+      "tier": 3,
+      "trigger_condition": "Perp funding rates elevate to a regime comparable to the 2023-24 edge window, OR a future research session re-runs the carry harness on fresh data.",
+      "resolution_criteria": "Either a re-run of scripts/backtest_funding_carry.py on an elevated-funding window clears the robustness bar and a market-neutral carry cell is proposed (Tier-3, account_compat-gated), or the carry idea is re-confirmed dormant with fresh evidence and snoozed again.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "PB-20260620-003",
+      "opened_at": "2026-06-20T18:00:00+00:00",
+      "opened_by": "claude (S-EXPANSION-ETF-BREADTH-2026-06-20 wrap-up)",
+      "source": "Expansion-backtesting research (docs/research/expansion-backtesting-research-2026-06-20.md § 0e): the cross-sectional (rank-N long/short) sleeve was left un-built after the pairs/stat-arb relative-value approaches were rejected.",
+      "title": "Cross-sectional (rank-N long/short) sleeve un-built — deprioritized after pairs/stat-arb rejected",
+      "description": "A cross-sectional rank-N long/short sleeve (rank a universe by a factor, long the top / short the bottom) was scoped but NOT built. It was deprioritized after the pairs / statistical-arbitrage relative-value approaches were rejected — ETH/BTC + GLD/SLV + TLT/IEF pairs all FAILED the robustness gate, indicating the available edge is directional (trend/pullback), not relative-value. Cross-sectional is a sibling relative-value family, so the rejection of pairs lowers its prior. Revisit only if a future study surfaces a genuine cross-sectional factor edge. Evidence: docs/research/expansion-backtesting-research-2026-06-20.md § 0e.",
+      "tier": 3,
+      "trigger_condition": "A future research session surfaces evidence of a cross-sectional/relative-value factor edge worth building the rank-N sleeve for.",
+      "resolution_criteria": "Either a cross-sectional sleeve is built + validated and proposed (Tier-3), or the relative-value family is re-confirmed edge-less for this universe and the item is closed won't-build with the evidence.",
+      "status": "open",
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-18T22:45:00+00:00"
+  "updated_at": "2026-06-20T18:00:00+00:00"
 }
