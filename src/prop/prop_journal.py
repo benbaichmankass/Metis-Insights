@@ -221,9 +221,11 @@ def list_tickets(
         return []
     where, params = [], []
     if account_id:
-        where.append("account_id = ?"); params.append(account_id)
+        where.append("account_id = ?")
+        params.append(account_id)
     if status:
-        where.append("status = ?"); params.append(status)
+        where.append("status = ?")
+        params.append(status)
     clause = (" WHERE " + " AND ".join(where)) if where else ""
     conn = _connect(read_only=True)
     try:
@@ -280,7 +282,8 @@ def list_fills(
         return []
     where, params = [], []
     if account_id:
-        where.append("account_id = ?"); params.append(account_id)
+        where.append("account_id = ?")
+        params.append(account_id)
     clause = (" WHERE " + " AND ".join(where)) if where else ""
     conn = _connect(read_only=True)
     try:

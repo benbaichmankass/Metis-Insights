@@ -71,7 +71,7 @@ async def post_report(
         return ingest_report(body)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:  # noqa: BLE001 — surface a clean 500
+    except Exception as exc:  # noqa: BLE001  # allow-silent: re-raises as HTTP 500 after logging the stack
         logger.exception("prop report ingest failed")
         raise HTTPException(status_code=500, detail="ingest failed") from exc
 
