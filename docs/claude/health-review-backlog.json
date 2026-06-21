@@ -2091,7 +2091,35 @@
       "resolved_at": null,
       "resolution": null,
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260621-PROP-DIAG-ALLOWLIST",
+      "opened_at": "2026-06-21T19:07:08.057093+00:00",
+      "opened_by": "claude (S-PROP-INBOUND-LOOP doc-freshness)",
+      "source": "The vm-diag-snapshot relay rejects /api/bot/prop/* paths ('path not in the relay read-only allowlist: prop/tickets', run 27912103769). This blocked Rule-3 live verification of the new prop read endpoints from a PM-side session.",
+      "severity": "low",
+      "title": "Add /api/bot/prop/{fills,tickets,status,reconcile} to the vm-diag-snapshot read-only allowlist",
+      "description": "Extend the /api/bot/* allowlist in .github/workflows/vm-diag-snapshot.yml so future sessions can pull the prop read endpoints through the relay and verify against live data (the new-table/projection class needs live verification per \u00a7 Generation Discipline Rule 3). Read-only GETs, no secrets \u2014 same trust class as the other allowlisted /api/bot/* paths.",
+      "tier": "1",
+      "status": "open",
+      "resolved_at": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260621-PROP-EVENTKINDS-ANDROID",
+      "opened_at": "2026-06-21T19:07:08.057093+00:00",
+      "opened_by": "claude (S-PROP-INBOUND-LOOP doc-freshness)",
+      "source": "New event kinds prop_fill / prop_closed added bot-side (event_kinds.py). The Android EventKind.kt mirror (custom notification channel routing) was not updated; unknown kinds fall back to a default channel via ignoreUnknownKeys, so notifications still deliver.",
+      "severity": "low",
+      "title": "Optional: mirror prop_fill/prop_closed into Android EventKind.kt for custom channels",
+      "description": "Non-blocking. The new kinds already flow via GET /api/bot/devices/event-kinds and deliver on a default channel. Add explicit EventKind.kt entries only if dedicated channels/labels are wanted for prop fill/close pushes.",
+      "tier": "1",
+      "status": "open",
+      "resolved_at": null,
+      "resolution": null,
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-20T00:00:00+00:00"
+  "updated_at": "2026-06-21T19:07:08.057093+00:00"
 }
