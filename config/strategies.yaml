@@ -1153,6 +1153,36 @@ strategies:
     min_confidence: 0.0
     shadow_model_ids: []
 
+  iwm_trend_long_1d:
+    # IWM daily LONG-ONLY trend-follower — a new cell in the daily-ETF family
+    # (same logic as spy_trend_long_1d / qqq_trend_long_1d, the trend_donchian
+    # unit). PROVENANCE: ETF-breadth daily sweep 2026-06-20 — IWM trend was the
+    # ONLY live_ready / every-fold cell (positive in every walk-forward fold);
+    # pooled book Sharpe 3.88, all holdouts positive (see
+    # docs/research/expansion-backtesting-research-2026-06-20.md). Russell-2000
+    # small-cap ETF — adds breadth (small caps) to the SPY/QQQ large-cap legs.
+    # Runs on alpaca_paper (PAPER money) with bracket orders (broker-side
+    # SL/TP); the builder gates on the US cash session (market_hours us_equity)
+    # so closed-market candles never produce entries. execution: live per the
+    # paper-accounts-execute operator policy (paper accounts exist to TEST
+    # strategies by trading them).
+    model: null
+    signal_prefixes: [iwm_trend_long, iwm_trend]
+    enabled: true
+    execution: live
+    long_only: true
+    risk_pct: 0.3
+    timeframe: "1d"
+    symbols:
+      - IWM
+    donchian: 30
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 4.0
+    tp_r: 50.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
   gld_pullback_1d:
     # GLD daily HTF-pullback (bidirectional) — M15 Phase 4 buildout: the ETF
     # replacement for the MGC futures leg (htf_pullback_trend_2h unit,
@@ -1173,6 +1203,118 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.0
     trail_mult: 4.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  tlt_pullback_1d:
+    # TLT daily HTF-pullback (bidirectional) — a new cell in the daily-ETF
+    # family (same logic as gld_pullback_1d, the htf_pullback_trend_2h unit).
+    # PROVENANCE: ETF-breadth daily sweep 2026-06-20 — TLT bond pullback was
+    # paper_ready + fee-robust (net-of-fee positive with fee headroom; pooled
+    # book Sharpe 3.88, all holdouts positive — see
+    # docs/research/expansion-backtesting-research-2026-06-20.md). 20+ year
+    # Treasury bond ETF — adds a duration/rates leg uncorrelated with the
+    # equity (SPY/QQQ/IWM) and gold (GLD) legs. Runs on alpaca_paper (PAPER
+    # money) with bracket orders (broker-side SL/TP); the builder gates on the
+    # US cash session (market_hours us_equity). execution: live per the
+    # paper-accounts-execute operator policy.
+    model: null
+    signal_prefixes: [tlt_pullback]
+    enabled: true
+    execution: live
+    risk_pct: 0.3
+    timeframe: "1d"
+    symbols:
+      - TLT
+    trend_lookback: 40
+    pullback_lookback: 10
+    pullback_frac: 0.618
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  ief_pullback_1d:
+    # IEF daily HTF-pullback (bidirectional) — a new cell in the daily-ETF
+    # family (same logic as gld_pullback_1d / tlt_pullback_1d, the
+    # htf_pullback_trend_2h unit). PROVENANCE: ETF-breadth daily sweep
+    # 2026-06-20 — IEF bond pullback was paper_ready + fee-robust (net-of-fee
+    # positive with fee headroom; pooled book Sharpe 3.88, all holdouts
+    # positive — see docs/research/expansion-backtesting-research-2026-06-20.md).
+    # 7-10 year Treasury bond ETF — the intermediate-duration rates leg
+    # complementing TLT's long duration. Runs on alpaca_paper (PAPER money)
+    # with bracket orders (broker-side SL/TP); the builder gates on the US cash
+    # session (market_hours us_equity). execution: live per the
+    # paper-accounts-execute operator policy.
+    model: null
+    signal_prefixes: [ief_pullback]
+    enabled: true
+    execution: live
+    risk_pct: 0.3
+    timeframe: "1d"
+    symbols:
+      - IEF
+    trend_lookback: 30
+    pullback_lookback: 10
+    pullback_frac: 0.5
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 5.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  gld_pullback_1h:
+    # GLD INTRADAY (1h) HTF-pullback (bidirectional) — the first INTRADAY cell
+    # in the daily-ETF family (same logic as gld_pullback_1d, the
+    # htf_pullback_trend_2h unit, on the 1-hour timeframe). PROVENANCE: intraday
+    # 1h ETF sweep 2026-06-20 § 0e — GLD pullback trail4 live_ready +78.9R /
+    # 2x-fee +61.5R (see docs/research/expansion-backtesting-research-2026-06-20.md).
+    # Pilot for the intraday ETF sleeve (operator-approved rollout A, risk_pct
+    # 0.3). Runs on alpaca_paper (PAPER money) with bracket orders (broker-side
+    # SL/TP); the builder gates on the US cash session (market_hours us_equity).
+    # execution: live per the paper-accounts-execute operator policy.
+    model: null
+    signal_prefixes: [gld_pullback_1h]
+    enabled: true
+    execution: live
+    risk_pct: 0.3
+    timeframe: "1h"
+    symbols:
+      - GLD
+    trend_lookback: 60
+    pullback_lookback: 12
+    pullback_frac: 0.5
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 4.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  slv_trend_1h:
+    # SLV INTRADAY (1h) BIDIRECTIONAL Donchian trend-follower — a new INTRADAY
+    # cell. Structurally a clone of spy_trend_long_1d (the trend_donchian unit)
+    # BUT trades BOTH directions (no long_only key, no short suppression in the
+    # builder) — silver trends down as well as up. PROVENANCE: intraday 1h ETF
+    # sweep 2026-06-20 § 0e — SLV trend both_donch24 live_ready +85.5R / 2x-fee
+    # +77R (see docs/research/expansion-backtesting-research-2026-06-20.md).
+    # Pilot for the intraday ETF sleeve (operator-approved rollout A, risk_pct
+    # 0.3). Runs on alpaca_paper (PAPER money) with bracket orders (broker-side
+    # SL/TP); the builder gates on the US cash session (market_hours us_equity).
+    # execution: live per the paper-accounts-execute operator policy.
+    model: null
+    signal_prefixes: [slv_trend]
+    enabled: true
+    execution: live
+    risk_pct: 0.3
+    timeframe: "1h"
+    symbols:
+      - SLV
+    donchian: 24
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 4.0
+    tp_r: 50.0
     min_confidence: 0.0
     shadow_model_ids: []
 

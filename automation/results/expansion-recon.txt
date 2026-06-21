@@ -1,0 +1,60 @@
+# job=expansion-recon target=trainer ip=158.178.209.121 started=2026-06-20T13:19:51Z
+== repo /home/ubuntu/ict-trading-bot
+== branch/head ==
+main
+4905380b 2026-06-19 19:32:04 +0300 docs(system-actions): sync backfill-pnl-nulls description to multiplier-aware compute (#4028)
+== git status -s (top 20) ==
+?? artifacts/calibration/
+?? data/SPX500_1m.parquet
+?? data/ibkr_datasets/
+?? data/signal_audit.jsonl
+?? datasets-out/
+?? ml/experiments-runs/
+?? ml/registry-store/
+?? results/
+== tooling present? ==
+-rw-rw-r-- 1 ubuntu ubuntu 18251 Jun 18 13:15 scripts/backtest_pullback.py
+-rw-rw-r-- 1 ubuntu ubuntu 20891 Jun 18 13:15 scripts/backtest_trend.py
+-rw-rw-r-- 1 ubuntu ubuntu  7883 Jun 18 13:15 scripts/ops/classify_strategy_tier.py
+-rwxrwxr-x 1 ubuntu ubuntu  6413 Jun 18 13:15 scripts/ops/m15_ws_b_fold_report.py
+-rw-rw-r-- 1 ubuntu ubuntu  7907 Jun 18 15:49 scripts/ops/portfolio_robustness.py
+-rw-rw-r-- 1 ubuntu ubuntu 12199 Jun 18 20:24 scripts/ops/research_sweep.py
+== data top-level (15m) ==
+-rw-rw-r--  1 ubuntu ubuntu  11607191 Jun 18 06:57 ADAUSDT_15m.csv
+-rw-rw-r--  1 ubuntu ubuntu   9957243 Jun 18 07:14 AVAXUSDT_15m.csv
+-rw-rw-r--  1 ubuntu ubuntu  10242803 Jun 18 06:41 BNBUSDT_15m.csv
+-rw-rw-r--  1 ubuntu ubuntu  11961474 Jun 18 06:26 ETHUSDT_15m.csv
+-rw-rw-r--  1 ubuntu ubuntu  11937589 Jun 18 07:05 LINKUSDT_15m.csv
+-rw-rw-r--  1 ubuntu ubuntu  10061741 Jun 18 06:33 SOLUSDT_15m.csv
+-rw-rw-r--  1 ubuntu ubuntu  11333437 Jun 18 06:48 XRPUSDT_15m.csv
+== BNB/LINK/ETH/SOL/XRP/ADA/AVAX candle files anywhere under data ==
+data/ADAUSDT_15m.csv
+data/ADAUSDT_5m.csv
+data/AVAXUSDT_15m.csv
+data/AVAXUSDT_5m.csv
+data/BNBUSDT_15m.csv
+data/BNBUSDT_5m.csv
+data/ETHUSDT_15m.csv
+data/ETHUSDT_5m.csv
+data/LINKUSDT_15m.csv
+data/LINKUSDT_5m.csv
+data/SOLUSDT_15m.csv
+data/SOLUSDT_5m.csv
+data/XRPUSDT_15m.csv
+data/XRPUSDT_5m.csv
+data/ibkr_datasets/market_raw/MES/15m/v002/metadata.json
+data/ibkr_datasets/market_raw/MES/1d/v003/metadata.json
+data/ibkr_datasets/market_raw/MES/5m/v002/metadata.json
+data/ohlcv/eth_5m_2026.csv
+== funding/OI data present? (for the carry harness) ==
+data/funding_BTCUSDT.csv
+-rw-rw-r-- 1 ubuntu ubuntu 7829 Jun  6 17:04 ml/datasets/adapters/bybit_funding_oi.py
+== python ==
+Python 3.10.12
+== existing study specs on trainer ==
+total 12
+drwxrwxr-x 2 ubuntu ubuntu 4096 Jun 18 20:24 .
+drwxrwxr-x 3 ubuntu ubuntu 4096 Jun 18 22:32 ..
+-rw-rw-r-- 1 ubuntu ubuntu 1663 Jun 18 20:24 eth_pullback_adx.yaml
+== DONE recon ==
+# exit=0 finished=2026-06-20T13:19:53Z

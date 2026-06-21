@@ -1,0 +1,33 @@
+# Study spec — ETF-breadth INTRADAY (1h RTH) PULLBACK, 2026-06-20.
+# RESEARCH-ONLY, Tier-1. Read by scripts/ops/research_sweep.py.
+#
+# Smaller-timeframe companion to the daily ETF-breadth pullback work. The
+# htf_pullback unit on 1h RTH bars (Dukascopy ETF-CFD). Two-sided by nature, so
+# it suits the bond + commodity legs. Params scaled to the 1h cadence:
+# trend-lookback 60 ≈ ~9 RTH days. SPY is the template; the dispatch job seds
+# per symbol.
+schema_version: 1
+name: etf_intraday_pullback_SPY
+harness: backtest_pullback.py
+
+base:
+  data: data/SPY_1h.csv
+  resample: 1h                 # data already 1h RTH; 1h resample is a no-op
+  symbol: SPY
+  args:
+    trend-lookback: 60
+    pullback-lookback: 12
+    pullback-frac: 0.5
+    atr-stop-mult: 2.5
+    trail-mult: 5.0
+    min-confidence: 0.0
+
+variants:
+  - {name: frac618, set: {pullback-frac: 0.618}}
+  - {name: trend40, set: {trend-lookback: 40}}
+  - {name: trail4, set: {trail-mult: 4.0}}
+
+ablations: []
+
+kfold: {folds: 5, train_frac: 0.4, wf_end: "2026-06-18"}
+fees:  {base_bps: 7.5, double_bps: 15.0}

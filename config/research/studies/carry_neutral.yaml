@@ -1,0 +1,41 @@
+# Study spec — market-neutral funding carry, k-fold gate (2026-06-20).
+# RESEARCH-ONLY, Tier-1. Read by scripts/ops/research_sweep.py; touches nothing live.
+#
+# Grades the market-neutral (hedged) funding-carry variant through the standard
+# every-fold k-fold gate. NOTE: carry is a low-return/high-Sharpe yield stream with
+# a thin trade count (~23 over 2023+), so the per-trade R-gate is a STRESS test, not
+# the natural grader — Sharpe/portfolio_robustness + a basket version are the apt
+# follow-ups (see docs/research/expansion-backtesting-research-2026-06-20.md §0c).
+# A clean every-fold pass here would be a strong (if small) result; a "thin"/not-every
+# -fold tag is expected and not a rejection of the sleeve.
+#
+# base.args keys are backtest_funding_carry.py CLI flags (kebab-case). research_sweep
+# supplies --data/--resample/--symbol/--fee-bps-roundtrip/--emit-trades/--json itself.
+# SIBLING: the dispatch job seds ETHUSDT->SOLUSDT for a second run.
+schema_version: 1
+name: carry_neutral_eth
+harness: backtest_funding_carry.py
+
+base:
+  data: data/ETHUSDT_15m.csv
+  resample: 1h
+  symbol: ETHUSDT
+  args:
+    funding-data: data/funding_ETHUSDT.csv
+    hedge: neutral
+    funding-window: 3
+    funding-lag-settlements: 1
+    funding-threshold: 0.0003
+    funding-exit-threshold: 0.0001
+    max-hold-bars: 72
+    hedge-cost-bps: 2.0
+
+variants:
+  - {name: thr2, set: {funding-threshold: 0.0002}}
+  - {name: thr4, set: {funding-threshold: 0.0004}}
+  - {name: thr5, set: {funding-threshold: 0.0005}}
+
+ablations: []
+
+kfold: {folds: 5, train_frac: 0.4, wf_end: "2026-06-18"}
+fees:  {base_bps: 7.5, double_bps: 15.0}

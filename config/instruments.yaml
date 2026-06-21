@@ -274,3 +274,71 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "SPDR Gold Shares ETF (Alpaca paper)"
+
+  # ------------------------------------------------------------------
+  # ETF-breadth daily sweep (2026-06-20) — three new Alpaca-paper ETF cells:
+  # IWM small-cap trend (SPY/QQQ sibling) + TLT/IEF Treasury-bond pullback
+  # (GLD sibling). Same whole-share / 2dp / alpaca-paper profile as SPY/GLD.
+  # ------------------------------------------------------------------
+  IWM:
+    exchange: alpaca
+    category: spot
+    base_asset: IWM
+    asset_class: equity        # Russell-2000 small-cap ETF
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "iShares Russell 2000 ETF (Alpaca paper)"
+
+  TLT:
+    exchange: alpaca
+    category: spot
+    base_asset: TLT
+    asset_class: equity        # 20+yr Treasury-bond ETF (no "bond" class
+                               # token; bucketed as equity like any Alpaca ETF)
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "iShares 20+ Year Treasury Bond ETF (Alpaca paper)"
+
+  IEF:
+    exchange: alpaca
+    category: spot
+    base_asset: IEF
+    asset_class: equity        # 7-10yr Treasury-bond ETF (no "bond" class
+                               # token; bucketed as equity like any Alpaca ETF)
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "iShares 7-10 Year Treasury Bond ETF (Alpaca paper)"
+
+  # ------------------------------------------------------------------
+  # Intraday ETF pilot (2026-06-20 § 0e) — new Alpaca-paper silver ETF for the
+  # slv_trend_1h cell (GLD's intraday gld_pullback_1h sibling already reuses the
+  # existing GLD profile above). Same whole-share / 2dp / alpaca-paper profile.
+  # ------------------------------------------------------------------
+  SLV:
+    exchange: alpaca
+    category: spot
+    base_asset: SLV
+    asset_class: equity        # silver-tracking ETF
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "iShares Silver Trust ETF (Alpaca paper)"

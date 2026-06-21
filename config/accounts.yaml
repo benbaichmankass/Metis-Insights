@@ -514,7 +514,15 @@ accounts:
       - spy_trend_long_1d              # operator-approved 2026-06-11 "go live
       - qqq_trend_long_1d              # on practice"): the daily ETF
       - gld_pullback_1d                # futures-replacement legs.
-    symbols: [SPY, QQQ, GLD]           # instrument identity (Phase-0 verdict).
+      - iwm_trend_long_1d              # ETF-breadth daily sweep (2026-06-20,
+      - tlt_pullback_1d                # Tier-3): IWM small-cap trend +
+      - ief_pullback_1d                # TLT/IEF bond pullback (paper money).
+      - gld_pullback_1h                # Intraday ETF pilot (2026-06-20 § 0e,
+      - slv_trend_1h                   # Tier-3): GLD 1h pullback + SLV 1h
+                                       # bidirectional trend (paper money).
+    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV]   # instrument identity (Phase-0 +
+                                       # ETF-breadth daily 2026-06-20 + intraday
+                                       # ETF pilot 2026-06-20 § 0e adds SLV).
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity

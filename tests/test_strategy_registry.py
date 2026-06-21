@@ -186,7 +186,13 @@ def test_real_yaml_loads():
     # pullback_2h ({sol,xrp,ada,avax}_pullback_2h). WS-C k-fold paper_ready
     # (net-of-fee positive + 2x-fee headroom; fail only the strict every-fold
     # gate — SRQ-20260618-001/-002). Demo-only soak, NOT live-money-ready.
-    assert len(strategies) == 29
+    # 29 → 32 by the ETF-breadth daily sweep (2026-06-20, Tier-3): iwm_trend_long_1d
+    # (small-cap trend) + tlt_pullback_1d + ief_pullback_1d (Treasury-bond pullback)
+    # — three new daily-ETF cells on alpaca_paper (paper money).
+    # 32 → 34 by the intraday ETF pilot (2026-06-20 § 0e, Tier-3): gld_pullback_1h
+    # (GLD 1h bidirectional pullback) + slv_trend_1h (SLV 1h bidirectional Donchian
+    # trend) — the first INTRADAY ETF cells on alpaca_paper (paper money).
+    assert len(strategies) == 34
 
 
 def test_real_yaml_has_required_strategies():
@@ -198,6 +204,10 @@ def test_real_yaml_has_required_strategies():
         "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d",
         "xauusd_trend_1h", "mgc_trend_1h",
         "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
+        # ETF-breadth daily sweep (2026-06-20, Tier-3) — 3 new daily-ETF cells:
+        "iwm_trend_long_1d", "tlt_pullback_1d", "ief_pullback_1d",
+        # Intraday ETF pilot (2026-06-20 § 0e, Tier-3) — 2 new INTRADAY ETF cells:
+        "gld_pullback_1h", "slv_trend_1h",
         "eth_pullback_2h",
         "trend_donchian_sol", "trend_donchian_eth",
         # 9 paper_ready alt cells on bybit_1 DEMO (2026-06-18, Tier-3):
