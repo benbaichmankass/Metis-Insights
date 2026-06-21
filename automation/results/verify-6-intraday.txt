@@ -1,0 +1,16 @@
+# job=verify-6-intraday target=live ip=141.145.193.91 started=2026-06-21T05:19:40Z
+== trader start + HEAD ==
+MainPID=2746664
+ActiveEnterTimestamp=Sun 2026-06-21 05:17:04 UTC
+7348c3a7
+
+== all 6 intraday cells loaded? ==
+bot_running: True tick_age_s: 71.2 total: 38
+  gld_pullback_1h: config=True loaded=True
+  slv_trend_1h: config=True loaded=True
+  spy_pullback_1h: config=True loaded=True
+  qqq_pullback_1h: config=True loaded=True
+  tlt_pullback_1h: config=True loaded=True
+  uso_trend_1h: config=True loaded=True
+== DONE ==
+# exit=0 finished=2026-06-21T05:19:43Z
