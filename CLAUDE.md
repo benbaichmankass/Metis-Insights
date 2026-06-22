@@ -77,7 +77,11 @@ or database before you assert.
 
 The FastAPI on `:8001` is consumed by a **Streamlit dashboard** hosted on
 Streamlit Community Cloud, repo `benbaichmankass/ict-trader-dashboard`,
-entry point `streamlit_app.py`. The Streamlit Python server makes the
+entry point `streamlit_app.py`. **Canonical public URL (single source of
+truth):** `https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/`
+— this is what the Telegram system-report ping deep-links into
+(`…/?report=<report_id>` opens the report on the Reports page; see the
+`system-report` skill). The Streamlit Python server makes the
 upstream HTTP call directly — there is no Vercel rewrite, no Cloudflare
 tunnel, no `cf-worker`. The previous React+Vercel+CF stack was retired
 in [ict-trader-dashboard#32](https://github.com/benbaichmankass/ict-trader-dashboard/pull/32);
