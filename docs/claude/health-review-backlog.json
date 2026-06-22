@@ -46,7 +46,13 @@
       "tier": 1,
       "trigger_condition": "Next /health-review, or when touching market_data symbol routing / instrument profiles.",
       "resolution_criteria": "connector_for_symbol routes a contract-month-qualified futures symbol (MHGN6, MESM6, MGCQ6, \u2026) to its root's exchange (IBKR), not the bybit default; no 'bybit does not have market symbol <root><month>' errors in the live log.",
-      "check_log": [],
+      "check_log": [
+        {
+          "observed_at": "2026-06-22T12:13:16.530006+00:00",
+          "by": "claude (telegram-token wiring session)",
+          "note": "Still recurring: 'Error fetching OHLCV: bybit does not have market symbol MHGN6' seen in the ict-trader-live post-restart journal (2026-06-22 12:09, run 27951560947) during the Telegram-token .env restart. Confirms the contract-month\u2192Bybit misroute is unresolved; root-cause/fix in this item's description still stands."
+        }
+      ],
       "status": "open",
       "resolved_at": null,
       "resolved_by": null,
@@ -2121,5 +2127,5 @@
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-21T19:07:08.057093+00:00"
+  "updated_at": "2026-06-22T12:13:16.530006+00:00"
 }
