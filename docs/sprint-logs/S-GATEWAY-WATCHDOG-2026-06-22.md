@@ -74,6 +74,11 @@
 - **PR #4136** — read-only rogue-unit verification block in the deploy workflow.
 - **PR #4138** — `install_systemd_units.sh` gateway isolation: enable only a
   gateway allowlist and actively prune/stop non-gateway `ict-*` units.
+- **PR #4141** — this sprint log + the ROADMAP row.
+- **PR #4142** — `vm-ib-gateway-selftest` workflow (controlled stop → auto-recover
+  test of the reactive watchdog + a restart-cadence read; safety net guarantees
+  the container is never left down). Ran via #4144: **PASS** (self-heal proven;
+  `RestartCount=0`).
 
 ## Validation Performed
 - Tests: `decide()` / `classify_probe` / local-probe logic exercised locally
@@ -89,12 +94,18 @@
     (watchdog/reset/git-sync) enabled+active; watchdog probe `healthy → action=none`;
     `last_status: ok`; container Up + logged in; rogue-unit check **clean** (the
     crash-looping `ict-web-api` + 9 stray trader timers pruned).
-- Gaps not yet verified: the gateway container showed short uptimes across checks
-  (one unexplained restart ~11:28 UTC); it re-logs-in cleanly each time and the
-  reactive watchdog now covers wedges, but the underlying restart cadence was not
-  measured (sparse data). The reactive `docker restart` self-heal path itself has
-  not yet fired on a *real* wedge in production (only the probe's healthy path +
-  the local-probe classification have been exercised live).
+- Reactive self-heal proven end-to-end (PR #4142 `vm-ib-gateway-selftest`,
+  issue #4144): a controlled `docker stop` → the real watchdog read
+  `actionable=True`, honored `--restart-after 2` (run 1 = detected, run 2 =
+  restart), fired `restart_ib_gateway.sh`, and the container came back
+  (`action=recovered`, healthy). The bounded guards + state persistence worked
+  exactly as designed.
+- Restart cadence measured (same self-test): `docker inspect` shows
+  **`RestartCount=0`** since the container was created (2026-06-10) — it is NOT
+  crash-looping. The short uptimes seen during the session were from this
+  session's own recover/deploy/selftest bounces, not organic flapping; the
+  periodic IBC re-logins are normal session refreshes the 2-check guard tolerates.
+- Gaps not yet verified: none outstanding from this sprint.
 
 ## Documentation Updated
 - Rules doc updates: `CLAUDE.md` — IB-Gateway watchdog note updated (reactive
@@ -119,24 +130,22 @@
   crash-looped). Fixed (gateway allowlist + prune).
 
 ## Risks and Follow-Ups
-- Remaining technical risks: gateway container restart cadence unmeasured (see
-  Gaps); reactive self-heal unproven on a real wedge.
+- Remaining technical risks: none outstanding. Restart cadence verified
+  (`RestartCount=0`) and the reactive self-heal verified end-to-end (#4142/#4144).
 - Remaining product decisions (Tier 3): none.
 - Blockers: none.
 
 ## Deferred Items
-- Measure the gateway container's actual restart frequency (add `RestartCount` /
-  `StartedAt` to the deploy verification, or a small status pull) to confirm it
-  isn't flapping.
+- None. The two end-of-sprint gaps (restart cadence; reactive self-heal proof)
+  were closed in-sprint via the `vm-ib-gateway-selftest` workflow (#4142).
 
 ## Next Recommended Sprint
-- Suggested next sprint: a short gateway-stability check — confirm the container
-  isn't restarting abnormally often, and (opportunistically) confirm the reactive
-  `docker restart` self-heal fires correctly the next time a real wedge occurs.
-- Why next: closes the two "Gaps not yet verified" above.
-- Required verification before starting: pull `docker inspect` restart stats +
-  the watchdog journal over a longer window via `vm-ib-gateway-deploy` / a status
-  read.
+- Suggested next sprint: none required for the gateway; resume normal program
+  work. The on-demand `vm-ib-gateway-selftest` remains available to re-verify the
+  self-heal after any future gateway/tooling change.
+- Why next: gateway recovery + isolation are complete and verified.
+- Required verification before starting: n/a — re-run `vm-ib-gateway-selftest`
+  on demand if the gateway/tooling changes.
 
 ## Wrap-Up Check
 - [x] Code was inspected directly, not inferred only from summaries.
