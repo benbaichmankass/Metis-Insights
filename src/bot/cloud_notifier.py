@@ -33,6 +33,14 @@ REPO_ROOT = _repo_root()
 # watched the repo dir.)
 
 PENDING_PINGS_DIR = str(_runtime_logs_dir() / "pending_pings")
+# Claude/operational-update inbox (send_ping.py target=claude). Folded into the
+# trader bot's drain (2026-06-22) — the separate @claude_ict_comms_bot bridge
+# (ict-claude-bridge.service) sat inactive on the Ampere VM (its
+# TELEGRAM_CLAUDE_BOT_TOKEN never carried over the cutover), so claude pings
+# were silently never delivered. Same file schema as PENDING_PINGS_DIR
+# ({priority, body}), so the trader bot drains it with its own working token →
+# @bict_trading_bot, where the operator already watches trade alerts.
+PENDING_CLAUDE_PINGS_DIR = str(_runtime_logs_dir() / "pending_claude_pings")
 PING_DRAIN_INTERVAL_S = 5
 
 _PRIORITY_ICONS = {
