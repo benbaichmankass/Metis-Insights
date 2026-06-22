@@ -117,7 +117,10 @@ def test_fires_again_after_interval(isolated_env: Path) -> None:
     })
     fired: list = []
     t0 = _utc("2026-06-22T12:00:00")
-    emit = lambda p: fired.append(p) or {}
+
+    def emit(p):
+        fired.append(p)
+        return {}
 
     prop_monitor_pulse.run_prop_monitor_pulse(now=t0, interval_seconds=900, emitter=emit)
     s = prop_monitor_pulse.run_prop_monitor_pulse(
@@ -148,7 +151,10 @@ def test_closed_position_pruned_from_state(isolated_env: Path) -> None:
         "symbol": "BTCUSDT", "direction": "long", "status": "open",
     })
     t0 = _utc("2026-06-22T12:00:00")
-    emit = lambda p: {}
+
+    def emit(p):
+        return {}
+
     prop_monitor_pulse.run_prop_monitor_pulse(now=t0, interval_seconds=900, emitter=emit)
     assert "ticket:prop-1" in prop_monitor_pulse._load_state()
 
