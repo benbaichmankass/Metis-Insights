@@ -2096,7 +2096,14 @@
       "status": "open",
       "resolved_at": null,
       "resolution": null,
-      "snoozed_until": null
+      "snoozed_until": null,
+      "check_log": [
+        {
+          "ts": "2026-06-22T12:55:00+00:00",
+          "by": "claude (system-report \u2192 operator-reported missing real bybit_2 closes)",
+          "note": "Read-side guard EXTENDED to the remaining consumer endpoints. Confirmed live from a real bybit_2 Bybit transaction log: 6 real CLOSE fills in 24h (e.g. trade #2768 closed 11:37Z +1.30) were dropped from /api/bot/performance (totalTrades=0) and /api/bot/stats pnl24h ($0) while lifetime totals still showed them \u2014 the epoch-ms closed_at fails datetime()/substr(). Centralised the epoch-ms-aware normalisation in src/web/api/_closed_at.py and wired /performance, /stats pnl24h, and /pnl/history (substr day-bucket) to it; re-pointed trades_closed.py at the shared module to kill the duplicate. STILL OPEN (Tier-2, operator-gated): the WRITER-side fix in order_monitor (normalise Bybit ms\u2192ISO before persisting closed_at + a one-shot migration of existing ms rows), and the closed_flat_invariant json_extract(notes.closed_at) consumer."
+        }
+      ]
     },
     {
       "id": "BL-20260621-PROP-DIAG-ALLOWLIST",
@@ -2127,5 +2134,5 @@
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-22T12:13:16.530006+00:00"
+  "updated_at": "2026-06-22T12:55:00+00:00"
 }

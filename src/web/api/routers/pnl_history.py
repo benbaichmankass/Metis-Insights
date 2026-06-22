@@ -32,6 +32,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
 
+from src.web.api._closed_at import close_time_sql
 from src.web.api.routers import pnl as pnl_module
 
 router = APIRouter(prefix="/api", tags=["pnl"])
@@ -58,15 +59,23 @@ def _query_history(
     conn = sqlite3.connect(str(db_path))
     try:
         cur = conn.cursor()
-        # Canonical CLOSE-TIME basis: COALESCE(closed_at, op.updated_at,
-        # timestamp), the same one /performance + /stats use, so the Accounts
-        # daily-realised chart dates a trade's PnL on the day it CLOSED — not
-        # the day it opened (the old substr(created_at,...) basis mis-dated
-        # cross-midnight trades). status='closed' (not 'open' also counted
+        # Canonical CLOSE-TIME basis: the epoch-ms-aware
+        # COALESCE(<closed_at normalised>, op.updated_at, timestamp), the same
+        # one /performance + /stats use, so the Accounts daily-realised chart
+        # dates a trade's PnL on the day it CLOSED — not the day it opened (the
+        # old substr(created_at,...) basis mis-dated cross-midnight trades).
+        # The reconciler-filled close path writes closed_at as a raw epoch-ms
+        # string; substr() of that yields a garbage "day" ("1782128223"), so the
+        # normalisation (src/web/api/_closed_at.py) is taken FIRST, then sliced
+        # to YYYY-MM-DD. status='closed' (not 'open' also counted
         # cancelled/error/orphaned terminal rows the other endpoints exclude),
         # and pnl IS NOT NULL drops reconciler-incomplete rows so the daily sum
         # + trade count reflect resolved trades only (matches /performance).
-        close_day = "substr(COALESCE(closed_at, op.updated_at, timestamp), 1, 10)"
+        close_day = (
+            "substr("
+            + close_time_sql("closed_at", "op.updated_at", "timestamp")
+            + ", 1, 10)"
+        )
         base_where = (
             "COALESCE(is_backtest, 0) = 0"
             " AND status = 'closed'"
