@@ -130,6 +130,11 @@ jobs:
                 description: 'Triggers vm-ib-gateway-deploy — pull origin/main on the gateway VM, re-install systemd units, restart the watchdog timer (the gateway VM has no git-sync auto-deploy).',
               },
               {
+                name: 'vm-ib-gateway-selftest',
+                color: 'b60205',
+                description: 'Triggers vm-ib-gateway-selftest — controlled stop+auto-recover test of the reactive IB-Gateway watchdog + a restart-cadence read (safety net never leaves it down).',
+              },
+              {
                 name: 'vm-ib-gateway-stop',
                 color: 'b60205',
                 description: 'Triggers vm-ib-gateway-stop — stop the ib-gateway container + disable its watchdog when it is up-but-unauthenticated and wedging the trader.',
