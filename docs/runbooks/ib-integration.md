@@ -246,12 +246,28 @@ watchdog escalations) instead of the disease.
   isolated that objection is moot, and daily-only left a real gap: a session that
   wedges MID-DAY had no recovery until the next 05:30 (an open MHG position
   tripped a MONITOR BLIND alert on 2026-06-22; recovery needed a manual
-  `vm-ib-gateway-recover`). The watchdog now probes `ib_paper` every ~5 min and,
-  after `--restart-after 2` sustained-wedge checks, runs the SAME local
+  `vm-ib-gateway-recover`). The watchdog probes every ~5 min and, after
+  `--restart-after 2` sustained-wedge checks, runs the SAME local
   `restart_ib_gateway.sh` — bounded by `--max-restarts 3` / `--cooldown-min 20` /
   `--exhaustion-reset-min 120` so it can never become a restart loop (and the
   restart can't touch the money loop — different VM). Once the budget is
   exhausted it falls back to alert-only.
+  **Dep-free local probe (BL-20260622-GATEWAY-LOCAL-PROBE):** the gateway VM is a
+  MINIMAL box (just the Docker container — no bot venv, no `ib_insync`/`httpx`,
+  no writable `/data`, no `.env`), so the account probe `ib_connect_check.py`
+  can't run there (it fails to import `ib_insync` and falsely reads
+  "connect failed" — which would loop-restart a HEALTHY gateway). The watchdog
+  therefore points `--probe-script` at **`scripts/ops/ib_gateway_local_probe.py`**,
+  which diagnoses the wedge from the container's own state + recent `docker logs`
+  (socat → `127.0.0.1:4002` "Connection refused" / IBC re-auth pending, with no
+  recent "Login has completed") using ONLY the `docker` CLI. Its `--state` is
+  pinned to the repo-local (writable) `runtime_logs/` so the wedged streak
+  persists between runs. Belt-and-suspenders hardening in `classify_probe`: a
+  connect-failure whose error is a missing client library (`ib_insync`/`ib_async`
+  not installed, import errors) is treated as **non-actionable** — a `docker
+  restart` can't fix a broken probe environment, so it never drives a restart.
+  Deploy changes to the gateway VM with the `vm-ib-gateway-deploy` workflow (the
+  box has no `ict-git-sync`).
 - **The thin trader-side connect breaker stays** (`IB_PROBE_TIMEOUT_S` /
   `IB_BREAKER_COOLDOWN_S`) so a gateway or network blip can never block the
   BTCUSDT loop. Manual emergency restart remains via the `vm-ib-gateway-recover`

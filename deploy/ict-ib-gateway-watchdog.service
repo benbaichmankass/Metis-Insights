@@ -49,10 +49,13 @@ WorkingDirectory=/home/ubuntu/ict-trading-bot
 # unset; the probe + the docker-restart self-heal need no env. Same `-` pattern
 # as ict-git-sync.service.
 EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
-# The .env (when present) carries no DATA_DIR (stripped by the fix-data-dir
-# step), so set it explicitly here — the watchdog writes its dedup/streak state
-# to $DATA_DIR/runtime_logs/ib_gateway_watchdog_state.json (canonical OCI data dir).
-Environment=DATA_DIR=/data/bot-data
+# NOTE: state path is pinned to the repo's runtime_logs/ via --state below, NOT
+# $DATA_DIR. The gateway VM has no writable /data/bot-data (the canonical OCI
+# data dir exists only on the trader), so the old DATA_DIR=/data/bot-data made
+# save_state fail with "Permission denied: '/data'" → the wedged streak never
+# persisted, so the watchdog could never reach --restart-after (verified
+# 2026-06-22, BL-20260622-GATEWAY-LOCAL-PROBE). runtime_logs/ is repo-local +
+# ubuntu-writable and survives `git reset --hard` (untracked).
 # Resource priority (2026-06-10): so the probe + any `docker restart` it
 # dispatches run promptly even under load. The IB-gateway container itself is
 # CPU/memory-capped at `docker run` (scripts/install_ib_gateway_docker.sh:
@@ -86,7 +89,19 @@ Nice=-10
 # Once the budget is exhausted the watchdog falls back to alert-only until the
 # session recovers. The manual vm-ib-gateway-recover workflow remains as the
 # operator escape hatch. The reactive cadence lives in the sibling .timer.
+#
+# DEP-FREE LOCAL PROBE (--probe-script, BL-20260622-GATEWAY-LOCAL-PROBE): the
+# gateway VM is a MINIMAL box with no bot venv, so the account probe
+# (ib_connect_check.py) can't import ib_insync and falsely reads
+# "connect failed" (→ would loop-restart a healthy gateway). ib_gateway_local_probe.py
+# diagnoses the wedge from the container's own state + recent `docker logs`
+# (socat→127.0.0.1:4002 refused / IBC re-auth pending, no recent
+# "Login has completed") using ONLY the docker CLI — no venv, no creds. --state
+# is pinned to the repo-local (writable) runtime_logs/ so the wedged streak
+# actually persists between the timer's 5-min runs.
 ExecStart=/usr/bin/python3 -u scripts/check_ib_gateway.py --probe-account ib_paper \
+  --probe-script scripts/ops/ib_gateway_local_probe.py \
+  --state runtime_logs/ib_gateway_watchdog_state.json \
   --auto-restart --restart-after 2 --max-restarts 3 \
   --cooldown-min 20 --exhaustion-reset-min 120
 StandardOutput=journal

@@ -76,6 +76,79 @@ def test_classify_actionable_flags(wd):
     assert wd.classify_probe(json.dumps({"results": []}))["actionable"] is False
 
 
+def test_classify_connect_failure_actionability(wd):
+    # A connect failure from a PROBE-SIDE error (missing client lib) is NOT
+    # restartable — restarting the gateway can't install ib_insync. (The exact
+    # 2026-06-22 gateway-VM signature.)
+    dep = json.dumps({"results": [{"connected": False,
+                                   "error": "ib_insync is not installed — add 'ib_insync'..."}]})
+    v = wd.classify_probe(dep)
+    assert v["healthy"] is False and v["actionable"] is False
+    # A genuine transport failure (timeout / refused / down) IS actionable.
+    for e in ("TimeoutError", "Connection refused", "not connected"):
+        v = wd.classify_probe(json.dumps({"results": [{"connected": False, "error": e}]}))
+        assert v["actionable"] is True, e
+
+
+# --------------------------------------------------------------------------
+# ib_gateway_local_probe (dep-free docker-logs detector)
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def lp():
+    spec = importlib.util.spec_from_file_location(
+        "ib_gateway_local_probe",
+        Path(__file__).resolve().parents[1] / "scripts" / "ops" / "ib_gateway_local_probe.py",
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _fake_docker(*, running="true", logs="", ver_rc=0, inspect_rc=0, logs_rc=0):
+    def _d(args):
+        head = args[:1]
+        if head == ["version"]:
+            return (ver_rc, "27.0" if ver_rc == 0 else "no docker")
+        if head == ["inspect"]:
+            return (inspect_rc, running)
+        if head == ["logs"]:
+            return (logs_rc, logs)
+        return (1, "")
+    return _d
+
+
+def test_local_probe_healthy(lp):
+    lp._docker = _fake_docker(logs="normal line\nanother normal line")
+    snap = lp.diagnose()["results"][0]
+    assert snap["connected"] is True and snap["net_liquidation"] == 1
+
+
+def test_local_probe_wedged_on_socat_refused(lp):
+    refused = "socat[1] E connect(5, AF=2 127.0.0.1:4002, 16): Connection refused"
+    lp._docker = _fake_docker(logs="\n".join([refused] * 3))
+    snap = lp.diagnose()["results"][0]
+    assert snap["connected"] is True and snap["net_liquidation"] is None
+
+
+def test_local_probe_recent_login_overrides_wedge(lp):
+    lp._docker = _fake_docker(
+        logs="socat ...127.0.0.1:4002... Connection refused\nIBC: Login has completed")
+    assert lp.diagnose()["results"][0]["net_liquidation"] == 1
+
+
+def test_local_probe_container_down(lp):
+    lp._docker = _fake_docker(running="false")
+    assert lp.diagnose()["results"][0]["connected"] is False
+
+
+def test_local_probe_no_docker_is_inconclusive(lp):
+    # No docker → empty results → classify_probe maps to NON-actionable.
+    lp._docker = _fake_docker(ver_rc=1)
+    assert lp.diagnose()["results"] == []
+
+
 # --------------------------------------------------------------------------
 # decide
 # --------------------------------------------------------------------------
