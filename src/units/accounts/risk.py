@@ -192,6 +192,31 @@ def size_order(
     return round(min(raw, max_qty), qty_precision)
 
 
+# Integrations whose order quantity MUST be a whole unit (integer). Alpaca
+# bracket orders — the only order class the executor sends for alpaca — reject
+# fractional share quantities (``AlpacaClient.place`` floors to
+# ``max(1, int(round(qty)))``), so the sizer must produce whole shares: the
+# equity analogue of the ``market_type: futures`` whole-contract rule. Without
+# this the crypto-oriented default ``qty_precision=3`` produced a fractional
+# size (e.g. 9.079 shares) that the broker silently floored to 9 — the journal
+# then recorded a qty that was never placed and the risk math was computed on a
+# qty that can't exist (BL-20260622-ALPACA-FRACTIONAL-SIZE). Declared as a
+# capability set, mirroring ``clients.BROKER_PNL_READER_EXCHANGES`` /
+# ``EXCHANGE_MANAGEMENT_CAPS``, rather than a scattered ``== "alpaca"`` check.
+WHOLE_UNIT_QTY_EXCHANGES: frozenset = frozenset({"alpaca"})
+
+
+def requires_whole_unit_qty(exchange: object) -> bool:
+    """True when *exchange* requires integer order quantities.
+
+    Pure, never raises. Unknown / falsy exchange → False. The futures
+    whole-contract rule stays keyed on ``market_type`` inside
+    ``position_size``; this is the orthogonal per-exchange axis (equity
+    bracket orders) that ``market_type`` doesn't capture.
+    """
+    return str(exchange or "").strip().lower() in WHOLE_UNIT_QTY_EXCHANGES
+
+
 def size_order_from_cfg(
     pkg: OrderPackage,
     account_cfg: dict,
@@ -200,7 +225,13 @@ def size_order_from_cfg(
     """Build a RiskManager from *account_cfg* and delegate to position_size."""
     rm = RiskManager(account_cfg)
     market_type = str(account_cfg.get("market_type") or "spot").strip().lower()
-    return rm.position_size(pkg, balance_usdt, market_type=market_type)
+    # Per-exchange whole-unit constraint (e.g. alpaca bracket orders) is
+    # resolved from the FULL account cfg here — the RiskManager itself is built
+    # from only the ``risk`` sub-block and never sees the exchange.
+    whole_units = requires_whole_unit_qty(account_cfg.get("exchange"))
+    return rm.position_size(
+        pkg, balance_usdt, market_type=market_type, whole_units=whole_units,
+    )
 
 
 class RiskManager:
@@ -508,6 +539,7 @@ class RiskManager:
         market_type: str = "spot",
         available_usd: Optional[float] = None,
         total_account_usd: Optional[float] = None,
+        whole_units: bool = False,
     ) -> float:
         """Return the qty to trade for *package* given *balance_usd*.
 
@@ -568,33 +600,38 @@ class RiskManager:
         # the USD-loss math below is correct.
         cvu = contract_value_usd_for(getattr(package, "symbol", "") or "")
 
-        # Futures fill in WHOLE contracts only — IBKR rejects fractional
-        # qty, and the rejection is asynchronous so a fractional order
-        # silently never becomes a position (BL-20260611-001, trade #2531:
-        # 3.643 MHG contracts dispatched, orphaned 30 min later). Enforce
-        # integer granularity for every ``market_type: futures`` account
-        # here, regardless of the account's configured ``qty_precision`` /
-        # ``min_qty`` — the crypto-oriented defaults (3dp / 0.001 lot) are
-        # what produced the fractional size when an IB account omitted
-        # them. A computed size below 1 contract is a per-trade REFUSAL
-        # (0.0), never bumped up to a whole contract: the bump would
-        # exceed the configured risk cap.
+        # Whole-unit sizing — two orthogonal triggers, same enforcement:
+        #   * ``market_type: futures`` — IBKR rejects fractional contract qty,
+        #     and the rejection is asynchronous so a fractional order silently
+        #     never becomes a position (BL-20260611-001, trade #2531: 3.643 MHG
+        #     contracts dispatched, orphaned 30 min later).
+        #   * ``whole_units`` (per-exchange, e.g. alpaca) — bracket orders, the
+        #     only class the executor sends for alpaca, reject fractional share
+        #     qty; the broker floored 9.079 → 9, so the journal recorded a size
+        #     that was never placed (BL-20260622-ALPACA-FRACTIONAL-SIZE).
+        # Either way: enforce integer granularity here regardless of the
+        # account's configured ``qty_precision`` / ``min_qty`` (the crypto
+        # defaults — 3dp / 0.001 lot — are what produced the fractional size when
+        # an account omitted them). A computed size below 1 whole unit is a
+        # per-trade REFUSAL (0.0), never bumped up: the bump would exceed the
+        # configured risk cap.
         is_futures = market_type == "futures"
-        eff_precision = 0 if is_futures else self.qty_precision
-        eff_min_qty = 1.0 if is_futures else self.min_qty
+        force_whole = is_futures or bool(whole_units)
+        eff_precision = 0 if force_whole else self.qty_precision
+        eff_min_qty = 1.0 if force_whole else self.min_qty
 
         qty = _size_unbounded(
             package,
             risk_pct=effective_risk_pct,
             balance_usdt=balance_usd,
-            # Futures: min_qty=0 so _size_unbounded's max(min_qty, floored)
+            # Whole-unit: min_qty=0 so _size_unbounded's max(min_qty, floored)
             # bump-up never manufactures a position — the refusal check
-            # below handles the sub-1-contract case instead.
-            min_qty=0.0 if is_futures else self.min_qty,
+            # below handles the sub-1-unit case instead.
+            min_qty=0.0 if force_whole else self.min_qty,
             qty_precision=eff_precision,
             contract_value_usd=cvu,
         )
-        if is_futures and qty < eff_min_qty:
+        if force_whole and qty < eff_min_qty:
             return 0.0
 
         # S-026 G3: daily-loss-budget gate. USD loss at SL is
