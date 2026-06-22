@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "PB-20260622-001",
+      "opened_at": "2026-06-22T14:40:00+00:00",
+      "opened_by": "claude (alpaca-incident follow-up, PRs #4178/#4183)",
+      "source": "IWM/alpaca_paper trade #2771 (order pkg pkg-4456de0798a248bb, 2026-06-22 13:33Z). The iwm_trend_long_1d signal fired and executed with the global regime classifier reading 'chop' (adx_14 ~11.4) and a recorded confidence of ~0.0895. It was a legitimate Donchian breakout (entry 298.5 > donchian_hi 297.91 = the 30-day high). The whole daily ETF Donchian sleeve (spy/qqq/gld/iwm/tlt/ief _1d) ships min_confidence: 0.0 and does NOT gate on the ADX regime classifier. Surfaced while fixing the reconciler false-close (#4178) and the Alpaca fractional-share sizing (#4183) for the same trade; this item is the strategy-quality question those PRs deliberately left out of scope.",
+      "title": "Evaluate whether the daily ETF Donchian trend sleeve should gate on regime/ADX (or a min_confidence floor)",
+      "description": "Design tension, NOT a confirmed bug: classic Donchian trend-following takes the breakout regardless of current ADX (ADX lags; filtering breakouts as 'chop' would miss trend initiations), so min_confidence:0.0 + no regime gate are defensible defaults for a breakout strategy. BUT a low-ADX/chop breakout entry is exactly the kind that can whipsaw, and the sleeve runs unfiltered. Resolve with EVIDENCE before touching config: (1) run the standalone backtest harness on ETF daily history for each sleeve member, comparing baseline vs an ADX/regime filter variant (and a min_confidence sweep) on win rate, expectancy, PnL, hold time, and whipsaw/MFE-MAE; (2) once live closed-trade history accrues, characterize realized performance of low-ADX breakouts vs trend-confirmed ones. The sleeve was added 2026-06-20 (~2 days old at open) so there is effectively no live PnL base yet — any gate now would be unevidenced. Do NOT change config/strategies.yaml min_confidence or add a regime gate without that evidence attached to the Tier-3 PR.",
+      "tier": 3,
+      "trigger_condition": "Either a completed backtest of the ADX-regime-filter / min_confidence variants for the daily ETF sleeve, OR enough accrued closed-trade history across the sleeve (e.g. >= 20-30 closed) to compare low-ADX vs trend-confirmed breakout outcomes.",
+      "resolution_criteria": "Either a Tier-3 PR proposing a regime/confidence gate for the named sleeve members citing backtest + live evidence, OR a documented decision (in this item) to keep the unfiltered Donchian breakout with the rationale and the evidence that supports it.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "PB-20260617-002",
       "opened_at": "2026-06-17T22:00:00+00:00",
       "opened_by": "claude (S-DTP-EXITPLAN-2026-06-17)",
