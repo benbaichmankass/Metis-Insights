@@ -160,10 +160,23 @@ def classify_probe(stdout: str) -> Dict[str, Any]:
                 "reason": payload.get("error") or "no probe results"}
     snap = results[0]
     if not snap.get("connected"):
+        err = str(snap.get("error") or "not connected")
+        # A connect failure is restart-actionable ONLY when it reflects an
+        # actual gateway/transport problem (port down, timeout, refused) a
+        # `docker restart` could fix. A PROBE-SIDE failure — a missing client
+        # library / import error (e.g. "ib_insync is not installed" on the
+        # minimal gateway VM, BL-20260622-GATEWAY-LOCAL-PROBE) — is NOT
+        # restartable, and classifying it actionable would loop-restart a
+        # HEALTHY gateway. Treat those as inconclusive (non-actionable).
+        low = err.lower()
+        probe_side = any(s in low for s in (
+            "not installed", "no module named", "modulenotfound",
+            "importerror", "ib_insync", "ib_async",
+        ))
         return {
             "healthy": False,
-            "actionable": True,
-            "reason": f"connect failed: {snap.get('error') or 'not connected'}",
+            "actionable": not probe_side,
+            "reason": f"connect failed: {err}",
         }
     if snap.get("net_liquidation") is None:
         return {
