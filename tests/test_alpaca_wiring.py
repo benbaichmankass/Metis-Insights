@@ -121,6 +121,30 @@ def test_client_requires_creds_and_degrades():
     with pytest.raises(MissingCredentialsError):
         cli.place({"symbol": "SPY", "side": "Buy", "qty": 1})
     assert cli.balance() is None
+    # positions() returns None (not []) on a read failure — incl. missing creds —
+    # so account_open_positions can distinguish "could not read" from "flat"
+    # (BL-20260622-ALPACA-SNAPSHOT-FALSECLOSE).
+    assert cli.positions() is None
+
+
+def test_client_positions_none_on_http_failure(monkeypatch):
+    """A non-2xx /v2/positions read returns None (read failure), never []."""
+    monkeypatch.setattr(
+        "src.units.accounts.alpaca_client.requests.request",
+        lambda *a, **k: _Resp({"message": "rate limited"}, status=429),
+    )
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    assert cli.positions() is None
+
+
+def test_client_positions_empty_list_when_genuinely_flat(monkeypatch):
+    """A successful read with no positions returns [] (genuinely flat), distinct
+    from the None read-failure case."""
+    monkeypatch.setattr(
+        "src.units.accounts.alpaca_client.requests.request",
+        lambda *a, **k: _Resp([], status=200),
+    )
+    cli = AlpacaClient(api_key="k", api_secret="s")
     assert cli.positions() == []
 
 

@@ -235,6 +235,73 @@ def test_present_in_snapshot_not_closed_and_clears_pending(tmp_db):
 
 
 # ─────────────────────────────────────────────────────────────────────
+# Fresh-fill grace: a too-young strategy trade is NOT snapshot-closed
+# (BL-20260622-ALPACA-SNAPSHOT-FALSECLOSE)
+# ─────────────────────────────────────────────────────────────────────
+
+
+def _insert_fresh_open_trade(
+    db, *, symbol, direction, account_id="ib_paper", strategy_name="mes_trend",
+):
+    """Insert a status='open' row whose ``timestamp`` is NOW (so the fresh-fill
+    grace sees it as just-opened)."""
+    from datetime import datetime, timezone
+    db.insert_trade({
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "symbol": symbol,
+        "direction": direction,
+        "entry_price": 5300.0,
+        "position_size": 2.0,
+        "setup_type": strategy_name,
+        "status": "open",
+        "is_backtest": 0,
+        "strategy_name": strategy_name,
+        "account_id": account_id,
+        "notes": "{}",
+    })
+
+
+def test_too_young_trade_not_closed_even_when_absent_twice(tmp_db, monkeypatch):
+    """A strategy-attributed trade younger than the fresh-fill grace is skipped
+    by the snapshot-close pass — NOT armed, NOT closed — so a still-propagating
+    Alpaca/IB fill (absent from the snapshot yet not flat) can't be false-closed
+    and then re-adopted as an orphan (the IWM/alpaca_paper trade-2771 flap,
+    BL-20260622-ALPACA-SNAPSHOT-FALSECLOSE)."""
+    monkeypatch.setenv("RECONCILER_SNAPSHOT_MIN_FILL_AGE_S", "300")
+    _insert_fresh_open_trade(tmp_db, symbol="MES", direction="long")
+    tid = _only_open_trade_id(tmp_db)
+    import src.runtime.order_monitor as _om
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        s1 = _reconcile_orphan_exchange_positions(tmp_db)
+        s2 = _reconcile_orphan_exchange_positions(tmp_db)
+    assert s1["snapshot_too_young"] == 1 and s2["snapshot_too_young"] == 1
+    assert s1["snapshot_closed"] == 0 and s2["snapshot_closed"] == 0
+    # Never armed — a too-young row leaves no pending confirm state.
+    assert tid not in _om._PENDING_SNAPSHOT_DISAPPEAR_CONFIRM
+    assert _status(tmp_db, tid) == "open"
+
+
+def test_grace_disabled_closes_young_trade(tmp_db, monkeypatch):
+    """RECONCILER_SNAPSHOT_MIN_FILL_AGE_S=0 disables the age gate — the legacy
+    2-observation-confirm behaviour (even a brand-new row closes when confirmed
+    absent twice)."""
+    monkeypatch.setenv("RECONCILER_SNAPSHOT_MIN_FILL_AGE_S", "0")
+    _insert_fresh_open_trade(tmp_db, symbol="MES", direction="long")
+    tid = _only_open_trade_id(tmp_db)
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)        # arms
+        s2 = _reconcile_orphan_exchange_positions(tmp_db)   # confirms + closes
+    assert s2["snapshot_closed"] == 1
+    assert _status(tmp_db, tid) == "closed"
+
+
+# ─────────────────────────────────────────────────────────────────────
 # Safety: read failure never closes
 # ─────────────────────────────────────────────────────────────────────
 
