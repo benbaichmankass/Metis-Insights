@@ -1,0 +1,144 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — monthly</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — monthly</h1>
+<p class="meta">Generated 2026-06-22T07:51:39+00:00 · window 2026-05-23T07:45:57+00:00 → 2026-06-22T07:51:39+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>30d: real-money +$23.73 across 30 trades (46.7% win, profit factor 3.12, max DD -$3.70). Paper book -$28,642 across 86 trades — dominated by mgc_trend_1h (commodity, -$19,991), ict_scalp_5m (-$7,950) and htf_pullback_trend_2h (-$9,262). System healthy (heartbeat live, deployed 0defa9b). Prop: no fills reported this window.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Paper book bleeding -$28.6k/30d</b> <span class="pill">performance · T3</span> ⚠️ operator<br><span class='muted'>mgc_trend_1h -$19,991 (commodity, 15.8% win), ict_scalp_5m -$7,950, htf_pullback_trend_2h -$9,262. mgc_trend_1h already a demote candidate — confirm via /performance-review.</span></li>
+<li><b>Real-money vwap the lone drag</b> <span class="pill">performance · T3</span><br><span class='muted'>vwap -$1.73 over 7 real trades (14.3% win) vs the book&#x27;s +$23.73. Everything else real is green.</span></li>
+<li><b>First system-report — wire the deeper sections</b> <span class="pill">cross · T1</span><br><span class='muted'>This initial report is assembled from live aggregates; Claude per-trade grades, ML fleet + market context populate once the three reviews run under /system-report.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">0 drained / — open</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">0 drained / — open</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">0 drained / — open</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>performance</span> Demote/disable mgc_trend_1h (paper -$19,991/30d, 15.8% win)</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>Real vs paper divergence is stark: identical strategies (ict_scalp_5m, htf_pullback_trend_2h) are green on the tiny real book but deeply red on the larger paper book — position sizing / venue fills, not signal logic. Worth a /performance-review pass.</li>
+<li>All real-money P&amp;L is crypto (Bybit); the paper commodity loss is MES/MGC-style futures (mgc_trend_1h).</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟢 healthy</span></h2>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>heartbeat</td><td class="sev-ok">🟢 ok</td><td>running; age ~79s at capture</td></tr>
+<tr><td>ticks</td><td class="sev-ok">🟢 ok</td><td>last tick 2026-06-22T07:38Z; pipeline active</td></tr>
+<tr><td>deploy</td><td class="sev-ok">🟢 ok</td><td>git_sha 0defa9b deployed; ict-web-api restarted</td></tr>
+<tr><td>live_accounts</td><td class="sev-ok">🟢 ok</td><td>bybit_1, bybit_2, ib_paper, alpaca_paper, breakout_1 live; ib_live/oanda off</td></tr>
+<tr><td>db_integrity</td><td class="sev-ok">🟢 ok</td><td>journal fresh; closed-trade rows current</td></tr>
+<tr><td>snapshot_depth</td><td class="sev-watch">🟡 watch</td><td>diag snapshot truncated at relay 55KB cap; deep checks deferred to /health-review</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$23.73</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— </div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">30</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">46.7%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$0.79</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">3.12</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-3.70</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">14</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>htf_pullback_trend_2h</td><td>3</td><td>66.7%</td><td class="pos">+$15.47</td></tr>
+<tr><td>trend_donchian</td><td>4</td><td>50.0%</td><td class="pos">+$6.19</td></tr>
+<tr><td>ict_scalp_5m</td><td>6</td><td>83.3%</td><td class="pos">+$4.33</td></tr>
+<tr><td>fade_breakout_4h</td><td>9</td><td>44.4%</td><td class="pos">+$0.58</td></tr>
+<tr><td>squeeze_breakout_4h</td><td>1</td><td>0.0%</td><td class="neg">$-1.12</td></tr>
+<tr><td>vwap</td><td>7</td><td>14.3%</td><td class="neg">$-1.73</td></tr>
+</table></div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-28,642.07</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— </div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">86</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">30.2%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-333.05</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.37</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-34,111.23</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">26</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>trend_donchian</td><td>9</td><td>66.7%</td><td class="pos">+$6,447.94</td></tr>
+<tr><td>eth_pullback_2h</td><td>10</td><td>60.0%</td><td class="pos">+$2,227.97</td></tr>
+<tr><td>fvg_range_15m</td><td>1</td><td>0.0%</td><td class="neg">$-7.25</td></tr>
+<tr><td>squeeze_breakout_4h</td><td>2</td><td>0.0%</td><td class="neg">$-18.70</td></tr>
+<tr><td>fade_breakout_4h</td><td>7</td><td>42.9%</td><td class="neg">$-87.82</td></tr>
+<tr><td>ict_scalp_5m</td><td>7</td><td>28.6%</td><td class="neg">$-7,950.35</td></tr>
+<tr><td>htf_pullback_trend_2h</td><td>31</td><td>19.4%</td><td class="neg">$-9,262.18</td></tr>
+<tr><td>mgc_trend_1h</td><td>19</td><td>15.8%</td><td class="neg">$-19,991.68</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— </div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">—</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">12 full dossiers, 104 summarized (recent closed trades shown; full A-F grading via /performance-review).</p>
+<details><summary><span class="pill paper">paper</span> SOLUSDT short · sol_pullback_2h · <span class="pos">+$11.85</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2766</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-22T04:09:15.671670+00:00</div><div class="k">closed</div><div>2026-06-22T04:09:15.593000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>73.52</div><div class="k">exit</div><div>73.52</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>39</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> BTCUSDT long · trend_donchian · <span class="neg">$-3,254.14</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2761</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-22T01:31:18.218472+00:00</div><div class="k">closed</div><div>2026-06-22T04:00:39.881000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>64626.4</div><div class="k">exit</div><div>63872.9</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>0.882</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> BTCUSDT long · ict_scalp_5m · <span class="">—</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2764</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-22T03:20:21.242531+00:00</div><div class="k">closed</div><div>2026-06-22T03:20:21.164000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>64296.1</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>5.119</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> BTCUSDT long · ict_scalp_5m · <span class="">—</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2765</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-06-22T03:20:21.977985+00:00</div><div class="k">closed</div><div>2026-06-22T03:20:21.904000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>64296.1</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>0.001</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT long · trend_donchian_ada_4h · <span class="pos">+$12.40</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2759</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-21T23:37:54.728199+00:00</div><div class="k">closed</div><div>2026-06-21T23:37:54.641000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.1573</div><div class="k">exit</div><div>0.1573</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>2545</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> BTCUSDT long · trend_donchian · <span class="neg">$-784.65</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2745</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-20T15:20:58.825185+00:00</div><div class="k">closed</div><div>2026-06-21T21:09:54.392000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>64258.4</div><div class="k">exit</div><div>63568.1</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>1.03</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT short · sol_pullback_2h · <span class="neg">$-864.45</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2740</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-20T09:19:11.249034+00:00</div><div class="k">closed</div><div>2026-06-20T22:24:06.637000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>71.21</div><div class="k">exit</div><div>73.43</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>377.1</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> AVAXUSDT long · avax_pullback_2h · <span class="pos">+$1.17</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2748</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-20T18:09:38.871940+00:00</div><div class="k">closed</div><div>2026-06-20T18:09:38.784000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>6.102</div><div class="k">exit</div><div>6.102</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>39.3</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> AVAXUSDT long · avax_pullback_2h · <span class="neg">$-0.05</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2747</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-20T16:00:38.026790+00:00</div><div class="k">closed</div><div>2026-06-20T16:00:37.951000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>6.136</div><div class="k">exit</div><div>6.136</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>11.5</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> AVAXUSDT long · avax_pullback_2h · <span class="pos">+$1.09</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2744</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-20T14:01:12.186848+00:00</div><div class="k">closed</div><div>2026-06-20T14:01:12.109000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>6.111</div><div class="k">exit</div><div>6.111</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>54</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> AVAXUSDT long · avax_pullback_2h · <span class="neg">$-0.22</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2741</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-20T10:01:55.539110+00:00</div><div class="k">closed</div><div>2026-06-20T10:01:55.460000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>6.178</div><div class="k">exit</div><div>6.178</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>4.7</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> AVAXUSDT short · avax_pullback_2h · <span class="neg">$-824.72</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2730</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-20T02:10:12.596078+00:00</div><div class="k">closed</div><div>2026-06-20T07:26:11.258000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>5.938</div><div class="k">exit</div><div>6.252</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>2583.1</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<h2>Market context</h2>
+<p class="section-empty">No market context captured.</p>
+<h2>ML / models <span class="grade">🟢 healthy</span></h2>
+<p class="section-empty">No model status in this report.</p>
+<footer>report_id RPT-20260622-075139-monthly · reviewer claude · prior — · ICT Trading Bot system-report</footer></div></body></html>
