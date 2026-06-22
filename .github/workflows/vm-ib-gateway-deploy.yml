@@ -1,0 +1,232 @@
+name: vm-ib-gateway-deploy
+
+# Autonomous code deploy for the dedicated IB-Gateway VM.
+#
+# Why this exists (BL-20260622-GATEWAY-NO-AUTODEPLOY):
+#   The gateway VM is provisioned (scripts/ops/provision_ib_gateway.sh) with
+#   ONLY the credential env file + the Docker IB-Gateway container — it has NO
+#   `ict-git-sync` timer, so it does NOT auto-pull origin/main the way the live
+#   trader does. A change to the gateway-VM systemd units (e.g. the
+#   ict-ib-gateway-watchdog.{service,timer} re-arm in PR #4116) lands on `main`
+#   but never reaches the box. The ONLY pre-existing path to the gateway VM was
+#   the fixed `vm-ib-gateway-recover` docker-restart — there was no way to
+#   deploy code. This workflow closes that gap: it pulls origin/main on the
+#   gateway VM, re-runs the idempotent scripts/install_systemd_units.sh (copy +
+#   daemon-reload + enable), and restarts the watchdog timer so a changed
+#   cadence takes effect — then prints a self-deploy diagnosis (is
+#   ict-git-sync.timer present? was HEAD already current?) so we KNOW whether a
+#   future change would land on its own.
+#
+# Topology (gateway-isolation, 2026-06-10 — see docs/runbooks/ib-integration.md):
+#   The gateway VM (`ict-ib-gateway`) is on the PRIVATE subnet (10.0.0.251) with
+#   NO public IP. A runner reaches it by SSH **ProxyJump through the live
+#   trader** (141.145.193.91), which shares the 10.0.0.0/24 subnet. The same
+#   VM_SSH_KEY authorizes both hops. Identical transport to vm-ib-gateway-recover.
+#
+# Trust contract:
+#   * Fixed-form remote script: `git fetch && git reset --hard origin/main` (the
+#     same deploy primitive scripts/deploy_pull_restart.sh uses on the trader),
+#     `scripts/install_systemd_units.sh`, and `systemctl restart` of the
+#     gateway watchdog timer/service. No freeform shell from the issue body.
+#   * Blast radius is the gateway VM only (paper-money, ib_paper / DUQ325724).
+#     The live trader (ict-trader-live) is NOT touched; BTCUSDT/Bybit unaffected;
+#     account-mode / strategy / risk config are NOT changed. The systemd
+#     installer is INSTALL-only and never restarts the IB-Gateway container.
+#   * Triggered by `issues.opened` filtered to label `vm-ib-gateway-deploy`
+#     (created idempotently by bootstrap-labels.yml).
+#
+# To use from a sandbox session:
+#   mcp__github__issue_write(method='create',
+#       title='[ib-deploy] sync gateway VM to origin/main',
+#       labels=['vm-ib-gateway-deploy'],
+#       body='<reason — captured for audit>')
+# Then read the github-actions[bot] reply on the issue.
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why this run is happening (audit only)."
+        required: false
+        default: "manual operator dispatch"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vm-ib-gateway-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'vm-ib-gateway-deploy'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      JUMP_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      GATEWAY_HOST: ${{ vars.IB_GATEWAY_HOST || '10.0.0.251' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+    steps:
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset. Add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${JUMP_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy origin/main on the gateway VM (via ProxyJump)
+        id: exec
+        run: |
+          set -euo pipefail
+          read -r -d '' REMOTE_SCRIPT <<'REMOTE' || true
+          set -uo pipefail
+          REPO=/home/ubuntu/ict-trading-bot
+          WATCHDOG_TIMER=ict-ib-gateway-watchdog.timer
+          WATCHDOG_SVC=ict-ib-gateway-watchdog.service
+          echo ">>> target host: $(hostname) [$(hostname -I 2>/dev/null | awk '{print $1}')]"
+          [ -d "$REPO/.git" ] || { echo "ERROR: $REPO is not a git checkout — is this the gateway VM?"; exit 1; }
+
+          echo
+          echo "===== self-deploy posture (would this have landed on its own?) ====="
+          echo "vm-role: $(cat /etc/ict-vm-role 2>/dev/null || echo '(unset)')"
+          echo "ict-git-sync.timer: is-enabled=$(systemctl is-enabled ict-git-sync.timer 2>/dev/null || echo no) is-active=$(systemctl is-active ict-git-sync.timer 2>/dev/null || echo no)"
+          PRE=$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown)
+          git -C "$REPO" fetch -q --prune origin 2>/dev/null || { echo "ERROR: git fetch failed"; exit 1; }
+          REMOTE_MAIN=$(git -C "$REPO" rev-parse origin/main 2>/dev/null || echo unknown)
+          echo "pre_head=${PRE:0:12} origin/main=${REMOTE_MAIN:0:12}"
+          if [ "$PRE" = "$REMOTE_MAIN" ]; then
+            echo "verdict: HEAD already == origin/main (nothing new to pull)"
+          else
+            BEHIND=$(git -C "$REPO" rev-list --count "${PRE}..${REMOTE_MAIN}" 2>/dev/null || echo '?')
+            echo "verdict: behind origin/main by ${BEHIND} commit(s) — was NOT auto-deployed"
+          fi
+
+          echo
+          echo "===== deploy: reset --hard origin/main ====="
+          git -C "$REPO" reset --hard origin/main || { echo "ERROR: git reset failed"; exit 1; }
+          echo "post_head=$(git -C "$REPO" rev-parse HEAD)"
+
+          echo
+          echo "===== refresh systemd units (install_systemd_units.sh) ====="
+          ( cd "$REPO" && bash scripts/install_systemd_units.sh ) || echo "WARN: install_systemd_units.sh exited nonzero (see above)"
+
+          echo
+          echo "===== apply new watchdog cadence (restart the timer) ====="
+          # daemon-reload (done by the installer) may not reschedule an already-
+          # active timer to a changed OnUnitActiveSec/OnCalendar — restart it so
+          # the re-armed ~5min reactive cadence takes effect now.
+          sudo systemctl restart "$WATCHDOG_TIMER" 2>&1 || echo "WARN: could not restart $WATCHDOG_TIMER"
+
+          echo
+          echo "===== verify deployed unit + cadence ====="
+          echo "--- ExecStart (expect --auto-restart) ---"
+          systemctl cat "$WATCHDOG_SVC" 2>/dev/null | grep -A4 '^ExecStart=' || echo "(could not read $WATCHDOG_SVC)"
+          echo "--- next timer fire ---"
+          systemctl list-timers "$WATCHDOG_TIMER" --all --no-pager 2>/dev/null | head -3 || true
+          echo "--- inconclusive-probe hardening present in deployed code? ---"
+          grep -q 'actionable' "$REPO/scripts/check_ib_gateway.py" && echo "yes (actionable guard present)" || echo "NO — stale check_ib_gateway.py"
+
+          echo
+          echo "===== run one watchdog probe now (start the oneshot once) ====="
+          # A single run can at most take the wedge streak to 1 (restart-after=2),
+          # so this can never itself trigger a restart — it just confirms the
+          # probe executes cleanly under the re-armed config.
+          sudo systemctl start "$WATCHDOG_SVC" 2>&1 || echo "WARN: manual start of $WATCHDOG_SVC failed"
+          sleep 3
+          journalctl -u "$WATCHDOG_SVC" --since "-90 seconds" --no-pager 2>/dev/null | tail -25 || echo "(no journal access)"
+          echo
+          echo ">>> deploy complete."
+          REMOTE
+
+          SSH_ARGS=( -i ~/.ssh/id_rsa
+                     -o BatchMode=yes
+                     -o StrictHostKeyChecking=accept-new
+                     -o ConnectTimeout=15 )
+          if [ "${GATEWAY_HOST}" != "${JUMP_HOST}" ]; then
+            SSH_ARGS+=( -o "ProxyJump=${VM_SSH_USER}@${JUMP_HOST}" )
+            echo ">>> reaching gateway ${GATEWAY_HOST} via ProxyJump ${VM_SSH_USER}@${JUMP_HOST}"
+          else
+            echo ">>> gateway host == jump host; connecting directly to ${GATEWAY_HOST}"
+          fi
+
+          set +e
+          ssh "${SSH_ARGS[@]}" \
+              "${VM_SSH_USER}@${GATEWAY_HOST}" \
+              "bash -s" <<<"$REMOTE_SCRIPT" \
+              > action-output.txt 2>&1
+          rc=$?
+          set -e
+          echo "exit_code=${rc}" >>"$GITHUB_OUTPUT"
+          echo ">>> Remote exit code: ${rc}"
+          if [ "$(wc -c <action-output.txt)" -gt 4000 ]; then
+            head -c 4000 action-output.txt; echo ""; echo "... (truncated; see issue comment)"
+          else
+            cat action-output.txt
+          fi
+          exit "${rc}"
+
+      - name: Upload action output
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-ib-gateway-deploy-${{ github.run_id }}
+          path: action-output.txt
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Reply to issue with success
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('action-output.txt', 'utf8');
+            const MAX_BODY = 50_000;
+            const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const note = output.length > MAX_BODY ? `\n_(last ${MAX_BODY} of ${output.length} bytes)_\n` : '';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              body: `✅ **vm-ib-gateway-deploy** completed — gateway VM synced to origin/main + units refreshed.\nRun: ${runUrl}\nExit code: ${process.env.EXIT_CODE}\n` + note + `\n\`\`\`\n${tail}\n\`\`\``
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              state: 'closed', state_reason: 'completed'
+            });
+
+      - name: Reply to issue with failure
+        if: github.event_name == 'issues' && failure()
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            let output = '';
+            try { output = fs.readFileSync('action-output.txt', 'utf8'); } catch (_) { output = '(no output — failure before SSH ran)'; }
+            const MAX_BODY = 50_000;
+            const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              body: `❌ **vm-ib-gateway-deploy failed.**\nRun: ${runUrl}\nExit code: ${process.env.EXIT_CODE || '(setup failed)'}\n\nCommon causes: VM_SSH_KEY unset; ProxyJump to the gateway VM unreachable (live trader down / 10.0.0.251 off-subnet); $REPO not a git checkout; git fetch/reset blocked by local changes.\n\n\`\`\`\n${tail}\n\`\`\``
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              state: 'closed', state_reason: 'not_planned'
+            });
