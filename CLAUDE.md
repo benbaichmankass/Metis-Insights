@@ -313,6 +313,28 @@ The [`SessionStart` hook in `.claude/settings.json`](.claude/settings.json)
 announces all three at session init so a fresh Claude knows which to
 pick.
 
+### The master roll-up: `/system-report` (2026-06-22)
+
+The three reviews stay separate, but **`/system-report`**
+([`.claude/skills/system-report/SKILL.md`](.claude/skills/system-report/SKILL.md))
+runs all three together (report mode — their individual pings **suppressed**,
+one consolidated ping instead) and synthesizes a single **time-windowed
+executive report**: technical health, every trade with a per-trade decision
+dossier (entry/exit + Claude grade + model scores + signal logic, **split
+real/paper/prop**, adaptive depth by window), the PnL trend vs the prior window,
+a market-context read, and the ML fleet. Windows:
+`--window=since-last|daily|weekly|monthly` (default `since-last`; `since-last`
+reads the prior report's timestamp from `comms/reports/index.json`). The
+renderer ([`scripts/reports/render_system_report.py`](scripts/reports/render_system_report.py),
+stdlib-only) writes a self-contained **responsive** `report.html` (+ `.md`/`.json`)
+under `comms/reports/<window>/<ts>/` (committed → stable GitHub link), and the
+file-backed `/api/bot/reports` surface drives a **Reports** log of links in both
+the dashboard (desktop) and the Android app (mobile). Output schema:
+[`comms/schema/system_report_response.template.json`](comms/schema/system_report_response.template.json);
+format spec: [`docs/reports/system-report-DESIGN.md`](docs/reports/system-report-DESIGN.md).
+Scheduling (auto daily/weekly/monthly) is a documented phase-2 — v1 is
+on-demand.
+
 See also [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md)
 for the collect → review design (pre-split, still mostly accurate for
 the technical-health half).
@@ -499,6 +521,8 @@ Unauthenticated GET routes — Tier 1 read surface. See
 | `GET /api/bot/prop/tickets?account_id=X&status=Y&limit=N` | `{present, count, tickets[]}` — OUTBOUND prop tickets the bot emitted (`emitted`/`filled`/`closed`/`skipped`), newest-first | `trade_journal.db::prop_tickets` (written by `breakout_executor.emit_prop_ticket`) |
 | `GET /api/bot/prop/status?account_id=X` | `{account_id, present, status, rule_distance}` — latest account-status snapshot + **computed rule-distance**: distance to the daily-loss limit ($150 = 3% on the $5k account) and the static-DD floor ($300 / $4700 floor), resolved from the account's prop ruleset. Drives the dashboard rule-distance panel. Null any value not derivable from the snapshot. Tier 1 | `trade_journal.db::prop_account_status` + `config/prop_rulesets/breakout.yaml` |
 | `GET /api/bot/prop/reconcile?account_id=X` | `{present, summary{tickets_total, fills_total, unacted_count}, unacted_tickets[]}` — **un-acted tickets** (emitted, past `valid_until`, no matching fill reported back) — the P3 drift alert. Tier 1 | `trade_journal.db::{prop_tickets,prop_fills}` via `src.prop.prop_reconcile` |
+| `GET /api/bot/reports?limit=N&window=X` | `{present, count, total, window, reports:[{id, window, generated_at, window_start, window_end, roll_up_grade, headline, html_path, json_path, md_path}, ...]}` — newest-first index of consolidated **system reports** (the `/system-report` master skill's output). `window ∈ {since-last,daily,weekly,monthly}` filters. **File-backed, Tier 1, read-only** (no DB table). Surfaced as a "Reports" log of links in the Streamlit dashboard + Android app. | `comms/reports/index.json` (committed; VM mirrors via `ict-git-sync`) via `src/web/api/routers/reports.py` |
+| `GET /api/bot/reports/{report_id}` | `{present, report, html, json_present}` — one report's index metadata + its rendered self-contained responsive `report.html` body (for inline embed / WebView). 404 on unknown id; artifact paths validated under `comms/reports/` (no traversal). Tier 1 | `comms/reports/<window>/<ts>/report.html` |
 
 ### `BotStats` shape
 ```json

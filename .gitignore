@@ -56,6 +56,18 @@ reports/
 # But: vendored web templates are tracked (recursively).
 !web/templates/**/*.html
 !web/templates/*.html
+# And: the consolidated /system-report subsystem is tracked despite the broad
+# `reports/` + `*.html` ignores above — the renderer/docs are code, and the
+# generated reports under comms/reports/ are COMMITTED artifacts (stable GitHub
+# links + the VM's ict-git-sync mirrors them for /api/bot/reports). The dir
+# re-includes must precede the recursive `**` re-includes (you can't re-include
+# a file whose parent dir is still excluded).
+!scripts/reports/
+!scripts/reports/**
+!docs/reports/
+!docs/reports/**
+!comms/reports/
+!comms/reports/**
 
 # Data files (large/generated CSVs ignored; manifests and placeholders tracked)
 data/*.csv
