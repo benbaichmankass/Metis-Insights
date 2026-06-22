@@ -282,19 +282,28 @@ watchdog escalations) instead of the disease.
   **overnight-reset wedge** is a username/password re-login dialog (no 2FA — see
   the auto-heal note below) that a plain `docker restart` clears. The recover
   workflow's log tail surfaces which one it is.
-- **Deploying code to the gateway VM** (`vm-ib-gateway-deploy` workflow,
-  BL-20260622-GATEWAY-NO-AUTODEPLOY). The gateway VM is provisioned with only
-  the credential env file + the Docker container (`scripts/ops/provision_ib_gateway.sh`)
-  — it has **no `ict-git-sync` timer**, so unlike the live trader it does NOT
-  auto-pull `origin/main`. A change to the gateway-VM systemd units (e.g. the
-  `ict-ib-gateway-watchdog.{service,timer}` re-arm) lands on `main` but stays
-  dark on the box until deployed. The `vm-ib-gateway-deploy` workflow closes that
-  gap: it SSHes to the gateway VM (same ProxyJump transport as recover),
-  `git reset --hard origin/main`, re-runs the idempotent
-  `scripts/install_systemd_units.sh`, and restarts the watchdog timer so a
-  changed cadence takes effect — then prints a self-deploy diagnosis (is
-  `ict-git-sync.timer` present? was HEAD already current?). Drive it with a
-  `vm-ib-gateway-deploy`-labelled issue.
+- **Deploying code to the gateway VM** (BL-20260622-GATEWAY-NO-AUTODEPLOY /
+  -GATEWAY-VM-ROLE / -GATEWAY-GIT-SYNC). Historically the gateway VM was
+  provisioned with only the credential env + the Docker container and had **no
+  `ict-git-sync`**, so it never auto-pulled `origin/main` (it was found **269
+  commits stale** on 2026-06-22). It now auto-deploys SAFELY:
+  - **Host role marker.** `scripts/ops/provision_ib_gateway.sh` writes
+    `/etc/ict-vm-role=gateway`. That marker makes `install_systemd_units.sh`
+    enable the gateway-only timers (so they're reboot-safe, not just
+    hand-enabled), and gates the deploy branch below. (The
+    `vm-ib-gateway-deploy` workflow also sets it on an already-provisioned box.)
+  - **Gateway-safe git-sync.** `ict-git-sync.timer` runs on the gateway too, but
+    `scripts/deploy_pull_restart.sh` takes a **minimal gateway branch** when
+    `/etc/ict-vm-role==gateway`: on a HEAD move it only re-runs
+    `install_systemd_units.sh` + bounces the gateway timers, and **exits before**
+    the `pip install -r requirements.txt` + trader-service-restart section
+    (neither belongs on the minimal, venv-less box — a pip install would bloat
+    it and the service enumeration could start the trader/web-api there).
+  - **On-demand deploy** (`vm-ib-gateway-deploy` workflow). For an immediate
+    push (or the initial sync), drive a `vm-ib-gateway-deploy`-labelled issue: it
+    SSHes to the gateway VM (same ProxyJump transport as recover), sets the role
+    marker, `git reset --hard origin/main`, re-runs `install_systemd_units.sh`,
+    restarts the watchdog timer, and prints a self-deploy diagnosis.
 
 The live→3-OCPU trader migration is **paused**: with the gateway off the money
 box, the micro may hold the trader + web-api + sidecars on 2 cores (the

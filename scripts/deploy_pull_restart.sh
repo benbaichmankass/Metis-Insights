@@ -73,6 +73,44 @@ POST_SYNC_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 echo ">>> Post-sync HEAD: ${POST_SYNC_HEAD}"
 
 # ---------------------------------------------------------------------------
+# GATEWAY VM short-circuit (BL-20260622-GATEWAY-GIT-SYNC).
+#
+# The dedicated IB-Gateway VM is a MINIMAL box: it runs only the Docker
+# IB-Gateway container + a couple of stdlib-only systemd units
+# (ict-ib-gateway-{watchdog,reset}). It deliberately has NO bot venv and NO
+# .env. The rest of this script is the TRADER deploy: it `pip install -r
+# requirements.txt` (the full bot dependency tree) and restarts every
+# enumerated ict-*.service. Neither belongs on the gateway VM — a pip install
+# would bloat the minimal box, and the service enumeration could START the
+# trader/web-api there (they're copied as unit files but never meant to run).
+# So on the gateway, do the gateway-appropriate deploy only: refresh the unit
+# FILES (install_systemd_units.sh is idempotent + role-gates its own enables)
+# and bounce the gateway timers so a changed cadence/ExecStart takes effect —
+# then exit BEFORE the pip + trader-service-restart section. Keyed on the
+# /etc/ict-vm-role marker (written by provision_ib_gateway.sh).
+VM_ROLE="$(tr -d '[:space:]' < /etc/ict-vm-role 2>/dev/null || true)"
+if [ "${VM_ROLE}" = "gateway" ]; then
+    if [ "${PRE_SYNC_HEAD}" = "${POST_SYNC_HEAD}" ]; then
+        echo ">>> [gateway] HEAD unchanged (${POST_SYNC_HEAD:0:7}); nothing to deploy."
+        echo "===== DEPLOY COMPLETE (gateway no-op): $(date) ====="
+        exit 0
+    fi
+    echo ">>> [gateway] ${PRE_SYNC_HEAD:0:7} -> ${POST_SYNC_HEAD:0:7}: refreshing units (NO pip, NO trader restart)."
+    if bash "${REPO_DIR}/scripts/install_systemd_units.sh"; then
+        echo ">>> [gateway] systemd units in sync."
+    else
+        echo ">>> [gateway] WARNING: install_systemd_units.sh exited nonzero — see journal."
+    fi
+    # Bounce the gateway timers so a changed OnUnitActiveSec/ExecStart lands now
+    # (daemon-reload alone may not reschedule an already-active timer). Tolerant:
+    # a unit that isn't installed on this host is simply skipped.
+    "${SYSTEMCTL[@]}" restart ict-ib-gateway-watchdog.timer ict-ib-gateway-reset.timer 2>/dev/null \
+        || echo ">>> [gateway] note: could not restart one/both gateway timers (may not be installed)."
+    echo "===== DEPLOY COMPLETE (gateway): $(date) ====="
+    exit 0
+fi
+
+# ---------------------------------------------------------------------------
 # S-020: Telegram ping fanout, state-file driven.
 #
 # We compare against the LAST-NOTIFIED head (persisted in

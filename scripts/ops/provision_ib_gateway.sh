@@ -31,6 +31,16 @@ sudo mkdir -p "$(dirname "${ENV_FILE}")"
 sudo install -m 0600 -o ubuntu -g ubuntu "${ENV_STAGED}" "${ENV_FILE}"
 shred -u "${ENV_STAGED}" 2>/dev/null || rm -f "${ENV_STAGED}"
 
+# Mark this host as the gateway VM (BL-20260622-GATEWAY-VM-ROLE). The role
+# marker drives two things: scripts/install_systemd_units.sh enables the
+# gateway-only timers (ict-ib-gateway-{watchdog,reset}) only where it is
+# "gateway", and scripts/deploy_pull_restart.sh takes its minimal gateway
+# branch (no pip / no trader-service restart). Provisioning never set it, so
+# the gateway timers survived only because they were hand-enabled once, and an
+# enabled git-sync would have run the full trader deploy here. Idempotent.
+echo "[provision_ib_gateway] marking host role: /etc/ict-vm-role=gateway"
+echo gateway | sudo tee /etc/ict-vm-role >/dev/null
+
 echo "[provision_ib_gateway] running Docker installer (gnzsnz/ib-gateway)"
 bash "${REPO_ROOT}/scripts/install_ib_gateway_docker.sh"
 
