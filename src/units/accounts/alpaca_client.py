@@ -151,17 +151,25 @@ class AlpacaClient:
         except (TypeError, ValueError):
             return None
 
-    def positions(self) -> list:
-        """Open positions as ``[{symbol, side, qty, avg_price, unrealized_pnl}]``."""
+    def positions(self) -> Optional[list]:
+        """Open positions as ``[{symbol, side, qty, avg_price, unrealized_pnl}]``.
+
+        Returns ``None`` on a READ FAILURE (missing creds, network error,
+        non-2xx) so callers can distinguish "could not read" from "genuinely
+        flat" (``[]``) — mirroring the IB read path. Collapsing a failed read
+        into ``[]`` is what let a transient Alpaca outage read as "flat" and
+        the position-snapshot reconciler false-close a live position
+        (BL-20260622-ALPACA-SNAPSHOT-FALSECLOSE).
+        """
         try:
             self._require_creds("positions")
         except MissingCredentialsError as exc:
             logger.warning("%s", exc)
-            return []
+            return None
         env = self._request("GET", "/v2/positions")
         if env.get("retCode") != 0:
             logger.warning("alpaca positions: %s", env.get("retMsg"))
-            return []
+            return None
         out = []
         for pos in env.get("result") or []:
             try:

@@ -1151,6 +1151,34 @@ def account_open_positions(
             if client is None:
                 # No creds → can't read (factory returns None on unset keys).
                 return None
+            raw_positions = client.positions()
+            if raw_positions is None:
+                # Read failure (network / non-2xx / missing creds) — return
+                # None ("could not read") so the reverse reconciler's
+                # ``if positions is None: continue`` guard skips this account
+                # rather than treating a failed read as a flat account and
+                # false-closing live rows (BL-20260622-ALPACA-SNAPSHOT-FALSECLOSE).
+                return None
+            if not raw_positions:
+                # EMPTY but successful read — the ambiguous case, exactly like
+                # the IB branch above. A just-placed bracket-MARKET order whose
+                # fill hasn't propagated to /v2/positions yet reads empty here
+                # while NOT being flat. Verify the session is genuinely live via
+                # balance() (account equity populated) before trusting [] as
+                # "flat"; otherwise return None ("couldn't confirm — skip
+                # conservatively"). The order_monitor's fresh-fill grace is the
+                # belt to this suspenders: even a verified-live empty read won't
+                # close a too-young row.
+                bal = client.balance()
+                if not bal:
+                    logger.warning(
+                        "account_open_positions(%s): alpaca empty snapshot but "
+                        "balance() not populated (=%r) — treating as read-failure, "
+                        "not flat; returning None.",
+                        account.get("account_id") or "unknown", bal,
+                    )
+                    return None
+                return []
             out = []
             # AlpacaClient.positions() emits
             # ``[{symbol, side, qty, avg_price, unrealized_pnl}]`` — normalise
@@ -1158,7 +1186,7 @@ def account_open_positions(
             # unrealised_pnl}`` shape every other consumer speaks. ``side`` is
             # already ``buy``/``sell``; map to ``long``/``short`` to match the
             # IB/Bybit rows.
-            for p in (client.positions() or []):
+            for p in raw_positions:
                 size = _f(p.get("qty"))
                 if size <= 0:
                     continue
@@ -1187,13 +1215,20 @@ def account_open_positions(
                 # No creds (OANDA_API_TOKEN / OANDA_ACCOUNT_ID unset) → can't
                 # read; factory returns None.
                 return None
+            raw_positions = client.positions()
+            if raw_positions is None:
+                # Read failure — return None ("could not read") so the reverse
+                # reconciler skips this account rather than false-closing live
+                # rows on a transient outage (BL-20260622-ALPACA-SNAPSHOT-
+                # FALSECLOSE). Forward protection for the live-promotion path.
+                return None
             out = []
             # OandaClient.positions() emits
             # ``[{symbol, side, qty, avg_price, unrealized_pnl}]`` (side is
             # buy/sell). Normalise to the canonical
             # ``{symbol, side, size, entry_price, unrealised_pnl}`` shape with
             # side mapped to long/short, like the alpaca branch.
-            for p in (client.positions() or []):
+            for p in raw_positions:
                 size = _f(p.get("qty"))
                 if size <= 0:
                     continue
