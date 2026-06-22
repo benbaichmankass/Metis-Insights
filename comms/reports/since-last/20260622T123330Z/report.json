@@ -6,16 +6,16 @@
   "window_start": "2026-06-22T07:51:39+00:00",
   "window_end": "2026-06-22T12:33:30+00:00",
   "prior_report_id": "RPT-20260622-075139-monthly",
-  "overall_assessment": "healthy",
+  "overall_assessment": "investigate",
   "health": {
     "request_id": "HR-20260622-sysrpt",
     "reviewed_at": "2026-06-22T12:33:30+00:00",
     "reviewer": "claude",
     "window_start": "2026-06-22T07:51:39+00:00",
     "window_end": "2026-06-22T12:33:30+00:00",
-    "overall_assessment": "healthy",
-    "recommended_action": "none \u2014 system nominal; note the 12:09:52Z coordinated restart (deploy b2b85f37) for the record.",
-    "operator_attention_required": false,
+    "overall_assessment": "investigate",
+    "recommended_action": "Investigate: (1) windowed KPIs (/performance, /stats pnl24h, /pnl/history) silently dropped real closed trades whose closed_at is epoch-ms \u2014 fixed read-side in this PR; writer-side normalise + migration still pending (BL-20260620-RECONCILER-CLOSEDAT-MS). (2) Multiple real bybit_2 BTCUSDT positions ended 'orphaned' via stuck_strategy_watchdog with no realized PnL.",
+    "operator_attention_required": true,
     "findings": {
       "liveness": {
         "status": "ok",
@@ -40,6 +40,14 @@
       "signal_pipeline": {
         "status": "ok",
         "note": "36 strategies configured; pipeline ticking. No closed trades in 24h (quiet market window), consistent with low realized activity."
+      },
+      "kpi_closed_at_window_bug": {
+        "status": "concern",
+        "note": "Real bybit_2 BTCUSDT closes were invisible to windowed KPIs: trade #2768 closed 11:37:03Z with pnl +1.30 yet /performance?window=24h returned 0 and /stats pnl24h $0. Root cause: the reconciler-filled close writes closed_at as epoch-ms ('1782128223798'); datetime()/substr() of that yields NULL/garbage so the row fails the window filter. Lifetime totals (no datetime parse) still counted it. Fixed read-side (shared _closed_at.py wired into /performance, /stats, /pnl/history)."
+      },
+      "real_positions_orphaned": {
+        "status": "concern",
+        "note": "3 real-money bybit_2 BTCUSDT positions (journal ids 2762/2757/2746) ended status='orphaned' via stuck_strategy_watchdog with no exit_price/pnl, though the exchange shows the account flat \u2014 so they carry no realized PnL and never count. Plus #2765 closed reconciler_filled with NULL pnl/exit. Investigate why the watchdog orphans real filled positions instead of recording a clean close."
       }
     },
     "anomalies": [],
@@ -61,8 +69,8 @@
     "reviewer": "claude",
     "window_start": "2026-06-22T07:51:39+00:00",
     "window_end": "2026-06-22T12:33:30+00:00",
-    "overall_assessment": "healthy",
-    "recommended_action": "none for the window \u2014 zero closed trades real/paper/demo over 24h. Standing concern (not new): paper research book deeply negative lifetime (\u2212$31,972), dominated by mgc_trend_1h / ict_scalp_5m / htf_pullback_trend_2h per the prior monthly report.",
+    "overall_assessment": "investigate",
+    "recommended_action": "Real money had >=1 cleanly-closed trade in the window (#2768 +$1.30) that the KPI bug hid. The broader 24h had ~6 real CLOSE fills on bybit_2 (per the operator's Bybit log) netting ~-$0.92 incl fees; several journal rows are orphaned/NULL-pnl so the true realized picture needs the writer-side closed_at fix + an orphan-pnl backfill.",
     "operator_attention_required": false,
     "strategy_performance": [],
     "trade_decision_grades": [],
@@ -149,48 +157,66 @@
     }
   },
   "consolidated": {
-    "roll_up_grade": "healthy",
-    "headline": "Quiet ~4.6h window since the last (monthly) report. System HEALTHY: clean coordinated restart at 12:09:52Z deployed b2b85f37, both services active, heartbeat live, VM relaxed (cpu 10%/mem 11%/disk 24%). ZERO closed trades real/paper/demo over 24h. Real money: flat, 0 open positions, lifetime -$26.03. Paper (isolated research book): 0 closed, 8 open, net unrealized ~-75 on measured legs (+1 unmeasured MHG), lifetime -$31,972 unchanged. ML fleet nominal \u2014 26 shadow heads accruing, one advisory head (btc-regime-1h-lgbm-yz-v1) live. Markets calm: BTC +1.2%, MES +0.5%, MGC +0.7%.",
+    "roll_up_grade": "investigate",
+    "headline": "INVESTIGATE. The first report ran clean but UNDER-REPORTED: real-money bybit_2 DID close trades in the window (trade #2768 trend_donchian BTCUSDT +$1.30, closed 11:37Z) \u2014 they were hidden by a KPI bug where the reconciler writes closed_at as epoch-ms, which datetime()/substr() drop from every windowed query (/performance, /stats pnl24h, /pnl/history). Found from the operator's Bybit transaction log; fixed read-side in this PR (shared _closed_at.py). Also flagged: 3 real bybit_2 positions ended 'orphaned' via stuck_strategy_watchdog with no realized PnL. System otherwise healthy (clean restart 12:09Z deploy b2b85f37, services up, VM relaxed). Paper book 8 open, lifetime -$31,972 (isolated, large notional). ML fleet nominal. Markets calm: BTC +1.2%, MES +0.5%, MGC +0.7%.",
     "operator_priorities": [
       {
         "rank": 1,
-        "title": "No action required this window",
+        "title": "Approve read-side closed_at KPI fix (this PR) + schedule the writer-side normalise",
         "source_review": "cross",
-        "tier": 1,
-        "detail": "All three domains healthy; no findings demanding operator action. Recorded the deploy restart (b2b85f37) for traceability.",
-        "operator_action_required": false
+        "tier": 2,
+        "detail": "Read-side guard wired into /performance, /stats pnl24h, /pnl/history (Tier-1, in this PR). Writer-side (order_monitor: normalise Bybit ms->ISO + migrate existing ms rows) is Tier-2, tracked BL-20260620-RECONCILER-CLOSEDAT-MS.",
+        "operator_action_required": true
       },
       {
         "rank": 2,
-        "title": "Paper research book remains deeply negative (standing item)",
+        "title": "Investigate real bybit_2 positions orphaned by stuck_strategy_watchdog",
+        "source_review": "health",
+        "tier": 2,
+        "detail": "Journal ids 2762/2757/2746 ended 'orphaned' with no exit/pnl though the exchange shows the account flat; #2765 closed with NULL pnl. Real money should record a clean close + realized PnL, not orphan.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 3,
+        "title": "Paper research book deeply negative (standing, not new)",
         "source_review": "performance",
         "tier": 3,
-        "detail": "Lifetime paper \u2212$31,972 (isolated from real). Not new this window (0 trades). Tracked in the monthly report's strategy follow-ups; revisit on the next performance-review with trade flow.",
+        "detail": "Lifetime paper -$31,972 on large paper notional (bybit_1 $273k). 0 closed in window. Revisit in /performance-review.",
         "operator_action_required": false
       }
     ],
     "cross_review_notes": [
-      "Coordinated 12:09:52Z restart shows in health (uptime/git_sha) and explains the post-restart loaded_strategies=None snapshot value \u2014 strategies reload on the next ticks; last_tick is fresh so the pipeline recovered cleanly.",
-      "Zero trade flow in the window means performance has no dossiers to grade and the advisory ML head had no order to influence \u2014 a genuinely idle market window, not a plumbing stall (heartbeat + ticks confirm liveness).",
-      "Open paper book (no real exposure): biggest unrealized winner SOLUSDT long +$350, biggest loser AVAXUSDT short -$478. Two symbol pairs (XRPUSDT x2, ADAUSDT x2) each report IDENTICAL per-leg unrealized PnL across different entry/qty \u2014 likely a per-symbol broker-aggregate uPnL copied to each netted leg; paper-only, flagged as a minor data-quality note."
+      "Primary cross-domain finding: the 'quiet window / 0 closed trades' read was a DATA-INTEGRITY artifact, not market reality. Health (DB validity) + performance (trade KPIs) both depend on the close-time basis; an epoch-ms closed_at broke the windowed SQL in /performance, /stats pnl24h and /pnl/history identically, while /trades/closed (already guarded) would have shown them.",
+      "The clean 12:09Z restart is unrelated \u2014 trade #2768 was already closed (11:37Z) before it; the KPI bug, not restart timing, hid it.",
+      "Open paper book (no real exposure): SOLUSDT long +$350, AVAXUSDT short -$478; XRP\u00d72/ADA\u00d72 legs show identical per-leg uPnL (per-symbol broker aggregate)."
     ],
     "pnl_by_class": {
       "real": {
-        "window_pnl": 0.0,
+        "window_pnl": 1.3,
         "prior_window_pnl": 0.0,
-        "trend": "flat",
-        "trades": 0,
-        "wins": 0,
-        "win_rate": 0.0,
+        "trend": "up",
+        "trades": 1,
+        "wins": 1,
+        "win_rate": 100.0,
         "expectancy": 0.0,
         "profit_factor": null,
         "max_drawdown": null,
-        "per_strategy": [],
-        "per_asset_class": {},
+        "per_strategy": [
+          {
+            "name": "trend_donchian (BTCUSDT, closed)",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 1.3
+          }
+        ],
+        "per_asset_class": {
+          "crypto": 1.3
+        },
         "equity_curve": [],
         "lifetime_pnl": -26.03,
         "lifetime_win_rate": 25.9,
-        "open_trades": 0
+        "open_trades": 0,
+        "note": "In-window real close: trade #2768 trend_donchian BTCUSDT long, opened 07:15Z closed 11:37Z, +$1.30 (matches the Bybit log's +1.41 Change before the journal's fee basis). Was hidden by the closed_at KPI bug. 24h also saw real CLOSE fills at 04:00Z and 20:41Z (prior window) + 3 orphaned real positions."
       },
       "paper": {
         "window_pnl": 0.0,
@@ -300,17 +326,53 @@
         "note": "Gold steady climb (~+0.7%) to ~4228; orderly, low vol."
       }
     ],
-    "trade_dossiers": [],
+    "trade_dossiers": [
+      {
+        "trade_id": 2768,
+        "order_package_id": null,
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "trend_donchian",
+        "opened_at": "2026-06-22T07:15:35+00:00",
+        "closed_at": "2026-06-22T11:37:03+00:00",
+        "hold_seconds": 15688,
+        "entry_price": 64223.4,
+        "exit_price": 64729.9,
+        "stop_loss": 63944.5,
+        "take_profit": 71562.9,
+        "qty": 0.003,
+        "pnl": 1.3,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "Closed in profit (+$1.30) via reconciler-detected fill. Confidence 0.959 at signal."
+        },
+        "model_scores": {},
+        "signal_logic": "trend_donchian signal",
+        "meta": {
+          "setup_type": "trend_donchian",
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      }
+    ],
     "dossier_coverage": {
       "window": "since-last",
-      "full_dossiers": 0,
+      "full_dossiers": 1,
       "summarized_trades": 0,
-      "rule": "full-per-trade (since-last/daily) \u2014 but 0 closed trades in the window, so no dossiers."
+      "rule": "full-per-trade (since-last) \u2014 1 real closed trade in window (surfaced after diagnosing the KPI bug)."
     },
     "backlog_summary": {
       "health": {
         "drained": 0,
-        "open": 0
+        "open": 1
       },
       "performance": {
         "drained": 0,
@@ -321,7 +383,13 @@
         "open": 0
       }
     },
-    "tier3_proposals_pending": [],
+    "tier3_proposals_pending": [
+      {
+        "source_review": "performance",
+        "summary": "After the writer-side closed_at fix + orphan-pnl backfill, re-baseline real-money lifetime/expectancy (currently understated by hidden/orphaned closes).",
+        "tier": 3
+      }
+    ],
     "services": [
       {
         "unit": "ict-trader-live.service",

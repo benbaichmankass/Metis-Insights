@@ -7,8 +7,8 @@
       "generated_at": "2026-06-22T12:33:30+00:00",
       "window_start": "2026-06-22T07:51:39+00:00",
       "window_end": "2026-06-22T12:33:30+00:00",
-      "roll_up_grade": "healthy",
-      "headline": "Quiet ~4.6h window since the last (monthly) report. System HEALTHY: clean coordinated restart at 12:09:52Z deployed b2b85f37, both services active, heartbeat live, VM relaxed (cpu 10%/mem 11%/disk 24%). ZERO closed trades real/paper/demo over 24h. Real money: flat, 0 open positions, lifetime -$26.03. Paper (isolated research book): 0 closed, 8 open, net unrealized ~-75 on measured legs (+1 unmeasured MHG), lifetime -$31,972 unchanged. ML fleet nominal \u2014 26 shadow heads accruing, one advisory head (btc-regime-1h-lgbm-yz-v1) live. Markets calm: BTC +1.2%, MES +0.5%, MGC +0.7%.",
+      "roll_up_grade": "investigate",
+      "headline": "INVESTIGATE. The first report ran clean but UNDER-REPORTED: real-money bybit_2 DID close trades in the window (trade #2768 trend_donchian BTCUSDT +$1.30, closed 11:37Z) \u2014 they were hidden by a KPI bug where the reconciler writes closed_at as epoch-ms, which datetime()/substr() drop from every windowed query (/performance, /stats pnl24h, /pnl/history). Found from the operator's Bybit transaction log; fixed read-side in this PR (shared _closed_at.py). Also flagged: 3 real bybit_2 positions ended 'orphaned' via stuck_strategy_watchdog with no realized PnL. System otherwise healthy (clean restart 12:09Z deploy b2b85f37, services up, VM relaxed). Paper book 8 open, lifetime -$31,972 (isolated, large notional). ML fleet nominal. Markets calm: BTC +1.2%, MES +0.5%, MGC +0.7%.",
       "html_path": "comms/reports/since-last/20260622T123330Z/report.html",
       "json_path": "comms/reports/since-last/20260622T123330Z/report.json",
       "md_path": "comms/reports/since-last/20260622T123330Z/report.md"

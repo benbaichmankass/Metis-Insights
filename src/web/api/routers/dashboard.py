@@ -23,10 +23,18 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, status
 
 from src.utils.paths import runtime_logs_dir, trade_journal_db_path
+from src.web.api._closed_at import close_time_sql
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot", tags=["dashboard"])
+
+# Canonical close-time basis for the rolling pnl24h window, epoch-ms-aware.
+# The reconciler-filled close path writes ``closed_at`` as a raw epoch-ms
+# string; an unguarded ``datetime(closed_at)`` returns NULL and drops the row
+# from the 24h window (the "pnl24h wrongly $0 while lifetime is non-zero" bug).
+# Mirrors /api/bot/performance + /api/bot/trades/closed — see _closed_at.py.
+_PNL24H_CLOSE_TIME_SQL = close_time_sql("closed_at", "op.updated_at", "timestamp")
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _DB_PATH = Path(trade_journal_db_path())
@@ -273,7 +281,7 @@ def _pnl_stats_for(predicate: str) -> tuple[float, float, int, float]:
         cur = conn.cursor()
         try:
             cur.execute(
-                """
+                f"""
                 -- Canonical "closed trade" basis: status='closed' (matches
                 -- /performance, /trades/closed, /pnl/history). Previously this
                 -- used status!='open', which also counted non-closed terminal
@@ -292,7 +300,7 @@ def _pnl_stats_for(predicate: str) -> tuple[float, float, int, float]:
                 -- /performance and the join can't fan-out the sums.
                 SELECT
                     COALESCE(SUM(CASE WHEN status='closed' AND pnl IS NOT NULL
-                        AND datetime(COALESCE(closed_at, op.updated_at, timestamp))
+                        AND {_PNL24H_CLOSE_TIME_SQL}
                             >= datetime('now','-24 hours')
                         THEN pnl ELSE 0 END),0),
                     COALESCE(SUM(CASE WHEN status='closed' THEN pnl ELSE 0 END),0),
