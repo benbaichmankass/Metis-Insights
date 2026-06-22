@@ -1,0 +1,148 @@
+{
+  "_comment": "Template documenting the consolidated JSON the /system-report master skill assembles (introduced 2026-06-22). It runs the three existing reviews (/health-review, /performance-review, /ml-review) in report mode and synthesizes one executive report. The three sub-objects `health`, `performance`, `ml` carry each review's own response shape verbatim (see comms/schema/{health,performance,ml}_review_response.template.json — do NOT re-declare their fields here, a second copy drifts). The `consolidated` block is the cross-domain executive synthesis + the report-specific data (trade dossiers, market context, per-class PnL). This file is documentation, not a validated JSON Schema. Renderer: scripts/reports/render_system_report.py. Spec: docs/reports/system-report-DESIGN.md.",
+  "report_id": "RPT-YYYYMMDD-HHMMSS-<window>",
+  "reviewed_at": "YYYY-MM-DDTHH:MM:SS+00:00",
+  "reviewer": "claude",
+  "window": "since-last | daily | weekly | monthly",
+  "window_start": "YYYY-MM-DDTHH:MM:SS+00:00",
+  "window_end": "YYYY-MM-DDTHH:MM:SS+00:00",
+  "prior_report_id": "RPT-... | null (first report, or no prior in this window class)",
+  "overall_assessment": "healthy | caution | investigate",
+
+  "health": {
+    "_comment": "Verbatim /health-review response — shape in comms/schema/health_review_response.template.json. Run in report mode (its individual send-ping is SUPPRESSED; the report sends one consolidated ping). `claude_channel_ping.delivered_via` = 'suppressed (system-report)'."
+  },
+  "performance": {
+    "_comment": "Verbatim /performance-review response — shape in comms/schema/performance_review_response.template.json. Run in report mode (individual ping suppressed). Its trade_decision_grades[] feed the consolidated.trade_dossiers[] join."
+  },
+  "ml": {
+    "_comment": "Verbatim /ml-review response — shape in comms/schema/ml_review_response.template.json. Run in report mode (individual ping suppressed)."
+  },
+
+  "consolidated": {
+    "_comment": "Cross-domain executive synthesis + report-specific data not produced by any single review.",
+    "roll_up_grade": "healthy | caution | investigate — worst-of the three reviews' overall_assessment",
+    "headline": "<= 240 chars — one-paragraph 'what happened since the last report'",
+    "operator_priorities": [
+      {
+        "_comment": "Top 3-5 prioritized actions distilled across all three reviews. Highest-severity first.",
+        "rank": 1,
+        "title": "<= 120 chars",
+        "source_review": "health | performance | ml | cross",
+        "tier": 1,
+        "detail": "<= 240 chars",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "free-form — patterns that span domains (e.g. health flags signal->order plumbing on BTCUSDT AND performance shows a rejection cluster on the same symbol)"
+    ],
+
+    "pnl_by_class": {
+      "_comment": "Real / paper / prop are NEVER blended (live-trade management contract P4). Each is computed over the window AND the prior equal-length window so the report can show the trend (better/worse). Prop is sourced from the prop journal (isolated tables), not `trades`. Null any value not derivable.",
+      "real": {
+        "window_pnl": 0.0, "prior_window_pnl": 0.0, "trend": "up | down | flat",
+        "trades": 0, "wins": 0, "win_rate": 0.0, "expectancy": 0.0,
+        "profit_factor": 0.0, "max_drawdown": 0.0,
+        "per_strategy": [{"name": "vwap", "trades": 0, "win_rate": 0.0, "pnl": 0.0}],
+        "per_asset_class": {"crypto": 0.0, "index": 0.0, "commodity": 0.0, "equity": 0.0, "fx": 0.0},
+        "equity_curve": [{"t": "YYYY-MM-DDTHH:MM:SS+00:00", "cum": 0.0}]
+      },
+      "paper": {
+        "_comment": "Same shape as `real`, computed over paper-account rows only.",
+        "window_pnl": 0.0, "prior_window_pnl": 0.0, "trend": "up | down | flat",
+        "trades": 0, "wins": 0, "win_rate": 0.0, "expectancy": 0.0,
+        "profit_factor": 0.0, "max_drawdown": 0.0,
+        "per_strategy": [], "per_asset_class": {}, "equity_curve": []
+      },
+      "prop": {
+        "_comment": "From /api/bot/prop/* — fills + account-status, NOT the `trades` table. rule_distance is the cushion to the account-killer limits.",
+        "window_pnl": 0.0, "prior_window_pnl": 0.0, "trend": "up | down | flat",
+        "fills_reported": 0, "tickets_emitted": 0, "unacted_tickets": 0,
+        "rule_distance": {"daily_loss_remaining": null, "static_dd_remaining": null},
+        "per_account": [{"account_id": "breakout_1", "balance": null, "equity": null, "realized_window": 0.0}]
+      }
+    },
+
+    "market_context": [
+      {
+        "_comment": "One row per traded symbol (enumerated live via _discover_symbols, never hardcoded). Window OHLC + % change from /api/bot/candles so performance reads against market behavior. Null on a candle-fetch failure (do not fabricate a 0).",
+        "symbol": "BTCUSDT",
+        "open": null, "close": null, "high": null, "low": null,
+        "pct_change": null, "range_pct": null,
+        "note": "<= 160 chars — one-line regime read (trending up / chop / sold off, etc.)"
+      }
+    ],
+
+    "trade_dossiers": [
+      {
+        "_comment": "The reviewable-one-by-one per-trade decision map. ADAPTIVE DEPTH: full dossier per trade for window in {since-last, daily}; for {weekly, monthly} only `notable=true` outliers get the full dossier, the rest are summarized in pnl_by_class.per_strategy + a count in `dossier_coverage`. Joins /api/bot/trades/closed + /api/bot/order-packages (by linkedTradeId) + the performance review's A-F grade.",
+        "trade_id": 0,
+        "order_package_id": "...",
+        "account": "bybit_2",
+        "account_class": "real_money | paper | prop",
+        "symbol": "BTCUSDT",
+        "direction": "long | short",
+        "strategy": "vwap",
+        "opened_at": "YYYY-MM-DDTHH:MM:SS+00:00",
+        "closed_at": "YYYY-MM-DDTHH:MM:SS+00:00",
+        "hold_seconds": 0,
+        "entry_price": null, "exit_price": null, "stop_loss": null, "take_profit": null,
+        "qty": null, "pnl": null, "pnl_percent": null,
+        "close_reason": "tp | sl | manual | reconciler | other | null",
+        "claude_grade": {
+          "_comment": "From the performance review (comms/claude_strategy_scores.jsonl, joined by order_package_id). null until graded.",
+          "grade": "A | B | C | D | F | null",
+          "entry_quality": "optimal | acceptable | late | early | should_skip | unknown",
+          "exit_quality": "optimal | tp_appropriate | sl_appropriate | premature_exit | held_too_long | unknown",
+          "risk_management": "correct | oversize | undersize | sl_too_tight | sl_too_wide | unknown",
+          "rationale": "<= 240 chars | null"
+        },
+        "model_scores": {
+          "_comment": "order_packages.model_scores — {model_id: {stage, score}} captured at signal time. null for pre-column rows.",
+          "<model_id>": {"stage": "shadow | advisory", "score": 0.0}
+        },
+        "signal_logic": "the decision reasoning the bot recorded at signal time (order_packages.signal_logic), or null",
+        "meta": {"setup_type": null, "killzone": null, "bias": null},
+        "notable": false
+      }
+    ],
+    "dossier_coverage": {
+      "_comment": "How the adaptive-depth rule resolved for this report.",
+      "window": "since-last | daily | weekly | monthly",
+      "full_dossiers": 0,
+      "summarized_trades": 0,
+      "rule": "full-per-trade (since-last/daily) | outliers-only (weekly/monthly)"
+    },
+
+    "backlog_summary": {
+      "_comment": "Roll-up of the three reviews' backlog_drain[] this run + open counts.",
+      "health": {"drained": 0, "open": 0},
+      "performance": {"drained": 0, "open": 0},
+      "ml": {"drained": 0, "open": 0}
+    },
+    "tier3_proposals_pending": [
+      {
+        "_comment": "Tier-3 items the reviews PROPOSED (never enacted) — surfaced so the operator sees the decision queue in one place.",
+        "source_review": "performance | ml",
+        "summary": "<= 200 chars",
+        "tier": 3
+      }
+    ]
+  },
+
+  "artifacts": {
+    "_comment": "Where this report was written. Relative to repo root; the VM's ict-git-sync mirrors comms/ so /api/bot/reports serves them.",
+    "json_path": "comms/reports/<window>/<UTC-ts>/report.json",
+    "html_path": "comms/reports/<window>/<UTC-ts>/report.html",
+    "md_path": "comms/reports/<window>/<UTC-ts>/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/<window>/<UTC-ts>/report.html"
+  },
+
+  "claude_channel_ping": {
+    "_comment": "The ONE consolidated ping for the whole report (the three sub-reviews' individual pings are suppressed). Posted via the send-ping system-action. Carries the report link.",
+    "delivered_via": "send-ping | pending-pings.jsonl | skipped (relay failure)",
+    "priority": "low | normal | high | urgent",
+    "message": "<= 200 chars — [system-report:<window>] roll-up <grade>: H:<h> P:<p> M:<m>. <link>"
+  }
+}
