@@ -1647,6 +1647,83 @@ class Coordinator:
                         delta.action in ("reduce", "close", "flip")
                         and _market_type not in {"linear", "inverse"}
                     ):
+                        # Genuine strategy-driven EXIT (a FLIP_POLICY=flat
+                        # opposite-side vote → ``action="close"`` with reason
+                        # ``flip_flat_policy:…``) is a deliberate "get flat now"
+                        # decision and IS executed — flattened via the unified
+                        # close_open_position primitive (alpaca → AlpacaClient.
+                        # close, ib → IBClient.close), NOT held. This is the
+                        # close carve-out of the hold-to-bracket fix
+                        # (BL-20260622-ALPACA-REDUCE-HOLD). ``flip_flat_policy`` is
+                        # the ONLY way an ``action="close"`` reaches here: the
+                        # other close path (``reason="close_existing_…"``, fired
+                        # when ``target_qty == 0``) can't occur, because a
+                        # risk-sizing-0 is already refused at the ``sized_qty<=0``
+                        # zero-qty gate above (before the delta is computed) and
+                        # ``target`` is therefore always > 0 here. The reason
+                        # check keeps the carve-out precise even so. Inert under
+                        # the global FLIP_POLICY=hold
+                        # default (no flip_flat close is ever produced); activates
+                        # only for an account/strategy that opts into
+                        # flip_policy=flat. The held-position DB row is closed by
+                        # the order-monitor reconciler on close-on-disappear once
+                        # the broker reads flat (same as every other flatten).
+                        if (
+                            delta.action == "close"
+                            and str(delta.reason or "").startswith("flip_flat_policy")
+                        ):
+                            held_side = "long" if current_signed_qty > 0 else "short"
+                            held_qty = abs(float(current_signed_qty))
+                            close_res: dict = {}
+                            if not effective_dry and held_qty > 0 and client is not None:
+                                from src.units.accounts.execute import (
+                                    close_open_position,
+                                )
+                                close_res = close_open_position(
+                                    client, account_cfg,
+                                    symbol=pkg.symbol, side=held_side, qty=held_qty,
+                                ) or {}
+                            _closed_ok = bool(close_res.get("ok")) or effective_dry
+                            logger.info(
+                                "[coordinator] flip_flat close on %s/%s "
+                                "(market_type=%s) → close_open_position(side=%s "
+                                "qty=%s) ok=%s%s",
+                                account.name, pkg.symbol, _market_type, held_side,
+                                held_qty, _closed_ok,
+                                "" if _closed_ok
+                                else f" err={close_res.get('error')}",
+                            )
+                            from src.units.accounts.execute import (
+                                log_rejection_to_journal,
+                            )
+                            log_rejection_to_journal(
+                                pkg, account_cfg,
+                                reason=(
+                                    "intent_close_flatten:"
+                                    + ("ok" if _closed_ok
+                                       else str(close_res.get("error")))
+                                ),
+                                status="rejected",
+                                sized_qty=0.0,
+                            )
+                            results.append({
+                                "name": account.name,
+                                "exchange": account.exchange,
+                                "account_type": account.account_type,
+                                "trade_id": None,
+                                "sized_qty": 0.0,
+                                # Success → benign (intent_noop: prefix) so the
+                                # all-accounts-failed roll-up doesn't misfire on a
+                                # clean flatten that placed no NEW trade row.
+                                # Failure → a real error so the alert DOES fire.
+                                "error": (
+                                    "intent_noop:flip_flat_closed_via_flatten"
+                                    if _closed_ok
+                                    else f"intent_close_flatten_failed:"
+                                         f"{close_res.get('error')}"
+                                ),
+                            })
+                            continue
                         _hold_reason = (
                             f"intent_noop:hold_to_bracket_{delta.action}"
                             f"_non_derivative"
