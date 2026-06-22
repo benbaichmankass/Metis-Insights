@@ -139,27 +139,40 @@ def classify_probe(stdout: str) -> Dict[str, Any]:
     API handshake (``connected=true``) but its upstream account read times
     out (``net_liquidation=None``), which is exactly the wedge signature.
 
-    Returns ``{"healthy": bool, "reason": str}``.
+    Returns ``{"healthy": bool, "actionable": bool, "reason": str}``.
+
+    ``actionable`` answers "is this a gateway state a ``docker restart`` could
+    fix?" — True for the affirmative gateway-unhealthy signatures (port not
+    accepting, or session dead = connected-but-no-net_liquidation); **False
+    when the probe produced no usable verdict** (unparseable / empty output).
+    A non-actionable result means the probe ENVIRONMENT is broken, not the
+    gateway — restarting the container can't fix that, so ``decide()`` must
+    not let it drive a restart (BL-20260622-GATEWAY-MIDDAY-WEDGE hardening).
     """
     try:
         payload = json.loads(stdout)
     except (json.JSONDecodeError, TypeError):
-        return {"healthy": False, "reason": "probe produced no parseable JSON"}
+        return {"healthy": False, "actionable": False,
+                "reason": "probe produced no parseable JSON"}
     results = payload.get("results") or []
     if not results:
-        return {"healthy": False, "reason": payload.get("error") or "no probe results"}
+        return {"healthy": False, "actionable": False,
+                "reason": payload.get("error") or "no probe results"}
     snap = results[0]
     if not snap.get("connected"):
         return {
             "healthy": False,
+            "actionable": True,
             "reason": f"connect failed: {snap.get('error') or 'not connected'}",
         }
     if snap.get("net_liquidation") is None:
         return {
             "healthy": False,
+            "actionable": True,
             "reason": "API handshake OK but net_liquidation=None — IBKR session/data down",
         }
-    return {"healthy": True, "reason": f"net_liquidation={snap.get('net_liquidation')}"}
+    return {"healthy": True, "actionable": True,
+            "reason": f"net_liquidation={snap.get('net_liquidation')}"}
 
 
 def run_probe(probe_path: Path, account: str, timeout_s: int) -> Dict[str, Any]:
@@ -172,11 +185,14 @@ def run_probe(probe_path: Path, account: str, timeout_s: int) -> Dict[str, Any]:
             timeout=timeout_s,
         )
     except subprocess.TimeoutExpired:
-        return {"healthy": False, "reason": f"probe timed out after {timeout_s}s"}
+        return {"healthy": False, "actionable": False,
+                "reason": f"probe timed out after {timeout_s}s"}
     except (OSError, subprocess.SubprocessError) as exc:
-        return {"healthy": False, "reason": f"probe failed to run: {exc}"}
+        return {"healthy": False, "actionable": False,
+                "reason": f"probe failed to run: {exc}"}
     verdict = classify_probe(proc.stdout)
     if not verdict["healthy"] and not proc.stdout.strip():
+        verdict["actionable"] = False
         verdict["reason"] = (
             f"probe exited {proc.returncode} with no output: "
             f"{(proc.stderr or '').strip()[-160:]}"
@@ -227,14 +243,28 @@ def decide(
     now: float,
     auto_restart: bool,
     exhaustion_reset_s: float = 0.0,
+    actionable: bool = True,
 ) -> Dict[str, Any]:
     """Pure decision over current health + prior state.
 
     Returns ``{action, alert, new_state}`` where ``action`` is one of
-    ``"none" | "recovered" | "detected" | "restart" | "exhausted"``.
+    ``"none" | "recovered" | "detected" | "restart" | "exhausted" |
+    "inconclusive"``.
     ``alert`` is True when the caller should send the message for ``action``.
     With ``auto_restart=False`` the watchdog is alert-only: it detects + warns
     once per episode but never restarts (so no restart bookkeeping advances).
+
+    ``actionable`` (default True for the normal wedge case) gates whether an
+    unhealthy read may drive a restart. When the probe could not produce a
+    usable verdict (unparseable/empty output, timeout, failed to run —
+    ``actionable=False``) a ``docker restart`` can't fix the cause (a broken
+    probe ENVIRONMENT, not the gateway), so the tick is held: it never
+    increments the restart streak, it resets the consecutive-wedge counter
+    (a restart needs ``restart_after`` *consecutive* CONFIRMED wedges), and it
+    alerts once on entry so a persistently-broken probe still pages. This is
+    the BL-20260622-GATEWAY-MIDDAY-WEDGE hardening that lets the reactive
+    auto-restart be re-armed without a misconfigured probe driving spurious
+    container restarts.
 
     ``exhaustion_reset_s`` re-arms an exhausted restart budget after a long
     back-off: once ``max_restarts`` is hit the watchdog normally goes
@@ -260,6 +290,17 @@ def decide(
         s["last_status"] = "ok"
         if last_status == "wedged":
             return {"action": "recovered", "alert": True, "new_state": s}
+        return {"action": "none", "alert": False, "new_state": s}
+
+    # Unhealthy but INCONCLUSIVE — the probe gave no usable verdict, so a
+    # restart can't address the cause. Hold: never restart, break the
+    # consecutive-wedge streak, and alert once on entry. (Restart bookkeeping
+    # is left untouched so we don't re-burst once a real wedge resumes.)
+    if not actionable:
+        s["wedged_streak"] = 0
+        s["last_status"] = "inconclusive"
+        if last_status != "inconclusive":
+            return {"action": "inconclusive", "alert": True, "new_state": s}
         return {"action": "none", "alert": False, "new_state": s}
 
     # Wedged.
@@ -324,6 +365,10 @@ def render(action: str, *, account: str, reason: str, streak: int,
     if action == "detected":
         return (f"[WARN] IB Gateway wedge detected ({_ts()})\n"
                 f"{account}: {reason}. MES strategies are skipping ticks.")
+    if action == "inconclusive":
+        return (f"[WARN] IB Gateway watchdog probe inconclusive ({_ts()})\n"
+                f"{account}: {reason}. Not auto-restarting (a restart can't fix a "
+                f"broken probe) — check the watchdog/probe on the gateway VM.")
     if action == "exhausted":
         return (f"[CRITICAL] IB Gateway auto-heal EXHAUSTED ({_ts()})\n"
                 f"{account}: {reason}. {max_restarts} restarts did not recover it — "
@@ -384,6 +429,7 @@ def main(argv: Optional[list] = None) -> int:
 
     verdict = run_probe(args.probe_script, args.probe_account, args.probe_timeout)
     healthy = bool(verdict["healthy"])
+    actionable = bool(verdict.get("actionable", True))
     reason = verdict["reason"]
 
     state = load_state(args.state)
@@ -396,12 +442,13 @@ def main(argv: Optional[list] = None) -> int:
         now=time.time(),
         auto_restart=args.auto_restart,
         exhaustion_reset_s=args.exhaustion_reset_min * 60.0,
+        actionable=actionable,
     )
     action = decision["action"]
     new_state = decision["new_state"]
     restart_result: Optional[Dict[str, Any]] = None
 
-    print(f"probe: healthy={healthy} reason={reason} action={action}")
+    print(f"probe: healthy={healthy} actionable={actionable} reason={reason} action={action}")
 
     if args.dry_run:
         return 0

@@ -53,16 +53,33 @@ Environment=DATA_DIR=/data/bot-data
 # high-priority so it itself isn't starved while acting.
 CPUWeight=9000
 Nice=-10
-# ALERT-ONLY (gateway-isolation redesign, 2026-06-10): NO --auto-restart. The
-# reactive 5-min probe + restart-loop pile (--restart-after/--max-restarts/
-# --cooldown-min/--exhaustion-reset-min) is retired in favour of one daily,
-# deterministic `docker restart` on the gateway VM (ict-ib-gateway-reset.timer).
-# This unit now just probes ib_paper (across the network, since the gateway
-# moved to its own VM) and Telegrams if MES is dark — no mutation. The
-# trader-side connect breaker (IB_PROBE_TIMEOUT_S / IB_BREAKER_COOLDOWN_S) keeps
-# a gateway/network blip from ever blocking the BTCUSDT loop. Manual emergency
-# restart still available via the vm-ib-gateway-recover workflow.
-ExecStart=/usr/bin/python3 -u scripts/check_ib_gateway.py --probe-account ib_paper
+# REACTIVE AUTO-RESTART (re-armed 2026-06-22, BL-20260622-GATEWAY-MIDDAY-WEDGE).
+# History: the reactive probe+restart was DISARMED on 2026-06-10 (gateway-
+# isolation redesign) in favour of one daily deterministic `docker restart`
+# (ict-ib-gateway-reset.timer), because the reactive restart churn used to
+# saturate the 2-core box the gateway SHARED with the trader. That objection is
+# now moot — the gateway runs on its OWN dedicated VM, so its restart churn can
+# never touch the money loop. Meanwhile the daily-only posture left a real gap:
+# a session that wedges MID-DAY (between 05:30 resets) had NO automatic recovery
+# and stayed dark until the next 05:30 — observed 2026-06-22 (the gateway died
+# ~07:3x UTC after the 05:30 reset; MES/MGC/MHG were dark and the open MHG
+# position pkg-f58a249d119049ab tripped a MONITOR BLIND alert; only a manual
+# vm-ib-gateway-recover dispatch restored it). Re-arming the SAME bounded guards
+# closes that gap while staying loop-proof:
+#   --restart-after 2      need ~10 min of sustained wedge before acting
+#   --max-restarts 3       cap per episode (a bad credential / IBKR lockout can
+#                          never become a restart loop — every restart is a
+#                          fresh IBKR login)
+#   --cooldown-min 20      min gap between restarts
+#   --exhaustion-reset-min 120  re-arm the budget after 2h quiet, so a multi-hour
+#                          wedge whose first restarts land inside IBKR's reset
+#                          window is retried once IBKR recovers (BL-20260605-004)
+# Once the budget is exhausted the watchdog falls back to alert-only until the
+# session recovers. The manual vm-ib-gateway-recover workflow remains as the
+# operator escape hatch. The reactive cadence lives in the sibling .timer.
+ExecStart=/usr/bin/python3 -u scripts/check_ib_gateway.py --probe-account ib_paper \
+  --auto-restart --restart-after 2 --max-restarts 3 \
+  --cooldown-min 20 --exhaustion-reset-min 120
 StandardOutput=journal
 StandardError=journal
 
