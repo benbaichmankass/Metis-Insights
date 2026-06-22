@@ -196,17 +196,25 @@ class OandaClient:
         except (TypeError, ValueError):
             return None
 
-    def positions(self) -> list:
-        """Open positions as ``[{symbol, side, qty, avg_price, unrealized_pnl}]``."""
+    def positions(self) -> Optional[list]:
+        """Open positions as ``[{symbol, side, qty, avg_price, unrealized_pnl}]``.
+
+        Returns ``None`` on a READ FAILURE (missing creds, network error,
+        non-2xx) so callers distinguish "could not read" from "genuinely flat"
+        (``[]``) — same contract as the IB/Alpaca read paths
+        (BL-20260622-ALPACA-SNAPSHOT-FALSECLOSE). OANDA is dry_run today, so this
+        is forward protection for when ``oanda_practice`` is promoted to live and
+        starts hitting the position-snapshot reconciler.
+        """
         try:
             self._require_creds("positions")
         except MissingCredentialsError as exc:
             logger.warning("%s", exc)
-            return []
+            return None
         env = self._request("GET", f"/v3/accounts/{self.account_id}/openPositions")
         if env.get("retCode") != 0:
             logger.warning("oanda positions: %s", env.get("retMsg"))
-            return []
+            return None
         out = []
         for pos in (env.get("result") or {}).get("positions") or []:
             for side_key, side in (("long", "buy"), ("short", "sell")):
@@ -235,7 +243,12 @@ class OandaClient:
         """
         self._require_creds("close")
         instrument = to_instrument(symbol)
-        legs = [p for p in self.positions() if p.get("symbol") == instrument]
+        open_positions = self.positions()
+        if open_positions is None:
+            # Read failure — can't confirm whether a leg is open. Surface it
+            # rather than mis-reporting an idempotent "no open position" close.
+            return {"retCode": -1, "retMsg": "could not read open positions"}
+        legs = [p for p in open_positions if p.get("symbol") == instrument]
         if not legs:
             return {"retCode": 0, "result": {"note": "no open position"}}
         body: Dict[str, Any] = {}

@@ -1495,6 +1495,21 @@ _PENDING_CLOSE_CONFIRM: Dict[int, datetime] = {}
 # position. ``0`` disables the guard. Read at call time (next-tick effect).
 _DEFAULT_READOPT_GUARD_SECONDS = 300
 
+# Fresh-fill grace (BL-20260622-ALPACA-SNAPSHOT-FALSECLOSE): the P3b
+# position-snapshot reconciler closes a strategy-attributed row whose
+# (symbol, side) reads absent from a SUCCESSFUL exchange snapshot. On an
+# integration without a per-order status reader (alpaca/oanda), a just-placed
+# bracket-MARKET order can take minutes to fill AND propagate to the
+# open-positions endpoint — during that window the position is genuinely absent
+# from the snapshot yet is NOT flat (it's pending fill). Without a minimum age
+# the 2-observation confirm alone false-closes it (IWM/alpaca_paper trade 2771:
+# closed `exchange_flat_reconciled` ~2.5 min after open, then the SAME live
+# position was re-adopted as an orphan 2 min later — a close→re-adopt flap).
+# A strategy-attributed trade younger than this is skipped by the snapshot-close
+# pass (the close-on-disappear pass for adopted_orphan rows is unaffected — an
+# adopted orphan is by definition already confirmed live on the exchange).
+_DEFAULT_SNAPSHOT_MIN_FILL_AGE_SECONDS = 300
+
 # Exit-coverage reattach-or-close (2026-06-15): an open ``orphan_adopt`` trade
 # with NO recoverable order package has no rational exit strategy and is
 # flattened. Like ``_PENDING_CLOSE_CONFIRM`` above, the flatten waits for a 2nd
@@ -1615,6 +1630,26 @@ def _reconciler_readopt_guard_seconds() -> float:
         return max(0.0, float(raw))
     except (TypeError, ValueError):
         return float(_DEFAULT_READOPT_GUARD_SECONDS)
+
+
+def _snapshot_min_fill_age_seconds() -> float:
+    """Min age (seconds) a strategy-attributed trade must reach before the P3b
+    position-snapshot reconciler may close it as ``exchange_flat_reconciled``.
+
+    Reads ``RECONCILER_SNAPSHOT_MIN_FILL_AGE_S`` at call time; falls back to
+    ``_DEFAULT_SNAPSHOT_MIN_FILL_AGE_SECONDS`` on missing / unparseable values,
+    clamped ``>= 0``. Protects a freshly-placed order on a non-Bybit integration
+    (alpaca/oanda) whose fill hasn't propagated to the open-positions snapshot
+    yet from being false-closed (BL-20260622-ALPACA-SNAPSHOT-FALSECLOSE). ``0``
+    disables the age gate (legacy behaviour — the 2-observation confirm alone).
+    """
+    raw = os.environ.get("RECONCILER_SNAPSHOT_MIN_FILL_AGE_S")
+    if raw is None or str(raw).strip() == "":
+        return float(_DEFAULT_SNAPSHOT_MIN_FILL_AGE_SECONDS)
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        return float(_DEFAULT_SNAPSHOT_MIN_FILL_AGE_SECONDS)
 
 
 def _recently_closed_adopted_orphan(
@@ -1993,6 +2028,11 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         # this pass but inside the 2-observation confirm window (snapshot_pending).
         "snapshot_closed": 0,
         "snapshot_pending": 0,
+        # Strategy-attributed rows absent from the snapshot but younger than the
+        # fresh-fill grace (_snapshot_min_fill_age_seconds) — skipped, NOT armed
+        # or closed, so a still-propagating fill isn't false-closed
+        # (BL-20260622-ALPACA-SNAPSHOT-FALSECLOSE).
+        "snapshot_too_young": 0,
         # Adoptions SUPPRESSED this pass because the position matches an
         # adopted_orphan that closed within the re-adopt guard window — a
         # gateway flap, not a new position (BL-20260618-RECONCILE-DUP). Stops
@@ -2057,7 +2097,8 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                 conn.row_factory = __import__("sqlite3").Row
                 open_rows = conn.execute(
                     "SELECT id, symbol, direction, strategy_name, account_id, "
-                    "       position_size, entry_price, notes, order_package_id "
+                    "       position_size, entry_price, notes, order_package_id, "
+                    "       timestamp, created_at "
                     "FROM trades "
                     "WHERE status='open' AND COALESCE(is_backtest,0)=0 "
                     "  AND account_id=?",
@@ -2228,6 +2269,38 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                     # Still open on the exchange — clear any pending arming.
                     _PENDING_SNAPSHOT_DISAPPEAR_CONFIRM.pop(tid_int, None)
                     continue
+                # Fresh-fill grace (BL-20260622-ALPACA-SNAPSHOT-FALSECLOSE): a
+                # just-placed order on an integration without a per-order status
+                # reader (alpaca/oanda) can take minutes to fill AND propagate to
+                # the open-positions endpoint. Until it does it reads absent here
+                # yet is NOT flat — it's pending fill. Skip a strategy-attributed
+                # trade younger than the grace so a propagating fill can't be
+                # false-closed (and then re-adopted as an orphan). Don't even ARM
+                # — a too-young row should leave no pending state. Fail-open: a
+                # row whose age can't be parsed is treated as old enough (so a
+                # genuinely-stale flat row is never stranded).
+                _min_age = _snapshot_min_fill_age_seconds()
+                if _min_age > 0:
+                    _opened = (
+                        _parse_created_at(r["timestamp"])
+                        or _parse_created_at(r["created_at"])
+                    )
+                    _age = (
+                        (now_iso_dt - _opened).total_seconds()
+                        if _opened is not None else None
+                    )
+                    # Skip ONLY a positively-young row (0 <= age < grace).
+                    # Fail-open: an unparseable age (None) or a non-positive age
+                    # (future-dated row / clock skew) is treated as old enough so
+                    # a genuinely-stale flat row is never stranded.
+                    if _age is not None and 0.0 <= _age < _min_age:
+                        summary["snapshot_too_young"] = (
+                            summary.get("snapshot_too_young", 0) + 1
+                        )
+                        # Clear any arming from a pre-fill blip so the confirm
+                        # window starts fresh once the grace elapses.
+                        _PENDING_SNAPSHOT_DISAPPEAR_CONFIRM.pop(tid_int, None)
+                        continue
                 # Absent from a successful snapshot. Require a SECOND confirming
                 # observation (>= _close_confirm_seconds apart) before closing.
                 _first_absent = _PENDING_SNAPSHOT_DISAPPEAR_CONFIRM.get(tid_int)
