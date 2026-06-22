@@ -35,6 +35,7 @@ from telegram.ext import (
 
 from src.bot import menu
 from src.bot.cloud_notifier import (
+    PENDING_CLAUDE_PINGS_DIR,
     PING_DRAIN_INTERVAL_S,
     _disk_usage_repo,
     _drain_pending_pings,
@@ -570,6 +571,19 @@ def main():
             interval=PING_DRAIN_INTERVAL_S,
             first=2,
             name="drain_pending_pings",
+        )
+        # Also drain the Claude/operational-update inbox through THIS (working,
+        # trader-token) bot, so /system-report + review pings land on
+        # @bict_trading_bot. Replaces the separate, inactive ict-claude-bridge
+        # (2026-06-22 fold-in). Same {priority, body} file schema.
+        async def _drain_claude_pings(context) -> None:
+            await _drain_pending_pings(context, pings_dir=PENDING_CLAUDE_PINGS_DIR)
+
+        application.job_queue.run_repeating(
+            _drain_claude_pings,
+            interval=PING_DRAIN_INTERVAL_S,
+            first=4,
+            name="drain_pending_claude_pings",
         )
     else:
         logger.warning(
