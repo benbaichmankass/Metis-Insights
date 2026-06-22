@@ -133,6 +133,17 @@ PROP_FILL: Final = "prop_fill"
 #: ``status='closed'``. Distinct from the live ``trade_closed`` money event.
 PROP_CLOSED: Final = "prop_closed"
 
+#: A periodic "still monitoring" heartbeat for an OPEN prop trade. The prop
+#: account has no broker API, so the bot can't push real-time fills — this
+#: pulse (default every 15 min while a prop position is open) reassures the
+#: operator the system is still actively tracking the trade, even when there's
+#: nothing to report ("no change"). Does NOT replace the real-time
+#: ``prop_fill`` / ``prop_closed`` events — it's the liveness signal between
+#: them. Payload: ``account, symbol, direction, qty, entry, sl, tp,
+#: opened_at, age_minutes, ticket_id, text``. Emitted by
+#: ``src.prop.prop_monitor_pulse.run_prop_monitor_pulse``.
+PROP_MONITOR: Final = "prop_monitor"
+
 
 #: Canonical list (insertion order = display order in the Android UI).
 #: The operator's four categories first, then the legacy / reserved
@@ -152,6 +163,7 @@ ALL_KINDS: Final[tuple[str, ...]] = (
     PROP_SIGNAL,
     PROP_FILL,
     PROP_CLOSED,
+    PROP_MONITOR,
 )
 
 #: Human-readable label for each kind. Used by the Android UI to render
@@ -173,6 +185,7 @@ LABELS: Final[dict[str, str]] = {
     PROP_SIGNAL: "Prop trade setup",
     PROP_FILL: "Prop trade filled",
     PROP_CLOSED: "Prop trade closed",
+    PROP_MONITOR: "Prop trade monitoring pulse",
 }
 
 #: One-line description per kind for the Android subscription screen.
@@ -191,6 +204,7 @@ DESCRIPTIONS: Final[dict[str, str]] = {
     PROP_SIGNAL: "Breakout prop-firm trade-setup tickets — entry/SL/TP to place.",
     PROP_FILL: "A prop ticket reported filled/opened on the terminal.",
     PROP_CLOSED: "A prop trade reported closed — PnL + exit reason.",
+    PROP_MONITOR: "Periodic 'still monitoring' pulse while a prop trade is open.",
 }
 
 #: The subset of kinds whose payload semantics the bot already emits.
@@ -199,7 +213,7 @@ DESCRIPTIONS: Final[dict[str, str]] = {
 #: is loud.
 IN_FLIGHT: Final[frozenset[str]] = frozenset(
     {TRADE_OPENED, TRADE_UPDATED, TRADE_CLOSED, TELEGRAM, SIGNAL_EMITTED,
-     PROP_SIGNAL, PROP_FILL, PROP_CLOSED}
+     PROP_SIGNAL, PROP_FILL, PROP_CLOSED, PROP_MONITOR}
 )
 
 
@@ -228,6 +242,7 @@ __all__ = [
     "PROP_SIGNAL",
     "PROP_FILL",
     "PROP_CLOSED",
+    "PROP_MONITOR",
     "ALL_KINDS",
     "LABELS",
     "DESCRIPTIONS",

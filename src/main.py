@@ -650,6 +650,18 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 logger.exception("order_monitor tick failed")
 
+            # Prop trades are a manual bridge (no broker feed), so the
+            # order_monitor above never sees them. Emit a periodic
+            # "still monitoring" pulse per open prop position instead so
+            # the operator knows the system is actively tracking it
+            # between report-backs. Internally rate-limited to
+            # PROP_MONITOR_PULSE_SECONDS (default 15 min); best-effort.
+            try:
+                from src.prop.prop_monitor_pulse import run_prop_monitor_pulse
+                run_prop_monitor_pulse()
+            except Exception:  # noqa: BLE001
+                logger.exception("prop_monitor_pulse tick failed")
+
             # PR5: heartbeat is the single source of truth for "trader is
             # alive". Writes after a successful tick, not before — so a
             # tick that crashes mid-run doesn't refresh the heartbeat and
