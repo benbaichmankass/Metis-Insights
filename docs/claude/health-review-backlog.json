@@ -2132,7 +2132,35 @@
       "resolved_at": null,
       "resolution": null,
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260622-CLOSEDPNL-AGGREGATE-SOAK",
+      "opened_at": "2026-06-22T15:10:00+00:00",
+      "opened_by": "claude (operator directive \u2014 follow up until verified resolved)",
+      "source": "Real bybit_2 BTCUSDT positions (journal ids 2762/2757/2746) were orphaned with NULL pnl + #2765 closed NULL-pnl because the Bybit closed-pnl matcher (account_closed_pnl_for_trade / _bybit_closed_pnl_lookup) returned None: a scaled-in / partially-closed position has no single closed-pnl record matching the full qty (strict qty\u00b15%). PR #4182 added a partial-close aggregation fallback (allow_partial_aggregate, LIVE non-reduce) + a diagnostic log on the no-strict-match path. The fix addresses the INFERRED qty-mismatch cause \u2014 not yet confirmed against the actual Bybit closed-pnl API response for these trades.",
+      "severity": "medium",
+      "title": "VERIFY the closed-pnl partial-close aggregation actually resolves the bybit_2 orphan-with-NULL-pnl (soak)",
+      "description": "KEEP FOLLOWING UP until confirmed resolved. On the NEXT live bybit_2 (or any live-money) stuck/orphan event, (1) read the new 'closed_pnl no strict single-match: \u2026 rej_side/rej_time/rej_entry/rej_qty \u2026' diagnostic in the trader journal to confirm the real failing filter is qty (the inferred cause) vs entry/time; (2) confirm '_recover_close_from_broker_pnl' now recovers a clean close (status='closed' with non-NULL pnl + exit_price, exit_price_source bybit_closed_pnl, _aggregated_legs>1) instead of orphaning; (3) confirm the watchdog 'recovered_closed' counter increments and the orphan rate on bybit_2 drops. If the diagnostic shows the failing filter is ENTRY (not qty), the aggregation won't help and the fix needs revisiting (relax/repair entry matching). Cross-refs: BL-20260620-CLOSEDPNL-LOOKUP-MISMATCH-DEMO, BL-20260601-001 (high orphan rates). Resolve only after >=1 confirmed live recovery (or a clean multi-day window with zero NULL-pnl real-money closes).",
+      "tier": "2",
+      "status": "open",
+      "resolved_at": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260622-WATCHDOG-STDIN",
+      "opened_at": "2026-06-22T16:25:00+00:00",
+      "opened_by": "claude (system-review deploy verification)",
+      "source": "Live VM diag (issue #4203 journalctl ict-liveness-watchdog.service): the liveness watchdog (Type=oneshot, fires every ~60s) intermittently fails at the systemd STDIN-setup step with `Failed to set up standard input: No such file or directory` / `status=208/STDIN` (~8% of runs; observed 16:08:08 and 16:12:29 UTC), BEFORE check_heartbeat.py runs. Each failure self-heals on the next minute's run, so the unit's `failed` state is transient (the snapshot at 16:12:32 happened to land 3s after a failed run). The repo canonical unit (deploy/ict-liveness-watchdog.service) sets NO StandardInput (default null -> /dev/null, which cannot ENOENT), so the deployed unit/drop-in has drifted OR a git-sync `git reset --hard` race transiently breaks the spawn.",
+      "severity": "medium",
+      "title": "VERIFY the liveness-watchdog 208/STDIN intermittent exec failure is gone after the StandardInput=null pin reinstall",
+      "description": "The dead-man switch must spawn reliably on every tick; an ~8% per-run exec failure erodes the 3-strike (~8 min) autoheal margin and a sticky `failed` state masks a genuinely-dead watchdog. Remediation: PR pins `StandardInput=null` explicitly in deploy/ict-liveness-watchdog.service (BL-20260622-WATCHDOG-STDIN), which on the next runtime git-sync forces install_systemd_units.sh to recopy the (now-differing) unit, reconverging any drift. FOLLOW UP: after the reinstall is confirmed (deployed unit == repo), pull `journalctl?unit=ict-liveness-watchdog.service&lines=200` and confirm ZERO `208/STDIN` occurrences across a >=30-min window. If 208/STDIN PERSISTS after a confirmed reinstall of the explicit-StandardInput unit, the cause is a drop-in (/etc/systemd/system/ict-liveness-watchdog.service.d/*.conf) or a git-sync `git reset --hard` spawn race (NOT main-unit drift) \u2014 escalate to a targeted system-action that `systemctl cat`s the deployed unit + drop-ins and purges any rogue drop-in. Note: the `/etc/ict-vm-role: No such file or directory` log line in deploy_pull_restart.sh line 91 is cosmetic/expected on the trader (empty role = not gateway); NOT a drift to fix.",
+      "tier": "3",
+      "status": "open",
+      "resolved_at": null,
+      "resolution": null,
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-22T12:55:00+00:00"
+  "updated_at": "2026-06-22T16:25:00+00:00"
 }

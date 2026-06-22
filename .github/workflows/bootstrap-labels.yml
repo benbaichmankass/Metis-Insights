@@ -55,6 +55,11 @@ jobs:
                 description: 'Triggers the vm-diag-snapshot workflow (PM-side diag relay).',
               },
               {
+                name: 'prop-report',
+                color: '1d76db',
+                description: 'Triggers prop-report — POST a prop fill/close or account-status report to /api/bot/prop/report.',
+              },
+              {
                 name: 'news-key-check',
                 color: '1d76db',
                 description: 'Triggers news-key-check — validate the NEWS_API_KEY secret through the bot news code (off-VM, read-only).',

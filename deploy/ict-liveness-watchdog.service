@@ -68,6 +68,16 @@ Nice=-10
 # recover. 0 = disabled. 10 min comfortably covers boot + venv + IB-
 # gateway startup.
 ExecStart=/usr/bin/python3 -u scripts/check_heartbeat.py --interval 60 --grace 5 --auto-restart-after 3 --max-restarts 5 --cooldown-min 3 --restart-startup-grace-seconds 180 --boot-grace-seconds 600
+# Pin StandardInput explicitly to /dev/null (BL-20260622-WATCHDOG-STDIN).
+# The default is already null, but pinning it defends against out-of-band
+# drift / a drop-in that set StandardInput to a file/tty/fd which can vanish —
+# the cause of the intermittent `status=208/STDIN "No such file or directory"`
+# exec failures observed on the live VM 2026-06-22 (~8% of per-minute runs
+# failed at the systemd STDIN-setup step, before Python ran, then self-healed
+# the next minute). A dead-man switch must spawn reliably on EVERY tick, so we
+# make the input source explicit and drift-proof rather than relying on the
+# default. Pairs with StandardOutput/StandardError=journal below.
+StandardInput=null
 StandardOutput=journal
 StandardError=journal
 
