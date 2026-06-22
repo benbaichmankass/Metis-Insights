@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "PB-20260622-002",
+      "opened_at": "2026-06-22T18:10:00+00:00",
+      "opened_by": "claude (ETF pullback backtest follow-up)",
+      "source": "Surfaced by the PB-20260622-001 backtest (scripts/backtest_pullback.py, net-of-fee @2bps, yfinance daily 2015-01-02..2026-06-18). Across the daily ETF PULLBACK trio (gld/tlt/ief_pullback_1d), a min_confidence floor produced a mild SLEEVE improvement (baseline 167t +67.32R -> min_confidence 0.10 163t +71.85R) that was concentrated almost entirely in TLT: tlt_pullback_1d went 17.60R (exp 0.345) at min_confidence 0.0 -> 25.87R (exp 0.528) at 0.10. GLD/IEF were ~flat to the floor. The trend trio showed no comparable min_confidence benefit. The current config ships min_confidence: 0.0 for the whole sleeve (PB-20260622-001 resolved: keep the sleeve UNFILTERED), so this is the ONE per-symbol exception worth tracking — NOT acted on, deliberately.",
+      "title": "Revisit a TLT-only min_confidence ~0.10 floor on tlt_pullback_1d (and the 1h sibling) once live data accrues",
+      "description": "Evidence-backed but LOW-PRIORITY and overfit-suspect: the +8R TLT improvement is in-sample over n=49 trades / 11.5y on a single symbol, and 'best min_confidence' optima were noise-level for every other ETF member. Do NOT propose a config/strategies.yaml change on the backtest alone. Before any Tier-3 proposal: (1) accrue real closed-trade history for tlt_pullback_1d (and tlt_pullback_1h if live) and check whether the low-confidence TLT entries actually underperform the higher-confidence ones in production, not just in the yfinance-daily backtest; (2) re-run the sweep on a fresh window / out-of-sample split to confirm the 0.10 optimum is stable and not a single-period artifact; (3) confirm the same floor doesn't quietly hurt GLD/IEF if applied sleeve-wide (it shouldn't — it'd be TLT-only). yfinance daily approximates but is not identical to the live IBKR feed, so live confirmation matters. Sibling low-priority observation from the same backtest: an IWM-only adx>=20 gate on iwm_trend_long_1d was marginally better in-sample (3.90->7.30R, n=36->22) — same 'revisit with live data, don't act blind' status.",
+      "tier": 3,
+      "trigger_condition": "Enough live closed-trade history accrues for tlt_pullback_1d (e.g. >= 20-30 closed) to compare low- vs high-confidence TLT entry outcomes, OR a fresh out-of-sample min_confidence sweep is run to test stability of the 0.10 optimum.",
+      "resolution_criteria": "Either a Tier-3 PR proposing a TLT-only min_confidence floor citing live + out-of-sample evidence, OR a documented decision (here) that the in-sample edge does not hold up and the sleeve stays uniformly min_confidence: 0.0.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "PB-20260622-001",
       "opened_at": "2026-06-22T14:40:00+00:00",
       "opened_by": "claude (alpaca-incident follow-up, PRs #4178/#4183)",
