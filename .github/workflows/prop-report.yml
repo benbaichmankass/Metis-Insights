@@ -1,0 +1,381 @@
+name: prop-report
+
+# PM-side / web-sandbox bridge for the INBOUND half of the Breakout
+# manual bridge — POST a prop fill/close or account-status report-back
+# to the live trader's REST endpoint `POST /api/bot/prop/report`.
+#
+# Why this exists (separate from vm-diag-snapshot.yml):
+#   The diag relay (vm-diag-snapshot.yml) is GET-only — it can read
+#   `/api/diag/*` and a small allowlist of read-only `/api/bot/*`
+#   endpoints, but it cannot POST. The prop account is a manual bridge
+#   with no broker API: the bot only learns a fill/close when the
+#   executor/operator reports it back. This workflow is the issue-driven
+#   POST path so a Claude Code on the web session can ingest a
+#   report-back autonomously, the same way it drives reads via the diag
+#   relay.
+#
+# Two trigger paths into the same job:
+#
+#   1. workflow_dispatch — operator (or Claude via the Actions UI)
+#      pastes the report JSON into the `report_json` input.
+#
+#   2. issues.opened with label `prop-report` — the automated path. The
+#      issue BODY carries a single JSON object (optionally inside a
+#      ```json fenced block — the fences are stripped). The workflow
+#      validates it, POSTs it to the VM, posts the endpoint's JSON
+#      response (+ HTTP status) back as an issue comment, and closes the
+#      issue. This is the path Claude sessions drive via the GitHub MCP
+#      (`issue_write` to open, then poll the issue comments for the
+#      github-actions[bot] reply).
+#
+# Contract (src/prop/prop_report.py::ingest_report):
+#   The POST body is a single JSON OBJECT, one of two shapes:
+#     * fill/close —
+#         {account_id, symbol, direction, status∈{open,filled,closed,
+#          skipped}, entry_price, exit_price, qty, pnl, pnl_percent,
+#          reason, ticket_id?}
+#     * account status —
+#         {kind:"account_status", account_id, balance, equity,
+#          realized_today, unrealized, day_start_balance?}
+#   The endpoint validates structure and returns 400 on a bad report.
+#
+# Trust contract:
+#   * Tier 2 — this WRITES the prop journal + may fire a notification
+#     (DB write, not a live-trade action: it places/modifies no order).
+#     Carry the operator's in-conversation Tier-2 OK into the issue body
+#     `reason:`; the issue itself is the audit record.
+#   * Token-gated — the endpoint is gated by DASHBOARD_API_TOKEN when it
+#     is set on the VM. The workflow sources that token from the VM's
+#     EnvironmentFile (/etc/ict-trader/web-api.env) ON the VM and sends
+#     an `Authorization: Bearer <token>` header only when present; the
+#     endpoint allows the call without the header when the token isn't
+#     configured. The token is read on the VM and never reaches the
+#     runner / run log.
+#   * Injection-safe — the untrusted report JSON rides through env vars
+#     on the runner and a base64 hop to the remote shell, never inline-
+#     interpolated into the remote command string (the only thing put on
+#     the remote command line is the base64 blob, which is [A-Za-z0-9+/=]
+#     and carries no shell metacharacters). The JSON is validated as a
+#     single object (jq -e 'type=="object"') before it is sent.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   * VM_SSH_KEY        — contents of ict-bot-ovm-private.key
+#                         (same key as vm-diag-snapshot)
+#
+# Required repo label (auto-created by bootstrap-labels.yml):
+#   * prop-report       — opened issues carrying this label trigger a run.
+#
+# Optional repo variables:
+#   * VM_SSH_HOST       — defaults to 141.145.193.91 (Ampere live trader; was the
+#                         x86 micro 158.178.210.252 pre-2026-06-14 cutover)
+#   * VM_SSH_USER       — defaults to ubuntu
+
+on:
+  workflow_dispatch:
+    inputs:
+      report_json:
+        description: 'Prop report-back JSON object (a single {...}).'
+        required: true
+        default: ''
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  # Serialise so two report-backs never POST concurrently. cancel-in-
+  # progress:false so a second request queues + completes in turn
+  # rather than being silently dropped (matches vm-diag-snapshot's
+  # rationale — the job + SSH/curl timeouts bound any hung run).
+  group: prop-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    # The label filter lives on the job (the `on` event filter can't
+    # combine `types` with an `if`-style label gate).
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'prop-report'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+    steps:
+      - name: Dedup — bail if a bot comment already exists
+        # On the issue path, short-circuit cleanly if a github-actions[bot]
+        # comment already exists (re-run after the issue was answered, or
+        # a double-fire). Mirrors vm-diag-snapshot's dedup guard.
+        if: github.event_name == 'issues'
+        id: dedup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const hasBotComment = comments.some(
+              c => c.user && c.user.login === 'github-actions[bot]'
+            );
+            if (hasBotComment) {
+              core.notice(
+                `Issue #${context.issue.number} already has a github-actions[bot] ` +
+                `comment — skipping cleanly.`
+              );
+              core.setOutput('skip', 'true');
+            } else {
+              core.setOutput('skip', 'false');
+            }
+
+      - name: Resolve and validate report JSON
+        if: steps.dedup.outputs.skip != 'true'
+        id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          # Untrusted issue body / dispatch input pass through env only —
+          # never inline-interpolated into a shell command.
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          DISPATCH_JSON: ${{ inputs.report_json }}
+        run: |
+          set -euo pipefail
+
+          if [ "${EVENT_NAME}" = "issues" ]; then
+            raw="${ISSUE_BODY}"
+          else
+            raw="${DISPATCH_JSON}"
+          fi
+
+          # Strip an optional ```json … ``` (or bare ``` … ```) fenced
+          # block: drop any line that is a triple-backtick fence (with an
+          # optional language tag). Everything else is kept verbatim.
+          stripped="$(printf '%s\n' "$raw" | grep -vE '^[[:space:]]*```' || true)"
+
+          # Persist the candidate to a file (avoids any further shell
+          # interpolation of the JSON contents).
+          printf '%s\n' "$stripped" > report.json
+
+          # Validate: must parse AND be a single JSON object.
+          if ! jq -e 'type=="object"' report.json >/dev/null 2>&1; then
+            echo "::error::Report body is not a single valid JSON object. Provide one {...} object (optionally inside a \`\`\`json fenced block)."
+            # Surface what we received (size only — do not echo contents,
+            # they may carry account identifiers) for the run log.
+            echo "::error::Received $(wc -c <report.json) bytes after fence-strip; jq could not parse it as an object."
+            exit 1
+          fi
+
+          # Compact + re-encode through jq so the body we send is canonical
+          # JSON regardless of issue-body whitespace / formatting.
+          jq -c '.' report.json > report.compact.json
+          mv report.compact.json report.json
+          echo ">>> Validated report JSON ($(wc -c <report.json) bytes)."
+
+      - name: Set up SSH key
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset. Add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: POST report to /api/bot/prop/report on VM
+        if: steps.dedup.outputs.skip != 'true'
+        id: post
+        run: |
+          set -euo pipefail
+
+          # Carry the JSON body to the VM as base64 (no shell-meta hazard,
+          # no command-line interpolation of the untrusted payload).
+          BODY_B64="$(base64 -w0 report.json 2>/dev/null || base64 report.json | tr -d '\n')"
+
+          # Quoted heredoc — every $ runs on the VM, nothing the runner
+          # expands. The base64 body is assigned to BODY_B64 in the remote
+          # command. base64 output is [A-Za-z0-9+/=] only (no shell
+          # metacharacters), so this inline assignment carries the
+          # untrusted payload without any injection hazard — the raw JSON
+          # is never interpolated into a shell string anywhere.
+          read -r -d '' REMOTE_SCRIPT <<'REMOTE' || true
+          set -euo pipefail
+          ENVFILE=/etc/ict-trader/web-api.env
+          URL='http://127.0.0.1:8001/api/bot/prop/report'
+
+          # Decode the body to a 600 temp file (never on a command line).
+          tmp="$(mktemp)"; chmod 600 "$tmp"
+          printf '%s' "$BODY_B64" | base64 -d > "$tmp"
+
+          # Source DASHBOARD_API_TOKEN from the web-api EnvironmentFile if
+          # present (the endpoint only requires it when the VM has it set).
+          TOKEN=""
+          if sudo test -f "$ENVFILE" 2>/dev/null; then
+            TOKEN="$(sudo grep -E '^DASHBOARD_API_TOKEN=' "$ENVFILE" 2>/dev/null | tail -n1 | cut -d= -f2- || true)"
+            # Strip optional surrounding quotes that a .env line may carry.
+            TOKEN="${TOKEN%\"}"; TOKEN="${TOKEN#\"}"
+            TOKEN="${TOKEN%\'}"; TOKEN="${TOKEN#\'}"
+          fi
+
+          # Build the curl argv. Add the bearer header only when a token
+          # was found; capture the HTTP status separately from the body.
+          set +e
+          if [ -n "$TOKEN" ]; then
+            echo ">>> Sending with Authorization: Bearer <token from web-api.env>"
+            HTTP_CODE="$(curl -sS --max-time 40 \
+              -o /tmp/prop_report_resp.json -w '%{http_code}' \
+              -X POST "$URL" \
+              -H 'Content-Type: application/json' \
+              -H "Authorization: Bearer ${TOKEN}" \
+              --data-binary "@$tmp")"
+          else
+            echo ">>> DASHBOARD_API_TOKEN not set on VM — sending without bearer header"
+            HTTP_CODE="$(curl -sS --max-time 40 \
+              -o /tmp/prop_report_resp.json -w '%{http_code}' \
+              -X POST "$URL" \
+              -H 'Content-Type: application/json' \
+              --data-binary "@$tmp")"
+          fi
+          curl_rc=$?
+          set -e
+          rm -f "$tmp"
+
+          echo "HTTP_CODE=${HTTP_CODE}"
+          echo "----- response body -----"
+          cat /tmp/prop_report_resp.json 2>/dev/null || echo "(no response body)"
+          echo
+          rm -f /tmp/prop_report_resp.json 2>/dev/null || true
+
+          if [ "$curl_rc" -ne 0 ]; then
+            echo ">>> curl failed (exit ${curl_rc}) — VM web-api may be down."
+            exit "$curl_rc"
+          fi
+          # Treat 2xx as success, anything else as failure.
+          case "$HTTP_CODE" in
+            2*) exit 0 ;;
+            *)  echo ">>> Non-2xx HTTP status: ${HTTP_CODE}"; exit 1 ;;
+          esac
+          REMOTE
+
+          set +e
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              "BODY_B64='${BODY_B64}' bash -s" <<<"$REMOTE_SCRIPT" \
+              > post-output.txt 2>&1
+          rc=$?
+          set -e
+
+          # Extract the HTTP status + response body from the captured output
+          # for the issue comment.
+          http_code="$(grep -m1 '^HTTP_CODE=' post-output.txt | cut -d= -f2- || true)"
+          echo "exit_code=${rc}" >>"$GITHUB_OUTPUT"
+          echo "http_code=${http_code:-unknown}" >>"$GITHUB_OUTPUT"
+          echo ">>> Remote exit code: ${rc}, HTTP status: ${http_code:-unknown}"
+
+          if [ "$(wc -c <post-output.txt)" -gt 4000 ]; then
+            head -c 4000 post-output.txt
+            echo ""
+            echo "... (truncated; see issue comment for full output)"
+          else
+            cat post-output.txt
+          fi
+          exit "${rc}"
+
+      - name: Upload output artifact
+        if: always() && github.event_name == 'workflow_dispatch' && steps.dedup.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: prop-report-${{ github.run_id }}
+          path: post-output.txt
+          retention-days: 7
+          if-no-files-found: warn
+
+      # ────────────────────────────────────────────────────────────
+      # Issue-driven path: comment back with status + close the issue.
+      # ────────────────────────────────────────────────────────────
+
+      - name: Reply to issue with success
+        if: github.event_name == 'issues' && success() && steps.dedup.outputs.skip != 'true'
+        uses: actions/github-script@v7
+        env:
+          HTTP_CODE: ${{ steps.post.outputs.http_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            let output = '';
+            try { output = fs.readFileSync('post-output.txt', 'utf8'); } catch (_) { output = '(no output captured)'; }
+            const MAX_BODY = 50_000;
+            const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const truncationNote = output.length > MAX_BODY
+              ? `\n_(Showing last ${MAX_BODY} of ${output.length} bytes; full output on the run page.)_\n`
+              : '';
+            const body =
+              `✅ **prop-report** ingested.\n` +
+              `Run: ${runUrl}\n` +
+              `HTTP status: ${process.env.HTTP_CODE}\n` +
+              truncationNote +
+              `\n\`\`\`\n${tail}\n\`\`\``;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'completed'
+            });
+
+      - name: Reply to issue with failure
+        if: github.event_name == 'issues' && failure() && steps.dedup.outputs.skip != 'true'
+        uses: actions/github-script@v7
+        env:
+          HTTP_CODE: ${{ steps.post.outputs.http_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            let output = '';
+            try { output = fs.readFileSync('post-output.txt', 'utf8'); } catch (_) {
+              output = '(no post-output.txt — failure happened before/at validation, before SSH ran)';
+            }
+            const MAX_BODY = 50_000;
+            const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body =
+              `❌ **prop-report run failed.**\n` +
+              `Run: ${runUrl}\n` +
+              `HTTP status: ${process.env.HTTP_CODE || '(not reached)'}\n\n` +
+              `Common causes: report body is not a single valid JSON object (400 from the endpoint on a structurally-bad report); ` +
+              `VM_SSH_KEY secret unset/corrupted; SSH host unreachable; ` +
+              `VM web-api (ict-web-api.service) down (curl exit 7); 401 if DASHBOARD_API_TOKEN is set on the VM but the wrong value was matched. ` +
+              `Fix the body and open a fresh \`prop-report\` issue to retry.\n` +
+              `\n\`\`\`\n${tail}\n\`\`\``;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned'
+            });
