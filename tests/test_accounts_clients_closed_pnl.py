@@ -564,3 +564,71 @@ class TestReduceLegLookup:
         )
         assert rec is not None
         assert abs(float(rec["closedPnl"]) - 2.0988) < 1e-4
+
+
+class TestPartialCloseAggregation:
+    """BL-20260620 — a live position that scaled in / closed in several partial
+    fills has no single closed-pnl record matching the full qty, so the strict
+    matcher stranded its PnL NULL and the watchdog orphaned it. The
+    ``allow_partial_aggregate`` fallback reconstructs one synthetic close from
+    the legs. Strict single-match is tried first, so #1411/#1419 are unaffected."""
+
+    _OPEN = 1762700000500
+    _WIN_START = 1762700000000
+    _WIN_END = 1762700100000
+
+    def _legs(self):
+        # Three 0.001 partial closes (same side+entry) summing to 0.003.
+        return [
+            _rec(side="Sell", qty=0.001, entry=64000.0, exit_=64100.0,
+                 pnl=0.1, updated=1762700001000),
+            _rec(side="Sell", qty=0.001, entry=64000.0, exit_=64200.0,
+                 pnl=0.2, updated=1762700002000),
+            _rec(side="Sell", qty=0.001, entry=64000.0, exit_=64300.0,
+                 pnl=0.3, updated=1762700003000),
+        ]
+
+    def _call(self, records, *, aggregate):
+        return _bybit_closed_pnl_lookup(
+            _make_client(records), category="linear", symbol="BTCUSDT",
+            side="Sell", start_ts_ms=self._WIN_START, end_ts_ms=self._WIN_END,
+            qty_target=0.003, entry_price_target=64000.0,
+            opened_at_ms=self._OPEN, allow_partial_aggregate=aggregate,
+        )
+
+    def test_strict_returns_none_no_single_qty_match(self):
+        # Each leg is 0.001 vs target 0.003 → off 67%, no single match.
+        assert self._call(self._legs(), aggregate=False) is None
+
+    def test_aggregates_partial_closes_to_full_qty(self):
+        agg = self._call(self._legs(), aggregate=True)
+        assert agg is not None
+        assert abs(float(agg["qty"]) - 0.003) < 1e-9
+        assert abs(float(agg["closedPnl"]) - 0.6) < 1e-9          # 0.1+0.2+0.3
+        # qty-weighted exit = (64100+64200+64300)/3
+        assert abs(float(agg["avgExitPrice"]) - 64200.0) < 1e-6
+        assert float(agg["avgEntryPrice"]) == 64000.0
+        assert agg["_aggregated_legs"] == 3
+
+    def test_guard_rejects_when_legs_cannot_reach_target(self):
+        # Only two 0.001 legs available → 0.002 vs target 0.003 (33% short) → None.
+        two = self._legs()[:2]
+        assert self._call(two, aggregate=True) is None
+
+    def test_aggregation_excludes_entry_inconsistent_records(self):
+        # A different position's close (entry 70000, off >10bps) must NOT be
+        # swept in — it's filtered from the pool by entry, so only the two
+        # matching-entry 0.001 legs aggregate to the 0.002 target.
+        records = self._legs()[:2] + [
+            _rec(side="Sell", qty=0.002, entry=70000.0, exit_=69000.0,
+                 pnl=-5.0, updated=1762700004000),
+        ]
+        agg = _bybit_closed_pnl_lookup(
+            _make_client(records), category="linear", symbol="BTCUSDT",
+            side="Sell", start_ts_ms=self._WIN_START, end_ts_ms=self._WIN_END,
+            qty_target=0.002, entry_price_target=64000.0,
+            opened_at_ms=self._OPEN, allow_partial_aggregate=True,
+        )
+        assert agg is not None
+        assert agg["_aggregated_legs"] == 2
+        assert abs(float(agg["closedPnl"]) - 0.3) < 1e-9           # 0.1+0.2, not -5
