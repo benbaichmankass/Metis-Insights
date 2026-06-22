@@ -64,6 +64,18 @@ def test_classify_garbage(wd):
     assert wd.classify_probe("not json")["healthy"] is False
 
 
+def test_classify_actionable_flags(wd):
+    # Affirmative gateway-unhealthy signatures a restart could fix → actionable.
+    wedge = json.dumps({"results": [{"connected": True, "net_liquidation": None}]})
+    nocon = json.dumps({"results": [{"connected": False, "error": "TimeoutError"}]})
+    assert wd.classify_probe(wedge)["actionable"] is True
+    assert wd.classify_probe(nocon)["actionable"] is True
+    # Probe couldn't produce a usable verdict → NOT actionable (restart can't fix
+    # a broken probe environment).
+    assert wd.classify_probe("not json")["actionable"] is False
+    assert wd.classify_probe(json.dumps({"results": []}))["actionable"] is False
+
+
 # --------------------------------------------------------------------------
 # decide
 # --------------------------------------------------------------------------
@@ -102,6 +114,31 @@ def test_sustained_wedge_triggers_restart(wd):
     assert d["action"] == "restart" and d["alert"] is True
     assert d["new_state"]["restart_attempts"] == 1
     assert d["new_state"]["last_restart_ts"] == 10_000.0
+
+
+def test_inconclusive_probe_never_restarts_even_when_sustained(wd):
+    # A non-actionable (probe-broken) read must NOT restart, even past
+    # restart_after, and must reset the consecutive-wedge streak.
+    d = _decide(wd, healthy=False, actionable=False,
+                state={"last_status": "wedged", "wedged_streak": 9})
+    assert d["action"] == "inconclusive" and d["alert"] is True
+    assert d["new_state"]["wedged_streak"] == 0
+    assert "last_restart_ts" not in d["new_state"]
+
+
+def test_inconclusive_repeated_alerts_once(wd):
+    d = _decide(wd, healthy=False, actionable=False,
+                state={"last_status": "inconclusive", "wedged_streak": 0})
+    assert d["action"] == "none" and d["alert"] is False
+
+
+def test_inconclusive_then_actionable_needs_full_streak(wd):
+    # Inconclusive reset the streak, so the NEXT actionable wedge is only the
+    # first confirmed one → detect, not restart (restart needs restart_after=2).
+    d = _decide(wd, healthy=False, actionable=True,
+                state={"last_status": "inconclusive", "wedged_streak": 0})
+    assert d["action"] == "detected"
+    assert d["new_state"]["wedged_streak"] == 1
 
 
 def test_alert_only_never_restarts(wd):
