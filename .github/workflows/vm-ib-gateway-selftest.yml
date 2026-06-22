@@ -1,0 +1,204 @@
+name: vm-ib-gateway-selftest
+
+# Controlled end-to-end test of the reactive IB-Gateway self-heal + a restart-
+# cadence read (BL-20260622-GATEWAY-SELFTEST). Closes the two "gaps not yet
+# verified" from S-GATEWAY-WATCHDOG-2026-06-22:
+#   1) restart cadence — is the container flapping? (RestartCount / uptime /
+#      count of "Login has completed" in recent logs)
+#   2) reactive self-heal unproven on a real wedge — this STOPS the container
+#      (a controlled "down/wedged" gateway) and runs the REAL watchdog
+#      (scripts/check_ib_gateway.py + the dep-free local probe) until it crosses
+#      --restart-after and auto-recovers the container via restart_ib_gateway.sh.
+#
+# Safety:
+#   * Paper gateway only (ib_paper / DUQ325724) — no real funds; the live trader
+#     is untouched; an open position is bracket-protected at IBKR regardless of
+#     our gateway connection, so a ~1-2 min controlled outage is safe.
+#   * The watchdog is invoked with the SAME flags as the systemd unit except
+#     --cooldown-min 0 (so the restart fires on the 2nd consecutive wedged check
+#     instead of after 20 min) — it exercises the exact decide()→restart path.
+#   * SAFETY NET: if the watchdog hasn't brought the container back by the end,
+#     the script force-restarts it itself, so the box is NEVER left down.
+#
+# Topology + transport: identical to vm-ib-gateway-recover / -deploy (ProxyJump
+# through the live trader to the private gateway VM, same VM_SSH_KEY).
+#
+# Drive it with a `vm-ib-gateway-selftest`-labelled issue.
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why this run is happening (audit only)."
+        required: false
+        default: "manual operator dispatch"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vm-ib-gateway-selftest
+  cancel-in-progress: false
+
+jobs:
+  selftest:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'vm-ib-gateway-selftest'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      JUMP_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      GATEWAY_HOST: ${{ vars.IB_GATEWAY_HOST || '10.0.0.251' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+    steps:
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset. Add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${JUMP_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run self-heal selftest on the gateway VM (via ProxyJump)
+        id: exec
+        run: |
+          set -euo pipefail
+          read -r -d '' REMOTE_SCRIPT <<'REMOTE' || true
+          set -uo pipefail
+          REPO=/home/ubuntu/ict-trading-bot
+          NAME=ib-gateway
+          STATE="$REPO/runtime_logs/ib_gateway_watchdog_state.json"
+          echo ">>> target host: $(hostname) [$(hostname -I 2>/dev/null | awk '{print $1}')]"
+          command -v docker >/dev/null 2>&1 || { echo "docker not found — is this the gateway VM?"; exit 1; }
+
+          echo
+          echo "===== 1) restart cadence ====="
+          sudo docker inspect -f 'RestartCount={{.RestartCount}}  Created={{.Created}}  StartedAt={{.State.StartedAt}}  Running={{.State.Running}}' "$NAME" 2>/dev/null || echo "(inspect failed)"
+          echo "container status: $(sudo docker ps -a --filter "name=^/${NAME}$" --format '{{.Status}}' 2>/dev/null)"
+          echo "'Login has completed' events — last 2h: $(sudo docker logs --since 2h "$NAME" 2>&1 | grep -c 'Login has completed')  last 30m: $(sudo docker logs --since 30m "$NAME" 2>&1 | grep -c 'Login has completed')"
+
+          echo
+          echo "===== 2) controlled self-heal test ====="
+          echo ">>> clearing watchdog streak state for a deterministic run"
+          rm -f "$STATE" 2>/dev/null || true
+          echo ">>> STOPPING container to simulate a down/wedged gateway…"
+          sudo docker stop "$NAME" >/dev/null 2>&1 || { echo "ERROR: docker stop failed"; exit 1; }
+          echo "post-stop status: $(sudo docker ps -a --filter "name=^/${NAME}$" --format '{{.Status}}')"
+
+          restarted=no
+          for i in 1 2 3; do
+            echo "--- watchdog run $i (same flags as the unit, cooldown 0) ---"
+            out="$(cd "$REPO" && python3 -u scripts/check_ib_gateway.py \
+              --probe-account ib_paper \
+              --probe-script scripts/ops/ib_gateway_local_probe.py \
+              --state runtime_logs/ib_gateway_watchdog_state.json \
+              --auto-restart --restart-after 2 --max-restarts 3 \
+              --cooldown-min 0 --exhaustion-reset-min 120 2>&1)"
+            echo "$out" | grep -E 'probe:|action|restart|login_completed|IBC: Login has completed' | tail -8 || true
+            if echo "$out" | grep -q 'IB Gateway auto-healed'; then restarted=yes; fi
+            # once the watchdog has restarted it, give it a moment then stop looping
+            if [ "$restarted" = yes ]; then echo ">>> watchdog issued the auto-heal restart on run $i"; break; fi
+            sleep 2
+          done
+
+          echo
+          echo "===== post-test state ====="
+          sleep 3
+          POST="$(sudo docker ps -a --filter "name=^/${NAME}$" --format '{{.Status}}')"
+          echo "container status: $POST"
+          echo "watchdog state: $(cat "$STATE" 2>/dev/null || echo '(none)')"
+
+          # SAFETY NET — never leave the gateway down.
+          if ! sudo docker ps --filter "name=^/${NAME}$" --filter status=running --format '{{.Names}}' | grep -q "$NAME"; then
+            echo ">>> SAFETY NET: container not running after the test — forcing recovery via restart_ib_gateway.sh"
+            sudo bash "$REPO/scripts/ops/restart_ib_gateway.sh" 2>&1 | tail -8 || sudo docker start "$NAME" || true
+          fi
+
+          echo
+          echo "===== final verification ====="
+          sleep 2
+          echo "container: $(sudo docker ps -a --filter "name=^/${NAME}$" --format '{{.Status}}')"
+          # one healthy probe to confirm the box reads OK again
+          ( cd "$REPO" && python3 -u scripts/check_ib_gateway.py --probe-account ib_paper \
+              --probe-script scripts/ops/ib_gateway_local_probe.py \
+              --state runtime_logs/ib_gateway_watchdog_state.json \
+              --dry-run 2>&1 | grep -E 'probe:|action' | tail -2 ) || true
+          if [ "$restarted" = yes ]; then
+            echo ">>> RESULT: PASS — the reactive watchdog detected the down gateway and auto-restarted it."
+          else
+            echo ">>> RESULT: watchdog did NOT issue the auto-heal within 3 runs (see logs); container recovered via the safety net. Investigate."
+          fi
+          echo ">>> selftest complete."
+          REMOTE
+
+          SSH_ARGS=( -i ~/.ssh/id_rsa
+                     -o BatchMode=yes
+                     -o StrictHostKeyChecking=accept-new
+                     -o ConnectTimeout=15 )
+          if [ "${GATEWAY_HOST}" != "${JUMP_HOST}" ]; then
+            SSH_ARGS+=( -o "ProxyJump=${VM_SSH_USER}@${JUMP_HOST}" )
+            echo ">>> reaching gateway ${GATEWAY_HOST} via ProxyJump ${VM_SSH_USER}@${JUMP_HOST}"
+          fi
+
+          set +e
+          ssh "${SSH_ARGS[@]}" \
+              "${VM_SSH_USER}@${GATEWAY_HOST}" \
+              "bash -s" <<<"$REMOTE_SCRIPT" \
+              > action-output.txt 2>&1
+          rc=$?
+          set -e
+          echo "exit_code=${rc}" >>"$GITHUB_OUTPUT"
+          echo ">>> Remote exit code: ${rc}"
+          if [ "$(wc -c <action-output.txt)" -gt 4000 ]; then
+            head -c 4000 action-output.txt; echo ""; echo "... (truncated; see issue comment)"
+          else
+            cat action-output.txt
+          fi
+          exit "${rc}"
+
+      - name: Upload action output
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-ib-gateway-selftest-${{ github.run_id }}
+          path: action-output.txt
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Reply to issue with result
+        if: github.event_name == 'issues' && always()
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+          JOB_STATUS: ${{ job.status }}
+        with:
+          script: |
+            const fs = require('fs');
+            let output = '';
+            try { output = fs.readFileSync('action-output.txt', 'utf8'); } catch (_) { output = '(no output — failure before SSH ran)'; }
+            const MAX_BODY = 50_000;
+            const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const ok = process.env.JOB_STATUS === 'success';
+            const head = ok
+              ? `✅ **vm-ib-gateway-selftest** completed.`
+              : `⚠️ **vm-ib-gateway-selftest** finished with a non-zero status — check the log (the safety net still recovers the container).`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              body: `${head}\nRun: ${runUrl}\nExit code: ${process.env.EXIT_CODE || '(setup failed)'}\n\n\`\`\`\n${tail}\n\`\`\``
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              state: 'closed', state_reason: ok ? 'completed' : 'not_planned'
+            });
