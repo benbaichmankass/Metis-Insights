@@ -491,7 +491,10 @@ def write_report(report: dict, out_dir: Path, update_index: bool = True) -> dict
     json_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
     root = _repo_root_for(out_dir)
-    rel = lambda p: str(p.resolve().relative_to(root)) if _is_under(p, root) else str(p)
+
+    def rel(p: Path) -> str:
+        return str(p.resolve().relative_to(root)) if _is_under(p, root) else str(p)
+
     cons = report.get("consolidated") or {}
     entry = {
         "id": report.get("report_id") or f"RPT-{slug}-{window}",
