@@ -169,7 +169,8 @@ def emit_prop_ticket(
         try:
             from src.prop.breakout_notify import ticket_to_fields
 
-            ticket_message = ticket_to_fields(leg.ticket).get("text")
+            ticket_message = ticket_to_fields(
+                leg.ticket, account_id=account_id, ticket_id=trade_id).get("text")
         except Exception:  # noqa: BLE001 — message capture is cosmetic
             ticket_message = None
 
@@ -195,11 +196,16 @@ def emit_prop_ticket(
         logger.warning("breakout_executor: ticket journal failed for %s: %s",
                        symbol, exc)
 
-    emitter = _emitter
-    if emitter is None:
-        from src.prop.breakout_notify import emit_prop_signal as emitter  # type: ignore
     try:
-        emitter(leg.ticket)
+        if _emitter is not None:
+            # Injected emitter (tests) keeps the simple (ticket) signature.
+            _emitter(leg.ticket)
+        else:
+            from src.prop.breakout_notify import emit_prop_signal
+            # Pass the account + ticket id so the rendered ticket's report-back
+            # JSON block is pre-filled — this is what lets the executor reply
+            # with a copy-paste fill the inbound ingest accepts verbatim.
+            emit_prop_signal(leg.ticket, account_id=account_id, ticket_id=trade_id)
     except Exception as exc:  # noqa: BLE001 — never lose the journal row over a push
         logger.warning("breakout_executor: ticket emit failed for %s: %s", symbol, exc)
 

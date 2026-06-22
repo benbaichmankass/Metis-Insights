@@ -115,8 +115,17 @@ def build_ticket(sig: BreakoutSignal, cfg: TicketConfig) -> Ticket:
     )
 
 
-def render_ticket(t: Ticket, *, now: Optional[datetime] = None) -> str:
-    """Render the paste-ready, agent-agnostic ticket message."""
+def render_ticket(t: Ticket, *, now: Optional[datetime] = None,
+                  account_id: Optional[str] = None,
+                  ticket_id: Optional[str] = None) -> str:
+    """Render the paste-ready, agent-agnostic ticket message.
+
+    ``account_id`` / ``ticket_id`` (known by the emitter, not the Ticket
+    itself) pre-fill the **report-back** block so the executor can reply with a
+    copy-paste JSON the bot's ``/api/bot/prop/report`` ingest accepts verbatim —
+    this is what closes the manual-bridge loop (without it, the bot never learns
+    the trade opened/closed and can't monitor it).
+    """
     s = t.signal
     c = t.cfg
     sym = c.dxtrade_symbol or s.symbol
@@ -165,6 +174,29 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None) -> str:
         f"${t.risk_usd:.2f} ({c.risk_pct}% of balance). Account killers — daily "
         f"loss ${daily_cap:.0f} (3%), static drawdown floor ${dd_floor:.0f} (6% "
         f"off start). Breaching either permanently disables the account.",
+    ]
+    # Report-back block — the inbound half of the manual bridge. After acting,
+    # the executor replies with ONE of these JSON objects (paste into the
+    # dashboard Prop tab report-back form, or send to Claude); the bot ingests
+    # it at /api/bot/prop/report so it can track + monitor the position. The
+    # <…> placeholders are the only values the executor fills.
+    acct = account_id or "<account_id>"
+    tid = f',"ticket_id":"{ticket_id}"' if ticket_id else ""
+    lines += [
+        "",
+        "  REPORT BACK (required) — after you act, reply with ONE copy-paste JSON",
+        "  block so the system can track this trade (paste it into the dashboard",
+        "  Prop tab report-back form, or send it to Claude). Fill the <…> values:",
+        f"    placed : {{\"account_id\":\"{acct}\",\"symbol\":\"{s.symbol}\","
+        f"\"direction\":\"{s.direction}\",\"status\":\"open\","
+        f"\"entry_price\":<your fill>,\"qty\":<size you placed>{tid}}}",
+        f"    skipped: {{\"account_id\":\"{acct}\",\"symbol\":\"{s.symbol}\","
+        f"\"direction\":\"{s.direction}\",\"status\":\"skipped\","
+        f"\"reason\":\"stale/out-of-range\"{tid}}}",
+        f"    closed : {{\"account_id\":\"{acct}\",\"symbol\":\"{s.symbol}\","
+        f"\"direction\":\"{s.direction}\",\"status\":\"closed\","
+        f"\"entry_price\":<fill>,\"exit_price\":<exit>,\"qty\":<size>,"
+        f"\"pnl\":<usd>,\"reason\":\"tp|sl|manual\"{tid}}}",
     ]
     if now is not None and now > t.valid_until:
         lines.insert(2, "  ⚠ THIS TICKET IS ALREADY EXPIRED — do not place.")
