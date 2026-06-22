@@ -267,6 +267,39 @@ After the comment lands, retry the original diag request — the
 relay should now succeed. The web-api restart has zero effect on
 the trader process; only the dashboard / diag surface bounces.
 
+### Posting a prop report-back — the write counterpart
+
+This relay (and the read-only `/api/bot/*` allowlist on
+`vm-diag-snapshot`) is **GET-only**. The one inbound write a PM-side
+session needs is the **Breakout manual-bridge report-back** — telling
+the bot about a prop fill/close or an account-status snapshot it has no
+broker feed for. That goes through a separate issue-driven workflow,
+`prop-report.yml` (label `prop-report`), which POSTs the report to
+`POST /api/bot/prop/report` over SSH + curl:
+
+```
+mcp__github__issue_write(method='create',
+    title='[prop-report] breakout fill',
+    labels=['prop-report'],
+    body='```json\n{"account_id":"breakout_1","symbol":"MES","direction":"long","status":"closed","entry_price":5000,"exit_price":5010,"qty":1,"pnl":50,"reason":"tp"}\n```')
+```
+
+The issue **body** carries a single JSON object (the ```json fence is
+optional — it's stripped); the workflow validates it is one object
+(`jq -e 'type=="object"'`), POSTs it to the VM, and comments the
+endpoint's JSON response + HTTP status back before closing the issue.
+The body shapes are the two in `src/prop/prop_report.py::ingest_report`
+(fill/close, or `kind:"account_status"`). The untrusted body never gets
+inline-interpolated into the remote shell (base64 hop). The endpoint is
+**Tier 2** (DB write + notification) and **token-gated by
+`DASHBOARD_API_TOKEN` when set** — the workflow sources that token from
+`/etc/ict-trader/web-api.env` **on the VM** and adds the bearer header
+only when present (it never reaches the runner / run log); when the VM
+hasn't set the token the endpoint accepts the call without it. Carry the
+operator's Tier-2 OK into the issue `body` as the audit record. This is
+the only write the relay family exposes; everything else mutating stays
+on `system-actions` / Telegram `/vm_write`.
+
 ## When NOT to use this
 
 - **Anything mutating.** The diag surface is read-only by design;
