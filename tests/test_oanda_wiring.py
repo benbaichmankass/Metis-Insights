@@ -147,13 +147,26 @@ def test_client_requires_creds():
     with pytest.raises(MissingCredentialsError):
         cli.place({"symbol": "XAUUSD", "side": "Buy", "qty": 1})
     assert cli.balance() is None  # degrades, never raises
-    assert cli.positions() == []
+    # positions() now returns None (not []) on a read failure incl. missing
+    # creds — symmetry with the Alpaca/IB read contract so a transient outage
+    # isn't read as "flat" (BL-20260622-ALPACA-SNAPSHOT-FALSECLOSE).
+    assert cli.positions() is None
 
 
 def test_client_close_idempotent_when_flat(monkeypatch):
     cli = OandaClient(api_token="tok", account_id="acct")
     monkeypatch.setattr(cli, "positions", lambda: [])
     assert cli.close("XAUUSD")["retCode"] == 0
+
+
+def test_client_close_surfaces_read_failure(monkeypatch):
+    """positions() None (read failure) must NOT be mistaken for a flat account —
+    close() surfaces the failure instead of a false idempotent success."""
+    cli = OandaClient(api_token="tok", account_id="acct")
+    monkeypatch.setattr(cli, "positions", lambda: None)
+    out = cli.close("XAUUSD")
+    assert out["retCode"] != 0
+    assert "could not read" in out["retMsg"]
 
 
 # ------------------------------------------------------------ config gates

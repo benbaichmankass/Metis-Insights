@@ -324,6 +324,100 @@ def test_ib_dry_account_returns_none(ib_account):
 
 
 # ---------------------------------------------------------------------------
+# Alpaca empty-snapshot / read-failure hardening
+# (BL-20260622-ALPACA-SNAPSHOT-FALSECLOSE)
+# ---------------------------------------------------------------------------
+#
+# Mirrors the IB hardening above: AlpacaClient.positions() now returns None on a
+# read failure (so a transient outage isn't read as "flat"), and the empty-but-
+# successful case is gated on balance() confirming a live session before [] is
+# trusted as flat. This is what stops the position-snapshot reconciler from
+# false-closing a live Alpaca position whose fill hasn't propagated yet.
+
+
+@pytest.fixture
+def alpaca_account():
+    return {"account_id": "alpaca_paper", "exchange": "alpaca", "mode": "live"}
+
+
+class _FakeAlpacaClient:
+    """Stand-in for AlpacaClient — records whether balance() was called."""
+
+    def __init__(self, positions, bal=None):
+        self._positions = positions
+        self._bal = bal
+        self.balance_calls = 0
+
+    def positions(self):
+        return self._positions
+
+    def balance(self):
+        self.balance_calls += 1
+        return self._bal
+
+
+def test_alpaca_positions_none_read_failure_returns_none(alpaca_account):
+    """positions() None (network / non-2xx / missing creds) → None, never []."""
+    fake = _FakeAlpacaClient(positions=None)
+    with patch(
+        "src.units.accounts.clients.alpaca_client_for", return_value=fake,
+    ):
+        out = account_open_positions(alpaca_account)
+    assert out is None
+    assert fake.balance_calls == 0  # never reaches the empty-case gate
+
+
+def test_alpaca_empty_balance_populated_returns_flat(alpaca_account):
+    """Empty snapshot + balance() populated → trustworthy [] (genuinely flat)."""
+    fake = _FakeAlpacaClient(positions=[], bal=25000.0)
+    with patch(
+        "src.units.accounts.clients.alpaca_client_for", return_value=fake,
+    ):
+        out = account_open_positions(alpaca_account)
+    assert out == []
+    assert fake.balance_calls == 1  # health checked on the empty path
+
+
+def test_alpaca_empty_balance_none_returns_none(alpaca_account):
+    """Empty snapshot + balance() not populated → None (read-failure), NOT [] —
+    so the reconciler skips and can't false-close a propagating fill."""
+    fake = _FakeAlpacaClient(positions=[], bal=None)
+    with patch(
+        "src.units.accounts.clients.alpaca_client_for", return_value=fake,
+    ):
+        out = account_open_positions(alpaca_account)
+    assert out is None
+    assert fake.balance_calls == 1
+
+
+def test_alpaca_nonempty_returned_normalised_no_health_call(alpaca_account):
+    """A non-empty snapshot is proof of a live session → returned normalised to
+    the canonical shape with NO extra balance() round-trip."""
+    fake = _FakeAlpacaClient(
+        positions=[{
+            "symbol": "IWM", "side": "buy", "qty": 9.0,
+            "avg_price": 298.53, "unrealized_pnl": 1.2,
+        }],
+        bal=25000.0,
+    )
+    with patch(
+        "src.units.accounts.clients.alpaca_client_for", return_value=fake,
+    ):
+        out = account_open_positions(alpaca_account)
+    assert out == [{
+        "symbol": "IWM", "side": "long", "size": 9.0,
+        "entry_price": 298.53, "unrealised_pnl": 1.2,
+    }]
+    assert fake.balance_calls == 0
+
+
+def test_alpaca_dry_account_returns_none(alpaca_account):
+    """Dry alpaca account is never dialled → None."""
+    out = account_open_positions(dict(alpaca_account, mode="dry_run"))
+    assert out is None
+
+
+# ---------------------------------------------------------------------------
 # 5. Legacy UI delegate
 # ---------------------------------------------------------------------------
 
