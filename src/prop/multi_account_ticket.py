@@ -114,7 +114,7 @@ def render_multi_account_ticket(
     def _block(leg: AccountLeg, *, label: Optional[str] = None) -> str:
         head = f"── ACCOUNT: {leg.account_id} ({leg.account_class}) ──" if label else ""
         if leg.decision == "place" and leg.ticket is not None:
-            body = render_ticket(leg.ticket, now=now)
+            body = render_ticket(leg.ticket, now=now, account_id=leg.account_id)
         else:
             body = f"SKIP — {leg.reason}"
         return f"{head}\n{body}".strip() if head else body
