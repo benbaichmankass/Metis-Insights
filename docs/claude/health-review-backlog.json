@@ -2146,7 +2146,21 @@
       "resolved_at": null,
       "resolution": null,
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260622-WATCHDOG-STDIN",
+      "opened_at": "2026-06-22T16:25:00+00:00",
+      "opened_by": "claude (system-review deploy verification)",
+      "source": "Live VM diag (issue #4203 journalctl ict-liveness-watchdog.service): the liveness watchdog (Type=oneshot, fires every ~60s) intermittently fails at the systemd STDIN-setup step with `Failed to set up standard input: No such file or directory` / `status=208/STDIN` (~8% of runs; observed 16:08:08 and 16:12:29 UTC), BEFORE check_heartbeat.py runs. Each failure self-heals on the next minute's run, so the unit's `failed` state is transient (the snapshot at 16:12:32 happened to land 3s after a failed run). The repo canonical unit (deploy/ict-liveness-watchdog.service) sets NO StandardInput (default null -> /dev/null, which cannot ENOENT), so the deployed unit/drop-in has drifted OR a git-sync `git reset --hard` race transiently breaks the spawn.",
+      "severity": "medium",
+      "title": "VERIFY the liveness-watchdog 208/STDIN intermittent exec failure is gone after the StandardInput=null pin reinstall",
+      "description": "The dead-man switch must spawn reliably on every tick; an ~8% per-run exec failure erodes the 3-strike (~8 min) autoheal margin and a sticky `failed` state masks a genuinely-dead watchdog. Remediation: PR pins `StandardInput=null` explicitly in deploy/ict-liveness-watchdog.service (BL-20260622-WATCHDOG-STDIN), which on the next runtime git-sync forces install_systemd_units.sh to recopy the (now-differing) unit, reconverging any drift. FOLLOW UP: after the reinstall is confirmed (deployed unit == repo), pull `journalctl?unit=ict-liveness-watchdog.service&lines=200` and confirm ZERO `208/STDIN` occurrences across a >=30-min window. If 208/STDIN PERSISTS after a confirmed reinstall of the explicit-StandardInput unit, the cause is a drop-in (/etc/systemd/system/ict-liveness-watchdog.service.d/*.conf) or a git-sync `git reset --hard` spawn race (NOT main-unit drift) \u2014 escalate to a targeted system-action that `systemctl cat`s the deployed unit + drop-ins and purges any rogue drop-in. Note: the `/etc/ict-vm-role: No such file or directory` log line in deploy_pull_restart.sh line 91 is cosmetic/expected on the trader (empty role = not gateway); NOT a drift to fix.",
+      "tier": "3",
+      "status": "open",
+      "resolved_at": null,
+      "resolution": null,
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-22T15:10:00+00:00"
+  "updated_at": "2026-06-22T16:25:00+00:00"
 }
