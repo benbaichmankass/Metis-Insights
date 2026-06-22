@@ -1617,11 +1617,29 @@ class Coordinator:
                             "error": f"intent_noop:{delta.reason}",
                         })
                         continue
-                    # Reduce-only on Bybit V5 is derivatives-only. Spot
-                    # accounts cannot send reduceOnly orders — refuse
-                    # the reduce / close / flip path with a clear
-                    # reason instead of letting Bybit return
-                    # retCode 110086.
+                    # Non-derivative position management — HOLD-TO-BRACKET
+                    # (BL-20260622-ALPACA-REDUCE-HOLD; operator-approved
+                    # 2026-06-22; supersedes the hard refusal in
+                    # BL-20260619-MGC-REDUCE-GUARD). Bybit V5 reduceOnly is
+                    # derivatives-only, and the intent-mode reduce dispatch
+                    # (execute_pkg reduce_only=True → _submit_order) is wired
+                    # ONLY for the Bybit branch. Equity (alpaca) / futures (ib)
+                    # accounts attach a broker-side SL/TP bracket at entry that
+                    # IS the exit, so they do NOT actively resize toward a
+                    # moving risk target. A reduce / close / flip delta on such
+                    # an account therefore resolves to a NOOP / HOLD: no
+                    # reducing order is sent, the position rides its broker
+                    # bracket. This replaces the per-tick
+                    # `intent_reduce_requires_derivatives` RiskBreach (which
+                    # spammed the "all accounts failed to dispatch" alert and
+                    # left the position unmanaged anyway). ``close`` is held too
+                    # rather than auto-flattened via close_open_position: in this
+                    # architecture a close delta is almost always a transient
+                    # risk-sizing-0 artifact (daily-loss cap / min-balance / a
+                    # momentary balance read), and force-flattening a
+                    # bracket-protected position on that would contradict
+                    # hold-to-bracket. (Bybit linear/inverse accounts fall
+                    # through to the existing reduceOnly dispatch unchanged.)
                     _market_type = (
                         getattr(account, "market_type", "spot") or "spot"
                     ).lower()
@@ -1629,14 +1647,33 @@ class Coordinator:
                         delta.action in ("reduce", "close", "flip")
                         and _market_type not in {"linear", "inverse"}
                     ):
-                        risk_reason = (
-                            f"intent_{delta.action}_requires_derivatives"
+                        _hold_reason = (
+                            f"intent_noop:hold_to_bracket_{delta.action}"
+                            f"_non_derivative"
                         )
-                        raise RiskBreach(
-                            f"Account '{account.name}': {risk_reason} "
-                            f"(market_type={_market_type!r}). "
-                            f"Reduce-only dispatch needs linear/inverse perpetuals."
+                        logger.info(
+                            "[coordinator] hold-to-bracket: %s on %s/%s "
+                            "(market_type=%s) resolves to HOLD — broker bracket "
+                            "is the exit; no reducing order sent.",
+                            delta.action, account.name, pkg.symbol, _market_type,
                         )
+                        from src.units.accounts.execute import log_rejection_to_journal
+                        log_rejection_to_journal(
+                            pkg, account_cfg,
+                            reason=_hold_reason,
+                            status="rejected",
+                            sized_qty=0.0,
+                        )
+                        results.append({
+                            "name": account.name,
+                            "exchange": account.exchange,
+                            "account_type": account.account_type,
+                            "trade_id": None,
+                            "sized_qty": 0.0,
+                            "error": _hold_reason,
+                        })
+                        continue
+
                     if delta.qty_delta < account.risk_manager.min_qty:
                         # Position is within one min-lot of the target;
                         # treat as noop to avoid spamming dust orders.
