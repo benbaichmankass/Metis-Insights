@@ -120,3 +120,166 @@ symbols:
       - eia
       - gasoline
       - "energy demand"
+
+  # ---- Crypto (alt) ----  added 2026-06-22: were ticker-keyword-only no-ops
+  SOL:   # Solana
+    query: "Solana OR SOL crypto"
+    keywords: [solana, sol, crypto, cryptocurrency, "smart contract"]
+  XRP:   # Ripple
+    query: "XRP OR Ripple"
+    keywords: [xrp, ripple, "ripple labs", crypto, cryptocurrency, sec]
+  ADA:   # Cardano
+    query: "Cardano OR ADA crypto"
+    keywords: [cardano, ada, crypto, cryptocurrency]
+  AVAX:  # Avalanche
+    query: "Avalanche OR AVAX crypto"
+    keywords: [avalanche, avax, crypto, cryptocurrency]
+
+  # ---- Equity-index ETFs ----
+  SPY:   # S&P 500 ETF (mirrors MES)
+    query: "S&P 500 OR stock market OR Federal Reserve OR inflation OR FOMC OR jobs report"
+    keywords:
+      - "s&p"
+      - "s&p 500"
+      - spx
+      - "stock market"
+      - equities
+      - stocks
+      - "wall street"
+      - "federal reserve"
+      - fed
+      - fomc
+      - inflation
+      - cpi
+      - "interest rate"
+      - "interest rates"
+      - "dow jones"
+      - recession
+      - "jobs report"
+      - payrolls
+      - treasury
+      - yields
+  QQQ:   # Nasdaq-100 ETF (mirrors MNQ)
+    query: "Nasdaq OR tech stocks OR Federal Reserve OR inflation OR interest rates"
+    keywords:
+      - nasdaq
+      - "nasdaq 100"
+      - "tech stocks"
+      - "big tech"
+      - "stock market"
+      - equities
+      - stocks
+      - "federal reserve"
+      - fed
+      - fomc
+      - inflation
+      - cpi
+      - "interest rate"
+      - "interest rates"
+  IWM:   # Russell 2000 ETF (small caps)
+    query: "Russell 2000 OR small cap stocks OR stock market OR Federal Reserve OR interest rates"
+    keywords:
+      - russell
+      - "russell 2000"
+      - "small cap"
+      - "small-cap"
+      - "small caps"
+      - "stock market"
+      - equities
+      - stocks
+      - "federal reserve"
+      - fed
+      - "interest rate"
+      - "interest rates"
+      - recession
+
+  # ---- Treasury / rates ETFs ----
+  TLT:   # 20+yr Treasury ETF
+    query: "Treasury bonds OR 10-year yield OR Federal Reserve OR interest rates OR inflation"
+    keywords:
+      - treasury
+      - "treasury bonds"
+      - "treasury yield"
+      - yield
+      - yields
+      - "10-year"
+      - "10 year"
+      - "interest rate"
+      - "interest rates"
+      - "federal reserve"
+      - fed
+      - fomc
+      - bonds
+      - inflation
+      - cpi
+  IEF:   # 7-10yr Treasury ETF
+    query: "Treasury bonds OR 10-year yield OR Federal Reserve OR interest rates"
+    keywords:
+      - treasury
+      - "treasury bonds"
+      - "treasury yield"
+      - yield
+      - yields
+      - "10-year"
+      - "10 year"
+      - "interest rate"
+      - "interest rates"
+      - "federal reserve"
+      - fed
+      - bonds
+
+  # ---- Metal ETFs / spot ----
+  GLD:   # Gold ETF (mirrors MGC)
+    query: "gold price OR gold OR precious metals OR Federal Reserve OR inflation"
+    keywords:
+      - gold
+      - "gold price"
+      - xau
+      - bullion
+      - "precious metals"
+      - "safe haven"
+      - "federal reserve"
+      - "interest rate"
+      - "interest rates"
+      - inflation
+      - dollar
+      - dxy
+  XAU:   # Gold spot (XAUUSD)
+    query: "gold price OR gold OR XAU OR precious metals OR Federal Reserve"
+    keywords:
+      - gold
+      - "gold price"
+      - xau
+      - bullion
+      - "precious metals"
+      - "safe haven"
+      - inflation
+      - dollar
+      - dxy
+  SLV:   # Silver ETF
+    query: "silver price OR silver OR precious metals OR industrial metals"
+    keywords:
+      - silver
+      - "silver price"
+      - xag
+      - "precious metals"
+      - "industrial metals"
+      - "safe haven"
+      - inflation
+      - dollar
+
+  # ---- Energy ETF ----
+  USO:   # WTI Crude Oil ETF (mirrors MCL)
+    query: "crude oil OR oil price OR OPEC OR energy OR gasoline"
+    keywords:
+      - oil
+      - "crude oil"
+      - "oil price"
+      - opec
+      - wti
+      - brent
+      - energy
+      - "oil inventories"
+      - eia
+      - gasoline
+      - "energy demand"
