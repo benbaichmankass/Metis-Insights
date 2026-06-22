@@ -795,6 +795,21 @@ below are the contract.
   probe; the workflow comments back and closes. Restart-only, no
   edits, no other unit touched. Wrapper:
   `scripts/ops/restart_web_api.sh`.
+- **Prop report-back POST (the diag relay's write counterpart)** —
+  `.github/workflows/prop-report.yml` is the issue-driven path to
+  `POST /api/bot/prop/report` (the read-only `vm-diag-snapshot` relay
+  is GET-only and can't POST). Open a labelled issue (`prop-report`)
+  whose **body** is a single JSON object (optionally inside a ```json
+  fence — stripped) in one of the two `src/prop/prop_report.py`
+  shapes (fill/close, or `kind:"account_status"`); the workflow
+  validates it (`jq -e 'type=="object"'`), POSTs it to the VM over
+  SSH + curl, and comments the endpoint's JSON response + HTTP status
+  back before closing. **Tier 2** (DB write + notification); it
+  sources `DASHBOARD_API_TOKEN` from `/etc/ict-trader/web-api.env`
+  **on the VM** and sends the bearer header only when set (never
+  reaches the runner / run log). The untrusted body rides a base64
+  hop, never inline-interpolated. Full flow:
+  `docs/claude/diag-relay.md` § "Posting a prop report-back".
 - **Repo label creation** — `.github/workflows/bootstrap-labels.yml`
   self-creates the labels other workflows filter on. Edit the
   `LABELS` array in that file and merge; the next push runs the
