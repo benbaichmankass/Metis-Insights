@@ -327,16 +327,57 @@ fi
 # unit files are still copied above (inert, harmless) — only the auto-enable
 # is gated.
 _GATEWAY_ONLY_TIMERS=" ict-ib-gateway-watchdog.timer ict-ib-gateway-reset.timer "
+# Units allowed to RUN on the dedicated gateway VM (BL-20260622-GATEWAY-ISOLATE-UNITS).
+# The gateway is a MINIMAL box: Docker IB-Gateway + stdlib units only, no bot
+# venv / no .env. The trader-oriented timers (insights, db-integrity,
+# hourly/health snapshot, liveness-watchdog, shadow-log-rotate, …) and the
+# long-running trader services (web-api, trader-live, telegram-bot) must NOT run
+# here — their services just fail / crash-loop. Earlier this installer enabled
+# every non-gateway timer here unconditionally, and a stray git-sync fire started
+# ict-web-api (crash-looping) + several timer services (failed) on the gateway.
+_GATEWAY_ALLOWED_TIMERS=" ict-ib-gateway-watchdog.timer ict-ib-gateway-reset.timer ict-git-sync.timer ict-devnull-guard.timer "
+_GATEWAY_ALLOWED_SERVICES=" ict-ib-gateway-watchdog.service ict-ib-gateway-reset.service ict-git-sync.service ict-devnull-guard.service "
 _VM_ROLE="$(tr -d '[:space:]' < /etc/ict-vm-role 2>/dev/null || true)"
+
+# Gateway isolation pruning: on the gateway VM, actively disable/stop any
+# non-allowlisted ict-* unit a prior run or a stray deploy left
+# enabled/active/failed, so the box converges to "gateway units only".
+# Idempotent + gateway-scoped (the trader box never enters this block).
+if [ "$_VM_ROLE" = "gateway" ]; then
+    echo ">>> install_systemd_units: gateway isolation — pruning non-gateway ict-* units"
+    while read -r _t; do
+        [ -n "$_t" ] || continue
+        case "$_GATEWAY_ALLOWED_TIMERS" in *" $_t "*) continue;; esac
+        echo ">>> [gateway] disabling stray timer: $_t"
+        "${SUDO[@]}" systemctl disable --now "$_t" 2>/dev/null || true
+    done < <("${SUDO[@]}" systemctl list-unit-files 'ict-*.timer' --no-legend 2>/dev/null | awk '{print $1}')
+    while read -r _s; do
+        [ -n "$_s" ] || continue
+        case "$_GATEWAY_ALLOWED_SERVICES" in *" $_s "*) continue;; esac
+        echo ">>> [gateway] stopping+disabling stray service: $_s"
+        "${SUDO[@]}" systemctl disable --now "$_s" 2>/dev/null || true
+        "${SUDO[@]}" systemctl reset-failed "$_s" 2>/dev/null || true
+    done < <("${SUDO[@]}" systemctl list-units 'ict-*.service' --all --state=active,activating,failed --plain --no-legend 2>/dev/null | awk '{print $1}')
+fi
+
 shopt -s nullglob
 for timer_path in deploy/*.timer; do
     timer_name=$(basename "$timer_path")
     if [[ "$timer_name" == *@* ]]; then
         continue
     fi
-    if [[ "$_GATEWAY_ONLY_TIMERS" == *" $timer_name "* ]] && [ "$_VM_ROLE" != "gateway" ]; then
-        echo ">>> install_systemd_units: skip enable $timer_name (gateway-only; host role='${_VM_ROLE:-unset}')"
-        continue
+    if [ "$_VM_ROLE" = "gateway" ]; then
+        # Gateway VM: enable ONLY the gateway allowlist.
+        if [[ "$_GATEWAY_ALLOWED_TIMERS" != *" $timer_name "* ]]; then
+            echo ">>> install_systemd_units: skip enable $timer_name (not in gateway allowlist; host role=gateway)"
+            continue
+        fi
+    else
+        # Trader box: skip the gateway-only timers (they'd probe a missing container).
+        if [[ "$_GATEWAY_ONLY_TIMERS" == *" $timer_name "* ]]; then
+            echo ">>> install_systemd_units: skip enable $timer_name (gateway-only; host role='${_VM_ROLE:-unset}')"
+            continue
+        fi
     fi
     if "${SUDO[@]}" systemctl is-enabled "$timer_name" >/dev/null 2>&1 \
         && "${SUDO[@]}" systemctl is-active "$timer_name" >/dev/null 2>&1; then
