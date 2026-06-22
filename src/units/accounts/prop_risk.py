@@ -209,6 +209,7 @@ class PropRiskManager(RiskManager):
         market_type: str = "spot",
         available_usd: Optional[float] = None,
         total_account_usd: Optional[float] = None,
+        whole_units: bool = False,
     ) -> float:
         """Size a prop trade against the NOMINAL account equity when no live
         balance is available.
@@ -243,6 +244,7 @@ class PropRiskManager(RiskManager):
             return super().position_size(
                 package, balance_usd, market_type=market_type,
                 available_usd=available_usd, total_account_usd=total_account_usd,
+                whole_units=whole_units,
             )
         nominal = (
             self.current_equity
@@ -263,6 +265,7 @@ class PropRiskManager(RiskManager):
         return super().position_size(
             package, balance_usd, market_type=market_type,
             available_usd=available_usd, total_account_usd=total_account_usd,
+            whole_units=whole_units,
         )
 
     def evaluate(
