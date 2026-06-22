@@ -700,10 +700,16 @@ class TestIntentModeReduceClose:
         assert results[0]["error"] is None
         assert pkg.meta["execution_delta"]["action"] == "reduce"
 
-    def test_intent_mode_spot_account_refuses_reduce(
+    def test_intent_mode_spot_account_holds_reduce_to_bracket(
         self, tmp_path, monkeypatch,
     ):
-        """Reduce/close/flip on a spot account must refuse, not silently buy."""
+        """Reduce/close/flip on a non-derivative (non-reduceOnly) account must
+        HOLD — no reducing order is placed, the position rides its own exit
+        (broker bracket for alpaca/ib; monitor-loop close for the dormant spot
+        path) — and the result is a benign ``intent_noop:`` hold, NOT a refusal
+        and NOT a silent buy (BL-20260622-ALPACA-REDUCE-HOLD, operator-approved
+        hold-to-bracket; supersedes the old intent_reduce_requires_derivatives
+        RiskBreach that spammed the all-accounts-failed alert)."""
         # Custom accounts.yaml with a spot account, otherwise identical
         # to the linear bybit_2 fixture.
         spot_yaml = textwrap.dedent("""\
@@ -747,8 +753,16 @@ class TestIntentModeReduceClose:
             pkg, accounts_path=str(spot_path),
             balance_fetcher=lambda acc: 10_000.0,
         )
-        assert captured == [], "spot reduce path must refuse before placement"
-        assert "intent_reduce_requires_derivatives" in (results[0]["error"] or "")
+        assert captured == [], "non-derivative reduce must place no order (hold)"
+        # Benign hold, not a refusal — classified intent_noop so the
+        # all-accounts-failed roll-up does not fire.
+        _err = results[0]["error"] or ""
+        assert _err.startswith("intent_noop:hold_to_bracket_"), _err
+        assert "_non_derivative" in _err
+        assert results[0]["trade_id"] is None
+        # The benign-noop classifier must treat it as non-failure.
+        from src.runtime.execution_diagnostics import enqueue_all_accounts_failed_dispatch  # noqa: F401
+        assert _err.startswith("intent_noop:")
 
 
 class TestBuildIntentLegs:
