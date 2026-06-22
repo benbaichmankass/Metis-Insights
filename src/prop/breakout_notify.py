@@ -143,6 +143,80 @@ def render_fill_message(fill: Dict[str, Any]) -> str:
     )
 
 
+def render_monitor_message(position: Dict[str, Any]) -> str:
+    """Human-readable Telegram line for a 'still monitoring' prop pulse.
+
+    Since the prop account has no live broker feed, there is genuinely
+    nothing to update between report-backs — so the pulse says "no change"
+    and restates the position the bot is tracking, plus how long it's been
+    open. ``note`` overrides the "no change" tail when the caller has
+    something concrete to say.
+    """
+    sym = position.get("symbol") or "?"
+    direction = str(position.get("direction") or "").upper()
+    account = position.get("account_id") or position.get("account") or "prop"
+    age_min = position.get("age_minutes")
+    age_str = f" · open {_fmt(age_min)}m" if age_min is not None else ""
+    note = position.get("note") or "no change"
+    levels = (
+        f"entry {_fmt(position.get('entry') or position.get('entry_price'))} · "
+        f"SL {_fmt(position.get('sl'))} · TP {_fmt(position.get('tp'))}"
+    )
+    return (
+        f"🔵 PROP MONITOR {sym} {direction} [{account}] — still monitoring · {note}"
+        f"\n{levels}{age_str}"
+    )
+
+
+def emit_prop_monitor_pulse(position: Dict[str, Any], *, push: bool = True,
+                            telegram: bool = True) -> Dict[str, bool]:
+    """Fan a periodic 'still monitoring' pulse for an open prop trade.
+
+    Reassures the operator the system is actively tracking the prop
+    position between the real-time ``prop_fill`` / ``prop_closed`` events.
+    Best-effort + fully isolated — a leg failure logs a WARNING and is
+    reported in the return dict but never raises.
+    """
+    from src.runtime.mobile_push.event_kinds import PROP_MONITOR
+
+    text = render_monitor_message(position)
+    payload = {
+        "account": str(position.get("account_id") or position.get("account") or ""),
+        "symbol": str(position.get("symbol") or ""),
+        "direction": str(position.get("direction") or ""),
+        "qty": _fmt(position.get("qty")),
+        "entry": _fmt(position.get("entry") or position.get("entry_price")),
+        "sl": _fmt(position.get("sl")),
+        "tp": _fmt(position.get("tp")),
+        "opened_at": str(position.get("opened_at") or ""),
+        "age_minutes": _fmt(position.get("age_minutes")),
+        "ticket_id": str(position.get("ticket_id") or ""),
+        "text": text,
+    }
+    out = {"push": False, "telegram": False}
+
+    if push:
+        try:
+            from src.runtime.mobile_push import publish_event
+
+            publish_event(PROP_MONITOR, payload)
+            out["push"] = True
+        except Exception as exc:  # noqa: BLE001 — notification never fatal
+            logger.warning("emit_prop_monitor_pulse: FCM push failed: %s", exc)
+
+    if telegram:
+        try:
+            from src.runtime.notify import send_telegram_direct
+
+            send_telegram_direct(text, parse_mode=None, mirror_to_fcm=False,
+                                 bot_token=_prop_bot_token())
+            out["telegram"] = True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("emit_prop_monitor_pulse: telegram send failed: %s", exc)
+
+    return out
+
+
 def emit_prop_fill(fill: Dict[str, Any], *, push: bool = True,
                    telegram: bool = True) -> Dict[str, bool]:
     """Fan an inbound prop fill/close out as a typed push + Telegram line.
