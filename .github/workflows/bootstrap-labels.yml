@@ -125,6 +125,11 @@ jobs:
                 description: 'Triggers vm-ib-gateway-recover — autonomous ib-gateway container restart (IBKR error 162).',
               },
               {
+                name: 'vm-ib-gateway-deploy',
+                color: 'b60205',
+                description: 'Triggers vm-ib-gateway-deploy — pull origin/main on the gateway VM, re-install systemd units, restart the watchdog timer (the gateway VM has no git-sync auto-deploy).',
+              },
+              {
                 name: 'vm-ib-gateway-stop',
                 color: 'b60205',
                 description: 'Triggers vm-ib-gateway-stop — stop the ib-gateway container + disable its watchdog when it is up-but-unauthenticated and wedging the trader.',

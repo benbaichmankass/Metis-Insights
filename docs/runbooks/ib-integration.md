@@ -266,6 +266,19 @@ watchdog escalations) instead of the disease.
   **overnight-reset wedge** is a username/password re-login dialog (no 2FA — see
   the auto-heal note below) that a plain `docker restart` clears. The recover
   workflow's log tail surfaces which one it is.
+- **Deploying code to the gateway VM** (`vm-ib-gateway-deploy` workflow,
+  BL-20260622-GATEWAY-NO-AUTODEPLOY). The gateway VM is provisioned with only
+  the credential env file + the Docker container (`scripts/ops/provision_ib_gateway.sh`)
+  — it has **no `ict-git-sync` timer**, so unlike the live trader it does NOT
+  auto-pull `origin/main`. A change to the gateway-VM systemd units (e.g. the
+  `ict-ib-gateway-watchdog.{service,timer}` re-arm) lands on `main` but stays
+  dark on the box until deployed. The `vm-ib-gateway-deploy` workflow closes that
+  gap: it SSHes to the gateway VM (same ProxyJump transport as recover),
+  `git reset --hard origin/main`, re-runs the idempotent
+  `scripts/install_systemd_units.sh`, and restarts the watchdog timer so a
+  changed cadence takes effect — then prints a self-deploy diagnosis (is
+  `ict-git-sync.timer` present? was HEAD already current?). Drive it with a
+  `vm-ib-gateway-deploy`-labelled issue.
 
 The live→3-OCPU trader migration is **paused**: with the gateway off the money
 box, the micro may hold the trader + web-api + sidecars on 2 cores (the
