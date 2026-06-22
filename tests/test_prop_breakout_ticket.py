@@ -72,6 +72,41 @@ def test_render_contains_invariants():
     assert "$300" in out   # 6% static DD floor
 
 
+def test_render_report_back_block_prefilled():
+    """The ticket carries a copy-paste report-back JSON pre-filled with the
+    account/symbol/direction/ticket_id so the executor can reply with a fill the
+    /api/bot/prop/report ingest accepts verbatim (closes the manual-bridge loop)."""
+    import json
+
+    t = build_ticket(_long_sig(symbol="ETHUSDT", direction="long"), TicketConfig())
+    out = render_ticket(t, account_id="breakout_1", ticket_id="prop-manual-abc123")
+    assert "REPORT BACK" in out
+    # The three lifecycle blocks are present, pre-filled with the known fields.
+    assert '"account_id":"breakout_1"' in out
+    assert '"symbol":"ETHUSDT"' in out
+    assert '"direction":"long"' in out
+    assert '"status":"open"' in out
+    assert '"status":"skipped"' in out
+    assert '"status":"closed"' in out
+    assert '"ticket_id":"prop-manual-abc123"' in out
+    # The 'skipped' line must be a JSON object the ingest can parse once the
+    # executor fills nothing further (it has no <…> placeholders).
+    skipped_line = next(ln for ln in out.splitlines() if '"status":"skipped"' in ln)
+    payload = skipped_line.split("skipped:", 1)[1].strip()
+    obj = json.loads(payload)
+    assert obj["account_id"] == "breakout_1"
+    assert obj["symbol"] == "ETHUSDT"
+    assert obj["status"] == "skipped"
+
+
+def test_render_report_back_omits_ticket_id_when_absent():
+    t = build_ticket(_long_sig(symbol="SOLUSDT", direction="long"), TicketConfig())
+    out = render_ticket(t, account_id="breakout_1")  # no ticket_id
+    assert "REPORT BACK" in out
+    assert '"account_id":"breakout_1"' in out
+    assert "ticket_id" not in out  # cleanly omitted, not an empty placeholder
+
+
 def test_render_flags_expired():
     t = build_ticket(_long_sig(), TicketConfig())
     later = t.valid_until + timedelta(minutes=1)

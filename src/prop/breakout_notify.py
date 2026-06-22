@@ -25,7 +25,8 @@ from src.prop.breakout_ticket import Ticket, render_ticket
 logger = logging.getLogger(__name__)
 
 
-def ticket_to_fields(ticket: Ticket) -> Dict[str, str]:
+def ticket_to_fields(ticket: Ticket, *, account_id: Optional[str] = None,
+                     ticket_id: Optional[str] = None) -> Dict[str, str]:
     """Flatten a :class:`Ticket` into the ``prop_signal`` FCM payload (all strings).
 
     ``text`` carries the full rendered ticket so the Android notification body
@@ -51,11 +52,13 @@ def ticket_to_fields(ticket: Ticket) -> Dict[str, str]:
         "qty": f"{ticket.qty_units:g}",
         "risk_usd": f"{ticket.risk_usd:.2f}",
         "valid_until": ticket.valid_until.astimezone(timezone.utc).isoformat(),
-        "text": render_ticket(ticket),
+        "text": render_ticket(ticket, account_id=account_id, ticket_id=ticket_id),
     }
 
 
-def emit_prop_signal(ticket: Ticket, *, push: bool = True, telegram: bool = True) -> Dict[str, bool]:
+def emit_prop_signal(ticket: Ticket, *, push: bool = True, telegram: bool = True,
+                     account_id: Optional[str] = None,
+                     ticket_id: Optional[str] = None) -> Dict[str, bool]:
     """Fan a Breakout ticket out as a ``prop_signal`` FCM push + a Telegram message.
 
     Best-effort and fully isolated: each leg is wrapped so a failure logs a
@@ -63,7 +66,7 @@ def emit_prop_signal(ticket: Ticket, *, push: bool = True, telegram: bool = True
     ``{"push": bool, "telegram": bool}`` — ``True`` means the leg was attempted
     without an exception (delivery itself is fire-and-forget downstream).
     """
-    fields = ticket_to_fields(ticket)
+    fields = ticket_to_fields(ticket, account_id=account_id, ticket_id=ticket_id)
     out = {"push": False, "telegram": False}
 
     if push:
