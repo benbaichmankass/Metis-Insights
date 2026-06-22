@@ -1,0 +1,134 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-06-22T12:33:30+00:00 · window 2026-06-22T07:51:39+00:00 → 2026-06-22T12:33:30+00:00</p>
+<p><span class="grade">Roll-up: 🟢 healthy</span></p>
+<p>Quiet ~4.6h window since the last (monthly) report. System HEALTHY: clean coordinated restart at 12:09:52Z deployed b2b85f37, both services active, heartbeat live, VM relaxed (cpu 10%/mem 11%/disk 24%). ZERO closed trades real/paper/demo over 24h. Real money: flat, 0 open positions, lifetime -$26.03. Paper (isolated research book): 0 closed, 8 open, net unrealized ~-75 on measured legs (+1 unmeasured MHG), lifetime -$31,972 unchanged. ML fleet nominal — 26 shadow heads accruing, one advisory head (btc-regime-1h-lgbm-yz-v1) live. Markets calm: BTC +1.2%, MES +0.5%, MGC +0.7%.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>No action required this window</b> <span class="pill">cross · T1</span><br><span class='muted'>All three domains healthy; no findings demanding operator action. Recorded the deploy restart (b2b85f37) for traceability.</span></li>
+<li><b>Paper research book remains deeply negative (standing item)</b> <span class="pill">performance · T3</span><br><span class='muted'>Lifetime paper −$31,972 (isolated from real). Not new this window (0 trades). Tracked in the monthly report&#x27;s strategy follow-ups; revisit on the next performance-review with trade flow.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">0 drained / 0 open</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">0 drained / 0 open</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">0 drained / 0 open</div></div>
+</div>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>Coordinated 12:09:52Z restart shows in health (uptime/git_sha) and explains the post-restart loaded_strategies=None snapshot value — strategies reload on the next ticks; last_tick is fresh so the pipeline recovered cleanly.</li>
+<li>Zero trade flow in the window means performance has no dossiers to grade and the advisory ML head had no order to influence — a genuinely idle market window, not a plumbing stall (heartbeat + ticks confirm liveness).</li>
+<li>Open paper book (no real exposure): biggest unrealized winner SOLUSDT long +$350, biggest loser AVAXUSDT short -$478. Two symbol pairs (XRPUSDT x2, ADAUSDT x2) each report IDENTICAL per-leg unrealized PnL across different entry/qty — likely a per-symbol broker-aggregate uPnL copied to each netted leg; paper-only, flagged as a minor data-quality note.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟢 healthy</span></h2>
+<div class="tablewrap"><table><tr><th>Service</th><th>State</th><th>Since</th></tr>
+<tr><td>ict-trader-live.service</td><td>active/running</td><td>2026-06-22 12:09:52 UTC</td></tr>
+<tr><td>ict-web-api.service</td><td>active/running</td><td>2026-06-22 12:09:53 UTC</td></tr>
+</table></div>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>liveness</td><td class="sev-ok">🟢 ok</td><td>Heartbeat &#x27;running&#x27;, mtime age ~28s at capture; last_tick 12:27:27Z fresh. In-process heartbeat + external watchdog both nominal.</td></tr>
+<tr><td>services</td><td class="sev-ok">🟢 ok</td><td>ict-trader-live.service and ict-web-api.service both active/running since 2026-06-22 12:09:52/53 UTC.</td></tr>
+<tr><td>deploy/restart</td><td class="sev-ok">🟢 ok</td><td>Both units restarted together at 12:09:52Z (uptime ~1054s at capture); git_sha advanced 0defa9b → b2b85f37 since the prior report — a clean deploy restart, not a crash (heartbeat healthy, ticking).</td></tr>
+<tr><td>accounts_live</td><td class="sev-ok">🟢 ok</td><td>Live map: alpaca_paper, breakout_1, bybit_1, bybit_2, ib_paper = true; ib_live/oanda_practice = false. Real-money bybit_2 is live (no dry-flip regression).</td></tr>
+<tr><td>vm_health</td><td class="sev-ok">🟢 ok</td><td>cpu 10%, memory 11.1%, disk 23.5% — comfortable headroom on the 2-OCPU/12GB Ampere box.</td></tr>
+<tr><td>signal_pipeline</td><td class="sev-ok">🟢 ok</td><td>36 strategies configured; pipeline ticking. No closed trades in 24h (quiet market window), consistent with low realized activity.</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$0.00</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$0.00</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>sol_pullback_2h (SOL, open)</td><td>1</td><td>—</td><td class="pos">+$349.62</td></tr>
+<tr><td>avax_pullback_2h (AVAX, open)</td><td>1</td><td>—</td><td class="neg">$-478.14</td></tr>
+<tr><td>xrp legs (XRP x2, open)</td><td>2</td><td>—</td><td class="neg">$-198.82</td></tr>
+<tr><td>ada legs (ADA x2, open)</td><td>2</td><td>—</td><td class="pos">+$165.86</td></tr>
+<tr><td>gld_pullback_1d (GLD, open)</td><td>1</td><td>—</td><td class="pos">+$86.72</td></tr>
+<tr><td>mhg_pullback_1d (MHG, open)</td><td>1</td><td>—</td><td class="">—</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">0</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">0</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">0 full dossiers, 0 summarized (full-per-trade (since-last/daily) — but 0 closed trades in the window, so no dossiers.).</p>
+<p class="section-empty">No trades in this window.</p>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>64096.5</td><td>64868.5</td><td>64992.4</td><td>63953.7</td><td class="pos">1.2%</td><td>Quiet, mildly bid: chopped 63.95–64.4k for 6h then broke up to ~64.9k in the last 2h.</td></tr>
+<tr><td>MES</td><td>7534.75</td><td>7572.25</td><td>7578.0</td><td>7533.75</td><td class="pos">0.5%</td><td>Low-vol grind higher (~+0.5%); S&amp;P futures steady, no impulse.</td></tr>
+<tr><td>MGC</td><td>4199.1</td><td>4228.3</td><td>4233.7</td><td>4196.9</td><td class="pos">0.7%</td><td>Gold steady climb (~+0.7%) to ~4228; orderly, low vol.</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟢 healthy</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>btc-regime-1h-lgbm-yz-v1</td><td>advisory</td><td>—</td><td>—</td><td>—</td><td>ONLY advisory-stage (order-influencing) head; scoring steadily.</td></tr>
+<tr><td>btc-regime-5m-baseline-v1</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Highest-volume shadow head; live.</td></tr>
+<tr><td>btc-regime-5m-lgbm-v2</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>mes-regime-5m-baseline-v1</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>eth-regime-1h-lgbm-xasset-v1</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Cross-asset head (xa_* peer features) — live, accruing.</td></tr>
+</table></div>
+<footer>report_id RPT-20260622-123330-since-last · reviewer claude · prior RPT-20260622-075139-monthly · ICT Trading Bot system-report</footer></div></body></html>
