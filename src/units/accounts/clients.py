@@ -313,6 +313,7 @@ def _bybit_closed_pnl_lookup(
     entry_price_tolerance: float = 0.001,
     opened_at_ms: Optional[int] = None,
     allow_wide_fallback: bool = False,
+    allow_partial_aggregate: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """Find the Bybit V5 closed-pnl record matching a trade we know
     closed via broker-side SL/TP or external flatten.
@@ -416,24 +417,20 @@ def _bybit_closed_pnl_lookup(
 
     side_str = str(side or "").lower()
     candidates: list = []
+    # ``pool`` = records passing EVERYTHING EXCEPT the single-record qty match
+    # (side + close-after-open + entry-price). It's the candidate set for the
+    # partial-close aggregation fallback (BL-20260620 / live orphan-with-no-pnl):
+    # a position that scaled in / closed in several partial fills has no single
+    # closed-pnl record matching the full qty, so the strict matcher strands its
+    # PnL as NULL → the watchdog orphans it. ``rej_*`` count why records dropped
+    # so the no-match path can log a diagnosable reason.
+    pool: list = []
+    rej_side = rej_qty = rej_entry = rej_time = 0
     for rec in records:
         rec_side = str(rec.get("side") or "").lower()
         if side_str and rec_side and rec_side != side_str:
+            rej_side += 1
             continue
-        if qty_target is not None and qty_target > 0:
-            rec_qty = _f(rec.get("qty"))
-            if rec_qty <= 0:
-                continue
-            rel_diff = abs(rec_qty - qty_target) / qty_target
-            if rel_diff > qty_tolerance:
-                continue
-        if entry_price_target is not None and entry_price_target > 0:
-            rec_entry = _f(rec.get("avgEntryPrice"))
-            if rec_entry <= 0:
-                continue
-            rel_diff = abs(rec_entry - entry_price_target) / entry_price_target
-            if rel_diff > entry_price_tolerance:
-                continue
         if opened_at_ms is not None:
             # Close cannot precede open. 2 s slack absorbs clock
             # drift between the VM's wall clock (used for
@@ -448,6 +445,22 @@ def _bybit_closed_pnl_lookup(
             except (TypeError, ValueError):
                 rec_created = 0
             if rec_created and rec_created + 2_000 < int(opened_at_ms):
+                rej_time += 1
+                continue
+        if entry_price_target is not None and entry_price_target > 0:
+            rec_entry = _f(rec.get("avgEntryPrice"))
+            if rec_entry <= 0 or (
+                abs(rec_entry - entry_price_target) / entry_price_target
+                > entry_price_tolerance
+            ):
+                rej_entry += 1
+                continue
+        # Passed side + time + entry — eligible for the aggregation pool.
+        pool.append(rec)
+        if qty_target is not None and qty_target > 0:
+            rec_qty = _f(rec.get("qty"))
+            if rec_qty <= 0 or abs(rec_qty - qty_target) / qty_target > qty_tolerance:
+                rej_qty += 1
                 continue
         candidates.append(rec)
 
@@ -457,7 +470,65 @@ def _bybit_closed_pnl_lookup(
         except (TypeError, ValueError):
             return 0
 
+    def _created_ts(rec: Dict[str, Any]) -> int:
+        try:
+            return int(rec.get("createdTime") or rec.get("updatedTime") or 0)
+        except (TypeError, ValueError):
+            return 0
+
     if not candidates:
+        # Diagnostic (observe-only): WHY did the strict single-match find
+        # nothing? Surfaces the failing filter so a recurrence is diagnosable
+        # without re-pulling the raw API (BL-20260620 live orphan-no-pnl).
+        if records:
+            logger.info(
+                "closed_pnl no strict single-match: symbol=%s side=%s records=%d "
+                "pool(side+time+entry)=%d rej_side=%d rej_time=%d rej_entry=%d "
+                "rej_qty=%d qty_target=%s entry_target=%s",
+                symbol, side, len(records), len(pool), rej_side, rej_time,
+                rej_entry, rej_qty, qty_target, entry_price_target,
+            )
+        # Partial-close aggregation (BL-20260620, live): a position that scaled
+        # in / closed in several partial fills has no single closed-pnl record
+        # matching the full qty (rej_qty), but the pool (side+time+entry) sums to
+        # it. Reconstruct ONE synthetic close — qty-weighted avgExit/avgEntry +
+        # summed closedPnl — instead of orphaning the trade with NULL pnl. The
+        # strict single-match was tried first (unchanged), so this cannot regress
+        # the #1411/#1419 disambiguation. Guarded: requires a qty target and the
+        # accumulated earliest-after-open legs to land within 10% of it, so closes
+        # from other positions can't be swept in.
+        if allow_partial_aggregate and qty_target and qty_target > 0 and pool:
+            legs = sorted((r for r in pool if _f(r.get("qty")) > 0), key=_created_ts)
+            acc_qty = 0.0
+            chosen: list = []
+            for r in legs:
+                chosen.append(r)
+                acc_qty += _f(r.get("qty"))
+                if acc_qty >= qty_target * 0.999:
+                    break
+            if chosen and acc_qty > 0 and abs(acc_qty - qty_target) / qty_target <= 0.10:
+                sum_pnl = sum(_f(r.get("closedPnl")) for r in chosen)
+                w_exit = sum(_f(r.get("avgExitPrice")) * _f(r.get("qty"))
+                             for r in chosen) / acc_qty
+                entries = [_f(r.get("avgEntryPrice")) for r in chosen]
+                w_entry = (sum(e * _f(r.get("qty")) for e, r in zip(entries, chosen))
+                           / acc_qty if all(e > 0 for e in entries) else 0.0)
+                last = max(chosen, key=_ts)
+                logger.info(
+                    "closed_pnl aggregated %d partial closes for %s %s: qty~%.8f "
+                    "(target %.8f) exit~%.4f pnl=%.6f",
+                    len(chosen), symbol, side, acc_qty, qty_target, w_exit, sum_pnl,
+                )
+                return {
+                    "avgExitPrice": w_exit,
+                    "avgEntryPrice": w_entry,
+                    "closedPnl": sum_pnl,
+                    "qty": acc_qty,
+                    "side": chosen[-1].get("side") or side,
+                    "updatedTime": last.get("updatedTime") or last.get("createdTime"),
+                    "createdTime": chosen[0].get("createdTime"),
+                    "_aggregated_legs": len(chosen),
+                }
         # BL-20260601-001 — demo-fallback wide lookup. On a Bybit DEMO
         # account the strict (side + qty±5% + avgEntryPrice±10bps +
         # createdTime≥opened_at) chain returns no match far more often
@@ -496,12 +567,6 @@ def _bybit_closed_pnl_lookup(
         #     is the trade's actual close
         #   * backfill on older trades — earliest match is the close
         #     bound to the trade's open, not a later trade's close
-        def _created_ts(rec: Dict[str, Any]) -> int:
-            try:
-                return int(rec.get("createdTime")
-                           or rec.get("updatedTime") or 0)
-            except (TypeError, ValueError):
-                return 0
         candidates.sort(key=_created_ts)
         return candidates[0]
 
@@ -814,6 +879,12 @@ def account_closed_pnl_for_trade(
             entry_price_target=lookup_entry_price,
             opened_at_ms=int(opened_at_ms),
             allow_wide_fallback=is_demo,
+            # LIVE non-reduce lookups: reconstruct a partial/scaled close from
+            # its legs when no single record matches the full qty, instead of
+            # stranding the PnL NULL → orphaning the trade (BL-20260620). Demo
+            # uses the wider side-only fallback above; reduce legs match on
+            # qty+window only and must not aggregate across sides.
+            allow_partial_aggregate=(not is_demo) and (not reduce_leg),
         )
     except Exception as exc:  # noqa: BLE001
         aid = account.get("account_id") or "unknown"

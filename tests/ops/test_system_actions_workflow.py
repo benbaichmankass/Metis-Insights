@@ -89,6 +89,10 @@ EXPECTED_ACTIONS = {
     # close timestamp, P1-B) on historical rows; runs --also-account-class so the
     # same audited pass also closes any remaining account_class gap (P1-E).
     "backfill-closed-at": "backfill_closed_at_action.sh",
+    # 2026-06-22 — normalise existing epoch-ms trades.closed_at rows to ISO
+    # (BL-20260620-RECONCILER-CLOSEDAT-MS); distinct from backfill-closed-at
+    # (which fills NULLs). Wraps migrate_closed_at_to_iso.py.
+    "migrate-closed-at-iso": "migrate_closed_at_to_iso_action.sh",
     # 2026-05-28 — paced IBKR MES historical pull on the live VM (MB-20260528-002).
     "pull-mes-ibkr-history": "pull_mes_ibkr_history.sh",
     # 2026-06-01 — same wrapper baked to a DAILY multi-year pull (native MES 1d
@@ -154,6 +158,7 @@ TIER_2_ACTIONS = {
     "backfill-shadow-predictions",
     "backfill-account-class",
     "backfill-closed-at",
+    "migrate-closed-at-iso",
     "pull-mes-ibkr-history",
     "pull-mes-ibkr-history-daily",
     "set-account-mode",
