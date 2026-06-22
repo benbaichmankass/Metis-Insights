@@ -156,6 +156,26 @@ jobs:
           sudo systemctl start "$WATCHDOG_SVC" 2>&1 || echo "WARN: manual start of $WATCHDOG_SVC failed"
           sleep 3
           journalctl -u "$WATCHDOG_SVC" --since "-90 seconds" --no-pager 2>/dev/null | tail -25 || echo "(no journal access)"
+
+          echo
+          echo "===== verification: this box should run ONLY gateway units ====="
+          echo "--- active/activating/failed ict-* services (expect ONLY ib-gateway-* + maybe git-sync; NO trader/web-api) ---"
+          systemctl list-units 'ict-*' --type=service --state=active,activating,failed --all --no-legend 2>/dev/null | awk '{print $1, $3, $4}' || true
+          echo "--- ROGUE check: any trader/web-api/insights/etc. unit present here? ---"
+          if systemctl list-units 'ict-*' --type=service --state=active,activating,failed --all --no-legend 2>/dev/null \
+               | grep -E 'ict-(trader-live|web-api|telegram-bot|insights|hourly-snapshot|db-integrity|liveness-watchdog)'; then
+            echo "!!! ROGUE non-gateway unit(s) found above — should be stopped/disabled on the gateway VM."
+          else
+            echo "OK: no non-gateway ict-* services active/failed on this box."
+          fi
+          echo "--- gateway timers (enabled/active?) ---"
+          for t in ict-ib-gateway-watchdog.timer ict-ib-gateway-reset.timer ict-git-sync.timer; do
+            echo "  $t: enabled=$(systemctl is-enabled "$t" 2>/dev/null || echo '?') active=$(systemctl is-active "$t" 2>/dev/null || echo '?')"
+          done
+          echo "--- container ---"
+          sudo docker ps -a --filter "name=^/ib-gateway$" --format '{{.Names}} | {{.Status}}' 2>/dev/null || echo "(docker ps failed)"
+          echo "--- watchdog streak state ---"
+          cat "$REPO/runtime_logs/ib_gateway_watchdog_state.json" 2>/dev/null || echo "(no state file yet)"
           echo
           echo ">>> deploy complete."
           REMOTE
