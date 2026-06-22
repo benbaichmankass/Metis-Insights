@@ -25,13 +25,17 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Query
 
 from src.utils.paths import trade_journal_db_path
+from src.web.api._closed_at import (
+    close_time_sql,
+    closed_at_norm_sql,
+    normalize_closed_at_value,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,67 +48,19 @@ DEFAULT_LIMIT = 50
 MAX_LIMIT = 200
 
 
-def _closed_at_norm_sql(col: str) -> str:
-    """Return a SQLite expression that normalises a ``closed_at``-style
-    column *col* to a ``datetime()``-parseable value.
-
-    The reconciler-filled close path (``order_monitor._close_trade_from_
-    order_status`` + ``_bybit_closed_pnl_recovery``) writes Bybit's
-    ``updatedTime`` — a **raw epoch-milliseconds string** like
-    ``"1781839121796"`` — straight into the ``closed_at`` column, which
-    every other writer fills with an ISO-8601 string (see
-    ``clients.account_closed_pnl_for_trade``: *"closed_at is the Bybit
-    updatedTime string (epoch ms)"*). ``datetime("1781839121796")``
-    returns NULL in SQLite, so an unguarded ``datetime(closed_at)`` in the
-    ORDER BY / since filter silently buried every reconciler-filled real
-    close below the LIMIT — the dashboard's "missing recent closes" bug
-    (real-money ``bybit_2`` Jun-8..19 reconciler closes vanished).
-
-    This guard detects an all-digit, >=12-char value as epoch-ms and
-    converts it (``CAST(... AS INTEGER)/1000`` then ``'unixepoch'``);
-    anything else (ISO-8601, SQLite ``CURRENT_TIMESTAMP``) flows through
-    the plain ``datetime()`` parse unchanged. Idempotent and side-effect
-    free — a pure read-path normalisation; it does NOT rewrite the column
-    (the writer-side correctness fix is tracked separately).
-    """
-    return (
-        f"CASE WHEN {col} IS NOT NULL AND {col} <> '' "
-        f"AND {col} GLOB '[0-9]*' AND NOT {col} GLOB '*[^0-9]*' "
-        f"AND length({col}) >= 12 "
-        f"THEN datetime(CAST({col} AS INTEGER)/1000, 'unixepoch') "
-        f"ELSE datetime({col}) END"
-    )
+# closed_at normalisation is the single source of truth in
+# src/web/api/_closed_at.py (shared with /api/bot/performance + /api/bot/stats
+# pnl24h, which previously lacked this guard — the "/performance shows 0 closed
+# trades while lifetime is non-zero" bug). The thin aliases below preserve the
+# private names this module already uses throughout.
+_closed_at_norm_sql = closed_at_norm_sql
+_normalize_closed_at_value = normalize_closed_at_value
 
 
 # The ordering / since key: normalise closed_at first (epoch-ms aware),
 # then fall back to the order_packages.updated_at join, then the open
 # timestamp — mirroring the wire ``closedAt`` derivation in _row_to_wire.
-_CLOSED_AT_SORT_SQL = (
-    f"COALESCE({_closed_at_norm_sql('t.closed_at')}, "
-    f"datetime(op.updated_at), datetime(t.timestamp))"
-)
-
-
-def _normalize_closed_at_value(value: Any) -> Optional[str]:
-    """Render a ``closed_at``-style value as an ISO-8601 UTC string,
-    converting a raw epoch-milliseconds string (the reconciler-filled
-    writer's format — see :func:`_closed_at_norm_sql`) to ISO so the
-    wire ``closedAt`` shows the trade's true close time rather than an
-    opaque ``"1781839121796"``. ISO inputs pass through unchanged;
-    unparseable / empty inputs return ``None``."""
-    if value is None:
-        return None
-    s = str(value).strip()
-    if not s:
-        return None
-    if s.isdigit() and len(s) >= 12:
-        try:
-            return datetime.fromtimestamp(
-                int(s) / 1000, tz=timezone.utc
-            ).isoformat()
-        except (ValueError, OverflowError, OSError):
-            return None
-    return s
+_CLOSED_AT_SORT_SQL = close_time_sql("t.closed_at", "op.updated_at", "t.timestamp")
 
 # "Not paper" SQL predicate — excludes paper-money rows robustly even
 # before the account_class backfill runs. account_class is authoritative

@@ -57,8 +57,16 @@ from fastapi import APIRouter, Query
 
 from src.utils.paths import trade_journal_db_path
 from src.web.api._asset_class import CLASS_ORDER, asset_class_for_symbol
+from src.web.api._closed_at import close_time_sql
 
 logger = logging.getLogger(__name__)
+
+# Canonical close-time basis, epoch-ms-aware. The reconciler-filled close path
+# writes ``trades.closed_at`` as a raw epoch-milliseconds string; an unguarded
+# ``datetime(closed_at)`` returns NULL in SQLite and silently drops those rows
+# from the window (the "/performance shows 0 closed trades" bug). This mirrors
+# the basis ``/api/bot/trades/closed`` already uses — see src/web/api/_closed_at.py.
+_CLOSE_TIME_SQL = close_time_sql("t.closed_at", "op.updated_at", "t.timestamp")
 
 router = APIRouter(prefix="/api/bot", tags=["bot"])
 
@@ -152,11 +160,11 @@ def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqli
         # exactly once — the canonical "one row per closed trade" basis the rest
         # of the API uses, and the reason /performance could disagree with
         # /stats on real-money totals (single source of truth).
-        sql = """
+        sql = f"""
             SELECT t.strategy_name,
                    t.symbol AS symbol,
                    t.pnl AS pnl,
-                   COALESCE(t.closed_at, op.updated_at, t.timestamp) AS closed_at
+                   {_CLOSE_TIME_SQL} AS closed_at
             FROM trades t
             LEFT JOIN (
                 SELECT linked_trade_id, MIN(updated_at) AS updated_at
@@ -171,9 +179,9 @@ def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqli
         sql += _PAPER_PREDICATE if demo else _NOT_PAPER_PREDICATE
         params: List[Any] = []
         if since:
-            sql += " AND datetime(COALESCE(t.closed_at, op.updated_at, t.timestamp)) >= datetime(?)"
+            sql += f" AND {_CLOSE_TIME_SQL} >= datetime(?)"
             params.append(since)
-        sql += " ORDER BY datetime(COALESCE(t.closed_at, op.updated_at, t.timestamp)) ASC"
+        sql += f" ORDER BY {_CLOSE_TIME_SQL} ASC"
         return conn.execute(sql, params).fetchall()
     finally:
         conn.close()
