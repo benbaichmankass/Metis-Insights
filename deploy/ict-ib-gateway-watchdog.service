@@ -39,10 +39,19 @@ Wants=network-online.target
 Type=oneshot
 User=ubuntu
 WorkingDirectory=/home/ubuntu/ict-trading-bot
-EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
-# The .env carries no DATA_DIR (stripped by the fix-data-dir step), so set it
-# explicitly here — the watchdog writes its dedup/streak state to
-# $DATA_DIR/runtime_logs/ib_gateway_watchdog_state.json (canonical OCI data dir).
+# `-` prefix: TOLERATE the file being absent (BL-20260622-GATEWAY-NO-ENV).
+# This unit runs on the dedicated GATEWAY VM, which is provisioned with only
+# the IB credential env + the Docker container — it has NO repo-root `.env`.
+# Without the `-`, systemd hard-fails the start ("Failed to load environment
+# files: No such file or directory" → result 'resources'), so the re-armed
+# watchdog could never run at all (verified 2026-06-22). The .env only carries
+# the Telegram creds for send_alert(), which already degrades gracefully when
+# unset; the probe + the docker-restart self-heal need no env. Same `-` pattern
+# as ict-git-sync.service.
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
+# The .env (when present) carries no DATA_DIR (stripped by the fix-data-dir
+# step), so set it explicitly here — the watchdog writes its dedup/streak state
+# to $DATA_DIR/runtime_logs/ib_gateway_watchdog_state.json (canonical OCI data dir).
 Environment=DATA_DIR=/data/bot-data
 # Resource priority (2026-06-10): so the probe + any `docker restart` it
 # dispatches run promptly even under load. The IB-gateway container itself is
