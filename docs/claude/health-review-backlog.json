@@ -2132,7 +2132,35 @@
       "resolved_at": null,
       "resolution": null,
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260622-PROP-REPORT-PROSE",
+      "opened_at": "2026-06-22T16:07:43.132383+00:00",
+      "opened_by": "claude (S-PROP-MONITOR-PULSE doc-freshness)",
+      "source": "prop-report.yml validates the ENTIRE issue body as one JSON object (jq -e 'type==\"object\"'), only stripping ``` fences. An issue body that wraps the JSON in surrounding prose fails validation (observed this session: first report-back attempt rejected, clean JSON-only retry succeeded).",
+      "severity": "low",
+      "title": "prop-report relay: tolerate prose around the JSON (extract the first {...} object)",
+      "description": "Non-blocking; clean JSON-only bodies work. Improve prop-report.yml to extract the first balanced JSON object from a mixed body (or read a fenced ```json block specifically) so a body with explanatory prose doesn't fail. Until then, keep prop-report issue bodies JSON-only.",
+      "tier": "1",
+      "status": "open",
+      "resolved_at": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260622-PROP-MONITOR-ANDROID",
+      "opened_at": "2026-06-22T16:07:43.132383+00:00",
+      "opened_by": "claude (S-PROP-MONITOR-PULSE doc-freshness)",
+      "source": "New event kind prop_monitor added bot-side (event_kinds.py, #4166). The Android EventKind.kt mirror was not updated; the kind delivers on a default channel via ignoreUnknownKeys. Sibling of BL-20260621-PROP-EVENTKINDS-ANDROID (prop_fill/prop_closed).",
+      "severity": "low",
+      "title": "Optional: mirror prop_monitor into Android EventKind.kt for a custom channel",
+      "description": "Non-blocking. The pulse already delivers (Telegram + FCM default channel). Add an explicit EventKind.kt entry only if a dedicated channel/label/toggle is wanted for the monitoring pulse.",
+      "tier": "1",
+      "status": "open",
+      "resolved_at": null,
+      "resolution": null,
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-22T12:55:00+00:00"
+  "updated_at": "2026-06-22T16:07:43.132383+00:00"
 }
