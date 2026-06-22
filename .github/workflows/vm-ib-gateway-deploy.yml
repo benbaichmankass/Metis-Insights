@@ -120,6 +120,15 @@ jobs:
           echo "post_head=$(git -C "$REPO" rev-parse HEAD)"
 
           echo
+          echo "===== ensure host role marker (/etc/ict-vm-role=gateway) ====="
+          # Provisioning historically never wrote this (BL-20260622-GATEWAY-VM-ROLE).
+          # Without it, install_systemd_units.sh SKIPS enabling the gateway-only
+          # timers (they survived only because hand-enabled once → not reboot-safe),
+          # and deploy_pull_restart.sh would run the full trader deploy here. Set
+          # it BEFORE install_systemd_units so the gateway timers get enabled.
+          echo gateway | sudo tee /etc/ict-vm-role >/dev/null && echo "vm-role now: $(cat /etc/ict-vm-role 2>/dev/null)"
+
+          echo
           echo "===== refresh systemd units (install_systemd_units.sh) ====="
           ( cd "$REPO" && bash scripts/install_systemd_units.sh ) || echo "WARN: install_systemd_units.sh exited nonzero (see above)"
 
