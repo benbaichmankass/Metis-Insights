@@ -1,0 +1,676 @@
+{
+  "report_id": "RPT-20260622-075139-monthly",
+  "reviewed_at": "2026-06-22T07:51:39+00:00",
+  "reviewer": "claude",
+  "window": "monthly",
+  "window_start": "2026-05-23T07:45:57+00:00",
+  "window_end": "2026-06-22T07:51:39+00:00",
+  "prior_report_id": null,
+  "overall_assessment": "caution",
+  "health": {
+    "overall_assessment": "healthy",
+    "findings": {
+      "heartbeat": {
+        "status": "ok",
+        "note": "running; age ~79s at capture"
+      },
+      "ticks": {
+        "status": "ok",
+        "note": "last tick 2026-06-22T07:38Z; pipeline active"
+      },
+      "deploy": {
+        "status": "ok",
+        "note": "git_sha 0defa9b deployed; ict-web-api restarted"
+      },
+      "live_accounts": {
+        "status": "ok",
+        "note": "bybit_1, bybit_2, ib_paper, alpaca_paper, breakout_1 live; ib_live/oanda off"
+      },
+      "db_integrity": {
+        "status": "ok",
+        "note": "journal fresh; closed-trade rows current"
+      },
+      "snapshot_depth": {
+        "status": "watch",
+        "note": "diag snapshot truncated at relay 55KB cap; deep checks deferred to /health-review"
+      }
+    }
+  },
+  "performance": {
+    "overall_assessment": "caution"
+  },
+  "ml": {
+    "overall_assessment": "healthy",
+    "model_status": [],
+    "promotion_recommendations": []
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "30d: real-money +$23.73 across 30 trades (46.7% win, profit factor 3.12, max DD -$3.70). Paper book -$28,642 across 86 trades \u2014 dominated by mgc_trend_1h (commodity, -$19,991), ict_scalp_5m (-$7,950) and htf_pullback_trend_2h (-$9,262). System healthy (heartbeat live, deployed 0defa9b). Prop: no fills reported this window.",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Paper book bleeding -$28.6k/30d",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "mgc_trend_1h -$19,991 (commodity, 15.8% win), ict_scalp_5m -$7,950, htf_pullback_trend_2h -$9,262. mgc_trend_1h already a demote candidate \u2014 confirm via /performance-review.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "Real-money vwap the lone drag",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "vwap -$1.73 over 7 real trades (14.3% win) vs the book's +$23.73. Everything else real is green.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 3,
+        "title": "First system-report \u2014 wire the deeper sections",
+        "source_review": "cross",
+        "tier": 1,
+        "detail": "This initial report is assembled from live aggregates; Claude per-trade grades, ML fleet + market context populate once the three reviews run under /system-report.",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "Real vs paper divergence is stark: identical strategies (ict_scalp_5m, htf_pullback_trend_2h) are green on the tiny real book but deeply red on the larger paper book \u2014 position sizing / venue fills, not signal logic. Worth a /performance-review pass.",
+      "All real-money P&L is crypto (Bybit); the paper commodity loss is MES/MGC-style futures (mgc_trend_1h)."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": 23.7278,
+        "prior_window_pnl": null,
+        "trend": null,
+        "trades": 30,
+        "wins": 14,
+        "win_rate": 46.7,
+        "expectancy": 0.7909,
+        "profit_factor": 3.1175,
+        "max_drawdown": -3.704,
+        "per_strategy": [
+          {
+            "name": "htf_pullback_trend_2h",
+            "trades": 3,
+            "win_rate": 66.7,
+            "pnl": 15.472
+          },
+          {
+            "name": "trend_donchian",
+            "trades": 4,
+            "win_rate": 50.0,
+            "pnl": 6.1885
+          },
+          {
+            "name": "ict_scalp_5m",
+            "trades": 6,
+            "win_rate": 83.3,
+            "pnl": 4.3309
+          },
+          {
+            "name": "fade_breakout_4h",
+            "trades": 9,
+            "win_rate": 44.4,
+            "pnl": 0.5819
+          },
+          {
+            "name": "squeeze_breakout_4h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -1.1201
+          },
+          {
+            "name": "vwap",
+            "trades": 7,
+            "win_rate": 14.3,
+            "pnl": -1.7256
+          }
+        ],
+        "per_asset_class": {
+          "crypto": 23.7278
+        },
+        "equity_curve": []
+      },
+      "paper": {
+        "window_pnl": -28642.0727,
+        "prior_window_pnl": null,
+        "trend": null,
+        "trades": 86,
+        "wins": 26,
+        "win_rate": 30.2,
+        "expectancy": -333.0474,
+        "profit_factor": 0.3682,
+        "max_drawdown": -34111.2259,
+        "per_strategy": [
+          {
+            "name": "trend_donchian",
+            "trades": 9,
+            "win_rate": 66.7,
+            "pnl": 6447.9401
+          },
+          {
+            "name": "eth_pullback_2h",
+            "trades": 10,
+            "win_rate": 60.0,
+            "pnl": 2227.9661
+          },
+          {
+            "name": "fvg_range_15m",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -7.2495
+          },
+          {
+            "name": "squeeze_breakout_4h",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -18.7043
+          },
+          {
+            "name": "fade_breakout_4h",
+            "trades": 7,
+            "win_rate": 42.9,
+            "pnl": -87.8164
+          },
+          {
+            "name": "ict_scalp_5m",
+            "trades": 7,
+            "win_rate": 28.6,
+            "pnl": -7950.3489
+          },
+          {
+            "name": "htf_pullback_trend_2h",
+            "trades": 31,
+            "win_rate": 19.4,
+            "pnl": -9262.1798
+          },
+          {
+            "name": "mgc_trend_1h",
+            "trades": 19,
+            "win_rate": 15.8,
+            "pnl": -19991.68
+          }
+        ],
+        "per_asset_class": {
+          "crypto": -8650.3927,
+          "commodity": -19991.68
+        },
+        "equity_curve": []
+      },
+      "prop": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": null,
+        "fills_reported": 0,
+        "tickets_emitted": null,
+        "unacted_tickets": null,
+        "rule_distance": {
+          "daily_loss_remaining": null,
+          "static_dd_remaining": null
+        },
+        "per_account": []
+      }
+    },
+    "market_context": [],
+    "trade_dossiers": [
+      {
+        "trade_id": "2766",
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "short",
+        "strategy": "sol_pullback_2h",
+        "opened_at": "2026-06-22T04:09:15.671670+00:00",
+        "closed_at": "2026-06-22T04:09:15.593000+00:00",
+        "hold_seconds": null,
+        "entry_price": 73.52,
+        "exit_price": 73.52,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 39,
+        "pnl": 11.8452,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": "2761",
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "trend_donchian",
+        "opened_at": "2026-06-22T01:31:18.218472+00:00",
+        "closed_at": "2026-06-22T04:00:39.881000+00:00",
+        "hold_seconds": null,
+        "entry_price": 64626.4,
+        "exit_price": 63872.9,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 0.882,
+        "pnl": -3254.1362,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": "2764",
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-06-22T03:20:21.242531+00:00",
+        "closed_at": "2026-06-22T03:20:21.164000+00:00",
+        "hold_seconds": null,
+        "entry_price": 64296.1,
+        "exit_price": null,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 5.119,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": "2765",
+        "order_package_id": null,
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-06-22T03:20:21.977985+00:00",
+        "closed_at": "2026-06-22T03:20:21.904000+00:00",
+        "hold_seconds": null,
+        "entry_price": 64296.1,
+        "exit_price": null,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 0.001,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": "2759",
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ADAUSDT",
+        "direction": "long",
+        "strategy": "trend_donchian_ada_4h",
+        "opened_at": "2026-06-21T23:37:54.728199+00:00",
+        "closed_at": "2026-06-21T23:37:54.641000+00:00",
+        "hold_seconds": null,
+        "entry_price": 0.1573,
+        "exit_price": 0.1573,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 2545,
+        "pnl": 12.4026,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": "2745",
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "trend_donchian",
+        "opened_at": "2026-06-20T15:20:58.825185+00:00",
+        "closed_at": "2026-06-21T21:09:54.392000+00:00",
+        "hold_seconds": null,
+        "entry_price": 64258.4,
+        "exit_price": 63568.1,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 1.03,
+        "pnl": -784.6521,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": "2740",
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "short",
+        "strategy": "sol_pullback_2h",
+        "opened_at": "2026-06-20T09:19:11.249034+00:00",
+        "closed_at": "2026-06-20T22:24:06.637000+00:00",
+        "hold_seconds": null,
+        "entry_price": 71.21,
+        "exit_price": 73.43,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 377.1,
+        "pnl": -864.4465,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": "2748",
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "AVAXUSDT",
+        "direction": "long",
+        "strategy": "avax_pullback_2h",
+        "opened_at": "2026-06-20T18:09:38.871940+00:00",
+        "closed_at": "2026-06-20T18:09:38.784000+00:00",
+        "hold_seconds": null,
+        "entry_price": 6.102,
+        "exit_price": 6.102,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 39.3,
+        "pnl": 1.1744,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": "2747",
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "AVAXUSDT",
+        "direction": "long",
+        "strategy": "avax_pullback_2h",
+        "opened_at": "2026-06-20T16:00:38.026790+00:00",
+        "closed_at": "2026-06-20T16:00:37.951000+00:00",
+        "hold_seconds": null,
+        "entry_price": 6.136,
+        "exit_price": 6.136,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 11.5,
+        "pnl": -0.0476,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": "2744",
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "AVAXUSDT",
+        "direction": "long",
+        "strategy": "avax_pullback_2h",
+        "opened_at": "2026-06-20T14:01:12.186848+00:00",
+        "closed_at": "2026-06-20T14:01:12.109000+00:00",
+        "hold_seconds": null,
+        "entry_price": 6.111,
+        "exit_price": 6.111,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 54,
+        "pnl": 1.0942,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": "2741",
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "AVAXUSDT",
+        "direction": "long",
+        "strategy": "avax_pullback_2h",
+        "opened_at": "2026-06-20T10:01:55.539110+00:00",
+        "closed_at": "2026-06-20T10:01:55.460000+00:00",
+        "hold_seconds": null,
+        "entry_price": 6.178,
+        "exit_price": 6.178,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 4.7,
+        "pnl": -0.2198,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": "2730",
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "AVAXUSDT",
+        "direction": "short",
+        "strategy": "avax_pullback_2h",
+        "opened_at": "2026-06-20T02:10:12.596078+00:00",
+        "closed_at": "2026-06-20T07:26:11.258000+00:00",
+        "hold_seconds": null,
+        "entry_price": 5.938,
+        "exit_price": 6.252,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 2583.1,
+        "pnl": -824.7237,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      }
+    ],
+    "dossier_coverage": {
+      "window": "monthly",
+      "full_dossiers": 12,
+      "summarized_trades": 104,
+      "rule": "recent closed trades shown; full A-F grading via /performance-review"
+    },
+    "backlog_summary": {
+      "health": {
+        "drained": 0,
+        "open": null
+      },
+      "performance": {
+        "drained": 0,
+        "open": null
+      },
+      "ml": {
+        "drained": 0,
+        "open": null
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "performance",
+        "summary": "Demote/disable mgc_trend_1h (paper -$19,991/30d, 15.8% win)",
+        "tier": 3
+      }
+    ]
+  },
+  "artifacts": {
+    "json_path": "comms/reports/monthly/20260622T075139Z/report.json",
+    "html_path": "comms/reports/monthly/20260622T075139Z/report.html",
+    "md_path": "comms/reports/monthly/20260622T075139Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/monthly/20260622T075139Z/report.html"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "pending",
+    "priority": "normal",
+    "message": "[system-report:monthly] caution \u2014 real +$23.73 (PF 3.12), paper -$28,642 (mgc_trend_1h -$19,991). System healthy."
+  }
+}
