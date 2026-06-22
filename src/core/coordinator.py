@@ -1280,11 +1280,17 @@ class Coordinator:
                             "fetch failed for %s: %s — sizer falls back to buffer",
                             account.name, _lin_exc,
                         )
+                from src.units.accounts.risk import requires_whole_unit_qty
                 sized_qty = account.risk_manager.position_size(
                     pkg, balance,
                     market_type=_market_type,
                     available_usd=available_usd,
                     total_account_usd=total_account_usd,
+                    # Per-exchange whole-unit constraint (alpaca bracket orders
+                    # reject fractional shares). The RiskManager is built from
+                    # the risk sub-block and never sees the exchange, so resolve
+                    # it from the account here (BL-20260622-ALPACA-FRACTIONAL-SIZE).
+                    whole_units=requires_whole_unit_qty(account.exchange),
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.exception(
