@@ -12,9 +12,15 @@
       "tier": 3,
       "trigger_condition": "Either a completed backtest of the ADX-regime-filter / min_confidence variants for the daily ETF sleeve, OR enough accrued closed-trade history across the sleeve (e.g. >= 20-30 closed) to compare low-ADX vs trend-confirmed breakout outcomes.",
       "resolution_criteria": "Either a Tier-3 PR proposing a regime/confidence gate for the named sleeve members citing backtest + live evidence, OR a documented decision (in this item) to keep the unfiltered Donchian breakout with the rationale and the evidence that supports it.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-06-22T15:15:00+00:00",
+          "by": "claude (backtesting skill)",
+          "note": "RESOLVED — keep the sleeve UNFILTERED (no regime/ADX gate, no min_confidence floor). Evidence: scripts/backtest_trend.py (live-parity trend_donchian; donchian=30, atr_period=14, atr_stop_mult=2.5, trail_mult=4.0, long_only), net-of-fee @ 2bps roundtrip (Alpaca commission-free + tight ETF spread), yfinance daily 2015-01-02..2026-06-18 (~11.5y). Scope = the 3 TREND members (iwm/spy/qqq_trend_long_1d); the 3 pullback members (gld/tlt/ief_pullback_1d) use a different entry with no matching harness and remain unevaluated (see below). Sleeve totals: baseline 93 trades net +63.26R (exp 0.680/trade); adx>=20 77t +48.03R; adx>=25 59t +24.52R; adx>=30 32t +15.79R — an ADX floor MONOTONICALLY REDUCES net profit. Per-symbol baseline expectancy: SPY 1.035, QQQ 1.047 (both clearly HURT by any ADX gate), IWM 0.108 (the weak one; adx>=20 helps IWM specifically 3.90->7.30R but on a small 36->22 trade sample, and adx>=25/30 then hurt it). min_confidence sweep (0..0.16): no consistent gain — per-symbol 'optima' (IWM 0.02, SPY 0.06, QQQ 0.16) are noise-level vs the 0.0 baseline. Conclusion: the current config (min_confidence:0.0, no regime gate) is vindicated; the incident trade (IWM, ADX 11.4) looked bad in isolation but low-ADX breakouts are NOT systematically unprofitable, and filtering them removes the trend-initiation entries that carry the edge. NO config change proposed. Caveats: modest sample (27-36 trades/symbol over 11.5y); yfinance daily approximates but is not identical to the live IBKR feed; the pullback trio is uncovered. Optional future revisit ONLY if warranted by live data: an IWM-only adx>=20 gate is marginally better in-sample but low-N / overfit-risk — not worth a per-symbol special-case now."
+        }
+      ]
     },
     {
       "id": "PB-20260617-002",
