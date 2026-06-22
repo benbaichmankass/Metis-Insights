@@ -2156,11 +2156,11 @@
       "title": "VERIFY the liveness-watchdog 208/STDIN intermittent exec failure is gone after the StandardInput=null pin reinstall",
       "description": "The dead-man switch must spawn reliably on every tick; an ~8% per-run exec failure erodes the 3-strike (~8 min) autoheal margin and a sticky `failed` state masks a genuinely-dead watchdog. Remediation: PR pins `StandardInput=null` explicitly in deploy/ict-liveness-watchdog.service (BL-20260622-WATCHDOG-STDIN), which on the next runtime git-sync forces install_systemd_units.sh to recopy the (now-differing) unit, reconverging any drift. FOLLOW UP: after the reinstall is confirmed (deployed unit == repo), pull `journalctl?unit=ict-liveness-watchdog.service&lines=200` and confirm ZERO `208/STDIN` occurrences across a >=30-min window. If 208/STDIN PERSISTS after a confirmed reinstall of the explicit-StandardInput unit, the cause is a drop-in (/etc/systemd/system/ict-liveness-watchdog.service.d/*.conf) or a git-sync `git reset --hard` spawn race (NOT main-unit drift) \u2014 escalate to a targeted system-action that `systemctl cat`s the deployed unit + drop-ins and purges any rogue drop-in. Note: the `/etc/ict-vm-role: No such file or directory` log line in deploy_pull_restart.sh line 91 is cosmetic/expected on the trader (empty role = not gateway); NOT a drift to fix.",
       "tier": "3",
-      "status": "open",
-      "resolved_at": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-22T17:18:00+00:00",
+      "resolution": "PR #4206 pinned StandardInput=null on deploy/ict-liveness-watchdog.service; merged 2026-06-22T16:36:59Z (main baeec23e) and deployed via ict-git-sync (full path: install_systemd_units.sh recopied the now-differing unit + one trader bounce; VM confirmed on git_sha baeec23e, trader healthy post-restart). SOAK VERIFIED: watchdog journal 16:41:01-17:17:04 UTC (~36 min, ~36 consecutive per-minute runs, diag issue #4210) shows EVERY run clean (Starting -> Deactivated successfully -> Finished); ZERO 208/STDIN / \"Failed to set up standard input\" after the reinstall, vs ~8% failure rate before. Root cause confirmed as MAIN-UNIT DRIFT (reconverged by the idempotent reinstall) \u2014 NOT a drop-in or git-sync reset --hard race, so no escalation/purge action needed. The /etc/ict-vm-role \"No such file\" deploy-log line was confirmed cosmetic/expected on the trader.",
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-22T16:25:00+00:00"
+  "updated_at": "2026-06-22T17:18:00+00:00"
 }
