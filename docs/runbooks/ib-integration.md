@@ -231,15 +231,27 @@ watchdog escalations) instead of the disease.
   restarting gateway can now never touch the money loop. OCPU budget:
   trainer 1 + gateway 1 = 2 of the 4 Always-Free Ampere OCPUs.
 - **One scheduled `docker restart`/day** (`ict-ib-gateway-reset.{service,timer}`,
-  05:30 UTC, just after IBKR's overnight reset) — deterministic recovery for
-  the single known failure (the in-place re-login wedging on the reset). No
-  reactive probing. The reset unit is gated to the gateway VM via
+  05:30 UTC, just after IBKR's overnight reset) — deterministic belt-and-suspenders
+  recovery for the single known failure (the in-place re-login wedging on the
+  reset), complementing the reactive watchdog below (which catches a wedge that
+  sets in at any other time). The reset unit is gated to the gateway VM via
   `ConditionPathExists=/etc/ict/ib-gateway-docker.env`.
-- **The 5-min restart-loop watchdog is retired.** `check_ib_gateway.py` /
-  `ict-ib-gateway-watchdog.{service,timer}` is now a **once-daily, alert-only**
-  health probe (no `--auto-restart`): it runs on the trader, probes `ib_paper`
-  across the network, and Telegrams only if MES is dark. No restart loop, no
-  cooldown/exhaustion bookkeeping in the running path.
+- **Reactive auto-restart re-armed (2026-06-22, BL-20260622-GATEWAY-MIDDAY-WEDGE).**
+  `check_ib_gateway.py` / `ict-ib-gateway-watchdog.{service,timer}` runs **on the
+  gateway VM** (auto-enabled only where `/etc/ict-vm-role` == `gateway`, via
+  `_GATEWAY_ONLY_TIMERS` in `scripts/install_systemd_units.sh`; it is NOT enabled
+  on the trader — verified inactive there 2026-06-22). It was briefly demoted to
+  once-daily alert-only on 2026-06-10 (the original reactive churn could starve
+  the box the gateway then SHARED with the trader). Now that the gateway is
+  isolated that objection is moot, and daily-only left a real gap: a session that
+  wedges MID-DAY had no recovery until the next 05:30 (an open MHG position
+  tripped a MONITOR BLIND alert on 2026-06-22; recovery needed a manual
+  `vm-ib-gateway-recover`). The watchdog now probes `ib_paper` every ~5 min and,
+  after `--restart-after 2` sustained-wedge checks, runs the SAME local
+  `restart_ib_gateway.sh` — bounded by `--max-restarts 3` / `--cooldown-min 20` /
+  `--exhaustion-reset-min 120` so it can never become a restart loop (and the
+  restart can't touch the money loop — different VM). Once the budget is
+  exhausted it falls back to alert-only.
 - **The thin trader-side connect breaker stays** (`IB_PROBE_TIMEOUT_S` /
   `IB_BREAKER_COOLDOWN_S`) so a gateway or network blip can never block the
   BTCUSDT loop. Manual emergency restart remains via the `vm-ib-gateway-recover`

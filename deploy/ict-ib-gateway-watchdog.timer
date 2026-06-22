@@ -1,28 +1,32 @@
 # ============================================
-# ICT IB GATEWAY HEALTH-CHECK TIMER (gateway-isolation redesign, 2026-06-10)
-# Fires ict-ib-gateway-watchdog.service once DAILY (alert-only).
+# ICT IB GATEWAY WATCHDOG TIMER (reactive auto-restart re-armed 2026-06-22)
+# Fires ict-ib-gateway-watchdog.service every ~5 min.
 #
-# Was: every 5 min, reactive auto-restart loop. Now: the deterministic daily
-# `docker restart` on the gateway VM (ict-ib-gateway-reset.timer) is the
-# recovery; this is just a once-daily alert-only probe so a persistently-dark
-# MES still pages the operator. Fires at 06:00 UTC — 30 min after the daily
-# reset (05:30 UTC) so it checks the post-reset session. MES is delayed paper
-# data, so daily-granularity alerting is fine; the trader-side connect breaker
-# handles intraday blips without paging.
+# History: 2026-06-10 the gateway-isolation redesign dropped this to once-daily
+# alert-only, leaning on the deterministic 05:30 `docker restart`
+# (ict-ib-gateway-reset.timer) for recovery. That left a real gap — a session
+# that wedges MID-DAY (between 05:30 resets) had no automatic recovery and
+# stayed dark until the next day (observed 2026-06-22,
+# BL-20260622-GATEWAY-MIDDAY-WEDGE). Now that the gateway is on its own VM, the
+# reactive restart churn can't touch the money loop, so the bounded reactive
+# probe is re-armed (guards live in the .service ExecStart). ~5 min cadence ⇒ a
+# mid-day wedge is caught within ~10 min (--restart-after 2). The daily
+# ict-ib-gateway-reset.timer stays as a belt-and-suspenders scheduled restart.
 #
-# Auto-installed + enabled by scripts/install_systemd_units.sh.
+# Auto-installed + enabled by scripts/install_systemd_units.sh (gateway VM only).
 # Save to: /etc/systemd/system/ict-ib-gateway-watchdog.timer
 # ============================================
 
 [Unit]
-Description=ICT IB Gateway health-check — fires daily (alert-only)
+Description=ICT IB Gateway watchdog — reactive probe + bounded auto-restart (~5 min)
 Requires=ict-ib-gateway-watchdog.service
 
 [Timer]
-# Once daily at 06:00 UTC — 30 min after the daily reset (05:30) so it probes
-# the freshly-reset session.
-OnCalendar=*-*-* 06:00:00 UTC
-AccuracySec=1min
+# Reactive cadence: first probe 3 min after boot, then every 5 min. Bounded
+# auto-restart guards in the .service keep this loop-proof.
+OnBootSec=3min
+OnUnitActiveSec=5min
+AccuracySec=30s
 Persistent=true
 Unit=ict-ib-gateway-watchdog.service
 
