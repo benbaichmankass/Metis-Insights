@@ -96,9 +96,20 @@ def emit_prop_signal(ticket: Ticket, *, push: bool = True, telegram: bool = True
 
 
 def _prop_bot_token() -> Optional[str]:
-    """The PROP Telegram bot token, falling back to the repurposed comms bot."""
+    """The Telegram bot token for prop tickets.
+
+    Prefer the dedicated prop bot (`TELEGRAM_PROP_BOT_TOKEN`), then the
+    repurposed comms bot (`TELEGRAM_CLAUDE_BOT_TOKEN`), and FINALLY fall back to
+    the trader bot (`TELEGRAM_BOT_TOKEN`). The last fallback (added 2026-06-22)
+    matters: on the Ampere VM neither prop nor claude token carried over the
+    cutover, so this returned None → `send_telegram_direct` silently skipped the
+    send and prop tickets were journaled but never delivered. The trader bot
+    token IS set (trade alerts work), so this guarantees prop tickets always
+    reach the operator; set TELEGRAM_PROP_BOT_TOKEN to route them to a dedicated
+    prop channel instead."""
     return (os.environ.get("TELEGRAM_PROP_BOT_TOKEN")
-            or os.environ.get("TELEGRAM_CLAUDE_BOT_TOKEN"))
+            or os.environ.get("TELEGRAM_CLAUDE_BOT_TOKEN")
+            or os.environ.get("TELEGRAM_BOT_TOKEN"))
 
 
 def _fmt(value: Any) -> str:
