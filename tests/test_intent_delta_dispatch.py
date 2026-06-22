@@ -764,6 +764,139 @@ class TestIntentModeReduceClose:
         from src.runtime.execution_diagnostics import enqueue_all_accounts_failed_dispatch  # noqa: F401
         assert _err.startswith("intent_noop:")
 
+    def test_intent_mode_non_derivative_flip_flat_close_flattens(
+        self, tmp_path, monkeypatch,
+    ):
+        """A GENUINE strategy exit on a non-derivative account — an opposing
+        vote under FLIP_POLICY=flat (action=close, reason flip_flat_policy:…) —
+        is EXECUTED via close_open_position (not held), distinguishing it from
+        the sizing-0 artifact close. The close carve-out of hold-to-bracket
+        (BL-20260622-ALPACA-REDUCE-HOLD)."""
+        spot_yaml = textwrap.dedent("""\
+            accounts:
+              bybit_spot:
+                type: regular
+                exchange: bybit
+                api_key_env: BYBIT_API_KEY_2
+                mode: live
+                market_type: spot
+                strategies: [turtle_soup, vwap]
+                risk:
+                  max_dd_pct: 0.05
+                  daily_usd: 100
+                  pos_size: 500
+                  risk_pct: 0.01
+                  min_balance_usd: 50
+        """)
+        spot_path = tmp_path / "accounts.yaml"
+        spot_path.write_text(spot_yaml)
+
+        db_path = tmp_path / "trade_journal.db"
+        _init_trade_journal(str(db_path))
+        # Held LONG; an opposing SHORT vote under flip_policy=flat → close.
+        _insert_trade(
+            str(db_path), account_id="bybit_spot", symbol="BTCUSDT",
+            direction="long", position_size=0.5,
+        )
+        monkeypatch.setenv("TRADE_JOURNAL_DB", str(db_path))
+        monkeypatch.setenv("BYBIT_API_KEY_2", "test-key")
+        monkeypatch.setenv("BYBIT_API_SECRET_2", "test-secret")
+        monkeypatch.setenv("FLIP_POLICY", "flat")
+
+        units_path = tmp_path / "units.yaml"
+        units_path.write_text("units: {}\n")
+        spot_coord = Coordinator(units_path=str(units_path))
+
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+        # Capture the flatten call instead of hitting a real client.
+        closes = []
+        import src.units.accounts.execute as execute_mod
+
+        def _fake_close(client, account_cfg, *, symbol, side, qty):
+            closes.append({"symbol": symbol, "side": side, "qty": qty})
+            return {"ok": True, "exchange_order_id": "close-1"}
+
+        monkeypatch.setattr(execute_mod, "close_open_position", _fake_close)
+
+        pkg = _intent_pkg(direction="short")
+        results = spot_coord.multi_account_execute(
+            pkg, accounts_path=str(spot_path),
+            balance_fetcher=lambda acc: 10_000.0,
+        )
+        # No NEW position opened (no execute_pkg placement) ...
+        assert captured == [], "flip_flat close must place no new entry order"
+        # ... the existing long was flattened via close_open_position ...
+        assert len(closes) == 1, closes
+        assert closes[0]["symbol"] == "BTCUSDT"
+        assert closes[0]["side"] == "long"  # side of the original entry
+        assert closes[0]["qty"] == pytest.approx(0.5, abs=1e-9)
+        # ... and a successful flatten is classified benign (no all-failed ping).
+        _err = results[0]["error"] or ""
+        assert _err == "intent_noop:flip_flat_closed_via_flatten", _err
+        assert pkg.meta["execution_delta"]["action"] == "close"
+
+    def test_intent_mode_non_derivative_sizing_zero_never_flattens(
+        self, tmp_path, monkeypatch,
+    ):
+        """A risk-sizing-0 (here: balance below the min-balance floor) must NEVER
+        flatten the held position — the only close that flattens is a genuine
+        flip_flat exit. A sizing-0 is refused at the zero-qty gate before the
+        delta is even computed, so close_open_position is never called and the
+        bracket-protected position is left untouched (safety guard for the close
+        carve-out, BL-20260622-ALPACA-REDUCE-HOLD)."""
+        spot_yaml = textwrap.dedent("""\
+            accounts:
+              bybit_spot:
+                type: regular
+                exchange: bybit
+                api_key_env: BYBIT_API_KEY_2
+                mode: live
+                market_type: spot
+                strategies: [turtle_soup, vwap]
+                risk:
+                  max_dd_pct: 0.05
+                  daily_usd: 100
+                  pos_size: 500
+                  risk_pct: 0.01
+                  min_balance_usd: 50
+        """)
+        spot_path = tmp_path / "accounts.yaml"
+        spot_path.write_text(spot_yaml)
+        db_path = tmp_path / "trade_journal.db"
+        _init_trade_journal(str(db_path))
+        _insert_trade(
+            str(db_path), account_id="bybit_spot", symbol="BTCUSDT",
+            direction="long", position_size=0.5,
+        )
+        monkeypatch.setenv("TRADE_JOURNAL_DB", str(db_path))
+        monkeypatch.setenv("BYBIT_API_KEY_2", "test-key")
+        monkeypatch.setenv("BYBIT_API_SECRET_2", "test-secret")
+        monkeypatch.delenv("FLIP_POLICY", raising=False)
+
+        units_path = tmp_path / "units.yaml"
+        units_path.write_text("units: {}\n")
+        spot_coord = Coordinator(units_path=str(units_path))
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+        closes = []
+        import src.units.accounts.execute as execute_mod
+        monkeypatch.setattr(
+            execute_mod, "close_open_position",
+            lambda *a, **k: closes.append(k) or {"ok": True},
+        )
+        # Same-direction long vote whose risk-sizing yields 0 → target 0 →
+        # action=close with reason close_existing_… (NOT flip_flat_policy).
+        pkg = _intent_pkg(direction="long")
+        results = spot_coord.multi_account_execute(
+            pkg, accounts_path=str(spot_path),
+            balance_fetcher=lambda acc: 0.0,  # forces risk-sizing toward 0
+        )
+        # Must NOT flatten on a sizing-0 close — hold-to-bracket.
+        assert closes == [], "sizing-0 close must hold, never flatten"
+        _err = results[0]["error"] or ""
+        assert "flip_flat_closed" not in _err
+
 
 class TestBuildIntentLegs:
     """Unit tests for the pure ``_build_intent_legs`` helper."""
