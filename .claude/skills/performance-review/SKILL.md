@@ -84,8 +84,8 @@ pulls:
 
 | Pull | Path | Use |
 |---|---|---|
-| Order packages (decision-level) | `GET /api/bot/order-packages?since=<iso>&limit=500` | one row per decision; includes `claudeScore` from prior reviews so dedupe is trivial |
-| Closed trades | `GET /api/bot/trades/closed?since=<iso>&limit=500` | realized PnL + exit reason |
+| Order packages (decision-level) | `GET /api/bot/order-packages?since=<iso>&limit=500&include_paper=true` | one row per decision; **`include_paper=true` so PAPER + PROP packages are graded too, not just real-money** (operator directive 2026-06-22); includes `claudeScore` from prior reviews so dedupe is trivial |
+| Closed trades | `GET /api/bot/trades/closed?since=<iso>&limit=500&include_paper=true` | realized PnL + exit reason (all funding classes) |
 | Paper-book trades | `GET /api/bot/trades/closed?account_id=bybit_1&limit=500` | the diversified paper cohort's closed trades, for the tracker (§ "Diversified paper-book tracker"). `account_id=` returns that account incl. paper; pull the **full** book (no `since`) so the tracker's recency split + cumulative trajectory are correct |
 | Journal — order_packages | `journal?table=order_packages&limit=200` (diag) | redundant cross-check; carries `signal_logic` blob |
 | Journal — trades | `journal?table=trades&limit=200` (diag) | exit_reason, pnl, position_size |
