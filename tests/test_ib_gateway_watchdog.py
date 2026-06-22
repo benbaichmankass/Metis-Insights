@@ -83,11 +83,12 @@ def test_classify_actionable_flags(wd):
 
 def _decide(wd, *, healthy, state, auto_restart=True, now=10_000.0,
             restart_after=2, max_restarts=3, cooldown_s=1200.0,
-            exhaustion_reset_s=0.0):
+            exhaustion_reset_s=0.0, actionable=True):
     return wd.decide(healthy=healthy, state=state, restart_after=restart_after,
                      max_restarts=max_restarts, cooldown_s=cooldown_s, now=now,
                      auto_restart=auto_restart,
-                     exhaustion_reset_s=exhaustion_reset_s)
+                     exhaustion_reset_s=exhaustion_reset_s,
+                     actionable=actionable)
 
 
 def test_healthy_from_clean_is_noop(wd):
