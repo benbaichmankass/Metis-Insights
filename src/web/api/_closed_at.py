@@ -19,8 +19,12 @@ separately).
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional
+# The pure value normaliser lives in the neutral src.utils layer so the WRITER
+# (src/runtime/order_monitor.py) and these READERS share one implementation
+# without runtime importing web. Re-exported here under its established name.
+from src.utils.closed_at import normalize_closed_at_value
+
+__all__ = ["closed_at_norm_sql", "close_time_sql", "normalize_closed_at_value"]
 
 
 def closed_at_norm_sql(col: str) -> str:
@@ -52,18 +56,5 @@ def close_time_sql(closed_at_col: str, updated_at_col: str, timestamp_col: str) 
     )
 
 
-def normalize_closed_at_value(value: Any) -> Optional[str]:
-    """Render a ``closed_at``-style value as an ISO-8601 UTC string, converting
-    a raw epoch-milliseconds string to ISO. ISO inputs pass through unchanged;
-    unparseable / empty inputs return ``None``."""
-    if value is None:
-        return None
-    s = str(value).strip()
-    if not s:
-        return None
-    if s.isdigit() and len(s) >= 12:
-        try:
-            return datetime.fromtimestamp(int(s) / 1000, tz=timezone.utc).isoformat()
-        except (ValueError, OverflowError, OSError):
-            return None
-    return s
+# ``normalize_closed_at_value`` is imported from src.utils.closed_at above
+# (single source of truth; re-exported for the existing import sites).

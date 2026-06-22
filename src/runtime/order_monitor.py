@@ -59,6 +59,7 @@ logger = logging.getLogger(__name__)
 
 from src.utils.paths import repo_root as _repo_root_fn  # noqa: E402
 from src.utils.json_notes import dump_capped  # noqa: E402
+from src.utils.closed_at import normalize_closed_at_value  # noqa: E402
 _REPO_ROOT = Path(_repo_root_fn())
 
 
@@ -3501,9 +3502,11 @@ def _recover_close_from_broker_pnl(
     if closed_pnl is None:
         return None
 
-    closed_at = (
-        str(rec.get("closed_at")) if rec.get("closed_at") else now_iso
-    )
+    # Normalise Bybit's epoch-ms close time to ISO-8601 before persisting so
+    # the trades.closed_at column contract stays ISO for every consumer
+    # (BL-20260620-RECONCILER-CLOSEDAT-MS). normalize_closed_at_value passes ISO
+    # through and returns None on empty/unparseable → fall back to now_iso.
+    closed_at = normalize_closed_at_value(rec.get("closed_at")) or now_iso
     notes = _decode_notes(trade_row["notes"])
     notes.update({
         "closed_at": closed_at,
@@ -4251,10 +4254,11 @@ def _close_trade_from_order_status(
     if closed_pnl_rec is not None and closed_pnl_rec.get("avg_exit_price"):
         # Real close fill recovered.
         avg_exit_price = float(closed_pnl_rec["avg_exit_price"])
+        # Normalise Bybit's epoch-ms close time to ISO before persisting
+        # (BL-20260620-RECONCILER-CLOSEDAT-MS) so closed_at stays ISO.
         closed_at = (
-            str(closed_pnl_rec.get("closed_at"))
-            if closed_pnl_rec.get("closed_at")
-            else datetime.now(timezone.utc).isoformat()
+            normalize_closed_at_value(closed_pnl_rec.get("closed_at"))
+            or datetime.now(timezone.utc).isoformat()
         )
         notes.update({
             "closed_at": closed_at,
@@ -4310,9 +4314,11 @@ def _close_trade_from_order_status(
         # unreliable-source flag (pre-2026-05-16 contract preserved
         # for the no-cfg path + the no-record path).
         exec_time = order_status.get("exec_time")
+        # exec_time is Bybit's epoch-ms execution time — normalise to ISO
+        # before persisting (BL-20260620-RECONCILER-CLOSEDAT-MS).
         closed_at = (
-            str(exec_time) if exec_time
-            else datetime.now(timezone.utc).isoformat()
+            normalize_closed_at_value(exec_time)
+            or datetime.now(timezone.utc).isoformat()
         )
         notes.update({
             "closed_at": closed_at,
@@ -4924,7 +4930,11 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
             if closed_pnl is not None:
                 notes["bybit_closed_pnl"] = closed_pnl
             if rec.get("closed_at") and "closed_at" not in notes:
-                notes["closed_at"] = str(rec["closed_at"])
+                # Normalise epoch-ms → ISO (BL-20260620-RECONCILER-CLOSEDAT-MS).
+                notes["closed_at"] = (
+                    normalize_closed_at_value(rec["closed_at"])
+                    or str(rec["closed_at"])
+                )
 
             updates: Dict[str, Any] = {
                 "exit_price": avg_exit_price,
