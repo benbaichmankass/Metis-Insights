@@ -228,6 +228,11 @@ def run_prop_monitor_pulse(
         try:
             emitter(pos)
             stats["fired"] += 1
+            logger.info(
+                "prop_monitor_pulse: fired pulse %s %s [%s] age=%smin (key=%s)",
+                pos.get("symbol"), pos.get("direction"),
+                pos.get("account_id"), pos.get("age_minutes"), key,
+            )
         except Exception as exc:  # noqa: BLE001 — emission never fatal
             logger.warning("prop_monitor_pulse: emit failed for %s: %s", key, exc)
         new_state[key] = now.isoformat()
@@ -237,6 +242,16 @@ def run_prop_monitor_pulse(
     # simply not copied into new_state.)
     if new_state != state or open_keys != set(state.keys()):
         _save_state(new_state)
+
+    # Observability: surface the scan outcome in the trader journal whenever
+    # there's an open prop position (so the pulse is verifiable via journalctl,
+    # not just by the operator's Telegram). Silent when nothing is open, to
+    # avoid spamming a per-tick line on every tick with no prop trades.
+    if stats["open"]:
+        logger.info(
+            "prop_monitor_pulse: open=%d fired=%d skipped=%d (interval=%ds)",
+            stats["open"], stats["fired"], stats["skipped"], interval,
+        )
 
     return stats
 
