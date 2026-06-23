@@ -3553,6 +3553,7 @@ def _pkg_age_minutes(updated_at: Any) -> Optional[float]:
 
 
 def _recover_close_from_broker_pnl(
+    db,
     trade_row: Any,
     cfg: Optional[Dict[str, Any]],
     now_iso: str,
@@ -3619,6 +3620,23 @@ def _recover_close_from_broker_pnl(
     # through and returns None on empty/unparseable → fall back to now_iso.
     closed_at = normalize_closed_at_value(rec.get("closed_at")) or now_iso
     notes = _decode_notes(trade_row["notes"])
+    # Classify the recovered broker close as sl/tp (2026-06-23) — same as the
+    # reconciler close path. Exclude intent_reduce legs (deliberate partial
+    # close, possibly-inverted bracket) so they keep 'reconciler_filled'.
+    _cols = trade_row.keys() if hasattr(trade_row, "keys") else ()
+    _is_reduce = bool(notes.get("intent_reduce")) or (
+        "setup_type" in _cols
+        and str(trade_row["setup_type"] or "").lower() == "intent_reduce"
+    )
+    _row_for_classify = {
+        "id": trade_row["id"],
+        "symbol": (trade_row["symbol"] if "symbol" in _cols else None),
+        "direction": (trade_row["direction"] if "direction" in _cols else None),
+    }
+    resolved_reason = _classify_broker_exit(
+        db, _row_for_classify, avg_exit_price, is_reduce_leg=_is_reduce,
+    )
+    final_exit_reason = resolved_reason or "reconciler_filled"
     notes.update({
         "closed_at": closed_at,
         "closed_by": "stuck_strategy_watchdog",
@@ -3628,10 +3646,12 @@ def _recover_close_from_broker_pnl(
         ),
         "exit_price_source": "bybit_closed_pnl",
         "bybit_closed_pnl": closed_pnl,
+        "exit_reason_source":
+            ("price_vs_pkg_bracket" if resolved_reason else "unresolved"),
     })
     updates: Dict[str, Any] = {
         "status": "closed",
-        "exit_reason": "reconciler_filled",
+        "exit_reason": final_exit_reason,
         "exit_price": float(avg_exit_price),
         "pnl": round(float(closed_pnl), 4),
         "closed_at": closed_at,
@@ -3941,13 +3961,14 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
         try:
             if trade_row and str(trade_row["status"]) == "open":
                 recovered = _recover_close_from_broker_pnl(
-                    trade_row, cfg, now_iso,
+                    db, trade_row, cfg, now_iso,
                 )
                 if recovered is not None:
                     db.update_trade(int(trade_row["id"]), recovered)
                     _cascade_close_linked_package(
                         db, trade_row["id"],
-                        close_reason="reconciler_filled",
+                        close_reason=recovered.get(
+                            "exit_reason", "reconciler_filled"),
                         caller="_watchdog_stuck_strategies(broker_pnl_recovery)",
                     )
                     summary["recovered_closed"] = (
@@ -4271,8 +4292,16 @@ def _is_real_order_id(trade_id: str) -> bool:
 _is_numeric_order_id = _is_real_order_id
 
 
-def _classify_broker_exit(db, row: Dict[str, Any], exit_price: Any) -> Optional[str]:
+def _classify_broker_exit(
+    db, row: Dict[str, Any], exit_price: Any, *, is_reduce_leg: bool = False,
+) -> Optional[str]:
     """Classify a reconciler-finalised broker close as 'sl' or 'tp'.
+
+    Returns ``None`` for an intent_reduce leg (``is_reduce_leg=True``): a reduce
+    is a deliberate partial close, not a bracket hit, and the package bracket can
+    be inverted relative to the reduce-order direction (a long leg reducing a
+    short → sl above / tp below), so classifying it would mislabel the reduce as
+    sl/tp. Reduce legs keep ``reconciler_filled``.
 
     2026-06-23 fix: on a Bybit linear account the SL/TP bracket is attached at
     entry (execute.py), so a stop/target fires at the broker INTRATICK — before
@@ -4292,6 +4321,8 @@ def _classify_broker_exit(db, row: Dict[str, Any], exit_price: Any) -> Optional[
     keeps ``reconciler_filled`` (a genuine non-bracket close — the real
     "flag it" residue). Best-effort; never raises.
     """
+    if is_reduce_leg:
+        return None
     px = _safe_float(exit_price)
     if not px or px <= 0:
         return None
@@ -4443,7 +4474,14 @@ def _close_trade_from_order_status(
         # Classify the broker close as sl/tp from exit price vs the bracket
         # levels (2026-06-23) — a stop/target fired at the broker before the
         # monitor; surface the TRUE reason instead of the generic reconciler tag.
-        resolved_reason = _classify_broker_exit(db, row, avg_exit_price)
+        # EXCLUDE intent_reduce legs: a reduce is a deliberate partial close (not
+        # a bracket hit), and the package bracket can be inverted relative to the
+        # reduce-order direction (a long leg reducing a short → sl above / tp
+        # below), so classifying it would mislabel a reduce as sl/tp. Reduce legs
+        # keep 'reconciler_filled'.
+        resolved_reason = _classify_broker_exit(
+            db, row, avg_exit_price, is_reduce_leg=is_reduce_leg,
+        )
         final_exit_reason = resolved_reason or "reconciler_filled"
         notes.update({
             "closed_at": closed_at,

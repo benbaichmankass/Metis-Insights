@@ -1767,7 +1767,11 @@ class TestStuckStrategyWatchdog:
         # Trade FINALISED as a real close — not orphaned.
         trade = _read_trade_full(tmp_db, trade_id)
         assert trade["status"] == "closed"
-        assert trade["exit_reason"] == "reconciler_filled"
+        # 2026-06-23: the watchdog-recovery close is now classified from the
+        # recovered exit price vs the package bracket (entry 80000 / sl 79500 /
+        # tp 80500). The recovered exit 80500 is at/above the long tp → 'tp'
+        # (was the generic 'reconciler_filled' before the close-labeling fix).
+        assert trade["exit_reason"] == "tp"
         assert abs(trade["exit_price"] - 80500.0) < 1e-6
         assert abs(trade["pnl"] - 0.9795) < 1e-6
         notes = json.loads(trade["notes"])
