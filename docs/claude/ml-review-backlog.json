@@ -26,13 +26,17 @@
       "tier": 3,
       "trigger_condition": "Every /ml-review while btc-regime-1h-lgbm-yz-v1 is at advisory+; or any session investigating the advisory model's live influence.",
       "resolution_criteria": "The model accrues enough real-money-scored closed BTC trades to compute live_agreement, and /ml-review either recommends advisory->limited_live (Tier-3) with evidence or demotes to shadow.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-06-15T17:15:00+00:00",
           "by": "claude (/health+perf+ml-review 2026-06-15)",
           "note": "2026-06-15 gate-check (target advisory) READY=FALSE: shadow_soak 1.9d (need 7) FAIL; live_agreement rank-AUC(score vs realized win)=0.000 (need 0.55) FAIL \u2014 still ~no real-money-scored closed BTC trades to compute it (bybit_2 real-money nets to min qty / intent_noop:at_target, so the advisory model barely influences a real fill); a volume gate 3.0/5.0 FAIL; cross_run_stability (std macro_f1 0.0022) + drift_clean (KS 0.176<=0.2, PSI 0.245<=0.25) PASS. Training metric healthy (macro_f1 0.6585). RECOMMENDATION: HOLD at advisory; do NOT promote advisory->limited_live. Root blocker is real-money fill volume, not model quality."
+        },
+        {
+          "at": "2026-06-23T07:35:00+00:00",
+          "note": "RESOLVED: Superseded: the first advisory model btc-regime-1h-lgbm-yz-v1 was DEMOTED advisory->shadow on 2026-06-23 (degenerate live collapse) under MB-20260623-001. Post-promotion monitoring is now the refinement lifecycle's job, not this item."
         }
       ]
     },
@@ -746,7 +750,13 @@
       "trigger_condition": "Next /ml-review; or a model-training session with capacity to add class weights / backtest-augmented datasets.",
       "resolution_criteria": "trade-outcome-{global,winrate}-baseline f1>0 with non-trivial macro_f1 under purged CV after a feature/weighting change OR with n_eval>=~1000 closed trades.",
       "tier": 3,
-      "status": "open"
+      "status": "resolved",
+      "updates": [
+        {
+          "at": "2026-06-23T07:35:00+00:00",
+          "note": "RESOLVED: Superseded by MB-20260623-003 ([refinement] refine-or-retire the f1=0 trade-outcome + prop-mission-policy baselines), which carries the same scope under the new model-refinement-lifecycle."
+        }
+      ]
     },
     {
       "id": "MB-20260615-MES5M-YZ-READY",
@@ -758,7 +768,13 @@
       "trigger_condition": "Next model-training session; verify yz-v1 holds macro_f1>=~0.66 on a fresh cycle, then promote-stage to shadow.",
       "resolution_criteria": "mes-regime-5m-lgbm-yz-v1 promoted to shadow and emitting predictions, OR a documented reason to keep it research_only.",
       "tier": 1,
-      "status": "open"
+      "status": "resolved",
+      "updates": [
+        {
+          "at": "2026-06-23T07:35:00+00:00",
+          "note": "RESOLVED: mes-regime-5m-lgbm-yz-v1 is at stage=shadow in the registry (verified 2026-06-23) \u2014 the shadow promotion happened. (It is now a documented promotion candidate-in-waiting, blocked only on MES live trades for live_agreement; tracked via the model-refinement-lifecycle / stage-guard, not this item.)"
+        }
+      ]
     },
     {
       "id": "MB-20260616-CONVICTION-P4-SIZING",

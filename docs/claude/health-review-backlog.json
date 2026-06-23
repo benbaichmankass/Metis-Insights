@@ -1576,10 +1576,11 @@
       "title": "DECISION PENDING: flip NEWS_ENABLED code default from true to false (surfaced in PR #3233)",
       "description": "_is_enabled() (src/news/news_client.py:39 / news_client_rss.py:40) defaults NEWS_ENABLED to 'true' (enabled-when-unset). The layer is inert by default ONLY because default NEWS_SOURCE=newsapi short-circuits without NEWS_API_KEY - but the doc-recommended keyless NEWS_SOURCE=rss would activate it, and a news_veto blocks a live trade (pipeline.py:477). CLAUDE.md was corrected to document the footgun this session. Open decision: flip the code default to false so 'off by default' is literally true (Tier-3, changes veto reachability). Operator-gated.",
       "tier": 3,
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null
+      "status": "resolved",
+      "resolved_at": "2026-06-23T07:35:00+00:00",
+      "resolved_by": "claude (backlog-drain session)",
+      "resolution_note": null,
+      "resolution": "Moot/superseded: NEWS_ENABLED was REMOVED entirely 2026-06-10 (the 'on by omission' footgun) \u2014 activation is now source-driven via NEWS_SOURCE. There is no default to flip. See CLAUDE.md env table + BL-20260623-004 (the live news-activation decision)."
     },
     {
       "id": "BL-20260610-AUDIT-6",
@@ -2260,5 +2261,5 @@
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-23T07:30:00+00:00"
+  "updated_at": "2026-06-23T07:35:00+00:00"
 }
