@@ -1,0 +1,128 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-06-23T15:45:33+00:00 · window 2026-06-23T13:36:10+00:00 → 2026-06-23T15:45:33+00:00</p>
+<p><span class="grade">Roll-up: 🟢 healthy</span></p>
+<p>Window 13:36Z-&gt;15:45Z was a fix-and-verify window, not a trading one: NO trades closed. The orphan-labeling, reconciler-close sl/tp classification, and ping silent-loss fixes were merged AND deployed to the live VM, and the orphan fix was VERIFIED on live data (a post-deploy dry/shadow package came back &#x27;rejected&#x27;, not &#x27;orphaned&#x27;). System healthy: heartbeat live, 36 strategies, deployed current. Grading is current (2498 graded). The prior report&#x27;s CAUTION (orphaning + reconciler mislabeling) is now RESOLVED.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Optional: add GRADING_PAT secret for unattended grading auto-merge</b> <span class="pill">cross · T2</span> ⚠️ operator<br><span class='muted'>The grade-order-packages bridge opens a grades PR each run; without a GRADING_PAT (fine-grained PAT, contents+PR write) it can&#x27;t auto-merge (GITHUB_TOKEN PRs get no CI), so a session adopts the branch. One secret makes grading fully hands-off.</span></li>
+<li><b>Residual orphan class: executed-then-exchange-flat-without-a-clean-fill</b> <span class="pill">health · T2</span><br><span class='muted'>The dry/shadow orphan share is fixed; BL-20260601-001&#x27;s remaining scope (executed positions that read flat with no recoverable fill/PnL) is the reconciler/closed-pnl-recovery domain — a separate follow-up.</span></li>
+<li><b>Add /api/bot/ml/status (+strategies, prop) to the vm-diag relay allowlist</b> <span class="pill">health · T1</span><br><span class='muted'>These read-only endpoints aren&#x27;t on the relay&#x27;s path allowlist, so ML registry detail can&#x27;t be pulled over the issue relay. A one-line allowlist add restores full report coverage.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">2 drained / 132 open</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">0 drained / — open</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">0 drained / — open</div></div>
+</div>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>This window DEPLOYED + LIVE-VERIFIED the fixes from the prior report&#x27;s findings: orphan-labeling (pkg-7d5d8b394bc04502 -&gt; &#x27;rejected&#x27;, not &#x27;orphaned&#x27;), reconciler-close sl/tp classification (+ a reduce-leg mislabel regression caught via live data and fixed before it mattered), and the ping silent-loss hardening. The prior report&#x27;s CAUTION is resolved.</li>
+<li>No trades closed in-window; real money flat. The 24h real PnL (-$9.51, 3 trades) is unchanged from the prior report — no new real-money activity. Paper -$4285/24h (never blended).</li>
+<li>Read-first is now mechanically enforced (SessionStart hook injects the read-first + work-session + definition-of-done contract at every session start, incl. compaction resumes).</li>
+<li>Market: BTC chopping ~62.3k (62505-&gt;62308 over the window, ~-0.4%); no actionable breakouts — consistent with the quiet trading window.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟢 healthy</span></h2>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>heartbeat</td><td class="sev-ok">🟢 ok</td><td>Live (age ~4s); last tick 15:35Z; deployed git_sha e0e29afb (current). Two clean restarts this window for the fix deploys.</td></tr>
+<tr><td>services</td><td class="sev-ok">🟢 ok</td><td>ict-trader-live + ict-web-api + ict-claude-bridge active; git-sync auto-deploying main.</td></tr>
+<tr><td>live_accounts</td><td class="sev-ok">🟢 ok</td><td>alpaca_paper, breakout_1, bybit_1, bybit_2, ib_paper = live; ib_live &amp; oanda_practice off.</td></tr>
+<tr><td>strategy_fleet</td><td class="sev-ok">🟢 ok</td><td>36 strategies loaded &amp; evaluating; chop regime, no actionable breakouts this window.</td></tr>
+<tr><td>orphan_labeling</td><td class="sev-ok">🟢 ok</td><td>FIXED + VERIFIED LIVE this window: dry/shadow packages now label &#x27;rejected&#x27; (pkg-7d5d8b394bc04502 confirmed), not the red-flag &#x27;orphaned&#x27;. Resolves the prior report&#x27;s plumbing concern (BUG-049).</td></tr>
+<tr><td>exit_labeling</td><td class="sev-ok">🟢 ok</td><td>FIXED + DEPLOYED this window: broker SL/TP fills now classify &#x27;sl&#x27;/&#x27;tp&#x27; (reconciler + watchdog paths); intent_reduce legs correctly excluded. Validated against the real closes in the journal.</td></tr>
+<tr><td>grading_pipeline</td><td class="sev-ok">🟢 ok</td><td>Current: 2498 graded incl. this window (newest reviewed_at 15:35Z). Bridge now scores the live VM&#x27;s fresh DB.</td></tr>
+<tr><td>ping_delivery</td><td class="sev-ok">🟢 ok</td><td>Silent-loss hardened: send_telegram_direct returns bool; drainer deletes only on confirmed send.</td></tr>
+<tr><td>diag_relay_allowlist</td><td class="sev-watch">🟡 watch</td><td>/api/bot/ml/status (+strategies, prop) still not on the vm-diag relay read allowlist — ML registry detail unavailable over the relay (worked around via order-package modelScores).</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v neg">$-1.64 →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$0.00</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">+$0.00</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$110.08 →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$0.00</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">+$0.00</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">3</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">0</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">5</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">0 full dossiers, 0 summarized (full-per-trade (since-last/daily) — 0 trades closed in-window).</p>
+<p class="section-empty">No trades in this window.</p>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>62504.7</td><td>62307.7</td><td>62858.6</td><td>61954.9</td><td class="neg">-0.4%</td><td>Chop ~62.3k; no actionable breakout. Other symbols not pulled this window (quiet 2h window, no closes).</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟢 healthy</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>conviction-meta-v1</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Shadow scoring.</td></tr>
+<tr><td>execution-quality-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Shadow scoring.</td></tr>
+<tr><td>prop-mission-policy-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Shadow scoring (all-zero — known degenerate, BL-20260525-005).</td></tr>
+<tr><td>setup-quality-audit-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Shadow scoring.</td></tr>
+<tr><td>setup-quality-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Shadow scoring.</td></tr>
+<tr><td>setup-quality-lgbm-v2</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Shadow scoring.</td></tr>
+<tr><td>trade-outcome-global-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Shadow scoring.</td></tr>
+<tr><td>trade-outcome-winrate-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Shadow scoring.</td></tr>
+</table></div>
+<footer>report_id RPT-20260623-154533-since-last · reviewer claude · prior RPT-20260623-133610-since-last · ICT Trading Bot system-report</footer></div></body></html>
