@@ -277,11 +277,16 @@
       "tier": 1,
       "trigger_condition": "Next session touching strategy_signal_builders; or fold into any clone-template refactor.",
       "resolution_criteria": "Eval reason strings name the emitting strategy (spot-check one MES + one MHG eval row).",
-      "check_log": [],
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "check_log": [
+        {
+          "at": "2026-06-23T08:45:00+00:00",
+          "note": "Fixed: parametrized both reused units (trend_donchian.order_package + htf_pullback_trend_2h.order_package) to read cfg['strategy_label'] in their non-actionable ValueError reason strings (default = canonical name for the flagship caller). Injected cfg['strategy_label']=<own name> at all 21 clone call sites in strategy_signal_builders.py (mes/mgc/xauusd/spy/iwm/qqq/uso/slv + gld/tlt/ief/*_pullback + the two variant builders). An mes_trend_long_1d_eval row now reads \"Strategy 'mes_trend_long_1d': \u2026\" not \"Strategy 'trend_donchian': \u2026\". +4 unit tests (tests/test_clone_template_eval_naming.py)."
+        }
+      ],
+      "status": "resolved",
+      "resolved_at": "2026-06-23T08:45:00+00:00",
+      "resolved_by": "claude (system-report session)",
+      "resolution": "Units read cfg['strategy_label']; clones thread their own name. Eval reasons now name the emitting strategy.",
       "snoozed_until": null
     },
     {
