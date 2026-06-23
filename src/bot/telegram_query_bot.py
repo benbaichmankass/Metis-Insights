@@ -31,8 +31,6 @@ from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
-    MessageHandler,
-    filters,
 )
 
 from src.bot import menu
@@ -128,36 +126,6 @@ def is_authorised(update: Update) -> bool:
 
 def is_halted() -> bool:
     return os.path.exists(HALT_FLAG_PATH)
-
-
-async def on_text_message(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-    """Free-text handler — the inbound half of the Breakout prop manual bridge.
-
-    This bot is the channel prop tickets are delivered to (TELEGRAM_BOT_TOKEN —
-    the ``breakout_notify._prop_bot_token`` fallback), so a typed line is tried
-    as a prop report-back command (``close ETHUSD 2950 +80 tp`` / ``skip …`` /
-    ``bal …``). A recognised command is ingested via the same
-    ``prop_report.ingest_report`` chokepoint the dashboard/REST path uses and we
-    reply with a one-line ack — closing the manual bridge with no
-    Claude/dashboard middle-man. Anything that isn't a prop command is ignored
-    (this bot is otherwise menu-driven — free text was previously a no-op). The
-    DB ingest runs off the event loop (``to_thread``) so polling never stalls."""
-    if not is_authorised(update) or update.message is None:
-        return
-    text = update.message.text or ""
-    try:
-        from src.prop.telegram_report_handler import (
-            default_prop_account,
-            handle_command,
-        )
-
-        reply = await asyncio.to_thread(
-            handle_command, text, default_account=default_prop_account())
-    except Exception as exc:  # noqa: BLE001 — a handler bug must never kill the bot
-        logger.warning("prop report handler failed: %s", exc)
-        return
-    if reply is not None:
-        await update.message.reply_text(reply)
 
 
 # ── Operator command surface (just the menu openers) ────────────────────────
@@ -497,14 +465,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=menu.back_to_menu_keyboard(),
             )
 
-        elif raw == menu.CB_PROP_PROMPT:
-            # Plain text (no parse_mode) — the prompt contains <SYMBOL>/<...>
-            # placeholders that an HTML parse_mode would reject as bad entities.
-            await query.edit_message_text(
-                menu.render_prop_report_prompt(),
-                reply_markup=menu.back_to_menu_keyboard(),
-            )
-
         elif raw == menu.CB_CLOSEALL:
             await query.edit_message_text(
                 "🚨 Close ALL open positions across all accounts? This "
@@ -647,11 +607,6 @@ def main():
     application.add_handler(CommandHandler("start", cmd_start))
     application.add_handler(CommandHandler("menu", cmd_menu))
     application.add_handler(CallbackQueryHandler(callback_handler))
-    # Inbound prop report-back: a typed line (e.g. "close ETHUSD 2950 +80 tp")
-    # is parsed + ingested; non-commands are ignored (kept last so it never
-    # shadows the menu/command handlers above).
-    application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, on_text_message))
     application.run_polling()
 
 
