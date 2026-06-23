@@ -282,26 +282,33 @@ strategies:
     # src/units/strategies/squeeze_breakout_4h.py; harness:
     # scripts/backtest_squeeze.py.
     #
-    # STATUS: execution: shadow (DEMOTED from live 2026-06-01, operator
-    # decision, Tier-3 — see the `execution:` field below). Promoted live
-    # 2026-05-25 despite a month-concentrated-OOS caveat; the live record
-    # confirmed the risk (60 closed, 0% win, net -20R), so it was demoted
-    # back to a logging shadow. The backtest evidence that justified the
-    # original promotion: docs/audits/squeeze-breakout-complement-2026-05-24.md.
+    # STATUS: execution: live (RE-PROMOTED 2026-06-23, operator-PRE-approved
+    # 2026-06-01 gated on debounce verification — PERF-20260601-005). It was
+    # promoted live 2026-05-25, the live record confirmed the OOS caveat (60
+    # closed, 0% win, net -20R) and it was demoted to shadow 2026-06-01. The
+    # demotion cause was a ranging-month read COMPOUNDED by the same-bar
+    # re-entry storm; that storm is now structurally eliminated (#2548 bar-close
+    # debounce in the shared emission path, deployed 2026-06-01, + the
+    # now-unconditional baseline netting guard, 2026-06-17). 2026-06-23 verify:
+    # the strategy is healthy (evaluating every tick, quiet only because BTC is
+    # in a low-ADX chop with no squeeze release), fleet shows no storm. Backtest
+    # basis: +17.6R multiyear, net-positive in every regime, lowest DD (7.9R) —
+    # docs/audits/squeeze-breakout-complement-2026-05-24.md.
     #
     # `execution:` = per-strategy gate (enforced in
-    # Coordinator.multi_account_execute). Now `live` — executes on every
-    # routed account: bybit_1 (demo, paper) AND bybit_2 (real money).
+    # Coordinator.multi_account_execute). `live` executes on every routed
+    # account; squeeze is currently routed ONLY to bybit_1 (demo, PAPER) — it
+    # was removed from real-money bybit_2's routing at demotion, so this
+    # re-promotion is PAPER-only (no real-money exposure). Re-adding it to
+    # bybit_2 would be a separate Tier-3 decision.
     model: null
     signal_prefixes: [squeeze_breakout, squeeze]
     enabled: true
-    execution: shadow        # DEMOTED live -> shadow 2026-06-01 (operator
-                             # decision, Tier-3): no live edge demonstrated —
-                             # 60 closed trades, 0% win, net -20R (bybit_1 demo
-                             # -18.7, real-money bybit_2 -1.12/3). The
-                             # month-concentrated-OOS caveat materialised live.
-                             # Shadow runs + logs but sends NO live order;
-                             # re-promote only on a fresh net-positive window.
+    execution: live          # RE-PROMOTED shadow -> live 2026-06-23 (operator
+                             # pre-approved 2026-06-01, gated on debounce verify
+                             # now satisfied — PERF-20260601-005). Paper-only
+                             # routing (bybit_1). Demote back to shadow if a
+                             # fresh paper window shows no edge.
     risk_pct: 0.3            # retained for sizing while in shadow.
     timeframe: "4h"          # served as Bybit 240m via CCXT.
     symbols:
