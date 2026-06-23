@@ -26,11 +26,18 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from src.utils.closed_at import close_time_sql
 from src.utils.paths import (
     artifacts_dir,
     runtime_logs_dir,
     trade_journal_db_path,
 )
+
+# Canonical epoch-ms-aware close-time basis, shared with /performance, /stats,
+# /trades/closed (via src/web/api/_closed_at.py). Window closed trades on this —
+# NOT on trades.created_at (open time), which silently drops trades opened >24h
+# ago but closed inside the window (the "0 closed trades / $0 PnL" insights bug).
+_CLOSE_TIME_SQL = close_time_sql("t.closed_at", "op.updated_at", "t.timestamp")
 
 logger = logging.getLogger(__name__)
 
@@ -179,15 +186,18 @@ def summary_data() -> dict[str, Any]:
     try:
         trades = _safe_query(
             conn,
-            """
-            SELECT id, strategy_name, symbol, direction, pnl, status,
-                   exit_reason, timestamp AS opened_at, account_id,
-                   order_package_id, created_at
-            FROM trades
-            WHERE created_at >= ?
-              AND (is_backtest = 0 OR is_backtest IS NULL)
-              AND (is_demo = 0 OR is_demo IS NULL)
-            ORDER BY datetime(created_at) DESC
+            f"""
+            SELECT t.id, t.strategy_name, t.symbol, t.direction, t.pnl, t.status,
+                   t.exit_reason, t.timestamp AS opened_at, t.account_id,
+                   t.order_package_id, t.created_at
+            FROM trades t
+            LEFT JOIN order_packages op
+              ON op.order_package_id = t.order_package_id
+            WHERE t.status = 'closed'
+              AND {_CLOSE_TIME_SQL} >= datetime(?)
+              AND (t.is_backtest = 0 OR t.is_backtest IS NULL)
+              AND (t.is_demo = 0 OR t.is_demo IS NULL)
+            ORDER BY {_CLOSE_TIME_SQL} DESC
             LIMIT ?
             """,
             (start.isoformat(), _SUMMARY_RECENT_ROWS),
@@ -206,9 +216,16 @@ def summary_data() -> dict[str, Any]:
         )
         total_trades_24h = _safe_query(
             conn,
-            "SELECT COUNT(*) AS n FROM trades WHERE created_at >= ? "
-            "AND (is_backtest = 0 OR is_backtest IS NULL) "
-            "AND (is_demo = 0 OR is_demo IS NULL)",
+            f"""
+            SELECT COUNT(*) AS n
+            FROM trades t
+            LEFT JOIN order_packages op
+              ON op.order_package_id = t.order_package_id
+            WHERE t.status = 'closed'
+              AND {_CLOSE_TIME_SQL} >= datetime(?)
+              AND (t.is_backtest = 0 OR t.is_backtest IS NULL)
+              AND (t.is_demo = 0 OR t.is_demo IS NULL)
+            """,
             (start.isoformat(),),
         )
         total_packages_24h = _safe_query(
@@ -230,7 +247,10 @@ def summary_data() -> dict[str, Any]:
             ),
             "audit_events": len(audit_tail),
             "signals": sum(
-                1 for row in audit_tail if row.get("side") in {"buy", "sell"}
+                1
+                for row in audit_tail
+                if str(row.get("side", row.get("direction", ""))).lower()
+                in {"buy", "sell", "long", "short"}
             ),
         },
         "rows": {

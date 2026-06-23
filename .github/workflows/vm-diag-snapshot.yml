@@ -195,7 +195,7 @@ jobs:
               botpath="${path#api/bot/}"
               botbase="${botpath%%\?*}"   # drop query string for the allowlist check
               case "$botbase" in
-                performance|stats|positions|signals|strategies|backtests|backtests/sweeps|order-packages|trades/closed|trades/scores|pnl/history|candles|accounts/balances|liquidity|config|insights/summary|insights/recent|insights/health|insights/usage|insights/history|insights/strategy/*|health/latest|health/history|health/services|shadow/stats|shadow/drift|shadow/predictions|prop/fills|prop/tickets|prop/status|prop/reconcile)
+                performance|stats|positions|signals|strategies|strategies/*/review|strategies/*/tune|backtests|backtests/sweeps|order-packages|trades/closed|trades/scores|pnl/history|candles|accounts/balances|liquidity|config|insights/summary|insights/recent|insights/health|insights/usage|insights/history|insights/strategy/*|health/latest|health/history|health/services|shadow/stats|shadow/drift|shadow/predictions|prop/fills|prop/tickets|prop/status|prop/reconcile)
                   upstream_prefix="/api/bot/"
                   path="$botpath"
                   ;;

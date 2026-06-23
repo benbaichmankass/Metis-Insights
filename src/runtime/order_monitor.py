@@ -3254,6 +3254,41 @@ def _sweep_unlinked_packages(db) -> int:
         conn = db.connect()
         try:
             now_iso = datetime.now(timezone.utc).isoformat()
+            # (1) Packages whose refusal WAS journalled as a rejection trades row
+            #     (same order_package_id, a rejected*/exchange_rejected status) are
+            #     not generic orphans — the strategy fired and the RiskManager
+            #     deliberately refused it (e.g. a sub-1-contract whole-contract
+            #     size → rejected_too_small). Label them with the ACTUAL rejection
+            #     status so a deliberate risk refusal isn't mislabelled "never
+            #     executed" (misleading observability; the stranded-MGC case).
+            #     Pure relabel — both 'orphaned' and the rejected* statuses are in
+            #     _TERMINAL_TRADE_STATUSES, so the BUG-046 monocle gate (which only
+            #     blocks on status='open') is unaffected.
+            conn.execute(
+                "UPDATE order_packages "
+                "SET status = ( "
+                "        SELECT t.status FROM trades t "
+                "        WHERE t.order_package_id = order_packages.order_package_id "
+                "          AND t.status IN ('rejected', 'rejected_too_small', 'exchange_rejected') "
+                "        ORDER BY t.id DESC LIMIT 1), "
+                "    updated_at = ?, "
+                "    meta = json_set(COALESCE(meta, '{}'), "
+                "        '$.rejected_at', ?, "
+                "        '$.rejected_by', 'monitor_reconciler', "
+                "        '$.rejected_reason', "
+                "        'risk-refused (no fill placed); reconciled from the journalled rejection row') "
+                "WHERE status = 'open' "
+                "  AND linked_trade_id IS NULL "
+                "  AND datetime(created_at) <= datetime('now', '-5 minutes') "
+                "  AND EXISTS ( "
+                "        SELECT 1 FROM trades t "
+                "        WHERE t.order_package_id = order_packages.order_package_id "
+                "          AND t.status IN ('rejected', 'rejected_too_small', 'exchange_rejected')) ",
+                (now_iso, now_iso),
+            )
+            rejected_relabelled = conn.execute("SELECT changes()").fetchone()[0]
+            # (2) Genuinely never-dispatched packages (no fill, no rejection row) —
+            #     the original BUG-049 orphan sweep.
             conn.execute(
                 "UPDATE order_packages "
                 "SET status = 'orphaned', "
@@ -3268,14 +3303,17 @@ def _sweep_unlinked_packages(db) -> int:
                 "  AND datetime(created_at) <= datetime('now', '-5 minutes')",
                 (now_iso, now_iso),
             )
-            affected = conn.execute("SELECT changes()").fetchone()[0]
+            affected = rejected_relabelled + conn.execute("SELECT changes()").fetchone()[0]
             conn.commit()
         finally:
             conn.close()
         if affected:
             logger.info(
-                "_sweep_unlinked_packages: orphaned %d unlinked open package(s)",
+                "_sweep_unlinked_packages: reconciled %d unlinked open package(s) "
+                "(%d relabelled from journalled rejection, %d orphaned)",
                 affected,
+                rejected_relabelled,
+                affected - rejected_relabelled,
             )
         return affected
     except Exception as exc:  # noqa: BLE001
