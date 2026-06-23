@@ -354,7 +354,18 @@ def _section_actions(report: dict) -> str:
         out.append('<div class="cards">')
         for dom in ("health", "performance", "ml"):
             d = bs.get(dom) or {}
-            out.append(_kpi(f"{dom} backlog", f"{_f(d.get('drained'))} drained / {_f(d.get('open'))} open"))
+            open_ = d.get("open")
+            total = d.get("total")
+            drained = d.get("drained")
+            # Lead with the precise, always-computable open/total; drained is a
+            # secondary "progress this window" line (may be 0).
+            if total is not None:
+                head = f"{_f(open_)} open / {_f(total)} total"
+            else:
+                head = f"{_f(open_)} open"
+            if drained:
+                head += f" · {_f(drained)} drained"
+            out.append(_kpi(f"{dom} backlog", head))
         out.append("</div>")
     t3 = cons.get("tier3_proposals_pending") or []
     if t3:

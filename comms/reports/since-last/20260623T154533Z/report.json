@@ -213,16 +213,22 @@
     },
     "backlog_summary": {
       "health": {
-        "drained": 2,
-        "open": 132
+        "total": 134,
+        "open": 73,
+        "resolved": 61,
+        "drained": 2
       },
       "performance": {
-        "drained": 0,
-        "open": null
+        "total": 43,
+        "open": 28,
+        "resolved": 15,
+        "drained": 0
       },
       "ml": {
-        "drained": 0,
-        "open": null
+        "total": 43,
+        "open": 16,
+        "resolved": 27,
+        "drained": 0
       }
     },
     "tier3_proposals_pending": []

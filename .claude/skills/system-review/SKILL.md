@@ -158,12 +158,27 @@ thing a sub-review does, it STILL does, including its repo-local writes:
   report reads any `claudeScore`; and
 - all three **drain their own backlogs**.
 
-Record the roll-up in `consolidated.backlog_summary`. **Regression guard
-(2026-06-23):** treating report mode as read-only silently dropped grading for a
-week — the 06-22 and 06-23 system-reports synthesized per-trade dossiers from
-grades last refreshed 06-18, so the dashboard "Claude-graded" count read 0 on
-every recent package. Grading is a mandatory write-side step of every
-system-report, not an optional refresh.
+Record the roll-up in `consolidated.backlog_summary` — **computed, never
+hand-entered.** Run:
+```
+python3 scripts/reports/backlog_counts.py --since <window_start>
+```
+and copy its `{total, open, resolved, drained}` per domain straight into
+`backlog_summary`. **Backlog-count regression guard (2026-06-23):** a
+hand-assembled summary put the *total* in `health.open` ("132" when real open was
+73) and left `performance`/`ml.open` null → "— open" (real opens 28 / 16) — even
+though every count is exact from the backlog files. The open/total counts are
+always computable; if `backlog_summary` carries a null `open`, or an `open` that
+equals `total` for a domain whose file has resolved items, you guessed instead of
+running the counter — STOP and run it. (`drained` is precise only when
+`resolved_at` is a full ISO timestamp; a date-only `resolved_at` degrades it to
+day granularity — write full timestamps when you resolve an item.)
+
+**Grading regression guard (2026-06-23):** treating report mode as read-only
+silently dropped grading for a week — the 06-22 and 06-23 system-reports
+synthesized per-trade dossiers from grades last refreshed 06-18, so the dashboard
+"Claude-graded" count read 0 on every recent package. Grading is a mandatory
+write-side step of every system-report, not an optional refresh.
 
 If a relay is unreachable even after a `vm-web-api-recover` retry, emit the
 partial report (the failed domain's sub-object carries its own degraded grade)
