@@ -198,6 +198,14 @@ automatically restarted on the next deploy.
 fully replaces the default. To add to the default rather than replace,
 include the defaults explicitly in the value.
 
+**`ict-claude-bridge` boot-enable (2026-06-23):** the restart enumeration only
+acts on *loaded* units, so a disabled-and-stopped service is never (re)started by
+a deploy. `ict-claude-bridge` (the prop / Claude-comms bot) was left disabled
+after the 2026-06-14 Ampere cutover and stayed dark across reboots. `scripts/install_systemd_units.sh`
+now `enable --now`s it on the trader box (idempotent; gateway VM excluded by the
+role-prune block; tolerant of a failed start when the token isn't synced yet), so
+it survives reboots like the other core services.
+
 ### Post-deploy version round-trip assertion
 
 After the restarts, the script asserts that `/api/diag/version` on
