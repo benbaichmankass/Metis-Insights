@@ -603,11 +603,15 @@
       "tier": 3,
       "trigger_condition": "Next /performance-review, or a dedicated OANDA/FX research session.",
       "resolution_criteria": "A backtest-validated OANDA-US-tradeable FX trend strategy is wired onto oanda_practice (mode: live), fills cleanly on the practice venue, and xauusd_trend_1h's removal is either permanent or the strategy is re-pointed.",
-      "status": "open",
+      "status": "resolved",
       "updates": [
         {
           "at": "2026-06-23T08:50:00+00:00",
           "note": "2026-06-23: Phase-0 re-study confirmed FX majors FAIL trend_donchian at validated params (EURUSD 1h -28.5R train; only 4h weakly +), so a live re-point is a per-pair TUNING project needing a fresh trainer-VM backtest (sandbox can't run it: no FX data, egress blocked). Operator chose (2026-06-23) to RUN the trainer-VM FX backtest sweep. Sweep kicked off on the trainer (autonomous): fetch EUR/JPY/GBP/AUD/CAD majors, screening trend(1h/4h)+pullback(2h) net-of-fee train/OOS + a bounded param grid, then the full validation gate on any robust-both-windows cell. Outcome -> either a paper_ready wiring PR (exact diffs already drafted) or 'no FX cell clears -> keep shelved'. Stays open pending the sweep verdict."
+        },
+        {
+          "at": "2026-06-23T10:05:00+00:00",
+          "note": "SWEEP COMPLETE (trainer VM, 2026-06-23, operator-approved). Screened 5 OANDA-US majors (EUR/GBP/JPY/AUD/CAD) x trend(1h/4h)+pullback(2h) x a param grid (donchian 15/20/30, atr_stop 2.0/2.5/3.0, trail 3.0/3.5, min_conf 0/.05/.1) x train(<2025)+OOS(2025+) net-of-fee at 2.0 AND 3.0 bps RT = 1350 cells. RESULT: 12 cells net-positive in BOTH windows at 2.0bps (best USDCAD trend/4h +3.1 train /+2.7 OOS; USDJPY pullback +5.4/+1.8; EURUSD trend/4h +1.3/+1.9) but ZERO survive the 3.0bps fee stress. The positives are tiny (~+2.7R OOS / ~62 trades / 6mo) and fee-fragile, evaporating within the realistic OANDA-major spread band (2-3bps RT). A k-fold validation gate (requires 2x-fee headroom) would reject all, so it was not run. VERDICT: no FX cell clears the robustness bar -> KEEP the OANDA sleeve SHELVED (strategies:[], dry_run); XAU stays unrouted (orphan noise already solved). Confirms the prior Phase-0 rejection of FX majors. Revisit only if a NEW strategy type (e.g. carry/cross-sectional) changes the thesis. Evidence: trainer /home/ubuntu/fx-sweep/out/screen_results.csv; relay issues #4261/#4264/#4269/#4278."
         }
       ]
     },
