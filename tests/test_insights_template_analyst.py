@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -41,6 +42,13 @@ def _seed_trades(db_path: Path, rows: list[dict]) -> None:
     from src.units.db.database import Database
 
     Database(str(db_path))  # bootstrap tables
+    # summary_data() windows closed trades on the canonical close-time basis
+    # (epoch-ms-aware closed_at -> order_packages.updated_at -> open timestamp).
+    # These fixtures carry no closed_at / order package, so close-time falls back
+    # to `timestamp`; default it to "just now" so a "recently closed trade"
+    # fixture actually lands inside the 24h window (it previously relied on the
+    # created_at default, which the old created_at-window query used).
+    recent_ts = datetime.now(timezone.utc).isoformat()
     conn = sqlite3.connect(str(db_path))
     cur = conn.cursor()
     for r in rows:
@@ -49,7 +57,7 @@ def _seed_trades(db_path: Path, rows: list[dict]) -> None:
             "position_size, status, pnl, exit_reason, strategy_name, "
             "is_backtest, is_demo) VALUES (?,?,?,?,?,?,?,?,?,0,0)",
             (
-                r.get("timestamp", "2026-05-26T19:00:00+00:00"),
+                r.get("timestamp", recent_ts),
                 r["symbol"], r["direction"], r["entry_price"],
                 r["position_size"], r["status"], r["pnl"],
                 r.get("exit_reason"), r.get("strategy_name"),
