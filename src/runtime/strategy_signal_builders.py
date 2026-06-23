@@ -696,6 +696,28 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
     vwap_cfg = strategies_cfg.get("vwap", {}) or {}
 
     symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+
+    # Honour the YAML ``enabled`` flag as the single source of truth — match
+    # every other builder (ict_scalp/trend_donchian/fade/htf_pullback/…) which
+    # short-circuit to side="none" BEFORE any fetch + eval emission. vwap was
+    # the lone builder missing this gate, so the M7-killed (enabled:false) vwap
+    # kept emitting ``vwap_eval`` rows + burning per-tick eval cycles even
+    # though the order path correctly skipped it (BL-20260610-001). A disabled
+    # strategy must go fully silent on the audit surface.
+    if not bool(vwap_cfg.get("enabled", False)):
+        logger.info(
+            "vwap: strategy disabled in config/strategies.yaml — "
+            "returning side=none"
+        )
+        return _with_signal_package("vwap", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "vwap",
+                "reason": "disabled_in_yaml",
+            },
+        })
+
     timeframe = (
         vwap_cfg.get("timeframe")
         or settings.get("TIMEFRAME")

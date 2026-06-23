@@ -378,12 +378,16 @@
           "at": "2026-06-12T06:10:00+00:00",
           "by": "claude (/health-review)",
           "note": "2026-06-12: STILL firing. Snapshot #3438 audit tail shows vwap_eval at 06:02:03Z (BTCUSDT 5m, reason 'regime_policy_skip: regime=sideways/low', confidence 0). vwap remains absent from the loaded-strategies list (15 loaded, vwap not among them) yet still emits eval \u2014 enabled:false still not honored by the eval/telemetry path. No trading impact (no packages). Carry; fix unchanged (gate eval emission on the loaded check)."
+        },
+        {
+          "at": "2026-06-23T08:25:00+00:00",
+          "note": "Fixed: vwap_signal_builder was the lone builder with no enabled short-circuit (every other builder returns side=none on enabled:false BEFORE any fetch/eval). Added the same gate so the M7-killed vwap (enabled:false) emits ZERO vwap_eval rows + burns no per-tick eval cycles. +1 test (test_vwap_disabled_short_circuits_without_eval); updated 3 timeframe tests to set enabled:true since they exercise the post-gate path. trend_donchian_1h also has the gate, so other disabled strategies are already silent."
         }
       ],
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-23T08:25:00+00:00",
+      "resolved_by": "claude (system-report session)",
+      "resolution": "Added the enabled:false short-circuit to vwap_signal_builder; disabled strategies now emit zero *_eval rows.",
       "snoozed_until": null,
       "updates": [
         {
