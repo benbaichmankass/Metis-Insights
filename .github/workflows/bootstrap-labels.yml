@@ -45,6 +45,11 @@ jobs:
           script: |
             const LABELS = [
               {
+                name: 'grade-order-packages',
+                color: '0e8a16',
+                description: 'Triggers grade-order-packages — runner SSHes trainer, runs the scorer, commits new order-package grades (VM->repo grading bridge).',
+              },
+              {
                 name: 'sync-vm-secrets-request',
                 color: '1d76db',
                 description: 'Dispatch sync-vm-secrets (Actions secrets -> live VM .env); Tier-2 ack rides in chat',
