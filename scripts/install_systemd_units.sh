@@ -295,6 +295,28 @@ if [ -f "${_DATADIR_DROPIN_SRC}" ]; then
     fi
 fi
 
+# Why ict-prop-telegram-listener needs the data-dir drop-in:
+#   src/prop/telegram_inbound.py reads the prop journal (prop_journal →
+#   trade_journal_db_path(), DATA_DIR-aware) to resolve the open ticket for a
+#   reported fill/close, and ingest_report WRITES prop_fills/prop_tickets in the
+#   same canonical DB. ict-web-api / the trader run with DATA_DIR=/data/bot-data
+#   via their own drop-ins. Without this drop-in the listener inherits no
+#   DATA_DIR (stripped from .env by fix_data_dir.sh), falls back to
+#   <repo>/trade_journal.db, and would write report-backs to a DIFFERENT DB than
+#   the live trader + API read — the same writer/reader path-split as the
+#   ict-telegram-bot / ict-hourly-snapshot cases above. Same generic data-dir
+#   drop-in (mount-aware flavor) the other journal readers/writers carry.
+_PROPTGLISTENER_DROPIN_DST="${SYSTEMD_DIR}/ict-prop-telegram-listener.service.d/data-dir.conf"
+if [ -f "${_DATADIR_DROPIN_SRC}" ]; then
+    if [ ! -e "${_PROPTGLISTENER_DROPIN_DST}" ] || ! cmp -s "${_DATADIR_DROPIN_SRC}" "${_PROPTGLISTENER_DROPIN_DST}"; then
+        echo ">>> install_systemd_units: dropin data-dir.conf → ${_PROPTGLISTENER_DROPIN_DST}"
+        "${SUDO[@]}" mkdir -p "$(dirname "${_PROPTGLISTENER_DROPIN_DST}")"
+        "${SUDO[@]}" cp "${_DATADIR_DROPIN_SRC}" "${_PROPTGLISTENER_DROPIN_DST}"
+        "${SUDO[@]}" chmod 0644 "${_PROPTGLISTENER_DROPIN_DST}"
+        changed=1
+    fi
+fi
+
 if [ "$changed" -eq 1 ]; then
     echo ">>> install_systemd_units: daemon-reload"
     if ! "${SUDO[@]}" systemctl daemon-reload 2>&1; then
