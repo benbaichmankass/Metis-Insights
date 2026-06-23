@@ -356,13 +356,19 @@ def execute_pkg(
         # (path 2). Mirrors the BUG-044 contract: every open package pairs with a
         # journal-row reason. Best-effort — a logging failure must never break the
         # (no-op) dry dispatch.
+        #
+        # Smoke/test orders (_is_test_order) are EXCLUDED: the smoke path journals
+        # its own 'dry_run' row via the coordinator, so a rejection row here would
+        # double-log it. Only real shadow/dry decisions (which otherwise orphan)
+        # get the rejection row.
         try:
-            log_rejection_to_journal(
-                pkg, account_cfg,
-                reason="dry_run_no_order_placed",
-                status="rejected",
-                sized_qty=float(qty or 0.0),
-            )
+            if not _is_test_order(pkg):
+                log_rejection_to_journal(
+                    pkg, account_cfg,
+                    reason="dry_run_no_order_placed",
+                    status="rejected",
+                    sized_qty=float(qty or 0.0),
+                )
         except Exception as exc:  # noqa: BLE001 — never let journaling crash dispatch
             logger.warning(
                 "execute_pkg: dry-run rejection-journal write failed "

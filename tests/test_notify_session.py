@@ -195,8 +195,10 @@ class TestTelegramDirectSuccess(unittest.TestCase):
         env = {"TELEGRAM_BOT_TOKEN": "abc:def", "TELEGRAM_CHAT_ID": "111"}
         with patch.dict("os.environ", env, clear=False):
             with patch("urllib.request.urlopen", return_value=fake) as m:
-                # Direct helper returns cleanly.
-                self.assertIsNone(notify.send_telegram_direct("hi"))
+                # Direct helper returns True on a confirmed send (2026-06-23:
+                # the return is now bool so a queue-drainer can tell a real
+                # send from a creds-missing skip; see TestTelegramDirectMissingCreds).
+                self.assertIs(notify.send_telegram_direct("hi"), True)
                 self.assertTrue(m.called)
                 # Script wrapper exits 0.
                 rc = ns._send("hi")
@@ -219,7 +221,10 @@ class TestTelegramDirectMissingCreds(unittest.TestCase):
             clear=True,
         ):
             with patch.object(notify.logger, "warning") as warn:
-                self.assertIsNone(notify.send_telegram_direct("hi"))
+                # Returns False (not None, no raise) on missing creds so the
+                # drainer keeps the queued file instead of deleting an
+                # undelivered ping (2026-06-23 silent-ping-loss fix).
+                self.assertIs(notify.send_telegram_direct("hi"), False)
                 self.assertTrue(warn.called)
             # Script must still exit 0 for back-compat.
             rc = ns._send("hi")
