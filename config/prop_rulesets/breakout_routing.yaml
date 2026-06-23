@@ -23,20 +23,32 @@ strategies:
 
 # Per-symbol overrides read by breakout_executor._per_symbol: the DXTrade symbol
 # and the $-risk per 1.0 unit per 1 price-point (contract size). Crypto-native
-# default 1.0; VERIFY each against the DXTrade instrument info at wire time.
+# default 1.0; VERIFY the contract size against the DXTrade instrument info at
+# wire time.
+#
+# `dxtrade_symbol` is the symbol the EXECUTOR trades on the Breakout terminal —
+# the bot's canonical symbol (ETHUSDT) is NOT what the venue lists. Filling these
+# in stops the executor wasting time/compute resolving "ETHUSDT → which DXTrade
+# instrument?" by hand (operator-confirmed 2026-06-23: the venue drops the perp
+# `T` suffix → ETHUSD / SOLUSD). The bridge's two halves read this same map via
+# src/prop/symbol_map.py, so an inbound report keyed on the venue symbol
+# normalises back to the canonical bot symbol for journaling.
 symbols:
   SOLUSDT:
-    dxtrade_symbol: null             # [TODO confirm in Terminal — e.g. "SOLUSD"]
+    dxtrade_symbol: SOLUSD           # operator-confirmed venue symbol (drops perp T)
     contract_value_usd_per_point: 1.0
   ETHUSDT:
-    dxtrade_symbol: null             # [TODO confirm in Terminal — e.g. "ETHUSD"]
+    dxtrade_symbol: ETHUSD           # operator-confirmed venue symbol (drops perp T)
+    contract_value_usd_per_point: 1.0
+  BTCUSDT:
+    dxtrade_symbol: BTCUSD           # same venue convention; not yet a routed prop strategy
     contract_value_usd_per_point: 1.0
 
 # Legacy single-symbol map (kept for back-compat with breakout_ticket.py).
 symbol_map:
-  BTCUSDT: null
-  SOLUSDT: null
-  ETHUSDT: null
+  BTCUSDT: BTCUSD
+  SOLUSDT: SOLUSD
+  ETHUSDT: ETHUSD
 
 # Default sizing fallback when a symbol has no per-symbol override above.
 contract_value_usd_per_point: 1.0
