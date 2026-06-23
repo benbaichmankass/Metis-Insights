@@ -390,4 +390,26 @@ for timer_path in deploy/*.timer; do
 done
 shopt -u nullglob
 
+# ict-claude-bridge is a CORE always-on service (the prop / Claude-comms bot),
+# NOT a oneshot — but unlike the trader / web-api / telegram services (enabled
+# at provisioning), it was left disabled after the 2026-06-14 Ampere cutover and
+# silently stayed dark (its TELEGRAM_CLAUDE_BOT_TOKEN also didn't carry over), so
+# prop tickets fell back to the trader bot. Enable + start it on the trader box
+# so it survives a reboot like the other core services; the gateway-prune block
+# above keeps it off the gateway VM. Idempotent (skip when already enabled +
+# active) and tolerant of a failed start (e.g. token not yet synced) so a deploy
+# never hard-fails on it.
+if [ "$_VM_ROLE" != "gateway" ] && [ -f deploy/ict-claude-bridge.service ]; then
+    if "${SUDO[@]}" systemctl is-enabled ict-claude-bridge.service >/dev/null 2>&1 \
+        && "${SUDO[@]}" systemctl is-active ict-claude-bridge.service >/dev/null 2>&1; then
+        :  # already enabled + running — nothing to do
+    else
+        echo ">>> install_systemd_units: enable --now ict-claude-bridge.service (core always-on)"
+        if ! "${SUDO[@]}" systemctl enable --now ict-claude-bridge.service 2>&1; then
+            echo ">>> install_systemd_units: WARN could not enable ict-claude-bridge.service (no systemd? token unset?)"
+        fi
+        changed=1
+    fi
+fi
+
 exit 0
