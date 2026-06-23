@@ -1,0 +1,477 @@
+{
+  "report_id": "RPT-20260623-133610-since-last",
+  "reviewed_at": "2026-06-23T13:36:10+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-06-23T05:11:00+00:00",
+  "window_end": "2026-06-23T13:36:10+00:00",
+  "prior_report_id": "RPT-20260623-051100-since-last",
+  "overall_assessment": "caution",
+  "health": {
+    "overall_assessment": "healthy",
+    "findings": {
+      "heartbeat": {
+        "status": "ok",
+        "note": "Live (age ~5s); uptime ~35m; last tick 13:09Z; deployed git_sha 52d929f8 (current with main)."
+      },
+      "services": {
+        "status": "ok",
+        "note": "ict-trader-live + ict-web-api up; diag relay + API serving; git-sync auto-deploying main."
+      },
+      "live_accounts": {
+        "status": "ok",
+        "note": "alpaca_paper, breakout_1, bybit_1, bybit_2, ib_paper = live; ib_live & oanda_practice off (OANDA shelved per FX-sweep)."
+      },
+      "strategy_fleet": {
+        "status": "ok",
+        "note": "36 strategies loaded & evaluating; chop regime on BTC (ADX ~16-17) -> fade/squeeze/scalp/fvg non-actionable (benign, no setups)."
+      },
+      "grading_pipeline": {
+        "status": "ok",
+        "note": "FIXED this session: VM->repo grading bridge built; now scores the live VM's fresh DB. 2492 packages graded incl. today; in-window packages now carry C/D grades. This was the 06-22/06-23 under-reporting cause."
+      },
+      "signal_to_order_plumbing": {
+        "status": "concern",
+        "note": "In-window order packages orphaning at aggregated_target_qty=0 (BUG-049) -> signals size to zero, package created, then reconciler-orphaned ~5m later. Real execution is sparse as a result."
+      },
+      "exit_path": {
+        "status": "watch",
+        "note": "All 5 in-window closes were closeReason=reconciler; none hit a clean TP/SL. Worth confirming the exit/monitor path is exiting on strategy logic, not just reconciliation."
+      },
+      "diag_relay_allowlist": {
+        "status": "watch",
+        "note": "/api/bot/ml/status (and strategies, prop) are not on the vm-diag relay read allowlist -> a blind spot for ML registry detail over the issue relay (worked around via order-package modelScores + trainer relay)."
+      }
+    }
+  },
+  "performance": {
+    "overall_assessment": "caution"
+  },
+  "ml": {
+    "overall_assessment": "healthy",
+    "model_status": [
+      {
+        "model_id": "conviction-meta-v1",
+        "stage": "shadow",
+        "note": "Actively scoring in-window packages (e.g. 0.737). Shadow only."
+      },
+      {
+        "model_id": "execution-quality-baseline-v0",
+        "stage": "shadow",
+        "note": "Scoring (negative tilt ~ -0.20). Shadow only."
+      },
+      {
+        "model_id": "prop-mission-policy-baseline-v0",
+        "stage": "shadow",
+        "note": "Scoring (0.0). Shadow only."
+      },
+      {
+        "model_id": "setup-quality-audit-baseline-v0",
+        "stage": "shadow",
+        "note": "Scoring. Shadow only."
+      },
+      {
+        "model_id": "setup-quality-baseline-v0",
+        "stage": "shadow",
+        "note": "Scoring. Shadow only."
+      },
+      {
+        "model_id": "setup-quality-lgbm-v2",
+        "stage": "shadow",
+        "note": "Scoring (positive tilt ~0.11). Shadow only."
+      },
+      {
+        "model_id": "trade-outcome-global-baseline-v0",
+        "stage": "shadow",
+        "note": "Scoring (~0.25). Shadow only."
+      },
+      {
+        "model_id": "trade-outcome-winrate-baseline-v0",
+        "stage": "shadow",
+        "note": "Scoring (~0.25). Shadow only."
+      }
+    ],
+    "promotion_recommendations": [],
+    "_note": "Fleet visibility from order-package modelScores (relay allowlist blocks /api/bot/ml/status). 8 models at shadow, actively scoring every package; none at advisory (promotion is operator-gated, as designed). Registry-level training detail not pulled this run."
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "Window 05:11Z->13:36Z. System healthy: heartbeat live, 36 strategies evaluating, deployed current. The grading lapse that under-reported the last two reports is RESOLVED (VM->repo bridge + live-DB freshness; 2492 packages graded incl. today). Real money ~flat (one BTC long -$1.64 on 0.001 sizing); paper +$110 in-window (-$4288/24h). CAUTION: in-window order packages orphan at target_qty=0 (BUG-049) and all closes were reconciler-driven, not clean TP/SL.",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Investigate zero-qty order packages orphaning (BUG-049)",
+        "source_review": "cross",
+        "tier": 1,
+        "detail": "Every in-window package shows aggregated_target_qty=0 -> created then reconciler-orphaned ~5m later. Signals generate but size to zero, so real execution is near-nil. Confirm whether this is correct sub-conviction sizing or a sizing/rounding defect.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 2,
+        "title": "Exits are reconciler-driven, not TP/SL",
+        "source_review": "performance",
+        "tier": 1,
+        "detail": "All 5 in-window closes had closeReason=reconciler (incl. the real BTC trade and its paper twin). Verify the monitor/exit path is closing on strategy SL/TP, not relying on reconciliation.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 3,
+        "title": "Paper reconciler closes show entry==exit with non-zero P&L",
+        "source_review": "performance",
+        "tier": 1,
+        "detail": "Paper ADA/XRP closes report +$507/+$333/+$98 with entryPrice==exitPrice -> likely a reconciler PnL-attribution artifact inflating paper P&L. Audit realizedPnl on reconciler closes.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 4,
+        "title": "Add /api/bot/ml/status (+strategies, prop) to the vm-diag relay allowlist",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "These read-only endpoints aren't on the relay's path allowlist, so ML registry detail can't be pulled over the issue relay. A one-line allowlist add restores full report coverage.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 5,
+        "title": "Optional: add GRADING_PAT secret for unattended grading auto-merge",
+        "source_review": "cross",
+        "tier": 2,
+        "detail": "The grading bridge opens a grades PR each run; without a GRADING_PAT it can't auto-merge (GITHUB_TOKEN PRs get no CI), so a session must adopt the branch. A fine-grained PAT (contents+PR write) makes it fully hands-off.",
+        "operator_action_required": true
+      }
+    ],
+    "cross_review_notes": [
+      "Grading lapse RESOLVED: built the VM->repo grading bridge (#4309), backfilled 1049 grades (#4312), made its auto-merge work (#4313), and fixed it to score the live VM's FRESH DB instead of the trainer's midnight-lagged copy (#4317) + graded today's packages (#4320). Journal now 2492 graded; in-window packages carry C/D grades. Root cause of the 06-22/06-23 under-reporting: report-mode was treated as read-only (process fix #4285) AND no automated commit path existed (this session).",
+      "Signal->order->exit plumbing theme: in-window packages orphan at target_qty=0 (BUG-049) AND all 5 closes were reconciler-driven (no clean TP/SL). Both point at the execution/exit path, not signal generation -- strategies evaluate normally; the market is in chop.",
+      "Real vs paper diverge sharply: real ~flat (-$1.64 in-window on 0.001 BTC sizing) while paper swings large (-$4288/24h, +$110 in-window). Paper sizing is far larger, so paper P&L does not reflect real money at risk -- the two are never blended.",
+      "Market backdrop: BTC -3.2% over the window (64,155 -> 62,093, low 61,934). The htf_pullback_trend_2h BTC long (real + paper twin) was a long into that slide -> both lost; closed by reconciler at 06:21Z."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": -1.64,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "trades": 1,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": -1.64,
+        "profit_factor": 0.0,
+        "max_drawdown": -1.64,
+        "per_strategy": [
+          {
+            "name": "htf_pullback_trend_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -1.64
+          }
+        ],
+        "per_asset_class": {
+          "crypto": -1.64,
+          "index": null,
+          "commodity": null,
+          "equity": null,
+          "fx": null
+        },
+        "equity_curve": [
+          {
+            "t": "2026-06-23T06:21:11+00:00",
+            "cum": -1.64
+          }
+        ]
+      },
+      "paper": {
+        "window_pnl": 110.08,
+        "prior_window_pnl": null,
+        "trend": "up",
+        "trades": 4,
+        "wins": 3,
+        "win_rate": 75.0,
+        "expectancy": 27.52,
+        "profit_factor": 1.13,
+        "max_drawdown": -828.85,
+        "per_strategy": [
+          {
+            "name": "trend_donchian_ada_4h",
+            "trades": 2,
+            "win_rate": 100.0,
+            "pnl": 840.55
+          },
+          {
+            "name": "trend_donchian_xrp_4h",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 98.57
+          },
+          {
+            "name": "htf_pullback_trend_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -828.85
+          }
+        ],
+        "per_asset_class": {
+          "crypto": 110.08
+        },
+        "equity_curve": [
+          {
+            "t": "2026-06-23T06:21:11+00:00",
+            "cum": -828.85
+          },
+          {
+            "t": "2026-06-23T06:22:00+00:00",
+            "cum": -730.28
+          },
+          {
+            "t": "2026-06-23T06:24:47+00:00",
+            "cum": -396.91
+          },
+          {
+            "t": "2026-06-23T08:30:11+00:00",
+            "cum": 110.08
+          }
+        ]
+      },
+      "prop": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "fills_reported": 3,
+        "tickets_emitted": 5,
+        "unacted_tickets": 0,
+        "rule_distance": {
+          "daily_loss_remaining": null,
+          "static_dd_remaining": null
+        },
+        "per_account": [
+          {
+            "account_id": "breakout_1",
+            "balance": null,
+            "equity": null,
+            "realized_window": null
+          }
+        ]
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": 64154.7,
+        "close": 62093.2,
+        "high": 64272.7,
+        "low": 61933.5,
+        "pct_change": -3.21,
+        "range_pct": 3.65,
+        "note": "Risk-off slide over the window; chop regime (ADX ~16-17). Other traded symbols not captured this run (single-symbol candle pull)."
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": 2799,
+        "order_package_id": null,
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "htf_pullback_trend_2h",
+        "opened_at": "2026-06-22T22:00:23+00:00",
+        "closed_at": "2026-06-23T06:21:11+00:00",
+        "hold_seconds": 29448,
+        "entry_price": 64322.8,
+        "exit_price": 62724,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 0.001,
+        "pnl": -1.64,
+        "pnl_percent": -2.55,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "The only REAL-money close in-window: a BTC long into a -3.2% slide, closed by reconciler not a clean SL. Grading is live (in-window packages graded C/D); this trade's package->grade join not captured (relay 55kB truncation)."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 2798,
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "htf_pullback_trend_2h",
+        "opened_at": "2026-06-22T22:00:22+00:00",
+        "closed_at": "2026-06-23T06:21:11+00:00",
+        "hold_seconds": 29449,
+        "entry_price": 64293,
+        "exit_price": 62725,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 0.506,
+        "pnl": -828.85,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "Paper twin of the real BTC long (same entry/exit, qty 506x larger). Same -3.2% slide loss, reconciler close. Illustrates how paper sizing dwarfs real."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 2807,
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ADAUSDT",
+        "direction": "long",
+        "strategy": "trend_donchian_ada_4h",
+        "opened_at": "2026-06-23T08:30:11+00:00",
+        "closed_at": "2026-06-23T08:30:11+00:00",
+        "hold_seconds": 0,
+        "entry_price": 0.1513,
+        "exit_price": 0.1513,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 46882,
+        "pnl": 507.19,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "Reconciler close with entryPrice==exitPrice yet +$507 realizedPnl -> likely a paper PnL-attribution artifact, not a genuine edge. Flagged for audit."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 2804,
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ADAUSDT",
+        "direction": "long",
+        "strategy": "trend_donchian_ada_4h",
+        "opened_at": "2026-06-23T06:24:47+00:00",
+        "closed_at": "2026-06-23T06:24:47+00:00",
+        "hold_seconds": 0,
+        "entry_price": 0.1542,
+        "exit_price": 0.1542,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 42004,
+        "pnl": 333.37,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "Same entry==exit reconciler-PnL artifact pattern as 2807."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 2803,
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "long",
+        "strategy": "trend_donchian_xrp_4h",
+        "opened_at": "2026-06-23T06:22:00+00:00",
+        "closed_at": "2026-06-23T06:22:00+00:00",
+        "hold_seconds": 0,
+        "entry_price": 1.1083,
+        "exit_price": 1.1083,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 2975.3,
+        "pnl": 98.57,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "Same entry==exit reconciler-PnL artifact pattern."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      }
+    ],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 5,
+      "summarized_trades": 0,
+      "rule": "full-per-trade (since-last/daily)"
+    },
+    "backlog_summary": {
+      "health": {
+        "drained": 0,
+        "open": null
+      },
+      "performance": {
+        "drained": 0,
+        "open": null
+      },
+      "ml": {
+        "drained": 0,
+        "open": null
+      }
+    },
+    "tier3_proposals_pending": []
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260623T133610Z/report.json",
+    "html_path": "comms/reports/since-last/20260623T133610Z/report.html",
+    "md_path": "comms/reports/since-last/20260623T133610Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260623T133610Z/report.html",
+    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260623-133610-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "send-ping",
+    "priority": "normal",
+    "message": "[system-report:since-last] roll-up CAUTION: H:healthy P:caution M:healthy. Grading lapse fixed (2492 graded). https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260623-133610-since-last"
+  }
+}
