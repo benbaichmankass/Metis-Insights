@@ -168,13 +168,12 @@ def test_handle_bad_command_returns_usage(isolated_db: Path) -> None:
 # ── menu prompt ↔ parser lock-step ────────────────────────────────────
 
 def test_menu_prompt_examples_are_ingestible() -> None:
-    """Every example line in the bot's 'Prop report prompt' must parse — so the
-    prompt the operator hands the executor can never drift from the grammar the
+    """Every example line in the executor-assistant prompt must parse — so the
+    prompt the operator hands the assistant can never drift from the grammar the
     parser ingests."""
-    pytest.importorskip("telegram")  # menu imports python-telegram-bot
-    from src.bot.menu import PROP_REPORT_PROMPT
+    from src.prop.telegram_commands import REPORT_PROMPT
 
-    body = PROP_REPORT_PROMPT.split("Examples:", 1)[1]
+    body = REPORT_PROMPT.split("Examples:", 1)[1]
     examples = [ln.strip() for ln in body.splitlines() if ln.strip()]
     assert examples, "prompt carries no example lines"
     actions = set()

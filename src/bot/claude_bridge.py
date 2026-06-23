@@ -35,6 +35,7 @@ Optional:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -42,9 +43,22 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
-from telegram import BotCommand, Update
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram import (
+    BotCommand,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Update,
+)
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
+from src.prop.telegram_commands import REPORT_PROMPT, USAGE
 from src.utils.paths import runtime_logs_dir
 
 load_dotenv()
@@ -96,27 +110,91 @@ def _is_authorized(update: Update) -> bool:
     return chat is not None and chat.id == ALLOWED_CHAT_ID
 
 
+# ── prop menu ──────────────────────────────────────────────────────────
+# This bot is the **prop-account bot** (TELEGRAM_CLAUDE_BOT_TOKEN — the channel
+# prop tickets are emitted to), so beyond delivering Claude's updates it now
+# carries the prop report-back surface: a menu with the executor-assistant
+# prompt + a format reminder, and a free-text handler that ingests a typed
+# report-back command. The Claude update delivery is unchanged.
+CB_PROP_PROMPT = "prop:prompt"
+CB_PROP_HELP = "prop:help"
+
+
+def _prop_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📋 Prop report prompt", callback_data=CB_PROP_PROMPT)],
+        [InlineKeyboardButton("❓ Report format", callback_data=CB_PROP_HELP)],
+    ])
+
+
+_MENU_TEXT = (
+    "Prop bot — report a Breakout trade with one line.\n"
+    "• Tap “📋 Prop report prompt” for the block to give your executor "
+    "assistant, then paste its reply back here to log the trade.\n"
+    "• Or just type it: close ETHUSD 2950 +80 tp · skip ETHUSD · bal 5040 5010\n"
+    "(I also post Claude's sprint / review / system updates here.)"
+)
+
+
 async def start_cmd(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-    if not _is_authorized(update):
+    if not _is_authorized(update) or update.message is None:
         return
-    await update.message.reply_text(
-        "Claude update channel — one-way.\n"
-        "I post sprint, health-review, training and system updates here, "
-        "and ping you when I'm waiting on input.\n"
-        "This channel doesn't take replies: respond on GitHub (PR/issue) "
-        "or start a new Claude session."
-    )
+    await update.message.reply_text(_MENU_TEXT, reply_markup=_prop_menu_keyboard())
 
 
-async def _one_way_notice(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-    """Polite reply so the operator isn't left wondering why a typed
-    message went unanswered. This bot is send-only — it never forwards
-    operator text anywhere."""
-    if not _is_authorized(update):
+# /menu is an alias for /start.
+menu_cmd = start_cmd
+
+
+async def on_callback(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """Menu button handler — the prompt + the format reminder."""
+    query = update.callback_query
+    if query is None:
         return
+    if not _is_authorized(update):
+        await query.answer("Unauthorised", show_alert=True)
+        return
+    await query.answer()
+    data = query.data or ""
+    # Plain text (no parse_mode) — REPORT_PROMPT/USAGE carry <SYMBOL>/<...>
+    # placeholders that an HTML parse_mode would reject as bad entities.
+    if data == CB_PROP_PROMPT:
+        await query.message.reply_text(REPORT_PROMPT)
+    elif data == CB_PROP_HELP:
+        await query.message.reply_text(USAGE)
+
+
+async def _on_operator_message(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """Free-text handler — the inbound half of the prop manual bridge.
+
+    A typed line is tried as a prop report-back command (``close ETHUSD 2950 +80
+    tp`` / ``skip …`` / ``bal …``). A recognised command is ingested via the same
+    ``prop_report.ingest_report`` chokepoint the dashboard/REST path uses and we
+    reply with a one-line ack — closing the bridge with no Claude/dashboard
+    middle-man. Anything that isn't a prop command gets the menu hint. The DB
+    ingest runs off the event loop (``to_thread``) so polling never stalls."""
+    if not _is_authorized(update) or update.message is None:
+        return
+    text = update.message.text or ""
+    try:
+        from src.prop.telegram_report_handler import (
+            default_prop_account,
+            handle_command,
+        )
+
+        reply = await asyncio.to_thread(
+            handle_command, text, default_account=default_prop_account())
+    except Exception as exc:  # noqa: BLE001 — a handler bug must never kill the bot
+        logger.warning("prop report handler failed: %s", exc)
+        reply = None
+
+    if reply is not None:
+        await update.message.reply_text(reply)
+        return
+
     await update.message.reply_text(
-        "This is a one-way update channel — I can't reply here. "
-        "Use GitHub (PR/issue comment) or start a new Claude session."
+        "Not a prop command. Tap /menu for the report prompt, or type e.g. "
+        "`close ETHUSD 2950 +80 tp`. (For Claude/ops, use GitHub or a new session.)"
     )
 
 
@@ -192,7 +270,8 @@ async def _drain_pending_claude_pings(context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 BOT_COMMANDS: List[BotCommand] = [
-    BotCommand("start", "What this channel is"),
+    BotCommand("start", "Prop menu (report prompt + format)"),
+    BotCommand("menu", "Prop menu (report prompt + format)"),
 ]
 
 
@@ -212,7 +291,9 @@ def main() -> None:
         .build()
     )
     app.add_handler(CommandHandler("start", start_cmd))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _one_way_notice))
+    app.add_handler(CommandHandler("menu", menu_cmd))
+    app.add_handler(CallbackQueryHandler(on_callback))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _on_operator_message))
     if app.job_queue is not None:
         app.job_queue.run_repeating(
             _drain_pending_claude_pings,

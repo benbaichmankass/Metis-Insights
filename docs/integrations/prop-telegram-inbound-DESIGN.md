@@ -1,8 +1,11 @@
 # Prop Telegram inbound — report a fill/close by typing in the channel
 
-**Status:** built 2026-06-23. Symbol mapping + parser shipped in PR #4241; the
-inbound handler is **folded into the live trader bot's message handler** (no new
-service, no new token — see "Transport decision" below).
+**Status:** built 2026-06-23. Symbol mapping + parser shipped in PR #4241; all
+prop UI (report-back handler + `/menu` with the executor-assistant prompt) lives
+in the **dedicated prop bot `ict-claude-bridge`** (`@claude_ict_comms_bot`) — see
+"Transport decision" below. (It was briefly on the trader bot while the prop
+bot's token was missing post-cutover; that detour was reverted once the operator
+restored `TELEGRAM_CLAUDE_BOT_TOKEN`.)
 
 ## Problem
 
@@ -38,35 +41,31 @@ bal   <balance> [equity] [realized]      bal   5040 5010
 
 The inbound side needs to consume Telegram updates (`getUpdates`), and a second
 `getUpdates` consumer on a token already being long-polled would steal updates
-and break the existing poller. So the transport has to be a bot that is **both
-already running AND the channel prop tickets actually land in**:
+and break the existing poller. The right home is the **dedicated prop bot**:
 
-- `ict-claude-bridge` (`TELEGRAM_CLAUDE_BOT_TOKEN`) was *designed* as the
-  prop-account bot, but on the Ampere VM its token never carried over the cutover
-  — the service is **inactive** (verified via `/api/diag/services`, 2026-06-23).
-  Reviving it would need the operator to mint a token (the hand-off we're
-  avoiding).
-- `ict-telegram-bot` (the trader bot, `TELEGRAM_BOT_TOKEN`) is **active** and is
-  the live fallback `breakout_notify._prop_bot_token` resolves to — so prop
-  tickets are **already delivered there today**. It's menu/callback-driven with
-  **no free-text handler**, so adding one for prop commands is clean and can't
-  shadow the menu.
+- `ict-claude-bridge` (`@claude_ict_comms_bot`, `TELEGRAM_CLAUDE_BOT_TOKEN`) **is**
+  the prop-account bot — the token prop tickets are emitted to
+  (`breakout_notify._prop_bot_token`), already long-polling, already authorising
+  exactly the operator's `TELEGRAM_CHAT_ID`. Keeping all prop UI here matches the
+  intended architecture.
+- It was briefly hosted on `ict-telegram-bot` (the trader bot) because the prop
+  bot's token didn't carry over the Ampere cutover, leaving it **inactive**. The
+  operator restored `TELEGRAM_CLAUDE_BOT_TOKEN` (2026-06-23), so the prop bot is
+  the home again and the trader-bot detour was reverted.
 
-So the handler is folded into `ict-telegram-bot`'s message handler: the operator
-replies to a prop ticket in the channel it already arrives in, and the trade
-updates. **No new bot token, no new service, no new secret** — a code-only change
-the running `ict-telegram-bot` picks up on its next deploy restart. (If the
-dedicated prop/claude channel is revived later, the same transport-agnostic
-handler can be wired into `ict-claude-bridge` too.)
+So **all** prop UI lives in `ict-claude-bridge`: a `/menu` with the
+executor-assistant prompt + a format reminder, and a free-text handler that
+ingests a typed report-back. `@bict_trading_bot` (the trader bot) keeps its
+menu-only control plane — no prop handlers.
 
 ## Components
 
 | Piece | File | Role |
 |---|---|---|
 | Symbol map | `src/prop/symbol_map.py` | venue↔bot symbol resolver (ETHUSDT↔ETHUSD), one source of truth from `breakout_routing.yaml`. |
-| Parser | `src/prop/telegram_commands.py` | **pure** — text → intent → `ingest_report` dict (`parse_prop_command` + `build_report`). |
+| Parser | `src/prop/telegram_commands.py` | **pure** — text → intent → `ingest_report` dict (`parse_prop_command` + `build_report`); also holds `USAGE` + the `REPORT_PROMPT` executor-assistant block (no telegram dep). |
 | Handler | `src/prop/telegram_report_handler.py` | enrich (resolve the open ticket's direction/id, default account) + call `prop_report.ingest_report`; returns a one-line ack or `None`. Transport-agnostic. |
-| Transport | `src/bot/telegram_query_bot.py::on_text_message` | the trader bot's free-text handler (registered last so it never shadows the menu/command handlers) runs the prop handler off the event loop (`to_thread`) and replies on a recognised command; non-commands are ignored. Auth = the bot's existing `is_authorised` / `TELEGRAM_CHAT_ID` gate. |
+| Transport | `src/bot/claude_bridge.py` | the prop bot: `/start`+`/menu` open an inline menu (📋 report prompt · ❓ format); `on_callback` sends `REPORT_PROMPT`/`USAGE` (plain text — the `<SYMBOL>` placeholders forbid HTML parse_mode); `_on_operator_message` runs the prop handler off the event loop (`to_thread`) and acks. Auth = the bridge's existing `TELEGRAM_CHAT_ID` gate. Claude's update delivery is unchanged. |
 
 The handler calls the SAME `ingest_report` chokepoint the REST endpoint +
 dashboard form use, so journaling, ticket reconciliation, symbol canonicalisation,
@@ -75,19 +74,24 @@ third inbound transport.
 
 ## Activation & deploy
 
-Code-only — it activates the moment `ict-telegram-bot` runs the new code:
+Code-only **once the prop bot is alive** — it activates when `ict-claude-bridge`
+runs the new code with its token set:
 
-1. Merge → `ict-git-sync` pulls `main` and `deploy_pull_restart.sh` restarts
-   `ict-telegram-bot.service` (or dispatch `pull-and-deploy` to force it now).
-2. `PROP_DEFAULT_ACCOUNT` (optional) pins the account a bare command targets;
+1. **Operator hand-off (one time):** add `TELEGRAM_CLAUDE_BOT_TOKEN` (the
+   `@claude_ict_comms_bot` BotFather token) to the repo's Actions secrets. Claude
+   syncs it to the VM `.env` via `sync-vm-secrets`, then starts/restarts
+   `ict-claude-bridge.service`.
+2. Merge → `ict-git-sync` / `pull-and-deploy` restarts `ict-claude-bridge` on the
+   new code.
+3. `PROP_DEFAULT_ACCOUNT` (optional) pins the account a bare command targets;
    unset, it resolves the single `exchange: breakout` account in `accounts.yaml`
    (`breakout_1` today).
-3. Verify: reply `bal 5040 5010` in the prop channel → expect `✅ account status
-   recorded …` and a `prop_account_status` row.
+4. Verify: `/menu` → 📋 Prop report prompt returns the block; `bal 5040 5010`
+   replies `✅ account status recorded …` and writes a `prop_account_status` row.
 
 No BotFather change is needed for a 1:1 chat with the bot. (If the prop channel
-is ever moved to a Telegram *group*, disable BotFather privacy mode so the bot
-sees plain `close …` lines.)
+is ever a Telegram *group*, disable BotFather privacy mode so the bot sees plain
+`close …` lines.)
 
 ## Tests
 
