@@ -84,6 +84,8 @@ cmd: |
   ls -la "$REPO/datasets-out/" 2>/dev/null; tail -n 40 "$REPO/runtime_logs/trainer/dataset_builds.jsonl"
   echo "=== TRAINER REGISTRY ==="
   cd "$REPO" && .venv/bin/python -m ml list-models
+  echo "=== STAGE-GUARD (promote/demote/hold per model) ==="
+  .venv/bin/python -m ml stage-guard --db data/trade_journal.db
   echo "=== TRAINER RESOURCES ==="
   df -h /home | tail -1; free -m | head -2
 ```
@@ -238,6 +240,33 @@ not enact.
 
 If a proposal isn't yet supportable, file it as a backlog item with
 the criteria it would need to meet next time.
+
+## Underperformer refinement lifecycle (2026-06-23) — REQUIRED each run
+
+Underperforming models are **refined, not abandoned.** Full spec:
+[`docs/claude/model-refinement-lifecycle.md`](../../docs/claude/model-refinement-lifecycle.md).
+Every `/ml-review`:
+
+1. **Detect** — run `python -m ml stage-guard --db data/trade_journal.db`
+   (in the trainer pull above). It proposes `promote | demote | hold` per model
+   from the canonical triggers (drift `significant`, live score collapse,
+   `brier_lift < 0`, `AUC < 0.5` for `advisory`; all gates pass for `shadow`).
+2. **On a `demote` (an `advisory` model degrading)** — recommend the soft-off
+   (`advisory → shadow`, Tier-3) in `promotion_recommendations[]` AND open a
+   `[refinement]` item in `docs/claude/ml-review-backlog.json` with the trigger
+   evidence, a concrete refinement hypothesis, and a `resolution_criteria`
+   (re-gate clears → restore; else N=3 attempts → **retire** to `candidate` +
+   deprecate the manifest).
+3. **Drive each open `[refinement]` item one step** — log a refinement attempt
+   (append to `updates[]`), or re-gate, or resolve (`restored` / `retired`).
+4. A `shadow` model stuck failing the gate with no path (e.g. a degenerate
+   `f1=0` baseline) is the same refine-or-retire question — file it `[refinement]`.
+
+"Turn off" = soft-off (demote to `shadow`, still observes) or **retire**
+(demote to `candidate` → shadow factory emits nothing + drop from the training
+rotation). Both flips are Tier-3 (`promote-stage`); this skill proposes, the
+operator approves. The strategy analogue is `/performance-review`'s
+`strategy-refinement-queue.json` + the M7 gate — same detect→refine→restore-or-retire shape.
 
 ## Reviewing within the unified-confidence framework (2026-06-16)
 
