@@ -12,9 +12,9 @@ Android app (mobile) — a log of links to every generated executive report.
 File-backed from ``comms/reports/`` (committed artifacts the VM's
 ``ict-git-sync`` mirrors). Read-only, no secrets, no DB — so this adds no
 table and is exempt from the new-table-wiring guard. The reports themselves
-are produced by the master skill (``.claude/skills/system-report/SKILL.md``)
-+ ``scripts/reports/render_system_report.py``; the schema is
-``comms/schema/system_report_response.template.json``.
+are produced by the master skill (``.claude/skills/system-review/SKILL.md``;
+``system-report`` is a back-compat alias) + ``scripts/reports/render_system_report.py``;
+the schema is ``comms/schema/system_report_response.template.json``.
 """
 from __future__ import annotations
 

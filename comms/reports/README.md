@@ -1,10 +1,11 @@
 # `comms/reports/` — consolidated system reports
 
-Artifacts written by the `/system-report` master skill
-(`.claude/skills/system-report/SKILL.md`) via
-`scripts/reports/render_system_report.py`. Each report is the executive
-synthesis of the three reviews (`/health-review` + `/performance-review` +
-`/ml-review`) over a time window.
+Artifacts written by the `/system-review` master skill
+(`.claude/skills/system-review/SKILL.md`; `/system-report` is a back-compat
+alias) via `scripts/reports/render_system_report.py`. Each report is the
+deliverable of a system review — the executive synthesis of the three reviews
+(`/health-review` + `/performance-review` + `/ml-review`) plus the
+strategy-promotion / ML-training / soak coverage assessment over a time window.
 
 ## Layout
 

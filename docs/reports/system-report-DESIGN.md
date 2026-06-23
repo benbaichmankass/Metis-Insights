@@ -17,7 +17,11 @@ This doc is the canonical **format**: sections, windows, adaptive depth, the
 artifact layout, and the delivery contract. The output schema is
 `comms/schema/system_report_response.template.json`; the renderer is
 `scripts/reports/render_system_report.py`; the skill is
-`.claude/skills/system-report/SKILL.md`.
+`.claude/skills/system-review/SKILL.md` (reframed 2026-06-23 — the **work is the
+SYSTEM REVIEW**, the report is just its deliverable; `system-report` remains a
+back-compat alias and the artifact name stays "report" everywhere it's
+load-bearing). The review-coverage block (`consolidated.review_coverage`) the
+skill's coverage guard requires is documented in the schema.
 
 ## Windows
 
