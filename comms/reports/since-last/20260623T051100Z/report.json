@@ -1,0 +1,1045 @@
+{
+  "report_id": "RPT-20260623-051100-since-last",
+  "reviewed_at": "2026-06-23T05:11:00+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-06-22T12:33:30+00:00",
+  "window_end": "2026-06-23T05:11:00+00:00",
+  "prior_report_id": "RPT-20260622-123330-since-last",
+  "overall_assessment": "caution",
+  "health": {
+    "reviewed_at": "2026-06-23T05:11:00+00:00",
+    "reviewer": "claude",
+    "overall_assessment": "caution",
+    "findings": {
+      "heartbeat": {
+        "status": "ok",
+        "note": "running, age ~19s, last tick 04:49:57Z; uptime ~10.7h (deploy 19215d0d)"
+      },
+      "services": {
+        "status": "ok",
+        "note": "trader-live, web-api, telegram-bot active; all timers active"
+      },
+      "vm_health": {
+        "status": "ok",
+        "note": "cpu 0%, mem 11.2%, disk 24.5% \u2014 relaxed"
+      },
+      "orders": {
+        "status": "watch",
+        "note": "recurring orphaned pkgs: mgc_trend_1h (MGC) & trend_donchian_eth (ETH) size to 0 qty (sub-1-contract refusal) -> reconciler orphans (BUG-049); strategy fires, never trades"
+      },
+      "trades": {
+        "status": "watch",
+        "note": "#2783 (real) & #2796 (paper) closed with null exit/pnl, closedAt<=openedAt \u2014 instant reconciler-close artifacts"
+      },
+      "db_integrity": {
+        "status": "ok",
+        "note": "journal recency fresh; counts non-decreasing; PRAGMA not fetchable via relay"
+      },
+      "data_validity": {
+        "status": "watch",
+        "note": "paper sol_pullback net-close legs show entry==exit with non-zero pnl (basis booking); null-pnl real row #2783"
+      },
+      "insights_freshness": {
+        "status": "watch",
+        "note": "M13 cache fresh (13m) but template counts 0 closed trades/0 signals while book has 12 closed/37 pkgs \u2014 generator query under-counts"
+      },
+      "trainer_service": {
+        "status": "ok",
+        "note": "timer active; daily cycle clean 00:47Z rc=0, calibrators+publish ok 01:22Z"
+      },
+      "state_consistency": {
+        "status": "ok",
+        "note": "account modes consistent (bybit_2 live real, paper accts live, ib_live/oanda off)"
+      }
+    },
+    "backlog_drain": [],
+    "sprint_doc_review": [],
+    "anomalies": [
+      "mgc_trend_1h/trend_donchian_eth packages orphaned at 0 qty",
+      "M13 insights under-counts closed trades (0 vs 12)"
+    ],
+    "recommended_action": "Verify zero-qty orphan sizing is intended whole-contract refusal vs stranded capability; fix M13 generator trade/signal count.",
+    "operator_attention_required": false,
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "performance": {
+    "reviewed_at": "2026-06-23T05:11:00+00:00",
+    "reviewer": "claude",
+    "window_start": "2026-06-22T12:33:30+00:00",
+    "window_end": "2026-06-23T05:11:00+00:00",
+    "overall_assessment": "caution",
+    "strategy_performance": [
+      {
+        "name": "ict_scalp_5m",
+        "n_decisions": null,
+        "n_filled": 2,
+        "win_rate": 0.0,
+        "pnl_total": -0.9,
+        "note": "real bybit_2: 1 measurable loss (-0.90), 1 null instant-close; small controlled."
+      },
+      {
+        "name": "trend_donchian",
+        "n_decisions": null,
+        "n_filled": 1,
+        "win_rate": 0.0,
+        "pnl_total": -3350.54,
+        "note": "paper: single long -$3,350 \u2014 bought near 65.6k top, BTC faded."
+      },
+      {
+        "name": "sol_pullback_2h",
+        "n_decisions": null,
+        "n_filled": 7,
+        "win_rate": 14.3,
+        "pnl_total": -216.23,
+        "note": "paper: 7 legs net -$216, 1 win; choppy SOL, marginal edge, reconciler net-closes."
+      },
+      {
+        "name": "iwm_trend_long_1d",
+        "n_decisions": null,
+        "n_filled": 1,
+        "win_rate": 0.0,
+        "pnl_total": -2.81,
+        "note": "alpaca paper; closed 2.5min after open (possible fresh-fill false-close)."
+      },
+      {
+        "name": "trend_donchian_eth",
+        "n_decisions": null,
+        "n_filled": 0,
+        "win_rate": null,
+        "pnl_total": 0.0,
+        "note": "real package orphaned at 0 qty AND prop ticket un-acted \u2014 strands on both venues."
+      },
+      {
+        "name": "mgc_trend_1h",
+        "n_decisions": null,
+        "n_filled": 0,
+        "win_rate": null,
+        "pnl_total": 0.0,
+        "note": "repeated MGC short packages orphaned at 0 qty (sub-1-contract refusal)."
+      },
+      {
+        "name": "manual/discretionary (prop)",
+        "n_decisions": null,
+        "n_filled": 1,
+        "win_rate": 0.0,
+        "pnl_total": -24.89,
+        "note": "breakout_1 ETH long reported back: -$24.89 (-1.9%); counter to the bot's ETH short bias."
+      }
+    ],
+    "trade_decision_grades": [],
+    "insights_review": [
+      {
+        "severity": "contradiction",
+        "note": "M13 template summary claims 0 closed trades / $0.00 / 0 signals for 24h; actual book = 12 closed (real +$0.40, paper -$4,654), 37 pkgs. Generator under-counts."
+      }
+    ],
+    "proposed_tweaks": [],
+    "paper_book_tracker": null,
+    "backlog_drain": [],
+    "anomalies": [
+      "paper book lifetime -$38,892 worsening",
+      "trend_donchian single -$3,350 paper loss"
+    ],
+    "recommended_action": "Watch the diversified paper cohort for DEMOTE_SHADOW/KILL (trend_donchian, sol_pullback) if decay persists; isolated paper, no real-money risk.",
+    "operator_attention_required": false,
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "ml": {
+    "reviewed_at": "2026-06-23T05:11:00+00:00",
+    "reviewer": "claude",
+    "overall_assessment": "caution",
+    "trainer_findings": {
+      "trainer_service": {
+        "status": "ok",
+        "note": "timer active, last cycle 00:47Z rc=0"
+      },
+      "trainer_datasets": {
+        "status": "watch",
+        "note": "3 MES manifests skipped empty_dataset (mes-execution/setup/trade-outcome quality)"
+      },
+      "trainer_registry": {
+        "status": "ok",
+        "note": "40 models; 1 advisory, ~19 shadow, ~20 candidate"
+      },
+      "trainer_models": {
+        "status": "caution",
+        "note": "no advisory model degrading; conviction-meta soak thin (n=28); 3 degenerate f1=0 shadow baselines"
+      }
+    },
+    "model_status": [
+      {
+        "model_id": "btc-regime-1h-lgbm-yz-v1",
+        "stage": "advisory",
+        "registry_status": "candidate",
+        "last_training": {
+          "headline_metric": "macro_f1=0.667 acc=0.761",
+          "n_eval": 8760,
+          "trend_vs_prior_run": "flat"
+        },
+        "live_shadow": {
+          "influence": "advisory",
+          "predictions": null,
+          "drift": "not pulled this run",
+          "realized": "n/a"
+        },
+        "note": "Sole order-influencing model; healthy metric, retrained clean."
+      },
+      {
+        "model_id": "mes-regime-5m-lgbm-yz-v1",
+        "stage": "shadow",
+        "registry_status": "candidate",
+        "last_training": {
+          "headline_metric": "macro_f1=0.680 acc=0.686",
+          "n_eval": 3418,
+          "trend_vs_prior_run": "flat"
+        },
+        "live_shadow": {
+          "influence": "none(shadow)",
+          "predictions": null,
+          "drift": "not pulled",
+          "realized": "n/a"
+        },
+        "note": "Strongest shadow regime head; gate-check candidate toward advisory."
+      },
+      {
+        "model_id": "mes-regime-5m-lgbm-v2",
+        "stage": "shadow",
+        "registry_status": "candidate",
+        "last_training": {
+          "headline_metric": "macro_f1=0.674",
+          "n_eval": 3418,
+          "trend_vs_prior_run": "flat"
+        },
+        "live_shadow": {
+          "influence": "none(shadow)",
+          "predictions": null,
+          "drift": "not pulled",
+          "realized": "n/a"
+        },
+        "note": "Strong shadow MES 5m head."
+      },
+      {
+        "model_id": "conviction-meta-v1",
+        "stage": "candidate",
+        "registry_status": "candidate",
+        "last_training": {
+          "headline_metric": "macro_f1=0.417 acc=0.429",
+          "n_eval": 28,
+          "trend_vs_prior_run": "flat"
+        },
+        "live_shadow": {
+          "influence": "none(shadow)",
+          "predictions": null,
+          "drift": "n/a",
+          "realized": "n/a"
+        },
+        "note": "Learned-conviction stacker; soak barely accruing (n=28) \u2014 far from shadow-ready."
+      },
+      {
+        "model_id": "trade-outcome-winrate-baseline-v0",
+        "stage": "shadow",
+        "registry_status": "candidate",
+        "last_training": {
+          "headline_metric": "f1=0.0 acc=0.836",
+          "n_eval": 73,
+          "trend_vs_prior_run": "flat"
+        },
+        "live_shadow": {
+          "influence": "none(shadow)",
+          "predictions": null,
+          "drift": "n/a",
+          "realized": "n/a"
+        },
+        "note": "Degenerate (predicts majority class) \u2014 weak conviction-lens input; shadow-only so harmless."
+      },
+      {
+        "model_id": "prop-mission-policy-baseline-v0",
+        "stage": "shadow",
+        "registry_status": "candidate",
+        "last_training": {
+          "headline_metric": "f1=0.0 acc=1.0",
+          "n_eval": 53,
+          "trend_vs_prior_run": "flat"
+        },
+        "live_shadow": {
+          "influence": "none(shadow)",
+          "predictions": null,
+          "drift": "n/a",
+          "realized": "n/a"
+        },
+        "note": "Degenerate baseline; weak sizing-lens input."
+      },
+      {
+        "model_id": "(34 more models)",
+        "stage": "candidate/shadow",
+        "registry_status": "candidate",
+        "last_training": {
+          "headline_metric": "see registry",
+          "n_eval": null,
+          "trend_vs_prior_run": "flat"
+        },
+        "live_shadow": {
+          "influence": "none(shadow)",
+          "predictions": null,
+          "drift": "n/a",
+          "realized": "n/a"
+        },
+        "note": "40 total; btc/eth/mes regime heads + setup-quality/metalabel families, all retrained clean this cycle."
+      }
+    ],
+    "promotion_recommendations": [],
+    "experiments_proposed": [
+      {
+        "kind": "hyperparam_sweep",
+        "name": "mes-5m-gate-check",
+        "rationale": "Strongest shadow heads (mes-regime-5m-lgbm-yz/v2, f1 0.68) may be advisory-ready.",
+        "input_changes": "compute python -m ml gate-check",
+        "expected_metric_signal": "OOS edge vs baseline under purged WF-CV + drift in bounds",
+        "tier": 3,
+        "next_step": "run gate-check; if ready, propose shadow->advisory"
+      },
+      {
+        "kind": "new_dataset_family",
+        "name": "mes-quality-datasets",
+        "rationale": "3 MES quality manifests skip on empty_dataset \u2014 no MES trade data to learn execution/setup/trade-outcome quality.",
+        "input_changes": "backfill MES trade rows or relax dataset min-rows",
+        "expected_metric_signal": "non-empty dataset builds for the 3 MES quality heads",
+        "tier": 3,
+        "next_step": "extend src/ml/datasets MES family"
+      }
+    ],
+    "backlog_drain": [],
+    "anomalies": [
+      "3 MES datasets empty",
+      "conviction-meta n_eval=28",
+      "3 f1=0 shadow baselines"
+    ],
+    "recommended_action": "Hold promotions (no gate packet computed); keep conviction-meta soaking; address empty MES datasets.",
+    "operator_attention_required": false,
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "CAUTION. System healthy & relaxed (heartbeat live, services up, VM cpu 0%, trainer cycle clean). Real money quiet: -$0.90 in-window (ict_scalp loss as BTC faded ~3% off 65.6k). Paper bled -$3.6k (trend_donchian BTC -$3,350 + sol_pullback). Prop: 1 ETH long fill reported -$24.89, 2 ETH-short tickets still un-acted. Recurring: mgc/eth pkgs size to 0 qty->orphaned; M13 insights under-counts closed trades (0 vs 12).",
+    "services": [
+      {
+        "unit": "ict-trader-live.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": null
+      },
+      {
+        "unit": "ict-web-api.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": null
+      },
+      {
+        "unit": "ict-telegram-bot.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": null
+      },
+      {
+        "unit": "timers (git-sync, liveness, web-api, db-integrity, insights x2, hourly/health snapshot)",
+        "state": "active",
+        "sub_state": null,
+        "active_enter_iso": null
+      }
+    ],
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Zero-qty orphaned packages strand mgc_trend_1h (MGC) & trend_donchian_eth (ETH)",
+        "source_review": "cross",
+        "tier": 2,
+        "detail": "Both emit order packages that size to <1 contract -> per-trade refusal -> reconciler orphans them (BUG-049). The strategies fire but never trade on those accounts. Verify intended whole-contract refusal vs stranded capability.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "M13 insights generator under-counts closed trades/signals (0 vs 12)",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "template:v1 cache reports 0 closed trades / 0 signals / $0.00 for 24h while the book has 12 closed + 37 pkgs. Likely the epoch-ms closed_at + signal-classification window bug the prior report fixed for /performance \u2014 confirm the generator adopted _closed_at.py.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 3,
+        "title": "Diversified paper cohort still bleeding (-$3.6k window, -$38.9k lifetime)",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "trend_donchian BTC -$3,350 (1 trade) + sol_pullback_2h dominate. Isolated paper soak (no real-money risk) but the verdict is leaning decay; evaluate DEMOTE_SHADOW/KILL on the worst cells.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 4,
+        "title": "Prop bridge: 1 ETH long fill reported (-$24.89); 2 ETH-short tickets still un-acted; no account-status snapshot",
+        "source_review": "cross",
+        "tier": 2,
+        "detail": "Operator-reported a closed Breakout ETH long (-$24.89, within the $150/day limit) \u2014 now in the prop journal (fill id 2). But the 2 trend_donchian_eth ETH-short tickets remain un-acted, and no account-status has ever been reported, so the daily-loss/static-DD rule-distance cushions are still blind. Encourage report-backs incl. an account_status snapshot.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 5,
+        "title": "ML: conviction-meta soak thin (n=28) + 3 empty MES datasets",
+        "source_review": "ml",
+        "tier": 3,
+        "detail": "Learned-conviction stacker far from shadow-ready; 3 MES quality manifests skip on empty_dataset. No order-influencing model degrading. Keep soaking; backfill MES datasets.",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "BTC faded ~3% off the 65.6k intraday high -> both the real ict_scalp_5m long and the paper trend_donchian long were stopped. Market context explains the day's losses (longs into a fading tape).",
+      "The 'M13 reports 0 closed trades' bug echoes the epoch-ms closed_at class fixed last report for /performance & /stats \u2014 verify the insights generator picked up the shared _closed_at.py fix.",
+      "trend_donchian_eth strands on BOTH venues this window: an orphaned 0-qty real_money package AND an un-acted prop ticket \u2014 same signal, two dead ends.",
+      "Operator's reported prop fill was an ETH LONG (1767.30->1734.62) while the bot's in-window trend_donchian_eth tickets were ETH SHORTS \u2014 the discretionary prop direction diverged from the strategy signal."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": -0.9,
+        "prior_window_pnl": 1.3,
+        "trend": "down",
+        "trades": 2,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": -0.45,
+        "profit_factor": 0.0,
+        "max_drawdown": -0.9,
+        "per_strategy": [
+          {
+            "name": "ict_scalp_5m",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -0.9
+          }
+        ],
+        "per_asset_class": {
+          "crypto": -0.9,
+          "index": 0.0,
+          "commodity": 0.0,
+          "equity": 0.0,
+          "fx": 0.0
+        },
+        "equity_curve": [
+          {
+            "t": "2026-06-22T21:23:31+00:00",
+            "cum": -0.9
+          }
+        ]
+      },
+      "paper": {
+        "window_pnl": -3569.59,
+        "prior_window_pnl": null,
+        "trend": "down",
+        "trades": 10,
+        "wins": 1,
+        "win_rate": 10.0,
+        "expectancy": -356.96,
+        "profit_factor": 0.002,
+        "max_drawdown": -3350.54,
+        "per_strategy": [
+          {
+            "name": "trend_donchian",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -3350.54
+          },
+          {
+            "name": "sol_pullback_2h",
+            "trades": 7,
+            "win_rate": 14.3,
+            "pnl": -216.23
+          },
+          {
+            "name": "iwm_trend_long_1d",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -2.81
+          }
+        ],
+        "per_asset_class": {
+          "crypto": -3566.77,
+          "index": 0.0,
+          "commodity": 0.0,
+          "equity": -2.81,
+          "fx": 0.0
+        },
+        "equity_curve": [
+          {
+            "t": "2026-06-22T18:01:35+00:00",
+            "cum": -200.0
+          },
+          {
+            "t": "2026-06-22T21:23:31+00:00",
+            "cum": -3550.0
+          },
+          {
+            "t": "2026-06-23T02:21:41+00:00",
+            "cum": -3569.59
+          }
+        ]
+      },
+      "prop": {
+        "window_pnl": -24.89,
+        "prior_window_pnl": null,
+        "trend": "down",
+        "fills_reported": 1,
+        "tickets_emitted": 1,
+        "unacted_tickets": 2,
+        "rule_distance": {
+          "daily_loss_remaining": null,
+          "static_dd_remaining": null
+        },
+        "per_account": [
+          {
+            "account_id": "breakout_1",
+            "balance": null,
+            "equity": null,
+            "realized_window": -24.89
+          }
+        ]
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": 64149.4,
+        "close": 63710.4,
+        "high": 65624.7,
+        "low": 63609.4,
+        "pct_change": -0.68,
+        "range_pct": 3.17,
+        "note": "Rallied to 65.6k (~13Z) then faded through the session to 63.6k low; bearish-chop. Stopped both the real ict_scalp & paper trend_donchian longs."
+      },
+      {
+        "symbol": "SOLUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "Candles not separately pulled; sol_pullback fills drifted 73.4\u219271.9 over the window (\u2248 -2%), a choppy grind down."
+      },
+      {
+        "symbol": "ETHUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "Candles not separately pulled; prop short ticket entry band ~1717 (22:38Z). ETH shorts emitted on trend_donchian_eth."
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": 2769,
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "trend_donchian",
+        "opened_at": "2026-06-22T12:40:37+00:00",
+        "closed_at": "2026-06-22T21:23:31+00:00",
+        "hold_seconds": 31374,
+        "entry_price": 65139.5,
+        "exit_price": 64255.9,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 0.7,
+        "pnl": -3350.5407,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "D",
+          "entry_quality": "late",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "oversize",
+          "rationale": "Donchian breakout long entered ~65,139 near the 65.6k swing high; BTC then faded ~3% and it was net-closed for -$3,350 \u2014 the window's largest paper loss. Trend-follow whipsawed at range top."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 2797,
+        "order_package_id": null,
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-06-22T20:06:50+00:00",
+        "closed_at": "2026-06-22T21:23:31+00:00",
+        "hold_seconds": 4601,
+        "entry_price": 64660.0,
+        "exit_price": 64250.0,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 0.002,
+        "pnl": -0.9012,
+        "pnl_percent": -0.6969,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "correct",
+          "rationale": "5m scalp long 64660\u219264250 (-0.7%) as BTC faded; small, controlled real-money loss. Only measurable real trade in window."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 2783,
+        "order_package_id": null,
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-06-22T16:55:46+00:00",
+        "closed_at": "2026-06-22T16:55:46+00:00",
+        "hold_seconds": 0,
+        "entry_price": 64726.1,
+        "exit_price": null,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 0.003,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "Open-then-instant reconciler close (closedAt<=openedAt), null exit/pnl \u2014 netting/reconciler artifact, not a real fill. Data-validity flag."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 2801,
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "short",
+        "strategy": "sol_pullback_2h",
+        "opened_at": "2026-06-23T01:22:33+00:00",
+        "closed_at": "2026-06-23T01:22:33+00:00",
+        "hold_seconds": 0,
+        "entry_price": 71.95,
+        "exit_price": 71.95,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 60.6,
+        "pnl": -76.3663,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "sol_pullback_2h pyramided leg net-closed at basis (entry==exit, pnl from position basis). Biggest single SOL loss of the cohort."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 2758,
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "long",
+        "strategy": "sol_pullback_2h",
+        "opened_at": "2026-06-21T22:04:21+00:00",
+        "closed_at": "2026-06-23T02:21:41+00:00",
+        "hold_seconds": 102439,
+        "entry_price": 73.13,
+        "exit_price": 71.87,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 348.4,
+        "pnl": -42.214,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "Long leg of the SOL pullback cohort closed -$42 as SOL drifted from 73.1 to 71.9 (~-2%)."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 2802,
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "short",
+        "strategy": "sol_pullback_2h",
+        "opened_at": "2026-06-23T02:21:41+00:00",
+        "closed_at": "2026-06-23T02:21:41+00:00",
+        "hold_seconds": 0,
+        "entry_price": 71.87,
+        "exit_price": 71.87,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 53.5,
+        "pnl": -42.214,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "Net-close leg paired with #2758; reconciler basis booking."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 2800,
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "short",
+        "strategy": "sol_pullback_2h",
+        "opened_at": "2026-06-22T22:00:48+00:00",
+        "closed_at": "2026-06-22T22:00:48+00:00",
+        "hold_seconds": 0,
+        "entry_price": 72.69,
+        "exit_price": 72.69,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 59.8,
+        "pnl": -31.7711,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "Reconciler net-close leg, SOL cohort."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 2795,
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "short",
+        "strategy": "sol_pullback_2h",
+        "opened_at": "2026-06-22T20:02:06+00:00",
+        "closed_at": "2026-06-22T20:02:06+00:00",
+        "hold_seconds": 0,
+        "entry_price": 72.79,
+        "exit_price": 72.79,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 57.1,
+        "pnl": -24.6298,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "Reconciler net-close leg, SOL cohort."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 2788,
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "short",
+        "strategy": "sol_pullback_2h",
+        "opened_at": "2026-06-22T18:01:35+00:00",
+        "closed_at": "2026-06-22T18:01:35+00:00",
+        "hold_seconds": 0,
+        "entry_price": 73.36,
+        "exit_price": 73.36,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 52.5,
+        "pnl": 7.2629,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "acceptable",
+          "exit_quality": "tp_appropriate",
+          "risk_management": "unknown",
+          "rationale": "The lone winner of the window (+$7.26) \u2014 SOL short leg booked positive at basis."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 2778,
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "short",
+        "strategy": "sol_pullback_2h",
+        "opened_at": "2026-06-22T16:00:09+00:00",
+        "closed_at": "2026-06-22T16:00:09+00:00",
+        "hold_seconds": 0,
+        "entry_price": 73.09,
+        "exit_price": 73.09,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 47.9,
+        "pnl": -6.2993,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "Reconciler net-close leg, SOL cohort."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 2796,
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-06-22T20:06:49+00:00",
+        "closed_at": "2026-06-22T20:06:49+00:00",
+        "hold_seconds": 0,
+        "entry_price": 64629.7,
+        "exit_price": null,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 6.027,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "Paper twin of #2783: open-then-instant reconciler close, null exit/pnl. Same instant-close artifact."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 2771,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "IWM",
+        "direction": "long",
+        "strategy": "iwm_trend_long_1d",
+        "opened_at": "2026-06-22T13:33:44+00:00",
+        "closed_at": "2026-06-22T13:36:18+00:00",
+        "hold_seconds": 154,
+        "entry_price": 298.5,
+        "exit_price": 298.19,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 9.079,
+        "pnl": -2.8145,
+        "pnl_percent": -0.1039,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "premature_exit",
+          "risk_management": "unknown",
+          "rationale": "IWM equity paper long closed -$2.81 (-0.1%) only ~2.5min after open (closeReason 'other', alpaca) \u2014 possible fresh-fill false-close (BL-20260622 class)."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": "prop-fill-2",
+        "order_package_id": "prop-manual-dca8e89072d7",
+        "account": "breakout_1",
+        "account_class": "prop",
+        "symbol": "ETHUSDT",
+        "direction": "long",
+        "strategy": "manual/discretionary",
+        "opened_at": "2026-06-22T14:54:00+00:00",
+        "closed_at": "2026-06-22T19:41:00+00:00",
+        "hold_seconds": 17220,
+        "entry_price": 1767.3,
+        "exit_price": 1734.62,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 0.73,
+        "pnl": -24.89,
+        "pnl_percent": -1.93,
+        "close_reason": "manual",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "late",
+          "exit_quality": "unknown",
+          "risk_management": "correct",
+          "rationale": "Operator-placed Breakout long 0.73 ETH @ 1767.30 -> 1734.62 (-1.9%, net -$24.89 incl -$1.03 comm). Ran counter to the bot's ETH bias (trend_donchian_eth tickets this window were shorts). Loss stayed well within the $150/day prop limit; reported back via /prop/report (fill id 2, linked ticket prop-manual-dca8e89072d7, prop_closed fired)."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      }
+    ],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 13,
+      "summarized_trades": 0,
+      "rule": "full-per-trade (since-last/daily)"
+    },
+    "backlog_summary": {
+      "health": {
+        "drained": 0,
+        "open": 74
+      },
+      "performance": {
+        "drained": 0,
+        "open": 29
+      },
+      "ml": {
+        "drained": 0,
+        "open": 13
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "performance",
+        "summary": "Evaluate DEMOTE_SHADOW/KILL for the worst paper cohort cells (trend_donchian BTC paper, sol_pullback_2h) if decay persists.",
+        "tier": 3
+      },
+      {
+        "source_review": "ml",
+        "summary": "Compute gate-check packet for mes-regime-5m-lgbm-yz-v1 / v2 (strongest shadow heads, f1 0.68) toward shadow->advisory.",
+        "tier": 3
+      }
+    ]
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260623T051100Z/report.json",
+    "html_path": "comms/reports/since-last/20260623T051100Z/report.html",
+    "md_path": "comms/reports/since-last/20260623T051100Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260623T051100Z/report.html",
+    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260623-051100-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "send-ping",
+    "priority": "normal",
+    "message": "[system-report:since-last] roll-up CAUTION: H:caution P:caution M:caution. https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260623-051100-since-last"
+  }
+}

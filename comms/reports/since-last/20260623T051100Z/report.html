@@ -1,0 +1,162 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-06-23T05:11:00+00:00 · window 2026-06-22T12:33:30+00:00 → 2026-06-23T05:11:00+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>CAUTION. System healthy &amp; relaxed (heartbeat live, services up, VM cpu 0%, trainer cycle clean). Real money quiet: -$0.90 in-window (ict_scalp loss as BTC faded ~3% off 65.6k). Paper bled -$3.6k (trend_donchian BTC -$3,350 + sol_pullback). Prop: 1 ETH long fill reported -$24.89, 2 ETH-short tickets still un-acted. Recurring: mgc/eth pkgs size to 0 qty-&gt;orphaned; M13 insights under-counts closed trades (0 vs 12).</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Zero-qty orphaned packages strand mgc_trend_1h (MGC) &amp; trend_donchian_eth (ETH)</b> <span class="pill">cross · T2</span> ⚠️ operator<br><span class='muted'>Both emit order packages that size to &lt;1 contract -&gt; per-trade refusal -&gt; reconciler orphans them (BUG-049). The strategies fire but never trade on those accounts. Verify intended whole-contract refusal vs stranded capability.</span></li>
+<li><b>M13 insights generator under-counts closed trades/signals (0 vs 12)</b> <span class="pill">health · T1</span><br><span class='muted'>template:v1 cache reports 0 closed trades / 0 signals / $0.00 for 24h while the book has 12 closed + 37 pkgs. Likely the epoch-ms closed_at + signal-classification window bug the prior report fixed for /performance — confirm the generator adopted _closed_at.py.</span></li>
+<li><b>Diversified paper cohort still bleeding (-$3.6k window, -$38.9k lifetime)</b> <span class="pill">performance · T3</span><br><span class='muted'>trend_donchian BTC -$3,350 (1 trade) + sol_pullback_2h dominate. Isolated paper soak (no real-money risk) but the verdict is leaning decay; evaluate DEMOTE_SHADOW/KILL on the worst cells.</span></li>
+<li><b>Prop bridge: 1 ETH long fill reported (-$24.89); 2 ETH-short tickets still un-acted; no account-status snapshot</b> <span class="pill">cross · T2</span> ⚠️ operator<br><span class='muted'>Operator-reported a closed Breakout ETH long (-$24.89, within the $150/day limit) — now in the prop journal (fill id 2). But the 2 trend_donchian_eth ETH-short tickets remain un-acted, and no account-status has ever been reported, so the daily-loss/static-DD rule-distance cushions are still blind. Encourage report-backs incl. an account_status snapshot.</span></li>
+<li><b>ML: conviction-meta soak thin (n=28) + 3 empty MES datasets</b> <span class="pill">ml · T3</span><br><span class='muted'>Learned-conviction stacker far from shadow-ready; 3 MES quality manifests skip on empty_dataset. No order-influencing model degrading. Keep soaking; backfill MES datasets.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">0 drained / 74 open</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">0 drained / 29 open</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">0 drained / 13 open</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>performance</span> Evaluate DEMOTE_SHADOW/KILL for the worst paper cohort cells (trend_donchian BTC paper, sol_pullback_2h) if decay persists.</li>
+<li><span class='pill'>ml</span> Compute gate-check packet for mes-regime-5m-lgbm-yz-v1 / v2 (strongest shadow heads, f1 0.68) toward shadow-&gt;advisory.</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>BTC faded ~3% off the 65.6k intraday high -&gt; both the real ict_scalp_5m long and the paper trend_donchian long were stopped. Market context explains the day&#x27;s losses (longs into a fading tape).</li>
+<li>The &#x27;M13 reports 0 closed trades&#x27; bug echoes the epoch-ms closed_at class fixed last report for /performance &amp; /stats — verify the insights generator picked up the shared _closed_at.py fix.</li>
+<li>trend_donchian_eth strands on BOTH venues this window: an orphaned 0-qty real_money package AND an un-acted prop ticket — same signal, two dead ends.</li>
+<li>Operator&#x27;s reported prop fill was an ETH LONG (1767.30-&gt;1734.62) while the bot&#x27;s in-window trend_donchian_eth tickets were ETH SHORTS — the discretionary prop direction diverged from the strategy signal.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Service</th><th>State</th><th>Since</th></tr>
+<tr><td>ict-trader-live.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-web-api.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-telegram-bot.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>timers (git-sync, liveness, web-api, db-integrity, insights x2, hourly/health snapshot)</td><td>active/—</td><td>—</td></tr>
+</table></div>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>heartbeat</td><td class="sev-ok">🟢 ok</td><td>running, age ~19s, last tick 04:49:57Z; uptime ~10.7h (deploy 19215d0d)</td></tr>
+<tr><td>services</td><td class="sev-ok">🟢 ok</td><td>trader-live, web-api, telegram-bot active; all timers active</td></tr>
+<tr><td>vm_health</td><td class="sev-ok">🟢 ok</td><td>cpu 0%, mem 11.2%, disk 24.5% — relaxed</td></tr>
+<tr><td>orders</td><td class="sev-watch">🟡 watch</td><td>recurring orphaned pkgs: mgc_trend_1h (MGC) &amp; trend_donchian_eth (ETH) size to 0 qty (sub-1-contract refusal) -&gt; reconciler orphans (BUG-049); strategy fires, never trades</td></tr>
+<tr><td>trades</td><td class="sev-watch">🟡 watch</td><td>#2783 (real) &amp; #2796 (paper) closed with null exit/pnl, closedAt&lt;=openedAt — instant reconciler-close artifacts</td></tr>
+<tr><td>db_integrity</td><td class="sev-ok">🟢 ok</td><td>journal recency fresh; counts non-decreasing; PRAGMA not fetchable via relay</td></tr>
+<tr><td>data_validity</td><td class="sev-watch">🟡 watch</td><td>paper sol_pullback net-close legs show entry==exit with non-zero pnl (basis booking); null-pnl real row #2783</td></tr>
+<tr><td>insights_freshness</td><td class="sev-watch">🟡 watch</td><td>M13 cache fresh (13m) but template counts 0 closed trades/0 signals while book has 12 closed/37 pkgs — generator query under-counts</td></tr>
+<tr><td>trainer_service</td><td class="sev-ok">🟢 ok</td><td>timer active; daily cycle clean 00:47Z rc=0, calibrators+publish ok 01:22Z</td></tr>
+<tr><td>state_consistency</td><td class="sev-ok">🟢 ok</td><td>account modes consistent (bybit_2 live real, paper accts live, ib_live/oanda off)</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-0.90</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$1.30 ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">2</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-0.45</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.00</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-0.90</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>ict_scalp_5m</td><td>2</td><td>0.0%</td><td class="neg">$-0.90</td></tr>
+</table></div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-3,569.59</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">10</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">10.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-356.96</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.00</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-3,350.54</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">1</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>trend_donchian</td><td>1</td><td>0.0%</td><td class="neg">$-3,350.54</td></tr>
+<tr><td>sol_pullback_2h</td><td>7</td><td>14.3%</td><td class="neg">$-216.23</td></tr>
+<tr><td>iwm_trend_long_1d</td><td>1</td><td>0.0%</td><td class="neg">$-2.81</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-24.89</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↓</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">1</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">2</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">1</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">13 full dossiers, 0 summarized (full-per-trade (since-last/daily)).</p>
+<details><summary><span class="pill paper">paper</span> BTCUSDT long · trend_donchian · <span class="neg">$-3,350.54</span> · grade D</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2769</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-22T12:40:37+00:00</div><div class="k">closed</div><div>2026-06-22T21:23:31+00:00</div><div class="k">hold (s)</div><div>31374</div><div class="k">entry</div><div>65139.5</div><div class="k">exit</div><div>64255.9</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>0.7</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>late</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>oversize</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>Donchian breakout long entered ~65,139 near the 65.6k swing high; BTC then faded ~3% and it was net-closed for -$3,350 — the window&#x27;s largest paper loss. Trend-follow whipsawed at range top.</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> BTCUSDT long · ict_scalp_5m · <span class="neg">$-0.90</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2797</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-06-22T20:06:50+00:00</div><div class="k">closed</div><div>2026-06-22T21:23:31+00:00</div><div class="k">hold (s)</div><div>4601</div><div class="k">entry</div><div>64660.0</div><div class="k">exit</div><div>64250.0</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>0.002</div><div class="k">pnl %</div><div>-0.6969</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>correct</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>5m scalp long 64660→64250 (-0.7%) as BTC faded; small, controlled real-money loss. Only measurable real trade in window.</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> BTCUSDT long · ict_scalp_5m · <span class="">—</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2783</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-06-22T16:55:46+00:00</div><div class="k">closed</div><div>2026-06-22T16:55:46+00:00</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>64726.1</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>0.003</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>Open-then-instant reconciler close (closedAt&lt;=openedAt), null exit/pnl — netting/reconciler artifact, not a real fill. Data-validity flag.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT short · sol_pullback_2h · <span class="neg">$-76.37</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2801</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-23T01:22:33+00:00</div><div class="k">closed</div><div>2026-06-23T01:22:33+00:00</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>71.95</div><div class="k">exit</div><div>71.95</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>60.6</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>sol_pullback_2h pyramided leg net-closed at basis (entry==exit, pnl from position basis). Biggest single SOL loss of the cohort.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT long · sol_pullback_2h · <span class="neg">$-42.21</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2758</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-21T22:04:21+00:00</div><div class="k">closed</div><div>2026-06-23T02:21:41+00:00</div><div class="k">hold (s)</div><div>102439</div><div class="k">entry</div><div>73.13</div><div class="k">exit</div><div>71.87</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>348.4</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>Long leg of the SOL pullback cohort closed -$42 as SOL drifted from 73.1 to 71.9 (~-2%).</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT short · sol_pullback_2h · <span class="neg">$-42.21</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2802</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-23T02:21:41+00:00</div><div class="k">closed</div><div>2026-06-23T02:21:41+00:00</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>71.87</div><div class="k">exit</div><div>71.87</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>53.5</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>Net-close leg paired with #2758; reconciler basis booking.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT short · sol_pullback_2h · <span class="neg">$-31.77</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2800</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-22T22:00:48+00:00</div><div class="k">closed</div><div>2026-06-22T22:00:48+00:00</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>72.69</div><div class="k">exit</div><div>72.69</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>59.8</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>Reconciler net-close leg, SOL cohort.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT short · sol_pullback_2h · <span class="neg">$-24.63</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2795</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-22T20:02:06+00:00</div><div class="k">closed</div><div>2026-06-22T20:02:06+00:00</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>72.79</div><div class="k">exit</div><div>72.79</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>57.1</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>Reconciler net-close leg, SOL cohort.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT short · sol_pullback_2h · <span class="pos">+$7.26</span> · grade B</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2788</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-22T18:01:35+00:00</div><div class="k">closed</div><div>2026-06-22T18:01:35+00:00</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>73.36</div><div class="k">exit</div><div>73.36</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>52.5</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>tp_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>The lone winner of the window (+$7.26) — SOL short leg booked positive at basis.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT short · sol_pullback_2h · <span class="neg">$-6.30</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2778</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-22T16:00:09+00:00</div><div class="k">closed</div><div>2026-06-22T16:00:09+00:00</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>73.09</div><div class="k">exit</div><div>73.09</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>47.9</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>Reconciler net-close leg, SOL cohort.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> BTCUSDT long · ict_scalp_5m · <span class="">—</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2796</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-22T20:06:49+00:00</div><div class="k">closed</div><div>2026-06-22T20:06:49+00:00</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>64629.7</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>6.027</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>Paper twin of #2783: open-then-instant reconciler close, null exit/pnl. Same instant-close artifact.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> IWM long · iwm_trend_long_1d · <span class="neg">$-2.81</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2771</div><div class="k">account</div><div>alpaca_paper</div><div class="k">opened</div><div>2026-06-22T13:33:44+00:00</div><div class="k">closed</div><div>2026-06-22T13:36:18+00:00</div><div class="k">hold (s)</div><div>154</div><div class="k">entry</div><div>298.5</div><div class="k">exit</div><div>298.19</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>9.079</div><div class="k">pnl %</div><div>-0.1039</div><div class="k">close reason</div><div>other</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>premature_exit</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>IWM equity paper long closed -$2.81 (-0.1%) only ~2.5min after open (closeReason &#x27;other&#x27;, alpaca) — possible fresh-fill false-close (BL-20260622 class).</div></div></div></details>
+<details><summary><span class="pill prop">prop</span> ETHUSDT long · manual/discretionary · <span class="neg">$-24.89</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>prop-fill-2</div><div class="k">account</div><div>breakout_1</div><div class="k">opened</div><div>2026-06-22T14:54:00+00:00</div><div class="k">closed</div><div>2026-06-22T19:41:00+00:00</div><div class="k">hold (s)</div><div>17220</div><div class="k">entry</div><div>1767.3</div><div class="k">exit</div><div>1734.62</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>0.73</div><div class="k">pnl %</div><div>-1.93</div><div class="k">close reason</div><div>manual</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>late</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>correct</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>Operator-placed Breakout long 0.73 ETH @ 1767.30 -&gt; 1734.62 (-1.9%, net -$24.89 incl -$1.03 comm). Ran counter to the bot&#x27;s ETH bias (trend_donchian_eth tickets this window were shorts). Loss stayed well within the $150/day prop limit; reported back via /prop/report (fill id 2, linked ticket prop-manual-dca8e89072d7, prop_closed fired).</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>64149.4</td><td>63710.4</td><td>65624.7</td><td>63609.4</td><td class="neg">-0.7%</td><td>Rallied to 65.6k (~13Z) then faded through the session to 63.6k low; bearish-chop. Stopped both the real ict_scalp &amp; paper trend_donchian longs.</td></tr>
+<tr><td>SOLUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>Candles not separately pulled; sol_pullback fills drifted 73.4→71.9 over the window (≈ -2%), a choppy grind down.</td></tr>
+<tr><td>ETHUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>Candles not separately pulled; prop short ticket entry band ~1717 (22:38Z). ETH shorts emitted on trend_donchian_eth.</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>btc-regime-1h-lgbm-yz-v1</td><td>advisory</td><td>macro_f1=0.667 acc=0.761</td><td>flat</td><td>not pulled this run</td><td>Sole order-influencing model; healthy metric, retrained clean.</td></tr>
+<tr><td>mes-regime-5m-lgbm-yz-v1</td><td>shadow</td><td>macro_f1=0.680 acc=0.686</td><td>flat</td><td>not pulled</td><td>Strongest shadow regime head; gate-check candidate toward advisory.</td></tr>
+<tr><td>mes-regime-5m-lgbm-v2</td><td>shadow</td><td>macro_f1=0.674</td><td>flat</td><td>not pulled</td><td>Strong shadow MES 5m head.</td></tr>
+<tr><td>conviction-meta-v1</td><td>candidate</td><td>macro_f1=0.417 acc=0.429</td><td>flat</td><td>n/a</td><td>Learned-conviction stacker; soak barely accruing (n=28) — far from shadow-ready.</td></tr>
+<tr><td>trade-outcome-winrate-baseline-v0</td><td>shadow</td><td>f1=0.0 acc=0.836</td><td>flat</td><td>n/a</td><td>Degenerate (predicts majority class) — weak conviction-lens input; shadow-only so harmless.</td></tr>
+<tr><td>prop-mission-policy-baseline-v0</td><td>shadow</td><td>f1=0.0 acc=1.0</td><td>flat</td><td>n/a</td><td>Degenerate baseline; weak sizing-lens input.</td></tr>
+<tr><td>(34 more models)</td><td>candidate/shadow</td><td>see registry</td><td>flat</td><td>n/a</td><td>40 total; btc/eth/mes regime heads + setup-quality/metalabel families, all retrained clean this cycle.</td></tr>
+</table></div>
+<footer>report_id RPT-20260623-051100-since-last · reviewer claude · prior RPT-20260622-123330-since-last · ICT Trading Bot system-report</footer></div></body></html>
