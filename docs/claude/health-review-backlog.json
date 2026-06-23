@@ -2101,9 +2101,9 @@
       "title": "Reconciler-filled close writes epoch-ms (not ISO) into trades.closed_at column",
       "description": "The trades.closed_at column contract is ISO-8601 (every consumer does datetime(closed_at), which returns NULL for a bare ms epoch). The reader-side dashboard endpoint /api/bot/trades/closed was fixed in the trades-closed-reconciler-visibility PR to normalise ms->ISO so buried rows resurface, but that only patches ONE consumer. The TRUE root cause is the writer: order_monitor should normalise the Bybit ms timestamp to ISO before writing the closed_at column (and notes.closed_at), so every consumer (pnl_history, performance, closed_flat_invariant json_extract, the re-adopt flap guard which ORDER BY closed_at DESC, etc.) sees a consistent ISO value and existing ms rows can be one-shot backfilled. This is Tier-2 order-path/monitor code \u2014 propose the exact change + a migration for the already-written ms rows; do not merge without operator approval.",
       "tier": "2",
-      "status": "open",
-      "resolved_at": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-23T07:40:00+00:00",
+      "resolution": "Already fixed: order_monitor close paths normalise closed_at via src.utils.closed_at.normalize_closed_at_value at every write site that takes a broker timestamp (lines ~3620, ~4371, ~4430, citing this BL id); other sites write datetime.now().isoformat(). trades.closed_at is ISO going forward. The read-side guards (_closed_at.py / M13 fix) remain for any pre-fix rows.",
       "snoozed_until": null,
       "check_log": [
         {
@@ -2111,7 +2111,8 @@
           "by": "claude (system-report \u2192 operator-reported missing real bybit_2 closes)",
           "note": "Read-side guard EXTENDED to the remaining consumer endpoints. Confirmed live from a real bybit_2 Bybit transaction log: 6 real CLOSE fills in 24h (e.g. trade #2768 closed 11:37Z +1.30) were dropped from /api/bot/performance (totalTrades=0) and /api/bot/stats pnl24h ($0) while lifetime totals still showed them \u2014 the epoch-ms closed_at fails datetime()/substr(). Centralised the epoch-ms-aware normalisation in src/web/api/_closed_at.py and wired /performance, /stats pnl24h, and /pnl/history (substr day-bucket) to it; re-pointed trades_closed.py at the shared module to kill the duplicate. STILL OPEN (Tier-2, operator-gated): the WRITER-side fix in order_monitor (normalise Bybit ms\u2192ISO before persisting closed_at + a one-shot migration of existing ms rows), and the closed_flat_invariant json_extract(notes.closed_at) consumer."
         }
-      ]
+      ],
+      "resolved_by": "claude (backlog-drain session)"
     },
     {
       "id": "BL-20260621-PROP-DIAG-ALLOWLIST",
@@ -2261,5 +2262,5 @@
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-23T07:35:00+00:00"
+  "updated_at": "2026-06-23T07:40:00+00:00"
 }
