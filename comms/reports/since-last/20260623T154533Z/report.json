@@ -1,0 +1,242 @@
+{
+  "report_id": "RPT-20260623-154533-since-last",
+  "reviewed_at": "2026-06-23T15:45:33+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-06-23T13:36:10+00:00",
+  "window_end": "2026-06-23T15:45:33+00:00",
+  "prior_report_id": "RPT-20260623-133610-since-last",
+  "overall_assessment": "healthy",
+  "health": {
+    "overall_assessment": "healthy",
+    "findings": {
+      "heartbeat": {
+        "status": "ok",
+        "note": "Live (age ~4s); last tick 15:35Z; deployed git_sha e0e29afb (current). Two clean restarts this window for the fix deploys."
+      },
+      "services": {
+        "status": "ok",
+        "note": "ict-trader-live + ict-web-api + ict-claude-bridge active; git-sync auto-deploying main."
+      },
+      "live_accounts": {
+        "status": "ok",
+        "note": "alpaca_paper, breakout_1, bybit_1, bybit_2, ib_paper = live; ib_live & oanda_practice off."
+      },
+      "strategy_fleet": {
+        "status": "ok",
+        "note": "36 strategies loaded & evaluating; chop regime, no actionable breakouts this window."
+      },
+      "orphan_labeling": {
+        "status": "ok",
+        "note": "FIXED + VERIFIED LIVE this window: dry/shadow packages now label 'rejected' (pkg-7d5d8b394bc04502 confirmed), not the red-flag 'orphaned'. Resolves the prior report's plumbing concern (BUG-049)."
+      },
+      "exit_labeling": {
+        "status": "ok",
+        "note": "FIXED + DEPLOYED this window: broker SL/TP fills now classify 'sl'/'tp' (reconciler + watchdog paths); intent_reduce legs correctly excluded. Validated against the real closes in the journal."
+      },
+      "grading_pipeline": {
+        "status": "ok",
+        "note": "Current: 2498 graded incl. this window (newest reviewed_at 15:35Z). Bridge now scores the live VM's fresh DB."
+      },
+      "ping_delivery": {
+        "status": "ok",
+        "note": "Silent-loss hardened: send_telegram_direct returns bool; drainer deletes only on confirmed send."
+      },
+      "diag_relay_allowlist": {
+        "status": "watch",
+        "note": "/api/bot/ml/status (+strategies, prop) still not on the vm-diag relay read allowlist \u2014 ML registry detail unavailable over the relay (worked around via order-package modelScores)."
+      }
+    }
+  },
+  "performance": {
+    "overall_assessment": "healthy",
+    "_note": "No trades closed in the since-last window (13:36Z->now). Real money flat; the 24h real PnL (-$9.51) is unchanged from the prior report."
+  },
+  "ml": {
+    "overall_assessment": "healthy",
+    "model_status": [
+      {
+        "model_id": "conviction-meta-v1",
+        "stage": "shadow",
+        "note": "Shadow scoring."
+      },
+      {
+        "model_id": "execution-quality-baseline-v0",
+        "stage": "shadow",
+        "note": "Shadow scoring."
+      },
+      {
+        "model_id": "prop-mission-policy-baseline-v0",
+        "stage": "shadow",
+        "note": "Shadow scoring (all-zero \u2014 known degenerate, BL-20260525-005)."
+      },
+      {
+        "model_id": "setup-quality-audit-baseline-v0",
+        "stage": "shadow",
+        "note": "Shadow scoring."
+      },
+      {
+        "model_id": "setup-quality-baseline-v0",
+        "stage": "shadow",
+        "note": "Shadow scoring."
+      },
+      {
+        "model_id": "setup-quality-lgbm-v2",
+        "stage": "shadow",
+        "note": "Shadow scoring."
+      },
+      {
+        "model_id": "trade-outcome-global-baseline-v0",
+        "stage": "shadow",
+        "note": "Shadow scoring."
+      },
+      {
+        "model_id": "trade-outcome-winrate-baseline-v0",
+        "stage": "shadow",
+        "note": "Shadow scoring."
+      }
+    ],
+    "promotion_recommendations": [],
+    "_note": "Fleet visibility from order-package modelScores (relay allowlist blocks /api/bot/ml/status). 8 models at shadow, none promoted (operator-gated). No training-cycle detail pulled this window (quiet window; trainer registry detail belongs to a full /ml-review)."
+  },
+  "consolidated": {
+    "roll_up_grade": "healthy",
+    "headline": "Window 13:36Z->15:45Z was a fix-and-verify window, not a trading one: NO trades closed. The orphan-labeling, reconciler-close sl/tp classification, and ping silent-loss fixes were merged AND deployed to the live VM, and the orphan fix was VERIFIED on live data (a post-deploy dry/shadow package came back 'rejected', not 'orphaned'). System healthy: heartbeat live, 36 strategies, deployed current. Grading is current (2498 graded). The prior report's CAUTION (orphaning + reconciler mislabeling) is now RESOLVED.",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Optional: add GRADING_PAT secret for unattended grading auto-merge",
+        "source_review": "cross",
+        "tier": 2,
+        "detail": "The grade-order-packages bridge opens a grades PR each run; without a GRADING_PAT (fine-grained PAT, contents+PR write) it can't auto-merge (GITHUB_TOKEN PRs get no CI), so a session adopts the branch. One secret makes grading fully hands-off.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "Residual orphan class: executed-then-exchange-flat-without-a-clean-fill",
+        "source_review": "health",
+        "tier": 2,
+        "detail": "The dry/shadow orphan share is fixed; BL-20260601-001's remaining scope (executed positions that read flat with no recoverable fill/PnL) is the reconciler/closed-pnl-recovery domain \u2014 a separate follow-up.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 3,
+        "title": "Add /api/bot/ml/status (+strategies, prop) to the vm-diag relay allowlist",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "These read-only endpoints aren't on the relay's path allowlist, so ML registry detail can't be pulled over the issue relay. A one-line allowlist add restores full report coverage.",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "This window DEPLOYED + LIVE-VERIFIED the fixes from the prior report's findings: orphan-labeling (pkg-7d5d8b394bc04502 -> 'rejected', not 'orphaned'), reconciler-close sl/tp classification (+ a reduce-leg mislabel regression caught via live data and fixed before it mattered), and the ping silent-loss hardening. The prior report's CAUTION is resolved.",
+      "No trades closed in-window; real money flat. The 24h real PnL (-$9.51, 3 trades) is unchanged from the prior report \u2014 no new real-money activity. Paper -$4285/24h (never blended).",
+      "Read-first is now mechanically enforced (SessionStart hook injects the read-first + work-session + definition-of-done contract at every session start, incl. compaction resumes).",
+      "Market: BTC chopping ~62.3k (62505->62308 over the window, ~-0.4%); no actionable breakouts \u2014 consistent with the quiet trading window."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": -1.64,
+        "trend": "flat",
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": 0.0,
+        "profit_factor": null,
+        "max_drawdown": 0.0,
+        "per_strategy": [],
+        "per_asset_class": {
+          "crypto": 0.0,
+          "index": null,
+          "commodity": null,
+          "equity": null,
+          "fx": null
+        },
+        "equity_curve": []
+      },
+      "paper": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": 110.08,
+        "trend": "flat",
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": 0.0,
+        "profit_factor": null,
+        "max_drawdown": 0.0,
+        "per_strategy": [],
+        "per_asset_class": {
+          "crypto": 0.0
+        },
+        "equity_curve": []
+      },
+      "prop": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "fills_reported": 3,
+        "tickets_emitted": 5,
+        "unacted_tickets": 0,
+        "rule_distance": {
+          "daily_loss_remaining": null,
+          "static_dd_remaining": null
+        },
+        "per_account": [
+          {
+            "account_id": "breakout_1",
+            "balance": null,
+            "equity": null,
+            "realized_window": null
+          }
+        ]
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": 62504.7,
+        "close": 62307.7,
+        "high": 62858.6,
+        "low": 61954.9,
+        "pct_change": -0.39,
+        "range_pct": 1.46,
+        "note": "Chop ~62.3k; no actionable breakout. Other symbols not pulled this window (quiet 2h window, no closes)."
+      }
+    ],
+    "trade_dossiers": [],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 0,
+      "summarized_trades": 0,
+      "rule": "full-per-trade (since-last/daily) \u2014 0 trades closed in-window"
+    },
+    "backlog_summary": {
+      "health": {
+        "drained": 2,
+        "open": 132
+      },
+      "performance": {
+        "drained": 0,
+        "open": null
+      },
+      "ml": {
+        "drained": 0,
+        "open": null
+      }
+    },
+    "tier3_proposals_pending": []
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260623T154533Z/report.json",
+    "html_path": "comms/reports/since-last/20260623T154533Z/report.html",
+    "md_path": "comms/reports/since-last/20260623T154533Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260623T154533Z/report.html",
+    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260623-154533-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "send-ping",
+    "priority": "normal",
+    "message": "[system-report:since-last] roll-up HEALTHY: H:healthy P:healthy M:healthy. Prior CAUTION (orphan+reconciler) FIXED+verified; 0 trades closed. https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260623-154533-since-last"
+  }
+}

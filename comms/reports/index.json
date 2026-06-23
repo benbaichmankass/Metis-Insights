@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260623-154533-since-last",
+      "window": "since-last",
+      "generated_at": "2026-06-23T15:45:33+00:00",
+      "window_start": "2026-06-23T13:36:10+00:00",
+      "window_end": "2026-06-23T15:45:33+00:00",
+      "roll_up_grade": "healthy",
+      "headline": "Window 13:36Z->15:45Z was a fix-and-verify window, not a trading one: NO trades closed. The orphan-labeling, reconciler-close sl/tp classification, and ping silent-loss fixes were merged AND deployed to the live VM, and the orphan fix was VERIFIED on live data (a post-deploy dry/shadow package came back 'rejected', not 'orphaned'). System healthy: heartbeat live, 36 strategies, deployed current. Grading is current (2498 graded). The prior report's CAUTION (orphaning + reconciler mislabeling) is now RESOLVED.",
+      "html_path": "comms/reports/since-last/20260623T154533Z/report.html",
+      "json_path": "comms/reports/since-last/20260623T154533Z/report.json",
+      "md_path": "comms/reports/since-last/20260623T154533Z/report.md"
+    },
+    {
       "id": "RPT-20260623-133610-since-last",
       "window": "since-last",
       "generated_at": "2026-06-23T13:36:10+00:00",
