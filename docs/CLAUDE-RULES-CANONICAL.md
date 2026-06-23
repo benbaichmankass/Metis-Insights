@@ -551,6 +551,21 @@ At the start of every session, before touching any file:
    operator-approved commit on the line you are about to change is
    load-bearing context, not an optional check.
 
+**A context-compaction resume is a NEW session (2026-06-23, operator
+directive).** When a session continues from a summary — even when the
+resume prompt says "pick up where you left off / as if the break never
+happened" — that instruction does **not** waive the read above. A fresh
+context window has not read these docs; reading them is the first action,
+before any tool call. The 2026-06-23 incident: a resumed session ran a
+`/system-report` without reading the canonical rules or the skill, treated
+"report mode" as read-only, and shipped findings instead of fixes. To make
+read-first the *only* workflow rather than a discipline that can lapse, the
+`SessionStart` hook in `.claude/settings.json` now emits this contract as
+the first thing in every session's context (the binding read-first +
+work-session + definition-of-done clauses). This is a deliberate exception
+to "Why no new mechanical guardrails" below — the operator asked for the
+read to be mechanically guaranteed, not left to per-session discipline.
+
 The previous "skim the canonical doc and move on" pattern that
 produced PR #1358 (the sprint log confirms canonical docs were
 listed as reviewed) is not sufficient. Reading is followed by
