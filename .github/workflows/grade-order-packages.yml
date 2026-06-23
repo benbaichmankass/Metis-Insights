@@ -19,6 +19,12 @@
 #   * VM_SSH_KEY        — SSH private key authorized on the trainer
 #   * TRAINER_VM_IP     — defaults to 158.178.209.121
 #   * TRAINER_VM_USER   — defaults to ubuntu
+#   * GRADING_PAT (OPTIONAL) — fine-grained PAT with contents+pull-requests
+#       write. When set, the grades branch is pushed with it so the opened PR
+#       gets CI and auto-merges UNATTENDED. When unset, the PR still opens but
+#       its checks won't run (a GITHUB_TOKEN-pushed PR doesn't trigger
+#       `on: pull_request` workflows — the recursion guard), so a Claude session
+#       must adopt the branch + re-push to get CI (the PR body explains how).
 # Required label: grade-order-packages (created by bootstrap-labels.yml)
 name: grade-order-packages
 
@@ -48,6 +54,17 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Prefer an operator-provided PAT so the grades PR this job opens
+          # actually gets CI: a branch pushed with GITHUB_TOKEN opens a PR that
+          # does NOT trigger `on: pull_request` workflows (GitHub's recursion
+          # guard), so its required checks never run and `--auto` can never
+          # merge it. Pushing with a PAT removes the bot identity from the
+          # push, so the PR's checks run and auto-merge completes unattended.
+          # Falls back to GITHUB_TOKEN when GRADING_PAT is unset (the PR still
+          # opens; a Claude session must adopt the branch + re-push to get CI —
+          # see the "no-PAT" note in the PR step).
+          token: ${{ secrets.GRADING_PAT || secrets.GITHUB_TOKEN }}
+          persist-credentials: true
 
       - name: Prepare SSH to trainer
         env:
@@ -118,8 +135,12 @@ jobs:
 
       - name: Open auto-merging PR with the new grades
         if: steps.merge.outputs.added != '0'
+        id: pr
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Same token preference as checkout: a PAT lets the opened PR get CI
+          # and lets `--auto` complete. GITHUB_TOKEN still opens the PR.
+          GH_TOKEN: ${{ secrets.GRADING_PAT || secrets.GITHUB_TOKEN }}
+          HAVE_PAT: ${{ secrets.GRADING_PAT != '' }}
         run: |
           git config user.email noreply@anthropic.com
           git config user.name Claude
@@ -132,13 +153,23 @@ jobs:
           rule-based score_order_packages.py over the synced journal, dedup-appends
           the new rows by order_package_id. Append-only observability data."
           git push -u origin "${BR}"
+          NOPAT_NOTE=""
+          if [ "${HAVE_PAT}" != "true" ]; then
+            NOPAT_NOTE="
+
+          > ⚠️ No \`GRADING_PAT\` secret is set, so this PR was opened with GITHUB_TOKEN and its required checks will NOT run (GitHub recursion guard) — it cannot auto-merge. A Claude session should adopt this branch: \`git checkout -B grades origin/main && git checkout origin/${BR} -- comms/claude_strategy_scores.jsonl && commit + push\` (a session push triggers CI). To make this fully unattended, add a repo \`GRADING_PAT\` secret (a fine-grained PAT with contents+pull-requests write)."
+          fi
           gh pr create --base main --head "${BR}" \
             --title "data(grading): ${{ steps.merge.outputs.added }} order-package grades (automated)" \
-            --body "Automated grading commit via \`grade-order-packages.yml\`. Append-only; ${{ steps.merge.outputs.added }} new decision grades (journal now ${{ steps.merge.outputs.total }} graded packages). Closes the VM→repo grading-commit gap." \
+            --body "Automated grading commit via \`grade-order-packages.yml\`. Append-only; ${{ steps.merge.outputs.added }} new decision grades (journal now ${{ steps.merge.outputs.total }} graded packages). Closes the VM→repo grading-commit gap.${NOPAT_NOTE}" \
             > /tmp/pr_url.txt
           cat /tmp/pr_url.txt
-          gh pr merge "${BR}" --squash --auto --delete-branch \
-            || echo "auto-merge unavailable — PR left open for manual merge"
+          if [ "${HAVE_PAT}" = "true" ]; then
+            gh pr merge "${BR}" --squash --auto --delete-branch \
+              || echo "auto-merge enable failed — PR left open for manual merge"
+          else
+            echo "GRADING_PAT unset — leaving PR open for a session to adopt (see PR body)."
+          fi
 
       - name: Comment result on the trigger issue
         if: github.event_name == 'issues'
@@ -147,6 +178,7 @@ jobs:
           script: |
             const added = '${{ steps.merge.outputs.added }}' || '0';
             const total = '${{ steps.merge.outputs.total }}' || '?';
+            const havePat = '${{ secrets.GRADING_PAT != '' }}' === 'true';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             let body;
             if (added === '0') {
@@ -154,7 +186,11 @@ jobs:
             } else {
               let pr = '';
               try { pr = require('fs').readFileSync('/tmp/pr_url.txt','utf8').trim(); } catch (e) {}
-              body = `✅ **grade-order-packages**: committed **${added}** new decision grades (journal now ${total}).\n${pr ? 'PR: ' + pr : ''}\nRun: ${runUrl}`;
+              const verb = havePat ? 'opened an auto-merging PR for' : 'opened a PR with';
+              const tail = havePat
+                ? ''
+                : `\n\n⚠️ No \`GRADING_PAT\` secret — the PR's CI will not run (recursion guard), so it can't auto-merge. A session must adopt the branch (see the PR body), or add a \`GRADING_PAT\` secret for unattended merges.`;
+              body = `✅ **grade-order-packages**: ${verb} **${added}** new decision grades (journal would be ${total}).\n${pr ? 'PR: ' + pr : ''}\nRun: ${runUrl}${tail}`;
             }
             await github.rest.issues.createComment({
               owner: context.repo.owner, repo: context.repo.repo,
