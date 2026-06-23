@@ -81,13 +81,6 @@ EXPECTED_SERVICES = {
     # bounded window, account_class gaps, closed_at gaps) — the DB tells us
     # when persistence drifts instead of the dashboard silently mis-rendering.
     "ict-db-integrity.service",
-    # 2026-06-23: inbound prop Telegram listener (prop-telegram-inbound-DESIGN).
-    # Long-poll getUpdates loop that turns an operator's structured command in
-    # the prop bot channel (e.g. "close ETHUSD 2950 +80 tp") into a
-    # prop_report.ingest_report call — the report-back half of the Breakout
-    # manual bridge with no Claude/dashboard middle-man. Chat-id allowlisted;
-    # inert until the prop bot token + allowlist are configured.
-    "ict-prop-telegram-listener.service",
 }
 
 # Trader-side units (i.e. units that run trading-strategy code). Used to

@@ -5,7 +5,7 @@ places it on the Breakout terminal, then reports back. Until now that report-bac
 went through Claude (or the dashboard form) as a middle-man. This module is the
 parser half of a **direct** path: the operator types a short structured command
 in the prop bot's Telegram channel and the listener
-(``scripts/prop/telegram_inbound.py``) turns it into a
+(the prop comms bot, via ``src.prop.telegram_report_handler``) turns it into a
 ``src.prop.prop_report.ingest_report`` call — no middle-man.
 
 The grammar is deliberately small, positional, and forgiving (a fixed verb +

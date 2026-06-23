@@ -1,7 +1,7 @@
 """Tests for the inbound prop Telegram command parser + handler.
 
 The parser (:func:`src.prop.telegram_commands.parse_prop_command`) is pure and
-gets the bulk of the coverage; :func:`src.prop.telegram_inbound.handle_command`
+gets the bulk of the coverage; :func:`src.prop.telegram_report_handler.handle_command`
 is exercised end-to-end against an isolated journal (no Telegram I/O) to prove a
 typed command links to its ticket and writes the canonical symbol.
 """
@@ -125,7 +125,7 @@ def no_notify(monkeypatch: pytest.MonkeyPatch) -> list:
 
 def test_handle_close_links_open_ticket(isolated_db: Path, no_notify: list) -> None:
     from src.prop import prop_journal
-    from src.prop.telegram_inbound import handle_command
+    from src.prop.telegram_report_handler import handle_command
 
     # The bot emitted a short ETHUSDT ticket under the canonical symbol.
     prop_journal.record_ticket({
@@ -146,20 +146,20 @@ def test_handle_close_links_open_ticket(isolated_db: Path, no_notify: list) -> N
 
 
 def test_handle_non_command_is_silent(isolated_db: Path) -> None:
-    from src.prop.telegram_inbound import handle_command
+    from src.prop.telegram_report_handler import handle_command
 
     assert handle_command("just chatting", default_account="breakout_1") is None
 
 
 def test_handle_no_account_warns(isolated_db: Path) -> None:
-    from src.prop.telegram_inbound import handle_command
+    from src.prop.telegram_report_handler import handle_command
 
     reply = handle_command("skip ETHUSD", default_account=None)
     assert reply is not None and "No prop account" in reply
 
 
 def test_handle_bad_command_returns_usage(isolated_db: Path) -> None:
-    from src.prop.telegram_inbound import handle_command
+    from src.prop.telegram_report_handler import handle_command
 
     reply = handle_command("close", default_account="breakout_1")
     assert reply is not None and "⚠" in reply
