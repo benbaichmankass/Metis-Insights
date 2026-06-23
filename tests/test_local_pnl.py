@@ -193,6 +193,32 @@ def test_sweep_rescues_abandoned_broker_row_past_window(db, monkeypatch):
     assert _pnl_of(db, tid)["pnl"] == pytest.approx(10.0)  # (110-100)*1*1
 
 
+def test_sweep_rescues_aged_broker_row_with_no_closed_pnl(db, monkeypatch):
+    # BL-20260623-001 / real-money #2783: a Bybit row the broker reader can
+    # NEVER fill (no closed-pnl record — a same-instant net-flat) used to sit
+    # ``closed``/``pnl NULL`` between the 6h INV-2 grace and the 7-day broker
+    # retention window, tripping INV-2. Once aged past the 6h grace it now
+    # converges to local_compute instead of stranding NULL for days.
+    aged = (datetime.now(timezone.utc) - timedelta(hours=7)).isoformat()
+    tid = _insert(db, symbol="BTCUSDT", account_id="bybit_2",
+                  status="closed", entry_price=100.0, position_size=1.0,
+                  direction="long", created_at=aged)
+    monkeypatch.setattr(
+        "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
+        lambda: {"bybit_2": {"exchange": "bybit"}},
+    )
+    monkeypatch.setattr(
+        "src.runtime.local_pnl.last_mark_price", lambda *a, **k: 110.0,
+    )
+    summary = _sweep_local_pnl_for_unpriced(db)
+    assert summary["filled"] == 1
+    assert summary["deferred_broker"] == 0
+    row = _pnl_of(db, tid)
+    assert row["pnl"] == pytest.approx(10.0)  # (110-100)*1*1
+    import json
+    assert json.loads(row["notes"]).get("pnl_source") == "local_compute"
+
+
 def test_sweep_ignores_rejected_zero_size(db, monkeypatch):
     tid = _insert(db, status="rejected", position_size=0.0)
     monkeypatch.setattr(
