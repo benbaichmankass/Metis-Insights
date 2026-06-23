@@ -1,0 +1,141 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-06-23T13:36:10+00:00 · window 2026-06-23T05:11:00+00:00 → 2026-06-23T13:36:10+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>Window 05:11Z-&gt;13:36Z. System healthy: heartbeat live, 36 strategies evaluating, deployed current. The grading lapse that under-reported the last two reports is RESOLVED (VM-&gt;repo bridge + live-DB freshness; 2492 packages graded incl. today). Real money ~flat (one BTC long -$1.64 on 0.001 sizing); paper +$110 in-window (-$4288/24h). CAUTION: in-window order packages orphan at target_qty=0 (BUG-049) and all closes were reconciler-driven, not clean TP/SL.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Investigate zero-qty order packages orphaning (BUG-049)</b> <span class="pill">cross · T1</span><br><span class='muted'>Every in-window package shows aggregated_target_qty=0 -&gt; created then reconciler-orphaned ~5m later. Signals generate but size to zero, so real execution is near-nil. Confirm whether this is correct sub-conviction sizing or a sizing/rounding defect.</span></li>
+<li><b>Exits are reconciler-driven, not TP/SL</b> <span class="pill">performance · T1</span><br><span class='muted'>All 5 in-window closes had closeReason=reconciler (incl. the real BTC trade and its paper twin). Verify the monitor/exit path is closing on strategy SL/TP, not relying on reconciliation.</span></li>
+<li><b>Paper reconciler closes show entry==exit with non-zero P&amp;L</b> <span class="pill">performance · T1</span><br><span class='muted'>Paper ADA/XRP closes report +$507/+$333/+$98 with entryPrice==exitPrice -&gt; likely a reconciler PnL-attribution artifact inflating paper P&amp;L. Audit realizedPnl on reconciler closes.</span></li>
+<li><b>Add /api/bot/ml/status (+strategies, prop) to the vm-diag relay allowlist</b> <span class="pill">health · T1</span><br><span class='muted'>These read-only endpoints aren&#x27;t on the relay&#x27;s path allowlist, so ML registry detail can&#x27;t be pulled over the issue relay. A one-line allowlist add restores full report coverage.</span></li>
+<li><b>Optional: add GRADING_PAT secret for unattended grading auto-merge</b> <span class="pill">cross · T2</span> ⚠️ operator<br><span class='muted'>The grading bridge opens a grades PR each run; without a GRADING_PAT it can&#x27;t auto-merge (GITHUB_TOKEN PRs get no CI), so a session must adopt the branch. A fine-grained PAT (contents+PR write) makes it fully hands-off.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">0 drained / — open</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">0 drained / — open</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">0 drained / — open</div></div>
+</div>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>Grading lapse RESOLVED: built the VM-&gt;repo grading bridge (#4309), backfilled 1049 grades (#4312), made its auto-merge work (#4313), and fixed it to score the live VM&#x27;s FRESH DB instead of the trainer&#x27;s midnight-lagged copy (#4317) + graded today&#x27;s packages (#4320). Journal now 2492 graded; in-window packages carry C/D grades. Root cause of the 06-22/06-23 under-reporting: report-mode was treated as read-only (process fix #4285) AND no automated commit path existed (this session).</li>
+<li>Signal-&gt;order-&gt;exit plumbing theme: in-window packages orphan at target_qty=0 (BUG-049) AND all 5 closes were reconciler-driven (no clean TP/SL). Both point at the execution/exit path, not signal generation -- strategies evaluate normally; the market is in chop.</li>
+<li>Real vs paper diverge sharply: real ~flat (-$1.64 in-window on 0.001 BTC sizing) while paper swings large (-$4288/24h, +$110 in-window). Paper sizing is far larger, so paper P&amp;L does not reflect real money at risk -- the two are never blended.</li>
+<li>Market backdrop: BTC -3.2% over the window (64,155 -&gt; 62,093, low 61,934). The htf_pullback_trend_2h BTC long (real + paper twin) was a long into that slide -&gt; both lost; closed by reconciler at 06:21Z.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟢 healthy</span></h2>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>heartbeat</td><td class="sev-ok">🟢 ok</td><td>Live (age ~5s); uptime ~35m; last tick 13:09Z; deployed git_sha 52d929f8 (current with main).</td></tr>
+<tr><td>services</td><td class="sev-ok">🟢 ok</td><td>ict-trader-live + ict-web-api up; diag relay + API serving; git-sync auto-deploying main.</td></tr>
+<tr><td>live_accounts</td><td class="sev-ok">🟢 ok</td><td>alpaca_paper, breakout_1, bybit_1, bybit_2, ib_paper = live; ib_live &amp; oanda_practice off (OANDA shelved per FX-sweep).</td></tr>
+<tr><td>strategy_fleet</td><td class="sev-ok">🟢 ok</td><td>36 strategies loaded &amp; evaluating; chop regime on BTC (ADX ~16-17) -&gt; fade/squeeze/scalp/fvg non-actionable (benign, no setups).</td></tr>
+<tr><td>grading_pipeline</td><td class="sev-ok">🟢 ok</td><td>FIXED this session: VM-&gt;repo grading bridge built; now scores the live VM&#x27;s fresh DB. 2492 packages graded incl. today; in-window packages now carry C/D grades. This was the 06-22/06-23 under-reporting cause.</td></tr>
+<tr><td>signal_to_order_plumbing</td><td class="sev-concern">🔴 concern</td><td>In-window order packages orphaning at aggregated_target_qty=0 (BUG-049) -&gt; signals size to zero, package created, then reconciler-orphaned ~5m later. Real execution is sparse as a result.</td></tr>
+<tr><td>exit_path</td><td class="sev-watch">🟡 watch</td><td>All 5 in-window closes were closeReason=reconciler; none hit a clean TP/SL. Worth confirming the exit/monitor path is exiting on strategy logic, not just reconciliation.</td></tr>
+<tr><td>diag_relay_allowlist</td><td class="sev-watch">🟡 watch</td><td>/api/bot/ml/status (and strategies, prop) are not on the vm-diag relay read allowlist -&gt; a blind spot for ML registry detail over the issue relay (worked around via order-package modelScores + trainer relay).</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-1.64</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">1</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-1.64</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.00</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-1.64</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>htf_pullback_trend_2h</td><td>1</td><td>0.0%</td><td class="neg">$-1.64</td></tr>
+</table></div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$110.08</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↑</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">4</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">75.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$27.52</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">1.13</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-828.85</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">3</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>trend_donchian_ada_4h</td><td>2</td><td>100.0%</td><td class="pos">+$840.55</td></tr>
+<tr><td>trend_donchian_xrp_4h</td><td>1</td><td>100.0%</td><td class="pos">+$98.57</td></tr>
+<tr><td>htf_pullback_trend_2h</td><td>1</td><td>0.0%</td><td class="neg">$-828.85</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">3</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">0</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">5</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">5 full dossiers, 0 summarized (full-per-trade (since-last/daily)).</p>
+<details><summary><span class="pill real">real_money</span> BTCUSDT long · htf_pullback_trend_2h · <span class="neg">$-1.64</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2799</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-06-22T22:00:23+00:00</div><div class="k">closed</div><div>2026-06-23T06:21:11+00:00</div><div class="k">hold (s)</div><div>29448</div><div class="k">entry</div><div>64322.8</div><div class="k">exit</div><div>62724</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>0.001</div><div class="k">pnl %</div><div>-2.55</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>The only REAL-money close in-window: a BTC long into a -3.2% slide, closed by reconciler not a clean SL. Grading is live (in-window packages graded C/D); this trade&#x27;s package-&gt;grade join not captured (relay 55kB truncation).</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> BTCUSDT long · htf_pullback_trend_2h · <span class="neg">$-828.85</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2798</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-22T22:00:22+00:00</div><div class="k">closed</div><div>2026-06-23T06:21:11+00:00</div><div class="k">hold (s)</div><div>29449</div><div class="k">entry</div><div>64293</div><div class="k">exit</div><div>62725</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>0.506</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>Paper twin of the real BTC long (same entry/exit, qty 506x larger). Same -3.2% slide loss, reconciler close. Illustrates how paper sizing dwarfs real.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT long · trend_donchian_ada_4h · <span class="pos">+$507.19</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2807</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-23T08:30:11+00:00</div><div class="k">closed</div><div>2026-06-23T08:30:11+00:00</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>0.1513</div><div class="k">exit</div><div>0.1513</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>46882</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>Reconciler close with entryPrice==exitPrice yet +$507 realizedPnl -&gt; likely a paper PnL-attribution artifact, not a genuine edge. Flagged for audit.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT long · trend_donchian_ada_4h · <span class="pos">+$333.37</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2804</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-23T06:24:47+00:00</div><div class="k">closed</div><div>2026-06-23T06:24:47+00:00</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>0.1542</div><div class="k">exit</div><div>0.1542</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>42004</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>Same entry==exit reconciler-PnL artifact pattern as 2807.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> XRPUSDT long · trend_donchian_xrp_4h · <span class="pos">+$98.57</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2803</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-23T06:22:00+00:00</div><div class="k">closed</div><div>2026-06-23T06:22:00+00:00</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>1.1083</div><div class="k">exit</div><div>1.1083</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>2975.3</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>Same entry==exit reconciler-PnL artifact pattern.</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>64154.7</td><td>62093.2</td><td>64272.7</td><td>61933.5</td><td class="neg">-3.2%</td><td>Risk-off slide over the window; chop regime (ADX ~16-17). Other traded symbols not captured this run (single-symbol candle pull).</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟢 healthy</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>conviction-meta-v1</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Actively scoring in-window packages (e.g. 0.737). Shadow only.</td></tr>
+<tr><td>execution-quality-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Scoring (negative tilt ~ -0.20). Shadow only.</td></tr>
+<tr><td>prop-mission-policy-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Scoring (0.0). Shadow only.</td></tr>
+<tr><td>setup-quality-audit-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Scoring. Shadow only.</td></tr>
+<tr><td>setup-quality-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Scoring. Shadow only.</td></tr>
+<tr><td>setup-quality-lgbm-v2</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Scoring (positive tilt ~0.11). Shadow only.</td></tr>
+<tr><td>trade-outcome-global-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Scoring (~0.25). Shadow only.</td></tr>
+<tr><td>trade-outcome-winrate-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Scoring (~0.25). Shadow only.</td></tr>
+</table></div>
+<footer>report_id RPT-20260623-133610-since-last · reviewer claude · prior RPT-20260623-051100-since-last · ICT Trading Bot system-report</footer></div></body></html>

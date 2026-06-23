@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260623-133610-since-last",
+      "window": "since-last",
+      "generated_at": "2026-06-23T13:36:10+00:00",
+      "window_start": "2026-06-23T05:11:00+00:00",
+      "window_end": "2026-06-23T13:36:10+00:00",
+      "roll_up_grade": "caution",
+      "headline": "Window 05:11Z->13:36Z. System healthy: heartbeat live, 36 strategies evaluating, deployed current. The grading lapse that under-reported the last two reports is RESOLVED (VM->repo bridge + live-DB freshness; 2492 packages graded incl. today). Real money ~flat (one BTC long -$1.64 on 0.001 sizing); paper +$110 in-window (-$4288/24h). CAUTION: in-window order packages orphan at target_qty=0 (BUG-049) and all closes were reconciler-driven, not clean TP/SL.",
+      "html_path": "comms/reports/since-last/20260623T133610Z/report.html",
+      "json_path": "comms/reports/since-last/20260623T133610Z/report.json",
+      "md_path": "comms/reports/since-last/20260623T133610Z/report.md"
+    },
+    {
       "id": "RPT-20260623-051100-since-last",
       "window": "since-last",
       "generated_at": "2026-06-23T05:11:00+00:00",
