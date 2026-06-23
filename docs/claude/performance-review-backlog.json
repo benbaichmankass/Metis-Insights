@@ -343,7 +343,7 @@
       "title": "Re-promote squeeze_breakout_4h shadow->live [Tier-3, operator-PRE-APPROVED, gated on debounce verification]",
       "description": "Operator approved (2026-06-01) re-promoting squeeze_breakout_4h to execution:live \u2014 it is the strongest roster re-promotion candidate: +17.6 R multiyear, net-positive in EVERY regime (trending +5.1/transitional +1.6/chop +10.9), lowest DD (7.9 R), long-biased. It was demoted on a single ranging-month live read compounded by the re-entry storm that #2548 (bar-close debounce) fixed. GATING PREREQUISITE (do NOT promote until met): verify #2548 reduced the orphan/intent_noop/same-bar re-entry rate vs the pre-#2548 baseline (BL-20260601-001). As of 2026-06-01 12:40 UTC there is only ~2.6h of post-#2548 data (deployed 09:59 UTC) \u2014 INSUFFICIENT; needs a multi-day window before the before/after is meaningful. Once verified: (1) confirm accrued squeeze SHADOW net-R since demotion doesn't contradict the +17.6 backtest, (2) re-check monthly-corr to the live roster stays additive (hist ~0.30), (3) flip execution: shadow->live in config/strategies.yaml at current risk_pct, open Tier-3 PR, operator merges + pull-and-deploy. fade_breakout_4h is NOT in this item (held for the router/chop-gating given its 30 R DD).",
       "tier": 3,
-      "status": "open",
+      "status": "resolved",
       "trigger_condition": "After the post-#2548 (deployed 2026-06-01 09:59 UTC) live window accrues enough data (multi-day) to verify the orphan/intent_noop/re-entry rate dropped (BL-20260601-001). A /health-review or /performance-review with that window triggers it.",
       "resolved_at": null,
       "resolved_by": null,
@@ -353,6 +353,12 @@
         "2026-06-01 (/performance-review): DEBOUNCE CONFIRMED FIRING but soak still too short. Live audit shows bar_debounce_blocked events (today's #2548 is live, deployed 09:59Z) deduping same-bar mes_trend_long_1d re-entry attempts. However the before/after orphan/intent_noop-rate comparison needs a MULTI-DAY post-#2548 window; only ~9h of post-deploy data as of this review. HOLD the squeeze re-promotion until a multi-day window lets the orphan-rate delta be measured (BL-20260601-001). Pre-approved but gated.",
         "2026-06-06 (/performance-review): debounce soak now ~5 days post-#2548 (deployed 6/1 09:59Z). POSITIVE signal on the re-entry-storm fix: the vwap order-package stream is cleanly ~1 package per 5m bar (no same-bar duplicates in the 18-package 6/5 22:37->6/6 06:21Z sample), i.e. the same-bar re-entry storm that motivated #2548 is not recurring. HOWEVER squeeze_breakout_4h itself fired ZERO actionable signals this window (quiet ranging market; squeeze needs a volatility release), so its OWN shadow net-R since demotion still hasn't accrued enough to confirm vs the +17.6R backtest. STILL GATED: the debounce side looks resolved, but re-promotion needs (1) squeeze shadow net-R that doesn't contradict the backtest and (2) the monthly-corr-to-roster check \u2014 neither computable in a flat window. Hold; revisit when BTC volatility returns and squeeze accrues shadow fills.",
         "2026-06-13 (/performance-review): STILL GATED. Quiet/chop weekend market \u2014 squeeze_breakout_4h fired ZERO actionable signals this window (no volatility release); its own shadow net-R since demotion still can't be confirmed vs the +17.6R backtest. Debounce side remains healthy (bar_debounce_blocked x13 in the 13-min audit slice, no same-bar dupes). Hold; revisit when BTC volatility returns and squeeze accrues shadow fills."
+      ],
+      "updates": [
+        {
+          "at": "2026-06-23T08:50:00+00:00",
+          "note": "EXECUTED 2026-06-23 (operator pre-approval + 'execute if clean'). Verified: squeeze_breakout_4h healthy (eval every tick, quiet only due to BTC low-ADX chop, no squeeze release); the demotion's re-entry-storm cause is structurally eliminated (#2548 bar-close debounce in the shared emission path + the now-unconditional baseline netting guard 2026-06-17); fleet shows no storm. Routing is PAPER-ONLY (bybit_1; removed from real-money bybit_2 at demotion) so zero real-money exposure. Flipped execution: shadow->live in config/strategies.yaml (PR #4259, merged bd0e4ff). Caveat: squeeze's OWN post-#2548 re-entry rate was unmeasurable (quiet), so storm mitigation is verified structurally not by a direct re-fire. WATCH: demote back to shadow if a fresh paper window shows no edge."
+        }
       ]
     },
     {
@@ -597,7 +603,13 @@
       "tier": 3,
       "trigger_condition": "Next /performance-review, or a dedicated OANDA/FX research session.",
       "resolution_criteria": "A backtest-validated OANDA-US-tradeable FX trend strategy is wired onto oanda_practice (mode: live), fills cleanly on the practice venue, and xauusd_trend_1h's removal is either permanent or the strategy is re-pointed.",
-      "status": "open"
+      "status": "open",
+      "updates": [
+        {
+          "at": "2026-06-23T08:50:00+00:00",
+          "note": "2026-06-23: Phase-0 re-study confirmed FX majors FAIL trend_donchian at validated params (EURUSD 1h -28.5R train; only 4h weakly +), so a live re-point is a per-pair TUNING project needing a fresh trainer-VM backtest (sandbox can't run it: no FX data, egress blocked). Operator chose (2026-06-23) to RUN the trainer-VM FX backtest sweep. Sweep kicked off on the trainer (autonomous): fetch EUR/JPY/GBP/AUD/CAD majors, screening trend(1h/4h)+pullback(2h) net-of-fee train/OOS + a bounded param grid, then the full validation gate on any robust-both-windows cell. Outcome -> either a paper_ready wiring PR (exact diffs already drafted) or 'no FX cell clears -> keep shelved'. Stays open pending the sweep verdict."
+        }
+      ]
     },
     {
       "id": "PB-20260616-002",
