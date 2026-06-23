@@ -76,6 +76,19 @@ def ingest_report(report: Dict[str, Any]) -> Dict[str, Any]:
     if not symbol:
         raise ValueError("fill report needs a symbol")
 
+    # Normalise an inbound venue symbol (what the executor / operator typed on
+    # the Breakout terminal, e.g. "ETHUSD") back to the bot's canonical symbol
+    # ("ETHUSDT") — the journal + ticket reconciliation are keyed on canonical.
+    # Passthrough for an already-canonical or unmapped symbol. The original
+    # symbol is preserved verbatim in `raw` (the full report below). Best-effort:
+    # a resolver hiccup must never fail the ingest.
+    try:
+        from src.prop.symbol_map import to_bot_symbol
+
+        symbol = to_bot_symbol(symbol) or symbol
+    except Exception as exc:  # noqa: BLE001 — never fail ingest over symbol mapping
+        logger.warning("prop_report: symbol normalise failed for %s: %s", symbol, exc)
+
     fill = {
         "account_id": account_id,
         "ticket_id": report.get("ticket_id"),
