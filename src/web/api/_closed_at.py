@@ -19,42 +19,16 @@ separately).
 """
 from __future__ import annotations
 
-# The pure value normaliser lives in the neutral src.utils layer so the WRITER
-# (src/runtime/order_monitor.py) and these READERS share one implementation
-# without runtime importing web. Re-exported here under its established name.
-from src.utils.closed_at import normalize_closed_at_value
+# The normaliser AND the SQL builders live in the neutral src.utils layer so the
+# WRITER (src/runtime/order_monitor.py) and the READERS (here + the src/runtime
+# AI-analyst insights generator) share one implementation without src/runtime
+# importing src/web. Re-exported here under their established names so the
+# existing web import sites (/performance, /stats, /trades/closed, /pnl/history)
+# keep working unchanged.
+from src.utils.closed_at import (  # noqa: F401
+    close_time_sql,
+    closed_at_norm_sql,
+    normalize_closed_at_value,
+)
 
 __all__ = ["closed_at_norm_sql", "close_time_sql", "normalize_closed_at_value"]
-
-
-def closed_at_norm_sql(col: str) -> str:
-    """SQLite expression normalising a ``closed_at``-style column *col* to a
-    ``datetime()``-parseable value.
-
-    Detects an all-digit, >=12-char value as epoch-ms and converts it
-    (``CAST(... AS INTEGER)/1000`` then ``'unixepoch'``); anything else
-    (ISO-8601, SQLite ``CURRENT_TIMESTAMP``) flows through the plain
-    ``datetime()`` parse unchanged. Idempotent and side-effect free.
-    """
-    return (
-        f"CASE WHEN {col} IS NOT NULL AND {col} <> '' "
-        f"AND {col} GLOB '[0-9]*' AND NOT {col} GLOB '*[^0-9]*' "
-        f"AND length({col}) >= 12 "
-        f"THEN datetime(CAST({col} AS INTEGER)/1000, 'unixepoch') "
-        f"ELSE datetime({col}) END"
-    )
-
-
-def close_time_sql(closed_at_col: str, updated_at_col: str, timestamp_col: str) -> str:
-    """The canonical close-time expression: epoch-ms-aware ``closed_at`` first,
-    then the ``order_packages.updated_at`` join, then the open ``timestamp`` —
-    mirroring the wire ``closedAt`` derivation. All three are wrapped so the
-    result is a uniform ``datetime()`` value safe to compare / ORDER BY."""
-    return (
-        f"COALESCE({closed_at_norm_sql(closed_at_col)}, "
-        f"datetime({updated_at_col}), datetime({timestamp_col}))"
-    )
-
-
-# ``normalize_closed_at_value`` is imported from src.utils.closed_at above
-# (single source of truth; re-exported for the existing import sites).
