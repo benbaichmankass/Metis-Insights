@@ -198,13 +198,6 @@ automatically restarted on the next deploy.
 fully replaces the default. To add to the default rather than replace,
 include the defaults explicitly in the value.
 
-**2026-06-23 — `ict-prop-telegram-listener.service` added** (inbound prop
-Telegram report-back; design: `docs/integrations/prop-telegram-inbound-DESIGN.md`,
-canonical unit set in `tests/test_s012_service_consolidation.py`). It is a
-long-running listener, **NOT** in the restart-skip list — it restarts normally on
-deploy so it picks up new code, like the trader/web-api. Inert until the prop bot
-token + `TELEGRAM_PROP_ALLOWED_CHAT_IDS` are configured on the VM `.env`.
-
 ### Post-deploy version round-trip assertion
 
 After the restarts, the script asserts that `/api/diag/version` on
