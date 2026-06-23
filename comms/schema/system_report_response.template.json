@@ -116,10 +116,10 @@
     },
 
     "backlog_summary": {
-      "_comment": "Roll-up of the three reviews' backlog_drain[] this run + open counts.",
-      "health": {"drained": 0, "open": 0},
-      "performance": {"drained": 0, "open": 0},
-      "ml": {"drained": 0, "open": 0}
+      "_comment": "Roll-up of the three review backlogs. MUST be computed from the backlog files via scripts/reports/backlog_counts.py --since <window_start> — NEVER hand-entered (the 2026-06-23 bug: a hand-built summary put the *total* in health.open ('132') and left performance/ml.open null -> '—', when the real open counts were knowable). open/total/resolved are exact from the files; drained = items resolved within the window (precise when resolved_at is a full ISO timestamp; day-granular when it is date-only). The renderer leads with 'open / total'.",
+      "health": {"total": 0, "open": 0, "resolved": 0, "drained": 0},
+      "performance": {"total": 0, "open": 0, "resolved": 0, "drained": 0},
+      "ml": {"total": 0, "open": 0, "resolved": 0, "drained": 0}
     },
     "tier3_proposals_pending": [
       {

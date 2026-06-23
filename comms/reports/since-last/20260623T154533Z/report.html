@@ -45,9 +45,9 @@ footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480
 <li><b>Add /api/bot/ml/status (+strategies, prop) to the vm-diag relay allowlist</b> <span class="pill">health · T1</span><br><span class='muted'>These read-only endpoints aren&#x27;t on the relay&#x27;s path allowlist, so ML registry detail can&#x27;t be pulled over the issue relay. A one-line allowlist add restores full report coverage.</span></li>
 </ul>
 <div class="cards">
-<div class="card"><div class="k">health backlog</div><div class="v ">2 drained / 132 open</div></div>
-<div class="card"><div class="k">performance backlog</div><div class="v ">0 drained / — open</div></div>
-<div class="card"><div class="k">ml backlog</div><div class="v ">0 drained / — open</div></div>
+<div class="card"><div class="k">health backlog</div><div class="v ">73 open / 134 total · 2 drained</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">28 open / 43 total</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">16 open / 43 total</div></div>
 </div>
 <h3>Cross-review notes</h3><ul class='pri'>
 <li>This window DEPLOYED + LIVE-VERIFIED the fixes from the prior report&#x27;s findings: orphan-labeling (pkg-7d5d8b394bc04502 -&gt; &#x27;rejected&#x27;, not &#x27;orphaned&#x27;), reconciler-close sl/tp classification (+ a reduce-leg mislabel regression caught via live data and fixed before it mattered), and the ping silent-loss hardening. The prior report&#x27;s CAUTION is resolved.</li>
@@ -125,4 +125,6 @@ footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480
 <tr><td>trade-outcome-global-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Shadow scoring.</td></tr>
 <tr><td>trade-outcome-winrate-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>Shadow scoring.</td></tr>
 </table></div>
+<h2>Review coverage</h2>
+<p class="section-empty">No review-coverage block — promotion / training / soak assessment not recorded.</p>
 <footer>report_id RPT-20260623-154533-since-last · reviewer claude · prior RPT-20260623-133610-since-last · ICT Trading Bot system-report</footer></div></body></html>
