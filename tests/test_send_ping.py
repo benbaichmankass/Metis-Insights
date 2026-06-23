@@ -279,9 +279,15 @@ def test_claude_bridge_drain_sends_each_file_and_deletes(
     # Bot restructure (2026-06-17): the drain now delivers via the TRADER bot
     # through notify.send_telegram_direct, not its own ctx.bot.send_message.
     sent: list = []
+
+    def _fake_send(message, **kw):
+        # send_telegram_direct returns True on a confirmed send (2026-06-23);
+        # the drain deletes the queued file only on a truthy return.
+        sent.append(message)
+        return True
+
     import src.runtime.notify as notify
-    monkeypatch.setattr(notify, "send_telegram_direct",
-                        lambda message, **kw: sent.append(message))
+    monkeypatch.setattr(notify, "send_telegram_direct", _fake_send)
     ctx = MagicMock()   # ctx.bot is no longer used by the drain
 
     _drive(bridge._drain_pending_claude_pings(ctx))
@@ -292,6 +298,31 @@ def test_claude_bridge_drain_sends_each_file_and_deletes(
     # Files removed on success.
     assert not p1.exists()
     assert not p2.exists()
+
+
+def test_claude_bridge_drain_keeps_file_when_send_unconfirmed(tmp_path, monkeypatch):
+    """2026-06-23 silent-ping-loss fix: send_telegram_direct returns False (no
+    raise) when credentials are missing. The drain must KEEP the queued file for
+    retry, not treat the skip as success and delete it."""
+    monkeypatch.setenv("TELEGRAM_CLAUDE_BOT_TOKEN", "fake-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "9999")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-key")
+    from src.bot import claude_bridge as bridge
+
+    monkeypatch.setattr(bridge, "PENDING_CLAUDE_PINGS_DIR", tmp_path)
+    monkeypatch.setattr(bridge, "ALLOWED_CHAT_ID", 9999)
+
+    send_ping.PENDING_CLAUDE_PINGS_DIR = tmp_path
+    p1 = send_ping.enqueue("checkpoint Z", priority="normal", target="claude")
+
+    import src.runtime.notify as notify
+    # Simulate a creds-missing skip (returns False, does not raise).
+    monkeypatch.setattr(notify, "send_telegram_direct", lambda message, **kw: False)
+    ctx = MagicMock()
+
+    _drive(bridge._drain_pending_claude_pings(ctx))
+
+    assert p1.exists()  # kept for the next-tick retry, not silently deleted
 
 
 def test_claude_bridge_drain_skips_when_empty(tmp_path, monkeypatch):

@@ -4271,6 +4271,75 @@ def _is_real_order_id(trade_id: str) -> bool:
 _is_numeric_order_id = _is_real_order_id
 
 
+def _classify_broker_exit(db, row: Dict[str, Any], exit_price: Any) -> Optional[str]:
+    """Classify a reconciler-finalised broker close as 'sl' or 'tp'.
+
+    2026-06-23 fix: on a Bybit linear account the SL/TP bracket is attached at
+    entry (execute.py), so a stop/target fires at the broker INTRATICK — before
+    the per-tick / per-bar strategy monitor re-evaluates. The reconciler then
+    finalises the DB row, and the legacy code hard-coded ``reconciler_filled``,
+    discarding whether the close was a stop or a target. Every clean exit must
+    be NOTED with its true reason (operator rule), so classify it here from the
+    recovered exit price vs the package's bracket levels.
+
+    Bybit's closed-pnl record carries NO authoritative SL-vs-TP field, so we use
+    a CONSERVATIVE inequality that cannot mislabel a mid-range / manual flatten:
+      * long  → exit <= sl ⇒ 'sl'   (price fell to/through the stop; fills can slip
+                exit >= tp ⇒ 'tp'    through the level, so '<=' / '>=' not '==')
+      * short → exit >= sl ⇒ 'sl'
+                exit <= tp ⇒ 'tp'
+    Anything strictly between the bracket levels returns ``None`` → the caller
+    keeps ``reconciler_filled`` (a genuine non-bracket close — the real
+    "flag it" residue). Best-effort; never raises.
+    """
+    px = _safe_float(exit_price)
+    if not px or px <= 0:
+        return None
+    direction = str(row.get("direction") or "").lower()
+    if direction not in ("long", "short"):
+        return None
+    sl = tp = None
+    try:
+        pkg_id = _resolve_linked_package_id(db, row.get("id"))
+        if pkg_id:
+            conn = db.connect()
+            try:
+                conn.row_factory = __import__("sqlite3").Row
+                prow = conn.execute(
+                    "SELECT sl, tp FROM order_packages WHERE order_package_id = ?",
+                    (str(pkg_id),),
+                ).fetchone()
+            finally:
+                conn.close()
+            if prow is not None:
+                sl, tp = _safe_float(prow["sl"]), _safe_float(prow["tp"])
+        if not (sl and sl > 0 and tp and tp > 0):
+            # Fallback to the symbol+direction protective levels.
+            r_sl, r_tp = _resolve_protective_levels(
+                db, str(row.get("symbol") or ""), direction)
+            sl = sl if (sl and sl > 0) else _safe_float(r_sl)
+            tp = tp if (tp and tp > 0) else _safe_float(r_tp)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_classify_broker_exit: level lookup failed for "
+                       "trade_id=%s: %s", row.get("id"), exc)
+        return None
+    if not (sl and sl > 0):
+        sl = None
+    if not (tp and tp > 0):
+        tp = None
+    if direction == "long":
+        if sl is not None and px <= sl:
+            return "sl"
+        if tp is not None and px >= tp:
+            return "tp"
+    else:  # short
+        if sl is not None and px >= sl:
+            return "sl"
+        if tp is not None and px <= tp:
+            return "tp"
+    return None
+
+
 def _close_trade_from_order_status(
     db,
     row: Dict[str, Any],
@@ -4371,6 +4440,11 @@ def _close_trade_from_order_status(
             normalize_closed_at_value(closed_pnl_rec.get("closed_at"))
             or datetime.now(timezone.utc).isoformat()
         )
+        # Classify the broker close as sl/tp from exit price vs the bracket
+        # levels (2026-06-23) — a stop/target fired at the broker before the
+        # monitor; surface the TRUE reason instead of the generic reconciler tag.
+        resolved_reason = _classify_broker_exit(db, row, avg_exit_price)
+        final_exit_reason = resolved_reason or "reconciler_filled"
         notes.update({
             "closed_at": closed_at,
             "closed_by": "monitor_reconciler",
@@ -4378,10 +4452,13 @@ def _close_trade_from_order_status(
                 "reconciler — Bybit reports order filled and position flat",
             "exit_price_source": "bybit_closed_pnl",
             "bybit_closed_pnl": closed_pnl_rec.get("closed_pnl"),
+            "finalised_by": "reconciler",
+            "exit_reason_source":
+                ("price_vs_pkg_bracket" if resolved_reason else "unresolved"),
         })
         updates: Dict[str, Any] = {
             "status": "closed",
-            "exit_reason": "reconciler_filled",
+            "exit_reason": final_exit_reason,
             "exit_price": avg_exit_price,
             "closed_at": closed_at,
             "notes": dump_capped(notes, 500),
@@ -4438,6 +4515,9 @@ def _close_trade_from_order_status(
                 "reconciler — Bybit reports order filled and position flat",
             "exit_price_source": "entry_order_avg_price_unreliable",
         })
+        # Fallback path has no recovered exit price, so sl/tp cannot be
+        # classified — keep the generic reconciler tag.
+        final_exit_reason = "reconciler_filled"
         updates = {
             "status": "closed",
             "exit_reason": "reconciler_filled",
@@ -4465,7 +4545,7 @@ def _close_trade_from_order_status(
     # claude/cascade-fix-by-linked-trade-id.
     _cascade_close_linked_package(
         db, row.get("id"),
-        close_reason="reconciler_filled",
+        close_reason=final_exit_reason,
         caller="_close_trade_from_order_status",
     )
 

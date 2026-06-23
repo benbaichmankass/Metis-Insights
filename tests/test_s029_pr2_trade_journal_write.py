@@ -161,10 +161,15 @@ class TestJournalFailureDoesNotCrashOrder:
 
 
 class TestNoWriteOnAlternatePaths:
-    def test_dry_run_does_not_write(self, tmp_journal):
-        """Dry-run paths exit before the journal write. Only real
-        exchange submissions are journaled — dry-run rows would
-        pollute the operator's per-account PnL view."""
+    def test_dry_run_writes_a_labeled_rejection_row(self, tmp_journal):
+        """BUG-049 fix (2026-06-23): a dry/shadow dispatch now writes exactly
+        ONE non-live 'rejected' journal row (reason=dry_run_no_order_placed)
+        instead of nothing. The old behaviour (no write) left the order package
+        open/unlinked, so the reconciler mis-stamped it 'orphaned — never
+        executed' at 5 min. The rejection row carries the order_package_id so
+        the package is relabelled 'rejected', not orphaned; status='rejected'
+        keeps it out of the operator's per-account PnL view (same as any other
+        rejection), so it does not pollute PnL."""
         execute_pkg(
             _pkg(),
             _account_cfg(),
@@ -173,8 +178,8 @@ class TestNoWriteOnAlternatePaths:
             dry_run=True,
         )
         rows = _read_trades(tmp_journal) if tmp_journal.exists() else []
-        # The journal might not even exist in dry-run (no Database call).
-        assert rows == []
+        assert len(rows) == 1
+        assert rows[0]["status"] == "rejected"
 
     def test_smoke_test_does_not_write_via_this_path(self, tmp_journal):
         """Smoke-test orders use ``_submit_test_order`` and are journaled

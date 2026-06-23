@@ -343,6 +343,38 @@ def execute_pkg(
     if is_dry:
         trade_id = f"dry-{uuid.uuid4().hex[:12]}"
         logger.info("DRY RUN — order not placed: %s → trade_id=%s", order, trade_id)
+        # BUG-049 fix (2026-06-23): a dry/shadow dispatch must TERMINATE the
+        # package's lifecycle with a journaled reason. Otherwise the order
+        # package logged in Coordinator._log_new_order_package stays
+        # status='open' / linked_trade_id=NULL and the monitor reconciler
+        # mis-stamps it 'orphaned — never executed' at the 5-min mark
+        # (orphaned is a red-flag status, never acceptable). A shadow-execution
+        # strategy and a dry_run account both reach this branch; both deliberately
+        # place no live order, so the correct record is a non-live rejection row
+        # carrying the order_package_id. _sweep_unlinked_packages path (1) then
+        # relabels the package 'rejected' from that row instead of orphaning it
+        # (path 2). Mirrors the BUG-044 contract: every open package pairs with a
+        # journal-row reason. Best-effort — a logging failure must never break the
+        # (no-op) dry dispatch.
+        #
+        # Smoke/test orders (_is_test_order) are EXCLUDED: the smoke path journals
+        # its own 'dry_run' row via the coordinator, so a rejection row here would
+        # double-log it. Only real shadow/dry decisions (which otherwise orphan)
+        # get the rejection row.
+        try:
+            if not _is_test_order(pkg):
+                log_rejection_to_journal(
+                    pkg, account_cfg,
+                    reason="dry_run_no_order_placed",
+                    status="rejected",
+                    sized_qty=float(qty or 0.0),
+                )
+        except Exception as exc:  # noqa: BLE001 — never let journaling crash dispatch
+            logger.warning(
+                "execute_pkg: dry-run rejection-journal write failed "
+                "(account=%s strategy=%s symbol=%s): %s",
+                account_id, pkg.strategy, pkg.symbol, exc,
+            )
         return trade_id
 
     # Smoke-test path: keep exchange rejection in-band so the caller can

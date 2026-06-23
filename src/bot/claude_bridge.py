@@ -255,13 +255,24 @@ async def _drain_pending_claude_pings(context: ContextTypes.DEFAULT_TYPE) -> Non
         try:
             from src.runtime.notify import send_telegram_direct
 
-            send_telegram_direct(
+            sent = send_telegram_direct(
                 text, parse_mode=None, mirror_to_fcm=False,
                 bot_token=os.environ.get("TELEGRAM_BOT_TOKEN"),
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning("claude ping inbox: trader-bot send failed for %s — %s", name, exc)
             continue   # leave file in place; retry next tick
+
+        # Only delete on a CONFIRMED send. send_telegram_direct returns False
+        # (no raise) when credentials are missing — pre-2026-06-23 that silent
+        # skip was treated as success and the file was deleted, silently losing
+        # the ping. Keep the file so a transient creds gap retries instead.
+        if not sent:
+            logger.warning(
+                "claude ping inbox: send skipped (creds missing?) for %s — "
+                "keeping for retry", name,
+            )
+            continue
 
         try:
             path.unlink()
