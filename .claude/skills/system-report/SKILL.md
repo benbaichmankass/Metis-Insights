@@ -38,9 +38,13 @@ read it; this file is the operating procedure.
 
 ## Out of scope (DO NOT do here)
 
-- **Re-grading / re-deriving** what a sub-review already produces — take its
-  JSON verbatim into the `health`/`performance`/`ml` sub-objects. Don't second-
-  guess a sub-review's grades.
+- **Re-grading / re-deriving AT THE SYNTHESIS LAYER** — once a sub-review has
+  produced its grades/analysis, take its JSON verbatim into the
+  `health`/`performance`/`ml` sub-objects; don't second-guess or recompute them
+  here. This is **NOT** a licence to skip the grading itself: the
+  `performance-review` sub-review still MUST run its order-package grading scorer
+  first (see "Running the three reviews"). "Don't re-grade" means "don't grade
+  twice", **not** "don't grade".
 - **Touching `src/`, `config/`, or any live-path file.** Reports don't trade.
 - **Owning a new backlog.** This skill drains nothing of its own — the three
   sub-reviews drain their own backlogs when run. Surface the roll-up counts only.
@@ -81,8 +85,21 @@ sub-objects of the consolidated payload **verbatim** — same shapes as
 `send-ping`. When run under `/system-report`, **do not fire the three individual
 pings** — set each sub-object's `claude_channel_ping.delivered_via` to
 `"suppressed (system-report)"`. This skill fires exactly one consolidated ping.
-The sub-reviews still **drain their own backlogs** (that's a repo-local write
-they own) — let them; record the roll-up in `consolidated.backlog_summary`.
+
+**Report mode suppresses ONLY the ping — it is NOT read-only mode.** Every other
+thing a sub-review does, it STILL does, including its repo-local writes:
+- the **`performance-review` MUST run its order-package grading step**
+  (`scripts/ops/score_order_packages.py` over the live journal → append the new
+  rows to `comms/claude_strategy_scores.jsonl`) **before** the consolidated
+  report reads any `claudeScore`; and
+- all three **drain their own backlogs**.
+
+Record the roll-up in `consolidated.backlog_summary`. **Regression guard
+(2026-06-23):** treating report mode as read-only silently dropped grading for a
+week — the 06-22 and 06-23 system-reports synthesized per-trade dossiers from
+grades last refreshed 06-18, so the dashboard "Claude-graded" count read 0 on
+every recent package. Grading is a mandatory write-side step of every
+system-report, not an optional refresh.
 
 If a relay is unreachable even after a `vm-web-api-recover` retry, emit the
 partial report (the failed domain's sub-object carries its own degraded grade)
@@ -102,7 +119,14 @@ do not recompute what an endpoint already returns):
   joined to `/api/bot/order-packages` (by `linkedTradeId`) for `signalLogic` +
   `meta` + `modelScores`, and to the performance review's A–F grade
   (`claudeScore` on order-packages / `comms/claude_strategy_scores.jsonl` by
-  `order_package_id`). **Adaptive depth:** for `since-last`/`daily` build a full
+  `order_package_id`). **Grading-freshness guard (mandatory):** before consuming
+  any `claudeScore`, confirm the grading actually ran THIS session — the newest
+  `reviewed_at` in `comms/claude_strategy_scores.jsonl` must fall at/after
+  `window_start`, and every closed package in the window must now carry a grade.
+  If the newest grade predates the window, the performance-review's grading step
+  was skipped → STOP and run the scorer before synthesizing; otherwise the report
+  (and the dashboard's "Claude-graded" count) reflects stale grades.
+  **Adaptive depth:** for `since-last`/`daily` build a full
   dossier for every trade; for `weekly`/`monthly` mark only outliers
   `notable=true` (biggest win/loss, worst grade, any prop rule-distance event)
   and rely on `pnl_by_class.per_strategy` for the rest. Record the resolution in
