@@ -1,0 +1,184 @@
+# grade-order-packages.yml — the automated VM→repo bridge for trade grading.
+#
+# WHY THIS EXISTS (2026-06-23): the performance-review / system-report skills are
+# required to grade every order-package decision (scripts/ops/score_order_packages.py
+# → comms/claude_strategy_scores.jsonl) and COMMIT the result. But the scorer needs
+# the trade journal, which lives on the VMs, while the commit must land in the repo —
+# and a relay-based Claude session has no clean way to move ~1MB of grades from the VM
+# into a git commit (the trainer can't push; piping it through the session is
+# unreliable). For ~a week grading silently lapsed because of exactly this gap. This
+# workflow closes it: the RUNNER (which has repo-write via GITHUB_TOKEN) SSHes the
+# trainer, runs the scorer, captures all grades over SSH stdout (no comment-size cap),
+# dedup-appends the new rows to the committed journal, and opens an auto-merging PR.
+#
+# Trigger: workflow_dispatch (operator) OR an issue labelled `grade-order-packages`
+# (Claude-driven, like the other relays). Append-only, idempotent: a run with no new
+# packages is a clean no-op.
+#
+# Secrets/vars (reused from trainer-vm-diag.yml):
+#   * VM_SSH_KEY        — SSH private key authorized on the trainer
+#   * TRAINER_VM_IP     — defaults to 158.178.209.121
+#   * TRAINER_VM_USER   — defaults to ubuntu
+# Required label: grade-order-packages (created by bootstrap-labels.yml)
+name: grade-order-packages
+
+on:
+  workflow_dispatch:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: grade-order-packages
+  cancel-in-progress: false
+
+jobs:
+  grade:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       contains(github.event.issue.labels.*.name, 'grade-order-packages'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history, push-capable token)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare SSH to trainer
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+        run: |
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/trainer_key
+          chmod 600 ~/.ssh/trainer_key
+          ssh-keyscan -t ed25519,ecdsa,rsa "${TRAINER_IP}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run scorer on trainer, capture all grades
+        env:
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+        run: |
+          set -o pipefail
+          # Run the rule-based scorer over the synced journal (read-only on the DB);
+          # scorer's own stdout → stderr so ONLY the gzip+base64 of the grades file
+          # reaches the runner over stdout (SSH stdout has no comment-size cap).
+          REMOTE='set -e; cd /home/ubuntu/ict-trading-bot; \
+            if [ -x .venv/bin/python ]; then PY=.venv/bin/python; else PY=python3; fi; \
+            "$PY" scripts/ops/score_order_packages.py data/trade_journal.db /tmp/all_scores.jsonl 1>&2; \
+            gzip -c /tmp/all_scores.jsonl | base64 -w0'
+          ssh -i ~/.ssh/trainer_key \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=30 \
+              -o ServerAliveInterval=15 \
+              "${TRAINER_USER}@${TRAINER_IP}" "${REMOTE}" > /tmp/all_b64.txt
+          test -s /tmp/all_b64.txt || { echo "::error::empty scorer output from trainer"; exit 1; }
+          base64 -d /tmp/all_b64.txt | gunzip > /tmp/all_scores.jsonl
+          echo "scorer rows: $(wc -l < /tmp/all_scores.jsonl)"
+
+      - name: Dedup-append new grades to the committed journal
+        id: merge
+        run: |
+          python3 - <<'PY'
+          import json, os
+          comms = "comms/claude_strategy_scores.jsonl"
+          existing = set()
+          if os.path.exists(comms):
+              for line in open(comms):
+                  try:
+                      existing.add(json.loads(line).get("order_package_id"))
+                  except Exception:
+                      pass
+          added = 0
+          with open(comms, "a") as out:
+              for line in open("/tmp/all_scores.jsonl"):
+                  try:
+                      opid = json.loads(line).get("order_package_id")
+                  except Exception:
+                      continue
+                  if opid and opid not in existing:
+                      out.write(line if line.endswith("\n") else line + "\n")
+                      existing.add(opid)
+                      added += 1
+          print(f"added={added} total={len(existing)}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"added={added}\n")
+              fh.write(f"total={len(existing)}\n")
+          PY
+
+      - name: Open auto-merging PR with the new grades
+        if: steps.merge.outputs.added != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.email noreply@anthropic.com
+          git config user.name Claude
+          BR="automation/grade-order-packages-${{ github.run_id }}"
+          git checkout -b "${BR}"
+          git add comms/claude_strategy_scores.jsonl
+          git commit -m "data(grading): commit ${{ steps.merge.outputs.added }} order-package decision grades [grade-order-packages]
+
+          Automated VM→repo grading bridge: runner SSHes the trainer, runs the
+          rule-based score_order_packages.py over the synced journal, dedup-appends
+          the new rows by order_package_id. Append-only observability data."
+          git push -u origin "${BR}"
+          gh pr create --base main --head "${BR}" \
+            --title "data(grading): ${{ steps.merge.outputs.added }} order-package grades (automated)" \
+            --body "Automated grading commit via \`grade-order-packages.yml\`. Append-only; ${{ steps.merge.outputs.added }} new decision grades (journal now ${{ steps.merge.outputs.total }} graded packages). Closes the VM→repo grading-commit gap." \
+            > /tmp/pr_url.txt
+          cat /tmp/pr_url.txt
+          gh pr merge "${BR}" --squash --auto --delete-branch \
+            || echo "auto-merge unavailable — PR left open for manual merge"
+
+      - name: Comment result on the trigger issue
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const added = '${{ steps.merge.outputs.added }}' || '0';
+            const total = '${{ steps.merge.outputs.total }}' || '?';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            let body;
+            if (added === '0') {
+              body = `✅ **grade-order-packages**: no new grades — journal already current (${total} graded).\nRun: ${runUrl}`;
+            } else {
+              let pr = '';
+              try { pr = require('fs').readFileSync('/tmp/pr_url.txt','utf8').trim(); } catch (e) {}
+              body = `✅ **grade-order-packages**: committed **${added}** new decision grades (journal now ${total}).\n${pr ? 'PR: ' + pr : ''}\nRun: ${runUrl}`;
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed', state_reason: 'completed',
+            });
+
+      - name: Comment failure on the trigger issue
+        if: github.event_name == 'issues' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `❌ **grade-order-packages failed.**\nRun: ${runUrl}\n\nCommon causes: VM_SSH_KEY unset, trainer SSH timeout, or branch-protection blocking the PR.`,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed', state_reason: 'completed',
+            });

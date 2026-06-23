@@ -861,6 +861,10 @@
         {
           "at": "2026-06-23T07:05:00+00:00",
           "note": "EXECUTED soft-off: promote-stage btc-regime-1h-lgbm-yz-v1 advisory->shadow (operator-approved 'yes, merge both'). Registry confirms target_deployment_stage=shadow; mirror published to live (141.145.193.91). Item stays OPEN for the refinement half \u2014 investigate the live score collapse (feature-pipeline/score-time live!=train) and re-gate; restore to advisory only if it clears, else retire."
+        },
+        {
+          "at": "2026-06-23T11:30:00+00:00",
+          "note": "/ml-review (system-report since-last). RE-CONFIRMED degenerate post-demote, no refinement retrain landed yet. Live /api/bot/shadow/drift (issue #4288): current-window mean 0.964 / stdev 0.078 vs reference mean 0.789 / stdev 0.144, KS 0.790 / PSI 4.29 (verdict significant). The trade-scores join (#4303) still shows the score-time advisory stream class-collapsed (avg score_mean 0.956, range 0.765-0.984 across 8 scored trades). Registry target_deployment_stage=shadow CONFIRMED (no longer order-influencing). Refinement step pending: the next refinement attempt is to retrain on fresh data AND diff the live feature vector vs train at score time (the leading hypothesis is a score-time feature-pipeline shift, since training macro_f1 is stable at 0.667). No attempt logged this session (a refinement retrain is a model-training-skill action, not /ml-review). Stays OPEN."
         }
       ]
     },
@@ -874,7 +878,7 @@
       "tier": 3,
       "trigger_condition": "operator decision on promotion (gate already clears now)",
       "resolution_criteria": "operator approves -> run promote-stage (resolved: promoted); or operator declines pending better calibration -> snooze with the calibration bar.",
-      "status": "resolved",
+      "status": "open",
       "snoozed_until": null,
       "updates": [
         {
@@ -884,6 +888,10 @@
         {
           "at": "2026-06-23T07:05:00+00:00",
           "note": "EXECUTED promote: promote-stage btc-regime-5m-lgbm-yz-v1 shadow->advisory (operator-approved). Registry confirms target_deployment_stage=advisory; mirror published to live. WATCH: marginal class balance (strict min-class F1 0.118) + negative brier_lift -0.114 -> if live downsize behaviour or calibration degrades, demote back via the refinement lifecycle. It replaces the demoted 1h-yz as the regime input to the advisory/c_reg downsize."
+        },
+        {
+          "at": "2026-06-23T11:32:00+00:00",
+          "note": "[refinement] RE-OPENED — STAGE-GUARD NOW PROPOSES DEMOTE of this model. /ml-review (system-report since-last). `python -m ml stage-guard` on the trainer (#4302): summary={promote:[], demote:[btc-regime-5m-lgbm-yz-v1], hold:39, total:40}. ~4.5h after the 07:05Z promotion, this is the SOLE order-influencing model and is flagged for demote. SINGLE TRIGGER (per-gate detail #4306): 'live calibration worse than base rate (brier_lift -0.11364)' — and ONLY that. The other gates are HEALTHY: live_agreement rank-AUC 0.600 (>=0.55, win_rate 0.625 on n=8), drift only 'moderate' and CLEAN (KS 0.165<=0.2, PSI 0.022<=0.25), score NOT collapsed (range 0.663-0.999, mean 0.931, non_degenerate min-class F1 0.333>=0.30). So this is a CALIBRATION miss, NOT the degeneracy/drift-collapse that demoted 1h-yz — the model still discriminates live, it's just over/under-confident. This is the exact marginal-calibration risk flagged at promotion (negative brier_lift -0.114). PROPOSAL (Tier-3, promotion_recommendations[] this review): soft-off demote advisory->shadow: promote-stage btc-regime-5m-lgbm-yz-v1 --new-stage shadow --by claude --reason 'stage-guard demote: brier_lift -0.114 (live miscalibration); discrimination still OK'. Refinement hypothesis (precise): fit a probability calibrator (isotonic/Platt via scripts/ml/fit_confidence_calibrators.py-style) on the regime head's live shadow scores->realized win, lift brier_lift>0, then re-gate. Lower-risk alt: keep at advisory and let the c_reg lens consume the AUC-0.60 ranking (it discriminates) while the formulaic conviction handles magnitude — operator's call given AAC. Caveat: the demote IS only 1 gate and the model otherwise gates clean, so a HOLD-with-watch is also defensible vs an immediate demote; flagged as 'demote-or-hold (calibration)' for operator. NOTE on registry display: list-models text `status` reads 'candidate' for nearly all models (registry lifecycle field); canonical influence stage is `target_deployment_stage` (5m-yz=advisory, 1h-yz=shadow CONFIRMED). status resolved->open."
         }
       ]
     },
@@ -903,6 +911,10 @@
         {
           "at": "2026-06-23T06:55:00+00:00",
           "note": "Opened from the registry scan. Refine-or-retire under the model-refinement-lifecycle."
+        },
+        {
+          "at": "2026-06-23T11:32:00+00:00",
+          "note": "/ml-review (system-report since-last). RE-CONFIRMED degenerate from two angles. (1) Registry (#4302): prop-mission-policy-baseline-v0 accuracy=1.0 brier=0 (single-class), trade-outcome-{global,winrate}-baseline-v0 accuracy=0.836 (majority predictor), execution-quality-baseline-v0 mae=3.26 / setup-quality-baseline-v0 mae=0.83 (no edge). (2) Live trade-scores join (#4303): each emits a CONSTANT shadow score across scored trades — prop-mission-policy 0.000 (n=7), trade-outcome-global 0.248 (n=6), trade-outcome-winrate ~0.251 (n=6), execution-quality -0.202 (n=7), setup-quality -0.04. A constant output carries zero discriminating signal to the conviction/sizing lenses + pollutes the conviction-meta-v1 stacker's inputs. Promotion-readiness 00:30Z lists all of them blocking on non_degenerate + beats_baseline. All shadow-only (no order influence today). Still no refinement retrain landed. RECOMMENDATION unchanged: refine (class-weighted re-fit / new label horizon / more data) OR retire to candidate + drop from shadow_model_ids so they stop being surfaced as lens inputs. Filed as experiments_proposed (class-weighted re-fit) this review. Stays OPEN."
         }
       ]
     }
