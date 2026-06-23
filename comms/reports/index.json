@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260623-051100-since-last",
+      "window": "since-last",
+      "generated_at": "2026-06-23T05:11:00+00:00",
+      "window_start": "2026-06-22T12:33:30+00:00",
+      "window_end": "2026-06-23T05:11:00+00:00",
+      "roll_up_grade": "caution",
+      "headline": "CAUTION. System healthy & relaxed (heartbeat live, services up, VM cpu 0%, trainer cycle clean). Real money quiet: -$0.90 in-window (1 ict_scalp loss as BTC faded ~3% off 65.6k). Paper bled -$3.6k (trend_donchian BTC -$3,350 + sol_pullback). Recurring: mgc/eth pkgs size to 0 qty->orphaned; M13 insights under-counts closed trades (0 vs 12); 2 un-acted prop tickets.",
+      "html_path": "comms/reports/since-last/20260623T051100Z/report.html",
+      "json_path": "comms/reports/since-last/20260623T051100Z/report.json",
+      "md_path": "comms/reports/since-last/20260623T051100Z/report.md"
+    },
+    {
       "id": "RPT-20260622-123330-since-last",
       "window": "since-last",
       "generated_at": "2026-06-22T12:33:30+00:00",
