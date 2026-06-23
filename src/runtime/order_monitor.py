@@ -5095,6 +5095,18 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
 
 _BROKER_PNL_RECOVERY_MS = 7 * 24 * 60 * 60 * 1000  # Bybit closed-pnl retention
 
+# A broker-reader (Bybit) row defers to its broker closed-pnl sweep for this
+# long before the local-compute fallback rescues it. Set to the INV-2
+# db-integrity grace (6h, ``check_db_integrity.DEFAULT_PNL_GRACE_HOURS``) so a
+# row the broker reader can never fill — no closed-pnl record exists, e.g. a
+# same-instant net-flat that never produced a realised record (BL-20260623-001,
+# real-money #2783) — converges to local_compute before it would otherwise sit
+# ``closed``/``pnl NULL`` for the full 7-day retention window and trip INV-2.
+# Broker truth still wins WITHIN the grace (``_sweep_pending_pnl_from_bybit``
+# owns the row there); this only catches rows the broker sweep abandons. Keep
+# coupled to ``check_db_integrity.DEFAULT_PNL_GRACE_HOURS``.
+_LOCAL_PNL_BROKER_DEFER_MS = 6 * 60 * 60 * 1000  # 6h — match INV-2 grace
+
 
 def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
     """Local-compute the realised ``pnl`` the broker can't provide — the
@@ -5125,12 +5137,15 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
         is False — IBKR/Alpaca/OANDA/…): local compute is the primary path; all
         eligible rows are filled here.
       * Integration **with** a broker reader (Bybit): the Bybit sweep owns
-        fee-accurate recovery within the broker's retention window
-        (``_BROKER_PNL_RECOVERY_MS``). This sweep only fills such a row once it
-        is OLDER than that window — i.e. broker truth is no longer obtainable —
-        so we never pre-empt the fee-accurate number (preserves the 2026-05-18
-        SSOT-from-broker directive while still rescuing genuinely-abandoned rows
-        from a permanent ``$0.00``).
+        fee-accurate recovery within the convergence grace
+        (``_LOCAL_PNL_BROKER_DEFER_MS`` = the INV-2 db-integrity grace). This
+        sweep only fills such a row once it is OLDER than that grace — i.e. the
+        broker reader has had its window and still can't provide the number (no
+        closed-pnl record exists; BL-20260623-001) — so we never pre-empt the
+        fee-accurate number (preserves the 2026-05-18 SSOT-from-broker directive)
+        while rescuing genuinely-abandoned rows from a permanent ``$0.00`` /
+        ``closed``-with-NULL INV-2 violation rather than waiting the full 7-day
+        broker retention window (``_BROKER_PNL_RECOVERY_MS``).
 
     Other guards: only ``position_size > 0`` rows (a ``rejected`` / never-filled
     row has no result and correctly stays NULL); 14-day window, ≤100 rows/tick.
@@ -5201,12 +5216,15 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
             aid = row.get("account_id")
             cfg = cfgs.get(aid) if aid else None
             # Broker-truth integrations: the Bybit closed-pnl sweep recovers
-            # their fee-accurate PnL within the broker's retention window.
-            # Defer to it for rows still inside that window; only local-compute
-            # once the broker can no longer provide the number (older row).
+            # their fee-accurate PnL within the convergence grace. Defer to it
+            # for rows still inside that grace; once the grace elapses, local-
+            # compute rescues any row the broker reader still can't fill (no
+            # closed-pnl record exists — BL-20260623-001) so it converges to a
+            # truthful realised pnl instead of stranding ``closed``/NULL until
+            # the 7-day retention window and tripping INV-2.
             if account_has_broker_pnl_reader(cfg):
                 created_ms = _isoformat_to_ms(row.get("created_at"))
-                if created_ms is None or (now_ms - created_ms) < _BROKER_PNL_RECOVERY_MS:
+                if created_ms is None or (now_ms - created_ms) < _LOCAL_PNL_BROKER_DEFER_MS:
                     summary["deferred_broker"] += 1
                     continue
 

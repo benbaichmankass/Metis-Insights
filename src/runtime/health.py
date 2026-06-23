@@ -155,22 +155,27 @@ def check_git_drift(
     """
     name = "git_drift"
     cwd = str(repo_dir or _REPO_ROOT)
+    # Run git with safe.directory=* so the health-snapshot context (a service
+    # user reading a repo it doesn't own, or via the /opt symlink) doesn't fail
+    # with "fatal: detected dubious ownership" -> "rev-parse HEAD failed"
+    # (BL-20260623-005). Harmless when ownership is already fine.
+    _git = ["git", "-C", cwd, "-c", "safe.directory=*"]
 
     try:
         if fetch:
-            fetch_proc = _run(["git", "-C", cwd, "fetch", "--quiet", "origin"], timeout=10.0)
+            fetch_proc = _run([*_git, "fetch", "--quiet", "origin"], timeout=10.0)
             if fetch_proc.returncode != 0:
                 return _warn(
                     name, "git fetch failed",
                     stderr=(fetch_proc.stderr or "").strip()[:200],
                 )
 
-        head = _run(["git", "-C", cwd, "rev-parse", "HEAD"], timeout=5.0)
+        head = _run([*_git, "rev-parse", "HEAD"], timeout=5.0)
         if head.returncode != 0:
             return _warn(name, "git rev-parse HEAD failed",
                          stderr=(head.stderr or "").strip()[:200])
 
-        upstream = _run(["git", "-C", cwd, "rev-parse", branch], timeout=5.0)
+        upstream = _run([*_git, "rev-parse", branch], timeout=5.0)
         if upstream.returncode != 0:
             return _warn(
                 name, f"could not resolve {branch}",
@@ -188,7 +193,7 @@ def check_git_drift(
 
         # Count commits the VM is behind.
         behind_proc = _run(
-            ["git", "-C", cwd, "rev-list", "--count", f"HEAD..{branch}"],
+            [*_git, "rev-list", "--count", f"HEAD..{branch}"],
             timeout=5.0,
         )
         try:
@@ -198,7 +203,7 @@ def check_git_drift(
 
         # Get the timestamp of the latest origin/main commit (in UTC).
         ts_proc = _run(
-            ["git", "-C", cwd, "log", "-1", "--format=%cI", branch],
+            [*_git, "log", "-1", "--format=%cI", branch],
             timeout=5.0,
         )
         upstream_ts = (ts_proc.stdout or "").strip()
@@ -343,9 +348,30 @@ def check_accounts_api() -> HealthCheck:
     if not accounts:
         return _ok(name, "no accounts configured")
 
+    # Manual-bridge / stub integrations (e.g. the breakout prop account) have
+    # NO broker balance API by design — they execute via Telegram/FCM tickets.
+    # Probing them always returns None, which must not be counted as an outage
+    # (BL-20260623-003). Detect via an EXPLICITLY-empty management-cap set;
+    # an unknown/absent exchange is still probed (fail-open).
+    try:
+        from src.units.accounts.clients import EXCHANGE_MANAGEMENT_CAPS
+    except Exception:  # noqa: BLE001
+        EXCHANGE_MANAGEMENT_CAPS = {}
+
+    def _has_broker_api(acc: Dict[str, Any]) -> bool:
+        ex = str(acc.get("exchange") or "").strip().lower()
+        caps = EXCHANGE_MANAGEMENT_CAPS.get(ex)
+        # caps is None (unknown exchange) -> probe it; a declared empty set
+        # (breakout stub) -> no API, skip; non-empty -> real API, probe.
+        return caps != frozenset()
+
     failed: List[str] = []
+    skipped: List[str] = []
     for acc in accounts:
         aid = acc.get("account_id") or "unknown"
+        if not _has_broker_api(acc):
+            skipped.append(aid)
+            continue
         try:
             bal = account_balance(acc)
         except Exception as exc:  # noqa: BLE001
@@ -354,14 +380,16 @@ def check_accounts_api() -> HealthCheck:
         if bal is None:
             failed.append(aid)
 
-    total = len(accounts)
-    total - len(failed)
+    total = len(accounts) - len(skipped)
     if not failed:
-        return _ok(name, f"all {total} accounts API ok", total=total)
+        detail = f"all {total} broker-API accounts ok"
+        if skipped:
+            detail += f" ({len(skipped)} manual-bridge skipped: {', '.join(skipped)})"
+        return _ok(name, detail, total=total, skipped=skipped)
     return _warn(
         name,
         f"{len(failed)}/{total} accounts API down: {', '.join(failed)}",
-        failed=failed, total=total,
+        failed=failed, total=total, skipped=skipped,
     )
 
 

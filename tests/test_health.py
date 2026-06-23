@@ -238,7 +238,7 @@ def test_accounts_api_all_ok():
     sys.modules["src.bot.data_loaders"] = fake
     c = check_accounts_api()
     assert c.status == "ok"
-    assert "2 accounts" in c.detail
+    assert "2 broker-API accounts" in c.detail
 
 
 def test_accounts_api_partial_failure_is_warn():
@@ -262,6 +262,28 @@ def test_accounts_api_no_accounts_is_ok():
     sys.modules["src.bot.data_loaders"] = fake
     c = check_accounts_api()
     assert c.status == "ok"
+
+
+def test_accounts_api_skips_manual_bridge_breakout():
+    # BL-20260623-003: the breakout prop account has an explicitly-empty
+    # EXCHANGE_MANAGEMENT_CAPS set (no broker balance API — it executes via
+    # Telegram/FCM tickets). It must be SKIPPED, not counted as "API down",
+    # so a real broker outage isn't inflated (the false 3/7 -> real 2/7).
+    fake = MagicMock()
+    fake.list_accounts = lambda: [
+        {"account_id": "bybit_2", "exchange": "bybit"},
+        {"account_id": "breakout_1", "exchange": "breakout"},
+    ]
+    fake.account_balance = lambda acc: (
+        {"total_usdt": 100.0} if acc.get("exchange") == "bybit" else None
+    )
+    sys.modules["src.bot.data_loaders"] = fake
+    c = check_accounts_api()
+    # breakout returns None but is skipped → still OK over the 1 real account.
+    assert c.status == "ok"
+    assert c.ctx.get("skipped") == ["breakout_1"]
+    assert c.ctx.get("total") == 1
+    assert "1 manual-bridge skipped" in c.detail
 
 
 def test_accounts_api_loader_explosion_is_warn():

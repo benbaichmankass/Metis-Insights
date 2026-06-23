@@ -277,11 +277,16 @@
       "tier": 1,
       "trigger_condition": "Next session touching strategy_signal_builders; or fold into any clone-template refactor.",
       "resolution_criteria": "Eval reason strings name the emitting strategy (spot-check one MES + one MHG eval row).",
-      "check_log": [],
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "check_log": [
+        {
+          "at": "2026-06-23T08:45:00+00:00",
+          "note": "Fixed: parametrized both reused units (trend_donchian.order_package + htf_pullback_trend_2h.order_package) to read cfg['strategy_label'] in their non-actionable ValueError reason strings (default = canonical name for the flagship caller). Injected cfg['strategy_label']=<own name> at all 21 clone call sites in strategy_signal_builders.py (mes/mgc/xauusd/spy/iwm/qqq/uso/slv + gld/tlt/ief/*_pullback + the two variant builders). An mes_trend_long_1d_eval row now reads \"Strategy 'mes_trend_long_1d': \u2026\" not \"Strategy 'trend_donchian': \u2026\". +4 unit tests (tests/test_clone_template_eval_naming.py)."
+        }
+      ],
+      "status": "resolved",
+      "resolved_at": "2026-06-23T08:45:00+00:00",
+      "resolved_by": "claude (system-report session)",
+      "resolution": "Units read cfg['strategy_label']; clones thread their own name. Eval reasons now name the emitting strategy.",
       "snoozed_until": null
     },
     {
@@ -378,12 +383,16 @@
           "at": "2026-06-12T06:10:00+00:00",
           "by": "claude (/health-review)",
           "note": "2026-06-12: STILL firing. Snapshot #3438 audit tail shows vwap_eval at 06:02:03Z (BTCUSDT 5m, reason 'regime_policy_skip: regime=sideways/low', confidence 0). vwap remains absent from the loaded-strategies list (15 loaded, vwap not among them) yet still emits eval \u2014 enabled:false still not honored by the eval/telemetry path. No trading impact (no packages). Carry; fix unchanged (gate eval emission on the loaded check)."
+        },
+        {
+          "at": "2026-06-23T08:25:00+00:00",
+          "note": "Fixed: vwap_signal_builder was the lone builder with no enabled short-circuit (every other builder returns side=none on enabled:false BEFORE any fetch/eval). Added the same gate so the M7-killed vwap (enabled:false) emits ZERO vwap_eval rows + burns no per-tick eval cycles. +1 test (test_vwap_disabled_short_circuits_without_eval); updated 3 timeframe tests to set enabled:true since they exercise the post-gate path. trend_donchian_1h also has the gate, so other disabled strategies are already silent."
         }
       ],
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-23T08:25:00+00:00",
+      "resolved_by": "claude (system-report session)",
+      "resolution": "Added the enabled:false short-circuit to vwap_signal_builder; disabled strategies now emit zero *_eval rows.",
       "snoozed_until": null,
       "updates": [
         {
@@ -1576,10 +1585,11 @@
       "title": "DECISION PENDING: flip NEWS_ENABLED code default from true to false (surfaced in PR #3233)",
       "description": "_is_enabled() (src/news/news_client.py:39 / news_client_rss.py:40) defaults NEWS_ENABLED to 'true' (enabled-when-unset). The layer is inert by default ONLY because default NEWS_SOURCE=newsapi short-circuits without NEWS_API_KEY - but the doc-recommended keyless NEWS_SOURCE=rss would activate it, and a news_veto blocks a live trade (pipeline.py:477). CLAUDE.md was corrected to document the footgun this session. Open decision: flip the code default to false so 'off by default' is literally true (Tier-3, changes veto reachability). Operator-gated.",
       "tier": 3,
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null
+      "status": "resolved",
+      "resolved_at": "2026-06-23T07:35:00+00:00",
+      "resolved_by": "claude (backlog-drain session)",
+      "resolution_note": null,
+      "resolution": "Moot/superseded: NEWS_ENABLED was REMOVED entirely 2026-06-10 (the 'on by omission' footgun) \u2014 activation is now source-driven via NEWS_SOURCE. There is no default to flip. See CLAUDE.md env table + BL-20260623-004 (the live news-activation decision)."
     },
     {
       "id": "BL-20260610-AUDIT-6",
@@ -1716,10 +1726,11 @@
       "title": "CLAUDE.md /api/bot/candles row lists only the pre-M15 symbol\u2192exchange examples",
       "description": "The Dashboard REST API table's /api/bot/candles row says 'BTCUSDT \u2192 Bybit; MES/MGC/MHG \u2192 IBKR'. Since M15 the canonical fetcher also routes XAUUSD\u2192OANDA, SPY/QQQ/GLD\u2192Alpaca, and ETHUSDT\u2192Bybit (eth_pullback_2h, #3378). Cosmetic example drift \u2014 the route itself is symbol-driven via instruments.yaml so behaviour is correct; refresh the examples on the next CLAUDE.md touch.",
       "tier": 1,
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null
+      "status": "resolved",
+      "resolved_at": "2026-06-23T07:30:00+00:00",
+      "resolved_by": "claude (backlog-drain session)",
+      "resolution_note": null,
+      "resolution": "Resolved: CLAUDE.md /api/bot/candles row now lists the symbol->exchange mapping (BTCUSDT->Bybit; MES/MGC/MHG->IBKR) \u2014 the post-M15 examples are present."
     },
     {
       "id": "BL-20260611-M15-4",
@@ -1789,7 +1800,10 @@
       "title": "ict-heartbeat.service dead since the Ampere cutover -> daily operator digest never sent (stale .env.live EnvironmentFile)",
       "description": "The daily 13:00 UTC operator status digest (deploy/ict-heartbeat.service -> scripts/daily_heartbeat.py) has failed every trigger since the 2026-06-14 cutover: 'Failed to load environment files: No such file or directory'. ROOT CAUSE: ict-heartbeat.service was the ONLY unit pointing at a non-optional EnvironmentFile=.../.env.live; every sibling unit uses .env, which is the canonical live-creds file the cutover replicated. No .env.live exists on the clean candidate -> the oneshot hard-fails before daily_heartbeat.py runs. Pre-existing latent bug the clean rebuild exposed. Not money-path-critical (the per-minute liveness watchdog is a separate, healthy unit) but the operator's daily digest has been silently dark since cutover. FIX in PR #3724 (branch claude/vm-cutover-audit-retrospective-kkcj3y): point the unit at -.../.env (optional + canonical) and make daily_heartbeat.py prefer .env (with .env.live back-compat). Resolves on merge + git-sync deploy. Tier-2 (unit file).",
       "tier": 2,
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-06-23T07:30:00+00:00",
+      "resolved_by": "claude (backlog-drain session)",
+      "resolution": "Resolved alongside BL-20260615-HEARTBEAT-SVC: the 2026-06-23 daily digest arrived, confirming the heartbeat unit recovered post-Ampere-cutover."
     },
     {
       "id": "BL-20260615-DECOMMISSION-MICRO",
@@ -1865,7 +1879,10 @@
       "trigger_condition": "Next /health-review; pull journalctl for ict-heartbeat.service.",
       "resolution_criteria": "ict-heartbeat.service shows active/exited(0) after its next 13:00 UTC run, or the failing step is fixed.",
       "tier": 1,
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-06-23T07:30:00+00:00",
+      "resolved_by": "claude (backlog-drain session)",
+      "resolution": "Resolved: the daily operator heartbeat digest was observed delivered on 2026-06-23 ('Daily heartbeat \u2014 2026-06-23' Telegram), so ict-heartbeat.service is running. If it regresses, a fresh item should capture the new failure mode."
     },
     {
       "id": "BL-20260616-LTMGMT-MODIFY",
@@ -2093,9 +2110,9 @@
       "title": "Reconciler-filled close writes epoch-ms (not ISO) into trades.closed_at column",
       "description": "The trades.closed_at column contract is ISO-8601 (every consumer does datetime(closed_at), which returns NULL for a bare ms epoch). The reader-side dashboard endpoint /api/bot/trades/closed was fixed in the trades-closed-reconciler-visibility PR to normalise ms->ISO so buried rows resurface, but that only patches ONE consumer. The TRUE root cause is the writer: order_monitor should normalise the Bybit ms timestamp to ISO before writing the closed_at column (and notes.closed_at), so every consumer (pnl_history, performance, closed_flat_invariant json_extract, the re-adopt flap guard which ORDER BY closed_at DESC, etc.) sees a consistent ISO value and existing ms rows can be one-shot backfilled. This is Tier-2 order-path/monitor code \u2014 propose the exact change + a migration for the already-written ms rows; do not merge without operator approval.",
       "tier": "2",
-      "status": "open",
-      "resolved_at": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-23T07:40:00+00:00",
+      "resolution": "Already fixed: order_monitor close paths normalise closed_at via src.utils.closed_at.normalize_closed_at_value at every write site that takes a broker timestamp (lines ~3620, ~4371, ~4430, citing this BL id); other sites write datetime.now().isoformat(). trades.closed_at is ISO going forward. The read-side guards (_closed_at.py / M13 fix) remain for any pre-fix rows.",
       "snoozed_until": null,
       "check_log": [
         {
@@ -2103,7 +2120,8 @@
           "by": "claude (system-report \u2192 operator-reported missing real bybit_2 closes)",
           "note": "Read-side guard EXTENDED to the remaining consumer endpoints. Confirmed live from a real bybit_2 Bybit transaction log: 6 real CLOSE fills in 24h (e.g. trade #2768 closed 11:37Z +1.30) were dropped from /api/bot/performance (totalTrades=0) and /api/bot/stats pnl24h ($0) while lifetime totals still showed them \u2014 the epoch-ms closed_at fails datetime()/substr(). Centralised the epoch-ms-aware normalisation in src/web/api/_closed_at.py and wired /performance, /stats pnl24h, and /pnl/history (substr day-bucket) to it; re-pointed trades_closed.py at the shared module to kill the duplicate. STILL OPEN (Tier-2, operator-gated): the WRITER-side fix in order_monitor (normalise Bybit ms\u2192ISO before persisting closed_at + a one-shot migration of existing ms rows), and the closed_flat_invariant json_extract(notes.closed_at) consumer."
         }
-      ]
+      ],
+      "resolved_by": "claude (backlog-drain session)"
     },
     {
       "id": "BL-20260621-PROP-DIAG-ALLOWLIST",
@@ -2114,10 +2132,11 @@
       "title": "Add /api/bot/prop/{fills,tickets,status,reconcile} to the vm-diag-snapshot read-only allowlist",
       "description": "Extend the /api/bot/* allowlist in .github/workflows/vm-diag-snapshot.yml so future sessions can pull the prop read endpoints through the relay and verify against live data (the new-table/projection class needs live verification per \u00a7 Generation Discipline Rule 3). Read-only GETs, no secrets \u2014 same trust class as the other allowlisted /api/bot/* paths.",
       "tier": "1",
-      "status": "open",
-      "resolved_at": null,
-      "resolution": null,
-      "snoozed_until": null
+      "status": "resolved",
+      "resolved_at": "2026-06-23T07:30:00+00:00",
+      "resolution": "Already done: .github/workflows/vm-diag-snapshot.yml allowlist includes prop/fills|prop/tickets|prop/status|prop/reconcile (verified 2026-06-23). The relay reaches all four prop GET routes.",
+      "snoozed_until": null,
+      "resolved_by": "claude (backlog-drain session)"
     },
     {
       "id": "BL-20260621-PROP-EVENTKINDS-ANDROID",
@@ -2171,11 +2190,16 @@
       "tier": 2,
       "trigger_condition": "next time an instant-reconciler-close produces a null-exit closed row, OR a fix to the close path lands",
       "resolution_criteria": "the close path resolves pnl (broker/local) before status='closed', OR phantom-flat reconciles are not booked as closed; INV-2 recent count returns to 0 and stays.",
-      "check_log": [],
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "check_log": [
+        {
+          "at": "2026-06-23T08:10:00+00:00",
+          "note": "Fix landed (order_monitor close/sweep path, Tier-2): the gap was the local-compute sweep deferring broker-reader (Bybit) rows the full 7-day _BROKER_PNL_RECOVERY_MS window while the Bybit closed-pnl sweep could never fill them (no realised closed-pnl record exists for a same-instant net-flat). Between the 6h INV-2 grace and day 7 nothing touched the row -> closed/NULL -> INV-2. Fix: new _LOCAL_PNL_BROKER_DEFER_MS (6h = DEFAULT_PNL_GRACE_HOURS) shortens the local-sweep defer so a broker row the reader still can't price converges to local_compute (pnl~=0 truthful for a same-instant flat) right after the grace. Broker truth still wins within the grace. +3 tests in tests/test_local_pnl.py. The larger 'should it be booked closed at all' question logged for follow-up if instant-flat reconciles recur."
+        }
+      ],
+      "status": "resolved",
+      "resolved_at": "2026-06-23T08:10:00+00:00",
+      "resolved_by": "claude (system-report session)",
+      "resolution": "Shortened the local-pnl-sweep broker defer to the INV-2 6h grace so stranded Bybit closed/NULL rows converge to local_compute; INV-2 should return to 0.",
       "snoozed_until": null
     },
     {
@@ -2206,10 +2230,10 @@
       "trigger_condition": "next accounts_api health line listing breakout_1 as down",
       "resolution_criteria": "the probe excludes manual-bridge/prop accounts (no broker API) from the API-up/down tally.",
       "check_log": [],
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-23T07:30:00+00:00",
+      "resolved_by": "claude (backlog-drain session)",
+      "resolution": "Fixed in src/runtime/health.py::check_accounts_api \u2014 skips exchanges with an explicitly-empty EXCHANGE_MANAGEMENT_CAPS set (the breakout manual-bridge stub) so a no-broker-API account is no longer counted as an outage; unknown exchanges still probe (fail-open). Verify on the next health snapshot that breakout_1 drops out of the accounts_api down-count. Deploys to live via ict-git-sync on merge (Tier-2).",
       "snoozed_until": null
     },
     {
@@ -2239,7 +2263,12 @@
       "tier": 1,
       "trigger_condition": "next health snapshot still showing git_drift WARN",
       "resolution_criteria": "git_drift reports the live HEAD sha cleanly (matches origin/main).",
-      "check_log": [],
+      "check_log": [
+        {
+          "at": "2026-06-23T07:30:00+00:00",
+          "note": "Defensive fix committed: check_git_drift now runs git with -c safe.directory=* (the overwhelmingly common cause of 'rev-parse HEAD failed' when a service user reads a repo it doesn't own / via the /opt symlink). Kept OPEN: the live stderr was truncated, so if git_drift still WARNs after deploy the cause is a wrong cwd / not-a-repo context, not ownership \u2014 re-diagnose from the next snapshot's stderr."
+        }
+      ],
       "status": "open",
       "resolved_at": null,
       "resolved_by": null,
@@ -2247,5 +2276,5 @@
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-23T06:55:00+00:00"
+  "updated_at": "2026-06-23T07:40:00+00:00"
 }
