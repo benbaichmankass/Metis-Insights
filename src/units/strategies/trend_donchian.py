@@ -154,6 +154,11 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     candles_df = require_candles(candles_df, "trend_donchian")
     params = _resolve_params(cfg)
     symbol = cfg.get("symbol") or cfg.get("SYMBOL") or "BTCUSDT"
+    # Clone-template strategies (mes/mgc/xauusd/… variants) reuse this unit; the
+    # caller threads its OWN name via cfg["strategy_label"] so the non-actionable
+    # reason strings name the emitting strategy, not the parent template
+    # (BL-20260611-003). Defaults to the canonical name for the flagship caller.
+    label = str(cfg.get("strategy_label") or "trend_donchian")
 
     donchian = int(params["donchian"])
     atr_period = int(params["atr_period"])
@@ -165,7 +170,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     needed = donchian + atr_period + 2
     if len(candles_df) < needed:
         raise ValueError(
-            f"Strategy 'trend_donchian': need at least {needed} candles for "
+            f"Strategy '{label}': need at least {needed} candles for "
             f"the donchian({donchian}) / atr({atr_period}) windows; got "
             f"{len(candles_df)}."
         )
@@ -182,7 +187,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
 
     if atr <= 0 or pd.isna(hi) or pd.isna(lo):
         raise ValueError(
-            "Strategy 'trend_donchian': ATR non-positive or Donchian channel "
+            f"Strategy '{label}': ATR non-positive or Donchian channel "
             "undefined on the latest bar (non-actionable)."
         )
 
@@ -194,7 +199,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         direction = "short"
     else:
         raise ValueError(
-            f"Strategy 'trend_donchian': no breakout on the latest bar "
+            f"Strategy '{label}': no breakout on the latest bar "
             f"(close={close} within channel [{lo}, {hi}]) — non-actionable."
         )
 
@@ -214,7 +219,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
 
     if risk <= 0:
         raise ValueError(
-            "Strategy 'trend_donchian': non-positive risk after stop "
+            f"Strategy '{label}': non-positive risk after stop "
             "computation; skipping signal."
         )
 
@@ -230,7 +235,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     min_confidence = float(params["min_confidence"])
     if confidence < min_confidence:
         raise ValueError(
-            f"Strategy 'trend_donchian': confidence {confidence} below "
+            f"Strategy '{label}': confidence {confidence} below "
             f"min_confidence {min_confidence} — non-actionable."
         )
 

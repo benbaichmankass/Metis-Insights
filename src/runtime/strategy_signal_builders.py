@@ -696,6 +696,28 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
     vwap_cfg = strategies_cfg.get("vwap", {}) or {}
 
     symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+
+    # Honour the YAML ``enabled`` flag as the single source of truth — match
+    # every other builder (ict_scalp/trend_donchian/fade/htf_pullback/…) which
+    # short-circuit to side="none" BEFORE any fetch + eval emission. vwap was
+    # the lone builder missing this gate, so the M7-killed (enabled:false) vwap
+    # kept emitting ``vwap_eval`` rows + burning per-tick eval cycles even
+    # though the order path correctly skipped it (BL-20260610-001). A disabled
+    # strategy must go fully silent on the audit surface.
+    if not bool(vwap_cfg.get("enabled", False)):
+        logger.info(
+            "vwap: strategy disabled in config/strategies.yaml — "
+            "returning side=none"
+        )
+        return _with_signal_package("vwap", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "vwap",
+                "reason": "disabled_in_yaml",
+            },
+        })
+
     timeframe = (
         vwap_cfg.get("timeframe")
         or settings.get("TIMEFRAME")
@@ -897,6 +919,7 @@ def trend_donchian_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **trend_cfg}
+    cfg["strategy_label"] = "trend_donchian"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -1217,6 +1240,7 @@ def htf_pullback_trend_2h_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **hp_cfg}
+    cfg["strategy_label"] = "htf_pullback_trend_2h"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -1356,6 +1380,7 @@ def trend_donchian_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **td1h_cfg}
+    cfg["strategy_label"] = "trend_donchian_1h"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -1466,6 +1491,7 @@ def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]
 
     _publish_liquidity_state(symbol, candles_df)
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **vcfg}
+    cfg["strategy_label"] = name
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -1652,6 +1678,7 @@ def mes_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **mes_cfg}
+    cfg["strategy_label"] = "mes_trend_long_1d"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -1809,6 +1836,7 @@ def _metals_pullback_signal_builder(
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **strat_cfg}
+    cfg["strategy_label"] = strategy_name
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -2275,6 +2303,7 @@ def xauusd_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **xau_cfg}
+    cfg["strategy_label"] = "xauusd_trend_1h"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -2409,6 +2438,7 @@ def mgc_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **mgc_cfg}
+    cfg["strategy_label"] = "mgc_trend_1h"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -2540,6 +2570,7 @@ def spy_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+    cfg["strategy_label"] = "spy_trend_long_1d"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -2688,6 +2719,7 @@ def iwm_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+    cfg["strategy_label"] = "iwm_trend_long_1d"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -2833,6 +2865,7 @@ def qqq_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+    cfg["strategy_label"] = "qqq_trend_long_1d"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -2978,6 +3011,7 @@ def gld_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+    cfg["strategy_label"] = "gld_pullback_1d"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -3105,6 +3139,7 @@ def tlt_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+    cfg["strategy_label"] = "tlt_pullback_1d"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -3233,6 +3268,7 @@ def ief_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+    cfg["strategy_label"] = "ief_pullback_1d"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -3362,6 +3398,7 @@ def gld_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+    cfg["strategy_label"] = "gld_pullback_1h"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -3492,6 +3529,7 @@ def slv_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+    cfg["strategy_label"] = "slv_trend_1h"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -3624,6 +3662,7 @@ def spy_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+    cfg["strategy_label"] = "spy_pullback_1h"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -3754,6 +3793,7 @@ def qqq_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+    cfg["strategy_label"] = "qqq_pullback_1h"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -3884,6 +3924,7 @@ def tlt_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+    cfg["strategy_label"] = "tlt_pullback_1h"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -4015,6 +4056,7 @@ def uso_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+    cfg["strategy_label"] = "uso_trend_1h"
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
@@ -4157,6 +4199,7 @@ def _htf_pullback_variant_builder(
     _publish_liquidity_state(symbol, candles_df)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+    cfg["strategy_label"] = name
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)

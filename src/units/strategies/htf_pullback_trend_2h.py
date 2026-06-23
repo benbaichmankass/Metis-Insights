@@ -130,6 +130,11 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     candles_df = require_candles(candles_df, "htf_pullback_trend_2h")
     params = _resolve_params(cfg)
     symbol = cfg.get("symbol") or cfg.get("SYMBOL") or "BTCUSDT"
+    # Clone-template strategies (mhg/mgc/tlt/… daily-pullback variants) reuse
+    # this unit; the caller threads its OWN name via cfg["strategy_label"] so the
+    # non-actionable reason strings name the emitting strategy, not the parent
+    # template (BL-20260611-003). Defaults to the canonical name.
+    label = str(cfg.get("strategy_label") or "htf_pullback_trend_2h")
 
     trend_lb = int(params["trend_lookback"])
     pull_lb = int(params["pullback_lookback"])
@@ -144,7 +149,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         needed = max(needed, int(params.get("adx_period") or 14) * 2 + 2)
     if len(candles_df) < needed:
         raise ValueError(
-            f"Strategy 'htf_pullback_trend_2h': need at least {needed} candles "
+            f"Strategy '{label}': need at least {needed} candles "
             f"for the trend({trend_lb}) / atr({atr_period}) windows; got "
             f"{len(candles_df)}."
         )
@@ -166,11 +171,11 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     mid = midline.iloc[-1]
     rhi, rlo = pr_hi.iloc[-1], pr_lo.iloc[-1]
     if atr <= 0 or pd.isna(mid) or pd.isna(rhi) or pd.isna(rlo):
-        raise ValueError("Strategy 'htf_pullback_trend_2h': indicators undefined (non-actionable).")
+        raise ValueError(f"Strategy '{label}': indicators undefined (non-actionable).")
     mid, rhi, rlo = float(mid), float(rhi), float(rlo)
     rng = rhi - rlo
     if rng <= 0:
-        raise ValueError("Strategy 'htf_pullback_trend_2h': degenerate recent range (non-actionable).")
+        raise ValueError(f"Strategy '{label}': degenerate recent range (non-actionable).")
 
     # Position within the recent range, 0=at low .. 1=at high.
     pos_in_range = (close - rlo) / rng
@@ -188,7 +193,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         depth = (mid - close) / atr
     else:
         raise ValueError(
-            "Strategy 'htf_pullback_trend_2h': no trend-pullback-confirmation "
+            f"Strategy '{label}': no trend-pullback-confirmation "
             "setup on the latest bar (non-actionable)."
         )
 
@@ -205,18 +210,18 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         adx_last = adx_series.iloc[-1] if len(adx_series) else float("nan")
         if pd.isna(adx_last):
             raise ValueError(
-                "Strategy 'htf_pullback_trend_2h': ADX undefined (warm-up) — "
+                f"Strategy '{label}': ADX undefined (warm-up) — "
                 "regime filter active, non-actionable."
             )
         adx_val = float(adx_last)
         if adx_min_p is not None and adx_val < adx_min_p:
             raise ValueError(
-                f"Strategy 'htf_pullback_trend_2h': ADX {adx_val:.2f} < adx_min "
+                f"Strategy '{label}': ADX {adx_val:.2f} < adx_min "
                 f"{adx_min_p} — regime filter, non-actionable."
             )
         if adx_max_p is not None and adx_val > adx_max_p:
             raise ValueError(
-                f"Strategy 'htf_pullback_trend_2h': ADX {adx_val:.2f} > adx_max "
+                f"Strategy '{label}': ADX {adx_val:.2f} > adx_max "
                 f"{adx_max_p} — regime filter, non-actionable."
             )
 
@@ -230,7 +235,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         risk = sl - entry
         tp = max(entry * (1 - _TP_SENTINEL_CAP_PCT), entry - float(params["tp_r"]) * risk)
     if risk <= 0:
-        raise ValueError("Strategy 'htf_pullback_trend_2h': non-positive risk; skipping.")
+        raise ValueError(f"Strategy '{label}': non-positive risk; skipping.")
 
     # Confidence — a blended [0, 1] score (mirrors turtle_soup / fvg_range /
     # ict_scalp, which all combine two normalised components). The old
@@ -256,7 +261,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     min_confidence = float(params["min_confidence"])
     if confidence < min_confidence:
         raise ValueError(
-            f"Strategy 'htf_pullback_trend_2h': confidence {confidence} below "
+            f"Strategy '{label}': confidence {confidence} below "
             f"min_confidence {min_confidence} — non-actionable."
         )
 

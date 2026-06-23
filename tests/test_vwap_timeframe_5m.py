@@ -69,11 +69,11 @@ def test_vwap_signal_builder_prefers_strategies_yaml(monkeypatch):
     )
     monkeypatch.setattr(
         strategies_mod, "load_strategy_config",
-        lambda *a, **kw: {"vwap": {"timeframe": "5m"}},
+        lambda *a, **kw: {"vwap": {"timeframe": "5m", "enabled": True}},
     )
     monkeypatch.setattr(
         ssb, "load_strategy_config",
-        lambda *a, **kw: {"vwap": {"timeframe": "5m"}},
+        lambda *a, **kw: {"vwap": {"timeframe": "5m", "enabled": True}},
         raising=False,
     )
 
@@ -105,8 +105,16 @@ def test_vwap_signal_builder_falls_through_to_env_if_yaml_absent(monkeypatch):
     monkeypatch.setattr(
         ssb, "_build_killzone_exchange", lambda s: _StubExchange()
     )
+    # vwap present + enabled but no timeframe → falls through to the env var.
+    # (An absent/disabled vwap now short-circuits to side=none, so the entry
+    # must be enabled to exercise the timeframe-resolution fallthrough.)
     monkeypatch.setattr(
-        strategies_mod, "load_strategy_config", lambda *a, **kw: {}
+        strategies_mod, "load_strategy_config",
+        lambda *a, **kw: {"vwap": {"enabled": True}},
+    )
+    monkeypatch.setattr(
+        ssb, "load_strategy_config",
+        lambda *a, **kw: {"vwap": {"enabled": True}}, raising=False,
     )
 
     settings = {"SYMBOL": "BTCUSDT", "TIMEFRAME": "1h"}
@@ -130,9 +138,55 @@ def test_vwap_default_timeframe_is_5m_when_nothing_configured(monkeypatch):
         ssb, "_build_killzone_exchange", lambda s: _StubExchange()
     )
     monkeypatch.setattr(
-        strategies_mod, "load_strategy_config", lambda *a, **kw: {}
+        strategies_mod, "load_strategy_config",
+        lambda *a, **kw: {"vwap": {"enabled": True}},
+    )
+    monkeypatch.setattr(
+        ssb, "load_strategy_config",
+        lambda *a, **kw: {"vwap": {"enabled": True}}, raising=False,
     )
     settings = {"SYMBOL": "BTCUSDT"}
     with pytest.raises(RuntimeError):
         ssb.vwap_signal_builder(settings)
     assert captured["timeframe"] == "5m"
+
+
+def test_vwap_disabled_short_circuits_without_eval(monkeypatch):
+    """BL-20260610-001: a disabled vwap (enabled:false, M7-killed) must
+    short-circuit to side=none BEFORE any fetch or ``vwap_eval`` emission —
+    matching every other builder, so a killed strategy goes fully silent on
+    the audit surface and burns no per-tick eval cycles."""
+    from src.runtime import strategy_signal_builders as ssb
+    from src.units import strategies as strategies_mod
+
+    emitted: list = []
+    fetched: list = []
+
+    monkeypatch.setattr(ssb, "log_signal", lambda row: emitted.append(row))
+    monkeypatch.setattr(
+        ssb, "_build_killzone_exchange",
+        lambda s: (_ for _ in ()).throw(AssertionError("must not fetch")),
+    )
+    monkeypatch.setattr(
+        ssb, "fetch_candles",
+        lambda *a, **k: fetched.append(a) or None, raising=False,
+    )
+    # vwap explicitly disabled (and the absent-entry default is also disabled).
+    monkeypatch.setattr(
+        strategies_mod, "load_strategy_config",
+        lambda *a, **kw: {"vwap": {"enabled": False}},
+    )
+    monkeypatch.setattr(
+        ssb, "load_strategy_config",
+        lambda *a, **kw: {"vwap": {"enabled": False}}, raising=False,
+    )
+
+    out = ssb.vwap_signal_builder({"SYMBOL": "BTCUSDT"})
+
+    sig = out.get("signal", out) if isinstance(out, dict) else {}
+    assert (sig.get("side") or out.get("side")) == "none"
+    # No exchange build, no candle fetch, and ZERO audit rows (no vwap_eval).
+    assert fetched == []
+    assert not any(
+        (r.get("event") == "vwap_eval") for r in emitted
+    ), f"disabled vwap still emitted eval rows: {emitted}"
