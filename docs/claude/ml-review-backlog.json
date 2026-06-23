@@ -836,6 +836,10 @@
         {
           "at": "2026-06-23T06:55:00+00:00",
           "note": "Opened from the system-report follow-up. Soft-off demote recommended (awaiting operator go). This is the inaugural case of the model-refinement-lifecycle (docs/claude/model-refinement-lifecycle.md)."
+        },
+        {
+          "at": "2026-06-23T07:05:00+00:00",
+          "note": "EXECUTED soft-off: promote-stage btc-regime-1h-lgbm-yz-v1 advisory->shadow (operator-approved 'yes, merge both'). Registry confirms target_deployment_stage=shadow; mirror published to live (141.145.193.91). Item stays OPEN for the refinement half \u2014 investigate the live score collapse (feature-pipeline/score-time live!=train) and re-gate; restore to advisory only if it clears, else retire."
         }
       ]
     },
@@ -849,12 +853,16 @@
       "tier": 3,
       "trigger_condition": "operator decision on promotion (gate already clears now)",
       "resolution_criteria": "operator approves -> run promote-stage (resolved: promoted); or operator declines pending better calibration -> snooze with the calibration bar.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-06-23T06:55:00+00:00",
           "note": "Opened gate-ready. Awaiting operator go on the Tier-3 flip + the marginal-class-balance caveat."
+        },
+        {
+          "at": "2026-06-23T07:05:00+00:00",
+          "note": "EXECUTED promote: promote-stage btc-regime-5m-lgbm-yz-v1 shadow->advisory (operator-approved). Registry confirms target_deployment_stage=advisory; mirror published to live. WATCH: marginal class balance (strict min-class F1 0.118) + negative brier_lift -0.114 -> if live downsize behaviour or calibration degrades, demote back via the refinement lifecycle. It replaces the demoted 1h-yz as the regime input to the advisory/c_reg downsize."
         }
       ]
     },
