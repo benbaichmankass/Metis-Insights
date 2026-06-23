@@ -119,6 +119,14 @@
         "win_rate": null,
         "pnl_total": 0.0,
         "note": "repeated MGC short packages orphaned at 0 qty (sub-1-contract refusal)."
+      },
+      {
+        "name": "manual/discretionary (prop)",
+        "n_decisions": null,
+        "n_filled": 1,
+        "win_rate": 0.0,
+        "pnl_total": -24.89,
+        "note": "breakout_1 ETH long reported back: -$24.89 (-1.9%); counter to the bot's ETH short bias."
       }
     ],
     "trade_decision_grades": [],
@@ -319,7 +327,7 @@
   },
   "consolidated": {
     "roll_up_grade": "caution",
-    "headline": "CAUTION. System healthy & relaxed (heartbeat live, services up, VM cpu 0%, trainer cycle clean). Real money quiet: -$0.90 in-window (1 ict_scalp loss as BTC faded ~3% off 65.6k). Paper bled -$3.6k (trend_donchian BTC -$3,350 + sol_pullback). Recurring: mgc/eth pkgs size to 0 qty->orphaned; M13 insights under-counts closed trades (0 vs 12); 2 un-acted prop tickets.",
+    "headline": "CAUTION. System healthy & relaxed (heartbeat live, services up, VM cpu 0%, trainer cycle clean). Real money quiet: -$0.90 in-window (ict_scalp loss as BTC faded ~3% off 65.6k). Paper bled -$3.6k (trend_donchian BTC -$3,350 + sol_pullback). Prop: 1 ETH long fill reported -$24.89, 2 ETH-short tickets still un-acted. Recurring: mgc/eth pkgs size to 0 qty->orphaned; M13 insights under-counts closed trades (0 vs 12).",
     "services": [
       {
         "unit": "ict-trader-live.service",
@@ -373,10 +381,10 @@
       },
       {
         "rank": 4,
-        "title": "Prop manual bridge: 2 un-acted tickets, no report-backs",
+        "title": "Prop bridge: 1 ETH long fill reported (-$24.89); 2 ETH-short tickets still un-acted; no account-status snapshot",
         "source_review": "cross",
         "tier": 2,
-        "detail": "trend_donchian_eth ETH-short tickets emitted (1 in-window) but never placed/reported; no account-status ever reported -> rule-distance cushions blind. The supervised executor isn't acting on the bridge.",
+        "detail": "Operator-reported a closed Breakout ETH long (-$24.89, within the $150/day limit) \u2014 now in the prop journal (fill id 2). But the 2 trend_donchian_eth ETH-short tickets remain un-acted, and no account-status has ever been reported, so the daily-loss/static-DD rule-distance cushions are still blind. Encourage report-backs incl. an account_status snapshot.",
         "operator_action_required": true
       },
       {
@@ -391,7 +399,8 @@
     "cross_review_notes": [
       "BTC faded ~3% off the 65.6k intraday high -> both the real ict_scalp_5m long and the paper trend_donchian long were stopped. Market context explains the day's losses (longs into a fading tape).",
       "The 'M13 reports 0 closed trades' bug echoes the epoch-ms closed_at class fixed last report for /performance & /stats \u2014 verify the insights generator picked up the shared _closed_at.py fix.",
-      "trend_donchian_eth strands on BOTH venues this window: an orphaned 0-qty real_money package AND an un-acted prop ticket \u2014 same signal, two dead ends."
+      "trend_donchian_eth strands on BOTH venues this window: an orphaned 0-qty real_money package AND an un-acted prop ticket \u2014 same signal, two dead ends.",
+      "Operator's reported prop fill was an ETH LONG (1767.30->1734.62) while the bot's in-window trend_donchian_eth tickets were ETH SHORTS \u2014 the discretionary prop direction diverged from the strategy signal."
     ],
     "pnl_by_class": {
       "real": {
@@ -479,10 +488,10 @@
         ]
       },
       "prop": {
-        "window_pnl": 0.0,
+        "window_pnl": -24.89,
         "prior_window_pnl": null,
-        "trend": "flat",
-        "fills_reported": 0,
+        "trend": "down",
+        "fills_reported": 1,
         "tickets_emitted": 1,
         "unacted_tickets": 2,
         "rule_distance": {
@@ -494,7 +503,7 @@
             "account_id": "breakout_1",
             "balance": null,
             "equity": null,
-            "realized_window": 0.0
+            "realized_window": -24.89
           }
         ]
       }
@@ -951,11 +960,46 @@
           "bias": null
         },
         "notable": false
+      },
+      {
+        "trade_id": "prop-fill-2",
+        "order_package_id": "prop-manual-dca8e89072d7",
+        "account": "breakout_1",
+        "account_class": "prop",
+        "symbol": "ETHUSDT",
+        "direction": "long",
+        "strategy": "manual/discretionary",
+        "opened_at": "2026-06-22T14:54:00+00:00",
+        "closed_at": "2026-06-22T19:41:00+00:00",
+        "hold_seconds": 17220,
+        "entry_price": 1767.3,
+        "exit_price": 1734.62,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 0.73,
+        "pnl": -24.89,
+        "pnl_percent": -1.93,
+        "close_reason": "manual",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "late",
+          "exit_quality": "unknown",
+          "risk_management": "correct",
+          "rationale": "Operator-placed Breakout long 0.73 ETH @ 1767.30 -> 1734.62 (-1.9%, net -$24.89 incl -$1.03 comm). Ran counter to the bot's ETH bias (trend_donchian_eth tickets this window were shorts). Loss stayed well within the $150/day prop limit; reported back via /prop/report (fill id 2, linked ticket prop-manual-dca8e89072d7, prop_closed fired)."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
       }
     ],
     "dossier_coverage": {
       "window": "since-last",
-      "full_dossiers": 12,
+      "full_dossiers": 13,
       "summarized_trades": 0,
       "rule": "full-per-trade (since-last/daily)"
     },
