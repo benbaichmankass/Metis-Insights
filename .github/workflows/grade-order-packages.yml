@@ -5,20 +5,26 @@
 # → comms/claude_strategy_scores.jsonl) and COMMIT the result. But the scorer needs
 # the trade journal, which lives on the VMs, while the commit must land in the repo —
 # and a relay-based Claude session has no clean way to move ~1MB of grades from the VM
-# into a git commit (the trainer can't push; piping it through the session is
-# unreliable). For ~a week grading silently lapsed because of exactly this gap. This
-# workflow closes it: the RUNNER (which has repo-write via GITHUB_TOKEN) SSHes the
-# trainer, runs the scorer, captures all grades over SSH stdout (no comment-size cap),
-# dedup-appends the new rows to the committed journal, and opens an auto-merging PR.
+# into a git commit (piping it through the session hits the 55kB relay comment cap).
+# For ~a week grading silently lapsed because of exactly this gap. This workflow closes
+# it: the RUNNER (which has repo-write via GITHUB_TOKEN) SSHes the live VM, runs the
+# scorer, captures all grades over SSH stdout (no comment-size cap), dedup-appends the
+# new rows to the committed journal, and opens an auto-merging PR.
+#
+# Targets the LIVE VM, not the trainer (changed 2026-06-23): the scorer must read the
+# FRESH canonical trade_journal.db. The trainer only holds a periodic db_pull copy, so
+# scoring it left every package created since the last pull ungraded (the dashboard's
+# "0 Claude-graded" for the current day). The scorer opens the DB read-only (mode=ro)
+# and imports only stdlib (no `src`, no venv), so this is a Tier-1 read on the live box.
 #
 # Trigger: workflow_dispatch (operator) OR an issue labelled `grade-order-packages`
 # (Claude-driven, like the other relays). Append-only, idempotent: a run with no new
 # packages is a clean no-op.
 #
-# Secrets/vars (reused from trainer-vm-diag.yml):
-#   * VM_SSH_KEY        — SSH private key authorized on the trainer
-#   * TRAINER_VM_IP     — defaults to 158.178.209.121
-#   * TRAINER_VM_USER   — defaults to ubuntu
+# Secrets/vars (reused from vm-diag-snapshot.yml — the live-VM relay):
+#   * VM_SSH_KEY        — SSH private key authorized on the live VM
+#   * VM_SSH_HOST       — defaults to 141.145.193.91 (Ampere live trader)
+#   * VM_SSH_USER       — defaults to ubuntu
 #   * GRADING_PAT (OPTIONAL) — fine-grained PAT with contents+pull-requests
 #       write. When set, the grades branch is pushed with it so the opened PR
 #       gets CI and auto-merges UNATTENDED. When unset, the PR still opens but
@@ -66,40 +72,50 @@ jobs:
           token: ${{ secrets.GRADING_PAT || secrets.GITHUB_TOKEN }}
           persist-credentials: true
 
-      - name: Prepare SSH to trainer
+      - name: Prepare SSH to the live VM
         env:
           VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
-          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
         run: |
           if [ -z "${VM_SSH_KEY}" ]; then
             echo "::error::VM_SSH_KEY secret is unset."
             exit 1
           fi
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/trainer_key
-          chmod 600 ~/.ssh/trainer_key
-          ssh-keyscan -t ed25519,ecdsa,rsa "${TRAINER_IP}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/live_key
+          chmod 600 ~/.ssh/live_key
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Run scorer on trainer, capture all grades
+      - name: Run scorer on the live VM (fresh canonical DB), capture all grades
         env:
-          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
-          TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+          VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
         run: |
           set -o pipefail
-          # Run the rule-based scorer over the synced journal (read-only on the DB);
-          # scorer's own stdout → stderr so ONLY the gzip+base64 of the grades file
-          # reaches the runner over stdout (SSH stdout has no comment-size cap).
+          # Score the LIVE VM's fresh canonical trade_journal.db (NOT the trainer's
+          # midnight-lagged copy — the trainer's db_pull cadence left every package
+          # created after the last pull ungraded, which read as "0 Claude-graded" on
+          # the dashboard for the current day). The scorer opens the DB read-only
+          # (mode=ro) and imports only stdlib (no `src`, no venv needed), so this is
+          # a Tier-1 read on the live box. The DB path comes from the web-api env
+          # (the canonical field) with the documented path as a validated fallback.
+          # The scorer's own stdout → stderr so ONLY the gzip+base64 of the grades
+          # file reaches the runner over SSH stdout (no comment-size cap).
           REMOTE='set -e; cd /home/ubuntu/ict-trading-bot; \
             if [ -x .venv/bin/python ]; then PY=.venv/bin/python; else PY=python3; fi; \
-            "$PY" scripts/ops/score_order_packages.py data/trade_journal.db /tmp/all_scores.jsonl 1>&2; \
+            ENVFILE=/etc/ict-trader/web-api.env; \
+            if [ -f "$ENVFILE" ]; then set -a; . "$ENVFILE"; set +a; fi; \
+            DB="${TRADE_JOURNAL_DB:-/data/bot-data/trade_journal.db}"; \
+            test -f "$DB" || { echo "no trade_journal.db at $DB" >&2; exit 1; }; \
+            "$PY" scripts/ops/score_order_packages.py "$DB" /tmp/all_scores.jsonl 1>&2; \
             gzip -c /tmp/all_scores.jsonl | base64 -w0'
-          ssh -i ~/.ssh/trainer_key \
+          ssh -i ~/.ssh/live_key \
               -o BatchMode=yes \
               -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=30 \
               -o ServerAliveInterval=15 \
-              "${TRAINER_USER}@${TRAINER_IP}" "${REMOTE}" > /tmp/all_b64.txt
-          test -s /tmp/all_b64.txt || { echo "::error::empty scorer output from trainer"; exit 1; }
+              "${VM_SSH_USER}@${VM_SSH_HOST}" "${REMOTE}" > /tmp/all_b64.txt
+          test -s /tmp/all_b64.txt || { echo "::error::empty scorer output from live VM"; exit 1; }
           base64 -d /tmp/all_b64.txt | gunzip > /tmp/all_scores.jsonl
           echo "scorer rows: $(wc -l < /tmp/all_scores.jsonl)"
 
@@ -149,9 +165,10 @@ jobs:
           git add comms/claude_strategy_scores.jsonl
           git commit -m "data(grading): commit ${{ steps.merge.outputs.added }} order-package decision grades [grade-order-packages]
 
-          Automated VM→repo grading bridge: runner SSHes the trainer, runs the
-          rule-based score_order_packages.py over the synced journal, dedup-appends
-          the new rows by order_package_id. Append-only observability data."
+          Automated VM→repo grading bridge: runner SSHes the live VM, runs the
+          rule-based score_order_packages.py read-only over the fresh canonical
+          journal, dedup-appends the new rows by order_package_id. Append-only
+          observability data."
           git push -u origin "${BR}"
           NOPAT_NOTE=""
           if [ "${HAVE_PAT}" != "true" ]; then
@@ -211,7 +228,7 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner, repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `❌ **grade-order-packages failed.**\nRun: ${runUrl}\n\nCommon causes: VM_SSH_KEY unset, trainer SSH timeout, or branch-protection blocking the PR.`,
+              body: `❌ **grade-order-packages failed.**\nRun: ${runUrl}\n\nCommon causes: VM_SSH_KEY unset, live-VM SSH timeout, missing trade_journal.db, or branch-protection blocking the PR.`,
             });
             await github.rest.issues.update({
               owner: context.repo.owner, repo: context.repo.repo,
