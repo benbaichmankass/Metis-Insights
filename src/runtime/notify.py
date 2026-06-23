@@ -17,13 +17,22 @@ def send_telegram_direct(
     parse_mode: Optional[str] = "HTML",
     mirror_to_fcm: bool = True,
     bot_token: Optional[str] = None,
-) -> None:
+) -> bool:
     """
     Stdlib-only direct POST to Telegram's sendMessage API.
 
+    Returns ``True`` only when Telegram confirmed the send (``ok=true``);
+    ``False`` when the send was SKIPPED because credentials were missing.
+    Raises on a hard send failure (non-2xx / ok=false). The boolean lets a
+    queue-drainer (``claude_bridge._drain_pending_claude_pings``) distinguish a
+    real send from a silent skip and only delete the queued file on ``True`` —
+    without it, a creds-missing skip returned normally and the drainer deleted
+    the file, silently losing the ping (2026-06-23). Existing callers that
+    ignore the return value are unaffected.
+
     Reads ``TELEGRAM_BOT_TOKEN`` and ``TELEGRAM_CHAT_ID`` from the process
-    environment. If either is missing, logs a warning and returns (back-compat
-    with the previous AlertManager-based path).
+    environment. If either is missing, logs a warning and returns ``False``
+    (back-compat with the previous AlertManager-based path).
 
     On present credentials, performs a synchronous form-encoded POST. Raises
     ``urllib.error.URLError`` / ``urllib.error.HTTPError`` on network failure
@@ -84,7 +93,7 @@ def send_telegram_direct(
             "Telegram credentials missing (bot token or "
             "TELEGRAM_CHAT_ID); skipping send"
         )
-        return
+        return False
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     fields = {"chat_id": chat_id, "text": message}
@@ -119,6 +128,7 @@ def send_telegram_direct(
         )
         if not ok:
             raise RuntimeError("Telegram API returned ok=false")
+        return True
 
 
 def notify_operator(telegram_client: Any, message: str) -> None:
