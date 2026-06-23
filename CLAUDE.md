@@ -317,19 +317,36 @@ The [`SessionStart` hook in `.claude/settings.json`](.claude/settings.json)
 announces all three at session init so a fresh Claude knows which to
 pick.
 
-### The master roll-up: `/system-report` (2026-06-22)
+### The master roll-up: `/system-review` (2026-06-22; reframed 2026-06-23)
 
-The three reviews stay separate, but **`/system-report`**
-([`.claude/skills/system-report/SKILL.md`](.claude/skills/system-report/SKILL.md))
-runs all three together (report mode — their individual pings **suppressed**,
-one consolidated ping instead) and synthesizes a single **time-windowed
-executive report**: technical health, every trade with a per-trade decision
-dossier (entry/exit + Claude grade + model scores + signal logic, **split
-real/paper/prop**, adaptive depth by window), the PnL trend vs the prior window,
-a market-context read, and the ML fleet. Windows:
-`--window=since-last|daily|weekly|monthly` (default `since-last`; `since-last`
-reads the prior report's timestamp from `comms/reports/index.json`). The
-renderer ([`scripts/reports/render_system_report.py`](scripts/reports/render_system_report.py),
+The three reviews stay separate, but **`/system-review`**
+([`.claude/skills/system-review/SKILL.md`](.claude/skills/system-review/SKILL.md))
+is the master session that ties them together. **The work is the REVIEW; the
+report is just its deliverable** (operator directive, 2026-06-23). It is a
+**WORK session, not a report-generator**: it runs all three reviews (their
+individual pings **suppressed**, one consolidated ping instead), AND it assesses
+**strategy promotion/demotion readiness** (where each strategy stands vs its
+gate), **ML training-cycle + soak health** (are cycles running, dataset builds
+OK, soaks accruing not stalled), **raises flags loudly** when something is
+degrading, and **finds bugs and proposes/applies the fixes** (Tier-3 calls go to
+the operator with the exact change; everything else it drives). A
+**review-coverage guard** (`consolidated.review_coverage` —
+`strategy_promotion` + `ml_training_health` + `soak_status` + `flags_raised`)
+fails the run if any of the three required assessments is missing, so a review
+can't silently skip the promotion/training/soak mandate.
+
+`/system-report` remains a **back-compat alias** that runs the same session —
+the artifact name stays "report" everywhere it's load-bearing
+(`/api/bot/reports`, `comms/reports/`, the dashboard + Android Reports tabs).
+
+It synthesizes a single **time-windowed executive report**: technical health,
+every trade with a per-trade decision dossier (entry/exit + Claude grade + model
+scores + signal logic, **split real/paper/prop**, adaptive depth by window), the
+PnL trend vs the prior window, a market-context read, the ML fleet, and the
+review-coverage block. Windows: `--window=since-last|daily|weekly|monthly`
+(default `since-last`; `since-last` reads the prior report's timestamp from
+`comms/reports/index.json`). The renderer
+([`scripts/reports/render_system_report.py`](scripts/reports/render_system_report.py),
 stdlib-only) writes a self-contained **responsive** `report.html` (+ `.md`/`.json`)
 under `comms/reports/<window>/<ts>/` (committed → stable GitHub link), and the
 file-backed `/api/bot/reports` surface drives a **Reports** log of links in both

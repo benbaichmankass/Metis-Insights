@@ -4,9 +4,9 @@
 PURE renderer: consolidated JSON in -> report.html (responsive) + report.md
 out, plus an append to the report index manifest. Does NOT gather any data,
 call any API, or import any ``src.*`` module — the master skill
-(``.claude/skills/system-report/SKILL.md``) assembles the JSON; this script
-only formats it. Stdlib-only (matches scripts/daily_heartbeat.py) so it runs
-even when the bot venv is unavailable.
+(``.claude/skills/system-review/SKILL.md``; ``system-report`` is a back-compat
+alias) assembles the JSON; this script only formats it. Stdlib-only (matches
+scripts/daily_heartbeat.py) so it runs even when the bot venv is unavailable.
 
 The JSON shape is documented in
 ``comms/schema/system_report_response.template.json``; the report spec is
@@ -370,6 +370,46 @@ def _section_actions(report: dict) -> str:
     return "\n".join(out)
 
 
+def _section_review_coverage(report: dict) -> str:
+    """Render the review-coverage block — strategy promotion, ML training health,
+    soak status, flags. Proves the review covered its mandate (2026-06-23)."""
+    rc = (report.get("consolidated") or {}).get("review_coverage") or {}
+    out = ["<h2>Review coverage</h2>"]
+    if not rc:
+        out.append('<p class="section-empty">No review-coverage block — '
+                   'promotion / training / soak assessment not recorded.</p>')
+        return "\n".join(out)
+    sp = rc.get("strategy_promotion") or {}
+    out.append("<h3>Strategy promotion / demotion</h3><ul class='pri'>")
+    for r in (sp.get("ready_to_promote") or []):
+        out.append(f"<li>PROMOTE <b>{_f(r.get('name'))}</b> — {_f(r.get('evidence'))}</li>")
+    for r in (sp.get("demote_or_kill") or []):
+        out.append(f"<li>{_f(r.get('gate'))} <b>{_f(r.get('name'))}</b> — {_f(r.get('evidence'))}</li>")
+    out.append(f"<li class='muted'>{_f(sp.get('summary'))}</li></ul>")
+    mh = rc.get("ml_training_health") or {}
+    out.append("<h3>ML training health</h3><div class='cards'>")
+    out.append(_kpi("Cycles since last", _f(mh.get("cycles_since_last_review"))))
+    out.append(_kpi("Dataset builds OK", _f(mh.get("dataset_builds_ok"))))
+    out.append("</div>")
+    if mh.get("summary"):
+        out.append(f"<p class='muted'>{_f(mh.get('summary'))}</p>")
+    soaks = rc.get("soak_status") or []
+    if soaks:
+        out.append('<div class="tablewrap"><table>'
+                   '<tr><th>Soak</th><th>State</th><th>Detail</th></tr>')
+        for s in soaks:
+            out.append(f"<tr><td>{_f(s.get('soak'))}</td><td>{_f(s.get('state'))}</td>"
+                       f"<td>{_f(s.get('detail'))}</td></tr>")
+        out.append("</table></div>")
+    flags = rc.get("flags_raised") or []
+    out.append("<h3>Flags raised</h3>")
+    if flags:
+        out.append("<ul class='pri'>" + "".join(f"<li>🚩 {_f(x)}</li>" for x in flags) + "</ul>")
+    else:
+        out.append('<p class="muted">None — nothing degrading this review.</p>')
+    return "\n".join(out)
+
+
 def render_html(report: dict) -> str:
     cons = report.get("consolidated") or {}
     title = f"System report — {report.get('window', '')}"
@@ -389,6 +429,7 @@ def render_html(report: dict) -> str:
         _section_trading(report),
         _section_market(report),
         _section_ml(report),
+        _section_review_coverage(report),
         f'<footer>report_id {_f(report.get("report_id"))} · reviewer {_f(report.get("reviewer"))} '
         f'· prior {_f(report.get("prior_report_id"))} · '
         f'ICT Trading Bot system-report</footer>',
@@ -428,6 +469,17 @@ def render_md(report: dict) -> str:
     lines += ["", "## Operator priorities"]
     for p in (cons.get("operator_priorities") or []):
         lines.append(f"{p.get('rank', '-')}. {p.get('title', '')} — {p.get('detail', '')}")
+    rc = cons.get("review_coverage") or {}
+    if rc:
+        lines += ["", "## Review coverage"]
+        sp = rc.get("strategy_promotion") or {}
+        lines.append(f"- Strategy promotion: {sp.get('summary', DASH)}")
+        mh = rc.get("ml_training_health") or {}
+        lines.append(f"- ML training health: {mh.get('summary', DASH)}")
+        for s in (rc.get("soak_status") or []):
+            lines.append(f"- Soak `{s.get('soak', DASH)}`: {s.get('state', DASH)} — {s.get('detail', '')}")
+        for fl in (rc.get("flags_raised") or []):
+            lines.append(f"- 🚩 {fl}")
     lines += ["", f"_report_id {report.get('report_id', DASH)}_"]
     return "\n".join(lines)
 

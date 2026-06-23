@@ -128,7 +128,32 @@
         "summary": "<= 200 chars",
         "tier": 3
       }
-    ]
+    ],
+    "review_coverage": {
+      "_comment": "REQUIRED (the Review-coverage guard, 2026-06-23). Proves the SYSTEM REVIEW actually covered its mandate — strategy promotion, ML training health, and soak progress — not just the trade/health summary. A run with any of strategy_promotion / ml_training_health / soak_status missing or empty must STOP and complete the assessment before rendering. Relay-blocked data is allowed only as an explicit 'unavailable: <reason>' string, never silently omitted.",
+      "strategy_promotion": {
+        "_comment": "Per-strategy promotion/demotion stance vs each gate (KILL/DEMOTE_SHADOW/TUNE/HOLD/PROMOTE), from the ml/performance sub-reviews + /api/bot/strategies/{name}/review. List ready-to-promote + demote/kill candidates, or state 'all HOLD'.",
+        "ready_to_promote": [{"name": "", "gate": "PROMOTE", "evidence": ""}],
+        "demote_or_kill": [{"name": "", "gate": "DEMOTE_SHADOW | KILL", "evidence": ""}],
+        "summary": "<= 240 chars | 'unavailable: <reason>'"
+      },
+      "ml_training_health": {
+        "_comment": "Did training cycles run since the last review? dataset builds OK? any failing/stuck cycle? From /ml-review + the trainer relay.",
+        "cycles_since_last_review": 0,
+        "dataset_builds_ok": null,
+        "failing_or_stuck": [],
+        "summary": "<= 240 chars | 'unavailable: <reason>'"
+      },
+      "soak_status": [
+        {
+          "_comment": "One row per active soak (shadow models, conviction, exit-ladder). state ∈ accruing|stalled|gate_met. Flag any stalled or met-but-unactioned soak in flags_raised.",
+          "soak": "", "state": "accruing | stalled | gate_met", "detail": ""
+        }
+      ],
+      "flags_raised": [
+        "free-form — the loud flags this review surfaced (degrading strategy, stalled soak, gate met-but-unactioned, training failure). Empty ONLY if genuinely nothing is degrading — say so explicitly."
+      ]
+    }
   },
 
   "artifacts": {
