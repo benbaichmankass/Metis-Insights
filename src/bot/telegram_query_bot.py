@@ -497,6 +497,14 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=menu.back_to_menu_keyboard(),
             )
 
+        elif raw == menu.CB_PROP_PROMPT:
+            # Plain text (no parse_mode) — the prompt contains <SYMBOL>/<...>
+            # placeholders that an HTML parse_mode would reject as bad entities.
+            await query.edit_message_text(
+                menu.render_prop_report_prompt(),
+                reply_markup=menu.back_to_menu_keyboard(),
+            )
+
         elif raw == menu.CB_CLOSEALL:
             await query.edit_message_text(
                 "🚨 Close ALL open positions across all accounts? This "

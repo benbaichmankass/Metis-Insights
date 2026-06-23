@@ -41,6 +41,7 @@ CB_ACCOUNTS = "menu:accounts"
 CB_STRATEGIES = "menu:strategies"
 CB_CLOSEALL = "menu:closeall"
 CB_CLOSEALL_CONFIRM = "menu:closeall_confirm"
+CB_PROP_PROMPT = "menu:prop_prompt"
 
 
 def _btn(text: str, data: str) -> InlineKeyboardButton:
@@ -57,6 +58,7 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
         [_btn("🩺 System update", CB_SYSTEM)],
         [_btn("💼 Accounts snapshot", CB_ACCOUNTS),
          _btn("📈 Strategies snapshot", CB_STRATEGIES)],
+        [_btn("📋 Prop report prompt", CB_PROP_PROMPT)],
         [_btn("🚨 Close all positions", CB_CLOSEALL)],
     ])
 
@@ -148,6 +150,46 @@ MAIN_MENU_TEXT = (
 
 def render_main_menu() -> tuple[str, InlineKeyboardMarkup]:
     return MAIN_MENU_TEXT, main_menu_keyboard()
+
+
+# A copy-paste prompt the operator hands to the supervised executor assistant
+# (browser-Claude / Comet placing the Breakout trade). It pins the assistant's
+# output to the EXACT one-line grammar the prop report-back parser ingests
+# (src/prop/telegram_commands.py), so the operator can paste the reply straight
+# back into this chat and the bot logs the fill — no reformatting, no middle-man.
+# Keep these formats in lock-step with parse_prop_command's grammar.
+PROP_REPORT_PROMPT = (
+    "📋 PROP REPORT PROMPT — copy everything below and give it to your "
+    "executor assistant. Paste its reply back here verbatim to log the trade.\n"
+    "────────────────────\n"
+    "After you act on the Breakout trade, reply with EXACTLY ONE line and "
+    "nothing else — no extra words, no code fences — in one of these formats:\n"
+    "\n"
+    "  open  <SYMBOL> <entry_price> <qty>\n"
+    "  close <SYMBOL> <exit_price> <pnl> <tp|sl|manual>\n"
+    "  skip  <SYMBOL> <reason>\n"
+    "  bal   <balance> [equity] [realized_today]\n"
+    "\n"
+    "Rules:\n"
+    "• <SYMBOL> = the venue symbol you actually traded (e.g. ETHUSD, SOLUSD) — "
+    "drop the perp 'T' suffix.\n"
+    "• Prices, qty and balances are plain numbers; prefix P&L with + or - "
+    "(e.g. +80, -30).\n"
+    "• Use 'open' if you placed it, 'close' if it's already exited, 'skip' if "
+    "you did NOT place it (stale / out of band).\n"
+    "• ONE line only — I will paste it back exactly as you write it.\n"
+    "\n"
+    "Examples:\n"
+    "  open ETHUSD 3000 0.5\n"
+    "  close ETHUSD 2950 +80 tp\n"
+    "  skip ETHUSD stale/out-of-range\n"
+    "  bal 5040 5010"
+)
+
+
+def render_prop_report_prompt() -> str:
+    """The static executor-assistant prompt (see ``PROP_REPORT_PROMPT``)."""
+    return PROP_REPORT_PROMPT
 
 
 def _amount(value: object) -> str:
