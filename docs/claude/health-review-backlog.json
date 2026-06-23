@@ -2274,6 +2274,23 @@
       "resolved_by": null,
       "resolution": null,
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260623-VMROLE",
+      "opened_at": "2026-06-23T09:50:00+00:00",
+      "opened_by": "claude (system-report session \u2014 pull-and-deploy log)",
+      "source": "pull-and-deploy #4263 (2026-06-23) deploy log: 'scripts/deploy_pull_restart.sh: line 91: /etc/ict-vm-role: No such file or directory'. The live trader VM has no /etc/ict-vm-role marker, so the deploy script's role-detection read errors (non-fatal stderr warning; deploy still completed).",
+      "title": "deploy_pull_restart.sh role-detection errors on the live VM (missing /etc/ict-vm-role)",
+      "description": "The role-marker file /etc/ict-vm-role (consumed to gate role-specific logic, e.g. auto-enabling ict-ib-gateway-watchdog only where role==gateway) is absent on the live trader VM, so line ~91 of scripts/deploy_pull_restart.sh emits a 'No such file or directory' warning every deploy. Cosmetic today (the read is non-fatal and the live VM correctly should NOT enable the gateway watchdog), but it's log noise and a latent footgun if future logic hard-depends on the marker. Fix: either write /etc/ict-vm-role=live on the live VM (via a set-env-style action / install script) OR make the script tolerate a missing file ([ -r /etc/ict-vm-role ] guard, default role=live).",
+      "tier": 1,
+      "trigger_condition": "next deploy / next health-review touching the deploy scripts",
+      "resolution_criteria": "deploy_pull_restart.sh no longer warns on the live VM (marker present or read guarded); role detection is explicit on all three VMs.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
     }
   ],
   "updated_at": "2026-06-23T07:40:00+00:00"
