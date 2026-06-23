@@ -12,9 +12,14 @@
       "tier": 2,
       "trigger_condition": "Next /ml-review, or any session reviewing the shadow registry.",
       "resolution_criteria": "The long/short-keyed versions of conviction-meta-v1 + setup-quality-lgbm-v2 are at shadow stage and emitting predictions; the old buy/sell-keyed versions are demoted/superseded. Confirmed via list-models + shadow-stats.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-06-23T07:50:00+00:00",
+          "note": "RESOLVED (operator-approved, C/D list): promote-stage conviction-meta-v1 + setup-quality-lgbm-v2 candidate to shadow on the trainer; both target_deployment_stage=shadow; mirror published to live. The WC-3 long/short-keyed versions supersede the buy/sell-keyed shadow models."
+        }
+      ]
     },
     {
       "id": "MB-20260614-001",
