@@ -1756,7 +1756,10 @@ def _close_fail_alert_after() -> int:
     ``>= 1`` (item #3 — surface a position that won't close instead of retrying
     it silently forever).
     """
-    raw = os.environ.get("MONITOR_CLOSE_FAIL_ALERT_AFTER")
+    # The close-fail alert is always on (default 3); this knob only tunes after
+    # how many consecutive failures it fires — it strands no capability, so it is
+    # not the BUG-039 default-off-gate class the env-gate purge forbids.
+    raw = os.environ.get("MONITOR_CLOSE_FAIL_ALERT_AFTER")  # allow-silent: tuning knob (alert cadence), not a capability gate
     if raw is None or str(raw).strip() == "":
         return _DEFAULT_CLOSE_FAIL_ALERT_AFTER
     try:
