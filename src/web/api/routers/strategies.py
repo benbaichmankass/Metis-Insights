@@ -45,6 +45,10 @@ from fastapi import APIRouter
 
 from src.config.accounts_loader import load_accounts_dict
 from src.utils.paths import runtime_logs_dir, trade_journal_db_path
+from src.web.api._clean_trades import (
+    exclude_reconciler_predicate,
+    not_paper_predicate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -136,8 +140,13 @@ def _query_stats(db_path: Path) -> Dict[str, Dict[str, Any]]:
                 FROM trades
                 WHERE status = 'closed'
                   AND COALESCE(is_backtest, 0) = 0
-                  AND NOT (COALESCE(account_class,'') IN ('paper','prop')
-                           OR (account_class IS NULL AND COALESCE(is_demo,0)=1))
+                """
+                # Canonical predicates (src.web.api._clean_trades): real-money
+                # only + drop reconciler ``orphan_adopt`` artifacts from the
+                # per-strategy lifetime stats.
+                + not_paper_predicate("")
+                + exclude_reconciler_predicate("")
+                + """
                 GROUP BY strategy_name, exit_reason
                 """
             ).fetchall()

@@ -99,15 +99,25 @@ def bybit_client_for(account: Dict[str, Any]):
 def alpaca_client_for(account: Dict[str, Any]):
     """Return an :class:`AlpacaClient` for *account*, or ``None`` if creds missing.
 
-    Alpaca's key pair lives at fixed env names (``ALPACA_API_KEY_ID`` /
-    ``ALPACA_API_SECRET_KEY``) shared with the data connector, so this
-    reads env directly (the oanda/ib pattern). ``None`` when either is
-    unset → coordinator treats the account as not-configured and pings.
-    ``ALPACA_ENV`` selects paper (default) vs live host; account-level
-    ``alpaca_env`` / ``base_url`` override.
+    Alpaca's key pair lives at env names shared with the data connector,
+    so this reads env directly (the oanda/ib pattern). ``None`` when
+    either is unset → coordinator treats the account as not-configured
+    and pings. ``ALPACA_ENV`` selects paper (default) vs live host;
+    account-level ``alpaca_env`` / ``base_url`` override.
+
+    Per-account key override (so a paper and a live Alpaca account can run
+    CONCURRENTLY — they need distinct credentials): the account may name
+    its own env vars via ``api_key_env`` / ``api_secret_env``. Absent →
+    the canonical ``ALPACA_API_KEY_ID`` / ``ALPACA_API_SECRET_KEY`` pair
+    (the paper account's keys, shared with the data connector). So
+    ``alpaca_paper`` keeps using the globals unchanged, while a real-money
+    ``alpaca_live`` points at e.g. ``ALPACA_API_KEY_ID_LIVE`` /
+    ``ALPACA_API_SECRET_KEY_LIVE`` + ``alpaca_env: live``.
     """
-    api_key = os.environ.get("ALPACA_API_KEY_ID", "")
-    api_secret = os.environ.get("ALPACA_API_SECRET_KEY", "")
+    key_env = str(account.get("api_key_env") or "ALPACA_API_KEY_ID")
+    secret_env = str(account.get("api_secret_env") or "ALPACA_API_SECRET_KEY")
+    api_key = os.environ.get(key_env, "")
+    api_secret = os.environ.get(secret_env, "")
     if not api_key or not api_secret:
         return None
     from src.units.accounts.alpaca_client import AlpacaClient

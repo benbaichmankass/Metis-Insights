@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Query
 
 from src.utils.paths import trade_journal_db_path
+from src.web.api._clean_trades import account_class_wire, not_paper_predicate
 from src.web.api._closed_at import (
     close_time_sql,
     closed_at_norm_sql,
@@ -62,23 +63,13 @@ _normalize_closed_at_value = normalize_closed_at_value
 # timestamp — mirroring the wire ``closedAt`` derivation in _row_to_wire.
 _CLOSED_AT_SORT_SQL = close_time_sql("t.closed_at", "op.updated_at", "t.timestamp")
 
-# "Not paper" SQL predicate — excludes paper-money rows robustly even
-# before the account_class backfill runs. account_class is authoritative
-# when present; for old rows where it's NULL we fall back to is_demo.
-# (A row is paper if account_class='paper', OR — only when account_class
-# is unset — if the legacy is_demo flag is 1.)
-_NOT_PAPER_PREDICATE = (
-    " AND NOT (COALESCE(t.account_class,'') IN ('paper','prop')"
-    " OR (t.account_class IS NULL AND COALESCE(t.is_demo,0)=1))"
-)
-
-
-def _account_class_wire(account_class: Any, is_demo: Any) -> str:
-    """Derive the wire ``accountClass`` string, never null. Falls back to
-    is_demo when the row predates the account_class column / backfill."""
-    if account_class is not None and str(account_class).strip():
-        return str(account_class).strip().lower()
-    return "paper" if bool(is_demo) else "real_money"
+# Paper/not-paper split + the account_class wire helper come from the canonical
+# src.web.api._clean_trades module (single source of truth). Joined ``trades``
+# alias is ``t``. No reconciler exclusion here — /trades/closed is a transparent
+# closed-trade LIST; an ``orphan_adopt`` row stays visible carrying its own
+# strategy name (it is not silently dropped from a list the way it is from KPIs).
+_NOT_PAPER_PREDICATE = not_paper_predicate("t.")
+_account_class_wire = account_class_wire
 
 # direction values seen in the wild + their wire-shape side equivalents.
 _SIDE_MAP = {

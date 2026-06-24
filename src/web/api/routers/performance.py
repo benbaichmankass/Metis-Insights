@@ -57,6 +57,11 @@ from fastapi import APIRouter, Query
 
 from src.utils.paths import trade_journal_db_path
 from src.web.api._asset_class import CLASS_ORDER, asset_class_for_symbol
+from src.web.api._clean_trades import (
+    exclude_reconciler_predicate,
+    not_paper_predicate,
+    paper_predicate,
+)
 from src.web.api._closed_at import close_time_sql
 
 logger = logging.getLogger(__name__)
@@ -119,17 +124,14 @@ def _empty(window: str, since: Optional[str], error: bool = False) -> Dict[str, 
     }
 
 
-# "Paper" / "not paper" SQL predicates (joined ``trades`` alias ``t``).
-# account_class is authoritative; NULL rows fall back to the legacy
-# is_demo boolean so the split is correct even before the backfill runs.
-_PAPER_PREDICATE = (
-    " AND (COALESCE(t.account_class,'')='paper'"
-    " OR (t.account_class IS NULL AND COALESCE(t.is_demo,0)=1))"
-)
-_NOT_PAPER_PREDICATE = (
-    " AND NOT (COALESCE(t.account_class,'') IN ('paper','prop')"
-    " OR (t.account_class IS NULL AND COALESCE(t.is_demo,0)=1))"
-)
+# "Paper" / "not paper" SQL predicates + reconciler-artifact exclusion, from
+# the canonical src.web.api._clean_trades helper (single source of truth — see
+# that module's docstring). Joined ``trades`` alias is ``t``.
+_PAPER_PREDICATE = paper_predicate("t.")
+_NOT_PAPER_PREDICATE = not_paper_predicate("t.")
+# Drop reconciler ``orphan_adopt`` rows from the strategy-performance aggregates
+# — they are a recovery/bookkeeping state, not a strategy's trade.
+_EXCLUDE_RECONCILER = exclude_reconciler_predicate("t.")
 
 
 def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqlite3.Row]:
@@ -177,6 +179,7 @@ def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqli
               AND t.pnl IS NOT NULL
         """
         sql += _PAPER_PREDICATE if demo else _NOT_PAPER_PREDICATE
+        sql += _EXCLUDE_RECONCILER
         params: List[Any] = []
         if since:
             sql += f" AND {_CLOSE_TIME_SQL} >= datetime(?)"

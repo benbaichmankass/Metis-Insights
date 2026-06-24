@@ -28,6 +28,10 @@ from fastapi import APIRouter, Query
 
 from src.runtime.positions import net_positions_by_symbol
 from src.utils.paths import trade_journal_db_path
+from src.web.api._clean_trades import (
+    exclude_reconciler_predicate,
+    not_paper_predicate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -96,10 +100,10 @@ def _query_attribution(db_path: Path) -> List[Dict[str, Any]]:
             # restricted to resolved trades (pnl IS NOT NULL) so the win-rate
             # denominator matches /performance — a reconciler-incomplete NULL-pnl
             # row was previously counted as a loss, deflating the rate.
-            _not_paper = (
-                " AND NOT (COALESCE(account_class,'') IN ('paper','prop')"
-                " OR (account_class IS NULL AND COALESCE(is_demo,0)=1))"
-            )
+            # Canonical predicates (src.web.api._clean_trades). ``_excl`` drops
+            # reconciler ``orphan_adopt`` artifacts from the per-strategy stats.
+            _not_paper = not_paper_predicate("")
+            _excl = exclude_reconciler_predicate("")
             closed_rows = conn.execute(
                 f"""
                 SELECT
@@ -113,6 +117,7 @@ def _query_attribution(db_path: Path) -> List[Dict[str, Any]]:
                   AND COALESCE(is_backtest, 0) = 0
                   AND pnl IS NOT NULL
                   {_not_paper}
+                  {_excl}
                 GROUP BY strategy
                 ORDER BY total_pnl DESC
                 """
@@ -127,6 +132,7 @@ def _query_attribution(db_path: Path) -> List[Dict[str, Any]]:
                 WHERE status = 'open'
                   AND COALESCE(is_backtest, 0) = 0
                   {_not_paper}
+                  {_excl}
                 GROUP BY strategy
                 """
             ).fetchall()

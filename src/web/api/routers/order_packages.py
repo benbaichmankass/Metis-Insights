@@ -33,6 +33,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Query
 
 from src.utils.paths import trade_journal_db_path
+from src.web.api._clean_trades import account_class_wire, not_paper_predicate
 
 logger = logging.getLogger(__name__)
 
@@ -45,21 +46,12 @@ _CLAUDE_SCORES = _REPO_ROOT / "comms" / "claude_strategy_scores.jsonl"
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 200
 
-# "Not paper" SQL predicate (joined ``trades`` alias ``t``) — excludes
-# paper-money rows robustly even before the account_class backfill runs.
-# account_class is authoritative when present; NULL rows fall back to is_demo.
-_NOT_PAPER_PREDICATE = (
-    " AND NOT (COALESCE(t.account_class,'') IN ('paper','prop')"
-    " OR (t.account_class IS NULL AND COALESCE(t.is_demo,0)=1))"
-)
-
-
-def _account_class_wire(account_class: Any, is_demo: Any) -> str:
-    """Derive the wire ``accountClass`` string, never null. Falls back to
-    is_demo when the row predates the account_class column / backfill."""
-    if account_class is not None and str(account_class).strip():
-        return str(account_class).strip().lower()
-    return "paper" if bool(is_demo) else "real_money"
+# Paper/not-paper split + the account_class wire helper come from the canonical
+# src.web.api._clean_trades module (single source of truth). Joined ``trades``
+# alias is ``t``. No reconciler exclusion here — this is a decision-level LIST
+# (order packages); ``orphan_adopt`` rows have no order package so never appear.
+_NOT_PAPER_PREDICATE = not_paper_predicate("t.")
+_account_class_wire = account_class_wire
 
 
 def _load_claude_scores() -> Dict[str, Dict[str, Any]]:

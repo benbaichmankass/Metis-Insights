@@ -536,6 +536,44 @@ accounts:
       risk_pct: 0.005                  # 0.5% balance risked per trade (soak-conservative)
       min_balance_usd: 100             # refuse to size below $100
 
+  # alpaca_live: Alpaca Trading API REAL-MONEY account — the live sibling of
+  # alpaca_paper, wired so the two run CONCURRENTLY (paper keeps soaking while
+  # live trades). Alpaca's client is built per-account (clients.py::
+  # alpaca_client_for): this account names its OWN key envs via api_key_env /
+  # api_secret_env (alpaca_paper omits them → falls back to the shared
+  # ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY pair). alpaca_env: live selects
+  # the api.alpaca.markets host.
+  #
+  # Ships FULLY INERT behind every independent gate (new-broker checklist §5),
+  # so merging this entry can never wake a live order on its own:
+  #   - mode: dry_run (CI-guarded) — the per-ACCOUNT execution gate is OFF.
+  #   - strategies: [] — the coordinator per-account filter blocks every signal.
+  #   - creds unset (ALPACA_API_KEY_ID_LIVE / ALPACA_API_SECRET_KEY_LIVE env) →
+  #     alpaca_client_for returns None → configured: False, live actions refuse
+  #     + ping.
+  # Activation is Tier-3 and GATED on (a) the data-integrity cleanup landing so
+  # the paper track record is trustworthy, and (b) the account_compat_matrix
+  # daily/equity extension (PB-20260618-012). Flip via set-account-mode +
+  # assign strategies only after operator approval.
+  alpaca_live:
+    exchange: alpaca
+    account_class: real_money          # REAL MONEY (Alpaca live host).
+    mode: dry_run                      # dry-run-guard: allow — inert until Tier-3.
+    alpaca_env: live                   # selects api.alpaca.markets (vs paper).
+    api_key_env: ALPACA_API_KEY_ID_LIVE        # this account's OWN key pair, so
+    api_secret_env: ALPACA_API_SECRET_KEY_LIVE # paper + live run concurrently.
+    strategies: []                     # none assigned yet (Tier-3 gate).
+    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO]   # instrument identity
+                                       # (mirrors alpaca_paper; routing is by
+                                       # the strategies list above, empty here).
+    risk:
+      max_dd_pct: 0.05                 # 5% max intra-day drawdown
+      daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
+      daily_usd: 200                   # absolute fallback (no equity snapshot)
+      pos_size: 2000                   # $2000 max single position
+      risk_pct: 0.005                  # 0.5% balance risked per trade (conservative onset)
+      min_balance_usd: 100             # refuse to size below $100
+
   # breakout_1: Breakout 1-Step Classic $5k PROP account (PB-20260616-004).
   # POC = TELEGRAM-PING bridge ONLY (no DXTrade API integration). When a
   # prop-routed strategy fires, the bot emits a paste-ready trade-setup ticket
