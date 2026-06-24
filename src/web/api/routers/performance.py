@@ -57,10 +57,12 @@ from fastapi import APIRouter, Query
 
 from src.utils.paths import trade_journal_db_path
 from src.web.api._asset_class import CLASS_ORDER, asset_class_for_symbol
+from src.runtime.local_pnl import contract_value_usd_for
 from src.web.api._clean_trades import (
     exclude_reconciler_predicate,
     not_paper_predicate,
     paper_predicate,
+    r_multiple,
 )
 from src.web.api._closed_at import close_time_sql
 
@@ -116,6 +118,10 @@ def _empty(window: str, since: Optional[str], error: bool = False) -> Dict[str, 
         "winRate": 0.0,
         "totalPnl": 0.0,
         "expectancy": 0.0,
+        "totalR": None,
+        "expectancyR": None,
+        "rTradeCount": 0,
+        "rCoverage": 0.0,
         "profitFactor": None,
         "maxDrawdown": None,
         "perStrategy": [],
@@ -162,10 +168,23 @@ def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqli
         # exactly once — the canonical "one row per closed trade" basis the rest
         # of the API uses, and the reason /performance could disagree with
         # /stats on real-money totals (single source of truth).
+        # R-multiple inputs (entry/stop/size) are OPTIONAL: select them only when
+        # the trades table actually has the columns, so a minimal/legacy schema
+        # makes R degrade to None (rCoverage 0) instead of erroring the endpoint.
+        avail = {row[1] for row in conn.execute("PRAGMA table_info(trades)")}
+        r_select = "".join(
+            f"\n                   t.{col} AS {alias},"
+            for col, alias in (
+                ("entry_price", "entry_price"),
+                ("stop_loss", "stop_loss"),
+                ("position_size", "qty"),
+            )
+            if col in avail
+        )
         sql = f"""
             SELECT t.strategy_name,
                    t.symbol AS symbol,
-                   t.pnl AS pnl,
+                   t.pnl AS pnl,{r_select}
                    {_CLOSE_TIME_SQL} AS closed_at
             FROM trades t
             LEFT JOIN (
@@ -202,6 +221,12 @@ def _downsample(points: List[Dict[str, Any]], cap: int) -> List[Dict[str, Any]]:
     return out
 
 
+def _rget(row: sqlite3.Row, key: str) -> Any:
+    """Row value, or ``None`` when the column wasn't selected (the optional
+    R-multiple inputs degrade gracefully on a minimal/legacy trades table)."""
+    return row[key] if key in row.keys() else None
+
+
 def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Dict[str, Any]:
     total = len(rows)
     if total == 0:
@@ -211,6 +236,8 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     gross_profit = 0.0   # sum of winning-trade pnl (for profit factor)
     gross_loss = 0.0     # abs sum of losing-trade pnl
     total_pnl = 0.0
+    total_r = 0.0          # sum of per-trade R over R-measurable trades only
+    r_count = 0            # # trades with a computable R (entry+stop+size known)
     per: Dict[str, Dict[str, float]] = {}
     per_class: Dict[str, Dict[str, float]] = {}
     equity: List[Dict[str, Any]] = []
@@ -225,19 +252,40 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             gross_profit += pnl
         elif pnl < 0:
             gross_loss += -pnl
+        # R-multiple: pnl normalised by the trade's own risk so a micro crypto
+        # trade and a futures contract compare on one axis. None when risk is
+        # unknown (missing stop/size); then it counts in NEITHER R numerator nor
+        # denominator — never a raw-pnl fallback (the blending bug).
+        rr = r_multiple(
+            r["pnl"], _rget(r, "entry_price"), _rget(r, "stop_loss"),
+            _rget(r, "qty"), contract_value_usd_for(r["symbol"]),
+        )
+        if rr is not None:
+            total_r += rr
+            r_count += 1
         name = r["strategy_name"] or "(unknown)"
-        bucket = per.setdefault(name, {"trades": 0.0, "wins": 0.0, "pnl": 0.0})
+        bucket = per.setdefault(
+            name, {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "r": 0.0, "rc": 0.0}
+        )
         bucket["trades"] += 1
         if pnl > 0:
             bucket["wins"] += 1
         bucket["pnl"] += pnl
+        if rr is not None:
+            bucket["r"] += rr
+            bucket["rc"] += 1
         # asset-class breakdown (crypto / index / commodity / equity / fx)
         cls = asset_class_for_symbol(r["symbol"])
-        cbucket = per_class.setdefault(cls, {"trades": 0.0, "wins": 0.0, "pnl": 0.0})
+        cbucket = per_class.setdefault(
+            cls, {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "r": 0.0, "rc": 0.0}
+        )
         cbucket["trades"] += 1
         if pnl > 0:
             cbucket["wins"] += 1
         cbucket["pnl"] += pnl
+        if rr is not None:
+            cbucket["r"] += rr
+            cbucket["rc"] += 1
         cum += pnl
         if cum > peak:
             peak = cum
@@ -255,6 +303,11 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             "winRate": round(b["wins"] / b["trades"] * 100.0, 1) if b["trades"] else 0.0,
             "totalPnl": round(b["pnl"], 4),
             "expectancy": round(b["pnl"] / b["trades"], 4) if b["trades"] else 0.0,
+            # R-normalised (cross-instrument-comparable). None when no trade in
+            # the bucket had a measurable risk; rTradeCount says how many did.
+            "totalR": round(b["r"], 4) if b["rc"] else None,
+            "expectancyR": round(b["r"] / b["rc"], 4) if b["rc"] else None,
+            "rTradeCount": int(b["rc"]),
         }
         for name, b in per.items()
     ]
@@ -268,6 +321,9 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             "winRate": round(b["wins"] / b["trades"] * 100.0, 1) if b["trades"] else 0.0,
             "totalPnl": round(b["pnl"], 4),
             "expectancy": round(b["pnl"] / b["trades"], 4) if b["trades"] else 0.0,
+            "totalR": round(b["r"], 4) if b["rc"] else None,
+            "expectancyR": round(b["r"] / b["rc"], 4) if b["rc"] else None,
+            "rTradeCount": int(b["rc"]),
         }
         for cls, b in per_class.items()
     ]
@@ -293,6 +349,14 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         "winRate": round(wins / total * 100.0, 1) if total else 0.0,
         "totalPnl": round(total_pnl, 4),
         "expectancy": round(total_pnl / total, 4) if total else 0.0,
+        # R-normalised headline — the cross-instrument-comparable axis. None when
+        # NO trade in the window had a measurable risk; rTradeCount / rCoverage
+        # report how much of the window is R-measured (transparency, never a
+        # raw-pnl fallback). Resolves the cross-notional USD blending in totalPnl.
+        "totalR": round(total_r, 4) if r_count else None,
+        "expectancyR": round(total_r / r_count, 4) if r_count else None,
+        "rTradeCount": r_count,
+        "rCoverage": round(r_count / total, 4) if total else 0.0,
         "profitFactor": profit_factor,
         "maxDrawdown": max_drawdown,
         "perStrategy": per_strategy,
