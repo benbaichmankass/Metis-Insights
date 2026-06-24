@@ -157,7 +157,7 @@ build_family backtest_results \
 build_family trade_outcomes \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
   --source "trade_journal.db" --overwrite \
-  "db_path=${DB_PATH}"
+  "db_path=${DB_PATH}" "include_snapshots=true"
 
 # conviction_meta — v2 conviction meta-model training rows (one per closed/
 # filled/non-backtest order package joined to its trade). Journal-backed; same
@@ -178,7 +178,8 @@ if [ -f "$ACCOUNTS_YAML" ]; then
   build_family account_context \
     --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
     --source "trade_journal.db" --overwrite \
-    "db_path=${DB_PATH}" "accounts_yaml_path=${ACCOUNTS_YAML}"
+    "db_path=${DB_PATH}" "accounts_yaml_path=${ACCOUNTS_YAML}" \
+    "include_snapshots=true"
 else
   emit "$(printf '{"ts":"%s","status":"skipped","family":"account_context","detail":"config/accounts.yaml not found"}' "$(iso_now)")"
 fi

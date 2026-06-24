@@ -63,10 +63,54 @@ _NULLABLE_TEXT = {
     "created_at",
 }
 
+# S-MLOPT-S12 Part B: the as-of-signal account-state columns the optional
+# LEFT JOIN to `account_context_snapshots` attaches. Mirrors the tested join
+# in the `account_context` family. Snapshot DB column → dataset column.
+_SNAPSHOT_TABLE = "account_context_snapshots"
+_SNAPSHOT_DB_COLUMNS = (
+    "equity",
+    "daily_pnl_realized",
+    "daily_equity_high",
+    "daily_drawdown_pct",
+    "open_trades_count",
+)
+
+
+def _snapshot_table_present(conn: sqlite3.Connection) -> bool:
+    """True iff `account_context_snapshots` exists in this DB."""
+    row = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (_SNAPSHOT_TABLE,),
+    ).fetchone()
+    return row is not None
+
+
+def _coerce_float_or_none(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _coerce_int_or_none(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
 
 class TradeOutcomesBuilder(DatasetBuilder):
     family: ClassVar[str] = "trade_outcomes"
-    builder_version: ClassVar[str] = "v1"
+    # v1 → v2 (S-MLOPT-S12 Part B): adds the five optional `*_at_signal`
+    # snapshot columns. They serialize as None unless the build is run with
+    # `include_snapshots=True` AND the `account_context_snapshots` table is
+    # present, so a flag-off build is unchanged except for the all-None
+    # columns the schema now always carries.
+    builder_version: ClassVar[str] = "v2"
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.SKIPPED
     label_version: ClassVar[str] = "won-from-pnl-v1"
     schema: ClassVar[Mapping[str, type]] = {
@@ -84,6 +128,15 @@ class TradeOutcomesBuilder(DatasetBuilder):
         "created_at": str,
         "won": bool,
         "source": str,   # "live" | "backtest" (S-MLOPT-S7)
+        # S-MLOPT-S12 Part B opt-in: as-of-signal account state attached by
+        # the LEFT JOIN to `account_context_snapshots` when
+        # `include_snapshots=True` AND the table exists. Nullable — None when
+        # the join is off OR the row had no matching snapshot.
+        "equity_at_signal": float,
+        "daily_pnl_realized_at_signal": float,
+        "daily_equity_high_at_signal": float,
+        "daily_drawdown_pct_at_signal": float,
+        "open_trades_count_at_signal": int,
     }
 
     def iter_rows(
@@ -93,6 +146,7 @@ class TradeOutcomesBuilder(DatasetBuilder):
         strategy_name: str | None = None,
         symbol: str | None = None,
         include_backtest: bool = False,
+        include_snapshots: bool = False,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         if not db_path.is_file():
@@ -101,18 +155,50 @@ class TradeOutcomesBuilder(DatasetBuilder):
         conn = sqlite3.connect(uri, uri=True)
         try:
             conn.row_factory = sqlite3.Row
-            select_cols = ", ".join(_RAW_COLUMNS) + ", is_backtest"
-            sql = f"SELECT {select_cols} FROM trades WHERE status = 'closed'"
+
+            # S-MLOPT-S12 Part B: attach the as-of-signal account-state
+            # snapshot via LEFT JOIN, only when the caller opted in AND the
+            # table exists (a test fixture / pre-instrumentation DB falls
+            # through to the unchanged path with the five columns None). Same
+            # join the `account_context` family uses: trades → order_packages
+            # on op.linked_trade_id == t.id, snapshot on (order_package_id,
+            # account_id). The snapshot is captured PRE-decision (before the
+            # RiskManager runs), so it is leak-free for a `won` label derived
+            # from the realised pnl.
+            join_snapshots = include_snapshots and _snapshot_table_present(conn)
+
+            trade_select = (
+                ", ".join(f"t.{c}" for c in _RAW_COLUMNS) + ", t.is_backtest"
+            )
+            if join_snapshots:
+                snap_select = ", ".join(
+                    f"snap.{c}" for c in _SNAPSHOT_DB_COLUMNS
+                )
+                sql = (
+                    f"SELECT {trade_select}, {snap_select} "
+                    "FROM trades t "
+                    "LEFT JOIN order_packages op "
+                    "  ON op.linked_trade_id = t.id "
+                    f"LEFT JOIN {_SNAPSHOT_TABLE} snap "
+                    "  ON snap.order_package_id = op.id "
+                    " AND snap.account_id = t.account_id "
+                    "WHERE t.status = 'closed'"
+                )
+            else:
+                sql = (
+                    f"SELECT {trade_select} FROM trades t "
+                    "WHERE t.status = 'closed'"
+                )
             if not include_backtest:
-                sql += " AND is_backtest = 0"
+                sql += " AND t.is_backtest = 0"
             params: list[Any] = []
             if strategy_name is not None:
-                sql += " AND strategy_name = ?"
+                sql += " AND t.strategy_name = ?"
                 params.append(strategy_name)
             if symbol is not None:
-                sql += " AND symbol = ?"
+                sql += " AND t.symbol = ?"
                 params.append(symbol)
-            sql += " ORDER BY id ASC"
+            sql += " ORDER BY t.id ASC"
             for row in conn.execute(sql, params):
                 pnl = row["pnl"]
                 if pnl is None:
@@ -134,6 +220,32 @@ class TradeOutcomesBuilder(DatasetBuilder):
                         payload[col] = value
                 payload["won"] = bool(payload["pnl"] > 0)
                 payload["source"] = "backtest" if row["is_backtest"] else "live"
+                # S-MLOPT-S12 Part B: attach the five snapshot columns. When
+                # the join didn't run, every row still carries them as None so
+                # the dataset schema stays complete (DatasetBuilder validates
+                # column completeness).
+                if join_snapshots:
+                    payload["equity_at_signal"] = _coerce_float_or_none(
+                        row["equity"]
+                    )
+                    payload["daily_pnl_realized_at_signal"] = (
+                        _coerce_float_or_none(row["daily_pnl_realized"])
+                    )
+                    payload["daily_equity_high_at_signal"] = (
+                        _coerce_float_or_none(row["daily_equity_high"])
+                    )
+                    payload["daily_drawdown_pct_at_signal"] = (
+                        _coerce_float_or_none(row["daily_drawdown_pct"])
+                    )
+                    payload["open_trades_count_at_signal"] = (
+                        _coerce_int_or_none(row["open_trades_count"])
+                    )
+                else:
+                    payload["equity_at_signal"] = None
+                    payload["daily_pnl_realized_at_signal"] = None
+                    payload["daily_equity_high_at_signal"] = None
+                    payload["daily_drawdown_pct_at_signal"] = None
+                    payload["open_trades_count_at_signal"] = None
                 yield payload
         finally:
             conn.close()
