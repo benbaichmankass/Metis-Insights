@@ -1,0 +1,81 @@
+"""Canonical "clean trades" filters — the SINGLE source of truth for which
+``trades`` rows count in the analytics endpoints.
+
+Why this exists
+---------------
+The paper/real-money split predicate and the ``account_class`` wire helper were
+copy-pasted across **8** router files (``dashboard``, ``performance``,
+``order_packages``, ``trades_closed``, ``pnl``, ``pnl_history``, ``strategies``,
+``attribution``). Every new rule (exclude reconciler artifacts, normalise a
+unit, fix the close-time basis) then had to be applied in 8 places or it
+drifted — the recurring "data-bug treadmill" (e.g. ``/performance`` and
+``/stats`` disagreeing on real-money totals; reconciler ``orphan_adopt`` rows
+polluting strategy KPIs). This module defines each rule ONCE so a consumer
+composes its WHERE from these builders instead of re-deriving the SQL.
+
+The builders take a column *prefix* (``""`` for a bare ``trades`` query,
+``"t."`` for a joined query whose ``trades`` alias is ``t``) so the same logic
+serves both shapes.
+
+Semantics (preserved exactly from the prior per-router predicates):
+
+* ``account_class`` is AUTHORITATIVE. For rows predating the column / backfill
+  (``account_class IS NULL``) we fall back to the legacy ``is_demo`` boolean.
+* "paper" selects only ``account_class='paper'`` (NOT ``prop`` — prop is a
+  third, isolated funding class that never blends into paper or real KPIs).
+* "not paper" (real-money) excludes BOTH ``paper`` and ``prop``.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+# Reconciler / bookkeeping pseudo-strategies that are NOT real trading
+# decisions and must never pollute strategy-performance KPIs. The reverse
+# reconciler adopts an unexpected exchange position as a synthetic trade with
+# ``strategy_name='orphan_adopt'`` / ``setup_type='adopted_orphan'`` — a
+# recovery/bookkeeping state, not a strategy's trade. (The 2026-06-18 flap that
+# turned one MGC position into 18 phantom losing trades, −$20,127, surfaced
+# here as a fat negative ``orphan_adopt`` row in the real-money block.)
+RECONCILER_PSEUDO_STRATEGIES = ("orphan_adopt",)
+
+
+def _col(prefix: str, name: str) -> str:
+    return f"{prefix}{name}" if prefix else name
+
+
+def not_paper_predicate(prefix: str = "") -> str:
+    """``AND``-able SQL fragment selecting REAL-MONEY rows (excludes paper + prop)."""
+    ac = _col(prefix, "account_class")
+    demo = _col(prefix, "is_demo")
+    return (
+        f" AND NOT (COALESCE({ac},'') IN ('paper','prop')"
+        f" OR ({ac} IS NULL AND COALESCE({demo},0)=1))"
+    )
+
+
+def paper_predicate(prefix: str = "") -> str:
+    """``AND``-able SQL fragment selecting ONLY paper-money rows (not prop)."""
+    ac = _col(prefix, "account_class")
+    demo = _col(prefix, "is_demo")
+    return (
+        f" AND (COALESCE({ac},'')='paper'"
+        f" OR ({ac} IS NULL AND COALESCE({demo},0)=1))"
+    )
+
+
+def exclude_reconciler_predicate(prefix: str = "") -> str:
+    """``AND``-able SQL fragment dropping reconciler-artifact rows from KPI
+    aggregates. The pseudo-strategy names are a hard-coded constant tuple
+    (never user input), so the inline literal carries no injection risk."""
+    sn = _col(prefix, "strategy_name")
+    names = ",".join(f"'{s}'" for s in RECONCILER_PSEUDO_STRATEGIES)
+    return f" AND COALESCE({sn},'') NOT IN ({names})"
+
+
+def account_class_wire(account_class: Any, is_demo: Any) -> str:
+    """Resolve a row's funding class for the wire: ``account_class`` when
+    present, else the legacy ``is_demo`` boolean (rows predating the column /
+    backfill). Never returns null — falls back to ``real_money``."""
+    if account_class is not None and str(account_class).strip():
+        return str(account_class).strip().lower()
+    return "paper" if bool(is_demo) else "real_money"

@@ -32,6 +32,10 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
 
+from src.web.api._clean_trades import (
+    exclude_reconciler_predicate,
+    not_paper_predicate,
+)
 from src.web.api._closed_at import close_time_sql
 from src.web.api.routers import pnl as pnl_module
 
@@ -83,17 +87,18 @@ def _query_history(
             f" AND {close_day} >= ?"
             f" AND {close_day} <= ?"
         )
+        # Drop reconciler ``orphan_adopt`` artifacts from the per-day realised
+        # PnL aggregate (canonical src.web.api._clean_trades) — applies whether
+        # or not the view is scoped to a single account.
+        base_where += exclude_reconciler_predicate("")
         params: list = [start.isoformat(), today_utc.isoformat()]
         if account_id:
             base_where += " AND account_id = ?"
             params.append(account_id)
         else:
-            # Exclude paper-money trades from the real-money aggregate view.
-            # account_class is authoritative; NULL rows fall back to is_demo.
-            base_where += (
-                " AND NOT (COALESCE(account_class,'') IN ('paper','prop')"
-                " OR (account_class IS NULL AND COALESCE(is_demo,0)=1))"
-            )
+            # Exclude paper-money trades from the real-money aggregate view
+            # (canonical predicate; account_class authoritative, is_demo fallback).
+            base_where += not_paper_predicate("")
         cur.execute(
             f"""
             SELECT {close_day} AS day,

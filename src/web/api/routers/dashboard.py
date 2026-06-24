@@ -23,6 +23,12 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, status
 
 from src.utils.paths import runtime_logs_dir, trade_journal_db_path
+from src.web.api._clean_trades import (
+    account_class_wire,
+    exclude_reconciler_predicate,
+    not_paper_predicate,
+    paper_predicate,
+)
 from src.web.api._closed_at import close_time_sql
 
 logger = logging.getLogger(__name__)
@@ -67,32 +73,19 @@ def _normalise_side(direction: Any) -> str:
     return _SIDE_MAP.get(direction.strip().lower(), direction.strip().lower())
 
 
-# "Not paper" SQL predicate — excludes paper-money rows robustly even
-# before the account_class backfill runs. account_class is authoritative
-# when present; for old rows where it's NULL we fall back to is_demo.
-_NOT_PAPER_PREDICATE = (
-    " AND NOT (COALESCE(account_class,'') IN ('paper','prop')"
-    " OR (account_class IS NULL AND COALESCE(is_demo,0)=1))"
-)
-
-# The inverse of ``_NOT_PAPER_PREDICATE`` — selects ONLY paper-money rows,
-# using the same account_class-authoritative / is_demo-fallback logic. P4 of
-# the live-trade management contract keeps real and paper performance strictly
-# separate (operator directive: never blend), so the paper-side aggregates on
-# ``/stats`` use this predicate while the real-money top-level block keeps the
-# NOT-paper one.
-_PAPER_PREDICATE = (
-    " AND (COALESCE(account_class,'')='paper'"
-    " OR (account_class IS NULL AND COALESCE(is_demo,0)=1))"
-)
-
-
-def _account_class_wire(account_class: Any, is_demo: Any) -> str:
-    """Derive the wire ``accountClass`` string, never null. Falls back to
-    is_demo when the row predates the account_class column / backfill."""
-    if account_class is not None and str(account_class).strip():
-        return str(account_class).strip().lower()
-    return "paper" if bool(is_demo) else "real_money"
+# Paper / not-paper SQL predicates + the account_class wire helper come from
+# the canonical src.web.api._clean_trades module (single source of truth — the
+# split logic was duplicated across 8 routers and drifted). P4 of the live-trade
+# management contract keeps real and paper performance strictly separate
+# (operator directive: never blend), so the paper-side aggregates on ``/stats``
+# use _PAPER_PREDICATE while the real-money top-level block keeps the NOT-paper
+# one. ``trades`` is unaliased in the stats query → bare-column predicates.
+_NOT_PAPER_PREDICATE = not_paper_predicate("")
+_PAPER_PREDICATE = paper_predicate("")
+# Drop reconciler ``orphan_adopt`` artifacts from the KPI aggregates so
+# /stats agrees with /performance (both now exclude them).
+_EXCLUDE_RECONCILER = exclude_reconciler_predicate("")
+_account_class_wire = account_class_wire
 
 
 # ---------------------------------------------------------------------------
@@ -316,7 +309,8 @@ def _pnl_stats_for(predicate: str) -> tuple[float, float, int, float]:
                 ) op ON op.linked_trade_id = trades.id
                 WHERE COALESCE(is_backtest,0)=0
                 """
-                + predicate,
+                + predicate
+                + _EXCLUDE_RECONCILER,
             )
             row = cur.fetchone()
         except sqlite3.Error:
