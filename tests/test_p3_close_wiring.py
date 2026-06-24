@@ -101,13 +101,20 @@ class _FakeClient:
 class FakeIB:
     """Stand-in for ib_insync.IB with portfolio + symbol-bearing open trades."""
 
-    def __init__(self, *, portfolio_items=None, open_trades=None):
+    def __init__(self, *, portfolio_items=None, open_trades=None,
+                 flatten_on_close=True):
         self._connected = False
         self.client = _FakeClient()
         self._portfolio = portfolio_items or []
         self._open_trades = open_trades or []
         self.placed = []          # (contract, order)
         self.cancelled = []        # orders cancelled
+        # Realistic paper fill: a placed (close) market order flattens the
+        # matching-symbol portfolio item, so IBClient.close's flatten-confirm
+        # poll sees the position go to zero like a real gateway. Set False to
+        # simulate an accepted-but-UNFILLED close (the accepted!=flat bug that
+        # left the MHG/ib_paper position open while the DB marked it closed).
+        self._flatten_on_close = flatten_on_close
 
     def connect(self, host, port, clientId, timeout=10.0, readonly=False):
         self._connected = True
@@ -135,6 +142,13 @@ class FakeIB:
 
     def placeOrder(self, contract, order):
         self.placed.append((contract, order))
+        if self._flatten_on_close:
+            sym = str(getattr(contract, "symbol", "") or "").upper()
+            self._portfolio = [
+                it for it in self._portfolio
+                if str(getattr(getattr(it, "contract", None), "symbol", "")
+                       or "").upper() != sym
+            ]
         return _FakeTrade(order, contract, status="Submitted")
 
     def cancelOrder(self, order):
@@ -316,6 +330,63 @@ def test_ib_close_only_cancels_matching_symbol():
     cancelled_ids = [getattr(o, "orderId", None) for o in fake_ib.cancelled]
     assert 40 in cancelled_ids
     assert 41 not in cancelled_ids
+
+
+# ---------------------------------------------------------------------------
+# 1b. IBClient.close flatten-confirmation (BL-20260624-MHG-CLOSE-CONFIRM)
+# ---------------------------------------------------------------------------
+
+
+def test_ib_close_confirmed_flat_returns_ok():
+    """The happy path: the close order flattens the position → confirmed flat →
+    retCode 0 (the default FakeIB flattens the matching item on placeOrder)."""
+    fake_ib = FakeIB(
+        portfolio_items=[_FakePortfolioItem("MGC", 3, account="DUQ1")],
+    )
+    client = _ib_client_with(fake_ib, symbol="MGC")
+
+    res = client.close("MGC", "long", 3)
+
+    assert res["retCode"] == 0, res
+    assert len(fake_ib.placed) == 1  # opposing order transmitted
+
+
+def test_ib_close_accepted_but_unfilled_returns_not_ok(monkeypatch):
+    """The bug regression: an accepted-but-UNFILLED close (position stays open)
+    must NOT report success. Pre-fix IBClient.close returned retCode 0 the moment
+    the opposing order was accepted, so the monitor marked the DB row closed while
+    the real IB position lived on → orphan → flap. Now the flatten-confirm poll
+    sees the position still open and returns retCode 1, so the monitor leaves the
+    DB row open and retries."""
+    monkeypatch.setenv("IB_CLOSE_CONFIRM_S", "0.2")  # short window for the test
+    fake_ib = FakeIB(
+        portfolio_items=[_FakePortfolioItem("MGC", 3, account="DUQ1")],
+        flatten_on_close=False,  # close accepted but position never goes flat
+    )
+    client = _ib_client_with(fake_ib, symbol="MGC")
+
+    res = client.close("MGC", "long", 3)
+
+    assert res["retCode"] == 1, res
+    assert "not confirmed flat" in res["retMsg"]
+    # The opposing order WAS transmitted (we tried to close) — the failure is
+    # that it never flattened, not that we didn't attempt it.
+    assert len(fake_ib.placed) == 1
+
+
+def test_ib_close_confirm_disabled_restores_accept_is_success(monkeypatch):
+    """IB_CLOSE_CONFIRM_S<=0 skips the flatten-confirm (legacy behaviour): an
+    accepted close is reported ok even though the position is still open."""
+    monkeypatch.setenv("IB_CLOSE_CONFIRM_S", "0")
+    fake_ib = FakeIB(
+        portfolio_items=[_FakePortfolioItem("MGC", 3, account="DUQ1")],
+        flatten_on_close=False,
+    )
+    client = _ib_client_with(fake_ib, symbol="MGC")
+
+    res = client.close("MGC", "long", 3)
+
+    assert res["retCode"] == 0
 
 
 # ---------------------------------------------------------------------------
