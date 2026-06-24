@@ -120,3 +120,61 @@ class TestSizeOrderFromCfgWiring:
         cfg = dict(_ALPACA_LIKE, exchange="bybit")
         qty = size_order_from_cfg(_pkg(), cfg, 100_000)
         assert qty != int(qty) and qty == pytest.approx(60.679, abs=1e-3)
+
+
+# ---------------------------------------------------------------------------
+# Margin pre-flight cap must also honour the whole-unit granularity
+# (the cap branch previously floored with self.qty_precision/self.min_qty,
+#  re-opening the fractional-bracket hole on the margin-capped path).
+# ---------------------------------------------------------------------------
+
+
+class TestMarginCapWholeUnits:
+    """When the margin pre-flight cap BINDS on a whole-unit (alpaca) account,
+    the capped qty must be floored to a WHOLE share and refused below 1 — not
+    shaved to a fractional share by the crypto-default qty_precision.
+
+    Regression for the gap left by BL-20260622-ALPACA-FRACTIONAL-SIZE: the
+    risk-based path was whole-share-safe but the margin-cap branch still used
+    self.qty_precision (3dp) / self.min_qty (0.001).
+    """
+
+    def _pkg_iwm(self):
+        # IWM $230, $4 stop; risk-based qty on $5k @ effective 0.3% ≈ 3.75 → 3
+        return _pkg(symbol="IWM", entry=230.0, sl=226.0, tp=238.0)
+
+    def test_margin_cap_floors_to_whole_share(self):
+        rm = RiskManager(dict(_ALPACA_LIKE))  # leverage unset → effective 1x
+        pkg = OrderPackage(
+            strategy="iwm_trend_long_1d", symbol="IWM", direction="long",
+            entry=230.0, sl=226.0, tp=238.0,
+            meta={"strategy_name": "iwm_trend_long_1d", "strategy_risk_pct": 0.3},
+        )
+        # buying_power=560 → cap 560/230 = 2.43; must floor to 2.0, never 2.43
+        qty = rm.position_size(pkg, 5000.0, market_type="spot",
+                               available_usd=560.0, whole_units=True)
+        assert qty == 2.0
+
+    def test_margin_cap_below_one_share_refuses(self):
+        rm = RiskManager(dict(_ALPACA_LIKE))
+        pkg = OrderPackage(
+            strategy="iwm_trend_long_1d", symbol="IWM", direction="long",
+            entry=230.0, sl=226.0, tp=238.0,
+            meta={"strategy_name": "iwm_trend_long_1d", "strategy_risk_pct": 0.3},
+        )
+        # buying_power=120 → 120/230 = 0.52 < 1 share → per-trade refusal (0.0)
+        qty = rm.position_size(pkg, 5000.0, market_type="spot",
+                               available_usd=120.0, whole_units=True)
+        assert qty == 0.0
+
+    def test_ample_buying_power_lets_risk_size_govern(self):
+        rm = RiskManager(dict(_ALPACA_LIKE))
+        pkg = OrderPackage(
+            strategy="iwm_trend_long_1d", symbol="IWM", direction="long",
+            entry=230.0, sl=226.0, tp=238.0,
+            meta={"strategy_name": "iwm_trend_long_1d", "strategy_risk_pct": 0.3},
+        )
+        # buying_power=10000 → cap 43 shares; risk-based 3.75 → 3 governs
+        qty = rm.position_size(pkg, 5000.0, market_type="spot",
+                               available_usd=10000.0, whole_units=True)
+        assert qty == 3.0

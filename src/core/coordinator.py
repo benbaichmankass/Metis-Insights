@@ -1280,6 +1280,41 @@ class Coordinator:
                             "fetch failed for %s: %s — sizer falls back to buffer",
                             account.name, _lin_exc,
                         )
+                elif (
+                    (account.exchange or "").lower() == "alpaca"
+                    and client is not None
+                    and not effective_dry
+                    and not bool(
+                        getattr(pkg, "meta", None)
+                        and (pkg.meta or {}).get("is_test")
+                    )
+                ):
+                    # Equity margin basis (prefer broker truth, like linear above).
+                    # Alpaca's reg-T buying power already includes the account's
+                    # real margin multiplier (1x cash / 2x Reg-T margin), so feeding
+                    # it as the margin pre-flight basis makes equity sizing reflect
+                    # TRUE buying power instead of the cash-only default
+                    # (effective_leverage=1 when risk.leverage is unset). Best-
+                    # effort — None leaves the sizer on its buffer fallback. The
+                    # margin cap multiplies available_usd × effective_leverage, and
+                    # the Alpaca accounts leave leverage unset (=1) on purpose so
+                    # this already-leveraged figure is not double-counted.
+                    try:
+                        _bp = client.buying_power()
+                        if _bp is not None:
+                            available_usd = _bp
+                        logger.debug(
+                            "multi_account_execute: alpaca buying_power "
+                            "account=%s available_usd=%s",
+                            account.name,
+                            f"{available_usd:.2f}" if available_usd is not None else "n/a",
+                        )
+                    except Exception as _alp_exc:  # noqa: BLE001
+                        logger.warning(
+                            "multi_account_execute: alpaca buying_power "
+                            "fetch failed for %s: %s — sizer falls back to buffer",
+                            account.name, _alp_exc,
+                        )
                 from src.units.accounts.risk import requires_whole_unit_qty
                 sized_qty = account.risk_manager.position_size(
                     pkg, balance,

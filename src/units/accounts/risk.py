@@ -683,8 +683,16 @@ class RiskManager:
                     _margin_basis * effective_leverage * _MARGIN_SAFETY_BUFFER
                 ) / package.entry
             if qty > max_qty_by_margin:
-                capped = _floor_to_step(max_qty_by_margin, self.qty_precision)
-                if capped < self.min_qty:
+                # Floor with the EFFECTIVE granularity, not self.qty_precision:
+                # on a whole-unit account (alpaca) the margin cap could otherwise
+                # shave an already-whole qty down to a FRACTIONAL share (e.g.
+                # 3 → 2.3) using the crypto default 3dp precision, re-opening the
+                # bracket-rejects-fractional hole BL-20260622-ALPACA-FRACTIONAL-SIZE
+                # fixed on the risk-based path. eff_precision/eff_min_qty equal
+                # self.qty_precision/self.min_qty for non-whole-unit accounts, so
+                # this is a no-op there.
+                capped = _floor_to_step(max_qty_by_margin, eff_precision)
+                if capped < eff_min_qty:
                     return 0.0
                 qty = capped
 
