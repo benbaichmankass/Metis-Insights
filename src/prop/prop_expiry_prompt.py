@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
@@ -257,10 +258,53 @@ def handle_expiry_callback(callback_data: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def send_test_prompt(
+    *, account_id: str = "breakout_1", symbol: str = "ETHUSDT",
+    direction: str = "short", entry: float = 1619.99, sl: float = 1644.0,
+    tp: float = 1550.0, qty: float = 0.73,
+    emitter: Optional[Callable[[Dict[str, Any]], bool]] = None,
+) -> Optional[str]:
+    """Send ONE Yes/No expiry prompt for a **throwaway** test ticket.
+
+    For operator verification of the live button round-trip (the prop bot sends
+    the inline keyboard; the answer comes back to ``claude_bridge``'s ``propexp:*``
+    handler). A ``prop-test-<uuid>`` ticket is journaled (status ``emitted``,
+    already past ``valid_until``) so clicking **Yes** (→ ``awaiting_report``) or
+    **No** (→ ``expired``) mutates only this throwaway row — never a real prop
+    position. Returns the test ticket id on a confirmed send, else ``None``.
+    Best-effort: a failure logs a WARNING and returns ``None``.
+    """
+    now = _now()
+    ticket_id = f"prop-test-{uuid.uuid4().hex[:12]}"
+    ticket = {
+        "ticket_id": ticket_id, "account_id": account_id,
+        "strategy": "expiry_prompt_test", "symbol": symbol, "direction": direction,
+        "side": "Sell" if direction == "short" else "Buy",
+        "entry": entry, "sl": sl, "tp": tp, "qty": qty,
+        "signal_time": (now - timedelta(hours=2)).isoformat(),
+        "valid_until": (now - timedelta(hours=1)).isoformat(),
+        "status": "emitted",
+    }
+    try:
+        prop_journal.record_ticket(ticket)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("prop_expiry_prompt: test ticket write failed: %s", exc)
+        return None
+    if emitter is None:
+        from src.prop.breakout_notify import emit_prop_expiry_prompt as emitter  # type: ignore
+    try:
+        sent = bool(emitter(ticket))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("prop_expiry_prompt: test prompt emit failed: %s", exc)
+        return None
+    return ticket_id if sent else None
+
+
 __all__ = [
     "EXPIRY_CB_PREFIX",
     "build_expiry_keyboard",
     "find_tickets_to_prompt",
     "run_prop_expiry_prompts",
     "handle_expiry_callback",
+    "send_test_prompt",
 ]
