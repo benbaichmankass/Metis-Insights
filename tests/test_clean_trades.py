@@ -127,3 +127,28 @@ def test_paper_prop_predicate_literal_only_in_helper():
         "raw paper/prop predicate literal re-introduced outside the canonical "
         f"helper: {offenders}. Import from src.web.api._clean_trades instead."
     )
+
+
+# ------------------------------------------------------------- r_multiple
+def test_r_multiple_normalises_across_instruments():
+    """R puts a micro crypto trade and a futures contract on ONE axis."""
+    from src.web.api._clean_trades import r_multiple
+
+    # crypto micro: +$5 pnl, 400-pt risk, qty 0.001, cvu 1 → risk_usd 0.4 → 12.5R
+    assert r_multiple(5.0, 80_000, 79_600, 0.001, 1.0) == 12.5
+    # futures MGC: +$500 pnl, 10-pt risk, qty 5, cvu 10 → risk_usd 500 → 1.0R
+    assert abs(r_multiple(500.0, 2_400, 2_390, 5, 10.0) - 1.0) < 1e-9
+    # a 1R loss is symmetric regardless of notional
+    assert r_multiple(-0.4, 80_000, 79_600, 0.001, 1.0) == -1.0
+
+
+def test_r_multiple_none_when_risk_unknown_never_raw_pnl():
+    """Missing stop / zero risk / bad input → None (NOT a raw-pnl fallback)."""
+    from src.web.api._clean_trades import r_multiple
+
+    assert r_multiple(500.0, 2_400, None, 5, 10.0) is None       # no stop
+    assert r_multiple(50.0, 2_400, 2_400, 5, 10.0) is None        # flat stop → 0 risk
+    assert r_multiple(50.0, 2_400, 2_390, None, 10.0) is None     # no size
+    assert r_multiple(50.0, 2_400, 2_390, 5, 0.0) is None         # no contract value
+    assert r_multiple(None, 2_400, 2_390, 5, 10.0) is None        # no pnl
+    assert r_multiple(50.0, "x", 2_390, 5, 10.0) is None          # unparseable

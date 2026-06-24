@@ -72,6 +72,44 @@ def exclude_reconciler_predicate(prefix: str = "") -> str:
     return f" AND COALESCE({sn},'') NOT IN ({names})"
 
 
+def r_multiple(
+    pnl: Any,
+    entry_price: Any,
+    stop_loss: Any,
+    qty: Any,
+    contract_value_usd: Any,
+) -> "float | None":
+    """Per-trade R-multiple ``pnl / risk_usd``, or ``None`` when risk is
+    unknown / non-positive.
+
+    ``risk_usd = |entry_price - stop_loss| * |qty| * contract_value_usd`` — the
+    SAME absolute-USD scale as the stored multiplier-aware ``pnl`` (see
+    ``src.runtime.local_pnl``), so R puts a tiny-notional crypto micro-trade and
+    a multi-thousand-dollar futures contract on ONE comparable axis. This is the
+    fix for the cross-instrument USD-blending in the raw ``totalPnl``/
+    ``expectancy`` aggregates.
+
+    Returns ``None`` — NEVER a raw-``pnl`` fallback — when any input is missing
+    or the computed risk is ``<= 0`` (a flat/zero stop, missing size). Folding an
+    un-normalised raw value into an R aggregate would re-introduce the exact
+    blending bug, so the caller must treat ``None`` as "not R-measurable" and
+    exclude it from the R numerator/denominator.
+    """
+    try:
+        if pnl is None or entry_price is None or stop_loss is None or qty is None:
+            return None
+        risk = (
+            abs(float(entry_price) - float(stop_loss))
+            * abs(float(qty))
+            * float(contract_value_usd or 0.0)
+        )
+        if risk <= 0:
+            return None
+        return float(pnl) / risk
+    except (TypeError, ValueError):
+        return None
+
+
 def account_class_wire(account_class: Any, is_demo: Any) -> str:
     """Resolve a row's funding class for the wire: ``account_class`` when
     present, else the legacy ``is_demo`` boolean (rows predating the column /
