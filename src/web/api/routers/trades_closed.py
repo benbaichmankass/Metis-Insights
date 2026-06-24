@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Query
 
 from src.utils.paths import trade_journal_db_path
+from src.web.api._clean_trades import account_class_wire, not_paper_predicate
 from src.web.api._closed_at import (
     close_time_sql,
     closed_at_norm_sql,
@@ -67,8 +68,6 @@ _CLOSED_AT_SORT_SQL = close_time_sql("t.closed_at", "op.updated_at", "t.timestam
 # alias is ``t``. No reconciler exclusion here — /trades/closed is a transparent
 # closed-trade LIST; an ``orphan_adopt`` row stays visible carrying its own
 # strategy name (it is not silently dropped from a list the way it is from KPIs).
-from src.web.api._clean_trades import account_class_wire, not_paper_predicate
-
 _NOT_PAPER_PREDICATE = not_paper_predicate("t.")
 _account_class_wire = account_class_wire
 

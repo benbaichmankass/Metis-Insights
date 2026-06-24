@@ -33,6 +33,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Query
 
 from src.utils.paths import trade_journal_db_path
+from src.web.api._clean_trades import account_class_wire, not_paper_predicate
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +50,6 @@ MAX_LIMIT = 200
 # src.web.api._clean_trades module (single source of truth). Joined ``trades``
 # alias is ``t``. No reconciler exclusion here — this is a decision-level LIST
 # (order packages); ``orphan_adopt`` rows have no order package so never appear.
-from src.web.api._clean_trades import account_class_wire, not_paper_predicate
-
 _NOT_PAPER_PREDICATE = not_paper_predicate("t.")
 _account_class_wire = account_class_wire
 
