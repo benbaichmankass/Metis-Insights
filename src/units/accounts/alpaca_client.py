@@ -151,6 +151,49 @@ class AlpacaClient:
         except (TypeError, ValueError):
             return None
 
+    def buying_power(self) -> Optional[float]:
+        """Reg-T (overnight-safe) buying power in USD, or ``None`` on failure.
+
+        Reads the broker's own ``regt_buying_power`` — which already bakes in
+        the account's real margin multiplier (1x for a cash account, 2x for a
+        Reg-T margin account) — so the sizer's margin pre-flight cap reflects
+        TRUE buying power instead of defaulting to cash-only (the
+        ``effective_leverage=1`` fallback when ``risk.leverage`` is unset). This
+        is the same "prefer broker truth" pattern Bybit already uses via
+        ``_fetch_linear_available_balance``. ``regt_buying_power`` is the
+        OVERNIGHT figure (NOT the up-to-4x intraday day-trading buying power),
+        which is the correct, conservative basis for the overnight-held swing
+        strategies that route to Alpaca. Falls back to ``buying_power`` then
+        ``cash``. Best-effort — ``None`` leaves the sizer on its buffer fallback.
+
+        NOTE: this is fed to ``position_size(available_usd=...)``, where it is
+        multiplied by ``effective_leverage``. The Alpaca accounts leave
+        ``risk.leverage`` unset (→ effective_leverage 1) ON PURPOSE so this
+        already-leveraged figure is not multiplied a second time; do not set a
+        ``leverage`` on an Alpaca account while this path is live.
+        """
+        try:
+            self._require_creds("buying_power")
+        except MissingCredentialsError as exc:
+            logger.warning("%s", exc)
+            return None
+        env = self._request("GET", "/v2/account")
+        if env.get("retCode") != 0:
+            logger.warning("alpaca buying_power: %s", env.get("retMsg"))
+            return None
+        acct = env.get("result") or {}
+        for key in ("regt_buying_power", "buying_power", "cash"):
+            raw = acct.get(key)
+            if raw is None:
+                continue
+            try:
+                bp = float(raw)
+            except (TypeError, ValueError):
+                continue
+            if bp > 0:
+                return bp
+        return None
+
     def positions(self) -> Optional[list]:
         """Open positions as ``[{symbol, side, qty, avg_price, unrealized_pnl}]``.
 

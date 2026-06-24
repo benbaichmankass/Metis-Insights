@@ -75,6 +75,17 @@ _DEFAULT_TEST_QTY = 0.0001
 # 0.9 = use up to 90% of available margin for a new position.
 _MARGIN_SAFETY_BUFFER = 0.9
 
+# Round-up-to-one-unit overshoot cap (operator directive 2026-06-24). On a
+# whole-SHARE (equity) account the smallest tradeable size is 1 share, so a
+# risk-based ideal below 1 is otherwise un-takeable — small accounts can never
+# trade higher-priced instruments. When the ONLY reason qty<1 is a small
+# per-trade budget, round UP to 1 share IF that single share's stop risk stays
+# within this multiple of the per-trade risk budget. Beyond it, still refuse —
+# never silently risk more than 1.5x the configured cap. Scoped to the equity
+# (whole_units) path; futures whole-contract sizing keeps its strict refuse-
+# sub-1 semantics (BL-20260611-001) because a single contract is far chunkier.
+_ROUND_UP_BUDGET_MULT = 1.5
+
 _CREATE_DAILY_RISK_STATE = """
 CREATE TABLE IF NOT EXISTS daily_risk_state (
     account_id       TEXT NOT NULL,
@@ -632,7 +643,26 @@ class RiskManager:
             contract_value_usd=cvu,
         )
         if force_whole and qty < eff_min_qty:
-            return 0.0
+            # Round-up-to-one-share (operator directive 2026-06-24), EQUITY only.
+            # The risk-based ideal is below 1 whole share. When the only reason
+            # is a small per-trade budget, round UP to 1 share IF that share's
+            # stop risk is within _ROUND_UP_BUDGET_MULT x the per-trade risk
+            # budget — otherwise refuse. The daily-loss-budget and margin/
+            # buying-power gates BELOW still apply to the rounded-up share (a
+            # share that breaches the daily cap or can't be afforded is
+            # re-floored to 0 there), so this relaxes ONLY the per-trade
+            # risk-cap refusal, never the hard limits. Futures keep strict
+            # refuse-sub-1-contract (BL-20260611-001) — not whole_units.
+            if bool(whole_units):
+                _rd = abs(package.entry - package.sl)
+                _one_unit_risk = eff_min_qty * _rd * cvu
+                _risk_budget = balance_usd * effective_risk_pct
+                if _risk_budget > 0 and _one_unit_risk <= _ROUND_UP_BUDGET_MULT * _risk_budget:
+                    qty = eff_min_qty
+                else:
+                    return 0.0
+            else:
+                return 0.0
 
         # S-026 G3: daily-loss-budget gate. USD loss at SL is
         # qty × risk_distance × contract_value_usd (cvu=1.0 for crypto).
@@ -683,8 +713,16 @@ class RiskManager:
                     _margin_basis * effective_leverage * _MARGIN_SAFETY_BUFFER
                 ) / package.entry
             if qty > max_qty_by_margin:
-                capped = _floor_to_step(max_qty_by_margin, self.qty_precision)
-                if capped < self.min_qty:
+                # Floor with the EFFECTIVE granularity, not self.qty_precision:
+                # on a whole-unit account (alpaca) the margin cap could otherwise
+                # shave an already-whole qty down to a FRACTIONAL share (e.g.
+                # 3 → 2.3) using the crypto default 3dp precision, re-opening the
+                # bracket-rejects-fractional hole BL-20260622-ALPACA-FRACTIONAL-SIZE
+                # fixed on the risk-based path. eff_precision/eff_min_qty equal
+                # self.qty_precision/self.min_qty for non-whole-unit accounts, so
+                # this is a no-op there.
+                capped = _floor_to_step(max_qty_by_margin, eff_precision)
+                if capped < eff_min_qty:
                     return 0.0
                 qty = capped
 
