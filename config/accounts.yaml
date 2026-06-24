@@ -87,7 +87,9 @@
 #
 # S-026 G2 sizing inputs (operator-confirmed defaults):
 #   risk_pct         — fraction of balance risked per trade (1 % live).
-#   min_balance_usd  — refuse to size below this balance ($50).
+#   (There is NO min_balance_usd floor — removed 2026-06-24. The only
+#    balance floor is physics: a non-positive balance sizes to 0. A
+#    leftover min_balance_usd value in any risk block is ignored.)
 #   leverage         — per-account leverage for linear accounts (PR 3
 #                      cutover). Read by RiskManager.leverage and
 #                      applied via /v5/position/set-leverage at boot.
@@ -216,7 +218,6 @@ accounts:
       daily_usd: 100                   # absolute FALLBACK only — used when no
                                        # equity snapshot is available (cold start)
       risk_pct: 0.01                   # 1% balance risked per trade (S-026 G2)
-      min_balance_usd: 50              # refuse to size below $50 (S-026 G2)
       leverage: 3                      # 3× leverage — same as bybit_2; applied
                                        # via /v5/position/set-leverage at boot.
 
@@ -299,7 +300,6 @@ accounts:
                                        # the live balance instead of a fixed $100.
       daily_usd: 100                   # absolute FALLBACK only (no equity snapshot)
       risk_pct: 0.01
-      min_balance_usd: 50
       # PR 3 cutover: 3× leverage on linear perps. main.py at boot
       # calls /v5/position/set-leverage with this value for every
       # symbol the account's strategies trade (BTCUSDT for trend_donchian).
@@ -403,7 +403,6 @@ accounts:
                                        # (operator-approved 2026-05-28)
       daily_usd: 200                   # absolute FALLBACK only (no equity snapshot)
       risk_pct: 0.01                   # 1% balance risked per trade
-      min_balance_usd: 100             # refuse to size below $100
 
   # ib_live: IB live account U25907316 on the live gateway (7496).
   # mode: dry_run → real money held safe; no socket opened, no orders
@@ -432,7 +431,6 @@ accounts:
                                        # (operator-approved 2026-05-28)
       daily_usd: 200                   # absolute FALLBACK only (no equity snapshot)
       risk_pct: 0.01                   # 1% balance risked per trade
-      min_balance_usd: 100             # refuse to size below $100
 
   # oanda_practice: M15 Phase 2 (S-M15-PHASE2-OANDA) — OANDA v20 practice
   # account, the Phase-0 verdict's first new-market wire (XAU/USD:
@@ -490,7 +488,6 @@ accounts:
       # buying_power analogue, 2026-06-24). leverage stays unset (=1) so that
       # already-leveraged figure is not multiplied again; on a fetch failure the
       # cap falls back to conservative cash-1x. (Replaced the interim 20x guess.)
-      min_balance_usd: 100             # refuse to size below $100
 
   # alpaca_paper: M15 Phase 2b (S-M15-PHASE2B-ALPACA) — Alpaca Trading API
   # paper account, the migration's second platform (daily ETF futures-
@@ -539,7 +536,6 @@ accounts:
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
       daily_usd: 200                   # absolute fallback (no equity snapshot)
       risk_pct: 0.01                   # 1% balance risked per trade (operator 2026-06-24)
-      min_balance_usd: 100             # refuse to size below $100
 
   # alpaca_live: Alpaca Trading API REAL-MONEY account — the live sibling of
   # alpaca_paper, wired so the two run CONCURRENTLY (paper keeps soaking while
@@ -576,7 +572,6 @@ accounts:
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
       daily_usd: 200                   # absolute fallback (no equity snapshot)
       risk_pct: 0.01                   # 1% balance risked per trade (operator 2026-06-24)
-      min_balance_usd: 100             # refuse to size below $100
 
   # breakout_1: Breakout 1-Step Classic $5k PROP account (PB-20260616-004).
   # POC = TELEGRAM-PING bridge ONLY (no DXTrade API integration). When a
@@ -628,4 +623,3 @@ accounts:
                                        # ticket sizes from breakout_routing.yaml
                                        # risk_pct, in PERCENT; this fraction is
                                        # the PropRiskManager mirror).
-      min_balance_usd: 100
