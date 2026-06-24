@@ -131,17 +131,11 @@ def safe_place_order(order: Dict[str, Any], settings: Any, client: Any) -> dict[
         logger.warning("Order blocked: halt flag active at %s", halt_flag_path)
         return {"status": "halted", "reason": "halt_flag_active", "order": order}
 
-    # Hard risk guards — raise immediately; no soft fallback.
-    max_pos_raw = _get_value(settings, "MAX_POSITION_USD", None)
-    if max_pos_raw not in (None, ""):
-        max_pos_usd = float(max_pos_raw)
-        price = _resolve_price(order)
-        if price is not None:
-            notional_usd = qty * price
-            if notional_usd > max_pos_usd:
-                raise ValueError(
-                    f"Order aborted: notional {notional_usd:.2f} USD exceeds MAX_POSITION_USD {max_pos_usd}"
-                )
+    # NOTE: no MAX_POSITION_USD notional ceiling. Position size is a pure
+    # function of available balance+margin and risk-per-trade (the per-account
+    # RiskManager.position_size); an arbitrary max-notional cap unrelated to
+    # account capacity is not imposed (operator directive 2026-06-24). The
+    # daily-loss guard below stays — it is a risk budget, not a notional cap.
 
     max_daily_loss_raw = _get_value(settings, "MAX_DAILY_LOSS_USD", None)
     if max_daily_loss_raw not in (None, ""):
@@ -239,15 +233,10 @@ def safe_place_order(order: Dict[str, Any], settings: Any, client: Any) -> dict[
                         "order": order,
                     }
 
-    max_qty_raw = _get_value(settings, "MAX_QTY", None)
-    if max_qty_raw not in (None, ""):
-        max_qty = float(max_qty_raw)
-        if qty > max_qty:
-            return {
-                "status": "failed_validation",
-                "reason": f"Order rejected: qty {qty} exceeds MAX_QTY {max_qty}",
-                "order": order,
-            }
+    # NOTE: no MAX_QTY quantity ceiling. Order quantity is whatever the
+    # per-account RiskManager.position_size produced from balance+margin and
+    # risk-per-trade, rounded to the exchange's own lot size — there is no
+    # arbitrary cap on top of it (operator directive 2026-06-24).
 
     # Operator directive 2026-05-03 — there is no process-level
     # dry/live interlock in this codebase. The per-account

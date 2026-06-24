@@ -73,26 +73,14 @@ def validate_startup() -> None:
         except ValueError:
             errors.append(f"RISK_PER_TRADE must be a float, got {risk_raw!r}")
 
-    max_qty_raw = _env("MAX_QTY")
-    if not max_qty_raw:
-        errors.append("MAX_QTY is required")
-    else:
-        try:
-            max_qty = float(max_qty_raw)
-            if max_qty <= 0:
-                errors.append(f"MAX_QTY must be > 0, got {max_qty}")
-        except ValueError:
-            errors.append(f"MAX_QTY must be a float, got {max_qty_raw!r}")
+    # NOTE: MAX_QTY / MAX_POSITION_USD are intentionally NOT validated or
+    # required — they were arbitrary notional/quantity ceilings, removed
+    # 2026-06-24 (operator directive). Position size is a pure function of
+    # available balance+margin and risk-per-trade (per-account RiskManager),
+    # bounded only by the exchange's own lot size. A leftover MAX_QTY /
+    # MAX_POSITION_USD value in the environment is ignored.
 
     # ---- Hard order-layer risk guards (all optional; validated if set) -----
-    _max_pos_raw = _env("MAX_POSITION_USD")
-    if _max_pos_raw:
-        try:
-            if float(_max_pos_raw) <= 0:
-                errors.append(f"MAX_POSITION_USD must be > 0, got {_max_pos_raw!r}")
-        except ValueError:
-            errors.append(f"MAX_POSITION_USD must be a positive number, got {_max_pos_raw!r}")
-
     _max_daily_loss_raw = _env("MAX_DAILY_LOSS_USD")
     if _max_daily_loss_raw:
         try:
@@ -141,14 +129,12 @@ def build_settings_from_env() -> dict:
         "symbol":             _env("SYMBOL"),
         "timeframe":          _env("TIMEFRAME"),
         "risk_per_trade":     float(_env("RISK_PER_TRADE")),
-        "max_qty":            float(_env("MAX_QTY")),
         "log_level":          _env("LOG_LEVEL") or "INFO",
         "tick_interval":      int(_env("TICK_INTERVAL_SECONDS") or "60"),
         "loop":               _env("LOOP").lower() == "true",
         # Hard order-layer risk guards — uppercase keys match safe_place_order() lookups.
         # None when unset; safe_place_order() skips the guard when value is None.
-        "MAX_POSITION_USD":   _env("MAX_POSITION_USD") or None,
+        # (MAX_QTY / MAX_POSITION_USD removed 2026-06-24 — no notional/qty cap.)
         "MAX_DAILY_LOSS_USD": _env("MAX_DAILY_LOSS_USD") or None,
         "MAX_OPEN_POSITIONS": _env("MAX_OPEN_POSITIONS") or None,
-        "MAX_QTY":            float(_env("MAX_QTY")),
     }

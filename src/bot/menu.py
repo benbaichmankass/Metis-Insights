@@ -246,7 +246,7 @@ def render_accounts_view(accounts: Sequence[dict]) -> str:
 
     Each ``acc`` may carry: ``account_id``/``name``, ``exchange``,
     ``mode``/``dry_run``, ``account_type``, ``max_daily_loss_usd``,
-    ``max_pos_size_usd``, ``max_dd_pct``, ``balance``, ``pnl_24h``,
+    ``max_dd_pct``, ``balance``, ``pnl_24h``,
     ``open_positions``, ``trades`` (list of one-line strings).
     """
     if not accounts:
@@ -272,7 +272,6 @@ def render_accounts_view(accounts: Sequence[dict]) -> str:
             ("24h PnL", _signed(acc.get("pnl_24h")) if acc.get("pnl_24h") is not None else "—"),
             ("Open positions", acc.get("open_positions")),
             ("Max daily loss", acc.get("max_daily_loss_usd")),
-            ("Max position", acc.get("max_pos_size_usd")),
             ("Max drawdown", acc.get("max_dd_pct")),
         ]) + f"\n\nTrades:\n{trades_body}"
         sections.append(Section(

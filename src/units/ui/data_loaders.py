@@ -1069,8 +1069,7 @@ def recent_trades_for(account: Dict[str, Any], n: int = 5) -> List[Dict[str, Any
 #
 # Three sibling status tokens identify a rejection row:
 #   - ``rejected``           — RiskManager refusal (PR #357 / CP-14):
-#     account_mode_dry_run, DAILY_LOSS_CAP, POSITION_SIZE_CAP,
-#     INTRADAY_DRAWDOWN.
+#     account_mode_dry_run, DAILY_LOSS_CAP, INTRADAY_DRAWDOWN.
 #   - ``exchange_rejected``  — exchange-side error (PR #357 / CP-14):
 #     Bybit retCode != 0, broker rejection, missing creds.
 #   - ``rejected_too_small`` — pre-existing smoke-test status set by
@@ -1099,7 +1098,7 @@ def recent_rejections(n: int = 10) -> List[Dict[str, Any]]:
     """Last ``n`` rejection rows from ``trade_journal.db::trades``.
 
     Includes BOTH ``status='rejected'`` (RiskManager refusals —
-    ``account_mode_dry_run``, ``DAILY_LOSS_CAP``, ``POSITION_SIZE_CAP``,
+    ``account_mode_dry_run``, ``DAILY_LOSS_CAP``,
     ``INTRADAY_DRAWDOWN``) AND ``status='exchange_rejected'`` (Bybit
     retCode != 0, broker rejection,
     ``MissingCredentialsError``, ``RuntimeError("Account is paused …")``).

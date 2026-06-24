@@ -28,22 +28,10 @@ def _buy_order(price=50_000.0, qty=1.0):
 
 
 # ---------------------------------------------------------------------------
-# MAX_POSITION_USD guard
+# MAX_POSITION_USD guard — REMOVED 2026-06-24 (notional cap deleted; a
+# leftover MAX_POSITION_USD value is now ignored). The daily-loss + open-
+# positions + halt guards below remain the active order-layer rails.
 # ---------------------------------------------------------------------------
-
-
-def test_safe_place_order_raises_when_max_position_usd_exceeded():
-    # notional = 1.0 qty * 50_000 price = 50_000 USD  >  10_000 limit
-    settings = _settings(MAX_POSITION_USD="10000")
-    with pytest.raises(ValueError, match="MAX_POSITION_USD"):
-        safe_place_order(_buy_order(price=50_000.0, qty=1.0), settings, _DummyClient())
-
-
-def test_safe_place_order_passes_when_notional_within_max_position_usd():
-    # notional = 1.0 * 50_000 = 50_000 < 100_000
-    settings = _settings(MAX_POSITION_USD="100000")
-    result = safe_place_order(_buy_order(price=50_000.0, qty=1.0), settings, _DummyClient())
-    assert result["status"] == "submitted"
 
 
 # ---------------------------------------------------------------------------

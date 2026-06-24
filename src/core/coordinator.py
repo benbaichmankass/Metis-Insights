@@ -678,7 +678,7 @@ class Coordinator:
         """Return per-account status dicts from config/accounts.yaml.
 
         Each dict contains name, exchange, account_type, open_positions,
-        daily_pnl, max_daily_loss_usd, max_pos_size_usd, halted, plus
+        daily_pnl, max_daily_loss_usd, halted, plus
         live API integration fields (S-021):
 
         - ``live_balance_usdt``: total USDT balance fetched from the
@@ -1080,7 +1080,6 @@ class Coordinator:
                 # inside execute_pkg when qty_override is absent).
                 "max_dd_pct": account.risk_manager.max_dd_pct,
                 "daily_usd": account.risk_manager.max_daily_loss_usd,
-                "pos_size": account.risk_manager.max_pos_size_usd,
                 # Bybit V5 category routing (spot vs linear). Drives
                 # ``_bybit_category`` inside execute.py — without this
                 # plumb-through the executor falls back to the default
@@ -1538,7 +1537,7 @@ class Coordinator:
                 #
                 # Prop-risk integration: ``evaluate`` returns a
                 # structured reason on reject (DAILY_LOSS_CAP /
-                # POSITION_SIZE_CAP / INTRADAY_DRAWDOWN /
+                # INTRADAY_DRAWDOWN /
                 # SKIP_MISSION_MET / SKIP_OVERNIGHT_RESTRICTED /
                 # SKIP_WEEKEND_RESTRICTED / account_mode_dry_run). The
                 # reason flows through the result row's ``error`` field

@@ -173,7 +173,6 @@ def format_account_status_block(status: Dict[str, Any]) -> str:
     halted_icon = "🔴" if status.get("halted") else "🟢"
     pnl = float(status.get("daily_pnl", 0))
     limit = float(status.get("max_daily_loss_usd", 0))
-    pos_size = float(status.get("max_pos_size_usd", 0))
     open_pos = status.get("open_positions", 0)
     bal = status.get("live_balance_usdt")
     bal_err = status.get("live_balance_error")
@@ -230,7 +229,7 @@ def format_account_status_block(status: Dict[str, Any]) -> str:
         f"{prop_lines}"
         f"{api_line}\n"
         f"  💵 Daily PnL: ${pnl:+.2f} / limit ${limit:.0f}\n"
-        f"  📦 Max pos: ${pos_size:.0f} | Open: {open_pos}"
+        f"  📦 Open: {open_pos}"
     )
 
 

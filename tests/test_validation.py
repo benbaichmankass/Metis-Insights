@@ -62,10 +62,10 @@ def test_live_trading_interlock_allowed():
 
 
 def test_build_settings_from_env_keys():
-    # (b) OUTDATED CONTRACT — operator directive 2026-05-03 removed
-    # DRY_RUN, ALLOW_LIVE_TRADING, mode, dry_run, allow_live_trading from
-    # build_settings_from_env (validation.py:115-157).  The S-012 uppercase-
-    # alias fix was superseded.  Updated to reflect the current key set.
+    # Operator directive 2026-05-03 removed DRY_RUN/ALLOW_LIVE_TRADING/mode
+    # from build_settings_from_env. Operator directive 2026-06-24 removed the
+    # MAX_QTY / max_qty / MAX_POSITION_USD notional+quantity ceilings — they
+    # are no longer in the settings dict. Updated to the current key set.
     env = {**BASE_ENV}
     with pytest.MonkeyPatch().context() as mp:
         for k in list(os.environ.keys()):
@@ -75,17 +75,13 @@ def test_build_settings_from_env_keys():
         s = build_settings_from_env()
     assert set(s.keys()) == {
         "exchange", "symbol", "timeframe",
-        "risk_per_trade", "max_qty", "log_level", "tick_interval", "loop",
-        "MAX_POSITION_USD", "MAX_DAILY_LOSS_USD", "MAX_OPEN_POSITIONS",
-        # MAX_QTY uppercase alias retained: safe_place_order still looks up
-        # MAX_QTY from settings (orders.py:203).
-        "MAX_QTY",
+        "risk_per_trade", "log_level", "tick_interval", "loop",
+        "MAX_DAILY_LOSS_USD", "MAX_OPEN_POSITIONS",
     }
     assert s["exchange"] == "bybit"
     assert s["risk_per_trade"] == 0.01
     assert s["tick_interval"] == 900
     assert s["loop"] is True
-    assert s["MAX_QTY"] == s["max_qty"]
 
 
 # ---------------------------------------------------------------------------
@@ -175,19 +171,10 @@ def test_risk_per_trade_non_float_raises():
 
 
 # ---------------------------------------------------------------------------
-# MAX_QTY validation
+# MAX_QTY validation — REMOVED 2026-06-24.
+# The MAX_QTY (and MAX_POSITION_USD) notional/quantity ceilings were deleted
+# (operator directive): position size is bounded only by balance+margin,
+# risk-per-trade, and the exchange's own lot size. validate_startup no longer
+# validates MAX_QTY, so a leftover MAX_QTY=0/-1/"lots" value is simply ignored
+# rather than raising — the former zero/negative/non-float pins are gone.
 # ---------------------------------------------------------------------------
-
-def test_max_qty_zero_raises():
-    with pytest.raises(EnvironmentError, match="MAX_QTY"):
-        run(overrides={"MAX_QTY": "0"})
-
-
-def test_max_qty_negative_raises():
-    with pytest.raises(EnvironmentError, match="MAX_QTY"):
-        run(overrides={"MAX_QTY": "-1"})
-
-
-def test_max_qty_non_float_raises():
-    with pytest.raises(EnvironmentError, match="MAX_QTY"):
-        run(overrides={"MAX_QTY": "lots"})
