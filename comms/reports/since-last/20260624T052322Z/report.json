@@ -1,0 +1,927 @@
+{
+  "report_id": "RPT-20260624-052322-since-last",
+  "reviewed_at": "2026-06-24T05:23:22.093767+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-06-23T15:45:33+00:00",
+  "window_end": "2026-06-24T05:23:22.093767+00:00",
+  "prior_report_id": "RPT-20260623-154533-since-last",
+  "overall_assessment": "caution",
+  "health": {
+    "overall_assessment": "healthy",
+    "findings": {
+      "heartbeat": {
+        "status": "ok",
+        "detail": "running, age ~16-24s; last_tick 05:09:46Z fresh; bot_uptime ~25min (clean restart ~04:46Z, trader recovered + ticking)"
+      },
+      "services": {
+        "status": "ok",
+        "detail": "ict-trader-live active, ict-web-api active, ict-claude-bridge active (ping bridge healthy), ict-telegram-bot active; all timers active. ib-gateway-watchdog.timer inactive on live VM is correct (runs on gateway VM)."
+      },
+      "vm_health": {
+        "status": "ok",
+        "detail": "cpu 47.6%, memory 11.2% (Ampere migration resolved memory pressure), disk 25.7%"
+      },
+      "pipeline": {
+        "status": "ok",
+        "detail": "36 strategies loaded; continuous ticking across symbols; market flat \u2192 mostly 'no actionable signal / staying flat' (correct)"
+      },
+      "db_integrity": {
+        "status": "ok",
+        "detail": "order_packages + trades + signals endpoints return 200 (BL-20260614-001 500-regression no longer reproducible); ml modelScores persisting (8 models/pkg)"
+      },
+      "prop_bridge": {
+        "status": "ok",
+        "detail": "reconcile clean: 5 tickets, 3 fills, 0 un-acted (no drift)"
+      }
+    },
+    "notes": [
+      "Diag-relay burst-webhook drops persisted this session (BL-20260611-002): ~half of bursted diag-request issues skipped (create-with-label race); reliable only filed one-at-a-time."
+    ],
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "performance": {
+    "overall_assessment": "caution",
+    "window": "since-last",
+    "headline": "Real-money flat in-window (0 closes, 1 open ETH short). Paper \u2212$814.84 (avax_pullback_2h short \u2212$812 stopped on AVAX rally; sol \u2212$2.53 reconciler artifact). 7 in-window decisions graded 6C/1D \u2014 low-conviction chop window.",
+    "trade_decision_grades": {
+      "graded_this_session": 7,
+      "histogram": {
+        "A": 0,
+        "B": 0,
+        "C": 6,
+        "D": 1,
+        "F": 0
+      },
+      "newest_reviewed_at": "2026-06-24T05:23:22.093767+00:00",
+      "note": "Graded via canonical scripts/ops/score_order_packages.py::_grade_package rubric over the in-window packages pulled through the diag relay (full-journal rewrite needs live-DB access unavailable from web sandbox; existing 2498 historical grades preserved, append-only)."
+    },
+    "per_strategy_window": [
+      {
+        "name": "avax_pullback_2h",
+        "class": "paper",
+        "trades": 1,
+        "wins": 0,
+        "pnl": -812.31,
+        "note": "short stopped out, held 06-20\u219206-23 22:16Z as AVAX rallied 6.14\u21926.50"
+      },
+      {
+        "name": "sol_pullback_2h",
+        "class": "paper",
+        "trades": 1,
+        "wins": 0,
+        "pnl": -2.53,
+        "note": "reconciler close, entry==exit Bybit-demo PnL artifact (BL-tracked #4341)"
+      },
+      {
+        "name": "htf_pullback_trend_2h",
+        "class": "real_money",
+        "trades": 1,
+        "wins": 0,
+        "pnl": -1.639,
+        "note": "closed 06-23 06:21Z \u2014 PRE-window (in 24h agg, not since-last)"
+      }
+    ],
+    "proposed_tweaks": [
+      {
+        "summary": "eth_pullback_2h / avax_pullback_2h: counter-trend/chop entries in the alt-pullback-2h cohort produce large adverse holds (PB-20260614-001) \u2014 evaluate a trend/regime entry filter",
+        "tier": 3
+      },
+      {
+        "summary": "Verify ict_scalp_5m live edge \u2014 net-negative in 3-yr prop backtest (PB-20260616-002)",
+        "tier": 3
+      }
+    ],
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "ml": {
+    "overall_assessment": "caution",
+    "trainer_health": {
+      "trainer_service": "ok",
+      "trainer_datasets": "ok",
+      "trainer_registry": "ok",
+      "detail": "ict-trainer.timer enabled+active; last cycle 2026-06-24T00:56Z ExecMainStatus=0 (1 cycle since last review); journal 259MB pulled; v002 datasets built. trade_outcomes/execution_quality/setup_labels built 0 rows (data-blocked by low real-close volume)."
+    },
+    "stage_guard": {
+      "total": 40,
+      "promote": [],
+      "demote": [
+        "btc-regime-5m-lgbm-yz-v1"
+      ],
+      "hold_count": 39
+    },
+    "model_status": [
+      {
+        "model_id": "btc-regime-5m-lgbm-yz-v1",
+        "registry_status": "shadow\u2192demote",
+        "headline_metric": "macro_f1 0.556",
+        "trend_vs_prior_run": "REVERSED: 06-23 promote-candidate \u2192 06-24 stage-guard DEMOTE (lost live edge)"
+      },
+      {
+        "model_id": "btc-regime-1h-lgbm-yz-v1",
+        "registry_status": "advisory (degenerate)",
+        "headline_metric": "live score collapsed mean 0.983/stdev 0.002, KS 0.86",
+        "trend_vs_prior_run": "standing Tier-3 demote (MB-20260623-001)"
+      },
+      {
+        "model_id": "trade-outcome-winrate-baseline-v0",
+        "registry_status": "shadow",
+        "headline_metric": "rank-AUC 0.533 (<0.55), brier_lift ~0, drift KS 0.561",
+        "trend_vs_prior_run": "36d soak complete but FAILS promotion gates"
+      },
+      {
+        "model_id": "*-baseline-v0/v1 (btc/mes/regime)",
+        "registry_status": "candidate (degenerate)",
+        "headline_metric": "f1_volatile 0.0 (majority-only)",
+        "trend_vs_prior_run": "superseded by lgbm-v2/yz variants"
+      }
+    ],
+    "promotion_recommendations": [
+      {
+        "model_id": "btc-regime-5m-lgbm-yz-v1",
+        "recommendation": "DO NOT PROMOTE \u2014 now a demote candidate (06-24 stage-guard)",
+        "tier": 3
+      },
+      {
+        "model_id": "btc-regime-1h-lgbm-yz-v1",
+        "recommendation": "DEMOTE advisory\u2192shadow, then refine/retire (MB-20260623-001)",
+        "tier": 3
+      }
+    ],
+    "experiments_proposed": [
+      {
+        "summary": "Refine-or-retire the f1=0 degenerate baselines + failing trade-outcome shadow models (MB-20260623-003)",
+        "tier": 3
+      }
+    ],
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "Quiet ~13.3h chop window (BTC +0.5%, ETH +0.7%, tight ranges). Real-money flat (0 closes) with one OPEN real ETH short (eth_pullback_2h, trade 2823) leaning against a mild ETH uptrend. Paper booked \u2212$814.84 (avax_pullback_2h short \u2212$812 stopped on the AVAX rally; sol \u2212$2.53 reconciler artifact). Health green: heartbeat running, vm cpu47/mem11/disk26, all services active, prop bridge clean (0 un-acted). ML: daily cycle ran, 0 models promote-ready, 1 demote (5m-lgbm-yz reversed from yesterday's promote candidate). 7 in-window decisions graded 6C/1D.",
+    "services": [
+      {
+        "unit": "ict-trader-live.service",
+        "state": "active"
+      },
+      {
+        "unit": "ict-web-api.service",
+        "state": "active"
+      },
+      {
+        "unit": "ict-telegram-bot.service",
+        "state": "active"
+      },
+      {
+        "unit": "ict-claude-bridge.service",
+        "state": "active"
+      },
+      {
+        "unit": "ict-git-sync.timer",
+        "state": "active"
+      },
+      {
+        "unit": "ict-liveness-watchdog.timer",
+        "state": "active"
+      },
+      {
+        "unit": "ict-web-api-watchdog.timer",
+        "state": "active"
+      },
+      {
+        "unit": "ict-db-integrity.timer",
+        "state": "active"
+      },
+      {
+        "unit": "ict-insights-generator.timer",
+        "state": "active"
+      },
+      {
+        "unit": "ict-hourly-snapshot.timer",
+        "state": "active"
+      },
+      {
+        "unit": "ict-health-snapshot.timer",
+        "state": "active"
+      }
+    ],
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Open real-money ETH short (trade 2823) leaning against a +0.7% ETH uptrend",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "eth_pullback_2h short opened 04:01Z (entry ~1666.33); ETH grinding up 1660\u21921671. Monitor; the alt-pullback-2h cohort has a known chop/counter-trend entry concern (PB-20260614-001).",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "avax_pullback_2h paper short \u2212$812 (held 3d, stopped on AVAX rally)",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "Alt-pullback-2h soak producing large adverse holds. Evaluate trend/regime entry filter before any real-money routing widens (PB-20260614-001).",
+        "operator_action_required": false
+      },
+      {
+        "rank": 3,
+        "title": "ML: 5m-lgbm-yz-v1 flipped promote\u2192demote; only advisory (1h-yz) still degenerate",
+        "source_review": "ml",
+        "tier": 3,
+        "detail": "0 models promote-ready (stage-guard promote=[]). btc-regime-5m-lgbm-yz-v1 now in demote set. btc-regime-1h-lgbm-yz-v1 (the only advisory) remains degenerate \u2014 MB-20260623-001 Tier-3 demote awaiting operator.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 4,
+        "title": "Degenerate f1=0 baselines + trade-outcome shadow models failing gates after 36d soak",
+        "source_review": "ml",
+        "tier": 3,
+        "detail": "5 *-baseline-v0/v1 models predict majority class only; trade-outcome shadow models fail beats_baseline/live_agreement/drift. Refine-or-retire (MB-20260623-003).",
+        "operator_action_required": false
+      },
+      {
+        "rank": 5,
+        "title": "Diag-relay burst-webhook drops persist (BL-20260611-002)",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "~half of bursted diag-request issues skipped this session (create-with-label race delivers empty labels \u2192 job-if skip). Reliable only filed one-at-a-time. Tier-1 CI fix candidate (job should read labels via API, not webhook payload).",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "Flat/chop crypto (BTC +0.5%, ETH +0.7%, tight ranges) ties together health (continuous 'no actionable signal / staying flat' ticks), performance (the few fires graded 6C/1D, low conviction), and market context \u2014 a correctly-quiet window.",
+      "The alt-pullback-2h cohort (eth/sol/avax/xrp/ada) is the active risk surface this window: it produced the OPEN real ETH short, the \u2212$812 paper AVAX loss, AND an orphaned paper sol package \u2014 one strategy family still in demo-soak yet already routed to real money (eth on bybit)."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": 0.0,
+        "trend": "flat",
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": 0.0,
+        "profit_factor": null,
+        "max_drawdown": 0.0,
+        "open_positions": 1,
+        "per_strategy": [],
+        "per_asset_class": {
+          "crypto": 0.0
+        },
+        "equity_curve": [],
+        "note": "0 real closes in-window. 1 open real position (eth_pullback_2h ETHUSDT short, trade 2823). 24h-window real agg is \u2212$1.64 (htf close 06:21Z, pre-window)."
+      },
+      "paper": {
+        "window_pnl": -814.84,
+        "prior_window_pnl": 0.0,
+        "trend": "down",
+        "trades": 2,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": -407.42,
+        "profit_factor": 0.0,
+        "max_drawdown": -814.84,
+        "per_strategy": [
+          {
+            "name": "avax_pullback_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -812.31
+          },
+          {
+            "name": "sol_pullback_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -2.53
+          }
+        ],
+        "per_asset_class": {
+          "crypto": -814.84
+        },
+        "equity_curve": [
+          {
+            "t": "2026-06-23T22:16:06+00:00",
+            "cum": -812.31
+          },
+          {
+            "t": "2026-06-24T04:06:11+00:00",
+            "cum": -814.84
+          }
+        ],
+        "note": "24h paper agg \u2212$704.56 (incl. pre-window ada_4h +$840 / xrp_4h +$98 wins). In-window (since 15:45Z): avax \u2212$812.31 + sol \u2212$2.53."
+      },
+      "prop": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "fills_reported": 3,
+        "tickets_emitted": 5,
+        "unacted_tickets": 0,
+        "rule_distance": {
+          "daily_loss_remaining": null,
+          "static_dd_remaining": null
+        },
+        "per_account": [],
+        "note": "reconcile clean (0 un-acted). prop/status (rule-distance cushion) not pulled this window \u2014 relay budget."
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": 62482.4,
+        "close": 62822.6,
+        "high": 63120.5,
+        "low": 62100.0,
+        "pct_change": 0.544,
+        "range_pct": 1.643,
+        "note": "quiet chop, mildly bid; tight 62.1k\u201363.1k range \u2014 no breakout \u2192 strategies correctly non-actionable"
+      },
+      {
+        "symbol": "ETHUSDT",
+        "open": 1659.73,
+        "close": 1671.38,
+        "high": 1680.55,
+        "low": 1649.63,
+        "pct_change": 0.702,
+        "range_pct": 1.874,
+        "note": "mild grind higher 1660\u21921671 \u2014 the OPEN real-money short (2823) leans against this drift"
+      },
+      {
+        "symbol": "SOLUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "not pulled this window (relay budget); paper sol short closed \u2212$2.53 (reconciler artifact)"
+      },
+      {
+        "symbol": "AVAXUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "not pulled this window; AVAX rallied 6.14\u21926.50 over the hold, stopping the paper short for \u2212$812"
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": 2823,
+        "order_package_id": "pkg-e21af107124f4790",
+        "account": "bybit (real)",
+        "account_class": "real_money",
+        "symbol": "ETHUSDT",
+        "direction": "short",
+        "strategy": "eth_pullback_2h",
+        "opened_at": "2026-06-24T04:01:13.763785+00:00",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 1666.33,
+        "exit_price": null,
+        "stop_loss": 1712.03178571,
+        "take_profit": 1501.36333,
+        "qty": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": null,
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "2h pullback short, conf 0.629, adx 30 (trend-ok). Open against a mild ETH uptrend \u2014 modestly adverse; the cohort's known chop-entry risk applies."
+        },
+        "model_scores": {
+          "conviction-meta-v1": {
+            "stage": "shadow",
+            "score": 0.7708806868851543
+          },
+          "execution-quality-baseline-v0": {
+            "stage": "shadow",
+            "score": -0.20166275180833781
+          },
+          "prop-mission-policy-baseline-v0": {
+            "stage": "shadow",
+            "score": 0
+          },
+          "setup-quality-audit-baseline-v0": {
+            "stage": "shadow",
+            "score": -0.05719595959595961
+          },
+          "setup-quality-baseline-v0": {
+            "stage": "shadow",
+            "score": -0.1038957345971564
+          },
+          "setup-quality-lgbm-v2": {
+            "stage": "shadow",
+            "score": -0.5139781688933343
+          },
+          "trade-outcome-global-baseline-v0": {
+            "stage": "shadow",
+            "score": 0.24829931972789115
+          },
+          "trade-outcome-winrate-baseline-v0": {
+            "stage": "shadow",
+            "score": 0.24829931972789115
+          }
+        },
+        "signal_logic": "eth_pullback_2h trend_midline 1707.2, pullback_pos 0.629, atr 18.28, adx 30.1, conf 0.629, short",
+        "meta": {
+          "trend_midline": 1707.1950000000002,
+          "pullback_pos_in_range": 0.6287,
+          "atr": 18.28071428571429,
+          "atr_period": 14,
+          "atr_stop_mult": 2.5,
+          "trail_mult": 5,
+          "tp_r": 50,
+          "risk_per_unit": 45.701785714285734,
+          "entry_time": "2026-06-24 04:00:00",
+          "timeframe": "2h",
+          "adx": 30.07694334084864,
+          "adx_min": 25,
+          "adx_max": null,
+          "strategy_name": "eth_pullback_2h",
+          "confidence": 0.6287,
+          "direction": "short",
+          "strategy_risk_pct": 0.6,
+          "conviction": {
+            "conviction": 0.5000871619871319,
+            "blended": 0.5000871619871319,
+            "news_multiplier": 1,
+            "floor": 0,
+            "below_floor": false,
+            "inputs_used": {
+              "c_strat": 0.6287,
+              "c_setup": 0.4624961187174194,
+              "c_wr": 0.24829931972789115
+            },
+            "weights_used": {
+              "c_strat": 0.5294117647058824,
+              "c_setup": 0.23529411764705882,
+              "c_wr": 0.23529411764705882
+            },
+            "note": "partial_inputs",
+            "provenance": {
+              "c_strat": {
+                "source": "eth_pullback_2h",
+                "calibrated": false,
+                "raw": 0.6287
+              },
+              "c_setup": [
+                {
+                  "model_id": "setup-quality-audit-baseline-v0",
+                  "stage": "shadow",
+                  "calibrated": false,
+                  "raw": -0.05719595959595961
+                },
+                {
+                  "model_id": "setup-quality-baseline-v0",
+                  "stage": "shadow",
+                  "calibrated": false,
+                  "raw": -0.1038957345971564
+                },
+                {
+                  "model_id": "setup-quality-lgbm-v2",
+                  "stage": "shadow",
+                  "calibrated": false,
+                  "raw": -0.5139781688933343
+                }
+              ],
+              "c_wr": [
+                {
+                  "model_id": "trade-outcome-global-baseline-v0",
+                  "stage": "shadow",
+                  "calibrated": false,
+                  "raw": 0.24829931972789115
+                },
+                {
+                  "model_id": "trade-outcome-winrate-baseline-v0",
+                  "stage": "shadow",
+                  "calibrated": false,
+                  "raw": 0.24829931972789115
+                }
+              ]
+            }
+          },
+          "regime": "trending",
+          "adx_14": 30.077,
+          "regime_source": "adx-14",
+          "vol_regime": "unknown",
+          "rolling_log_return_vol": null,
+          "vol_regime_source": "vol-bucket-edges",
+          "aggregated_via": "multi_strategy_intent_layer",
+          "aggregated_target_qty": 0,
+          "aggregation": {
+            "resolution": "same_direction",
+            "contributing_strategies": [
+              "eth_pullback_2h"
+            ],
+            "winning_strategy": "eth_pullback_2h"
+          },
+          "contributing_strategies": [
+            "eth_pullback_2h"
+          ],
+          "aggregation_reason": "same_direction_reinforcement: 1 intents agree on short; max target_qty=0.0 from strategy=eth_pullback_2h",
+          "winning_priority": 0,
+          "news": {
+            "adjustment": 0,
+            "decision": "neutral",
+            "item_count": 0,
+            "event_risk": 0,
+            "event": {
+              "reason": "no_imminent_event",
+              "base": "ETH"
+            }
+          },
+          "sized_qty_by_account": {}
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 2739,
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "AVAXUSDT",
+        "direction": "short",
+        "strategy": "avax_pullback_2h",
+        "opened_at": "2026-06-20T08:01:28+00:00",
+        "closed_at": "2026-06-23T22:16:06+00:00",
+        "hold_seconds": 310477,
+        "entry_price": 6.138,
+        "exit_price": 6.504,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 2292.8,
+        "pnl": -812.31,
+        "pnl_percent": null,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "Order package pre-window (06-20), not in this session's grading set. Short held 3d into a +6% AVAX rally \u2192 SL hit. Biggest in-window loss (paper)."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 2824,
+        "order_package_id": "pkg-8302a01bf50f4a65",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "short",
+        "strategy": "sol_pullback_2h",
+        "opened_at": "2026-06-24T04:06:11+00:00",
+        "closed_at": "2026-06-24T04:06:11+00:00",
+        "hold_seconds": 0,
+        "entry_price": 69.43,
+        "exit_price": 69.43,
+        "stop_loss": 71.61107143,
+        "take_profit": 62.59247,
+        "qty": 6.4,
+        "pnl": -2.53,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "Reconciler close with entry==exit but \u2212$2.53 PnL \u2014 the known Bybit-demo closed-PnL artifact (#4341), not a real strategy exit."
+        },
+        "model_scores": {
+          "conviction-meta-v1": {
+            "stage": "shadow",
+            "score": 0.7708806868851543
+          },
+          "execution-quality-baseline-v0": {
+            "stage": "shadow",
+            "score": -0.20166275180833781
+          },
+          "prop-mission-policy-baseline-v0": {
+            "stage": "shadow",
+            "score": 0
+          },
+          "setup-quality-audit-baseline-v0": {
+            "stage": "shadow",
+            "score": -0.05719595959595961
+          },
+          "setup-quality-baseline-v0": {
+            "stage": "shadow",
+            "score": -0.1038957345971564
+          },
+          "setup-quality-lgbm-v2": {
+            "stage": "shadow",
+            "score": -0.5139781688933343
+          },
+          "trade-outcome-global-baseline-v0": {
+            "stage": "shadow",
+            "score": 0.24829931972789115
+          },
+          "trade-outcome-winrate-baseline-v0": {
+            "stage": "shadow",
+            "score": 0.24829931972789115
+          }
+        },
+        "signal_logic": "sol_pullback_2h short",
+        "meta": {
+          "trend_midline": 71.58500000000001,
+          "pullback_pos_in_range": 0.5901,
+          "atr": 0.8564285714285721,
+          "atr_period": 14,
+          "atr_stop_mult": 2.5,
+          "trail_mult": 5,
+          "tp_r": 50,
+          "risk_per_unit": 2.1410714285714363,
+          "entry_time": "2026-06-24 04:00:00",
+          "timeframe": "2h",
+          "adx": 26.897942327291958,
+          "adx_min": 25,
+          "adx_max": null,
+          "strategy_name": "sol_pullback_2h",
+          "confidence": 0.5901,
+          "direction": "short",
+          "strategy_risk_pct": 0.3,
+          "conviction": {
+            "conviction": 0.4796518678694848,
+            "blended": 0.4796518678694848,
+            "news_multiplier": 1,
+            "floor": 0,
+            "below_floor": false,
+            "inputs_used": {
+              "c_strat": 0.5901,
+              "c_setup": 0.4624961187174194,
+              "c_wr": 0.24829931972789115
+            },
+            "weights_used": {
+              "c_strat": 0.5294117647058824,
+              "c_setup": 0.23529411764705882,
+              "c_wr": 0.23529411764705882
+            },
+            "note": "partial_inputs",
+            "provenance": {
+              "c_strat": {
+                "source": "sol_pullback_2h",
+                "calibrated": false,
+                "raw": 0.5901
+              },
+              "c_setup": [
+                {
+                  "model_id": "setup-quality-audit-baseline-v0",
+                  "stage": "shadow",
+                  "calibrated": false,
+                  "raw": -0.05719595959595961
+                },
+                {
+                  "model_id": "setup-quality-baseline-v0",
+                  "stage": "shadow",
+                  "calibrated": false,
+                  "raw": -0.1038957345971564
+                },
+                {
+                  "model_id": "setup-quality-lgbm-v2",
+                  "stage": "shadow",
+                  "calibrated": false,
+                  "raw": -0.5139781688933343
+                }
+              ],
+              "c_wr": [
+                {
+                  "model_id": "trade-outcome-global-baseline-v0",
+                  "stage": "shadow",
+                  "calibrated": false,
+                  "raw": 0.24829931972789115
+                },
+                {
+                  "model_id": "trade-outcome-winrate-baseline-v0",
+                  "stage": "shadow",
+                  "calibrated": false,
+                  "raw": 0.24829931972789115
+                }
+              ]
+            }
+          },
+          "regime": "trending",
+          "adx_14": 26.898,
+          "regime_source": "adx-14",
+          "vol_regime": "unknown",
+          "rolling_log_return_vol": null,
+          "vol_regime_source": "vol-bucket-edges",
+          "aggregated_via": "multi_strategy_intent_layer",
+          "aggregated_target_qty": 0,
+          "aggregation": {
+            "resolution": "same_direction",
+            "contributing_strategies": [
+              "sol_pullback_2h"
+            ],
+            "winning_strategy": "sol_pullback_2h"
+          },
+          "contributing_strategies": [
+            "sol_pullback_2h"
+          ],
+          "aggregation_reason": "same_direction_reinforcement: 1 intents agree on short; max target_qty=0.0 from strategy=sol_pullback_2h",
+          "winning_priority": 0,
+          "news": {
+            "adjustment": 0,
+            "decision": "neutral",
+            "item_count": 0,
+            "event_risk": 0,
+            "event": {
+              "reason": "no_event_classes_for_symbol",
+              "base": "SOL"
+            }
+          },
+          "sized_qty_by_account": {}
+        },
+        "notable": false
+      }
+    ],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 3,
+      "summarized_trades": 0,
+      "rule": "full-per-trade (since-last/daily)"
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 134,
+        "open": 72,
+        "resolved": 62,
+        "drained": 3
+      },
+      "performance": {
+        "total": 43,
+        "open": 28,
+        "resolved": 15,
+        "drained": 0
+      },
+      "ml": {
+        "total": 43,
+        "open": 15,
+        "resolved": 28,
+        "drained": 1
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "ml",
+        "summary": "DEMOTE degenerate advisory btc-regime-1h-lgbm-yz-v1 (advisory\u2192shadow), then refine/retire (MB-20260623-001)",
+        "tier": 3
+      },
+      {
+        "source_review": "ml",
+        "summary": "Refine-or-retire f1=0 degenerate baselines + failing trade-outcome shadow models (MB-20260623-003)",
+        "tier": 3
+      },
+      {
+        "source_review": "performance",
+        "summary": "eth/avax_pullback_2h chop/counter-trend entry filter (PB-20260614-001)",
+        "tier": 3
+      },
+      {
+        "source_review": "performance",
+        "summary": "Verify ict_scalp_5m live edge \u2014 net-negative in 3-yr prop backtest (PB-20260616-002)",
+        "tier": 3
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [
+          {
+            "name": "btc-regime-5m-lgbm-yz-v1",
+            "gate": "DEMOTE_SHADOW",
+            "evidence": "stage-guard 06-24 demote set; reversed from 06-23 marginal promote-candidate \u2014 lost live edge"
+          },
+          {
+            "name": "btc-regime-1h-lgbm-yz-v1 (advisory)",
+            "gate": "DEMOTE_SHADOW",
+            "evidence": "degenerate advisory, live score collapsed (KS 0.86); MB-20260623-001 Tier-3 awaiting operator"
+          }
+        ],
+        "summary": "No model gate-ready for promotion (stage-guard promote=[]). 1 stage-guard demote + 1 standing Tier-3 advisory demote. Strategy fleet: vwap killed (configured-not-loaded); alt cohort in demo-soak; no M7 packet PROMOTE/KILL changes this window."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 1,
+        "dataset_builds_ok": true,
+        "failing_or_stuck": [
+          "trade-outcome shadow models fail promotion gates after 36d soak (beats_baseline / live_agreement 0.533 / drift KS 0.561)",
+          "trade_outcomes/execution_quality/setup_labels dataset families build 0 rows \u2014 data-blocked by low real-close volume"
+        ],
+        "summary": "1 training cycle ran (00:56Z 06-24, ExecMainStatus=0). Dataset builds OK for market families; decision-model families starved by low real-trade volume. Registry healthy at 40 models; no cycle failure."
+      },
+      "soak_status": [
+        {
+          "soak": "shadow regime models (40)",
+          "state": "accruing",
+          "detail": "daily retrains; market-feature heads healthy (lgbm-v2/yz f1_vol 0.2\u20130.64); 5 baseline-v0/v1 degenerate (f1_vol 0)"
+        },
+        {
+          "soak": "trade-outcome decision models",
+          "state": "gate_met",
+          "detail": "36d shadow-soak DAYS complete but QUALITY gates FAIL (no edge over base rate, drift) \u2192 refine/retire, not promote"
+        },
+        {
+          "soak": "conviction (P2/P3)",
+          "state": "accruing",
+          "detail": "trainer built conviction_meta 152 rows this cycle; P4 real-money sizing is Tier-3 soak-gated (MB-20260616-CONVICTION-P4)"
+        },
+        {
+          "soak": "exit-ladder shadow-soak",
+          "state": "accruing",
+          "detail": "unavailable: /api/bot/exit-ladder/soak not separately pulled this window (relay budget); observe-only, P4 graduation backtest-gated"
+        }
+      ],
+      "flags_raised": [
+        "OPEN real-money ETH short (2823) leaning against a +0.7% ETH uptrend \u2014 alt-pullback-2h cohort chop-entry risk now on real money",
+        "avax_pullback_2h paper short \u2212$812 (3-day adverse hold) \u2014 alt-pullback-2h soak quality concern",
+        "btc-regime-5m-lgbm-yz-v1 reversed from promote-candidate (06-23) to DEMOTE (06-24) \u2014 edge not holding",
+        "trade-outcome shadow models failing promotion gates after a complete 36-day soak",
+        "Diag-relay burst-webhook drops persist (BL-20260611-002) \u2014 degrades autonomous data pulls"
+      ],
+      "backlog_drive": {
+        "health": {
+          "drained": [
+            "BL-20260614-001"
+          ],
+          "deferred": [
+            {
+              "id": "BL-20260611-002",
+              "reason": "diag-relay burst-drop \u2014 Tier-1 CI fix; observed live again this session, surfaced as operator_priority #5, not fixed in this read-only review session"
+            },
+            {
+              "id": "BL-20260609-002",
+              "reason": "MGC signals verified producing (mgc_trend_1h fired in-window) but MES/MHG are 1d-cadence \u2014 full daily-coverage verification needs a multi-day audit pull"
+            }
+          ]
+        },
+        "performance": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "PB-20260614-001",
+              "reason": "Tier-3 strategy-logic (chop entry filter) \u2014 proposed, awaiting operator"
+            },
+            {
+              "id": "PB-20260616-002",
+              "reason": "Tier-3 \u2014 ict_scalp edge verification needs a backtest run"
+            },
+            {
+              "id": "PERF-20260601-011",
+              "reason": "recurring regime-router gate monitor \u2014 stays open by design; regime audit not separately pulled this window"
+            }
+          ]
+        },
+        "ml": {
+          "drained": [
+            "MB-20260623-002"
+          ],
+          "deferred": [
+            {
+              "id": "MB-20260623-001",
+              "reason": "Tier-3 advisory demotion \u2014 awaiting operator approval"
+            },
+            {
+              "id": "MB-20260623-003",
+              "reason": "Tier-3 refine/retire \u2014 trainer experiment, awaiting operator"
+            },
+            {
+              "id": "MB-20260613-002",
+              "reason": "VPIN/flow head DATA-BLOCKED, awaits forward L2 capture"
+            }
+          ]
+        },
+        "summary": "Drained 2 this run (BL-20260614-001 verified-fixed; MB-20260623-002 superseded by demote). Remaining open items are Tier-3 (operator-gated strategy/model changes), recurring monitors, or data-blocked soaks \u2014 none unilaterally actionable from a read-only review."
+      }
+    }
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260624T052322Z/report.json",
+    "html_path": "comms/reports/since-last/20260624T052322Z/report.html",
+    "md_path": "comms/reports/since-last/20260624T052322Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260624T052322Z/report.html",
+    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260624-052322-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "pending",
+    "priority": "normal",
+    "message": "[system-report:since-last] roll-up caution: H:healthy P:caution M:caution. https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260624-052322-since-last"
+  }
+}

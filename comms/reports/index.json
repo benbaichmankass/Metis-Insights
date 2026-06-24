@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260624-052322-since-last",
+      "window": "since-last",
+      "generated_at": "2026-06-24T05:23:22.093767+00:00",
+      "window_start": "2026-06-23T15:45:33+00:00",
+      "window_end": "2026-06-24T05:23:22.093767+00:00",
+      "roll_up_grade": "caution",
+      "headline": "Quiet ~13.3h chop window (BTC +0.5%, ETH +0.7%, tight ranges). Real-money flat (0 closes) with one OPEN real ETH short (eth_pullback_2h, trade 2823) leaning against a mild ETH uptrend. Paper booked \u2212$814.84 (avax_pullback_2h short \u2212$812 stopped on the AVAX rally; sol \u2212$2.53 reconciler artifact). Health green: heartbeat running, vm cpu47/mem11/disk26, all services active, prop bridge clean (0 un-acted). ML: daily cycle ran, 0 models promote-ready, 1 demote (5m-lgbm-yz reversed from yesterday's promote candidate). 7 in-window decisions graded 6C/1D.",
+      "html_path": "comms/reports/since-last/20260624T052322Z/report.html",
+      "json_path": "comms/reports/since-last/20260624T052322Z/report.json",
+      "md_path": "comms/reports/since-last/20260624T052322Z/report.md"
+    },
+    {
       "id": "RPT-20260623-154533-since-last",
       "window": "since-last",
       "generated_at": "2026-06-23T15:45:33+00:00",
