@@ -11,7 +11,12 @@ For each account (resolved via `src.prop.account_rulesets.all_account_units`):
   - **prop** account  → cost-aware EV + survival (`run_ev_montecarlo`) under its
     prop ruleset (breach rules + economics) at the account's risk_pct.
   - **standard** account → net-of-fee performance (`run_montecarlo` end-return +
-    P(breach) against the account's own soft limits) at its risk_pct.
+    P(breach) + horizon survival against the account's own soft limits) at its
+    risk_pct. The ROUTE gate is the equity/real-money gate: positive mean
+    end-return AND survival ≥ `--min-survival` AND P(breach) ≤ `--max-p-breach`
+    (so a positive-but-fragile cell can't route onto live capital). For an Alpaca
+    real-money promotion run this with `--symbol`/`--fee-bps-roundtrip` so the
+    asset_class + fee are recorded on the matrix.
 
 One engine run per (strategy, data); every account eval reuses that single
 sizing-independent ledger (the same pattern as `montecarlo_prop`). Multi-account
@@ -36,6 +41,25 @@ if str(_REPO_ROOT) not in sys.path:
 import scripts.backtest_system as bt  # noqa: E402
 from src.prop.account_rulesets import all_account_units  # noqa: E402
 from src.prop.montecarlo import run_ev_montecarlo, run_montecarlo  # noqa: E402
+
+
+def _asset_class_for(symbol: str | None) -> str:
+    """Resolve a symbol → coarse asset class via the reporting classifier.
+
+    Reuses ``src.web.api._asset_class`` (the same instruments.yaml-backed map the
+    ``/performance`` breakdown uses) so the compat matrix and the dashboard agree
+    on what an ETF *is*. Fails soft to ``"unknown"`` so a missing classifier (or a
+    symbol absent from instruments.yaml) never breaks the eval — the standard gate
+    still runs on the net-of-fee numbers, just without the class tag.
+    """
+    if not symbol:
+        return "unknown"
+    try:
+        from src.web.api._asset_class import asset_class_for_symbol
+
+        return asset_class_for_symbol(symbol)
+    except Exception:  # noqa: BLE001 — reporting-only tag; never fatal to the eval
+        return "unknown"
 
 
 def synth_ledger_from_emit(
@@ -96,15 +120,25 @@ def _evaluate_account(unit, ledger, args, horizon: float) -> Dict[str, Any]:
             "mean_accounts": h.get("mean_accounts"), "roi_on_fees": h.get("roi_on_fees"),
             "verdict": "ROUTE" if route else "skip",
         }
-    # standard account → performance + soft-breach view
+    # standard account → performance + soft-breach + survival view.
+    # The ROUTE gate is TIGHTER than "positive mean end-return": a real-money
+    # equity account must ALSO survive the horizon (>= --min-survival) and not
+    # breach too often (<= --max-p-breach) under its own soft limits, so a
+    # positive-but-fragile cell can't route onto live capital.
     mc = run_montecarlo(ledger, unit.ruleset, **common)
     er = (mc.get("end_return") or {}).get("mean")
     p_breach = mc.get("p_breach")
-    route = bool(er is not None and er > 0)
+    survival = (mc.get("survival") or {}).get(str(float(horizon)))
+    positive = bool(er is not None and er > 0)
+    survives = bool(survival is not None and survival >= args.min_survival)
+    low_breach = bool(p_breach is not None and p_breach <= args.max_p_breach)
+    route = positive and survives and low_breach
     return {
         "account": unit.account_id, "kind": "standard", "class": unit.account_class,
         "risk_pct": unit.risk_pct, "account_size_usd": unit.account_size_usd,
         "metric": "end_return_mean", "value": er, "p_breach": p_breach,
+        "survival": survival, "asset_class": args.asset_class,
+        "net_of_fee_bps": args.fee_bps_roundtrip,
         "verdict": "ROUTE" if route else "skip",
     }
 
@@ -121,6 +155,10 @@ def run(args: argparse.Namespace) -> int:
     # Output label: the strategy name when scoring a ROSTER cell via the engine,
     # else the ledger filename stem when scoring a harness emit directly.
     label = args.strategy or (Path(args.ledger).stem if args.ledger else None)
+
+    # Resolve the asset class once from --symbol (reporting tag + stamped onto
+    # every standard row by _evaluate_account).
+    args.asset_class = _asset_class_for(args.symbol)
 
     if args.ledger:
         # --- harness-emit path (aliased ETF / alt cells, outside bt.ROSTER) ---
@@ -164,25 +202,42 @@ def run(args: argparse.Namespace) -> int:
     generated_at = datetime.now(timezone.utc).isoformat()
     payload = {
         "generated_at": generated_at, "strategy": label, "data": data_src,
+        "symbol": args.symbol, "asset_class": args.asset_class,
+        "fee_bps_roundtrip": args.fee_bps_roundtrip,
+        "min_survival": args.min_survival, "max_p_breach": args.max_p_breach,
         "n_ledger_trades": len(ledger), "horizon_months": horizon, "rows": rows,
     }
     (out_dir / f"compat_{label}.json").write_text(json.dumps(payload, indent=2, default=str))
 
+    sym_tag = f"{args.symbol} · {args.asset_class}" if args.symbol else args.asset_class
+    fee_tag = (f"; fee {args.fee_bps_roundtrip:g} bps round-trip"
+               if args.fee_bps_roundtrip is not None else "")
     L = [f"# Per-account compatibility — `{label}` ({horizon:.0f}-mo)", "",
-         f"_Generated {generated_at}; {len(ledger)} ledger trades; data {data_src}_", "",
+         f"_Generated {generated_at}; {len(ledger)} ledger trades; data {data_src}_",
+         f"_Instrument {sym_tag}{fee_tag}; standard gate: survival ≥ "
+         f"{args.min_survival:.0%}, P(breach) ≤ {args.max_p_breach:.0%}_", "",
          "| account | kind | class | risk% | size$ | metric | value | extra | verdict |",
          "|---|---|---|---|---|---|---|---|---|"]
     for r in sorted(rows, key=lambda x: (x["value"] is None, -(x["value"] or 0))):
-        extra = (f"P(net>0)={r.get('p_profitable')}" if r["kind"] == "prop"
-                 else f"P(breach)={r.get('p_breach')}")
+        if r["kind"] == "prop":
+            extra = f"P(net>0)={r.get('p_profitable')}"
+        else:
+            extra = f"P(breach)={r.get('p_breach')}, surv={r.get('survival')}"
         val = "—" if r["value"] is None else (f"${r['value']:,.0f}" if r["metric"] == "ev_net_usd"
                                               else f"{r['value']*100:.1f}%")
         L.append(f"| {r['account']} | {r['kind']} | {r['class']} | {r['risk_pct']} | "
                  f"{r['account_size_usd']:.0f} | {r['metric']} | {val} | {extra} | **{r['verdict']}** |")
     L += ["", "Verdict: **ROUTE** = positive under the account's own ruleset "
-          "(prop: +EV @ P(net>0) ≥ threshold; standard: positive mean end-return). "
+          "(prop: +EV @ P(net>0) ≥ threshold; standard: positive mean end-return "
+          "AND survival ≥ --min-survival AND P(breach) ≤ --max-p-breach). "
           "Prop verdicts are research on the configured feed — revalidate on the "
-          "account's real venue data before live wiring (Tier-3)."]
+          "account's real venue data before live wiring (Tier-3).",
+          "",
+          "**Standard (real-money / paper equity) caveat:** a ROUTE here is a "
+          "net-of-fee research verdict on the supplied ledger — it MUST be "
+          "revalidated on the account's own real venue data (the broker's actual "
+          "fills + fees) before the strategy is wired live on that account "
+          "(Tier-3, operator-approved)."]
     (out_dir / f"compat_{label}.md").write_text("\n".join(L))
     print("\n".join(L))
     print(f"\nwrote {out_dir / ('compat_' + str(label) + '.md')}", file=sys.stderr)
@@ -201,6 +256,14 @@ def main(argv: List[str]) -> int:
                         "engine run); the synthesized ledger round-trips exactly through "
                         "src.prop.montecarlo.ledger_to_r_sequence.")
     p.add_argument("--data", default="/home/user/ict-trader-data/btc_5m.parquet")
+    p.add_argument("--symbol", default=None,
+                   help="Instrument symbol for this ledger (e.g. IWM, GLD). Resolves "
+                        "the asset_class via src.web.api._asset_class and is stamped onto "
+                        "the output + every standard row. Optional (defaults to 'unknown').")
+    p.add_argument("--fee-bps-roundtrip", type=float, default=None,
+                   help="Round-trip fee (bps) the emit ledger was generated at — recorded "
+                        "onto the output + standard rows for provenance (the net_r already "
+                        "bakes the fee in; this is the audit trail, not a re-charge).")
     p.add_argument("--accounts", default=None, help="Optional CSV filter of account ids.")
     p.add_argument("--start", default=None)
     p.add_argument("--end", default=None)
@@ -211,7 +274,15 @@ def main(argv: List[str]) -> int:
     p.add_argument("--n-paths", type=int, default=3000)
     p.add_argument("--block-len", type=int, default=8)
     p.add_argument("--seed", type=int, default=1234)
-    p.add_argument("--min-p-profitable", type=float, default=0.5)
+    p.add_argument("--min-p-profitable", type=float, default=0.5,
+                   help="Prop ROUTE gate: minimum P(net>0) (default 0.5).")
+    p.add_argument("--min-survival", type=float, default=0.90,
+                   help="Standard ROUTE gate: minimum horizon survival fraction "
+                        "(default 0.90). The cell must survive the horizon this "
+                        "often under the account's own soft limits to route.")
+    p.add_argument("--max-p-breach", type=float, default=0.10,
+                   help="Standard ROUTE gate: maximum P(breach) under the account's "
+                        "soft limits (default 0.10).")
     p.add_argument("--refresh-signals", action="store_true")
     p.add_argument("--out-dir", default=None)
     args = p.parse_args(argv[1:])
