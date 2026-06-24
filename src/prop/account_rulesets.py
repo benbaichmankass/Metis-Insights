@@ -109,6 +109,17 @@ def unit_for_account(account_id: str, account: Dict[str, Any]) -> AccountBacktes
     """Build the :class:`AccountBacktestUnit` for one parsed account mapping."""
     risk_block = account.get("risk") or {}
     risk_pct = _as_float(risk_block.get("risk_pct"))
+    if risk_pct is None:
+        # The live coordinator builds a FLAT account_cfg (risk_pct at the top
+        # level, from account.risk_manager.risk_pct) — NOT nested under a "risk"
+        # block like raw accounts.yaml. Without this fallback unit_for_account
+        # saw no risk_pct on the runtime path and silently defaulted to
+        # _DEFAULT_RISK_PCT (0.5%), so every emitted prop ticket was sized at
+        # 0.5% instead of the configured 1.5% (~3x undersized; risk_usd $25 vs
+        # the intended $75 on the $5k Breakout account). Tier-3 sizing fix —
+        # the compat-matrix path (raw accounts.yaml, nested risk block) is
+        # unchanged; this only adds the flat-dict fallback the runtime needs.
+        risk_pct = _as_float(account.get("risk_pct"))
     risk_pct = (risk_pct * 100.0) if (risk_pct is not None and risk_pct <= 1.0) else (risk_pct or _DEFAULT_RISK_PCT)
     account_class = str(account.get("account_class") or ("paper" if account.get("demo") else "real_money"))
 

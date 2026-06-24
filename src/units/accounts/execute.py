@@ -262,11 +262,46 @@ def execute_pkg(
             "entry": pkg.entry, "sl": pkg.sl, "tp": pkg.tp,
             "strategy": getattr(pkg, "strategy", account_id),
             # meta carries the exit structure (e.g. tp2 for a TP1→TP2 ladder) so
-            # the P3 observe-only prop-ladder soak can derive the real ExitPlan.
+            # the P3 observe-only prop-ladder soak can derive the real ExitPlan,
+            # AND the order_package_id so emit_prop_ticket can stamp it on the
+            # prop_tickets row (the ticket↔package join).
             "meta": (getattr(pkg, "meta", None) or {}),
         }
-        return emit_prop_ticket(order, account_cfg,
-                                timeframe=(getattr(pkg, "meta", None) or {}).get("timeframe"))
+        trade_id = emit_prop_ticket(
+            order, account_cfg,
+            timeframe=(getattr(pkg, "meta", None) or {}).get("timeframe"))
+        # Prop is a MANUAL bridge: no trades row is written (prop is isolated
+        # from the `trades` table by design), so the order package logged in
+        # Coordinator._log_new_order_package would sit status='open' /
+        # linked_trade_id=NULL and _sweep_unlinked_packages would mis-stamp it
+        # 'orphaned — never executed' at +5min. But the ticket WAS emitted, so
+        # 'orphaned' is wrong (this is the prop-package orphan bug). Terminate
+        # the package lifecycle accurately with status='emitted' (a non-'open'
+        # status the orphan sweep + strategy-monocle gate both ignore). Mirrors
+        # the BUG-049 dry-branch contract — every open package reaches a
+        # terminal, accurate status — without polluting the `trades` table.
+        # Best-effort: a journal hiccup must never break the (already-emitted)
+        # ticket.
+        try:
+            pkg_id = (getattr(pkg, "meta", None) or {}).get("order_package_id")
+            if pkg_id:
+                from src.units.db.database import Database
+                from src.utils.paths import trade_journal_db_path
+
+                Database(db_path=trade_journal_db_path()).update_order_package(
+                    pkg_id, {
+                        "status": "emitted",
+                        "close_reason": "prop_ticket_emitted",
+                    })
+        except Exception as exc:  # noqa: BLE001 — never break the emitted ticket
+            logger.warning(
+                "execute_pkg: prop package status update failed "
+                "(account=%s strategy=%s symbol=%s pkg_id=%s): %s",
+                account_id, getattr(pkg, "strategy", "?"),
+                getattr(pkg, "symbol", "?"),
+                (getattr(pkg, "meta", None) or {}).get("order_package_id"), exc,
+            )
+        return trade_id
 
     if exchange_client is None:
         is_dry = True

@@ -189,7 +189,17 @@ def emit_prop_ticket(
             "signal_time": sig.signal_time.isoformat(),
             "valid_until": leg.ticket.valid_until.isoformat(),
             "status": "emitted",
-            "order_package_id": order.get("order_package_id"),
+            # The execute_pkg breakout branch passes the package id in
+            # order["meta"]["order_package_id"] (the order dict has no top-level
+            # key), so the previous order.get("order_package_id") was ALWAYS
+            # None — every prop_tickets row had a null order_package_id, breaking
+            # the ticket↔order-package join the dashboard prop view + reconcile
+            # rely on. Read from meta, top-level as a fallback for any other
+            # caller that does set it directly.
+            "order_package_id": (
+                order.get("order_package_id")
+                or (order.get("meta") or {}).get("order_package_id")
+            ),
             "message": ticket_message,
         })
     except Exception as exc:  # noqa: BLE001 — journaling never blocks emission

@@ -17,9 +17,10 @@ Authorisation is the bridge's job (it already restricts to the operator's
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from src.prop import prop_journal
 from src.prop.telegram_commands import USAGE, build_report, parse_prop_command
@@ -79,13 +80,98 @@ def resolve_open_ticket(account_id: str, canonical_symbol: str) -> Tuple[
     return None, None
 
 
+def _strip_code_fence(text: str) -> str:
+    """Drop a surrounding ```/```json fence if the operator pasted one."""
+    s = text.strip()
+    if s.startswith("```"):
+        s = s[3:]
+        if s[:4].lower() == "json":
+            s = s[4:]
+        if s.endswith("```"):
+            s = s[:-3]
+    return s.strip()
+
+
+def _looks_like_json_report(text: str) -> bool:
+    s = _strip_code_fence(text)
+    return s.startswith("{") or '"account_id"' in s
+
+
+def handle_json_report(text: str, *, default_account: Optional[str] = None
+                       ) -> Optional[str]:
+    """Ingest a pasted JSON report-back (the shape the rendered TICKET tells the
+    executor to reply with: ``{"account_id":…,"symbol":…,"status":"open",…}``).
+
+    Returns a one-line ack on success, a hint string on malformed/invalid JSON,
+    or ``None`` when the text doesn't look like a JSON report at all (caller then
+    tries the structured command grammar). This closes the gap where the ticket
+    instructs a JSON reply but the bot only understood ``open ETHUSD …`` lines —
+    both report-back formats now work in the prop channel.
+    """
+    if not _looks_like_json_report(text):
+        return None
+    raw = _strip_code_fence(text)
+    try:
+        report: Any = json.loads(raw)
+    except (ValueError, TypeError):
+        return ("⚠ That looked like a JSON report but I couldn't parse it. Paste "
+                "the exact block from the ticket, or use a line like "
+                "`open ETHUSD 1620 0.73`.")
+    if not isinstance(report, dict):
+        return "⚠ JSON report must be an object like the ticket's report-back block."
+
+    report = dict(report)  # don't mutate the caller's parse
+    if not (report.get("account_id") or report.get("account")) and default_account:
+        report["account_id"] = default_account
+
+    try:
+        from src.prop.prop_report import ingest_report
+
+        out = ingest_report(report)
+    except ValueError as exc:
+        return f"⚠ rejected: {exc}"
+    except Exception as exc:  # noqa: BLE001 — never crash the caller on one message
+        logger.exception("telegram_report_handler: json ingest failed")
+        return f"⚠ error: {exc}"
+    return _confirm_json(report, out)
+
+
+def _confirm_json(report: Dict[str, Any], out: Dict[str, Any]) -> str:
+    """Human one-line ack for a JSON report-back ingest."""
+    kind = out.get("kind")
+    if kind == "account_status":
+        rd = out.get("rule_distance") or {}
+        return (f"✅ account status recorded [{report.get('account_id')}] · "
+                f"to daily-loss ${rd.get('distance_to_daily_loss_usd')} · "
+                f"to DD-floor ${rd.get('distance_to_dd_floor_usd')}")
+    sym = report.get("symbol")
+    status = str(report.get("status") or out.get("status") or "").upper()
+    tid = out.get("ticket_id")
+    tail = f" · ticket {tid}" if tid else ""
+    if status == "CLOSED":
+        return (f"✅ recorded CLOSE {sym} @ {report.get('exit_price')} "
+                f"pnl {report.get('pnl', '—')} ({report.get('reason', '—')}){tail}")
+    if status == "SKIPPED":
+        return f"✅ recorded SKIP {sym} ({report.get('reason', '—')}){tail}"
+    return (f"✅ recorded {status or 'OPEN'} {sym} @ {report.get('entry_price')} "
+            f"qty {report.get('qty', '—')}{tail}")
+
+
 def handle_command(text: str, *, default_account: Optional[str] = None) -> Optional[str]:
     """Parse → enrich → ingest one message. Returns the reply text, or ``None``.
 
     ``None`` ⇒ the line was not a recognised prop command (caller stays silent /
     falls through to its own handling). A malformed command returns a usage hint
     string; a successful ingest returns a one-line confirmation.
+
+    A pasted JSON report-back (what the rendered ticket instructs) is handled
+    first via :func:`handle_json_report`; everything else falls through to the
+    structured command grammar (``close ETHUSD 2950 +80 tp``).
     """
+    json_reply = handle_json_report(text, default_account=default_account)
+    if json_reply is not None:
+        return json_reply
+
     try:
         intent = parse_prop_command(text)
     except ValueError as exc:
@@ -145,4 +231,5 @@ def _confirm(intent: dict, report: dict, out: dict) -> str:
     return f"✅ recorded SKIP {sym} ({report.get('reason')}){tail}"
 
 
-__all__ = ["handle_command", "default_prop_account", "resolve_open_ticket"]
+__all__ = ["handle_command", "handle_json_report", "default_prop_account",
+           "resolve_open_ticket"]

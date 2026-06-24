@@ -220,6 +220,57 @@ def emit_prop_monitor_pulse(position: Dict[str, Any], *, push: bool = True,
     return out
 
 
+def render_expiry_prompt_message(ticket: Dict[str, Any]) -> str:
+    """Human-readable body for the 'did you place this expired ticket?' prompt."""
+    sym = ticket.get("symbol") or "?"
+    direction = str(ticket.get("direction") or "").upper()
+    account = ticket.get("account_id") or "prop"
+    valid_until = ticket.get("valid_until") or "?"
+    return (
+        f"⏰ PROP TICKET EXPIRED — {sym} {direction} [{account}]\n"
+        f"entry {_fmt(ticket.get('entry'))} · SL {_fmt(ticket.get('sl'))} · "
+        f"TP {_fmt(ticket.get('tp'))} · qty {_fmt(ticket.get('qty'))}\n"
+        f"valid until {valid_until} (now past).\n"
+        "Did you place this trade?"
+    )
+
+
+def emit_prop_expiry_prompt(ticket: Dict[str, Any], *,
+                            telegram: bool = True) -> bool:
+    """Ask the operator (Yes/No buttons) whether an EXPIRED prop ticket was placed.
+
+    Sent to the **prop bot** (``_prop_bot_token``) so the inline-keyboard answer
+    lands as a ``callback_query`` on the prop bot the operator already uses — the
+    callback is handled in ``src.bot.claude_bridge`` (``propexp:*``). Telegram-only:
+    the buttons only work in the Telegram client, so there is no FCM leg.
+
+    Returns ``True`` only when the prompt was confirmed sent — the caller uses
+    this to gate the ticket's status flip to ``expiry_prompted`` so a delivery
+    failure simply retries next tick instead of silently going un-prompted.
+    Best-effort + isolated: a failure logs a WARNING and returns ``False``.
+    """
+    if not telegram:
+        return False
+    ticket_id = str(ticket.get("ticket_id") or "")
+    if not ticket_id:
+        return False
+    try:
+        from src.prop.prop_expiry_prompt import build_expiry_keyboard
+        from src.runtime.notify import send_telegram_direct
+
+        return bool(send_telegram_direct(
+            render_expiry_prompt_message(ticket),
+            parse_mode=None,
+            mirror_to_fcm=False,
+            bot_token=_prop_bot_token(),
+            reply_markup=build_expiry_keyboard(ticket_id),
+        ))
+    except Exception as exc:  # noqa: BLE001 — notification never fatal
+        logger.warning("emit_prop_expiry_prompt: send failed for %s: %s",
+                       ticket_id, exc)
+        return False
+
+
 def emit_prop_fill(fill: Dict[str, Any], *, push: bool = True,
                    telegram: bool = True) -> Dict[str, bool]:
     """Fan an inbound prop fill/close out as a typed push + Telegram line.
