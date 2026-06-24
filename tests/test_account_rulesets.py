@@ -39,6 +39,32 @@ def test_breakout_account_resolves_prop():
     assert u.account_size_usd == u.ruleset.account_size_usd
 
 
+def test_flat_runtime_account_cfg_sizes_off_top_level_risk_pct():
+    """Regression: the live coordinator passes a FLAT account_cfg (risk_pct at
+    the top level from RiskManager.risk_pct), NOT nested under a 'risk' block.
+
+    Before the fix unit_for_account only read account['risk']['risk_pct'], saw
+    nothing on the runtime path, and silently used _DEFAULT_RISK_PCT (0.5%) — so
+    every emitted prop ticket was sized at 0.5% instead of the configured 1.5%
+    ($25 vs the intended $75 on the $5k Breakout account). The top-level fallback
+    must resolve the real risk.
+    """
+    flat = {"exchange": "breakout", "account_class": "real_money",
+            "risk_pct": 0.015}   # the shape coordinator.multi_account_execute builds
+    u = unit_for_account("breakout_1", flat)
+    assert u.kind == "prop"
+    assert u.risk_pct == 1.5     # 0.015 fraction -> 1.5 percent (NOT the 0.5 default)
+
+
+def test_nested_risk_block_still_wins_over_top_level():
+    # The compat-matrix path (raw accounts.yaml, nested risk block) is unchanged;
+    # an explicit nested risk_pct takes precedence over any top-level value.
+    acct = {"exchange": "breakout", "risk_pct": 0.005,
+            "risk": {"risk_pct": 0.015}}
+    u = unit_for_account("breakout_1", acct)
+    assert u.risk_pct == 1.5
+
+
 def test_explicit_backtest_ruleset_field_wins():
     acct = {"exchange": "bybit", "backtest_ruleset": "prop_rulesets/breakout.yaml",
             "risk": {"risk_pct": 0.01}}

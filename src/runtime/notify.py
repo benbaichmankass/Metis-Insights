@@ -17,6 +17,7 @@ def send_telegram_direct(
     parse_mode: Optional[str] = "HTML",
     mirror_to_fcm: bool = True,
     bot_token: Optional[str] = None,
+    reply_markup: Optional[dict] = None,
 ) -> bool:
     """
     Stdlib-only direct POST to Telegram's sendMessage API.
@@ -99,6 +100,13 @@ def send_telegram_direct(
     fields = {"chat_id": chat_id, "text": message}
     if parse_mode:
         fields["parse_mode"] = parse_mode
+    # Optional inline keyboard (Telegram expects a JSON-encoded reply_markup in
+    # the form field). Used by the prop ticket-expiry Yes/No prompt — the button
+    # press lands as a callback_query on whichever bot token owns this message,
+    # so the prompt MUST be sent via the prop bot token for the prop bot to
+    # receive the answer.
+    if reply_markup is not None:
+        fields["reply_markup"] = json.dumps(reply_markup)
     payload = urllib.parse.urlencode(fields).encode("utf-8")
     req = urllib.request.Request(
         url,

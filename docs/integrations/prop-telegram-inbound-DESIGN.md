@@ -93,9 +93,50 @@ No BotFather change is needed for a 1:1 chat with the bot. (If the prop channel
 is ever a Telegram *group*, disable BotFather privacy mode so the bot sees plain
 `close …` lines.)
 
+## Expired-ticket Yes/No prompt (built 2026-06-24)
+
+A ticket that passes its `valid_until` with no report-back is silent drift — the
+bot can't tell whether the operator placed it and forgot to report, or skipped
+it. Instead of leaving it to `prop_reconcile.find_unacted_tickets`, the bot now
+**asks**: once per trader tick `src/prop/prop_expiry_prompt.run_prop_expiry_prompts`
+(called from `src/main.py`, next to the monitor pulse) finds just-expired un-acted
+tickets and sends the prop bot a message with two inline buttons:
+
+```
+⏰ PROP TICKET EXPIRED — ETHUSDT SHORT [breakout_1] … Did you place this trade?
+    [✅ Yes — I placed it]   [❌ No — not placed]
+```
+
+Lifecycle on the `prop_tickets` row:
+
+```
+emitted ─(stale, prompt sent)─▶ expiry_prompted ─┬─ No ─▶ expired
+                                                 └─ Yes ▶ awaiting_report ─(fill)▶ filled/closed
+```
+
+- **No** → the ticket is logged `expired` (operator confirmed it was never placed).
+- **Yes** → it moves to `awaiting_report` and the operator gets the same
+  `REPORT_PROMPT` block; pasting back `open …` / `close …` flows through the SAME
+  `prop_report.ingest_report` chokepoint and links to the ticket
+  (`match_fill_to_ticket` now accepts `expiry_prompted` / `awaiting_report`).
+
+| Piece | File | Role |
+|---|---|---|
+| Detector + runner + callback logic | `src/prop/prop_expiry_prompt.py` | `find_tickets_to_prompt` (expired + un-acted + recency-bounded), `run_prop_expiry_prompts` (per-tick; flips to `expiry_prompted` only after a confirmed send — the idempotency guard, no state file), `build_expiry_keyboard`, `handle_expiry_callback` (the shared, transport-agnostic Yes/No handler). |
+| Sender | `src/prop/breakout_notify.py::emit_prop_expiry_prompt` | Telegram-only (buttons are Telegram-only); sent via `_prop_bot_token()` so the answer routes to the prop bot. Uses the new `send_telegram_direct(reply_markup=…)`. |
+| Callback transport | `src/bot/claude_bridge.py` (`propexp:*`), with a fallback in `src/bot/telegram_query_bot.py` for the degraded case where `_prop_bot_token` falls back to the trader bot token. |
+
+Knobs (baseline, no enable gate — Prime Directive): `PROP_EXPIRY_PROMPT_SECONDS`
+(`<= 0` pauses prompting), `PROP_EXPIRY_PROMPT_MAX_AGE_HOURS` (default 12 — a
+ticket that expired longer ago than this is too stale to ask about, so a
+historical backlog can't spam on first deploy).
+
 ## Tests
 
 `tests/test_prop_symbol_map.py` + `tests/test_prop_telegram_commands.py` — both
 map directions, parser (every verb/alias/edge number/bad-args), `build_report`,
 and the handler end-to-end against an isolated journal (venue-symbol `close`
 links the canonical-symbol ticket + flips it closed).
+`tests/test_prop_expiry_prompt.py` — the detector, per-tick idempotency +
+send-failure retry, the Yes/No callback transitions, and the
+Yes→awaiting_report→fill-links-back lifecycle.
