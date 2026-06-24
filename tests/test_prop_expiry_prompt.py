@@ -175,7 +175,6 @@ def test_callback_ignores_non_propexp() -> None:
 
 
 def test_send_test_prompt_creates_throwaway_ticket(isolated_env: Path) -> None:
-    from src.prop import prop_journal
     from src.prop.prop_expiry_prompt import handle_expiry_callback, send_test_prompt
 
     sent = []
