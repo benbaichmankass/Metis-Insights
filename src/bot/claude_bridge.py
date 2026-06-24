@@ -147,6 +147,31 @@ async def start_cmd(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 menu_cmd = start_cmd
 
 
+async def testexpiry_cmd(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """`/testexpiry` — send one Yes/No expiry prompt for a throwaway test ticket.
+
+    Operator verification of the live button round-trip: the prompt's buttons
+    fire ``propexp:*`` callbacks handled by :func:`on_callback`. Clicking Yes/No
+    mutates only the test ticket, never a real prop position. The DB write runs
+    off the event loop so polling never stalls."""
+    if not _is_authorized(update) or update.message is None:
+        return
+    from src.prop.prop_expiry_prompt import send_test_prompt
+
+    try:
+        ticket_id = await asyncio.to_thread(send_test_prompt)
+    except Exception as exc:  # noqa: BLE001 — a test bug must never kill the bot
+        logger.warning("testexpiry: send_test_prompt failed: %s", exc)
+        ticket_id = None
+    if ticket_id:
+        await update.message.reply_text(
+            f"🧪 Sent a test expiry prompt ({ticket_id}). Tap ✅/❌ above to try "
+            "the flow — it only touches this throwaway ticket.")
+    else:
+        await update.message.reply_text(
+            "⚠ Couldn't send the test prompt (check the prop bot token / logs).")
+
+
 async def on_callback(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Menu button handler — the prompt + the format reminder."""
     query = update.callback_query
@@ -317,6 +342,7 @@ def main() -> None:
     )
     app.add_handler(CommandHandler("start", start_cmd))
     app.add_handler(CommandHandler("menu", menu_cmd))
+    app.add_handler(CommandHandler("testexpiry", testexpiry_cmd))
     app.add_handler(CallbackQueryHandler(on_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _on_operator_message))
     if app.job_queue is not None:

@@ -174,6 +174,26 @@ def test_callback_ignores_non_propexp() -> None:
     assert handle_expiry_callback("") is None
 
 
+def test_send_test_prompt_creates_throwaway_ticket(isolated_env: Path) -> None:
+    from src.prop.prop_expiry_prompt import handle_expiry_callback, send_test_prompt
+
+    sent = []
+    tid = send_test_prompt(emitter=lambda t: sent.append(t["ticket_id"]) or True)
+    assert tid is not None and tid.startswith("prop-test-")
+    assert sent == [tid]
+    # The throwaway ticket is journaled as emitted, already expired.
+    assert _status(tid) == "emitted"
+    # Clicking the buttons drives the same lifecycle on the test ticket only.
+    handle_expiry_callback(f"propexp:n:{tid}")
+    assert _status(tid) == "expired"
+
+
+def test_send_test_prompt_returns_none_on_send_failure(isolated_env: Path) -> None:
+    from src.prop.prop_expiry_prompt import send_test_prompt
+
+    assert send_test_prompt(emitter=lambda t: False) is None
+
+
 def test_yes_then_fill_links_back_to_ticket(isolated_env: Path) -> None:
     """Full lifecycle: Yes → awaiting_report → an inbound fill links + flips it."""
     from src.prop import prop_reconcile
