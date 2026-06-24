@@ -1,0 +1,171 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-06-24T05:23:22.093767+00:00 · window 2026-06-23T15:45:33+00:00 → 2026-06-24T05:23:22.093767+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>Quiet ~13.3h chop window (BTC +0.5%, ETH +0.7%, tight ranges). Real-money flat (0 closes) with one OPEN real ETH short (eth_pullback_2h, trade 2823) leaning against a mild ETH uptrend. Paper booked −$814.84 (avax_pullback_2h short −$812 stopped on the AVAX rally; sol −$2.53 reconciler artifact). Health green: heartbeat running, vm cpu47/mem11/disk26, all services active, prop bridge clean (0 un-acted). ML: daily cycle ran, 0 models promote-ready, 1 demote (5m-lgbm-yz reversed from yesterday&#x27;s promote candidate). 7 in-window decisions graded 6C/1D.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Open real-money ETH short (trade 2823) leaning against a +0.7% ETH uptrend</b> <span class="pill">performance · T3</span> ⚠️ operator<br><span class='muted'>eth_pullback_2h short opened 04:01Z (entry ~1666.33); ETH grinding up 1660→1671. Monitor; the alt-pullback-2h cohort has a known chop/counter-trend entry concern (PB-20260614-001).</span></li>
+<li><b>avax_pullback_2h paper short −$812 (held 3d, stopped on AVAX rally)</b> <span class="pill">performance · T3</span><br><span class='muted'>Alt-pullback-2h soak producing large adverse holds. Evaluate trend/regime entry filter before any real-money routing widens (PB-20260614-001).</span></li>
+<li><b>ML: 5m-lgbm-yz-v1 flipped promote→demote; only advisory (1h-yz) still degenerate</b> <span class="pill">ml · T3</span> ⚠️ operator<br><span class='muted'>0 models promote-ready (stage-guard promote=[]). btc-regime-5m-lgbm-yz-v1 now in demote set. btc-regime-1h-lgbm-yz-v1 (the only advisory) remains degenerate — MB-20260623-001 Tier-3 demote awaiting operator.</span></li>
+<li><b>Degenerate f1=0 baselines + trade-outcome shadow models failing gates after 36d soak</b> <span class="pill">ml · T3</span><br><span class='muted'>5 *-baseline-v0/v1 models predict majority class only; trade-outcome shadow models fail beats_baseline/live_agreement/drift. Refine-or-retire (MB-20260623-003).</span></li>
+<li><b>Diag-relay burst-webhook drops persist (BL-20260611-002)</b> <span class="pill">health · T1</span><br><span class='muted'>~half of bursted diag-request issues skipped this session (create-with-label race delivers empty labels → job-if skip). Reliable only filed one-at-a-time. Tier-1 CI fix candidate (job should read labels via API, not webhook payload).</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">72 open / 134 total · 3 drained</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">28 open / 43 total</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">15 open / 43 total · 1 drained</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>ml</span> DEMOTE degenerate advisory btc-regime-1h-lgbm-yz-v1 (advisory→shadow), then refine/retire (MB-20260623-001)</li>
+<li><span class='pill'>ml</span> Refine-or-retire f1=0 degenerate baselines + failing trade-outcome shadow models (MB-20260623-003)</li>
+<li><span class='pill'>performance</span> eth/avax_pullback_2h chop/counter-trend entry filter (PB-20260614-001)</li>
+<li><span class='pill'>performance</span> Verify ict_scalp_5m live edge — net-negative in 3-yr prop backtest (PB-20260616-002)</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>Flat/chop crypto (BTC +0.5%, ETH +0.7%, tight ranges) ties together health (continuous &#x27;no actionable signal / staying flat&#x27; ticks), performance (the few fires graded 6C/1D, low conviction), and market context — a correctly-quiet window.</li>
+<li>The alt-pullback-2h cohort (eth/sol/avax/xrp/ada) is the active risk surface this window: it produced the OPEN real ETH short, the −$812 paper AVAX loss, AND an orphaned paper sol package — one strategy family still in demo-soak yet already routed to real money (eth on bybit).</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟢 healthy</span></h2>
+<div class="tablewrap"><table><tr><th>Service</th><th>State</th><th>Since</th></tr>
+<tr><td>ict-trader-live.service</td><td>active/—</td><td>—</td></tr>
+<tr><td>ict-web-api.service</td><td>active/—</td><td>—</td></tr>
+<tr><td>ict-telegram-bot.service</td><td>active/—</td><td>—</td></tr>
+<tr><td>ict-claude-bridge.service</td><td>active/—</td><td>—</td></tr>
+<tr><td>ict-git-sync.timer</td><td>active/—</td><td>—</td></tr>
+<tr><td>ict-liveness-watchdog.timer</td><td>active/—</td><td>—</td></tr>
+<tr><td>ict-web-api-watchdog.timer</td><td>active/—</td><td>—</td></tr>
+<tr><td>ict-db-integrity.timer</td><td>active/—</td><td>—</td></tr>
+<tr><td>ict-insights-generator.timer</td><td>active/—</td><td>—</td></tr>
+<tr><td>ict-hourly-snapshot.timer</td><td>active/—</td><td>—</td></tr>
+<tr><td>ict-health-snapshot.timer</td><td>active/—</td><td>—</td></tr>
+</table></div>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>heartbeat</td><td class="sev-ok">🟢 ok</td><td>—</td></tr>
+<tr><td>services</td><td class="sev-ok">🟢 ok</td><td>—</td></tr>
+<tr><td>vm_health</td><td class="sev-ok">🟢 ok</td><td>—</td></tr>
+<tr><td>pipeline</td><td class="sev-ok">🟢 ok</td><td>—</td></tr>
+<tr><td>db_integrity</td><td class="sev-ok">🟢 ok</td><td>—</td></tr>
+<tr><td>prop_bridge</td><td class="sev-ok">🟢 ok</td><td>—</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$0.00</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">+$0.00</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-814.84</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">2</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-407.42</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.00</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-814.84</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>avax_pullback_2h</td><td>1</td><td>0.0%</td><td class="neg">$-812.31</td></tr>
+<tr><td>sol_pullback_2h</td><td>1</td><td>0.0%</td><td class="neg">$-2.53</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">3</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">0</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">5</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">3 full dossiers, 0 summarized (full-per-trade (since-last/daily)).</p>
+<details><summary><span class="pill real">real_money</span> ETHUSDT short · eth_pullback_2h · <span class="">—</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2823</div><div class="k">account</div><div>bybit (real)</div><div class="k">opened</div><div>2026-06-24T04:01:13.763785+00:00</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1666.33</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>1712.03178571</div><div class="k">target</div><div>1501.36333</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>conviction-meta-v1:shadow=0.771, execution-quality-baseline-v0:shadow=-0.202, prop-mission-policy-baseline-v0:shadow=0.000, setup-quality-audit-baseline-v0:shadow=-0.057, setup-quality-baseline-v0:shadow=-0.104, setup-quality-lgbm-v2:shadow=-0.514, trade-outcome-global-baseline-v0:shadow=0.248, trade-outcome-winrate-baseline-v0:shadow=0.248</div><div class="k">signal logic</div><div>eth_pullback_2h trend_midline 1707.2, pullback_pos 0.629, atr 18.28, adx 30.1, conf 0.629, short</div><div class="k">grade rationale</div><div>2h pullback short, conf 0.629, adx 30 (trend-ok). Open against a mild ETH uptrend — modestly adverse; the cohort&#x27;s known chop-entry risk applies.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> AVAXUSDT short · avax_pullback_2h · <span class="neg">$-812.31</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2739</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-20T08:01:28+00:00</div><div class="k">closed</div><div>2026-06-23T22:16:06+00:00</div><div class="k">hold (s)</div><div>310477</div><div class="k">entry</div><div>6.138</div><div class="k">exit</div><div>6.504</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>2292.8</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>sl</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>Order package pre-window (06-20), not in this session&#x27;s grading set. Short held 3d into a +6% AVAX rally → SL hit. Biggest in-window loss (paper).</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT short · sol_pullback_2h · <span class="neg">$-2.53</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2824</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-24T04:06:11+00:00</div><div class="k">closed</div><div>2026-06-24T04:06:11+00:00</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>69.43</div><div class="k">exit</div><div>69.43</div><div class="k">stop</div><div>71.61107143</div><div class="k">target</div><div>62.59247</div><div class="k">qty</div><div>6.4</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>conviction-meta-v1:shadow=0.771, execution-quality-baseline-v0:shadow=-0.202, prop-mission-policy-baseline-v0:shadow=0.000, setup-quality-audit-baseline-v0:shadow=-0.057, setup-quality-baseline-v0:shadow=-0.104, setup-quality-lgbm-v2:shadow=-0.514, trade-outcome-global-baseline-v0:shadow=0.248, trade-outcome-winrate-baseline-v0:shadow=0.248</div><div class="k">signal logic</div><div>sol_pullback_2h short</div><div class="k">grade rationale</div><div>Reconciler close with entry==exit but −$2.53 PnL — the known Bybit-demo closed-PnL artifact (#4341), not a real strategy exit.</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>62482.4</td><td>62822.6</td><td>63120.5</td><td>62100.0</td><td class="pos">0.5%</td><td>quiet chop, mildly bid; tight 62.1k–63.1k range — no breakout → strategies correctly non-actionable</td></tr>
+<tr><td>ETHUSDT</td><td>1659.73</td><td>1671.38</td><td>1680.55</td><td>1649.63</td><td class="pos">0.7%</td><td>mild grind higher 1660→1671 — the OPEN real-money short (2823) leans against this drift</td></tr>
+<tr><td>SOLUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>not pulled this window (relay budget); paper sol short closed −$2.53 (reconciler artifact)</td></tr>
+<tr><td>AVAXUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>not pulled this window; AVAX rallied 6.14→6.50 over the hold, stopping the paper short for −$812</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>btc-regime-5m-lgbm-yz-v1</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>btc-regime-1h-lgbm-yz-v1</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>trade-outcome-winrate-baseline-v0</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>*-baseline-v0/v1 (btc/mes/regime)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+</table></div>
+<h3>Promotion / demotion recommendations (Tier-3)</h3><ul class='pri'>
+<li>— <b>btc-regime-5m-lgbm-yz-v1</b> —→—: —</li>
+<li>— <b>btc-regime-1h-lgbm-yz-v1</b> —→—: —</li>
+</ul>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li>DEMOTE_SHADOW <b>btc-regime-5m-lgbm-yz-v1</b> — stage-guard 06-24 demote set; reversed from 06-23 marginal promote-candidate — lost live edge</li>
+<li>DEMOTE_SHADOW <b>btc-regime-1h-lgbm-yz-v1 (advisory)</b> — degenerate advisory, live score collapsed (KS 0.86); MB-20260623-001 Tier-3 awaiting operator</li>
+<li class='muted'>No model gate-ready for promotion (stage-guard promote=[]). 1 stage-guard demote + 1 standing Tier-3 advisory demote. Strategy fleet: vwap killed (configured-not-loaded); alt cohort in demo-soak; no M7 packet PROMOTE/KILL changes this window.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">1</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">True</div></div>
+</div>
+<p class='muted'>1 training cycle ran (00:56Z 06-24, ExecMainStatus=0). Dataset builds OK for market families; decision-model families starved by low real-trade volume. Registry healthy at 40 models; no cycle failure.</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>shadow regime models (40)</td><td>accruing</td><td>daily retrains; market-feature heads healthy (lgbm-v2/yz f1_vol 0.2–0.64); 5 baseline-v0/v1 degenerate (f1_vol 0)</td></tr>
+<tr><td>trade-outcome decision models</td><td>gate_met</td><td>36d shadow-soak DAYS complete but QUALITY gates FAIL (no edge over base rate, drift) → refine/retire, not promote</td></tr>
+<tr><td>conviction (P2/P3)</td><td>accruing</td><td>trainer built conviction_meta 152 rows this cycle; P4 real-money sizing is Tier-3 soak-gated (MB-20260616-CONVICTION-P4)</td></tr>
+<tr><td>exit-ladder shadow-soak</td><td>accruing</td><td>unavailable: /api/bot/exit-ladder/soak not separately pulled this window (relay budget); observe-only, P4 graduation backtest-gated</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 OPEN real-money ETH short (2823) leaning against a +0.7% ETH uptrend — alt-pullback-2h cohort chop-entry risk now on real money</li><li>🚩 avax_pullback_2h paper short −$812 (3-day adverse hold) — alt-pullback-2h soak quality concern</li><li>🚩 btc-regime-5m-lgbm-yz-v1 reversed from promote-candidate (06-23) to DEMOTE (06-24) — edge not holding</li><li>🚩 trade-outcome shadow models failing promotion gates after a complete 36-day soak</li><li>🚩 Diag-relay burst-webhook drops persist (BL-20260611-002) — degrades autonomous data pulls</li></ul>
+<footer>report_id RPT-20260624-052322-since-last · reviewer claude · prior RPT-20260623-154533-since-last · ICT Trading Bot system-report</footer></div></body></html>

@@ -84,8 +84,11 @@
       "title": "/api/bot/order-packages + /api/bot/trades/closed appear to 500 (consumer-facing) \u2014 relay fetch fails on both while shadow/stats + insights succeed",
       "description": "These two Tier-1 GET endpoints back the dashboard Order Packages tab + Positions closed-history. Reviews had to fall back to the diag journal (journal?table=order_packages/trades) to get the same data. Next step: direct curl on the live VM to capture the exact status code + traceback (likely an unhandled exception in the router under the since/include_demo params \u2014 note order-packages recently changed in #3508 to expose signalLogic+meta), then fix. /api/bot/config was also implicated on 2026-06-06.",
       "tier": 1,
-      "status": "open",
-      "snoozed_until": null
+      "status": "resolved",
+      "snoozed_until": null,
+      "resolved_at": "2026-06-24T05:20:09.292176+00:00",
+      "resolved_by": "claude (/system-review 2026-06-24)",
+      "resolution": "Verified RESOLVED 2026-06-24: pulled /api/bot/order-packages?since=...&include_paper=true (issue #4368) and /api/bot/trades/closed?since=...&include_paper=true (issue #4369) through the vm-diag relay \u2014 BOTH returned HTTP 200 with valid JSON payloads (order packages with signalLogic/modelScores; 2 closed trades). The consumer-facing 500 is no longer reproducible."
     },
     {
       "id": "BL-20260612-002",
@@ -2322,5 +2325,5 @@
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-23T11:33:00+00:00"
+  "updated_at": "2026-06-24T05:20:09.292176+00:00"
 }
