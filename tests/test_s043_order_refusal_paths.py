@@ -36,8 +36,6 @@ RiskManager.approve() boolean shape. This file fills the remaining gaps:
 """
 from __future__ import annotations
 
-import pytest
-
 from src.core.coordinator import OrderPackage
 from src.runtime.orders import safe_place_order
 from src.units.accounts.risk import RiskManager
