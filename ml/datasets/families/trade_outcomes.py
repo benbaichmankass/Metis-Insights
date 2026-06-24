@@ -180,7 +180,7 @@ class TradeOutcomesBuilder(DatasetBuilder):
                     "LEFT JOIN order_packages op "
                     "  ON op.linked_trade_id = t.id "
                     f"LEFT JOIN {_SNAPSHOT_TABLE} snap "
-                    "  ON snap.order_package_id = op.id "
+                    "  ON snap.order_package_id = op.order_package_id "
                     " AND snap.account_id = t.account_id "
                     "WHERE t.status = 'closed'"
                 )
