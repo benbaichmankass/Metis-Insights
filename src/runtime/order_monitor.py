@@ -1271,6 +1271,48 @@ def _send_close_to_exchange(matched_trade: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
+def _cancel_resting_protection_after_flat(
+    account_id: Optional[str], symbol: Optional[str],
+) -> None:
+    """Cancel resting protective bracket legs for (account, symbol) after the
+    RECONCILER concludes the position is flat on the exchange. Best-effort.
+
+    The reconciler's flat-close paths (``exchange_flat_reconciled`` / snapshot /
+    close-on-disappear) mark the DB row closed WITHOUT going through
+    ``IBClient.close`` — the position is already flat, so no opposing order is
+    sent — and so they never cancelled the symbol's resting GTC OCA legs. On IB
+    those stale stops sit on a now-flat position and can later fire, SELLING into
+    a reverse position → a fresh orphan (the MHG long→short flip,
+    BL-20260624-MHG-FLIP). This sweeps them. IB-only: Bybit/Alpaca/OANDA closes
+    are atomic / position-attached, so there are no stranded resting legs to
+    cancel (the client simply has no ``cancel_resting_protection`` and we no-op).
+    Never raises into the reconcile sweep.
+    """
+    if not account_id or not symbol:
+        return
+    try:
+        client, cfg = _build_account_client(account_id)
+    except Exception:  # noqa: BLE001
+        return
+    if client is None or cfg is None:
+        return
+    cancel_fn = getattr(client, "cancel_resting_protection", None)
+    if not callable(cancel_fn):
+        return  # non-IB integration — nothing to sweep
+    try:
+        resp = cancel_fn(symbol) or {}
+        if resp.get("retCode") not in (0, "0", None):
+            logger.info(
+                "order_monitor: cancel resting protection after flat-close for "
+                "%s/%s → %s", account_id, symbol, resp.get("retMsg"),
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: cancel-resting-protection-after-flat failed for "
+            "%s/%s: %s", account_id, symbol, exc,
+        )
+
+
 def _send_partial_close_to_exchange(
     matched_trade: Dict[str, Any], qty: float,
 ) -> Dict[str, Any]:
@@ -2295,6 +2337,11 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                     }, ensure_ascii=False)[:500],
                 })
                 summary["closed_disappeared"] += 1
+                # Sweep any resting protective legs now that the position is
+                # confirmed flat — a reconciler flat-close never went through
+                # IBClient.close, so stale IB OCA stops could otherwise fire and
+                # flip a flat position into a reverse orphan (BL-20260624-MHG-FLIP).
+                _cancel_resting_protection_after_flat(aid, sym)
                 logger.warning(
                     "_reconcile_orphan_exchange_positions: CLOSED disappeared "
                     "adopted orphan — trade_id=%s account=%s symbol=%s side=%s",
@@ -2424,6 +2471,11 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                         caller="_reconcile_orphan_exchange_positions(snapshot)",
                     )
                     summary["snapshot_closed"] += 1
+                    # Sweep resting protective legs now the position is confirmed
+                    # flat (this snapshot reconcile never went through
+                    # IBClient.close) so a stale IB OCA stop can't fire and flip
+                    # the flat position into a reverse orphan (BL-20260624-MHG-FLIP).
+                    _cancel_resting_protection_after_flat(aid, sym)
                     logger.warning(
                         "_reconcile_orphan_exchange_positions: CLOSED via "
                         "position-snapshot reconcile — trade_id=%s account=%s "
