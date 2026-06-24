@@ -33,8 +33,8 @@ CREATE TABLE trades (
     created_at      TEXT DEFAULT (datetime('now'))
 );
 CREATE TABLE order_packages (
-    id               TEXT PRIMARY KEY,
-    linked_trade_id  INTEGER
+    order_package_id  TEXT PRIMARY KEY,
+    linked_trade_id   INTEGER
 );
 CREATE TABLE account_context_snapshots (
     order_package_id      TEXT,
@@ -79,7 +79,8 @@ def _make_db(tmp_path: Path) -> Path:
         "'2026-05-01T13:00:00Z')"
     )
     conn.execute(
-        "INSERT INTO order_packages (id, linked_trade_id) VALUES ('pkg-1', 1)"
+        "INSERT INTO order_packages (order_package_id, linked_trade_id) "
+        "VALUES ('pkg-1', 1)"
     )
     conn.execute(
         "INSERT INTO account_context_snapshots (order_package_id, account_id, "

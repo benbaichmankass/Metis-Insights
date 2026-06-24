@@ -424,11 +424,12 @@ class TestSnapshotJoin:
         # the FIRST trade only — the second should land with None columns.
         conn = sqlite3.connect(db_path)
         conn.execute(
-            "CREATE TABLE order_packages (id TEXT PRIMARY KEY, "
+            "CREATE TABLE order_packages (order_package_id TEXT PRIMARY KEY, "
             "linked_trade_id INTEGER)"
         )
         conn.executemany(
-            "INSERT INTO order_packages(id, linked_trade_id) VALUES (?, ?)",
+            "INSERT INTO order_packages(order_package_id, linked_trade_id) "
+            "VALUES (?, ?)",
             [("pkg-1", 1), ("pkg-2", 2)],
         )
         # Apply the snapshot writer's schema + insert one row matching
