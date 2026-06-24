@@ -217,9 +217,9 @@ class PropRiskManager(RiskManager):
         A prop account has no live broker-balance API: it "executes" by
         emitting a manual Telegram ticket, so the coordinator's balance
         fetch (``_fetch_balance`` for ``exchange: breakout``) returns 0.0.
-        The base ``RiskManager.position_size`` would then refuse on
-        ``gate_balance=0.00 < min_balance_usd`` (the prop-account no-trades
-        cause, BL-20260619-PROP-GATE-BALANCE) and the ticket would never be
+        The base ``RiskManager.position_size`` would then refuse on the
+        ``gate_balance <= 0`` guard (the prop-account no-trades cause,
+        BL-20260619-PROP-GATE-BALANCE) and the ticket would never be
         emitted.
 
         Prop sizing is intentionally split (operator design, 2026-06-19):
@@ -253,9 +253,10 @@ class PropRiskManager(RiskManager):
         )
         # Only substitute the nominal when NO live balance signal is present at
         # all (both the spot balance and the derivatives total come through
-        # unavailable — the breakout case). A genuine live balance, even one
-        # below the floor, is left untouched so the base min-balance gate still
-        # refuses it (we don't blanket-bypass the gate for prop).
+        # unavailable — the breakout case). A genuine live balance is left
+        # untouched and sizes off the risk budget as usual (there is no
+        # minimum-balance floor — min_balance_usd was removed 2026-06-24; only
+        # a non-positive balance refuses, via the base gate_balance<=0 guard).
         has_live_balance = (balance_usd and balance_usd > 0) or (
             total_account_usd is not None and total_account_usd > 0
         )

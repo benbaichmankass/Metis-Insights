@@ -69,11 +69,11 @@ class TestAccountsDispatchedRenderer:
         assert "skipped_not_assigned" in sec.body
 
     def test_three_mixed_outcome_accounts(self):
-        """Full 3-account scenario: one ok, one skipped, one below_min."""
+        """Full 3-account scenario: one ok, one skipped, one zero-balance."""
         secs = _sections([
             {"name": "bybit_1", "error": "skipped_not_assigned: vwap not in strategies", "sized_qty": 0.0},
             {"name": "bybit_2", "error": None, "sized_qty": 0.001},
-            {"name": "ib_paper", "error": "below_min_balance: balance=5.00 USD", "sized_qty": 0.0},
+            {"name": "ib_paper", "error": "zero_balance: gate_balance=0.00 USD (no funds available to size against)", "sized_qty": 0.0},
         ])
         sec = _dispatch_section(secs)
         assert sec is not None

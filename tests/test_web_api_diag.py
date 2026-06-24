@@ -141,7 +141,7 @@ def test_audit_returns_tail(client, fake_runtime):
         "\n".join(
             [
                 json.dumps({"id": 1, "event": "tick", "result": "ok"}),
-                json.dumps({"id": 2, "event": "rejected", "reason": "below_min_balance"}),
+                json.dumps({"id": 2, "event": "rejected", "reason": "zero_balance"}),
                 "",
                 "{not valid}",
                 json.dumps({"id": 3, "event": "tick", "result": "ok"}),
@@ -156,7 +156,7 @@ def test_audit_returns_tail(client, fake_runtime):
     # Three valid JSON lines; one blank skipped, one malformed skipped.
     assert len(body) == 3
     assert body[0]["id"] == 1
-    assert body[1]["reason"] == "below_min_balance"
+    assert body[1]["reason"] == "zero_balance"
 
 
 def test_journal_order_packages_returns_rows_newest_updated_first(client, fake_runtime):

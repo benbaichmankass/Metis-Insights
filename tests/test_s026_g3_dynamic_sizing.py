@@ -273,9 +273,10 @@ class TestLiveBalanceFetcher:
         self, monkeypatch, tmp_path,
     ):
         """A row whose total_usdt is None (exchange call failed) must NOT
-        be treated as $0 → the per-account RiskManager refuses to size
-        and the operator sees a clear ``below_min_balance`` skip
-        instead of a phantom zero-qty trade."""
+        be treated as a real balance → the fetcher yields $0 → the
+        per-account RiskManager refuses to size (the only balance gate,
+        ``gate_balance <= 0``) and the operator sees a clear
+        ``zero_balance`` skip instead of a phantom zero-qty trade."""
         from src.core.coordinator import Coordinator
 
         self._stub_accounts(monkeypatch)
@@ -298,9 +299,9 @@ class TestLiveBalanceFetcher:
         )
 
         names = {r["name"]: r for r in results}
-        # acc_a: total_usdt=None → fetcher returns 0.0 → below_min_balance.
+        # acc_a: total_usdt=None → fetcher returns 0.0 → zero_balance.
         assert names["acc_a"]["sized_qty"] == 0.0
-        assert "below_min_balance" in names["acc_a"]["error"]
+        assert "zero_balance" in names["acc_a"]["error"]
         # acc_b: sized normally.
         assert names["acc_b"]["sized_qty"] > 0
         assert names["acc_b"]["error"] is None
