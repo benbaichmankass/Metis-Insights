@@ -143,6 +143,35 @@ def _migrate_add_closed_at(cursor: sqlite3.Cursor) -> bool:
     return True
 
 
+def _migrate_add_reconcile_status(cursor: sqlite3.Cursor) -> bool:
+    """Add ``reconcile_status`` column to ``trades`` if absent.
+
+    Makes ORPHAN an explicit, queryable terminal state rather than something a
+    reader must INFER from ``setup_type='adopted_orphan'`` / ``strategy_name=
+    'orphan_adopt'`` / ``status='orphaned'`` (operator directive 2026-06-24:
+    orphan is a problem to RESOLVE, never a silent resting status). Values:
+
+    * ``NULL``           — unspecified (the normal case for a non-orphan trade,
+                           and pre-migration rows).
+    * ``'unreconciled'`` — an orphan row that has NOT been tied back to a real
+                           trade / order package: the red-flag state to resolve.
+    * ``'reconciled'``   — an orphan reconciled to its originating order package
+                           (e.g. a reverse-reconciler adoption that recovered the
+                           real strategy + package).
+    * ``'superseded'``   — a phantom flap duplicate void-flagged in favour of the
+                           single canonical row (written by the historical
+                           reconciliation pass; excluded from analytics).
+
+    Idempotent: returns True only on the run that actually adds the column.
+    """
+    cursor.execute("PRAGMA table_info(trades)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "reconcile_status" in columns:
+        return False
+    cursor.execute("ALTER TABLE trades ADD COLUMN reconcile_status TEXT")
+    return True
+
+
 def _migrate_add_order_package_model_scores(cursor: sqlite3.Cursor) -> bool:
     """Add ``model_scores`` column to ``order_packages`` if absent.
 
@@ -276,6 +305,7 @@ class Database:
         _migrate_add_account_class(cursor)
         _migrate_add_order_package_id(cursor)
         _migrate_add_closed_at(cursor)
+        _migrate_add_reconcile_status(cursor)
         # Index for efficient per-account trade history queries.
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_trades_account_created "

@@ -452,6 +452,13 @@ runtime_logs/
   validation.jsonl      — M5 backtest-run audit log (one NDJSON row per /test invocation)
   heartbeat.txt         — mtime used to detect if bot is alive
 trade_journal.db        — canonical SQLite (live VM: /data/bot-data/trade_journal.db).
+                          trades carries reconcile_status (orphan-flap hardening
+                          2026-06-24): NULL=unspecified / 'unreconciled' (an orphan
+                          to resolve — the red-flag state) / 'reconciled' (tied to
+                          its real order package) / 'superseded' (a phantom flap
+                          duplicate void-flagged by the historical reconciliation
+                          pass, excluded from analytics). Orphan is an EXPLICIT
+                          queryable terminal state, never inferred from setup_type.
                           Tables: trades, order_packages, signals (dual-write),
                           backtest_results (on-demand /test runs only),
                           daily_risk_state (per-account daily PnL + equity-high —

@@ -854,3 +854,30 @@ def test_mark_orphaned_fires_orphan_red_flag(monkeypatch):
     assert c["account"] == "ib_paper" and c["symbol"] == "MHG"
     assert c["side"] == "long" and c["trade_id"] == 99
     assert c["origin"] == "forward_reconciler_orphaned"
+
+
+def test_adopt_stamps_reconcile_status(tmp_db, monkeypatch):
+    """A bare adopt (no recoverable order package) → reconcile_status
+    'unreconciled' (the red-flag state to resolve, item #4)."""
+    monkeypatch.setenv("ORPHAN_POSITION_POLICY", "adopt")
+    # Don't write real orphan_events / pings from the red-flag hook.
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_orphan_created_flag",
+        lambda **kw: None,
+    )
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[_bybit_position()],
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+    assert summary["adopted"] == 1
+    conn = tmp_db.connect()
+    try:
+        row = conn.execute(
+            "SELECT reconcile_status, strategy_name FROM trades "
+            "WHERE status='open'"
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row[1] == "orphan_adopt"           # no package recovered → bare
+    assert row[0] == "unreconciled"           # explicit red-flag terminal

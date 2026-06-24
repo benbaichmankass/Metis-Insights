@@ -52,6 +52,12 @@ _EXPECTED_TRADES_COLS = {
     # until a close path stamps it; open rows and never-opened terminal rows
     # (rejected/exchange_rejected) legitimately leave it NULL.
     "closed_at",
+    # Added 2026-06-24 (orphan-flap hardening #4): explicit reconcile state so
+    # ORPHAN is a queryable, flagged terminal status rather than inferred from
+    # setup_type/strategy_name/status. NULL=unspecified; 'unreconciled' (orphan
+    # to resolve) / 'reconciled' (tied to its real package) / 'superseded'
+    # (phantom flap dup void-flagged by the historical reconciliation pass).
+    "reconcile_status",
 }
 
 _EXPECTED_ORDER_PACKAGES_COLS = {

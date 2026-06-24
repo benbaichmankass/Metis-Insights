@@ -2842,6 +2842,8 @@ def _reattach_adopted_orphans(db, summary: Dict[str, int]) -> None:
                 "stop_loss": recovered.get("sl"),
                 "take_profit_1": recovered.get("tp"),
                 "entry_reason": "reverse_reconciler_reattached_existing_orphan",
+                # Now tied back to its real strategy + order package (item #4).
+                "reconcile_status": "reconciled",
             })
             db.update_order_package(opid, {
                 "status": "open",
@@ -3087,6 +3089,8 @@ def _adopt_orphan_position(
             "stop_loss": sl,
             "take_profit_1": tp,
             "account_id": account_id,
+            # Reconciled to its real strategy + order package (item #4).
+            "reconcile_status": "reconciled",
         }
         trade_id = int(db.insert_trade(trade_data))
         # Reopen + re-link the original package so run_monitor_tick picks it
@@ -3151,6 +3155,8 @@ def _adopt_orphan_position(
         # No order package recovered → order_package_id legitimately unset (NULL).
         "strategy_name": "orphan_adopt",
         "account_id": account_id,
+        # No real package recovered — this is the red-flag state to resolve (item #4).
+        "reconcile_status": "unreconciled",
     }
     return int(db.insert_trade(trade_data))
 
@@ -4216,6 +4222,8 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                         "status": "orphaned",
                         "exit_reason": "stuck_strategy_watchdog",
                         "notes": dump_capped(trade_notes, 500),
+                        # Orphan = red-flag state to resolve (item #4).
+                        "reconcile_status": "unreconciled",
                     })
                     # Operator directive (2026-06-24): a row entering the
                     # orphaned state is a red flag. Durably log + fire the loud
@@ -4860,6 +4868,8 @@ def _mark_orphaned(db, row: Dict[str, Any]) -> None:
         "status": "orphaned",
         "exit_reason": "reconciler",
         "notes": dump_capped(notes, 500),
+        # Orphan = red-flag state to resolve, not a silent terminal (item #4).
+        "reconcile_status": "unreconciled",
     })
     # Operator directive (2026-06-24): a row entering the orphaned state is a red
     # flag, never an acceptable resting status. Durably log it for the
