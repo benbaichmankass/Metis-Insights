@@ -67,6 +67,20 @@ A new step, **required** by the `backtesting` and `new-strategy` skills:
   "which strategies on which account" answer.
 - This makes the prop-eval engine a *standard* gate, not a one-off. (Tier-1
   tooling + skill-doc updates.)
+- **Daily/ETF (Alpaca) extension** (PB-20260618-012): cells outside the BTC
+  engine `ROSTER` (the daily/intraday SPY/QQQ/IWM/GLD/SLV/USO/TLT/IEF legs) are
+  scored via the asset-agnostic `--ledger` path — feed the cell's
+  `scripts/backtest_{trend,pullback}.py --emit-trades` JSONL to
+  `account_compat_matrix.py --ledger <jsonl> --symbol <SYM>`; the orchestrator
+  `scripts/ops/etf_account_compat.sh` runs every Alpaca cell at its exact
+  `config/strategies.yaml` params. For a `standard` (real-money / paper equity)
+  account the ROUTE gate is **tightened beyond positive end-return**: it also
+  requires `survival ≥ --min-survival` (default 0.90) AND `P(breach) ≤
+  --max-p-breach` (default 0.10) under the account's own soft limits, and the row
+  records `symbol`/`asset_class`/`net_of_fee_bps`. **This daily/ETF compat run is
+  the mandatory gate before promoting any cell onto the real-money `alpaca_live`
+  account** (Tier-3) — the matrix ROUTE is a net-of-fee research verdict that must
+  still be revalidated on Alpaca's own real venue fills + fees before the live wire.
 
 ## 2. Strategy promotion (the alt variant)
 

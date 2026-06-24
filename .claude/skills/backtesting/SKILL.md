@@ -33,6 +33,21 @@ account it wasn't evaluated against under that account's rules. (Prop verdicts a
 research on the configured feed — revalidate on the account's real venue data
 before any Tier-3 live wire.)
 
+**Daily/ETF cells + the Alpaca real-money gate.** For an Alpaca ETF cell (the
+daily/intraday SPY/QQQ/IWM/GLD/SLV/USO/TLT/IEF legs, outside the BTC engine
+`ROSTER`), score it via the harness-emit path: pass the cell's
+`scripts/backtest_{trend,pullback}.py --emit-trades` JSONL to
+`account_compat_matrix.py --ledger <jsonl> --symbol <SYM> --base-risk-pct <pct>`.
+The orchestrator `scripts/ops/etf_account_compat.sh` runs this for every Alpaca
+cell at its exact `config/strategies.yaml` params (trainer-VM-resident
+`data/<SYM>_<tf>.csv`). For these `standard` accounts the ROUTE gate is **tighter
+than positive end-return** — it also requires `survival ≥ --min-survival` (0.90)
+AND `P(breach) ≤ --max-p-breach` (0.10) under the account's own soft limits, and
+stamps `symbol`/`asset_class`/`net_of_fee_bps` onto each row. **This daily/ETF
+compat run is the MANDATORY gate before promoting any cell onto the real-money
+`alpaca_live` account** (Tier-3); the ROUTE verdict must still be revalidated on
+Alpaca's own real venue fills + fees before the live wire.
+
 ## Where backtest code lives (on `main`)
 
 | Entry point | Strategy | Invocation |
