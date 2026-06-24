@@ -144,3 +144,46 @@ def test_modify_path_fires_update_ping(monkeypatch):
     assert captured.get("symbol") == "BTCUSDT"
     assert captured.get("account") == "bybit_1"
     assert any("SL" in c for c in captured.get("changes", []))
+
+
+def test_orphan_created_flag_logs_and_pings(tmp_path, monkeypatch):
+    """A new orphan row fires a CRITICAL red-flag ping (with the /system-review
+    call-to-action) AND appends a durable follow-up event for the backlog drain."""
+    monkeypatch.setattr(ed, "PENDING_PINGS_DIR", tmp_path)
+    log = tmp_path / "orphan_events.jsonl"
+    monkeypatch.setattr(ed, "ORPHAN_EVENTS_LOG", log)
+
+    path = ed.enqueue_orphan_created_flag(
+        account="ib_paper", symbol="MHG", side="short", trade_id=2835,
+        origin="reverse_reconciler_adopt", reason="no matching open journal row",
+    )
+
+    # Red-flag ping.
+    assert path is not None
+    payload = _read_payload(path)
+    assert payload["priority"] == "critical"
+    body = payload["body"]
+    assert "ORPHAN TRADE CREATED" in body
+    assert "MHG" in body and "short" in body and "2835" in body
+    assert "/system-review" in body
+
+    # Durable follow-up record.
+    lines = log.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 1
+    evt = json.loads(lines[0])
+    assert evt["kind"] == "orphan_created"
+    assert evt["account"] == "ib_paper" and evt["symbol"] == "MHG"
+    assert evt["trade_id"] == 2835
+    assert evt["origin"] == "reverse_reconciler_adopt"
+    assert evt["ts"]  # timestamped
+
+
+def test_orphan_created_flag_appends_each_event(tmp_path, monkeypatch):
+    monkeypatch.setattr(ed, "PENDING_PINGS_DIR", tmp_path)
+    log = tmp_path / "orphan_events.jsonl"
+    monkeypatch.setattr(ed, "ORPHAN_EVENTS_LOG", log)
+    ed.enqueue_orphan_created_flag(account="a", symbol="MGC", side="long",
+                                   trade_id=1, origin="adopt_bare")
+    ed.enqueue_orphan_created_flag(account="a", symbol="MGC", side="long",
+                                   trade_id=2, origin="adopt_bare")
+    assert len(log.read_text(encoding="utf-8").strip().splitlines()) == 2
