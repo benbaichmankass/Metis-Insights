@@ -170,6 +170,89 @@ def enqueue_orphan_created_flag(
         return None
 
 
+def enqueue_close_failure(
+    *,
+    account: Optional[str],
+    symbol: Optional[str],
+    side: Optional[str],
+    qty: Optional[float],
+    consecutive: int,
+    error: Optional[str],
+    priority: str = "high",
+) -> Optional[Path]:
+    """Surface a monitor close that has failed N consecutive times.
+
+    The monitor's exchange-first close leaves the DB row OPEN and retries on any
+    exchange-close failure (network / rate-limit / venue error). That retry was
+    previously SILENT (an ERROR log, no operator ping) — a position that won't
+    flatten could be retried forever unnoticed. After N consecutive failures for
+    the same (account, symbol, direction) this fires so the operator can act.
+    Best-effort; never raises.
+    """
+    try:
+        body = (
+            "🛑 Position CLOSE failing — won't flatten\n"
+            f"Account: {account}\n"
+            f"Symbol: {symbol} | Side: {side} | "
+            f"Qty: {qty if qty is not None else '?'}\n"
+            f"Consecutive close failures: {consecutive}\n"
+            f"Last error: {error}\n"
+            "The DB row is left OPEN and retried each tick — investigate the "
+            "venue/connection; the stuck-strategy watchdog is the backstop."
+        )[:1024]
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-closefail.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: close-failure enqueue failed account=%s "
+            "symbol=%s: %s", account, symbol, exc,
+        )
+        return None
+
+
+def enqueue_stuck_package_sweep(
+    *, count: int, priority: str = "high",
+) -> Optional[Path]:
+    """Alert when the stuck-linked-package sweep force-closes ``count`` rows.
+
+    The sweep is a second-line self-heal: a package left ``status='open'`` after
+    its linked trade reached a terminal status blocks the strategy-monocle gate
+    (every future signal for that strategy is silently dropped). It previously
+    only logged — so the underlying cascade gap stayed invisible. A non-zero
+    sweep means a primary cascade path missed; surface it. Best-effort.
+    """
+    try:
+        body = (
+            "🧹 Stuck linked-package sweep fired\n"
+            f"Force-closed {count} order package(s) whose linked trade was "
+            "already terminal but the package stayed open (the strategy-monocle "
+            "gate would otherwise stay blocked).\n"
+            "This is the second-line self-heal — a non-zero count means a primary "
+            "cascade path missed; worth a look."
+        )[:1024]
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-stucksweep.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: stuck-package-sweep enqueue failed: %s", exc,
+        )
+        return None
+
+
 def enqueue_daily_cap_alert(
     *,
     account: str,

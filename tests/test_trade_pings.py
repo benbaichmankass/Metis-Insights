@@ -187,3 +187,25 @@ def test_orphan_created_flag_appends_each_event(tmp_path, monkeypatch):
     ed.enqueue_orphan_created_flag(account="a", symbol="MGC", side="long",
                                    trade_id=2, origin="adopt_bare")
     assert len(log.read_text(encoding="utf-8").strip().splitlines()) == 2
+
+
+def test_close_failure_ping_shape(tmp_path, monkeypatch):
+    monkeypatch.setattr(ed, "PENDING_PINGS_DIR", tmp_path)
+    path = ed.enqueue_close_failure(
+        account="ib_paper", symbol="MHG", side="long", qty=3,
+        consecutive=3, error="venue error",
+    )
+    assert path is not None
+    payload = _read_payload(path)
+    assert payload["priority"] == "high"
+    body = payload["body"]
+    assert "CLOSE failing" in body and "MHG" in body
+    assert "Consecutive close failures: 3" in body
+
+
+def test_stuck_package_sweep_ping_shape(tmp_path, monkeypatch):
+    monkeypatch.setattr(ed, "PENDING_PINGS_DIR", tmp_path)
+    payload = _read_payload(ed.enqueue_stuck_package_sweep(count=2))
+    assert payload["priority"] == "high"
+    assert "Stuck linked-package sweep" in payload["body"]
+    assert "2 order package" in payload["body"]

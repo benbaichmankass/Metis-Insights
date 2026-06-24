@@ -815,14 +815,40 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                 # error (e.g. a one-off network blip) still retries next tick.
                 if "not confirmed flat" in err_str.lower():
                     _PENDING_CLOSE_RETRY_COOLDOWN[_close_key] = datetime.now(timezone.utc)
+                # Item #3: count consecutive close failures for this
+                # (account, symbol, direction) and ALERT once the streak crosses
+                # the threshold (and every threshold-th failure after) — a
+                # position that won't flatten is no longer retried silently
+                # forever. Cleared on a confirmed close.
+                _streak = _CLOSE_FAIL_STREAK.get(_close_key, 0) + 1
+                _CLOSE_FAIL_STREAK[_close_key] = _streak
+                _after = _close_fail_alert_after()
+                if _streak == _after or (_streak > _after and _streak % _after == 0):
+                    try:
+                        from src.runtime.execution_diagnostics import (
+                            enqueue_close_failure,
+                        )
+                        enqueue_close_failure(
+                            account=matched_trade.get("account_id"),
+                            symbol=matched_trade.get("symbol"),
+                            side=matched_trade.get("direction"),
+                            qty=matched_trade.get("position_size"),
+                            consecutive=_streak, error=err_str,
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "order_monitor: close-failure alert enqueue failed "
+                            "pkg=%s: %s", pkg_id, exc,
+                        )
                 summary.error_count += 1
                 summary.errors.append(f"{pkg_id}: exchange close failed: {err_str}")
                 return
 
-        # Confirmed close (or dry-run skip) → clear any close-retry cooldown
-        # marker for this (account, symbol, direction) so a future close isn't
-        # needlessly deferred.
+        # Confirmed close (or dry-run skip) → clear the close-retry cooldown
+        # marker AND the consecutive-failure streak for this (account, symbol,
+        # direction) so a future close isn't needlessly deferred / re-alerted.
         _PENDING_CLOSE_RETRY_COOLDOWN.pop(_close_key, None)
+        _CLOSE_FAIL_STREAK.pop(_close_key, None)
 
         # Exchange close ok (or dry-run skip). Capture the actual fill
         # price from Bybit before writing the DB so the trade row's
@@ -1581,6 +1607,15 @@ _PENDING_CLOSE_CONFIRM: Dict[int, datetime] = {}
 _DEFAULT_CLOSE_RETRY_COOLDOWN_SECONDS = 300
 _PENDING_CLOSE_RETRY_COOLDOWN: Dict[tuple, datetime] = {}
 
+# Consecutive monitor-close failures per (account, symbol, direction). The
+# exchange-first close leaves the DB row open and retries on any exchange-close
+# failure — previously a SILENT loop (ERROR log, no operator ping). After
+# MONITOR_CLOSE_FAIL_ALERT_AFTER consecutive failures we alert so a position that
+# won't flatten is surfaced (item #3). Cleared on a confirmed close. In-process;
+# a restart re-arms from scratch.
+_DEFAULT_CLOSE_FAIL_ALERT_AFTER = 3
+_CLOSE_FAIL_STREAK: Dict[tuple, int] = {}
+
 # Re-adopt guard window (BL-20260618-RECONCILE-DUP, 2026-06-18). When an IB
 # gateway flaps (logged-out → empty portfolio → back) during the broker reset
 # window, the reverse reconciler could adopt the SAME exchange position, have
@@ -1711,6 +1746,26 @@ def _close_confirm_seconds() -> float:
         return max(0.0, float(raw))
     except (TypeError, ValueError):
         return float(_DEFAULT_CLOSE_CONFIRM_SECONDS)
+
+
+def _close_fail_alert_after() -> int:
+    """Consecutive monitor-close failures before the operator is alerted.
+
+    Reads ``MONITOR_CLOSE_FAIL_ALERT_AFTER`` at call time; falls back to
+    ``_DEFAULT_CLOSE_FAIL_ALERT_AFTER`` on missing / unparseable values, clamped
+    ``>= 1`` (item #3 — surface a position that won't close instead of retrying
+    it silently forever).
+    """
+    # The close-fail alert is always on (default 3); this knob only tunes after
+    # how many consecutive failures it fires — it strands no capability, so it is
+    # not the BUG-039 default-off-gate class the env-gate purge forbids.
+    raw = os.environ.get("MONITOR_CLOSE_FAIL_ALERT_AFTER")  # allow-silent: tuning knob (alert cadence), not a capability gate
+    if raw is None or str(raw).strip() == "":
+        return _DEFAULT_CLOSE_FAIL_ALERT_AFTER
+    try:
+        return max(1, int(raw))
+    except (TypeError, ValueError):
+        return _DEFAULT_CLOSE_FAIL_ALERT_AFTER
 
 
 def _close_retry_cooldown_seconds() -> float:
@@ -3546,6 +3601,20 @@ def _sweep_stuck_linked_packages(db) -> int:
                 "linked package(s) — strategy gate cleared",
                 affected,
             )
+            # Item #3: this second-line self-heal was log-only. A non-zero sweep
+            # means a PRIMARY cascade path missed (a package stayed open after
+            # its trade went terminal, blocking the strategy gate) — surface it
+            # so the gap is visible, not silently patched. Best-effort.
+            try:
+                from src.runtime.execution_diagnostics import (
+                    enqueue_stuck_package_sweep,
+                )
+                enqueue_stuck_package_sweep(count=affected)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_sweep_stuck_linked_packages: sweep alert enqueue failed: %s",
+                    exc,
+                )
         return affected
     except Exception as exc:  # noqa: BLE001
         logger.warning("_sweep_stuck_linked_packages: failed: %s", exc)
