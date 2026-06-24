@@ -328,12 +328,14 @@ individual pings **suppressed**, one consolidated ping instead), AND it assesses
 **strategy promotion/demotion readiness** (where each strategy stands vs its
 gate), **ML training-cycle + soak health** (are cycles running, dataset builds
 OK, soaks accruing not stalled), **raises flags loudly** when something is
-degrading, and **finds bugs and proposes/applies the fixes** (Tier-3 calls go to
-the operator with the exact change; everything else it drives). A
-**review-coverage guard** (`consolidated.review_coverage` —
-`strategy_promotion` + `ml_training_health` + `soak_status` + `flags_raised`)
-fails the run if any of the three required assessments is missing, so a review
-can't silently skip the promotion/training/soak mandate.
+degrading, **finds bugs and proposes/applies the fixes** (Tier-3 calls go to
+the operator with the exact change; everything else it drives), and **works the
+three review backlogs down** (`docs/claude/{health,performance,ml}-review-backlog.json`
+— drain open items each run, not just count them). A **review-coverage guard**
+(`consolidated.review_coverage` — `strategy_promotion` + `ml_training_health` +
+`soak_status` + `flags_raised` + `backlog_drive`) fails the run if any required
+assessment is missing, so a review can't silently skip the
+promotion/training/soak mandate or skip working the backlogs.
 
 `/system-report` remains a **back-compat alias** that runs the same session —
 the artifact name stays "report" everywhere it's load-bearing

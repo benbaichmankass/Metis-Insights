@@ -51,11 +51,22 @@ run MUST actively:
    stalled, a gate met-but-unactioned, a training failure) goes in
    `operator_priorities` / `cross_review_notes` with `operator_action_required`
    set, not buried.
+6. **Work the three review backlogs down** — `docs/claude/{health,performance,ml}-review-backlog.json`
+   are part of the job, not a tally. Each run, actively pull open items and
+   *drain* them: fix Tier-1/2 items (in a follow-up PR) and mark them `resolved`
+   with a full-timestamp `resolved_at`; carry Tier-3 items to the operator as an
+   exact proposed change. An item may stay open ONLY if it is genuinely soaking,
+   blocked on future data, or a Tier-3 awaiting the operator — and then say so.
+   A report whose `backlog_summary` shows many open and ~zero drained is the
+   tell that this step was skipped (the recurring "zero out of lots of things
+   completed" complaint). Counting the backlog (the `backlog_counts.py` roll-up)
+   is NOT the same as working it.
 
 Producing the report is NOT the finish line — the review's findings being
-*driven* (fixed, or put in front of the operator as an exact decision) is. The
-**Review-coverage guard** below fails a run that skipped the promotion /
-training / soak assessment.
+*driven* (fixed, or put in front of the operator as an exact decision) is, and
+the backlogs being *worked down* is. The **Review-coverage guard** below fails a
+run that skipped the promotion / training / soak assessment or that shows no
+backlog drive.
 
 ## Review-coverage guard (mandatory — 2026-06-23)
 
@@ -75,12 +86,19 @@ grading-freshness guard. Required, non-empty:
   gate; flags for any stall / met-but-unactioned.
 - `review_coverage.flags_raised[]` — the loud flags this review surfaced (may be
   empty only if genuinely nothing is degrading — state that explicitly).
+- `review_coverage.backlog_drive` — proof the three backlogs were *worked*, not
+  just counted: per domain, what you `drained` this run (the item ids you
+  resolved) and `deferred` (ids left open + the reason each is legitimately not
+  actionable now: soaking / future-data / Tier-3-awaiting-operator). If you
+  drained nothing, this must say why every open item is non-actionable — "no
+  time" / "didn't look" is not a valid reason.
 
-**STOP and complete the assessment if any of the three required keys is missing
-or empty** — a review that can't show its promotion/training/soak coverage has
-not actually run, regardless of how complete the trade/health summary looks.
-(Relay-blocked data is allowed only as an explicit `"unavailable: <reason>"`
-string — never silently omitted.)
+**STOP and complete the assessment if any of the four required keys
+(`strategy_promotion`, `ml_training_health`, `soak_status`, `backlog_drive`) is
+missing or empty** — a review that can't show its promotion/training/soak
+coverage *or its backlog drive* has not actually run, regardless of how complete
+the trade/health summary looks. (Relay-blocked data is allowed only as an
+explicit `"unavailable: <reason>"` string — never silently omitted.)
 
 ## Scope (what this skill DOES)
 
@@ -110,8 +128,11 @@ read it; this file is the operating procedure.
   first (see "Running the three reviews"). "Don't re-grade" means "don't grade
   twice", **not** "don't grade".
 - **Touching `src/`, `config/`, or any live-path file.** Reports don't trade.
-- **Owning a new backlog.** This skill drains nothing of its own — the three
-  sub-reviews drain their own backlogs when run. Surface the roll-up counts only.
+- **Owning a *new* backlog.** This skill creates no backlog of its own — but it
+  is NOT exempt from draining: it MUST actively work the three sub-review
+  backlogs down (mandatory action 6) and record the drive in
+  `review_coverage.backlog_drive`. "Surface the roll-up counts" is the floor, not
+  the job.
 - **Scheduling.** v1 is on-demand. Automatic daily/weekly/monthly is a documented
   phase-2 (a cron-triggered session) — don't try to wire a timer here.
 
@@ -237,9 +258,11 @@ Build the consolidated object per
 - `consolidated.tier3_proposals_pending[]` — the Tier-3 items the sub-reviews
   proposed (never enacted), surfaced in one place.
 - `consolidated.review_coverage` — **required** (the Review-coverage guard): the
-  `strategy_promotion`, `ml_training_health`, `soak_status`, and `flags_raised[]`
-  the review produced. A run with any of the three required keys missing/empty
-  must STOP and complete the assessment before rendering.
+  `strategy_promotion`, `ml_training_health`, `soak_status`, `flags_raised[]`, and
+  `backlog_drive` (what was drained vs deferred + why) the review produced. A run
+  with any of the four required keys (`strategy_promotion`, `ml_training_health`,
+  `soak_status`, `backlog_drive`) missing/empty must STOP and complete the work
+  before rendering.
 
 ## Render & deliver
 
