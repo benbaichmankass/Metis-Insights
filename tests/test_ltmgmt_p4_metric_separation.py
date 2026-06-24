@@ -55,7 +55,8 @@ def _seed(db: Path) -> None:
             pnl REAL,
             is_backtest INTEGER DEFAULT 0,
             account_class TEXT,
-            is_demo INTEGER DEFAULT 0
+            is_demo INTEGER DEFAULT 0,
+            strategy_name TEXT
         );
         -- pnl24h now joins order_packages for its close-time fallback
         -- (COALESCE(closed_at, op.updated_at, timestamp)); an empty table keeps

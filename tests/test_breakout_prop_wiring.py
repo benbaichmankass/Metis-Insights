@@ -67,10 +67,11 @@ def test_prop_account_class_is_valid_and_separate():
     # never contaminates real-money KPIs.
     from src.units.accounts.account import _VALID_ACCOUNT_CLASSES
     assert "prop" in _VALID_ACCOUNT_CLASSES
-    import pathlib
-    pred = (pathlib.Path(__file__).resolve().parents[1]
-            / "src/web/api/routers/dashboard.py").read_text()
-    assert "IN ('paper','prop')" in pred  # real-money predicate excludes prop
+    # The real-money predicate is now defined ONCE in the canonical
+    # src.web.api._clean_trades helper (was copy-pasted across routers). Assert
+    # the BEHAVIOR — prop is excluded — not the source text of any one router.
+    from src.web.api._clean_trades import not_paper_predicate
+    assert "IN ('paper','prop')" in not_paper_predicate("")  # excludes prop
 
 
 def test_descriptions_and_changelog_present():

@@ -41,6 +41,7 @@ def _make_journal(path: Path) -> Path:
             account_id TEXT NOT NULL DEFAULT 'live',
             is_demo BOOLEAN DEFAULT 0,
             account_class TEXT,
+            strategy_name TEXT,
             created_at TEXT,
             closed_at TEXT
         );
