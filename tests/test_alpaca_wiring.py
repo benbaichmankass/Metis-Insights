@@ -35,6 +35,42 @@ def test_factory_builds_paper_client_with_creds(monkeypatch):
     assert "paper-api" in cli.base_url
 
 
+def test_factory_honors_per_account_key_env_for_concurrent_live(monkeypatch):
+    """alpaca_live names its OWN key envs so paper + live run concurrently.
+
+    The paper account (no api_key_env) reads the shared globals; a live
+    account names ALPACA_API_KEY_ID_LIVE / ALPACA_API_SECRET_KEY_LIVE +
+    alpaca_env: live, so the two resolve to DISTINCT credentials/hosts.
+    """
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "paper-k")
+    monkeypatch.setenv("ALPACA_API_SECRET_KEY", "paper-s")
+    monkeypatch.setenv("ALPACA_API_KEY_ID_LIVE", "live-k")
+    monkeypatch.setenv("ALPACA_API_SECRET_KEY_LIVE", "live-s")
+
+    paper = alpaca_client_for({"exchange": "alpaca"})
+    live = alpaca_client_for({
+        "exchange": "alpaca",
+        "api_key_env": "ALPACA_API_KEY_ID_LIVE",
+        "api_secret_env": "ALPACA_API_SECRET_KEY_LIVE",
+        "alpaca_env": "live",
+    })
+    assert paper.api_key == "paper-k" and paper.env == "paper"
+    assert "paper-api" in paper.base_url
+    assert live.api_key == "live-k" and live.api_secret == "live-s"
+    assert live.env == "live" and "paper-api" not in live.base_url
+
+
+def test_factory_none_when_per_account_live_keys_unset(monkeypatch):
+    """A live account whose own key env is unset → None (stays inert)."""
+    monkeypatch.delenv("ALPACA_API_KEY_ID_LIVE", raising=False)
+    monkeypatch.delenv("ALPACA_API_SECRET_KEY_LIVE", raising=False)
+    assert alpaca_client_for({
+        "exchange": "alpaca",
+        "api_key_env": "ALPACA_API_KEY_ID_LIVE",
+        "api_secret_env": "ALPACA_API_SECRET_KEY_LIVE",
+    }) is None
+
+
 # ------------------------------------------------------------ executor
 _ORDER = {
     "symbol": "SPY",
