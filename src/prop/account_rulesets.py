@@ -127,7 +127,12 @@ def unit_for_account(account_id: str, account: Dict[str, Any]) -> AccountBacktes
             account_class=account_class, source=str(path),
         )
 
-    size = _as_float(risk_block.get("pos_size")) or _DEFAULT_STANDARD_SIZE
+    # Backtest/compat-matrix notional for a STANDARD account. This is a
+    # research sizing input, NOT a live cap (the live notional cap pos_size
+    # was removed 2026-06-24). Prefer an explicit ``account_size_usd`` if the
+    # risk block declares one, else the standard default; never the removed
+    # ``pos_size`` (a per-trade cap conflated with account equity).
+    size = _as_float(risk_block.get("account_size_usd")) or _DEFAULT_STANDARD_SIZE
     rs = _standard_ruleset(account_id, risk_block, size)
     return AccountBacktestUnit(
         account_id=account_id, kind="standard", ruleset=rs,

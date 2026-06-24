@@ -232,7 +232,6 @@ def _accounts_view_data(statuses: list[dict]) -> list[dict]:
                 "dry_run": _account_is_dry(s),
                 "account_type": s.get("account_type"),
                 "max_daily_loss_usd": s.get("max_daily_loss_usd"),
-                "max_pos_size_usd": s.get("max_pos_size_usd"),
                 "max_dd_pct": s.get("max_dd_pct"),
                 "balance": s.get("live_balance_usdt"),
                 "pnl_24h": s.get("daily_pnl"),

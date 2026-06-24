@@ -171,35 +171,25 @@ class TestPayloadValidationRefusals:
 
 class TestHaltFlagPrecedence:
     """The kill-switch (halt flag) is the first gate after payload
-    validation. It must take precedence even when a risk cap would
-    independently refuse — otherwise a misconfigured cap could mask
-    the operator's `/halt` intent."""
+    validation. It must take precedence over the hard risk guards that
+    remain (daily-loss / open-positions) — otherwise a misconfigured cap
+    could mask the operator's `/halt` intent. (The MAX_POSITION_USD / MAX_QTY
+    notional/qty ceilings were removed 2026-06-24, so they no longer compete
+    here; a leftover value for them is simply ignored.)"""
 
-    def test_halt_flag_beats_max_position_usd_cap(self, tmp_path):
-        """Both halt AND MAX_POSITION_USD would refuse this order; halt
-        wins. Confirms the order of checks: halt is evaluated before
-        the hard risk guards."""
+    def test_halt_flag_active_returns_halted(self, tmp_path):
+        """Halt is evaluated before any risk guard. A leftover
+        MAX_POSITION_USD value is now ignored (cap removed), so this just
+        confirms the halt gate fires first."""
         flag = tmp_path / "halt.flag"
         flag.write_text("halted")
         settings = _settings(
             HALT_FLAG_PATH=str(flag),
-            MAX_POSITION_USD="10",  # would also fire
+            MAX_POSITION_USD="10",  # ignored now (cap removed 2026-06-24)
         )
-        # Notional 50_000 USD vs MAX_POSITION_USD=10 — would raise
-        # ValueError if halt didn't gate first.
         result = safe_place_order(_order(), settings, _Client())
         assert result["status"] == "halted"
         assert result["reason"] == "halt_flag_active"
-
-    def test_halt_flag_beats_max_qty_cap(self, tmp_path):
-        flag = tmp_path / "halt.flag"
-        flag.write_text("halted")
-        settings = _settings(
-            HALT_FLAG_PATH=str(flag),
-            MAX_QTY="0.001",  # qty=1.0 would also fail
-        )
-        result = safe_place_order(_order(), settings, _Client())
-        assert result["status"] == "halted"
 
     def test_halt_flag_beats_max_open_positions(self, tmp_path):
         flag = tmp_path / "halt.flag"
@@ -246,15 +236,17 @@ class TestRiskManagerEvaluateReasons:
         assert ok is False
         assert reason == "DAILY_LOSS_CAP"
 
-    def test_evaluate_position_size_cap_uses_POSITION_SIZE_CAP_token(self):
-        """``POSITION_SIZE_CAP`` is the second canonical reason token.
-        Pin it so the rejection-renderer / journal contract holds."""
+    def test_evaluate_large_estimated_value_no_longer_caps(self):
+        """(Removed 2026-06-24) The ``POSITION_SIZE_CAP`` reason token is gone
+        — there is no position-notional ceiling. An order whose
+        ``estimated_value`` is well above the (now-ignored) pos_size passes
+        the size gate; only the daily-loss + drawdown reasons remain."""
         rm = RiskManager(
             {"max_dd_pct": 0.05, "daily_usd": 100.0, "pos_size": 500.0}
         )
         ok, reason = rm.evaluate(_pkg(estimated_value=600.0))
-        assert ok is False
-        assert reason == "POSITION_SIZE_CAP"
+        assert ok is True
+        assert reason is None
 
     def test_evaluate_intraday_drawdown_uses_INTRADAY_DRAWDOWN_token(self):
         """The drawdown reason token is the third canonical one;
@@ -279,9 +271,9 @@ class TestRiskManagerEvaluateReasons:
         assert ok is True
         assert reason is None
 
-    def test_evaluate_position_at_exact_cap_passes(self):
-        """The cap is ``> max_pos_size_usd`` (strict greater-than) so an
-        order at exactly the cap is accepted — boundary pin."""
+    def test_evaluate_estimated_value_is_not_gated(self):
+        """No position-notional cap (operator directive 2026-06-24): any
+        ``estimated_value`` passes the size gate on a clean account."""
         rm = RiskManager(
             {"max_dd_pct": 0.05, "daily_usd": 100.0, "pos_size": 500.0}
         )
@@ -470,15 +462,6 @@ class TestExchangeNotCalledOnRefusal:
         )
         assert client.calls == []
 
-    def test_max_qty_refusal_does_not_call_exchange(self):
-        client = _Client()
-        safe_place_order(
-            _order(qty=100.0),
-            _settings(MAX_QTY="1.0"),
-            client,
-        )
-        assert client.calls == []
-
     def test_per_strategy_refusal_does_not_call_exchange(self):
         client = _Client()
         safe_place_order(
@@ -494,14 +477,4 @@ class TestExchangeNotCalledOnRefusal:
             ),
             client,
         )
-        assert client.calls == []
-
-    def test_max_position_usd_refusal_does_not_call_exchange(self):
-        client = _Client()
-        with pytest.raises(ValueError, match="MAX_POSITION_USD"):
-            safe_place_order(
-                _order(qty=1.0, price=50_000.0),
-                _settings(MAX_POSITION_USD="100"),
-                client,
-            )
         assert client.calls == []

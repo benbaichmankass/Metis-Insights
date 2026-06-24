@@ -52,16 +52,10 @@ def test_live_submission_calls_exchange():
     assert len(client.calls) == 1
 
 
-def test_order_rejected_when_qty_exceeds_max():
-    client = DummyClient()
-    settings = make_settings(DRY_RUN="false", MAX_QTY="1")
-    result = safe_place_order(
-        {"symbol": "BTCUSDT", "side": "buy", "qty": 2},
-        settings,
-        client,
-    )
-    assert result["status"] == "failed_validation"
-    assert "exceeds MAX_QTY" in result["reason"]
+# test_order_rejected_when_qty_exceeds_max — REMOVED 2026-06-24. The MAX_QTY
+# quantity ceiling was deleted from safe_place_order (operator directive); a
+# leftover MAX_QTY value in settings is now ignored, so qty=2 with MAX_QTY=1
+# submits rather than failing validation.
 
 
 def test_order_rejected_for_bad_side():

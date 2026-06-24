@@ -20,10 +20,12 @@ The class-based interface tracks per-account state:
 Hard limits (from accounts.yaml ``risk`` section):
   - max_dd_pct: max intra-day equity drawdown from today's high (S-012 PR E3a)
   - daily_usd: max daily loss in USD (S-010)
-  - pos_size: max single-position size in USD (S-010) — applied by
-    approve() against ``order.meta['estimated_value']``; **not** used as
-    a clamp inside position_size() per operator directive (S-026 G2:
-    "no hard-coded max position, just balance %").
+
+There is NO position-notional ceiling: the removed ``pos_size`` /
+``POSITION_SIZE_CAP`` capped a correctly risk-sized trade on a number
+unrelated to account capacity, so it does not exist (operator directive
+2026-06-24). Size is bounded only by the risk budget, the daily-loss
+budget, the margin/buying-power ceiling, and the exchange's lot size.
 
 Sizing inputs (also from the ``risk`` section):
   - risk_pct: fraction of balance risked per trade (operator default 0.01)
@@ -60,8 +62,7 @@ from typing import Any, Optional
 from src.core.coordinator import OrderPackage
 
 
-_DEFAULT_MIN_QTY = 0.001    # BTC minimum lot size
-_DEFAULT_MAX_QTY = 100.0    # hard cap; override via account cfg
+_DEFAULT_MIN_QTY = 0.001    # BTC minimum lot size (exchange lot floor)
 _DEFAULT_QTY_PRECISION = 3
 
 # Default smoke-test qty when meta.is_test=True but meta.test_qty is missing.
@@ -182,27 +183,6 @@ def contract_value_usd_for(symbol: str) -> float:
     return _CONTRACT_VALUE_CACHE.get(symbol, 1.0)
 
 
-def size_order(
-    pkg: OrderPackage,
-    risk_pct: float,
-    balance_usdt: float,
-    *,
-    min_qty: float = _DEFAULT_MIN_QTY,
-    max_qty: float = _DEFAULT_MAX_QTY,
-    qty_precision: int = _DEFAULT_QTY_PRECISION,
-) -> float:
-    """Backwards-compatible wrapper. New callers should use
-    RiskManager.position_size(pkg, balance_usd)."""
-    raw = _size_unbounded(
-        pkg,
-        risk_pct=risk_pct,
-        balance_usdt=balance_usdt,
-        min_qty=min_qty,
-        qty_precision=qty_precision,
-    )
-    return round(min(raw, max_qty), qty_precision)
-
-
 # Integrations whose order quantity MUST be a whole unit (integer). Alpaca
 # bracket orders — the only order class the executor sends for alpaca — reject
 # fractional share quantities (``AlpacaClient.place`` floors to
@@ -254,8 +234,6 @@ class RiskManager:
         Maximum drawdown as a fraction of starting equity (e.g., 0.05 = 5 %).
     daily_usd : float
         Maximum allowed daily loss in USD (e.g., 100).
-    pos_size : float
-        Maximum single-position size in USD (e.g., 500).
     """
 
     def __init__(
@@ -279,7 +257,6 @@ class RiskManager:
         # daily realized-loss budget and the intraday equity-drawdown cap use
         # the same 5%-of-equity figure.
         self.daily_loss_pct: float = float(config.get("daily_loss_pct", 0.0) or 0.0)
-        self.max_pos_size_usd: float = float(config.get("pos_size", 500.0))
         self.risk_pct: float = float(config.get("risk_pct", 0.01))
         self.min_balance_usd: float = float(config.get("min_balance_usd", 50.0))
         self.min_qty: float = float(config.get("min_qty", _DEFAULT_MIN_QTY))
@@ -527,9 +504,15 @@ class RiskManager:
         if self.daily_pnl < -self.effective_daily_loss_usd():
             return False, "DAILY_LOSS_CAP"
 
-        estimated_value = order.meta.get("estimated_value") if order.meta else None
-        if estimated_value is not None and float(estimated_value) > self.max_pos_size_usd:
-            return False, "POSITION_SIZE_CAP"
+        # NOTE: there is intentionally NO position-notional ceiling here.
+        # Position size is a pure function of (available balance + margin) and
+        # risk-per-trade (SL distance × risk_pct) — see position_size(). An
+        # arbitrary max-notional cap (the removed POSITION_SIZE_CAP / pos_size)
+        # would gate a correctly risk-sized trade on a number unrelated to the
+        # account's actual capacity, so it does not exist (operator directive
+        # 2026-06-24). The only sizing constraints are the risk budget, the
+        # daily-loss budget, the margin/buying-power ceiling, and the exchange's
+        # own minimum lot size.
 
         dd = self.intraday_drawdown()
         if dd is not None and dd >= self.max_dd_pct:
@@ -745,7 +728,6 @@ class RiskManager:
             "max_daily_loss_usd": round(eff_daily_loss, 2),
             "daily_loss_pct": self.daily_loss_pct,
             "daily_loss_usd_floor": self.max_daily_loss_usd,
-            "max_pos_size_usd": self.max_pos_size_usd,
             "max_dd_pct": self.max_dd_pct,
             "daily_loss_remaining": round(
                 eff_daily_loss + self.daily_pnl, 2

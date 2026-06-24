@@ -31,7 +31,6 @@ def _regular_status(**overrides):
         "halted": False,
         "daily_pnl": 1.23,
         "max_daily_loss_usd": 100.0,
-        "max_pos_size_usd": 500.0,
         "open_positions": 0,
         "live_balance_usdt": 1234.56,
         "live_balance_error": None,
@@ -83,7 +82,8 @@ class TestRegularAccountRender:
         assert "🔑 Key: …ABCD" in block
         assert "🔌 API: ✅ Balance $1,234.56 USDT" in block
         assert "💵 Daily PnL: $+1.23 / limit $100" in block
-        assert "📦 Max pos: $500" in block
+        # "Max pos" line removed 2026-06-24 (position-notional cap deleted).
+        assert "Max pos" not in block
         # Configured account: no not-configured line.
         assert "Not configured" not in block
         # Regular account: no prop block.

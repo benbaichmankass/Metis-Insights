@@ -85,7 +85,6 @@ def _account_status(name: str, halted: bool = False, balance: float | None = 100
         "live_balance_error": None,
         "daily_pnl": 0.0,
         "max_daily_loss_usd": 100.0,
-        "max_pos_size_usd": 500.0,
         "open_positions": 0,
         "strategies": ["vwap"],
         "api_key_fingerprint": "abcd",

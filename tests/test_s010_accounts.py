@@ -74,14 +74,11 @@ class TestRiskManager:
         rm.daily_pnl = -101.0
         assert rm.approve(_pkg()) is False
 
-    def test_approve_rejects_position_too_large(self):
+    def test_approve_large_estimated_value_no_longer_rejected(self):
+        """Position-notional cap removed 2026-06-24 — a large
+        ``estimated_value`` no longer fails the size gate."""
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100, "pos_size": 500})
         pkg = _pkg(estimated_value=600.0)
-        assert rm.approve(pkg) is False
-
-    def test_approve_passes_position_exactly_at_limit(self):
-        rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100, "pos_size": 500})
-        pkg = _pkg(estimated_value=500.0)
         assert rm.approve(pkg) is True
 
     def test_record_trade_updates_daily_pnl(self):
@@ -133,11 +130,6 @@ class TestTradingAccount:
         acc.risk_manager.daily_pnl = -200.0
         with pytest.raises(RiskBreach):
             acc.place_order(_pkg())
-
-    def test_place_order_raises_risk_breach_on_pos_size(self):
-        acc = self._account()
-        with pytest.raises(RiskBreach):
-            acc.place_order(_pkg(estimated_value=600.0))
 
     def test_accounts_are_isolated(self):
         acc1 = self._account()
@@ -198,7 +190,6 @@ class TestLoadAccounts:
         accounts = load_accounts(accounts_yaml)
         prop = next(a for a in accounts if a.name == "prop_breakout_1")
         assert prop.risk_manager.max_daily_loss_usd == 50.0
-        assert prop.risk_manager.max_pos_size_usd == 200.0
 
     def test_regular_accounts_bybit_exchange(self, accounts_yaml):
         accounts = load_accounts(accounts_yaml)

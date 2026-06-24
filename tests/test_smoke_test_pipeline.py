@@ -181,11 +181,15 @@ class TestRiskBypass:
         # Test order short-circuits.
         assert rm.approve(_smoke_pkg()) is True
 
-    def test_approve_bypasses_pos_size_for_test_order(self):
+    def test_approve_smoke_order_passes_regardless_of_estimated_value(self):
+        # Position-notional cap removed 2026-06-24: a large estimated_value
+        # is no longer gated for EITHER a real or a smoke order. A real order
+        # with a huge estimated_value now passes the size gate (clean account),
+        # and the smoke bypass remains unconditional.
         from src.units.accounts.risk import RiskManager
         rm = RiskManager({"daily_usd": 100, "pos_size": 500, "max_dd_pct": 0.05})
         big = _real_pkg(meta={"estimated_value": 999_999})
-        assert rm.approve(big) is False
+        assert rm.approve(big) is True
         assert rm.approve(_smoke_pkg(meta={"is_test": True, "estimated_value": 999_999})) is True
 
     def test_approve_bypasses_drawdown_for_test_order(self):

@@ -966,7 +966,7 @@ def _log_trade_to_journal(
       via ``Database.update_trade``.
     - **Risk-manager rejection**: ``status='rejected'``,
       ``reason`` ∈ {``account_mode_dry_run``, ``DAILY_LOSS_CAP``,
-      ``POSITION_SIZE_CAP``, ``INTRADAY_DRAWDOWN``}. ``trade_id`` is
+      ``INTRADAY_DRAWDOWN``}. ``trade_id`` is
       synthesised as ``rejected-<uuid>``.
     - **Exchange rejection**: ``status='exchange_rejected'``, ``reason``
       is the exchange error string. ``trade_id`` is synthesised.

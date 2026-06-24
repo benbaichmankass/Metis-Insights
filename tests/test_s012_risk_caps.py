@@ -72,32 +72,13 @@ def _account(name: str = "test", **risk_overrides) -> TradingAccount:
 
 
 # ---------------------------------------------------------------------------
-# pos_size cap fires for BOTH strategies
+# (Removed 2026-06-24) The arbitrary position-NOTIONAL cap (pos_size /
+# POSITION_SIZE_CAP) was deleted from RiskManager — an order's
+# ``estimated_value`` is no longer gated. Position size is bounded only by
+# the risk budget, daily-loss budget, margin/buying-power, and exchange lot
+# size. The former TestPosSizeCap class is gone; the daily-loss + drawdown +
+# halt + smoke tests below remain the active risk-cap contract.
 # ---------------------------------------------------------------------------
-
-
-class TestPosSizeCap:
-    def test_oversized_vwap_order_rejected(self):
-        """estimated_value > max_pos_size_usd → RiskBreach (vwap)."""
-        acc = _account(pos_size=500.0)
-        with pytest.raises(RiskBreach, match="position size"):
-            acc.place_order(_vwap_pkg(estimated_value=600.0))
-
-    def test_oversized_turtle_soup_order_rejected(self):
-        """estimated_value > max_pos_size_usd → RiskBreach (turtle_soup)."""
-        acc = _account(pos_size=500.0)
-        with pytest.raises(RiskBreach, match="position size"):
-            acc.place_order(_turtle_soup_pkg(estimated_value=600.0))
-
-    def test_at_or_below_pos_size_cap_passes_for_vwap(self):
-        acc = _account(pos_size=500.0)
-        trade_id = acc.place_order(_vwap_pkg(estimated_value=500.0))
-        assert isinstance(trade_id, str)
-
-    def test_at_or_below_pos_size_cap_passes_for_turtle_soup(self):
-        acc = _account(pos_size=500.0)
-        trade_id = acc.place_order(_turtle_soup_pkg(estimated_value=500.0))
-        assert isinstance(trade_id, str)
 
 
 # ---------------------------------------------------------------------------
@@ -211,9 +192,12 @@ class TestRiskManagerApprove:
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100.0, "pos_size": 500.0})
         assert rm.approve(_vwap_pkg(estimated_value=100.0)) is True
 
-    def test_approve_oversized_returns_false(self):
+    def test_approve_large_estimated_value_no_longer_capped(self):
+        """No position-notional cap anymore: an order whose estimated_value
+        is well above the (now-ignored) pos_size still passes the size gate
+        (operator directive 2026-06-24)."""
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100.0, "pos_size": 500.0})
-        assert rm.approve(_vwap_pkg(estimated_value=600.0)) is False
+        assert rm.approve(_vwap_pkg(estimated_value=600.0)) is True
 
     def test_approve_after_daily_loss_breach_returns_false(self):
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100.0, "pos_size": 500.0})
