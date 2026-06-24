@@ -223,14 +223,6 @@ class TestBaseGateInheritance:
         assert ok is False
         assert reason == "DAILY_LOSS_CAP"
 
-    def test_position_size_cap_trips_with_reason(self):
-        rm = PropRiskManager(_base_cfg())
-        pkg = _pkg()
-        pkg.meta["estimated_value"] = 5000.0  # past 200 cap
-        ok, reason = rm.evaluate(pkg)
-        assert ok is False
-        assert reason == "POSITION_SIZE_CAP"
-
     def test_intraday_drawdown_trips_with_reason(self):
         rm = PropRiskManager(_base_cfg())
         rm.update_equity(1000.0)

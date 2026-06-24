@@ -115,56 +115,11 @@ def _mock_bybit_client(order_id: str = "ord-123") -> MagicMock:
 
 
 class TestRiskSizing:
-    def test_basic_sizing(self):
-        from src.units.accounts.risk import size_order
-        pkg = _pkg(entry=50_000.0, sl=49_000.0)
-        # risk_usdt = 10_000 * 0.01 = 100; risk_distance = 1_000
-        # qty = 100 / 1_000 = 0.1
-        qty = size_order(pkg, risk_pct=0.01, balance_usdt=10_000.0)
-        assert qty == pytest.approx(0.1, rel=1e-3)
-
-    def test_short_sizing(self):
-        from src.units.accounts.risk import size_order
-        pkg = _pkg(direction="short", entry=50_000.0, sl=51_000.0)
-        qty = size_order(pkg, risk_pct=0.01, balance_usdt=10_000.0)
-        assert qty == pytest.approx(0.1, rel=1e-3)
-
-    def test_qty_clipped_to_min(self):
-        from src.units.accounts.risk import size_order
-        # Very large risk distance → tiny qty → clipped to min
-        pkg = _pkg(entry=50_000.0, sl=1.0)  # 49_999 distance
-        qty = size_order(pkg, risk_pct=0.01, balance_usdt=100.0, min_qty=0.001)
-        assert qty >= 0.001
-
-    def test_qty_clipped_to_max(self):
-        from src.units.accounts.risk import size_order
-        # Tiny risk distance → huge qty → clipped to max
-        pkg = _pkg(entry=50_000.0, sl=49_999.9)  # 0.1 distance
-        qty = size_order(pkg, risk_pct=0.01, balance_usdt=10_000.0, max_qty=5.0)
-        assert qty <= 5.0
-
-    def test_zero_balance_raises(self):
-        from src.units.accounts.risk import size_order
-        with pytest.raises(ValueError, match="balance_usdt"):
-            size_order(_pkg(), risk_pct=0.01, balance_usdt=0.0)
-
-    def test_zero_risk_pct_raises(self):
-        from src.units.accounts.risk import size_order
-        with pytest.raises(ValueError, match="risk_pct"):
-            size_order(_pkg(), risk_pct=0.0, balance_usdt=10_000.0)
-
-    def test_entry_equals_sl_raises(self):
-        from src.units.accounts.risk import size_order
-        pkg = _pkg(entry=50_000.0, sl=50_000.0)
-        with pytest.raises(ValueError, match="division by zero"):
-            size_order(pkg, risk_pct=0.01, balance_usdt=10_000.0)
-
-    def test_qty_precision(self):
-        from src.units.accounts.risk import size_order
-        pkg = _pkg(entry=50_000.0, sl=49_000.0)
-        qty = size_order(pkg, risk_pct=0.01, balance_usdt=10_000.0, qty_precision=3)
-        # Check it's rounded to 3 decimal places
-        assert qty == round(qty, 3)
+    # NOTE: the module-level functional ``size_order(...)`` sizer + its
+    # ``max_qty`` clamp were removed (sizing now lives only in
+    # ``RiskManager.position_size`` / ``size_order_from_cfg``). The former
+    # per-function basic/short/min/max/precision/raise tests went with it;
+    # the cfg-driven sizer below is the surviving public sizing contract.
 
     def test_size_order_from_cfg(self):
         from src.units.accounts.risk import size_order_from_cfg

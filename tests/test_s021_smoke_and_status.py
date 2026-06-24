@@ -157,7 +157,7 @@ class TestAccountsStatusLiveBalance:
         for s in statuses:
             for key in (
                 "name", "exchange", "account_type", "open_positions",
-                "daily_pnl", "max_daily_loss_usd", "max_pos_size_usd", "halted",
+                "daily_pnl", "max_daily_loss_usd", "halted",
             ):
                 assert key in s
 

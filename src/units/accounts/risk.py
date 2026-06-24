@@ -20,10 +20,12 @@ The class-based interface tracks per-account state:
 Hard limits (from accounts.yaml ``risk`` section):
   - max_dd_pct: max intra-day equity drawdown from today's high (S-012 PR E3a)
   - daily_usd: max daily loss in USD (S-010)
-  - pos_size: max single-position size in USD (S-010) — applied by
-    approve() against ``order.meta['estimated_value']``; **not** used as
-    a clamp inside position_size() per operator directive (S-026 G2:
-    "no hard-coded max position, just balance %").
+
+There is NO position-notional ceiling: the removed ``pos_size`` /
+``POSITION_SIZE_CAP`` capped a correctly risk-sized trade on a number
+unrelated to account capacity, so it does not exist (operator directive
+2026-06-24). Size is bounded only by the risk budget, the daily-loss
+budget, the margin/buying-power ceiling, and the exchange's lot size.
 
 Sizing inputs (also from the ``risk`` section):
   - risk_pct: fraction of balance risked per trade (operator default 0.01)
@@ -60,8 +62,7 @@ from typing import Any, Optional
 from src.core.coordinator import OrderPackage
 
 
-_DEFAULT_MIN_QTY = 0.001    # BTC minimum lot size
-_DEFAULT_MAX_QTY = 100.0    # hard cap; override via account cfg
+_DEFAULT_MIN_QTY = 0.001    # BTC minimum lot size (exchange lot floor)
 _DEFAULT_QTY_PRECISION = 3
 
 # Default smoke-test qty when meta.is_test=True but meta.test_qty is missing.
@@ -74,6 +75,17 @@ _DEFAULT_TEST_QTY = 0.0001
 # would push the resulting position into a margin-call state.
 # 0.9 = use up to 90% of available margin for a new position.
 _MARGIN_SAFETY_BUFFER = 0.9
+
+# Round-up-to-one-unit overshoot cap (operator directive 2026-06-24). On a
+# whole-SHARE (equity) account the smallest tradeable size is 1 share, so a
+# risk-based ideal below 1 is otherwise un-takeable — small accounts can never
+# trade higher-priced instruments. When the ONLY reason qty<1 is a small
+# per-trade budget, round UP to 1 share IF that single share's stop risk stays
+# within this multiple of the per-trade risk budget. Beyond it, still refuse —
+# never silently risk more than 1.5x the configured cap. Scoped to the equity
+# (whole_units) path; futures whole-contract sizing keeps its strict refuse-
+# sub-1 semantics (BL-20260611-001) because a single contract is far chunkier.
+_ROUND_UP_BUDGET_MULT = 1.5
 
 _CREATE_DAILY_RISK_STATE = """
 CREATE TABLE IF NOT EXISTS daily_risk_state (
@@ -171,27 +183,6 @@ def contract_value_usd_for(symbol: str) -> float:
     return _CONTRACT_VALUE_CACHE.get(symbol, 1.0)
 
 
-def size_order(
-    pkg: OrderPackage,
-    risk_pct: float,
-    balance_usdt: float,
-    *,
-    min_qty: float = _DEFAULT_MIN_QTY,
-    max_qty: float = _DEFAULT_MAX_QTY,
-    qty_precision: int = _DEFAULT_QTY_PRECISION,
-) -> float:
-    """Backwards-compatible wrapper. New callers should use
-    RiskManager.position_size(pkg, balance_usd)."""
-    raw = _size_unbounded(
-        pkg,
-        risk_pct=risk_pct,
-        balance_usdt=balance_usdt,
-        min_qty=min_qty,
-        qty_precision=qty_precision,
-    )
-    return round(min(raw, max_qty), qty_precision)
-
-
 # Integrations whose order quantity MUST be a whole unit (integer). Alpaca
 # bracket orders — the only order class the executor sends for alpaca — reject
 # fractional share quantities (``AlpacaClient.place`` floors to
@@ -243,8 +234,6 @@ class RiskManager:
         Maximum drawdown as a fraction of starting equity (e.g., 0.05 = 5 %).
     daily_usd : float
         Maximum allowed daily loss in USD (e.g., 100).
-    pos_size : float
-        Maximum single-position size in USD (e.g., 500).
     """
 
     def __init__(
@@ -268,7 +257,6 @@ class RiskManager:
         # daily realized-loss budget and the intraday equity-drawdown cap use
         # the same 5%-of-equity figure.
         self.daily_loss_pct: float = float(config.get("daily_loss_pct", 0.0) or 0.0)
-        self.max_pos_size_usd: float = float(config.get("pos_size", 500.0))
         self.risk_pct: float = float(config.get("risk_pct", 0.01))
         self.min_balance_usd: float = float(config.get("min_balance_usd", 50.0))
         self.min_qty: float = float(config.get("min_qty", _DEFAULT_MIN_QTY))
@@ -516,9 +504,15 @@ class RiskManager:
         if self.daily_pnl < -self.effective_daily_loss_usd():
             return False, "DAILY_LOSS_CAP"
 
-        estimated_value = order.meta.get("estimated_value") if order.meta else None
-        if estimated_value is not None and float(estimated_value) > self.max_pos_size_usd:
-            return False, "POSITION_SIZE_CAP"
+        # NOTE: there is intentionally NO position-notional ceiling here.
+        # Position size is a pure function of (available balance + margin) and
+        # risk-per-trade (SL distance × risk_pct) — see position_size(). An
+        # arbitrary max-notional cap (the removed POSITION_SIZE_CAP / pos_size)
+        # would gate a correctly risk-sized trade on a number unrelated to the
+        # account's actual capacity, so it does not exist (operator directive
+        # 2026-06-24). The only sizing constraints are the risk budget, the
+        # daily-loss budget, the margin/buying-power ceiling, and the exchange's
+        # own minimum lot size.
 
         dd = self.intraday_drawdown()
         if dd is not None and dd >= self.max_dd_pct:
@@ -632,7 +626,26 @@ class RiskManager:
             contract_value_usd=cvu,
         )
         if force_whole and qty < eff_min_qty:
-            return 0.0
+            # Round-up-to-one-share (operator directive 2026-06-24), EQUITY only.
+            # The risk-based ideal is below 1 whole share. When the only reason
+            # is a small per-trade budget, round UP to 1 share IF that share's
+            # stop risk is within _ROUND_UP_BUDGET_MULT x the per-trade risk
+            # budget — otherwise refuse. The daily-loss-budget and margin/
+            # buying-power gates BELOW still apply to the rounded-up share (a
+            # share that breaches the daily cap or can't be afforded is
+            # re-floored to 0 there), so this relaxes ONLY the per-trade
+            # risk-cap refusal, never the hard limits. Futures keep strict
+            # refuse-sub-1-contract (BL-20260611-001) — not whole_units.
+            if bool(whole_units):
+                _rd = abs(package.entry - package.sl)
+                _one_unit_risk = eff_min_qty * _rd * cvu
+                _risk_budget = balance_usd * effective_risk_pct
+                if _risk_budget > 0 and _one_unit_risk <= _ROUND_UP_BUDGET_MULT * _risk_budget:
+                    qty = eff_min_qty
+                else:
+                    return 0.0
+            else:
+                return 0.0
 
         # S-026 G3: daily-loss-budget gate. USD loss at SL is
         # qty × risk_distance × contract_value_usd (cvu=1.0 for crypto).
@@ -683,8 +696,16 @@ class RiskManager:
                     _margin_basis * effective_leverage * _MARGIN_SAFETY_BUFFER
                 ) / package.entry
             if qty > max_qty_by_margin:
-                capped = _floor_to_step(max_qty_by_margin, self.qty_precision)
-                if capped < self.min_qty:
+                # Floor with the EFFECTIVE granularity, not self.qty_precision:
+                # on a whole-unit account (alpaca) the margin cap could otherwise
+                # shave an already-whole qty down to a FRACTIONAL share (e.g.
+                # 3 → 2.3) using the crypto default 3dp precision, re-opening the
+                # bracket-rejects-fractional hole BL-20260622-ALPACA-FRACTIONAL-SIZE
+                # fixed on the risk-based path. eff_precision/eff_min_qty equal
+                # self.qty_precision/self.min_qty for non-whole-unit accounts, so
+                # this is a no-op there.
+                capped = _floor_to_step(max_qty_by_margin, eff_precision)
+                if capped < eff_min_qty:
                     return 0.0
                 qty = capped
 
@@ -707,7 +728,6 @@ class RiskManager:
             "max_daily_loss_usd": round(eff_daily_loss, 2),
             "daily_loss_pct": self.daily_loss_pct,
             "daily_loss_usd_floor": self.max_daily_loss_usd,
-            "max_pos_size_usd": self.max_pos_size_usd,
             "max_dd_pct": self.max_dd_pct,
             "daily_loss_remaining": round(
                 eff_daily_loss + self.daily_pnl, 2

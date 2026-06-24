@@ -163,21 +163,6 @@ class TestAccountsYamlToPlaceOrder:
         with pytest.raises(RiskBreach):
             prop.place_order(_pkg(), dry_run=True)
 
-    def test_pos_size_breach_isolated(self, accounts_yaml):
-        from src.units.accounts import load_accounts
-        from src.units.accounts.account import RiskBreach
-        accounts = load_accounts(accounts_yaml)
-        prop = next(a for a in accounts if a.name == "prop_breakout")
-        # 201 USD exceeds prop's 200 limit
-        oversized = _pkg(estimated_value=201.0)
-        with pytest.raises(RiskBreach):
-            prop.place_order(oversized, dry_run=True)
-        # But it fits in bybit_main (1000 limit)
-        main = next(a for a in accounts if a.name == "bybit_main")
-        tid = main.place_order(oversized, dry_run=True)
-        assert tid.startswith("dry-")
-
-
 # ---------------------------------------------------------------------------
 # Coordinator.multi_account_execute integration
 # ---------------------------------------------------------------------------
@@ -292,13 +277,11 @@ class TestCoordinatorAccountsStatus:
         statuses = coord.accounts_status(accounts_yaml)
         prop = next(s for s in statuses if s["name"] == "prop_breakout")
         assert prop["max_daily_loss_usd"] == 50.0
-        assert prop["max_pos_size_usd"] == 200.0
 
     def test_bybit_main_has_larger_limits(self, coord, accounts_yaml):
         statuses = coord.accounts_status(accounts_yaml)
         main = next(s for s in statuses if s["name"] == "bybit_main")
         assert main["max_daily_loss_usd"] == 200.0
-        assert main["max_pos_size_usd"] == 1000.0
 
 
 # ---------------------------------------------------------------------------

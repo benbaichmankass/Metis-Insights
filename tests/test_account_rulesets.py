@@ -12,9 +12,12 @@ from src.prop.account_rulesets import all_account_units, unit_for_account
 
 
 def test_real_account_resolves_standard():
+    # Backtest/compat-matrix notional now comes from an explicit
+    # ``account_size_usd`` (the live notional cap ``pos_size`` was removed
+    # 2026-06-24); absent it, _DEFAULT_STANDARD_SIZE is used.
     acct = {
         "exchange": "bybit", "account_class": "real_money",
-        "risk": {"risk_pct": 0.01, "max_dd_pct": 0.05, "daily_loss_pct": 0.05, "pos_size": 500},
+        "risk": {"risk_pct": 0.01, "max_dd_pct": 0.05, "daily_loss_pct": 0.05, "account_size_usd": 500},
     }
     u = unit_for_account("bybit_2", acct)
     assert u.kind == "standard"

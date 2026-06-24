@@ -79,8 +79,11 @@
 # the follow-up cleanup PR once bybit_2 is confirmed trading reliably.
 # See `commits` for the migration audit and cutover rationale.
 #
-# Risk caps fire bidirectionally: pos_size, daily_usd, and (S-012 PR E3a)
-# max_dd_pct (intra-day, UTC midnight reset).
+# Risk caps fire bidirectionally: daily_usd / daily_loss_pct and (S-012 PR E3a)
+# max_dd_pct (intra-day, UTC midnight reset). There is NO position-notional
+# cap — pos_size was removed 2026-06-24 (operator directive: size is a pure
+# function of available balance+margin and risk-per-trade, never an arbitrary
+# max notional). A leftover pos_size value in any risk block is ignored.
 #
 # S-026 G2 sizing inputs (operator-confirmed defaults):
 #   risk_pct         — fraction of balance risked per trade (1 % live).
@@ -92,10 +95,12 @@
 #                      uses whatever leverage was last set. Cash spot
 #                      accounts ignore this field.
 # These feed RiskManager.position_size(pkg, balance) — the single
-# qty-deciding function in the codebase. There is no max-position
-# notional cap on sizing per the operator directive; ``pos_size`` is
-# kept only for the post-sizing approval gate
-# (RiskManager.approve(order)).
+# qty-deciding function in the codebase. There is NO max-position notional
+# cap and NO MAX_QTY anywhere in the sizing or order path (POSITION_SIZE_CAP /
+# pos_size / MAX_QTY / MAX_POSITION_USD all removed 2026-06-24). The only
+# bounds on a position are the risk budget (risk_pct × balance ÷ SL distance),
+# the daily-loss budget, the margin/buying-power ceiling, and the exchange's
+# own minimum lot size.
 
 accounts:
   # bybit_1: Bybit demo trading account — the full demo mirror of bybit_2
@@ -210,7 +215,6 @@ accounts:
                                        # %-of-equity cap scales with the account.
       daily_usd: 100                   # absolute FALLBACK only — used when no
                                        # equity snapshot is available (cold start)
-      pos_size: 500                    # $500 max single position (approval gate only)
       risk_pct: 0.01                   # 1% balance risked per trade (S-026 G2)
       min_balance_usd: 50              # refuse to size below $50 (S-026 G2)
       leverage: 3                      # 3× leverage — same as bybit_2; applied
@@ -294,7 +298,6 @@ accounts:
                                        # operator-approved 2026-05-28). Scales with
                                        # the live balance instead of a fixed $100.
       daily_usd: 100                   # absolute FALLBACK only (no equity snapshot)
-      pos_size: 500
       risk_pct: 0.01
       min_balance_usd: 50
       # PR 3 cutover: 3× leverage on linear perps. main.py at boot
@@ -399,7 +402,6 @@ accounts:
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
                                        # (operator-approved 2026-05-28)
       daily_usd: 200                   # absolute FALLBACK only (no equity snapshot)
-      pos_size: 2000                   # $2000 max single position (approval gate only)
       risk_pct: 0.01                   # 1% balance risked per trade
       min_balance_usd: 100             # refuse to size below $100
 
@@ -429,7 +431,6 @@ accounts:
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
                                        # (operator-approved 2026-05-28)
       daily_usd: 200                   # absolute FALLBACK only (no equity snapshot)
-      pos_size: 2000                   # $2000 max single position (approval gate only)
       risk_pct: 0.01                   # 1% balance risked per trade
       min_balance_usd: 100             # refuse to size below $100
 
@@ -482,8 +483,13 @@ accounts:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
       daily_usd: 200                   # absolute fallback (no equity snapshot)
-      pos_size: 2000                   # $2000 max single position
-      risk_pct: 0.005                  # 0.5% balance risked per trade (soak-conservative)
+      risk_pct: 0.01                   # 1% balance risked per trade (operator 2026-06-24)
+      # NO leverage: the margin pre-flight cap now uses the broker's real
+      # buying power — OandaClient.buying_power() = marginAvailable / marginRate,
+      # fed as available_usd in Coordinator.multi_account_execute (the Alpaca
+      # buying_power analogue, 2026-06-24). leverage stays unset (=1) so that
+      # already-leveraged figure is not multiplied again; on a fetch failure the
+      # cap falls back to conservative cash-1x. (Replaced the interim 20x guess.)
       min_balance_usd: 100             # refuse to size below $100
 
   # alpaca_paper: M15 Phase 2b (S-M15-PHASE2B-ALPACA) — Alpaca Trading API
@@ -532,8 +538,7 @@ accounts:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
       daily_usd: 200                   # absolute fallback (no equity snapshot)
-      pos_size: 2000                   # $2000 max single position
-      risk_pct: 0.005                  # 0.5% balance risked per trade (soak-conservative)
+      risk_pct: 0.01                   # 1% balance risked per trade (operator 2026-06-24)
       min_balance_usd: 100             # refuse to size below $100
 
   # alpaca_live: Alpaca Trading API REAL-MONEY account — the live sibling of
@@ -570,8 +575,7 @@ accounts:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
       daily_usd: 200                   # absolute fallback (no equity snapshot)
-      pos_size: 2000                   # $2000 max single position
-      risk_pct: 0.005                  # 0.5% balance risked per trade (conservative onset)
+      risk_pct: 0.01                   # 1% balance risked per trade (operator 2026-06-24)
       min_balance_usd: 100             # refuse to size below $100
 
   # breakout_1: Breakout 1-Step Classic $5k PROP account (PB-20260616-004).
@@ -620,7 +624,6 @@ accounts:
       max_dd_pct: 0.06                 # Breakout STATIC 6% max-DD = $300.
       daily_loss_pct: 0.03             # Breakout 3% daily-loss = $150.
       daily_usd: 150                   # absolute fallback (= 3% of $5k).
-      pos_size: 7500                   # <= 1.5x notional headroom on $5k.
       risk_pct: 0.015                  # 1.5% — the validated best-EV cell (the
                                        # ticket sizes from breakout_routing.yaml
                                        # risk_pct, in PERCENT; this fraction is
