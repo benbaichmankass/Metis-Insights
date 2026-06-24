@@ -722,6 +722,39 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             summary.closed_count += 1
             return
 
+        # Close-retry cooldown (BL-20260624-MHG-CLOSE-CONFIRM, follow-up). When a
+        # prior close was ACCEPTED but never confirmed flat (IBClient.close →
+        # retCode 1 "not confirmed flat" — e.g. a venue that can't fill right now:
+        # market closed for the contract, gateway mid-reset), re-attempting the
+        # close every tick would cancel the re-armed protective bracket (close()
+        # Step 1) and place another non-filling order — churn that leaves the
+        # position briefly naked each tick and keeps cancelling the very stop that
+        # would flatten it when the venue reopens. While cooling down we DEFER the
+        # active close and leave the bracket armed to do the job; the marker is set
+        # below on an unconfirmed close and cleared on a confirmed one.
+        # ``IB_CLOSE_RETRY_COOLDOWN_S <= 0`` disables (retry every tick).
+        _close_key = (
+            str(matched_trade.get("account_id") or ""),
+            str(matched_trade.get("symbol") or ""),
+            str(matched_trade.get("direction") or "").lower(),
+        )
+        _cooldown_s = _close_retry_cooldown_seconds()
+        if _cooldown_s > 0:
+            _last_unconfirmed = _PENDING_CLOSE_RETRY_COOLDOWN.get(_close_key)
+            if _last_unconfirmed is not None:
+                _age = (datetime.now(timezone.utc) - _last_unconfirmed).total_seconds()
+                if _age < _cooldown_s:
+                    logger.info(
+                        "order_monitor: close retry cooling down for %s "
+                        "(%.0fs/%ss since last unconfirmed close) — bracket left "
+                        "armed, deferring active close. pkg=%s",
+                        _close_key, _age, _cooldown_s, pkg_id,
+                    )
+                    summary.no_change_count += 1
+                    return
+                # Window elapsed → drop the stale marker and retry the close.
+                _PENDING_CLOSE_RETRY_COOLDOWN.pop(_close_key, None)
+
         # Exchange-first: attempt the live close BEFORE any DB write.
         ex_result = _send_close_to_exchange(matched_trade)
         logger.info(
@@ -776,9 +809,20 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                     matched_trade.get("position_size"),
                     err_str,
                 )
+                # Accepted-but-unfilled close (the position is still open) →
+                # arm the close-retry cooldown so we don't churn the protective
+                # bracket every tick. Scoped to this signature so a transient
+                # error (e.g. a one-off network blip) still retries next tick.
+                if "not confirmed flat" in err_str.lower():
+                    _PENDING_CLOSE_RETRY_COOLDOWN[_close_key] = datetime.now(timezone.utc)
                 summary.error_count += 1
                 summary.errors.append(f"{pkg_id}: exchange close failed: {err_str}")
                 return
+
+        # Confirmed close (or dry-run skip) → clear any close-retry cooldown
+        # marker for this (account, symbol, direction) so a future close isn't
+        # needlessly deferred.
+        _PENDING_CLOSE_RETRY_COOLDOWN.pop(_close_key, None)
 
         # Exchange close ok (or dry-run skip). Capture the actual fill
         # price from Bybit before writing the DB so the trade row's
@@ -1483,6 +1527,18 @@ _DEFAULT_RECONCILER_GRACE_SECONDS = 60
 _DEFAULT_CLOSE_CONFIRM_SECONDS = 60
 _PENDING_CLOSE_CONFIRM: Dict[int, datetime] = {}
 
+# Close-retry cooldown (BL-20260624-MHG-CLOSE-CONFIRM follow-up). After a close
+# is ACCEPTED but never confirmed flat (IBClient.close → retCode 1 "not confirmed
+# flat" — a venue that can't fill right now), re-attempting the active close every
+# tick would cancel the re-armed protective bracket and place another non-filling
+# order. This maps (account_id, symbol, direction) → the time of the last such
+# unconfirmed close; while within `IB_CLOSE_RETRY_COOLDOWN_S` the monitor defers
+# the active close and leaves the bracket armed to flatten when the venue reopens.
+# Cleared on a confirmed close. In-process; a restart re-arms from scratch
+# (fail-safe — a fresh process simply retries the close, never closes early).
+_DEFAULT_CLOSE_RETRY_COOLDOWN_SECONDS = 300
+_PENDING_CLOSE_RETRY_COOLDOWN: Dict[tuple, datetime] = {}
+
 # Re-adopt guard window (BL-20260618-RECONCILE-DUP, 2026-06-18). When an IB
 # gateway flaps (logged-out → empty portfolio → back) during the broker reset
 # window, the reverse reconciler could adopt the SAME exchange position, have
@@ -1613,6 +1669,25 @@ def _close_confirm_seconds() -> float:
         return max(0.0, float(raw))
     except (TypeError, ValueError):
         return float(_DEFAULT_CLOSE_CONFIRM_SECONDS)
+
+
+def _close_retry_cooldown_seconds() -> float:
+    """Seconds to defer re-attempting an active close after one was accepted but
+    never confirmed flat — the BL-20260624-MHG-CLOSE-CONFIRM follow-up churn guard.
+
+    Reads ``IB_CLOSE_RETRY_COOLDOWN_S`` at call time; falls back to
+    ``_DEFAULT_CLOSE_RETRY_COOLDOWN_SECONDS`` on missing / unparseable values,
+    clamped ``>= 0``. ``0`` disables the cooldown (retry the close every tick —
+    the legacy behaviour, which churns the protective bracket when the venue
+    can't fill).
+    """
+    raw = os.environ.get("IB_CLOSE_RETRY_COOLDOWN_S")
+    if raw is None or str(raw).strip() == "":
+        return float(_DEFAULT_CLOSE_RETRY_COOLDOWN_SECONDS)
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        return float(_DEFAULT_CLOSE_RETRY_COOLDOWN_SECONDS)
 
 
 def _reconciler_readopt_guard_seconds() -> float:

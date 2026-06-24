@@ -952,6 +952,52 @@ class IBClient:
         if rejected is not None:
             return {"retCode": 1, "retMsg": rejected}
 
+        # Bounded post-place FLATTEN confirmation (BL-20260624-MHG-CLOSE-CONFIRM).
+        # Unlike place() — where "not rejected" suffices, since a non-filling OPEN
+        # just means no position — a close that is *accepted but does not fill*
+        # leaves a REAL position open while the monitor marks the DB row closed.
+        # The position is then orphaned and, because Step 1 already cancelled its
+        # protective bracket, left NAKED until a later reconcile re-adopts it (the
+        # perpetual MHG/ib_paper adopt → sl_cross "close" → re-orphan flap). So we
+        # do NOT report success on acceptance alone: re-read the live position and
+        # require it to actually reach flat. If it does not within the window,
+        # return retCode 1 so the monitor leaves the DB row open, naked-autoprotect
+        # re-arms a bracket next tick, and the close is retried — i.e. "DB closed"
+        # always means "broker confirmed flat". ``IB_CLOSE_CONFIRM_S <= 0`` skips
+        # the check (legacy accept-is-success behaviour).
+        confirm_s = _env_float("IB_CLOSE_CONFIRM_S", 6.0)
+        if confirm_s > 0:
+            deadline = time.monotonic() + confirm_s
+            last_qty: Optional[float] = None
+            flat = False
+            while True:
+                try:
+                    last_qty = self._live_position_qty(sym)
+                except Exception:  # noqa: BLE001
+                    last_qty = None
+                # A read failure (None) is NOT treated as flat — we don't know,
+                # so keep polling until the deadline rather than confirming a
+                # close we can't see.
+                if last_qty is not None and last_qty <= 0:
+                    flat = True
+                    break
+                if time.monotonic() >= deadline:
+                    break
+                try:
+                    ib.sleep(0.25)
+                except Exception:  # noqa: BLE001
+                    break
+            if not flat:
+                return {
+                    "retCode": 1,
+                    "retMsg": (
+                        f"close not confirmed flat: live_qty={last_qty} after "
+                        f"~{confirm_s}s — close order {close_order.orderId} was "
+                        "accepted but the position is still open; leaving DB row "
+                        "open to re-arm protection and retry next tick"
+                    ),
+                }
+
         return {
             "retCode": 0,
             "result": {"orderId": str(close_order.orderId)},
