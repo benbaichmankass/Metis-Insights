@@ -483,7 +483,11 @@ accounts:
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
       daily_usd: 200                   # absolute fallback (no equity snapshot)
       pos_size: 2000                   # $2000 max single position
-      risk_pct: 0.005                  # 0.5% balance risked per trade (soak-conservative)
+      risk_pct: 0.01                   # 1% balance risked per trade (operator 2026-06-24)
+      leverage: 20                     # FX uses margin: conservative 20x (broker offers
+                                       # more) so the margin pre-flight cap isn't cash-1x.
+                                       # Interim — proper marginAvailable/marginRate wire
+                                       # is a follow-up; dry_run today.
       min_balance_usd: 100             # refuse to size below $100
 
   # alpaca_paper: M15 Phase 2b (S-M15-PHASE2B-ALPACA) — Alpaca Trading API
@@ -533,7 +537,7 @@ accounts:
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
       daily_usd: 200                   # absolute fallback (no equity snapshot)
       pos_size: 2000                   # $2000 max single position
-      risk_pct: 0.005                  # 0.5% balance risked per trade (soak-conservative)
+      risk_pct: 0.01                   # 1% balance risked per trade (operator 2026-06-24)
       min_balance_usd: 100             # refuse to size below $100
 
   # alpaca_live: Alpaca Trading API REAL-MONEY account — the live sibling of
@@ -571,7 +575,7 @@ accounts:
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
       daily_usd: 200                   # absolute fallback (no equity snapshot)
       pos_size: 2000                   # $2000 max single position
-      risk_pct: 0.005                  # 0.5% balance risked per trade (conservative onset)
+      risk_pct: 0.01                   # 1% balance risked per trade (operator 2026-06-24)
       min_balance_usd: 100             # refuse to size below $100
 
   # breakout_1: Breakout 1-Step Classic $5k PROP account (PB-20260616-004).

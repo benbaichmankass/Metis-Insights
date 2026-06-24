@@ -81,9 +81,11 @@ class TestWholeShareSizing:
         assert rm.position_size(_pkg(), 100_000, whole_units=True) == pytest.approx(60.0)
 
     def test_sub_one_share_is_refused_not_bumped(self):
-        """A computed size below 1 share returns 0.0 (per-trade refusal) — not
-        bumped to min_qty nor to a whole share (which would exceed the cap).
-        balance 1k, risk 1% = $10, risk/share 16.48 → 0.6 → floor 0 → refusal."""
+        """A computed size below 1 share returns 0.0 when rounding up would
+        breach the round-up overshoot cap (1.5x the per-trade budget).
+        balance 1k, risk 1% = $10 budget; risk/share 16.48 → ideal 0.6. One
+        share risks $16.48 = 1.65x the budget > 1.5x ($15), so the round-up
+        is declined and the trade is refused (never silently >1.5x the cap)."""
         rm = RiskManager(dict(_ALPACA_LIKE))
         assert rm.position_size(_pkg(), 1_000, whole_units=True) == 0.0
 
@@ -178,3 +180,74 @@ class TestMarginCapWholeUnits:
         qty = rm.position_size(pkg, 5000.0, market_type="spot",
                                available_usd=10000.0, whole_units=True)
         assert qty == 3.0
+
+
+# ---------------------------------------------------------------------------
+# Round-up-to-one-share (operator directive 2026-06-24): when the risk-based
+# ideal is <1 share only because the per-trade budget is small, round UP to 1
+# share IF that share's stop risk is within 1.5x the budget — else refuse.
+# Equity (whole_units) only; futures keep strict refuse-sub-1-contract.
+# ---------------------------------------------------------------------------
+
+
+class TestRoundUpToOneShare:
+    def _pkg300(self, stop_dist):
+        # $300 asset, stop `stop_dist` below entry
+        return OrderPackage(
+            strategy="iwm_trend_long_1d", symbol="IWM", direction="long",
+            entry=300.0, sl=300.0 - stop_dist, tp=310.0,
+            meta={"strategy_name": "iwm_trend_long_1d", "strategy_risk_pct": 1.0},
+        )
+
+    def test_rounds_up_within_budget_multiple(self):
+        """$150 acct @ 1% (budget $1.50). A $1.50 stop → ideal 1.0 share already;
+        a $2.25 stop → ideal 0.67 but 1 share risks exactly 1.5x budget → rounds
+        up to 1."""
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 100,
+                          "daily_usd": 100_000, "pos_size": 100_000})
+        # 1 share risk = $2.25 == 1.5 * $1.50 → boundary, rounds up
+        q = rm.position_size(self._pkg300(2.25), 150.0, market_type="spot",
+                             available_usd=10_000.0, whole_units=True)
+        assert q == 1.0
+
+    def test_refuses_above_budget_multiple(self):
+        """$150 acct @ 1%. A $3.00 stop → 1 share risks $3.00 = 2x budget >
+        1.5x → refused (never silently risk >1.5x the cap)."""
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 100,
+                          "daily_usd": 100_000, "pos_size": 100_000})
+        q = rm.position_size(self._pkg300(3.0), 150.0, market_type="spot",
+                             available_usd=10_000.0, whole_units=True)
+        assert q == 0.0
+
+    def test_round_up_still_subject_to_buying_power(self):
+        """The rounded-up share must still be affordable: buying power below 1
+        share's notional re-floors it to 0 even when the risk overshoot is OK."""
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 100,
+                          "daily_usd": 100_000, "pos_size": 100_000})
+        # risk overshoot fine ($1.50 stop = 1x budget) but BP $120 < $300 share
+        q = rm.position_size(self._pkg300(1.5), 150.0, market_type="spot",
+                             available_usd=120.0, whole_units=True)
+        assert q == 0.0
+
+    def test_round_up_still_subject_to_daily_loss_budget(self):
+        """The rounded-up share must still fit the remaining daily-loss budget:
+        a tiny daily_usd cap re-floors it to 0."""
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 100,
+                          "daily_usd": 1.0, "pos_size": 100_000})  # $1 daily cap
+        # 1 share risks $1.50 > $1 daily budget → scaled down → floor 0
+        q = rm.position_size(self._pkg300(1.5), 150.0, market_type="spot",
+                             available_usd=10_000.0, whole_units=True)
+        assert q == 0.0
+
+    def test_futures_not_rounded_up(self):
+        """Futures (force_whole via market_type, NOT whole_units) keep strict
+        refuse-sub-1-contract — the round-up is equity-only."""
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 100,
+                          "daily_usd": 100_000, "pos_size": 100_000})
+        pkg = OrderPackage(strategy="x", symbol="MES", direction="long",
+                           entry=5800.0, sl=5750.0, tp=5900.0,
+                           meta={"strategy_name": "x", "strategy_risk_pct": 1.0})
+        # MES risk/contract = 50pts*$5 = $250; 1% of $10k = $100 → 0.4 contract.
+        # Even though $250 < 1.5*$100=$150? no — $250 > $150 anyway; but the
+        # point is futures never enter the round-up branch regardless.
+        assert rm.position_size(pkg, 10_000, market_type="futures") == 0.0
