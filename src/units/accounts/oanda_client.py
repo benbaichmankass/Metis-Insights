@@ -196,6 +196,44 @@ class OandaClient:
         except (TypeError, ValueError):
             return None
 
+    def buying_power(self) -> Optional[float]:
+        """Notional buying power in the account currency, or ``None`` on failure.
+
+        Broker-truth margin basis (the OANDA analogue of
+        ``AlpacaClient.buying_power``): the OANDA summary reports
+        ``marginAvailable`` (home-currency margin free to open new positions,
+        net of margin already used) and ``marginRate`` (the account margin
+        requirement fraction, e.g. ``0.02`` = 50:1). Notional capacity is
+        therefore ``marginAvailable / marginRate``. Feeding this as
+        ``position_size(available_usd=...)`` makes FX sizing reflect TRUE
+        buying power instead of the cash-1x default — and removes the interim
+        ``leverage`` guess (the account leaves ``risk.leverage`` unset, =1, so
+        this already-leveraged figure is not multiplied a second time). The
+        risk-based (SL) size remains the real limiter; this cap only ever
+        prevents sizing past the broker's actual buying power.
+
+        Best-effort: ``None`` on any failure / missing-or-zero ``marginRate``,
+        which leaves the sizer on its conservative buffer fallback (cash-1x).
+        """
+        try:
+            self._require_creds("buying_power")
+        except MissingCredentialsError as exc:
+            logger.warning("%s", exc)
+            return None
+        env = self._request("GET", f"/v3/accounts/{self.account_id}/summary")
+        if env.get("retCode") != 0:
+            logger.warning("oanda buying_power: %s", env.get("retMsg"))
+            return None
+        acct = (env.get("result") or {}).get("account") or {}
+        try:
+            margin_available = float(acct.get("marginAvailable"))
+            margin_rate = float(acct.get("marginRate"))
+        except (TypeError, ValueError):
+            return None
+        if margin_available <= 0 or margin_rate <= 0:
+            return None
+        return margin_available / margin_rate
+
     def positions(self) -> Optional[list]:
         """Open positions as ``[{symbol, side, qty, avg_price, unrealized_pnl}]``.
 

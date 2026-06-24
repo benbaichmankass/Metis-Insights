@@ -1280,6 +1280,44 @@ class Coordinator:
                             "fetch failed for %s: %s — sizer falls back to buffer",
                             account.name, _lin_exc,
                         )
+                elif (
+                    (account.exchange or "").lower() in ("alpaca", "oanda")
+                    and client is not None
+                    and not effective_dry
+                    and not bool(
+                        getattr(pkg, "meta", None)
+                        and (pkg.meta or {}).get("is_test")
+                    )
+                ):
+                    # Broker-truth margin basis (prefer broker truth, like linear
+                    # above). Both clients expose buying_power() returning the
+                    # broker's already-leveraged notional capacity:
+                    #   * Alpaca — reg-T buying power (1x cash / 2x Reg-T margin).
+                    #   * OANDA  — marginAvailable / marginRate (FX margin).
+                    # Feeding it as the margin pre-flight basis makes equity/FX
+                    # sizing reflect TRUE buying power instead of the cash-only
+                    # default (effective_leverage=1 when risk.leverage is unset).
+                    # The margin cap multiplies available_usd × effective_leverage,
+                    # and these accounts leave leverage unset (=1) ON PURPOSE so the
+                    # already-leveraged figure is not double-counted. Best-effort —
+                    # None leaves the sizer on its conservative buffer fallback.
+                    try:
+                        _bp = client.buying_power()
+                        if _bp is not None:
+                            available_usd = _bp
+                        logger.debug(
+                            "multi_account_execute: %s buying_power "
+                            "account=%s available_usd=%s",
+                            (account.exchange or "").lower(),
+                            account.name,
+                            f"{available_usd:.2f}" if available_usd is not None else "n/a",
+                        )
+                    except Exception as _bp_exc:  # noqa: BLE001
+                        logger.warning(
+                            "multi_account_execute: %s buying_power "
+                            "fetch failed for %s: %s — sizer falls back to buffer",
+                            (account.exchange or "").lower(), account.name, _bp_exc,
+                        )
                 from src.units.accounts.risk import requires_whole_unit_qty
                 sized_qty = account.risk_manager.position_size(
                     pkg, balance,
