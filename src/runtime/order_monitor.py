@@ -1997,25 +1997,29 @@ _VALID_ORPHAN_POLICIES = {"detect_only", "adopt", "close"}
 def _orphan_position_policy() -> str:
     """Read ``ORPHAN_POSITION_POLICY`` at call time.
 
-    One of ``detect_only`` / ``adopt`` / ``close``. Default is
-    ``detect_only`` — the safest behaviour for an unknown deployment.
-    The live trader's systemd unit sets ``adopt`` per operator
-    decision 2026-05-11 (the reverse reconciler should insert a trade
-    row so the journal regains visibility, without auto-trading the
-    position closed).
+    One of ``detect_only`` / ``adopt`` / ``close``. **Default is ``adopt``**
+    (operator directive 2026-06-24): an orphan is a problem to RESOLVE, never a
+    status to rest in. ``adopt`` inserts a trade row so the journal regains
+    visibility and the reconciler/strategy drives it to a real close —
+    ``detect_only`` only alerts and lets the live position sit untracked, which
+    is exactly the resting state we forbid. Making ``adopt`` the CODE default
+    (not just the systemd-unit value) means a dropped ``.env`` var can't silently
+    regress to the resting behaviour — the same class of failure that the
+    removed netting-guard env-gate caused on the 2026-06-14 migration.
 
-    Unknown values fall back to ``detect_only`` rather than raising
-    so a typo in the unit file doesn't crash the trader; the audit
-    log captures the rejected value.
+    Unknown values fall back to ``adopt`` (not the resting ``detect_only``)
+    rather than raising, so a typo in the unit file never crashes the trader
+    AND never strands an orphan as alert-only; the audit log captures the
+    rejected value.
     """
-    raw = str(os.environ.get("ORPHAN_POSITION_POLICY", "detect_only")).strip().lower()
+    raw = str(os.environ.get("ORPHAN_POSITION_POLICY", "adopt")).strip().lower()
     if raw in _VALID_ORPHAN_POLICIES:
         return raw
     logger.warning(
-        "ORPHAN_POSITION_POLICY=%r is not one of %s — falling back to detect_only",
+        "ORPHAN_POSITION_POLICY=%r is not one of %s — falling back to adopt",
         raw, sorted(_VALID_ORPHAN_POLICIES),
     )
-    return "detect_only"
+    return "adopt"
 
 
 def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
@@ -2527,6 +2531,26 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                         aid, sym, canonical_side, size, entry_price,
                         db_trade_id,
                     )
+                    # Operator directive (2026-06-24): a NEW orphan row is a
+                    # red flag, never an acceptable resting status. Durably log
+                    # it for the health-review backlog drain AND fire a loud
+                    # "initiate a /system-review" Telegram ping. Best-effort —
+                    # a notify failure must never abort the reconcile sweep.
+                    try:
+                        from src.runtime.execution_diagnostics import (
+                            enqueue_orphan_created_flag,
+                        )
+                        enqueue_orphan_created_flag(
+                            account=aid, symbol=str(sym), side=canonical_side,
+                            trade_id=db_trade_id, origin="reverse_reconciler_adopt",
+                            reason=("exchange position had no matching open "
+                                    "journal row — adopted as orphan"),
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "_reconcile_orphan_exchange_positions: orphan-created "
+                            "flag failed for trade_id=%s: %s", db_trade_id, exc,
+                        )
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(
                         "_reconcile_orphan_exchange_positions: ADOPT failed "

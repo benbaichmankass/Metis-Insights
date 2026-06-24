@@ -149,6 +149,7 @@ _NEWS_DECISIONS_LOG = runtime_logs_dir() / "news_decisions.jsonl"
 _CONVICTION_SIZING_LOG = runtime_logs_dir() / "conviction_sizing.jsonl"
 _CONVICTION_ARBITRATION_LOG = runtime_logs_dir() / "conviction_arbitration.jsonl"
 _EXIT_LADDER_SOAK_LOG = runtime_logs_dir() / "exit_ladder_soak.jsonl"
+_ORPHAN_EVENTS_LOG = runtime_logs_dir() / "orphan_events.jsonl"
 
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
@@ -197,6 +198,14 @@ _LOG_FILES: dict[str, Path] = {
     # verify the soak is accruing before P4 graduates the ladder to the real
     # exit. Absent until the first live opening order runs.
     "exit_ladder_soak": _EXIT_LADDER_SOAK_LOG,
+    # NEW orphan trade rows (operator directive 2026-06-24: orphan is a problem
+    # to reconcile, never a resting status). One JSON line per orphan-created
+    # event (account/symbol/side/trade_id/origin/ts), written by
+    # execution_diagnostics.enqueue_orphan_created_flag at every orphan-row
+    # creation. The /health-review (and /system-review) drain this tail into the
+    # health-review backlog so every orphan is tracked for reconciliation. Absent
+    # until the first orphan row is created.
+    "orphan_events": _ORPHAN_EVENTS_LOG,
 }
 
 _DEFAULT_LIMIT = 100

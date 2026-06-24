@@ -345,9 +345,11 @@ def test_close_policy_falls_back_to_detect_only_with_note(tmp_db, monkeypatch):
 # ────────────────────────────────────────────────────────────────────
 
 
-def test_orphan_position_policy_defaults_to_detect_only(monkeypatch):
+def test_orphan_position_policy_defaults_to_adopt(monkeypatch):
+    # Operator directive 2026-06-24: adopt (resolve) is the code default, never
+    # the resting detect_only — a dropped .env var must not regress to alert-only.
     monkeypatch.delenv("ORPHAN_POSITION_POLICY", raising=False)
-    assert _orphan_position_policy() == "detect_only"
+    assert _orphan_position_policy() == "adopt"
 
 
 def test_orphan_position_policy_accepts_valid_values(monkeypatch):
@@ -358,7 +360,8 @@ def test_orphan_position_policy_accepts_valid_values(monkeypatch):
 
 def test_orphan_position_policy_rejects_invalid_with_fallback(monkeypatch):
     monkeypatch.setenv("ORPHAN_POSITION_POLICY", "delete_everything")
-    assert _orphan_position_policy() == "detect_only"
+    # Fallback is adopt (resolve), not the resting detect_only.
+    assert _orphan_position_policy() == "adopt"
 
 
 # ────────────────────────────────────────────────────────────────────

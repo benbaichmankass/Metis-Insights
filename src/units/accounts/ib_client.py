@@ -721,6 +721,26 @@ class IBClient:
         qty = float(whole_qty)
 
         ib = self.connect()
+        sym = str(order.get("symbol") or self.symbol or "").upper()
+        # Accumulation guard (BL-20260624-MHG-FLIP). Cancel any resting protective
+        # legs for this symbol BEFORE placing the fresh OCA pair. place_protective
+        # is reached on every re-arm — orphan adopt/reattach
+        # (_rearm_broker_protection_after_recovery) and naked-autoprotect — and
+        # each call makes a NEW independent OCA group (oca-protect-<reqId>). Without
+        # a pre-cancel, repeated re-arms across an orphan flap STACK multiple live
+        # OCA brackets on the same position; their stops later fire together and
+        # FLIP a (by-then flat) position into a reverse orphan — the MHG long that
+        # closed clean then reappeared as a short (2026-06-24). This mirrors the
+        # cancel-then-re-arm discipline already in modify_protective(); making
+        # place_protective itself idempotent fixes every direct caller. Best-effort:
+        # a cancel failure must not block arming protection on a live naked position.
+        try:
+            self._cancel_resting_orders_for_symbol(ib, sym)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "place_protective: pre-cancel of resting %s legs failed "
+                "(proceeding to arm fresh bracket): %s", sym, exc,
+            )
         contract = self._build_contract(order.get("symbol"))
         tick = tick_size_for(order.get("symbol") or self.symbol)
         tp_price = _round_to_tick(float(tp_raw), tick) if tp_raw else None
@@ -804,21 +824,17 @@ class IBClient:
                           "refusing to transmit a modify.",
             }
         sym = str(order.get("symbol") or self.symbol or "").upper()
+        # Validate the connection up front so a connect failure returns a clean
+        # retCode (never raises). We no longer cancel resting legs here:
+        # place_protective now cancels the symbol's resting legs itself before
+        # arming (BL-20260624-MHG-FLIP), so cancelling here too would
+        # DOUBLE-cancel. Delegating keeps it a single cancel-then-arm.
         try:
-            ib = self.connect()
+            self.connect()
         except IBConnectionError as exc:
             return {"retCode": 1, "retMsg": f"IB connect failed: {exc}"}
         except Exception as exc:  # noqa: BLE001
             return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
-        # Cancel the resting protective legs for the symbol, then re-place a
-        # fresh OCA pair at the new levels. There is a brief re-arm window
-        # between the cancel and the new legs landing — the same window the
-        # naked-autoprotect / close paths already accept — bounded by the
-        # strategy re-emitting next tick if placement fails.
-        try:
-            self._cancel_resting_orders_for_symbol(ib, sym)
-        except Exception as exc:  # noqa: BLE001
-            return {"retCode": 1, "retMsg": f"cancel-resting failed: {exc}"}
         return self.place_protective({**order, "symbol": sym})
 
     def close(
