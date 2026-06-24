@@ -560,33 +560,42 @@ class TestRealAccountsYaml:
 class TestNominalSizing:
     """Prop accounts have no live balance API, so the coordinator passes
     balance_usd=0.0; position_size must size off the nominal account equity
-    instead of refusing on below_min_balance — otherwise no ticket ever
-    emits (the prop-account no-trades cause)."""
+    instead of refusing on the base ``gate_balance <= 0`` guard — otherwise
+    no ticket ever emits (the prop-account no-trades cause). The arbitrary
+    min-balance floor was removed 2026-06-24; the only balance refusal left
+    is a non-positive balance with no nominal to fall back on."""
 
     def test_sizes_off_nominal_when_no_live_balance(self):
         cfg = _base_cfg(account_size_usd=5000)
-        cfg["risk"]["min_balance_usd"] = 100  # the real prop floor
+        # min_balance_usd left as harmless config input — it is ignored.
+        cfg["risk"]["min_balance_usd"] = 100
         rm = PropRiskManager(cfg)
         # balance_usd=0.0 is exactly what _fetch_balance(breakout) returns.
         qty = rm.position_size(_pkg(), 0.0)
         assert qty > 0, "prop trade must size off the $5k nominal, not refuse on $0"
 
     def test_refuses_when_no_nominal_and_no_balance(self):
-        # No account_size_usd and no live balance → no sizing basis → refuse.
-        # (We never fabricate a size out of nothing.)
+        # No account_size_usd and no live balance → no sizing basis → refuse
+        # on the base gate_balance<=0 guard. (We never fabricate a size out
+        # of nothing.)
         cfg = _base_cfg()  # account_size_usd defaults to 0.0
         cfg["risk"]["min_balance_usd"] = 100
         rm = PropRiskManager(cfg)
         assert rm.position_size(_pkg(), 0.0) == 0.0
 
-    def test_real_below_min_balance_still_refuses(self):
+    def test_real_positive_balance_sizes_off_risk_budget(self):
         # The nominal substitution triggers ONLY when balance is missing
-        # (<=0). A genuine live balance below the floor still refuses — we
-        # don't blanket-bypass the min-balance gate.
+        # (<=0). A genuine positive live balance is sized off the risk budget
+        # as usual — NOT bumped to the nominal, and NOT refused on any floor
+        # (the arbitrary min-balance floor was removed 2026-06-24). Here a
+        # $10 live balance (risk_pct=0.005, distance=1) sizes to ~0.05.
         cfg = _base_cfg(account_size_usd=5000)
         cfg["risk"]["min_balance_usd"] = 100
         rm = PropRiskManager(cfg)
-        assert rm.position_size(_pkg(), 10.0) == 0.0
+        qty = rm.position_size(_pkg(), 10.0)
+        assert qty == pytest.approx(0.05, rel=1e-3), (
+            "a genuine live balance sizes off the risk budget, not the nominal"
+        )
 
     def test_nominal_daily_cap_prescreen(self):
         # The nominal basis means the base daily-loss cap still pre-screens:

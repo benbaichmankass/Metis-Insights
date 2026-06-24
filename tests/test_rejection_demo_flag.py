@@ -102,7 +102,8 @@ def test_zero_qty_refusal_on_demo_account_stamps_demo_flag(
         )
         return True
 
-    # Balance below min_balance_usd → position_size returns 0.0 → the
+    # Zero balance → position_size returns 0.0 (the only balance gate,
+    # since the min_balance_usd floor was removed 2026-06-24) → the
     # sized_qty<=0 gate fires and journals via _early_account_cfg.
     with patch(
         "src.units.accounts.execute.log_rejection_to_journal",
@@ -113,7 +114,7 @@ def test_zero_qty_refusal_on_demo_account_stamps_demo_flag(
         results = coord.multi_account_execute(
             _pkg(),
             accounts_path=demo_yaml,
-            balance_fetcher=lambda _a: 10.0,  # < min_balance_usd (50)
+            balance_fetcher=lambda _a: 0.0,  # no funds to size against
         )
 
     assert len(results) == 1

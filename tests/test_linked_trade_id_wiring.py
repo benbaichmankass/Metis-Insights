@@ -226,7 +226,7 @@ class TestRejectionPathsDoNotStampLink:
             trade_id=f"{status}-abc",
             is_dry=False,
             status=status,
-            reason="below_min_balance: 0.00 < 50.0",
+            reason="zero_balance: gate_balance=0.00 USD (no funds available to size against)",
         )
 
         assert ok is True

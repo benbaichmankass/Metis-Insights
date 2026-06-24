@@ -824,7 +824,7 @@ class Coordinator:
             in-process default is used: read ``meta['account_balance_usd']``
             on the package, then ``account.cached_balance_usd``, then
             fall back to a smoke-safe stub of $0.0 (which produces a
-            ``below_min_balance`` skip — surfacing the missing wiring
+            ``zero_balance`` skip — surfacing the missing wiring
             instead of placing an unsized order). G3 will replace the
             default with a live ``processor.get_account_balances()`` call.
 
@@ -865,7 +865,7 @@ class Coordinator:
         #   3. Live ``processor.get_account_balances()`` lookup by
         #      ``account_id``. Returns ``None`` when the row is missing
         #      or the exchange call failed; the per-account RiskManager
-        #      then refuses to size (below_min_balance).
+        #      then refuses to size (zero_balance).
         # ``cached_balance_usd`` on the account object remains as a final
         # fallback so synthetic test fixtures that pre-stash a balance
         # still work without any wiring.
@@ -1023,7 +1023,7 @@ class Coordinator:
             intent_legs: Optional[List[Dict[str, Any]]] = None
 
             # Pre-build a minimal account_cfg for the sizing_failed /
-            # below_min_balance refusal-journal writes downstream.
+            # zero_balance refusal-journal writes downstream.
             # Mirrors the richer account_cfg built below; ``getattr``
             # keeps legacy/test fixtures (where the account object
             # may not carry ``api_key_env``) routing cleanly.

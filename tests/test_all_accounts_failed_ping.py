@@ -62,7 +62,7 @@ class TestEnqueueAllAccountsFailed:
                 {"name": "bybit_2", "trade_id": None,
                  "error": "RuntimeError: Bybit ErrCode 170131"},
                 {"name": "bybit_3", "trade_id": None,
-                 "error": "below_min_balance: balance=0.00 USD < 50"},
+                 "error": "zero_balance: gate_balance=0.00 USD (no funds available to size against)"},
             ],
         )
         assert path is not None
@@ -78,7 +78,7 @@ class TestEnqueueAllAccountsFailed:
         assert "Accounts attempted: 2" in body
         assert "Trades placed: 0" in body
         assert "bybit_2: RuntimeError: Bybit ErrCode 170131" in body
-        assert "bybit_3: below_min_balance" in body
+        assert "bybit_3: zero_balance" in body
 
     def test_empty_results_is_noop(self, pings_dir):
         path = enqueue_all_accounts_failed_dispatch(
@@ -198,7 +198,7 @@ class TestMultiAccountExecuteWiring:
         results = [
             {"name": "bybit_2", "trade_id": None, "error": "RuntimeError"},
             {"name": "bybit_3", "trade_id": None,
-             "error": "below_min_balance"},
+             "error": "zero_balance"},
         ]
 
         # Re-execute the post-loop block.
@@ -227,7 +227,7 @@ class TestMultiAccountExecuteWiring:
         results = [
             {"name": "bybit_2", "trade_id": "ORD-1", "error": None},
             {"name": "bybit_3", "trade_id": None,
-             "error": "below_min_balance"},
+             "error": "zero_balance"},
         ]
         # The post-loop predicate must be False.
         all_failed = bool(results) and not any(
@@ -315,7 +315,7 @@ class TestBenignNoopSuppression:
         results = [
             {"name": "bybit_2", "trade_id": None,
              "error": "RuntimeError: Bybit ErrCode 170131"},
-            {"name": "bybit_3", "trade_id": None, "error": "below_min_balance"},
+            {"name": "bybit_3", "trade_id": None, "error": "zero_balance"},
         ]
         assert self._should_fire(results) is True
 
