@@ -66,8 +66,15 @@ fi
 cd "$REPO_ROOT"
 
 # --- Pull latest -----------------------------------------------------------
+# Self-heal onto a clean `main` every cycle. Past interactive sessions have
+# left this checkout parked on stale `claude/*` session branches (with broken
+# upstreams), which makes a manual `git pull` fail and leaves the box off-main
+# between cycles. A plain `reset --hard origin/main` fixes the *content* but
+# resets whatever branch happens to be checked out — so force-checkout `main`
+# instead: content AND branch land on origin/main regardless of what was left
+# behind, so a subsequent manual `git pull` Just Works.
 git fetch --quiet origin main
-git reset --hard --quiet origin/main
+git checkout --quiet --force -B main origin/main
 HEAD_SHA="$(git rev-parse --short HEAD)"
 emit "$(printf '{"ts":"%s","status":"pulled","head":"%s"}' "$(iso_now)" "$HEAD_SHA")"
 
