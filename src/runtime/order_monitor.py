@@ -4148,6 +4148,27 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                         "exit_reason": "stuck_strategy_watchdog",
                         "notes": dump_capped(trade_notes, 500),
                     })
+                    # Operator directive (2026-06-24): a row entering the
+                    # orphaned state is a red flag. Durably log + fire the loud
+                    # "/system-review" ping. Best-effort.
+                    try:
+                        from src.runtime.execution_diagnostics import (
+                            enqueue_orphan_created_flag,
+                        )
+                        enqueue_orphan_created_flag(
+                            account=aid, symbol=symbol, side=direction,
+                            trade_id=int(trade_row["id"]),
+                            origin="stuck_strategy_watchdog",
+                            reason=("strategy-monocle gate blocked > "
+                                    f"{int(threshold_minutes)} min; watchdog "
+                                    "orphaned the row"),
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "_watchdog_stuck_strategies: orphan-created flag "
+                            "failed for trade_id=%s: %s",
+                            trade_row.get("id"), exc,
+                        )
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "_watchdog_stuck_strategies: trade cascade failed for "
@@ -4771,6 +4792,26 @@ def _mark_orphaned(db, row: Dict[str, Any]) -> None:
         "exit_reason": "reconciler",
         "notes": dump_capped(notes, 500),
     })
+    # Operator directive (2026-06-24): a row entering the orphaned state is a red
+    # flag, never an acceptable resting status. Durably log it for the
+    # health-review backlog drain + fire the loud "/system-review" red-flag —
+    # same guarantee as the reverse-reconciler adopt path. Best-effort.
+    try:
+        from src.runtime.execution_diagnostics import enqueue_orphan_created_flag
+        enqueue_orphan_created_flag(
+            account=row.get("account_id"),
+            symbol=row.get("symbol"),
+            side=row.get("direction"),
+            trade_id=int(row["id"]),
+            origin="forward_reconciler_orphaned",
+            reason=("DB-open trade absent from the exchange open-positions "
+                    "snapshot — marked orphaned by the monitor reconciler"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_mark_orphaned: orphan-created flag failed for trade_id=%s: %s",
+            row.get("id"), exc,
+        )
     # Cascade by canonical link (order_packages.linked_trade_id),
     # with a second attempt on transient failures. Pre-2026-05-16
     # the lookup went through ``_extract_package_id(row.notes)``,
