@@ -93,7 +93,7 @@ def _assert_no_flip_mechanism():
 def _pkg() -> OrderPackage:
     # Inject account_balances_usd so the coordinator's _default_balance_fetcher
     # returns 10_000 USD for bybit_live — without this the sizer sees balance=0,
-    # refuses below_min_balance, and never reaches execute_pkg (so the rejection
+    # refuses with zero_balance, and never reaches execute_pkg (so the rejection
     # counter never increments).
     return OrderPackage(
         strategy="vwap",

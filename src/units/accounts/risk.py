@@ -29,7 +29,6 @@ budget, the margin/buying-power ceiling, and the exchange's lot size.
 
 Sizing inputs (also from the ``risk`` section):
   - risk_pct: fraction of balance risked per trade (operator default 0.01)
-  - min_balance_usd: refuse to size below this balance (operator default 50)
   - leverage: per-account leverage for linear-perp accounts (PR 3
     cutover). 0 means "not configured" — set_leverage is skipped at
     startup. Cash spot accounts ignore this field.
@@ -258,7 +257,6 @@ class RiskManager:
         # the same 5%-of-equity figure.
         self.daily_loss_pct: float = float(config.get("daily_loss_pct", 0.0) or 0.0)
         self.risk_pct: float = float(config.get("risk_pct", 0.01))
-        self.min_balance_usd: float = float(config.get("min_balance_usd", 50.0))
         self.min_qty: float = float(config.get("min_qty", _DEFAULT_MIN_QTY))
         self.qty_precision: int = int(config.get("qty_precision", _DEFAULT_QTY_PRECISION))
         # PR 3 cutover: per-account leverage for linear-perp accounts.
@@ -581,7 +579,12 @@ class RiskManager:
         gate_balance = (
             total_account_usd if total_account_usd is not None else balance_usd
         )
-        if gate_balance < self.min_balance_usd:
+        # No arbitrary minimum-balance floor (the removed ``min_balance_usd``):
+        # size is a pure function of available balance+margin and risk-per-trade
+        # (operator directive 2026-06-24). The only floor is physics — you can't
+        # risk a fraction of zero — so a non-positive balance sizes to 0 (this
+        # also guards _size_unbounded's positive-balance requirement).
+        if gate_balance <= 0:
             return 0.0
 
         strategy_risk_pct = float(

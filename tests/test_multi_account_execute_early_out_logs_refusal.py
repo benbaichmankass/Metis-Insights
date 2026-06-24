@@ -11,7 +11,7 @@ no linked trade" and no rejection counterpart explained why.
 Two refusal kinds are exercised here:
 
 * ``sizing_failed`` — risk_manager.position_size raised
-* ``below_min_balance`` — sized_qty <= 0
+* ``zero_balance`` — sized_qty <= 0 (no funds to size against)
 
 Note: ``skipped_not_assigned`` *used* to be a third refusal path
 covered here. As of 2026-05-08 the per-account strategy filter runs
@@ -157,25 +157,29 @@ class TestSizingFailedLogsRefusal:
         assert "test_sizing_explosion" in sizing[0]["entry_reason"]
 
 
-class TestBelowMinBalanceLogsRefusal:
-    """``below_min_balance`` — sized_qty <= 0 (under-balance account)."""
+class TestZeroBalanceLogsRefusal:
+    """``zero_balance`` — sized_qty <= 0 (no funds to size against).
+
+    The arbitrary min-balance floor was removed 2026-06-24; the only
+    balance refusal left is a non-positive balance, so feed $0 to
+    exercise the early-out cleanly."""
 
     def test_zero_balance_account_logs_rejection(
         self, coord, accounts_yaml, tmp_journal, stub_execute_pkg,
     ):
-        # balance below min_balance_usd → position_size returns 0.0 →
-        # below_min_balance early-out fires for bybit_2 (the only
-        # account left after the per-account strategy pre-filter).
+        # balance 0.0 → position_size returns 0.0 → zero_balance early-out
+        # fires for bybit_2 (the only account left after the per-account
+        # strategy pre-filter).
         coord.multi_account_execute(
             _pkg("vwap"),
             accounts_path=accounts_yaml,
             dry_run=True,
-            balance_fetcher=lambda _a: 1.0,  # < min_balance_usd=50
+            balance_fetcher=lambda _a: 0.0,  # no funds to size against
         )
 
         rows = _refusal_rows(tmp_journal)
         below = [r for r in rows
-                 if "below_min_balance" in (r["entry_reason"] or "")]
+                 if "zero_balance" in (r["entry_reason"] or "")]
         assert len(below) == 1
         assert below[0]["account_id"] == "bybit_2"
         assert below[0]["strategy_name"] == "vwap"

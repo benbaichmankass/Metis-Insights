@@ -1,17 +1,24 @@
-"""S-052 — min_balance_usd gate evaluates total account equity, not free quote balance.
+"""The balance gate evaluates total account equity, not free quote balance.
 
 Spot/spot-margin accounts pass free USDT as ``balance_usd`` for sizer
-collateral math (S-049). The min_balance_usd gate ("is this account
-big enough to bother sizing into?") needs the operator's *total*
-account equity, not free USDT — otherwise an account holding $120
-total but only $40 free USDT is incorrectly refused as too small.
+collateral math (S-049). The balance gate needs the operator's *total*
+account equity, not free USDT.
 
-These tests pin:
-  1. The new ``total_account_usd`` parameter overrides the gate.
-  2. When unset (default), behaviour is bit-identical to pre-S-052.
-  3. The gate uses ``total_account_usd`` even when free balance is high
-     (catches the inverse — a wallet with $1000 free but rest of the
-     account drained somehow still passes the gate, which is correct).
+The arbitrary minimum-balance floor (``min_balance_usd``) was removed
+2026-06-24 (operator directive): size is a pure function of available
+balance+margin and risk-per-trade. The only floor left is physics — a
+non-positive ``gate_balance`` sizes to 0 (you can't risk a fraction of
+zero; this also guards the positive-balance requirement downstream).
+
+These tests pin what remains of the original S-052 intent — that
+``total_account_usd``, when supplied, is the gate basis (and the
+margin-cap basis), not free ``balance_usd``:
+  1. The ``total_account_usd`` parameter is the basis the gate/margin
+     math uses; a healthy total equity sizes even when free USDT is low.
+  2. A non-positive ``total_account_usd`` refuses (the only balance
+     gate), even when free ``balance_usd`` looks high — None vs 0.0 is
+     load-bearing (0.0 is a real empty-account reading, not "unset").
+  3. Smoke-test orders bypass the gate regardless.
 """
 from __future__ import annotations
 
@@ -34,9 +41,11 @@ def _pkg(**overrides):
     return OrderPackage(**base)
 
 
-def _rm(min_balance_usd: float = 50.0) -> RiskManager:
+def _rm() -> RiskManager:
+    # ``min_balance_usd`` left in as harmless config input — it is ignored
+    # since the floor was removed 2026-06-24.
     return RiskManager({
-        "min_balance_usd": min_balance_usd,
+        "min_balance_usd": 50.0,
         "risk_pct": 0.01,
         "min_qty": 0.001,
         "qty_precision": 3,
@@ -47,87 +56,86 @@ def _rm(min_balance_usd: float = 50.0) -> RiskManager:
 
 
 # ---------------------------------------------------------------------------
-# 1. Total-equity override unblocks an account whose free balance is below
-#    the gate but whose total equity is above (the wallet-with-locked-funds
-#    case the S-052 bug report describes).
+# 1. Total equity is the gate/margin basis. A healthy total equity sizes
+#    even when free USDT is modest (the wallet-with-locked-funds case the
+#    original S-052 bug report described). There is no $50 floor anymore —
+#    the basis just has to clear physics + the margin cap for the min lot.
 # ---------------------------------------------------------------------------
 
 
-def test_total_account_usd_above_gate_passes_even_when_free_balance_below():
-    rm = _rm(min_balance_usd=50.0)
-    # Free USDT $40 < $50 gate, but total equity $120 > $50 → trade proceeds.
+def test_total_account_usd_is_the_basis_when_free_balance_low():
+    rm = _rm()
+    # Free USDT $40 but total equity $5000 → the margin cap uses the $5000
+    # basis, so the min lot is affordable and the trade sizes.
     qty = rm.position_size(
         _pkg(),
         balance_usd=40.0,
-        total_account_usd=120.0,
+        total_account_usd=5_000.0,
     )
-    assert qty > 0, "gate should pass when total equity clears min_balance_usd"
+    assert qty > 0, "total equity (not free balance) should back the margin cap"
 
 
 # ---------------------------------------------------------------------------
-# 2. Backward compat — when total_account_usd is None, gate uses balance_usd
-#    exactly as before. Pre-S-052 callers get bit-identical behaviour.
+# 2. Backward compat — when total_account_usd is None, the gate/margin math
+#    uses balance_usd. A healthy free balance sizes.
 # ---------------------------------------------------------------------------
 
 
 def test_no_total_falls_back_to_balance_usd_passes():
-    rm = _rm(min_balance_usd=50.0)
-    qty = rm.position_size(_pkg(), balance_usd=200.0)
+    rm = _rm()
+    qty = rm.position_size(_pkg(), balance_usd=5_000.0)
     assert qty > 0
 
 
-def test_no_total_falls_back_to_balance_usd_refuses():
-    rm = _rm(min_balance_usd=50.0)
-    qty = rm.position_size(_pkg(), balance_usd=40.0)
-    assert qty == 0.0
-
-
 # ---------------------------------------------------------------------------
-# 3. Total below threshold refuses, even if free balance somehow looks big.
-#    (Defensive: catches a regression where someone wires balance and total
-#    in the wrong order.)
+# 3. The only balance gate: a non-positive total equity refuses, even if
+#    free balance somehow looks big (catches a regression where someone
+#    wires balance and total in the wrong order). None vs 0.0 is load-bearing
+#    — 0.0 is a real empty-account reading and must fire the gate.
 # ---------------------------------------------------------------------------
 
 
-def test_total_below_gate_refuses_even_if_balance_high():
-    rm = _rm(min_balance_usd=50.0)
+def test_zero_total_refuses_even_if_balance_high():
+    rm = _rm()
     qty = rm.position_size(
         _pkg(),
         balance_usd=1_000.0,
-        total_account_usd=30.0,
+        total_account_usd=0.0,
     )
     assert qty == 0.0, (
-        "gate should fire on total equity, not free balance; "
-        "$30 total under $50 floor must refuse regardless of balance"
+        "the balance gate fires on a non-positive total equity, not on free "
+        "balance; $0 total must refuse regardless of free balance"
     )
 
 
-# ---------------------------------------------------------------------------
-# 4. total=0.0 is a real value (empty account) — gate must fire, NOT fall
-#    back to balance. None vs 0.0 distinction is load-bearing.
-# ---------------------------------------------------------------------------
-
-
-def test_total_account_zero_is_explicit_refusal():
-    rm = _rm(min_balance_usd=50.0)
+def test_negative_total_refuses():
+    rm = _rm()
     qty = rm.position_size(
         _pkg(),
-        balance_usd=200.0,
-        total_account_usd=0.0,
+        balance_usd=1_000.0,
+        total_account_usd=-5.0,
     )
     assert qty == 0.0
 
 
+def test_zero_balance_no_total_refuses():
+    """No total supplied → the gate uses balance_usd; a non-positive free
+    balance refuses."""
+    rm = _rm()
+    qty = rm.position_size(_pkg(), balance_usd=0.0)
+    assert qty == 0.0
+
+
 # ---------------------------------------------------------------------------
-# 5. Test orders bypass the gate regardless (smoke-test contract,
+# 4. Test orders bypass the gate regardless (smoke-test contract,
 #    pre-existing behaviour preserved).
 # ---------------------------------------------------------------------------
 
 
 def test_test_order_bypasses_gate_with_or_without_total():
-    rm = _rm(min_balance_usd=50.0)
+    rm = _rm()
     smoke = _pkg(meta={"is_test": True, "test_qty": 0.0001})
-    # Free balance below gate; total below gate; smoke order still sizes.
-    assert rm.position_size(smoke, balance_usd=10.0, total_account_usd=10.0) == 0.0001
+    # Even a zero balance/total: smoke order still sizes.
+    assert rm.position_size(smoke, balance_usd=0.0, total_account_usd=0.0) == 0.0001
     # And without total at all.
-    assert rm.position_size(smoke, balance_usd=10.0) == 0.0001
+    assert rm.position_size(smoke, balance_usd=0.0) == 0.0001

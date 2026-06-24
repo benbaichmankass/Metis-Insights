@@ -3,9 +3,10 @@
 Before this fix, ``account_balance_with_diagnostic`` returned
 ``"unsupported"`` for the two M15 exchanges and ``execute._fetch_balance``
 fell through to ``0.0`` — so the coordinator's live-balance cache stayed
-empty, the sizer saw ``gate_balance=0.00 < min_balance_usd``, and every
-gold/ETF signal was refused (trade #2536, xauusd_trend_1h's first
-executable signal, 2026-06-11 18:01Z).
+empty, the sizer saw ``gate_balance=0.00`` (a non-positive balance,
+which the only balance gate refuses), and every gold/ETF signal was
+refused (trade #2536, xauusd_trend_1h's first executable signal,
+2026-06-11 18:01Z).
 """
 from __future__ import annotations
 
