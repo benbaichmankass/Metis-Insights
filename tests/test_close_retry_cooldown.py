@@ -157,3 +157,48 @@ def test_confirmed_close_clears_cooldown(monkeypatch):
     # Confirmed close clears the marker and writes the DB close.
     assert key not in om._PENDING_CLOSE_RETRY_COOLDOWN
     assert db.pkg_updates and db.trade_updates
+
+
+# --------------------------------------------------------------------------- #
+# Consecutive close-failure alert (item #3)
+# --------------------------------------------------------------------------- #
+
+
+_GENERIC_FAIL = {"ok": False, "error": "venue error retCode=10001 SL race"}
+_OK = {"ok": True, "exchange_order_id": "X",
+       "exchange_response": {"retCode": 0}, "error": None}
+
+
+def test_close_fail_streak_alerts_at_threshold(monkeypatch):
+    from src.runtime import execution_diagnostics as ed
+    monkeypatch.setenv("MONITOR_CLOSE_FAIL_ALERT_AFTER", "3")
+    om._CLOSE_FAIL_STREAK.clear()
+    alerts = []
+    monkeypatch.setattr(ed, "enqueue_close_failure", lambda **kw: alerts.append(kw))
+    _patch_close(monkeypatch, [_GENERIC_FAIL])
+    db = _FakeDB(_MATCHED)
+
+    om._apply_update(db, _OPEN_PKG, _VERDICT, om._StrategyTickSummary())
+    om._apply_update(db, _OPEN_PKG, _VERDICT, om._StrategyTickSummary())
+    assert alerts == []                       # below threshold, silent retry
+    om._apply_update(db, _OPEN_PKG, _VERDICT, om._StrategyTickSummary())
+    assert len(alerts) == 1                    # 3rd consecutive failure → alert
+    assert alerts[0]["consecutive"] == 3
+    assert alerts[0]["symbol"] == "MHG"
+    assert alerts[0]["account"] == "ib_paper"
+
+
+def test_close_fail_streak_reset_on_success(monkeypatch):
+    from src.runtime import execution_diagnostics as ed
+    monkeypatch.setenv("MONITOR_CLOSE_FAIL_ALERT_AFTER", "2")
+    om._CLOSE_FAIL_STREAK.clear()
+    alerts = []
+    monkeypatch.setattr(ed, "enqueue_close_failure", lambda **kw: alerts.append(kw))
+    # fail (streak 1) → success (clears) → fail (streak 1) — never reaches 2.
+    _patch_close(monkeypatch, [_GENERIC_FAIL, _OK, _GENERIC_FAIL])
+    db = _FakeDB(_MATCHED)
+    for _ in range(3):
+        om._apply_update(db, _OPEN_PKG, _VERDICT, om._StrategyTickSummary())
+    assert alerts == []
+    assert ("ib_paper", "MHG", "long") in om._CLOSE_FAIL_STREAK
+    assert om._CLOSE_FAIL_STREAK[("ib_paper", "MHG", "long")] == 1

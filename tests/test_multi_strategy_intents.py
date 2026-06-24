@@ -462,22 +462,24 @@ class TestRiskCapsStillEnforced:
         assert qty < desired.target_qty
         assert qty == pytest.approx(0.01, abs=1e-6)
 
-    def test_risk_manager_refuses_below_min_balance(self):
-        """Even a huge aggregated target gets refused when balance is below floor."""
+    def test_risk_manager_refuses_zero_balance(self):
+        """Even a huge aggregated target gets refused when there are no
+        funds to size against. The arbitrary min-balance floor was
+        removed 2026-06-24 — the only balance refusal left is a
+        non-positive balance (physics: can't risk a fraction of zero)."""
         intents = [_intent("vwap", "long", target_qty=5.0)]
         desired = aggregate_intents(intents)
         pkg = self._build_pkg_from_aggregation(desired)
 
         rm = RiskManager({
             "risk_pct": 0.01,
-            "min_balance_usd": 100,
         })
-        # Balance below the configured floor — sizer returns 0.0
-        # regardless of the aggregated target.
-        qty = rm.position_size(pkg, balance_usd=50.0)
+        # Non-positive balance — sizer returns 0.0 regardless of the
+        # aggregated target.
+        qty = rm.position_size(pkg, balance_usd=0.0)
         assert qty == 0.0, (
-            "RiskManager.min_balance_usd cap must still apply when the "
-            "aggregator hands it a large target"
+            "the balance gate must still refuse a non-positive balance "
+            "when the aggregator hands it a large target"
         )
 
     def test_risk_manager_refuses_dry_run_mode(self):

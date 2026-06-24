@@ -42,7 +42,10 @@ If the user asked about *model performance*, *training sessions*, or
    that's `/ml-review` (§ "Trainer service touch").
 7. **Review recent sprint logs** for doc correctness (§ "Sprint-doc
    review").
-8. **Drain the health-review backlog** — triage every open item, fix
+8. **Ingest the orphan-events log** (§ "Orphan-events ingest") — every
+   NEW orphan trade row since the last review MUST be tracked + driven to
+   reconciliation. Orphan is a problem to solve, never a resting status.
+9. **Drain the health-review backlog** — triage every open item, fix
    what you can (§ "Draining the backlog").
 9. **Emit the response JSON** + **post a one-line update to the Claude
    channel** (§ "Output" + § "Posting to the Claude channel").
@@ -291,6 +294,32 @@ The audit findings appear in `compliance_audit` in the response JSON:
 
 This rotation does NOT touch artifacts outside the day's section — the
 weekly cycle is the coverage guarantee, not a per-session full sweep.
+
+## Orphan-events ingest (orphan is NEVER a resting status)
+
+Operator directive (2026-06-24): an orphan trade row is a **red flag to be
+reconciled**, not a status to accept. The trader writes one JSON line per
+orphan-row creation to `runtime_logs/orphan_events.jsonl`
+(`execution_diagnostics.enqueue_orphan_created_flag`: `account`, `symbol`,
+`side`, `trade_id`, `origin`, `ts`) and fires a CRITICAL "initiate a
+/system-review" Telegram red-flag at the same time.
+
+Every health-review (and the master /system-review) MUST:
+
+1. **Pull the tail** since the last review — `diag log_file?name=orphan_events`
+   (relay) or the live VM file. Also cross-check the DB: any `trades` row still
+   carrying an orphan marker (`setup_type='adopted_orphan'` /
+   `strategy_name='orphan_adopt'`, or `status='orphaned'`) — query via the Data
+   Explorer (`/api/bot/db/table/trades?filter_col=setup_type&filter_op=eq&filter_val=adopted_orphan`).
+2. **For each orphan not already tracked**, append a `BL-…` item to
+   `docs/claude/health-review-backlog.json` (origin, account/symbol, trade_id,
+   the reconcile target if recoverable) so it is durably tracked — and **drive it
+   to resolution**: reconcile to its real trade/order package, or, only after
+   exhausting that, mark it explicitly `unreconciled` (never leave it resting as
+   `adopted_orphan`).
+3. **Flag loudly** in the review output if any orphan persisted unreconciled
+   across the window — that is a standing failure of the no-resting-orphan
+   invariant, not a routine item.
 
 ## Draining the backlog
 

@@ -815,14 +815,40 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                 # error (e.g. a one-off network blip) still retries next tick.
                 if "not confirmed flat" in err_str.lower():
                     _PENDING_CLOSE_RETRY_COOLDOWN[_close_key] = datetime.now(timezone.utc)
+                # Item #3: count consecutive close failures for this
+                # (account, symbol, direction) and ALERT once the streak crosses
+                # the threshold (and every threshold-th failure after) — a
+                # position that won't flatten is no longer retried silently
+                # forever. Cleared on a confirmed close.
+                _streak = _CLOSE_FAIL_STREAK.get(_close_key, 0) + 1
+                _CLOSE_FAIL_STREAK[_close_key] = _streak
+                _after = _close_fail_alert_after()
+                if _streak == _after or (_streak > _after and _streak % _after == 0):
+                    try:
+                        from src.runtime.execution_diagnostics import (
+                            enqueue_close_failure,
+                        )
+                        enqueue_close_failure(
+                            account=matched_trade.get("account_id"),
+                            symbol=matched_trade.get("symbol"),
+                            side=matched_trade.get("direction"),
+                            qty=matched_trade.get("position_size"),
+                            consecutive=_streak, error=err_str,
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "order_monitor: close-failure alert enqueue failed "
+                            "pkg=%s: %s", pkg_id, exc,
+                        )
                 summary.error_count += 1
                 summary.errors.append(f"{pkg_id}: exchange close failed: {err_str}")
                 return
 
-        # Confirmed close (or dry-run skip) → clear any close-retry cooldown
-        # marker for this (account, symbol, direction) so a future close isn't
-        # needlessly deferred.
+        # Confirmed close (or dry-run skip) → clear the close-retry cooldown
+        # marker AND the consecutive-failure streak for this (account, symbol,
+        # direction) so a future close isn't needlessly deferred / re-alerted.
         _PENDING_CLOSE_RETRY_COOLDOWN.pop(_close_key, None)
+        _CLOSE_FAIL_STREAK.pop(_close_key, None)
 
         # Exchange close ok (or dry-run skip). Capture the actual fill
         # price from Bybit before writing the DB so the trade row's
@@ -1271,6 +1297,48 @@ def _send_close_to_exchange(matched_trade: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
+def _cancel_resting_protection_after_flat(
+    account_id: Optional[str], symbol: Optional[str],
+) -> None:
+    """Cancel resting protective bracket legs for (account, symbol) after the
+    RECONCILER concludes the position is flat on the exchange. Best-effort.
+
+    The reconciler's flat-close paths (``exchange_flat_reconciled`` / snapshot /
+    close-on-disappear) mark the DB row closed WITHOUT going through
+    ``IBClient.close`` — the position is already flat, so no opposing order is
+    sent — and so they never cancelled the symbol's resting GTC OCA legs. On IB
+    those stale stops sit on a now-flat position and can later fire, SELLING into
+    a reverse position → a fresh orphan (the MHG long→short flip,
+    BL-20260624-MHG-FLIP). This sweeps them. IB-only: Bybit/Alpaca/OANDA closes
+    are atomic / position-attached, so there are no stranded resting legs to
+    cancel (the client simply has no ``cancel_resting_protection`` and we no-op).
+    Never raises into the reconcile sweep.
+    """
+    if not account_id or not symbol:
+        return
+    try:
+        client, cfg = _build_account_client(account_id)
+    except Exception:  # noqa: BLE001
+        return
+    if client is None or cfg is None:
+        return
+    cancel_fn = getattr(client, "cancel_resting_protection", None)
+    if not callable(cancel_fn):
+        return  # non-IB integration — nothing to sweep
+    try:
+        resp = cancel_fn(symbol) or {}
+        if resp.get("retCode") not in (0, "0", None):
+            logger.info(
+                "order_monitor: cancel resting protection after flat-close for "
+                "%s/%s → %s", account_id, symbol, resp.get("retMsg"),
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: cancel-resting-protection-after-flat failed for "
+            "%s/%s: %s", account_id, symbol, exc,
+        )
+
+
 def _send_partial_close_to_exchange(
     matched_trade: Dict[str, Any], qty: float,
 ) -> Dict[str, Any]:
@@ -1539,6 +1607,15 @@ _PENDING_CLOSE_CONFIRM: Dict[int, datetime] = {}
 _DEFAULT_CLOSE_RETRY_COOLDOWN_SECONDS = 300
 _PENDING_CLOSE_RETRY_COOLDOWN: Dict[tuple, datetime] = {}
 
+# Consecutive monitor-close failures per (account, symbol, direction). The
+# exchange-first close leaves the DB row open and retries on any exchange-close
+# failure — previously a SILENT loop (ERROR log, no operator ping). After
+# MONITOR_CLOSE_FAIL_ALERT_AFTER consecutive failures we alert so a position that
+# won't flatten is surfaced (item #3). Cleared on a confirmed close. In-process;
+# a restart re-arms from scratch.
+_DEFAULT_CLOSE_FAIL_ALERT_AFTER = 3
+_CLOSE_FAIL_STREAK: Dict[tuple, int] = {}
+
 # Re-adopt guard window (BL-20260618-RECONCILE-DUP, 2026-06-18). When an IB
 # gateway flaps (logged-out → empty portfolio → back) during the broker reset
 # window, the reverse reconciler could adopt the SAME exchange position, have
@@ -1669,6 +1746,26 @@ def _close_confirm_seconds() -> float:
         return max(0.0, float(raw))
     except (TypeError, ValueError):
         return float(_DEFAULT_CLOSE_CONFIRM_SECONDS)
+
+
+def _close_fail_alert_after() -> int:
+    """Consecutive monitor-close failures before the operator is alerted.
+
+    Reads ``MONITOR_CLOSE_FAIL_ALERT_AFTER`` at call time; falls back to
+    ``_DEFAULT_CLOSE_FAIL_ALERT_AFTER`` on missing / unparseable values, clamped
+    ``>= 1`` (item #3 — surface a position that won't close instead of retrying
+    it silently forever).
+    """
+    # The close-fail alert is always on (default 3); this knob only tunes after
+    # how many consecutive failures it fires — it strands no capability, so it is
+    # not the BUG-039 default-off-gate class the env-gate purge forbids.
+    raw = os.environ.get("MONITOR_CLOSE_FAIL_ALERT_AFTER")  # allow-silent: tuning knob (alert cadence), not a capability gate
+    if raw is None or str(raw).strip() == "":
+        return _DEFAULT_CLOSE_FAIL_ALERT_AFTER
+    try:
+        return max(1, int(raw))
+    except (TypeError, ValueError):
+        return _DEFAULT_CLOSE_FAIL_ALERT_AFTER
 
 
 def _close_retry_cooldown_seconds() -> float:
@@ -1997,25 +2094,29 @@ _VALID_ORPHAN_POLICIES = {"detect_only", "adopt", "close"}
 def _orphan_position_policy() -> str:
     """Read ``ORPHAN_POSITION_POLICY`` at call time.
 
-    One of ``detect_only`` / ``adopt`` / ``close``. Default is
-    ``detect_only`` — the safest behaviour for an unknown deployment.
-    The live trader's systemd unit sets ``adopt`` per operator
-    decision 2026-05-11 (the reverse reconciler should insert a trade
-    row so the journal regains visibility, without auto-trading the
-    position closed).
+    One of ``detect_only`` / ``adopt`` / ``close``. **Default is ``adopt``**
+    (operator directive 2026-06-24): an orphan is a problem to RESOLVE, never a
+    status to rest in. ``adopt`` inserts a trade row so the journal regains
+    visibility and the reconciler/strategy drives it to a real close —
+    ``detect_only`` only alerts and lets the live position sit untracked, which
+    is exactly the resting state we forbid. Making ``adopt`` the CODE default
+    (not just the systemd-unit value) means a dropped ``.env`` var can't silently
+    regress to the resting behaviour — the same class of failure that the
+    removed netting-guard env-gate caused on the 2026-06-14 migration.
 
-    Unknown values fall back to ``detect_only`` rather than raising
-    so a typo in the unit file doesn't crash the trader; the audit
-    log captures the rejected value.
+    Unknown values fall back to ``adopt`` (not the resting ``detect_only``)
+    rather than raising, so a typo in the unit file never crashes the trader
+    AND never strands an orphan as alert-only; the audit log captures the
+    rejected value.
     """
-    raw = str(os.environ.get("ORPHAN_POSITION_POLICY", "detect_only")).strip().lower()
+    raw = str(os.environ.get("ORPHAN_POSITION_POLICY", "adopt")).strip().lower()
     if raw in _VALID_ORPHAN_POLICIES:
         return raw
     logger.warning(
-        "ORPHAN_POSITION_POLICY=%r is not one of %s — falling back to detect_only",
+        "ORPHAN_POSITION_POLICY=%r is not one of %s — falling back to adopt",
         raw, sorted(_VALID_ORPHAN_POLICIES),
     )
-    return "detect_only"
+    return "adopt"
 
 
 def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
@@ -2291,6 +2392,11 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                     }, ensure_ascii=False)[:500],
                 })
                 summary["closed_disappeared"] += 1
+                # Sweep any resting protective legs now that the position is
+                # confirmed flat — a reconciler flat-close never went through
+                # IBClient.close, so stale IB OCA stops could otherwise fire and
+                # flip a flat position into a reverse orphan (BL-20260624-MHG-FLIP).
+                _cancel_resting_protection_after_flat(aid, sym)
                 logger.warning(
                     "_reconcile_orphan_exchange_positions: CLOSED disappeared "
                     "adopted orphan — trade_id=%s account=%s symbol=%s side=%s",
@@ -2420,6 +2526,11 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                         caller="_reconcile_orphan_exchange_positions(snapshot)",
                     )
                     summary["snapshot_closed"] += 1
+                    # Sweep resting protective legs now the position is confirmed
+                    # flat (this snapshot reconcile never went through
+                    # IBClient.close) so a stale IB OCA stop can't fire and flip
+                    # the flat position into a reverse orphan (BL-20260624-MHG-FLIP).
+                    _cancel_resting_protection_after_flat(aid, sym)
                     logger.warning(
                         "_reconcile_orphan_exchange_positions: CLOSED via "
                         "position-snapshot reconcile — trade_id=%s account=%s "
@@ -2527,6 +2638,26 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                         aid, sym, canonical_side, size, entry_price,
                         db_trade_id,
                     )
+                    # Operator directive (2026-06-24): a NEW orphan row is a
+                    # red flag, never an acceptable resting status. Durably log
+                    # it for the health-review backlog drain AND fire a loud
+                    # "initiate a /system-review" Telegram ping. Best-effort —
+                    # a notify failure must never abort the reconcile sweep.
+                    try:
+                        from src.runtime.execution_diagnostics import (
+                            enqueue_orphan_created_flag,
+                        )
+                        enqueue_orphan_created_flag(
+                            account=aid, symbol=str(sym), side=canonical_side,
+                            trade_id=db_trade_id, origin="reverse_reconciler_adopt",
+                            reason=("exchange position had no matching open "
+                                    "journal row — adopted as orphan"),
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "_reconcile_orphan_exchange_positions: orphan-created "
+                            "flag failed for trade_id=%s: %s", db_trade_id, exc,
+                        )
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(
                         "_reconcile_orphan_exchange_positions: ADOPT failed "
@@ -3470,6 +3601,20 @@ def _sweep_stuck_linked_packages(db) -> int:
                 "linked package(s) — strategy gate cleared",
                 affected,
             )
+            # Item #3: this second-line self-heal was log-only. A non-zero sweep
+            # means a PRIMARY cascade path missed (a package stayed open after
+            # its trade went terminal, blocking the strategy gate) — surface it
+            # so the gap is visible, not silently patched. Best-effort.
+            try:
+                from src.runtime.execution_diagnostics import (
+                    enqueue_stuck_package_sweep,
+                )
+                enqueue_stuck_package_sweep(count=affected)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_sweep_stuck_linked_packages: sweep alert enqueue failed: %s",
+                    exc,
+                )
         return affected
     except Exception as exc:  # noqa: BLE001
         logger.warning("_sweep_stuck_linked_packages: failed: %s", exc)
@@ -4072,6 +4217,27 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                         "exit_reason": "stuck_strategy_watchdog",
                         "notes": dump_capped(trade_notes, 500),
                     })
+                    # Operator directive (2026-06-24): a row entering the
+                    # orphaned state is a red flag. Durably log + fire the loud
+                    # "/system-review" ping. Best-effort.
+                    try:
+                        from src.runtime.execution_diagnostics import (
+                            enqueue_orphan_created_flag,
+                        )
+                        enqueue_orphan_created_flag(
+                            account=aid, symbol=symbol, side=direction,
+                            trade_id=int(trade_row["id"]),
+                            origin="stuck_strategy_watchdog",
+                            reason=("strategy-monocle gate blocked > "
+                                    f"{int(threshold_minutes)} min; watchdog "
+                                    "orphaned the row"),
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "_watchdog_stuck_strategies: orphan-created flag "
+                            "failed for trade_id=%s: %s",
+                            trade_row.get("id"), exc,
+                        )
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "_watchdog_stuck_strategies: trade cascade failed for "
@@ -4695,6 +4861,26 @@ def _mark_orphaned(db, row: Dict[str, Any]) -> None:
         "exit_reason": "reconciler",
         "notes": dump_capped(notes, 500),
     })
+    # Operator directive (2026-06-24): a row entering the orphaned state is a red
+    # flag, never an acceptable resting status. Durably log it for the
+    # health-review backlog drain + fire the loud "/system-review" red-flag —
+    # same guarantee as the reverse-reconciler adopt path. Best-effort.
+    try:
+        from src.runtime.execution_diagnostics import enqueue_orphan_created_flag
+        enqueue_orphan_created_flag(
+            account=row.get("account_id"),
+            symbol=row.get("symbol"),
+            side=row.get("direction"),
+            trade_id=int(row["id"]),
+            origin="forward_reconciler_orphaned",
+            reason=("DB-open trade absent from the exchange open-positions "
+                    "snapshot — marked orphaned by the monitor reconciler"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_mark_orphaned: orphan-created flag failed for trade_id=%s: %s",
+            row.get("id"), exc,
+        )
     # Cascade by canonical link (order_packages.linked_trade_id),
     # with a second attempt on transient failures. Pre-2026-05-16
     # the lookup went through ``_extract_package_id(row.notes)``,

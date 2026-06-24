@@ -30,6 +30,7 @@ import json
 import logging
 import os
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional, Sequence
 
@@ -38,6 +39,14 @@ from src.utils.paths import runtime_logs_dir
 logger = logging.getLogger(__name__)
 
 PENDING_PINGS_DIR = runtime_logs_dir() / "pending_pings"
+
+# Durable follow-up log of NEW orphan trade rows. The operator's standing
+# directive (2026-06-24): an orphan is NEVER an acceptable resting status — it
+# is a problem to be reconciled. Every time a row enters an orphan state we
+# append a structured event here so the next /health-review (and /system-review)
+# drains it into the health-review backlog for follow-up — and fire a loud
+# operator red-flag (see enqueue_orphan_created_flag).
+ORPHAN_EVENTS_LOG = runtime_logs_dir() / "orphan_events.jsonl"
 
 
 def enqueue_execution_failure(
@@ -79,6 +88,167 @@ def enqueue_execution_failure(
         logger.warning(
             "execution_diagnostics: enqueue failed for account=%s reason=%r: %s",
             account, reason[:80], exc,
+        )
+        return None
+
+
+def enqueue_orphan_created_flag(
+    *,
+    account: str,
+    symbol: str,
+    side: str,
+    trade_id: Optional[int],
+    origin: str,
+    reason: Optional[str] = None,
+    priority: str = "critical",
+) -> Optional[Path]:
+    """Record a NEW orphan trade row durably AND fire a loud operator red-flag.
+
+    Two halves, both best-effort (never raises into the order path):
+
+    1. **Follow-up record** — append a structured ``orphan_created`` event to
+       ``runtime_logs/orphan_events.jsonl`` so the next ``/health-review`` /
+       ``/system-review`` drains it into the health-review backlog. An orphan is
+       a problem to solve, not a status to accept — this guarantees it is tracked
+       for reconciliation even if the operator misses the ping.
+    2. **Red-flag ping** — a CRITICAL Telegram alert telling the operator to
+       initiate a ``/system-review`` session so the orphan gets reconciled to its
+       real trade / order package (or explicitly marked unreconcilable).
+
+    ``origin`` describes how the row entered the orphan state
+    (``adopt_reattached`` / ``adopt_bare`` / ``mark_orphaned`` /
+    ``unattributable`` …) for the backlog drain.
+    """
+    # 1) durable follow-up record
+    try:
+        ORPHAN_EVENTS_LOG.parent.mkdir(parents=True, exist_ok=True)
+        evt = {
+            "kind": "orphan_created",
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "account": account,
+            "symbol": symbol,
+            "side": side,
+            "trade_id": trade_id,
+            "origin": origin,
+            "reason": reason,
+        }
+        with ORPHAN_EVENTS_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(evt, ensure_ascii=False) + "\n")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: orphan_events append failed account=%s "
+            "symbol=%s: %s", account, symbol, exc,
+        )
+
+    # 2) loud red-flag ping
+    try:
+        body = (
+            "🚩🚩 ORPHAN TRADE CREATED — needs reconciliation\n"
+            f"Account: {account}\n"
+            f"Symbol: {symbol} | Side: {side}\n"
+            f"Trade id: {trade_id if trade_id is not None else '—'}\n"
+            f"Origin: {origin}"
+            + (f"\nReason: {reason}" if reason else "")
+            + "\n\nOrphan is a problem state, not a status. "
+            "▶️ Initiate a /system-review to reconcile this to its real "
+            "trade/order package (or mark it explicitly unreconcilable)."
+        )[:1024]
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-orphanflag.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: orphan_created_flag enqueue failed "
+            "account=%s symbol=%s: %s", account, symbol, exc,
+        )
+        return None
+
+
+def enqueue_close_failure(
+    *,
+    account: Optional[str],
+    symbol: Optional[str],
+    side: Optional[str],
+    qty: Optional[float],
+    consecutive: int,
+    error: Optional[str],
+    priority: str = "high",
+) -> Optional[Path]:
+    """Surface a monitor close that has failed N consecutive times.
+
+    The monitor's exchange-first close leaves the DB row OPEN and retries on any
+    exchange-close failure (network / rate-limit / venue error). That retry was
+    previously SILENT (an ERROR log, no operator ping) — a position that won't
+    flatten could be retried forever unnoticed. After N consecutive failures for
+    the same (account, symbol, direction) this fires so the operator can act.
+    Best-effort; never raises.
+    """
+    try:
+        body = (
+            "🛑 Position CLOSE failing — won't flatten\n"
+            f"Account: {account}\n"
+            f"Symbol: {symbol} | Side: {side} | "
+            f"Qty: {qty if qty is not None else '?'}\n"
+            f"Consecutive close failures: {consecutive}\n"
+            f"Last error: {error}\n"
+            "The DB row is left OPEN and retried each tick — investigate the "
+            "venue/connection; the stuck-strategy watchdog is the backstop."
+        )[:1024]
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-closefail.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: close-failure enqueue failed account=%s "
+            "symbol=%s: %s", account, symbol, exc,
+        )
+        return None
+
+
+def enqueue_stuck_package_sweep(
+    *, count: int, priority: str = "high",
+) -> Optional[Path]:
+    """Alert when the stuck-linked-package sweep force-closes ``count`` rows.
+
+    The sweep is a second-line self-heal: a package left ``status='open'`` after
+    its linked trade reached a terminal status blocks the strategy-monocle gate
+    (every future signal for that strategy is silently dropped). It previously
+    only logged — so the underlying cascade gap stayed invisible. A non-zero
+    sweep means a primary cascade path missed; surface it. Best-effort.
+    """
+    try:
+        body = (
+            "🧹 Stuck linked-package sweep fired\n"
+            f"Force-closed {count} order package(s) whose linked trade was "
+            "already terminal but the package stayed open (the strategy-monocle "
+            "gate would otherwise stay blocked).\n"
+            "This is the second-line self-heal — a non-zero count means a primary "
+            "cascade path missed; worth a look."
+        )[:1024]
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-stucksweep.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: stuck-package-sweep enqueue failed: %s", exc,
         )
         return None
 

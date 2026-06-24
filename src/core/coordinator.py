@@ -791,9 +791,10 @@ class Coordinator:
         S-026 G2: per-account sizing happens here. Each account's
         ``risk_manager.position_size(pkg, balance)`` is called before the
         package is forwarded; the resulting qty is recorded under
-        ``pkg.meta['sized_qty_by_account'][account.name]``. Accounts whose
-        balance is below ``min_balance_usd`` produce ``qty=0.0`` and a
-        ``below_min_balance`` skip result instead of being routed.
+        ``pkg.meta['sized_qty_by_account'][account.name]``. Accounts with a
+        non-positive balance produce ``qty=0.0`` and a ``zero_balance`` skip
+        result instead of being routed (there is no arbitrary minimum-balance
+        floor — ``min_balance_usd`` was removed 2026-06-24).
 
         Parameters
         ----------
@@ -823,7 +824,7 @@ class Coordinator:
             in-process default is used: read ``meta['account_balance_usd']``
             on the package, then ``account.cached_balance_usd``, then
             fall back to a smoke-safe stub of $0.0 (which produces a
-            ``below_min_balance`` skip — surfacing the missing wiring
+            ``zero_balance`` skip — surfacing the missing wiring
             instead of placing an unsized order). G3 will replace the
             default with a live ``processor.get_account_balances()`` call.
 
@@ -864,7 +865,7 @@ class Coordinator:
         #   3. Live ``processor.get_account_balances()`` lookup by
         #      ``account_id``. Returns ``None`` when the row is missing
         #      or the exchange call failed; the per-account RiskManager
-        #      then refuses to size (below_min_balance).
+        #      then refuses to size (zero_balance).
         # ``cached_balance_usd`` on the account object remains as a final
         # fallback so synthetic test fixtures that pre-stash a balance
         # still work without any wiring.
@@ -1022,7 +1023,7 @@ class Coordinator:
             intent_legs: Optional[List[Dict[str, Any]]] = None
 
             # Pre-build a minimal account_cfg for the sizing_failed /
-            # below_min_balance refusal-journal writes downstream.
+            # zero_balance refusal-journal writes downstream.
             # Mirrors the richer account_cfg built below; ``getattr``
             # keeps legacy/test fixtures (where the account object
             # may not carry ``api_key_env``) routing cleanly.
@@ -1072,7 +1073,6 @@ class Coordinator:
                 "exchange": account.exchange,
                 "api_key_env": account.api_key_env,
                 "risk_pct": account.risk_manager.risk_pct,
-                "min_balance_usd": account.risk_manager.min_balance_usd,
                 "min_qty": account.risk_manager.min_qty,
                 "qty_precision": account.risk_manager.qty_precision,
                 # Forward the legacy ``risk:`` sub-block for any code
@@ -2818,8 +2818,10 @@ def _explain_zero_sized_qty(
     matches one of the known refusal causes (so log-grepping stays
     practical) followed by the relevant inputs:
 
-      * ``below_min_balance:`` — total equity is below the configured
-        floor.
+      * ``zero_balance:`` — the account has no funds to size against
+        (non-positive balance). There is NO arbitrary minimum-balance
+        floor anymore — ``min_balance_usd`` was removed 2026-06-24;
+        the only floor is physics (you can't risk a fraction of zero).
       * ``risk_refused:`` — generic catch-all (daily-loss budget or
         any other RiskManager rule). Includes balance +
         total_account_usd so the operator can reproduce.
@@ -2827,18 +2829,16 @@ def _explain_zero_sized_qty(
     PR 5 (2026-05-10): the ``zero_exchange_capacity`` token was
     removed alongside the spot-margin code paths.
     """
-    min_balance_usd = float(getattr(risk_manager, "min_balance_usd", 0.0) or 0.0)
     gate_balance = (
         float(total_account_usd) if total_account_usd is not None else float(balance)
     )
 
-    # 1. Below-min-balance gate — mirror RiskManager.position_size's
-    #    own check at risk.py:541 so the message is accurate when
-    #    that's the cause.
-    if gate_balance < min_balance_usd:
+    # 1. Non-positive balance — mirrors RiskManager.position_size's
+    #    ``gate_balance <= 0`` guard. (No arbitrary min-balance floor.)
+    if gate_balance <= 0:
         return (
-            f"below_min_balance: gate_balance={gate_balance:.2f} USD < "
-            f"min_balance_usd={min_balance_usd:.2f}"
+            f"zero_balance: gate_balance={gate_balance:.2f} USD "
+            f"(no funds available to size against)"
         )
 
     # 2. Generic refusal — daily-loss budget or any future
@@ -2853,7 +2853,7 @@ def _explain_zero_sized_qty(
     return (
         f"risk_refused: sized_qty=0 with balance={balance:.2f} "
         f"available_usd={avail_str} total_account_usd={total_str} "
-        f"min_balance_usd={min_balance_usd:.2f} direction={direction} "
+        f"direction={direction} "
         f"market_type={market_type} — check daily-loss budget / "
         f"liquidation buffer / max_borrow"
     )

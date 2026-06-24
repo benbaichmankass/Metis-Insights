@@ -80,31 +80,37 @@ class TestPositionSizeContract:
         assert qty_a == pytest.approx(0.1, rel=1e-3)
         assert qty_b == pytest.approx(0.01, rel=1e-3)
 
-    def test_below_min_balance_returns_zero(self):
-        """Account below min_balance_usd refuses to size (returns 0.0).
-        Pins the operator-confirmed safety floor.
+    def test_non_positive_balance_returns_zero(self):
+        """The only balance gate left (the arbitrary ``min_balance_usd``
+        floor was removed 2026-06-24): a NON-POSITIVE balance refuses to
+        size (physics — you can't risk a fraction of zero). A small
+        positive balance no longer refuses on a floor; it sizes off the
+        risk budget (subject to the margin cap + exchange min lot).
 
         leverage=100 keeps the 2026-05-12 margin pre-flight cap from
-        zeroing the at-the-floor (balance=50) case so this isolates the
-        min_balance gate.
+        clamping the small-positive-balance case so this isolates the
+        balance gate.
         """
         rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50,
                           "leverage": 100})
         pkg = _pkg()
 
-        # Below the min — refuse to size.
-        assert rm.position_size(pkg, balance_usd=49.99) == 0.0
-        assert rm.position_size(pkg, balance_usd=10.0) == 0.0
+        # Non-positive — refuse to size (the only balance floor: physics).
         assert rm.position_size(pkg, balance_usd=0.0) == 0.0
+        assert rm.position_size(pkg, balance_usd=-5.0) == 0.0
 
-        # At or above the min — sizing runs.
-        assert rm.position_size(pkg, balance_usd=50.0) > 0.0
+        # A small positive balance BELOW the old $50 floor now SIZES
+        # (no arbitrary floor; leverage=100 keeps the min lot affordable).
+        assert rm.position_size(pkg, balance_usd=49.99) > 0.0
+        assert rm.position_size(pkg, balance_usd=10.0) > 0.0
 
     def test_default_risk_pct_is_one_percent(self):
         """Operator-confirmed default: 1% balance per trade."""
         rm = RiskManager({})  # all defaults
         assert rm.risk_pct == 0.01
-        assert rm.min_balance_usd == 50.0
+        # No ``min_balance_usd`` attribute anymore — the arbitrary
+        # minimum-balance floor was removed 2026-06-24.
+        assert not hasattr(rm, "min_balance_usd")
 
     def test_no_max_position_clamp(self):
         """Operator directive: no hard-coded max-position cap on sizing.
@@ -144,7 +150,7 @@ class TestPositionSizeContract:
             tp=51_000.0,
             meta={"is_test": True, "test_qty": 0.0001},
         )
-        # Smoke test bypasses min_balance_usd too — the whole point is
+        # Smoke test bypasses the balance gate too — the whole point is
         # to exercise the live plumbing without sizing real risk in.
         assert rm.position_size(pkg, balance_usd=0.0) == pytest.approx(0.0001)
 
@@ -267,8 +273,12 @@ class TestMultiAccountDispatchSizesPerAccount:
         assert names["acc_b"]["trade_id"] is not None
         assert names["acc_b"]["error"] is None
 
-    def test_below_min_balance_account_is_skipped(self, monkeypatch, tmp_path):
-        """Accounts below min_balance_usd produce qty=0 and are NOT routed."""
+    def test_zero_balance_account_is_skipped(self, monkeypatch, tmp_path):
+        """An account with a non-positive balance produces qty=0 and is
+        NOT routed. The arbitrary min-balance floor was removed
+        2026-06-24, so the only balance refusal is a non-positive
+        balance — feed acc_b $0 to exercise it (a small positive balance
+        no longer refuses on a floor)."""
         from src.core.coordinator import Coordinator
 
         self._stub_accounts(monkeypatch)
@@ -277,7 +287,7 @@ class TestMultiAccountDispatchSizesPerAccount:
 
         pkg = _pkg(entry=50_000.0, sl=49_500.0)
         pkg.meta = {
-            "account_balances_usd": {"acc_a": 5_000.0, "acc_b": 25.0},
+            "account_balances_usd": {"acc_a": 5_000.0, "acc_b": 0.0},
         }
 
         coord = Coordinator()
@@ -289,12 +299,12 @@ class TestMultiAccountDispatchSizesPerAccount:
         assert names["acc_a"]["sized_qty"] > 0
         assert names["acc_a"]["error"] is None
         assert names["acc_b"]["sized_qty"] == 0.0
-        assert "below_min_balance" in names["acc_b"]["error"]
+        assert "zero_balance" in names["acc_b"]["error"]
 
         # acc_a routed; acc_b skipped (qty=0). Routing now goes through
         # execute_pkg, not account.place_order (S-028), so "routed" is a
         # trade_id with no error and "skipped" is a None trade_id with a
-        # below_min_balance error.
+        # zero_balance error.
         assert names["acc_a"]["trade_id"] is not None
         assert names["acc_b"]["trade_id"] is None
 

@@ -345,9 +345,11 @@ def test_close_policy_falls_back_to_detect_only_with_note(tmp_db, monkeypatch):
 # ────────────────────────────────────────────────────────────────────
 
 
-def test_orphan_position_policy_defaults_to_detect_only(monkeypatch):
+def test_orphan_position_policy_defaults_to_adopt(monkeypatch):
+    # Operator directive 2026-06-24: adopt (resolve) is the code default, never
+    # the resting detect_only — a dropped .env var must not regress to alert-only.
     monkeypatch.delenv("ORPHAN_POSITION_POLICY", raising=False)
-    assert _orphan_position_policy() == "detect_only"
+    assert _orphan_position_policy() == "adopt"
 
 
 def test_orphan_position_policy_accepts_valid_values(monkeypatch):
@@ -358,7 +360,8 @@ def test_orphan_position_policy_accepts_valid_values(monkeypatch):
 
 def test_orphan_position_policy_rejects_invalid_with_fallback(monkeypatch):
     monkeypatch.setenv("ORPHAN_POSITION_POLICY", "delete_everything")
-    assert _orphan_position_policy() == "detect_only"
+    # Fallback is adopt (resolve), not the resting detect_only.
+    assert _orphan_position_policy() == "adopt"
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -822,3 +825,32 @@ def test_readopt_guard_disabled_with_zero_window(tmp_db, monkeypatch):
 
     assert summary["readopt_suppressed"] == 0
     assert summary["adopted"] == 1
+
+
+def test_mark_orphaned_fires_orphan_red_flag(monkeypatch):
+    """Operator directive: a row entering status='orphaned' via the forward
+    reconciler must fire the orphan red-flag (durable log + /system-review ping),
+    same as the reverse-reconciler adopt path."""
+    from src.runtime import order_monitor as _om
+    from src.runtime import execution_diagnostics as _ed
+
+    calls = []
+    monkeypatch.setattr(_ed, "enqueue_orphan_created_flag",
+                        lambda **kw: calls.append(kw))
+    # Skip the package cascade so the fake db needs only update_trade.
+    monkeypatch.setattr(_om, "_resolve_linked_package_id", lambda db, tid: None)
+
+    class _DB:
+        def update_trade(self, tid, updates):
+            return None
+
+    _om._mark_orphaned(_DB(), {
+        "id": 99, "account_id": "ib_paper", "symbol": "MHG",
+        "direction": "long", "notes": None,
+    })
+
+    assert len(calls) == 1
+    c = calls[0]
+    assert c["account"] == "ib_paper" and c["symbol"] == "MHG"
+    assert c["side"] == "long" and c["trade_id"] == 99
+    assert c["origin"] == "forward_reconciler_orphaned"

@@ -338,8 +338,14 @@ def test_db_open_orderid_not_found_marks_orphaned_and_pings(
     assert pkg["status"] == "closed"
     assert pkg["close_reason"] == "reconciler"
 
-    queued = sorted(pings_dir.glob("*.json"))
+    queued = sorted(p for p in pings_dir.glob("*.json")
+                    if not p.name.endswith("-orphanflag.json"))
     assert len(queued) == 1
+    # The orphan red-flag (operator directive 2026-06-24) fires alongside the
+    # reconciliation ping — durable log + a loud /system-review call-to-action.
+    flags = list(pings_dir.glob("*-orphanflag.json"))
+    assert len(flags) == 1
+    assert "/system-review" in json.loads(flags[0].read_text())["body"]
     payload = json.loads(queued[0].read_text())
     body = payload["body"]
     assert payload["priority"] == "high"
@@ -422,7 +428,10 @@ def test_multiple_orphans_in_same_account_all_swept(
     assert summary["orphaned"] == 3
     for tid in ids:
         assert _read_trade(tmp_db, tid)["status"] == "orphaned"
-    assert len(list(pings_dir.glob("*.json"))) == 3
+    # One reconciliation ping per orphan + one orphan red-flag per orphan.
+    assert len([p for p in pings_dir.glob("*.json")
+                if not p.name.endswith("-orphanflag.json")]) == 3
+    assert len(list(pings_dir.glob("*-orphanflag.json"))) == 3
 
 
 def test_per_orderid_dedup_long_orphaned_short_kept(tmp_db, tmp_path, monkeypatch):
@@ -1705,9 +1714,15 @@ class TestStuckStrategyWatchdog:
         assert trade["status"] == "orphaned"
         assert trade["exit_reason"] == "stuck_strategy_watchdog"
 
-        # High-priority Telegram-ready alert with the watchdog body.
-        queued = sorted(pings_dir.glob("*.json"))
+        # High-priority Telegram-ready alert with the watchdog body. The watchdog
+        # also orphans the linked trade, which now fires the orphan red-flag
+        # (operator directive 2026-06-24) — count the stuck alert separately.
+        queued = sorted(p for p in pings_dir.glob("*.json")
+                        if not p.name.endswith("-orphanflag.json"))
         assert len(queued) == 1
+        flags = list(pings_dir.glob("*-orphanflag.json"))
+        assert len(flags) == 1
+        assert "/system-review" in json.loads(flags[0].read_text())["body"]
         evt = json.loads(queued[0].read_text())
         assert evt["priority"] == "high"
         assert "Stuck-strategy watchdog" in evt["body"]
@@ -1969,8 +1984,12 @@ class TestStuckStrategyWatchdog:
             "skipped_position_read_failed": 0,
             "errors": 0,
         }
-        # Only ONE ping queued across both ticks.
-        assert len(list(pings_dir.glob("*.json"))) == 1
+        # Only ONE stuck-watchdog ping across both ticks (idempotent). The orphan
+        # red-flag also fires exactly once — the row is orphaned on tick 1 and is
+        # no longer status='open' on tick 2, so it isn't re-orphaned.
+        assert len([p for p in pings_dir.glob("*.json")
+                    if not p.name.endswith("-orphanflag.json")]) == 1
+        assert len(list(pings_dir.glob("*-orphanflag.json"))) == 1
 
     def test_position_alive_defers_force_clear(
         self, tmp_db, tmp_path, monkeypatch,

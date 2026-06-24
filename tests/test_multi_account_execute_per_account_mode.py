@@ -49,7 +49,7 @@ from src.core.coordinator import Coordinator, OrderPackage
 # ``get_wallet_balance``; the autouse fixture below wires this dict
 # in so the spot-margin sizing branch (added in S-053 / coordinator
 # line 754) doesn't crater the test on AttributeError → balance=0 →
-# below_min_balance refusal.
+# zero_balance refusal.
 _HAPPY_SPOT_BALANCES = {
     "base_coin": "BTC",
     "base_qty": 0.0,
