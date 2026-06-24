@@ -484,10 +484,12 @@ accounts:
       daily_usd: 200                   # absolute fallback (no equity snapshot)
       pos_size: 2000                   # $2000 max single position
       risk_pct: 0.01                   # 1% balance risked per trade (operator 2026-06-24)
-      leverage: 20                     # FX uses margin: conservative 20x (broker offers
-                                       # more) so the margin pre-flight cap isn't cash-1x.
-                                       # Interim — proper marginAvailable/marginRate wire
-                                       # is a follow-up; dry_run today.
+      # NO leverage: the margin pre-flight cap now uses the broker's real
+      # buying power — OandaClient.buying_power() = marginAvailable / marginRate,
+      # fed as available_usd in Coordinator.multi_account_execute (the Alpaca
+      # buying_power analogue, 2026-06-24). leverage stays unset (=1) so that
+      # already-leveraged figure is not multiplied again; on a fetch failure the
+      # cap falls back to conservative cash-1x. (Replaced the interim 20x guess.)
       min_balance_usd: 100             # refuse to size below $100
 
   # alpaca_paper: M15 Phase 2b (S-M15-PHASE2B-ALPACA) — Alpaca Trading API

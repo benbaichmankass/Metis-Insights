@@ -184,3 +184,41 @@ def test_accounts_yaml_oanda_practice_ships_inert():
     assert "demo" not in acct
     assert acct["account_class"] == "paper"
     assert acct["symbols"] == ["XAUUSD"]
+
+
+# ------------------------------------------------------------ buying_power
+# Broker-truth margin basis (2026-06-24): marginAvailable / marginRate fed to
+# the sizer's margin pre-flight cap as available_usd (the Alpaca analogue).
+
+
+def _summary(account: dict):
+    return {"retCode": 0, "result": {"account": account}}
+
+
+def test_buying_power_is_margin_available_over_rate(monkeypatch):
+    cli = OandaClient(api_token="tok", account_id="acct")
+    # 50:1 (marginRate 0.02): $100 free margin → $5,000 notional capacity
+    monkeypatch.setattr(cli, "_request",
+                        lambda *a, **k: _summary({"marginAvailable": "100", "marginRate": "0.02"}))
+    assert cli.buying_power() == pytest.approx(5000.0)
+
+
+def test_buying_power_none_on_zero_or_missing_rate(monkeypatch):
+    cli = OandaClient(api_token="tok", account_id="acct")
+    monkeypatch.setattr(cli, "_request",
+                        lambda *a, **k: _summary({"marginAvailable": "100", "marginRate": "0"}))
+    assert cli.buying_power() is None
+    monkeypatch.setattr(cli, "_request", lambda *a, **k: _summary({"NAV": "1000"}))
+    assert cli.buying_power() is None
+
+
+def test_buying_power_none_on_api_error(monkeypatch):
+    cli = OandaClient(api_token="tok", account_id="acct")
+    monkeypatch.setattr(cli, "_request",
+                        lambda *a, **k: {"retCode": 1, "retMsg": "boom"})
+    assert cli.buying_power() is None
+
+
+def test_buying_power_requires_creds():
+    cli = OandaClient(api_token="", account_id="")
+    assert cli.buying_power() is None  # degrades, never raises
