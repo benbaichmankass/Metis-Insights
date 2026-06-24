@@ -1065,6 +1065,33 @@ class IBClient:
         except Exception:  # noqa: BLE001
             pass
 
+    def cancel_resting_protection(self, symbol: Optional[str]) -> Dict[str, Any]:
+        """Cancel every resting (working) order for *symbol* — public, best-effort.
+
+        The reconciler concludes a position is flat on the exchange and closes
+        the DB row WITHOUT going through :meth:`close` (the position is already
+        flat, so no opposing order is sent) — but that path never cancelled the
+        symbol's resting protective bracket legs. On IB those GTC OCA stops then
+        sit on a flat position and can later fire, SELLING into a reverse
+        position → a fresh orphan (the MHG long→short flip, BL-20260624-MHG-FLIP).
+        This sweeps them after a reconciler flat-close. Never raises; returns a
+        retCode envelope mirroring the other client methods.
+        """
+        if self.readonly:
+            return {"retCode": 1, "retMsg": "client is read-only"}
+        sym = str(symbol or self.symbol or "").upper()
+        try:
+            ib = self.connect()
+        except IBConnectionError as exc:
+            return {"retCode": 1, "retMsg": f"IB connect failed: {exc}"}
+        except Exception as exc:  # noqa: BLE001
+            return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
+        try:
+            self._cancel_resting_orders_for_symbol(ib, sym)
+        except Exception as exc:  # noqa: BLE001
+            return {"retCode": 1, "retMsg": f"cancel-resting failed: {exc}"}
+        return {"retCode": 0, "result": {"symbol": sym}, "retMsg": "OK"}
+
     @staticmethod
     def _await_parent_rejection(ib: Any, parent_trade: Any) -> Optional[str]:
         """Watch a just-placed parent order for an immediate IBKR reject.

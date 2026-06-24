@@ -721,3 +721,63 @@ def test_send_close_to_exchange_ib_dry_run_short_circuit(monkeypatch):
     assert res["ok"] is True
     assert res["skipped"] == "dry_run"
     assert called == []
+
+
+# ---------------------------------------------------------------------------
+# 3. Reconciler flat-close cancels resting legs (BL-20260624-MHG-FLIP, item #1)
+# ---------------------------------------------------------------------------
+
+
+def test_cancel_resting_protection_cancels_symbol_legs():
+    """Public sweep used after a reconciler flat-close: cancel the symbol's
+    resting legs (only that symbol — no cross-symbol)."""
+    fake_ib = FakeIB(open_trades=[
+        _FakeTrade(MagicMock(orderId=70), _FakeContract(symbol="MHG")),
+        _FakeTrade(MagicMock(orderId=71), _FakeContract(symbol="MES")),
+    ])
+    client = _ib_client_with(fake_ib, symbol="MHG")
+    res = client.cancel_resting_protection("MHG")
+    assert res["retCode"] == 0, res
+    cancelled = [getattr(o, "orderId", None) for o in fake_ib.cancelled]
+    assert 70 in cancelled and 71 not in cancelled
+
+
+def test_cancel_resting_protection_readonly_refuses():
+    client = _ib_client_with(FakeIB(), symbol="MHG", readonly=True)
+    res = client.cancel_resting_protection("MHG")
+    assert res["retCode"] != 0 and "read-only" in res["retMsg"].lower()
+
+
+def test_after_flat_helper_sweeps_ib(monkeypatch):
+    seen = {}
+
+    class _Client:
+        def cancel_resting_protection(self, sym):
+            seen["sym"] = sym
+            return {"retCode": 0}
+
+    monkeypatch.setattr(
+        om, "_build_account_client",
+        lambda aid: (_Client(), {"exchange": "interactive_brokers"}),
+    )
+    om._cancel_resting_protection_after_flat("ib_paper", "MHG")
+    assert seen["sym"] == "MHG"
+
+
+def test_after_flat_helper_noop_for_non_ib(monkeypatch):
+    class _Client:  # no cancel_resting_protection method (Bybit/Alpaca/OANDA)
+        pass
+
+    monkeypatch.setattr(
+        om, "_build_account_client",
+        lambda aid: (_Client(), {"exchange": "bybit"}),
+    )
+    # Must not raise — non-IB integrations have no stranded resting legs.
+    om._cancel_resting_protection_after_flat("bybit_2", "BTCUSDT")
+
+
+def test_after_flat_helper_handles_no_client(monkeypatch):
+    monkeypatch.setattr(om, "_build_account_client", lambda aid: (None, None))
+    om._cancel_resting_protection_after_flat("x", "MHG")  # no raise
+    # Also tolerant of missing args.
+    om._cancel_resting_protection_after_flat(None, None)
