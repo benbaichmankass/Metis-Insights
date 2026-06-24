@@ -128,7 +128,7 @@ def test_stats_winrate_excludes_null_pnl_closed(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT, created_at TEXT, closed_at TEXT, status TEXT, pnl REAL,
             is_backtest INTEGER DEFAULT 0, account_class TEXT,
-            is_demo INTEGER DEFAULT 0
+            is_demo INTEGER DEFAULT 0, strategy_name TEXT
         );
         CREATE TABLE order_packages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
