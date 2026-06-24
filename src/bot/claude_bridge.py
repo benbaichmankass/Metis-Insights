@@ -58,6 +58,7 @@ from telegram.ext import (
     filters,
 )
 
+from src.prop.prop_expiry_prompt import EXPIRY_CB_PREFIX, handle_expiry_callback
 from src.prop.telegram_commands import REPORT_PROMPT, USAGE
 from src.utils.paths import runtime_logs_dir
 
@@ -162,6 +163,19 @@ async def on_callback(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         await query.message.reply_text(REPORT_PROMPT)
     elif data == CB_PROP_HELP:
         await query.message.reply_text(USAGE)
+    elif data.startswith(EXPIRY_CB_PREFIX + ":"):
+        # Ticket-expiry Yes/No answer. The DB status flip is sync sqlite — run
+        # it off the event loop so polling never stalls. On "Yes" we also send
+        # the report prompt so the operator can paste the fill details.
+        result = await asyncio.to_thread(handle_expiry_callback, data)
+        if result is None:
+            return
+        try:
+            await query.edit_message_text(result["ack"])
+        except Exception:  # noqa: BLE001 — fall back to a fresh message
+            await query.message.reply_text(result["ack"])
+        if result.get("send_prompt"):
+            await query.message.reply_text(REPORT_PROMPT)
 
 
 async def _on_operator_message(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:

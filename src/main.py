@@ -662,6 +662,18 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 logger.exception("prop_monitor_pulse tick failed")
 
+            # A prop ticket that passed its validity window with no report-back
+            # is silent drift — the bot can't tell whether it was
+            # placed-and-unreported or skipped. Ask the operator with a Yes/No
+            # prop-bot prompt: No → log it expired; Yes → send the report prompt
+            # to collect the fill details. Once per tick; internally idempotent
+            # (each ticket is prompted exactly once via its status flip).
+            try:
+                from src.prop.prop_expiry_prompt import run_prop_expiry_prompts
+                run_prop_expiry_prompts()
+            except Exception:  # noqa: BLE001
+                logger.exception("prop_expiry_prompt tick failed")
+
             # PR5: heartbeat is the single source of truth for "trader is
             # alive". Writes after a successful tick, not before — so a
             # tick that crashes mid-run doesn't refresh the heartbeat and

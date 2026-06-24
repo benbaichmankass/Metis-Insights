@@ -518,6 +518,21 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 result, reply_markup=menu.back_to_menu_keyboard()
             )
 
+        elif action == "propexp":
+            # Prop ticket-expiry Yes/No answer. The prompt is normally sent to
+            # (and answered on) the prop bot, but breakout_notify._prop_bot_token
+            # falls back to THIS trader-bot token when the prop token is unset
+            # (the post-cutover degraded case), so handle it here too rather than
+            # leave a dead button. Same shared handler as the prop bot.
+            from src.prop.prop_expiry_prompt import handle_expiry_callback
+            from src.prop.telegram_commands import REPORT_PROMPT
+
+            result = await asyncio.to_thread(handle_expiry_callback, raw)
+            if result is not None:
+                await query.edit_message_text(result["ack"])
+                if result.get("send_prompt"):
+                    await query.message.reply_text(REPORT_PROMPT)
+
         # Unknown callback data is ignored (comms:* handled by its own handler).
     except Exception as exc:  # noqa: BLE001
         logger.warning("callback_handler: %s failed: %s", raw, exc)
