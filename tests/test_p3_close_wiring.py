@@ -390,6 +390,58 @@ def test_ib_close_confirm_disabled_restores_accept_is_success(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# 1c. place_protective accumulation guard (BL-20260624-MHG-FLIP)
+# ---------------------------------------------------------------------------
+
+
+def test_place_protective_cancels_resting_legs_before_arming():
+    """Every re-arm must cancel the symbol's existing resting protective legs
+    BEFORE placing a fresh OCA pair — else repeated re-arms across an orphan flap
+    stack multiple live brackets whose stops later fire together and FLIP a flat
+    position into a reverse orphan (the MHG long->short flip)."""
+    fake_ib = FakeIB(
+        portfolio_items=[_FakePortfolioItem("MHG", 3, account="DUQ1")],
+        open_trades=[
+            _FakeTrade(MagicMock(orderId=50), _FakeContract(symbol="MHG")),
+            _FakeTrade(MagicMock(orderId=51), _FakeContract(symbol="MHG")),
+            _FakeTrade(MagicMock(orderId=52), _FakeContract(symbol="MES")),
+        ],
+    )
+    client = _ib_client_with(fake_ib, symbol="MHG")
+
+    res = client.place_protective(
+        {"symbol": "MHG", "direction": "long", "qty": 3, "sl": 6.04, "tp": 7.02}
+    )
+
+    assert res["retCode"] == 0, res
+    cancelled_ids = [getattr(o, "orderId", None) for o in fake_ib.cancelled]
+    # Both stale MHG legs cancelled; the MES leg untouched (no cross-symbol).
+    assert 50 in cancelled_ids and 51 in cancelled_ids
+    assert 52 not in cancelled_ids
+    # The fresh OCA pair (stop + limit) was then placed.
+    assert len(fake_ib.placed) == 2
+
+
+def test_place_protective_pre_cancel_failure_still_arms():
+    """A pre-cancel failure is best-effort — it must NOT block arming protection
+    on a live naked position (a stop-less live position is the worse state)."""
+    fake_ib = FakeIB(portfolio_items=[_FakePortfolioItem("MHG", 3, account="DUQ1")])
+
+    def _boom(_ib, _sym):
+        raise RuntimeError("cancel api down")
+
+    client = _ib_client_with(fake_ib, symbol="MHG")
+    client._cancel_resting_orders_for_symbol = _boom  # type: ignore[assignment]
+
+    res = client.place_protective(
+        {"symbol": "MHG", "direction": "long", "qty": 3, "sl": 6.04, "tp": 7.02}
+    )
+
+    assert res["retCode"] == 0, res
+    assert len(fake_ib.placed) == 2  # bracket still armed despite cancel failure
+
+
+# ---------------------------------------------------------------------------
 # 2. execute.close_open_position routing
 # ---------------------------------------------------------------------------
 

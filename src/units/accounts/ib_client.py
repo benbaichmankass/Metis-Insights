@@ -721,6 +721,26 @@ class IBClient:
         qty = float(whole_qty)
 
         ib = self.connect()
+        sym = str(order.get("symbol") or self.symbol or "").upper()
+        # Accumulation guard (BL-20260624-MHG-FLIP). Cancel any resting protective
+        # legs for this symbol BEFORE placing the fresh OCA pair. place_protective
+        # is reached on every re-arm — orphan adopt/reattach
+        # (_rearm_broker_protection_after_recovery) and naked-autoprotect — and
+        # each call makes a NEW independent OCA group (oca-protect-<reqId>). Without
+        # a pre-cancel, repeated re-arms across an orphan flap STACK multiple live
+        # OCA brackets on the same position; their stops later fire together and
+        # FLIP a (by-then flat) position into a reverse orphan — the MHG long that
+        # closed clean then reappeared as a short (2026-06-24). This mirrors the
+        # cancel-then-re-arm discipline already in modify_protective(); making
+        # place_protective itself idempotent fixes every direct caller. Best-effort:
+        # a cancel failure must not block arming protection on a live naked position.
+        try:
+            self._cancel_resting_orders_for_symbol(ib, sym)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "place_protective: pre-cancel of resting %s legs failed "
+                "(proceeding to arm fresh bracket): %s", sym, exc,
+            )
         contract = self._build_contract(order.get("symbol"))
         tick = tick_size_for(order.get("symbol") or self.symbol)
         tp_price = _round_to_tick(float(tp_raw), tick) if tp_raw else None
