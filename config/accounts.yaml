@@ -563,7 +563,19 @@ accounts:
     alpaca_env: live                   # selects api.alpaca.markets (vs paper).
     api_key_env: ALPACA_API_KEY_ID_LIVE        # this account's OWN key pair, so
     api_secret_env: ALPACA_API_SECRET_KEY_LIVE # paper + live run concurrently.
-    strategies: []                     # none assigned yet (Tier-3 gate).
+    strategies:                         # Tier-3 pilot — operator-approved 2026-06-25.
+      - spy_trend_long_1d               # daily ETF, paper-validated 2026-06-11+
+      - qqq_trend_long_1d               # daily ETF, paper-validated 2026-06-11+
+      - gld_pullback_1d                 # daily ETF, paper-validated 2026-06-11+
+      - iwm_trend_long_1d               # daily ETF breadth, paper-validated 2026-06-20+
+      - tlt_pullback_1d                 # daily ETF breadth, paper-validated 2026-06-20+
+      - ief_pullback_1d                 # daily ETF breadth, paper-validated 2026-06-20+
+      - gld_pullback_1h                 # intraday ETF pilot, paper-validated 2026-06-20+
+      - slv_trend_1h                    # intraday ETF pilot, paper-validated 2026-06-20+
+      - spy_pullback_1h                 # intraday ETF rollout, paper-validated 2026-06-20+
+      - qqq_pullback_1h                 # intraday ETF rollout, paper-validated 2026-06-20+
+      - tlt_pullback_1h                 # intraday ETF rollout, paper-validated 2026-06-20+
+      - uso_trend_1h                    # intraday ETF rollout, paper-validated 2026-06-20+
     symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO]   # instrument identity
                                        # (mirrors alpaca_paper; routing is by
                                        # the strategies list above, empty here).
