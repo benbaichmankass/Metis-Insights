@@ -359,6 +359,7 @@ def enqueue_orphan_reconciliation(
     db_trade_id: Any,
     linked_package_id: Optional[str],
     reason: str = "reconciler",
+    headline: str = "🧹 Monitor reconciler — orphaned trade swept",
     classification: Optional[str] = None,
     classification_note: Optional[str] = None,
     priority: str = "high",
@@ -371,14 +372,20 @@ def enqueue_orphan_reconciliation(
     trade as ``status='open'`` but the exchange's open-positions list
     does not include the matching ``(symbol, side)`` row — meaning the
     exchange independently closed the position without the trader
-    seeing the close, and the DB row has been re-tagged
-    ``status='orphaned'`` with ``exit_reason='reconciler'``.
+    seeing the close.
 
-    *classification* is an optional tag distinguishing "this trade
-    can ONLY have been closed by an external action" (spot-margin —
-    no exchange-side SL/TP path exists) from "could be either SL/TP
-    or operator close" (derivatives). Surfaced in the body so the
-    operator knows whether to investigate or just acknowledge.
+    *headline* controls the first line of the notification. Callers
+    should pass a context-appropriate headline:
+      - ``"🎯 Stop-loss exit detected by reconciler"`` — SL bracket fired
+      - ``"🎯 Take-profit exit detected by reconciler"`` — TP bracket fired
+      - ``"🔔 Broker close detected by reconciler"`` — linked trade,
+        exit price not at SL/TP (manual close or mid-bracket)
+      - ``"🧹 Orphaned trade — no package link"`` — genuinely untracked
+        (the alarming case; no linked order package)
+
+    *classification* carries the resolved exit reason (``sl``, ``tp``,
+    ``broker_close_unclassified``, ``unlinked_orphan``). Surfaced in
+    the body so the operator knows whether to investigate or acknowledge.
 
     The body is operator-actionable (`/last5` will show the linked
     trade) and intentionally lean — no SDK exception payloads, no
@@ -386,7 +393,7 @@ def enqueue_orphan_reconciliation(
     """
     try:
         lines = [
-            "🧹 Monitor reconciler — orphaned trade swept",
+            headline,
             f"Account: {account}",
             f"Symbol: {symbol} | Side: {side}",
             f"DB trade id: {db_trade_id}",
