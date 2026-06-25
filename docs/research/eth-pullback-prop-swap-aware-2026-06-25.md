@@ -26,11 +26,12 @@ relay runs #4514 / #4522 / #4528 / #4530 / #4532._
   5y), half the swap drag (**32% vs 57%**), more consistent per-fold realised,
   and a **3.1× safety margin** against swap-rate error (break-even 0.10%/day vs
   the real 0.033%).
-- **Recommendation:** the variant `eth_pullback_prop_2h` is a **strong live
-  candidate** on `breakout_1` (Tier-3, operator-gated). It is currently committed
-  as `execution: shadow`; promoting it to `live` is the operator's call. The live
-  `eth_pullback_2h` exits would also be viable, but the variant is preferred for
-  its larger safety margin and lower drag.
+- **Decision (operator-approved 2026-06-25):** `eth_pullback_prop_2h` was
+  **promoted shadow → live** on `breakout_1`, and the original `eth_pullback_2h`
+  was **also routed live** to `breakout_1` (also +EV at the real rate). "Live" on
+  a prop account emits a manual Telegram/FCM ticket the operator places — the
+  operator gates every ticket. The variant is the lower-drag, bigger-margin leg;
+  the original adds frequency (same entries, not diversification).
 
 ## The swap rate (corrected)
 
@@ -87,19 +88,19 @@ range (variant EV12 stays +$469–$650; never crosses zero), because the prop
 account economics dominate — but realised PnL is the honest floor, and the
 break-even headroom is the number that matters for cost-model risk.
 
-## Decision & routing
+## Decision & routing (operator-approved 2026-06-25)
 
 - The **swap-robust variant** `eth_pullback_prop_2h` (tp_r 6 / trail 3.5) is
-  committed to `breakout_1` as `execution: shadow` (observe-only). At the real
-  cost it is a **strong live candidate**: +$421 realised, 4/4 folds, 3.1× swap
-  headroom, 32% drag, ROI/fees 4.2. **Recommend promoting shadow → live**
-  (operator-gated Tier-3); the soak can run in parallel as live-faithful
-  confirmation.
-- `eth_pullback_2h` (the live let-winners-run exits) is **also viable on
-  Breakout** at the real cost (+$166 realised, 4/4 folds) — the earlier "keep it
-  off breakout" call was an artefact of the 2.7×-too-high swap assumption. It
-  remains unchanged on bybit_1 (paper) / bybit_2 (real) regardless; the variant
-  is the cleaner prop vehicle.
+  routed to `breakout_1` as **`execution: live`** — promoted shadow → live the
+  day it was created, on the corrected-swap evidence (+$421 realised, 4/4 folds,
+  3.1× swap headroom, 32% drag, ROI/fees 4.2). On a prop account "live" emits a
+  manual ticket the operator places; the operator gates every ticket.
+- `eth_pullback_2h` (the live let-winners-run exits) is **also routed live** to
+  `breakout_1` — also +EV at the real cost (+$166 realised, 4/4 folds). The
+  earlier "keep it off breakout" call was an artefact of the 2.7×-too-high swap
+  assumption. It remains unchanged on bybit_1 (paper) / bybit_2 (real). The two
+  prop legs overlap (same entries) so the second adds frequency, not
+  diversification — the variant is the lower-drag, bigger-margin leg.
 - A wider exit than tp6/tr3.5 might capture more now that swap is cheaper than
   first assumed — a future tuning note, not chased here (the variant is already
   strong and over-tightening was shown to hurt).

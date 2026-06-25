@@ -615,15 +615,18 @@ accounts:
       - trend_donchian_sol             #   SOL — robust gate PASS, execution: live
       - trend_donchian_eth             #   ETH — marginal, execution: shadow (soak)
       - eth_pullback_prop_2h           #   ETH pullback swap-robust variant,
-                                       #   execution: shadow (observe-only soak).
-                                       #   At Breakout's real 0.033%/day swap the
-                                       #   funded-EV gate is strong (realised +$421,
-                                       #   12-mo EV +$603 @75.9%, 4/4 folds, break-even
-                                       #   swap 0.10%/day = 3x headroom). Preferred over
-                                       #   the live eth_pullback_2h exits (lower drag,
-                                       #   bigger margin). Promotion shadow->live is the
-                                       #   operator-gated Tier-3 switch.
+                                       #   execution: live (operator-approved 2026-06-25).
+                                       #   At Breakout's real 0.033%/day swap the funded-EV
+                                       #   gate is strong (realised +$421, 12-mo EV +$603
+                                       #   @75.9%, 4/4 folds, break-even swap 0.10%/day = 3x
+                                       #   headroom). The lower-drag, bigger-margin sibling
+                                       #   of eth_pullback_2h below.
                                        #   docs/research/eth-pullback-prop-swap-aware-2026-06-25.md
+      - eth_pullback_2h                #   ETH pullback (live BTC exits) — routed to prop
+                                       #   2026-06-25 (operator-approved Tier-3). Also +EV
+                                       #   at the real 0.033%/day swap (+$166 realised, 4/4
+                                       #   folds); overlaps eth_pullback_prop_2h (same
+                                       #   entries) so it adds frequency, not diversification.
     symbols: [SOLUSDT, ETHUSDT]        # the validated prop instruments.
     risk:
       max_dd_pct: 0.06                 # Breakout STATIC 6% max-DD = $300.
