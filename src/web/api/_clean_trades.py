@@ -72,6 +72,28 @@ def exclude_reconciler_predicate(prefix: str = "") -> str:
     return f" AND COALESCE({sn},'') NOT IN ({names})"
 
 
+def exclude_superseded_predicate(prefix: str = "") -> str:
+    """``AND``-able SQL fragment dropping ``reconcile_status='superseded'`` rows
+    from analytics.
+
+    A *superseded* row is a phantom orphan-flap DUPLICATE that the historical
+    reconciliation pass (``scripts/ops/reconcile_orphan_history.py``, orphan-flap
+    hardening #5) void-flagged in favour of the cluster's one canonical row —
+    e.g. the 17 extra phantom MGC closes around the single real position. They
+    are preserved in the journal as an audit trail (void-flag, not delete) but
+    must never count toward PnL / win-rate / trade-count aggregates, or the
+    fabricated PnL the flap wrote would still pollute the numbers.
+
+    Distinct from :func:`exclude_reconciler_predicate`: that drops rows by the
+    *pseudo-strategy name* of a bare adopt; this drops rows by the explicit
+    terminal reconcile state, which also catches a phantom flap row whose
+    ``strategy_name`` was reattached to a real strategy. NULL-safe via COALESCE
+    so the overwhelming majority of rows (``reconcile_status IS NULL``) are
+    kept. ``'superseded'`` is a hard-coded literal — no injection surface."""
+    rs = _col(prefix, "reconcile_status")
+    return f" AND COALESCE({rs},'') != 'superseded'"
+
+
 def r_multiple(
     pnl: Any,
     entry_price: Any,

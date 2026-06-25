@@ -1491,6 +1491,44 @@ strategies:
     # ETHUSDT signals auto-wire the symbol-agnostic decision/meta models (the
     # symbol filter keeps BTC/MES regime heads off). Observe-only.
 
+  eth_pullback_prop_2h:
+    # SWAP-ROBUST prop variant of eth_pullback_2h for the Breakout daily-swap
+    # venue (DRAFT, Tier-3 — execution: shadow, observe-only). The live
+    # eth_pullback_2h let-winners-run exits (trail_mult 5.0, tp_r 50 sentinel)
+    # hold for days-to-weeks and bleed 155% of gross to Breakout's flat 0.09%/day
+    # swap → realised post-swap −$211 over 5y. Tightening exits to tp_r 6.0 /
+    # trail_mult 3.5 (everything else == live) cuts hold-time/swap (drag
+    # 155%→87%), RAISES pre-swap gross (+$384→+$618), and flips realised
+    # post-swap POSITIVE (+$80). Funded-EV gate (config/prop_rulesets/breakout.yaml,
+    # daily_swap 0.09%/day, 1.5% risk): full-period 12-mo EV +$538 @72.7%
+    # P(net>0), ROI/fees 3.38, walk-forward 4/4 folds EV-positive.
+    # CAVEAT: realised post-swap is still regime-dependent (negative in 2/4 OOS
+    # folds; the EV passes on prop-account economics). ⇒ SHADOW/soak ONLY — NOT a
+    # live-money promotion. Promotion past shadow is the operator-gated Tier-3
+    # switch, contingent on the soak confirming the edge live + a real Breakout
+    # swap-rate check. Eval: docs/research/eth-pullback-prop-swap-aware-2026-06-25.md
+    # (relay runs #4514/#4522/#4528). ROLLBACK: remove this block + the
+    # breakout_1 routing + the builder/registry entry.
+    model: null
+    signal_prefixes: [eth_pullback_prop]
+    enabled: true
+    execution: shadow         # shadow-guard: allow — operator-directed draft (2026-06-25): swap-robust prop soak candidate, observe-only; promotion to live is a separate Tier-3 gate. Eval: docs/research/eth-pullback-prop-swap-aware-2026-06-25.md
+    risk_pct: 1.5             # the validated best-EV cell (== breakout_1 risk_pct).
+    timeframe: "2h"           # served as Bybit 120m via CCXT (candle source).
+    symbols:
+      - ETHUSDT               # Bybit USDT linear perp candles; ticketed on Breakout.
+    # Params — eth_pullback_2h's live base, with the SWAP-ROBUST exits.
+    trend_lookback: 40
+    pullback_lookback: 10
+    pullback_frac: 0.5
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 3.5           # swap-robust (vs live 5.0) — shorter holds.
+    tp_r: 6.0                 # real 6R take-profit cap (vs live 50.0 sentinel).
+    min_confidence: 0.0
+    adx_min: 25               # ADX>=25 regime gate (== eth_pullback_2h).
+    # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
+
   # ──────────────────────────────────────────────────────────────────────────
   # pullback_2h alt cells — bybit_1 DEMO soak (paper_ready, 2026-06-18, Tier-3)
   # ──────────────────────────────────────────────────────────────────────────

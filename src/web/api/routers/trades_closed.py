@@ -31,7 +31,11 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Query
 
 from src.utils.paths import trade_journal_db_path
-from src.web.api._clean_trades import account_class_wire, not_paper_predicate
+from src.web.api._clean_trades import (
+    account_class_wire,
+    exclude_superseded_predicate,
+    not_paper_predicate,
+)
 from src.web.api._closed_at import (
     close_time_sql,
     closed_at_norm_sql,
@@ -69,6 +73,10 @@ _CLOSED_AT_SORT_SQL = close_time_sql("t.closed_at", "op.updated_at", "t.timestam
 # closed-trade LIST; an ``orphan_adopt`` row stays visible carrying its own
 # strategy name (it is not silently dropped from a list the way it is from KPIs).
 _NOT_PAPER_PREDICATE = not_paper_predicate("t.")
+# Superseded rows are confirmed-void phantom orphan-flap DUPLICATES
+# (orphan-flap hardening #5) — drop them from the list (distinct from the
+# un-consolidated orphan_adopt rows, which the note above keeps visible).
+_EXCLUDE_SUPERSEDED = exclude_superseded_predicate("t.")
 _account_class_wire = account_class_wire
 
 # direction values seen in the wild + their wire-shape side equivalents.
@@ -211,6 +219,7 @@ def _query_closed_trades(
             WHERE t.status = 'closed'
               AND COALESCE(t.is_backtest, 0) = 0
         """
+        sql += _EXCLUDE_SUPERSEDED
         params: List[Any] = []
         if account_id:
             sql += " AND t.account_id = ?"

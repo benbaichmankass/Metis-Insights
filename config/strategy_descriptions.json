@@ -150,5 +150,9 @@
   "avax_pullback_2h": {
     "short": "AVAX/USDT 2h pullback trader (Bybit demo) \u2014 buys/sells pullbacks within the prevailing AVAX trend; a paper_ready alt-sleeve sibling of the live BTC pullback strategy.",
     "how_it_works": "Watches AVAX/USDT perpetuals on 2-hour candles around the clock, reusing the htf_pullback_trend_2h unit at EXACTLY the live BTC parameters (40-bar trend filter, entries on a pullback into the deeper half of the recent 10-bar range, 2.5x ATR(14) stop, 5x ATR trailing exit, both directions). Routed ONLY to the Bybit demo account bybit_1 (paper money) for decision/ML soak; it is NOT yet live-money-ready. GATE: the M15 WS-C k-fold sweep classed the htf_pullback_2h cell paper_ready \u2014 net-of-fee positive overall and surviving 2x fees, failing only the strict every-fold gate on the recent regime (SRQ-20260618-002). Note alts move largely with BTC/ETH, so this adds trade frequency rather than diversification."
+  },
+  "eth_pullback_prop_2h": {
+    "short": "ETH/USDT 2h pullback trader — SWAP-ROBUST prop variant (Breakout, shadow/draft). Same entries as eth_pullback_2h but with tighter exits so multi-day holds don't bleed to the prop venue's daily swap.",
+    "how_it_works": "Watches ETH/USDT on 2-hour candles. Enters on a pullback within a 40-bar Donchian-midline trend (ADX>=25 regime gate), same as eth_pullback_2h, but exits sooner: a real 6R take-profit cap plus a tighter 3.5x ATR Chandelier trail (vs the live 50R sentinel / 5.0 trail). On the Breakout prop account a flat 0.09%/day swap is charged while a position is held, so the live let-winners-run exits go net-negative after swap; shortening holds flips the post-swap edge positive. Wired execution: shadow on breakout_1 — it logs order packages for a soak but never emits a prop ticket. Promotion to live is a separate operator-gated Tier-3 step."
   }
 }

@@ -15,6 +15,7 @@ import pytest
 from src.web.api._clean_trades import (
     account_class_wire,
     exclude_reconciler_predicate,
+    exclude_superseded_predicate,
     not_paper_predicate,
     paper_predicate,
 )
@@ -93,6 +94,36 @@ def test_prefixed_predicate_matches_bare(tmp_path):
     assert not_paper_predicate("t.") == not_paper_predicate("").replace(
         "account_class", "t.account_class"
     ).replace("is_demo", "t.is_demo")
+
+
+# ------------------------------------------------------- superseded exclusion
+def test_exclude_superseded_drops_only_superseded(tmp_path):
+    """Only ``reconcile_status='superseded'`` rows are dropped; NULL /
+    'reconciled' / 'unreconciled' all survive (NULL-safe via COALESCE)."""
+    db = tmp_path / "rs.db"
+    conn = sqlite3.connect(str(db))
+    conn.execute(
+        "CREATE TABLE trades (strategy_name TEXT, reconcile_status TEXT)")
+    conn.executemany(
+        "INSERT INTO trades (strategy_name, reconcile_status) VALUES (?,?)",
+        [
+            ("keep_null", None),            # ordinary row — kept
+            ("keep_reconciled", "reconciled"),     # canonical — kept
+            ("keep_unreconciled", "unreconciled"),  # red-flag orphan — kept
+            ("drop_phantom", "superseded"),  # void phantom dup — DROPPED
+        ],
+    )
+    conn.commit()
+    sql = "SELECT strategy_name FROM trades WHERE 1=1" + exclude_superseded_predicate("")
+    got = {r[0] for r in conn.execute(sql).fetchall()}
+    conn.close()
+    assert got == {"keep_null", "keep_reconciled", "keep_unreconciled"}
+    assert "drop_phantom" not in got
+
+
+def test_exclude_superseded_prefixed_matches_bare():
+    assert exclude_superseded_predicate("t.") == exclude_superseded_predicate(
+        "").replace("reconcile_status", "t.reconcile_status")
 
 
 # ----------------------------------------------------------- account_class_wire

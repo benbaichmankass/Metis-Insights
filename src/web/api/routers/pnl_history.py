@@ -34,6 +34,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from src.web.api._clean_trades import (
     exclude_reconciler_predicate,
+    exclude_superseded_predicate,
     not_paper_predicate,
 )
 from src.web.api._closed_at import close_time_sql
@@ -91,6 +92,7 @@ def _query_history(
         # PnL aggregate (canonical src.web.api._clean_trades) — applies whether
         # or not the view is scoped to a single account.
         base_where += exclude_reconciler_predicate("")
+        base_where += exclude_superseded_predicate("")
         params: list = [start.isoformat(), today_utc.isoformat()]
         if account_id:
             base_where += " AND account_id = ?"

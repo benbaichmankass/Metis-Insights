@@ -4288,6 +4288,25 @@ def eth_pullback_2h_signal_builder(settings: dict) -> Dict[str, Any]:
         "eth_pullback_2h", settings, default_symbol="ETHUSDT")
 
 
+def eth_pullback_prop_2h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """SWAP-ROBUST prop variant of eth_pullback_2h for Breakout (DRAFT, Tier-3).
+
+    Same ETHUSDT 2h pullback unit + live base params, but with swap-robust exits
+    (``tp_r: 6.0`` / ``trail_mult: 3.5`` vs the live 50/5.0) so the days-to-weeks
+    holds don't bleed to Breakout's flat 0.09%/day swap. Routed ONLY to
+    ``breakout_1`` as ``execution: shadow`` (observe-only — logs order packages,
+    never emits a prop ticket). Funded-EV gate: full-period 12-mo EV +$538
+    @72.7% P(net>0), walk-forward 4/4 folds EV-positive — but realised post-swap
+    is regime-dependent (negative in 2/4 folds), so this is a soak candidate, NOT
+    a live-money promotion. Promotion past shadow is the operator-gated Tier-3
+    switch. Eval: docs/research/eth-pullback-prop-swap-aware-2026-06-25.md.
+    Delegates to the shared ``_htf_pullback_variant_builder`` (reads the
+    ``eth_pullback_prop_2h`` config block, which pins the swap-robust exits).
+    """
+    return _htf_pullback_variant_builder(
+        "eth_pullback_prop_2h", settings, default_symbol="ETHUSDT")
+
+
 # ── pullback_2h alt cells — bybit_1 DEMO soak (paper_ready, WS-C-validated) ─────
 # Four symbol-pinned htf_pullback_trend_2h instances on the 2h candle (SOL/XRP/
 # ADA/AVAX), routed to bybit_1 (Bybit demo — paper money) for decision/ML soak.
@@ -4372,6 +4391,8 @@ for _builder, _monitor_unit in (
     (tlt_pullback_1h_signal_builder, "htf_pullback_trend_2h"),
     (uso_trend_1h_signal_builder, "trend_donchian"),
     (eth_pullback_2h_signal_builder, "htf_pullback_trend_2h"),
+    # swap-robust prop variant — breakout_1 shadow soak (DRAFT, Tier-3, 2026-06-25).
+    (eth_pullback_prop_2h_signal_builder, "htf_pullback_trend_2h"),
     # pullback_2h alt cells — bybit_1 demo soak (paper_ready, 2026-06-18).
     (sol_pullback_2h_signal_builder, "htf_pullback_trend_2h"),
     (xrp_pullback_2h_signal_builder, "htf_pullback_trend_2h"),
