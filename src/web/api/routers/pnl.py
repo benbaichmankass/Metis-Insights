@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from src.utils.paths import trade_journal_db_path
 from src.web.api._clean_trades import (
     exclude_reconciler_predicate,
+    exclude_superseded_predicate,
     not_paper_predicate,
 )
 from src.web.api.auth import require_session
@@ -86,6 +87,7 @@ def _query_pnl(
             # drop reconciler ``orphan_adopt`` artifacts from per-account PnL.
             + not_paper_predicate("")
             + exclude_reconciler_predicate("")
+            + exclude_superseded_predicate("")
             + """
              GROUP BY account_id
             """
@@ -103,6 +105,7 @@ def _query_pnl(
             """
             + not_paper_predicate("")
             + exclude_reconciler_predicate("")
+            + exclude_superseded_predicate("")
             + """
                AND COALESCE(status, 'open')
                        NOT IN ('rejected', 'exchange_rejected', 'rejected_too_small', 'orphaned')
