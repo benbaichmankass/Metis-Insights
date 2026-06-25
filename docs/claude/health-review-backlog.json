@@ -887,15 +887,20 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run; surface to the operator (external infra \u2014 cannot be auto-fixed from either repo).",
       "resolution_criteria": "Operator disconnects the 'ict-trader-widget' Cloudflare Pages <-> GitHub integration (or deletes that Pages project) so the dashboard repo stops running a perpetually-failing Cloudflare Pages check; confirm ict-trader-dashboard PRs show only the real checks (ruff-lint, import-smoke) green.",
-      "status": "open",
+      "status": "resolved",
       "triage_note": "2026-05-27 /health-review: external infra; nothing to verify from /health-review's read surface. Remains operator-gated.",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-06-25T07:45:00+00:00",
           "note": "TIER-2 PREP \u2192 OPERATOR-ONLY hand-off. The failing 'Cloudflare Pages' check on every ict-trader-dashboard PR is NOT a workflow file (the repo .github/workflows has only ci.yml + delete-merged-branches.yml) \u2014 it's an external GitHub<->Cloudflare-Pages App integration (a stale CF Pages project 'ict-trader-widget' still wired to the repo, left over from the retired React/CF stack). OPERATOR ACTION: in the Cloudflare dashboard \u2192 Workers & Pages \u2192 the stale 'ict-trader-widget' (or equivalent) Pages project \u2192 Settings \u2192 either delete the project or disconnect its GitHub integration; alternatively GitHub \u2192 repo Settings \u2192 Integrations/GitHub Apps \u2192 Cloudflare Pages \u2192 revoke repo access. No repo change possible from this side. Stays open, awaiting-operator."
+        },
+        {
+          "at": "2026-06-25T08:10:00+00:00",
+          "note": "RESOLVED \u2014 operator disconnected/deleted the stale Cloudflare Pages 'ict-trader-widget' project + its GitHub App integration on the Cloudflare side (2026-06-25). The failing 'Cloudflare Pages' commit status no longer posts on ict-trader-dashboard PRs. This was external account-side state (not a repo artifact \u2014 verified: no CF config files in the dashboard repo, only historical prose), so it required the console action; nothing further in any repo."
         }
-      ]
+      ],
+      "resolved_at": "2026-06-25T08:10:00+00:00"
     },
     {
       "id": "BL-20260525-007",
@@ -2436,5 +2441,5 @@
       ]
     }
   ],
-  "updated_at": "2026-06-25T08:00:00+00:00"
+  "updated_at": "2026-06-25T08:10:00+00:00"
 }
