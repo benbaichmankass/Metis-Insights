@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "PB-20260625-001",
+      "opened_at": "2026-06-25T09:20:00+00:00",
+      "opened_by": "claude (prop-trade-pipeline-debug \u2014 eth_pullback prop go-live follow-up)",
+      "source": "PR #4533 promoted eth_pullback_prop_2h (tp_r 6 / trail 3.5) shadow->live and routed eth_pullback_2h live to the breakout_1 prop account, on the CORRECTED Breakout swap of 0.033%/day (the prior eval used 0.09%/day from an outdated review; Breakout's help centre confirms 0.033%/day). Funded-EV gate at the real rate (config/prop_rulesets/breakout.yaml, 1.5% risk): variant realised post-swap +$421/5y, 12-mo EV +$603 @75.9%, ROI/fees 4.2, walk-forward 4/4 folds, realised break-even swap 0.10%/day (3x headroom); the live exits are +$166, 4/4 folds. Eval: docs/research/eth-pullback-prop-swap-aware-2026-06-25.md (trainer relay #4530/#4532). Deploy confirmed live 2026-06-25 \u2014 both legs in /api/bot/strategies loaded_strategies, bot_running.",
+      "title": "Monitor the two newly-live ETH pullback legs on breakout_1 (confirm the real swap rate + the edge holds live)",
+      "description": "FOLLOW-UP MONITORING for the newly live prop legs. (1) CONFIRM THE REAL SWAP: the whole gate rides on 0.033%/day from Breakout's help centre, NOT a real statement \u2014 eyeball the actual swap debit on the first prop fills / account-status reports; if it is materially higher the margin shrinks (break-even is 0.10%/day for the variant, 0.058%/day for the live-exit leg). (2) EDGE vs EV: track realised prop PnL of both legs against the EV projection; the edge was front-loaded into the recent regime and fold1 (2021-22) was slightly red, so do not over-read a slow start. (3) CORRELATED DRAWDOWN: both legs trade ETHUSDT with near-identical entries and correlate ~0.7-0.9 with the BTC roster + SOL; the account daily-loss ($150) / static-DD ($300) caps assume concurrent loss \u2014 flag if ETH-prop + ETH-prop-variant + SOL stack toward a single-day breach. (4) REDUNDANCY: the two ETH legs overlap (same entries) so the second adds frequency not diversification; if the variant clearly dominates, consider dropping the plain eth_pullback_2h prop leg.",
+      "tier": 3,
+      "trigger_condition": "First real prop fills/closes accrue on breakout_1 for either ETH leg, OR a prop account-status report exposes the actual swap debit.",
+      "resolution_criteria": "Real Breakout swap confirmed (\u22480.033%/day or corrected) AND >=10-20 closed prop ETH trades compared to the EV projection, with a documented keep/tune/drop decision per leg.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "PB-20260622-002",
       "opened_at": "2026-06-22T18:10:00+00:00",
       "opened_by": "claude (ETF pullback backtest follow-up)",
