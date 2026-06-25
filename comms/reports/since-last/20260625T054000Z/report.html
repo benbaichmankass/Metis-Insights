@@ -1,0 +1,175 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-06-25T05:40:00+00:00 · window 2026-06-24T05:23:22+00:00 → 2026-06-25T05:40:00+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>Window 06-24 05:23Z-&gt;06-25 05:40Z (~24h). System healthy: heartbeat running, all services/timers up, VM relaxed (cpu0/mem12/disk26), 36 strategies evaluating, clean restart ~05:11Z (git 6f1f9401). REAL MONEY IDLE: 0 closed real trades in 24h. Paper +$19 net but pure artifact (crypto reconciler closes +$2597 minus MHG adopted_orphan phantom -$2577). LOUD ML FLAG: the sole advisory model btc-regime-5m-lgbm-yz-v1 is degenerate live (stage-guard DEMOTE; brier_lift -0.277, auc 0.40). Recurring: order packages size to target_qty=0 -&gt; orphan/reject; MHG ib_paper adopt-reconcile flap (-2530 phantom) recurred 06-24.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>DEMOTE degenerate advisory btc-regime-5m-lgbm-yz-v1 (advisory-&gt;shadow)</b> <span class="pill">ml · T3</span> ⚠️ operator<br><span class='muted'>Only order-influencing model; worse than baseline live (brier_lift -0.277, auc 0.40). Soft-off demote reverts to known-good zero-advisory conviction. (MB-20260625-001)</span></li>
+<li><b>Fix aggregated_target_qty=0 emit-then-orphan (BUG-049)</b> <span class="pill">cross · T2</span><br><span class='muted'>ada/mgc/spy/slv/qqq decisions size to 0 qty then orphan/reject this window. Refuse-with-cause instead of emit-then-orphan. (BL-20260601-001)</span></li>
+<li><b>MHG ib_paper adopt-reconcile phantom close recurred (-2530.41)</b> <span class="pill">health · T2</span><br><span class='muted'>Close-confirm fix #4441 not eliminating the MHG adopt-&gt;exchange_flat_reconciled flap; phantom-magnitude PnL pollutes paper book. Confirm deploy + harden. (BL-20260624-MHG-CLOSE-CONFIRM-VERIFY)</span></li>
+<li><b>Confirm real-money idle is intended (0 closes in 24h)</b> <span class="pill">performance · T1</span><br><span class='muted'>bybit_2 real-money had no closed trades in the window; verify this is market-driven quiet, not a silent execution gap.</span></li>
+<li><b>MES quality manifests skip empty_dataset every cycle</b> <span class="pill">ml · T1</span><br><span class='muted'>mes-execution-quality / mes-setup-quality / mes-trade-outcome-winrate never train — data-blocked (needs intraday MES history). (BL-20260526-002)</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">73 open / 135 total</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">28 open / 43 total</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">16 open / 44 total</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>ml</span> DEMOTE btc-regime-5m-lgbm-yz-v1 advisory-&gt;shadow (degenerate live: brier_lift -0.277, auc 0.40). (MB-20260625-001)</li>
+<li><span class='pill'>ml</span> Refine-or-retire the demoted btc-regime-1h-lgbm-yz-v1 (retrain + score-time feature diff before any re-promotion). (MB-20260623-001)</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>aggregated_target_qty=0 spans HEALTH (orphan/order plumbing) AND PERFORMANCE (5/9 graded decisions D, rejected at 0 qty) — one root cause: sizing collapses below 1 unit then emits-then-orphans instead of refusing.</li>
+<li>yz feature family: BOTH btc-regime yz advisories (1h on 06-23, now 5m) went degenerate live while training macro_f1 stays stable -&gt; a score-time feature-pipeline shift (live!=train) in the yz family, not isolated bad models.</li>
+<li>Every in-window close was reconciler-driven (intent_reduce / adopted_orphan / exchange_flat_reconciled) — zero clean TP/SL/strategy exits; the paper book&#x27;s PnL is exit-plumbing artifact, not edge.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>heartbeat</td><td class="sev-ok">🟢 ok</td><td>mtime age 8.5s, label=running; uptime ~19m (clean restart ~05:11Z, git 6f1f9401)</td></tr>
+<tr><td>ticks</td><td class="sev-ok">🟢 ok</td><td>last_tick 05:29Z; pipeline evaluating multiplexed_intents across all symbols (skipped no_signal seen 05:33Z)</td></tr>
+<tr><td>signals</td><td class="sev-ok">🟢 ok</td><td>actionable shorts logged across ada/eth/sol/slv/spy this window; signal-&gt;audit dual-write live</td></tr>
+<tr><td>orders</td><td class="sev-watch">🟡 watch</td><td>RECURRING: order packages sizing to aggregated_target_qty=0 then rejected/orphaned (ada/mgc/spy/slv/qqq this window) — BUG-049 / BL-20260601-001 still active</td></tr>
+<tr><td>trades</td><td class="sev-watch">🟡 watch</td><td>in-window closes ALL reconciler-driven (intent_reduce / adopted_orphan / exchange_flat_reconciled) — none clean TP/SL/strategy exits</td></tr>
+<tr><td>monitoring</td><td class="sev-ok">🟢 ok</td><td>monitor ticking; naked-autoprotect baseline; no monitor-blind alert observed in audit tail</td></tr>
+<tr><td>sizing</td><td class="sev-watch">🟡 watch</td><td>aggregated_target_qty=0 collapses many crypto/equity shorts to no fill (sizing floor / qty-rounding interaction)</td></tr>
+<tr><td>api_errors</td><td class="sev-ok">🟢 ok</td><td>no API-error cluster surfaced in the pulled audit tail; web-api active</td></tr>
+<tr><td>state_consistency</td><td class="sev-ok">🟢 ok</td><td>runtime live-map matches: bybit_2 real-money live, paper accounts live, ib_live/alpaca_live/oanda off</td></tr>
+<tr><td>alert_delivery</td><td class="sev-ok">🟢 ok</td><td>ict-claude-bridge.service active; telegram-bot active</td></tr>
+<tr><td>strategy_silence</td><td class="sev-ok">🟢 ok</td><td>36 strategies loaded; per-tick *_eval across symbol set in audit tail</td></tr>
+<tr><td>db_integrity</td><td class="sev-ok">🟢 ok</td><td>ict-db-integrity.timer active; no integrity error surfaced (full PRAGMA not run via relay)</td></tr>
+<tr><td>data_validity</td><td class="sev-watch">🟡 watch</td><td>MHG/ib_paper adopted_orphan #2832 booked pnl=-2530.41 — phantom-magnitude (contract-value/sizing artifact) polluting the paper book</td></tr>
+<tr><td>audit_log_freshness</td><td class="sev-ok">🟢 ok</td><td>audit tail fresh to 05:33Z</td></tr>
+<tr><td>trainer_service</td><td class="sev-ok">🟢 ok</td><td>ict-trainer.timer enabled+active; last cycle rc=0 06-25 01:08Z (detail in /ml-review)</td></tr>
+<tr><td>health_snapshot</td><td class="sev-ok">🟢 ok</td><td>ict-health-snapshot.timer + ict-hourly-snapshot.timer active</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$0.00</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$19.19</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">10</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.5%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$1.92</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">5</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>intent_reduce</td><td>7</td><td>0.7%</td><td class="pos">+$2,596.67</td></tr>
+<tr><td>adopted_orphan</td><td>3</td><td>0.0%</td><td class="neg">$-2,577.48</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">—</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">12 full dossiers, 0 summarized (full-per-trade (since-last/daily)).</p>
+<details><summary><span class="pill paper">paper</span> ADAUSDT long · intent_reduce · <span class="neg">$-0.49</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2851</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-25T00:58:04.466894+00:00</div><div class="k">closed</div><div>2026-06-25T00:58:04.379000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.1474</div><div class="k">exit</div><div>0.1474</div><div class="k">stop</div><div>0.15496429</div><div class="k">target</div><div>0.1328975</div><div class="k">qty</div><div>334</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler_filled</div><div class="k">setup</div><div>intent_reduce</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>reconciler/orphan artifact close — not a clean strategy decision; ungraded</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT long · intent_reduce · <span class="pos">+$465.59</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2847</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-24T17:13:14.121214+00:00</div><div class="k">closed</div><div>2026-06-24T17:13:14.042000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>66.3</div><div class="k">exit</div><div>66.3</div><div class="k">stop</div><div>70.16214286</div><div class="k">target</div><div>59.76333</div><div class="k">qty</div><div>170.8</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler_filled</div><div class="k">setup</div><div>intent_reduce</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>reconciler/orphan artifact close — not a clean strategy decision; ungraded</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT long · intent_reduce · <span class="pos">+$17.96</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2845</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-24T16:55:17.827184+00:00</div><div class="k">closed</div><div>2026-06-24T16:55:17.738000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.1412</div><div class="k">exit</div><div>0.1412</div><div class="k">stop</div><div>0.15035</div><div class="k">target</div><div>0.1271311</div><div class="k">qty</div><div>3867</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler_filled</div><div class="k">setup</div><div>intent_reduce</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>reconciler/orphan artifact close — not a clean strategy decision; ungraded</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ETHUSDT long · intent_reduce · <span class="pos">+$1,812.40</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2844</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-24T16:52:29.103045+00:00</div><div class="k">closed</div><div>2026-06-24T16:52:29.024000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1597.54</div><div class="k">exit</div><div>1597.54</div><div class="k">stop</div><div>1678.8425</div><div class="k">target</div><div>1438.92403</div><div class="k">qty</div><div>25.3</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler_filled</div><div class="k">setup</div><div>intent_reduce</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>reconciler/orphan artifact close — not a clean strategy decision; ungraded</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT long · intent_reduce · <span class="pos">+$4.39</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2841</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-24T15:47:37.911995+00:00</div><div class="k">closed</div><div>2026-06-24T15:47:37.823000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.1435</div><div class="k">exit</div><div>0.1435</div><div class="k">stop</div><div>0.15261786</div><div class="k">target</div><div>0.1293836</div><div class="k">qty</div><div>1876</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler_filled</div><div class="k">setup</div><div>intent_reduce</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>reconciler/orphan artifact close — not a clean strategy decision; ungraded</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> XRPUSDT long · intent_reduce · <span class="pos">+$317.25</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2840</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-24T15:08:23.268274+00:00</div><div class="k">closed</div><div>2026-06-24T15:08:23.180000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1.0714</div><div class="k">exit</div><div>1.0714</div><div class="k">stop</div><div>1.11384286</div><div class="k">target</div><div>0.9656017</div><div class="k">qty</div><div>4545.7</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler_filled</div><div class="k">setup</div><div>intent_reduce</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>reconciler/orphan artifact close — not a clean strategy decision; ungraded</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> MHG short · adopted_orphan · <span class="neg">$-29.16</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2837</div><div class="k">account</div><div>ib_paper</div><div class="k">opened</div><div>2026-06-24T13:45:09.118470+00:00</div><div class="k">closed</div><div>2026-06-24T13:49:56.095191+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>5.983112</div><div class="k">exit</div><div>5.987</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>3</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>exit_coverage_no_strategy</div><div class="k">setup</div><div>adopted_orphan</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>reconciler/orphan artifact close — not a clean strategy decision; ungraded</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> MHG short · adopted_orphan · <span class="neg">$-17.91</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2835</div><div class="k">account</div><div>ib_paper</div><div class="k">opened</div><div>2026-06-24T13:32:56.279325+00:00</div><div class="k">closed</div><div>2026-06-24T13:37:53.174879+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>5.983112</div><div class="k">exit</div><div>5.9855</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>3</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>exit_coverage_no_strategy</div><div class="k">setup</div><div>adopted_orphan</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>reconciler/orphan artifact close — not a clean strategy decision; ungraded</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> MHG long · adopted_orphan · <span class="neg">$-2,530.41</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2832</div><div class="k">account</div><div>ib_paper</div><div class="k">opened</div><div>2026-06-24T11:41:23.459055+00:00</div><div class="k">closed</div><div>2026-06-24T11:53:14.478789+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>6.395887999999999</div><div class="k">exit</div><div>6.0585</div><div class="k">stop</div><div>6.04528571</div><div class="k">target</div><div>7.029204</div><div class="k">qty</div><div>3</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>exchange_flat_reconciled</div><div class="k">setup</div><div>adopted_orphan</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>reconciler/orphan artifact close — not a clean strategy decision; ungraded</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT long · intent_reduce · <span class="neg">$-20.44</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2827</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-24T06:01:21.144293+00:00</div><div class="k">closed</div><div>2026-06-24T06:01:21.066000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>69.8</div><div class="k">exit</div><div>69.8</div><div class="k">stop</div><div>72.13071429</div><div class="k">target</div><div>62.95287</div><div class="k">qty</div><div>26.7</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler_filled</div><div class="k">setup</div><div>intent_reduce</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>reconciler/orphan artifact close — not a clean strategy decision; ungraded</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT short · ada_pullback_2h · <span class="">—</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2850</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-24T22:52:42.541777+00:00</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.147</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>0.15444643</div><div class="k">target</div><div>0.132447</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>ada_pullback_2h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>open paper position</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT short · trend_donchian_ada_4h · <span class="">—</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2830</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-24T10:16:32.988843+00:00</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.146</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>0.15480357</div><div class="k">target</div><div>0.131546</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>trend_donchian_ada_4h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>open paper position</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>No actionable BTC signal in-window in pulled data; primary book quiet (candles not relay-reachable).</td></tr>
+<tr><td>ETHUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>~1666 (bot-logged); pullback-short fired, stopped at SL — choppy/weak-down 2h.</td></tr>
+<tr><td>SOLUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>~66; donchian-20 breakdown short — trending down on 4h.</td></tr>
+<tr><td>ADAUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>~0.147 pressing lows; repeated 2h shorts (adx 36-40 strong-trend), most sized to 0 qty.</td></tr>
+<tr><td>SLV</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>~51; trend-short signals at very low conf (0.10-0.20) despite adx 56-58 — filtered out.</td></tr>
+<tr><td>SPY</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>~735; pullback-short in transitional regime (adx 22.5) — not filled.</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>btc-regime-5m-lgbm-yz-v1</td><td>advisory</td><td>—</td><td>first_run</td><td>stage-guard: auc 0.40, brier 0.525 vs baseline 0.248, brier_lift -0.277</td><td>DEMOTE advisory-&gt;shadow (Tier-3): worse than baseline live (negative brier_lift).</td></tr>
+<tr><td>btc-regime-1h-lgbm-yz-v1</td><td>shadow</td><td>macro_f1~0.667</td><td>flat</td><td>was KS 0.86/PSI 6.89</td><td>demotion holds (MB-20260623-001); refinement retrain still pending.</td></tr>
+<tr><td>conviction-meta-v1</td><td>shadow</td><td>—</td><td>flat</td><td>n/a</td><td>conviction-meta soak accruing on order packages.</td></tr>
+</table></div>
+<h3>Promotion / demotion recommendations (Tier-3)</h3><ul class='pri'>
+<li>demote <b>btc-regime-5m-lgbm-yz-v1</b> advisory→shadow: stage-guard demote: auc 0.40 (&lt;random), brier 0.525 vs baseline 0.248, brier_lift -0.277. Only advisory model; worse than baseline live.</li>
+</ul>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li>DEMOTE_SHADOW <b>btc-regime-5m-lgbm-yz-v1</b> — stage-guard demote: brier_lift -0.277, auc 0.40 — only advisory model, worse than baseline live</li>
+<li class='muted'>No model ready to promote (stage-guard promote=[]). One demote: the sole advisory yz head. Trading strategies: no new M7 review packets pulled this window (relay budget) and no strategy met a promote/kill gate from the live data — effectively all HOLD.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">1</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">True</div></div>
+</div>
+<p class='muted'>1 training cycle since last review (cycle_end rc=0 06-25 01:08Z); datasets build_end rc=0 06-25 00:59Z. 3 MES quality manifests skip empty_dataset every cycle (data-blocked).</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>shadow models (24 at shadow)</td><td>accruing</td><td>conviction-meta-v1 + execution-quality scored on this window&#x27;s order packages; predictions logging</td></tr>
+<tr><td>advisory yz head (btc-regime-5m-lgbm-yz-v1)</td><td>gate_met</td><td>stage-guard DEMOTE gate met (negative brier_lift) and UNACTIONED -&gt; flagged as operator priority #1</td></tr>
+<tr><td>cross-asset shadow (eth-regime-1h-lgbm-xasset-v1)</td><td>accruing</td><td>at shadow; trained this cycle (manifest_ok 06-25 01:07)</td></tr>
+<tr><td>exit-ladder soak</td><td>accruing</td><td>unavailable: exit_ladder_soak log not pulled this session (relay budget) — last reports showed it accruing</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 DEGENERATE ADVISORY: btc-regime-5m-lgbm-yz-v1 (only order-influencing model) is worse than baseline live (brier_lift -0.277, auc 0.40); demote gate met + unactioned.</li><li>🚩 MHG/ib_paper adopt-reconcile flap recurred 06-24 (-2530.41 phantom); close-confirm fix #4441 not holding.</li><li>🚩 aggregated_target_qty=0 -&gt; orphan/reject cluster (ada/mgc/spy/slv/qqq) still active (BUG-049/BL-20260601-001).</li><li>🚩 REAL-MONEY IDLE: 0 closed real trades in 24h — confirm market-driven, not a silent execution gap.</li><li>🚩 3 MES quality manifests skip empty_dataset every trainer cycle (data-blocked).</li></ul>
+<footer>report_id RPT-20260625-054000-since-last · reviewer claude · prior RPT-20260624-052322-since-last · ICT Trading Bot system-report</footer></div></body></html>

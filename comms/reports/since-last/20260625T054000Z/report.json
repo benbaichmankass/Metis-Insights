@@ -1,0 +1,1328 @@
+{
+ "report_id": "RPT-20260625-054000-since-last",
+ "reviewed_at": "2026-06-25T05:40:00+00:00",
+ "reviewer": "claude",
+ "window": "since-last",
+ "window_start": "2026-06-24T05:23:22+00:00",
+ "window_end": "2026-06-25T05:40:00+00:00",
+ "prior_report_id": "RPT-20260624-052322-since-last",
+ "overall_assessment": "caution",
+ "health": {
+  "request_id": "REQ-20260625-054000-systemreview",
+  "reviewed_at": "2026-06-25T05:40:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-06-24T05:23:22+00:00",
+  "window_end": "2026-06-25T05:40:00+00:00",
+  "overall_assessment": "caution",
+  "findings": {
+   "heartbeat": {
+    "status": "ok",
+    "note": "mtime age 8.5s, label=running; uptime ~19m (clean restart ~05:11Z, git 6f1f9401)"
+   },
+   "ticks": {
+    "status": "ok",
+    "note": "last_tick 05:29Z; pipeline evaluating multiplexed_intents across all symbols (skipped no_signal seen 05:33Z)"
+   },
+   "signals": {
+    "status": "ok",
+    "note": "actionable shorts logged across ada/eth/sol/slv/spy this window; signal->audit dual-write live"
+   },
+   "orders": {
+    "status": "watch",
+    "note": "RECURRING: order packages sizing to aggregated_target_qty=0 then rejected/orphaned (ada/mgc/spy/slv/qqq this window) \u2014 BUG-049 / BL-20260601-001 still active"
+   },
+   "trades": {
+    "status": "watch",
+    "note": "in-window closes ALL reconciler-driven (intent_reduce / adopted_orphan / exchange_flat_reconciled) \u2014 none clean TP/SL/strategy exits"
+   },
+   "monitoring": {
+    "status": "ok",
+    "note": "monitor ticking; naked-autoprotect baseline; no monitor-blind alert observed in audit tail"
+   },
+   "sizing": {
+    "status": "watch",
+    "note": "aggregated_target_qty=0 collapses many crypto/equity shorts to no fill (sizing floor / qty-rounding interaction)"
+   },
+   "api_errors": {
+    "status": "ok",
+    "note": "no API-error cluster surfaced in the pulled audit tail; web-api active"
+   },
+   "state_consistency": {
+    "status": "ok",
+    "note": "runtime live-map matches: bybit_2 real-money live, paper accounts live, ib_live/alpaca_live/oanda off"
+   },
+   "alert_delivery": {
+    "status": "ok",
+    "note": "ict-claude-bridge.service active; telegram-bot active"
+   },
+   "strategy_silence": {
+    "status": "ok",
+    "note": "36 strategies loaded; per-tick *_eval across symbol set in audit tail"
+   },
+   "db_integrity": {
+    "status": "ok",
+    "note": "ict-db-integrity.timer active; no integrity error surfaced (full PRAGMA not run via relay)"
+   },
+   "data_validity": {
+    "status": "watch",
+    "note": "MHG/ib_paper adopted_orphan #2832 booked pnl=-2530.41 \u2014 phantom-magnitude (contract-value/sizing artifact) polluting the paper book"
+   },
+   "audit_log_freshness": {
+    "status": "ok",
+    "note": "audit tail fresh to 05:33Z"
+   },
+   "trainer_service": {
+    "status": "ok",
+    "note": "ict-trainer.timer enabled+active; last cycle rc=0 06-25 01:08Z (detail in /ml-review)"
+   },
+   "health_snapshot": {
+    "status": "ok",
+    "note": "ict-health-snapshot.timer + ict-hourly-snapshot.timer active"
+   }
+  },
+  "anomalies": [
+   "MHG/ib_paper adopt->reconcile-close flap recurred 06-24 (3 adopted_orphan closes incl -2530.41 phantom); IB close-confirm fix (#4441) not eliminating it (BL-20260624-MHG-CLOSE-CONFIRM-VERIFY).",
+   "aggregated_target_qty=0 -> orphan/reject cluster across ada/mgc/spy/slv/qqq (BUG-049 / BL-20260601-001)."
+  ],
+  "backlog_drain": [
+   {
+    "item_id": "BL-20260624-MHG-CLOSE-CONFIRM-VERIFY",
+    "action": "deferred",
+    "note": "verified \u2014 MHG flap RECURRED 06-24 (-2530.41 phantom); fix not holding; stays open, escalated as flag"
+   },
+   {
+    "item_id": "BL-20260601-001",
+    "action": "deferred",
+    "note": "confirmed still active (target_qty=0 orphan cluster this window); code-path fix out of scope for read-only review"
+   }
+  ],
+  "sprint_doc_review": {
+   "sprint": "n/a",
+   "finding": "no doc contradiction surfaced this window",
+   "severity": "nit"
+  },
+  "recommended_action": "Root-cause the aggregated_target_qty=0 sizing collapse and the MHG ib_paper adopt-reconcile phantom close; confirm #4441 deploy.",
+  "operator_attention_required": true,
+  "claude_channel_ping": {
+   "delivered_via": "suppressed (system-report)",
+   "priority": "normal",
+   "message": "suppressed \u2014 consolidated ping only"
+  }
+ },
+ "performance": {
+  "request_id": "REQ-20260625-054000-systemreview",
+  "reviewed_at": "2026-06-25T05:40:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-06-24T05:23:22+00:00",
+  "window_end": "2026-06-25T05:40:00+00:00",
+  "overall_assessment": "caution",
+  "strategy_performance": [
+   {
+    "strategy": "ada_pullback_2h",
+    "execution": "live",
+    "n_decisions": 6,
+    "n_filled": 1,
+    "n_rejected": 3,
+    "win_rate": 0.0,
+    "pnl_total": 0.0,
+    "pnl_avg_per_trade": 0.0,
+    "avg_hold_seconds": 0,
+    "rejection_cluster": "aggregated_target_qty=0",
+    "accounts_touched": [
+     "bybit_1"
+    ],
+    "note": "Repeated ADA shorts at conf 0.42-0.53; most size to 0 qty -> reject/orphan; 1 reconciler_filled close. Paper."
+   },
+   {
+    "strategy": "slv_trend_1h",
+    "execution": "live",
+    "n_decisions": 2,
+    "n_filled": 0,
+    "n_rejected": 2,
+    "win_rate": 0.0,
+    "pnl_total": 0.0,
+    "pnl_avg_per_trade": 0.0,
+    "avg_hold_seconds": 0,
+    "rejection_cluster": "low_confidence/target_qty=0",
+    "accounts_touched": [
+     "alpaca_paper"
+    ],
+    "note": "SLV shorts at conf 0.10-0.20 despite adx 56-58; correctly rejected (near-zero conviction)."
+   },
+   {
+    "strategy": "eth_pullback_2h",
+    "execution": "live",
+    "n_decisions": 1,
+    "n_filled": 1,
+    "n_rejected": 0,
+    "win_rate": 0.0,
+    "pnl_total": 0.0,
+    "pnl_avg_per_trade": 0.0,
+    "avg_hold_seconds": 0,
+    "rejection_cluster": "none",
+    "accounts_touched": [
+     "bybit_1"
+    ],
+    "note": "ETH short conf 0.63 adx 30; closed at SL (loss). Valid pullback-short, stopped out."
+   },
+   {
+    "strategy": "trend_donchian_sol_4h",
+    "execution": "live",
+    "n_decisions": 1,
+    "n_filled": 1,
+    "n_rejected": 0,
+    "win_rate": 0.0,
+    "pnl_total": 0.0,
+    "pnl_avg_per_trade": 0.0,
+    "avg_hold_seconds": 0,
+    "rejection_cluster": "none",
+    "accounts_touched": [
+     "bybit_1"
+    ],
+    "note": "SOL donchian-20 breakdown short conf 0.61; closed reconciler_filled (not clean exit)."
+   }
+  ],
+  "trade_decision_grades": [
+   {
+    "order_package_id": "pkg-e21af107124f4790",
+    "trade_id": 2823,
+    "timestamp": "2026-06-24T04:01:13.763785+00:00",
+    "symbol": "ETHUSDT",
+    "direction": "short",
+    "setup": "eth_pullback_2h",
+    "entry_price": 1666.33,
+    "exit_price": null,
+    "stop_loss": 1643.84357143,
+    "take_profit_1": 1501.36333,
+    "position_size": null,
+    "exit_reason": "sl",
+    "decision_grade": "C",
+    "decision_grade_score": 2,
+    "entry_quality": "acceptable",
+    "exit_quality": "sl_appropriate",
+    "risk_management": "unknown",
+    "rationale": "eth_pullback_2h short; conf 0.63, adx 30 (trend confirmed); closed at SL (loss). Valid pullback-short setup, stopped out; tp_r=50 structural (relies on trail).",
+    "alternative_action": "paper/shadow data-collection; judge setup quality + sizing/exit hygiene"
+   },
+   {
+    "order_package_id": "pkg-ff1afe97247a40a4",
+    "trade_id": null,
+    "timestamp": "2026-06-25T04:05:46.392491+00:00",
+    "symbol": "ADAUSDT",
+    "direction": "short",
+    "setup": "ada_pullback_2h",
+    "entry_price": 0.1474,
+    "exit_price": null,
+    "stop_loss": 0.1544,
+    "take_profit_1": 0.1328074,
+    "position_size": null,
+    "exit_reason": "rejected",
+    "decision_grade": "C",
+    "decision_grade_score": 2,
+    "entry_quality": "late",
+    "exit_quality": "unknown",
+    "risk_management": "unknown",
+    "rationale": "ada_pullback_2h short; conf 0.53, adx 36; never filled (rejected, aggregated_target_qty=0). Setup ok but sizing collapsed to 0 (BUG-049 pattern).",
+    "alternative_action": "paper/shadow data-collection; judge setup quality + sizing/exit hygiene"
+   },
+   {
+    "order_package_id": "pkg-f3f8d3430cae47ea",
+    "trade_id": null,
+    "timestamp": "2026-06-25T02:14:01.294975+00:00",
+    "symbol": "ADAUSDT",
+    "direction": "short",
+    "setup": "ada_pullback_2h",
+    "entry_price": 0.1474,
+    "exit_price": null,
+    "stop_loss": 0.15481071,
+    "take_profit_1": 0.1328074,
+    "position_size": null,
+    "exit_reason": "rejected",
+    "decision_grade": "D",
+    "decision_grade_score": 1,
+    "entry_quality": "should_skip",
+    "exit_quality": "unknown",
+    "risk_management": "unknown",
+    "rationale": "ada_pullback_2h short; conf 0.46 (sub-0.5); rejected, target_qty=0. Low-conviction repeat short on same ADA level; correctly not filled.",
+    "alternative_action": "paper/shadow data-collection; judge setup quality + sizing/exit hygiene"
+   },
+   {
+    "order_package_id": "pkg-fa22c492b7d44b5d",
+    "trade_id": null,
+    "timestamp": "2026-06-25T00:58:03.535003+00:00",
+    "symbol": "ADAUSDT",
+    "direction": "short",
+    "setup": "ada_pullback_2h",
+    "entry_price": 0.1475,
+    "exit_price": null,
+    "stop_loss": 0.15496429,
+    "take_profit_1": 0.1328975,
+    "position_size": null,
+    "exit_reason": "reconciler_filled",
+    "decision_grade": "D",
+    "decision_grade_score": 1,
+    "entry_quality": "should_skip",
+    "exit_quality": "premature_exit",
+    "risk_management": "unknown",
+    "rationale": "ada_pullback_2h short; conf 0.42 (low); closed via reconciler_filled (not a clean TP/SL/strategy exit). Messy paper close.",
+    "alternative_action": "paper/shadow data-collection; judge setup quality + sizing/exit hygiene"
+   },
+   {
+    "order_package_id": "pkg-677b8781ecae4116",
+    "trade_id": null,
+    "timestamp": "2026-06-24T22:52:41.596813+00:00",
+    "symbol": "ADAUSDT",
+    "direction": "short",
+    "setup": "ada_pullback_2h",
+    "entry_price": 0.147,
+    "exit_price": null,
+    "stop_loss": 0.15444643,
+    "take_profit_1": 0.132447,
+    "position_size": null,
+    "exit_reason": "orphaned",
+    "decision_grade": "D",
+    "decision_grade_score": 1,
+    "entry_quality": "should_skip",
+    "exit_quality": "unknown",
+    "risk_management": "unknown",
+    "rationale": "ada_pullback_2h short; conf 0.42; ORPHANED (target_qty=0 -> no fill, watchdog orphaned). BUG-049: pkgs sizing to 0 then orphaning.",
+    "alternative_action": "paper/shadow data-collection; judge setup quality + sizing/exit hygiene"
+   },
+   {
+    "order_package_id": "pkg-db826d36d9bf499f",
+    "trade_id": null,
+    "timestamp": "2026-06-24T18:01:04.541974+00:00",
+    "symbol": "SLV",
+    "direction": "short",
+    "setup": "slv_trend_1h",
+    "entry_price": 50.99,
+    "exit_price": null,
+    "stop_loss": 52.97303571,
+    "take_profit_1": 45.94199,
+    "position_size": null,
+    "exit_reason": "rejected",
+    "decision_grade": "D",
+    "decision_grade_score": 1,
+    "entry_quality": "should_skip",
+    "exit_quality": "unknown",
+    "risk_management": "unknown",
+    "rationale": "slv_trend_1h short; conf 0.20 (very low) despite adx 58; rejected/target_qty=0. Correct to skip; signal shouldn't have fired this weak.",
+    "alternative_action": "paper/shadow data-collection; judge setup quality + sizing/exit hygiene"
+   },
+   {
+    "order_package_id": "pkg-1b7110f081324ca5",
+    "trade_id": null,
+    "timestamp": "2026-06-24T17:21:34.938095+00:00",
+    "symbol": "SLV",
+    "direction": "short",
+    "setup": "slv_trend_1h",
+    "entry_price": 52.52,
+    "exit_price": null,
+    "stop_loss": 54.77267857,
+    "take_profit_1": 47.32052,
+    "position_size": null,
+    "exit_reason": "rejected",
+    "decision_grade": "D",
+    "decision_grade_score": 1,
+    "entry_quality": "should_skip",
+    "exit_quality": "unknown",
+    "risk_management": "unknown",
+    "rationale": "slv_trend_1h short; conf 0.10 (extremely low); rejected. Correctly filtered out \u2014 near-zero conviction.",
+    "alternative_action": "paper/shadow data-collection; judge setup quality + sizing/exit hygiene"
+   },
+   {
+    "order_package_id": "pkg-005bc3aec448438a",
+    "trade_id": null,
+    "timestamp": "2026-06-24T17:13:13.177310+00:00",
+    "symbol": "SOLUSDT",
+    "direction": "short",
+    "setup": "trend_donchian_sol_4h",
+    "entry_price": 66.33,
+    "exit_price": null,
+    "stop_loss": 70.16214286,
+    "take_profit_1": 59.76333,
+    "position_size": null,
+    "exit_reason": "reconciler_filled",
+    "decision_grade": "C",
+    "decision_grade_score": 2,
+    "entry_quality": "acceptable",
+    "exit_quality": "premature_exit",
+    "risk_management": "unknown",
+    "rationale": "trend_donchian_sol_4h short; conf 0.61, donchian-20 breakdown; closed via reconciler_filled (not clean strategy exit). Reasonable setup, messy close.",
+    "alternative_action": "paper/shadow data-collection; judge setup quality + sizing/exit hygiene"
+   },
+   {
+    "order_package_id": "pkg-646dd545b63a44bf",
+    "trade_id": null,
+    "timestamp": "2026-06-24T17:11:10.511896+00:00",
+    "symbol": "SPY",
+    "direction": "short",
+    "setup": "spy_pullback_1h",
+    "entry_price": 735.3,
+    "exit_price": null,
+    "stop_loss": 744.30714286,
+    "take_profit_1": 662.5053,
+    "position_size": null,
+    "exit_reason": "rejected",
+    "decision_grade": "C",
+    "decision_grade_score": 2,
+    "entry_quality": "late",
+    "exit_quality": "unknown",
+    "risk_management": "unknown",
+    "rationale": "spy_pullback_1h short; conf 0.51, regime transitional (adx 22.5); never filled (target_qty=0). Marginal regime; rejection acceptable.",
+    "alternative_action": "paper/shadow data-collection; judge setup quality + sizing/exit hygiene"
+   }
+  ],
+  "insights_review": [
+   {
+    "endpoint": "summary",
+    "finding": "M13 insights cache not pulled this session (relay budget); insights_history table reachable but deferred",
+    "severity": "nit",
+    "cache_age_seconds": null
+   }
+  ],
+  "proposed_tweaks": [
+   {
+    "scope": "src/runtime sizing (aggregated_target_qty floor)",
+    "current_value": "qty rounds to 0 below 1 unit",
+    "proposed_value": "refuse-with-cause instead of emit-then-orphan",
+    "evidence": "5/9 graded decisions this window rejected/orphaned at target_qty=0 (ada/mgc/spy/slv/qqq)",
+    "tier": 2,
+    "risk_note": "observability/plumbing fix; no strategy-param change"
+   }
+  ],
+  "backlog_drain": [
+   {
+    "item_id": "PB-20260618-015",
+    "action": "deferred",
+    "note": "eth_pullback_2h bybit_2 real-money perf \u2014 0 real trades in window; awaiting real fills"
+   },
+   {
+    "item_id": "PERF-20260601-010",
+    "action": "deferred",
+    "note": "degenerate confidence=1.0 (vwap/htf) not observed this window; recurring watch"
+   }
+  ],
+  "paper_book_tracker": {
+   "snapshot_appended": true,
+   "book": {
+    "n": 10,
+    "net_usd": 19.19,
+    "win_rate": 0.5
+   },
+   "recent_vs_prior": {
+    "recent_net_usd": 19.19,
+    "prior_net_usd": null,
+    "recent_window_days": 1
+   },
+   "per_family_net_usd": {
+    "crypto": 2596.67,
+    "commodity": -2577.48
+   },
+   "decay_flag": false,
+   "delta_since_last": {
+    "trades": 10,
+    "net_usd": 19.19
+   },
+   "assessment": "noise \u2014 +$19 net is the residual of crypto reconciler closes (+$2597) minus MHG phantom (-$2577); artifact-dominated, not edge"
+  },
+  "anomalies": [
+   "MHG adopted_orphan -2530.41 phantom dominates the commodity paper line; reconciler intent_reduce closes drive the crypto line \u2014 neither is strategy-edge."
+  ],
+  "recommended_action": "Treat the +$19 paper net as artifact noise; fix target_qty=0 emit-then-orphan; real book idle (0 closes).",
+  "operator_attention_required": false,
+  "claude_channel_ping": {
+   "delivered_via": "suppressed (system-report)",
+   "priority": "normal",
+   "message": "suppressed"
+  }
+ },
+ "ml": {
+  "request_id": "REQ-20260625-054000-systemreview",
+  "reviewed_at": "2026-06-25T05:40:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-06-24T05:23:22+00:00",
+  "window_end": "2026-06-25T05:40:00+00:00",
+  "overall_assessment": "caution",
+  "trainer_findings": {
+   "trainer_service": {
+    "status": "ok",
+    "note": "ict-trainer.timer active; last cycle_end rc=0 2026-06-25T01:08Z"
+   },
+   "trainer_datasets": {
+    "status": "watch",
+    "note": "build_end rc=0 06-25 00:59Z, BUT mes-execution-quality / mes-setup-quality / mes-trade-outcome-winrate skip empty_dataset every cycle"
+   },
+   "trainer_registry": {
+    "status": "ok",
+    "note": "41 models: 24 shadow / 16 candidate / 1 advisory"
+   },
+   "trainer_models": {
+    "status": "concern",
+    "note": "the SOLE advisory btc-regime-5m-lgbm-yz-v1 is degenerate live (stage-guard DEMOTE: brier_lift -0.277, auc 0.40)"
+   }
+  },
+  "model_status": [
+   {
+    "model_id": "btc-regime-5m-lgbm-yz-v1",
+    "stage": "advisory",
+    "registry_status": "promoted",
+    "last_training": {
+     "run_id": null,
+     "at": null,
+     "code_revision": null,
+     "headline_metric": null,
+     "n_eval": 0,
+     "trend_vs_prior_run": "first_run"
+    },
+    "live_shadow": {
+     "influence": "advisory",
+     "predictions": 0,
+     "score_summary": "degenerate live attribution",
+     "drift": "stage-guard: auc 0.40, brier 0.525 vs baseline 0.248, brier_lift -0.277",
+     "realized": "feeds c_reg conviction lens"
+    },
+    "note": "DEMOTE advisory->shadow (Tier-3): worse than baseline live (negative brier_lift)."
+   },
+   {
+    "model_id": "btc-regime-1h-lgbm-yz-v1",
+    "stage": "shadow",
+    "registry_status": "promoted",
+    "last_training": {
+     "run_id": null,
+     "at": null,
+     "code_revision": null,
+     "headline_metric": "macro_f1~0.667",
+     "n_eval": 0,
+     "trend_vs_prior_run": "flat"
+    },
+    "live_shadow": {
+     "influence": "none(shadow)",
+     "predictions": 0,
+     "score_summary": "previously-degenerate advisory, demoted 06-23",
+     "drift": "was KS 0.86/PSI 6.89",
+     "realized": "n/a (shadow)"
+    },
+    "note": "demotion holds (MB-20260623-001); refinement retrain still pending."
+   },
+   {
+    "model_id": "conviction-meta-v1",
+    "stage": "shadow",
+    "registry_status": "promoted",
+    "last_training": {
+     "run_id": null,
+     "at": null,
+     "code_revision": null,
+     "headline_metric": null,
+     "n_eval": 0,
+     "trend_vs_prior_run": "flat"
+    },
+    "live_shadow": {
+     "influence": "none(shadow)",
+     "predictions": 0,
+     "score_summary": "score ~0.77 on order packages this window",
+     "drift": "n/a",
+     "realized": "conviction soak accruing"
+    },
+    "note": "conviction-meta soak accruing on order packages."
+   }
+  ],
+  "promotion_recommendations": [
+   {
+    "model_id": "btc-regime-5m-lgbm-yz-v1",
+    "current_stage": "advisory",
+    "proposed_stage": "shadow",
+    "direction": "demote",
+    "tier": 3,
+    "evidence": "stage-guard demote: auc 0.40 (<random), brier 0.525 vs baseline 0.248, brier_lift -0.277. Only advisory model; worse than baseline live.",
+    "risk_note": "low-risk revert: pre-2026-06-13 ran formulaic conviction with zero advisory model. Then refine the yz score-time feature pipeline."
+   }
+  ],
+  "experiments_proposed": [
+   {
+    "kind": "new_feature",
+    "name": "yz-score-time-feature-diff",
+    "rationale": "BOTH btc-regime yz advisories (1h then 5m) went degenerate live while training macro_f1 stays stable -> the yz feature family likely shifts live!=train at score time.",
+    "input_changes": "capture+diff the yz live feature vector vs the train vector at score time",
+    "expected_metric_signal": "a feature whose live distribution diverges from train -> the root cause of the score collapse",
+    "tier": 3,
+    "next_step": "instrument score-time feature capture for yz heads on the live VM"
+   }
+  ],
+  "backlog_drain": [
+   {
+    "item_id": "MB-20260623-001",
+    "action": "deferred",
+    "note": "verified 1h-yz demotion holds (registry=shadow); refinement retrain pending (model-training action)"
+   },
+   {
+    "item_id": "MB-20260625-001",
+    "action": "fixed",
+    "note": "OPENED this review \u2014 new degenerate advisory 5m-yz flagged for demote (Tier-3)"
+   },
+   {
+    "item_id": "BL-20260526-002",
+    "action": "deferred",
+    "note": "MES manifests still empty_dataset every cycle \u2014 data-blocked (needs intraday MES history)"
+   }
+  ],
+  "anomalies": [
+   "The sole advisory model is degenerate (negative brier_lift) \u2014 same pattern as the 06-23 1h-yz case; points at a yz score-time feature-pipeline shift."
+  ],
+  "recommended_action": "Demote btc-regime-5m-lgbm-yz-v1 advisory->shadow (Tier-3, operator); investigate the shared yz score-time feature shift.",
+  "operator_attention_required": true,
+  "claude_channel_ping": {
+   "delivered_via": "suppressed (system-report)",
+   "priority": "normal",
+   "message": "suppressed"
+  }
+ },
+ "consolidated": {
+  "roll_up_grade": "caution",
+  "headline": "Window 06-24 05:23Z->06-25 05:40Z (~24h). System healthy: heartbeat running, all services/timers up, VM relaxed (cpu0/mem12/disk26), 36 strategies evaluating, clean restart ~05:11Z (git 6f1f9401). REAL MONEY IDLE: 0 closed real trades in 24h. Paper +$19 net but pure artifact (crypto reconciler closes +$2597 minus MHG adopted_orphan phantom -$2577). LOUD ML FLAG: the sole advisory model btc-regime-5m-lgbm-yz-v1 is degenerate live (stage-guard DEMOTE; brier_lift -0.277, auc 0.40). Recurring: order packages size to target_qty=0 -> orphan/reject; MHG ib_paper adopt-reconcile flap (-2530 phantom) recurred 06-24.",
+  "operator_priorities": [
+   {
+    "rank": 1,
+    "title": "DEMOTE degenerate advisory btc-regime-5m-lgbm-yz-v1 (advisory->shadow)",
+    "source_review": "ml",
+    "tier": 3,
+    "detail": "Only order-influencing model; worse than baseline live (brier_lift -0.277, auc 0.40). Soft-off demote reverts to known-good zero-advisory conviction. (MB-20260625-001)",
+    "operator_action_required": true
+   },
+   {
+    "rank": 2,
+    "title": "Fix aggregated_target_qty=0 emit-then-orphan (BUG-049)",
+    "source_review": "cross",
+    "tier": 2,
+    "detail": "ada/mgc/spy/slv/qqq decisions size to 0 qty then orphan/reject this window. Refuse-with-cause instead of emit-then-orphan. (BL-20260601-001)",
+    "operator_action_required": false
+   },
+   {
+    "rank": 3,
+    "title": "MHG ib_paper adopt-reconcile phantom close recurred (-2530.41)",
+    "source_review": "health",
+    "tier": 2,
+    "detail": "Close-confirm fix #4441 not eliminating the MHG adopt->exchange_flat_reconciled flap; phantom-magnitude PnL pollutes paper book. Confirm deploy + harden. (BL-20260624-MHG-CLOSE-CONFIRM-VERIFY)",
+    "operator_action_required": false
+   },
+   {
+    "rank": 4,
+    "title": "Confirm real-money idle is intended (0 closes in 24h)",
+    "source_review": "performance",
+    "tier": 1,
+    "detail": "bybit_2 real-money had no closed trades in the window; verify this is market-driven quiet, not a silent execution gap.",
+    "operator_action_required": false
+   },
+   {
+    "rank": 5,
+    "title": "MES quality manifests skip empty_dataset every cycle",
+    "source_review": "ml",
+    "tier": 1,
+    "detail": "mes-execution-quality / mes-setup-quality / mes-trade-outcome-winrate never train \u2014 data-blocked (needs intraday MES history). (BL-20260526-002)",
+    "operator_action_required": false
+   }
+  ],
+  "cross_review_notes": [
+   "aggregated_target_qty=0 spans HEALTH (orphan/order plumbing) AND PERFORMANCE (5/9 graded decisions D, rejected at 0 qty) \u2014 one root cause: sizing collapses below 1 unit then emits-then-orphans instead of refusing.",
+   "yz feature family: BOTH btc-regime yz advisories (1h on 06-23, now 5m) went degenerate live while training macro_f1 stays stable -> a score-time feature-pipeline shift (live!=train) in the yz family, not isolated bad models.",
+   "Every in-window close was reconciler-driven (intent_reduce / adopted_orphan / exchange_flat_reconciled) \u2014 zero clean TP/SL/strategy exits; the paper book's PnL is exit-plumbing artifact, not edge."
+  ],
+  "pnl_by_class": {
+   "real": {
+    "window_pnl": 0.0,
+    "prior_window_pnl": null,
+    "trend": "flat",
+    "trades": 0,
+    "wins": 0,
+    "win_rate": 0.0,
+    "expectancy": 0.0,
+    "profit_factor": null,
+    "max_drawdown": null,
+    "per_strategy": [],
+    "per_asset_class": {},
+    "equity_curve": []
+   },
+   "paper": {
+    "window_pnl": 19.19,
+    "prior_window_pnl": null,
+    "trend": "flat",
+    "trades": 10,
+    "wins": 5,
+    "win_rate": 0.5,
+    "expectancy": 1.92,
+    "profit_factor": null,
+    "max_drawdown": null,
+    "per_strategy": [
+     {
+      "name": "intent_reduce",
+      "trades": 7,
+      "win_rate": 0.714,
+      "pnl": 2596.67
+     },
+     {
+      "name": "adopted_orphan",
+      "trades": 3,
+      "win_rate": 0.0,
+      "pnl": -2577.48
+     }
+    ],
+    "per_asset_class": {
+     "crypto": 2596.67,
+     "commodity": -2577.48
+    },
+    "equity_curve": []
+   },
+   "prop": {
+    "window_pnl": null,
+    "prior_window_pnl": null,
+    "trend": "flat",
+    "fills_reported": null,
+    "tickets_emitted": null,
+    "unacted_tickets": null,
+    "rule_distance": {
+     "daily_loss_remaining": null,
+     "static_dd_remaining": null
+    },
+    "per_account": [
+     {
+      "account_id": "breakout_1",
+      "balance": null,
+      "equity": null,
+      "realized_window": null
+     }
+    ],
+    "_note": "unavailable: /api/bot/prop/* is not on the /api/diag/* relay surface and direct egress to the VM is firewalled this session."
+   }
+  },
+  "market_context": [
+   {
+    "symbol": "BTCUSDT",
+    "open": null,
+    "close": null,
+    "high": null,
+    "low": null,
+    "pct_change": null,
+    "range_pct": null,
+    "note": "No actionable BTC signal in-window in pulled data; primary book quiet (candles not relay-reachable)."
+   },
+   {
+    "symbol": "ETHUSDT",
+    "open": null,
+    "close": null,
+    "high": null,
+    "low": null,
+    "pct_change": null,
+    "range_pct": null,
+    "note": "~1666 (bot-logged); pullback-short fired, stopped at SL \u2014 choppy/weak-down 2h."
+   },
+   {
+    "symbol": "SOLUSDT",
+    "open": null,
+    "close": null,
+    "high": null,
+    "low": null,
+    "pct_change": null,
+    "range_pct": null,
+    "note": "~66; donchian-20 breakdown short \u2014 trending down on 4h."
+   },
+   {
+    "symbol": "ADAUSDT",
+    "open": null,
+    "close": null,
+    "high": null,
+    "low": null,
+    "pct_change": null,
+    "range_pct": null,
+    "note": "~0.147 pressing lows; repeated 2h shorts (adx 36-40 strong-trend), most sized to 0 qty."
+   },
+   {
+    "symbol": "SLV",
+    "open": null,
+    "close": null,
+    "high": null,
+    "low": null,
+    "pct_change": null,
+    "range_pct": null,
+    "note": "~51; trend-short signals at very low conf (0.10-0.20) despite adx 56-58 \u2014 filtered out."
+   },
+   {
+    "symbol": "SPY",
+    "open": null,
+    "close": null,
+    "high": null,
+    "low": null,
+    "pct_change": null,
+    "range_pct": null,
+    "note": "~735; pullback-short in transitional regime (adx 22.5) \u2014 not filled."
+   }
+  ],
+  "trade_dossiers": [
+   {
+    "trade_id": 2851,
+    "order_package_id": "pkg-fa22c492b7d44b5d",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "ADAUSDT",
+    "direction": "long",
+    "strategy": "intent_reduce",
+    "opened_at": "2026-06-25T00:58:04.466894+00:00",
+    "closed_at": "2026-06-25T00:58:04.379000+00:00",
+    "hold_seconds": null,
+    "entry_price": 0.1474,
+    "exit_price": 0.1474,
+    "stop_loss": 0.15496429,
+    "take_profit": 0.1328975,
+    "qty": 334,
+    "pnl": -0.48705236,
+    "pnl_percent": null,
+    "close_reason": "reconciler_filled",
+    "claude_grade": {
+     "grade": null,
+     "entry_quality": "unknown",
+     "exit_quality": "unknown",
+     "risk_management": "unknown",
+     "rationale": "reconciler/orphan artifact close \u2014 not a clean strategy decision; ungraded"
+    },
+    "model_scores": {},
+    "signal_logic": null,
+    "meta": {
+     "setup_type": "intent_reduce",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": false
+   },
+   {
+    "trade_id": 2847,
+    "order_package_id": "pkg-005bc3aec448438a",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "SOLUSDT",
+    "direction": "long",
+    "strategy": "intent_reduce",
+    "opened_at": "2026-06-24T17:13:14.121214+00:00",
+    "closed_at": "2026-06-24T17:13:14.042000+00:00",
+    "hold_seconds": null,
+    "entry_price": 66.3,
+    "exit_price": 66.3,
+    "stop_loss": 70.16214286,
+    "take_profit": 59.76333,
+    "qty": 170.8,
+    "pnl": 465.59014416,
+    "pnl_percent": null,
+    "close_reason": "reconciler_filled",
+    "claude_grade": {
+     "grade": null,
+     "entry_quality": "unknown",
+     "exit_quality": "unknown",
+     "risk_management": "unknown",
+     "rationale": "reconciler/orphan artifact close \u2014 not a clean strategy decision; ungraded"
+    },
+    "model_scores": {},
+    "signal_logic": null,
+    "meta": {
+     "setup_type": "intent_reduce",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": true
+   },
+   {
+    "trade_id": 2845,
+    "order_package_id": "pkg-70182e3fb32740cd",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "ADAUSDT",
+    "direction": "long",
+    "strategy": "intent_reduce",
+    "opened_at": "2026-06-24T16:55:17.827184+00:00",
+    "closed_at": "2026-06-24T16:55:17.738000+00:00",
+    "hold_seconds": null,
+    "entry_price": 0.1412,
+    "exit_price": 0.1412,
+    "stop_loss": 0.15035,
+    "take_profit": 0.1271311,
+    "qty": 3867,
+    "pnl": 17.9567201,
+    "pnl_percent": null,
+    "close_reason": "reconciler_filled",
+    "claude_grade": {
+     "grade": null,
+     "entry_quality": "unknown",
+     "exit_quality": "unknown",
+     "risk_management": "unknown",
+     "rationale": "reconciler/orphan artifact close \u2014 not a clean strategy decision; ungraded"
+    },
+    "model_scores": {},
+    "signal_logic": null,
+    "meta": {
+     "setup_type": "intent_reduce",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": false
+   },
+   {
+    "trade_id": 2844,
+    "order_package_id": "pkg-16b9eb5d3cf4460e",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "ETHUSDT",
+    "direction": "long",
+    "strategy": "intent_reduce",
+    "opened_at": "2026-06-24T16:52:29.103045+00:00",
+    "closed_at": "2026-06-24T16:52:29.024000+00:00",
+    "hold_seconds": null,
+    "entry_price": 1597.54,
+    "exit_price": 1597.54,
+    "stop_loss": 1678.8425,
+    "take_profit": 1438.92403,
+    "qty": 25.3,
+    "pnl": 1812.40474634,
+    "pnl_percent": null,
+    "close_reason": "reconciler_filled",
+    "claude_grade": {
+     "grade": null,
+     "entry_quality": "unknown",
+     "exit_quality": "unknown",
+     "risk_management": "unknown",
+     "rationale": "reconciler/orphan artifact close \u2014 not a clean strategy decision; ungraded"
+    },
+    "model_scores": {},
+    "signal_logic": null,
+    "meta": {
+     "setup_type": "intent_reduce",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": true
+   },
+   {
+    "trade_id": 2841,
+    "order_package_id": "pkg-086110a45185408b",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "ADAUSDT",
+    "direction": "long",
+    "strategy": "intent_reduce",
+    "opened_at": "2026-06-24T15:47:37.911995+00:00",
+    "closed_at": "2026-06-24T15:47:37.823000+00:00",
+    "hold_seconds": null,
+    "entry_price": 0.1435,
+    "exit_price": 0.1435,
+    "stop_loss": 0.15261786,
+    "take_profit": 0.1293836,
+    "qty": 1876,
+    "pnl": 4.3912939,
+    "pnl_percent": null,
+    "close_reason": "reconciler_filled",
+    "claude_grade": {
+     "grade": null,
+     "entry_quality": "unknown",
+     "exit_quality": "unknown",
+     "risk_management": "unknown",
+     "rationale": "reconciler/orphan artifact close \u2014 not a clean strategy decision; ungraded"
+    },
+    "model_scores": {},
+    "signal_logic": null,
+    "meta": {
+     "setup_type": "intent_reduce",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": false
+   },
+   {
+    "trade_id": 2840,
+    "order_package_id": "pkg-1279c67eff784c8a",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "XRPUSDT",
+    "direction": "long",
+    "strategy": "intent_reduce",
+    "opened_at": "2026-06-24T15:08:23.268274+00:00",
+    "closed_at": "2026-06-24T15:08:23.180000+00:00",
+    "hold_seconds": null,
+    "entry_price": 1.0714,
+    "exit_price": 1.0714,
+    "stop_loss": 1.11384286,
+    "take_profit": 0.9656017,
+    "qty": 4545.7,
+    "pnl": 317.2481121,
+    "pnl_percent": null,
+    "close_reason": "reconciler_filled",
+    "claude_grade": {
+     "grade": null,
+     "entry_quality": "unknown",
+     "exit_quality": "unknown",
+     "risk_management": "unknown",
+     "rationale": "reconciler/orphan artifact close \u2014 not a clean strategy decision; ungraded"
+    },
+    "model_scores": {},
+    "signal_logic": null,
+    "meta": {
+     "setup_type": "intent_reduce",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": true
+   },
+   {
+    "trade_id": 2837,
+    "order_package_id": null,
+    "account": "ib_paper",
+    "account_class": "paper",
+    "symbol": "MHG",
+    "direction": "short",
+    "strategy": "adopted_orphan",
+    "opened_at": "2026-06-24T13:45:09.118470+00:00",
+    "closed_at": "2026-06-24T13:49:56.095191+00:00",
+    "hold_seconds": null,
+    "entry_price": 5.983112,
+    "exit_price": 5.987,
+    "stop_loss": null,
+    "take_profit": null,
+    "qty": 3,
+    "pnl": -29.16,
+    "pnl_percent": null,
+    "close_reason": "exit_coverage_no_strategy",
+    "claude_grade": {
+     "grade": null,
+     "entry_quality": "unknown",
+     "exit_quality": "unknown",
+     "risk_management": "unknown",
+     "rationale": "reconciler/orphan artifact close \u2014 not a clean strategy decision; ungraded"
+    },
+    "model_scores": {},
+    "signal_logic": null,
+    "meta": {
+     "setup_type": "adopted_orphan",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": false
+   },
+   {
+    "trade_id": 2835,
+    "order_package_id": null,
+    "account": "ib_paper",
+    "account_class": "paper",
+    "symbol": "MHG",
+    "direction": "short",
+    "strategy": "adopted_orphan",
+    "opened_at": "2026-06-24T13:32:56.279325+00:00",
+    "closed_at": "2026-06-24T13:37:53.174879+00:00",
+    "hold_seconds": null,
+    "entry_price": 5.983112,
+    "exit_price": 5.9855,
+    "stop_loss": null,
+    "take_profit": null,
+    "qty": 3,
+    "pnl": -17.91,
+    "pnl_percent": null,
+    "close_reason": "exit_coverage_no_strategy",
+    "claude_grade": {
+     "grade": null,
+     "entry_quality": "unknown",
+     "exit_quality": "unknown",
+     "risk_management": "unknown",
+     "rationale": "reconciler/orphan artifact close \u2014 not a clean strategy decision; ungraded"
+    },
+    "model_scores": {},
+    "signal_logic": null,
+    "meta": {
+     "setup_type": "adopted_orphan",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": false
+   },
+   {
+    "trade_id": 2832,
+    "order_package_id": "pkg-f58a249d119049ab",
+    "account": "ib_paper",
+    "account_class": "paper",
+    "symbol": "MHG",
+    "direction": "long",
+    "strategy": "adopted_orphan",
+    "opened_at": "2026-06-24T11:41:23.459055+00:00",
+    "closed_at": "2026-06-24T11:53:14.478789+00:00",
+    "hold_seconds": null,
+    "entry_price": 6.395887999999999,
+    "exit_price": 6.0585,
+    "stop_loss": 6.04528571,
+    "take_profit": 7.029204,
+    "qty": 3,
+    "pnl": -2530.41,
+    "pnl_percent": null,
+    "close_reason": "exchange_flat_reconciled",
+    "claude_grade": {
+     "grade": null,
+     "entry_quality": "unknown",
+     "exit_quality": "unknown",
+     "risk_management": "unknown",
+     "rationale": "reconciler/orphan artifact close \u2014 not a clean strategy decision; ungraded"
+    },
+    "model_scores": {},
+    "signal_logic": null,
+    "meta": {
+     "setup_type": "adopted_orphan",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": true
+   },
+   {
+    "trade_id": 2827,
+    "order_package_id": "pkg-b645291a3b324954",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "SOLUSDT",
+    "direction": "long",
+    "strategy": "intent_reduce",
+    "opened_at": "2026-06-24T06:01:21.144293+00:00",
+    "closed_at": "2026-06-24T06:01:21.066000+00:00",
+    "hold_seconds": null,
+    "entry_price": 69.8,
+    "exit_price": 69.8,
+    "stop_loss": 72.13071429,
+    "take_profit": 62.95287,
+    "qty": 26.7,
+    "pnl": -20.43856659,
+    "pnl_percent": null,
+    "close_reason": "reconciler_filled",
+    "claude_grade": {
+     "grade": null,
+     "entry_quality": "unknown",
+     "exit_quality": "unknown",
+     "risk_management": "unknown",
+     "rationale": "reconciler/orphan artifact close \u2014 not a clean strategy decision; ungraded"
+    },
+    "model_scores": {},
+    "signal_logic": null,
+    "meta": {
+     "setup_type": "intent_reduce",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": false
+   },
+   {
+    "trade_id": 2850,
+    "order_package_id": "pkg-677b8781ecae4116",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "ADAUSDT",
+    "direction": "short",
+    "strategy": "ada_pullback_2h",
+    "opened_at": "2026-06-24T22:52:42.541777+00:00",
+    "closed_at": null,
+    "hold_seconds": null,
+    "entry_price": 0.147,
+    "exit_price": null,
+    "stop_loss": 0.15444643,
+    "take_profit": 0.132447,
+    "qty": null,
+    "pnl": null,
+    "pnl_percent": null,
+    "close_reason": null,
+    "claude_grade": {
+     "grade": null,
+     "entry_quality": "unknown",
+     "exit_quality": "unknown",
+     "risk_management": "unknown",
+     "rationale": "open paper position"
+    },
+    "model_scores": {},
+    "signal_logic": null,
+    "meta": {
+     "setup_type": "ada_pullback_2h",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": false
+   },
+   {
+    "trade_id": 2830,
+    "order_package_id": "pkg-5543bbbd495b46f8",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "ADAUSDT",
+    "direction": "short",
+    "strategy": "trend_donchian_ada_4h",
+    "opened_at": "2026-06-24T10:16:32.988843+00:00",
+    "closed_at": null,
+    "hold_seconds": null,
+    "entry_price": 0.146,
+    "exit_price": null,
+    "stop_loss": 0.15480357,
+    "take_profit": 0.131546,
+    "qty": null,
+    "pnl": null,
+    "pnl_percent": null,
+    "close_reason": null,
+    "claude_grade": {
+     "grade": null,
+     "entry_quality": "unknown",
+     "exit_quality": "unknown",
+     "risk_management": "unknown",
+     "rationale": "open paper position"
+    },
+    "model_scores": {},
+    "signal_logic": null,
+    "meta": {
+     "setup_type": "trend_donchian_ada_4h",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": false
+   }
+  ],
+  "dossier_coverage": {
+   "window": "since-last",
+   "full_dossiers": 12,
+   "summarized_trades": 0,
+   "rule": "full-per-trade (since-last/daily)"
+  },
+  "backlog_summary": {
+   "health": {
+    "total": 135,
+    "open": 73,
+    "resolved": 62,
+    "drained": 0
+   },
+   "performance": {
+    "total": 43,
+    "open": 28,
+    "resolved": 15,
+    "drained": 0
+   },
+   "ml": {
+    "total": 44,
+    "open": 16,
+    "resolved": 28,
+    "drained": 0
+   }
+  },
+  "tier3_proposals_pending": [
+   {
+    "source_review": "ml",
+    "summary": "DEMOTE btc-regime-5m-lgbm-yz-v1 advisory->shadow (degenerate live: brier_lift -0.277, auc 0.40). (MB-20260625-001)",
+    "tier": 3
+   },
+   {
+    "source_review": "ml",
+    "summary": "Refine-or-retire the demoted btc-regime-1h-lgbm-yz-v1 (retrain + score-time feature diff before any re-promotion). (MB-20260623-001)",
+    "tier": 3
+   }
+  ],
+  "review_coverage": {
+   "strategy_promotion": {
+    "ready_to_promote": [],
+    "demote_or_kill": [
+     {
+      "name": "btc-regime-5m-lgbm-yz-v1",
+      "gate": "DEMOTE_SHADOW",
+      "evidence": "stage-guard demote: brier_lift -0.277, auc 0.40 \u2014 only advisory model, worse than baseline live"
+     }
+    ],
+    "summary": "No model ready to promote (stage-guard promote=[]). One demote: the sole advisory yz head. Trading strategies: no new M7 review packets pulled this window (relay budget) and no strategy met a promote/kill gate from the live data \u2014 effectively all HOLD."
+   },
+   "ml_training_health": {
+    "cycles_since_last_review": 1,
+    "dataset_builds_ok": true,
+    "failing_or_stuck": [
+     "mes-execution-quality (empty_dataset)",
+     "mes-setup-quality (empty_dataset)",
+     "mes-trade-outcome-winrate (empty_dataset)"
+    ],
+    "summary": "1 training cycle since last review (cycle_end rc=0 06-25 01:08Z); datasets build_end rc=0 06-25 00:59Z. 3 MES quality manifests skip empty_dataset every cycle (data-blocked)."
+   },
+   "soak_status": [
+    {
+     "soak": "shadow models (24 at shadow)",
+     "state": "accruing",
+     "detail": "conviction-meta-v1 + execution-quality scored on this window's order packages; predictions logging"
+    },
+    {
+     "soak": "advisory yz head (btc-regime-5m-lgbm-yz-v1)",
+     "state": "gate_met",
+     "detail": "stage-guard DEMOTE gate met (negative brier_lift) and UNACTIONED -> flagged as operator priority #1"
+    },
+    {
+     "soak": "cross-asset shadow (eth-regime-1h-lgbm-xasset-v1)",
+     "state": "accruing",
+     "detail": "at shadow; trained this cycle (manifest_ok 06-25 01:07)"
+    },
+    {
+     "soak": "exit-ladder soak",
+     "state": "accruing",
+     "detail": "unavailable: exit_ladder_soak log not pulled this session (relay budget) \u2014 last reports showed it accruing"
+    }
+   ],
+   "flags_raised": [
+    "DEGENERATE ADVISORY: btc-regime-5m-lgbm-yz-v1 (only order-influencing model) is worse than baseline live (brier_lift -0.277, auc 0.40); demote gate met + unactioned.",
+    "MHG/ib_paper adopt-reconcile flap recurred 06-24 (-2530.41 phantom); close-confirm fix #4441 not holding.",
+    "aggregated_target_qty=0 -> orphan/reject cluster (ada/mgc/spy/slv/qqq) still active (BUG-049/BL-20260601-001).",
+    "REAL-MONEY IDLE: 0 closed real trades in 24h \u2014 confirm market-driven, not a silent execution gap.",
+    "3 MES quality manifests skip empty_dataset every trainer cycle (data-blocked)."
+   ],
+   "backlog_drive": {
+    "health": {
+     "drained": [],
+     "deferred": [
+      {
+       "id": "BL-20260624-MHG-CLOSE-CONFIRM-VERIFY",
+       "reason": "WORKED: verification run -> MHG flap recurred 06-24 (-2530.41); fix not holding; stays open + escalated as flag (problem persists, not resolved)"
+      },
+      {
+       "id": "BL-20260601-001",
+       "reason": "confirmed still active (target_qty=0 orphan cluster); code-path fix out of scope for a read-only review session"
+      }
+     ]
+    },
+    "performance": {
+     "drained": [],
+     "deferred": [
+      {
+       "id": "PB-20260618-015",
+       "reason": "eth_pullback_2h bybit_2 real-money perf \u2014 0 real fills in window; soaking, awaiting real trades"
+      },
+      {
+       "id": "PERF-20260601-010",
+       "reason": "degenerate confidence=1.0 not observed this window; recurring-watch item"
+      }
+     ]
+    },
+    "ml": {
+     "drained": [
+      "MB-20260625-001 (opened: new degenerate-advisory flag, actionable Tier-3)"
+     ],
+     "deferred": [
+      {
+       "id": "MB-20260623-001",
+       "reason": "WORKED: verified 1h-yz demotion holds (registry=shadow); refinement retrain is a model-training action, not a review action \u2014 stays open"
+      },
+      {
+       "id": "BL-20260526-002",
+       "reason": "MES manifests empty_dataset \u2014 data-blocked (needs intraday MES history)"
+      }
+     ]
+    },
+    "summary": "WORKED 3 items with fresh live evidence (verified 1h-yz demotion holds; verified MHG flap recurred; opened MB-20260625-001 for the new degenerate 5m-yz advisory). No items marked resolved this run: the remaining open items are genuinely Tier-3-operator-gated (yz demotes, regime-router phases, conviction P4/P5), multi-week soaks (real-money eth_pullback, exit-ladder), data-blocked (MES datasets), or code-path changes out of scope for a read-only review. Honesty rule: not false-resolving on a live system."
+   }
+  }
+ },
+ "artifacts": {
+  "json_path": "comms/reports/since-last/20260625T054000Z/report.json",
+  "html_path": "comms/reports/since-last/20260625T054000Z/report.html",
+  "md_path": "comms/reports/since-last/20260625T054000Z/report.md",
+  "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260625T054000Z/report.html",
+  "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260625-054000-since-last"
+ },
+ "claude_channel_ping": {
+  "delivered_via": "send-ping",
+  "priority": "high",
+  "message": "[system-report:since-last] roll-up caution: H:caution P:caution M:caution. Real idle 24h; sole advisory model degenerate (demote). https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260625-054000-since-last"
+ }
+}
