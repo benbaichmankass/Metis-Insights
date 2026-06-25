@@ -196,7 +196,13 @@ def test_real_yaml_loads():
     # the intraday ETF sleeve: spy_pullback_1h + qqq_pullback_1h + tlt_pullback_1h
     # (1h bidirectional pullback) + uso_trend_1h (1h LONG-ONLY Donchian trend) on
     # alpaca_paper (paper money).
-    assert len(strategies) == 38
+    # 38 → 39 by the swap-robust prop variant eth_pullback_prop_2h (2026-06-25,
+    # DRAFT Tier-3): a tighter-exit (tp_r 6 / trail 3.5) sibling of eth_pullback_2h
+    # routed to breakout_1 as execution: shadow — the live let-winners-run exits go
+    # net-negative after Breakout's 0.09%/day swap; this variant flips post-swap
+    # positive + passes the funded-EV gate 4/4 folds. Observe-only soak, NOT a
+    # live-money promotion. docs/research/eth-pullback-prop-swap-aware-2026-06-25.md.
+    assert len(strategies) == 39
 
 
 def test_real_yaml_has_required_strategies():
@@ -221,6 +227,8 @@ def test_real_yaml_has_required_strategies():
         "trend_donchian_eth_4h", "trend_donchian_sol_4h", "trend_donchian_xrp_4h",
         "trend_donchian_ada_4h", "trend_donchian_avax_4h",
         "sol_pullback_2h", "xrp_pullback_2h", "ada_pullback_2h", "avax_pullback_2h",
+        # swap-robust prop variant — breakout_1 shadow soak (DRAFT, Tier-3, 2026-06-25):
+        "eth_pullback_prop_2h",
     }
 
 

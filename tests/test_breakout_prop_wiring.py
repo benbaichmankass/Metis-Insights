@@ -58,7 +58,10 @@ def test_prop_account_config():
     assert a["mode"] == "live"                     # always-live ping (operator gates per-signal)
     assert a["account_state"] == "evaluation"      # eval→funded lifecycle tracked
     assert a["phase_requirements"]["target_profit_pct"] == 0.10
-    assert set(a["strategies"]) == {"trend_donchian_sol", "trend_donchian_eth"}
+    # eth_pullback_prop_2h added 2026-06-25 (DRAFT Tier-3) as execution: shadow —
+    # the swap-robust prop variant of eth_pullback_2h, observe-only soak.
+    assert set(a["strategies"]) == {
+        "trend_donchian_sol", "trend_donchian_eth", "eth_pullback_prop_2h"}
     assert set(a["symbols"]) == {"SOLUSDT", "ETHUSDT"}
 
 

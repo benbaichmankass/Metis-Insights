@@ -68,6 +68,7 @@ from src.runtime.strategy_signal_builders import (
     tlt_pullback_1h_signal_builder,
     uso_trend_1h_signal_builder,
     eth_pullback_2h_signal_builder,
+    eth_pullback_prop_2h_signal_builder,
     sol_pullback_2h_signal_builder,
     xrp_pullback_2h_signal_builder,
     ada_pullback_2h_signal_builder,
@@ -211,6 +212,11 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # htf_pullback_trend_2h unit at the live BTC params. Sole strategy
         # on its symbol, so arbitration never fires.
         "eth_pullback_2h": eth_pullback_2h_signal_builder,
+        # eth_pullback_prop_2h — swap-robust prop variant (2026-06-25, DRAFT
+        # Tier-3): same ETHUSDT 2h pullback unit with tighter exits (tp_r 6 /
+        # trail 3.5) routed to breakout_1 as execution: shadow (observe-only).
+        # Sole strategy on (ETHUSDT, breakout_1), so arbitration never fires.
+        "eth_pullback_prop_2h": eth_pullback_prop_2h_signal_builder,
         # pullback_2h alt cells (2026-06-18): four symbol-pinned
         # htf_pullback_trend_2h instances on the 2h candle (SOL/XRP/ADA/AVAX),
         # routed to bybit_1 (Bybit demo — paper money) for decision/ML soak.
