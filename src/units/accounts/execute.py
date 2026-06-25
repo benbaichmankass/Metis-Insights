@@ -606,7 +606,20 @@ def _fetch_balance(
             # gate refused every gold/ETF signal on gate_balance=0.00
             # (trade #2536).
             bal = client.balance() if client is not None else None
-            return float(bal or 0)
+            if bal is None:
+                # Raise so the outer except catches it with a clear log.
+                # Common cause: ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY
+                # (or OANDA_API_KEY / OANDA_ACCOUNT_ID) unset or API
+                # unreachable. Without this, None silently becomes 0.0 and
+                # every signal is refused as zero_balance with no indication
+                # of what actually failed.
+                raise RuntimeError(
+                    f"{exchange} balance() returned None — credentials missing "
+                    f"or API unreachable (check ALPACA_API_KEY_ID / "
+                    f"ALPACA_API_SECRET_KEY for alpaca, or OANDA_API_KEY / "
+                    f"OANDA_ACCOUNT_ID for oanda)"
+                )
+            return float(bal)
     except Exception as exc:
         logger.warning("_fetch_balance(%s): %s — defaulting to 0", exchange, exc)
     return 0.0
