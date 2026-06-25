@@ -28,7 +28,7 @@
           "at": "2026-06-25T09:20:00+00:00",
           "by": "claude (/system-review follow-up #3, operator-directed)",
           "verdict": "HOLDING / no recurrence post-fix",
-          "evidence": "Full MHG trade history pull (trades LIKE 'MHG', newest-first) + live balances. The -2530.41 flap = trade 2832 (closed 2026-06-24T11:53:14 exchange_flat_reconciled) is a DUPLICATE close of the same stale entry-6.396 position as trade 2578 (-2646.66, closed 06-24T11:34, sl_cross); both, plus 2835/2837 (-17.91/-29.16, exit_coverage_no_strategy), closed 06-24 11:34-13:49 UTC. All four PREDATE the 05:11Z 06-25 process restart onto the deployed fixes (5830136/#4441 + a8c8e16/#4453 + fbed9c5/#4464 are all ancestors of the deployed 6f1f9401; commits dated 06-24 12:26-15:28 UTC) -> the flap ran on PRE-FIX code; 'fix not holding' was a deploy-timing misdiagnosis. No MHG adopted_orphan/flap row after 06-24 13:49 (latest MHG trade is 2837). reconcile_orphan_history (06-25 06:14Z) cleaned the cluster: 2837 superseded (phantom_orphan_flap_duplicate), 2578/2832 reconciled to pkg-f58a249d. Live balances 09:00Z: ib_paper api_ok=true, net_liquidation=$1.27M populated, open_positions=0 -> gateway logged in and genuinely flat for MHG (not blind to an open orphan). It is all ib_paper (paper / is_demo=1) -> no real money. NOTE: knobs are at defaults on the VM (IB_CLOSE_CONFIRM_S=6, IB_CLOSE_RETRY_COOLDOWN_S=300 — neither set to 0 in .env). KEEP OPEN as the standing watch; next natural test is the daily 05:30Z IBKR gateway reset now that the fix is live."
+          "evidence": "Full MHG trade history pull (trades LIKE 'MHG', newest-first) + live balances. The -2530.41 flap = trade 2832 (closed 2026-06-24T11:53:14 exchange_flat_reconciled) is a DUPLICATE close of the same stale entry-6.396 position as trade 2578 (-2646.66, closed 06-24T11:34, sl_cross); both, plus 2835/2837 (-17.91/-29.16, exit_coverage_no_strategy), closed 06-24 11:34-13:49 UTC. All four PREDATE the 05:11Z 06-25 process restart onto the deployed fixes (5830136/#4441 + a8c8e16/#4453 + fbed9c5/#4464 are all ancestors of the deployed 6f1f9401; commits dated 06-24 12:26-15:28 UTC) -> the flap ran on PRE-FIX code; 'fix not holding' was a deploy-timing misdiagnosis. No MHG adopted_orphan/flap row after 06-24 13:49 (latest MHG trade is 2837). reconcile_orphan_history (06-25 06:14Z) cleaned the cluster: 2837 superseded (phantom_orphan_flap_duplicate), 2578/2832 reconciled to pkg-f58a249d. Live balances 09:00Z: ib_paper api_ok=true, net_liquidation=$1.27M populated, open_positions=0 -> gateway logged in and genuinely flat for MHG (not blind to an open orphan). It is all ib_paper (paper / is_demo=1) -> no real money. NOTE: knobs are at defaults on the VM (IB_CLOSE_CONFIRM_S=6, IB_CLOSE_RETRY_COOLDOWN_S=300 \u2014 neither set to 0 in .env). KEEP OPEN as the standing watch; next natural test is the daily 05:30Z IBKR gateway reset now that the fix is live."
         }
       ],
       "status": "open",
@@ -2462,7 +2462,24 @@
           "note": "RESOLVED \u2014 scripts/deploy_pull_restart.sh guards the /etc/ict-vm-role read with `[ -r ]` first (the input-redirection error leaks before the command's 2>/dev/null on a missing file), so the live trader VM (no marker, correctly non-gateway) no longer emits 'No such file or directory' every deploy. bash -n clean."
         }
       ]
+    },
+    {
+      "id": "BL-20260625-STALE-IP-PERMS",
+      "opened_at": "2026-06-25T14:00:00+00:00",
+      "opened_by": "claude (S-M15-ALPACA-LIVE doc-freshness sweep)",
+      "source": "docs/security/permissions-tiers.md line 76: describes Tier-3 VM SSH identity as 158.178.210.252 (the terminated x86 micro) rather than the current live VM 141.145.193.91 (Ampere ict-bot-arm, migrated 2026-06-14, x86 terminated 2026-06-16 via terminate-instance).",
+      "title": "[doc-vs-reality] permissions-tiers.md:76 still references the terminated x86 micro IP as the live VM SSH target",
+      "description": "docs/security/permissions-tiers.md \u00a7 Tier 3 (line 76) reads: \"anyone who can SSH to 158.178.210.252 as ubuntu\". That IP was the x86 1-GB micro (ict-bot), decommissioned and terminated 2026-06-16 after the 2026-06-14 Ampere cutover. The live trader VM is now ict-bot-arm at 141.145.193.91. Fix: replace 158.178.210.252 with 141.145.193.91 on that line (Tier-1 doc fix).",
+      "tier": 1,
+      "trigger_condition": "next health-review or doc-freshness sweep touching permissions-tiers.md",
+      "resolution_criteria": "Line 76 references 141.145.193.91 (or omits the IP entirely in favour of the hostname ict-bot-arm); the terminated micro IP is absent from the live description.",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-25T09:20:00+00:00"
+  "updated_at": "2026-06-25T14:00:00+00:00"
 }
