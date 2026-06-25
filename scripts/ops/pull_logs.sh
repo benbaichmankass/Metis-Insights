@@ -48,7 +48,20 @@ fi
 echo
 
 echo "===== runtime_logs/heartbeat.txt + runtime_status.json (mtimes) ====="
-HEARTBEAT="${REPO_DIR}/runtime_logs/heartbeat.txt"
+# Resolve heartbeat the same way the TRADER writes it (BL-20260605-005 /
+# BL-20260618-STALEHEARTBEAT): the trader runs with DATA_DIR=/data/bot-data, so
+# heartbeat.txt lives under $DATA_DIR/runtime_logs — the repo-relative copy froze
+# at the 2026-05-12 data-dir cutover and reads ~weeks stale (a false alarm).
+# Prefer DATA_DIR, then the canonical /data/bot-data mount, then the repo path —
+# mirrors scripts/ops/status_check.sh.
+HEARTBEAT=""
+for _hb in \
+    ${DATA_DIR:+"${DATA_DIR}/runtime_logs/heartbeat.txt"} \
+    "/data/bot-data/runtime_logs/heartbeat.txt" \
+    "${REPO_DIR}/runtime_logs/heartbeat.txt"; do
+    if [ -f "${_hb}" ]; then HEARTBEAT="${_hb}"; break; fi
+done
+[ -z "${HEARTBEAT}" ] && HEARTBEAT="${REPO_DIR}/runtime_logs/heartbeat.txt"
 RUNTIME_STATUS="${REPO_DIR}/runtime_logs/runtime_status.json"
 for f in "${HEARTBEAT}" "${RUNTIME_STATUS}"; do
     if [ -f "$f" ]; then

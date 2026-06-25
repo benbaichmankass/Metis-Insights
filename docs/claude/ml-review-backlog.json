@@ -865,6 +865,14 @@
         {
           "at": "2026-06-23T11:30:00+00:00",
           "note": "/ml-review (system-report since-last). RE-CONFIRMED degenerate post-demote, no refinement retrain landed yet. Live /api/bot/shadow/drift (issue #4288): current-window mean 0.964 / stdev 0.078 vs reference mean 0.789 / stdev 0.144, KS 0.790 / PSI 4.29 (verdict significant). The trade-scores join (#4303) still shows the score-time advisory stream class-collapsed (avg score_mean 0.956, range 0.765-0.984 across 8 scored trades). Registry target_deployment_stage=shadow CONFIRMED (no longer order-influencing). Refinement step pending: the next refinement attempt is to retrain on fresh data AND diff the live feature vector vs train at score time (the leading hypothesis is a score-time feature-pipeline shift, since training macro_f1 is stable at 0.667). No attempt logged this session (a refinement retrain is a model-training-skill action, not /ml-review). Stays OPEN."
+        },
+        {
+          "at": "2026-06-25T05:40:00+00:00",
+          "note": "/system-review (since-last 06-24T05:23->06-25T05:40). RE-VERIFIED via stage-guard on the live journal: btc-regime-1h-lgbm-yz-v1 remains target_deployment_stage=shadow (demotion holds, no longer order-influencing). Refinement half (retrain on fresh data + diff live-vs-train feature vector at score time) STILL pending \u2014 that is a model-training-skill action, not enacted this review. Stays OPEN."
+        },
+        {
+          "at": "2026-06-25T06:10:00+00:00",
+          "note": "Shared root cause with MB-20260625-001 (5m-yz): the live-vs-train collapse is the yz vol_bucket EDGE miscalibration (yz heads lock to vol_b0 while v2/baseline siblings bucket the same yang_zhang_vol to b1/b2), NOT a feature-absence parity gap (parity is wired via S17; live feature_row populates the estimators). Same re-freeze-edges fix applies to the 1h-yz refinement."
         }
       ]
     },
@@ -920,7 +928,42 @@
           "note": "/ml-review (system-report since-last). RE-CONFIRMED degenerate from two angles. (1) Registry (#4302): prop-mission-policy-baseline-v0 accuracy=1.0 brier=0 (single-class), trade-outcome-{global,winrate}-baseline-v0 accuracy=0.836 (majority predictor), execution-quality-baseline-v0 mae=3.26 / setup-quality-baseline-v0 mae=0.83 (no edge). (2) Live trade-scores join (#4303): each emits a CONSTANT shadow score across scored trades \u2014 prop-mission-policy 0.000 (n=7), trade-outcome-global 0.248 (n=6), trade-outcome-winrate ~0.251 (n=6), execution-quality -0.202 (n=7), setup-quality -0.04. A constant output carries zero discriminating signal to the conviction/sizing lenses + pollutes the conviction-meta-v1 stacker's inputs. Promotion-readiness 00:30Z lists all of them blocking on non_degenerate + beats_baseline. All shadow-only (no order influence today). Still no refinement retrain landed. RECOMMENDATION unchanged: refine (class-weighted re-fit / new label horizon / more data) OR retire to candidate + drop from shadow_model_ids so they stop being surfaced as lens inputs. Filed as experiments_proposed (class-weighted re-fit) this review. Stays OPEN."
         }
       ]
+    },
+    {
+      "id": "MB-20260625-001",
+      "opened_at": "2026-06-25T05:40:00+00:00",
+      "opened_by": "claude (/system-review since-last)",
+      "source": "stage-guard on the live journal (trainer relay, 2026-06-25T05:38Z): btc-regime-5m-lgbm-yz-v1 is now the ONLY advisory (order-influencing) model and stage-guard proposes DEMOTE advisory->shadow. Attribution: auc 0.40 (< 0.5 random), brier 0.5252 vs baseline_brier 0.2479, brier_lift -0.277 (NEGATIVE - model is worse than the baseline it should beat). It became advisory as the MB-20260623-002 replacement for the demoted 1h-yz; it is now showing the same degenerate live behaviour.",
+      "title": "[refinement] DEMOTE the degenerate advisory btc-regime-5m-lgbm-yz-v1 (advisory -> shadow) - negative brier_lift, auc 0.40",
+      "description": "The replacement advisory (after 1h-yz was demoted, MB-20260623-001) is itself degenerate live: negative brier_lift (-0.277) means it is actively worse than baseline, auc 0.40 < random. It feeds the c_reg conviction lens a non-discriminating / harmful signal. Soft-off first: promote-stage btc-regime-5m-lgbm-yz-v1 --new-stage shadow --by claude --reason 'degenerate live: brier_lift -0.277, auc 0.40' (Tier-3, operator-gated). With BOTH yz advisories degenerate live, the pattern points at a score-time feature-pipeline shift (live!=train) common to the yz feature family, not a single bad model - investigate the yz feature vector at score time before re-promoting any yz head. Pre-2026-06-13 the system ran formulaic conviction with NO advisory model, so demoting to zero-advisory is a low-risk revert to the known-good baseline.",
+      "tier": 3,
+      "trigger_condition": "operator approves the soft-off demote",
+      "resolution_criteria": "btc-regime-5m-lgbm-yz-v1 target_deployment_stage=shadow confirmed in registry; then refine (diff live-vs-train yz feature vector + retrain) and re-gate before any re-promotion.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-06-25T05:40:00+00:00",
+          "note": "Opened from /system-review. stage-guard demote fires (brier_lift -0.277, auc 0.40). Surfaced as a Tier-3 operator priority + a loud flag in the consolidated report. Companion to MB-20260623-001 (the prior degenerate yz advisory)."
+        },
+        {
+          "at": "2026-06-25T06:10:00+00:00",
+          "note": "INVESTIGATION (operator chose hold+investigate over demote). ROOT CAUSE FOUND via live shadow_predictions feature_row (diag #4511). (1) PARITY IS WIRED, not the bug: feature_row_for_predictor (S-MLOPT-S17) populates yang_zhang_vol + all 4 range estimators + lags + time features live (both per-bar AND signal-time callers pass candles_df); the live values are real (e.g. btc-1h yang_zhang_vol=0.006493), NOT NaN. The regime_bar_scoring.py module-header 'Feature-parity caveat' (lines 65-73, claiming the estimators are absent live -> NaN and 'must land before shadow->advisory') is STALE doc-drift, contradicted by both the code and the live data. (2) THE REAL BUG = yz vol_bucket edge miscalibration: on the SAME bar, the yz heads bucket vol systematically LOWER than their v2/baseline siblings. btc-1h @ yang_zhang_vol=0.006493 -> v2/funding heads bucket vol_b2 (score 0.56), yz head buckets vol_b0 (score 0.92); btc-15m @ 0.00207 -> baseline/v2 vol_b1, yz vol_b0. The yz heads' frozen vol_bucket_edges (computed on yang_zhang_vol at train time) don't match the live yang_zhang_vol scale, so live vol almost always lands in the lowest bucket b0 -> the model's most important categorical feature is near-constant -> the BTC yz heads saturate (~0.92-0.98) -> degenerate. (Note: the broad btc-regime saturation [baseline+v2+yz all ~0.97-0.99 on 5m/15m] is ALSO partly market-driven \u2014 BTC is in a persistent low-vol range \u2014 which inflates the stage-guard drift-vs-train metric; regime-confidence != trade-outcome, so the auc/brier-vs-trades attribution is a partial category mismatch. But the yz-specific b0 lock is a genuine calibration defect distinct from that.) FIX (Tier-3, retrain): re-freeze the yz heads' vol_bucket_edges against the live-consistent yang_zhang_vol distribution (verify the estimator's train-vs-live window/annualization parity first), then re-gate before any re-promotion. SEPARATE Tier-1 doc fix: correct the stale regime_bar_scoring.py header caveat (parity landed in S17). Demote remains the safe interim (operator holding); the degenerate yz advisory keeps feeding c_reg a near-constant value meanwhile."
+        },
+        {
+          "at": "2026-06-25T06:22:00+00:00",
+          "note": "RE-GATE RESULT (operator-approved re-freeze retrain, trainer #4519, python -m ml train --no-register so the SERVED advisory was untouched). Fresh re-frozen vol_bucket_edges: 5m [0.003040, 0.003877] (macro_f1 0.559, f1_volatile 0.125); 1h [0.007615, 0.019984] (macro_f1 0.665, f1_volatile 0.487). DECISIVE: the re-freeze does NOT clear the b0 lock \u2014 current live yang_zhang_vol (5m ~0.00156, 1h ~0.006493 from diag #4511) is STILL below the freshly-recomputed b0->b1 edge on BOTH heads (5m 0.00156<0.00304; 1h 0.006493<0.007615) => both still bucket vol_b0. So the degeneracy is NOT a stale-model artifact: BTC's CURRENT low-vol regime sits below the bottom bucket of even a fresh (60d-recency-weighted) edge set, so a simple retrain can't salvage the yz advisory. RECOMMENDATION FLIPS to DEMOTE now (evidence-backed): demote btc-regime-5m-lgbm-yz-v1 advisory->shadow. Re-promotion would need a DEEPER Tier-3 redesign \u2014 shorter edge-freeze recency window, finer low-end bucket granularity, or moving off fixed-quantile bucketing \u2014 validated before any promote. The 1h head is borderline (0.006493 vs 0.007615) so it'd flip to b1 on a small vol uptick, but is also b0-locked right now."
+        },
+        {
+          "at": "2026-06-25T06:22:00+00:00",
+          "note": "Tier-1 doc fix LANDED (commit b72646b): corrected the stale regime_bar_scoring.py feature-parity caveat (S17 parity is closed; the real gate is yz edge calibration)."
+        },
+        {
+          "at": "2026-06-25T06:47:00+00:00",
+          "note": "DEMOTE EXECUTED (operator-approved). promote-stage btc-regime-5m-lgbm-yz-v1 advisory->shadow on the trainer (#4526, stage_history records advisory->shadow at 06:45:39Z; advisory count now 0 \u2014 ZERO order-influencing models, reverted to known-good formulaic conviction). Mirror published to live (#4527, 06:46:29Z -> 141.145.193.91:/data/bot-data/runtime_logs/trainer_mirror). Takes effect on the live trader's next registry reload. Item stays OPEN for the refinement half: re-promotion needs the deeper edge-redesign (shorter freeze recency / finer low-end granularity / off fixed-quantile bucketing), validated + re-gated first. (NB: the first demote dispatch #4523 \u2014 bundled with publish \u2014 had its opened-webhook dropped and never ran; re-fired as #4526 promote-stage-only + #4527 publish.)"
+        }
+      ]
     }
   ],
-  "updated_at": "2026-06-24T05:20:09.292176+00:00"
+  "updated_at": "2026-06-25T06:47:00+00:00"
 }

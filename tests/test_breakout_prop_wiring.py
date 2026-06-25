@@ -58,7 +58,12 @@ def test_prop_account_config():
     assert a["mode"] == "live"                     # always-live ping (operator gates per-signal)
     assert a["account_state"] == "evaluation"      # eval→funded lifecycle tracked
     assert a["phase_requirements"]["target_profit_pct"] == 0.10
-    assert set(a["strategies"]) == {"trend_donchian_sol", "trend_donchian_eth"}
+    # 2026-06-25 (Tier-3, operator-approved): the swap-robust variant
+    # eth_pullback_prop_2h promoted to live + the original eth_pullback_2h routed
+    # to the prop account, both +EV at Breakout's real 0.033%/day swap.
+    assert set(a["strategies"]) == {
+        "trend_donchian_sol", "trend_donchian_eth",
+        "eth_pullback_prop_2h", "eth_pullback_2h"}
     assert set(a["symbols"]) == {"SOLUSDT", "ETHUSDT"}
 
 

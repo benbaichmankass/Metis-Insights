@@ -62,16 +62,30 @@ path must not be able to break the trading loop.
 off without a redeploy (mirrors ``SIGNAL_DUAL_WRITE_DISABLED``). Default off ->
 per-bar scoring on.
 
-**Feature-parity caveat (Phase 4.2, not S13).** The live regime feature row
-carries ``vol_bucket`` + one vol value; the heads also train on range-vol
-estimators, log-return lags and time features, which are absent live and become
-NaN (LightGBM handles NaN natively). For the yz heads the frozen
-``vol_feature_column`` is ``yang_zhang_vol`` but the live value is close-to-close
-vol. This gap is **pre-existing and shared with the signal-time path / the v2
-heads** — S13 deliberately reuses the same computation so per-bar == signal-time.
-Closing the parity gap is train/serve parity (Phase 4.2 / ``MB-20260604-005``)
-and must land before any head is promoted ``shadow -> advisory`` on this
-evidence.
+**Feature parity — CLOSED (S-MLOPT-S17 / ``MB-20260604-005``).** The live
+regime feature row is now the FULL ``market_features`` superset the heads
+train on: ``vol_bucket`` + ``rolling_log_return_vol`` + the four range-vol
+estimators (parkinson/garman_klass/rogers_satchell/yang_zhang) + ``log_return``
++ ``log_return_lag_1/2`` + ``hour_of_day``/``dayofweek``, built live from the
+fetched OHLC by ``regime_shadow.feature_row_for_predictor`` (both this per-bar
+caller AND the signal-time caller pass ``candles_df``). The estimators are the
+SAME pure fns as the offline builder (``ml.datasets.volatility_estimators``)
+over the same ``vol_window_n`` — verified live (diag #4511): the yz heads' live
+``yang_zhang_vol`` is populated, not NaN. The earlier "estimators absent → NaN /
+yz served close-to-close vol" caveat was the PRE-S17 state and is no longer true.
+
+**Open calibration gap (MB-20260625-001 / MB-20260623-001) — the real
+shadow→advisory gate.** Feature parity being closed did NOT make the BTC yz
+heads non-degenerate live: they lock to ``vol_bucket=vol_b0`` while their
+v2/baseline siblings bucket the same bar to b1/b2 (btc-1h @ yang_zhang_vol
+0.006493 → yz b0 / v2 b2 on one bar). The yz ``vol_bucket_edges`` are frozen
+quantiles of the *training-period* ``yang_zhang_vol`` (recency-weighted
+``half_life_days: 60``), which sits above the current calm-regime live values →
+the most important categorical feature is near-constant → the head saturates
+(~0.92-0.98). The fix is a re-freeze of the yz edges on the live-consistent
+distribution (then re-gate); the parity-landing condition above is satisfied,
+the edge calibration is the new gate before any yz head is (re-)promoted
+``shadow -> advisory``.
 """
 from __future__ import annotations
 

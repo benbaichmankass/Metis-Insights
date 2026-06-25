@@ -9,10 +9,16 @@ Backtesting is the evidence step before any Tier-3 strategy change. This
 skill maps every real backtest entry point in the repo (verified against
 the scripts on `main`), the data each needs, and where results land.
 
-**Per-strategy research harnesses are net-of-fee.** Gross-R sweeps
-mislead — S-STRAT-IMPROVE-S2/S4-A showed vwap was gross-positive /
-net-negative once round-trip fees were charged. Every harness below
-takes `--fee-bps-roundtrip`; quote net metrics, not gross.
+**Per-strategy research harnesses are net-of-fee — with one exception.**
+Gross-R sweeps mislead — S-STRAT-IMPROVE-S2/S4-A showed vwap was
+gross-positive / net-negative once round-trip fees were charged. Most
+harnesses below take `--fee-bps-roundtrip`; quote net metrics, not gross.
+**Exception (BL-20260610-M15-1):** `scripts/backtest_ict_scalp.py` has
+**no** fee model — no `--fee-bps-roundtrip`, so its R/PnL are **gross
+only**. Don't read ict_scalp harness output as net; apply a fee haircut
+manually, and prefer the account-compat matrix / trainer sweeps (which
+stamp `net_of_fee_bps`) for the live-routing gate. Adding a fee model to
+the ict_scalp harness is the open follow-up.
 
 ## MANDATORY: the per-account compatibility matrix (every strategy)
 

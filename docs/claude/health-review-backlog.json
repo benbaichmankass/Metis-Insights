@@ -3,21 +3,49 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260625-PROP-ETH-LIVE",
+      "opened_at": "2026-06-25T09:20:00+00:00",
+      "opened_by": "claude (prop-trade-pipeline-debug \u2014 eth_pullback prop go-live wiring check)",
+      "source": "PR #4533 set eth_pullback_prop_2h execution: live and routed it + eth_pullback_2h to breakout_1. Diag /api/bot/strategies confirmed BOTH in loaded_strategies + bot_running 2026-06-25 \u2014 but loading is not the same as the prop emit path producing a ticket.",
+      "title": "Confirm the two newly-live ETH prop legs actually EMIT + journal a prop ticket on breakout_1 when they first fire",
+      "description": "WIRING LIVENESS CHECK. On the first ETHUSDT signal on breakout_1 for either leg, confirm end-to-end: (a) a prop_signal ticket is emitted (Telegram prop bot + FCM) carrying the Yes/No place-decision buttons; (b) a prop_tickets row is written with order_package_id POPULATED (the sizing+journaling fixes from PR #4460/#4469 \u2014 risk_usd should size off 1.5% = ~$75, not the old $25); (c) /api/bot/prop/reconcile sees it. Both legs share (ETHUSDT, breakout_1), so also confirm they emit as SEPARATE tickets (per-strategy netting guard) and do not collide on the same position. Until one fires we have only confirmed they load, not that the prop ticket path works for them.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "BL-20260624-MHG-CLOSE-CONFIRM-VERIFY",
       "opened_at": "2026-06-24T13:05:00+00:00",
-      "opened_by": "claude (operator directive 2026-06-24 — verify the fix keeps working)",
-      "source": "PR #4441 (merged to main as squash 5830136c, deployed via ict-git-sync) fixed the perpetual MHG/ib_paper adopt→sl_cross→re-orphan flap. Root cause: IBClient.close returned retCode 0 the moment the opposing market order was ACCEPTED (or still pending) — it never confirmed the position reached flat — so an accepted-but-unfilled close marked the DB row closed (sl_cross) while the real IB position stayed open and (because close() Step 1 cancels the protective bracket) naked, then got re-orphaned. Fix: (1) IBClient.close now re-reads the live position and requires flat within IB_CLOSE_CONFIRM_S (default 6s, <=0 disables) else returns retCode 1 so the monitor leaves the DB row open + retries; (2) order_monitor._apply_update arms a per-(account,symbol,direction) close-retry cooldown (IB_CLOSE_RETRY_COOLDOWN_S, default 300s, 0 disables) on a 'not confirmed flat' close so it doesn't churn the re-armed bracket every tick. Post-deploy verification (2026-06-24 ~13:00) was POSITIVE: trader restarted (new PID), trade 2832 closed exchange_flat_reconciled, NO new MHG adopted_orphan rows for ~80 min, no sl_cross/adopt/orphan churn lines.",
-      "title": "VERIFY the IB close-confirm + close-retry-cooldown fix (PR #4441) continues to prevent the IB adopt→sl_cross→re-orphan flap (MHG/MGC/MES on ib_paper, and any IB account)",
-      "description": "ACTION FOR CLAUDE at the next /health-review or /system-review (and any session touching the IB order/close path): re-confirm the fix is still holding. Check the live trader journal + trades table for the flap signature returning — specifically (a) repeated 'order_monitor: exchange close for pkg=… → {ok:True}' immediately followed by the SAME (account,symbol,direction) reappearing as an exchange orphan; (b) a string of short-lived adopted_orphan rows (setup_type='adopted_orphan', entry_reason like 'reverse_reconciler_reattached%') for one IB symbol accruing every few minutes; (c) 'RE-ADOPT SUPPRESSED' / detect_only re-adopt-suppressed alerts recurring. Healthy state: an IB sl_cross close either CONFIRMS flat (DB closes once, exchange_flat_reconciled or a real exit) or, when the venue can't fill (market closed / gateway mid-reset), the row stays OPEN with the bracket armed and a 'close retry cooling down' log — NOT a new orphan per cycle. Also sanity-check the two knobs are still at sane values on the VM (IB_CLOSE_CONFIRM_S>0, IB_CLOSE_RETRY_COOLDOWN_S>0; a stray 0 in .env disables the guard — same failure-mode class as the dropped POSITION_NETTING_GUARD env on the Ampere migration). If the flap has returned, re-open the close-path investigation; the fix locus is src/units/accounts/ib_client.py::close + src/runtime/order_monitor.py::_apply_update.",
+      "opened_by": "claude (operator directive 2026-06-24 \u2014 verify the fix keeps working)",
+      "source": "PR #4441 (merged to main as squash 5830136c, deployed via ict-git-sync) fixed the perpetual MHG/ib_paper adopt\u2192sl_cross\u2192re-orphan flap. Root cause: IBClient.close returned retCode 0 the moment the opposing market order was ACCEPTED (or still pending) \u2014 it never confirmed the position reached flat \u2014 so an accepted-but-unfilled close marked the DB row closed (sl_cross) while the real IB position stayed open and (because close() Step 1 cancels the protective bracket) naked, then got re-orphaned. Fix: (1) IBClient.close now re-reads the live position and requires flat within IB_CLOSE_CONFIRM_S (default 6s, <=0 disables) else returns retCode 1 so the monitor leaves the DB row open + retries; (2) order_monitor._apply_update arms a per-(account,symbol,direction) close-retry cooldown (IB_CLOSE_RETRY_COOLDOWN_S, default 300s, 0 disables) on a 'not confirmed flat' close so it doesn't churn the re-armed bracket every tick. Post-deploy verification (2026-06-24 ~13:00) was POSITIVE: trader restarted (new PID), trade 2832 closed exchange_flat_reconciled, NO new MHG adopted_orphan rows for ~80 min, no sl_cross/adopt/orphan churn lines.",
+      "title": "VERIFY the IB close-confirm + close-retry-cooldown fix (PR #4441) continues to prevent the IB adopt\u2192sl_cross\u2192re-orphan flap (MHG/MGC/MES on ib_paper, and any IB account)",
+      "description": "ACTION FOR CLAUDE at the next /health-review or /system-review (and any session touching the IB order/close path): re-confirm the fix is still holding. Check the live trader journal + trades table for the flap signature returning \u2014 specifically (a) repeated 'order_monitor: exchange close for pkg=\u2026 \u2192 {ok:True}' immediately followed by the SAME (account,symbol,direction) reappearing as an exchange orphan; (b) a string of short-lived adopted_orphan rows (setup_type='adopted_orphan', entry_reason like 'reverse_reconciler_reattached%') for one IB symbol accruing every few minutes; (c) 'RE-ADOPT SUPPRESSED' / detect_only re-adopt-suppressed alerts recurring. Healthy state: an IB sl_cross close either CONFIRMS flat (DB closes once, exchange_flat_reconciled or a real exit) or, when the venue can't fill (market closed / gateway mid-reset), the row stays OPEN with the bracket armed and a 'close retry cooling down' log \u2014 NOT a new orphan per cycle. Also sanity-check the two knobs are still at sane values on the VM (IB_CLOSE_CONFIRM_S>0, IB_CLOSE_RETRY_COOLDOWN_S>0; a stray 0 in .env disables the guard \u2014 same failure-mode class as the dropped POSITION_NETTING_GUARD env on the Ampere migration). If the flap has returned, re-open the close-path investigation; the fix locus is src/units/accounts/ib_client.py::close + src/runtime/order_monitor.py::_apply_update.",
       "tier": 1,
       "trigger_condition": "Next /health-review or /system-review run, or any session touching the IB close/order path or IB orphan reconciliation.",
-      "resolution_criteria": "A /health-review (or /system-review) has confirmed, against the live journal, that the IB adopt→sl_cross→re-orphan flap has NOT recurred over its review window AND the two guard knobs remain enabled on the VM — logged in this item's check_log. Keep OPEN as a standing recurring check rather than closing after a single pass; only close if the operator decides the close path has been stable long enough to retire the watch.",
-      "check_log": [],
+      "resolution_criteria": "A /health-review (or /system-review) has confirmed, against the live journal, that the IB adopt\u2192sl_cross\u2192re-orphan flap has NOT recurred over its review window AND the two guard knobs remain enabled on the VM \u2014 logged in this item's check_log. Keep OPEN as a standing recurring check rather than closing after a single pass; only close if the operator decides the close path has been stable long enough to retire the watch.",
+      "check_log": [
+        {
+          "at": "2026-06-25T09:20:00+00:00",
+          "by": "claude (/system-review follow-up #3, operator-directed)",
+          "verdict": "HOLDING / no recurrence post-fix",
+          "evidence": "Full MHG trade history pull (trades LIKE 'MHG', newest-first) + live balances. The -2530.41 flap = trade 2832 (closed 2026-06-24T11:53:14 exchange_flat_reconciled) is a DUPLICATE close of the same stale entry-6.396 position as trade 2578 (-2646.66, closed 06-24T11:34, sl_cross); both, plus 2835/2837 (-17.91/-29.16, exit_coverage_no_strategy), closed 06-24 11:34-13:49 UTC. All four PREDATE the 05:11Z 06-25 process restart onto the deployed fixes (5830136/#4441 + a8c8e16/#4453 + fbed9c5/#4464 are all ancestors of the deployed 6f1f9401; commits dated 06-24 12:26-15:28 UTC) -> the flap ran on PRE-FIX code; 'fix not holding' was a deploy-timing misdiagnosis. No MHG adopted_orphan/flap row after 06-24 13:49 (latest MHG trade is 2837). reconcile_orphan_history (06-25 06:14Z) cleaned the cluster: 2837 superseded (phantom_orphan_flap_duplicate), 2578/2832 reconciled to pkg-f58a249d. Live balances 09:00Z: ib_paper api_ok=true, net_liquidation=$1.27M populated, open_positions=0 -> gateway logged in and genuinely flat for MHG (not blind to an open orphan). It is all ib_paper (paper / is_demo=1) -> no real money. NOTE: knobs are at defaults on the VM (IB_CLOSE_CONFIRM_S=6, IB_CLOSE_RETRY_COOLDOWN_S=300 — neither set to 0 in .env). KEEP OPEN as the standing watch; next natural test is the daily 05:30Z IBKR gateway reset now that the fix is live."
+        }
+      ],
       "status": "open",
       "resolved_at": null,
       "resolved_by": null,
       "resolution": null,
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-06-25T05:40:00+00:00",
+          "note": "/system-review verification (since-last 06-24->06-25): the MHG/ib_paper adopt->reconcile-close flap RECURRED on 2026-06-24 \u2014 3 adopted_orphan MHG closes: #2832 (11:41->11:53, exit=exchange_flat_reconciled, pnl=-2530.41 PHANTOM), #2835 (13:32, exit_coverage_no_strategy, -17.91), #2837 (13:45, exit_coverage_no_strategy, -29.16). These predate today's 05:11Z restart (git 6f1f9401). The IB close-confirm/retry-cooldown fix (PR #4441) has NOT eliminated the adopt->exchange-flat-reconcile pattern on ib_paper MHG, and the -2530.41 is a phantom-magnitude PnL polluting the paper book (MHG contract-value/sizing artifact). Stays OPEN \u2014 keep watching; correlate next with whether #4441 was actually deployed before 06-24 midday."
+        },
+        {
+          "at": "2026-06-25T06:05:00+00:00",
+          "note": "CORRECTION/fold-in (/system-review follow-up): the 06-24 MHG closes (11:41-13:49) PREDATE the orphan-flap #1 fix (#4464 reconciler flat-close leg-cancel, merged 06-24 15:28) and #4453 (place_protective pre-cancel, 15:11) \u2014 they are the LAST pre-fix flap, NOT a regression of #4441. The full orphan-flap hardening queue #1-#5 is now MERGED (#4453/#4464/#4465/#4468/#4469/#4481). My salvaged journal (ids 2805-2853, through 06-25 04:05) shows NO new adopted_orphan/MHG flap after 06-24 13:49 -> the order-path fixes are HOLDING. Residual phantom rows (incl the -2530.41 MHG cluster) are cleaned by #4481's reconcile-orphan-history (dry-run -> operator-gated apply). Recommend: keep open until the dry-run KEEP/VOID plan is run + applied, then close."
+        }
+      ]
     },
     {
       "id": "BL-20260621-ACCOUNT-HISTORY-PULL",
@@ -668,11 +696,17 @@
       "tier": 1,
       "trigger_condition": "Any /health-review; editable as a Tier-1 wrapper fix (scripts/ops/status_check.sh + pull_logs.sh).",
       "resolution_criteria": "status_check.sh headline heartbeat reads $DATA_DIR/runtime_logs/heartbeat.txt (canonical) so age_sec reflects real liveness; verified on a status-check run.",
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-25T07:20:00+00:00",
       "resolved_by": null,
       "resolution": null,
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:20:00+00:00",
+          "note": "RESOLVED \u2014 scripts/ops/pull_logs.sh now resolves heartbeat via $DATA_DIR/runtime_logs -> /data/bot-data -> repo (mirrors the already-fixed status_check.sh), so it no longer reports the frozen repo-path heartbeat as headline liveness. bash -n clean."
+        }
+      ]
     },
     {
       "id": "BL-20260605-006",
@@ -871,9 +905,20 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run; surface to the operator (external infra \u2014 cannot be auto-fixed from either repo).",
       "resolution_criteria": "Operator disconnects the 'ict-trader-widget' Cloudflare Pages <-> GitHub integration (or deletes that Pages project) so the dashboard repo stops running a perpetually-failing Cloudflare Pages check; confirm ict-trader-dashboard PRs show only the real checks (ruff-lint, import-smoke) green.",
-      "status": "open",
+      "status": "resolved",
       "triage_note": "2026-05-27 /health-review: external infra; nothing to verify from /health-review's read surface. Remains operator-gated.",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:45:00+00:00",
+          "note": "TIER-2 PREP \u2192 OPERATOR-ONLY hand-off. The failing 'Cloudflare Pages' check on every ict-trader-dashboard PR is NOT a workflow file (the repo .github/workflows has only ci.yml + delete-merged-branches.yml) \u2014 it's an external GitHub<->Cloudflare-Pages App integration (a stale CF Pages project 'ict-trader-widget' still wired to the repo, left over from the retired React/CF stack). OPERATOR ACTION: in the Cloudflare dashboard \u2192 Workers & Pages \u2192 the stale 'ict-trader-widget' (or equivalent) Pages project \u2192 Settings \u2192 either delete the project or disconnect its GitHub integration; alternatively GitHub \u2192 repo Settings \u2192 Integrations/GitHub Apps \u2192 Cloudflare Pages \u2192 revoke repo access. No repo change possible from this side. Stays open, awaiting-operator."
+        },
+        {
+          "at": "2026-06-25T08:10:00+00:00",
+          "note": "RESOLVED \u2014 operator disconnected/deleted the stale Cloudflare Pages 'ict-trader-widget' project + its GitHub App integration on the Cloudflare side (2026-06-25). The failing 'Cloudflare Pages' commit status no longer posts on ict-trader-dashboard PRs. This was external account-side state (not a repo artifact \u2014 verified: no CF config files in the dashboard repo, only historical prose), so it required the console action; nothing further in any repo."
+        }
+      ],
+      "resolved_at": "2026-06-25T08:10:00+00:00"
     },
     {
       "id": "BL-20260525-007",
@@ -1283,6 +1328,11 @@
           "at": "2026-06-15T17:15:00+00:00",
           "by": "claude (/health+perf+ml-review 2026-06-15)",
           "note": "STILL OPEN: orphan rate remains high \u2014 order_packages pull 2026-06-12..15 (17 pkgs): 11/17 (65%) orphaned. xauusd_trend_1h 5/5 orphan (routes ONLY to dry oanda_practice -> BUG-049 dead-end), fade_breakout_4h 4/4 orphan (near-zero conf 0.018-0.04 shorts). trend_donchian fills on demo via reduce; real-money bybit_2 nets to min qty (intent_noop:at_target)."
+        },
+        {
+          "at": "2026-06-25T09:30:00+00:00",
+          "by": "claude (/system-review follow-up #2, operator-directed)",
+          "note": "FIX SHIPPED for the EMIT-THEN-ORPHAN (dead-end-routing) class. Root locus: Coordinator.multi_account_execute logs the package status='open' at the TOP of dispatch (line 916) BEFORE the eligibility filter (line 994); if _eligible_for_dispatch yields ZERO accounts the per-account loop never runs -> no trade, no rejection -> the +5min reconciler mis-stamps it 'orphaned -- never executed' (BUG-049). Confirmed live this review: orphaned status=orphaned pull surfaced trend_donchian_eth/_sol (routed ONLY to breakout_1, configured=False/api_ok=false -> no creds -> filtered out) and matches the prior xauusd_trend_1h->dry-oanda_practice dead-end note above. FIX (this PR, Tier-2): a post-dispatch backstop at the end of multi_account_execute terminalises the package status='rejected' + close_reason in {no_eligible_account | all_accounts_noop | no_fill_all_accounts} whenever no trade was placed, so 'orphaned' is reserved for genuinely lost positions. Fires ONLY when not any_trade_placed (a package that placed a trade is unchanged, links via the trade row). Catches all three observed classes (empty-eligible, benign-noop without a linked rejection row, any non-journaling branch) -- a guaranteed catch-all on top of the existing dry/shadow relabel (PR #4339/#4342). 2 new tests in tests/test_s030_pr1_order_packages_log.py; 85 dispatch tests green locally. Remaining OPEN scope on this item is now ONLY the EXECUTED-then-exchange-flat-without-clean-fill / closed-pnl-attribution class (separate from emit-then-orphan)."
         }
       ],
       "check_log": [
@@ -1336,11 +1386,17 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run; or when the operator notices 'MES never trades' again and we want a faster real-vs-normal discrimination.",
       "resolution_criteria": "A monitor exists that alerts if any of {mes_trend_long_1d_eval, mgc_pullback_1d_eval, mhg_pullback_1d_eval} hasn't logged an eval row in 24h. False-positive rate verified \u22480 on a normal day (where side=none rows are continuously emitted).",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-06-25T07:20:00+00:00",
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:20:00+00:00",
+          "note": "RESOLVED \u2014 scripts/collect_health_snapshot.sh adds an 'EVAL FRESHNESS (per-strategy signal-of-life)' block: per-strategy last *_eval age + in-window count, and FLAGS any strategy with a historical eval in the tail but none within the lookback (the 'went dark' regression, e.g. mes_trend_long_1d) \u2014 distinct from side=none 'no setup' (alive). Observe-only; the layer-2 review escalates. python compiles + bash -n clean."
+        }
+      ]
     },
     {
       "id": "BL-20260602-003",
@@ -1352,11 +1408,17 @@
       "tier": 1,
       "trigger_condition": "Next /health-review compliance-audit rotation hitting .github/workflows/ (Tuesday slot per the schedule).",
       "resolution_criteria": "Every workflow file in .github/workflows/ has a matching entry in docs/github-actions-workflows.md. A simple `comm`-style diff (workflow files vs catalog entries) returns empty.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-06-25T07:00:00+00:00",
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:00:00+00:00",
+          "note": "RESOLVED \u2014 added a 'Complete workflow index' section to docs/github-actions-workflows.md covering all 31 previously-undocumented workflows (real name/category/autonomy/trigger/purpose extracted from each file); 0 of 70 workflow files now unmentioned."
+        }
+      ]
     },
     {
       "id": "BL-20260604-001",
@@ -1400,9 +1462,9 @@
       "tier": 2,
       "trigger_condition": "Any /health-review run; or next time a vm-web-api-recover dispatch is webhook-dropped or ict-web-api is observed down with no autonomous recovery.",
       "resolution_criteria": "ict-web-api gets a VM-side auto-restart-on-unhealthy guard (systemd timer probing local /api/health) that self-heals the read surface without a webhook-dependent GitHub dispatch; verified by inducing/observing one web-api outage that the watchdog recovers autonomously. Tier-2 deploy/runtime change \u2014 operator-approved PR.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-06-25T07:45:00+00:00",
       "resolved_by": null,
       "resolution_note": null,
       "check_log": [
@@ -1415,6 +1477,12 @@
           "at": "2026-06-06T08:30:00+00:00",
           "by": "claude (/health-review)",
           "note": "NEW EVIDENCE of the gap this item targets: this session, /api/bot/order-packages + /api/bot/config returned HTTP 500 transiently around the ~06:19/07:16 trader restarts (the heavier bot routes erroring while /api/diag/*, the Streamlit routine-poll set, and the insights cache stayed 200). They SELF-RECOVERED (config 200 + 8 Streamlit routes 200 OK by 08:06-08:20, same web-api PID 386690 = no restart) \u2014 so no recovery lever was needed THIS time, but it confirms the heavier endpoints wobble around restarts and the only autonomous recover (vm-web-api-recover) is still webhook-flaky. The scripts/check_web_api.py VM-side watchdog this item proposes is still pending merge+deploy. Status unchanged (open)."
+        }
+      ],
+      "updates": [
+        {
+          "at": "2026-06-25T07:45:00+00:00",
+          "note": "RESOLVED (already built, 2026-06-04+) \u2014 the ict-web-api-watchdog.{service,timer} exists and the timer was ACTIVE in the 06-25 snapshot: every 2 min it runs scripts/check_web_api.py --auto-restart --restart-after 2 --max-restarts 3 --cooldown-min 10, which probes :8001/api/health and runs scripts/ops/restart_web_api.sh (systemctl restart + health probe) on sustained failure \u2014 a VM-side autonomous self-heal independent of the GitHub vm-web-api-recover webhook lever. The item's premise ('no VM-side self-heal') is obsolete."
         }
       ]
     },
@@ -1504,13 +1572,23 @@
       "title": "Bybit DEMO realised PnL is unrecoverable from closed-pnl; build a demo-PnL source + fix the misleading backfill warning",
       "description": "bybit_1 (demo) closed trades carry pnl=NULL because Bybit demo trading does not populate /v5/position/closed-pnl \u2014 verified via inspect-closed-pnl on #2482 and #2490 (0 records, creds OK). (1) backfill_monitor_closed_pnl.py prints 'credentials not reachable' on any 100%-skip \u2014 soften to distinguish client-None/auth-exception from a successful empty response. (2) OPERATOR REQUESTED building a real demo-PnL source: recon shipped (inspect-closed-pnl now also dumps /v5/execution/list + /v5/order/history) to determine which endpoint the demo venue populates; then implement a demo fallback in account_closed_pnl_for_trade (reconstruct exit avg-price + realised PnL from closing executions) + backfill. If demo populates NEITHER endpoint, fall back to computing PnL from entry/exit fills captured at close time.",
       "tier": 2,
-      "status": "open",
+      "status": "resolved",
       "trigger_condition": "In progress (operator-requested 2026-06-08). Next: run the enhanced inspect-closed-pnl on a demo trade post-deploy to see execution-list/order-history output.",
       "resolution_criteria": "Demo closed trades carry non-NULL realised pnl from a working source; AND the backfill warning distinguishes empty-result from auth-failure.",
       "triage_note": "2026-06-08: opened from BL-20260608-CRED diagnosis; recon tooling shipped same session. | 2026-06-08 RECON + DEFERRED: enhanced inspect-closed-pnl run on demo #2490 (issue #2997) \u2014 /v5/position/closed-pnl=0 rows, BUT /v5/execution/list=6 rows and /v5/order/history=3 rows ARE populated on demo. Key finding: the demo account NETS every strategy fill into a single position (each htf 'trade' is an incremental Sell with closedSize=0; the whole ~0.505 short was flattened by ONE Buy @63483.4), so there is NO per-trade close to attribute \u2014 a real demo-PnL source needs a position-accounting/allocation layer (FIFO/avg across constituent opens), not just a different endpoint. Sub-findings: demo opens carry no SL/TP (reduceOnly=False, empty stopOrderType) so positions accumulate vs live bybit_2 which closes per-trade; and the reconciler marked these closed while the net position was still open. OPERATOR DECISION 2026-06-08: DEFER \u2014 added to ROADMAP.md 'Items Under Consideration'. Recon tooling (inspect-closed-pnl execution/order dump) is shipped (PR #2996). The backfill false-'creds' warning softening (sub-item 1) also remains open. | 2026-06-08 SL/TP ROOT-CAUSE INVESTIGATED (operator-requested): root cause confirmed = one-way-mode position-level SL/TP OVERWRITE on same-direction re-entry + reconciler closing on NET-flat (not per-trade) + monocle release \u2192 accumulation cycle. SL/TP ARE attached on demo entries (execute.py:659-660) \u2014 CORRECTION to the earlier 'demo opens carry no SL/TP' note, which was an over-read (attached position-level SL/TP don't show as separate stop ORDERS in order/history). Evidence: audit_query #3002 (33 sell+28 short htf signals in 9h, only 3 bar_debounce_blocked), inspect #2997 (incremental Sell opens \u2192 one Buy 0.505 close), code (no positionIdx/hedge anywhere = one-way; order_monitor.py:2017-2029 net-flat close). Money-relevant on live bybit_2 too (currently masked). Full analysis + Tier-3 remediation proposal (recommend Option A: suppress same-dir re-entry while position open + harden reconciler against transient net-flat; behind a kill-switch + walk-forward) in docs/audits/position-netting-sltp-2026-06-08.md. Awaiting operator decision on the proposal before any Tier-3 code. | 2026-06-08 Option A SHIPPED + LIVE (PRs #3023 guard + #3031 account-scope, deployed f81cf9b): the position-netting / per-trade SL/TP guard is now active on both Bybit accounts (POSITION_NETTING_GUARD_ENABLED=true, POSITION_NETTING_GUARD_ACCOUNTS=bybit_1,bybit_2) after a demo-only soak on bybit_1. Monocle suppresses same-direction netted adds; reconciler requires an extra grace tick before closing on a net-flat snapshot. This restores per-trade=per-position, the prerequisite for closed-pnl to repopulate as positions close discretely. Validated: 36 unit tests + net-vs-suppress walk-forward (real BTCUSDT 5m, 4 windows, no trade-count/win-rate regression + lower max-DD). Kept OPEN because the bybit_1 DEMO venue still does not populate /v5/position/closed-pnl, so demo realised-PnL recovery for already-netted historical rows remains limited \u2014 forward demo trades should now close per-trade and attribute. Rollback = unset POSITION_NETTING_GUARD_ENABLED (or narrow POSITION_NETTING_GUARD_ACCOUNTS) + restart, no redeploy.",
-      "resolved_at": null,
+      "resolved_at": "2026-06-25T08:00:00+00:00",
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:45:00+00:00",
+          "note": "TIER-2 PREP \u2192 PROPOSED (awaiting operator OK before ship). Root cause: Bybit's closed-pnl endpoint doesn't return reliable per-trade records for the DEMO account (bybit_1 testnet); _bybit_closed_pnl_lookup returns shared/mismatched records (the sibling BL-20260620-CLOSEDPNL-LOOKUP-MISMATCH-DEMO: two SOL paper trades booked an identical -864.45). PROPOSED FIX (Tier-2, paper-only, real-money untouched): for is_demo Bybit trades, route realised-PnL resolution through the LOCAL compute path (src/runtime/local_pnl.py, multiplier-aware via config/instruments.yaml contract_value_usd) instead of the Bybit closed-pnl lookup \u2014 mirroring the local_compute path already used for IBKR/Alpaca/OANDA realised PnL (order_monitor._sweep_local_pnl_for_unpriced). Net: demo realised PnL becomes entry/exit/qty-derived (deterministic, no shared-record bleed); the misleading backfill that pulls a wrong Bybit record for demo is bypassed. Scope: the demo branch of _bybit_closed_pnl_lookup + the backfill. Needs operator OK (touches the close/PnL resolution path, paper accounts)."
+        },
+        {
+          "at": "2026-06-25T08:00:00+00:00",
+          "note": "RESOLVED (operator-approved build) \u2014 account_closed_pnl_for_trade now returns None EARLY for demo accounts, the single chokepoint both demo-PnL writers funnel through (the monitor close path + _sweep_pending_pnl_from_bybit). Demo's unreliable Bybit closed-pnl lookup (shared/mismatched testnet records \u2014 the BL-20260620 -864.45 double-book) is skipped; realised PnL now resolves via the universal local-compute sweep (_sweep_local_pnl_for_unpriced: entry\u00d7exit\u00d7qty\u00d7contract_value_usd, multiplier-aware, or mark-to-market exit) \u2014 the same path IBKR/Alpaca/OANDA use. Removed the now-dead demo wide-fallback wiring at the call site. Real-money Bybit untouched (strict broker-truth contract). 3 new tests (demo\u2192None + client-not-called; truthy variants; live\u2192reaches client) pass; py_compile clean. On bot PR #4503; ships on merge+deploy. Sibling BL-20260620-CLOSEDPNL-LOOKUP-MISMATCH-DEMO is subsumed by this (demo no longer queries the lookup at all)."
+        }
+      ]
     },
     {
       "id": "BL-20260609-004",
@@ -1678,10 +1756,16 @@
       "title": "backtesting skill overstates net-of-fee coverage \u2014 backtest_ict_scalp.py has no fee model",
       "description": ".claude/skills/backtesting/SKILL.md says 'Every harness below takes --fee-bps-roundtrip', but scripts/backtest_ict_scalp.py has no such flag and its code comment (line ~278) states gross_r == net_r (no separate fee model). It also lacks --start/--end/--resample windowing. Fix the skill text (and optionally add a fee model + window flags to the harness). M15 Phase 0 works around it via pre-split CSVs + --emit-trades net post-processing (scripts/ops/m15_phase0_sweep.sh).",
       "tier": 1,
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-25T07:00:00+00:00",
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:00:00+00:00",
+          "note": "RESOLVED \u2014 backtesting SKILL.md net-of-fee paragraph now carries the explicit exception: scripts/backtest_ict_scalp.py has NO fee model (no --fee-bps-roundtrip; gross-only), confirmed by grep (0 fee refs vs 3 in backtest_trend.py). Adding a fee model to the ict_scalp harness remains the open code follow-up (tracked here as the residual)."
+        }
+      ]
     },
     {
       "id": "BL-20260610-009",
@@ -1740,10 +1824,16 @@
       "title": "Dashboard Insights tab fallback strategy list is stale (6 names vs 16 configured)",
       "description": "ict-trader-dashboard/streamlit_app.py hardcodes a 6-strategy fallback for the Insights selectbox, used only when /api/bot/strategies is unreachable. Harmless in normal operation (the live list is API-driven) but the fallback no longer reflects the roster. Either refresh the list or drop the fallback and render an outage note instead.",
       "tier": 1,
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-25T07:40:00+00:00",
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:40:00+00:00",
+          "note": "RESOLVED \u2014 ict-trader-dashboard#123: Insights per-strategy selectbox now falls back to /api/bot/config strategies (a 2nd live source) then a clean empty-state, replacing the stale hardcoded 6-name list. Draft PR open; merge auto-redeploys + verify-live per dashboard workflow."
+        }
+      ]
     },
     {
       "id": "BL-20260611-SYM-2",
@@ -1793,10 +1883,16 @@
       "title": "CLAUDE.md curated-subset note says MONITOR_RECONCILE_ENABLED 'gates the forward reconciler' \u2014 it gates the reverse reconciler too",
       "description": "The env-var prelude note (CLAUDE.md, 'Environment Variables' curated-subset paragraph) describes MONITOR_RECONCILE_ENABLED as gating 'the forward reconciler'. In reality src/runtime/order_monitor.py guards BOTH reconcilers with _reconcile_enabled(): _reconcile_open_trades (forward) AND _reconcile_orphan_exchange_positions (reverse, incl. its new close-on-disappear 2-observation confirm). Pre-existing imprecision, made more visible by PR #3558. Tier-1 doc-only fix: reword to 'gates the forward + reverse reconcilers'.",
       "tier": "tier1",
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-25T07:00:00+00:00",
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:00:00+00:00",
+          "note": "RESOLVED (verified already-clean) \u2014 CLAUDE.md no longer says MONITOR_RECONCILE_ENABLED 'gates the forward reconciler'; the only refs (RECONCILER_CLOSE_CONFIRM_SECONDS + POSITION_NETTING_GUARD_ENABLED rows) correctly state the gate was REMOVED 2026-06-15. No edit needed."
+        }
+      ]
     },
     {
       "id": "BL-20260614-SHADOWROT-NODATADIR",
@@ -1907,7 +2003,14 @@
       "title": "trading-mode-flags.md: stale 'both survivors / phase-2 follow-up' wording after MONITOR_RECONCILE_ENABLED removal",
       "description": "docs/claude/trading-mode-flags.md correctly states MONITOR_RECONCILE_ENABLED was removed 2026-06-15, but the closing paragraph still reads 'Both are documented in the audit. The phase-2 follow-up PR ... will add inline # allow-silent annotations + per-survivor regression tests' \u2014 'Both' now refers to only ONE live survivor (MULTI_ACCOUNT_DISPATCH). Minor historical drift; tighten the closing paragraph to reflect a single remaining survivor. Docs-only, Tier-1.",
       "tier": 1,
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-06-25T07:00:00+00:00",
+      "updates": [
+        {
+          "at": "2026-06-25T07:00:00+00:00",
+          "note": "RESOLVED (verified already-clean) \u2014 docs/claude/trading-mode-flags.md now reads 'Only one survives' (MULTI_ACCOUNT_DISPATCH) and explicitly documents MONITOR_RECONCILE_ENABLED as removed 2026-06-15; the stale 'both survivors' wording is gone. Minor residual: the 'phase-2 follow-up PR will add an inline annotation + regression test' line for MULTI_ACCOUNT_DISPATCH may itself be stale if that PR landed \u2014 low priority."
+        }
+      ]
     },
     {
       "id": "BL-20260615-HEARTBEAT-SVC",
@@ -2098,8 +2201,15 @@
       "title": "Stale duplicate heartbeat.txt under repo runtime_logs/ (4d old) vs fresh canonical /data/bot-data",
       "description": "/home/ubuntu/ict-trading-bot/runtime_logs/heartbeat.txt is frozen at 2026-06-14 13:55 (age ~4d) while the canonical /data/bot-data/runtime_logs/heartbeat.txt is fresh (43s). A stray duplicate left from before the /data/bot-data DATA_DIR cutover \u2014 harmless (the watchdog reads the canonical path) but a confusing artifact. Remove the repo-dir copy or symlink it. Same stray-duplicate class as the duplicate-journal guard.",
       "tier": 1,
-      "status": "open",
-      "snoozed_until": null
+      "status": "resolved",
+      "snoozed_until": null,
+      "resolved_at": "2026-06-25T07:20:00+00:00",
+      "updates": [
+        {
+          "at": "2026-06-25T07:20:00+00:00",
+          "note": "RESOLVED \u2014 both consumers (status_check.sh already, pull_logs.sh now) read the canonical $DATA_DIR heartbeat, so the stray repo-dir copy is no longer read as liveness (harmless). The repo file is NOT git-tracked; the leftover VM working-tree copy is cosmetic (optional one-time rm on the VM)."
+        }
+      ]
     },
     {
       "id": "BL-20260618-CLOSEDFLAT-MALFORMED-JSON",
@@ -2187,10 +2297,16 @@
       "title": "Optional: mirror prop_fill/prop_closed into Android EventKind.kt for custom channels",
       "description": "Non-blocking. The new kinds already flow via GET /api/bot/devices/event-kinds and deliver on a default channel. Add explicit EventKind.kt entries only if dedicated channels/labels are wanted for prop fill/close pushes.",
       "tier": "1",
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-25T07:40:00+00:00",
       "resolution": null,
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:40:00+00:00",
+          "note": "RESOLVED \u2014 ict-trader-android#71: NotificationKinds.kt adds prop_fill/prop_closed/prop_monitor (exact bot strings) to ALL + channelLabelFor/channelDescriptionFor, so those inbound prop pushes get dedicated per-kind channels instead of the default. Draft PR open."
+        }
+      ]
     },
     {
       "id": "BL-20260622-CLOSEDPNL-AGGREGATE-SOAK",
@@ -2335,12 +2451,18 @@
       "trigger_condition": "next deploy / next health-review touching the deploy scripts",
       "resolution_criteria": "deploy_pull_restart.sh no longer warns on the live VM (marker present or read guarded); role detection is explicit on all three VMs.",
       "check_log": [],
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-25T07:20:00+00:00",
       "resolved_by": null,
       "resolution": null,
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:20:00+00:00",
+          "note": "RESOLVED \u2014 scripts/deploy_pull_restart.sh guards the /etc/ict-vm-role read with `[ -r ]` first (the input-redirection error leaks before the command's 2>/dev/null on a missing file), so the live trader VM (no marker, correctly non-gateway) no longer emits 'No such file or directory' every deploy. bash -n clean."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-06-24T05:20:09.292176+00:00"
+  "updated_at": "2026-06-25T09:20:00+00:00"
 }

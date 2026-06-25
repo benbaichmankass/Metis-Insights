@@ -421,6 +421,41 @@ def _section_review_coverage(report: dict) -> str:
     return "\n".join(out)
 
 
+_MON_BADGE = {
+    "soaking": "⏳",
+    "awaiting-data": "🧱",
+    "awaiting-decision": "🗳️",
+    "verify": "🔁",
+}
+
+
+def _section_monitoring(report: dict) -> str:
+    """Render the Monitoring section — backlog items that need more time
+    (soaking / awaiting data) or a decision (gate-met / operator-gated).
+    These are the deferred-with-reason items the review is actively tracking
+    rather than acting on this run."""
+    rows = (report.get("consolidated") or {}).get("monitoring") or []
+    out = ["<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>"]
+    if not rows:
+        out.append('<p class="muted">Nothing under active monitoring.</p>')
+        return "\n".join(out)
+    out.append('<div class="tablewrap"><table>'
+               '<tr><th>Item</th><th>Domain</th><th>State</th>'
+               '<th>What it’s waiting on</th><th>Next check</th></tr>')
+    for r in rows:
+        cat = _f(r.get("category"))
+        badge = _MON_BADGE.get(r.get("category"), "•")
+        out.append(
+            f"<tr><td><code>{_f(r.get('item_id'))}</code></td>"
+            f"<td>{_f(r.get('domain'))}</td>"
+            f"<td>{badge} {cat}</td>"
+            f"<td>{_f(r.get('detail'))}</td>"
+            f"<td>{_f(r.get('next_check'))}</td></tr>"
+        )
+    out.append("</table></div>")
+    return "\n".join(out)
+
+
 def render_html(report: dict) -> str:
     cons = report.get("consolidated") or {}
     title = f"System report — {report.get('window', '')}"
@@ -441,6 +476,7 @@ def render_html(report: dict) -> str:
         _section_market(report),
         _section_ml(report),
         _section_review_coverage(report),
+        _section_monitoring(report),
         f'<footer>report_id {_f(report.get("report_id"))} · reviewer {_f(report.get("reviewer"))} '
         f'· prior {_f(report.get("prior_report_id"))} · '
         f'ICT Trading Bot system-report</footer>',
@@ -491,6 +527,15 @@ def render_md(report: dict) -> str:
             lines.append(f"- Soak `{s.get('soak', DASH)}`: {s.get('state', DASH)} — {s.get('detail', '')}")
         for fl in (rc.get("flags_raised") or []):
             lines.append(f"- 🚩 {fl}")
+    mon = cons.get("monitoring") or []
+    if mon:
+        lines += ["", "## Monitoring (soaking / awaiting decision)"]
+        for m in mon:
+            lines.append(
+                f"- `{m.get('item_id', DASH)}` [{m.get('domain', DASH)} · "
+                f"{m.get('category', DASH)}] {m.get('detail', '')}"
+                + (f" (next: {m.get('next_check')})" if m.get('next_check') else "")
+            )
     lines += ["", f"_report_id {report.get('report_id', DASH)}_"]
     return "\n".join(lines)
 

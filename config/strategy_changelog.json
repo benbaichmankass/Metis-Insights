@@ -184,5 +184,12 @@
       "ref": "Tier-3 (operator-directed): raise ETH risk on bybit_2 to clear the Bybit 0.01 ETH minimum order",
       "summary": "Raised eth_pullback_2h risk_pct 0.3 -> 0.6. On the small (~$100) bybit_2 real-money test account the effective per-trade risk (account 0.01 x strategy 0.3 = 0.003 = 0.3% equity) sized ETH below Bybit's 0.01 ETH minimum order (~0.0084 ETH at a 2.5xATR(2h) ~$36 stop, ETH ~$1730), so the orders were rejected as sub-minimum and never opened. 0.6 (= 0.006 = 0.6% equity/trade) sizes ~0.0167 ETH at current vol, clearing 0.01 with ~67% ATR headroom; per-trade risk stays ~$0.60, well inside the account's 5% daily-loss cap. risk_pct is shared with bybit_1 (demo/paper), which also sizes 2x larger there (benign - paper money, R-multiples invariant). Strategy-level bump chosen because there is no per-(account,strategy) override and the account-level risk_pct would hit all 5 real-money strategies. ROLLBACK: restore risk_pct: 0.3."
     }
+  ],
+  "eth_pullback_prop_2h": [
+    {
+      "date": "2026-06-25",
+      "ref": "Tier-3 (operator-approved live promotion) \u2014 swap-robust prop variant (eth-pullback-prop-swap-aware-2026-06-25.md)",
+      "summary": "Created eth_pullback_prop_2h: eth_pullback_2h's entries with swap-robust exits (tp_r 50->6, trail_mult 5.0->3.5) for the Breakout venue. Routed to breakout_1 as execution: shadow (observe-only soak). CORRECTION: the first pass used an assumed 0.09%/day swap; Breakout's help centre confirms the real swap is 0.033%/day. At the real rate the funded-EV gate is STRONG: realised post-swap +$421 over 5y (drag 32%), 12-mo EV +$603 @75.9% P(net>0), ROI/fees 4.2, walk-forward 4/4 folds EV-positive; realised break-even swap is 0.10%/day = 3x the real rate (large cost-model safety margin). The live eth_pullback_2h exits are also +EV on Breakout at the real rate (+$166); this variant is preferred for lower drag + bigger margin. PROMOTED shadow->live the same day (operator-approved Tier-3); the original eth_pullback_2h was also routed live to breakout_1. Prop 'live' emits a manual ticket the operator places."
+    }
   ]
 }

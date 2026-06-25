@@ -129,6 +129,17 @@
         "tier": 3
       }
     ],
+    "monitoring": [
+      {
+        "_comment": "The Monitoring section (2026-06-25): backlog items the review is actively WATCHING rather than acting on this run — things that need more time (soaking / awaiting data) or a decision (a gate is met / operator-gated). Distinct from operator_priorities (act now) and from review_coverage.backlog_drive.deferred (the audit trail): this is the human-readable 'what are we waiting on' list surfaced in the report. Curate from the three backlogs' open items whose deferral reason is soak/data/decision — NOT stale-doc or code-fix items (those are actionable, not monitored). category in {soaking, awaiting-data, awaiting-decision, verify}.",
+        "item_id": "MB-YYYYMMDD-NNN | BL-... | PB-...",
+        "domain": "health | performance | ml",
+        "category": "soaking | awaiting-data | awaiting-decision | verify",
+        "detail": "<= 200 chars — what it is + what it's waiting on",
+        "since": "YYYY-MM-DD | null",
+        "next_check": "<= 60 chars — the trigger/criterion that ends the wait (e.g. 'n>=30 closed', 'next IB reset', 'operator go') | null"
+      }
+    ],
     "review_coverage": {
       "_comment": "REQUIRED (the Review-coverage guard, 2026-06-23). Proves the SYSTEM REVIEW actually covered its mandate — strategy promotion, ML training health, soak progress, AND that it WORKED THE BACKLOGS DOWN (not just counted them) — not just the trade/health summary. A run with any of strategy_promotion / ml_training_health / soak_status / backlog_drive missing or empty must STOP and complete the work before rendering. Relay-blocked data is allowed only as an explicit 'unavailable: <reason>' string, never silently omitted.",
       "strategy_promotion": {

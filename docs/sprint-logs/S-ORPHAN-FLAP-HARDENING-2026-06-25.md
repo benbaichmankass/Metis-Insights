@@ -64,11 +64,11 @@
 - Blockers: none.
 
 ## Deferred Items
-- Deferred item 1: **PB-20260625-001** (performance-review backlog) — the 26 `unreconciled` bybit_2 canonicals kept their original possibly-phantom PnL, which still counts in analytics; their exits can't be recovered from Bybit (7-day window expired). A future performance-review should reconcile/accept/void each per evidence.
+- Deferred item 1: **PB-20260625-002** (performance-review backlog) — the 26 `unreconciled` bybit_2 canonicals kept their original possibly-phantom PnL, which still counts in analytics; their exits can't be recovered from Bybit (7-day window expired). A future performance-review should reconcile/accept/void each per evidence.
 - Deferred item 2: BL-20260624-MHG-CLOSE-CONFIRM-VERIFY (health-review backlog) — keep verifying the close-confirm fix holds in the live close path.
 
 ## Next Recommended Sprint
-- Suggested next sprint: a `/system-review` pass once a fresh window accrues — confirm no NEW orphan rows appeared (the #2 red-flag log should be the canary), and drain PB-20260625-001.
+- Suggested next sprint: a `/system-review` pass once a fresh window accrues — confirm no NEW orphan rows appeared (the #2 red-flag log should be the canary), and drain PB-20260625-002.
 - Why next: validates the live-path fixes (#1–#3) actually stop new flaps under real trading, and resolves the residual unreconciled tail.
 - Required verification before starting: check `runtime_logs/orphan_events.jsonl` is empty/quiet since this sprint, and re-count `reconcile_status='superseded'` (expected 131) + `unreconciled` (expected 26).
 

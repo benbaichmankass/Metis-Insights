@@ -2033,6 +2033,49 @@ class Coordinator:
                     "raised: %s", exc,
                 )
 
+        # BUG-049 backstop (2026-06-25): guarantee the emit→terminal contract.
+        # The package is logged status='open' at the top of dispatch, BEFORE the
+        # eligibility filter. If this round placed NO trade for it AND the
+        # specific skip path left no linking rejection row, the package sits
+        # status='open' / linked_trade_id=NULL and the monitor reconciler
+        # mis-stamps it 'orphaned — never executed' at +5min (BUG-049). That
+        # red-flag status is wrong for what is really a deliberate non-fill. The
+        # observed classes this catches (system-review 2026-06-25):
+        #   * empty eligible list — strategy routed ONLY to an unconfigured /
+        #     strategies:[] account (e.g. trend_donchian_eth/_sol → breakout_1
+        #     with no creds → configured=False → filtered out → loop never runs);
+        #   * a benign no-op (netting-guard re-entry suppression, sub-min-lot,
+        #     flip-hold) that left no order_package_id-linked rejection row;
+        #   * any branch that returned without journaling.
+        # Terminalise the package directly here (mirrors the prop-branch contract
+        # in execute_pkg) so 'orphaned' stays reserved for genuinely lost
+        # positions. Fires ONLY when no trade was placed — a package that DID
+        # place a trade is linked by the trade row's order_package_id (unchanged).
+        # Pure post-dispatch status hygiene: it changes no execution decision and
+        # the genuine-failure roll-up ping above still fires. Best-effort.
+        if order_package_id and not any_trade_placed:
+            if not accounts:
+                _term_reason = "no_eligible_account"
+            elif all_benign_noop:
+                _term_reason = "all_accounts_noop"
+            else:
+                _term_reason = "no_fill_all_accounts"
+            try:
+                from src.units.db.database import Database
+                from src.utils.paths import trade_journal_db_path
+
+                Database(db_path=trade_journal_db_path()).update_order_package(
+                    order_package_id,
+                    {"status": "rejected", "close_reason": _term_reason},
+                )
+            except Exception as exc:  # noqa: BLE001 — never break dispatch
+                logger.warning(
+                    "multi_account_execute: BUG-049 backstop terminalise failed "
+                    "(pkg=%s strategy=%s symbol=%s reason=%s): %s",
+                    order_package_id, getattr(pkg, "strategy", "?"),
+                    getattr(pkg, "symbol", "?"), _term_reason, exc,
+                )
+
         return results
 
     def reload_accounts(self, accounts_path: Optional[str] = None) -> Dict[str, Any]:

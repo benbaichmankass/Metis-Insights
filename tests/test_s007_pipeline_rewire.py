@@ -53,6 +53,8 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         "ada_pullback_2h",
         "avax_pullback_2h",
         "eth_pullback_2h",
+        # swap-robust prop variant — breakout_1 shadow soak (DRAFT, Tier-3, 2026-06-25):
+        "eth_pullback_prop_2h",
         "fade_breakout_4h",
         "fvg_range_15m",
         "gld_pullback_1d",
