@@ -174,6 +174,40 @@ def test_callback_ignores_non_propexp() -> None:
     assert handle_expiry_callback("") is None
 
 
+def test_ticket_emit_attaches_yes_no_buttons(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A freshly-emitted prop ticket carries the Yes/No place-decision buttons."""
+    from datetime import datetime, timezone
+
+    from src.prop import breakout_notify
+    from src.prop.breakout_ticket import BreakoutSignal, TicketConfig, build_ticket
+
+    sig = BreakoutSignal(
+        strategy="trend_donchian_sol", symbol="SOLUSDT", direction="long",
+        entry=150.0, sl=145.5, tp=175.5, timeframe="1h",
+        signal_time=datetime.now(timezone.utc))
+    ticket = build_ticket(sig, TicketConfig(account_size_usd=5000.0, risk_pct=1.5))
+
+    captured = {}
+
+    def _fake_send(text, **kwargs):
+        captured["reply_markup"] = kwargs.get("reply_markup")
+        return True
+
+    monkeypatch.setattr("src.runtime.notify.send_telegram_direct", _fake_send)
+
+    out = breakout_notify.emit_prop_signal(
+        ticket, push=False, telegram=True,
+        account_id="breakout_1", ticket_id="prop-manual-deadbeef0001")
+    assert out["telegram"] is True
+    kb = captured["reply_markup"]
+    assert kb is not None
+    datas = [b["callback_data"] for b in kb["inline_keyboard"][0]]
+    assert datas == [
+        "propexp:y:prop-manual-deadbeef0001",
+        "propexp:n:prop-manual-deadbeef0001",
+    ]
+
+
 def test_send_test_prompt_creates_throwaway_ticket(isolated_env: Path) -> None:
     from src.prop.prop_expiry_prompt import handle_expiry_callback, send_test_prompt
 

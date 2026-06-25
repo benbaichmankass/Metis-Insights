@@ -83,6 +83,18 @@ def emit_prop_signal(ticket: Ticket, *, push: bool = True, telegram: bool = True
         try:
             from src.runtime.notify import send_telegram_direct
 
+            # Attach the "Did you place this trade?" Yes/No buttons directly to
+            # the ticket so the operator reports back with a tap — ✅ → the fill
+            # prompt, ❌ → logged not-placed (handled in claude_bridge propexp:*).
+            # The buttons ARE the primary report-back; the JSON block in the text
+            # stays as a fallback. Only when we have a ticket_id to key the
+            # callback on.
+            reply_markup = None
+            if ticket_id:
+                from src.prop.prop_expiry_prompt import build_place_decision_keyboard
+
+                reply_markup = build_place_decision_keyboard(ticket_id)
+
             # Route to the dedicated PROP-account bot (the repurposed comms bot):
             # TELEGRAM_PROP_BOT_TOKEN, falling back to the existing
             # TELEGRAM_CLAUDE_BOT_TOKEN being repurposed as the prop bot, else
@@ -90,7 +102,8 @@ def emit_prop_signal(ticket: Ticket, *, push: bool = True, telegram: bool = True
             # prop_signal push above already covers Android; the generic
             # `telegram` mirror would double-notify the same event.
             send_telegram_direct(fields["text"], parse_mode=None,
-                                 mirror_to_fcm=False, bot_token=_prop_bot_token())
+                                 mirror_to_fcm=False, bot_token=_prop_bot_token(),
+                                 reply_markup=reply_markup)
             out["telegram"] = True
         except Exception as exc:  # noqa: BLE001
             logger.warning("emit_prop_signal: telegram send failed: %s", exc)

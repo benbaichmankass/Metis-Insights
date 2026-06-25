@@ -88,11 +88,6 @@ def main() -> int:
 
     order = _build_order(args)
 
-    # Wrap the emitter so the test honours --no-push / --no-telegram while still
-    # using the production fan-out (FCM + prop Telegram bot).
-    def _emitter(ticket):
-        return emit_prop_signal(ticket, push=not args.no_push, telegram=not args.no_telegram)
-
     import os
 
     # Presence-only (never the values) so the action log shows whether delivery
@@ -114,7 +109,21 @@ def main() -> int:
     telegram_deliverable = creds["telegram_token"] and creds["telegram_chat_id"]
 
     try:
-        trade_id = emit_prop_ticket(order, account_cfg, timeframe=args.timeframe, _emitter=_emitter)
+        # Default (no leg-suppression flags): go through emit_prop_ticket's OWN
+        # emit path so the ticket carries its generated ticket_id — that's what
+        # makes the Yes/No place-decision buttons attach (the injected-emitter
+        # seam below is called as `_emitter(ticket)` and has no ticket_id, so it
+        # cannot show buttons). Only inject a custom emitter when a leg is being
+        # suppressed for the test (a niche debug path; buttons won't show there).
+        if args.no_push or args.no_telegram:
+            def _emitter(ticket):
+                return emit_prop_signal(
+                    ticket, push=not args.no_push, telegram=not args.no_telegram)
+
+            trade_id = emit_prop_ticket(
+                order, account_cfg, timeframe=args.timeframe, _emitter=_emitter)
+        else:
+            trade_id = emit_prop_ticket(order, account_cfg, timeframe=args.timeframe)
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: emit_prop_ticket raised: {exc}", file=sys.stderr)
         return 1
