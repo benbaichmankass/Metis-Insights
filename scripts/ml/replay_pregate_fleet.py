@@ -116,7 +116,8 @@ def _candles_df(rows: List[Dict[str, Any]]) -> pd.DataFrame:
 
 
 def score_model(model_id: str, reg: ModelRegistry, *, window_n: int,
-                folds: int, positive_class: str) -> Dict[str, Any]:
+                folds: int, positive_class: str,
+                max_bars: Optional[int] = None) -> Dict[str, Any]:
     sp = resolve_predictor(model_id, reg, log_path=None)
     base = getattr(sp, "wrapped", sp)
     spec = regime_spec_of(base) or regime_spec_of(sp)
@@ -150,6 +151,10 @@ def score_model(model_id: str, reg: ModelRegistry, *, window_n: int,
 
     candle_rows = _load_jsonl(raw_path)
     df = _candles_df(candle_rows)
+    if max_bars and len(df) > max_bars + window_n + 10:
+        # Bound the per-bar loop to the most-recent (and most decision-relevant)
+        # window; keep window_n+10 extra rows of warm-up before the scored span.
+        df = df.iloc[-(max_bars + window_n + 10):].reset_index(drop=True)
     closes = df["close"].astype(float).tolist()
     n = len(df)
 
@@ -206,7 +211,7 @@ def score_model(model_id: str, reg: ModelRegistry, *, window_n: int,
 
 
 def run(model_ids: List[str], *, window_n: int, folds: int,
-        positive_class: str) -> Dict[str, Any]:
+        positive_class: str, max_bars: Optional[int] = None) -> Dict[str, Any]:
     reg = ModelRegistry(_factory._resolve_default_registry_root())
     if not model_ids:
         discovered = list(discover_shadow_stage_model_ids(reg))
@@ -226,7 +231,7 @@ def run(model_ids: List[str], *, window_n: int, folds: int,
         print(f"[fleet] ({n}/{len(model_ids)}) {mid} ...", file=sys.stderr, flush=True)
         try:
             r = score_model(mid, reg, window_n=window_n, folds=folds,
-                            positive_class=positive_class)
+                            positive_class=positive_class, max_bars=max_bars)
             results.append(r)
             ov = r.get("overall") or {}
             print(f"[fleet]   -> {r.get('auc_verdict')} auc={ov.get('auc')} "
@@ -254,12 +259,17 @@ def main() -> int:
     ap.add_argument("--window-n", type=int, default=20)
     ap.add_argument("--folds", type=int, default=4)
     ap.add_argument("--positive-class", default="volatile")
+    ap.add_argument("--max-bars", type=int, default=30000,
+                    help="cap scored bars per head to the most recent N "
+                         "(bounds the 5m/15m heads so the nightly stays in "
+                         "budget); 0 = all history")
     ap.add_argument("--json", dest="json_out", default=None,
                     help="write report here ('-' = stdout)")
     a = ap.parse_args()
     ids = [m.strip() for m in a.models.split(",") if m.strip()]
     report = run(ids, window_n=a.window_n, folds=a.folds,
-                 positive_class=a.positive_class)
+                 positive_class=a.positive_class,
+                 max_bars=(a.max_bars if a.max_bars and a.max_bars > 0 else None))
     out = json.dumps(report, indent=1)
     if a.json_out and a.json_out != "-":
         Path(a.json_out).write_text(out, encoding="utf-8")
