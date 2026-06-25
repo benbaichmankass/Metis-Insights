@@ -38,9 +38,10 @@ so in a chop/range tape the whole book stalls together — which is exactly the
 real-money-idle state the live reports show.
 
 **The highest-value moves, in order of confidence × buildability:**
-1. **Enforce the regime router** (built, currently log-only) + **book-level
-   vol-targeting** + **correlation-cluster caps** — risk/structure wins using edges
-   we already have. (Tier-0/1)
+1. **Book-level vol-targeting** + **correlation-cluster caps** — risk/structure wins
+   using edges we already have. (Tier-1) *(The regime router — originally listed here
+   as "enforce it" — was found ALREADY ENFORCING live on 2026-06-25; see §A3. The
+   remaining router work is verification + decomposing the never-measured alt/ETF cells.)*
 2. **Re-baseline the headline backtests** under exact-live-params + live data
    (the "+43.8R" trend_donchian number was inflated — honest value +11R/−6R OOS).
 3. **New directional sleeve: Opening-Range Breakout on MES** (real evidence, no
@@ -123,19 +124,27 @@ Structural reads:
   This is a hard constraint on the MR research: any MR sleeve must clear a brutal
   fee:gross test on crypto perps; equities/futures are the more plausible MR home.
 
-### A3. The regime router is BUILT but NOT ENFORCING — the single cheapest lever
-`config/regime_policy.yaml` already encodes the OFF cells from the matrix, but it runs
-in **Phase 2 (shadow / log-only)**: it emits `regime_shadow_gate` audit rows for
-intents an OFF cell *would* suppress, without gating them. `REGIME_ROUTER_ENABLED`
-default-off → **Phase 3 (enforcement) is one env flip + restart, no redeploy**, and
-Tier-3. ~3+ weeks of would-gate soak evidence already exist.
-- Enforcing it stops trend/pullback bleeding into chop and **reclaims the chop-short
-  edge** — i.e. it operationalizes "always trade something well" with edges we already
-  own, at near-zero build cost.
-- **Caveat (our own prior negative + literature):** frame the router as a **GATE**
-  (turn off measured losers in the wrong regime), **NOT a capital re-weighter**.
-  Regime-conditional *weighting* lost to naive diversification OOS; Phase-4 soft-weight
-  graduation should stay parked until evidence says otherwise.
+### A3. The regime router is ALREADY ENFORCING (Phase 3) — verified live 2026-06-25
+`config/regime_policy.yaml` encodes the OFF cells from the matrix. **Live diag pull
+(2026-06-25, T0.3) shows the router is in Phase-3 ENFORCEMENT, not Phase-2 shadow:**
+`regime_hard_gate` rows with `enforced: true` are being written in real time (newest
+2026-06-25T11:11Z at pull time), and `regime_shadow_gate` stopped emitting ~2026-06-08
+(the shadow→enforced flip). So the "cheapest lever" is **already pulled** — this
+corrects the earlier draft assumption that it was log-only.
+- **It's working as designed:** the captured hard-gates are `htf_pullback_trend_2h`
+  SHORT in `transitional` (the matrix's −4.3R transitional-short loser cell) — the
+  router correctly killing a measured loser, exactly the "always trade something well"
+  behaviour we wanted.
+- **But two things surfaced:** (1) that gated short intent fires every ~2.3 min (≈ tick
+  cadence) on a 2h strategy — the **re-entry-storm** duplicate-intent flood (A1 cause 3 /
+  A5), benign because gated but it pollutes the signals table and distorts stats; (2)
+  every row carries `vol_regime: unknown`, so the 2-D vol-axis cells (S15b) can never
+  fire live — the vol detector isn't resolving.
+- **Caveat retained (our prior negative + literature):** the router is a **GATE** (turn
+  off measured losers in the wrong regime), **NOT a capital re-weighter** — keep it that
+  way (regime-conditional *weighting* lost to naive diversification OOS).
+- **Doc-freshness:** `CLAUDE.md`'s env table still says `REGIME_ROUTER_ENABLED` "default
+  off → phase 2"; the live VM is enforced (field beats comment) → log a doc-freshness fix.
 
 ### A4. Flags
 - **`fvg_range_15m`** is live (bybit_1 + bybit_2) yet matrix-negative every regime →
@@ -302,9 +311,13 @@ Tier-3 proposal PR. Recommended sequencing is top-to-bottom (T0 enables the rest
 - **P2 Correlation-cluster exposure caps.** Cap aggregate risk per cluster
   (crypto-beta / US-equity / metals / bonds). No return forecast needed. *Gate:*
   prevents simulated silent concentration without lowering bootstrap Sharpe. *Research → Tier-3.*
-- **P3 Regime router Phase-3 enforcement** (from T0.3). Turn the matrix OFF cells into
-  hard gates (gate, not re-weight). *Gate:* shadow-soak agreement with the matrix +
-  no live-signal stranding (fail-permissive). *Tier-3 (one env flip + restart).*
+- **P3 Regime router — ALREADY ENFORCING (done); now VERIFY + extend.** T0.3 found the
+  router live in Phase-3 enforcement (`regime_hard_gate enforced:true`, 2026-06-25). So
+  this item is no longer "propose enforcement" — it is: (a) **verify health** (it's
+  correctly gating the htf_pullback transitional-short loser cell — good); (b) **fix the
+  re-entry-storm** that re-fires the gated intent every tick (health-side); (c) **fix the
+  unresolved `vol_regime: unknown`** so the 2-D vol cells can fire; (d) feed P4's alt/ETF
+  decomposition into new policy cells (the alt/ETF cells default permissive-ON, unmeasured).
 - **P4 Roster pruning + regime-decomposition.** Decide `fvg_range_15m` (demote unless a
   live cohort contradicts the matrix); **regime-decompose the alt/ETF/futures expansion**
   (the matrix is BTC-only). *Gate:* per-cell regime×direction matrix using exact live
@@ -415,12 +428,19 @@ dynamic weighting for us before.
 ---
 
 ## 8. Recommended first concrete steps (for operator green-light)
-The cheapest high-value start, all Tier-0/1, no live risk: **T0.1 (re-baseline) + T0.3
-(router soak analysis) → P3 proposal (router enforcement) + P1 (vol-target overlay
-backtest)**. In parallel, **T0.2 (cross-asset loader)** unblocks the orthogonal
-market-neutral sleeves (P7/P8), and **P5 (ORB on MES)** is the highest-conviction new
-directional sleeve to scaffold as a paper/shadow cell. ML work starts with **P11 (gate
-hardening) + P9 (P(win) filter)** since they also fix the degenerate-advisory problem.
+**Execution-session update (2026-06-25):** T0.3 ran first and found the router **already
+enforcing** (P3 done) — so the freed priority moves to **P4** (regime-decompose the
+never-measured alt/ETF/futures cells) + the **re-entry-storm fix**. A tooling audit also
+found several plan items are **already built**, not to-build: `scripts/backtest_pairs.py`
+(P8 cointegration ratio MR — complete, self-tested), `scripts/backtest_funding_carry.py`
+(carry, validated dormant), `scripts/backtest_system.py` (portfolio substrate for P1),
+`scripts/research/regime_matrix.py` (P4 decomposition), and robustness/fee/corr gates. So
+the genuine **builds** remaining are: **P7** (cross-sectional *basket* momentum —
+`research_momentum.py` is time-series, not cross-sectional), **P1** (vol-target overlay on
+`backtest_system.py`), and **P5** (ORB harness). The cheapest high-value start is now:
+**run P8 (pairs) + P4 (alt/ETF regime decomposition) + P6 (squeeze multi-symbol)** on the
+trainer (harnesses exist), **build P1 + P5 + P7**, and start ML with **P11 (gate
+hardening) + P9 (P(win) filter)**.
 
 *Sources: full cited research (market-neutral, non-trend+allocation, ML) was produced
 this session and is summarized inline above with key citations; the existing-book
