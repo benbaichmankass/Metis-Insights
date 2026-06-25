@@ -1312,7 +1312,129 @@
     },
     "summary": "WORKED 3 items with fresh live evidence (verified 1h-yz demotion holds; verified MHG flap recurred; opened MB-20260625-001 for the new degenerate 5m-yz advisory). No items marked resolved this run: the remaining open items are genuinely Tier-3-operator-gated (yz demotes, regime-router phases, conviction P4/P5), multi-week soaks (real-money eth_pullback, exit-ladder), data-blocked (MES datasets), or code-path changes out of scope for a read-only review. Honesty rule: not false-resolving on a live system. Folded in the orphan-flap hardening queue (#1-#5, all merged) as the fix for the MHG/target_qty=0 orphan class this review re-found; next concrete step is the operator-gated reconcile-orphan-history dry-run+apply."
    }
-  }
+  },
+  "monitoring": [
+   {
+    "item_id": "MB-20260625-001",
+    "domain": "ml",
+    "category": "awaiting-decision",
+    "detail": "yz 5m advisory DEMOTED to shadow; re-promotion needs the edge-redesign (shorter freeze recency / finer low-end buckets) validated first",
+    "since": "2026-06-25",
+    "next_check": "edge-redesign re-gate clears"
+   },
+   {
+    "item_id": "MB-20260623-001",
+    "domain": "ml",
+    "category": "awaiting-data",
+    "detail": "1h-yz demoted; refinement = retrain on fresh data + diff live-vs-train yz feature vector at score time",
+    "since": "2026-06-23",
+    "next_check": "refinement retrain + re-gate"
+   },
+   {
+    "item_id": "MB-20260616-CONVICTION-P4-SIZING",
+    "domain": "ml",
+    "category": "awaiting-decision",
+    "detail": "graduate conviction to drive real-money sizing \u2014 soak-gated, Tier-3 operator-approved",
+    "since": "2026-06-16",
+    "next_check": "conviction soak gate + operator go"
+   },
+   {
+    "item_id": "MB-20260613-002",
+    "domain": "ml",
+    "category": "awaiting-data",
+    "detail": "VPIN/order-flow head (btc-regime-5m-lgbm-flow-v1) DATA-BLOCKED \u2014 awaits forward L2 capture",
+    "since": "2026-06-13",
+    "next_check": "L2 capture path live"
+   },
+   {
+    "item_id": "MB-20260618-XA-SOAK-WATCH",
+    "domain": "ml",
+    "category": "soaking",
+    "detail": "cross-asset shadow soak \u2014 watch CPU/heartbeat health + score sanity/drift",
+    "since": "2026-06-18",
+    "next_check": "weekly drift check"
+   },
+   {
+    "item_id": "BL-20260526-002",
+    "domain": "ml",
+    "category": "awaiting-data",
+    "detail": "3 MES quality manifests (execution/setup/trade-outcome) skip empty_dataset every cycle \u2014 need intraday MES market_raw",
+    "since": "2026-05-26",
+    "next_check": "MES intraday dataset built"
+   },
+   {
+    "item_id": "PERF-20260601-001",
+    "domain": "performance",
+    "category": "awaiting-decision",
+    "detail": "trend_donchian live 0% win / 19 trades / -198R despite research-best \u2014 regime-mismatch investigation (router phases)",
+    "since": "2026-06-01",
+    "next_check": "regime-router phase-3 evidence"
+   },
+   {
+    "item_id": "PB-20260617-001",
+    "domain": "performance",
+    "category": "soaking",
+    "detail": "WC-5 signals DB-canonical cutover (#3841) riding a dual-write-clean soak before merge",
+    "since": "2026-06-17",
+    "next_check": "~1wk clean dual-write \u2192 merge"
+   },
+   {
+    "item_id": "PB-20260618-015",
+    "domain": "performance",
+    "category": "awaiting-data",
+    "detail": "eth_pullback_2h real-money on bybit_2 + ADX-gate firing \u2014 review once trades accrue (0 real closes this window)",
+    "since": "2026-06-18",
+    "next_check": "first real bybit_2 eth fills"
+   },
+   {
+    "item_id": "PB-20260617-002",
+    "domain": "performance",
+    "category": "soaking",
+    "detail": "ExitPlan ladder graduation to the real exit (P4 API / P3-live prop) once the laddered-vs-single soak has enough evidence",
+    "since": "2026-06-17",
+    "next_check": "exit-ladder soak volume + backtest gate"
+   },
+   {
+    "item_id": "PB-20260611-M15-2",
+    "domain": "performance",
+    "category": "soaking",
+    "detail": "eth_pullback_2h bybit_1 demo soak \u2014 compare first weeks of fills vs the k-fold expectation",
+    "since": "2026-06-11",
+    "next_check": "enough demo fills"
+   },
+   {
+    "item_id": "BL-20260624-MHG-CLOSE-CONFIRM-VERIFY",
+    "domain": "health",
+    "category": "verify",
+    "detail": "orphan-flap fixes #1-#5 holding (no new flap since 06-24 13:49); keep verifying across IB-gateway resets",
+    "since": "2026-06-24",
+    "next_check": "next IB reset windows clean"
+   },
+   {
+    "item_id": "BL-20260622-CLOSEDPNL-AGGREGATE-SOAK",
+    "domain": "health",
+    "category": "soaking",
+    "detail": "verify the closed-pnl partial-close aggregation resolves the bybit_2 orphan-with-NULL-pnl over a soak",
+    "since": "2026-06-22",
+    "next_check": "next bybit_2 partial close"
+   },
+   {
+    "item_id": "BL-20260623-002",
+    "domain": "health",
+    "category": "verify",
+    "detail": "recurring IB-gateway wedge at ~06:00Z (MES/MGC/MHG dark) \u2014 confirm the re-armed reactive watchdog catches mid-day wedges",
+    "since": "2026-06-23",
+    "next_check": "next gateway wedge auto-heals"
+   },
+   {
+    "item_id": "orphan-unreconciled-26",
+    "domain": "health",
+    "category": "awaiting-data",
+    "detail": "26 canonical rows left 'unreconciled' (red-flag) by the historical pass \u2014 old bybit_2 BTCUSDT clusters, no recoverable package; investigate vs operator exchange-history export (BL-20260621-ACCOUNT-HISTORY-PULL)",
+    "since": "2026-06-25",
+    "next_check": "operator exchange-history export"
+   }
+  ]
  },
  "artifacts": {
   "json_path": "comms/reports/since-last/20260625T054000Z/report.json",

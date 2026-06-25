@@ -257,6 +257,17 @@ Build the consolidated object per
   symbol).
 - `consolidated.tier3_proposals_pending[]` — the Tier-3 items the sub-reviews
   proposed (never enacted), surfaced in one place.
+- `consolidated.monitoring[]` — the **Monitoring** section (2026-06-25): the
+  backlog items the review is actively *watching* rather than acting on — things
+  that need more time (`soaking` / `awaiting-data`) or a decision
+  (`awaiting-decision` — a gate is met or it's operator-gated) or a recurring
+  `verify`. Curate from the three backlogs' open items whose deferral reason is
+  soak/data/decision (NOT stale-doc / code-fix items — those are *actionable*, so
+  they belong in `operator_priorities` or a follow-up PR, not here). Each row:
+  `{item_id, domain, category, detail, since, next_check}` where `next_check` is
+  the concrete trigger that ends the wait (e.g. `n>=30 closed`, `next IB reset`,
+  `operator go`). This is the human-readable "what are we waiting on" companion to
+  `review_coverage.backlog_drive.deferred` (which is the audit trail).
 - `consolidated.review_coverage` — **required** (the Review-coverage guard): the
   `strategy_promotion`, `ml_training_health`, `soak_status`, `flags_raised[]`, and
   `backlog_drive` (what was drained vs deferred + why) the review produced. A run

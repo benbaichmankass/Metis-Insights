@@ -31,4 +31,21 @@ Window 06-24 05:23Z->06-25 05:40Z (~24h). System healthy: heartbeat running, all
 - 🚩 REAL-MONEY IDLE: 0 closed real trades in 24h — confirm market-driven, not a silent execution gap.
 - 🚩 3 MES quality manifests skip empty_dataset every trainer cycle (data-blocked).
 
+## Monitoring (soaking / awaiting decision)
+- `MB-20260625-001` [ml · awaiting-decision] yz 5m advisory DEMOTED to shadow; re-promotion needs the edge-redesign (shorter freeze recency / finer low-end buckets) validated first (next: edge-redesign re-gate clears)
+- `MB-20260623-001` [ml · awaiting-data] 1h-yz demoted; refinement = retrain on fresh data + diff live-vs-train yz feature vector at score time (next: refinement retrain + re-gate)
+- `MB-20260616-CONVICTION-P4-SIZING` [ml · awaiting-decision] graduate conviction to drive real-money sizing — soak-gated, Tier-3 operator-approved (next: conviction soak gate + operator go)
+- `MB-20260613-002` [ml · awaiting-data] VPIN/order-flow head (btc-regime-5m-lgbm-flow-v1) DATA-BLOCKED — awaits forward L2 capture (next: L2 capture path live)
+- `MB-20260618-XA-SOAK-WATCH` [ml · soaking] cross-asset shadow soak — watch CPU/heartbeat health + score sanity/drift (next: weekly drift check)
+- `BL-20260526-002` [ml · awaiting-data] 3 MES quality manifests (execution/setup/trade-outcome) skip empty_dataset every cycle — need intraday MES market_raw (next: MES intraday dataset built)
+- `PERF-20260601-001` [performance · awaiting-decision] trend_donchian live 0% win / 19 trades / -198R despite research-best — regime-mismatch investigation (router phases) (next: regime-router phase-3 evidence)
+- `PB-20260617-001` [performance · soaking] WC-5 signals DB-canonical cutover (#3841) riding a dual-write-clean soak before merge (next: ~1wk clean dual-write → merge)
+- `PB-20260618-015` [performance · awaiting-data] eth_pullback_2h real-money on bybit_2 + ADX-gate firing — review once trades accrue (0 real closes this window) (next: first real bybit_2 eth fills)
+- `PB-20260617-002` [performance · soaking] ExitPlan ladder graduation to the real exit (P4 API / P3-live prop) once the laddered-vs-single soak has enough evidence (next: exit-ladder soak volume + backtest gate)
+- `PB-20260611-M15-2` [performance · soaking] eth_pullback_2h bybit_1 demo soak — compare first weeks of fills vs the k-fold expectation (next: enough demo fills)
+- `BL-20260624-MHG-CLOSE-CONFIRM-VERIFY` [health · verify] orphan-flap fixes #1-#5 holding (no new flap since 06-24 13:49); keep verifying across IB-gateway resets (next: next IB reset windows clean)
+- `BL-20260622-CLOSEDPNL-AGGREGATE-SOAK` [health · soaking] verify the closed-pnl partial-close aggregation resolves the bybit_2 orphan-with-NULL-pnl over a soak (next: next bybit_2 partial close)
+- `BL-20260623-002` [health · verify] recurring IB-gateway wedge at ~06:00Z (MES/MGC/MHG dark) — confirm the re-armed reactive watchdog catches mid-day wedges (next: next gateway wedge auto-heals)
+- `orphan-unreconciled-26` [health · awaiting-data] 26 canonical rows left 'unreconciled' (red-flag) by the historical pass — old bybit_2 BTCUSDT clusters, no recoverable package; investigate vs operator exchange-history export (BL-20260621-ACCOUNT-HISTORY-PULL) (next: operator exchange-history export)
+
 _report_id RPT-20260625-054000-since-last_
