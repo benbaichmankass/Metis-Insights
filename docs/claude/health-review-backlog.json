@@ -1774,10 +1774,16 @@
       "title": "Dashboard Insights tab fallback strategy list is stale (6 names vs 16 configured)",
       "description": "ict-trader-dashboard/streamlit_app.py hardcodes a 6-strategy fallback for the Insights selectbox, used only when /api/bot/strategies is unreachable. Harmless in normal operation (the live list is API-driven) but the fallback no longer reflects the roster. Either refresh the list or drop the fallback and render an outage note instead.",
       "tier": 1,
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-25T07:40:00+00:00",
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:40:00+00:00",
+          "note": "RESOLVED \u2014 ict-trader-dashboard#123: Insights per-strategy selectbox now falls back to /api/bot/config strategies (a 2nd live source) then a clean empty-state, replacing the stale hardcoded 6-name list. Draft PR open; merge auto-redeploys + verify-live per dashboard workflow."
+        }
+      ]
     },
     {
       "id": "BL-20260611-SYM-2",
@@ -2241,10 +2247,16 @@
       "title": "Optional: mirror prop_fill/prop_closed into Android EventKind.kt for custom channels",
       "description": "Non-blocking. The new kinds already flow via GET /api/bot/devices/event-kinds and deliver on a default channel. Add explicit EventKind.kt entries only if dedicated channels/labels are wanted for prop fill/close pushes.",
       "tier": "1",
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-25T07:40:00+00:00",
       "resolution": null,
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:40:00+00:00",
+          "note": "RESOLVED \u2014 ict-trader-android#71: NotificationKinds.kt adds prop_fill/prop_closed/prop_monitor (exact bot strings) to ALL + channelLabelFor/channelDescriptionFor, so those inbound prop pushes get dedicated per-kind channels instead of the default. Draft PR open."
+        }
+      ]
     },
     {
       "id": "BL-20260622-CLOSEDPNL-AGGREGATE-SOAK",
@@ -2402,5 +2414,5 @@
       ]
     }
   ],
-  "updated_at": "2026-06-25T07:20:00+00:00"
+  "updated_at": "2026-06-25T07:40:00+00:00"
 }
