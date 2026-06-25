@@ -87,8 +87,15 @@ echo ">>> Post-sync HEAD: ${POST_SYNC_HEAD}"
 # FILES (install_systemd_units.sh is idempotent + role-gates its own enables)
 # and bounce the gateway timers so a changed cadence/ExecStart takes effect —
 # then exit BEFORE the pip + trader-service-restart section. Keyed on the
-# /etc/ict-vm-role marker (written by provision_ib_gateway.sh).
-VM_ROLE="$(tr -d '[:space:]' < /etc/ict-vm-role 2>/dev/null || true)"
+# /etc/ict-vm-role marker (written by provision_ib_gateway.sh). The live trader
+# VM has no marker (correctly — it must NOT enable the gateway watchdog), so
+# guard the read with a readability test FIRST: an input redirection `< file`
+# that fails is reported by the shell BEFORE the command's `2>/dev/null` takes
+# effect, leaking a "No such file or directory" warning every deploy
+# (BL-20260623-VMROLE). The `[ -r ]` guard makes a missing marker a clean
+# empty-role default (= non-gateway), no noise.
+VM_ROLE=""
+[ -r /etc/ict-vm-role ] && VM_ROLE="$(tr -d '[:space:]' < /etc/ict-vm-role 2>/dev/null || true)"
 if [ "${VM_ROLE}" = "gateway" ]; then
     if [ "${PRE_SYNC_HEAD}" = "${POST_SYNC_HEAD}" ]; then
         echo ">>> [gateway] HEAD unchanged (${POST_SYNC_HEAD:0:7}); nothing to deploy."

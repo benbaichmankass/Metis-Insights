@@ -961,3 +961,44 @@ download + paste the artifact content.
 | `TRAINER_VM_IP` | `158.178.209.121` | `trainer-vm-diag.yml`, `deploy-trainer-bootstrap.yml` |
 | `TRAINER_VM_USER` | `ubuntu` | `trainer-vm-diag.yml` |
 | `TRAINER_VM_SSH_HOST` | `158.178.209.121` | `vwap-backtest.yml` |
+
+## Complete workflow index (catalog completeness — BL-20260602-003)
+
+The cheat-sheet above covers the day-to-day workflows; this index lists the
+**remaining** workflow files so every `.github/workflows/*.yml` is named in this
+doc (autonomy levels are the same scale as above — verify against the workflow
+header before triggering a mutating one).
+
+| Workflow | Category | Autonomy | Trigger | Purpose |
+|---|---|---|---|---|
+| `account-class-guard.yml` | CI guard | AUTO | PR | Fails PR when an accounts.yaml account is missing account_class. |
+| `canonical-doc-coherence.yml` | CI guard | AUTO | PR/push | Mechanical guard against governance-doc drift (the doc-coherence 'teeth'). |
+| `new-table-wiring-guard.yml` | CI guard | AUTO | PR | Fails+pings when a PR adds a persistent table without wiring it into the canonical store. |
+| `writer-conformance-guard.yml` | CI guard | AUTO | PR | Fails+pings when a PR adds a journal writer that bypasses the canonical resolver/conformance. |
+| `diag-relay-sweep.yml` | Ops relay | AUTONOMOUS | label `vm-diag-request` + cron | Sweeps stale, never-answered diag-relay issues (dropped-webhook backstop). |
+| `arm-candidate-diag.yml` | Migration relay | AUTONOMOUS | label `arm-candidate-diag-request` | SSH diag/verification relay for the Ampere migration candidate VM. |
+| `vm-bybit-diag.yml` | Ops relay | AUTONOMOUS | label `vm-bybit-diag-request` | One-shot bybit_2 ErrCode 10010 ('Unmatched IP') diagnostic. |
+| `news-key-check.yml` | Ops relay | AUTONOMOUS | label `news-key-check` | Validate NEWS_API_KEY end-to-end through the bot's news path. |
+| `prop-report.yml` | Ops relay (write) | OPERATOR-APPROVAL | label `prop-report` | Inbound Breakout prop fill/close report-back → POST /api/bot/prop/report (Tier-2). |
+| `set-diag-token.yml` | Secret→VM | OPERATOR-APPROVAL | label `set-diag-token` | Push DIAG_READ_TOKEN secret onto the live VM + restart web-api. |
+| `cancel-queued-runs.yml` | Repo housekeeping | AUTONOMOUS | label `cancel-queued-runs` / dispatch | Bulk-cancel stale `queued` runs that never got a runner. |
+| `delete-merged-branches.yml` | Repo housekeeping | AUTONOMOUS | label `delete-merged-branches` | Stale merged-branch cleanup (web sessions can't delete branches directly). |
+| `pr-opener.yml` | Control path | AUTONOMOUS | push-sentinel | Git-push-triggered PR opener — the MCP-independent PR-creation path. |
+| `vm-driver.yml` | Control path | AUTONOMOUS | push-sentinel | Git-push-triggered remote driver — MCP-independent control path. |
+| `ict-scalp-backtest.yml` | Backtest | AUTONOMOUS | label / dispatch | Self-contained ict_scalp_5m backtest workflow. |
+| `provision-live-vm.yml` | VM provisioning | OPERATOR-APPROVAL | label / dispatch | Provision the CANDIDATE live-trader VM (Ampere 2 OCPU/12 GB). |
+| `provision-gateway-vm.yml` | VM provisioning | OPERATOR-APPROVAL | label / dispatch | Provision the dedicated IB-Gateway VM (Ampere 1 OCPU/6 GB). |
+| `provision-ib-gateway.yml` | VM provisioning | OPERATOR-APPROVAL | label / dispatch | Install/re-provision the headless IB Gateway (IBC). |
+| `deploy-candidate.yml` | Migration | OPERATOR-APPROVAL | label / dispatch | Phase-2 migration: deploy the bot stack onto the Ampere candidate. |
+| `cutover-live.yml` | Migration | OPERATOR-APPROVAL | label / dispatch | Cut the live trader over to the Ampere candidate VM. |
+| `reserve-live-ip.yml` | Infra | OPERATOR-APPROVAL | label / dispatch | Make the live trader's public IP a reserved (static) IP. |
+| `terminate-instance.yml` | Infra | OPERATOR-APPROVAL | label / dispatch | Terminate an OCI instance by display name (frees Always-Free budget). |
+| `vm-resize-live.yml` | Infra | OPERATOR-APPROVAL | label / dispatch | Resize the live trader VM within the OCI Always-Free pool. |
+| `vm-devnull-deploy-bootstrap.yml` | One-shot repair | OPERATOR-APPROVAL | label / dispatch | One-shot bootstrap to break the /dev/null auto-deploy chicken-and-egg. |
+| `vm-fix-devnull.yml` | One-shot repair | OPERATOR-APPROVAL | label / dispatch | One-shot repair of a broken /dev/null on the live trader VM. |
+| `vm-ib-gateway-deploy.yml` | IB-gateway ops | AUTONOMOUS | label / dispatch | Autonomous code deploy for the dedicated IB-Gateway VM. |
+| `vm-ib-gateway-recover.yml` | IB-gateway ops | AUTONOMOUS | label `vm-ib-gateway-recover` | Autonomous self-heal (docker restart) for the IB Gateway container. |
+| `vm-ib-gateway-selftest.yml` | IB-gateway ops | OPERATOR-APPROVAL | label / dispatch | Controlled end-to-end test of the reactive IB-gateway self-heal. |
+| `vm-ib-gateway-stop.yml` | IB-gateway ops | OPERATOR-APPROVAL | label / dispatch | Decommission the IB Gateway container on the target host. |
+| `vm-ib-gateway-watchdog-enable.yml` | IB-gateway ops | OPERATOR-APPROVAL | label / dispatch | Re-enable the IB-gateway watchdog (counterpart to vm-ib-gateway-stop). |
+| `vm-ib-gateway-live-login-test.yml` | IB-gateway ops | OPERATOR-APPROVAL | label / dispatch | One-shot: verify LIVE IBKR login + 2FA without disturbing the running gateway. |

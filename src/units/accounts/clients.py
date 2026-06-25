@@ -867,6 +867,23 @@ def account_closed_pnl_for_trade(
         "true", "1", "yes",
     )
 
+    # BL-20260608-DEMOPNL / BL-20260620-CLOSEDPNL-LOOKUP-MISMATCH-DEMO:
+    # Bybit's closed-pnl endpoint does NOT return reliable per-trade records for
+    # the DEMO / testnet account — distinct demo trades on the same symbol share
+    # / mis-map records, and the wide fallback below booked the SAME -864.45 onto
+    # two separate SOL paper trades. There is no trustworthy broker-truth realised
+    # PnL for demo, so DON'T guess from this lookup: return None here (both
+    # writers — the monitor close path and ``_sweep_pending_pnl_from_bybit`` —
+    # funnel through this function, so a single early return stops both from
+    # booking the wrong record). The row then stays "unpriced" and the universal
+    # local-compute sweep (``order_monitor._sweep_local_pnl_for_unpriced``:
+    # entry × exit × qty × contract_value_usd, multiplier-aware, or a
+    # mark-to-market exit) resolves it deterministically — the same local path
+    # IBKR/Alpaca/OANDA already use. Real-money (non-demo) Bybit is untouched and
+    # keeps the strict broker-truth contract below.
+    if is_demo:
+        return None
+
     # Reduce-leg lookup (BL-20260601-001 prong 2): the journal direction
     # is the close-order side, not the reduced position's side, and the
     # recorded entry is the primary leg's intent — both unreliable. Match
@@ -888,13 +905,14 @@ def account_closed_pnl_for_trade(
             qty_target=qty,
             entry_price_target=lookup_entry_price,
             opened_at_ms=int(opened_at_ms),
-            allow_wide_fallback=is_demo,
+            allow_wide_fallback=False,
             # LIVE non-reduce lookups: reconstruct a partial/scaled close from
             # its legs when no single record matches the full qty, instead of
-            # stranding the PnL NULL → orphaning the trade (BL-20260620). Demo
-            # uses the wider side-only fallback above; reduce legs match on
-            # qty+window only and must not aggregate across sides.
-            allow_partial_aggregate=(not is_demo) and (not reduce_leg),
+            # stranding the PnL NULL → orphaning the trade (BL-20260620). The
+            # demo wide-fallback was removed (demo returns early above —
+            # BL-20260608-DEMOPNL); reduce legs match on qty+window only and
+            # must not aggregate across sides.
+            allow_partial_aggregate=(not reduce_leg),
         )
     except Exception as exc:  # noqa: BLE001
         aid = account.get("account_id") or "unknown"
