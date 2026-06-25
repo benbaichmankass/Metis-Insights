@@ -3,6 +3,17 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260625-PROP-ETH-LIVE",
+      "opened_at": "2026-06-25T09:20:00+00:00",
+      "opened_by": "claude (prop-trade-pipeline-debug \u2014 eth_pullback prop go-live wiring check)",
+      "source": "PR #4533 set eth_pullback_prop_2h execution: live and routed it + eth_pullback_2h to breakout_1. Diag /api/bot/strategies confirmed BOTH in loaded_strategies + bot_running 2026-06-25 \u2014 but loading is not the same as the prop emit path producing a ticket.",
+      "title": "Confirm the two newly-live ETH prop legs actually EMIT + journal a prop ticket on breakout_1 when they first fire",
+      "description": "WIRING LIVENESS CHECK. On the first ETHUSDT signal on breakout_1 for either leg, confirm end-to-end: (a) a prop_signal ticket is emitted (Telegram prop bot + FCM) carrying the Yes/No place-decision buttons; (b) a prop_tickets row is written with order_package_id POPULATED (the sizing+journaling fixes from PR #4460/#4469 \u2014 risk_usd should size off 1.5% = ~$75, not the old $25); (c) /api/bot/prop/reconcile sees it. Both legs share (ETHUSDT, breakout_1), so also confirm they emit as SEPARATE tickets (per-strategy netting guard) and do not collide on the same position. Until one fires we have only confirmed they load, not that the prop ticket path works for them.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "BL-20260624-MHG-CLOSE-CONFIRM-VERIFY",
       "opened_at": "2026-06-24T13:05:00+00:00",
       "opened_by": "claude (operator directive 2026-06-24 \u2014 verify the fix keeps working)",
@@ -2441,5 +2452,5 @@
       ]
     }
   ],
-  "updated_at": "2026-06-25T08:10:00+00:00"
+  "updated_at": "2026-06-25T09:20:00+00:00"
 }
