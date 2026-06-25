@@ -1589,8 +1589,11 @@ class TestOrphanReconcilerEmitsClassification:
         queued = sorted(pings_dir.glob("*.json"))
         assert len(queued) == 1
         body = json.loads(queued[0].read_text())["body"]
-        assert "Classification: spot_margin_external_close" in body
-        assert "no exchange-side SL/TP path" in body
+        # Trade has no linked order package → genuinely untracked orphan headline.
+        # The old spot-margin-vs-derivatives distinction was in _classify_orphan_close;
+        # the new logic keys on linked_package_id, not market_type.
+        assert "Classification: unlinked_orphan" in body
+        assert "Orphaned trade" in body
 
     def test_derivatives_orphan_ping_carries_unknown_classification(
         self, tmp_db, tmp_path, monkeypatch,
@@ -1628,9 +1631,12 @@ class TestOrphanReconcilerEmitsClassification:
         queued = sorted(pings_dir.glob("*.json"))
         assert len(queued) == 1
         body = json.loads(queued[0].read_text())["body"]
-        assert "Classification: unknown" in body
-        # The note must guide the operator to the right action.
-        assert "derivatives" in body
+        # Trade has no linked order package → unlinked_orphan (the alarming case).
+        # The old "unknown" classification was the _classify_orphan_close fallback
+        # for all derivatives; the new code uses exit_reason + linked_package_id
+        # instead so "unknown" is never emitted.
+        assert "Classification: unlinked_orphan" in body
+        assert "no package link" in body
 
 
 # ---------------------------------------------------------------------------

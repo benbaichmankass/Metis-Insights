@@ -3382,8 +3382,11 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
                 # Flat confirmed across the window → close, clear the pending.
                 _PENDING_CLOSE_CONFIRM.pop(_tid_int, None)
 
+            _exit_reason = "reconciler_filled"
             try:
-                _close_trade_from_order_status(db, row, order_status, cfg=cfg)
+                _exit_reason = _close_trade_from_order_status(
+                    db, row, order_status, cfg=cfg,
+                )
                 summary["closed"] += 1
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
@@ -3394,25 +3397,53 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
                 summary["errors"] += 1
                 continue
 
-            # Diagnostic ping (per-close cap + roll-up). In the SSOT
-            # model "closed" means Bybit reports filled + position
-            # flat — i.e. the exchange closed the trade (TP/SL on
-            # derivatives, manual / margin-engine action on spot-
-            # margin), not the bot's manage loop. Same operator-
-            # actionability bar as a legacy "orphan close" so we
-            # carry the classification metadata from #544.
+            # Diagnostic ping (per-close cap + roll-up).
+            # The headline and classification now reflect the exit reason
+            # recovered by _close_trade_from_order_status (closed-pnl
+            # lookup + _classify_broker_exit), so the operator sees "TP
+            # exit" / "SL exit" instead of the generic "unknown" that the
+            # old _classify_orphan_close returned for all derivatives.
+            # A trade with no linked package (genuinely untracked) gets an
+            # alarming "🧹 Orphaned" headline; a properly-tracked trade
+            # whose bracket fired at the broker before the monitor caught
+            # it gets a calm "🎯 SL/TP exit" headline instead.
             if orphan_pings_emitted < _ORPHAN_PING_CAP:
-                cls_info = _classify_orphan_close(cfg)
+                _linked_pkg = _resolve_linked_package_id(db, row.get("id"))
+                if _exit_reason == "sl":
+                    _ping_headline = "🎯 Stop-loss exit detected by reconciler"
+                    _ping_cls = "sl"
+                    _ping_note = (
+                        "Bybit SL bracket fired; detected at next reconcile tick"
+                    )
+                elif _exit_reason == "tp":
+                    _ping_headline = "🎯 Take-profit exit detected by reconciler"
+                    _ping_cls = "tp"
+                    _ping_note = (
+                        "Bybit TP bracket fired; detected at next reconcile tick"
+                    )
+                elif _linked_pkg:
+                    _ping_headline = "🔔 Broker close detected by reconciler"
+                    _ping_cls = "broker_close_unclassified"
+                    _ping_note = (
+                        "Closed at exchange (manual or mid-bracket); "
+                        "exit price not at SL/TP levels"
+                    )
+                else:
+                    _ping_headline = "🧹 Orphaned trade — no package link"
+                    _ping_cls = "unlinked_orphan"
+                    _ping_note = (
+                        "Trade has no order-package link; "
+                        "genuinely untracked — investigate"
+                    )
                 enqueue_orphan_reconciliation(
                     account=aid,
                     symbol=str(sym),
                     side=side,
                     db_trade_id=row.get("id"),
-                    linked_package_id=_resolve_linked_package_id(
-                        db, row.get("id"),
-                    ),
-                    classification=cls_info.get("classification"),
-                    classification_note=cls_info.get("note"),
+                    linked_package_id=_linked_pkg,
+                    headline=_ping_headline,
+                    classification=_ping_cls,
+                    classification_note=_ping_note,
                 )
                 orphan_pings_emitted += 1
             else:
@@ -4626,7 +4657,7 @@ def _close_trade_from_order_status(
     order_status: Dict[str, Any],
     *,
     cfg: Optional[Dict[str, Any]] = None,
-) -> None:
+) -> str:
     """Mark a trade row 'closed' when Bybit reports the entry order
     filled and the position flat. Cascades the linked
     ``order_packages`` row (close_reason='reconciler_filled').
@@ -4835,6 +4866,7 @@ def _close_trade_from_order_status(
         close_reason=final_exit_reason,
         caller="_close_trade_from_order_status",
     )
+    return final_exit_reason
 
 
 def _mark_orphaned(db, row: Dict[str, Any]) -> None:
