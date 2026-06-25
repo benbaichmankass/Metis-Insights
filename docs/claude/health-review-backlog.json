@@ -889,7 +889,13 @@
       "resolution_criteria": "Operator disconnects the 'ict-trader-widget' Cloudflare Pages <-> GitHub integration (or deletes that Pages project) so the dashboard repo stops running a perpetually-failing Cloudflare Pages check; confirm ict-trader-dashboard PRs show only the real checks (ruff-lint, import-smoke) green.",
       "status": "open",
       "triage_note": "2026-05-27 /health-review: external infra; nothing to verify from /health-review's read surface. Remains operator-gated.",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:45:00+00:00",
+          "note": "TIER-2 PREP \u2192 OPERATOR-ONLY hand-off. The failing 'Cloudflare Pages' check on every ict-trader-dashboard PR is NOT a workflow file (the repo .github/workflows has only ci.yml + delete-merged-branches.yml) \u2014 it's an external GitHub<->Cloudflare-Pages App integration (a stale CF Pages project 'ict-trader-widget' still wired to the repo, left over from the retired React/CF stack). OPERATOR ACTION: in the Cloudflare dashboard \u2192 Workers & Pages \u2192 the stale 'ict-trader-widget' (or equivalent) Pages project \u2192 Settings \u2192 either delete the project or disconnect its GitHub integration; alternatively GitHub \u2192 repo Settings \u2192 Integrations/GitHub Apps \u2192 Cloudflare Pages \u2192 revoke repo access. No repo change possible from this side. Stays open, awaiting-operator."
+        }
+      ]
     },
     {
       "id": "BL-20260525-007",
@@ -1428,9 +1434,9 @@
       "tier": 2,
       "trigger_condition": "Any /health-review run; or next time a vm-web-api-recover dispatch is webhook-dropped or ict-web-api is observed down with no autonomous recovery.",
       "resolution_criteria": "ict-web-api gets a VM-side auto-restart-on-unhealthy guard (systemd timer probing local /api/health) that self-heals the read surface without a webhook-dependent GitHub dispatch; verified by inducing/observing one web-api outage that the watchdog recovers autonomously. Tier-2 deploy/runtime change \u2014 operator-approved PR.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-06-25T07:45:00+00:00",
       "resolved_by": null,
       "resolution_note": null,
       "check_log": [
@@ -1443,6 +1449,12 @@
           "at": "2026-06-06T08:30:00+00:00",
           "by": "claude (/health-review)",
           "note": "NEW EVIDENCE of the gap this item targets: this session, /api/bot/order-packages + /api/bot/config returned HTTP 500 transiently around the ~06:19/07:16 trader restarts (the heavier bot routes erroring while /api/diag/*, the Streamlit routine-poll set, and the insights cache stayed 200). They SELF-RECOVERED (config 200 + 8 Streamlit routes 200 OK by 08:06-08:20, same web-api PID 386690 = no restart) \u2014 so no recovery lever was needed THIS time, but it confirms the heavier endpoints wobble around restarts and the only autonomous recover (vm-web-api-recover) is still webhook-flaky. The scripts/check_web_api.py VM-side watchdog this item proposes is still pending merge+deploy. Status unchanged (open)."
+        }
+      ],
+      "updates": [
+        {
+          "at": "2026-06-25T07:45:00+00:00",
+          "note": "RESOLVED (already built, 2026-06-04+) \u2014 the ict-web-api-watchdog.{service,timer} exists and the timer was ACTIVE in the 06-25 snapshot: every 2 min it runs scripts/check_web_api.py --auto-restart --restart-after 2 --max-restarts 3 --cooldown-min 10, which probes :8001/api/health and runs scripts/ops/restart_web_api.sh (systemctl restart + health probe) on sustained failure \u2014 a VM-side autonomous self-heal independent of the GitHub vm-web-api-recover webhook lever. The item's premise ('no VM-side self-heal') is obsolete."
         }
       ]
     },
@@ -1538,7 +1550,13 @@
       "triage_note": "2026-06-08: opened from BL-20260608-CRED diagnosis; recon tooling shipped same session. | 2026-06-08 RECON + DEFERRED: enhanced inspect-closed-pnl run on demo #2490 (issue #2997) \u2014 /v5/position/closed-pnl=0 rows, BUT /v5/execution/list=6 rows and /v5/order/history=3 rows ARE populated on demo. Key finding: the demo account NETS every strategy fill into a single position (each htf 'trade' is an incremental Sell with closedSize=0; the whole ~0.505 short was flattened by ONE Buy @63483.4), so there is NO per-trade close to attribute \u2014 a real demo-PnL source needs a position-accounting/allocation layer (FIFO/avg across constituent opens), not just a different endpoint. Sub-findings: demo opens carry no SL/TP (reduceOnly=False, empty stopOrderType) so positions accumulate vs live bybit_2 which closes per-trade; and the reconciler marked these closed while the net position was still open. OPERATOR DECISION 2026-06-08: DEFER \u2014 added to ROADMAP.md 'Items Under Consideration'. Recon tooling (inspect-closed-pnl execution/order dump) is shipped (PR #2996). The backfill false-'creds' warning softening (sub-item 1) also remains open. | 2026-06-08 SL/TP ROOT-CAUSE INVESTIGATED (operator-requested): root cause confirmed = one-way-mode position-level SL/TP OVERWRITE on same-direction re-entry + reconciler closing on NET-flat (not per-trade) + monocle release \u2192 accumulation cycle. SL/TP ARE attached on demo entries (execute.py:659-660) \u2014 CORRECTION to the earlier 'demo opens carry no SL/TP' note, which was an over-read (attached position-level SL/TP don't show as separate stop ORDERS in order/history). Evidence: audit_query #3002 (33 sell+28 short htf signals in 9h, only 3 bar_debounce_blocked), inspect #2997 (incremental Sell opens \u2192 one Buy 0.505 close), code (no positionIdx/hedge anywhere = one-way; order_monitor.py:2017-2029 net-flat close). Money-relevant on live bybit_2 too (currently masked). Full analysis + Tier-3 remediation proposal (recommend Option A: suppress same-dir re-entry while position open + harden reconciler against transient net-flat; behind a kill-switch + walk-forward) in docs/audits/position-netting-sltp-2026-06-08.md. Awaiting operator decision on the proposal before any Tier-3 code. | 2026-06-08 Option A SHIPPED + LIVE (PRs #3023 guard + #3031 account-scope, deployed f81cf9b): the position-netting / per-trade SL/TP guard is now active on both Bybit accounts (POSITION_NETTING_GUARD_ENABLED=true, POSITION_NETTING_GUARD_ACCOUNTS=bybit_1,bybit_2) after a demo-only soak on bybit_1. Monocle suppresses same-direction netted adds; reconciler requires an extra grace tick before closing on a net-flat snapshot. This restores per-trade=per-position, the prerequisite for closed-pnl to repopulate as positions close discretely. Validated: 36 unit tests + net-vs-suppress walk-forward (real BTCUSDT 5m, 4 windows, no trade-count/win-rate regression + lower max-DD). Kept OPEN because the bybit_1 DEMO venue still does not populate /v5/position/closed-pnl, so demo realised-PnL recovery for already-netted historical rows remains limited \u2014 forward demo trades should now close per-trade and attribute. Rollback = unset POSITION_NETTING_GUARD_ENABLED (or narrow POSITION_NETTING_GUARD_ACCOUNTS) + restart, no redeploy.",
       "resolved_at": null,
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:45:00+00:00",
+          "note": "TIER-2 PREP \u2192 PROPOSED (awaiting operator OK before ship). Root cause: Bybit's closed-pnl endpoint doesn't return reliable per-trade records for the DEMO account (bybit_1 testnet); _bybit_closed_pnl_lookup returns shared/mismatched records (the sibling BL-20260620-CLOSEDPNL-LOOKUP-MISMATCH-DEMO: two SOL paper trades booked an identical -864.45). PROPOSED FIX (Tier-2, paper-only, real-money untouched): for is_demo Bybit trades, route realised-PnL resolution through the LOCAL compute path (src/runtime/local_pnl.py, multiplier-aware via config/instruments.yaml contract_value_usd) instead of the Bybit closed-pnl lookup \u2014 mirroring the local_compute path already used for IBKR/Alpaca/OANDA realised PnL (order_monitor._sweep_local_pnl_for_unpriced). Net: demo realised PnL becomes entry/exit/qty-derived (deterministic, no shared-record bleed); the misleading backfill that pulls a wrong Bybit record for demo is bypassed. Scope: the demo branch of _bybit_closed_pnl_lookup + the backfill. Needs operator OK (touches the close/PnL resolution path, paper accounts)."
+        }
+      ]
     },
     {
       "id": "BL-20260609-004",
@@ -2414,5 +2432,5 @@
       ]
     }
   ],
-  "updated_at": "2026-06-25T07:40:00+00:00"
+  "updated_at": "2026-06-25T07:45:00+00:00"
 }
