@@ -632,3 +632,52 @@ class TestPartialCloseAggregation:
         assert agg is not None
         assert agg["_aggregated_legs"] == 2
         assert abs(float(agg["closedPnl"]) - 0.3) < 1e-9           # 0.1+0.2, not -5
+
+
+# ---------------------------------------------------------------------------
+# BL-20260608-DEMOPNL: demo accounts skip the Bybit closed-pnl lookup entirely
+# ---------------------------------------------------------------------------
+from unittest.mock import patch  # noqa: E402
+from src.units.accounts.clients import account_closed_pnl_for_trade  # noqa: E402
+
+
+class TestDemoSkipsClosedPnlLookup:
+    """Demo / testnet Bybit has no trustworthy per-trade closed-pnl (records
+    share / mis-map — BL-20260620 booked the same -864.45 onto two SOL paper
+    trades). ``account_closed_pnl_for_trade`` therefore returns None EARLY for
+    demo (before touching the client), so realised PnL resolves via the universal
+    local-compute sweep instead. Real-money Bybit is unaffected."""
+
+    def test_demo_returns_none_without_calling_client(self):
+        acct = {"exchange": "bybit", "market_type": "linear",
+                "demo": True, "account_id": "bybit_1"}
+        with patch("src.units.accounts.clients.bybit_client_for") as m:
+            rec = account_closed_pnl_for_trade(
+                acct, symbol="SOLUSDT", direction="long",
+                opened_at_ms=1_700_000_000_000, qty=1.0, entry_price=100.0,
+            )
+        assert rec is None
+        m.assert_not_called()
+
+    def test_demo_truthy_strings_all_skip(self):
+        for val in ("true", "1", "yes", True):
+            acct = {"exchange": "bybit", "market_type": "linear", "demo": val}
+            with patch("src.units.accounts.clients.bybit_client_for") as m:
+                assert account_closed_pnl_for_trade(
+                    acct, symbol="BTCUSDT", direction="short",
+                    opened_at_ms=1_700_000_000_000,
+                ) is None
+                m.assert_not_called()
+
+    def test_live_account_still_reaches_the_client(self):
+        # Non-demo bybit proceeds past the early return to the client (stubbed
+        # to None here → None for a DIFFERENT reason), proving the demo skip is
+        # demo-specific, not a universal short-circuit.
+        acct = {"exchange": "bybit", "market_type": "linear", "demo": False}
+        with patch("src.units.accounts.clients.bybit_client_for",
+                   return_value=None) as m:
+            assert account_closed_pnl_for_trade(
+                acct, symbol="BTCUSDT", direction="long",
+                opened_at_ms=1_700_000_000_000,
+            ) is None
+            m.assert_called_once()
