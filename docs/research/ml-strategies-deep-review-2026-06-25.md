@@ -442,6 +442,30 @@ the genuine **builds** remaining are: **P7** (cross-sectional *basket* momentum 
 trainer (harnesses exist), **build P1 + P5 + P7**, and start ML with **P11 (gate
 hardening) + P9 (P(win) filter)**.
 
+**Execution-session update 2 — the ML replay pre-gate + a verified advisory bug
+(2026-06-25, PR #4602):** built the replay pre-gate the "compress soak" idea called
+for, in two stages: **stage 1** (`replay_pregate.py` + `replay_pregate_fleet.py`) replays
+clean candles through the live feature function vs the dataset's own `regime_label`
+(true parity), and **stage 2** (`replay_pregate_live.py`, RG4) re-runs `predict_proba`
+on the EXACT rows the live runtime logged, broken down by stage — the train/serve-skew
+detector. A durable `replay-pregate-nightly.yml` runs the fleet session-independently.
+
+The RG2 **acid test settled §C1/§C4**: the demoted `btc-regime-1h-lgbm-yz-v1` head, with
+correct label parity, scores **AUC 0.79** through the live feature function — it is NOT a
+broken model. Live evidence (#4596) + registry stage-history (#4601) + code pinned the
+real cause: **`src/runtime/advisory_sizing.py::compute_advisory_factor` scores advisory
+regime heads on the bare `_feature_row_from_pkg` row (6 fields, no `market_features`)** —
+unlike the signal path (`_emit_shadow_preds`) and per-bar path (`regime_bar_scoring`),
+which both enrich via `feature_row_for_predictor`. So any regime head promoted to advisory
+gets a feature-less row → constant ~0.98 → the `auc 0.40 / brier_lift −0.277` that demoted
+both yz advisories. This is **distinct from** (and dominates) the vol_bucket-edge
+calibration issue diagnosed earlier on the *shadow* path: edge re-calibration alone cannot
+make advisory promotion work. **Tier-3 fix (proposed, not applied — PR #4602):** (B,
+recommended) exclude regime heads from the advisory directional-downsize quorum (a
+`P(volatile)` score is not a bullish/bearish view) + a promotion-gate guard that refuses
+`shadow→advisory` until the advisory-path score distribution is verified non-degenerate.
+Logged to `ml-review-backlog` `MB-20260625-001`/`-001`.
+
 *Sources: full cited research (market-neutral, non-trend+allocation, ML) was produced
 this session and is summarized inline above with key citations; the existing-book
 evidence is in `regime-roster-matrix-2026-06-01.md`, `regime-router-design-2026-06-01.md`,
