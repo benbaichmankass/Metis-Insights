@@ -3,6 +3,19 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "PB-20260625-001",
+      "opened_at": "2026-06-25T06:30:00+00:00",
+      "opened_by": "claude (orphan-flap #5 historical reconciliation wrap-up)",
+      "source": "The reconcile-orphan-history --apply pass on the live trade_journal.db (system-action issue #4516, backup trade_journal.db.reconcile-orphan-bak-20260625T061404Z): 169 orphan-flagged rows across 38 physical positions were collapsed to one canonical each (12 reconciled to their order package, 26 flagged 'unreconciled'), with 131 phantom flap duplicates void-flagged 'superseded'.",
+      "title": "26 'unreconciled' bybit_2 orphan canonicals still carry possibly-phantom PnL that counts in analytics",
+      "description": "After the orphan-flap historical reconciliation, 26 canonical rows remain reconcile_status='unreconciled' (almost all bybit_2/BTCUSDT long+short clusters, e.g. trade ids 11,27,54,99,219,243,990,1336,...). Each kept its ORIGINAL stored pnl, which may itself be a phantom/incorrect value from the flap, and because only 'superseded' is excluded from analytics (not 'unreconciled'), those PnLs STILL count in /stats, /performance, /pnl. They were flagged 'unreconciled' rather than reconciled because no originating order package matched within tolerance; their real exits also cannot be recovered from Bybit (the V5 closed-pnl 7-day retention window expired long ago for these historical ids), so backfill-orphan-pnl would find nothing. The bulk corruption (131 duplicate phantom PnLs) is already removed by the void-flagging; this is the residual tail. A future performance-review should decide per-cluster: (a) investigate the originating order_package/exec history to reconcile + correct the PnL, (b) accept the flagged value as the best available, or (c) if a cluster is judged entirely phantom, void-flag its canonical too (manual, evidence-backed). NOT auto-actionable \u2014 needs human judgement against the order_packages + audit history.",
+      "tier": 2,
+      "trigger_condition": "A performance-review window includes bybit_2 BTCUSDT history, or a data-integrity pass investigates the unreconciled orphan canonicals, or the operator asks why bybit_2 lifetime PnL still looks off.",
+      "resolution_criteria": "Each of the 26 unreconciled canonicals is either reconciled+PnL-corrected against its order package/exec history, accepted as best-available with a note, or void-flagged as phantom with evidence \u2014 and the item is closed with the disposition recorded.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
       "id": "PB-20260622-002",
       "opened_at": "2026-06-22T18:10:00+00:00",
       "opened_by": "claude (ETF pullback backtest follow-up)",
@@ -792,5 +805,5 @@
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-23T08:00:00+00:00"
+  "updated_at": "2026-06-25T06:30:00+00:00"
 }
