@@ -869,6 +869,10 @@
         {
           "at": "2026-06-25T05:40:00+00:00",
           "note": "/system-review (since-last 06-24T05:23->06-25T05:40). RE-VERIFIED via stage-guard on the live journal: btc-regime-1h-lgbm-yz-v1 remains target_deployment_stage=shadow (demotion holds, no longer order-influencing). Refinement half (retrain on fresh data + diff live-vs-train feature vector at score time) STILL pending \u2014 that is a model-training-skill action, not enacted this review. Stays OPEN."
+        },
+        {
+          "at": "2026-06-25T06:10:00+00:00",
+          "note": "Shared root cause with MB-20260625-001 (5m-yz): the live-vs-train collapse is the yz vol_bucket EDGE miscalibration (yz heads lock to vol_b0 while v2/baseline siblings bucket the same yang_zhang_vol to b1/b2), NOT a feature-absence parity gap (parity is wired via S17; live feature_row populates the estimators). Same re-freeze-edges fix applies to the 1h-yz refinement."
         }
       ]
     },
@@ -941,9 +945,13 @@
         {
           "at": "2026-06-25T05:40:00+00:00",
           "note": "Opened from /system-review. stage-guard demote fires (brier_lift -0.277, auc 0.40). Surfaced as a Tier-3 operator priority + a loud flag in the consolidated report. Companion to MB-20260623-001 (the prior degenerate yz advisory)."
+        },
+        {
+          "at": "2026-06-25T06:10:00+00:00",
+          "note": "INVESTIGATION (operator chose hold+investigate over demote). ROOT CAUSE FOUND via live shadow_predictions feature_row (diag #4511). (1) PARITY IS WIRED, not the bug: feature_row_for_predictor (S-MLOPT-S17) populates yang_zhang_vol + all 4 range estimators + lags + time features live (both per-bar AND signal-time callers pass candles_df); the live values are real (e.g. btc-1h yang_zhang_vol=0.006493), NOT NaN. The regime_bar_scoring.py module-header 'Feature-parity caveat' (lines 65-73, claiming the estimators are absent live -> NaN and 'must land before shadow->advisory') is STALE doc-drift, contradicted by both the code and the live data. (2) THE REAL BUG = yz vol_bucket edge miscalibration: on the SAME bar, the yz heads bucket vol systematically LOWER than their v2/baseline siblings. btc-1h @ yang_zhang_vol=0.006493 -> v2/funding heads bucket vol_b2 (score 0.56), yz head buckets vol_b0 (score 0.92); btc-15m @ 0.00207 -> baseline/v2 vol_b1, yz vol_b0. The yz heads' frozen vol_bucket_edges (computed on yang_zhang_vol at train time) don't match the live yang_zhang_vol scale, so live vol almost always lands in the lowest bucket b0 -> the model's most important categorical feature is near-constant -> the BTC yz heads saturate (~0.92-0.98) -> degenerate. (Note: the broad btc-regime saturation [baseline+v2+yz all ~0.97-0.99 on 5m/15m] is ALSO partly market-driven \u2014 BTC is in a persistent low-vol range \u2014 which inflates the stage-guard drift-vs-train metric; regime-confidence != trade-outcome, so the auc/brier-vs-trades attribution is a partial category mismatch. But the yz-specific b0 lock is a genuine calibration defect distinct from that.) FIX (Tier-3, retrain): re-freeze the yz heads' vol_bucket_edges against the live-consistent yang_zhang_vol distribution (verify the estimator's train-vs-live window/annualization parity first), then re-gate before any re-promotion. SEPARATE Tier-1 doc fix: correct the stale regime_bar_scoring.py header caveat (parity landed in S17). Demote remains the safe interim (operator holding); the degenerate yz advisory keeps feeding c_reg a near-constant value meanwhile."
         }
       ]
     }
   ],
-  "updated_at": "2026-06-25T05:40:00+00:00"
+  "updated_at": "2026-06-25T06:10:00+00:00"
 }
