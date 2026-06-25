@@ -55,8 +55,13 @@ def _account(*, demo):
 
 
 class TestAccountClosedPnlForTradeDemoFallback:
-    """Prong 1: the demo flag opts the lookup into the wide fallback;
-    live accounts keep the strict NULL-on-no-match contract."""
+    """BL-20260608-DEMOPNL / BL-20260620-CLOSEDPNL-LOOKUP-MISMATCH-DEMO:
+    the demo flag now SHORT-CIRCUITS the broker-truth lookup entirely
+    (returns None before touching the client), so demo realised PnL is
+    deferred to the universal local-compute sweep. Bybit's closed-pnl
+    endpoint mis-maps records for the demo/testnet account, so the old
+    wide fallback booked the wrong record onto separate paper trades.
+    Live accounts keep the strict NULL-on-no-match broker-truth contract."""
 
     def _zeroed_entry_records(self):
         # Demo venue placeholder: avgEntryPrice=0 → every record fails
@@ -75,7 +80,11 @@ class TestAccountClosedPnlForTradeDemoFallback:
                   return_value="linear"),
         )
 
-    def test_demo_strict_fail_wide_fallback_attributes_pnl(self):
+    def test_demo_short_circuits_lookup_returns_none(self):
+        """Demo → None WITHOUT ever calling the Bybit client (the early
+        return precedes ``bybit_client_for``), so the unreliable demo
+        closed-pnl record can't be booked. The row stays unpriced for the
+        local-compute sweep to resolve."""
         client = _make_client(self._zeroed_entry_records())
         p1, p2 = self._patches(client)
         with p1, p2:
@@ -85,8 +94,9 @@ class TestAccountClosedPnlForTradeDemoFallback:
                 opened_at_ms=_OPENED_MS,
                 qty=0.059, entry_price=60568.6,
             )
-        assert rec is not None
-        assert abs(rec["closed_pnl"] - (-3.20)) < 1e-6
+        assert rec is None
+        # The short-circuit must precede the broker call entirely.
+        client.get_closed_pnl.assert_not_called()
 
     def test_live_strict_fail_preserves_null_fallback(self):
         """Same records, LIVE account → strict filter still strands the
