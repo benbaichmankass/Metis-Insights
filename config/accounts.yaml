@@ -614,6 +614,14 @@ accounts:
     strategies:                        # the validated alt variants (Tier-3):
       - trend_donchian_sol             #   SOL — robust gate PASS, execution: live
       - trend_donchian_eth             #   ETH — marginal, execution: shadow (soak)
+      - eth_pullback_prop_2h           #   ETH pullback swap-robust variant — DRAFT,
+                                       #   execution: shadow (observe-only). The live
+                                       #   eth_pullback_2h exits are net-negative after
+                                       #   Breakout's 0.09%/day swap; this tp_r 6/trail
+                                       #   3.5 variant flips post-swap positive + passes
+                                       #   the funded-EV gate 4/4 folds, but realised is
+                                       #   regime-dependent → soak, not a live promotion.
+                                       #   docs/research/eth-pullback-prop-swap-aware-2026-06-25.md
     symbols: [SOLUSDT, ETHUSDT]        # the validated prop instruments.
     risk:
       max_dd_pct: 0.06                 # Breakout STATIC 6% max-DD = $300.
