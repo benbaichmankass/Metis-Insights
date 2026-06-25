@@ -895,10 +895,30 @@ class Coordinator:
             if acc.name in pkg_balances:
                 return float(pkg_balances[acc.name])
             # 2. Live lookup, cached at the top of this dispatch round.
-            live = live_balances.get(acc.name)
-            if live is not None:
-                return float(live)
-            # 3. Fixture / cached value on the account object itself.
+            #    live_balances distinguishes three states:
+            #      - acc.name NOT in dict: balance fetch was not attempted
+            #        (test fixtures, whole-fetch exception) → use cached/0.0
+            #      - acc.name IN dict, value not None: API succeeded → use it
+            #      - acc.name IN dict, value is None: API was attempted and
+            #        failed → try cached, else raise (BL-20260625-ALPACA-ZB:
+            #        the silent 0.0 fallback here was producing the misleading
+            #        "zero_balance: gate_balance=0.00" error when the Alpaca
+            #        API was unreachable — the account isn't empty, the fetch
+            #        failed; raising surfaces the real cause via sizing_failed)
+            if acc.name in live_balances:
+                live = live_balances[acc.name]
+                if live is not None:
+                    return float(live)
+                cached = getattr(acc, "cached_balance_usd", None)
+                if cached is not None:
+                    return float(cached)
+                raise RuntimeError(
+                    f"balance() returned None for {acc.name} "
+                    f"(exchange={getattr(acc, 'exchange', 'unknown')}): "
+                    "API error or credentials missing — account unreachable"
+                )
+            # 3. acc.name not in live_balances: balance fetch not attempted
+            #    (test fixtures or whole-fetch exception). Use cached or 0.0.
             cached = getattr(acc, "cached_balance_usd", None)
             return float(cached) if cached is not None else 0.0
 
