@@ -1565,16 +1565,29 @@ class Coordinator:
                 if intent_mode and not (pkg.meta and pkg.meta.get("is_test")):
                     from src.runtime.positions import (
                         current_net_position_qty,
+                        get_existing_position_info,
                         has_open_trade_for_strategy,
                         position_netting_guard_active_for,
                     )
                     current_signed_qty = current_net_position_qty(
                         account.name, pkg.symbol,
                     )
+                    _existing_pos_info = (
+                        get_existing_position_info(account.name, pkg.symbol)
+                        if current_signed_qty != 0 else None
+                    )
                     delta = compute_execution_delta_for_package(
                         pkg,
                         current_signed_qty=current_signed_qty,
                         risk_sized_qty=sized_qty,
+                        existing_confidence=(
+                            _existing_pos_info.get("confidence")
+                            if _existing_pos_info else None
+                        ),
+                        existing_age_hours=(
+                            _existing_pos_info.get("age_hours")
+                            if _existing_pos_info else None
+                        ),
                     )
                     pkg.meta["execution_delta"] = {
                         "action": delta.action,

@@ -35,7 +35,8 @@ from __future__ import annotations
 import logging
 import os
 import sqlite3
-from typing import Optional
+import time as _time
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -264,3 +265,59 @@ def net_positions_by_symbol(*, db_path: Optional[str] = None) -> dict[str, float
         elif d == "short":
             acc[symbol] = acc.get(symbol, 0.0) - q
     return acc
+
+
+def get_existing_position_info(
+    account_id: str,
+    symbol: str,
+    *,
+    db_path: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Return confidence and age for the most-recent open trade on (account, symbol).
+
+    Used by the confidence-weighted flip override to decide whether a newer
+    signal is strong enough to supersede the hold policy.
+
+    Returns a dict ``{"confidence": float|None, "age_hours": float|None}``
+    for the most recent open trade, or ``None`` on journal miss / read failure
+    (fail-permissive — a read error never blocks a signal).
+    """
+    path = db_path or _trade_journal_path()
+    if not os.path.exists(path):
+        return None
+    try:
+        with sqlite3.connect(path) as conn:
+            row = conn.execute(
+                "SELECT t.created_at, op.confidence "
+                "FROM trades t "
+                "LEFT JOIN order_packages op ON t.order_package_id = op.id "
+                "WHERE t.account_id = ? AND t.symbol = ? "
+                "  AND t.status = 'open' AND COALESCE(t.is_backtest, 0) = 0 "
+                "ORDER BY t.id DESC LIMIT 1",
+                (account_id, symbol),
+            ).fetchone()
+        if not row:
+            return None
+        created_at_raw, confidence = row
+        age_hours: Optional[float] = None
+        if created_at_raw:
+            try:
+                try:
+                    ts = float(created_at_raw) / 1000.0
+                except (TypeError, ValueError):
+                    import datetime as _dt
+                    s = str(created_at_raw).replace("Z", "+00:00")
+                    ts = _dt.datetime.fromisoformat(s).timestamp()
+                age_hours = (_time.time() - ts) / 3600.0
+            except Exception:  # noqa: BLE001
+                pass
+        return {
+            "confidence": float(confidence) if confidence is not None else None,
+            "age_hours": age_hours,
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "get_existing_position_info: read failed for account=%s symbol=%s: %s",
+            account_id, symbol, exc,
+        )
+        return None
