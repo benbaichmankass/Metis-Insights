@@ -524,26 +524,50 @@ def enqueue_all_accounts_failed_dispatch(
         attempted = len(results)
         placed = sum(1 for r in results if r.get("trade_id") is not None)
 
-        # Summarise reasons with the account name. Cap to 5 lines so
-        # the body stays under Telegram's 4096-char limit even with
-        # very long SDK exception messages.
+        # Separate genuine failures from benign policy-hold / noop results.
+        # A policy hold (flip_suppressed_hold_policy, sub-min-qty delta,
+        # netting-guard re-entry suppression) is INTENDED behaviour — listing
+        # it alongside a credential failure or exchange rejection under a
+        # "🚨 ALL accounts FAILED" headline is misleading. The caller
+        # (_is_benign_noop guard in multi_account_execute) already suppresses
+        # the alert when ALL results are noops; here we split the list so the
+        # message only labels policy holds as holds, not failures.
+        def _is_hold(err: str) -> bool:
+            return (
+                err.startswith("intent_noop:")
+                or err == "intent_sub_min_qty_delta"
+                or err.startswith("reentry_suppressed_netting_guard:")
+            )
+
+        genuine = [r for r in results if not _is_hold(str(r.get("error") or ""))]
+        held = [r for r in results if _is_hold(str(r.get("error") or ""))]
+        n_failed = len(genuine)
+
+        # Build failure lines from genuine failures only. Cap to 5 lines.
         lines = []
-        for r in results[:5]:
+        for r in genuine[:5]:
             name = str(r.get("name") or "?")
             err = str(r.get("error") or "no_trade_placed")
-            # Trim long reason strings — operator will see the full
-            # detail in the per-account ping if needed.
             err_short = err[:120] + ("…" if len(err) > 120 else "")
             lines.append(f"  • {name}: {err_short}")
-        suppressed = attempted - len(lines)
+        suppressed = n_failed - len(lines)
         if suppressed > 0:
             lines.append(f"  • … and {suppressed} more")
 
+        # Headline distinguishes "all genuine failures" from "some held by policy".
+        if held:
+            headline = f"🚨 {n_failed}/{attempted} accounts failed to dispatch"
+            held_names = ", ".join(str(r.get("name") or "?") for r in held[:3])
+            held_note = f"\nPolicy holds (not failures): {held_names}"
+        else:
+            headline = "🚨 ALL accounts failed to dispatch"
+            held_note = ""
+
         body = (
-            "🚨 ALL accounts failed to dispatch\n"
+            f"{headline}\n"
             f"Strategy: {strategy} | Symbol: {symbol} | Side: {side}\n"
             f"Accounts attempted: {attempted} | Trades placed: {placed}\n"
-            "Failures:\n" + "\n".join(lines)
+            "Failures:\n" + "\n".join(lines) + held_note
         )[:1024]
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
