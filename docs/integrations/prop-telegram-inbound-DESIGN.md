@@ -93,6 +93,20 @@ No BotFather change is needed for a 1:1 chat with the bot. (If the prop channel
 is ever a Telegram *group*, disable BotFather privacy mode so the bot sees plain
 `close …` lines.)
 
+## Yes/No buttons ON the ticket (built 2026-06-25)
+
+The primary report-back is now **inline Yes/No buttons attached to the trade
+ticket itself** (`breakout_notify.emit_prop_signal` →
+`build_place_decision_keyboard`): every emitted prop ticket ends with
+`[✅ Yes — I placed it] [❌ No — not placed]`. The operator taps after acting —
+✅ → the bot replies with the fill-details prompt (ticket → `awaiting_report`);
+❌ → logged not-placed (ticket → `expired`). Same `propexp:*` callbacks +
+`claude_bridge` handler as the expiry prompt below, so no new transport. The
+typed JSON / command grammar stays as a fallback. (The buttons supersede the
+operator-typed `/testexpiry` test command + the separate delayed-only prompt as
+the day-to-day path; both remain — the expiry prompt below is now the *nag* for a
+ticket left un-tapped past its validity window.)
+
 ## Expired-ticket Yes/No prompt (built 2026-06-24)
 
 A ticket that passes its `valid_until` with no report-back is silent drift — the

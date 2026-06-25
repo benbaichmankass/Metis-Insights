@@ -118,6 +118,16 @@ def build_expiry_keyboard(ticket_id: str) -> Dict[str, Any]:
     }
 
 
+# The SAME Yes/No keyboard is attached to a freshly-emitted ticket so the
+# operator reports back with a tap instead of typing — named distinctly for that
+# call site (breakout_notify.emit_prop_signal). Shares the propexp:* callbacks,
+# so the existing claude_bridge handler drives both: ✅ → fill prompt, ❌ → logged
+# not-placed.
+def build_place_decision_keyboard(ticket_id: str) -> Dict[str, Any]:
+    """Yes/No 'did you place this trade?' keyboard for a just-emitted ticket."""
+    return build_expiry_keyboard(ticket_id)
+
+
 def find_tickets_to_prompt(
     *, account_id: Optional[str] = None, now: Optional[datetime] = None,
     max_age_hours: Optional[float] = None,
@@ -236,7 +246,7 @@ def handle_expiry_callback(callback_data: str) -> Optional[Dict[str, Any]]:
         return {
             "answer": "no",
             "ticket_id": ticket_id,
-            "ack": f"❌ Logged as expired — ticket not placed.\n({ticket_id})",
+            "ack": f"❌ Logged — you did not place this trade. Nothing to track.\n({ticket_id})",
             "send_prompt": False,
         }
 
@@ -303,6 +313,7 @@ def send_test_prompt(
 __all__ = [
     "EXPIRY_CB_PREFIX",
     "build_expiry_keyboard",
+    "build_place_decision_keyboard",
     "find_tickets_to_prompt",
     "run_prop_expiry_prompts",
     "handle_expiry_callback",
