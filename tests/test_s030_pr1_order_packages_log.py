@@ -323,3 +323,70 @@ class TestMultiAccountExecuteWritesOrderPackageRow:
 
         # Dispatch still returned a result for the assigned account.
         assert any(r["error"] is None for r in results)
+
+
+# ---------------------------------------------------------------------------
+# BUG-049 backstop — a package with no eligible account is terminalised,
+# never left status='open' to orphan at +5min.
+# ---------------------------------------------------------------------------
+
+
+class TestMultiAccountExecuteBug049Backstop:
+    """A logged package that places no trade must reach a terminal status in
+    the same dispatch round, so the monitor reconciler never mis-stamps it
+    'orphaned — never executed' (BUG-049, system-review 2026-06-25)."""
+
+    def test_no_eligible_account_terminalises_package(self, coord_and_yaml):
+        coord, accounts_yaml, tmp_path = coord_and_yaml
+
+        # 'turtle_soup' is on NO account's strategies list (the fixture routes
+        # only 'vwap' to bybit_2) → the eligibility filter yields zero accounts,
+        # the per-account loop never runs, and pre-fix the package would sit
+        # status='open' / linked_trade_id=NULL → orphaned at +5min.
+        pkg = OrderPackage(
+            strategy="turtle_soup", symbol="BTCUSDT", direction="short",
+            entry=50_000.0, sl=50_500.0, tp=49_000.0,
+            confidence=0.7, meta={"strategy_name": "turtle_soup"},
+        )
+
+        results = coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml, dry_run=True,
+            balance_fetcher=lambda _a: 10_000.0,
+        )
+
+        # No eligible account → no per-account result rows.
+        assert results == []
+
+        db = Database(db_path=str(tmp_path / "trade_journal.db"))
+        rows = db.get_order_packages_by_strategy("turtle_soup")
+        assert len(rows) == 1
+        row = rows[0]
+        # Terminalised in-round — NOT left 'open' to orphan.
+        assert row["status"] == "rejected"
+        assert row["close_reason"] == "no_eligible_account"
+        assert row["linked_trade_id"] is None
+
+    def test_successful_dispatch_left_open_for_trade_link(self, coord_and_yaml):
+        """The backstop must NOT touch a package that DID place a trade — it
+        stays 'open' so the trade row's order_package_id links it (unchanged)."""
+        coord, accounts_yaml, tmp_path = coord_and_yaml
+
+        pkg = OrderPackage(
+            strategy="vwap", symbol="BTCUSDT", direction="short",
+            entry=50_000.0, sl=50_500.0, tp=49_000.0,
+            confidence=0.7, meta={"strategy_name": "vwap"},
+        )
+
+        with patch(
+            "src.units.accounts.execute.execute_pkg",
+            side_effect=lambda p, cfg, **kw: f"dry-{cfg['account_id']}",
+        ):
+            coord.multi_account_execute(
+                pkg, accounts_path=accounts_yaml, dry_run=True,
+                balance_fetcher=lambda _a: 10_000.0,
+            )
+
+        db = Database(db_path=str(tmp_path / "trade_journal.db"))
+        row = db.get_order_packages_by_strategy("vwap")[0]
+        assert row["status"] == "open"
+        assert row["close_reason"] in (None, "")
