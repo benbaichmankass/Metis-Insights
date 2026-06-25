@@ -56,6 +56,35 @@ def test_emit_records_order_package_id_from_meta(isolated_env: Path) -> None:
     assert rows[0]["order_package_id"] == "op-xyz-123"   # was always None pre-fix
 
 
+def test_default_emit_passes_ticket_id_for_buttons(
+    isolated_env: Path, monkeypatch) -> None:
+    """The default (no _emitter) emit path passes ticket_id + account_id to
+    emit_prop_signal — that's what makes the Yes/No place-decision buttons attach.
+
+    Regression: send-prop-test-ping injected an _emitter(ticket) that dropped the
+    ticket_id, so the test ping showed no buttons even though real tickets do.
+    """
+    from src.prop import breakout_notify
+    from src.prop.breakout_executor import emit_prop_ticket
+
+    captured = {}
+
+    def _fake_emit(ticket, **kwargs):
+        captured.update(kwargs)
+        return {"push": True, "telegram": True}
+
+    monkeypatch.setattr(breakout_notify, "emit_prop_signal", _fake_emit)
+
+    order = {
+        "symbol": "SOLUSDT", "direction": "long", "side": "Buy",
+        "entry": 150.0, "sl": 145.5, "tp": 175.5,
+        "strategy": "trend_donchian_sol", "meta": {"order_package_id": "op-1"},
+    }
+    trade_id = emit_prop_ticket(order, _account_cfg(), timeframe="1h")
+    assert captured.get("ticket_id") == trade_id   # → buttons attach
+    assert captured.get("account_id") == "breakout_1"
+
+
 def test_emit_sizes_off_configured_risk_pct(isolated_env: Path) -> None:
     from src.prop import prop_journal
     from src.prop.breakout_executor import emit_prop_ticket
