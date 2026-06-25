@@ -134,6 +134,11 @@ EXPECTED_ACTIONS = {
     # 2026-06-19 — one-shot guarded flatten of a single IB exchange position
     # (BL-20260618-RECONCILE-DUP residual: the stranded ib_paper MGC short).
     "flatten-ib-position": "flatten_ib_position_action.sh",
+    # 2026-06-24 — orphan-flap hardening #5: collapse historical phantom
+    # orphan-flap duplicates so each physical position is ONE reconciled row
+    # (void-flag dups as reconcile_status='superseded'). DRY-RUN by default;
+    # apply is gated + takes a DB backup. Pure journal hygiene.
+    "reconcile-orphan-history": "reconcile_orphan_history_action.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -172,6 +177,7 @@ TIER_2_ACTIONS = {
     "sync-clock",
     "purge-cloudflared",
     "flatten-ib-position",
+    "reconcile-orphan-history",
 }
 
 

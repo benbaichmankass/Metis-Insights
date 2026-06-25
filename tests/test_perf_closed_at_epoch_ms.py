@@ -50,7 +50,7 @@ def _seed(db: Path, now: datetime.datetime) -> None:
         CREATE TABLE trades(id INTEGER PRIMARY KEY, strategy_name TEXT, symbol TEXT,
             pnl REAL, created_at TEXT, timestamp TEXT, closed_at TEXT, status TEXT,
             is_backtest INT, account_class TEXT, is_demo INT, account_id TEXT,
-            exit_reason TEXT);
+            exit_reason TEXT, reconcile_status TEXT);
         CREATE TABLE order_packages(id INTEGER PRIMARY KEY, linked_trade_id INT, updated_at TEXT);
         """
     )
@@ -63,7 +63,7 @@ def _seed(db: Path, now: datetime.datetime) -> None:
         # real, EPOCH-MS closed_at 30h ago — outside the 24h window, must NOT count.
         (3, "trend", "BTCUSDT", 99.0, iso(40), iso(40), ms(30), "closed", 0, "real_money", 0, "bybit_2", "reconciler_filled"),
     ]
-    conn.executemany("INSERT INTO trades VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+    conn.executemany("INSERT INTO trades(id,strategy_name,symbol,pnl,created_at,timestamp,closed_at,status,is_backtest,account_class,is_demo,account_id,exit_reason) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
     conn.commit()
     conn.close()
 

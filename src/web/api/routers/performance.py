@@ -60,6 +60,7 @@ from src.web.api._asset_class import CLASS_ORDER, asset_class_for_symbol
 from src.runtime.local_pnl import contract_value_usd_for
 from src.web.api._clean_trades import (
     exclude_reconciler_predicate,
+    exclude_superseded_predicate,
     not_paper_predicate,
     paper_predicate,
     r_multiple,
@@ -138,6 +139,9 @@ _NOT_PAPER_PREDICATE = not_paper_predicate("t.")
 # Drop reconciler ``orphan_adopt`` rows from the strategy-performance aggregates
 # — they are a recovery/bookkeeping state, not a strategy's trade.
 _EXCLUDE_RECONCILER = exclude_reconciler_predicate("t.")
+# Drop superseded phantom orphan-flap duplicates (void-flagged by the
+# historical reconciliation pass, orphan-flap hardening #5) from the aggregates.
+_EXCLUDE_SUPERSEDED = exclude_superseded_predicate("t.")
 
 
 def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqlite3.Row]:
@@ -199,6 +203,7 @@ def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqli
         """
         sql += _PAPER_PREDICATE if demo else _NOT_PAPER_PREDICATE
         sql += _EXCLUDE_RECONCILER
+        sql += _EXCLUDE_SUPERSEDED
         params: List[Any] = []
         if since:
             sql += f" AND {_CLOSE_TIME_SQL} >= datetime(?)"

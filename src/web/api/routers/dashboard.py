@@ -26,6 +26,7 @@ from src.utils.paths import runtime_logs_dir, trade_journal_db_path
 from src.web.api._clean_trades import (
     account_class_wire,
     exclude_reconciler_predicate,
+    exclude_superseded_predicate,
     not_paper_predicate,
     paper_predicate,
 )
@@ -85,6 +86,8 @@ _PAPER_PREDICATE = paper_predicate("")
 # Drop reconciler ``orphan_adopt`` artifacts from the KPI aggregates so
 # /stats agrees with /performance (both now exclude them).
 _EXCLUDE_RECONCILER = exclude_reconciler_predicate("")
+# Drop superseded phantom orphan-flap duplicates (orphan-flap hardening #5).
+_EXCLUDE_SUPERSEDED = exclude_superseded_predicate("")
 _account_class_wire = account_class_wire
 
 
@@ -310,7 +313,8 @@ def _pnl_stats_for(predicate: str) -> tuple[float, float, int, float]:
                 WHERE COALESCE(is_backtest,0)=0
                 """
                 + predicate
-                + _EXCLUDE_RECONCILER,
+                + _EXCLUDE_RECONCILER
+                + _EXCLUDE_SUPERSEDED,
             )
             row = cur.fetchone()
         except sqlite3.Error:
