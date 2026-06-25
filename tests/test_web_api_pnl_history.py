@@ -43,7 +43,8 @@ def _make_journal(path: Path) -> Path:
             account_class TEXT,
             strategy_name TEXT,
             created_at TEXT,
-            closed_at TEXT
+            closed_at TEXT,
+            reconcile_status TEXT
         );
         -- /pnl/history now buckets on CLOSE-time COALESCE(closed_at,
         -- op.updated_at, timestamp) and LEFT JOINs order_packages; an empty

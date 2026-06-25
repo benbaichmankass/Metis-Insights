@@ -62,7 +62,8 @@ def _make_journal(path: Path) -> Path:
             is_demo BOOLEAN DEFAULT 0,
             account_class TEXT,
             strategy_name TEXT,
-            created_at TEXT
+            created_at TEXT,
+            reconcile_status TEXT
         )
         """
     )
