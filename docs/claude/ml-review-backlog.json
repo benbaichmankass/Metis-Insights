@@ -957,9 +957,13 @@
         {
           "at": "2026-06-25T06:22:00+00:00",
           "note": "Tier-1 doc fix LANDED (commit b72646b): corrected the stale regime_bar_scoring.py feature-parity caveat (S17 parity is closed; the real gate is yz edge calibration)."
+        },
+        {
+          "at": "2026-06-25T06:47:00+00:00",
+          "note": "DEMOTE EXECUTED (operator-approved). promote-stage btc-regime-5m-lgbm-yz-v1 advisory->shadow on the trainer (#4526, stage_history records advisory->shadow at 06:45:39Z; advisory count now 0 \u2014 ZERO order-influencing models, reverted to known-good formulaic conviction). Mirror published to live (#4527, 06:46:29Z -> 141.145.193.91:/data/bot-data/runtime_logs/trainer_mirror). Takes effect on the live trader's next registry reload. Item stays OPEN for the refinement half: re-promotion needs the deeper edge-redesign (shorter freeze recency / finer low-end granularity / off fixed-quantile bucketing), validated + re-gated first. (NB: the first demote dispatch #4523 \u2014 bundled with publish \u2014 had its opened-webhook dropped and never ran; re-fired as #4526 promote-stage-only + #4527 publish.)"
         }
       ]
     }
   ],
-  "updated_at": "2026-06-25T06:22:00+00:00"
+  "updated_at": "2026-06-25T06:47:00+00:00"
 }
