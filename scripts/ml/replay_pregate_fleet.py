@@ -218,15 +218,22 @@ def run(model_ids: List[str], *, window_n: int, folds: int,
                     model_ids.append(mid)
             except Exception:  # noqa: BLE001
                 continue
+    print(f"[fleet] scoring {len(model_ids)} head(s): {', '.join(model_ids)}",
+          file=sys.stderr, flush=True)
     results: List[Dict[str, Any]] = []
     errors: List[Dict[str, Any]] = []
-    for mid in model_ids:
+    for n, mid in enumerate(model_ids, 1):
+        print(f"[fleet] ({n}/{len(model_ids)}) {mid} ...", file=sys.stderr, flush=True)
         try:
-            results.append(score_model(
-                mid, reg, window_n=window_n, folds=folds,
-                positive_class=positive_class))
+            r = score_model(mid, reg, window_n=window_n, folds=folds,
+                            positive_class=positive_class)
+            results.append(r)
+            ov = r.get("overall") or {}
+            print(f"[fleet]   -> {r.get('auc_verdict')} auc={ov.get('auc')} "
+                  f"n={r.get('n_scored')}", file=sys.stderr, flush=True)
         except Exception as exc:  # noqa: BLE001
             errors.append({"model_id": mid, "error": str(exc)})
+            print(f"[fleet]   -> ERROR {exc}", file=sys.stderr, flush=True)
     results.sort(key=lambda r: (r.get("overall") or {}).get("auc") or 0.0,
                  reverse=True)
     return {
