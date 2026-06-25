@@ -231,6 +231,64 @@ echo "=== SIGNALS ==="
 # names vary — the eval count is the reliable signal-of-life metric.
 audit_recent '_eval$' 30 "no signal-eval events in last ${LOOKBACK_MIN}m"
 
+echo "=== EVAL FRESHNESS (per-strategy signal-of-life) ==="
+# BL-20260603-001: the aggregate '_eval$' count above can stay non-zero while a
+# SINGLE strategy has gone dark (broker/candle-fetch dead for that symbol). A
+# strategy that emits side=none '...no breakout...' eval rows is ALIVE (doing its
+# job); a strategy that STOPS emitting eval rows entirely is a real regression
+# (e.g. mes_trend_long_1d on the daily — one eval/tick when healthy). This block
+# lists each strategy's last *_eval age and FLAGS any strategy that has a
+# historical eval in the tail but NONE within the lookback window — observe-only,
+# the layer-2 review escalates.
+if [ ! -f "$audit_jsonl" ]; then
+  echo "no eval-freshness (audit jsonl missing at $audit_jsonl)"
+else
+  tail -n 20000 "$audit_jsonl" 2>/dev/null \
+    | python3 - "$LOOKBACK_MIN" <<'PY'
+import json, sys, time
+from datetime import datetime
+lookback = int(sys.argv[1])
+cutoff = time.time() - lookback * 60
+last_ts = {}   # strategy -> latest eval epoch (whole tail)
+in_window = {} # strategy -> count within lookback
+for line in sys.stdin:
+    line = line.rstrip("\n")
+    if not line:
+        continue
+    try:
+        ev = json.loads(line)
+    except json.JSONDecodeError:
+        continue
+    if not str(ev.get("event", "")).endswith("_eval"):
+        continue
+    strat = ev.get("strategy") or ev.get("strategy_name")
+    if not strat:
+        continue
+    ts_str = ev.get("logged_at_utc") or ev.get("ts") or ""
+    try:
+        t = datetime.fromisoformat(ts_str.replace("Z", "+00:00")).timestamp()
+    except (ValueError, AttributeError):
+        continue
+    last_ts[strat] = max(last_ts.get(strat, 0.0), t)
+    if t >= cutoff:
+        in_window[strat] = in_window.get(strat, 0) + 1
+if not last_ts:
+    print(f"no *_eval rows with a strategy field in the tail (lookback {lookback}m)")
+else:
+    now = time.time()
+    dark = []
+    for strat in sorted(last_ts):
+        age_m = (now - last_ts[strat]) / 60.0
+        cnt = in_window.get(strat, 0)
+        flag = "" if cnt > 0 else "  <-- DARK: no eval in lookback (was firing; investigate broker/candle-fetch)"
+        print(f"  {strat:28} last_eval_age={age_m:7.1f}m  in_window={cnt}{flag}")
+        if cnt == 0:
+            dark.append(strat)
+    if dark:
+        print(f"FLAG: {len(dark)} strateg{'y' if len(dark)==1 else 'ies'} went dark (eval in tail but none in last {lookback}m): {', '.join(dark)}")
+PY
+fi
+
 echo "=== ORDERS ==="
 # Source of truth is trade_journal.db::order_packages, not *.log.
 journal_recent order_packages 20 "no order_packages rows in last ${LOOKBACK_MIN}m"

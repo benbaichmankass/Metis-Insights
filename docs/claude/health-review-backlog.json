@@ -678,11 +678,17 @@
       "tier": 1,
       "trigger_condition": "Any /health-review; editable as a Tier-1 wrapper fix (scripts/ops/status_check.sh + pull_logs.sh).",
       "resolution_criteria": "status_check.sh headline heartbeat reads $DATA_DIR/runtime_logs/heartbeat.txt (canonical) so age_sec reflects real liveness; verified on a status-check run.",
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-25T07:20:00+00:00",
       "resolved_by": null,
       "resolution": null,
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:20:00+00:00",
+          "note": "RESOLVED \u2014 scripts/ops/pull_logs.sh now resolves heartbeat via $DATA_DIR/runtime_logs -> /data/bot-data -> repo (mirrors the already-fixed status_check.sh), so it no longer reports the frozen repo-path heartbeat as headline liveness. bash -n clean."
+        }
+      ]
     },
     {
       "id": "BL-20260605-006",
@@ -1346,11 +1352,17 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run; or when the operator notices 'MES never trades' again and we want a faster real-vs-normal discrimination.",
       "resolution_criteria": "A monitor exists that alerts if any of {mes_trend_long_1d_eval, mgc_pullback_1d_eval, mhg_pullback_1d_eval} hasn't logged an eval row in 24h. False-positive rate verified \u22480 on a normal day (where side=none rows are continuously emitted).",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-06-25T07:20:00+00:00",
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:20:00+00:00",
+          "note": "RESOLVED \u2014 scripts/collect_health_snapshot.sh adds an 'EVAL FRESHNESS (per-strategy signal-of-life)' block: per-strategy last *_eval age + in-window count, and FLAGS any strategy with a historical eval in the tail but none within the lookback (the 'went dark' regression, e.g. mes_trend_long_1d) \u2014 distinct from side=none 'no setup' (alive). Observe-only; the layer-2 review escalates. python compiles + bash -n clean."
+        }
+      ]
     },
     {
       "id": "BL-20260602-003",
@@ -2133,8 +2145,15 @@
       "title": "Stale duplicate heartbeat.txt under repo runtime_logs/ (4d old) vs fresh canonical /data/bot-data",
       "description": "/home/ubuntu/ict-trading-bot/runtime_logs/heartbeat.txt is frozen at 2026-06-14 13:55 (age ~4d) while the canonical /data/bot-data/runtime_logs/heartbeat.txt is fresh (43s). A stray duplicate left from before the /data/bot-data DATA_DIR cutover \u2014 harmless (the watchdog reads the canonical path) but a confusing artifact. Remove the repo-dir copy or symlink it. Same stray-duplicate class as the duplicate-journal guard.",
       "tier": 1,
-      "status": "open",
-      "snoozed_until": null
+      "status": "resolved",
+      "snoozed_until": null,
+      "resolved_at": "2026-06-25T07:20:00+00:00",
+      "updates": [
+        {
+          "at": "2026-06-25T07:20:00+00:00",
+          "note": "RESOLVED \u2014 both consumers (status_check.sh already, pull_logs.sh now) read the canonical $DATA_DIR heartbeat, so the stray repo-dir copy is no longer read as liveness (harmless). The repo file is NOT git-tracked; the leftover VM working-tree copy is cosmetic (optional one-time rm on the VM)."
+        }
+      ]
     },
     {
       "id": "BL-20260618-CLOSEDFLAT-MALFORMED-JSON",
@@ -2370,12 +2389,18 @@
       "trigger_condition": "next deploy / next health-review touching the deploy scripts",
       "resolution_criteria": "deploy_pull_restart.sh no longer warns on the live VM (marker present or read guarded); role detection is explicit on all three VMs.",
       "check_log": [],
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-25T07:20:00+00:00",
       "resolved_by": null,
       "resolution": null,
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:20:00+00:00",
+          "note": "RESOLVED \u2014 scripts/deploy_pull_restart.sh guards the /etc/ict-vm-role read with `[ -r ]` first (the input-redirection error leaks before the command's 2>/dev/null on a missing file), so the live trader VM (no marker, correctly non-gateway) no longer emits 'No such file or directory' every deploy. bash -n clean."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-06-25T07:00:00+00:00"
+  "updated_at": "2026-06-25T07:20:00+00:00"
 }
