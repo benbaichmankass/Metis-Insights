@@ -466,6 +466,23 @@ recommended) exclude regime heads from the advisory directional-downsize quorum 
 `shadow→advisory` until the advisory-path score distribution is verified non-degenerate.
 Logged to `ml-review-backlog` `MB-20260625-001`/`-001`.
 
+**Execution-session update 3 — P4 fully gated: a complementary convex trend sleeve
+(2026-06-25):** the P4 regime-decomposition (19 alt/ETF/futures instruments,
+`scripts/research/regime_matrix.py` → `scripts/backtest_trend.py`) cleared the FULL gate
+(2× fee → IS/OOS holdout → per-year → right-tail → orthogonality). **Survivor sleeve:
+SLV (+101R, exp 0.26), QQQ long-only (+76R, exp 0.36), USO (+56R), GLD (+35R)** — net of
+15bps, all OOS-positive, mostly-positive by year. **Orthogonal to the existing BTC/MES
+trend book** (monthly-return |corr| ≤ 0.17 vs BTC, ≤ 0.11 vs MES over 113 months) — the
+diversification the portfolio thesis wanted. Profile: convex/right-tail-dependent (top
+decile carries the edge — *distributed*, not a freak; same character as the SOL squeeze,
+so size small / disclose). DROPPED: SPY (redundant with QQQ, corr 0.61), IWM (marginal),
+DBC (failed OOS), crypto-alts-15m (all −44 to −674: trend bleeds on chop → MR/squeeze
+territory), ES 1h (−99, consistent with the live MES trend difficulty). **Tier-3 proposal
+(awaiting operator):** add `trend_donchian` cells on SLV/QQQ-LO/USO(±GLD) to `alpaca_live`
+(already trades ETFs), `execution: shadow` first, after `account_compat_matrix`. Together
+with the SOL-squeeze convex satellite (P6b), this forms a small **convex-satellite book**
+orthogonal to the directional core. Full work: scratchpad `P4-regime-decompose-result.md`.
+
 *Sources: full cited research (market-neutral, non-trend+allocation, ML) was produced
 this session and is summarized inline above with key citations; the existing-book
 evidence is in `regime-roster-matrix-2026-06-01.md`, `regime-router-design-2026-06-01.md`,
