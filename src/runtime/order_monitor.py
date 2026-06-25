@@ -3383,8 +3383,9 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
                 _PENDING_CLOSE_CONFIRM.pop(_tid_int, None)
 
             _exit_reason = "reconciler_filled"
+            _close_mechanism: Optional[str] = None
             try:
-                _exit_reason = _close_trade_from_order_status(
+                _exit_reason, _close_mechanism = _close_trade_from_order_status(
                     db, row, order_status, cfg=cfg,
                 )
                 summary["closed"] += 1
@@ -3422,12 +3423,41 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
                         "Bybit TP bracket fired; detected at next reconcile tick"
                     )
                 elif _linked_pkg:
-                    _ping_headline = "🔔 Broker close detected by reconciler"
-                    _ping_cls = "broker_close_unclassified"
-                    _ping_note = (
-                        "Closed at exchange (manual or mid-bracket); "
-                        "exit price not at SL/TP levels"
-                    )
+                    # Refine the classification using the execType the
+                    # close-from-order-status path recovered from Bybit
+                    # /v5/execution/list (2026-06-25).
+                    if _close_mechanism == "BustTrade":
+                        _ping_cls = "broker_close_liquidation"
+                        _ping_headline = "💥 Liquidation/margin call detected by reconciler"
+                        _ping_note = (
+                            "Bybit BustTrade — demo margin call or position liquidation; "
+                            "platform closed the position, not a bot SL/TP order"
+                        )
+                    elif _close_mechanism == "AdlTrade":
+                        _ping_cls = "broker_close_adl"
+                        _ping_headline = "⚡ Auto-deleveraging close detected by reconciler"
+                        _ping_note = (
+                            "Bybit AdlTrade — auto-deleverage event; "
+                            "platform unwound the position"
+                        )
+                    elif _close_mechanism is None:
+                        _ping_cls = "broker_close_platform_reset"
+                        _ping_headline = "🔄 Broker close: no execution found by reconciler"
+                        _ping_note = (
+                            "No execution record found in 10-min window — "
+                            "possible demo platform reset, session expiry, or data gap; "
+                            "exit price not at SL/TP levels"
+                        )
+                    else:
+                        # "Trade" or "BlockTrade" — a real order closed the position
+                        # (manual flatten or stop outside the bot's tracked bracket).
+                        _ping_cls = "broker_close_unclassified"
+                        _ping_headline = "🔔 Broker close detected by reconciler"
+                        _ping_note = (
+                            f"Closed via {_close_mechanism} order at exchange; "
+                            "exit price not at SL/TP levels — "
+                            "manual close or untracked stop"
+                        )
                 else:
                     _ping_headline = "🧹 Orphaned trade — no package link"
                     _ping_cls = "unlinked_orphan"
@@ -4657,7 +4687,7 @@ def _close_trade_from_order_status(
     order_status: Dict[str, Any],
     *,
     cfg: Optional[Dict[str, Any]] = None,
-) -> str:
+) -> tuple:
     """Mark a trade row 'closed' when Bybit reports the entry order
     filled and the position flat. Cascades the linked
     ``order_packages`` row (close_reason='reconciler_filled').
@@ -4851,6 +4881,35 @@ def _close_trade_from_order_status(
         if _entry_avg_price > 0 and _entry_avg_price != _entry_current:
             updates["entry_price"] = _entry_avg_price
 
+    # Broker-close mechanism lookup (2026-06-25): when the reconciler can't
+    # classify the close as sl/tp (exit price unknown or mid-range), query
+    # Bybit's /v5/execution/list to surface the execType of the most recent
+    # execution in a 10-minute window. This distinguishes:
+    #   "BustTrade"  → demo margin call / liquidation
+    #   "AdlTrade"   → auto-deleveraging event
+    #   "Trade"      → a normal order filled (manual close / out-of-bracket stop)
+    #   None         → no execution found (possible platform reset / data gap)
+    # Best-effort — a failure never blocks the close path. The result is both
+    # persisted to notes AND returned alongside final_exit_reason so the caller
+    # can refine the operator ping classification without a second network round-trip.
+    _exec_type: Optional[str] = None
+    if final_exit_reason == "reconciler_filled" and cfg is not None:
+        try:
+            from src.units.accounts.clients import account_exec_type_for_close
+            _exec_type = account_exec_type_for_close(
+                cfg,
+                str(row.get("symbol") or ""),
+                end_ms=int(datetime.now(timezone.utc).timestamp() * 1000),
+            )
+            if _exec_type:
+                # Re-decode the notes already in updates (already dump_capped),
+                # merge the exec_type, re-dump so the DB row carries it.
+                _current_notes = _decode_notes(updates.get("notes", "{}"))
+                _current_notes["close_exec_type"] = _exec_type
+                updates["notes"] = dump_capped(_current_notes, 500)
+        except Exception:  # noqa: BLE001
+            pass
+
     db.update_trade(int(row["id"]), updates)
 
     # Cascade by canonical link (order_packages.linked_trade_id), not
@@ -4866,7 +4925,7 @@ def _close_trade_from_order_status(
         close_reason=final_exit_reason,
         caller="_close_trade_from_order_status",
     )
-    return final_exit_reason
+    return final_exit_reason, _exec_type
 
 
 def _mark_orphaned(db, row: Dict[str, Any]) -> None:
