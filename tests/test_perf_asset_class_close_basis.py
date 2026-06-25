@@ -53,7 +53,7 @@ def _seed(db: Path, now: datetime.datetime) -> None:
         CREATE TABLE trades(id INTEGER PRIMARY KEY, strategy_name TEXT, symbol TEXT,
             pnl REAL, created_at TEXT, timestamp TEXT, closed_at TEXT, status TEXT,
             is_backtest INT, account_class TEXT, is_demo INT, account_id TEXT,
-            exit_reason TEXT);
+            exit_reason TEXT, reconcile_status TEXT);
         CREATE TABLE order_packages(id INTEGER PRIMARY KEY, linked_trade_id INT, updated_at TEXT);
         """
     )
@@ -71,7 +71,7 @@ def _seed(db: Path, now: datetime.datetime) -> None:
         # real MES closed 5h ago +20 (asset class index)
         (6, "mes_x", "MES", 20, iso(6), iso(6), iso(5), "closed", 0, "real_money", 0, "ib_live", "tp"),
     ]
-    conn.executemany("INSERT INTO trades VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+    conn.executemany("INSERT INTO trades(id,strategy_name,symbol,pnl,created_at,timestamp,closed_at,status,is_backtest,account_class,is_demo,account_id,exit_reason) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
     # trade 1 has TWO order packages (entry + rearm) — must NOT double-count
     conn.executemany(
         "INSERT INTO order_packages(linked_trade_id,updated_at) VALUES(?,?)",

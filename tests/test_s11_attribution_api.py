@@ -41,7 +41,8 @@ def _init_db(path: str) -> None:
                 status TEXT,
                 is_backtest INTEGER DEFAULT 0,
                 is_demo INTEGER DEFAULT 0,
-                account_class TEXT
+                account_class TEXT,
+                reconcile_status TEXT
             )"""
         )
         conn.commit()
