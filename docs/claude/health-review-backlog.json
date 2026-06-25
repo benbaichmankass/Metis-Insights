@@ -22,6 +22,10 @@
         {
           "at": "2026-06-25T05:40:00+00:00",
           "note": "/system-review verification (since-last 06-24->06-25): the MHG/ib_paper adopt->reconcile-close flap RECURRED on 2026-06-24 \u2014 3 adopted_orphan MHG closes: #2832 (11:41->11:53, exit=exchange_flat_reconciled, pnl=-2530.41 PHANTOM), #2835 (13:32, exit_coverage_no_strategy, -17.91), #2837 (13:45, exit_coverage_no_strategy, -29.16). These predate today's 05:11Z restart (git 6f1f9401). The IB close-confirm/retry-cooldown fix (PR #4441) has NOT eliminated the adopt->exchange-flat-reconcile pattern on ib_paper MHG, and the -2530.41 is a phantom-magnitude PnL polluting the paper book (MHG contract-value/sizing artifact). Stays OPEN \u2014 keep watching; correlate next with whether #4441 was actually deployed before 06-24 midday."
+        },
+        {
+          "at": "2026-06-25T06:05:00+00:00",
+          "note": "CORRECTION/fold-in (/system-review follow-up): the 06-24 MHG closes (11:41-13:49) PREDATE the orphan-flap #1 fix (#4464 reconciler flat-close leg-cancel, merged 06-24 15:28) and #4453 (place_protective pre-cancel, 15:11) \u2014 they are the LAST pre-fix flap, NOT a regression of #4441. The full orphan-flap hardening queue #1-#5 is now MERGED (#4453/#4464/#4465/#4468/#4469/#4481). My salvaged journal (ids 2805-2853, through 06-25 04:05) shows NO new adopted_orphan/MHG flap after 06-24 13:49 -> the order-path fixes are HOLDING. Residual phantom rows (incl the -2530.41 MHG cluster) are cleaned by #4481's reconcile-orphan-history (dry-run -> operator-gated apply). Recommend: keep open until the dry-run KEEP/VOID plan is run + applied, then close."
         }
       ]
     },
