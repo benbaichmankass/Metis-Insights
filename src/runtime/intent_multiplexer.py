@@ -48,6 +48,10 @@ from src.runtime.intents import (
     intent_from_signal,
 )
 from src.runtime.runtime_flags import is_strategy_paused
+from src.runtime.strategy_monocle import (
+    _bar_debounce_disabled,
+    _strategy_timeframe_seconds,
+)
 from src.runtime.strategy_signal_builders import (
     fade_breakout_4h_signal_builder,
     fvg_range_15m_signal_builder,
@@ -244,6 +248,14 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
 # isolation is required.
 _REGISTERED_BUILDERS: Dict[str, IntentBuilder] = {}
 
+# Per-bar EMISSION debounce state (re-entry-storm guard, PERF-20260601-001).
+# Maps (strategy, symbol) -> the closed-bar bucket [floor(epoch / bar_seconds)]
+# of the strategy's most recent emitted intent. Persists ACROSS ticks (module
+# level) so that across the ~N ticks inside one strategy bar, only the first
+# actionable tick emits. Reset implicitly when a new bar opens (bucket changes).
+# Bounded by strategy×symbol count; values are ints, no pruning needed.
+_LAST_EMITTED_BUCKET: Dict[tuple, int] = {}
+
 
 def register_intent_builder(strategy: str, builder: IntentBuilder) -> None:
     """Register an additional strategy → builder mapping.
@@ -394,6 +406,54 @@ def _collect_intents(
     return intents
 
 
+def _debounce_emissions(
+    intents: List[StrategyIntent], *, now: Optional[float] = None
+) -> List[StrategyIntent]:
+    """Drop intents a strategy already emitted earlier in the SAME closed bar.
+
+    Re-entry-storm guard (PERF-20260601-001). A strategy emits at most ONE
+    intent per ``(strategy, symbol, floor(now / bar_seconds))`` — regardless of
+    whether that intent later opens, is regime-gated, or is risk-rejected. The
+    dispatch-side ``strategy_monocle._same_bar_entry_for_strategy`` guard is
+    DB-backed (it scans ``order_packages``), so it cannot see a GATED intent
+    that never creates a package — e.g. the ``htf_pullback_trend_2h`` short the
+    regime router drops every tick, which floods the signals audit and distorts
+    per-strategy stats. This guard runs at the once-per-tick aggregation
+    boundary, BEFORE gating, so it covers the gated case too.
+
+    State lives in the module-level ``_LAST_EMITTED_BUCKET`` so it persists
+    across ticks (the ~N ticks inside one strategy bar collapse to one
+    emission) and resets implicitly when a new bar opens (the bucket changes).
+
+    Fail-open: the ``STRATEGY_BAR_DEBOUNCE_DISABLED`` kill-switch, an
+    unresolvable timeframe, or a missing symbol all let the intent through —
+    a live signal is never stranded by this guard. Shares the kill-switch and
+    the ``_strategy_timeframe_seconds`` lookup with the dispatch-side guard.
+    """
+    if not intents or _bar_debounce_disabled():
+        return list(intents)
+    if now is None:
+        now = time.time()
+    kept: List[StrategyIntent] = []
+    for intent in intents:
+        bar_seconds = _strategy_timeframe_seconds(intent.strategy)
+        if not bar_seconds or bar_seconds <= 0 or not intent.symbol:
+            kept.append(intent)
+            continue
+        bucket = int(now // bar_seconds)
+        key = (intent.strategy, intent.symbol)
+        if _LAST_EMITTED_BUCKET.get(key) == bucket:
+            logger.debug(
+                "intent_multiplexer: '%s' on %s already emitted this bar "
+                "(bucket=%d, bar_seconds=%d) — debounced (re-entry-storm guard)",
+                intent.strategy, intent.symbol, bucket, int(bar_seconds),
+            )
+            continue
+        _LAST_EMITTED_BUCKET[key] = bucket
+        kept.append(intent)
+    return kept
+
+
 def _desired_to_pipeline_signal(
     desired: DesiredPosition,
     *,
@@ -530,6 +590,9 @@ def multiplexed_intent_signal_builder(
         strategies=resolved_strategies,
         target_qty_hint=0.0,
     )
+    # Re-entry-storm guard: collapse a strategy's repeated same-bar emissions to
+    # one per closed bar before aggregation (PERF-20260601-001).
+    intents = _debounce_emissions(intents)
 
     if not intents:
         logger.info("intent_multiplexer: no strategy emitted an intent — staying flat")

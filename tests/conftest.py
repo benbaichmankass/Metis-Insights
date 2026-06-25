@@ -188,3 +188,31 @@ for _real_mod in (
         __import__(_real_mod)
     except Exception:  # pragma: no cover - env-specific import gaps
         pass
+
+
+# ---------------------------------------------------------------------------
+# Intent-multiplexer per-bar emission debounce — test isolation.
+#
+# The re-entry-storm guard (PERF-20260601-001) keeps module-level,
+# wall-clock-bucketed state in ``intent_multiplexer._LAST_EMITTED_BUCKET`` so a
+# strategy emits at most once per closed bar across the many ticks inside it.
+# That state is intentionally process-lived in production, but in the test
+# suite it leaks across tests: an emission in one test would debounce an
+# unrelated later test whose ``multiplexed_intent_signal_builder`` /
+# ``_debounce_emissions`` call lands in the same wall-clock bar bucket. Clear it
+# around every test. Best-effort + import-free: only touch the module if a test
+# already imported it (so we never force its heavy transitive import).
+# ---------------------------------------------------------------------------
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _reset_intent_emission_debounce():
+    def _clear() -> None:
+        mod = sys.modules.get("src.runtime.intent_multiplexer")
+        if mod is not None and hasattr(mod, "_LAST_EMITTED_BUCKET"):
+            mod._LAST_EMITTED_BUCKET.clear()
+
+    _clear()
+    yield
+    _clear()
