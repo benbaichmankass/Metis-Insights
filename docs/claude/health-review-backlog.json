@@ -1362,11 +1362,17 @@
       "tier": 1,
       "trigger_condition": "Next /health-review compliance-audit rotation hitting .github/workflows/ (Tuesday slot per the schedule).",
       "resolution_criteria": "Every workflow file in .github/workflows/ has a matching entry in docs/github-actions-workflows.md. A simple `comm`-style diff (workflow files vs catalog entries) returns empty.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-06-25T07:00:00+00:00",
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:00:00+00:00",
+          "note": "RESOLVED \u2014 added a 'Complete workflow index' section to docs/github-actions-workflows.md covering all 31 previously-undocumented workflows (real name/category/autonomy/trigger/purpose extracted from each file); 0 of 70 workflow files now unmentioned."
+        }
+      ]
     },
     {
       "id": "BL-20260604-001",
@@ -1688,10 +1694,16 @@
       "title": "backtesting skill overstates net-of-fee coverage \u2014 backtest_ict_scalp.py has no fee model",
       "description": ".claude/skills/backtesting/SKILL.md says 'Every harness below takes --fee-bps-roundtrip', but scripts/backtest_ict_scalp.py has no such flag and its code comment (line ~278) states gross_r == net_r (no separate fee model). It also lacks --start/--end/--resample windowing. Fix the skill text (and optionally add a fee model + window flags to the harness). M15 Phase 0 works around it via pre-split CSVs + --emit-trades net post-processing (scripts/ops/m15_phase0_sweep.sh).",
       "tier": 1,
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-25T07:00:00+00:00",
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:00:00+00:00",
+          "note": "RESOLVED \u2014 backtesting SKILL.md net-of-fee paragraph now carries the explicit exception: scripts/backtest_ict_scalp.py has NO fee model (no --fee-bps-roundtrip; gross-only), confirmed by grep (0 fee refs vs 3 in backtest_trend.py). Adding a fee model to the ict_scalp harness remains the open code follow-up (tracked here as the residual)."
+        }
+      ]
     },
     {
       "id": "BL-20260610-009",
@@ -1803,10 +1815,16 @@
       "title": "CLAUDE.md curated-subset note says MONITOR_RECONCILE_ENABLED 'gates the forward reconciler' \u2014 it gates the reverse reconciler too",
       "description": "The env-var prelude note (CLAUDE.md, 'Environment Variables' curated-subset paragraph) describes MONITOR_RECONCILE_ENABLED as gating 'the forward reconciler'. In reality src/runtime/order_monitor.py guards BOTH reconcilers with _reconcile_enabled(): _reconcile_open_trades (forward) AND _reconcile_orphan_exchange_positions (reverse, incl. its new close-on-disappear 2-observation confirm). Pre-existing imprecision, made more visible by PR #3558. Tier-1 doc-only fix: reword to 'gates the forward + reverse reconcilers'.",
       "tier": "tier1",
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-06-25T07:00:00+00:00",
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "updates": [
+        {
+          "at": "2026-06-25T07:00:00+00:00",
+          "note": "RESOLVED (verified already-clean) \u2014 CLAUDE.md no longer says MONITOR_RECONCILE_ENABLED 'gates the forward reconciler'; the only refs (RECONCILER_CLOSE_CONFIRM_SECONDS + POSITION_NETTING_GUARD_ENABLED rows) correctly state the gate was REMOVED 2026-06-15. No edit needed."
+        }
+      ]
     },
     {
       "id": "BL-20260614-SHADOWROT-NODATADIR",
@@ -1917,7 +1935,14 @@
       "title": "trading-mode-flags.md: stale 'both survivors / phase-2 follow-up' wording after MONITOR_RECONCILE_ENABLED removal",
       "description": "docs/claude/trading-mode-flags.md correctly states MONITOR_RECONCILE_ENABLED was removed 2026-06-15, but the closing paragraph still reads 'Both are documented in the audit. The phase-2 follow-up PR ... will add inline # allow-silent annotations + per-survivor regression tests' \u2014 'Both' now refers to only ONE live survivor (MULTI_ACCOUNT_DISPATCH). Minor historical drift; tighten the closing paragraph to reflect a single remaining survivor. Docs-only, Tier-1.",
       "tier": 1,
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-06-25T07:00:00+00:00",
+      "updates": [
+        {
+          "at": "2026-06-25T07:00:00+00:00",
+          "note": "RESOLVED (verified already-clean) \u2014 docs/claude/trading-mode-flags.md now reads 'Only one survives' (MULTI_ACCOUNT_DISPATCH) and explicitly documents MONITOR_RECONCILE_ENABLED as removed 2026-06-15; the stale 'both survivors' wording is gone. Minor residual: the 'phase-2 follow-up PR will add an inline annotation + regression test' line for MULTI_ACCOUNT_DISPATCH may itself be stale if that PR landed \u2014 low priority."
+        }
+      ]
     },
     {
       "id": "BL-20260615-HEARTBEAT-SVC",
@@ -2352,5 +2377,5 @@
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-25T05:40:00+00:00"
+  "updated_at": "2026-06-25T07:00:00+00:00"
 }
