@@ -840,12 +840,13 @@
       "opened_at": "2026-06-26T07:40:00+00:00",
       "opened_by": "claude (P1 vol-target overlay result)",
       "source": "scripts/portfolio_combine.py + backtest_vol_target.py (PR #4672) on a 9-sleeve BTC/ETH/MES book, 2818 trades 2021-06->2026-06; relays #4674 (emit) + #4675 (combine+overlay).",
-      "title": "GRADUATE P1 vol-target overlay to a live SHADOW sizing multiplier (Tier-3)",
-      "detail": "Book-level vol-targeting VALIDATED: Sharpe +0.10..+0.20 net of turnover across all targets/cadences. Best risk-adjusted config = 0.8x baseline-vol target, MONTHLY re-target, cap 0.5-1.5x, 20/60 blended vol estimate -> Sharpe 0.27->0.44 at ~flat vol (37 vs 39) and LOWER maxDD (75->69) = genuine risk-timing, not leverage. Proposal: a book-level multiplier on per-account qty, shadow-logged first (would-be vs actual) to soak before influencing live sizing, mirroring the advisory/conviction soak. Writeup: docs/research/P1-vol-target-result-2026-06-26.md.",
-      "status": "open",
+      "title": "[DOWNGRADED] P1 vol-target overlay \u2014 marginal on the LIVE book; do NOT graduate",
+      "detail": "CORRECTION: the graduate-to-shadow recommendation was based on a PROXY book (Sharpe 0.27, overlay +0.17-0.20). The live-param re-run (PB-005, relay #4686) shows the live book is healthy (Sharpe 1.33) and the overlay adds only +0.079 Sharpe weekly / ~0 monthly, RAISES vol, and does NOT cut drawdown. Not worth wiring a live-path sizing multiplier. At most an optional observe-only shadow soak. See docs/research/P1-vol-target-LIVE-PARAM-correction-2026-06-26.md.",
+      "status": "downgraded",
       "category": "sizing-overlay",
       "tier": 3,
-      "next_step": "Operator decision to build the shadow overlay; then design the book-vol estimator + multiplier wiring (observe-only) per the Prime-Directive soak pattern."
+      "next_step": "Operator decision to build the shadow overlay; then design the book-vol estimator + multiplier wiring (observe-only) per the Prime-Directive soak pattern.",
+      "updated_at": "2026-06-26T14:10:00+00:00"
     },
     {
       "id": "PB-20260626-003",
@@ -876,8 +877,10 @@
       "source": "T0.1 divergence audit (docs/research/T0.1-live-param-divergence-2026-06-26.md) vs config/strategies.yaml.",
       "title": "Re-run P1 vol-target on LIVE params (current book was a proxy)",
       "detail": "P1's book used non-live params: trend at 2h w/o min_conf 0.6 (live=1h+0.6); included fade_breakout_4h (shadow, not live); BTC & MES pullback 2h cells that don't exist live; squeeze kc_mult default 1.5 (live=1.0). The vol-target OVERLAY conclusion holds (general property) but baseline magnitudes (Sharpe 0.27, fvg_range_BTC -41R) are not live-faithful. Re-run with: trend 1h+min_conf0.6 (BTC/ETH/SOL); per-symbol *_pullback_2h (eth/sol/xrp/ada/avax) tp_r50 trail5; squeeze 4h kc1.0; fvg_range 15m; the 1d futures/ETF trend+pullback cells. Then re-confirm the overlay delta before any shadow graduation.",
-      "status": "open",
-      "category": "strategy-research"
+      "status": "resolved",
+      "category": "strategy-research",
+      "resolved_at": "2026-06-26T14:10:00+00:00",
+      "resolution": "Live-param crypto-core re-run done (relay #4686). Live book Sharpe 1.33 (vs proxy 0.27); vol-target overlay benefit collapses to +0.079 Sharpe weekly / -0.01 monthly with NO drawdown improvement. Writeup: docs/research/P1-vol-target-LIVE-PARAM-correction-2026-06-26.md."
     },
     {
       "id": "PB-20260626-006",
@@ -892,5 +895,5 @@
       "resolution": "Fixed trend_donchian tf 2h->1h in scripts/backtest_system.py::ROSTER to track config/strategies.yaml; added a comment requiring tf to track live. The curated BTCUSDT subset's other entries (fade/squeeze 4h, fvg_range/turtle 15m, ict_scalp 5m) already match live."
     }
   ],
-  "updated_at": "2026-06-26T08:50:00+00:00"
+  "updated_at": "2026-06-26T14:10:00+00:00"
 }
