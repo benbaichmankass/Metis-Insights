@@ -2474,12 +2474,30 @@
       "trigger_condition": "next health-review or doc-freshness sweep touching permissions-tiers.md",
       "resolution_criteria": "Line 76 references 141.145.193.91 (or omits the IP entirely in favour of the hostname ict-bot-arm); the terminated micro IP is absent from the live description.",
       "check_log": [],
+      "status": "resolved",
+      "resolved_at": "2026-06-26T00:00:00+00:00",
+      "resolved_by": "claude (doc-freshness sweep 2026-06-26)",
+      "resolution": "Fixed: docs/security/permissions-tiers.md line 76 now reads 141.145.193.91 (ict-bot-arm, Ampere live trader since 2026-06-14 cutover; note that terminated micro 158.178.210.252 is mentioned in the updated text only as historical context).",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260626-ALPACA-LIVE-KEY-VERIFY",
+      "opened_at": "2026-06-26T07:20:00+00:00",
+      "opened_by": "claude (Alpaca LIVE key rotation session 2026-06-26)",
+      "source": "Operator rotated Alpaca LIVE API keys (ALPACA_API_KEY_ID_LIVE / ALPACA_API_SECRET_KEY_LIVE) on 2026-06-26 after old paper-trading keys caused api_ok: false on alpaca_live. New keys synced to VM via sync-vm-secrets (issue #4644, exit 0, ~06:15Z). Trader restarted (issue #4649, exit 0, ~06:21Z, new PID 783300). Process started clean — zero auth errors in journalctl. Definitive api_ok confirmation deferred to next hourly snapshot (ict-hourly-snapshot.timer) running after the restart; the concurrent /system-review session should see updated balance_snapshots.",
+      "title": "Verify alpaca_live: {api_ok: true, balance: ~150} after 2026-06-26 LIVE key rotation",
+      "description": "ACTION FOR /system-review or /health-review: confirm the rotated Alpaca LIVE keys are working by checking /api/bot/accounts/balances for alpaca_live. Expected: api_ok=true, balance ~$150 (the live account seed balance), source='db', as_of after 2026-06-26T06:21Z (post-restart hourly snapshot). If api_ok is still false or the balance is clearly wrong (e.g. $0 or the paper balance ~$100k), the LIVE keys may not have propagated correctly — re-check the sync-vm-secrets run log and confirm ALPACA_API_KEY_ID_LIVE / ALPACA_API_SECRET_KEY_LIVE are in the VM .env. Note: runtime_status.live.alpaca_live=false is expected until US equity market open (13:30Z) since no alpaca_live strategies fire outside market hours; api_ok in balance_snapshots is the correct check.",
+      "tier": 1,
+      "trigger_condition": "next /system-review or /health-review (the concurrent system-review session on 2026-06-26 should pick this up)",
+      "resolution_criteria": "A health or system review confirms /api/bot/accounts/balances shows alpaca_live: {api_ok: true, balance: ~150} from a snapshot timestamped after 2026-06-26T06:21Z.",
+      "check_log": [],
       "status": "open",
       "resolved_at": null,
       "resolved_by": null,
       "resolution": null,
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-06-25T14:00:00+00:00"
+  "updated_at": "2026-06-26T07:20:00+00:00"
 }
