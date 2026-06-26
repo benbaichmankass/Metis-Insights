@@ -834,7 +834,29 @@
         "Even with a positive multi-year aggregate, do NOT promote while the recent holdout is negative (strategy is not working in the current regime)."
       ],
       "harness": "scripts/backtest_orb.py (in tree; reusable for SPY/QQQ/IWM extensions per the deep-review memo)"
+    },
+    {
+      "id": "PB-20260626-002",
+      "opened_at": "2026-06-26T07:40:00+00:00",
+      "opened_by": "claude (P1 vol-target overlay result)",
+      "source": "scripts/portfolio_combine.py + backtest_vol_target.py (PR #4672) on a 9-sleeve BTC/ETH/MES book, 2818 trades 2021-06->2026-06; relays #4674 (emit) + #4675 (combine+overlay).",
+      "title": "GRADUATE P1 vol-target overlay to a live SHADOW sizing multiplier (Tier-3)",
+      "detail": "Book-level vol-targeting VALIDATED: Sharpe +0.10..+0.20 net of turnover across all targets/cadences. Best risk-adjusted config = 0.8x baseline-vol target, MONTHLY re-target, cap 0.5-1.5x, 20/60 blended vol estimate -> Sharpe 0.27->0.44 at ~flat vol (37 vs 39) and LOWER maxDD (75->69) = genuine risk-timing, not leverage. Proposal: a book-level multiplier on per-account qty, shadow-logged first (would-be vs actual) to soak before influencing live sizing, mirroring the advisory/conviction soak. Writeup: docs/research/P1-vol-target-result-2026-06-26.md.",
+      "status": "open",
+      "category": "sizing-overlay",
+      "tier": 3,
+      "next_step": "Operator decision to build the shadow overlay; then design the book-vol estimator + multiplier wiring (observe-only) per the Prime-Directive soak pattern."
+    },
+    {
+      "id": "PB-20260626-003",
+      "opened_at": "2026-06-26T07:40:00+00:00",
+      "opened_by": "claude (P1 book composition observation)",
+      "source": "P1 portfolio_combine by_source breakdown (relay #4675): fvg_range_BTCUSDT_15m net_r=-40.9968 over 272 trades, the single worst sleeve in the 5-yr book.",
+      "title": "fvg_range_BTCUSDT_15m bleeds -41R over 5yr (272 trades) \u2014 sleeve-level review",
+      "detail": "In the P1 book backtest, fvg_range on BTC 15m was the only large net-negative sleeve (-41R; next worst pullback_MES -13R on 23 trades). Worth a dedicated review: is the live fvg_range_15m config the same as the harness default? Is it a net drag on the live book? Candidate for TUNE/DEMOTE_SHADOW if the live record corroborates. NOTE: backtest-default params, not necessarily live params \u2014 verify before acting.",
+      "status": "open",
+      "category": "strategy-performance"
     }
   ],
-  "updated_at": "2026-06-26T06:42:00+00:00"
+  "updated_at": "2026-06-26T07:40:00+00:00"
 }
