@@ -442,6 +442,47 @@ the genuine **builds** remaining are: **P7** (cross-sectional *basket* momentum 
 trainer (harnesses exist), **build P1 + P5 + P7**, and start ML with **P11 (gate
 hardening) + P9 (P(win) filter)**.
 
+**Execution-session update 2 — the ML replay pre-gate + a verified advisory bug
+(2026-06-25, PR #4602):** built the replay pre-gate the "compress soak" idea called
+for, in two stages: **stage 1** (`replay_pregate.py` + `replay_pregate_fleet.py`) replays
+clean candles through the live feature function vs the dataset's own `regime_label`
+(true parity), and **stage 2** (`replay_pregate_live.py`, RG4) re-runs `predict_proba`
+on the EXACT rows the live runtime logged, broken down by stage — the train/serve-skew
+detector. A durable `replay-pregate-nightly.yml` runs the fleet session-independently.
+
+The RG2 **acid test settled §C1/§C4**: the demoted `btc-regime-1h-lgbm-yz-v1` head, with
+correct label parity, scores **AUC 0.79** through the live feature function — it is NOT a
+broken model. Live evidence (#4596) + registry stage-history (#4601) + code pinned the
+real cause: **`src/runtime/advisory_sizing.py::compute_advisory_factor` scores advisory
+regime heads on the bare `_feature_row_from_pkg` row (6 fields, no `market_features`)** —
+unlike the signal path (`_emit_shadow_preds`) and per-bar path (`regime_bar_scoring`),
+which both enrich via `feature_row_for_predictor`. So any regime head promoted to advisory
+gets a feature-less row → constant ~0.98 → the `auc 0.40 / brier_lift −0.277` that demoted
+both yz advisories. This is **distinct from** (and dominates) the vol_bucket-edge
+calibration issue diagnosed earlier on the *shadow* path: edge re-calibration alone cannot
+make advisory promotion work. **Tier-3 fix (proposed, not applied — PR #4602):** (B,
+recommended) exclude regime heads from the advisory directional-downsize quorum (a
+`P(volatile)` score is not a bullish/bearish view) + a promotion-gate guard that refuses
+`shadow→advisory` until the advisory-path score distribution is verified non-degenerate.
+Logged to `ml-review-backlog` `MB-20260625-001`/`-001`.
+
+**Execution-session update 3 — P4 fully gated: a complementary convex trend sleeve
+(2026-06-25):** the P4 regime-decomposition (19 alt/ETF/futures instruments,
+`scripts/research/regime_matrix.py` → `scripts/backtest_trend.py`) cleared the FULL gate
+(2× fee → IS/OOS holdout → per-year → right-tail → orthogonality). **Survivor sleeve:
+SLV (+101R, exp 0.26), QQQ long-only (+76R, exp 0.36), USO (+56R), GLD (+35R)** — net of
+15bps, all OOS-positive, mostly-positive by year. **Orthogonal to the existing BTC/MES
+trend book** (monthly-return |corr| ≤ 0.17 vs BTC, ≤ 0.11 vs MES over 113 months) — the
+diversification the portfolio thesis wanted. Profile: convex/right-tail-dependent (top
+decile carries the edge — *distributed*, not a freak; same character as the SOL squeeze,
+so size small / disclose). DROPPED: SPY (redundant with QQQ, corr 0.61), IWM (marginal),
+DBC (failed OOS), crypto-alts-15m (all −44 to −674: trend bleeds on chop → MR/squeeze
+territory), ES 1h (−99, consistent with the live MES trend difficulty). **Tier-3 proposal
+(awaiting operator):** add `trend_donchian` cells on SLV/QQQ-LO/USO(±GLD) to `alpaca_live`
+(already trades ETFs), `execution: shadow` first, after `account_compat_matrix`. Together
+with the SOL-squeeze convex satellite (P6b), this forms a small **convex-satellite book**
+orthogonal to the directional core. Full work: scratchpad `P4-regime-decompose-result.md`.
+
 *Sources: full cited research (market-neutral, non-trend+allocation, ML) was produced
 this session and is summarized inline above with key citations; the existing-book
 evidence is in `regime-roster-matrix-2026-06-01.md`, `regime-router-design-2026-06-01.md`,

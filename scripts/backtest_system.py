@@ -73,7 +73,12 @@ _SIG_CACHE = _REPO_ROOT / "runtime_logs" / "system_backtest" / "signals"
 
 # --------------------------------------------------------------------------
 # Roster: name -> (module path, timeframe). The order_package + monitor are
-# imported from the live unit; the timeframe is the strategy's setup TF.
+# imported from the live unit; the timeframe is the strategy's setup TF and
+# MUST track config/strategies.yaml::<name>.timeframe — `_run_one` resamples the
+# 5m base to spec["tf"] (line ~194) while merging the live cfg, so a drifted tf
+# here silently backtests the wrong bars (trend_donchian was 2h vs live 1h until
+# 2026-06-26, PB-20260626-006 / T0.1 audit). Keep this curated BTCUSDT subset
+# aligned to the live roster's canonical headline strategies.
 # vwap excluded (execution: shadow). turtle_soup + ict_scalp_5m added 2026-05-30
 # (full live-roster coverage). turtle_soup's live adapter is single-TF (the 15m
 # setup frame; its legacy 1m-entry confirmation is not in the order_package
@@ -82,7 +87,7 @@ _SIG_CACHE = _REPO_ROOT / "runtime_logs" / "system_backtest" / "signals"
 # overstates the signal count.
 # --------------------------------------------------------------------------
 ROSTER: Dict[str, Dict[str, str]] = {
-    "trend_donchian":      {"module": "src.units.strategies.trend_donchian", "tf": "2h"},
+    "trend_donchian":      {"module": "src.units.strategies.trend_donchian", "tf": "1h"},
     "fade_breakout_4h":    {"module": "src.units.strategies.fade_breakout_4h", "tf": "4h"},
     "squeeze_breakout_4h": {"module": "src.units.strategies.squeeze_breakout_4h", "tf": "4h"},
     "fvg_range_15m":       {"module": "src.units.strategies.fvg_range_15m", "tf": "15m"},
