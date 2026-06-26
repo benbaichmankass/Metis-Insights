@@ -210,6 +210,23 @@ exit was an artifact. (`/api/bot/candles` already serves the OHLCV; a backtest-s
 first-touch check is enough.)
 
 This is a new **analysis/tooling** layer (a performance-review pre-filter +
-optional reconstruction pass), **not** a live-path change. Logged to the
-performance-review backlog; recommend building it as a `performance-review`
-sub-step so per-strategy aggregates exclude Bucket B by construction.
+optional reconstruction pass), **not** a live-path change.
+
+### Built (2026-06-26)
+
+- `src/analysis/paper_record_classifier.py` — pure stdlib classifier → bucket
+  A/B/C + per-strategy split (`classify_records`).
+- `src/analysis/trade_reconstruction.py` — pure first-touch SL/TP reconstruction
+  (`first_touch_outcome`) + an import-lazy candle adapter (`reconstruct_record`)
+  over the bot's own `fetch_candles`.
+- `scripts/analysis/classify_paper_records.py` — CLI: read the journal (or a
+  diag-relay trades dump via `--json`), classify, optionally `--reconstruct`,
+  emit a JSON/markdown report.
+- Tests: `tests/test_paper_record_classifier.py`, `tests/test_trade_reconstruction.py`.
+
+**Validated on the real 2026-06-26 window** (issue #4654, 48 records):
+**0 gradeable (A) · 46 artifact (B) · 2 reconstructable (C)** — i.e. *none* of the
+per-strategy raw numbers in that window were a clean round-trip, exactly the
+distortion this filter removes. The `performance-review` skill now runs this
+pre-filter before computing aggregates (SKILL.md § "Bucket records before
+aggregating"). Tracked as `PB-20260626-ARTIFACT-BUCKETS`.

@@ -829,10 +829,16 @@
       "tier": "tooling (analysis layer; per-strategy aggregation change)",
       "trigger_condition": "Next performance-review run, or when the operator approves building the bucketing pre-filter.",
       "resolution_criteria": "A performance-review step that classifies each closed paper record into bucket A/B/C, excludes B from per-strategy win-rate/expectancy, and reconstructs C outcomes from candles; documented + applied to one review.",
-      "status": "open",
+      "status": "in_progress",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-06-26T08:00:00+00:00",
+          "by": "claude (build)",
+          "note": "BUILT the bucketing tool: src/analysis/paper_record_classifier.py (pure A/B/C classifier) + src/analysis/trade_reconstruction.py (pure first-touch SL/TP reconstruction + candle adapter) + scripts/analysis/classify_paper_records.py (CLI, --json/--db, --reconstruct) + tests (21 passing). Validated on the real 2026-06-26 window (issue #4654, 48 recs): 0 gradeable / 46 artifact / 2 reconstructable. Wired into performance-review SKILL.md (run pre-filter before aggregates; compute over bucket-A only + bucket-C reconstructed). Shipped on branch claude/order-packages-zero-qty-eaofnv / PR #4660. REMAINING to close: apply it in one live performance-review run and confirm the per-strategy A/B/C split + reconstructed outcomes land in the report."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-06-26T07:00:00+00:00"
+  "updated_at": "2026-06-26T08:00:00+00:00"
 }
