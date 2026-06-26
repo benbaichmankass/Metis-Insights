@@ -161,6 +161,23 @@ and which RG4-discriminate at 0.72–0.76 live — actually evaluable for promot
 on the regime-appropriate signal. Operator still runs `promote-stage`; the gate
 only reports.
 
+**End-to-end verified on the trainer** (branch code run via `verify_optionA_gate.sh`,
+restored after): with the new gate, BOTH BTC 15m lgbm heads now read
+**`ready=True, blocking=[]`**:
+
+| Head | live_regime_discrimination | live_agreement (now non-blocking) | oos_edge | shadow_soak | drift |
+|---|---|---|---|---|---|
+| btc-regime-15m-lgbm-yz-v1 | **PASS — RG4 0.763** | fail 0.267 (not required) | +0.276 | 21.9d | KS 0.158 |
+| btc-regime-15m-lgbm-v2 | **PASS — RG4 0.722** | fail 0.500 (not required) | +0.265 | 31.3d | KS 0.166 |
+
+So the new CLI integration computes the RG4 live AUC correctly on real data, the
+`live_agreement` (trade-win) gate is correctly demoted to non-blocking for regime
+heads, and **both heads are formally promotion-ready under the regime-appropriate
+criterion.** They would be the first advisory regime heads since the 1h yz head
+was demoted (MB-20260623-001) — promotion to advisory means they influence orders
+via the regime router, so the actual promote-stage is the operator's Tier-3 call.
+Pending: operator merges PR #4700, then decides promotion.
+
 ## Artifacts
 
 - `scripts/ml/gate_check_candidates.sh` — reusable per-head promotion gate-check.
