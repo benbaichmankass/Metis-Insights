@@ -302,7 +302,6 @@ def _summarize(trades: List[Trade], df_rth: pd.DataFrame, *, timeframe, symbol,
                      "max_drawdown_r": 0.0, "by_outcome": {}, "by_year": {},
                      "consistency": None})
         return base
-    rs = [t.r_multiple for t in trades]
     net = [t.r_multiple - _fee_r(t, fee_points_roundtrip, fee_multiplier) for t in trades]
     wins = [r for r in net if r > 0]
     longs = [t for t in trades if t.direction == "long"]
