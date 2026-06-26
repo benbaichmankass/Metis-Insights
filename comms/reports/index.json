@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260626-060200-since-last",
+      "window": "since-last",
+      "generated_at": "2026-06-26T06:02:00+00:00",
+      "window_start": "2026-06-25T05:40:00+00:00",
+      "window_end": "2026-06-26T06:02:00+00:00",
+      "roll_up_grade": "caution",
+      "headline": "~24h window. HEALTHY infra: heartbeat up, services up, VM relaxed, clean restart 05:27Z deploying advisory regime-head fix (#4602). REAL-MONEY 0 closes \u2014 9 ETF pullback signals (incl. GLD shorts ADX46-51 conf .80-.97) ALL rejected no_fill (target_qty=0): alpaca_live can't fill. Paper +$197.93/7 (artifact-heavy). ML clean: cycle ran, advisory bug fixed.",
+      "html_path": "comms/reports/since-last/20260626T060200Z/report.html",
+      "json_path": "comms/reports/since-last/20260626T060200Z/report.json",
+      "md_path": "comms/reports/since-last/20260626T060200Z/report.md"
+    },
+    {
       "id": "RPT-20260625-054000-since-last",
       "window": "since-last",
       "generated_at": "2026-06-25T05:40:00+00:00",
