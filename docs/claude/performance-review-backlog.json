@@ -868,7 +868,27 @@
       "category": "strategy-research",
       "tier": 3,
       "decision_needed": "Operator: invest in the 10-15 coin Bybit daily fetch for a real P7 verdict, or shelve like P5?"
+    },
+    {
+      "id": "PB-20260626-005",
+      "opened_at": "2026-06-26T08:40:00+00:00",
+      "opened_by": "claude (T0.1 live-param audit)",
+      "source": "T0.1 divergence audit (docs/research/T0.1-live-param-divergence-2026-06-26.md) vs config/strategies.yaml.",
+      "title": "Re-run P1 vol-target on LIVE params (current book was a proxy)",
+      "detail": "P1's book used non-live params: trend at 2h w/o min_conf 0.6 (live=1h+0.6); included fade_breakout_4h (shadow, not live); BTC & MES pullback 2h cells that don't exist live; squeeze kc_mult default 1.5 (live=1.0). The vol-target OVERLAY conclusion holds (general property) but baseline magnitudes (Sharpe 0.27, fvg_range_BTC -41R) are not live-faithful. Re-run with: trend 1h+min_conf0.6 (BTC/ETH/SOL); per-symbol *_pullback_2h (eth/sol/xrp/ada/avax) tp_r50 trail5; squeeze 4h kc1.0; fvg_range 15m; the 1d futures/ETF trend+pullback cells. Then re-confirm the overlay delta before any shadow graduation.",
+      "status": "open",
+      "category": "strategy-research"
+    },
+    {
+      "id": "PB-20260626-006",
+      "opened_at": "2026-06-26T08:40:00+00:00",
+      "opened_by": "claude (T0.1 live-param audit)",
+      "source": "scripts/backtest_system.py::_STRATS registry vs config/strategies.yaml.",
+      "title": "backtest_system.py registry tf drift: trend_donchian hardcoded 2h, live=1h (audit full roster)",
+      "detail": "The multi-strategy harness registry hardcodes trend_donchian tf=2h but live runs it at 1h; the registry also predates the per-symbol multi-roster (eth/sol/xrp/ada/avax trend+pullback, the 1d futures/ETF cells, the *_1h ETF/FX cells). Audit _STRATS against the live roster and align tf/params so the harness reflects live. Tier-1.",
+      "status": "open",
+      "category": "tooling"
     }
   ],
-  "updated_at": "2026-06-26T08:32:00+00:00"
+  "updated_at": "2026-06-26T08:40:00+00:00"
 }
