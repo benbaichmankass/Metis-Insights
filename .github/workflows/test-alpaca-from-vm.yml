@@ -1,0 +1,104 @@
+name: test-alpaca-from-vm
+
+# Diagnostic workflow: tests the Alpaca live API endpoint directly from
+# the live VM (141.145.193.91) using the same credentials the trader uses
+# from .env — to confirm whether HTTP 403 is an IP restriction vs a
+# credentials issue.
+#
+# Trigger: open an issue with label test-alpaca-from-vm
+# Output: HTTP status + response body posted as issue comment (keys masked)
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  test-alpaca-from-vm:
+    if: |
+      github.event_name == 'issues' &&
+      contains(github.event.issue.labels.*.name, 'test-alpaca-from-vm')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Alpaca live API from VM using .env credentials
+        id: test
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 141.145.193.91
+          username: ubuntu
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            set -e
+            ENV_FILE="/home/ubuntu/ict-trading-bot/.env"
+
+            if [ ! -f "$ENV_FILE" ]; then
+              echo "ERROR: .env not found at $ENV_FILE"
+              exit 1
+            fi
+
+            set -a
+            source "$ENV_FILE"
+            set +a
+
+            KEY="${ALPACA_API_KEY_ID_LIVE}"
+            SECRET="${ALPACA_API_SECRET_KEY_LIVE}"
+
+            if [ -z "$KEY" ] || [ -z "$SECRET" ]; then
+              echo "ERROR: ALPACA_API_KEY_ID_LIVE or ALPACA_API_SECRET_KEY_LIVE is empty in .env"
+              exit 1
+            fi
+
+            echo "Key prefix (first 4 chars): ${KEY:0:4}"
+            echo "Key length: ${#KEY}"
+            echo "Secret set: yes (${#SECRET} chars)"
+
+            echo ""
+            echo "=== Live VM outbound IP ==="
+            curl -s --connect-timeout 5 https://ifconfig.me && echo ""
+
+            echo ""
+            echo "=== Test 1: api.alpaca.markets/v2/account (LIVE credentials from .env) ==="
+            HTTP_LIVE=$(curl -s -o /tmp/alpaca_live_test.json -w "%{http_code}" \
+              --connect-timeout 10 \
+              -H "APCA-API-KEY-ID: $KEY" \
+              -H "APCA-API-SECRET-KEY: $SECRET" \
+              https://api.alpaca.markets/v2/account 2>&1)
+            echo "HTTP status: $HTTP_LIVE"
+            echo "Response body:"
+            cat /tmp/alpaca_live_test.json
+
+            echo ""
+            echo "=== Test 2: paper-api.alpaca.markets/v2/account (same credentials, cross-check) ==="
+            HTTP_PAPER=$(curl -s -o /tmp/alpaca_paper_test.json -w "%{http_code}" \
+              --connect-timeout 10 \
+              -H "APCA-API-KEY-ID: $KEY" \
+              -H "APCA-API-SECRET-KEY: $SECRET" \
+              https://paper-api.alpaca.markets/v2/account 2>&1)
+            echo "HTTP status: $HTTP_PAPER"
+            echo "Response body:"
+            cat /tmp/alpaca_paper_test.json
+
+            echo ""
+            echo "=== Test 3: api.alpaca.markets with NO credentials (IP restriction probe) ==="
+            HTTP_NOCREDS=$(curl -s -o /tmp/alpaca_nocreds_test.json -w "%{http_code}" \
+              --connect-timeout 10 \
+              https://api.alpaca.markets/v2/account 2>&1)
+            echo "HTTP status (no creds): $HTTP_NOCREDS"
+            cat /tmp/alpaca_nocreds_test.json
+
+      - name: Comment result on issue
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `Diagnostic complete. See [run logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for HTTP status codes from the live VM.\n\n**What to look for:**\n- Test 1: what Alpaca live returns WITH the .env credentials FROM THE VM\n- Test 3: what Alpaca live returns with NO credentials (401=reachable, 403/timeout=IP block)`
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed'
+            });
