@@ -818,7 +818,23 @@
       "resolution_criteria": "Either a cross-sectional sleeve is built + validated and proposed (Tier-3), or the relative-value family is re-confirmed edge-less for this universe and the item is closed won't-build with the evidence.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "PB-20260626-001",
+      "opened_at": "2026-06-26T06:42:00+00:00",
+      "opened_by": "claude (P5 ORB-on-MES feasibility)",
+      "source": "backtest_orb.py (PR #4648) on trainer MES 5m v001 (86,897 bars, 2025-01-03->2026-05-22); diag relays #4663 (gate sweep) + #4664 (OR-width sensitivity).",
+      "title": "ORB-on-MES shelved: fails P5 gate at every (N, OR-width, stop) config \u2014 profit 2025-only, holdout negative",
+      "detail": "P5 ORB-on-MES does NOT clear PF>1.3 & daily-Sharpe>0.7 per k-fold @2x fees, holdout Sharpe>=0.5, >=2 positive fold-years \u2014 in ANY of: N in {1,3,6}; opposite-OR vs 0.5xATR stop; OR-width skip 1.5/2.5/3.0/5.0xATR; or walk-forward {1,3,6}. Identical failure everywhere: 2025 carries all profit, 2026 flat-to-negative, holdout daily-Sharpe -2.2..-2.9, fold 1 negative. Loosening the width filter 3-5x'd the sample (45->208 trades) without changing the verdict, ruling out sample-starvation. Decayed/regime-specific edge, not paper-promotable now. Full writeup: docs/research/P5-orb-mes-result-2026-06-26.md.",
+      "status": "open",
+      "category": "strategy-research",
+      "revisit_conditions": [
+        "Pull multi-year MES 5m history via scripts/ops/pull_mes_ibkr_history.sh (current data is only 16.5 months, 2025-2026) to test the memo's 2015-2025 ORB-on-index thesis.",
+        "Only re-test with a materially different exit structure \u2014 opposite-OR and 0.5xATR stops both produce the same 2025-only, holdout-negative shape.",
+        "Even with a positive multi-year aggregate, do NOT promote while the recent holdout is negative (strategy is not working in the current regime)."
+      ],
+      "harness": "scripts/backtest_orb.py (in tree; reusable for SPY/QQQ/IWM extensions per the deep-review memo)"
     }
   ],
-  "updated_at": "2026-06-25T09:20:00+00:00"
+  "updated_at": "2026-06-26T06:42:00+00:00"
 }
