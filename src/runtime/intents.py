@@ -331,6 +331,93 @@ def resolve_flip_policy(settings: Optional[Dict[str, Any]] = None) -> str:
     return policy if policy in FLIP_POLICIES else _DEFAULT_FLIP_POLICY
 
 
+def resolve_flip_confidence_threshold(settings: Optional[Dict[str, Any]] = None) -> float:
+    """Minimum confidence gap (new − existing) to override the hold policy.
+
+    0.0 (default) disables the feature — hold always wins. Set via
+    ``FLIP_CONFIDENCE_THRESHOLD`` env var (e.g. ``0.15`` for a 15 pp gap).
+    Resolution order: ``settings["FLIP_CONFIDENCE_THRESHOLD"]`` → env var →
+    ``0.0``. Invalid / non-positive values fall back to 0.0 (disabled).
+    Tier-3: changing this on the live VM changes live order routing.
+    """
+    raw = None
+    if isinstance(settings, dict):
+        raw = settings.get("FLIP_CONFIDENCE_THRESHOLD")
+    if raw is None:
+        raw = os.environ.get("FLIP_CONFIDENCE_THRESHOLD", "")
+    try:
+        val = float(raw)
+        return val if val > 0 else 0.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def resolve_flip_min_position_age_hours(settings: Optional[Dict[str, Any]] = None) -> float:
+    """Minimum hours an existing position must be open before a confidence
+    override may flip it.
+
+    0.0 (default) means no minimum — override applies regardless of age.
+    Set via ``FLIP_MIN_POSITION_AGE_HOURS`` env var. Companion to
+    ``FLIP_CONFIDENCE_THRESHOLD``; has no effect when that threshold is 0.
+    Resolution: ``settings["FLIP_MIN_POSITION_AGE_HOURS"]`` → env var → ``0.0``.
+    """
+    raw = None
+    if isinstance(settings, dict):
+        raw = settings.get("FLIP_MIN_POSITION_AGE_HOURS")
+    if raw is None:
+        raw = os.environ.get("FLIP_MIN_POSITION_AGE_HOURS", "")
+    try:
+        val = float(raw)
+        return max(0.0, val)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _evaluate_confidence_override(
+    desired,
+    existing_confidence: Optional[float],
+    existing_age_hours: Optional[float],
+) -> Optional[str]:
+    """Return an audit reason string if hold policy should be overridden, else None.
+
+    Preconditions (any failure → return None, hold wins):
+      - ``FLIP_CONFIDENCE_THRESHOLD`` > 0 (feature enabled)
+      - Both new and existing confidence are known
+      - confidence gap >= threshold
+      - existing_age_hours >= FLIP_MIN_POSITION_AGE_HOURS (if set)
+    """
+    threshold = resolve_flip_confidence_threshold()
+    if threshold <= 0:
+        return None
+
+    # New signal confidence: from DesiredPosition.winning_intent when
+    # produced by the aggregator; or from meta["incoming_confidence"] when
+    # bridged from an OrderPackage by compute_execution_delta_for_package.
+    winning = getattr(desired, "winning_intent", None)
+    new_conf: Optional[float] = getattr(winning, "confidence", None) if winning else None
+    if new_conf is None:
+        new_conf = (getattr(desired, "meta", None) or {}).get("incoming_confidence")
+    if new_conf is None or existing_confidence is None:
+        return None
+
+    gap = float(new_conf) - float(existing_confidence)
+    if gap < threshold:
+        return None
+
+    min_age = resolve_flip_min_position_age_hours()
+    if min_age > 0 and (existing_age_hours is None or float(existing_age_hours) < min_age):
+        return None
+
+    age_str = (
+        f" age={float(existing_age_hours):.2f}h≥{min_age:.2f}h"
+        if existing_age_hours is not None else ""
+    )
+    return (
+        f"new_conf={float(new_conf):.3f} old_conf={float(existing_confidence):.3f} "
+        f"gap={gap:.3f}≥{threshold:.3f}{age_str}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Dataclasses
 # ---------------------------------------------------------------------------
@@ -1069,6 +1156,8 @@ def compute_execution_delta(
     qty_precision: int = 6,
     min_delta: float = 0.0,
     flip_policy: Optional[str] = None,
+    existing_confidence: Optional[float] = None,
+    existing_age_hours: Optional[float] = None,
 ) -> ExecutionDelta:
     """Translate a ``DesiredPosition`` + the current net position into a delta.
 
@@ -1202,25 +1291,44 @@ def compute_execution_delta(
     if policy not in FLIP_POLICIES:
         policy = _DEFAULT_FLIP_POLICY
 
+    # Confidence-weighted hold override: when FLIP_CONFIDENCE_THRESHOLD > 0
+    # and the new signal's confidence sufficiently exceeds the existing
+    # position's entry confidence (and the position is old enough), allow
+    # the flip despite the hold policy. _hold_override_reason is non-None
+    # only when the override fires; it is threaded into the flip reason below
+    # for a complete audit trail.
+    _hold_override_reason: Optional[str] = None
+
     if policy == "hold":
         # Keep the current position; let the owning strategy's monitor()/SL/TP
         # exit it. Suppresses the fee-paying close-and-reverse churn the system
         # backtest flagged as the #1 portfolio-level loss driver. Surfaced as a
         # noop so the coordinator journals it (loud, auditable — not a silent
         # state change).
-        return ExecutionDelta(
-            action="noop",
-            side=None,
-            qty_delta=0.0,
-            target_qty=target,
-            current_qty=current,
-            reason=(
-                f"flip_suppressed_hold_policy: desired {desired.side} opposes "
-                f"current {current_side} (qty={current_abs}); holding for owner exit"
-            ),
+        _hold_override_reason = _evaluate_confidence_override(
+            desired, existing_confidence, existing_age_hours
+        )
+        if _hold_override_reason is None:
+            return ExecutionDelta(
+                action="noop",
+                side=None,
+                qty_delta=0.0,
+                target_qty=target,
+                current_qty=current,
+                reason=(
+                    f"flip_suppressed_hold_policy: desired {desired.side} opposes "
+                    f"current {current_side} (qty={current_abs}); holding for owner exit"
+                ),
+            )
+        # Override triggered — fall through to the flip return below.
+        import logging as _logging
+        _logging.getLogger(__name__).info(
+            "[intents] hold-policy confidence override for %s: %s → "
+            "allowing flip %s→%s",
+            desired.symbol, _hold_override_reason, current_side, desired.side,
         )
 
-    if policy == "flat":
+    if policy == "flat" and _hold_override_reason is None:
         # Close the conflicting position but stand aside — do not re-open.
         return ExecutionDelta(
             action="close",
@@ -1234,10 +1342,14 @@ def compute_execution_delta(
             ),
         )
 
-    # policy == "reverse" (default): close leg qty=current_abs (implicit),
-    # new leg qty=target. The caller is responsible for sequencing the two
-    # legs (close first, then open) and for applying the per-account risk
-    # gate to each.
+    # policy == "reverse" (default), OR hold-policy confidence override:
+    # close leg qty=current_abs (implicit), new leg qty=target. The caller
+    # is responsible for sequencing the two legs (close first, then open)
+    # and for applying the per-account risk gate to each.
+    _flip_prefix = (
+        f"hold_confidence_override ({_hold_override_reason}): "
+        if _hold_override_reason else ""
+    )
     return ExecutionDelta(
         action="flip",
         side=desired.side,
@@ -1245,8 +1357,8 @@ def compute_execution_delta(
         target_qty=target,
         current_qty=current,
         reason=(
-            f"flip_from_{current_side}_to_{desired.side}: close {current_abs} "
-            f"then open {target}"
+            f"{_flip_prefix}flip_from_{current_side}_to_{desired.side}: "
+            f"close {current_abs} then open {target}"
         ),
     )
 
@@ -1279,6 +1391,8 @@ def compute_execution_delta_for_package(
     qty_precision: int = 6,
     min_delta: float = 0.0,
     flip_policy: Optional[str] = None,
+    existing_confidence: Optional[float] = None,
+    existing_age_hours: Optional[float] = None,
 ) -> ExecutionDelta:
     """Bridge an ``OrderPackage`` into an ``ExecutionDelta``.
 
@@ -1342,6 +1456,9 @@ def compute_execution_delta_for_package(
         meta={
             "aggregated_target_qty": aggregated_target,
             "risk_sized_qty": risk_qty,
+            # Surface pkg.confidence for _evaluate_confidence_override, which
+            # reads meta["incoming_confidence"] when winning_intent is None.
+            "incoming_confidence": getattr(pkg, "confidence", None),
         },
     )
     return compute_execution_delta(
@@ -1350,4 +1467,6 @@ def compute_execution_delta_for_package(
         qty_precision=qty_precision,
         min_delta=min_delta,
         flip_policy=flip_policy,
+        existing_confidence=existing_confidence,
+        existing_age_hours=existing_age_hours,
     )
