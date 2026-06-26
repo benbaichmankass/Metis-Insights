@@ -34,6 +34,20 @@
       "status_history": "open 2026-06-26 (flagged for system-review pickup per operator direction; the 'a' of the scorecard keep/fix-skew/kill split)."
     },
     {
+      "id": "MB-20260626-003",
+      "opened_at": "2026-06-26T21:40:00+00:00",
+      "opened_by": "claude (ml-strategies-deep-review / gate-check session)",
+      "source": "Ran the formal promotion gate-check (python -m ml gate-check, regime profile, WITH --datasets-root for oos_edge + live --db) on the 6 BTC 5m/15m regime candidates from the fleet scorecard, via scripts/ml/gate_check_candidates.sh (trainer-vm-diag #4713 launch, #4716 read). Full results: docs/research/promotion-gatecheck-and-mes-labeling-2026-06-26.md.",
+      "title": "Regime-head promotion is structurally blocked on the live_agreement gate (trade-win AUC on ~11 trades) — decide: re-target it to RG4 regime-discrimination, or wait for BTC real-money flow",
+      "description": "GATE-CHECK RESULT: the two strongest heads — btc-regime-15m-lgbm-yz-v1 and btc-regime-15m-lgbm-v2 — clear EVERY gate (oos_edge +0.276/+0.265 over the modal baseline on 5 purged WF-CV folds; shadow_soak 22-31d; drift clean KS 0.16-0.17; cross_run_stability std ~0.002-0.004; non_degenerate via the imbalance-aware path) EXCEPT live_agreement (0.267 / 0.500 vs the 0.55 floor). btc-regime-5m-lgbm-v2 additionally fails drift (KS 0.262); btc-regime-5m-lgbm-yz-v1 is too freshly retrained (1.6d soak, 1 run). The two baselines (5m/15m) correctly fail (oos_edge 0.0 + degenerate F1 0). THE STRUCTURAL PROBLEM: live_agreement = rank-AUC(regime-volatility score vs realized trade WIN), measured on just 11 live BTC closed trades. (1) It is MIS-TARGETED for a regime head — a volatility-regime classifier predicts the regime, not trade outcomes; the regime-appropriate live signal is the RG4 live regime-discrimination AUC (0.72-0.76 for these two heads, strong). (2) It is SAMPLE-STARVED + structurally un-satisfiable while BTC real-money flow is thin (bybit_2 pinned near min-qty) — the SAME blocker that demoted the first advisory head (MB-20260623-001). DECISION FOR THE OPERATOR (Tier-3, gate-profile / policy): (A) re-target the regime profile's live-track-record gate from live_agreement (trade-outcome) to an RG4-style live regime-discrimination AUC (keeping all other gates) — the regime profile already drops beats_baseline on the same logic; or (B) keep the gate as-is and accept regime heads may never promote until live flow grows. NO PROMOTION recommended today (none is ready; live_agreement is 'not yet measurable', not 'passed').",
+      "tier": 3,
+      "trigger_condition": "Next /system-review or /ml-review; or any session deciding regime-head promotion or revising the regime gate profile (ml/promotion/gates.py).",
+      "resolution_criteria": "The operator decides (A) re-target the regime live-track-record gate to RG4-style regime-discrimination (then the two 15m lgbm heads are re-evaluated and promoted if they clear it) OR (B) keep live_agreement and wait for live flow. Either way the decision + rationale is recorded; if (A), gates.py grows a regime live-discrimination gate and the gate-check is re-run.",
+      "status": "open",
+      "snoozed_until": null,
+      "status_history": "open 2026-06-26 (gate-check: the two BTC 15m lgbm heads clear every gate but live_agreement; surfaced the regime-gate-design question)."
+    },
+    {
       "id": "MB-20260617-001",
       "opened_at": "2026-06-17T05:20:00+00:00",
       "opened_by": "claude (dashboard-truth / WC-3 session)",

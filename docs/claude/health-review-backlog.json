@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260626-MES-BASE-STALE",
+      "opened_at": "2026-06-26T21:40:00+00:00",
+      "opened_by": "claude (ml-strategies-deep-review / MES labeling root-cause)",
+      "source": "RG4 fleet scorecard (MB-20260626-001) left most live MES shadow rows unlabeled (mes-5m 2777/2981, mes-15m 1025/1102) while BTC was fully labeled. Root-caused via trainer-vm-diag #4710/#4712/#4716.",
+      "title": "Trainer MES market_raw candle base is frozen at 2026-06-12 — daily build re-emits stale data (GIGO), blinding RG4 + any MES-candle-dependent analysis on the last ~2 weeks",
+      "description": "The MES market_raw dataset content ends 2026-06-12 (5m last_ts 2026-06-12T20:55:00Z, 17113 rows; 15m 2026-06-12T20:45:00Z) even though the daily dataset build runs and reports OK (dataset_builds.jsonl: market_raw MES 'ok' at 2026-06-26T00:24:27; v002 mtime 2026-06-26 00:24). build_mes_market() in scripts/ops/build_trainer_datasets.sh PREFERS a 'synced IBKR MES market_raw (deep history)' base when present (yfinance ES=F, capped ~60d intraday, is only the fallback) — and that IBKR base stopped advancing ~2026-06-12, so each rebuild faithfully re-emits stale candles. NOT a build failure (the build is healthy) and NOT a timestamp/format issue (ISO strings parse fine) — it is a stale INPUT: the IBKR->trainer MES market-data sync that feeds the preferred base froze. IMPACT: RG4 (replay_pregate_live.py) can't label live MES predictions after 2026-06-12 (no candle bar to join), so the entire MES regime fleet's live train/serve-skew verdict rides a thin labeled sample — incl. the two anti-predictive MES 15m heads (MB-20260626-002), whose verdict should be re-confirmed once the base is fresh. Also degrades any MES backtest/feature work that reads this base. FIX DIRECTION (Tier-1 trainer tooling): investigate why the IBKR MES base sync stopped at 2026-06-12 (IB gateway MES historical pull / publish_trainer_mirror MES leg) and refresh it; confirm market_raw MES last_ts advances past 2026-06-12 on the next cycle. Cross-ref MB-20260626-001 (finding 1) + MB-20260626-002.",
+      "tier": 1,
+      "trigger_condition": "Next /health-review or /system-review; or any session touching the MES dataset build / IBKR MES sync, or re-scoring the MES regime fleet through RG4.",
+      "resolution_criteria": "datasets-out/market_raw/MES/{5m,15m}/<latest>/data.jsonl last_ts advances past 2026-06-12 (tracks recent calendar dates) on a fresh build, AND a re-run of the RG4 fleet scorecard labels a materially larger fraction of live MES rows (unlab fraction drops from ~93% toward the BTC-like ~0%).",
+      "status": "open",
+      "snoozed_until": null,
+      "status_history": "open 2026-06-26 (root-caused: MES candle base frozen 2026-06-12; daily build healthy but fed a stale IBKR-synced base)."
+    },
+    {
       "id": "BL-20260625-PROP-ETH-LIVE",
       "opened_at": "2026-06-25T09:20:00+00:00",
       "opened_by": "claude (prop-trade-pipeline-debug \u2014 eth_pullback prop go-live wiring check)",
