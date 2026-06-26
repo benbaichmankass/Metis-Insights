@@ -2479,7 +2479,29 @@
       "resolved_by": null,
       "resolution": null,
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260626-OPKG-META-SNAPSHOT",
+      "opened_at": "2026-06-26T07:00:00+00:00",
+      "opened_by": "claude (order-packages-zero-qty investigation)",
+      "source": "docs/audits/order-packages-zero-qty-2026-06-26.md; coordinator.py _log_new_order_package(:936) serializes pkg.meta at package CREATION, before the per-account sizing loop (sized_qty_by_account bound empty at :855, populated at :1481). The DB row is never re-written post-sizing, so order_packages.meta.sized_qty_by_account is always {} and aggregated_target_qty always 0 (the sentinel) for EVERY package.",
+      "title": "[observability] order_packages.meta serialized pre-sizing \u2192 sized_qty_by_account always empty in the journal",
+      "description": "The field that exists to show per-account sizing is dead `{}` in every persisted order_packages row because meta is snapshotted at creation, before sizing runs. This led the 2026-06-26 system-report (RPT-20260626-060200) to read `aggregated_target_qty:0 / sized_qty_by_account:{}` as evidence of a zero-sizing bug when both are normal at-creation states (target_qty=0 is the RiskManager-decides sentinel; sized_qty_by_account is just unpopulated at log time). The real per-account cause lives only in the trades rejection rows. DRAFT FIX (branch claude/order-packages-zero-qty-eaofnv, coordinator.py): best-effort re-persist of the post-sizing meta after the dispatch loop \u2014 additive, observability-only, no execution change. Tier-3 (touches the order-path file) \u2192 draft, awaiting operator approval. Also consider stamping the dominant per-account refusal cause (zero_balance vs netting-guard vs hold-policy) into the no_fill roll-up so consumers needn't join trades.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260626-ALPACA-WHOLEUNIT-LATENT",
+      "opened_at": "2026-06-26T07:00:00+00:00",
+      "opened_by": "claude (order-packages-zero-qty investigation)",
+      "source": "docs/audits/order-packages-zero-qty-2026-06-26.md \u00a7 Thread (b). RiskManager.position_size whole-share sizing for alpaca (risk.py:631-651 round-up-to-1-share).",
+      "title": "[latent] whole-unit rounding-to-zero only bites a sub-$1.3k real-money alpaca account \u2014 confirm once funded",
+      "description": "Whole-unit (alpaca) sizing refuses a sub-1-share ideal unless 1-share risk <= 1.5x (equity x risk_pct). At risk_pct=0.01 and the observed per-share risks (GLD $7.52, SPY $10.23, QQQ $19.51), refusal only occurs below ~$501/$682/$1301 of equity; above that the round-up-to-1-share fires and a single share is taken. NOT the cause of the 2026-06-25 alpaca_live zeros (those were zero_balance=$0, a funding/creds fetch failure owned by the key-rotation session). Action: once alpaca_live has working keys + real funding, confirm one ETF signal sizes a whole share (not refused). No code change proposed.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-06-25T14:00:00+00:00"
+  "updated_at": "2026-06-26T07:00:00+00:00"
 }

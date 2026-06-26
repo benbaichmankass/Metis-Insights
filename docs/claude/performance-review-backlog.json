@@ -818,7 +818,21 @@
       "resolution_criteria": "Either a cross-sectional sleeve is built + validated and proposed (Tier-3), or the relative-value family is re-confirmed edge-less for this universe and the item is closed won't-build with the evidence.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "PB-20260626-ARTIFACT-BUCKETS",
+      "opened_at": "2026-06-26T07:00:00+00:00",
+      "opened_by": "claude (order-packages-zero-qty investigation + operator follow-up)",
+      "source": "Operator follow-up 2026-06-26 + docs/audits/order-packages-zero-qty-2026-06-26.md \u00a7 Follow-up. Diag #4654: every bybit_1 paper close in-window (2847,2854-2860,2867,2894) is an intent_reduce/reconciler_filled leg, not a clean entry->exit round-trip; alpaca_paper rows dominated by netting-guard/hold-policy suppressions.",
+      "title": "Bucket artifact-heavy paper records: gradeable round-trips vs technical artifacts vs broker-truncated-reconstructable",
+      "description": "Per-strategy performance is distorted by paper records that are NOT clean strategy round-trips: intent-layer reduce/flip legs (intent_reduce=true), netting-guard/hold-policy suppressions (reentry_suppressed_*/flip_suppressed_*), reconciler_filled closes with no classifiable bracket reason, and orphan/re-adopt flaps. Proposed taxonomy: (A) GRADEABLE round-trips = open that reached a genuine sl/tp or strategy monitor() exit -> the ONLY rows that drive win-rate/expectancy; (B) TECHNICAL ARTIFACTS (reduce/flip/netting/hold/unclassified-reconciler/orphan-flap/creds-refusal) -> route to the technical/health backlog, exclude from the strategy scorecard; (C) BROKER-TRUNCATED-RECONSTRUCTABLE = trade closed mid-flight by reconciler/stuck-watchdog but we have entry+SL+TP -> keep the decision (entry quality, R:R) and reconstruct the would-be outcome by replaying /api/bot/candles from entry forward (first-touch SL vs TP within the bracket) -> label reconstructed_win/reconstructed_loss/open_at_window_end. Build as a performance-review pre-filter (+ optional reconstruction pass) so aggregates exclude bucket B by construction. Analysis/tooling layer, NOT a live-path change. Recommend operator OK to build it next; affects how every per-strategy number is computed.",
+      "tier": "tooling (analysis layer; per-strategy aggregation change)",
+      "trigger_condition": "Next performance-review run, or when the operator approves building the bucketing pre-filter.",
+      "resolution_criteria": "A performance-review step that classifies each closed paper record into bucket A/B/C, excludes B from per-strategy win-rate/expectancy, and reconstructs C outcomes from candles; documented + applied to one review.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-06-25T09:20:00+00:00"
+  "updated_at": "2026-06-26T07:00:00+00:00"
 }
