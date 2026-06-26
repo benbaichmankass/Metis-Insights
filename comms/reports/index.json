@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260626-073500-weekly",
+      "window": "weekly",
+      "generated_at": "2026-06-26T07:35:00Z",
+      "window_start": "2026-06-19T07:28:41Z",
+      "window_end": "2026-06-26T07:35:00Z",
+      "roll_up_grade": "caution",
+      "headline": "Trader healthy and ticking; ML training cycle ran clean today (00:28-01:16Z, rc=0) with shadow soaks accruing live across 29 model/stage heads (2 advisory). The one real flag: alpaca_live is STILL api_ok=false / balance null AFTER the 2026-06-26 key rotation (alpaca_paper is fine), so live ETF signals keep refusing zero_balance. Real-money 7d is -$8.82 over 7 trades (tiny ~$95 bybit_2 book; ict_scalp_5m -$7.38 the bleeder). The paper book's -$12,070 headline is ARTIFACT-INFLATED \u2014 the new bucketing tool scores 0/48 records gradeable in the recent window (the big trend_donchian -$7.4k / mhg_pullback -$5.2k 'losses' are orphan/reduce/MHG-flap artifacts, not genuine round-trips).",
+      "html_path": "comms/reports/weekly/20260626T073500Z/report.html",
+      "json_path": "comms/reports/weekly/20260626T073500Z/report.json",
+      "md_path": "comms/reports/weekly/20260626T073500Z/report.md"
+    },
+    {
       "id": "RPT-20260626-060200-since-last",
       "window": "since-last",
       "generated_at": "2026-06-26T06:02:00+00:00",
