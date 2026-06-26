@@ -943,6 +943,69 @@ def account_closed_pnl_for_trade(
     }
 
 
+def account_exec_type_for_close(
+    account: Dict[str, Any],
+    symbol: str,
+    *,
+    end_ms: Optional[int] = None,
+) -> Optional[str]:
+    """Return the Bybit ``execType`` of the most recent execution for
+    *symbol* in the 10-minute window ending at *end_ms* (or now).
+
+    Returns the raw ``execType`` string — e.g. ``"BustTrade"`` (liquidation /
+    demo margin call), ``"AdlTrade"`` (auto-deleverage), ``"Trade"`` (normal
+    order fill) — when a record is found, or ``None`` when the window is empty
+    (possible platform reset / data gap) or on any read failure.
+
+    Used by the reconciler's ``broker_close_unclassified`` path (``exit_price_source:
+    "entry_order_avg_price_unreliable"``) to distinguish demo-account margin calls
+    from real manual / out-of-bracket closes from platform resets, so the operator
+    ping carries an accurate classification instead of the generic "unknown" tag.
+
+    Only ``bybit`` ``linear`` / ``inverse`` is wired; other exchanges return
+    ``None`` immediately (best-effort, never raises).
+    """
+    if not isinstance(account, dict) or not symbol:
+        return None
+    ex = (account.get("exchange") or "").lower()
+    if ex != "bybit":
+        return None
+    try:
+        from src.units.accounts.execute import _bybit_category
+        category = _bybit_category(account)
+    except Exception:  # noqa: BLE001
+        return None
+    if category not in ("linear", "inverse"):
+        return None
+    try:
+        client = bybit_client_for(account)
+        if client is None:
+            return None
+        _end = int(end_ms) if end_ms else int(
+            datetime.now(timezone.utc).timestamp() * 1000
+        )
+        _start = _end - 10 * 60 * 1000  # 10-minute look-back window
+        resp = client.get_executions(
+            category=category,
+            symbol=str(symbol).upper(),
+            startTime=int(_start),
+            endTime=int(_end),
+            limit=5,
+        ) or {}
+        records = ((resp.get("result") or {}).get("list") or [])
+        if not records:
+            return None
+        # Bybit returns newest first; take the execType of the most recent entry.
+        return str(records[0].get("execType") or "") or None
+    except Exception as exc:  # noqa: BLE001
+        aid = account.get("account_id") or "unknown"
+        logger.warning(
+            "account_exec_type_for_close(account=%s symbol=%s): %s",
+            aid, symbol, exc,
+        )
+        return None
+
+
 def account_order_status(
     account: Dict[str, Any],
     order_id: str,
