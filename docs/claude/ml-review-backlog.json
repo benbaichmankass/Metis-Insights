@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "MB-20260626-001",
+      "opened_at": "2026-06-26T15:00:00+00:00",
+      "opened_by": "claude (ml-strategies-deep-review / fleet scorecard session)",
+      "source": "Ran the full fleet model scorecard (scripts/ml/fleet_scorecard.sh, MAX_BARS=8000) on the trainer VM as a nohup background job (trainer-vm-diag relays #4697 launch, #4699 read; job pid 1574680). RG3 (Stage-1, clean-candle replay vs the dataset's own regime_label = does it DISCRIMINATE) + RG4 (Stage-2, re-score the EXACT logged-live shadow_predictions.jsonl rows = train/serve SKEW detector) across all 17 shadow regime heads. shadow_predictions.jsonl had 109,641 rows.",
+      "title": "Fleet scorecard (RG3+RG4): replay pre-gate caught 2 MES heads anti-predictive live (skew); BTC 5m/15m fleet healthy + promotion-candidate; BTC 1h degrades live; MES live rows largely unlabeled",
+      "description": "RESULTS (RG3 offline AUC -> RG4 live AUC): ALL 17 heads pass RG3 (TRUSTWORTHY_SIGNAL, AUC 0.58-0.92) -- offline discrimination is NOT the differentiator. RG4 (live-row re-score) is what separates them: (A) KEEP / promotion-ready -- BTC 5m/15m fleet holds on live rows with market features present (mf=True) and near-complete labeling (unlab 0-6): btc-regime-5m-lgbm-yz-v1 0.92->0.82, btc-regime-5m-lgbm-v2 0.89->0.79, btc-regime-5m-baseline-v1 0.82->0.73, btc-regime-15m-lgbm-yz-v1 0.83->0.76, btc-regime-15m-lgbm-v2 0.81->0.72, btc-regime-15m-baseline-v1 0.75->0.69; plus mes-regime-5m-lgbm-v2 0.80->0.77 and mes-regime-5m-baseline-v1 0.68->0.75 (both on thin labeled samples ~200-254 of ~3000). (B) WATCH -- BTC 1h fleet degrades materially live: btc-regime-1h-lgbm-v2 0.78->0.61, btc-regime-1h-lgbm-yz-v1 0.79->0.60, btc-regime-1h-lgbm-funding-svble-v1 0.78->0.55 (AT the 0.55 floor). Clears the floor but the live edge is thin; not promotion-ready until the 1h>5m/15m degradation is understood. (C) FIX-SKEW / KILL -- the gate's catch: mes-regime-15m-lgbm-v2 0.89 offline -> 0.32 live ANTI_PREDICTIVE (the btc-regime-yz failure mode exactly; ~77 labeled rows), and mes-regime-15m-baseline-v1 0.58 -> 0.44 ANTI_PREDICTIVE (weak offline AND inverts live). (D) UNSCOREABLE on live (0 labeled live rows -> RG4 can't judge): mes-regime-1d-lgbm-v2 (242 rows), mes-regime-5m-lgbm-yz-v1 (1629 rows), eth-regime-1h-lgbm-v1 (84 rows, too new), eth-regime-1h-lgbm-xasset-v1 (320 rows, the D2a cross-asset probe, too new). CROSS-CUTTING FINDINGS: (1) MES live rows are largely UNLABELED (unlab 1025-2777 of ~1100-3000) vs BTC unlab~=0 -> a labeling-pipeline gap specific to MES that blinds RG4 on half the fleet. (2) Two btc yz heads (5m, 1h) carry advisory-stage records with mf=False scoring 0.5 NO_EDGE -> a handful of advisory-stage logged rows lack the market-feature block (data-capture parity smell). (3) Offline AUC (RG3) green-lights all 17 incl. the 0.89->0.32 skew head -> confirms the build-time funnel must gate on RG4 (live-row parity + net-of-cost edge), not RG3 AUC.",
+      "tier": 3,
+      "trigger_condition": "Next /ml-review; or any session deciding regime-head promotion/demotion, or working live-feature/label parity on the trainer.",
+      "resolution_criteria": "Operator-gated promotion decisions taken on the (A) BTC 5m/15m candidates; (C) the two anti-predictive MES 15m heads either skew-root-caused+fixed or demoted/killed; (1) the MES live-labeling gap and (2) the advisory mf=False capture gap are root-caused (live feature/label parity). Each is its own follow-up; this item is the umbrella record of the scorecard.",
+      "status": "open",
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-06-26 (scorecard run, trainer-vm-diag #4699): full per-head RG3/RG4 table captured (above). Tooling: scripts/ml/fleet_scorecard.sh (Tier-1 research, reads datasets/registry/shadow log, writes a text table; never touches the order path). Reusable: bash scripts/ml/fleet_scorecard.sh [MAX_BARS]. NOTE this is read-only research -- the keep/fix-skew/kill classification is a PROPOSAL; actual stage flips are the operator-gated promotion gate."
+      ],
+      "status_history": "open 2026-06-26 (scorecard run; RG4 caught 2 MES 15m heads anti-predictive live, BTC 5m/15m fleet identified as the real promotion candidates, MES live-labeling gap surfaced)."
+    },
+    {
       "id": "MB-20260617-001",
       "opened_at": "2026-06-17T05:20:00+00:00",
       "opened_by": "claude (dashboard-truth / WC-3 session)",
