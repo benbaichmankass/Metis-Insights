@@ -103,6 +103,90 @@ def test_compute_annotate_default_no_models_is_one(monkeypatch):
     assert record["action"] in ("no_advisory_models", "no_scores", "error", "annotate")
 
 
+# ---- compute_advisory_factor: regime-head exclusion (PR #4602, option B) ---
+
+def _shadow_pred(model_id, stage, score, *, regime=False):
+    """A ShadowPredictor stub; when regime=True the wrapped base exposes a
+    `regime_spec` so `regime_spec_of` flags it as a regime head."""
+    from ml.predictors.shadow import ShadowPredictor
+    from ml.predictors.base import Predictor
+
+    s = score
+
+    class _P(Predictor):
+        def predict(self, row):
+            return s
+
+    w = _P()
+    if regime:
+        w.regime_spec = {
+            "symbol": "BTCUSDT", "timeframe": "1h",
+            "vol_bucket_labels": ["vol_b0", "vol_b1", "vol_b2"],
+        }
+    return ShadowPredictor(w, model_id=model_id, stage=stage, log_path=None)
+
+
+def test_compute_excludes_regime_heads_from_quorum(monkeypatch):
+    # A regime head at advisory must NOT enter the downsize quorum: it would be
+    # scored on the bare _feature_row_from_pkg row (no market_features) and emit
+    # a degenerate ~constant. Only the directional model should be scored.
+    import src.strategy_registry as sr
+    import ml.registry.model_registry as mr
+    import ml.shadow.factory as fac
+
+    monkeypatch.setattr(
+        sr, "_strategy_cfg",
+        lambda name: {"advisory_policy": {"mode": "downsize"}},
+    )
+    monkeypatch.setattr(
+        mr, "ModelRegistry",
+        lambda root: SimpleNamespace(list=lambda: [
+            SimpleNamespace(model_id="trade-outcome-x", target_deployment_stage="advisory"),
+            SimpleNamespace(model_id="btc-regime-1h-lgbm-yz-v1", target_deployment_stage="advisory"),
+        ]),
+    )
+    dir_p = _shadow_pred("trade-outcome-x", "advisory", 0.1)
+    reg_p = _shadow_pred("btc-regime-1h-lgbm-yz-v1", "advisory", 0.98, regime=True)
+    monkeypatch.setattr(
+        fac, "resolve_predictors",
+        lambda ids, registry, log_path=None: [dir_p, reg_p],
+    )
+
+    _factor, record = compute_advisory_factor(_pkg())
+    assert record.get("excluded_regime") == ["btc-regime-1h-lgbm-yz-v1"]
+    assert "btc-regime-1h-lgbm-yz-v1" not in record.get("scores", {})
+    assert "trade-outcome-x" in record.get("scores", {})
+
+
+def test_compute_all_regime_advisory_yields_no_scores(monkeypatch):
+    # If every advisory model is a regime head, the quorum is empty → factor 1.0
+    # (no downsize from degenerate regime constants).
+    import src.strategy_registry as sr
+    import ml.registry.model_registry as mr
+    import ml.shadow.factory as fac
+
+    monkeypatch.setattr(
+        sr, "_strategy_cfg",
+        lambda name: {"advisory_policy": {"mode": "downsize"}},
+    )
+    monkeypatch.setattr(
+        mr, "ModelRegistry",
+        lambda root: SimpleNamespace(list=lambda: [
+            SimpleNamespace(model_id="btc-regime-1h", target_deployment_stage="advisory"),
+        ]),
+    )
+    reg_p = _shadow_pred("btc-regime-1h", "advisory", 0.98, regime=True)
+    monkeypatch.setattr(
+        fac, "resolve_predictors",
+        lambda ids, registry, log_path=None: [reg_p],
+    )
+
+    factor, record = compute_advisory_factor(_pkg())
+    assert factor == 1.0
+    assert record["action"] == "no_scores"
+    assert record["excluded_regime"] == ["btc-regime-1h"]
+
+
 # ---- apply_advisory_downsize ----------------------------------------------
 
 def test_apply_off_mode_returns_unchanged(monkeypatch):

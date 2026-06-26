@@ -1,0 +1,397 @@
+{
+  "report_id": "RPT-20260626-060200-since-last",
+  "reviewed_at": "2026-06-26T06:02:00+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-06-25T05:40:00+00:00",
+  "window_end": "2026-06-26T06:02:00+00:00",
+  "prior_report_id": "RPT-20260625-054000-since-last",
+  "overall_assessment": "caution",
+  "health": {
+    "overall_assessment": "healthy",
+    "summary": "Trader heartbeat running; ict-trader-live + ict-web-api + timers active. VM relaxed (cpu ~50% momentary, mem 11%, disk 27%). Clean restart ~05:27Z deploying the advisory regime-head fix (git f96749b8, PR #4602). Signal->order_package plumbing intact; dual-write on. Prop bridge clean (0 un-acted).",
+    "findings": {
+      "heartbeat": {
+        "status": "ok",
+        "note": "running; <3x cadence"
+      },
+      "services": {
+        "status": "ok",
+        "note": "ict-trader-live + ict-web-api active/running"
+      },
+      "deploy_currency": {
+        "status": "ok",
+        "note": "live VM on git f96749b8 (advisory fix #4602), restart ~05:27Z"
+      },
+      "pipeline_plumbing": {
+        "status": "ok",
+        "note": "order_packages writing each tick; signals dual-write on"
+      },
+      "real_money_execution": {
+        "status": "watch",
+        "note": "9 real-money ETF pullback packages rejected no_fill_all_accounts (target_qty=0) \u2014 execution-path, not plumbing"
+      },
+      "prop_bridge": {
+        "status": "ok",
+        "note": "0 un-acted tickets"
+      }
+    },
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "performance": {
+    "overall_assessment": "caution",
+    "summary": "Real money 0 closed trades; but all 9 real-money ETF pullback signals rejected no_fill_all_accounts (target_qty=0) \u2014 alpaca_live can't fill. Paper +$197.93 over 7 closes (3W/4L) but reconciler/netting-artifact-heavy (sol_pullback_2h +$141 closed reconciler_filled at target_qty=0). 10 in-window packages graded (5B/5C).",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "ml": {
+    "overall_assessment": "healthy",
+    "summary": "1 training cycle ran clean overnight (00:24->01:16Z, rc:0); dataset builds OK. Advisory regime-head degeneracy FIXED + deployed (#4602, option B: regime heads excluded from the advisory downsize quorum). All 17 shadow regime heads sound via the replay pre-gate (RG3). Degenerate trade-outcome-winrate / regime-classifier baselines (f1=0) persist but are shadow-only (no order influence).",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "~24h window. HEALTHY infra: heartbeat up, services up, VM relaxed, clean restart 05:27Z deploying advisory regime-head fix (#4602). REAL-MONEY 0 closes \u2014 9 ETF pullback signals (incl. GLD shorts ADX46-51 conf .80-.97) ALL rejected no_fill (target_qty=0): alpaca_live can't fill. Paper +$197.93/7 (artifact-heavy). ML clean: cycle ran, advisory bug fixed.",
+    "services": [
+      {
+        "unit": "ict-trader-live.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "2026-06-26T05:27:00Z"
+      },
+      {
+        "unit": "ict-web-api.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "2026-06-26T05:27:00Z"
+      }
+    ],
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Real-money execution blocked: alpaca_live can't fill (creds/dry_run)",
+        "source_review": "cross",
+        "tier": 3,
+        "operator_action_required": true,
+        "detail": "All 9 real-money ETF pullback signals rejected no_fill_all_accounts (target_qty=0). Operator switching keys; then I propagate via sync-vm-secrets, verify api_ok=true, and flip alpaca_live live via set-account-mode. Do NOT flip before keys verify."
+      },
+      {
+        "rank": 2,
+        "title": "Investigate target_qty=0 sizing across paper AND real-money",
+        "source_review": "cross",
+        "tier": 2,
+        "operator_action_required": false,
+        "detail": "Every in-window package (incl. the paper sol close) shows aggregated_target_qty=0. Real -> rejects; paper -> 'closed' via reconciler artifact. Confirm whether real-money is purely alpaca creds or a broader RiskManager sizing-to-zero symptom."
+      },
+      {
+        "rank": 3,
+        "title": "Verify advisory regime-head fix in the live decision log",
+        "source_review": "ml",
+        "tier": 1,
+        "operator_action_required": false,
+        "detail": "Advisory fix (#4602) deployed 05:27Z. Verify next advisory_decisions.jsonl rows carry excluded_regime populated and no degenerate ~0.98 quorum constant."
+      },
+      {
+        "rank": 4,
+        "title": "Treat paper KPIs as artifact-heavy, not a clean strategy read",
+        "source_review": "performance",
+        "tier": 1,
+        "operator_action_required": false,
+        "detail": "Paper +$197.93/7 closes is reconciler/netting-artifact-dominated (sol +$141 closed reconciler_filled at target_qty=0; rest xrp_pullback churn). Don't read it as edge."
+      }
+    ],
+    "cross_review_notes": [
+      "10 in-window order packages graded (5B/5C): 1 paper closed (sol_pullback_2h, artifact) + 9 real-money ETF pullbacks all rejected no_fill_all_accounts. The 9 rejections are EXECUTION-PATH infra (alpaca_live), NOT strategy filters \u2014 several were high-quality (GLD shorts ADX 46-51, conf .80-.97). Good signals lost to the fill gap.",
+      "target_qty=0 spans paper AND real-money this window \u2014 same sizing-to-zero symptom the prior report flagged. alpaca creds explain real-money no-fill; the paper sol package also sized 0 yet 'closed' via reconciler_filled -> two faces of one sizing/reconciler gap.",
+      "Market-context candles not fetched this session (Trusted-network / relay-limited); see the prior report for the regime read. Not fabricated to avoid a false 0."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": 0.0,
+        "trend": "flat",
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": 0.0,
+        "profit_factor": null,
+        "max_drawdown": 0.0,
+        "per_strategy": [],
+        "per_asset_class": {},
+        "equity_curve": []
+      },
+      "paper": {
+        "window_pnl": 197.93,
+        "prior_window_pnl": 19.0,
+        "trend": "up",
+        "trades": 7,
+        "wins": 3,
+        "win_rate": 42.9,
+        "expectancy": 28.28,
+        "profit_factor": null,
+        "max_drawdown": null,
+        "per_strategy": [
+          {
+            "name": "sol_pullback_2h",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 141.375
+          }
+        ],
+        "per_asset_class": {
+          "crypto": 197.93
+        },
+        "equity_curve": []
+      },
+      "prop": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": 0.0,
+        "trend": "flat",
+        "fills_reported": 0,
+        "tickets_emitted": 0,
+        "unacted_tickets": 0,
+        "rule_distance": {
+          "daily_loss_remaining": null,
+          "static_dd_remaining": null
+        },
+        "per_account": []
+      }
+    },
+    "market_context": [],
+    "trade_dossiers": [
+      {
+        "trade_id": null,
+        "order_package_id": "pkg-fc73141d9092479c",
+        "account": "paper",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "short",
+        "strategy": "sol_pullback_2h",
+        "opened_at": "2026-06-25T22:00:42+00:00",
+        "closed_at": "2026-06-25T22:05:54+00:00",
+        "hold_seconds": 312,
+        "entry_price": 67.22,
+        "exit_price": null,
+        "stop_loss": 70.91285714,
+        "take_profit": 60.56522,
+        "qty": null,
+        "pnl": 141.375,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "premature_exit",
+          "risk_management": "unknown",
+          "rationale": "conf 0.457, adx 25.08 (AT adx_min 25 \u2014 marginal), trending, pullback_pos 0.57. PAPER close via reconciler_filled with aggregated_target_qty=0 \u2014 the +$141.375 is a paper reconciler/netting artifact, not a sized round-trip."
+        },
+        "model_scores": {
+          "conviction-meta-v1": {
+            "stage": "shadow",
+            "score": 0.7086
+          },
+          "setup-quality-lgbm-v2": {
+            "stage": "shadow",
+            "score": -0.7373
+          },
+          "trade-outcome-global-baseline-v0": {
+            "stage": "shadow",
+            "score": 0.2483
+          },
+          "trade-outcome-winrate-baseline-v0": {
+            "stage": "shadow",
+            "score": 0.2483
+          }
+        },
+        "signal_logic": "sol_pullback_2h short; donchian-trend pullback, ADX 25.08 at floor; conviction 0.406 (partial_inputs)",
+        "meta": {
+          "setup_type": "pullback",
+          "killzone": null,
+          "bias": "short"
+        },
+        "notable": true
+      }
+    ],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 1,
+      "summarized_trades": 9,
+      "rule": "full-per-trade (since-last/daily); 9 rejected real-money no-fill packages summarized in cross_review_notes + graded in the scores log"
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 137,
+        "open": 62,
+        "resolved": 75,
+        "drained": 13
+      },
+      "performance": {
+        "total": 45,
+        "open": 30,
+        "resolved": 15,
+        "drained": 0
+      },
+      "ml": {
+        "total": 44,
+        "open": 14,
+        "resolved": 30,
+        "drained": 2
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "performance",
+        "tier": 3,
+        "summary": "Flip alpaca_live dry_run->live via set-account-mode \u2014 GATED on operator rotating/confirming keys AND verifying api_ok=true first. Flipping a creds-broken client would arm a broken real-money account; do not flip before verify."
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "MB-20260625-ADVISORY-VERIFY",
+        "domain": "ml",
+        "category": "verify",
+        "detail": "Advisory regime-head exclusion fix (#4602) deployed 05:27Z; confirm live decision log shows excluded_regime populated.",
+        "since": "2026-06-26",
+        "next_check": "advisory_decisions.jsonl rows with excluded_regime non-empty"
+      },
+      {
+        "item_id": "RG-NIGHTLY",
+        "domain": "ml",
+        "category": "soaking",
+        "detail": "Replay pre-gate nightly workflow merged this session; awaiting first scheduled run + committed report.",
+        "since": "2026-06-26",
+        "next_check": "first nightly replay-pregate report committed"
+      },
+      {
+        "item_id": "BL-20260625-ALPACA-KEYS",
+        "domain": "performance",
+        "category": "awaiting-decision",
+        "detail": "alpaca_live real-money fills blocked (no_fill/target_qty=0); operator switching keys.",
+        "since": "2026-06-26",
+        "next_check": "operator rotates keys -> sync-vm-secrets -> api_ok=true"
+      },
+      {
+        "item_id": "MB-20260601-002",
+        "domain": "ml",
+        "category": "awaiting-data",
+        "detail": "regime-classifier-baseline-v0 collapses (f1_volatile=0) \u2014 degenerate baseline, shadow-only; awaiting a retrain experiment.",
+        "since": "2026-06-01",
+        "next_check": "retrain manifest + replay-pregate pass"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [],
+        "summary": "All strategies HOLD. No new closed real-money trades to update gates; the ETF pullback cells are signal-healthy but execution-blocked (alpaca_live), which is infra not a strategy-quality demotion. No promote/demote/kill triggered this window."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 1,
+        "dataset_builds_ok": true,
+        "failing_or_stuck": [],
+        "summary": "1 training cycle ran clean overnight (00:24->01:16Z, rc:0); dataset builds OK; no stuck cycle. Advisory regime-head degeneracy fixed + deployed (#4602)."
+      },
+      "soak_status": [
+        {
+          "soak": "shadow regime heads (17)",
+          "state": "accruing",
+          "detail": "all sound via replay pre-gate RG3; the advisory bug polluting their track record is fixed (#4602)"
+        },
+        {
+          "soak": "advisory downsize (post-fix)",
+          "state": "accruing",
+          "detail": "regime heads now excluded from quorum; verifying excluded_regime populates in advisory_decisions.jsonl"
+        },
+        {
+          "soak": "replay pre-gate nightly",
+          "state": "accruing",
+          "detail": "nightly workflow merged this session; awaiting first scheduled run"
+        },
+        {
+          "soak": "conviction + exit-ladder soaks",
+          "state": "accruing",
+          "detail": "observe-only; no graduation gate met (PB-20260617-002 exit-ladder not yet accrued)"
+        }
+      ],
+      "flags_raised": [
+        "REAL-MONEY EXECUTION BLOCKED: all 9 real-money ETF pullback signals rejected no_fill_all_accounts (target_qty=0) \u2014 alpaca_live can't fill (creds/dry_run). Quality signals (GLD shorts ADX 46-51, conf .80-.97) lost.",
+        "target_qty=0 also on the paper sol package (still 'closed' via reconciler artifact +$141) \u2014 sizing-to-zero + reconciler-artifact pattern spans both funding classes.",
+        "Paper KPIs are reconciler-artifact-heavy \u2014 not a clean strategy read this window."
+      ],
+      "backlog_drive": {
+        "health": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "BL-20260621-ACCOUNT-HISTORY-PULL",
+              "reason": "awaiting operator manual exchange-history export"
+            },
+            {
+              "id": "BL-20260617-ANDROID-56-VISUAL",
+              "reason": "awaiting operator on-device visual check (sandbox can't render)"
+            },
+            {
+              "id": "BL-20260617-GATE-MIGRATION",
+              "reason": "audit task parked behind the active alpaca execution incident"
+            }
+          ]
+        },
+        "performance": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "PB-20260625-002",
+              "reason": "26 unreconciled bybit_2 orphan canonicals \u2014 operator-gated reconcile-history cleanup"
+            },
+            {
+              "id": "PB-20260622-002",
+              "reason": "TLT min_confidence floor \u2014 needs more closed real-money data, currently execution-blocked"
+            },
+            {
+              "id": "PB-20260617-002",
+              "reason": "exit-ladder graduation \u2014 soak not yet accrued"
+            }
+          ]
+        },
+        "ml": {
+          "drained": [
+            "MB-20260623-001",
+            "MB-20260625-001"
+          ],
+          "deferred": [
+            {
+              "id": "MB-20260601-002",
+              "reason": "regime-classifier f1=0 baseline \u2014 shadow-only; awaiting a retrain experiment"
+            },
+            {
+              "id": "MB-20260613-001",
+              "reason": "funding-z retrain experiment queued (serveable funding-z only)"
+            },
+            {
+              "id": "MB-20260607-002",
+              "reason": "ADWIN drift-retrain + promotion-report \u2014 Tier-1 infra, parked"
+            }
+          ]
+        },
+        "summary": "This run drained 2 ML advisory items (MB-20260623-001 / MB-20260625-001 \u2014 advisory regime-head degeneracy fixed + deployed #4602) and graded all 10 in-window packages. Performance/health open items are parked on more closed real-money data (execution-blocked by alpaca creds) or operator action; none actionable now."
+      }
+    }
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260626T060200Z/report.json",
+    "html_path": "comms/reports/since-last/20260626T060200Z/report.html",
+    "md_path": "comms/reports/since-last/20260626T060200Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260626T060200Z/report.html",
+    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260626-060200-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "send-ping",
+    "priority": "high",
+    "message": "[system-report:since-last] roll-up CAUTION: H:healthy P:caution M:healthy. Real-money blocked (alpaca_live no_fill x9); paper +$198 artifact; advisory bug fixed+deployed. https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260626-060200-since-last"
+  }
+}
