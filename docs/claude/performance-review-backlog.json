@@ -856,7 +856,9 @@
       "title": "fvg_range_BTCUSDT_15m bleeds -41R over 5yr (272 trades) \u2014 sleeve-level review",
       "detail": "In the P1 book backtest, fvg_range on BTC 15m was the only large net-negative sleeve (-41R; next worst pullback_MES -13R on 23 trades). Worth a dedicated review: is the live fvg_range_15m config the same as the harness default? Is it a net drag on the live book? Candidate for TUNE/DEMOTE_SHADOW if the live record corroborates. NOTE: backtest-default params, not necessarily live params \u2014 verify before acting.",
       "status": "open",
-      "category": "strategy-performance"
+      "category": "strategy-performance",
+      "updated_at": "2026-06-26T14:25:00+00:00",
+      "live_check": "Live record (diag #4688, order-packages): fvg_range_15m has ~1 decision, conf 0.11, target_qty=0, never executed (orphaned 'never executed'). It is effectively DORMANT live \u2014 NOT bleeding money; the -41R is a backtest-params result. Same zero-qty sizing pattern as the alpaca ETF rejections (ties to the zero-qty investigation). Recommendation softened: LOW-PRIORITY tidy DEMOTE-to-shadow (formalize what sizing already does), not an urgent risk. Caveat: order-packages is decision-level recent history; lifetime via /api/bot/strategies not pulled."
     },
     {
       "id": "PB-20260626-004",
@@ -895,5 +897,5 @@
       "resolution": "Fixed trend_donchian tf 2h->1h in scripts/backtest_system.py::ROSTER to track config/strategies.yaml; added a comment requiring tf to track live. The curated BTCUSDT subset's other entries (fade/squeeze 4h, fvg_range/turtle 15m, ict_scalp 5m) already match live."
     }
   ],
-  "updated_at": "2026-06-26T14:10:00+00:00"
+  "updated_at": "2026-06-26T14:25:00+00:00"
 }
