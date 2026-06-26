@@ -434,12 +434,91 @@ def _cmd_gate_check(args: argparse.Namespace) -> int:
             label_horizon=args.label_horizon,
             embargo_fraction=args.embargo_fraction,
         )
+    # RG4 live regime-discrimination AUC (regime profile only): re-score the
+    # head on the EXACT logged-live feature rows vs the realized regime label.
+    # This is the regime-appropriate live track record — `live_agreement`
+    # (rank-AUC vs trade WIN) is wrong for a head that predicts the regime, not
+    # trade outcome, and is turned off in the regime profile. Best-effort:
+    # any failure leaves it None (the gate then reports insufficient_data).
+    live_regime_auc = None
+    if regime and not args.no_live_regime_auc:
+        live_regime_auc = _compute_live_regime_auc(
+            entry, args.model_id,
+            shadow_log=args.shadow_log,
+            datasets_root=args.datasets_root,
+        )
     report = evaluate_gates(
         entry, target_stage=args.target_stage, attribution=attr,
-        drift=drift, oos_edge=oos_edge, thresholds=thresholds,
+        drift=drift, oos_edge=oos_edge, live_regime_auc=live_regime_auc,
+        thresholds=thresholds,
+    )
+    sys.stderr.write(
+        f"gate-check live_regime_discrimination AUC: "
+        f"{'—' if live_regime_auc is None else f'{live_regime_auc:.3f}'}\n"
     )
     print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
     return 0
+
+
+def _compute_live_regime_auc(
+    entry: Any, model_id: str, *,
+    shadow_log: Any, datasets_root: str | None,
+) -> float | None:
+    """RG4 live regime-discrimination AUC for one regime head, or None.
+
+    Resolves the head's `(symbol, timeframe)` from its frozen regime spec,
+    finds the newest `market_raw/<symbol>/<timeframe>/<version>/data.jsonl`
+    under the datasets root (matching `scripts/ml/fleet_scorecard.sh`), then
+    runs the RG4 Stage-2 replay (`scripts/ml/replay_pregate_live.run`) over the
+    logged-live shadow rows. Returns the `shadow`-stage AUC if present, else the
+    max stage AUC. Never raises — any failure (no spec, no candles, no rows,
+    import error) returns None so the gate-check can't crash on it."""
+    try:
+        from pathlib import Path as _Path
+
+        from ml.shadow import factory as _factory
+        from ml.shadow.factory import resolve_predictor
+        from scripts.ml.replay_pregate_live import run as _rg4_run
+        from src.runtime.regime_bar_scoring import _bar_seconds
+        from src.runtime.regime_shadow import regime_spec_of
+
+        log_path = _Path(shadow_log)
+        if not log_path.is_file():
+            return None
+
+        reg = ModelRegistry(_factory._resolve_default_registry_root())
+        sp = resolve_predictor(model_id, reg, log_path=None)
+        spec = regime_spec_of(getattr(sp, "wrapped", sp)) or regime_spec_of(sp)
+        if not spec:
+            return None
+        symbol = str(spec.get("symbol") or "").strip()
+        timeframe = str(spec.get("timeframe") or "").strip()
+        if not symbol or not timeframe:
+            return None
+
+        root = _Path(datasets_root or "datasets-out") / "market_raw" / symbol / timeframe
+        candle_files = sorted(root.glob("*/data.jsonl"))
+        if not candle_files:
+            return None
+        candles = str(candle_files[-1])
+
+        bar_seconds = _bar_seconds(timeframe) or 3600.0
+        report = _rg4_run(
+            model_id, shadow_log=str(log_path), candles=candles,
+            forward_m=5, vol_threshold=0.003, positive_class="volatile",
+            bar_seconds=float(bar_seconds),
+        )
+        by_stage = report.get("by_stage") or {}
+        shadow_blk = by_stage.get("shadow")
+        if shadow_blk and shadow_blk.get("auc") is not None:
+            return float(shadow_blk["auc"])
+        aucs = [
+            float(b["auc"]) for b in by_stage.values()
+            if isinstance(b, dict) and b.get("auc") is not None
+        ]
+        return max(aucs) if aucs else None
+    except Exception:  # noqa: BLE001 — best-effort; never crash the gate-check
+        return None
 
 
 def _cmd_drift_retrain(args: argparse.Namespace) -> int:
@@ -776,6 +855,15 @@ def _build_parser() -> argparse.ArgumentParser:
     p_gate.add_argument(
         "--embargo-fraction", type=float, default=0.0,
         help="embargo buffer as a fraction of the dataset for the OOS-edge gate",
+    )
+    p_gate.add_argument(
+        "--no-live-regime-auc", action="store_true", default=False,
+        help=(
+            "skip the RG4 live regime-discrimination AUC computation (regime "
+            "profile only). When skipped, the live_regime_discrimination gate "
+            "reports insufficient_data. The AUC reuses --shadow-log + the "
+            "newest market_raw candle artifact under --datasets-root."
+        ),
     )
 
     p_dr = sub.add_parser(
