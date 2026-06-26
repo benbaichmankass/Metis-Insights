@@ -886,9 +886,11 @@
       "source": "scripts/backtest_system.py::_STRATS registry vs config/strategies.yaml.",
       "title": "backtest_system.py registry tf drift: trend_donchian hardcoded 2h, live=1h (audit full roster)",
       "detail": "The multi-strategy harness registry hardcodes trend_donchian tf=2h but live runs it at 1h; the registry also predates the per-symbol multi-roster (eth/sol/xrp/ada/avax trend+pullback, the 1d futures/ETF cells, the *_1h ETF/FX cells). Audit _STRATS against the live roster and align tf/params so the harness reflects live. Tier-1.",
-      "status": "open",
-      "category": "tooling"
+      "status": "resolved",
+      "category": "tooling",
+      "resolved_at": "2026-06-26T08:50:00+00:00",
+      "resolution": "Fixed trend_donchian tf 2h->1h in scripts/backtest_system.py::ROSTER to track config/strategies.yaml; added a comment requiring tf to track live. The curated BTCUSDT subset's other entries (fade/squeeze 4h, fvg_range/turtle 15m, ict_scalp 5m) already match live."
     }
   ],
-  "updated_at": "2026-06-26T08:40:00+00:00"
+  "updated_at": "2026-06-26T08:50:00+00:00"
 }
