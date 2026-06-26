@@ -20,6 +20,20 @@
       "status_history": "open 2026-06-26 (scorecard run; RG4 caught 2 MES 15m heads anti-predictive live, BTC 5m/15m fleet identified as the real promotion candidates, MES live-labeling gap surfaced)."
     },
     {
+      "id": "MB-20260626-002",
+      "opened_at": "2026-06-26T15:20:00+00:00",
+      "opened_by": "claude (ml-strategies-deep-review / fleet scorecard session)",
+      "source": "Fleet scorecard RG4 (MB-20260626-001): two MES 15m regime heads invert on the logged-live feature rows despite passing RG3 offline. mes-regime-15m-lgbm-v2 = 0.89 offline AUC -> 0.32 live (ANTI_PREDICTIVE); mes-regime-15m-baseline-v1 = 0.58 -> 0.44 (ANTI_PREDICTIVE). Both are shadow-stage (observe-only — they log predictions, never influence an order), so this is NOT a live-trade risk, but a head that is anti-predictive live is worse than no head and should not be promoted; the lgbm one in particular is the classic train/serve-skew signature (great offline, broken on the live row).",
+      "title": "SYSTEM-REVIEW PICKUP: demote/kill the two anti-predictive MES 15m regime heads (mes-regime-15m-lgbm-v2, mes-regime-15m-baseline-v1) — RG4 says they invert live",
+      "description": "ACTION for the next /system-review (operator-directed 2026-06-26): take a look at these two and decide demote-to-candidate / kill. They are shadow-stage so the only cost today is they pollute the shadow stream with an inverted signal and would be a trap if anyone promoted on offline AUC. Caveats to weigh during the review: (1) both were scored on a THIN labeled live sample (~77 and ~127 rows) because most live MES rows are unlabeled (the MES live-labeling gap, MB-20260626-001 finding 1) — so the anti-predictive verdict is directional, not yet high-n; re-confirm once the labeling gap (separate follow-up) is closed and the labeled MES sample grows. (2) The skew is consistent with a live MES feature-pipeline parity problem rather than a bad model per se — if the parity gap is the root cause, the fix is the pipeline, and a retrained head on parity-correct features may be fine. So the review's call is: demote now (cheap, removes the inverted signal) and let a parity-fixed retrain re-earn shadow, vs. hold pending the labeling-gap fix for a higher-n re-score. Recommended: demote both to candidate now (observe-only, reversible) and tie the re-promotion to the parity fix. Tier-3 stage flip — operator-gated; the review proposes, the operator runs promote-stage.",
+      "tier": 3,
+      "trigger_condition": "Next /system-review (explicit operator pickup); or any /ml-review touching the MES regime fleet.",
+      "resolution_criteria": "The two MES 15m heads are either demoted (candidate / killed) with the decision recorded, OR re-scored on a higher-n labeled MES sample (after the labeling-gap fix) and the anti-predictive verdict confirmed/overturned. Either way the system review records the call.",
+      "status": "open",
+      "snoozed_until": null,
+      "status_history": "open 2026-06-26 (flagged for system-review pickup per operator direction; the 'a' of the scorecard keep/fix-skew/kill split)."
+    },
+    {
       "id": "MB-20260617-001",
       "opened_at": "2026-06-17T05:20:00+00:00",
       "opened_by": "claude (dashboard-truth / WC-3 session)",
