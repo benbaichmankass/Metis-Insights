@@ -856,7 +856,19 @@
       "detail": "In the P1 book backtest, fvg_range on BTC 15m was the only large net-negative sleeve (-41R; next worst pullback_MES -13R on 23 trades). Worth a dedicated review: is the live fvg_range_15m config the same as the harness default? Is it a net drag on the live book? Candidate for TUNE/DEMOTE_SHADOW if the live record corroborates. NOTE: backtest-default params, not necessarily live params \u2014 verify before acting.",
       "status": "open",
       "category": "strategy-performance"
+    },
+    {
+      "id": "PB-20260626-004",
+      "opened_at": "2026-06-26T08:32:00+00:00",
+      "opened_by": "claude (P7 cross-sectional momentum first pass)",
+      "source": "scripts/backtest_xsec_momentum.py (PR #4680) on a 6-coin daily universe (ETH/SOL/ADA/AVAX/BNB/LINK, 2020-2026); relays #4678 (universe) + #4679 (run).",
+      "title": "P7 xsec momentum: 6-coin first pass FAILS gate; universe expansion (10-15 coins) is a discretionary follow-up",
+      "detail": "Raw 6-coin xsec momentum ~dead (Sharpe 0.05, >1.0 maxDD). BTC-50d-SMA risk-off gate is value-additive (Sharpe 0.05->0.21, total +0.17->+0.61, 1->2 of 3 gate stages) and the P1 vol-target stacks (+0.05). But the full 4-stage gate FAILS (a k-fold net-negative @1x) and 6 coins is below the memo's 10-15 threshold (tercile = only 2L/2S). NOT promotable. Expansion case: overlays behave as theorized + holdout positive (0.57). Against: weak base, catastrophic DD, memo rates P7 high-risk. If expanded: fetch 10-15 liquid Bybit perps daily, re-run with --trend-book = the P1 BTC/ETH book for the corr<0.3 stage. Writeup: docs/research/P7-xsec-momentum-firstpass-2026-06-26.md.",
+      "status": "open",
+      "category": "strategy-research",
+      "tier": 3,
+      "decision_needed": "Operator: invest in the 10-15 coin Bybit daily fetch for a real P7 verdict, or shelve like P5?"
     }
   ],
-  "updated_at": "2026-06-26T07:40:00+00:00"
+  "updated_at": "2026-06-26T08:32:00+00:00"
 }
