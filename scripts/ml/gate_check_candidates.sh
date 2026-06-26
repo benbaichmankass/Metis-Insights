@@ -20,11 +20,10 @@ set -uo pipefail
 cd "$(dirname "$0")/../.." 2>/dev/null || true
 PY=python3; for c in .venv/bin/python venv/bin/python; do [ -x "$c" ] && PY="$c" && break; done
 
-# Resolve the registry root that actually holds the heads.
-RR=ml/registry-store
-if ! PYTHONPATH=. "$PY" -m ml list-models --registry-root "$RR" 2>/dev/null | grep -q "btc-regime"; then
-  RR=ml/registry
-fi
+# Resolve the registry root the SAME way the shadow factory / fleet scorecard
+# does (the resolver that found all 17 heads), rather than guessing a path.
+RR=$(PYTHONPATH=. "$PY" -c "from ml.shadow import factory; print(factory._resolve_default_registry_root())" 2>/dev/null)
+[ -z "$RR" ] && RR=ml/registry-store
 DB=data/trade_journal.db; [ -f "$DB" ] || DB=trade_journal.db
 SL=runtime_logs/shadow_predictions.jsonl
 DS=datasets-out
