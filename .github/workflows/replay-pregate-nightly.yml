@@ -1,0 +1,227 @@
+name: replay-pregate-nightly
+
+# Durable, session-INDEPENDENT runner for the ML replay pre-gate (RG3).
+#
+# Baselines the shadow-stage regime fleet through the point-in-time replay
+# pre-gate (scripts/ml/replay_pregate_fleet.py) on the trainer VM and commits
+# the report back to the repo, so the result survives a dead Claude session.
+# This is the overnight "run through the trainings" substrate: it runs on a
+# nightly schedule, on manual dispatch, and on a labelled issue — no session,
+# no keep-alive cron required.
+#
+# What it does (all read-only research, Tier-1):
+#   1. SSH the trainer VM, fast-forward the working tree to the requested ref.
+#   2. Run scripts/ml/replay_pregate_fleet.py over every shadow-stage regime
+#      head, scoring each through the LIVE predict path vs the dataset's own
+#      regime_label (true market_features parity — no threshold guessing).
+#   3. Capture the JSON report on the runner, write it under
+#      runtime_logs/replay_pregate/, render a markdown summary, and commit both
+#      back to the branch.
+#   4. On the issue path, post the summary as a comment and close the issue.
+#
+# Three trigger paths:
+#   1. schedule          — nightly 04:00 UTC (the unattended overnight run).
+#   2. workflow_dispatch — operator/Claude "Run workflow" with optional ref +
+#                          model-ids inputs.
+#   3. issues.opened with label `replay-pregate-now` — the Claude-driven path;
+#      optional body lines `ref: <branch>` and `models: <id,id,...>`.
+#
+# Required repo secrets:  VM_SSH_KEY  (authorized on the trainer ubuntu account)
+# Required repo vars (or defaults): TRAINER_VM_IP (158.178.209.121),
+#                                   TRAINER_VM_USER (ubuntu)
+# Required repo label:    replay-pregate-now  (bootstrap-labels.yml)
+
+on:
+  schedule:
+    # 04:00 UTC nightly — after the daily dataset builds / trainer cycles.
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to run the pre-gate from (branch/sha)"
+        required: false
+        default: "claude/ml-strategies-deep-review-51n3cw"
+      models:
+        description: "Comma-separated model ids (blank = all shadow regime heads)"
+        required: false
+        default: ""
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: replay-pregate-nightly
+  cancel-in-progress: false
+
+jobs:
+  pregate:
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'replay-pregate-now'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Resolve run parameters
+        id: params
+        env:
+          EVENT: ${{ github.event_name }}
+          DISPATCH_REF: ${{ inputs.ref }}
+          DISPATCH_MODELS: ${{ inputs.models }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          REF="claude/ml-strategies-deep-review-51n3cw"
+          MODELS=""
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            [ -n "${DISPATCH_REF:-}" ] && REF="${DISPATCH_REF}"
+            MODELS="${DISPATCH_MODELS:-}"
+          elif [ "$EVENT" = "issues" ]; then
+            body_ref="$(printf '%s' "${ISSUE_BODY:-}" | awk -F': *' '/^ref:/{print $2; exit}')"
+            body_models="$(printf '%s' "${ISSUE_BODY:-}" | awk -F': *' '/^models:/{print $2; exit}')"
+            [ -n "${body_ref}" ] && REF="${body_ref}"
+            MODELS="${body_models}"
+          fi
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+          echo "models=${MODELS}" >> "$GITHUB_OUTPUT"
+          echo "Resolved ref=${REF} models='${MODELS}'"
+
+      - name: Checkout (for commit-back)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.params.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/trainer_key
+          chmod 600 ~/.ssh/trainer_key
+          ssh-keyscan -t ed25519,ecdsa,rsa "${TRAINER_IP}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Build remote command
+        env:
+          REF: ${{ steps.params.outputs.ref }}
+          MODELS: ${{ steps.params.outputs.models }}
+        run: |
+          set -euo pipefail
+          # MODELS is data, injected via env on the remote side — never inlined
+          # into the script, so an issue body can't smuggle shell metacharacters.
+          cat > /tmp/pregate_cmd.sh <<'EOS'
+          set -e
+          cd ~/ict-trading-bot 2>/dev/null || cd /opt/ict-trading-bot || cd "$(find ~ -maxdepth 3 -name ict-trading-bot -type d | head -1)"
+          git fetch origin "$PG_REF" >/dev/null 2>&1
+          git reset --hard "origin/$PG_REF" >/dev/null 2>&1 || git reset --hard "$PG_REF" >/dev/null 2>&1
+          PY=python3
+          for c in .venv/bin/python venv/bin/python ../.venv/bin/python ~/.venv/bin/python; do [ -x "$c" ] && PY="$c" && break; done
+          ARGS=""
+          [ -n "${PG_MODELS:-}" ] && ARGS="--models $PG_MODELS"
+          $PY scripts/ml/replay_pregate_fleet.py $ARGS --json -
+          EOS
+          echo "remote command staged"
+
+      - name: Run fleet pre-gate on trainer VM
+        id: run
+        env:
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+          PG_REF: ${{ steps.params.outputs.ref }}
+          PG_MODELS: ${{ steps.params.outputs.models }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/trainer_key \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              -o SendEnv=PG_REF -o SendEnv=PG_MODELS \
+              "${TRAINER_USER}@${TRAINER_IP}" \
+              "PG_REF='${PG_REF}' PG_MODELS='${PG_MODELS}' bash -s" \
+              < /tmp/pregate_cmd.sh \
+              > /tmp/pregate_out.txt 2>/tmp/pregate_err.txt || true
+          echo "=== stderr tail ==="; tail -c 4000 /tmp/pregate_err.txt || true
+          # The driver prints a single JSON object to stdout; isolate it (drop
+          # any stray non-JSON lines that leak from the remote shell).
+          python3 - <<'PY'
+          import json, sys
+          raw = open('/tmp/pregate_out.txt').read()
+          start = raw.find('{')
+          end = raw.rfind('}')
+          if start < 0 or end < 0:
+              print("::error::no JSON object in driver output");
+              print(raw[-2000:]); sys.exit(1)
+          obj = json.loads(raw[start:end+1])
+          open('/tmp/pregate.json','w').write(json.dumps(obj, indent=1))
+          print("parsed report with", len(obj.get('results', [])), "model(s)")
+          PY
+
+      - name: Write report + markdown summary, commit back
+        id: commit
+        run: |
+          set -euo pipefail
+          TS="$(date -u +%Y%m%dT%H%M%SZ)"
+          DIR="runtime_logs/replay_pregate"
+          mkdir -p "$DIR"
+          cp /tmp/pregate.json "$DIR/${TS}.json"
+          cp /tmp/pregate.json "$DIR/latest.json"
+          python3 scripts/ml/replay_pregate_summary.py "$DIR/latest.json" > "$DIR/latest.md" || \
+            echo "(summary renderer unavailable)" > "$DIR/latest.md"
+          cp "$DIR/latest.md" /tmp/pregate_summary.md
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$DIR"
+          if git diff --cached --quiet; then
+            echo "no changes to commit"
+          else
+            git commit -m "chore(ml): replay pre-gate fleet report ${TS} [skip ci]"
+            git push origin "HEAD:${{ steps.params.outputs.ref }}"
+          fi
+          echo "summary<<EOF" >> "$GITHUB_OUTPUT"
+          cat /tmp/pregate_summary.md >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Post summary to issue
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const md = fs.readFileSync('/tmp/pregate_summary.md', 'utf8').slice(0, 55000);
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `**replay-pregate-nightly** result\nRun: ${runUrl}\n\n${md}`,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed', state_reason: 'completed',
+            });
+
+      - name: Post failure note to issue
+        if: github.event_name == 'issues' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `❌ **replay-pregate-nightly failed.**\nRun: ${runUrl}\n\nCheck run logs (SSH/VM_SSH_KEY, driver error, or no JSON output).`,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed', state_reason: 'not_planned',
+            });

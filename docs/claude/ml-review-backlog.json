@@ -873,6 +873,10 @@
         {
           "at": "2026-06-25T06:10:00+00:00",
           "note": "Shared root cause with MB-20260625-001 (5m-yz): the live-vs-train collapse is the yz vol_bucket EDGE miscalibration (yz heads lock to vol_b0 while v2/baseline siblings bucket the same yang_zhang_vol to b1/b2), NOT a feature-absence parity gap (parity is wired via S17; live feature_row populates the estimators). Same re-freeze-edges fix applies to the 1h-yz refinement."
+        },
+        {
+          "at": "2026-06-25T22:20:00+00:00",
+          "note": "See MB-20260625-001 update @22:20Z (RG2 replay-pregate session): the advisory degeneracy that demoted THIS head too has a distinct root cause from vol_bucket edges \u2014 compute_advisory_factor scores advisory regime heads on a BARE _feature_row_from_pkg row (no market_features), so they saturate ~0.98 the moment promoted. Edge re-calibration can't fix advisory promotion; fix is in src/runtime/advisory_sizing.py (enrich, or exclude regime heads from the downsize quorum). Tier-3 proposal on PR #4602."
         }
       ]
     },
@@ -961,9 +965,13 @@
         {
           "at": "2026-06-25T06:47:00+00:00",
           "note": "DEMOTE EXECUTED (operator-approved). promote-stage btc-regime-5m-lgbm-yz-v1 advisory->shadow on the trainer (#4526, stage_history records advisory->shadow at 06:45:39Z; advisory count now 0 \u2014 ZERO order-influencing models, reverted to known-good formulaic conviction). Mirror published to live (#4527, 06:46:29Z -> 141.145.193.91:/data/bot-data/runtime_logs/trainer_mirror). Takes effect on the live trader's next registry reload. Item stays OPEN for the refinement half: re-promotion needs the deeper edge-redesign (shorter freeze recency / finer low-end granularity / off fixed-quantile bucketing), validated + re-gated first. (NB: the first demote dispatch #4523 \u2014 bundled with publish \u2014 had its opened-webhook dropped and never ran; re-fired as #4526 promote-stage-only + #4527 publish.)"
+        },
+        {
+          "at": "2026-06-25T22:20:00+00:00",
+          "note": "NEW MECHANISM (RG2 replay-pregate session, 2026-06-25 ~22:20Z) \u2014 the advisory degeneracy has a SECOND, distinct root cause this item missed, on a DIFFERENT scoring path than the vol_bucket-edge issue (which was diagnosed on the SHADOW path). Evidence: live /api/bot/shadow/stats for btc-regime-1h-lgbm-yz-v1 (#4596) shows TWO record sets \u2014 `shadow` stage: row_keys_seen = FULL market_features (yang_zhang_vol, vol_bucket, rolling_log_return_vol, log_return, hour_of_day...), score spread 0.50-0.99 (the enriched per-bar path #4511 examined); `advisory` stage (count 183, 06-13->06-23 = the exact promote->demote window from stage_history #4601): row_keys_seen = ONLY {confidence, direction, killzone, setup_type, strategy_name, symbol} \u2014 ZERO vol features \u2014 and score 0.977-0.989, a degenerate CONSTANT. ROOT CAUSE: src/runtime/advisory_sizing.py::compute_advisory_factor scores every advisory predictor on _feature_row_from_pkg(pkg) (6 bare OrderPackage fields, designed for the trade-outcome models) and does NOT call feature_row_for_predictor to enrich \u2014 unlike the signal path (_emit_shadow_preds, which enriches-or-skips) and the per-bar path (regime_bar_scoring). So a regime head at advisory is scored on a row with ALL its market_features missing -> LightGBM emits a near-constant ~0.98 -> that constant is what the stage-guard auc-0.40 / brier_lift -0.277 attribution actually measured (NOT the edge-bucketing). IMPLICATION: edge re-calibration alone (the prior conclusion) CANNOT make advisory promotion of ANY regime head work \u2014 even a perfectly-calibrated head gets a bare row at advisory and saturates. FIX (Tier-3, order-influence path) \u2014 two options for the operator: (A) enrich in compute_advisory_factor via feature_row_for_predictor (needs candles for the pkg symbol/tf at sizing time; skip/score-None a regime head that can't be enriched rather than log a constant) \u2014 mirrors _emit_shadow_preds; OR (B, cleaner) EXCLUDE regime heads from the advisory directional-downsize quorum entirely \u2014 a regime P(volatile) score is not a bullish/bearish directional view, so feeding it into the 'bearish quorum' downsize is a category error regardless of enrichment; regime conviction belongs in the c_reg lens, not the downsize quorum. RECOMMEND (B) + a promotion-gate guard that refuses to promote a predictor to advisory until its advisory-path score distribution is verified non-degenerate. Surfaced as a Tier-3 proposal on PR #4602. This is the load-bearing reason BOTH yz advisories (1h MB-20260623-001 + 5m here) went degenerate the moment they were promoted."
         }
       ]
     }
   ],
-  "updated_at": "2026-06-25T06:47:00+00:00"
+  "updated_at": "2026-06-25T22:20:00+00:00"
 }

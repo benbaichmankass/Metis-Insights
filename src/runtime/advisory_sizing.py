@@ -107,9 +107,35 @@ def compute_advisory_factor(
             return 1.0, {"action": "no_advisory_models"}
         log_path = runtime_logs_dir() / "shadow_predictions.jsonl"
         predictors = resolve_predictors(ids, registry, log_path=log_path)
+        # Option B (PR #4602): regime heads must NOT participate in the advisory
+        # directional-downsize quorum. The advisory feature row
+        # (`_feature_row_from_pkg`) carries the trade-outcome surface only — none
+        # of the `market_features` (vol_bucket, yang_zhang_vol, …) a regime head
+        # needs — so scoring a regime head here yields a degenerate ~constant
+        # (~0.98) that both pollutes the head's advisory track record AND skews
+        # the bearish quorum. That is the load-bearing cause of the demoted
+        # btc-regime yz heads' "AUC 0.40" live failure. Conceptually a regime
+        # `P(volatile)` score is not a bullish/bearish directional view anyway —
+        # regime conviction flows via the `c_reg` conviction lens, not this
+        # quorum. So exclude any predictor exposing a `regime_spec`.
+        from src.runtime.regime_shadow import regime_spec_of
+
+        directional: list[Any] = []
+        excluded_regime: list[str] = []
+        for p in predictors:
+            base = getattr(p, "wrapped", p)
+            if regime_spec_of(base) is not None:
+                excluded_regime.append(p.model_id)
+            else:
+                directional.append(p)
+        if excluded_regime:
+            logger.info(
+                "advisory: excluded regime heads from downsize quorum: %s",
+                ",".join(sorted(excluded_regime)),
+            )
         row = _feature_row_from_pkg(pkg)
         scores: dict[str, float] = {}
-        for p in predictors:
+        for p in directional:
             try:
                 scores[p.model_id] = float(p.predict(row))
             except Exception as exc:  # noqa: BLE001
@@ -117,7 +143,10 @@ def compute_advisory_factor(
                     "advisory_predict_failed model_id=%s err=%s", p.model_id, exc,
                 )
         if not scores:
-            return 1.0, {"action": "no_scores"}
+            return 1.0, {
+                "action": "no_scores",
+                "excluded_regime": sorted(excluded_regime),
+            }
         # The quorum/floor math is mode-agnostic; compute the would-be factor
         # once, then apply it (downsize) or only log it (annotate).
         would = advisory_downsize_factor(
@@ -125,6 +154,7 @@ def compute_advisory_factor(
         )
         record = {
             "scores": scores,
+            "excluded_regime": sorted(excluded_regime),
             "mode": policy.mode,
             "size_floor": policy.size_floor,
             "bearish_threshold": policy.bearish_threshold,
