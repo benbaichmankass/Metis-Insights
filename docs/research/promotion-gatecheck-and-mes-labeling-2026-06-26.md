@@ -116,6 +116,51 @@ base is fresh.
 
 ---
 
+---
+
+## Update (2026-06-26 PM): MES candle base FIXED + RG4 re-run + option-A gate shipped
+
+### MES data fix (closes the (b) follow-up)
+Root cause pinned: the trainer's IBKR-synced MES candle base froze at 2026-06-12
+(last candle `2026-06-12T20:55Z`, mtime Jun 14 — the live→trainer IBKR MES sync
+stalled). The daily build is healthy but prefers that base, so it re-emitted
+stale candles. **yfinance ES=F verified fresh** (5m to 2026-06-26). Fix applied
+on the trainer (Tier-1, autonomous): retired the stale IBKR base → the build
+falls to its yfinance fallback; rebuilt MES `market_raw` 5m + 15m. Now **5m to
+2026-06-26T03:55Z (10918 rows), 15m to 03:45Z (3654 rows)**. Durable — the daily
+cycle now rebuilds MES from yfinance. (`BL-20260626-MES-BASE-STALE` resolved.)
+
+### RG4 re-run on the MES fleet (the verdict-changing part)
+With fresh candles, RG4 labels nearly the whole live MES sample (unlab ~93% →
+<10%). The conclusions **changed**:
+
+| MES head | First scorecard (stale, thin) | Re-run (fresh, full sample) |
+|---|---|---|
+| mes-regime-15m-lgbm-v2 | 0.32 ANTI_PREDICTIVE (~77) | **0.59 TRUSTWORTHY** (~1011) |
+| mes-regime-15m-baseline-v1 | 0.44 ANTI_PREDICTIVE (~127) | **0.64 TRUSTWORTHY** (~1061) |
+| mes-regime-5m-lgbm-v2 | 0.77 (~204) | 0.557 TRUSTWORTHY (~2792) |
+| mes-regime-5m-lgbm-yz-v1 | UNSCOREABLE (0 labeled) | **0.17 ANTI_PREDICTIVE** (~1460) |
+| mes-regime-5m-baseline-v1 | — (~254) | 0.47 NO_EDGE (~2842) |
+
+**The two MES 15m heads flagged for demote/kill were false negatives** — a
+stale-candle thin-sample artifact. On fixed data they're TRUSTWORTHY. The fix
+instead surfaced a genuine problem the stale data hid: `mes-regime-5m-lgbm-yz-v1`
+strongly inverts live (0.17). `MB-20260626-002` revised accordingly. (Caveat: RG4
+uses a global vol_threshold 0.003, not each dataset's calibrated median — a
+refinement, but well below the 0.17 inversion's sensitivity band.)
+
+### Option-A regime gate (closes the (c) decision, pending operator merge)
+Shipped (commit `de45220`, PR #4700): the **regime-classifier promotion profile
+now requires `live_regime_discrimination` (RG4 live regime AUC ≥ 0.55) instead of
+`live_agreement`** (trade-win AUC). `live_agreement` still reported but
+non-blocking for regime heads; default decision-model profile unchanged; never
+touches the order path. `ml/promotion/gates.py` + `stage_guard.py` + the
+`gate-check` CLI (computes the RG4 AUC via `replay_pregate_live`) + tests. This
+makes the two BTC 15m lgbm heads — which clear every gate but `live_agreement`,
+and which RG4-discriminate at 0.72–0.76 live — actually evaluable for promotion
+on the regime-appropriate signal. Operator still runs `promote-stage`; the gate
+only reports.
+
 ## Artifacts
 
 - `scripts/ml/gate_check_candidates.sh` — reusable per-head promotion gate-check.
