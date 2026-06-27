@@ -589,6 +589,58 @@ accounts:
       daily_usd: 200                   # absolute fallback (no equity snapshot)
       risk_pct: 0.02                   # 2% balance risked per trade (operator 2026-06-27; raised for min-order sizing on alpaca_live)
 
+  # alpaca_options_paper: Phase-1 Slice-3b (Alpaca L3 options) — an Alpaca PAPER
+  # account that EXPRESSES its equity signals as defined-risk DEBIT VERTICALS
+  # instead of equity brackets. Account-scoped capability (the `options:` block
+  # below); the GDX/SLV strategies stay pure signal generators. The overlay
+  # pipeline (chain → select_debit_vertical → size_debit_structure → mleg
+  # place_spread) lives in src/units/accounts/options_overlay.py and is invoked
+  # from execute_pkg only for accounts carrying this block.
+  #
+  # Ships FULLY INERT (new-broker checklist §5) — merging this can never place an
+  # order on its own:
+  #   - creds unset: api_key_env / api_secret_env name a DEDICATED paper key pair
+  #     (ALPACA_API_KEY_ID_OPTIONS / ALPACA_API_SECRET_KEY_OPTIONS) that does not
+  #     exist yet → alpaca_client_for returns None → configured: False, refuses +
+  #     pings. A separate Alpaca PAPER account (distinct keys) keeps option spreads
+  #     isolated from the equity alpaca_paper account's positions/reconciler.
+  # Operator hand-off to activate: create a second Alpaca paper account, add its
+  # key pair to Actions secrets (ALPACA_API_KEY_ID_OPTIONS / *_SECRET_KEY_OPTIONS),
+  # run sync-vm-secrets. Then it paper-soaks debit verticals on GDX/SLV.
+  #
+  # max_loss_per_trade_usd is the REAL per-trade risk cap (paper accounts get
+  # ~$100k of fake money, which would defeat the $150 test) — it mirrors the $150
+  # real-money constraint and guarantees ≥1 contract fires. Slice-4 (poll-based
+  # expiry/assignment monitor) and Slice-5 (options P&L surfacing) follow.
+  alpaca_options_paper:
+    exchange: alpaca
+    account_class: paper               # PAPER money (Alpaca paper host).
+    mode: live                         # paper host = paper money; executes.
+    api_key_env: ALPACA_API_KEY_ID_OPTIONS        # DEDICATED paper key pair (unset →
+    api_secret_env: ALPACA_API_SECRET_KEY_OPTIONS # inert) so options stay isolated.
+    options:                           # account-scoped options-expression capability
+      express_as: debit_vertical       # the only supported structure (memo §0: $150 cash)
+      max_loss_per_trade_usd: 60       # REAL per-trade risk cap (mirrors $150 account;
+                                       # ensures ≥1 contract within budget)
+      target_dte: 35                   # preferred days-to-expiry
+      min_dte: 21
+      max_dte: 60
+      data_feed: indicative            # free 15-min feed (OPRA $99/mo deferred to live)
+      # max_iv_rank: omitted → IV-rank gate OFF for the v1 baseline (true IV-rank
+      # needs a trailing-IV store not yet built; operator decision 2026-06-27).
+    strategies:                        # budget-fit underlyings WITH existing signals
+      - slv_trend_1h                   # (memo §4: GDX/SLV are the cheap chains the
+      - slv_pullback_1d                # bot already trades; XLF isn't in the roster).
+      - gdx_pullback_1d                # The signals fan out here as verticals.
+    symbols: [SLV, GDX]                # instrument identity (routing by strategies above)
+    risk:
+      max_dd_pct: 0.05                 # 5% max intra-day drawdown
+      daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
+      daily_usd: 200                   # absolute fallback
+      risk_pct: 0.02                   # moot for the options path (sizing is by
+                                       # options.max_loss_per_trade_usd), kept for
+                                       # the account-level daily-loss gate basis.
+
   # breakout_1: Breakout 1-Step Classic $5k PROP account (PB-20260616-004).
   # POC = TELEGRAM-PING bridge ONLY (no DXTrade API integration). When a
   # prop-routed strategy fires, the bot emits a paste-ready trade-setup ticket
