@@ -36,9 +36,12 @@ Run `probe_alpaca_options.py` on the live VM via the ops relay. **Gate:** L3 con
 - Pure builders `build_mleg_body` / `build_single_option_body` with full validation; tested (`tests/test_alpaca_options_exec.py` — request shapes + guards). No live calls in CI.
 - **Dormant**: nothing imports it. Merging the dormant module is inert; *wiring it into a strategy/account order path* is the Tier-2/3 operator-gated step (Slice 3).
 
-### ⏭ Slice 3 — Strike/expiry selection + a paper options strategy (Tier-2/3)
-- A small selector: given underlying + direction + target DTE window + width, pick the debit-vertical legs from the chain (IV-rank gate on entry).
-- Wire as a **paper-only** strategy on `alpaca_paper` (the existing paper account), `execution: shadow`→`live` per the standard gate. Greenfield vs overlay decided here per the memo's per-strategy verdict.
+### ✅ Slice 3a — Strike/expiry selector (built dormant; Tier-1)
+- `src/units/accounts/options_selector.py` — pure `select_debit_vertical()`: given the normalised chain + direction + underlying price + DTE band, picks the ~ATM long strike and the next strike in the profit direction (width auto-derived, so $1/$5 spacing is handled), computes net debit / max-loss / max-gain / breakeven, with an **opt-in IV-rank gate** (honest: true IV-rank needs a trailing-IV store this repo lacks — a later slice). Composes with the Slice-0 sizer and Slice-2 executor (`to_option_legs`). Tested (`tests/test_options_selector.py`, 11 cases incl. the full selector→sizer→legs compose). Places nothing.
+
+### ⏭ Slice 3b — Wire the overlay paper strategy (Tier-2/3, operator-gated — first slice that PLACES orders)
+- **Overlay baseline (operator decision 2026-06-27):** reuse the existing equity signals — when an equity strategy fires a direction on an underlying, express it as a debit vertical via the selector → sizer → `place_spread`. Prove the loop, then add options-specific signals later.
+- Wire as a **paper-only** strategy on `alpaca_paper`, `execution: shadow`→`live` per the standard gate.
 - `account_compat_matrix` extension to score the paper-soak ledger.
 
 ### ⏭ Slice 4 — Monitor: expiry / assignment / multi-leg (Tier-2)
