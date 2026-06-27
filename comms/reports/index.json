@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260627-113500-since-last",
+      "window": "since-last",
+      "generated_at": "2026-06-27T12:00:00+00:00",
+      "window_start": "2026-06-26T06:02:00+00:00",
+      "window_end": "2026-06-27T11:35:00+00:00",
+      "roll_up_grade": "caution",
+      "headline": "~29.5h window. REAL MONEY FLAT: 0 closed trades; ETH short #2990 open. All ETF strategies (spy/qqq/gld) generating valid signals but blocked \u2014 alpaca_live balance ~$150 (CONFIRMED not a key issue; undercapitalized). Bot watchdog auto-restarted within window (recovery clean). Paper +$801 is reconciler-artifact-heavy, not a clean read. 0 advisory ML models.",
+      "html_path": "comms/reports/since-last/20260627T120000Z/report.html",
+      "json_path": "comms/reports/since-last/20260627T120000Z/report.json",
+      "md_path": "comms/reports/since-last/20260627T120000Z/report.md"
+    },
+    {
       "id": "RPT-20260626-060200-since-last",
       "window": "since-last",
       "generated_at": "2026-06-26T06:02:00+00:00",
