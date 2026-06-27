@@ -156,11 +156,79 @@ def _ml_vol_verdict_threshold(settings: dict | None = None) -> float:
         return _DEFAULT_ML_VOL_VERDICT_THRESHOLD
 
 
-# NOTE: conviction sizing (`src/runtime/conviction_sizing.py`) has **no** flag.
-# It ships as always-on advisory/observe-only — it computes the would-be
-# conviction size and logs it on every order but NEVER changes qty, exactly like
-# the P1 `meta.conviction` stamp. A default-off ``*_MODE`` / ``*_ENABLED`` gate in
-# front of it would be the stranding trap the Prime Directive forbids; when
-# conviction graduates to actually driving size, that is a deliberate change to
-# the sizing path (governed by the account `mode` + the margin / daily-loss
-# guards), not the flip of a dormant switch.
+# NOTE: the conviction-sizing **annotator** (`conviction_sizing.annotate_conviction_sizing`
+# / `compute_conviction_sizing`) has **no** flag. It ships as always-on
+# advisory/observe-only — it computes the would-be conviction size and logs it on
+# every order but NEVER changes qty, exactly like the P1 `meta.conviction` stamp.
+# A default-off gate in front of the *annotator* would be the stranding trap the
+# Prime Directive forbids, so the annotator stays flagless.
+#
+# The flags below gate a SEPARATE, NEW apply path
+# (`conviction_sizing.apply_conviction_sizing`, Design B — graduate conviction
+# from soak to live, 2026-06-27). They do NOT gate the annotator. Reconciliation
+# of the 2026-06-16 flag rejection (operator-blessed 2026-06-27): the rejection
+# was about gating an observe-only annotator; this flag gates a genuine
+# reductive/symmetric size INFLUENCE — exactly the role ``NEWS_INFLUENCE_MODE``
+# plays (a tri-state ``*_MODE``, not a default-off ``*_ENABLED``, so it passes the
+# env-gate guard). The annotator soak keeps running unchanged regardless of mode.
+
+
+def _conviction_sizing_mode(settings: dict | None = None) -> str:
+    """Return the conviction-sizing apply mode: ``off`` | ``annotate`` | ``apply``.
+
+    Feature flag for Design B's NEW apply path
+    (`src/runtime/conviction_sizing.py::apply_conviction_sizing`), mirroring
+    ``_news_influence_mode``. Default **off** — deploying the code is a
+    behaviour no-op (the apply path returns ``sized_qty`` unchanged; the
+    flagless annotator soak still runs separately).
+
+    - ``off``      (default) — the apply path is inert; qty unchanged.
+    - ``annotate`` — compute the would-be **composed** conviction size, stamp it
+      on the real package (``meta.conviction_apply_decision``), return UNCHANGED.
+    - ``apply``    — replace ``sized_qty`` with the conviction-driven size,
+      hard-bounded by the 2% budget + margin cap, sub-mode by
+      ``CONVICTION_SIZING_DIRECTION``.
+
+    Unknown values degrade to ``off`` (fail-safe — never silently resizes on a
+    typo). Order-routing-affecting → Tier-3 to flip past ``off`` on the VM.
+    """
+    raw = settings.get("CONVICTION_SIZING_MODE") if isinstance(settings, dict) else None
+    if raw is None:
+        raw = os.environ.get("CONVICTION_SIZING_MODE", "off")
+    mode = str(raw).strip().lower()
+    return mode if mode in {"off", "annotate", "apply"} else "off"
+
+
+def _conviction_sizing_accounts(settings: dict | None = None) -> list[str]:
+    """Return the conviction-sizing account allowlist (comma-separated names).
+
+    An **empty** list means "all accounts" (no narrowing). Used by
+    ``apply_conviction_sizing`` to stage the apply path on a single demo account
+    (e.g. ``bybit_1``) before lifting it to a real account. Reads
+    ``CONVICTION_SIZING_ACCOUNTS`` (settings → env → empty). Whitespace around
+    each name is stripped; blanks are dropped.
+    """
+    raw = settings.get("CONVICTION_SIZING_ACCOUNTS") if isinstance(settings, dict) else None
+    if raw is None:
+        raw = os.environ.get("CONVICTION_SIZING_ACCOUNTS", "")
+    return [name.strip() for name in str(raw).split(",") if name.strip()]
+
+
+def _conviction_sizing_direction(settings: dict | None = None) -> str:
+    """Return the conviction-sizing direction sub-mode: ``reductive`` | ``symmetric``.
+
+    Only consulted when ``CONVICTION_SIZING_MODE=apply``. Default **reductive**
+    (``final = min(conviction_qty, sized_qty)`` — never larger than the
+    RiskManager-sized qty; redundant with the advisory/news reducers but the
+    safe first apply step). ``symmetric`` lets conviction *scale up* off the min
+    lot, hard-bounded by the 2% risk budget + margin cap already enforced in
+    ``compute_conviction_sizing`` (conviction=1.0 reaches exactly the 2% budget,
+    never more). Reads ``CONVICTION_SIZING_DIRECTION`` (settings → env →
+    default). Unknown values degrade to ``reductive`` (fail-safe — never silently
+    enlarges on a typo). Tier-3 to flip to ``symmetric`` on the VM.
+    """
+    raw = settings.get("CONVICTION_SIZING_DIRECTION") if isinstance(settings, dict) else None
+    if raw is None:
+        raw = os.environ.get("CONVICTION_SIZING_DIRECTION", "reductive")
+    direction = str(raw).strip().lower()
+    return direction if direction in {"reductive", "symmetric"} else "reductive"
