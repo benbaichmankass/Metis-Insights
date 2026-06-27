@@ -1042,7 +1042,20 @@
       "resolution_criteria": "The enforce decision is taken (flip to use+router with operator approval) OR explicitly held with the soak read recorded. Closes when A is either enforcing live or the soak surfaced a live!=backtest divergence that blocks it.",
       "status": "open",
       "snoozed_until": "2026-06-30T15:00:00+00:00"
+    },
+    {
+      "id": "MB-20260627-002",
+      "opened_at": "2026-06-27T17:00:00+00:00",
+      "opened_by": "claude (ml-strategies-deep-review / multi-symbol A gating session)",
+      "source": "Multi-symbol A (#1) gating of the ETH/MES regime heads: RG3 clean-candle discrimination (replay_pregate_fleet, trainer #4844) + RG4 logged-live-row skew gate (scripts/ml/rg4_targeted.sh, trainer #4846; live shadow log 117,733 rows).",
+      "title": "Multi-symbol A: mes-5m-lgbm-v2 is RG4-confirmed (promotion candidate); ETH + mes-15m/1d blocked by the MES/ETH live-labeling gap",
+      "description": "GATING RESULT for extending Design-A's vol-verdict beyond BTC. RG3 (offline): all 5 ETH/MES heads TRUSTWORTHY (mes-1d 0.92, mes-15m 0.89, mes-5m 0.80, eth-1h 0.73, eth-1h-xasset 0.70) -- offline discrimination is not the differentiator (RG3 green-lights skew heads too). RG4 (live-row, the decider): (A) mes-regime-5m-lgbm-v2 = 0.765 TRUSTWORTHY on 204 labeled live rows (mf=True) -- consistent with the 0.77 from the 2026-06-26 scorecard -> the ONE clear multi-symbol promotion candidate. (B) mes-regime-15m-lgbm-v2 = 0.32 'anti-predictive' but on only 77 of 1194 labeled -- the SAME thin-labeled-sample artifact MB-20260626-002 already caught and REVERSED to 0.59 trustworthy on the full ~1011-row sample; inconclusive, NOT a kill. (C) eth-regime-1h-lgbm-v1 (117 recs), eth-regime-1h-lgbm-xasset-v1 (353), mes-regime-1d-lgbm-v2 (256) = UNSCOREABLE: every live row is UNLABELED. ROOT BLOCKER: the MES/ETH live-labeling gap (MB-20260626-001 finding #1 -- live regime rows logged without regime_label) blinds RG4 for everything except MES 5m. So multi-symbol A is gated on the LABELING PIPELINE, not the models. NEXT: (1) MES path is ready -- per-symbol MES vol-split backtest -> author MES trend_vol cells -> propose mes-5m-lgbm-v2 advisory promotion (operator-gated; MES then rides the same REGIME_ML_VERDICT_MODE=use + REGIME_ROUTER_ENABLED enforce flip as BTC). (2) Root-cause the MES/ETH live-labeling gap to unblock ETH + mes-15m/1d. Tooling added this session: scripts/ml/rg4_targeted.sh + _rg4_print.py (targeted RG4 for a head list).",
+      "tier": 3,
+      "trigger_condition": "Next /ml-review or /system-review; or any session promoting a regime head or working the MES/ETH live-labeling parity.",
+      "resolution_criteria": "mes-5m-lgbm-v2 promoted to advisory (operator-gated) with MES per-symbol cells authored AND/OR the MES/ETH live-labeling gap root-caused so ETH + mes-15m/1d become RG4-scoreable and gate cleanly.",
+      "status": "open",
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-27T16:40:00+00:00"
+  "updated_at": "2026-06-27T17:00:00+00:00"
 }
