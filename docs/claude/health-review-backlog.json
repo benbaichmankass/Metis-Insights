@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260627-ALPACA-LIVE-API-UNAUTH",
+      "opened_at": "2026-06-27T20:30:00+00:00",
+      "opened_by": "claude (alpaca-options pilot wrap — operator directive to log it for system-review)",
+      "source": "During the options Slice 3b/4/5 work, /api/bot/accounts/balances + the test-alpaca-creds workflow showed alpaca_live api_ok:false with 'request is not authorized'. This is the REAL-MONEY Alpaca account (own key pair ALPACA_API_KEY_ID_LIVE / ALPACA_API_SECRET_KEY_LIVE), separate from the shared paper login the options pilot runs on (which is healthy).",
+      "title": "alpaca_live api_ok:false ('request is not authorized') — real-money Alpaca key pair not authorizing; blocks any alpaca_live go-live (incl. real-money options)",
+      "description": "SURFACE TO THE OPERATOR at the next /system-review. The real-money Alpaca account `alpaca_live` reports `api_ok:false` with a 'request is not authorized' error on the balances/creds probes. The paper account (`alpaca_paper` / `alpaca_options_paper`, shared key pair) is fine — this is isolated to the LIVE key pair (`ALPACA_API_KEY_ID_LIVE` / `ALPACA_API_SECRET_KEY_LIVE`). Likely causes (operator-side, NOT a code bug): the live key pair is wrong/expired, lacks trading authorization, or the Alpaca live account isn't funded/approved for the requested scope. This is the one genuine hand-off from the options pilot — Claude cannot rotate broker keys. IMPACT: alpaca_live cannot trade (equity OR options) until the key authorizes; it does NOT affect the paper options pilot. ACTION FOR /system-review: remind the operator to (a) verify the live Alpaca key pair + trading permissions in the Alpaca dashboard, (b) re-paste correct values into the ALPACA_API_KEY_ID_LIVE / ALPACA_API_SECRET_KEY_LIVE Actions secrets and run sync-vm-secrets, (c) re-run test-alpaca-creds to confirm api_ok flips true. Until then, treat any alpaca_live go-live proposal as blocked.",
+      "tier": 2,
+      "trigger_condition": "Next /system-review or /health-review; or any session proposing an alpaca_live (real-money) go-live.",
+      "resolution_criteria": "test-alpaca-creds / /api/bot/accounts/balances shows alpaca_live api_ok:true (the live key pair authorizes), OR the operator explicitly decides to keep alpaca_live inert and that decision is recorded here.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "BL-20260627-OPTIONS-SEPARATE-ACCT",
       "opened_at": "2026-06-27T20:00:00+00:00",
       "opened_by": "claude (alpaca-options Slice-3b activation — operator directive 2026-06-27)",
