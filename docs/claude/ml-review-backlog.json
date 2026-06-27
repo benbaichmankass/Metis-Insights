@@ -1055,7 +1055,20 @@
       "resolution_criteria": "mes-5m-lgbm-v2 promoted to advisory (operator-gated) with MES per-symbol cells authored AND/OR the MES/ETH live-labeling gap root-caused so ETH + mes-15m/1d become RG4-scoreable and gate cleanly.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "MB-20260627-003",
+      "opened_at": "2026-06-27T19:25:00+00:00",
+      "opened_by": "claude (ml-strategies-deep-review / labeling-gap dig)",
+      "source": "Root-caused + fixed the MES/ETH live-labeling gap (MB-20260627-002 / MB-20260626-001 #1), then validated and found the ETH head fails RG4 live. Trainer relays #4864 (coverage probe), #4865 (ETH dataset rebuild), #4866 (RG4 re-run).",
+      "title": "Labeling-gap FIXED (alt datasets now built daily); but ETH regime head is NO_EDGE live (RG4 0.46) -> needs retrain before promotion",
+      "description": "ROOT CAUSE: scripts/ops/build_trainer_datasets.sh rebuilt market_raw/market_features for --symbol-scope BTCUSDT ONLY; the alt regime heads' realized-label datasets (ETH built once 06-17 for the cross-asset probe; SOL never) perpetually went stale, so RG4's label join (built from those datasets) never covered the recent live shadow rows -> alt heads UNSCOREABLE. Confirmed coverage: BTC fresh 06-26, ETH 06-17, MES 06-12 (coverage probe scripts/ml/_labeling_gap_probe.py). FIX (commit 7a051e5): generalized build_btcusdt_pair -> build_bybit_pair(symbol,tf) + added ETHUSDT/1h + SOLUSDT/1h to the daily loop (same market_features params as BTC; the eth head is 'identical to btc-regime-1h-lgbm-v2 except the symbol'). VALIDATED: refreshed ETH dataset -> ETH RG4 unlabeled 353/353 -> 6 (gap closed). KEY FINDING: the now-scoreable ETH heads are NO_EDGE on live rows -- eth-regime-1h-lgbm-v1 RG4 0.46 (111 labeled), eth-regime-1h-lgbm-xasset-v1 RG4 0.46 (347 labeled) -- vs RG3-offline 0.70-0.73. That is TRAIN/SERVE SKEW (offline/clean-candle good, live logged-rows ~random), the same class as the BTC yz heads. CONSEQUENCE: the ETH multi-symbol-A backtest A/B ($63->$2336) is optimistic for LIVE -- it scored the head on clean harness candles; live the head feeds a ~random vol label. ETH is NOT live-ready. RG4 prevented a bad promotion. NEXT: (1) retrain the ETH regime head / investigate the offline-vs-live feature parity (why it discriminates offline but not on logged live rows) until it clears RG4 (>=0.55 live); (2) MES 5m (RG4 0.765) is the actually-promotable alt; (3) SOL head training. The fix is durable: any alt head is now RG4-validatable each cycle.",
+      "tier": 3,
+      "trigger_condition": "Next /ml-review or /system-review; any session retraining alt regime heads or promoting one; verify the next training cycle's dataset_builds shows ETHUSDT/SOLUSDT market_raw fresh.",
+      "resolution_criteria": "A retrained ETH regime head clears RG4 live (>=0.55) and is promoted; OR the offline-vs-live parity skew is root-caused. The labeling-gap fix half is RESOLVED (validated); this item now tracks the ETH-head-skew follow-up.",
+      "status": "open",
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-27T17:00:00+00:00"
+  "updated_at": "2026-06-27T19:25:00+00:00"
 }
