@@ -39,6 +39,12 @@ _SIDES = ("buy", "sell")
 _INTENTS = ("buy_to_open", "sell_to_open", "buy_to_close", "sell_to_close")
 _TYPES = ("market", "limit")
 
+# Option-lifecycle activity types for /v2/account/activities (expiry/assignment/
+# exercise). Sourced from the pure lifecycle module so the two never drift.
+from src.units.accounts.options_lifecycle import (  # noqa: E402
+    OPTION_LIFECYCLE_ACTIVITY_TYPES as _OPTION_LIFECYCLE_TYPES,
+)
+
 
 class MissingCredentialsError(RuntimeError):
     """Raised when an action needs the Alpaca key pair. Names env vars, never values."""
@@ -288,3 +294,47 @@ class AlpacaOptionsExecutor:
         if env.get("retCode") == 404:
             return {"retCode": 0, "result": {"note": "no open position"}}
         return env
+
+    def close_structure(self, occ_symbols: List[str]) -> Dict[str, Any]:
+        """Liquidate every leg of a structure (the Slice-4 options close path).
+
+        Closes each OCC leg via :meth:`close_position` (idempotent — a 404/no-position
+        leg is a success). Returns ``{retCode:0, result:{closed:[...], failed:[...]}}``;
+        ``retCode`` is non-zero only if a leg's liquidation failed. Used for an active
+        (pre-expiry) close; expiry/assignment needs no close call (the broker concludes
+        the position itself) — the monitor only journals the conclusion.
+        """
+        self._require_creds("close_structure")
+        closed: List[str] = []
+        failed: List[Dict[str, Any]] = []
+        for sym in occ_symbols or []:
+            env = self.close_position(sym)
+            if env.get("retCode") == 0:
+                closed.append(str(sym).upper())
+            else:
+                failed.append({"symbol": str(sym).upper(), "retMsg": env.get("retMsg")})
+        ret = 0 if not failed else 1
+        return {"retCode": ret, "result": {"closed": closed, "failed": failed}}
+
+    def account_activities(
+        self,
+        *,
+        activity_types: Optional[List[str]] = None,
+        after: Optional[str] = None,
+        page_size: int = 100,
+    ) -> Dict[str, Any]:
+        """Fetch ``/v2/account/activities`` filtered to option-lifecycle event types.
+
+        *activity_types* defaults to expiration/assignment/exercise
+        (``options_lifecycle.OPTION_LIFECYCLE_ACTIVITY_TYPES``); *after* is an
+        ISO-8601 lower bound (the lookback). Returns the raw retCode envelope; on
+        success ``result`` is the JSON list of activity records. The endpoint is on
+        the trading API (key-pair auth), not the market-data feed.
+        """
+        self._require_creds("account_activities")
+        types = activity_types or list(_OPTION_LIFECYCLE_TYPES)
+        params = [f"activity_types={','.join(types)}", f"page_size={int(page_size)}"]
+        if after:
+            params.append(f"after={after}")
+        path = "/v2/account/activities?" + "&".join(params)
+        return self._request("GET", path)

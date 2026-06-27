@@ -199,7 +199,58 @@ def test_positions_returns_open_trade_against_canonical_schema(
         "pattern": None,
         "isDemo": False,  # 2026-06-04 reporting-cleanup
         "accountClass": "real_money",  # account_class convention (2026-06-15)
+        "options": None,  # Slice-5: null for a non-options row
     }
+
+
+def test_positions_surfaces_options_structure_block(
+    client: TestClient, isolate_paths: Path
+) -> None:
+    """Slice-5: an options-expression row surfaces its notes.options structure."""
+    import json as _json
+
+    db = isolate_paths / "trade_journal.db"
+    _make_canonical_trades_db(db)
+    options_notes = _json.dumps({
+        "trade_id": "opt-abc",
+        "options": {
+            "structure": "debit_vertical",
+            "contracts": 2,
+            "net_debit": 0.60,
+            "max_loss_usd": 120.0,
+            "expiration": "2026-01-16",
+            "legs": [
+                {"symbol": "SLV260116C00025000", "side": "buy", "strike": 25.0, "type": "call"},
+                {"symbol": "SLV260116C00027000", "side": "sell", "strike": 27.0, "type": "call"},
+            ],
+        },
+    })
+    _insert_trade(
+        db,
+        timestamp="2026-06-27T10:00:00Z",
+        symbol="SLV",
+        direction="long",
+        entry_price=0.60,
+        position_size=2.0,
+        status="open",
+        is_backtest=0,
+        account_id="alpaca_options_paper",
+        account_class="paper",
+        is_demo=1,
+        created_at="2026-06-27T10:00:00Z",
+        notes=options_notes,
+    )
+    resp = client.get("/api/bot/positions?include_paper=true")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) == 1
+    opt = body[0]["options"]
+    assert opt is not None
+    assert opt["structure"] == "debit_vertical"
+    assert opt["contracts"] == 2
+    assert opt["max_loss_usd"] == 120.0
+    assert len(opt["legs"]) == 2
+    assert opt["legs"][0]["symbol"] == "SLV260116C00025000"
 
 
 @pytest.mark.parametrize(

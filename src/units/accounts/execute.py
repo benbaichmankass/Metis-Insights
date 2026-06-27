@@ -469,13 +469,24 @@ def execute_pkg(
                 )
             return f"opt-norfit-{uuid.uuid4().hex[:10]}"
         trade_id = _res.trade_id or f"opt-{uuid.uuid4().hex[:10]}"
-        # Journal the spread as the paper-soak row (qty = contracts). Full options
-        # surfacing (legs / greeks / per-leg P&L) is Slice 5; the account_id
-        # (alpaca_options_paper) discriminates these rows meanwhile.
+        # Journal the spread as the paper-soak row (qty = contracts). Slice 5:
+        # persist the leg/strike/defined-risk structure in notes.options so
+        # /api/bot/positions + the apps can render it (per-leg live greeks/PnL
+        # remain a follow-up — the positions endpoint is connection-free).
         _opt_order = dict(order)
         _opt_order["qty"] = float(_res.contracts)
+        _opt_notes = None
+        try:
+            from src.units.accounts.options_overlay import options_structure_dict
+            _opt_notes = {"options": options_structure_dict(_res)}
+        except Exception as exc:  # noqa: BLE001 — surfacing detail is best-effort
+            logger.warning(
+                "execute_pkg: options structure-notes build failed "
+                "(symbol=%s): %s", pkg.symbol, exc,
+            )
         _log_trade_to_journal(
             pkg, account_cfg, _opt_order, trade_id=trade_id, is_dry=is_dry,
+            extra_notes=_opt_notes,
         )
         return trade_id
 
@@ -1046,6 +1057,7 @@ def _log_trade_to_journal(
     status: str = "open",
     reason: Optional[str] = None,
     intent_reduce: bool = False,
+    extra_notes: Optional[dict] = None,
 ) -> bool:
     """Insert a row into ``trade_journal.db::trades`` for an executor event.
 
@@ -1088,6 +1100,14 @@ def _log_trade_to_journal(
         }
         if reason is not None:
             notes_payload["reason"] = str(reason)
+        if extra_notes:
+            # Caller-supplied structured detail (e.g. the options-expression
+            # leg/strike/defined-risk block) merged into the row's notes so
+            # /api/bot/positions can surface it without a live broker call.
+            try:
+                notes_payload.update(extra_notes)
+            except Exception:  # noqa: BLE001
+                pass
         if intent_reduce:
             # Intent-mode reduce leg (S-MSE-2). Stamped so /closed,
             # hourly-report, and the trade-monocle audit can
@@ -1149,7 +1169,10 @@ def _log_trade_to_journal(
             "account_id": str(
                 account_cfg.get("account_id") or account_cfg.get("id") or "unknown"
             ),
-            "notes": dump_capped(notes_payload, 500),
+            # Options rows carry a multi-leg structure block, so they need a
+            # larger notes budget than the 500-char default (a truncated JSON
+            # blob would be unparseable on the read side).
+            "notes": dump_capped(notes_payload, 2000 if extra_notes else 500),
             "order_package_id": pkg_id,
         })
         # Wire the package → trade link so the strategy_monocle gate
