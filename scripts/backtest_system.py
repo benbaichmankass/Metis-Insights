@@ -495,7 +495,7 @@ class _MlVolResolver:
             p_vol = float(proba.get("volatile", 0.0))
             return "volatile" if p_vol >= self.threshold else "calm"
         except Exception as exc:  # noqa: BLE001
-            return self._skip(f"exc:{type(exc).__name__}")
+            return self._skip(f"exc:{type(exc).__name__}:{exc}"[:160])
 
 
 # --------------------------------------------------------------------------
