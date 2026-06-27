@@ -130,6 +130,23 @@ the trainer **without** first doing the Tier-3 shadow→advisory promotion. Obse
 gives the head **live** influence; this lever only lets the *backtest evidence* precede
 (or run independently of) it.
 
+**VALIDATED on the trainer (2026-06-27, trainer-vm-diag #4765):** a real BTC run with
+`--ml-stage shadow --ml-model-id btc-regime-15m-lgbm-v2` reports
+`ml_vol_available=true, reason=ok, scored_bars=10, fallback_bars=0` — every intent's
+`vol_regime` came from v2's live `predict_proba`. Getting there caught FOUR latent
+harness bugs (each a false-evidence trap that would have made the ML arm silently equal
+the frozen arm): (1) `scripts/ml/` shadowed the repo `ml/` package under `PYTHONPATH=.`
+(`ModuleNotFoundError: ml.registry`) → force repo root ahead of `scripts/` on sys.path;
+(2) resolver read `class_labels` from the regime-spec dict (which has none) instead of
+the predictor → it rejected every head as `no_regime_spec`; (3) it called
+`predict_proba` on the `ShadowPredictor` wrapper (which only exposes `.predict`) →
+`AttributeError` per window → score the wrapped base instead; (4) opaque error/skip
+reporting (now surfaces the message + per-window skip tallies in
+`evidence.ml_vol_skips`). The remaining A-evidence step is the **full gated A/B**
+(ungated / frozen-vol-gated / ML-vol-gated with `--regime-router on` + a backtest-local
+`trend_vol` OFF-cell policy via `--regime-policy`) — which needs candidate OFF-cells
+authored first (its own Tier-3 decision).
+
 ## Files (tiers)
 New (Tier-1): `src/runtime/regime/ml_vol_verdict.py`, `tests/runtime/test_ml_vol_verdict.py`.
 Modified (Tier-2, order-routing-adjacent; default-off flag → deploy is a no-op;
