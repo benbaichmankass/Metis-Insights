@@ -46,14 +46,28 @@ from pathlib import Path
 import yaml
 
 _REPO = Path(__file__).resolve().parents[2]
-DATA = sys.argv[1] if len(sys.argv) > 1 else "data/backtest_BTCUSDT_5m.csv"
-ROSTER = "trend_donchian,squeeze_breakout_4h,htf_pullback_trend_2h"
-MODEL_ID = "btc-regime-15m-lgbm-v2"
 LIVE_POLICY = _REPO / "config" / "regime_policy.yaml"
 MIN_TRADES = 10  # meaningful-sample threshold (same as the evidence policy)
 
 PY = sys.executable or "python3"
 HARNESS = str(_REPO / "scripts" / "backtest_system.py")
+
+# --- per-symbol config (argv): default = BTC (back-compat with the original) ---
+import argparse  # noqa: E402
+
+_ap = argparse.ArgumentParser(description="cell-selection walk-forward")
+_ap.add_argument("data", nargs="?", default="data/backtest_BTCUSDT_5m.csv")
+_ap.add_argument("--symbol", default="BTCUSDT")
+_ap.add_argument("--roster",
+                 default="trend_donchian,squeeze_breakout_4h,htf_pullback_trend_2h")
+_ap.add_argument("--model-id", dest="model_id", default="btc-regime-15m-lgbm-v2")
+_ap.add_argument("--clock-tf", dest="clock_tf", default="15m")
+_args = _ap.parse_args()
+DATA = _args.data
+SYMBOL = _args.symbol
+ROSTER = _args.roster
+MODEL_ID = _args.model_id
+CLOCK_TF = _args.clock_tf
 
 # Expanding-window folds: (oos_start, oos_end). In-sample = everything < oos_start.
 OOS_FOLDS = [
@@ -67,7 +81,8 @@ def _run(args: list[str]) -> dict:
     """Run the harness with --json to a temp file; return the parsed dict (or {})."""
     with tempfile.NamedTemporaryFile("r", suffix=".json", delete=False) as fh:
         out = fh.name
-    cmd = [PY, HARNESS, "--data", DATA, "--roster", ROSTER, "--json", out, *args]
+    cmd = [PY, HARNESS, "--data", DATA, "--symbol", SYMBOL, "--roster", ROSTER,
+           "--clock-tf", CLOCK_TF, "--json", out, *args]
     env = dict(os.environ)
     env.setdefault("PYTHONPATH", ".")
     env.setdefault("ML_REGISTRY_ROOT", "ml/registry-store")
