@@ -52,8 +52,36 @@ trades) net-negative cells only (small-sample negatives left ON as noise):
 
 Expected effect: removing these ~$853 of net-negative sleeves should lift the book
 well above the ungated $353 while trimming drawdown (they only ever *remove*
-losing trades). **Confirmation A/B pending** (ungated vs evidence-ML-gated vs
-evidence-frozen-gated).
+losing trades).
+
+## Confirmation A/B (DONE — trainer-vm-diag #4828/#4830)
+
+Three full-history BTC runs, identical roster (`trend_donchian, squeeze_breakout_4h,
+htf_pullback_trend_2h`), the evidence policy above:
+
+| arm | gate | net $ | maxDD $ | trades | WR | ret/DD |
+|---|---|---:|---:|---:|---:|---:|
+| **a0** | ungated | 353 | 915 | 561 | 30.3% | 0.39 |
+| **a2** | evidence cells, **FROZEN** vol label | **−32** | 856 | 251 | 30.7% | −0.04 |
+| **a3** | evidence cells, **ML** vol label (`v2@advisory`, scored=1123, fell_back=0) | **1526** | 895 | 410 | 30.2% | **1.70** |
+
+**The result is decisive and exactly as predicted:**
+
+1. **The evidence cells lift the book — but only with the ML vol label.** a3 takes
+   net $353 → **$1526** (4.3×) while *reducing* maxDD ($915 → $895) — ret/DD 0.39 →
+   1.70. The gate only ever *removes* trades (561 → 410), so the +$1173 is pure
+   removal of net-negative sleeves, not new risk.
+2. **The ML vol verdict is the load-bearing piece, not the cell list.** The SAME
+   cells under the *frozen* vol detector (a2) **lose money (−$32)** — worse than
+   ungated. The cells were authored from the ML-vol split, so the frozen label
+   assigns different bars to calm/volatile and gates the wrong trades. This is the
+   single cleanest demonstration in the whole A program that the ML label beats
+   the frozen one: same policy, opposite outcome, the only difference is the vol
+   classifier.
+
+This closes the loop the hypothesis-cell A/B opened: hypothesis cells gated
+profitable sleeves and lost money; **evidence cells + ML label** gate exactly the
+losing sleeves and 4×'d the book.
 
 ## Honest caveats
 
