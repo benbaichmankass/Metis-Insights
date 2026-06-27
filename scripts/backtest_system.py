@@ -62,18 +62,55 @@ import numpy as np
 import pandas as pd
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+# Run-as-script puts the script's own dir (scripts/) at sys.path[0], and
+# scripts/ml/ is a REAL package (has __init__.py) that shadows the repo-root
+# ml/ package — so a lazy `import ml.registry...` resolves to scripts/ml and
+# fails with "No module named 'ml.registry'". A *guarded* insert is not enough:
+# when the caller sets PYTHONPATH=. (the trainer's invocation), repo_root is
+# already in sys.path but BEHIND scripts/, so the guard skips the insert and the
+# shadow stands. Fix unconditionally: drop the script dir and force repo root to
+# the front so `ml.*` / `src.*` always resolve to the repo packages.
+sys.path[:] = [p for p in sys.path if os.path.abspath(p) != _SCRIPT_DIR]
+sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime.intents import StrategyIntent, aggregate_intents  # noqa: E402
 
+# --- Optional evidence-layer deps (regime/vol stamping, conviction sizing) ---
+# Guarded so a partial environment (e.g. no ML predictor stack) NEVER breaks
+# the default harness path: each import failure degrades the corresponding
+# evidence feature to a graceful no-op, not a crash. The default run (no new
+# flags) does not depend on any of these.
+try:
+    from src.runtime.regime.detector import detect_regime as _detect_regime  # noqa: E402
+except Exception:  # noqa: BLE001
+    _detect_regime = None
+try:
+    from src.runtime.regime.vol_detector import detect_vol_regime as _detect_vol_regime  # noqa: E402
+except Exception:  # noqa: BLE001
+    _detect_vol_regime = None
+try:
+    from src.runtime.conviction import compute_conviction as _compute_conviction  # noqa: E402
+except Exception:  # noqa: BLE001
+    _compute_conviction = None
+
 FEE_BPS_ROUNDTRIP = 7.5
+# Per-trade risk budget a conviction=1.0 trade reaches (mirrors
+# src.runtime.conviction_sizing.PER_TRADE_RISK_BUDGET = 2%). Used by the
+# --conviction-sizing A/B so the conviction-scaled size matches the live
+# would-be-size math (conviction × budget × basis / stop_dist).
+_CONVICTION_RISK_BUDGET = 0.02
 _SIG_CACHE = _REPO_ROOT / "runtime_logs" / "system_backtest" / "signals"
 
 
 # --------------------------------------------------------------------------
 # Roster: name -> (module path, timeframe). The order_package + monitor are
-# imported from the live unit; the timeframe is the strategy's setup TF.
+# imported from the live unit; the timeframe is the strategy's setup TF and
+# MUST track config/strategies.yaml::<name>.timeframe — `_run_one` resamples the
+# 5m base to spec["tf"] (line ~194) while merging the live cfg, so a drifted tf
+# here silently backtests the wrong bars (trend_donchian was 2h vs live 1h until
+# 2026-06-26, PB-20260626-006 / T0.1 audit). Keep this curated BTCUSDT subset
+# aligned to the live roster's canonical headline strategies.
 # vwap excluded (execution: shadow). turtle_soup + ict_scalp_5m added 2026-05-30
 # (full live-roster coverage). turtle_soup's live adapter is single-TF (the 15m
 # setup frame; its legacy 1m-entry confirmation is not in the order_package
@@ -82,7 +119,7 @@ _SIG_CACHE = _REPO_ROOT / "runtime_logs" / "system_backtest" / "signals"
 # overstates the signal count.
 # --------------------------------------------------------------------------
 ROSTER: Dict[str, Dict[str, str]] = {
-    "trend_donchian":      {"module": "src.units.strategies.trend_donchian", "tf": "2h"},
+    "trend_donchian":      {"module": "src.units.strategies.trend_donchian", "tf": "1h"},
     "fade_breakout_4h":    {"module": "src.units.strategies.fade_breakout_4h", "tf": "4h"},
     "squeeze_breakout_4h": {"module": "src.units.strategies.squeeze_breakout_4h", "tf": "4h"},
     "fvg_range_15m":       {"module": "src.units.strategies.fvg_range_15m", "tf": "15m"},
@@ -184,7 +221,11 @@ def generate_signal_stream(name: str, base5m: pd.DataFrame, *, start, end,
     """
     cache = _cache_key(name, _data_fingerprint(base5m), start, end, overrides)
     if cache.exists() and not refresh:
-        return pd.read_parquet(cache)
+        try:
+            return pd.read_parquet(cache)
+        except Exception:  # noqa: BLE001 — a missing/broken parquet engine must
+            # not abort the run; fall through and regenerate the stream.
+            pass
 
     spec = ROSTER[name]
     order_package = _import_callable(spec["module"], "order_package")
@@ -251,9 +292,215 @@ def generate_signal_stream(name: str, base5m: pd.DataFrame, *, start, end,
             "meta_json": json.dumps(pkg.get("meta") or {}, default=str),
         })
     out = pd.DataFrame(rows, columns=["ts", "side", "entry", "sl", "tp", "confidence", "meta_json"])
-    cache.parent.mkdir(parents=True, exist_ok=True)
-    out.to_parquet(cache)
+    try:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        out.to_parquet(cache)
+    except Exception:  # noqa: BLE001 — caching is an optimization; a missing
+        # parquet engine (or unwritable dir) must not abort the backtest.
+        pass
     return out
+
+
+# --------------------------------------------------------------------------
+# Evidence layer — regime/vol-axis stamping + ML-vol verdict (Designs A/B)
+# --------------------------------------------------------------------------
+# These compute the SAME axes the live signal builder stamps onto signal.meta
+# (`regime`/`adx_14`/`vol_regime`) so the harness's intents carry what
+# ``would_gate`` reads — past-only, from the harness's own candle frame. They
+# are all best-effort: a missing detector dep / unresolvable head degrades to
+# ``unknown`` (never raises), exactly like the live observe-only path.
+
+
+def _adx_regime_for_window(window: pd.DataFrame) -> tuple[Optional[str], Optional[float]]:
+    """ADX-14 trend regime + adx for the LATEST bar of ``window`` (past-only).
+
+    Returns ``(regime, adx_14)``; ``(None, None)`` when the detector dep is
+    unavailable or the window degenerate. Mirrors how the live builder calls
+    ``detect_regime`` on the strategy's own candles up to the current bar.
+    """
+    if _detect_regime is None or window is None or len(window) == 0:
+        return None, None
+    try:
+        out = _detect_regime(window)
+        reg = out.get("regime")
+        adx = out.get("adx")
+        return (str(reg) if reg is not None else None,
+                float(adx) if isinstance(adx, (int, float)) else None)
+    except Exception:  # noqa: BLE001 — observe-only, never break the stream
+        return None, None
+
+
+def _frozen_vol_regime_for_window(
+    window: pd.DataFrame, *, symbol: str, timeframe: str,
+) -> Optional[str]:
+    """Frozen-edge ``calm``/``volatile`` for the latest bar (replays the live
+    ``vol_detector``). ``None`` when the dep / spec is unavailable (offline)."""
+    if _detect_vol_regime is None or window is None or len(window) == 0:
+        return None
+    try:
+        out = _detect_vol_regime(window, symbol=symbol, timeframe=timeframe)
+        vr = out.get("vol_regime")
+        return str(vr) if vr else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+class _MlVolResolver:
+    """Resolve + score a regime head's ``P(volatile)`` for the
+    ``--vol-verdict=ml`` path (Design A).
+
+    ``stage`` selects the registry stage the head is resolved from:
+
+      * ``advisory`` (default) — the LIVE verdict source per Design A. This is
+        what the live ``ml_vol_verdict`` path uses, so the offline replay matches
+        production exactly.
+      * ``shadow`` — replay a SHADOW-stage regime head **before** its
+        ``shadow → advisory`` promotion. This is the "option-2" evidence lever:
+        it lets A's vol-gating A/B be measured without first doing the live
+        promotion (which is the Tier-3 operator gate). Observe-only — the
+        harness never mutates the registry; it only *reads* a shadow head's
+        ``predict_proba`` to stamp the would-be ``vol_regime``.
+
+    ``model_id`` pins one exact head (overrides stage discovery) so an evidence
+    run scores a specific candidate (e.g. ``btc-regime-15m-lgbm-v2``) with no
+    ambiguity. ``prefer_timeframe`` is a soft hint (the harness clock_tf) so that
+    when several heads match the stage, one whose id carries that timeframe is
+    chosen — keeping a 15m clock on the 15m head.
+
+    Offline (no registry / no datasets) this resolves NO head and every call
+    returns ``unknown`` — the caller then falls back to the frozen label and
+    counts the fallback. On the live trainer VM the same code path scores real
+    heads. Entirely best-effort: any import / resolution / scoring failure marks
+    the resolver unavailable and degrades to frozen fallback.
+    """
+
+    def __init__(self, *, threshold: float = 0.5, stage: str = "advisory",
+                 model_id: Optional[str] = None,
+                 prefer_timeframe: Optional[str] = None) -> None:
+        self.threshold = float(threshold)
+        self.stage = str(stage or "advisory")
+        self.pin_model_id = str(model_id) if model_id else None
+        self.prefer_timeframe = str(prefer_timeframe) if prefer_timeframe else None
+        self.available = False
+        self.reason = "unresolved"
+        self.model_id: Optional[str] = None
+        self.skips: dict[str, int] = {}  # per-window None-reason tallies (diag)
+        self._predictor = None
+        self._base = None  # the wrapped base predictor (has predict_proba)
+        self._spec = None
+        self._labels: tuple[str, ...] = ()
+        self._resolve()
+
+    def _skip(self, why: str) -> None:
+        """Tally a per-window scoring skip + return None (caller falls back)."""
+        self.skips[why] = self.skips.get(why, 0) + 1
+        return None
+
+    def _resolve(self) -> None:
+        try:
+            from pathlib import Path as _Path
+
+            from ml.registry.model_registry import ModelRegistry
+            from ml.shadow.factory import DEFAULT_REGISTRY_ROOT, resolve_predictors
+            from src.runtime.regime_shadow import regime_spec_of
+
+            registry = ModelRegistry(_Path(DEFAULT_REGISTRY_ROOT))
+            # Candidate ids: an explicit pin wins; otherwise every head at the
+            # requested registry stage. Prefer non-yz (yz heads saturate live —
+            # the same skip vol_detector does) and, softly, the clock timeframe.
+            if self.pin_model_id:
+                cand_ids = [self.pin_model_id]
+            else:
+                cand_ids = sorted(
+                    e.model_id for e in registry.list()
+                    if getattr(e, "target_deployment_stage", None) == self.stage
+                )
+            if not cand_ids:
+                self.reason = f"no_{self.stage}_head"
+                return
+            predictors = resolve_predictors(cand_ids, registry)
+            chosen = None  # (score_tuple, predictor, spec, labels, model_id)
+            for predictor in predictors:
+                spec = regime_spec_of(predictor)
+                if spec is None:
+                    continue
+                # class_labels live on the PREDICTOR (the wrapped base), NOT in
+                # the regime spec dict (which carries vol_bucket_* / symbol / tf).
+                # Reading them off the spec yields () and rejects every head.
+                labels = tuple(str(c) for c in (
+                    getattr(predictor, "class_labels", None)
+                    or getattr(getattr(predictor, "wrapped", None),
+                               "class_labels", None)
+                    or []
+                ))
+                if "volatile" not in labels:
+                    continue
+                vol_col = str(spec.get("vol_feature_column") or "rolling_log_return_vol")
+                mid = str(getattr(predictor, "model_id", "") or "")
+                non_yz = 1 if vol_col == "rolling_log_return_vol" else 0
+                tf_ok = 1 if (self.prefer_timeframe is None
+                              or self.prefer_timeframe in mid) else 0
+                score = (non_yz, tf_ok)
+                if chosen is None or score > chosen[0]:
+                    chosen = (score, predictor, spec, labels, mid)
+                if score == (1, 1):
+                    break  # best possible — non-yz and timeframe match
+            if chosen is None:
+                self.reason = "no_regime_spec"
+                return
+            _, self._predictor, self._spec, self._labels, self.model_id = chosen
+            # resolve_predictors returns a ShadowPredictor wrapper whose public
+            # interface is .predict (a scalar); predict_proba lives on the
+            # wrapped base (LightGBMMulticlassPredictor). Score off the base.
+            self._base = getattr(self._predictor, "wrapped", None) or self._predictor
+            self.available = True
+            self.reason = "ok"
+        except Exception as exc:  # noqa: BLE001 — degrade to frozen fallback
+            self.available = False
+            # Include the message (not just the type) so an offline / trainer-venv
+            # resolution failure names the actual missing module / bad path instead
+            # of an opaque "ModuleNotFoundError".
+            self.reason = f"resolve_error:{type(exc).__name__}:{exc}"[:300]
+
+    def vol_regime_for_window(
+        self, window: pd.DataFrame, *, symbol: str, timeframe: str,
+    ) -> Optional[str]:
+        """Score the head's ``P(volatile)`` on the latest bar → ``calm``/
+        ``volatile`` thresholded at ``self.threshold``; ``None`` on any failure
+        (caller falls back to frozen)."""
+        if not self.available or window is None or len(window) == 0:
+            return self._skip("empty_window")
+        try:
+            from src.runtime.regime_shadow import (
+                closes_from_candles,
+                feature_row_for_predictor,
+                rolling_log_return_vol,
+            )
+
+            closes = closes_from_candles(window)
+            row = feature_row_for_predictor(
+                self._predictor, {}, closes=closes,
+                symbol=symbol, timeframe=timeframe, candles_df=window,
+            )
+            if row is None:
+                # Pinpoint why feature_row_for_predictor declined this window so
+                # an offline run reports it (short past-window vs bucket/ohlc vs
+                # symbol/timeframe mismatch) instead of an opaque fallback count.
+                window_n = int((self._spec or {}).get("vol_window_n") or 20)
+                if rolling_log_return_vol(closes, window_n) is None:
+                    return self._skip("short_window")
+                spec = self._spec or {}
+                _nrm = lambda v: str(v or "").strip().upper()  # noqa: E731
+                if _nrm(spec.get("symbol")) != _nrm(symbol):
+                    return self._skip("symbol_mismatch")
+                if _nrm(spec.get("timeframe")) != _nrm(timeframe):
+                    return self._skip("timeframe_mismatch")
+                return self._skip("row_none_bucket_or_ohlc")
+            proba = self._base.predict_proba(row)
+            p_vol = float(proba.get("volatile", 0.0))
+            return "volatile" if p_vol >= self.threshold else "calm"
+        except Exception as exc:  # noqa: BLE001
+            return self._skip(f"exc:{type(exc).__name__}:{exc}"[:160])
 
 
 # --------------------------------------------------------------------------
@@ -295,7 +542,14 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                         clock_tf: str = "15m",
                         flip_policy: str = "reverse",
                         reentry_policy: str = "suppress",
-                        attach_full: bool = False) -> Dict[str, Any]:
+                        attach_full: bool = False,
+                        vol_verdict: str = "frozen",
+                        ml_vol_threshold: float = 0.5,
+                        ml_stage: str = "advisory",
+                        ml_model_id: Optional[str] = None,
+                        regime_router: str = "off",
+                        regime_policy_path: Optional[str] = None,
+                        conviction_sizing: bool = False) -> Dict[str, Any]:
     """Drive all `roster` strategies through aggregate_intents on a shared
     account. Clock runs on `clock_tf` bars; at each tick we read each
     strategy's latest live signal (emitted within signal_ttl_bars), net them
@@ -325,6 +579,105 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
         if stop_dist <= 0 or bal <= 0 or rpct <= 0:
             return 0.0
         return (bal * (rpct / 100.0)) / stop_dist
+
+    # --conviction-sizing A/B (Design B): replace the flat per-trade risk %
+    # with conviction × per_trade_risk_budget. OFFLINE the only conviction
+    # input available is the calibrated strategy confidence (c_strat) — the ML
+    # heads are not replayed for sizing here — so conviction ≈ c_strat (stated
+    # limitation in --help + the run summary). Mirrors
+    # conviction_sizing.compute_conviction_sizing's ``desired`` math:
+    # conviction × (budget × balance) / stop_dist.
+    def _conviction_qty(bal: float, entry_px: float, sl_px: float,
+                        confidence: float) -> float:
+        stop_dist = abs(entry_px - sl_px)
+        if stop_dist <= 0 or bal <= 0:
+            return 0.0
+        conv: Optional[float]
+        if _compute_conviction is not None:
+            try:
+                conv = _compute_conviction({"c_strat": float(confidence)}).conviction
+            except Exception:  # noqa: BLE001
+                conv = None
+        else:
+            conv = None
+        if conv is None:  # no conviction input → fall back to the c_strat scalar
+            conv = max(0.0, min(1.0, float(confidence)))
+        risk_usd = conv * _CONVICTION_RISK_BUDGET * bal
+        return risk_usd / stop_dist
+
+    # --regime-router on: exercise the REAL hard gate (_hard_regime_gate) by
+    # flipping REGIME_ROUTER_ENABLED in-process for the duration of the run,
+    # and (if given) point the policy loader at a backtest-LOCAL policy via the
+    # existing REGIME_POLICY_PATH override (never the live config/regime_policy.yaml).
+    # The intents module caches the loaded policy, so the cache is cleared here
+    # and restored on teardown — leaving the process env exactly as found.
+    _prev_env: Dict[str, Optional[str]] = {}
+
+    def _set_env(key: str, value: Optional[str]) -> None:
+        _prev_env[key] = os.environ.get(key)
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+
+    # The policy loader freezes its default path into a module global at import
+    # (``regime.policy._REGIME_POLICY_PATH``), so REGIME_POLICY_PATH set after
+    # import is NOT picked up by ``load_policy()`` — we therefore patch that
+    # global directly for the run (and restore it on teardown) so the
+    # backtest-local policy actually drives ``would_gate``.
+    _prev_policy_path = {"set": False, "value": None}
+
+    def _clear_intents_policy_cache() -> None:
+        try:
+            import src.runtime.intents as _intents_mod
+            _intents_mod._REGIME_POLICY_CACHE = None
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _teardown_env() -> None:
+        for key, prev in _prev_env.items():
+            if prev is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = prev
+        if _prev_policy_path["set"]:
+            try:
+                import src.runtime.regime.policy as _pol
+                _pol._REGIME_POLICY_PATH = _prev_policy_path["value"]
+            except Exception:  # noqa: BLE001
+                pass
+        _clear_intents_policy_cache()
+
+    if regime_router == "on":
+        _set_env("REGIME_ROUTER_ENABLED", "1")
+    if regime_policy_path:
+        _set_env("REGIME_POLICY_PATH", str(regime_policy_path))
+        try:
+            import src.runtime.regime.policy as _pol
+            _prev_policy_path["set"] = True
+            _prev_policy_path["value"] = _pol._REGIME_POLICY_PATH
+            _pol._REGIME_POLICY_PATH = str(regime_policy_path)
+        except Exception:  # noqa: BLE001
+            pass
+    if _prev_env or _prev_policy_path["set"]:
+        # Drop any cached policy so the local path / enabled flag takes effect.
+        _clear_intents_policy_cache()
+
+    # Evidence-layer setup (Designs A/B). All best-effort: a missing dep / no
+    # advisory head degrades to ``unknown``/frozen with a counted fallback.
+    ml_resolver = (
+        _MlVolResolver(threshold=ml_vol_threshold, stage=ml_stage,
+                       model_id=ml_model_id, prefer_timeframe=clock_tf)
+        if vol_verdict == "ml" else None
+    )
+    ev_counts = {
+        "intents_stamped": 0,            # intents that received a vol_regime
+        "ml_vol_scored": 0,              # bars the ML head produced a label
+        "ml_vol_fallback": 0,            # bars ml-mode fell back to frozen/unknown
+        "ml_vol_unavailable": ml_resolver is not None and not ml_resolver.available,
+        "ml_vol_reason": ml_resolver.reason if ml_resolver is not None else None,
+        "conviction_trades": 0,          # opens sized by conviction
+    }
 
     # 1) signal streams (cached), indexed onto the clock grid
     streams: Dict[str, pd.DataFrame] = {}
@@ -438,6 +791,31 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
         if pos is not None:
             util_bars += 1
 
+        # ---- regime / vol axes for THIS bar (Design A) ----
+        # Computed past-only from the harness's own clock window so the intents
+        # carry the same axes ``would_gate`` reads on the live path. The trend
+        # axis is ADX-14; the vol axis is the frozen-edge label (or the advisory
+        # head's thresholded P(volatile) under --vol-verdict=ml, frozen on
+        # fallback). One label per bar, stamped onto every intent that tick.
+        regime_label = adx_14_val = None
+        bar_vol_regime: Optional[str] = None
+        if intents_pending := [n for n in latest if latest[n]["side"] in ("long", "short")]:
+            reg_win = clock.iloc[max(0, i - 300):i + 1]
+            regime_label, adx_14_val = _adx_regime_for_window(reg_win)
+            if ml_resolver is not None:
+                bar_vol_regime = ml_resolver.vol_regime_for_window(
+                    reg_win, symbol="BTCUSDT", timeframe=clock_tf)
+                if bar_vol_regime is not None:
+                    ev_counts["ml_vol_scored"] += 1
+                else:
+                    ev_counts["ml_vol_fallback"] += 1
+                    bar_vol_regime = _frozen_vol_regime_for_window(
+                        reg_win, symbol="BTCUSDT", timeframe=clock_tf)
+            else:
+                bar_vol_regime = _frozen_vol_regime_for_window(
+                    reg_win, symbol="BTCUSDT", timeframe=clock_tf)
+            del intents_pending  # only used as a cheap "any directional intent" guard
+
         # ---- desired net position from the REAL aggregator ----
         intents = []
         for name, row in latest.items():
@@ -446,7 +824,13 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
             intents.append(StrategyIntent(
                 strategy=name, symbol="BTCUSDT", side=row["side"],
                 target_qty=1.0, entry=row["entry"], sl=row["sl"], tp=row["tp"],
-                confidence=row["confidence"], meta={"_stream": True}))
+                confidence=row["confidence"],
+                # Stamp the regime axes the live signal builder stamps, so the
+                # REAL would_gate (via aggregate_intents) can measure gating.
+                regime=regime_label, adx_14=adx_14_val, vol_regime=bar_vol_regime,
+                meta={"_stream": True}))
+            if bar_vol_regime is not None:
+                ev_counts["intents_stamped"] += 1
         desired = aggregate_intents(intents, symbol="BTCUSDT") if intents else None
         des_side = desired.side if desired is not None else "flat"
 
@@ -462,9 +846,14 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
             elif pos is None and not daily_halted:
                 # open at next-bar open (use current close as the fill proxy)
                 fill = c[i]
-                qty = _risk_qty(balance, risk_pct, fill, row["sl"])
+                if conviction_sizing:
+                    qty = _conviction_qty(balance, fill, row["sl"], row["confidence"])
+                else:
+                    qty = _risk_qty(balance, risk_pct, fill, row["sl"])
                 qty = float(qty) if qty else 0.0
                 if qty > 0:
+                    if conviction_sizing:
+                        ev_counts["conviction_trades"] += 1
                     pos = _Position(side=des_side, qty=qty, entry=fill, sl=row["sl"],
                                     tp=row["tp"], owner=win_name, entry_ts=ts.iloc[i],
                                     entry_idx=i, meta=json.loads(row["meta_json"]),
@@ -481,7 +870,10 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                 # position stands as one trade. Gated on signal freshness so
                 # a stale TTL-held signal doesn't pyramid every bar.
                 fill = c[i]
-                add_qty = _risk_qty(balance, risk_pct, fill, row["sl"])
+                if conviction_sizing:
+                    add_qty = _conviction_qty(balance, fill, row["sl"], row["confidence"])
+                else:
+                    add_qty = _risk_qty(balance, risk_pct, fill, row["sl"])
                 add_qty = float(add_qty) if add_qty else 0.0
                 if add_qty > 0:
                     new_qty = pos.qty + add_qty
@@ -507,9 +899,14 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                     pos = None
                     if flip_policy == "reverse":
                         fill = c[i]
-                        qty = _risk_qty(balance, risk_pct, fill, row["sl"])
+                        if conviction_sizing:
+                            qty = _conviction_qty(balance, fill, row["sl"], row["confidence"])
+                        else:
+                            qty = _risk_qty(balance, risk_pct, fill, row["sl"])
                         qty = float(qty) if qty else 0.0
                         if qty > 0:
+                            if conviction_sizing:
+                                ev_counts["conviction_trades"] += 1
                             pos = _Position(side=des_side, qty=qty, entry=fill,
                                             sl=row["sl"], tp=row["tp"], owner=win_name,
                                             entry_ts=ts.iloc[i], entry_idx=i,
@@ -531,9 +928,39 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                                  "daily_loss_pct": daily_loss_pct, "signal_ttl_bars": signal_ttl_bars,
                                  "clock_tf": clock_tf, "flip_policy": flip_policy,
                                  "reentry_policy": reentry_policy,
+                                 # Evidence-layer knobs (Designs A/B), echoed so a
+                                 # reader knows exactly what ran.
+                                 "vol_verdict": vol_verdict,
+                                 "ml_vol_threshold": ml_vol_threshold,
+                                 "regime_router": regime_router,
+                                 "regime_policy_path": regime_policy_path,
+                                 "conviction_sizing": conviction_sizing,
                                  "overrides": overrides},
                          data_start=str(ts.iloc[0]) if n else None,
                          data_end=str(ts.iloc[-1]) if n else None)
+    # Evidence-layer report block: knobs used + fallback counts so a reader
+    # knows exactly what the run measured (esp. ml-vol availability offline).
+    summary["evidence"] = {
+        "vol_verdict": vol_verdict,
+        "ml_vol_threshold": ml_vol_threshold if vol_verdict == "ml" else None,
+        "ml_vol_stage": ml_stage if vol_verdict == "ml" else None,
+        "ml_vol_model_id": (ml_resolver.model_id if ml_resolver is not None else None),
+        "ml_vol_available": (ml_resolver.available if ml_resolver is not None else None),
+        "ml_vol_reason": ev_counts["ml_vol_reason"],
+        "ml_vol_scored_bars": ev_counts["ml_vol_scored"],
+        "ml_vol_fallback_bars": ev_counts["ml_vol_fallback"],
+        "ml_vol_skips": (dict(ml_resolver.skips) if ml_resolver is not None else None),
+        "intents_stamped_with_vol": ev_counts["intents_stamped"],
+        "regime_router": regime_router,
+        "regime_policy_path": regime_policy_path,
+        "conviction_sizing": conviction_sizing,
+        "conviction_sized_opens": ev_counts["conviction_trades"],
+        "conviction_input_note": (
+            "conviction ≈ calibrated c_strat only (ML heads not replayed for "
+            "sizing offline)" if conviction_sizing else None
+        ),
+    }
+    _teardown_env()
     if attach_full:
         # Purely additive (default off): expose the FULL equity curve + closed
         # ledger that _summarize otherwise discards (it serializes only
@@ -619,6 +1046,43 @@ def _fmt(s: Dict[str, Any]) -> str:
          "  per-strategy attribution (net $ | trades | wins):"]
     for name, a in sorted(s["per_strategy_attribution"].items(), key=lambda kv: -kv[1]["pnl"]):
         L.append(f"    {name:22} ${a['pnl']:>9.0f}  {a['trades']:>4}t  {a['wins']:>4}w")
+    # Evidence-layer footer — printed ONLY when an evidence knob is non-default,
+    # so a default run (no new flags) prints byte-for-byte as before.
+    ev = s.get("evidence") or {}
+    active = (
+        ev.get("vol_verdict") not in (None, "frozen")
+        or ev.get("regime_router") not in (None, "off")
+        or ev.get("conviction_sizing")
+    )
+    if active:
+        L.append("  evidence layer:")
+        L.append(
+            f"    vol_verdict={ev.get('vol_verdict')} "
+            f"regime_router={ev.get('regime_router')} "
+            f"conviction_sizing={ev.get('conviction_sizing')}"
+        )
+        if ev.get("vol_verdict") == "ml":
+            L.append(
+                f"    ml-vol: stage={ev.get('ml_vol_stage')} "
+                f"head={ev.get('ml_vol_model_id')} "
+                f"available={ev.get('ml_vol_available')} "
+                f"reason={ev.get('ml_vol_reason')} "
+                f"scored={ev.get('ml_vol_scored_bars')} "
+                f"fell_back_to_frozen={ev.get('ml_vol_fallback_bars')}"
+            )
+            if not ev.get("ml_vol_available"):
+                L.append(
+                    "    ml-vol UNAVAILABLE — fell back to frozen on all bars "
+                    f"(no {ev.get('ml_vol_stage')}-stage head resolvable here; the "
+                    "live trainer run scores real heads)."
+                )
+        if ev.get("regime_policy_path"):
+            L.append(f"    regime_policy={ev.get('regime_policy_path')}")
+        if ev.get("conviction_sizing"):
+            L.append(
+                f"    conviction opens={ev.get('conviction_sized_opens')} "
+                f"({ev.get('conviction_input_note')})"
+            )
     return "\n".join(L)
 
 
@@ -652,6 +1116,44 @@ def main(argv: List[str]) -> int:
     p.add_argument("--override", action="append", default=[], metavar="STRAT.key=val",
                    help="Per-strategy param override, e.g. fade_breakout_4h.timeout_bars=0. Repeatable.")
     p.add_argument("--refresh-signals", action="store_true", help="Ignore the signal cache.")
+    # --- Evidence layer (Designs A/B; Tier-1 research). Default-off so a run
+    # with none of these is byte-for-byte unchanged. ---
+    p.add_argument("--vol-verdict", default="frozen", choices=["frozen", "ml"],
+                   help="vol_regime source stamped on intents (Design A): frozen "
+                        "(replay vol_detector's frozen-edge label, default) or ml "
+                        "(threshold the advisory regime head's P(volatile)). Offline "
+                        "with no advisory head, 'ml' degrades to frozen per bar and "
+                        "reports the fallback count — it scores real heads only on "
+                        "the live trainer run.")
+    p.add_argument("--ml-vol-threshold", type=float, default=0.5,
+                   help="P(volatile) cut for --vol-verdict=ml (default 0.5).")
+    p.add_argument("--ml-stage", dest="ml_stage", default="advisory",
+                   choices=["advisory", "shadow"],
+                   help="Registry stage the --vol-verdict=ml head is resolved "
+                        "from (default advisory — the live verdict source, so the "
+                        "replay matches production). 'shadow' replays a "
+                        "SHADOW-stage regime head BEFORE its shadow→advisory "
+                        "promotion, so A's vol-gating evidence can be gathered "
+                        "without the Tier-3 live promotion. Observe-only — never "
+                        "mutates the registry stage.")
+    p.add_argument("--ml-model-id", dest="ml_model_id", default=None, metavar="ID",
+                   help="Pin the exact regime head id for --vol-verdict=ml "
+                        "(overrides --ml-stage discovery). Score one specific "
+                        "candidate unambiguously, e.g. btc-regime-15m-lgbm-v2.")
+    p.add_argument("--regime-router", default="off", choices=["on", "off"],
+                   help="Exercise the REAL hard regime gate (_hard_regime_gate) "
+                        "in-process (default off → shadow-gate only, no trade change).")
+    p.add_argument("--regime-policy", dest="regime_policy", default=None, metavar="PATH",
+                   help="Backtest-LOCAL regime_policy.yaml for the gate (sets "
+                        "REGIME_POLICY_PATH for the run; never touches the live "
+                        "config/regime_policy.yaml). Use to author candidate "
+                        "trend_vol OFF-cells without a live edit.")
+    p.add_argument("--conviction-sizing", action="store_true",
+                   help="A/B sizing (Design B): size opens by conviction × 2%% "
+                        "per-trade budget instead of the flat --risk-pct. OFFLINE "
+                        "conviction ≈ the calibrated strategy confidence (c_strat) "
+                        "only — ML heads are not replayed for sizing; stated in the "
+                        "run summary.")
     p.add_argument("--json", dest="json_out", default=None)
     args = p.parse_args(argv[1:])
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
@@ -680,7 +1182,11 @@ def main(argv: List[str]) -> int:
         initial_balance=args.initial_balance, risk_pct=args.risk_pct,
         daily_loss_pct=args.daily_loss_pct, signal_ttl_bars=args.signal_ttl_bars,
         overrides=overrides, refresh=args.refresh_signals, clock_tf=args.clock_tf,
-        flip_policy=args.flip_policy, reentry_policy=args.reentry_policy)
+        flip_policy=args.flip_policy, reentry_policy=args.reentry_policy,
+        vol_verdict=args.vol_verdict, ml_vol_threshold=args.ml_vol_threshold,
+        ml_stage=args.ml_stage, ml_model_id=args.ml_model_id,
+        regime_router=args.regime_router, regime_policy_path=args.regime_policy,
+        conviction_sizing=args.conviction_sizing)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)

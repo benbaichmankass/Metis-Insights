@@ -772,6 +772,76 @@ def _load_regime_policy() -> Dict[str, Any]:
     return _REGIME_POLICY_CACHE
 
 
+def _regime_ml_verdict_mode() -> str:
+    """Design-A mode: ``off`` (default) | ``shadow`` | ``use``.
+
+    Thin wrapper over ``runtime_flags._regime_ml_verdict_mode`` (env-only here;
+    the intent layer has no settings dict). Default ``off`` → deploying this
+    code is a behaviour no-op (no ``regime_ml_vol_shadow`` row, zero ML work).
+    ``use`` is a Phase-2 placeholder that, for this Phase-1 task, behaves like
+    ``shadow`` (emits the audit row, still uses the frozen label).
+    """
+    try:
+        from src.runtime.runtime_flags import _regime_ml_verdict_mode as _mode
+        return _mode(None)
+    except Exception:  # noqa: BLE001 — fail-safe to off
+        return "off"
+
+
+def _emit_ml_vol_shadow_rows(candidates: tuple) -> None:
+    """Phase-1 (Design A): emit a ``regime_ml_vol_shadow`` audit row per candidate.
+
+    For each candidate, resolve the advisory head's ``vol_regime`` verdict
+    (``ml_vol_regime``) and log a row comparing it against the frozen
+    ``intent.vol_regime`` — ``{vol_regime_frozen, vol_regime_ml, p_volatile,
+    agree, ml_source, model_id, enforced: false}``. **Observe-only:** this never
+    touches the candidate set and never changes a gate decision — both gates
+    keep using ``intent.vol_regime`` exactly as today. Called only when the mode
+    is ``shadow`` (or the ``use`` placeholder); the ``off`` path returns before
+    this runs so the default deploy adds ZERO overhead.
+
+    Fail-permissive: any exception (per candidate or overall) is swallowed so
+    the ML/audit path can never strand a signal.
+    """
+    try:
+        from src.runtime.regime import ml_vol_regime
+        from src.runtime.strategy_monocle import _strategy_timeframe_label
+        from src.utils.signal_audit_logger import log_signal
+    except Exception:  # noqa: BLE001 — observability-only
+        return
+    for intent in candidates:
+        try:
+            timeframe = _strategy_timeframe_label(intent.strategy)
+            verdict = ml_vol_regime(intent.symbol, timeframe)
+            vol_regime_ml = verdict.get("vol_regime")
+            frozen = intent.vol_regime
+            # ``agree`` is only meaningful when BOTH labels are concrete
+            # (neither None/unknown); otherwise it's None (not a false mismatch).
+            if (
+                frozen in ("calm", "volatile")
+                and vol_regime_ml in ("calm", "volatile")
+            ):
+                agree = bool(frozen == vol_regime_ml)
+            else:
+                agree = None
+            log_signal({
+                "event": "regime_ml_vol_shadow",
+                "strategy": intent.strategy,
+                "symbol": intent.symbol,
+                "side": intent.side,
+                "vol_regime_frozen": frozen,
+                "vol_regime_ml": vol_regime_ml,
+                "p_volatile": verdict.get("p_volatile"),
+                "agree": agree,
+                "ml_source": verdict.get("source"),
+                "model_id": verdict.get("model_id"),
+                # Phase 1 is observe-only — the gate decision is unchanged.
+                "enforced": False,
+            })
+        except Exception:  # noqa: BLE001 — never strand a signal on the ML path
+            continue
+
+
 def _shadow_regime_gate(candidates: tuple) -> None:
     """Evaluate every candidate intent against the regime policy table and
     emit a ``regime_shadow_gate`` audit row when an OFF cell WOULD have
@@ -785,7 +855,18 @@ def _shadow_regime_gate(candidates: tuple) -> None:
     every row carries both axes (``regime``/``vol_regime`` + the per-axis cell)
     so a later analysis can split would-gate evidence by volatility. Both axes
     are ``enforced: false`` — phase-3 (Tier-3) is the enforcement gate.
+
+    Design A (Phase 1, default-off): when ``REGIME_ML_VERDICT_MODE`` is
+    ``shadow``/``use`` this ALSO emits a ``regime_ml_vol_shadow`` row per
+    candidate comparing the advisory head's ML ``vol_regime`` against the
+    frozen one. The gate decision is UNCHANGED (still the frozen label); the
+    ``off`` default short-circuits before any ML work runs.
     """
+    # Design-A Phase-1 ML-vol shadow audit — gated, observe-only, fires
+    # independently of the trend policy below (a different axis). The ``off``
+    # default returns here with ZERO added overhead.
+    if _regime_ml_verdict_mode() != "off":
+        _emit_ml_vol_shadow_rows(candidates)
     try:
         from src.runtime.regime import would_gate
         from src.utils.signal_audit_logger import log_signal
@@ -874,7 +955,19 @@ def _hard_regime_gate(candidates: tuple) -> tuple:
     falls back to keeping the intent (fail-permissive). A live-path
     failure must never silently drop a tradeable signal — the bias is
     toward the existing pre-phase-3 behaviour.
+
+    Design A (Phase 1, default-off): when ``REGIME_ML_VERDICT_MODE`` is
+    ``shadow``/``use`` this ALSO emits a ``regime_ml_vol_shadow`` row per
+    candidate (observe-only). It does NOT influence which intents are dropped —
+    the enforcement still keys on the frozen ``intent.vol_regime`` via
+    ``would_gate``. The ``off`` default short-circuits before any ML work runs.
     """
+    # Design-A Phase-1 ML-vol shadow audit — gated, observe-only, fires
+    # independently of the trend policy / enforcement below (a different axis,
+    # never alters the kept set). The ``off`` default returns here with ZERO
+    # added overhead.
+    if _regime_ml_verdict_mode() != "off":
+        _emit_ml_vol_shadow_rows(candidates)
     try:
         from src.runtime.regime import would_gate
         from src.utils.signal_audit_logger import log_signal

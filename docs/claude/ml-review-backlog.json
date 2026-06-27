@@ -3,6 +3,53 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "MB-20260626-001",
+      "opened_at": "2026-06-26T15:00:00+00:00",
+      "opened_by": "claude (ml-strategies-deep-review / fleet scorecard session)",
+      "source": "Ran the full fleet model scorecard (scripts/ml/fleet_scorecard.sh, MAX_BARS=8000) on the trainer VM as a nohup background job (trainer-vm-diag relays #4697 launch, #4699 read; job pid 1574680). RG3 (Stage-1, clean-candle replay vs the dataset's own regime_label = does it DISCRIMINATE) + RG4 (Stage-2, re-score the EXACT logged-live shadow_predictions.jsonl rows = train/serve SKEW detector) across all 17 shadow regime heads. shadow_predictions.jsonl had 109,641 rows.",
+      "title": "Fleet scorecard (RG3+RG4): replay pre-gate caught 2 MES heads anti-predictive live (skew); BTC 5m/15m fleet healthy + promotion-candidate; BTC 1h degrades live; MES live rows largely unlabeled",
+      "description": "RESULTS (RG3 offline AUC -> RG4 live AUC): ALL 17 heads pass RG3 (TRUSTWORTHY_SIGNAL, AUC 0.58-0.92) -- offline discrimination is NOT the differentiator. RG4 (live-row re-score) is what separates them: (A) KEEP / promotion-ready -- BTC 5m/15m fleet holds on live rows with market features present (mf=True) and near-complete labeling (unlab 0-6): btc-regime-5m-lgbm-yz-v1 0.92->0.82, btc-regime-5m-lgbm-v2 0.89->0.79, btc-regime-5m-baseline-v1 0.82->0.73, btc-regime-15m-lgbm-yz-v1 0.83->0.76, btc-regime-15m-lgbm-v2 0.81->0.72, btc-regime-15m-baseline-v1 0.75->0.69; plus mes-regime-5m-lgbm-v2 0.80->0.77 and mes-regime-5m-baseline-v1 0.68->0.75 (both on thin labeled samples ~200-254 of ~3000). (B) WATCH -- BTC 1h fleet degrades materially live: btc-regime-1h-lgbm-v2 0.78->0.61, btc-regime-1h-lgbm-yz-v1 0.79->0.60, btc-regime-1h-lgbm-funding-svble-v1 0.78->0.55 (AT the 0.55 floor). Clears the floor but the live edge is thin; not promotion-ready until the 1h>5m/15m degradation is understood. (C) FIX-SKEW / KILL -- the gate's catch: mes-regime-15m-lgbm-v2 0.89 offline -> 0.32 live ANTI_PREDICTIVE (the btc-regime-yz failure mode exactly; ~77 labeled rows), and mes-regime-15m-baseline-v1 0.58 -> 0.44 ANTI_PREDICTIVE (weak offline AND inverts live). (D) UNSCOREABLE on live (0 labeled live rows -> RG4 can't judge): mes-regime-1d-lgbm-v2 (242 rows), mes-regime-5m-lgbm-yz-v1 (1629 rows), eth-regime-1h-lgbm-v1 (84 rows, too new), eth-regime-1h-lgbm-xasset-v1 (320 rows, the D2a cross-asset probe, too new). CROSS-CUTTING FINDINGS: (1) MES live rows are largely UNLABELED (unlab 1025-2777 of ~1100-3000) vs BTC unlab~=0 -> a labeling-pipeline gap specific to MES that blinds RG4 on half the fleet. (2) Two btc yz heads (5m, 1h) carry advisory-stage records with mf=False scoring 0.5 NO_EDGE -> a handful of advisory-stage logged rows lack the market-feature block (data-capture parity smell). (3) Offline AUC (RG3) green-lights all 17 incl. the 0.89->0.32 skew head -> confirms the build-time funnel must gate on RG4 (live-row parity + net-of-cost edge), not RG3 AUC.",
+      "tier": 3,
+      "trigger_condition": "Next /ml-review; or any session deciding regime-head promotion/demotion, or working live-feature/label parity on the trainer.",
+      "resolution_criteria": "Operator-gated promotion decisions taken on the (A) BTC 5m/15m candidates; (C) the two anti-predictive MES 15m heads either skew-root-caused+fixed or demoted/killed; (1) the MES live-labeling gap and (2) the advisory mf=False capture gap are root-caused (live feature/label parity). Each is its own follow-up; this item is the umbrella record of the scorecard.",
+      "status": "open",
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-06-26 (scorecard run, trainer-vm-diag #4699): full per-head RG3/RG4 table captured (above). Tooling: scripts/ml/fleet_scorecard.sh (Tier-1 research, reads datasets/registry/shadow log, writes a text table; never touches the order path). Reusable: bash scripts/ml/fleet_scorecard.sh [MAX_BARS]. NOTE this is read-only research -- the keep/fix-skew/kill classification is a PROPOSAL; actual stage flips are the operator-gated promotion gate."
+      ],
+      "status_history": "open 2026-06-26 (scorecard run; RG4 caught 2 MES 15m heads anti-predictive live, BTC 5m/15m fleet identified as the real promotion candidates, MES live-labeling gap surfaced)."
+    },
+    {
+      "id": "MB-20260626-002",
+      "opened_at": "2026-06-26T15:20:00+00:00",
+      "opened_by": "claude (ml-strategies-deep-review / fleet scorecard session)",
+      "source": "Fleet scorecard RG4 (MB-20260626-001) FIRST flagged two MES 15m heads as anti-predictive live (mes-regime-15m-lgbm-v2 0.89 offline -> 0.32 live; mes-regime-15m-baseline-v1 0.58 -> 0.44) on a THIN labeled sample (~77/~127 rows). After the MES candle base was fixed (BL-20260626-MES-BASE-STALE, fresh yfinance candles to 2026-06-26), RG4 was RE-RUN on the full labeled sample and the verdict REVERSED: both 15m heads are now TRUSTWORTHY (15m-lgbm-v2 0.59 on ~1011 rows; 15m-baseline-v1 0.64 on ~1061). The original anti-predictive reading was a stale-candle / thin-sample artifact. The re-run instead surfaced a DIFFERENT broken head: mes-regime-5m-lgbm-yz-v1 (previously UNSCOREABLE, 0 labeled) is now ANTI_PREDICTIVE at 0.17 on ~1460 labeled rows.",
+      "title": "SYSTEM-REVIEW PICKUP (REVISED): the two MES 15m heads CLEARED on fixed data; instead review mes-regime-5m-lgbm-yz-v1 (now anti-predictive live, 0.17)",
+      "description": "REVISED 2026-06-26 after fixing the MES candle base + re-running RG4. ORIGINAL flag (demote the two MES 15m heads) is RETRACTED — on the full labeled sample with fresh candles they are TRUSTWORTHY (lgbm-v2 0.59, baseline-v1 0.64), not anti-predictive; the 0.32/0.44 readings were the stale-candle thin-sample artifact the caveat warned about. NEW ACTION for the next /system-review: mes-regime-5m-lgbm-yz-v1 — UNSCOREABLE in the first scorecard (0 labeled live rows) — is now revealed by the fixed-data re-run as ANTI_PREDICTIVE live (RG4 AUC 0.17 on ~1460 labeled rows; it strongly inverts). It is shadow-stage (observe-only, no live-trade risk) but pollutes the shadow stream with an inverted signal and must not be promoted. Recommend: demote mes-regime-5m-lgbm-yz-v1 to candidate (observe-only, reversible) and root-cause the inversion (likely a live MES feature-parity / yang-zhang-vol computation issue specific to this yz variant — note its BTC 1h/5m yz siblings also degrade or invert live). Caveat retained: RG4 here uses a global vol_threshold (0.003), not each dataset's calibrated median — a refinement (read the calibrated threshold from market_features metadata) would sharpen the absolute AUCs, but the 0.17 inversion is far below any threshold-sensitivity band. Tier-3 stage flip — operator-gated; the review proposes, the operator runs promote-stage/demote.",
+      "tier": 3,
+      "trigger_condition": "Next /system-review (explicit operator pickup); or any /ml-review touching the MES regime fleet.",
+      "resolution_criteria": "mes-regime-5m-lgbm-yz-v1 is demoted (candidate / killed) with the decision recorded OR its inversion is root-caused + fixed and a retrain re-earns shadow; the two MES 15m heads' CLEARED status is noted (no action). The system review records the call.",
+      "status": "open",
+      "snoozed_until": null,
+      "status_history": "open 2026-06-26 (flagged 2 MES 15m heads for demote) -> REVISED 2026-06-26 (MES candle fix + RG4 re-run cleared both 15m heads; re-targeted to mes-regime-5m-lgbm-yz-v1, now anti-predictive 0.17 on fixed data)."
+    },
+    {
+      "id": "MB-20260626-003",
+      "opened_at": "2026-06-26T21:40:00+00:00",
+      "opened_by": "claude (ml-strategies-deep-review / gate-check session)",
+      "source": "Ran the formal promotion gate-check (python -m ml gate-check, regime profile, WITH --datasets-root for oos_edge + live --db) on the 6 BTC 5m/15m regime candidates from the fleet scorecard, via scripts/ml/gate_check_candidates.sh (trainer-vm-diag #4713 launch, #4716 read). Full results: docs/research/promotion-gatecheck-and-mes-labeling-2026-06-26.md.",
+      "title": "Regime-head promotion is structurally blocked on the live_agreement gate (trade-win AUC on ~11 trades) — decide: re-target it to RG4 regime-discrimination, or wait for BTC real-money flow",
+      "description": "GATE-CHECK RESULT: the two strongest heads — btc-regime-15m-lgbm-yz-v1 and btc-regime-15m-lgbm-v2 — clear EVERY gate (oos_edge +0.276/+0.265 over the modal baseline on 5 purged WF-CV folds; shadow_soak 22-31d; drift clean KS 0.16-0.17; cross_run_stability std ~0.002-0.004; non_degenerate via the imbalance-aware path) EXCEPT live_agreement (0.267 / 0.500 vs the 0.55 floor). btc-regime-5m-lgbm-v2 additionally fails drift (KS 0.262); btc-regime-5m-lgbm-yz-v1 is too freshly retrained (1.6d soak, 1 run). The two baselines (5m/15m) correctly fail (oos_edge 0.0 + degenerate F1 0). THE STRUCTURAL PROBLEM: live_agreement = rank-AUC(regime-volatility score vs realized trade WIN), measured on just 11 live BTC closed trades. (1) It is MIS-TARGETED for a regime head — a volatility-regime classifier predicts the regime, not trade outcomes; the regime-appropriate live signal is the RG4 live regime-discrimination AUC (0.72-0.76 for these two heads, strong). (2) It is SAMPLE-STARVED + structurally un-satisfiable while BTC real-money flow is thin (bybit_2 pinned near min-qty) — the SAME blocker that demoted the first advisory head (MB-20260623-001). DECISION FOR THE OPERATOR (Tier-3, gate-profile / policy): (A) re-target the regime profile's live-track-record gate from live_agreement (trade-outcome) to an RG4-style live regime-discrimination AUC (keeping all other gates) — the regime profile already drops beats_baseline on the same logic; or (B) keep the gate as-is and accept regime heads may never promote until live flow grows. NO PROMOTION recommended today (none is ready; live_agreement is 'not yet measurable', not 'passed').",
+      "tier": 3,
+      "trigger_condition": "Next /system-review or /ml-review; or any session deciding regime-head promotion or revising the regime gate profile (ml/promotion/gates.py).",
+      "resolution_criteria": "The operator decides (A) re-target the regime live-track-record gate to RG4-style regime-discrimination (then the two 15m lgbm heads are re-evaluated and promoted if they clear it) OR (B) keep live_agreement and wait for live flow. Either way the decision + rationale is recorded; if (A), gates.py grows a regime live-discrimination gate and the gate-check is re-run.",
+      "update_2026_06_26_pm": "OPTION A BUILT + END-TO-END VERIFIED (operator chose A, 2026-06-26). Shipped on PR #4700 (commit de45220): the regime profile now requires `live_regime_discrimination` (RG4 live regime AUC >= 0.55) and makes `live_agreement` non-blocking; default decision-model profile unchanged; never touches the order path; 40 ml tests pass. Verified on the trainer (verify_optionA_gate.sh, branch code run then restored): BOTH btc-regime-15m-lgbm-yz-v1 and btc-regime-15m-lgbm-v2 now read ready=True, blocking=[] — live_regime_discrimination PASS (RG4 0.763 / 0.722), live_agreement still fails (0.267/0.500) but no longer blocks, oos_edge +0.276/+0.265, soak 21.9/31.3d, drift clean. REMAINING OPERATOR DECISION (Tier-3): (1) merge PR #4700; (2) decide whether to promote these two heads shadow->advisory (they would be the first advisory regime heads since MB-20260623-001 demoted the 1h yz head; advisory = order-influencing via the regime router). The gate now SAYS ready; the live-trading switch is still the operator's call. Caveat: RG4 uses a global vol_threshold 0.003 not the per-dataset calibrated median (refinement; 0.72-0.76 is well clear of the 0.55 floor regardless).",
+      "update_2026_06_27": "PR #4700 MERGED. Re-ran the Option-A gate-check on the trainer (trainer-vm-diag #4755): btc-regime-15m-lgbm-v2 ready=True blocking=[] (oos_edge +0.264 macro_f1 over 5 purged WF-CV, shadow_soak 31.8d, live_regime_discrimination RG4 0.726, drift KS 0.053/PSI 0.0046; live_agreement 0.500 non-blocking). Operator approved promoting v2 (the non-yz head — design prefers v2; yz saturates live). PROMOTION MECHANISM VERIFIED: ran `python -m ml promote-stage btc-regime-15m-lgbm-v2 --new-stage advisory` on the trainer registry — clean shadow->advisory transition recorded in stage_history (#4757) — then ROLLED IT BACK to shadow (#4758). RATIONALE FOR THE HOLD (the load-bearing sequencing finding): the trainer publishes the mirror to the LIVE VM every 2 min, and on `main` the per-bar regime scorer logs SHADOW-stage heads ONLY (advisory per-bar scoring is A/PR #4748, not yet on main). So promoting v2 to advisory BEFORE A merges does not give it order influence (regime heads are excluded from the advisory downsize quorum, the router uses ADX-14, A's flag is default-off) — it merely makes v2 STOP being per-bar-logged on live (a Phase-1 observability loss), the opposite of the intent. CORRECT SEQUENCE: merge A (PR #4748, advisory per-bar scoring + ml_vol_verdict, default-off, Tier-2 operator-ack) to main FIRST, THEN re-promote v2 — so the advisory stage lands on A-ready live code that keeps scoring it AND can accrue the Phase-1 regime_ml_vol_shadow agreement log. Re-promote is one command once A is on main. v2 is at shadow now (live logging intact).",
+      "status": "open",
+      "snoozed_until": null,
+      "status_history": "open 2026-06-26 (gate-check: the two BTC 15m lgbm heads clear every gate but live_agreement; surfaced the regime-gate-design question)."
+    },
+    {
       "id": "MB-20260617-001",
       "opened_at": "2026-06-17T05:20:00+00:00",
       "opened_by": "claude (dashboard-truth / WC-3 session)",
@@ -851,7 +898,7 @@
       "tier": 3,
       "trigger_condition": "operator approves the soft-off demote; then the next trainer cycle retrains btc-regime-1h-lgbm-yz-v1 on fresh data",
       "resolution_criteria": "re-gate clears (live_agreement >= 0.55, drift KS <= 0.2 + PSI <= 0.25, non_degenerate) on >= 5 scored live trades -> re-propose shadow->advisory (restored); else after 3 refinement attempts -> retire to candidate + deprecate the manifest.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -873,8 +920,17 @@
         {
           "at": "2026-06-25T06:10:00+00:00",
           "note": "Shared root cause with MB-20260625-001 (5m-yz): the live-vs-train collapse is the yz vol_bucket EDGE miscalibration (yz heads lock to vol_b0 while v2/baseline siblings bucket the same yang_zhang_vol to b1/b2), NOT a feature-absence parity gap (parity is wired via S17; live feature_row populates the estimators). Same re-freeze-edges fix applies to the 1h-yz refinement."
+        },
+        {
+          "at": "2026-06-25T22:20:00+00:00",
+          "note": "See MB-20260625-001 update @22:20Z (RG2 replay-pregate session): the advisory degeneracy that demoted THIS head too has a distinct root cause from vol_bucket edges \u2014 compute_advisory_factor scores advisory regime heads on a BARE _feature_row_from_pkg row (no market_features), so they saturate ~0.98 the moment promoted. Edge re-calibration can't fix advisory promotion; fix is in src/runtime/advisory_sizing.py (enrich, or exclude regime heads from the downsize quorum). Tier-3 proposal on PR #4602."
+        },
+        {
+          "at": "2026-06-26T05:45:00+00:00",
+          "note": "RESOLVED (structural fix landed + deployed). PR #4602 merged 2026-06-26 \u2014 advisory_sizing.py::compute_advisory_factor now EXCLUDES regime heads from the advisory downsize quorum (option B, operator-approved Tier-3): a regime head at advisory was scored on the bare _feature_row_from_pkg row -> degenerate ~0.98 constant (the 'auc 0.40' that demoted both yz heads). With the exclusion that path can no longer fire for a regime head, so the degeneracy is STRUCTURALLY prevented (independent of vol_bucket edge calibration). Deployed live via ict-git-sync (trader restart ~05:27Z, git_sha f96749b8). Both heads remain demoted; RG3 replay-pregate confirmed all 17 shadow regime heads (incl both yz) SOUND (AUC 0.58-0.92). Re-promotion is now safe from the advisory-path angle; vol_bucket low-base-rate edge-redesign is an OPTIONAL future refinement, not a blocker."
         }
-      ]
+      ],
+      "resolved_at": "2026-06-26T05:45:00+00:00"
     },
     {
       "id": "MB-20260623-002",
@@ -939,7 +995,7 @@
       "tier": 3,
       "trigger_condition": "operator approves the soft-off demote",
       "resolution_criteria": "btc-regime-5m-lgbm-yz-v1 target_deployment_stage=shadow confirmed in registry; then refine (diff live-vs-train yz feature vector + retrain) and re-gate before any re-promotion.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -961,9 +1017,18 @@
         {
           "at": "2026-06-25T06:47:00+00:00",
           "note": "DEMOTE EXECUTED (operator-approved). promote-stage btc-regime-5m-lgbm-yz-v1 advisory->shadow on the trainer (#4526, stage_history records advisory->shadow at 06:45:39Z; advisory count now 0 \u2014 ZERO order-influencing models, reverted to known-good formulaic conviction). Mirror published to live (#4527, 06:46:29Z -> 141.145.193.91:/data/bot-data/runtime_logs/trainer_mirror). Takes effect on the live trader's next registry reload. Item stays OPEN for the refinement half: re-promotion needs the deeper edge-redesign (shorter freeze recency / finer low-end granularity / off fixed-quantile bucketing), validated + re-gated first. (NB: the first demote dispatch #4523 \u2014 bundled with publish \u2014 had its opened-webhook dropped and never ran; re-fired as #4526 promote-stage-only + #4527 publish.)"
+        },
+        {
+          "at": "2026-06-25T22:20:00+00:00",
+          "note": "NEW MECHANISM (RG2 replay-pregate session, 2026-06-25 ~22:20Z) \u2014 the advisory degeneracy has a SECOND, distinct root cause this item missed, on a DIFFERENT scoring path than the vol_bucket-edge issue (which was diagnosed on the SHADOW path). Evidence: live /api/bot/shadow/stats for btc-regime-1h-lgbm-yz-v1 (#4596) shows TWO record sets \u2014 `shadow` stage: row_keys_seen = FULL market_features (yang_zhang_vol, vol_bucket, rolling_log_return_vol, log_return, hour_of_day...), score spread 0.50-0.99 (the enriched per-bar path #4511 examined); `advisory` stage (count 183, 06-13->06-23 = the exact promote->demote window from stage_history #4601): row_keys_seen = ONLY {confidence, direction, killzone, setup_type, strategy_name, symbol} \u2014 ZERO vol features \u2014 and score 0.977-0.989, a degenerate CONSTANT. ROOT CAUSE: src/runtime/advisory_sizing.py::compute_advisory_factor scores every advisory predictor on _feature_row_from_pkg(pkg) (6 bare OrderPackage fields, designed for the trade-outcome models) and does NOT call feature_row_for_predictor to enrich \u2014 unlike the signal path (_emit_shadow_preds, which enriches-or-skips) and the per-bar path (regime_bar_scoring). So a regime head at advisory is scored on a row with ALL its market_features missing -> LightGBM emits a near-constant ~0.98 -> that constant is what the stage-guard auc-0.40 / brier_lift -0.277 attribution actually measured (NOT the edge-bucketing). IMPLICATION: edge re-calibration alone (the prior conclusion) CANNOT make advisory promotion of ANY regime head work \u2014 even a perfectly-calibrated head gets a bare row at advisory and saturates. FIX (Tier-3, order-influence path) \u2014 two options for the operator: (A) enrich in compute_advisory_factor via feature_row_for_predictor (needs candles for the pkg symbol/tf at sizing time; skip/score-None a regime head that can't be enriched rather than log a constant) \u2014 mirrors _emit_shadow_preds; OR (B, cleaner) EXCLUDE regime heads from the advisory directional-downsize quorum entirely \u2014 a regime P(volatile) score is not a bullish/bearish directional view, so feeding it into the 'bearish quorum' downsize is a category error regardless of enrichment; regime conviction belongs in the c_reg lens, not the downsize quorum. RECOMMEND (B) + a promotion-gate guard that refuses to promote a predictor to advisory until its advisory-path score distribution is verified non-degenerate. Surfaced as a Tier-3 proposal on PR #4602. This is the load-bearing reason BOTH yz advisories (1h MB-20260623-001 + 5m here) went degenerate the moment they were promoted."
+        },
+        {
+          "at": "2026-06-26T05:45:00+00:00",
+          "note": "RESOLVED (structural fix landed + deployed). PR #4602 merged 2026-06-26 \u2014 advisory_sizing.py::compute_advisory_factor now EXCLUDES regime heads from the advisory downsize quorum (option B, operator-approved Tier-3): a regime head at advisory was scored on the bare _feature_row_from_pkg row -> degenerate ~0.98 constant (the 'auc 0.40' that demoted both yz heads). With the exclusion that path can no longer fire for a regime head, so the degeneracy is STRUCTURALLY prevented (independent of vol_bucket edge calibration). Deployed live via ict-git-sync (trader restart ~05:27Z, git_sha f96749b8). Both heads remain demoted; RG3 replay-pregate confirmed all 17 shadow regime heads (incl both yz) SOUND (AUC 0.58-0.92). Re-promotion is now safe from the advisory-path angle; vol_bucket low-base-rate edge-redesign is an OPTIONAL future refinement, not a blocker."
         }
-      ]
+      ],
+      "resolved_at": "2026-06-26T05:45:00+00:00"
     }
   ],
-  "updated_at": "2026-06-25T06:47:00+00:00"
+  "updated_at": "2026-06-26T05:45:00+00:00"
 }

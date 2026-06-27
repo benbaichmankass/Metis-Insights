@@ -234,11 +234,39 @@ def _should_fetch_now(
     return (now - last) >= min_interval
 
 
-def _resolve_regime_predictors(registry_root: Any, log_path: Any) -> list:
-    """Resolve the cached list of shadow-stage predictors from the registry.
+def _discover_advisory_stage_model_ids(registry: Any) -> list:
+    """Return the ``advisory``-stage model_ids from the registry.
 
-    Returns the full shadow set (regime + non-regime); the caller filters to
-    regime heads. Never raises — any failure yields an empty list.
+    Parallel to ``discover_shadow_stage_model_ids`` (which keeps only
+    ``shadow``) — the advisory heads are NOT in that set, so the per-bar
+    scorer never saw them before Design A. Filtering on the canonical stage
+    (``ml.manifest.canonical_stage``) so a legacy alias still resolves. Never
+    raises — any failure yields an empty list.
+    """
+    from ml.manifest import canonical_stage
+
+    ids: list[str] = []
+    try:
+        for entry in registry.list():
+            try:
+                stage = canonical_stage(entry.target_deployment_stage)
+            except Exception:  # noqa: BLE001 — skip an unrecognized stage row
+                continue
+            if stage == "advisory":
+                ids.append(entry.model_id)
+    except Exception:  # noqa: BLE001 — degrade to no advisory heads
+        return []
+    return sorted(ids)
+
+
+def _resolve_regime_predictors(registry_root: Any, log_path: Any) -> list:
+    """Resolve the cached list of shadow- AND advisory-stage predictors.
+
+    Returns the full influence set (regime + non-regime, ``shadow`` +
+    ``advisory``); the caller filters to regime heads. The advisory heads are
+    included so Design A's per-bar publish path scores them too (the shadow-log
+    write is unchanged; advisory heads additionally publish ``P(volatile)`` for
+    ``ml_vol_verdict``). Never raises — any failure yields an empty list.
     """
     from pathlib import Path
 
@@ -249,7 +277,10 @@ def _resolve_regime_predictors(registry_root: Any, log_path: Any) -> list:
     )
 
     registry = ModelRegistry(Path(registry_root))
-    ids = discover_shadow_stage_model_ids(registry)
+    shadow_ids = discover_shadow_stage_model_ids(registry)
+    advisory_ids = _discover_advisory_stage_model_ids(registry)
+    # Union, de-duped + stable-ordered so the cache key is deterministic.
+    ids = sorted(set(shadow_ids) | set(advisory_ids))
     if not ids:
         return []
     cache_key = (str(registry_root), tuple(ids))
@@ -435,6 +466,12 @@ def emit_regime_bar_predictions(
                 # try/except isolation + ShadowPredictor type-check. The carrier
                 # ({}) is returned unchanged — there is no decision here.
                 with_shadow_preds({}, predictors=[predictor], feature_row=row)
+                # Design A: advisory regime heads ALSO publish their per-bar
+                # P(volatile) into the ml_vol_verdict cache so the decision path
+                # reads it without a fetch. Reuses the row already built above —
+                # no extra fetch, no extra feature build. Observe-only +
+                # fail-permissive: a publish failure never breaks the tick.
+                _maybe_publish_p_volatile(predictor, row, bar_ts)
                 cache[model_id] = bar_ts
                 written += 1
         if deferred:
@@ -447,6 +484,48 @@ def emit_regime_bar_predictions(
     except Exception:  # noqa: BLE001 — the per-bar path must never break a tick
         logger.warning("regime_bar: per-bar regime scoring failed", exc_info=False)
         return 0
+
+
+# Stage on which a head's per-bar P(volatile) is published for ml_vol_verdict
+# (Design A). Shadow-stage heads keep their existing shadow-log-only behaviour;
+# only advisory heads additionally publish into the verdict cache.
+_PUBLISH_STAGE = "advisory"
+
+# The 2-class regime label whose probability the vol verdict thresholds.
+_VOLATILE_CLASS = "volatile"
+
+
+def _maybe_publish_p_volatile(predictor: Any, row: Mapping[str, Any], bar_ts: Any) -> None:
+    """Publish an ADVISORY regime head's per-bar ``P(volatile)`` (Design A).
+
+    Reuses the already-built ``row`` — no extra fetch / feature build — to read
+    the ``volatile`` class probability off ``predictor.wrapped.predict_proba``
+    and publish it into ``ml_vol_verdict``'s in-process cache. A shadow-stage
+    head is skipped (it only writes the shadow log, as before). Observe-only +
+    fail-permissive: any failure (no ``predict_proba``, non-advisory stage,
+    import error) is swallowed — the per-bar tick must never break.
+    """
+    try:
+        stage = getattr(predictor, "stage", None)
+        if stage != _PUBLISH_STAGE:
+            return
+        wrapped = getattr(predictor, "wrapped", None) or predictor
+        proba_fn = getattr(wrapped, "predict_proba", None)
+        if proba_fn is None:
+            return
+        proba = proba_fn(row)
+        if not proba:
+            return
+        p_vol = proba.get(_VOLATILE_CLASS)
+        p_vol = float(p_vol) if p_vol is not None else None
+        model_id = getattr(predictor, "model_id", None)
+        if not model_id:
+            return
+        from src.runtime.regime.ml_vol_verdict import publish_p_volatile
+
+        publish_p_volatile(model_id, bar_ts, p_vol)
+    except Exception:  # noqa: BLE001 — observe-only publish, never break a tick
+        return
 
 
 def _live_fetch_fn(settings: Mapping[str, Any]) -> Callable[[str, str], Any]:

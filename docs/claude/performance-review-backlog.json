@@ -832,7 +832,84 @@
       "resolution_criteria": "Either a cross-sectional sleeve is built + validated and proposed (Tier-3), or the relative-value family is re-confirmed edge-less for this universe and the item is closed won't-build with the evidence.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "PB-20260626-001",
+      "opened_at": "2026-06-26T06:42:00+00:00",
+      "opened_by": "claude (P5 ORB-on-MES feasibility)",
+      "source": "backtest_orb.py (PR #4648) on trainer MES 5m v001 (86,897 bars, 2025-01-03->2026-05-22); diag relays #4663 (gate sweep) + #4664 (OR-width sensitivity).",
+      "title": "ORB-on-MES shelved: fails P5 gate at every (N, OR-width, stop) config \u2014 profit 2025-only, holdout negative",
+      "detail": "P5 ORB-on-MES does NOT clear PF>1.3 & daily-Sharpe>0.7 per k-fold @2x fees, holdout Sharpe>=0.5, >=2 positive fold-years \u2014 in ANY of: N in {1,3,6}; opposite-OR vs 0.5xATR stop; OR-width skip 1.5/2.5/3.0/5.0xATR; or walk-forward {1,3,6}. Identical failure everywhere: 2025 carries all profit, 2026 flat-to-negative, holdout daily-Sharpe -2.2..-2.9, fold 1 negative. Loosening the width filter 3-5x'd the sample (45->208 trades) without changing the verdict, ruling out sample-starvation. Decayed/regime-specific edge, not paper-promotable now. Full writeup: docs/research/P5-orb-mes-result-2026-06-26.md.",
+      "status": "open",
+      "category": "strategy-research",
+      "revisit_conditions": [
+        "Pull multi-year MES 5m history via scripts/ops/pull_mes_ibkr_history.sh (current data is only 16.5 months, 2025-2026) to test the memo's 2015-2025 ORB-on-index thesis.",
+        "Only re-test with a materially different exit structure \u2014 opposite-OR and 0.5xATR stops both produce the same 2025-only, holdout-negative shape.",
+        "Even with a positive multi-year aggregate, do NOT promote while the recent holdout is negative (strategy is not working in the current regime)."
+      ],
+      "harness": "scripts/backtest_orb.py (in tree; reusable for SPY/QQQ/IWM extensions per the deep-review memo)"
+    },
+    {
+      "id": "PB-20260626-002",
+      "opened_at": "2026-06-26T07:40:00+00:00",
+      "opened_by": "claude (P1 vol-target overlay result)",
+      "source": "scripts/portfolio_combine.py + backtest_vol_target.py (PR #4672) on a 9-sleeve BTC/ETH/MES book, 2818 trades 2021-06->2026-06; relays #4674 (emit) + #4675 (combine+overlay).",
+      "title": "[DOWNGRADED] P1 vol-target overlay \u2014 marginal on the LIVE book; do NOT graduate",
+      "detail": "CORRECTION: the graduate-to-shadow recommendation was based on a PROXY book (Sharpe 0.27, overlay +0.17-0.20). The live-param re-run (PB-005, relay #4686) shows the live book is healthy (Sharpe 1.33) and the overlay adds only +0.079 Sharpe weekly / ~0 monthly, RAISES vol, and does NOT cut drawdown. Not worth wiring a live-path sizing multiplier. At most an optional observe-only shadow soak. See docs/research/P1-vol-target-LIVE-PARAM-correction-2026-06-26.md.",
+      "status": "downgraded",
+      "category": "sizing-overlay",
+      "tier": 3,
+      "next_step": "Operator decision to build the shadow overlay; then design the book-vol estimator + multiplier wiring (observe-only) per the Prime-Directive soak pattern.",
+      "updated_at": "2026-06-26T14:10:00+00:00"
+    },
+    {
+      "id": "PB-20260626-003",
+      "opened_at": "2026-06-26T07:40:00+00:00",
+      "opened_by": "claude (P1 book composition observation)",
+      "source": "P1 portfolio_combine by_source breakdown (relay #4675): fvg_range_BTCUSDT_15m net_r=-40.9968 over 272 trades, the single worst sleeve in the 5-yr book.",
+      "title": "fvg_range_BTCUSDT_15m bleeds -41R over 5yr (272 trades) \u2014 sleeve-level review",
+      "detail": "In the P1 book backtest, fvg_range on BTC 15m was the only large net-negative sleeve (-41R; next worst pullback_MES -13R on 23 trades). Worth a dedicated review: is the live fvg_range_15m config the same as the harness default? Is it a net drag on the live book? Candidate for TUNE/DEMOTE_SHADOW if the live record corroborates. NOTE: backtest-default params, not necessarily live params \u2014 verify before acting.",
+      "status": "open",
+      "category": "strategy-performance",
+      "updated_at": "2026-06-26T14:25:00+00:00",
+      "live_check": "Live record (diag #4688, order-packages): fvg_range_15m has ~1 decision, conf 0.11, target_qty=0, never executed (orphaned 'never executed'). It is effectively DORMANT live \u2014 NOT bleeding money; the -41R is a backtest-params result. Same zero-qty sizing pattern as the alpaca ETF rejections (ties to the zero-qty investigation). Recommendation softened: LOW-PRIORITY tidy DEMOTE-to-shadow (formalize what sizing already does), not an urgent risk. Caveat: order-packages is decision-level recent history; lifetime via /api/bot/strategies not pulled."
+    },
+    {
+      "id": "PB-20260626-004",
+      "opened_at": "2026-06-26T08:32:00+00:00",
+      "opened_by": "claude (P7 cross-sectional momentum first pass)",
+      "source": "scripts/backtest_xsec_momentum.py (PR #4680) on a 6-coin daily universe (ETH/SOL/ADA/AVAX/BNB/LINK, 2020-2026); relays #4678 (universe) + #4679 (run).",
+      "title": "P7 xsec momentum: 6-coin first pass FAILS gate; universe expansion (10-15 coins) is a discretionary follow-up",
+      "detail": "Raw 6-coin xsec momentum ~dead (Sharpe 0.05, >1.0 maxDD). BTC-50d-SMA risk-off gate is value-additive (Sharpe 0.05->0.21, total +0.17->+0.61, 1->2 of 3 gate stages) and the P1 vol-target stacks (+0.05). But the full 4-stage gate FAILS (a k-fold net-negative @1x) and 6 coins is below the memo's 10-15 threshold (tercile = only 2L/2S). NOT promotable. Expansion case: overlays behave as theorized + holdout positive (0.57). Against: weak base, catastrophic DD, memo rates P7 high-risk. If expanded: fetch 10-15 liquid Bybit perps daily, re-run with --trend-book = the P1 BTC/ETH book for the corr<0.3 stage. Writeup: docs/research/P7-xsec-momentum-firstpass-2026-06-26.md.",
+      "status": "open",
+      "category": "strategy-research",
+      "tier": 3,
+      "decision_needed": "Operator: invest in the 10-15 coin Bybit daily fetch for a real P7 verdict, or shelve like P5?"
+    },
+    {
+      "id": "PB-20260626-005",
+      "opened_at": "2026-06-26T08:40:00+00:00",
+      "opened_by": "claude (T0.1 live-param audit)",
+      "source": "T0.1 divergence audit (docs/research/T0.1-live-param-divergence-2026-06-26.md) vs config/strategies.yaml.",
+      "title": "Re-run P1 vol-target on LIVE params (current book was a proxy)",
+      "detail": "P1's book used non-live params: trend at 2h w/o min_conf 0.6 (live=1h+0.6); included fade_breakout_4h (shadow, not live); BTC & MES pullback 2h cells that don't exist live; squeeze kc_mult default 1.5 (live=1.0). The vol-target OVERLAY conclusion holds (general property) but baseline magnitudes (Sharpe 0.27, fvg_range_BTC -41R) are not live-faithful. Re-run with: trend 1h+min_conf0.6 (BTC/ETH/SOL); per-symbol *_pullback_2h (eth/sol/xrp/ada/avax) tp_r50 trail5; squeeze 4h kc1.0; fvg_range 15m; the 1d futures/ETF trend+pullback cells. Then re-confirm the overlay delta before any shadow graduation.",
+      "status": "resolved",
+      "category": "strategy-research",
+      "resolved_at": "2026-06-26T14:10:00+00:00",
+      "resolution": "Live-param crypto-core re-run done (relay #4686). Live book Sharpe 1.33 (vs proxy 0.27); vol-target overlay benefit collapses to +0.079 Sharpe weekly / -0.01 monthly with NO drawdown improvement. Writeup: docs/research/P1-vol-target-LIVE-PARAM-correction-2026-06-26.md."
+    },
+    {
+      "id": "PB-20260626-006",
+      "opened_at": "2026-06-26T08:40:00+00:00",
+      "opened_by": "claude (T0.1 live-param audit)",
+      "source": "scripts/backtest_system.py::_STRATS registry vs config/strategies.yaml.",
+      "title": "backtest_system.py registry tf drift: trend_donchian hardcoded 2h, live=1h (audit full roster)",
+      "detail": "The multi-strategy harness registry hardcodes trend_donchian tf=2h but live runs it at 1h; the registry also predates the per-symbol multi-roster (eth/sol/xrp/ada/avax trend+pullback, the 1d futures/ETF cells, the *_1h ETF/FX cells). Audit _STRATS against the live roster and align tf/params so the harness reflects live. Tier-1.",
+      "status": "resolved",
+      "category": "tooling",
+      "resolved_at": "2026-06-26T08:50:00+00:00",
+      "resolution": "Fixed trend_donchian tf 2h->1h in scripts/backtest_system.py::ROSTER to track config/strategies.yaml; added a comment requiring tf to track live. The curated BTCUSDT subset's other entries (fade/squeeze 4h, fvg_range/turtle 15m, ict_scalp 5m) already match live."
     }
   ],
-  "updated_at": "2026-06-25T09:20:00+00:00"
+  "updated_at": "2026-06-26T14:25:00+00:00"
 }
