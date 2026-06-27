@@ -597,16 +597,13 @@ accounts:
   # place_spread) lives in src/units/accounts/options_overlay.py and is invoked
   # from execute_pkg only for accounts carrying this block.
   #
-  # Ships FULLY INERT (new-broker checklist §5) — merging this can never place an
-  # order on its own:
-  #   - creds unset: api_key_env / api_secret_env name a DEDICATED paper key pair
-  #     (ALPACA_API_KEY_ID_OPTIONS / ALPACA_API_SECRET_KEY_OPTIONS) that does not
-  #     exist yet → alpaca_client_for returns None → configured: False, refuses +
-  #     pings. A separate Alpaca PAPER account (distinct keys) keeps option spreads
-  #     isolated from the equity alpaca_paper account's positions/reconciler.
-  # Operator hand-off to activate: create a second Alpaca paper account, add its
-  # key pair to Actions secrets (ALPACA_API_KEY_ID_OPTIONS / *_SECRET_KEY_OPTIONS),
-  # run sync-vm-secrets. Then it paper-soaks debit verticals on GDX/SLV.
+  # ACTIVE on the SHARED paper login (operator decision 2026-06-27): it reuses the
+  # existing ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY pair (no dedicated keys, no
+  # second Alpaca account). Because the equity alpaca_paper account shares that
+  # login, account_open_positions filters Alpaca positions by asset_class per
+  # bot-account (clients.py::_alpaca_pos_in_scope) so the two never adopt each
+  # other's legs as phantom orphans. PAPER account (no real money); routing GDX/SLV
+  # here as options is the Slice-3b paper soak.
   #
   # max_loss_per_trade_usd is the REAL per-trade risk cap (paper accounts get
   # ~$100k of fake money, which would defeat the $150 test) — it mirrors the $150
@@ -616,8 +613,10 @@ accounts:
     exchange: alpaca
     account_class: paper               # PAPER money (Alpaca paper host).
     mode: live                         # paper host = paper money; executes.
-    api_key_env: ALPACA_API_KEY_ID_OPTIONS        # DEDICATED paper key pair (unset →
-    api_secret_env: ALPACA_API_SECRET_KEY_OPTIONS # inert) so options stay isolated.
+    # No api_key_env/api_secret_env → falls back to the SHARED paper pair
+    # (ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY, same login as alpaca_paper), so
+    # this account is ACTIVE without a second Alpaca account. asset_class filtering
+    # in account_open_positions keeps equity + option legs from colliding.
     options:                           # account-scoped options-expression capability
       express_as: debit_vertical       # the only supported structure (memo §0: $150 cash)
       max_loss_per_trade_usd: 60       # REAL per-trade risk cap (mirrors $150 account;

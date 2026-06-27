@@ -1089,6 +1089,26 @@ def account_order_status(
         return None
 
 
+def _alpaca_pos_in_scope(pos: Dict[str, Any], account: Dict[str, Any]) -> bool:
+    """True if *pos* belongs to this bot-account's asset class (shared-account isolation).
+
+    A shared Alpaca paper login can back BOTH an equity bot-account (alpaca_paper)
+    and an options-expression bot-account (alpaca_options_paper). Each must see only
+    its own positions or the reverse reconciler would adopt the other's legs as
+    phantom orphans. Options-expressing account → ``us_option`` only; any other
+    account → everything that is NOT ``us_option`` (so equity + unknown asset_class
+    pass, preserving legacy behaviour when no options are present). Pure; never
+    raises — an import/lookup failure defaults to the equity (non-options) view.
+    """
+    ac = str(pos.get("asset_class") or "").lower()
+    try:
+        from src.units.accounts.options_overlay import account_expresses_options
+        expresses_options = account_expresses_options(account) is not None
+    except Exception:  # noqa: BLE001 — never let this gate a position read
+        expresses_options = False
+    return ac == "us_option" if expresses_options else ac != "us_option"
+
+
 def account_open_positions(
     account: Dict[str, Any],
 ) -> Optional[list]:
@@ -1250,6 +1270,16 @@ def account_open_positions(
                 # rather than treating a failed read as a flat account and
                 # false-closing live rows (BL-20260622-ALPACA-SNAPSHOT-FALSECLOSE).
                 return None
+            # Shared-paper-account isolation (Slice-3b): a single Alpaca paper
+            # login can back BOTH the equity bot-account (alpaca_paper) and the
+            # options-expression bot-account (alpaca_options_paper). Keep only the
+            # positions belonging to THIS account's asset class so the reverse
+            # reconciler never adopts the other account's legs as phantom orphans.
+            # Filter BEFORE the empty-check so the balance-verified-empty guard +
+            # the monitor's fresh-fill grace protect each account-class view
+            # independently. No-op when no options legs are present (the common
+            # case): a non-options account keeps everything that isn't us_option.
+            raw_positions = [p for p in raw_positions if _alpaca_pos_in_scope(p, account)]
             if not raw_positions:
                 # EMPTY but successful read — the ambiguous case, exactly like
                 # the IB branch above. A just-placed bracket-MARKET order whose
