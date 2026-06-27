@@ -588,7 +588,7 @@ async def get_positions(
                 SELECT id, account_id, symbol, direction, position_size,
                        entry_price, created_at,
                        stop_loss, take_profit_1, strategy_name,
-                       COALESCE(is_demo, 0), account_class
+                       COALESCE(is_demo, 0), account_class, notes
                 FROM trades
                 WHERE status = 'open'
                   AND COALESCE(is_backtest, 0) = 0
@@ -617,6 +617,20 @@ async def get_positions(
             upnl, upnl_source = _local_unrealised_for_trade(
                 symbol=r[2], direction=r[3], entry_price=r[5], qty=r[4],
             )
+        # Options-expression rows carry a structure block in notes.options
+        # (legs / strikes / defined risk). Surface it as a nested ``options``
+        # object so the dashboard + Android can render the spread; null for a
+        # plain equity/futures/crypto row. Connection-free — decision-time
+        # geometry only (per-leg live greeks/PnL are a documented follow-up).
+        options_block = None
+        try:
+            notes_raw = r[12]
+            if notes_raw:
+                decoded = json.loads(notes_raw)
+                if isinstance(decoded, dict) and isinstance(decoded.get("options"), dict):
+                    options_block = decoded["options"]
+        except (json.JSONDecodeError, TypeError, ValueError):
+            options_block = None
         out.append({
             "id": str(r[0]),
             "account": r[1],
@@ -632,6 +646,7 @@ async def get_positions(
             "pattern": r[9] if r[9] else None,
             "isDemo": bool(r[10]),
             "accountClass": _account_class_wire(r[11], r[10]),
+            "options": options_block,
         })
     return out
 
