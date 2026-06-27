@@ -26,6 +26,10 @@ from pathlib import Path
 from typing import Any
 
 from ml.calibration.calibrators import Calibrator
+from ml.calibration.regime_alignment import (
+    load_regime_alignment,
+    predict_alignment,
+)
 
 # Stages whose models may influence the order path (mirror of the existing
 # advisory-stage set; the per-model ladder itself is unchanged).
@@ -83,6 +87,8 @@ def build_conviction_inputs(
     *,
     calibrators: dict[str, Calibrator] | None = None,
     influencing_only: bool = False,
+    direction: str | None = None,
+    regime_alignment: dict[str, dict[str, Calibrator]] | None = None,
 ) -> tuple[dict[str, float], dict[str, Any]]:
     """Return ``(inputs, provenance)`` for ``compute_conviction``.
 
@@ -90,9 +96,19 @@ def build_conviction_inputs(
     * ``provenance`` — per-slot contributing model_ids + stages (for the
       observe-only log; lets a later review see what fed the score).
 
+    ``c_reg`` flows **only** when a ``regime_alignment`` calibrator exists for
+    the regime head's ``model_id`` — it maps the head's logged score + the trade
+    ``direction`` to ``P(favorable | regime, direction)`` (see
+    ``ml.calibration.regime_alignment``). When NO such calibrator is present the
+    regime head falls through to ``_default_normalize`` which returns ``None`` →
+    ``c_reg`` is dropped, **byte-for-byte the pre-calibrator behaviour**
+    (conviction renormalizes over the remaining inputs). ``direction`` /
+    ``regime_alignment`` are optional so existing callers are unaffected.
+
     Never raises; on any per-input error that input is dropped.
     """
     cal = calibrators or {}
+    ra = regime_alignment or {}
     inputs: dict[str, float] = {}
     prov: dict[str, Any] = {}
 
@@ -121,6 +137,24 @@ def build_conviction_inputs(
             continue
         c = cal.get(model_id)
         score = rec.get("score")
+        # c_reg gets its OWN calibrator family: a regime-alignment calibrator
+        # maps (regime score, direction) -> P(favorable | regime, direction).
+        # Present → c_reg flows; absent → _default_normalize returns None and
+        # c_reg is dropped, exactly as before any regime calibrator shipped.
+        if slot == "c_reg":
+            model_cals = ra.get(model_id)
+            if model_cals:
+                aligned = predict_alignment(model_cals, score, direction)
+                if aligned is not None:
+                    acc.setdefault(slot, []).append(_clip01(aligned))
+                    acc_prov.setdefault(slot, []).append(
+                        {"model_id": model_id, "stage": stage,
+                         "calibrated": True, "kind": "regime_alignment",
+                         "direction": direction, "raw": score}
+                    )
+                    continue
+                # alignment calibrator present but yielded nothing (bad score) →
+                # fall through to the default path (which drops c_reg).
         if c is not None:
             try:
                 val: float | None = c.predict(float(score))
@@ -149,6 +183,9 @@ def build_conviction_inputs(
 _cal_lock = threading.Lock()
 _cal_cache: dict[str, Calibrator] | None = None
 _cal_mtime: float | None = None
+# Separate cache for the regime_alignment section of the SAME artifact.
+_ra_cache: dict[str, dict[str, Calibrator]] | None = None
+_ra_mtime: float | None = None
 
 
 def _mirrored_cal_path() -> str:
@@ -221,3 +258,30 @@ def load_calibrators_cached() -> dict[str, Calibrator]:
             _cal_cache = load_calibrators(path)
             _cal_mtime = mtime
         return _cal_cache
+
+
+def load_regime_alignment_cached() -> dict[str, dict[str, Calibrator]]:
+    """Process-cached load of the artifact's ``regime_alignment`` section.
+
+    Returns ``{model_id: {direction: Calibrator}}``, refreshed on artifact mtime
+    change. Fail-permissive: ``{}`` when the artifact is missing / the section is
+    absent — so ``c_reg`` simply stays dropped (byte-for-byte the pre-calibrator
+    behaviour). Same path-resolution + cache discipline as
+    ``load_calibrators_cached``; reads the same file (one artifact, two
+    sections).
+    """
+    global _ra_cache, _ra_mtime
+    path = _cal_path()
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        return {} if _ra_cache is None else _ra_cache
+    with _cal_lock:
+        if _ra_cache is None or mtime != _ra_mtime:
+            try:
+                raw = json.loads(Path(path).read_text())
+            except (OSError, ValueError):
+                raw = None
+            _ra_cache = load_regime_alignment(raw)
+            _ra_mtime = mtime
+        return _ra_cache

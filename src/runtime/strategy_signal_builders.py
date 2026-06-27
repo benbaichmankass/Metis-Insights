@@ -320,11 +320,15 @@ def _emit_shadow_preds(
             from src.runtime.conviction_inputs import (
                 build_conviction_inputs,
                 load_calibrators_cached,
+                load_regime_alignment_cached,
             )
 
             cal = load_calibrators_cached()
+            ra = load_regime_alignment_cached()
             conv_inputs, conv_prov = build_conviction_inputs(
-                strategy_name, base_row["confidence"], captured, calibrators=cal
+                strategy_name, base_row["confidence"], captured,
+                calibrators=cal, direction=base_row["direction"],
+                regime_alignment=ra,
             )
             conv = compute_conviction(conv_inputs)
             sig_meta2 = sig.get("meta")
