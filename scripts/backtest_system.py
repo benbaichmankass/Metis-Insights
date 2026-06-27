@@ -62,8 +62,17 @@ import numpy as np
 import pandas as pd
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+# Run-as-script puts the script's own dir (scripts/) at sys.path[0], and
+# scripts/ml/ is a REAL package (has __init__.py) that shadows the repo-root
+# ml/ package — so a lazy `import ml.registry...` resolves to scripts/ml and
+# fails with "No module named 'ml.registry'". A *guarded* insert is not enough:
+# when the caller sets PYTHONPATH=. (the trainer's invocation), repo_root is
+# already in sys.path but BEHIND scripts/, so the guard skips the insert and the
+# shadow stands. Fix unconditionally: drop the script dir and force repo root to
+# the front so `ml.*` / `src.*` always resolve to the repo packages.
+sys.path[:] = [p for p in sys.path if os.path.abspath(p) != _SCRIPT_DIR]
+sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime.intents import StrategyIntent, aggregate_intents  # noqa: E402
 
