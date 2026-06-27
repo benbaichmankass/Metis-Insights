@@ -88,10 +88,44 @@ for the drawdown benefit + the strong core cell — but NOT a slam-dunk like BTC
 live ETH cell set should likely be **conservative** (the robust core cell ±
 the largest-sample losers), not the full 9-cell in-sample set.
 
-## Honest caveats — what's still gated
+## Labeling-gap fix + the RG4 live verdict (DONE, trainer #4865/#4866)
 
-1. **net only 2/3 OOS** (above) — a conservative live ETH cell set is indicated,
-   not the full in-sample set.
+Root-caused the MES/ETH live-labeling gap: `scripts/ops/build_trainer_datasets.sh`
+rebuilt `market_raw`/`market_features` for **BTCUSDT only**, so the alt regime
+heads' realized-label datasets (built once, ETH 06-17) perpetually went stale →
+RG4's label join never covered the live shadow rows. **Fixed** (`build_bybit_pair`
++ ETH/SOL added to the daily loop, commit 7a051e5). Validated: refreshed the ETH
+dataset → ETH RG4 unlabeled **353/353 → 6**. Gap closed, durably.
+
+**But the fix revealed the decisive finding — the ETH head FAILS RG4 live:**
+
+| head | RG3 offline | RG4 live (post-fix) | verdict |
+|---|---:|---:|---|
+| eth-regime-1h-lgbm-v1 | 0.73 | **0.46** (111 labeled) | **NO_EDGE** |
+| eth-regime-1h-lgbm-xasset-v1 | 0.70 | **0.46** (347 labeled) | **NO_EDGE** |
+
+The ETH head discriminates the vol regime **offline / on clean harness candles**
+(RG3 0.70-0.73 → drove the backtest A/B), but its **actual live logged predictions
+do not** (RG4 ~0.46 ≈ random, on a non-trivial 347-row sample). That is
+train/serve skew — the exact failure RG4 exists to catch.
+
+**Consequence (honest revision):** the backtest A/B ($63 → $2336) is **optimistic
+for LIVE** — it scored the head on clean candles where it works; live, the head
+would feed the order path a ~random vol label, not the backtest's labels. **ETH
+multi-symbol A is NOT live-ready.** RG4 prevented a bad promotion.
+
+## Honest caveats / what's needed for ETH to go live
+
+1. **The ETH head must clear RG4 first.** It's NO_EDGE live (0.46) — needs
+   retraining / live-feature-parity investigation (why does it discriminate
+   offline but not on the logged live rows? — same skew class as the BTC `yz`
+   heads). Until a retrained ETH head passes RG4, no advisory promotion → no live
+   ETH cells, regardless of how good the backtest looks.
+2. **net only 2/3 OOS** (cell-selection WF above) — even with a good head, a live
+   ETH cell set should be conservative (core cell + biggest losers).
+3. The labeling-gap fix is the lasting win: ANY alt head can now be RG4-validated
+   each cycle — the gate works, and it's already separating the wheat (BTC head,
+   RG4 0.72) from the chaff (ETH head, RG4 0.46).
 2. **Live promotion blocked on the labeling gap.** Taking ETH live needs
    `eth-regime-1h-lgbm-v1` at **advisory**, which needs an RG4 live-row pass —
    currently UNSCOREABLE because every live ETH regime row is unlabeled
