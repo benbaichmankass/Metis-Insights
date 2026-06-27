@@ -50,13 +50,31 @@ def _good_attr():
 
 
 def test_shadow_ready_proposes_promote():
+    # The default `_entry` carries 2 per-class f1_* metrics, so it auto-detects
+    # as a regime head. Option A (2026-06-26): a regime head's required live
+    # gate is now `live_regime_discrimination` (RG4); supply a passing AUC so
+    # it is promote-ready.
     p = propose_for_model(
         _entry("shadow", runs=_runs([0.70, 0.71, 0.69])),
         attribution=_good_attr(), drift={"overall_verdict": "no_change"},
-        oos_edge=_good_oos_edge(),
+        oos_edge=_good_oos_edge(), live_regime_auc=0.72,
     )
     assert p.action == "promote"
     assert p.proposed_stage == "advisory"
+
+
+def test_shadow_regime_holds_without_live_regime_auc():
+    # The regime profile now requires the RG4 live regime-discrimination AUC.
+    # The stage-guard SWEEP passes None for it (per-model candle resolution is
+    # a separate follow-up), so an otherwise-healthy regime head holds on the
+    # new gate rather than promoting on the (off) trade-outcome live_agreement.
+    p = propose_for_model(
+        _entry("shadow", runs=_runs([0.70, 0.71, 0.69])),
+        attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+        oos_edge=_good_oos_edge(), live_regime_auc=None,
+    )
+    assert p.action == "hold"
+    assert any("live_regime_discrimination" in r for r in p.reasons)
 
 
 def test_shadow_without_oos_edge_holds():

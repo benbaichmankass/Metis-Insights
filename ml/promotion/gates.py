@@ -74,6 +74,24 @@ class GateThresholds:
     # brier; `oos_edge` carries the beats-baseline role. (S-MLOPT regime
     # gate profile, 2026-06-07.)
     require_beats_baseline: bool = True
+    # Live regime-discrimination gate (RG4, 2026-06-26 — regime profile only).
+    # For a regime CLASSIFIER head the right LIVE track-record signal is not
+    # rank-AUC(score vs trade WIN) — a vol-regime head predicts the *regime*,
+    # not trade win/loss, and on thin real-money flow the trade-outcome AUC is
+    # both wrong and un-satisfiable. The RG4 Stage-2 replay re-scores the head
+    # on the EXACT logged-live feature rows and computes AUC vs the realized
+    # *regime* label (`scripts/ml/replay_pregate_live.py`). The regime profile
+    # makes this the required live gate and turns `live_agreement`
+    # (trade-outcome) off; the default decision-model profile leaves this not
+    # required and keeps `live_agreement` required.
+    min_live_regime_auc: float = 0.55
+    require_live_regime_discrimination: bool = False
+    # Whether the live trade-outcome `live_agreement` gate is *required*.
+    # Default True for a trade-outcome decision model. The regime profile turns
+    # this off (a regime head is judged on live REGIME discrimination, not
+    # trade win/loss), mirroring how `require_beats_baseline` opts the live
+    # brier gate out for a classifier.
+    require_live_agreement: bool = True
 
 
 # Regime-classifier promotion profile (2026-06-07, Tier-3 — operator-gated).
@@ -83,10 +101,13 @@ class GateThresholds:
 # far too slowly to ever clear the 200-trade `min_trades` bar that's right
 # for a trade-outcome decision model. The regime profile keeps every quality
 # + safety gate (`oos_edge`, `non_degenerate`, `cross_run_stability`,
-# `shadow_soak` 7d, `live_agreement`, `drift_clean`) and only (a) lowers the
-# live sample floor to a small sanity count and (b) drops the degenerate live
-# `beats_baseline` requirement. It NEVER loosens `oos_edge`, `shadow_soak`,
-# `live_agreement`, or `drift_clean`.
+# `shadow_soak` 7d, `drift_clean`) and (a) lowers the live sample floor to a
+# small sanity count, (b) drops the degenerate live `beats_baseline`
+# requirement, and (c) swaps the live track-record gate: it requires
+# `live_regime_discrimination` (RG4 live-row AUC vs the realized regime label)
+# and turns `live_agreement` (rank-AUC vs trade WIN) OFF — a vol-regime head
+# predicts the regime, not trade win/loss (2026-06-26, option A). It NEVER
+# loosens `oos_edge`, `shadow_soak`, or `drift_clean`.
 REGIME_MIN_LIVE_TRADES: int = 5
 
 
@@ -96,6 +117,8 @@ def regime_classifier_thresholds(base: GateThresholds | None = None) -> GateThre
         base or GateThresholds(),
         min_trades=REGIME_MIN_LIVE_TRADES,
         require_beats_baseline=False,
+        require_live_agreement=False,
+        require_live_regime_discrimination=True,
     )
 
 
@@ -456,7 +479,11 @@ def _gate_live_agreement(attribution: Any, th: GateThresholds) -> GateResult:
     if attribution is None or attribution.auc is None:
         return GateResult(
             "live_agreement", "insufficient_data",
-            "need at least one live winning and one losing scored trade for AUC",
+            "need at least one live winning and one losing scored trade for AUC"
+            + ("" if th.require_live_agreement
+               else " — not required for a regime classifier "
+                    "(live_regime_discrimination carries the live track record)"),
+            required=th.require_live_agreement,
         )
     ok = attribution.auc >= th.min_auc
     return GateResult(
@@ -464,6 +491,38 @@ def _gate_live_agreement(attribution: Any, th: GateThresholds) -> GateResult:
         "pass" if ok else "fail",
         f"rank-AUC(score vs realized win) = {attribution.auc:.3f}",
         value=attribution.auc, threshold=th.min_auc,
+        required=th.require_live_agreement,
+    )
+
+
+def _gate_live_regime_discrimination(
+    live_regime_auc: float | None, th: GateThresholds,
+) -> GateResult:
+    """Live REGIME-discrimination gate (RG4) — the regime-head live signal.
+
+    ``live_regime_auc`` is the AUC of the head's logged-live scores vs the
+    realized forward-vol *regime* label, computed by re-scoring the EXACT
+    feature rows the live runtime logged (``scripts/ml/replay_pregate_live``)
+    against the candle-derived realized regime. This is the regime-appropriate
+    replacement for ``live_agreement`` (which measures rank-AUC vs trade WIN —
+    wrong for a head that predicts the regime, not trade outcome). Required
+    only under the regime-classifier profile; ``None`` when no RG4 AUC was
+    computed (treated as not-ready, never silently skipped)."""
+    if live_regime_auc is None:
+        return GateResult(
+            "live_regime_discrimination", "insufficient_data",
+            "no RG4 live-row regime AUC computed (gate-check needs "
+            "--shadow-log + a candle source for the realized-regime join)",
+            threshold=th.min_live_regime_auc,
+            required=th.require_live_regime_discrimination,
+        )
+    ok = live_regime_auc >= th.min_live_regime_auc
+    return GateResult(
+        "live_regime_discrimination",
+        "pass" if ok else "fail",
+        f"RG4 live regime-discrimination AUC = {live_regime_auc:.3f}",
+        value=live_regime_auc, threshold=th.min_live_regime_auc,
+        required=th.require_live_regime_discrimination,
     )
 
 
@@ -504,6 +563,7 @@ def evaluate_gates(
     attribution: Any = None,
     drift: Any = None,
     oos_edge: Any = None,
+    live_regime_auc: float | None = None,
     thresholds: GateThresholds | None = None,
 ) -> GateReport:
     """Evaluate the shadow→advisory promotion gates for one model.
@@ -514,6 +574,9 @@ def evaluate_gates(
     ``shadow-drift`` CLI emits (or ``None``).
     ``oos_edge`` is an ``ml.promotion.oos_edge.OOSEdgeResult`` (or ``None``)
     — the offline candidate-vs-baseline edge measured on purged WF-CV.
+    ``live_regime_auc`` is the RG4 live-row regime-discrimination AUC (or
+    ``None``) — required only under the regime-classifier profile, where it
+    replaces the trade-outcome ``live_agreement`` gate.
 
     Every gate is ``required``, so ``report.ready`` is ``True`` only when
     all of them — including the offline OOS-edge and the live-attribution
@@ -530,6 +593,7 @@ def evaluate_gates(
         _gate_cross_run_stability(entry, th),
         _gate_shadow_soak(entry, th),
         _gate_live_agreement(attribution, th),
+        _gate_live_regime_discrimination(live_regime_auc, th),
         _gate_drift_clean(drift, th),
     )
     return GateReport(
