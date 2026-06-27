@@ -337,20 +337,44 @@ def _frozen_vol_regime_for_window(
 
 
 class _MlVolResolver:
-    """Resolve + score the advisory-stage regime head's ``P(volatile)`` for the
+    """Resolve + score a regime head's ``P(volatile)`` for the
     ``--vol-verdict=ml`` path (Design A).
+
+    ``stage`` selects the registry stage the head is resolved from:
+
+      * ``advisory`` (default) — the LIVE verdict source per Design A. This is
+        what the live ``ml_vol_verdict`` path uses, so the offline replay matches
+        production exactly.
+      * ``shadow`` — replay a SHADOW-stage regime head **before** its
+        ``shadow → advisory`` promotion. This is the "option-2" evidence lever:
+        it lets A's vol-gating A/B be measured without first doing the live
+        promotion (which is the Tier-3 operator gate). Observe-only — the
+        harness never mutates the registry; it only *reads* a shadow head's
+        ``predict_proba`` to stamp the would-be ``vol_regime``.
+
+    ``model_id`` pins one exact head (overrides stage discovery) so an evidence
+    run scores a specific candidate (e.g. ``btc-regime-15m-lgbm-v2``) with no
+    ambiguity. ``prefer_timeframe`` is a soft hint (the harness clock_tf) so that
+    when several heads match the stage, one whose id carries that timeframe is
+    chosen — keeping a 15m clock on the 15m head.
 
     Offline (no registry / no datasets) this resolves NO head and every call
     returns ``unknown`` — the caller then falls back to the frozen label and
     counts the fallback. On the live trainer VM the same code path scores real
-    advisory heads. Entirely best-effort: any import / resolution / scoring
-    failure marks the resolver unavailable and degrades to frozen fallback.
+    heads. Entirely best-effort: any import / resolution / scoring failure marks
+    the resolver unavailable and degrades to frozen fallback.
     """
 
-    def __init__(self, *, threshold: float = 0.5) -> None:
+    def __init__(self, *, threshold: float = 0.5, stage: str = "advisory",
+                 model_id: Optional[str] = None,
+                 prefer_timeframe: Optional[str] = None) -> None:
         self.threshold = float(threshold)
+        self.stage = str(stage or "advisory")
+        self.pin_model_id = str(model_id) if model_id else None
+        self.prefer_timeframe = str(prefer_timeframe) if prefer_timeframe else None
         self.available = False
         self.reason = "unresolved"
+        self.model_id: Optional[str] = None
         self._predictor = None
         self._spec = None
         self._labels: tuple[str, ...] = ()
@@ -365,34 +389,42 @@ class _MlVolResolver:
             from src.runtime.regime_shadow import regime_spec_of
 
             registry = ModelRegistry(_Path(DEFAULT_REGISTRY_ROOT))
-            # Advisory-stage regime heads only (the verdict source per Design A);
-            # prefer non-yz (yz heads saturate live — same skip vol_detector does).
-            adv_ids = [
-                e.model_id for e in registry.list()
-                if getattr(e, "target_deployment_stage", None) == "advisory"
-            ]
-            if not adv_ids:
-                self.reason = "no_advisory_head"
+            # Candidate ids: an explicit pin wins; otherwise every head at the
+            # requested registry stage. Prefer non-yz (yz heads saturate live —
+            # the same skip vol_detector does) and, softly, the clock timeframe.
+            if self.pin_model_id:
+                cand_ids = [self.pin_model_id]
+            else:
+                cand_ids = sorted(
+                    e.model_id for e in registry.list()
+                    if getattr(e, "target_deployment_stage", None) == self.stage
+                )
+            if not cand_ids:
+                self.reason = f"no_{self.stage}_head"
                 return
-            predictors = resolve_predictors(sorted(adv_ids), registry)
-            chosen = None
+            predictors = resolve_predictors(cand_ids, registry)
+            chosen = None  # (score_tuple, predictor, spec, labels, model_id)
             for predictor in predictors:
                 spec = regime_spec_of(predictor)
                 if spec is None:
                     continue
-                vol_col = str(spec.get("vol_feature_column") or "rolling_log_return_vol")
                 labels = tuple(str(c) for c in (spec.get("class_labels") or []))
                 if "volatile" not in labels:
                     continue
-                if vol_col != "rolling_log_return_vol" and chosen is not None:
-                    continue  # prefer a non-yz head when one is available
-                chosen = (predictor, spec, labels)
-                if vol_col == "rolling_log_return_vol":
-                    break
+                vol_col = str(spec.get("vol_feature_column") or "rolling_log_return_vol")
+                mid = str(getattr(predictor, "model_id", "") or "")
+                non_yz = 1 if vol_col == "rolling_log_return_vol" else 0
+                tf_ok = 1 if (self.prefer_timeframe is None
+                              or self.prefer_timeframe in mid) else 0
+                score = (non_yz, tf_ok)
+                if chosen is None or score > chosen[0]:
+                    chosen = (score, predictor, spec, labels, mid)
+                if score == (1, 1):
+                    break  # best possible — non-yz and timeframe match
             if chosen is None:
                 self.reason = "no_regime_spec"
                 return
-            self._predictor, self._spec, self._labels = chosen
+            _, self._predictor, self._spec, self._labels, self.model_id = chosen
             self.available = True
             self.reason = "ok"
         except Exception as exc:  # noqa: BLE001 — degrade to frozen fallback
@@ -469,6 +501,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                         attach_full: bool = False,
                         vol_verdict: str = "frozen",
                         ml_vol_threshold: float = 0.5,
+                        ml_stage: str = "advisory",
+                        ml_model_id: Optional[str] = None,
                         regime_router: str = "off",
                         regime_policy_path: Optional[str] = None,
                         conviction_sizing: bool = False) -> Dict[str, Any]:
@@ -588,7 +622,9 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
     # Evidence-layer setup (Designs A/B). All best-effort: a missing dep / no
     # advisory head degrades to ``unknown``/frozen with a counted fallback.
     ml_resolver = (
-        _MlVolResolver(threshold=ml_vol_threshold) if vol_verdict == "ml" else None
+        _MlVolResolver(threshold=ml_vol_threshold, stage=ml_stage,
+                       model_id=ml_model_id, prefer_timeframe=clock_tf)
+        if vol_verdict == "ml" else None
     )
     ev_counts = {
         "intents_stamped": 0,            # intents that received a vol_regime
@@ -863,6 +899,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
     summary["evidence"] = {
         "vol_verdict": vol_verdict,
         "ml_vol_threshold": ml_vol_threshold if vol_verdict == "ml" else None,
+        "ml_vol_stage": ml_stage if vol_verdict == "ml" else None,
+        "ml_vol_model_id": (ml_resolver.model_id if ml_resolver is not None else None),
         "ml_vol_available": (ml_resolver.available if ml_resolver is not None else None),
         "ml_vol_reason": ev_counts["ml_vol_reason"],
         "ml_vol_scored_bars": ev_counts["ml_vol_scored"],
@@ -980,7 +1018,9 @@ def _fmt(s: Dict[str, Any]) -> str:
         )
         if ev.get("vol_verdict") == "ml":
             L.append(
-                f"    ml-vol: available={ev.get('ml_vol_available')} "
+                f"    ml-vol: stage={ev.get('ml_vol_stage')} "
+                f"head={ev.get('ml_vol_model_id')} "
+                f"available={ev.get('ml_vol_available')} "
                 f"reason={ev.get('ml_vol_reason')} "
                 f"scored={ev.get('ml_vol_scored_bars')} "
                 f"fell_back_to_frozen={ev.get('ml_vol_fallback_bars')}"
@@ -988,7 +1028,8 @@ def _fmt(s: Dict[str, Any]) -> str:
             if not ev.get("ml_vol_available"):
                 L.append(
                     "    ml-vol UNAVAILABLE — fell back to frozen on all bars "
-                    "(no advisory head offline; the live trainer run scores real heads)."
+                    f"(no {ev.get('ml_vol_stage')}-stage head resolvable here; the "
+                    "live trainer run scores real heads)."
                 )
         if ev.get("regime_policy_path"):
             L.append(f"    regime_policy={ev.get('regime_policy_path')}")
@@ -1041,6 +1082,19 @@ def main(argv: List[str]) -> int:
                         "the live trainer run.")
     p.add_argument("--ml-vol-threshold", type=float, default=0.5,
                    help="P(volatile) cut for --vol-verdict=ml (default 0.5).")
+    p.add_argument("--ml-stage", dest="ml_stage", default="advisory",
+                   choices=["advisory", "shadow"],
+                   help="Registry stage the --vol-verdict=ml head is resolved "
+                        "from (default advisory — the live verdict source, so the "
+                        "replay matches production). 'shadow' replays a "
+                        "SHADOW-stage regime head BEFORE its shadow→advisory "
+                        "promotion, so A's vol-gating evidence can be gathered "
+                        "without the Tier-3 live promotion. Observe-only — never "
+                        "mutates the registry stage.")
+    p.add_argument("--ml-model-id", dest="ml_model_id", default=None, metavar="ID",
+                   help="Pin the exact regime head id for --vol-verdict=ml "
+                        "(overrides --ml-stage discovery). Score one specific "
+                        "candidate unambiguously, e.g. btc-regime-15m-lgbm-v2.")
     p.add_argument("--regime-router", default="off", choices=["on", "off"],
                    help="Exercise the REAL hard regime gate (_hard_regime_gate) "
                         "in-process (default off → shadow-gate only, no trade change).")
@@ -1085,6 +1139,7 @@ def main(argv: List[str]) -> int:
         overrides=overrides, refresh=args.refresh_signals, clock_tf=args.clock_tf,
         flip_policy=args.flip_policy, reentry_policy=args.reentry_policy,
         vol_verdict=args.vol_verdict, ml_vol_threshold=args.ml_vol_threshold,
+        ml_stage=args.ml_stage, ml_model_id=args.ml_model_id,
         regime_router=args.regime_router, regime_policy_path=args.regime_policy,
         conviction_sizing=args.conviction_sizing)
     print(_fmt(out))

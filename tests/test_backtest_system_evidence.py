@@ -203,6 +203,37 @@ def test_ml_vol_verdict_graceful_fallback(monkeypatch):
     assert ev["ml_vol_available"] is False
     assert ev["ml_vol_reason"] is not None
     assert ev["ml_vol_scored_bars"] == 0
+    # Default stage is advisory (the live verdict source).
+    assert ev["ml_vol_stage"] == "advisory"
+
+
+def test_ml_stage_shadow_threads_to_evidence(monkeypatch):
+    """--ml-stage shadow resolves from the shadow registry stage (option-2
+    evidence lever). Offline no head resolves, but the chosen stage must be
+    reported so the run is self-describing, and the fallback reason names it."""
+    base = _inject_stream(monkeypatch)
+    out = _run(base, vol_verdict="ml", ml_stage="shadow")
+    ev = out["evidence"]
+    assert ev["vol_verdict"] == "ml"
+    assert ev["ml_vol_stage"] == "shadow"
+    # Offline: degrades to frozen, never crashes; the reason is stage-scoped.
+    assert ev["ml_vol_available"] is False
+    assert ev["ml_vol_scored_bars"] == 0
+    # The footer surfaces the stage + (None offline) head id without throwing.
+    text = bs._fmt(out)
+    assert "stage=shadow" in text
+
+
+def test_ml_model_id_pin_overrides_stage_discovery(monkeypatch):
+    """--ml-model-id pins one exact head. Offline it still can't resolve, but
+    the resolver must attempt only the pinned id (no crash) and the run stays
+    self-describing."""
+    base = _inject_stream(monkeypatch)
+    out = _run(base, vol_verdict="ml", ml_stage="shadow",
+               ml_model_id="btc-regime-15m-lgbm-v2")
+    ev = out["evidence"]
+    assert ev["ml_vol_available"] is False  # offline, no registry
+    assert ev["ml_vol_stage"] == "shadow"
 
 
 # ---------------------------------------------------------------------------

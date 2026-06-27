@@ -110,13 +110,25 @@ ML label to `would_gate`; per-bar cache reuse (fetch count 0 on the decision pat
 Backtest (prereq harness work — Tier-1 research tooling, `scripts/backtest_system.py`):
 the harness today builds intents with **no `regime`/`vol_regime`**, so it can't
 measure any gating. Add: stamp `regime` (ADX-14) + `vol_regime` on harness intents,
-`--vol-verdict={frozen,ml}` (replay the advisory head's `predict_proba` thresholded),
+`--vol-verdict={frozen,ml}` (replay the resolved head's `predict_proba` thresholded),
 `--regime-router on|off`, and a backtest-local `trend_vol` OFF-cell set via a
 `REGIME_POLICY_PATH` override (never the live YAML). Run the roster three ways —
 ungated / frozen-vol-gated / ML-vol-gated — and compare net PnL, **maxDD%**, win
 rate, per-(strategy,regime) fills. **Gate to enable Phase 2/3 live: ML-gated book ≥
 frozen-gated book on net AND not worse on maxDD%** (mirrors the FLIP_POLICY
 walk-forward acceptance). Cross-check vs the live Phase-1 agreement log.
+
+**Evidence BEFORE promotion (`--ml-stage`, the option-2 lever — BUILT 2026-06-27):**
+`--vol-verdict=ml` resolves an **advisory**-stage head by default (matching the live
+verdict source), so with no regime head yet at advisory it degrades to frozen and the
+ML arm == the frozen arm — the A/B can't be measured. `--ml-stage=shadow` (+ optional
+`--ml-model-id <id>` to pin one candidate, e.g. `btc-regime-15m-lgbm-v2`) replays a
+**shadow**-stage head's `predict_proba` so A's vol-gating evidence can be gathered on
+the trainer **without** first doing the Tier-3 shadow→advisory promotion. Observe-only
+— it never mutates the registry stage; the run's `evidence.ml_vol_stage` /
+`ml_vol_model_id` make the resolved head explicit. The promotion remains the act that
+gives the head **live** influence; this lever only lets the *backtest evidence* precede
+(or run independently of) it.
 
 ## Files (tiers)
 New (Tier-1): `src/runtime/regime/ml_vol_verdict.py`, `tests/runtime/test_ml_vol_verdict.py`.
