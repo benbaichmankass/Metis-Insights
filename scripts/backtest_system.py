@@ -386,6 +386,7 @@ class _MlVolResolver:
         self.model_id: Optional[str] = None
         self.skips: dict[str, int] = {}  # per-window None-reason tallies (diag)
         self._predictor = None
+        self._base = None  # the wrapped base predictor (has predict_proba)
         self._spec = None
         self._labels: tuple[str, ...] = ()
         self._resolve()
@@ -448,6 +449,10 @@ class _MlVolResolver:
                 self.reason = "no_regime_spec"
                 return
             _, self._predictor, self._spec, self._labels, self.model_id = chosen
+            # resolve_predictors returns a ShadowPredictor wrapper whose public
+            # interface is .predict (a scalar); predict_proba lives on the
+            # wrapped base (LightGBMMulticlassPredictor). Score off the base.
+            self._base = getattr(self._predictor, "wrapped", None) or self._predictor
             self.available = True
             self.reason = "ok"
         except Exception as exc:  # noqa: BLE001 — degrade to frozen fallback
@@ -491,7 +496,7 @@ class _MlVolResolver:
                 if _nrm(spec.get("timeframe")) != _nrm(timeframe):
                     return self._skip("timeframe_mismatch")
                 return self._skip("row_none_bucket_or_ohlc")
-            proba = self._predictor.predict_proba(row)
+            proba = self._base.predict_proba(row)
             p_vol = float(proba.get("volatile", 0.0))
             return "volatile" if p_vol >= self.threshold else "calm"
         except Exception as exc:  # noqa: BLE001
