@@ -271,6 +271,13 @@ build_bybit_pair BTCUSDT 15m
 # follow-up) so its dataset is warm when a SOL regime head lands. Non-fatal: a
 # per-pair failure is logged + counted like any other family, never aborts.
 build_bybit_pair ETHUSDT 1h
+# ETH 5m + 15m (MB-20260627-003): the 1h ETH regime heads fail RG4 live
+# (NO_EDGE — near-constant volatile output), the same weak spot as the BTC 1h
+# head, while the BTC 5m/15m heads pass RG4 cleanly. eth-regime-{5m,15m}-lgbm-v1
+# port the proven BTC 5m/15m recipe; their label datasets must be refreshed
+# daily so RG4 can score their live shadow rows once they soak.
+build_bybit_pair ETHUSDT 5m
+build_bybit_pair ETHUSDT 15m
 build_bybit_pair SOLUSDT 1h
 
 # ---- MES market_features (yfinance ES=F 5m base, resampled to 15m) -------
