@@ -31,11 +31,10 @@
 ### ⏭ Slice 1 — Phase-0 verification (no code; run the probe)
 Run `probe_alpaca_options.py` on the live VM via the ops relay. **Gate:** L3 confirmed active; record whether the free feed returns greeks/IV (if not: compute IV locally from quotes, or budget the $99/mo OPRA plan for Phase-3). Capture a real XLF chain snapshot as the fixture for Slice 2 tests.
 
-### ⏭ Slice 2 — Multi-leg execution in `AlpacaClient` (Tier-2, order-path — needs operator OK before merge)
-- `place_option_spread(legs, *, limit_price, qty, tif="day")` → `POST /v2/orders` with `order_class="mleg"`, per-leg `position_intent`.
-- `option_positions()` (read), `close_option_position(...)` (submit the closing mleg).
-- A single long option is the degenerate 1-leg case used for the first smoke test (smallest plumbing slice).
-- Tests against the Slice-1 fixture (request-shape assertions; no live calls in CI).
+### ✅ Slice 2 — Options ORDER execution (built dormant; WIRING is Tier-2/operator-gated)
+- `src/units/accounts/alpaca_options_exec.py` — **its own module** (the live equity bracket path in `AlpacaClient` is untouched): `place_spread()` (atomic 2-4 leg `order_class="mleg"`), `place_single_option()` (the degenerate long-option smoke case — mleg needs ≥2 legs), `option_positions()`, `close_position()`.
+- Pure builders `build_mleg_body` / `build_single_option_body` with full validation; tested (`tests/test_alpaca_options_exec.py` — request shapes + guards). No live calls in CI.
+- **Dormant**: nothing imports it. Merging the dormant module is inert; *wiring it into a strategy/account order path* is the Tier-2/3 operator-gated step (Slice 3).
 
 ### ⏭ Slice 3 — Strike/expiry selection + a paper options strategy (Tier-2/3)
 - A small selector: given underlying + direction + target DTE window + width, pick the debit-vertical legs from the chain (IV-rank gate on entry).
