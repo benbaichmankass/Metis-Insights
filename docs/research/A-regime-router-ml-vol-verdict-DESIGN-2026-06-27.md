@@ -130,6 +130,16 @@ the trainer **without** first doing the Tier-3 shadow→advisory promotion. Obse
 gives the head **live** influence; this lever only lets the *backtest evidence* precede
 (or run independently of) it.
 
+**A/B RESULT (2026-06-27, `A-vol-gating-AB-evidence-2026-06-27.md`): POSITIVE.** The
+4-arm run (ungated / 1-D-only / frozen-vol / ML-vol) over full BTC history: ML-vol-gated
+**net $424 / maxDD 8.07% / ret-DD 0.47** vs frozen-vol-gated **$59 / 10.1% / 0.05** vs
+ungated **$353 / 8.24% / 0.39** — the SAME OFF-cells driven by the ML head's vol label
+beat the frozen-edge label decisively AND beat no-gating, while the frozen label *hurt*.
+The gate criterion (ML ≥ frozen on net AND not worse on maxDD) is strongly met.
+**Still required before any live flip (Tier-3):** a purged walk-forward + multi-symbol
+re-run (the FLIP_POLICY live bar), then author live `trend_vol` OFF-cells, then flip the
+flags — gated on the live Phase-1 agreement log (now accruing).
+
 **VALIDATED on the trainer (2026-06-27, trainer-vm-diag #4765):** a real BTC run with
 `--ml-stage shadow --ml-model-id btc-regime-15m-lgbm-v2` reports
 `ml_vol_available=true, reason=ok, scored_bars=10, fallback_bars=0` — every intent's
