@@ -114,3 +114,45 @@
 - [x] Roadmap status was checked (update pending in the docs PR).
 - [x] Contradictions were recorded (none new).
 - [x] Remaining unknowns were stated clearly.
+
+---
+
+## Continuation (same day, 2026-06-27) — A→live shadow-soak, caveat closed, multi-symbol A, labeling-gap fix
+
+**A go-live (Phase-2 shadow-soak), operator-approved stage-and-soak-first:**
+- Confirmation A/B (full BTC history): evidence cells + ML label **$353→$1526** (4.3×),
+  maxDD trimmed; same cells + frozen label **−$32** (ML verdict is load-bearing).
+- Fixed-cell walk-forward (4 BTC year-folds): **4/4** (ev-ml ≥ ungated net AND lower maxDD).
+- Cell-**selection** walk-forward (re-derive cells per in-sample window, apply OOS): **3/3**
+  net + maxDD → the in-sample-selection caveat is **CLOSED**. Docs:
+  `A-vol-gating-OFFcell-design-2026-06-27.md` + the evidence/cell-selection scripts.
+- Authored the live `config/regime_policy.yaml::trend_vol` OFF-cells, staged **inert** in
+  draft PR #4834 (guard test updated; CI green). Enforce flip NOT done.
+- **`set-env REGIME_ML_VERDICT_MODE=shadow`** on the live VM (system-action #4835); trader
+  healthy post-restart (diag #4836). Live `regime_ml_vol_shadow` agreement log accruing,
+  ZERO order impact. Enforce read scheduled ~07-04 (first look ~06-30) — `MB-20260627-001`.
+
+**Multi-symbol A (#1):**
+- Generalized `scripts/backtest_system.py` + `scripts/ml/walkforward_cell_selection.py` to
+  `--symbol` (BTC byte-identical, 9 evidence tests pass) + ETH/SOL roster entries.
+- ETH vol-split + A/B: ungated $63 / maxDD $1691 → **ev-ml-gated $2336 / $1270** (in-sample),
+  same dominant loser as BTC (`trend_donchian_eth|trending|volatile|long` −$968). Cell-
+  selection WF: **maxDD 3/3, net 2/3** (honest mixed). `A-multisymbol-ETH-2026-06-27.md`.
+- **RG4 live gate caught train/serve skew:** once the labeling gap was fixed, the ETH heads
+  scored **NO_EDGE live (0.46)** vs 0.70-0.73 offline → **ETH NOT live-ready** (RG4 prevented
+  a bad promotion). MES 5m (RG4 0.765) is the one already-promotable alt.
+
+**Labeling-gap root-cause + fix (the durable win):**
+- `build_trainer_datasets.sh` rebuilt `market_raw`/`market_features` for BTCUSDT only → alt
+  heads' label datasets perpetually stale → RG4 unscoreable. Confirmed coverage (BTC 06-26,
+  ETH 06-17, MES 06-12) via `scripts/ml/_labeling_gap_probe.py`.
+- **FIX (commit `7a051e5`):** `build_btcusdt_pair` → `build_bybit_pair(symbol,tf)` + ETH/SOL
+  added to the daily loop. Validated: ETH dataset refresh → RG4 unlabeled **353→6**. Any alt
+  head is now RG4-validatable each cycle. Backlog `MB-20260627-002/003`.
+
+**New tooling this continuation:** `scripts/ml/{rg4_targeted.sh,_rg4_print.py,
+walkforward_evidence_cells.sh,walkforward_cell_selection.py (--symbol),_labeling_gap_probe.py}`.
+
+**Revised next sprint:** retrain the ETH regime head to clear RG4 live (investigate the
+offline-good/live-bad skew) before any alt promotion; A enforce decision on the BTC soak
+(~07-04). SOL head training is the follow-on.
