@@ -104,8 +104,8 @@ def test_compose_selector_into_sizer():
 def test_to_option_legs_composes_with_executor():
     v = select_debit_vertical(_chain(), direction="long", underlying_price=54.0, today=TODAY)
     legs = to_option_legs(v)
-    assert [l.side for l in legs] == ["buy", "sell"]
-    assert [l.position_intent for l in legs] == ["buy_to_open", "sell_to_open"]
+    assert [leg.side for leg in legs] == ["buy", "sell"]
+    assert [leg.position_intent for leg in legs] == ["buy_to_open", "sell_to_open"]
     assert legs[0].symbol == v.long_leg.symbol
 
 
