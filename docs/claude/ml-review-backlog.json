@@ -1029,7 +1029,46 @@
         }
       ],
       "resolved_at": "2026-06-26T05:45:00+00:00"
+    },
+    {
+      "id": "MB-20260627-001",
+      "opened_at": "2026-06-27T16:40:00+00:00",
+      "opened_by": "claude (ml-strategies-deep-review / A vol-verdict go-live session)",
+      "source": "Design-A regime ML vol-verdict taken LIVE in shadow-soak this session (operator-approved stage+soak-first path). set-env REGIME_ML_VERDICT_MODE=shadow on the live VM 2026-06-27 ~15:37Z (system-action #4835), ict-trader-live restarted healthy (heartbeat running, git_sha 26c3d23a). Confirmed accruing via diag #4837 (regime_ml_vol_shadow rows, dual_write_present).",
+      "title": "PICK UP THE A VOL-VERDICT LIVE SOAK -> enforce decision. Re-check ~2026-06-30 (first look), firm read ~2026-07-04.",
+      "description": "Design-A is LIVE in shadow-soak: REGIME_ML_VERDICT_MODE=shadow logs the frozen-vs-ML vol-label agreement, ZERO order impact (REGIME_ROUTER_ENABLED stays off). The live trend_vol OFF-cells are staged INERT in PR #4834 (A-finalization PR, green). ENFORCE GATE (Tier-3, operator-gated): flip REGIME_ML_VERDICT_MODE=use + REGIME_ROUTER_ENABLED=true ONLY once the soak confirms the BTC advisory head (btc-regime-15m-lgbm-v2) resolves the vol label LIVE the same as the harness assumed. ASSESS: (1) BTCUSDT regime_ml_vol_shadow rows show ml_source=ok + p_volatile populated (non-BTC symbols are EXPECTEDLY 'unavailable' -- BTC-only head, so filter to symbol=BTCUSDT); (2) a sane frozen-vs-ML agreement rate over a meaningful sample (~30-50+ BTC rows). READ: /api/diag/audit_query?event=regime_ml_vol_shadow&symbol=BTCUSDT&limit=50. RE-CHECK SCHEDULE: first look ~2026-06-30 (confirm BTC rows resolving live + early agreement); firm enforce read ~2026-07-04 (>=1wk of BTC signal volume). BACKTEST EVIDENCE is complete and the in-sample caveat is CLOSED (confirmation A/B 4.3x $353->$1526 maxDD trimmed; fixed-cell walk-forward 4/4; cell-SELECTION walk-forward 3/3 -- docs/research/A-vol-gating-OFFcell-design-2026-06-27.md); the live soak is the ONLY remaining out-of-sample evidence. SEPARATELY (multi-symbol A, #1): ETH/MES regime-head gating in progress this session (RG3 re-run trainer #4844; prior fleet scorecard MB-20260626-001/002 already had MES 5m/15m-lgbm-v2 RG4-trustworthy, ETH heads too-new for RG4, mes-5m-lgbm-yz-v1 anti-predictive).",
+      "tier": 3,
+      "trigger_condition": "snoozed_until 2026-06-30; the next /ml-review or /system-review; or any session the operator pings to 'check the A soak'.",
+      "resolution_criteria": "The enforce decision is taken (flip to use+router with operator approval) OR explicitly held with the soak read recorded. Closes when A is either enforcing live or the soak surfaced a live!=backtest divergence that blocks it.",
+      "status": "open",
+      "snoozed_until": "2026-06-30T15:00:00+00:00"
+    },
+    {
+      "id": "MB-20260627-002",
+      "opened_at": "2026-06-27T17:00:00+00:00",
+      "opened_by": "claude (ml-strategies-deep-review / multi-symbol A gating session)",
+      "source": "Multi-symbol A (#1) gating of the ETH/MES regime heads: RG3 clean-candle discrimination (replay_pregate_fleet, trainer #4844) + RG4 logged-live-row skew gate (scripts/ml/rg4_targeted.sh, trainer #4846; live shadow log 117,733 rows).",
+      "title": "Multi-symbol A: mes-5m-lgbm-v2 is RG4-confirmed (promotion candidate); ETH + mes-15m/1d blocked by the MES/ETH live-labeling gap",
+      "description": "GATING RESULT for extending Design-A's vol-verdict beyond BTC. RG3 (offline): all 5 ETH/MES heads TRUSTWORTHY (mes-1d 0.92, mes-15m 0.89, mes-5m 0.80, eth-1h 0.73, eth-1h-xasset 0.70) -- offline discrimination is not the differentiator (RG3 green-lights skew heads too). RG4 (live-row, the decider): (A) mes-regime-5m-lgbm-v2 = 0.765 TRUSTWORTHY on 204 labeled live rows (mf=True) -- consistent with the 0.77 from the 2026-06-26 scorecard -> the ONE clear multi-symbol promotion candidate. (B) mes-regime-15m-lgbm-v2 = 0.32 'anti-predictive' but on only 77 of 1194 labeled -- the SAME thin-labeled-sample artifact MB-20260626-002 already caught and REVERSED to 0.59 trustworthy on the full ~1011-row sample; inconclusive, NOT a kill. (C) eth-regime-1h-lgbm-v1 (117 recs), eth-regime-1h-lgbm-xasset-v1 (353), mes-regime-1d-lgbm-v2 (256) = UNSCOREABLE: every live row is UNLABELED. ROOT BLOCKER: the MES/ETH live-labeling gap (MB-20260626-001 finding #1 -- live regime rows logged without regime_label) blinds RG4 for everything except MES 5m. So multi-symbol A is gated on the LABELING PIPELINE, not the models. NEXT: (1) MES path is ready -- per-symbol MES vol-split backtest -> author MES trend_vol cells -> propose mes-5m-lgbm-v2 advisory promotion (operator-gated; MES then rides the same REGIME_ML_VERDICT_MODE=use + REGIME_ROUTER_ENABLED enforce flip as BTC). (2) Root-cause the MES/ETH live-labeling gap to unblock ETH + mes-15m/1d. Tooling added this session: scripts/ml/rg4_targeted.sh + _rg4_print.py (targeted RG4 for a head list).",
+      "tier": 3,
+      "trigger_condition": "Next /ml-review or /system-review; or any session promoting a regime head or working the MES/ETH live-labeling parity.",
+      "resolution_criteria": "mes-5m-lgbm-v2 promoted to advisory (operator-gated) with MES per-symbol cells authored AND/OR the MES/ETH live-labeling gap root-caused so ETH + mes-15m/1d become RG4-scoreable and gate cleanly.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "MB-20260627-003",
+      "opened_at": "2026-06-27T19:25:00+00:00",
+      "opened_by": "claude (ml-strategies-deep-review / labeling-gap dig)",
+      "source": "Root-caused + fixed the MES/ETH live-labeling gap (MB-20260627-002 / MB-20260626-001 #1), then validated and found the ETH head fails RG4 live. Trainer relays #4864 (coverage probe), #4865 (ETH dataset rebuild), #4866 (RG4 re-run).",
+      "title": "Labeling-gap FIXED (alt datasets now built daily); but ETH regime head is NO_EDGE live (RG4 0.46) -> needs retrain before promotion",
+      "description": "ROOT CAUSE: scripts/ops/build_trainer_datasets.sh rebuilt market_raw/market_features for --symbol-scope BTCUSDT ONLY; the alt regime heads' realized-label datasets (ETH built once 06-17 for the cross-asset probe; SOL never) perpetually went stale, so RG4's label join (built from those datasets) never covered the recent live shadow rows -> alt heads UNSCOREABLE. Confirmed coverage: BTC fresh 06-26, ETH 06-17, MES 06-12 (coverage probe scripts/ml/_labeling_gap_probe.py). FIX (commit 7a051e5): generalized build_btcusdt_pair -> build_bybit_pair(symbol,tf) + added ETHUSDT/1h + SOLUSDT/1h to the daily loop (same market_features params as BTC; the eth head is 'identical to btc-regime-1h-lgbm-v2 except the symbol'). VALIDATED: refreshed ETH dataset -> ETH RG4 unlabeled 353/353 -> 6 (gap closed). KEY FINDING: the now-scoreable ETH heads are NO_EDGE on live rows -- eth-regime-1h-lgbm-v1 RG4 0.46 (111 labeled), eth-regime-1h-lgbm-xasset-v1 RG4 0.46 (347 labeled) -- vs RG3-offline 0.70-0.73. That is TRAIN/SERVE SKEW (offline/clean-candle good, live logged-rows ~random), the same class as the BTC yz heads. CONSEQUENCE: the ETH multi-symbol-A backtest A/B ($63->$2336) is optimistic for LIVE -- it scored the head on clean harness candles; live the head feeds a ~random vol label. ETH is NOT live-ready. RG4 prevented a bad promotion. NEXT: (1) retrain the ETH regime head / investigate the offline-vs-live feature parity (why it discriminates offline but not on logged live rows) until it clears RG4 (>=0.55 live); (2) MES 5m (RG4 0.765) is the actually-promotable alt; (3) SOL head training. The fix is durable: any alt head is now RG4-validatable each cycle.",
+      "tier": 3,
+      "trigger_condition": "Next /ml-review or /system-review; any session retraining alt regime heads or promoting one; verify the next training cycle's dataset_builds shows ETHUSDT/SOLUSDT market_raw fresh.",
+      "resolution_criteria": "A retrained ETH regime head clears RG4 live (>=0.55) and is promoted; OR the offline-vs-live parity skew is root-caused. The labeling-gap fix half is RESOLVED (validated); this item now tracks the ETH-head-skew follow-up.",
+      "status": "open",
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-26T05:45:00+00:00"
+  "updated_at": "2026-06-27T19:25:00+00:00"
 }

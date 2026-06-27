@@ -81,12 +81,39 @@ chop:
 #   <vol_regime>   ∈ {calm, volatile}                  (the vol_detector axis)
 #
 # Authoring a cell mirrors the 1-D blocks (`off` logs a would-gate; unlisted →
-# permissive `on`). Left empty until a vol-split of the regime-roster matrix
-# justifies a cell — the stamped `vol_regime` on every intent + `regime_shadow_gate`
-# row is the evidence that will inform those decisions. Example (NOT active):
+# permissive `on`). The cells below were authored from the Design-A vol-split
+# (S-REGIME-A-VOLVERDICT-LIVE) — see CELL EVIDENCE.
 #
-#   trend_vol:
-#     trending:
-#       volatile:
-#         vwap: { long: off, short: off }
-trend_vol: {}
+# CELL EVIDENCE (Design-A, 2026-06-27) — BTC per-(strategy,trend,vol,side) net-PnL
+# -------------------------------------------------------------------------------
+# Authored from `docs/research/A-vol-gating-OFFcell-design-2026-06-27.md`
+# (cell-attribution vol-split, ML vol label = the v2 advisory regime head).
+#   • Confirmation A/B (full BTC history): evidence cells + ML vol label lifted
+#     the book $353 → $1526 (4.3×) while TRIMMING maxDD; the SAME cells under the
+#     frozen vol label LOSE money (−$32) — so these cells are correct ONLY when
+#     the vol axis is ML-driven (REGIME_ML_VERDICT_MODE=use).
+#   • Walk-forward (4 non-overlapping BTC year-folds): ev-ml ≥ ungated net AND
+#     lower maxDD in EVERY fold (PASS 4/4); ML>frozen 2/4 (aggregate-driven).
+#
+# These cells are a behavioural NO-OP for live orders until BOTH gates are on:
+#   (1) REGIME_ML_VERDICT_MODE=use   — drives the vol axis from the ML head
+#                                       (these cells assume the ML label, NOT frozen)
+#   (2) REGIME_ROUTER_ENABLED=true   — turns OFF-cells into hard gates
+# With the router off they only emit `regime_shadow_gate` would-gate rows; with
+# REGIME_ML_VERDICT_MODE=off/shadow the vol label is frozen (the WRONG label for
+# these cells). The enforce flip is the Tier-3 live-trading switch.
+trend_vol:
+  trending:
+    volatile:
+      # −$224 / 136t.  THE vol refinement: trend_donchian long is +$1238/252t in
+      # trending+CALM but −$224 in trending+VOLATILE — a violent "trend" is
+      # false-breakout territory for a Donchian long; keep calm, gate volatile.
+      trend_donchian:      { long: off }
+    calm:
+      squeeze_breakout_4h: { short: off }   # −$55 / 30t  (breakout-short into a calm uptrend)
+  transitional:
+    calm:
+      trend_donchian:      { long: off }    # −$356 / 43t (Donchian long without a real trend)
+  chop:
+    calm:
+      trend_donchian:      { long: off }    # −$218 / 11t (trend strat long in chop = no trend to ride)
