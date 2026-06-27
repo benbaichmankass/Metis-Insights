@@ -1,0 +1,57 @@
+# EVIDENCE-BASED regime policy — BACKTEST-LOCAL, NOT the live config.
+# =============================================================================
+# Authored from the per-(strategy,trend,vol,side) cell attribution vol-split
+# (docs/research/A-vol-gating-OFFcell-design-2026-06-27.md; trainer-vm-diag #4825/#4827):
+# the ungated BTC book's net-PnL decomposed by cell, ML vol label. Replaces the
+# earlier *hypothesis* policy (regime_policy_trend_vol_candidate-2026-06-27.yaml),
+# which gated profitable cells and lost money.
+#
+# OFF-cells = meaningful-sample (>= ~10 trades) net-NEGATIVE cells. Small-sample
+# (<10t) negatives are left ON (noise). The standout is the vol-conditioned
+# trend_donchian long: +$1238 in trending+CALM vs -$224 in trending+VOLATILE —
+# the vol axis flips the sign, so we keep calm and gate volatile.
+#
+# STILL backtest-local + in-sample; authoring the LIVE config/regime_policy.yaml
+# cells is a separate Tier-3 step, gated on a walk-forward of THESE cells +
+# the live Phase-1 agreement log. NEVER point the live trader at this file.
+# =============================================================================
+schema_version: 2
+
+# --- 1-D TREND axis (copied VERBATIM from config/regime_policy.yaml) ----------
+trending:
+  trend_donchian:        { long: on,  short: off }
+  squeeze_breakout_4h:   { long: on,  short: on  }
+  htf_pullback_trend_2h: { long: on,  short: off }
+  fade_breakout_4h:      { long: off, short: off }
+  fvg_range_15m:         { long: off, short: off }
+  vwap:                  { long: off, short: off }
+
+transitional:
+  trend_donchian:        { long: on,  short: off }
+  squeeze_breakout_4h:   { long: on,  short: on  }
+  htf_pullback_trend_2h: { long: on,  short: off }
+  fade_breakout_4h:      { long: on,  short: on  }
+  vwap:                  { long: off, short: off }
+
+chop:
+  trend_donchian:        { long: on,  short: on  }
+  fade_breakout_4h:      { long: on,  short: on  }
+  squeeze_breakout_4h:   { long: on,  short: on  }
+  htf_pullback_trend_2h: { long: off, short: off }
+  fvg_range_15m:         { long: off, short: off }
+  vwap:                  { long: off, short: off }
+
+# --- 2-D trend × vol OFF-cells (evidence: meaningful-sample net-negative) ------
+# Each cell lists ONLY the side that's off; the other side defaults permissive-on.
+trend_vol:
+  trending:
+    volatile:
+      trend_donchian:      { long: off }   # -$224 / 136t  (vs trending+calm long +$1238 — THE vol refinement)
+    calm:
+      squeeze_breakout_4h: { short: off }  # -$55 / 30t
+  transitional:
+    calm:
+      trend_donchian:      { long: off }   # -$356 / 43t
+  chop:
+    calm:
+      trend_donchian:      { long: off }   # -$218 / 11t (trend strat long in chop = no trend to ride)

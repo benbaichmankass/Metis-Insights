@@ -127,6 +127,18 @@ def test_default_stamps_regime_but_does_not_change_trades(monkeypatch):
         regime_router="off")
     assert out2["total_trades"] == baseline_trades
 
+    # Per-cell (strategy|trend|vol|side) attribution populates from the stamped
+    # closed trades — the 2-D vol-split that authors evidence-based OFF-cells.
+    cells = out.get("per_cell_attribution")
+    assert isinstance(cells, dict) and cells, "expected per-cell attribution"
+    k = next(iter(cells))
+    assert k.count("|") == 3, f"cell key shape owner|trend|vol|side, got {k!r}"
+    assert k.startswith("trend_donchian|")
+    # Net PnL across cells equals the per-strategy total (no trades dropped).
+    cell_pnl = round(sum(c["pnl"] for c in cells.values()), 2)
+    strat_pnl = round(sum(a["pnl"] for a in out["per_strategy_attribution"].values()), 2)
+    assert abs(cell_pnl - strat_pnl) < 0.05
+
 
 # ---------------------------------------------------------------------------
 # (b) --vol-verdict frozen stamps a vol_regime onto the intents

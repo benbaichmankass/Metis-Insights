@@ -518,6 +518,8 @@ class _Position:
     entry_idx: int
     meta: dict
     notional: float
+    regime: Any = None        # ADX trend regime at entry (cell attribution)
+    vol_regime: Any = None    # vol_regime at entry (frozen or ML, per --vol-verdict)
 
 
 @dataclass
@@ -533,6 +535,8 @@ class _ClosedTrade:
     fee: float
     reason: str
     bars_held: int
+    regime: Any = None
+    vol_regime: Any = None
 
 
 def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
@@ -731,7 +735,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
         closed.append(_ClosedTrade(
             owner=p.owner, side=p.side, entry_ts=p.entry_ts, exit_ts=ts_i,
             entry=p.entry, exit=price, qty=p.qty, pnl=pnl, fee=fee,
-            reason=reason, bars_held=idx_i - p.entry_idx))
+            reason=reason, bars_held=idx_i - p.entry_idx,
+            regime=p.regime, vol_regime=p.vol_regime))
 
     for i in range(n):
         # refresh per-day loss budget
@@ -857,7 +862,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                     pos = _Position(side=des_side, qty=qty, entry=fill, sl=row["sl"],
                                     tp=row["tp"], owner=win_name, entry_ts=ts.iloc[i],
                                     entry_idx=i, meta=json.loads(row["meta_json"]),
-                                    notional=qty * fill)
+                                    notional=qty * fill,
+                                    regime=regime_label, vol_regime=bar_vol_regime)
             elif (
                 pos is not None and pos.side == des_side
                 and reentry_policy == "net" and not daily_halted
@@ -911,7 +917,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                                             sl=row["sl"], tp=row["tp"], owner=win_name,
                                             entry_ts=ts.iloc[i], entry_idx=i,
                                             meta=json.loads(row["meta_json"]),
-                                            notional=qty * fill)
+                                            notional=qty * fill,
+                                            regime=regime_label, vol_regime=bar_vol_regime)
 
         eq = balance + _unrealized(pos, c[i])
         equity_high = max(equity_high, eq)
@@ -1016,6 +1023,19 @@ def _summarize(closed: List[_ClosedTrade], equity_curve, *, base_balance, util_b
     by_reason: Dict[str, int] = {}
     for t in closed:
         by_reason[t.reason] = by_reason.get(t.reason, 0) + 1
+    # Per-(strategy, trend_regime, vol_regime, side) cell attribution — the
+    # 2-D vol-split of the regime-roster matrix that authors evidence-based
+    # `trend_vol` OFF-cells. Only populated when regime/vol stamping ran (i.e.
+    # any closed trade carries a regime tag); a default run leaves it empty.
+    per_cell: Dict[str, Dict[str, Any]] = {}
+    for t in closed:
+        if t.regime is None and t.vol_regime is None:
+            continue
+        key = f"{t.owner}|{t.regime}|{t.vol_regime}|{t.side}"
+        c = per_cell.setdefault(key, {"trades": 0, "pnl": 0.0, "wins": 0})
+        c["trades"] += 1
+        c["pnl"] = round(c["pnl"] + t.pnl, 2)
+        c["wins"] += 1 if t.pnl > 0 else 0
     return {
         "kind": "system_backtest", "symbol": "BTCUSDT", "roster": roster,
         "params": params, "data_start": data_start, "data_end": data_end,
@@ -1031,6 +1051,7 @@ def _summarize(closed: List[_ClosedTrade], equity_curve, *, base_balance, util_b
         "capital_utilization_pct": round(100 * util_bars / total_bars, 2) if total_bars else 0.0,
         "by_exit_reason": by_reason,
         "per_strategy_attribution": per_strat,
+        "per_cell_attribution": per_cell,
         "equity_curve_tail": equity_curve[-5:],
     }
 
@@ -1046,6 +1067,14 @@ def _fmt(s: Dict[str, Any]) -> str:
          "  per-strategy attribution (net $ | trades | wins):"]
     for name, a in sorted(s["per_strategy_attribution"].items(), key=lambda kv: -kv[1]["pnl"]):
         L.append(f"    {name:22} ${a['pnl']:>9.0f}  {a['trades']:>4}t  {a['wins']:>4}w")
+    # 2-D cell attribution (strategy|trend|vol|side → net $) — only when stamped.
+    # Sorted worst-first so the net-negative OFF-cell candidates lead.
+    cells = s.get("per_cell_attribution") or {}
+    if cells:
+        L.append("  cell attribution strategy|trend|vol|side (net $ | trades | wins) — worst first:")
+        for key, a in sorted(cells.items(), key=lambda kv: kv[1]["pnl"]):
+            flag = "  <-- OFF candidate" if a["pnl"] < 0 else ""
+            L.append(f"    {key:48} ${a['pnl']:>9.0f}  {a['trades']:>4}t  {a['wins']:>4}w{flag}")
     # Evidence-layer footer — printed ONLY when an evidence knob is non-default,
     # so a default run (no new flags) prints byte-for-byte as before.
     ev = s.get("evidence") or {}
