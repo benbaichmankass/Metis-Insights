@@ -163,8 +163,10 @@ def main() -> None:
         except OSError:
             pass
 
-        un_net = oos_un.get("net_pnl", 0.0); un_dd = oos_un.get("max_drawdown_usd", 0.0)
-        ml_net = oos_ml.get("net_pnl", 0.0); ml_dd = oos_ml.get("max_drawdown_usd", 0.0)
+        un_net = oos_un.get("net_pnl", 0.0)
+        un_dd = oos_un.get("max_drawdown_usd", 0.0)
+        ml_net = oos_ml.get("net_pnl", 0.0)
+        ml_dd = oos_ml.get("max_drawdown_usd", 0.0)
         net_ok = ml_net >= un_net
         dd_ok = ml_dd <= un_dd
         print(f"  OOS ungated : {_headline(oos_un)}")
