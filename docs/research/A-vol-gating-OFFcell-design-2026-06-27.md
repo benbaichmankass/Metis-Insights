@@ -115,14 +115,35 @@ the book out-of-sample?* — is **PASS 4/4 on net AND drawdown**. The secondary
 claim — *ML label strictly beats frozen per fold* — is **mixed (2/4)**; ML is
 recommended on the aggregate + tail-safety, not on per-fold dominance.
 
+## Cell-SELECTION walk-forward (the strict test — DONE, trainer #4838/#4840)
+
+The fixed-cell walk-forward above still selected *which* cells are OFF from full
+history. `scripts/ml/walkforward_cell_selection.py` removes that bias: for each
+OOS fold it **re-derives** the OFF-cells from only the prior (in-sample) window
+(`per_cell_attribution`, ≥10t net-negative — the same rule), then applies that
+blind-to-the-future cell set OOS.
+
+| OOS fold | cells authored in-sample | ungated net / maxDD | ev-ml net / maxDD |
+|---|---|---:|---:|
+| 2023-07 → 2024-07 | 1 (`trend_donchian\|transitional\|calm\|long`) | $207 / $558 | **$224 / $497** |
+| 2024-07 → 2025-07 | 3 | **−$330** / $620 | **−$59 / $530** |
+| 2025-07 → 2026-06 | 6 | −$20 / $425 | **$251 / $295** |
+
+**Result: net PASS 3/3 AND maxDD PASS 3/3** — the cell *selection* generalizes,
+not just one hand-picked set. Each fold's cells, chosen blind to the OOS data,
+improve the book on both axes, with the biggest rescues in the losing years
+(fold 2024 −$330→−$59; fold 2025 −$20→$251). The set grows as in-sample history
+accrues (1→3→6 cells) and keeps re-discovering the load-bearing cells
+(`transitional|calm|long`, and the trending-volatile Donchian refinement once
+enough data accrues). This closes the in-sample-selection caveat below.
+
 ## Honest caveats
 
-1. **Walk-forward done (above) — robustness gate PASS for the cells.** What
-   remains in-sample is the *cell selection itself* (which cells are OFF was
-   chosen from full history, not re-derived per fold); a stricter test would
-   re-author cells on each in-sample window and apply OOS. The per-fold
-   gated≥ungated result (4/4) is strong evidence the fixed cell set generalizes,
-   but the selection bias is non-zero.
+1. ~~In-sample cell selection.~~ **CLOSED** by the cell-selection walk-forward
+   above (re-derive per in-sample window → apply OOS → PASS 3/3 net + maxDD). The
+   only remaining out-of-sample evidence still pending is the **live** soak
+   (`regime_ml_vol_shadow`), which validates that the ML vol label resolves the
+   same live as in the harness — the final gate before the enforce flip.
 2. **Single symbol, 2 strategies.** BTC, trend_donchian + squeeze only. Other
    strategies/symbols need their own splits (and per-symbol advisory heads).
 3. The small-sample cells (1–7 trades) are excluded deliberately — several are
