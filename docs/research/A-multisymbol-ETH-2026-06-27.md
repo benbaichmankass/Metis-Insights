@@ -58,11 +58,40 @@ The lift is *larger* than BTC's (37× vs 4.3×) because the ungated ETH base was
 near break-even, so the losing sleeves dominated it. Same mechanism, second
 symbol → **the vol-gate generalizes cross-symbol.**
 
+## Cell-selection walk-forward (the strict OOS test — DONE, trainer #4857/#4861)
+
+`scripts/ml/walkforward_cell_selection.py --symbol ETHUSDT` re-derives the ETH
+OFF-cells from each in-sample window and applies them OOS (expanding window):
+
+| OOS fold | ungated net / maxDD | ev-ml net / maxDD | net | maxDD |
+|---|---:|---:|:--:|:--:|
+| 2023-07 → 2024-07 | $126 / $773 | −$76 / $453 | **FAIL** | PASS |
+| 2024-07 → 2025-07 | −$387 / $848 | $412 / $403 | PASS (+$799) | PASS |
+| 2025-07 → 2026-06 | $612 / $835 | $751 / $432 | PASS (+$139) | PASS |
+
+**Honest mixed result — weaker than BTC's clean 3/3+3/3:**
+- **maxDD: PASS 3/3** — the cells reliably ~halve drawdown out-of-sample every
+  fold. The de-risking generalizes.
+- **net: 2/3** — the *earliest* fold FAILS (gating hurt net, −$76 vs +$126); its
+  cells were authored from a thin <2023-07 window (460 trades) and the broader
+  cell set (short-side + chop cells) didn't generalize. The other two folds pass,
+  one a large rescue (−$387 → $412).
+- **The CORE cell generalizes:** `trend_donchian_eth|trending|volatile|long` is
+  net-negative in **all three** in-sample windows (−$211 / −$355 / −$655) — the
+  load-bearing volatile-long sleeve is robust; the noise is in the marginal
+  short/chop cells the thin early window over-selected.
+
+**Verdict:** the in-sample $2336 was optimistic. The realistic OOS read is "ETH
+multi-symbol A reliably **cuts drawdown** and is **net-positive in 2 of 3**
+windows, anchored by the robust volatile-long cell." Worth pursuing — primarily
+for the drawdown benefit + the strong core cell — but NOT a slam-dunk like BTC; a
+live ETH cell set should likely be **conservative** (the robust core cell ±
+the largest-sample losers), not the full 9-cell in-sample set.
+
 ## Honest caveats — what's still gated
 
-1. **In-sample** (cells authored from full ETH history) — needs the
-   cell-selection walk-forward (`scripts/ml/walkforward_cell_selection.py` is now
-   symbol-capable via `--symbol`) before any live ETH cell authoring.
+1. **net only 2/3 OOS** (above) — a conservative live ETH cell set is indicated,
+   not the full in-sample set.
 2. **Live promotion blocked on the labeling gap.** Taking ETH live needs
    `eth-regime-1h-lgbm-v1` at **advisory**, which needs an RG4 live-row pass —
    currently UNSCOREABLE because every live ETH regime row is unlabeled
