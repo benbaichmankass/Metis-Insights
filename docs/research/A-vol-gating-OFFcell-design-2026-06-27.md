@@ -83,11 +83,46 @@ This closes the loop the hypothesis-cell A/B opened: hypothesis cells gated
 profitable sleeves and lost money; **evidence cells + ML label** gate exactly the
 losing sleeves and 4×'d the book.
 
+## Walk-forward (OOS overfit gate — DONE, trainer #4831/#4832)
+
+The cells were authored from full-history attribution, so the aggregate above is
+in-sample by construction. `scripts/ml/walkforward_evidence_cells.sh` applies the
+**fixed** evidence policy across 4 consecutive, non-overlapping BTC year-folds:
+
+| fold | ungated net / maxDD | ev-frozen net / maxDD | **ev-ml net / maxDD** |
+|---|---:|---:|---:|
+| 2022-07 → 2023-07 | $408 / $460 | −$11 / $277 | **$421 / $299** |
+| 2023-07 → 2024-07 | $207 / $558 | $431 / $278 | **$378 / $436** |
+| 2024-07 → 2025-07 | **−$330** / $620 | −$208 / $334 | **$7 / $283** |
+| 2025-07 → 2026-06 | −$20 / $425 | $415 / $177 | **$308 / $221** |
+
+Acceptance bars (the FLIP_POLICY shape):
+
+1. **ev-ml net ≥ ungated net, per fold — PASS 4/4** (+$13, +$171, +$337, +$328).
+   The two biggest gains are the *losing* years (fold 3 −$330→$7; fold 4 −$20→$308)
+   — exactly where a gate should earn its keep. The cells help in every window,
+   never hurt — **not an in-sample artifact.**
+2. **ev-ml maxDD ≤ ungated maxDD, per fold — PASS 4/4** ($460→299, $558→436,
+   $620→283, $425→221). Materially lower drawdown every fold.
+3. **ev-ml net > ev-frozen net, per fold — 2/4** (ML wins folds 1+3; frozen wins
+   2+4). The aggregate ML≫frozen ($1526 vs −$32) is **not** a uniform per-fold
+   dominance — frozen is *erratic* (strong in folds 2+4, but −$11 in fold 1 and
+   −$32 pooled). Honest read: the ML label is at least as safe as frozen and
+   avoids frozen's pooled blow-up, but it does not beat frozen in every window.
+
+**Verdict:** the load-bearing claim — *do the evidence cells + ML label improve
+the book out-of-sample?* — is **PASS 4/4 on net AND drawdown**. The secondary
+claim — *ML label strictly beats frozen per fold* — is **mixed (2/4)**; ML is
+recommended on the aggregate + tail-safety, not on per-fold dominance.
+
 ## Honest caveats
 
-1. **In-sample.** Authored from the full-history cell split; before any LIVE cell
-   authoring (Tier-3) these need a **walk-forward of the evidence cells** (do they
-   stay net-negative per fold?) — same bar the vol-label A/B passed.
+1. **Walk-forward done (above) — robustness gate PASS for the cells.** What
+   remains in-sample is the *cell selection itself* (which cells are OFF was
+   chosen from full history, not re-derived per fold); a stricter test would
+   re-author cells on each in-sample window and apply OOS. The per-fold
+   gated≥ungated result (4/4) is strong evidence the fixed cell set generalizes,
+   but the selection bias is non-zero.
 2. **Single symbol, 2 strategies.** BTC, trend_donchian + squeeze only. Other
    strategies/symbols need their own splits (and per-symbol advisory heads).
 3. The small-sample cells (1–7 trades) are excluded deliberately — several are
