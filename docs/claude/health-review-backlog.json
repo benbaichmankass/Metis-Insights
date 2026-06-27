@@ -2513,8 +2513,14 @@
       "resolved_by": null,
       "resolution": "CONFIRMED NOT A KEY ISSUE. alpaca_live.api_ok=true in live status snapshot (account connects and authenticates successfully). Root cause: balance ~$150, insufficient for 1-share sizing at 1% risk on any ETF strategy (GLD ~$374/share, SPY ~$550, QQQ ~$480). The misleading error message in execute.py fires \"check ALPACA_API_KEY_ID/ALPACA_API_SECRET_KEY\" whenever balance() returns None, but this fires on ANY balance-read failure \u2014 not just auth failures. Every rotation since the live flip has been correct keys; the problem is insufficient capital. Operator action required: fund alpaca_live account to \u2265$2,000 to allow any ETF fill.",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-06-27T00:00:00+00:00",
+          "by": "claude (S-M15-ALPACA-LIVE-2026-06-27 session)",
+          "note": "Ran sync-vm-secrets (issue #4746). Result: exit 0, all 12 secrets 'unchanged (skip write)' — confirmed credentials ARE on the VM and match GitHub Actions secrets exactly. This rules out a sync failure. Then confirmed via diag #4747 that 'alpaca balance: request is not authorized' persists in ict-hourly-snapshot logs. Root cause refined: the keys are present but rejected by the live Alpaca endpoint (https://api.alpaca.markets). Most likely cause: paper-account keys stored under the ALPACA_API_KEY_ID_LIVE / ALPACA_API_SECRET_KEY_LIVE secret names — paper keys are accepted by paper-api.alpaca.markets but rejected by api.alpaca.markets. Genuine operator hand-off: operator must verify at Alpaca console that both secrets are from the LIVE (funded) account, not the paper account. If wrong, update the secret values and re-run sync-vm-secrets. Stays OPEN until api_ok: true confirmed in /api/bot/accounts/balances."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-06-26T07:20:00+00:00"
+  "updated_at": "2026-06-27T11:35:00+00:00"
 }
