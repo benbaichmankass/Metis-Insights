@@ -362,3 +362,24 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "United States Oil Fund ETF (Alpaca paper)"
+
+  # ------------------------------------------------------------------
+  # GDX: VanEck Gold Miners ETF — new Alpaca cell for gdx_pullback_1d.
+  # Added 2026-06-27 (Tier-3). ~$43/share; fits within alpaca_live $150
+  # balance at 0.3% risk. Same whole-share / 2dp / alpaca profile as GLD/SLV.
+  # equity asset_class: ETF holding equity shares in gold mining companies
+  # (not the commodity itself).
+  # ------------------------------------------------------------------
+  GDX:
+    exchange: alpaca
+    category: spot
+    base_asset: GDX
+    asset_class: equity        # VanEck Gold Miners ETF — equity shares in gold mining companies
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "VanEck Gold Miners ETF (Alpaca)"
