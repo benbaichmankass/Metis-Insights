@@ -1435,6 +1435,55 @@ strategies:
     min_confidence: 0.0
     shadow_model_ids: []
 
+  slv_pullback_1d:
+    # SLV (iShares Silver Trust) daily HTF-pullback — sister strategy to
+    # gld_pullback_1d. Same htf_pullback_trend_2h unit, same parameters,
+    # targeting silver as a gold-correlated but lower-price diversifier.
+    # Runs on alpaca_paper + alpaca_live (Tier-3 approved 2026-06-27).
+    # Whole-share bracket orders; risk_pct inherited from strategy config.
+    # PROVENANCE: mirrors gld_pullback_1d parameters (SRQ-20260627-SLV).
+    model: null
+    signal_prefixes: [slv_pullback]
+    enabled: true
+    execution: live
+    risk_pct: 0.3
+    timeframe: "1d"
+    symbols:
+      - SLV
+    trend_lookback: 40
+    pullback_lookback: 15
+    pullback_frac: 0.618
+    atr_period: 14
+    atr_stop_mult: 2.0
+    trail_mult: 4.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  gdx_pullback_1d:
+    # GDX (VanEck Gold Miners ETF) daily HTF-pullback — gold-miners
+    # diversifier. Same htf_pullback_trend_2h unit and parameters as
+    # gld_pullback_1d / slv_pullback_1d. GDX (~$43/share) fits within
+    # the alpaca_live $150 budget at 0.3% risk.
+    # Runs on alpaca_paper + alpaca_live (Tier-3 approved 2026-06-27).
+    # Whole-share bracket orders.
+    # PROVENANCE: mirrors gld_pullback_1d parameters (SRQ-20260627-GDX).
+    model: null
+    signal_prefixes: [gdx_pullback]
+    enabled: true
+    execution: live
+    risk_pct: 0.3
+    timeframe: "1d"
+    symbols:
+      - GDX
+    trend_lookback: 40
+    pullback_lookback: 15
+    pullback_frac: 0.618
+    atr_period: 14
+    atr_stop_mult: 2.0
+    trail_mult: 4.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
   eth_pullback_2h:
     # ETH/USDT 2h HTF-pullback (bidirectional) — M15 WS-C alt sleeve: the
     # strongest cell of the alt generalization sweep

@@ -202,7 +202,11 @@ def test_real_yaml_loads():
     # net-negative after Breakout's 0.09%/day swap; this variant flips post-swap
     # positive + passes the funded-EV gate 4/4 folds. Observe-only soak, NOT a
     # live-money promotion. docs/research/eth-pullback-prop-swap-aware-2026-06-25.md.
-    assert len(strategies) == 39
+    # 39 → 41 by the daily ETF pullback pair slv_pullback_1d + gdx_pullback_1d
+    # (2026-06-27, Tier-3): same htf_pullback_trend_2h unit as gld_pullback_1d,
+    # routed to alpaca_paper + alpaca_live (SLV ~$25, GDX ~$43/share — the
+    # lowest-priced ETFs, best chance of fitting the alpaca_live budget at 2% risk).
+    assert len(strategies) == 41
 
 
 def test_real_yaml_has_required_strategies():
@@ -229,6 +233,8 @@ def test_real_yaml_has_required_strategies():
         "sol_pullback_2h", "xrp_pullback_2h", "ada_pullback_2h", "avax_pullback_2h",
         # swap-robust prop variant — breakout_1 shadow soak (DRAFT, Tier-3, 2026-06-25):
         "eth_pullback_prop_2h",
+        # daily ETF pullback pair on alpaca_paper + alpaca_live (2026-06-27, Tier-3):
+        "slv_pullback_1d", "gdx_pullback_1d",
     }
 
 

@@ -1,0 +1,155 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-06-27T12:00:00+00:00 · window 2026-06-26T06:02:00+00:00 → 2026-06-27T11:35:00+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>~29.5h window. REAL MONEY FLAT: 0 closed trades; ETH short #2990 open. All ETF strategies (spy/qqq/gld) generating valid signals but blocked — alpaca_live balance ~$150 (CONFIRMED not a key issue; undercapitalized). Bot watchdog auto-restarted within window (recovery clean). Paper +$801 is reconciler-artifact-heavy, not a clean read. 0 advisory ML models.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Fund alpaca_live to &gt;=2000 USD to unblock ETF execution</b> <span class="pill">health · T3</span> ⚠️ operator<br><span class='muted'>CONFIRMED: alpaca_live api_ok=true, keys valid. Balance ~$150 insufficient for 1-share of SPY (~$732)/QQQ (~$713)/GLD (~$370) at 0.3% risk (whole-share constraint). 14+ valid signals lost this session alone. Fund account to &gt;=2000 USD.</span></li>
+<li><b>Investigate bybit_1 paper target_qty=0 for ada/xrp</b> <span class="pill">performance · T2</span><br><span class='muted'>ada_pullback_2h and xrp_pullback_2h packages all show aggregated_target_qty=0 on bybit_1. Daily risk cap exhaustion or depleted paper balance likely. Affects paper P&amp;L fidelity.</span></li>
+<li><b>Confirm bot restart root cause — check journalctl around restart event</b> <span class="pill">health · T1</span><br><span class='muted'>Watchdog auto-restart detected (uptime=58s at snapshot). Recovery clean. Pull journalctl from restart timestamp to confirm no new crash loop or OOM pattern.</span></li>
+<li><b>No advisory ML models — 0 advisory models influencing signals</b> <span class="pill">ml · T3</span><br><span class='muted'>btc-regime-5m-lgbm-yz-v1 remains at shadow after prior demotion. 41 models at shadow/candidate, 0 advisory. No model met promotion gate this window. Review shadow model track records to assess promotion readiness.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">61 open / 139 total</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">32 open / 52 total · 2 drained</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">17 open / 47 total</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>—</span> —</li>
+<li><span class='pill'>—</span> —</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>Alpaca execution block spans health + performance: the &#x27;keys set incorrectly&#x27; health alert and the &#x27;no_fill_all_accounts&#x27; performance rejections are the SAME root cause — alpaca_live balance ~$150. Fixing one fixes both.</li>
+<li>bot restart + watchdog auto-recovery within window: no new trades fired immediately post-restart, consistent with restart happening outside market hours or during a quiet tick. Not correlated with a specific strategy failure.</li>
+<li>Paper book +$801 reconciler artifacts mask genuine strategy signal quality — ada, xrp, eth paper longs closed at &#x27;open&#x27; timestamp (openedAt == closedAt ms apart), confirming these are reconciler phantom entries not real paper positions.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Service</th><th>State</th><th>Since</th></tr>
+<tr><td>ict-trader-live.service</td><td>active/—</td><td>—</td></tr>
+<tr><td>ict-web-api.service</td><td>active/—</td><td>—</td></tr>
+<tr><td>ict-ib-gateway-watchdog.service</td><td>active/—</td><td>—</td></tr>
+</table></div>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>heartbeat</td><td class="sev-ok">🟢 ok</td><td>running; watchdog auto-restart within window (uptime=58s at snapshot), recovery clean</td></tr>
+<tr><td>services</td><td class="sev-ok">🟢 ok</td><td>ict-trader-live + ict-web-api active/running</td></tr>
+<tr><td>bot_restart</td><td class="sev-watch">🟡 watch</td><td>liveness watchdog auto-restart within window; root cause unknown — check journalctl around restart</td></tr>
+<tr><td>real_money_execution</td><td class="muted"> warn</td><td>alpaca_live balance ~50 — ALL ETF strategies rejected no_fill_all_accounts; keys valid (api_ok=true confirmed)</td></tr>
+<tr><td>bybit_paper_sizing</td><td class="sev-watch">🟡 watch</td><td>ada/xrp packages returning target_qty=0 on bybit_1 paper — daily cap or balance issue</td></tr>
+<tr><td>prop_bridge</td><td class="sev-ok">🟢 ok</td><td>0 un-acted tickets</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$0.00</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">+$0.00</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$801.46</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 ↑</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">7</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">85.7%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$114.49</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-11.84</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">6</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>ada_pullback_2h</td><td>4</td><td>75.0%</td><td class="pos">+$249.72</td></tr>
+<tr><td>xrp_pullback_2h</td><td>2</td><td>100.0%</td><td class="pos">+$49.32</td></tr>
+<tr><td>eth_pullback_2h</td><td>1</td><td>100.0%</td><td class="pos">+$502.43</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">0</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">0</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">7 full dossiers, 0 summarized (full-per-trade (since-last/daily). Real-money: 0 closed. Paper: 7 reconciler artifacts. grading-freshness guard partially satisfied — older eth_pullback_2h packages before 2026-06-26T18:17Z could not be retrieved (relay 55KB truncation); those carry null claudeScore.).</p>
+<details><summary><span class="pill paper">paper</span> XRPUSDT long · xrp_pullback_2h · <span class="pos">+$32.10</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2917</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-26T14:05:02+00:00</div><div class="k">closed</div><div>2026-06-26T14:05:02+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1.0377</div><div class="k">exit</div><div>1.0514</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>2343.4</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT long · ada_pullback_2h · <span class="pos">+$75.40</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2913</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-26T14:01:22+00:00</div><div class="k">closed</div><div>2026-06-26T14:01:22+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.1454</div><div class="k">exit</div><div>0.1487</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT long · ada_pullback_2h · <span class="pos">+$92.45</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2906</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-26T12:44:38+00:00</div><div class="k">closed</div><div>2026-06-26T12:44:38+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.1428</div><div class="k">exit</div><div>0.147</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ETHUSDT long · eth_pullback_2h · <span class="pos">+$502.43</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2903</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-26T10:37:00+00:00</div><div class="k">closed</div><div>2026-06-26T10:36:59+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1552.5</div><div class="k">exit</div><div>1584.04</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> XRPUSDT long · xrp_pullback_2h · <span class="pos">+$17.21</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2902</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-26T10:04:29+00:00</div><div class="k">closed</div><div>2026-06-26T10:04:29+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1.0303</div><div class="k">exit</div><div>1.0485</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT long · ada_pullback_2h · <span class="pos">+$93.71</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2900</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-26T10:02:02+00:00</div><div class="k">closed</div><div>2026-06-26T10:02:02+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.1436</div><div class="k">exit</div><div>0.1493</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT long · ada_pullback_2h · <span class="neg">$-11.84</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2898</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-26T08:01:52+00:00</div><div class="k">closed</div><div>2026-06-26T08:01:52+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.1463</div><div class="k">exit</div><div>0.1454</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<h2>Market context</h2>
+<p class="section-empty">No market context captured.</p>
+<h2>ML / models <span class="grade">🟡 caution</span></h2>
+<p class="section-empty">No model status in this report.</p>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li class='muted'>All strategies HOLD. 0 real closed trades in window — insufficient data to update M7 gates. ETF fleet (spy/qqq/gld) signal-healthy but execution-blocked by alpaca undercapitalization; this is infra, not a strategy-quality demotion. eth_pullback_2h has 1 open real trade (#2990). trend_donchian and ict_scalp_5m generated 0 packages in window — not active / conditions not met.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">unavailable: trainer-vm-diag relay not called this session — prior report confirmed 1 cycle clean</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">unavailable: trainer-vm-diag relay not called this session</div></div>
+</div>
+<p class='muted'>Training health data unavailable this session (trainer relay not queried). Prior report (RPT-20260626-060200-since-last) confirmed: 1 cycle ran clean overnight; dataset builds OK; no stuck cycle. 0 advisory models. 41 shadow/candidate models soaking.</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>shadow regime heads (41 models)</td><td>accruing</td><td>all at shadow/candidate stage; accruing prediction volume in shadow_predictions.jsonl. No model has met shadow→advisory promotion gate.</td></tr>
+<tr><td>exit-ladder soak (P3)</td><td>accruing</td><td>observe-only soak comparing laddered exit vs single TP; not yet at graduation gate (need n&gt;=30 real-money orders)</td></tr>
+<tr><td>conviction + arbitration soak (P2/P3)</td><td>accruing</td><td>observe-only; no graduation criteria met yet</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 OPERATOR ACTION REQUIRED: alpaca_live execution blocked — balance ~$150, insufficient for whole-share ETF sizing. Keys ARE valid (api_ok=true confirmed). 14+ valid signals lost in this window alone (SPY/QQQ/GLD/IWM shorts).</li><li>🚩 Bot watchdog auto-restart within window — root cause unknown. Recovery clean. Recommend checking journalctl for OOM or crash context.</li><li>🚩 bybit_1 paper sizing returning target_qty=0 for ada/xrp — daily cap or balance issue. Separate from alpaca. Paper KPIs unreliable.</li><li>🚩 0 advisory ML models — no model-influenced advisory-layer downsize active. All 41 models observing in shadow.</li><li>🚩 All 7 in-window paper closes are reconciler artifacts (openedAt≈closedAt) — paper book $+801 is phantom, not strategy performance.</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it's waiting on</th><th>Next check</th></tr>
+<tr><td><code>MB-20260601-002</code></td><td>ml</td><td>• soak</td><td>regime-classifier f1=0 baseline — shadow-only; awaiting retrain experiment</td><td>after retrain experiment completes</td></tr>
+<tr><td><code>PB-20260617-002</code></td><td>performance</td><td>• soak</td><td>exit-ladder graduation — soak not yet accrued (P3 observe-only)</td><td>n&gt;=30 closed real-money trades with exit_ladder_soak rows</td></tr>
+<tr><td><code>PB-20260625-002</code></td><td>performance</td><td>🗳️ awaiting-decision</td><td>26 unreconciled bybit_2 orphan canonicals — operator-gated reconcile-history cleanup</td><td>operator go on reconcile-history cleanup</td></tr>
+</table></div>
+<footer>report_id RPT-20260627-113500-since-last · reviewer claude · prior RPT-20260626-060200-since-last · ICT Trading Bot system-report</footer></div></body></html>

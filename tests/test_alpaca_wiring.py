@@ -203,14 +203,17 @@ def test_accounts_yaml_alpaca_paper_ships_inert():
     # intraday ETF pilot (2026-06-20 § 0e) added gld_pullback_1h/slv_trend_1h;
     # intraday ETF rollout 2b (2026-06-20 § 0e) added spy/qqq/tlt 1h pullback +
     # uso 1h long-only trend, completing the intraday ETF sleeve.
+    # 2026-06-27 (Tier-3) appended the daily ETF pullback pair slv_pullback_1d +
+    # gdx_pullback_1d (same htf_pullback_trend_2h unit as gld_pullback_1d).
     assert acct["strategies"] == [
         "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
         "iwm_trend_long_1d", "tlt_pullback_1d", "ief_pullback_1d",
         "gld_pullback_1h", "slv_trend_1h",
         "spy_pullback_1h", "qqq_pullback_1h", "tlt_pullback_1h", "uso_trend_1h",
+        "slv_pullback_1d", "gdx_pullback_1d",
     ]
     # 2026-06-15: the old `demo: true` category stamp was superseded by
     # account_class (non-Bybit, so demo was only the category marker).
     assert "demo" not in acct
     assert acct["account_class"] == "paper"
-    assert acct["symbols"] == ["SPY", "QQQ", "GLD", "IWM", "TLT", "IEF", "SLV", "USO"]
+    assert acct["symbols"] == ["SPY", "QQQ", "GLD", "IWM", "TLT", "IEF", "SLV", "USO", "GDX"]
