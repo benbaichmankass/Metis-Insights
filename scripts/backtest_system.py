@@ -384,10 +384,16 @@ class _MlVolResolver:
         self.available = False
         self.reason = "unresolved"
         self.model_id: Optional[str] = None
+        self.skips: dict[str, int] = {}  # per-window None-reason tallies (diag)
         self._predictor = None
         self._spec = None
         self._labels: tuple[str, ...] = ()
         self._resolve()
+
+    def _skip(self, why: str) -> None:
+        """Tally a per-window scoring skip + return None (caller falls back)."""
+        self.skips[why] = self.skips.get(why, 0) + 1
+        return None
 
     def _resolve(self) -> None:
         try:
@@ -458,11 +464,12 @@ class _MlVolResolver:
         ``volatile`` thresholded at ``self.threshold``; ``None`` on any failure
         (caller falls back to frozen)."""
         if not self.available or window is None or len(window) == 0:
-            return None
+            return self._skip("empty_window")
         try:
             from src.runtime.regime_shadow import (
                 closes_from_candles,
                 feature_row_for_predictor,
+                rolling_log_return_vol,
             )
 
             closes = closes_from_candles(window)
@@ -471,12 +478,24 @@ class _MlVolResolver:
                 symbol=symbol, timeframe=timeframe, candles_df=window,
             )
             if row is None:
-                return None
+                # Pinpoint why feature_row_for_predictor declined this window so
+                # an offline run reports it (short past-window vs bucket/ohlc vs
+                # symbol/timeframe mismatch) instead of an opaque fallback count.
+                window_n = int((self._spec or {}).get("vol_window_n") or 20)
+                if rolling_log_return_vol(closes, window_n) is None:
+                    return self._skip("short_window")
+                spec = self._spec or {}
+                _nrm = lambda v: str(v or "").strip().upper()  # noqa: E731
+                if _nrm(spec.get("symbol")) != _nrm(symbol):
+                    return self._skip("symbol_mismatch")
+                if _nrm(spec.get("timeframe")) != _nrm(timeframe):
+                    return self._skip("timeframe_mismatch")
+                return self._skip("row_none_bucket_or_ohlc")
             proba = self._predictor.predict_proba(row)
             p_vol = float(proba.get("volatile", 0.0))
             return "volatile" if p_vol >= self.threshold else "calm"
-        except Exception:  # noqa: BLE001
-            return None
+        except Exception as exc:  # noqa: BLE001
+            return self._skip(f"exc:{type(exc).__name__}")
 
 
 # --------------------------------------------------------------------------
@@ -925,6 +944,7 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
         "ml_vol_reason": ev_counts["ml_vol_reason"],
         "ml_vol_scored_bars": ev_counts["ml_vol_scored"],
         "ml_vol_fallback_bars": ev_counts["ml_vol_fallback"],
+        "ml_vol_skips": (dict(ml_resolver.skips) if ml_resolver is not None else None),
         "intents_stamped_with_vol": ev_counts["intents_stamped"],
         "regime_router": regime_router,
         "regime_policy_path": regime_policy_path,
