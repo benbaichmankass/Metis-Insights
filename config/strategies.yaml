@@ -1,4 +1,4 @@
-# config/strategies.yaml — strategy config (S-012).
+[Resource from github at repo://benbaichmankass/ict-trading-bot/sha/38ff03040722088b78c5650569c909b64cfc364f/contents/config/strategies.yaml] # config/strategies.yaml — strategy config (S-012).
 #
 # Roster: turtle_soup, vwap, ict_scalp_5m (live since 2026-05-14,
 # PR #1156), trend_donchian (going live on bybit_2 2026-05-23,
@@ -1432,6 +1432,55 @@ strategies:
     atr_stop_mult: 2.5
     trail_mult: 4.0
     tp_r: 50.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  slv_pullback_1d:
+    # SLV (iShares Silver Trust) daily HTF-pullback — sister strategy to
+    # gld_pullback_1d. Same htf_pullback_trend_2h unit, same parameters,
+    # targeting silver as a gold-correlated but lower-price diversifier.
+    # Runs on alpaca_paper + alpaca_live (Tier-3 approved 2026-06-27).
+    # Whole-share bracket orders; risk_pct inherited from strategy config.
+    # PROVENANCE: mirrors gld_pullback_1d parameters (SRQ-20260627-SLV).
+    model: null
+    signal_prefixes: [slv_pullback]
+    enabled: true
+    execution: live
+    risk_pct: 0.3
+    timeframe: "1d"
+    symbols:
+      - SLV
+    trend_lookback: 40
+    pullback_lookback: 15
+    pullback_frac: 0.618
+    atr_period: 14
+    atr_stop_mult: 2.0
+    trail_mult: 4.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  gdx_pullback_1d:
+    # GDX (VanEck Gold Miners ETF) daily HTF-pullback — gold-miners
+    # diversifier. Same htf_pullback_trend_2h unit and parameters as
+    # gld_pullback_1d / slv_pullback_1d. GDX (~$43/share) fits within
+    # the alpaca_live $150 budget at 0.3% risk.
+    # Runs on alpaca_paper + alpaca_live (Tier-3 approved 2026-06-27).
+    # Whole-share bracket orders.
+    # PROVENANCE: mirrors gld_pullback_1d parameters (SRQ-20260627-GDX).
+    model: null
+    signal_prefixes: [gdx_pullback]
+    enabled: true
+    execution: live
+    risk_pct: 0.3
+    timeframe: "1d"
+    symbols:
+      - GDX
+    trend_lookback: 40
+    pullback_lookback: 15
+    pullback_frac: 0.618
+    atr_period: 14
+    atr_stop_mult: 2.0
+    trail_mult: 4.0
     min_confidence: 0.0
     shadow_model_ids: []
 

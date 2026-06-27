@@ -527,7 +527,9 @@ accounts:
       - qqq_pullback_1h                # § 0e, Tier-3): SPY/QQQ/TLT 1h
       - tlt_pullback_1h                # bidirectional pullback + USO 1h
       - uso_trend_1h                   # LONG-ONLY trend (paper money).
-    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO]   # instrument identity (Phase-0 +
+      - slv_pullback_1d                # daily ETF pullback, sister to gld_pullback_1d — added 2026-06-27 (Tier-3)
+      - gdx_pullback_1d                # daily ETF pullback, gold miners — added 2026-06-27 (Tier-3)
+    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX]   # instrument identity (Phase-0 +
                                        # ETF-breadth daily 2026-06-20 + intraday
                                        # ETF pilot 2026-06-20 § 0e adds SLV +
                                        # rollout 2b 2026-06-20 § 0e adds USO).
@@ -576,14 +578,16 @@ accounts:
       - qqq_pullback_1h                 # intraday ETF rollout, paper-validated 2026-06-20+
       - tlt_pullback_1h                 # intraday ETF rollout, paper-validated 2026-06-20+
       - uso_trend_1h                    # intraday ETF rollout, paper-validated 2026-06-20+
-    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO]   # instrument identity
+      - slv_pullback_1d                 # daily ETF pullback, sister to gld_pullback_1d — added 2026-06-27 (Tier-3)
+      - gdx_pullback_1d                 # daily ETF pullback, gold miners — added 2026-06-27 (Tier-3)
+    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX]   # instrument identity
                                        # (mirrors alpaca_paper; routing is by
                                        # the strategies list above, empty here).
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
       daily_usd: 200                   # absolute fallback (no equity snapshot)
-      risk_pct: 0.01                   # 1% balance risked per trade (operator 2026-06-24)
+      risk_pct: 0.02                   # 2% balance risked per trade (operator 2026-06-27; raised for min-order sizing on alpaca_live)
 
   # breakout_1: Breakout 1-Step Classic $5k PROP account (PB-20260616-004).
   # POC = TELEGRAM-PING bridge ONLY (no DXTrade API integration). When a
