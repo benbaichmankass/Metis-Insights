@@ -429,7 +429,10 @@ class _MlVolResolver:
             self.reason = "ok"
         except Exception as exc:  # noqa: BLE001 — degrade to frozen fallback
             self.available = False
-            self.reason = f"resolve_error:{type(exc).__name__}"
+            # Include the message (not just the type) so an offline / trainer-venv
+            # resolution failure names the actual missing module / bad path instead
+            # of an opaque "ModuleNotFoundError".
+            self.reason = f"resolve_error:{type(exc).__name__}:{exc}"[:300]
 
     def vol_regime_for_window(
         self, window: pd.DataFrame, *, symbol: str, timeframe: str,
