@@ -11,6 +11,7 @@ from src.runtime.regime.detector import (
     regime_label,
     wilder_adx,
 )
+from src.runtime.regime.ml_vol_verdict import ml_vol_regime
 from src.runtime.regime.policy import load_policy, would_gate
 from src.runtime.regime.vol_detector import (
     VOL_CALM,
@@ -30,6 +31,7 @@ __all__ = [
     "detect_regime",
     "detect_vol_regime",
     "load_policy",
+    "ml_vol_regime",
     "regime_label",
     "resolve_vol_specs",
     "vol_regime_from_spec",

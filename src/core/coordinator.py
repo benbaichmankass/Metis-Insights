@@ -1372,6 +1372,31 @@ class Coordinator:
                 })
                 continue
 
+            # Design B conviction sizing — the APPLY path (NEW, separate from the
+            # flagless observe-only annotator below). Default-off, gated by
+            # CONVICTION_SIZING_MODE (off/annotate/apply) + _ACCOUNTS allowlist +
+            # _DIRECTION (reductive/symmetric). When the flag is off this is a
+            # byte-for-byte no-op (returns sized_qty unchanged). Composition
+            # (design § "Composition (Option A)"): conviction produces the BASE
+            # size here, THEN the advisory + news reducers below still apply
+            # reductively on top — so ML bearishness / news opposition can still
+            # shrink even a high-conviction trade. ``effective_risk_pct`` feeds
+            # the daily-loss clamp (the account's base per-trade risk fraction;
+            # caps the conviction-implied fraction to min(2%, risk_pct) so a
+            # daily-loss-throttled account can't be re-inflated). Fail-inert.
+            from src.runtime.conviction_sizing import apply_conviction_sizing
+            sized_qty = apply_conviction_sizing(
+                pkg, sized_qty, account_name=account.name,
+                balance_usd=balance,
+                available_usd=available_usd,
+                total_account_usd=total_account_usd,
+                leverage=getattr(account.risk_manager, "leverage", 0),
+                market_type=_market_type,
+                min_qty=getattr(account.risk_manager, "min_qty", 0.0),
+                qty_precision=getattr(account.risk_manager, "qty_precision", 3),
+                effective_risk_pct=getattr(account.risk_manager, "risk_pct", None),
+            )
+
             # WS7 advisory influence — gated by model STAGE alone (advisory /
             # limited_live / live_approved); shadow only logs. Reductive only —
             # can shrink the RiskManager-sized qty toward a floor when a quorum
