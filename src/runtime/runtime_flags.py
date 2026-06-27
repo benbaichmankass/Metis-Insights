@@ -106,6 +106,56 @@ def _news_influence_mode(settings: dict) -> str:
     return mode if mode in {"off", "annotate", "downsize"} else "off"
 
 
+def _regime_ml_verdict_mode(settings: dict | None = None) -> str:
+    """Return the regime ML-vol-verdict mode: ``off`` | ``shadow`` | ``use``.
+
+    Feature flag for Design A (``docs/research/A-regime-router-ml-vol-verdict-DESIGN-2026-06-27.md``),
+    mirroring ``_news_influence_mode``. Default **off** — deploying the code is
+    a behaviour no-op (the gate emits no new audit row and runs zero ML work).
+
+    - ``off``     (default) — no ``regime_ml_vol_shadow`` row, zero overhead.
+    - ``shadow``  — Phase 1: compute the advisory head's ``vol_regime`` per
+      candidate and emit a ``regime_ml_vol_shadow`` audit row comparing it
+      against the frozen label; the gate DECISION still uses the frozen
+      ``intent.vol_regime`` (observe-only, ``enforced: false``).
+    - ``use``     — Phase 2 placeholder: resolves like ``shadow`` for now (still
+      emits the audit row, still uses the frozen label). **TODO(Phase 2):**
+      thread the non-unknown ML ``vol_regime`` into ``would_gate`` instead of
+      ``intent.vol_regime`` — a separate operator-gated PR.
+
+    Unknown values degrade to ``off`` (fail-safe — never silently acts on a typo).
+    Order-routing-affecting → Tier-3 to flip past ``off`` on the VM.
+    """
+    raw = settings.get("REGIME_ML_VERDICT_MODE") if isinstance(settings, dict) else None
+    if raw is None:
+        raw = os.environ.get("REGIME_ML_VERDICT_MODE", "off")
+    mode = str(raw).strip().lower()
+    return mode if mode in {"off", "shadow", "use"} else "off"
+
+
+_DEFAULT_ML_VOL_VERDICT_THRESHOLD = 0.5
+
+
+def _ml_vol_verdict_threshold(settings: dict | None = None) -> float:
+    """Return the ``P(volatile) >= τ`` threshold for the ML vol verdict.
+
+    Reads ``ML_VOL_VERDICT_THRESHOLD`` (settings → env → default ``0.5``). A
+    non-numeric value falls back to the default so a typo can never strand the
+    verdict. Order-routing-affecting → Tier-3 to change on the VM (Design A
+    guardrails). ``ml_vol_regime`` maps ``P(volatile) >= τ`` → ``volatile``
+    else ``calm``.
+    """
+    raw = settings.get("ML_VOL_VERDICT_THRESHOLD") if isinstance(settings, dict) else None
+    if raw is None:
+        raw = os.environ.get("ML_VOL_VERDICT_THRESHOLD")
+    if raw is None or str(raw).strip() == "":
+        return _DEFAULT_ML_VOL_VERDICT_THRESHOLD
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return _DEFAULT_ML_VOL_VERDICT_THRESHOLD
+
+
 # NOTE: conviction sizing (`src/runtime/conviction_sizing.py`) has **no** flag.
 # It ships as always-on advisory/observe-only — it computes the would-be
 # conviction size and logs it on every order but NEVER changes qty, exactly like
