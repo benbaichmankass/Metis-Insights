@@ -417,7 +417,15 @@ class _MlVolResolver:
                 spec = regime_spec_of(predictor)
                 if spec is None:
                     continue
-                labels = tuple(str(c) for c in (spec.get("class_labels") or []))
+                # class_labels live on the PREDICTOR (the wrapped base), NOT in
+                # the regime spec dict (which carries vol_bucket_* / symbol / tf).
+                # Reading them off the spec yields () and rejects every head.
+                labels = tuple(str(c) for c in (
+                    getattr(predictor, "class_labels", None)
+                    or getattr(getattr(predictor, "wrapped", None),
+                               "class_labels", None)
+                    or []
+                ))
                 if "volatile" not in labels:
                     continue
                 vol_col = str(spec.get("vol_feature_column") or "rolling_log_return_vol")
