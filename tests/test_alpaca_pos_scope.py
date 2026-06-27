@@ -34,3 +34,17 @@ def test_disabled_options_block_treated_as_equity():
     acct = {"exchange": "alpaca", "options": {"express_as": "debit_vertical", "enabled": False}}
     assert _alpaca_pos_in_scope({"asset_class": "us_option"}, acct) is False
     assert _alpaca_pos_in_scope({"asset_class": "us_equity"}, acct) is True
+
+
+def test_stripped_cfg_resolves_options_from_canonical_config():
+    """INCIDENT 2026-06-27: the reconciler hands a STRIPPED cfg (account_id only,
+    no options block). The predicate must still classify alpaca_options_paper as
+    options (us_option only) by resolving the canonical accounts.yaml — otherwise it
+    adopted the shared paper login's EQUITY positions as phantom orphans.
+    """
+    strip_opt = {"account_id": "alpaca_options_paper", "exchange": "alpaca"}
+    assert _alpaca_pos_in_scope({"asset_class": "us_equity"}, strip_opt) is False
+    assert _alpaca_pos_in_scope({"asset_class": "us_option"}, strip_opt) is True
+    strip_eq = {"account_id": "alpaca_paper", "exchange": "alpaca"}
+    assert _alpaca_pos_in_scope({"asset_class": "us_equity"}, strip_eq) is True
+    assert _alpaca_pos_in_scope({"asset_class": "us_option"}, strip_eq) is False

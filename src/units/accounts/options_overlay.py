@@ -44,14 +44,48 @@ from src.units.accounts.options_sizing import size_debit_structure
 logger = logging.getLogger(__name__)
 
 
+_CANON_ACCOUNTS_CACHE: Optional[Dict[str, Any]] = None
+
+
+def _canonical_options_block(account_id: Optional[str]) -> Any:
+    """The ``options`` block for *account_id* from the canonical accounts.yaml.
+
+    Cached for the process lifetime (accounts.yaml only changes via deploy+restart).
+    Fail-safe: any load error → None (treated as not-expressing). Lets
+    ``account_expresses_options`` stay correct even when handed a STRIPPED cfg that
+    omitted the block.
+    """
+    if not account_id:
+        return None
+    global _CANON_ACCOUNTS_CACHE
+    if _CANON_ACCOUNTS_CACHE is None:
+        try:
+            from src.config.accounts_loader import load_accounts_dict
+            _CANON_ACCOUNTS_CACHE = load_accounts_dict() or {}
+        except Exception:  # noqa: BLE001 — never let a config-load error gate a read
+            _CANON_ACCOUNTS_CACHE = {}
+    cfg = _CANON_ACCOUNTS_CACHE.get(str(account_id)) or {}
+    return cfg.get("options")
+
+
 def account_expresses_options(account_cfg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Return the options-expression config block for *account_cfg*, or None.
 
     An account opts in with an ``options:`` block whose ``express_as`` is a supported
     structure (today only ``debit_vertical``) and which is not explicitly disabled.
-    Pure; never raises. None → the account uses the normal (equity) execution path.
+    None → the account uses the normal (equity) execution path. Never raises.
+
+    ROBUSTNESS (INCIDENT 2026-06-27): several callers hand this a STRIPPED cfg with a
+    fixed key set that omits ``options`` (the monitor's ``_load_account_cfgs_for_reconcile``
+    and the coordinator's per-account cfg). When the ``options`` key is ABSENT we resolve
+    it from the CANONICAL accounts.yaml by ``account_id`` — otherwise the reconciler
+    mis-classified ``alpaca_options_paper`` as equity and adopted the shared paper
+    login's equity positions as phantom orphans. An EXPLICIT ``options`` value (incl.
+    ``None``) is honoured as-is, so a deliberate opt-out is never overridden.
     """
     opt = account_cfg.get("options")
+    if opt is None and "options" not in account_cfg:
+        opt = _canonical_options_block(account_cfg.get("account_id"))
     if not isinstance(opt, dict):
         return None
     if opt.get("enabled") is False:
