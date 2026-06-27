@@ -1,4 +1,4 @@
-[Resource from github at repo://benbaichmankass/ict-trading-bot/sha/38ff03040722088b78c5650569c909b64cfc364f/contents/config/strategies.yaml] # config/strategies.yaml — strategy config (S-012).
+# config/strategies.yaml — strategy config (S-012).
 #
 # Roster: turtle_soup, vwap, ict_scalp_5m (live since 2026-05-14,
 # PR #1156), trend_donchian (going live on bybit_2 2026-05-23,
