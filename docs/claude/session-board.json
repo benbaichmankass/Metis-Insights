@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": null,
-    "branch": null,
-    "pr": null,
-    "claimed_at": null
+    "held_by": "session_01LGsKNEjcTeujEGVACSPESK-F",
+    "branch": "claude/audit-F-order-path",
+    "pr": 4950,
+    "claimed_at": "2026-06-28T13:35:00Z"
   },
   "active_sessions": [
     {
