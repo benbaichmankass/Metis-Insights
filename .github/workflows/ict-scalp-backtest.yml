@@ -68,9 +68,15 @@ concurrency:
 
 jobs:
   backtest:
+    # Actor-guard on the issue path: owner (or repo automation) only. The title
+    # fallback below is author-controlled, so without this any public user could
+    # fire this compute job. AND-ed (restrict-only). (Security audit 2026-06-28:
+    # docs/security/intrusion-surface-audit-2026-06-28.md.)
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issues' && (
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') && (
         contains(github.event.issue.labels.*.name, 'ict-scalp-backtest-request') ||
         startsWith(github.event.issue.title, '[ict-scalp-backtest]')
       ))
