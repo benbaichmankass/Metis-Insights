@@ -1,5 +1,0 @@
-{
-  "confirm_threshold": 0.6,
-  "strong_confirm_threshold": 0.75,
-  "reject_threshold": 0.4
-}

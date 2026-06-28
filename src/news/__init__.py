@@ -1,10 +1,15 @@
 """
 News-augmented trade decision layer.
 
-This package provides an additive news scoring layer that adjusts trade
-probability using live news sentiment. It does not alter the strategy stack
-or runtime behavior in v1; it exposes data that the pipeline can optionally
-consume.
+This package provides a news scoring layer that adjusts trade probability
+using live news sentiment. **It is NOT observe-only**: when the source is
+active (``NEWS_SOURCE=rss``, or ``newsapi`` + ``NEWS_API_KEY``) the veto
+(``news_score._get_veto_enabled``, default ``NEWS_VETO_ENABLED=true``) can
+**skip a live trade for every account including real money** in ``pipeline.py``
+before ``multi_account_execute`` (sentiment < -0.6 AND impact > 0.7). The
+graduated influence-sizing hook (``runtime.news_sizing``) is the separate,
+default-off (``NEWS_INFLUENCE_MODE``) reductive path. When the source is
+inactive the layer is a cheap neutral no-op.
 
 Public API
 ----------

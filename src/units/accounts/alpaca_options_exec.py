@@ -15,9 +15,13 @@ Order shapes (verified against Alpaca docs):
     order on the OCC option symbol (NO ``order_class``). mleg requires >=2 legs, so a
     lone long is not an mleg order.
 
-DORMANT — not imported by any executor or the live runtime yet. **Tier-2 (order
-path)**: wiring this into a strategy/account is operator-gated; until then it is
-buildable + unit-testable scaffolding only. Defaults to the paper host.
+WIRED (paper only). Reached via ``execute.execute_pkg`` →
+``options_overlay.place_options_expression`` → ``place_spread`` for the
+``alpaca_options_paper`` account (``mode: live``, ``account_class: paper``,
+``options.express_as: debit_vertical``). It places real **paper-money** option
+orders; there is no real-money options account. Defaults to the paper host.
+(Field beats comment: the earlier "DORMANT — not imported by any executor"
+note predated the options-overlay wiring.)
 """
 from __future__ import annotations
 
