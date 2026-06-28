@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from src.core.coordinator import OrderPackage
 from src.units.accounts.risk import RiskManager
 
 logger = logging.getLogger(__name__)
@@ -79,6 +78,9 @@ class TradingAccount:
         ib_port: Optional[int] = None,
         ib_account: Optional[str] = None,
         ib_client_id: Optional[int] = None,
+        alpaca_env: Optional[str] = None,
+        base_url: Optional[str] = None,
+        oanda_env: Optional[str] = None,
         symbols: Optional[List[str]] = None,
     ) -> None:
         self.name = name
@@ -150,6 +152,20 @@ class TradingAccount:
         self.ib_port: Optional[int] = ib_port
         self.ib_account: Optional[str] = ib_account
         self.ib_client_id: Optional[int] = ib_client_id
+        # Alpaca / OANDA host selector — paper vs live. Populated from
+        # accounts.yaml ``alpaca_env`` / ``oanda_env`` (+ optional
+        # ``base_url`` override). The coordinator + read path forward these
+        # into the account_cfg dict so ``alpaca_client_for`` /
+        # ``oanda_client_for`` dial the correct host. WITHOUT them the
+        # factories fall back to ``os.environ`` ALPACA_ENV/OANDA_ENV
+        # (default "paper"/"practice"), so a LIVE account's live key is sent
+        # to the PAPER host → "request is not authorized"
+        # (BL-20260628-ALPACA-LIVE-HOST: alpaca_live was inert since the
+        # 2026-06-26 live flip because this field was dropped on load).
+        # None for non-Alpaca/OANDA accounts.
+        self.alpaca_env: Optional[str] = alpaca_env
+        self.base_url: Optional[str] = base_url
+        self.oanda_env: Optional[str] = oanda_env
         # Instrument symbol(s) this account trades. accounts.yaml is the
         # single source of truth for "what does this account trade", which
         # the multi-symbol tick loop unions to decide which symbols to run
@@ -161,41 +177,14 @@ class TradingAccount:
             None if symbols is None else [str(s).strip() for s in symbols if str(s).strip()]
         )
 
-    def place_order(self, order: OrderPackage, *, dry_run: Optional[bool] = None) -> str:
-        """Risk-check and route *order* to the exchange.
-
-        Parameters
-        ----------
-        order : OrderPackage
-            The typed order from the Coordinator.
-        dry_run : bool, optional
-            Override the account-level ``self.dry_run`` flag.  When None
-            (default) the account's own ``dry_run`` attribute is used.
-
-        Returns
-        -------
-        str
-            trade_id string (``"dry-..."`` in dry-run, exchange orderId live).
-
-        Raises
-        ------
-        RiskBreach
-            When the order fails the account's risk checks.
-        """
-        effective_dry_run = self.dry_run if dry_run is None else dry_run
-
-        if not self.risk_manager.approve(order):
-            reason = (
-                "daily loss limit exceeded"
-                if self.risk_manager.daily_pnl < -self.risk_manager.max_daily_loss_usd
-                else "position size limit exceeded"
-            )
-            raise RiskBreach(
-                f"Account '{self.name}' rejected order for {order.symbol}: {reason}"
-            )
-
-        from src.units.accounts.integrator import route_order
-        return route_order(self, order, dry_run=effective_dry_run)
+    # ``place_order`` REMOVED 2026-06-28 (full-system audit Workstream B,
+    # operator-approved). It was the legacy per-account dispatch entry point
+    # (risk-check → ``integrator.route_order`` → ``<Exchange>API.place``),
+    # superseded by ``execute_pkg`` and never called in production — only by
+    # the unit tests that exercised it. ``RiskManager.approve`` (the risk gate
+    # it wrapped) is now reached on the live path via ``RiskManager.evaluate``
+    # inside ``Coordinator.multi_account_execute``, which raises/catches
+    # ``RiskBreach`` (still defined above — load-bearing on the live path).
 
     def status(self) -> Dict[str, Any]:
         """Return a summary dict suitable for Telegram display."""

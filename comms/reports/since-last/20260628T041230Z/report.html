@@ -1,0 +1,177 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-06-28T04:12:30+00:00 · window 2026-06-27T12:00:00+00:00 → 2026-06-28T04:12:00+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>~16h window. REAL MONEY +$1.78 (2/2 ict_scalp_5m BTCUSDT wins in $60k chop) — the only clean trading. Paper -$845.65 was a PRE-FIX ARTIFACT: the reverse reconciler adopted alpaca_options_paper option legs as equity orphans + priced them with the equity formula. ROOT-CAUSED + already fixed (#4858+#4867, live ~20:08); the 20:11 &#x27;restart&#x27; WAS that deploy. ML daily cycle green; 0 advisory models.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Tier-2 cleanup: supersede the ~8 pre-fix phantom paper rows so they stop polluting paper KPIs</b> <span class="pill">health · T2</span> ⚠️ operator<br><span class='muted'>Root cause FIXED in #4858+#4867 (live ~20:08). Residual: mark trades 2999-3006 (alpaca_options_paper, reconcile_status=&#x27;reconciled&#x27;) as &#x27;superseded&#x27; — a live-DB writeback, operator-gated. Then verify clean over 48h.</span></li>
+<li><b>Fund/auth alpaca_live to unblock ETF live execution (carry from prior report)</b> <span class="pill">health · T3</span> ⚠️ operator<br><span class='muted'>alpaca_live undercapitalized (~$150) + BL-20260627-ALPACA-LIVE-API-UNAUTH (real-money Alpaca key auth failure). ETF strategies only express on paper until resolved.</span></li>
+<li><b>Decide: retire vs re-metric the two intentionally-trivial trade-outcome demo baselines (f1=0 by design)</b> <span class="pill">ml · T3</span> ⚠️ operator<br><span class='muted'>trade-outcome-winrate/global baselines are non-promotable demos; f1=0 is EXPECTED on a sub-50%-win-rate holdout. Either retire from the daily cycle or switch the headline metric to Brier/AUC + mark expected-degenerate so reviews stop re-flagging.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">64 open / 142 total</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">32 open / 52 total</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">16 open / 47 total · 1 drained</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>ml</span> Refine-or-retire trade-outcome-winrate-baseline-v0 (and the sibling degenerate f1=0 baseline) — MB-20260623-003.</li>
+<li><span class='pill'>performance</span> alpaca_live funding + real-money Alpaca key auth fix to unblock ETF live execution (BL-20260627-ALPACA-LIVE-API-UNAUTH).</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>The paper -$845 &#x27;loss&#x27; is fully explained and already code-fixed: a reverse-reconciler orphan-adoption of options-account legs priced with the equity formula (#4858+#4867, live ~20:08). It is NOT a strategy signal and NOT an open code bug — only the historical rows need a data cleanup.</li>
+<li>The 20:11 service restart and the options fix are the same event: ict-git-sync auto-deployed #4867 and restarted the trader. What looked like an unexplained reboot was a clean deploy.</li>
+<li>ETF intraday cells (gld/slv/spy/qqq/tlt _1h) do fire+fill on alpaca_options_paper (verified, PB-20260620-001); pre-fix those fills were the exact positions mis-adopted — same code path, now fixed.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Service</th><th>State</th><th>Since</th></tr>
+<tr><td>ict-trader-live.service</td><td>active/running</td><td>Sat 2026-06-27 20:11:11 UTC</td></tr>
+<tr><td>ict-web-api.service</td><td>active/running</td><td>Sat 2026-06-27 20:11:12 UTC</td></tr>
+</table></div>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>trader_liveness</td><td class="sev-ok">🟢 ok</td><td>Heartbeat fresh (age ~21s at 03:59:46Z), label &#x27;running&#x27;; last tick 2026-06-28T03:59:15Z. Pipeline ticking all 39 strategies; vwap correctly disabled.</td></tr>
+<tr><td>service_state</td><td class="sev-ok">🟢 ok</td><td>The 20:11 restart was the ict-git-sync AUTO-DEPLOY of #4867 (committed 20:04:15Z; old trader ticked normally until 20:04:16 with no OOM/crash; both units restart together via deploy_pull_restart). Not an OCI reboot, not a crash. Clean recovery.</td></tr>
+<tr><td>reconciler_paper_artifact</td><td class="sev-watch">🟡 watch</td><td>ROOT-CAUSED + FIXED. The -$845 paper figure came from the reverse reconciler adopting alpaca_options_paper us_option legs as equity `adopted_orphan` trades (entry=underlying spot) then the local-PnL sweep pricing them with the equity formula (contract_value_usd=1.0). Adopted 18:47, closed 19:05. Fixed in #4858 (account_open_positions options-aware -&gt; no equity adoption) + #4867 (sweep options-defer guard), both live in deployed sha 5a2db1f2 since ~20:08. Post-deploy: zero new options adoptions. Residual: Tier-2 cleanup of the ~8 phantom rows + 48h verify. Real-money closes unaffected (broker-truth).</td></tr>
+<tr><td>web_api</td><td class="sev-ok">🟢 ok</td><td>FastAPI :8001 responsive across all diag/bot pulls this session.</td></tr>
+<tr><td>prop_bridge</td><td class="sev-ok">🟢 ok</td><td>breakout_1 dormant — no account-status report-back (present:false), rule-distance null; isolated journal, no leakage into real/paper KPIs.</td></tr>
+<tr><td>diag_relay</td><td class="sev-watch">🟡 watch</td><td>vm-diag-snapshot burst-cancellation reproduced again this session (#4874 trades/closed CANCELLED despite cancel-in-progress:false) — BL-20260611-002 still live; required a refile.</td></tr>
+<tr><td>reboot_resolved</td><td class="sev-ok">🟢 ok</td><td>#4 resolved: 20:11Z restart = git-sync deploy of the options fix, not maintenance/OOM.</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$1.78</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 ↑</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">2</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">100.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$0.89</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">+$0.00</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">2</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>ict_scalp_5m</td><td>2</td><td>100.0%</td><td class="pos">+$1.78</td></tr>
+</table></div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-845.65</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$801.00 ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">8</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">25.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-105.71</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.48</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-845.65</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">2</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>qqq_pullback_1h</td><td>2</td><td>0.0%</td><td class="neg">$-1,074.24</td></tr>
+<tr><td>spy_pullback_1h</td><td>2</td><td>0.0%</td><td class="neg">$-524.06</td></tr>
+<tr><td>slv_trend_1h</td><td>1</td><td>100.0%</td><td class="pos">+$525.35</td></tr>
+<tr><td>tlt_pullback_1h</td><td>1</td><td>100.0%</td><td class="pos">+$244.88</td></tr>
+<tr><td>gld_pullback_1h</td><td>1</td><td>0.0%</td><td class="neg">$-10.02</td></tr>
+<tr><td>iwm_trend_long_1d</td><td>1</td><td>0.0%</td><td class="neg">$-7.56</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">0</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">0</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">10 full dossiers, 0 summarized (full-per-trade (since-last/daily)).</p>
+<details><summary><span class="pill real">real_money</span> BTCUSDT short · ict_scalp_5m · <span class="pos">+$0.94</span> · grade A</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3008</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-06-27T21:42:46.954899+00:00</div><div class="k">closed</div><div>2026-06-27T22:16:32.216000+00:00</div><div class="k">hold (s)</div><div>2025</div><div class="k">entry</div><div>60255</div><div class="k">exit</div><div>59954.8</div><div class="k">stop</div><div>60491.96571429</div><div class="k">target</div><div>59954.80142857</div><div class="k">qty</div><div>0.004</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>tp</div><div class="k">setup</div><div>ict_scalp_5m</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>optimal</div><div class="k">exit quality</div><div>tp_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>ict_scalp_5m short; entry=optimal; exit=tp_appropriate; grade A</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> BTCUSDT long · ict_scalp_5m · <span class="pos">+$0.84</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2995</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-06-27T12:09:45.990004+00:00</div><div class="k">closed</div><div>2026-06-27T13:38:37.217000+00:00</div><div class="k">hold (s)</div><div>5331</div><div class="k">entry</div><div>60343</div><div class="k">exit</div><div>60577.475</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>0.004</div><div class="k">pnl %</div><div>0.3488</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>ict_scalp_5m</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SLV short · slv_trend_1h · <span class="pos">+$525.35</span> · grade D</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3002</div><div class="k">account</div><div>alpaca_options_paper</div><div class="k">opened</div><div>2026-06-27T18:47:15.216409+00:00</div><div class="k">closed</div><div>2026-06-27T19:05:48.058497+00:00</div><div class="k">hold (s)</div><div>1112</div><div class="k">entry</div><div>58.82</div><div class="k">exit</div><div>53.29</div><div class="k">stop</div><div>60.36732143</div><div class="k">target</div><div>52.974295</div><div class="k">qty</div><div>95</div><div class="k">pnl %</div><div>9.4016</div><div class="k">close reason</div><div>other</div><div class="k">setup</div><div>slv_trend_1h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>should_skip</div><div class="k">exit quality</div><div>tp_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price — not a genuine strategy exit)</div><div class="k">grade rationale</div><div>slv_trend_1h short; entry=should_skip; exit=tp_appropriate; grade D</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> TLT long · tlt_pullback_1h · <span class="pos">+$244.88</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3004</div><div class="k">account</div><div>alpaca_options_paper</div><div class="k">opened</div><div>2026-06-27T18:47:15.385702+00:00</div><div class="k">closed</div><div>2026-06-27T19:05:48.058497+00:00</div><div class="k">hold (s)</div><div>1112</div><div class="k">entry</div><div>86.269913</div><div class="k">exit</div><div>87.33</div><div class="k">stop</div><div>86.98071429</div><div class="k">target</div><div>95.96468</div><div class="k">qty</div><div>231</div><div class="k">pnl %</div><div>1.2288</div><div class="k">close reason</div><div>other</div><div class="k">setup</div><div>tlt_pullback_1h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>premature_exit</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price — not a genuine strategy exit)</div><div class="k">grade rationale</div><div>tlt_pullback_1h long; entry=acceptable; exit=premature_exit; grade C</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> GLD short · gld_pullback_1h · <span class="neg">$-10.02</span> · grade B</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>2999</div><div class="k">account</div><div>alpaca_options_paper</div><div class="k">opened</div><div>2026-06-27T18:47:14.962179+00:00</div><div class="k">closed</div><div>2026-06-27T19:05:48.058497+00:00</div><div class="k">hold (s)</div><div>1113</div><div class="k">entry</div><div>373.486429</div><div class="k">exit</div><div>373.725</div><div class="k">stop</div><div>378.21017857</div><div class="k">target</div><div>336.31627</div><div class="k">qty</div><div>42</div><div class="k">pnl %</div><div>-0.0639</div><div class="k">close reason</div><div>other</div><div class="k">setup</div><div>gld_pullback_1h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>optimal</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price — not a genuine strategy exit)</div><div class="k">grade rationale</div><div>gld_pullback_1h short; entry=optimal; exit=sl_appropriate; grade B</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> IWM long · iwm_trend_long_1d · <span class="neg">$-7.56</span> · grade D</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3000</div><div class="k">account</div><div>alpaca_options_paper</div><div class="k">opened</div><div>2026-06-27T18:47:15.047672+00:00</div><div class="k">closed</div><div>2026-06-27T19:05:48.058497+00:00</div><div class="k">hold (s)</div><div>1113</div><div class="k">entry</div><div>298.53</div><div class="k">exit</div><div>297.69</div><div class="k">stop</div><div>282.02232143</div><div class="k">target</div><div>328.0515</div><div class="k">qty</div><div>9</div><div class="k">pnl %</div><div>-0.2814</div><div class="k">close reason</div><div>other</div><div class="k">setup</div><div>iwm_trend_long_1d</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>should_skip</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price — not a genuine strategy exit)</div><div class="k">grade rationale</div><div>iwm_trend_long_1d long; entry=should_skip; exit=sl_appropriate; grade D</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> QQQ long · qqq_pullback_1h · <span class="neg">$-537.12</span> · grade B</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3005</div><div class="k">account</div><div>alpaca_options_paper</div><div class="k">opened</div><div>2026-06-27T18:56:41.874912+00:00</div><div class="k">closed</div><div>2026-06-27T19:05:48.058497+00:00</div><div class="k">hold (s)</div><div>546</div><div class="k">entry</div><div>738.51</div><div class="k">exit</div><div>704.94</div><div class="k">stop</div><div>728.76892857</div><div class="k">target</div><div>808.71014</div><div class="k">qty</div><div>16</div><div class="k">pnl %</div><div>-4.5456</div><div class="k">close reason</div><div>other</div><div class="k">setup</div><div>qqq_pullback_1h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>optimal</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price — not a genuine strategy exit)</div><div class="k">grade rationale</div><div>qqq_pullback_1h long; entry=optimal; exit=sl_appropriate; grade B</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SPY long · spy_pullback_1h · <span class="neg">$-262.03</span> · grade B</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3006</div><div class="k">account</div><div>alpaca_options_paper</div><div class="k">opened</div><div>2026-06-27T18:56:41.958046+00:00</div><div class="k">closed</div><div>2026-06-27T19:05:48.058497+00:00</div><div class="k">hold (s)</div><div>546</div><div class="k">entry</div><div>745.2415</div><div class="k">exit</div><div>732.14</div><div class="k">stop</div><div>738.32410714</div><div class="k">target</div><div>817.60105</div><div class="k">qty</div><div>20</div><div class="k">pnl %</div><div>-1.758</div><div class="k">close reason</div><div>other</div><div class="k">setup</div><div>spy_pullback_1h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>optimal</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price — not a genuine strategy exit)</div><div class="k">grade rationale</div><div>spy_pullback_1h long; entry=optimal; exit=sl_appropriate; grade B</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> QQQ long · qqq_pullback_1h · <span class="neg">$-537.12</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3001</div><div class="k">account</div><div>alpaca_options_paper</div><div class="k">opened</div><div>2026-06-27T18:47:15.132997+00:00</div><div class="k">closed</div><div>2026-06-27T18:49:30.963422+00:00</div><div class="k">hold (s)</div><div>135</div><div class="k">entry</div><div>738.51</div><div class="k">exit</div><div>704.94</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>16</div><div class="k">pnl %</div><div>-4.5456</div><div class="k">close reason</div><div>other</div><div class="k">setup</div><div>qqq_pullback_1h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price — not a genuine strategy exit)</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SPY long · spy_pullback_1h · <span class="neg">$-262.03</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3003</div><div class="k">account</div><div>alpaca_options_paper</div><div class="k">opened</div><div>2026-06-27T18:47:15.299933+00:00</div><div class="k">closed</div><div>2026-06-27T18:49:29.872595+00:00</div><div class="k">hold (s)</div><div>134</div><div class="k">entry</div><div>745.2415</div><div class="k">exit</div><div>732.14</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>20</div><div class="k">pnl %</div><div>-1.758</div><div class="k">close reason</div><div>other</div><div class="k">setup</div><div>spy_pullback_1h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price — not a genuine strategy exit)</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>60453.5</td><td>60194.3</td><td>60942.2</td><td>59846.6</td><td class="neg">-0.4%</td><td>Range-bound chop around $60k over the window (~1.8% range, no trend). Suits the ict_scalp_5m mean-reversion that won both real trades.</td></tr>
+<tr><td>ETHUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>Open htf_pullback_trend_2h long (#3010); candles not pulled this session (relay-bounded).</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>trade-outcome-winrate-baseline-v0</td><td>candidate</td><td>f1=0.0 / precision=0.0 / recall=0.0 (acc 0.836)</td><td>flat (degenerate, identical every daily retrain)</td><td>n/a</td><td>Degenerate — predicts majority class on n=73 eval. Stuck across daily retrains (MB-20260601-002 / MB-20260623-003).</td></tr>
+<tr><td>eth-regime-1h-lgbm-xasset-v1</td><td>shadow</td><td>manifest_ok (green)</td><td>now on fresh daily-built data</td><td>accruing</td><td>Cross-asset chain now in the daily build (resolved MB-20260618-XA-DAILYBUILD this review).</td></tr>
+</table></div>
+<h3>Promotion / demotion recommendations (Tier-3)</h3><ul class='pri'>
+<li>none <b>(fleet)</b> shadow→shadow: 0 advisory models; no model has met the shadow→advisory gate. Regime-head promotion remains structurally blocked on the live_agreement gate (MB-20260626-003).</li>
+</ul>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li class='muted'>All HOLD. Only 2 real closed trades this window (ict_scalp_5m, 2/2 wins) — insufficient new evidence to move any gate. Paper ETF &#x27;losses&#x27; are reconciler artifacts, so NO demote/kill is justified on contaminated data. ict_scalp_5m remains the only strategy with a clean real-money edge; continue. No strategy met a promotion gate.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">1</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">True</div></div>
+</div>
+<p class='muted'>Healthy. The 2026-06-28 01:08→01:44Z daily cycle completed green (rc:0, ~40 manifests, calibrators+publish OK). ETH cross-asset manifests trained green on fresh daily data (resolved XA-DAILYBUILD). MES skips are expected; the winrate baseline is the only genuinely stuck model.</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>shadow regime heads (BTC/MES/ETH)</td><td>accruing</td><td>Daily retrains green; all at shadow/candidate. 0 met the shadow→advisory gate; regime-head promotion blocked on live_agreement gate (MB-20260626-003).</td></tr>
+<tr><td>ETH cross-asset shadow head</td><td>accruing</td><td>Now training on fresh daily-built data (XA-DAILYBUILD resolved); accruing predictions.</td></tr>
+<tr><td>exit-ladder soak (P3)</td><td>accruing</td><td>Observe-only; needs n&gt;=30 real-money orders before graduation (PB-20260617-002). Real volume is tiny so this is slow.</td></tr>
+<tr><td>conviction + arbitration soak (P2/P3)</td><td>accruing</td><td>Observe-only; no graduation gate met.</td></tr>
+<tr><td>trade-outcome-winrate baseline</td><td>stalled</td><td>Degenerate f1=0 every retrain — but EXPECTED for a trivial winrate/threshold-0.5 baseline on a sub-50%-win-rate holdout (Brier 0.145 is fine). Decision: retire from the cycle or re-metric (Tier-3), not a repair.</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 RESOLVED THIS FOLLOW-UP: the paper -$845 &#x27;reconciler artifact&#x27; is root-caused (options-account orphan-adoption + equity pricing) and ALREADY FIXED in #4858+#4867 (live ~20:08 06-27). Residual is a Tier-2 cleanup of ~8 historical phantom rows, not a live bug.</li><li>🚩 RESOLVED: the 20:11Z restart was the git-sync auto-deploy of #4867, not an OCI/OOM event — benign.</li><li>🚩 STALLED SOAK: trade-outcome-winrate baseline degenerate (f1=0) — but this is BY DESIGN for a trivial baseline on a sub-50%-win-rate holdout; the fix is retire-or-re-metric (Tier-3), not a model repair.</li><li>🚩 CARRY-FORWARD: alpaca_live undercapitalized/key-unauth still blocks ETF live execution; 0 advisory ML models still influencing orders.</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>BL-20260628-RECONCILER-PAPER-ARTIFACT</code></td><td>health</td><td>🔁 verify</td><td>Options-account orphan-adoption + equity-pricing FIXED in #4858+#4867 (live ~20:08). Watching for zero new options adoptions; ~8 historical phantom rows pending Tier-2 cleanup.</td><td>48h clean + operator OK on the supersede writeback</td></tr>
+<tr><td><code>MB-20260623-003</code></td><td>ml</td><td>🗳️ awaiting-decision</td><td>trade-outcome-winrate baseline degenerate (f1=0) every daily retrain — refine-or-retire is Tier-3.</td><td>operator go on retrain/retire</td></tr>
+<tr><td><code>PB-20260617-002</code></td><td>performance</td><td>⏳ soaking</td><td>ExitPlan ladder graduation (P4) — observe-only soak not yet accrued.</td><td>n&gt;=30 closed real-money orders with exit_ladder_soak rows</td></tr>
+<tr><td><code>PB-20260625-002</code></td><td>performance</td><td>🗳️ awaiting-decision</td><td>26 unreconciled bybit_2 orphan canonicals carry possibly-phantom PnL; reconcile-history cleanup is operator-gated.</td><td>operator go on reconcile-history cleanup</td></tr>
+<tr><td><code>PB-20260620-001</code></td><td>performance</td><td>🔁 verify</td><td>Intraday ETF cells fire+fill (verified) but exit cadence contaminated by the reconciler artifact; uso_1h not yet observed.</td><td>clean intraday exit + uso_1h fill</td></tr>
+<tr><td><code>MB-20260626-003</code></td><td>ml</td><td>🧱 awaiting-data</td><td>Regime-head promotion structurally blocked on the live_agreement (trade-win) gate.</td><td>sufficient live agreement sample</td></tr>
+</table></div>
+<footer>report_id RPT-20260628-041230-since-last · reviewer claude · prior RPT-20260627-113500-since-last · ICT Trading Bot system-report</footer></div></body></html>

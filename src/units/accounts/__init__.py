@@ -145,6 +145,14 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
             ib_port=cfg.get("ib_port"),
             ib_account=cfg.get("ib_account"),
             ib_client_id=cfg.get("ib_client_id"),
+            # Alpaca/OANDA host selector (paper vs live) + optional base_url
+            # override. WITHOUT plumbing these, alpaca_client_for /
+            # oanda_client_for default to the paper/practice host, so a LIVE
+            # account's live key is sent to the wrong endpoint and 401s
+            # ("request is not authorized"). BL-20260628-ALPACA-LIVE-HOST.
+            alpaca_env=cfg.get("alpaca_env"),
+            base_url=cfg.get("base_url"),
+            oanda_env=cfg.get("oanda_env"),
             # accounts.yaml is the single source of truth for which
             # instrument(s) this account trades; the multi-symbol tick
             # loop unions these across configured accounts.

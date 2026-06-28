@@ -1,0 +1,151 @@
+name: Alpaca Options Phase-0 Probe
+
+# Read-only Phase-0 probe for the Alpaca L3 options build
+# (docs/research/alpaca-options-l3-research-memo.md Section 9).
+#
+# Answers, WITHOUT placing any order (GETs only):
+#   1. Is options trading Level 3 active on the live account?
+#   2. Does the free "indicative" data feed return greeks + implied volatility?
+#   3. What does a near-dated, near-ATM XLF contract quote at vs the $150 budget?
+#
+# Runs on a runner using the ALPACA_*_LIVE Actions secrets (hits Alpaca's public
+# API directly — no live-VM access), mirroring test-alpaca-creds.yml. Trigger by
+# opening an issue titled `[alpaca-options-probe] ...` (optionally append a ticker,
+# e.g. `[alpaca-options-probe] GDX`); the result is commented back and the issue closed.
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  probe:
+    if: startsWith(github.event.issue.title, '[alpaca-options-probe]')
+    runs-on: ubuntu-latest
+    env:
+      ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID_LIVE }}
+      ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY_LIVE }}
+      ISSUE_TITLE: ${{ github.event.issue.title }}
+    steps:
+      - name: Resolve underlying from issue title (default XLF)
+        id: cfg
+        run: |
+          # Take the first whitespace token after the tag as the ticker, else XLF.
+          REST="${ISSUE_TITLE#*]}"
+          U="$(echo "$REST" | tr -d ' ' | tr '[:lower:]' '[:upper:]')"
+          case "$U" in
+            ''|*[!A-Z]*) U="XLF" ;;   # empty or non-alpha -> default
+          esac
+          echo "underlying=$U" >> "$GITHUB_OUTPUT"
+          echo "Underlying: $U"
+
+      - name: Check keys present
+        run: |
+          if [ -z "$ALPACA_KEY" ] || [ -z "$ALPACA_SECRET" ]; then
+            echo "ERROR: ALPACA_API_KEY_ID_LIVE / ALPACA_API_SECRET_KEY_LIVE secret is empty/unset"
+            exit 1
+          fi
+          echo "Keys present (prefix ${ALPACA_KEY:0:4})"
+
+      - name: Probe account level + chain + greeks
+        id: probe
+        run: |
+          set -euo pipefail
+          U='${{ steps.cfg.outputs.underlying }}'
+          H_KEY="APCA-API-KEY-ID: $ALPACA_KEY"
+          H_SEC="APCA-API-SECRET-KEY: $ALPACA_SECRET"
+          today="$(date -u +%F)"
+          horizon="$(date -u -d '+6 weeks' +%F)"
+
+          echo "== [1] Account options status =="
+          curl -s -H "$H_KEY" -H "$H_SEC" https://api.alpaca.markets/v2/account > acct.json || true
+          LVL=$(jq -r '.options_trading_level // "null"' acct.json 2>/dev/null || echo null)
+          APPROVED=$(jq -r '.options_approved_level // "null"' acct.json 2>/dev/null || echo null)
+          OBP=$(jq -r '.options_buying_power // "null"' acct.json 2>/dev/null || echo null)
+          EQUITY=$(jq -r '.equity // "null"' acct.json 2>/dev/null || echo null)
+          echo "options_trading_level=$LVL approved=$APPROVED options_buying_power=$OBP equity=$EQUITY"
+
+          echo "== [2] Contract discovery ($U calls, $today..$horizon) =="
+          curl -s -H "$H_KEY" -H "$H_SEC" \
+            "https://api.alpaca.markets/v2/options/contracts?underlying_symbols=$U&status=active&type=call&expiration_date_gte=$today&expiration_date_lte=$horizon&limit=100" \
+            > contracts.json || true
+          NCON=$(jq -r '.option_contracts | length' contracts.json 2>/dev/null || echo 0)
+          SAMPLE_SYM=$(jq -r '.option_contracts[0].symbol // "—"' contracts.json 2>/dev/null || echo "—")
+          echo "contracts=$NCON sample=$SAMPLE_SYM"
+
+          echo "== [3] Snapshot greeks/IV coverage (feed=indicative) =="
+          SNAP_CODE=$(curl -s -o snaps.json -w "%{http_code}" -H "$H_KEY" -H "$H_SEC" \
+            "https://data.alpaca.markets/v1beta1/options/snapshots/$U?feed=indicative&limit=100" || echo 000)
+          echo "snapshot HTTP $SNAP_CODE"
+          TOTAL=0; WGREEKS=0; WIV=0; MID="—"
+          if [ "$SNAP_CODE" = "200" ]; then
+            TOTAL=$(jq -r '.snapshots | length' snaps.json 2>/dev/null || echo 0)
+            WGREEKS=$(jq -r '[.snapshots[] | select(.greeks != null)] | length' snaps.json 2>/dev/null || echo 0)
+            WIV=$(jq -r '[.snapshots[] | select(.impliedVolatility != null)] | length' snaps.json 2>/dev/null || echo 0)
+            MID=$(jq -r 'first(.snapshots[] | select(.latestQuote.bp > 0 and .latestQuote.ap > 0) | ((.latestQuote.bp + .latestQuote.ap)/2)) // "—"' snaps.json 2>/dev/null || echo "—")
+          fi
+          echo "snapshot_total=$TOTAL with_greeks=$WGREEKS with_iv=$WIV sample_mid=$MID"
+
+          # Persist for the comment step (avoid interpolation of untrusted data).
+          {
+            echo "underlying=$U"
+            echo "level=$LVL"
+            echo "approved=$APPROVED"
+            echo "obp=$OBP"
+            echo "equity=$EQUITY"
+            echo "ncon=$NCON"
+            echo "sample_sym=$SAMPLE_SYM"
+            echo "snap_code=$SNAP_CODE"
+            echo "total=$TOTAL"
+            echo "wgreeks=$WGREEKS"
+            echo "wiv=$WIV"
+            echo "mid=$MID"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Comment result + close issue
+        uses: actions/github-script@v7
+        env:
+          P_UNDERLYING: ${{ steps.probe.outputs.underlying }}
+          P_LEVEL: ${{ steps.probe.outputs.level }}
+          P_APPROVED: ${{ steps.probe.outputs.approved }}
+          P_OBP: ${{ steps.probe.outputs.obp }}
+          P_EQUITY: ${{ steps.probe.outputs.equity }}
+          P_NCON: ${{ steps.probe.outputs.ncon }}
+          P_SAMPLE: ${{ steps.probe.outputs.sample_sym }}
+          P_SNAPCODE: ${{ steps.probe.outputs.snap_code }}
+          P_TOTAL: ${{ steps.probe.outputs.total }}
+          P_WGREEKS: ${{ steps.probe.outputs.wgreeks }}
+          P_WIV: ${{ steps.probe.outputs.wiv }}
+          P_MID: ${{ steps.probe.outputs.mid }}
+        with:
+          script: |
+            const e = process.env;
+            const lvl3 = String(e.P_LEVEL) === '3';
+            const greeks = parseInt(e.P_WGREEKS || '0', 10) > 0;
+            const mid = e.P_MID && e.P_MID !== '—' ? parseFloat(e.P_MID) : null;
+            const maxLoss = mid !== null ? (mid * 100).toFixed(2) : '—';
+            const fits = mid !== null ? (mid * 100 <= 150 ? 'yes' : 'no') : '—';
+            const body = [
+              `### Alpaca options Phase-0 probe — \`${e.P_UNDERLYING}\` (read-only, no orders)`,
+              ``,
+              `**1. Account level:** options_trading_level=\`${e.P_LEVEL}\` (approved \`${e.P_APPROVED}\`), options_buying_power=\`${e.P_OBP}\`, equity=\`${e.P_EQUITY}\``,
+              `-> Level 3 active? **${lvl3 ? 'YES' : 'NO / UNKNOWN'}**`,
+              ``,
+              `**2. Chain discovery:** ${e.P_NCON} near-dated calls (sample \`${e.P_SAMPLE}\`)`,
+              ``,
+              `**3. Free \`indicative\` feed greeks/IV:** snapshot HTTP ${e.P_SNAPCODE}; ${e.P_TOTAL} contracts, **${e.P_WGREEKS} with greeks**, ${e.P_WIV} with IV`,
+              `-> ${greeks ? '**feed RETURNS greeks/IV**' : '**feed does NOT return greeks/IV** — compute IV locally from quotes, or budget OPRA ($99/mo) for Phase-3'}`,
+              ``,
+              `**Sample near-ATM mid:** ${e.P_MID} -> 1-contract long-debit max-loss ~$${maxLoss} (fits $150? ${fits})`,
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed', state_reason: 'completed',
+            });

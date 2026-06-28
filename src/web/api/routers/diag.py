@@ -71,7 +71,11 @@ _JOURNAL_TABLES: dict[str, str] = {
 }
 
 _CANONICAL_UNITS: tuple[str, ...] = (
-    "ict-bot.service",
+    # NB: the retired pre-rename trader unit "ict-bot.service" was removed here
+    # (2026-06-28 full-system audit) — the live trader is ict-trader-live.service
+    # (below). ict-bot.service has no deploy/ file and is not installed, so its
+    # presence only made /api/diag/services perpetually report a not-found unit.
+    # Do not re-add it.
     "ict-trader-live.service",
     "ict-web-api.service",
     "ict-telegram-bot.service",
@@ -173,10 +177,14 @@ _LOG_FILES: dict[str, Path] = {
     # system-action). Detached + paced, so this tail is how a session monitors
     # it. Absent until the pull has been run at least once.
     "ibkr_mes_pull": _IBKR_MES_PULL_LOG,
-    # M9 news layer shadow-soak log. One JSON line per actionable signal the news
+    # M9 news layer soak log. One JSON line per actionable signal the news
     # layer evaluated (decision/adjustment/veto/query/symbol), written by
-    # src.news.news_audit only while the layer is active. Observe-only — the data
-    # we accrue to validate the news veto/influence before it can gate live money.
+    # src.news.news_audit only while the layer is active. The LOG is observe-only,
+    # but it is NOT the case that the veto can't yet gate live money: when the
+    # source is active the veto (pipeline.py) gates a live trade by default
+    # (NEWS_VETO_ENABLED default-on; CLAUDE.md "selecting rss is the deliberate
+    # activation"). The observe-until-opt-in half is the influence SIZING
+    # (NEWS_INFLUENCE_MODE, default off), not the veto.
     # Absent until the news layer is active (NEWS_SOURCE=rss, or newsapi + NEWS_API_KEY).
     "news_decisions": _NEWS_DECISIONS_LOG,
     # Unified-confidence soak logs (observe-only, no order influence). Exposing

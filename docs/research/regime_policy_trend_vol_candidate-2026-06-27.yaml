@@ -1,0 +1,71 @@
+# CANDIDATE regime policy — BACKTEST-LOCAL, NOT the live config.
+# =============================================================================
+# Purpose: drive the Design-A vol-gating A/B in scripts/backtest_system.py via
+#   --regime-router on --regime-policy docs/research/regime_policy_trend_vol_candidate-2026-06-27.yaml
+# It is the live config/regime_policy.yaml's 1-D blocks (copied VERBATIM so the
+# trend-axis behaviour is identical across arms) PLUS a POPULATED `trend_vol`
+# block of CANDIDATE 2-D OFF-cells. The A/B measures whether driving those cells
+# with the ML head's vol verdict (--vol-verdict ml) produces a better-gated book
+# than the frozen-edge detector (--vol-verdict frozen) — and whether vol-gating
+# helps at all vs the 1-D-only router (trend_vol empty).
+#
+# THE OFF-CELLS BELOW ARE A HYPOTHESIS TO TEST, NOT A KNOWN TRUTH. They are
+# deliberately small + vol-sensitive so the ML-vs-frozen vol label actually
+# changes which intents drop. Authoring real cells in the LIVE
+# config/regime_policy.yaml is a SEPARATE Tier-3 decision, gated on this A/B's
+# verdict (ML-gated book >= frozen-gated book on net AND not worse on maxDD%).
+# NEVER point the live trader at this file.
+#
+# Hypothesis (breakout/trend strategies want the right VOL sub-regime):
+#   - chop + volatile      → whipsaw + noise = false breakouts. The 1-D `chop`
+#                            block lets trend_donchian / squeeze trade; the vol
+#                            refinement says only CALM chop is tradeable, so the
+#                            VOLATILE chop quadrant is OFF.
+#   - trending + calm      → a low-vol "trend" is a slow drift; a squeeze
+#                            breakout needs a vol EXPANSION, so squeeze is OFF
+#                            in trending+calm (no expansion to ride).
+#   - transitional + volatile → an unstable transitional regime under high vol
+#                            behaves chop-like for a pullback-trend entry → OFF.
+# =============================================================================
+schema_version: 2
+
+# --- 1-D TREND axis (copied VERBATIM from config/regime_policy.yaml) ----------
+trending:
+  trend_donchian:        { long: on,  short: off }
+  squeeze_breakout_4h:   { long: on,  short: on  }
+  htf_pullback_trend_2h: { long: on,  short: off }
+  fade_breakout_4h:      { long: off, short: off }
+  fvg_range_15m:         { long: off, short: off }
+  vwap:                  { long: off, short: off }
+
+transitional:
+  trend_donchian:        { long: on,  short: off }
+  squeeze_breakout_4h:   { long: on,  short: on  }
+  htf_pullback_trend_2h: { long: on,  short: off }
+  fade_breakout_4h:      { long: on,  short: on  }
+  vwap:                  { long: off, short: off }
+
+chop:
+  trend_donchian:        { long: on,  short: on  }
+  fade_breakout_4h:      { long: on,  short: on  }
+  squeeze_breakout_4h:   { long: on,  short: on  }
+  htf_pullback_trend_2h: { long: off, short: off }
+  fvg_range_15m:         { long: off, short: off }
+  vwap:                  { long: off, short: off }
+
+# --- 2-D trend × vol CANDIDATE OFF-cells (the hypothesis under test) ----------
+# Shape: trend_vol: { <trend>: { <vol>: { <strategy>: { long: on|off, short: on|off } } } }
+# Unlisted (trend, vol, strategy, side) → permissive `on` (same default rule as
+# the 1-D blocks). Only the cells that should DIFFER from the 1-D verdict in a
+# given vol sub-regime are listed.
+trend_vol:
+  chop:
+    volatile:
+      trend_donchian:        { long: off, short: off }   # chop+volatile = whipsaw; suppress breakouts
+      squeeze_breakout_4h:   { long: off, short: off }
+  trending:
+    calm:
+      squeeze_breakout_4h:   { long: off, short: off }   # squeeze needs vol expansion; calm trend = none
+  transitional:
+    volatile:
+      htf_pullback_trend_2h: { long: off, short: off }   # volatile transitional ≈ chop for a pullback entry

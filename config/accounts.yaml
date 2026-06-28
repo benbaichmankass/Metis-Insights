@@ -527,7 +527,9 @@ accounts:
       - qqq_pullback_1h                # § 0e, Tier-3): SPY/QQQ/TLT 1h
       - tlt_pullback_1h                # bidirectional pullback + USO 1h
       - uso_trend_1h                   # LONG-ONLY trend (paper money).
-    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO]   # instrument identity (Phase-0 +
+      - slv_pullback_1d                # daily ETF pullback, sister to gld_pullback_1d — added 2026-06-27 (Tier-3)
+      - gdx_pullback_1d                # daily ETF pullback, gold miners — added 2026-06-27 (Tier-3)
+    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX]   # instrument identity (Phase-0 +
                                        # ETF-breadth daily 2026-06-20 + intraday
                                        # ETF pilot 2026-06-20 § 0e adds SLV +
                                        # rollout 2b 2026-06-20 § 0e adds USO).
@@ -559,7 +561,7 @@ accounts:
   alpaca_live:
     exchange: alpaca
     account_class: real_money          # REAL MONEY (Alpaca live host).
-    mode: dry_run                      # dry-run-guard: allow — inert until Tier-3.
+    mode: live                         # Tier-3 approved 2026-06-25; live-flip 2026-06-26 (system-action #4725).
     alpaca_env: live                   # selects api.alpaca.markets (vs paper).
     api_key_env: ALPACA_API_KEY_ID_LIVE        # this account's OWN key pair, so
     api_secret_env: ALPACA_API_SECRET_KEY_LIVE # paper + live run concurrently.
@@ -576,14 +578,67 @@ accounts:
       - qqq_pullback_1h                 # intraday ETF rollout, paper-validated 2026-06-20+
       - tlt_pullback_1h                 # intraday ETF rollout, paper-validated 2026-06-20+
       - uso_trend_1h                    # intraday ETF rollout, paper-validated 2026-06-20+
-    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO]   # instrument identity
+      - slv_pullback_1d                 # daily ETF pullback, sister to gld_pullback_1d — added 2026-06-27 (Tier-3)
+      - gdx_pullback_1d                 # daily ETF pullback, gold miners — added 2026-06-27 (Tier-3)
+    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX]   # instrument identity
                                        # (mirrors alpaca_paper; routing is by
                                        # the strategies list above, empty here).
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
       daily_usd: 200                   # absolute fallback (no equity snapshot)
-      risk_pct: 0.01                   # 1% balance risked per trade (operator 2026-06-24)
+      risk_pct: 0.02                   # 2% balance risked per trade (operator 2026-06-27; raised for min-order sizing on alpaca_live)
+
+  # alpaca_options_paper: Phase-1 Slice-3b (Alpaca L3 options) — an Alpaca PAPER
+  # account that EXPRESSES its equity signals as defined-risk DEBIT VERTICALS
+  # instead of equity brackets. Account-scoped capability (the `options:` block
+  # below); the GDX/SLV strategies stay pure signal generators. The overlay
+  # pipeline (chain → select_debit_vertical → size_debit_structure → mleg
+  # place_spread) lives in src/units/accounts/options_overlay.py and is invoked
+  # from execute_pkg only for accounts carrying this block.
+  #
+  # ACTIVE on the SHARED paper login (operator decision 2026-06-27): it reuses the
+  # existing ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY pair (no dedicated keys, no
+  # second Alpaca account). Because the equity alpaca_paper account shares that
+  # login, account_open_positions filters Alpaca positions by asset_class per
+  # bot-account (clients.py::_alpaca_pos_in_scope) so the two never adopt each
+  # other's legs as phantom orphans. PAPER account (no real money); routing GDX/SLV
+  # here as options is the Slice-3b paper soak.
+  #
+  # max_loss_per_trade_usd is the REAL per-trade risk cap (paper accounts get
+  # ~$100k of fake money, which would defeat the $150 test) — it mirrors the $150
+  # real-money constraint and guarantees ≥1 contract fires. Slice-4 (poll-based
+  # expiry/assignment monitor) and Slice-5 (options P&L surfacing) follow.
+  alpaca_options_paper:
+    exchange: alpaca
+    account_class: paper               # PAPER money (Alpaca paper host).
+    mode: live                         # paper host = paper money; executes.
+    # No api_key_env/api_secret_env → falls back to the SHARED paper pair
+    # (ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY, same login as alpaca_paper), so
+    # this account is ACTIVE without a second Alpaca account. asset_class filtering
+    # in account_open_positions keeps equity + option legs from colliding.
+    options:                           # account-scoped options-expression capability
+      express_as: debit_vertical       # the only supported structure (memo §0: $150 cash)
+      max_loss_per_trade_usd: 60       # REAL per-trade risk cap (mirrors $150 account;
+                                       # ensures ≥1 contract within budget)
+      target_dte: 35                   # preferred days-to-expiry
+      min_dte: 21
+      max_dte: 60
+      data_feed: indicative            # free 15-min feed (OPRA $99/mo deferred to live)
+      # max_iv_rank: omitted → IV-rank gate OFF for the v1 baseline (true IV-rank
+      # needs a trailing-IV store not yet built; operator decision 2026-06-27).
+    strategies:                        # budget-fit underlyings WITH existing signals
+      - slv_trend_1h                   # (memo §4: GDX/SLV are the cheap chains the
+      - slv_pullback_1d                # bot already trades; XLF isn't in the roster).
+      - gdx_pullback_1d                # The signals fan out here as verticals.
+    symbols: [SLV, GDX]                # instrument identity (routing by strategies above)
+    risk:
+      max_dd_pct: 0.05                 # 5% max intra-day drawdown
+      daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
+      daily_usd: 200                   # absolute fallback
+      risk_pct: 0.02                   # moot for the options path (sizing is by
+                                       # options.max_loss_per_trade_usd), kept for
+                                       # the account-level daily-loss gate basis.
 
   # breakout_1: Breakout 1-Step Classic $5k PROP account (PB-20260616-004).
   # POC = TELEGRAM-PING bridge ONLY (no DXTrade API integration). When a

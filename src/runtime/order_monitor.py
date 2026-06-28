@@ -1171,7 +1171,9 @@ def _close_trade_by_match(db, *, strategy: Optional[str], symbol: Optional[str],
 
 
 # ---------------------------------------------------------------------------
-# Exchange-side wiring (S-030 PR4) — env-gated
+# Exchange-side wiring (S-030 PR4) — dry/live decided per-account by ``mode:``
+# (the ``MONITOR_APPLY_TO_EXCHANGE`` shadow-mode gate was removed; the senders
+# short-circuit only on ``mode == "dry_run"``, never on an env flag).
 # ---------------------------------------------------------------------------
 
 
@@ -1972,6 +1974,15 @@ def _load_account_cfgs_for_reconcile() -> Dict[str, Dict[str, Any]]:
             "ib_port": cfg.get("ib_port"),
             "ib_account": cfg.get("ib_account"),
             "ib_client_id": cfg.get("ib_client_id"),
+            # Alpaca/OANDA host selector (paper vs live) + optional base_url.
+            # Without these, account_open_positions' alpaca/oanda branch builds
+            # the client against the PAPER/practice host, so a LIVE account's
+            # live key 401s ("request is not authorized") and the reconciler
+            # can never read its positions (BL-20260628-ALPACA-LIVE-HOST — the
+            # 4th account-dict builder; the other three were fixed in #4916).
+            "alpaca_env": cfg.get("alpaca_env"),
+            "base_url": cfg.get("base_url"),
+            "oanda_env": cfg.get("oanda_env"),
         }
     return out
 
@@ -4180,6 +4191,10 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                         # We did NOT clear the gate — the trade is
                         # alive and the strategy keeps monitoring it.
                         auto_cleared=False,
+                        # Confirmed alive at the exchange → informational
+                        # ping, NOT the "investigate a reconciler skip"
+                        # wording (this branch never touches the trade).
+                        position_alive=True,
                     )
                     summary["alerted"] += 1
                 except Exception as exc:  # noqa: BLE001
@@ -5695,6 +5710,18 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
         try:
             aid = row.get("account_id")
             cfg = cfgs.get(aid) if aid else None
+            # Options-expression accounts own their realised PnL via the
+            # options-lifecycle reconciler (broker-confirmed expiry/assignment
+            # cash, NOT this entry×exit×qty equity formula). Pricing an option
+            # row here with the underlying's equity multiplier produces a bogus
+            # number (the 2026-06-27 incident's phantom −$845). Skip them.
+            try:
+                from src.units.accounts.options_overlay import account_expresses_options
+                if cfg is not None and account_expresses_options(cfg):
+                    summary["deferred_options"] = summary.get("deferred_options", 0) + 1
+                    continue
+            except Exception:  # noqa: BLE001 — never let the guard crash the sweep
+                pass
             # Broker-truth integrations: the Bybit closed-pnl sweep recovers
             # their fee-accurate PnL within the convergence grace. Defer to it
             # for rows still inside that grace; once the grace elapses, local-
@@ -5785,6 +5812,235 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
             summary["errors"],
         )
     return summary
+
+
+def _options_executor_for(account_cfg: Dict[str, Any]):
+    """Build an :class:`AlpacaOptionsExecutor` for an options-expressing account.
+
+    Resolves the key pair from the account's ``api_key_env`` / ``api_secret_env``
+    (defaulting to the shared ``ALPACA_API_KEY_ID`` / ``ALPACA_API_SECRET_KEY`` pair —
+    the same contract as :func:`clients.alpaca_client_for`). Returns ``None`` when
+    creds are unset (the reconciler then skips the account rather than orphaning a row).
+    """
+    try:
+        key_env = str(account_cfg.get("api_key_env") or "ALPACA_API_KEY_ID")
+        secret_env = str(account_cfg.get("api_secret_env") or "ALPACA_API_SECRET_KEY")
+        api_key = os.environ.get(key_env, "")
+        api_secret = os.environ.get(secret_env, "")
+        if not api_key or not api_secret:
+            return None
+        from src.units.accounts.alpaca_options_exec import AlpacaOptionsExecutor
+        return AlpacaOptionsExecutor(
+            api_key=api_key, api_secret=api_secret,
+            env=account_cfg.get("alpaca_env") or None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_options_executor_for(%s): %s", account_cfg.get("account_id"), exc)
+        return None
+
+
+def _reconcile_options_expiry_and_assignment(db) -> Dict[str, int]:
+    """Close options-expression journal rows the broker has concluded (Slice-4).
+
+    A debit vertical opened by ``options_overlay.place_options_expression`` has no
+    intraday close path — it rides to expiry. This sweep polls
+    ``/v2/account/activities`` for expiration / assignment / exercise events and the
+    open-option snapshot, and closes a row whose structure has **concluded**
+    (``options_lifecycle.structure_concluded``: a lifecycle event was seen for its
+    underlying AND that underlying no longer holds an open option position). Realized
+    PnL is sourced from the activities' cash (``realized_pnl_from_activities``), NOT the
+    equity entry×exit×qty formula — those rows are explicitly deferred in
+    ``_sweep_local_pnl_for_unpriced``.
+
+    Scoped to accounts where ``account_expresses_options`` is truthy, so it never
+    touches an equity account's rows (the inverse of the 2026-06-27 shared-login
+    incident). Requiring a broker-confirmed lifecycle event — not mere
+    position-absence — keeps it from false-closing a just-opened position. Best-effort:
+    never raises; a row whose underlying is ambiguous (two open rows share it, so the
+    activity cash can't be split cleanly) is left for manual/next-tick resolution.
+    Returns ``{accounts, checked, concluded, closed, ambiguous, skipped_no_creds, errors}``.
+    """
+    summary: Dict[str, int] = {
+        "accounts": 0, "checked": 0, "concluded": 0, "closed": 0,
+        "ambiguous": 0, "skipped_no_creds": 0, "errors": 0,
+    }
+    try:
+        from src.config.accounts_loader import load_accounts_dict
+        from src.units.accounts.options_overlay import account_expresses_options
+        from src.units.accounts.options_lifecycle import (
+            OPTION_LIFECYCLE_ACTIVITY_TYPES,
+            realized_pnl_from_activities,
+            structure_concluded,
+            underlying_from_occ,
+            underlyings_with_open_options,
+        )
+        raw = load_accounts_dict() or {}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_reconcile_options_expiry_and_assignment: setup failed: %s", exc)
+        return summary
+
+    opt_accounts: Dict[str, Dict[str, Any]] = {}
+    for name, cfg in raw.items():
+        if cfg.get("enabled") is False:
+            continue
+        merged = dict(cfg)
+        merged["account_id"] = str(name)
+        if account_expresses_options(merged):
+            opt_accounts[str(name)] = merged
+    if not opt_accounts:
+        return summary
+    summary["accounts"] = len(opt_accounts)
+
+    try:
+        lookback_days = float(os.environ.get("OPTIONS_LIFECYCLE_LOOKBACK_DAYS", "4") or 4)
+    except (TypeError, ValueError):
+        lookback_days = 4.0
+    after_iso = (
+        datetime.now(timezone.utc) - timedelta(days=max(0.0, lookback_days))
+    ).date().isoformat()
+
+    for aid, cfg in opt_accounts.items():
+        try:
+            open_rows = [
+                r for r in (db.get_trades(filters={"account_id": aid, "status": "open"}) or [])
+                if not r.get("is_backtest")
+            ]
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_reconcile_options_expiry_and_assignment: open-rows read failed "
+                "(account=%s): %s", aid, exc,
+            )
+            summary["errors"] += 1
+            continue
+        if not open_rows:
+            continue
+
+        executor = _options_executor_for(cfg)
+        if executor is None:
+            summary["skipped_no_creds"] += 1
+            continue
+
+        try:
+            act_env = executor.account_activities(
+                activity_types=list(OPTION_LIFECYCLE_ACTIVITY_TYPES), after=after_iso,
+            )
+            activities = act_env.get("result") if act_env.get("retCode") == 0 else None
+            positions = executor.option_positions()  # None on read failure
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_reconcile_options_expiry_and_assignment: broker read failed "
+                "(account=%s): %s", aid, exc,
+            )
+            summary["errors"] += 1
+            continue
+        # Need BOTH reads to conclude safely — a read failure must never close a row.
+        if activities is None or positions is None:
+            summary["errors"] += 1
+            continue
+
+        if not isinstance(activities, list):
+            activities = []
+        open_unders = underlyings_with_open_options(positions)
+        evented_unders = {
+            u for a in activities
+            if str(a.get("activity_type") or "").strip().upper() in OPTION_LIFECYCLE_ACTIVITY_TYPES
+            for u in [underlying_from_occ(a.get("symbol"))] if u
+        }
+
+        # Guard against ambiguous attribution: two open rows on the same underlying
+        # would each claim the whole underlying's close cash. Count per underlying.
+        under_counts: Dict[str, int] = {}
+        for r in open_rows:
+            u = str(r.get("symbol") or "").strip().upper()
+            under_counts[u] = under_counts.get(u, 0) + 1
+
+        for row in open_rows:
+            summary["checked"] += 1
+            underlying = str(row.get("symbol") or "").strip().upper()
+            seen = underlying in evented_unders
+            if not structure_concluded(
+                underlying,
+                open_option_underlyings=open_unders,
+                lifecycle_event_seen=seen,
+            ):
+                continue
+            summary["concluded"] += 1
+            if under_counts.get(underlying, 0) > 1:
+                summary["ambiguous"] += 1
+                logger.warning(
+                    "_reconcile_options_expiry_and_assignment: %s has %d open rows on "
+                    "%s — ambiguous activity attribution, leaving for manual resolution.",
+                    aid, under_counts[underlying], underlying,
+                )
+                continue
+
+            net_debit = _safe_float(row.get("entry_price")) or 0.0
+            contracts = int(_safe_float(row.get("position_size")) or 0)
+            life = realized_pnl_from_activities(
+                activities, underlying=underlying,
+                net_debit=net_debit, contracts=contracts,
+            )
+            try:
+                _close_options_row(db, row, life)
+                summary["closed"] += 1
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_reconcile_options_expiry_and_assignment: close write failed "
+                    "(account=%s trade=%s): %s", aid, row.get("id"), exc,
+                )
+                summary["errors"] += 1
+
+    if summary["closed"] or summary["errors"] or summary["ambiguous"]:
+        logger.info(
+            "_reconcile_options_expiry_and_assignment: accounts=%d checked=%d "
+            "concluded=%d closed=%d ambiguous=%d skipped_no_creds=%d errors=%d",
+            summary["accounts"], summary["checked"], summary["concluded"],
+            summary["closed"], summary["ambiguous"], summary["skipped_no_creds"],
+            summary["errors"],
+        )
+    return summary
+
+
+def _close_options_row(db, row: Dict[str, Any], life) -> None:
+    """Close an options journal row + its order package with activity-sourced PnL.
+
+    Writes ``status=closed`` / ``exit_reason='options_expiry_assignment'`` /
+    ``closed_at`` / broker-sourced ``pnl`` to the trade, and closes the linked order
+    package. The ``pnl_source`` + contributing activity ids land in the trade notes for
+    auditability. Mirrors ``_full_close_trade_and_package`` but owns the PnL field
+    (which that helper does not write).
+    """
+    tid = int(row["id"])
+    pkg_id = row.get("order_package_id")
+    closed_at_iso = datetime.now(timezone.utc).isoformat()
+
+    if pkg_id:
+        try:
+            db.update_order_package(pkg_id, {
+                "status": "closed",
+                "close_reason": "options_expiry_assignment",
+            })
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_close_options_row: order_package close write failed for %s: %s",
+                pkg_id, exc,
+            )
+
+    notes = _decode_notes(row.get("notes"))
+    notes["pnl_source"] = getattr(life, "pnl_source", "alpaca_activity")
+    notes["options_close_cash"] = getattr(life, "close_cash", None)
+    notes["options_open_cost"] = getattr(life, "open_cost", None)
+    notes["options_lifecycle_event_count"] = getattr(life, "event_count", 0)
+    if getattr(life, "activity_ids", None):
+        notes["options_activity_ids"] = life.activity_ids[:20]
+
+    db.update_trade(tid, {
+        "status": "closed",
+        "exit_reason": "options_expiry_assignment",
+        "closed_at": closed_at_iso,
+        "pnl": float(getattr(life, "realized_pnl", 0.0) or 0.0),
+        "notes": dump_capped(notes, 2000),
+    })
 
 
 def run_monitor_tick(
@@ -6010,6 +6266,20 @@ def run_monitor_tick(
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "run_monitor_tick: local-pnl sweep raised: %s", exc,
+        )
+
+    # Slice-4 options-lifecycle reconciler: close options-expression rows the
+    # broker has concluded (expiry / assignment / exercise), with PnL sourced from
+    # /v2/account/activities. Scoped to options-expressing accounts; a no-op for any
+    # deployment without one. Runs after the PnL sweeps (which now defer options rows
+    # to it) so a row it closes this tick isn't first mis-priced by the equity sweep.
+    try:
+        options_recon = _reconcile_options_expiry_and_assignment(db)
+        if options_recon.get("closed") or options_recon.get("errors") or options_recon.get("ambiguous"):
+            summaries["__options_lifecycle__"] = options_recon
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "run_monitor_tick: options-lifecycle reconciler raised: %s", exc,
         )
 
     # BUG-049: sweep order_packages that are status='open' but have no

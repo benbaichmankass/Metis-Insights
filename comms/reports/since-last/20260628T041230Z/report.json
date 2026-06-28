@@ -1,0 +1,961 @@
+{
+ "report_id": "RPT-20260628-041230-since-last",
+ "reviewed_at": "2026-06-28T04:12:30+00:00",
+ "reviewer": "claude",
+ "window": "since-last",
+ "window_start": "2026-06-27T12:00:00+00:00",
+ "window_end": "2026-06-28T04:12:00+00:00",
+ "prior_report_id": "RPT-20260627-113500-since-last",
+ "overall_assessment": "caution",
+ "health": {
+  "request_id": "RPT-20260628-041230-since-last",
+  "reviewed_at": "2026-06-28T04:12:30+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-06-27T12:00:00+00:00",
+  "window_end": "2026-06-28T04:12:00+00:00",
+  "overall_assessment": "caution",
+  "findings": {
+   "trader_liveness": {
+    "status": "ok",
+    "note": "Heartbeat fresh (age ~21s at 03:59:46Z), label 'running'; last tick 2026-06-28T03:59:15Z. Pipeline ticking all 39 strategies; vwap correctly disabled."
+   },
+   "service_state": {
+    "status": "ok",
+    "note": "The 20:11 restart was the ict-git-sync AUTO-DEPLOY of #4867 (committed 20:04:15Z; old trader ticked normally until 20:04:16 with no OOM/crash; both units restart together via deploy_pull_restart). Not an OCI reboot, not a crash. Clean recovery."
+   },
+   "reconciler_paper_artifact": {
+    "status": "watch",
+    "note": "ROOT-CAUSED + FIXED. The -$845 paper figure came from the reverse reconciler adopting alpaca_options_paper us_option legs as equity `adopted_orphan` trades (entry=underlying spot) then the local-PnL sweep pricing them with the equity formula (contract_value_usd=1.0). Adopted 18:47, closed 19:05. Fixed in #4858 (account_open_positions options-aware -> no equity adoption) + #4867 (sweep options-defer guard), both live in deployed sha 5a2db1f2 since ~20:08. Post-deploy: zero new options adoptions. Residual: Tier-2 cleanup of the ~8 phantom rows + 48h verify. Real-money closes unaffected (broker-truth)."
+   },
+   "web_api": {
+    "status": "ok",
+    "note": "FastAPI :8001 responsive across all diag/bot pulls this session."
+   },
+   "prop_bridge": {
+    "status": "ok",
+    "note": "breakout_1 dormant \u2014 no account-status report-back (present:false), rule-distance null; isolated journal, no leakage into real/paper KPIs."
+   },
+   "diag_relay": {
+    "status": "watch",
+    "note": "vm-diag-snapshot burst-cancellation reproduced again this session (#4874 trades/closed CANCELLED despite cancel-in-progress:false) \u2014 BL-20260611-002 still live; required a refile."
+   },
+   "reboot_resolved": {
+    "status": "ok",
+    "note": "#4 resolved: 20:11Z restart = git-sync deploy of the options fix, not maintenance/OOM."
+   }
+  },
+  "anomalies": [
+   "Pre-fix phantom paper PnL from options-account orphan-adoption (root-caused; fixed #4858+#4867, live ~20:08); ~8 historical rows still carry fabricated PnL pending a Tier-2 cleanup."
+  ],
+  "recommended_action": "Diagnose the alpaca_options_paper reconciler close-pricing (BL-20260628-RECONCILER-PAPER-ARTIFACT). Confirm 20:11Z reboot was OCI maintenance.",
+  "operator_attention_required": false,
+  "claude_channel_ping": {
+   "delivered_via": "suppressed (system-report)"
+  }
+ },
+ "performance": {
+  "request_id": "RPT-20260628-041230-since-last",
+  "reviewed_at": "2026-06-28T04:12:30+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-06-27T12:00:00+00:00",
+  "window_end": "2026-06-28T04:12:00+00:00",
+  "overall_assessment": "caution",
+  "strategy_performance": [
+   {
+    "name": "ict_scalp_5m",
+    "account_class": "real_money",
+    "trades": 2,
+    "wins": 2,
+    "win_rate": 100.0,
+    "pnl": 1.7783,
+    "note": "Only genuine real-money trading this window; 2/2 wins on BTCUSDT in a chop regime (+2.33R). Continues its in-sample positive edge."
+   },
+   {
+    "name": "qqq_pullback_1h",
+    "account_class": "paper",
+    "trades": 2,
+    "wins": 0,
+    "win_rate": 0.0,
+    "pnl": -1074.24,
+    "note": "Loss is a RECONCILER ARTIFACT (mass-close, impossible exit) \u2014 not a genuine performance read."
+   },
+   {
+    "name": "spy_pullback_1h",
+    "account_class": "paper",
+    "trades": 2,
+    "wins": 0,
+    "win_rate": 0.0,
+    "pnl": -524.06,
+    "note": "Reconciler-artifact loss; disregard for sizing/promotion decisions."
+   },
+   {
+    "name": "slv_trend_1h",
+    "account_class": "paper",
+    "trades": 1,
+    "wins": 1,
+    "win_rate": 100.0,
+    "pnl": 525.35,
+    "note": "Reconciler-artifact 'win'."
+   },
+   {
+    "name": "tlt_pullback_1h",
+    "account_class": "paper",
+    "trades": 1,
+    "wins": 1,
+    "win_rate": 100.0,
+    "pnl": 244.88,
+    "note": "Reconciler-artifact 'win'."
+   }
+  ],
+  "trade_decision_grades": [
+   {
+    "order_package_id": "pkg-2dac5f09a9054d05",
+    "linked_trade_id": 3008,
+    "grade": "A"
+   },
+   {
+    "order_package_id": "pkg-21dd206f56bc45f7",
+    "linked_trade_id": 3002,
+    "grade": "D"
+   },
+   {
+    "order_package_id": "pkg-1b9c6979b6f24b51",
+    "linked_trade_id": 3004,
+    "grade": "C"
+   },
+   {
+    "order_package_id": "pkg-ff192c2858e440e7",
+    "linked_trade_id": 2999,
+    "grade": "B"
+   },
+   {
+    "order_package_id": "pkg-4456de0798a248bb",
+    "linked_trade_id": 3000,
+    "grade": "D"
+   },
+   {
+    "order_package_id": "pkg-58cd48a4d3284025",
+    "linked_trade_id": 3005,
+    "grade": "B"
+   },
+   {
+    "order_package_id": "pkg-e87707280158440a",
+    "linked_trade_id": 3006,
+    "grade": "B"
+   }
+  ],
+  "insights_review": {
+   "note": "unavailable: insights cache not pulled this session (relay-bounded); no claims to cross-check."
+  },
+  "proposed_tweaks": [],
+  "anomalies": [
+   "Paper -$845.65 is reconciler-artifact-driven; do not treat as a strategy signal (recurs prior report's 'reconciler-artifact-heavy' note)."
+  ],
+  "recommended_action": "Hold all gates \u2014 only 2 real closed trades this window; paper losses are artifacts. Block on fixing the reconciler artifact before paper analytics are trustworthy.",
+  "operator_attention_required": false,
+  "claude_channel_ping": {
+   "delivered_via": "suppressed (system-report)"
+  }
+ },
+ "ml": {
+  "request_id": "RPT-20260628-041230-since-last",
+  "reviewed_at": "2026-06-28T04:12:30+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-06-27T12:00:00+00:00",
+  "window_end": "2026-06-28T04:12:00+00:00",
+  "overall_assessment": "caution",
+  "trainer_findings": {
+   "cycle": "2026-06-28 01:08\u219201:44 UTC daily cycle completed (cycle_end rc:0, calibrators_ok + publish_post_ok). ~40 manifests trained. MES manifests (execution-quality/setup-quality/trade-outcome-winrate) skipped: empty_dataset (MES barely trades). Trainer timer active; next 2026-06-29 00:42 UTC.",
+   "service": "ict-trainer.service inactive (oneshot); ict-trainer.timer active."
+  },
+  "model_status": [
+   {
+    "model_id": "trade-outcome-winrate-baseline-v0",
+    "stage": "candidate",
+    "last_training": {
+     "headline_metric": "f1=0.0 / precision=0.0 / recall=0.0 (acc 0.836)",
+     "trend_vs_prior_run": "flat (degenerate, identical every daily retrain)"
+    },
+    "live_shadow": {
+     "drift": "n/a"
+    },
+    "note": "Degenerate \u2014 predicts majority class on n=73 eval. Stuck across daily retrains (MB-20260601-002 / MB-20260623-003)."
+   },
+   {
+    "model_id": "eth-regime-1h-lgbm-xasset-v1",
+    "stage": "shadow",
+    "last_training": {
+     "headline_metric": "manifest_ok (green)",
+     "trend_vs_prior_run": "now on fresh daily-built data"
+    },
+    "live_shadow": {
+     "drift": "accruing"
+    },
+    "note": "Cross-asset chain now in the daily build (resolved MB-20260618-XA-DAILYBUILD this review)."
+   }
+  ],
+  "promotion_recommendations": [
+   {
+    "direction": "none",
+    "model_id": "(fleet)",
+    "current_stage": "shadow",
+    "proposed_stage": "shadow",
+    "evidence": "0 advisory models; no model has met the shadow\u2192advisory gate. Regime-head promotion remains structurally blocked on the live_agreement gate (MB-20260626-003)."
+   }
+  ],
+  "experiments_proposed": [],
+  "anomalies": [
+   "trade-outcome-winrate-baseline-v0 still degenerate (f1=0) \u2014 retrain with a non-degenerate target/dataset or retire (MB-20260623-003, Tier-3)."
+  ],
+  "recommended_action": "Lifecycle healthy (daily cycle green). Address the degenerate winrate baseline (refine-or-retire, Tier-3).",
+  "operator_attention_required": false,
+  "claude_channel_ping": {
+   "delivered_via": "suppressed (system-report)"
+  }
+ },
+ "consolidated": {
+  "roll_up_grade": "caution",
+  "headline": "~16h window. REAL MONEY +$1.78 (2/2 ict_scalp_5m BTCUSDT wins in $60k chop) \u2014 the only clean trading. Paper -$845.65 was a PRE-FIX ARTIFACT: the reverse reconciler adopted alpaca_options_paper option legs as equity orphans + priced them with the equity formula. ROOT-CAUSED + already fixed (#4858+#4867, live ~20:08); the 20:11 'restart' WAS that deploy. ML daily cycle green; 0 advisory models.",
+  "services": [
+   {
+    "unit": "ict-trader-live.service",
+    "state": "active",
+    "sub_state": "running",
+    "active_enter_iso": "Sat 2026-06-27 20:11:11 UTC"
+   },
+   {
+    "unit": "ict-web-api.service",
+    "state": "active",
+    "sub_state": "running",
+    "active_enter_iso": "Sat 2026-06-27 20:11:12 UTC"
+   }
+  ],
+  "operator_priorities": [
+   {
+    "rank": 1,
+    "title": "Tier-2 cleanup: supersede the ~8 pre-fix phantom paper rows so they stop polluting paper KPIs",
+    "source_review": "health",
+    "tier": 2,
+    "detail": "Root cause FIXED in #4858+#4867 (live ~20:08). Residual: mark trades 2999-3006 (alpaca_options_paper, reconcile_status='reconciled') as 'superseded' \u2014 a live-DB writeback, operator-gated. Then verify clean over 48h.",
+    "operator_action_required": true
+   },
+   {
+    "rank": 2,
+    "title": "Fund/auth alpaca_live to unblock ETF live execution (carry from prior report)",
+    "source_review": "health",
+    "tier": 3,
+    "detail": "alpaca_live undercapitalized (~$150) + BL-20260627-ALPACA-LIVE-API-UNAUTH (real-money Alpaca key auth failure). ETF strategies only express on paper until resolved.",
+    "operator_action_required": true
+   },
+   {
+    "rank": 3,
+    "title": "Decide: retire vs re-metric the two intentionally-trivial trade-outcome demo baselines (f1=0 by design)",
+    "source_review": "ml",
+    "tier": 3,
+    "detail": "trade-outcome-winrate/global baselines are non-promotable demos; f1=0 is EXPECTED on a sub-50%-win-rate holdout. Either retire from the daily cycle or switch the headline metric to Brier/AUC + mark expected-degenerate so reviews stop re-flagging.",
+    "operator_action_required": true
+   }
+  ],
+  "cross_review_notes": [
+   "The paper -$845 'loss' is fully explained and already code-fixed: a reverse-reconciler orphan-adoption of options-account legs priced with the equity formula (#4858+#4867, live ~20:08). It is NOT a strategy signal and NOT an open code bug \u2014 only the historical rows need a data cleanup.",
+   "The 20:11 service restart and the options fix are the same event: ict-git-sync auto-deployed #4867 and restarted the trader. What looked like an unexplained reboot was a clean deploy.",
+   "ETF intraday cells (gld/slv/spy/qqq/tlt _1h) do fire+fill on alpaca_options_paper (verified, PB-20260620-001); pre-fix those fills were the exact positions mis-adopted \u2014 same code path, now fixed."
+  ],
+  "pnl_by_class": {
+   "real": {
+    "window_pnl": 1.7783,
+    "prior_window_pnl": 0.0,
+    "trend": "up",
+    "trades": 2,
+    "wins": 2,
+    "win_rate": 100.0,
+    "expectancy": 0.8892,
+    "profit_factor": null,
+    "max_drawdown": 0.0,
+    "per_strategy": [
+     {
+      "name": "ict_scalp_5m",
+      "trades": 2,
+      "win_rate": 100.0,
+      "pnl": 1.7783
+     }
+    ],
+    "per_asset_class": {
+     "crypto": 1.7783,
+     "index": 0.0,
+     "commodity": 0.0,
+     "equity": 0.0,
+     "fx": 0.0
+    },
+    "equity_curve": [
+     {
+      "t": "2026-06-27 13:38:37",
+      "cum": 0.842
+     },
+     {
+      "t": "2026-06-27 22:16:32",
+      "cum": 1.7783
+     }
+    ]
+   },
+   "paper": {
+    "window_pnl": -845.6499,
+    "prior_window_pnl": 801.0,
+    "trend": "down",
+    "trades": 8,
+    "wins": 2,
+    "win_rate": 25.0,
+    "expectancy": -105.7062,
+    "profit_factor": 0.4767,
+    "max_drawdown": -845.6499,
+    "per_strategy": [
+     {
+      "name": "qqq_pullback_1h",
+      "trades": 2,
+      "win_rate": 0.0,
+      "pnl": -1074.24
+     },
+     {
+      "name": "spy_pullback_1h",
+      "trades": 2,
+      "win_rate": 0.0,
+      "pnl": -524.06
+     },
+     {
+      "name": "slv_trend_1h",
+      "trades": 1,
+      "win_rate": 100.0,
+      "pnl": 525.35
+     },
+     {
+      "name": "tlt_pullback_1h",
+      "trades": 1,
+      "win_rate": 100.0,
+      "pnl": 244.8801
+     },
+     {
+      "name": "gld_pullback_1h",
+      "trades": 1,
+      "win_rate": 0.0,
+      "pnl": -10.02
+     },
+     {
+      "name": "iwm_trend_long_1d",
+      "trades": 1,
+      "win_rate": 0.0,
+      "pnl": -7.56
+     }
+    ],
+    "per_asset_class": {
+     "crypto": 0.0,
+     "index": 0.0,
+     "commodity": 515.33,
+     "equity": -1605.86,
+     "fx": 0.0,
+     "bond": 244.8801
+    },
+    "equity_curve": []
+   },
+   "prop": {
+    "window_pnl": null,
+    "prior_window_pnl": null,
+    "trend": "flat",
+    "fills_reported": 0,
+    "tickets_emitted": 0,
+    "unacted_tickets": 0,
+    "rule_distance": {
+     "daily_loss_remaining": null,
+     "static_dd_remaining": null
+    },
+    "per_account": [
+     {
+      "account_id": "breakout_1",
+      "balance": null,
+      "equity": null,
+      "realized_window": 0.0
+     }
+    ]
+   }
+  },
+  "market_context": [
+   {
+    "symbol": "BTCUSDT",
+    "open": 60453.5,
+    "close": 60194.3,
+    "high": 60942.2,
+    "low": 59846.6,
+    "pct_change": -0.43,
+    "range_pct": 1.83,
+    "note": "Range-bound chop around $60k over the window (~1.8% range, no trend). Suits the ict_scalp_5m mean-reversion that won both real trades."
+   },
+   {
+    "symbol": "ETHUSDT",
+    "open": null,
+    "close": null,
+    "high": null,
+    "low": null,
+    "pct_change": null,
+    "range_pct": null,
+    "note": "Open htf_pullback_trend_2h long (#3010); candles not pulled this session (relay-bounded)."
+   }
+  ],
+  "trade_dossiers": [
+   {
+    "trade_id": 3008,
+    "order_package_id": "pkg-2dac5f09a9054d05",
+    "account": "bybit_2",
+    "account_class": "real_money",
+    "symbol": "BTCUSDT",
+    "direction": "short",
+    "strategy": "ict_scalp_5m",
+    "opened_at": "2026-06-27T21:42:46.954899+00:00",
+    "closed_at": "2026-06-27T22:16:32.216000+00:00",
+    "hold_seconds": 2025,
+    "entry_price": 60255,
+    "exit_price": 59954.8,
+    "stop_loss": 60491.96571429,
+    "take_profit": 59954.80142857,
+    "qty": 0.004,
+    "pnl": 0.9363,
+    "pnl_percent": null,
+    "close_reason": "tp",
+    "claude_grade": {
+     "grade": "A",
+     "entry_quality": "optimal",
+     "exit_quality": "tp_appropriate",
+     "risk_management": "unknown",
+     "rationale": "ict_scalp_5m short; entry=optimal; exit=tp_appropriate; grade A"
+    },
+    "model_scores": null,
+    "signal_logic": null,
+    "meta": {
+     "setup_type": "ict_scalp_5m",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": true
+   },
+   {
+    "trade_id": 2995,
+    "order_package_id": null,
+    "account": "bybit_2",
+    "account_class": "real_money",
+    "symbol": "BTCUSDT",
+    "direction": "long",
+    "strategy": "ict_scalp_5m",
+    "opened_at": "2026-06-27T12:09:45.990004+00:00",
+    "closed_at": "2026-06-27T13:38:37.217000+00:00",
+    "hold_seconds": 5331,
+    "entry_price": 60343,
+    "exit_price": 60577.475,
+    "stop_loss": null,
+    "take_profit": null,
+    "qty": 0.004,
+    "pnl": 0.842,
+    "pnl_percent": 0.3488,
+    "close_reason": "reconciler",
+    "claude_grade": {
+     "grade": null,
+     "entry_quality": null,
+     "exit_quality": null,
+     "risk_management": null,
+     "rationale": null
+    },
+    "model_scores": null,
+    "signal_logic": null,
+    "meta": {
+     "setup_type": "ict_scalp_5m",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": false
+   },
+   {
+    "trade_id": 3002,
+    "order_package_id": "pkg-21dd206f56bc45f7",
+    "account": "alpaca_options_paper",
+    "account_class": "paper",
+    "symbol": "SLV",
+    "direction": "short",
+    "strategy": "slv_trend_1h",
+    "opened_at": "2026-06-27T18:47:15.216409+00:00",
+    "closed_at": "2026-06-27T19:05:48.058497+00:00",
+    "hold_seconds": 1112,
+    "entry_price": 58.82,
+    "exit_price": 53.29,
+    "stop_loss": 60.36732143,
+    "take_profit": 52.974295,
+    "qty": 95,
+    "pnl": 525.35,
+    "pnl_percent": 9.4016,
+    "close_reason": "other",
+    "claude_grade": {
+     "grade": "D",
+     "entry_quality": "should_skip",
+     "exit_quality": "tp_appropriate",
+     "risk_management": "unknown",
+     "rationale": "slv_trend_1h short; entry=should_skip; exit=tp_appropriate; grade D"
+    },
+    "model_scores": null,
+    "signal_logic": "(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price \u2014 not a genuine strategy exit)",
+    "meta": {
+     "setup_type": "slv_trend_1h",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": false
+   },
+   {
+    "trade_id": 3004,
+    "order_package_id": "pkg-1b9c6979b6f24b51",
+    "account": "alpaca_options_paper",
+    "account_class": "paper",
+    "symbol": "TLT",
+    "direction": "long",
+    "strategy": "tlt_pullback_1h",
+    "opened_at": "2026-06-27T18:47:15.385702+00:00",
+    "closed_at": "2026-06-27T19:05:48.058497+00:00",
+    "hold_seconds": 1112,
+    "entry_price": 86.269913,
+    "exit_price": 87.33,
+    "stop_loss": 86.98071429,
+    "take_profit": 95.96468,
+    "qty": 231,
+    "pnl": 244.8801,
+    "pnl_percent": 1.2288,
+    "close_reason": "other",
+    "claude_grade": {
+     "grade": "C",
+     "entry_quality": "acceptable",
+     "exit_quality": "premature_exit",
+     "risk_management": "unknown",
+     "rationale": "tlt_pullback_1h long; entry=acceptable; exit=premature_exit; grade C"
+    },
+    "model_scores": null,
+    "signal_logic": "(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price \u2014 not a genuine strategy exit)",
+    "meta": {
+     "setup_type": "tlt_pullback_1h",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": false
+   },
+   {
+    "trade_id": 2999,
+    "order_package_id": "pkg-ff192c2858e440e7",
+    "account": "alpaca_options_paper",
+    "account_class": "paper",
+    "symbol": "GLD",
+    "direction": "short",
+    "strategy": "gld_pullback_1h",
+    "opened_at": "2026-06-27T18:47:14.962179+00:00",
+    "closed_at": "2026-06-27T19:05:48.058497+00:00",
+    "hold_seconds": 1113,
+    "entry_price": 373.486429,
+    "exit_price": 373.725,
+    "stop_loss": 378.21017857,
+    "take_profit": 336.31627,
+    "qty": 42,
+    "pnl": -10.02,
+    "pnl_percent": -0.0639,
+    "close_reason": "other",
+    "claude_grade": {
+     "grade": "B",
+     "entry_quality": "optimal",
+     "exit_quality": "sl_appropriate",
+     "risk_management": "unknown",
+     "rationale": "gld_pullback_1h short; entry=optimal; exit=sl_appropriate; grade B"
+    },
+    "model_scores": null,
+    "signal_logic": "(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price \u2014 not a genuine strategy exit)",
+    "meta": {
+     "setup_type": "gld_pullback_1h",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": false
+   },
+   {
+    "trade_id": 3000,
+    "order_package_id": "pkg-4456de0798a248bb",
+    "account": "alpaca_options_paper",
+    "account_class": "paper",
+    "symbol": "IWM",
+    "direction": "long",
+    "strategy": "iwm_trend_long_1d",
+    "opened_at": "2026-06-27T18:47:15.047672+00:00",
+    "closed_at": "2026-06-27T19:05:48.058497+00:00",
+    "hold_seconds": 1113,
+    "entry_price": 298.53,
+    "exit_price": 297.69,
+    "stop_loss": 282.02232143,
+    "take_profit": 328.0515,
+    "qty": 9,
+    "pnl": -7.56,
+    "pnl_percent": -0.2814,
+    "close_reason": "other",
+    "claude_grade": {
+     "grade": "D",
+     "entry_quality": "should_skip",
+     "exit_quality": "sl_appropriate",
+     "risk_management": "unknown",
+     "rationale": "iwm_trend_long_1d long; entry=should_skip; exit=sl_appropriate; grade D"
+    },
+    "model_scores": null,
+    "signal_logic": "(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price \u2014 not a genuine strategy exit)",
+    "meta": {
+     "setup_type": "iwm_trend_long_1d",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": false
+   },
+   {
+    "trade_id": 3005,
+    "order_package_id": "pkg-58cd48a4d3284025",
+    "account": "alpaca_options_paper",
+    "account_class": "paper",
+    "symbol": "QQQ",
+    "direction": "long",
+    "strategy": "qqq_pullback_1h",
+    "opened_at": "2026-06-27T18:56:41.874912+00:00",
+    "closed_at": "2026-06-27T19:05:48.058497+00:00",
+    "hold_seconds": 546,
+    "entry_price": 738.51,
+    "exit_price": 704.94,
+    "stop_loss": 728.76892857,
+    "take_profit": 808.71014,
+    "qty": 16,
+    "pnl": -537.12,
+    "pnl_percent": -4.5456,
+    "close_reason": "other",
+    "claude_grade": {
+     "grade": "B",
+     "entry_quality": "optimal",
+     "exit_quality": "sl_appropriate",
+     "risk_management": "unknown",
+     "rationale": "qqq_pullback_1h long; entry=optimal; exit=sl_appropriate; grade B"
+    },
+    "model_scores": null,
+    "signal_logic": "(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price \u2014 not a genuine strategy exit)",
+    "meta": {
+     "setup_type": "qqq_pullback_1h",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": true
+   },
+   {
+    "trade_id": 3006,
+    "order_package_id": "pkg-e87707280158440a",
+    "account": "alpaca_options_paper",
+    "account_class": "paper",
+    "symbol": "SPY",
+    "direction": "long",
+    "strategy": "spy_pullback_1h",
+    "opened_at": "2026-06-27T18:56:41.958046+00:00",
+    "closed_at": "2026-06-27T19:05:48.058497+00:00",
+    "hold_seconds": 546,
+    "entry_price": 745.2415,
+    "exit_price": 732.14,
+    "stop_loss": 738.32410714,
+    "take_profit": 817.60105,
+    "qty": 20,
+    "pnl": -262.03,
+    "pnl_percent": -1.758,
+    "close_reason": "other",
+    "claude_grade": {
+     "grade": "B",
+     "entry_quality": "optimal",
+     "exit_quality": "sl_appropriate",
+     "risk_management": "unknown",
+     "rationale": "spy_pullback_1h long; entry=optimal; exit=sl_appropriate; grade B"
+    },
+    "model_scores": null,
+    "signal_logic": "(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price \u2014 not a genuine strategy exit)",
+    "meta": {
+     "setup_type": "spy_pullback_1h",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": false
+   },
+   {
+    "trade_id": 3001,
+    "order_package_id": null,
+    "account": "alpaca_options_paper",
+    "account_class": "paper",
+    "symbol": "QQQ",
+    "direction": "long",
+    "strategy": "qqq_pullback_1h",
+    "opened_at": "2026-06-27T18:47:15.132997+00:00",
+    "closed_at": "2026-06-27T18:49:30.963422+00:00",
+    "hold_seconds": 135,
+    "entry_price": 738.51,
+    "exit_price": 704.94,
+    "stop_loss": null,
+    "take_profit": null,
+    "qty": 16,
+    "pnl": -537.12,
+    "pnl_percent": -4.5456,
+    "close_reason": "other",
+    "claude_grade": {
+     "grade": null,
+     "entry_quality": null,
+     "exit_quality": null,
+     "risk_management": null,
+     "rationale": null
+    },
+    "model_scores": null,
+    "signal_logic": "(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price \u2014 not a genuine strategy exit)",
+    "meta": {
+     "setup_type": "qqq_pullback_1h",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": true
+   },
+   {
+    "trade_id": 3003,
+    "order_package_id": null,
+    "account": "alpaca_options_paper",
+    "account_class": "paper",
+    "symbol": "SPY",
+    "direction": "long",
+    "strategy": "spy_pullback_1h",
+    "opened_at": "2026-06-27T18:47:15.299933+00:00",
+    "closed_at": "2026-06-27T18:49:29.872595+00:00",
+    "hold_seconds": 134,
+    "entry_price": 745.2415,
+    "exit_price": 732.14,
+    "stop_loss": null,
+    "take_profit": null,
+    "qty": 20,
+    "pnl": -262.03,
+    "pnl_percent": -1.758,
+    "close_reason": "other",
+    "claude_grade": {
+     "grade": null,
+     "entry_quality": null,
+     "exit_quality": null,
+     "risk_management": null,
+     "rationale": null
+    },
+    "model_scores": null,
+    "signal_logic": "(reconciler mass-close artifact: closed at identical 19:05:48.058497Z with implausible exit price \u2014 not a genuine strategy exit)",
+    "meta": {
+     "setup_type": "spy_pullback_1h",
+     "killzone": null,
+     "bias": null
+    },
+    "notable": false
+   }
+  ],
+  "dossier_coverage": {
+   "window": "since-last",
+   "full_dossiers": 10,
+   "summarized_trades": 0,
+   "rule": "full-per-trade (since-last/daily)",
+   "note": "7 of 10 closed packages carry a fresh A\u2013F grade (graded this session 04:09Z); 3 (2995 real reconciler-close, 3001/3003 = netting-duplicate QQQ/SPY of graded 3005/3006) were not individually graded \u2014 order packages relay-truncation-bounded."
+  },
+  "backlog_summary": {
+   "health": {
+    "total": 142,
+    "open": 64,
+    "resolved": 78,
+    "drained": 0
+   },
+   "performance": {
+    "total": 52,
+    "open": 32,
+    "resolved": 20,
+    "drained": 0
+   },
+   "ml": {
+    "total": 47,
+    "open": 16,
+    "resolved": 31,
+    "drained": 1
+   }
+  },
+  "tier3_proposals_pending": [
+   {
+    "source_review": "ml",
+    "summary": "Refine-or-retire trade-outcome-winrate-baseline-v0 (and the sibling degenerate f1=0 baseline) \u2014 MB-20260623-003.",
+    "tier": 3
+   },
+   {
+    "source_review": "performance",
+    "summary": "alpaca_live funding + real-money Alpaca key auth fix to unblock ETF live execution (BL-20260627-ALPACA-LIVE-API-UNAUTH).",
+    "tier": 3
+   }
+  ],
+  "monitoring": [
+   {
+    "item_id": "BL-20260628-RECONCILER-PAPER-ARTIFACT",
+    "domain": "health",
+    "category": "verify",
+    "detail": "Options-account orphan-adoption + equity-pricing FIXED in #4858+#4867 (live ~20:08). Watching for zero new options adoptions; ~8 historical phantom rows pending Tier-2 cleanup.",
+    "since": "2026-06-28",
+    "next_check": "48h clean + operator OK on the supersede writeback"
+   },
+   {
+    "item_id": "MB-20260623-003",
+    "domain": "ml",
+    "category": "awaiting-decision",
+    "detail": "trade-outcome-winrate baseline degenerate (f1=0) every daily retrain \u2014 refine-or-retire is Tier-3.",
+    "since": "2026-06-23",
+    "next_check": "operator go on retrain/retire"
+   },
+   {
+    "item_id": "PB-20260617-002",
+    "domain": "performance",
+    "category": "soaking",
+    "detail": "ExitPlan ladder graduation (P4) \u2014 observe-only soak not yet accrued.",
+    "since": "2026-06-17",
+    "next_check": "n>=30 closed real-money orders with exit_ladder_soak rows"
+   },
+   {
+    "item_id": "PB-20260625-002",
+    "domain": "performance",
+    "category": "awaiting-decision",
+    "detail": "26 unreconciled bybit_2 orphan canonicals carry possibly-phantom PnL; reconcile-history cleanup is operator-gated.",
+    "since": "2026-06-25",
+    "next_check": "operator go on reconcile-history cleanup"
+   },
+   {
+    "item_id": "PB-20260620-001",
+    "domain": "performance",
+    "category": "verify",
+    "detail": "Intraday ETF cells fire+fill (verified) but exit cadence contaminated by the reconciler artifact; uso_1h not yet observed.",
+    "since": "2026-06-20",
+    "next_check": "clean intraday exit + uso_1h fill"
+   },
+   {
+    "item_id": "MB-20260626-003",
+    "domain": "ml",
+    "category": "awaiting-data",
+    "detail": "Regime-head promotion structurally blocked on the live_agreement (trade-win) gate.",
+    "since": "2026-06-26",
+    "next_check": "sufficient live agreement sample"
+   }
+  ],
+  "review_coverage": {
+   "strategy_promotion": {
+    "ready_to_promote": [],
+    "demote_or_kill": [],
+    "summary": "All HOLD. Only 2 real closed trades this window (ict_scalp_5m, 2/2 wins) \u2014 insufficient new evidence to move any gate. Paper ETF 'losses' are reconciler artifacts, so NO demote/kill is justified on contaminated data. ict_scalp_5m remains the only strategy with a clean real-money edge; continue. No strategy met a promotion gate."
+   },
+   "ml_training_health": {
+    "cycles_since_last_review": 1,
+    "dataset_builds_ok": true,
+    "failing_or_stuck": [
+     {
+      "item": "MES manifests",
+      "detail": "execution-quality/setup-quality/trade-outcome-winrate skipped: empty_dataset (MES barely trades) \u2014 expected, not a regression"
+     },
+     {
+      "item": "trade-outcome-winrate-baseline-v0",
+      "detail": "degenerate f1=0 every retrain \u2014 stuck (MB-20260623-003)"
+     }
+    ],
+    "summary": "Healthy. The 2026-06-28 01:08\u219201:44Z daily cycle completed green (rc:0, ~40 manifests, calibrators+publish OK). ETH cross-asset manifests trained green on fresh daily data (resolved XA-DAILYBUILD). MES skips are expected; the winrate baseline is the only genuinely stuck model."
+   },
+   "soak_status": [
+    {
+     "soak": "shadow regime heads (BTC/MES/ETH)",
+     "state": "accruing",
+     "detail": "Daily retrains green; all at shadow/candidate. 0 met the shadow\u2192advisory gate; regime-head promotion blocked on live_agreement gate (MB-20260626-003)."
+    },
+    {
+     "soak": "ETH cross-asset shadow head",
+     "state": "accruing",
+     "detail": "Now training on fresh daily-built data (XA-DAILYBUILD resolved); accruing predictions."
+    },
+    {
+     "soak": "exit-ladder soak (P3)",
+     "state": "accruing",
+     "detail": "Observe-only; needs n>=30 real-money orders before graduation (PB-20260617-002). Real volume is tiny so this is slow."
+    },
+    {
+     "soak": "conviction + arbitration soak (P2/P3)",
+     "state": "accruing",
+     "detail": "Observe-only; no graduation gate met."
+    },
+    {
+     "soak": "trade-outcome-winrate baseline",
+     "state": "stalled",
+     "detail": "Degenerate f1=0 every retrain \u2014 but EXPECTED for a trivial winrate/threshold-0.5 baseline on a sub-50%-win-rate holdout (Brier 0.145 is fine). Decision: retire from the cycle or re-metric (Tier-3), not a repair."
+    }
+   ],
+   "flags_raised": [
+    "RESOLVED THIS FOLLOW-UP: the paper -$845 'reconciler artifact' is root-caused (options-account orphan-adoption + equity pricing) and ALREADY FIXED in #4858+#4867 (live ~20:08 06-27). Residual is a Tier-2 cleanup of ~8 historical phantom rows, not a live bug.",
+    "RESOLVED: the 20:11Z restart was the git-sync auto-deploy of #4867, not an OCI/OOM event \u2014 benign.",
+    "STALLED SOAK: trade-outcome-winrate baseline degenerate (f1=0) \u2014 but this is BY DESIGN for a trivial baseline on a sub-50%-win-rate holdout; the fix is retire-or-re-metric (Tier-3), not a model repair.",
+    "CARRY-FORWARD: alpaca_live undercapitalized/key-unauth still blocks ETF live execution; 0 advisory ML models still influencing orders."
+   ],
+   "backlog_drive": {
+    "health": {
+     "drained": [],
+     "deferred": [
+      {
+       "id": "BL-20260611-002",
+       "reason": "Diag burst-cancellation reproduced again this session; root cause is GitHub Actions concurrency semantics \u2014 risky to change blind, no safe Tier-1 fix verified. Kept open with fresh evidence."
+      },
+      {
+       "id": "BL-20260627-ALPACA-LIVE-API-UNAUTH",
+       "reason": "Tier-2/3 \u2014 real-money Alpaca key auth + funding is operator-originated."
+      },
+      {
+       "id": "BL-20260524-* / others",
+       "reason": "Majority are Tier-2/3 (VM/order-path) or recurring-verify items needing more real-money volume than this 2-real-trade window provides."
+      }
+     ]
+    },
+    "performance": {
+     "drained": [],
+     "deferred": [
+      {
+       "id": "PB-20260620-001",
+       "reason": "Driven to PARTIALLY-RESOLVED: entries/fills verified this window; exit-cadence blocked by the reconciler artifact (spawned BL-20260628-...)."
+      },
+      {
+       "id": "PB-20260617-002",
+       "reason": "Soaking \u2014 needs n>=30 real-money orders; real volume tiny."
+      },
+      {
+       "id": "PB-20260625-002",
+       "reason": "Tier-3 operator-gated reconcile-history cleanup."
+      }
+     ]
+    },
+    "ml": {
+     "drained": [
+      "MB-20260618-XA-DAILYBUILD"
+     ],
+     "deferred": [
+      {
+       "id": "MB-20260623-003",
+       "reason": "Tier-3 refine-or-retire (degenerate baseline) \u2014 proposed to operator, awaiting go."
+      },
+      {
+       "id": "MB-20260626-003",
+       "reason": "Awaiting-data \u2014 promotion blocked on live_agreement gate sample."
+      }
+     ]
+    },
+    "summary": "Drained 1 (ML XA-DAILYBUILD: ETH cross-asset confirmed in the daily build, trained green). Drove PB-20260620-001 to partially-resolved (fills verified) + filed the new reconciler-artifact bug it surfaced. Rest parked: Tier-2/3 (operator/VM/order-path) or soaks needing real-money volume this 2-trade window can't provide."
+   }
+  }
+ },
+ "artifacts": {
+  "json_path": "comms/reports/since-last/20260628T041230Z/report.json",
+  "html_path": "comms/reports/since-last/20260628T041230Z/report.html",
+  "md_path": "comms/reports/since-last/20260628T041230Z/report.md",
+  "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260628T041230Z/report.html",
+  "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260628-041230-since-last"
+ },
+ "claude_channel_ping": {
+  "delivered_via": "pending"
+ }
+}

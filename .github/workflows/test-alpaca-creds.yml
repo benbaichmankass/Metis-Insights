@@ -1,0 +1,76 @@
+name: Test Alpaca Live Credentials
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  test-creds:
+    if: startsWith(github.event.issue.title, '[test-alpaca-creds]')
+    runs-on: ubuntu-latest
+    env:
+      ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID_LIVE }}
+      ALPACA_SECRET: ${{ secrets.ALPACA_API_SECRET_KEY_LIVE }}
+    steps:
+      - name: Check keys are set
+        run: |
+          if [ -z "$ALPACA_KEY" ] || [ -z "$ALPACA_SECRET" ]; then
+            echo "ERROR: ALPACA_API_KEY_ID_LIVE or ALPACA_API_SECRET_KEY_LIVE secret is empty/unset"
+            exit 1
+          fi
+          echo "Keys are present (not empty)"
+          echo "Key prefix (first 4 chars): ${ALPACA_KEY:0:4}"
+
+      - name: Test against live endpoint
+        id: live_test
+        run: |
+          HTTP_STATUS=$(curl -s -o /tmp/alpaca_resp.json -w "%{http_code}" \
+            -H "APCA-API-KEY-ID: $ALPACA_KEY" \
+            -H "APCA-API-SECRET-KEY: $ALPACA_SECRET" \
+            https://api.alpaca.markets/v2/account)
+          echo "HTTP status from api.alpaca.markets/v2/account: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "result=SUCCESS" >> $GITHUB_OUTPUT
+            # Print safe fields only (no PII)
+            jq '{status, account_number: .account_number[-4:], currency, buying_power, cash, equity, trading_blocked, account_blocked, transfers_blocked}' /tmp/alpaca_resp.json 2>/dev/null || true
+          else
+            echo "result=FAILED_$HTTP_STATUS" >> $GITHUB_OUTPUT
+            cat /tmp/alpaca_resp.json
+          fi
+
+      - name: Test against paper endpoint (cross-check)
+        run: |
+          HTTP_STATUS=$(curl -s -o /tmp/alpaca_paper_resp.json -w "%{http_code}" \
+            -H "APCA-API-KEY-ID: $ALPACA_KEY" \
+            -H "APCA-API-SECRET-KEY: $ALPACA_SECRET" \
+            https://paper-api.alpaca.markets/v2/account)
+          echo "HTTP status from paper-api.alpaca.markets/v2/account: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "Cross-check: these keys WORK on the PAPER endpoint"
+            echo "Diagnosis: live-slot secrets contain PAPER account credentials"
+          else
+            echo "Cross-check: keys do NOT work on paper endpoint either (status $HTTP_STATUS)"
+            echo "Diagnosis: keys may be invalid or for a different issue"
+          fi
+
+      - name: Comment result on issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const result = '${{ steps.live_test.outputs.result }}';
+            const body = result === 'SUCCESS'
+              ? '✅ **Live endpoint test PASSED** — `api.alpaca.markets` accepted the credentials. Issue is on the VM side (sync or env loading). Re-run `sync-vm-secrets` + restart.'
+              : `❌ **Live endpoint test FAILED** (${result}) — \`api.alpaca.markets\` rejected the credentials stored in GitHub secrets. The \`ALPACA_API_KEY_ID_LIVE\`/\`ALPACA_API_SECRET_KEY_LIVE\` secrets need to be replaced with live-account API keys (generated from the live account, not the paper account). Check step "Test against paper endpoint" above — if that returns 200, these are paper keys in the live slots.`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'completed'
+            });

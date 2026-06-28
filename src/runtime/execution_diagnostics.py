@@ -595,36 +595,63 @@ def enqueue_stuck_strategy_alert(
     db_trade_id: Any,
     stuck_minutes: int,
     auto_cleared: bool,
+    position_alive: bool = False,
     priority: str = "high",
 ) -> Optional[Path]:
-    """High-priority watchdog ping when the strategy-monocle gate has
-    been blocked by a single package for too long.
+    """Watchdog ping when the strategy-monocle gate has been blocked by a
+    single package past its timeframe-scaled threshold.
 
-    This is the last line of defence after the orphan reconciler,
-    `_sweep_stuck_linked_packages`, and the strategy's own monitor()
-    loop have all had a chance to clear the package and didn't. By
-    the time this fires, something has gone meaningfully sideways —
-    the operator must investigate.
+    Two distinct cases, two messages (the wording was previously a single
+    template that read like a reconciler bug even for the benign case —
+    the false-alarm fixed here):
 
-    *auto_cleared* is True when the watchdog also force-closed the
-    package + cascaded the linked trade row in the same tick. False
-    when alerting was idempotency-only (the package was already
-    flagged on a previous tick).
+    * *position_alive* True — the watchdog cross-checked the exchange and
+      the position is **confirmed still open**. This is NOT an orphan: the
+      strategy is patiently holding a live trade past 3× its timeframe (a
+      wide-TP trend trade legitimately does this). The watchdog deferred —
+      it did **not** touch the trade. Informational, ``normal`` priority,
+      no "investigate" call to action.
+    * *position_alive* False with *auto_cleared* True — the position read
+      **flat** at the exchange, so the watchdog force-closed the stale
+      package + cascaded the linked row. This IS the last line of defence
+      after the orphan reconciler / stuck-linked sweep / monitor() loop all
+      missed it, so the "investigate a reconciler skip" call to action
+      stands.
+
+    *auto_cleared* is True when the watchdog force-closed the package +
+    cascaded the linked trade row in the same tick.
     """
     try:
-        verb = "force-cleared" if auto_cleared else "still stuck"
-        body = (
-            "🚨 Stuck-strategy watchdog\n"
-            f"Strategy: {strategy} | Symbol: {symbol}\n"
-            f"Package: {order_package_id}\n"
-            f"DB trade id: {db_trade_id}\n"
-            f"Stuck for: {stuck_minutes} min\n"
-            f"Action: {verb}\n"
-            "Investigate: the orphan reconciler + stuck-linked sweep "
-            "did NOT catch this — possible exchange-side stale "
-            "position or reconciler skip path."
-        )[:1024]
-        payload = {"priority": priority, "body": body}
+        if position_alive:
+            # Benign — confirmed alive on the exchange; the strategy is
+            # holding it, the watchdog took no action. Informational only.
+            eff_priority = "normal"
+            body = (
+                "🔎 Stuck-strategy watchdog (informational — no action)\n"
+                f"Strategy: {strategy} | Symbol: {symbol}\n"
+                f"Package: {order_package_id}\n"
+                f"DB trade id: {db_trade_id}\n"
+                f"Held for: {stuck_minutes} min (≥ 3× its timeframe)\n"
+                "Status: position CONFIRMED ALIVE on the exchange — the "
+                "strategy is patiently holding it. The watchdog deferred and "
+                "did NOT touch the trade; it exits on its SL/TP or an "
+                "opposing signal. No reconciler issue."
+            )[:1024]
+        else:
+            eff_priority = priority
+            verb = "force-cleared" if auto_cleared else "still stuck"
+            body = (
+                "🚨 Stuck-strategy watchdog\n"
+                f"Strategy: {strategy} | Symbol: {symbol}\n"
+                f"Package: {order_package_id}\n"
+                f"DB trade id: {db_trade_id}\n"
+                f"Stuck for: {stuck_minutes} min\n"
+                f"Action: {verb}\n"
+                "Investigate: the orphan reconciler + stuck-linked sweep "
+                "did NOT catch this — possible exchange-side stale "
+                "position or reconciler skip path."
+            )[:1024]
+        payload = {"priority": eff_priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-stuckstrat.json"
         path = PENDING_PINGS_DIR / name

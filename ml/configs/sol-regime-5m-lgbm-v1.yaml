@@ -1,0 +1,85 @@
+# LightGBM regime classifier — SOLUSDT @ 5m (multi-symbol regime, follow-on to ETH).
+#
+# WHY THIS HEAD EXISTS: SOLUSDT is a live-traded instrument (trend_donchian_sol
+# on the Breakout prop account @ 1h long-only, plus a 4h SOLUSDT alt cell on the
+# Bybit demo) and a cross-asset peer of ETH (config/cross_asset.yaml). The
+# multi-symbol regime program now extends past BTC/ETH to SOL so the same
+# ML vol-axis label that gates BTC cells can eventually gate SOL cells too.
+#
+# Follows the validated ETH playbook (eth-regime-5m-lgbm-v1): the 1h regime
+# family is the weak timeframe for RG4 (too few live observations/hour, vol-
+# biased saturated output), while the proven BTC 5m/15m recipe passes RG4
+# cleanly (0.72-0.82). So we go straight to the 5m + 15m heads for SOL and skip
+# a 1h head. Identical to btc-regime-5m-lgbm-v2 / eth-regime-5m-lgbm-v1 EXCEPT
+# the symbol (SOLUSDT) — same trainer, split, weighting, frozen regime spec, and
+# market_features params (the daily build uses vol_threshold=0.005 /
+# n_vol_buckets=3 for every Bybit pair, so the realized regime_label is computed
+# the same way for SOL as for BTC/ETH).
+#
+# Registers at `shadow` like every new head → begins logging live predictions
+# immediately, which is what the RG4 live-row gate needs to score it. Advisory
+# promotion (shadow->advisory) stays operator-gated (Tier-3), gated on a
+# post-soak RG4 >= 0.55.
+
+manifest_version: v1
+model_id: sol-regime-5m-lgbm-v1
+description: "LightGBM regime classifier for SOLUSDT 5m bars (range vs volatile from continuous vol + log-return alongside the frozen vol bucket) — multi-symbol regime head (follow-on to ETH). Shadow context signal."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  sample_weight:
+    half_life_days: 60
+    time_column: ts
+  # Mirror btc-regime-5m-lgbm-v2 / eth-regime-5m-lgbm-v1: the 5m volatile label
+  # is rare (~0.5% on BTC), so a ~50x inverse-base-rate weight keeps recall
+  # non-trivial without spraying. If SOL's realized 5m base rate differs
+  # materially this is the first knob to sweep (a class_weight sweep is the
+  # documented follow-up).
+  class_weight:
+    range: 1.0
+    volatile: 50.0
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: SOLUSDT
+  timeframe: 5m
+  version: v002
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: shadow
+notes: |
+  Multi-symbol regime head — SOL follow-on to the ETH RG4 retrain
+  (MB-20260627-003). Identical to btc-regime-5m-lgbm-v2 / eth-regime-5m-lgbm-v1
+  except symbol=SOLUSDT. RG3 (clean-candle discrimination) is the in-session
+  gate; RG4 (live-row skew) can only score it after it accrues live shadow rows
+  (a soak), so promotion is gated on a post-soak RG4 >= 0.55 + operator
+  approval. Leakage gate forbids forward_log_return / forward_log_return_vol /
+  regime_label.

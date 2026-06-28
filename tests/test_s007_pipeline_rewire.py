@@ -57,6 +57,8 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         "eth_pullback_prop_2h",
         "fade_breakout_4h",
         "fvg_range_15m",
+        # daily ETF pullback pair on alpaca_paper + alpaca_live (2026-06-27, Tier-3):
+        "gdx_pullback_1d",
         "gld_pullback_1d",
         "gld_pullback_1h",
         "htf_pullback_trend_2h",
@@ -69,6 +71,7 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         "mhg_pullback_1d",
         "qqq_pullback_1h",
         "qqq_trend_long_1d",
+        "slv_pullback_1d",
         "slv_trend_1h",
         "sol_pullback_2h",
         "spy_pullback_1h",

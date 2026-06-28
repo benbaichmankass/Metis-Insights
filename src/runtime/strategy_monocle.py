@@ -226,6 +226,28 @@ def _strategy_timeframe_seconds(strategy_name: str) -> Optional[int]:
         return None
 
 
+def _strategy_timeframe_label(strategy_name: str) -> Optional[str]:
+    """Look up *strategy_name*'s configured timeframe TOKEN (e.g. ``"1h"``).
+
+    The string companion of ``_strategy_timeframe_seconds`` — the regime
+    advisory spec map keys on the ``(symbol, timeframe)`` token, not seconds, so
+    a string is what the ML-vol verdict needs. Returns ``None`` when the
+    strategy has no configured ``timeframe`` or the config can't be read
+    (best-effort; the verdict then degrades to ``unknown`` — permissive).
+    """
+    try:
+        from src.units.strategies import load_strategy_config
+        cfg = (load_strategy_config() or {}).get(strategy_name) or {}
+        tf = cfg.get("timeframe")
+        return str(tf).strip() if tf else None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_strategy_timeframe_label(%s): config read failed — %s",
+            strategy_name, exc,
+        )
+        return None
+
+
 def _bar_debounce_disabled() -> bool:
     # The flag below is a kill-switch for an over-trading DEBOUNCE, not a
     # live/dry gate: it only throttles re-entry frequency (one entry per

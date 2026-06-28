@@ -8,12 +8,20 @@ evidence (the would-be conviction size vs the actual risk-based size) so the
 distribution can be reviewed before conviction sizing graduates to actually
 driving the order.
 
-There is deliberately **no on/off flag** (no ``*_MODE``, no ``*_ENABLED``, no
-allowlist). A default-off gate in front of this would be the stranding trap the
-Prime Directive forbids. When conviction graduates to *actually* sizing orders,
-that is a deliberate change to the sizing path itself — governed by the existing
-account ``mode`` gate and the margin / daily-loss guards like every other order
-behaviour — not the flip of a dormant switch installed here in advance.
+The **annotator** (``annotate_conviction_sizing`` / ``compute_conviction_sizing``)
+deliberately has **no on/off flag** (no ``*_MODE``, no ``*_ENABLED``, no
+allowlist). A default-off gate in front of the observe-only annotator would be
+the stranding trap the Prime Directive forbids — it stays flagless and always-on.
+
+Graduating conviction to an *actual* order-size influence is a SEPARATE apply
+path (``apply_conviction_sizing``, Design B — graduate conviction from soak to
+live, 2026-06-27) gated by ``CONVICTION_SIZING_MODE`` (off / annotate / apply,
+default off). The flag gates a genuine reductive/symmetric influence — exactly
+the role ``NEWS_INFLUENCE_MODE`` plays — not the observe-only annotator; this
+reconciles the 2026-06-16 ``CONVICTION_SIZING_MODE`` rejection (which was about
+gating the annotator). Default-off means deploying the apply path is a
+byte-for-byte no-op on the order path; the flagless annotator soak runs
+unchanged regardless.
 
 Computation (design § 3.3 / § 10): ``conviction × per_trade_risk_budget (2%)``
 bounded above by the available-margin ceiling and a proportional free-margin
@@ -233,6 +241,287 @@ def annotate_conviction_sizing(
             "annotate_conviction_sizing failed (qty unchanged): %s", exc
         )
         return sized_qty
+
+
+def apply_conviction_sizing(
+    pkg: Any,
+    sized_qty: float,
+    *,
+    account_name: str = "",
+    balance_usd: float | None = None,
+    available_usd: float | None = None,
+    total_account_usd: float | None = None,
+    leverage: int = 0,
+    market_type: str = "spot",
+    min_qty: float = 0.0,
+    qty_precision: int = 3,
+    effective_risk_pct: float | None = None,
+    settings: dict | None = None,
+) -> float:
+    """Graduate conviction sizing to an ACTUAL order-size influence — Design B.
+
+    This is the NEW apply path, **separate** from ``annotate_conviction_sizing``
+    (which stays flagless observe-only and runs unchanged). It is gated by
+    ``CONVICTION_SIZING_MODE`` (off / annotate / apply, default off) +
+    ``CONVICTION_SIZING_ACCOUNTS`` (allowlist, empty=all) +
+    ``CONVICTION_SIZING_DIRECTION`` (reductive / symmetric, default reductive).
+
+    Behaviour:
+      * ``mode off`` (default) → return ``sized_qty`` UNCHANGED (byte-for-byte
+        no-op on the order path).
+      * account not in the allowlist → unchanged.
+      * ``mode annotate`` → compute the would-be conviction size (reuse
+        ``compute_conviction_sizing``), stamp it on ``pkg.meta`` as
+        ``conviction_apply_decision`` + log, return ``sized_qty`` UNCHANGED.
+      * ``mode apply``:
+          - ``direction reductive`` → ``final = min(conviction_qty, sized_qty)``
+            (never enlarges).
+          - ``direction symmetric`` → may exceed ``sized_qty`` but is HARD-bounded
+            by the 2% budget + margin cap already enforced in
+            ``compute_conviction_sizing``.
+        A conviction ``< NO_TRADE_FLOOR`` (default 0.0, inert) journals a
+        per-trade refusal and returns ``0`` — a refusal, NOT a gate flip.
+
+    Daily-loss clamp: ``effective_risk_pct`` is the account's effective
+    post-daily-loss risk fraction. When provided, the conviction size is clamped
+    so its implied risk fraction can't exceed ``min(PER_TRADE_RISK_BUDGET,
+    effective_risk_pct)`` — so a daily-loss-throttled account can't be
+    re-inflated by a high-conviction trade. ``None`` skips the extra clamp.
+
+    Fail-inert: any exception, a ``sized_qty <= 0`` (RiskManager refusal), or a
+    missing/None conviction on the package → the incoming ``sized_qty`` is
+    returned UNCHANGED (mirrors ``apply_news_downsize``).
+    """
+    try:
+        if sized_qty is None or sized_qty <= 0:
+            return sized_qty
+
+        from src.runtime.runtime_flags import (
+            _conviction_sizing_accounts,
+            _conviction_sizing_direction,
+            _conviction_sizing_mode,
+        )
+
+        mode = _conviction_sizing_mode(settings)
+        if mode == "off":
+            return sized_qty
+
+        allowlist = _conviction_sizing_accounts(settings)
+        if allowlist and account_name not in allowlist:
+            return sized_qty
+
+        would_be, record = compute_conviction_sizing(
+            pkg,
+            sized_qty,
+            balance_usd=balance_usd,
+            available_usd=available_usd,
+            total_account_usd=total_account_usd,
+            leverage=leverage,
+            market_type=market_type,
+            min_qty=min_qty,
+            qty_precision=qty_precision,
+        )
+        # No would-be size to act on (missing conviction / un-computable inputs)
+        # → fail-inert, return the RiskManager qty unchanged.
+        if would_be is None:
+            return sized_qty
+
+        # Below-floor → journaled per-trade refusal + qty 0 (NOT a gate flip).
+        if record.get("action") == "no_trade_floor":
+            if mode == "apply":
+                _journal_below_floor_refusal(pkg, account_name, record)
+                _log_conviction_apply(
+                    pkg, account_name, sized_qty, 0.0, mode,
+                    "reductive", record, applied=True,
+                )
+                return 0.0
+            # annotate: stamp the decision, do not resize.
+            _stamp_apply_decision(pkg, record, mode, "reductive", sized_qty, sized_qty)
+            _log_conviction_apply(
+                pkg, account_name, sized_qty, sized_qty, mode,
+                "reductive", record, applied=False,
+            )
+            return sized_qty
+
+        direction = _conviction_sizing_direction(settings)
+        conviction_qty = float(would_be)
+
+        # Daily-loss clamp — cap the conviction-implied risk fraction to
+        # min(2%, effective_risk_pct). The conviction qty implies a risk fraction
+        # of ``conviction × PER_TRADE_RISK_BUDGET``; ``record['risk_qty']`` is the
+        # full-budget (2%) qty, so scale it by the capped fraction / 2% to get the
+        # max qty the daily-loss-aware risk fraction permits.
+        clamp_note: dict | None = None
+        if effective_risk_pct is not None:
+            try:
+                eff = float(effective_risk_pct)
+                risk_qty = float(record.get("risk_qty") or 0.0)
+                if eff >= 0 and PER_TRADE_RISK_BUDGET > 0 and risk_qty > 0:
+                    capped_pct = min(PER_TRADE_RISK_BUDGET, eff)
+                    cap_qty = (capped_pct / PER_TRADE_RISK_BUDGET) * risk_qty
+                    is_futures = str(market_type or "spot").lower() == "futures"
+                    eff_precision = 0 if is_futures else qty_precision
+                    cap_qty = _floor_to_step_local(cap_qty, eff_precision)
+                    if is_futures and cap_qty < 1.0:
+                        cap_qty = 0.0
+                    if conviction_qty > cap_qty:
+                        clamp_note = {
+                            "effective_risk_pct": eff,
+                            "capped_pct": capped_pct,
+                            "cap_qty": cap_qty,
+                            "pre_clamp_qty": conviction_qty,
+                        }
+                        conviction_qty = cap_qty
+            except (TypeError, ValueError):
+                pass  # fail-inert: a bad fraction never inflates the order
+
+        if mode == "annotate":
+            _stamp_apply_decision(
+                pkg, record, mode, direction, sized_qty, sized_qty,
+                clamp_note=clamp_note,
+            )
+            _log_conviction_apply(
+                pkg, account_name, sized_qty, sized_qty, mode,
+                direction, record, applied=False, clamp_note=clamp_note,
+            )
+            return sized_qty
+
+        # mode == "apply"
+        if direction == "reductive":
+            final = min(conviction_qty, sized_qty)
+        else:  # symmetric — may enlarge, hard-bounded by the 2% budget + margin
+            final = conviction_qty
+        if final < 0:
+            final = 0.0
+
+        _stamp_apply_decision(
+            pkg, record, mode, direction, sized_qty, final, clamp_note=clamp_note,
+        )
+        _log_conviction_apply(
+            pkg, account_name, sized_qty, final, mode, direction, record,
+            applied=True, clamp_note=clamp_note,
+        )
+        logger.info(
+            "conviction_apply(%s/%s) strategy=%s account=%s conviction=%.4f "
+            "qty %.8f -> %.8f",
+            mode, direction, getattr(pkg, "strategy", "?"), account_name,
+            record.get("conviction", 0.0), sized_qty, final,
+        )
+        return final
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "apply_conviction_sizing failed (qty unchanged): %s", exc
+        )
+        return sized_qty
+
+
+def _floor_to_step_local(value: float, precision: int) -> float:
+    """Floor ``value`` to ``precision`` decimals via risk.py's canonical helper."""
+    from src.units.accounts.risk import _floor_to_step
+
+    return _floor_to_step(value, precision)
+
+
+def _stamp_apply_decision(
+    pkg: Any,
+    record: dict,
+    mode: str,
+    direction: str,
+    sized_qty: float,
+    final_qty: float,
+    *,
+    clamp_note: dict | None = None,
+) -> None:
+    """Stamp the apply-path decision on ``pkg.meta`` (best-effort, no raise)."""
+    meta = getattr(pkg, "meta", None)
+    if not isinstance(meta, dict):
+        return
+    decision = dict(record)
+    decision.update(
+        {
+            "mode": mode,
+            "direction": direction,
+            "risk_based_qty": sized_qty,
+            "final_qty": final_qty,
+            "resized": final_qty != sized_qty,
+        }
+    )
+    if clamp_note is not None:
+        decision["daily_loss_clamp"] = clamp_note
+    meta["conviction_apply_decision"] = decision
+
+
+def _journal_below_floor_refusal(pkg: Any, account_name: str, record: dict) -> None:
+    """Journal a per-trade below-floor conviction refusal (best-effort, no raise).
+
+    A conviction below ``NO_TRADE_FLOOR`` means the trade isn't worth taking — a
+    clean per-trade refusal (``status='rejected'``), never a gate/mode flip.
+    """
+    try:
+        from src.units.accounts.execute import log_rejection_to_journal
+
+        conviction = record.get("conviction")
+        floor = record.get("no_trade_floor")
+        reason = (
+            f"conviction_below_no_trade_floor: conviction={conviction} < "
+            f"NO_TRADE_FLOOR={floor} (account={account_name}) — conviction sizing "
+            "refused this trade as below the no-trade floor; the account stays "
+            "live, the next signal is sized fresh."
+        )
+        log_rejection_to_journal(
+            pkg,
+            {"account_id": account_name},
+            reason=reason,
+            status="rejected",
+            sized_qty=0.0,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_journal_below_floor_refusal: could not journal refusal: %s", exc
+        )
+
+
+def _log_conviction_apply(
+    pkg: Any,
+    account_name: str,
+    risk_based_qty: float,
+    final_qty: float,
+    mode: str,
+    direction: str,
+    record: dict,
+    *,
+    applied: bool,
+    clamp_note: dict | None = None,
+) -> None:
+    """Append the apply-path decision to the conviction soak log (best-effort).
+
+    Reuses the same ``conviction_sizing.jsonl`` soak log as the annotator but
+    tags the row ``kind='apply'`` so the two streams are distinguishable.
+    """
+    try:
+        from src.utils.paths import runtime_logs_dir
+
+        path = runtime_logs_dir() / "conviction_sizing.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "kind": "apply",
+            "mode": mode,
+            "direction": direction,
+            "applied": applied,
+            "strategy": str(getattr(pkg, "strategy", "") or ""),
+            "symbol": str(getattr(pkg, "symbol", "") or ""),
+            "account": account_name,
+            "conviction": record.get("conviction"),
+            "risk_based_qty": risk_based_qty,
+            "final_qty": final_qty,
+            "daily_loss_clamp": clamp_note,
+            "decision": record,
+        }
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(payload, default=str) + "\n")
+    except OSError as exc:
+        logger.warning("_log_conviction_apply: could not write soak log: %s", exc)
 
 
 def _log_conviction_sizing(

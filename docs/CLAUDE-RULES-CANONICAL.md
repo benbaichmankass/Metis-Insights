@@ -628,6 +628,41 @@ practice, the right response is to reconsider this decision then,
 with that incident's specifics, not to pre-empt it with infrastructure
 that papers over the discipline gap.
 
+## Multi-session coordination (2026-06-28, binding)
+
+Multiple Claude sessions may run concurrently. Two failure modes recur; this
+section closes them. The **operational workflow is the binding
+`session-coordination` skill** (`.claude/skills/session-coordination/SKILL.md`),
+the **live state is `docs/claude/session-board.json`**, and the `SessionStart`
+hook surfaces both at session init. Read them before acting.
+
+1. **Know your capabilities before reaching for a tool.** On PM-side / Claude
+   Code on the web sessions: `run_workflow` 403s — drive workflows via labelled
+   issues (the diag / system-action relays); direct VM egress is usually
+   firewalled (live reads go through the `vm-diag-snapshot` relay, `/api/diag/*`
+   only); the GitHub MCP drops intermittently — retry with backoff, never treat
+   the first failure as an expired token; there is no `create_label`. Full
+   contract: root `CLAUDE.md` § "PM-side session capabilities".
+
+2. **Serialize merges — the merge protocol.** Before merging ANY PR: (a) list
+   open PRs (the real-time truth), (b) claim the single `merge_slot` on the
+   board, (c) sync your branch to `main` **last** — `git fetch origin main` +
+   merge/rebase immediately before merging so it is not behind, (d) let CI go
+   green on the *synced* head, (e) merge, (f) release the slot. This stops two
+   sessions racing a merge and forcing each other "behind" `main` → the
+   branch-protection require-up-to-date re-run churn (observed twice on
+   2026-06-28).
+
+3. **One PR = one concern.** Never add unrelated work to a branch that already
+   has an open PR — it pollutes the PR and invalidates its CI run (and a new
+   head SHA strands any merge-gate watcher). Start a fresh branch off `main` for
+   a distinct deliverable, even mid-session.
+
+Consistent with § "Why no new mechanical guardrails" above, this is discipline +
+a shared board + the hook surfacing it — **not** a new CI gate (operator
+decision, 2026-06-28). The hard safety net remains GitHub branch-protection
+(require-up-to-date); the board only coordinates intent + the one merge slot.
+
 ## GitHub Actions Rule
 
 Claude is allowed to inspect, create, modify, and use GitHub Actions

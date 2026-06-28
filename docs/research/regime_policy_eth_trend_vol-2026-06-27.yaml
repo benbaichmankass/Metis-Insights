@@ -1,0 +1,48 @@
+# EVIDENCE-BASED ETH regime policy — BACKTEST-LOCAL, NOT the live config.
+# =============================================================================
+# Multi-symbol A (#1) — authored from the ETHUSDT per-(strategy,trend,vol,side)
+# cell attribution vol-split (trainer-vm-diag #4849/#4851; ML vol label =
+# eth-regime-1h-lgbm-v1 @advisory, scored=3007 / fell_back=0). The ungated ETH
+# book was net $63 / maxDD $1691 (15%!) over 1016 trades — marginal with a large
+# drawdown; the vol-split exposes ~$2.3k of meaningful (>= 10t) net-negative
+# sleeves to gate out.
+#
+# KEY FINDING: the dominant ETH loser is trend_donchian_eth|trending|volatile|long
+# (-$968/175t) — the SAME vol-conditioned pattern as BTC (trend_donchian|trending|
+# volatile|long was -$224 on BTC). A Donchian long in a VOLATILE "trend" is a
+# false-breakout trap on both symbols; the SHORT side of that same cell WINS
+# (+$433/193t on ETH). Strong cross-symbol evidence the vol-gate generalizes.
+#
+# 1-D blocks are intentionally EMPTY: the ETH strategies (trend_donchian_eth, etc.)
+# aren't keyed in the live 1-D table, so they default permissive-on — this policy
+# isolates the trend_vol (2-D) effect. OFF-cells = meaningful-sample (>= ~10t)
+# net-negative cells; small-sample (<10t) negatives left ON as noise. The
+# -$49/15t trending|calm|long is also left ON (too marginal + the strong BTC
+# prior is that calm-trend-long is the winning cell, +$1238 there).
+#
+# STILL backtest-local + in-sample. Authoring the LIVE config/regime_policy.yaml
+# ETH cells is a separate Tier-3 step, gated on: (1) the confirmation A/B below,
+# (2) a walk-forward, and (3) promoting eth-regime-1h-lgbm-v1 to advisory — which
+# is itself blocked on the MES/ETH live-labeling gap (RG4 unscoreable, MB-20260627-002).
+# NEVER point the live trader at this file.
+# =============================================================================
+schema_version: 2
+
+# --- 2-D trend x vol OFF-cells (ETH evidence: meaningful-sample net-negative) ---
+trend_vol:
+  trending:
+    volatile:
+      trend_donchian_eth:    { long: off }              # -$968 / 175t  (THE vol refinement)
+      eth_pullback_2h:       { short: off }             # -$117 / 81t
+      trend_donchian_eth_4h: { short: off }             # -$32 / 17t
+    calm:
+      eth_pullback_2h:       { short: off }             # -$260 / 22t  (breakout-short into a calm uptrend)
+      trend_donchian_eth:    { short: off }             # -$138 / 13t
+  transitional:
+    volatile:
+      trend_donchian_eth:    { long: off }              # -$383 / 84t
+  chop:
+    volatile:
+      trend_donchian_eth:    { long: off, short: off }  # long -$50/61t + short -$169/45t
+    calm:
+      trend_donchian_eth:    { short: off }             # -$168 / 18t

@@ -1121,6 +1121,15 @@ class Coordinator:
                 "ib_port": getattr(account, "ib_port", None),
                 "ib_account": getattr(account, "ib_account", None),
                 "ib_client_id": getattr(account, "ib_client_id", None),
+                # Alpaca/OANDA host selector (paper vs live) — forwarded so
+                # alpaca_client_for / oanda_client_for dial the correct host
+                # for a LIVE account. WITHOUT this a live account's live key
+                # is sent to the paper/practice host → "request is not
+                # authorized", silently 401ing every order
+                # (BL-20260628-ALPACA-LIVE-HOST). None for other exchanges.
+                "alpaca_env": getattr(account, "alpaca_env", None),
+                "base_url": getattr(account, "base_url", None),
+                "oanda_env": getattr(account, "oanda_env", None),
             }
 
             # Per-account live/dry resolution. The caller-supplied
@@ -1371,6 +1380,31 @@ class Coordinator:
                     "error": error_msg,
                 })
                 continue
+
+            # Design B conviction sizing — the APPLY path (NEW, separate from the
+            # flagless observe-only annotator below). Default-off, gated by
+            # CONVICTION_SIZING_MODE (off/annotate/apply) + _ACCOUNTS allowlist +
+            # _DIRECTION (reductive/symmetric). When the flag is off this is a
+            # byte-for-byte no-op (returns sized_qty unchanged). Composition
+            # (design § "Composition (Option A)"): conviction produces the BASE
+            # size here, THEN the advisory + news reducers below still apply
+            # reductively on top — so ML bearishness / news opposition can still
+            # shrink even a high-conviction trade. ``effective_risk_pct`` feeds
+            # the daily-loss clamp (the account's base per-trade risk fraction;
+            # caps the conviction-implied fraction to min(2%, risk_pct) so a
+            # daily-loss-throttled account can't be re-inflated). Fail-inert.
+            from src.runtime.conviction_sizing import apply_conviction_sizing
+            sized_qty = apply_conviction_sizing(
+                pkg, sized_qty, account_name=account.name,
+                balance_usd=balance,
+                available_usd=available_usd,
+                total_account_usd=total_account_usd,
+                leverage=getattr(account.risk_manager, "leverage", 0),
+                market_type=_market_type,
+                min_qty=getattr(account.risk_manager, "min_qty", 0.0),
+                qty_precision=getattr(account.risk_manager, "qty_precision", 3),
+                effective_risk_pct=getattr(account.risk_manager, "risk_pct", None),
+            )
 
             # WS7 advisory influence — gated by model STAGE alone (advisory /
             # limited_live / live_approved); shadow only logs. Reductive only —
@@ -1632,8 +1666,13 @@ class Coordinator:
                     # keys on: a prematurely-closed package must not free
                     # the gate while the position is genuinely still open.
                     # Reduce / close / flip (position-management) deltas are
-                    # never blocked. Gated by POSITION_NETTING_GUARD_ENABLED
-                    # (default off → ships inert; one env flip to roll back).
+                    # never blocked. The guard is BASELINE (unconditional) as of
+                    # 2026-06-17 — ``position_netting_guard_active_for`` returns
+                    # True for every account (a no-op where it can't apply, e.g.
+                    # brokers that net atomically); the old
+                    # POSITION_NETTING_GUARD_ENABLED env flag was removed (Prime
+                    # Directive: a required correctness fix must not sit behind a
+                    # default-off gate that an env drop could silently revert).
                     if (
                         position_netting_guard_active_for(account.name)
                         and delta.action in ("open", "increase")

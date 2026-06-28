@@ -772,6 +772,131 @@ def _load_regime_policy() -> Dict[str, Any]:
     return _REGIME_POLICY_CACHE
 
 
+def _regime_ml_verdict_mode() -> str:
+    """Design-A mode: ``off`` (default) | ``shadow`` | ``use``.
+
+    Thin wrapper over ``runtime_flags._regime_ml_verdict_mode`` (env-only here;
+    the intent layer has no settings dict). Default ``off`` → deploying this
+    code is a behaviour no-op (no ``regime_ml_vol_shadow`` row, zero ML work).
+    ``shadow`` emits the ``regime_ml_vol_shadow`` agreement row but the gate
+    keeps using the frozen label. ``use`` (Phase 2) substitutes the advisory
+    head's ML vol label into the gate DECISION via ``_decision_vol_regime``
+    (fail-permissive → frozen when the ML verdict is ``unknown``). NOTE: ``use``
+    only changes a real-money outcome when (a) an OFF cell exists for the
+    ``(trend, vol)`` pair AND (b) the gated strategy's SYMBOL has an advisory
+    regime head — resolution is **per-SYMBOL** (``ml_vol_regime_for_symbol``),
+    NOT per-(symbol, timeframe): BTC has the 15m advisory head, so every BTC
+    cell resolves the ML label regardless of the strategy's timeframe (the live
+    ``trend_vol`` cells gate BTC ``trend_donchian`` (1h) + ``squeeze_breakout_4h``
+    (4h) and they DO resolve ML, not frozen); a symbol with no advisory head
+    resolves ``unknown`` → frozen (permissive) AND (c) the hard gate is active
+    (baseline-on; kill-switch ``REGIME_ROUTER_DISABLED``).
+    """
+    try:
+        from src.runtime.runtime_flags import _regime_ml_verdict_mode as _mode
+        return _mode(None)
+    except Exception:  # noqa: BLE001 — fail-safe to off
+        return "off"
+
+
+def _emit_ml_vol_shadow_rows(candidates: tuple) -> None:
+    """Phase-1 (Design A): emit a ``regime_ml_vol_shadow`` audit row per candidate.
+
+    For each candidate, resolve the advisory head's ``vol_regime`` verdict
+    (``ml_vol_regime``) and log a row comparing it against the frozen
+    ``intent.vol_regime`` — ``{vol_regime_frozen, vol_regime_ml, p_volatile,
+    agree, ml_source, model_id, enforced: false}``. **Observe-only:** this
+    function never touches the candidate set; it is the agreement-audit row.
+    (Under mode=``use`` the gate DECISION itself does substitute the ML label
+    via ``_decision_vol_regime`` — that substitution lives in the gate loops,
+    not here.) Called whenever the mode is not ``off`` (``shadow``/``use``); the
+    ``off`` path returns before this runs so the default deploy adds ZERO
+    overhead.
+
+    Fail-permissive: any exception (per candidate or overall) is swallowed so
+    the ML/audit path can never strand a signal.
+    """
+    try:
+        from src.runtime.regime import ml_vol_regime_for_symbol
+        from src.utils.signal_audit_logger import log_signal
+    except Exception:  # noqa: BLE001 — observability-only
+        return
+    for intent in candidates:
+        try:
+            # Per-symbol resolution — identical to the decision path
+            # (_decision_vol_regime) so the agreement soak reflects what enforce
+            # would actually use.
+            verdict = ml_vol_regime_for_symbol(intent.symbol)
+            vol_regime_ml = verdict.get("vol_regime")
+            frozen = intent.vol_regime
+            # ``agree`` is only meaningful when BOTH labels are concrete
+            # (neither None/unknown); otherwise it's None (not a false mismatch).
+            if (
+                frozen in ("calm", "volatile")
+                and vol_regime_ml in ("calm", "volatile")
+            ):
+                agree = bool(frozen == vol_regime_ml)
+            else:
+                agree = None
+            log_signal({
+                "event": "regime_ml_vol_shadow",
+                "strategy": intent.strategy,
+                "symbol": intent.symbol,
+                "side": intent.side,
+                "vol_regime_frozen": frozen,
+                "vol_regime_ml": vol_regime_ml,
+                "p_volatile": verdict.get("p_volatile"),
+                "agree": agree,
+                "ml_source": verdict.get("source"),
+                "model_id": verdict.get("model_id"),
+                # Phase 1 is observe-only — the gate decision is unchanged.
+                "enforced": False,
+            })
+        except Exception:  # noqa: BLE001 — never strand a signal on the ML path
+            continue
+
+
+def _decision_vol_regime(intent: Any, mode: str) -> tuple:
+    """Resolve the ``vol_regime`` the GATE DECISION should use for ``intent``.
+
+    Design-A Phase 2 (``use``): substitute the **advisory** regime head's live
+    ML vol label for the frozen ``intent.vol_regime`` when it resolves to a
+    concrete ``calm``/``volatile``. The evidence cells in
+    ``config/regime_policy.yaml::trend_vol`` were authored under the ML label
+    and LOSE money under the frozen label
+    (``docs/research/A-vol-gating-OFFcell-design-2026-06-27.md``), so a correct
+    enforce MUST gate on the ML label — this is the wiring that was a documented
+    placeholder before (the gate previously always used the frozen label).
+
+    Fail-permissive: any mode other than ``use``, an ML verdict of ``unknown``
+    (no advisory head for the strategy's ``(symbol, timeframe)`` — e.g. there is
+    no BTC 1h/4h advisory head today, only 15m — a cold per-bar cache, or any
+    exception) → the frozen ``intent.vol_regime`` is kept unchanged. Never
+    raises, so the decision path can't be stranded by the ML lookup.
+
+    Returns ``(effective_vol_regime, frozen_vol_regime, ml_vol_regime_or_None,
+    ml_source_or_None)`` so the caller can audit which label drove the gate.
+    """
+    frozen = getattr(intent, "vol_regime", None)
+    if mode != "use":
+        return frozen, frozen, None, None
+    try:
+        # Resolve by SYMBOL (not the strategy's timeframe): the validated A/B
+        # applied the single 15m advisory head's vol label to every BTC cell —
+        # the vol regime is a per-symbol market label. A per-strategy-timeframe
+        # lookup would return ``unknown`` for the live 1h/4h cells (no 1h/4h
+        # advisory head) and silently fall back to the money-losing frozen label.
+        from src.runtime.regime import ml_vol_regime_for_symbol
+        verdict = ml_vol_regime_for_symbol(intent.symbol)
+        ml = verdict.get("vol_regime")
+        source = verdict.get("source")
+        if ml in ("calm", "volatile"):
+            return ml, frozen, ml, source  # ML label drives the decision
+        return frozen, frozen, ml, source  # ML unknown → keep frozen (permissive)
+    except Exception:  # noqa: BLE001 — fail-permissive: keep the frozen label
+        return frozen, frozen, None, None
+
+
 def _shadow_regime_gate(candidates: tuple) -> None:
     """Evaluate every candidate intent against the regime policy table and
     emit a ``regime_shadow_gate`` audit row when an OFF cell WOULD have
@@ -785,7 +910,18 @@ def _shadow_regime_gate(candidates: tuple) -> None:
     every row carries both axes (``regime``/``vol_regime`` + the per-axis cell)
     so a later analysis can split would-gate evidence by volatility. Both axes
     are ``enforced: false`` — phase-3 (Tier-3) is the enforcement gate.
+
+    Design A (Phase 1, default-off): when ``REGIME_ML_VERDICT_MODE`` is
+    ``shadow``/``use`` this ALSO emits a ``regime_ml_vol_shadow`` row per
+    candidate comparing the advisory head's ML ``vol_regime`` against the
+    frozen one. The gate decision is UNCHANGED (still the frozen label); the
+    ``off`` default short-circuits before any ML work runs.
     """
+    # Design-A Phase-1 ML-vol shadow audit — gated, observe-only, fires
+    # independently of the trend policy below (a different axis). The ``off``
+    # default returns here with ZERO added overhead.
+    if _regime_ml_verdict_mode() != "off":
+        _emit_ml_vol_shadow_rows(candidates)
     try:
         from src.runtime.regime import would_gate
         from src.utils.signal_audit_logger import log_signal
@@ -795,14 +931,16 @@ def _shadow_regime_gate(candidates: tuple) -> None:
     if not policy:
         # Empty / missing table → no shadow rows; permissive everywhere.
         return
+    mode = _regime_ml_verdict_mode()
     for intent in candidates:
+        eff_vol, frozen_vol, ml_vol, ml_src = _decision_vol_regime(intent, mode)
         try:
             verdict = would_gate(
                 strategy=intent.strategy,
                 side=intent.side,
                 regime=intent.regime,
                 policy=policy,
-                vol_regime=intent.vol_regime,
+                vol_regime=eff_vol,
             )
         except Exception:  # noqa: BLE001
             continue
@@ -822,8 +960,14 @@ def _shadow_regime_gate(candidates: tuple) -> None:
                 "gated": trend_gated,
                 "cell": verdict.get("cell"),
                 "reason": verdict.get("reason"),
-                # Vol axis (2-D, S-MLOPT-S15b) — observe-only.
-                "vol_regime": intent.vol_regime,
+                # Vol axis (2-D, S-MLOPT-S15b). ``vol_regime`` is the label the
+                # would-gate DECISION used — the ML label under mode=use (Design-A
+                # Phase 2), else the frozen stamp. The frozen + ML labels + which
+                # drove it are kept alongside for audit.
+                "vol_regime": eff_vol,
+                "vol_regime_frozen": frozen_vol,
+                "vol_regime_ml": ml_vol,
+                "vol_label_source": "ml" if (mode == "use" and ml_vol in ("calm", "volatile")) else "frozen",
                 "vol_gated": vol_gated,
                 "vol_cell": verdict.get("vol_cell"),
                 "vol_reason": verdict.get("vol_reason"),
@@ -835,23 +979,50 @@ def _shadow_regime_gate(candidates: tuple) -> None:
             pass
 
 
-def _regime_router_enabled() -> bool:
-    """Phase-3 hard-gate kill-switch.
+def _regime_router_active() -> bool:
+    """Regime hard-gate — **BASELINE ON**, kill-switch via ``REGIME_ROUTER_DISABLED``.
 
-    Returns True iff ``REGIME_ROUTER_ENABLED`` is set truthy. Default off
-    so deploying this code is a behaviour no-op; the operator flips the
-    env on the live VM via the ``set-env`` operator action and rollback
-    is one env flip + restart.
+    The regime router was validated and promoted to a live order-routing
+    influence (the Design-A vol-gate go-live, 2026-06-28). It is now a
+    *required* live capability, so per the Prime Directive it must NOT sit
+    behind a default-off ``*_ENABLED`` flag: if such a var were dropped on a
+    redeploy/VM-migration the gate would **silently stop enforcing** and the
+    money-losing ``trend_vol`` OFF-cells would trade again — exactly the
+    netting-guard / Ampere-migration failure class (a default-off gate silently
+    reverting). Baseline-on means the live behaviour survives an env drop.
+
+    Resolution (highest precedence first):
+
+    1. ``REGIME_ROUTER_DISABLED`` truthy → **off** (the sanctioned kill-switch:
+       one env flip + restart, no redeploy — the rollback path).
+    2. A leftover *explicit* falsy ``REGIME_ROUTER_ENABLED`` (``0``/``false``/
+       ``no``/``off``) → **off** (legacy rollback honoured so a VM mid-migration
+       with the old var set isn't surprised).
+    3. Otherwise → **on** (baseline). Unset, ``REGIME_ROUTER_ENABLED=1``, or any
+       non-falsy value all resolve active.
+
+    NOTE: a non-live consumer that must NOT enforce (the backtest A/B baseline
+    arm, a unit test asserting shadow-only behaviour) sets
+    ``REGIME_ROUTER_DISABLED=1`` explicitly — it can no longer rely on an
+    unset-env default. ``scripts/backtest_system.py`` does this for every run
+    that isn't ``--regime-router on``.
     """
     import os as _os
-    # PERF-20260601-006 operator-approved rollback switch for the regime
-    # router. This is the documented escape hatch (one env flip + restart,
-    # no redeploy), NOT a hidden trading-mode gate: it gates a regime-policy
-    # filter that is itself default-permissive, and the live/dry contract
-    # remains RiskManager.dry_run only. See docs/audits/env-gate-purge-2026-05-10.md
-    # + the ROADMAP.md PERF-20260601-006-REGIME-ROUTER-P3 row.
-    raw = _os.environ.get("REGIME_ROUTER_ENABLED", "0")  # allow-silent: PERF-20260601-006 regime-router rollback switch
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+    def _truthy(v):
+        return str(v or "").strip().lower() in {"1", "true", "yes", "on"}
+
+    # (1) Sanctioned kill-switch — wins over everything. allow-silent: this is
+    # the documented rollback escape hatch, not a hidden trading-mode gate; the
+    # live/dry contract remains RiskManager.dry_run only.
+    if _truthy(_os.environ.get("REGIME_ROUTER_DISABLED")):  # allow-silent: regime-router kill-switch
+        return False
+    # (2) Legacy explicit-off rollback (REGIME_ROUTER_ENABLED=0/false/...).
+    legacy = _os.environ.get("REGIME_ROUTER_ENABLED")  # allow-silent: legacy regime-router rollback switch
+    if legacy is not None and legacy.strip() != "" and not _truthy(legacy):
+        return False
+    # (3) Baseline ON.
+    return True
 
 
 def _hard_regime_gate(candidates: tuple) -> tuple:
@@ -874,7 +1045,19 @@ def _hard_regime_gate(candidates: tuple) -> tuple:
     falls back to keeping the intent (fail-permissive). A live-path
     failure must never silently drop a tradeable signal — the bias is
     toward the existing pre-phase-3 behaviour.
+
+    Design A (Phase 1, default-off): when ``REGIME_ML_VERDICT_MODE`` is
+    ``shadow``/``use`` this ALSO emits a ``regime_ml_vol_shadow`` row per
+    candidate (observe-only). It does NOT influence which intents are dropped —
+    the enforcement still keys on the frozen ``intent.vol_regime`` via
+    ``would_gate``. The ``off`` default short-circuits before any ML work runs.
     """
+    # Design-A Phase-1 ML-vol shadow audit — gated, observe-only, fires
+    # independently of the trend policy / enforcement below (a different axis,
+    # never alters the kept set). The ``off`` default returns here with ZERO
+    # added overhead.
+    if _regime_ml_verdict_mode() != "off":
+        _emit_ml_vol_shadow_rows(candidates)
     try:
         from src.runtime.regime import would_gate
         from src.utils.signal_audit_logger import log_signal
@@ -884,14 +1067,16 @@ def _hard_regime_gate(candidates: tuple) -> tuple:
     if not policy:
         return candidates
     kept: list = []
+    mode = _regime_ml_verdict_mode()
     for intent in candidates:
+        eff_vol, frozen_vol, ml_vol, ml_src = _decision_vol_regime(intent, mode)
         try:
             verdict = would_gate(
                 strategy=intent.strategy,
                 side=intent.side,
                 regime=intent.regime,
                 policy=policy,
-                vol_regime=intent.vol_regime,
+                vol_regime=eff_vol,
             )
         except Exception:  # noqa: BLE001
             # Fail-permissive: an unverifiable verdict keeps the intent
@@ -902,7 +1087,16 @@ def _hard_regime_gate(candidates: tuple) -> tuple:
             continue
         trend_gated = bool(verdict.get("gated"))
         vol_gated = bool(verdict.get("vol_gated"))
-        if not (trend_gated or vol_gated):
+        # ML-only-enforce guard: a VOL cell may only DROP an intent when the vol
+        # label came from the advisory ML head (vol_label_source == "ml"). The
+        # trend_vol cells LOSE money under the frozen label, so a vol gate on a
+        # frozen-fallback (no advisory head for the symbol) must NOT enforce —
+        # it stays permissive. The 1-D TREND (ADX) axis is ML-independent and
+        # always enforces. So a symbol without an advisory vol head is safely
+        # never vol-gated, and enforce activates per-symbol as heads promote.
+        vol_is_ml = mode == "use" and ml_vol in ("calm", "volatile")
+        vol_enforced = vol_gated and vol_is_ml
+        if not (trend_gated or vol_enforced):
             kept.append(intent)
             continue
         # Phase 3 enforcement: drop the intent + audit the action.
@@ -917,8 +1111,18 @@ def _hard_regime_gate(candidates: tuple) -> tuple:
                 "gated": trend_gated,
                 "cell": verdict.get("cell"),
                 "reason": verdict.get("reason"),
-                "vol_regime": intent.vol_regime,
+                # ``vol_regime`` = the label the enforce DECISION used (ML under
+                # mode=use, else frozen); frozen + ML kept alongside for audit.
+                "vol_regime": eff_vol,
+                "vol_regime_frozen": frozen_vol,
+                "vol_regime_ml": ml_vol,
+                "vol_label_source": "ml" if vol_is_ml else "frozen",
                 "vol_gated": vol_gated,
+                # ``vol_enforced``: the vol axis actually drove this drop (only
+                # true when the label was ML-sourced). A vol_gated-but-frozen
+                # cell shows vol_enforced:false and the drop (if any) is the
+                # trend axis.
+                "vol_enforced": vol_enforced,
                 "vol_cell": verdict.get("vol_cell"),
                 "vol_reason": verdict.get("vol_reason"),
                 # PHASE 3: enforced -> the intent is dropped from the
@@ -996,22 +1200,25 @@ def aggregate_intents(
 
     # Regime router (PERF-20260601-002 §5):
     #
-    # * **Phase 2 (default, observability-only)** — ``_shadow_regime_gate``
-    #   evaluates each candidate against the policy table and emits a
-    #   ``regime_shadow_gate`` audit row (``enforced: false``) for any
-    #   OFF-cell intent. The aggregator's decision is UNCHANGED.
-    # * **Phase 3 (PERF-20260601-006, Tier-3)** — when
-    #   ``REGIME_ROUTER_ENABLED`` is truthy, ``_hard_regime_gate``
-    #   **drops** OFF-cell intents from ``candidates`` BEFORE the
-    #   reinforcement / conflict-resolution logic runs AND emits a
-    #   ``regime_hard_gate`` row (``enforced: true``). Rollback is one
-    #   env flip + restart (no redeploy).
+    # * **Hard gate (BASELINE, Tier-3 live capability)** — ``_hard_regime_gate``
+    #   **drops** OFF-cell intents from ``candidates`` BEFORE the reinforcement /
+    #   conflict-resolution logic runs AND emits a ``regime_hard_gate`` row
+    #   (``enforced: true``). This is the default since the Design-A vol-gate
+    #   go-live (2026-06-28): a *required* live capability must not sit behind a
+    #   default-off flag (Prime Directive), so the router is baseline-on and
+    #   survives an env drop. Kill-switch / rollback is ``REGIME_ROUTER_DISABLED``
+    #   (one env flip + restart, no redeploy).
+    # * **Shadow (observability-only, opt-OUT)** — when the router is disabled,
+    #   ``_shadow_regime_gate`` instead evaluates each candidate and emits a
+    #   ``regime_shadow_gate`` audit row (``enforced: false``); the aggregator's
+    #   decision is UNCHANGED. The backtest A/B baseline arm + shadow-only tests
+    #   reach this path by setting ``REGIME_ROUTER_DISABLED=1``.
     #
     # Exactly one of the two runs per tick so the audit log cleanly
     # partitions "would have gated" from "did gate". Both swallow all
     # failures internally so a missing policy file / bad cell cannot
     # break the tick.
-    if _regime_router_enabled():
+    if _regime_router_active():
         candidates = _hard_regime_gate(candidates)
     else:
         _shadow_regime_gate(candidates)
@@ -1281,8 +1488,10 @@ def compute_execution_delta(
         )
 
     # Opposite-direction → behaviour governed by the flip policy (see the
-    # FLIP_POLICIES block above). Default "reverse" preserves the historical
-    # close-and-reopen; "hold"/"flat" are the operator-gated alternatives.
+    # FLIP_POLICIES block above). Default "hold" (since 2026-05-31, PR #2451,
+    # walk-forward verified) keeps the position for the owner's monitor()/SL/TP
+    # to exit; "reverse" (legacy close-and-reopen) and "flat" are the
+    # operator-gated alternatives via FLIP_POLICY on the live VM.
     policy = (
         str(flip_policy).strip().lower()
         if flip_policy is not None

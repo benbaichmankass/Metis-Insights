@@ -234,12 +234,12 @@ def test_journalctl_allowlisted_unit_returns_shape(client, fake_runtime):
     # The actual journalctl call may fail in the test env (no journal access),
     # but the route should accept the unit and return a structured response.
     resp = client.get(
-        "/api/diag/journalctl?unit=ict-bot&lines=10",
+        "/api/diag/journalctl?unit=ict-trader-live&lines=10",
         headers=_bearer(_TOKEN),
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["unit"] == "ict-bot.service"
+    assert body["unit"] == "ict-trader-live.service"
     assert "available" in body
     assert "lines" in body
 
@@ -257,7 +257,7 @@ def test_journalctl_since_param_accepts_iso_8601(client, fake_runtime):
         # ('+' in a raw query string decodes to a space server-side).
         resp = client.get(
             "/api/diag/journalctl",
-            params={"unit": "ict-bot", "lines": 10, "since": ts},
+            params={"unit": "ict-trader-live", "lines": 10, "since": ts},
             headers=_bearer(_TOKEN),
         )
         assert resp.status_code == 200, f"rejected {ts!r}: {resp.text}"
@@ -278,7 +278,7 @@ def test_journalctl_since_param_rejects_garbage(client, fake_runtime):
     ):
         resp = client.get(
             "/api/diag/journalctl",
-            params={"unit": "ict-bot", "since": ts},
+            params={"unit": "ict-trader-live", "since": ts},
             headers=_bearer(_TOKEN),
         )
         assert resp.status_code == 400, f"accepted {ts!r}"
@@ -289,7 +289,7 @@ def test_journalctl_until_param_validated_too(client, fake_runtime):
     # Same regex on the until end of the window.
     resp = client.get(
         "/api/diag/journalctl",
-        params={"unit": "ict-bot", "until": "tomorrow"},
+        params={"unit": "ict-trader-live", "until": "tomorrow"},
         headers=_bearer(_TOKEN),
     )
     assert resp.status_code == 400

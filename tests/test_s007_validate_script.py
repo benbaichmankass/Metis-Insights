@@ -168,6 +168,8 @@ def test_run_checks_strategies_match_roster():
         "sol_pullback_2h", "xrp_pullback_2h", "ada_pullback_2h", "avax_pullback_2h",
         # swap-robust prop variant — breakout_1 shadow soak (DRAFT, Tier-3, 2026-06-25):
         "eth_pullback_prop_2h",
+        # daily ETF pullback pair on alpaca_paper + alpaca_live (2026-06-27, Tier-3):
+        "slv_pullback_1d", "gdx_pullback_1d",
     }
 
 

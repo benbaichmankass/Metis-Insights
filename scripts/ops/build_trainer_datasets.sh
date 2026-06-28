@@ -225,35 +225,67 @@ if ! python -c "import ccxt" 2>/dev/null; then
   fi
 fi
 
-# Build the (market_raw, market_features) pair for one BTCUSDT timeframe.
+# Build the (market_raw, market_features) pair for one Bybit (symbol, timeframe).
 # Each timeframe is its own dataset shard; the regime-classifier manifests
 # in ml/configs/ are sharded by timeframe (1h baseline, 5m + 15m for the
 # v2 LightGBM heads + their v1 counterparts), so the builder has to
 # produce every shard the manifests reference.
-build_btcusdt_pair() {
-  local tf="$1"
-  local raw_path="${DATASETS_ROOT}/market_raw/BTCUSDT/${tf}/${DATASET_VERSION}"
+#
+# The ALT symbols (ETHUSDT/SOLUSDT) use the SAME market_features params as BTC
+# — per the eth-regime-1h-lgbm-v1 manifest ("identical to btc-regime-1h-lgbm-v2
+# except the symbol"), so the realized regime_label is computed the same way the
+# alt heads were trained against. Adding the alts here is the durable fix for the
+# MES/ETH live-labeling gap (MB-20260627-002 / MB-20260626-001 #1): the daily
+# cycle previously refreshed ONLY BTCUSDT market_raw, so the alt regime heads'
+# label datasets perpetually went stale and RG4 could never score their live
+# shadow rows (ETH dataset ended 2026-06-17 while BTC was fresh to 06-26).
+build_bybit_pair() {
+  local symbol="$1"
+  local tf="$2"
+  local raw_path="${DATASETS_ROOT}/market_raw/${symbol}/${tf}/${DATASET_VERSION}"
 
   build_family market_raw \
     --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
-    --source "bybit_v5_offvm" --symbol-scope BTCUSDT --timeframe "$tf" --overwrite \
-    "adapter=bybit_v5_offvm" "symbol=BTCUSDT" "timeframe=${tf}" \
+    --source "bybit_v5_offvm" --symbol-scope "$symbol" --timeframe "$tf" --overwrite \
+    "adapter=bybit_v5_offvm" "symbol=${symbol}" "timeframe=${tf}" \
     "start=${MARKET_START}" "end=${MARKET_END}"
 
   if [ -d "$raw_path" ]; then
     build_family market_features \
       --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
-      --source "${raw_path}" --symbol-scope BTCUSDT --timeframe "$tf" --overwrite \
+      --source "${raw_path}" --symbol-scope "$symbol" --timeframe "$tf" --overwrite \
       "market_raw_path=${raw_path}" "vol_window_n=20" "forward_window_m=5" \
       "vol_threshold=0.005" "trend_threshold=0.005" "n_vol_buckets=3"
   else
-    emit "$(printf '{"ts":"%s","status":"skipped","family":"market_features","symbol":"BTCUSDT","timeframe":"%s","detail":"market_raw path not found"}' "$(iso_now)" "$tf")"
+    emit "$(printf '{"ts":"%s","status":"skipped","family":"market_features","symbol":"%s","timeframe":"%s","detail":"market_raw path not found"}' "$(iso_now)" "$symbol" "$tf")"
   fi
 }
 
-build_btcusdt_pair 1h
-build_btcusdt_pair 5m
-build_btcusdt_pair 15m
+# BTCUSDT — the primary fleet (1h baseline + 5m/15m v2 heads).
+build_bybit_pair BTCUSDT 1h
+build_bybit_pair BTCUSDT 5m
+build_bybit_pair BTCUSDT 15m
+# ALT symbols (multi-symbol A, #1) — keep the alt regime heads' label datasets
+# fresh so RG4 can score their live shadow rows. ETH 1h = eth-regime-1h-lgbm-v1
+# (the cross-asset probe head). SOL 1h is built proactively (head training is a
+# follow-up) so its dataset is warm when a SOL regime head lands. Non-fatal: a
+# per-pair failure is logged + counted like any other family, never aborts.
+build_bybit_pair ETHUSDT 1h
+# ETH 5m + 15m (MB-20260627-003): the 1h ETH regime heads fail RG4 live
+# (NO_EDGE — near-constant volatile output), the same weak spot as the BTC 1h
+# head, while the BTC 5m/15m heads pass RG4 cleanly. eth-regime-{5m,15m}-lgbm-v1
+# port the proven BTC 5m/15m recipe; their label datasets must be refreshed
+# daily so RG4 can score their live shadow rows once they soak.
+build_bybit_pair ETHUSDT 5m
+build_bybit_pair ETHUSDT 15m
+build_bybit_pair SOLUSDT 1h
+# SOL 5m + 15m (multi-symbol regime, follow-on to ETH): sol-regime-{5m,15m}-lgbm-v1
+# port the proven BTC/ETH 5m/15m recipe to SOLUSDT (live-traded: trend_donchian_sol
+# prop 1h + a 4h SOL alt on demo). Same rationale as the ETH 5m/15m heads — the 1h
+# regime family is the weak RG4 timeframe — so SOL goes straight to 5m/15m. Their
+# label datasets must refresh daily so RG4 can score the live shadow rows post-soak.
+build_bybit_pair SOLUSDT 5m
+build_bybit_pair SOLUSDT 15m
 
 # ---- MES market_features (yfinance ES=F 5m base, resampled to 15m) -------
 # MES has no deep intraday feed on the trainer VM: the IBKR gateway lives on

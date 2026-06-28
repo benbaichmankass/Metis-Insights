@@ -533,3 +533,80 @@ class TestPerTickBudget:
         assert _budget_seconds() == _DEFAULT_BUDGET_S
         monkeypatch.setenv("REGIME_BAR_SCORING_BUDGET_S", "not-a-number")
         assert _budget_seconds() == _DEFAULT_BUDGET_S   # typo falls back, never strands
+
+
+class _RegimeProbaBase(_RegimeBase):
+    """A regime predictor that also exposes predict_proba (advisory heads)."""
+
+    def __init__(self, regime_spec, p_volatile):
+        super().__init__(regime_spec)
+        self._p = p_volatile
+
+    def predict_proba(self, row):
+        return {"range": 1.0 - self._p, "volatile": self._p}
+
+
+def _advisory_proba_predictor(model_id, spec, log_path, p_volatile):
+    return ShadowPredictor(
+        _RegimeProbaBase(spec, p_volatile),
+        model_id=model_id, stage="advisory", log_path=log_path,
+    )
+
+
+class TestAdvisoryPublish:
+    """Design A: advisory regime heads publish per-bar P(volatile) to the
+    ml_vol_verdict cache (in addition to the shadow-log write), and a shadow
+    head does NOT publish."""
+
+    def test_advisory_head_publishes_p_volatile(self, tmp_path):
+        from src.runtime.regime.ml_vol_verdict import (
+            _p_volatile_from_cache,
+            clear_ml_vol_cache,
+            ml_vol_regime,
+        )
+
+        clear_ml_vol_cache()
+        spec = _spec(symbol="BTCUSDT", timeframe="1h")
+        pred = _advisory_proba_predictor(
+            "btc-regime-1h-v2", spec, tmp_path / "s.jsonl", p_volatile=0.85,
+        )
+        n = emit_regime_bar_predictions(
+            predictors=[pred], fetch_fn=lambda s, t: _candles(last_ts=7),
+            seen={}, wall_cache={},
+        )
+        assert n == 1  # still writes the shadow log
+        # The advisory head published its P(volatile) into the verdict cache.
+        assert _p_volatile_from_cache("btc-regime-1h-v2") == 0.85
+        # And ml_vol_regime reads the published score WITHOUT an inline score:
+        # inject a spec table whose predictor would say a different label inline.
+        cold_pred = _advisory_proba_predictor(
+            "btc-regime-1h-v2", spec, None, p_volatile=0.05,
+        )
+        table = {("BTCUSDT", "1H"): {
+            "symbol": "BTCUSDT", "timeframe": "1h",
+            "model_id": "btc-regime-1h-v2", "predictor": cold_pred, "is_yz": False,
+        }}
+        out = ml_vol_regime("BTCUSDT", "1h", _candles(), specs=table)
+        assert out["vol_regime"] == "volatile"  # from cache (0.85), not 0.05
+        clear_ml_vol_cache()
+
+    def test_shadow_head_does_not_publish(self, tmp_path):
+        from src.runtime.regime.ml_vol_verdict import (
+            _p_volatile_from_cache,
+            clear_ml_vol_cache,
+        )
+
+        clear_ml_vol_cache()
+        # A shadow-stage regime head (no predict_proba on _RegimeBase) — must
+        # write the shadow log but NOT publish to the verdict cache.
+        pred = _regime_predictor(
+            "btc-regime-5m", _spec(symbol="BTCUSDT", timeframe="5m"),
+            tmp_path / "s.jsonl",
+        )
+        n = emit_regime_bar_predictions(
+            predictors=[pred], fetch_fn=lambda s, t: _candles(last_ts=9),
+            seen={}, wall_cache={},
+        )
+        assert n == 1
+        assert _p_volatile_from_cache("btc-regime-5m") is None
+        clear_ml_vol_cache()

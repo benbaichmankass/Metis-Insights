@@ -68,6 +68,103 @@ def test_regime_skipped_without_calibrator():
     assert "c_reg" not in inputs  # single scalar not honestly an alignment prob
 
 
+# --------------------------------------------------------------------------- #
+# c_reg via the regime-alignment calibrator (piece 4 of the A+B program)
+# --------------------------------------------------------------------------- #
+_REGIME_MODEL = "btc-regime-1h-lgbm-yz-v1"
+
+
+def _alignment(a: float, b: float, *, direction: str | None = None):
+    """Build a {model_id: {direction: Calibrator}} alignment map for the test."""
+    from ml.calibration.regime_alignment import POOLED_DIRECTION
+
+    key = direction or POOLED_DIRECTION
+    return {_REGIME_MODEL: {key: PlattCalibrator(a=a, b=b)}}
+
+
+def test_creg_flows_when_alignment_calibrator_present():
+    scores = {_REGIME_MODEL: {"stage": "advisory", "score": 0.5}}
+    # sigmoid(0*0.5 + 0) = 0.5 — a known calibrated alignment prob
+    ra = _alignment(a=0.0, b=0.0)
+    inputs, prov = build_conviction_inputs(
+        "x", 0.5, scores, direction="long", regime_alignment=ra
+    )
+    assert inputs["c_reg"] == pytest.approx(0.5)
+    assert prov["c_reg"][0]["kind"] == "regime_alignment"
+    assert prov["c_reg"][0]["calibrated"] is True
+
+
+def test_creg_known_value_from_score():
+    scores = {_REGIME_MODEL: {"stage": "advisory", "score": 2.0}}
+    # sigmoid(1*2 + 0) ≈ 0.8808
+    ra = _alignment(a=1.0, b=0.0)
+    inputs, _ = build_conviction_inputs(
+        "x", None, scores, direction="long", regime_alignment=ra
+    )
+    assert inputs["c_reg"] == pytest.approx(0.8807970, abs=1e-5)
+
+
+def test_creg_direction_sensitivity():
+    """Long vs short can map the SAME regime score to different alignment."""
+    from ml.calibration.regime_alignment import POOLED_DIRECTION
+
+    scores = {_REGIME_MODEL: {"stage": "advisory", "score": 1.0}}
+    ra = {
+        _REGIME_MODEL: {
+            "long": PlattCalibrator(a=5.0, b=0.0),    # sigmoid(5) ≈ 0.993
+            "short": PlattCalibrator(a=-5.0, b=0.0),  # sigmoid(-5) ≈ 0.007
+            POOLED_DIRECTION: PlattCalibrator(a=0.0, b=0.0),  # 0.5
+        }
+    }
+    long_in, _ = build_conviction_inputs(
+        "x", None, scores, direction="long", regime_alignment=ra)
+    short_in, _ = build_conviction_inputs(
+        "x", None, scores, direction="short", regime_alignment=ra)
+    assert long_in["c_reg"] > 0.9
+    assert short_in["c_reg"] < 0.1
+    assert long_in["c_reg"] != short_in["c_reg"]
+
+
+def test_creg_falls_back_to_pooled_when_no_direction_calibrator():
+    scores = {_REGIME_MODEL: {"stage": "advisory", "score": 0.5}}
+    ra = _alignment(a=0.0, b=0.0)  # only the pooled "all" calibrator
+    inputs, _ = build_conviction_inputs(
+        "x", None, scores, direction="short", regime_alignment=ra)
+    assert inputs["c_reg"] == pytest.approx(0.5)  # pooled used
+
+
+def test_creg_absent_when_alignment_for_other_model_only():
+    """No alignment calibrator for THIS regime head → c_reg dropped (unchanged)."""
+    scores = {_REGIME_MODEL: {"stage": "advisory", "score": 0.98}}
+    ra = {"some-other-regime-model": {"all": PlattCalibrator(a=1.0, b=0.0)}}
+    inputs, _ = build_conviction_inputs(
+        "x", 0.5, scores, direction="long", regime_alignment=ra)
+    assert "c_reg" not in inputs
+
+
+def test_creg_byte_for_byte_unchanged_without_alignment_arg():
+    """The exact pre-calibrator behaviour: no regime_alignment passed → c_reg
+    absent, byte-for-byte the test_regime_skipped_without_calibrator case."""
+    scores = {_REGIME_MODEL: {"stage": "advisory", "score": 0.98}}
+    inputs, prov = build_conviction_inputs("x", 0.5, scores)
+    assert "c_reg" not in inputs
+    assert "c_reg" not in prov
+
+
+def test_creg_fail_permissive_on_bad_alignment_calibrator():
+    """A calibrator whose predict raises must not strand the build — c_reg drops."""
+    class _Boom(PlattCalibrator):
+        def predict(self, x):  # noqa: ARG002
+            raise ValueError("boom")
+
+    scores = {_REGIME_MODEL: {"stage": "advisory", "score": 0.5}}
+    ra = {_REGIME_MODEL: {"all": _Boom(a=1.0, b=0.0)}}
+    inputs, _ = build_conviction_inputs(
+        "x", 0.5, scores, direction="long", regime_alignment=ra)
+    assert "c_reg" not in inputs  # predict raised → predict_alignment None → dropped
+    assert "c_strat" in inputs    # other inputs unaffected
+
+
 def test_multiple_heads_same_slot_averaged():
     scores = {
         "trade-outcome-winrate-baseline-v0": {"stage": "shadow", "score": 0.6},
@@ -176,3 +273,53 @@ def test_never_raises_on_garbage():
         "x", "not-a-number", {"trade-outcome-x": "garbage", "y": {"score": None}}
     )
     assert isinstance(inputs, dict)  # no exception
+
+
+# --------------------------------------------------------------------------- #
+# regime_alignment cached loader (reads the same artifact, separate section)
+# --------------------------------------------------------------------------- #
+def test_load_regime_alignment_cached_reads_section(monkeypatch, tmp_path):
+    from ml.calibration.regime_alignment import REGIME_ALIGNMENT_KEY
+
+    art = tmp_path / "calibrators.json"
+    art.write_text(json.dumps({
+        # a confidence calibrator at the top level (must coexist)
+        "trend_donchian": PlattCalibrator(a=1.0, b=0.0).to_dict(),
+        REGIME_ALIGNMENT_KEY: {
+            "btc-regime-1h-lgbm-yz-v1": {
+                "all": PlattCalibrator(a=0.0, b=0.0).to_dict()},
+        },
+    }))
+    monkeypatch.delenv("CONVICTION_CALIBRATORS_PATH", raising=False)
+    monkeypatch.setattr(ci, "_mirrored_cal_path", lambda: str(art))
+    monkeypatch.setattr(ci, "_ra_cache", None)
+    monkeypatch.setattr(ci, "_ra_mtime", None)
+    ra = ci.load_regime_alignment_cached()
+    assert "btc-regime-1h-lgbm-yz-v1" in ra
+    assert "all" in ra["btc-regime-1h-lgbm-yz-v1"]
+    # the confidence section still loads independently + ignores the new key
+    monkeypatch.setattr(ci, "_cal_cache", None)
+    monkeypatch.setattr(ci, "_cal_mtime", None)
+    cal = ci.load_calibrators_cached()
+    assert "trend_donchian" in cal
+    assert REGIME_ALIGNMENT_KEY not in cal  # not a Calibrator → skipped cleanly
+
+
+def test_load_regime_alignment_cached_missing_is_empty(monkeypatch):
+    monkeypatch.delenv("CONVICTION_CALIBRATORS_PATH", raising=False)
+    monkeypatch.setattr(ci, "_mirrored_cal_path", lambda: "")
+    monkeypatch.setattr(ci, "_DEFAULT_CAL_PATH", "/nonexistent/default.json")
+    monkeypatch.setattr(ci, "_ra_cache", None)
+    monkeypatch.setattr(ci, "_ra_mtime", None)
+    assert ci.load_regime_alignment_cached() == {}
+
+
+def test_load_regime_alignment_cached_corrupt_artifact_is_empty(monkeypatch, tmp_path):
+    """A corrupt artifact → {} (fail-permissive), so c_reg simply stays dropped."""
+    art = tmp_path / "calibrators.json"
+    art.write_text("{ this is not valid json")
+    monkeypatch.delenv("CONVICTION_CALIBRATORS_PATH", raising=False)
+    monkeypatch.setattr(ci, "_mirrored_cal_path", lambda: str(art))
+    monkeypatch.setattr(ci, "_ra_cache", None)
+    monkeypatch.setattr(ci, "_ra_mtime", None)
+    assert ci.load_regime_alignment_cached() == {}

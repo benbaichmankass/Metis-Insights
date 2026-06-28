@@ -156,3 +156,48 @@ class TestMultiplexerRespectsPauseFlag:
 
         result = pl.multiplexed_signal_builder({})
         assert result.get("side") == "none"
+
+
+# ---------------------------------------------------------------------------
+# Design-A regime ML-vol-verdict flags (REGIME_ML_VERDICT_MODE + threshold)
+# ---------------------------------------------------------------------------
+
+class TestRegimeMlVerdictMode:
+    def test_default_off(self, monkeypatch):
+        from src.runtime import runtime_flags
+        monkeypatch.delenv("REGIME_ML_VERDICT_MODE", raising=False)
+        assert runtime_flags._regime_ml_verdict_mode() == "off"
+
+    def test_env_shadow_use(self, monkeypatch):
+        from src.runtime import runtime_flags
+        monkeypatch.setenv("REGIME_ML_VERDICT_MODE", "shadow")
+        assert runtime_flags._regime_ml_verdict_mode() == "shadow"
+        monkeypatch.setenv("REGIME_ML_VERDICT_MODE", "USE")
+        assert runtime_flags._regime_ml_verdict_mode() == "use"
+
+    def test_unknown_degrades_to_off(self, monkeypatch):
+        from src.runtime import runtime_flags
+        monkeypatch.setenv("REGIME_ML_VERDICT_MODE", "enforce")  # not wired
+        assert runtime_flags._regime_ml_verdict_mode() == "off"
+
+    def test_settings_dict_overrides_env(self, monkeypatch):
+        from src.runtime import runtime_flags
+        monkeypatch.setenv("REGIME_ML_VERDICT_MODE", "off")
+        assert runtime_flags._regime_ml_verdict_mode({"REGIME_ML_VERDICT_MODE": "shadow"}) == "shadow"
+
+
+class TestMlVolVerdictThreshold:
+    def test_default(self, monkeypatch):
+        from src.runtime import runtime_flags
+        monkeypatch.delenv("ML_VOL_VERDICT_THRESHOLD", raising=False)
+        assert runtime_flags._ml_vol_verdict_threshold() == 0.5
+
+    def test_env_value(self, monkeypatch):
+        from src.runtime import runtime_flags
+        monkeypatch.setenv("ML_VOL_VERDICT_THRESHOLD", "0.7")
+        assert runtime_flags._ml_vol_verdict_threshold() == 0.7
+
+    def test_non_numeric_falls_back(self, monkeypatch):
+        from src.runtime import runtime_flags
+        monkeypatch.setenv("ML_VOL_VERDICT_THRESHOLD", "nope")
+        assert runtime_flags._ml_vol_verdict_threshold() == 0.5

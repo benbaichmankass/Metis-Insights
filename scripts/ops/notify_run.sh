@@ -149,7 +149,7 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
-    backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|reconcile-orphan-history|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|migrate-closed-at-iso|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|rotate-account-keys|init-diag-token)
+    backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|reconcile-orphan-history|supersede-options-adoption-artifacts|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|migrate-closed-at-iso|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|rotate-account-keys|init-diag-token)
         tier=2
         case "${exit_code}" in
             0) result="ok"; priority="normal" ;;

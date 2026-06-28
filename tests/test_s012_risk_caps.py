@@ -6,11 +6,15 @@ combines an OrderPackage from the new roster with the account-level
 caps. PR E3a layers max_dd_pct on top.
 
 DoD coverage (PR sequence § 9):
-* place_order refuses when position size > pos_size cap, for both
+* RiskManager.approve refuses when daily loss > daily_usd, for both
   strategies.
-* place_order refuses when daily loss > daily_usd, for both.
-* place_order refuses when the kill-switch flag is set.
-* (E3a) place_order refuses when intra-day drawdown ≥ max_dd_pct.
+* safe_place_order returns 'halted' when the kill-switch flag is set.
+* (E3a) RiskManager.approve refuses when intra-day drawdown ≥ max_dd_pct.
+
+(2026-06-28 audit Workstream B: the dead-router ``TradingAccount.place_order``
+entry point was removed; these tests now assert the risk gate it wrapped
+``RiskManager.approve`` directly. The live path reaches the same gate via
+``RiskManager.evaluate`` in ``Coordinator.multi_account_execute``.)
 """
 from __future__ import annotations
 
@@ -19,7 +23,7 @@ import os
 import pytest
 
 from src.core.coordinator import OrderPackage
-from src.units.accounts.account import RiskBreach, TradingAccount
+from src.units.accounts.account import TradingAccount
 from src.units.accounts.risk import RiskManager
 
 
@@ -87,18 +91,21 @@ def _account(name: str = "test", **risk_overrides) -> TradingAccount:
 
 
 class TestDailyLossCap:
+    # Converted 2026-06-28 (audit Workstream B) from the removed dead-router
+    # entry point ``acc.place_order`` to the actual risk gate
+    # ``acc.risk_manager.approve`` it wrapped (False == would-refuse). The
+    # live path reaches the same gate via RiskManager.evaluate in
+    # Coordinator.multi_account_execute.
     def test_daily_loss_exceeded_rejects_vwap(self):
-        """daily_pnl < -max_daily_loss_usd → RiskBreach (vwap)."""
+        """daily_pnl < -max_daily_loss_usd → approve() False (vwap)."""
         acc = _account(daily_usd=100.0)
         acc.risk_manager.record_trade_result(-150.0)  # blew through cap
-        with pytest.raises(RiskBreach, match="daily loss"):
-            acc.place_order(_vwap_pkg(estimated_value=100.0))
+        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is False
 
     def test_daily_loss_exceeded_rejects_turtle_soup(self):
         acc = _account(daily_usd=100.0)
         acc.risk_manager.record_trade_result(-150.0)
-        with pytest.raises(RiskBreach, match="daily loss"):
-            acc.place_order(_turtle_soup_pkg(estimated_value=100.0))
+        assert acc.risk_manager.approve(_turtle_soup_pkg(estimated_value=100.0)) is False
 
     def test_daily_loss_at_cap_still_passes(self):
         """Boundary: daily_pnl == -daily_usd is the exact cap. Still allowed.
@@ -108,17 +115,14 @@ class TestDailyLossCap:
         """
         acc = _account(daily_usd=100.0)
         acc.risk_manager.record_trade_result(-100.0)
-        trade_id = acc.place_order(_vwap_pkg(estimated_value=100.0))
-        assert isinstance(trade_id, str)
+        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is True
 
     def test_reset_daily_clears_breach(self):
         acc = _account(daily_usd=100.0)
         acc.risk_manager.record_trade_result(-200.0)
-        with pytest.raises(RiskBreach):
-            acc.place_order(_vwap_pkg(estimated_value=100.0))
+        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is False
         acc.risk_manager.reset_daily()
-        trade_id = acc.place_order(_vwap_pkg(estimated_value=100.0))
-        assert isinstance(trade_id, str)
+        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is True
 
 
 # ---------------------------------------------------------------------------
@@ -246,14 +250,15 @@ class TestMaxDrawdownIntraday:
         rm.update_equity(9_400.0)         # 6 % > 5 % cap
         assert rm.approve(_turtle_soup_pkg(estimated_value=100.0)) is False
 
-    def test_drawdown_via_place_order_raises_breach(self):
-        """The end-to-end path: TradingAccount.place_order surfaces RiskBreach
-        when the drawdown cap is breached."""
+    def test_drawdown_via_account_risk_manager_rejects(self):
+        """The account's RiskManager refuses when the drawdown cap is breached.
+        (Was an end-to-end ``place_order`` raising RiskBreach; place_order was
+        the dead router, removed 2026-06-28 — the gate it wrapped is asserted
+        directly here. The live path reaches it via RiskManager.evaluate.)"""
         acc = _account(max_dd_pct=0.05, daily_usd=1_000.0, pos_size=1_000.0)
         acc.risk_manager.update_equity(10_000.0)
         acc.risk_manager.update_equity(9_400.0)  # 6 % drawdown
-        with pytest.raises(RiskBreach):
-            acc.place_order(_vwap_pkg(estimated_value=100.0))
+        assert acc.risk_manager.approve(_vwap_pkg(estimated_value=100.0)) is False
 
     def test_intraday_high_bumps_when_equity_climbs(self):
         rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})

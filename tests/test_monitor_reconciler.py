@@ -2046,6 +2046,15 @@ class TestStuckStrategyWatchdog:
         assert len(queued) == 1
         evt = json.loads(queued[0].read_text())
         assert "force-cleared" not in evt["body"]
+        # A position-alive deferral is benign — the ping must be the
+        # informational variant, NOT the "investigate a reconciler skip"
+        # wording (that text falsely reads like a bug for a healthy,
+        # patiently-held trend trade).
+        assert evt["priority"] == "normal"
+        assert "informational" in evt["body"].lower()
+        assert "CONFIRMED ALIVE" in evt["body"]
+        assert "Investigate" not in evt["body"]
+        assert "reconciler skip" not in evt["body"]
 
     def test_position_alive_alert_idempotent_across_ticks(
         self, tmp_db, tmp_path, monkeypatch,

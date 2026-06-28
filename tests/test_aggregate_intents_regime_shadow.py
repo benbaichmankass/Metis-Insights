@@ -17,11 +17,23 @@ from __future__ import annotations
 from typing import Any, Dict, List
 from unittest.mock import patch
 
+import pytest
+
 from src.runtime.intents import (
     StrategyIntent,
     aggregate_intents,
     intent_from_signal,
 )
+
+
+@pytest.fixture(autouse=True)
+def _shadow_router(monkeypatch):
+    """This file tests the SHADOW (would-gate) path. The regime router is
+    baseline-on since the Design-A vol-gate go-live, so the shadow path is now
+    opt-out — disable the router for every test here."""
+    monkeypatch.delenv("REGIME_ROUTER_ENABLED", raising=False)
+    monkeypatch.setenv("REGIME_ROUTER_DISABLED", "1")
+    yield
 
 
 def _capture_audit_rows() -> List[Dict[str, Any]]:

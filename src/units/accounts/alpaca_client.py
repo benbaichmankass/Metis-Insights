@@ -228,6 +228,11 @@ class AlpacaClient:
                     "qty": qty,
                     "avg_price": float(pos.get("avg_entry_price") or 0) or None,
                     "unrealized_pnl": float(pos.get("unrealized_pl") or 0),
+                    # asset_class ("us_equity" / "us_option") is carried through so a
+                    # shared paper account holding BOTH equity shares and option legs
+                    # can be filtered per bot-account in account_open_positions
+                    # (options-expression isolation; avoids cross-account orphan flap).
+                    "asset_class": str(pos.get("asset_class") or "").lower() or None,
                 }
             )
         return out

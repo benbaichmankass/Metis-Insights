@@ -73,7 +73,7 @@ This doc separates "permissions" into five tiers. The split exists because the s
 
 ## Tier 3 — VM operator
 
-**Identity:** anyone who can SSH to `158.178.210.252` as `ubuntu`. In practice: the human operator and the issue-driven `system-actions.yml` workflow (and Claude, indirectly, through that workflow).
+**Identity:** anyone who can SSH to `141.145.193.91` as `ubuntu` (`ict-bot-arm`, the Ampere live trader since the 2026-06-14 cutover; was the x86 micro `158.178.210.252`, terminated 2026-06-16). In practice: the human operator and the issue-driven `system-actions.yml` workflow (and Claude, indirectly, through that workflow).
 
 **Authority on the live VM:**
 - `mount` / `umount /data/bot-data`.

@@ -404,7 +404,11 @@ def test_regime_profile_ready_on_small_live_floor():
     report = evaluate_gates(
         entry, attribution=_thin_live_attr(),
         drift={"overall_verdict": "no_change"},
-        oos_edge=_good_oos_edge(), thresholds=regime_classifier_thresholds(),
+        oos_edge=_good_oos_edge(),
+        # option A (2026-06-26): the regime profile now requires the RG4 live
+        # regime-discrimination AUC instead of the trade-outcome live_agreement.
+        live_regime_auc=0.72,
+        thresholds=regime_classifier_thresholds(),
     )
     assert report.ready, report.to_dict()["blocking"]
     bb = next(r for r in report.results if r.name == "beats_baseline")
@@ -430,3 +434,87 @@ def test_default_profile_blocks_same_thin_model():
     blocking = {r.name for r in report.blocking}
     assert "sample_sufficiency" in blocking
     assert "beats_baseline" in blocking
+
+
+# --- Live regime-discrimination gate (RG4, option A, 2026-06-26) -----------
+
+from ml.promotion.gates import _gate_live_regime_discrimination  # noqa: E402
+
+
+def test_live_regime_discrimination_none_is_insufficient():
+    th = GateThresholds()
+    r = _gate_live_regime_discrimination(None, th)
+    assert r.status == "insufficient_data"
+    assert "RG4 live-row regime AUC" in r.detail
+    assert r.threshold == th.min_live_regime_auc
+
+
+def test_live_regime_discrimination_pass_above_default():
+    r = _gate_live_regime_discrimination(0.60, GateThresholds())
+    assert r.status == "pass"
+    assert r.value == 0.60
+    assert r.threshold == 0.55
+
+
+def test_live_regime_discrimination_fail_below_default():
+    r = _gate_live_regime_discrimination(0.40, GateThresholds())
+    assert r.status == "fail"
+    assert r.value == 0.40
+
+
+def test_live_regime_discrimination_required_flag_honored():
+    # default profile: not required; regime profile: required.
+    assert _gate_live_regime_discrimination(0.60, GateThresholds()).required is False
+    assert _gate_live_regime_discrimination(
+        0.60, regime_classifier_thresholds()
+    ).required is True
+
+
+def test_regime_profile_swaps_live_track_record_gates():
+    # regime profile: live_agreement NOT required, live_regime_discrimination
+    # required; default profile: the reverse.
+    reg = regime_classifier_thresholds()
+    assert reg.require_live_agreement is False
+    assert reg.require_live_regime_discrimination is True
+    d = GateThresholds()
+    assert d.require_live_agreement is True
+    assert d.require_live_regime_discrimination is False
+
+
+def test_regime_ready_depends_on_live_regime_not_trade_agreement():
+    # A regime head whose trade-outcome live_agreement is degenerate but whose
+    # RG4 live regime AUC clears the bar IS ready under the regime profile.
+    entry = _entry(
+        metrics={"macro_f1": 0.66, "f1_range": 0.73, "f1_volatile": 0.48, "n_eval": 8760},
+        runs=_runs("macro_f1", [0.66, 0.66, 0.66]),
+        created_days_ago=14,
+    )
+    report = evaluate_gates(
+        entry, attribution=_thin_live_attr(),
+        drift={"overall_verdict": "no_change"},
+        oos_edge=_good_oos_edge(), live_regime_auc=0.72,
+        thresholds=regime_classifier_thresholds(),
+    )
+    assert report.ready, report.to_dict()["blocking"]
+    la = next(r for r in report.results if r.name == "live_agreement")
+    assert la.required is False  # not blocking under the regime profile
+    lrd = next(r for r in report.results if r.name == "live_regime_discrimination")
+    assert lrd.status == "pass" and lrd.required is True
+
+
+def test_regime_blocks_on_low_live_regime_auc_not_live_agreement():
+    entry = _entry(
+        metrics={"macro_f1": 0.66, "f1_range": 0.73, "f1_volatile": 0.48, "n_eval": 8760},
+        runs=_runs("macro_f1", [0.66, 0.66, 0.66]),
+        created_days_ago=14,
+    )
+    report = evaluate_gates(
+        entry, attribution=_thin_live_attr(),
+        drift={"overall_verdict": "no_change"},
+        oos_edge=_good_oos_edge(), live_regime_auc=0.40,
+        thresholds=regime_classifier_thresholds(),
+    )
+    assert not report.ready
+    blocking = {r.name for r in report.blocking}
+    assert "live_regime_discrimination" in blocking
+    assert "live_agreement" not in blocking

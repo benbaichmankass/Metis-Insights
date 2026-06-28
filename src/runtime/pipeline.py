@@ -416,14 +416,15 @@ def run_pipeline(
         from src.runtime.intent_multiplexer import multiplexed_intent_signal_builder
         builder = multiplexed_intent_signal_builder
     else:
-        # "multiplexed" or anything unknown → legacy first-wins
-        # multiplexer by default. Operator can opt into the intent-aware
-        # multi-strategy multiplexer by exporting
-        # MULTI_STRATEGY_INTENT_LAYER=true (or
-        # STRATEGY=multiplexed_intents above) once the new layer is
-        # approved for live use. Default is **off** so this change does
-        # not flip live behaviour on its own — see
-        # src/runtime/intent_multiplexer.py for the contract.
+        # "multiplexed" or anything unknown → the intent-aware
+        # multi-strategy multiplexer by DEFAULT. MULTI_STRATEGY_INTENT_LAYER
+        # is **default ON** (flipped 2026-05-17, D-1; see
+        # intent_multiplexer.intent_multiplexer_enabled which reads the env
+        # default "true", and CLAUDE.md § Environment Variables). The legacy
+        # first-wins multiplexer (multiplexed_signal_builder) is the rollback
+        # path: export MULTI_STRATEGY_INTENT_LAYER=false to fall back to it
+        # without a code change. See src/runtime/intent_multiplexer.py for the
+        # contract.
         from src.runtime.intent_multiplexer import (
             intent_multiplexer_enabled,
             multiplexed_intent_signal_builder,
@@ -502,9 +503,13 @@ def run_pipeline(
         except Exception:  # noqa: BLE001 — stamping must never affect the trade
             logger.debug("news meta stamp failed", exc_info=True)
 
-        # Shadow-soak: record what the news layer decided (observe-only) on every
+        # Soak LOG (observe-only): record what the news layer decided on every
         # actionable signal once the layer is active, so we can validate the
-        # veto/influence against real trades before it ever gates live money.
+        # decision against real trades. NB this logging is observe-only, but the
+        # VETO below (line ~520) is NOT — when the source is active the veto
+        # gates live money (per CLAUDE.md "selecting rss is the deliberate
+        # activation"; NEWS_VETO_ENABLED default-on). The graduated influence
+        # SIZING is the observe-until-opt-in half (NEWS_INFLUENCE_MODE, default off).
         try:
             if news_is_active(settings):
                 log_news_decision(

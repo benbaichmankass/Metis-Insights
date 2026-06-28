@@ -1,10 +1,14 @@
-"""Tests for src.runtime.conviction_sizing — P2 conviction sizing.
+"""Tests for src.runtime.conviction_sizing — the OBSERVE-ONLY annotator.
 
-Conviction sizing is **advisory / observe-only**: it computes the would-be
-conviction-driven size and logs it, but ALWAYS returns the RiskManager qty
-unchanged. There is **no gate / flag** — these tests assert the never-changes-qty
-invariant, a sensible would-be computation, fail-permissive behaviour, and that
-the module carries no on/off switch.
+The annotator (``annotate_conviction_sizing`` / the pure
+``compute_conviction_sizing``) is **advisory / observe-only**: it computes the
+would-be conviction-driven size and logs it, but ALWAYS returns the RiskManager
+qty unchanged, and it carries **no gate / flag**. These tests assert the
+never-changes-qty invariant, a sensible would-be computation, fail-permissive
+behaviour, and that the annotator carries no on/off switch.
+
+The NEW ``apply_conviction_sizing`` path (Design B, 2026-06-27) is a separate,
+flag-gated influence — its tests live in tests/runtime/test_conviction_apply.py.
 """
 
 from __future__ import annotations
@@ -147,28 +151,50 @@ def test_fail_permissive_on_bad_pkg():
 
 
 # --------------------------------------------------------------------------- #
-# no gate / no flag — the module carries no on/off switch
+# no gate / no flag — the ANNOTATOR carries no on/off switch
+#
+# These invariants are scoped to the observe-only annotator
+# (``annotate_conviction_sizing`` / ``compute_conviction_sizing``). They remain
+# TRUE for the annotator: it never reads an env flag and never gates. The NEW
+# ``apply_conviction_sizing`` path IS flag-gated (CONVICTION_SIZING_MODE) — that
+# is a separate apply influence, exactly like NEWS_INFLUENCE_MODE; its gating is
+# covered in tests/runtime/test_conviction_apply.py. The 2026-06-16 rejection was
+# about gating the annotator; the new flag gates a genuine reductive/symmetric
+# influence (Design B reconciliation, operator-blessed 2026-06-27).
 # --------------------------------------------------------------------------- #
 
 
-def test_no_env_gate_in_module():
+def test_annotator_has_no_env_gate():
     import inspect
 
-    src = inspect.getsource(cs)
-    # No mode/enabled/disabled gate, no env reads at all — advisory is baseline.
+    # The annotator + the pure would-be computation read NO env flag and carry
+    # no on/off gate — advisory is baseline.
+    annotator_src = "\n".join(
+        inspect.getsource(fn)
+        for fn in (cs.annotate_conviction_sizing, cs.compute_conviction_sizing)
+    )
     for forbidden in (
         "CONVICTION_SIZING_MODE", "CONVICTION_SIZING_ENABLED",
         "CONVICTION_SIZING_DISABLED", "CONVICTION_SIZING_ACCOUNTS",
+        "CONVICTION_SIZING_DIRECTION",
         "os.environ", "os.getenv",
     ):
-        assert forbidden not in src, f"unexpected gate/env-read: {forbidden}"
+        assert forbidden not in annotator_src, (
+            f"unexpected gate/env-read in the annotator: {forbidden}"
+        )
 
 
-def test_runtime_flags_has_no_conviction_gate():
+def test_runtime_flags_conviction_gate_is_mode_not_enabled():
     import inspect
 
     from src.runtime import runtime_flags
 
     src = inspect.getsource(runtime_flags)
-    assert "_conviction_sizing_mode" not in src
-    assert "_conviction_sizing_accounts" not in src
+    # The NEW apply-path flags exist (Design B) and are tri-state *_MODE /
+    # *_DIRECTION + an allowlist — never a default-off *_ENABLED gate (the
+    # env-gate-guard pattern the Prime Directive forbids).
+    assert "_conviction_sizing_mode" in src
+    assert "_conviction_sizing_accounts" in src
+    assert "_conviction_sizing_direction" in src
+    assert "CONVICTION_SIZING_ENABLED" not in src
+    assert "CONVICTION_SIZING_DISABLED" not in src

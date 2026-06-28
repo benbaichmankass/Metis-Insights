@@ -280,9 +280,39 @@ def test_would_gate_2d_empty_policy_is_permissive():
     assert out["vol_cell"] == "default-on"
 
 
-def test_shipped_policy_has_schema_2_and_empty_trend_vol():
-    """The committed table ships the trend_vol block (empty until a vol-split
-    of the matrix authors cells) at schema_version 2."""
+def test_shipped_policy_has_schema_2_and_wellformed_trend_vol():
+    """The committed table ships at schema_version 2 with the Design-A
+    evidence-based trend_vol OFF-cells authored from the vol-split
+    (docs/research/A-vol-gating-OFFcell-design-2026-06-27.md). The cells are a
+    behavioural no-op for live orders until REGIME_ML_VERDICT_MODE=use AND the
+    regime router enforces (baseline-on since the Design-A vol-gate go-live;
+    kill-switch REGIME_ROUTER_DISABLED) — this test guards the shipped shape,
+    not the live gate.
+
+    Guards: (a) schema_version 2; (b) every trend_vol leaf is a well-formed
+    on/off side under trend→vol→strategy (no malformed cell); (c) the four
+    evidence OFF-cells are present (a future accidental edit that drops/flips
+    one is caught)."""
     policy = load_policy()
     assert policy.get("schema_version") == 2
-    assert policy.get("trend_vol") == {}
+
+    trend_vol = policy.get("trend_vol") or {}
+    assert isinstance(trend_vol, dict) and trend_vol, "trend_vol authored, non-empty"
+
+    valid_sides = {"long", "short"}
+    valid_vals = {True, False, "on", "off"}
+    for trend, vols in trend_vol.items():
+        assert trend in {"trending", "transitional", "chop"}, trend
+        for vol, strats in vols.items():
+            assert vol in {"calm", "volatile"}, vol
+            for strat, sides in strats.items():
+                assert isinstance(sides, dict), (trend, vol, strat)
+                for side, val in sides.items():
+                    assert side in valid_sides, (trend, vol, strat, side)
+                    assert val in valid_vals, (trend, vol, strat, side, val)
+
+    # The four authored evidence OFF-cells (off == False after YAML parse).
+    assert trend_vol["trending"]["volatile"]["trend_donchian"]["long"] is False
+    assert trend_vol["trending"]["calm"]["squeeze_breakout_4h"]["short"] is False
+    assert trend_vol["transitional"]["calm"]["trend_donchian"]["long"] is False
+    assert trend_vol["chop"]["calm"]["trend_donchian"]["long"] is False
