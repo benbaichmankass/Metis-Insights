@@ -279,6 +279,13 @@ build_bybit_pair ETHUSDT 1h
 build_bybit_pair ETHUSDT 5m
 build_bybit_pair ETHUSDT 15m
 build_bybit_pair SOLUSDT 1h
+# SOL 5m + 15m (multi-symbol regime, follow-on to ETH): sol-regime-{5m,15m}-lgbm-v1
+# port the proven BTC/ETH 5m/15m recipe to SOLUSDT (live-traded: trend_donchian_sol
+# prop 1h + a 4h SOL alt on demo). Same rationale as the ETH 5m/15m heads — the 1h
+# regime family is the weak RG4 timeframe — so SOL goes straight to 5m/15m. Their
+# label datasets must refresh daily so RG4 can score the live shadow rows post-soak.
+build_bybit_pair SOLUSDT 5m
+build_bybit_pair SOLUSDT 15m
 
 # ---- MES market_features (yfinance ES=F 5m base, resampled to 15m) -------
 # MES has no deep intraday feed on the trainer VM: the IBKR gateway lives on
