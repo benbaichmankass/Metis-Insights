@@ -1171,7 +1171,9 @@ def _close_trade_by_match(db, *, strategy: Optional[str], symbol: Optional[str],
 
 
 # ---------------------------------------------------------------------------
-# Exchange-side wiring (S-030 PR4) — env-gated
+# Exchange-side wiring (S-030 PR4) — dry/live decided per-account by ``mode:``
+# (the ``MONITOR_APPLY_TO_EXCHANGE`` shadow-mode gate was removed; the senders
+# short-circuit only on ``mode == "dry_run"``, never on an env flag).
 # ---------------------------------------------------------------------------
 
 

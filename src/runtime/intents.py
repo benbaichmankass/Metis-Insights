@@ -1488,8 +1488,10 @@ def compute_execution_delta(
         )
 
     # Opposite-direction → behaviour governed by the flip policy (see the
-    # FLIP_POLICIES block above). Default "reverse" preserves the historical
-    # close-and-reopen; "hold"/"flat" are the operator-gated alternatives.
+    # FLIP_POLICIES block above). Default "hold" (since 2026-05-31, PR #2451,
+    # walk-forward verified) keeps the position for the owner's monitor()/SL/TP
+    # to exit; "reverse" (legacy close-and-reopen) and "flat" are the
+    # operator-gated alternatives via FLIP_POLICY on the live VM.
     policy = (
         str(flip_policy).strip().lower()
         if flip_policy is not None
