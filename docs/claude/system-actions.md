@@ -235,8 +235,6 @@ Tier-2 actions:
 - `disable-closed-flat-invariant`
 - `enable-m5-consumer`
 - `disable-m5-consumer`
-- `setup-tailscale-funnel`
-- `teardown-tailscale-funnel`
 - `backfill-pnl-nulls`
 - `backfill-orphan-pnl`
 - `backfill-closed-null-pnl`
