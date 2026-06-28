@@ -2148,6 +2148,41 @@ class Coordinator:
                     getattr(pkg, "symbol", "?"), _term_reason, exc,
                 )
 
+        # Re-persist the realized per-account sizing onto the package row.
+        # OBSERVABILITY ONLY — changes no execution decision (the dispatch is
+        # already complete here).
+        #
+        # `_log_new_order_package` serialized `pkg.meta` at CREATION (top of
+        # this method, BEFORE the per-account sizing loop ran), so the
+        # `sized_qty_by_account` (and `aggregated_target_qty`) stored in the
+        # order_packages row is the EMPTY/zero creation snapshot — never the
+        # real per-account sizing the loop just computed (it mutates the same
+        # dict in-memory, but the DB row is not re-written). That left the
+        # field designed to show per-account sizing dead `{}` in the journal
+        # for every package, and led the 2026-06-26 system-report to read
+        # `aggregated_target_qty:0 / sized_qty_by_account:{}` as evidence of a
+        # sizing bug when it was just the pre-sizing snapshot (see
+        # docs/audits/order-packages-zero-qty-2026-06-26.md). Re-write the meta
+        # now that the loop has populated `sized_qty_by_account`. Best-effort:
+        # a write failure never affects the order outcome.
+        if order_package_id:
+            try:
+                from src.units.db.database import Database
+                from src.utils.paths import trade_journal_db_path
+
+                _meta_now = {
+                    k: v for k, v in (pkg.meta or {}).items()
+                    if k not in {"order_package_id", "model_scores"}
+                }
+                Database(db_path=trade_journal_db_path()).update_order_package(
+                    order_package_id, {"meta": _meta_now},
+                )
+            except Exception as exc:  # noqa: BLE001 — never break dispatch
+                logger.debug(
+                    "multi_account_execute: post-sizing meta re-persist failed "
+                    "(pkg=%s): %s", order_package_id, exc,
+                )
+
         return results
 
     def reload_accounts(self, accounts_path: Optional[str] = None) -> Dict[str, Any]:
