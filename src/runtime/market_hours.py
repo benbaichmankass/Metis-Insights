@@ -8,8 +8,9 @@ session logic). The non-24/7 venues M15 adds need one:
 - ``us_equity`` — US cash session: Mon–Fri 14:30–21:00 UTC.
 - ``crypto``    — always open.
 
-**Inert until wired** (M15 Phase 2): nothing imports this module yet.
-The intended call site is the signal-builder/tick path — skip fetch +
+**WIRED** (M15): ``is_market_open`` is a live signal gate in
+``strategy_signal_builders.py`` (the ``fx`` / ``us_equity`` session checks set
+``side=none`` when the venue is closed) — skip fetch +
 signal for a symbol whose market is closed, so closed-market stale
 candles can never produce entries.
 

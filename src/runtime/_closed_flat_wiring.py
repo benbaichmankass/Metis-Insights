@@ -47,7 +47,7 @@ def maybe_run_closed_flat_check(
     db: Any,
     summaries: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Run the closed → exchange-flat invariant check if env-gated on.
+    """Run the closed → exchange-flat invariant check (baseline, unconditional).
 
     Parameters
     ----------
@@ -66,7 +66,9 @@ def maybe_run_closed_flat_check(
     dict | None
         The summary entry that was written into ``summaries`` (or
         would have been if ``summaries`` was ``None``). ``None`` when
-        the env gate is off or no violations were found. Used by tests
+        no violations were found (the check itself is unconditional —
+        the ``CLOSED_FLAT_INVARIANT_ENABLED`` gate was removed 2026-06-17).
+        Used by tests
         that pass ``summaries=None`` and inspect the return value.
     """
     try:
