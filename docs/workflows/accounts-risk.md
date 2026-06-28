@@ -11,20 +11,26 @@ config/accounts.yaml
 load_accounts()  ──►  [TradingAccount, ...]
                             │
                             ▼
-                       place_order(pkg)
+            Coordinator.multi_account_execute(pkg)   ← the live entry point
                             │
-                     RiskManager.approve()
+                     RiskManager.evaluate()
                             │
                     ┌───────┴────────┐
                   PASS             FAIL
                     │                │
-              route_order()    raise RiskBreach
+               execute_pkg()    raise RiskBreach (caught per-account)
                     │
-              EXCHANGE_MAP
-            ┌───────┴────────┐
-          BybitAPI       BreakoutAPI
-        (dry / live)    (dry only)
+        per-exchange branch in src/units/accounts/execute.py
+            ┌───────┴────────┬─────────┬────────┐
+          bybit          breakout    oanda    alpaca   (+ interactive_brokers)
 ```
+
+> **2026-06-28 (audit Workstream B):** the legacy
+> `TradingAccount.place_order` → `integrator.route_order` →
+> `EXCHANGE_MAP[x].place` router was **removed** (dead code, zero production
+> callers — superseded by `execute_pkg`). `EXCHANGE_MAP` + the stub `*API`
+> classes are retained as the integration registry (the
+> `test_ltmgmt_p5_contract_ci` CI guard + `new-broker` skill consume them).
 
 The **Coordinator** (Unit 2) is the only cross-unit entry point:
 
@@ -41,7 +47,8 @@ src/units/accounts/
     __init__.py          # load_accounts()
     risk.py              # RiskManager (+ legacy size_order functions)
     account.py           # TradingAccount, RiskBreach
-    integrator.py        # EXCHANGE_MAP, route_order(), BybitAPI, BreakoutAPI
+    integrator.py        # EXCHANGE_MAP + stub *API classes (registry; route_order removed 2026-06-28)
+    execute.py           # execute_pkg() — the live per-exchange dispatch path
 
 config/
     accounts.yaml        # per-account risk config (env var names only — no secrets)
@@ -69,9 +76,10 @@ reference an environment variable name.
 1. **Daily loss limit**: `daily_pnl < -max_daily_loss_usd` → reject
 2. **Position size**: `order.meta['estimated_value'] > max_pos_size_usd` → reject
 
-A `RiskBreach` exception is raised by `TradingAccount.place_order()` when
-`approve()` returns `False`.  `multi_account_execute()` catches `RiskBreach`
-per account so a breach on one account never blocks others.
+A `RiskBreach` exception is raised on the live path inside
+`Coordinator.multi_account_execute()` (via `RiskManager.evaluate()`); it is
+caught per account so a breach on one account never blocks others. (Pre-2026-06-28
+this was raised by the now-removed `TradingAccount.place_order()`.)
 
 ## Exchange integrations
 

@@ -13,10 +13,7 @@ from __future__ import annotations
 
 import uuid
 import logging
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from src.units.accounts.account import TradingAccount
 from src.core.coordinator import OrderPackage
 
 logger = logging.getLogger(__name__)
@@ -53,8 +50,8 @@ class BreakoutAPI:
     ``docs/integrations/breakout-poc-manual-bridge-DESIGN.md``). So "live"
     placement here is a **ticket emission**, not an exchange call, and returns a
     ``prop-manual-<uuid>`` marker (no live position created). The canonical
-    caller is ``execute_pkg`` (breakout branch); this is kept for the
-    ``route_order`` parity path.
+    caller is ``execute_pkg`` (breakout branch); this stub is retained as the
+    ``EXCHANGE_MAP`` registry marker (route_order was removed 2026-06-28).
     """
 
     def __init__(self, api_key_env: str) -> None:
@@ -205,42 +202,22 @@ EXCHANGE_MAP: dict[str, type] = {
 
 
 # ---------------------------------------------------------------------------
-# Router
+# Router — REMOVED 2026-06-28 (full-system audit Workstream B, operator-approved)
 # ---------------------------------------------------------------------------
-
-def route_order(
-    account: "TradingAccount",
-    order: OrderPackage,
-    *,
-    dry_run: bool = True,
-) -> str:
-    """Dispatch *order* to the correct exchange API for *account*.
-
-    Parameters
-    ----------
-    account : TradingAccount
-        Account whose exchange and api_key_env fields select the API class.
-    order : OrderPackage
-        Typed order from the Coordinator.
-    dry_run : bool
-        When True (default), simulate the order without live exchange calls.
-
-    Returns
-    -------
-    str
-        trade_id from the exchange API.
-
-    Raises
-    ------
-    ValueError
-        When *account.exchange* is not in EXCHANGE_MAP.
-    """
-    exchange = (account.exchange or "").lower()
-    api_class = EXCHANGE_MAP.get(exchange)
-    if api_class is None:
-        raise ValueError(
-            f"Unknown exchange '{exchange}' for account '{account.name}'. "
-            f"Supported: {list(EXCHANGE_MAP)}"
-        )
-    api = api_class(account.api_key_env)
-    return api.place(order, dry_run=dry_run)
+#
+# ``route_order(account, order)`` + ``TradingAccount.place_order`` were the
+# legacy per-account dispatch path, superseded by ``execute_pkg`` (the live
+# path; per-exchange branches in ``src/units/accounts/execute.py``). They had
+# **zero production callers** — the only references were in the unit tests that
+# exercised them (see the audit finding) and the VWAP "0 fills" incident
+# (``coordinator.py`` documents that ``account.place_order`` was removed from
+# the live path after it raised NotImplementedError every tick). ``execute_pkg``
+# is the single canonical entry point; ``Coordinator.multi_account_execute``
+# calls it directly.
+#
+# ``EXCHANGE_MAP`` + the four stub ``*API`` classes ABOVE are retained — they are
+# the integration registry consumed by the ``test_ltmgmt_p5_contract_ci`` CI
+# guard (every ``EXCHANGE_MAP`` key must declare ``EXCHANGE_MANAGEMENT_CAPS``) and
+# the ``new-broker`` skill, and ``BybitAPI.place`` is the patch target for the
+# ``test_s028_vwap_execute_routing`` regression guard (which asserts the live
+# path routes through ``execute_pkg``, NOT this map). Do not remove them.
