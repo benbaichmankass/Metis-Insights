@@ -71,7 +71,11 @@ _JOURNAL_TABLES: dict[str, str] = {
 }
 
 _CANONICAL_UNITS: tuple[str, ...] = (
-    "ict-bot.service",
+    # NB: the retired pre-rename trader unit "ict-bot.service" was removed here
+    # (2026-06-28 full-system audit) — the live trader is ict-trader-live.service
+    # (below). ict-bot.service has no deploy/ file and is not installed, so its
+    # presence only made /api/diag/services perpetually report a not-found unit.
+    # Do not re-add it.
     "ict-trader-live.service",
     "ict-web-api.service",
     "ict-telegram-bot.service",
