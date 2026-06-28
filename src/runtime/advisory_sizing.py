@@ -182,8 +182,11 @@ def apply_advisory_downsize(
     Reductive: returns ``sized_qty * factor`` with ``factor ∈ [size_floor,
     1.0]`` (never amplifies). The factor is computed once and cached on
     ``pkg.meta['_advisory_factor']`` so the models score a single time per
-    package. Inert when ``ADVISORY_MODE`` is off (factor ``1.0``). Never
-    raises — on any error the qty is returned unchanged.
+    package. Inert (factor ``1.0``) when no model is at the influencing
+    stage — the downsize is stage-gated, not gated by the removed
+    ``ADVISORY_MODE`` env flag (dropped 2026-06-13 as a redundant third gate;
+    see the module docstring). Never raises — on any error the qty is
+    returned unchanged.
     """
     try:
         if sized_qty is None or sized_qty <= 0:

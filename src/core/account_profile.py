@@ -49,7 +49,14 @@ class AccountProfile:
         else:
             exchange = "unknown"
 
-        # accounts.yaml uses mode: live | dry_run (not a bool dry_run field)
+        # accounts.yaml uses mode: live | dry_run (not a bool dry_run field).
+        # Default to "dry_run": this is a READ-ONLY typed view that no order
+        # path routes off (verified S-AUDIT-H H3-F5), so the conservative
+        # unknown->dry default is the SAFE one here (if this view were ever
+        # wired into routing, a missing mode should fail to dry, not live).
+        # The order-path's own canonical default IS "live" (the permissive
+        # Prime-Directive contract) — that lives in the executor resolver
+        # (src/units/accounts/__init__.py::_resolve_mode), not in this view.
         mode = str(data.get("mode", "dry_run")).lower()
         dry_run = mode != "live"
 
