@@ -416,14 +416,15 @@ def run_pipeline(
         from src.runtime.intent_multiplexer import multiplexed_intent_signal_builder
         builder = multiplexed_intent_signal_builder
     else:
-        # "multiplexed" or anything unknown → legacy first-wins
-        # multiplexer by default. Operator can opt into the intent-aware
-        # multi-strategy multiplexer by exporting
-        # MULTI_STRATEGY_INTENT_LAYER=true (or
-        # STRATEGY=multiplexed_intents above) once the new layer is
-        # approved for live use. Default is **off** so this change does
-        # not flip live behaviour on its own — see
-        # src/runtime/intent_multiplexer.py for the contract.
+        # "multiplexed" or anything unknown → the intent-aware
+        # multi-strategy multiplexer by DEFAULT. MULTI_STRATEGY_INTENT_LAYER
+        # is **default ON** (flipped 2026-05-17, D-1; see
+        # intent_multiplexer.intent_multiplexer_enabled which reads the env
+        # default "true", and CLAUDE.md § Environment Variables). The legacy
+        # first-wins multiplexer (multiplexed_signal_builder) is the rollback
+        # path: export MULTI_STRATEGY_INTENT_LAYER=false to fall back to it
+        # without a code change. See src/runtime/intent_multiplexer.py for the
+        # contract.
         from src.runtime.intent_multiplexer import (
             intent_multiplexer_enabled,
             multiplexed_intent_signal_builder,
