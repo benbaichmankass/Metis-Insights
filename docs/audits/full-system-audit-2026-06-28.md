@@ -197,6 +197,24 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
 - 🔎 `oanda_practice` is fully shelved (mode dry_run, strategies [], creds unset
   since 2026-06-12) — documented-keep, not a zombie, but confirm the integration
   code isn't half-removed.
+- ✅ **Brokers — all LIVE, no zombie.** `EXCHANGE_MAP` = {bybit, breakout, oanda,
+  alpaca}; `accounts.yaml` routes bybit(2), alpaca(3), interactive_brokers(2),
+  breakout(1), oanda(1). Every routed exchange has ≥1 account. **Tradovate fully
+  purged** (0 refs in src/ + config/) — the prior corpse stayed dead.
+- ✅ **VERIFIED vestigial routing path (zombie candidate, operator disposition).**
+  `EXCHANGE_MAP` + `integrator.route_order` + `TradingAccount.place_order` are a
+  legacy router superseded by `execute_pkg` (the live path, per-exchange branches
+  in `src/units/accounts/execute.py`). Evidence: (a) the `EXCHANGE_MAP` stub
+  classes RAISE `NotImplementedError` (`integrator.py:41` BybitAPI); (b)
+  `EXCHANGE_MAP` omits `interactive_brokers` yet IB trades live — because IB goes
+  through `execute_pkg`, not this map; (c) `coordinator.py:1082` documents that
+  `account.place_order` was REMOVED from the live path (it raised
+  NotImplementedError — the VWAP "0 fills" bug); (d) the only `.place_order(`
+  live calls are on exchange CLIENTS, not `TradingAccount`. Kept alive ONLY by
+  tests (`test_s010_accounts.py`). Per the disposition-flip rule this needs a
+  live consumer or a written keep-justification; it has neither. **Disposition:
+  operator call** — remove the vestigial path (+ its tests) OR document why it's
+  kept. Non-trivial (touches account.py/integrator.py); NOT auto-removed.
 - 🔎 Env-gate inventory from the subagent leaned on CLAUDE.md for many entries —
   **must be re-derived from actual `os.environ` call sites** before any are
   trusted or flagged.
