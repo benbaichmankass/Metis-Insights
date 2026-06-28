@@ -45,7 +45,10 @@ def _reset_policy(monkeypatch):
     # Empty trend policy so only the ML-vol axis is under test.
     monkeypatch.setattr(intents_mod, "_REGIME_POLICY_CACHE", {})
     monkeypatch.delenv("REGIME_ML_VERDICT_MODE", raising=False)
+    # The router is baseline-ON; this file tests the SHADOW path by default, so
+    # disable the router (the one hard-gate test below clears DISABLED to enforce).
     monkeypatch.delenv("REGIME_ROUTER_ENABLED", raising=False)
+    monkeypatch.setenv("REGIME_ROUTER_DISABLED", "1")
     yield
 
 
@@ -181,7 +184,8 @@ def test_ml_verdict_raises_gate_proceeds(monkeypatch):
 
 def test_hard_gate_emits_ml_row_and_keeps_intent(monkeypatch):
     monkeypatch.setenv("REGIME_ML_VERDICT_MODE", "shadow")
-    monkeypatch.setenv("REGIME_ROUTER_ENABLED", "1")
+    # Router is baseline-on — clear the file-fixture's DISABLED to enforce.
+    monkeypatch.delenv("REGIME_ROUTER_DISABLED", raising=False)
     # Non-empty policy so the hard gate runs its (empty-cell) loop, but no cell
     # gates this intent, so it survives.
     monkeypatch.setattr(
