@@ -2019,7 +2019,24 @@
       "resolved_by": null,
       "resolution": null,
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260617-PR3910-UNMERGED",
+      "opened_at": "2026-06-17T20:45:00+00:00",
+      "opened_by": "claude (session wrap 2026-06-17)",
+      "source": "PR #3910 (benbaichmankass/ict-trading-bot) was CLOSED WITHOUT MERGING 2026-06-17 (webhook-confirmed). Verified: origin/main advanced to e2bc9a01 (unrelated #4947) but NONE of the branch commits are on main (git merge-base --is-ancestor a8a84af origin/main => false). So today's tri-review follow-up fixes are committed + validated but NOT deployed — the live trader is unchanged.",
+      "title": "PR #3910 closed unmerged — paper-PnL fix, closed_at/INV-6 guardrail, bybit_2 sizing fix, and 2026-06-17 review outputs all sit UNSHIPPED on branch claude/sharp-galileo-7kc4ni; the underlying issues remain LIVE",
+      "description": "All on branch claude/sharp-galileo-7kc4ni (commits bb7524a -> cf6c822c), validated green (422 local tests + ruff + silent-empty + canonical-db-resolver guards; first CI run 6064 green except a closed_at assertion since fixed) but NOT on main. Still-present issues on the live system:\n  (1) Paper-PnL mis-attribution (PB-20260617-002): the Bybit demo wide-fallback still returns one closed-pnl record for many demo trades (identical -767.21917054 across #2618/#2621/#2623). Fix = open-time partition in clients.py::_bybit_closed_pnl_lookup. NOT deployed.\n  (2) closed_at epoch-ms leak (BL-20260617-CLOSEDAT-EPOCH-LEAK): both reconciler close branches in order_monitor.py still write Bybit epoch-ms straight into the canonical ISO closed_at column (#2631). Fix + INV-6 guardrail in check_db_integrity.py. NOT deployed.\n  (3) bybit_2 parked (PB-20260617-003): the hardcoded min_qty=0.001 bump is still live, so the real-money account stays in the at_target freeze. Operator-approved refuse-policy fix in risk.py::position_size (Tier-3). NOT deployed.\n  (4) The 2026-06-17 review outputs (17 decision grades + health/perf/ml backlog drains) are not on main.\nAutonomous merge was blocked 2026-06-17 (GitHub MCP outage ~2.5h + main branch-protection 403); the operator was going to merge from the UI but the PR ended up closed instead (intent unconfirmed at wrap). Nothing is lost — the branch holds everything.",
+      "tier": 2,
+      "trigger_condition": "Next /health-review or /performance-review, or whenever the operator revisits PR #3910 / the bybit_2 + paper-PnL fixes.",
+      "resolution_criteria": "EITHER the branch's fixes are shipped (operator reopens #3910 — or, if explicitly asked, a fresh PR — rebased onto current main; merged; verify a8a84af-equivalent on main + the live trader redeployed, paper-PnL + closed_at + bybit_2 behaviours corrected) OR the operator explicitly DROPS them, in which case re-triage the four underlying items (they remain real bugs) and close this. Do NOT reopen/re-PR without explicit operator instruction (per the 2026-06-17 close).",
+      "check_log": [],
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-06-17T16:30:00+00:00"
+  "updated_at": "2026-06-17T20:45:00+00:00"
 }
