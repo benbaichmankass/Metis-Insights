@@ -24,7 +24,15 @@ permissions:
 jobs:
   report:
     # Title-prefix gate (no label dependency): only [bp-report] issues run.
-    if: startsWith(github.event.issue.title, '[bp-report]')
+    # Actor-guard: owner (or repo automation) only — a title gate alone is
+    # author-controlled, so on a public repo any user could fire this run that
+    # exercises the BRANCH_PROTECTION_TOKEN PAT. AND-ed onto the title gate
+    # (restrict-only). (Security audit 2026-06-28:
+    # docs/security/intrusion-surface-audit-2026-06-28.md.)
+    if: >-
+      (github.event.issue.user.login == github.repository_owner ||
+       github.event.issue.user.login == 'github-actions[bot]') &&
+      startsWith(github.event.issue.title, '[bp-report]')
     runs-on: ubuntu-latest
     steps:
       - name: Read main branch protection

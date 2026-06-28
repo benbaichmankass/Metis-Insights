@@ -194,10 +194,18 @@ concurrency:
 
 jobs:
   system-action:
+    # Actor-guard (defense-in-depth): owner (or repo automation) only. The label
+    # gate already blocks non-collaborators (they can't apply a label), but this
+    # also defeats the social-engineering path where a triager is induced to apply
+    # `system-action` to an externally-opened issue (the 2026-06-03 #2688 probe).
+    # AND-ed onto the label gate (restrict-only). (Security audit 2026-06-28:
+    # docs/security/intrusion-surface-audit-2026-06-28.md.)
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues' &&
        github.event.action == 'opened' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
        contains(github.event.issue.labels.*.name, 'system-action'))
     runs-on: ubuntu-latest
     # 10 min covers status-check / restart-bot-service / reboot-vm.
