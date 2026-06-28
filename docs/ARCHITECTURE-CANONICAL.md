@@ -550,10 +550,14 @@ training sessions follow the established workflow:
 3. **Train baselines.** `python -m ml train <manifest>` runs a YAML
    manifest end-to-end (split → fit → evaluate → register). Established
    manifests:
-   - [`ml/configs/baseline-trade-outcome-winrate.yaml`](../ml/configs/baseline-trade-outcome-winrate.yaml)
-     (WS5-A; per-strategy historical winrate).
-   - [`ml/configs/baseline-trade-outcome-global.yaml`](../ml/configs/baseline-trade-outcome-global.yaml)
-     (WS4-FU; global-mean sanity baseline).
+   - [`ml/configs/retired/baseline-trade-outcome-winrate.yaml`](../ml/configs/retired/baseline-trade-outcome-winrate.yaml)
+     (WS5-A; per-strategy historical winrate). **Retired from the daily cycle
+     2026-06-28** — an intentionally-trivial demo baseline whose `f1=0` is
+     by-construction on a sub-50%-win-rate holdout; runnable ad hoc. See
+     [`ml/configs/retired/README.md`](../ml/configs/retired/README.md).
+   - [`ml/configs/retired/baseline-trade-outcome-global.yaml`](../ml/configs/retired/baseline-trade-outcome-global.yaml)
+     (WS4-FU; global-mean sanity baseline). **Retired from the daily cycle
+     2026-06-28** alongside its winrate twin (same by-construction `f1=0`).
    - [`ml/configs/baseline-regime-classifier.yaml`](../ml/configs/baseline-regime-classifier.yaml)
      (WS5-B-PART-2; 2-class range/volatile regime classifier on `market_features`).
    - [`ml/configs/baseline-setup-quality.yaml`](../ml/configs/baseline-setup-quality.yaml)

@@ -806,8 +806,15 @@
       "tier": 1,
       "trigger_condition": "Next /performance-review whose window includes a US RTH session with alpaca_paper ETF activity.",
       "resolution_criteria": "At least one intraday ETF cell shows a clean closed-1h-bar entry + bracket fill on alpaca_paper in the journal, with the intraday exit cadence behaving as designed. If entries fire mid-bar or the trail/exit misbehaves, escalate the specific defect to the health-review backlog.",
-      "status": "open",
-      "snoozed_until": null
+      "status": "partially-resolved",
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-06-28T04:12:30+00:00",
+          "by": "claude (/system-review 2026-06-28)",
+          "note": "PARTIAL. ENTRY/FILL verified: in the 2026-06-27 12:00Z\u21922026-06-28 04:00Z window the gld/slv/spy/qqq/tlt _1h intraday cells all produced live paper fills (closed trades 2999 GLD, 3002 SLV, 3004 TLT, 3005/3001 QQQ, 3006/3003 SPY). HOWEVER the fills landed on alpaca_options_paper (not alpaca_paper as wired) and ALL exits were a reconciler mass-close artifact (6 positions closed at the identical 2026-06-27T19:05:48.058497Z with implausible exit prices, e.g. SLV -9.4% / QQQ -4.5% intrabar in minutes), so the intraday EXIT-CADENCE half of the resolution criterion is NOT cleanly verified \u2014 blocked by the reconciler artifact filed as BL-20260628-RECONCILER-PAPER-ARTIFACT. uso_1h not observed this window. Keep open until a clean intraday exit is observed."
+        }
+      ]
     },
     {
       "id": "PB-20260620-002",
@@ -915,5 +922,5 @@
       "resolution": "Fixed trend_donchian tf 2h->1h in scripts/backtest_system.py::ROSTER to track config/strategies.yaml; added a comment requiring tf to track live. The curated BTCUSDT subset's other entries (fade/squeeze 4h, fvg_range/turtle 15m, ict_scalp 5m) already match live."
     }
   ],
-  "updated_at": "2026-06-26T14:25:00+00:00"
+  "updated_at": "2026-06-28T04:12:30+00:00"
 }
