@@ -17,6 +17,13 @@
       "intent": "Full-system audit (bot/dashboard/android): Alpaca host-routing fix (#4916, #4929) + Workstream-D session governance + consistency/zombie sweep.",
       "started_at": "2026-06-28T08:00:00Z",
       "updated_at": "2026-06-28T10:00:00Z"
+    },
+    {
+      "session_id": "session_01QMJuYP4gnZKykKZLHoRv3v",
+      "branch": "claude/audit-a-consistency-docdrift-owafwm",
+      "intent": "Workstream-A (consistency/doc-drift): document missing REST endpoints in CLAUDE.md table (/api/bot/devices/*, /pnl/exchange, /positions/net, /strategy/attribution, diag db_info/exchange_positions/shadow_stats/version); run canonical-doc-coherence; verify 0-orphan-call claim.",
+      "started_at": "2026-06-28T10:30:00Z",
+      "updated_at": "2026-06-28T10:30:00Z"
     }
   ]
 }

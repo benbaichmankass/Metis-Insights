@@ -158,15 +158,30 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
 
 ### A — Consistency / doc-drift (LEADS, to verify)
 
-- 🔎 Bot serves endpoints **absent from CLAUDE.md's "Dashboard REST API" table**:
-  `/api/bot/devices/*`, `/api/bot/pnl/exchange`, `/api/bot/positions/net`,
-  `/api/bot/strategy/attribution`, and several `/api/diag/*` (`db_info`,
-  `exchange_positions`, `shadow_stats`, `version`). Confirm each exists, then
-  decide document-vs-remove. (Source: cross-repo endpoint inventory; needs
-  direct router read.)
-- 🔎 API contract consumer-side is otherwise clean: every dashboard + Android
-  `/api/...` call maps to a real bot endpoint (0 orphan calls reported; verify
-  spot-checks).
+- ✔ **FIXED (branch `claude/audit-a-consistency-docdrift-owafwm`, Workstream-A).**
+  All eight endpoints confirmed real by reading the routers directly + the
+  `main.py` mounts (lines 73/82/83 + diag router), then **documented** in
+  CLAUDE.md — none is dead:
+  - `/api/bot/positions/net` + `/api/bot/strategy/attribution` —
+    `src/web/api/routers/attribution.py` (mounted `attribution_router`); both
+    GET, Tier-1, real-money-only attribution.
+  - `/api/bot/pnl/exchange` — `pnl_exchange.py` (mounted), FIFO exchange-truth
+    P&L over `runtime_state/exchange_fills.sqlite`.
+  - `/api/bot/devices/{register,event-kinds,(list),{id},{id}/subscriptions}` —
+    `devices.py` (mounted), M12 FCM registration; `register` is the one write
+    the Android app makes (table row written `device_tokens`).
+  - `/api/diag/{db_info,version,shadow_stats,exchange_positions}` —
+    `diag.py` lines 854/924/981/1046, all token-gated read.
+  Added 4 rows to the "Dashboard REST API" table (positions/net,
+  strategy/attribution, pnl/exchange, devices×5) and 4 rows to the
+  "Diagnostic API" table. `canonical-doc-coherence` re-run: 4/4 PASS.
+- ✅ **VERIFIED — 0 orphan calls.** Cross-checked every `/api/...` call in the
+  dashboard (`streamlit_app.py`) and Android (`core/…/BotApi.kt`) against the
+  mounted route set. Every consumer call maps to a real bot endpoint
+  (`/api/bot/ml/*` → `training_center.py` prefix `/api/bot/ml`; insights →
+  `insights.py`; etc.). The only odd grep hits (`…/db/table/{quote`,
+  `…/insights/summary.`, `…/strategies.`) are f-string-quote / method-chain
+  capture artifacts, not distinct endpoints — each has a clean base that maps.
 
 ### B — Liveness / zombie hunt (LEADS, to verify)
 
