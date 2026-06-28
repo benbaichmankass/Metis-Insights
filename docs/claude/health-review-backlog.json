@@ -3,6 +3,34 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260628-PROP-ISPROP-PREDICATE-DRIFT",
+      "opened_at": "2026-06-28T13:50:00+00:00",
+      "opened_by": "claude (S-AUDIT-F prop-bridge slice)",
+      "source": "src/prop/ line-by-line audit (docs/audits/s-audit-f/prop-bridge.md F3). Three call sites independently classify 'is this a prop account' with DIFFERENT predicates: prop_journal._prop_scope (exchange==breakout OR account_class==prop OR type==prop OR backtest_ruleset!=standard), telegram_report_handler.default_prop_account (exchange==breakout OR account_class==prop only), account_rulesets.unit_for_account (backtest_ruleset!=standard OR exchange==breakout).",
+      "title": "Three divergent is_prop_account predicates across src/prop/ — consolidate to one helper",
+      "description": "Latent multi-account drift. Today the single prop account (breakout_1) matches all three predicates so they agree, but a future prop account declared by account_class:prop WITHOUT exchange:breakout would be invisible to default_prop_account's disambiguation, and one declared only by backtest_ruleset would be invisible to both default_prop_account and the journal-side reconcile scope. Fix: extract one canonical is_prop_account(acct: dict)->bool and have _prop_scope, default_prop_account, and unit_for_account all call it. Tier-1 refactor, no behaviour change under the current single account.",
+      "tier": 1,
+      "trigger_condition": "Next /health-review, or before any second prop account is added to accounts.yaml.",
+      "resolution_criteria": "A single is_prop_account helper is the only prop-classification predicate in src/prop/; the three call sites delegate to it; a test covers an account_class:prop-without-breakout account being recognised by all three.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260628-PROP-TICKET-UPSERT-NO-OPID-BACKFILL",
+      "opened_at": "2026-06-28T13:50:00+00:00",
+      "opened_by": "claude (S-AUDIT-F prop-bridge slice)",
+      "source": "src/prop/prop_journal.py::record_ticket ON CONFLICT (docs/audits/s-audit-f/prop-bridge.md F2b). The upsert updates status/qty/valid_until/message but NOT order_package_id; a re-emit of the same ticket_id with a now-populated order_package_id would not backfill the NULL.",
+      "title": "record_ticket upsert can't backfill a NULL order_package_id on re-emit",
+      "description": "Latent. ticket_ids are freshly generated per emit (prop-manual-<uuid>), so a true same-id re-emit is rare — but if it happens after an earlier emit wrote NULL order_package_id, the ticket<->order-package join the dashboard prop view + reconcile rely on stays silently broken (the same join class as the 2026-06-21 prop-tickets incident). Docstring already clarified (S-AUDIT-F) that on-conflict columns other than status/qty/valid_until/message are NOT updated. If re-emit-with-late-opid is ever observed, extend the upsert to COALESCE order_package_id (excluded.order_package_id over the existing) — Tier-2 (journal write contract).",
+      "tier": 2,
+      "trigger_condition": "Any observed prop_tickets row with NULL order_package_id despite the order package existing; or a session touching record_ticket.",
+      "resolution_criteria": "Either confirmed non-issue (ticket ids are always fresh, no same-id re-emit path exists) and recorded as such, or the upsert COALESCEs order_package_id and a regression test covers re-emit backfill.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "BL-20260628-RECONCILER-PAPER-ARTIFACT",
       "opened_at": "2026-06-28T04:12:30+00:00",
       "opened_by": "claude (/system-review 2026-06-28)",
