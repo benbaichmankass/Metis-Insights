@@ -98,8 +98,10 @@ chop:
 # These cells are a behavioural NO-OP for live orders until BOTH gates are on:
 #   (1) REGIME_ML_VERDICT_MODE=use   — drives the vol axis from the ML head
 #                                       (these cells assume the ML label, NOT frozen)
-#   (2) REGIME_ROUTER_ENABLED=true   — turns OFF-cells into hard gates
-# With the router off they only emit `regime_shadow_gate` would-gate rows; with
+#   (2) the regime hard gate is active — it is BASELINE-ON (2026-06-28); the
+#       kill-switch is REGIME_ROUTER_DISABLED (set truthy → shadow-log only).
+#       (Legacy REGIME_ROUTER_ENABLED=true is redundant now, still honoured.)
+# With the router disabled they only emit `regime_shadow_gate` would-gate rows; with
 # REGIME_ML_VERDICT_MODE=off/shadow the vol label is frozen (the WRONG label for
 # these cells). The enforce flip is the Tier-3 live-trading switch.
 trend_vol:
