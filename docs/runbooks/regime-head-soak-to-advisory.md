@@ -113,8 +113,8 @@ Soak the `regime_ml_vol_shadow` agreement rows and confirm
 |---|---|---|---|---|---|
 | `eth-regime-15m-lgbm-v1` | 2026-06-28 | 1 (soak) | 0.788 ✅ | post-soak RG4 (~≥300 rows) | accruing live rows; re-derive ETH cells under THIS label (the draft used the 1h head) |
 | `eth-regime-5m-lgbm-v1` | 2026-06-28 | 1 (soak) | 0.770 ✅ | post-soak RG4 | finer observer; 15m is the advisory clock |
-| `sol-regime-15m-lgbm-v1` | 2026-06-28 | 0→1 | _pending_ | RG3 (in-session) → soak | trainer building/training now (PR #4918) |
-| `sol-regime-5m-lgbm-v1` | 2026-06-28 | 0→1 | _pending_ | RG3 → soak | finer observer |
+| `sol-regime-15m-lgbm-v1` | 2026-06-28 | 1 (soak) | 0.803 ✅ | post-soak RG4 | RG3 PASS (n=30k, folds 0.78–0.81 — strongest of the multi-symbol heads); accruing live rows (PR #4918) |
+| `sol-regime-5m-lgbm-v1` | 2026-06-28 | 1 (soak) | TRUSTWORTHY ✅ | post-soak RG4 | finer observer; 15m is the advisory clock |
 
 **Already live:** `btc-regime-15m-lgbm-v2` @ advisory → BTC `trend_vol` cells
 enforce now (the 2026-06-28 go-live; `MB-20260628-VOLGATE-GOLIVE`).
