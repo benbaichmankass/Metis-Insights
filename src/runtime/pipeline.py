@@ -502,9 +502,13 @@ def run_pipeline(
         except Exception:  # noqa: BLE001 — stamping must never affect the trade
             logger.debug("news meta stamp failed", exc_info=True)
 
-        # Shadow-soak: record what the news layer decided (observe-only) on every
+        # Soak LOG (observe-only): record what the news layer decided on every
         # actionable signal once the layer is active, so we can validate the
-        # veto/influence against real trades before it ever gates live money.
+        # decision against real trades. NB this logging is observe-only, but the
+        # VETO below (line ~520) is NOT — when the source is active the veto
+        # gates live money (per CLAUDE.md "selecting rss is the deliberate
+        # activation"; NEWS_VETO_ENABLED default-on). The graduated influence
+        # SIZING is the observe-until-opt-in half (NEWS_INFLUENCE_MODE, default off).
         try:
             if news_is_active(settings):
                 log_news_decision(

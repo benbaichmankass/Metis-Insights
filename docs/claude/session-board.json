@@ -17,6 +17,13 @@
       "intent": "Full-system audit (bot/dashboard/android): Alpaca host-routing fix (#4916, #4929) + Workstream-D session governance + consistency/zombie sweep.",
       "started_at": "2026-06-28T08:00:00Z",
       "updated_at": "2026-06-28T10:00:00Z"
+    },
+    {
+      "session_id": "session_01RahcciiUKhSCC3eP3WHTb5",
+      "branch": "claude/audit-B-envgate-newsveto (+ -diag-statuscheck, -remove-route-order)",
+      "intent": "Audit Workstream-B: env-gate inventory (no new violation; NEWS_VETO_ENABLED live-armed, comments fixed) + status_check.sh ict-* enumerator for diag coverage + remove vestigial route_order/place_order router.",
+      "started_at": "2026-06-28T10:30:00Z",
+      "updated_at": "2026-06-28T11:35:00Z"
     }
   ]
 }
