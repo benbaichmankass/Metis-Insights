@@ -139,6 +139,11 @@ EXPECTED_ACTIONS = {
     # (void-flag dups as reconcile_status='superseded'). DRY-RUN by default;
     # apply is gated + takes a DB backup. Pure journal hygiene.
     "reconcile-orphan-history": "reconcile_orphan_history_action.sh",
+    # 2026-06-28 — one-shot cleanup of the pre-fix options-account
+    # orphan-adoption artifacts (root cause fixed in #4858 + #4867):
+    # void-flag the historical phantom paper rows that the equity-pricing
+    # sweep fabricated. DRY-RUN by default; apply gated + DB backup.
+    "supersede-options-adoption-artifacts": "supersede_options_adoption_artifacts_action.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -178,6 +183,7 @@ TIER_2_ACTIONS = {
     "purge-cloudflared",
     "flatten-ib-position",
     "reconcile-orphan-history",
+    "supersede-options-adoption-artifacts",
 }
 
 
