@@ -199,16 +199,30 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
   in the 09:07 journal). `ict-bot.service` is the retired pre-rename trader
   unit — a dead entry that makes `/api/diag/services` perpetually report a
   not-found unit. **Fix:** remove it from `_CANONICAL_UNITS`. Tier-1, batch into
-  a separate audit-cleanup PR (NOT the Tier-3 Alpaca branch).
-- ✅ **VERIFIED diag coverage gaps** — `scripts/install_systemd_units.sh` globs
-  `deploy/*.service|*.timer` (line 73), so all deploy units are installed, but
-  `_CANONICAL_UNITS` omits these real recurring timers: `ict-shadow-log-rotate.
-  {service,timer}`, `ict-devnull-guard.{service,timer}` (trader VM), and
-  `ict-ib-gateway-reset.{service,timer}` (gateway VM — partly expected since
-  diag/services runs systemctl on the trader VM). `ict-smoke-once` /
-  `ict-env-check` (one-shots) + `claude-vm-runner@` (template) are correctly
-  excluded. **Fix:** add the trader-VM timers to `_CANONICAL_UNITS` (same Tier-1
-  cleanup PR); confirm gateway-VM units belong in a gateway-scoped probe.
+  a separate audit-cleanup PR (NOT the Tier-3 Alpaca branch). ✅ **DONE — PR
+  #4933 (merged `54a23c7`, 2026-06-28)**; the removal + the 4 journalctl tests
+  that had pinned `unit=ict-bot` (retargeted to `ict-trader-live`) shipped
+  together (one concern: `_CANONICAL_UNITS` correctness).
+- ⚠️ **CORRECTED (do NOT blindly add) — the "diag coverage gaps" were over-stated.**
+  `scripts/install_systemd_units.sh` globs `deploy/*.service|*.timer` (line 73), so
+  all deploy units are *installed*, but two of the three candidates must NOT go into
+  the trader-scoped `_CANONICAL_UNITS` (verified by reading the unit files
+  2026-06-28):
+  - `ict-shadow-log-rotate.{service,timer}` — header says **"DISABLED BY DEFAULT"**
+    (operator opts in with `systemctl enable --now`). Adding it would recreate the
+    exact "perpetually report a not-found/inactive unit" problem #4933 just removed,
+    *unless* a live probe confirms it's enabled on the trader VM.
+  - `ict-ib-gateway-reset.{service,timer}` — runs on the **gateway VM**, but
+    `/api/diag/services` runs `systemctl` on the **trader VM**, so it would always
+    report not-found there. Belongs (if anywhere) in a gateway-scoped probe, NOT
+    `_CANONICAL_UNITS`.
+  - `ict-devnull-guard.{service,timer}` (trader VM, /dev/null FIM re-assert) — the
+    only plausible genuine gap, but still **verify it's enabled + active on the live
+    trader before adding** (the diag relay can't query a unit until it's allowlisted —
+    chicken-and-egg; use a live `/api/diag/services` cross-check or a system-action).
+  `ict-smoke-once` / `ict-env-check` (one-shots) + `claude-vm-runner@` (template)
+  are correctly excluded. **Fix (Workstream-B session):** add ONLY units confirmed
+  enabled+active on the trader VM — likely just `ict-devnull-guard` pending the probe.
 - 🔎 `oanda_practice` is fully shelved (mode dry_run, strategies [], creds unset
   since 2026-06-12) — documented-keep, not a zombie, but confirm the integration
   code isn't half-removed.
