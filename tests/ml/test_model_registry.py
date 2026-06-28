@@ -139,6 +139,42 @@ class TestModelRegistry:
         assert len(updated.history) == 2
         assert updated.history[-1].from_status == "candidate"
 
+    def test_promote_preserves_run_history(self, tmp_path: Path):
+        """S-AUDIT-G B1 regression: promote()/promote_stage() must NOT wipe
+        the model's training-run history. RegistryEntry.runs defaults to ()
+        (field(default_factory=tuple)), so before the fix the promote rebuilds
+        omitted runs= and silently reset it to () — the cross_run_stability
+        promotion gate reads entry.runs, so a promoted model lost its
+        stability evidence.
+        """
+        reg = ModelRegistry(tmp_path)
+        # status promote must keep both runs
+        reg.register(
+            model_id="m-1", manifest={}, model_state_path="/tmp/s1.json",
+            metrics={"mse": 0.5}, code_revision="rev1", run_id="run-a",
+        )
+        reg.register(
+            model_id="m-1", manifest={}, model_state_path="/tmp/s2.json",
+            metrics={"mse": 0.3}, code_revision="rev2", run_id="run-b",
+        )
+        assert len(reg.get("m-1").runs) == 2
+        after_status = reg.promote("m-1", "paper", by="op", reason="leakage_passed")
+        assert [r.run_id for r in after_status.runs] == ["run-a", "run-b"]
+        assert len(reg.get("m-1").runs) == 2  # persisted to disk
+
+        # stage promote must keep them too
+        reg.register(
+            model_id="m-2", manifest={}, model_state_path="/tmp/t1.json",
+            metrics={"mse": 0.5}, code_revision="rev1", run_id="run-c",
+        )
+        reg.register(
+            model_id="m-2", manifest={}, model_state_path="/tmp/t2.json",
+            metrics={"mse": 0.3}, code_revision="rev2", run_id="run-d",
+        )
+        after_stage = reg.promote_stage("m-2", "advisory", by="op", reason="soak_ok")
+        assert [r.run_id for r in after_stage.runs] == ["run-c", "run-d"]
+        assert len(reg.get("m-2").runs) == 2  # persisted to disk
+
     def test_promote_disallowed_transition(self, tmp_path: Path):
         reg = ModelRegistry(tmp_path)
         reg.register(
