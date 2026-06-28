@@ -65,6 +65,7 @@ on:
         type: choice
         options:
           - status-check
+          - list-listening-ports
           - gateway-logs
           - pull-latest-logs
           - pull-and-deploy
@@ -399,7 +400,7 @@ jobs:
         run: |
           set -euo pipefail
           case "${ACTION}" in
-            status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets)
+            status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
             pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|migrate-closed-at-iso|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|flatten-ib-position|reconcile-orphan-history|supersede-options-adoption-artifacts)
@@ -563,6 +564,7 @@ jobs:
           # the script name resolved from the validated `ACTION`.
           case "${ACTION}" in
             status-check)                       SCRIPT="status_check.sh" ;;
+            list-listening-ports)               SCRIPT="list_listening_ports.sh" ;;
             gateway-logs)                       SCRIPT="gateway_logs.sh" ;;
             pull-latest-logs)                   SCRIPT="pull_logs.sh" ;;
             pull-and-deploy)                    SCRIPT="pull_and_deploy.sh" ;;
