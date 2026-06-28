@@ -1,0 +1,72 @@
+# LightGBM regime classifier — SOLUSDT @ 15m (multi-symbol regime, follow-on to ETH).
+#
+# Sibling of sol-regime-5m-lgbm-v1 at the 15m timeframe — ports the proven
+# btc-regime-15m-lgbm-v2 / eth-regime-15m-lgbm-v1 recipe to SOLUSDT. The 15m
+# head is the per-symbol advisory CLOCK the decision path prefers
+# (ml_vol_verdict._advisory_entry_for_symbol picks the 15m head for a symbol's
+# vol label), matching the validated BTC A/B which gated every BTC cell with the
+# single 15m advisory head.
+#
+# Identical to btc-regime-15m-lgbm-v2 / eth-regime-15m-lgbm-v1 EXCEPT the symbol
+# (SOLUSDT). Registers at `shadow`; advisory promotion is operator-gated
+# (Tier-3) and gated on a post-soak RG4 >= 0.55.
+
+manifest_version: v1
+model_id: sol-regime-15m-lgbm-v1
+description: "LightGBM regime classifier for SOLUSDT 15m bars (range vs volatile from continuous vol + log-return alongside the frozen vol bucket) — multi-symbol regime head (follow-on to ETH); the 15m advisory clock for SOL. Shadow context signal."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  sample_weight:
+    half_life_days: 60
+    time_column: ts
+  # Mirror btc-regime-15m-lgbm-v2: ~28x inverse-base-rate weight (BTC 15m
+  # volatile base rate ~3.6%). First knob to sweep if SOL's realized 15m base
+  # rate differs materially.
+  class_weight:
+    range: 1.0
+    volatile: 28.0
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: SOLUSDT
+  timeframe: 15m
+  version: v002
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: shadow
+notes: |
+  Multi-symbol regime head — SOL follow-on to the ETH RG4 retrain
+  (MB-20260627-003). Identical to btc-regime-15m-lgbm-v2 except symbol=SOLUSDT.
+  RG3 is the in-session gate; RG4 (live-row skew) scores only after a live
+  shadow soak, so promotion is gated on a post-soak RG4 >= 0.55 + operator
+  approval. Leakage gate forbids forward_log_return / forward_log_return_vol /
+  regime_label.

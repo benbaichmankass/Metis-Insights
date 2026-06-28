@@ -670,6 +670,14 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
 
     if regime_router == "on":
         _set_env("REGIME_ROUTER_ENABLED", "1")
+    else:
+        # The live regime router is BASELINE-ON (baseline-on + REGIME_ROUTER_DISABLED
+        # kill-switch, since the Design-A vol-gate go-live). A backtest must NOT
+        # inherit that default — the A/B baseline arm has to stay shadow-only, or
+        # every run would hard-gate and the ungated/frozen arms would silently
+        # become the gated arm. So a run that isn't `--regime-router on` explicitly
+        # disables the router for the duration of the run (restored on teardown).
+        _set_env("REGIME_ROUTER_DISABLED", "1")
     if regime_policy_path:
         _set_env("REGIME_POLICY_PATH", str(regime_policy_path))
         try:

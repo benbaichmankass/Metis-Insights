@@ -47,6 +47,8 @@ def _ml(vol: str, model="btc-regime-15m-lgbm-v2"):
 
 def test_use_substitutes_ml_label_and_flips_the_vol_gate(monkeypatch):
     monkeypatch.setattr(intents_mod, "_REGIME_POLICY_CACHE", _VOL_POLICY)
+    # Router is baseline-on; this asserts the SHADOW would-gate row, so disable.
+    monkeypatch.setenv("REGIME_ROUTER_DISABLED", "1")
     rows, spy = _capture()
     with patch.object(intents_mod, "_regime_ml_verdict_mode", return_value="use"), \
          patch("src.runtime.regime.ml_vol_regime_for_symbol", return_value=_ml("volatile")), \
@@ -71,6 +73,8 @@ def test_off_mode_keeps_frozen_label_no_gate(monkeypatch):
 
 def test_use_ml_unknown_falls_back_to_frozen(monkeypatch):
     monkeypatch.setattr(intents_mod, "_REGIME_POLICY_CACHE", _VOL_POLICY)
+    # Router is baseline-on; this asserts the SHADOW would-gate row, so disable.
+    monkeypatch.setenv("REGIME_ROUTER_DISABLED", "1")
     rows, spy = _capture()
     with patch.object(intents_mod, "_regime_ml_verdict_mode", return_value="use"), \
          patch("src.runtime.regime.ml_vol_regime_for_symbol",
@@ -104,7 +108,7 @@ def test_advisory_entry_for_symbol_prefers_15m_non_yz():
 def test_hard_gate_drops_on_ml_vol_but_not_on_frozen_fallback(monkeypatch):
     monkeypatch.setattr(intents_mod, "_REGIME_POLICY_CACHE", _VOL_POLICY)
     # ML-sourced volatile → the off cell enforces → intent dropped → flat.
-    with patch.object(intents_mod, "_regime_router_enabled", return_value=True), \
+    with patch.object(intents_mod, "_regime_router_active", return_value=True), \
          patch.object(intents_mod, "_regime_ml_verdict_mode", return_value="use"), \
          patch("src.runtime.regime.ml_vol_regime_for_symbol", return_value=_ml("volatile")), \
          patch("src.utils.signal_audit_logger.log_signal"):
@@ -113,7 +117,7 @@ def test_hard_gate_drops_on_ml_vol_but_not_on_frozen_fallback(monkeypatch):
 
     # Frozen-fallback (ML unknown) on a frozen-volatile intent → the vol cell
     # would match, but the guard refuses to enforce a non-ML vol label → KEPT.
-    with patch.object(intents_mod, "_regime_router_enabled", return_value=True), \
+    with patch.object(intents_mod, "_regime_router_active", return_value=True), \
          patch.object(intents_mod, "_regime_ml_verdict_mode", return_value="use"), \
          patch("src.runtime.regime.ml_vol_regime_for_symbol",
                return_value={"vol_regime": "unknown", "source": "unavailable"}), \

@@ -783,10 +783,14 @@ def _regime_ml_verdict_mode() -> str:
     head's ML vol label into the gate DECISION via ``_decision_vol_regime``
     (fail-permissive → frozen when the ML verdict is ``unknown``). NOTE: ``use``
     only changes a real-money outcome when (a) an OFF cell exists for the
-    ``(trend, vol)`` pair AND (b) an *advisory* regime head covers the gated
-    strategy's ``(symbol, timeframe)`` (today only BTC 15m is advisory; the live
-    ``trend_vol`` cells are 1h/4h, so they still resolve to frozen) AND (c) the
-    hard gate is on (``REGIME_ROUTER_ENABLED``).
+    ``(trend, vol)`` pair AND (b) the gated strategy's SYMBOL has an advisory
+    regime head — resolution is **per-SYMBOL** (``ml_vol_regime_for_symbol``),
+    NOT per-(symbol, timeframe): BTC has the 15m advisory head, so every BTC
+    cell resolves the ML label regardless of the strategy's timeframe (the live
+    ``trend_vol`` cells gate BTC ``trend_donchian`` (1h) + ``squeeze_breakout_4h``
+    (4h) and they DO resolve ML, not frozen); a symbol with no advisory head
+    resolves ``unknown`` → frozen (permissive) AND (c) the hard gate is active
+    (baseline-on; kill-switch ``REGIME_ROUTER_DISABLED``).
     """
     try:
         from src.runtime.runtime_flags import _regime_ml_verdict_mode as _mode
@@ -975,23 +979,50 @@ def _shadow_regime_gate(candidates: tuple) -> None:
             pass
 
 
-def _regime_router_enabled() -> bool:
-    """Phase-3 hard-gate kill-switch.
+def _regime_router_active() -> bool:
+    """Regime hard-gate — **BASELINE ON**, kill-switch via ``REGIME_ROUTER_DISABLED``.
 
-    Returns True iff ``REGIME_ROUTER_ENABLED`` is set truthy. Default off
-    so deploying this code is a behaviour no-op; the operator flips the
-    env on the live VM via the ``set-env`` operator action and rollback
-    is one env flip + restart.
+    The regime router was validated and promoted to a live order-routing
+    influence (the Design-A vol-gate go-live, 2026-06-28). It is now a
+    *required* live capability, so per the Prime Directive it must NOT sit
+    behind a default-off ``*_ENABLED`` flag: if such a var were dropped on a
+    redeploy/VM-migration the gate would **silently stop enforcing** and the
+    money-losing ``trend_vol`` OFF-cells would trade again — exactly the
+    netting-guard / Ampere-migration failure class (a default-off gate silently
+    reverting). Baseline-on means the live behaviour survives an env drop.
+
+    Resolution (highest precedence first):
+
+    1. ``REGIME_ROUTER_DISABLED`` truthy → **off** (the sanctioned kill-switch:
+       one env flip + restart, no redeploy — the rollback path).
+    2. A leftover *explicit* falsy ``REGIME_ROUTER_ENABLED`` (``0``/``false``/
+       ``no``/``off``) → **off** (legacy rollback honoured so a VM mid-migration
+       with the old var set isn't surprised).
+    3. Otherwise → **on** (baseline). Unset, ``REGIME_ROUTER_ENABLED=1``, or any
+       non-falsy value all resolve active.
+
+    NOTE: a non-live consumer that must NOT enforce (the backtest A/B baseline
+    arm, a unit test asserting shadow-only behaviour) sets
+    ``REGIME_ROUTER_DISABLED=1`` explicitly — it can no longer rely on an
+    unset-env default. ``scripts/backtest_system.py`` does this for every run
+    that isn't ``--regime-router on``.
     """
     import os as _os
-    # PERF-20260601-006 operator-approved rollback switch for the regime
-    # router. This is the documented escape hatch (one env flip + restart,
-    # no redeploy), NOT a hidden trading-mode gate: it gates a regime-policy
-    # filter that is itself default-permissive, and the live/dry contract
-    # remains RiskManager.dry_run only. See docs/audits/env-gate-purge-2026-05-10.md
-    # + the ROADMAP.md PERF-20260601-006-REGIME-ROUTER-P3 row.
-    raw = _os.environ.get("REGIME_ROUTER_ENABLED", "0")  # allow-silent: PERF-20260601-006 regime-router rollback switch
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+    def _truthy(v):
+        return str(v or "").strip().lower() in {"1", "true", "yes", "on"}
+
+    # (1) Sanctioned kill-switch — wins over everything. allow-silent: this is
+    # the documented rollback escape hatch, not a hidden trading-mode gate; the
+    # live/dry contract remains RiskManager.dry_run only.
+    if _truthy(_os.environ.get("REGIME_ROUTER_DISABLED")):  # allow-silent: regime-router kill-switch
+        return False
+    # (2) Legacy explicit-off rollback (REGIME_ROUTER_ENABLED=0/false/...).
+    legacy = _os.environ.get("REGIME_ROUTER_ENABLED")  # allow-silent: legacy regime-router rollback switch
+    if legacy is not None and legacy.strip() != "" and not _truthy(legacy):
+        return False
+    # (3) Baseline ON.
+    return True
 
 
 def _hard_regime_gate(candidates: tuple) -> tuple:
@@ -1169,22 +1200,25 @@ def aggregate_intents(
 
     # Regime router (PERF-20260601-002 §5):
     #
-    # * **Phase 2 (default, observability-only)** — ``_shadow_regime_gate``
-    #   evaluates each candidate against the policy table and emits a
-    #   ``regime_shadow_gate`` audit row (``enforced: false``) for any
-    #   OFF-cell intent. The aggregator's decision is UNCHANGED.
-    # * **Phase 3 (PERF-20260601-006, Tier-3)** — when
-    #   ``REGIME_ROUTER_ENABLED`` is truthy, ``_hard_regime_gate``
-    #   **drops** OFF-cell intents from ``candidates`` BEFORE the
-    #   reinforcement / conflict-resolution logic runs AND emits a
-    #   ``regime_hard_gate`` row (``enforced: true``). Rollback is one
-    #   env flip + restart (no redeploy).
+    # * **Hard gate (BASELINE, Tier-3 live capability)** — ``_hard_regime_gate``
+    #   **drops** OFF-cell intents from ``candidates`` BEFORE the reinforcement /
+    #   conflict-resolution logic runs AND emits a ``regime_hard_gate`` row
+    #   (``enforced: true``). This is the default since the Design-A vol-gate
+    #   go-live (2026-06-28): a *required* live capability must not sit behind a
+    #   default-off flag (Prime Directive), so the router is baseline-on and
+    #   survives an env drop. Kill-switch / rollback is ``REGIME_ROUTER_DISABLED``
+    #   (one env flip + restart, no redeploy).
+    # * **Shadow (observability-only, opt-OUT)** — when the router is disabled,
+    #   ``_shadow_regime_gate`` instead evaluates each candidate and emits a
+    #   ``regime_shadow_gate`` audit row (``enforced: false``); the aggregator's
+    #   decision is UNCHANGED. The backtest A/B baseline arm + shadow-only tests
+    #   reach this path by setting ``REGIME_ROUTER_DISABLED=1``.
     #
     # Exactly one of the two runs per tick so the audit log cleanly
     # partitions "would have gated" from "did gate". Both swallow all
     # failures internally so a missing policy file / bad cell cannot
     # break the tick.
-    if _regime_router_enabled():
+    if _regime_router_active():
         candidates = _hard_regime_gate(candidates)
     else:
         _shadow_regime_gate(candidates)

@@ -284,9 +284,10 @@ def test_shipped_policy_has_schema_2_and_wellformed_trend_vol():
     """The committed table ships at schema_version 2 with the Design-A
     evidence-based trend_vol OFF-cells authored from the vol-split
     (docs/research/A-vol-gating-OFFcell-design-2026-06-27.md). The cells are a
-    behavioural no-op for live orders until BOTH REGIME_ML_VERDICT_MODE=use AND
-    REGIME_ROUTER_ENABLED=true (the Tier-3 enforce flip) — this test guards the
-    shipped shape, not the live gate.
+    behavioural no-op for live orders until REGIME_ML_VERDICT_MODE=use AND the
+    regime router enforces (baseline-on since the Design-A vol-gate go-live;
+    kill-switch REGIME_ROUTER_DISABLED) — this test guards the shipped shape,
+    not the live gate.
 
     Guards: (a) schema_version 2; (b) every trend_vol leaf is a well-formed
     on/off side under trend→vol→strategy (no malformed cell); (c) the four
