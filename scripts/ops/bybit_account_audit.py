@@ -475,8 +475,8 @@ def main() -> int:
         print()
 
     if not args.no_db_check:
-        db_path = args.db or os.environ.get("TRADE_JOURNAL_DB",
-                                             "trade_journal.db")
+        from src.utils.paths import trade_journal_db_path
+        db_path = args.db or str(trade_journal_db_path())
         print("===== local-DB cross-check =====")
         cross = _db_cross_check(db_path, args.account, closed)
         if not cross.get("db_present"):

@@ -101,8 +101,15 @@ INLINE_FALLBACK_RE = re.compile(r"TRADE_JOURNAL_DB:-")
 # ---------------------------------------------------------------------------
 
 # Directories scanned for Python offenders (runtime code only — tests
-# legitimately set the env var, and scripts/ is covered by the shell scan).
-_PY_SCAN_DIRS = ("src", "ml")
+# legitimately set the env var). The shell scan covers scripts/*.sh, but the
+# operational *.py under scripts/ops were a blind spot: 13 DB-mutating scripts
+# used the `args.db or os.environ.get("TRADE_JOURNAL_DB", "trade_journal.db")`
+# CWD-relative fallback the guard exists to forbid (S-AUDIT-G Finding 1). They
+# were masked in production only because the *_action.sh wrappers export
+# TRADE_JOURNAL_DB from runtime_db_path() first — a direct run would write a
+# stray journal. scripts/ops/*.py now routes through trade_journal_db_path(),
+# and is scanned here so it can't regress.
+_PY_SCAN_DIRS = ("src", "ml", "scripts/ops")
 
 # Only the canonical resolver module may read the env var / name the
 # basename directly — it IS the single resolver.
