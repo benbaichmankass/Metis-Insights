@@ -346,3 +346,4 @@ Operator-reported failure modes + candidate fixes (to be designed, not yet built
 - `src/units/ui/data_loaders.py` (balance section ~633–950) ✅ (rest pending)
 - `src/units/accounts/clients.py` (factories ~84–168) ✅ (rest pending)
 - `deploy/ict-hourly-snapshot.{service,timer}` ✅
+- **S-AUDIT-F prop-bridge slice** — all 20 `src/prop/*.py` read in full + live wiring (`execute.py` breakout branch, `prop_risk.py`). Findings → `docs/audits/s-audit-f/prop-bridge.md`. Isolation holds (no leak into real/paper KPIs), lifecycle sound, no dead code; 1 multi-account latent bug (F1 `find_unacted_tickets` cross-account `acted_keys`, Tier-2 DRAFT), 1 docstring fix (F2a Tier-1), 2 backlog items. ✅
