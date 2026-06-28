@@ -13,10 +13,10 @@
   "active_sessions": [
     {
       "session_id": "session_01LGsKNEjcTeujEGVACSPESK",
-      "branch": "claude/full-system-audit-6h5q79",
-      "intent": "Full-system audit (bot/dashboard/android): Alpaca host-routing fix (#4916, #4929) + Workstream-D session governance + consistency/zombie sweep.",
+      "branch": "claude/audit-milestone-roadmap",
+      "intent": "M17 lead/coordination: Alpaca flagship fix (#4916/#4929, DONE), governance (#4931, DONE), zombie cleanup (#4933/#4935, DONE), M17 milestone+sprint plan (ROADMAP). Owns S-AUDIT-E (vestigial-router removal) next.",
       "started_at": "2026-06-28T08:00:00Z",
-      "updated_at": "2026-06-28T10:00:00Z"
+      "updated_at": "2026-06-28T11:30:00Z"
     },
     {
       "session_id": "session_01RahcciiUKhSCC3eP3WHTb5",
@@ -28,9 +28,10 @@
     {
       "session_id": "session_01QMJuYP4gnZKykKZLHoRv3v",
       "branch": "claude/audit-a-consistency-docdrift-owafwm",
-      "intent": "Workstream-A (consistency/doc-drift): document missing REST endpoints in CLAUDE.md table (/api/bot/devices/*, /pnl/exchange, /positions/net, /strategy/attribution, diag db_info/exchange_positions/shadow_stats/version); run canonical-doc-coherence; verify 0-orphan-call claim.",
-      "started_at": "2026-06-28T10:30:00Z",
-      "updated_at": "2026-06-28T10:30:00Z"
+      "intent": "S-AUDIT-A (Workstream-A, consistency/doc-drift): documented 8 undocumented REST endpoints + 0-orphan-call verification (PR #4936).",
+      "started_at": "2026-06-28T11:20:00Z",
+      "updated_at": "2026-06-28T11:23:00Z"
     }
-  ]
+  ],
+  "_note_unregistered": "Sessions for S-AUDIT-B (zombie/env-gate) and S-AUDIT-C (consumer wiring) were launched by the operator 2026-06-28 but have not yet self-registered here — they must add their entry at preflight per the session-coordination skill. Until they do, the live open-PR list is the authoritative signal for what they're working on."
 }
