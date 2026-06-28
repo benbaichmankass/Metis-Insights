@@ -11,8 +11,8 @@ import pytest
 
 from src.core.coordinator import OrderPackage
 from src.units.accounts.risk import RiskManager
-from src.units.accounts.account import TradingAccount, RiskBreach
-from src.units.accounts.integrator import route_order, EXCHANGE_MAP
+from src.units.accounts.account import TradingAccount
+from src.units.accounts.integrator import EXCHANGE_MAP
 from src.units.accounts import load_accounts
 
 
@@ -120,24 +120,13 @@ class TestTradingAccount:
             api_key_env="BYBIT_KEY", risk_manager=rm,
         )
 
-    def test_place_order_dry_run_returns_trade_id(self):
-        acc = self._account()
-        tid = acc.place_order(_pkg())
-        assert tid.startswith("dry-")
-
-    def test_place_order_raises_risk_breach_on_daily_loss(self):
-        acc = self._account()
-        acc.risk_manager.daily_pnl = -200.0
-        with pytest.raises(RiskBreach):
-            acc.place_order(_pkg())
-
-    def test_accounts_are_isolated(self):
-        acc1 = self._account()
-        acc2 = self._account()
-        acc1.risk_manager.daily_pnl = -200.0
-        # acc2 is unaffected
-        tid = acc2.place_order(_pkg())
-        assert tid.startswith("dry-")
+    # place_order dry-run / risk-breach / isolation tests REMOVED 2026-06-28
+    # (audit Workstream B): place_order was the dead router entry point. The
+    # risk gate it wrapped (RiskManager.approve / .evaluate) has direct
+    # coverage in TestRiskManager (above) + tests/test_s012_risk_caps.py
+    # (TestRiskManagerApprove) and the live-path RiskBreach + per-account
+    # isolation are covered by tests/test_accounts_integration.py
+    # (TestCoordinatorMultiAccountExecute.test_risk_breach_on_one_does_not_block_others).
 
     def test_status_returns_dict_with_name(self):
         acc = self._account()
@@ -152,21 +141,10 @@ class TestTradingAccount:
 # ---------------------------------------------------------------------------
 
 class TestIntegrator:
-    def _account(self, exchange="bybit"):
-        rm = RiskManager({"daily_usd": 100})
-        return TradingAccount("acc", exchange, "KEY_ENV", rm)
-
-    def test_bybit_dry_run_returns_dry_id(self):
-        tid = route_order(self._account("bybit"), _pkg())
-        assert tid.startswith("dry-bybit-")
-
-    def test_breakout_dry_run_returns_dry_id(self):
-        tid = route_order(self._account("breakout"), _pkg())
-        assert tid.startswith("dry-breakout-")
-
-    def test_unknown_exchange_raises_value_error(self):
-        with pytest.raises(ValueError, match="Unknown exchange"):
-            route_order(self._account("unknown"), _pkg())
+    # route_order() REMOVED 2026-06-28 (audit Workstream B) — the dead router,
+    # superseded by execute_pkg. The route_order dry-run / unknown-exchange
+    # tests were removed with it. EXCHANGE_MAP stays as the integration registry
+    # (consumed by the test_ltmgmt_p5_contract_ci CI guard + new-broker skill).
 
     def test_exchange_map_contains_bybit_and_breakout(self):
         assert "bybit" in EXCHANGE_MAP
@@ -216,17 +194,10 @@ class TestDryRunFlag:
         acc = self._account()
         assert acc.dry_run is True
 
-    def test_place_order_default_returns_dry_id(self):
-        acc = self._account()
-        tid = acc.place_order(_pkg())
-        assert tid.startswith("dry-")
-
-    def test_explicit_dry_run_kwarg_overrides_instance(self):
-        acc = self._account()
-        acc.dry_run = False  # instance says live
-        # but explicit kwarg says dry
-        tid = acc.place_order(_pkg(), dry_run=True)
-        assert tid.startswith("dry-")
+    # place_order-based dry-run tests REMOVED 2026-06-28 (audit Workstream B):
+    # place_order was the dead router. The dry_run FLAG itself (the live-path
+    # input to RiskManager/coordinator) is still covered by the default/status
+    # tests here.
 
     def test_status_includes_dry_run_key(self):
         acc = self._account()
