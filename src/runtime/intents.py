@@ -778,8 +778,15 @@ def _regime_ml_verdict_mode() -> str:
     Thin wrapper over ``runtime_flags._regime_ml_verdict_mode`` (env-only here;
     the intent layer has no settings dict). Default ``off`` → deploying this
     code is a behaviour no-op (no ``regime_ml_vol_shadow`` row, zero ML work).
-    ``use`` is a Phase-2 placeholder that, for this Phase-1 task, behaves like
-    ``shadow`` (emits the audit row, still uses the frozen label).
+    ``shadow`` emits the ``regime_ml_vol_shadow`` agreement row but the gate
+    keeps using the frozen label. ``use`` (Phase 2) substitutes the advisory
+    head's ML vol label into the gate DECISION via ``_decision_vol_regime``
+    (fail-permissive → frozen when the ML verdict is ``unknown``). NOTE: ``use``
+    only changes a real-money outcome when (a) an OFF cell exists for the
+    ``(trend, vol)`` pair AND (b) an *advisory* regime head covers the gated
+    strategy's ``(symbol, timeframe)`` (today only BTC 15m is advisory; the live
+    ``trend_vol`` cells are 1h/4h, so they still resolve to frozen) AND (c) the
+    hard gate is on (``REGIME_ROUTER_ENABLED``).
     """
     try:
         from src.runtime.runtime_flags import _regime_ml_verdict_mode as _mode
@@ -794,11 +801,13 @@ def _emit_ml_vol_shadow_rows(candidates: tuple) -> None:
     For each candidate, resolve the advisory head's ``vol_regime`` verdict
     (``ml_vol_regime``) and log a row comparing it against the frozen
     ``intent.vol_regime`` — ``{vol_regime_frozen, vol_regime_ml, p_volatile,
-    agree, ml_source, model_id, enforced: false}``. **Observe-only:** this never
-    touches the candidate set and never changes a gate decision — both gates
-    keep using ``intent.vol_regime`` exactly as today. Called only when the mode
-    is ``shadow`` (or the ``use`` placeholder); the ``off`` path returns before
-    this runs so the default deploy adds ZERO overhead.
+    agree, ml_source, model_id, enforced: false}``. **Observe-only:** this
+    function never touches the candidate set; it is the agreement-audit row.
+    (Under mode=``use`` the gate DECISION itself does substitute the ML label
+    via ``_decision_vol_regime`` — that substitution lives in the gate loops,
+    not here.) Called whenever the mode is not ``off`` (``shadow``/``use``); the
+    ``off`` path returns before this runs so the default deploy adds ZERO
+    overhead.
 
     Fail-permissive: any exception (per candidate or overall) is swallowed so
     the ML/audit path can never strand a signal.
@@ -842,6 +851,44 @@ def _emit_ml_vol_shadow_rows(candidates: tuple) -> None:
             continue
 
 
+def _decision_vol_regime(intent: Any, mode: str) -> tuple:
+    """Resolve the ``vol_regime`` the GATE DECISION should use for ``intent``.
+
+    Design-A Phase 2 (``use``): substitute the **advisory** regime head's live
+    ML vol label for the frozen ``intent.vol_regime`` when it resolves to a
+    concrete ``calm``/``volatile``. The evidence cells in
+    ``config/regime_policy.yaml::trend_vol`` were authored under the ML label
+    and LOSE money under the frozen label
+    (``docs/research/A-vol-gating-OFFcell-design-2026-06-27.md``), so a correct
+    enforce MUST gate on the ML label — this is the wiring that was a documented
+    placeholder before (the gate previously always used the frozen label).
+
+    Fail-permissive: any mode other than ``use``, an ML verdict of ``unknown``
+    (no advisory head for the strategy's ``(symbol, timeframe)`` — e.g. there is
+    no BTC 1h/4h advisory head today, only 15m — a cold per-bar cache, or any
+    exception) → the frozen ``intent.vol_regime`` is kept unchanged. Never
+    raises, so the decision path can't be stranded by the ML lookup.
+
+    Returns ``(effective_vol_regime, frozen_vol_regime, ml_vol_regime_or_None,
+    ml_source_or_None)`` so the caller can audit which label drove the gate.
+    """
+    frozen = getattr(intent, "vol_regime", None)
+    if mode != "use":
+        return frozen, frozen, None, None
+    try:
+        from src.runtime.regime import ml_vol_regime
+        from src.runtime.strategy_monocle import _strategy_timeframe_label
+        timeframe = _strategy_timeframe_label(intent.strategy)
+        verdict = ml_vol_regime(intent.symbol, timeframe)
+        ml = verdict.get("vol_regime")
+        source = verdict.get("source")
+        if ml in ("calm", "volatile"):
+            return ml, frozen, ml, source  # ML label drives the decision
+        return frozen, frozen, ml, source  # ML unknown → keep frozen (permissive)
+    except Exception:  # noqa: BLE001 — fail-permissive: keep the frozen label
+        return frozen, frozen, None, None
+
+
 def _shadow_regime_gate(candidates: tuple) -> None:
     """Evaluate every candidate intent against the regime policy table and
     emit a ``regime_shadow_gate`` audit row when an OFF cell WOULD have
@@ -876,14 +923,16 @@ def _shadow_regime_gate(candidates: tuple) -> None:
     if not policy:
         # Empty / missing table → no shadow rows; permissive everywhere.
         return
+    mode = _regime_ml_verdict_mode()
     for intent in candidates:
+        eff_vol, frozen_vol, ml_vol, ml_src = _decision_vol_regime(intent, mode)
         try:
             verdict = would_gate(
                 strategy=intent.strategy,
                 side=intent.side,
                 regime=intent.regime,
                 policy=policy,
-                vol_regime=intent.vol_regime,
+                vol_regime=eff_vol,
             )
         except Exception:  # noqa: BLE001
             continue
@@ -903,8 +952,14 @@ def _shadow_regime_gate(candidates: tuple) -> None:
                 "gated": trend_gated,
                 "cell": verdict.get("cell"),
                 "reason": verdict.get("reason"),
-                # Vol axis (2-D, S-MLOPT-S15b) — observe-only.
-                "vol_regime": intent.vol_regime,
+                # Vol axis (2-D, S-MLOPT-S15b). ``vol_regime`` is the label the
+                # would-gate DECISION used — the ML label under mode=use (Design-A
+                # Phase 2), else the frozen stamp. The frozen + ML labels + which
+                # drove it are kept alongside for audit.
+                "vol_regime": eff_vol,
+                "vol_regime_frozen": frozen_vol,
+                "vol_regime_ml": ml_vol,
+                "vol_label_source": "ml" if (mode == "use" and ml_vol in ("calm", "volatile")) else "frozen",
                 "vol_gated": vol_gated,
                 "vol_cell": verdict.get("vol_cell"),
                 "vol_reason": verdict.get("vol_reason"),
@@ -977,14 +1032,16 @@ def _hard_regime_gate(candidates: tuple) -> tuple:
     if not policy:
         return candidates
     kept: list = []
+    mode = _regime_ml_verdict_mode()
     for intent in candidates:
+        eff_vol, frozen_vol, ml_vol, ml_src = _decision_vol_regime(intent, mode)
         try:
             verdict = would_gate(
                 strategy=intent.strategy,
                 side=intent.side,
                 regime=intent.regime,
                 policy=policy,
-                vol_regime=intent.vol_regime,
+                vol_regime=eff_vol,
             )
         except Exception:  # noqa: BLE001
             # Fail-permissive: an unverifiable verdict keeps the intent
@@ -1010,7 +1067,12 @@ def _hard_regime_gate(candidates: tuple) -> tuple:
                 "gated": trend_gated,
                 "cell": verdict.get("cell"),
                 "reason": verdict.get("reason"),
-                "vol_regime": intent.vol_regime,
+                # ``vol_regime`` = the label the enforce DECISION used (ML under
+                # mode=use, else frozen); frozen + ML kept alongside for audit.
+                "vol_regime": eff_vol,
+                "vol_regime_frozen": frozen_vol,
+                "vol_regime_ml": ml_vol,
+                "vol_label_source": "ml" if (mode == "use" and ml_vol in ("calm", "volatile")) else "frozen",
                 "vol_gated": vol_gated,
                 "vol_cell": verdict.get("vol_cell"),
                 "vol_reason": verdict.get("vol_reason"),

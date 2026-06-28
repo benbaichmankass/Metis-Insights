@@ -1096,7 +1096,20 @@
    "resolution_criteria": "The ETH market_features daily build emits a non-zero cross_asset block, the xasset head is retrained on it, and its RG3/RG4 are re-measured (with vs without xa) for a clean A/B.",
    "status": "open",
    "snoozed_until": null
+  },
+  {
+   "id": "MB-20260628-VOLGATE-GOLIVE",
+   "opened_at": "2026-06-28T06:05:00+00:00",
+   "opened_by": "claude (Design-A vol-gate go-live wiring session)",
+   "source": "Operator approved enforcing the Design-A trend_vol OFF-cells live. Reading the code surfaced two blockers before any real-money flip: (1) REGIME_ML_VERDICT_MODE=use was a documented PLACEHOLDER (intents.py) \u2014 the gate always used the frozen vol label, never the ML label; (2) the cells gate trend_donchian (1h) + squeeze_breakout_4h (4h) but the ONLY advisory non-yz regime head is btc-regime-15m-lgbm-v2 (BTC 15m) \u2014 no BTC 1h/4h advisory head exists, so ml_vol_regime returns unknown for those timeframes. Per #4834's own evidence the cells LOSE money (-$32) under the frozen label vs +$1526 under ML \u2014 so enforcing today would ship the money-losing config.",
+   "title": "Design-A vol-gate go-live: use-substitution WIRED (2026-06-28); enforce still gated on BTC 1h/4h advisory heads",
+   "description": "DONE this session (PR pending): wired REGIME_ML_VERDICT_MODE=use to substitute the advisory head's ML vol label into the gate decision (intents._decision_vol_regime, fail-permissive -> frozen on unknown), with tests (tests/test_regime_ml_vol_use_substitution.py) + the CLAUDE.md doc-vs-code fix. Behaviour no-op on default (mode off). REMAINING go-live prerequisite chain for real-money enforce of the current 4 BTC cells: (1) promote a BTC 1h regime head to ADVISORY so trend_donchian(1h) cells resolve an ML label live \u2014 NOTE the 1h regime family is the weak-RG4 timeframe (this session: ETH 1h knife-edge RG4 0.58; BTC 1h WATCH 0.58-0.62), so the 1h head must clear RG4 robustly first (MB-20260626-001 / MB-20260627-003); (2) train + promote a BTC 4h regime head (none exists) for squeeze_breakout_4h(4h) \u2014 OR drop the 4h cell; (3) set REGIME_ML_VERDICT_MODE=use on the live VM + soak the regime_ml_vol_shadow agreement to confirm the ML label resolves live (not unknown); (4) THEN flip REGIME_ROUTER_ENABLED=true to enforce. Also: there is still no allowlisted system-action to set REGIME_ML_VERDICT_MODE / REGIME_ROUTER_ENABLED on the live VM (the #4834 env-flip gap) \u2014 add a set-env system-action or fold these into a baseline+*_DISABLED kill-switch once the heads exist. Until (1)-(4), the cells correctly fall back to frozen (no enforce); REGIME_ROUTER_ENABLED stays default-off (appropriate for an unvalidated capability, NOT a Prime-Directive violation).",
+   "tier": 3,
+   "trigger_condition": "Any session promoting a BTC 1h/4h regime head to advisory; before enabling REGIME_ROUTER_ENABLED on the live VM; next /ml-review.",
+   "resolution_criteria": "A BTC 1h (and 4h, or the 4h cell dropped) regime head is at advisory and clears RG4 robustly; REGIME_ML_VERDICT_MODE=use is live with the agreement soak confirming live ML-label resolution; REGIME_ROUTER_ENABLED=true enforces the cells on the ML label; verified via regime_hard_gate enforced:true rows on the live audit.",
+   "status": "open",
+   "snoozed_until": null
   }
  ],
- "updated_at": "2026-06-28T04:40:00+00:00"
+ "updated_at": "2026-06-28T06:05:00+00:00"
 }
