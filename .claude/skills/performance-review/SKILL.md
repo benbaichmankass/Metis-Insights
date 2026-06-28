@@ -103,9 +103,44 @@ paste anything. If the relay fails, fire `vm-web-api-recover` once
 and retry; if still failing, emit a partial review with a note —
 **never fabricate**.
 
+## Bucket records before aggregating (artifact pre-filter)
+
+Paper (and some real) records are dominated by **technical artifacts** — intent
+reduce/flip legs, netting-guard / hold-policy suppressions, reconciler closes with
+no classifiable bracket, orphan flaps, and credential/funding refusals — NOT clean
+strategy round-trips. Blending those into win-rate / expectancy makes every
+aggregate wrong (a 2026-06-26 window was 0/48 gradeable; see
+`docs/audits/order-packages-zero-qty-2026-06-26.md`). Run the pre-filter FIRST:
+
+```
+python scripts/analysis/classify_paper_records.py --limit 500 --format md   # on the VM
+# or, from a diag-relay trades dump in a sandbox:
+python scripts/analysis/classify_paper_records.py --json trades.json --reconstruct
+```
+
+It buckets each record (`src/analysis/paper_record_classifier.py`):
+
+- **A — gradeable** (clean SL/TP / monitor exit): the **only** rows that drive
+  per-strategy win-rate / expectancy below.
+- **B — technical artifact**: exclude from the scorecard; surface the
+  `by_category` counts as a *technical-health* note (route real bugs to the
+  health-review backlog), not a strategy verdict.
+- **C — reconstructable** (broker-truncated / open-at-edge, but entry+SL+TP
+  present): reconstruct the would-be SL/TP outcome from candles
+  (`src/analysis/trade_reconstruction.py`, first-touch; `--reconstruct`) →
+  `reconstructed_win` / `reconstructed_loss` / `open_at_window_end`. Keep the
+  *decision* grade (entry quality, R:R) and fold the reconstructed outcome into
+  the strategy read, flagged as reconstructed (intrabar-ambiguous ties resolve
+  pessimistically to SL by default).
+
+Report each strategy's A/B/C split so a low win-rate that is really an
+artifact-heavy record set is visible, not mistaken for a bad strategy.
+
 ## Per-strategy aggregates
 
-For each strategy with at least one decision in the window:
+Compute the aggregates below over **bucket-A rows only** (plus bucket-C
+reconstructed outcomes, flagged). For each strategy with at least one decision in
+the window:
 
 - `n_decisions` (order_packages emitted)
 - `n_filled` (linked to a non-null `trades` row)
