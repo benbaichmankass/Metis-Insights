@@ -346,3 +346,4 @@ Operator-reported failure modes + candidate fixes (to be designed, not yet built
 - `src/units/ui/data_loaders.py` (balance section ~633–950) ✅ (rest pending)
 - `src/units/accounts/clients.py` (factories ~84–168) ✅ (rest pending)
 - `deploy/ict-hourly-snapshot.{service,timer}` ✅
+- **S-AUDIT-F pipeline/runtime (non-order-path) slice** — 13 files read in full (pipeline.py, main.py, positions.py, market_data.py, heartbeat.py, regime_bar_scoring.py, news_sizing.py, exit_ladder_soak.py, regime/*). Findings -> `docs/audits/s-audit-f/pipeline-runtime.md`. No behavioural bug / dead code / zombie; 2 Tier-1 doc-drift fixes (ml_vol_verdict use-is-live; pipeline intent-layer default-on), 2 backlog items, no Tier-3. ✅
