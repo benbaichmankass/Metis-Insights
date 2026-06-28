@@ -427,6 +427,13 @@ class ModelRegistry:
             notes=current.notes,
             target_deployment_stage=current.target_deployment_stage,
             stage_history=current.stage_history,
+            # Carry the training-run history forward. RegistryEntry.runs
+            # defaults to () (field(default_factory=tuple)), so omitting it
+            # here silently WIPED every model's run history on a status
+            # transition — the cross_run_stability promotion gate
+            # (promotion/gates.py) reads entry.runs, so a promoted-then-
+            # re-evaluated model lost its stability evidence (S-AUDIT-G B1).
+            runs=current.runs,
         )
         self._write(updated)
         return updated
@@ -494,6 +501,9 @@ class ModelRegistry:
             notes=current.notes,
             target_deployment_stage=new_stage,
             stage_history=current.stage_history + (event,),
+            # Carry the training-run history forward (see set_status above) —
+            # a stage promotion must not wipe entry.runs (S-AUDIT-G B1).
+            runs=current.runs,
         )
         self._write(updated)
         return updated
