@@ -1,0 +1,85 @@
+# LightGBM regime classifier — ETHUSDT @ 5m (multi-symbol A, RG4 retrain).
+#
+# WHY THIS HEAD EXISTS: the ETH 1h regime heads (eth-regime-1h-lgbm-v1 /
+# -xasset-v1) discriminate the vol regime OFFLINE (RG3 AUC 0.70-0.73) but are
+# NO_EDGE on the LIVE logged rows (RG4 ~0.46) — they emit a near-constant high
+# P(volatile) live (min score ~0.50). That mirrors the BTC 1h head also being
+# only WATCH-tier (RG4 0.55-0.61) while the BTC 5m/15m heads pass RG4 cleanly
+# (0.72-0.82): the 1h regime family is the weak spot — too few live
+# observations (one score/hour) and a vol-biased saturated output. This head
+# ports the PROVEN BTC 5m recipe (btc-regime-5m-lgbm-v2) to ETHUSDT so the
+# finer-timeframe vol structure + far higher live-observation rate give RG4 a
+# real, discriminating sample. See docs/research/A-multisymbol-ETH-2026-06-27.md
+# + MB-20260627-003.
+#
+# Identical to btc-regime-5m-lgbm-v2 EXCEPT the symbol (ETHUSDT). Same trainer,
+# split, weighting, frozen regime spec, and market_features params (the daily
+# build uses vol_threshold=0.005 / n_vol_buckets=3 for every Bybit pair, so the
+# realized regime_label is computed the same way for ETH as for BTC).
+#
+# Registers at `shadow` like every new head → begins logging live predictions
+# immediately, which is what the RG4 live-row gate needs to score it. Advisory
+# promotion (shadow->advisory) stays operator-gated (Tier-3).
+
+manifest_version: v1
+model_id: eth-regime-5m-lgbm-v1
+description: "LightGBM regime classifier for ETHUSDT 5m bars (range vs volatile from continuous vol + log-return alongside the frozen vol bucket) — the multi-symbol-A retrain that targets the live RG4 gate the 1h head fails. Shadow context signal."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  sample_weight:
+    half_life_days: 60
+    time_column: ts
+  # Mirror btc-regime-5m-lgbm-v2: the 5m volatile label is rare (~0.5% on BTC),
+  # so a ~50x inverse-base-rate weight keeps recall non-trivial without spraying.
+  # If ETH's realized 5m base rate differs materially this is the first knob to
+  # sweep (a class_weight sweep is the documented follow-up).
+  class_weight:
+    range: 1.0
+    volatile: 50.0
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: ETHUSDT
+  timeframe: 5m
+  version: v002
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: shadow
+notes: |
+  Multi-symbol-A RG4 retrain (MB-20260627-003). Identical to
+  btc-regime-5m-lgbm-v2 except symbol=ETHUSDT. The 1h ETH heads failed RG4 live
+  (NO_EDGE, near-constant volatile output); this finer-timeframe head follows
+  the BTC heads that pass RG4 (5m/15m 0.72-0.82). RG3 (clean-candle
+  discrimination) is the in-session gate; RG4 (live-row skew) can only score it
+  after it accrues live shadow rows (a soak), so promotion is gated on a
+  post-soak RG4 >= 0.55 + operator approval. Leakage gate forbids
+  forward_log_return / forward_log_return_vol / regime_label.
