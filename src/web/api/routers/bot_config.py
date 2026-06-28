@@ -228,9 +228,10 @@ def build_config(
             "live_per_account": live_per_account,
             "note": (
                 "yaml_mode is the static config; live_per_account is the "
-                "pipeline's runtime view (Telegram /accounts dry|live "
-                "overrides land here). Empty when the pipeline hasn't "
-                "written a status snapshot yet."
+                "pipeline's runtime view (per-account mode flips via the "
+                "set-account-mode system-action land here — the only "
+                "sanctioned mode-write wire). Empty when the pipeline "
+                "hasn't written a status snapshot yet."
             ),
         },
         "accounts": accounts,

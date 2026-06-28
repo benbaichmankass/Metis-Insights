@@ -346,3 +346,4 @@ Operator-reported failure modes + candidate fixes (to be designed, not yet built
 - `src/units/ui/data_loaders.py` (balance section ~633–950) ✅ (rest pending)
 - `src/units/accounts/clients.py` (factories ~84–168) ✅ (rest pending)
 - `deploy/ict-hourly-snapshot.{service,timer}` ✅
+- **S-AUDIT-F web-api slice** — `src/web/api/main.py` + all `routers/*.py` except accounts.py/diag.py read in full → `docs/audits/s-audit-f/web-api-routers.md` (2 Tier-1 doc/comment-drift fixes; no behavioural bugs, no zombie routes). ✅

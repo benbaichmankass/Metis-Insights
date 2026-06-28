@@ -2581,7 +2581,21 @@
       "resolution_criteria": "(1) at least one regime_hard_gate vol_gated:true+vol_label_source:ml row observed (or, if none after ~1wk of enforce, a note explaining the candidate-frequency reason); (2) trader confirmed healthy post-#4920-deploy; (3) eth/sol regime shadow rows confirmed present in shadow_predictions.jsonl.",
       "status": "open",
       "updated_at": "2026-06-28T09:10:00+00:00"
+    },
+    {
+      "id": "BL-20260628-AUDITF-AUTH-LOGIN-UNDOCUMENTED",
+      "opened_at": "2026-06-28T00:00:00+00:00",
+      "opened_by": "claude (S-AUDIT-F web-api-routers slice)",
+      "source": "S-AUDIT-F line-by-line audit of src/web/api/routers/. routers/auth.py mounts POST /api/auth/login (token issuance for the session-gated /api/pnl + /api/status) but it appears in neither the 'Dashboard REST API' nor 'Diagnostic API' table in CLAUDE.md.",
+      "title": "Doc: add POST /api/auth/login to the CLAUDE.md API surface inventory (currently undocumented; the tables claim to enumerate the surface). Minor — the dashboard consumes only no-session paths so it's invisible to consumers."
+    },
+    {
+      "id": "BL-20260628-AUDITF-ML-REGISTRY-DOCSTRING-PATH",
+      "opened_at": "2026-06-28T00:00:00+00:00",
+      "opened_by": "claude (S-AUDIT-F web-api-routers slice)",
+      "source": "S-AUDIT-F audit. src/web/api/routers/training_center.py::get_registry docstring says rows come 'from ml/registry-store/registry.jsonl', but the code reads the trainer mirror path runtime_logs/trainer_mirror/registry.jsonl (_mirror_root()/'registry.jsonl'), which the module's own mirror-layout header documents correctly.",
+      "title": "Comment fix: correct the get_registry docstring path to the mirror path (field beats comment). Minor; doc-only."
     }
   ],
-  "updated_at": "2026-06-28T09:10:00+00:00"
+  "updated_at": "2026-06-28T00:00:00+00:00"
 }
