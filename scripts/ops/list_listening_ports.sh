@@ -19,7 +19,7 @@
 # inside the host — confirm it in the OCI console / via the OCI CLI separately.
 # This reports the HOST's view (what is listening + the host firewall).
 
-set -uo pipefail
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/ops/_lib.sh
@@ -50,17 +50,22 @@ timeout 8 ss -tln 2>/dev/null \
 echo
 echo "===== host firewall (best-effort; OCI security list is separate, cloud-side) ====="
 echo "--- nft ruleset ---"
-timeout 8 sudo -n nft list ruleset 2>/dev/null | head -80 \
+# `sed -n '1,Np'` (not `head -N`) reads to EOF — under `pipefail` a `head` that
+# closes early would SIGPIPE the producer and falsely trip the `|| echo`.
+timeout 8 sudo -n nft list ruleset 2>/dev/null | sed -n '1,80p' \
     || echo "(nft unavailable / not permitted — check OCI security list in the console)"
 echo "--- iptables -S ---"
-timeout 8 sudo -n iptables -S 2>/dev/null | head -60 \
+timeout 8 sudo -n iptables -S 2>/dev/null | sed -n '1,60p' \
     || echo "(iptables unavailable / not permitted)"
 
 echo
 echo "===== summary ====="
+# grep -c exits 1 on a zero count; the `|| true` keeps the substitution (and
+# thus this assignment, a simple command under `set -e`) from aborting while
+# still capturing the printed count.
 PUB_COUNT="$(timeout 8 ss -tln 2>/dev/null | awk 'NR>1 {print $4}' \
-    | grep -vcE '^(127\.|\[::1\]|::1)' || echo '?')"
-echo "public-facing listeners: ${PUB_COUNT}"
+    | grep -vcE '^(127\.|\[::1\]|::1)' || true)"
+echo "public-facing listeners: ${PUB_COUNT:-0}"
 echo "expected public set: SSH (22) + bot API (8001). Investigate anything else."
 echo "reminder: IB Gateway API (4002) MUST be loopback/private only — never public."
 
