@@ -78,11 +78,40 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
     `scripts/send_hourly_now.py` → `build_accounts_hourly_report` → `account_snapshots()`.
   - `ALPACA_API_KEY_ID(_LIVE)` / `..._SECRET_KEY(_LIVE)` ARE in
     `.github/workflows/sync-vm-secrets.yml` REQUIRED/OPTIONAL sets.
-- **Conclusion:** the symptom is NOT a missing code branch. Cause is in the
-  **live layer**: creds not present in the VM process env, `alpaca.balance()`
-  failing at runtime, or the hourly job not running. ⏳ Probes in flight:
-  issue **#4913** (`db_info` — is `balance_snapshots` populated?) and **#4914**
-  (`journalctl ict-hourly-snapshot.service` — does it run, does alpaca raise?).
+- ✅ **ROOT CAUSE CONFIRMED (live probes #4913 + #4914, 2026-06-28).** It is
+  **`alpaca_live` only** — its dedicated live keys are **rejected by
+  `api.alpaca.markets`**:
+  - `db_info` (#4913): `balance_snapshots` has **5,530 rows** — writer/table/
+    endpoint chain is healthy.
+  - hourly journal (#4914): the 08:00 accounts report shows
+    `alpaca_paper: bal $99,582.38 | API OK`,
+    `alpaca_options_paper: bal $99,582.38 | API OK`, and
+    **`alpaca_live: API ERROR`**, with four log lines
+    `alpaca balance: request is not authorized`.
+  - Verified the error source: `alpaca_client.py::balance()` line 146 logs
+    `env.get("retMsg")` = Alpaca's HTTP-error `message`. The client was
+    **constructed** (keys present — else it'd raise `MissingCredentialsError`
+    with a different message), so the keys are **present on the VM but
+    unauthorized for the live host**. The code wiring (api_key_env
+    `ALPACA_API_KEY_ID_LIVE`, `alpaca_env: live` → `api.alpaca.markets`) is
+    correct.
+  - The apps render alpaca_live as a row with no balance ("—" / API-error),
+    which is *correct* behaviour for a failed read — so "balance not showing" =
+    the live-key auth failure, NOT a UI bug.
+- ⚠️ **Sharper implication (confirming via #4917):** `balance()` and `place()`
+  share the identical auth path (`_request`, same headers/host), so if
+  `/v2/account` is unauthorized, **live orders are almost certainly failing
+  too** — i.e. `alpaca_live` (flipped real-money-live 2026-06-26) may not
+  actually be trading. The latest bot commit (#4908, "keep monitoring
+  small-ticket fills on alpaca_live until confirmed") is consistent with that
+  uncertainty. ⏳ #4917 (`journal?table=trades`) will confirm whether any
+  alpaca_live fills exist post-2026-06-26.
+- **FIX (operator hand-off — the one genuine credential hand-off):** verify /
+  regenerate the **live** Alpaca API key+secret in GitHub Actions secrets
+  (`ALPACA_API_KEY_ID_LIVE` / `ALPACA_API_SECRET_KEY_LIVE`) — they must be keys
+  generated from the *live* Alpaca account (paper keys 401 on the live host) and
+  the account must be approved/funded — then re-run `sync-vm-secrets`. No code
+  change needed.
 - ⚠️ **Note on the hourly unit:** `ict-hourly-snapshot.service` runs
   `/usr/bin/python3` (system interpreter, not the trader venv) with
   `EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env`. Verify (a) `.env` carries
