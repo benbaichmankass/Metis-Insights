@@ -45,9 +45,18 @@ def migrate_add_account_id(cur: sqlite3.Cursor) -> bool:
     return True
 
 
-# The DB lives next to telegram_query_bot.py in src/bot/
-BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "bot")
-DB_PATH = os.path.abspath(os.path.join(BASE_DIR, "trade_journal.db"))
+# Canonical trade-journal path, resolved by the single resolver
+# (env -> $DATA_DIR -> repo-root). The old "DB lives next to
+# telegram_query_bot.py in src/bot/" location is retired — canon is
+# /data/bot-data/trade_journal.db (deploy/dropins/data-dir.conf). Resolving
+# here (not a hardcoded src/bot path) prevents this operator-run-once script
+# from seeding a stray duplicate journal — the #1308 failure class the
+# canonical-db-resolver guard exists to prevent (S-AUDIT-H H-2).
+import sys  # noqa: E402
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from src.utils.paths import trade_journal_db_path  # noqa: E402
+
+DB_PATH = str(trade_journal_db_path())
 
 
 def init_db(db_path: str) -> None:
