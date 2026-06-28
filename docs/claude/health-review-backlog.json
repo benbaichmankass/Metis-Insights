@@ -2581,7 +2581,59 @@
       "resolution_criteria": "(1) at least one regime_hard_gate vol_gated:true+vol_label_source:ml row observed (or, if none after ~1wk of enforce, a note explaining the candidate-frequency reason); (2) trader confirmed healthy post-#4920-deploy; (3) eth/sol regime shadow rows confirmed present in shadow_predictions.jsonl.",
       "status": "open",
       "updated_at": "2026-06-28T09:10:00+00:00"
+    },
+    {
+      "id": "BL-20260619-MGC-REDUCE-GUARD",
+      "opened_at": "2026-06-28T13:00:00+00:00",
+      "opened_by": "claude (audit Workstream-B wrap — salvaged from stale review PRs before close)",
+      "source": "Salvaged from PR #3984 (reviews 2026-06-19) before it was closed stale (conflicted, content not on main). Original health-review finding.",
+      "title": "intent reduce/close/flip refuses IBKR-futures market_type — latent real-money gap",
+      "description": "The intent layer's reduce/close/flip path refuses an order whose account has market_type=interactive_brokers/futures (observed driving an hourly `intent_reduce_requires_derivatives` rejection cluster on the stale open MGC ib_paper orphan id 2683). Paper today, but a latent real-money gap if a futures account needs a reduce/flip. VERIFY current relevance — 9 days of reconciler/IB fixes have landed since; confirm against current order_monitor/intents before acting.",
+      "tier": 2,
+      "trigger_condition": "Next /health-review; or whenever an IBKR-futures account needs an intent-driven reduce/close/flip.",
+      "resolution_criteria": "Either the intent reduce/close/flip path handles IBKR-futures market_type, or the finding is verified obsolete (already fixed) and marked resolved with the fixing PR.",
+      "status": "open",
+      "updated_at": "2026-06-28T13:00:00+00:00"
+    },
+    {
+      "id": "BL-20260619-RELAY-INSIGHTS-GAP",
+      "opened_at": "2026-06-28T13:00:00+00:00",
+      "opened_by": "claude (audit Workstream-B wrap — salvaged from stale review PRs before close)",
+      "source": "Salvaged from PR #3984 (reviews 2026-06-19) before close.",
+      "title": "diag relay can't reach /api/bot/insights — review sessions blind to M13 analyst cache",
+      "description": "The GitHub-issue diag relay serves only /api/diag/* GET paths, so a relay-only (firewalled) review session cannot cross-check the M13 AI-analyst cache (/api/bot/insights/*) or confirm the generator is writing. Consider exposing the insights cache via a diag path or the inspect-insights system-action for relay-only sessions. VERIFY: the `inspect-insights` Tier-1 action may already cover this.",
+      "tier": 1,
+      "trigger_condition": "Next /performance-review that needs the M13 insights cross-check from a firewalled session.",
+      "resolution_criteria": "A relay-reachable path to the insights cache exists (or inspect-insights is confirmed to cover it) and the gap is closed/marked obsolete.",
+      "status": "open",
+      "updated_at": "2026-06-28T13:00:00+00:00"
+    },
+    {
+      "id": "BL-20260622-PROP-REPORT-PROSE",
+      "opened_at": "2026-06-28T13:00:00+00:00",
+      "opened_by": "claude (audit Workstream-B wrap — salvaged from stale review PRs before close)",
+      "source": "Salvaged from PR #4201 (prop-monitor-pulse doc-freshness) before close.",
+      "title": "prop-report relay validates the whole issue body as one JSON object — prose around the JSON fails",
+      "description": "The `.github/workflows/prop-report.yml` relay runs `jq -e 'type==\"object\"'` on the entire issue body, so any prose around the JSON object makes it fail (hit during the prop-monitor work; a clean JSON-only retry worked). Improve it to extract the first ```json fenced block / first {...} object from the body before validating, matching the leniency the system-action body parser has.",
+      "tier": 1,
+      "trigger_condition": "Next time a prop fill/close is reported via the issue relay, or a workflow-hardening pass.",
+      "resolution_criteria": "prop-report.yml extracts the JSON block from a mixed-prose body (or documents the JSON-only requirement clearly in the relay doc).",
+      "status": "open",
+      "updated_at": "2026-06-28T13:00:00+00:00"
+    },
+    {
+      "id": "BL-20260622-PROP-MONITOR-ANDROID",
+      "opened_at": "2026-06-28T13:00:00+00:00",
+      "opened_by": "claude (audit Workstream-B wrap — salvaged from stale review PRs before close)",
+      "source": "Salvaged from PR #4201 before close. Cross-repo (ict-trader-android) follow-up.",
+      "title": "mirror the prop_monitor event kind into Android EventKind.kt for a custom channel",
+      "description": "The bot emits a `prop_monitor` event kind (the 15-min 'still monitoring' prop pulse, src/prop/prop_monitor_pulse.py). The Android app's EventKind.kt should mirror it for a dedicated notification channel, sibling to the existing prop_fill/prop_closed handling. ict-trader-android repo change.",
+      "tier": 1,
+      "trigger_condition": "Next ict-trader-android session, or an FCM event-kind audit.",
+      "resolution_criteria": "prop_monitor is handled in ict-trader-android EventKind.kt (or consciously deferred with a note).",
+      "status": "open",
+      "updated_at": "2026-06-28T13:00:00+00:00"
     }
   ],
-  "updated_at": "2026-06-28T09:10:00+00:00"
+  "updated_at": "2026-06-28T13:00:00+00:00"
 }
