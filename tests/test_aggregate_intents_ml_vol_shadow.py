@@ -72,7 +72,7 @@ def test_mode_off_does_not_call_ml_verdict(monkeypatch):
         called["n"] += 1
         raise AssertionError("ml_vol_regime must not run when mode=off")
 
-    monkeypatch.setattr("src.runtime.regime.ml_vol_regime", _boom)
+    monkeypatch.setattr("src.runtime.regime.ml_vol_regime_for_symbol", _boom)
     captured, spy = _capture()
     with patch("src.utils.signal_audit_logger.log_signal", side_effect=spy):
         aggregate_intents([_make_intent()])
@@ -84,8 +84,8 @@ def test_mode_off_does_not_call_ml_verdict(monkeypatch):
 def test_mode_shadow_emits_ml_vol_row(monkeypatch):
     monkeypatch.setenv("REGIME_ML_VERDICT_MODE", "shadow")
     monkeypatch.setattr(
-        "src.runtime.regime.ml_vol_regime",
-        lambda symbol, timeframe, *a, **k: {
+        "src.runtime.regime.ml_vol_regime_for_symbol",
+        lambda symbol, *a, **k: {
             "vol_regime": "volatile", "p_volatile": 0.81,
             "source": "ml-advisory:btc-regime-1h-v2", "model_id": "btc-regime-1h-v2",
         },
@@ -117,8 +117,8 @@ def test_mode_shadow_emits_ml_vol_row(monkeypatch):
 def test_mode_shadow_agreement_true(monkeypatch):
     monkeypatch.setenv("REGIME_ML_VERDICT_MODE", "shadow")
     monkeypatch.setattr(
-        "src.runtime.regime.ml_vol_regime",
-        lambda symbol, timeframe, *a, **k: {
+        "src.runtime.regime.ml_vol_regime_for_symbol",
+        lambda symbol, *a, **k: {
             "vol_regime": "calm", "p_volatile": 0.2,
             "source": "ml-advisory:m", "model_id": "m",
         },
@@ -137,8 +137,8 @@ def test_mode_shadow_agreement_none_when_unknown(monkeypatch):
     """ml=unknown → agree is None (not a false mismatch)."""
     monkeypatch.setenv("REGIME_ML_VERDICT_MODE", "shadow")
     monkeypatch.setattr(
-        "src.runtime.regime.ml_vol_regime",
-        lambda symbol, timeframe, *a, **k: {
+        "src.runtime.regime.ml_vol_regime_for_symbol",
+        lambda symbol, *a, **k: {
             "vol_regime": "unknown", "p_volatile": None,
             "source": "unavailable", "model_id": None,
         },
@@ -158,10 +158,10 @@ def test_mode_shadow_agreement_none_when_unknown(monkeypatch):
 def test_ml_verdict_raises_gate_proceeds(monkeypatch):
     monkeypatch.setenv("REGIME_ML_VERDICT_MODE", "shadow")
 
-    def _boom(symbol, timeframe, *a, **k):
+    def _boom(symbol, *a, **k):
         raise RuntimeError("ml exploded")
 
-    monkeypatch.setattr("src.runtime.regime.ml_vol_regime", _boom)
+    monkeypatch.setattr("src.runtime.regime.ml_vol_regime_for_symbol", _boom)
     monkeypatch.setattr(
         "src.runtime.strategy_monocle._strategy_timeframe_label", lambda name: "1h",
     )
@@ -189,8 +189,8 @@ def test_hard_gate_emits_ml_row_and_keeps_intent(monkeypatch):
         {"trend_vol": {"trending": {"volatile": {"other": {"long": "off"}}}}},
     )
     monkeypatch.setattr(
-        "src.runtime.regime.ml_vol_regime",
-        lambda symbol, timeframe, *a, **k: {
+        "src.runtime.regime.ml_vol_regime_for_symbol",
+        lambda symbol, *a, **k: {
             "vol_regime": "volatile", "p_volatile": 0.9,
             "source": "ml-advisory:m", "model_id": "m",
         },

@@ -308,6 +308,79 @@ def ml_vol_regime(
         }
 
 
+def _advisory_entry_for_symbol(symbol: Optional[str], specs: Optional[dict]) -> Optional[dict]:
+    """Pick the SYMBOL's advisory vol head, regardless of the strategy timeframe.
+
+    The validated Design-A A/B (``scripts/backtest_system.py`` clock_tf=15m,
+    ml_model_id=btc-regime-15m-lgbm-v2) applied a SINGLE advisory head's vol
+    label to every BTC strategy cell — the vol regime is a per-SYMBOL market
+    label, not a per-strategy-timeframe one. This resolver mirrors that: among
+    the advisory heads for ``symbol`` it prefers the non-yz head (yz saturates
+    live) and, when several timeframes exist, the **15m** head (the backtest's
+    clock), else the shortest available. Returns ``None`` when the symbol has no
+    advisory head.
+    """
+    table = discover_advisory_stage_regime_specs() if specs is None else specs
+    sym = _norm(symbol)
+    if not sym:
+        return None
+    cands = [v for (s, _tf), v in table.items() if s == sym]
+    if not cands:
+        return None
+    # Prefer non-yz, then the 15m timeframe (the backtest clock), then shortest.
+    def _rank(entry: dict) -> tuple:
+        is_yz = bool(entry.get("is_yz"))
+        tf = _norm(entry.get("timeframe"))
+        prefer_15m = 0 if tf == "15M" else 1
+        # crude timeframe ordering (shorter first) for the tie-break
+        order = {"1M": 1, "5M": 5, "15M": 15, "30M": 30, "1H": 60, "2H": 120, "4H": 240, "1D": 1440}
+        return (1 if is_yz else 0, prefer_15m, order.get(tf, 9999))
+    return sorted(cands, key=_rank)[0]
+
+
+def ml_vol_regime_for_symbol(
+    symbol: Optional[str],
+    candles_df: Any = None,
+    *,
+    specs: Optional[dict] = None,
+) -> dict:
+    """Per-SYMBOL ML vol verdict — the decision-path resolver for Design-A.
+
+    Like :func:`ml_vol_regime` but resolves the advisory head by **symbol** (via
+    :func:`_advisory_entry_for_symbol`) instead of an exact ``(symbol,
+    timeframe)`` match, so a 1h/4h strategy gets the symbol's advisory vol label
+    (e.g. BTC → ``btc-regime-15m-lgbm-v2``) — matching how the validated A/B
+    gated 1h/4h cells with the single 15m head. Same fail-permissive contract:
+    no advisory head / uncomputable ``P(volatile)`` / any exception →
+    ``{"vol_regime": "unknown", ...}``.
+    """
+    out = {"vol_regime": VOL_UNKNOWN, "p_volatile": None,
+           "source": "unavailable", "model_id": None}
+    if not symbol:
+        return out
+    try:
+        entry = _advisory_entry_for_symbol(symbol, specs)
+        if entry is None:
+            return out
+        model_id = entry.get("model_id")
+        predictor = entry.get("predictor")
+        p_vol = _p_volatile_from_cache(model_id)
+        if p_vol is None and predictor is not None:
+            p_vol = _p_volatile_inline(
+                predictor, str(symbol), str(entry.get("timeframe") or ""), candles_df)
+        if p_vol is None:
+            return out
+        threshold = _ml_vol_verdict_threshold()
+        out["vol_regime"] = VOL_VOLATILE if float(p_vol) >= threshold else VOL_CALM
+        out["p_volatile"] = round(float(p_vol), 8)
+        out["model_id"] = model_id
+        out["source"] = f"ml-advisory:{model_id}" if model_id else "ml-advisory"
+        return out
+    except Exception:  # noqa: BLE001 — observability-only, never break a tick
+        return {"vol_regime": VOL_UNKNOWN, "p_volatile": None,
+                "source": "unavailable", "model_id": None}
+
+
 __all__ = [
     "VOL_CALM",
     "VOL_UNKNOWN",
@@ -315,5 +388,6 @@ __all__ = [
     "clear_ml_vol_cache",
     "discover_advisory_stage_regime_specs",
     "ml_vol_regime",
+    "ml_vol_regime_for_symbol",
     "publish_p_volatile",
 ]
