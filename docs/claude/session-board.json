@@ -31,6 +31,13 @@
       "intent": "S-AUDIT-A (Workstream-A, consistency/doc-drift): documented 8 undocumented REST endpoints + 0-orphan-call verification (PR #4936).",
       "started_at": "2026-06-28T11:20:00Z",
       "updated_at": "2026-06-28T11:23:00Z"
+    },
+    {
+      "session_id": "session_01LGsKNEjcTeujEGVACSPESK-F",
+      "branch": "claude/audit-F-order-path",
+      "intent": "S-AUDIT-F: live order path line-by-line (execute.py, order_monitor.py, coordinator.py, intents.py, risk.py) — bugs/dead-code/drift/latent-risk. Tier-1 fixes in own PRs; behavioural changes proposed as Tier-3 drafts.",
+      "started_at": "2026-06-28T13:00:00Z",
+      "updated_at": "2026-06-28T13:00:00Z"
     }
   ],
   "_note_unregistered": "Sessions for S-AUDIT-B (zombie/env-gate) and S-AUDIT-C (consumer wiring) were launched by the operator 2026-06-28 but have not yet self-registered here — they must add their entry at preflight per the session-coordination skill. Until they do, the live open-PR list is the authoritative signal for what they're working on."
