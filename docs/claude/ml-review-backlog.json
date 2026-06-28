@@ -1115,9 +1115,11 @@
    "tier": 3,
    "trigger_condition": "This session's vol-gate go-live build (A2/A3); before enabling REGIME_ROUTER_ENABLED on the live VM; next /ml-review.",
    "resolution_criteria": "Per-symbol vol-head resolution + enforce guard merged; REGIME_ML_VERDICT_MODE=use live with the agreement soak confirming the 15m label resolves for BTC 1h/4h strategies (vol_label_source=ml); REGIME_ROUTER_ENABLED=true enforcing; verified via regime_hard_gate enforced:true + vol_label_source=ml on the live audit.",
-   "status": "open",
-   "snoozed_until": null
+   "status": "in_progress",
+   "snoozed_until": null,
+   "updated_at": "2026-06-28T08:15:00+00:00",
+   "update_20260628_golive": "GO-LIVE EXECUTED 2026-06-28 ~08:06 UTC (operator-approved, Tier-3). Sequence: merged #4896 (use-wiring + per-symbol resolution + ML-only-enforce guard) -> pull-and-deploy (e0d052e, #4897) -> set-env REGIME_ML_VERDICT_MODE=use (#4898) -> SOAK PASSED (#4909: regime_ml_vol_shadow row at 07:03 shows vol_regime_ml=calm p_volatile=0.039 ml_source=ml-advisory:btc-regime-15m-lgbm-v2 for a live BTC candidate, vs vol_regime_frozen=unknown -> the per-symbol 15m resolution works live) -> set-env REGIME_ROUTER_ENABLED=true (#4910) -> trader healthy (#4911: heartbeat age 14s, ticking, no crashloop). NUANCE (#4912): REGIME_ROUTER_ENABLED was ALREADY active for the 1-D TREND router (historical regime_hard_gate enforced:true rows on htf_pullback_trend_2h, newest 06-27 19:19, all vol_gated:false) -> the set-env was idempotent and the enforce PATH is battle-tested; what activated TODAY is the 2-D VOL gate (use + per-symbol 15m label + the #4868 trend_vol cells). WATCH: no vol_gated:true + vol_label_source:ml hard-gate row observed yet (requires an infrequent BTC trend_donchian(1h)/squeeze(4h) candidate in a volatile/calm OFF cell) -- confirm the first live vol-fire on the next /ml-review. ROLLBACK: set-env REGIME_ROUTER_ENABLED=false (or REGIME_ML_VERDICT_MODE=off) + restart. OPEN FOLLOW-UPS: (a) the squeeze_breakout_4h 4h-cell was KEPT (all 4 cells, matching the validated A/B which used the 15m head for every cell); operator may drop it (15m label->4h trade, small sample -$55/30t) as a 1-line config PR. (b) GATE FRAGILITY: REGIME_ROUTER_ENABLED + REGIME_ML_VERDICT_MODE are env flags whose loss on a redeploy/migration would silently revert the gate (the POSITION_NETTING_GUARD/Ampere-migration failure class) -- baseline them (router default-on with a *_DISABLED kill-switch; use as the default label source) once soaked, per the contract-clean discussion. (c) confirm REGIME_ROUTER_ENABLED hadn't silently drifted off pre-flip (the 13h gap in regime_hard_gate rows is consistent with infrequent signals, not proof of drift)."
   }
  ],
- "updated_at": "2026-06-28T04:40:00+00:00"
+ "updated_at": "2026-06-28T08:15:00+00:00"
 }
