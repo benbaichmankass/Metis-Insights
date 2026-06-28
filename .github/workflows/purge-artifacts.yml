@@ -61,7 +61,10 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
-      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'purge-artifacts-now'))
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'purge-artifacts-now'))
     runs-on: ubuntu-latest
     # Generous timeout — the first one-shot total purge on a full
     # storage cap deletes thousands of artifacts; serial DELETEs are

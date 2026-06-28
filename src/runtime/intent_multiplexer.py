@@ -63,6 +63,8 @@ from src.runtime.strategy_signal_builders import (
     qqq_trend_long_1d_signal_builder,
     iwm_trend_long_1d_signal_builder,
     gld_pullback_1d_signal_builder,
+    slv_pullback_1d_signal_builder,
+    gdx_pullback_1d_signal_builder,
     tlt_pullback_1d_signal_builder,
     ief_pullback_1d_signal_builder,
     gld_pullback_1h_signal_builder,
@@ -193,6 +195,12 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         "iwm_trend_long_1d": iwm_trend_long_1d_signal_builder,
         "tlt_pullback_1d": tlt_pullback_1d_signal_builder,
         "ief_pullback_1d": ief_pullback_1d_signal_builder,
+        # SLV/GDX daily pullback — gold/silver-complex siblings of gld_pullback_1d,
+        # routed to alpaca_paper + alpaca_live (Tier-3 approved 2026-06-27; builders
+        # wired 2026-06-28 — they were enabled+live in YAML but had no builder, so
+        # they were inert. Sole strategy on SLV/GDX, so arbitration never fires).
+        "slv_pullback_1d": slv_pullback_1d_signal_builder,
+        "gdx_pullback_1d": gdx_pullback_1d_signal_builder,
         # Intraday ETF pilot (2026-06-20 § 0e, Tier-3) — the first INTRADAY (1h)
         # cells in the ETF family on alpaca_paper (paper money): GLD 1h
         # bidirectional pullback (gld_pullback_1d sibling) + SLV 1h

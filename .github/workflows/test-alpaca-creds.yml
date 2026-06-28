@@ -6,7 +6,15 @@ on:
 
 jobs:
   test-creds:
-    if: startsWith(github.event.issue.title, '[test-alpaca-creds]')
+    # Actor-guard: only the repo owner (or the repo's own automation) may
+    # trigger. A title gate alone is controlled by the issue author, so on a
+    # public repo ANY user could fire this live-Alpaca-secret run. AND-ed onto
+    # the title gate so it can only restrict, never widen. (Security audit
+    # 2026-06-28: docs/security/intrusion-surface-audit-2026-06-28.md.)
+    if: >-
+      (github.event.issue.user.login == github.repository_owner ||
+       github.event.issue.user.login == 'github-actions[bot]') &&
+      startsWith(github.event.issue.title, '[test-alpaca-creds]')
     runs-on: ubuntu-latest
     env:
       ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID_LIVE }}
