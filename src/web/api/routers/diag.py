@@ -143,6 +143,23 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     "ict-hourly-snapshot.timer",
     "ict-health-snapshot.service",
     "ict-health-snapshot.timer",
+    # 2026-06-28 (full-system audit Workstream B) — two recurring trader-VM
+    # timers that were installed + enabled by scripts/install_systemd_units.sh
+    # but missing from the diag allowlist, so /api/diag/services + journalctl
+    # could not report them. Both **live-verified enabled+active on the trader**
+    # via the status-check enumeration added in #4942 (system-action #4946):
+    #   - ict-devnull-guard: re-asserts /dev/null 0666 every 60s (the OCI agent
+    #     resets it to 0444, which once wedged auto-deploy for ~16h). Timer
+    #     active/waiting, service inactive/dead between fires (the normal
+    #     oneshot+timer shape — same as ict-liveness-watchdog).
+    #   - ict-shadow-log-rotate: daily rotation of shadow_predictions.jsonl. Its
+    #     unit-file header still says "disabled by default", but the installer's
+    #     enable-all-non-gateway-timers loop enables it on the trader — the probe
+    #     confirmed timer active/enabled (field beats the stale comment).
+    "ict-devnull-guard.service",
+    "ict-devnull-guard.timer",
+    "ict-shadow-log-rotate.service",
+    "ict-shadow-log-rotate.timer",
 )
 
 _ADVISORY_LOG = runtime_logs_dir() / "advisory_decisions.jsonl"
