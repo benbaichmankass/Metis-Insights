@@ -79,6 +79,9 @@ class TradingAccount:
         ib_port: Optional[int] = None,
         ib_account: Optional[str] = None,
         ib_client_id: Optional[int] = None,
+        alpaca_env: Optional[str] = None,
+        base_url: Optional[str] = None,
+        oanda_env: Optional[str] = None,
         symbols: Optional[List[str]] = None,
     ) -> None:
         self.name = name
@@ -150,6 +153,20 @@ class TradingAccount:
         self.ib_port: Optional[int] = ib_port
         self.ib_account: Optional[str] = ib_account
         self.ib_client_id: Optional[int] = ib_client_id
+        # Alpaca / OANDA host selector — paper vs live. Populated from
+        # accounts.yaml ``alpaca_env`` / ``oanda_env`` (+ optional
+        # ``base_url`` override). The coordinator + read path forward these
+        # into the account_cfg dict so ``alpaca_client_for`` /
+        # ``oanda_client_for`` dial the correct host. WITHOUT them the
+        # factories fall back to ``os.environ`` ALPACA_ENV/OANDA_ENV
+        # (default "paper"/"practice"), so a LIVE account's live key is sent
+        # to the PAPER host → "request is not authorized"
+        # (BL-20260628-ALPACA-LIVE-HOST: alpaca_live was inert since the
+        # 2026-06-26 live flip because this field was dropped on load).
+        # None for non-Alpaca/OANDA accounts.
+        self.alpaca_env: Optional[str] = alpaca_env
+        self.base_url: Optional[str] = base_url
+        self.oanda_env: Optional[str] = oanda_env
         # Instrument symbol(s) this account trades. accounts.yaml is the
         # single source of truth for "what does this account trade", which
         # the multi-symbol tick loop unions to decide which symbols to run

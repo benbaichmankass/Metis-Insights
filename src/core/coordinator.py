@@ -1121,6 +1121,15 @@ class Coordinator:
                 "ib_port": getattr(account, "ib_port", None),
                 "ib_account": getattr(account, "ib_account", None),
                 "ib_client_id": getattr(account, "ib_client_id", None),
+                # Alpaca/OANDA host selector (paper vs live) — forwarded so
+                # alpaca_client_for / oanda_client_for dial the correct host
+                # for a LIVE account. WITHOUT this a live account's live key
+                # is sent to the paper/practice host → "request is not
+                # authorized", silently 401ing every order
+                # (BL-20260628-ALPACA-LIVE-HOST). None for other exchanges.
+                "alpaca_env": getattr(account, "alpaca_env", None),
+                "base_url": getattr(account, "base_url", None),
+                "oanda_env": getattr(account, "oanda_env", None),
             }
 
             # Per-account live/dry resolution. The caller-supplied

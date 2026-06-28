@@ -106,12 +106,38 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
   small-ticket fills on alpaca_live until confirmed") is consistent with that
   uncertainty. ⏳ #4917 (`journal?table=trades`) will confirm whether any
   alpaca_live fills exist post-2026-06-26.
-- **FIX (operator hand-off — the one genuine credential hand-off):** verify /
-  regenerate the **live** Alpaca API key+secret in GitHub Actions secrets
-  (`ALPACA_API_KEY_ID_LIVE` / `ALPACA_API_SECRET_KEY_LIVE`) — they must be keys
-  generated from the *live* Alpaca account (paper keys 401 on the live host) and
-  the account must be approved/funded — then re-run `sync-vm-secrets`. No code
-  change needed.
+- ❌ **EARLIER CREDS CONCLUSION WAS WRONG.** The operator had rotated keys
+  repeatedly and confirmed the live keys work when used directly. The real
+  cause is a **wiring bug**, surfaced by the operator's "check the endpoints"
+  hint + screenshots (live key `AK…` → `api.alpaca.markets`; paper key `PK…` →
+  `paper-api.alpaca.markets`).
+- ✅ **TRUE ROOT CAUSE (verified across all three code paths) —
+  `BL-20260628-ALPACA-LIVE-HOST`:** `accounts.yaml` declares
+  `alpaca_live.alpaca_env: live`, but **none** of the three account-dict
+  builders plumbed `alpaca_env` through, so `alpaca_client_for` fell back to
+  `os.environ.get("ALPACA_ENV","paper")` = the **paper** host and sent the live
+  `AK…` key to `paper-api.alpaca.markets` → `"request is not authorized"`:
+  - `src/units/accounts/__init__.py::load_accounts` → `TradingAccount(...)`
+    never passed `alpaca_env` (and `account.py` had no such field) → order
+    ENTRY path (`coordinator.py:1199`) + close path
+    (`order_monitor.py:1221` `getattr(acc,"alpaca_env")` → None).
+  - `src/core/coordinator.py:1091` `account_cfg` dict omitted `alpaca_env`.
+  - `src/units/ui/data_loaders.py::_load_yaml_accounts` passthrough tuple
+    omitted `alpaca_env` → balance/positions READ path.
+  - **Consequence:** `alpaca_live` (flipped real-money-live 2026-06-26) was
+    **fully inert** — every order 401'd AND balance unreadable. Rotating keys
+    never had a chance (wrong host, not bad key). Confirms the 3-day chase.
+- ✅ **FIX (this branch) — plumb `alpaca_env`/`base_url`/`oanda_env` through all
+  loaders:** `account.py` (new optional fields), `accounts/__init__.py`
+  (`load_accounts` passes them), `coordinator.py` (`account_cfg` forwards them),
+  `data_loaders.py` (read-path passthrough). Regression test
+  `tests/test_alpaca_live_host_routing.py`. Verified: `alpaca_live` now resolves
+  `base_url = https://api.alpaca.markets`; paper accounts stay on the paper host.
+- ⚠️ **TIER-3 — gated on operator merge.** This change makes the real-money
+  `alpaca_live` account actually trade live (orders will reach the live host and
+  fill) for the first time. Draft PR #4916; **must NOT be merged/deployed without
+  explicit operator approval** (live promotion of a real-money account). No
+  credential change required.
 - ⚠️ **Note on the hourly unit:** `ict-hourly-snapshot.service` runs
   `/usr/bin/python3` (system interpreter, not the trader venv) with
   `EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env`. Verify (a) `.env` carries
