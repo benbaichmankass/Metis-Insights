@@ -20,12 +20,12 @@
     "note": "Heartbeat fresh (age ~21s at 03:59:46Z), label 'running'; last tick 2026-06-28T03:59:15Z. Pipeline ticking all 39 strategies; vwap correctly disabled."
    },
    "service_state": {
-    "status": "watch",
-    "note": "ict-trader-live + ict-web-api both active/running but both restarted together at 20:11:11/12Z (2nd restart in ~2 days). Pipeline 'Pipeline start' at 20:08:33Z is a CLEAN boot \u2014 no OOM/crash traceback; watchdog healthy through 19:50 (no autoheal). Consistent with an OCI host-maintenance reboot. Clean recovery."
+    "status": "ok",
+    "note": "The 20:11 restart was the ict-git-sync AUTO-DEPLOY of #4867 (committed 20:04:15Z; old trader ticked normally until 20:04:16 with no OOM/crash; both units restart together via deploy_pull_restart). Not an OCI reboot, not a crash. Clean recovery."
    },
    "reconciler_paper_artifact": {
-    "status": "concern",
-    "note": "6 of 8 paper closes hit the IDENTICAL ts 2026-06-27T19:05:48.058497Z, closeReason 'other', with impossible exit prices (SLV -9.4%, QQQ -4.5% intrabar). Reconciler mass-close producing fabricated PnL; -$845.65 paper figure is an artifact. Same path closed real-money #2995 as 'reconciler'. Filed BL-20260628-RECONCILER-PAPER-ARTIFACT (Tier-2)."
+    "status": "watch",
+    "note": "ROOT-CAUSED + FIXED. The -$845 paper figure came from the reverse reconciler adopting alpaca_options_paper us_option legs as equity `adopted_orphan` trades (entry=underlying spot) then the local-PnL sweep pricing them with the equity formula (contract_value_usd=1.0). Adopted 18:47, closed 19:05. Fixed in #4858 (account_open_positions options-aware -> no equity adoption) + #4867 (sweep options-defer guard), both live in deployed sha 5a2db1f2 since ~20:08. Post-deploy: zero new options adoptions. Residual: Tier-2 cleanup of the ~8 phantom rows + 48h verify. Real-money closes unaffected (broker-truth)."
    },
    "web_api": {
     "status": "ok",
@@ -38,11 +38,14 @@
    "diag_relay": {
     "status": "watch",
     "note": "vm-diag-snapshot burst-cancellation reproduced again this session (#4874 trades/closed CANCELLED despite cancel-in-progress:false) \u2014 BL-20260611-002 still live; required a refile."
+   },
+   "reboot_resolved": {
+    "status": "ok",
+    "note": "#4 resolved: 20:11Z restart = git-sync deploy of the options fix, not maintenance/OOM."
    }
   },
   "anomalies": [
-   "Reconciler mass-close of 6 alpaca_options_paper ETF positions at one microsecond with implausible exit prices.",
-   "Real-money ict_scalp #2995 closed by 'reconciler' rather than tp/sl."
+   "Pre-fix phantom paper PnL from options-account orphan-adoption (root-caused; fixed #4858+#4867, live ~20:08); ~8 historical rows still carry fabricated PnL pending a Tier-2 cleanup."
   ],
   "recommended_action": "Diagnose the alpaca_options_paper reconciler close-pricing (BL-20260628-RECONCILER-PAPER-ARTIFACT). Confirm 20:11Z reboot was OCI maintenance.",
   "operator_attention_required": false,
@@ -212,7 +215,7 @@
  },
  "consolidated": {
   "roll_up_grade": "caution",
-  "headline": "~16h window. REAL MONEY +$1.78 (2/2 ict_scalp_5m BTCUSDT wins in $60k chop) \u2014 the only clean trading. Paper -$845.65 is a RECONCILER ARTIFACT (6 alpaca_options_paper ETF positions mass-closed at one instant with impossible exit prices), not strategy signal. VM rebooted ~20:11Z, clean recovery. ML daily cycle green; 0 advisory models.",
+  "headline": "~16h window. REAL MONEY +$1.78 (2/2 ict_scalp_5m BTCUSDT wins in $60k chop) \u2014 the only clean trading. Paper -$845.65 was a PRE-FIX ARTIFACT: the reverse reconciler adopted alpaca_options_paper option legs as equity orphans + priced them with the equity formula. ROOT-CAUSED + already fixed (#4858+#4867, live ~20:08); the 20:11 'restart' WAS that deploy. ML daily cycle green; 0 advisory models.",
   "services": [
    {
     "unit": "ict-trader-live.service",
@@ -230,40 +233,33 @@
   "operator_priorities": [
    {
     "rank": 1,
-    "title": "Fix reconciler mass-close producing fabricated paper PnL (and touching real-money closes)",
+    "title": "Tier-2 cleanup: supersede the ~8 pre-fix phantom paper rows so they stop polluting paper KPIs",
     "source_review": "health",
     "tier": 2,
-    "detail": "BL-20260628-RECONCILER-PAPER-ARTIFACT: 6 alpaca_options_paper ETF closes at identical 19:05:48.058497Z with impossible exit prices; real #2995 closed 'reconciler'. Paper analytics untrustworthy until fixed.",
-    "operator_action_required": false
+    "detail": "Root cause FIXED in #4858+#4867 (live ~20:08). Residual: mark trades 2999-3006 (alpaca_options_paper, reconcile_status='reconciled') as 'superseded' \u2014 a live-DB writeback, operator-gated. Then verify clean over 48h.",
+    "operator_action_required": true
    },
    {
     "rank": 2,
-    "title": "Fund alpaca_live to unblock ETF live execution (carry from prior report)",
+    "title": "Fund/auth alpaca_live to unblock ETF live execution (carry from prior report)",
     "source_review": "health",
     "tier": 3,
-    "detail": "alpaca_live undercapitalized (~$150); ETF strategies only express on paper. BL-20260627-ALPACA-LIVE-API-UNAUTH also flags a real-money Alpaca key auth failure to resolve.",
+    "detail": "alpaca_live undercapitalized (~$150) + BL-20260627-ALPACA-LIVE-API-UNAUTH (real-money Alpaca key auth failure). ETF strategies only express on paper until resolved.",
     "operator_action_required": true
    },
    {
     "rank": 3,
-    "title": "Refine-or-retire the degenerate trade-outcome-winrate baseline (f1=0)",
+    "title": "Decide: retire vs re-metric the two intentionally-trivial trade-outcome demo baselines (f1=0 by design)",
     "source_review": "ml",
     "tier": 3,
-    "detail": "MB-20260623-003: predicts majority class on n=73, identical every daily retrain. Needs a non-degenerate target/dataset or retirement.",
+    "detail": "trade-outcome-winrate/global baselines are non-promotable demos; f1=0 is EXPECTED on a sub-50%-win-rate holdout. Either retire from the daily cycle or switch the headline metric to Brier/AUC + mark expected-degenerate so reviews stop re-flagging.",
     "operator_action_required": true
-   },
-   {
-    "rank": 4,
-    "title": "Confirm 20:11Z VM reboot was OCI host maintenance (2nd in ~2 days)",
-    "source_review": "health",
-    "tier": 1,
-    "detail": "Both units came up together; clean pipeline start, no crash signature, watchdog healthy. Likely maintenance reboot; confirm to rule out a recurring infra issue.",
-    "operator_action_required": false
    }
   ],
   "cross_review_notes": [
-   "The reconciler artifact spans health AND performance: it is a data-integrity bug (health) that simultaneously fabricates the entire paper P&L picture (performance) \u2014 the -$845 'loss' and the +$525/+$245 'wins' are all artifacts, so no paper-side strategy or promotion conclusion can be drawn this window.",
-   "ETF intraday cells (gld/slv/spy/qqq/tlt _1h) DO fire+fill (verified, PB-20260620-001) but route to alpaca_options_paper and are the exact positions the reconciler mishandles \u2014 the fill-verification and the artifact bug are the same code path."
+   "The paper -$845 'loss' is fully explained and already code-fixed: a reverse-reconciler orphan-adoption of options-account legs priced with the equity formula (#4858+#4867, live ~20:08). It is NOT a strategy signal and NOT an open code bug \u2014 only the historical rows need a data cleanup.",
+   "The 20:11 service restart and the options fix are the same event: ict-git-sync auto-deployed #4867 and restarted the trader. What looked like an unexplained reboot was a clean deploy.",
+   "ETF intraday cells (gld/slv/spy/qqq/tlt _1h) do fire+fill on alpaca_options_paper (verified, PB-20260620-001); pre-fix those fills were the exact positions mis-adopted \u2014 same code path, now fixed."
   ],
   "pnl_by_class": {
    "real": {
@@ -799,9 +795,9 @@
     "item_id": "BL-20260628-RECONCILER-PAPER-ARTIFACT",
     "domain": "health",
     "category": "verify",
-    "detail": "Reconciler mass-closing alpaca_options_paper ETF positions with impossible exit prices; fabricates paper PnL, touched a real-money close.",
+    "detail": "Options-account orphan-adoption + equity-pricing FIXED in #4858+#4867 (live ~20:08). Watching for zero new options adoptions; ~8 historical phantom rows pending Tier-2 cleanup.",
     "since": "2026-06-28",
-    "next_check": "clean intraday ETF exit observed (no mass-close)"
+    "next_check": "48h clean + operator OK on the supersede writeback"
    },
    {
     "item_id": "MB-20260623-003",
@@ -889,14 +885,14 @@
     {
      "soak": "trade-outcome-winrate baseline",
      "state": "stalled",
-     "detail": "Degenerate f1=0 across daily retrains \u2014 not progressing; refine-or-retire (MB-20260623-003)."
+     "detail": "Degenerate f1=0 every retrain \u2014 but EXPECTED for a trivial winrate/threshold-0.5 baseline on a sub-50%-win-rate holdout (Brier 0.145 is fine). Decision: retire from the cycle or re-metric (Tier-3), not a repair."
     }
    ],
    "flags_raised": [
-    "DATA-INTEGRITY (loud): reconciler mass-closes alpaca_options_paper ETF positions at one instant with impossible exit prices \u2014 fabricates the entire paper P&L and even touched a real-money close (#2995). Filed Tier-2 BL-20260628-RECONCILER-PAPER-ARTIFACT.",
-    "STALLED SOAK: trade-outcome-winrate-baseline-v0 degenerate (f1=0) every daily retrain \u2014 refine-or-retire (Tier-3).",
-    "CARRY-FORWARD: alpaca_live undercapitalized/key-unauth still blocks ETF live execution; 0 advisory ML models still influencing orders.",
-    "INFRA: VM rebooted ~20:11Z (2nd in ~2 days) \u2014 clean recovery, likely OCI maintenance, confirm."
+    "RESOLVED THIS FOLLOW-UP: the paper -$845 'reconciler artifact' is root-caused (options-account orphan-adoption + equity pricing) and ALREADY FIXED in #4858+#4867 (live ~20:08 06-27). Residual is a Tier-2 cleanup of ~8 historical phantom rows, not a live bug.",
+    "RESOLVED: the 20:11Z restart was the git-sync auto-deploy of #4867, not an OCI/OOM event \u2014 benign.",
+    "STALLED SOAK: trade-outcome-winrate baseline degenerate (f1=0) \u2014 but this is BY DESIGN for a trivial baseline on a sub-50%-win-rate holdout; the fix is retire-or-re-metric (Tier-3), not a model repair.",
+    "CARRY-FORWARD: alpaca_live undercapitalized/key-unauth still blocks ETF live execution; 0 advisory ML models still influencing orders."
    ],
    "backlog_drive": {
     "health": {

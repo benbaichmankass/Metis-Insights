@@ -7,14 +7,20 @@
       "opened_at": "2026-06-28T04:12:30+00:00",
       "opened_by": "claude (/system-review 2026-06-28)",
       "source": "system-review 2026-06-27 12:00Z\u21922026-06-28 04:00Z window: 6 of 8 paper closed trades on alpaca_options_paper closed at the IDENTICAL microsecond timestamp 2026-06-27T19:05:48.058497Z, all closeReason='other' (not tp/sl), with implausible exit prices \u2014 SLV exit 53.29 vs entry 58.82 (-9.4%), QQQ 704.94 vs 738.51 (-4.5%), SPY 732.14 vs 745.24 \u2014 moves that cannot occur intrabar in minutes. Two more (3001/3003) closed similarly at 18:49. Produces large fake realised PnL (+525 SLV / -537 QQQ / -262 SPY) totalling a -$845.65 paper figure that is an ARTIFACT, not strategy performance. Recurs prior-report note 'paper reconciler-artifact-heavy'.",
-      "title": "Reconciler mass-close of alpaca_options_paper ETF positions with implausible exit prices pollutes paper PnL (and touched a real-money close)",
+      "title": "Pre-fix phantom paper rows from options-account orphan-adoption (root cause FIXED in #4858+#4867; residual = data cleanup + verify)",
       "description": "The intraday ETF cells (gld/slv/spy/qqq/tlt _1h) route to alpaca_options_paper and are being closed en masse by the reconciler (closeReason 'other') at a single instant with mark prices that are wildly wrong (underlying-vs-option pricing mismatch suspected: qty is treated as shares, e.g. SLV 95 \u00d7 (58.82-53.29)=525.35, yet the exit price 53.29 is not a real SLV print). Net effects: (1) paper analytics/-/performance are contaminated by fabricated PnL \u2014 the -$845.65 window figure is meaningless; (2) the same reconciler path closed a REAL-money trade (bybit_2 ict_scalp #2995) with closeReason 'reconciler' rather than tp/sl, so the artifact mechanism is not paper-isolated. Investigate _reconcile_orphan_exchange_positions / _sweep_local_pnl_for_unpriced for alpaca_options_paper: why 6 positions read absent and were closed at one tick, and why the close-side mark price is implausible. Likely related to the options-expression overlay pricing ETF legs as the underlying.",
       "tier": 2,
       "trigger_condition": "Immediately actionable (diagnosis); fix is order-monitor/reconciler code (Tier-2).",
       "resolution_criteria": "alpaca_options_paper ETF positions close via genuine TP/SL or a correctly-priced exit (no identical-timestamp mass-closes, no impossible intrabar exit prices); paper PnL reflects real fills; real-money closes never carry an artifact 'reconciler' close with a fabricated mark.",
-      "status": "open",
+      "status": "partially-resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-06-28T04:35:00+00:00",
+          "by": "claude (/system-review follow-up 2026-06-28)",
+          "note": "ROOT-CAUSED + already fixed in code. Mechanism: alpaca_options_paper holds us_option legs for its ETF debit-vertical expressions. Pre-fix, the reverse reconciler's account_open_positions returned those legs as adoptable positions and \u2014 not recognising the account as options-expressing \u2014 adopted them as equity `adopted_orphan` trades (entry = underlying spot), which the local-PnL sweep then priced with the EQUITY formula (local_markprice x qty x contract_value_usd=1.0) -> fabricated +/-$ hundreds (the -$845 paper figure). Trades 2999-3006 were adopted 18:47-18:56 and closed 19:05:48. FIXES (both live in deployed sha 5a2db1f2 since the ~20:08 restart): #4858 (19:01Z) made account_open_positions options-aware (options account -> returns ONLY us_option, so the reconciler no longer adopts the legs as equity orphans); #4867 (20:04Z) added the _sweep_local_pnl_for_unpriced options-defer guard (account_expresses_options -> skip the equity formula). The 18:47 adoptions PREDATE the ~20:08 deploy. Post-deploy trades (3007-3014, all >=21:42Z) show ZERO new alpaca_options_paper adoptions -> fix holding. RESIDUAL (no new code): (a) verify clean over 24-48h; (b) Tier-2 DB writeback to mark the ~8 pre-fix phantom paper rows reconcile_status='superseded' so they stop polluting paper KPIs (currently 'reconciled' = still counted). Operator-gated. NOTE: real-money closes are unaffected \u2014 #3008/#2995 closed via bybit_closed_pnl (broker truth), benign."
+        }
+      ]
     },
     {
       "id": "BL-20260627-ALPACA-LIVE-API-UNAUTH",
@@ -2564,5 +2570,5 @@
       ]
     }
   ],
-  "updated_at": "2026-06-28T04:12:30+00:00"
+  "updated_at": "2026-06-28T04:35:00+00:00"
 }
