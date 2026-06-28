@@ -178,6 +178,22 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
   `ict-ib-gateway-reset` is documented as a real timer in CLAUDE.md → likely a
   diag-coverage gap, not a corpse. **Probe needed:** live `/api/diag/services`
   + the gateway VM.
+- ✅ **VERIFIED zombie — `ict-bot.service` in diag `_CANONICAL_UNITS`**
+  (`src/web/api/routers/diag.py:74`). No `deploy/ict-bot.service` exists; the
+  live trader is `ict-trader-live.service` (also in the list, confirmed active
+  in the 09:07 journal). `ict-bot.service` is the retired pre-rename trader
+  unit — a dead entry that makes `/api/diag/services` perpetually report a
+  not-found unit. **Fix:** remove it from `_CANONICAL_UNITS`. Tier-1, batch into
+  a separate audit-cleanup PR (NOT the Tier-3 Alpaca branch).
+- ✅ **VERIFIED diag coverage gaps** — `scripts/install_systemd_units.sh` globs
+  `deploy/*.service|*.timer` (line 73), so all deploy units are installed, but
+  `_CANONICAL_UNITS` omits these real recurring timers: `ict-shadow-log-rotate.
+  {service,timer}`, `ict-devnull-guard.{service,timer}` (trader VM), and
+  `ict-ib-gateway-reset.{service,timer}` (gateway VM — partly expected since
+  diag/services runs systemctl on the trader VM). `ict-smoke-once` /
+  `ict-env-check` (one-shots) + `claude-vm-runner@` (template) are correctly
+  excluded. **Fix:** add the trader-VM timers to `_CANONICAL_UNITS` (same Tier-1
+  cleanup PR); confirm gateway-VM units belong in a gateway-scoped probe.
 - 🔎 `oanda_practice` is fully shelved (mode dry_run, strategies [], creds unset
   since 2026-06-12) — documented-keep, not a zombie, but confirm the integration
   code isn't half-removed.
