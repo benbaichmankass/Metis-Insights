@@ -49,6 +49,8 @@ DOC = REPO_ROOT / "docs" / "claude" / "system-actions.md"
 EXPECTED_ACTIONS = {
     # Tier 1 — read-only / analysis
     "status-check": "status_check.sh",
+    # Read-only listening-port + host-firewall inventory (security audit 2026-06-28).
+    "list-listening-ports": "list_listening_ports.sh",
     "pull-latest-logs": "pull_logs.sh",
     # PR #1698: read-only IB Gateway container status + recent logs.
     "gateway-logs": "gateway_logs.sh",
