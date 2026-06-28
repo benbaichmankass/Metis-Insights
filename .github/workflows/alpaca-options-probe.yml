@@ -22,7 +22,14 @@ permissions:
 
 jobs:
   probe:
-    if: startsWith(github.event.issue.title, '[alpaca-options-probe]')
+    # Actor-guard: owner (or repo automation) only. A title gate alone is
+    # author-controlled — on a public repo any user could fire this live-Alpaca-
+    # secret run. AND-ed onto the title gate (restrict-only). (Security audit
+    # 2026-06-28: docs/security/intrusion-surface-audit-2026-06-28.md.)
+    if: >-
+      (github.event.issue.user.login == github.repository_owner ||
+       github.event.issue.user.login == 'github-actions[bot]') &&
+      startsWith(github.event.issue.title, '[alpaca-options-probe]')
     runs-on: ubuntu-latest
     env:
       ALPACA_KEY: ${{ secrets.ALPACA_API_KEY_ID_LIVE }}
