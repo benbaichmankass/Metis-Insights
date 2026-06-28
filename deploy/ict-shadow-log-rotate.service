@@ -1,7 +1,13 @@
 # ICT shadow-prediction audit log rotation (S-AI-WS7-FU).
 #
-# DISABLED BY DEFAULT. The operator opts in with:
-#   sudo systemctl enable --now ict-shadow-log-rotate.timer
+# ENABLED + ACTIVE on the trader VM (field beats this comment's old "disabled
+# by default" wording — corrected 2026-06-28 full-system audit). The installer's
+# auto-enable loop (scripts/install_systemd_units.sh) runs `enable --now` on every
+# deploy/*.timer that is NOT in _GATEWAY_ONLY_TIMERS — and this timer is not — so
+# it runs on the trader box with no manual opt-in. Live-verified `enabled active`
+# via system-action probe #4946; added to diag _CANONICAL_UNITS in #4947. (A
+# manual `sudo systemctl enable --now ict-shadow-log-rotate.timer` still applies
+# on a host where the installer never ran.)
 #
 # Rotates runtime_logs/shadow_predictions.jsonl when it exceeds
 # size or age thresholds. Always exits 0 — log rotation must not
