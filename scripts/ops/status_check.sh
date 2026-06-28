@@ -53,6 +53,27 @@ if [ -f /etc/systemd/system/ict-claude-bridge.service ]; then
     printf '%-32s %s (optional)\n' "ict-claude-bridge.service" "${state}"
 fi
 
+# Full enumeration of every ict-* unit systemd knows about, with its
+# active + enabled state. This closes the diag-coverage chicken-and-egg
+# (full-system audit Workstream B, 2026-06-28): the `is-active` block above
+# and `/api/diag/services` only report the hardcoded canonical set, so a
+# Claude session could NOT confirm a non-canonical unit (e.g.
+# ict-devnull-guard) is enabled+active before allowlisting it in
+# diag.py::_CANONICAL_UNITS — the relay can't query a unit until it's already
+# allowlisted. Dumping the full ict-* unit list here gives a session the live
+# observation it needs to verify-then-add. Read-only, bounded (head), never
+# affects the exit code.
+echo
+echo "===== all ict-* units (full enumeration — verify before allowlisting in diag) ====="
+echo "--- list-units (loaded; active/sub state) ---"
+timeout 8 systemctl list-units 'ict-*.service' 'ict-*.timer' --all \
+    --no-legend --no-pager 2>/dev/null | head -60 \
+    || echo "(systemctl list-units unavailable)"
+echo "--- list-unit-files (install state: enabled/disabled/masked — catches enabled-but-inactive) ---"
+timeout 8 systemctl list-unit-files 'ict-*.service' 'ict-*.timer' \
+    --no-legend --no-pager 2>/dev/null | head -60 \
+    || echo "(systemctl list-unit-files unavailable)"
+
 echo
 echo "===== heartbeat ====="
 # Resolve the heartbeat the same way the TRADER writes it. The trader runs with
