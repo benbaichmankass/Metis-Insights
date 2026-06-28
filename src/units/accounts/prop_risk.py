@@ -68,8 +68,9 @@ class PropRiskManager(RiskManager):
         ``min_daily_profit_pct``: informational; not gated here in v1.
     prop_state : dict, optional
         Live counters seeded from YAML. ``cumulative_pnl_pct``,
-        ``active_days``. Updated in-process via
-        :meth:`record_trade_result`; persistence deferred.
+        ``active_days``. Updated via :meth:`record_trade_result`, which
+        persists through to ``runtime_state/prop_state.json`` (JSON is the
+        source of truth; YAML is the fallback seed).
     overnight_restricted : bool
         When True, block new entries during the overnight window
         and on weekends (UTC).
@@ -299,7 +300,7 @@ class PropRiskManager(RiskManager):
         return super().evaluate(order)
 
     # ------------------------------------------------------------------
-    # State-update hooks (in-process; persistence deferred)
+    # State-update hooks (persist through to runtime_state/prop_state.json)
     # ------------------------------------------------------------------
 
     def record_trade_result(
