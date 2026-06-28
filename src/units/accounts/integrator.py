@@ -1,7 +1,19 @@
-"""Exchange integrator — routes orders to the correct API (S-010 PR #1).
+"""Exchange registry — the canonical set of wired exchanges (S-010 PR #1).
 
-EXCHANGE_MAP maps exchange name → API stub class.
-Live exchange clients are injected at runtime; tests use dry-run mode.
+``EXCHANGE_MAP`` maps exchange name → API stub class. It is the canonical
+registry of wired exchanges, consumed by the live-trade management-caps CI
+contract (``tests/test_ltmgmt_p5_contract_ci.py``: every ``EXCHANGE_MAP``
+integration must declare its ``EXCHANGE_MANAGEMENT_CAPS``) and by the
+``test_s028`` VWAP-regression guard (which asserts the live path never reaches
+``BybitAPI.place``).
+
+> **Note (2026-06-28 full-system audit):** the legacy ``route_order()``
+> dispatcher and ``TradingAccount.place_order()`` were REMOVED — they were a
+> vestigial router fully superseded by ``execute_pkg`` (the live per-exchange
+> path in ``src/units/accounts/execute.py``); nothing in the live path called
+> them (``coordinator.py`` documents ``account.place_order`` was dropped after
+> it raised ``NotImplementedError`` — the VWAP "0 fills" bug). The stub classes
+> + ``EXCHANGE_MAP`` are retained as the wired-exchange registry above.
 
 Supported exchanges:
   bybit     — Bybit Unified Trading (live + dry-run)
@@ -13,10 +25,7 @@ from __future__ import annotations
 
 import uuid
 import logging
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from src.units.accounts.account import TradingAccount
 from src.core.coordinator import OrderPackage
 
 logger = logging.getLogger(__name__)
@@ -53,8 +62,8 @@ class BreakoutAPI:
     ``docs/integrations/breakout-poc-manual-bridge-DESIGN.md``). So "live"
     placement here is a **ticket emission**, not an exchange call, and returns a
     ``prop-manual-<uuid>`` marker (no live position created). The canonical
-    caller is ``execute_pkg`` (breakout branch); this is kept for the
-    ``route_order`` parity path.
+    caller is ``execute_pkg`` (breakout branch); this stub is retained as the
+    ``EXCHANGE_MAP["breakout"]`` registry entry.
     """
 
     def __init__(self, api_key_env: str) -> None:
@@ -203,44 +212,9 @@ EXCHANGE_MAP: dict[str, type] = {
     "alpaca": AlpacaAPI,
 }
 
-
-# ---------------------------------------------------------------------------
-# Router
-# ---------------------------------------------------------------------------
-
-def route_order(
-    account: "TradingAccount",
-    order: OrderPackage,
-    *,
-    dry_run: bool = True,
-) -> str:
-    """Dispatch *order* to the correct exchange API for *account*.
-
-    Parameters
-    ----------
-    account : TradingAccount
-        Account whose exchange and api_key_env fields select the API class.
-    order : OrderPackage
-        Typed order from the Coordinator.
-    dry_run : bool
-        When True (default), simulate the order without live exchange calls.
-
-    Returns
-    -------
-    str
-        trade_id from the exchange API.
-
-    Raises
-    ------
-    ValueError
-        When *account.exchange* is not in EXCHANGE_MAP.
-    """
-    exchange = (account.exchange or "").lower()
-    api_class = EXCHANGE_MAP.get(exchange)
-    if api_class is None:
-        raise ValueError(
-            f"Unknown exchange '{exchange}' for account '{account.name}'. "
-            f"Supported: {list(EXCHANGE_MAP)}"
-        )
-    api = api_class(account.api_key_env)
-    return api.place(order, dry_run=dry_run)
+# NOTE (2026-06-28 full-system audit): the legacy ``route_order(account, order)``
+# dispatcher was REMOVED here, and ``TradingAccount.place_order`` with it. Both
+# were a vestigial router superseded by ``execute_pkg`` (the live per-exchange
+# path in ``src/units/accounts/execute.py``); nothing in the live path called
+# them. ``EXCHANGE_MAP`` + the stub classes above are retained as the
+# wired-exchange registry the management-caps CI contract enumerates.

@@ -11,8 +11,8 @@ import pytest
 
 from src.core.coordinator import OrderPackage
 from src.units.accounts.risk import RiskManager
-from src.units.accounts.account import TradingAccount, RiskBreach
-from src.units.accounts.integrator import route_order, EXCHANGE_MAP
+from src.units.accounts.account import TradingAccount
+from src.units.accounts.integrator import EXCHANGE_MAP
 from src.units.accounts import load_accounts
 
 
@@ -120,24 +120,22 @@ class TestTradingAccount:
             api_key_env="BYBIT_KEY", risk_manager=rm,
         )
 
-    def test_place_order_dry_run_returns_trade_id(self):
-        acc = self._account()
-        tid = acc.place_order(_pkg())
-        assert tid.startswith("dry-")
-
-    def test_place_order_raises_risk_breach_on_daily_loss(self):
+    # NOTE (2026-06-28 audit): the place_order-based tests here were removed with
+    # the vestigial TradingAccount.place_order method. The risk-gate primitive
+    # (RiskManager.approve / RiskBreach) is covered directly in
+    # tests/test_s012_risk_caps.py (TestRiskManagerApprove + TestMaxDrawdownIntraday).
+    def test_approve_rejects_on_daily_loss(self):
         acc = self._account()
         acc.risk_manager.daily_pnl = -200.0
-        with pytest.raises(RiskBreach):
-            acc.place_order(_pkg())
+        assert acc.risk_manager.approve(_pkg()) is False
 
     def test_accounts_are_isolated(self):
         acc1 = self._account()
         acc2 = self._account()
         acc1.risk_manager.daily_pnl = -200.0
-        # acc2 is unaffected
-        tid = acc2.place_order(_pkg())
-        assert tid.startswith("dry-")
+        # acc2's risk state is unaffected by acc1's breach.
+        assert acc1.risk_manager.approve(_pkg()) is False
+        assert acc2.risk_manager.approve(_pkg()) is True
 
     def test_status_returns_dict_with_name(self):
         acc = self._account()
@@ -152,22 +150,9 @@ class TestTradingAccount:
 # ---------------------------------------------------------------------------
 
 class TestIntegrator:
-    def _account(self, exchange="bybit"):
-        rm = RiskManager({"daily_usd": 100})
-        return TradingAccount("acc", exchange, "KEY_ENV", rm)
-
-    def test_bybit_dry_run_returns_dry_id(self):
-        tid = route_order(self._account("bybit"), _pkg())
-        assert tid.startswith("dry-bybit-")
-
-    def test_breakout_dry_run_returns_dry_id(self):
-        tid = route_order(self._account("breakout"), _pkg())
-        assert tid.startswith("dry-breakout-")
-
-    def test_unknown_exchange_raises_value_error(self):
-        with pytest.raises(ValueError, match="Unknown exchange"):
-            route_order(self._account("unknown"), _pkg())
-
+    # NOTE (2026-06-28 audit): the route_order() dispatch tests were removed with
+    # the vestigial integrator.route_order function. EXCHANGE_MAP is retained as
+    # the wired-exchange registry, so its membership contract is still asserted.
     def test_exchange_map_contains_bybit_and_breakout(self):
         assert "bybit" in EXCHANGE_MAP
         assert "breakout" in EXCHANGE_MAP
@@ -216,17 +201,9 @@ class TestDryRunFlag:
         acc = self._account()
         assert acc.dry_run is True
 
-    def test_place_order_default_returns_dry_id(self):
-        acc = self._account()
-        tid = acc.place_order(_pkg())
-        assert tid.startswith("dry-")
-
-    def test_explicit_dry_run_kwarg_overrides_instance(self):
-        acc = self._account()
-        acc.dry_run = False  # instance says live
-        # but explicit kwarg says dry
-        tid = acc.place_order(_pkg(), dry_run=True)
-        assert tid.startswith("dry-")
+    # NOTE (2026-06-28 audit): the place_order()-based dry-run tests were removed
+    # with the vestigial TradingAccount.place_order. The dry_run flag itself stays
+    # covered by test_default_dry_run_is_true + the status tests below.
 
     def test_status_includes_dry_run_key(self):
         acc = self._account()

@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from src.core.coordinator import OrderPackage
 from src.units.accounts.risk import RiskManager
 
 logger = logging.getLogger(__name__)
@@ -178,41 +177,13 @@ class TradingAccount:
             None if symbols is None else [str(s).strip() for s in symbols if str(s).strip()]
         )
 
-    def place_order(self, order: OrderPackage, *, dry_run: Optional[bool] = None) -> str:
-        """Risk-check and route *order* to the exchange.
-
-        Parameters
-        ----------
-        order : OrderPackage
-            The typed order from the Coordinator.
-        dry_run : bool, optional
-            Override the account-level ``self.dry_run`` flag.  When None
-            (default) the account's own ``dry_run`` attribute is used.
-
-        Returns
-        -------
-        str
-            trade_id string (``"dry-..."`` in dry-run, exchange orderId live).
-
-        Raises
-        ------
-        RiskBreach
-            When the order fails the account's risk checks.
-        """
-        effective_dry_run = self.dry_run if dry_run is None else dry_run
-
-        if not self.risk_manager.approve(order):
-            reason = (
-                "daily loss limit exceeded"
-                if self.risk_manager.daily_pnl < -self.risk_manager.max_daily_loss_usd
-                else "position size limit exceeded"
-            )
-            raise RiskBreach(
-                f"Account '{self.name}' rejected order for {order.symbol}: {reason}"
-            )
-
-        from src.units.accounts.integrator import route_order
-        return route_order(self, order, dry_run=effective_dry_run)
+    # NOTE (2026-06-28 full-system audit): ``place_order(order, dry_run=...)`` was
+    # REMOVED here. It risk-checked then dispatched via the vestigial
+    # ``integrator.route_order`` — a path fully superseded by ``execute_pkg`` (the
+    # live per-exchange path); nothing in the live trade path called it (the
+    # Coordinator runs ``risk_manager.approve`` + raises/handles ``RiskBreach``
+    # itself, then dispatches via ``execute_pkg``). ``RiskManager.approve`` +
+    # ``RiskBreach`` remain the live risk-gate primitives.
 
     def status(self) -> Dict[str, Any]:
         """Return a summary dict suitable for Telegram display."""
