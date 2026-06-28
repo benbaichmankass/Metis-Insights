@@ -1,0 +1,73 @@
+# LightGBM regime classifier — ETHUSDT @ 15m (multi-symbol A, RG4 retrain).
+#
+# Sibling of eth-regime-5m-lgbm-v1 at the 15m timeframe — ports the proven
+# btc-regime-15m-lgbm-v2 recipe to ETHUSDT. Rationale (full detail in the 5m
+# manifest header + docs/research/A-multisymbol-ETH-2026-06-27.md): the ETH 1h
+# regime heads fail the live RG4 gate (NO_EDGE, near-constant volatile output),
+# the same weak spot as the WATCH-tier BTC 1h head, while the BTC 5m/15m heads
+# pass RG4 cleanly. The finer timeframe accrues many more live shadow rows
+# (one score/15min vs one/hour) and a sharper vol structure, giving RG4 a real
+# discriminating sample.
+#
+# Identical to btc-regime-15m-lgbm-v2 EXCEPT the symbol (ETHUSDT). Registers at
+# `shadow`; advisory promotion is operator-gated (Tier-3) and gated on a
+# post-soak RG4 >= 0.55.
+
+manifest_version: v1
+model_id: eth-regime-15m-lgbm-v1
+description: "LightGBM regime classifier for ETHUSDT 15m bars (range vs volatile from continuous vol + log-return alongside the frozen vol bucket) — multi-symbol-A retrain targeting the live RG4 gate the 1h head fails. Shadow context signal."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  sample_weight:
+    half_life_days: 60
+    time_column: ts
+  # Mirror btc-regime-15m-lgbm-v2: ~28x inverse-base-rate weight (BTC 15m
+  # volatile base rate ~3.6%). First knob to sweep if ETH's realized 15m base
+  # rate differs materially.
+  class_weight:
+    range: 1.0
+    volatile: 28.0
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: ETHUSDT
+  timeframe: 15m
+  version: v002
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: shadow
+notes: |
+  Multi-symbol-A RG4 retrain (MB-20260627-003). Identical to
+  btc-regime-15m-lgbm-v2 except symbol=ETHUSDT. RG3 is the in-session gate;
+  RG4 (live-row skew) scores only after a live shadow soak, so promotion is
+  gated on a post-soak RG4 >= 0.55 + operator approval. Leakage gate forbids
+  forward_log_return / forward_log_return_vol / regime_label.

@@ -134,6 +134,20 @@ ROSTER: Dict[str, Dict[str, str]] = {
     # HTF trend-alignment gate is fed live-faithfully.
     "hf_displacement_cont": {"module": "src.units.strategies.hf_displacement_cont", "tf": "5m"},
     "hf_vwap_revert":       {"module": "src.units.strategies.hf_vwap_revert", "tf": "5m"},
+    # --- Multi-symbol-A research rosters (2026-06-27, #1) ----------------------
+    # The ETH/SOL live strategies reuse the SAME logic modules as their BTC
+    # siblings (trend_donchian_eth == trend_donchian on ETH config;
+    # eth_pullback_2h == htf_pullback_trend_2h on ETH config — verified against
+    # config/strategies.yaml). Mapped here so the harness can run a per-symbol
+    # vol-split with --symbol ETHUSDT/SOLUSDT (cells key on the live strategy
+    # NAME, so the ETH cells are authored under these *_eth names). RESEARCH
+    # ONLY; the live order path resolves these from config, not from ROSTER.
+    "trend_donchian_eth":    {"module": "src.units.strategies.trend_donchian", "tf": "1h"},
+    "trend_donchian_eth_4h": {"module": "src.units.strategies.trend_donchian", "tf": "4h"},
+    "eth_pullback_2h":       {"module": "src.units.strategies.htf_pullback_trend_2h", "tf": "2h"},
+    "trend_donchian_sol":    {"module": "src.units.strategies.trend_donchian", "tf": "1h"},
+    "trend_donchian_sol_4h": {"module": "src.units.strategies.trend_donchian", "tf": "4h"},
+    "sol_pullback_2h":       {"module": "src.units.strategies.htf_pullback_trend_2h", "tf": "2h"},
 }
 _PANDAS_TF = {"5m": "5min", "15m": "15min", "30m": "30min", "1h": "1h", "2h": "2h", "4h": "4h"}
 
@@ -212,7 +226,8 @@ def _data_fingerprint(df: pd.DataFrame) -> str:
 
 
 def generate_signal_stream(name: str, base5m: pd.DataFrame, *, start, end,
-                           overrides: dict, refresh: bool = False) -> pd.DataFrame:
+                           overrides: dict, refresh: bool = False,
+                           symbol: str = "BTCUSDT") -> pd.DataFrame:
     """Run the REAL order_package on every closed bar of the strategy's TF.
 
     Returns a frame [ts, side, entry, sl, tp, confidence, meta_json] with one
@@ -231,7 +246,7 @@ def generate_signal_stream(name: str, base5m: pd.DataFrame, *, start, end,
     order_package = _import_callable(spec["module"], "order_package")
     if order_package is None:
         raise RuntimeError(f"{name}: no order_package")
-    cfg = {"symbol": "BTCUSDT", "timeframe": spec["tf"], **_load_strategy_cfg(name), **overrides}
+    cfg = {"symbol": symbol, "timeframe": spec["tf"], **_load_strategy_cfg(name), **overrides}
     df = _resample(base5m, _PANDAS_TF[spec["tf"]])
     df = _date_filter(df, start, end)
 
@@ -553,7 +568,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                         ml_model_id: Optional[str] = None,
                         regime_router: str = "off",
                         regime_policy_path: Optional[str] = None,
-                        conviction_sizing: bool = False) -> Dict[str, Any]:
+                        conviction_sizing: bool = False,
+                        symbol: str = "BTCUSDT") -> Dict[str, Any]:
     """Drive all `roster` strategies through aggregate_intents on a shared
     account. Clock runs on `clock_tf` bars; at each tick we read each
     strategy's latest live signal (emitted within signal_ttl_bars), net them
@@ -688,7 +704,7 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
     for name in roster:
         streams[name] = generate_signal_stream(
             name, base5m, start=start, end=end,
-            overrides=overrides.get(name, {}), refresh=refresh)
+            overrides=overrides.get(name, {}), refresh=refresh, symbol=symbol)
 
     clock = _date_filter(_resample(base5m, _PANDAS_TF[clock_tf]), start, end).reset_index(drop=True)
     n = len(clock)
@@ -709,7 +725,7 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
             sig_at.setdefault(idx, {})[name] = r.to_dict()
 
     monitors = {name: _import_callable(ROSTER[name]["module"], "monitor") for name in roster}
-    cfgs = {name: {"symbol": "BTCUSDT", "timeframe": ROSTER[name]["tf"],
+    cfgs = {name: {"symbol": symbol, "timeframe": ROSTER[name]["tf"],
                    **_load_strategy_cfg(name), **overrides.get(name, {})} for name in roster}
 
     balance = initial_balance
@@ -809,16 +825,16 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
             regime_label, adx_14_val = _adx_regime_for_window(reg_win)
             if ml_resolver is not None:
                 bar_vol_regime = ml_resolver.vol_regime_for_window(
-                    reg_win, symbol="BTCUSDT", timeframe=clock_tf)
+                    reg_win, symbol=symbol, timeframe=clock_tf)
                 if bar_vol_regime is not None:
                     ev_counts["ml_vol_scored"] += 1
                 else:
                     ev_counts["ml_vol_fallback"] += 1
                     bar_vol_regime = _frozen_vol_regime_for_window(
-                        reg_win, symbol="BTCUSDT", timeframe=clock_tf)
+                        reg_win, symbol=symbol, timeframe=clock_tf)
             else:
                 bar_vol_regime = _frozen_vol_regime_for_window(
-                    reg_win, symbol="BTCUSDT", timeframe=clock_tf)
+                    reg_win, symbol=symbol, timeframe=clock_tf)
             del intents_pending  # only used as a cheap "any directional intent" guard
 
         # ---- desired net position from the REAL aggregator ----
@@ -827,7 +843,7 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
             if row["side"] not in ("long", "short"):
                 continue
             intents.append(StrategyIntent(
-                strategy=name, symbol="BTCUSDT", side=row["side"],
+                strategy=name, symbol=symbol, side=row["side"],
                 target_qty=1.0, entry=row["entry"], sl=row["sl"], tp=row["tp"],
                 confidence=row["confidence"],
                 # Stamp the regime axes the live signal builder stamps, so the
@@ -836,7 +852,7 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                 meta={"_stream": True}))
             if bar_vol_regime is not None:
                 ev_counts["intents_stamped"] += 1
-        desired = aggregate_intents(intents, symbol="BTCUSDT") if intents else None
+        desired = aggregate_intents(intents, symbol=symbol) if intents else None
         des_side = desired.side if desired is not None else "flat"
 
         # ---- reconcile: open / flip / (let monitor handle close) ----
@@ -929,7 +945,7 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
         _close(pos, c[-1], ts.iloc[-1], "eod", n - 1)
         pos = None
 
-    summary = _summarize(closed, equity_curve, base_balance=initial_balance,
+    summary = _summarize(closed, equity_curve, base_balance=initial_balance, symbol=symbol,
                          util_bars=util_bars, total_bars=n, roster=roster,
                          params={"initial_balance": initial_balance, "risk_pct": risk_pct,
                                  "daily_loss_pct": daily_loss_pct, "signal_ttl_bars": signal_ttl_bars,
@@ -1004,7 +1020,8 @@ def _unrealized(pos: Optional[_Position], price: float) -> float:
 
 
 def _summarize(closed: List[_ClosedTrade], equity_curve, *, base_balance, util_bars,
-               total_bars, roster, params, data_start, data_end) -> Dict[str, Any]:
+               total_bars, roster, params, data_start, data_end,
+               symbol: str = "BTCUSDT") -> Dict[str, Any]:
     n = len(closed)
     eq = [e for _, e in equity_curve]
     peak = base_balance
@@ -1037,7 +1054,7 @@ def _summarize(closed: List[_ClosedTrade], equity_curve, *, base_balance, util_b
         c["pnl"] = round(c["pnl"] + t.pnl, 2)
         c["wins"] += 1 if t.pnl > 0 else 0
     return {
-        "kind": "system_backtest", "symbol": "BTCUSDT", "roster": roster,
+        "kind": "system_backtest", "symbol": symbol, "roster": roster,
         "params": params, "data_start": data_start, "data_end": data_end,
         "run_date": str(date.today()), "fee_bps_roundtrip": FEE_BPS_ROUNDTRIP,
         "initial_balance": base_balance, "final_balance": round(final, 2),
@@ -1120,6 +1137,10 @@ def main(argv: List[str]) -> int:
     p = argparse.ArgumentParser(description="System/portfolio backtest — all strategies, shared account.")
     p.add_argument("--data", default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"),
                    help="5m OHLCV CSV/parquet (resampled per strategy TF internally).")
+    p.add_argument("--symbol", default="BTCUSDT",
+                   help="Symbol the roster trades + the regime head scores "
+                        "(default BTCUSDT). For multi-symbol-A: e.g. ETHUSDT with "
+                        "--data data/ETHUSDT_5m.csv --roster trend_donchian_eth,...")
     p.add_argument("--start", default=None)
     p.add_argument("--end", default=None)
     p.add_argument("--roster", default=",".join(ROSTER.keys()),
@@ -1215,7 +1236,7 @@ def main(argv: List[str]) -> int:
         vol_verdict=args.vol_verdict, ml_vol_threshold=args.ml_vol_threshold,
         ml_stage=args.ml_stage, ml_model_id=args.ml_model_id,
         regime_router=args.regime_router, regime_policy_path=args.regime_policy,
-        conviction_sizing=args.conviction_sizing)
+        conviction_sizing=args.conviction_sizing, symbol=args.symbol)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)

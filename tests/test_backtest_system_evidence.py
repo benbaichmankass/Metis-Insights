@@ -68,7 +68,8 @@ def _inject_stream(monkeypatch, *, side="long", at_bars=(3, 4), conf=0.8,
     stream = pd.DataFrame(
         rows, columns=["ts", "side", "entry", "sl", "tp", "confidence", "meta_json"])
 
-    def _fake_stream(name, base5m, *, start, end, overrides, refresh=False):
+    def _fake_stream(name, base5m, *, start, end, overrides, refresh=False,
+                     symbol="BTCUSDT"):
         if name == "trend_donchian":
             return stream
         return pd.DataFrame(
