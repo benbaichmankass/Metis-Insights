@@ -85,11 +85,21 @@ def _kill_switch_state() -> str:
 # ---------------------------------------------------------------------------
 
 def _db_path() -> str:
-    return (
-        os.environ.get("TRADE_JOURNAL_DB")
-        or os.environ.get("DB_PATH")
-        or str(Path(__file__).resolve().parents[1] / "data" / "trades.db")
-    )
+    # Self-contained resolver (stdlib only — this digest must run even when the
+    # venv/src is wedged, so it deliberately cannot import src.utils.paths).
+    # Mirrors the canonical chain trade_journal_db_path() uses: explicit env
+    # first, then $DATA_DIR/trade_journal.db (live VM: /data/bot-data), then the
+    # repo-root canonical file. NOT the old bare "data/trades.db" (wrong name +
+    # CWD-relative) which silently read off the live path → "DB unavailable"
+    # (S-AUDIT-H H-3). Allowlisted in check_canonical_db_resolver.py for the
+    # self-contained-stdlib reason (same carve-out as risk_counters.py).
+    env = os.environ.get("TRADE_JOURNAL_DB")
+    if env:
+        return env
+    data_dir = os.environ.get("DATA_DIR")
+    if data_dir:
+        return str(Path(data_dir) / "trade_journal.db")
+    return str(Path(__file__).resolve().parents[1] / "trade_journal.db")
 
 
 def _open_positions(db: str) -> str:

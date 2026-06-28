@@ -108,8 +108,13 @@ INLINE_FALLBACK_RE = re.compile(r"TRADE_JOURNAL_DB:-")
 # were masked in production only because the *_action.sh wrappers export
 # TRADE_JOURNAL_DB from runtime_db_path() first — a direct run would write a
 # stray journal. scripts/ops/*.py now routes through trade_journal_db_path(),
-# and is scanned here so it can't regress.
-_PY_SCAN_DIRS = ("src", "ml", "scripts/ops")
+# and is scanned here so it can't regress. Widened to ALL of scripts/ in
+# S-AUDIT-H (H-2/H-3): scripts/init_db.py + scripts/daily_heartbeat.py carried
+# the same non-canonical CWD-relative resolution outside scripts/ops, also
+# unseen by this guard. Both are fixed; the full scripts/ scan keeps any new
+# script honest (genuinely self-contained stdlib scripts that cannot import
+# the resolver are allowlisted below).
+_PY_SCAN_DIRS = ("src", "ml", "scripts")
 
 # Only the canonical resolver module may read the env var / name the
 # basename directly — it IS the single resolver.
@@ -123,6 +128,12 @@ _PY_ALLOWLIST = frozenset({
     # legitimately reads the env directly rather than the always-resolving
     # trade_journal_db_path(). It uses no CWD-relative fallback.
     "src/runtime/risk_counters.py",
+    # daily_heartbeat is a stdlib-only digest that must run even when the
+    # venv/src is wedged, so it deliberately does NOT import src.utils.paths.
+    # Its _db_path() mirrors the canonical env -> $DATA_DIR -> repo-root chain
+    # in stdlib (no CWD-relative bare-basename fallback). Same carve-out
+    # rationale as risk_counters.py (S-AUDIT-H H-3).
+    "scripts/daily_heartbeat.py",
 })
 
 # 1. CWD-relative bare basename used as a path value — the proven bug.
