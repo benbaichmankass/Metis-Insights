@@ -15,10 +15,13 @@ referenced in `coordinator.py` + `scripts/ops/flatten_ib_position.py` — and th
 regime-weighting design doc, which landed as
 `docs/research/regime-conditional-strategy-weighting-DESIGN.md`).
 
-**Two items existed ONLY in the now-closed PRs and are NOT on `main`.** Both are
-self-re-discovering (the next review re-observes them), but they are recorded here
-so nothing is silently dropped. A future `/ml-review` and `/health-review` should
-re-verify each against current state and fold it into the canonical backlog
+**Four items existed ONLY in the now-closed PRs and are NOT on `main`** — two found
+by this session's loss-audit (1, 2 below) and two **relayed from a concurrent
+session's closed duplicate salvage PR #4949** (3, 4 below; #4949 was closed in
+favour of this PR to avoid a `RELAY-INSIGHTS-GAP` duplicate, and its two unique
+prop items handed over). All four are self-re-discovering, but they are recorded
+here so nothing is silently dropped. A future `/ml-review` and `/health-review`
+should re-verify each against current state and fold it into the canonical backlog
 (`docs/claude/ml-review-backlog.json` / `docs/claude/health-review-backlog.json`),
 then this salvage file can be deleted.
 
@@ -38,3 +41,16 @@ limitation. **Candidate fix:** add a token-gated `/api/diag/insights` mirror (th
 same pattern already used for `/api/diag/shadow_stats`, which mirrors the
 non-diag `/api/bot/shadow/stats`). **Next `/health-review`:** decide whether to
 build the mirror or accept the gap, and re-file accordingly.
+
+## 3. `BL-20260622-PROP-REPORT-PROSE` (from #4201, relayed via closed #4949) → health-review-backlog
+`.github/workflows/prop-report.yml` validates the **entire issue body** with
+`jq -e 'type=="object"'`, so any prose around the JSON object fails (hit during
+the prop-monitor work; a JSON-only retry worked). **Candidate fix:** extract the
+first ```json fenced block / first `{...}` object before validating, matching the
+leniency of the system-action body parser. Tier-1.
+
+## 4. `BL-20260622-PROP-MONITOR-ANDROID` (from #4201, relayed via closed #4949) → health-review-backlog (cross-repo: ict-trader-android)
+The bot emits a `prop_monitor` event kind (the 15-min prop pulse,
+`src/prop/prop_monitor_pulse.py`). Mirror it into the Android app's
+`EventKind.kt` / `NotificationKinds` for a dedicated notification channel, sibling
+to `prop_fill` / `prop_closed`. Tier-1, cross-repo follow-up.
