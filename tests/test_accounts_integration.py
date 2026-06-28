@@ -1,8 +1,10 @@
 """S-010 PR #4: End-to-end integration tests for the accounts + risk layer.
 
 Tests the full data path:
-  accounts.yaml  →  load_accounts()  →  TradingAccount.place_order()
-  →  Coordinator.multi_account_execute()  →  alerts pushed
+  accounts.yaml  →  load_accounts()  →  Coordinator.multi_account_execute()
+  →  execute_pkg()  →  alerts pushed
+(The legacy TradingAccount.place_order entry point was removed 2026-06-28 —
+the live path is Coordinator.multi_account_execute → execute_pkg.)
 
 All tests are offline, dry-run only — no exchange, no network, no DB.
 """
@@ -113,55 +115,15 @@ def prop_journal(tmp_path, monkeypatch):
 
 # ---------------------------------------------------------------------------
 # Full load → place_order path
+#
+# TestAccountsYamlToPlaceOrder REMOVED 2026-06-28 (audit Workstream B):
+# TradingAccount.place_order was the dead router entry point (superseded by
+# execute_pkg, zero production callers). The live load → dispatch path + the
+# per-account RiskBreach isolation it asserted are fully covered below by
+# TestCoordinatorMultiAccountExecute (esp. test_risk_breach_on_one_does_not_block_others,
+# which drives the SAME prop-journal breach through the real
+# Coordinator.multi_account_execute path).
 # ---------------------------------------------------------------------------
-
-class TestAccountsYamlToPlaceOrder:
-    def test_all_three_accounts_execute_dry_run(self, accounts_yaml):
-        from src.units.accounts import load_accounts
-        accounts = load_accounts(accounts_yaml)
-        pkg = _pkg()
-        # dry_run=True override: accounts default to ``mode: live`` now
-        # (Autonomous live-trading rule, 2026-05-03) so place_order would
-        # otherwise hit the live BybitAPI.place NotImplementedError.
-        trade_ids = [a.place_order(pkg, dry_run=True) for a in accounts]
-        assert len(trade_ids) == 3
-        assert all(tid.startswith("dry-") for tid in trade_ids)
-
-    def test_bybit_accounts_produce_bybit_ids(self, accounts_yaml):
-        from src.units.accounts import load_accounts
-        accounts = load_accounts(accounts_yaml)
-        bybit = [a for a in accounts if a.exchange == "bybit"]
-        pkg = _pkg()
-        for acc in bybit:
-            tid = acc.place_order(pkg, dry_run=True)
-            assert tid.startswith("dry-bybit-"), f"{acc.name}: {tid}"
-
-    def test_breakout_account_produces_breakout_id(self, accounts_yaml):
-        from src.units.accounts import load_accounts
-        accounts = load_accounts(accounts_yaml)
-        prop = next(a for a in accounts if a.exchange == "breakout")
-        tid = prop.place_order(_pkg(), dry_run=True)
-        assert tid.startswith("dry-breakout-")
-
-    def test_risk_state_isolated_between_accounts(self, accounts_yaml, prop_journal):
-        from src.units.accounts import load_accounts
-        from src.units.accounts.account import RiskBreach
-        # Exhaust the prop account via real journal state (its daily-loss
-        # cap is rebuilt from the journal, so a poked-in-memory daily_pnl
-        # would be overwritten on the next gate check).
-        _seed_breach_trade(prop_journal, "prop_breakout")
-        accounts = load_accounts(accounts_yaml)
-        prop = next(a for a in accounts if a.name == "prop_breakout")
-        # The journal rebuild populated daily_pnl past the -50 cap.
-        assert prop.risk_manager.daily_pnl == pytest.approx(-200.0)
-        # Regular accounts still work
-        regular = [a for a in accounts if a.account_type == "regular"]
-        for acc in regular:
-            tid = acc.place_order(_pkg(), dry_run=True)
-            assert tid.startswith("dry-")
-        # Prop raises (approve() runs before routing regardless of dry_run)
-        with pytest.raises(RiskBreach):
-            prop.place_order(_pkg(), dry_run=True)
 
 # ---------------------------------------------------------------------------
 # Coordinator.multi_account_execute integration

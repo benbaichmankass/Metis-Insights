@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from src.core.coordinator import OrderPackage
 from src.units.accounts.risk import RiskManager
 
 logger = logging.getLogger(__name__)
@@ -178,41 +177,14 @@ class TradingAccount:
             None if symbols is None else [str(s).strip() for s in symbols if str(s).strip()]
         )
 
-    def place_order(self, order: OrderPackage, *, dry_run: Optional[bool] = None) -> str:
-        """Risk-check and route *order* to the exchange.
-
-        Parameters
-        ----------
-        order : OrderPackage
-            The typed order from the Coordinator.
-        dry_run : bool, optional
-            Override the account-level ``self.dry_run`` flag.  When None
-            (default) the account's own ``dry_run`` attribute is used.
-
-        Returns
-        -------
-        str
-            trade_id string (``"dry-..."`` in dry-run, exchange orderId live).
-
-        Raises
-        ------
-        RiskBreach
-            When the order fails the account's risk checks.
-        """
-        effective_dry_run = self.dry_run if dry_run is None else dry_run
-
-        if not self.risk_manager.approve(order):
-            reason = (
-                "daily loss limit exceeded"
-                if self.risk_manager.daily_pnl < -self.risk_manager.max_daily_loss_usd
-                else "position size limit exceeded"
-            )
-            raise RiskBreach(
-                f"Account '{self.name}' rejected order for {order.symbol}: {reason}"
-            )
-
-        from src.units.accounts.integrator import route_order
-        return route_order(self, order, dry_run=effective_dry_run)
+    # ``place_order`` REMOVED 2026-06-28 (full-system audit Workstream B,
+    # operator-approved). It was the legacy per-account dispatch entry point
+    # (risk-check → ``integrator.route_order`` → ``<Exchange>API.place``),
+    # superseded by ``execute_pkg`` and never called in production — only by
+    # the unit tests that exercised it. ``RiskManager.approve`` (the risk gate
+    # it wrapped) is now reached on the live path via ``RiskManager.evaluate``
+    # inside ``Coordinator.multi_account_execute``, which raises/catches
+    # ``RiskBreach`` (still defined above — load-bearing on the live path).
 
     def status(self) -> Dict[str, Any]:
         """Return a summary dict suitable for Telegram display."""
