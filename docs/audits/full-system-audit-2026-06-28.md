@@ -133,6 +133,18 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
   `data_loaders.py` (read-path passthrough). Regression test
   `tests/test_alpaca_live_host_routing.py`. Verified: `alpaca_live` now resolves
   `base_url = https://api.alpaca.markets`; paper accounts stay on the paper host.
+- 🔎➡️🛠 **FOLLOW-UP: a FOURTH loader was found post-deploy (verified on the live
+  VM, 09:07 trader journal `alpaca positions: request is not authorized`).**
+  #4916 fixed the three loaders feeding the balance + order-entry + close paths,
+  but the **positions reconciler** builds its own account dict via
+  `order_monitor.py::_load_account_cfgs_for_reconcile` →
+  `accounts_loader.load_accounts_dict`, and that builder also omitted
+  `alpaca_env` → `account_open_positions`'s alpaca branch kept dialling the paper
+  host for `alpaca_live`. Fix staged (add `alpaca_env`/`base_url`/`oanda_env` to
+  that dict) + regression test extended. **Held from merge** pending the other
+  session's merge-queue clearing (operator directive 2026-06-28). This is the
+  value of post-deploy live verification: the merged fix looked complete from
+  the code but the journal proved a 4th path remained.
 - ⚠️ **TIER-3 — gated on operator merge.** This change makes the real-money
   `alpaca_live` account actually trade live (orders will reach the live host and
   fill) for the first time. Draft PR #4916; **must NOT be merged/deployed without

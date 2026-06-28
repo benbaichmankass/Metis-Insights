@@ -1972,6 +1972,15 @@ def _load_account_cfgs_for_reconcile() -> Dict[str, Dict[str, Any]]:
             "ib_port": cfg.get("ib_port"),
             "ib_account": cfg.get("ib_account"),
             "ib_client_id": cfg.get("ib_client_id"),
+            # Alpaca/OANDA host selector (paper vs live) + optional base_url.
+            # Without these, account_open_positions' alpaca/oanda branch builds
+            # the client against the PAPER/practice host, so a LIVE account's
+            # live key 401s ("request is not authorized") and the reconciler
+            # can never read its positions (BL-20260628-ALPACA-LIVE-HOST — the
+            # 4th account-dict builder; the other three were fixed in #4916).
+            "alpaca_env": cfg.get("alpaca_env"),
+            "base_url": cfg.get("base_url"),
+            "oanda_env": cfg.get("oanda_env"),
         }
     return out
 

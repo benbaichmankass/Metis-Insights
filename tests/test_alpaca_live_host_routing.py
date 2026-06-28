@@ -87,6 +87,19 @@ def test_read_path_loader_carries_alpaca_env(accounts_yaml: str, monkeypatch):
     assert by_id["alpaca_live"].get("api_key_env") == "ALPACA_API_KEY_ID_LIVE"
 
 
+def test_reconciler_loader_carries_alpaca_env(accounts_yaml: str, monkeypatch):
+    """order_monitor._load_account_cfgs_for_reconcile() (the 4th account-dict
+    builder — positions reconciler) must carry alpaca_env too. Missing it was
+    why ``alpaca positions: request is not authorized`` persisted after #4916.
+    """
+    from src.config import accounts_loader as al
+    monkeypatch.setattr(al, "DEFAULT_ACCOUNTS_YAML", Path(accounts_yaml), raising=False)
+    import src.runtime.order_monitor as om
+
+    cfgs = om._load_account_cfgs_for_reconcile()
+    assert cfgs["alpaca_live"].get("alpaca_env") == "live"
+
+
 def test_alpaca_client_dials_live_host_for_live_account(accounts_yaml: str, monkeypatch):
     """End-to-end: a live-env account builds a client pointed at the live host."""
     monkeypatch.setenv("ALPACA_API_KEY_ID_LIVE", "AKTESTLIVEKEY")
