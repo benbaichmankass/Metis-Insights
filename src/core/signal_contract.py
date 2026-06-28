@@ -3,11 +3,6 @@
 SignalPackage is the canonical output of any strategy's signal-building step.
 It carries enough information for the allocator to size and route an order
 without needing to know strategy internals.
-
-NOTE: src/core/signals.py (existing) is a separate module that contains live
-runtime signal state helpers. signal_contract.py is a new typed contract layer.
-S3 must inspect signals.py before wiring SignalPackage into the pipeline to
-avoid any naming or import conflicts.
 """
 from __future__ import annotations
 

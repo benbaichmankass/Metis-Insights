@@ -56,7 +56,7 @@ def _pipeline_result_sections(
        multi_account path ran.
     4. **Why & next step** — only when status indicates a failure;
        echoes the reason string and the operator-actionable hint
-       (e.g. "/accounts live <account_name> to flip out of dry mode").
+       (e.g. the `set-account-mode` system-action to flip out of dry mode).
     """
     sections: list = []
     status = result.get("status", "unknown")
@@ -137,9 +137,9 @@ def _pipeline_result_sections(
         if reason and "account_mode_dry_run" in str(reason):
             hint_lines.append(
                 "Action: this account is in dry_run mode "
-                "(config/accounts.yaml `mode: dry_run` or runtime "
-                "/accounts dry/live override). Flip it via Telegram "
-                "/accounts live <account_name> to start live execution."
+                "(config/accounts.yaml `mode: dry_run`). Flip it via the "
+                "`set-account-mode` system-action (account=<name> mode=live) "
+                "— the only sanctioned wire — to start live execution."
             )
         sections.append(Section(
             summary=f"Why & next step — {status}",
