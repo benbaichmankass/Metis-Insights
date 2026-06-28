@@ -50,12 +50,14 @@ class AccountProfile:
             exchange = "unknown"
 
         # accounts.yaml uses mode: live | dry_run (not a bool dry_run field).
-        # Default to "live" to match the canonical executor resolver
-        # (src/units/accounts/__init__.py::_resolve_mode) — per the Prime
-        # Directive, omitting `mode` must NOT strand capability to dry
-        # (S-AUDIT-H H3-F5). This is a read-only typed view today (no order
-        # path reads it), but aligning the default removes the footgun.
-        mode = str(data.get("mode", "live")).lower()
+        # Default to "dry_run": this is a READ-ONLY typed view that no order
+        # path routes off (verified S-AUDIT-H H3-F5), so the conservative
+        # unknown->dry default is the SAFE one here (if this view were ever
+        # wired into routing, a missing mode should fail to dry, not live).
+        # The order-path's own canonical default IS "live" (the permissive
+        # Prime-Directive contract) — that lives in the executor resolver
+        # (src/units/accounts/__init__.py::_resolve_mode), not in this view.
+        mode = str(data.get("mode", "dry_run")).lower()
         dry_run = mode != "live"
 
         # demo: true means routes to Bybit demo endpoint — real trades, paper money
