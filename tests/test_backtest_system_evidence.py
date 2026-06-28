@@ -198,9 +198,12 @@ def test_regime_router_on_local_policy_drops_intents(monkeypatch, tmp_path):
     # The hard gate drops every trend_donchian intent in 'trending' → no trades.
     assert gated["total_trades"] == 0
 
-    # Env restored after the run (no leak of the in-process flag).
+    # Env restored after the run (no leak of the in-process flags). The router
+    # is baseline-on, so an `off` run sets REGIME_ROUTER_DISABLED=1 for the
+    # duration and must restore it; the `on` run sets REGIME_ROUTER_ENABLED=1.
     import os
     assert os.environ.get("REGIME_ROUTER_ENABLED") is None
+    assert os.environ.get("REGIME_ROUTER_DISABLED") is None
     assert os.environ.get("REGIME_POLICY_PATH") is None
 
 
