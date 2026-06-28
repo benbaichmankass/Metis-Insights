@@ -186,6 +186,39 @@ def test_unacted_ticket_detection(isolated_db: Path) -> None:
     assert "fresh" not in ids   # still within its window
 
 
+def test_unacted_ticket_fill_match_is_account_scoped(isolated_db: Path) -> None:
+    """A fill on account A must NOT mask an unacted ticket on account B with the
+    SAME symbol+direction (the multi-account isolation invariant).
+
+    Regression for S-AUDIT-F F1: the (symbol, direction) acted-key was built
+    without the account, so on the global scan (account_id=None) a single
+    account's fill suppressed every other account's same-symbol unacted ticket.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from src.prop import prop_journal, prop_reconcile
+
+    past = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    # Account B emitted a ticket that was never acted on (the drift we must catch).
+    prop_journal.record_ticket({
+        "ticket_id": "b-stale", "account_id": "breakout_2", "symbol": "SOLUSDT",
+        "direction": "long", "valid_until": past, "status": "emitted",
+    })
+    # Account A filled the SAME symbol+direction (its own, unlinked ticket id).
+    prop_journal.insert_fill({
+        "account_id": "breakout_1", "symbol": "SOLUSDT", "direction": "long",
+        "status": "open", "entry_price": 80.0, "qty": 1.0,
+    })
+
+    # Global scan (the expiry-prompt path) must still surface account B's ticket.
+    unacted = prop_reconcile.find_unacted_tickets(account_id=None)
+    ids = {t["ticket_id"] for t in unacted}
+    assert "b-stale" in ids, (
+        "account A's fill masked account B's unacted same-symbol ticket — the "
+        "acted-key is not account-scoped"
+    )
+
+
 # ── REST router ───────────────────────────────────────────────────────
 
 def test_router_post_report_and_reads(
