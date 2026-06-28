@@ -4180,6 +4180,10 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                         # We did NOT clear the gate — the trade is
                         # alive and the strategy keeps monitoring it.
                         auto_cleared=False,
+                        # Confirmed alive at the exchange → informational
+                        # ping, NOT the "investigate a reconciler skip"
+                        # wording (this branch never touches the trade).
+                        position_alive=True,
                     )
                     summary["alerted"] += 1
                 except Exception as exc:  # noqa: BLE001
