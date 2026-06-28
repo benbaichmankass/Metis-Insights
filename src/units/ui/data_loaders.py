@@ -260,6 +260,12 @@ def _load_yaml_accounts() -> List[Dict[str, Any]]:
             "api_key_env", "api_secret_env", "type", "risk", "market_type",
             "demo", "mode", "symbols",
             "ib_host", "ib_port", "ib_account", "ib_client_id",
+            # Alpaca/OANDA host selector (paper vs live) + optional base_url.
+            # WITHOUT these the read path (balance / open positions) builds
+            # the client against the PAPER host, so a LIVE account's live key
+            # 401s ("request is not authorized") and the dashboard/app show
+            # no balance. BL-20260628-ALPACA-LIVE-HOST.
+            "alpaca_env", "base_url", "oanda_env",
         ):
             v = item.get(k)
             if v is not None:
