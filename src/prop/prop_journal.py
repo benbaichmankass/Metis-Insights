@@ -165,8 +165,12 @@ def record_ticket(ticket: Dict[str, Any]) -> str:
 
     ``ticket`` keys: ticket_id (required), account_id (required), strategy,
     symbol, direction, side, entry, sl, tp, qty, risk_usd, signal_time,
-    valid_until, status, order_package_id, meta(dict). Idempotent on
-    ``ticket_id`` (re-emit replaces).
+    valid_until, status, order_package_id, message (the rendered ticket text),
+    meta(dict). Idempotent on ``ticket_id``: a re-emit updates ``status``,
+    ``qty``, ``valid_until`` and ``message`` (COALESCEd so a re-emit never
+    nulls a previously-captured message); the remaining columns — incl.
+    ``order_package_id`` — are NOT updated on conflict, so the first write of
+    each id is authoritative for them.
     """
     ticket_id = str(ticket.get("ticket_id") or "").strip()
     account_id = str(ticket.get("account_id") or "").strip()
