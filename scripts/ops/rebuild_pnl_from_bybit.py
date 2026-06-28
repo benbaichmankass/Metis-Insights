@@ -362,8 +362,8 @@ def main() -> int:
         print(f"error: unsupported category={category!r}", file=sys.stderr)
         return 4
 
-    db_path = args.db or os.environ.get("TRADE_JOURNAL_DB",
-                                        "trade_journal.db")
+    from src.utils.paths import trade_journal_db_path
+    db_path = args.db or str(trade_journal_db_path())
     if not os.path.exists(db_path):
         print(f"error: db not found at {db_path}", file=sys.stderr)
         return 5
