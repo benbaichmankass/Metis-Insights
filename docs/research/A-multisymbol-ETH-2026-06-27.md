@@ -133,3 +133,127 @@ multi-symbol A is NOT live-ready.** RG4 prevented a bad promotion.
    → RG4 can judge → promotion → live ETH cells (Tier-3).
 3. Single backtest pass, one alt-symbol. SOL is the next candidate (head needs
    training; data present).
+
+---
+
+# RG4 retrain session — 2026-06-28 (MB-20260627-003)
+
+Picked up the open MB-20260627-003 ("ETH head NO_EDGE live; needs retrain") and
+root-caused the offline-good / live-bad skew, then trained finer-timeframe
+replacements. The headline revises the 2026-06-27 read in two ways: the 0.46
+"NO_EDGE" was **partly an RG4 harness threshold artifact**, and the real fix is
+the **5m/15m timeframe**, not the 1h.
+
+## 1. Root cause — why the live score doesn't discriminate
+
+Pulled the EXACT logged-live feature rows from `shadow_predictions.jsonl` and
+compared them, per feature, to the training `market_features` distribution
+(`scripts/ml/_feature_parity_probe.py`, trainer-diag #4869). Both 1h heads emit
+a **near-constant high P(volatile) on live rows** — they call "volatile" on
+essentially every bar, so they cannot discriminate:
+
+| head | live rows | predicted P(volatile) mean / min | live vol_bucket |
+|---|---:|---|---|
+| eth-regime-1h-lgbm-v1 | 117 | **0.776 / 0.508** | 73% in top `vol_b2` |
+| eth-regime-1h-lgbm-xasset-v1 | 353 | **0.758 / 0.500** | balanced |
+
+Two distinct drivers:
+- **v1**: live `rolling_log_return_vol` runs **+51%** above the 5-yr training
+  mean (0.00955 vs 0.00633) and compressed, pushing 73% of live rows into the
+  top vol bucket — which the model maps to volatile. (Partly a genuinely
+  higher-vol recent window; the 1h head has too few live bars — one score/hour —
+  for the recent sample to look like the 5-yr training mix.)
+- **xasset**: `xa_breadth_up` (the cross-asset breadth feature) is **all-zeros
+  in the training dataset** (mean 0, std 0 over 43.8k rows) but **~0.45 live** —
+  the cross_asset side-stream was dead at train time, so the head trained on dead
+  peer features and sees live noise. A real, separate dataset-build bug
+  (`BL-20260628-XA-TRAINING-ZERO`).
+
+## 2. The RG4 harness threshold mismatch (recalibration)
+
+RG4 (`replay_pregate_live.py`) **defaults `vol_threshold=0.003`**, but the Bybit
+dataset build (`build_trainer_datasets.sh::build_bybit_pair`) labels
+`regime_label` at **`vol_threshold=0.005`**. RG4 must score a head against the
+SAME label definition it trained on; the 0.003 default mis-scored every Bybit
+head. Re-ran RG4 across thresholds (trainer-diag #4892/#4893):
+
+| head | rows | 0.003 | 0.004 | **0.005 (matched)** | 0.006 | 0.007 |
+|---|---:|---:|---:|---:|---:|---:|
+| eth-regime-1h-lgbm-v1 | 111 | 0.46 | 0.51 | **0.58** | 0.48 | 0.47 |
+| eth-regime-1h-lgbm-xasset-v1 | 347 | 0.46 | — | **0.51** | — | 0.46 |
+| btc-regime-1h-lgbm-v2 | 851 | 0.62 | — | **0.58** | — | — |
+| btc-regime-5m-lgbm-v2 | 11704 | 0.79 | — | **0.83** | — | — |
+| btc-regime-15m-lgbm-v2 | 2352 | 0.73 | — | **0.71** | — | — |
+
+Two honest reads:
+- **The mismatch is real** (BTC 5m shifts 0.79→0.83) and the harness should score
+  at the dataset's threshold. Logged as a tooling fix (`MB-20260628-RG4-THRESH`).
+- **But it does NOT rescue ETH 1h.** The matched-0.005 0.58 is a **knife-edge
+  spike** — every neighbouring threshold sits at 0.46–0.51 on the thin 111-row
+  sample. Contrast the BTC heads, which clear the bar robustly at BOTH thresholds
+  on much larger samples. So the corrected verdict for the ETH 1h base head is
+  **weak / borderline live, NOT live-ready** — the original "needs a better head"
+  conclusion stands; only its severity ("0.46 random") was overstated by the
+  harness threshold. The xasset head is flatly NO_EDGE at every threshold
+  (the xa bug).
+
+## 3. The fix — ETH 5m + 15m heads (the strong-timeframe path)
+
+The 1h ETH head being weak mirrors the BTC 1h head (RG4 0.58–0.62, WATCH-tier)
+while the BTC **5m/15m** heads pass robustly (0.71–0.83). The 1h regime family is
+the weak timeframe — too few live observations and a vol-saturated output. So
+trained the proven BTC 5m/15m recipe on ETH:
+
+- `eth-regime-5m-lgbm-v1` + `eth-regime-15m-lgbm-v1` (identical to
+  `btc-regime-{5m,15m}-lgbm-v2` except symbol). Built the ETH 5m/15m
+  `market_features` datasets first (525,864 / 175,272 rows, 5 yr; trainer-diag
+  #4870/#4871) and added ETH 5m/15m to the daily `build_trainer_datasets.sh` so
+  their label datasets stay fresh for the RG4 soak.
+- **RG3 (clean-candle discrimination), trainer-diag #4872/#4889:**
+
+  | head | RG3 overall AUC | verdict | recent-fold AUC | volatile base rate |
+  |---|---:|---|---:|---:|
+  | eth-regime-15m-lgbm-v1 | **0.788** | TRUSTWORTHY | 0.751 | 8.2% |
+  | eth-regime-5m-lgbm-v1 | **0.770** | TRUSTWORTHY | 0.738 | 1.5% |
+
+  Both clear RG3 decisively, in the BTC 5m/15m band (0.71–0.83). The recent-fold
+  AUC (0.74–0.75) — the closest in-session proxy for a live sample — shows they
+  discriminate on the most-recent window, unlike the constant-output 1h head.
+
+- Both register at `shadow` → they auto-wire into the live per-bar regime scorer
+  on the next registry publish (same path the ETH 1h xasset soak already uses)
+  and begin logging live shadow rows. **RG4 on the new heads is future-dated**:
+  it scores the EXACT rows the live runtime logs, and a brand-new head has none
+  until it soaks (trainer-diag #4892 confirms 0 live rows today).
+
+## 4. Deliverable + recommendation
+
+- **Honest negative for the ETH 1h heads:** the base head is weak/borderline live
+  (knife-edge RG4 0.58 at one threshold, ~0.48 at neighbours, 111 rows); the
+  xasset head is broken by a dead-cross-asset-feature training bug. **Do not
+  promote either** ETH 1h head. The 2026-06-27 in-sample A/B ($63→$2336) was run
+  on the v1 1h head and is therefore **optimistic for live** — consistent with
+  the cell-selection walk-forward's mixed 2/3-net result. Not re-run here: no ETH
+  head robustly clears RG4 in-session, so the "re-run the A/B with a GOOD head"
+  step is genuinely blocked until the 5m/15m heads soak.
+- **Positive path:** `eth-regime-{5m,15m}-lgbm-v1` are RG3-strong, register at
+  shadow, and are now soaking. Their RG4 verdict lands after they accrue live
+  rows (~days–2 wk; 5m accrues ~1 row/5 min so its RG4 sample will dwarf the 1h
+  head's 111). Expectation per the BTC analogy: they pass RG4 robustly.
+- **Next (post-soak):** RG4 the 5m/15m heads at the matched 0.005 threshold; if
+  they pass (≥0.55 robustly), re-run the ETH vol-split A/B + cell-selection
+  walk-forward using the passing head and propose advisory promotion (Tier-3,
+  operator-gated). SOL is the follow-on.
+- **Two tooling fixes filed:** `MB-20260628-RG4-THRESH` (RG4 should score at the
+  dataset's vol_threshold, not the 0.003 default) and `BL-20260628-XA-TRAINING-ZERO`
+  (the ETH 1h cross_asset side-stream is dead at train time → xasset head trained
+  on zeros).
+
+## 5. Watch item
+
+The new ETH 5m/15m heads add two `(symbol, timeframe)` groups to the live
+per-bar regime scorer on the 2-core money VM (5m scores ~1×/5 min). Bounded by
+the existing `REGIME_BAR_SCORING_BUDGET_S` + fetch-gate, and ETH candles are
+already fetched for the live ETH strategies, so the increment is modest — but
+watch the live heartbeat / CPU over the first cycles (cf. the 2026-06-09/10
+per-bar-scorer wedges, `MB-20260618-XA-SOAK-WATCH`).
