@@ -16,7 +16,7 @@ ops-tooling, or doc-drift.
 |----|-------|------|--------|
 | **B1** | `ml/registry/model_registry.py` `promote()`/`promote_stage()` rebuilt `RegistryEntry` without `runs=`, wiping training-run history (the `cross_run_stability` gate reads it). | 2 (trainer) | **FIXED** — PR #4958 |
 | **F1** | 13 `scripts/ops/*.py` used the CWD-relative `os.environ.get("TRADE_JOURNAL_DB","trade_journal.db")` fallback the canonical-db-resolver guard forbids; the guard didn't scan `scripts/ops`. | 1/2 (ops) | **FIXED** — PR #4959 |
-| **bybit_2 sizing freeze** | `risk.py` `_DEFAULT_MIN_QTY=0.001` bump pins real-money `bybit_2` at `intent_noop:at_target` (the live bug PR #3910 Piece-2 targeted; never landed). | **3 (real money)** | **DEFERRED** — needs a fresh PR + operator approval + walk-forward (`BL-20260617-SIZEFLOOR`). |
+| **bybit_2 sizing freeze** | `risk.py` `_DEFAULT_MIN_QTY=0.001` bump pins real-money `bybit_2` at `intent_noop:at_target` (the live bug PR #3910 Piece-2 targeted; never landed). | **3 (real money)** | **ACCEPTED / WON'T-FIX** — operator decision 2026-06-28: a ~$100 account sitting idle is fine; the risk-faithful refloor was never a wanted improvement, so leave it. NOT a bug to re-flag. (Reopen only if bybit_2 is funded enough that its risk % buys ≥ one min-lot and we want it trading.) |
 
 `B2` (low-magnitude `vol_bucket` quantile leak mislabelled `PASSED` in
 `ml/datasets/families/setup_candidates.py`) — deferred to the ml-review backlog
@@ -28,8 +28,8 @@ ops-tooling, or doc-drift.
 |------|-------------|
 | `ml/src/` + `ml/config/` (singular) — prototype island, broken import (`src.strategies_manager` gone), zero callers | **REMOVED** (this PR) |
 | `src/bot/recurring_dispatch.py` — `log_trigger`/`build_starter_prompt`/`_STARTER_PROMPTS`/`VALID_SESSION_TYPES` for the retired `/audit`,`/train_model` commands | **DEFERRED** — needs care (`render_roadmap_summary` shares the module); backlog. |
-| tailscale-funnel system-action (`scripts/ops/setup_tailscale_funnel.sh` + allowlist) points at the retired Vercel `vercel.json` | **DEFERRED** — governance decision (removes a dispatchable action); awaiting operator. |
-| `ml/predictors/external.py` `ExternalPredictor` — unused scaffold, no concrete subclass | **DEFERRED** — keep-vs-cull decision; awaiting operator. |
+| tailscale-funnel system-action (`scripts/ops/setup_tailscale_funnel.sh` + allowlist) points at the retired Vercel `vercel.json` | **REMOVED** — PR #4961 (operator-directed 2026-06-28). |
+| `ml/predictors/external.py` `ExternalPredictor` — unused scaffold, no concrete subclass | **REMOVED** — PR #4961 (operator-directed 2026-06-28). |
 
 ## Doc-drift fixed in this PR
 
