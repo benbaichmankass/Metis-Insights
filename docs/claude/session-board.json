@@ -17,6 +17,13 @@
       "intent": "Full-system audit (bot/dashboard/android): Alpaca host-routing fix (#4916, #4929) + Workstream-D session governance + consistency/zombie sweep.",
       "started_at": "2026-06-28T08:00:00Z",
       "updated_at": "2026-06-28T10:00:00Z"
+    },
+    {
+      "session_id": "session_01EHkF94b1cSZ9gTfGFkysZH",
+      "branch": "claude/audit-B-zombie-bot",
+      "intent": "Workstream-B completion: re-derive env-gate inventory from os.environ call sites (no Prime-Directive violation; NEWS_VETO_ENABLED on-by-omission is benign default-ON); refine diag-coverage finding B (installer auto-enables shadow-log-rotate on the trader → its 'DISABLED BY DEFAULT' header is stale); confirm oanda_practice cleanly shelved; present vestigial EXCHANGE_MAP/route_order/place_order disposition to operator.",
+      "started_at": "2026-06-28T10:30:00Z",
+      "updated_at": "2026-06-28T10:30:00Z"
     }
   ]
 }

@@ -2581,7 +2581,33 @@
       "resolution_criteria": "(1) at least one regime_hard_gate vol_gated:true+vol_label_source:ml row observed (or, if none after ~1wk of enforce, a note explaining the candidate-frequency reason); (2) trader confirmed healthy post-#4920-deploy; (3) eth/sol regime shadow rows confirmed present in shadow_predictions.jsonl.",
       "status": "open",
       "updated_at": "2026-06-28T09:10:00+00:00"
+    },
+    {
+      "id": "BL-20260628-DIAG-DEVNULL-SHADOWROT",
+      "opened_at": "2026-06-28T11:00:00+00:00",
+      "opened_by": "claude (full-system-audit Workstream-B / session 01EHkF — diag _CANONICAL_UNITS coverage)",
+      "source": "Workstream-B diag-coverage refinement. scripts/install_systemd_units.sh:307-390 auto-`enable --now`s every deploy/*.timer on the trader except the two gateway-only ib-gateway timers, so ict-devnull-guard.{service,timer} and ict-shadow-log-rotate.{service,timer} are auto-enabled on the trader (the shadow-log-rotate 'DISABLED BY DEFAULT' unit-header was stale — fixed this branch). Both are missing from diag _CANONICAL_UNITS (src/web/api/routers/diag.py), so /api/diag/services has no visibility into them. NOT added blindly: the diag relays + the status-check system-action only enumerate already-canonical units, and a oneshot service reads 'inactive' when idle, so the addition needs a fresh live systemctl readout this sandbox cannot obtain.",
+      "title": "Live-confirm then add ict-devnull-guard + ict-shadow-log-rotate {service,timer} to diag _CANONICAL_UNITS",
+      "description": "From a session WITH a live probe (Full network access + DIAG_BASE_URL, or a status_check.sh enhancement that dumps `systemctl list-timers --all` + per-unit is-enabled/is-active), confirm ict-devnull-guard.{service,timer} and ict-shadow-log-rotate.{service,timer} are enabled+active (timer) on the trader VM. If confirmed, add the four entries to _CANONICAL_UNITS (src/web/api/routers/diag.py) so they become queryable on /api/diag/services + /api/diag/journalctl — mirroring the existing watchdog/db-integrity oneshot+timer pairs (a oneshot service reporting 'inactive' when idle is the established, accepted pattern there). Tier-1. Do NOT add ict-ib-gateway-reset (gateway VM only — see sibling item).",
+      "tier": 1,
+      "trigger_condition": "Next session with a live trader-VM probe capability (or after a Tier-1 status_check.sh timer-state enhancement deploys).",
+      "resolution_criteria": "Both units confirmed enabled+active on the trader via a live systemctl readout, then added to _CANONICAL_UNITS with the change verified on /api/diag/services; OR a recorded note explaining a confirmed reason not to add them.",
+      "status": "open",
+      "updated_at": "2026-06-28T11:00:00+00:00"
+    },
+    {
+      "id": "BL-20260628-DIAG-GATEWAY-UNITS-CONSISTENCY",
+      "opened_at": "2026-06-28T11:00:00+00:00",
+      "opened_by": "claude (full-system-audit Workstream-B / session 01EHkF — diag _CANONICAL_UNITS coverage)",
+      "source": "Workstream-B audit observation (pre-existing, not introduced this session). _CANONICAL_UNITS (diag.py:96-97) already contains ict-ib-gateway-watchdog.{service,timer} (added #2192), which runs ONLY on the gateway VM (install_systemd_units.sh _GATEWAY_ONLY_TIMERS). But /api/diag/services runs systemctl on the TRADER VM — the same reasoning used to EXCLUDE ict-ib-gateway-reset from _CANONICAL_UNITS. So the list is internally inconsistent: either gateway units belong (then ib-gateway-reset is a gap) or they don't (then ib-gateway-watchdog is mis-included reporting inactive/not-found on the trader).",
+      "title": "Resolve _CANONICAL_UNITS gateway-unit inconsistency (ib-gateway-watchdog included, ib-gateway-reset excluded)",
+      "description": "Decide the policy for gateway-VM units in the trader-scoped diag _CANONICAL_UNITS and make the list consistent. Option A: keep gateway units out entirely → remove ict-ib-gateway-watchdog.{service,timer} from _CANONICAL_UNITS and add a separate gateway-scoped probe if gateway visibility is wanted. Option B: accept gateway units in the list (reporting inactive/not-found on the trader) for documentation parity → then ict-ib-gateway-reset.{service,timer} is also a gap to add. CLAUDE.md currently defends the ib-gateway-watchdog inclusion ('queryable on the diag surface since #2192'), which hints /api/diag/services may have been expected to see it — verify whether a gateway-VM diag surface exists. Operator/architecture call; not changed in this audit.",
+      "tier": 1,
+      "trigger_condition": "Next /health-review compliance rotation or an operator decision on gateway diag visibility.",
+      "resolution_criteria": "_CANONICAL_UNITS is internally consistent on gateway-VM units (either both ib-gateway pairs present with a documented gateway-probe rationale, or neither), with the decision recorded.",
+      "status": "open",
+      "updated_at": "2026-06-28T11:00:00+00:00"
     }
   ],
-  "updated_at": "2026-06-28T09:10:00+00:00"
+  "updated_at": "2026-06-28T11:00:00+00:00"
 }

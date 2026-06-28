@@ -208,9 +208,44 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
   `ict-smoke-once` / `ict-env-check` (one-shots) + `claude-vm-runner@` (template)
   are correctly excluded. **Fix (Workstream-B session):** add ONLY units confirmed
   enabled+active on the trader VM — likely just `ict-devnull-guard` pending the probe.
-- 🔎 `oanda_practice` is fully shelved (mode dry_run, strategies [], creds unset
-  since 2026-06-12) — documented-keep, not a zombie, but confirm the integration
-  code isn't half-removed.
+- ⚠️ **REFINEMENT (Workstream-B, session `01EHkF…`, 2026-06-28) — the
+  shadow-log-rotate "DISABLED BY DEFAULT" header is STALE; the installer
+  auto-enables it on the trader (field beats comment).** Reading
+  `scripts/install_systemd_units.sh:307-390`: the trader-box branch
+  `enable --now`s **every** `deploy/*.timer` EXCEPT the two gateway-only timers
+  (`_GATEWAY_ONLY_TIMERS = ict-ib-gateway-watchdog.timer ict-ib-gateway-reset.timer`).
+  `ict-shadow-log-rotate.timer` and `ict-devnull-guard.timer` are neither, so the
+  installer auto-enables BOTH on the trader on every deploy / `ict-git-sync` —
+  which OVERRIDES the unit-file header's "operator opts in manually" instruction.
+  `docs/runbooks/live-vm-migration-ampere.md:226` independently checkmarks
+  `ict-shadow-log-rotate` as **enabled** post-Ampere. So both are very likely
+  genuine diag-coverage gaps (not corpses), and the stale header is itself a
+  doc-hygiene bug (fixed in this branch: the `deploy/ict-shadow-log-rotate.{service,timer}`
+  headers now state they are auto-enabled by the installer on the trader).
+  **Still NOT blindly added to `_CANONICAL_UNITS`** — a oneshot service reads
+  `inactive` when idle, so the addition is gated on a fresh live
+  `systemctl is-active`/`is-enabled` readout, which this sandbox cannot obtain
+  (the diag relays + `status-check` only enumerate canonical units). Backlogged
+  (`BL-20260628-DIAG-DEVNULL-SHADOWROT`) for a session with a live probe.
+- ⚠️ **Open inconsistency to flag (not acted on — pre-existing, out of
+  Workstream-B scope):** `_CANONICAL_UNITS` ALREADY contains the gateway-only
+  pair `ict-ib-gateway-watchdog.{service,timer}` (`diag.py:96-97`, added #2192),
+  which by the same "diag/services runs on the trader" reasoning used to EXCLUDE
+  `ict-ib-gateway-reset` would report `inactive`/not-found on the trader. Either
+  gateway units belong in `_CANONICAL_UNITS` (then `ib-gateway-reset` is a gap)
+  or they do not (then `ib-gateway-watchdog` is mis-included). Left for operator
+  disposition; logged to the health-review backlog rather than changed here.
+- ✅ **`oanda_practice` is CLEANLY SHELVED, not half-removed (Workstream-B,
+  session `01EHkF…`, 2026-06-28).** The OANDA integration code is complete +
+  consistent: `OandaClient` (`src/units/accounts/oanda_client.py`) implements
+  `place`/`balance`/`buying_power`/`positions`/`close`; the factory
+  `oanda_client_for` (`clients.py`), the `EXCHANGE_MAP` entry + the `execute_pkg`
+  place/close branches (`execute.py`), and the account-loader passthrough all
+  resolve. Notably `oanda_env` IS plumbed through the loader
+  (`accounts/__init__.py:155`) — it did **not** have the `alpaca_env` 4-loader
+  gap (the Alpaca host-routing bug). Dormant behind three independent gates
+  (`mode: dry_run`, `strategies: []`, creds unset since 2026-06-12); no dangling
+  imports / missing symbols. **Documented-keep; no action.**
 - ✅ **Brokers — all LIVE, no zombie.** `EXCHANGE_MAP` = {bybit, breakout, oanda,
   alpaca}; `accounts.yaml` routes bybit(2), alpaca(3), interactive_brokers(2),
   breakout(1), oanda(1). Every routed exchange has ≥1 account. **Tradovate fully
@@ -229,9 +264,49 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
   live consumer or a written keep-justification; it has neither. **Disposition:
   operator call** — remove the vestigial path (+ its tests) OR document why it's
   kept. Non-trivial (touches account.py/integrator.py); NOT auto-removed.
-- 🔎 Env-gate inventory from the subagent leaned on CLAUDE.md for many entries —
-  **must be re-derived from actual `os.environ` call sites** before any are
-  trusted or flagged.
+- ✅ **Env-gate inventory RE-DERIVED from actual `os.environ` call sites
+  (`src/` + `ml/`, NOT CLAUDE.md) — NO Prime-Directive violation found
+  (Workstream-B, session `01EHkF…`, 2026-06-28).** Method: grepped every
+  `os.environ.get(` / `os.getenv(` / `os.environ[` site, then read each
+  boolean/gate-shaped var's resolver to confirm its default + what it fronts.
+  The violation pattern is specifically a *default-OFF* `*_ENABLED` gate that
+  strands a **required** trade capability (the MES / `MULTI_SYMBOL_ENABLED`
+  failure). Every live gate clears that bar:
+  - **Default-ON gates (omission keeps the capability — not the violation
+    pattern):** `MULTI_ACCOUNT_DISPATCH` (`pipeline.py:123`, `"true"`),
+    `MULTI_STRATEGY_INTENT_LAYER` (default on), `INSIGHTS_ENABLED`
+    (`insights/generator.py:101`, `"1"` — read-only analyst kill-switch, off the
+    order path), `NEWS_VETO_ENABLED` (`news/news_score.py:101`, `"true"`),
+    `NEWS_WEIGHTED_AGGREGATION` (scoring detail). `REGIME_ROUTER_DISABLED` is
+    baseline-ON (documented).
+  - **`*_DISABLED` kill-switches (default-off → capability ON):**
+    `ACCOUNT_CONTEXT_SNAPSHOTS_DISABLED`, `CROSS_ASSET_LIVE_DISABLED`,
+    `REGIME_BAR_SCORING_DISABLED`, `SIGNAL_DUAL_WRITE_DISABLED`,
+    `STRATEGY_BAR_DEBOUNCE_DISABLED`, `TRADE_EVENT_TELEGRAM_DISABLED` — all
+    kill-switch / observe-only shape, compliant.
+  - **`*_MODE` tri-states (default `off`, the compliant form per
+    `runtime_flags.py`):** `NEWS_INFLUENCE_MODE`, `CONVICTION_SIZING_MODE`,
+    `REGIME_ML_VERDICT_MODE`.
+  - **Default-OFF gates that are opt-in tooling / shadow-only, NOT required
+    capabilities:** `M5_CONSUMER_ENABLED` (`"0"` — explicitly carved out in
+    `env-gate-purge-2026-05-10.md`), `CENTRALIZED_ALLOCATOR`
+    (`runtime_flags.py:81`, `"false"` — S5 **shadow-only**, dispatch unchanged),
+    `COMMS_PUSH_ENABLED` (`comms_handler.py:669`, `"0"` — git-push of comms
+    artifacts; default-off for tests, set to `1` on the VM; comms infra, not the
+    order path).
+  - **`NEWS_VETO_ENABLED` "on-by-omission" flag — VERIFIED BENIGN, NO FIX.** It
+    defaults `"true"` (`news/news_score.py:100-102`), so it is the *opposite* of
+    the violation pattern: omitting it keeps the veto, never strands it. It is a
+    sub-toggle that only matters once the news layer is active (source-driven via
+    `NEWS_SOURCE`); `src/news/` is not even in the `env-gate-guard` protected
+    paths (`src/runtime|units|web/`). The news veto is a sanctioned Tier-3
+    trade-blocking condition, and a default-ON toggle to disable it is a
+    legitimate operator control. **The prior "on-by-omission" flag was a false
+    positive — no code change warranted.**
+  - The class is mechanically guarded going forward by `env-gate-guard.yml` +
+    `scripts/check_env_gate_in_diff.py` (diff-scan; flags NEW
+    `*_ENABLED`/`*_DISABLED`/`MONITOR_*`/`MULTI_ACCOUNT_*`/`DISPATCH_*` gates in
+    the protected paths; existing sites grandfathered with `# allow-silent`).
 
 ### D — Claude workflow governance (NEW — design pending)
 
