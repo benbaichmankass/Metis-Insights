@@ -133,6 +133,18 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
   `data_loaders.py` (read-path passthrough). Regression test
   `tests/test_alpaca_live_host_routing.py`. Verified: `alpaca_live` now resolves
   `base_url = https://api.alpaca.markets`; paper accounts stay on the paper host.
+- 🔎➡️🛠 **FOLLOW-UP: a FOURTH loader was found post-deploy (verified on the live
+  VM, 09:07 trader journal `alpaca positions: request is not authorized`).**
+  #4916 fixed the three loaders feeding the balance + order-entry + close paths,
+  but the **positions reconciler** builds its own account dict via
+  `order_monitor.py::_load_account_cfgs_for_reconcile` →
+  `accounts_loader.load_accounts_dict`, and that builder also omitted
+  `alpaca_env` → `account_open_positions`'s alpaca branch kept dialling the paper
+  host for `alpaca_live`. Fix staged (add `alpaca_env`/`base_url`/`oanda_env` to
+  that dict) + regression test extended. **Held from merge** pending the other
+  session's merge-queue clearing (operator directive 2026-06-28). This is the
+  value of post-deploy live verification: the merged fix looked complete from
+  the code but the journal proved a 4th path remained.
 - ⚠️ **TIER-3 — gated on operator merge.** This change makes the real-money
   `alpaca_live` account actually trade live (orders will reach the live host and
   fill) for the first time. Draft PR #4916; **must NOT be merged/deployed without
@@ -166,9 +178,43 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
   `ict-ib-gateway-reset` is documented as a real timer in CLAUDE.md → likely a
   diag-coverage gap, not a corpse. **Probe needed:** live `/api/diag/services`
   + the gateway VM.
+- ✅ **VERIFIED zombie — `ict-bot.service` in diag `_CANONICAL_UNITS`**
+  (`src/web/api/routers/diag.py:74`). No `deploy/ict-bot.service` exists; the
+  live trader is `ict-trader-live.service` (also in the list, confirmed active
+  in the 09:07 journal). `ict-bot.service` is the retired pre-rename trader
+  unit — a dead entry that makes `/api/diag/services` perpetually report a
+  not-found unit. **Fix:** remove it from `_CANONICAL_UNITS`. Tier-1, batch into
+  a separate audit-cleanup PR (NOT the Tier-3 Alpaca branch).
+- ✅ **VERIFIED diag coverage gaps** — `scripts/install_systemd_units.sh` globs
+  `deploy/*.service|*.timer` (line 73), so all deploy units are installed, but
+  `_CANONICAL_UNITS` omits these real recurring timers: `ict-shadow-log-rotate.
+  {service,timer}`, `ict-devnull-guard.{service,timer}` (trader VM), and
+  `ict-ib-gateway-reset.{service,timer}` (gateway VM — partly expected since
+  diag/services runs systemctl on the trader VM). `ict-smoke-once` /
+  `ict-env-check` (one-shots) + `claude-vm-runner@` (template) are correctly
+  excluded. **Fix:** add the trader-VM timers to `_CANONICAL_UNITS` (same Tier-1
+  cleanup PR); confirm gateway-VM units belong in a gateway-scoped probe.
 - 🔎 `oanda_practice` is fully shelved (mode dry_run, strategies [], creds unset
   since 2026-06-12) — documented-keep, not a zombie, but confirm the integration
   code isn't half-removed.
+- ✅ **Brokers — all LIVE, no zombie.** `EXCHANGE_MAP` = {bybit, breakout, oanda,
+  alpaca}; `accounts.yaml` routes bybit(2), alpaca(3), interactive_brokers(2),
+  breakout(1), oanda(1). Every routed exchange has ≥1 account. **Tradovate fully
+  purged** (0 refs in src/ + config/) — the prior corpse stayed dead.
+- ✅ **VERIFIED vestigial routing path (zombie candidate, operator disposition).**
+  `EXCHANGE_MAP` + `integrator.route_order` + `TradingAccount.place_order` are a
+  legacy router superseded by `execute_pkg` (the live path, per-exchange branches
+  in `src/units/accounts/execute.py`). Evidence: (a) the `EXCHANGE_MAP` stub
+  classes RAISE `NotImplementedError` (`integrator.py:41` BybitAPI); (b)
+  `EXCHANGE_MAP` omits `interactive_brokers` yet IB trades live — because IB goes
+  through `execute_pkg`, not this map; (c) `coordinator.py:1082` documents that
+  `account.place_order` was REMOVED from the live path (it raised
+  NotImplementedError — the VWAP "0 fills" bug); (d) the only `.place_order(`
+  live calls are on exchange CLIENTS, not `TradingAccount`. Kept alive ONLY by
+  tests (`test_s010_accounts.py`). Per the disposition-flip rule this needs a
+  live consumer or a written keep-justification; it has neither. **Disposition:
+  operator call** — remove the vestigial path (+ its tests) OR document why it's
+  kept. Non-trivial (touches account.py/integrator.py); NOT auto-removed.
 - 🔎 Env-gate inventory from the subagent leaned on CLAUDE.md for many entries —
   **must be re-derived from actual `os.environ` call sites** before any are
   trusted or flagged.
