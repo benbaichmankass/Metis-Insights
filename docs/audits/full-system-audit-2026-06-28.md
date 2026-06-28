@@ -267,6 +267,59 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
   **must be re-derived from actual `os.environ` call sites** before any are
   trusted or flagged.
 
+### F — Live order path line-by-line (S-AUDIT-F)
+
+Slice: the highest money-at-risk code — `execute.py`, `order_monitor.py`,
+`coordinator.py`, `intents.py`, `risk.py` — read IN FULL (13,539 lines). Branch
+`claude/audit-F-order-path`.
+
+- ✅ **`src/units/accounts/risk.py` (749 lines) — VERIFIED CLEAN.** Sizing is the
+  single authority (`RiskManager.position_size`); whole-unit (futures/alpaca)
+  + round-up-to-1-share + daily-loss-budget + margin pre-flight all coherent
+  with their docstrings and CLAUDE.md. No dead code, no drift.
+- ✅ **`src/runtime/intents.py` (1,680 lines) — VERIFIED CLEAN** apart from one
+  comment drift (fixed). Aggregator / delta / flip-policy / regime gate
+  (baseline-on hard gate vs shadow) all match the canonical record. The legacy
+  non-intent branch in coordinator is still reachable (`MULTI_STRATEGY_INTENT_LAYER`
+  can be flipped off) → NOT dead.
+- 🐞→✔ **`intents.py:1491` stale flip-policy comment.** Said `Default "reverse"
+  preserves the historical close-and-reopen` — but `_DEFAULT_FLIP_POLICY = "hold"`
+  since PR #2451 (2026-05-31, walk-forward-gated). The comment was the original
+  text from PR #2441 (when reverse WAS default), never updated when the default
+  flipped. Field beats comment. **Tier-1 fixed** (comment-only).
+- ✅ **`src/core/coordinator.py` (3,099 lines) — VERIFIED CLEAN** apart from one
+  comment drift (fixed). `multi_account_execute` dispatch, eligibility filter,
+  sizing → conviction/advisory/news reducers → venue-min → netting-guard →
+  risk-gate → execute_pkg legs, BUG-049 terminalise backstop — all coherent.
+- 🐞→✔ **`coordinator.py:1669` stale netting-guard comment.** Said `Gated by
+  POSITION_NETTING_GUARD_ENABLED (default off → ships inert; one env flip to roll
+  back)` — but the guard is BASELINE (unconditional) since 2026-06-17
+  (`positions.py::position_netting_guard_active_for` returns True; the env flag was
+  removed). Field beats comment. **Tier-1 fixed** (comment-only).
+- ✅ **`src/units/accounts/execute.py` (1,669 lines) — VERIFIED CLEAN** apart from
+  two stale error strings (fixed). `execute_pkg` (incl. the breakout prop /
+  options-expression branches), `_submit_order` per-exchange dispatch,
+  `modify_open_order` / `close_open_position` (bybit/IB/alpaca/oanda) all coherent.
+- 🐞→✔ **`execute.py:1471 + :1668` stale "(bybit only in v1)" error strings.**
+  Both `modify_open_order` + `close_open_position` now wire bybit + IB + alpaca
+  (+ oanda for close); the fallthrough error still claimed bybit-only. **Tier-1
+  fixed** to list the actually-wired set (user-facing error text accuracy).
+- ✅ **`src/runtime/order_monitor.py` (6,344 lines) — VERIFIED CLEAN** apart from
+  one section-header drift (fixed). Partial/full/modify apply paths, the forward
+  + reverse reconcilers, snapshot reconcile, stuck-strategy watchdog, naked-
+  autoprotect, Bybit-truth + local-PnL + options-lifecycle sweeps — exhaustively
+  documented and internally consistent. The removed env-gates
+  (`MONITOR_RECONCILE_ENABLED` / `MONITOR_APPLY_TO_EXCHANGE` / spot-margin
+  reconcilers) are correctly described as removed at every reference.
+- 🐞→✔ **`order_monitor.py:1174` stale section header `— env-gated`.** The
+  exchange-side wiring section is no longer env-gated — dry/live is decided
+  per-account by `mode:` (the senders short-circuit only on `mode == "dry_run"`;
+  the `MONITOR_APPLY_TO_EXCHANGE` shadow gate was removed). **Tier-1 fixed**
+  (comment-only).
+- **No real (behavioural) bugs found in the order path.** All findings are
+  comment / error-string drift (Tier-1, comment-only). No latent risk, no
+  dead/zombie code, no Tier-3 proposals needed.
+
 ### D — Claude workflow governance (NEW — design pending)
 
 Operator-reported failure modes + candidate fixes (to be designed, not yet built):
