@@ -72,8 +72,6 @@ on:
           - reboot-vm
           - enable-closed-flat-invariant
           - disable-closed-flat-invariant
-          - setup-tailscale-funnel
-          - teardown-tailscale-funnel
           - enable-m5-consumer
           - disable-m5-consumer
           - set-mobile-push-secrets
@@ -404,7 +402,7 @@ jobs:
             status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|migrate-closed-at-iso|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|flatten-ib-position|reconcile-orphan-history|supersede-options-adoption-artifacts)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|migrate-closed-at-iso|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|flatten-ib-position|reconcile-orphan-history|supersede-options-adoption-artifacts)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -536,11 +534,6 @@ jobs:
       - name: Execute action wrapper on VM
         id: exec
         env:
-          # TS_AUTHKEY only matters for setup-tailscale-funnel. It rides
-          # through the SSH SendEnv channel as a runtime env var on the
-          # VM, never landing on disk. Set as a GitHub Actions secret on
-          # this repo before dispatching that action.
-          TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
           # BYBIT key/secret pairs — only consumed by rotate-account-keys.
           # Ride through SSH env (via REMOTE_CMD prefix), never in run logs.
           BYBIT_API_KEY_1: ${{ secrets.BYBIT_API_KEY_1 }}
@@ -586,8 +579,6 @@ jobs:
             kick-insights)                      SCRIPT="kick_insights.sh" ;;
             enable-signal-dual-write)           SCRIPT="enable_signal_dual_write.sh" ;;
             disable-signal-dual-write)          SCRIPT="disable_signal_dual_write.sh" ;;
-            setup-tailscale-funnel)             SCRIPT="setup_tailscale_funnel.sh" ;;
-            teardown-tailscale-funnel)          SCRIPT="teardown_tailscale_funnel.sh" ;;
             backfill-pnl-nulls)                 SCRIPT="backfill_pnl_nulls_action.sh" ;;
             backfill-orphan-pnl)                SCRIPT="backfill_orphan_pnl_action.sh" ;;
             backfill-closed-null-pnl)           SCRIPT="backfill_closed_null_pnl_action.sh" ;;
@@ -628,19 +619,10 @@ jobs:
               ;;
           esac
           echo ">>> Running scripts/ops/${SCRIPT} on ${VM_SSH_HOST}"
-          # Build the remote command. For setup-tailscale-funnel,
-          # prepend TS_AUTHKEY=... so the wrapper sees it as an env
-          # var. For set-account-mode, prepend ACCOUNT_ID + MODE.
+          # Build the remote command. For set-account-mode, prepend
+          # ACCOUNT_ID + MODE.
           # We pipe through `printf %q` to keep substitutions shell-safe.
           REMOTE_CMD="bash /home/ubuntu/ict-trading-bot/scripts/ops/${SCRIPT}"
-          if [ "${ACTION}" = "setup-tailscale-funnel" ]; then
-            if [ -z "${TS_AUTHKEY}" ]; then
-              echo "::error::setup-tailscale-funnel requires the TS_AUTHKEY secret on this repo."
-              echo "::error::Add it at: Settings → Secrets and variables → Actions → New repository secret."
-              exit 1
-            fi
-            REMOTE_CMD="TS_AUTHKEY=$(printf '%q' "${TS_AUTHKEY}") ${REMOTE_CMD}"
-          fi
           if [ "${ACTION}" = "set-account-mode" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") MODE=$(printf '%q' "${MODE}") ${REMOTE_CMD}"
           fi
