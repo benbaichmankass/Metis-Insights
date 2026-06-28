@@ -813,15 +813,16 @@ def _emit_ml_vol_shadow_rows(candidates: tuple) -> None:
     the ML/audit path can never strand a signal.
     """
     try:
-        from src.runtime.regime import ml_vol_regime
-        from src.runtime.strategy_monocle import _strategy_timeframe_label
+        from src.runtime.regime import ml_vol_regime_for_symbol
         from src.utils.signal_audit_logger import log_signal
     except Exception:  # noqa: BLE001 — observability-only
         return
     for intent in candidates:
         try:
-            timeframe = _strategy_timeframe_label(intent.strategy)
-            verdict = ml_vol_regime(intent.symbol, timeframe)
+            # Per-symbol resolution — identical to the decision path
+            # (_decision_vol_regime) so the agreement soak reflects what enforce
+            # would actually use.
+            verdict = ml_vol_regime_for_symbol(intent.symbol)
             vol_regime_ml = verdict.get("vol_regime")
             frozen = intent.vol_regime
             # ``agree`` is only meaningful when BOTH labels are concrete
@@ -876,10 +877,13 @@ def _decision_vol_regime(intent: Any, mode: str) -> tuple:
     if mode != "use":
         return frozen, frozen, None, None
     try:
-        from src.runtime.regime import ml_vol_regime
-        from src.runtime.strategy_monocle import _strategy_timeframe_label
-        timeframe = _strategy_timeframe_label(intent.strategy)
-        verdict = ml_vol_regime(intent.symbol, timeframe)
+        # Resolve by SYMBOL (not the strategy's timeframe): the validated A/B
+        # applied the single 15m advisory head's vol label to every BTC cell —
+        # the vol regime is a per-symbol market label. A per-strategy-timeframe
+        # lookup would return ``unknown`` for the live 1h/4h cells (no 1h/4h
+        # advisory head) and silently fall back to the money-losing frozen label.
+        from src.runtime.regime import ml_vol_regime_for_symbol
+        verdict = ml_vol_regime_for_symbol(intent.symbol)
         ml = verdict.get("vol_regime")
         source = verdict.get("source")
         if ml in ("calm", "volatile"):
@@ -1052,7 +1056,16 @@ def _hard_regime_gate(candidates: tuple) -> tuple:
             continue
         trend_gated = bool(verdict.get("gated"))
         vol_gated = bool(verdict.get("vol_gated"))
-        if not (trend_gated or vol_gated):
+        # ML-only-enforce guard: a VOL cell may only DROP an intent when the vol
+        # label came from the advisory ML head (vol_label_source == "ml"). The
+        # trend_vol cells LOSE money under the frozen label, so a vol gate on a
+        # frozen-fallback (no advisory head for the symbol) must NOT enforce —
+        # it stays permissive. The 1-D TREND (ADX) axis is ML-independent and
+        # always enforces. So a symbol without an advisory vol head is safely
+        # never vol-gated, and enforce activates per-symbol as heads promote.
+        vol_is_ml = mode == "use" and ml_vol in ("calm", "volatile")
+        vol_enforced = vol_gated and vol_is_ml
+        if not (trend_gated or vol_enforced):
             kept.append(intent)
             continue
         # Phase 3 enforcement: drop the intent + audit the action.
@@ -1072,8 +1085,13 @@ def _hard_regime_gate(candidates: tuple) -> tuple:
                 "vol_regime": eff_vol,
                 "vol_regime_frozen": frozen_vol,
                 "vol_regime_ml": ml_vol,
-                "vol_label_source": "ml" if (mode == "use" and ml_vol in ("calm", "volatile")) else "frozen",
+                "vol_label_source": "ml" if vol_is_ml else "frozen",
                 "vol_gated": vol_gated,
+                # ``vol_enforced``: the vol axis actually drove this drop (only
+                # true when the label was ML-sourced). A vol_gated-but-frozen
+                # cell shows vol_enforced:false and the drop (if any) is the
+                # trend axis.
+                "vol_enforced": vol_enforced,
                 "vol_cell": verdict.get("vol_cell"),
                 "vol_reason": verdict.get("vol_reason"),
                 # PHASE 3: enforced -> the intent is dropped from the

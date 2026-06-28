@@ -1,14 +1,16 @@
 """Design-A Phase 2 — ``REGIME_ML_VERDICT_MODE=use`` substitutes the advisory
-head's ML vol label into the gate DECISION (was a documented placeholder).
+head's ML vol label into the gate DECISION (was a documented placeholder), plus
+the per-symbol vol-head resolution + the ML-only-enforce guard that make it
+production-safe.
 
-Previously ``use`` behaved like ``shadow``: the gate always evaluated
-``would_gate`` against the FROZEN ``intent.vol_regime``. The 2-D ``trend_vol``
-OFF cells were authored under the ML label and LOSE money under the frozen one
-(``docs/research/A-vol-gating-OFFcell-design-2026-06-27.md``), so a correct
-enforce must gate on the ML label. These tests pin that ``use`` now flips the
-vol-axis decision via ``_decision_vol_regime``, and that it stays fail-permissive
-(ML ``unknown`` — e.g. no advisory head for the strategy's ``(symbol,
-timeframe)`` — keeps the frozen label, never strands a signal).
+- ``use`` now flips the vol-axis decision via ``_decision_vol_regime`` (the cells
+  were authored under the ML label and LOSE money under the frozen one —
+  ``docs/research/A-vol-gating-OFFcell-design-2026-06-27.md``).
+- Resolution is per-SYMBOL (``ml_vol_regime_for_symbol``): the validated A/B used
+  the single BTC 15m advisory head for every BTC cell, so a 1h/4h strategy gets
+  the symbol's advisory vol label, not ``unknown`` from a per-timeframe lookup.
+- The hard gate only DROPS on a vol cell when the label was ML-sourced
+  (``vol_enforced``) — a frozen fallback never enforces a money-losing vol cell.
 """
 from __future__ import annotations
 
@@ -17,6 +19,7 @@ from unittest.mock import patch
 
 import src.runtime.intents as intents_mod
 from src.runtime.intents import StrategyIntent, aggregate_intents
+from src.runtime.regime.ml_vol_verdict import _advisory_entry_for_symbol
 
 
 def _capture():
@@ -25,8 +28,6 @@ def _capture():
 
 
 def _intent(vol_regime: str | None) -> StrategyIntent:
-    # trend_donchian long in `trending` has NO 1-D cell here → trend-permissive;
-    # the only thing that can gate is the 2-D vol cell (trending+volatile).
     return StrategyIntent(
         strategy="trend_donchian", symbol="BTCUSDT", side="long",
         target_qty=1.0, regime="trending", adx_14=30.0, vol_regime=vol_regime,
@@ -38,35 +39,28 @@ def _intent(vol_regime: str | None) -> StrategyIntent:
 _VOL_POLICY = {"trend_vol": {"trending": {"volatile": {"trend_donchian": {"long": "off"}}}}}
 
 
+def _ml(vol: str, model="btc-regime-15m-lgbm-v2"):
+    return {"vol_regime": vol, "source": f"ml-advisory:{model}", "model_id": model}
+
+
+# --- A1/A2: use substitutes the per-symbol ML label into the shadow gate -----
+
 def test_use_substitutes_ml_label_and_flips_the_vol_gate(monkeypatch):
-    """Frozen label is ``calm`` (would NOT gate); the advisory head says
-    ``volatile``. Under ``use`` the decision uses the ML label → the vol cell
-    fires, and the audit row records ``vol_label_source='ml'``."""
     monkeypatch.setattr(intents_mod, "_REGIME_POLICY_CACHE", _VOL_POLICY)
     rows, spy = _capture()
     with patch.object(intents_mod, "_regime_ml_verdict_mode", return_value="use"), \
-         patch("src.runtime.regime.ml_vol_regime",
-               return_value={"vol_regime": "volatile",
-                             "source": "ml-advisory:btc-regime-15m-lgbm-v2"}), \
-         patch("src.runtime.strategy_monocle._strategy_timeframe_label",
-               return_value="15m"), \
+         patch("src.runtime.regime.ml_vol_regime_for_symbol", return_value=_ml("volatile")), \
          patch("src.utils.signal_audit_logger.log_signal", side_effect=spy):
-        aggregate_intents([_intent("calm")])
+        aggregate_intents([_intent("calm")])  # frozen=calm would NOT gate
     gate_rows = [r for r in rows if r.get("event") == "regime_shadow_gate"]
     assert len(gate_rows) == 1
     row = gate_rows[0]
-    assert row["vol_gated"] is True          # the ML label drove the gate
-    assert row["vol_regime"] == "volatile"   # decision label = ML
-    assert row["vol_regime_frozen"] == "calm"
-    assert row["vol_regime_ml"] == "volatile"
+    assert row["vol_gated"] is True and row["vol_regime"] == "volatile"
+    assert row["vol_regime_frozen"] == "calm" and row["vol_regime_ml"] == "volatile"
     assert row["vol_label_source"] == "ml"
 
 
 def test_off_mode_keeps_frozen_label_no_gate(monkeypatch):
-    """Same intent (frozen ``calm``) but mode ``off`` → the ML label is never
-    consulted, the frozen ``calm`` does not match the volatile-only OFF cell,
-    so NO vol gate fires. This is the contrast that proves the substitution is
-    what flips the decision."""
     monkeypatch.setattr(intents_mod, "_REGIME_POLICY_CACHE", _VOL_POLICY)
     rows, spy = _capture()
     with patch.object(intents_mod, "_regime_ml_verdict_mode", return_value="off"), \
@@ -76,20 +70,53 @@ def test_off_mode_keeps_frozen_label_no_gate(monkeypatch):
 
 
 def test_use_ml_unknown_falls_back_to_frozen(monkeypatch):
-    """The LIVE reality for the current 1h/4h cells: no advisory head →
-    ``ml_vol_regime`` returns ``unknown`` → the decision keeps the frozen label.
-    Frozen ``volatile`` still gates (matches the cell); ``vol_label_source`` is
-    ``frozen`` — i.e. ``use`` never strands the signal on a missing head."""
     monkeypatch.setattr(intents_mod, "_REGIME_POLICY_CACHE", _VOL_POLICY)
     rows, spy = _capture()
     with patch.object(intents_mod, "_regime_ml_verdict_mode", return_value="use"), \
-         patch("src.runtime.regime.ml_vol_regime",
+         patch("src.runtime.regime.ml_vol_regime_for_symbol",
                return_value={"vol_regime": "unknown", "source": "unavailable"}), \
-         patch("src.runtime.strategy_monocle._strategy_timeframe_label",
-               return_value="1h"), \
          patch("src.utils.signal_audit_logger.log_signal", side_effect=spy):
-        aggregate_intents([_intent("volatile")])
+        aggregate_intents([_intent("volatile")])  # frozen=volatile still gates
     gate_rows = [r for r in rows if r.get("event") == "regime_shadow_gate"]
     assert len(gate_rows) == 1
     assert gate_rows[0]["vol_label_source"] == "frozen"
     assert gate_rows[0]["vol_regime_ml"] == "unknown"
+
+
+# --- A2: per-symbol resolution picks the symbol's advisory head --------------
+
+def test_advisory_entry_for_symbol_prefers_15m_non_yz():
+    specs = {
+        ("BTCUSDT", "15M"): {"symbol": "BTCUSDT", "timeframe": "15m",
+                             "model_id": "btc-regime-15m-lgbm-v2", "is_yz": False},
+        ("BTCUSDT", "1H"): {"symbol": "BTCUSDT", "timeframe": "1h",
+                            "model_id": "btc-regime-1h-yz", "is_yz": True},
+    }
+    # A 1h strategy still resolves the symbol's 15m non-yz head.
+    entry = _advisory_entry_for_symbol("BTCUSDT", specs)
+    assert entry is not None and entry["model_id"] == "btc-regime-15m-lgbm-v2"
+    # A symbol with no advisory head → None (→ unknown → frozen, permissive).
+    assert _advisory_entry_for_symbol("ETHUSDT", specs) is None
+
+
+# --- A3: the hard gate only enforces a vol cell when the label is ML-sourced --
+
+def test_hard_gate_drops_on_ml_vol_but_not_on_frozen_fallback(monkeypatch):
+    monkeypatch.setattr(intents_mod, "_REGIME_POLICY_CACHE", _VOL_POLICY)
+    # ML-sourced volatile → the off cell enforces → intent dropped → flat.
+    with patch.object(intents_mod, "_regime_router_enabled", return_value=True), \
+         patch.object(intents_mod, "_regime_ml_verdict_mode", return_value="use"), \
+         patch("src.runtime.regime.ml_vol_regime_for_symbol", return_value=_ml("volatile")), \
+         patch("src.utils.signal_audit_logger.log_signal"):
+        result = aggregate_intents([_intent("calm")])
+    assert result.side == "flat"  # the ML vol gate dropped the only intent
+
+    # Frozen-fallback (ML unknown) on a frozen-volatile intent → the vol cell
+    # would match, but the guard refuses to enforce a non-ML vol label → KEPT.
+    with patch.object(intents_mod, "_regime_router_enabled", return_value=True), \
+         patch.object(intents_mod, "_regime_ml_verdict_mode", return_value="use"), \
+         patch("src.runtime.regime.ml_vol_regime_for_symbol",
+               return_value={"vol_regime": "unknown", "source": "unavailable"}), \
+         patch("src.utils.signal_audit_logger.log_signal"):
+        result = aggregate_intents([_intent("volatile")])
+    assert result.side == "long"  # frozen-only vol cell does NOT enforce
