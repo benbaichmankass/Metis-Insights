@@ -1468,7 +1468,8 @@ def modify_open_order(
                     "error": f"{type(exc).__name__}: {exc}"}
 
     return {"ok": False, "exchange_response": None,
-            "error": f"unsupported exchange {exchange!r} (bybit only in v1)"}
+            "error": (f"unsupported exchange {exchange!r} "
+                      "(wired: bybit, interactive_brokers, alpaca)")}
 
 
 def close_open_position(
@@ -1665,4 +1666,5 @@ def close_open_position(
                     "error": f"{type(exc).__name__}: {exc}"}
 
     return {"ok": False, "exchange_response": None, "exchange_order_id": None,
-            "error": f"unsupported exchange {exchange!r} (bybit only in v1)"}
+            "error": (f"unsupported exchange {exchange!r} "
+                      "(wired: bybit, interactive_brokers, alpaca, oanda)")}
