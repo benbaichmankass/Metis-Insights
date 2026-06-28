@@ -1,0 +1,326 @@
+{
+  "report_id": "RPT-20260626-073500-weekly",
+  "reviewed_at": "2026-06-26T07:35:00Z",
+  "reviewer": "claude",
+  "window": "weekly",
+  "window_start": "2026-06-19T07:28:41Z",
+  "window_end": "2026-06-26T07:35:00Z",
+  "prior_report_id": "RPT-20260626-060200-since-last",
+  "overall_assessment": "caution",
+  "generation_note": "Assembled from the diag relays in a Claude-Code-on-the-web session (relay-only, read-only). The per-order-package A-F grading scorer was NOT run this session \u2014 it needs write access to the live trade_journal.db, which the web sandbox cannot reach \u2014 so per-trade dossiers carry no fresh Claude grade (marked 'grading unavailable from sandbox'). All health/perf/ML figures are live diag pulls.",
+  "health": {
+    "overall_assessment": "healthy",
+    "findings": {
+      "trader_process": {
+        "status": "ok",
+        "note": "heartbeat running (age ~32s), uptime ~53min, ticking; last tick 07:26Z; git 884e81e4"
+      },
+      "alpaca_live_connectivity": {
+        "status": "concern",
+        "note": "api_ok=false, balance=null, status.live=false at 07:00Z \u2014 newly-rotated keys NOT yet producing a balance read (alpaca_paper api_ok=true). Keys likely not yet on the VM .env / web-api not restarted. Owned by the key-rotation session."
+      },
+      "ib_live_connectivity": {
+        "status": "watch",
+        "note": "api_ok=false (no live IB creds wired \u2014 expected; ib_paper healthy)"
+      },
+      "diag_relay": {
+        "status": "ok",
+        "note": "vm-diag-snapshot + trainer-vm-diag relays both responding"
+      }
+    }
+  },
+  "performance": {
+    "overall_assessment": "caution"
+  },
+  "ml": {
+    "overall_assessment": "healthy",
+    "model_status": [
+      {
+        "model_id": "btc-regime-1h-lgbm-yz-v1",
+        "stage": "advisory",
+        "last_training": {
+          "headline_metric": "score_mean 0.984"
+        },
+        "live_shadow": {
+          "drift": "183 advisory recs"
+        },
+        "note": "order-influencing; last advisory rec 06-23 (cadence)"
+      },
+      {
+        "model_id": "btc-regime-5m-lgbm-yz-v1",
+        "stage": "advisory",
+        "last_training": {
+          "headline_metric": "score_mean 0.9999"
+        },
+        "live_shadow": {
+          "drift": "50 advisory recs"
+        },
+        "note": "order-influencing; saturated score range"
+      },
+      {
+        "model_id": "conviction-meta-v1",
+        "stage": "shadow",
+        "last_training": {
+          "headline_metric": "score_mean 0.75"
+        },
+        "live_shadow": {
+          "drift": "1340 since 06-23"
+        },
+        "note": "new soak accruing"
+      },
+      {
+        "model_id": "eth-regime-1h-lgbm-xasset-v1",
+        "stage": "shadow",
+        "last_training": {
+          "headline_metric": "score_mean 0.755"
+        },
+        "live_shadow": {
+          "drift": "331 cross-asset"
+        },
+        "note": "new cross-asset head accruing"
+      },
+      {
+        "model_id": "btc-regime-5m-baseline-v1",
+        "stage": "shadow",
+        "last_training": {
+          "headline_metric": "score_mean 0.976"
+        },
+        "live_shadow": {
+          "drift": "11765"
+        },
+        "note": "baseline score saturated ~0.97 \u2014 watch for degeneracy (MB-20260623-001 fixed via #4602)"
+      }
+    ],
+    "promotion_recommendations": []
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "Trader healthy and ticking; ML training cycle ran clean today (00:28-01:16Z, rc=0) with shadow soaks accruing live across 29 model/stage heads (2 advisory). The one real flag: alpaca_live is STILL api_ok=false / balance null AFTER the 2026-06-26 key rotation (alpaca_paper is fine), so live ETF signals keep refusing zero_balance. Real-money 7d is -$8.82 over 7 trades (tiny ~$95 bybit_2 book; ict_scalp_5m -$7.38 the bleeder). The paper book's -$12,070 headline is ARTIFACT-INFLATED \u2014 the new bucketing tool scores 0/48 records gradeable in the recent window (the big trend_donchian -$7.4k / mhg_pullback -$5.2k 'losses' are orphan/reduce/MHG-flap artifacts, not genuine round-trips).",
+    "services": [],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": -8.824,
+        "prior_window_pnl": null,
+        "trend": "down",
+        "trades": 7,
+        "win_rate": 42.9,
+        "expectancy": -1.2606,
+        "profit_factor": 0.2087,
+        "max_drawdown": -9.8475,
+        "wins": 3,
+        "per_strategy": [
+          {
+            "name": "ict_scalp_5m",
+            "trades": 5,
+            "win_rate": 40,
+            "pnl": -7.3833
+          },
+          {
+            "name": "htf_pullback_trend_2h",
+            "trades": 1,
+            "win_rate": 0,
+            "pnl": -1.639
+          },
+          {
+            "name": "eth_pullback_2h",
+            "trades": 1,
+            "win_rate": 100,
+            "pnl": 0.1983
+          }
+        ]
+      },
+      "paper": {
+        "window_pnl": -12070.07,
+        "prior_window_pnl": null,
+        "trend": "down",
+        "trades": 57,
+        "win_rate": 42.1,
+        "expectancy": -211.76,
+        "profit_factor": 0.4785,
+        "max_drawdown": -19392.26,
+        "wins": 24,
+        "per_strategy": [
+          {
+            "name": "trend_donchian",
+            "trades": 3,
+            "win_rate": 0,
+            "pnl": -7389.33
+          },
+          {
+            "name": "mhg_pullback_1d",
+            "trades": 2,
+            "win_rate": 0,
+            "pnl": -5177.07
+          },
+          {
+            "name": "sol_pullback_2h",
+            "trades": 13,
+            "win_rate": 23.1,
+            "pnl": -1814.87
+          },
+          {
+            "name": "avax_pullback_2h",
+            "trades": 7,
+            "win_rate": 28.6,
+            "pnl": -1635.07
+          },
+          {
+            "name": "trend_donchian_ada_4h",
+            "trades": 6,
+            "win_rate": 100,
+            "pnl": 1413.21
+          },
+          {
+            "name": "xrp_pullback_2h",
+            "trades": 5,
+            "win_rate": 60,
+            "pnl": 1226.04
+          }
+        ]
+      },
+      "prop": null
+    },
+    "trade_dossiers": [],
+    "dossier_coverage": {
+      "full_dossiers": 0,
+      "summarized_trades": 64,
+      "rule": "grading unavailable from sandbox (scorer needs live-DB write); per-class aggregates only this run"
+    },
+    "operator_priorities": [
+      {
+        "title": "alpaca_live still down after key rotation (api_ok=false, balance null)",
+        "source_review": "health",
+        "tier": 2,
+        "operator_action_required": true,
+        "detail": "Confirm the new ALPACA_API_KEY_ID/SECRET reached the VM .env (sync-vm-secrets) and ict-web-api + trader were restarted to pick them up; then re-check /api/bot/accounts/balances shows api_ok=true. Owned by the key-rotation session. Until then live ETF signals refuse zero_balance."
+      },
+      {
+        "title": "Paper performance is artifact-inflated \u2014 apply the bucket-A filter before judging strategies",
+        "source_review": "performance",
+        "tier": 1,
+        "operator_action_required": false,
+        "detail": "The -$12k paper headline is dominated by intent_reduce/orphan/MHG-flap artifacts (bucketing tool: 0/48 gradeable). Merge PR #4660 and run the performance-review pre-filter so per-strategy win-rate/expectancy is computed over genuine round-trips only. trend_donchian -$7.4k and mhg_pullback -$5.2k are flap artifacts, not strategy losses."
+      },
+      {
+        "title": "ict_scalp_5m is the worst REAL-money strategy (7d -$7.38, 40% win)",
+        "source_review": "performance",
+        "tier": 3,
+        "operator_action_required": false,
+        "detail": "On the live ~$95 bybit_2 book ict_scalp_5m drove essentially all of the -$8.82 7d loss. Small absolute dollars but the only genuine real-money bleeder. Candidate for a TUNE/DEMOTE review once a fuller window accrues."
+      }
+    ],
+    "backlog_summary": {
+      "health": {
+        "total": 139,
+        "open": 64,
+        "resolved": 75,
+        "drained": 28
+      },
+      "performance": {
+        "total": 46,
+        "open": 31,
+        "resolved": 15,
+        "drained": 0
+      },
+      "ml": {
+        "total": 44,
+        "open": 14,
+        "resolved": 30,
+        "drained": 3
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "performance",
+        "summary": "Post-sizing order-package meta re-persist (PR #4660, observability) \u2014 awaiting operator approval (touches the order path)."
+      }
+    ],
+    "cross_review_notes": [
+      "The alpaca_live zero_balance refusals (health) are the SAME root cause as the earlier zero-qty order-packages investigation (performance) \u2014 a funding/creds outage, not a sizing bug. Closing the key rotation closes both.",
+      "The paper book's large negative PnL (performance) is explained by the reconciler/intent-layer artifacts the health domain tracks (orphan flaps, MHG close-confirm) \u2014 the bucketing tool (PR #4660) is the bridge that separates the two so neither misreads the other."
+    ],
+    "monitoring": [
+      {
+        "item_id": "PB-20260626-ARTIFACT-BUCKETS",
+        "domain": "performance",
+        "category": "verify",
+        "detail": "Apply the A/B/C bucketing pre-filter in a live performance-review run.",
+        "since": "2026-06-26",
+        "next_check": "next performance-review / PR #4660 merge"
+      },
+      {
+        "item_id": "BL-20260626-ALPACA-WHOLEUNIT-LATENT",
+        "domain": "health",
+        "category": "awaiting-data",
+        "detail": "Confirm whole-share sizing takes 1 share (not refuse) once alpaca_live is funded with working keys.",
+        "since": "2026-06-26",
+        "next_check": "alpaca_live api_ok=true + funded"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [
+          {
+            "name": "ict_scalp_5m",
+            "gate": "TUNE/WATCH",
+            "evidence": "only genuine real-money bleeder, 7d -$7.38 / 40% win on bybit_2"
+          }
+        ],
+        "summary": "No strategy is promotion-ready this window. Paper strategy PnL is NOT a valid promotion signal right now because it is artifact-inflated (0/48 gradeable) \u2014 promotion/demotion calls must wait for the bucket-A-filtered scorecard (PR #4660). Real-money sample is tiny (7 trades). ict_scalp_5m flagged for a tune/watch."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 1,
+        "dataset_builds_ok": true,
+        "summary": "ict-trainer.service ran a clean full cycle 2026-06-26 00:28->01:16Z (overall_rc=0, calibrators_ok, publish_post_ok). ~30 manifests trained OK; 3 MES manifests skipped 'empty_dataset' (mes-execution-quality / mes-setup-quality / mes-trade-outcome-winrate \u2014 known MES closed-trade sparsity). No failing/stuck cycle."
+      },
+      "soak_status": [
+        {
+          "soak": "shadow predictions (29 model/stage heads)",
+          "state": "accruing",
+          "detail": "all last_seen current (07:2xZ); 2 advisory heads order-influencing; new heads (conviction-meta-v1, eth cross-asset) started 06-23/06-24 and accruing"
+        },
+        {
+          "soak": "btc regime baselines",
+          "state": "watch",
+          "detail": "score_mean ~0.97 (saturated-looking); MB-20260623-001 degeneracy item marked fixed via #4602 \u2014 confirm yz/lgbm-v2 variants stay healthier"
+        },
+        {
+          "soak": "conviction (sizing/arbitration)",
+          "state": "accruing",
+          "detail": "conviction-meta-v1 1340 recs since 06-23; observe-only, not order-influencing"
+        }
+      ],
+      "flags_raised": [
+        "alpaca_live STILL api_ok=false / balance null AFTER the 2026-06-26 key rotation \u2014 live ETF signals refusing zero_balance; needs key propagation + web-api restart (owned by key-rotation session).",
+        "Paper-book PnL (-$12k/7d) is artifact-inflated (0/48 gradeable) \u2014 do NOT read raw per-strategy paper PnL as strategy edge until the bucket-A filter is applied."
+      ],
+      "backlog_drive": {
+        "drained": [],
+        "deferred": [
+          {
+            "id": "PB-20260626-ARTIFACT-BUCKETS",
+            "reason": "in_progress \u2014 tool built + wired (PR #4660); closes after one live performance-review applies it"
+          },
+          {
+            "id": "BL-20260626-OPKG-META-SNAPSHOT",
+            "reason": "Tier-3 awaiting operator (order-path observability fix, PR #4660 draft)"
+          },
+          {
+            "id": "BL-20260626-ALPACA-WHOLEUNIT-LATENT",
+            "reason": "awaiting-data \u2014 confirm once alpaca_live funded with working keys"
+          }
+        ],
+        "note": "This session's work was the zero-qty investigation + the bucketing tool (PR #4660) + this review; no additional backlog items were drained from the sandbox (the three backlogs' drains are driven by the on-VM review sessions that can write the scorer outputs)."
+      }
+    }
+  },
+  "market_context": [],
+  "artifacts": {
+    "json_path": "comms/reports/weekly/20260626T073500Z/report.json",
+    "html_path": "comms/reports/weekly/20260626T073500Z/report.html",
+    "md_path": "comms/reports/weekly/20260626T073500Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/weekly/20260626T073500Z/report.html",
+    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260626-073500-weekly"
+  }
+}

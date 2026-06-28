@@ -1,0 +1,153 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — weekly</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — weekly</h1>
+<p class="meta">Generated 2026-06-26T07:35:00Z · window 2026-06-19T07:28:41Z → 2026-06-26T07:35:00Z</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>Trader healthy and ticking; ML training cycle ran clean today (00:28-01:16Z, rc=0) with shadow soaks accruing live across 29 model/stage heads (2 advisory). The one real flag: alpaca_live is STILL api_ok=false / balance null AFTER the 2026-06-26 key rotation (alpaca_paper is fine), so live ETF signals keep refusing zero_balance. Real-money 7d is -$8.82 over 7 trades (tiny ~$95 bybit_2 book; ict_scalp_5m -$7.38 the bleeder). The paper book&#x27;s -$12,070 headline is ARTIFACT-INFLATED — the new bucketing tool scores 0/48 records gradeable in the recent window (the big trend_donchian -$7.4k / mhg_pullback -$5.2k &#x27;losses&#x27; are orphan/reduce/MHG-flap artifacts, not genuine round-trips).</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>alpaca_live still down after key rotation (api_ok=false, balance null)</b> <span class="pill">health · T2</span> ⚠️ operator<br><span class='muted'>Confirm the new ALPACA_API_KEY_ID/SECRET reached the VM .env (sync-vm-secrets) and ict-web-api + trader were restarted to pick them up; then re-check /api/bot/accounts/balances shows api_ok=true. Owned by the key-rotation session. Until then live ETF signals refuse zero_balance.</span></li>
+<li><b>Paper performance is artifact-inflated — apply the bucket-A filter before judging strategies</b> <span class="pill">performance · T1</span><br><span class='muted'>The -$12k paper headline is dominated by intent_reduce/orphan/MHG-flap artifacts (bucketing tool: 0/48 gradeable). Merge PR #4660 and run the performance-review pre-filter so per-strategy win-rate/expectancy is computed over genuine round-trips only. trend_donchian -$7.4k and mhg_pullback -$5.2k are flap artifacts, not strategy losses.</span></li>
+<li><b>ict_scalp_5m is the worst REAL-money strategy (7d -$7.38, 40% win)</b> <span class="pill">performance · T3</span><br><span class='muted'>On the live ~$95 bybit_2 book ict_scalp_5m drove essentially all of the -$8.82 7d loss. Small absolute dollars but the only genuine real-money bleeder. Candidate for a TUNE/DEMOTE review once a fuller window accrues.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">64 open / 139 total · 28 drained</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">31 open / 46 total</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">14 open / 44 total · 3 drained</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>performance</span> Post-sizing order-package meta re-persist (PR #4660, observability) — awaiting operator approval (touches the order path).</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>The alpaca_live zero_balance refusals (health) are the SAME root cause as the earlier zero-qty order-packages investigation (performance) — a funding/creds outage, not a sizing bug. Closing the key rotation closes both.</li>
+<li>The paper book&#x27;s large negative PnL (performance) is explained by the reconciler/intent-layer artifacts the health domain tracks (orphan flaps, MHG close-confirm) — the bucketing tool (PR #4660) is the bridge that separates the two so neither misreads the other.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟢 healthy</span></h2>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>trader_process</td><td class="sev-ok">🟢 ok</td><td>heartbeat running (age ~32s), uptime ~53min, ticking; last tick 07:26Z; git 884e81e4</td></tr>
+<tr><td>alpaca_live_connectivity</td><td class="sev-concern">🔴 concern</td><td>api_ok=false, balance=null, status.live=false at 07:00Z — newly-rotated keys NOT yet producing a balance read (alpaca_paper api_ok=true). Keys likely not yet on the VM .env / web-api not restarted. Owned by the key-rotation session.</td></tr>
+<tr><td>ib_live_connectivity</td><td class="sev-watch">🟡 watch</td><td>api_ok=false (no live IB creds wired — expected; ib_paper healthy)</td></tr>
+<tr><td>diag_relay</td><td class="sev-ok">🟢 ok</td><td>vm-diag-snapshot + trainer-vm-diag relays both responding</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-8.82</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">7</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">42.9%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-1.26</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.21</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-9.85</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">3</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>ict_scalp_5m</td><td>5</td><td>40.0%</td><td class="neg">$-7.38</td></tr>
+<tr><td>htf_pullback_trend_2h</td><td>1</td><td>0.0%</td><td class="neg">$-1.64</td></tr>
+<tr><td>eth_pullback_2h</td><td>1</td><td>100.0%</td><td class="pos">+$0.20</td></tr>
+</table></div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-12,070.07</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">57</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">42.1%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-211.76</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.48</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-19,392.26</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">24</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>trend_donchian</td><td>3</td><td>0.0%</td><td class="neg">$-7,389.33</td></tr>
+<tr><td>mhg_pullback_1d</td><td>2</td><td>0.0%</td><td class="neg">$-5,177.07</td></tr>
+<tr><td>sol_pullback_2h</td><td>13</td><td>23.1%</td><td class="neg">$-1,814.87</td></tr>
+<tr><td>avax_pullback_2h</td><td>7</td><td>28.6%</td><td class="neg">$-1,635.07</td></tr>
+<tr><td>trend_donchian_ada_4h</td><td>6</td><td>100.0%</td><td class="pos">+$1,413.21</td></tr>
+<tr><td>xrp_pullback_2h</td><td>5</td><td>60.0%</td><td class="pos">+$1,226.04</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— </div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">—</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">0 full dossiers, 64 summarized (grading unavailable from sandbox (scorer needs live-DB write); per-class aggregates only this run).</p>
+<p class="section-empty">No trades in this window.</p>
+<h2>Market context</h2>
+<p class="section-empty">No market context captured.</p>
+<h2>ML / models <span class="grade">🟢 healthy</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>btc-regime-1h-lgbm-yz-v1</td><td>advisory</td><td>score_mean 0.984</td><td>—</td><td>183 advisory recs</td><td>order-influencing; last advisory rec 06-23 (cadence)</td></tr>
+<tr><td>btc-regime-5m-lgbm-yz-v1</td><td>advisory</td><td>score_mean 0.9999</td><td>—</td><td>50 advisory recs</td><td>order-influencing; saturated score range</td></tr>
+<tr><td>conviction-meta-v1</td><td>shadow</td><td>score_mean 0.75</td><td>—</td><td>1340 since 06-23</td><td>new soak accruing</td></tr>
+<tr><td>eth-regime-1h-lgbm-xasset-v1</td><td>shadow</td><td>score_mean 0.755</td><td>—</td><td>331 cross-asset</td><td>new cross-asset head accruing</td></tr>
+<tr><td>btc-regime-5m-baseline-v1</td><td>shadow</td><td>score_mean 0.976</td><td>—</td><td>11765</td><td>baseline score saturated ~0.97 — watch for degeneracy (MB-20260623-001 fixed via #4602)</td></tr>
+</table></div>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li>TUNE/WATCH <b>ict_scalp_5m</b> — only genuine real-money bleeder, 7d -$7.38 / 40% win on bybit_2</li>
+<li class='muted'>No strategy is promotion-ready this window. Paper strategy PnL is NOT a valid promotion signal right now because it is artifact-inflated (0/48 gradeable) — promotion/demotion calls must wait for the bucket-A-filtered scorecard (PR #4660). Real-money sample is tiny (7 trades). ict_scalp_5m flagged for a tune/watch.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">1</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">True</div></div>
+</div>
+<p class='muted'>ict-trainer.service ran a clean full cycle 2026-06-26 00:28-&gt;01:16Z (overall_rc=0, calibrators_ok, publish_post_ok). ~30 manifests trained OK; 3 MES manifests skipped &#x27;empty_dataset&#x27; (mes-execution-quality / mes-setup-quality / mes-trade-outcome-winrate — known MES closed-trade sparsity). No failing/stuck cycle.</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>shadow predictions (29 model/stage heads)</td><td>accruing</td><td>all last_seen current (07:2xZ); 2 advisory heads order-influencing; new heads (conviction-meta-v1, eth cross-asset) started 06-23/06-24 and accruing</td></tr>
+<tr><td>btc regime baselines</td><td>watch</td><td>score_mean ~0.97 (saturated-looking); MB-20260623-001 degeneracy item marked fixed via #4602 — confirm yz/lgbm-v2 variants stay healthier</td></tr>
+<tr><td>conviction (sizing/arbitration)</td><td>accruing</td><td>conviction-meta-v1 1340 recs since 06-23; observe-only, not order-influencing</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 alpaca_live STILL api_ok=false / balance null AFTER the 2026-06-26 key rotation — live ETF signals refusing zero_balance; needs key propagation + web-api restart (owned by key-rotation session).</li><li>🚩 Paper-book PnL (-$12k/7d) is artifact-inflated (0/48 gradeable) — do NOT read raw per-strategy paper PnL as strategy edge until the bucket-A filter is applied.</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>PB-20260626-ARTIFACT-BUCKETS</code></td><td>performance</td><td>🔁 verify</td><td>Apply the A/B/C bucketing pre-filter in a live performance-review run.</td><td>next performance-review / PR #4660 merge</td></tr>
+<tr><td><code>BL-20260626-ALPACA-WHOLEUNIT-LATENT</code></td><td>health</td><td>🧱 awaiting-data</td><td>Confirm whole-share sizing takes 1 share (not refuse) once alpaca_live is funded with working keys.</td><td>alpaca_live api_ok=true + funded</td></tr>
+</table></div>
+<footer>report_id RPT-20260626-073500-weekly · reviewer claude · prior RPT-20260626-060200-since-last · ICT Trading Bot system-report</footer></div></body></html>

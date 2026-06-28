@@ -4,17 +4,19 @@
   "items": [
     {
       "id": "PB-20260626-001",
-      "opened_at": "2026-06-26T22:05:00+00:00",
-      "opened_by": "claude (alpaca_live go-live session 2026-06-26)",
-      "source": "alpaca_live was in mode:dry_run since strategies were assigned 2026-06-25. Root cause: the set-account-mode flip was never executed after the strategy block was added. Full investigation: session 2026-06-26 (diag snapshot #4719, journalctl #4721/#4723, test-alpaca-from-vm PR #4715 / issue #4717). Mode flip executed via system-action issue #4725 at 22:04 UTC. Credentials ALPACA_API_KEY_ID_LIVE / ALPACA_API_SECRET_KEY_LIVE confirmed working (HTTP 200 from api.alpaca.markets, key prefix AK65). Alpaca ETF strategies (spy/qqq/gld/iwm/tlt/ief_pullback_1d, spy/qqq/gld/tlt_pullback_1h, slv_trend_1h, uso_trend_1h) now armed for live execution but US market is closed (UTC 22:00+). First real-money order packages expected next US session (market open 13:30 UTC 2026-06-27).",
-      "title": "Verify alpaca_live balance pull (~$150) and first live order packages after market open 2026-06-27",
-      "description": "Two confirmation gates needed post-mode-flip: (1) BALANCE CONFIRMED: check diag snapshot or /api/bot/accounts/balances after 13:30 UTC 2026-06-27 to verify alpaca_live balance snapshots show ~$150 (not None/absent) — this proves the AlpacaClient is connecting to api.alpaca.markets with ALPACA_API_KEY_ID_LIVE and returning a valid equity; (2) FIRST ORDER PACKAGE: once a signal fires on any alpaca_live strategy (spy_pullback_1h / spy_trend_long_1d / etc.), confirm an order_packages row exists for alpaca_live with a real fill, and that the trade is journaled in trades (not just an intent). Both gates together prove the account is fully operational. If balance shows None after market open, the next debug step is the journalctl for 'alpaca_live' / 'AlpacaClient' / 'balance' to see why the client is failing to connect — but credential issues have been ruled out (HTTP 200 confirmed pre-mode-flip).",
-      "tier": 2,
-      "trigger_condition": "US market open 2026-06-27 (13:30 UTC). Check diag snapshot and /api/bot/accounts/balances for alpaca_live balance; then watch order_packages for the first alpaca_live entry.",
-      "resolution_criteria": "alpaca_live balance confirmed ~$150 in diag/balances endpoint AND at least one closed or open order_packages row exists for alpaca_live with a real (non-dry_run) fill. Close this item with those data points recorded.",
+      "opened_at": "2026-06-26T06:42:00+00:00",
+      "opened_by": "claude (P5 ORB-on-MES feasibility)",
+      "source": "backtest_orb.py (PR #4648) on trainer MES 5m v001 (86,897 bars, 2025-01-03->2026-05-22); diag relays #4663 (gate sweep) + #4664 (OR-width sensitivity).",
+      "title": "ORB-on-MES shelved: fails P5 gate at every (N, OR-width, stop) config — profit 2025-only, holdout negative",
+      "detail": "P5 ORB-on-MES does NOT clear PF>1.3 & daily-Sharpe>0.7 per k-fold @2x fees, holdout Sharpe>=0.5, >=2 positive fold-years — in ANY of: N in {1,3,6}; opposite-OR vs 0.5xATR stop; OR-width skip 1.5/2.5/3.0/5.0xATR; or walk-forward {1,3,6}. Identical failure everywhere: 2025 carries all profit, 2026 flat-to-negative, holdout daily-Sharpe -2.2..-2.9, fold 1 negative. Loosening the width filter 3-5x'd the sample (45->208 trades) without changing the verdict, ruling out sample-starvation. Decayed/regime-specific edge, not paper-promotable now. Full writeup: docs/research/P5-orb-mes-result-2026-06-26.md.",
       "status": "resolved",
-      "snoozed_until": null,
-      "updates": [],
+      "category": "strategy-research",
+      "revisit_conditions": [
+        "Pull multi-year MES 5m history via scripts/ops/pull_mes_ibkr_history.sh (current data is only 16.5 months, 2025-2026) to test the memo's 2015-2025 ORB-on-index thesis.",
+        "Only re-test with a materially different exit structure — opposite-OR and 0.5xATR stops both produce the same 2025-only, holdout-negative shape.",
+        "Even with a positive multi-year aggregate, do NOT promote while the recent holdout is negative (strategy is not working in the current regime)."
+      ],
+      "harness": "scripts/backtest_orb.py (in tree; reusable for SPY/QQQ/IWM extensions per the deep-review memo)",
       "resolved_at": "2026-06-27T11:35:00+00:00",
       "resolution": "CONFIRMED. alpaca_live balance ~$150 — too small for ETF sizing at 1% risk. Live order packages confirm: gld_pullback_1h generated 6 packages in this window (conf 0.72–0.95, strong trending setups) all rejected no_fill_all_accounts. alpaca_live.api_ok=true confirmed in live status. The account is live and authenticated but undercapitalized. Operator action: fund to ≥$2,000. Root cause IS NOT key rotation (auth confirmed working)."
     },
@@ -857,24 +859,6 @@
       "snoozed_until": null
     },
     {
-      "id": "PB-20260626-001",
-      "opened_at": "2026-06-26T06:42:00+00:00",
-      "opened_by": "claude (P5 ORB-on-MES feasibility)",
-      "source": "backtest_orb.py (PR #4648) on trainer MES 5m v001 (86,897 bars, 2025-01-03->2026-05-22); diag relays #4663 (gate sweep) + #4664 (OR-width sensitivity).",
-      "title": "ORB-on-MES shelved: fails P5 gate at every (N, OR-width, stop) config — profit 2025-only, holdout negative",
-      "detail": "P5 ORB-on-MES does NOT clear PF>1.3 & daily-Sharpe>0.7 per k-fold @2x fees, holdout Sharpe>=0.5, >=2 positive fold-years — in ANY of: N in {1,3,6}; opposite-OR vs 0.5xATR stop; OR-width skip 1.5/2.5/3.0/5.0xATR; or walk-forward {1,3,6}. Identical failure everywhere: 2025 carries all profit, 2026 flat-to-negative, holdout daily-Sharpe -2.2..-2.9, fold 1 negative. Loosening the width filter 3-5x'd the sample (45->208 trades) without changing the verdict, ruling out sample-starvation. Decayed/regime-specific edge, not paper-promotable now. Full writeup: docs/research/P5-orb-mes-result-2026-06-26.md.",
-      "status": "resolved",
-      "category": "strategy-research",
-      "revisit_conditions": [
-        "Pull multi-year MES 5m history via scripts/ops/pull_mes_ibkr_history.sh (current data is only 16.5 months, 2025-2026) to test the memo's 2015-2025 ORB-on-index thesis.",
-        "Only re-test with a materially different exit structure — opposite-OR and 0.5xATR stops both produce the same 2025-only, holdout-negative shape.",
-        "Even with a positive multi-year aggregate, do NOT promote while the recent holdout is negative (strategy is not working in the current regime)."
-      ],
-      "harness": "scripts/backtest_orb.py (in tree; reusable for SPY/QQQ/IWM extensions per the deep-review memo)",
-      "resolved_at": "2026-06-27T11:35:00+00:00",
-      "resolution": "CONFIRMED. alpaca_live balance ~$150 — too small for ETF sizing at 1% risk. Live order packages confirm: gld_pullback_1h generated 6 packages in this window (conf 0.72–0.95, strong trending setups) all rejected no_fill_all_accounts. alpaca_live.api_ok=true confirmed in live status. The account is live and authenticated but undercapitalized. Operator action: fund to ≥$2,000. Root cause IS NOT key rotation (auth confirmed working)."
-    },
-    {
       "id": "PB-20260626-002",
       "opened_at": "2026-06-26T07:40:00+00:00",
       "opened_by": "claude (P1 vol-target overlay result)",
@@ -934,6 +918,26 @@
       "category": "tooling",
       "resolved_at": "2026-06-26T08:50:00+00:00",
       "resolution": "Fixed trend_donchian tf 2h->1h in scripts/backtest_system.py::ROSTER to track config/strategies.yaml; added a comment requiring tf to track live. The curated BTCUSDT subset's other entries (fade/squeeze 4h, fvg_range/turtle 15m, ict_scalp 5m) already match live."
+    },
+    {
+      "id": "PB-20260626-ARTIFACT-BUCKETS",
+      "opened_at": "2026-06-26T07:00:00+00:00",
+      "opened_by": "claude (order-packages-zero-qty investigation + operator follow-up)",
+      "source": "Operator follow-up 2026-06-26 + docs/audits/order-packages-zero-qty-2026-06-26.md § Follow-up. Diag #4654: every bybit_1 paper close in-window (2847,2854-2860,2867,2894) is an intent_reduce/reconciler_filled leg, not a clean entry->exit round-trip; alpaca_paper rows dominated by netting-guard/hold-policy suppressions.",
+      "title": "Bucket artifact-heavy paper records: gradeable round-trips vs technical artifacts vs broker-truncated-reconstructable",
+      "description": "Per-strategy performance is distorted by paper records that are NOT clean strategy round-trips: intent-layer reduce/flip legs (intent_reduce=true), netting-guard/hold-policy suppressions (reentry_suppressed_*/flip_suppressed_*), reconciler_filled closes with no classifiable bracket reason, and orphan/re-adopt flaps. Proposed taxonomy: (A) GRADEABLE round-trips = open that reached a genuine sl/tp or strategy monitor() exit -> the ONLY rows that drive win-rate/expectancy; (B) TECHNICAL ARTIFACTS (reduce/flip/netting/hold/unclassified-reconciler/orphan-flap/creds-refusal) -> route to the technical/health backlog, exclude from the strategy scorecard; (C) BROKER-TRUNCATED-RECONSTRUCTABLE = trade closed mid-flight by reconciler/stuck-watchdog but we have entry+SL+TP -> keep the decision (entry quality, R:R) and reconstruct the would-be outcome by replaying /api/bot/candles from entry forward (first-touch SL vs TP within the bracket) -> label reconstructed_win/reconstructed_loss/open_at_window_end. Build as a performance-review pre-filter (+ optional reconstruction pass) so aggregates exclude bucket B by construction. Analysis/tooling layer, NOT a live-path change. Recommend operator OK to build it next; affects how every per-strategy number is computed.",
+      "tier": "tooling (analysis layer; per-strategy aggregation change)",
+      "trigger_condition": "Next performance-review run, or when the operator approves building the bucketing pre-filter.",
+      "resolution_criteria": "A performance-review step that classifies each closed paper record into bucket A/B/C, excludes B from per-strategy win-rate/expectancy, and reconstructs C outcomes from candles; documented + applied to one review.",
+      "status": "in_progress",
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-06-26T08:00:00+00:00",
+          "by": "claude (build)",
+          "note": "BUILT the bucketing tool: src/analysis/paper_record_classifier.py (pure A/B/C classifier) + src/analysis/trade_reconstruction.py (pure first-touch SL/TP reconstruction + candle adapter) + scripts/analysis/classify_paper_records.py (CLI, --json/--db, --reconstruct) + tests (21 passing). Validated on the real 2026-06-26 window (issue #4654, 48 recs): 0 gradeable / 46 artifact / 2 reconstructable. Wired into performance-review SKILL.md (run pre-filter before aggregates; compute over bucket-A only + bucket-C reconstructed). Shipped on branch claude/order-packages-zero-qty-eaofnv / PR #4660. REMAINING to close: apply it in one live performance-review run and confirm the per-strategy A/B/C split + reconstructed outcomes land in the report."
+        }
+      ]
     }
   ],
   "updated_at": "2026-06-28T04:12:30+00:00"

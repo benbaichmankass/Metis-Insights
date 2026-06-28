@@ -1,10 +1,14 @@
 # Full-System Audit — 2026-06-28 (branch `claude/full-system-audit-6h5q79`)
 
-**Status:** IN PROGRESS. This is the live coordination + findings record for the
-whole-system audit across all three repos (`ict-trading-bot`,
-`ict-trader-dashboard`, `ict-trader-android`). Any concurrent Claude session
-working this audit MUST read this file first and update it — it is the
-cross-session source of truth for what is claimed, verified, and in flight.
+**Status:** CONVERGING. **Workstream-B (liveness / zombie hunt) is COMPLETE**
+(items 1–4 done, merged — see the B-section closure block below: #4941 env-gate,
+#4942 diag-enabler + the `_CANONICAL_UNITS` add, #4943 vestigial-router removal,
+oanda shelved-verified). **Workstream-A** (consistency / doc-drift) landed its
+endpoint-doc PR (#4936); **C** (Alpaca flagship) is fixed bot-side
+(#4916/#4929); **D** (governance) done (#4931/#4944). This remains the live
+coordination + findings record across all three repos (`ict-trading-bot`,
+`ict-trader-dashboard`, `ict-trader-android`); any concurrent Claude session
+working this audit MUST read this file first and update it.
 
 Operator directives for this audit (2026-06-28):
 1. Read all canonical docs/rules/specs; surface every contradiction before fixing.
@@ -265,7 +269,37 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
     `risk_manager.approve` seam. Re-raised with operator 2026-06-28.
 - 🔎 Env-gate inventory from the subagent leaned on CLAUDE.md for many entries —
   **must be re-derived from actual `os.environ` call sites** before any are
-  trusted or flagged.
+  trusted or flagged. → ✅ DONE, see closure block (item 1).
+
+- ✅ **WORKSTREAM-B COMPLETE — 2026-06-28 (session `…01Rahcci`).** All four items closed:
+  1. **Env-gate inventory** — re-derived from the actual `os.environ` / settings
+     call sites (`docs/audits/env-gate-inventory-2026-06-28.md`), NOT from
+     CLAUDE.md. **No new Prime-Directive "third gate" violation** — the only
+     default-OFF `*_ENABLED` gates are `M5_CONSUMER_ENABLED` + `COMMS_PUSH_ENABLED`,
+     both carved-out tooling. `NEWS_VETO_ENABLED` is default-ON and **live-armed**
+     on the trader (news layer active; per-trade veto + ping = the
+     Prime-Directive-correct shape) — kept default-on per operator; the two stale
+     "observe-only … before it gates live money" comments (pipeline.py/diag.py)
+     fixed (field beats comment); a `NEWS_VETO_ENABLED` row added to the CLAUDE.md
+     env table. **PR #4941 (merged).**
+  2. **Diag `_CANONICAL_UNITS` coverage** — the chicken-and-egg (relay can't probe
+     a non-canonical unit) was resolved by adding a read-only `systemctl list-units
+     'ict-*'` enumeration to `status_check.sh` (**PR #4942, merged**). The live
+     probe (system-action #4946) then confirmed **`ict-devnull-guard.timer` AND
+     `ict-shadow-log-rotate.timer` enabled+active on the trader** → both
+     `{service,timer}` pairs ADDED to `_CANONICAL_UNITS` (this completion PR).
+     `ict-ib-gateway-reset` correctly left out (gateway VM). The shadow-log-rotate
+     unit-file "disabled by default" comment is stale — the installer's
+     enable-all-non-gateway-timers loop enables it (field beats comment).
+  3. **Vestigial router removal** — `route_order` + `TradingAccount.place_order`
+     removed; `EXCHANGE_MAP` + the stub `*API` classes KEPT (the P5-CI registry
+     guard + the `test_s028` patch-target guard need them); the risk-cap tests that
+     ran through `place_order` ported to assert `RiskManager.approve` directly
+     (exactly the "dedicated PR that ports the assertions to a direct
+     `risk_manager.approve` seam" the re-scope note above recommended). Operator
+     approved the narrowed scope. **PR #4943 (merged)** — supersedes the
+     "leave it / re-scoped" disposition above.
+  4. **`oanda_practice`** — cleanly shelved, NOT half-removed (verified above).
 
 ### F — Live order path line-by-line (S-AUDIT-F)
 

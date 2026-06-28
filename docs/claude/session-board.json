@@ -19,13 +19,6 @@
       "updated_at": "2026-06-28T11:30:00Z"
     },
     {
-      "session_id": "session_01RahcciiUKhSCC3eP3WHTb5",
-      "branch": "claude/audit-B-envgate-newsveto (+ -diag-statuscheck, -remove-route-order)",
-      "intent": "Audit Workstream-B: env-gate inventory (no new violation; NEWS_VETO_ENABLED live-armed, comments fixed) + status_check.sh ict-* enumerator for diag coverage + remove vestigial route_order/place_order router. #4942/#4943 merged.",
-      "started_at": "2026-06-28T10:30:00Z",
-      "updated_at": "2026-06-28T12:10:00Z"
-    },
-    {
       "session_id": "session_01QMJuYP4gnZKykKZLHoRv3v",
       "branch": "claude/audit-a-consistency-docdrift-owafwm",
       "intent": "S-AUDIT-A (Workstream-A, consistency/doc-drift): documented 8 undocumented REST endpoints + 0-orphan-call verification (PR #4936).",
