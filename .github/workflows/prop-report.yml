@@ -98,7 +98,10 @@ jobs:
     # combine `types` with an `if`-style label gate).
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'prop-report'))
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'prop-report'))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
