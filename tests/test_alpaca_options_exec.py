@@ -89,3 +89,57 @@ def test_single_option_rejects_bad_side():
             "XLF260116C00054000", side="long", qty=1,
             position_intent="buy_to_open", limit_price=0.5,
         )
+
+
+# ---------------------------------------------------------- Slice-4: live-path
+# methods exercised against a captured-request fake (no network).
+
+from src.units.accounts.alpaca_options_exec import AlpacaOptionsExecutor  # noqa: E402
+
+
+class _CaptureExec(AlpacaOptionsExecutor):
+    """Executor whose _request records calls and returns canned envelopes."""
+
+    def __init__(self, responses):
+        super().__init__(api_key="k", api_secret="s", env="paper")
+        self._responses = list(responses)
+        self.calls = []
+
+    def _request(self, method, path, json_body=None):
+        self.calls.append((method, path, json_body))
+        return self._responses.pop(0) if self._responses else {"retCode": 0, "result": {}}
+
+
+def test_account_activities_filters_to_lifecycle_types():
+    ex = _CaptureExec([{"retCode": 0, "result": [{"id": "x"}]}])
+    env = ex.account_activities(after="2026-06-20")
+    assert env["retCode"] == 0
+    method, path, _ = ex.calls[0]
+    assert method == "GET"
+    assert path.startswith("/v2/account/activities?")
+    assert "activity_types=EXP,OPASN,OPEXC" in path
+    assert "after=2026-06-20" in path
+
+
+def test_close_structure_liquidates_every_leg_idempotently():
+    # First leg closes ok; second is a 404 (no position) → mapped to success.
+    ex = _CaptureExec([
+        {"retCode": 0, "result": {}},
+        {"retCode": 404, "retMsg": "position does not exist"},
+    ])
+    out = ex.close_structure(["SLV260116C00025000", "SLV260116C00027000"])
+    assert out["retCode"] == 0
+    assert out["result"]["closed"] == ["SLV260116C00025000", "SLV260116C00027000"]
+    assert out["result"]["failed"] == []
+    assert all(m == "DELETE" for m, _, _ in ex.calls)
+
+
+def test_close_structure_reports_failed_leg():
+    ex = _CaptureExec([
+        {"retCode": 0, "result": {}},
+        {"retCode": 500, "retMsg": "boom"},
+    ])
+    out = ex.close_structure(["SLV260116C00025000", "SLV260116C00027000"])
+    assert out["retCode"] == 1
+    assert out["result"]["closed"] == ["SLV260116C00025000"]
+    assert out["result"]["failed"][0]["symbol"] == "SLV260116C00027000"

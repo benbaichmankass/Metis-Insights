@@ -136,6 +136,49 @@ def build_chain_from_responses(
     return out
 
 
+def options_structure_dict(result: "OptionsExpressionResult") -> Dict[str, Any]:
+    """The persisted structure detail for a placed expression (Slice-5 surfacing).
+
+    Pure — turns an :class:`OptionsExpressionResult` into the compact JSON block stored
+    in the trade row's notes (``notes.options``) and surfaced on ``/api/bot/positions``
+    so the dashboard + Android can render the legs / strikes / defined risk without a
+    live broker call. Per-leg live greeks/PnL are a documented follow-up (the positions
+    endpoint is connection-free by contract); this captures the decision-time geometry.
+    """
+    v = result.vertical
+    legs_out: List[Dict[str, Any]] = []
+    strike_by_symbol: Dict[str, Any] = {}
+    type_by_symbol: Dict[str, Any] = {}
+    if v is not None:
+        for cc in (v.long_leg, v.short_leg):
+            if cc is not None:
+                strike_by_symbol[cc.symbol] = cc.strike
+                type_by_symbol[cc.symbol] = cc.type
+    for leg in result.legs or []:
+        sym = getattr(leg, "symbol", None)
+        legs_out.append({
+            "symbol": sym,
+            "side": getattr(leg, "side", None),
+            "intent": getattr(leg, "position_intent", None),
+            "ratio": getattr(leg, "ratio_qty", 1),
+            "strike": strike_by_symbol.get(sym),
+            "type": type_by_symbol.get(sym),
+        })
+    out: Dict[str, Any] = {
+        "structure": "debit_vertical",
+        "contracts": int(result.contracts or 0),
+        "net_debit": round(float(result.net_debit or 0.0), 4),
+        "max_loss_usd": round(float(result.max_loss_usd or 0.0), 2),
+        "legs": legs_out,
+    }
+    if v is not None:
+        out["width"] = v.width
+        out["max_gain_usd"] = v.max_gain_usd
+        out["breakeven"] = v.breakeven
+        out["expiration"] = v.expiration
+    return out
+
+
 @dataclass
 class OptionsExpressionResult:
     """Outcome of an options expression attempt."""
