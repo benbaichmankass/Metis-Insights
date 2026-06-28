@@ -43,6 +43,20 @@ contract + generation discipline. This skill adds the two missing halves:
 3. **Register on the board.** Add yourself to `active_sessions` in
    `docs/claude/session-board.json` (session_id, branch, one-line intent) and read
    the existing entries + `merge_slot` so you know who else is live.
+4. **Claim your work BEFORE starting it — the anti-collision step.** When you're
+   one of several sessions in a multi-session program (e.g. an M17 `S-AUDIT-*`
+   sprint, an M14 ML sprint), FIRST check both the **live open-PR list**
+   (`list_pull_requests state=open`) and the program's sprint table in
+   `ROADMAP.md`. **If another session already has an open PR (or a pushed
+   `claude/*` branch) for the same sprint/workstream, do NOT start a parallel
+   one** — pick an unclaimed sprint, or narrow yours to a non-overlapping slice
+   and say so in your PR. Two sessions landing in the same workstream blind to
+   each other (2026-06-28: two sessions both re-did Workstream-B → duplicate
+   env-gate + `NEWS_VETO` PRs #4939/#4941, one closed) is the failure this step
+   exists to stop. The open-PR list is the authoritative "who's doing what" — the
+   `active_sessions` array is a best-effort mirror, not the source of truth (and
+   because every session edits that one JSON, treat conflicts on it as expected
+   and resolve by union, never by clobbering another session's entry).
 
 ## 2. The merge protocol (BEFORE every `merge_pull_request`)
 

@@ -223,9 +223,12 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
   `ict-smoke-once` / `ict-env-check` (one-shots) + `claude-vm-runner@` (template)
   are correctly excluded. **Fix (Workstream-B session):** add ONLY units confirmed
   enabled+active on the trader VM — likely just `ict-devnull-guard` pending the probe.
-- 🔎 `oanda_practice` is fully shelved (mode dry_run, strategies [], creds unset
-  since 2026-06-12) — documented-keep, not a zombie, but confirm the integration
-  code isn't half-removed.
+- ✅ **`oanda_practice` cleanly shelved (NOT half-removed) — VERIFIED** (Workstream-B
+  session `…01EHkF`, salvaged from closed PR #4939 during the 2026-06-28 B-collision
+  dedup). `OandaClient` + factory + `EXCHANGE_MAP["oanda"]` + the `execute_pkg` oanda
+  branch + the loader passthrough all resolve, and **`oanda_env` IS plumbed** through
+  the loaders (no `alpaca_env`-style gap). mode dry_run, strategies [], creds unset
+  since 2026-06-12. Documented-keep.
 - ✅ **Brokers — all LIVE, no zombie.** `EXCHANGE_MAP` = {bybit, breakout, oanda,
   alpaca}; `accounts.yaml` routes bybit(2), alpaca(3), interactive_brokers(2),
   breakout(1), oanda(1). Every routed exchange has ≥1 account. **Tradovate fully
@@ -244,6 +247,22 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
   live consumer or a written keep-justification; it has neither. **Disposition:
   operator call** — remove the vestigial path (+ its tests) OR document why it's
   kept. Non-trivial (touches account.py/integrator.py); NOT auto-removed.
+  - ⚠️ **RE-SCOPED 2026-06-28 (S-AUDIT-E) — keep `EXCHANGE_MAP`; removal is bigger
+    than "delete dead code".** Operator initially approved "lets remove," but on
+    reading the code: (1) **`EXCHANGE_MAP` is load-bearing** — `tests/test_ltmgmt_p5_contract_ci.py`
+    iterates it as the integration registry for the P5 management-caps contract
+    guard; removing it guts that guard. Only the **router** (`route_order` +
+    `TradingAccount.place_order`) is vestigial. (2) The router is the **end-to-end
+    harness the risk-cap test suite runs through** — `test_s012_risk_caps.py`
+    (position-size / daily-loss / kill-switch / drawdown refusals) +
+    `test_accounts_integration.py` + `test_s010_accounts.py::TestIntegrator` all
+    exercise `RiskManager.approve` via `account.place_order`. Removing it = rewriting
+    safety-critical risk-cap test coverage to call `risk_manager.approve` directly,
+    for a **purely cosmetic** production gain (live path is already `execute_pkg`;
+    the stubs raise `NotImplementedError` so the router can't accidentally trade).
+    **Recommendation: leave it** (low value, touches risk-cap tests) OR, if removed,
+    do it as a dedicated PR that ports the risk-cap assertions to a direct
+    `risk_manager.approve` seam. Re-raised with operator 2026-06-28.
 - 🔎 Env-gate inventory from the subagent leaned on CLAUDE.md for many entries —
   **must be re-derived from actual `os.environ` call sites** before any are
   trusted or flagged.
