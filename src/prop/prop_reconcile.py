@@ -85,8 +85,18 @@ def find_unacted_tickets(
     tickets = prop_journal.list_tickets(account_id=account_id, limit=limit)
     fills = prop_journal.list_fills(account_id=account_id, limit=1000)
     acted_ids = {f.get("ticket_id") for f in fills if f.get("ticket_id")}
+    # The (symbol, direction) fallback match MUST be account-scoped: when this is
+    # called with account_id=None (the global path the expiry-prompt scan uses),
+    # `fills` spans every prop account, and an unscoped key would let a fill on
+    # account A mask a genuinely-unacted ticket on account B for the same
+    # symbol+direction — that ticket would never be flagged as drift / prompted.
+    # Keying on account too keeps the cross-account isolation the design's
+    # multi-account-from-day-one invariant requires (matches the account-scoped
+    # keys in prop_monitor_pulse._position_key + match_fill_to_ticket).
     acted_keys = {
-        (str(f.get("symbol") or "").upper(), str(f.get("direction") or "").lower())
+        (str(f.get("account_id") or "").strip(),
+         str(f.get("symbol") or "").upper(),
+         str(f.get("direction") or "").lower())
         for f in fills
     }
     out: List[Dict[str, Any]] = []
@@ -95,7 +105,8 @@ def find_unacted_tickets(
             continue
         if t.get("ticket_id") in acted_ids:
             continue
-        key = (str(t.get("symbol") or "").upper(),
+        key = (str(t.get("account_id") or "").strip(),
+               str(t.get("symbol") or "").upper(),
                str(t.get("direction") or "").lower())
         if key in acted_keys:
             continue

@@ -12,10 +12,24 @@ thresholded by ``ML_VOL_VERDICT_THRESHOLD`` (default 0.5):
        source: "ml-advisory:<model_id>" | "unavailable",
        model_id: <model_id> | None}
 
-This module is the **Phase-1 (observe-only)** verdict source: the gate logs a
-``regime_ml_vol_shadow`` audit row comparing the ML label against the frozen
-label, but the gate DECISION still uses the frozen ``intent.vol_regime``. Phase
-2 (use) / Phase 3 (enforce) are deferred (separate operator-gated PRs).
+This module is the verdict SOURCE for all three Design-A modes; the live mode is
+selected by ``REGIME_ML_VERDICT_MODE`` (``off`` default / ``shadow`` / ``use``)
+and consumed in ``src/runtime/intents.py``:
+
+- ``shadow`` — the gate logs a ``regime_ml_vol_shadow`` audit row comparing the
+  ML label against the frozen ``intent.vol_regime``; the gate DECISION is
+  unchanged (still the frozen label).
+- ``use`` — the gate DECISION substitutes the advisory head's ML vol label via
+  ``intents._decision_vol_regime`` (per-SYMBOL resolution,
+  :func:`ml_vol_regime_for_symbol`); fail-permissive → frozen when the verdict is
+  ``unknown``. **Wired + LIVE since 2026-06-28** (commit ``e0d052e7`` / #4896): on
+  BTC ``use`` already changes real-money routing (the 15m advisory head covers
+  every BTC cell). ETH/SOL cells activate per-symbol as their 15m heads promote
+  ``shadow → advisory``. ``use`` and ``ML_VOL_VERDICT_THRESHOLD`` are Tier-3
+  (order-routing-affecting), operator-gated + walk-forward-gated.
+
+(Historical note: ``use``/enforce were a documented placeholder until #4896 —
+before that the gate decision always used the frozen label.)
 
 Design contract (``docs/research/A-regime-router-ml-vol-verdict-DESIGN-2026-06-27.md``):
 

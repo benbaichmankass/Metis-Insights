@@ -1666,8 +1666,13 @@ class Coordinator:
                     # keys on: a prematurely-closed package must not free
                     # the gate while the position is genuinely still open.
                     # Reduce / close / flip (position-management) deltas are
-                    # never blocked. Gated by POSITION_NETTING_GUARD_ENABLED
-                    # (default off → ships inert; one env flip to roll back).
+                    # never blocked. The guard is BASELINE (unconditional) as of
+                    # 2026-06-17 — ``position_netting_guard_active_for`` returns
+                    # True for every account (a no-op where it can't apply, e.g.
+                    # brokers that net atomically); the old
+                    # POSITION_NETTING_GUARD_ENABLED env flag was removed (Prime
+                    # Directive: a required correctness fix must not sit behind a
+                    # default-off gate that an env drop could silently revert).
                     if (
                         position_netting_guard_active_for(account.name)
                         and delta.action in ("open", "increase")

@@ -301,6 +301,59 @@ Legend: ✅ VERIFIED (code read + evidence) · 🔎 LEAD (needs verification) ·
      "leave it / re-scoped" disposition above.
   4. **`oanda_practice`** — cleanly shelved, NOT half-removed (verified above).
 
+### F — Live order path line-by-line (S-AUDIT-F)
+
+Slice: the highest money-at-risk code — `execute.py`, `order_monitor.py`,
+`coordinator.py`, `intents.py`, `risk.py` — read IN FULL (13,539 lines). Branch
+`claude/audit-F-order-path`.
+
+- ✅ **`src/units/accounts/risk.py` (749 lines) — VERIFIED CLEAN.** Sizing is the
+  single authority (`RiskManager.position_size`); whole-unit (futures/alpaca)
+  + round-up-to-1-share + daily-loss-budget + margin pre-flight all coherent
+  with their docstrings and CLAUDE.md. No dead code, no drift.
+- ✅ **`src/runtime/intents.py` (1,680 lines) — VERIFIED CLEAN** apart from one
+  comment drift (fixed). Aggregator / delta / flip-policy / regime gate
+  (baseline-on hard gate vs shadow) all match the canonical record. The legacy
+  non-intent branch in coordinator is still reachable (`MULTI_STRATEGY_INTENT_LAYER`
+  can be flipped off) → NOT dead.
+- 🐞→✔ **`intents.py:1491` stale flip-policy comment.** Said `Default "reverse"
+  preserves the historical close-and-reopen` — but `_DEFAULT_FLIP_POLICY = "hold"`
+  since PR #2451 (2026-05-31, walk-forward-gated). The comment was the original
+  text from PR #2441 (when reverse WAS default), never updated when the default
+  flipped. Field beats comment. **Tier-1 fixed** (comment-only).
+- ✅ **`src/core/coordinator.py` (3,099 lines) — VERIFIED CLEAN** apart from one
+  comment drift (fixed). `multi_account_execute` dispatch, eligibility filter,
+  sizing → conviction/advisory/news reducers → venue-min → netting-guard →
+  risk-gate → execute_pkg legs, BUG-049 terminalise backstop — all coherent.
+- 🐞→✔ **`coordinator.py:1669` stale netting-guard comment.** Said `Gated by
+  POSITION_NETTING_GUARD_ENABLED (default off → ships inert; one env flip to roll
+  back)` — but the guard is BASELINE (unconditional) since 2026-06-17
+  (`positions.py::position_netting_guard_active_for` returns True; the env flag was
+  removed). Field beats comment. **Tier-1 fixed** (comment-only).
+- ✅ **`src/units/accounts/execute.py` (1,669 lines) — VERIFIED CLEAN** apart from
+  two stale error strings (fixed). `execute_pkg` (incl. the breakout prop /
+  options-expression branches), `_submit_order` per-exchange dispatch,
+  `modify_open_order` / `close_open_position` (bybit/IB/alpaca/oanda) all coherent.
+- 🐞→✔ **`execute.py:1471 + :1668` stale "(bybit only in v1)" error strings.**
+  Both `modify_open_order` + `close_open_position` now wire bybit + IB + alpaca
+  (+ oanda for close); the fallthrough error still claimed bybit-only. **Tier-1
+  fixed** to list the actually-wired set (user-facing error text accuracy).
+- ✅ **`src/runtime/order_monitor.py` (6,344 lines) — VERIFIED CLEAN** apart from
+  one section-header drift (fixed). Partial/full/modify apply paths, the forward
+  + reverse reconcilers, snapshot reconcile, stuck-strategy watchdog, naked-
+  autoprotect, Bybit-truth + local-PnL + options-lifecycle sweeps — exhaustively
+  documented and internally consistent. The removed env-gates
+  (`MONITOR_RECONCILE_ENABLED` / `MONITOR_APPLY_TO_EXCHANGE` / spot-margin
+  reconcilers) are correctly described as removed at every reference.
+- 🐞→✔ **`order_monitor.py:1174` stale section header `— env-gated`.** The
+  exchange-side wiring section is no longer env-gated — dry/live is decided
+  per-account by `mode:` (the senders short-circuit only on `mode == "dry_run"`;
+  the `MONITOR_APPLY_TO_EXCHANGE` shadow gate was removed). **Tier-1 fixed**
+  (comment-only).
+- **No real (behavioural) bugs found in the order path.** All findings are
+  comment / error-string drift (Tier-1, comment-only). No latent risk, no
+  dead/zombie code, no Tier-3 proposals needed.
+
 ### D — Claude workflow governance (NEW — design pending)
 
 Operator-reported failure modes + candidate fixes (to be designed, not yet built):
@@ -327,3 +380,6 @@ Operator-reported failure modes + candidate fixes (to be designed, not yet built
 - `src/units/ui/data_loaders.py` (balance section ~633–950) ✅ (rest pending)
 - `src/units/accounts/clients.py` (factories ~84–168) ✅ (rest pending)
 - `deploy/ict-hourly-snapshot.{service,timer}` ✅
+- **S-AUDIT-F web-api slice** — `src/web/api/main.py` + all `routers/*.py` except accounts.py/diag.py read in full → `docs/audits/s-audit-f/web-api-routers.md` (2 Tier-1 doc/comment-drift fixes; no behavioural bugs, no zombie routes). ✅
+- **S-AUDIT-F prop-bridge slice** — all 20 `src/prop/*.py` read in full + live wiring (`execute.py` breakout branch, `prop_risk.py`). Findings → `docs/audits/s-audit-f/prop-bridge.md`. Isolation holds (no leak into real/paper KPIs), lifecycle sound, no dead code; 1 multi-account latent bug (F1 `find_unacted_tickets` cross-account `acted_keys`, Tier-2 DRAFT), 1 docstring fix (F2a Tier-1), 2 backlog items. ✅
+- **S-AUDIT-F pipeline/runtime (non-order-path) slice** — 13 files read in full (pipeline.py, main.py, positions.py, market_data.py, heartbeat.py, regime_bar_scoring.py, news_sizing.py, exit_ladder_soak.py, regime/*). Findings -> `docs/audits/s-audit-f/pipeline-runtime.md`. No behavioural bug / dead code / zombie; 2 Tier-1 doc-drift fixes (ml_vol_verdict use-is-live; pipeline intent-layer default-on), 2 backlog items, no Tier-3. ✅
