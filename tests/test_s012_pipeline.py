@@ -156,10 +156,12 @@ def test_turtle_soup_in_strategy_builders():
     assert "turtle_soup" in _STRATEGY_BUILDERS
 
 
-def test_turtle_soup_in_strategy_risk_pct():
-    from src.runtime.pipeline import STRATEGY_RISK_PCT
-    assert "turtle_soup" in STRATEGY_RISK_PCT
-    assert 0 < STRATEGY_RISK_PCT["turtle_soup"] <= 1.0
+def test_no_per_strategy_risk_map():
+    # The per-strategy risk multiplier (STRATEGY_RISK_PCT) was removed
+    # 2026-06-29 — sizing is the RiskManager's account-level job. The symbol
+    # must no longer exist on the pipeline module.
+    import src.runtime.pipeline as pipeline
+    assert not hasattr(pipeline, "STRATEGY_RISK_PCT")
 
 
 def test_multiplexer_dispatches_turtle_soup_when_actionable(patch_exchange, monkeypatch):
