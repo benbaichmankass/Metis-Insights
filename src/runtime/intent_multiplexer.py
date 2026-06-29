@@ -700,4 +700,19 @@ def multiplexed_intent_signal_builder(
         signal[CANDIDATE_BATCH_KEY] = intents_to_signal_packages(intents)
     except Exception:  # noqa: BLE001 — observe-only attach must never break a tick
         logger.debug("candidate-batch: attach failed", exc_info=False)
+    # M18 P0c (observe-only): soak what a capital allocator WOULD pick (top-ranked
+    # candidate) vs what the aggregator actually routed, + the regret between them.
+    # Only fires when ≥ 2 actionable candidates exist (a genuine choice). Routing
+    # is unchanged; nothing reads this back. Fail-permissive.
+    try:
+        from src.runtime.allocator_soak import record_allocator_soak
+        _executed = desired.winning_intent.strategy if desired.winning_intent else None
+        record_allocator_soak(
+            signal.get(CANDIDATE_BATCH_KEY) or [],
+            symbol=symbol,
+            executed_strategy_id=_executed,
+            executed_side=signal.get("side"),
+        )
+    except Exception:  # noqa: BLE001 — observe-only soak must never break a tick
+        logger.debug("allocator_soak: record failed", exc_info=False)
     return signal
