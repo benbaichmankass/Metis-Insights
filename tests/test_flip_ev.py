@@ -6,7 +6,6 @@ into a small TP against a large held trend must clear ``f·(2·notional_H +
 2·notional_N)`` before it's worth displacing the trend. These tests pin the
 arithmetic and the fail-safe (un-computable → never a pass).
 """
-import os
 import sys
 from pathlib import Path
 

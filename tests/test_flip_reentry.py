@@ -5,17 +5,14 @@ record round-trip persistence on order_packages.meta, and the
 arm-on-close → consume-on-signal lifecycle including the STALE-skip path
 (never resurrect a stale signal).
 """
-import sqlite3
 import sys
 import time
 from pathlib import Path
 
-import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.runtime.flip_reentry import (  # noqa: E402
-    DISPLACED_INTENT_META_KEY,
     STATUS_ARMED_PENDING,
     STATUS_ARMED_READY,
     STATUS_REENTERED,
