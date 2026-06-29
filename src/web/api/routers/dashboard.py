@@ -23,6 +23,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, status
 
 from src.utils.paths import runtime_logs_dir, trade_journal_db_path
+from src.web.api._asset_class import asset_class_for_symbol
 from src.web.api._clean_trades import (
     account_class_wire,
     exclude_reconciler_predicate,
@@ -646,6 +647,13 @@ async def get_positions(
             "pattern": r[9] if r[9] else None,
             "isDemo": bool(r[10]),
             "accountClass": _account_class_wire(r[11], r[10]),
+            # ``assetClass`` ("crypto"|"index"|"commodity"|"bond"|"equity"|
+            # "fx"|"unknown") — coarse reporting bucket for the symbol, so a
+            # consumer can group/filter positions by asset group without a
+            # symbol map of its own. Reporting-only (never the order path);
+            # config-driven via config/instruments.yaml with a heuristic
+            # fallback. Never null (worst case "unknown").
+            "assetClass": asset_class_for_symbol(r[2]),
             "options": options_block,
         })
     return out

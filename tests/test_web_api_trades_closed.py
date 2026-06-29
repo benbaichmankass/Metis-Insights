@@ -77,6 +77,7 @@ def test_returns_closed_trade_with_full_shape(db, client):
         "accountClass": "real_money",  # account_class convention (2026-06-15)
         "isDemo": False,  # 2026-06-04 reporting-cleanup
         "symbol": "BTCUSDT",
+        "assetClass": "crypto",  # coarse reporting bucket (BTCUSDT → crypto)
         "side": "buy",  # long → buy
         "pattern": "turtle_soup",
         "qty": 0.001,
