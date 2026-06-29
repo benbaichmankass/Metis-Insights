@@ -1043,6 +1043,129 @@ def _log_170134_diagnostic(
 
 
 # ---------------------------------------------------------------------------
+# Intent-reduce partial-close (BL-intent-reduce-partial-close)
+# ---------------------------------------------------------------------------
+#
+# In intent mode the multiplexer trims a netted position by issuing a
+# ``reduce_only`` leg whose ``direction`` is the OPPOSITE of the current net
+# (e.g. a SHORT reduce_only order to trim a net-LONG). Pre-fix the journal
+# wrote that reduce as a NEW ``status='open'`` row in the opposite direction —
+# which ``current_net_position_qty`` (sum of signed ``position_size`` over open
+# rows) read as a phantom short, the reverse reconciler then closed as
+# ``reconciler_filled``, and with the reduce row gone the DB net snapped back
+# to its pre-reduce value so the intent layer re-issued the SAME reduce every
+# tick (infinite churn: real reduce orders + open/close ping spam + DB↔exchange
+# divergence).
+#
+# Correct model: a reduce is a PARTIAL CLOSE of the existing parent position,
+# not a new open. ``apply_intent_reduce_partial_close`` consumes the reduce qty
+# FIFO across the open parent rows (close fully-consumed rows, shrink the
+# partially-consumed one) so the journal net moves to its decremented value and
+# the loop stops. PnL on the closed chunks is left NULL with a
+# ``pnl_source='deferred_intent_reduce'`` marker, consistent with the repo's
+# deferred-PnL contract (the local-PnL sweep / closed-pnl lookup is the single
+# source of realised PnL; the synchronous ``_compute_close_pnl`` helper was
+# removed 2026-05-18) and the "render null, never a guessed 0" rule.
+
+
+def apply_intent_reduce_partial_close(
+    db: Any,
+    *,
+    account_id: str,
+    symbol: str,
+    reduce_direction: str,
+    reduce_qty: float,
+    fill_price: Optional[float],
+    closed_at_iso: str,
+) -> dict:
+    """Apply an intent-mode reduce as a FIFO partial close of the parent.
+
+    The parent side being reduced is the OPPOSITE of ``reduce_direction``
+    (a SHORT reduce leg trims LONG parent rows, and vice-versa). The open
+    parent rows for ``(account_id, symbol, parent_side, status='open',
+    is_backtest=0)`` are consumed oldest-first (``ORDER BY id ASC``):
+
+      * fully-consumed parent row  → closed (``status='closed'``,
+        ``exit_reason='intent_reduce'``, ``pnl``/``pnl_percent`` left NULL),
+      * partially-consumed parent  → ``position_size`` decremented, row stays
+        open (status NOT passed, so no close ping fires).
+
+    Returns a dict describing the allocation::
+
+        {
+            "allocations": [{"parent_id": <int>, "consumed": <float>}, ...],
+            "leftover": <float>,          # reduce qty with no parent to absorb
+            "no_parent_position": <bool>, # True when there were zero open parents
+        }
+
+    No new ``status='open'`` row is created here — that is the whole point of
+    the fix (the phantom opposite-direction open is what created the churn).
+    The single audit row is written by the caller.
+    """
+    # Parent = the side being reduced = opposite of the reduce leg's direction.
+    rd = (reduce_direction or "").strip().lower()
+    parent_side = {"short": "long", "long": "short",
+                   "sell": "long", "buy": "short"}.get(rd)
+    if parent_side is None:
+        # Defensive: an unexpected direction value means we can't safely
+        # identify the parent rows. Surface it so the caller falls back.
+        raise ValueError(
+            f"apply_intent_reduce_partial_close: unmappable reduce_direction="
+            f"{reduce_direction!r}"
+        )
+
+    conn = db.connect()
+    try:
+        rows = conn.execute(
+            "SELECT id, position_size FROM trades "
+            "WHERE account_id = ? AND symbol = ? AND direction = ? "
+            "AND status = 'open' AND COALESCE(is_backtest, 0) = 0 "
+            "ORDER BY id ASC",
+            (account_id, symbol, parent_side),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    remaining = float(reduce_qty or 0.0)
+    eps = 1e-9
+    allocations: list[dict] = []
+    no_parent_position = (len(rows) == 0)
+
+    for row in rows:
+        if remaining <= eps:
+            break
+        parent_id = int(row[0])
+        parent_qty = float(row[1] or 0.0)
+        if parent_qty <= eps:
+            continue
+        consumed = min(remaining, parent_qty)
+        if consumed >= parent_qty - eps:
+            # Fully consumed → close this parent chunk. PnL deferred (NULL).
+            db.update_trade(parent_id, {
+                "status": "closed",
+                "exit_price": float(fill_price) if fill_price is not None else None,
+                "exit_reason": "intent_reduce",
+                "closed_at": closed_at_iso,
+                "pnl": None,
+                "pnl_percent": None,
+            })
+        else:
+            # Partially consumed → shrink the row, leave it open. Status is
+            # NOT passed so update_trade fires no close ping.
+            db.update_trade(parent_id, {
+                "position_size": parent_qty - consumed,
+            })
+        allocations.append({"parent_id": parent_id, "consumed": consumed})
+        remaining -= consumed
+
+    return {
+        "allocations": allocations,
+        "leftover": max(remaining, 0.0),
+        "no_parent_position": no_parent_position,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Trade-journal writer (architecture-audit-2026-05-02 P0-2)
 # ---------------------------------------------------------------------------
 
@@ -1151,6 +1274,77 @@ def _log_trade_to_journal(
         if account_class not in ("paper", "real_money"):
             account_class = "real_money"
         is_paper_account = (account_class == "paper")
+        resolved_account_id = str(
+            account_cfg.get("account_id") or account_cfg.get("id") or "unknown"
+        )
+        reduce_qty = float(order.get("qty") or 0.0)
+        # Intent-mode reduce of a REAL placed order (status would otherwise be
+        # 'open'): model it as a FIFO PARTIAL CLOSE of the parent position
+        # rather than a new opposite-direction open row (the phantom-short
+        # churn bug — see apply_intent_reduce_partial_close above). Rejections /
+        # dry-runs pass a non-'open' status and keep the legacy insert path.
+        # The whole partial-close block is best-effort: ANY failure logs a
+        # warning and falls through to the legacy insert so the order path can
+        # never crash.
+        if intent_reduce and status == "open":
+            try:
+                reduce_result = apply_intent_reduce_partial_close(
+                    db,
+                    account_id=resolved_account_id,
+                    symbol=pkg.symbol,
+                    reduce_direction=pkg.direction,
+                    reduce_qty=reduce_qty,
+                    fill_price=float(pkg.entry) if pkg.entry is not None else None,
+                    closed_at_iso=datetime.now(timezone.utc).isoformat(),
+                )
+                # One audit row recording the reduce. status='closed' so
+                # insert_trade fires NO trade_opened ping (it only fires for
+                # status=='open'); pnl/pnl_percent left NULL (deferred).
+                audit_notes = dict(notes_payload)
+                audit_notes["intent_reduce_allocations"] = reduce_result["allocations"]
+                if reduce_result["leftover"] > 1e-9:
+                    audit_notes["over_reduce_leftover"] = reduce_result["leftover"]
+                if reduce_result["no_parent_position"]:
+                    audit_notes["no_parent_position"] = True
+                audit_notes["pnl_source"] = "deferred_intent_reduce"
+                now_iso = datetime.now(timezone.utc).isoformat()
+                db.insert_trade({
+                    "timestamp": now_iso,
+                    "symbol": pkg.symbol,
+                    "direction": pkg.direction,  # the reduce side
+                    "entry_price": float(pkg.entry),
+                    "stop_loss": float(pkg.sl),
+                    "take_profit_1": float(pkg.tp),
+                    "position_size": reduce_qty,
+                    "setup_type": "intent_reduce",
+                    "entry_reason": entry_reason[:500],
+                    "exit_reason": "intent_reduce_executed",
+                    "status": "closed",
+                    "closed_at": now_iso,
+                    "pnl": None,
+                    "pnl_percent": None,
+                    "is_backtest": 0,
+                    "account_class": account_class,
+                    "is_demo": int(is_paper_account),
+                    "strategy_name": pkg.strategy,
+                    "account_id": resolved_account_id,
+                    "notes": dump_capped(audit_notes, 2000),
+                    "order_package_id": pkg_id,
+                })
+                # Reduce handled as a partial close — done. The package
+                # linked_trade_id slot is owned by the primary entry, not a
+                # reduce leg (mirrors the is_primary_entry guard below), so
+                # there is nothing else to wire here.
+                return True
+            except Exception as exc:  # noqa: BLE001 — never crash the order path
+                logger.warning(
+                    "execute_pkg: intent-reduce partial-close failed "
+                    "(account=%s symbol=%s reduce_dir=%s qty=%s); falling back "
+                    "to legacy reduce-row insert: %s",
+                    resolved_account_id, pkg.symbol, pkg.direction,
+                    reduce_qty, exc,
+                )
+                # Fall through to the legacy insert below (old behaviour).
         trade_row_id = db.insert_trade({
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "symbol": pkg.symbol,
@@ -1166,9 +1360,7 @@ def _log_trade_to_journal(
             "account_class": account_class,
             "is_demo": int(is_paper_account),
             "strategy_name": pkg.strategy,
-            "account_id": str(
-                account_cfg.get("account_id") or account_cfg.get("id") or "unknown"
-            ),
+            "account_id": resolved_account_id,
             # Options rows carry a multi-leg structure block, so they need a
             # larger notes budget than the 500-char default (a truncated JSON
             # blob would be unparseable on the read side).
