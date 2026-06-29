@@ -2772,7 +2772,19 @@
       "description": "The live trader VM's /dev/null is repeatedly clobbered by an OS-level OCI host agent (suspected oracle-cloud-agent oci-wlp / Cloud Guard Workload-Protection FIM 'remediating' world-writable files, incorrectly including /dev/null) — see docs/runbooks/devnull-guard.md. As of 2026-06-29 we now have THREE self-heal layers (ict-devnull-guard.timer 60s, deploy_pull_restart.sh, and _lib.sh::require_systemctl — the last two added this session) plus the guard %-specifier bugfix, so consumers no longer break on a transient clobber. REMAINING: kill it at the source so /dev/null isn't being rm'd/chmod'd at all. AUTONOMOUS path to try first (SSH+sudo via a runner, NOT operator-manual): `sudo auditctl -w /dev/null -p wa -k devnull` then after it next flips `sudo ausearch -k devnull` to positively identify the writing process/agent; if it's a local oracle-cloud-agent plugin, disable that plugin's /dev remediation via its on-VM config. OPERATOR/OCI-CONSOLE path (only if the rule is tenancy-level): exclude /dev from the OCI Cloud Guard / Workload-Protection FIM profile attached to the instance — needs OCI console/tenancy access (a legitimate category-1 operator/external action). OPTIONAL mitigation regardless: tighten ict-devnull-guard.timer OnUnitActiveSec 60s -> ~20-30s to shrink the exposure window for any non-self-healing consumer (e.g. the trader's own >/dev/null subprocess plumbing).",
       "source": "devnull incident 2026-06-29 (issues #5069/#5080/#5087, PR #5088)",
       "updates": []
+    },
+    {
+      "id": "BL-20260629-INTENT-REDUCE-CHURN-VERIFY",
+      "title": "[verify/soak] confirm the intent-reduce partial-close fix (#5101) actually stops the open->reconciler-close churn on the live trader",
+      "status": "open",
+      "opened_at": "2026-06-29T17:05:00+00:00",
+      "opened_by": "claude (operator-requested follow-up 2026-06-29)",
+      "snoozed_until": null,
+      "category": "verify",
+      "description": "FIX DEPLOYED 2026-06-29: #5101 (merged + deployed, live trader HEAD 2b723d42) reworks an intent-mode reduce_only leg from a phantom status='open' opposite-direction row (which the reverse reconciler immediately closed as reconciler_filled, snapping the DB net back and looping the same reduce every tick) into a FIFO PARTIAL-CLOSE of the parent position (decrement open parent rows + one closed setup_type='intent_reduce' audit row, exit_reason='intent_reduce_executed'). 8 unit tests + adjacent suites green. NEEDS LIVE SOAK VERIFICATION (next reduce cycle was ~every 28 min on bybit_1 BTCUSDT htf_pullback_trend_2h; pre-fix examples DB ids 3041/3043): confirm via diag /journal?table=trades that (a) NO new intent_reduce rows close as 'reconciler_filled' (the churn signature is gone), (b) a real reduce now appears as a parent-row decrement + an 'intent_reduce_executed' closed audit row, and (c) the DB net (current_net_position_qty) converges toward the exchange-truth net (pre-fix the DB showed BTCUSDT net 0.761 while the exchange held 0.17). Also confirm no spurious open/close ping spam recurs. If the churn persists, re-open the order-accounting investigation. Owner note: PnL on reduce-closed chunks is deferred-NULL by design (pnl_source='deferred_intent_reduce') — the local-PnL sweep / Bybit closed-pnl lookup is the SSOT; sanity-check it marks those chunks without double-counting during the soak.",
+      "source": "operator request 2026-06-29 (log on system-review to follow up) + PR #5101",
+      "updates": []
     }
   ],
-  "updated_at": "2026-06-29T16:15:00+00:00"
+  "updated_at": "2026-06-29T17:05:00+00:00"
 }
