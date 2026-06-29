@@ -326,3 +326,113 @@ class AlpacaClient:
                               f"{str(symbol).upper()}"}
         return {"retCode": 0,
                 "result": {"orderId": patched[-1], "patched": patched}}
+
+    # --------------------------------------------------- naked re-arm (GTC OCO)
+    def has_protective_orders(self, symbol: str) -> Optional[bool]:
+        """Does *symbol* have a resting protective leg (a stop OR a limit) open?
+
+        For the naked-position sweep on an EQUITY account: the journal row keeps
+        its sl/tp, but the broker-side day-TIF bracket legs are cancelled at the
+        RTH close — so naked-ness is BROKER-side and invisible to the DB-driven
+        naked check. Returns ``True`` if at least one resting stop/limit leg
+        exists, ``False`` if the position is broker-naked, or ``None`` on a read
+        failure (so the caller refuses to act rather than re-arm blindly / treat
+        a transient outage as naked — mirrors the ``positions() -> None`` rule).
+        """
+        legs = self._open_orders_for_symbol(symbol)
+        if legs is None:
+            return None
+        for o in legs:
+            otype = str(o.get("type") or o.get("order_type") or "").lower()
+            if "stop" in otype or otype == "limit":
+                return True
+        return False
+
+    def _cancel_open_orders_for_symbol(self, symbol: str) -> None:
+        """Cancel every resting order on *symbol* (best-effort, never raises).
+
+        Called before placing a fresh protective OCO so repeated re-arms can't
+        STACK multiple live OCO groups on the one position — the same
+        accumulation guard ``IBClient.place_protective`` applies before each
+        re-arm (BL-20260624-MHG-FLIP). A cancel failure must not block arming
+        protection on a live naked position.
+        """
+        legs = self._open_orders_for_symbol(symbol)
+        if not legs:
+            return
+        seen: set = set()
+        for o in legs:
+            oid = o.get("id")
+            if not oid or oid in seen:
+                continue
+            seen.add(oid)
+            try:
+                self._request("DELETE", f"/v2/orders/{oid}")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "alpaca _cancel_open_orders_for_symbol(%s): cancel %s "
+                    "failed: %s", symbol, oid, exc,
+                )
+
+    def place_protective(self, order: Dict[str, Any]) -> Dict[str, Any]:
+        """Attach a **GTC OCO** SL/TP to an ALREADY-OPEN position (no entry).
+
+        The re-arm counterpart to ``IBClient.place_protective`` for Alpaca
+        (BL-20260629-ALPACA-NAKED-BRACKET). The entry bracket's protective legs
+        are ``time_in_force: day`` (an Alpaca market-entry-bracket constraint)
+        so they are CANCELLED at the RTH close — a multi-session ETF hold then
+        sits broker-naked. This places a fresh **GTC** OCO (one-cancels-other:
+        a take-profit limit + a stop, ``time_in_force: gtc``) on the
+        closing side so protection persists across closes/weekends/restarts.
+
+        Cancels any resting orders on the symbol first (no OCO stacking). Needs
+        BOTH ``sl`` and ``tp`` (an OCO is a limit+stop pair). ``order`` keys:
+        ``symbol``, ``direction`` (the POSITION side, ``long``/``short`` or
+        ``buy``/``sell`` — the OCO takes the reverse, closing side), ``qty``
+        (whole shares), ``sl``, ``tp``. Envelope mirrors :meth:`place`.
+
+        NOTE (unverified-from-sandbox): the exact Alpaca OCO request schema
+        (top-level ``limit_price`` for the TP + ``stop_loss.stop_price`` for the
+        SL, ``type: limit``, ``order_class: oco``) and GTC acceptance on a
+        closing OCO must be confirmed on ``alpaca_paper`` before this is relied
+        on in production. Fail-safe: a refusal returns a non-zero envelope and
+        the naked sweep simply retries next tick.
+        """
+        self._require_creds("place_protective")
+        direction = str(order.get("direction") or order.get("side") or "").lower()
+        if direction in ("buy", "long"):
+            pos_long = True
+        elif direction in ("sell", "short"):
+            pos_long = False
+        else:
+            return {"retCode": -2, "retMsg": f"invalid direction {direction!r}"}
+        tp, sl = order.get("tp"), order.get("sl")
+        if tp is None or sl is None:
+            return {"retCode": -2,
+                    "retMsg": "OCO needs both sl and tp (got "
+                              f"sl={sl!r} tp={tp!r})"}
+        try:
+            qty = max(1, int(round(float(order["qty"]))))
+        except (KeyError, TypeError, ValueError) as exc:
+            return {"retCode": -2, "retMsg": f"invalid qty: {exc}"}
+        sym = str(order["symbol"]).upper()
+        close_side = "sell" if pos_long else "buy"
+        # Idempotency: clear any resting legs first so re-arms don't stack OCOs.
+        self._cancel_open_orders_for_symbol(sym)
+        body: Dict[str, Any] = {
+            "symbol": sym,
+            "qty": str(qty),
+            "side": close_side,
+            "type": "limit",
+            "time_in_force": "gtc",
+            "order_class": "oco",
+            # OCO: the take-profit is the primary limit; the stop rides the
+            # stop_loss leg. One fills → the other cancels.
+            "limit_price": f"{float(tp):.2f}",
+            "stop_loss": {"stop_price": f"{float(sl):.2f}"},
+        }
+        env = self._request("POST", "/v2/orders", body)
+        if env.get("retCode") != 0:
+            return env
+        result = env.get("result") or {}
+        return {"retCode": 0, "result": {"orderId": str(result.get("id") or "")}}

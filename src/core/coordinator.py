@@ -1260,8 +1260,22 @@ class Coordinator:
                     )
 
             # 1. Per-account sizing — the only place qty is decided.
+            #
+            # Prop manual-bridge (breakout) BYPASS (operator directive 2026-06-29;
+            # PB-20260625-001 / BL-20260629 prop-sizing): a prop account has NO
+            # broker API, so there is neither a live balance() to size against nor
+            # a need for one — the prop leg is sized from the account RULESET
+            # downstream in emit_prop_ticket (build_account_leg), and the
+            # supervised assistant places + sizes it on the prop platform. Running
+            # the balance-based RiskManager here only raised 'balance() returned
+            # None ... account unreachable' -> sizing_failed, which stopped the
+            # prop ticket from ever emitting (trend_donchian_sol/breakout_1, while
+            # ETH legs slipped through only on a cached balance). Bypass the fetch
+            # + sizing; a positive sentinel qty carries the decision through
+            # dispatch to the breakout branch, where the real qty is computed.
+            _is_prop_bridge = (account.exchange or "").lower() == "breakout"
             try:
-                balance = float(fetcher(account))
+                balance = 0.0 if _is_prop_bridge else float(fetcher(account))
                 # Direction-aware balance override for cash spot.
                 #
                 # Cash spot (``market_type: spot``): the account holds
@@ -1347,17 +1361,24 @@ class Coordinator:
                             (account.exchange or "").lower(), account.name, _bp_exc,
                         )
                 from src.units.accounts.risk import requires_whole_unit_qty
-                sized_qty = account.risk_manager.position_size(
-                    pkg, balance,
-                    market_type=_market_type,
-                    available_usd=available_usd,
-                    total_account_usd=total_account_usd,
-                    # Per-exchange whole-unit constraint (alpaca bracket orders
-                    # reject fractional shares). The RiskManager is built from
-                    # the risk sub-block and never sees the exchange, so resolve
-                    # it from the account here (BL-20260622-ALPACA-FRACTIONAL-SIZE).
-                    whole_units=requires_whole_unit_qty(account.exchange),
-                )
+                if _is_prop_bridge:
+                    # Sentinel: the real (ruleset) size is computed in
+                    # emit_prop_ticket (build_account_leg). The breakout branch
+                    # ignores the order's qty for sizing, so this value only
+                    # carries the decision through the dispatch gates.
+                    sized_qty = 1.0
+                else:
+                    sized_qty = account.risk_manager.position_size(
+                        pkg, balance,
+                        market_type=_market_type,
+                        available_usd=available_usd,
+                        total_account_usd=total_account_usd,
+                        # Per-exchange whole-unit constraint (alpaca bracket orders
+                        # reject fractional shares). The RiskManager is built from
+                        # the risk sub-block and never sees the exchange, so resolve
+                        # it from the account here (BL-20260622-ALPACA-FRACTIONAL-SIZE).
+                        whole_units=requires_whole_unit_qty(account.exchange),
+                    )
             except Exception as exc:  # noqa: BLE001
                 logger.exception(
                     "multi_account_execute: position_size failed for %s: %s",
@@ -1522,27 +1543,32 @@ class Coordinator:
             # day's first tick); the latch in daily_cap_alert self-dedups.
             # The cap-exhaustion check uses the same equity basis the sizer
             # used. Best-effort — never blocks dispatch.
-            try:
-                from src.runtime.daily_cap_alert import note_account_cap_state
-                _equity_basis = (
-                    total_account_usd if total_account_usd is not None else balance
-                )
-                note_account_cap_state(
-                    account.name,
-                    exhausted=account.risk_manager.is_daily_cap_exhausted(
-                        _equity_basis
-                    ),
-                    daily_pnl=account.risk_manager.daily_pnl,
-                    cap_usd=account.risk_manager.effective_daily_loss_usd(
-                        _equity_basis
-                    ),
-                    demo=getattr(account, "demo", False),
-                )
-            except Exception as _cap_exc:  # noqa: BLE001
-                logger.debug(
-                    "multi_account_execute: daily-cap note failed for %s: %s",
-                    account.name, _cap_exc,
-                )
+            # Skipped for the prop bridge: its balance is a sentinel 0.0 (no
+            # broker API), so the cap math would misfire a spurious exhaustion
+            # alert. Prop daily-loss is governed by the prop ruleset + the
+            # rule-distance panel, not this RiskManager cap.
+            if not _is_prop_bridge:
+                try:
+                    from src.runtime.daily_cap_alert import note_account_cap_state
+                    _equity_basis = (
+                        total_account_usd if total_account_usd is not None else balance
+                    )
+                    note_account_cap_state(
+                        account.name,
+                        exhausted=account.risk_manager.is_daily_cap_exhausted(
+                            _equity_basis
+                        ),
+                        daily_pnl=account.risk_manager.daily_pnl,
+                        cap_usd=account.risk_manager.effective_daily_loss_usd(
+                            _equity_basis
+                        ),
+                        demo=getattr(account, "demo", False),
+                    )
+                except Exception as _cap_exc:  # noqa: BLE001
+                    logger.debug(
+                        "multi_account_execute: daily-cap note failed for %s: %s",
+                        account.name, _cap_exc,
+                    )
 
             # 2. Refuse to forward a zero-qty order. This branch fires
             # for ANY sized_qty <= 0 outcome from the RiskManager —
