@@ -425,7 +425,15 @@
       "resolved_at": null,
       "resolved_by": null,
       "resolution": null,
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-06-29T12:35:00+00:00",
+          "by": "claude (/system-review since-last 2026-06-29)",
+          "status": "open",
+          "note": "RECURRENCE RECONFIRMED 2026-06-29: a burst of ~6 vm-diag-request issues opened near-simultaneously left only snapshot+audit_query+services+order_packages successful; db_info/exchange_positions/shadow_stats/exit_ladder_soak/trades were silently CANCELLED (no commenter fired on the queued-cancelled runs), exactly as described. Workaround used: fire diag-request issues SERIALLY (one, await its comment, then the next). Still open — the durable fix (per-request concurrency group, or a queue, or restoring the cancelled-run commenter) is unshipped."
+        }
+      ]
     },
     {
       "id": "BL-20260611-003",
@@ -1908,7 +1916,7 @@
       "title": "balance_snapshots.json stale since 2026-05-25 — hourly balance snapshot writer silent for ~17 days; new OANDA/Alpaca accounts never recorded",
       "description": "runtime_logs/balance_snapshots.json (written by src/runtime/hourly_report.py so the hourly report can compute a 1h balance delta) was last written 2026-05-25 and carries only the Bybit accounts, so /api/bot/accounts/balances (the dashboard Accounts tab's tracked-balance source and the M15 soak's intended balance probe) is 17 days stale and blind to oanda_practice/alpaca_paper. Either the hourly report stopped running ~2026-05-25 or its snapshot write broke silently. Investigate the hourly-report path (service/timer or in-process cadence), restore the writer, and make sure account_snapshots() enumerates ALL configured accounts incl. the new brokers. Until fixed, balance probes must go through journalctl/exchange audit scripts.",
       "tier": 1,
-      "status": "in_progress",
+      "status": "resolved",
       "resolved_at": null,
       "resolved_by": null,
       "resolution_note": null,
@@ -1921,6 +1929,14 @@
       ],
       "evidence_log": [
         "2026-06-13 (operator-directed root-cause): ROOT CAUSE = DATA_DIR drop-in coverage gap. ict-hourly-snapshot.service (scripts/send_hourly_now.py -> hourly_report.account_snapshots() -> _save_balance_snapshots -> runtime_logs/balance_snapshots.json) is NOT in install_systemd_units.sh's data-dir.conf auto-install list (which covers trader-live/web-api/telegram-bot/health-snapshot/claude-bridge/insights) and sets no Environment=DATA_DIR in its unit. fix_data_dir.sh STRIPS DATA_DIR from .env, so the hourly writer resolves runtime_logs_dir() to the REPO-relative path (paths._resolve_root unset->repo fallback) and writes the fresh balance file to <repo>/runtime_logs, while ict-web-api (has the drop-in) READS /data/bot-data/runtime_logs -> frozen at the data-dir migration (~5/25). Identical writer/reader path-split as the web-api 2026-05-11 incident and the ict-health-snapshot BL-20260529-005 fix. No code change 5/22-5/29 touched the writer chain (rules out a code regression); confirmed entirely from in-repo evidence (drop-in coverage list + unit file + _resolve_root). FIX STAGED (branch claude/health-strategy-ml-review-ceaa21, PR #3466): (1) install_systemd_units.sh installs data-dir.conf for ict-hourly-snapshot.service (mirrors the health-snapshot block); (2) diag.py _CANONICAL_UNITS gains ict-hourly-snapshot + ict-health-snapshot service+timer so the writer is observable (the 3-week stall hid because nothing watched it). Tier-2 deploy via pull-and-deploy pending operator OK; verify post-deploy that /api/bot/accounts/balances age_seconds drops + the hourly unit shows active on /api/diag/services."
+      ],
+      "updates": [
+        {
+          "at": "2026-06-29T12:35:00+00:00",
+          "by": "claude (/system-review since-last 2026-06-29)",
+          "status": "resolved-superseded",
+          "note": "Superseded by the WC-5 DB-authoritative balances path. /api/bot/accounts/balances is now sourced from trade_journal.db::balance_snapshots (json_fallback only); db_info shows balance_snapshots = 6484 rows (healthy, actively written), so the dashboard Accounts tab + M15 balance probe are no longer blinded by the stale runtime_logs/balance_snapshots.json. The legacy JSON-writer staleness is no longer load-bearing. Closing as superseded; if the JSON-writer fix is still wanted as hygiene, re-open scoped to that file only."
+        }
       ]
     },
     {
@@ -2621,8 +2637,16 @@
       "tier": 1,
       "trigger_condition": "Next /health-review or /system-review. (2) is verifiable as soon as #4920 deploys; (1) and (3) accrue over hours/days.",
       "resolution_criteria": "(1) at least one regime_hard_gate vol_gated:true+vol_label_source:ml row observed (or, if none after ~1wk of enforce, a note explaining the candidate-frequency reason); (2) trader confirmed healthy post-#4920-deploy; (3) eth/sol regime shadow rows confirmed present in shadow_predictions.jsonl.",
-      "status": "open",
-      "updated_at": "2026-06-28T09:10:00+00:00"
+      "status": "resolved",
+      "updated_at": "2026-06-28T09:10:00+00:00",
+      "updates": [
+        {
+          "at": "2026-06-29T12:35:00+00:00",
+          "by": "claude (/system-review since-last 2026-06-29)",
+          "status": "resolved",
+          "note": "VERIFIED live via diag relays. (1) FIRST ENFORCED FIRE confirmed: regime_hard_gate audit row id 632682 @2026-06-29T12:13:13Z — trend_donchian BTCUSDT long, vol_regime=volatile, vol_label_source=ml, vol_gated=true, vol_enforced=true, vol_cell=off, enforced=true (the BTC 15m advisory head drove the ML vol label, per-symbol resolution). (2) #4920/gate deploy health: running git_sha de9020a4, ict-trader-live + ict-web-api active, heartbeat fresh. (3) ETH/SOL soaks accruing: shadow_stats shows eth-regime-{5m,15m,1h,1h-xasset} + sol-regime-{5m,15m} heads with fresh last_seen ~12:10-12:20Z. Vol-axis enforce proven end-to-end."
+        }
+      ]
     },
     {
       "id": "BL-20260628-AUDITF-AUTH-LOGIN-UNDOCUMENTED",
@@ -2696,7 +2720,18 @@
       "description": "PR #4969 (merged) made a sub-min-lot risk-based size a per-trade REFUSAL on the crypto/fx (non-whole-unit) path instead of bumping it up to min_qty (the over-risk #3910 flagged). It was scoped MINIMALLY: the refusal threshold is the ACCOUNT-configured min_qty (RiskManager.min_qty, default 0.001), NOT the per-instrument platform lot from config/instruments.yaml. For BTCUSDT that's correct (real lot == 0.001), but ETHUSDT's real Bybit lot is 0.01 (instruments.yaml min_qty/qty_step 0.01) — so a risk-based ETH size in [0.001, 0.0099) currently passes the refusal (>= account 0.001) yet the exchange would reject it as sub-lot. Pre-existing (the old bump was equally wrong there) and NOT worsened by #4969 — bybit_2's live ETH position (0.01) sizes legitimately today. FOLLOW-UP (the part of #3910 deliberately left out of #4969 to keep the real-money PR surgical): add an instrument-aware floor — instrument_min_qty_step_for(symbol) reading (min_qty, qty_precision from qty_step) from config/instruments.yaml — and resolve eff_min_qty/eff_precision from it on the non-whole path, falling back to the account min_qty when a symbol has no profile. The reference implementation is in the closed #3910 diff (src/units/accounts/risk.py). Tier-3 (sizing on the live order path) + needs the test reworks for profiled-symbol precision (IWM-on-bybit synthetic tests in test_alpaca_whole_share_sizing.py).",
       "source": "PR #4969 (merged 744ac178) § 'Why minimal (vs full #3910)'; src/units/accounts/risk.py::position_size non-whole-unit refusal branch; config/instruments.yaml ETHUSDT min_qty/qty_step 0.01 vs RiskManager default min_qty 0.001.",
       "updates": []
+    },
+    {
+      "id": "BL-20260629-ALPACA-NAKED-BRACKET",
+      "title": "[order-path] Alpaca positions can sit NAKED (no SL/TP) — naked-autoprotect + reconciler-adopt are IB-only; no re-arm for non-IB",
+      "status": "open",
+      "opened_at": "2026-06-29T12:35:00+00:00",
+      "opened_by": "claude (/system-review; operator-surfaced)",
+      "snoozed_until": null,
+      "description": "Operator observed alpaca_paper showing 6 open ETF positions (TLT/SPY/SLV/QQQ/IWM/GLD) but only 2 working orders -> ~4 positions are naked (no resting SL/TP bracket leg). Alpaca entries DO attach an atomic bracket at entry (alpaca_client.place order_class=bracket, alpaca_client.py:121-129), so these lost their protective legs afterward (suspected: reverse-reconciler adopt/reattach of an orphan, or a bracket child-leg cancel/reject) and nothing re-armed them: order_monitor naked-position auto-protect (_check_naked_positions/_attempt_naked_autoprotect/_rearm_broker_protection_after_recovery) is IB-ONLY (order_monitor.py ~5159-5190); non-IB accounts only get a one-shot alert. AlpacaClient ALREADY has modify_protective + open_orders, so the building blocks for a non-IB re-arm exist. FIX (Tier-2/3, order-protection path, operator-gated): extend the naked-position sweep to re-arm an Alpaca bracket via AlpacaClient (place a fresh protective OTO/bracket or modify_protective) when an open Alpaca position has no resting SL/TP leg; cover the reconciler adopt/reattach path too. Verify on alpaca_paper first. Applies to real-money alpaca_live as well (currently flat).",
+      "source": "operator screenshot 2026-06-29 + code read",
+      "updates": []
     }
   ],
-  "updated_at": "2026-06-29T00:00:00+00:00"
+  "updated_at": "2026-06-29T12:35:00+00:00"
 }
