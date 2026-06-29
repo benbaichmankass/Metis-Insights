@@ -65,14 +65,22 @@ def _rm() -> RiskManager:
 
 def test_total_account_usd_is_the_basis_when_free_balance_low():
     rm = _rm()
-    # Free USDT $40 but total equity $5000 → the margin cap uses the $5000
-    # basis, so the min lot is affordable and the trade sizes.
-    qty = rm.position_size(
-        _pkg(),
-        balance_usd=40.0,
-        total_account_usd=5_000.0,
+    # Tight SL ($70 risk-distance) so the risk-based size is large enough to hit
+    # the margin cap — that's where the basis matters. (With a wide SL the
+    # risk-based size is sub-min-lot and is refused outright since the
+    # bump-to-min-lot was removed — #3910 Item 3 — so the basis never comes into
+    # play; this scenario keeps the size above the min lot to isolate the
+    # margin-basis question the S-052 fix was about.)
+    pkg = _pkg(entry=70_000.0, sl=69_930.0)
+    # Free USDT $300 but total equity $5000: the margin cap uses the $5000
+    # basis, so the position isn't clamped down to the tiny free-balance ceiling.
+    qty_total = rm.position_size(pkg, balance_usd=300.0, total_account_usd=5_000.0)
+    qty_free = rm.position_size(pkg, balance_usd=300.0)  # free-balance basis
+    assert qty_total > 0, "total equity (not free balance) should back the margin cap"
+    assert qty_total > qty_free, (
+        "total-equity basis must allow a larger position than the free-balance "
+        "basis (the S-052 locked-funds intent)"
     )
-    assert qty > 0, "total equity (not free balance) should back the margin cap"
 
 
 # ---------------------------------------------------------------------------

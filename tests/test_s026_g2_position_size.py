@@ -99,10 +99,17 @@ class TestPositionSizeContract:
         assert rm.position_size(pkg, balance_usd=0.0) == 0.0
         assert rm.position_size(pkg, balance_usd=-5.0) == 0.0
 
-        # A small positive balance BELOW the old $50 floor now SIZES
-        # (no arbitrary floor; leverage=100 keeps the min lot affordable).
-        assert rm.position_size(pkg, balance_usd=49.99) > 0.0
-        assert rm.position_size(pkg, balance_usd=10.0) > 0.0
+        # No arbitrary $50 min-balance floor remains: a balance whose 1%-risk
+        # budget clears the exchange min lot SIZES. entry/sl give a $500
+        # risk-distance, so $50 at 1% = $0.50 risk == exactly the 0.001 BTC lot.
+        assert rm.position_size(pkg, balance_usd=50.0) > 0.0
+
+        # But a balance too small to afford the min lot at the configured risk
+        # now REFUSES (0.0) rather than being bumped UP to the min lot — the bump
+        # silently over-risked the account (#3910 Item 3, operator-approved
+        # refuse 2026-06-28). $10 / $49.99 at 1% give < the 0.001-lot's $0.50.
+        assert rm.position_size(pkg, balance_usd=49.99) == 0.0
+        assert rm.position_size(pkg, balance_usd=10.0) == 0.0
 
     def test_default_risk_pct_is_one_percent(self):
         """Operator-confirmed default: 1% balance per trade."""
