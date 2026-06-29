@@ -176,10 +176,12 @@ class TestMarginCapWholeUnits:
             entry=230.0, sl=226.0, tp=238.0,
             meta={"strategy_name": "iwm_trend_long_1d", "strategy_risk_pct": 0.3},
         )
-        # buying_power=10000 → cap 43 shares; risk-based 3.75 → 3 governs
+        # The legacy strategy_risk_pct=0.3 is IGNORED post-2026-06-29 (sizing is
+        # account-level only). buying_power=10000 → cap 43 shares; risk-based
+        # 5000 × 0.01 / 4 = 12.5 → 12 governs.
         qty = rm.position_size(pkg, 5000.0, market_type="spot",
                                available_usd=10000.0, whole_units=True)
-        assert qty == 3.0
+        assert qty == 12.0
 
 
 # ---------------------------------------------------------------------------

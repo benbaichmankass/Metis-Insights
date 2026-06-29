@@ -505,20 +505,9 @@ def _desired_to_pipeline_signal(
         "aggregation_reason": desired.reason,
         "winning_priority": winning.effective_priority(),
     })
-    # Preserve the per-strategy risk allocation that the legacy
-    # multiplexer recorded — downstream sizing reads
-    # ``meta["strategy_risk_pct"]`` per S-026 G2. Pull it from the
-    # winning strategy's signal meta so we never accidentally apply the
-    # losing strategy's allocation.
-    if "strategy_risk_pct" not in meta:
-        try:
-            from src.runtime.pipeline import STRATEGY_RISK_PCT
-            meta["strategy_risk_pct"] = float(
-                STRATEGY_RISK_PCT.get(winning.strategy, 1.0)
-            )
-        except Exception:  # noqa: BLE001
-            meta["strategy_risk_pct"] = 1.0
-
+    # No per-strategy risk injection (removed 2026-06-29): position sizing is
+    # the RiskManager's sole responsibility (account basis × confidence). A
+    # strategy carries no risk level.
     return {
         "symbol": symbol,
         "side": side,
