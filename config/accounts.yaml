@@ -217,7 +217,7 @@ accounts:
                                        # %-of-equity cap scales with the account.
       daily_usd: 100                   # absolute FALLBACK only — used when no
                                        # equity snapshot is available (cold start)
-      risk_pct: 0.01                   # 1% balance risked per trade (S-026 G2)
+      risk_pct: 0.015                   # 1.5% balance risked per trade (S-026 G2)
       leverage: 3                      # 3× leverage — same as bybit_2; applied
                                        # via /v5/position/set-leverage at boot.
 
@@ -299,7 +299,7 @@ accounts:
                                        # operator-approved 2026-05-28). Scales with
                                        # the live balance instead of a fixed $100.
       daily_usd: 100                   # absolute FALLBACK only (no equity snapshot)
-      risk_pct: 0.01
+      risk_pct: 0.015
       # PR 3 cutover: 3× leverage on linear perps. main.py at boot
       # calls /v5/position/set-leverage with this value for every
       # symbol the account's strategies trade (BTCUSDT for trend_donchian).
@@ -402,7 +402,7 @@ accounts:
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
                                        # (operator-approved 2026-05-28)
       daily_usd: 200                   # absolute FALLBACK only (no equity snapshot)
-      risk_pct: 0.01                   # 1% balance risked per trade
+      risk_pct: 0.015                   # 1.5% balance risked per trade
 
   # ib_live: IB live account U25907316 on the live gateway (7496).
   # mode: dry_run → real money held safe; no socket opened, no orders
@@ -430,7 +430,7 @@ accounts:
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
                                        # (operator-approved 2026-05-28)
       daily_usd: 200                   # absolute FALLBACK only (no equity snapshot)
-      risk_pct: 0.01                   # 1% balance risked per trade
+      risk_pct: 0.015                   # 1.5% balance risked per trade
 
   # oanda_practice: M15 Phase 2 (S-M15-PHASE2-OANDA) — OANDA v20 practice
   # account, the Phase-0 verdict's first new-market wire (XAU/USD:
@@ -481,7 +481,7 @@ accounts:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
       daily_usd: 200                   # absolute fallback (no equity snapshot)
-      risk_pct: 0.01                   # 1% balance risked per trade (operator 2026-06-24)
+      risk_pct: 0.015                   # 1.5% balance risked per trade (operator 2026-06-24)
       # NO leverage: the margin pre-flight cap now uses the broker's real
       # buying power — OandaClient.buying_power() = marginAvailable / marginRate,
       # fed as available_usd in Coordinator.multi_account_execute (the Alpaca
@@ -537,7 +537,7 @@ accounts:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
       daily_usd: 200                   # absolute fallback (no equity snapshot)
-      risk_pct: 0.01                   # 1% balance risked per trade (operator 2026-06-24)
+      risk_pct: 0.015                   # 1.5% balance risked per trade (operator 2026-06-24)
 
   # alpaca_live: Alpaca Trading API REAL-MONEY account — the live sibling of
   # alpaca_paper, wired so the two run CONCURRENTLY (paper keeps soaking while
@@ -587,7 +587,7 @@ accounts:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
       daily_usd: 200                   # absolute fallback (no equity snapshot)
-      risk_pct: 0.02                   # 2% balance risked per trade (operator 2026-06-27; raised for min-order sizing on alpaca_live)
+      risk_pct: 0.015                   # 1.5% balance risked per trade (uniform account basis, operator 2026-06-29; was 2%)
 
   # alpaca_options_paper: Phase-1 Slice-3b (Alpaca L3 options) — an Alpaca PAPER
   # account that EXPRESSES its equity signals as defined-risk DEBIT VERTICALS
@@ -636,7 +636,7 @@ accounts:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
       daily_usd: 200                   # absolute fallback
-      risk_pct: 0.02                   # moot for the options path (sizing is by
+      risk_pct: 0.015                   # moot for the options path (sizing is by
                                        # options.max_loss_per_trade_usd), kept for
                                        # the account-level daily-loss gate basis.
 

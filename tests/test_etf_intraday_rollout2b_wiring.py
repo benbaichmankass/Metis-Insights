@@ -111,7 +111,7 @@ def test_yaml_entries_pin_validated_params():
     assert spy["signal_prefixes"] == ["spy_pullback"]
     assert (spy["trend_lookback"], spy["pullback_lookback"], spy["pullback_frac"]) == (60, 12, 0.618)
     assert (spy["atr_period"], spy["atr_stop_mult"], spy["trail_mult"]) == (14, 2.5, 5.0)
-    assert spy["risk_pct"] == 0.3 and spy["timeframe"] == "1h"
+    assert spy["timeframe"] == "1h"
     assert spy["min_confidence"] == 0.0 and spy["shadow_model_ids"] == []
     assert spy["model"] is None
 
@@ -123,7 +123,7 @@ def test_yaml_entries_pin_validated_params():
     assert qqq["signal_prefixes"] == ["qqq_pullback"]
     assert (qqq["trend_lookback"], qqq["pullback_lookback"], qqq["pullback_frac"]) == (60, 12, 0.618)
     assert (qqq["atr_period"], qqq["atr_stop_mult"], qqq["trail_mult"]) == (14, 2.5, 5.0)
-    assert qqq["risk_pct"] == 0.3 and qqq["timeframe"] == "1h"
+    assert qqq["timeframe"] == "1h"
     assert qqq["min_confidence"] == 0.0 and qqq["shadow_model_ids"] == []
     assert qqq["model"] is None
 
@@ -135,7 +135,7 @@ def test_yaml_entries_pin_validated_params():
     assert tlt["signal_prefixes"] == ["tlt_pullback_1h"]
     assert (tlt["trend_lookback"], tlt["pullback_lookback"], tlt["pullback_frac"]) == (60, 12, 0.5)
     assert (tlt["atr_period"], tlt["atr_stop_mult"], tlt["trail_mult"]) == (14, 2.5, 4.0)
-    assert tlt["risk_pct"] == 0.3 and tlt["timeframe"] == "1h"
+    assert tlt["timeframe"] == "1h"
     assert tlt["min_confidence"] == 0.0 and tlt["shadow_model_ids"] == []
     assert tlt["model"] is None
 
@@ -148,7 +148,7 @@ def test_yaml_entries_pin_validated_params():
     assert uso["signal_prefixes"] == ["uso_trend"]
     assert (uso["donchian"], uso["atr_period"], uso["atr_stop_mult"]) == (24, 14, 2.5)
     assert (uso["trail_mult"], uso["tp_r"]) == (4.0, 50.0)
-    assert uso["risk_pct"] == 0.3 and uso["timeframe"] == "1h"
+    assert uso["timeframe"] == "1h"
     assert uso["min_confidence"] == 0.0 and uso["shadow_model_ids"] == []
     assert uso["model"] is None
 

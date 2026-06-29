@@ -257,6 +257,21 @@ class RiskManager:
         # the same 5%-of-equity figure.
         self.daily_loss_pct: float = float(config.get("daily_loss_pct", 0.0) or 0.0)
         self.risk_pct: float = float(config.get("risk_pct", 0.01))
+        # Confidence-aware sizing (operator directive 2026-06-29). The account
+        # ``risk_pct`` is the per-trade BASIS/CAP; a trade's size is scaled
+        # DOWN by its order-package confidence via a pure bounded curve. This
+        # is RiskManager-internal — strategies carry NO risk level (the
+        # per-strategy ``risk_pct`` multiplier was removed; sizing is the
+        # RiskManager's sole responsibility). Config keys live in the account
+        # ``risk:`` block, default-safe (``off`` ⇒ flat ``risk_pct`` basis):
+        #   confidence_sizing: off | linear | threshold
+        #   confidence_floor:  smallest fraction of the basis a low-conf trade keeps
+        #   confidence_knee:   (threshold mode) confidence at/above which = full basis
+        self.confidence_sizing_mode: str = str(
+            config.get("confidence_sizing", "off") or "off"
+        ).strip().lower()
+        self.confidence_floor: float = float(config.get("confidence_floor", 0.5) or 0.5)
+        self.confidence_knee: float = float(config.get("confidence_knee", 0.7) or 0.7)
         self.min_qty: float = float(config.get("min_qty", _DEFAULT_MIN_QTY))
         self.qty_precision: int = int(config.get("qty_precision", _DEFAULT_QTY_PRECISION))
         # PR 3 cutover: per-account leverage for linear-perp accounts.
@@ -523,6 +538,37 @@ class RiskManager:
         self.daily_pnl += pnl_usd
         self._save_daily_state()
 
+    def _confidence_scalar(self, confidence: float) -> float:
+        """Map order-package confidence ∈ [0,1] → a size scalar ∈ [floor, 1.0].
+
+        Pure + bounded. The account ``risk_pct`` is the BASIS (the CAP): this
+        scalar is in ``[confidence_floor, 1.0]``, so a trade can only be sized
+        DOWN from the basis, never up — aggregate risk stays inside the
+        account daily/DD caps regardless of confidence (operator directive:
+        basis = max). ``off`` returns 1.0 (flat basis). Fail-safe: a
+        non-finite / out-of-range confidence clamps to [0,1]; an unknown mode
+        returns 1.0 (flat basis). Never raises.
+        """
+        mode = self.confidence_sizing_mode
+        if mode == "off":
+            return 1.0
+        try:
+            c = float(confidence)
+        except (TypeError, ValueError):
+            return 1.0
+        if c != c or c in (float("inf"), float("-inf")):  # NaN / inf guard
+            return 1.0
+        c = max(0.0, min(1.0, c))
+        floor = max(0.0, min(1.0, self.confidence_floor))
+        if mode == "linear":
+            # f(c) = floor + (1-floor)·c  → c=0 ⇒ floor, c=1 ⇒ 1.0
+            return floor + (1.0 - floor) * c
+        if mode == "threshold":
+            # ramp floor→1.0 up to the knee, flat 1.0 above.
+            knee = max(1e-9, min(1.0, self.confidence_knee))
+            return 1.0 if c >= knee else floor + (1.0 - floor) * (c / knee)
+        return 1.0  # unknown mode → flat basis (fail-safe)
+
     def position_size(
         self,
         package: OrderPackage,
@@ -587,10 +633,16 @@ class RiskManager:
         if gate_balance <= 0:
             return 0.0
 
-        strategy_risk_pct = float(
-            (package.meta or {}).get("strategy_risk_pct") or 1.0
+        # Per-trade risk BASIS is the ACCOUNT's risk_pct (operator directive
+        # 2026-06-29: "the risk per account is 1.5%, true in all places at all
+        # times"). The per-strategy risk multiplier meta field was removed —
+        # a strategy carries no risk level; a leftover meta value is IGNORED.
+        # Trade-level differentiation is central + confidence-keyed:
+        # the basis is modulated DOWN by the package's confidence (basis = cap,
+        # never enlarged), so aggregate risk stays inside the daily/DD caps.
+        effective_risk_pct = self.risk_pct * self._confidence_scalar(
+            getattr(package, "confidence", 0.0)
         )
-        effective_risk_pct = self.risk_pct * strategy_risk_pct
 
         # Per-instrument contract value ($/point). 1.0 for crypto (path
         # unchanged); the MES contract multiplier ($5/point) for futures so

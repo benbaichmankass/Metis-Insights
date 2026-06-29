@@ -1019,8 +1019,6 @@ def trend_donchian_signal_builder(settings: dict) -> Dict[str, Any]:
             # the multiplier to 1.0 and trade trend at the FULL account
             # risk_pct instead of the operator-mandated 0.3 for the
             # initial live period. Both multiplexers preserve a
-            # builder-provided strategy_risk_pct.
-            "strategy_risk_pct": float(trend_cfg.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds(
@@ -1163,7 +1161,6 @@ def fade_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
             # registry-driven STRATEGY_RISK_PCT does not surface the
             # strategies.yaml `risk_pct` field. Moot while execution:shadow
             # (never sends a live order) but correct for any future flip.
-            "strategy_risk_pct": float(fade_cfg.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds(
@@ -1304,7 +1301,6 @@ def htf_pullback_trend_2h_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "htf_pullback_trend_2h",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(hp_cfg.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds(
@@ -1444,7 +1440,6 @@ def trend_donchian_1h_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "trend_donchian_1h",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(td1h_cfg.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds(
@@ -1557,7 +1552,6 @@ def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]
         "meta": {
             **pkg_meta, "strategy_name": name, "confidence": pkg["confidence"],
             "direction": pkg["direction"], "timeframe": timeframe,
-            "strategy_risk_pct": float(vcfg.get("risk_pct", 1.0) or 1.0),
         },
     }
     _emit_shadow_preds(name, sig, vcfg, symbol, timeframe=timeframe, candles_df=candles_df)
@@ -1785,7 +1779,6 @@ def mes_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "mes_trend_long_1d",
             "confidence": pkg["confidence"],
             "direction": "long",
-            "strategy_risk_pct": float(mes_cfg.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds(
@@ -1921,7 +1914,6 @@ def _metals_pullback_signal_builder(
             "strategy_name": strategy_name,
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(strat_cfg.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds(
@@ -2082,7 +2074,6 @@ def squeeze_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
             "direction": pkg["direction"],
             # Moot while execution:shadow (never sends a live order) but
             # carried for any future flip, same pattern as the other members.
-            "strategy_risk_pct": float(sqz_cfg.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds(
@@ -2233,7 +2224,6 @@ def fvg_range_15m_signal_builder(settings: dict) -> Dict[str, Any]:
             "direction": pkg["direction"],
             # Moot while execution:shadow (never sends a live order) but carried
             # for any future flip, same pattern as the other members.
-            "strategy_risk_pct": float(fvg_cfg.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds(
@@ -2385,7 +2375,6 @@ def xauusd_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "xauusd_trend_1h",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(xau_cfg.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds(
@@ -2520,7 +2509,6 @@ def mgc_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "mgc_trend_1h",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(mgc_cfg.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds(
@@ -2670,7 +2658,6 @@ def spy_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "spy_trend_long_1d",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds("spy_trend_long_1d", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
@@ -2819,7 +2806,6 @@ def iwm_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "iwm_trend_long_1d",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds("iwm_trend_long_1d", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
@@ -2965,7 +2951,6 @@ def qqq_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "qqq_trend_long_1d",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds("qqq_trend_long_1d", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
@@ -3090,7 +3075,6 @@ def gld_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "gld_pullback_1d",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds("gld_pullback_1d", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
@@ -3218,7 +3202,6 @@ def tlt_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "tlt_pullback_1d",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds("tlt_pullback_1d", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
@@ -3346,7 +3329,6 @@ def slv_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "slv_pullback_1d",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds("slv_pullback_1d", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
@@ -3474,7 +3456,6 @@ def gdx_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "gdx_pullback_1d",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds("gdx_pullback_1d", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
@@ -3603,7 +3584,6 @@ def ief_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "ief_pullback_1d",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds("ief_pullback_1d", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
@@ -3733,7 +3713,6 @@ def gld_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "gld_pullback_1h",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds("gld_pullback_1h", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
@@ -3867,7 +3846,6 @@ def slv_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "slv_trend_1h",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds("slv_trend_1h", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
@@ -3997,7 +3975,6 @@ def spy_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "spy_pullback_1h",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds("spy_pullback_1h", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
@@ -4128,7 +4105,6 @@ def qqq_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "qqq_pullback_1h",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds("qqq_pullback_1h", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
@@ -4259,7 +4235,6 @@ def tlt_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "tlt_pullback_1h",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds("tlt_pullback_1h", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
@@ -4413,7 +4388,6 @@ def uso_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
             "strategy_name": "uso_trend_1h",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds("uso_trend_1h", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
@@ -4534,7 +4508,6 @@ def _htf_pullback_variant_builder(
             "strategy_name": name,
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
-            "strategy_risk_pct": float(cfg_yaml.get("risk_pct", 0.3) or 0.3),
         },
     }
     _emit_shadow_preds(name, sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
