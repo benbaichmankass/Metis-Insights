@@ -461,7 +461,16 @@ strategies:
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
-    execution: live          # S9 per-strategy execution gate (live | shadow).
+    execution: shadow        # DEMOTED 2026-06-29 (Tier-3, Unit B package): live
+                             # real-money record −0.64R/trade over 15 trades
+                             # (totalR −9.6; backtest −0.99R/trade, −467R) — wins
+                             # small, lets losses run, net-negative at any size.
+                             # Shadow keeps it observing (logs order packages) but
+                             # sends NO live order, so the negative cell can't bleed
+                             # 5× under the new uniform 1.5% basis. Revisit only after
+                             # an exit-logic redesign fixes the R:R (re-backtested +
+                             # operator-approved). A 5y sweep found no min_confidence
+                             # floor salvages net_R — it's a structural R:R problem.
     timeframe: "5m"
     symbols:
       - BTCUSDT
