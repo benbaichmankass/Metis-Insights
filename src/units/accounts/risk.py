@@ -621,10 +621,13 @@ class RiskManager:
             package,
             risk_pct=effective_risk_pct,
             balance_usdt=balance_usd,
-            # Whole-unit: min_qty=0 so _size_unbounded's max(min_qty, floored)
-            # bump-up never manufactures a position — the refusal check
-            # below handles the sub-1-unit case instead.
-            min_qty=0.0 if force_whole else self.min_qty,
+            # min_qty=0.0 for EVERY market type: never bump a sub-floor risk-based
+            # size up to the minimum lot. The bump silently realises MORE than the
+            # configured per-trade risk budget and — when it equalled a held
+            # min-lot — pinned the real-money bybit_2 in a permanent at-target
+            # freeze (#3910 Item 3, operator-approved refuse 2026-06-28). The
+            # refusal checks below are the only floor.
+            min_qty=0.0,
             qty_precision=eff_precision,
             contract_value_usd=cvu,
         )
@@ -649,6 +652,18 @@ class RiskManager:
                     return 0.0
             else:
                 return 0.0
+        elif not force_whole and qty < eff_min_qty:
+            # Risk-based size below the exchange's minimum lot -> per-trade
+            # REFUSAL (operator-approved 2026-06-28, #3910 Item 3): the account
+            # equity is too small to take this trade at the configured risk
+            # without over-sizing. The account stays LIVE; this single trade is
+            # refused (Prime Directive — a per-trade refusal, never an
+            # account-mode flip). Refuse, never bump to the min lot: the bump
+            # silently over-risks (it pinned the real-money bybit_2 in a
+            # permanent at-target freeze). Crypto/fx refuse STRICTLY — the
+            # round-up-to-1 relaxation above is equity-only, where 1 share is the
+            # smallest tradeable unit and its stop risk is budget-checked first.
+            return 0.0
 
         # S-026 G3: daily-loss-budget gate. USD loss at SL is
         # qty × risk_distance × contract_value_usd (cvu=1.0 for crypto).
