@@ -569,6 +569,7 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                         regime_router: str = "off",
                         regime_policy_path: Optional[str] = None,
                         conviction_sizing: bool = False,
+                        allocator: str = "off",
                         symbol: str = "BTCUSDT") -> Dict[str, Any]:
     """Drive all `roster` strategies through aggregate_intents on a shared
     account. Clock runs on `clock_tf` bars; at each tick we read each
@@ -705,6 +706,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
         "ml_vol_unavailable": ml_resolver is not None and not ml_resolver.available,
         "ml_vol_reason": ml_resolver.reason if ml_resolver is not None else None,
         "conviction_trades": 0,          # opens sized by conviction
+        "allocator_multi_candidate_bars": 0,  # bars with >=2 directional candidates
+        "allocator_divergences": 0,      # bars the EV-pick != the priority winner
     }
 
     # 1) signal streams (cached), indexed onto the clock grid
@@ -860,6 +863,33 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                 meta={"_stream": True}))
             if bar_vol_regime is not None:
                 ev_counts["intents_stamped"] += 1
+        # --allocator ev (M18 P2 backtest arm): instead of letting the
+        # priority-based aggregator pick the winner among competing candidates,
+        # select the candidate with the highest cost-aware EV_R (the same
+        # src.runtime.allocator_ev scorer the live soak ranks on) and pass only
+        # it to aggregate_intents — so the harness TRADES the EV-pick and we can
+        # A/B its realised net R / maxDD against the baseline (allocator=off).
+        # Reductive only (it narrows the candidate set; downstream management is
+        # identical). Counts divergences for the evidence footer.
+        if allocator == "ev" and intents:
+            directional = [i for i in intents if i.side in ("long", "short")]
+            if len(directional) >= 2:
+                ev_counts["allocator_multi_candidate_bars"] += 1
+                from src.runtime.allocator_ev import compute_ev_r as _ev_r
+                def _intent_ev(i):
+                    v = _ev_r(entry=i.entry, sl=i.sl, tp=i.tp, p_win=i.confidence,
+                              fee_bps_roundtrip=FEE_BPS_ROUNDTRIP)
+                    return v if v is not None else -1.0e9
+                ev_pick = max(directional, key=_intent_ev)
+                priority_pick = aggregate_intents(directional, symbol=symbol)
+                pri_strat = (priority_pick.winning_intent.strategy
+                             if priority_pick is not None and priority_pick.winning_intent
+                             else None)
+                if ev_pick.strategy != pri_strat:
+                    ev_counts["allocator_divergences"] += 1
+                # Trade the EV-pick: keep it + any same-(strategy,side) reinforcers
+                # are irrelevant here (one winner), so pass the singleton.
+                intents = [ev_pick]
         desired = aggregate_intents(intents, symbol=symbol) if intents else None
         des_side = desired.side if desired is not None else "flat"
 
@@ -986,6 +1016,9 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
         "regime_policy_path": regime_policy_path,
         "conviction_sizing": conviction_sizing,
         "conviction_sized_opens": ev_counts["conviction_trades"],
+        "allocator": allocator,
+        "allocator_multi_candidate_bars": ev_counts["allocator_multi_candidate_bars"],
+        "allocator_divergences": ev_counts["allocator_divergences"],
         "conviction_input_note": (
             "conviction ≈ calibrated c_strat only (ML heads not replayed for "
             "sizing offline)" if conviction_sizing else None
@@ -1206,6 +1239,11 @@ def main(argv: List[str]) -> int:
                         "REGIME_POLICY_PATH for the run; never touches the live "
                         "config/regime_policy.yaml). Use to author candidate "
                         "trend_vol OFF-cells without a live edit.")
+    p.add_argument("--allocator", default="off", choices=["off", "ev"],
+                   help="M18 allocator A/B: 'off' = baseline priority aggregator; "
+                        "'ev' = trade the highest-cost-aware-EV_R candidate per bar. "
+                        "Run both and compare net R / maxDD to test whether ranking "
+                        "the opportunity set by EV beats priority-based routing.")
     p.add_argument("--conviction-sizing", action="store_true",
                    help="A/B sizing (Design B): size opens by conviction × 2%% "
                         "per-trade budget instead of the flat --risk-pct. OFFLINE "
@@ -1244,7 +1282,8 @@ def main(argv: List[str]) -> int:
         vol_verdict=args.vol_verdict, ml_vol_threshold=args.ml_vol_threshold,
         ml_stage=args.ml_stage, ml_model_id=args.ml_model_id,
         regime_router=args.regime_router, regime_policy_path=args.regime_policy,
-        conviction_sizing=args.conviction_sizing, symbol=args.symbol)
+        conviction_sizing=args.conviction_sizing, allocator=args.allocator,
+        symbol=args.symbol)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)
