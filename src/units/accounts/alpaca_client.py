@@ -391,12 +391,12 @@ class AlpacaClient:
         ``buy``/``sell`` — the OCO takes the reverse, closing side), ``qty``
         (whole shares), ``sl``, ``tp``. Envelope mirrors :meth:`place`.
 
-        NOTE (unverified-from-sandbox): the exact Alpaca OCO request schema
-        (top-level ``limit_price`` for the TP + ``stop_loss.stop_price`` for the
-        SL, ``type: limit``, ``order_class: oco``) and GTC acceptance on a
-        closing OCO must be confirmed on ``alpaca_paper`` before this is relied
-        on in production. Fail-safe: a refusal returns a non-zero envelope and
-        the naked sweep simply retries next tick.
+        Alpaca OCO request schema (verified live 2026-06-29): ``order_class:
+        oco``, ``type: limit``, ``time_in_force: gtc``, and BOTH legs as nested
+        objects — ``take_profit.limit_price`` + ``stop_loss.stop_price`` (a
+        top-level ``limit_price`` is refused: "oco orders require
+        take_profit.limit_price"). Fail-safe: a refusal returns a non-zero
+        envelope and the naked sweep simply retries next tick.
         """
         self._require_creds("place_protective")
         direction = str(order.get("direction") or order.get("side") or "").lower()
@@ -426,9 +426,12 @@ class AlpacaClient:
             "type": "limit",
             "time_in_force": "gtc",
             "order_class": "oco",
-            # OCO: the take-profit is the primary limit; the stop rides the
-            # stop_loss leg. One fills → the other cancels.
-            "limit_price": f"{float(tp):.2f}",
+            # OCO legs (Alpaca requires BOTH as nested objects, NOT a top-level
+            # limit_price — verified live 2026-06-29: a top-level limit_price was
+            # refused with "oco orders require take_profit.limit_price"). The
+            # take-profit limit + the stop one-cancels-other; type=limit is the
+            # OCO's primary leg.
+            "take_profit": {"limit_price": f"{float(tp):.2f}"},
             "stop_loss": {"stop_price": f"{float(sl):.2f}"},
         }
         env = self._request("POST", "/v2/orders", body)

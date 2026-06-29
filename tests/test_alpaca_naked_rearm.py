@@ -54,8 +54,11 @@ def test_place_protective_builds_gtc_oco_long(monkeypatch):
     assert post["type"] == "limit"
     assert post["time_in_force"] == "gtc"  # persists across RTH close (the fix)
     assert post["qty"] == "20"
-    assert post["limit_price"] == "818.50"
+    # Alpaca OCO: both legs nested (NOT a top-level limit_price — refused live
+    # 2026-06-29 with "oco orders require take_profit.limit_price").
+    assert post["take_profit"]["limit_price"] == "818.50"
     assert post["stop_loss"]["stop_price"] == "730.00"
+    assert "limit_price" not in post
 
 
 def test_place_protective_short_uses_buy_side(monkeypatch):
