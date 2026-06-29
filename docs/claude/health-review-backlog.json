@@ -2731,8 +2731,26 @@
       "snoozed_until": null,
       "description": "Operator observed alpaca_paper showing 6 open ETF positions (TLT/SPY/SLV/QQQ/IWM/GLD) but only 2 working orders -> ~4 positions are naked (no resting SL/TP bracket leg). Alpaca entries DO attach an atomic bracket at entry (alpaca_client.place order_class=bracket, alpaca_client.py:121-129), so these lost their protective legs afterward (suspected: reverse-reconciler adopt/reattach of an orphan, or a bracket child-leg cancel/reject) and nothing re-armed them: order_monitor naked-position auto-protect (_check_naked_positions/_attempt_naked_autoprotect/_rearm_broker_protection_after_recovery) is IB-ONLY (order_monitor.py ~5159-5190); non-IB accounts only get a one-shot alert. AlpacaClient ALREADY has modify_protective + open_orders, so the building blocks for a non-IB re-arm exist. FIX (Tier-2/3, order-protection path, operator-gated): extend the naked-position sweep to re-arm an Alpaca bracket via AlpacaClient (place a fresh protective OTO/bracket or modify_protective) when an open Alpaca position has no resting SL/TP leg; cover the reconciler adopt/reattach path too. Verify on alpaca_paper first. Applies to real-money alpaca_live as well (currently flat).",
       "source": "operator screenshot 2026-06-29 + code read",
+      "updates": [
+        {
+          "at": "2026-06-29T14:10:00+00:00",
+          "by": "claude (operator follow-up 2026-06-29)",
+          "status": "monitoring",
+          "note": "RE-ARM SHIPPED + LIVE-VERIFIED. The broker-naked Alpaca sweep (_check_broker_naked_equity_positions) + AlpacaClient.place_protective (GTC OCO) merged (#5018) and deployed (cbceb5d); the OCO request shape was corrected (#5046 — nested take_profit.limit_price, after a live 'oco orders require take_profit.limit_price' refusal that failed safe). VERIFIED 2026-06-29T14:01Z: re-armed GTC OCO on broker-naked alpaca_paper SLV (no refusal), idempotent skip thereafter. REMAINING (this item stays OPEN, monitoring): (a) SOAK-VERIFY the re-arm keeps the ETF positions protected across RTH closes/weekends over ~1 week (no naked gaps, no OCO stacking, no churn); (b) ENTRY-TIME GTC half (operator chose 'Both') — now DE-RISKED since the GTC OCO shape is confirmed accepted; build it (market entry + immediate GTC OCO, or flip the bracket leg TIF) only once the soak confirms the re-arm path is clean. Next check: ~2026-07-06 (1wk soak) or sooner if a naked gap recurs."
+        }
+      ]
+    },
+    {
+      "id": "BL-20260629-ACCOUNT-DOWN-ALERT",
+      "title": "[alerting] A broker account being DOWN/unreachable warrants its own loud Telegram warning + a remediation trigger (gap: IB-dark went unflagged across reviews)",
+      "status": "open",
+      "opened_at": "2026-06-29T14:10:00+00:00",
+      "opened_by": "claude (operator-requested 2026-06-29)",
+      "snoozed_until": null,
+      "description": "OPERATOR-RAISED 2026-06-29: the IB gateway was DOWN (ib_paper/ib_live positions=null, MES/MGC/MHG dark) across one or more /system-review runs and it was NOT surfaced loudly — it landed in the report body, not as a can't-miss alert, and the gateway watchdog only Telegrams after EXHAUSTING its restart budget (a terse restart ping easy to skim past). There is no dedicated 'account X unreachable' warning and no remediation trigger. REQUIREMENT: when a SUPPOSED-TO-BE-LIVE broker account reads unreachable (diag exchange_positions positions=null / accounts/balances api_ok=false / IB net_liquidation=None) for >= N consecutive checks, fire its OWN high-priority Telegram [ALERT] (latched: one on cross-into-down, one [OK] on recovery — mirror the daily-cap latch, no per-tick spam), and recommend the fix (vm-ib-gateway-recover / open a /health-review session). DESIGN PROPOSAL: (a) a small latched per-account 'broker reachable' check on an existing periodic path (hourly-report or a dedicated ~5-15min watcher), scoped to accounts declared live — EXCLUDE intentionally-shelved accounts (oanda_practice, ib_live-2FA-blocked) via an allowlist/skip flag so they don't spam; (b) make the health-review + system-review skills treat any down live account as a MANDATORY flags_raised item that fires a standalone high-priority ping (not buried in the report). Optional stretch: the alert auto-opens a remediation issue/session. Tier-1/2 (observability + a live-VM check/alert); operator wants it built — confirm scope (IB-only vs all live accounts; include auto-open-session vs alert-only) before shipping.",
+      "source": "operator request 2026-06-29 (IB-dark went unflagged)",
       "updates": []
     }
   ],
-  "updated_at": "2026-06-29T12:35:00+00:00"
+  "updated_at": "2026-06-29T14:10:00+00:00"
 }
