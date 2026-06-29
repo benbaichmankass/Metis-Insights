@@ -2750,7 +2750,18 @@
       "description": "OPERATOR-RAISED 2026-06-29: the IB gateway was DOWN (ib_paper/ib_live positions=null, MES/MGC/MHG dark) across one or more /system-review runs and it was NOT surfaced loudly — it landed in the report body, not as a can't-miss alert, and the gateway watchdog only Telegrams after EXHAUSTING its restart budget (a terse restart ping easy to skim past). There is no dedicated 'account X unreachable' warning and no remediation trigger. REQUIREMENT: when a SUPPOSED-TO-BE-LIVE broker account reads unreachable (diag exchange_positions positions=null / accounts/balances api_ok=false / IB net_liquidation=None) for >= N consecutive checks, fire its OWN high-priority Telegram [ALERT] (latched: one on cross-into-down, one [OK] on recovery — mirror the daily-cap latch, no per-tick spam), and recommend the fix (vm-ib-gateway-recover / open a /health-review session). DESIGN PROPOSAL: (a) a small latched per-account 'broker reachable' check on an existing periodic path (hourly-report or a dedicated ~5-15min watcher), scoped to accounts declared live — EXCLUDE intentionally-shelved accounts (oanda_practice, ib_live-2FA-blocked) via an allowlist/skip flag so they don't spam; (b) make the health-review + system-review skills treat any down live account as a MANDATORY flags_raised item that fires a standalone high-priority ping (not buried in the report). Optional stretch: the alert auto-opens a remediation issue/session. Tier-1/2 (observability + a live-VM check/alert); operator wants it built — confirm scope (IB-only vs all live accounts; include auto-open-session vs alert-only) before shipping.",
       "source": "operator request 2026-06-29 (IB-dark went unflagged)",
       "updates": []
+    },
+    {
+      "id": "BL-20260629-DEVNULL-CLOBBERED-LIVE-VM",
+      "title": "[infra] live trader VM /dev/null clobbered into a regular file — blocks all operator-action wrappers (pull-and-deploy / restart / reboot) and every '>/dev/null' redirect",
+      "status": "open",
+      "opened_at": "2026-06-29T14:50:00+00:00",
+      "opened_by": "claude (system-review follow-up 2026-06-29)",
+      "snoozed_until": null,
+      "description": "DISCOVERED 2026-06-29 while deploying #5061: the pull-and-deploy system-action FAILED with 'ERROR: /dev/null is not writable on this host — it has been clobbered into a regular file, so every \">/dev/null\" redirect (and most operator-action wrappers) fail.' On the LIVE trader VM (ict-bot-arm, 141.145.193.91), /dev/null is a regular file instead of the char-special device (1,3). IMPACT: (a) every operator-action wrapper that preflight-checks or redirects to /dev/null aborts — pull-and-deploy, restart-bot-service, reboot-vm are all blocked (so the relay can't even self-repair this), (b) any process doing '>/dev/null' fails, (c) a future systemd restart of ict-trader-live whose ExecStart/redirects touch /dev/null could fail to come up. NOT currently fatal: ict-git-sync still auto-deployed #5061 (trader confirmed on git_sha d661a0ec, uptime ~104s, heartbeat running, ticks healthy) and the trader is alive — but this is a latent live-VM hazard. ROOT FIX (needs root ON the VM; no autonomous path — the action wrappers that would run it are themselves blocked by the same /dev/null breakage, so this is a genuine operator hand-off): `sudo rm -f /dev/null && sudo mknod -m 666 /dev/null c 1 3`. After repair, re-dispatch pull-and-deploy to confirm the operator-action path works again. FOLLOW-UP: find what clobbered /dev/null (a stray '>' to the literal path /dev/null from a process that ran with /dev not mounted, or a script bug writing to '/dev/null' as a file) so it doesn't recur; consider a cheap health-check assertion that /dev/null is char-special (1,3).",
+      "source": "pull-and-deploy failure 2026-06-29 (issue #5069) + diag confirm",
+      "updates": []
     }
   ],
-  "updated_at": "2026-06-29T14:10:00+00:00"
+  "updated_at": "2026-06-29T14:50:00+00:00"
 }
