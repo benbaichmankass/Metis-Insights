@@ -404,6 +404,9 @@ class TestICTScalpYAMLRegistration:
         assert cfg is not None, "ict_scalp_5m missing from config/strategies.yaml"
         # PR #1156 (operator-approved 2026-05-14): ict_scalp_5m promoted to live
         # after backtest gate cleared (59.3% win rate, +0.301 R). enabled=true.
+        # DEMOTED 2026-06-29 (Unit B, operator-approved): execution flipped live →
+        # shadow after the live record showed -0.64R/trade — still enabled (logs
+        # order packages), just no live order. This test pins enabled, not execution.
         assert cfg.get("enabled") is True, (
             "ict_scalp_5m was operator-approved live per PR #1156 (2026-05-14); "
             "enabled must be True"

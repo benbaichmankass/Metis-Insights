@@ -89,7 +89,7 @@ def test_yaml_entries_pin_validated_params():
     assert gld["signal_prefixes"] == ["gld_pullback_1h"]
     assert (gld["trend_lookback"], gld["pullback_lookback"], gld["pullback_frac"]) == (60, 12, 0.5)
     assert (gld["atr_period"], gld["atr_stop_mult"], gld["trail_mult"]) == (14, 2.5, 4.0)
-    assert gld["risk_pct"] == 0.3 and gld["timeframe"] == "1h"
+    assert gld["timeframe"] == "1h"
     assert gld["min_confidence"] == 0.0 and gld["shadow_model_ids"] == []
     assert gld["model"] is None
     # SLV 1h — BIDIRECTIONAL Donchian trend (spy clone but both-sides)
@@ -101,7 +101,7 @@ def test_yaml_entries_pin_validated_params():
     assert slv["signal_prefixes"] == ["slv_trend"]
     assert (slv["donchian"], slv["atr_period"], slv["atr_stop_mult"]) == (24, 14, 2.5)
     assert (slv["trail_mult"], slv["tp_r"]) == (4.0, 50.0)
-    assert slv["risk_pct"] == 0.3 and slv["timeframe"] == "1h"
+    assert slv["timeframe"] == "1h"
     assert slv["min_confidence"] == 0.0 and slv["shadow_model_ids"] == []
     assert slv["model"] is None
 

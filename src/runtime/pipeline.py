@@ -163,35 +163,15 @@ def _strategies_from_registry() -> list:
 
 STRATEGIES = _strategies_from_registry()
 
-# Per-strategy risk allocation fractions applied inside the multiplexer.
-# This is the MULTIPLIER on each account's ``risk_pct`` used by
-# ``RiskManager.position_size`` (see ``meta["strategy_risk_pct"]``).
-# It is NOT a 100% split — each strategy independently scales the
-# account's per-trade risk; the daily-loss cap is the system-wide
-# bound on total drawdown.
-#
-# B-1: loaded from config/strategies.yaml (``risk_pct`` field per strategy)
-# so there is a single source of truth. The hardcoded fallback dict fires
-# only if the registry is unavailable at startup (e.g. missing pyyaml).
-def _strategy_risk_pcts_from_registry() -> Dict[str, float]:
-    try:
-        from src.strategy_registry import load_strategies
-        return {
-            s["name"]: float(s.get("risk_pct") or 1.0)
-            for s in load_strategies()
-        }
-    except Exception as exc:
-        logger.warning(
-            "pipeline: registry unavailable for risk_pct, using hardcoded fallback: %s", exc
-        )
-        return {
-            "turtle_soup": 0.5, "vwap": 1.0, "ict_scalp_5m": 0.3,
-            "trend_donchian": 0.3, "fade_breakout_4h": 0.3, "squeeze_breakout_4h": 0.3,
-            "fvg_range_15m": 0.3,
-        }
-
-
-STRATEGY_RISK_PCT: Dict[str, float] = _strategy_risk_pcts_from_registry()
+# Per-strategy risk allocation was REMOVED 2026-06-29 (operator directive:
+# sizing is the RiskManager's sole responsibility; a strategy carries no risk
+# level — it only produces order packages). The old per-strategy risk
+# multiplier (injected into the signal meta) is gone; trade-level size
+# differentiation is now central + confidence-keyed inside
+# ``RiskManager.position_size`` (``_confidence_scalar``). A leftover
+# per-strategy risk meta value is ignored by the sizer. The
+# ``strategy-risk-guard`` CI check forbids re-introducing a per-strategy risk
+# field.
 
 _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     "turtle_soup": turtle_soup_signal_builder,
@@ -304,10 +284,9 @@ def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
     Returns a side=none signal when no strategy fires.
 
     S-026 G1: signals carry no qty — sizing is the per-account
-    RiskManager's job. The per-strategy risk allocation
-    (``STRATEGY_RISK_PCT``) is recorded under
-    ``meta["strategy_risk_pct"]`` so the downstream sizer (G2) can
-    apply it when computing the per-account quantity.
+    RiskManager's job. Strategies carry no risk level (the per-strategy
+    ``risk_pct`` multiplier was removed 2026-06-29); the RiskManager owns
+    the per-trade size end-to-end (account basis × confidence scalar).
     """
     symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
 
@@ -334,21 +313,11 @@ def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
 
         if signal.get("side") in ("buy", "sell"):
             signal = dict(signal)
-            meta = dict(signal.get("meta") or {})
-            # Preserve a builder-provided strategy_risk_pct (e.g.
-            # trend_donchian sets its own conservative 0.3 from YAML
-            # because the registry path doesn't surface the YAML
-            # risk_pct); otherwise fall back to the registry/fallback
-            # map. For the existing strategies, whose builders don't set
-            # this field, behaviour is unchanged.
-            if "strategy_risk_pct" not in meta:
-                meta["strategy_risk_pct"] = float(
-                    STRATEGY_RISK_PCT.get(strategy_name, 1.0)
-                )
-            signal["meta"] = meta
+            # No per-strategy risk injection (removed 2026-06-29): sizing is
+            # purely the RiskManager's account-level basis × confidence.
+            signal["meta"] = dict(signal.get("meta") or {})
             logger.info(
-                "Multiplexer: '%s' produced actionable signal (risk_scale=%.2f)",
-                strategy_name, meta["strategy_risk_pct"],
+                "Multiplexer: '%s' produced actionable signal", strategy_name,
             )
             return signal
 

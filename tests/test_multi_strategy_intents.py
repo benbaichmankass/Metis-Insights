@@ -455,12 +455,14 @@ class TestRiskCapsStillEnforced:
             "pos_size": 500,
             "max_dd_pct": 0.05,
         })
-        # 1_000 balance × 0.01 × 0.5 strategy_risk_pct / 500 distance =
-        # 0.01 BTC qty — orders of magnitude below the aggregator's 2.0
-        # target. The RiskManager truncates.
+        # Risk-based = 1_000 × 0.01 / 500 = 0.02, but the margin pre-flight cap
+        # (basis × leverage × 0.9 / entry = 1_000 × 1 × 0.9 / 50_000 = 0.018)
+        # binds and governs — still orders of magnitude below the aggregator's
+        # 2.0 target, so the RiskManager truncates. (The legacy
+        # meta["strategy_risk_pct"]=0.5 the helper tags is IGNORED post-2026-06-29.)
         qty = rm.position_size(pkg, balance_usd=1_000.0)
         assert qty < desired.target_qty
-        assert qty == pytest.approx(0.01, abs=1e-6)
+        assert qty == pytest.approx(0.018, abs=1e-6)
 
     def test_risk_manager_refuses_zero_balance(self):
         """Even a huge aggregated target gets refused when there are no
@@ -812,7 +814,7 @@ class TestDesiredToPipelineSignal:
         assert signal["meta"]["strategy_name"] == "turtle_soup"
         assert signal["meta"]["aggregated_via"] == "multi_strategy_intent_layer"
         assert signal["meta"]["aggregated_target_qty"] == 0.03
-        # strategy_risk_pct must be present so the downstream sizer
-        # (S-026 G2) applies the per-strategy allocation. It's the same
-        # invariant the legacy multiplexer enforced.
-        assert "strategy_risk_pct" in signal["meta"]
+        # The per-strategy risk multiplier was removed 2026-06-29 — the
+        # pipeline signal carries NO risk level; sizing is the RiskManager's
+        # account-level job.
+        assert "strategy_risk_pct" not in signal["meta"]
