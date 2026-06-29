@@ -2685,7 +2685,18 @@
       "status": "open",
       "snoozed_until": null,
       "updates": []
+    },
+    {
+      "id": "BL-20260628-CRYPTO-INSTRUMENT-MIN-FLOOR",
+      "title": "[risk] crypto/fx sub-min-lot refusal uses account-default min_qty, not the per-instrument platform lot (ETH 0.01 gap)",
+      "status": "open",
+      "opened_at": "2026-06-29T00:00:00+00:00",
+      "opened_by": "claude (M17 #3910 Item 3 refuse fix, #4969)",
+      "snoozed_until": null,
+      "description": "PR #4969 (merged) made a sub-min-lot risk-based size a per-trade REFUSAL on the crypto/fx (non-whole-unit) path instead of bumping it up to min_qty (the over-risk #3910 flagged). It was scoped MINIMALLY: the refusal threshold is the ACCOUNT-configured min_qty (RiskManager.min_qty, default 0.001), NOT the per-instrument platform lot from config/instruments.yaml. For BTCUSDT that's correct (real lot == 0.001), but ETHUSDT's real Bybit lot is 0.01 (instruments.yaml min_qty/qty_step 0.01) — so a risk-based ETH size in [0.001, 0.0099) currently passes the refusal (>= account 0.001) yet the exchange would reject it as sub-lot. Pre-existing (the old bump was equally wrong there) and NOT worsened by #4969 — bybit_2's live ETH position (0.01) sizes legitimately today. FOLLOW-UP (the part of #3910 deliberately left out of #4969 to keep the real-money PR surgical): add an instrument-aware floor — instrument_min_qty_step_for(symbol) reading (min_qty, qty_precision from qty_step) from config/instruments.yaml — and resolve eff_min_qty/eff_precision from it on the non-whole path, falling back to the account min_qty when a symbol has no profile. The reference implementation is in the closed #3910 diff (src/units/accounts/risk.py). Tier-3 (sizing on the live order path) + needs the test reworks for profiled-symbol precision (IWM-on-bybit synthetic tests in test_alpaca_whole_share_sizing.py).",
+      "source": "PR #4969 (merged 744ac178) § 'Why minimal (vs full #3910)'; src/units/accounts/risk.py::position_size non-whole-unit refusal branch; config/instruments.yaml ETHUSDT min_qty/qty_step 0.01 vs RiskManager default min_qty 0.001.",
+      "updates": []
     }
   ],
-  "updated_at": "2026-06-28T13:55:00+00:00"
+  "updated_at": "2026-06-29T00:00:00+00:00"
 }
