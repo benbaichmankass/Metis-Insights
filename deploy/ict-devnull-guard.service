@@ -24,9 +24,20 @@ After=local-fs.target
 
 [Service]
 Type=oneshot
-# Ensure it's the char device 1:3; then ensure mode 0666. `printf %a` via
-# stat; only chmod/mknod when it actually drifted so the journal stays quiet.
-ExecStart=/bin/sh -c 'if [ ! -c /dev/null ] || [ "$(stat -c %t:%T /dev/null 2>/dev/null)" != "1:3" ]; then rm -f /dev/null; mknod -m 0666 /dev/null c 1 3; echo "ict-devnull-guard: recreated /dev/null char device"; fi; m=$(stat -c %a /dev/null 2>/dev/null); if [ "$m" != "666" ]; then chmod 0666 /dev/null; echo "ict-devnull-guard: chmod 0666 /dev/null (was $m)"; fi'
+# Ensure it's the char device 1:3; then ensure mode 0666. Only chmod/mknod
+# when it actually drifted so the journal stays quiet.
+#
+# CRITICAL: every `%` passed to `stat -c` MUST be doubled (`%%`) here.
+# systemd expands `%`-specifiers in ExecStart BEFORE the shell runs, so an
+# un-doubled `stat -c %t:%T` became `stat -c <runtime-dir>:<tmp-dir>` and
+# `stat -c %a` became `stat -c arm64` (the %a = architecture specifier). The
+# drift checks then NEVER matched ("... != 1:3" / "... != 666" were always
+# true), so the guard recreated + chmod'd /dev/null on EVERY 60s run
+# unconditionally (tell-tale journal line: "chmod 0666 /dev/null (was
+# arm64)") instead of being a silent no-op on the happy path — and the broken
+# check meant it wasn't actually verifying health. `%%t:%%T` / `%%a`
+# un-escape to the intended `stat` format strings (BL-20260629).
+ExecStart=/bin/sh -c 'if [ ! -c /dev/null ] || [ "$(stat -c %%t:%%T /dev/null 2>/dev/null)" != "1:3" ]; then rm -f /dev/null; mknod -m 0666 /dev/null c 1 3; echo "ict-devnull-guard: recreated /dev/null char device"; fi; m=$(stat -c %%a /dev/null 2>/dev/null); if [ "$m" != "666" ]; then chmod 0666 /dev/null; echo "ict-devnull-guard: chmod 0666 /dev/null (was $m)"; fi'
 
 [Install]
 WantedBy=multi-user.target
