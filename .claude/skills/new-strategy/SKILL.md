@@ -75,8 +75,12 @@ with a discrepancy banner — never assume a single account.
   collision.
 - **Signal logic** — at minimum: which timeframe, what fires the
   entry, how SL/TP are computed. If unclear, ask before coding.
-- **Risk fraction** — multiplier on the account's `risk_pct`. Typical
-  range 0.2 – 1.0; lower for scalps, higher for high-conviction setups.
+- **Risk** — DO NOT set a per-strategy risk level. Removed 2026-06-29: a
+  strategy carries no risk; sizing is the RiskManager's sole job (the
+  account-level `risk_pct` basis × an internal confidence scalar). Adding a
+  `risk_pct:` to `config/strategies.yaml` (or a `strategy_risk_pct` in `src/`)
+  trips the `strategy-risk-guard` CI check. Trade-level differentiation is via
+  the order package's `confidence`, which the RiskManager modulates centrally.
 - **Priority for conflict resolution** — integer; the current roster
   uses turtle_soup=50, vwap=40, ict_scalp_5m=30, trend_donchian=20,
   fade_breakout_4h=10 (squeeze_breakout_4h=5, pending merge). Higher
@@ -238,17 +242,13 @@ _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
 }
 ```
 
-c) Add an entry to `STRATEGY_RISK_PCT` — the per-strategy MULTIPLIER on
-   each account's `risk_pct` (NOT a 100% split). Match the value to
-   the strategy's `risk_pct` field in `config/strategies.yaml` so the
-   YAML and the dispatcher agree.
-
-```python
-STRATEGY_RISK_PCT: Dict[str, float] = {
-    ...
-    "<name>": <fraction>,  # e.g. 0.3 for a scalp
-}
-```
+c) NOTHING to add for risk. The per-strategy `STRATEGY_RISK_PCT` map was
+   removed 2026-06-29 — a strategy carries no risk level. Position sizing is
+   the RiskManager's sole responsibility: the account-level `risk_pct` basis
+   (uniform 1.5%) × an internal confidence scalar driven by the order
+   package's `confidence`. Do NOT add a `risk_pct:` to the strategy's YAML or
+   a `strategy_risk_pct` anywhere in `src/` — the `strategy-risk-guard` CI
+   check fails the PR if you do.
 
 d) Optional — if the operator wants `STRATEGY=<name>` as a CLI alias,
    add an `elif` branch in `run_pipeline`:
@@ -315,8 +315,8 @@ Add a `<name>:` block following the existing pattern:
   execution: shadow           # …but data-only — logs order packages
                               # everywhere, never sends a live order.
                               # Promote to `live` after shadow proves it.
-  risk_pct: <fraction>        # matches STRATEGY_RISK_PCT entry (moot
-                              # while execution: shadow)
+  # NO risk_pct — removed 2026-06-29; sizing is account-level (RiskManager
+  # basis × confidence). Adding it here trips the strategy-risk-guard.
   timeframe: "5m"             # primary timeframe
   symbols:
     - BTCUSDT                 # the instrument(s) this strategy trades —
@@ -469,8 +469,9 @@ evidence-based.)
 - `src/runtime/intents.py::compute_execution_delta` — strategy-agnostic.
 - `src/core/coordinator.py::multi_account_execute` — strategy-agnostic.
 - `src/core/coordinator.py::_build_intent_legs` — strategy-agnostic.
-- `src/units/accounts/risk.py::RiskManager` — strategy-agnostic
-  (reads `meta["strategy_risk_pct"]`).
+- `src/units/accounts/risk.py::RiskManager` — strategy-agnostic; sizes off
+  the account `risk_pct` basis × an internal confidence scalar (no
+  per-strategy risk input as of 2026-06-29).
 - `src/units/accounts/execute.py::execute_pkg` — strategy-agnostic.
 
 If you're editing any of these, you're either fixing a bug in the

@@ -330,15 +330,15 @@ def test_signal_builder_emits_actionable_signal(monkeypatch):
     # Trailing params propagate into the signal meta for the monitor.
     assert sig["meta"]["atr"] > 0
     assert sig["meta"]["trail_mult"] == _DEFAULTS["trail_mult"]
-    # Conservative per-strategy risk multiplier carried from YAML — must
-    # NOT fall back to the registry default of 1.0 (would over-size the
-    # real-money launch by ~3.3×).
-    assert sig["meta"]["strategy_risk_pct"] == pytest.approx(0.3)
+    # The per-strategy risk multiplier was removed 2026-06-29 — a strategy
+    # carries NO risk level; the builder must not emit one. Sizing is the
+    # RiskManager's account-level job.
+    assert "strategy_risk_pct" not in sig["meta"]
 
 
-def test_signal_builder_risk_pct_survives_legacy_multiplexer(monkeypatch):
-    # The legacy first-wins multiplexer must preserve the builder-set
-    # strategy_risk_pct rather than clobbering it with the registry's 1.0.
+def test_signal_builder_emits_no_strategy_risk_pct_via_multiplexer(monkeypatch):
+    # The multiplexer must NOT inject a per-strategy risk level (removed
+    # 2026-06-29). Sizing is account-level only.
     import src.runtime.pipeline as pipeline
     import src.runtime.strategy_signal_builders as ssb
     import src.runtime.market_data as md
@@ -348,15 +348,14 @@ def test_signal_builder_risk_pct_survives_legacy_multiplexer(monkeypatch):
     monkeypatch.setattr(md, "fetch_candles", lambda *a, **k: _long_breakout_frame())
     monkeypatch.setattr(
         strat_pkg, "load_strategy_config",
-        lambda: {"trend_donchian": {"enabled": True, "timeframe": "1h",
-                                    "risk_pct": 0.3}},
+        lambda: {"trend_donchian": {"enabled": True, "timeframe": "1h"}},
     )
     monkeypatch.setattr(pipeline, "STRATEGIES", ["trend_donchian"])
     monkeypatch.setattr(pipeline, "is_strategy_paused", lambda name: False)
 
     sig = pipeline.multiplexed_signal_builder({"SYMBOL": "BTCUSDT"})
     assert sig["side"] == "buy"
-    assert sig["meta"]["strategy_risk_pct"] == pytest.approx(0.3)
+    assert "strategy_risk_pct" not in sig["meta"]
 
 
 def test_signal_builder_disabled_returns_none(monkeypatch):
