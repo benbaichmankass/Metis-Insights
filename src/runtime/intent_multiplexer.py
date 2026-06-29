@@ -705,13 +705,19 @@ def multiplexed_intent_signal_builder(
     # Only fires when ≥ 2 actionable candidates exist (a genuine choice). Routing
     # is unchanged; nothing reads this back. Fail-permissive.
     try:
+        from src.runtime.allocator_ev import candidate_ev_score
         from src.runtime.allocator_soak import record_allocator_soak
         _executed = desired.winning_intent.strategy if desired.winning_intent else None
+        # M18 P1: rank candidates by cost-aware EV_R (not raw confidence), so the
+        # soak's regret is in net-of-fee R-units. Pluggable score_fn — the harness
+        # is unchanged from P0c.
         record_allocator_soak(
             signal.get(CANDIDATE_BATCH_KEY) or [],
             symbol=symbol,
             executed_strategy_id=_executed,
             executed_side=signal.get("side"),
+            score_fn=candidate_ev_score,
+            score_kind="ev_net_r",
         )
     except Exception:  # noqa: BLE001 — observe-only soak must never break a tick
         logger.debug("allocator_soak: record failed", exc_info=False)
