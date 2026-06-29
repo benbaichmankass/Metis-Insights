@@ -1049,7 +1049,15 @@
       "trigger_condition": "snoozed_until 2026-06-30; the next /ml-review or /system-review; or any session the operator pings to 'check the A soak'.",
       "resolution_criteria": "The enforce decision is taken (flip to use+router with operator approval) OR explicitly held with the soak read recorded. Closes when A is either enforcing live or the soak surfaced a live!=backtest divergence that blocks it.",
       "status": "open",
-      "snoozed_until": "2026-06-30T15:00:00+00:00"
+      "snoozed_until": "2026-06-30T15:00:00+00:00",
+      "updates": [
+        {
+          "at": "2026-06-29T12:35:00+00:00",
+          "by": "claude (/system-review since-last 2026-06-29)",
+          "status": "open",
+          "note": "FIRST live ML-label vol-gate enforced fire OBSERVED 2026-06-29T12:13Z (audit id 632682: BTCUSDT trend_donchian, vol_label_source=ml, vol_enforced=true, vol_cell=off). The advisory btc-regime-15m-lgbm-v2 head is fresh (last_seen 12:10Z, 214 advisory preds). Soak is accruing as designed; the enforce-decision first-look (~2026-06-30) stands. Keeping open as awaiting-decision (Tier-3 operator enforce call)."
+        }
+      ]
     },
     {
       "id": "MB-20260627-002",
@@ -1134,7 +1142,49 @@
       "status": "open",
       "snoozed_until": "2026-07-02T00:00:00+00:00",
       "updated_at": "2026-06-28T09:00:00+00:00"
+    },
+    {
+      "id": "MB-20260629-ALLOC-COSTCAP",
+      "opened_at": "2026-06-29T13:30:00+00:00",
+      "opened_by": "claude (Portfolio Capital Allocator AI — design/proposal session)",
+      "source": "Inventory pass for docs/research/capital-allocation-ai-DESIGN.md (M18). Assessed whether the live-logged substrate is sufficient to TRAIN a cross-strategy expected-net-R ranker. Join order_packages -> trades is clean (realized_R = pnl / (|entry-sl|*qty) derivable; trades schema src/units/db/database.py:119-148), and decision-time features are rich (order_packages.model_scores database.py:228, account_context_snapshots context_snapshot.py:35-52, conviction inputs). The single biggest blocker: per-trade transaction cost is NOT separately logged. Fees/funding are modeled in backtests only (FEE_BPS_ROUNDTRIP=7.5 backtest_system.py:97; taker 0.055%/maker 0.02% backtester.py:30) and offline prop MC (swap 0.033%/day breakout.yaml); at live decision/close time the cost component is not separable in trades.pnl, and multi-day perpetual FUNDING may not be fully captured in the local-compute PnL path.",
+      "title": "Per-trade cost capture (fee_*/funding_* on the close path) — the data gap blocking a clean net-R ranker label/feature; enables MB-20260629-ALLOC-RANKER",
+      "description": "Add per-trade cost fields written on the close path (Tier-1, no order-flow mutation): fee_taker_usd / fee_maker_usd (broker fill fees), funding_paid_usd (cumulative perp funding), and a per-cell swap accrual for prop. Writer: execute.py / order_monitor.py close path, sourced from the broker's fill + funding records where available, else a fixed cost-model estimate flagged as approximate. WHY: realized net-R is the ranker's LABEL and cost is a discriminable FEATURE; without it labels are inflated ~10-20 bps (worse for multi-day perps) and the model can't learn 'high-fee scalp into small TP' vs 'low-fee swing'. Interim: Phases P0-P2 use a fixed cost model (round-trip taker bps from instruments.yaml + per-cell swap from the prop ruleset). This item is the Tier-1 substrate that must land in M18 P0 before the P3 learned ranker is trained on clean labels. Compose with db-wiring (new columns wired to the canonical store, no stray journal).",
+      "tier": 1,
+      "trigger_condition": "M18 P0 (substrate) kickoff; or next /ml-review assessing allocator-ranker training readiness.",
+      "resolution_criteria": "fee_*/funding_* columns added to trades + populated on the live close path (verified non-null on real closed trades across brokers that expose fees); a clean offline net-R label query (order_package -> trade -> net_R) reproducible for the ranker dataset. Honest negative acceptable if a broker cannot expose per-fill fees (record the fixed-estimate fallback + its calibration gap).",
+      "status": "open",
+      "snoozed_until": null,
+      "updated_at": "2026-06-29T13:30:00+00:00"
+    },
+    {
+      "id": "MB-20260629-ALLOC-RANKER",
+      "opened_at": "2026-06-29T13:30:00+00:00",
+      "opened_by": "claude (Portfolio Capital Allocator AI — design/proposal session)",
+      "source": "docs/research/capital-allocation-ai-DESIGN.md (M18) Phase 3. Today nothing ranks competing candidate trades head-to-head by expected value: conviction.py is a hand-weighted P(win) blend (observe-only), regime heads are gates not rankers, flip_ev.py is pairwise only, run_ev_montecarlo is offline per-cell. The allocator needs a learned 'expected net-R given decision-time features' model to rank the full candidate batch.",
+      "title": "Train a cross-strategy expected-net-R ranker (LightGBM, new task family) for the portfolio allocator — rides candidate->shadow->advisory; advisory-only influence",
+      "description": "New model family (a regressor/ranker, NOT a vol classifier — a genuinely new task vs the current regime heads). TARGET: realized net-R per order package (needs MB-20260629-ALLOC-COSTCAP for clean labels; fixed-cost-model labels for the first pass). FEATURES (already logged): confidence, model_scores {model_id:{stage,score}}, meta (setup_type/killzone/bias), conviction inputs (c_strat/c_setup/c_wr/c_reg), the per-SYMBOL advisory regime label (ml_vol_regime_for_symbol), and the account_context_snapshots row (equity, daily PnL, daily DD%, open-trades-count) keyed by (order_package_id, account_id). FEATURES TO ADD: per-symbol/per-asset-class exposure at decision time (today only a raw open_trades_count) + the correlation feature from MB-20260629-ALLOC-CORR. SAMPLE-SIZE REALITY: ~500-2000 live closed real-money trades exist — thin per-strategy; pool across strategies (strategy as a feature) + augment with backtest-labeled decisions for the first model, treat live shadow accrual as the validation stream. Manifest under ml/configs/, dataset built on the trainer VM, scored through ShadowPredictor (logs to shadow_predictions.jsonl). Output ranks the candidate batch; only influences the order package at ADVISORY stage after operator-approved promotion; rules EV (conviction-based) stays the fail-permissive fallback + the shadow baseline it must beat.",
+      "tier": 3,
+      "trigger_condition": "After MB-20260629-ALLOC-COSTCAP (clean labels) + M18 P1/P2 (rules EV + greedy selector soaking); when >= ~1000 pooled labeled decisions are queryable; next /ml-review.",
+      "resolution_criteria": "Ranker trained + at shadow, beating the rules-based EV baseline on held-out net-R (purged WF-CV, leak-free) and passing an RG-style robustness/skew check on logged-live rows; a promotion recommendation (shadow->advisory) prepared for operator approval. Honest negative recorded if it cannot beat the rules baseline (data-scale floor — keep the rules EV).",
+      "status": "open",
+      "snoozed_until": null,
+      "updated_at": "2026-06-29T13:30:00+00:00"
+    },
+    {
+      "id": "MB-20260629-ALLOC-CORR",
+      "opened_at": "2026-06-29T13:30:00+00:00",
+      "opened_by": "claude (Portfolio Capital Allocator AI — design/proposal session)",
+      "source": "docs/research/capital-allocation-ai-DESIGN.md (M18) Phase 3 / gap #2. Nothing live computes correlation or covariance between symbols/positions: config/cross_asset.yaml peer features feed shadow regime heads only (cross_asset_live.py, observe-only) and are not a portfolio risk input. Two highly-correlated longs are sized as two independent risk_pct trades, so correlated exposure the caps never see as one.",
+      "title": "Decision-time correlation/covariance feature — doubles as the allocator's covariance-adjusted risk-budget input and a ranker feature",
+      "description": "Compute a rolling cross-pair correlation/covariance over the candidate set + the open book at decision time, log it (extend account_context_snapshots or a sibling table), and use it two ways: (1) as the covariance-adjusted marginal-risk term in the M18 capital allocator (discount a candidate's risk budget by its correlation to the existing/selected book, so correlated trades don't both get full budget); (2) as a feature for MB-20260629-ALLOC-RANKER (learn 'this signal fired when portfolio vol was already elevated' vs 'isolated entry'). Build once, log once, reuse. Reuse the offline cross_asset.yaml peer pure-fns where possible (live==train). Fail-permissive (a correlation error degrades to no-discount, never strands a signal).",
+      "tier": 3,
+      "trigger_condition": "M18 P3 (correlation budgeting); after the greedy selector (P2) shows budgets bind and a single-axis EV/risk selector leaves correlated-risk regret on the table; next /ml-review.",
+      "resolution_criteria": "A logged decision-time correlation/covariance feature; the allocator's risk-budget term consumes it in shadow and the soak shows it reduces correlated-exposure regret vs the greedy-only selector; the ranker A/B shows the correlation feature adds signal (or an honest negative that it does not).",
+      "status": "open",
+      "snoozed_until": null,
+      "updated_at": "2026-06-29T13:30:00+00:00"
     }
   ],
-  "updated_at": "2026-06-28T09:00:00+00:00"
+  "updated_at": "2026-06-29T13:30:00+00:00"
 }

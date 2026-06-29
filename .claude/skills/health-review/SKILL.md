@@ -40,15 +40,19 @@ If the user asked about *model performance*, *training sessions*, or
 6. **Grade trainer-VM service health only** — is the timer running, is
    the unit healthy. Model/dataset/registry detail is **out of scope** —
    that's `/ml-review` (§ "Trainer service touch").
-7. **Review recent sprint logs** for doc correctness (§ "Sprint-doc
+7. **Audit broker-account reachability (MANDATORY)** — confirm EVERY
+   declared-live broker account is reachable (§ "Broker-account
+   reachability"). A down live account is a can't-miss flag, never a
+   line in the body.
+8. **Review recent sprint logs** for doc correctness (§ "Sprint-doc
    review").
-8. **Ingest the orphan-events log** (§ "Orphan-events ingest") — every
+9. **Ingest the orphan-events log** (§ "Orphan-events ingest") — every
    NEW orphan trade row since the last review MUST be tracked + driven to
    reconciliation. Orphan is a problem to solve, never a resting status.
-9. **Drain the health-review backlog** — triage every open item, fix
-   what you can (§ "Draining the backlog").
-9. **Emit the response JSON** + **post a one-line update to the Claude
-   channel** (§ "Output" + § "Posting to the Claude channel").
+10. **Drain the health-review backlog** — triage every open item, fix
+    what you can (§ "Draining the backlog").
+11. **Emit the response JSON** + **post a one-line update to the Claude
+    channel** (§ "Output" + § "Posting to the Claude channel").
 
 ## Out of scope (DO NOT do here)
 
@@ -193,6 +197,46 @@ The trainer is not a live-trading blocker. Don't set
 `advisory`+/`live_approved` model is involved (and even then, that
 finding belongs to `/ml-review` — this skill just notes "trainer
 service stale, see /ml-review").
+
+## Broker-account reachability (MANDATORY — 2026-06-29)
+
+A supposed-to-be-live broker account reading **unreachable** (IB gateway
+logged out, exchange API 401-ing, creds rotated out) is a money-at-risk
+condition that must surface as a **loud, standalone flag** — not a line
+buried in the report body. This section exists because the IB gateway was
+in fact dark across one or more reviews and went unflagged.
+
+**Scope — all declared-live, non-shelved accounts.** Check every account
+with `mode: live` on a probeable exchange (`bybit` / `interactive_brokers`
+/ `alpaca` / `oanda`). This excludes the intentionally-shelved dry accounts
+(`ib_live` 2FA-blocked, `oanda_practice`) and the API-less `breakout_1`
+prop bridge — the same set the in-process latch checks.
+
+**How to read reachability** (any one is sufficient evidence of down):
+
+- `GET /api/diag/exchange_positions` — per-account `positions: null` ⇒
+  could-not-read (down); `[]` or a list ⇒ reachable.
+- the in-process latch state file
+  `runtime_logs/account_reachability_alert_state.json` (pull via
+  `/api/diag/log_file` or read `account_reachability_alert.down_accounts()`)
+  — any account with `down: true` is currently latched down.
+- `GET /api/bot/accounts/balances` — `api_ok: false` for a live account.
+
+**What to do when an account is down:**
+
+1. It is a **MANDATORY** entry in the response's flags / a standalone
+   high-priority Claude-channel ping (the in-process latch already pings
+   Telegram on the cross-into-down; the review must ALSO surface it so a
+   review run is never the thing that quietly skips it).
+2. Recommend the fix inline: IB → `vm-ib-gateway-recover`; otherwise →
+   check broker API/creds. If the down state is sustained, this is exactly
+   the trigger to open/continue a remediation pass in THIS session.
+3. Drive it — don't just note it. A live account dark for the whole window
+   is a `concern`-grade finding with `operator_attention_required` set.
+
+If all live accounts are reachable, say so explicitly ("all N live
+accounts reachable") — an empty reachability finding must be a stated
+verification, never an omission.
 
 ## DB integrity & validity
 

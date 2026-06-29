@@ -674,6 +674,23 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 logger.exception("prop_expiry_prompt tick failed")
 
+            # A supposed-to-be-live broker account reading unreachable (IB
+            # gateway logged out, exchange API 401-ing, creds rotated out)
+            # is a money-at-risk condition that must surface LOUDLY, not sit
+            # quietly in a report body — the IB gateway was dark across
+            # reviews and went unflagged. Latched per-account: one DOWN ping
+            # on a confirmed cross-into-down (>= N consecutive checks), one
+            # OK ping on recovery. Internally cadence-gated
+            # (ACCOUNT_REACHABILITY_CHECK_SECONDS, default 10 min); reuses
+            # the reconciler's reachability primitive; best-effort.
+            try:
+                from src.runtime.account_reachability_alert import (
+                    run_account_reachability_check,
+                )
+                run_account_reachability_check()
+            except Exception:  # noqa: BLE001
+                logger.exception("account_reachability_check tick failed")
+
             # PR5: heartbeat is the single source of truth for "trader is
             # alive". Writes after a successful tick, not before — so a
             # tick that crashes mid-run doesn't refresh the heartbeat and

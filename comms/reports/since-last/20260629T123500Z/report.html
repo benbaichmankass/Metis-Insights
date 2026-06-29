@@ -1,0 +1,154 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-06-29T12:35:00+00:00 · window 2026-06-28T04:12:30+00:00 → 2026-06-29T12:35:00+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>~32h window. Core platform healthy: services green, DB clean, regime gate enforcing + BTC ML vol-gate confirmed firing live. Quiet trading — real money 2 small htf_pullback BTC losses (-$1.12), bybit_2 now flat; prop +$18.81 (operator-reported ETH close, documented this session). Two live issues surfaced + actioned: Alpaca positions sitting naked (root-caused + fix in draft PR #5018) and IB gateway down (MES/MGC/MHG dark). ML daily cycle green; 0 of 45 models promotable. Grading refreshed (2/2 closed trades graded C/D via the new diag grader).</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Approve + alpaca_paper-verify the naked-bracket fix (draft PR #5018)</b> <span class="pill">cross · T2</span> ⚠️ operator<br><span class='muted'>Alpaca day-TIF protective legs cancel at RTH close, leaving multi-session ETF holds naked with no re-arm (IB-only). PR adds GTC OCO re-arm. Needs live OCO/GTC verification before merge/deploy.</span></li>
+<li><b>Recover IB gateway — MES/MGC/MHG dark</b> <span class="pill">health · T2</span> ⚠️ operator<br><span class='muted'>ib_paper/ib_live read null; mgc_trend_1h went dry_run. Recurring BL-20260623-002. Run vm-ib-gateway-recover.</span></li>
+<li><b>Approve prop-sizing bypass (draft PR #5018)</b> <span class="pill">performance · T3</span> ⚠️ operator<br><span class='muted'>FIXED in draft: prop (breakout) accounts now bypass balance()-based sizing; the ruleset sizes the leg + the assistant places it. Needs operator approval + live verify.</span></li>
+<li><b>Vol-gate enforce decision (~06-30 first look)</b> <span class="pill">ml · T3</span> ⚠️ operator<br><span class='muted'>BTC ML vol-gate firing live with the advisory 15m head. MB-20260627-001 enforce-decision window opens ~06-30.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">74 open / 154 total · 2 drained</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">34 open / 53 total</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">22 open / 54 total · 1 drained</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>performance</span> Prop sizing for API-less accounts: size off ruleset economics, not a live balance() call (trend_donchian_sol/breakout_1 rejection).</li>
+<li><span class='pill'>ml</span> Vol-gate enforce decision (~06-30) for BTC ML vol label; ETH/SOL cells await own 15m advisory heads.</li>
+<li><span class='pill'>ml</span> Refine-or-retire the degenerate shadow baselines (prop-mission all-zero, trade-outcome-winrate f1=0).</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>IB gateway down spans health (services/positions null) AND performance (mgc_trend_1h dry_run rejections) — same root cause.</li>
+<li>Alpaca naked positions (operator-surfaced) span the order-path (health) and the paper book (performance); fixed in draft PR #5018.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟡 caution</span></h2>
+<p class="section-empty">No health findings in this report.</p>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-1.12</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$1.78 ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">2</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-0.56</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.00</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>htf_pullback_trend_2h</td><td>2</td><td>0.0%</td><td class="neg">$-1.12</td></tr>
+</table></div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$18.81</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↑</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">1</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">—</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">3 full dossiers, 0 summarized (full-per-trade (since-last); window had only 2 real-money + 1 prop close (plus rejections)).</p>
+<details><summary><span class="pill real">real_money</span> BTCUSDT long · htf_pullback_trend_2h · <span class="neg">$-1.05</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3010</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-06-27T22:37:19+00:00</div><div class="k">closed</div><div>2026-06-28T19:47:50+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>60229.1</div><div class="k">exit</div><div>59226.5</div><div class="k">stop</div><div>59230.65</div><div class="k">target</div><div>66191.78</div><div class="k">qty</div><div>0.001</div><div class="k">pnl %</div><div>-1.75</div><div class="k">close reason</div><div>sl</div><div class="k">setup</div><div>htf_pullback_trend_2h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>late</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>htf_pullback_trend_2h long; conf 0.32; entry=late; exit=sl_appropriate(sl,-1.00R)</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> BTCUSDT long · htf_pullback_trend_2h · <span class="neg">$-0.07</span> · grade D</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3025</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-06-28T22:03:51+00:00</div><div class="k">closed</div><div>2026-06-29T11:52:34+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>59822.7</div><div class="k">exit</div><div>59794.1</div><div class="k">stop</div><div>58764.36</div><div class="k">target</div><div>65745.15</div><div class="k">qty</div><div>0.001</div><div class="k">pnl %</div><div>-0.11</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>htf_pullback_trend_2h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>should_skip</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>htf_pullback_trend_2h long; conf 0.19=should_skip; exit=sl_appropriate(reconciler_filled,-0.03R)</div></div></div></details>
+<details><summary><span class="pill prop">prop</span> ETHUSDT short · trend_donchian_eth · <span class="pos">+$18.81</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>—</div><div class="k">account</div><div>breakout_1</div><div class="k">opened</div><div>2026-06-24T18:46:00+00:00</div><div class="k">closed</div><div>2026-06-29T15:08:00+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1619.99</div><div class="k">exit</div><div>1590.23</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>0.73</div><div class="k">pnl %</div><div>1.84</div><div class="k">close reason</div><div>manual</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>prop — operator-reported close</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>unavailable: candles not reachable from sandbox (/api/bot/candles not on the diag relay). Audit shows BTC ~$60k area, chop/volatile regime (vol-gate fired volatile).</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>btc-regime-15m-lgbm-v2</td><td>advisory</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>btc-regime-1h-lgbm-yz-v1</td><td>advisory</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>btc-regime-5m-lgbm-yz-v1</td><td>advisory</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>regime-classifier-baseline-v0 + mes-regime-classifier-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>prop-mission-policy-baseline-v0 / trade-outcome-winrate-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>eth/sol regime heads + conviction-meta-v1 + eth-xasset</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+</table></div>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li>DEMOTE_SHADOW <b>regime-classifier-baseline-v0 / mes-regime-classifier-baseline-v0</b> — stalled — no predictions since 2026-05-22; f1_volatile=0 collapse</li>
+<li>KILL <b>prop-mission-policy-baseline-v0 / trade-outcome-winrate-baseline-v0</b> — degenerate all-zero / f1=0 every retrain</li>
+<li class='muted'>All 45 models HOLD per the 2026-06-29 promotion-readiness report (0 promote / 0 demote); most blocked on live_regime_discrimination. Strategy-level: no M7 packets pulled this run (relay-bounded); refine/retire candidates above are the live degenerate/stalled shadow models.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">1</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">True</div></div>
+</div>
+<p class='muted'>Daily cycle ran clean (rc=0, ~30 manifests OK, calibrators+publish OK). Only the 3 MES journal-backed manifests skipped for empty_dataset — known data-block, not a failure.</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>BTC ML vol-verdict (advisory 15m head)</td><td>gate_met</td><td>first live enforced fire observed 12:13Z; enforce decision ~06-30 (operator)</td></tr>
+<tr><td>ETH/SOL regime heads (shadow)</td><td>accruing</td><td>fresh predictions ~12:10-12:20Z; not yet promotable (live_regime_discrimination)</td></tr>
+<tr><td>conviction-meta-v1 + cross-asset eth-xasset (shadow)</td><td>accruing</td><td>3084 + 455 preds, fresh</td></tr>
+<tr><td>exit-ladder ladder-vs-single</td><td>stalled</td><td>accruing rows but all differs=false (no rungs) — graduation gate structurally un-trippable until rungs configured</td></tr>
+<tr><td>2 advisory BTC heads (1h-yz, 5m-yz)</td><td>stalled</td><td>no predictions since 06-23/06-25 — investigate</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 IB gateway DOWN — MES/MGC/MHG dark (ib_paper/ib_live null; mgc_trend_1h dry_run).</li><li>🚩 Alpaca positions naked (no resting bracket) — root-caused + fix in draft PR #5018.</li><li>🚩 Prop SOL leg blocked: balance()-None sizing failure on API-less breakout_1.</li><li>🚩 2 advisory BTC heads silent since 06-23/06-25 while a third is fresh.</li><li>🚩 Exit-ladder soak structurally stalled (no rungs → gate un-trippable).</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>MB-20260627-001</code></td><td>ml</td><td>🗳️ awaiting-decision</td><td>BTC ML vol-gate firing live with the advisory 15m head; soak accruing toward enforce decision.</td><td>~2026-06-30 first look, enforce call</td></tr>
+<tr><td><code>PB-20260617-002</code></td><td>performance</td><td>⏳ soaking</td><td>Exit-ladder soak accruing but every row differs_from_single_target=false (no rungs) — gate un-trippable until partial-TP rungs configured.</td><td>rung config + n&gt;=30 differing</td></tr>
+<tr><td><code>PB-20260625-001</code></td><td>performance</td><td>🔁 verify</td><td>ETH prop legs emit+journal confirmed; SOL prop leg blocked on balance()-sizing. Watching real swap rate + edge.</td><td>prop sizing fix + more ETH/SOL prop fills</td></tr>
+<tr><td><code>BL-20260628-RECONCILER-PAPER-ARTIFACT</code></td><td>health</td><td>🔁 verify</td><td>Options-account orphan-adoption + equity-pricing fix holding — alpaca_options_paper flat, no new option-leg orphans.</td><td>48h clean + operator OK on supersede writeback</td></tr>
+<tr><td><code>MB-20260623-003</code></td><td>ml</td><td>🗳️ awaiting-decision</td><td>Degenerate shadow baselines (all-zero / f1=0) each retrain.</td><td>operator go on refine/retire</td></tr>
+<tr><td><code>MB-20260626-003</code></td><td>ml</td><td>🧱 awaiting-data</td><td>Regime-head promotion structurally blocked on live_regime_discrimination (live-agreement sample).</td><td>sufficient live agreement sample</td></tr>
+<tr><td><code>BL-20260629-ALPACA-NAKED-BRACKET</code></td><td>health</td><td>🔁 verify</td><td>GTC OCO re-arm fix in draft PR #5018 — needs alpaca_paper live verification of OCO/GTC semantics.</td><td>operator approval + alpaca_paper verify</td></tr>
+</table></div>
+<footer>report_id RPT-20260629-123500-since-last · reviewer claude · prior RPT-20260628-041230-since-last · ICT Trading Bot system-report</footer></div></body></html>

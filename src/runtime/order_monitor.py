@@ -5187,10 +5187,22 @@ def _rearm_broker_protection_after_recovery(db, trade_id, sl, tp) -> bool:
 
 
 def _attempt_naked_autoprotect(row, sl, tp) -> bool:
-    """Attach reverse-side GTC SL/TP to a naked IB position via
-    ``IBClient.place_protective``. Returns True on a placed protective
-    bracket. IB-only (Bybit/OANDA/Alpaca attach SL/TP atomically at entry, so a
-    naked orphan there can't occur). Never raises.
+    """Re-arm a broker-side GTC protective bracket on a naked position.
+
+    Returns True on a placed protective bracket. Never raises.
+
+    Per-broker (BL-20260629-ALPACA-NAKED-BRACKET extended this beyond IB):
+      * **IB** — a GTC OCA bracket via ``IBClient.place_protective`` (futures
+        root symbol). The classic naked-orphan re-arm.
+      * **Alpaca** — a GTC OCO via ``AlpacaClient.place_protective``. The entry
+        bracket's protective legs are ``time_in_force: day`` (Alpaca
+        market-entry-bracket constraint) and are cancelled at the RTH close, so
+        a multi-session equity hold goes broker-naked; this re-arms a GTC pair
+        that survives the close. (Detection differs too — see
+        ``_check_broker_naked_equity_positions``: the journal row keeps its
+        sl/tp, so the DB-driven naked check never flags it.)
+      * **Bybit/OANDA** — no-op: SL/TP attach atomically at entry and the legs
+        do not expire at a session boundary, so a naked state can't arise.
 
     Unconditional baseline behaviour — there is no enable flag. A live position
     with no stop is an unacceptable state the system must always correct, the
@@ -5209,7 +5221,7 @@ def _attempt_naked_autoprotect(row, sl, tp) -> bool:
         return False
     try:
         from src.bot import data_loaders
-        from src.units.accounts.clients import ib_client_for
+        from src.units.accounts.clients import alpaca_client_for, ib_client_for
 
         accounts = data_loaders.list_accounts() or []
         acc = next(
@@ -5217,14 +5229,20 @@ def _attempt_naked_autoprotect(row, sl, tp) -> bool:
         )
         if acc is None:
             return False
-        if str(acc.get("exchange", "")).lower() not in ("interactive_brokers", "ib"):
-            return False  # IB-only in v1
-        client = ib_client_for(acc, readonly=False)
+        exchange = str(acc.get("exchange", "")).lower()
+        if exchange in ("interactive_brokers", "ib"):
+            client = ib_client_for(acc, readonly=False)
+            protect_symbol = _base_futures_symbol(symbol)
+        elif exchange == "alpaca":
+            client = alpaca_client_for(acc)
+            protect_symbol = symbol
+        else:
+            return False  # not a re-armable broker (bybit/oanda atomic at entry)
         if client is None:
             return False
         resp = client.place_protective(
             {
-                "symbol": _base_futures_symbol(symbol),
+                "symbol": protect_symbol,
                 "direction": direction,
                 "qty": qty,
                 "sl": sl,
@@ -5244,6 +5262,117 @@ def _attempt_naked_autoprotect(row, sl, tp) -> bool:
             row["id"], exc,
         )
         return False
+
+
+def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
+    """Re-arm GTC protection on Alpaca positions that are NAKED at the broker.
+
+    The DB-driven :func:`_check_naked_positions` only flags rows whose *journal*
+    sl/tp is missing — but an Alpaca position keeps its journal sl/tp while its
+    broker-side day-TIF bracket legs are cancelled at the RTH close, so it is
+    broker-naked yet invisible to that check (BL-20260629-ALPACA-NAKED-BRACKET).
+    This pass closes that gap: for each open, past-grace Alpaca position it asks
+    the broker whether a resting protective leg exists
+    (``AlpacaClient.has_protective_orders``) and, when none does, re-arms a GTC
+    OCO via :func:`_attempt_naked_autoprotect` (levels from the journal row, or
+    the originating order package as a fallback).
+
+    The broker's own order state IS the idempotency: a position that already has
+    a resting leg is skipped, so this never stacks OCOs and self-corrects each
+    tick. A read failure (``has_protective_orders`` → ``None``) is skipped — a
+    transient outage must not be read as naked. Never raises.
+
+    Returns ``{"checked", "broker_naked", "rearmed", "errors"}``.
+    """
+    summary: Dict[str, int] = {
+        "checked": 0, "broker_naked": 0, "rearmed": 0, "errors": 0,
+    }
+    try:
+        from src.bot import data_loaders
+        from src.units.accounts.clients import alpaca_client_for
+
+        accounts = data_loaders.list_accounts() or []
+        alpaca_ids = {
+            str(a.get("account_id"))
+            for a in accounts
+            if str(a.get("exchange", "")).lower() == "alpaca"
+        }
+        if not alpaca_ids:
+            return summary
+        acc_by_id = {str(a.get("account_id")): a for a in accounts}
+
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            rows = conn.execute(
+                "SELECT id, account_id, symbol, direction, position_size, "
+                "stop_loss, take_profit_1, created_at, notes "
+                "FROM trades WHERE status='open' AND COALESCE(is_backtest,0)=0"
+            ).fetchall()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_check_broker_naked_equity_positions: read failed: %s", exc)
+        summary["errors"] += 1
+        return summary
+
+    now = datetime.now(timezone.utc)
+    clients: Dict[str, object] = {}
+    for row in rows:
+        account_id = str(row["account_id"] or "")
+        if account_id not in alpaca_ids:
+            continue
+        summary["checked"] += 1
+        created = _parse_created_at(row["created_at"])
+        if (
+            created is not None
+            and (now - created).total_seconds() < _NAKED_POSITION_GRACE_SECONDS
+        ):
+            continue  # fresh fill may not have propagated; let the entry settle
+        symbol = str(row["symbol"] or "")
+        if not symbol:
+            continue
+        try:
+            if account_id not in clients:
+                clients[account_id] = alpaca_client_for(acc_by_id[account_id])
+            client = clients[account_id]
+            if client is None:
+                continue
+            protected = client.has_protective_orders(symbol)
+            if protected is None or protected:
+                continue  # read failure (skip) or already protected
+            summary["broker_naked"] += 1
+            sl = row["stop_loss"]
+            tp = row["take_profit_1"]
+            a_sl = sl if (sl not in (None, 0) and sl > 0) else None
+            a_tp = tp if (tp not in (None, 0) and tp > 0) else None
+            if a_sl is None or a_tp is None:
+                r_sl, r_tp = _resolve_protective_levels(
+                    db, symbol, str(row["direction"] or "")
+                )
+                a_sl = a_sl if a_sl is not None else r_sl
+                a_tp = a_tp if a_tp is not None else r_tp
+            if a_sl is None or a_tp is None:
+                logger.warning(
+                    "_check_broker_naked_equity_positions: trade_id=%s %s "
+                    "broker-naked but no SL/TP resolvable — leaving for alert",
+                    row["id"], symbol,
+                )
+                continue
+            if _attempt_naked_autoprotect(row, a_sl, a_tp):
+                summary["rearmed"] += 1
+                logger.info(
+                    "_check_broker_naked_equity_positions: re-armed GTC OCO "
+                    "(sl=%s tp=%s) on broker-naked trade_id=%s account=%s "
+                    "symbol=%s", a_sl, a_tp, row["id"], account_id, symbol,
+                )
+        except Exception as exc:  # noqa: BLE001
+            summary["errors"] += 1
+            logger.warning(
+                "_check_broker_naked_equity_positions: failed for trade_id=%s: %s",
+                row["id"], exc,
+            )
+    return summary
 
 
 def _check_naked_positions(db) -> Dict[str, int]:
@@ -6332,6 +6461,21 @@ def run_monitor_tick(
             summaries["__naked_positions__"] = naked_summary
     except Exception as exc:  # noqa: BLE001
         logger.warning("run_monitor_tick: naked-position check raised: %s", exc)
+
+    # Broker-naked equity sweep (BL-20260629-ALPACA-NAKED-BRACKET): an Alpaca
+    # position keeps its journal SL/TP while its day-TIF bracket legs are
+    # cancelled at the RTH close, so it is broker-naked yet invisible to the
+    # DB-driven check above. This re-arms a GTC OCO for any such position.
+    try:
+        broker_naked_summary = _check_broker_naked_equity_positions(db)
+        if broker_naked_summary.get("broker_naked") or broker_naked_summary.get(
+            "errors"
+        ):
+            summaries["__broker_naked_equity__"] = broker_naked_summary
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "run_monitor_tick: broker-naked equity sweep raised: %s", exc
+        )
 
     # S-067 follow-up #3: closed → exchange-flat invariant check.
     # BASELINE (2026-06-17) — runs unconditionally (was default-OFF gated by

@@ -86,6 +86,17 @@ grading-freshness guard. Required, non-empty:
   gate; flags for any stall / met-but-unactioned.
 - `review_coverage.flags_raised[]` — the loud flags this review surfaced (may be
   empty only if genuinely nothing is degrading — state that explicitly).
+- `review_coverage.account_reachability` — **mandatory** per-account up/down for
+  every declared-live broker account (the "all declared-live, non-shelved" set:
+  `mode: live` + a probeable exchange, excluding the dry/shelved `ib_live` /
+  `oanda_practice` and the API-less `breakout_1`). Pull it from
+  `/api/diag/exchange_positions` (positions=null ⇒ unreachable), the latch state
+  (`runtime_logs/account_reachability_alert_state.json` via
+  `account_reachability_alert.down_accounts()`), and `/api/bot/accounts/balances`
+  (`api_ok`). **Any down live account is a MANDATORY `flags_raised[]` entry that
+  fires its OWN standalone high-priority ping — it must NOT be buried only in the
+  report body.** This is the explicit guard against the failure that motivated it:
+  the IB gateway was dark across reviews and went unflagged.
 - `review_coverage.backlog_drive` — proof the three backlogs were *worked*, not
   just counted: per domain, what you `drained` this run (the item ids you
   resolved) and `deferred` (ids left open + the reason each is legitimately not
@@ -93,11 +104,12 @@ grading-freshness guard. Required, non-empty:
   drained nothing, this must say why every open item is non-actionable — "no
   time" / "didn't look" is not a valid reason.
 
-**STOP and complete the assessment if any of the four required keys
-(`strategy_promotion`, `ml_training_health`, `soak_status`, `backlog_drive`) is
-missing or empty** — a review that can't show its promotion/training/soak
-coverage *or its backlog drive* has not actually run, regardless of how complete
-the trade/health summary looks. (Relay-blocked data is allowed only as an
+**STOP and complete the assessment if any of the five required keys
+(`strategy_promotion`, `ml_training_health`, `soak_status`, `backlog_drive`,
+`account_reachability`) is missing or empty** — a review that can't show its
+promotion/training/soak coverage, its backlog drive, *or its per-account
+reachability* has not actually run, regardless of how complete the trade/health
+summary looks. (Relay-blocked data is allowed only as an
 explicit `"unavailable: <reason>"` string — never silently omitted.)
 
 ## Scope (what this skill DOES)
@@ -178,6 +190,25 @@ thing a sub-review does, it STILL does, including its repo-local writes:
   rows to `comms/claude_strategy_scores.jsonl`) **before** the consolidated
   report reads any `claudeScore`; and
 - all three **drain their own backlogs**.
+
+**GRADING IS MANDATORY — NO REVIEW IS COMPLETE WITHOUT A FRESH CLAUDE SCORE FOR
+EVERY CLOSED TRADE IN THE WINDOW** (operator directive 2026-06-29). The grades
+live in `comms/claude_strategy_scores.jsonl` (a repo file the API joins
+last-wins), NOT the live DB — so "I can't reach the DB" is **never** an excuse to
+skip grading. Two paths, by session type:
+- **DB-bearing session (VM / desktop CLI):** run the canonical
+  `scripts/ops/score_order_packages.py <trade_journal.db>` — it rewrites the full
+  JSONL from the live `order_packages`.
+- **Web / PM session (no DB file, diag relay only):** pull the window's closed
+  trades via `GET /api/diag/journal?table=trades` and run
+  **`scripts/ops/grade_closed_trades_from_diag.py <trades.json> --since <window_start>`**
+  — it APPENDS one grade per closed trade using the SAME `_grade_package` rubric
+  (imported, not re-implemented), and last-occurrence-wins means it supersedes any
+  stale open-status grade. (Prop rows are isolated — not in `trades`, not graded
+  here.) Then **commit `comms/claude_strategy_scores.jsonl`.**
+  *(The 2026-06-29 incident this fixes: a web-session review skipped grading
+  believing it needed live-DB write, shipping a report whose closed trades read
+  ungraded. The diag grader removes that excuse.)*
 
 Record the roll-up in `consolidated.backlog_summary` — **computed, never
 hand-entered.** Run:

@@ -164,6 +164,12 @@
       "flags_raised": [
         "free-form — the loud flags this review surfaced (degrading strategy, stalled soak, gate met-but-unactioned, training failure). Empty ONLY if genuinely nothing is degrading — say so explicitly."
       ],
+      "account_reachability": {
+        "_comment": "REQUIRED (2026-06-29). Per-account up/down for EVERY declared-live broker account (mode:live + a probeable exchange — excludes the dry/shelved ib_live/oanda_practice and the API-less breakout_1). Sources: /api/diag/exchange_positions (positions=null => unreachable), the latch state runtime_logs/account_reachability_alert_state.json (account_reachability_alert.down_accounts()), and /api/bot/accounts/balances (api_ok). ANY down live account is a MANDATORY flags_raised[] entry that fires its OWN standalone high-priority ping — never buried only in the report body. Motivated by the IB gateway going dark across reviews unflagged.",
+        "checked": ["<account_id>"],
+        "down": [{"account_id": "", "exchange": "", "evidence": "", "remediation": ""}],
+        "summary": "<= 240 chars — 'all N live accounts reachable' or the down set | 'unavailable: <reason>'"
+      },
       "backlog_drive": {
         "_comment": "REQUIRED. Proves the three review backlogs (docs/claude/{health,performance,ml}-review-backlog.json) were WORKED, not just counted. Per domain: which item ids were drained (resolved) this run, and which were deferred + why (each open item must be genuinely soaking / blocked-on-future-data / Tier-3-awaiting-operator — 'no time' / 'didn't look' is not valid). If drained is empty, `summary` must justify why every open item is non-actionable now.",
         "health": {"drained": [], "deferred": [{"id": "", "reason": ""}]},

@@ -1,0 +1,610 @@
+{
+  "report_id": "RPT-20260629-123500-since-last",
+  "reviewed_at": "2026-06-29T12:35:00+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-06-28T04:12:30+00:00",
+  "window_end": "2026-06-29T12:35:00+00:00",
+  "prior_report_id": "RPT-20260628-041230-since-last",
+  "overall_assessment": "caution",
+  "health": {
+    "request_id": "REQ-20260629-123500-health",
+    "reviewed_at": "2026-06-29T12:35:00+00:00",
+    "reviewer": "claude",
+    "window_start": "2026-06-28T04:12:30+00:00",
+    "window_end": "2026-06-29T12:35:00+00:00",
+    "overall_assessment": "caution",
+    "findings": {
+      "services": "All core units active: ict-trader-live, ict-web-api, ict-telegram-bot, ict-claude-bridge; all timers active. Timer-driven .service oneshots inactive (normal). ib-gateway-watchdog inactive on trader = expected (runs on gateway VM).",
+      "liveness": "heartbeat running, age ~12s, last_tick 12:16:22Z. bot_uptime 371s — VM rebooted ~12:08Z after operator bybit_2 key rotation (context, not an incident).",
+      "db_integrity": "trade_journal.db clean: single inode 3634988, all tables present, error_per_table empty, load_error null. 333MB. trades 3028 / order_packages 2638 / signals 632844 / balance_snapshots 6484 / prop_fills 9 / prop_tickets 10 / prop_account_status 0.",
+      "regime_gate": "Enforcing. 2 regime_hard_gate fires in window; BTC ML vol-gate LIVE — audit id 632682 @12:13Z trend_donchian BTCUSDT vol_label_source=ml vol_enforced=true vol_cell=off. fvg_range_15m correctly gated in chop.",
+      "git_sha": "de9020a4 running."
+    },
+    "anomalies": [
+      {
+        "severity": "warn",
+        "detail": "IB gateway down — ib_paper + ib_live exchange positions read null (could-not-read); MES/MGC/MHG dark. Recurring (BL-20260623-002). mgc_trend_1h signals fell to dry_run_no_order_placed."
+      },
+      {
+        "severity": "info",
+        "detail": "prop_account_status table empty (0 rows) → prop rule-distance (daily-loss / static-DD cushion) uncomputable until an account-status report-back is ingested."
+      },
+      {
+        "severity": "info",
+        "detail": "vm-diag burst-cancel (BL-20260611-002) reconfirmed — 5 of a 6-issue burst silently cancelled; serial firing is the workaround."
+      }
+    ],
+    "backlog_drain": [
+      "BL-20260628-VOLGATE-LIVE-VERIFY resolved (vol-gate verified live)",
+      "BL-20260611-M15-2 resolved-superseded (DB balances authoritative, 6484 rows)",
+      "BL-20260611-002 updated (recurrence + workaround)",
+      "BL-20260629-ALPACA-NAKED-BRACKET opened + fix shipped (draft PR #5018)"
+    ],
+    "sprint_doc_review": [],
+    "recommended_action": "Recover IB gateway (MES/MGC/MHG dark); confirm draft PR #5018 on alpaca_paper.",
+    "operator_attention_required": true,
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)",
+      "priority": "normal",
+      "message": "(suppressed — consolidated ping)"
+    }
+  },
+  "performance": {
+    "request_id": "REQ-20260629-123500-perf",
+    "reviewed_at": "2026-06-29T12:35:00+00:00",
+    "reviewer": "claude",
+    "window_start": "2026-06-28T04:12:30+00:00",
+    "window_end": "2026-06-29T12:35:00+00:00",
+    "overall_assessment": "caution",
+    "strategy_performance": [
+      {
+        "strategy": "htf_pullback_trend_2h",
+        "account_class": "real_money",
+        "trades": 2,
+        "wins": 0,
+        "losses": 2,
+        "pnl": -1.12,
+        "note": "Both small BTCUSDT longs on bybit_2 closed at/near SL via watchdog/reconciler. Tiny size (0.001 BTC)."
+      },
+      {
+        "strategy": "trend_donchian_eth",
+        "account_class": "prop",
+        "note": "ETH short on breakout_1 closed +18.81 net (operator-reported, ingested this session, prop_fills id 9). Isolated from real/paper KPIs."
+      },
+      {
+        "strategy": "ict_scalp_5m",
+        "note": "Many rejections this window: intent_noop:flip_suppressed_hold_policy (FLIP_POLICY=hold working as designed — no churn)."
+      }
+    ],
+    "trade_decision_grades": [],
+    "insights_review": [],
+    "proposed_tweaks": [],
+    "backlog_drain": [
+      "PB-20260625-001 updated (ETH prop emit+journal confirmed; SOL prop sizing gap flagged)",
+      "PB-20260617-002 updated (exit-ladder soak accruing, all differs=false → graduation gate un-trippable until rungs configured)"
+    ],
+    "paper_book_tracker": {
+      "bybit_1": "5 soak positions, net uPnL ~+205",
+      "alpaca_paper": "6 ETF positions, net uPnL ~+437"
+    },
+    "anomalies": [
+      {
+        "severity": "warn",
+        "detail": "trend_donchian_sol on breakout_1 (prop) REJECTED 'sizing_failed: balance() returned None for breakout_1 (exchange=breakout): account unreachable' — the API-less prop account can't size off a live balance() call, so that SOL prop ticket never emitted. ETH prop legs DO emit (different path). Prop sizing should use ruleset economics, not balance()."
+      },
+      {
+        "severity": "info",
+        "detail": "Grading REFRESHED this session via scripts/ops/grade_closed_trades_from_diag.py (new diag-fed grader) — window's 2 closed real-money trades graded: pkg-8ba3=C, pkg-9f79=D. Mechanism fix so a web session can always grade (no live-DB-write excuse)."
+      }
+    ],
+    "recommended_action": "Fix prop sizing-via-balance() for API-less accounts; refresh grading from a VM-side session.",
+    "operator_attention_required": true,
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)",
+      "priority": "normal",
+      "message": "(suppressed — consolidated ping)"
+    }
+  },
+  "ml": {
+    "request_id": "REQ-20260629-123500-ml",
+    "reviewed_at": "2026-06-29T12:35:00+00:00",
+    "reviewer": "claude",
+    "window_start": "2026-06-28T04:12:30+00:00",
+    "window_end": "2026-06-29T12:35:00+00:00",
+    "overall_assessment": "caution",
+    "trainer_findings": {
+      "cycle": "Daily training cycle ran clean 01:10→01:48Z (cycle_end rc=0, calibrators_ok, publish_post_ok, ~30 manifests OK).",
+      "skipped": "3 MES manifests skipped empty_dataset (mes-execution-quality, mes-setup-quality, mes-trade-outcome-winrate) — data-blocked (MES barely trades; IB dark).",
+      "promotion_readiness": "2026-06-29 report: 45 models reviewed — 0 promote / 0 demote / 45 hold. Most blocked on live_regime_discrimination (structural live-agreement gate, MB-20260626-003).",
+      "disk": "trainer / at 29% — healthy."
+    },
+    "model_status": [
+      {
+        "model_id": "btc-regime-15m-lgbm-v2",
+        "stage": "advisory",
+        "status": "fresh — drives the live BTC ML vol-gate (last_seen 12:10Z, 214 advisory preds)."
+      },
+      {
+        "model_id": "btc-regime-1h-lgbm-yz-v1",
+        "stage": "advisory",
+        "status": "QUIET — last advisory pred 06-23 (>5d). Flag."
+      },
+      {
+        "model_id": "btc-regime-5m-lgbm-yz-v1",
+        "stage": "advisory",
+        "status": "QUIET — last advisory pred 06-25. Flag."
+      },
+      {
+        "model_id": "regime-classifier-baseline-v0 + mes-regime-classifier-baseline-v0",
+        "stage": "shadow",
+        "status": "STALLED — last predicted 2026-05-22 (>5 weeks). f1_volatile=0 collapse (MB-20260601-002)."
+      },
+      {
+        "model_id": "prop-mission-policy-baseline-v0 / trade-outcome-winrate-baseline-v0",
+        "stage": "shadow",
+        "status": "DEGENERATE — all-zero / f1=0 every retrain (MB-20260623-003)."
+      },
+      {
+        "model_id": "eth/sol regime heads + conviction-meta-v1 + eth-xasset",
+        "stage": "shadow",
+        "status": "accruing healthily (fresh last_seen ~12:10-12:20Z)."
+      }
+    ],
+    "promotion_recommendations": [],
+    "experiments_proposed": [],
+    "backlog_drain": [
+      "MB-20260627-001 updated (first live ML-label vol-gate enforced fire observed; soak accruing; enforce decision ~06-30)"
+    ],
+    "anomalies": [
+      {
+        "severity": "warn",
+        "detail": "2 advisory BTC heads (1h-yz, 5m-yz) have not predicted since 06-23/06-25 while 15m-lgbm-v2 is fresh — investigate why those advisory heads went quiet."
+      },
+      {
+        "severity": "info",
+        "detail": "2 classifier baselines stalled since 05-22; degenerate baselines persist (awaiting refine/retire decision, MB-20260623-003)."
+      }
+    ],
+    "recommended_action": "Investigate the 2 quiet advisory heads; decide refine-vs-retire on the stalled/degenerate baselines.",
+    "operator_attention_required": false,
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)",
+      "priority": "normal",
+      "message": "(suppressed — consolidated ping)"
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "~32h window. Core platform healthy: services green, DB clean, regime gate enforcing + BTC ML vol-gate confirmed firing live. Quiet trading — real money 2 small htf_pullback BTC losses (-$1.12), bybit_2 now flat; prop +$18.81 (operator-reported ETH close, documented this session). Two live issues surfaced + actioned: Alpaca positions sitting naked (root-caused + fix in draft PR #5018) and IB gateway down (MES/MGC/MHG dark). ML daily cycle green; 0 of 45 models promotable. Grading refreshed (2/2 closed trades graded C/D via the new diag grader).",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Approve + alpaca_paper-verify the naked-bracket fix (draft PR #5018)",
+        "source_review": "cross",
+        "tier": 2,
+        "detail": "Alpaca day-TIF protective legs cancel at RTH close, leaving multi-session ETF holds naked with no re-arm (IB-only). PR adds GTC OCO re-arm. Needs live OCO/GTC verification before merge/deploy.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "Recover IB gateway — MES/MGC/MHG dark",
+        "source_review": "health",
+        "tier": 2,
+        "detail": "ib_paper/ib_live read null; mgc_trend_1h went dry_run. Recurring BL-20260623-002. Run vm-ib-gateway-recover.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 3,
+        "title": "Approve prop-sizing bypass (draft PR #5018)",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "FIXED in draft: prop (breakout) accounts now bypass balance()-based sizing; the ruleset sizes the leg + the assistant places it. Needs operator approval + live verify.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 4,
+        "title": "Vol-gate enforce decision (~06-30 first look)",
+        "source_review": "ml",
+        "tier": 3,
+        "detail": "BTC ML vol-gate firing live with the advisory 15m head. MB-20260627-001 enforce-decision window opens ~06-30.",
+        "operator_action_required": true
+      }
+    ],
+    "cross_review_notes": [
+      "IB gateway down spans health (services/positions null) AND performance (mgc_trend_1h dry_run rejections) — same root cause.",
+      "Alpaca naked positions (operator-surfaced) span the order-path (health) and the paper book (performance); fixed in draft PR #5018."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": -1.12,
+        "prior_window_pnl": 1.78,
+        "trend": "down",
+        "trades": 2,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": -0.56,
+        "profit_factor": 0.0,
+        "max_drawdown": null,
+        "per_strategy": [
+          {
+            "name": "htf_pullback_trend_2h",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -1.12
+          }
+        ],
+        "per_asset_class": {
+          "crypto": -1.12,
+          "index": null,
+          "commodity": null,
+          "equity": null,
+          "fx": null
+        },
+        "equity_curve": []
+      },
+      "paper": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": null,
+        "profit_factor": null,
+        "max_drawdown": null,
+        "per_strategy": [],
+        "per_asset_class": {},
+        "equity_curve": [],
+        "_note": "No paper closes in window in the sampled 25-row trades pull; open paper books: bybit_1 5 positions (uPnL ~+205), alpaca_paper 6 ETF (uPnL ~+437)."
+      },
+      "prop": {
+        "window_pnl": 18.81,
+        "prior_window_pnl": null,
+        "trend": "up",
+        "fills_reported": 1,
+        "tickets_emitted": null,
+        "unacted_tickets": null,
+        "rule_distance": {
+          "daily_loss_remaining": null,
+          "static_dd_remaining": null
+        },
+        "per_account": [
+          {
+            "account_id": "breakout_1",
+            "balance": null,
+            "equity": null,
+            "realized_window": 18.81
+          }
+        ],
+        "_note": "ETH short closed +18.81 net (gross +21.72), operator-reported + ingested this session (prop_fills id 9, ticket prop-manual-defdeaa5396d). rule_distance null — prop_account_status has 0 rows."
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "unavailable: candles not reachable from sandbox (/api/bot/candles not on the diag relay). Audit shows BTC ~$60k area, chop/volatile regime (vol-gate fired volatile)."
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": 3010,
+        "order_package_id": "pkg-8ba39222bba64edb",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "htf_pullback_trend_2h",
+        "opened_at": "2026-06-27T22:37:19+00:00",
+        "closed_at": "2026-06-28T19:47:50+00:00",
+        "entry_price": 60229.1,
+        "exit_price": 59226.5,
+        "stop_loss": 59230.65,
+        "take_profit": 66191.78,
+        "qty": 0.001,
+        "pnl": -1.0515,
+        "pnl_percent": -1.75,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "late",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "htf_pullback_trend_2h long; conf 0.32; entry=late; exit=sl_appropriate(sl,-1.00R)"
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": "htf_pullback_trend_2h"
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 3025,
+        "order_package_id": "pkg-9f7913014f914897",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "htf_pullback_trend_2h",
+        "opened_at": "2026-06-28T22:03:51+00:00",
+        "closed_at": "2026-06-29T11:52:34+00:00",
+        "entry_price": 59822.7,
+        "exit_price": 59794.1,
+        "stop_loss": 58764.36,
+        "take_profit": 65745.15,
+        "qty": 0.001,
+        "pnl": -0.0679,
+        "pnl_percent": -0.11,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "D",
+          "entry_quality": "should_skip",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "htf_pullback_trend_2h long; conf 0.19=should_skip; exit=sl_appropriate(reconciler_filled,-0.03R)"
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": "htf_pullback_trend_2h"
+        },
+        "notable": false
+      },
+      {
+        "trade_id": null,
+        "order_package_id": "prop-manual-defdeaa5396d",
+        "account": "breakout_1",
+        "account_class": "prop",
+        "symbol": "ETHUSDT",
+        "direction": "short",
+        "strategy": "trend_donchian_eth",
+        "opened_at": "2026-06-24T18:46:00+00:00",
+        "closed_at": "2026-06-29T15:08:00+00:00",
+        "entry_price": 1619.99,
+        "exit_price": 1590.23,
+        "qty": 0.73,
+        "pnl": 18.81,
+        "pnl_percent": 1.84,
+        "close_reason": "manual",
+        "claude_grade": {
+          "grade": null,
+          "rationale": "prop — operator-reported close"
+        },
+        "notable": true
+      }
+    ],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 3,
+      "summarized_trades": 0,
+      "rule": "full-per-trade (since-last); window had only 2 real-money + 1 prop close (plus rejections)"
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 154,
+        "open": 74,
+        "resolved": 80,
+        "drained": 2
+      },
+      "performance": {
+        "total": 53,
+        "open": 34,
+        "resolved": 19,
+        "drained": 0
+      },
+      "ml": {
+        "total": 54,
+        "open": 22,
+        "resolved": 32,
+        "drained": 1
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "performance",
+        "summary": "Prop sizing for API-less accounts: size off ruleset economics, not a live balance() call (trend_donchian_sol/breakout_1 rejection).",
+        "tier": 3
+      },
+      {
+        "source_review": "ml",
+        "summary": "Vol-gate enforce decision (~06-30) for BTC ML vol label; ETH/SOL cells await own 15m advisory heads.",
+        "tier": 3
+      },
+      {
+        "source_review": "ml",
+        "summary": "Refine-or-retire the degenerate shadow baselines (prop-mission all-zero, trade-outcome-winrate f1=0).",
+        "tier": 3
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "MB-20260627-001",
+        "domain": "ml",
+        "category": "awaiting-decision",
+        "detail": "BTC ML vol-gate firing live with the advisory 15m head; soak accruing toward enforce decision.",
+        "since": "2026-06-27",
+        "next_check": "~2026-06-30 first look, enforce call"
+      },
+      {
+        "item_id": "PB-20260617-002",
+        "domain": "performance",
+        "category": "soaking",
+        "detail": "Exit-ladder soak accruing but every row differs_from_single_target=false (no rungs) — gate un-trippable until partial-TP rungs configured.",
+        "since": "2026-06-17",
+        "next_check": "rung config + n>=30 differing"
+      },
+      {
+        "item_id": "PB-20260625-001",
+        "domain": "performance",
+        "category": "verify",
+        "detail": "ETH prop legs emit+journal confirmed; SOL prop leg blocked on balance()-sizing. Watching real swap rate + edge.",
+        "since": "2026-06-25",
+        "next_check": "prop sizing fix + more ETH/SOL prop fills"
+      },
+      {
+        "item_id": "BL-20260628-RECONCILER-PAPER-ARTIFACT",
+        "domain": "health",
+        "category": "verify",
+        "detail": "Options-account orphan-adoption + equity-pricing fix holding — alpaca_options_paper flat, no new option-leg orphans.",
+        "since": "2026-06-28",
+        "next_check": "48h clean + operator OK on supersede writeback"
+      },
+      {
+        "item_id": "MB-20260623-003",
+        "domain": "ml",
+        "category": "awaiting-decision",
+        "detail": "Degenerate shadow baselines (all-zero / f1=0) each retrain.",
+        "since": "2026-06-23",
+        "next_check": "operator go on refine/retire"
+      },
+      {
+        "item_id": "MB-20260626-003",
+        "domain": "ml",
+        "category": "awaiting-data",
+        "detail": "Regime-head promotion structurally blocked on live_regime_discrimination (live-agreement sample).",
+        "since": "2026-06-26",
+        "next_check": "sufficient live agreement sample"
+      },
+      {
+        "item_id": "BL-20260629-ALPACA-NAKED-BRACKET",
+        "domain": "health",
+        "category": "verify",
+        "detail": "GTC OCO re-arm fix in draft PR #5018 — needs alpaca_paper live verification of OCO/GTC semantics.",
+        "since": "2026-06-29",
+        "next_check": "operator approval + alpaca_paper verify"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [
+          {
+            "name": "regime-classifier-baseline-v0 / mes-regime-classifier-baseline-v0",
+            "gate": "DEMOTE_SHADOW",
+            "evidence": "stalled — no predictions since 2026-05-22; f1_volatile=0 collapse"
+          },
+          {
+            "name": "prop-mission-policy-baseline-v0 / trade-outcome-winrate-baseline-v0",
+            "gate": "KILL",
+            "evidence": "degenerate all-zero / f1=0 every retrain"
+          }
+        ],
+        "summary": "All 45 models HOLD per the 2026-06-29 promotion-readiness report (0 promote / 0 demote); most blocked on live_regime_discrimination. Strategy-level: no M7 packets pulled this run (relay-bounded); refine/retire candidates above are the live degenerate/stalled shadow models."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 1,
+        "dataset_builds_ok": true,
+        "failing_or_stuck": [
+          "mes-execution-quality / mes-setup-quality / mes-trade-outcome-winrate: skipped empty_dataset (MES data-blocked, IB dark)"
+        ],
+        "summary": "Daily cycle ran clean (rc=0, ~30 manifests OK, calibrators+publish OK). Only the 3 MES journal-backed manifests skipped for empty_dataset — known data-block, not a failure."
+      },
+      "soak_status": [
+        {
+          "soak": "BTC ML vol-verdict (advisory 15m head)",
+          "state": "gate_met",
+          "detail": "first live enforced fire observed 12:13Z; enforce decision ~06-30 (operator)"
+        },
+        {
+          "soak": "ETH/SOL regime heads (shadow)",
+          "state": "accruing",
+          "detail": "fresh predictions ~12:10-12:20Z; not yet promotable (live_regime_discrimination)"
+        },
+        {
+          "soak": "conviction-meta-v1 + cross-asset eth-xasset (shadow)",
+          "state": "accruing",
+          "detail": "3084 + 455 preds, fresh"
+        },
+        {
+          "soak": "exit-ladder ladder-vs-single",
+          "state": "stalled",
+          "detail": "accruing rows but all differs=false (no rungs) — graduation gate structurally un-trippable until rungs configured"
+        },
+        {
+          "soak": "2 advisory BTC heads (1h-yz, 5m-yz)",
+          "state": "stalled",
+          "detail": "no predictions since 06-23/06-25 — investigate"
+        }
+      ],
+      "flags_raised": [
+        "IB gateway DOWN — MES/MGC/MHG dark (ib_paper/ib_live null; mgc_trend_1h dry_run).",
+        "Alpaca positions naked (no resting bracket) — root-caused + fix in draft PR #5018.",
+        "Prop SOL leg blocked: balance()-None sizing failure on API-less breakout_1.",
+        "2 advisory BTC heads silent since 06-23/06-25 while a third is fresh.",
+        "Exit-ladder soak structurally stalled (no rungs → gate un-trippable)."
+      ],
+      "backlog_drive": {
+        "health": {
+          "drained": [
+            "BL-20260628-VOLGATE-LIVE-VERIFY",
+            "BL-20260611-M15-2"
+          ],
+          "deferred": [
+            {
+              "id": "BL-20260623-002",
+              "reason": "IB gateway recovery is an operator/VM action (recurring)"
+            },
+            {
+              "id": "BL-20260611-002",
+              "reason": "durable burst-cancel fix unshipped; workaround documented"
+            },
+            {
+              "id": "BL-20260629-ALPACA-NAKED-BRACKET",
+              "reason": "fix shipped (draft PR #5018); awaiting operator approval + alpaca_paper verify"
+            }
+          ]
+        },
+        "performance": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "PB-20260617-002",
+              "reason": "soaking — exit-ladder gate needs rung config"
+            },
+            {
+              "id": "PB-20260625-001",
+              "reason": "verify — prop ETH confirmed; SOL sizing fix is Tier-3"
+            }
+          ]
+        },
+        "ml": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "MB-20260627-001",
+              "reason": "awaiting enforce decision ~06-30 (Tier-3 operator)"
+            },
+            {
+              "id": "MB-20260623-003",
+              "reason": "awaiting refine/retire decision (Tier-3)"
+            },
+            {
+              "id": "MB-20260626-003",
+              "reason": "awaiting sufficient live-agreement sample"
+            }
+          ]
+        },
+        "summary": "Drained 2 health items with live evidence (vol-gate verified; balances superseded). Advanced 4 with evidence (burst-cancel, exit-ladder, prop-eth, vol-verdict). Opened+shipped the Alpaca naked-bracket fix. Remaining open items are genuinely soaking, awaiting a Tier-3 operator decision, or operator/VM recovery actions."
+      }
+    }
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260629T123500Z/report.json",
+    "html_path": "comms/reports/since-last/20260629T123500Z/report.html",
+    "md_path": "comms/reports/since-last/20260629T123500Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260629T123500Z/report.html",
+    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260629-123500-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "deferred (report on feature branch; deep-link + ping go live on merge to main)",
+    "priority": "high",
+    "message": "[sys-report] CAUTION. Real -$1.12 prop +$18.81. Fixes: prop-sizing+alpaca PR#5018; IB gw recovering. https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260629-123500-since-last"
+  }
+}
