@@ -764,6 +764,80 @@ strategies:
     # symbol filter keeps BTC/MES regime heads off). Observe-only.
 
   # ──────────────────────────────────────────────────────────────────────────
+  # SWAP-ROBUST prop exit variants (Unit C, Phase 0, 2026-06-29) — DRAFT Tier-3
+  # ──────────────────────────────────────────────────────────────────────────
+  # Tightened-exit prop-only siblings of trend_donchian_sol / trend_donchian_eth,
+  # applying the PROVEN eth_pullback_prop_2h recipe (trail_mult 5.0->3.5,
+  # tp_r 50 sentinel -> a REAL 6R cap) to the two remaining un-tightened
+  # prop-routed trend cells. Rationale: on the Breakout daily-swap venue HOLD
+  # TIME is the cost driver (swap drag + breach-window exposure for zero upside,
+  # BANK-ASAP economics), so the "let one winner run for weeks" tp_r:50 +
+  # trail_mult:5.0 profile is the wrong exit geometry there — it produced the
+  # 5-day, $20-30-PnL trade. The eth_pullback_prop_2h sibling already proved the
+  # tighter recipe RAISES prop funded-EV (post-swap +$421/5y, 12-mo EV +$603
+  # @75.9%, 4/4 folds). Each REUSES the same src/units/strategies/trend_donchian.py
+  # unit parametrised by its own block (a distinct instance, NOT a change to any
+  # demo/real-money cell — the original trend_donchian_sol/_eth/eth_pullback_2h
+  # blocks above keep their let-winners-run exits untouched).
+  #
+  # Design: docs/research/prop-dynamic-exits-faster-banking-DESIGN.md § 5 Phase 0.
+  # GATE (BLOCKING, Tier-3): these ship execution: shadow (observe-only — log
+  # order packages, NEVER emit a prop ticket) until the prop EV/survival gate is
+  # RUN and PASSES: scripts/prop/account_compat_matrix.py --strategy <name>
+  # --account breakout_1 -> src/prop/montecarlo.py::run_ev_montecarlo under
+  # config/prop_rulesets/breakout.yaml, requiring strict net-$ improvement vs
+  # today's single-far-target baseline WITHOUT a worse p_breach. Promotion
+  # shadow->live is the operator-approved live-activation step. (eth_pullback_2h's
+  # tightened sibling already exists + is LIVE — eth_pullback_prop_2h — so the
+  # third Phase-0 cell is already covered; only the two trend cells are new here.)
+  trend_donchian_sol_prop:
+    # SWAP-ROBUST prop exit variant of trend_donchian_sol (SOLUSDT, 1h, LONG-ONLY).
+    # Same entries as trend_donchian_sol; ONLY the exits are tightened to the
+    # eth_pullback_prop_2h recipe (trail_mult 3.5, tp_r 6.0 vs the live 5.0/50.0).
+    # ROLLBACK: it is already execution: shadow (observe-only); to fully retract,
+    # remove this block + the breakout_1 routing + the builder/registry/intents
+    # entries. To graduate (post-gate, operator-approved): set execution: live.
+    model: null
+    signal_prefixes: [trend_donchian_sol_prop, donchian_sol_prop]
+    enabled: true
+    execution: shadow        # shadow-guard: allow — Unit C Phase 0 DRAFT (Tier-3): observe-only prop soak until the prop EV/survival gate (account_compat_matrix -> run_ev_montecarlo under breakout.yaml) passes; promotion shadow->live is operator-gated. Design: prop-dynamic-exits-faster-banking-DESIGN.md § 5.
+    timeframe: "1h"          # == trend_donchian_sol (the validated trend cadence).
+    long_only: true          # == trend_donchian_sol (SOL's edge holds long-only A/B).
+    symbols:
+      - SOLUSDT
+    donchian: 20
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 3.5          # swap-robust (vs live 5.0) — shorter holds, less swap drag.
+    tp_r: 6.0               # real 6R take-profit cap (vs live 50.0 sentinel).
+    min_confidence: 0.60
+    # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
+
+  trend_donchian_eth_prop:
+    # SWAP-ROBUST prop exit variant of trend_donchian_eth (ETHUSDT, 1h, BOTH-SIDES).
+    # Same entries as trend_donchian_eth (intentionally two-sided — ETH's edge is
+    # short-side-dependent, the long-only A/B flipped it negative); ONLY the exits
+    # are tightened to the eth_pullback_prop_2h recipe (trail_mult 3.5, tp_r 6.0
+    # vs the live 5.0/50.0). ROLLBACK: it is already execution: shadow (observe-only);
+    # to fully retract, remove this block + the breakout_1 routing + the
+    # builder/registry/intents entries. To graduate (post-gate, operator-approved):
+    # set execution: live.
+    model: null
+    signal_prefixes: [trend_donchian_eth_prop, donchian_eth_prop]
+    enabled: true
+    execution: shadow        # shadow-guard: allow — Unit C Phase 0 DRAFT (Tier-3): observe-only prop soak until the prop EV/survival gate (account_compat_matrix -> run_ev_montecarlo under breakout.yaml) passes; promotion shadow->live is operator-gated. Design: prop-dynamic-exits-faster-banking-DESIGN.md § 5.
+    timeframe: "1h"
+    symbols:
+      - ETHUSDT
+    donchian: 20
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 3.5          # swap-robust (vs live 5.0) — shorter holds, less swap drag.
+    tp_r: 6.0               # real 6R take-profit cap (vs live 50.0 sentinel).
+    min_confidence: 0.60
+    # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
+
+  # ──────────────────────────────────────────────────────────────────────────
   # trend_4h alt cells — bybit_1 DEMO soak (paper_ready, 2026-06-18, Tier-3)
   # ──────────────────────────────────────────────────────────────────────────
   # Five symbol-pinned trend_donchian instances on the 4h candle (ETH/SOL/XRP/

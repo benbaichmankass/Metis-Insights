@@ -61,9 +61,13 @@ def test_prop_account_config():
     # 2026-06-25 (Tier-3, operator-approved): the swap-robust variant
     # eth_pullback_prop_2h promoted to live + the original eth_pullback_2h routed
     # to the prop account, both +EV at Breakout's real 0.033%/day swap.
+    # 2026-06-29 (Unit C Phase 0, DRAFT Tier-3): the two swap-robust trend EXIT
+    # variants trend_donchian_sol_prop/_eth_prop added as execution: shadow
+    # (observe-only soak) — prop-EV-gated before any shadow->live promotion.
     assert set(a["strategies"]) == {
         "trend_donchian_sol", "trend_donchian_eth",
-        "eth_pullback_prop_2h", "eth_pullback_2h"}
+        "eth_pullback_prop_2h", "eth_pullback_2h",
+        "trend_donchian_sol_prop", "trend_donchian_eth_prop"}
     assert set(a["symbols"]) == {"SOLUSDT", "ETHUSDT"}
 
 

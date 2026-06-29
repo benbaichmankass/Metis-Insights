@@ -2,33 +2,33 @@
   "vwap": [
     {
       "date": "2026-05-19",
-      "ref": "param sweep S-VWAP-SWEEP-DISPATCH (issue #1569) \u2014 DRAFT, pending Ben approval",
-      "summary": "Proposed SL_STD_MULT_DEFAULT 0.5\u03c3 \u2192 0.3\u03c3 based on 12-combo ENTRY\u00d7SL sweep: 16 windows \u00d7 14 days, 365d 5m BTCUSDT, seed=42. ENTRY=1.0/SL=0.3 mean_total_r=+4.88 (rank 1/12); current ENTRY=1.0/SL=0.5 mean_total_r=-0.46 (rank 9/12). SL tier is decisive: all SL=0.3 configs in top-4 regardless of ENTRY. Tight stops cut losing long trades shorter while preserving short-side gains. R:R changes from 2:1 to 3.33:1 at ENTRY=1.0\u03c3. ENTRY_STD_THRESHOLD unchanged at 1.0\u03c3. Tier-3 change \u2014 requires Ben approval before deploy."
+      "ref": "param sweep S-VWAP-SWEEP-DISPATCH (issue #1569) — DRAFT, pending Ben approval",
+      "summary": "Proposed SL_STD_MULT_DEFAULT 0.5σ → 0.3σ based on 12-combo ENTRY×SL sweep: 16 windows × 14 days, 365d 5m BTCUSDT, seed=42. ENTRY=1.0/SL=0.3 mean_total_r=+4.88 (rank 1/12); current ENTRY=1.0/SL=0.5 mean_total_r=-0.46 (rank 9/12). SL tier is decisive: all SL=0.3 configs in top-4 regardless of ENTRY. Tight stops cut losing long trades shorter while preserving short-side gains. R:R changes from 2:1 to 3.33:1 at ENTRY=1.0σ. ENTRY_STD_THRESHOLD unchanged at 1.0σ. Tier-3 change — requires Ben approval before deploy."
     },
     {
       "date": "2026-05-17",
       "ref": "post-incident validation (issue #1370)",
-      "summary": "Reverted ENTRY_STD_THRESHOLD 1.5\u03c3 \u2192 1.0\u03c3 (undoing PR #1205) and SL_STD_MULT_DEFAULT 0.75\u03c3 \u2192 0.5\u03c3 (undoing PR #1183). The 2026-05-17 backtest sweep across 3.16 years of BTCUSDT 5m with the HTF 4h \u00b12% gate present showed V_1175_htf_only (1.0\u03c3 entry, 0.5\u03c3 SL) Total R +411.8 vs V_PROD (1.5\u03c3, 0.75\u03c3 SL) +133.1 \u2014 3\u00d7 advantage on the same dataset. The 2026-05-15 #1200 sweep that justified 1.5\u03c3 was run without the HTF gate; once the gate is present the optimum shifts. SL widening hurt in both gate regimes."
+      "summary": "Reverted ENTRY_STD_THRESHOLD 1.5σ → 1.0σ (undoing PR #1205) and SL_STD_MULT_DEFAULT 0.75σ → 0.5σ (undoing PR #1183). The 2026-05-17 backtest sweep across 3.16 years of BTCUSDT 5m with the HTF 4h ±2% gate present showed V_1175_htf_only (1.0σ entry, 0.5σ SL) Total R +411.8 vs V_PROD (1.5σ, 0.75σ SL) +133.1 — 3× advantage on the same dataset. The 2026-05-15 #1200 sweep that justified 1.5σ was run without the HTF gate; once the gate is present the optimum shifts. SL widening hurt in both gate regimes."
     },
     {
       "date": "2026-05-15",
       "ref": "shadow regime-classifier",
-      "summary": "Wired regime-classifier-baseline-v0 as a shadow predictor on VWAP signals (zero production effect \u2014 predictions logged to runtime_logs/shadow_predictions.jsonl only). Promoted to `shadow` stage via trainer-vm-diag #1203. Macro_f1=0.33 on n=4147, f1_range=0.62 \u2014 gathering 30 days of data to correlate model-says-range with VWAP winners"
+      "summary": "Wired regime-classifier-baseline-v0 as a shadow predictor on VWAP signals (zero production effect — predictions logged to runtime_logs/shadow_predictions.jsonl only). Promoted to `shadow` stage via trainer-vm-diag #1203. Macro_f1=0.33 on n=4147, f1_range=0.62 — gathering 30 days of data to correlate model-says-range with VWAP winners"
     },
     {
       "date": "2026-05-15",
-      "ref": "entry threshold 1.5\u03c3",
-      "summary": "Raised ENTRY_STD_THRESHOLD 1.0\u03c3 \u2192 1.5\u03c3 following issue #1200 threshold sweep (8 random 30-day windows, May 2025-April 2026): 1.5\u03c3 mean Sharpe 0.015 vs 1.0\u03c3 0.011, mean total R 6.38 vs 6.02, 4/8 positive windows vs 3/8. Cadence drops ~30% (387 \u2192 295 trades/30d). Same ordering as the 38-month V6 experiment, so not regime-overfit"
+      "ref": "entry threshold 1.5σ",
+      "summary": "Raised ENTRY_STD_THRESHOLD 1.0σ → 1.5σ following issue #1200 threshold sweep (8 random 30-day windows, May 2025-April 2026): 1.5σ mean Sharpe 0.015 vs 1.0σ 0.011, mean total R 6.38 vs 6.02, 4/8 positive windows vs 3/8. Cadence drops ~30% (387 → 295 trades/30d). Same ordering as the 38-month V6 experiment, so not regime-overfit"
     },
     {
       "date": "2026-05-15",
       "ref": "vwap_cross gates",
-      "summary": "Added min_r_for_vwap_cross (0.25R) + min_hold_minutes_for_vwap_cross (10m) gates on the vwap_cross close path \u2014 suppresses micro-R exits from VWAP-drifts-to-price (3/6 closes on 2026-05-14 exited at R-capture 0.009-0.085, net loss after fees)"
+      "summary": "Added min_r_for_vwap_cross (0.25R) + min_hold_minutes_for_vwap_cross (10m) gates on the vwap_cross close path — suppresses micro-R exits from VWAP-drifts-to-price (3/6 closes on 2026-05-14 exited at R-capture 0.009-0.085, net loss after fees)"
     },
     {
       "date": "2026-05-12",
       "ref": "PR #1031",
-      "summary": "Raised SL_STD_MULT 0.5\u21920.75 + added ATR floor on stop distance \u2014 reduces premature SL hits on volatile bars"
+      "summary": "Raised SL_STD_MULT 0.5→0.75 + added ATR floor on stop distance — reduces premature SL hits on volatile bars"
     },
     {
       "date": "2026-05-12",
@@ -38,36 +38,36 @@
     {
       "date": "2026-05-08",
       "ref": "S-050",
-      "summary": "Added 4h EMA-200 \u00b12% HTF trend gate \u2014 backtest Sharpe -0.39\u2192+2.47, walk-forward OOS +0.22\u2192+1.10"
+      "summary": "Added 4h EMA-200 ±2% HTF trend gate — backtest Sharpe -0.39→+2.47, walk-forward OOS +0.22→+1.10"
     },
     {
       "date": "2026-05-06",
       "ref": "S-015",
-      "summary": "Changed timeframe 15m\u21925m for faster mean-reversion signal cadence"
+      "summary": "Changed timeframe 15m→5m for faster mean-reversion signal cadence"
     }
   ],
   "turtle_soup": [
     {
       "date": "2026-05-09",
       "ref": "turtle-soup-signal-fix C2+C3",
-      "summary": "Cadence pair: min_sweep_buffer_bps=10, tp1_at_r=1.00, setup_lookback_bars=4 \u2014 OOS Sharpe +1.22\u2192+2.48"
+      "summary": "Cadence pair: min_sweep_buffer_bps=10, tp1_at_r=1.00, setup_lookback_bars=4 — OOS Sharpe +1.22→+2.48"
     },
     {
       "date": "2026-05-08",
       "ref": "2026-05-08 training run",
-      "summary": "Tightened atr_stop_mult 0.35\u21920.30 (+0.53 Sharpe full-sample, +0.97 OOS, no cadence cost)"
+      "summary": "Tightened atr_stop_mult 0.35→0.30 (+0.53 Sharpe full-sample, +0.97 OOS, no cadence cost)"
     }
   ],
   "ict_scalp_5m": [
     {
       "date": "2026-05-17",
       "ref": "PR #1364 + re-validation (issue #1373)",
-      "summary": "Restored enabled=true after PR #1358's unauthorised disable. 90-day re-validation on Dec 2025-Feb 2026 BTCUSDT 5m: 54 trades, 59.3% win rate, +0.382 R expectancy, +20.6 R total, 4.6 R max DD (17 TP / 11 SL / 26 timeout). Clears the PR #1156 pre-live gate decisively \u2014 per-trade Sharpe 0.401 just below the 0.5 strict threshold, but annualized Sharpe ~5.94 passes the OR path by 4\u00d7. Full incident record: docs/sprint-logs/S-AUDIT-PIPELINE-2026-05-17.md \u00a7 Addendum"
+      "summary": "Restored enabled=true after PR #1358's unauthorised disable. 90-day re-validation on Dec 2025-Feb 2026 BTCUSDT 5m: 54 trades, 59.3% win rate, +0.382 R expectancy, +20.6 R total, 4.6 R max DD (17 TP / 11 SL / 26 timeout). Clears the PR #1156 pre-live gate decisively — per-trade Sharpe 0.401 just below the 0.5 strict threshold, but annualized Sharpe ~5.94 passes the OR path by 4×. Full incident record: docs/sprint-logs/S-AUDIT-PIPELINE-2026-05-17.md § Addendum"
     },
     {
       "date": "2026-05-14",
       "ref": "PR #1156",
-      "summary": "v2 promotion to enabled=true after pre-live gate cleared (issues #1153 + #1154): 59.3% win rate, +0.301 R expectancy, max DD 3.47R on 90 days of fresh BTCUSDT 5m candles. Strategy uses wick rejection + HTF 1h EMA-20 bias + displacement 1.3 \u00d7 ATR"
+      "summary": "v2 promotion to enabled=true after pre-live gate cleared (issues #1153 + #1154): 59.3% win rate, +0.301 R expectancy, max DD 3.47R on 90 days of fresh BTCUSDT 5m candles. Strategy uses wick rejection + HTF 1h EMA-20 bias + displacement 1.3 × ATR"
     }
   ],
   "fvg_range_15m": [
@@ -78,8 +78,8 @@
     },
     {
       "date": "2026-05-30",
-      "ref": "S-STRAT-IMPROVE FVG-range (this PR) \u2014 DRAFT, Tier-3, execution: shadow",
-      "summary": "New strategy wired execution: shadow on bybit_1 (demo) for live data collection. FVG mean-reversion inside a confirmed static horizontal range (range_lookback 48 / touches 4 / ADX<20 / far-boundary target / stop 0.25xATR). Validated on 5.2y BTCUSDT 15m (2021-01..2026-02) net-of-fee: FULL +24.4R, exp +0.363, WR 50.8%, maxDD 3.0R, 57% months positive, both sides net-positive; walk-forward OOS 2024-2026 +21.8R exp +0.518 (stronger than train, no overfit decay); fee-robust (+10.5R at 15bps). Caveat: low frequency (67 trades/5.2y) + edge concentrated in the recent regime (train exp +0.10R) \u2014 hence shadow. Evidence: docs/audits/fvg-range-complement-2026-05-30.md."
+      "ref": "S-STRAT-IMPROVE FVG-range (this PR) — DRAFT, Tier-3, execution: shadow",
+      "summary": "New strategy wired execution: shadow on bybit_1 (demo) for live data collection. FVG mean-reversion inside a confirmed static horizontal range (range_lookback 48 / touches 4 / ADX<20 / far-boundary target / stop 0.25xATR). Validated on 5.2y BTCUSDT 15m (2021-01..2026-02) net-of-fee: FULL +24.4R, exp +0.363, WR 50.8%, maxDD 3.0R, 57% months positive, both sides net-positive; walk-forward OOS 2024-2026 +21.8R exp +0.518 (stronger than train, no overfit decay); fee-robust (+10.5R at 15bps). Caveat: low frequency (67 trades/5.2y) + edge concentrated in the recent regime (train exp +0.10R) — hence shadow. Evidence: docs/audits/fvg-range-complement-2026-05-30.md."
     }
   ],
   "fade_breakout_4h": [
@@ -90,8 +90,8 @@
     },
     {
       "date": "2026-05-30",
-      "ref": "exit review / time-stop (this PR) \u2014 DRAFT, Tier-3",
-      "summary": "Added an ~8-day (48-bar) time-decay close to monitor() to restore live\u2194backtest parity \u2014 the validated config used timeout_bars=48 but the live monitor had no time stop (ran timeout=\u221e), so stalled fades sat open for weeks. 6.2yr 4h walk-forward: timeout=48 is a broad plateau (42-60 net-positive), fee-robust, helps across donchian/trail neighbors; FULL 6yr +73.5R->+87.7R. HONEST framing: the +14R lift is mostly a 2020-2023 (train) effect \u2014 OOS 2024-2026 it is neutral-to-slightly-better with marginally lower maxDD. So it is a parity + risk/operational change (caps stalled holds, frees capital), NOT an alpha boost. The 3.5xATR trail + all entry logic are unchanged (tightening the trail or adding partial-TPs was tested and HURTS net \u2014 the give-back from the peak is the price of the fat-tail runners that are the edge). Evidence: docs/audits/fade-breakout-complement-2026-05-24.md \u00a7 time-stop addendum."
+      "ref": "exit review / time-stop (this PR) — DRAFT, Tier-3",
+      "summary": "Added an ~8-day (48-bar) time-decay close to monitor() to restore live↔backtest parity — the validated config used timeout_bars=48 but the live monitor had no time stop (ran timeout=∞), so stalled fades sat open for weeks. 6.2yr 4h walk-forward: timeout=48 is a broad plateau (42-60 net-positive), fee-robust, helps across donchian/trail neighbors; FULL 6yr +73.5R->+87.7R. HONEST framing: the +14R lift is mostly a 2020-2023 (train) effect — OOS 2024-2026 it is neutral-to-slightly-better with marginally lower maxDD. So it is a parity + risk/operational change (caps stalled holds, frees capital), NOT an alpha boost. The 3.5xATR trail + all entry logic are unchanged (tightening the trail or adding partial-TPs was tested and HURTS net — the give-back from the peak is the price of the fat-tail runners that are the edge). Evidence: docs/audits/fade-breakout-complement-2026-05-24.md § time-stop addendum."
     }
   ],
   "squeeze_breakout_4h": [
@@ -104,8 +104,8 @@
   "htf_pullback_trend_2h": [
     {
       "date": "2026-06-10",
-      "ref": "Tier-3 (operator-approved): real confidence \u2014 performance-review 2026-06-10 / PERF-20260601-010",
-      "summary": "Replaced the saturating confidence = min((close-mid)/atr, 1.0) \u2014 which pinned confidence to 1.0 on every package because the close is ~always >= 1 ATR from the slow midline \u2014 with a blended [0,1] score: 50% trend strength (ATR-from-midline, normalised over ~2 ATR) + 50% pullback quality (how deep into the actionable pullback zone the entry sits). Metadata-only change: confidence is NOT a sizing input and NOT part of the intent-multiplexer selection key; entry/SL/TP geometry is unchanged. Makes confidence usable for the dashboard, confidence-weighting analysis, and ML features."
+      "ref": "Tier-3 (operator-approved): real confidence — performance-review 2026-06-10 / PERF-20260601-010",
+      "summary": "Replaced the saturating confidence = min((close-mid)/atr, 1.0) — which pinned confidence to 1.0 on every package because the close is ~always >= 1 ATR from the slow midline — with a blended [0,1] score: 50% trend strength (ATR-from-midline, normalised over ~2 ATR) + 50% pullback quality (how deep into the actionable pullback zone the entry sits). Metadata-only change: confidence is NOT a sizing input and NOT part of the intent-multiplexer selection key; entry/SL/TP geometry is unchanged. Makes confidence usable for the dashboard, confidence-weighting analysis, and ML features."
     },
     {
       "date": "2026-06-02",
@@ -122,19 +122,19 @@
     {
       "date": "2026-06-10",
       "ref": "min_confidence 0.30 -> 0.60 (M8 S3, #3181) - Tier-3, operator-approved",
-      "summary": "Live trend_donchian entry floor raised 0.30 -> 0.60. M8 canonical sweep (scripts/ml/strategy_tune_sweep.py) under OOS + 3-fold anchored walk-forward at the live 1h/trail-5.0/long-only params (BTC 2021-2026) found 0.30 net-positive in only 2/3 folds (loses the 2025-26 regime); 3/3 robustness begins at 0.60 (OOS net \u03a3 34.9->53.6 R, expectancy 0.111->0.215, maxDD 22.3->12.9 R). 0.60 is the conservative onset of the uniformly-robust 0.60-0.90 band. Evidence: docs/sprint-logs/S-M8-STRATEGY-TUNING-S3.md, trainer-vm-diag #3179."
+      "summary": "Live trend_donchian entry floor raised 0.30 -> 0.60. M8 canonical sweep (scripts/ml/strategy_tune_sweep.py) under OOS + 3-fold anchored walk-forward at the live 1h/trail-5.0/long-only params (BTC 2021-2026) found 0.30 net-positive in only 2/3 folds (loses the 2025-26 regime); 3/3 robustness begins at 0.60 (OOS net Σ 34.9->53.6 R, expectancy 0.111->0.215, maxDD 22.3->12.9 R). 0.60 is the conservative onset of the uniformly-robust 0.60-0.90 band. Evidence: docs/sprint-logs/S-M8-STRATEGY-TUNING-S3.md, trainer-vm-diag #3179."
     },
     {
       "date": "2026-06-01",
       "ref": "Re-tune 2h/trail3.5 -> 1h/trail5.0 (this PR) - Tier-3, operator-approved",
-      "summary": "Live trend_donchian re-tuned to the overnight-research OOS-best corner: timeframe 2h->1h, trail_mult 3.5->5.0 (donchian 20 / atr_stop 2.5 unchanged). SUPERSEDES the 2026-05-24 S9 1h->2h walk-forward migration: the 2026-06-01 campaign (357 backtests, 3-fold robust) found 1h/trail5.0 is OOS-best (+43.8R OOS / +42.4R IS, 3-fold +14/+54/+24) \u2014 it tested the wide trail (~5.0 lifts net R in every family; default 3.0-3.5 cuts the fat-tail runners that ARE the trend edge) that the S9 analysis never did, and at trail 5.0 the 1h timeframe wins. The recent live 0%-win window was a ~1-month ranging regime + the re-entry storm (fixed by the bar-close debounce, #2548), not a disproven edge. Live on bybit_2 (real) + bybit_1 (demo)."
+      "summary": "Live trend_donchian re-tuned to the overnight-research OOS-best corner: timeframe 2h->1h, trail_mult 3.5->5.0 (donchian 20 / atr_stop 2.5 unchanged). SUPERSEDES the 2026-05-24 S9 1h->2h walk-forward migration: the 2026-06-01 campaign (357 backtests, 3-fold robust) found 1h/trail5.0 is OOS-best (+43.8R OOS / +42.4R IS, 3-fold +14/+54/+24) — it tested the wide trail (~5.0 lifts net R in every family; default 3.0-3.5 cuts the fat-tail runners that ARE the trend edge) that the S9 analysis never did, and at trail 5.0 the 1h timeframe wins. The recent live 0%-win window was a ~1-month ranging regime + the re-entry storm (fixed by the bar-close debounce, #2548), not a disproven edge. Live on bybit_2 (real) + bybit_1 (demo)."
     }
   ],
   "trend_donchian_1h": [
     {
       "date": "2026-06-01",
-      "ref": "Retired (enabled:false) \u2014 A/B config adopted into live (this PR) - Tier-3",
-      "summary": "trend_donchian_1h disabled (enabled:false). Its sole purpose was to validate 1h/trail5.0 against the live 2h flagship; that validation is now ADOPTED \u2014 the live trend_donchian was re-tuned to exactly this config (1h/donchian20/trail5.0) in the same PR. Keeping it enabled would double-fire identical 1h breakouts on bybit_1 (demo runs both). Block retained as the A/B record; the live strategy now collects 1h/5.0 data directly on both demo + real."
+      "ref": "Retired (enabled:false) — A/B config adopted into live (this PR) - Tier-3",
+      "summary": "trend_donchian_1h disabled (enabled:false). Its sole purpose was to validate 1h/trail5.0 against the live 2h flagship; that validation is now ADOPTED — the live trend_donchian was re-tuned to exactly this config (1h/donchian20/trail5.0) in the same PR. Keeping it enabled would double-fire identical 1h breakouts on bybit_1 (demo runs both). Block retained as the A/B record; the live strategy now collects 1h/5.0 data directly on both demo + real."
     },
     {
       "date": "2026-06-01",
@@ -157,25 +157,25 @@
   "trend_donchian_sol": [
     {
       "date": "2026-06-17",
-      "ref": "trend_donchian_sol created \u2014 PROP alt variant (PB-20260616-004), Tier-3 draft",
+      "ref": "trend_donchian_sol created — PROP alt variant (PB-20260616-004), Tier-3 draft",
       "summary": "New prop-account variant of trend_donchian on SOLUSDT, routed to the Breakout manual-bridge account. The trend_donchian-on-alts +EV finding (Binance-spot research) re-validated on real Bybit linear-perp 5m + the Breakout daily-swap holding cost + a 4-fold walk-forward (runtime_logs/prop_eval/2026-06-17-validate-real/): robust PASS (pre-swap realised +$2,150, 15% drag, funded 12-mo EV +$1,693 @1.5% risk / 94% P(net>0), 4/4 OOS folds). Reuses the trend_donchian unit; execution: live (emits supervised DXTrade tickets). Both-sides to match the validation (a long-only re-validation is the recommended refinement)."
     },
     {
       "date": "2026-06-17",
-      "ref": "trend_donchian_sol \u2014 LONG-ONLY (PR #3848, Tier-3, operator-approved)",
+      "ref": "trend_donchian_sol — LONG-ONLY (PR #3848, Tier-3, operator-approved)",
       "summary": "Flipped to long_only: true after the Breakout daily-swap long-only A/B: SOL's edge HOLDS long-only (pre-swap +$1,325 -> post +$1,158; funded 12-mo EV +$1,131 @1.5%, 86% P>0; 4/4 OOS folds, cleaner per-fold dispersion). The live builder (_trend_donchian_variant_builder) now suppresses shorts. Matches the BTC flagship's directional discipline."
     }
   ],
   "trend_donchian_eth": [
     {
       "date": "2026-06-17",
-      "ref": "trend_donchian_eth created \u2014 PROP alt variant shadow (PB-20260616-004), Tier-3 draft",
+      "ref": "trend_donchian_eth created — PROP alt variant shadow (PB-20260616-004), Tier-3 draft",
       "summary": "New prop-account variant of trend_donchian on ETHUSDT, routed to the Breakout manual-bridge account. Gate = marginal PASS: the Breakout daily swap eats 57% of the realised gross (pre +$671 -> post +$285); funded 12-mo EV +$1,050 @1.5% (4/4 OOS folds) but +EV only at risk>=1.0%. Shipped execution: shadow to soak on the real prop feed before live ticket emission."
     },
     {
       "date": "2026-06-17",
-      "ref": "trend_donchian_eth \u2014 stays TWO-SIDED + promoted SHADOW \u2192 LIVE (PRs #3848/#3852, Tier-3, operator-approved)",
-      "summary": "The long-only A/B FLIPPED ETH negative (pre +$23 -> post -$181; EV@1.5% +$415/66%, only 3/4 folds, fold-1 -$166) \u2014 ETH's edge is short-side-dependent, so it keeps both sides (no long_only). Promoted shadow -> live (operator-approved): emits supervised prop tickets like SOL; the operator gates each placement, so the marginal-but-consistent edge is run live on a manual-bridge ping (reversible to shadow with one flip)."
+      "ref": "trend_donchian_eth — stays TWO-SIDED + promoted SHADOW → LIVE (PRs #3848/#3852, Tier-3, operator-approved)",
+      "summary": "The long-only A/B FLIPPED ETH negative (pre +$23 -> post -$181; EV@1.5% +$415/66%, only 3/4 folds, fold-1 -$166) — ETH's edge is short-side-dependent, so it keeps both sides (no long_only). Promoted shadow -> live (operator-approved): emits supervised prop tickets like SOL; the operator gates each placement, so the marginal-but-consistent edge is run live on a manual-bridge ping (reversible to shadow with one flip)."
     }
   ],
   "eth_pullback_2h": [
@@ -188,8 +188,22 @@
   "eth_pullback_prop_2h": [
     {
       "date": "2026-06-25",
-      "ref": "Tier-3 (operator-approved live promotion) \u2014 swap-robust prop variant (eth-pullback-prop-swap-aware-2026-06-25.md)",
+      "ref": "Tier-3 (operator-approved live promotion) — swap-robust prop variant (eth-pullback-prop-swap-aware-2026-06-25.md)",
       "summary": "Created eth_pullback_prop_2h: eth_pullback_2h's entries with swap-robust exits (tp_r 50->6, trail_mult 5.0->3.5) for the Breakout venue. Routed to breakout_1 as execution: shadow (observe-only soak). CORRECTION: the first pass used an assumed 0.09%/day swap; Breakout's help centre confirms the real swap is 0.033%/day. At the real rate the funded-EV gate is STRONG: realised post-swap +$421 over 5y (drag 32%), 12-mo EV +$603 @75.9% P(net>0), ROI/fees 4.2, walk-forward 4/4 folds EV-positive; realised break-even swap is 0.10%/day = 3x the real rate (large cost-model safety margin). The live eth_pullback_2h exits are also +EV on Breakout at the real rate (+$166); this variant is preferred for lower drag + bigger margin. PROMOTED shadow->live the same day (operator-approved Tier-3); the original eth_pullback_2h was also routed live to breakout_1. Prop 'live' emits a manual ticket the operator places."
+    }
+  ],
+  "trend_donchian_sol_prop": [
+    {
+      "date": "2026-06-29",
+      "ref": "Unit C Phase 0 (DRAFT Tier-3) — swap-robust prop exit variant (prop-dynamic-exits-faster-banking-DESIGN.md § 5)",
+      "summary": "Created trend_donchian_sol_prop: trend_donchian_sol's entries (1h SOLUSDT, long-only) with the proven eth_pullback_prop_2h swap-robust exits (trail_mult 5.0->3.5, tp_r 50 sentinel->6.0 real cap). On the Breakout daily-swap prop venue hold time is the cost driver, so the let-winners-run profile is the wrong exit geometry. Wired (builder/registry/multiplexer/priorities) + routed to breakout_1 as execution: shadow (observe-only soak — logs order packages, emits no prop ticket). NOT a live promotion: the prop EV/survival gate (account_compat_matrix -> run_ev_montecarlo under breakout.yaml) must show strict net-$ improvement vs the single-far-target baseline without a worse p_breach; promotion shadow->live is operator-gated Tier-3. ROLLBACK: remove the block + the breakout_1 routing + the wiring."
+    }
+  ],
+  "trend_donchian_eth_prop": [
+    {
+      "date": "2026-06-29",
+      "ref": "Unit C Phase 0 (DRAFT Tier-3) — swap-robust prop exit variant (prop-dynamic-exits-faster-banking-DESIGN.md § 5)",
+      "summary": "Created trend_donchian_eth_prop: trend_donchian_eth's entries (1h ETHUSDT, two-sided — ETH's edge is short-side-dependent) with the proven eth_pullback_prop_2h swap-robust exits (trail_mult 5.0->3.5, tp_r 50 sentinel->6.0 real cap). Wired + routed to breakout_1 as execution: shadow (observe-only soak). NOT a live promotion: the prop EV/survival gate (account_compat_matrix -> run_ev_montecarlo under breakout.yaml) must show strict net-$ improvement vs the single-far-target baseline without a worse p_breach; promotion shadow->live is operator-gated Tier-3. ROLLBACK: remove the block + the breakout_1 routing + the wiring."
     }
   ]
 }

@@ -246,6 +246,11 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # strategy. Value 0 follows the other single-symbol legs.
     "trend_donchian_sol": 0,
     "trend_donchian_eth": 0,
+    # SWAP-ROBUST prop exit variants (Unit C, Phase 0, 2026-06-29; DRAFT Tier-3) —
+    # tightened-exit prop-only siblings of trend_donchian_sol/_eth on breakout_1.
+    # Each runs ALONE on its (symbol, prop-account) so priority is moot. Value 0.
+    "trend_donchian_sol_prop": 0,
+    "trend_donchian_eth_prop": 0,
     # trend_4h + pullback_2h alt cells (2026-06-18) — bybit_1 DEMO soak,
     # paper_ready (WS-C k-fold: net-of-fee positive + 2x-fee headroom, fail only
     # the strict every-fold gate; SRQ-20260618-001 / -002). Each runs ALONE on

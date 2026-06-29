@@ -185,6 +185,7 @@ def run(args: argparse.Namespace) -> int:
             initial_balance=args.base_account_size, risk_pct=args.base_risk_pct,
             daily_loss_pct=3.0, signal_ttl_bars=1, overrides={}, refresh=args.refresh_signals,
             clock_tf=args.clock_tf, flip_policy="hold", reentry_policy="suppress", attach_full=True,
+            exit_ladder=args.exit_ladder,
         )
         ledger = summary.get("closed_trades", []) or []
         data_src = args.data
@@ -284,6 +285,14 @@ def main(argv: List[str]) -> int:
                    help="Standard ROUTE gate: maximum P(breach) under the account's "
                         "soft limits (default 0.10).")
     p.add_argument("--refresh-signals", action="store_true")
+    p.add_argument("--exit-ladder", dest="exit_ladder", action="store_true",
+                   help="Evaluate the strategy with the harness partial-TP exit "
+                        "ladder (Unit C Phase 1): bank 50%% @+1.5R + 25%% @+3R, "
+                        "residual rides the strategy's tp/trail/SL. Use to gate "
+                        "the swap-robust prop EXIT variants (e.g. "
+                        "trend_donchian_sol_prop/_eth_prop) against the prop "
+                        "EV/survival ruleset BEFORE proposing a shadow->live "
+                        "promotion. Default-off → the single-target baseline.")
     p.add_argument("--out-dir", default=None)
     args = p.parse_args(argv[1:])
     if not args.strategy and not args.ledger:

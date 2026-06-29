@@ -86,6 +86,8 @@ from src.runtime.strategy_signal_builders import (
     trend_donchian_1h_signal_builder,
     trend_donchian_eth_signal_builder,
     trend_donchian_sol_signal_builder,
+    trend_donchian_eth_prop_signal_builder,
+    trend_donchian_sol_prop_signal_builder,
     trend_donchian_eth_4h_signal_builder,
     trend_donchian_sol_4h_signal_builder,
     trend_donchian_xrp_4h_signal_builder,
@@ -153,6 +155,13 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # honour the YAML `enabled` flag.
         "trend_donchian_sol": trend_donchian_sol_signal_builder,
         "trend_donchian_eth": trend_donchian_eth_signal_builder,
+        # SWAP-ROBUST prop exit variants (Unit C, Phase 0, 2026-06-29; DRAFT
+        # Tier-3): tightened-exit (trail_mult 3.5 / tp_r 6.0) prop-only siblings
+        # of trend_donchian_sol/_eth, routed to breakout_1 as execution: shadow
+        # (observe-only soak until the prop EV/survival gate passes). Each is
+        # sole on its (symbol, prop-account) so arbitration never fires.
+        "trend_donchian_sol_prop": trend_donchian_sol_prop_signal_builder,
+        "trend_donchian_eth_prop": trend_donchian_eth_prop_signal_builder,
         # trend_4h alt cells (2026-06-18): five symbol-pinned trend_donchian
         # instances on the 4h candle (ETH/SOL/XRP/ADA/AVAX), routed to bybit_1
         # (Bybit demo — paper money) for decision/ML soak. WS-C k-fold classed

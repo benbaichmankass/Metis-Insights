@@ -53,7 +53,7 @@ import hashlib
 import json
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -93,8 +93,23 @@ try:
     from src.runtime.conviction import compute_conviction as _compute_conviction  # noqa: E402
 except Exception:  # noqa: BLE001
     _compute_conviction = None
+try:
+    # ExitPlan partial-TP ladder support (Unit C Phase 1, 2026-06-29). The
+    # canonical materializer turns an abstract ladder into concrete reduce-only
+    # rung prices + fractional qtys — reused here so the harness ladder-fill mode
+    # tests the SAME exit structure the live exit_ladder_soak materializes (it
+    # does NOT couple to live emission, which stays the gated P4 graduation).
+    from src.runtime.exit_plan_materializer import materialize_exit_plan as _materialize_exit_plan  # noqa: E402
+except Exception:  # noqa: BLE001
+    _materialize_exit_plan = None
 
 FEE_BPS_ROUNDTRIP = 7.5
+# Default partial-TP ladder for --exit-ladder (Unit C Phase 1). A standard
+# bank-some-early / run-the-rest schedule the prop EV gate can evaluate: bank
+# 50% at +1.5R, 25% at +3R, the residual 25% rides the strategy's existing
+# tp_r cap + Chandelier trail + SL (the strategy's monitor() still owns the
+# residual exit). Expressed as (R-multiple, qty_pct of the ORIGINAL qty).
+_EXIT_LADDER_RUNGS = ((1.5, 0.50), (3.0, 0.25))
 # Per-trade risk budget a conviction=1.0 trade reaches (mirrors
 # src.runtime.conviction_sizing.PER_TRADE_RISK_BUDGET = 2%). Used by the
 # --conviction-sizing A/B so the conviction-scaled size matches the live
@@ -148,6 +163,15 @@ ROSTER: Dict[str, Dict[str, str]] = {
     "trend_donchian_sol":    {"module": "src.units.strategies.trend_donchian", "tf": "1h"},
     "trend_donchian_sol_4h": {"module": "src.units.strategies.trend_donchian", "tf": "4h"},
     "sol_pullback_2h":       {"module": "src.units.strategies.htf_pullback_trend_2h", "tf": "2h"},
+    # --- SWAP-ROBUST prop exit variants (Unit C, Phase 0, 2026-06-29) ----------
+    # Tightened-exit prop-only siblings of trend_donchian_sol/_eth (reuse the
+    # trend_donchian module + 1h tf; their tightened trail_mult 3.5 / tp_r 6.0
+    # come from config/strategies.yaml, merged by _load_strategy_cfg). Mapped here
+    # so the prop EV/survival gate can backtest them — incl. with --exit-ladder
+    # (the harness partial-TP ladder fill mode, Phase 1). RESEARCH ONLY; the live
+    # order path resolves these from config, not from ROSTER.
+    "trend_donchian_sol_prop": {"module": "src.units.strategies.trend_donchian", "tf": "1h"},
+    "trend_donchian_eth_prop": {"module": "src.units.strategies.trend_donchian", "tf": "1h"},
 }
 _PANDAS_TF = {"5m": "5min", "15m": "15min", "30m": "30min", "1h": "1h", "2h": "2h", "4h": "4h"}
 
@@ -535,6 +559,11 @@ class _Position:
     notional: float
     regime: Any = None        # ADX trend regime at entry (cell attribution)
     vol_regime: Any = None    # vol_regime at entry (frozen or ML, per --vol-verdict)
+    # --exit-ladder (Unit C Phase 1): unfilled partial-TP rungs for this position,
+    # each {"price": abs px, "qty": abs qty}. Filled near→far intrabar; once
+    # empty the residual rides the strategy's normal tp/trail/SL exit. Empty list
+    # == no ladder (default / non-ladder run).
+    ladder_targets: list = field(default_factory=list)
 
 
 @dataclass
@@ -554,6 +583,56 @@ class _ClosedTrade:
     vol_regime: Any = None
 
 
+def _build_ladder_targets(side: str, entry: float, sl: float,
+                          qty_total: float) -> List[Dict[str, float]]:
+    """Materialize the default partial-TP ladder (``_EXIT_LADDER_RUNGS``) into
+    concrete absolute ``{"price", "qty"}`` rungs for an open position (Unit C
+    Phase 1, ``--exit-ladder``).
+
+    Direction-resolved off ``entry``/``sl`` (R = |entry − sl|): a long banks
+    above entry, a short below. Reuses the canonical
+    ``exit_plan_materializer.materialize_exit_plan`` when importable (so the
+    harness fills the SAME rungs the live soak materializes); falls back to a
+    self-contained R-multiple computation if that module is unavailable. Returns
+    ``[]`` (no ladder → the strategy's normal single-target exit) on any bad
+    input, so the fill path is always safe."""
+    try:
+        r = abs(float(entry) - float(sl))
+        if r <= 0 or qty_total <= 0 or side not in ("long", "short"):
+            return []
+        sign = 1.0 if side == "long" else -1.0
+        rungs_abstract = [
+            {"price": entry + sign * r_mult * r, "qty_pct": qty_pct}
+            for (r_mult, qty_pct) in _EXIT_LADDER_RUNGS
+        ]
+        if _materialize_exit_plan is not None:
+            plan = {
+                "version": 1,
+                "rungs": rungs_abstract,
+                # No fixed final here — the residual rides the strategy's own
+                # tp/trail/SL exit (modelled by the existing management block),
+                # so the plan's "final" is a trailing placeholder the harness
+                # does not rest as a separate target.
+                "final": {"kind": "trailing", "trail_r": 1.0, "activate_r": 0.0,
+                          "floor": "breakeven"},
+                "stop": {"price": float(sl)},
+            }
+            mat = _materialize_exit_plan(
+                plan, direction=side, entry=float(entry), stop=float(sl),
+                qty_total=float(qty_total))
+            if isinstance(mat, dict) and mat.get("targets"):
+                out = [{"price": float(t["price"]), "qty": float(t["qty"])}
+                       for t in mat["targets"]
+                       if t.get("kind") == "rung" and float(t.get("qty") or 0) > 0]
+                if out:
+                    return out
+        # Fallback: compute the absolute rungs directly (no materializer dep).
+        return [{"price": rg["price"], "qty": rg["qty_pct"] * qty_total}
+                for rg in rungs_abstract if rg["qty_pct"] * qty_total > 0]
+    except Exception:  # noqa: BLE001 — research fill aid must never crash the run
+        return []
+
+
 def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                         initial_balance: float, risk_pct: float,
                         daily_loss_pct: float, signal_ttl_bars: int,
@@ -569,6 +648,7 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                         regime_router: str = "off",
                         regime_policy_path: Optional[str] = None,
                         conviction_sizing: bool = False,
+                        exit_ladder: bool = False,
                         symbol: str = "BTCUSDT") -> Dict[str, Any]:
     """Drive all `roster` strategies through aggregate_intents on a shared
     account. Clock runs on `clock_tf` bars; at each tick we read each
@@ -705,6 +785,7 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
         "ml_vol_unavailable": ml_resolver is not None and not ml_resolver.available,
         "ml_vol_reason": ml_resolver.reason if ml_resolver is not None else None,
         "conviction_trades": 0,          # opens sized by conviction
+        "ladder_opens": 0,               # opens that got a partial-TP ladder (--exit-ladder)
     }
 
     # 1) signal streams (cached), indexed onto the clock grid
@@ -762,6 +843,28 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
             reason=reason, bars_held=idx_i - p.entry_idx,
             regime=p.regime, vol_regime=p.vol_regime))
 
+    def _close_partial(p: _Position, price: float, part_qty: float, ts_i,
+                       reason: str, idx_i: int) -> None:
+        """Bank ``part_qty`` of an open position at ``price`` (a ladder rung
+        partial fill, Unit C Phase 1) and REDUCE the live position's qty by it.
+        Records a separate `_ClosedTrade` for the banked leg with R/PnL/fee
+        computed on that fraction; the residual rides on. ``part_qty`` is
+        clamped to the remaining qty so a rung can never over-close."""
+        nonlocal balance
+        q = min(float(part_qty), float(p.qty))
+        if q <= 0:
+            return
+        gross = (price - p.entry) * q if p.side == "long" else (p.entry - price) * q
+        fee = fee_rate * (p.entry + price) * q
+        pnl = gross - fee
+        balance += pnl
+        closed.append(_ClosedTrade(
+            owner=p.owner, side=p.side, entry_ts=p.entry_ts, exit_ts=ts_i,
+            entry=p.entry, exit=price, qty=q, pnl=pnl, fee=fee,
+            reason=reason, bars_held=idx_i - p.entry_idx,
+            regime=p.regime, vol_regime=p.vol_regime))
+        p.qty -= q
+
     for i in range(n):
         # refresh per-day loss budget
         d = pd.Timestamp(ts.iloc[i]).date()
@@ -794,6 +897,25 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                     pos = None
                 elif lo[i] <= pos.tp:
                     _close(pos, pos.tp, ts.iloc[i], "tp", i)
+                    pos = None
+            # --exit-ladder: fill any partial-TP rung reached intrabar (Unit C
+            # Phase 1). Conservative — checked AFTER SL/TP so a bar that also
+            # crossed the stop closes fully first; a rung fills at its exact
+            # price (the rung is a resting reduce-only limit). The residual qty
+            # rides the strategy's normal tp/trail/SL exit below. A no-op when
+            # the ladder list is empty (default / non-ladder run).
+            if pos is not None and pos.ladder_targets:
+                remaining = []
+                for rg in pos.ladder_targets:
+                    rp = rg["price"]
+                    hit = (h[i] >= rp) if pos.side == "long" else (lo[i] <= rp)
+                    if hit and pos.qty > 0:
+                        _close_partial(pos, rp, rg["qty"], ts.iloc[i],
+                                       "ladder_tp", i)
+                    else:
+                        remaining.append(rg)
+                pos.ladder_targets = remaining
+                if pos.qty <= 0:  # ladder banked the whole position
                     pos = None
             # owner monitor() (trail ratchet / time-decay / explicit close)
             if pos is not None:
@@ -883,11 +1005,18 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                 if qty > 0:
                     if conviction_sizing:
                         ev_counts["conviction_trades"] += 1
+                    ladder = (
+                        _build_ladder_targets(des_side, fill, row["sl"], qty)
+                        if exit_ladder else []
+                    )
+                    if exit_ladder and ladder:
+                        ev_counts["ladder_opens"] += 1
                     pos = _Position(side=des_side, qty=qty, entry=fill, sl=row["sl"],
                                     tp=row["tp"], owner=win_name, entry_ts=ts.iloc[i],
                                     entry_idx=i, meta=json.loads(row["meta_json"]),
                                     notional=qty * fill,
-                                    regime=regime_label, vol_regime=bar_vol_regime)
+                                    regime=regime_label, vol_regime=bar_vol_regime,
+                                    ladder_targets=ladder)
             elif (
                 pos is not None and pos.side == des_side
                 and reentry_policy == "net" and not daily_halted
@@ -989,6 +1118,12 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
         "conviction_input_note": (
             "conviction ≈ calibrated c_strat only (ML heads not replayed for "
             "sizing offline)" if conviction_sizing else None
+        ),
+        "exit_ladder": exit_ladder,
+        "exit_ladder_opens": ev_counts["ladder_opens"],
+        "exit_ladder_rungs": (
+            [{"r_mult": rm, "qty_pct": qp} for (rm, qp) in _EXIT_LADDER_RUNGS]
+            if exit_ladder else None
         ),
     }
     _teardown_env()
@@ -1107,6 +1242,7 @@ def _fmt(s: Dict[str, Any]) -> str:
         ev.get("vol_verdict") not in (None, "frozen")
         or ev.get("regime_router") not in (None, "off")
         or ev.get("conviction_sizing")
+        or ev.get("exit_ladder")
     )
     if active:
         L.append("  evidence layer:")
@@ -1136,6 +1272,13 @@ def _fmt(s: Dict[str, Any]) -> str:
             L.append(
                 f"    conviction opens={ev.get('conviction_sized_opens')} "
                 f"({ev.get('conviction_input_note')})"
+            )
+        if ev.get("exit_ladder"):
+            rungs = ev.get("exit_ladder_rungs") or []
+            rung_s = ", ".join(f"{r['qty_pct']:.0%}@+{r['r_mult']}R" for r in rungs)
+            L.append(
+                f"    exit-ladder: opens_laddered={ev.get('exit_ladder_opens')} "
+                f"rungs=[{rung_s}] (residual rides the strategy tp/trail/SL)"
             )
     return "\n".join(L)
 
@@ -1212,6 +1355,17 @@ def main(argv: List[str]) -> int:
                         "conviction ≈ the calibrated strategy confidence (c_strat) "
                         "only — ML heads are not replayed for sizing; stated in the "
                         "run summary.")
+    p.add_argument("--exit-ladder", dest="exit_ladder", action="store_true",
+                   help="Partial-TP ladder fill mode (Unit C Phase 1): on each "
+                        "open, materialize a partial-TP ladder (default bank 50%% "
+                        "@+1.5R, 25%% @+3R via the canonical exit_plan_materializer) "
+                        "and fill its rungs intrabar; the residual rides the "
+                        "strategy's normal tp/trail/SL exit. Lets the prop "
+                        "EV/survival gate evaluate a LADDERED exit on the prop "
+                        "variants (e.g. trend_donchian_sol_prop/_eth_prop). "
+                        "Default-off → byte-for-byte unchanged; this is a HARNESS "
+                        "research lever ONLY, never the live prop-ticket path "
+                        "(that graduation is the gated P4).")
     p.add_argument("--json", dest="json_out", default=None)
     args = p.parse_args(argv[1:])
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
@@ -1244,7 +1398,8 @@ def main(argv: List[str]) -> int:
         vol_verdict=args.vol_verdict, ml_vol_threshold=args.ml_vol_threshold,
         ml_stage=args.ml_stage, ml_model_id=args.ml_model_id,
         regime_router=args.regime_router, regime_policy_path=args.regime_policy,
-        conviction_sizing=args.conviction_sizing, symbol=args.symbol)
+        conviction_sizing=args.conviction_sizing, exit_ladder=args.exit_ladder,
+        symbol=args.symbol)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)
