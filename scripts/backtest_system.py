@@ -93,8 +93,27 @@ try:
     from src.runtime.conviction import compute_conviction as _compute_conviction  # noqa: E402
 except Exception:  # noqa: BLE001
     _compute_conviction = None
+# FLIP_POLICY=selective EV gate (Unit A § 7.1(b)) — the SAME pure fn the live
+# path uses, so the backtest arm charges the four-fill cost identically.
+try:
+    from src.runtime.flip_ev import (  # noqa: E402
+        compute_flip_ev as _compute_flip_ev,
+        flip_ev_passes as _flip_ev_passes,
+    )
+except Exception:  # noqa: BLE001
+    _compute_flip_ev = None
+    _flip_ev_passes = None
 
 FEE_BPS_ROUNDTRIP = 7.5
+# FLIP_POLICY=selective knobs (Unit A § 7.4) — module-level so the run sees the
+# same values the live resolvers would; set from CLI args in main() before the
+# run, faithful to the live gates. Defaults match the live resolver defaults.
+_SELECTIVE_CONF_THRESHOLD = 0.0     # FLIP_CONFIDENCE_THRESHOLD (0 → never flips)
+_SELECTIVE_MIN_AGE_HOURS = 0.0      # FLIP_MIN_POSITION_AGE_HOURS
+_SELECTIVE_EV_MARGIN = 0.0          # FLIP_EV_MARGIN_USD
+_SELECTIVE_REENTRY_MIN_CONF = 0.0   # FLIP_REENTRY_MIN_CONFIDENCE
+_SELECTIVE_REENTRY_WINDOW_BARS = 8.0  # FLIP_REENTRY_WINDOW_BARS
+_SELECTIVE_REENTRY_ZONE_FRAC = 0.005  # FLIP_REENTRY_ZONE_FRAC
 # Per-trade risk budget a conviction=1.0 trade reaches (mirrors
 # src.runtime.conviction_sizing.PER_TRADE_RISK_BUDGET = 2%). Used by the
 # --conviction-sizing A/B so the conviction-scaled size matches the live
@@ -535,6 +554,7 @@ class _Position:
     notional: float
     regime: Any = None        # ADX trend regime at entry (cell attribution)
     vol_regime: Any = None    # vol_regime at entry (frozen or ML, per --vol-verdict)
+    confidence: float = 0.0   # entry confidence (FLIP_POLICY=selective gate input)
 
 
 @dataclass
@@ -705,7 +725,14 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
         "ml_vol_unavailable": ml_resolver is not None and not ml_resolver.available,
         "ml_vol_reason": ml_resolver.reason if ml_resolver is not None else None,
         "conviction_trades": 0,          # opens sized by conviction
+        "selective_flips": 0,            # opposite-vote flips allowed (both gates)
+        "selective_holds": 0,            # opposite-vote flips suppressed (gate fail)
+        "selective_reentries": 0,        # displaced trends re-established (§ 7.2)
+        "selective_reentry_skips": 0,    # displaced re-entries declined (stale/etc.)
     }
+    # FLIP_POLICY=selective displaced-trend records, pending conditional re-entry
+    # (§ 7.2). Each entry: {strategy, side, entry, regime, displaced_idx}.
+    _selective_displaced: List[Dict[str, Any]] = []
 
     # 1) signal streams (cached), indexed onto the clock grid
     streams: Dict[str, pd.DataFrame] = {}
@@ -873,21 +900,66 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
             if row is None:
                 pass
             elif pos is None and not daily_halted:
-                # open at next-bar open (use current close as the fill proxy)
-                fill = c[i]
-                if conviction_sizing:
-                    qty = _conviction_qty(balance, fill, row["sl"], row["confidence"])
-                else:
-                    qty = _risk_qty(balance, risk_pct, fill, row["sl"])
-                qty = float(qty) if qty else 0.0
-                if qty > 0:
+                # FLIP_POLICY=selective conditional RE-ENTRY (§ 7.2): if this open
+                # is the re-emit of a trend that a selective flip displaced, gate
+                # it — re-open ONLY if still same-side, in-zone, regime unchanged,
+                # confidence ≥ floor, within the bar window; else SKIP (don't open,
+                # never resurrect a stale signal). The matching record is removed
+                # either way (terminal). Faithful to flip_reentry.evaluate_reentry.
+                _reentry_block = False
+                if flip_policy == "selective" and _selective_displaced:
+                    _match = None
+                    for _d in _selective_displaced:
+                        if _d["strategy"] == win_name and _d["side"] == des_side:
+                            _match = _d
+                            break
+                    if _match is not None:
+                        skip_reason = None
+                        # gate 5: window (bars on the clock_tf grid)
+                        if (_SELECTIVE_REENTRY_WINDOW_BARS > 0
+                                and (i - _match["displaced_idx"])
+                                > _SELECTIVE_REENTRY_WINDOW_BARS):
+                            skip_reason = "window_expired"
+                        # gate 4: confidence floor
+                        elif (_SELECTIVE_REENTRY_MIN_CONF > 0
+                              and float(row.get("confidence") or 0.0)
+                              < _SELECTIVE_REENTRY_MIN_CONF):
+                            skip_reason = "low_confidence"
+                        # gate 2: price still in-zone vs the displaced entry
+                        elif (_SELECTIVE_REENTRY_ZONE_FRAC > 0
+                              and _match.get("entry")
+                              and abs(c[i] - _match["entry"]) / _match["entry"]
+                              > _SELECTIVE_REENTRY_ZONE_FRAC):
+                            skip_reason = "out_of_zone"
+                        # gate 3: regime unchanged (permissive when either unknown)
+                        elif (_match.get("regime") and regime_label
+                              and str(_match["regime"]) != str(regime_label)):
+                            skip_reason = "regime_changed"
+                        _selective_displaced.remove(_match)
+                        if skip_reason is not None:
+                            ev_counts["selective_reentry_skips"] += 1
+                            _reentry_block = True
+                        else:
+                            ev_counts["selective_reentries"] += 1
+                if not _reentry_block:
+                    # open at next-bar open (use current close as the fill proxy).
+                    # When _reentry_block is True the trend's re-emit was declined
+                    # by the § 7.2 gates — stand aside, stay flat this bar.
+                    fill = c[i]
                     if conviction_sizing:
-                        ev_counts["conviction_trades"] += 1
-                    pos = _Position(side=des_side, qty=qty, entry=fill, sl=row["sl"],
-                                    tp=row["tp"], owner=win_name, entry_ts=ts.iloc[i],
-                                    entry_idx=i, meta=json.loads(row["meta_json"]),
-                                    notional=qty * fill,
-                                    regime=regime_label, vol_regime=bar_vol_regime)
+                        qty = _conviction_qty(balance, fill, row["sl"], row["confidence"])
+                    else:
+                        qty = _risk_qty(balance, risk_pct, fill, row["sl"])
+                    qty = float(qty) if qty else 0.0
+                    if qty > 0:
+                        if conviction_sizing:
+                            ev_counts["conviction_trades"] += 1
+                        pos = _Position(side=des_side, qty=qty, entry=fill, sl=row["sl"],
+                                        tp=row["tp"], owner=win_name, entry_ts=ts.iloc[i],
+                                        entry_idx=i, meta=json.loads(row["meta_json"]),
+                                        notional=qty * fill,
+                                        regime=regime_label, vol_regime=bar_vol_regime,
+                                        confidence=float(row.get("confidence") or 0.0))
             elif (
                 pos is not None and pos.side == des_side
                 and reentry_policy == "net" and not daily_halted
@@ -922,12 +994,79 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                 #             naturally (tests whether flip-churn is the cost).
                 #   "flat":   close the current position but do NOT re-open
                 #             (stand aside on conflict).
-                if flip_policy == "hold":
+                #   "selective" (Unit A § 7): flip ONLY when BOTH the confidence-
+                #             gap+age gate AND the fee-aware EV gate pass — faithful
+                #             to src/runtime/intents.py + flip_ev.py. The EV gate
+                #             charges all FOUR fills (close H + open N + close N +
+                #             re-open H) via the SAME compute_flip_ev used live, so
+                #             the backtest arm and the live path are twins (§ 7.4).
+                #             On a pass it reverses (close+open); on a fail it holds.
+                _do_flip = (flip_policy == "reverse")
+                _selective_flip = False
+                if flip_policy == "selective":
+                    # Gate (a): confidence gap + age. Reuse the live thresholds.
+                    new_conf = float(row.get("confidence") or 0.0)
+                    old_conf = float(getattr(pos, "confidence", 0.0) or 0.0)
+                    gap_ok = (
+                        _SELECTIVE_CONF_THRESHOLD > 0
+                        and (new_conf - old_conf) >= _SELECTIVE_CONF_THRESHOLD
+                    )
+                    age_ok = True
+                    if _SELECTIVE_MIN_AGE_HOURS > 0:
+                        try:
+                            age_h = (
+                                (pd.Timestamp(ts.iloc[i]) - pd.Timestamp(pos.entry_ts))
+                                .total_seconds() / 3600.0
+                            )
+                        except Exception:  # noqa: BLE001
+                            age_h = 0.0
+                        age_ok = age_h >= _SELECTIVE_MIN_AGE_HOURS
+                    conf_gate = bool(gap_ok and age_ok)
+                    # Gate (b): fee-aware EV — identical math to live (the four-fill
+                    # round trip). Scalp qty is what we WOULD open; held notional is
+                    # the trend's notional marked at the current price.
+                    ev_gate = False
+                    if conf_gate and _compute_flip_ev is not None:
+                        fill = c[i]
+                        if conviction_sizing:
+                            scalp_qty = _conviction_qty(balance, fill, row["sl"], new_conf)
+                        else:
+                            scalp_qty = _risk_qty(balance, risk_pct, fill, row["sl"])
+                        scalp_qty = float(scalp_qty) if scalp_qty else 0.0
+                        held_notional = abs(pos.qty) * fill
+                        try:
+                            _fe = _compute_flip_ev(
+                                held_notional=held_notional,
+                                scalp_entry=fill,
+                                scalp_sl=row["sl"],
+                                scalp_tp=row["tp"],
+                                scalp_qty=scalp_qty,
+                                scalp_confidence=new_conf,
+                                fee_bps_roundtrip=FEE_BPS_ROUNDTRIP,
+                                ev_margin_usd=_SELECTIVE_EV_MARGIN,
+                            )
+                            ev_gate = bool(_flip_ev_passes(
+                                _fe, ev_margin_usd=_SELECTIVE_EV_MARGIN))
+                        except Exception:  # noqa: BLE001 — fail-safe: no flip
+                            ev_gate = False
+                    _selective_flip = bool(conf_gate and ev_gate)
+                    _do_flip = _selective_flip
+                    if _selective_flip:
+                        ev_counts["selective_flips"] += 1
+                    else:
+                        ev_counts["selective_holds"] += 1
+
+                if flip_policy in ("hold",) or (
+                    flip_policy == "selective" and not _selective_flip
+                ):
+                    # HOLD: keep the position, let monitor()/SL/TP exit it.
                     pass
                 else:
                     _close(pos, c[i], ts.iloc[i], "flip", i)
+                    _displaced = (pos.owner, pos.side, pos.entry, pos.regime, i) \
+                        if _selective_flip else None
                     pos = None
-                    if flip_policy == "reverse":
+                    if flip_policy in ("reverse", "selective"):
                         fill = c[i]
                         if conviction_sizing:
                             qty = _conviction_qty(balance, fill, row["sl"], row["confidence"])
@@ -942,7 +1081,22 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                                             entry_ts=ts.iloc[i], entry_idx=i,
                                             meta=json.loads(row["meta_json"]),
                                             notional=qty * fill,
-                                            regime=regime_label, vol_regime=bar_vol_regime)
+                                            regime=regime_label, vol_regime=bar_vol_regime,
+                                            confidence=float(row.get("confidence") or 0.0))
+                            # Arm the displaced trend for conditional re-entry
+                            # (§ 7.2). The harness models re-entry as: when the
+                            # scalp closes AND the displaced trend's strategy is
+                            # re-emitting a same-side in-zone signal within the
+                            # window, re-open it. Recorded here, evaluated in the
+                            # re-open reconcile below on a later bar.
+                            if _displaced is not None:
+                                _selective_displaced.append({
+                                    "strategy": _displaced[0],
+                                    "side": _displaced[1],
+                                    "entry": _displaced[2],
+                                    "regime": _displaced[3],
+                                    "displaced_idx": _displaced[4],
+                                })
 
         eq = balance + _unrealized(pos, c[i])
         equity_high = max(equity_high, eq)
@@ -990,6 +1144,28 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
             "conviction ≈ calibrated c_strat only (ML heads not replayed for "
             "sizing offline)" if conviction_sizing else None
         ),
+        # FLIP_POLICY=selective arm (Unit A § 7) — flip/hold + re-entry counters
+        # and the gate knobs used, so a reader knows exactly what the selective
+        # arm did. Null/zeroed under any other flip policy.
+        "flip_policy": flip_policy,
+        "selective_conf_threshold": (
+            _SELECTIVE_CONF_THRESHOLD if flip_policy == "selective" else None),
+        "selective_min_age_hours": (
+            _SELECTIVE_MIN_AGE_HOURS if flip_policy == "selective" else None),
+        "selective_ev_margin_usd": (
+            _SELECTIVE_EV_MARGIN if flip_policy == "selective" else None),
+        "selective_reentry_min_conf": (
+            _SELECTIVE_REENTRY_MIN_CONF if flip_policy == "selective" else None),
+        "selective_reentry_window_bars": (
+            _SELECTIVE_REENTRY_WINDOW_BARS if flip_policy == "selective" else None),
+        "selective_reentry_zone_frac": (
+            _SELECTIVE_REENTRY_ZONE_FRAC if flip_policy == "selective" else None),
+        "selective_flips": ev_counts["selective_flips"],
+        "selective_holds": ev_counts["selective_holds"],
+        "selective_reentries": ev_counts["selective_reentries"],
+        "selective_reentry_skips": ev_counts["selective_reentry_skips"],
+        "selective_ev_available": (
+            _compute_flip_ev is not None if flip_policy == "selective" else None),
     }
     _teardown_env()
     if attach_full:
@@ -1161,10 +1337,37 @@ def main(argv: List[str]) -> int:
     p.add_argument("--signal-ttl-bars", type=int, default=1,
                    help="Clock bars a strategy's latest signal stays live (1 = act on the freshest only).")
     p.add_argument("--clock-tf", default="15m", choices=list(_PANDAS_TF.keys()))
-    p.add_argument("--flip-policy", default="reverse", choices=["reverse", "hold", "flat"],
+    p.add_argument("--flip-policy", default="reverse",
+                   choices=["reverse", "hold", "flat", "selective"],
                    help="On an opposite net vote with a position open: reverse "
                         "(close+open new side, live-faithful), hold (ignore the "
-                        "flip, let monitor/SL exit), or flat (close, stand aside).")
+                        "flip, let monitor/SL exit), flat (close, stand aside), or "
+                        "selective (Unit A § 7: flip ONLY when the confidence-gap+"
+                        "age gate AND the fee-aware EV gate both pass — charges all "
+                        "four fills; then conditionally re-enters the displaced "
+                        "trend). Mirrors the live FLIP_POLICY=selective path.")
+    # --- FLIP_POLICY=selective gate knobs (Unit A § 7.4). Only consulted when
+    # --flip-policy selective; faithful to the live resolver defaults. ---
+    p.add_argument("--flip-confidence-threshold", type=float, default=0.0,
+                   help="selective gate (a): min confidence gap (new − held) to "
+                        "allow a flip (live FLIP_CONFIDENCE_THRESHOLD; 0 → never "
+                        "flips, the gate is armed only when > 0).")
+    p.add_argument("--flip-min-position-age-hours", type=float, default=0.0,
+                   help="selective gate (a): min held-position age (hours) before "
+                        "a flip is allowed (live FLIP_MIN_POSITION_AGE_HOURS).")
+    p.add_argument("--flip-ev-margin", type=float, default=0.0,
+                   help="selective gate (b): min EV_flip (USD) after the four-fill "
+                        "round-trip cost (live FLIP_EV_MARGIN_USD).")
+    p.add_argument("--flip-reentry-min-confidence", type=float, default=0.0,
+                   help="selective § 7.2: min re-emit confidence to re-establish "
+                        "the displaced trend (live FLIP_REENTRY_MIN_CONFIDENCE).")
+    p.add_argument("--flip-reentry-window-bars", type=float, default=8.0,
+                   help="selective § 7.2: clock-TF bars the displaced trend stays "
+                        "re-entry-eligible (live FLIP_REENTRY_WINDOW_BARS; 0=off).")
+    p.add_argument("--flip-reentry-zone-frac", type=float, default=0.005,
+                   help="selective § 7.2: max fractional price drift from the "
+                        "displaced entry still 'in zone' for re-entry "
+                        "(live FLIP_REENTRY_ZONE_FRAC; 0=off).")
     p.add_argument("--reentry-policy", default="suppress", choices=["suppress", "net"],
                    help="Same-direction re-entry while a position is open: "
                         "suppress (Option-A fix / single-position, default) or "
@@ -1215,6 +1418,17 @@ def main(argv: List[str]) -> int:
     p.add_argument("--json", dest="json_out", default=None)
     args = p.parse_args(argv[1:])
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
+    # Promote the selective-arm knobs to module level so the run sees the same
+    # values the live resolvers would (Unit A § 7.4).
+    global _SELECTIVE_CONF_THRESHOLD, _SELECTIVE_MIN_AGE_HOURS, _SELECTIVE_EV_MARGIN
+    global _SELECTIVE_REENTRY_MIN_CONF, _SELECTIVE_REENTRY_WINDOW_BARS
+    global _SELECTIVE_REENTRY_ZONE_FRAC
+    _SELECTIVE_CONF_THRESHOLD = float(args.flip_confidence_threshold)
+    _SELECTIVE_MIN_AGE_HOURS = float(args.flip_min_position_age_hours)
+    _SELECTIVE_EV_MARGIN = float(args.flip_ev_margin)
+    _SELECTIVE_REENTRY_MIN_CONF = float(args.flip_reentry_min_confidence)
+    _SELECTIVE_REENTRY_WINDOW_BARS = float(args.flip_reentry_window_bars)
+    _SELECTIVE_REENTRY_ZONE_FRAC = float(args.flip_reentry_zone_frac)
 
     overrides: Dict[str, dict] = {}
     for ov in args.override:

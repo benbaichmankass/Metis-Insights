@@ -273,14 +273,21 @@ def get_existing_position_info(
     *,
     db_path: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Return confidence and age for the most-recent open trade on (account, symbol).
+    """Return confidence, age, entry, strategy + OP id for the most-recent open trade.
 
-    Used by the confidence-weighted flip override to decide whether a newer
-    signal is strong enough to supersede the hold policy.
+    Used by the confidence-weighted flip override (to decide whether a newer
+    signal is strong enough to supersede the hold policy) AND by the
+    ``FLIP_POLICY=selective`` displaced-intent record (Unit A § 7.2 — the held
+    trend's order-package id is where the record is persisted, and its entry is
+    the re-entry zone anchor).
 
-    Returns a dict ``{"confidence": float|None, "age_hours": float|None}``
+    Returns a dict ``{"confidence": float|None, "age_hours": float|None,
+    "entry": float|None, "strategy": str|None, "order_package_id": str|None}``
     for the most recent open trade, or ``None`` on journal miss / read failure
-    (fail-permissive — a read error never blocks a signal).
+    (fail-permissive — a read error never blocks a signal). The
+    ``order_package_id`` is the *string* ``order_packages.order_package_id``
+    (what ``update_order_package`` keys on), resolved via the canonical
+    ``trades.order_package_id`` → ``order_packages.id`` join.
     """
     path = db_path or _trade_journal_path()
     if not os.path.exists(path):
@@ -288,7 +295,8 @@ def get_existing_position_info(
     try:
         with sqlite3.connect(path) as conn:
             row = conn.execute(
-                "SELECT t.created_at, op.confidence "
+                "SELECT t.created_at, op.confidence, op.entry, "
+                "       t.strategy_name, op.order_package_id "
                 "FROM trades t "
                 "LEFT JOIN order_packages op ON t.order_package_id = op.id "
                 "WHERE t.account_id = ? AND t.symbol = ? "
@@ -298,7 +306,7 @@ def get_existing_position_info(
             ).fetchone()
         if not row:
             return None
-        created_at_raw, confidence = row
+        created_at_raw, confidence, entry, strategy_name, op_id = row
         age_hours: Optional[float] = None
         if created_at_raw:
             try:
@@ -314,6 +322,9 @@ def get_existing_position_info(
         return {
             "confidence": float(confidence) if confidence is not None else None,
             "age_hours": age_hours,
+            "entry": float(entry) if entry is not None else None,
+            "strategy": str(strategy_name) if strategy_name else None,
+            "order_package_id": str(op_id) if op_id else None,
         }
     except Exception as exc:  # noqa: BLE001
         logger.warning(

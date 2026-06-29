@@ -307,7 +307,25 @@ _VALID_SIDES: frozenset[str] = frozenset({"long", "short", "flat"})
 # suppression (the coordinator logs the resulting ``noop`` to the trade
 # journal as ``intent_noop:flip_suppressed_hold_policy:…``), consistent with
 # the Prime Directive's "no silent state" rule.
-FLIP_POLICIES: frozenset[str] = frozenset({"reverse", "hold", "flat"})
+#   "selective" (OPT-IN, Unit A § 7) — the PnL-optimal mode: keep the held
+#             position UNLESS the opposing counter-signal is BOTH (a) strong
+#             enough (confidence gap + position age — reuses the existing
+#             FLIP_CONFIDENCE_THRESHOLD / FLIP_MIN_POSITION_AGE_HOURS override
+#             machinery) AND (b) profitable enough net of the FULL four-fill
+#             round-trip cost (the fee-aware EV gate in src/runtime/flip_ev.py,
+#             § 7.1(b): close H + open N + close N + re-open H). Only when BOTH
+#             gates pass does it ``flip`` (close the trend, let the scalp run);
+#             otherwise it ``hold``s exactly like the default. The age/regime
+#             guard (gate c) is satisfied structurally: the regime hard gate
+#             runs in aggregate_intents BEFORE the delta is computed, so a
+#             regime-gated scalp never reaches this flip decision. **Tier-3 —
+#             order-routing-affecting; opt-in via FLIP_POLICY=selective, default
+#             stays ``hold``. Promotion to a live account is backtest- + operator-
+#             gated (§ 7.4 / § 8).** The conditional trend re-entry after the
+#             scalp closes (§ 7.2) lives in src/runtime/flip_reentry.py +
+#             Coordinator.multi_account_execute, NOT here — this function only
+#             decides the immediate displace-or-hold delta.
+FLIP_POLICIES: frozenset[str] = frozenset({"reverse", "hold", "flat", "selective"})
 _DEFAULT_FLIP_POLICY: str = "hold"
 
 
@@ -416,6 +434,69 @@ def _evaluate_confidence_override(
         f"new_conf={float(new_conf):.3f} old_conf={float(existing_confidence):.3f} "
         f"gap={gap:.3f}≥{threshold:.3f}{age_str}"
     )
+
+
+def _evaluate_flip_ev_gate(
+    desired,
+    *,
+    current_signed_qty: float,
+    target_qty: float,
+):
+    """Compute the fee-aware EV gate (§ 7.1(b)) for a would-be selective flip.
+
+    Returns a ``(passes: bool, flip_ev)`` tuple. ``flip_ev`` is the
+    ``flip_ev.FlipEv`` result (or ``None`` if the EV module can't be imported
+    — fail-safe: an unavailable gate is treated as NOT-passing, never a free
+    flip). The scalp's qty/notional is the resolved ``target_qty`` (the
+    risk-sized qty the executor will actually send); the held notional is
+    ``|current_signed_qty| × scalp_entry`` (price-of-record proxy — both legs
+    of the held trend's close + re-open are charged at the current price, which
+    is the right cost basis for the prospective four fills).
+
+    Scalp entry/sl/tp + confidence come from the winning intent when the
+    aggregator produced one, else from ``desired.meta`` (the
+    package-bridged path, which surfaces ``incoming_*``).
+    """
+    try:
+        from src.runtime.flip_ev import compute_flip_ev, flip_ev_passes
+    except Exception:  # noqa: BLE001 — gate unavailable → fail-safe (no flip)
+        return False, None
+
+    winning = getattr(desired, "winning_intent", None)
+    meta = getattr(desired, "meta", None) or {}
+
+    def _pick(attr: str, *meta_keys):
+        if winning is not None:
+            v = getattr(winning, attr, None)
+            if v is not None:
+                return v
+        for k in meta_keys:
+            if meta.get(k) is not None:
+                return meta.get(k)
+        return None
+
+    scalp_entry = _pick("entry", "incoming_entry", "entry")
+    scalp_sl = _pick("sl", "incoming_sl", "sl")
+    scalp_tp = _pick("tp", "incoming_tp", "tp")
+    scalp_conf = _pick("confidence", "incoming_confidence")
+
+    scalp_qty = float(target_qty)
+    held_notional: Optional[float] = None
+    if scalp_entry is not None:
+        try:
+            held_notional = abs(float(current_signed_qty)) * float(scalp_entry)
+        except (TypeError, ValueError):
+            held_notional = None
+
+    flip_ev = compute_flip_ev(
+        held_notional=held_notional,
+        scalp_entry=scalp_entry,
+        scalp_sl=scalp_sl,
+        scalp_tp=scalp_tp,
+        scalp_qty=scalp_qty,
+        scalp_confidence=scalp_conf,
+    )
+    return flip_ev_passes(flip_ev), flip_ev
 
 
 # ---------------------------------------------------------------------------
@@ -1537,6 +1618,63 @@ def compute_execution_delta(
             desired.symbol, _hold_override_reason, current_side, desired.side,
         )
 
+    # selective (Unit A § 7) — flip ONLY when BOTH gates pass:
+    #   (a) the confidence-gap + age override (same machinery as the hold-policy
+    #       override above), AND
+    #   (b) the fee-aware EV gate (§ 7.1(b)): the scalp's expected edge must
+    #       clear the full four-fill round-trip cost.
+    # The age/regime guard (gate c) is satisfied upstream — the regime hard gate
+    # runs in aggregate_intents before this delta is computed, so a regime-gated
+    # scalp never reaches here. If EITHER gate fails the position is HELD
+    # (action="noop"), byte-for-byte the hold behaviour. Both gates passing falls
+    # through to the flip return below with a selective audit prefix.
+    _selective_ev_reason: Optional[str] = None
+    if policy == "selective":
+        _conf_reason = _evaluate_confidence_override(
+            desired, existing_confidence, existing_age_hours
+        )
+        if _conf_reason is None:
+            return ExecutionDelta(
+                action="noop",
+                side=None,
+                qty_delta=0.0,
+                target_qty=target,
+                current_qty=current,
+                reason=(
+                    f"flip_suppressed_selective_confidence: desired {desired.side} "
+                    f"opposes current {current_side} (qty={current_abs}); "
+                    f"confidence/age gate not met — holding for owner exit"
+                ),
+            )
+        _ev_ok, _flip_ev = _evaluate_flip_ev_gate(
+            desired,
+            current_signed_qty=current,
+            target_qty=target,
+        )
+        _ev_detail = getattr(_flip_ev, "reason", "ev_gate_unavailable")
+        if not _ev_ok:
+            return ExecutionDelta(
+                action="noop",
+                side=None,
+                qty_delta=0.0,
+                target_qty=target,
+                current_qty=current,
+                reason=(
+                    f"flip_suppressed_selective_ev: desired {desired.side} "
+                    f"opposes current {current_side} (qty={current_abs}); "
+                    f"EV gate failed [{_ev_detail}] — holding for owner exit"
+                ),
+            )
+        _selective_ev_reason = _ev_detail
+        _hold_override_reason = (
+            f"selective_flip conf=({_conf_reason}) ev=({_ev_detail})"
+        )
+        import logging as _logging
+        _logging.getLogger(__name__).info(
+            "[intents] selective flip for %s: %s → allowing flip %s→%s",
+            desired.symbol, _hold_override_reason, current_side, desired.side,
+        )
+
     if policy == "flat" and _hold_override_reason is None:
         # Close the conflicting position but stand aside — do not re-open.
         return ExecutionDelta(
@@ -1551,14 +1689,19 @@ def compute_execution_delta(
             ),
         )
 
-    # policy == "reverse" (default), OR hold-policy confidence override:
-    # close leg qty=current_abs (implicit), new leg qty=target. The caller
-    # is responsible for sequencing the two legs (close first, then open)
-    # and for applying the per-account risk gate to each.
-    _flip_prefix = (
-        f"hold_confidence_override ({_hold_override_reason}): "
-        if _hold_override_reason else ""
-    )
+    # policy == "reverse" (default), OR hold-policy confidence override, OR
+    # selective (both gates passed): close leg qty=current_abs (implicit), new
+    # leg qty=target. The caller is responsible for sequencing the two legs
+    # (close first, then open) and for applying the per-account risk gate to
+    # each. The reason prefix names WHICH path authorised the flip so the
+    # coordinator can recognise a selective flip (to record the displaced
+    # intent) and the audit log partitions reverse vs override vs selective.
+    if policy == "selective" and _selective_ev_reason is not None:
+        _flip_prefix = f"selective_flip ({_hold_override_reason}): "
+    elif _hold_override_reason:
+        _flip_prefix = f"hold_confidence_override ({_hold_override_reason}): "
+    else:
+        _flip_prefix = ""
     return ExecutionDelta(
         action="flip",
         side=desired.side,
@@ -1668,6 +1811,12 @@ def compute_execution_delta_for_package(
             # Surface pkg.confidence for _evaluate_confidence_override, which
             # reads meta["incoming_confidence"] when winning_intent is None.
             "incoming_confidence": getattr(pkg, "confidence", None),
+            # Surface the scalp's order geometry for the selective-flip EV gate
+            # (§ 7.1(b)) — read by _evaluate_flip_ev_gate via incoming_* keys
+            # when there's no winning_intent (the package-bridged path).
+            "incoming_entry": getattr(pkg, "entry", None),
+            "incoming_sl": getattr(pkg, "sl", None),
+            "incoming_tp": getattr(pkg, "tp", None),
         },
     )
     return compute_execution_delta(

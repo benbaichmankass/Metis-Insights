@@ -1651,6 +1651,70 @@ class Coordinator:
                         "current_qty": delta.current_qty,
                         "reason": delta.reason,
                     }
+                    # FLIP_POLICY=selective conditional RE-ENTRY (Unit A § 7.2).
+                    # When this is a fresh OPEN (account flat) for a strategy that
+                    # had a trend DISPLACED by a selective flip, the displaced
+                    # record (armed_ready once the scalp closed) gates whether the
+                    # trend is re-established: re-open ONLY if the trend is STILL
+                    # valid (in-zone, regime unchanged, confidence ≥ floor, within
+                    # the window) — never resurrect a stale signal. A failed gate
+                    # journals ``flip_reentry_skipped:<reason>`` and suppresses the
+                    # open. Opt-in + best-effort: ``consume_reentry_for_signal``
+                    # returns None (no behaviour change) unless there is an armed
+                    # record for this exact (account, symbol, strategy).
+                    if delta.action == "open":
+                        try:
+                            from src.runtime.flip_reentry import (
+                                consume_reentry_for_signal,
+                            )
+                            _reentry = consume_reentry_for_signal(
+                                account=account.name,
+                                symbol=pkg.symbol,
+                                strategy=pkg.strategy,
+                                signal_side=pkg.direction,
+                                signal_confidence=getattr(pkg, "confidence", None),
+                                signal_price=getattr(pkg, "entry", None),
+                                signal_regime=(
+                                    (pkg.meta or {}).get("regime")
+                                    if getattr(pkg, "meta", None) else None
+                                ),
+                            )
+                        except Exception as _re_exc:  # noqa: BLE001
+                            logger.warning(
+                                "[coordinator] selective re-entry eval failed for "
+                                "%s/%s/%s: %s — proceeding with normal open",
+                                account.name, pkg.symbol, pkg.strategy, _re_exc,
+                            )
+                            _reentry = None
+                        if _reentry is not None and not _reentry.reenter:
+                            _skip_reason = f"flip_reentry_skipped:{_reentry.reason}"
+                            logger.info(
+                                "[coordinator] selective re-entry declined for "
+                                "%s/%s/%s: %s",
+                                account.name, pkg.symbol, pkg.strategy,
+                                _reentry.reason,
+                            )
+                            from src.units.accounts.execute import (
+                                log_rejection_to_journal,
+                            )
+                            log_rejection_to_journal(
+                                pkg, account_cfg,
+                                reason=_skip_reason,
+                                status="rejected",
+                                sized_qty=0.0,
+                            )
+                            results.append({
+                                "name": account.name,
+                                "exchange": account.exchange,
+                                "account_type": account.account_type,
+                                "trade_id": None,
+                                "sized_qty": 0.0,
+                                "error": f"intent_noop:{_skip_reason}",
+                            })
+                            continue
+                        # _reentry.reenter True (or None) → let the open proceed
+                        # through the normal path below; the record is already
+                        # marked ``reentered`` by consume_reentry_for_signal.
                     # Position-netting guard — monocle half (Option A,
                     # BL-20260608-DEMOPNL). In one-way mode every
                     # same-direction re-entry NETS into the single shared
@@ -1965,6 +2029,33 @@ class Coordinator:
                         sized_qty=_leg["qty"],
                     )
                 trade_id = leg_trade_ids[-1] if leg_trade_ids else None
+                # FLIP_POLICY=selective (Unit A § 7.2): on a selective flip, the
+                # held trend (H) was just closed (the flip_close leg) to take the
+                # counter-signal scalp (N, the flip_open leg). Record the displaced
+                # trend so the order-monitor close path can conditionally re-open
+                # it once the scalp closes (re-entry is evaluated on a LATER live
+                # tick — never a stale replay). Best-effort + opt-in: inert unless
+                # FLIP_POLICY=selective produced a flip, never raises, never
+                # affects the dispatch result.
+                try:
+                    if (
+                        intent_mode
+                        and delta is not None
+                        and delta.action == "flip"
+                        and str(delta.reason or "").startswith("selective_flip")
+                        and _existing_pos_info
+                    ):
+                        _record_displaced_intent_on_flip(
+                            account_name=account.name,
+                            pkg=pkg,
+                            existing_pos_info=_existing_pos_info,
+                            current_signed_qty=current_signed_qty,
+                        )
+                except Exception as _disp_exc:  # noqa: BLE001 — never block dispatch
+                    logger.warning(
+                        "[coordinator] selective displaced-intent record failed "
+                        "for %s/%s: %s", account.name, pkg.symbol, _disp_exc,
+                    )
                 results.append({
                     "name": account.name,
                     "exchange": account.exchange,
@@ -2665,6 +2756,78 @@ class Coordinator:
 def is_paused(account_id: str) -> bool:
     """Check if *account_id* is currently halted.  Used by accounts unit (PR #122)."""
     return account_id in _PAUSED_ACCOUNTS
+
+
+def _record_displaced_intent_on_flip(
+    *,
+    account_name: str,
+    pkg: "OrderPackage",
+    existing_pos_info: Dict[str, Any],
+    current_signed_qty: float,
+) -> None:
+    """Persist the displaced-trend record after a ``FLIP_POLICY=selective`` flip.
+
+    Unit A § 7.2. The held trend ``H`` (its strategy / entry / confidence /
+    order-package id read from ``existing_pos_info``) was just closed by the
+    flip's close leg; record it on its OWN ``order_packages`` row so the
+    order-monitor close path can conditionally re-open it once the scalp closes
+    (re-entry evaluated on a later live tick). Best-effort — the caller wraps
+    this in a try/except so a record-write failure never affects the dispatch.
+
+    The displaced trend's SIDE is the opposite of the incoming scalp
+    (``pkg.direction``): a flip only occurs on opposing sides, and the held
+    position's side is therefore the opposite of the new desired side.
+    """
+    from src.runtime.flip_reentry import (
+        DisplacedIntent,
+        STATUS_ARMED_PENDING,
+        persist_displaced_intent,
+    )
+
+    op_id = existing_pos_info.get("order_package_id")
+    if not op_id:
+        # No canonical row to project onto → can't persist (§ 7.2 requires the
+        # record to ride order_packages, not in-process state). Skip cleanly.
+        logger.info(
+            "[coordinator] selective flip on %s/%s: no held order_package_id — "
+            "displaced-intent record skipped (re-entry won't fire)",
+            account_name, pkg.symbol,
+        )
+        return
+
+    displaced_side = "long" if float(current_signed_qty) > 0 else "short"
+    held_strategy = existing_pos_info.get("strategy") or "unknown"
+
+    bar_seconds = 0.0
+    try:
+        from src.runtime.strategy_monocle import _strategy_timeframe_seconds
+        bs = _strategy_timeframe_seconds(held_strategy)
+        bar_seconds = float(bs) if bs else 0.0
+    except Exception:  # noqa: BLE001 — window time-gate degrades to bars-only
+        bar_seconds = 0.0
+
+    import time as _time
+    from src.runtime.flip_reentry import resolve_flip_reentry_window_bars
+    record = DisplacedIntent(
+        account=account_name,
+        symbol=pkg.symbol,
+        strategy=str(held_strategy),
+        side=displaced_side,
+        entry=existing_pos_info.get("entry"),
+        confidence=existing_pos_info.get("confidence"),
+        regime=(pkg.meta or {}).get("regime") if getattr(pkg, "meta", None) else None,
+        order_package_id=str(op_id),
+        displaced_at=_time.time(),
+        window_bars=resolve_flip_reentry_window_bars(),
+        bar_seconds=bar_seconds,
+        status=STATUS_ARMED_PENDING,
+    )
+    ok = persist_displaced_intent(record)
+    logger.info(
+        "[coordinator] selective flip on %s/%s: recorded displaced trend "
+        "%s %s (pkg=%s) for conditional re-entry — persisted=%s",
+        account_name, pkg.symbol, held_strategy, displaced_side, op_id, ok,
+    )
 
 
 def _build_intent_legs(pkg: "OrderPackage", delta) -> List[Dict[str, Any]]:

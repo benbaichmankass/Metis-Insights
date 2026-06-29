@@ -586,6 +586,25 @@ def _full_close_trade_and_package(
 
     summary.closed_count += 1
 
+    # FLIP_POLICY=selective re-entry trigger (Unit A § 7.2) — best-effort,
+    # opt-in. When a position closes, arm any pending displaced-trend record for
+    # this (account, symbol) so the NEXT live tick evaluates conditional
+    # re-entry. Inert unless a selective flip previously recorded a displaced
+    # intent; never affects the close that just happened.
+    try:
+        _close_rows = db.get_trades(filters={"id": linked_trade_id})
+        _close_row = _close_rows[0] if _close_rows else {}
+        _acct = _close_row.get("account_id")
+        _sym = _close_row.get("symbol")
+        if _acct and _sym:
+            from src.runtime.flip_reentry import arm_ready_on_scalp_close
+            arm_ready_on_scalp_close(str(_acct), str(_sym), db=db)
+    except Exception as _reentry_exc:  # noqa: BLE001 — re-entry arming is optional
+        logger.debug(
+            "order_monitor: selective re-entry arm skipped for trade=%s: %s",
+            linked_trade_id, _reentry_exc,
+        )
+
     # Trade-lifecycle close ping (TELEGRAM-SPEC §4.2) — best-effort. The
     # close is already recorded; a ping failure must never affect it.
     try:
