@@ -58,6 +58,12 @@ _EXPECTED_TRADES_COLS = {
     # to resolve) / 'reconciled' (tied to its real package) / 'superseded'
     # (phantom flap dup void-flagged by the historical reconciliation pass).
     "reconcile_status",
+    # Added 2026-06-29 (M18 P0a, capital-allocator cost capture): per-trade
+    # transaction cost so the allocator's EV scorer has a cost feature + a
+    # future learned ranker gets net-R labels. The close path stamps a
+    # fixed-model 'estimate'; a broker-truth writer upgrades cost_source to
+    # 'broker' + fills maker/funding. NULL on pre-migration + backtest rows.
+    "fee_taker_usd", "fee_maker_usd", "funding_paid_usd", "cost_source",
 }
 
 _EXPECTED_ORDER_PACKAGES_COLS = {

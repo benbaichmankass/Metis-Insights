@@ -172,6 +172,39 @@ def _migrate_add_reconcile_status(cursor: sqlite3.Cursor) -> bool:
     return True
 
 
+def _migrate_add_trade_costs(cursor: sqlite3.Cursor) -> bool:
+    """Add the per-trade transaction-cost columns to ``trades`` if absent (M18 P0a).
+
+    Captures what the per-cell live path never recorded: the trade's transaction
+    cost, so the M18 capital allocator's EV scorer can learn cost as a feature and
+    a future learned ranker gets an unbiased net-R label (the #1 data gap — see
+    ``docs/research/capital-allocation-ai-DESIGN.md`` § 4).
+
+    * ``fee_taker_usd``     — taker fees paid over the round trip (USD).
+    * ``fee_maker_usd``     — maker fees (USD); NULL until a broker-truth writer
+                              splits maker/taker.
+    * ``funding_paid_usd``  — cumulative perp funding / prop swap (USD); NULL until
+                              the broker-truth + hold-time writer lands.
+    * ``cost_source``       — ``'broker'`` (exchange-reported) / ``'estimate'``
+                              (fixed round-trip model) / NULL (uncosted).
+
+    The close path stamps a fixed-model ``estimate`` today; a broker-truth writer
+    (where the integration exposes per-fill fees + funding) is the follow-up that
+    upgrades the source to ``'broker'``. Pre-existing + backtest rows stay NULL.
+
+    Idempotent: returns True only on the run that actually adds the columns.
+    """
+    cursor.execute("PRAGMA table_info(trades)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "cost_source" in columns:
+        return False
+    cursor.execute("ALTER TABLE trades ADD COLUMN fee_taker_usd REAL")
+    cursor.execute("ALTER TABLE trades ADD COLUMN fee_maker_usd REAL")
+    cursor.execute("ALTER TABLE trades ADD COLUMN funding_paid_usd REAL")
+    cursor.execute("ALTER TABLE trades ADD COLUMN cost_source TEXT")
+    return True
+
+
 def _migrate_add_order_package_model_scores(cursor: sqlite3.Cursor) -> bool:
     """Add ``model_scores`` column to ``order_packages`` if absent.
 
@@ -295,6 +328,10 @@ class Database:
                 account_class TEXT,
                 order_package_id TEXT,
                 closed_at TEXT,
+                fee_taker_usd REAL,
+                fee_maker_usd REAL,
+                funding_paid_usd REAL,
+                cost_source TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -306,6 +343,7 @@ class Database:
         _migrate_add_order_package_id(cursor)
         _migrate_add_closed_at(cursor)
         _migrate_add_reconcile_status(cursor)
+        _migrate_add_trade_costs(cursor)
         # Index for efficient per-account trade history queries.
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_trades_account_created "
@@ -668,7 +706,68 @@ class Database:
                     self._fire_trade_updated_event(int(trade_id))
             except Exception:  # noqa: BLE001  # allow-silent: M12 S1 observer hook — notifier failure must never propagate into trader close path
                 pass
+            # M18 P0a — observe-only cost capture. On a close, stamp a fixed-model
+            # round-trip fee estimate (trades.fee_taker_usd / cost_source) so the
+            # capital allocator's EV scorer has a cost feature + a future learned
+            # ranker gets net-R labels. Its OWN guard so a cost-write failure can
+            # never propagate into (or be skipped by) the close path / notifier.
+            if status_str == "closed":
+                try:
+                    self._record_trade_cost_estimate(int(trade_id))
+                except Exception:  # noqa: BLE001  # allow-silent: observe-only cost capture must never propagate into trader close path
+                    pass
         return rowcount
+
+    def _record_trade_cost_estimate(self, trade_id: int) -> None:
+        """Stamp a fixed-model round-trip fee estimate on a just-closed trade (M18 P0a).
+
+        Observe-only substrate for the capital allocator's EV scorer + a future
+        learned ranker's net-R label. **Best-effort — never propagates** into the
+        trader's close path. Skips:
+
+        * **backtest rows** (``is_backtest`` truthy) — costs are modelled in the
+          harness, not the live journal;
+        * rows that already carry a cost (``cost_source`` set / ``fee_taker_usd``
+          present) — **never overwrites broker truth** or a prior estimate.
+
+        Resolves the symbol's USD-per-point multiplier via the canonical
+        ``contract_value_usd_for`` (futures-aware, fail-safe to 1.0) so a futures
+        notional is costed correctly. Writes ``fee_taker_usd`` +
+        ``cost_source='estimate'`` in its own connection (the update's conn is
+        already closed by here, mirroring ``_fire_trade_closed_event``).
+        """
+        from src.runtime.local_pnl import contract_value_usd_for
+        from src.runtime.trade_costs import estimate_roundtrip_fee_usd
+
+        conn = self.connect()
+        try:
+            cur = conn.execute(
+                "SELECT entry_price, position_size, symbol, is_backtest, "
+                "fee_taker_usd, cost_source FROM trades WHERE id = ?",
+                (int(trade_id),),
+            )
+            r = cur.fetchone()
+            if r is None:
+                return
+            entry, qty, symbol, is_backtest, fee_existing, cost_src = r
+            if is_backtest:
+                return
+            if cost_src is not None or fee_existing is not None:
+                return  # never overwrite broker truth / a prior estimate
+            fee = estimate_roundtrip_fee_usd(
+                entry_price=entry,
+                qty=qty,
+                contract_value_usd=contract_value_usd_for(symbol),
+            )
+            if fee is None:
+                return
+            conn.execute(
+                "UPDATE trades SET fee_taker_usd = ?, cost_source = ? WHERE id = ?",
+                (round(float(fee), 8), "estimate", int(trade_id)),
+            )
+            conn.commit()
+        finally:
+            conn.close()
 
     def _fire_trade_closed_event(self, trade_id: int) -> None:
         """Read the just-closed row and fire the mobile-push observer.
