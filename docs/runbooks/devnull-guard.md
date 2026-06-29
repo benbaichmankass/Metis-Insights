@@ -45,6 +45,31 @@ Defense in depth — all shipped, deploy via `ict-git-sync`:
 2. **`scripts/deploy_pull_restart.sh` self-heal** — restores `0666` at the top
    (best-effort `sudo -n chmod`) before any redirect, so even a deploy that
    races the guard recovers itself.
+3. **`scripts/ops/_lib.sh::require_systemctl` self-heal (2026-06-29,
+   BL-20260629)** — the operator-action wrappers (`pull-and-deploy` /
+   `restart-bot-service` / `reboot-vm` via `system-actions.yml`) used to only
+   *detect* a clobbered `/dev/null` and abort with an error telling the operator
+   to SSH in and `mknod` by hand (an autonomy-contract violation: a runner holds
+   `VM_SSH_KEY` and can repair it itself). They now self-heal in place like the
+   deploy path — `sudo -n chmod 0666` (mode-strip variant) then
+   `sudo -n sh -c 'rm -f /dev/null && mknod -m 666 /dev/null c 1 3'`
+   (regular-file-clobber variant) — and only abort if `/dev/null` is *still*
+   unwritable afterwards, pointing at the `vm-fix-devnull` workflow rather than
+   a manual command.
+
+### Guard `%`-specifier bug (found + fixed 2026-06-29, BL-20260629)
+
+The guard's `ExecStart` ran `stat -c %t:%T` and `stat -c %a` **directly in the
+systemd unit**. systemd expands `%`-specifiers in `ExecStart` *before* the shell
+runs, so `%t`/`%T` became the runtime/tmp dirs and `%a` became the architecture
+string — the tell-tale journal line was `chmod 0666 /dev/null (was arm64)`. The
+drift checks (`!= "1:3"`, `!= "666"`) therefore **never matched**, so the guard
+recreated + chmod'd `/dev/null` on **every** 60 s run unconditionally instead of
+being a silent no-op, and it wasn't actually verifying health. Fixed by doubling
+the specifiers (`%%t:%%T` / `%%a`) so systemd un-escapes them to the intended
+`stat` formats. The guard still kept `/dev/null` a valid `1:3` device each
+minute, so this was noise + a needless rm/mknod per minute, not an outage — but
+it masked that the guard's detection was inert.
 
 ## Manual repair (one-shot, if ever needed)
 

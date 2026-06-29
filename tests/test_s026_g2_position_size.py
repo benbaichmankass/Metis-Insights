@@ -161,26 +161,23 @@ class TestPositionSizeContract:
         # to exercise the live plumbing without sizing real risk in.
         assert rm.position_size(pkg, balance_usd=0.0) == pytest.approx(0.0001)
 
-    def test_strategy_risk_pct_meta_scales_qty(self):
-        """When the multiplexer tags a per-strategy risk allocation in
-        meta.strategy_risk_pct (S-026 G1), the sizer multiplies it into
-        risk_pct so two strategies on the same account split risk
-        instead of doubling it.
+    def test_legacy_strategy_risk_pct_meta_is_ignored(self):
+        """The per-strategy risk multiplier was removed 2026-06-29: sizing is
+        the account-level risk_pct basis only (× the RiskManager confidence
+        scalar, which is ``off``/1.0 here). A leftover
+        meta["strategy_risk_pct"] must NOT change the size.
 
-        leverage=100 keeps the 2026-05-12 margin pre-flight cap from
-        binding on the full-risk leg (which would break the exact 2:1
-        ratio this test pins).
+        leverage=100 keeps the 2026-05-12 margin pre-flight cap from binding.
         """
-        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50,
-                          "leverage": 100})
-        pkg_full = _pkg()  # no meta override → strategy_risk_pct=1.0
-        pkg_half = _pkg()
-        pkg_half.meta = {"strategy_risk_pct": 0.5}
+        rm = RiskManager({"risk_pct": 0.01, "leverage": 100})
+        pkg_plain = _pkg()
+        pkg_legacy = _pkg()
+        pkg_legacy.meta = {"strategy_risk_pct": 0.5}  # legacy field — must be ignored
 
-        qty_full = rm.position_size(pkg_full, balance_usd=10_000.0)
-        qty_half = rm.position_size(pkg_half, balance_usd=10_000.0)
+        qty_plain = rm.position_size(pkg_plain, balance_usd=10_000.0)
+        qty_legacy = rm.position_size(pkg_legacy, balance_usd=10_000.0)
 
-        assert qty_half == pytest.approx(qty_full / 2.0, rel=1e-3)
+        assert qty_legacy == pytest.approx(qty_plain, rel=1e-3)
 
 
 class TestSizeOrderFromCfgDelegatesToRiskManager:

@@ -75,7 +75,7 @@ def test_yaml_entries_pin_validated_params():
     assert iwm["signal_prefixes"] == ["iwm_trend_long", "iwm_trend"]
     assert (iwm["donchian"], iwm["atr_period"], iwm["atr_stop_mult"]) == (30, 14, 2.5)
     assert (iwm["trail_mult"], iwm["tp_r"]) == (4.0, 50.0)
-    assert iwm["risk_pct"] == 0.3 and iwm["timeframe"] == "1d"
+    assert iwm["timeframe"] == "1d"
     assert iwm["min_confidence"] == 0.0 and iwm["shadow_model_ids"] == []
     assert iwm["model"] is None
     # TLT — bidirectional bond pullback (gld clone)
@@ -85,7 +85,7 @@ def test_yaml_entries_pin_validated_params():
     assert tlt["signal_prefixes"] == ["tlt_pullback"]
     assert (tlt["trend_lookback"], tlt["pullback_lookback"], tlt["pullback_frac"]) == (40, 10, 0.618)
     assert (tlt["atr_period"], tlt["atr_stop_mult"], tlt["trail_mult"]) == (14, 2.5, 5.0)
-    assert tlt["risk_pct"] == 0.3 and tlt["timeframe"] == "1d"
+    assert tlt["timeframe"] == "1d"
     assert tlt["shadow_model_ids"] == []
     # IEF — bidirectional bond pullback (gld clone)
     ief = cfg["ief_pullback_1d"]
@@ -94,7 +94,7 @@ def test_yaml_entries_pin_validated_params():
     assert ief["signal_prefixes"] == ["ief_pullback"]
     assert (ief["trend_lookback"], ief["pullback_lookback"], ief["pullback_frac"]) == (30, 10, 0.5)
     assert (ief["atr_period"], ief["atr_stop_mult"], ief["trail_mult"]) == (14, 2.5, 5.0)
-    assert ief["risk_pct"] == 0.3 and ief["timeframe"] == "1d"
+    assert ief["timeframe"] == "1d"
     assert ief["shadow_model_ids"] == []
 
 
