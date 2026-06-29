@@ -6,7 +6,9 @@ description: >
   that serializes PRs so concurrent sessions don't race a merge and force each
   other into behind-rebase retest churn. Use at the START of every session and
   BEFORE every merge. Owns docs/claude/session-board.json. Composes with
-  git-actions (dispatch), doc-freshness (session end), full-system-audit.
+  git-actions (dispatch), doc-freshness (session end), full-system-audit, and
+  delegate-work (the "how to split + run a big task" half — this skill is the
+  "how concurrent sessions don't collide at merge" half).
 ---
 
 # session-coordination — preflight + the multi-session merge protocol
