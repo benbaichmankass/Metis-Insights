@@ -1049,7 +1049,15 @@
       "trigger_condition": "snoozed_until 2026-06-30; the next /ml-review or /system-review; or any session the operator pings to 'check the A soak'.",
       "resolution_criteria": "The enforce decision is taken (flip to use+router with operator approval) OR explicitly held with the soak read recorded. Closes when A is either enforcing live or the soak surfaced a live!=backtest divergence that blocks it.",
       "status": "open",
-      "snoozed_until": "2026-06-30T15:00:00+00:00"
+      "snoozed_until": "2026-06-30T15:00:00+00:00",
+      "updates": [
+        {
+          "at": "2026-06-29T12:35:00+00:00",
+          "by": "claude (/system-review since-last 2026-06-29)",
+          "status": "open",
+          "note": "FIRST live ML-label vol-gate enforced fire OBSERVED 2026-06-29T12:13Z (audit id 632682: BTCUSDT trend_donchian, vol_label_source=ml, vol_enforced=true, vol_cell=off). The advisory btc-regime-15m-lgbm-v2 head is fresh (last_seen 12:10Z, 214 advisory preds). Soak is accruing as designed; the enforce-decision first-look (~2026-06-30) stands. Keeping open as awaiting-decision (Tier-3 operator enforce call)."
+        }
+      ]
     },
     {
       "id": "MB-20260627-002",
@@ -1136,5 +1144,5 @@
       "updated_at": "2026-06-28T09:00:00+00:00"
     }
   ],
-  "updated_at": "2026-06-28T09:00:00+00:00"
+  "updated_at": "2026-06-29T12:35:00+00:00"
 }

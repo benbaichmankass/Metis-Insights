@@ -60,7 +60,14 @@
       "resolution_criteria": "Real Breakout swap confirmed (≈0.033%/day or corrected) AND >=10-20 closed prop ETH trades compared to the EV projection, with a documented keep/tune/drop decision per leg.",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-06-29T12:35:00+00:00",
+          "by": "claude (/system-review since-last 2026-06-29)",
+          "status": "in_progress",
+          "note": "ETH prop legs CONFIRMED emitting + journaling: exit_ladder_soak shows venue=prop trend_donchian_eth ETHUSDT signals on breakout_1 (06-22..06-25), and an operator-reported ETH short close was ingested 2026-06-29 (prop_fills id 9, net +$18.81, ticket prop-manual-defdeaa5396d, prop_closed notified). HOWEVER a sibling prop leg FAILED: trend_donchian_sol on breakout_1 was REJECTED 2026-06-29T03:11Z 'sizing_failed: balance() returned None for breakout_1 (exchange=breakout): API error/credentials missing — account unreachable' — the API-less prop account can't size off a live balance() call, so that SOL prop ticket never emitted. Flagging the prop-sizing-via-balance() path as a wiring gap (prop should size off ruleset economics, not a broker balance() call)."
+        }
+      ]
     },
     {
       "id": "PB-20260622-002",
@@ -118,6 +125,12 @@
           "at": "2026-06-17T22:00:00+00:00",
           "by": "claude (S-DTP-EXITPLAN-2026-06-17)",
           "note": "Open follow-ups at session close: (a) live-VM accrual of exit_ladder_soak.jsonl is UNVERIFIED -- first task next session is to diag-confirm it populates after the next live opening order; (b) dashboard PR ict-trader-dashboard#107 (Exit Ladder tab) is DRAFT pending operator preview on the preview app -- merge to production only after approval; (c) P5 empirical reach-distribution feed for exit_plan_realism is deferred."
+        },
+        {
+          "at": "2026-06-29T12:35:00+00:00",
+          "by": "claude (/system-review since-last 2026-06-29)",
+          "status": "open",
+          "note": "Exit-ladder soak ACCRUING (runtime_logs/exit_ladder_soak.jsonl ~44KB, api+prop venues) but EVERY row has differs_from_single_target=false (n_rungs=0 -> the materialized ladder == the single SL/TP target). So the P4/P3-live graduation gate (n>=30 DIFFERING orders) is structurally un-trippable until partial-TP rungs are actually configured on the live strategies. Still soaking; graduation blocked on rung config, not sample size."
         }
       ]
     },
@@ -940,5 +953,5 @@
       ]
     }
   ],
-  "updated_at": "2026-06-28T04:12:30+00:00"
+  "updated_at": "2026-06-29T12:35:00+00:00"
 }
