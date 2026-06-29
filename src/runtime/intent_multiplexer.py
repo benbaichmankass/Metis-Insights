@@ -40,6 +40,7 @@ import os
 import time
 from typing import Any, Callable, Dict, List, Optional
 
+from src.core.signal_contract import SignalPackage
 from src.runtime.intents import (
     DEFAULT_PRIORITIES,
     DesiredPosition,
@@ -462,6 +463,77 @@ def _debounce_emissions(
     return kept
 
 
+# Top-level key under which the full per-tick candidate set is attached to the
+# returned pipeline signal (M18 P0b). Top-level (NOT under ``meta``) so it never
+# rides into ``order_bridge`` → ``pkg.meta`` (which gets JSON-serialised — a
+# typed SignalPackage there would break it). Mirrors the existing top-level
+# ``signal_package`` convention the centralized-allocator path already uses.
+CANDIDATE_BATCH_KEY = "candidate_signal_packages"
+
+
+def intents_to_signal_packages(
+    intents: List[StrategyIntent],
+) -> List[SignalPackage]:
+    """Project the per-tick candidate intents into typed ``SignalPackage``s.
+
+    This is the **full opportunity set** for the tick — every strategy's
+    actionable intent BEFORE ``aggregate_intents`` collapses them to one
+    ``DesiredPosition`` per symbol. It is the input a portfolio capital
+    allocator (M18) ranks/selects across; today it is exposed **observe-only**
+    (attached to the returned signal under ``CANDIDATE_BATCH_KEY``) and consumed
+    by nothing on the live order path — the allocator soak (M18 P0c) will read it.
+
+    Pure + fail-permissive: a malformed intent is skipped, never raised, so this
+    can never strand a live tick. ``account_id`` is intentionally left empty —
+    intents are not account-bound at the multiplexer (account fan-out happens
+    downstream in ``Coordinator.multi_account_execute``).
+    """
+    from datetime import datetime, timezone
+
+    packages: List[SignalPackage] = []
+    for intent in intents or []:
+        try:
+            if intent.side == "long":
+                side = "long"
+            elif intent.side == "short":
+                side = "short"
+            else:
+                side = "none"
+            ts = getattr(intent, "timestamp", None)
+            try:
+                ts_iso = (
+                    datetime.fromtimestamp(float(ts), tz=timezone.utc).isoformat()
+                    if ts is not None
+                    else ""
+                )
+            except (TypeError, ValueError, OSError, OverflowError):
+                ts_iso = ""
+            packages.append(
+                SignalPackage(
+                    strategy_id=intent.strategy,
+                    symbol=intent.symbol,
+                    account_id="",
+                    side=side,
+                    entry_price=intent.entry,
+                    stop_loss=intent.sl,
+                    take_profit=intent.tp,
+                    timestamp_utc=ts_iso,
+                    raw=dict(intent.meta or {}),
+                    source_context={
+                        "confidence": float(getattr(intent, "confidence", 0.0) or 0.0),
+                        "priority": intent.effective_priority(),
+                        "regime": getattr(intent, "regime", None),
+                        "target_qty": getattr(intent, "target_qty", None),
+                        "source": "intent_multiplexer_candidate_batch",
+                    },
+                )
+            )
+        except Exception:  # noqa: BLE001 — observe-only projection must never break a tick
+            logger.debug("candidate-batch: skipped a malformed intent", exc_info=False)
+            continue
+    return packages
+
+
 def _desired_to_pipeline_signal(
     desired: DesiredPosition,
     *,
@@ -619,4 +691,13 @@ def multiplexed_intent_signal_builder(
         "reason=%s",
         len(intents), desired.side, desired.target_qty, desired.reason,
     )
-    return _desired_to_pipeline_signal(desired, symbol=symbol, settings=settings)
+    signal = _desired_to_pipeline_signal(desired, symbol=symbol, settings=settings)
+    # M18 P0b (observe-only): attach the FULL candidate set for this tick — the
+    # opportunity set a portfolio capital allocator ranks across. Nothing on the
+    # live order path consumes it yet (the allocator soak, M18 P0c, will).
+    # Fail-permissive: an attach failure never strands the signal.
+    try:
+        signal[CANDIDATE_BATCH_KEY] = intents_to_signal_packages(intents)
+    except Exception:  # noqa: BLE001 — observe-only attach must never break a tick
+        logger.debug("candidate-batch: attach failed", exc_info=False)
+    return signal
