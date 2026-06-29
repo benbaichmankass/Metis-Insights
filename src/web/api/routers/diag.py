@@ -170,6 +170,7 @@ _NEWS_DECISIONS_LOG = runtime_logs_dir() / "news_decisions.jsonl"
 _CONVICTION_SIZING_LOG = runtime_logs_dir() / "conviction_sizing.jsonl"
 _CONVICTION_ARBITRATION_LOG = runtime_logs_dir() / "conviction_arbitration.jsonl"
 _EXIT_LADDER_SOAK_LOG = runtime_logs_dir() / "exit_ladder_soak.jsonl"
+_ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
 _ORPHAN_EVENTS_LOG = runtime_logs_dir() / "orphan_events.jsonl"
 
 _LOG_FILES: dict[str, Path] = {
@@ -223,6 +224,14 @@ _LOG_FILES: dict[str, Path] = {
     # verify the soak is accruing before P4 graduates the ladder to the real
     # exit. Absent until the first live opening order runs.
     "exit_ladder_soak": _EXIT_LADDER_SOAK_LOG,
+    # Allocator soak (M18 P0c, portfolio capital allocator): one line per tick
+    # with ≥2 actionable candidates — what a capital allocator WOULD pick (the
+    # top-ranked candidate of the full opportunity set) vs what the aggregator
+    # actually routed, + the regret between them. Observe-only; routing is
+    # unchanged. Tail it to verify the soak is accruing regret evidence before
+    # M18 P2+ graduates the allocator to actually select the subset. Absent until
+    # the first multi-candidate tick runs.
+    "allocator_soak": _ALLOCATOR_SOAK_LOG,
     # NEW orphan trade rows (operator directive 2026-06-24: orphan is a problem
     # to reconcile, never a resting status). One JSON line per orphan-created
     # event (account/symbol/side/trade_id/origin/ts), written by
