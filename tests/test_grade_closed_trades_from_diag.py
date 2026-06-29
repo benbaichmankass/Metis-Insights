@@ -5,12 +5,14 @@ Confirms the diag-fed grader (a) grades CLOSED real-money trades only by default
 JSONL rows the API join can consume.
 """
 from __future__ import annotations
-import json, importlib.util, os
-import pytest
+import json
+import importlib.util
+import os
 
 _spec = importlib.util.spec_from_file_location(
     "g", os.path.join("scripts", "ops", "grade_closed_trades_from_diag.py"))
-g = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(g)
+g = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(g)
 grader = g._load_grader()
 
 TRADES = [
@@ -42,8 +44,11 @@ def test_append_writes_jsonl(tmp_path):
     out.write_text("")
     rc = g.main([_write(tmp_path, TRADES), "--out", str(out), "--source","unit"])
     assert rc == 0
-    lines = [json.loads(l) for l in out.read_text().splitlines() if l.strip()]
+    lines = [json.loads(ln) for ln in out.read_text().splitlines() if ln.strip()]
     assert len(lines) == 2
 
+
 def _write(tmp_path, obj):
-    p = tmp_path/"trades.json"; p.write_text(json.dumps(obj)); return str(p)
+    p = tmp_path / "trades.json"
+    p.write_text(json.dumps(obj))
+    return str(p)
