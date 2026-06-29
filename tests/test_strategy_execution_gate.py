@@ -91,9 +91,11 @@ def test_load_strategies_surfaces_execution(tmp_path):
 
 
 def test_real_yaml_vwap_is_shadow_others_live():
-    # The live config: vwap is data-only; the rest execute.
+    # The live config: vwap (data-only) and ict_scalp_5m (DEMOTED 2026-06-29,
+    # Unit B — live-verified negative R:R, -0.64R/trade) are shadow; the rest execute.
     assert reg.execution_mode("vwap") == "shadow"
-    for name in ("turtle_soup", "ict_scalp_5m", "trend_donchian"):
+    assert reg.execution_mode("ict_scalp_5m") == "shadow"
+    for name in ("turtle_soup", "trend_donchian"):
         assert reg.execution_mode(name) == "live", name
 
 
