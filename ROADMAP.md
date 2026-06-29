@@ -226,6 +226,8 @@ that mention Vercel are preserved as historical record.)
 > `src/`, `config/`, or live-path file changed by the proposal. Full design (inventory → gaps →
 > proposed models/datasets/allocator → shadow-soak → graduation gates):
 > [`docs/research/capital-allocation-ai-DESIGN.md`](docs/research/capital-allocation-ai-DESIGN.md).
+> Execution/delegation breakdown (units S-M18-P0a..P4, tiers, parallelization, Mode-C spawn prompts):
+> [`docs/sprint-plans/M18-CAPITAL-ALLOCATOR-EXECUTION-PLAN.md`](docs/sprint-plans/M18-CAPITAL-ALLOCATOR-EXECUTION-PLAN.md).
 > Every phase before P4 is observe-only; nothing influences a live order until a backtest A/B
 > passes and the operator approves. The allocator only **selects + reduces** — the per-account
 > `RiskManager` stays the final sizing authority (Prime Directive); graduation rides a `*_MODE`
