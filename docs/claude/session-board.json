@@ -17,13 +17,6 @@
       "intent": "S-AUDIT-A (Workstream-A, consistency/doc-drift): documented 8 undocumented REST endpoints + 0-orphan-call verification (PR #4936).",
       "started_at": "2026-06-28T11:20:00Z",
       "updated_at": "2026-06-28T11:23:00Z"
-    },
-    {
-      "session_id": "session_019D3m44FeSEj95rxaTnWHy3",
-      "branch": "claude/security-intrusion-audit-hardening-r1u29o",
-      "intent": "Security intrusion-surface audit + hardening (external user danleejames23 probed issue-driven workflows via #2688/#2680). READ-ONLY investigation across all 3 repos: issue/PR-triggered workflow actor-guards, repo/Actions config, public API exposure, secret blast radius, detection. Deliverables: docs/security/intrusion-surface-audit-2026-06-28.md + hardening plan + Tier-1 actor-guard PRs (Tier-2/3 written up for operator approval, NOT merged).",
-      "started_at": "2026-06-28T12:00:00Z",
-      "updated_at": "2026-06-28T12:00:00Z"
     }
   ],
   "_note_unregistered": "Sessions for S-AUDIT-B (zombie/env-gate) and S-AUDIT-C (consumer wiring) were launched by the operator 2026-06-28 but have not yet self-registered here — they must add their entry at preflight per the session-coordination skill. Until they do, the live open-PR list is the authoritative signal for what they're working on."
