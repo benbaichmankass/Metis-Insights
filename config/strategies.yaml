@@ -461,7 +461,7 @@ strategies:
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
-    execution: shadow        # DEMOTED 2026-06-29 (Tier-3, Unit B package): live
+    execution: shadow        # shadow-guard: allow — operator-approved Unit B demotion; live
                              # real-money record −0.64R/trade over 15 trades
                              # (totalR −9.6; backtest −0.99R/trade, −467R) — wins
                              # small, lets losses run, net-negative at any size.
