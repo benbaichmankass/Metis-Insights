@@ -72,6 +72,26 @@ _ACTIONABLE_STATUSES = {
     "dry_run",
 }
 
+# Rejection-reason markers that PROVE the order layer was reached and the
+# pipeline INTENTIONALLY declined to open/grow a position — i.e. the 0-fill
+# is *explained*, not silent. These are the position-management holds:
+#   - the netting guard refusing to pyramid an already-held position
+#     (``reentry_suppressed_netting_guard:*``)
+#   - ``FLIP_POLICY=hold`` and the other intent noops the aggregator emits
+#     (``intent_noop:flip_suppressed_hold_policy``, ``intent_noop:at_target``,
+#      ``intent_noop:hold_to_bracket_reduce_non_derivative`` …)
+# Each is journaled as a ``status='rejected'`` ``trades`` row whose
+# ``entry_reason`` carries the marker. A window whose only "missing" fills
+# are explained by these is a held-position window in a trending market — NOT
+# the silent-execution gap (BUG-034) this watchdog exists to catch. Note this
+# deliberately EXCLUDES error-class refusals (``risk_refused`` /
+# ``exchange_rejected`` / ``sizing_failed`` / ``dry_run_no_order_placed``):
+# those are not intentional holds and remain alert-worthy.
+_INTENTIONAL_HOLD_MARKERS = (
+    "reentry_suppressed_netting_guard",
+    "intent_noop:",
+)
+
 
 @dataclass
 class LivenessResult:
@@ -164,6 +184,46 @@ def _count_trades_placed(since_iso: str, db_path: Path) -> int:
         return 0
 
 
+def _count_intentional_holds(since_iso: str, db_path: Path) -> int:
+    """Count in-window ``trades`` rows refused by an INTENTIONAL position-
+    management hold (see ``_INTENTIONAL_HOLD_MARKERS``).
+
+    A non-zero count proves the pipeline reached the order layer and
+    deliberately declined to trade (already holding the position /
+    ``FLIP_POLICY=hold``) — so a 0-fill window is *explained*, not the
+    silent-execution gap this watchdog guards against. Best-effort: a
+    missing column (older/test schema) or any read error returns 0, so the
+    watchdog degrades to its prior behaviour (alert on a 0-fill window)
+    rather than silently suppressing.
+    """
+    if not db_path.exists():
+        return 0
+    try:
+        conn = sqlite3.connect(str(db_path))
+        try:
+            like_clause = " OR ".join(
+                ["entry_reason LIKE ?"] * len(_INTENTIONAL_HOLD_MARKERS)
+            )
+            params = [f"%{m}%" for m in _INTENTIONAL_HOLD_MARKERS]
+            row = conn.execute(
+                "SELECT COUNT(*) FROM trades "
+                "WHERE is_backtest = 0 "
+                "AND COALESCE(status, '') IN "
+                "('rejected', 'exchange_rejected', 'rejected_too_small') "
+                f"AND ({like_clause}) "
+                "AND datetime(created_at) >= datetime(?) ",
+                (*params, since_iso),
+            ).fetchone()
+            return int(row[0] or 0) if row else 0
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "liveness_watchdog: intentional-hold read failed: %s", exc
+        )
+        return 0
+
+
 def check_liveness(
     *,
     now_utc: Optional[datetime] = None,
@@ -215,7 +275,36 @@ def check_liveness(
             ),
             slot_key=_slot_key(now),
         )
-    # Threshold breached + zero fills → fire.
+    # Threshold breached + zero fills. Before alerting, check whether the
+    # 0-fill is EXPLAINED by intentional position-management holds — the order
+    # layer WAS reached and deliberately declined to open/grow a position
+    # (already holding it / FLIP_POLICY=hold). That is a held-position window
+    # in a trending market (the strategy re-fires an entry every tick and the
+    # netting guard / hold policy correctly refuses it), NOT the silent-
+    # execution gap (BUG-034) this watchdog exists to catch. Suppressing here
+    # removes the recurring false-positive URGENT ping while STILL firing when
+    # the 0-fill is unexplained (no journal row at all — the true silent gap)
+    # or explained only by error-class refusals (risk_refused /
+    # exchange_rejected / sizing_failed), which are not intentional holds.
+    holds = _count_intentional_holds(since_iso, db)
+    if holds > 0:
+        return LivenessResult(
+            signals_actionable=signals,
+            trades_placed=0,
+            threshold=signal_threshold,
+            lookback_hours=lookback_hours,
+            fired=False,
+            reason=(
+                f"held_or_suppressed: {signals} actionable signals, 0 fills, "
+                f"but {holds} would-be trade(s) intentionally held/suppressed "
+                f"(netting guard / hold policy) in last {lookback_hours}h — "
+                f"the order layer was reached and deliberately declined; not a "
+                f"silent execution gap"
+            ),
+            slot_key=_slot_key(now),
+        )
+
+    # Threshold breached + zero fills + nothing explaining it → fire.
     return LivenessResult(
         signals_actionable=signals,
         trades_placed=0,
