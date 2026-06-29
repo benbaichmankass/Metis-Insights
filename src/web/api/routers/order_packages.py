@@ -33,6 +33,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Query
 
 from src.utils.paths import trade_journal_db_path
+from src.web.api._asset_class import asset_class_for_symbol
 from src.web.api._clean_trades import account_class_wire, not_paper_predicate
 
 logger = logging.getLogger(__name__)
@@ -262,6 +263,10 @@ async def get_order_packages(
             "updatedAt": r["updated_at"],
             "strategy": r["strategy_name"],
             "symbol": r["symbol"],
+            # ``assetClass`` — coarse reporting bucket for the symbol so a
+            # consumer can group/filter order packages by asset group.
+            # Reporting-only, config-driven with a heuristic fallback; never null.
+            "assetClass": asset_class_for_symbol(r["symbol"]),
             "direction": r["direction"],
             "entry": _f(r["entry"]),
             "sl": _f(r["sl"]),

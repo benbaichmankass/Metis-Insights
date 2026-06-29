@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Query
 
 from src.utils.paths import trade_journal_db_path
+from src.web.api._asset_class import asset_class_for_symbol
 from src.web.api._clean_trades import (
     account_class_wire,
     exclude_superseded_predicate,
@@ -152,6 +153,12 @@ def _row_to_wire(row: sqlite3.Row) -> Dict[str, Any]:
         # legacy trades.is_demo boolean, kept in sync with account_class.
         "isDemo": bool(row["is_demo"]),
         "symbol": row["symbol"],
+        # ``assetClass`` — coarse reporting bucket for the symbol (crypto /
+        # index / commodity / bond / equity / fx / unknown) so a consumer can
+        # group/filter closed trades by asset group. Reporting-only,
+        # config-driven (config/instruments.yaml) with a heuristic fallback;
+        # never null.
+        "assetClass": asset_class_for_symbol(row["symbol"]),
         "side": _normalise_side(row["direction"]),
         "pattern": row["strategy_name"] if row["strategy_name"] else None,
         "qty": float(row["position_size"]) if row["position_size"] is not None else 0.0,
