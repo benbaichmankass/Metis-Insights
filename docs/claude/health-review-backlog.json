@@ -2761,7 +2761,18 @@
       "description": "DISCOVERED 2026-06-29 while deploying #5061: the pull-and-deploy system-action FAILED with 'ERROR: /dev/null is not writable on this host — it has been clobbered into a regular file, so every \">/dev/null\" redirect (and most operator-action wrappers) fail.' On the LIVE trader VM (ict-bot-arm, 141.145.193.91), /dev/null is a regular file instead of the char-special device (1,3). IMPACT: (a) every operator-action wrapper that preflight-checks or redirects to /dev/null aborts — pull-and-deploy, restart-bot-service, reboot-vm are all blocked (so the relay can't even self-repair this), (b) any process doing '>/dev/null' fails, (c) a future systemd restart of ict-trader-live whose ExecStart/redirects touch /dev/null could fail to come up. NOT currently fatal: ict-git-sync still auto-deployed #5061 (trader confirmed on git_sha d661a0ec, uptime ~104s, heartbeat running, ticks healthy) and the trader is alive — but this is a latent live-VM hazard. ROOT FIX (needs root ON the VM; no autonomous path — the action wrappers that would run it are themselves blocked by the same /dev/null breakage, so this is a genuine operator hand-off): `sudo rm -f /dev/null && sudo mknod -m 666 /dev/null c 1 3`. After repair, re-dispatch pull-and-deploy to confirm the operator-action path works again. FOLLOW-UP: find what clobbered /dev/null (a stray '>' to the literal path /dev/null from a process that ran with /dev not mounted, or a script bug writing to '/dev/null' as a file) so it doesn't recur; consider a cheap health-check assertion that /dev/null is char-special (1,3).",
       "source": "pull-and-deploy failure 2026-06-29 (issue #5069) + diag confirm",
       "updates": []
+    },
+    {
+      "id": "BL-20260629-DEVNULL-OCI-SOURCE-KILL",
+      "title": "[infra root-source] stop the OCI host agent clobbering /dev/null on the live VM (the recurring source behind the guard + self-heals)",
+      "status": "open",
+      "opened_at": "2026-06-29T16:15:00+00:00",
+      "opened_by": "claude (devnull incident follow-up 2026-06-29)",
+      "snoozed_until": null,
+      "description": "The live trader VM's /dev/null is repeatedly clobbered by an OS-level OCI host agent (suspected oracle-cloud-agent oci-wlp / Cloud Guard Workload-Protection FIM 'remediating' world-writable files, incorrectly including /dev/null) — see docs/runbooks/devnull-guard.md. As of 2026-06-29 we now have THREE self-heal layers (ict-devnull-guard.timer 60s, deploy_pull_restart.sh, and _lib.sh::require_systemctl — the last two added this session) plus the guard %-specifier bugfix, so consumers no longer break on a transient clobber. REMAINING: kill it at the source so /dev/null isn't being rm'd/chmod'd at all. AUTONOMOUS path to try first (SSH+sudo via a runner, NOT operator-manual): `sudo auditctl -w /dev/null -p wa -k devnull` then after it next flips `sudo ausearch -k devnull` to positively identify the writing process/agent; if it's a local oracle-cloud-agent plugin, disable that plugin's /dev remediation via its on-VM config. OPERATOR/OCI-CONSOLE path (only if the rule is tenancy-level): exclude /dev from the OCI Cloud Guard / Workload-Protection FIM profile attached to the instance — needs OCI console/tenancy access (a legitimate category-1 operator/external action). OPTIONAL mitigation regardless: tighten ict-devnull-guard.timer OnUnitActiveSec 60s -> ~20-30s to shrink the exposure window for any non-self-healing consumer (e.g. the trader's own >/dev/null subprocess plumbing).",
+      "source": "devnull incident 2026-06-29 (issues #5069/#5080/#5087, PR #5088)",
+      "updates": []
     }
   ],
-  "updated_at": "2026-06-29T14:50:00+00:00"
+  "updated_at": "2026-06-29T16:15:00+00:00"
 }
