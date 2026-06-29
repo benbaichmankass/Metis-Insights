@@ -1569,6 +1569,24 @@ def trend_donchian_eth_signal_builder(settings: dict) -> Dict[str, Any]:
     return _trend_donchian_variant_builder("trend_donchian_eth", settings)
 
 
+# ── SWAP-ROBUST prop exit variants (Unit C, Phase 0) — breakout_1 shadow soak ───
+# Tightened-exit prop-only siblings of trend_donchian_sol / trend_donchian_eth:
+# same entries, but the eth_pullback_prop_2h exit recipe (trail_mult 3.5,
+# tp_r 6.0 vs the live 5.0/50.0) so multi-day holds don't bleed to the Breakout
+# daily swap. Both reuse the symbol-generic _trend_donchian_variant_builder,
+# which pins the traded symbol from each variant's own `symbols:` block and
+# reads the tightened exits from its config. Routed to breakout_1 as
+# execution: shadow (observe-only — DRAFT Tier-3, prop-EV-gated; 2026-06-29).
+def trend_donchian_sol_prop_signal_builder(settings: dict) -> Dict[str, Any]:
+    """trend_donchian SOLUSDT 1h, swap-robust prop exits — breakout_1 shadow soak."""
+    return _trend_donchian_variant_builder("trend_donchian_sol_prop", settings)
+
+
+def trend_donchian_eth_prop_signal_builder(settings: dict) -> Dict[str, Any]:
+    """trend_donchian ETHUSDT 1h, swap-robust prop exits — breakout_1 shadow soak."""
+    return _trend_donchian_variant_builder("trend_donchian_eth_prop", settings)
+
+
 # ── trend_4h alt cells — bybit_1 DEMO soak (paper_ready, WS-C-validated) ────────
 # Five symbol-pinned trend_donchian instances on the 4h candle (ETH/SOL/XRP/ADA/
 # AVAX), routed to bybit_1 (Bybit demo — paper money) for decision/ML soak. The
@@ -4590,6 +4608,9 @@ for _builder, _monitor_unit in (
     (trend_donchian_1h_signal_builder, "trend_donchian"),
     (trend_donchian_sol_signal_builder, "trend_donchian"),
     (trend_donchian_eth_signal_builder, "trend_donchian"),
+    # SWAP-ROBUST prop exit variants — breakout_1 shadow soak (Unit C, DRAFT Tier-3, 2026-06-29).
+    (trend_donchian_sol_prop_signal_builder, "trend_donchian"),
+    (trend_donchian_eth_prop_signal_builder, "trend_donchian"),
     # trend_4h alt cells — bybit_1 demo soak (paper_ready, 2026-06-18).
     (trend_donchian_eth_4h_signal_builder, "trend_donchian"),
     (trend_donchian_sol_4h_signal_builder, "trend_donchian"),

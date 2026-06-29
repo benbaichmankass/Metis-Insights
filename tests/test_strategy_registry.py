@@ -206,7 +206,12 @@ def test_real_yaml_loads():
     # (2026-06-27, Tier-3): same htf_pullback_trend_2h unit as gld_pullback_1d,
     # routed to alpaca_paper + alpaca_live (SLV ~$25, GDX ~$43/share — the
     # lowest-priced ETFs, best chance of fitting the alpaca_live budget at 2% risk).
-    assert len(strategies) == 41
+    # 41 → 43 by the Unit C prop EXIT variants trend_donchian_sol_prop +
+    # trend_donchian_eth_prop (2026-06-29, DRAFT Tier-3): the validated
+    # eth_pullback_prop_2h recipe (trail 3.5 / tp_r 6) applied to the un-tightened
+    # SOL/ETH prop cells, routed to breakout_1 as execution: shadow. Observe-only
+    # soak, NOT a live-money promotion. docs/research/prop-dynamic-exits-faster-banking-DESIGN.md.
+    assert len(strategies) == 43
 
 
 def test_real_yaml_has_required_strategies():
@@ -235,6 +240,8 @@ def test_real_yaml_has_required_strategies():
         "eth_pullback_prop_2h",
         # daily ETF pullback pair on alpaca_paper + alpaca_live (2026-06-27, Tier-3):
         "slv_pullback_1d", "gdx_pullback_1d",
+        # Unit C prop EXIT variants — breakout_1 shadow soak (DRAFT, Tier-3, 2026-06-29):
+        "trend_donchian_sol_prop", "trend_donchian_eth_prop",
     }
 
 
