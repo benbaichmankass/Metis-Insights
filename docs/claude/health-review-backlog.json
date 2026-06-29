@@ -1917,7 +1917,7 @@
       "description": "runtime_logs/balance_snapshots.json (written by src/runtime/hourly_report.py so the hourly report can compute a 1h balance delta) was last written 2026-05-25 and carries only the Bybit accounts, so /api/bot/accounts/balances (the dashboard Accounts tab's tracked-balance source and the M15 soak's intended balance probe) is 17 days stale and blind to oanda_practice/alpaca_paper. Either the hourly report stopped running ~2026-05-25 or its snapshot write broke silently. Investigate the hourly-report path (service/timer or in-process cadence), restore the writer, and make sure account_snapshots() enumerates ALL configured accounts incl. the new brokers. Until fixed, balance probes must go through journalctl/exchange audit scripts.",
       "tier": 1,
       "status": "resolved",
-      "resolved_at": null,
+      "resolved_at": "2026-06-29T12:35:00+00:00",
       "resolved_by": null,
       "resolution_note": null,
       "check_log": [
@@ -2646,7 +2646,8 @@
           "status": "resolved",
           "note": "VERIFIED live via diag relays. (1) FIRST ENFORCED FIRE confirmed: regime_hard_gate audit row id 632682 @2026-06-29T12:13:13Z — trend_donchian BTCUSDT long, vol_regime=volatile, vol_label_source=ml, vol_gated=true, vol_enforced=true, vol_cell=off, enforced=true (the BTC 15m advisory head drove the ML vol label, per-symbol resolution). (2) #4920/gate deploy health: running git_sha de9020a4, ict-trader-live + ict-web-api active, heartbeat fresh. (3) ETH/SOL soaks accruing: shadow_stats shows eth-regime-{5m,15m,1h,1h-xasset} + sol-regime-{5m,15m} heads with fresh last_seen ~12:10-12:20Z. Vol-axis enforce proven end-to-end."
         }
-      ]
+      ],
+      "resolved_at": "2026-06-29T12:35:00+00:00"
     },
     {
       "id": "BL-20260628-AUDITF-AUTH-LOGIN-UNDOCUMENTED",
