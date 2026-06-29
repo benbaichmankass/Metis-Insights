@@ -63,7 +63,9 @@ jobs:
   health-snapshot:
     if: |
       github.event_name != 'issues' ||
-      contains(github.event.issue.labels.*.name, 'health-snapshot-trigger')
+      ((github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'health-snapshot-trigger'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:

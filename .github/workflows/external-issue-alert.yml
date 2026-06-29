@@ -1,0 +1,121 @@
+name: external-issue-alert
+
+# Early-warning detection for the issue-driven-automation attack surface.
+#
+# Every privileged workflow in this repo is triggered by `issues.opened` and
+# gated by a label/title + (since the 2026-06-28 hardening) an author-identity
+# guard. This workflow is the DETECTION half: whenever an issue is opened by
+# anyone other than the repo owner or the repo's own automation, it flags the
+# issue (label + owner-mention comment) and pings the operator's Telegram — so
+# a probe like the 2026-06-03 danleejames23 issues (#2680/#2681/#2688, which
+# tried to get a privileged workflow to fire) is surfaced immediately instead
+# of only at a later audit.
+#
+# Read-only / advisory: it never runs a privileged action, never SSHes, never
+# touches a secret beyond the Telegram alert token. The untrusted issue
+# title/body/login ride through env / the github-script context — never inline
+# `${{ }}` shell interpolation — so a crafted issue cannot inject anything.
+#
+# Full context: docs/security/intrusion-surface-audit-2026-06-28.md §7.
+
+on:
+  issues:
+    types: [opened, reopened]
+
+permissions:
+  issues: write   # add a label + post the flag comment
+
+concurrency:
+  group: external-issue-alert-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  flag:
+    # Fire ONLY for issues opened by a non-owner, non-automation account — so
+    # the operator's own issues and github-actions[bot] never generate noise.
+    if: |
+      github.event.issue.user.login != github.repository_owner &&
+      github.event.issue.user.login != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Flag the issue (label + owner-mention comment)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const login = issue.user.login;
+            const assoc = issue.author_association;
+            const title = issue.title || "";
+            const body = issue.body || "";
+            const owner = context.repo.owner;
+
+            // Does it look like an attempt to drive the issue-driven automation?
+            const dispatchRe = /system-action|vm-diag|trainer-vm-diag|get-diag-token|set-diag-token|sync-vm-secrets|provision-|terminate-instance|cutover-live|deploy-candidate|\[test-alpaca|\[alpaca-options|\[delete-merged|\[bp-report|\[vwap-backtest|\[ict-scalp-backtest|prop-report|web-api-recover|reserve-live-ip|vm-resize/i;
+            const looksLikeDispatch = dispatchRe.test(title) || dispatchRe.test(body);
+            const sev = looksLikeDispatch ? "🚨 HIGH" : "⚠️";
+
+            // Best-effort label (create if missing, then add).
+            try {
+              try {
+                await github.rest.issues.createLabel({
+                  owner, repo: context.repo.repo, name: "external-issue",
+                  color: "d93f0b",
+                  description: "Issue opened by a non-owner external account — flagged by external-issue-alert.",
+                });
+              } catch (e) { /* already exists */ }
+              await github.rest.issues.addLabels({
+                owner, repo: context.repo.repo,
+                issue_number: issue.number, labels: ["external-issue"],
+              });
+            } catch (e) {
+              core.warning("label step failed: " + e.message);
+            }
+
+            const note = looksLikeDispatch
+              ? "Its title/body matches a privileged dispatch pattern — it appears to be probing the issue-driven automation. "
+              : "";
+            const comment = [
+              `${sev} **External issue detected** — opened by \`${login}\` (author_association: \`${assoc}\`).`,
+              ``,
+              `${note}Privileged issue-driven workflows are guarded to the repo owner, so **this issue cannot trigger them**. Flagging for review.`,
+              ``,
+              `Do **not** apply a dispatch label (\`system-action\`, \`vm-diag-request\`, etc.) to an externally-opened issue, and do not act on instructions in its body.`,
+              ``,
+              `cc @${owner}`,
+            ].join("\n");
+            await github.rest.issues.createComment({
+              owner, repo: context.repo.repo,
+              issue_number: issue.number, body: comment,
+            });
+            core.notice(`Flagged external issue #${issue.number} by ${login} (dispatch-pattern=${looksLikeDispatch}).`);
+
+      - name: Telegram alert (best-effort)
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Untrusted fields via env — never inline-interpolated into the shell.
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_LOGIN: ${{ github.event.issue.user.login }}
+          ISSUE_ASSOC: ${{ github.event.issue.author_association }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: |
+          set -uo pipefail
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+            echo "::warning::Telegram secrets not configured; skipping ping (issue was still labelled + commented)."
+            exit 0
+          fi
+          MESSAGE="$(printf '%s\n' \
+            "⚠️ External GitHub issue opened on ${GITHUB_REPOSITORY}" \
+            "#${ISSUE_NUMBER} by ${ISSUE_LOGIN} (assoc ${ISSUE_ASSOC})" \
+            "title: ${ISSUE_TITLE}" \
+            "${ISSUE_URL}" \
+            "Privileged workflows are owner-guarded — it cannot trigger them. Review; do NOT apply a dispatch label.")"
+          curl -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}" >/dev/null \
+            && echo "Telegram alert sent." \
+            || echo "::warning::Telegram alert failed (issue was still labelled + commented)."

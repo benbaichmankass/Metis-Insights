@@ -48,7 +48,10 @@ jobs:
   bootstrap:
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'vm-devnull-deploy-bootstrap'))
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'vm-devnull-deploy-bootstrap'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:

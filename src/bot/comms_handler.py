@@ -437,6 +437,48 @@ def parse_callback_data(data: str) -> Optional[tuple[str, str, str]]:
 
 
 # ----------------------------------------------------------------------
+# Authorization
+
+def _resolve_allowed_chat_id(explicit: Optional[str] = None) -> Optional[int]:
+    """The single operator chat the comms handlers accept answers from.
+
+    Resolved from the explicit ``chat_id`` passed to ``install_comms_handlers``
+    (which itself defaults to ``TELEGRAM_CHAT_ID``). Returns ``None`` when not
+    configured (dev / tests) — see ``_chat_authorized`` for the fail-open note.
+    """
+    raw = explicit if explicit is not None else os.environ.get("TELEGRAM_CHAT_ID")
+    raw = (str(raw) if raw is not None else "").strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        logger.warning(
+            "TELEGRAM_CHAT_ID=%r is not an integer — comms chat-id guard disabled",
+            raw,
+        )
+        return None
+
+
+def _chat_authorized(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """True if the update comes from the configured operator chat.
+
+    Closes the gap where the comms callback/text handlers accepted answers from
+    ANY chat that reached the bot (the callback handler validated the
+    ``request_id`` against the store but never the responder's identity — an
+    unauthorized user who reached the bot could answer operator decision
+    prompts). Fail-OPEN only when no chat id is configured (tests / a dev box
+    that never set ``TELEGRAM_CHAT_ID``); in production the id is always set, so
+    a foreign chat is rejected.
+    """
+    allowed = context.bot_data.get("comms_allowed_chat_id")
+    if allowed is None:
+        return True  # unconfigured → don't break tests/dev
+    chat = update.effective_chat
+    return chat is not None and chat.id == allowed
+
+
+# ----------------------------------------------------------------------
 # Callback + text handlers
 
 async def comms_callback_handler(
@@ -450,6 +492,10 @@ async def comms_callback_handler(
     """
     query = update.callback_query
     if query is None or query.data is None:
+        return
+    if not _chat_authorized(update, context):
+        # An answer from an unauthorized chat is ignored (never recorded).
+        await _safe_answer(query, "Not authorized.")
         return
     parsed = parse_callback_data(query.data)
     if parsed is None:
@@ -514,6 +560,10 @@ async def comms_text_handler(
     No-ops if no comms flow is active for this user — does NOT consume
     the message, so other text-based features remain unaffected.
     """
+    if not _chat_authorized(update, context):
+        # Defense-in-depth: the MessageHandler is also chat-filtered at
+        # registration, but guard here too in case it's wired without it.
+        return
     awaiting = context.user_data.get(USERDATA_AWAITING_KEY)
     if not awaiting:
         return
@@ -740,14 +790,28 @@ def install_comms_handlers(
     store = RequestStore(repo_root / "comms")
     application.bot_data["comms_store"] = store
 
+    # Authorization: only the configured operator chat may answer comms
+    # prompts. Stashed for the callback handler (which can't take a `filters=`)
+    # and AND-ed into the text handler's filter. Unset → fail-open (tests/dev).
+    allowed_chat_id = _resolve_allowed_chat_id(chat_id)
+    application.bot_data["comms_allowed_chat_id"] = allowed_chat_id
+    if allowed_chat_id is None:
+        logger.warning(
+            "install_comms_handlers: no TELEGRAM_CHAT_ID configured; comms "
+            "chat-id authorization is OPEN (expected only in tests/dev)."
+        )
+
     application.add_handler(
         CallbackQueryHandler(comms_callback_handler, pattern=rf"^{COMMS_CALLBACK_PREFIX}"),
     )
     # Group 1 keeps the comms text handler from clashing with /commands or
     # other text consumers — it's a passive observer that no-ops unless
     # USERDATA_AWAITING_KEY is set.
+    text_filter = filters.TEXT & ~filters.COMMAND
+    if allowed_chat_id is not None:
+        text_filter = text_filter & filters.Chat(chat_id=allowed_chat_id)
     application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, comms_text_handler),
+        MessageHandler(text_filter, comms_text_handler),
         group=1,
     )
 
