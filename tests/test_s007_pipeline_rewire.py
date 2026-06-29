@@ -85,8 +85,11 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         "trend_donchian_avax_4h",
         "trend_donchian_eth",
         "trend_donchian_eth_4h",
+        # Unit C prop EXIT variants — breakout_1 shadow soak (DRAFT, Tier-3, 2026-06-29):
+        "trend_donchian_eth_prop",
         "trend_donchian_sol",
         "trend_donchian_sol_4h",
+        "trend_donchian_sol_prop",
         "trend_donchian_xrp_4h",
         "turtle_soup",
         "uso_trend_1h",

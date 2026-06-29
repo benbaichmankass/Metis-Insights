@@ -694,6 +694,19 @@ accounts:
                                        #   at the real 0.033%/day swap (+$166 realised, 4/4
                                        #   folds); overlaps eth_pullback_prop_2h (same
                                        #   entries) so it adds frequency, not diversification.
+      - trend_donchian_sol_prop        #   SOL swap-robust EXIT variant (Unit C Phase 0,
+                                       #   DRAFT Tier-3, 2026-06-29): trend_donchian_sol's
+                                       #   entries with tightened exits (trail 3.5 / tp_r 6.0).
+                                       #   execution: shadow (observe-only) until the prop
+                                       #   EV/survival gate (account_compat_matrix -> montecarlo
+                                       #   under breakout.yaml; sol +$696 / P0.79 ROUTE) graduates
+                                       #   it shadow->live (operator-gated).
+      - trend_donchian_eth_prop        #   ETH swap-robust EXIT variant (Unit C Phase 0,
+                                       #   DRAFT Tier-3, 2026-06-29): trend_donchian_eth's
+                                       #   two-sided entries with tightened exits (trail 3.5 /
+                                       #   tp_r 6.0). execution: shadow (observe-only) until the
+                                       #   prop EV/survival gate (eth +$1,205 / P0.87 ROUTE)
+                                       #   graduates it shadow->live (operator-gated).
     symbols: [SOLUSDT, ETHUSDT]        # the validated prop instruments.
     risk:
       max_dd_pct: 0.06                 # Breakout STATIC 6% max-DD = $300.
