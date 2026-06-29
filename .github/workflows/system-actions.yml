@@ -114,6 +114,7 @@ on:
           - sync-clock
           - purge-cloudflared
           - flatten-ib-position
+          - flatten-bybit-position
           - reconcile-orphan-history
           - supersede-options-adoption-artifacts
       reason:
@@ -411,7 +412,7 @@ jobs:
             status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|migrate-closed-at-iso|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|flatten-ib-position|reconcile-orphan-history|supersede-options-adoption-artifacts)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|migrate-closed-at-iso|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|flatten-ib-position|flatten-bybit-position|reconcile-orphan-history|supersede-options-adoption-artifacts)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -499,6 +500,35 @@ jobs:
               ""|true|false|True|False) ;;
               *)
                 echo "::error::flatten-ib-position apply must be true or false (got '${ACTION_APPLY}')."
+                exit 1
+                ;;
+            esac
+          fi
+          # flatten-bybit-position: same contract as flatten-ib-position
+          # (account_id + symbol required; apply gates dry-run-vs-execute). The
+          # python script additionally guards exchange==bybit, so a non-Bybit
+          # account is refused there too.
+          if [ "${ACTION}" = "flatten-bybit-position" ]; then
+            if [ -z "${ACCOUNT_ID// }" ]; then
+              echo "::error::flatten-bybit-position requires 'account: <id>' (issue body) or 'account_id' input."
+              exit 1
+            fi
+            if [ -z "${ACTION_SYMBOL// }" ]; then
+              echo "::error::flatten-bybit-position requires 'symbol: <SYM>' (issue body)."
+              exit 1
+            fi
+            if ! printf '%s' "${ACCOUNT_ID}" | grep -Eq '^[A-Za-z0-9_-]+$'; then
+              echo "::error::flatten-bybit-position account_id '${ACCOUNT_ID}' invalid (allowed: A-Z a-z 0-9 _ -)."
+              exit 1
+            fi
+            if ! printf '%s' "${ACTION_SYMBOL}" | grep -Eq '^[A-Za-z0-9_]+$'; then
+              echo "::error::flatten-bybit-position symbol '${ACTION_SYMBOL}' invalid (allowed: A-Z a-z 0-9 _)."
+              exit 1
+            fi
+            case "${ACTION_APPLY:-}" in
+              ""|true|false|True|False) ;;
+              *)
+                echo "::error::flatten-bybit-position apply must be true or false (got '${ACTION_APPLY}')."
                 exit 1
                 ;;
             esac
@@ -621,6 +651,7 @@ jobs:
             sync-clock)                         SCRIPT="sync_clock.sh" ;;
             purge-cloudflared)                  SCRIPT="purge_cloudflared.sh" ;;
             flatten-ib-position)                SCRIPT="flatten_ib_position_action.sh" ;;
+            flatten-bybit-position)             SCRIPT="flatten_bybit_position_action.sh" ;;
             reconcile-orphan-history)           SCRIPT="reconcile_orphan_history_action.sh" ;;
             supersede-options-adoption-artifacts) SCRIPT="supersede_options_adoption_artifacts_action.sh" ;;
             *)
@@ -697,7 +728,7 @@ jobs:
           if [ "${ACTION}" = "send-prop-test-ping" ]; then
             REMOTE_CMD="ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL:-SOLUSDT}") ACTION_STRATEGY=$(printf '%q' "${ACTION_STRATEGY:-trend_donchian_sol}") ${REMOTE_CMD}"
           fi
-          if [ "${ACTION}" = "flatten-ib-position" ]; then
+          if [ "${ACTION}" = "flatten-ib-position" ] || [ "${ACTION}" = "flatten-bybit-position" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "reconcile-orphan-history" ]; then
