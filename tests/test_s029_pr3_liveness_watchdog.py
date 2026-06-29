@@ -105,6 +105,43 @@ def _seed_journal(db_path: Path, *, count: int, now_utc: datetime, is_backtest=0
     conn.close()
 
 
+def _seed_rejected(db_path: Path, *, now_utc: datetime, reason: str,
+                   status: str = "rejected", count: int = 1):
+    """Insert N ``status='rejected'`` ``trades`` rows whose ``entry_reason``
+    carries ``reason`` — the shape the order layer journals when it refuses a
+    signal. Creates the table WITH the ``entry_reason`` column the real
+    schema has (the minimal ``_seed_journal`` table omits it)."""
+    conn = sqlite3.connect(str(db_path))
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS trades (
+            id INTEGER PRIMARY KEY,
+            timestamp TEXT,
+            symbol TEXT,
+            direction TEXT,
+            entry_price REAL,
+            position_size REAL,
+            status TEXT,
+            entry_reason TEXT,
+            is_backtest INTEGER DEFAULT 0,
+            strategy_name TEXT,
+            account_id TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )"""
+    )
+    for i in range(count):
+        ts = (now_utc - timedelta(minutes=i + 5)).isoformat()
+        conn.execute(
+            "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
+            "position_size, status, entry_reason, is_backtest, strategy_name, "
+            "account_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (ts, "ETHUSDT", "long", 1628.0, 0.0, status,
+             f"REJECTED: {reason} | trend_donchian_eth signal",
+             0, "trend_donchian_eth", "bybit_2", ts),
+        )
+    conn.commit()
+    conn.close()
+
+
 # ---------------------------------------------------------------------------
 # Pure decision (check_liveness)
 # ---------------------------------------------------------------------------
@@ -167,6 +204,55 @@ class TestCheckLiveness:
         assert result.fired is True
         assert result.trades_placed == 0
 
+    def test_held_position_netting_guard_suppresses(self, tmp_dirs):
+        # 10 dispatched signals, 0 fills, but the order layer journaled a
+        # netting-guard refusal (already holding the position) — the 0-fill is
+        # EXPLAINED, not a silent gap. The 2026-06-29 false-positive case.
+        _write_signal_rows(tmp_dirs["audit"], count=10, now_utc=tmp_dirs["now"])
+        _seed_rejected(
+            tmp_dirs["db"], now_utc=tmp_dirs["now"],
+            reason="reentry_suppressed_netting_guard:increase",
+        )
+        result = check_liveness(now_utc=tmp_dirs["now"])
+        assert result.fired is False
+        assert result.trades_placed == 0
+        assert "held_or_suppressed" in result.reason
+
+    def test_hold_policy_flip_suppression_suppresses(self, tmp_dirs):
+        # FLIP_POLICY=hold refusal (signal opposes a held position) is also an
+        # intentional hold, not a silent execution gap.
+        _write_signal_rows(tmp_dirs["audit"], count=10, now_utc=tmp_dirs["now"])
+        _seed_rejected(
+            tmp_dirs["db"], now_utc=tmp_dirs["now"],
+            reason=("intent_noop:flip_suppressed_hold_policy: desired long "
+                    "opposes current short (qty=18.03); holding for owner exit"),
+        )
+        result = check_liveness(now_utc=tmp_dirs["now"])
+        assert result.fired is False
+        assert "held_or_suppressed" in result.reason
+
+    def test_error_class_rejections_still_fire(self, tmp_dirs):
+        # A 0-fill window explained only by an ERROR-class refusal
+        # (risk_refused — account can't size anything) is NOT an intentional
+        # hold: the watchdog must still fire so the operator sees the problem.
+        _write_signal_rows(tmp_dirs["audit"], count=10, now_utc=tmp_dirs["now"])
+        _seed_rejected(
+            tmp_dirs["db"], now_utc=tmp_dirs["now"],
+            reason=("risk_refused: sized_qty=0 with balance=150.00 — check "
+                    "daily-loss budget / liquidation buffer / max_borrow"),
+        )
+        result = check_liveness(now_utc=tmp_dirs["now"])
+        assert result.fired is True
+        assert "liveness_alert" in result.reason
+
+    def test_silent_gap_with_no_journal_rows_still_fires(self, tmp_dirs):
+        # No trades rows at all (neither filled nor rejected) — the true
+        # silent-execution gap (BUG-034). Must still fire.
+        _write_signal_rows(tmp_dirs["audit"], count=10, now_utc=tmp_dirs["now"])
+        result = check_liveness(now_utc=tmp_dirs["now"])
+        assert result.fired is True
+        assert "liveness_alert" in result.reason
+
 
 # ---------------------------------------------------------------------------
 # run_liveness_watchdog — full path with side-effects
@@ -222,6 +308,19 @@ class TestRunLivenessWatchdog:
 
         result = run_liveness_watchdog(now_utc=tmp_dirs["now"])
 
+        assert result.fired is False
+        assert not list(tmp_dirs["pending"].glob("*-liveness.json"))
+        assert not tmp_dirs["state"].exists()
+
+    def test_held_position_window_enqueues_nothing(self, tmp_dirs):
+        # End-to-end: a held-position 0-fill window must NOT enqueue an
+        # URGENT ping and must NOT persist an alert slot.
+        _write_signal_rows(tmp_dirs["audit"], count=10, now_utc=tmp_dirs["now"])
+        _seed_rejected(
+            tmp_dirs["db"], now_utc=tmp_dirs["now"],
+            reason="reentry_suppressed_netting_guard:increase",
+        )
+        result = run_liveness_watchdog(now_utc=tmp_dirs["now"])
         assert result.fired is False
         assert not list(tmp_dirs["pending"].glob("*-liveness.json"))
         assert not tmp_dirs["state"].exists()
