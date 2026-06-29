@@ -52,20 +52,42 @@ PY
 }
 
 require_systemctl() {
-    # A clobbered /dev/null (recreated as a root-owned *regular* file, so the
-    # non-root SSH user can't write it) makes the `>/dev/null` redirect below
-    # fail with EACCES — which previously masqueraded as "systemctl not found"
-    # and sent operators chasing a non-existent systemd problem
-    # (BL-20260616-DEVNULL: a pull-and-deploy reported "this VM is not
-    # systemd-managed" when the real fault was an unwritable /dev/null). Probe
-    # /dev/null health FIRST, capturing the probe's stderr to a temp file (NOT
-    # /dev/null — that's the thing under test), and surface the real cause +
-    # the exact repair so the next hit is diagnosable in one read.
+    # A clobbered /dev/null breaks every `>/dev/null` redirect for the non-root
+    # SSH user, which previously masqueraded as "systemctl not found" and sent
+    # operators chasing a non-existent systemd problem (BL-20260616-DEVNULL).
+    # The recurring OCI host-agent regression (docs/runbooks/devnull-guard.md)
+    # has TWO variants: (a) the char device's mode stripped to 0444, and (b) the
+    # node replaced by a root-owned *regular* file. Either way the redirect
+    # EACCESes.
+    #
+    # SELF-HEAL, never punt. The git-sync deploy path
+    # (scripts/deploy_pull_restart.sh) already repairs /dev/null in place before
+    # redirecting; this wrapper used to merely DETECT the breakage and abort with
+    # an error telling the operator to SSH in and run `mknod` by hand. That
+    # institutionalised an autonomy-contract violation (BL-20260629): a runner
+    # holds VM_SSH_KEY and can repair this itself, so the wrapper must too.
+    # Repair in place (best-effort sudo) and continue — chmod fixes (a),
+    # rm+mknod fixes (b); the ict-devnull-guard.timer is the 60s periodic belt.
+    # Only abort if /dev/null is STILL unwritable after the self-heal (e.g.
+    # `sudo -n` unavailable to this user) — a genuine, escalation-worthy failure.
+    # The probe's stderr goes to a temp file, NOT /dev/null (the thing under test).
     local _probe="${TMPDIR:-/tmp}/.devnull_probe.$$"
     if ! ( : >/dev/null ) 2>"${_probe}"; then
-        rm -f "${_probe}" 2>&- || true
-        log "ERROR: /dev/null is not writable on this host — it has been clobbered into a regular file, so every '>/dev/null' redirect (and most operator-action wrappers) fail. This is NOT a systemd problem. Repair on the VM (needs root): sudo rm -f /dev/null && sudo mknod -m 666 /dev/null c 1 3"
-        return 1
+        log "WARNING: /dev/null is not writable (clobbered by a host agent) — self-healing before continuing (mirrors deploy_pull_restart.sh; ict-devnull-guard.timer is the periodic belt)."
+        # Variant (a): mode stripped — a chmod restores write.
+        sudo -n chmod 0666 /dev/null 2>"${_probe}" || true
+        if ! ( : >/dev/null ) 2>"${_probe}"; then
+            # Variant (b): replaced by a regular file — recreate the 1:3 char
+            # device. Single sudo so we never leave /dev/null removed-but-not-
+            # recreated if the second half fails.
+            sudo -n sh -c 'rm -f /dev/null && mknod -m 666 /dev/null c 1 3' 2>"${_probe}" || true
+        fi
+        if ! ( : >/dev/null ) 2>"${_probe}"; then
+            rm -f "${_probe}" 2>&- || true
+            log "ERROR: /dev/null is STILL not writable after self-heal (sudo -n chmod and rm+mknod both failed — sudo may be unavailable to this user). Dispatch the vm-fix-devnull workflow (label: vm-fix-devnull) to repair it with elevated rights."
+            return 1
+        fi
+        log ">>> /dev/null self-healed; continuing."
     fi
     rm -f "${_probe}" 2>&- || true
     if ! command -v systemctl >/dev/null 2>&1; then
