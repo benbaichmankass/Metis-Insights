@@ -4,7 +4,7 @@
 - Window: 2026-06-28T04:12:30+00:00 → 2026-06-29T12:35:00+00:00
 - Roll-up grade: caution
 
-~32h window. Core platform healthy: services green, DB clean, regime gate enforcing + BTC ML vol-gate confirmed firing live. Quiet trading — real money 2 small htf_pullback BTC losses (-$1.12), bybit_2 now flat; prop +$18.81 (operator-reported ETH close, documented this session). Two live issues surfaced + actioned: Alpaca positions sitting naked (root-caused + fix in draft PR #5018) and IB gateway down (MES/MGC/MHG dark). ML daily cycle green; 0 of 45 models promotable. Grading not refreshed (sandbox can't write the live DB).
+~32h window. Core platform healthy: services green, DB clean, regime gate enforcing + BTC ML vol-gate confirmed firing live. Quiet trading — real money 2 small htf_pullback BTC losses (-$1.12), bybit_2 now flat; prop +$18.81 (operator-reported ETH close, documented this session). Two live issues surfaced + actioned: Alpaca positions sitting naked (root-caused + fix in draft PR #5018) and IB gateway down (MES/MGC/MHG dark). ML daily cycle green; 0 of 45 models promotable. Grading refreshed (2/2 closed trades graded C/D via the new diag grader).
 
 ## P&L by class
 - **real**: window $-1.12 (prior +$1.78, down)
@@ -14,7 +14,7 @@
 ## Operator priorities
 1. Approve + alpaca_paper-verify the naked-bracket fix (draft PR #5018) — Alpaca day-TIF protective legs cancel at RTH close, leaving multi-session ETF holds naked with no re-arm (IB-only). PR adds GTC OCO re-arm. Needs live OCO/GTC verification before merge/deploy.
 2. Recover IB gateway — MES/MGC/MHG dark — ib_paper/ib_live read null; mgc_trend_1h went dry_run. Recurring BL-20260623-002. Run vm-ib-gateway-recover.
-3. Fix prop sizing for API-less accounts — trend_donchian_sol on breakout_1 rejected: balance() None. Prop sizing must use ruleset economics, not a live balance() call, or SOL/other prop legs won't emit tickets.
+3. Approve prop-sizing bypass (draft PR #5018) — FIXED in draft: prop (breakout) accounts now bypass balance()-based sizing; the ruleset sizes the leg + the assistant places it. Needs operator approval + live verify.
 4. Vol-gate enforce decision (~06-30 first look) — BTC ML vol-gate firing live with the advisory 15m head. MB-20260627-001 enforce-decision window opens ~06-30.
 
 ## Review coverage
@@ -30,7 +30,6 @@
 - 🚩 Prop SOL leg blocked: balance()-None sizing failure on API-less breakout_1.
 - 🚩 2 advisory BTC heads silent since 06-23/06-25 while a third is fresh.
 - 🚩 Exit-ladder soak structurally stalled (no rungs → gate un-trippable).
-- 🚩 Grading not refreshed (sandbox cannot write the live DB) — dossiers carry no fresh grade.
 
 ## Monitoring (soaking / awaiting decision)
 - `MB-20260627-001` [ml · awaiting-decision] BTC ML vol-gate firing live with the advisory 15m head; soak accruing toward enforce decision. (next: ~2026-06-30 first look, enforce call)

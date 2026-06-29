@@ -8,7 +8,7 @@
       "window_start": "2026-06-28T04:12:30+00:00",
       "window_end": "2026-06-29T12:35:00+00:00",
       "roll_up_grade": "caution",
-      "headline": "~32h window. Core platform healthy: services green, DB clean, regime gate enforcing + BTC ML vol-gate confirmed firing live. Quiet trading \u2014 real money 2 small htf_pullback BTC losses (-$1.12), bybit_2 now flat; prop +$18.81 (operator-reported ETH close, documented this session). Two live issues surfaced + actioned: Alpaca positions sitting naked (root-caused + fix in draft PR #5018) and IB gateway down (MES/MGC/MHG dark). ML daily cycle green; 0 of 45 models promotable. Grading not refreshed (sandbox can't write the live DB).",
+      "headline": "~32h window. Core platform healthy: services green, DB clean, regime gate enforcing + BTC ML vol-gate confirmed firing live. Quiet trading \u2014 real money 2 small htf_pullback BTC losses (-$1.12), bybit_2 now flat; prop +$18.81 (operator-reported ETH close, documented this session). Two live issues surfaced + actioned: Alpaca positions sitting naked (root-caused + fix in draft PR #5018) and IB gateway down (MES/MGC/MHG dark). ML daily cycle green; 0 of 45 models promotable. Grading refreshed (2/2 closed trades graded C/D via the new diag grader).",
       "html_path": "comms/reports/since-last/20260629T123500Z/report.html",
       "json_path": "comms/reports/since-last/20260629T123500Z/report.json",
       "md_path": "comms/reports/since-last/20260629T123500Z/report.md"

@@ -179,6 +179,25 @@ thing a sub-review does, it STILL does, including its repo-local writes:
   report reads any `claudeScore`; and
 - all three **drain their own backlogs**.
 
+**GRADING IS MANDATORY — NO REVIEW IS COMPLETE WITHOUT A FRESH CLAUDE SCORE FOR
+EVERY CLOSED TRADE IN THE WINDOW** (operator directive 2026-06-29). The grades
+live in `comms/claude_strategy_scores.jsonl` (a repo file the API joins
+last-wins), NOT the live DB — so "I can't reach the DB" is **never** an excuse to
+skip grading. Two paths, by session type:
+- **DB-bearing session (VM / desktop CLI):** run the canonical
+  `scripts/ops/score_order_packages.py <trade_journal.db>` — it rewrites the full
+  JSONL from the live `order_packages`.
+- **Web / PM session (no DB file, diag relay only):** pull the window's closed
+  trades via `GET /api/diag/journal?table=trades` and run
+  **`scripts/ops/grade_closed_trades_from_diag.py <trades.json> --since <window_start>`**
+  — it APPENDS one grade per closed trade using the SAME `_grade_package` rubric
+  (imported, not re-implemented), and last-occurrence-wins means it supersedes any
+  stale open-status grade. (Prop rows are isolated — not in `trades`, not graded
+  here.) Then **commit `comms/claude_strategy_scores.jsonl`.**
+  *(The 2026-06-29 incident this fixes: a web-session review skipped grading
+  believing it needed live-DB write, shipping a report whose closed trades read
+  ungraded. The diag grader removes that excuse.)*
+
 Record the roll-up in `consolidated.backlog_summary` — **computed, never
 hand-entered.** Run:
 ```

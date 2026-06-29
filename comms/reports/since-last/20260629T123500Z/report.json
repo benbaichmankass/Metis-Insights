@@ -94,8 +94,8 @@
         "detail": "trend_donchian_sol on breakout_1 (prop) REJECTED 'sizing_failed: balance() returned None for breakout_1 (exchange=breakout): account unreachable' — the API-less prop account can't size off a live balance() call, so that SOL prop ticket never emitted. ETH prop legs DO emit (different path). Prop sizing should use ruleset economics, not balance()."
       },
       {
-        "severity": "warn",
-        "detail": "GRADING NOT REFRESHED this session — the order-package scorer needs write access to the live trade_journal.db, unreachable from this sandbox (relay is GET-only /api/diag/*). claudeScore grades are stale; per-trade dossiers carry no fresh grade. Degraded dimension, not fabricated."
+        "severity": "info",
+        "detail": "Grading REFRESHED this session via scripts/ops/grade_closed_trades_from_diag.py (new diag-fed grader) — window's 2 closed real-money trades graded: pkg-8ba3=C, pkg-9f79=D. Mechanism fix so a web session can always grade (no live-DB-write excuse)."
       }
     ],
     "recommended_action": "Fix prop sizing-via-balance() for API-less accounts; refresh grading from a VM-side session.",
@@ -176,7 +176,7 @@
   },
   "consolidated": {
     "roll_up_grade": "caution",
-    "headline": "~32h window. Core platform healthy: services green, DB clean, regime gate enforcing + BTC ML vol-gate confirmed firing live. Quiet trading — real money 2 small htf_pullback BTC losses (-$1.12), bybit_2 now flat; prop +$18.81 (operator-reported ETH close, documented this session). Two live issues surfaced + actioned: Alpaca positions sitting naked (root-caused + fix in draft PR #5018) and IB gateway down (MES/MGC/MHG dark). ML daily cycle green; 0 of 45 models promotable. Grading not refreshed (sandbox can't write the live DB).",
+    "headline": "~32h window. Core platform healthy: services green, DB clean, regime gate enforcing + BTC ML vol-gate confirmed firing live. Quiet trading — real money 2 small htf_pullback BTC losses (-$1.12), bybit_2 now flat; prop +$18.81 (operator-reported ETH close, documented this session). Two live issues surfaced + actioned: Alpaca positions sitting naked (root-caused + fix in draft PR #5018) and IB gateway down (MES/MGC/MHG dark). ML daily cycle green; 0 of 45 models promotable. Grading refreshed (2/2 closed trades graded C/D via the new diag grader).",
     "operator_priorities": [
       {
         "rank": 1,
@@ -196,10 +196,10 @@
       },
       {
         "rank": 3,
-        "title": "Fix prop sizing for API-less accounts",
+        "title": "Approve prop-sizing bypass (draft PR #5018)",
         "source_review": "performance",
         "tier": 3,
-        "detail": "trend_donchian_sol on breakout_1 rejected: balance() None. Prop sizing must use ruleset economics, not a live balance() call, or SOL/other prop legs won't emit tickets.",
+        "detail": "FIXED in draft: prop (breakout) accounts now bypass balance()-based sizing; the ruleset sizes the leg + the assistant places it. Needs operator approval + live verify.",
         "operator_action_required": true
       },
       {
@@ -312,8 +312,11 @@
         "pnl_percent": -1.75,
         "close_reason": "sl",
         "claude_grade": {
-          "grade": null,
-          "rationale": "not graded — scorer needs live-DB write (unavailable from sandbox)"
+          "grade": "C",
+          "entry_quality": "late",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "htf_pullback_trend_2h long; conf 0.32; entry=late; exit=sl_appropriate(sl,-1.00R)"
         },
         "model_scores": null,
         "signal_logic": null,
@@ -341,8 +344,11 @@
         "pnl_percent": -0.11,
         "close_reason": "reconciler",
         "claude_grade": {
-          "grade": null,
-          "rationale": "not graded (see above)"
+          "grade": "D",
+          "entry_quality": "should_skip",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "htf_pullback_trend_2h long; conf 0.19=should_skip; exit=sl_appropriate(reconciler_filled,-0.03R)"
         },
         "model_scores": null,
         "signal_logic": null,
@@ -532,8 +538,7 @@
         "Alpaca positions naked (no resting bracket) — root-caused + fix in draft PR #5018.",
         "Prop SOL leg blocked: balance()-None sizing failure on API-less breakout_1.",
         "2 advisory BTC heads silent since 06-23/06-25 while a third is fresh.",
-        "Exit-ladder soak structurally stalled (no rungs → gate un-trippable).",
-        "Grading not refreshed (sandbox cannot write the live DB) — dossiers carry no fresh grade."
+        "Exit-ladder soak structurally stalled (no rungs → gate un-trippable)."
       ],
       "backlog_drive": {
         "health": {
@@ -598,8 +603,8 @@
     "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260629-123500-since-last"
   },
   "claude_channel_ping": {
-    "delivered_via": "deferred (report on feature branch claude/system-health-review-7qx2n8; dashboard deep-link + consolidated ping go live on merge to main)",
+    "delivered_via": "deferred (report on feature branch; deep-link + ping go live on merge to main)",
     "priority": "high",
-    "message": "[sys-report] CAUTION. Real -$1.12 prop +$18.81. Alpaca naked-brackets→PR#5018; IB gw down. https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260629-123500-since-last"
+    "message": "[sys-report] CAUTION. Real -$1.12 prop +$18.81. Fixes: prop-sizing+alpaca PR#5018; IB gw recovering. https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260629-123500-since-last"
   }
 }
