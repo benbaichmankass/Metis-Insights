@@ -24,7 +24,9 @@ from src.runtime.strategy_signal_builders import (  # noqa: E402
     ict_scalp_signal_builder,
     trend_donchian_1h_signal_builder,
     trend_donchian_eth_signal_builder,
+    trend_donchian_eth_prop_signal_builder,
     trend_donchian_sol_signal_builder,
+    trend_donchian_sol_prop_signal_builder,
     trend_donchian_signal_builder,
     turtle_soup_signal_builder,
     vwap_signal_builder,
@@ -213,6 +215,12 @@ _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     # live, ETH execution: shadow. Honour the YAML `enabled` flag.
     "trend_donchian_sol": trend_donchian_sol_signal_builder,
     "trend_donchian_eth": trend_donchian_eth_signal_builder,
+    # SWAP-ROBUST prop exit variants (Unit C, Phase 0, 2026-06-29; DRAFT Tier-3).
+    # Tightened-exit (trail_mult 3.5 / tp_r 6.0) prop-only siblings of
+    # trend_donchian_sol/_eth on breakout_1; both execution: shadow (observe-only
+    # soak until the prop EV/survival gate passes). Honour the YAML `enabled` flag.
+    "trend_donchian_sol_prop": trend_donchian_sol_prop_signal_builder,
+    "trend_donchian_eth_prop": trend_donchian_eth_prop_signal_builder,
     # mes_trend_long_1d — MES daily LONG-ONLY trend-follower (overnight research
     # 2026-06-01). BTC-uncorrelated equity-index diversifier on IBKR ib_paper;
     # reuses the trend_donchian unit, suppresses shorts. execution:shadow, never
