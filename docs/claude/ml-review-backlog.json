@@ -33,7 +33,8 @@
       "snoozed_until": null,
       "status_history": "open 2026-06-26 (flagged 2 MES 15m heads for demote) -> REVISED 2026-06-26 (MES candle fix + RG4 re-run cleared both 15m heads; re-targeted to mes-regime-5m-lgbm-yz-v1, now anti-predictive 0.17 on fixed data).",
       "evidence_log": [
-        "2026-06-30 (/ml-review, trainer-vm-diag #5165): RG4 re-run on mes-regime-5m-lgbm-yz-v1 is UNSCOREABLE now -- all 2236 logged-live rows are UNLABELED (the MES live-labeling gap, MB-20260626-001 finding #1, re-bit). No evidence of recovery; the prior 0.17 ANTI_PREDICTIVE read (on ~1460 labeled rows) stands as the demote basis. RECOMMENDATION (Tier-3, operator-gated): demote mes-regime-5m-lgbm-yz-v1 shadow->candidate (reversible, observe-only -- it pollutes the shadow stream with an inverted signal) and root-cause the yz inversion. By contrast its non-yz sibling mes-regime-5m-lgbm-v2 reads 0.765 TRUSTWORTHY, so this is a yz-variant-specific defect."
+        "2026-06-30 (/ml-review, trainer-vm-diag #5165): RG4 re-run on mes-regime-5m-lgbm-yz-v1 is UNSCOREABLE now -- all 2236 logged-live rows are UNLABELED (the MES live-labeling gap, MB-20260626-001 finding #1, re-bit). No evidence of recovery; the prior 0.17 ANTI_PREDICTIVE read (on ~1460 labeled rows) stands as the demote basis. RECOMMENDATION (Tier-3, operator-gated): demote mes-regime-5m-lgbm-yz-v1 shadow->candidate (reversible, observe-only -- it pollutes the shadow stream with an inverted signal) and root-cause the yz inversion. By contrast its non-yz sibling mes-regime-5m-lgbm-v2 reads 0.765 TRUSTWORTHY, so this is a yz-variant-specific defect.",
+        "2026-06-30 (root-cause from the MES-labeling investigation, /ml-review buildout session): the MES 'all live rows UNLABELED -> RG4 unscoreable' symptom is NOT a labeling-code bug in replay_pregate_live (no symbol-key or threshold issue) — it is a STALE CANDLE BASE: MES market_raw content ends 2026-06-12 (the IBKR->trainer MES market-data sync froze; daily build reports 'ok' but re-emits stale candles), so RG4 cannot join any live MES row after 2026-06-12 to a realized-label bar. Tracked as BL-20260626-MES-BASE-STALE (health backlog #99). => The MES multi-symbol vol-gate extension stays blocked on REFRESHING the frozen MES candle pull (trainer-VM data op), NOT on model or labeling-code work. The per-symbol RG4 threshold fix (MB-20260628-RG4-THRESH) was shipped alongside but does not make stale-base MES rows labelable."
       ]
     },
     {
@@ -1083,7 +1084,8 @@
       "status": "open",
       "snoozed_until": null,
       "evidence_log": [
-        "2026-06-30 (/ml-review, trainer-vm-diag #5165): RG4 reconfirms mes-regime-5m-lgbm-v2 = 0.765 TRUSTWORTHY (mf=True) -- consistent with the 0.765/0.77 prior reads. Still the ONE clear multi-symbol promotion candidate. Caveat persists: of 3588 logged-live rows only ~204 are labeled (3384 unlabeled) = the MES live-labeling gap still blinds RG4 to most of the stream. Promotion is gated on the MES cell-authoring path (per-symbol MES vol-split backtest -> author config/regime_policy.yaml MES trend_vol cells -> walk-forward -> promote-stage), NOT on the model. Stays at shadow; lead candidate."
+        "2026-06-30 (/ml-review, trainer-vm-diag #5165): RG4 reconfirms mes-regime-5m-lgbm-v2 = 0.765 TRUSTWORTHY (mf=True) -- consistent with the 0.765/0.77 prior reads. Still the ONE clear multi-symbol promotion candidate. Caveat persists: of 3588 logged-live rows only ~204 are labeled (3384 unlabeled) = the MES live-labeling gap still blinds RG4 to most of the stream. Promotion is gated on the MES cell-authoring path (per-symbol MES vol-split backtest -> author config/regime_policy.yaml MES trend_vol cells -> walk-forward -> promote-stage), NOT on the model. Stays at shadow; lead candidate.",
+        "2026-06-30 (root-cause from the MES-labeling investigation, /ml-review buildout session): the MES 'all live rows UNLABELED -> RG4 unscoreable' symptom is NOT a labeling-code bug in replay_pregate_live (no symbol-key or threshold issue) — it is a STALE CANDLE BASE: MES market_raw content ends 2026-06-12 (the IBKR->trainer MES market-data sync froze; daily build reports 'ok' but re-emits stale candles), so RG4 cannot join any live MES row after 2026-06-12 to a realized-label bar. Tracked as BL-20260626-MES-BASE-STALE (health backlog #99). => The MES multi-symbol vol-gate extension stays blocked on REFRESHING the frozen MES candle pull (trainer-VM data op), NOT on model or labeling-code work. The per-symbol RG4 threshold fix (MB-20260628-RG4-THRESH) was shipped alongside but does not make stale-base MES rows labelable."
       ]
     },
     {
@@ -1111,8 +1113,12 @@
       "tier": 1,
       "trigger_condition": "Next session running RG4 / the fleet scorecard; before trusting any RG4 number as a keep/kill verdict.",
       "resolution_criteria": "replay_pregate_live resolves vol_threshold from the dataset/manifest (per-symbol, incl. MES data-driven), the fleet scorecard is re-run, and the recalibrated numbers replace the 0.003-default fleet table in MB-20260626-001.",
-      "status": "open",
-      "snoozed_until": null
+      "status": "resolved",
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-06-30 (FIX SHIPPED, commit d78a3bb on PR #5167): scripts/ml/replay_pregate_live.py now resolves vol_threshold (explicit flag -> market_features metadata -> per-symbol default Bybit 0.005 -> 0.003 only when unknown) and surfaces vol_threshold_source in the report; ml/cli.py gate-check (_compute_live_regime_auc) passes _VT_UNSET so the shadow->advisory promotion decision inherits per-symbol resolution. MES stays data-driven (median, not hardcoded) — needs metadata or an explicit threshold. tests/ml/test_replay_pregate_live_threshold.py 12 pass. NOTE: a small follow-up to have build_trainer_datasets.sh write vol_threshold into market_features metadata would fully close MES automatic resolution. PENDING operator merge + trainer deploy."
+      ],
+      "status_history": " | resolved 2026-06-30 (fix shipped commit d78a3bb, PR #5167; pending merge/deploy)."
     },
     {
       "id": "BL-20260628-XA-TRAINING-ZERO",
@@ -1212,12 +1218,13 @@
       "tier": 3,
       "trigger_condition": "Next /ml-review or /system-review reading stage-guard; or any session touching ml/promotion/stage_guard demote logic or ml/promotion/gates.py.",
       "resolution_criteria": "stage-guard's advisory-degradation/demote trigger for regime-family heads gates on RG4 live-regime-discrimination (not brier_lift score-vs-win); verified by re-running stage-guard on btc-regime-15m-lgbm-v2 and getting hold (not demote) while RG4>=0.55; the decision/outcome families keep their trade-outcome trigger.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "evidence_log": [
-        "2026-06-30 (trainer-vm-diag #5164/#5165): stage-guard demote btc-regime-15m-lgbm-v2 on brier_lift -0.16256 (n=15, win_rate 0.467, auc 0.554, drift minor); same-session RG4 advisory 0.801 / shadow 0.727 TRUSTWORTHY (2576 recs). /ml-review ruled HOLD advisory -- the demote is a mis-targeted-metric false positive."
+        "2026-06-30 (trainer-vm-diag #5164/#5165): stage-guard demote btc-regime-15m-lgbm-v2 on brier_lift -0.16256 (n=15, win_rate 0.467, auc 0.554, drift minor); same-session RG4 advisory 0.801 / shadow 0.727 TRUSTWORTHY (2576 recs). /ml-review ruled HOLD advisory -- the demote is a mis-targeted-metric false positive.",
+        "2026-06-30 (FIX SHIPPED, commit e9345f0 on PR #5167): stage_guard._demote_triggers now takes is_regime (via gates.is_regime_classifier, the canonical Option-A helper) and suppresses the brier_lift<0 + auc<0.5 trade-win triggers for regime-family heads; significant-drift + score-collapse demote triggers retained; decision/outcome families unchanged. Verified: a regime head with negative brier_lift -> HOLD (not demote); a decision head with the same -> still demote. tests/ml/test_stage_guard.py 13 pass (4 new), test_gates.py 25 pass. Read-only (stage-guard only proposes) — no live behaviour change. PENDING operator merge + trainer deploy."
       ],
-      "status_history": "open 2026-06-30 (/ml-review: stage-guard demoted a healthy advisory regime head on the trade-win axis Option A retired; filed the misalignment)."
+      "status_history": "open 2026-06-30 (/ml-review: stage-guard demoted a healthy advisory regime head on the trade-win axis Option A retired; filed the misalignment). | resolved 2026-06-30 (fix shipped commit e9345f0, PR #5167; pending merge/deploy)."
     }
   ],
   "updated_at": "2026-06-29T13:30:00+00:00"
