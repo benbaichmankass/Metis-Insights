@@ -178,21 +178,34 @@ geometry the recombination sweep explicitly does not generate.
 backtest-gate before any wire-to-trade — mirroring the ML `shadow → advisory`
 ladder exactly.
 
-**Candidate primitive shortlist** (each is a coded, gated ICT idea not yet in the
-pool; ordered by expected value-to-cost):
-1. **Breaker / mitigation blocks** — order-block inversion after a sweep; a
-   natural extension of `ict_scalp`'s existing sweep+FVG geometry.
-2. **Inversion FVG (IFVG)** — an FVG that fails and flips polarity; high-quality
-   continuation trigger, reuses the existing FVG detector.
-3. **SMT divergence** — cross-asset (BTC/ETH, or ES/NQ) liquidity-sweep
-   divergence; pairs with the cross-asset peer-feature plumbing
-   (`config/cross_asset.yaml`, `cross_asset_live.py`).
-4. **Equal-highs/lows liquidity pools** — relative-equal-extreme draws on
-   liquidity; a cleaner sweep-target than the raw swing extreme.
-5. **Session opening-range** — killzone-anchored OR breakout/fade; reuses the
-   session/killzone gate already in `ict_scalp` + the hf candidates.
-6. **PD-array / daily-bias** — premium-discount array bias as a regime/direction
-   filter rather than an entry — a c_reg input as much as a trigger.
+**Candidate primitive shortlist.** A candidate is one of two *roles* — an entry
+**trigger** (*when* to enter) or a **filter** (*whether* to take it; a c_reg /
+direction input). The ordering is by **role + expected value**, NOT raw
+build-cost: the **M18 prior** (entry-feature edge ≈ coin-flip OOS) says the edge
+more likely lives in the filter/regime/exit than in a 4th entry geometry, so a
+filter primitive is pulled forward ahead of additional triggers.
+
+*Build order (the §9 P3 fan-out):*
+1. **Breaker / mitigation blocks** *(trigger)* — order-block inversion after a
+   sweep; reuses `ict_scalp`'s existing sweep+FVG geometry. **First, as the
+   cheapest end-to-end shakedown of the L3 ladder** — a failure here is a tooling
+   bug, not a geometry bug.
+2. **Inversion FVG (IFVG)** *(trigger)* — an FVG that fails and flips polarity;
+   continuation trigger, reuses the existing FVG detector. Pairs with (1) as the
+   low-cost shakedown set.
+3. **PD-array / daily-bias** *(filter — pulled forward)* — premium-discount array
+   bias as a regime/direction filter, a c_reg input. **Run next, ahead of the
+   remaining triggers**: it directly tests the M18 hypothesis that the edge is in
+   the filter, not the trigger — the framework eating its own dog food.
+4. **SMT divergence** *(trigger — diversification bet)* — cross-asset (BTC/ETH,
+   ES/NQ) liquidity-sweep divergence; the highest *orthogonality* value (genuinely
+   independent of a BTC+futures sweep/FVG book) but the most expensive — needs ≥2
+   clean correlated instruments. Pairs with the cross-asset plumbing
+   (`config/cross_asset.yaml`, `cross_asset_live.py`). Queued third.
+5. **Equal-highs/lows liquidity pools** *(trigger)* — relative-equal-extreme
+   liquidity draws; a cleaner sweep-target than the raw swing extreme.
+6. **Session opening-range** *(trigger)* — killzone-anchored OR breakout/fade;
+   reuses the session/killzone gate already in `ict_scalp` + the hf candidates.
 
 **The ladder:**
 1. **Code the primitive as a pure detector** behind the same
@@ -201,7 +214,13 @@ pool; ordered by expected value-to-cost):
 2. **Per-bar soak** — compute the predicate every bar and log it to
    `runtime_logs/signal_research/candidate_<name>.jsonl`, the way
    `regime_bar_scoring.py` accrues ML-head predictions without trading. Surfaced
-   read-only (a `/api/bot/signal-research/*` Tier-1 endpoint, like the other soaks).
+   read-only (a `/api/bot/signal-research/*` Tier-1 *read* endpoint, like the
+   other soaks). **Enabling the soak on the live trader is Tier-2, not Tier-1** —
+   it runs on the money box and adds per-tick CPU, the exact pattern that wedged
+   the 2-core live VM in the 2026-06-09/10 cascades. It MUST ship with a
+   kill-switch + per-tick wall-clock budget, mirroring
+   `REGIME_BAR_SCORING_DISABLED` / `REGIME_BAR_SCORING_BUDGET_S`. "Observe-only"
+   removes *order* risk, not *compute* risk.
 3. **Score standalone + marginal** — run it through Layer 1/2: its own
    expectancy-R *and* its lift on top of the existing book (does it fire where the
    book is silent, and is that incremental edge real?).
@@ -249,11 +268,17 @@ existing best-effort append-only, never-raise writer convention.
   the cost-sensitivity backtest column.
 - **P2 — Ablation knobs (L1b).** `--disable-<condition>` in the per-strategy
   harnesses (shared with recombination) + the eval-audit `decline_reason` writer.
-- **P3 — New-signal soak (L3).** One candidate primitive end-to-end through the
-  observe→score→graduate ladder as the proof, then fan the shortlist.
+- **P3 — New-signal soak (L3).** Breaker-blocks + IFVG end-to-end through the
+  observe→score→graduate ladder as the cheap shakedown, then PD-array (the filter
+  edge test), then fan the rest of the §6 shortlist.
 
-Each phase pings the operator at its result (standing cadence); P0/P1 are
-autonomous Tier-1; a graduating signal is an operator-gated Tier-3 demo PR.
+Autonomy by phase: **P0/P1 are autonomous Tier-1** (offline analysis, no live
+surface — insight before any sign-off). **L3's scoring math + backtest discovery
+are Tier-1; enabling the live per-bar soak is Tier-2** (a runtime change to the
+money box — one operator OK, shipped with the kill-switch + wall-clock budget).
+**A graduating signal is operator-gated Tier-3**: paper_ready → `bybit_1` demo
+touches the hard-gated config files, so it is a Tier-3 PR by rule, not by choice;
+live_ready is a real-money proposal.
 
 ## 10. Risks / guardrails
 
@@ -274,14 +299,29 @@ autonomous Tier-1; a graduating signal is an operator-gated Tier-3 demo PR.
 - **Schema drift.** The canonical adapter (§7) is a *reference* to live unit
   keys; a unit logic change must update its adapter entry. Unit-test the adapter
   against captured fixture rows so drift fails loudly.
+- **"Observe-only" ≠ zero-risk on the money box.** L3's live per-bar soak places
+  no order, but it spends per-tick CPU on the 2-core live trader — and that exact
+  class (per-bar ML scoring) froze the heartbeat in the 2026-06-09/10 wedge
+  cascades. Treat enabling it as a Tier-2 runtime change with a kill-switch +
+  wall-clock budget (§6/§9), never a free Tier-1 toggle. The risk that bites the
+  trader here is *compute*, not orders.
 
-## 11. Open questions for the operator
+## 11. Resolved decisions (operator-approved 2026-06-30)
 
-1. **Scorecard home** — a standalone `/signal-review` packet, or a subsection of
-   the existing `/performance-review`? (Recommend: subsection — it already grades
-   decisions anchored on `signal_logic`, so the component view is one level down.)
-2. **Candidate shortlist priority** — confirm the §6 ordering, or front-load a
-   specific primitive (breaker blocks and IFVG reuse the most existing code).
-3. **Autonomy line for L3** — the soak + scoring are Tier-1; confirm that a
-   `paper_ready` survivor wiring to `bybit_1` demo follows the standard Tier-3
-   PR (as recombination does), with `live_ready` operator-gated.
+1. **Scorecard home → a `/performance-review` subsection, backed by a standalone
+   packet-generator — NOT a fourth review skill.** The three-way split exists to
+   separate reviews with different *rubrics + backlogs*; the component view shares
+   both with `/performance-review` (same `signal_logic` anchor, same
+   strategy-tweak backlog) — it is one level down from per-decision grading, not a
+   different kind of review. Build it as a packet generator (the M7-packet
+   pattern) that `/performance-review` reads on cadence and that also runs ad hoc.
+   Revisit a split only if L3 accretes its own divergent experiment backlog.
+2. **Candidate priority → role + expected-value, not build-cost (see §6).**
+   Breaker-blocks + IFVG first (cheapest ladder shakedown), then **PD-array as a
+   *filter*** pulled ahead of the remaining triggers (tests the M18 "edge is in
+   the filter, not the trigger" hypothesis), then SMT (orthogonality bet).
+3. **Autonomy → three-way line (see §6/§9), sharper than a flat "Tier-1".**
+   Scoring math + backtest discovery are Tier-1; **enabling the live per-bar soak
+   is Tier-2** (compute on the money box → kill-switch + wall-clock budget);
+   `paper_ready` → demo and `live_ready` are operator-gated Tier-3 (the demo wire
+   touches hard-gated config by rule).
