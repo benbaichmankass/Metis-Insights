@@ -674,6 +674,16 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 logger.exception("prop_expiry_prompt tick failed")
 
+            # When an open prop trade's current price crosses its SL or TP
+            # level, fire a one-shot Telegram + FCM alert prompting the
+            # operator to check whether the trade closed and report back.
+            # One alert per level per open-position lifetime; best-effort.
+            try:
+                from src.prop.prop_sl_tp_alert import run_prop_sl_tp_alert
+                run_prop_sl_tp_alert()
+            except Exception:  # noqa: BLE001
+                logger.exception("prop_sl_tp_alert tick failed")
+
             # A supposed-to-be-live broker account reading unreachable (IB
             # gateway logged out, exchange API 401-ing, creds rotated out)
             # is a money-at-risk condition that must surface LOUDLY, not sit

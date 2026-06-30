@@ -15,6 +15,7 @@ upstream).
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from datetime import timezone
@@ -145,7 +146,7 @@ def render_fill_message(fill: Dict[str, Any]) -> str:
         pnl = fill.get("pnl")
         emoji = "⚪"
         if isinstance(pnl, (int, float)):
-            emoji = "🟢" if pnl > 0 else ("🔴" if pnl < 0 else "⚪")
+            emoji = "\U0001f7e2" if pnl > 0 else ("\U0001f534" if pnl < 0 else "⚪")
         pct = fill.get("pnl_percent")
         pct_str = f" ({_fmt(pct)}%)" if pct is not None else ""
         reason = fill.get("reason") or "—"
@@ -154,7 +155,7 @@ def render_fill_message(fill: Dict[str, Any]) -> str:
             f"PnL {_fmt(pnl)}{pct_str} · exit {_fmt(fill.get('exit_price'))} · {reason}"
         )
     return (
-        f"🟪 PROP FILL {sym} {direction} [{account}] "
+        f"\U0001f7ea PROP FILL {sym} {direction} [{account}] "
         f"{_fmt(fill.get('qty'))} @ {_fmt(fill.get('entry_price'))}"
     )
 
@@ -179,7 +180,7 @@ def render_monitor_message(position: Dict[str, Any]) -> str:
         f"SL {_fmt(position.get('sl'))} · TP {_fmt(position.get('tp'))}"
     )
     return (
-        f"🔵 PROP MONITOR {sym} {direction} [{account}] — still monitoring · {note}"
+        f"\U0001f535 PROP MONITOR {sym} {direction} [{account}] — still monitoring · {note}"
         f"\n{levels}{age_str}"
     )
 
@@ -332,5 +333,136 @@ def emit_prop_fill(fill: Dict[str, Any], *, push: bool = True,
             out["telegram"] = True
         except Exception as exc:  # noqa: BLE001
             logger.warning("emit_prop_fill: telegram send failed: %s", exc)
+
+    return out
+
+
+def render_sl_tp_alert_message(
+    position: Dict[str, Any],
+    level_type: str,
+    current_price: float,
+) -> str:
+    """Human-readable Telegram message for a prop SL/TP crossing alert.
+
+    Includes a pre-filled JSON report template the operator can paste directly
+    to the assistant (via the prop-report workflow or Telegram) to log the close.
+    ``level_type`` is ``'sl'`` or ``'tp'``.
+    """
+    sym = str(position.get("symbol") or "?").upper()
+    direction = str(position.get("direction") or "").upper()
+    account = str(position.get("account_id") or position.get("account") or "prop")
+    age_min = position.get("age_minutes")
+    age_str = f" · open {_fmt(age_min)}m" if age_min is not None else ""
+    sl = position.get("sl")
+    tp = position.get("tp")
+    entry = position.get("entry") or position.get("entry_price")
+    ticket_id = str(position.get("ticket_id") or "")
+
+    is_sl = level_type.lower() == "sl"
+    level_val = sl if is_sl else tp
+    reason_tag = "sl" if is_sl else "tp"
+
+    if is_sl:
+        d = direction.lower()
+        if d in ("sell", "short"):
+            cross_desc = f"{_fmt(current_price)} ≥ SL {_fmt(level_val)}"
+        else:
+            cross_desc = f"{_fmt(current_price)} ≤ SL {_fmt(level_val)}"
+        emoji = "\U0001f6a8"
+        header = f"{emoji} PROP SL HIT? {sym} {direction} [{account}] — price crossed SL"
+    else:
+        d = direction.lower()
+        if d in ("sell", "short"):
+            cross_desc = f"{_fmt(current_price)} ≤ TP {_fmt(level_val)}"
+        else:
+            cross_desc = f"{_fmt(current_price)} ≥ TP {_fmt(level_val)}"
+        emoji = "\U0001f3af"
+        header = f"{emoji} PROP TP HIT? {sym} {direction} [{account}] — price crossed TP"
+
+    levels_line = (
+        f"entry {_fmt(entry)} · SL {_fmt(sl)} · TP {_fmt(tp)}{age_str}"
+    )
+
+    report_template = json.dumps({
+        "account_id": account,
+        "symbol": sym,
+        "direction": direction.lower(),
+        "status": "closed",
+        "exit_price": round(current_price, 6),
+        "pnl": None,
+        "pnl_percent": None,
+        "reason": reason_tag,
+        **(  {"ticket_id": ticket_id} if ticket_id else {}),
+    }, indent=2)
+
+    return (
+        f"{header}\n"
+        f"{cross_desc}\n"
+        f"{levels_line}\n\n"
+        "Did the trade close? If yes, paste this report to the assistant:\n\n"
+        f"```\n{report_template}\n```"
+    )
+
+
+def emit_prop_sl_tp_alert(
+    position: Dict[str, Any],
+    level_type: str,
+    current_price: float,
+    *,
+    push: bool = True,
+    telegram: bool = True,
+) -> Dict[str, bool]:
+    """Fire a one-shot SL/TP crossing alert for an open prop trade.
+
+    Sends a Telegram message (via the prop bot) with a pre-filled JSON report
+    template so the operator can immediately log the close if the trade hit.
+    Also fires a typed ``PROP_SL_TP_ALERT`` FCM push so the Android app pings
+    loudly. Best-effort + fully isolated — a leg failure logs a WARNING and is
+    reported in the return dict but never raises.
+
+    ``level_type`` is ``'sl'`` or ``'tp'``.
+    """
+    from src.runtime.mobile_push.event_kinds import PROP_SL_TP_ALERT
+
+    text = render_sl_tp_alert_message(position, level_type, current_price)
+    sym = str(position.get("symbol") or "")
+    direction = str(position.get("direction") or "")
+    account = str(position.get("account_id") or position.get("account") or "")
+    sl = position.get("sl")
+    tp = position.get("tp")
+
+    payload = {
+        "account": account,
+        "symbol": sym,
+        "direction": direction,
+        "level_type": level_type,
+        "current_price": _fmt(current_price),
+        "sl": _fmt(sl),
+        "tp": _fmt(tp),
+        "entry": _fmt(position.get("entry") or position.get("entry_price")),
+        "ticket_id": str(position.get("ticket_id") or ""),
+        "age_minutes": _fmt(position.get("age_minutes")),
+        "text": text,
+    }
+    out = {"push": False, "telegram": False}
+
+    if push:
+        try:
+            from src.runtime.mobile_push import publish_event
+
+            publish_event(PROP_SL_TP_ALERT, payload)
+            out["push"] = True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("emit_prop_sl_tp_alert: FCM push failed: %s", exc)
+
+    if telegram:
+        try:
+            from src.runtime.notify import send_telegram_direct
+
+            send_telegram_direct(text, parse_mode=None, mirror_to_fcm=False,
+                                 bot_token=_prop_bot_token())
+            out["telegram"] = True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("emit_prop_sl_tp_alert: telegram send failed: %s", exc)
 
     return out
