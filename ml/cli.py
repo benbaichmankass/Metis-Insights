@@ -478,7 +478,7 @@ def _compute_live_regime_auc(
 
         from ml.shadow import factory as _factory
         from ml.shadow.factory import resolve_predictor
-        from scripts.ml.replay_pregate_live import run as _rg4_run
+        from scripts.ml.replay_pregate_live import _VT_UNSET, run as _rg4_run
         from src.runtime.regime_bar_scoring import _bar_seconds
         from src.runtime.regime_shadow import regime_spec_of
 
@@ -503,9 +503,14 @@ def _compute_live_regime_auc(
         candles = str(candle_files[-1])
 
         bar_seconds = _bar_seconds(timeframe) or 3600.0
+        # vol_threshold=_VT_UNSET → resolve per-symbol inside run() so the gate
+        # scores each head against its OWN training label (Bybit 0.005 / MES
+        # data-driven), not the legacy hardcoded 0.003 that mis-scores the fleet
+        # (MB-20260628-RG4-THRESH). This is the promotion gate-check, so the
+        # threshold mismatch matters most here.
         report = _rg4_run(
             model_id, shadow_log=str(log_path), candles=candles,
-            forward_m=5, vol_threshold=0.003, positive_class="volatile",
+            forward_m=5, vol_threshold=_VT_UNSET, positive_class="volatile",
             bar_seconds=float(bar_seconds),
         )
         by_stage = report.get("by_stage") or {}
