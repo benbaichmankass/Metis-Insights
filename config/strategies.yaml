@@ -1646,7 +1646,9 @@ strategies:
     model: null
     signal_prefixes: [xrp_pullback, xrp_pullback_2h]
     enabled: true
-    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    execution: live          # bybit_1 demo (paper) + bybit_2 REAL MONEY (2026-06-30, Tier-3
+                             # operator-approved). ROLLBACK: remove xrp_pullback_2h from
+                             # bybit_2.strategies in config/accounts.yaml.
     timeframe: "2h"
     symbols:
       - XRPUSDT
@@ -1665,7 +1667,9 @@ strategies:
     model: null
     signal_prefixes: [ada_pullback, ada_pullback_2h]
     enabled: true
-    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    execution: live          # bybit_1 demo (paper) + bybit_2 REAL MONEY (2026-06-30, Tier-3
+                             # operator-approved). ROLLBACK: remove ada_pullback_2h from
+                             # bybit_2.strategies in config/accounts.yaml.
     timeframe: "2h"
     symbols:
       - ADAUSDT
