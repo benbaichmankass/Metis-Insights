@@ -2680,6 +2680,68 @@ class TestExitPriceFromClosedPnl:
         notes = json.loads(row["notes"])
         assert notes["exit_price_source"] == "entry_order_avg_price_unreliable"
 
+    def test_select_supplies_entry_price_and_qty_to_closed_pnl_lookup(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """Regression for BL-20260630-RECONCILER-SELECT-MISSING-COLS.
+
+        ``_reconcile_open_trades`` formerly selected only 6 columns:
+        ``id, account_id, symbol, direction, notes, created_at``.
+        ``entry_price`` and ``position_size`` were absent, so
+        ``row.get("entry_price")`` / ``row.get("position_size")`` both
+        resolved to ``None`` → ``_safe_float(None)`` → ``0.0`` → the
+        ``> 0`` guards in ``_bybit_closed_pnl_lookup`` disabled both
+        disambiguation filters, leaving only symbol+side+time-window to
+        match the closed-pnl record (wrong record on a busy symbol).
+
+        After the fix the SELECT includes ``entry_price, position_size,
+        setup_type``; this test pins that contract by capturing the
+        ``qty`` and ``entry_price`` arguments actually forwarded to
+        ``account_closed_pnl_for_trade`` and asserting they match the
+        values written to the DB (0.005 and 80000.0 from
+        ``_insert_trade``).
+        """
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        cfg_path = tmp_path / "accounts.yaml"
+        cfg_path.write_text(self._ACCOUNTS_YAML)
+        monkeypatch.setenv("ACCOUNTS_YAML_PATH", str(cfg_path))
+
+        bybit_uuid = "1900000000000099999"
+        _insert_trade(tmp_db, trade_id=bybit_uuid)
+
+        captured_calls: list = []
+
+        def _capture_closed_pnl(account_cfg, *, symbol, direction, qty, entry_price, **kw):
+            captured_calls.append({"qty": qty, "entry_price": entry_price})
+            return None  # fallback path — trade still closes
+
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status(bybit_uuid),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ), patch(
+            "src.units.accounts.clients.account_closed_pnl_for_trade",
+            side_effect=_capture_closed_pnl,
+        ):
+            _reconcile_to_close(tmp_db)
+
+        assert len(captured_calls) >= 1, (
+            "account_closed_pnl_for_trade was not called — "
+            "the reconciler close path may have changed"
+        )
+        call = captured_calls[0]
+        assert call["qty"] == pytest.approx(0.005), (
+            "position_size not propagated: got %s (was 0.0 pre-fix)" % call["qty"]
+        )
+        assert call["entry_price"] == pytest.approx(80000.0), (
+            "entry_price not propagated: got %s (was 0.0 pre-fix)" % call["entry_price"]
+        )
+
 
 # ---------------------------------------------------------------------------
 # Position-netting guard — reconciler half (Option A, BL-20260608-DEMOPNL)

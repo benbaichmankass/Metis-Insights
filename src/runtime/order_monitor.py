@@ -3233,8 +3233,9 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
         try:
             conn.row_factory = __import__("sqlite3").Row
             rows = conn.execute(
-                "SELECT id, account_id, symbol, direction, notes, created_at "
-                "FROM trades WHERE status='open' AND COALESCE(is_backtest,0)=0"
+                "SELECT id, account_id, symbol, direction, notes, created_at, "
+                "       entry_price, position_size, setup_type "
+                "  FROM trades WHERE status='open' AND COALESCE(is_backtest,0)=0"
             ).fetchall()
         finally:
             conn.close()
