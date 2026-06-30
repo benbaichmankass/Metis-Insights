@@ -145,3 +145,36 @@ scorer-quality investigation. The sizing lever (shared-budget concentration) is 
 leverage with ~2.5× the drawdown; that's a risk call, separate from the allocator thesis. All Tier-3
 decisions remain parked.
 
+### (scorer probe) — is there ANY learnable ranking signal? (first pass, n=136)
+Before fitting a learned ranker we asked the prior question with
+`scripts/research/allocator_candidate_dataset.py`: simulate every actionable candidate standalone
+(single-position-per-symbol, no lookahead, fixed notional → balance-free net-R) and measure whether
+any decision-time feature separates winners from losers. First pass (BTC+ETH+SOL 5m, 2026-01→06-18,
+**136 candidates**, 30.1% win, mean net-R −0.035):
+
+| feature | AUC(win) | corr(net-R) | feature | AUC(win) | corr(net-R) |
+|---|---|---|---|---|---|
+| confidence (c_strat) | 0.534 | +0.054 | ret_1h | 0.459 | **−0.104** |
+| ev_r (current scorer) | 0.539 | +0.057 | ret_4h | 0.451 | −0.096 |
+| rr | 0.559 | +0.015 | ret_12h | 0.484 | −0.061 |
+| tp_dist_pct | 0.571 | +0.052 | hour_utc | 0.443 | **−0.133** |
+| stop_dist_pct | 0.435 | −0.028 | vol_1h | 0.490 | +0.048 |
+| mom_align_1h | 0.501 | +0.033 | dow | 0.500 | −0.008 |
+
+Reads:
+- **The current scorer is barely informative** — `ev_r` AUC 0.539 (≈ coin flip). That is *mechanically
+  why* it ties dumb priority: a near-0.5 ranker can't out-select.
+- **The strongest single features are NOT in the scorer:** short-horizon **mean-reversion**
+  (`ret_1h`/`ret_4h` corr ≈ −0.10 — candidates entering *after* a recent up-move do worse) and
+  **time-of-day** (`hour_utc` corr −0.13). A ranker that faded recent momentum + avoided bad hours
+  could plausibly beat priority — the first concrete lead.
+- **The dominant effect is owner/symbol IDENTITY, not a cross-candidate feature:** `trend_donchian`
+  (BTC) n=21 / 19% win / **net-R −9.7** carries almost the entire loss; `trend_donchian_eth` n=55 /
+  +4.5 carries the gain. That's a strategy-performance call (Tier-3, already flagged — and the live
+  regime gate already filters trend_donchian's worst cells per finding (c)), not a ranker insight.
+
+**CAVEAT:** n=136 is too small — a corr of 0.10 at n=136 has a 95% CI ≈ ±0.17, so only `ret_1h`/
+`hour_utc` are near significance and none is strong. **Fitting a model on 136 noisy rows would
+overfit.** → Growing the dataset to multi-year (2022→2026, ~10× n) is running next to test which of
+these signals are *stable* before any ranker is fit. Tier-1; Tier-3 parked.
+
