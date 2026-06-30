@@ -261,7 +261,23 @@ accounts:
     market_type: linear                # PR 3 — Bybit V5 USDT-margined
                                        # linear perpetuals. Was
                                        # spot-margin pre-cutover.
-    strategies: [trend_donchian, ict_scalp_5m, fvg_range_15m, htf_pullback_trend_2h, eth_pullback_2h, xrp_pullback_2h, ada_pullback_2h]
+    strategies: [trend_donchian, ict_scalp_5m, fvg_range_15m, htf_pullback_trend_2h, eth_pullback_2h, xrp_pullback_2h, ada_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+                                       # trend_donchian_eth_4h + trend_donchian_xrp_4h added
+                                       # 2026-06-30 (Tier-3, OPERATOR-APPROVED 2026-06-30).
+                                       # Both passed the M15 WS-C 3-fold k-fold @7.5bps with 2x fee
+                                       # headroom (PB-20260611-M15-1: ETH +27.9R, XRP +45.8R; every
+                                       # 3-fold positive) and have soaked demo-only on bybit_1. Their
+                                       # symbols (ETHUSDT/XRPUSDT) are already live on bybit_2, so this
+                                       # adds NO new real-money instrument — the lowest-footprint 4h-alt
+                                       # promotion. CAVEAT/GATE (see PR): these cells "miss live only on
+                                       # the recent chop regime" (SRQ-20260618-001) — the regime-gated
+                                       # re-sweep is the precondition; account_compat_matrix NOT yet run
+                                       # for bybit_2; crypto-4h correlates with the existing BTC/ETH book
+                                       # (correlated exposure, not diversification). ROLLBACK: remove
+                                       # both names here. The sol/avax 4h siblings (also k-fold PASS) are
+                                       # a SEPARATE step — they'd additionally need SOLUSDT/AVAXUSDT added
+                                       # to `symbols:` below (new real-money instruments).
+                                       # ---
                                        # xrp_pullback_2h + ada_pullback_2h added 2026-06-30
                                        # (Tier-3, operator-approved) to build live track record.
                                        # Classified PAPER_READY by M15 WS-C k-fold (net-of-fee
