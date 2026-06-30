@@ -466,7 +466,19 @@ def _run_portfolio(
         candidate, rank by EV_R / unit-risk, and OPEN greedily the top ones that
         (a) fit under max_concurrent and (b) can be funded from the shared pool.
         The per-symbol manage/exit logic is identical to the baseline's.
+
+    arm == "shared_priority" (SIZING-NORMALIZED CONTROL): byte-for-byte the SAME
+        shared-budget engine as "ev" — same per-trade sizing off the shared
+        balance, same max_concurrent cap, same shared risk pool — differing ONLY
+        in how contested candidates are RANKED for the free slots: a fixed
+        EV-blind symbol-priority order (the listing order of `symbols`, owner
+        name as tiebreak) instead of EV_R. Comparing "ev" vs "shared_priority"
+        therefore isolates the SELECTION edge (which candidate fills the slot)
+        from the SIZING effect (shared vs per-symbol balance) that "ev" vs the
+        independent baseline conflates.
     """
+    # EV-blind ranking key for the shared_priority control: lower = filled first.
+    sym_priority = {s: k for k, s in enumerate(symbols)}
     fee_rate = fee_bps / 10_000.0
     for st in states.values():
         st._fee_rate = fee_rate  # type: ignore[attr-defined]
@@ -517,7 +529,7 @@ def _run_portfolio(
             equity_curve.append((str(shared_ts[i]), round(eq, 2)))
         final_real = sum(bal.values())
 
-    else:  # arm == "ev" — shared budget + greedy EV selection
+    else:  # arm in ("ev", "shared_priority") — shared budget; rank differs by arm
         balance = initial_balance
         day = None
         day_start_balance = balance
@@ -549,10 +561,14 @@ def _run_portfolio(
             if len(cands) >= 2 and free_slots > 0 and not halted:
                 contested_ticks += 1
             if cands and free_slots > 0 and not halted:
-                # rank by EV per unit-risk (greedy). EV_R is already per-unit-risk
-                # (R-units), so rank directly on EV_R; None EV ranks last.
-                ranked = sorted(cands, key=lambda cc: (cc.ev_r if cc.ev_r is not None else -1e9),
-                                reverse=True)
+                if arm == "ev":
+                    # rank by EV per unit-risk (greedy). EV_R is already per-unit-risk
+                    # (R-units), so rank directly on EV_R; None EV ranks last.
+                    ranked = sorted(cands, key=lambda cc: (cc.ev_r if cc.ev_r is not None else -1e9),
+                                    reverse=True)
+                else:  # shared_priority — EV-BLIND symbol-priority order (sizing-normalized control)
+                    ranked = sorted(cands, key=lambda cc: (sym_priority.get(cc.symbol, 1_000_000),
+                                                           cc.owner))
                 opened = 0
                 pool_remaining = balance * (risk_pct / 100.0) * max_concurrent \
                     - open_count * balance * (risk_pct / 100.0)
@@ -636,7 +652,7 @@ def _summarize_arm(*, arm, symbols, closed, equity_curve, initial_balance,
         "per_symbol": per_sym,
         "equity_curve_tail": equity_curve[-3:],
     }
-    if arm == "ev":
+    if arm in ("ev", "shared_priority"):
         out["allocator"] = {
             "max_concurrent": max_concurrent,
             "cross_symbol_contested_ticks": contested_ticks,
@@ -666,6 +682,13 @@ def run_multisymbol_backtest(
         arm="ev", symbols=symbols, states=states, shared_ts=shared_ts,
         initial_balance=initial_balance, risk_pct=risk_pct, daily_loss_pct=daily_loss_pct,
         signal_ttl_bars=signal_ttl_bars, fee_bps=fee_bps, max_concurrent=max_concurrent)
+    # Sizing-normalized control: same shared-budget engine + same per-trade sizing
+    # + same concurrency cap as the EV allocator, but EV-BLIND symbol-priority
+    # fill order. EV − shared_priority isolates SELECTION from SIZING.
+    shared_priority = _run_portfolio(
+        arm="shared_priority", symbols=symbols, states=states, shared_ts=shared_ts,
+        initial_balance=initial_balance, risk_pct=risk_pct, daily_loss_pct=daily_loss_pct,
+        signal_ttl_bars=signal_ttl_bars, fee_bps=fee_bps, max_concurrent=max_concurrent)
     return {
         "kind": "allocator_multisymbol_backtest",
         "symbols": symbols,
@@ -682,12 +705,24 @@ def run_multisymbol_backtest(
         "data_end": str(shared_ts[-1]) if shared_ts else None,
         "baseline_independent": baseline,
         "allocator_ev": allocator,
+        "shared_priority_control": shared_priority,
         "comparison": {
             "net_pnl_delta_ev_minus_baseline": round(
                 allocator["net_pnl"] - baseline["net_pnl"], 2),
             "maxdd_pct_delta_ev_minus_baseline": round(
                 allocator["max_drawdown_pct"] - baseline["max_drawdown_pct"], 2),
             "ev_beats_baseline_net": bool(allocator["net_pnl"] > baseline["net_pnl"]),
+        },
+        # The sizing-normalized selection test: both arms share the SAME budget
+        # engine + sizing + concurrency cap, so this delta is the SELECTION edge
+        # alone (EV ranking vs EV-blind symbol-priority), free of the sizing
+        # artifact that the ev-vs-baseline comparison conflates.
+        "selection_comparison": {
+            "net_pnl_delta_ev_minus_priority": round(
+                allocator["net_pnl"] - shared_priority["net_pnl"], 2),
+            "maxdd_pct_delta_ev_minus_priority": round(
+                allocator["max_drawdown_pct"] - shared_priority["max_drawdown_pct"], 2),
+            "ev_beats_priority_net": bool(allocator["net_pnl"] > shared_priority["net_pnl"]),
         },
     }
 
@@ -696,6 +731,8 @@ def _fmt(s: Dict[str, Any]) -> str:
     b = s["baseline_independent"]
     a = s["allocator_ev"]
     al = a.get("allocator", {})
+    sp = s.get("shared_priority_control") or {}
+    spl = sp.get("allocator", {})
     L = [
         f"allocator_multisymbol_backtest — symbols={s['symbols']}",
         f"  data {s['data_start']} -> {s['data_end']}  shared_clock_bars={s['shared_clock_bars']}",
@@ -713,10 +750,20 @@ def _fmt(s: Dict[str, Any]) -> str:
         f"    allocator: contested_ticks={al.get('cross_symbol_contested_ticks')} "
         f"lower_ev_skips={al.get('lower_ev_skips')} budget_binds={al.get('budget_binds')} "
         f"max_concurrent={al.get('max_concurrent')}",
-        "  ── COMPARISON (ev − baseline) ──",
+        "  ── ARM: SHARED_PRIORITY (sizing-normalized control: shared budget, EV-blind symbol-priority) ──",
+        f"    net=${sp.get('net_pnl', 0):.0f} ({sp.get('return_pct')}%)  maxDD={sp.get('max_drawdown_pct')}%  "
+        f"trades={sp.get('total_trades')} WR={sp.get('win_rate_pct')}%",
+        f"    per-symbol: {sp.get('per_symbol')}",
+        f"    allocator: contested_ticks={spl.get('cross_symbol_contested_ticks')} "
+        f"skips={spl.get('lower_ev_skips')} budget_binds={spl.get('budget_binds')}",
+        "  ── COMPARISON (ev − baseline; CONFLATES sizing+selection) ──",
         f"    net_pnl_delta=${s['comparison']['net_pnl_delta_ev_minus_baseline']:.0f}  "
         f"maxdd_pct_delta={s['comparison']['maxdd_pct_delta_ev_minus_baseline']}  "
         f"ev_beats_baseline={s['comparison']['ev_beats_baseline_net']}",
+        "  ── SELECTION COMPARISON (ev − shared_priority; sizing-normalized, SELECTION edge only) ──",
+        f"    net_pnl_delta=${s['selection_comparison']['net_pnl_delta_ev_minus_priority']:.0f}  "
+        f"maxdd_pct_delta={s['selection_comparison']['maxdd_pct_delta_ev_minus_priority']}  "
+        f"ev_beats_priority={s['selection_comparison']['ev_beats_priority_net']}",
     ]
     return "\n".join(L)
 
