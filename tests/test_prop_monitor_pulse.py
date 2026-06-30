@@ -156,7 +156,7 @@ def test_closed_position_pruned_from_state(isolated_env: Path) -> None:
         return {}
 
     prop_monitor_pulse.run_prop_monitor_pulse(now=t0, interval_seconds=900, emitter=emit)
-    assert "ticket:prop-1" in prop_monitor_pulse._load_state()
+    assert "akd:breakout_1|BTCUSDT|long" in prop_monitor_pulse._load_state()
 
     # Position closes — next run drops it from the state file.
     prop_journal.insert_fill({
@@ -166,7 +166,7 @@ def test_closed_position_pruned_from_state(isolated_env: Path) -> None:
     s = prop_monitor_pulse.run_prop_monitor_pulse(
         now=t0 + timedelta(minutes=20), interval_seconds=900, emitter=emit)
     assert s["open"] == 0
-    assert "ticket:prop-1" not in prop_monitor_pulse._load_state()
+    assert "akd:breakout_1|BTCUSDT|long" not in prop_monitor_pulse._load_state()
 
 
 def test_default_emitter_is_breakout_notify(isolated_env: Path, monkeypatch) -> None:
