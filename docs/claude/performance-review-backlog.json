@@ -965,7 +965,19 @@
           "note": "BUILT the bucketing tool: src/analysis/paper_record_classifier.py (pure A/B/C classifier) + src/analysis/trade_reconstruction.py (pure first-touch SL/TP reconstruction + candle adapter) + scripts/analysis/classify_paper_records.py (CLI, --json/--db, --reconstruct) + tests (21 passing). Validated on the real 2026-06-26 window (issue #4654, 48 recs): 0 gradeable / 46 artifact / 2 reconstructable. Wired into performance-review SKILL.md (run pre-filter before aggregates; compute over bucket-A only + bucket-C reconstructed). Shipped on branch claude/order-packages-zero-qty-eaofnv / PR #4660. REMAINING to close: apply it in one live performance-review run and confirm the per-strategy A/B/C split + reconstructed outcomes land in the report."
         }
       ]
+    },
+    {
+      "id": "PB-20260630-ICTSCALP-DEGRADE",
+      "opened_at": "2026-06-30T12:27:10+00:00",
+      "opened_by": "claude (signal-research P0 component-edge report, real-money cohort)",
+      "source": "P0 component-edge report run on the trainer's synced trade_journal.db (trainer-vm-diag #5202, scripts/research/component_edge_report.py). ict_scalp_5m real_money: n_closed=15, lifetime win-rate 66.7%, R-coverage 100%, but the decay section flags a sharp recent drop — recent-30d mean-R approx -2.0 (n=11) vs prior-30d approx +0.11 (n=4) across components. n is below the per-component bucketing floor so NO component attribution is claimed (M18 prior); the aggregate decay is the flag.",
+      "title": "ict_scalp_5m real-money degrading: recent-30d mean-R sharply negative vs prior — confirm + decide TUNE/DEMOTE_SHADOW",
+      "description": "Surfaced as a side-finding of the signal-research P0 attribution run (not a component edge — the sample is too thin for that). The aggregate read: ict_scalp_5m's recent real-money closed trades are sharply negative-R while the prior window was slightly positive, despite a 66.7% lifetime win-rate (small n). Roll into the next /performance-review (operator directive 2026-06-30): pull the recent ict_scalp_5m real-money closed trades, grade them (entry/exit/risk), confirm or refute the degradation vs a transient losing cluster, cross-check against the M7 strategy-review packet + regime cells, and either propose a Tier-3 TUNE / DEMOTE_SHADOW or close as noise. Note the real-money ict_scalp sample is tiny (15) so weight the verdict accordingly.",
+      "tier": 3,
+      "trigger_condition": "next /performance-review (or /system-review)",
+      "resolution_criteria": "perf-review grades the recent ict_scalp_5m real-money closed trades and either (a) proposes a Tier-3 TUNE/DEMOTE_SHADOW with evidence, or (b) closes as a transient cluster / insufficient sample.",
+      "status": "open"
     }
   ],
-  "updated_at": "2026-06-29T12:35:00+00:00"
+  "updated_at": "2026-06-30T12:27:10+00:00"
 }

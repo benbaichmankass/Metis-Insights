@@ -358,6 +358,185 @@ def test_main_cli_exit_zero(tmp_path, capsys):
 
 
 # ---------------------------------------------------------------------------
+# Backtest-log input mode (--backtest-log)
+# ---------------------------------------------------------------------------
+
+
+def _write_backtest_log(path: Path) -> int:
+    """Write a tiny ict_scalp_5m emit-trades JSONL.
+
+    ``displacement_body_to_range`` is deliberately MONOTONE with net_r (low
+    displacement → losers, high → winners), while ``fvg_size`` (→ fvg_size_atr)
+    is FLAT (cycles, uncorrelated with outcome). Returns the row count.
+    """
+    rows = []
+    n = 30
+    for i in range(n):
+        disp = 0.20 + i * 0.02  # 0.20 .. 0.78, strictly increasing
+        # Monotone outcome in 3 tiers: losers / mixed / winners.
+        if i < 10:
+            net_r = -1.0
+        elif i < 20:
+            net_r = -0.4 if i % 2 else 0.5
+        else:
+            net_r = 2.5
+        fvg = 100.0 + (i % 5) * 5.0  # cycles 100..120, no trend wrt outcome
+        rows.append(
+            {
+                "strategy": "ict_scalp_5m",
+                "entry_time": f"2026-06-{8 + (i % 2):02d}T12:00:00+00:00",
+                "direction": "long",
+                "gross_r": net_r,
+                "net_r": net_r,
+                "entry": 50_000.0,
+                "sl": 49_900.0,
+                "risk": 100.0,
+                "outcome": "tp" if net_r > 0 else "sl",
+                "confidence": min(disp, 1.0),
+                "meta": {
+                    "strategy_name": "ict_scalp_5m",
+                    "sweep_level": 50_000.0,
+                    "sweep_extreme": 49_700.0,
+                    "displacement_body_to_range": disp,
+                    "fvg_low": 49_950.0,
+                    "fvg_high": 50_050.0,
+                    "fvg_size": fvg,
+                    "mitigation_mode": "wick",
+                    "atr": 150.0,
+                    "regime": "trending",
+                    "adx_14": 28.0,
+                    "vol_regime": "calm",
+                },
+            }
+        )
+    path.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    return n
+
+
+def test_backtest_log_detects_monotone_vs_flat(tmp_path):
+    log = tmp_path / "scalp_trades.jsonl"
+    out = tmp_path / "signal_research"
+    n = _write_backtest_log(log)
+
+    summary = MOD.build_reports_from_backtest_log(
+        str(log), out_dir=out, min_bucket=5, n_buckets=3
+    )
+
+    assert summary["source"] == "backtest_log"
+    assert summary["cohort"] == "backtest"
+    assert summary["log_present"] is True
+    assert summary["total_trades"] == n
+    assert summary["strategies_analyzed"] == 1
+    assert not summary["errors"], summary["errors"]
+
+    rep = json.loads((out / "component_edge_ict_scalp_5m.json").read_text())
+    assert rep["cohort"] == "backtest"
+    assert rep["source"]["kind"] == "backtest_log"
+    assert rep["source"]["trades"] == n
+    # R comes straight from net_r → every row is R-measured.
+    assert rep["rCoverage"] == 1.0
+
+    # Monotone displacement → edge (or at worst weak), never none.
+    disp = _component(rep, "displacement_strength")
+    assert disp is not None
+    assert disp["verdict"] in ("edge", "weak"), disp["verdict_reason"]
+    rs = [
+        b["mean_r"]
+        for b in disp["bucketing"]["buckets"]
+        if b["mean_r"] is not None
+    ]
+    rising = all(b >= a for a, b in zip(rs, rs[1:]))
+    falling = all(b <= a for a, b in zip(rs, rs[1:]))
+    assert rising or falling
+    assert abs(rs[0] - rs[-1]) > 1.0
+
+    # Flat fvg_size → none.
+    fvg = _component(rep, "fvg_size_atr")
+    assert fvg is not None
+    assert fvg["verdict"] == "none", fvg["verdict_reason"]
+
+    # Index carries the backtest cohort + verdicts.
+    index = json.loads((out / "component_edge_index.json").read_text())
+    assert index["cohort"] == "backtest"
+    entry = next(
+        s for s in index["strategies"] if s["strategy"] == "ict_scalp_5m"
+    )
+    assert "displacement_strength" in entry["verdicts"]
+
+
+def test_backtest_log_force_strategy_name(tmp_path):
+    """--strategy-name forces grouping regardless of the row's strategy field."""
+    log = tmp_path / "trades.jsonl"
+    out = tmp_path / "signal_research"
+    rows = [
+        {
+            "strategy": "whatever",
+            "entry_time": "2026-06-09T12:00:00+00:00",
+            "net_r": (1.0 if i % 2 else -1.0),
+            "gross_r": (1.0 if i % 2 else -1.0),
+            "confidence": 0.5,
+            "meta": {"deviation_std": -1.0 - i * 0.1, "vwap": 1.0},
+        }
+        for i in range(12)
+    ]
+    log.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+
+    summary = MOD.build_reports_from_backtest_log(
+        str(log), strategy_name="vwap", out_dir=out, min_bucket=4
+    )
+    assert summary["strategies_analyzed"] == 1
+    rep = json.loads((out / "component_edge_vwap.json").read_text())
+    assert rep["strategy"] == "vwap"
+    assert rep["n_closed"] == 12
+    assert rep["cohort"] == "backtest"
+
+
+def test_backtest_log_empty_clean_insufficient(tmp_path):
+    """A missing / empty log → clean empty index, no traceback, exit 0."""
+    out = tmp_path / "signal_research"
+
+    # Missing file.
+    missing = tmp_path / "nope.jsonl"
+    summary = MOD.build_reports_from_backtest_log(str(missing), out_dir=out)
+    assert summary["log_present"] is False
+    assert summary["total_trades"] == 0
+    assert summary["strategies_analyzed"] == 0
+    idx = json.loads((out / "component_edge_index.json").read_text())
+    assert idx["strategies"] == []
+
+    # Empty + malformed-line file.
+    empty = tmp_path / "empty.jsonl"
+    empty.write_text("\n   \nnot json at all\n{bad}\n")
+    out2 = tmp_path / "signal_research2"
+    summary2 = MOD.build_reports_from_backtest_log(str(empty), out_dir=out2)
+    assert summary2["strategies_analyzed"] == 0
+    idx2 = json.loads((out2 / "component_edge_index.json").read_text())
+    assert idx2["strategies"] == []
+
+
+def test_backtest_log_main_cli(tmp_path, capsys):
+    log = tmp_path / "scalp_trades.jsonl"
+    out = tmp_path / "signal_research"
+    _write_backtest_log(log)
+    rc = MOD.main(
+        [
+            "--backtest-log",
+            str(log),
+            "--strategy-name",
+            "ict_scalp_5m",
+            "--out-dir",
+            str(out),
+            "--min-bucket",
+            "5",
+        ]
+    )
+    assert rc == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["source"] == "backtest_log"
+    assert summary["strategies_analyzed"] == 1
+
+
+# ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
 

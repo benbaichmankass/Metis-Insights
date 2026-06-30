@@ -493,6 +493,12 @@ def run_single(
             if _conf is None:
                 _conf = signal.get("meta", {}).get("confidence")
             trade["confidence"] = _conf
+            # Carry the LIVE signal meta verbatim (deviation_std / std_dev /
+            # vwap / policy_threshold + stamped regime / adx_14 / vol_regime)
+            # so the signal-research component-edge report can attribute
+            # entry-component edge over backtest volume
+            # (component_edge_report.py --backtest-log).
+            trade["meta"] = signal.get("meta") or {}
             trades.append(trade)
             in_trade_until = i + trade["duration_bars"]
 
@@ -559,6 +565,10 @@ def run_single(
                             "gross_r": _t["pnl_r"],
                             "net_r": _t["net_pnl_r"],
                             "confidence": _t.get("confidence"),
+                            # LIVE signal meta (deviation_std / std_dev / vwap /
+                            # policy_threshold + stamped regime keys) for the
+                            # component-edge report's --backtest-log path.
+                            "meta": _t.get("meta"),
                         },
                         default=str,
                     )
