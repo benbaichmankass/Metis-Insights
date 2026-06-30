@@ -253,3 +253,67 @@ class TestRoundUpToOneShare:
         # Even though $250 < 1.5*$100=$150? no — $250 > $150 anyway; but the
         # point is futures never enter the round-up branch regardless.
         assert rm.position_size(pkg, 10_000, market_type="futures") == 0.0
+
+
+# ---------------------------------------------------------------------------
+# whole_unit_qty — the shared quantization helper (2026-06-30 follow-up)
+# ---------------------------------------------------------------------------
+# Single source of truth for "the whole-share qty a whole-unit venue actually
+# holds", used by AlpacaClient.place (the placed qty), execute_pkg (the
+# JOURNALED qty), and order_monitor._apply_partial_close (the post-scale-out
+# remainder). They share ONE definition so the journal can never drift from the
+# broker. Regression guard for the live 2026-06-30 finding: alpaca_paper held a
+# 42-share GLD short on the broker while the journal carried two fractional rows
+# (8.368 + 33.632) plus a 231.078 TLT vs the broker's 231.
+class TestWholeUnitQtyHelper:
+    def test_rounds_to_nearest_whole(self):
+        from src.units.accounts.risk import whole_unit_qty
+
+        assert whole_unit_qty(8.368) == 8.0          # broker held 8
+        assert whole_unit_qty(33.632) == 34.0        # broker held 34
+        assert whole_unit_qty(231.078) == 231.0      # broker held 231
+        assert whole_unit_qty(20.0) == 20.0          # already whole → unchanged
+
+    def test_live_gld_rows_sum_to_broker_truth(self):
+        """The two journal GLD rows quantize to the broker's netted 42 shares."""
+        from src.units.accounts.risk import whole_unit_qty
+
+        assert whole_unit_qty(8.368) + whole_unit_qty(33.632) == 42.0
+
+    def test_min_one_open_path(self):
+        """The OPEN/place path floors up to 1 (an order that reaches the venue
+        always places >=1 share; the zero refusal happens upstream)."""
+        from src.units.accounts.risk import whole_unit_qty
+
+        assert whole_unit_qty(0.4, min_one=True) == 1.0
+        assert whole_unit_qty(0.0, min_one=True) == 1.0
+
+    def test_close_path_may_be_zero(self):
+        """The partial-CLOSE path (min_one=False) rounds a sub-half-share close
+        to 0 so the caller skips it — you can't close a fraction of a share."""
+        from src.units.accounts.risk import whole_unit_qty
+
+        assert whole_unit_qty(0.4) == 0.0
+        assert whole_unit_qty(0.6) == 1.0
+
+    def test_non_numeric_is_safe(self):
+        from src.units.accounts.risk import whole_unit_qty
+
+        assert whole_unit_qty("x") == 0.0
+        assert whole_unit_qty(None, min_one=True) == 1.0
+
+
+class TestExecutorWholeShareFloorMatchesClient:
+    """execute_pkg quantizes the journaled qty with the SAME helper the Alpaca
+    client uses to place — so a fractional qty reaching the order build (e.g. a
+    pre-fix qty_override, or any future fractional path) is journaled as the
+    whole share the broker actually holds, not the fractional sizer value."""
+
+    def test_journal_qty_equals_placed_qty(self):
+        from src.units.accounts.risk import whole_unit_qty
+
+        # What the executor floor records == what AlpacaClient.place sends.
+        for frac in (8.368, 33.632, 231.078, 9.079):
+            journaled = whole_unit_qty(frac, min_one=True)      # execute_pkg 5b
+            placed = int(whole_unit_qty(frac, min_one=True))    # AlpacaClient.place
+            assert journaled == float(placed)

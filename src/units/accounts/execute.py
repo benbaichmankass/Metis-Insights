@@ -32,7 +32,11 @@ from src.units.accounts.precision import (
     quantize_price,
     quantize_qty,
 )
-from src.units.accounts.risk import size_order_from_cfg
+from src.units.accounts.risk import (
+    requires_whole_unit_qty,
+    size_order_from_cfg,
+    whole_unit_qty,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -349,6 +353,22 @@ def execute_pkg(
             f"(balance={balance_usdt:.2f} USDT, direction={pkg.direction}). "
             f"Account may be under-funded or hold no base coin to sell."
         )
+
+    # 5b. Whole-share invariant for whole-unit venues (e.g. alpaca bracket
+    # orders reject fractionals). ``position_size`` already sizes whole shares
+    # on the entry path, but quantize here too — defensively, and on EVERY
+    # entry path incl. ``qty_override`` — so the qty we JOURNAL is exactly the
+    # qty the client places (it floors to ``max(1, round(qty))``). Without this
+    # a fractional qty that reached this point was journaled verbatim while the
+    # broker held the rounded whole share → journal-vs-broker drift
+    # (BL-20260622-ALPACA-FRACTIONAL-SIZE). Skipped for test orders (smoke
+    # tests deliberately place a tiny sub-min qty).
+    if (
+        not _is_test_order(pkg)
+        and qty > 0
+        and requires_whole_unit_qty(account_cfg.get("exchange"))
+    ):
+        qty = whole_unit_qty(qty, min_one=True)
 
     side = "Buy" if pkg.direction == "long" else "Sell"
     order = {

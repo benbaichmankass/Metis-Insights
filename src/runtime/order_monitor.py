@@ -366,6 +366,28 @@ def _apply_partial_close(
     # partial. The verdict pct is applied against the ORIGINAL position
     # size so cumulative partial pcts always sum against the same base.
     requested_qty = round(original_pos * close_qty_pct, 8)
+    # Whole-share venues (e.g. alpaca) can only close a whole number of shares,
+    # and the broker floors the close order to a whole share — so quantize the
+    # requested qty here too, otherwise ``new_position_size`` (current − filled)
+    # is left a fractional remainder the broker never holds (the partial-close
+    # analogue of BL-20260622-ALPACA-FRACTIONAL-SIZE — the entry path was fixed
+    # via ``whole_units`` but this exit path was not). A sub-half-share close
+    # rounds to 0 and is skipped by the guard below (can't close a fraction of a
+    # share). Fail-open: a cfg-read error never blocks the close.
+    try:
+        if requested_qty > 0:
+            from src.units.accounts.risk import (
+                requires_whole_unit_qty,
+                whole_unit_qty,
+            )
+
+            _acct_cfg = _load_account_cfgs_for_reconcile().get(
+                str(trade.get("account_id") or "")
+            )
+            if _acct_cfg and requires_whole_unit_qty(_acct_cfg.get("exchange")):
+                requested_qty = whole_unit_qty(requested_qty)  # min_one=False → may be 0
+    except Exception:  # noqa: BLE001 — quantization is best-effort, never blocks
+        pass
     if requested_qty <= 0:
         logger.warning(
             "order_monitor: partial-close requested qty <= 0 for pkg=%s "
