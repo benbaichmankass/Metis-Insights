@@ -98,6 +98,8 @@ def ingest_report(report: Dict[str, Any]) -> Dict[str, Any]:
         "qty": report.get("qty"),
         "entry_price": report.get("entry_price"),
         "exit_price": report.get("exit_price"),
+        "sl": report.get("sl"),
+        "tp": report.get("tp"),
         "pnl": report.get("pnl"),
         "pnl_percent": report.get("pnl_percent"),
         "status": status,

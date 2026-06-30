@@ -91,6 +91,8 @@ _DDL = (
         qty               REAL,
         entry_price       REAL,
         exit_price        REAL,
+        sl                REAL,
+        tp                REAL,
         pnl               REAL,
         pnl_percent       REAL,
         status            TEXT NOT NULL DEFAULT 'closed',
@@ -135,6 +137,11 @@ def ensure_tables(conn: Optional[sqlite3.Connection] = None) -> None:
         cols = {r[1] for r in c.execute("PRAGMA table_info(prop_tickets)")}
         if "message" not in cols:
             c.execute("ALTER TABLE prop_tickets ADD COLUMN message TEXT")
+        fill_cols = {r[1] for r in c.execute("PRAGMA table_info(prop_fills)")}
+        if "sl" not in fill_cols:
+            c.execute("ALTER TABLE prop_fills ADD COLUMN sl REAL")
+        if "tp" not in fill_cols:
+            c.execute("ALTER TABLE prop_fills ADD COLUMN tp REAL")
         if own:
             c.commit()
     finally:
@@ -400,16 +407,16 @@ def insert_fill(fill: Dict[str, Any]) -> int:
             """
             INSERT INTO prop_fills
                 (account_id, ticket_id, external_order_id, symbol, direction,
-                 qty, entry_price, exit_price, pnl, pnl_percent, status, reason,
-                 opened_at, closed_at, reported_at, raw, created_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 qty, entry_price, exit_price, sl, tp, pnl, pnl_percent, status,
+                 reason, opened_at, closed_at, reported_at, raw, created_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 account_id, fill.get("ticket_id"), fill.get("external_order_id"),
                 fill.get("symbol"), fill.get("direction"),
                 _f(fill.get("qty")), _f(fill.get("entry_price")),
-                _f(fill.get("exit_price")), _f(fill.get("pnl")),
-                _f(fill.get("pnl_percent")),
+                _f(fill.get("exit_price")), _f(fill.get("sl")), _f(fill.get("tp")),
+                _f(fill.get("pnl")), _f(fill.get("pnl_percent")),
                 str(fill.get("status") or "closed"), fill.get("reason"),
                 fill.get("opened_at"), fill.get("closed_at"),
                 _now_iso(),
