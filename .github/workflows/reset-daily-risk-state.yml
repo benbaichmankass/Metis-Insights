@@ -50,10 +50,14 @@ jobs:
         env:
           ACCOUNT_ID: ${{ steps.parse.outputs.account_id }}
         run: |
+          # Disable bash -e around the SSH call so a non-zero remote exit
+          # doesn't abort the step before we can capture EXIT_CODE and OUTPUT.
+          set +e
           OUTPUT="$(ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
             "${VM_USER}@${VM_HOST}" \
             "ACCOUNT_ID='${ACCOUNT_ID}' bash /home/ubuntu/ict-trading-bot/scripts/ops/reset_daily_risk_state.sh 2>&1")"
           EXIT_CODE=$?
+          set -e
           echo "output<<EOF" >> "$GITHUB_OUTPUT"
           echo "${OUTPUT}"   >> "$GITHUB_OUTPUT"
           echo "EOF"         >> "$GITHUB_OUTPUT"
