@@ -49,13 +49,33 @@ measurable component is only weak.**
 
 ### 2. Hand-coded predicates — backtest volume (P0 `--backtest-log`)
 
-`ict_scalp_5m` backtested over full-history alt 5m candles (the harness calls
-the **live** `order_package()`, so identical component meta), `--min-confidence 0`
-for the full range, then `component_edge_report.py --backtest-log`.
+`ict_scalp_5m` backtested over **full-history ETHUSDT 5m** (2021–2026, 553k bars
+→ **1,289 trades**, `--min-confidence 0` for the full range; the harness calls the
+**live** `order_package()`, so identical component meta. ETH not BTC, but the ICT
+predicates are ATR-normalized / symbol-agnostic, so this is a valid volume test of
+whether the predicates discriminate winners). Win-rate 51.8%, mean R +0.18 (gross —
+the ict_scalp harness has no fee model, so net is lower).
 
-> **Result: <PENDING #5219 — pooled-volume run; fold the verdict in when it
-> lands. The conclusion below does not hinge on it: the model evidence (§3) is
-> already decisive.>**
+**Every graded component verdicts `NONE` at n = 1,289:**
+
+| component | AUC | verdict | bucket win% (low→high tercile) |
+|---|---|---|---|
+| `confidence` | 0.500 | none | 51.6 / 53.1 / 50.7 |
+| `sweep_depth_atr` | 0.507 | none | 52.1 / 49.2 / 54.2 |
+| `displacement_strength` | 0.516 | none | 50.5 / 52.0 / 53.0 |
+| `fvg_size_atr` | 0.487 | none | 53.9 / 50.1 / 51.4 |
+
+All AUCs sit in **0.49–0.52** (coin-flip); buckets are flat / non-monotone;
+standardised-logit marginal lifts are negligible (|coef| ≤ 0.21, `fvg_size` even
+slightly *negative*). **No ICT entry predicate discriminates winners from losers,
+even at 1,289 trades.** Notably the strategy is mildly gross-profitable (+0.18R)
+yet *none of its entry predicates explain which trades win* — the small edge comes
+from elsewhere (exit / R-structure or noise), which **reinforces** the thesis.
+(The "decay" line in the per-component report is not meaningful for a 2021–2026
+backtest — its 30-day windows catch only the last ~30 trades.)
+
+**Read: hand-coded entry predicates carry no attributable edge at volume — the
+M18 wall, confirmed from the rules side at scale.**
 
 ### 3. Flexible ML — the existing entry heads (the decisive read)
 
@@ -145,7 +165,7 @@ regime head's success suggests there is structure to find. Scoped in
 |---|---|
 | Live-journal P0 (real) | relay #5202 |
 | Live-journal P0 (+paper, 32 cells) | relay #5205 |
-| Backtest-volume P0 | relay #5219 (pending) |
+| Backtest-volume P0 | relay #5222 (ETHUSDT, 1,289 trades) |
 | ML gate-check (both heads) | relay #5213 |
 | ML offline OOS metrics | relay #5217 |
 
