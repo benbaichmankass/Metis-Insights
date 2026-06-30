@@ -984,7 +984,7 @@
       "tier": 3,
       "trigger_condition": "a refinement retrain (class-weighted / new horizon) lands, OR a decision to retire them",
       "resolution_criteria": "a refined version reaches f1 > 0 with a real edge -> keep at shadow (restored); else retire to candidate + drop from shadow_model_ids wiring (retired).",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -997,8 +997,10 @@
         }
       ],
       "evidence_log": [
-        "2026-06-30 (/ml-review, trainer-vm-diag #5164 stage-guard): the f1=0 degenerate baselines remain at SHADOW and still fail their gates -- prop-mission-policy-baseline-v0 [non_degenerate, beats_baseline, live_agreement fail], trade-outcome-global-baseline-v0 [beats_baseline, live_agreement fail], trade-outcome-winrate-baseline-v0 [beats_baseline, live_agreement, drift_clean fail]. They are majority-class predictors feeding noise into the conviction lens / conviction-meta-v1 stacker. RECOMMENDATION (Tier-3): retire to candidate (drop from the shadow-wired predictor lists) unless a refinement retrain (class-weighting / better label horizon) is queued. One detect step driven this review; refinement attempt not yet made."
-      ]
+        "2026-06-30 (/ml-review, trainer-vm-diag #5164 stage-guard): the f1=0 degenerate baselines remain at SHADOW and still fail their gates -- prop-mission-policy-baseline-v0 [non_degenerate, beats_baseline, live_agreement fail], trade-outcome-global-baseline-v0 [beats_baseline, live_agreement fail], trade-outcome-winrate-baseline-v0 [beats_baseline, live_agreement, drift_clean fail]. They are majority-class predictors feeding noise into the conviction lens / conviction-meta-v1 stacker. RECOMMENDATION (Tier-3): retire to candidate (drop from the shadow-wired predictor lists) unless a refinement retrain (class-weighting / better label horizon) is queued. One detect step driven this review; refinement attempt not yet made.",
+        "2026-06-30 (operator-approved, executed via trainer-vm-diag #5169): RETIRED all three f1=0 degenerate baselines shadow->candidate -- prop-mission-policy-baseline-v0, trade-outcome-global-baseline-v0, trade-outcome-winrate-baseline-v0 now target_deployment_stage=candidate (verified). They drop out of the shadow-wired conviction/conviction-meta inputs on the next mirror sync (~2 min); the shadow factory emits nothing for candidates. Reversible via promote-stage --new-stage shadow. Choice was RETIRE (not refine) -- proper LEARNED replacements for these lens slots are tracked under the ML-buildout strategy (this session)."
+      ],
+      "status_history": " | resolved 2026-06-30 (retired to candidate, operator-approved; executed #5169)."
     },
     {
       "id": "MB-20260625-001",
