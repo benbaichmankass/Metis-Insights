@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260630-061611-since-last",
+      "window": "since-last",
+      "generated_at": "2026-06-30T06:16:11Z",
+      "window_start": "2026-06-29T12:35:00Z",
+      "window_end": "2026-06-30T06:16:11Z",
+      "roll_up_grade": "caution",
+      "headline": "System healthy and ticking (trader+web-api up ~11h, all live accounts reachable). Two findings drive CAUTION: (1) Alpaca whole-share sizing \u2014 root-caused and FIXED in PR #5151 (journal==broker invariant across executor+partial-close); 3 legacy fractional paper rows pending correction. (2) RECONCILER PHANTOM CLOSES \u2014 trend_donchian's 20 closes are ALL reconciler-reconstructed (exit==entry w/ non-zero PnL, or null), making its -198R/0%-win figure unreliable; same class as the bybit orphan PnL (PB-20260625-002). Operator raised alpaca_live to a 10% test-account risk profile so the $150 account can finally trade.",
+      "html_path": "comms/reports/since-last/20260630T061611Z/report.html",
+      "json_path": "comms/reports/since-last/20260630T061611Z/report.json",
+      "md_path": "comms/reports/since-last/20260630T061611Z/report.md"
+    },
+    {
       "id": "RPT-20260629-123500-since-last",
       "window": "since-last",
       "generated_at": "2026-06-29T12:35:00+00:00",

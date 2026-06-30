@@ -207,6 +207,34 @@ def requires_whole_unit_qty(exchange: object) -> bool:
     return str(exchange or "").strip().lower() in WHOLE_UNIT_QTY_EXCHANGES
 
 
+def whole_unit_qty(qty: object, *, min_one: bool = False) -> float:
+    """Quantize *qty* to the whole-share granularity a whole-unit venue holds.
+
+    Single source of truth for "what a whole-share exchange (e.g. alpaca
+    bracket orders) will actually place / hold", so the JOURNAL records the
+    same number the broker fills — never a fractional qty the broker silently
+    floored (BL-20260622-ALPACA-FRACTIONAL-SIZE). Mirrors the broker rounding
+    (``round`` to the nearest whole share).
+
+    * ``min_one=True`` (the OPEN/place path) floors the result up to 1 share —
+      an order that reaches the exchange always places at least one share, so
+      journalling 1 keeps the row honest (the zero-qty REFUSAL happens upstream
+      in ``position_size`` / the executor's pre-place gate, never here).
+    * ``min_one=False`` (the partial-CLOSE path) may return ``0.0`` — a sub-
+      half-share close rounds to nothing and the caller skips it.
+
+    Pure, never raises; a non-numeric ``qty`` → ``0.0`` (or ``1.0`` when
+    ``min_one``).
+    """
+    try:
+        whole = int(round(float(qty)))
+    except (TypeError, ValueError):
+        whole = 0
+    if min_one and whole < 1:
+        whole = 1
+    return float(whole)
+
+
 def size_order_from_cfg(
     pkg: OrderPackage,
     account_cfg: dict,
