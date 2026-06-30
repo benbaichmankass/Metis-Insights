@@ -65,6 +65,18 @@ CLI
     python scripts/research/component_edge_report.py --strategy vwap
     python scripts/research/component_edge_report.py --include-paper --min-bucket 15
     python scripts/research/component_edge_report.py --db /path/to/trade_journal.db
+
+Backtest-log mode (run over BACKTEST volume — thousands of trades — instead of
+the thin live journal). The standalone harnesses now emit the LIVE
+order_package ``meta`` on each ``--emit-trades`` row, so the same per-component
+analysis runs over the much larger backtest cohort. R is taken straight from
+the emitted ``net_r`` / ``gross_r`` (rCoverage = 1.0 by construction); the DB
+is not touched at all. Cohort is labelled ``backtest``::
+
+    python scripts/research/component_edge_report.py \
+        --backtest-log runtime_logs/backtest_vwap_trades.jsonl
+    python scripts/research/component_edge_report.py \
+        --backtest-log scalp_trades.jsonl --strategy-name ict_scalp_5m
 """
 from __future__ import annotations
 
@@ -373,6 +385,106 @@ def _present_strategies(conn: sqlite3.Connection, *, paper: bool) -> List[str]:
         return [r["s"] for r in conn.execute(sql).fetchall() if r["s"]]
     except sqlite3.Error:
         return []
+
+
+# ---------------------------------------------------------------------------
+# Backtest-log read (the --backtest-log input mode)
+# ---------------------------------------------------------------------------
+
+
+def _coerce_float(value: Any) -> Optional[float]:
+    """Best-effort float, or None — local mirror so this path needs no DB libs."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    if out != out or out in (float("inf"), float("-inf")):  # NaN / inf
+        return None
+    return out
+
+
+def _row_to_traderow(
+    row: Dict[str, Any], *, force_strategy: Optional[str]
+) -> Optional[TradeRow]:
+    """Map ONE emit-trades JSONL row to a :class:`TradeRow`.
+
+    The R-multiple is taken DIRECTLY from the emitted ``net_r`` (fallback
+    ``gross_r``) — these are ALREADY risk-normalised R, so the backtest cohort
+    is R-measured by construction (no journal r_multiple / contract_value
+    recompute). ``win`` is ``r > 0``. The component vector is extracted from the
+    row's ``meta`` (the LIVE order_package meta the harness now emits), with the
+    emitted ``confidence`` folded in via ``extra`` (matching the DB path).
+
+    Returns ``None`` for a row with no usable R (so it never silently counts as
+    a 0-R win/loss). ``pnl`` is set to the R value so the per-bucket
+    ``expectancy`` (mean pnl) reads as mean-R for the backtest cohort.
+    """
+    if not isinstance(row, dict):
+        return None
+    strat = force_strategy or row.get("strategy")
+    if not strat:
+        return None
+    strat = str(strat)
+
+    r = _coerce_float(row.get("net_r"))
+    if r is None:
+        r = _coerce_float(row.get("gross_r"))
+    if r is None:
+        return None
+
+    meta = row.get("meta")
+    if not isinstance(meta, dict):
+        meta = {}
+    conf = row.get("confidence")
+    comp = extract(strat, meta, extra={"confidence": conf})
+    graded = {
+        name: c.value for name, c in comp.items() if c.kind == KIND_GRADED
+    }
+    # entry_time drives the decay windows; absent → decay degrades gracefully.
+    ts = row.get("entry_time")
+    return TradeRow(
+        strategy=strat,
+        symbol=str(row.get("symbol") or ""),
+        pnl=r,  # R-as-pnl: backtest cohort expectancy is in R units
+        win=1 if r > 0 else 0,
+        r=r,
+        closed_at=str(ts) if ts is not None else None,
+        components=graded,
+    )
+
+
+def read_backtest_log(
+    log_path: str, *, force_strategy: Optional[str] = None
+) -> Dict[str, List[TradeRow]]:
+    """Read an emit-trades JSONL into ``{strategy_name: [TradeRow, ...]}``.
+
+    Never raises: a missing / empty / malformed file (or any malformed line)
+    yields the rows it could parse (possibly an empty dict). One bad line is
+    skipped, not fatal.
+    """
+    grouped: Dict[str, List[TradeRow]] = {}
+    p = Path(log_path)
+    if not p.exists() or not p.is_file():
+        return grouped
+    try:
+        text = p.read_text(encoding="utf-8")
+    except OSError:
+        return grouped
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except (ValueError, TypeError):
+            continue
+        tr = _row_to_traderow(row, force_strategy=force_strategy)
+        if tr is None:
+            continue
+        grouped.setdefault(tr.strategy, []).append(tr)
+    return grouped
 
 
 # ---------------------------------------------------------------------------
@@ -1061,6 +1173,61 @@ def build_reports(
     return summary
 
 
+def build_reports_from_backtest_log(
+    log_path: str,
+    *,
+    strategy_name: Optional[str] = None,
+    n_buckets: int = DEFAULT_N_BUCKETS,
+    min_bucket: int = DEFAULT_MIN_BUCKET,
+    out_dir: Optional[Path] = None,
+) -> Dict[str, Any]:
+    """Build component-edge reports from a BACKTEST emit-trades JSONL.
+
+    Bypasses the DB/journal path entirely: groups the emitted trades by
+    ``strategy`` (or forces ``strategy_name``), feeds each group through the
+    SAME :func:`analyze_strategy` the DB path uses, and writes the same
+    ``component_edge_<strategy>.{json,md}`` + ``component_edge_index.json``.
+    The ``cohort`` is labelled ``"backtest"`` and the source log path + total
+    trade count are recorded. rCoverage is 1.0 by construction (R comes
+    straight from the emitted net_r / gross_r).
+
+    NEVER raises — a missing / empty / malformed log yields a clean empty index
+    (no per-strategy report, exit 0).
+    """
+    out_dir = out_dir or _out_dir()
+    grouped = read_backtest_log(log_path, force_strategy=strategy_name)
+    total_trades = sum(len(rows) for rows in grouped.values())
+
+    reports: List[Dict[str, Any]] = []
+    for strat in sorted(grouped):
+        rows = grouped[strat]
+        rep = analyze_strategy(
+            strat, rows, n_buckets=n_buckets, min_bucket=min_bucket
+        )
+        rep["cohort"] = "backtest"
+        rep["generated_at"] = datetime.now(timezone.utc).isoformat()
+        rep["source"] = {
+            "kind": "backtest_log",
+            "log_path": str(log_path),
+            "trades": len(rows),
+        }
+        reports.append(rep)
+
+    summary = _write_outputs(out_dir, reports)
+    summary.update(
+        {
+            "source": "backtest_log",
+            "log_path": str(log_path),
+            "log_present": Path(log_path).exists(),
+            "total_trades": total_trades,
+            "strategies_analyzed": len(reports),
+            "cohort": "backtest",
+            "numpy_available": _NUMPY_OK,
+        }
+    )
+    return summary
+
+
 def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Signal-research Layer-1a graded-component edge report "
@@ -1075,6 +1242,19 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         "--db",
         default=None,
         help="Override trade_journal.db path (default: the canonical resolver).",
+    )
+    p.add_argument(
+        "--backtest-log",
+        default=None,
+        help="Read a BACKTEST emit-trades JSONL instead of the journal "
+        "(bypasses the DB entirely). Each row's net_r/gross_r is the R "
+        "(rCoverage=1.0 by construction); cohort is labelled 'backtest'.",
+    )
+    p.add_argument(
+        "--strategy-name",
+        default=None,
+        help="Force all --backtest-log rows under this strategy name "
+        "(default: group by each row's 'strategy' field).",
     )
     p.add_argument(
         "--include-paper",
@@ -1104,16 +1284,26 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = _parse_args(argv)
-    db_path = args.db or trade_journal_db_path()
     out_dir = Path(args.out_dir) if args.out_dir else None
-    summary = build_reports(
-        db_path,
-        strategy=args.strategy,
-        include_paper=args.include_paper,
-        n_buckets=max(2, int(args.buckets)),
-        min_bucket=max(1, int(args.min_bucket)),
-        out_dir=out_dir,
-    )
+    if args.backtest_log:
+        # Backtest-log mode takes precedence and needs no DB at all.
+        summary = build_reports_from_backtest_log(
+            args.backtest_log,
+            strategy_name=args.strategy_name,
+            n_buckets=max(2, int(args.buckets)),
+            min_bucket=max(1, int(args.min_bucket)),
+            out_dir=out_dir,
+        )
+    else:
+        db_path = args.db or trade_journal_db_path()
+        summary = build_reports(
+            db_path,
+            strategy=args.strategy,
+            include_paper=args.include_paper,
+            n_buckets=max(2, int(args.buckets)),
+            min_bucket=max(1, int(args.min_bucket)),
+            out_dir=out_dir,
+        )
     print(json.dumps(summary, indent=2, default=str))
     return 0
 

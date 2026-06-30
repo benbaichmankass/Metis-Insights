@@ -286,7 +286,14 @@ def run_backtest(
                     "net_r": t.r_multiple,
                     "entry": t.entry, "sl": t.sl, "risk": t.risk,
                     "outcome": t.outcome,
-                    "confidence": t.confidence}, default=str) + "\n")
+                    "confidence": t.confidence,
+                    # The LIVE order_package meta (sweep_level/sweep_extreme/
+                    # displacement_body_to_range/fvg_low/fvg_high/fvg_size/
+                    # mitigation_mode/atr + stamped regime/adx_14/vol_regime) —
+                    # carried verbatim so the signal-research component-edge
+                    # report can attribute entry-component edge over backtest
+                    # volume (component_edge_report.py --backtest-log).
+                    "meta": t.meta}, default=str) + "\n")
 
     summary = _summarize(trades, df, timeframe=timeframe, symbol=symbol)
     if _collect_trades:
