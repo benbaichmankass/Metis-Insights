@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "PB-20260630-002",
+      "opened_at": "2026-06-30T20:10:00+00:00",
+      "opened_by": "claude (leveraged-etf-research session 2026-06-30, operator directive)",
+      "source": "Leveraged Nasdaq-100 ETF research + wiring (docs/research/leveraged-etf-research-2026-06-30.md; PR #5239). tqqq_trend_long_1d (3x) + qld_trend_long_1d (2x) wired to alpaca_paper (PAPER money, execution:live) reusing the trend_donchian unit at the qqq_trend_long_1d params. Backtest on the actual leveraged price series (decay + ~0.95% expense embedded): TQQQ +13.8R / QLD +12.7R OOS 2019-2026, both paper_ready (net-positive + 2x-fee headroom) but NOT every-fold (both took a loss in the 2022-bear fold) — one rung BELOW live_ready. TQQQ beat the live QQQ cell. account_compat_matrix run this session (verdict recorded in the PR / system-review).",
+      "title": "Monitor the TQQQ/QLD leveraged-Nasdaq paper soak on alpaca_paper; gate any real-money (alpaca_live) promotion on a clean live track record + account_compat_matrix",
+      "description": "ONGOING WATCH (operator directive 2026-06-30: 'let them soak on paper'). On every /performance-review and /system-review, check whether tqqq_trend_long_1d / qld_trend_long_1d have produced real paper fills on alpaca_paper (order_packages + trades for account_id=alpaca_paper, symbols TQQQ/QLD) and whether the live paper PnL/win-rate/expectancy tracks the backtest (TQQQ +13.8R / QLD +12.7R OOS, paper_ready). Two things to characterize before ANY alpaca_live promotion proposal: (1) LIVE-vs-BACKTEST: do the paper fills match the backtested edge, especially the overnight-gap behaviour the idealized-stop backtest cannot capture (3x amplifies an overnight gap THROUGH the stop — the single risk genuinely worse on leverage); accrue >=20-30 closed paper trades per cell. (2) COMPAT GATE: confirm the account_compat_matrix ROUTE verdict for alpaca_live (re-run scripts/ops/etf_account_compat.sh tqqq_trend_long_1d qld_trend_long_1d on the trainer-resident data; both cells are now in the CELLS array). CONCENTRATION NOTE: TQQQ/QLD are ~1.0 correlated with the already-live QQQ cell (same Nasdaq-100 trend) — they add capital-efficiency on a small account, NOT diversification; flag if QQQ+TQQQ+QLD stack one-directional. Real-money promotion stays Tier-3, operator-gated; do NOT propose a flip from config/backtest alone.",
+      "tier": 3,
+      "trigger_condition": "Every /performance-review and /system-review until resolved; specifically once tqqq_trend_long_1d and/or qld_trend_long_1d accrue real paper fills on alpaca_paper (US RTH only — equity ETF cells place 13:30-20:00 UTC). Check order_packages + trades + the signal audit for TQQQ/QLD disposition (fill vs no_fill vs no_signal).",
+      "resolution_criteria": "Either (a) a Tier-3 PR proposes promoting tqqq_trend_long_1d / qld_trend_long_1d onto a real-money Alpaca account, citing >=20-30 clean closed paper trades per cell that track the backtest + a current account_compat_matrix ROUTE verdict — and the operator approves; OR (b) a documented decision here that the paper soak diverged from the backtest (decay/gap drag, whipsaw) and the cells stay paper-only / are removed, with the evidence recorded.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "PB-20260630-001",
       "opened_at": "2026-06-30T09:30:00+00:00",
       "opened_by": "claude (paper-trading-strategies session 2026-06-30)",
