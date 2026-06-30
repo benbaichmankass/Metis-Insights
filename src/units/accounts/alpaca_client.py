@@ -108,7 +108,12 @@ class AlpacaClient:
         side = str(order.get("side", "")).strip().lower()
         if side not in ("buy", "sell"):
             return {"retCode": -2, "retMsg": f"invalid side {order.get('side')!r}"}
-        qty = max(1, int(round(float(order["qty"]))))
+        # Whole-share quantization via the shared helper (single source of truth
+        # with the executor + partial-close paths) so the qty placed here can
+        # never drift from the qty journaled (BL-20260622-ALPACA-FRACTIONAL-SIZE).
+        from src.units.accounts.risk import whole_unit_qty
+
+        qty = int(whole_unit_qty(order["qty"], min_one=True))
         body: Dict[str, Any] = {
             "symbol": str(order["symbol"]).upper(),
             "qty": str(qty),
