@@ -261,6 +261,12 @@ Tier-2 actions:
 - `flatten-bybit-position`
 - `reconcile-orphan-history`
 - `supersede-options-adoption-artifacts`
+- `reset-daily-risk-state`
+
+`reset-daily-risk-state` deletes the `daily_risk_state` row for a given
+`account_id` from `trade_journal.db`, clearing the INTRADAY_DRAWDOWN
+counters without a full service restart. Requires `account: <id>` in the
+issue body. Script: `scripts/ops/reset_daily_risk_state.sh`.
 
 `pause-autoheal` / `resume-autoheal` stop / start
 `ict-liveness-watchdog.timer` (the per-minute dead-man switch +
@@ -851,3 +857,4 @@ needs a new allowlist entry today:
 - `.github/workflows/system-actions.yml` — the workflow itself.
 - `scripts/ops/*.sh` — wrapper scripts (one per action).
 - `tests/ops/` — workflow + script validation.
+
