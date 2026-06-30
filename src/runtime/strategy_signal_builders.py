@@ -2958,6 +2958,290 @@ def qqq_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     return _with_signal_package("qqq_trend_long_1d", sig)
 
 
+def tqqq_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
+    """TQQQ (3x Nasdaq-100) daily LONG-ONLY trend-follower.
+
+    Leveraged-ETF sibling of ``qqq_trend_long_1d`` — same validated
+    ``trend_donchian`` unit, same params (donchian 30 / atr-stop 2.5 /
+    trail 4.0), same US-session gate, LONG-ONLY. TQQQ tracks 3x the daily
+    Nasdaq-100; backtested on the ACTUAL TQQQ price series (which embeds
+    leverage decay + the ~0.95% expense ratio): net +13.8R OOS 2019-2026,
+    `paper_ready`, beat the QQQ cell — the Donchian trend filter sidesteps
+    the high-vol chop where leveraged decay bites (docs/research/
+    leveraged-etf-research-2026-06-30.md). Runs on ``alpaca_paper`` (PAPER
+    money), bracket orders carry broker-side SL/TP. Honours the YAML
+    ``enabled`` flag.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.trend_donchian import order_package
+    from src.runtime.market_data import fetch_candles
+    from src.runtime.market_hours import is_market_open
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 - never fail-open on a config error
+        strategies_cfg = {}
+    cfg_yaml = strategies_cfg.get("tqqq_trend_long_1d", {}) or {}
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "TQQQ"))
+
+    if not bool(cfg_yaml.get("enabled", False)):
+        logger.info("tqqq_trend_long_1d: strategy disabled in config/strategies.yaml - returning side=none")
+        return _with_signal_package("tqqq_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "tqqq_trend_long_1d", "reason": "disabled_in_yaml"},
+        })
+
+    try:
+        us_open = is_market_open("us_equity")
+    except Exception:  # noqa: BLE001 — gate is best-effort, never strands
+        us_open = True
+    if not us_open:
+        logger.info("tqqq_trend_long_1d: US market closed - side=none")
+        return _with_signal_package("tqqq_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "tqqq_trend_long_1d", "reason": "us_market_closed"},
+        })
+
+    timeframe = str(cfg_yaml.get("timeframe") or "1d")
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    if candles_df is None:
+        raise RuntimeError(
+            f"tqqq_trend_long_1d: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the Alpaca connection is "
+            "configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+    cfg["strategy_label"] = "tqqq_trend_long_1d"
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("tqqq_trend_long_1d: no actionable signal (%s)", exc)
+        try:
+            log_signal(_stamp_regime({
+                "event": "tqqq_trend_long_1d_eval",
+                "strategy": "tqqq_trend_long_1d",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            }, candles_df))
+        except Exception:  # noqa: BLE001
+            logger.exception("tqqq_trend_long_1d: dedicated audit emit failed")
+        return _with_signal_package("tqqq_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "tqqq_trend_long_1d", "reason": str(exc)},
+        })
+
+    if pkg["direction"] != "long":
+        logger.info("tqqq_trend_long_1d: short signal suppressed (long-only strategy)")
+        try:
+            log_signal(_stamp_regime({
+                "event": "tqqq_trend_long_1d_eval",
+                "strategy": "tqqq_trend_long_1d",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": "short_suppressed_long_only",
+            }, candles_df))
+        except Exception:  # noqa: BLE001
+            logger.exception("tqqq_trend_long_1d: dedicated audit emit failed")
+        return _with_signal_package("tqqq_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "tqqq_trend_long_1d", "reason": "short_suppressed_long_only"},
+        })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "tqqq_trend_long_1d: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal(_stamp_regime({
+            "event": "tqqq_trend_long_1d_eval",
+            "strategy": "tqqq_trend_long_1d",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        }, candles_df))
+    except Exception:  # noqa: BLE001
+        logger.exception("tqqq_trend_long_1d: dedicated audit emit failed")
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "tqqq_trend_long_1d",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "tqqq_trend_long_1d",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+        },
+    }
+    _emit_shadow_preds("tqqq_trend_long_1d", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df, symbol=symbol, timeframe=timeframe)
+    return _with_signal_package("tqqq_trend_long_1d", sig)
+
+
+def qld_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
+    """QLD (2x Nasdaq-100) daily LONG-ONLY trend-follower.
+
+    2x-leveraged sibling of ``qqq_trend_long_1d`` / ``tqqq_trend_long_1d`` —
+    same ``trend_donchian`` unit + params, US-session gate, LONG-ONLY. QLD
+    tracks 2x the daily Nasdaq-100 (lower decay than the 3x TQQQ).
+    Backtested on the actual QLD price series: net +12.7R OOS 2019-2026,
+    `paper_ready` (docs/research/leveraged-etf-research-2026-06-30.md).
+    Runs on ``alpaca_paper`` (PAPER money). Honours the YAML ``enabled`` flag.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.trend_donchian import order_package
+    from src.runtime.market_data import fetch_candles
+    from src.runtime.market_hours import is_market_open
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 - never fail-open on a config error
+        strategies_cfg = {}
+    cfg_yaml = strategies_cfg.get("qld_trend_long_1d", {}) or {}
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "QLD"))
+
+    if not bool(cfg_yaml.get("enabled", False)):
+        logger.info("qld_trend_long_1d: strategy disabled in config/strategies.yaml - returning side=none")
+        return _with_signal_package("qld_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "qld_trend_long_1d", "reason": "disabled_in_yaml"},
+        })
+
+    try:
+        us_open = is_market_open("us_equity")
+    except Exception:  # noqa: BLE001 — gate is best-effort, never strands
+        us_open = True
+    if not us_open:
+        logger.info("qld_trend_long_1d: US market closed - side=none")
+        return _with_signal_package("qld_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "qld_trend_long_1d", "reason": "us_market_closed"},
+        })
+
+    timeframe = str(cfg_yaml.get("timeframe") or "1d")
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    if candles_df is None:
+        raise RuntimeError(
+            f"qld_trend_long_1d: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the Alpaca connection is "
+            "configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **cfg_yaml}
+    cfg["strategy_label"] = "qld_trend_long_1d"
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("qld_trend_long_1d: no actionable signal (%s)", exc)
+        try:
+            log_signal(_stamp_regime({
+                "event": "qld_trend_long_1d_eval",
+                "strategy": "qld_trend_long_1d",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            }, candles_df))
+        except Exception:  # noqa: BLE001
+            logger.exception("qld_trend_long_1d: dedicated audit emit failed")
+        return _with_signal_package("qld_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "qld_trend_long_1d", "reason": str(exc)},
+        })
+
+    if pkg["direction"] != "long":
+        logger.info("qld_trend_long_1d: short signal suppressed (long-only strategy)")
+        try:
+            log_signal(_stamp_regime({
+                "event": "qld_trend_long_1d_eval",
+                "strategy": "qld_trend_long_1d",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": "short_suppressed_long_only",
+            }, candles_df))
+        except Exception:  # noqa: BLE001
+            logger.exception("qld_trend_long_1d: dedicated audit emit failed")
+        return _with_signal_package("qld_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "qld_trend_long_1d", "reason": "short_suppressed_long_only"},
+        })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "qld_trend_long_1d: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal(_stamp_regime({
+            "event": "qld_trend_long_1d_eval",
+            "strategy": "qld_trend_long_1d",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        }, candles_df))
+    except Exception:  # noqa: BLE001
+        logger.exception("qld_trend_long_1d: dedicated audit emit failed")
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "qld_trend_long_1d",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "qld_trend_long_1d",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+        },
+    }
+    _emit_shadow_preds("qld_trend_long_1d", sig, cfg_yaml, symbol, timeframe=timeframe, candles_df=candles_df)
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df, symbol=symbol, timeframe=timeframe)
+    return _with_signal_package("qld_trend_long_1d", sig)
+
+
 def gld_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """GLD daily HTF-pullback (bidirectional) (M15 Phase 4 buildout, S-M15-PHASE4).
 

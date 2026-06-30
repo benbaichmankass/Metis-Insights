@@ -261,6 +261,44 @@ instruments:
     max_leverage: 4
     display_name: "Invesco QQQ ETF (Alpaca paper)"
 
+  # ------------------------------------------------------------------
+  # Leveraged Nasdaq-100 ETFs (2026-06-30, Tier-3) — TQQQ (3x) + QLD (2x),
+  # daily LONG-ONLY trend cells on alpaca_paper (paper money). Same
+  # whole-share / 2dp / alpaca profile as QQQ. The leverage lives in the
+  # ETF's NAV (daily reset), NOT in this max_leverage field — max_leverage
+  # is the Alpaca margin cap (mirrors QQQ's 4), reporting-only. Backtested
+  # on the actual leveraged price series (decay + expense embedded): both
+  # paper_ready, TQQQ beat the QQQ cell. equity asset_class.
+  # docs/research/leveraged-etf-research-2026-06-30.md
+  # ------------------------------------------------------------------
+  TQQQ:
+    exchange: alpaca
+    category: spot
+    base_asset: TQQQ
+    asset_class: equity
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "ProShares UltraPro QQQ 3x ETF (Alpaca)"
+
+  QLD:
+    exchange: alpaca
+    category: spot
+    base_asset: QLD
+    asset_class: equity
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "ProShares Ultra QQQ 2x ETF (Alpaca)"
+
   GLD:
     exchange: alpaca
     category: spot

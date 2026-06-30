@@ -211,7 +211,12 @@ def test_real_yaml_loads():
     # eth_pullback_prop_2h recipe (trail 3.5 / tp_r 6) applied to the un-tightened
     # SOL/ETH prop cells, routed to breakout_1 as execution: shadow. Observe-only
     # soak, NOT a live-money promotion. docs/research/prop-dynamic-exits-faster-banking-DESIGN.md.
-    assert len(strategies) == 43
+    # 43 → 45 by the leveraged Nasdaq-100 ETF trend cells tqqq_trend_long_1d (3x) +
+    # qld_trend_long_1d (2x) (2026-06-30, Tier-3): same trend_donchian unit + params
+    # as qqq_trend_long_1d, backtested on the actual leveraged price series
+    # (decay + expense embedded) — both paper_ready, TQQQ beat the QQQ cell. Routed
+    # to alpaca_paper (paper money). docs/research/leveraged-etf-research-2026-06-30.md.
+    assert len(strategies) == 45
 
 
 def test_real_yaml_has_required_strategies():
@@ -223,6 +228,8 @@ def test_real_yaml_has_required_strategies():
         "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d",
         "xauusd_trend_1h", "mgc_trend_1h",
         "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
+        # Leveraged Nasdaq-100 ETF trend cells (2026-06-30, Tier-3) — TQQQ 3x + QLD 2x:
+        "tqqq_trend_long_1d", "qld_trend_long_1d",
         # ETF-breadth daily sweep (2026-06-20, Tier-3) — 3 new daily-ETF cells:
         "iwm_trend_long_1d", "tlt_pullback_1d", "ief_pullback_1d",
         # Intraday ETF pilot (2026-06-20 § 0e, Tier-3) — 2 new INTRADAY ETF cells:

@@ -538,7 +538,9 @@ accounts:
       - uso_trend_1h                   # LONG-ONLY trend (paper money).
       - slv_pullback_1d                # daily ETF pullback, sister to gld_pullback_1d — added 2026-06-27 (Tier-3)
       - gdx_pullback_1d                # daily ETF pullback, gold miners — added 2026-06-27 (Tier-3)
-    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX]   # instrument identity (Phase-0 +
+      - tqqq_trend_long_1d             # leveraged Nasdaq-100 ETF trend: TQQQ (3x)
+      - qld_trend_long_1d              # + QLD (2x) — paper soak, added 2026-06-30 (Tier-3)
+    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX, TQQQ, QLD]   # instrument identity (Phase-0 +
                                        # ETF-breadth daily 2026-06-20 + intraday
                                        # ETF pilot 2026-06-20 § 0e adds SLV +
                                        # rollout 2b 2026-06-20 § 0e adds USO).

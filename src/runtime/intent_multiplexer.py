@@ -62,6 +62,8 @@ from src.runtime.strategy_signal_builders import (
     mgc_trend_1h_signal_builder,
     spy_trend_long_1d_signal_builder,
     qqq_trend_long_1d_signal_builder,
+    tqqq_trend_long_1d_signal_builder,
+    qld_trend_long_1d_signal_builder,
     iwm_trend_long_1d_signal_builder,
     gld_pullback_1d_signal_builder,
     slv_pullback_1d_signal_builder,
@@ -195,6 +197,12 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # symbol, so arbitration never fires.
         "spy_trend_long_1d": spy_trend_long_1d_signal_builder,
         "qqq_trend_long_1d": qqq_trend_long_1d_signal_builder,
+        # Leveraged Nasdaq-100 ETF trend cells (2026-06-30, Tier-3) — TQQQ (3x)
+        # + QLD (2x), siblings of qqq_trend_long_1d reusing the trend_donchian
+        # unit. paper_ready, beat/matched the QQQ cell net-of-decay
+        # (docs/research/leveraged-etf-research-2026-06-30.md). alpaca_paper soak.
+        "tqqq_trend_long_1d": tqqq_trend_long_1d_signal_builder,
+        "qld_trend_long_1d": qld_trend_long_1d_signal_builder,
         "gld_pullback_1d": gld_pullback_1d_signal_builder,
         # ETF-breadth daily sweep (2026-06-20) — three new cells in the daily
         # ETF family on alpaca_paper (paper money): IWM small-cap long-only
