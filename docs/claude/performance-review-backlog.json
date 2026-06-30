@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "PB-20260630-001",
+      "opened_at": "2026-06-30T09:30:00+00:00",
+      "opened_by": "claude (paper-trading-strategies session 2026-06-30)",
+      "source": "Diag relay issues #5194 (all-trades pull, first 55K bytes) + #5196 (htf_pullback_trend_2h filtered, 200 rows asc via filter_col=strategy_name). Prompted by the large divergence between bybit_2 live (6 trades, 33.3% WR, +$12.71) and bybit_1 paper (36 trades, 16.7% WR, -$11,987) for htf_pullback_trend_2h.",
+      "title": "htf_pullback_trend_2h paper metrics heavily contaminated by June-7 mass reconciliation artifacts — do not judge this strategy on bybit_1 paper PnL",
+      "description": "The bybit_1 (paper) htf_pullback_trend_2h reported stats (-$11,987, 16.7% WR, 36 trades) are NOT a reliable signal of the strategy's edge. Root cause: on June 7 2026 a mass reconciliation sweep closed ALL open htf paper positions simultaneously at the same exit price. Two clusters: (1) 8 concurrent BTCUSDT SHORT positions (opened 2026-06-01 to 2026-06-07, entries 60,579–61,931) all swept by reconciler_filled at exactly 66,356.3 — BTC had run +8% against each short entry, so each trade booked ~-$935 to -$1,818, contributing ~-$9,949 of the overall loss. (2) 4 concurrent LONG positions (opened 2026-06-04/05, entries ~62,050–63,122) all swept at 63,122.9 simultaneously. These 12 concurrent positions existed because the per-strategy netting guard was NOT unconditional for paper accounts before 2026-06-17 — it became unconditional baseline on that date (POSITION_NETTING_GUARD_ENABLED removal, BL-20260615-MGCNAKED). The guard now prevents concurrent same-strategy positions; this class of error cannot recur.\n\nLive track record (bybit_2): 6 trade rows, of which ~3 are dust-qty reconciler artifacts (qty=4e-06). The 3 real trades: 67% WR, +$15.47 — too few to be meaningful. Additionally, 15 of 18 signal events on bybit_2 were rejected sized_qty=0 (1.5% risk at bybit_2's small real balance doesn't reach the minimum BTC contract size at current prices). This suppression will naturally relieve as bybit_2's balance grows from other strategy profits (eth/xrp/ada).\n\nDecision (2026-06-30): leave htf_pullback_trend_2h on bybit_2 unchanged — it is harmless, correctly wired, and positioned to accumulate a real track record as the balance grows. Do NOT use bybit_1 paper PnL to make any Tier-3 decision about this strategy.",
+      "tier": 2,
+      "trigger_condition": "bybit_2 has >=20 real htf_pullback_trend_2h closed trades (non-dust, non-artifact), OR the operator asks for a htf_pullback_trend_2h live performance read.",
+      "resolution_criteria": "Enough real bybit_2 htf_pullback_trend_2h trades accrue to form a meaningful track record, at which point a /performance-review can evaluate the live edge and decide keep/tune/remove independent of the contaminated bybit_1 stats.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "PB-20260626-001",
       "opened_at": "2026-06-26T06:42:00+00:00",
       "opened_by": "claude (P5 ORB-on-MES feasibility)",
