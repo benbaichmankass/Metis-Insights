@@ -1,0 +1,90 @@
+name: reset-daily-risk-state
+
+# Standalone one-shot workflow: delete today's daily_risk_state row(s)
+# for a given account (or all) so the RiskManager resets its intraday
+# drawdown counter immediately rather than waiting for midnight UTC.
+#
+# Trigger: open an issue with label `reset-daily-risk-state`.
+# Issue body format:
+#   reason: <why>
+#   account: bybit_1    # optional — omit to reset ALL accounts today
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  reset:
+    if: contains(github.event.issue.labels.*.name, 'reset-daily-risk-state')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VM_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      VM_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+
+    steps:
+      - name: Parse issue body
+        id: parse
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          ACCOUNT_ID="$(printf '%s\n' "${ISSUE_BODY}" \
+            | grep -i -m1 '^[[:space:]]*account[[:space:]]*:' \
+            | sed 's/^[^:]*:[[:space:]]*//' | tr -d '[:space:]')"
+          REASON="$(printf '%s\n' "${ISSUE_BODY}" \
+            | grep -i -m1 '^[[:space:]]*reason[[:space:]]*:' \
+            | sed 's/^[^:]*:[[:space:]]*//' | sed 's/[[:space:]]*$//')"
+          echo "account_id=${ACCOUNT_ID}" >> "$GITHUB_OUTPUT"
+          echo "reason=${REASON}"         >> "$GITHUB_OUTPUT"
+          echo "Parsed account_id='${ACCOUNT_ID}' reason='${REASON}'"
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${VM_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Run reset on VM
+        id: exec
+        env:
+          ACCOUNT_ID: ${{ steps.parse.outputs.account_id }}
+        run: |
+          OUTPUT="$(ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            "${VM_USER}@${VM_HOST}" \
+            "ACCOUNT_ID='${ACCOUNT_ID}' bash /home/ubuntu/ict-trading-bot/scripts/ops/reset_daily_risk_state.sh 2>&1")"
+          EXIT_CODE=$?
+          echo "output<<EOF" >> "$GITHUB_OUTPUT"
+          echo "${OUTPUT}"   >> "$GITHUB_OUTPUT"
+          echo "EOF"         >> "$GITHUB_OUTPUT"
+          echo "exit_code=${EXIT_CODE}" >> "$GITHUB_OUTPUT"
+          echo "${OUTPUT}"
+          exit "${EXIT_CODE}"
+
+      - name: Comment and close issue
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          OUTPUT:    ${{ steps.exec.outputs.output }}
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+          ACCOUNT:   ${{ steps.parse.outputs.account_id }}
+        with:
+          script: |
+            const exitCode  = parseInt(process.env.EXIT_CODE || '99');
+            const isSuccess = exitCode === 0;
+            const account   = process.env.ACCOUNT || '(all)';
+            const output    = process.env.OUTPUT  || '(no output)';
+            const status    = isSuccess ? '✅ Success' : `❌ Failed (exit ${exitCode})`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## reset-daily-risk-state ${status}\n\n**Account:** \`${account}\`\n\n\`\`\`\n${output}\n\`\`\`\n`,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,
+              state: isSuccess ? 'closed' : 'open',
+              state_reason: isSuccess ? 'completed' : 'not_planned',
+            });
