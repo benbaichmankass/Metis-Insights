@@ -51,8 +51,28 @@ from scripts.research.allocator_multisymbol_backtest import (  # noqa: E402
     _parse_symbols_and_data,
 )
 from src.runtime.allocator_ev import DEFAULT_FEE_BPS_ROUNDTRIP  # noqa: E402
+from src.units.strategies.regime import classify_regime  # noqa: E402
 
 _FIXED_NOTIONAL_RISK_USD = 100.0  # constant risk-$ per trade -> net_r is balance-free
+_DEFAULT_REGIME_WINDOW = 48      # trailing clock bars for classify_regime (4h on 5m)
+
+
+def _regime_at(st, i: int, window: int) -> Dict[str, str]:
+    """Canonical trend+vol regime label over the trailing ``window`` clock bars
+    ending at ``i`` (PAST-ONLY — bars [i-window+1 .. i]). Reuses the live
+    ``classify_regime`` so the offline label matches the signal-time label.
+    Degrades to ``unknown`` on a short/early window (never raises)."""
+    lo = max(0, i - window + 1)
+    if i - lo < 9:  # classify_regime needs >= 10 rows
+        return {"regime_trend": "unknown", "regime_vol": "unknown"}
+    win = pd.DataFrame({
+        "high": st.high[lo:i + 1],
+        "low": st.low[lo:i + 1],
+        "close": st.close[lo:i + 1],
+    })
+    r = classify_regime(win)
+    return {"regime_trend": str(r.get("trend", "unknown")),
+            "regime_vol": str(r.get("volatility", "unknown"))}
 
 
 def _safe_ret(close: np.ndarray, i: int, k: int) -> Optional[float]:
@@ -74,13 +94,22 @@ def _vol(close: np.ndarray, i: int, k: int) -> Optional[float]:
     return float(np.std(rets))
 
 
-def _features(st, i: int, cand) -> Dict[str, Any]:
+def _cell_key(owner: str, regime: Dict[str, str]) -> str:
+    """The (owner, regime) cell a candidate belongs to — the unit a per-cell
+    historical expectancy is keyed on. Owners are symbol-disjoint in the roster,
+    so an owner-keyed cell is implicitly per-symbol (no cross-symbol leakage)."""
+    return f"{owner}|{regime.get('regime_trend', 'unknown')}|{regime.get('regime_vol', 'unknown')}"
+
+
+def _features(st, i: int, cand, regime_window: int,
+              cell_stats: Dict[str, Dict[str, float]]) -> Dict[str, Any]:
     close = st.close
     entry, sl, tp = cand.entry, cand.sl, cand.tp
     stop_dist = abs(entry - sl)
     rr = (abs(tp - entry) / stop_dist) if stop_dist > 0 else None
     ts = pd.Timestamp(st.ts.iloc[i])
     ret_1h = _safe_ret(close, i, 12)
+    regime = _regime_at(st, i, regime_window)
     feat: Dict[str, Any] = {
         "symbol": cand.symbol,
         "owner": cand.owner,
@@ -96,18 +125,35 @@ def _features(st, i: int, cand) -> Dict[str, Any]:
         "vol_1h": (lambda v: round(v, 6) if v is not None else None)(_vol(close, i, 12)),
         "hour_utc": int(ts.hour),
         "dow": int(ts.dayofweek),
+        # --- regime context (the c_ml-flavored inputs the 2026-06-30 probe LACKED) ---
+        "regime_trend": regime["regime_trend"],
+        "regime_vol": regime["regime_vol"],
     }
     if ret_1h is None:
         feat["mom_align_1h"] = None
     else:
         aligned = (ret_1h > 0 and cand.side == "long") or (ret_1h < 0 and cand.side == "short")
         feat["mom_align_1h"] = int(bool(aligned))
+    # Per-cell HISTORICAL expectancy — read PAST-ONLY (only candidates in this
+    # (owner, regime) cell that have already CLOSED before this open contribute).
+    # `cell_stats` is updated at close time (see collect_dataset), so reading it
+    # here at open is leakage-free by construction.
+    st_cell = cell_stats.get(_cell_key(cand.owner, regime))
+    if st_cell and st_cell["n"] > 0:
+        feat["cell_hist_n"] = int(st_cell["n"])
+        feat["cell_hist_mean_r"] = round(st_cell["sum_r"] / st_cell["n"], 6)
+        feat["cell_hist_winrate"] = round(st_cell["wins"] / st_cell["n"], 6)
+    else:
+        feat["cell_hist_n"] = 0
+        feat["cell_hist_mean_r"] = None   # no prior history in this cell yet
+        feat["cell_hist_winrate"] = None
     return feat
 
 
 def collect_dataset(
     *, symbols: List[str], data: Dict[str, str], rosters: Dict[str, List[str]],
     start, end, clock_tf: str, signal_ttl_bars: int, fee_bps: float, refresh: bool,
+    regime_window: int = _DEFAULT_REGIME_WINDOW,
 ) -> List[Dict[str, Any]]:
     shared_ts, states = _build_sym_states(
         symbols=symbols, data=data, rosters=rosters, start=start, end=end,
@@ -122,6 +168,10 @@ def collect_dataset(
         st.latest_idx = {}
         st.pos = None
         pending_feat: Optional[Dict[str, Any]] = None
+        # Per-symbol (owner, regime) -> running {n, sum_r, wins}. Reset per symbol
+        # so a cell's expectancy only ever reflects THIS symbol's prior closes, in
+        # time order (the symbol loop walks i ascending) — leakage-free.
+        cell_stats: Dict[str, Dict[str, float]] = {}
         for i in range(n):
             cl = _manage_open(st, i)
             if cl is not None and pending_feat is not None:
@@ -136,6 +186,16 @@ def collect_dataset(
                     "reason": cl.reason,
                 })
                 rows.append(row)
+                # NOW (at close) fold this realized outcome into its cell — so the
+                # next candidate in the same cell reads it, but THIS row did not.
+                if net_r is not None:
+                    key = _cell_key(pending_feat["owner"],
+                                    {"regime_trend": pending_feat["regime_trend"],
+                                     "regime_vol": pending_feat["regime_vol"]})
+                    c = cell_stats.setdefault(key, {"n": 0.0, "sum_r": 0.0, "wins": 0.0})
+                    c["n"] += 1.0
+                    c["sum_r"] += float(net_r)
+                    c["wins"] += float(cl.pnl > 0)
                 pending_feat = None
             if st.pos is not None:
                 continue
@@ -148,7 +208,7 @@ def collect_dataset(
             qty = _FIXED_NOTIONAL_RISK_USD / stop_dist
             if qty <= 0:
                 continue
-            pending_feat = _features(st, i, cand)
+            pending_feat = _features(st, i, cand, regime_window, cell_stats)
             st.pos = _OpenPos(symbol=sym, side=cand.side, qty=qty, entry=cand.entry,
                               sl=cand.sl, tp=cand.tp, owner=cand.owner, entry_ts=st.ts.iloc[i],
                               entry_idx=i, meta=cand.meta, risk_usd=_FIXED_NOTIONAL_RISK_USD)
@@ -200,7 +260,8 @@ def _corr(xs: List[float], ys: List[float]) -> Optional[float]:
 
 
 _NUMERIC_FEATS = ["confidence", "ev_r", "rr", "stop_dist_pct", "tp_dist_pct",
-                  "ret_1h", "ret_4h", "ret_12h", "vol_1h", "mom_align_1h", "hour_utc", "dow"]
+                  "ret_1h", "ret_4h", "ret_12h", "vol_1h", "mom_align_1h", "hour_utc", "dow",
+                  "cell_hist_mean_r", "cell_hist_winrate", "cell_hist_n"]
 
 
 def eda(rows: List[Dict[str, Any]]) -> str:
@@ -239,6 +300,15 @@ def eda(rows: List[Dict[str, Any]]) -> str:
         ow = sum(r["win"] for r in orows)
         onet = sum(r["net_r"] for r in orows if r["net_r"] is not None)
         L.append(f"  {o:<26} n={len(orows):>4}  win={100*ow/len(orows):>5.1f}%  net_R={onet:+.1f}")
+    # per-regime (the new context axis) — is the win rate regime-dependent at all?
+    L.append("")
+    L.append("per-regime (trend|vol):")
+    regimes = sorted({f"{r.get('regime_trend')}|{r.get('regime_vol')}" for r in rows})
+    for reg in regimes:
+        rrows = [r for r in rows if f"{r.get('regime_trend')}|{r.get('regime_vol')}" == reg]
+        rw = sum(r["win"] for r in rrows)
+        rnet = sum(r["net_r"] for r in rrows if r["net_r"] is not None)
+        L.append(f"  {reg:<26} n={len(rrows):>4}  win={100*rw/len(rrows):>5.1f}%  net_R={rnet:+.1f}")
     return "\n".join(L)
 
 
@@ -255,6 +325,8 @@ def main(argv: List[str]) -> int:
     p.add_argument("--signal-ttl-bars", type=int, default=1)
     p.add_argument("--fee-bps-roundtrip", type=float, default=DEFAULT_FEE_BPS_ROUNDTRIP)
     p.add_argument("--refresh-signals", action="store_true")
+    p.add_argument("--regime-window", type=int, default=_DEFAULT_REGIME_WINDOW,
+                   help="trailing clock bars for the regime label (default 48 = 4h on 5m)")
     p.add_argument("--out", default=None, help="CSV path for the per-candidate rows")
     args = p.parse_args(argv[1:])
 
@@ -262,7 +334,8 @@ def main(argv: List[str]) -> int:
     rows = collect_dataset(
         symbols=symbols, data=data, rosters=rosters, start=args.start, end=args.end,
         clock_tf=args.clock_tf, signal_ttl_bars=args.signal_ttl_bars,
-        fee_bps=args.fee_bps_roundtrip, refresh=args.refresh_signals)
+        fee_bps=args.fee_bps_roundtrip, refresh=args.refresh_signals,
+        regime_window=args.regime_window)
     print(eda(rows))
     if args.out and rows:
         cols = list(rows[0].keys())

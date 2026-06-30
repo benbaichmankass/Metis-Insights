@@ -223,3 +223,44 @@ in **this same** sizing-normalized harness (`learned` arm vs `shared_priority`) 
 plumbing is built. Until such evidence exists, the M18 selector stays observe-only and **all Tier-3
 decisions remain parked.**
 
+### (scorer probe + c_ml, 2026-06-30) — the last untested input is ALSO at the wall
+
+The "one untested input" above — regime context + per-cell historical expectancy — was added to the
+scorer-quality harness (PR #5234: `allocator_candidate_dataset.py` now stamps the canonical
+`classify_regime` label per candidate + a leakage-safe expanding per-`(owner, regime)` historical
+expectancy; `allocator_ranker_eval.py` got `+regime` / `+cell` / `+regime+cell` walk-forward variants).
+Re-run on the same multi-year set (BTCUSDT+ETHUSDT+SOLUSDT 5m, 2022-01→2026-05, **1,545 candidates**,
+34.7% win, mean net-R +0.040). Pooled OOS AUC (expanding walk-forward, n_eval=1,236):
+
+| variant | OOS AUC | vs baselines |
+|---|---|---|
+| market-only (the 2026-06-30 set) | 0.5114 | the prior wall |
+| **+regime** (trend/vol one-hot) | **0.5110** | **= market-only** (−0.0004; regime context adds nothing) |
+| **+cell-expectancy** (`cell_hist_mean_r/winrate/n`) | **0.5077** | **< market-only** (slightly worse) |
+| **+regime+cell** | **0.5140** | < the `confidence` single feature (0.522) |
+| +owner one-hot | 0.5128 | identity, not ranking |
+| +regime+cell+owner | 0.5205 | the only lift is **owner identity** — a Tier-3 strategy call |
+
+Single-feature AUC: `confidence` 0.522, `ev_r` 0.482, `cell_hist_winrate` 0.516, `cell_hist_mean_r` 0.499.
+
+**VERDICT — definitive negative (selection's last input).** Every regime/expectancy variant sits in
+**0.508–0.514** — far below the pre-registered **0.55** gate, and the best c_ml-only variant
+(`+regime+cell` 0.514) **does not even beat the `confidence` single feature** (0.522). Regime context
+adds essentially zero (+regime ≈ market-only); per-cell expectancy is *negative*. The only variant
+that nudges to 0.52 needs **owner identity**, which the original finding already flagged as a
+strategy-quality call, not a cross-candidate ranking insight. Note the per-regime EDA *does* show
+win-rate variation (e.g. `strong-down|high` 45% vs `weak-up|high` 30%) — but it does **not generalize
+OOS as a ranking signal** (the classic in-sample-structure-that-doesn't-predict pattern), exactly the
+thesis.
+
+**So the design's full `P_win` input set is now exhausted and the M18 learned cross-candidate ranker is
+closed for good.** Selection joins **entry** (`where-edge-lives-entry-wall-2026-06-30.md`) and **exit**
+(`exit-management-ml-experiment-DESIGN.md` §8) at the M18 wall: per-trade *timing/selection* outcome is
+unpredictable OOS from decision-time features. ML's demonstrated value here remains **regime/context as
+a GATE** (the live A/B-validated vol-gate), not as a per-trade *ranker*. The remaining real levers are
+**(i) strategy-level quality** — which cells to run (the 4h variants outperform: `trend_donchian_sol_4h`
+51% win / +23R; the bleeders are `ict_scalp` shorts + `trend_donchian` BTC) — and **(ii) the sizing/risk
+decision** (shared-budget concentration = leverage, ~2.5× maxDD), both Tier-3 and parked. The M18
+selector stays observe-only; **all Tier-3 decisions remain parked.** Provenance: trainer-vm-diag relays
+#5235→#5240.
+

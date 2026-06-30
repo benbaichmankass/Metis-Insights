@@ -34,6 +34,12 @@ _MARKET_FEATS = ["confidence", "ev_r", "rr", "stop_dist_pct", "tp_dist_pct",
                  "ret_1h", "ret_4h", "ret_12h", "vol_1h", "mom_align_1h",
                  "hour_sin", "hour_cos", "dow"]
 
+# The c_ml-flavored inputs the 2026-06-30 probe lacked (regime context +
+# per-cell historical expectancy). `cell_hist_*` are warmup-sparse, so a
+# missing value imputes to 0.0 (with cell_hist_n=0 flagging "no history yet")
+# rather than DROPPING the row — otherwise every early candidate would vanish.
+_CELL_FEATS = ["cell_hist_mean_r", "cell_hist_winrate", "cell_hist_n"]
+
 
 def _load(path: str) -> List[Dict[str, str]]:
     with open(path, newline="") as fh:
@@ -50,7 +56,8 @@ def _f(v: Optional[str]) -> Optional[float]:
 
 
 def _row_features(r: Dict[str, str], feats: List[str], owners: List[str],
-                  include_owner: bool) -> Optional[List[float]]:
+                  include_owner: bool, *, cell_feats: Optional[List[str]] = None,
+                  regime_vals: Optional[Dict[str, List[str]]] = None) -> Optional[List[float]]:
     x: List[float] = []
     for f in feats:
         if f == "hour_sin":
@@ -64,6 +71,15 @@ def _row_features(r: Dict[str, str], feats: List[str], owners: List[str],
             if v is None:
                 return None  # drop rows with a missing market feature (warmup)
             x.append(v)
+    # Cell-expectancy feats: warmup-sparse -> impute missing to 0.0 (don't drop).
+    for f in (cell_feats or []):
+        v = _f(r.get(f))
+        x.append(v if v is not None else 0.0)
+    # Regime context one-hot (trend, vol).
+    if regime_vals:
+        for col, vals in regime_vals.items():
+            for val in vals:
+                x.append(1.0 if r.get(col) == val else 0.0)
     if include_owner:
         for o in owners:
             x.append(1.0 if r.get("owner") == o else 0.0)
@@ -120,13 +136,19 @@ def _predict(X: np.ndarray, w: np.ndarray, b: float, mu: np.ndarray, sigma: np.n
 
 
 def walk_forward(rows: List[Dict[str, str]], feats: List[str], include_owner: bool,
-                 folds: int) -> Dict[str, object]:
+                 folds: int, *, cell_feats: Optional[List[str]] = None,
+                 include_regime: bool = False) -> Dict[str, object]:
     # chronological order
     rows = sorted(rows, key=lambda r: r.get("entry_ts", ""))
     owners = sorted({r.get("owner", "") for r in rows}) if include_owner else []
+    regime_vals: Dict[str, List[str]] = {}
+    if include_regime:
+        for col in ("regime_trend", "regime_vol"):
+            regime_vals[col] = sorted({r.get(col, "") for r in rows if r.get(col)})
     X_all, y_all, idx = [], [], []
     for k, r in enumerate(rows):
-        x = _row_features(r, feats, owners, include_owner)
+        x = _row_features(r, feats, owners, include_owner,
+                          cell_feats=cell_feats, regime_vals=regime_vals or None)
         y = _f(r.get("win"))
         if x is None or y is None:
             continue
@@ -155,9 +177,15 @@ def walk_forward(rows: List[Dict[str, str]], feats: List[str], include_owner: bo
     oos_p = np.array(oos_p)
     oos_y = np.array(oos_y)
     auc = _auc(oos_p, oos_y)
-    # full-sample refit for reported weights (sign/importance only)
+    # full-sample refit for reported weights (sign/importance only). Name order
+    # MUST mirror _row_features: feats, cell_feats, regime one-hot, owner one-hot.
     w, b, mu, sigma = _fit_logreg(X_all, y_all)
-    names = list(feats) + ([f"own:{o}" for o in owners] if include_owner else [])
+    names = list(feats)
+    names += list(cell_feats or [])
+    for col, vals in regime_vals.items():
+        names += [f"{col}:{v}" for v in vals]
+    if include_owner:
+        names += [f"own:{o}" for o in owners]
     weights = sorted(zip(names, w.tolist()), key=lambda t: -abs(t[1]))
     return {"oos_auc": auc, "oos_n": int(len(oos_y)), "weights_top": weights[:12]}
 
@@ -186,18 +214,35 @@ def main(argv: List[str]) -> int:
     wins = sum(1 for r in rows if _f(r.get("win")) == 1)
     print(f"candidates={n}  win_rate={100*wins/max(1,n):.1f}%")
     print("\n— single-feature OOS-agnostic AUC baselines (whole sample) —")
-    for col in ("ev_r", "confidence", "rr", "ret_1h", "ret_4h"):
+    for col in ("ev_r", "confidence", "rr", "ret_1h", "ret_4h",
+                "cell_hist_mean_r", "cell_hist_winrate"):
         a = _single_feature_auc(rows, col)
-        print(f"  {col:<12} AUC={a:.3f}" if a is not None else f"  {col:<12} AUC=  —")
+        print(f"  {col:<16} AUC={a:.3f}" if a is not None else f"  {col:<16} AUC=  —")
 
     print("\n— walk-forward logistic ranker (pooled OOS AUC) —")
     market = walk_forward(rows, _MARKET_FEATS, include_owner=False, folds=args.folds)
-    print(f"  market-only:  {market}")
+    print(f"  market-only:        {market}")
+    # The c_ml-conditioned probe: does regime context + per-cell historical
+    # expectancy add OOS ranking signal the price-only feature set lacked?
+    plus_regime = walk_forward(rows, _MARKET_FEATS, include_owner=False, folds=args.folds,
+                               include_regime=True)
+    print(f"  +regime:            {plus_regime}")
+    plus_cell = walk_forward(rows, _MARKET_FEATS, include_owner=False, folds=args.folds,
+                             cell_feats=_CELL_FEATS)
+    print(f"  +cell-expectancy:   {plus_cell}")
+    plus_both = walk_forward(rows, _MARKET_FEATS, include_owner=False, folds=args.folds,
+                             cell_feats=_CELL_FEATS, include_regime=True)
+    print(f"  +regime+cell:       {plus_both}")
     withown = walk_forward(rows, _MARKET_FEATS, include_owner=True, folds=args.folds)
-    print(f"  +owner:       {withown}")
-    print("\nDecision: a ranker is worth building ONLY if market-only OOS AUC is")
-    print("meaningfully > 0.5 AND > the ev_r baseline above. The +owner gap shows")
-    print("how much is strategy identity (a Tier-3 strategy call, not ranking).")
+    print(f"  +owner:             {withown}")
+    withall = walk_forward(rows, _MARKET_FEATS, include_owner=True, folds=args.folds,
+                           cell_feats=_CELL_FEATS, include_regime=True)
+    print(f"  +regime+cell+owner: {withall}")
+    print("\nDecision (pre-registered kill criterion): the c_ml-conditioned variants")
+    print("(+regime / +cell / +regime+cell) must reach OOS AUC > 0.55 AND meaningfully")
+    print("beat BOTH market-only AND the confidence single-feature baseline to count as")
+    print("a real selection edge. Otherwise the regime/per-cell-expectancy input — the")
+    print("last untested P_win — is ALSO at the wall, and the M18 learned ranker is closed.")
     return 0
 
 
