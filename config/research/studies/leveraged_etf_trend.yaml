@@ -1,0 +1,52 @@
+# Study spec — LEVERAGED equity-ETF daily TREND (TQQQ et al.), 2026-06-30.
+# RESEARCH-ONLY, Tier-1. Read by scripts/ops/research_sweep.py; touches nothing live.
+#
+# Mirrors the validated live daily trend family (spy_/qqq_/iwm_trend_long_1d:
+# donchian 30, atr-stop 2.5, trail 4.0, long-only) and applies it to LEVERAGED
+# index ETFs. Companion to docs/research/leveraged-etf-research-2026-06-30.md,
+# which found (local canonical gate, full Yahoo history): TQQQ/QLD (Nasdaq-100
+# leveraged) match/beat the live QQQ cell and grade paper_ready; S&P leveraged
+# (UPRO/SSO) ~ neutral vs SPY; small-cap/Dow/semis leveraged REJECT (decay).
+# This spec is the trainer-VM cross-check (longer parquet history + the k-fold
+# gate dispatched the same way the ETF-breadth sweep was). TQQQ is the template;
+# the dispatch job seds per symbol.
+#
+# Backtest runs on the ACTUAL leveraged-ETF price series, so daily-rebalance
+# volatility decay + the ~0.75-1.0% expense ratio + financing cost are already
+# embedded in the net-R metrics — nothing to add for them. Long-only is the
+# right default: the academic result (Gayed-Bilello) is that leverage pays in
+# trends and bleeds in chop, and the Donchian trend filter is exactly what
+# isolates the trending regime.
+schema_version: 1
+name: leveraged_etf_trend_TQQQ
+harness: backtest_trend.py
+
+base:
+  data: data/TQQQ_1d.csv
+  resample: 1D                 # data is already daily; 1D resample is a no-op (research_sweep requires the key)
+  symbol: TQQQ
+  args:
+    donchian: 30
+    atr-period: 14
+    atr-stop-mult: 2.5
+    trail-mult: 4.0
+    min-confidence: 0.0
+    long-only: true
+
+variants:
+  - {name: donch20, set: {donchian: 20}}           # faster trend entry
+  - {name: trail5, set: {trail-mult: 5.0}}          # wider chandelier
+  - {name: stop3, set: {atr-stop-mult: 3.0}}        # wider initial stop (gap cushion for 3x)
+  - {name: conf30, set: {min-confidence: 0.30}}     # M8-style confidence floor
+
+ablations: []
+
+# Sweep set (dispatch job seds `symbol` + `data` per ticker):
+#   PROMOTE candidates : TQQQ (3x QQQ), QLD (2x QQQ)
+#   NEUTRAL (cap-eff)  : UPRO (3x SPY), SSO (2x SPY)
+#   CONTROL/REJECT     : TNA (3x IWM), UDOW (3x DIA), SOXL (3x semis)  -- expected reject
+#   BASELINES          : QQQ, SPY, IWM, DIA, SMH  -- for leveraged-vs-baseline delta
+# Long-history daily CSVs are trainer-VM-resident (qashdev cache / yfinance pull).
+
+kfold: {folds: 5, train_frac: 0.4, wf_end: "2026-06-29"}
+fees:  {base_bps: 7.5, double_bps: 15.0}
