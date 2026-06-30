@@ -5,14 +5,13 @@
 # so the RiskManager rebuilds from scratch on the next tick — clearing any
 # INTRADAY_DRAWDOWN or DAILY_LOSS breach.
 #
-# Usage (via system-actions issue):
-#   action: reset-daily-risk-state
+# Usage (via reset-daily-risk-state issue):
 #   reason: <why>
 #   account: bybit_1          # optional — omit to reset ALL accounts
 #
 # Exit codes:
 #   0 — success (rows deleted, or none matched)
-#   1 — sqlite3 unavailable or DB not found
+#   1 — DB not found or python3 unavailable
 
 set -euo pipefail
 
@@ -27,8 +26,8 @@ if [ ! -f "${DB}" ]; then
     exit 1
 fi
 
-if ! command -v sqlite3 >/dev/null 2>&1; then
-    log "ERROR: sqlite3 not available"
+if ! command -v python3 >/dev/null 2>&1; then
+    log "ERROR: python3 not available"
     exit 1
 fi
 
@@ -36,12 +35,33 @@ TODAY="$(date -u +%Y-%m-%d)"
 
 if [ -n "${ACCOUNT_ID:-}" ]; then
     log "Resetting daily_risk_state for account=${ACCOUNT_ID} date=${TODAY} …"
-    RESULT="$(sqlite3 "${DB}" "DELETE FROM daily_risk_state WHERE account_id='${ACCOUNT_ID}' AND date='${TODAY}'; SELECT changes();")"
+    RESULT="$(python3 - "${DB}" "${ACCOUNT_ID}" "${TODAY}" <<'PYEOF'
+import sys, sqlite3
+db, account_id, today = sys.argv[1], sys.argv[2], sys.argv[3]
+conn = sqlite3.connect(db)
+cur = conn.execute(
+    "DELETE FROM daily_risk_state WHERE account_id=? AND date=?",
+    (account_id, today)
+)
+conn.commit()
+print(cur.rowcount)
+conn.close()
+PYEOF
+)"
     log "Rows deleted: ${RESULT}"
     record_audit "${SCRIPT_NAME}" "ok" "{\"account_id\":\"${ACCOUNT_ID}\",\"date\":\"${TODAY}\",\"rows_deleted\":${RESULT:-0}}"
 else
     log "No account_id specified — resetting ALL accounts for date=${TODAY} …"
-    RESULT="$(sqlite3 "${DB}" "DELETE FROM daily_risk_state WHERE date='${TODAY}'; SELECT changes();")"
+    RESULT="$(python3 - "${DB}" "${TODAY}" <<'PYEOF'
+import sys, sqlite3
+db, today = sys.argv[1], sys.argv[2]
+conn = sqlite3.connect(db)
+cur = conn.execute("DELETE FROM daily_risk_state WHERE date=?", (today,))
+conn.commit()
+print(cur.rowcount)
+conn.close()
+PYEOF
+)"
     log "Rows deleted: ${RESULT}"
     record_audit "${SCRIPT_NAME}" "ok" "{\"account_id\":\"ALL\",\"date\":\"${TODAY}\",\"rows_deleted\":${RESULT:-0}}"
 fi
