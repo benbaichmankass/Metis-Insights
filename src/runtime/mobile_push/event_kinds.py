@@ -144,6 +144,17 @@ PROP_CLOSED: Final = "prop_closed"
 #: ``src.prop.prop_monitor_pulse.run_prop_monitor_pulse``.
 PROP_MONITOR: Final = "prop_monitor"
 
+#: One-shot alert when an open prop trade's current price crosses its SL or TP
+#: level. Since the prop account has no broker feed the bot can't know when the
+#: executor actually closed the trade; this ping prompts the operator to check
+#: and report back, with a pre-filled JSON report template in the message body.
+#: Fires at most once per level (SL and TP each get one alert) per open
+#: position lifetime — cleared only when the fill closes.
+#: Payload: ``account, symbol, direction, level_type (sl|tp), current_price,
+#: sl, tp, entry, ticket_id, age_minutes, text``.
+#: Emitted by ``src.prop.prop_sl_tp_alert.run_prop_sl_tp_alert``.
+PROP_SL_TP_ALERT: Final = "prop_sl_tp_alert"
+
 
 #: Canonical list (insertion order = display order in the Android UI).
 #: The operator's four categories first, then the legacy / reserved
@@ -164,6 +175,7 @@ ALL_KINDS: Final[tuple[str, ...]] = (
     PROP_FILL,
     PROP_CLOSED,
     PROP_MONITOR,
+    PROP_SL_TP_ALERT,
 )
 
 #: Human-readable label for each kind. Used by the Android UI to render
@@ -186,6 +198,7 @@ LABELS: Final[dict[str, str]] = {
     PROP_FILL: "Prop trade filled",
     PROP_CLOSED: "Prop trade closed",
     PROP_MONITOR: "Prop trade monitoring pulse",
+    PROP_SL_TP_ALERT: "Prop SL/TP crossing alert",
 }
 
 #: One-line description per kind for the Android subscription screen.
@@ -205,6 +218,7 @@ DESCRIPTIONS: Final[dict[str, str]] = {
     PROP_FILL: "A prop ticket reported filled/opened on the terminal.",
     PROP_CLOSED: "A prop trade reported closed — PnL + exit reason.",
     PROP_MONITOR: "Periodic 'still monitoring' pulse while a prop trade is open.",
+    PROP_SL_TP_ALERT: "One-shot alert when a prop trade's price crosses its SL or TP — prompts close report.",
 }
 
 #: The subset of kinds whose payload semantics the bot already emits.
@@ -213,7 +227,7 @@ DESCRIPTIONS: Final[dict[str, str]] = {
 #: is loud.
 IN_FLIGHT: Final[frozenset[str]] = frozenset(
     {TRADE_OPENED, TRADE_UPDATED, TRADE_CLOSED, TELEGRAM, SIGNAL_EMITTED,
-     PROP_SIGNAL, PROP_FILL, PROP_CLOSED, PROP_MONITOR}
+     PROP_SIGNAL, PROP_FILL, PROP_CLOSED, PROP_MONITOR, PROP_SL_TP_ALERT}
 )
 
 
@@ -243,6 +257,7 @@ __all__ = [
     "PROP_FILL",
     "PROP_CLOSED",
     "PROP_MONITOR",
+    "PROP_SL_TP_ALERT",
     "ALL_KINDS",
     "LABELS",
     "DESCRIPTIONS",

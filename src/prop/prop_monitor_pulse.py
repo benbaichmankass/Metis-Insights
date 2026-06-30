@@ -74,10 +74,14 @@ def _interval_seconds() -> int:
 
 
 def _position_key(fill: Dict[str, Any]) -> str:
-    """Stable identity for a prop position across its fill rows."""
-    tid = fill.get("ticket_id")
-    if tid:
-        return f"ticket:{tid}"
+    """Stable identity for a prop position across its fill rows.
+
+    Always keyed on (account_id, symbol, direction) — never on ticket_id.
+    A prop account can only hold one position per symbol/direction at a time,
+    so the akd key is sufficient AND avoids the split-key bug where an open
+    fill (no ticket) and its close fill (matched to a ticket) end up under
+    different keys, making the close invisible to the open-position filter.
+    """
     return (
         f"akd:{fill.get('account_id') or ''}|"
         f"{str(fill.get('symbol') or '').upper()}|"
@@ -146,8 +150,8 @@ def find_open_prop_positions(
             "entry_price": f.get("entry_price"),
             "ticket_id": tid,
             "entry": (tk or {}).get("entry") if tk else f.get("entry_price"),
-            "sl": (tk or {}).get("sl") if tk else None,
-            "tp": (tk or {}).get("tp") if tk else None,
+            "sl": (tk or {}).get("sl") if tk else f.get("sl"),
+            "tp": (tk or {}).get("tp") if tk else f.get("tp"),
             "opened_at": opened_at,
             "age_minutes": age_minutes,
             "status": status,
