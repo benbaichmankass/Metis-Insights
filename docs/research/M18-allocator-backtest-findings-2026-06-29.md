@@ -104,7 +104,44 @@ in both arms; differ only in fill order: EV vs symbol-priority) is needed to iso
 edge from the *sizing* effect. Also: one 5-month window, 10 binds (small sample), freshly-built
 harness (a lookahead bug was found + fixed pre-run).
 
-**Net read:** intra-symbol EV-ranking = no edge; **cross-symbol allocation = promising** (real
-binding decisions, beat baseline) — exactly where the design predicted value. Worth the
-sizing-normalized confirmation before any build decision (all Tier-3, parked).
+### (b-norm) — the sizing-normalized A/B: the cross-symbol "edge" is SIZING, not SELECTION
+The confirmation run (`shared_priority` control arm — same shared-budget engine + same per-trade
+sizing + same `max_concurrent` cap as the EV allocator, differing ONLY in the contested-slot ranking:
+EV_R vs an EV-blind symbol-priority order). BTC+ETH+SOL 5m, 2026-01→06-18, `--max-concurrent 2`:
+
+| Arm | Net | Return% | maxDD% | Trades | Win% |
+|---|---|---|---|---|---|
+| baseline (independent per-symbol budgets) | −$58 | −0.58 | 2.93 | 137 | 29.9 |
+| allocator (shared budget, **greedy EV**) | +$156 | +1.56 | 7.20 | 113 | 31.9 |
+| **shared_priority (shared budget, EV-BLIND symbol-priority)** | **+$163** | **+1.63** | 7.14 | 112 | 31.3 |
+
+- `ev − baseline = +$213` (the earlier (b) "edge") **conflates sizing with selection**.
+- **`ev − shared_priority = −$7` · `ev_beats_priority = FALSE`** — holding sizing + concurrency
+  identical and changing ONLY the ranking rule, EV is *marginally worse* than a trivial
+  symbol-priority order. There were **19 genuinely contested ticks** (11 binds) where the two rules
+  made different choices — so this is a real test, not a no-op, and the EV scorer did **not** win it.
+
+**Verdict: the cross-symbol gain was a SIZING artifact, not an EV-selection edge.** The whole +$213
+came from the shared budget concentrating capital into ETH's winners (ETH carries the book in every
+arm); the EV *scorer* adds no cross-symbol selection skill over dumb priority — exactly mirroring the
+intra-symbol result (EV ≈ priority ~96–97%). And the sizing lever is not free: it costs **2.5× the
+maxDD** (7.2% vs 2.9%) — i.e. it's leverage/concentration, a risk decision, not something an "AI
+allocator" is needed to pull.
+
+**CAVEATS (bounds on the claim — it rules out the SCORER, not the allocator concept):** one
+5.5-month window (data ended 2026-06-18), 19 contested ticks (small), one `max_concurrent`, a single
+shared-account model with no correlation budgeting. Critically, the scorer here is the **P1
+confidence-proxy `EV_R`** (`P_win = c_strat`), NOT the design's full conviction/ML/per-cell-expectancy
+blend (§5.2). A better-calibrated `P_win` could still surface a selection edge — so the open question
+is **scorer quality**, not allocator plumbing.
+
+**Net read (updated):** intra-symbol EV-ranking = no edge; cross-symbol EV-ranking = **no selection
+edge either once sizing is normalized** — the apparent (b) edge was capital concentration. On the
+*current* (confidence-proxy) scorer the allocator's *selection* adds nothing over priority routing.
+→ **Do NOT build the Tier-3 cross-symbol selector on this scorer.** The worthwhile next probe (Tier-1,
+parked for operator steer) is whether a better-calibrated `P_win` (conviction blend / per-cell
+historical expectancy) yields a *real* selection edge in this same sizing-normalized harness — a
+scorer-quality investigation. The sizing lever (shared-budget concentration) is real but is just
+leverage with ~2.5× the drawdown; that's a risk call, separate from the allocator thesis. All Tier-3
+decisions remain parked.
 
