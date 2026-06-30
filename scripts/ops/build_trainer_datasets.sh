@@ -414,6 +414,32 @@ build_mes_setup_labels() {
     "db_path=${DB_PATH}" "symbol=MES" "risk_pct=1.0" "r_cap=3.0"
 }
 
+mes_file_stale() {  # <data.jsonl> <max_stale_days> — echo 1 iff the last bar is
+  # older than max_stale_days before now. Fail-permissive: any error -> 0 (not
+  # stale) so an unreadable file never *forces* the yfinance fallback. Guards the
+  # IBKR-preference against a frozen snapshot (BL-20260626-MES-BASE-STALE: the
+  # live-VM pull_mes_ibkr_history.sh stopped 2026-06-14, freezing MES at 06-12,
+  # while the daily build kept preferring the stale shard over fresh yfinance).
+  python3 -c "
+import json, sys, datetime
+try:
+    last = None
+    with open(sys.argv[1]) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                last = line
+    ts = json.loads(last)['ts'].replace('Z', '+00:00')
+    d = datetime.datetime.fromisoformat(ts)
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=datetime.timezone.utc)
+    age_days = (datetime.datetime.now(datetime.timezone.utc) - d).total_seconds() / 86400.0
+    print('1' if age_days > float(sys.argv[2]) else '0')
+except Exception:
+    print('0')
+" "$1" "$2" 2>/dev/null || echo 0
+}
+
 build_mes_market() {
   local base_tf="5m"
   local base_raw="${DATASETS_ROOT}/market_raw/MES/${base_tf}/${DATASET_VERSION}"
@@ -428,7 +454,13 @@ build_mes_market() {
   # scripts/ops/pull_mes_ibkr_history.sh.
   local ibkr_src="${DATA_DIR}/ibkr_datasets/market_raw/MES"
   local ibkr_5m="${ibkr_src}/5m/${DATASET_VERSION}/data.jsonl"
-  if [ -f "$ibkr_5m" ] && [ "$(wc -l < "$ibkr_5m" 2>/dev/null | tr -d ' ')" -gt 1000 ]; then
+  # Freshness gate (BL-20260626-MES-BASE-STALE): prefer the deep IBKR base ONLY
+  # when it is current. A frozen snapshot (the live-VM pull stopped 2026-06-14)
+  # must NOT be preferred over fresh yfinance, or every MES 5m/15m head trains on
+  # stale candles and RG4 can't label any live row past the snapshot date.
+  local ibkr_stale=0
+  [ -f "$ibkr_5m" ] && ibkr_stale="$(mes_file_stale "$ibkr_5m" "${MES_IBKR_MAX_STALE_DAYS:-5}")"
+  if [ -f "$ibkr_5m" ] && [ "$(wc -l < "$ibkr_5m" 2>/dev/null | tr -d ' ')" -gt 1000 ] && [ "$ibkr_stale" != "1" ]; then
     emit "$(printf '{"ts":"%s","status":"info","detail":"using synced IBKR MES market_raw (deep history) instead of yfinance"}' "$(iso_now)")"
     local used=0
     for tf in 5m 15m; do
@@ -447,6 +479,10 @@ build_mes_market() {
       return 0
     fi
     emit "$(printf '{"ts":"%s","status":"warn","detail":"IBKR MES base present but no usable timeframe shards; falling back to yfinance"}' "$(iso_now)")"
+  fi
+
+  if [ -f "$ibkr_5m" ] && [ "$ibkr_stale" = "1" ]; then
+    emit "$(printf '{"ts":"%s","status":"warn","detail":"IBKR MES base STALE (last bar older than %s days) — building fresh yfinance ES=F instead; revive pull_mes_ibkr_history.sh on the live VM (point it at the gateway VM 10.0.0.251:4002) to restore deep history. BL-20260626-MES-BASE-STALE"}' "$(iso_now)" "${MES_IBKR_MAX_STALE_DAYS:-5}")"
   fi
 
   if ! python -c "import yfinance" 2>/dev/null; then
