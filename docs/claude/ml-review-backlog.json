@@ -31,7 +31,10 @@
       "resolution_criteria": "mes-regime-5m-lgbm-yz-v1 is demoted (candidate / killed) with the decision recorded OR its inversion is root-caused + fixed and a retrain re-earns shadow; the two MES 15m heads' CLEARED status is noted (no action). The system review records the call.",
       "status": "open",
       "snoozed_until": null,
-      "status_history": "open 2026-06-26 (flagged 2 MES 15m heads for demote) -> REVISED 2026-06-26 (MES candle fix + RG4 re-run cleared both 15m heads; re-targeted to mes-regime-5m-lgbm-yz-v1, now anti-predictive 0.17 on fixed data)."
+      "status_history": "open 2026-06-26 (flagged 2 MES 15m heads for demote) -> REVISED 2026-06-26 (MES candle fix + RG4 re-run cleared both 15m heads; re-targeted to mes-regime-5m-lgbm-yz-v1, now anti-predictive 0.17 on fixed data).",
+      "evidence_log": [
+        "2026-06-30 (/ml-review, trainer-vm-diag #5165): RG4 re-run on mes-regime-5m-lgbm-yz-v1 is UNSCOREABLE now -- all 2236 logged-live rows are UNLABELED (the MES live-labeling gap, MB-20260626-001 finding #1, re-bit). No evidence of recovery; the prior 0.17 ANTI_PREDICTIVE read (on ~1460 labeled rows) stands as the demote basis. RECOMMENDATION (Tier-3, operator-gated): demote mes-regime-5m-lgbm-yz-v1 shadow->candidate (reversible, observe-only -- it pollutes the shadow stream with an inverted signal) and root-cause the yz inversion. By contrast its non-yz sibling mes-regime-5m-lgbm-v2 reads 0.765 TRUSTWORTHY, so this is a yz-variant-specific defect."
+      ]
     },
     {
       "id": "MB-20260626-003",
@@ -992,6 +995,9 @@
           "at": "2026-06-23T11:32:00+00:00",
           "note": "/ml-review (system-report since-last). RE-CONFIRMED degenerate from two angles. (1) Registry (#4302): prop-mission-policy-baseline-v0 accuracy=1.0 brier=0 (single-class), trade-outcome-{global,winrate}-baseline-v0 accuracy=0.836 (majority predictor), execution-quality-baseline-v0 mae=3.26 / setup-quality-baseline-v0 mae=0.83 (no edge). (2) Live trade-scores join (#4303): each emits a CONSTANT shadow score across scored trades — prop-mission-policy 0.000 (n=7), trade-outcome-global 0.248 (n=6), trade-outcome-winrate ~0.251 (n=6), execution-quality -0.202 (n=7), setup-quality -0.04. A constant output carries zero discriminating signal to the conviction/sizing lenses + pollutes the conviction-meta-v1 stacker's inputs. Promotion-readiness 00:30Z lists all of them blocking on non_degenerate + beats_baseline. All shadow-only (no order influence today). Still no refinement retrain landed. RECOMMENDATION unchanged: refine (class-weighted re-fit / new label horizon / more data) OR retire to candidate + drop from shadow_model_ids so they stop being surfaced as lens inputs. Filed as experiments_proposed (class-weighted re-fit) this review. Stays OPEN."
         }
+      ],
+      "evidence_log": [
+        "2026-06-30 (/ml-review, trainer-vm-diag #5164 stage-guard): the f1=0 degenerate baselines remain at SHADOW and still fail their gates -- prop-mission-policy-baseline-v0 [non_degenerate, beats_baseline, live_agreement fail], trade-outcome-global-baseline-v0 [beats_baseline, live_agreement fail], trade-outcome-winrate-baseline-v0 [beats_baseline, live_agreement, drift_clean fail]. They are majority-class predictors feeding noise into the conviction lens / conviction-meta-v1 stacker. RECOMMENDATION (Tier-3): retire to candidate (drop from the shadow-wired predictor lists) unless a refinement retrain (class-weighting / better label horizon) is queued. One detect step driven this review; refinement attempt not yet made."
       ]
     },
     {
@@ -1057,6 +1063,9 @@
           "status": "open",
           "note": "FIRST live ML-label vol-gate enforced fire OBSERVED 2026-06-29T12:13Z (audit id 632682: BTCUSDT trend_donchian, vol_label_source=ml, vol_enforced=true, vol_cell=off). The advisory btc-regime-15m-lgbm-v2 head is fresh (last_seen 12:10Z, 214 advisory preds). Soak is accruing as designed; the enforce-decision first-look (~2026-06-30) stands. Keeping open as awaiting-decision (Tier-3 operator enforce call)."
         }
+      ],
+      "evidence_log": [
+        "2026-06-30 (/ml-review, trainer-vm-diag #5163/#5165 + live diag #5160): FIRST-LOOK = PASS. The BTC advisory head btc-regime-15m-lgbm-v2 IS resolving the vol label LIVE: 32 ML-scored regime_ml_vol_shadow rows for symbol=BTCUSDT since the 06-27 deploy (ml_source=ml-advisory:btc-regime-15m-lgbm-v2, p_volatile populated), sane calibration (calm at p_vol~0.01-0.1, volatile at ~0.5-0.9). RG4 (live-row regime discrimination) advisory=0.801 / shadow=0.727 TRUSTWORTHY on 2576 recs (mf=True, 5 unlab) -> the head still strongly discriminates live. Frozen-vs-ML agreement 6/9=67%% on the comparable subset (most frozen=unknown so agree=null); all 3 disagreements are ML=calm vs frozen=volatile at low p_vol (0.15-0.21) = ML reading low vol BETTER than the frozen detector (consistent with the A/B finding that frozen-vol-gating hurt). FIRM ENFORCE READ stays ~2026-07-04 (need more frozen-comparison volume, target ~30-50+ comparable BTC rows; only 9 so far). NO enforce flip recommended today; on track."
       ]
     },
     {
@@ -1070,7 +1079,10 @@
       "trigger_condition": "Next /ml-review or /system-review; or any session promoting a regime head or working the MES/ETH live-labeling parity.",
       "resolution_criteria": "mes-5m-lgbm-v2 promoted to advisory (operator-gated) with MES per-symbol cells authored AND/OR the MES/ETH live-labeling gap root-caused so ETH + mes-15m/1d become RG4-scoreable and gate cleanly.",
       "status": "open",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-06-30 (/ml-review, trainer-vm-diag #5165): RG4 reconfirms mes-regime-5m-lgbm-v2 = 0.765 TRUSTWORTHY (mf=True) -- consistent with the 0.765/0.77 prior reads. Still the ONE clear multi-symbol promotion candidate. Caveat persists: of 3588 logged-live rows only ~204 are labeled (3384 unlabeled) = the MES live-labeling gap still blinds RG4 to most of the stream. Promotion is gated on the MES cell-authoring path (per-symbol MES vol-split backtest -> author config/regime_policy.yaml MES trend_vol cells -> walk-forward -> promote-stage), NOT on the model. Stays at shadow; lead candidate."
+      ]
     },
     {
       "id": "MB-20260627-003",
@@ -1141,7 +1153,10 @@
       "resolution_criteria": "Each symbol's 15m head either: promoted to advisory + its trend_vol cells authored live (RG4 PASS + A/B + walk-forward), OR an honest negative recorded (RG4 NO_EDGE/ANTI_PREDICTIVE -> keep soaking / retrain / retire). ETH cells re-derived under the 15m label before any live authoring.",
       "status": "open",
       "snoozed_until": "2026-07-02T00:00:00+00:00",
-      "updated_at": "2026-06-28T09:00:00+00:00"
+      "updated_at": "2026-06-28T09:00:00+00:00",
+      "evidence_log": [
+        "2026-06-30 (/ml-review, trainer-vm-diag #5165): RG4 + soak volume read. eth-regime-15m-lgbm-v1 = 0.766 TRUSTWORTHY but on only 204 live rows (199 labeled); sol-regime-15m-lgbm-v1 = 0.643 TRUSTWORTHY on 178 rows (173 labeled). BOTH already PASS RG4>=0.55 but are BELOW the ~300-500-row volume target (knife-edge risk -- the ETH precedent went 0.46-0.58 at ~111 rows). stage-guard also flags shadow_soak FAIL + sample_sufficiency FAIL for both. ETH/SOL label cleanly (unlab=5) unlike MES. ACTION: hold; re-run RG4 + vt-sweep when each 15m head clears ~300-500 rows (~2026-07-03/04 at ~96 rows/day). If it holds: re-derive ETH trend_vol cells UNDER eth-regime-15m (the draft used the failed 1h head); author SOL cells from scratch; then per-symbol vol-split A/B + walk-forward before promote."
+      ]
     },
     {
       "id": "MB-20260629-ALLOC-COSTCAP",
@@ -1184,6 +1199,23 @@
       "status": "open",
       "snoozed_until": null,
       "updated_at": "2026-06-29T13:30:00+00:00"
+    },
+    {
+      "id": "MB-20260630-001",
+      "opened_at": "2026-06-30T06:36:00+00:00",
+      "opened_by": "claude (/ml-review promotion-review session)",
+      "source": "During the 2026-06-30 /ml-review, `python -m ml stage-guard` proposed DEMOTE for the live advisory regime head btc-regime-15m-lgbm-v2 (advisory->shadow) with reason 'live calibration worse than base rate (brier_lift -0.16256)' computed from rank-AUC/Brier of the regime-vol SCORE vs realized trade WIN on n=15 closed trades. But Option A (PR #4700, merged 2026-06-27) already established this trade-outcome axis is MIS-TARGETED for a regime head and made live_agreement NON-BLOCKING in `gate-check`, replacing it with live_regime_discrimination (RG4). Same-session RG4 for this head reads 0.801 (advisory) TRUSTWORTHY -- it is NOT degrading on its proper axis.",
+      "title": "stage-guard's DEMOTE path for advisory REGIME heads still uses brier_lift(score vs trade-win) -- the mis-targeted axis Option A retired from gate-check; align it to RG4 regime-discrimination",
+      "description": "The shadow->advisory gate (ml/promotion/gates.py) was redesigned under Option A so a regime head is judged on live_regime_discrimination (RG4), not live_agreement (trade-win AUC). But the DEMOTE half of the lifecycle -- ml stage-guard's advisory-degradation trigger -- still demotes a regime head on brier_lift of the head's score vs trade WIN (an inherently mis-targeted axis: a vol-regime classifier predicts the regime, not trade outcomes; n is also tiny, 15 trades). Result: stage-guard mechanically recommends demoting a perfectly healthy advisory regime head (RG4 0.80) on a metric the promotion side already deemed invalid for regime heads. This is a false-positive demote signal that, if acted on, would strip the BTC vol-gate's order-influencing head right as the enforce decision (MB-20260627-001) matures. FIX (Tier-1 code, then the demote is sound): make stage-guard's advisory-degradation check for regime-family heads gate on RG4 live-regime-discrimination collapse (e.g. RG4 < 0.50 over a sufficient labeled sample) rather than brier_lift(score vs win); keep the trade-win/brier_lift trigger for the decision/outcome model families where it is the right axis. Until fixed, /ml-review and /system-review must NOT act on a stage-guard demote of an advisory REGIME head without an RG4 cross-check (this review did: HOLD, not demote).",
+      "tier": 3,
+      "trigger_condition": "Next /ml-review or /system-review reading stage-guard; or any session touching ml/promotion/stage_guard demote logic or ml/promotion/gates.py.",
+      "resolution_criteria": "stage-guard's advisory-degradation/demote trigger for regime-family heads gates on RG4 live-regime-discrimination (not brier_lift score-vs-win); verified by re-running stage-guard on btc-regime-15m-lgbm-v2 and getting hold (not demote) while RG4>=0.55; the decision/outcome families keep their trade-outcome trigger.",
+      "status": "open",
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-06-30 (trainer-vm-diag #5164/#5165): stage-guard demote btc-regime-15m-lgbm-v2 on brier_lift -0.16256 (n=15, win_rate 0.467, auc 0.554, drift minor); same-session RG4 advisory 0.801 / shadow 0.727 TRUSTWORTHY (2576 recs). /ml-review ruled HOLD advisory -- the demote is a mis-targeted-metric false positive."
+      ],
+      "status_history": "open 2026-06-30 (/ml-review: stage-guard demoted a healthy advisory regime head on the trade-win axis Option A retired; filed the misalignment)."
     }
   ],
   "updated_at": "2026-06-29T13:30:00+00:00"
