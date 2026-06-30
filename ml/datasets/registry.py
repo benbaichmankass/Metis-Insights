@@ -8,6 +8,7 @@ from .families.account_context import AccountContextBuilder
 from .families.backtest_results import BacktestResultsBuilder
 from .families.conviction_meta import ConvictionMetaBuilder
 from .families.execution_quality import ExecutionQualityBuilder
+from .families.exit_candidates import ExitCandidatesBuilder
 from .families.market_features import MarketFeaturesBuilder
 from .families.market_raw import MarketRawBuilder
 from .families.review_journal import ReviewJournalBuilder
@@ -21,6 +22,7 @@ FAMILY_REGISTRY: Mapping[str, Type[DatasetBuilder]] = {
     BacktestResultsBuilder.family: BacktestResultsBuilder,
     ConvictionMetaBuilder.family: ConvictionMetaBuilder,
     ExecutionQualityBuilder.family: ExecutionQualityBuilder,
+    ExitCandidatesBuilder.family: ExitCandidatesBuilder,
     MarketFeaturesBuilder.family: MarketFeaturesBuilder,
     MarketRawBuilder.family: MarketRawBuilder,
     ReviewJournalBuilder.family: ReviewJournalBuilder,

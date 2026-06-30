@@ -1,0 +1,124 @@
+# Exit-management feasibility head (Framing A — optimal-exit classifier).
+#
+# P0 of docs/research/exit-management-ml-experiment-DESIGN.md. The entry-wall
+# finding (docs/research/where-edge-lives-entry-wall-2026-06-30.md) said entry
+# prediction is ~coin-flip; this head points the same rigor at the UNTESTED
+# frontier — exit management. Conditioned on an OPEN position + its trajectory,
+# it learns P(should_hold): is holding from THIS in-trade bar (to a +beta*risk
+# move before the stop) still worth it, vs exiting now?
+#
+# DATA: the `exit_candidates` family (NEW) — one row per in-trade bar, carrying
+# past-only POSITION-state features (unrealized_r / bars_held / mfe_r / mae_r /
+# dist_to_stop_atr / dist_to_target_atr) + the reused market-bar features, with
+# a future-only triple-barrier hold label. Synthetic in-trade rows (CUSUM
+# entries walked forward, for volume) train; a held-out set of REAL closed
+# trades' reconstructed in-trade bars (is_live_trade=1) eval — the same
+# domain-shift contract the meta-label head uses.
+#
+# STACK: reuses the LightGBM-regression trainer on the binary `should_hold`
+# target (regress -> probability) paired with the AUC classification evaluator
+# (ClassificationAUCEvaluator: the base accuracy/precision/recall/f1/brier set
+# PLUS a threshold-free `auc`), so the design's pre-registered kill-criterion —
+# OOS `auc` > 0.55 — reads straight off the eval. Mirrors the
+# setup-candidates-metalabel-v1 stack, retargeted to the exit decision.
+#
+# EVALUATION — two protocols (mirrors setup-candidates-metalabel-v1):
+#   1. Headline (`split_strategy: live_holdout`): train on SYNTHETIC in-trade
+#      rows, score on the held-out REAL trades' in-trade bars the build appended
+#      via `live_trades_db`. The mandatory domain-shift check.
+#   2. Leak-free within-distribution: flip `split_strategy` to
+#      `purged_walk_forward` (de Prado purge + embargo, S-MLOPT-S1) and read the
+#      S-MLOPT-S4 gate-check oos_edge vs the constant baseline.
+#
+# Build the dataset first (trainer VM), e.g. — live_trades_db MUST be the
+# canonical journal ($DATA_DIR/trade_journal.db = data/trade_journal.db on the
+# trainer; the repo-root trade_journal.db is an empty stub):
+#   python -m ml.datasets build exit_candidates --output-dir datasets-out \
+#     --version v001 --source market_raw --symbol-scope ETHUSDT --timeframe 5m \
+#     -- market_raw_path=datasets-out/market_raw/ETHUSDT/5m/v001 \
+#        live_trades_db=data/trade_journal.db
+#
+# TIER: Tier-1 research. Ships at `candidate` (observe-only, refused by the
+# shadow factory — NO order influence). Adopting / promoting past `shadow` is
+# Tier-3 (operator-gated); /ml-review + gate-check produce the promotion
+# evidence, the operator pulls the lever.
+
+manifest_version: v1
+model_id: exit-policy-v1
+description: "Exit-management feasibility head (de Prado, Framing A): predicts P(should_hold) for an OPEN position from past-only position-state + market features, trained on the dense exit_candidates in-trade dataset and evaluated on a held-out set of REAL live trades' in-trade bars (OOS AUC). Tests whether exit timing is learnable OOS — the untested frontier after the entry-wall finding. Observe-only at candidate; no order influence."
+model_family: regression_lightgbm
+trainer: ml.trainers.lightgbm_regression.LightGBMRegressionTrainer
+trainer_config:
+  target_column: should_hold
+  feature_columns:
+    # position-state features (the exit-specific signal)
+    - direction
+    - unrealized_r
+    - bars_held
+    - mfe_r_so_far
+    - mae_r_so_far
+    - dist_to_stop_atr
+    - dist_to_target_atr
+    # market features (reused from the market-bar feature space)
+    - rolling_log_return_vol
+    - log_return
+    - vol_bucket
+    - parkinson_vol
+    - garman_klass_vol
+    - rogers_satchell_vol
+    - yang_zhang_vol
+    - momentum
+    - hour_of_day
+    - dayofweek
+    - log_return_lag_1
+    - log_return_lag_2
+  categorical_columns:
+    - direction
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  # Outcome / label columns the family carries for analysis — NEVER features.
+  # Every future-derived field is listed so the trainer's leakage guard catches
+  # a mistake (design §6: label leakage is the live risk in exit labeling).
+  forbidden_features:
+    - should_hold
+    - label
+    - fwd_r_multiple
+    - fwd_ret
+    - barrier_touched
+    - hold_bars
+    - is_live_trade
+    - event_source
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 15
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    lambda_l2: 1.0
+dataset:
+  family: exit_candidates
+  symbol_scope: ETHUSDT
+  timeframe: 5m
+  version: v001
+evaluator: ml.evaluators.classification_auc.ClassificationAUCEvaluator
+evaluator_config:
+  target_column: should_hold
+  threshold: 0.5
+  split_strategy: live_holdout
+  live_flag_column: is_live_trade
+  time_column: ts
+target_deployment_stage: candidate
+notes: |
+  Exit-management feasibility (P0). Headline eval is live_holdout (train
+  synthetic in-trade rows, score REAL trades' in-trade bars) → the OOS `auc`.
+  Pre-registered kill-criterion (design §4): auc > 0.55 AND beats an
+  "always hold to SL/TP" baseline AND, when simulated in the backtest harness,
+  a net-of-fee R improvement vs the fixed SL/TP. Miss either gate → the exit
+  wall is as hard as the entry wall; record the null (itself a valuable
+  result). For the leak-free within-distribution check, flip
+  evaluator_config.split_strategy to purged_walk_forward and read the
+  S-MLOPT-S4 gate-check oos_edge vs the constant baseline. Adoption + promotion
+  past shadow are Tier-3 (operator-gated).
