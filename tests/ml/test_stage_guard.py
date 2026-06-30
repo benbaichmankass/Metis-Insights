@@ -30,14 +30,56 @@ def _runs(vals):
     )
 
 
-def _entry(stage, *, metrics=None, runs=(), created_days_ago=14.0):
+def _entry(stage, *, metrics=None, runs=(), created_days_ago=14.0, manifest=None):
     return RegistryEntry(
-        model_id="m", status="candidate", manifest={"model_id": "m"},
+        model_id="m", status="candidate", manifest=manifest or {"model_id": "m"},
         model_state_path="x",
         metrics=metrics or {"macro_f1": 0.70, "f1_a": 0.73, "f1_b": 0.68, "n_eval": 5000},
         code_revision="a",
         created_at=datetime.now(timezone.utc) - timedelta(days=created_days_ago),
         target_deployment_stage=stage, runs=runs,
+    )
+
+
+def _regime_entry(stage, *, runs=(), created_days_ago=14.0):
+    """A multiclass regime-classifier head (model_id mirrors the live
+    `btc-regime-15m-lgbm-v2`). Classified as regime by the manifest dataset
+    family (`market_features`) — the precise path `is_regime_classifier` prefers."""
+    return RegistryEntry(
+        model_id="btc-regime-15m-lgbm-v2", status="candidate",
+        manifest={"model_id": "btc-regime-15m-lgbm-v2",
+                  "dataset": {"family": "market_features"}},
+        model_state_path="x",
+        metrics={"macro_f1": 0.70, "f1_a": 0.73, "f1_b": 0.68, "n_eval": 5000},
+        code_revision="a",
+        created_at=datetime.now(timezone.utc) - timedelta(days=created_days_ago),
+        target_deployment_stage=stage, runs=runs,
+    )
+
+
+def _decision_entry(stage, *, runs=(), created_days_ago=14.0):
+    """A trade-outcome decision head: a SINGLE-class metric shape (no ≥2
+    `f1_*` keys) so `is_regime_classifier` returns False — the family for
+    which the trade-win brier_lift/auc demote axis IS correct."""
+    return RegistryEntry(
+        model_id="trade-outcome-lgbm-v1", status="candidate",
+        manifest={"model_id": "trade-outcome-lgbm-v1"},
+        model_state_path="x",
+        metrics={"brier": 0.20, "accuracy": 0.62, "n_eval": 5000},
+        code_revision="a",
+        created_at=datetime.now(timezone.utc) - timedelta(days=created_days_ago),
+        target_deployment_stage=stage, runs=runs,
+    )
+
+
+def _bad_trade_win_attr(stage="advisory"):
+    """Attribution that is bad ONLY on the trade-win axis (negative brier_lift
+    + inverted AUC), healthy elsewhere (live score spread is wide, not
+    collapsed)."""
+    return ModelAttribution(
+        model_id="m", stage=stage, n=15, win_rate=0.4,
+        score_mean=0.5, score_min=0.1, score_max=0.9,
+        auc=0.42, brier=0.30, baseline_brier=0.24, brier_lift=-0.16256,
     )
 
 
@@ -111,15 +153,78 @@ def test_advisory_healthy_holds():
 
 
 def test_advisory_underperformance_proposes_demote():
+    # A DECISION/outcome head whose live score IS a win-probability: the
+    # trade-win brier_lift/auc axis is correct, so live underperformance
+    # demotes. (Uses a decision-model entry — `_entry`'s default 2-class F1
+    # shape would auto-classify as a regime head, for which this axis is
+    # suppressed; see test_advisory_regime_trade_win_*.)
     bad = ModelAttribution(
         model_id="m", stage="advisory", n=300, win_rate=0.4,
         score_mean=0.5, score_min=0.1, score_max=0.9,
         auc=0.42, brier=0.30, baseline_brier=0.24, brier_lift=-0.06,
     )
-    p = propose_for_model(_entry("advisory"), attribution=bad, drift=None)
+    p = propose_for_model(_decision_entry("advisory"), attribution=bad, drift=None)
     assert p.action == "demote"
     assert p.proposed_stage == "shadow"
     assert any("inverted" in r or "base rate" in r for r in p.reasons)
+
+
+def test_advisory_regime_trade_win_brier_lift_does_not_demote():
+    # MB-20260630-001: a REGIME head (e.g. btc-regime-15m-lgbm-v2) with a
+    # negative trade-win brier_lift AND inverted trade-win AUC must NOT demote
+    # — those are the wrong axis for a head that predicts the regime, not the
+    # trade outcome. With no drift-significant / score-collapse / RG4-collapse
+    # signal it falls through to HOLD (matching Option A on the promote side).
+    p = propose_for_model(
+        _regime_entry("advisory"), attribution=_bad_trade_win_attr(), drift=None,
+    )
+    assert p.action == "hold"
+    assert p.proposed_stage is None
+    # The suppressed trade-win reasons must be absent from the proposal.
+    assert not any("base rate" in r or "inverted" in r for r in p.reasons)
+
+
+def test_advisory_decision_trade_win_brier_lift_still_demotes():
+    # The SAME bad trade-win attribution on a DECISION/outcome head (where the
+    # brier_lift axis IS right) still demotes on the base-rate trigger —
+    # confirming the suppression is family-scoped, not a blanket change.
+    p = propose_for_model(
+        _decision_entry("advisory"), attribution=_bad_trade_win_attr(), drift=None,
+    )
+    assert p.action == "demote"
+    assert p.proposed_stage == "shadow"
+    assert any("base rate" in r for r in p.reasons)
+
+
+def test_advisory_regime_still_demotes_on_significant_drift():
+    # MB-20260630-001: suppressing the trade-win axis must NOT disarm the
+    # regime-APPROPRIATE demote signals. A regime head with significant
+    # score-distribution drift still demotes.
+    class _D:
+        overall_verdict = "significant"
+
+    p = propose_for_model(
+        _regime_entry("advisory"), attribution=_bad_trade_win_attr(), drift=_D(),
+    )
+    assert p.action == "demote"
+    assert p.proposed_stage == "shadow"
+    assert any("drift" in r for r in p.reasons)
+
+
+def test_advisory_regime_still_demotes_on_collapsed_score():
+    # A regime head whose live score OUTPUT has collapsed (spread ~0) still
+    # demotes — that trigger is axis-independent (degenerate output), so the
+    # MB-20260630-001 suppression leaves it intact.
+    collapsed = ModelAttribution(
+        model_id="btc-regime-15m-lgbm-v2", stage="advisory", n=15, win_rate=0.5,
+        score_mean=0.5, score_min=0.5, score_max=0.5,
+        auc=None, brier=None, baseline_brier=None, brier_lift=None,
+    )
+    p = propose_for_model(
+        _regime_entry("advisory"), attribution=collapsed, drift=None,
+    )
+    assert p.action == "demote"
+    assert any("collapsed" in r for r in p.reasons)
 
 
 def test_advisory_significant_drift_proposes_demote():

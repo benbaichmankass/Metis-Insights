@@ -296,8 +296,12 @@ fi
 # ict-heartbeat.service is gated by its timer.
 # ict-git-sync.service is the sync timer's payload — restarting it
 # from inside its own run causes systemd to refuse the request.
+# ict-mes-ibkr-pull.service is a oneshot owned by ict-mes-ibkr-pull.timer
+# (daily) — restarting it on every deploy would fire an unscheduled ~20-30 min
+# IBKR gateway pull each time (flock/heartbeat-guarded, but wasteful). Let the
+# timer own it (BL-20260626-MES-BASE-STALE).
 # ---------------------------------------------------------------------------
-DEFAULT_SKIP="ict-smoke-once.service ict-env-check.service ict-hourly-snapshot.service ict-heartbeat.service ict-git-sync.service"
+DEFAULT_SKIP="ict-smoke-once.service ict-env-check.service ict-hourly-snapshot.service ict-heartbeat.service ict-git-sync.service ict-mes-ibkr-pull.service"
 SKIP_LIST="${DEPLOY_RESTART_SKIP:-${DEFAULT_SKIP}}"
 
 # list-units --all surfaces inactive units too; --type=service excludes
