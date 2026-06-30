@@ -857,3 +857,4 @@ needs a new allowlist entry today:
 - `.github/workflows/system-actions.yml` — the workflow itself.
 - `scripts/ops/*.sh` — wrapper scripts (one per action).
 - `tests/ops/` — workflow + script validation.
+
