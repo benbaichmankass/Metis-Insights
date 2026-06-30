@@ -1,1 +1,52 @@
-placeholder
+name: system-actions
+
+# PM-side / web-sandbox bridge for a small, auditable set of mutating
+# VM operations. Every action is gated by a fixed allowlist; there is
+# no freeform-command input by design.
+#
+# Two dispatch paths, both flowing through the SAME allowlist + audit:
+#   1. workflow_dispatch — operator clicks "Run workflow" in the
+#      Actions UI. Used for ad-hoc operator interventions.
+#   2. issues.opened (label `system-action`) — sandbox session opens
+#      an issue, body encodes `action:` + `reason:`. Lets a Claude
+#      sandbox session autonomously drive the same allowlist when the
+#      operator has granted Tier-2/Tier-3 permission in conversation.
+#      Mirrors vm-web-api-recover.yml; the label is created
+#      idempotently by bootstrap-labels.yml. Trust contract is
+#      identical — see Tier policy below.
+#
+# Trust contract (full text in docs/claude/system-actions.md):
+#   * Allowlisted actions only — the `case` arms below are exhaustive
+#     and reject anything else with exit 2.
+#   * One wrapper script per action. The workflow does not embed
+#     remote shell beyond invoking the script by absolute path.
+#   * GitHub-hosted ubuntu-latest runner is the control plane. The VM
+#     never orchestrates its own reboot path (would self-decapitate).
+#   * Tier-2 actions (pull-and-deploy, restart-bot-service, reboot-vm,
+#     set-account-mode, fix-data-dir, …) require a non-empty `reason`
+#     so the audit artifact records intent.
+#   * The issue body for issue-driven dispatch passes through env
+#     (`ISSUE_BODY`), never inline `${{ }}` interpolation, so an
+#     attacker-controlled issue body cannot inject shell into the
+#     parser step.
+#   * Every run uploads a JSON artifact with pre-state, action output,
+#     and post-state. Read it from the run page; for issue-driven
+#     runs the same summary lands as a comment on the originating issue.
+#   * Strategy parameters, risk caps, the `mode:` field of
+#     `config/accounts.yaml`, and the runtime data-dir alignment
+#     are mutated **only** by their explicit, named,
+#     Telegram-notified actions (`set-account-mode` and
+#     `fix-data-dir`). All other Tier-3 paths (live order code,
+#     key rotation, etc.) remain off-limits to this workflow.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   * VM_SSH_KEY        — contents of ict-bot-ovm-private.key
+#   * DIAG_READ_TOKEN   — bearer for the read-only diag surface
+#                         (used for post-action /api/diag/services
+#                         verification only)
+#
+# Optional repo variables:
+#   * VM_SSH_HOST       — defaults to 141.145.193.91 (Ampere live trader; was the
+#                         x86 micro 158.178.210.252 pre-2026-06-14 cutover)
+#   * VM_SSH_USER       — defaults to ubuntu
+
