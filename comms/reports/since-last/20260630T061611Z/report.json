@@ -1,0 +1,371 @@
+{
+  "report_id": "RPT-20260630-061611-since-last",
+  "reviewed_at": "2026-06-30T06:16:11Z",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-06-29T12:35:00Z",
+  "window_end": "2026-06-30T06:16:11Z",
+  "prior_report_id": "RPT-20260629-123500-since-last",
+  "overall_assessment": "caution",
+  "health": {
+    "reviewed_at": "2026-06-30T06:16:11Z",
+    "reviewer": "claude",
+    "window_start": "2026-06-29T12:35:00Z",
+    "window_end": "2026-06-30T06:16:11Z",
+    "overall_assessment": "caution",
+    "findings": {
+      "pipeline": "Trader + web-api active/running (~11h uptime); heartbeat live (~50s); ticking normally (git_sha d8553323). Intent/netting layer actively suppressing alpaca re-entries/flips (working as designed).",
+      "data_integrity": "RECONCILER PHANTOM CLOSES (flag): trend_donchian \u2014 ALL 20 closed trades exit via reconciler_filled(12)/reconciler_incomplete(8), NONE via a clean monitor SL/TP path; several rows show exit_price==entry_price with non-zero PnL (e.g. id 2610 +$898), and the 8 incomplete rows carry null exit/pnl. Same class as PB-20260625-002 (26 unreconciled bybit_2 orphans w/ phantom PnL). The two in-window bybit_1 closes (3043 -$177, 3041 -$201) are same-second reconciler closes. These pollute analytics and make the trend_donchian -198R/0%-win figure unreliable.",
+      "alpaca_sizing": "FIXED (PR #5151): whole-share invariant across executor+partial-close+client so journal==broker. New entries already whole (06-29 SPY 25/QQQ 21); 3 legacy fractional alpaca_paper rows remain (GLD 8.368+33.632 vs broker 42; TLT 231.078 vs 231) pending journal correction."
+    },
+    "anomalies": [
+      "reconciler-reconstructed exits (exit==entry, non-zero pnl) on trend_donchian + bybit phantoms"
+    ],
+    "account_reachability": {
+      "all_live_up": true,
+      "detail": "bybit_1/bybit_2/ib_paper/alpaca_paper/alpaca_live/oanda_practice all api_ok. alpaca_live now api_ok:true (06-27 BL-20260627-ALPACA-LIVE-API-UNAUTH RESOLVED). breakout_1 (API-less) + ib_live (dry) expected-down.",
+      "down_accounts": []
+    },
+    "backlog_drain": {
+      "resolved": [
+        "BL-20260627-ALPACA-LIVE-API-UNAUTH (alpaca_live now authed, api_ok:true)"
+      ],
+      "note": "BL-20260622-ALPACA-FRACTIONAL-SIZE extended (executor+partial-close gap closed in PR #5151)."
+    },
+    "recommended_action": "Merge PR #5151; investigate reconciler phantom-close root cause (shared by trend_donchian + bybit orphans).",
+    "operator_attention_required": true
+  },
+  "performance": {
+    "reviewed_at": "2026-06-30T06:16:11Z",
+    "reviewer": "claude",
+    "window_start": "2026-06-29T12:35:00Z",
+    "window_end": "2026-06-30T06:16:11Z",
+    "overall_assessment": "caution",
+    "strategy_performance": [
+      {
+        "strategy": "trend_donchian",
+        "note": "FLAG (PERF-20260601-001): 20 closed trades ALL reconciler-closed (no clean exits). PnL unreliable (phantom rows). Root cause = reconciler correctness, NOT strategy edge. Needs fix before judging the strategy.",
+        "reconciler_closed": "20/20"
+      },
+      {
+        "strategy": "alpaca ETF soak (paper)",
+        "note": "window closes: SLV +613.23 (TP win), SPY -153.50, QQQ -354.88; legacy positions rotating out."
+      }
+    ],
+    "trade_decision_grades": {
+      "graded_this_session": 2,
+      "window_closed_total": 5,
+      "grades": {
+        "C": 2
+      },
+      "coverage_note": "2/5 window closes graded fresh (the 2 bybit_1 reconciler closes, both C). The 3 alpaca legacy closes (SLV/SPY/QQQ) could not be re-graded this session \u2014 the 300-row diag pull truncated at the relay byte cap before their low-id rows; data unavailable, not fabricated. Newest grade reviewed_at 2026-06-30T06:16:11Z (>= window_start).",
+      "note": "The 2 graded rows are themselves reconciler artifacts \u2014 grading reflects decision geometry, not the phantom exit."
+    },
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": -1.12,
+        "trend": "flat",
+        "trades": 0,
+        "wins": 0,
+        "win_rate": null,
+        "note": "No real-money closes in window. bybit_2 1 open BTCUSDT (+1.08 uPnL). alpaca_live inert at $150 (now raised to 10% test profile, PR #5151)."
+      },
+      "paper": {
+        "window_pnl": -273.47,
+        "prior_window_pnl": null,
+        "trend": "down",
+        "trades": 5,
+        "wins": 1,
+        "win_rate": 0.2,
+        "note": "2 of the 5 are bybit reconciler phantoms (-177,-201); alpaca SLV +613 / SPY -153 / QQQ -354."
+      },
+      "prop": {
+        "window_pnl": null,
+        "trades": 0,
+        "note": "No prop activity in window (breakout_1 API-less)."
+      }
+    },
+    "proposed_tweaks": [],
+    "backlog_drain": {
+      "counts": {
+        "total": 53,
+        "open": 34,
+        "resolved": 19,
+        "drained": 0,
+        "present": true
+      }
+    }
+  },
+  "ml": {
+    "reviewed_at": "2026-06-30T06:16:11Z",
+    "reviewer": "claude",
+    "window_start": "2026-06-29T12:35:00Z",
+    "window_end": "2026-06-30T06:16:11Z",
+    "overall_assessment": "caution",
+    "trainer_findings": "No stalled training cycle flagged this window. Regime-head promotion structurally blocked on the live_agreement gate (MB-20260626-003).",
+    "model_status": [
+      {
+        "model_id": "mes-regime-*",
+        "stage": "shadow",
+        "headline_metric": "anti-predictive live (~0.17)",
+        "trend_vs_prior_run": "flag \u2014 MB-20260626-001/002"
+      },
+      {
+        "model_id": "btc-regime-5m/15m",
+        "stage": "shadow",
+        "headline_metric": "healthy / promotion-candidate",
+        "trend_vs_prior_run": "steady"
+      }
+    ],
+    "promotion_recommendations": [
+      {
+        "model": "regime heads",
+        "action": "HOLD",
+        "reason": "promotion blocked on live_agreement gate (trade-win AUC on ~11 trades). MB-20260626-003: decide re-target to RG4 regime-discrimination."
+      }
+    ],
+    "experiments_proposed": [],
+    "backlog_drain": {
+      "counts": {
+        "total": 57,
+        "open": 25,
+        "resolved": 32,
+        "drained": 0,
+        "present": true
+      }
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "System healthy and ticking (trader+web-api up ~11h, all live accounts reachable). Two findings drive CAUTION: (1) Alpaca whole-share sizing \u2014 root-caused and FIXED in PR #5151 (journal==broker invariant across executor+partial-close); 3 legacy fractional paper rows pending correction. (2) RECONCILER PHANTOM CLOSES \u2014 trend_donchian's 20 closes are ALL reconciler-reconstructed (exit==entry w/ non-zero PnL, or null), making its -198R/0%-win figure unreliable; same class as the bybit orphan PnL (PB-20260625-002). Operator raised alpaca_live to a 10% test-account risk profile so the $150 account can finally trade.",
+    "operator_priorities": [
+      {
+        "priority": 1,
+        "item": "Merge PR #5151 (Alpaca whole-share fix + alpaca_live 10% risk). CI 14/15 green.",
+        "tier": 3,
+        "operator_action_required": false,
+        "note": "operator pre-approved implement+merge"
+      },
+      {
+        "priority": 2,
+        "item": "Fix reconciler phantom-close root cause \u2014 shared by trend_donchian (20/20 reconciler-closed) + bybit orphan phantom PnL (PB-20260625-002). Positions reach the reconciler instead of clean monitor exits; reconstructed exit/pnl is wrong.",
+        "tier": 2,
+        "operator_action_required": true
+      },
+      {
+        "priority": 3,
+        "item": "Correct the 3 legacy fractional alpaca_paper journal rows to broker truth (GLD->42, TLT->231).",
+        "tier": 2,
+        "operator_action_required": true
+      },
+      {
+        "priority": 4,
+        "item": "alpaca_live funded at $150; 10% risk now lets tighter-stop ETFs trade. Fund to ~$750 for the full roster at normal risk if it graduates past 'test'.",
+        "tier": 3,
+        "operator_action_required": true
+      }
+    ],
+    "cross_review_notes": [
+      "trend_donchian 'bad performance' (perf) and reconciler phantom closes (health) are the SAME bug \u2014 a perf flag with a health root cause.",
+      "Alpaca sizing fix (health) + alpaca_live underfunding (perf PB-20260628-001) both resolved this session (fix merged; risk raised)."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": -1.12,
+        "trend": "flat",
+        "trades": 0
+      },
+      "paper": {
+        "window_pnl": -273.47,
+        "trades": 5,
+        "wins": 1
+      },
+      "prop": {
+        "window_pnl": null,
+        "trades": 0
+      }
+    },
+    "market_context": [],
+    "trade_dossiers": [
+      {
+        "id": 3043,
+        "account": "bybit_1",
+        "symbol": "BTCUSDT",
+        "side": "sell",
+        "pnl": -177.39,
+        "close_reason": "reconciler",
+        "notable": true,
+        "note": "same-second reconciler phantom close",
+        "claude_grade": {
+          "grade": "C"
+        }
+      },
+      {
+        "id": 3041,
+        "account": "bybit_1",
+        "symbol": "BTCUSDT",
+        "side": "sell",
+        "pnl": -200.92,
+        "close_reason": "reconciler",
+        "notable": true,
+        "note": "same-second reconciler phantom close",
+        "claude_grade": {
+          "grade": "C"
+        }
+      },
+      {
+        "id": 2787,
+        "account": "alpaca_paper",
+        "symbol": "SLV",
+        "side": "sell",
+        "pnl": 613.23,
+        "close_reason": "other",
+        "notable": true,
+        "note": "slv_trend_1h TP win; legacy position closed"
+      },
+      {
+        "id": 2775,
+        "account": "alpaca_paper",
+        "symbol": "SPY",
+        "side": "buy",
+        "pnl": -153.5,
+        "close_reason": "other"
+      },
+      {
+        "id": 2776,
+        "account": "alpaca_paper",
+        "symbol": "QQQ",
+        "side": "buy",
+        "pnl": -354.88,
+        "close_reason": "other"
+      }
+    ],
+    "dossier_coverage": {
+      "full_dossiers": 5,
+      "summarized_trades": 0,
+      "rule": "since-last: full dossier per close"
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 158,
+        "open": 78,
+        "resolved": 80,
+        "drained": 2,
+        "present": true
+      },
+      "performance": {
+        "total": 53,
+        "open": 34,
+        "resolved": 19,
+        "drained": 0,
+        "present": true
+      },
+      "ml": {
+        "total": 57,
+        "open": 25,
+        "resolved": 32,
+        "drained": 0,
+        "present": true
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "item": "reconciler phantom-close fix",
+        "tier": 2,
+        "status": "investigating \u2014 root cause identified (trend_donchian 20/20 reconciler-closed)"
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "PB-20260617-002",
+        "domain": "performance",
+        "category": "soaking",
+        "detail": "ExitPlan ladder graduation awaits soak evidence",
+        "since": "2026-06-17",
+        "next_check": "soak accrual"
+      },
+      {
+        "item_id": "MB-20260626-003",
+        "domain": "ml",
+        "category": "awaiting-decision",
+        "detail": "regime-head promotion blocked on live_agreement gate",
+        "since": "2026-06-26",
+        "next_check": "operator: re-target to RG4?"
+      },
+      {
+        "item_id": "alpaca_live-10pct",
+        "domain": "performance",
+        "category": "verify",
+        "detail": "confirm alpaca_live actually places trades now at 10% risk",
+        "since": "2026-06-30T06:16:11Z",
+        "next_check": "next US RTH session"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [],
+        "summary": "All HOLD. trend_donchian cannot be judged until the reconciler phantom-close bug is fixed (its PnL is artifact-polluted). ETF legs paper-soaking. No promote/demote this window."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": "none flagged stalled/failed",
+        "dataset_builds_ok": "yes (no failure observed)",
+        "summary": "Regime-head promotion blocked on the live_agreement gate (MB-20260626-003); MES heads anti-predictive live (MB-20260626-001/002); BTC 5m/15m promotion-candidate."
+      },
+      "soak_status": [
+        {
+          "soak": "alpaca ETF paper soak",
+          "state": "accruing",
+          "detail": "legacy positions rotating out (SLV +613); new entries whole-share after fix"
+        },
+        {
+          "soak": "exit-ladder soak",
+          "state": "accruing",
+          "detail": "observe-only; no stall"
+        },
+        {
+          "soak": "allocator soak (M18)",
+          "state": "accruing",
+          "detail": "observe-only regret metric"
+        }
+      ],
+      "flags_raised": [
+        "RECONCILER PHANTOM CLOSES (trend_donchian 20/20 reconciler-closed; bybit orphan phantom PnL) \u2014 analytics-polluting; investigate+fix (operator-directed).",
+        "Alpaca whole-share sizing \u2014 FIXED in PR #5151.",
+        "alpaca_live was inert at $150 \u2014 risk raised to 10% test profile (PR #5151)."
+      ],
+      "account_reachability": "All declared-live accounts up (bybit_1/2, ib_paper, alpaca_paper, alpaca_live, oanda_practice api_ok). alpaca_live auth recovered. No down live account.",
+      "backlog_drive": {
+        "drained": {
+          "health": [
+            "BL-20260627-ALPACA-LIVE-API-UNAUTH"
+          ]
+        },
+        "deferred": {
+          "performance": [
+            "PERF-20260601-001 (trend_donchian) -> now under active fix as the reconciler bug",
+            "PB-20260625-002 -> same reconciler root cause, fixing together",
+            "PB-20260617-002 soaking"
+          ],
+          "ml": [
+            "MB-20260626-003 awaiting operator decision",
+            "MB-20260607-002 awaiting trainer-VM cycle"
+          ]
+        },
+        "note": "Two perf backlog items (PERF-20260601-001, PB-20260625-002) consolidated into one reconciler-phantom-close fix now in progress (operator-directed)."
+      }
+    }
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260630T061611Z/report.json",
+    "html_path": "comms/reports/since-last/20260630T061611Z/report.html",
+    "md_path": "comms/reports/since-last/20260630T061611Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260630T061611Z/report.html",
+    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260630-061611-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "pending"
+  }
+}
