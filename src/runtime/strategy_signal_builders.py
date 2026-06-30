@@ -4906,6 +4906,11 @@ for _builder, _monitor_unit in (
     (xauusd_trend_1h_signal_builder, "trend_donchian"),
     (spy_trend_long_1d_signal_builder, "trend_donchian"),
     (qqq_trend_long_1d_signal_builder, "trend_donchian"),
+    # tqqq_trend_long_1d / qld_trend_long_1d — leveraged Nasdaq-100 ETF trend
+    # cells (2026-06-30), TQQQ (3x) + QLD (2x) siblings of qqq (reuse the
+    # trend_donchian unit).
+    (tqqq_trend_long_1d_signal_builder, "trend_donchian"),
+    (qld_trend_long_1d_signal_builder, "trend_donchian"),
     # iwm_trend_long_1d — ETF-breadth daily sweep (2026-06-20), small-cap
     # trend sibling of spy/qqq (reuses the trend_donchian unit).
     (iwm_trend_long_1d_signal_builder, "trend_donchian"),
