@@ -232,6 +232,21 @@ that mention Vercel are preserved as historical record.)
 > passes and the operator approves. The allocator only **selects + reduces** — the per-account
 > `RiskManager` stays the final sizing authority (Prime Directive); graduation rides a `*_MODE`
 > flag (`off`/`annotate`/`apply`), never a default-off `*_ENABLED` gate.
+>
+> **Backtest findings 2026-06-30 (P0–P1 substrate built + soaked + A/B-tested; P2 selector NOT
+> justified on current evidence — PARKED):** the observe-only substrate shipped (P0a cost capture
+> #5099, P0b candidate batch #5086, P0c soak+regret #5092, P1 EV scorer #5098, BT arm #5107). Three
+> independent backtests then tested whether the EV scorer's **selection** beats dumb priority and
+> found it does **not**: (1) intra-symbol `--allocator off` vs `ev` ≈ 96–97% identical; (2) the
+> **sizing-normalized** cross-symbol A/B (`shared_priority` control) — `ev − priority = −$7`, so the
+> apparent cross-symbol edge was **sizing/concentration, not selection**; (3) a 1,559-candidate
+> walk-forward ranker reached only **OOS AUC ≈ 0.51** (no decision-time feature separates winners,
+> `ev_r` is below chance). → **Do not build the P2/P3 selector on the current confidence-proxy
+> scorer.** The only untested `P_win` input is the ML-head/per-cell-expectancy conviction stack
+> (P3), which must be proven in the sizing-normalized harness before any routing plumbing. Evidence:
+> [`docs/research/M18-allocator-backtest-findings-2026-06-29.md`](docs/research/M18-allocator-backtest-findings-2026-06-29.md);
+> research tooling under `scripts/research/allocator_{multisymbol_backtest,candidate_dataset,ranker_eval}.py`.
+> All Tier-3 decisions parked.
 
 **The problem:** the pipeline is per-strategy/per-account independent — the intent multiplexer
 collapses all candidates to one `DesiredPosition`/symbol (`intent_multiplexer.py:616`), fanned to
