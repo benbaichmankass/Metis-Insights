@@ -175,6 +175,51 @@ Reads:
 
 **CAVEAT:** n=136 is too small — a corr of 0.10 at n=136 has a 95% CI ≈ ±0.17, so only `ret_1h`/
 `hour_utc` are near significance and none is strong. **Fitting a model on 136 noisy rows would
-overfit.** → Growing the dataset to multi-year (2022→2026, ~10× n) is running next to test which of
-these signals are *stable* before any ranker is fit. Tier-1; Tier-3 parked.
+overfit.** → Grew the dataset to multi-year to test stability before fitting (below).
+
+### (scorer probe, n=1559) — the leads were NOISE; no stable ranking signal exists
+Multi-year re-run (BTC+ETH+SOL 5m, **2022-01→2026-05**, ~4.4yr, **1559 candidates**, 34.8% win,
+mean net-R +0.045). **Every n=136 "lead" washed out — most flipped sign**, the signature of a
+small-sample artifact:
+
+| feature | AUC @ n=136 | AUC @ n=1559 | feature | AUC @ n=136 | AUC @ n=1559 |
+|---|---|---|---|---|---|
+| ev_r (scorer) | 0.539 | **0.484** | ret_1h | 0.459 | 0.487 (corr −0.104 → **+0.031**) |
+| confidence | 0.534 | 0.524 | hour_utc | 0.443 | 0.508 |
+| rr | 0.559 | 0.469 | ret_4h | 0.451 | 0.475 |
+
+Every feature now sits in **0.47–0.53** — none meaningfully off 0.5; `ev_r` is *below* chance. The
+per-owner table also de-confounded: the n=136 "trend_donchian-BTC bleeds −9.7" was a 2026-window
+artifact — over 4.4yr `trend_donchian` is **+16.3**, and the best owners are the **4h variants**
+(`trend_donchian_sol_4h` 51.5% win / +25.7), i.e. even strategy identity is regime/period-dependent,
+not a stable cross-the-board rank.
+
+**Walk-forward logistic ranker** (`allocator_ranker_eval.py`, expanding-window train-on-past/
+test-on-future, train-fold-only standardization, pooled OOS over 1299 candidates):
+
+| model | OOS AUC | vs baseline |
+|---|---|---|
+| `ev_r` single feature | 0.484 | (current scorer — below chance) |
+| `confidence` single feature | 0.524 | the best single feature, still trivial |
+| **market-features-only logreg** | **0.513** | ≈ noise (SE≈0.024 → ~0.5σ above 0.5); < confidence |
+| **+owner one-hot logreg** | **0.517** | identity adds ~0.004 — nothing |
+
+**VERDICT — definitive negative.** A multi-feature, leakage-controlled, out-of-sample ranker reaches
+only **AUC ≈ 0.51–0.52** — statistically indistinguishable from a coin flip and *no better than the
+confidence feature alone*. On the candidate set these strategies produce, **the per-trade outcome is
+essentially unpredictable from the available decision-time features**, so **no scorer beats dumb
+symbol-priority** — which is exactly why both the intra-symbol test and the sizing-normalized A/B
+showed EV ≈ priority. The lever for better results is **NOT** a smarter cross-candidate allocator/
+scorer; it is (i) strategy-level quality — which strategies/cells to run (Tier-3, e.g. the 4h variants
+clearly outperform), and (ii) the sizing/risk decision (shared-budget concentration = leverage, ~2.5×
+maxDD).
+
+**One untested input remains (honest scoping):** this rules out a ranker built from price-momentum /
+vol / time / R:R / `c_strat` / cost-aware `ev_r`. It does **not** test the design's full conviction
+stack — the **ML regime/model heads (`c_ml`) and per-cell historical expectancy** (§5.2), which aren't
+in this offline feature set and ride the separately-gated ML-promotion track. If the allocator-scorer
+idea is ever revisited, that `P_win` is the *only* remaining candidate input, and it should be proven
+in **this same** sizing-normalized harness (`learned` arm vs `shared_priority`) **before** any routing
+plumbing is built. Until such evidence exists, the M18 selector stays observe-only and **all Tier-3
+decisions remain parked.**
 
