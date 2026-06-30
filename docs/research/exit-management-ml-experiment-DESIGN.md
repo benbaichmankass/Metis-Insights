@@ -125,3 +125,50 @@ soaking observe-only — worth their own scoping if exit clears or stalls:
 
 Exit is proposed first because it has the most existing infra (the exit-ladder
 soak) and the cleanest label.
+
+## 8. Results — the verdict (2026-06-30): exit-timing is at the wall too
+
+P0 ran end-to-end on the trainer VM. The `exit_candidates` family built **691,957
+in-trade rows** (ETHUSDT 5m, synthetic CUSUM-event arm + the real-trade live arm;
+`sl_mult=1.0`, `target_beta=2.0`, `hold_horizon=10`), and `exit-policy-v1` trained
+clean (`rc=0`). Two pre-registered OOS reads:
+
+| Read | split | n_eval | AUC | verdict |
+|---|---|---|---|---|
+| **Headline** (synthetic→real transfer) | `live_holdout` (train synthetic, eval REAL in-trade bars) | 62 | 0.555 | **inconclusive** — 95% CI ≈ ±0.10 on n=62, indistinguishable from 0.5 |
+| **Powered** (within-distribution) | `time_aware_holdout` 0.2 over the 692k synthetic rows | **138,391** | **0.5209** | **NULL** — CI ≈ ±0.003; decisively **below** the 0.55 kill-criterion |
+
+The powered read is the decisive one. At n=138k the AUC standard error is ~0.0015,
+so **0.521 is real but tiny — far under the pre-registered AUC > 0.55 gate.** The
+model collapses to the majority class (recall ≈ 0.0008, f1 ≈ 0.0016, Brier 0.225 ≈
+the no-skill baseline): past-only position-state + market features carry essentially
+**no OOS signal** about whether *holding beats exiting-now*. The headline 0.555 came
+back above 0.5 with the synthetic→real transfer intact — mildly encouraging — but on
+62 rows it's noise; the powered number overrides it.
+
+**Verdict: exit-timing (Framing A) is at the M18 wall, just like entry.** Per the
+pre-registered §4 kill-criterion (miss AUC>0.55 → "the exit wall is as hard as the
+entry wall; stop and record it"), this null is the decision-grade result. We do **not**
+advance Framing A to the net-of-fee backtest arm (P1+).
+
+**Caveats (honesty):** ETHUSDT 5m only; Framing A only; one barrier config
+(`sl=1.0×ATR / target=2.0β / H=10`). Framings B (remaining-favorable-excursion
+regression) and C (stop-mispricing P(stop-before-target)) are **untested** — a
+different label could carry signal Framing A's binary `should_hold` washes out. But
+the result is consistent with the entry-wall + M18 pattern: **point-in-time *timing*
+prediction (entry OR exit) is at the wall; ML's demonstrated value is in
+*regime/context*** (the live, A/B-validated vol-gate).
+
+**Redirect:** fold into the §7 sibling frontiers — **sizing** (`conviction_sizing`
+soak + `CONVICTION_SIZING_MODE`) and **selection** (the M18 `allocator_soak` —
+which of N concurrent candidates to fund). Both already accrue observe-only soak
+data, and the regime head's success suggests there is context-structure to find
+there that the timing problem lacks. A learned allocator (selection) is the
+cleanest next probe: it's a *ranking* problem over a genuine choice set (≥2-candidate
+ticks), not a point prediction, and the soak corpus is already building.
+
+**Provenance:** trainer-vm-diag relays #5226→#5233 (build #5229, headline collect
+#5231, powered synth-OOS #5232 + #5233). The infra (this experiment's dataset
+family + manifest + AUC evaluator) is retained — it composes for Framings B/C and
+for the allocator/sizing probes — and the manifest stands as the pre-registered
+record of exactly what was tested.
