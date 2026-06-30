@@ -584,10 +584,17 @@ accounts:
                                        # (mirrors alpaca_paper; routing is by
                                        # the strategies list above, empty here).
     risk:
-      max_dd_pct: 0.05                 # 5% max intra-day drawdown
-      daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
+      # TEST-ACCOUNT risk escalation (operator 2026-06-30: "this is a test
+      # account and we need to see it trade"). At $150 equity the prior 1.5%
+      # per-trade budget ($2.25) couldn't afford even 1 share of the $300-700
+      # ETFs, so alpaca_live was inert since its 2026-06-26 live flip. All three
+      # caps move in lockstep: a 10% per-trade budget is useless if the 5%
+      # daily-loss / max-DD caps clamp it on the first trade. ROLLBACK: restore
+      # 0.05 / 0.05 / 0.015.
+      max_dd_pct: 0.10                 # 10% max intra-day drawdown (was 0.05)
+      daily_loss_pct: 0.10             # daily-loss cap = 10% of equity (was 0.05)
       daily_usd: 200                   # absolute fallback (no equity snapshot)
-      risk_pct: 0.015                   # 1.5% balance risked per trade (uniform account basis, operator 2026-06-29; was 2%)
+      risk_pct: 0.10                   # 10% balance risked per trade (was 0.015) — test-account escalation
 
   # alpaca_options_paper: Phase-1 Slice-3b (Alpaca L3 options) — an Alpaca PAPER
   # account that EXPRESSES its equity signals as defined-risk DEBIT VERTICALS
