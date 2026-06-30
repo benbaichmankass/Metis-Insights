@@ -68,9 +68,34 @@ class Proposal:
 
 def _demote_triggers(
     attribution: Any, drift: Any, thresholds: GateThresholds,
+    *, is_regime: bool = False,
 ) -> list[str]:
     """Reasons a live-influencing model should be pulled back. Empty list
-    = healthy."""
+    = healthy.
+
+    ``is_regime`` flags a multiclass regime-classifier head. For a regime
+    head the two TRADE-WIN-axis triggers — ``brier_lift < 0`` (live
+    calibration worse than base rate) and ``auc < 0.5`` (live discrimination
+    inverted) — are **suppressed**: both are computed from the rank-AUC /
+    Brier of the regime SCORE vs realized trade WIN (`ml.promotion.attribution`),
+    which is the WRONG AXIS for a head that predicts the *regime*, not the
+    trade outcome (MB-20260630-001). This mirrors Option A on the PROMOTE
+    side (PR #4700, `ml.promotion.gates`), which made the trade-win
+    ``live_agreement`` (AUC) + ``beats_baseline`` (brier_lift) gates
+    NON-required for regime heads, replacing them with the regime-appropriate
+    ``live_regime_discrimination`` (RG4) gate.
+
+    A regime head can still be demoted on a regime-appropriate signal that
+    lives in this same code path — score-distribution drift verdict
+    ``significant`` or a collapsed live score output (spread ~0). RG4 itself
+    is not available to the stage-guard sweep yet (per-model candle
+    resolution is a separate follow-up; see the NOTE in ``run_stage_guard``),
+    so an RG4-collapse demote is intentionally not asserted here — for a
+    regime head we fall through to ``hold`` rather than demote on the wrong
+    (trade-win) axis. The brier_lift / auc-inverted triggers stay UNCHANGED
+    for the decision/outcome model families (trade-outcome, setup-quality,
+    conviction, execution-quality, prop-mission), where trade-win IS the
+    right axis."""
     reasons: list[str] = []
     verdict = None
     if drift is not None:
@@ -81,15 +106,19 @@ def _demote_triggers(
         spread = attribution.score_max - attribution.score_min
         if spread <= thresholds.score_spread_eps:
             reasons.append(f"live score output collapsed (spread {spread:.6g})")
-        if attribution.brier_lift is not None and attribution.brier_lift < 0:
-            reasons.append(
-                f"live calibration worse than base rate "
-                f"(brier_lift {attribution.brier_lift:.5f})"
-            )
-        if attribution.auc is not None and attribution.auc < 0.5:
-            reasons.append(
-                f"live discrimination inverted (AUC {attribution.auc:.3f} < 0.5)"
-            )
+        # Trade-win-axis triggers: meaningful for a decision/outcome model
+        # whose live score IS a win-probability, but the WRONG AXIS for a
+        # regime classifier (MB-20260630-001). Suppress them for regime heads.
+        if not is_regime:
+            if attribution.brier_lift is not None and attribution.brier_lift < 0:
+                reasons.append(
+                    f"live calibration worse than base rate "
+                    f"(brier_lift {attribution.brier_lift:.5f})"
+                )
+            if attribution.auc is not None and attribution.auc < 0.5:
+                reasons.append(
+                    f"live discrimination inverted (AUC {attribution.auc:.3f} < 0.5)"
+                )
     return reasons
 
 
@@ -131,7 +160,12 @@ def propose_for_model(
         )
 
     if stage in _LIVE_STAGES:
-        triggers = _demote_triggers(attribution, drift, th)
+        # Classify the head's FAMILY via the canonical helper Option A uses on
+        # the promote side (gates.is_regime_classifier) so the demote axis is
+        # aligned with the promote axis (MB-20260630-001) — no new ad-hoc regex.
+        triggers = _demote_triggers(
+            attribution, drift, th, is_regime=is_regime_classifier(entry),
+        )
         if triggers:
             return Proposal(
                 entry.model_id, stage, "demote", _DEMOTE_TARGET[stage],

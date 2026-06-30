@@ -1,0 +1,289 @@
+{
+  "request_id": "REQ-20260630-063600-mls-promotion-review",
+  "reviewed_at": "2026-06-30T06:36:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-06-27T00:00:00+00:00",
+  "window_end": "2026-06-30T06:36:00+00:00",
+  "overall_assessment": "caution",
+  "trainer_findings": {
+    "trainer_service": {
+      "status": "ok",
+      "note": "timer enabled+active; last cycle 2026-06-30T01:23:43Z overall_rc=0; all ~37 manifests retrained. ExecMainStatus=0."
+    },
+    "trainer_datasets": {
+      "status": "ok",
+      "note": "build_end rc=0 2026-06-30T01:16; market_features 215838 rows; MES on synced IBKR deep history. Watch: MES live-LABELING gap blinds RG4 on the MES shadow stream."
+    },
+    "trainer_registry": {
+      "status": "ok",
+      "note": "45 models; 1 advisory, 28 shadow, 16 candidate. Healthy soaking fleet; several regime heads RG4-TRUSTWORTHY."
+    },
+    "trainer_models": {
+      "status": "watch",
+      "note": "No advisory model degrading on its proper axis (BTC head RG4 0.80). stage-guard mis-fires a demote on the advisory head via the trade-win axis; MES/ETH/SOL multi-symbol heads soaking but sub-target."
+    }
+  },
+  "model_status": [
+    {
+      "model_id": "btc-regime-15m-lgbm-v2",
+      "stage": "advisory",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260630T011627Z",
+        "at": "2026-06-30T01:16:27+00:00",
+        "code_revision": "main",
+        "headline_metric": "RG4_advisory=0.801",
+        "n_eval": 0,
+        "trend_vs_prior_run": "flat"
+      },
+      "live_shadow": {
+        "influence": "advisory",
+        "predictions": 2576,
+        "score_summary": "RG4 advisory 0.801 / shadow 0.727 TRUSTWORTHY (mf=True, 5 unlab); vol labels sane live",
+        "drift": "ks=minor",
+        "realized": "score-vs-win brier_lift -0.16 on n=15 (mis-targeted axis for a regime head)"
+      },
+      "note": "HOLD advisory. RG4 strong; zero current order influence (REGIME_ML_VERDICT_MODE=shadow). stage-guard demote is a mis-targeted-metric false positive."
+    },
+    {
+      "model_id": "mes-regime-5m-lgbm-v2",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260630T012211Z",
+        "at": "2026-06-30T01:22:15+00:00",
+        "code_revision": "main",
+        "headline_metric": "RG4=0.765",
+        "n_eval": 0,
+        "trend_vs_prior_run": "flat"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 3588,
+        "score_summary": "RG4 0.765 TRUSTWORTHY on ~204 LABELED of 3588 (MES labeling gap)",
+        "drift": "n/a",
+        "realized": "n/a"
+      },
+      "note": "Lead multi-symbol candidate. Promotion gated on authoring MES trend_vol cells + vol-split backtest + WF, not the model."
+    },
+    {
+      "model_id": "mes-regime-5m-lgbm-yz-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260630T012215Z",
+        "at": "2026-06-30T01:22:15+00:00",
+        "code_revision": "main",
+        "headline_metric": "RG4=unscoreable(0 labeled); prior 0.17",
+        "n_eval": 0,
+        "trend_vs_prior_run": "degraded"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 2236,
+        "score_summary": "all 2236 rows unlabeled this run; prior RG4 0.17 ANTI_PREDICTIVE on ~1460 labeled",
+        "drift": "n/a",
+        "realized": "n/a"
+      },
+      "note": "DEMOTE to candidate (Tier-3). yz-variant-specific inversion; sibling v2 is healthy. Observe-only, reversible."
+    },
+    {
+      "model_id": "eth-regime-15m-lgbm-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260630T012035Z",
+        "at": "2026-06-30T01:20:53+00:00",
+        "code_revision": "main",
+        "headline_metric": "RG4=0.766",
+        "n_eval": 0,
+        "trend_vs_prior_run": "first_run"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 204,
+        "score_summary": "RG4 0.766 TRUSTWORTHY on 199 labeled; BELOW ~300-500 volume target",
+        "drift": "insufficient",
+        "realized": "n/a"
+      },
+      "note": "On track; RG4 already passes but soak thin. Re-check ~2026-07-03. Re-derive ETH trend_vol cells under the 15m head."
+    },
+    {
+      "model_id": "sol-regime-15m-lgbm-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260630T012250Z",
+        "at": "2026-06-30T01:22:50+00:00",
+        "code_revision": "main",
+        "headline_metric": "RG4=0.643",
+        "n_eval": 0,
+        "trend_vs_prior_run": "first_run"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 178,
+        "score_summary": "RG4 0.643 TRUSTWORTHY on 173 labeled; thin sample",
+        "drift": "insufficient",
+        "realized": "n/a"
+      },
+      "note": "On track but thinnest; re-check ~2026-07-04. SOL trend_vol cells must be authored from scratch."
+    },
+    {
+      "model_id": "conviction-meta-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260630T012019Z",
+        "at": "2026-06-30T01:20:19+00:00",
+        "code_revision": "main",
+        "headline_metric": "n/a",
+        "n_eval": 0,
+        "trend_vs_prior_run": "flat"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 0,
+        "score_summary": "not ready",
+        "drift": "insufficient",
+        "realized": "n/a"
+      },
+      "note": "HOLD. stage-guard: cross_run_stability + shadow_soak FAIL (recently retrained on WC-3 long/short). Keep soaking; it is the v2 learned-conviction switch."
+    },
+    {
+      "model_id": "setup-quality-lgbm-v2",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260630T012231Z",
+        "at": "2026-06-30T01:22:33+00:00",
+        "code_revision": "main",
+        "headline_metric": "n/a",
+        "n_eval": 0,
+        "trend_vs_prior_run": "flat"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 0,
+        "score_summary": "not ready",
+        "drift": "fail",
+        "realized": "n/a"
+      },
+      "note": "HOLD. Many gate fails (sample/soak/stability/drift). Not promotable; keep soaking."
+    },
+    {
+      "model_id": "prop-mission-policy-baseline-v0 / trade-outcome-{global,winrate}-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260630",
+        "at": "2026-06-30T01:23:43+00:00",
+        "code_revision": "main",
+        "headline_metric": "f1=0 degenerate",
+        "n_eval": 0,
+        "trend_vs_prior_run": "flat"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 0,
+        "score_summary": "majority-class predictors; non_degenerate/beats_baseline/live_agreement FAIL",
+        "drift": "n/a",
+        "realized": "n/a"
+      },
+      "note": "RETIRE to candidate (Tier-3, MB-20260623-003). They feed noise into the conviction lens / conviction-meta stacker."
+    }
+  ],
+  "promotion_recommendations": [
+    {
+      "model_id": "btc-regime-15m-lgbm-v2",
+      "current_stage": "advisory",
+      "proposed_stage": "advisory",
+      "direction": "hold",
+      "tier": 3,
+      "evidence": "RG4 live-regime-discrimination 0.801 (advisory) / 0.727 (shadow) TRUSTWORTHY on 2576 recs. stage-guard demote is on brier_lift(score vs trade-win) n=15 = the axis Option A retired for regime heads. No degradation on the proper axis.",
+      "risk_note": "Do NOT demote. Zero current order influence (mode=shadow). Kill-switch: REGIME_ROUTER_DISABLED. Enforce flip stays scheduled ~2026-07-04 (MB-20260627-001)."
+    },
+    {
+      "model_id": "mes-regime-5m-lgbm-yz-v1",
+      "current_stage": "shadow",
+      "proposed_stage": "candidate",
+      "direction": "demote",
+      "tier": 3,
+      "evidence": "Prior RG4 0.17 ANTI_PREDICTIVE on ~1460 labeled rows; this run unscoreable (0 labeled, MES labeling gap) -> no recovery evidence. Inverted signal pollutes the shadow stream. Sibling v2 is 0.765 healthy.",
+      "risk_note": "Reversible, observe-only (shadow). Drop from shadow-wired lists; root-cause the yz inversion before any retrain re-earns shadow."
+    },
+    {
+      "model_id": "prop-mission-policy-baseline-v0,trade-outcome-global-baseline-v0,trade-outcome-winrate-baseline-v0",
+      "current_stage": "shadow",
+      "proposed_stage": "candidate",
+      "direction": "demote",
+      "tier": 3,
+      "evidence": "f1=0 degenerate majority-class baselines; non_degenerate/beats_baseline/live_agreement gates fail. Noise inputs to the conviction lens + conviction-meta-v1 stacker (MB-20260623-003).",
+      "risk_note": "Low urgency, observe-only. Retire or queue a class-weighted refinement retrain."
+    }
+  ],
+  "experiments_proposed": [
+    {
+      "kind": "new_feature",
+      "name": "mes-live-regime-labeling-fix",
+      "rationale": "The MES live-labeling gap (3384/3588 mes-5m-v2 rows unlabeled; mes-5m-yz 0/2236 labeled) blinds RG4 on the entire MES multi-symbol fleet -- the single biggest blocker to multi-symbol vol-gating.",
+      "input_changes": "Ensure the live regime row writer attaches regime_label for MES the way it does for BTC/ETH/SOL (which label cleanly, unlab=5); likely a per-symbol market_features freshness / realized-regime-join gap.",
+      "expected_metric_signal": "MES shadow rows show unlab~=0 like BTC/ETH so RG4 scores the full stream, not ~6%% of it.",
+      "tier": 1,
+      "next_step": "Trace src.runtime.regime_bar_scoring + the realized-regime label join for MES; cross-ref MB-20260626-001 finding #1 + BL-20260628-XA-TRAINING-ZERO."
+    },
+    {
+      "kind": "new_feature",
+      "name": "stage-guard-regime-demote-on-rg4",
+      "rationale": "Align the DEMOTE side of the lifecycle with the Option-A gate redesign so the advisory regime head isn't mechanically demoted on the trade-win axis (filed MB-20260630-001).",
+      "input_changes": "ml stage-guard advisory-degradation trigger for regime-family heads gates on RG4 live-regime-discrimination collapse, not brier_lift(score vs win).",
+      "expected_metric_signal": "stage-guard returns hold (not demote) for btc-regime-15m-lgbm-v2 while RG4>=0.55.",
+      "tier": 3,
+      "next_step": "PR ml/promotion stage-guard: branch the demote trigger by model family (regime -> RG4; decision/outcome -> trade-win)."
+    }
+  ],
+  "backlog_drain": [
+    {
+      "item_id": "MB-20260627-001",
+      "action": "deferred",
+      "note": "First-look PASS (BTC head resolving live, RG4 0.80, 67%% frozen-agree on 9 rows). Firm enforce read stays ~2026-07-04."
+    },
+    {
+      "item_id": "MB-20260627-002",
+      "action": "deferred",
+      "note": "mes-5m-v2 RG4 0.765 reconfirmed = lead candidate; promotion gated on MES cell-authoring + the labeling gap."
+    },
+    {
+      "item_id": "MB-20260626-002",
+      "action": "deferred",
+      "note": "mes-5m-yz unscoreable now (labeling gap); prior 0.17 stands -> demote proposed in promotion_recommendations."
+    },
+    {
+      "item_id": "MB-20260628-REGIME-SOAK-READINESS",
+      "action": "deferred",
+      "note": "eth-15m 0.766 @204 rows, sol-15m 0.643 @178 rows -- RG4 passes but sub-target volume; re-check ~07-03/04."
+    },
+    {
+      "item_id": "MB-20260623-003",
+      "action": "deferred",
+      "note": "f1=0 baselines still degenerate at shadow; retire-to-candidate proposed. Detect step driven; refinement retrain not yet made."
+    },
+    {
+      "item_id": "MB-20260630-001",
+      "action": "deferred",
+      "note": "NEW: filed the stage-guard/Option-A demote-axis misalignment for advisory regime heads."
+    }
+  ],
+  "anomalies": [
+    "MES live-labeling gap persists: mes-5m-v2 3384/3588 rows unlabeled, mes-5m-yz 0/2236 labeled -> RG4 blind on most of the MES stream (ETH/SOL label cleanly, unlab=5).",
+    "stage-guard recommended DEMOTE on the only advisory model (btc-regime-15m-lgbm-v2) using the trade-win axis Option A retired for regime heads -- a false positive (RG4 0.80). Filed MB-20260630-001.",
+    "list-models full-history dump overflows the GitHub-comment relay (truncates stage-guard); used jq-compact registry + stage-guard going forward."
+  ],
+  "recommended_action": "HOLD btc-regime-15m-lgbm-v2 at advisory (do not act on the stage-guard demote). No new shadow->advisory promotions today: mes-5m-v2 is the lead candidate but gated on MES cell-authoring; eth/sol-15m re-check ~2026-07-03/04 when soak >=300-500 rows. Tier-3 demotes proposed for mes-5m-yz and the f1=0 baselines. BTC vol-verdict enforce decision stays ~2026-07-04.",
+  "operator_attention_required": false,
+  "claude_channel_ping": {
+    "delivered_via": "send-ping",
+    "priority": "normal",
+    "message": "/ml-review: 45 models, trainer ok, 0 new promotions. BTC advisory RG4 0.80=HOLD (stage-guard demote mis-targeted; MB-20260630-001). Demote mes-5m-yz + f1=0 baselines. eth/sol-15m recheck ~07-03."
+  }
+}

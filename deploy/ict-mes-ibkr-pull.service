@@ -1,0 +1,49 @@
+# ============================================
+# ICT MES IBKR DEEP-HISTORY PULL (BL-20260626-MES-BASE-STALE)
+# Refreshes /data/bot-data/ibkr_datasets/market_raw/MES from the dedicated
+# IB-Gateway VM (10.0.0.251) so the trainer's MES regime base stays current
+# instead of freezing at a one-shot snapshot (the 2026-06-12 freeze that
+# blinded RG4 across the MES fleet — the live pull stopped running 2026-06-14).
+#
+# LIVE-TRADER BOX ONLY. The pull must run on the gateway's private subnet, so
+# install_systemd_units.sh auto-enables this on the trader box (role unset);
+# the gateway VM skips it (not in the gateway allowlist) and the trainer never
+# runs that installer. The script self-guards regardless — it aborts if the
+# live trader heartbeat is stale or the gateway is unreachable — so it is a
+# safe no-op anywhere it cannot reach the gateway.
+# Save to: /etc/systemd/system/ict-mes-ibkr-pull.service
+# ============================================
+
+[Unit]
+Description=ICT MES IBKR deep-history pull — keep the trainer MES base fresh (BL-20260626-MES-BASE-STALE)
+After=network-online.target ict-trader-live.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
+Environment=REPO_ROOT=/home/ubuntu/ict-trading-bot
+Environment=DATA_DIR=/data/bot-data
+# Run in-foreground under systemd: skip the script's self-detach (a oneshot's
+# cgroup cleanup would kill the detached child when the main process exits).
+# The script still re-execs niced/ionice (secondary priority so it never
+# competes with the live trader), holds its single-instance flock, and aborts
+# if the live trader heartbeat is stale — never adds gateway load during an
+# incident.
+Environment=_IBKR_DETACHED=1
+# ~20-30 min paced IBKR pull (IB_HIST_PAUSE_S between dated contracts); cap
+# generously so a slow IBKR session does not get killed mid-pull.
+TimeoutStartSec=2700
+# Exit 0 = at least one timeframe pulled; 2 = deliberate abort (stale heartbeat
+# / misconfig). Treat both as success so a healthy heartbeat-guard skip never
+# marks the unit failed — the structured ibkr_mes_pull.jsonl log carries the
+# real per-run status (readable via diag log_file?name=ibkr_mes_pull).
+SuccessExitStatus=0 2
+ExecStart=/bin/bash /home/ubuntu/ict-trading-bot/scripts/ops/pull_mes_ibkr_history.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

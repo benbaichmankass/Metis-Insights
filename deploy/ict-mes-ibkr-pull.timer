@@ -1,0 +1,29 @@
+# ============================================
+# ICT MES IBKR PULL TIMER (BL-20260626-MES-BASE-STALE)
+# Fires the deep-history pull daily so the MES base never goes stale again (the
+# pull had been a manual/ad-hoc script and stopped running 2026-06-14, freezing
+# MES 5m/15m at 2026-06-12 and blinding RG4 on the MES fleet).
+#
+# Cadence rationale: DAILY, scheduled BEFORE the trainer's ~00:50 UTC
+# sync_trainer_data.sh so the trainer picks up the fresh base on its next daily
+# cycle, and clear of the 05:30 UTC gateway reset. Daily keeps the base well
+# inside the build's MES_IBKR_MAX_STALE_DAYS=5 freshness gate (so the trainer
+# always prefers the deep IBKR base over the ~60d yfinance fallback), and the
+# 5-day gate absorbs weekend market closures.
+# Save to: /etc/systemd/system/ict-mes-ibkr-pull.timer
+# ============================================
+
+[Unit]
+Description=Trigger ict-mes-ibkr-pull daily (keep the MES deep-history base fresh)
+Requires=ict-mes-ibkr-pull.service
+
+[Timer]
+OnCalendar=*-*-* 23:30:00
+# Spread the fire a few minutes so it never lands exactly on another job.
+RandomizedDelaySec=300
+# Catch up one missed run if the VM was down at fire time.
+Persistent=true
+Unit=ict-mes-ibkr-pull.service
+
+[Install]
+WantedBy=timers.target

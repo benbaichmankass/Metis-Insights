@@ -142,6 +142,48 @@ for manifest in "${TRAINING_MANIFEST_LIST[@]}"; do
     continue
   fi
   start="$(iso_now)"
+  # --- Observe-only build-time dataset audit (BL-20260628-XA-TRAINING-ZERO class) ---
+  # Audit this manifest's built dataset for dead/constant feature columns and
+  # single-class labels; append one row to dataset_audit.jsonl. OBSERVE-ONLY:
+  # a flagged dataset is logged + emitted to the cycle log but STILL TRAINED,
+  # so we can confirm the audit doesn't false-positive on a legitimately-sparse
+  # feature before it ever gates. To ENFORCE (skip a quarantined manifest),
+  # change the FLAGGED branch below to `continue`. Fully fail-open: any audit
+  # error logs `audit_error` and falls through to the normal train step.
+  AUDIT_LOG="${DATASET_AUDIT_LOG:-$REPO_ROOT/runtime_logs/trainer/dataset_audit.jsonl}"
+  mkdir -p "$(dirname "$AUDIT_LOG")" 2>/dev/null || true
+  audit_verdict="$(python - "$manifest" "$DATASETS_ROOT" "$AUDIT_LOG" <<'PY' 2>/dev/null || echo OK
+import json, sys, datetime
+from pathlib import Path
+try:
+    from ml.manifest import TrainingManifest
+    from ml.datasets.audit import audit_dataset
+    manifest_path, datasets_root, audit_log = sys.argv[1:4]
+    m = TrainingManifest.from_yaml(Path(manifest_path))
+    data = m.dataset.path_under(Path(datasets_root)) / "data.jsonl"
+    rows = []
+    if data.is_file():
+        with data.open(encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if line:
+                    rows.append(json.loads(line))
+    report = audit_dataset(rows, m)
+except Exception as exc:
+    report = {"ok": True, "quarantine": False, "audit_error": f"{type(exc).__name__}: {exc}"}
+report["ts"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+report["manifest_path"] = sys.argv[1]
+try:
+    with open(sys.argv[3], "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(report) + "\n")
+except Exception:
+    pass
+print("FLAGGED" if report.get("quarantine") else "OK")
+PY
+)"
+  if [ "$audit_verdict" = "FLAGGED" ]; then
+    emit "$(printf '{"ts":"%s","status":"manifest_audit_flagged","manifest":"%s","detail":"dataset audit flagged dead feature(s)/degenerate label (observe-only, still training) — see dataset_audit.jsonl"}' "$(iso_now)" "$manifest")"
+  fi
   set +e
   python -m ml train "$manifest" \
     --datasets-root "$DATASETS_ROOT" \

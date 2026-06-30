@@ -81,6 +81,13 @@ EXPECTED_SERVICES = {
     # bounded window, account_class gaps, closed_at gaps) — the DB tells us
     # when persistence drifts instead of the dashboard silently mis-rendering.
     "ict-db-integrity.service",
+    # 2026-06-30: MES IBKR deep-history pull scheduler (BL-20260626-MES-BASE-STALE).
+    # Timer-fired oneshot (ict-mes-ibkr-pull.timer, daily 23:30 UTC) that runs
+    # scripts/ops/pull_mes_ibkr_history.sh on the live-trader box so the trainer's
+    # MES regime base stays current instead of freezing at a one-shot snapshot
+    # (the pull had been manual-only and stopped 2026-06-14). Live-trader-box only
+    # via install_systemd_units.sh auto-enable; heartbeat-guarded, secondary-priority.
+    "ict-mes-ibkr-pull.service",
 }
 
 # Trader-side units (i.e. units that run trading-strategy code). Used to
