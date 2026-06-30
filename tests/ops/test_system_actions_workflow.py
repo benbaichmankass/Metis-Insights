@@ -148,6 +148,9 @@ EXPECTED_ACTIONS = {
     # void-flag the historical phantom paper rows that the equity-pricing
     # sweep fabricated. DRY-RUN by default; apply gated + DB backup.
     "supersede-options-adoption-artifacts": "supersede_options_adoption_artifacts_action.sh",
+    # 2026-06-30 — clear the daily_risk_state row for one account so
+    # INTRADAY_DRAWDOWN counters reset without a full service restart.
+    "reset-daily-risk-state": "reset_daily_risk_state.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -187,6 +190,7 @@ TIER_2_ACTIONS = {
     "flatten-bybit-position",
     "reconcile-orphan-history",
     "supersede-options-adoption-artifacts",
+    "reset-daily-risk-state",
 }
 
 
