@@ -25,3 +25,13 @@ requests>=2.31.0
 # Already a transitive dep of pandas; pinning explicitly so the
 # fetcher can `import dateutil` without lying about its deps.
 python-dateutil>=2.8.2
+
+# Pretrained-TSFM embeddings (M19 T0.1). `scripts/ml/build_embeddings.py` runs a
+# frozen amazon/chronos-bolt-tiny (9M, CPU) as a feature extractor to produce the
+# `tsfm_emb_*` side-stream. TRAINER-SIDE ONLY — the live money-box never installs
+# these (T0.1 heads stay at `candidate`/offline; `ml.datasets.embedding_features`
+# lazy-imports both, so `ml.*` imports fine without them). Torch is CPU-only on
+# the ARM trainer. Promotion to shadow (embedding computed live) is the gated
+# follow-up that would revisit the live-VM dependency.
+chronos-forecasting>=1.4.0
+torch>=2.2.0

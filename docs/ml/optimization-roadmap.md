@@ -16,6 +16,17 @@
 > Scope siblings: [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md) (M9/M10 AI
 > platform), [`docs/ml/training-center.md`](training-center.md),
 > [`docs/claude/ml-training-policy.md`](../claude/ml-training-policy.md).
+>
+> **Successor program (2026-07-01):** this program's phases (validation discipline →
+> decision-data wall → features → regime plumbing → MLOps) are largely complete and
+> established that *architecture is rarely the binding constraint on tabular features —
+> labels/validation/sample-size are*. The forward frontier is **new model *types*** —
+> representation/embedding models, unsupervised regime discovery, deep sequence models,
+> a shared self-supervised **"reads-everything" encoder**, cross-sectional rankers, and
+> RL sizing/exit policies — captured in **M19**:
+> [`docs/research/ai-model-strategy-roadmap-2026-07-01.md`](../research/ai-model-strategy-roadmap-2026-07-01.md).
+> That doc carries the reframe (labels-not-compute), the compute-tier economics
+> ($0 → ~$10/mo → larger), and the encoder-feeds-boosting-heads architecture forward.
 
 ---
 

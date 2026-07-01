@@ -67,6 +67,16 @@ Knobs (all kwargs):
   populated; when omitted they emit `0.0` (default-preserving). Meant for the
   "does peer-asset info predict this asset?" A/B (ETH ← BTC/SOL); harmless on any
   other symbol.
+- `embedding_path` (path, default None) — optional directory holding a
+  pretrained-TSFM embedding side-stream (`data.jsonl`, rows `{ts, tsfm_emb_0,
+  …, tsfm_emb_N}`, produced by `scripts/ml/build_embeddings.py` from the target
+  `market_raw`). Each row is a frozen Chronos-Bolt encoder embedding over the
+  bar's trailing close window, mean-pooled + seeded-random-projected to a fixed
+  width — **past-only** by the producer, so this builder only as-of carries each
+  column forward onto the bars. When given, the TSFM embedding columns (M19
+  T0.1) are populated; when omitted they emit `0.0` (default-preserving). Meant
+  for the "does a learned representation lift a boosting head?" A/B; harmless on
+  any symbol.
 
 ## Schema
 
@@ -153,6 +163,7 @@ from ..funding_oi_features import (
     rolling_zscore,
 )
 from ..cross_asset_features import CROSS_ASSET_FEATURE_COLUMNS
+from ..embedding_features import EMBEDDING_FEATURE_COLUMNS
 from ..macro_features import MACRO_FEATURE_COLUMNS
 from ..metadata import LeakageStatus
 from ..labeling.trend_regime import efficiency_ratio, trend_regime_label
@@ -345,10 +356,15 @@ class MarketFeaturesBuilder(DatasetBuilder):
     # (S-CROSS-ASSET-PROBE step 3): adds the directional forward label
     # `direction_label` (sign of forward_log_return, optional dead-band) — a
     # forward-only label like regime_label, target for the directional A/B.
-    # Earlier baselines that only read `vol_bucket` / `rolling_log_return_vol`
-    # are unaffected by the wider schema; builder_version is metadata-only (it
-    # does not gate dataset path resolution).
-    builder_version: ClassVar[str] = "v9"
+    # v10 (M19 T0.1): adds the pretrained-TSFM embedding features
+    # (`tsfm_emb_0..N`) — populated from the optional `embedding_path`
+    # side-stream (a frozen Chronos-Bolt encoder embedding, mean-pooled +
+    # seeded-random-projected, past-only by the producer), 0.0 when it is
+    # absent. Earlier baselines that only read `vol_bucket` /
+    # `rolling_log_return_vol` are unaffected by the wider schema;
+    # builder_version is metadata-only (it does not gate dataset path
+    # resolution).
+    builder_version: ClassVar[str] = "v10"
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.PASSED
     label_version: ClassVar[str] = "regime-3class-v1"
     schema: ClassVar[Mapping[str, type]] = {
@@ -408,6 +424,13 @@ class MarketFeaturesBuilder(DatasetBuilder):
         # 0.0 on every row when no `cross_asset_path` is supplied. Leakage-safe
         # by construction (see cross_asset_features.py § cadence + leakage).
         **{col: float for col in CROSS_ASSET_FEATURE_COLUMNS},
+        # Pretrained-TSFM embedding features (M19 T0.1). As-of carried from the
+        # optional `embedding_path` side-stream (a frozen Chronos-Bolt encoder
+        # embedding, mean-pooled + seeded-random-projected to a fixed width by
+        # the producer, past-only) — 0.0 on every row when no `embedding_path`
+        # is supplied. Leakage-safe by construction (see embedding_features.py
+        # § cadence + leakage discipline).
+        **{col: float for col in EMBEDDING_FEATURE_COLUMNS},
         "hour_of_day": int,
         "dayofweek": int,
         "log_return_lag_1": float,
@@ -442,6 +465,7 @@ class MarketFeaturesBuilder(DatasetBuilder):
         microstructure_window_n: int = 50,
         macro_path: Path | str | None = None,
         cross_asset_path: Path | str | None = None,
+        embedding_path: Path | str | None = None,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         if vol_window_n < 2:
@@ -561,6 +585,26 @@ class MarketFeaturesBuilder(DatasetBuilder):
                         for r in xa_rows
                     ]
                     xa_aligned[col] = _align_asof(bar_ts, xa_ts, vals)
+
+        # Pretrained-TSFM embedding side-stream (M19 T0.1), as-of aligned onto
+        # the bars. The producer emits an embedding row at (possibly strided)
+        # bars, each computed from the trailing close window ending at that bar
+        # (past-only); we carry each column forward so a bar sees only the most
+        # recent PAST embedding. All-`None` (→ feature 0.0) when no
+        # `embedding_path` is given.
+        emb_aligned: dict[str, list[float | None]] = {
+            col: [None] * n for col in EMBEDDING_FEATURE_COLUMNS
+        }
+        if embedding_path is not None:
+            emb_rows = _load_funding_oi_rows(Path(embedding_path))
+            if emb_rows:
+                emb_ts = [str(r.get("ts", "")) for r in emb_rows]
+                for col in EMBEDDING_FEATURE_COLUMNS:
+                    vals = [
+                        (float(r[col]) if r.get(col) is not None else None)
+                        for r in emb_rows
+                    ]
+                    emb_aligned[col] = _align_asof(bar_ts, emb_ts, vals)
 
         log_returns: list[float | None] = [None] * n
         for i in range(1, n):
@@ -702,6 +746,10 @@ class MarketFeaturesBuilder(DatasetBuilder):
                 **{
                     col: _finite_or_zero(xa_aligned[col][i])
                     for col in CROSS_ASSET_FEATURE_COLUMNS
+                },
+                **{
+                    col: _finite_or_zero(emb_aligned[col][i])
+                    for col in EMBEDDING_FEATURE_COLUMNS
                 },
                 "hour_of_day": int(hour_of_day),
                 "dayofweek": int(dayofweek),
