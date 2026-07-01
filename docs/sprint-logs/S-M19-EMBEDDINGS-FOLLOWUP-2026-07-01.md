@@ -77,19 +77,25 @@ feedstock.
 - `pytest tests/ml/test_conviction_meta_family.py` → 12 passed (3 new); ruff clean.
 - End-to-end pipeline validated: the conviction as-of join populated all 99 BTC
   rows with real embeddings (`nonzero_emb 99`).
-- **Production-threshold regime A/B (vol_threshold=0.005, purged-CV) — RAN, THRESHOLD-SENSITIVE:**
-  rebuilt BTC-15m `market_features` at the shipped-head threshold 0.005 (4.6%
-  volatile base rate, all 175,272 rows embedded) + trained base vs emb under
-  purged walk-forward CV. **The lift largely evaporates at production:**
-  macro_f1 base 0.5908 → emb 0.6029 (**Δ +0.012**, vs +0.052 at 0.003);
-  f1_volatile 0.2417 → 0.2415 (**flat**). What survives: volatile *precision*
-  0.161 → 0.201 (+25% rel) traded for recall 0.507 → 0.312, and accuracy
-  0.889 → 0.932. **Go/no-go: the macro-F1 case for promoting THIS head is weak at
-  the production threshold** — a hard gate benefits marginally (higher volatile
-  precision = fewer wrongly-suppressed trades) but not enough to justify the
-  Option-D live-parity build on this evidence alone. **Follow-up dispatched:** a
-  `vol_threshold` sweep (0.004/0.006/0.007, + the existing 0.003/0.005) to map
-  where the lift lives before deciding promote-vs-pivot.
+- **`vol_threshold` sweep (purged-CV) — RAN, a BASE-RATE CLIFF:** rebuilt BTC-15m
+  `market_features` at 0.003/0.004/0.005 (all 175,272 rows embedded) + trained
+  base vs emb under purged walk-forward CV at each. The lift is **real across a
+  band and cliffs at 0.005**, tracking the volatile base rate:
+  - **0.003** (11.7% vol): Δmacro_f1 **+0.052**, Δf1_vol +0.035.
+  - **0.004** (8.4% vol): Δmacro_f1 **+0.037**, Δf1_vol +0.031 (base f1_vol 0.30 → emb 0.33).
+  - **0.005** (4.6% vol — shipped head): Δmacro_f1 **+0.012**, f1_vol flat (base f1_vol only 0.24 → the class is too rare for either model).
+
+  **Mechanism:** the collapse is driven by the volatile *base rate*, not the
+  threshold per se — where the class is adequately populated (≥ ~8%) the embedding
+  clearly helps; at 4.6% neither model learns it. **Go/no-go — promotion sharpens,
+  doesn't close:** (1) if the head's threshold is revisitable, 0.004 gives a
+  better head (f1_vol 0.24→0.30) AND a lift → promote-candidate; (2) if 0.005 is
+  locked by the gate's semantics, embeddings don't help there → pivot to T0.2/T0.4.
+  Independent flag for the ML/regime track: the shipped head is weak at its own
+  0.005 operating point (f1_vol 0.24). **Note:** the full 3-threshold sweep
+  (0.004/0.006/0.007 in one relay) was **preempted** by the trainer's periodic
+  automated job (single-concurrency relay); re-run as short single-threshold jobs
+  — 0.004 landed, 0.006/0.007 confirm the collapse persists.
 
 ## Documentation Updated
 - This sprint log; three research evidence/design docs (above).
