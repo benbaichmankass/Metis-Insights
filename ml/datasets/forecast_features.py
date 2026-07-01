@@ -261,8 +261,11 @@ def chronos_forecast_fn(
         contexts = [torch.tensor(list(w), dtype=torch.float32) for w in windows]
         # `predict_quantiles` returns (quantiles, mean); quantiles is
         # (batch, horizon, len(levels)). Read the LAST forecast step per window.
+        # chronos-bolt's first positional arg is ``inputs`` (aka ``context``);
+        # passing it as ``context=`` raises "missing 1 required positional
+        # argument: 'inputs'". Pass positionally so the batch is actually fed.
         quantiles, _mean = pipe.predict_quantiles(  # pragma: no cover
-            context=contexts,
+            contexts,
             prediction_length=horizon,
             quantile_levels=levels,
         )
