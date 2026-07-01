@@ -1,0 +1,68 @@
+# M19 T0.3 CONTROL — conviction meta-model on the BTCUSDT closed-trade slice,
+# hand-engineered lens+context features ONLY (no embeddings). The clean A/B
+# baseline for `conviction-meta-emb-btc-v1` (identical dataset slice, identical
+# hyperparameters — the ONLY difference is the 8 `tsfm_emb_*` columns the emb
+# manifest adds). `symbol` is dropped from the feature list (constant in the
+# single-symbol slice). Offline/candidate — never influences a live decision.
+#
+# Build the BTC-scoped conviction_meta dataset (control shares it with the emb
+# manifest — same rows, the emb columns just sit unused here):
+#
+#   python -m ml build-dataset conviction_meta \
+#     --output-dir ./datasets-out --version v001 --symbol-scope BTCUSDT \
+#     --source trade_journal.db --overwrite \
+#     -- db_path=/abs/path/to/trade_journal.db symbol=BTCUSDT
+#
+#   python -m ml train ml/configs/conviction-meta-base-btc-v1.yaml \
+#     --datasets-root ./datasets-out
+
+manifest_version: v1
+model_id: conviction-meta-base-btc-v1
+description: "M19 T0.3 CONTROL — LightGBM P(win) stacker on the BTCUSDT closed-trade slice from the calibrated conviction lenses (c_strat/c_setup/c_wr/c_reg) + context (regime/vol_regime/adx_14/direction/strategy_name). No embeddings — the baseline the emb manifest is graded against. Candidate/offline."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: won
+  feature_columns:
+    - c_strat
+    - c_setup
+    - c_wr
+    - c_reg
+    - adx_14
+    - regime
+    - vol_regime
+    - direction
+    - strategy_name
+  categorical_columns:
+    - regime
+    - vol_regime
+    - direction
+    - strategy_name
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 20
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: conviction_meta
+  symbol_scope: BTCUSDT
+  timeframe: all
+  version: v001
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: won
+  split_strategy: time_aware_holdout
+  time_column: created_at
+  holdout_fraction: 0.2
+target_deployment_stage: candidate
+notes: |
+  M19 T0.3 control. Grades the value of adding pretrained-TSFM embeddings to the
+  conviction stacker by A/B against conviction-meta-emb-btc-v1 on the IDENTICAL
+  BTCUSDT slice. The win-probability label is a TRADE OUTCOME, so this head is
+  label-bound (the ~hundred-row BTC closed-trade corpus) — the experiment tests
+  whether the representation adds edge where labels are scarce, unlike the
+  self-supervised regime heads where it clearly did (T0.1). Candidate/offline.
