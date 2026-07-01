@@ -42,6 +42,29 @@ def test_parse_open() -> None:
     assert i["entry_price"] == 3000.0 and i["qty"] == 0.5
 
 
+def test_parse_placed_is_distinct_from_open() -> None:
+    # `placed` = a limit order placed but not yet filled — its own status, NOT
+    # an alias of open (the conflation the placed state fixes).
+    i = parse_prop_command("placed ETHUSD 3000 0.5")
+    assert i["_action"] == "placed" and i["status"] == "placed"
+    assert i["entry_price"] == 3000.0 and i["qty"] == 0.5
+    # 'placed' must no longer be an open alias.
+    assert parse_prop_command("open ETHUSD 3000")["status"] == "open"
+
+
+def test_parse_placed_needs_entry_price() -> None:
+    with pytest.raises(ValueError):
+        parse_prop_command("placed ETHUSD")
+
+
+def test_build_report_placed_carries_placed_status() -> None:
+    i = parse_prop_command("placed ETHUSD 3000 0.5")
+    r = build_report(i, account_id="breakout_1", direction="long",
+                     ticket_id="prop-manual-eth1")
+    assert r["status"] == "placed" and r["symbol"] == "ETHUSD"
+    assert r["entry_price"] == 3000.0 and r["qty"] == 0.5
+
+
 def test_parse_skip_default_reason() -> None:
     i = parse_prop_command("skip ETHUSD")
     assert i["_action"] == "skip" and i["status"] == "skipped"
@@ -181,4 +204,4 @@ def test_menu_prompt_examples_are_ingestible() -> None:
         intent = parse_prop_command(line)
         assert intent is not None, f"prompt example not recognised: {line!r}"
         actions.add(intent["_action"])
-    assert actions == {"open", "close", "skip", "status"}
+    assert actions == {"placed", "open", "close", "skip", "status"}

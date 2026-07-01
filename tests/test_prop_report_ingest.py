@@ -129,6 +129,38 @@ def test_ingest_close_links_ticket_and_notifies(
     assert prop_journal.list_tickets()[0]["status"] == "closed"
 
 
+def test_ingest_placed_advances_to_placed_not_filled(
+    isolated_db: Path, no_notify: list
+) -> None:
+    """A `placed` report (limit order on the terminal, not yet filled) must
+    advance the ticket to `placed` — NOT `filled` — and fire no notification,
+    because there is no live position yet. Then an `open`/`filled` report on the
+    same ticket promotes it to `filled` and fires the fill notification."""
+    from src.prop import prop_journal, prop_report
+
+    prop_journal.record_ticket({
+        "ticket_id": "prop-manual-placed", "account_id": "breakout_1",
+        "symbol": "SOLUSDT", "direction": "long", "entry": 73.0,
+    })
+    out = prop_report.ingest_report({
+        "account_id": "breakout_1", "symbol": "SOLUSDT", "direction": "long",
+        "status": "placed", "entry_price": 73.0, "qty": 1.0,
+    })
+    assert out["ok"] and out["status"] == "placed"
+    # Ticket is at `placed`, NOT `filled`.
+    assert prop_journal.list_tickets()[0]["status"] == "placed"
+    # No fill notification for a working order.
+    assert no_notify == []
+
+    # The limit later trips → the operator reports the fill → ticket → filled.
+    prop_report.ingest_report({
+        "account_id": "breakout_1", "symbol": "SOLUSDT", "direction": "long",
+        "status": "open", "entry_price": 73.0, "qty": 1.0,
+    })
+    assert prop_journal.list_tickets()[0]["status"] == "filled"
+    assert len(no_notify) == 1 and no_notify[0]["status"] == "open"
+
+
 def test_ingest_fill_requires_symbol(isolated_db: Path, no_notify: list) -> None:
     from src.prop import prop_report
 

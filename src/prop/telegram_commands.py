@@ -35,14 +35,22 @@ from typing import Any, Dict, Optional
 # Verb → canonical action. Aliases keep the operator from memorising one exact
 # word under time pressure at the terminal.
 _CLOSE = {"close", "closed", "c", "exit"}
-_OPEN = {"open", "opened", "filled", "fill", "placed", "o"}
+# `open`/`filled` = the position is actually LIVE (market fill, or a limit that
+# tripped). `placed` (below) is the distinct working-order state — deliberately
+# NOT an alias of open, so a placed-but-unfilled limit order isn't logged as a
+# live position (the conflation the `placed` state fixes).
+_OPEN = {"open", "opened", "filled", "fill", "o"}
+_PLACED = {"placed", "place", "working", "pending", "p"}
 _SKIP = {"skip", "skipped", "cancel", "x"}
 _STATUS = {"bal", "balance", "status", "equity", "acct", "account"}
 
 USAGE = (
     "Prop commands (symbol may be venue ETHUSD or bot ETHUSDT):\n"
+    "  placed <symbol> <entry> [qty]          e.g. placed ETHUSD 3000 0.5  "
+    "(limit order placed, NOT filled yet)\n"
+    "  open  <symbol> <entry> [qty]           e.g. open ETHUSD 3000 0.5    "
+    "(position now LIVE — filled)\n"
     "  close <symbol> <exit> [pnl] [reason]   e.g. close ETHUSD 2950 +80 tp\n"
-    "  open  <symbol> <entry> [qty]           e.g. open ETHUSD 3000 0.5\n"
     "  skip  <symbol> [reason]                e.g. skip ETHUSD stale\n"
     "  bal   <balance> [equity] [realized]    e.g. bal 5040 5010\n"
     "  add 'acct=<id>' anywhere to target a specific account."
@@ -61,21 +69,28 @@ REPORT_PROMPT = (
     "After you act on the Breakout trade, reply with EXACTLY ONE line and "
     "nothing else — no extra words, no code fences — in one of these formats:\n"
     "\n"
-    "  open  <SYMBOL> <entry_price> <qty>\n"
-    "  close <SYMBOL> <exit_price> <pnl> <tp|sl|manual>\n"
-    "  skip  <SYMBOL> <reason>\n"
-    "  bal   <balance> [equity] [realized_today]\n"
+    "  placed <SYMBOL> <entry_price> <qty>\n"
+    "  open   <SYMBOL> <entry_price> <qty>\n"
+    "  close  <SYMBOL> <exit_price> <pnl> <tp|sl|manual>\n"
+    "  skip   <SYMBOL> <reason>\n"
+    "  bal    <balance> [equity] [realized_today]\n"
     "\n"
     "Rules:\n"
     "• <SYMBOL> = the venue symbol you actually traded (e.g. ETHUSD, SOLUSD) — "
     "drop the perp 'T' suffix.\n"
     "• Prices, qty and balances are plain numbers; prefix P&L with + or - "
     "(e.g. +80, -30).\n"
-    "• Use 'open' if you placed it, 'close' if it's already exited, 'skip' if "
-    "you did NOT place it (stale / out of band).\n"
+    "• Use 'placed' when you place a LIMIT / pending order that has NOT filled "
+    "yet (no position, no P&L). Use 'open' once it's actually FILLED and the "
+    "position is live (a market order fills immediately → use 'open'). Use "
+    "'close' when it exits, 'skip' if you did NOT place it (stale / out of "
+    "band).\n"
+    "• When a 'placed' order later fills, send the matching 'open' line so it "
+    "becomes a live trade.\n"
     "• ONE line only — I will paste it back exactly as you write it.\n"
     "\n"
     "Examples:\n"
+    "  placed ETHUSD 3000 0.5\n"
     "  open ETHUSD 3000 0.5\n"
     "  close ETHUSD 2950 +80 tp\n"
     "  skip ETHUSD stale/out-of-range\n"
@@ -128,6 +143,8 @@ def parse_prop_command(text: str) -> Optional[Dict[str, Any]]:
         action, status = "close", "closed"
     elif verb in _OPEN:
         action, status = "open", "open"
+    elif verb in _PLACED:
+        action, status = "placed", "placed"
     elif verb in _SKIP:
         action, status = "skip", "skipped"
     elif verb in _STATUS:
@@ -181,9 +198,13 @@ def parse_prop_command(text: str) -> Optional[Dict[str, Any]]:
         if len(nums) > 1:
             intent["pnl"] = nums[1]
         intent["reason"] = reason or "manual"
-    elif action == "open":
+    elif action in ("open", "placed"):
+        # `placed` = a limit/pending order placed but not yet filled; `open` =
+        # the position is actually live. Same positional grammar (entry + qty);
+        # only the reported status differs (handled above).
         if not nums:
-            raise ValueError("open needs an entry price, e.g. `open ETHUSD 3000 0.5`")
+            raise ValueError(
+                f"{action} needs an entry price, e.g. `{action} ETHUSD 3000 0.5`")
         intent["entry_price"] = nums[0]
         if len(nums) > 1:
             intent["qty"] = nums[1]
