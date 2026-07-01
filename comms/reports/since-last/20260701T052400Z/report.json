@@ -1,0 +1,665 @@
+{
+  "report_id": "RPT-20260701-052400-since-last",
+  "reviewed_at": "2026-07-01T05:24:00+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-06-30T06:16:11+00:00",
+  "window_end": "2026-07-01T05:24:00+00:00",
+  "prior_report_id": "RPT-20260630-061611-since-last",
+  "overall_assessment": "caution",
+  "health": {
+    "overall_assessment": "caution",
+    "reviewer": "claude",
+    "reviewed_at": "2026-07-01T05:24:00+00:00",
+    "findings": {
+      "services": {
+        "grade": "healthy",
+        "detail": "ict-trader-live / ict-web-api / ict-telegram-bot / ict-claude-bridge all active; all timers (git-sync, liveness-watchdog, web-api-watchdog, db-integrity, insights, hourly/health-snapshot, devnull-guard, shadow-log-rotate) armed."
+      },
+      "heartbeat": {
+        "grade": "healthy",
+        "detail": "running, age ~13s; uptime ~25min; deploy current (git_sha f60989d4 == main HEAD)."
+      },
+      "resources": {
+        "grade": "healthy",
+        "detail": "vm_health cpu ~0 / memory 12.3% / disk 27.4% \u2014 the Ampere migration relief holds (was 90%+ mem on the retired micro)."
+      },
+      "account_reachability": {
+        "grade": "investigate",
+        "detail": "alpaca_live (real-money) rejecting every order 'unauthorized' + undercapitalized ($150); ib_paper MGC orders 'dry_run_no_order_placed' \u2192 IB gateway session likely wedged (the exchange_positions diag probe itself hung ~18min, consistent with an IB timeout)."
+      },
+      "reconciler": {
+        "grade": "caution",
+        "detail": "1 paper AVAX orphan (id 3056, -$134.68 local-compute, reconciler close-on-disappear) + 1 prop SOL orphan (pkg-a6a8dd45, BUG-049 never-executed) in/near window \u2014 self-heal working but orphan artifacts present."
+      },
+      "pipeline": {
+        "grade": "healthy",
+        "detail": "41 strategies loaded, ticking every ~15min, signals\u2192order_packages\u2192trades plumbing intact; rejection clusters mostly expected (netting-guard / hold-policy / intraday-drawdown / risk-refused)."
+      }
+    },
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)",
+      "priority": "normal",
+      "message": ""
+    }
+  },
+  "performance": {
+    "overall_assessment": "caution",
+    "reviewer": "claude",
+    "reviewed_at": "2026-07-01T05:24:00+00:00",
+    "summary": "0 real-money closed trades in the ~23h window; real-money book effectively idle because alpaca_live cannot place orders (unauthorized/undercapitalized) and bybit_2 produced no closes. Grading step ran: 0 closed non-backtest trades to grade (real-money alpaca_live fired 5 attempts \u2014 all rejected). Paper: 1 AVAX reconciler-orphan close (-$134.68, artifact, not a real fill outcome).",
+    "rejection_clusters": [
+      {
+        "reason": "reentry_suppressed_netting_guard:increase",
+        "note": "expected \u2014 baseline netting guard suppressing same-direction pyramiding (TLT/SOL/QQQ/ETH)."
+      },
+      {
+        "reason": "dry_run_no_order_placed",
+        "note": "ib_paper MGC (mgc_trend_1h) repeatedly \u2014 IB gateway session not executing (flag)."
+      },
+      {
+        "reason": "Alpaca unauthorized",
+        "note": "alpaca_live TLT/SLV real-money \u2014 LIVE key pair rejected by api.alpaca.markets (flag)."
+      },
+      {
+        "reason": "risk_refused sized_qty=0 balance=150",
+        "note": "alpaca_live QQQ \u2014 undercapitalized ($150)."
+      },
+      {
+        "reason": "INTRADAY_DRAWDOWN / flip_suppressed_hold_policy / options no_expiration_in_dte_band",
+        "note": "expected risk/hold/options-selection refusals."
+      }
+    ],
+    "grading": {
+      "closed_trades_in_window": 0,
+      "graded_this_run": 0,
+      "newest_grade_reviewed_at": "2026-06-30T06:13:02+00:00",
+      "note": "grader ran (grade_closed_trades_from_diag.py) \u2192 'no closed trades to grade'; newest grade predates window solely because nothing closed."
+    },
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)",
+      "priority": "normal",
+      "message": ""
+    }
+  },
+  "ml": {
+    "overall_assessment": "healthy",
+    "reviewer": "claude",
+    "reviewed_at": "2026-07-01T05:24:00+00:00",
+    "training_health": {
+      "grade": "healthy",
+      "detail": "ict-trainer cycle ran 2026-07-01 00:51-01:27 UTC (in-window), overall_rc:0, calibrators_ok + publish_post_ok; 54min CPU. 2 MES manifests skipped 'empty_dataset' (mes-setup-quality, mes-trade-outcome-winrate); several degenerate-label audit flags (observe-only, still training)."
+    },
+    "model_status": [
+      {
+        "model_id": "btc-regime-15m-lgbm-v2",
+        "stage": "advisory",
+        "note": "LIVE advisory head driving the BTC vol-gate; 391 advisory preds, last 05:01 today \u2014 actively influencing."
+      },
+      {
+        "model_id": "eth-regime-5m/15m-lgbm-v1 \u00b7 sol-regime-5m/15m-lgbm-v1",
+        "stage": "shadow",
+        "note": "multi-symbol regime soaks, first_seen 2026-06-28, actively accruing (ETH-5m 873 / SOL-5m 814) \u2014 soak\u2192advisory readiness re-check per MB-20260628-REGIME-SOAK-READINESS."
+      },
+      {
+        "model_id": "conviction-meta-v1",
+        "stage": "shadow",
+        "note": "conviction lens soaking (3255 preds, mean 0.78) \u2014 P4 real-money-sizing gate (MB-20260616-CONVICTION-P4) still soak-gated."
+      },
+      {
+        "model_id": "eth-regime-1h-lgbm-xasset-v1",
+        "stage": "shadow",
+        "note": "cross-asset ETH head soaking (568) \u2014 but BL-20260628-XA-TRAINING-ZERO flags its training xa_* cols were all-zeros; verify it isn't learning on dead features."
+      },
+      {
+        "model_id": "trade-outcome-winrate-baseline-v0",
+        "stage": "candidate",
+        "note": "f1=0 degenerate baseline retired shadow\u2192candidate 2026-06-30 (MB-20260623-003, operator-approved) \u2014 actioned."
+      }
+    ],
+    "promotion_recommendations": [
+      {
+        "model_id": "btc-regime advisory heads",
+        "recommendation": "HOLD \u2014 BTC vol-gate live and healthy.",
+        "tier": 3
+      },
+      {
+        "model_id": "eth/sol-15m regime heads",
+        "recommendation": "CONTINUE SOAK \u2014 not yet at RG4 advisory readiness; re-check when soaks mature.",
+        "tier": 3
+      }
+    ],
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)",
+      "priority": "normal",
+      "message": ""
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "~23h window, system core green (services up, mem 12%, deploy current, trainer cycled rc:0, shadow soaks accruing). But the real-money book is idle: alpaca_live rejects every order 'unauthorized'+undercapitalized and ib_paper futures aren't executing (IB gateway likely wedged). 0 real-money closed trades.",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "alpaca_live (real money) cannot trade \u2014 LIVE Alpaca key unauthorized + undercapitalized",
+        "source_review": "cross",
+        "tier": 3,
+        "detail": "5 real-money attempts in window all rejected: TLT/SLV 'Alpaca rejected order: unauthorized' + QQQ risk_refused sized_qty=0 balance=$150. Operator: verify ALPACA_API_KEY_ID_LIVE/SECRET are the funded LIVE-account keys (not paper), fund >= $2k, re-run sync-vm-secrets + test-alpaca-creds. Tracked BL-20260627-ALPACA-LIVE-API-UNAUTH.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "IB gateway session likely wedged \u2014 ib_paper MGC/MES futures not executing",
+        "source_review": "health",
+        "tier": 2,
+        "detail": "ib_paper MGC (mgc_trend_1h) orders repeatedly 'dry_run_no_order_placed' through the window; the exchange_positions diag probe itself hung ~18min (consistent with an IB timeout). Investigate the gateway VM session; vm-ib-gateway-recover if wedged.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 3,
+        "title": "DIAG_BASE_URL still points at the terminated micro (this session's fix)",
+        "source_review": "cross",
+        "tier": 1,
+        "detail": "Session env var = http://158.178.210.252:8001 (dead). Repo sweep fixed (PR #5252, notebook template). Operator: set DIAG_BASE_URL=http://141.145.193.91:8001 in the web-env config (note: raw IP:port egress is proxy-dropped, so the relay stays the working path).",
+        "operator_action_required": true
+      },
+      {
+        "rank": 4,
+        "title": "Orphan artifacts: paper AVAX (-$134) + prop SOL (BUG-049)",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "Reconciler self-heal is working (close-on-disappear) but produced a paper AVAX orphan and a never-executed prop SOL package. No real money. Watch INTENT-REDUCE-CHURN-VERIFY (BL-20260629).",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "Real-money is idle across BOTH real venues for different reasons: alpaca_live (auth/funding) and bybit_2 (no qualifying setup closed). Only paper/demo flow is active \u2014 the review can't grade real-money decisions until at least one real venue can fill.",
+      "The exchange_positions reachability probe hanging ~18min is not just a relay nuisance \u2014 it corroborates the ib_paper 'dry_run' evidence that the IB gateway session is degraded."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": 0.0,
+        "trend": "flat",
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": 0.0,
+        "profit_factor": null,
+        "max_drawdown": null,
+        "per_strategy": [],
+        "per_asset_class": {
+          "crypto": 0.0,
+          "index": 0.0,
+          "commodity": 0.0,
+          "equity": 0.0,
+          "fx": 0.0
+        },
+        "equity_curve": []
+      },
+      "paper": {
+        "window_pnl": -134.68,
+        "prior_window_pnl": null,
+        "trend": "down",
+        "trades": 1,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": -134.68,
+        "profit_factor": null,
+        "max_drawdown": null,
+        "per_strategy": [
+          {
+            "name": "avax_pullback_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -134.68
+          }
+        ],
+        "per_asset_class": {
+          "crypto": -134.68,
+          "index": 0.0,
+          "commodity": 0.0,
+          "equity": 0.0,
+          "fx": 0.0
+        },
+        "equity_curve": [],
+        "_note": "single reconciler-orphan close (id 3056, bybit_1 paper) \u2014 an artifact, not a real fill outcome."
+      },
+      "prop": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "fills_reported": null,
+        "tickets_emitted": null,
+        "unacted_tickets": null,
+        "rule_distance": {
+          "daily_loss_remaining": null,
+          "static_dd_remaining": null
+        },
+        "per_account": [
+          {
+            "account_id": "breakout_1",
+            "balance": null,
+            "equity": null,
+            "realized_window": null
+          }
+        ],
+        "_note": "unavailable: /api/bot/prop/* is outside /api/diag/* so not reachable via the web-session relay. Observed: 1 prop SOL package orphaned BUG-049 (never executed)."
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay)."
+      },
+      {
+        "symbol": "ETHUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay)."
+      },
+      {
+        "symbol": "SOLUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay)."
+      },
+      {
+        "symbol": "MGC",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay)."
+      },
+      {
+        "symbol": "TLT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay)."
+      },
+      {
+        "symbol": "SPY",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay)."
+      },
+      {
+        "symbol": "QQQ",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay)."
+      },
+      {
+        "symbol": "SLV",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay)."
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": 3068,
+        "order_package_id": "pkg-b548a6b8815a4cdf",
+        "account": "alpaca_live",
+        "account_class": "real_money",
+        "symbol": "TLT",
+        "direction": "long",
+        "strategy": "tlt_pullback_1h",
+        "opened_at": "2026-06-30T17:06:18+00:00",
+        "closed_at": null,
+        "hold_seconds": 0,
+        "entry_price": 86.93,
+        "exit_price": null,
+        "stop_loss": 86.62,
+        "take_profit": 95.54,
+        "qty": 1,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": null,
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "Not a decision to grade \u2014 never filled; Alpaca rejected 'unauthorized' (real-money key blocked)."
+        },
+        "model_scores": {},
+        "signal_logic": "tlt_pullback_1h long; blocked at the broker.",
+        "meta": {
+          "setup_type": "tlt_pullback_1h",
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3064,
+        "order_package_id": "pkg-e3ce26aa8da64175",
+        "account": "alpaca_live",
+        "account_class": "real_money",
+        "symbol": "TLT",
+        "direction": "long",
+        "strategy": "tlt_pullback_1h",
+        "opened_at": "2026-06-30T14:18:03+00:00",
+        "closed_at": null,
+        "hold_seconds": 0,
+        "entry_price": 87.09,
+        "exit_price": null,
+        "stop_loss": 86.8,
+        "take_profit": 95.71,
+        "qty": 1,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": null,
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "High-confidence (0.937) real-money setup lost to the auth block \u2014 the cost of the alpaca_live outage."
+        },
+        "model_scores": {},
+        "signal_logic": "tlt_pullback_1h long conf 0.937; broker-rejected unauthorized.",
+        "meta": {
+          "setup_type": "tlt_pullback_1h",
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3056,
+        "order_package_id": "pkg-0a902745f2414b1b",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "AVAXUSDT",
+        "direction": "long",
+        "strategy": "avax_pullback_2h",
+        "opened_at": "2026-06-30T04:14:43+00:00",
+        "closed_at": "2026-06-30T08:25:52+00:00",
+        "hold_seconds": 15069,
+        "entry_price": 6.629,
+        "exit_price": 6.619,
+        "stop_loss": 6.33,
+        "take_profit": 7.285,
+        "qty": 13468.3,
+        "pnl": -134.68,
+        "pnl_percent": -0.15,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "Paper reconciler-orphan (DB-open not on exchange) \u2014 an artifact close, not a strategy exit; excluded from real analytics."
+        },
+        "model_scores": {},
+        "signal_logic": "avax_pullback_2h long conf 0.189.",
+        "meta": {
+          "setup_type": "avax_pullback_2h",
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      }
+    ],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 0,
+      "summarized_trades": 0,
+      "rule": "full-per-trade (since-last) \u2014 0 closed trades in window; the 3 dossiers above are notable in-window real-money rejections + the paper orphan, not closed fills."
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 159,
+        "open": 80,
+        "resolved": 79,
+        "drained": 0
+      },
+      "performance": {
+        "total": 57,
+        "open": 38,
+        "resolved": 19,
+        "drained": 0
+      },
+      "ml": {
+        "total": 58,
+        "open": 23,
+        "resolved": 35,
+        "drained": 0
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "ml",
+        "summary": "Graduate conviction (P4) to drive real-money sizing \u2014 soak-gated + operator-approved (MB-20260616-CONVICTION-P4-SIZING).",
+        "tier": 3
+      },
+      {
+        "source_review": "ml",
+        "summary": "Promote ETH/SOL 15m regime heads shadow\u2192advisory once RG4 soak matures (MB-20260628-REGIME-SOAK-READINESS).",
+        "tier": 3
+      },
+      {
+        "source_review": "performance",
+        "summary": "ict_scalp_5m real-money degrading recent-30d \u2014 decide TUNE/DEMOTE (PB-20260630-ICTSCALP-DEGRADE).",
+        "tier": 3
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "BL-20260627-ALPACA-LIVE-API-UNAUTH",
+        "domain": "health",
+        "category": "awaiting-decision",
+        "detail": "alpaca_live real-money key unauthorized + undercapitalized; blocks all alpaca_live go-live.",
+        "since": "2026-06-27",
+        "next_check": "operator verifies LIVE key + funds; test-alpaca-creds api_ok:true"
+      },
+      {
+        "item_id": "MB-20260627-001",
+        "domain": "ml",
+        "category": "awaiting-data",
+        "detail": "A vol-verdict live soak (BTC 15m advisory driving the gate) \u2014 first read was due ~06-30.",
+        "since": "2026-06-27",
+        "next_check": "firm read ~2026-07 as enforce sample grows"
+      },
+      {
+        "item_id": "MB-20260616-CONVICTION-P4-SIZING",
+        "domain": "ml",
+        "category": "soaking",
+        "detail": "conviction-meta-v1 shadow soaking (3255 preds) before graduating to real-money sizing.",
+        "since": "2026-06-16",
+        "next_check": "soak volume + operator go"
+      },
+      {
+        "item_id": "BL-20260628-XA-TRAINING-ZERO",
+        "domain": "ml",
+        "category": "awaiting-data",
+        "detail": "ETH 1h cross-asset head trained on all-zero xa_* cols \u2014 may be learning dead features.",
+        "since": "2026-06-28",
+        "next_check": "alt dataset rebuild carries live xa_* values"
+      },
+      {
+        "item_id": "BL-20260629-INTENT-REDUCE-CHURN-VERIFY",
+        "domain": "health",
+        "category": "verify",
+        "detail": "confirm the intent-reduce partial-close fix stops the open\u2192reconciler-close churn (AVAX/SOL orphans still appearing).",
+        "since": "2026-06-29",
+        "next_check": "no new reconciler orphans over a soak window"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [
+          {
+            "name": "ict_scalp_5m",
+            "gate": "DEMOTE_SHADOW",
+            "evidence": "real-money recent-30d mean-R sharply negative vs prior (PB-20260630-ICTSCALP-DEGRADE) \u2014 TUNE/DEMOTE decision pending; Tier-3."
+          },
+          {
+            "name": "fvg_range_15m (BTCUSDT)",
+            "gate": "KILL",
+            "evidence": "bleeds -41R over 5yr / 272 trades (PB-20260626-003) \u2014 sleeve-level review open."
+          }
+        ],
+        "summary": "No strategy is at a clean PROMOTE gate this window (0 real-money closes to add evidence). Two demote/kill candidates carried from the performance backlog (ict_scalp_5m degrade, fvg_range_15m bleed). M7 matrix over-fires DEMOTE at low n (PB-20260630-002) \u2014 weigh before acting."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 1,
+        "dataset_builds_ok": true,
+        "failing_or_stuck": [
+          {
+            "manifest": "mes-setup-quality / mes-trade-outcome-winrate",
+            "issue": "skipped 'empty_dataset' \u2014 MES setup/outcome training data gap."
+          },
+          {
+            "manifest": "eth-regime-1h cross-asset",
+            "issue": "trained on all-zero xa_* cols (BL-20260628-XA-TRAINING-ZERO)."
+          }
+        ],
+        "summary": "1 trainer cycle in-window (00:51-01:27, rc:0, publish OK) \u2014 healthy and cycling. Gaps: 2 MES manifests skipped empty_dataset; cross-asset ETH head trained on dead xa cols; f1=0 baseline correctly retired shadow\u2192candidate."
+      },
+      "soak_status": [
+        {
+          "soak": "shadow regime heads (BTC/MES/ETH/SOL)",
+          "state": "accruing",
+          "detail": "34 model\u00d7stage rows in shadow_predictions, last_seen 05:04 today; BTC-15m advisory live; ETH/SOL 5m+15m accruing since 06-28."
+        },
+        {
+          "soak": "conviction-meta-v1 (Design-B sizing)",
+          "state": "accruing",
+          "detail": "3255 preds, mean 0.78 \u2014 P4 real-money-sizing gate not yet met/actioned."
+        },
+        {
+          "soak": "A vol-verdict enforce (BTC)",
+          "state": "accruing",
+          "detail": "advisory 15m head driving the gate live; firm read pending as enforce sample grows (MB-20260627-001)."
+        },
+        {
+          "soak": "exit-ladder + allocator runtime soaks",
+          "state": "accruing",
+          "detail": "unavailable: log_file relay for exit_ladder_soak/allocator_soak did not return this run (queue backlog); shadow-ML soaks confirmed accruing as the proxy."
+        }
+      ],
+      "flags_raised": [
+        "REAL-MONEY DOWN: alpaca_live rejects every order ('unauthorized') + undercapitalized ($150) \u2014 the real-money book cannot trade on Alpaca (BL-20260627, operator hand-off).",
+        "IB GATEWAY DEGRADED: ib_paper MGC/MES orders 'dry_run_no_order_placed'; the exchange_positions probe hung ~18min \u2014 futures execution likely blind.",
+        "DIAG_BASE_URL points at the terminated micro (fixed in-repo PR #5252; env-var repoint is the operator hand-off).",
+        "Reconciler orphan artifacts (paper AVAX -$134, prop SOL BUG-049) \u2014 self-heal working but churn persists (verify BL-20260629)."
+      ],
+      "account_reachability": {
+        "checked": [
+          "bybit_2",
+          "bybit_1",
+          "alpaca_live",
+          "alpaca_paper",
+          "alpaca_options_paper",
+          "ib_paper"
+        ],
+        "down": [
+          {
+            "account_id": "alpaca_live",
+            "exchange": "alpaca",
+            "evidence": "5 real-money order attempts in window all rejected: TLT/SLV 'Alpaca rejected order: unauthorized' (LIVE key rejected by api.alpaca.markets) + QQQ risk_refused sized_qty=0 balance=$150.",
+            "remediation": "operator: verify ALPACA_API_KEY_ID_LIVE/SECRET are the funded LIVE account keys (not paper) + fund >= $2k; re-run sync-vm-secrets + test-alpaca-creds (BL-20260627)."
+          },
+          {
+            "account_id": "ib_paper",
+            "exchange": "interactive_brokers",
+            "evidence": "MGC mgc_trend_1h orders repeatedly 'dry_run_no_order_placed' through the window; exchange_positions diag probe hung ~18min (IB timeout).",
+            "remediation": "investigate the IB gateway session on the gateway VM; vm-ib-gateway-recover if wedged (perennial gateway-reset wedge class)."
+          }
+        ],
+        "summary": "6 declared-live probeable accounts checked. 2 not trading: alpaca_live (real-money \u2014 LIVE key unauthorized + undercapitalized) and ib_paper (IB gateway session likely wedged). bybit_1/bybit_2/alpaca_paper up (crypto + paper equity flowing). Definitive exchange_positions broker-truth pending \u2014 the relay probe hung (itself consistent with the IB gateway degradation)."
+      },
+      "backlog_drive": {
+        "health": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "BL-20260629-DEVNULL-*",
+              "reason": "infra source-fix on the live VM \u2014 needs a system-action, not a doc edit; out of scope for a web-session report on a fix branch."
+            },
+            {
+              "id": "BL-20260627-ALPACA-LIVE-API-UNAUTH",
+              "reason": "Tier-3 operator hand-off (broker key/funding) \u2014 surfaced as priority #1."
+            }
+          ]
+        },
+        "performance": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "PB-20260630-ICTSCALP-DEGRADE",
+              "reason": "Tier-3 strategy decision (TUNE/DEMOTE) \u2014 needs operator + more closes."
+            },
+            {
+              "id": "PB-20260630-002/003",
+              "reason": "requires config/analysis PR to main; not stackable on this fix branch."
+            }
+          ]
+        },
+        "ml": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "MB-20260627-001",
+              "reason": "awaiting-data (enforce soak maturing)."
+            },
+            {
+              "id": "MB-20260628-REGIME-SOAK-READINESS",
+              "reason": "soaking \u2014 heads not yet at RG4."
+            }
+          ]
+        },
+        "summary": "Backlogs triaged, 0 items code-drained this run: the system-review contract forbids src/config edits, and the actionable items need dedicated PRs to main (this session is confined to the stale-diag-url fix branch) or are Tier-3 operator/soak/data-gated. Each open top item is surfaced in operator_priorities or monitoring rather than silently counted."
+      }
+    }
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260701T052400Z/report.json",
+    "html_path": "comms/reports/since-last/20260701T052400Z/report.html",
+    "md_path": "comms/reports/since-last/20260701T052400Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260701T052400Z/report.html",
+    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260701-052400-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "pending-pings.jsonl",
+    "priority": "high",
+    "message": "[system-report:since-last] roll-up caution: H:caution P:caution M:healthy. Real-money DOWN (alpaca_live unauthorized) + IB gw wedged."
+  }
+}

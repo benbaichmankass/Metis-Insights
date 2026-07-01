@@ -1,0 +1,168 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-07-01T05:24:00+00:00 · window 2026-06-30T06:16:11+00:00 → 2026-07-01T05:24:00+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>~23h window, system core green (services up, mem 12%, deploy current, trainer cycled rc:0, shadow soaks accruing). But the real-money book is idle: alpaca_live rejects every order &#x27;unauthorized&#x27;+undercapitalized and ib_paper futures aren&#x27;t executing (IB gateway likely wedged). 0 real-money closed trades.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>alpaca_live (real money) cannot trade — LIVE Alpaca key unauthorized + undercapitalized</b> <span class="pill">cross · T3</span> ⚠️ operator<br><span class='muted'>5 real-money attempts in window all rejected: TLT/SLV &#x27;Alpaca rejected order: unauthorized&#x27; + QQQ risk_refused sized_qty=0 balance=$150. Operator: verify ALPACA_API_KEY_ID_LIVE/SECRET are the funded LIVE-account keys (not paper), fund &gt;= $2k, re-run sync-vm-secrets + test-alpaca-creds. Tracked BL-20260627-ALPACA-LIVE-API-UNAUTH.</span></li>
+<li><b>IB gateway session likely wedged — ib_paper MGC/MES futures not executing</b> <span class="pill">health · T2</span><br><span class='muted'>ib_paper MGC (mgc_trend_1h) orders repeatedly &#x27;dry_run_no_order_placed&#x27; through the window; the exchange_positions diag probe itself hung ~18min (consistent with an IB timeout). Investigate the gateway VM session; vm-ib-gateway-recover if wedged.</span></li>
+<li><b>DIAG_BASE_URL still points at the terminated micro (this session&#x27;s fix)</b> <span class="pill">cross · T1</span> ⚠️ operator<br><span class='muted'>Session env var = http://158.178.210.252:8001 (dead). Repo sweep fixed (PR #5252, notebook template). Operator: set DIAG_BASE_URL=http://141.145.193.91:8001 in the web-env config (note: raw IP:port egress is proxy-dropped, so the relay stays the working path).</span></li>
+<li><b>Orphan artifacts: paper AVAX (-$134) + prop SOL (BUG-049)</b> <span class="pill">health · T1</span><br><span class='muted'>Reconciler self-heal is working (close-on-disappear) but produced a paper AVAX orphan and a never-executed prop SOL package. No real money. Watch INTENT-REDUCE-CHURN-VERIFY (BL-20260629).</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">80 open / 159 total</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">38 open / 57 total</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">23 open / 58 total</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>ml</span> Graduate conviction (P4) to drive real-money sizing — soak-gated + operator-approved (MB-20260616-CONVICTION-P4-SIZING).</li>
+<li><span class='pill'>ml</span> Promote ETH/SOL 15m regime heads shadow→advisory once RG4 soak matures (MB-20260628-REGIME-SOAK-READINESS).</li>
+<li><span class='pill'>performance</span> ict_scalp_5m real-money degrading recent-30d — decide TUNE/DEMOTE (PB-20260630-ICTSCALP-DEGRADE).</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>Real-money is idle across BOTH real venues for different reasons: alpaca_live (auth/funding) and bybit_2 (no qualifying setup closed). Only paper/demo flow is active — the review can&#x27;t grade real-money decisions until at least one real venue can fill.</li>
+<li>The exchange_positions reachability probe hanging ~18min is not just a relay nuisance — it corroborates the ib_paper &#x27;dry_run&#x27; evidence that the IB gateway session is degraded.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>services</td><td class="muted"> —</td><td>—</td></tr>
+<tr><td>heartbeat</td><td class="muted"> —</td><td>—</td></tr>
+<tr><td>resources</td><td class="muted"> —</td><td>—</td></tr>
+<tr><td>account_reachability</td><td class="muted"> —</td><td>—</td></tr>
+<tr><td>reconciler</td><td class="muted"> —</td><td>—</td></tr>
+<tr><td>pipeline</td><td class="muted"> —</td><td>—</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$0.00</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-134.68</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">1</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-134.68</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>avax_pullback_2h</td><td>1</td><td>0.0%</td><td class="neg">$-134.68</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">—</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">0 full dossiers, 0 summarized (full-per-trade (since-last) — 0 closed trades in window; the 3 dossiers above are notable in-window real-money rejections + the paper orphan, not closed fills.).</p>
+<details><summary><span class="pill real">real_money</span> TLT long · tlt_pullback_1h · <span class="">—</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3068</div><div class="k">account</div><div>alpaca_live</div><div class="k">opened</div><div>2026-06-30T17:06:18+00:00</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>86.93</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>86.62</div><div class="k">target</div><div>95.54</div><div class="k">qty</div><div>1</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>tlt_pullback_1h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>tlt_pullback_1h long; blocked at the broker.</div><div class="k">grade rationale</div><div>Not a decision to grade — never filled; Alpaca rejected &#x27;unauthorized&#x27; (real-money key blocked).</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> TLT long · tlt_pullback_1h · <span class="">—</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3064</div><div class="k">account</div><div>alpaca_live</div><div class="k">opened</div><div>2026-06-30T14:18:03+00:00</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>87.09</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>86.8</div><div class="k">target</div><div>95.71</div><div class="k">qty</div><div>1</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>tlt_pullback_1h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>tlt_pullback_1h long conf 0.937; broker-rejected unauthorized.</div><div class="k">grade rationale</div><div>High-confidence (0.937) real-money setup lost to the auth block — the cost of the alpaca_live outage.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> AVAXUSDT long · avax_pullback_2h · <span class="neg">$-134.68</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3056</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-06-30T04:14:43+00:00</div><div class="k">closed</div><div>2026-06-30T08:25:52+00:00</div><div class="k">hold (s)</div><div>15069</div><div class="k">entry</div><div>6.629</div><div class="k">exit</div><div>6.619</div><div class="k">stop</div><div>6.33</div><div class="k">target</div><div>7.285</div><div class="k">qty</div><div>13468.3</div><div class="k">pnl %</div><div>-0.15</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>avax_pullback_2h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>avax_pullback_2h long conf 0.189.</div><div class="k">grade rationale</div><div>Paper reconciler-orphan (DB-open not on exchange) — an artifact close, not a strategy exit; excluded from real analytics.</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay).</td></tr>
+<tr><td>ETHUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay).</td></tr>
+<tr><td>SOLUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay).</td></tr>
+<tr><td>MGC</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay).</td></tr>
+<tr><td>TLT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay).</td></tr>
+<tr><td>SPY</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay).</td></tr>
+<tr><td>QQQ</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay).</td></tr>
+<tr><td>SLV</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>unavailable: /api/bot/candles is outside /api/diag/* (not reachable via the web-session relay).</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟢 healthy</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>btc-regime-15m-lgbm-v2</td><td>advisory</td><td>—</td><td>—</td><td>—</td><td>LIVE advisory head driving the BTC vol-gate; 391 advisory preds, last 05:01 today — actively influencing.</td></tr>
+<tr><td>eth-regime-5m/15m-lgbm-v1 · sol-regime-5m/15m-lgbm-v1</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>multi-symbol regime soaks, first_seen 2026-06-28, actively accruing (ETH-5m 873 / SOL-5m 814) — soak→advisory readiness re-check per MB-20260628-REGIME-SOAK-READINESS.</td></tr>
+<tr><td>conviction-meta-v1</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>conviction lens soaking (3255 preds, mean 0.78) — P4 real-money-sizing gate (MB-20260616-CONVICTION-P4) still soak-gated.</td></tr>
+<tr><td>eth-regime-1h-lgbm-xasset-v1</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>cross-asset ETH head soaking (568) — but BL-20260628-XA-TRAINING-ZERO flags its training xa_* cols were all-zeros; verify it isn&#x27;t learning on dead features.</td></tr>
+<tr><td>trade-outcome-winrate-baseline-v0</td><td>candidate</td><td>—</td><td>—</td><td>—</td><td>f1=0 degenerate baseline retired shadow→candidate 2026-06-30 (MB-20260623-003, operator-approved) — actioned.</td></tr>
+</table></div>
+<h3>Promotion / demotion recommendations (Tier-3)</h3><ul class='pri'>
+<li>— <b>btc-regime advisory heads</b> —→—: —</li>
+<li>— <b>eth/sol-15m regime heads</b> —→—: —</li>
+</ul>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li>DEMOTE_SHADOW <b>ict_scalp_5m</b> — real-money recent-30d mean-R sharply negative vs prior (PB-20260630-ICTSCALP-DEGRADE) — TUNE/DEMOTE decision pending; Tier-3.</li>
+<li>KILL <b>fvg_range_15m (BTCUSDT)</b> — bleeds -41R over 5yr / 272 trades (PB-20260626-003) — sleeve-level review open.</li>
+<li class='muted'>No strategy is at a clean PROMOTE gate this window (0 real-money closes to add evidence). Two demote/kill candidates carried from the performance backlog (ict_scalp_5m degrade, fvg_range_15m bleed). M7 matrix over-fires DEMOTE at low n (PB-20260630-002) — weigh before acting.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">1</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">True</div></div>
+</div>
+<p class='muted'>1 trainer cycle in-window (00:51-01:27, rc:0, publish OK) — healthy and cycling. Gaps: 2 MES manifests skipped empty_dataset; cross-asset ETH head trained on dead xa cols; f1=0 baseline correctly retired shadow→candidate.</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>shadow regime heads (BTC/MES/ETH/SOL)</td><td>accruing</td><td>34 model×stage rows in shadow_predictions, last_seen 05:04 today; BTC-15m advisory live; ETH/SOL 5m+15m accruing since 06-28.</td></tr>
+<tr><td>conviction-meta-v1 (Design-B sizing)</td><td>accruing</td><td>3255 preds, mean 0.78 — P4 real-money-sizing gate not yet met/actioned.</td></tr>
+<tr><td>A vol-verdict enforce (BTC)</td><td>accruing</td><td>advisory 15m head driving the gate live; firm read pending as enforce sample grows (MB-20260627-001).</td></tr>
+<tr><td>exit-ladder + allocator runtime soaks</td><td>accruing</td><td>unavailable: log_file relay for exit_ladder_soak/allocator_soak did not return this run (queue backlog); shadow-ML soaks confirmed accruing as the proxy.</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 REAL-MONEY DOWN: alpaca_live rejects every order (&#x27;unauthorized&#x27;) + undercapitalized ($150) — the real-money book cannot trade on Alpaca (BL-20260627, operator hand-off).</li><li>🚩 IB GATEWAY DEGRADED: ib_paper MGC/MES orders &#x27;dry_run_no_order_placed&#x27;; the exchange_positions probe hung ~18min — futures execution likely blind.</li><li>🚩 DIAG_BASE_URL points at the terminated micro (fixed in-repo PR #5252; env-var repoint is the operator hand-off).</li><li>🚩 Reconciler orphan artifacts (paper AVAX -$134, prop SOL BUG-049) — self-heal working but churn persists (verify BL-20260629).</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>BL-20260627-ALPACA-LIVE-API-UNAUTH</code></td><td>health</td><td>🗳️ awaiting-decision</td><td>alpaca_live real-money key unauthorized + undercapitalized; blocks all alpaca_live go-live.</td><td>operator verifies LIVE key + funds; test-alpaca-creds api_ok:true</td></tr>
+<tr><td><code>MB-20260627-001</code></td><td>ml</td><td>🧱 awaiting-data</td><td>A vol-verdict live soak (BTC 15m advisory driving the gate) — first read was due ~06-30.</td><td>firm read ~2026-07 as enforce sample grows</td></tr>
+<tr><td><code>MB-20260616-CONVICTION-P4-SIZING</code></td><td>ml</td><td>⏳ soaking</td><td>conviction-meta-v1 shadow soaking (3255 preds) before graduating to real-money sizing.</td><td>soak volume + operator go</td></tr>
+<tr><td><code>BL-20260628-XA-TRAINING-ZERO</code></td><td>ml</td><td>🧱 awaiting-data</td><td>ETH 1h cross-asset head trained on all-zero xa_* cols — may be learning dead features.</td><td>alt dataset rebuild carries live xa_* values</td></tr>
+<tr><td><code>BL-20260629-INTENT-REDUCE-CHURN-VERIFY</code></td><td>health</td><td>🔁 verify</td><td>confirm the intent-reduce partial-close fix stops the open→reconciler-close churn (AVAX/SOL orphans still appearing).</td><td>no new reconciler orphans over a soak window</td></tr>
+</table></div>
+<footer>report_id RPT-20260701-052400-since-last · reviewer claude · prior RPT-20260630-061611-since-last · ICT Trading Bot system-report</footer></div></body></html>

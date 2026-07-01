@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260701-052400-since-last",
+      "window": "since-last",
+      "generated_at": "2026-07-01T05:24:00+00:00",
+      "window_start": "2026-06-30T06:16:11+00:00",
+      "window_end": "2026-07-01T05:24:00+00:00",
+      "roll_up_grade": "caution",
+      "headline": "~23h window, system core green (services up, mem 12%, deploy current, trainer cycled rc:0, shadow soaks accruing). But the real-money book is idle: alpaca_live rejects every order 'unauthorized'+undercapitalized and ib_paper futures aren't executing (IB gateway likely wedged). 0 real-money closed trades.",
+      "html_path": "comms/reports/since-last/20260701T052400Z/report.html",
+      "json_path": "comms/reports/since-last/20260701T052400Z/report.json",
+      "md_path": "comms/reports/since-last/20260701T052400Z/report.md"
+    },
+    {
       "id": "RPT-20260630-061611-since-last",
       "window": "since-last",
       "generated_at": "2026-06-30T06:16:11Z",
