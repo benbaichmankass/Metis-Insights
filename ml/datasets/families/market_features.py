@@ -77,6 +77,17 @@ Knobs (all kwargs):
   T0.1) are populated; when omitted they emit `0.0` (default-preserving). Meant
   for the "does a learned representation lift a boosting head?" A/B; harmless on
   any symbol.
+- `forecast_path` (path, default None) — optional directory holding a
+  pretrained-TSFM quantile-forecast side-stream (`data.jsonl`, rows `{ts,
+  fc_ret_med, fc_range_rel, fc_up_prob, fc_skew, fc_q10_rel, fc_q90_rel}`,
+  produced by `scripts/ml/build_forecasts.py` from the target `market_raw`).
+  Each row derives from a frozen Chronos-Bolt forecast of the next bar's price
+  quantiles over the bar's trailing close window, in log-return space vs the last
+  close — **past-only** by the producer, so this builder only as-of carries each
+  column forward onto the bars. When given, the TSFM forecast columns (M19 T0.4)
+  are populated; when omitted they emit `0.0` (default-preserving). Meant for the
+  "does an off-the-shelf probabilistic forecast lift a boosting head?" A/B;
+  harmless on any symbol.
 
 ## Schema
 
@@ -164,6 +175,7 @@ from ..funding_oi_features import (
 )
 from ..cross_asset_features import CROSS_ASSET_FEATURE_COLUMNS
 from ..embedding_features import EMBEDDING_FEATURE_COLUMNS
+from ..forecast_features import FORECAST_FEATURE_COLUMNS
 from ..macro_features import MACRO_FEATURE_COLUMNS
 from ..metadata import LeakageStatus
 from ..labeling.trend_regime import efficiency_ratio, trend_regime_label
@@ -360,11 +372,16 @@ class MarketFeaturesBuilder(DatasetBuilder):
     # (`tsfm_emb_0..N`) — populated from the optional `embedding_path`
     # side-stream (a frozen Chronos-Bolt encoder embedding, mean-pooled +
     # seeded-random-projected, past-only by the producer), 0.0 when it is
-    # absent. Earlier baselines that only read `vol_bucket` /
+    # absent. v11 (M19 T0.4): adds the pretrained-TSFM quantile-forecast features
+    # (`fc_ret_med` / `fc_range_rel` / `fc_up_prob` / `fc_skew` / `fc_q10_rel` /
+    # `fc_q90_rel`) — populated from the optional `forecast_path` side-stream (a
+    # frozen Chronos-Bolt forecast of the next bar's price quantiles, converted to
+    # log-return space vs the last close, past-only by the producer), 0.0 when it
+    # is absent. Earlier baselines that only read `vol_bucket` /
     # `rolling_log_return_vol` are unaffected by the wider schema;
     # builder_version is metadata-only (it does not gate dataset path
     # resolution).
-    builder_version: ClassVar[str] = "v10"
+    builder_version: ClassVar[str] = "v11"
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.PASSED
     label_version: ClassVar[str] = "regime-3class-v1"
     schema: ClassVar[Mapping[str, type]] = {
@@ -431,6 +448,13 @@ class MarketFeaturesBuilder(DatasetBuilder):
         # is supplied. Leakage-safe by construction (see embedding_features.py
         # § cadence + leakage discipline).
         **{col: float for col in EMBEDDING_FEATURE_COLUMNS},
+        # Pretrained-TSFM quantile-forecast features (M19 T0.4). As-of carried
+        # from the optional `forecast_path` side-stream (a frozen Chronos-Bolt
+        # forecast of the next bar's price quantiles, converted to log-return
+        # space vs the last close, past-only by the producer) — 0.0 on every row
+        # when no `forecast_path` is supplied. Leakage-safe by construction (see
+        # forecast_features.py § cadence + leakage discipline).
+        **{col: float for col in FORECAST_FEATURE_COLUMNS},
         "hour_of_day": int,
         "dayofweek": int,
         "log_return_lag_1": float,
@@ -466,6 +490,7 @@ class MarketFeaturesBuilder(DatasetBuilder):
         macro_path: Path | str | None = None,
         cross_asset_path: Path | str | None = None,
         embedding_path: Path | str | None = None,
+        forecast_path: Path | str | None = None,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         if vol_window_n < 2:
@@ -605,6 +630,26 @@ class MarketFeaturesBuilder(DatasetBuilder):
                         for r in emb_rows
                     ]
                     emb_aligned[col] = _align_asof(bar_ts, emb_ts, vals)
+
+        # Pretrained-TSFM quantile-forecast side-stream (M19 T0.4), as-of aligned
+        # onto the bars. The producer emits a forecast row at (possibly strided)
+        # bars, each derived from the forecast of the trailing close window ending
+        # at that bar (past-only); we carry each column forward so a bar sees only
+        # the most recent PAST forecast. All-`None` (→ feature 0.0) when no
+        # `forecast_path` is given.
+        fc_aligned: dict[str, list[float | None]] = {
+            col: [None] * n for col in FORECAST_FEATURE_COLUMNS
+        }
+        if forecast_path is not None:
+            fc_rows = _load_funding_oi_rows(Path(forecast_path))
+            if fc_rows:
+                fc_ts = [str(r.get("ts", "")) for r in fc_rows]
+                for col in FORECAST_FEATURE_COLUMNS:
+                    vals = [
+                        (float(r[col]) if r.get(col) is not None else None)
+                        for r in fc_rows
+                    ]
+                    fc_aligned[col] = _align_asof(bar_ts, fc_ts, vals)
 
         log_returns: list[float | None] = [None] * n
         for i in range(1, n):
@@ -750,6 +795,10 @@ class MarketFeaturesBuilder(DatasetBuilder):
                 **{
                     col: _finite_or_zero(emb_aligned[col][i])
                     for col in EMBEDDING_FEATURE_COLUMNS
+                },
+                **{
+                    col: _finite_or_zero(fc_aligned[col][i])
+                    for col in FORECAST_FEATURE_COLUMNS
                 },
                 "hour_of_day": int(hour_of_day),
                 "dayofweek": int(dayofweek),
