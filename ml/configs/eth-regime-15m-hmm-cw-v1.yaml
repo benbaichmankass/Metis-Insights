@@ -1,0 +1,50 @@
+# M19 T0.2 — ETH generalization of the class-weighted Gaussian-HMM regime
+# classifier (the deciding follow-up after the BTC salvage rescued the HMM to
+# near-parity with the LightGBM tree head). Mirrors btc-regime-15m-hmm-cw-v1 onto
+# ETHUSDT 15m (dataset v521, which already carries the vol estimators +
+# regime_label), balanced class-weighted state->label projection. A/B vs
+# eth-regime-15m-lgbm-base-pcv on the SAME dataset + purged-CV. The question:
+# does the class-weighted HMM's near-parity with the tree head hold on a second
+# symbol (as the T0.4 fc lift generalized to ETH), or was BTC a one-off?
+# Candidate/offline — refused by the live shadow factory, never order-influencing.
+manifest_version: v1
+model_id: eth-regime-15m-hmm-cw-v1
+description: "M19 T0.2 — ETH generalization of the class-weighted (balanced) Gaussian-HMM regime classifier; 3-state HMM over yang_zhang_vol + rolling_log_return_vol with inverse-frequency label projection, ETHUSDT 15m. A/B vs eth-regime-15m-lgbm-base-pcv to test whether the BTC near-parity generalizes. Candidate/offline — never order-influencing."
+model_family: classification_hmm
+trainer: ml.trainers.causal_hmm_regime.CausalHMMRegimeTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - yang_zhang_vol
+    - rolling_log_return_vol
+  n_states: 3
+  n_em_iter: 50
+  seed: 42
+  time_column: ts
+  transition_smoothing: 1.0
+  label_smoothing: 1.0
+  label_projection_class_weight: balanced
+  symbol: ETHUSDT
+  timeframe: 15m
+dataset:
+  family: market_features
+  symbol_scope: ETHUSDT
+  timeframe: 15m
+  version: v521
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: purged_walk_forward
+  time_column: ts
+  n_folds: 5
+  min_train_fraction: 0.5
+  label_horizon: 5
+  embargo_fraction: 0.01
+target_deployment_stage: candidate
+notes: |
+  M19 T0.2 ETH generalization. Candidate/offline — never order-influencing.
+  Mirrors btc-regime-15m-hmm-cw-v1 (balanced label-projection class weighting) onto
+  ETH v521. Filtered forward-only posterior; leakage gate forbids
+  forward_log_return / forward_log_return_vol / regime_label. Compare vs
+  eth-regime-15m-lgbm-base-pcv on the SAME dataset + split — if the HMM-cw holds
+  near-parity here too, it's a genuine cross-symbol ensemble/alternative candidate.
