@@ -699,18 +699,41 @@ def _fetch_balance(
 
 
 def _fetch_linear_available_balance(client: Any) -> Optional[float]:
-    """Return USDT availableToWithdraw for a Bybit UNIFIED linear-perp account.
+    """Return the trading-available margin (USD) for a Bybit UNIFIED account.
 
-    This is the exact free collateral Bybit will allow for new-position
-    initial margin — more accurate than balance × leverage × buffer because
-    it reflects existing open positions consuming margin. Returns None on
-    any error so the caller can fall back gracefully.
+    Reads the **account-level ``totalAvailableBalance``** — Bybit V5's
+    "available balance for new positions" figure
+    (``totalMarginBalance − haircut − totalInitialMargin``). It already nets
+    out the initial margin consumed by existing positions AND open orders, so
+    it is exactly the collateral the exchange will allow toward a NEW order's
+    initial margin (the sizer multiplies it by leverage to get max notional).
+
+    History (BL-20260701-BYBIT-AVAILABLE-FIELD): this previously read the
+    per-coin USDT ``availableToWithdraw``. That was wrong on two counts —
+    (1) ``availableToWithdraw`` is a WITHDRAWAL-eligibility figure (funds free
+    to move OFF the exchange), governed by different rules than new-order
+    margin; (2) Bybit **deprecated** per-coin ``availableToWithdraw`` for
+    UNIFIED accounts on 2025-01-09, so it can return a stale/misleading value
+    (on the demo endpoint it reports ≈ the full wallet balance). Sizing against
+    it let the margin pre-flight cap over-permit, and Bybit then rejected the
+    order at submit with ``110007 "ab not enough for new order"``.
+
+    Falls back to the deprecated per-coin ``availableToWithdraw`` ONLY if
+    ``totalAvailableBalance`` is absent (older API shape), then None on any
+    error so the caller degrades to the buffer fallback gracefully.
     """
     try:
         resp = client.get_wallet_balance(accountType="UNIFIED") or {}
         wallet_list = (resp.get("result") or {}).get("list") or [{}]
-        coins = (wallet_list[0] if wallet_list else {}).get("coin", [])
-        for coin in coins:
+        account = wallet_list[0] if wallet_list else {}
+        # Preferred: account-level available-for-trading margin.
+        raw = account.get("totalAvailableBalance")
+        if raw not in (None, "", "null"):
+            return max(0.0, float(raw))
+        # Legacy fallback: per-coin availableToWithdraw (deprecated for UTA
+        # 2025-01-09, but honoured for an old response shape that omits the
+        # account-level field).
+        for coin in account.get("coin", []) or []:
             if (coin.get("coin") or "").upper() == "USDT":
                 raw = coin.get("availableToWithdraw")
                 if raw not in (None, "", "null"):

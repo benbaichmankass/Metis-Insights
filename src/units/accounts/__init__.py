@@ -120,6 +120,12 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
             name=name,
             exchange=cfg.get("exchange", "bybit"),
             api_key_env=api_key_env,
+            # Companion secret env-var NAME — forwarded so the coordinator's
+            # execution/management account_cfg can carry it into
+            # alpaca_client_for and pair a per-account live KEY with its live
+            # SECRET (BL-20260701-ALPACA-LIVE-SECRET-ENV). None → the factory
+            # falls back to the shared default secret env.
+            api_secret_env=cfg.get("api_secret_env"),
             risk_manager=rm,
             account_type=account_type,
             # Preserve the None / [] distinction so the coordinator can

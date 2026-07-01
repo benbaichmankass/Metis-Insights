@@ -1092,6 +1092,17 @@ class Coordinator:
                 "account_id": account.name,
                 "exchange": account.exchange,
                 "api_key_env": account.api_key_env,
+                # Companion secret env-var NAME. WITHOUT this, alpaca_client_for
+                # falls back to the shared default secret (ALPACA_API_SECRET_KEY)
+                # for an account that names its OWN pair (alpaca_live →
+                # ALPACA_API_SECRET_KEY_LIVE): the resulting live-key +
+                # paper-secret mismatch makes Alpaca 401 "unauthorized" on
+                # every order, while the balance-snapshot read path (built from
+                # the raw YAML, which carries both) still authenticates — the
+                # "reads OK, orders unauthorized" split. Same failure CLASS as
+                # BL-20260628-ALPACA-LIVE-HOST (that one plumbed alpaca_env;
+                # this plumbs the secret env). BL-20260701-ALPACA-LIVE-SECRET-ENV.
+                "api_secret_env": getattr(account, "api_secret_env", None),
                 "risk_pct": account.risk_manager.risk_pct,
                 "min_qty": account.risk_manager.min_qty,
                 "qty_precision": account.risk_manager.qty_precision,
