@@ -82,10 +82,22 @@ class TradingAccount:
         base_url: Optional[str] = None,
         oanda_env: Optional[str] = None,
         symbols: Optional[List[str]] = None,
+        api_secret_env: Optional[str] = None,
     ) -> None:
         self.name = name
         self.exchange = exchange
         self.api_key_env = api_key_env     # env var name, not the actual key
+        # Companion secret env-var NAME (not the value). Load-bearing for
+        # accounts that name their OWN key pair — e.g. alpaca_live points at
+        # ALPACA_API_KEY_ID_LIVE / ALPACA_API_SECRET_KEY_LIVE so it can run
+        # concurrently with the paper account. MUST be forwarded into the
+        # execution/management account_cfg so alpaca_client_for pairs the live
+        # KEY with the live SECRET; without it the client falls back to the
+        # shared paper secret (ALPACA_API_SECRET_KEY) → live-key+paper-secret
+        # mismatch → Alpaca 401 "unauthorized" on every order while READS
+        # (built from the raw YAML, which has both) still succeed
+        # (BL-20260701-ALPACA-LIVE-SECRET-ENV).
+        self.api_secret_env: Optional[str] = api_secret_env
         self.risk_manager = risk_manager
         self.account_type = account_type
         self.dry_run = dry_run             # default safe; toggle via Telegram

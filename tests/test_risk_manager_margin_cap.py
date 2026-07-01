@@ -9,8 +9,12 @@ per-trade refusal Telegram with a verbatim reason instead of an
 exchange-side error that the (now-deleted) breaker would have used
 to flip the account to dry_run.
 
-Two ceiling modes:
-  live figure  — available_usd (availableToWithdraw from Bybit UNIFIED API)
+Two ceiling modes (both carry _MARGIN_SAFETY_BUFFER since
+BL-20260701-BYBIT-AVAILABLE-FIELD — the live path used to size to 100%
+of the exchange figure, leaving no room for fees / IM rounding):
+  live figure  — available_usd × leverage × _MARGIN_SAFETY_BUFFER
+                 (account-level totalAvailableBalance from Bybit UNIFIED,
+                  or Alpaca/OANDA broker buying power)
   buffer       — balance × leverage × _MARGIN_SAFETY_BUFFER (fallback)
 """
 from __future__ import annotations
@@ -138,7 +142,7 @@ def test_live_figure_caps_to_available_usd() -> None:
 
     Scenario: $300 balance but only $50 truly free (rest locked in
     open positions). Buffer path would allow: 300 × 3 × 0.9 / 80888 ≈ 0.010.
-    Live-figure path should cap to: 50 × 3 / 80888 ≈ 0.001.
+    Live-figure path should cap to: 50 × 3 × 0.9 / 80888 ≈ 0.001.
     """
     rm = RiskManager({
         "risk_pct": 0.02,
@@ -153,7 +157,7 @@ def test_live_figure_caps_to_available_usd() -> None:
     qty_live = rm.position_size(pkg, balance_usd=300.0, available_usd=50.0)
     qty_buffer = rm.position_size(pkg, balance_usd=300.0, available_usd=None)
 
-    expected_live = math.floor((50.0 * 3 / 80888.0) * 1000) / 1000
+    expected_live = math.floor((50.0 * 3 * _MARGIN_SAFETY_BUFFER / 80888.0) * 1000) / 1000
     assert qty_live == expected_live, f"live-figure cap: expected {expected_live}, got {qty_live}"
     assert qty_live < qty_buffer, "live figure (less free margin) must cap lower than buffer"
 
@@ -188,7 +192,7 @@ def test_live_figure_no_op_when_risk_qty_already_fits() -> None:
     })
     pkg = _pkg(entry=80000.0, sl=79900.0)
     qty = rm.position_size(pkg, balance_usd=10000.0, available_usd=10000.0)
-    max_by_margin = (10000.0 * 3) / 80000.0
+    max_by_margin = (10000.0 * 3 * _MARGIN_SAFETY_BUFFER) / 80000.0
     assert qty <= max_by_margin, "qty must never exceed the live-figure ceiling"
     assert qty > 0.0, "must not refuse with ample available margin"
 

@@ -116,3 +116,70 @@ def test_alpaca_client_dials_live_host_for_live_account(accounts_yaml: str, monk
     client = alpaca_client_for(cfg)
     assert client is not None
     assert client.base_url == "https://api.alpaca.markets"
+
+
+# ---------------------------------------------------------------------------
+# BL-20260701-ALPACA-LIVE-SECRET-ENV — the companion secret env-var NAME must
+# survive loading AND be forwarded into the execution/close account_cfg. If it
+# is dropped, alpaca_client_for pairs the LIVE key with the SHARED PAPER secret
+# (ALPACA_API_SECRET_KEY) → Alpaca 401 "unauthorized" on every ORDER while the
+# balance READ path (built from the raw YAML, which has both) still succeeds.
+# ---------------------------------------------------------------------------
+
+
+def test_production_loader_carries_api_secret_env(accounts_yaml: str):
+    """load_accounts() must persist the account's own secret env-var name."""
+    from src.units.accounts import load_accounts
+
+    by_name = {a.name: a for a in load_accounts(accounts_yaml)}
+    assert by_name["alpaca_live"].api_secret_env == "ALPACA_API_SECRET_KEY_LIVE"
+    # The paper account declares none → None → alpaca_client_for falls back to
+    # the shared ALPACA_API_SECRET_KEY, which is correct for it.
+    assert by_name["alpaca_paper"].api_secret_env is None
+
+
+def test_live_account_client_uses_live_secret_not_paper(accounts_yaml: str, monkeypatch):
+    """End-to-end: a client built the way the coordinator/monitor build it —
+    forwarding ``api_secret_env`` off the account — must resolve the LIVE
+    secret, never the shared paper secret. This is the exact reads-OK /
+    orders-unauthorized bug.
+    """
+    monkeypatch.setenv("ALPACA_API_KEY_ID_LIVE", "AKLIVEKEY")
+    monkeypatch.setenv("ALPACA_API_SECRET_KEY_LIVE", "LIVE_SECRET_VALUE")
+    # The shared paper secret — DISTINCT — must NOT be what the live client uses.
+    monkeypatch.setenv("ALPACA_API_SECRET_KEY", "PAPER_SECRET_VALUE")
+    monkeypatch.delenv("ALPACA_ENV", raising=False)
+
+    from src.units.accounts import load_accounts
+    from src.units.accounts.clients import alpaca_client_for
+
+    acct = {a.name: a for a in load_accounts(accounts_yaml)}["alpaca_live"]
+    # Build the cfg exactly as coordinator.multi_account_execute /
+    # order_monitor now do — forward api_secret_env off the account object.
+    cfg = {
+        "exchange": acct.exchange,
+        "alpaca_env": acct.alpaca_env,
+        "api_key_env": acct.api_key_env,
+        "api_secret_env": getattr(acct, "api_secret_env", None),
+    }
+    client = alpaca_client_for(cfg)
+    assert client is not None
+    assert client.api_key == "AKLIVEKEY"
+    assert client.api_secret == "LIVE_SECRET_VALUE", (
+        "live account must pair its live KEY with its live SECRET — pairing the "
+        "shared paper secret is the 401 'unauthorized' bug"
+    )
+
+
+def test_coordinator_account_cfg_forwards_api_secret_env():
+    """The coordinator's execution account_cfg dict must include api_secret_env
+    (a static guard against the field being dropped from the dict again).
+    """
+    import inspect
+    from src.core import coordinator
+
+    src = inspect.getsource(coordinator.Coordinator.multi_account_execute)
+    assert '"api_secret_env"' in src, (
+        "coordinator account_cfg must forward api_secret_env "
+        "(BL-20260701-ALPACA-LIVE-SECRET-ENV)"
+    )

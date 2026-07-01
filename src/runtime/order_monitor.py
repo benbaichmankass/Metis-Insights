@@ -1219,6 +1219,14 @@ def _build_account_client(account_id):
                 "account_id": acc.name,
                 "exchange": acc.exchange,
                 "api_key_env": acc.api_key_env,
+                # Companion secret env-var NAME — the CLOSE/manage-path analogue
+                # of the coordinator fix (BL-20260701-ALPACA-LIVE-SECRET-ENV).
+                # An account that names its own key pair (alpaca_live →
+                # ALPACA_API_SECRET_KEY_LIVE) must pair the live KEY with the
+                # live SECRET here too; without it alpaca_client_for falls back
+                # to the shared paper secret and the close path 401s on a live
+                # account exactly as the entry path did.
+                "api_secret_env": getattr(acc, "api_secret_env", None),
                 # Without this, _bybit_category() in execute.py defaults
                 # to "spot" and the close path sends spot reduceOnly to a
                 # linear account → Bybit 170131. See FU-20260515-001.
@@ -1240,8 +1248,10 @@ def _build_account_client(account_id):
                 "ib_port": getattr(acc, "ib_port", None),
                 "ib_account": getattr(acc, "ib_account", None),
                 "ib_client_id": getattr(acc, "ib_client_id", None),
-                # Optional Alpaca host override (alpaca_client_for reads the
-                # key pair from env directly; these only steer paper vs live).
+                # Optional Alpaca host override (these steer paper vs live;
+                # the KEY/SECRET env-var NAMES ride in api_key_env /
+                # api_secret_env above — alpaca_client_for resolves the values
+                # from those names, so both must be forwarded).
                 "alpaca_env": getattr(acc, "alpaca_env", None),
                 "base_url": getattr(acc, "base_url", None),
                 # Optional OANDA host override (oanda_client_for reads the

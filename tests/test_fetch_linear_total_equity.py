@@ -102,6 +102,8 @@ def test_total_equity_none_on_non_numeric():
 
 
 def test_available_and_total_read_same_response():
+    # Legacy fallback shape (no account-level totalAvailableBalance) →
+    # _fetch_linear_available_balance still parses the per-coin field.
     resp = _resp(
         {"totalEquity": "2000.00"},
         coins=[{"coin": "USDT", "availableToWithdraw": "1500.00"}],
@@ -109,3 +111,38 @@ def test_available_and_total_read_same_response():
     client = _StubBybitClient(resp)
     assert _fetch_linear_available_balance(client) == pytest.approx(1500.00)
     assert _fetch_linear_total_equity(client) == pytest.approx(2000.00)
+
+
+# ---------------------------------------------------------------------------
+# BL-20260701-BYBIT-AVAILABLE-FIELD — the available-margin helper now PREFERS
+# the account-level ``totalAvailableBalance`` (trading-available margin), not
+# the per-coin ``availableToWithdraw`` (deprecated for UTA 2025-01-09 and a
+# withdrawal-eligibility figure, not a new-order-margin figure).
+# ---------------------------------------------------------------------------
+
+
+def test_available_prefers_total_available_balance():
+    # Both present + DIFFERENT → the account-level field wins (the per-coin
+    # withdraw value must be ignored).
+    resp = _resp(
+        {"totalAvailableBalance": "900.00", "totalEquity": "2000.00"},
+        coins=[{"coin": "USDT", "availableToWithdraw": "1500.00"}],
+    )
+    assert _fetch_linear_available_balance(_StubBybitClient(resp)) == pytest.approx(900.00)
+
+
+def test_available_falls_back_to_coin_withdraw_when_account_field_absent():
+    # Account-level field missing → legacy per-coin availableToWithdraw.
+    resp = _resp({"totalEquity": "2000.00"},
+                 coins=[{"coin": "USDT", "availableToWithdraw": "1500.00"}])
+    assert _fetch_linear_available_balance(_StubBybitClient(resp)) == pytest.approx(1500.00)
+
+
+def test_available_floors_at_zero():
+    resp = _resp({"totalAvailableBalance": "-3.0"})
+    assert _fetch_linear_available_balance(_StubBybitClient(resp)) == 0.0
+
+
+def test_available_none_when_neither_field_present():
+    resp = _resp({"totalEquity": "2000.00"}, coins=[{"coin": "BTC"}])
+    assert _fetch_linear_available_balance(_StubBybitClient(resp)) is None

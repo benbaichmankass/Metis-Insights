@@ -619,11 +619,12 @@ class RiskManager:
         be OPENED with the account's available margin. Two paths:
 
         Live figure (``available_usd`` is not None — linear-perp
-        accounts where the coordinator fetched ``availableToWithdraw``
-        from the Bybit UNIFIED API):
+        accounts where the coordinator fetched the account-level
+        ``totalAvailableBalance`` (trading-available margin) from the
+        Bybit UNIFIED API, or Alpaca/OANDA broker buying power):
 
-            max_qty_by_margin = (available_usd * effective_leverage)
-                                 / package.entry
+            max_qty_by_margin = (available_usd * effective_leverage *
+                                 _MARGIN_SAFETY_BUFFER) / package.entry
 
         Buffer fallback (``available_usd`` is None — spot accounts,
         dry-run, or any fetch failure). The basis is ``total_account_usd``
@@ -637,8 +638,12 @@ class RiskManager:
                                  _MARGIN_SAFETY_BUFFER) / package.entry
 
         The live figure is more accurate because it reflects existing
-        open positions consuming margin. The buffer fallback is always
-        present so there is a ceiling even when the exchange call fails.
+        open positions + open orders consuming margin. Both paths carry
+        ``_MARGIN_SAFETY_BUFFER`` so the sized notional stays just inside
+        the margin the venue will actually grant (leaving headroom for
+        fees / IM rounding — BL-20260701-BYBIT-AVAILABLE-FIELD). The
+        buffer fallback is always present so there is a ceiling even when
+        the exchange call fails.
         When the risk-based qty exceeds ``max_qty_by_margin``, qty is
         floor-rounded down to fit. When even min_qty would exceed the
         ceiling, the sizer returns 0.0 — the executor sees a per-trade
@@ -777,7 +782,20 @@ class RiskManager:
         effective_leverage = self.leverage if self.leverage > 0 else 1
         if market_type != "futures" and package.entry > 0:
             if available_usd is not None:
-                max_qty_by_margin = (available_usd * effective_leverage) / package.entry
+                # Apply the same _MARGIN_SAFETY_BUFFER as the fallback path
+                # (BL-20260701-BYBIT-AVAILABLE-FIELD). Sizing to 100% of the
+                # exchange's available-margin figure leaves no headroom for
+                # taker fees, initial-margin rounding, or a small
+                # available-vs-actual skew — so an order sized right at the
+                # ceiling can still trip Bybit ``110007 "ab not enough"`` at
+                # submit. The buffer keeps the sized notional just inside the
+                # margin the venue will actually grant. (For Alpaca/OANDA,
+                # available_usd is already-leveraged broker buying power with
+                # effective_leverage=1, so this only makes the cap slightly
+                # more conservative — never over-permissive.)
+                max_qty_by_margin = (
+                    available_usd * effective_leverage * _MARGIN_SAFETY_BUFFER
+                ) / package.entry
             else:
                 # Buffer fallback. Prefer total account equity
                 # (``total_account_usd``) over free ``balance_usd`` as the
