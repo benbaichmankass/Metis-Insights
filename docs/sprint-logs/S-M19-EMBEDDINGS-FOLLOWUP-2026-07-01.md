@@ -77,13 +77,19 @@ feedstock.
 - `pytest tests/ml/test_conviction_meta_family.py` → 12 passed (3 new); ruff clean.
 - End-to-end pipeline validated: the conviction as-of join populated all 99 BTC
   rows with real embeddings (`nonzero_emb 99`).
-- **Production-threshold regime A/B (vol_threshold=0.005, purged-CV):** dispatched
-  on the trainer (rebuild BTC-15m `market_features` at the shipped-head threshold
-  0.005 + embeddings, base vs emb under purged walk-forward CV) as the go/no-go
-  number for the Option-D promotion path. The T0.1 lift is already established at
-  0.003 (purged-CV, multi-symbol); this confirms it transfers to the production
-  threshold. Result feeds the shadow-promotion decision, not the wiring — reported
-  separately when the run lands.
+- **Production-threshold regime A/B (vol_threshold=0.005, purged-CV) — RAN, THRESHOLD-SENSITIVE:**
+  rebuilt BTC-15m `market_features` at the shipped-head threshold 0.005 (4.6%
+  volatile base rate, all 175,272 rows embedded) + trained base vs emb under
+  purged walk-forward CV. **The lift largely evaporates at production:**
+  macro_f1 base 0.5908 → emb 0.6029 (**Δ +0.012**, vs +0.052 at 0.003);
+  f1_volatile 0.2417 → 0.2415 (**flat**). What survives: volatile *precision*
+  0.161 → 0.201 (+25% rel) traded for recall 0.507 → 0.312, and accuracy
+  0.889 → 0.932. **Go/no-go: the macro-F1 case for promoting THIS head is weak at
+  the production threshold** — a hard gate benefits marginally (higher volatile
+  precision = fewer wrongly-suppressed trades) but not enough to justify the
+  Option-D live-parity build on this evidence alone. **Follow-up dispatched:** a
+  `vol_threshold` sweep (0.004/0.006/0.007, + the existing 0.003/0.005) to map
+  where the lift lives before deciding promote-vs-pivot.
 
 ## Documentation Updated
 - This sprint log; three research evidence/design docs (above).
@@ -113,11 +119,15 @@ instead of the synced `data/` copy), and a dataset-version format bug
 - ETH/BTC-1h embedding regime heads at production threshold (BTC-15m done here).
 
 ## Next Recommended Sprint
-Build the **Option-D mirror-publish path** (Track A): a scheduled trainer job that
-embeds the latest window per live symbol and publishes `tsfm_emb_*` via
-`trainer_mirror/`, plus the live per-bar-scorer reader + a parity test — then
-promote the production-threshold BTC-15m embedding regime head `candidate →
-shadow` (operator gate) and soak.
+**Characterize the embedding lift before committing to the live-parity build** —
+the production-threshold result made this the priority. Run the `vol_threshold`
+sweep (0.004/0.006/0.007) + a second symbol to map where the lift lives; if a
+production-relevant configuration shows a robust lift, THEN build the Option-D
+mirror-publish path (scheduled trainer job publishing `tsfm_emb_*` via
+`trainer_mirror/` + the live per-bar-scorer reader + a parity test) and promote
+that head `candidate → shadow` (operator gate). If the sweep confirms the lift is
+research-threshold-specific, **pivot** to T0.2 (unsupervised regime discovery) or
+T0.4 (quantile-forecast features) instead.
 
 ## Wrap-Up Check
 All work offline/`candidate`; no live-path change. Three PRs (#5295, #5299,
