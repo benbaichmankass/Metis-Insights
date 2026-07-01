@@ -208,6 +208,10 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # M15 Phase 4 ETF legs — sole strategy per symbol, value 0.
     "spy_trend_long_1d": 0,
     "qqq_trend_long_1d": 0,
+    # Leveraged Nasdaq-100 ETF trend cells (2026-06-30) — TQQQ (3x) + QLD (2x),
+    # sole strategy per symbol, value 0 mirrors the other ETF legs.
+    "tqqq_trend_long_1d": 0,
+    "qld_trend_long_1d": 0,
     "gld_pullback_1d": 0,
     # ETF-breadth daily sweep (2026-06-20) — IWM small-cap trend + TLT/IEF bond
     # pullback on alpaca_paper. Each is sole on its symbol, value 0 mirrors the

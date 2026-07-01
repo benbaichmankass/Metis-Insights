@@ -153,6 +153,8 @@ def test_run_checks_strategies_match_roster():
         "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d",
         "xauusd_trend_1h", "mgc_trend_1h",
         "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
+        # Leveraged Nasdaq-100 ETF trend cells (2026-06-30, Tier-3) — TQQQ 3x + QLD 2x:
+        "tqqq_trend_long_1d", "qld_trend_long_1d",
         # ETF-breadth daily sweep (2026-06-20, Tier-3) — 3 new daily-ETF cells:
         "iwm_trend_long_1d", "tlt_pullback_1d", "ief_pullback_1d",
         # Intraday ETF pilot (2026-06-20 § 0e, Tier-3) — 2 new INTRADAY ETF cells:

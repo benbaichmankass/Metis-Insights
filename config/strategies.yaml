@@ -1196,6 +1196,55 @@ strategies:
     min_confidence: 0.0
     shadow_model_ids: []
 
+  tqqq_trend_long_1d:
+    # TQQQ (3x Nasdaq-100) daily LONG-ONLY trend-follower — leveraged sibling of
+    # qqq_trend_long_1d, same trend_donchian unit + params. PROVENANCE: leveraged-ETF
+    # research 2026-06-30 — backtested on the ACTUAL TQQQ price series (embeds the
+    # daily-rebalance decay + ~0.95% expense ratio): net +13.8R OOS 2019-2026,
+    # paper_ready, 2x-fee headroom, BEAT the QQQ cell (the Donchian trend filter
+    # sidesteps the high-vol chop where leveraged decay bites). alpaca_paper (PAPER
+    # money), bracket orders, US-session gate. Tier-3 paper soak; alpaca_live
+    # promotion held for operator + account_compat_matrix gate.
+    # docs/research/leveraged-etf-research-2026-06-30.md
+    model: null
+    signal_prefixes: [tqqq_trend_long, tqqq_trend]
+    enabled: true
+    execution: live
+    long_only: true
+    timeframe: "1d"
+    symbols:
+      - TQQQ
+    donchian: 30
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 4.0
+    tp_r: 50.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  qld_trend_long_1d:
+    # QLD (2x Nasdaq-100) daily LONG-ONLY trend-follower — 2x sibling of
+    # tqqq_trend_long_1d (lower decay than 3x). Same trend_donchian unit + params.
+    # PROVENANCE: leveraged-ETF research 2026-06-30 — net +12.7R OOS 2019-2026 on
+    # the actual QLD price series, paper_ready, 2x-fee headroom. alpaca_paper (PAPER
+    # money), US-session gate. Tier-3 paper soak; alpaca_live promotion held for
+    # operator. docs/research/leveraged-etf-research-2026-06-30.md
+    model: null
+    signal_prefixes: [qld_trend_long, qld_trend]
+    enabled: true
+    execution: live
+    long_only: true
+    timeframe: "1d"
+    symbols:
+      - QLD
+    donchian: 30
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 4.0
+    tp_r: 50.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
   iwm_trend_long_1d:
     # IWM daily LONG-ONLY trend-follower — a new cell in the daily-ETF family
     # (same logic as spy_trend_long_1d / qqq_trend_long_1d, the trend_donchian
