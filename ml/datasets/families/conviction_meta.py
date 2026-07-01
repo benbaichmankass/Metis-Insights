@@ -68,7 +68,9 @@ from src.runtime.conviction_inputs import build_conviction_inputs
 from src.runtime.local_pnl import canon_direction
 
 from ..builder import DatasetBuilder
+from ..embedding_features import EMBEDDING_FEATURE_COLUMNS, _finite_or_zero
 from ..metadata import LeakageStatus
+from .market_features import _align_asof, _load_funding_oi_rows
 
 # Lens-input feature columns produced by build_conviction_inputs. c_strat is
 # always present; the head slots are present only when a matching head scored
@@ -121,7 +123,11 @@ def _context_from(meta: Mapping[str, Any], signal_logic: Mapping[str, Any]) -> d
 
 class ConvictionMetaBuilder(DatasetBuilder):
     family: ClassVar[str] = "conviction_meta"
-    builder_version: ClassVar[str] = "v1"
+    # v2 (M19 T0.3): adds the optional pretrained-TSFM embedding block
+    # (`tsfm_emb_0..31`, as-of joined from an `embedding_path` side-stream). The
+    # columns are ALWAYS present (0.0 when no `embedding_path` given), so the v1
+    # manifest — which never lists them in `feature_columns` — is unaffected.
+    builder_version: ClassVar[str] = "v2"
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.SKIPPED
     label_version: ClassVar[str] = "won-from-pnl-v1"
     schema: ClassVar[Mapping[str, type]] = {
@@ -141,6 +147,8 @@ class ConvictionMetaBuilder(DatasetBuilder):
         "c_setup": float,
         "c_wr": float,
         "c_reg": float,
+        # optional pretrained-TSFM embedding block (as-of; 0.0 when absent)
+        **{col: float for col in EMBEDDING_FEATURE_COLUMNS},
         # raw decision signal (kept for provenance; NOT a feature — leakage-safe)
         "confidence": float,
         # outcomes / labels
@@ -159,6 +167,7 @@ class ConvictionMetaBuilder(DatasetBuilder):
         r_cap: float = 3.0,
         strategy_name: str | None = None,
         symbol: str | None = None,
+        embedding_path: Path | str | None = None,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         if risk_pct <= 0:
@@ -217,6 +226,7 @@ class ConvictionMetaBuilder(DatasetBuilder):
                 params.append(symbol)
             sql += " ORDER BY t.id ASC"
 
+            payloads: list[dict[str, Any]] = []
             for row in conn.execute(sql, params):
                 pnl = row["pnl"]
                 if pnl is None:
@@ -272,6 +282,42 @@ class ConvictionMetaBuilder(DatasetBuilder):
                 for col in _LENS_COLUMNS:
                     if col in lens_inputs:
                         payload[col] = float(lens_inputs[col])
-                yield payload
+                payloads.append(payload)
         finally:
             conn.close()
+
+        # Attach the optional pretrained-TSFM embedding block (M19 T0.3),
+        # as-of joined per `created_at` from a single-symbol side-stream. When
+        # `embedding_path` is absent (or empty) every row gets a neutral 0.0
+        # block — byte-for-byte the v1 feature space plus 32 inert columns the
+        # v1 manifest never selects. The side-stream is single-symbol, so a
+        # manifest using it MUST scope the build to one `symbol=` (otherwise a
+        # non-target symbol's rows would carry-forward the wrong embedding).
+        yield from _attach_embeddings(payloads, embedding_path)
+
+
+def _attach_embeddings(
+    payloads: list[dict[str, Any]], embedding_path: Path | str | None
+) -> Iterator[Mapping[str, Any]]:
+    emb_rows = (
+        _load_funding_oi_rows(Path(embedding_path)) if embedding_path is not None else []
+    )
+    if not emb_rows:
+        for payload in payloads:
+            for col in EMBEDDING_FEATURE_COLUMNS:
+                payload[col] = 0.0
+            yield payload
+        return
+
+    # As-of (past-only) carry-forward per created_at. `_load_funding_oi_rows`
+    # returns ts-ascending; sort the decisions by created_at so the join is
+    # monotonic (they arrive id-ordered, which is only approximately time-ordered).
+    emb_ts = [str(r.get("ts", "")) for r in emb_rows]
+    payloads.sort(key=lambda p: str(p.get("created_at", "")))
+    bar_ts = [str(p.get("created_at", "")) for p in payloads]
+    for col in EMBEDDING_FEATURE_COLUMNS:
+        vals = [(float(r[col]) if r.get(col) is not None else None) for r in emb_rows]
+        aligned = _align_asof(bar_ts, emb_ts, vals)
+        for payload, value in zip(payloads, aligned):
+            payload[col] = _finite_or_zero(value)
+    yield from payloads
