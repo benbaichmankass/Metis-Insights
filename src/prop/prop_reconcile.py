@@ -53,13 +53,14 @@ def match_fill_to_ticket(fill: Dict[str, Any]) -> Optional[str]:
     direction = str(fill.get("direction") or "").lower()
     candidates = prop_journal.list_tickets(account_id=account_id, limit=200)
     for t in candidates:
-        # "Open" = awaiting a fill report. Beyond emitted/filled this now
-        # includes the ticket-expiry-prompt states (expiry_prompted →
-        # awaiting_report): when the operator answers "yes, I placed it" the
-        # ticket sits at awaiting_report until they paste the details, and that
-        # inbound fill must still link back to it.
+        # "Open" = awaiting a fill report. Beyond emitted/filled this includes
+        # the working-order `placed` state (a limit order on the terminal whose
+        # later fill/close must link back to it) AND the ticket-expiry-prompt
+        # states (expiry_prompted → awaiting_report): when the operator answers
+        # "yes, I placed it" the ticket sits at awaiting_report until they paste
+        # the details, and that inbound fill must still link back to it.
         if t.get("status") not in (
-            "emitted", "filled", "expiry_prompted", "awaiting_report"
+            "emitted", "placed", "filled", "expiry_prompted", "awaiting_report"
         ):
             continue
         if symbol and str(t.get("symbol") or "").upper() != symbol:

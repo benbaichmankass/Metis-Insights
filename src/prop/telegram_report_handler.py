@@ -74,7 +74,7 @@ def resolve_open_ticket(account_id: str, canonical_symbol: str) -> Tuple[
     for t in tickets:  # list_tickets is newest-first
         if str(t.get("symbol", "")).upper() != sym:
             continue
-        if t.get("status") not in ("emitted", "filled"):
+        if t.get("status") not in ("emitted", "placed", "filled"):
             continue
         return t.get("direction"), t.get("ticket_id")
     return None, None

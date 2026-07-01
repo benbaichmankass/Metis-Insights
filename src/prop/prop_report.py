@@ -8,8 +8,17 @@ report shapes (auto-detected, or set explicitly via ``kind``):
 - **fill / close** (``kind="fill"``) — a ticket was placed and/or closed on the
   Breakout terminal. Journaled to ``prop_fills``, linked to its outbound ticket,
   and (when ``status="closed"``) fires the ``prop_closed`` notification — the
-  trade-close follow-up the operator was missing. An ``status="open"`` fill
-  fires ``prop_fill``.
+  trade-close follow-up the operator was missing. An ``status="open"`` /
+  ``"filled"`` fill fires ``prop_fill``.
+
+  **``status="placed"`` (a working order that has NOT filled yet)** is distinct
+  from ``open``/``filled`` (a position that is actually live). A limit / pending
+  order placed on the terminal but not yet tripped holds no position and has no
+  P&L, so it advances the ticket to ``placed`` (NOT ``filled``) and fires **no**
+  fill notification — the trade isn't open. When the limit later trips the
+  operator reports ``open``/``filled`` and the ticket moves on to ``filled``.
+  Lifecycle: ``emitted → [placed] → filled → closed`` (the ``placed`` step is
+  optional — a market fill goes straight to ``filled``).
 - **account status** (``kind="account_status"``) — balance / equity / day P&L /
   drawdown snapshot. Journaled to ``prop_account_status`` and surfaced on the
   dashboard's rule-distance panel.
@@ -27,7 +36,7 @@ from src.prop import prop_journal, prop_reconcile
 
 logger = logging.getLogger(__name__)
 
-_FILL_STATUSES = {"open", "filled", "closed", "skipped"}
+_FILL_STATUSES = {"placed", "open", "filled", "closed", "skipped"}
 
 
 def _infer_kind(report: Dict[str, Any]) -> str:
@@ -117,16 +126,24 @@ def ingest_report(report: Dict[str, Any]) -> Dict[str, Any]:
 
     row_id = prop_journal.insert_fill(fill)
 
-    # Advance the matched ticket's lifecycle (best-effort).
+    # Advance the matched ticket's lifecycle (best-effort). `placed` is the
+    # working-order state (limit/pending order on the terminal, not yet filled)
+    # and must NOT collapse into `filled` — that's the bug this separates.
     if fill.get("ticket_id"):
         try:
-            new_status = "closed" if status == "closed" else (
-                "skipped" if status == "skipped" else "filled")
+            new_status = (
+                "closed" if status == "closed"
+                else "skipped" if status == "skipped"
+                else "placed" if status == "placed"
+                else "filled")
             prop_journal.set_ticket_status(fill["ticket_id"], new_status)
         except Exception as exc:  # noqa: BLE001
             logger.warning("prop_report: ticket status update failed: %s", exc)
 
     # Fire the notification (the missing 'second message'). Never fatal.
+    # `placed` fires NOTHING here — a working order that hasn't filled is not a
+    # trade event (no position, no P&L); the fill notification waits for the
+    # actual open/filled report.
     notified = {"push": False, "telegram": False}
     if status in ("open", "filled", "closed"):
         try:
