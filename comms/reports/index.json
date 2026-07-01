@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260701-061000-since-last",
+      "window": "since-last",
+      "generated_at": "2026-07-01T06:10:00+00:00",
+      "window_start": "2026-06-30T06:16:11+00:00",
+      "window_end": "2026-07-01T06:10:00+00:00",
+      "roll_up_grade": "healthy",
+      "headline": "~24h window. Core green + a real-money WIN: bybit_2 BTCUSDT short +$2.86 via TP (graded B). Main flag this session was alpaca_live rejecting every order 'unauthorized' \u2014 DIAGNOSED (VM cached stale creds; keys valid, routing correct, risk fine) and FIXED (sync-vm-secrets + restart, verified authenticates). Remaining: paper reconciler churn (no real money); DIAG_BASE_URL env repoint (operator).",
+      "html_path": "comms/reports/since-last/20260701T061000Z/report.html",
+      "json_path": "comms/reports/since-last/20260701T061000Z/report.json",
+      "md_path": "comms/reports/since-last/20260701T061000Z/report.md"
+    },
+    {
       "id": "RPT-20260630-061611-since-last",
       "window": "since-last",
       "generated_at": "2026-06-30T06:16:11Z",
