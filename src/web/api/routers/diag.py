@@ -1138,3 +1138,84 @@ async def get_exchange_positions(
         "requested_account_id": account_id,
         "accounts": out,
     }
+
+
+@router.get("/broker_account_status")
+async def get_broker_account_status(
+    request: Request,
+    account_id: str | None = None,
+) -> dict[str, Any]:
+    """Read-only **broker account authorization** flags per account — answers
+    *"can this account actually place an order?"*, distinct from whether its
+    creds merely authenticate for reads.
+
+    Added 2026-07-01 (BL-20260701-ALPACA-STATUS-VISIBILITY): when an Alpaca
+    order returned 401/403 ``unauthorized`` while ``/api/bot/accounts/balances``
+    showed ``api_ok:true``, no read path exposed WHY — the balance snapshot only
+    proves ``GET /v2/account`` succeeded, NOT that the account is trade-enabled.
+    This surfaces the account object's authorization flags so a "reads OK,
+    orders blocked" split is one diag call instead of a code trace.
+
+    Currently populated for **Alpaca** accounts (the broker whose account object
+    carries these flags): ``status`` (ACTIVE / restricted), ``trading_blocked``,
+    ``account_blocked``, ``trade_suspended_by_user``, ``transfers_blocked``,
+    ``shorting_enabled``, ``crypto_status``. Other exchanges return
+    ``supported:false`` (no analogous per-account flag set). Per account:
+
+      * ``status_flags`` ``null`` + ``error`` — could-not-read (creds/host/SDK).
+      * ``status_flags`` populated — the broker's live authorization state.
+
+    Opens a brief read-only client per Alpaca account via ``alpaca_client_for``
+    (same factory the executor uses, so it resolves the account's OWN live
+    key+secret pair); places NO order. Tier 1 — read-only, token-gated.
+    """
+    _require_diag_token(request)
+    try:
+        from src.units.ui.data_loaders import list_accounts
+        from src.units.accounts.clients import alpaca_client_for
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        logger.warning("get_broker_account_status: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "loaders_unavailable", "detail": str(exc)},
+        ) from exc
+
+    try:
+        accounts = list_accounts() or []
+    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, empty accounts so the call still answers
+        logger.warning("get_broker_account_status: list_accounts failed: %s", exc)
+        accounts = []
+
+    out: list[dict[str, Any]] = []
+    for acc in accounts:
+        aid = (acc or {}).get("account_id")
+        if account_id and aid != account_id:
+            continue
+        exchange = ((acc or {}).get("exchange") or "").lower()
+        row: dict[str, Any] = {
+            "account_id": aid,
+            "exchange": exchange,
+            "mode": (acc or {}).get("mode"),
+            "account_class": (acc or {}).get("account_class"),
+            "supported": exchange == "alpaca",
+            "status_flags": None,
+            "error": None,
+        }
+        if exchange == "alpaca":
+            try:
+                client = alpaca_client_for(acc)
+                if client is None:
+                    row["error"] = "not_configured"  # creds env unset
+                else:
+                    row["status_flags"] = client.account_status()
+                    if row["status_flags"] is None:
+                        row["error"] = "read_failed"
+            except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row; one account must not fail the call
+                row["error"] = f"{type(exc).__name__}: {exc}"
+                logger.warning("get_broker_account_status: %s raised %s", aid, exc)
+        out.append(row)
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "requested_account_id": account_id,
+        "accounts": out,
+    }
