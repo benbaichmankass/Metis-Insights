@@ -188,3 +188,56 @@ def test_strategy_filter(tmp_path: Path):
 def test_missing_db_raises(tmp_path: Path):
     with pytest.raises(FileNotFoundError):
         _rows(tmp_path / "nope.db")
+
+
+# --- M19 T0.3: optional pretrained-TSFM embedding block ---------------------
+
+from ml.datasets.embedding_features import EMBEDDING_FEATURE_COLUMNS  # noqa: E402
+
+
+def test_embedding_columns_present_and_zero_without_path(tmp_path: Path):
+    db = tmp_path / "trade_journal.db"
+    _make_db(db)
+    rows = _rows(db)
+    assert rows
+    # Every row carries the full 32-col embedding block, all neutral 0.0 (the
+    # v1 feature space is unchanged — v1's manifest never selects these).
+    for r in rows:
+        for col in EMBEDDING_FEATURE_COLUMNS:
+            assert r[col] == 0.0
+
+
+def _stage_emb_sidestream(tmp_path: Path, ts_to_val: dict[str, float]) -> Path:
+    out = tmp_path / "emb" / "BTCUSDT" / "15m" / "v001"
+    out.mkdir(parents=True, exist_ok=True)
+    with (out / "data.jsonl").open("w", encoding="utf-8") as fh:
+        for ts, val in ts_to_val.items():
+            fh.write(json.dumps({"ts": ts, **{c: val for c in EMBEDDING_FEATURE_COLUMNS}}) + "\n")
+    return out
+
+
+def test_embedding_asof_join_when_path_given(tmp_path: Path):
+    db = tmp_path / "trade_journal.db"
+    _make_db(db)
+    # Two embeddings; the live rows are at 01:00 and 02:00. As-of (past-only):
+    # a 00:30 embedding covers the 01:00 row; a 01:30 embedding covers 02:00.
+    emb = _stage_emb_sidestream(
+        tmp_path,
+        {"2026-06-10T00:30:00Z": 0.5, "2026-06-10T01:30:00Z": 0.9},
+    )
+    by_op = {r["order_package_id"]: r for r in _rows(db, embedding_path=emb)}
+    assert by_op["op_live_win"]["tsfm_emb_0"] == pytest.approx(0.5)   # 01:00 -> 00:30
+    assert by_op["op_live_loss"]["tsfm_emb_0"] == pytest.approx(0.9)  # 02:00 -> 01:30
+    # The lens/context features are untouched by the join.
+    assert by_op["op_live_win"]["c_strat"] == pytest.approx(0.62)
+
+
+def test_embedding_asof_is_past_only(tmp_path: Path):
+    db = tmp_path / "trade_journal.db"
+    _make_db(db)
+    # Only a FUTURE embedding (after both live rows) -> nothing is carried,
+    # every row stays neutral 0.0 (a bar never sees a future observation).
+    emb = _stage_emb_sidestream(tmp_path, {"2026-06-10T09:00:00Z": 0.7})
+    rows = _rows(db, embedding_path=emb)
+    for r in rows:
+        assert r["tsfm_emb_0"] == 0.0
