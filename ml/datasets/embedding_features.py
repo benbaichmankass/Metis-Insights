@@ -83,6 +83,17 @@ DEFAULT_STRIDE: int = 4
 DEFAULT_MIN_CONTEXT: int = 8
 DEFAULT_SEED: int = 42
 
+# Reduction of the raw pooled d_model embedding to `out_dim` columns.
+#   "random" — seeded Gaussian random projection (default; data-independent,
+#     leakage-free, dimension-robust, needs no numpy).
+#   "pca"    — principal components fit PAST-ONLY on the oldest
+#     `pca_fit_frac` of the (time-ordered) embeddings, applied forward. Data-
+#     dependent but unsupervised (no label) and past-only, so leakage-safe;
+#     may extract more signal than a random projection (M19 T0.1 follow-up).
+REDUCTIONS: frozenset[str] = frozenset({"random", "pca"})
+DEFAULT_REDUCTION: str = "random"
+DEFAULT_PCA_FIT_FRAC: float = 0.5
+
 
 def _embedding_columns(out_dim: int) -> tuple[str, ...]:
     return tuple(f"tsfm_emb_{i}" for i in range(out_dim))
@@ -148,6 +159,60 @@ def project(vec: Sequence[float], *, out_dim: int, seed: int) -> list[float]:
         for j in range(out_dim):
             out[j] += xi * row[j]
     return [_finite_or_zero(v) for v in out]
+
+
+def _reduce_random(
+    raw_by_k: Sequence[Sequence[float] | None], *, out_dim: int, seed: int
+) -> list[list[float]]:
+    """Independent per-vector seeded random projection (None → zeros)."""
+    return [
+        project(v, out_dim=out_dim, seed=seed) if v is not None else [0.0] * out_dim
+        for v in raw_by_k
+    ]
+
+
+def _reduce_pca(
+    raw_by_k: Sequence[Sequence[float] | None],
+    *,
+    out_dim: int,
+    fit_frac: float,
+) -> list[list[float]]:
+    """PCA reduction fit PAST-ONLY, applied to all vectors (None → zeros).
+
+    ``raw_by_k`` is in time order (oldest first). The PCA basis is fit on the
+    **oldest ``fit_frac``** of the present (non-None) vectors and applied to
+    every vector — so later (eval-fold) rows are transformed by a basis that
+    never saw them (leakage-safe; PCA is unsupervised so there is no label
+    leakage even within the fit slice). Lazy-imports numpy (trainer-side).
+    """
+    result: list[list[float]] = [[0.0] * out_dim for _ in raw_by_k]
+    present_idx = [k for k, v in enumerate(raw_by_k) if v is not None]
+    if not present_idx:
+        return result
+    import numpy as np
+
+    X = np.asarray(
+        [
+            [
+                float(x) if (x is not None and math.isfinite(x)) else 0.0
+                for x in raw_by_k[k]  # type: ignore[index]
+            ]
+            for k in present_idx
+        ],
+        dtype=np.float64,
+    )
+    n_fit = max(1, int(len(present_idx) * fit_frac))
+    mean = X[:n_fit].mean(axis=0)
+    _, _, vt = np.linalg.svd(X[:n_fit] - mean, full_matrices=False)
+    k = min(out_dim, vt.shape[0])
+    comps = vt[:k]  # (k, in_dim)
+    z = (X - mean) @ comps.T  # (n_present, k)
+    if k < out_dim:  # degenerate (fewer components than requested) → zero-pad
+        z = np.hstack([z, np.zeros((z.shape[0], out_dim - k))])
+    z = np.nan_to_num(z, nan=0.0, posinf=0.0, neginf=0.0)
+    for row_i, kk in enumerate(present_idx):
+        result[kk] = [float(v) for v in z[row_i]]
+    return result
 
 
 # --- The lazily-imported real embedder (torch/chronos, trainer-side only) -----
@@ -233,18 +298,25 @@ def compute_embedding_feature_rows(
     min_context: int = DEFAULT_MIN_CONTEXT,
     embed_fn: Callable[[Sequence[Sequence[float]]], list[list[float]]] | None = None,
     batch_size: int = 256,
+    reduction: str = DEFAULT_REDUCTION,
+    pca_fit_frac: float = DEFAULT_PCA_FIT_FRAC,
 ) -> list[dict[str, Any]]:
     """Per-bar TSFM embedding feature rows for a target, keyed at the bar's ts.
 
     ``target_rows`` are ``market_raw``-shaped (``{ts, close, ...}``). For each
     emitted (strided) bar with at least ``min_context`` trailing closes, the
     embedder is run over the trailing ``context_len`` window ending AT that bar
-    (past-only), mean-pooled, and projected to ``out_dim`` columns
+    (past-only), mean-pooled, and reduced to ``out_dim`` columns
     (``tsfm_emb_0 .. tsfm_emb_{out_dim-1}``). Bars with too little history emit
     no row (the as-of join leaves them at the neutral ``0.0`` default).
 
+    ``reduction`` picks how the raw ``d_model`` pooled embedding is reduced:
+    ``"random"`` (seeded random projection, per-vector, leakage-free, default)
+    or ``"pca"`` (principal components fit past-only on the oldest
+    ``pca_fit_frac`` of the time-ordered embeddings, applied forward).
+
     ``embed_fn`` defaults to the real Chronos embedder (lazy); tests inject a
-    stub so the windowing / stride / projection logic runs without torch. Any
+    stub so the windowing / stride / reduction logic runs without torch. Any
     embedder failure on a batch degrades that batch's rows to neutral ``0.0``
     rather than aborting the build — a missing representation must never crash a
     dataset build.
@@ -255,6 +327,10 @@ def compute_embedding_feature_rows(
         raise ValueError(f"out_dim must be >= 1; got {out_dim}")
     if min_context < 1:
         raise ValueError(f"min_context must be >= 1; got {min_context}")
+    if reduction not in REDUCTIONS:
+        raise ValueError(f"reduction must be in {sorted(REDUCTIONS)}; got {reduction!r}")
+    if not (0.0 < pca_fit_frac <= 1.0):
+        raise ValueError(f"pca_fit_frac must be in (0,1]; got {pca_fit_frac}")
 
     tgt = sorted(target_rows, key=lambda r: str(r.get("ts", "")))
     n = len(tgt)
@@ -270,8 +346,10 @@ def compute_embedding_feature_rows(
 
     emit_idx = [i for i in _strided_indices(n, stride) if i + 1 >= min_context]
     cols = _embedding_columns(out_dim)
-    out_rows: list[dict[str, Any]] = []
 
+    # Pass 1: gather the raw pooled embedding per emit index (time-ordered;
+    # None where the window is too short or the embedder failed).
+    raw_by_k: list[list[float] | None] = []
     for start in range(0, len(emit_idx), batch_size):
         batch_idx = emit_idx[start : start + batch_size]
         windows: list[list[float]] = []
@@ -288,18 +366,22 @@ def compute_embedding_feature_rows(
         except Exception:
             raw = None
 
-        for k, i in enumerate(batch_idx):
+        for k, _i in enumerate(batch_idx):
             vec = None
             if raw is not None and k < len(raw) and len(windows[k]) >= min_context:
-                vec = raw[k]
-            projected = (
-                project(vec, out_dim=out_dim, seed=seed)
-                if vec is not None
-                else [0.0] * out_dim
-            )
-            row: dict[str, Any] = {"ts": bar_ts[i]}
-            for j, col in enumerate(cols):
-                row[col] = _finite_or_zero(projected[j])
-            out_rows.append(row)
+                vec = list(raw[k])
+            raw_by_k.append(vec)
 
+    # Pass 2: reduce d_model → out_dim (random per-vector, or past-only PCA).
+    if reduction == "pca":
+        reduced = _reduce_pca(raw_by_k, out_dim=out_dim, fit_frac=pca_fit_frac)
+    else:
+        reduced = _reduce_random(raw_by_k, out_dim=out_dim, seed=seed)
+
+    out_rows: list[dict[str, Any]] = []
+    for k, i in enumerate(emit_idx):
+        row: dict[str, Any] = {"ts": bar_ts[i]}
+        for j, col in enumerate(cols):
+            row[col] = _finite_or_zero(reduced[k][j])
+        out_rows.append(row)
     return out_rows

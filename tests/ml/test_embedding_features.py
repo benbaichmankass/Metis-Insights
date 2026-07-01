@@ -221,3 +221,81 @@ class TestMarketFeaturesIntegration:
         for r in rows:
             for c in EMBEDDING_FEATURE_COLUMNS:
                 assert c in r
+
+
+class TestReduction:
+    """M19 T0.1 follow-up — PCA vs random reduction of the raw pooled embedding."""
+
+    def _rows(self, n=60):
+        return _bar_rows(n)
+
+    def test_invalid_reduction_raises(self):
+        import pytest
+
+        with pytest.raises(ValueError):
+            compute_embedding_feature_rows(
+                self._rows(20), embed_fn=_stub_embed(), reduction="nope"
+            )
+
+    def test_invalid_pca_fit_frac_raises(self):
+        import pytest
+
+        for bad in (0.0, 1.5, -0.1):
+            with pytest.raises(ValueError):
+                compute_embedding_feature_rows(
+                    self._rows(20), embed_fn=_stub_embed(),
+                    reduction="pca", pca_fit_frac=bad,
+                )
+
+    def test_random_reduction_is_the_default(self):
+        rows = self._rows(30)
+        a = compute_embedding_feature_rows(
+            rows, context_len=8, stride=4, min_context=8, embed_fn=_stub_embed()
+        )
+        b = compute_embedding_feature_rows(
+            rows, context_len=8, stride=4, min_context=8, embed_fn=_stub_embed(),
+            reduction="random",
+        )
+        assert a == b
+
+    def test_pca_reduction_shape_and_determinism(self):
+        import pytest
+
+        pytest.importorskip("numpy")
+        # A varying stub embedder (per-window content) so PCA has real structure.
+        def _varying(windows):
+            out = []
+            for w in windows:
+                s = float(sum(w))
+                out.append([s, s * 0.5, -s, len(w) * 1.0, s * s * 1e-3, 1.0, 2.0, 3.0])
+            return out
+
+        rows = self._rows(80)
+        kw = dict(context_len=8, stride=2, min_context=8, out_dim=4,
+                  embed_fn=_varying, reduction="pca", pca_fit_frac=0.5)
+        a = compute_embedding_feature_rows(rows, **kw)
+        b = compute_embedding_feature_rows(rows, **kw)
+        assert a == b, "PCA reduction must be deterministic"
+        assert a, "PCA reduction should emit rows"
+        cols = tuple(f"tsfm_emb_{i}" for i in range(4))
+        for r in a:
+            assert set(r) == {"ts", *cols}
+        # PCA on a non-degenerate varying signal should yield some non-zero output.
+        assert any(any(r[c] != 0.0 for c in cols) for r in a)
+
+    def test_pca_embedder_failure_is_neutral(self):
+        import pytest
+
+        pytest.importorskip("numpy")
+
+        def _boom(windows):
+            raise RuntimeError("no torch")
+
+        out = compute_embedding_feature_rows(
+            self._rows(30), context_len=8, stride=4, min_context=8,
+            embed_fn=_boom, reduction="pca",
+        )
+        assert out
+        assert all(
+            all(r[c] == 0.0 for c in EMBEDDING_FEATURE_COLUMNS) for r in out
+        )

@@ -1,0 +1,89 @@
+# M19 T0.1 confirm: ETHUSDT 15m regime head base+TSFM-emb under PURGED walk-forward CV (dataset v003).
+manifest_version: v1
+model_id: eth-regime-15m-lgbm-emb-pcv-v1
+description: 'M19 T0.1 confirm: ETHUSDT 15m regime head base+TSFM-emb under PURGED
+  walk-forward CV (dataset v003).'
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+  - vol_bucket
+  - rolling_log_return_vol
+  - log_return
+  - log_return_lag_1
+  - log_return_lag_2
+  - hour_of_day
+  - dayofweek
+  - tsfm_emb_0
+  - tsfm_emb_1
+  - tsfm_emb_2
+  - tsfm_emb_3
+  - tsfm_emb_4
+  - tsfm_emb_5
+  - tsfm_emb_6
+  - tsfm_emb_7
+  - tsfm_emb_8
+  - tsfm_emb_9
+  - tsfm_emb_10
+  - tsfm_emb_11
+  - tsfm_emb_12
+  - tsfm_emb_13
+  - tsfm_emb_14
+  - tsfm_emb_15
+  - tsfm_emb_16
+  - tsfm_emb_17
+  - tsfm_emb_18
+  - tsfm_emb_19
+  - tsfm_emb_20
+  - tsfm_emb_21
+  - tsfm_emb_22
+  - tsfm_emb_23
+  - tsfm_emb_24
+  - tsfm_emb_25
+  - tsfm_emb_26
+  - tsfm_emb_27
+  - tsfm_emb_28
+  - tsfm_emb_29
+  - tsfm_emb_30
+  - tsfm_emb_31
+  categorical_columns:
+  - vol_bucket
+  - hour_of_day
+  - dayofweek
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  sample_weight:
+    half_life_days: 60
+    time_column: ts
+  class_weight:
+    range: 1.0
+    volatile: 28.0
+dataset:
+  family: market_features
+  symbol_scope: ETHUSDT
+  timeframe: 15m
+  version: v003
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: purged_walk_forward
+  time_column: ts
+  n_folds: 5
+  min_train_fraction: 0.5
+  label_horizon: 5
+  embargo_fraction: 0.01
+target_deployment_stage: candidate
+notes: "M19 T0.1 confirm: ETHUSDT 15m regime head base+TSFM-emb under PURGED walk-forward\
+  \ CV (dataset v003).\nM19 T0.1 follow-up. Candidate/offline \u2014 never order-influencing.\
+  \ Leakage gate forbids forward_log_return / forward_log_return_vol / regime_label.\n"

@@ -41,11 +41,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from ml.datasets.embedding_features import (  # noqa: E402
     DEFAULT_CONTEXT_LEN,
     DEFAULT_MIN_CONTEXT,
+    DEFAULT_PCA_FIT_FRAC,
+    DEFAULT_REDUCTION,
     DEFAULT_SEED,
     DEFAULT_STRIDE,
     EMBEDDING_DIM,
     EMBEDDING_FEATURE_COLUMNS,
     EMBEDDING_MODEL_ID,
+    REDUCTIONS,
     chronos_embed_fn,
     compute_embedding_feature_rows,
     embed_available,
@@ -84,6 +87,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out-dim", type=int, default=EMBEDDING_DIM)
     ap.add_argument("--min-context", type=int, default=DEFAULT_MIN_CONTEXT)
     ap.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    ap.add_argument("--reduction", choices=sorted(REDUCTIONS), default=DEFAULT_REDUCTION,
+                    help="how to reduce the raw d_model embedding to --out-dim "
+                         "(random projection, or past-only PCA).")
+    ap.add_argument("--pca-fit-frac", type=float, default=DEFAULT_PCA_FIT_FRAC,
+                    help="PCA reduction: fraction of the oldest embeddings to fit "
+                         "the basis on (past-only). Only used when --reduction pca.")
     args = ap.parse_args(argv)
 
     if not embed_available():
@@ -111,6 +120,8 @@ def main(argv: list[str] | None = None) -> int:
         seed=args.seed,
         min_context=args.min_context,
         embed_fn=chronos_embed_fn(args.model_id),
+        reduction=args.reduction,
+        pca_fit_frac=args.pca_fit_frac,
     )
 
     args.out.mkdir(parents=True, exist_ok=True)
@@ -129,6 +140,8 @@ def main(argv: list[str] | None = None) -> int:
         "out_dim": args.out_dim,
         "min_context": args.min_context,
         "seed": args.seed,
+        "reduction": args.reduction,
+        "pca_fit_frac": args.pca_fit_frac,
         "row_count": len(rows),
         "source": "tsfm_embeddings_from_market_raw",
         "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
