@@ -1,0 +1,120 @@
+# M19 T0.1 — LightGBM regime classifier, BTCUSDT @ 15m, WITH frozen-TSFM
+# embedding features. The treatment leg of the T0.1 A/B: identical to
+# btc-regime-15m-lgbm-v2 (the advisory baseline) EXCEPT it adds the
+# `tsfm_emb_0..31` columns (a frozen amazon/chronos-bolt-tiny encoder embedding,
+# mean-pooled + seeded-random-projected, past-only). The A/B question: does a
+# pretrained learned representation lift regime discrimination vs hand-engineered
+# features alone?
+#
+# Stays at `candidate` (offline only) — refused by the live shadow factory, so it
+# never influences an order and the Chronos/torch dep stays TRAINER-side. Promotion
+# to shadow (which needs the embedding computed live for train==live parity, hence
+# the dep on the live VM) is a separate, operator-gated follow-up.
+#
+# A/B pairing (both purged-CV, same split, same window):
+#   baseline  = btc-regime-15m-lgbm-v2      (dataset v002 — base features only)
+#   treatment = btc-regime-15m-lgbm-emb-v1  (dataset v003 — base + tsfm_emb_*)
+# The base feature columns are identical regardless of `embedding_path`, so the
+# v2 head on v002 is the honest control. Build v003 with the embedding side-stream:
+#   python -m scripts.ml.build_embeddings --target <btc_15m_market_raw> \
+#     --out datasets-out/embeddings/BTCUSDT/15m/v001 --context-len 64 --stride 4
+#   python -m ml build-dataset market_features --output-dir datasets-out \
+#     --version v003 --source <btc_15m_market_raw> --symbol-scope BTCUSDT \
+#     --timeframe 15m --overwrite market_raw_path=<btc_15m_market_raw> \
+#     embedding_path=datasets-out/embeddings/BTCUSDT/15m/v001 \
+#     vol_window_n=20 forward_window_m=5
+#   python -m ml train ml/configs/btc-regime-15m-lgbm-emb-v1.yaml
+#   python -m ml compare btc-regime-15m-lgbm-v2 btc-regime-15m-lgbm-emb-v1
+
+manifest_version: v1
+model_id: btc-regime-15m-lgbm-emb-v1
+description: "M19 T0.1 — v2 LightGBM regime classifier for BTCUSDT 15m WITH frozen chronos-bolt-tiny embedding features (tsfm_emb_0..31). A/B treatment leg vs btc-regime-15m-lgbm-v2 to test whether a pretrained learned representation adds regime edge. Candidate/offline — never order-influencing."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+    # Frozen-TSFM embedding block (M19 T0.1) — the ONLY change vs
+    # btc-regime-15m-lgbm-v2. 32 numeric columns from chronos-bolt-tiny.
+    - tsfm_emb_0
+    - tsfm_emb_1
+    - tsfm_emb_2
+    - tsfm_emb_3
+    - tsfm_emb_4
+    - tsfm_emb_5
+    - tsfm_emb_6
+    - tsfm_emb_7
+    - tsfm_emb_8
+    - tsfm_emb_9
+    - tsfm_emb_10
+    - tsfm_emb_11
+    - tsfm_emb_12
+    - tsfm_emb_13
+    - tsfm_emb_14
+    - tsfm_emb_15
+    - tsfm_emb_16
+    - tsfm_emb_17
+    - tsfm_emb_18
+    - tsfm_emb_19
+    - tsfm_emb_20
+    - tsfm_emb_21
+    - tsfm_emb_22
+    - tsfm_emb_23
+    - tsfm_emb_24
+    - tsfm_emb_25
+    - tsfm_emb_26
+    - tsfm_emb_27
+    - tsfm_emb_28
+    - tsfm_emb_29
+    - tsfm_emb_30
+    - tsfm_emb_31
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  sample_weight:
+    half_life_days: 60
+    time_column: ts
+  class_weight:
+    range: 1.0
+    volatile: 28.0
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 15m
+  version: v003
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: candidate
+notes: |
+  M19 T0.1 embedding A/B treatment leg. Candidate/offline — never order-
+  influencing; the shadow factory refuses candidate. The tsfm_emb_* features
+  are past-only (frozen chronos-bolt-tiny over the trailing close window,
+  mean-pooled + seeded-random-projected — see ml/datasets/embedding_features.py).
+  Leakage gate forbids forward_log_return / forward_log_return_vol / regime_label.
+  Compare against btc-regime-15m-lgbm-v2 under the same purged-CV/holdout split;
+  promote to shadow only if it clears the gate AND the live-parity/live-dep
+  follow-up is approved.
