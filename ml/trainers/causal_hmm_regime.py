@@ -145,6 +145,33 @@ class CausalHMMRegimeTrainer(Trainer):
             j = label_idx.get(lbl)
             if j is not None:
                 counts[:, j] += resp[t]
+        # Optional class weighting of the state->label projection (M19 T0.2
+        # salvage). The unweighted argmax washes out a rare class: at a 4.6%
+        # volatile base rate EVERY state's majority label is `range`, so the HMM
+        # collapses to an all-range classifier. Scaling each label column by a
+        # weight — the direct analogue of the LightGBM head's `class_weight` —
+        # lets a state with *elevated* volatile responsibility map to volatile
+        # even when volatile is the minority. `None` (default) → unchanged;
+        # "balanced" → sklearn inverse-frequency; a dict → explicit per-label
+        # weights. Applied before the row-normalisation so the per-state
+        # distribution still sums to 1.
+        cw_cfg = config.get("label_projection_class_weight")
+        if cw_cfg:
+            if isinstance(cw_cfg, str) and cw_cfg.lower() == "balanced":
+                freq = np.array(
+                    [max(1, labels.count(c)) for c in class_labels], dtype=float
+                )
+                cw = n / (len(class_labels) * freq)
+            elif isinstance(cw_cfg, Mapping):
+                cw = np.array(
+                    [float(cw_cfg.get(c, 1.0)) for c in class_labels], dtype=float
+                )
+            else:
+                cw = np.ones(len(class_labels), dtype=float)
+            counts = counts * cw[None, :]
+            base_state["label_projection_class_weight"] = (
+                cw_cfg if isinstance(cw_cfg, str) else dict(cw_cfg)
+            )
         counts /= counts.sum(axis=1, keepdims=True)
         state_label_proba = [
             {c: float(counts[s, label_idx[c]]) for c in class_labels}

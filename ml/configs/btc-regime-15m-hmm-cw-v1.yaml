@@ -1,0 +1,53 @@
+# M19 T0.2 SALVAGE — class-weighted Causal Gaussian-HMM regime classifier,
+# BTCUSDT @ 15m. Identical to btc-regime-15m-hmm-v1 EXCEPT the state->label
+# projection is `balanced` class-weighted (sklearn inverse-frequency). The plain
+# HMM collapsed to an all-`range` classifier at the sparse 0.005 threshold because
+# its unweighted argmax projection washes out the 4.6% volatile class — the direct
+# analogue of what the LightGBM head fixes with `class_weight: {volatile: 28}`.
+# This manifest tests whether that one mechanism rescues the HMM: a state with
+# ELEVATED volatile responsibility can now map to volatile even when volatile is
+# the minority. A/B vs btc-regime-15m-lgbm-base-pcv + the plain btc-regime-15m-hmm-v1
+# on the SAME dataset + purged-CV, at both 0.005 (v520) and 0.003 thresholds.
+# Candidate/offline — refused by the live shadow factory, never order-influencing.
+manifest_version: v1
+model_id: btc-regime-15m-hmm-cw-v1
+description: "M19 T0.2 salvage — class-weighted (balanced) Gaussian-HMM regime classifier for BTCUSDT 15m; same 3-state HMM as btc-regime-15m-hmm-v1 but the state->label projection is inverse-frequency weighted so the rare volatile class is not washed out by the argmax. Tests whether class weighting rescues the HMM vs the LightGBM head. Candidate/offline — never order-influencing."
+model_family: classification_hmm
+trainer: ml.trainers.causal_hmm_regime.CausalHMMRegimeTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - yang_zhang_vol
+    - rolling_log_return_vol
+  n_states: 3
+  n_em_iter: 50
+  seed: 42
+  time_column: ts
+  transition_smoothing: 1.0
+  label_smoothing: 1.0
+  label_projection_class_weight: balanced
+  symbol: BTCUSDT
+  timeframe: 15m
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 15m
+  version: v520
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: purged_walk_forward
+  time_column: ts
+  n_folds: 5
+  min_train_fraction: 0.5
+  label_horizon: 5
+  embargo_fraction: 0.01
+target_deployment_stage: candidate
+notes: |
+  M19 T0.2 salvage. Candidate/offline — never order-influencing. The only change
+  vs btc-regime-15m-hmm-v1 is `label_projection_class_weight: balanced`
+  (ml/trainers/causal_hmm_regime.py, default off → backward-compatible). Filtered
+  forward-only posterior; leakage gate forbids forward_log_return /
+  forward_log_return_vol / regime_label. Compare vs btc-regime-15m-lgbm-base-pcv
+  (control) + btc-regime-15m-hmm-v1 (unweighted) on the SAME dataset + split. If
+  this still loses to the tree head, T0.2 closes as a documented negative.
