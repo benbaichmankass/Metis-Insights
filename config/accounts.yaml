@@ -134,7 +134,20 @@ accounts:
     market_type: linear                # USDT-margined linear perpetuals — same
                                        # as bybit_2. set-leverage fires at boot
                                        # via _apply_per_account_leverage.
-    strategies: [trend_donchian, turtle_soup, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, fvg_range_15m, htf_pullback_trend_2h, trend_donchian_1h, eth_pullback_2h, trend_donchian_eth_4h, trend_donchian_sol_4h, trend_donchian_xrp_4h, trend_donchian_ada_4h, trend_donchian_avax_4h, sol_pullback_2h, xrp_pullback_2h, ada_pullback_2h, avax_pullback_2h]
+    strategies: [trend_donchian, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, fvg_range_15m, htf_pullback_trend_2h, trend_donchian_1h, eth_pullback_2h, trend_donchian_eth_4h, trend_donchian_sol_4h, trend_donchian_xrp_4h, trend_donchian_ada_4h, trend_donchian_avax_4h, sol_pullback_2h, xrp_pullback_2h, ada_pullback_2h, avax_pullback_2h]
+                                       # turtle_soup DE-ROUTED from bybit_1 2026-07-01
+                                       # (Tier-3, operator-approved): the atr_stop_mult
+                                       # sweep (BTCUSDT 2024-05→2026-05, net 7.5bps) showed
+                                       # EVERY stop net-negative — current 0.30 worst
+                                       # (-66.5%, 67% maxDD), least-bad 2.00 still -11%.
+                                       # No stop makes it profitable; tuning only reduces
+                                       # the bleed. Already dropped from real-money bybit_2
+                                       # (net-negative). Removing it here stops the demo
+                                       # bleed + journal noise. Evidence:
+                                       # runtime_logs/turtle_stop_sweep_20260701_172434 (trainer).
+                                       # SCOPE: bybit_1 (BTC demo) only — turtle_soup on
+                                       # ib_paper (MES futures) is UNTOUCHED (not covered by
+                                       # this BTC sweep). ROLLBACK: re-add `turtle_soup` above.
                                        # 9 alt cells added 2026-06-18 (Tier-3):
                                        # 5 trend_4h (ETH/SOL/XRP/ADA/AVAX) + 4
                                        # pullback_2h (SOL/XRP/ADA/AVAX). WS-C
