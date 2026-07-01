@@ -300,7 +300,7 @@ go-signal; Tier 2 = larger long-term spend (multi-task foundation encoder + RL).
 
 | Phase | Type | Tier | Graduation gate |
 |---|---|---|---|
-| **T0.1 — frozen TSFM embeddings** | representation/embedding features (Chronos-Bolt-Tiny 9M, CPU `embed()`) fed into regime + conviction heads | T0 ($0) | Lifts regime AUC / conviction Brier in purged-CV vs no-embedding baseline. Observe-only. |
+| **T0.1 — frozen TSFM embeddings** | representation/embedding features (Chronos-Bolt-Tiny 9M, CPU `embed()`) fed into regime + conviction heads | T0 ($0) | Lifts regime AUC / conviction Brier in purged-CV vs no-embedding baseline. Observe-only. **🔨 CODE LANDED 2026-07-01 (offline/candidate):** `ml/datasets/embedding_features.py` (block) + `scripts/ml/build_embeddings.py` (producer) + `market_features` `embedding_path` wiring (v9→v10) + `btc-regime-15m-lgbm-emb-v1.yaml` (candidate A/B leg) + 16 tests + trainer-side dep. Chronos/torch trainer-side only (block lazy-imports). **Pending:** the trainer-VM A/B run (build `v003`, train both legs, `ml compare`). Log: [`S-M19-T0.1-EMBEDDINGS-2026-07-01`](docs/sprint-logs/S-M19-T0.1-EMBEDDINGS-2026-07-01.md). |
 | **T0.2 — unsupervised regime discovery** | GMM / clustering extending the lone HMM; discover states vs bucket vol | T0 | Beats the frozen-edge detector under the regime-router gate; shadow-only until then. |
 | **T0.3 — graduate the conviction stacker** | stacked meta-model (`conviction-meta-v1`, already at candidate) + embeddings | T0 | `gate-check` PASS + shadow soak. |
 | **T0.4 — probabilistic forecasting features** | TSFM quantile forecasts (expected range / P(volatile)) as features | T0 | Feature A/B; later gated for SL/TP geometry. |
