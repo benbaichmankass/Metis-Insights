@@ -84,8 +84,9 @@ feedstock.
   - **0.003** (11.7% vol): Δmacro_f1 **+0.052**, Δf1_vol +0.035.
   - **0.004** (8.4% vol): Δmacro_f1 **+0.037**, Δf1_vol +0.031 (base f1_vol 0.30 → emb 0.33).
   - **0.005** (4.6% vol — shipped head): Δmacro_f1 **+0.012**, f1_vol flat (base f1_vol only 0.24 → the class is too rare for either model).
+  - **0.006** (2.6% vol): Δmacro_f1 **−0.004** (slightly HARMFUL), Δf1_vol −0.021 (base f1_vol 0.19 → nearly unlearnable; the extra 32 cols add noise).
 
-  **Mechanism:** the collapse is driven by the volatile *base rate*, not the
+  **Mechanism:** a clean monotonic decay driven by the volatile *base rate*, not the
   threshold per se — where the class is adequately populated (≥ ~8%) the embedding
   clearly helps; at 4.6% neither model learns it. **Go/no-go — promotion sharpens,
   doesn't close:** (1) if the head's threshold is revisitable, 0.004 gives a
