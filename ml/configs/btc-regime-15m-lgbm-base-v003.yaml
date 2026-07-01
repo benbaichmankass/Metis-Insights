@@ -1,0 +1,68 @@
+# M19 T0.1 CONTROL — LightGBM regime classifier, BTCUSDT @ 15m, base features
+# ONLY, on dataset v003. The clean A/B baseline for btc-regime-15m-lgbm-emb-v1:
+# identical to the emb manifest EXCEPT it omits the `tsfm_emb_*` columns, and it
+# reads the SAME dataset (v003) — so control-vs-emb isolates exactly the 32
+# embedding features (same rows, same regime labels, same split, same
+# hyperparameters). This is the honest baseline; comparing the emb head against
+# btc-regime-15m-lgbm-v2 (dataset v002) was CONFOUNDED because v002 used a
+# different vol_threshold → a different `volatile` base rate (2.75% vs v003's
+# ~11.7%). See docs/research/T0.1-embedding-AB-evidence-2026-07-01.md.
+#
+# Candidate/offline — never order-influencing.
+
+manifest_version: v1
+model_id: btc-regime-15m-lgbm-base-v003
+description: "M19 T0.1 control: base-only features on dataset v003 (same rows/labels/split as btc-regime-15m-lgbm-emb-v1, no tsfm_emb). The clean A/B baseline isolating the frozen-TSFM embedding contribution."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  sample_weight:
+    half_life_days: 60
+    time_column: ts
+  class_weight:
+    range: 1.0
+    volatile: 28.0
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 15m
+  version: v003
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: candidate
+notes: |
+  M19 T0.1 A/B control leg. Candidate/offline. Base features only on dataset
+  v003 — the same dataset the emb head reads — so `ml compare
+  btc-regime-15m-lgbm-base-v003 btc-regime-15m-lgbm-emb-v1` measures ONLY the
+  32 frozen chronos-bolt-tiny embedding columns' contribution (identical rows,
+  labels, and time_aware_holdout split). Result: embeddings lift macro_f1
+  +0.041 and f1_volatile +0.030 (see the evidence doc).
