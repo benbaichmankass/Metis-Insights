@@ -30,8 +30,19 @@ python-dateutil>=2.8.2
 # frozen amazon/chronos-bolt-tiny (9M, CPU) as a feature extractor to produce the
 # `tsfm_emb_*` side-stream. TRAINER-SIDE ONLY — the live money-box never installs
 # these (T0.1 heads stay at `candidate`/offline; `ml.datasets.embedding_features`
-# lazy-imports both, so `ml.*` imports fine without them). Torch is CPU-only on
-# the ARM trainer. Promotion to shadow (embedding computed live) is the gated
-# follow-up that would revisit the live-VM dependency.
+# lazy-imports both, so `ml.*` imports fine without them). Promotion to shadow
+# (embedding computed live) is the gated follow-up that would revisit the
+# live-VM dependency.
+#
+# WORKING COMBO (verified on the trainer 2026-07-01 — see
+# docs/research/T0.1-embedding-AB-evidence-2026-07-01.md § Environment note):
+#   * transformers<5 — chronos-forecasting 2.3.0 breaks on the transformers-5
+#     lazy import ("Could not import module 'AutoModelForCausalLM'").
+#   * torch<2.10, CPU build — the default torch 2.12.1+cu130 crashes on import on
+#     the trainer's Python 3.11.0rc1 (torch._dynamo "Duplicate dispatch rule for
+#     intern" polyfill bug; not runtime-suppressible). Install the CPU wheel:
+#       pip install "torch>=2.4,<2.10" --index-url https://download.pytorch.org/whl/cpu
+#     (A stable-Python trainer venv would remove this constraint — future vm-ops.)
 chronos-forecasting>=1.4.0
-torch>=2.2.0
+transformers>=4.40,<5
+torch>=2.4,<2.10
