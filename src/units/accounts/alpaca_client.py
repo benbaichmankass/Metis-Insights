@@ -199,6 +199,42 @@ class AlpacaClient:
                 return bp
         return None
 
+    def account_status(self) -> Optional[Dict[str, Any]]:
+        """Broker account authorization/health flags, or ``None`` on read failure.
+
+        Reads ``GET /v2/account`` and returns the fields that answer *"can this
+        account actually place an order right now?"* — distinct from whether the
+        creds merely authenticate for reads:
+
+          ``{status, trading_blocked, account_blocked, trade_suspended_by_user,
+             transfers_blocked, shorting_enabled, crypto_status, currency}``
+
+        Motivation (BL-20260701-ALPACA-STATUS-VISIBILITY): when order placement
+        returns 401/403 while balance reads succeed, there was no read path
+        exposing WHY — the balance()/buying_power() helpers only extract
+        ``equity``/``regt_buying_power``. A live account that is restricted (not
+        ``ACTIVE``, ``trading_blocked``, ``account_blocked``) reads fine but
+        cannot trade; surfacing these flags makes that one diag call instead of
+        a code trace. **Read-only** — never places an order. ``None`` on any
+        failure so the caller degrades gracefully (missing field → key absent).
+        """
+        try:
+            self._require_creds("account_status")
+        except MissingCredentialsError as exc:
+            logger.warning("%s", exc)
+            return None
+        env = self._request("GET", "/v2/account")
+        if env.get("retCode") != 0:
+            logger.warning("alpaca account_status: %s", env.get("retMsg"))
+            return None
+        acct = env.get("result") or {}
+        keys = (
+            "status", "trading_blocked", "account_blocked",
+            "trade_suspended_by_user", "transfers_blocked",
+            "shorting_enabled", "crypto_status", "currency",
+        )
+        return {k: acct.get(k) for k in keys if k in acct}
+
     def positions(self) -> Optional[list]:
         """Open positions as ``[{symbol, side, qty, avg_price, unrealized_pnl}]``.
 

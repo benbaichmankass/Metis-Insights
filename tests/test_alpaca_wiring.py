@@ -184,6 +184,60 @@ def test_client_positions_empty_list_when_genuinely_flat(monkeypatch):
     assert cli.positions() == []
 
 
+# --- account_status() — BL-20260701-ALPACA-STATUS-VISIBILITY ---------------
+
+def test_client_account_status_surfaces_authorization_flags(monkeypatch):
+    """account_status() returns the trade-authorization flags from /v2/account —
+    the read that distinguishes 'creds authenticate' from 'account can trade'."""
+    monkeypatch.setattr(
+        "src.units.accounts.alpaca_client.requests.request",
+        lambda *a, **k: _Resp({
+            "status": "ACTIVE", "trading_blocked": False,
+            "account_blocked": False, "trade_suspended_by_user": False,
+            "transfers_blocked": False, "shorting_enabled": True,
+            "crypto_status": "ACTIVE", "currency": "USD",
+            "equity": "150.09", "cash": "150.09",  # extra fields ignored
+        }, status=200),
+    )
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    st = cli.account_status()
+    assert st == {
+        "status": "ACTIVE", "trading_blocked": False, "account_blocked": False,
+        "trade_suspended_by_user": False, "transfers_blocked": False,
+        "shorting_enabled": True, "crypto_status": "ACTIVE", "currency": "USD",
+    }
+
+
+def test_client_account_status_reports_restricted_account(monkeypatch):
+    """A restricted account (reads OK, orders blocked) surfaces the blocking
+    flags — the exact 'reads OK / orders unauthorized' triage signal."""
+    monkeypatch.setattr(
+        "src.units.accounts.alpaca_client.requests.request",
+        lambda *a, **k: _Resp({
+            "status": "ACCOUNT_UPDATED", "trading_blocked": True,
+            "account_blocked": False,
+        }, status=200),
+    )
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    st = cli.account_status()
+    assert st["trading_blocked"] is True
+    assert st["status"] == "ACCOUNT_UPDATED"
+
+
+def test_client_account_status_none_on_read_failure(monkeypatch):
+    """A non-2xx /v2/account read returns None (read failure), never a partial."""
+    monkeypatch.setattr(
+        "src.units.accounts.alpaca_client.requests.request",
+        lambda *a, **k: _Resp({"message": "unauthorized"}, status=401),
+    )
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    assert cli.account_status() is None
+
+
+def test_client_account_status_none_without_creds():
+    assert AlpacaClient(api_key="", api_secret="").account_status() is None
+
+
 def test_client_close_idempotent_on_404(monkeypatch):
     monkeypatch.setattr(
         "src.units.accounts.alpaca_client.requests.request",
