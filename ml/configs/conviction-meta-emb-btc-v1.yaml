@@ -13,14 +13,21 @@
 # scripts/ml/build_embeddings.py over the BTCUSDT market_raw, covering the
 # trade window):
 #
-#   python -m ml build-dataset conviction_meta \
-#     --output-dir ./datasets-out --version v001emb --symbol-scope BTCUSDT \
-#     --source trade_journal.db --overwrite \
-#     -- db_path=/abs/path/to/trade_journal.db symbol=BTCUSDT \
+# ONE embedded dataset serves BOTH the emb and base manifests (the base one
+# simply doesn't list the tsfm_emb columns), so the A/B is on the byte-identical
+# slice. Build it WITH the embedding side-stream at version v001 (`python -m
+# ml.datasets build` — dataset versions must be `vNNN`, digits only):
+#
+#   python -m ml.datasets build conviction_meta \
+#     --output-dir ./datasets-out --version v001 --symbol-scope BTCUSDT \
+#     --timeframe all --source trade_journal.db --overwrite \
+#     -- db_path=/abs/path/to/data/trade_journal.db symbol=BTCUSDT \
 #        embedding_path=datasets-out/embeddings/BTCUSDT/15m/v001
 #
 #   python -m ml train ml/configs/conviction-meta-emb-btc-v1.yaml \
 #     --datasets-root ./datasets-out
+#   python -m ml train ml/configs/conviction-meta-base-btc-v1.yaml \
+#     --datasets-root ./datasets-out   # reads the SAME v001 dataset
 
 manifest_version: v1
 model_id: conviction-meta-emb-btc-v1
@@ -65,7 +72,7 @@ dataset:
   family: conviction_meta
   symbol_scope: BTCUSDT
   timeframe: all
-  version: v001emb
+  version: v001
 evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
 evaluator_config:
   target_column: won
