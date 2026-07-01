@@ -85,6 +85,11 @@ def test_read_path_loader_carries_alpaca_env(accounts_yaml: str, monkeypatch):
     # The live key env-name must also survive (it always did — the host
     # selector was the dropped half of the pair).
     assert by_id["alpaca_live"].get("api_key_env") == "ALPACA_API_KEY_ID_LIVE"
+    # account_class must survive the loader so read-path consumers (e.g.
+    # /api/diag/broker_account_status) report it instead of null
+    # (BL-20260701-ALPACA-STATUS-VISIBILITY follow-up).
+    assert by_id["alpaca_live"].get("account_class") == "real_money"
+    assert by_id["alpaca_paper"].get("account_class") == "paper"
 
 
 def test_reconciler_loader_carries_alpaca_env(accounts_yaml: str, monkeypatch):
