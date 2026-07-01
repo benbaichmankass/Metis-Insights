@@ -77,8 +77,13 @@ feedstock.
 - `pytest tests/ml/test_conviction_meta_family.py` → 12 passed (3 new); ruff clean.
 - End-to-end pipeline validated: the conviction as-of join populated all 99 BTC
   rows with real embeddings (`nonzero_emb 99`).
-- **Production-threshold regime A/B (vol_threshold=0.005, purged-CV):**
-  _[result appended from trainer issue #5311 — see "Production-threshold result"]._
+- **Production-threshold regime A/B (vol_threshold=0.005, purged-CV):** dispatched
+  on the trainer (rebuild BTC-15m `market_features` at the shipped-head threshold
+  0.005 + embeddings, base vs emb under purged walk-forward CV) as the go/no-go
+  number for the Option-D promotion path. The T0.1 lift is already established at
+  0.003 (purged-CV, multi-symbol); this confirms it transfers to the production
+  threshold. Result feeds the shadow-promotion decision, not the wiring — reported
+  separately when the run lands.
 
 ## Documentation Updated
 - This sprint log; three research evidence/design docs (above).
