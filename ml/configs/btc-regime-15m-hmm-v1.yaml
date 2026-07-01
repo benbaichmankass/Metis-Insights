@@ -1,0 +1,53 @@
+# M19 T0.2 — Causal Gaussian-HMM regime classifier, BTCUSDT @ 15m (unsupervised
+# regime discovery). Mirrors the dormant 1h HMM (btc-regime-1h-hmm-v1,
+# S-MLOPT-S14) onto our strongest series — the LightGBM regime line lives at 15m.
+# A diagonal-Gaussian HMM DISCOVERS K vol states via GMM-EM over range-based +
+# close-to-close vol, scored with the FILTERED (forward-only) posterior (no
+# Viterbi/smoothing → no future leak); each hidden state is a Gaussian vol
+# regime, mapped to range/volatile by a responsibility-weighted label map. The
+# edge over the tree head is temporal persistence (the transition matrix smooths
+# regime flicker) + interpretability. A/B vs btc-regime-15m-lgbm-base-pcv on the
+# SAME dataset v520 + purged-CV split. Per the "illusion of regimes" dissent it
+# only earns a promotion if it adds OOS edge — a negative is acceptable.
+# Candidate/offline — refused by the live shadow factory, never order-influencing.
+manifest_version: v1
+model_id: btc-regime-15m-hmm-v1
+description: "M19 T0.2 — Causal (filtered) Gaussian-HMM regime classifier for BTCUSDT 15m; range/volatile from a 3-state HMM over yang_zhang_vol + rolling_log_return_vol, forward-only posterior (no smoothing). Unsupervised regime discovery A/B vs btc-regime-15m-lgbm-base-pcv under purged-CV. Candidate/offline — never order-influencing."
+model_family: classification_hmm
+trainer: ml.trainers.causal_hmm_regime.CausalHMMRegimeTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - yang_zhang_vol
+    - rolling_log_return_vol
+  n_states: 3
+  n_em_iter: 50
+  seed: 42
+  time_column: ts
+  transition_smoothing: 1.0
+  label_smoothing: 1.0
+  symbol: BTCUSDT
+  timeframe: 15m
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 15m
+  version: v520
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: purged_walk_forward
+  time_column: ts
+  n_folds: 5
+  min_train_fraction: 0.5
+  label_horizon: 5
+  embargo_fraction: 0.01
+target_deployment_stage: candidate
+notes: |
+  M19 T0.2 unsupervised regime discovery, 15m. Candidate/offline — never order-
+  influencing; the shadow factory refuses candidate. The HMM state discovery is
+  unsupervised (GMM-EM); only the final state->label projection uses the hand
+  regime_label. Filtered forward-only posterior (stateful per chronological pass,
+  auto-reset on non-monotonic ts — no cross-fold leak). Leakage gate forbids
+  forward_log_return / forward_log_return_vol / regime_label as features. Compare
+  vs btc-regime-15m-lgbm-base-pcv on the SAME dataset v520 + split.

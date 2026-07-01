@@ -1,0 +1,53 @@
+# M19 T0.2 × T0.4 — Forward-aware Causal Gaussian-HMM regime classifier, BTCUSDT
+# @ 15m. Identical to btc-regime-15m-hmm-v1 EXCEPT the HMM observation vector adds
+# the frozen-TSFM FORWARD volatility forecast `fc_range_rel` (the strongest
+# offline vol-regime feature from T0.4 — base-rate-robust, +0.012/+0.029 macro_f1
+# on BTC/ETH under purged-CV). The current HMM observes only BACKWARD vol; this
+# gives the discovered states a FORWARD view. The A/B question: does the proven
+# forecast sharpen the discovered regimes vs the backward-only HMM (and vs the
+# LightGBM head)? This is the T0.2×T0.4 cross — combining temporal persistence
+# (HMM) with a forward vol estimate (forecast). Candidate/offline — refused by the
+# live shadow factory, never order-influencing.
+manifest_version: v1
+model_id: btc-regime-15m-hmm-fc-v1
+description: "M19 T0.2×T0.4 — forward-aware Gaussian-HMM regime classifier for BTCUSDT 15m; 3-state HMM over yang_zhang_vol + rolling_log_return_vol + the frozen-TSFM forward-vol forecast fc_range_rel, filtered forward-only posterior. Tests whether the T0.4 forward forecast sharpens unsupervised regime discovery. Candidate/offline — never order-influencing."
+model_family: classification_hmm
+trainer: ml.trainers.causal_hmm_regime.CausalHMMRegimeTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - yang_zhang_vol
+    - rolling_log_return_vol
+    - fc_range_rel
+  n_states: 3
+  n_em_iter: 50
+  seed: 42
+  time_column: ts
+  transition_smoothing: 1.0
+  label_smoothing: 1.0
+  symbol: BTCUSDT
+  timeframe: 15m
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 15m
+  version: v520
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: purged_walk_forward
+  time_column: ts
+  n_folds: 5
+  min_train_fraction: 0.5
+  label_horizon: 5
+  embargo_fraction: 0.01
+target_deployment_stage: candidate
+notes: |
+  M19 T0.2×T0.4 forward-aware HMM. Candidate/offline — never order-influencing.
+  fc_range_rel is the past-only frozen chronos-bolt-tiny forward-range forecast
+  (see ml/datasets/forecast_features.py) — adding it to the observation gives the
+  discovered vol states a forward view. Filtered forward-only posterior; leakage
+  gate forbids forward_log_return / forward_log_return_vol / regime_label. If this
+  beats btc-regime-15m-hmm-v1 AND the LightGBM head under purged-CV, it becomes the
+  T0.2 candidate — its live-parity dependency (fc computed live) folds into the
+  same T0.4 mirror-publish spike. Compare on the SAME dataset v520 + split.
