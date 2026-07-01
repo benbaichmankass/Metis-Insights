@@ -1,0 +1,95 @@
+# M19 T0.4 — LightGBM regime classifier, BTCUSDT @ 15m, WITH frozen-TSFM
+# quantile-FORECAST features. The treatment leg of the T0.4 A/B: identical to
+# btc-regime-15m-lgbm-v2 (the advisory baseline) EXCEPT it adds the six `fc_*`
+# columns (derived from a frozen amazon/chronos-bolt-tiny forecast of the next
+# bar's price quantiles, in log-return space vs the last close, past-only). The
+# A/B question: does an off-the-shelf probabilistic forecast (its predicted
+# direction / range / skew / tails) lift regime discrimination vs hand-engineered
+# features alone?
+#
+# Stays at `candidate` (offline only) — refused by the live shadow factory, so it
+# never influences an order and the Chronos/torch dep stays TRAINER-side. Promotion
+# to shadow (which needs the forecast computed live for train==live parity, hence
+# the dep on the live VM) is a separate, operator-gated follow-up.
+#
+# A/B pairing (both purged-CV, same split, same window):
+#   baseline  = btc-regime-15m-lgbm-v2      (dataset v002 — base features only)
+#   treatment = btc-regime-15m-lgbm-fc-v1   (dataset v004 — base + fc_*)
+# The base feature columns are identical regardless of `forecast_path`, so the
+# v2 head on v002 is the honest control. Build v004 with the forecast side-stream:
+#   python -m scripts.ml.build_forecasts --target <btc_15m_market_raw> \
+#     --out datasets-out/forecasts/BTCUSDT/15m/v001 --context-len 64 --stride 4 --horizon 1
+#   python -m ml build-dataset market_features --output-dir datasets-out \
+#     --version v004 --source <btc_15m_market_raw> --symbol-scope BTCUSDT \
+#     --timeframe 15m --overwrite market_raw_path=<btc_15m_market_raw> \
+#     forecast_path=datasets-out/forecasts/BTCUSDT/15m/v001 \
+#     vol_window_n=20 forward_window_m=5
+#   python -m ml train ml/configs/btc-regime-15m-lgbm-fc-v1.yaml
+#   python -m ml compare btc-regime-15m-lgbm-v2 btc-regime-15m-lgbm-fc-v1
+
+manifest_version: v1
+model_id: btc-regime-15m-lgbm-fc-v1
+description: "M19 T0.4 — v2 LightGBM regime classifier for BTCUSDT 15m WITH frozen chronos-bolt-tiny quantile-forecast features (fc_ret_med / fc_range_rel / fc_up_prob / fc_skew / fc_q10_rel / fc_q90_rel). A/B treatment leg vs btc-regime-15m-lgbm-v2 to test whether an off-the-shelf probabilistic forecast adds regime edge. Candidate/offline — never order-influencing."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+    # Frozen-TSFM quantile-forecast block (M19 T0.4) — the ONLY change vs
+    # btc-regime-15m-lgbm-v2. 6 scale-free numeric columns from chronos-bolt-tiny.
+    - fc_ret_med
+    - fc_range_rel
+    - fc_up_prob
+    - fc_skew
+    - fc_q10_rel
+    - fc_q90_rel
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  sample_weight:
+    half_life_days: 60
+    time_column: ts
+  class_weight:
+    range: 1.0
+    volatile: 28.0
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 15m
+  version: v004
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: candidate
+notes: |
+  M19 T0.4 quantile-forecast A/B treatment leg. Candidate/offline — never order-
+  influencing; the shadow factory refuses candidate. The fc_* features are
+  past-only (frozen chronos-bolt-tiny forecast of the next bar's price quantiles
+  over the trailing close window, converted to log-return space vs the last close
+  — see ml/datasets/forecast_features.py). Leakage gate forbids forward_log_return
+  / forward_log_return_vol / regime_label. Compare against btc-regime-15m-lgbm-v2
+  under the same purged-CV/holdout split; promote to shadow only if it clears the
+  gate AND the live-parity/live-dep follow-up is approved.
