@@ -259,6 +259,10 @@ def _load_yaml_accounts() -> List[Dict[str, Any]]:
         for k in (
             "api_key_env", "api_secret_env", "type", "risk", "market_type",
             "demo", "mode", "symbols",
+            # Paper/real funding category — carried through so read-path
+            # consumers (e.g. /api/diag/broker_account_status) can report it
+            # instead of null (BL-20260701-ALPACA-STATUS-VISIBILITY follow-up).
+            "account_class",
             "ib_host", "ib_port", "ib_account", "ib_client_id",
             # Alpaca/OANDA host selector (paper vs live) + optional base_url.
             # WITHOUT these the read path (balance / open positions) builds

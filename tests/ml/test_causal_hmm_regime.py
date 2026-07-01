@@ -159,6 +159,45 @@ class TestTrainer:
         assert a["means"] == b["means"]
         assert a["transition"] == b["transition"]
 
+    def test_label_projection_class_weight_lifts_rare_class(self):
+        """M19 T0.2 salvage: `balanced` class-weighting the state->label
+        projection up-weights the rare class in every state, and leaves the
+        default (no knob) behaviour byte-identical."""
+        # Rare volatile: 5% of rows, otherwise a clean two-vol structure.
+        rows = []
+        for i in range(1000):
+            volatile = i % 20 == 0
+            vol = 0.02 if volatile else 0.001
+            rows.append(
+                {
+                    "ts": i,
+                    "yang_zhang_vol": vol,
+                    "rolling_log_return_vol": vol * 1.1,
+                    "regime_label": "volatile" if volatile else "range",
+                }
+            )
+        cfg = {
+            "feature_columns": ["yang_zhang_vol", "rolling_log_return_vol"],
+            "n_states": 3,
+            "seed": 42,
+        }
+        plain = CausalHMMRegimeTrainer().fit(rows, cfg)
+        weighted = CausalHMMRegimeTrainer().fit(
+            rows, {**cfg, "label_projection_class_weight": "balanced"}
+        )
+        # Default carries no knob and no marker.
+        assert "label_projection_class_weight" not in plain
+        assert weighted["label_projection_class_weight"] == "balanced"
+        # Balanced up-weights the minority `volatile` column, so its posterior
+        # mass rises in every state (>=) and strictly in at least one.
+        pv = [s["volatile"] for s in plain["state_label_proba"]]
+        wv = [s["volatile"] for s in weighted["state_label_proba"]]
+        assert all(w >= p - 1e-12 for w, p in zip(wv, pv))
+        assert any(w > p + 1e-9 for w, p in zip(wv, pv))
+        # Each per-state distribution still normalises.
+        for s in weighted["state_label_proba"]:
+            assert sum(s.values()) == pytest.approx(1.0)
+
     def test_fit_then_predict_separates_regimes(self):
         rows = self._make_sequence()
         state = CausalHMMRegimeTrainer().fit(
