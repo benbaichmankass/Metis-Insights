@@ -1,0 +1,71 @@
+# M19 T0.4 confirm (2nd symbol): ETHUSDT 15m regime head base + frozen-TSFM
+# quantile-FORECAST features under PURGED walk-forward CV (dataset v521, built
+# with forecast_path at vol_threshold=0.005). Second-symbol generalization leg of
+# the T0.4 confirm — mirrors the BTC fc-pcv A/B on ETH to check the forecast lift
+# is not BTC-specific (the T0.1 embedding lift repeated on ETH; does the forecast
+# lift too?). Compare vs eth-regime-15m-lgbm-base-pcv on the SAME dataset v521.
+# Candidate/offline — refused by the live shadow factory, never order-influencing.
+manifest_version: v1
+model_id: eth-regime-15m-lgbm-fc-pcv-v1
+description: "M19 T0.4 confirm (2nd symbol): ETHUSDT 15m regime head base + 6 frozen chronos-bolt-tiny quantile-forecast features (fc_*) under PURGED walk-forward CV (dataset v521 @ vol_threshold 0.005). Generalization leg vs eth-regime-15m-lgbm-base-pcv. Candidate/offline — never order-influencing."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+  - vol_bucket
+  - rolling_log_return_vol
+  - log_return
+  - log_return_lag_1
+  - log_return_lag_2
+  - hour_of_day
+  - dayofweek
+  - fc_ret_med
+  - fc_range_rel
+  - fc_up_prob
+  - fc_skew
+  - fc_q10_rel
+  - fc_q90_rel
+  categorical_columns:
+  - vol_bucket
+  - hour_of_day
+  - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  sample_weight:
+    half_life_days: 60
+    time_column: ts
+  class_weight:
+    range: 1.0
+    volatile: 28.0
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: ETHUSDT
+  timeframe: 15m
+  version: v521
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: purged_walk_forward
+  time_column: ts
+  n_folds: 5
+  min_train_fraction: 0.5
+  label_horizon: 5
+  embargo_fraction: 0.01
+target_deployment_stage: candidate
+notes: |
+  M19 T0.4 purged-CV confirm, ETH generalization leg. Candidate/offline — never
+  order-influencing; the shadow factory refuses candidate. fc_* are past-only
+  (frozen chronos-bolt-tiny forecast — see ml/datasets/forecast_features.py).
+  Leakage gate forbids forward_log_return / forward_log_return_vol / regime_label.
+  Compare against eth-regime-15m-lgbm-base-pcv on the SAME dataset v521.
