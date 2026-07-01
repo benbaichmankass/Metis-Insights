@@ -59,6 +59,14 @@
     "short": "QQQ daily long-only trend-follower (Alpaca paper) \u2014 Donchian-30 breakout with a 4x ATR trail; equity-index ETF diversifier.",
     "how_it_works": "Same logic as the SPY leg on the Nasdaq-100 ETF: daily Donchian-30 breakout entries, long-only, 2.5x ATR stop, 4x ATR trail, bracket orders on the Alpaca paper account during US market hours. Validated in the M15 Phase-0 sweep (train +16.2R, out-of-sample +10.9R). Distinct from the unproven QQQ 5-minute intraday research, which stays shadow-only."
   },
+  "tqqq_trend_long_1d": {
+    "short": "TQQQ (3x Nasdaq-100) daily long-only trend-follower (Alpaca paper) — leveraged sibling of the QQQ leg; Donchian-30 breakout with a 4x ATR trail.",
+    "how_it_works": "Identical trend_donchian logic and params to the QQQ leg (daily Donchian-30 breakout, long-only, 2.5x ATR stop, 4x ATR trail, bracket orders during US market hours) applied to the 3x-leveraged Nasdaq-100 ETF on the Alpaca paper account. Position size is risk-normalised (ATR-based), so 3x leverage does not enlarge the bet — it lowers the per-share price for capital efficiency. Backtested on the actual TQQQ price series (which already embeds the daily-rebalance volatility decay and ~0.95% expense ratio): net +13.8R OOS 2019-2026, paper_ready, 2x-fee headroom, beat the QQQ cell — the trend filter keeps it out of the high-volatility chop where leveraged decay bites. Paper soak first; real-money promotion is operator- and account_compat_matrix-gated. See docs/research/leveraged-etf-research-2026-06-30.md."
+  },
+  "qld_trend_long_1d": {
+    "short": "QLD (2x Nasdaq-100) daily long-only trend-follower (Alpaca paper) — lower-decay 2x sibling of the TQQQ/QQQ leg; Donchian-30 breakout with a 4x ATR trail.",
+    "how_it_works": "Same trend_donchian logic and params as the QQQ/TQQQ legs applied to the 2x-leveraged Nasdaq-100 ETF on the Alpaca paper account (2x carries less volatility decay than 3x). Backtested on the actual QLD price series (decay + expense embedded): net +12.7R OOS 2019-2026, paper_ready, 2x-fee headroom. Paper soak first; real-money promotion is operator-gated. See docs/research/leveraged-etf-research-2026-06-30.md."
+  },
   "iwm_trend_long_1d": {
     "short": "IWM daily long-only trend-follower (Alpaca paper) — Donchian-30 breakout with a 4x ATR trail; small-cap (Russell 2000) breadth leg.",
     "how_it_works": "Same logic as the SPY/QQQ legs on the Russell-2000 small-cap ETF: a daily close above the highest high of the prior 30 days triggers a long entry (shorts suppressed), with a 2.5x ATR(14) initial stop and a 4x ATR trailing exit, via bracket orders on the Alpaca paper account during US market hours. Adds small-cap breadth to the large-cap SPY/QQQ legs. From the ETF-breadth daily sweep (2026-06-20) it was the only live_ready cell, positive in every walk-forward fold (pooled book Sharpe 3.88, all holdouts positive)."

@@ -77,6 +77,9 @@ CELLS=(
   # --- daily ETF family ---
   "spy_trend_long_1d|trend|1d|SPY|0.3|1|30|2.5|4.0||"
   "qqq_trend_long_1d|trend|1d|QQQ|0.3|1|30|2.5|4.0||"
+  # leveraged Nasdaq-100 trend cells (2026-06-30) — TQQQ 3x + QLD 2x
+  "tqqq_trend_long_1d|trend|1d|TQQQ|0.3|1|30|2.5|4.0||"
+  "qld_trend_long_1d|trend|1d|QLD|0.3|1|30|2.5|4.0||"
   "iwm_trend_long_1d|trend|1d|IWM|0.3|1|30|2.5|4.0||"
   "gld_pullback_1d|pullback|1d|GLD|0.3||40|15|0.618|2.0|4.0"
   "tlt_pullback_1d|pullback|1d|TLT|0.3||40|10|0.618|2.5|5.0"

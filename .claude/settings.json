@@ -1,5 +1,9 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "_comment": "Default DIAG_BASE_URL for the web-session direct diag path (scripts/ops/diag_fetch.sh). Points at the live Ampere trader 141.145.193.91 (ict-bot-arm), NOT the terminated x86 micro 158.178.210.252 (retired 2026-06-16). Claude Code applies settings.json env over the inherited process env for the Bash tool, so a session whose cloud-env config still carries the stale micro value resolves the correct host from here. DIAG_READ_TOKEN stays a secret env var (never committed); the direct path also needs Full network egress or it falls back to the issue relay.",
+    "DIAG_BASE_URL": "http://141.145.193.91:8001"
+  },
   "permissions": {
     "_comment": "Repo-shared allowlist for the VM-side claude-vm-runner. Scoped to read-only diagnostic commands + the two narrow self-heal restart paths (ict-web-api.service via vm-web-api-recover.yml, ict-trader-live.service via system-actions.yml::restart-bot-service). Per docs/claude/system-actions.md and docs/claude/diag-relay.md, restarting ict-web-api has no trading blast radius (read-only API). Adding entries: mirror the audit pattern in scripts/ops/*.sh — narrow as possible.",
     "allow": [
