@@ -227,11 +227,24 @@ def _parse_ledger_map(text: str) -> dict[str, str]:
     return out
 
 
-def _parse_last_updated(text: str) -> str | None:
+def _parse_last_updated(text: str) -> tuple[str | None, str | None]:
+    """Return (date, headline) from ROADMAP.md's '> **Last Updated:**' line.
+
+    That line is a single enormous run-on paragraph (the full change note), so
+    we extract only the leading date + the first bold parenthetical headline —
+    the rest is unreadable as a banner (and it bloated the payload ~15 KB)."""
     m = re.search(r">\s*\*\*Last Updated:\*\*\s*(.+)", text)
     if not m:
-        return None
-    return m.group(1).strip()
+        return None, None
+    raw = m.group(1).strip()
+    dm = re.match(r"(20\d{2}-\d{2}-\d{2})", raw)
+    date = dm.group(1) if dm else None
+    hm = re.search(r"\(\*\*(.+?)\*\*\)", raw)
+    headline = hm.group(1).strip() if hm else None
+    if headline is None and date is None:
+        # No structured header — fall back to the first short clause.
+        headline = raw.split(" — ")[0].strip()[:120] or None
+    return date, headline
 
 
 def _infer_milestone_from_name(sprint_id: str) -> str | None:
@@ -373,9 +386,11 @@ def _build_index() -> dict[str, Any]:
     active = sum(1 for m in milestones if m["status"] in _ACTIVE)
     pending = sum(1 for m in milestones if m["status"] in _PENDING)
 
+    last_updated, last_updated_headline = _parse_last_updated(text)
     return {
         "present": True,
-        "lastUpdated": _parse_last_updated(text),
+        "lastUpdated": last_updated,
+        "lastUpdatedHeadline": last_updated_headline,
         "milestones": milestones,
         "sprints": sprints,
         "summary": {
