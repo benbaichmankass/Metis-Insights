@@ -5,13 +5,10 @@
 # manifest adds). `symbol` is dropped from the feature list (constant in the
 # single-symbol slice). Offline/candidate — never influences a live decision.
 #
-# Build the BTC-scoped conviction_meta dataset (control shares it with the emb
-# manifest — same rows, the emb columns just sit unused here):
-#
-#   python -m ml build-dataset conviction_meta \
-#     --output-dir ./datasets-out --version v001 --symbol-scope BTCUSDT \
-#     --source trade_journal.db --overwrite \
-#     -- db_path=/abs/path/to/trade_journal.db symbol=BTCUSDT
+# The control READS THE SAME v001 dataset the emb manifest builds (same rows;
+# the tsfm_emb columns just sit unselected here) — so the A/B is byte-identical.
+# See conviction-meta-emb-btc-v1.yaml for the single `python -m ml.datasets
+# build ... embedding_path=...` command, then:
 #
 #   python -m ml train ml/configs/conviction-meta-base-btc-v1.yaml \
 #     --datasets-root ./datasets-out
