@@ -169,7 +169,10 @@ def _stage_market_raw(tmp_path: Path, closes: list[float]) -> Path:
 
 def _stage_embedding_sidestream(tmp_path: Path, market_raw: Path) -> Path:
     """Produce the tsfm_emb side-stream from the staged market_raw via the stub."""
-    rows = [json.loads(l) for l in (market_raw / "data.jsonl").read_text().splitlines()]
+    rows = [
+        json.loads(line)
+        for line in (market_raw / "data.jsonl").read_text().splitlines()
+    ]
     emb_rows = compute_embedding_feature_rows(
         rows, context_len=8, stride=4, min_context=8, embed_fn=_stub_embed()
     )
