@@ -33,6 +33,7 @@ from src.web.api.routers import prop as prop_router
 from src.web.api.routers import pnl_exchange as pnl_exchange_router
 from src.web.api.routers import pnl_history as pnl_history_router
 from src.web.api.routers import reports as reports_router
+from src.web.api.routers import roadmap as roadmap_router
 from src.web.api.routers import shadow as shadow_router
 from src.web.api.routers import status as status_router
 from src.web.api.routers import strategies as strategies_router
@@ -88,6 +89,7 @@ app.include_router(exit_ladder_router.router)
 app.include_router(allocator_router.router)
 app.include_router(prop_router.router)
 app.include_router(reports_router.router)
+app.include_router(roadmap_router.router)
 
 
 @app.get("/api/health", tags=["health"])
