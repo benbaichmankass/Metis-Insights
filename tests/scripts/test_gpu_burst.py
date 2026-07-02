@@ -76,6 +76,12 @@ def test_runpod_adapter_key_but_no_sdk_fails_safe(monkeypatch):
     assert rc == 3
 
 
+def test_runpod_ssh_probe_flag_fails_safe_without_sdk(monkeypatch):
+    """--ssh-probe is a recognized mode and still fails safe (rc 3) with no SDK/key path."""
+    monkeypatch.setenv("RUNPOD_API_KEY", "dummy")
+    assert runpod_burst.main(["--ssh-probe", "--experiment", "smoke"]) == 3
+
+
 class _FakeRunpod:
     """Minimal stand-in for the runpod SDK for the capacity-fallback tests."""
 
