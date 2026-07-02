@@ -237,6 +237,11 @@ jobs:
                 description: 'Triggers trainer-vm-diag workflow — full-visibility SSH command runner on the trainer VM (autonomous Claude).',
               },
               {
+                name: 'gpu-burst-train',
+                color: 'd93f0b',
+                description: 'Triggers gpu-burst-train workflow — M19 Tier-1 ledger-gated spot-GPU burst (dry preflight until GPU_BURST_ARMED=1).',
+              },
+              {
                 name: 'ict-scalp-backtest-request',
                 color: '0075ca',
                 description: 'Triggers ict-scalp-backtest workflow — self-contained pre-live gate for the ict_scalp_5m strategy.',
