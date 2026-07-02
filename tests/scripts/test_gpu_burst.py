@@ -317,7 +317,7 @@ def _write_bundle_json(tmp_path, *, model_id="btc-regime-15m-lgbm-v2", stage="sh
     return p
 
 
-def test_ingest_forces_candidate_and_registers(tmp_path):
+def test_ingest_forces_candidate_and_namespaces(tmp_path):
     bundle = _write_bundle_json(tmp_path, stage="shadow")  # even if manifest says shadow
     reg_root = tmp_path / "registry-store"
     exp_root = tmp_path / "experiments-runs"
@@ -329,14 +329,36 @@ def test_ingest_forces_candidate_and_registers(tmp_path):
     # forced candidate — never auto-land at shadow (which would auto-wire onto strategies)
     assert entry["target_deployment_stage"] == "candidate"
     assert entry["status"] == "candidate"
-    assert entry["model_id"] == "btc-regime-15m-lgbm-v2"
+    # namespaced to a burst-only id — never the bare production id
+    assert entry["model_id"] == "btc-regime-15m-lgbm-v2-gpuburst"
+    assert not (reg_root / "btc-regime-15m-lgbm-v2.json").exists()  # production id untouched
     assert entry["code_revision"] == "deadbeef"
     # registry metrics keep only scalar numerics (nested dropped); full metrics.json materialized
     assert entry["metrics"] == {"macro_f1": 0.61, "f1_volatile": 0.40}
-    run = exp_root / "btc-regime-15m-lgbm-v2" / "20260702T183000Z"
+    run = exp_root / "btc-regime-15m-lgbm-v2-gpuburst" / "20260702T183000Z"
     assert (run / "model_state.json").exists()
     assert json.loads((run / "metrics.json").read_text())["nested"] == {"x": 1}
     assert entry["model_state_path"].endswith("model_state.json")
+
+
+def test_ingest_refuses_to_overwrite_promoted_burst_id(tmp_path):
+    # Pre-seed a burst id an operator has promoted past candidate → re-burst must abort
+    # rather than refresh its served weights.
+    from ml.registry.model_registry import ModelRegistry
+    reg_root = tmp_path / "registry-store"
+    exp_root = tmp_path / "experiments-runs"
+    ms = tmp_path / "ms.json"
+    ms.write_text("{}", encoding="utf-8")
+    reg = ModelRegistry(reg_root)
+    # register() honors the manifest stage for a new id → lands directly at advisory
+    reg.register(model_id="btc-regime-15m-lgbm-v2-gpuburst",
+                 manifest={"model_id": "btc-regime-15m-lgbm-v2-gpuburst",
+                           "target_deployment_stage": "advisory"},
+                 model_state_path=str(ms), metrics={}, code_revision="x", run_id="r0", by="operator")
+    bundle = _write_bundle_json(tmp_path)
+    with pytest.raises(ValueError):
+        ingest_bundle.ingest(bundle_path=str(bundle), registry_root=str(reg_root),
+                             experiments_root=str(exp_root), code_revision="y")
 
 
 def test_ingest_run_id_from_bundle_dir():
