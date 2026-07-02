@@ -70,3 +70,56 @@ def test_runpod_adapter_key_but_no_sdk_fails_safe(monkeypatch):
     # _sdk() raises RuntimeError if `runpod` isn't importable; main() maps it to rc 3.
     rc = runpod_burst.main(["--verify", "--experiment", "smoke"])
     assert rc == 3
+
+
+class _FakeRunpod:
+    """Minimal stand-in for the runpod SDK for the capacity-fallback tests."""
+
+    class _CapacityError(Exception):
+        pass
+
+    def __init__(self, launch_on=None):
+        # launch_on: the gpu_type_id that "has capacity"; None → every card is out.
+        self.launch_on = launch_on
+        self.created = []
+        self.terminated = []
+
+    def create_pod(self, *, gpu_type_id, **_):
+        self.created.append(gpu_type_id)
+        if self.launch_on is not None and gpu_type_id == self.launch_on:
+            return {"id": "pod-xyz", "costPerHr": 0.34}
+        raise self._CapacityError("This machine does not have the resources to deploy your pod.")
+
+    def get_pod(self, _pod_id):
+        return {"desiredStatus": "RUNNING", "runtime": {"uptimeInSeconds": 5}}
+
+    def get_gpu(self, _gpu):
+        return {"lowestPrice": {"minimumBidPrice": 0.34}}
+
+    def terminate_pod(self, pod_id):
+        self.terminated.append(pod_id)
+
+
+def test_runpod_capacity_all_exhausted_no_spend(monkeypatch):
+    """Every card out of stock → clean rc 4, and terminate is never called (no pod)."""
+    fake = _FakeRunpod(launch_on=None)
+    monkeypatch.setattr(runpod_burst, "_sdk", lambda: fake)
+    rc = runpod_burst.run(experiment="smoke", gpu_type="NVIDIA GeForce RTX 4090",
+                          image="img", verify=True, emit_path=None)
+    assert rc == 4
+    assert len(fake.created) == len(runpod_burst._GPU_FALLBACKS)  # walked the whole list
+    assert fake.terminated == []  # nothing launched → nothing to tear down
+
+
+def test_runpod_capacity_fallback_then_launch(monkeypatch, tmp_path):
+    """First card out of stock, a later card has capacity → verify OK (rc 0), pod torn down."""
+    second = runpod_burst._GPU_FALLBACKS[1]
+    fake = _FakeRunpod(launch_on=second)
+    monkeypatch.setattr(runpod_burst, "_sdk", lambda: fake)
+    emit = tmp_path / "gh_output"
+    rc = runpod_burst.run(experiment="smoke", gpu_type=runpod_burst._GPU_FALLBACKS[0],
+                          image="img", verify=True, emit_path=str(emit))
+    assert rc == 0
+    assert fake.terminated == ["pod-xyz"]  # teardown guarantee held
+    out = emit.read_text()
+    assert f"gpu_type={second}" in out  # emits the card actually launched, not the requested one
