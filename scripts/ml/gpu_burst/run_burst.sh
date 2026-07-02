@@ -8,8 +8,9 @@
 # running (billing) pod.
 #
 # Env in: GPU_PROVIDER (runpod|vast|oci), the provider's API key (its own secret),
-# EXPERIMENT, EST_COST, MAX_MINUTES, plus VERIFY=1 for the launch+teardown smoke test
-# or PROBE=1 for the launch+SSH-probe+teardown connectivity check.
+# EXPERIMENT, EST_COST, MAX_MINUTES, MANIFEST (the manifest to train on a real run),
+# plus VERIFY=1 for the launch+teardown smoke test or PROBE=1 for the
+# launch+SSH-probe+teardown connectivity check.
 # On success it writes cost facts (gpu_type, rate, gpu_hours, cost) to $GITHUB_OUTPUT.
 set -uo pipefail
 
@@ -17,6 +18,8 @@ set -uo pipefail
 : "${EXPERIMENT:=(unnamed)}"
 : "${VERIFY:=}"
 : "${PROBE:=}"
+: "${MANIFEST:=}"
+: "${MAX_MINUTES:=}"
 
 if [ -z "$GPU_PROVIDER" ]; then
   echo "::error::GPU_PROVIDER unset — no provider adapter configured. Aborting (no pod, no spend)."
@@ -32,8 +35,14 @@ case "$GPU_PROVIDER" in
   runpod)
     echo "== provider: runpod (community spot) · experiment: $EXPERIMENT · verify=${VERIFY:-0} probe=${PROBE:-0} =="
     pip install --quiet "runpod>=1.6" || { echo "::error::failed to install runpod SDK"; exit 3; }
+    # A real (non-verify/probe) run trains a manifest; --manifest/--max-minutes are
+    # honoured only then (verify/probe ignore them). Pass through when provided; the
+    # adapter defaults to a cheap BTC regime head + 60min if unset.
+    EXTRA=()
+    [ -n "$MANIFEST" ] && EXTRA+=(--manifest "$MANIFEST")
+    [ -n "$MAX_MINUTES" ] && EXTRA+=(--max-minutes "$MAX_MINUTES")
     exec python -m scripts.ml.gpu_burst.runpod_burst \
-      --experiment "$EXPERIMENT" $MODE_FLAG
+      --experiment "$EXPERIMENT" $MODE_FLAG "${EXTRA[@]}"
     ;;
   vast|oci)
     echo "::error::GPU_PROVIDER=$GPU_PROVIDER has no verified adapter yet. Aborting safely (no spend)."

@@ -2,20 +2,22 @@
 """On-pod exec building blocks for the RunPod burst tier (M19 Tier-1).
 
 Pure, unit-testable helpers the burst adapter uses to drive a rented pod over
-**RunPod proxy SSH** with an **ephemeral per-run keypair** — so no account SSH
+**direct public-IP SSH** with an **ephemeral per-run keypair** — the official
+RunPod image installs the key (`PUBLIC_KEY`) + runs sshd itself, so no account SSH
 key and no GitHub secret are ever needed (the key is born and dies with the run).
 Design: `docs/research/T1-gpu-burst-spend-SPEC.md` § "On-pod exec design".
 
 Split out from `runpod_burst.py` so the SSH-argv construction, the remote
 train-script assembly, and the artifact decode can be tested WITHOUT a live pod
 (the parts that genuinely need a pod — the ssh round-trips — stay in the adapter
-and are validated by a live `verify`/smoke run). Nothing here spends money or
-opens a network socket.
+and are validated by a live `verify`/`ssh-probe` run). Nothing here spends money
+or opens a network socket.
 
 Data contract (enforced by the script this builds): only PUBLIC code + PUBLIC
 market data ever reach the pod; the trained model comes back as gzip|base64 on
-the SSH stdout. No secret, money-DB, or live cred is referenced anywhere in the
-remote script (asserted by tests).
+the SSH stdout (a JSON bundle of the model_state + metrics + manifest). No secret,
+money-DB, or live cred is referenced anywhere in the remote script (asserted by
+tests).
 """
 from __future__ import annotations
 
@@ -115,41 +117,97 @@ def gen_ephemeral_keypair(dirpath: str | None = None) -> tuple[str, str]:
     return key_path, pub
 
 
+# Crypto regime/direction heads read `market_features`, derived from the PUBLIC
+# Bybit-klines `market_raw` family — no journal/money-DB rows. These are the fixed
+# build params the trainer VM's daily cycle uses (build_trainer_datasets.sh
+# ::build_bybit_pair), replicated so the pod builds a byte-identical dataset.
+_CRYPTO_MARKET_FEATURES_PARAMS = (
+    "vol_window_n=20 forward_window_m=5 "
+    "vol_threshold=0.005 trend_threshold=0.005 n_vol_buckets=3"
+)
+
+
 def build_remote_train_script(
     *,
     repo_sha: str,
-    manifest: str,
-    dataset_family: str,
-    artifact_name: str = "model.onnx",
+    manifest_path: str,
+    symbol: str,
+    timeframe: str,
+    version: str = "v002",
 ) -> str:
-    """Assemble the bash the pod runs over SSH: clone → deps → dataset → train →
-    ONNX export + parity gate → gzip|base64 the artifact to stdout.
+    """Assemble the bash the pod runs over SSH: clone → deps → build the PUBLIC
+    market dataset → `python -m ml train <manifest>` → gzip|base64 a JSON bundle
+    (the trained model_state + metrics + manifest) back to stdout.
 
-    v1-DRAFT for the exact `python -m ml …` invocations — the CLI flags are
-    finalized against the first live pod (a cheap smoke run); the STRUCTURE +
-    safety properties (pinned SHA, public-only inputs, parity-or-abort, artifact
-    on stdout, `set -euo pipefail`) are fixed and asserted by tests.
+    Matches the REAL `ml` CLI (verified against `scripts/ops/run_training_cycle.sh`
+    + `build_trainer_datasets.sh`): `build-dataset market_raw` → `build-dataset
+    market_features` → `ml train`. There is **no** ONNX export or parity-gate in
+    the codebase — the trained artifact is the JSON-embedded LightGBM booster in
+    `model_state.json`, which is what we return.
+
+    Scope: crypto regime/direction heads only (`dataset.family: market_features`,
+    a Bybit `*USDT` symbol) — those need no journal rows, so ONLY public code +
+    public market data ever reach the pod (the data contract). The caller enforces
+    that scope before building this script.
+
+    Safety properties (asserted by tests): pinned SHA (no floating branch on a paid
+    pod), `set -euo pipefail`, `ICT_OFFVM_BUILD_HOST=1` (the off-VM adapter guard),
+    the artifact framed on stdout, and NO secret / money-DB / cred reference.
     """
     if not repo_sha:
         raise ValueError("repo_sha must be pinned (no floating branch on a paid pod)")
-    # A single marker frames the base64 payload so the runner can slice the
+    if not (symbol and timeframe):
+        raise ValueError("symbol and timeframe are required to build the dataset")
+    raw_path = f"datasets-out/market_raw/{symbol}/{timeframe}/{version}"
+    # A single marker pair frames the base64 payload so the runner can slice the
     # artifact cleanly out of any build chatter on stdout.
     return f"""set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
+# The Bybit/off-VM market adapter refuses to run without this guard (it exists so
+# a build never fires on the live trader VM). A rented pod is not that VM.
+export ICT_OFFVM_BUILD_HOST=1
 cd /workspace
 rm -rf ict-trading-bot
 git clone --quiet {REPO_URL}
 cd ict-trading-bot
 git checkout --quiet {repo_sha}
 python -m pip install --quiet -r requirements.txt
-# Build the dataset ON the pod from PUBLIC data + the committed corpus — never the
-# money DB (a regime head's market_features needs no journal rows).
-python -m ml build-dataset {dataset_family}
-# Train on the GPU, export to CPU/ONNX, and gate on numeric parity vs onnxruntime.
-python -m ml train {manifest} --export-onnx {artifact_name} --parity-gate
-# Emit the parity-validated artifact as gzip|base64 between markers.
+python -m pip install --quiet "ccxt>=4.0" "lightgbm>=4.0"
+# >=5y window for the regime label (matches the daily cycle's rolling window).
+MARKET_START="$(date -u -d '5 years ago' +%Y-%m-%d 2>/dev/null || echo 2021-01-01)"
+MARKET_END="$(date -u +%Y-%m-%d)"
+# Build the PUBLIC market dataset ON the pod (Bybit klines -> derived features);
+# never the money DB (a regime head's market_features needs no journal rows).
+python -m ml build-dataset market_raw --output-dir datasets-out --version {version} \\
+    --source bybit_v5_offvm --symbol-scope {symbol} --timeframe {timeframe} --overwrite \\
+    adapter=bybit_v5_offvm symbol={symbol} timeframe={timeframe} start="$MARKET_START" end="$MARKET_END"
+python -m ml build-dataset market_features --output-dir datasets-out --version {version} \\
+    --source {raw_path} --symbol-scope {symbol} --timeframe {timeframe} --overwrite \\
+    market_raw_path={raw_path} {_CRYPTO_MARKET_FEATURES_PARAMS}
+# Train the manifest (registers into the pod-local registry-store; discarded with
+# the pod -- only the returned bundle survives).
+python -m ml train {manifest_path} --datasets-root datasets-out \\
+    --experiments-root ml/experiments-runs --registry-root ml/registry-store
+# Bundle the freshest experiment run's model_state + metrics + manifest as ONE
+# JSON blob for return (there's exactly one run -- the pod trains one manifest).
+python3 - > /workspace/bundle.json <<'PYEOF'
+import glob, json, os
+runs = sorted(glob.glob('ml/experiments-runs/*/*/'), key=os.path.getmtime)
+if not runs:
+    raise SystemExit('no experiment run produced -- train did not write an artifact')
+run = runs[-1]
+def _load(name):
+    p = os.path.join(run, name)
+    return json.load(open(p)) if os.path.exists(p) else None
+print(json.dumps({{
+    'run_dir': run,
+    'model_state': _load('model_state.json'),
+    'metrics': _load('metrics.json'),
+    'manifest': _load('manifest.json'),
+}}))
+PYEOF
 echo '---ICT-ARTIFACT-BEGIN---'
-gzip -c {artifact_name} | base64 -w0
+gzip -c /workspace/bundle.json | base64 -w0
 echo
 echo '---ICT-ARTIFACT-END---'
 """

@@ -69,6 +69,7 @@ jobs:
           print(f"experiment={exp}")
           print(f"est_cost={est_f}")
           print(f"max_minutes={field('max_minutes', '90')}")
+          print(f"manifest={field('manifest', '')}")
           print(f"verify={'1' if verify else ''}")
           print(f"probe={'1' if probe else ''}")
           PY
@@ -91,19 +92,31 @@ jobs:
             echo "::notice::GPU_BURST_ARMED != 1 (or GPU_PROVIDER unset) — DRY PREFLIGHT ONLY. No pod launched, no spend."
           fi
 
-      - name: Burst — launch → train → export → teardown
+      - name: Burst — launch → build → train → return → teardown
         id: burst
         if: steps.arm.outputs.armed == 'true'
         env:
           EXPERIMENT: ${{ steps.parse.outputs.experiment }}
           EST_COST: ${{ steps.parse.outputs.est_cost }}
           MAX_MINUTES: ${{ steps.parse.outputs.max_minutes }}
+          MANIFEST: ${{ steps.parse.outputs.manifest }}
           VERIFY: ${{ steps.parse.outputs.verify }}
           PROBE: ${{ steps.parse.outputs.probe }}
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           RUNPOD_SSH_KEY: ${{ secrets.RUNPOD_SSH_KEY }}
           VAST_API_KEY: ${{ secrets.VAST_API_KEY }}
         run: bash scripts/ml/gpu_burst/run_burst.sh
+
+      # Persist the trained model bundle (model_state + metrics) WITHOUT committing
+      # a multi-MB blob to git — an on-pod train writes it under the mirror dir.
+      - name: Upload trained model bundle
+        if: steps.arm.outputs.armed == 'true' && steps.burst.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpu-burst-model-${{ github.run_id }}
+          path: runtime_logs/trainer_mirror/gpu_burst/
+          if-no-files-found: ignore
+          retention-days: 30
 
       - name: Record cost + commit ledger
         if: steps.arm.outputs.armed == 'true' && steps.burst.outcome == 'success'
