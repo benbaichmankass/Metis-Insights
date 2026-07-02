@@ -37,6 +37,28 @@ _DEFAULT_IMAGE = "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04"
 _POLL_TIMEOUT_S = 420   # 7 min to reach RUNNING before we give up + tear down
 _POLL_INTERVAL_S = 10
 
+# Community-spot capacity is a lottery: the requested card is often momentarily
+# out of stock ("This machine does not have the resources to deploy your pod").
+# Rather than crash, walk this fallback list of cheap, common community cards
+# until one has capacity. The requested --gpu-type is always tried FIRST.
+_GPU_FALLBACKS = [
+    "NVIDIA GeForce RTX 4090",
+    "NVIDIA GeForce RTX 3090",
+    "NVIDIA RTX A5000",
+    "NVIDIA RTX A4000",
+    "NVIDIA GeForce RTX 4080",
+]
+
+
+def _is_capacity_error(exc: Exception) -> bool:
+    """True when create_pod failed because the pool is momentarily out of stock
+    (a transient availability miss, not an auth/quota/code fault)."""
+    msg = str(exc).lower()
+    return any(
+        s in msg
+        for s in ("resource", "not have", "capacity", "no longer any instances", "out of stock")
+    )
+
 
 def _sdk() -> Any:
     """Import + auth the runpod SDK lazily (so lint/tests don't need it installed)."""
@@ -94,29 +116,50 @@ def run(
 ) -> int:
     runpod = _sdk()
     pod_id = ""
+    gpu_used = gpu_type
     started = time.monotonic()
     rate = 0.0
     try:
-        pod = runpod.create_pod(
-            name=f"ict-burst-{os.environ.get('GITHUB_RUN_ID', 'local')}",
-            image_name=image,
-            gpu_type_id=gpu_type,
-            cloud_type="COMMUNITY",           # the cheap spot pool
-            gpu_count=1,
-            container_disk_in_gb=20,
-            volume_in_gb=0,
-            support_public_ip=False,
-        ) or {}
-        pod_id = str(pod.get("id") or "")
+        # Try the requested card first, then walk the fallback list — but only
+        # skip forward on a genuine capacity miss; any other error re-raises.
+        candidates = [gpu_type] + [g for g in _GPU_FALLBACKS if g != gpu_type]
+        pod: dict = {}
+        last_capacity_err: Exception | None = None
+        for cand in candidates:
+            try:
+                pod = runpod.create_pod(
+                    name=f"ict-burst-{os.environ.get('GITHUB_RUN_ID', 'local')}",
+                    image_name=image,
+                    gpu_type_id=cand,
+                    cloud_type="COMMUNITY",           # the cheap spot pool
+                    gpu_count=1,
+                    container_disk_in_gb=20,
+                    volume_in_gb=0,
+                    support_public_ip=False,
+                ) or {}
+            except Exception as e:  # noqa: BLE001 - re-raised below unless it's a capacity miss
+                if _is_capacity_error(e):
+                    print(f"::notice::no community capacity for '{cand}' — trying next card.")
+                    last_capacity_err = e
+                    pod = {}
+                    continue
+                raise
+            pid = str(pod.get("id") or "")
+            if pid:
+                pod_id, gpu_used = pid, cand
+                break
+            print(f"::notice::'{cand}': create_pod returned no id — trying next card.")
+            pod = {}
         if not pod_id:
-            print("::error::RunPod create_pod returned no id — nothing launched.")
-            return 3
-        rate = _pod_rate(runpod, pod, gpu_type)
-        print(f"launched pod {pod_id} ({gpu_type}) @ ${rate:.4f}/hr")
+            print(f"::error::no community capacity across {candidates} — nothing launched, no spend. "
+                  f"last: {last_capacity_err}")
+            return 4
+        rate = _pod_rate(runpod, pod, gpu_used)
+        print(f"launched pod {pod_id} ({gpu_used}) @ ${rate:.4f}/hr")
 
         if not _wait_running(runpod, pod_id):
             print(f"::error::pod {pod_id} did not reach RUNNING in {_POLL_TIMEOUT_S}s — tearing down.")
-            return 4
+            return 6
 
         if verify:
             print(f"VERIFY OK — pod {pod_id} reached RUNNING; tearing down (smoke test, no training).")
@@ -142,7 +185,7 @@ def run(
         cost = round(elapsed_hr * rate, 4)
         if emit_path:
             with open(emit_path, "a", encoding="utf-8") as fh:
-                fh.write(f"gpu_type={gpu_type}\n")
+                fh.write(f"gpu_type={gpu_used}\n")
                 fh.write(f"rate={rate}\n")
                 fh.write(f"gpu_hours={round(elapsed_hr, 4)}\n")
                 fh.write(f"cost={cost}\n")
