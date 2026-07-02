@@ -170,6 +170,51 @@ being approved (it's the encoder's input, and the encoder is the first GPU spend
   block only ever helped the vol-regime family), and the doc sets the expectation
   so a flat intraday-direction A/B isn't misread as failure.
 
+## Results — C0 shipped, C1 base-rate-sensitive (2026-07-02)
+
+**C0 — the FRED adapter shipped and is validated against real FRED.** The keyless
+`fred_macro` adapter (PR #5381) fetched **2,174–2,426 daily rows** (2017/2018→2026)
+of the full macro complex from FRED's `fredgraph.csv` endpoint — Treasury yields
+(`DGS10`/`DGS3MO`) ~97.7% populated, VIX ~99.6%, the rates-curve slope populated,
+values sanity-checked (2018 UST10y 2.46 → 2026 4.44). The dollar leg (`DTWEXBGS`)
+publishes with a ~3-day lag, so the very latest rows neutralize to `0.0` — expected,
+not a gap. **A material discovery in passing:** the existing BTC-15m `v003` dataset's
+macro columns were **entirely zero-filled** — macro had *never actually been wired
+into the crypto regime head*, only the MES head (S-MLOPT-S12). So C1 below is a
+genuine first test, not a re-run.
+
+**C1 — does the macro/rates context lift the BTC-15m regime head?** A/B on a freshly
+built BTC-15m `market_features` *with* the FRED macro side-stream, base features vs
+base + the 7 macro columns, LightGBM regime head, purged walk-forward CV, at both
+the research (0.003) and the shipped-production (0.005) `vol_threshold`:
+
+| BTC-15m regime head, purged-CV | CONTROL macro_f1 | +MACRO macro_f1 | Δ macro_f1 | +MACRO f1_volatile | +MACRO precision_vol |
+|---|---|---|---|---|---|
+| **@0.003** (populated volatile) | 0.5571 | **0.5871** | **+0.030** ✅ | 0.387 (flat) | 0.282 (+0.030) |
+| **@0.005** (production, 4.6% vol) | 0.5918 | **0.5623** | **−0.030** ❌ | 0.166 (−0.077) | 0.164 (flat) |
+
+**Verdict — a base-rate-sensitive positive, the same cliff as the T0.1 embeddings.**
+At 0.003 the macro context is a real, reproducible lift (+0.030 macro_f1, via better
+volatile precision at unchanged f1). At the **production 0.005** it reverses to
+−0.030 and f1_volatile collapses (recall craters 0.50→0.26) — at a 4.6% volatile base
+rate the class is simply too rare for the added feature family to help, and the extra
+dimensions make the tree predict volatile even less. This is exactly the T0.1
+embedding pattern (real @0.003–0.004, gone @0.005). **Only the T0.4 forecast lift is
+base-rate-robust** at the shipped operating point, which now stands out as the single
+durable Tier-0 feature lever.
+
+**What this means for the corpus.** The wide context *does* carry vol-regime signal —
+but a straight macro-feature-add to the production head is not the payoff, because the
+head at 0.005 is **base-rate-bound**, not feature-starved. The corpus's real value is
+(a) fuel for the **label-free T1.2 encoder** (unchanged thesis — the encoder isn't
+threshold-bound), and (b) a live input **if** the head's `vol_threshold` is ever
+revisited toward the 0.003–0.004 band where added context demonstrably helps (a
+separate, operator-gated regime-head decision). Offline/`candidate` throughout; no
+promotion, no spend. *(Build note: the first run's `vfmac003` version name tripped the
+`vNNN` metadata validator — but the data was written before the validation step, so
+the A/B was valid; the confirm used clean `v903`/`v905` names, `build rc=0`, and
+**reproduced the 0.003 lift exactly**.)*
+
 ## Gates / discipline (unchanged from the M19 line)
 
 - **Offline/`candidate` only.** No shadow promotion (Tier-3, operator-gated); no
