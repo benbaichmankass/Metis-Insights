@@ -1,0 +1,67 @@
+# M19 T1.1 — small causal TCN regime head, BTCUSDT @ 15m.
+#
+# The first DEEP sequence model: a causal Temporal Convolutional Network over the
+# per-row `seq_window` (last 64 bars × 4 features) materialized by the
+# `market_sequences` family. Head-to-head vs the incumbent class-weighted LightGBM
+# regime head (`btc-regime-15m-lgbm-base-pcv-v003`) on the SAME purged-CV gate.
+#
+# GPU-burst trained, CPU-served: the trained artifact is an ONNX graph
+# (onnxruntime CPU), parity-gated at build time — no torch on the money-box.
+# Default stage `candidate` (inert); a burst ingest also forces candidate + the
+# `-gpuburst` namespace. Promotion to shadow is a deliberate, gate-checked step.
+#
+# NOTE: trainer_config.feature_columns MUST match, in order, the columns the
+# `market_sequences` build windowed into `seq_window` (see the family's
+# DEFAULT_FEATURE_COLUMNS). The trainer width-checks (seq_len, n_features).
+
+manifest_version: v1
+model_id: btc-regime-15m-tcn-v1
+description: "Small causal TCN over raw BTC-15m bar windows (64×4) — deep-model A/B vs the LightGBM regime head. GPU-burst trained, ONNX/CPU-served. Shadow context signal."
+model_family: sequence_torch_tcn
+trainer: ml.trainers.torch_sequence.TorchSequenceTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - log_return
+    - rolling_log_return_vol
+    - hour_of_day
+    - dayofweek
+  seq_len: 64
+  channels: 48
+  kernel_size: 2
+  dilations: [1, 2, 4, 8, 16]
+  epochs: 30
+  batch_size: 256
+  lr: 0.001
+  weight_decay: 0.0
+  # Same ~inverse-base-rate volatile weighting the LightGBM head uses (the 15m
+  # regime label is ~96% range / ~4% volatile). Omit to auto-weight by inverse
+  # class frequency.
+  class_weight:
+    range: 1.0
+    volatile: 28.0
+  seed: 42
+  onnx_opset: 17
+  parity_tol: 1.0e-4
+dataset:
+  family: market_sequences
+  symbol_scope: BTCUSDT
+  timeframe: 15m
+  version: v001
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: purged_walk_forward
+  time_column: ts
+  n_folds: 5
+  min_train_fraction: 0.5
+  label_horizon: 5
+  embargo_fraction: 0.01
+target_deployment_stage: candidate
+notes: |
+  Deep-sequence bake-off vs btc-regime-15m-lgbm-base-pcv-v003 (same dataset
+  window, same purged-CV split). Success = beats the tree's macro_f1 / f1_volatile
+  beyond run-noise. Trained on a rented spot GPU; the served artifact is an ONNX
+  graph verified for CUDA/CPU numeric parity at build time (fail-closed). No torch
+  on the live box. Leakage gate forbids forward_log_return / forward_log_return_vol
+  / regime_label as window features.
