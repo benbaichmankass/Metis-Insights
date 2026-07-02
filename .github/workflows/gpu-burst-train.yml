@@ -118,6 +118,58 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+      # Deliver the trained bundle to the TRAINER VM (the canonical registry-store
+      # owner) and register it there at `candidate` stage, so it shows up on the
+      # dashboard Models page via the trainer's ~2-min mirror publish. Bundle rides
+      # SSH (git stays clean); the ingest FORCES candidate — never shadow — so a
+      # burst model influences nothing until an operator promotes it. Best-effort:
+      # a delivery failure never fails the burst (the model is already trained + the
+      # bundle is uploaded as an artifact for a manual retry).
+      - name: Deliver + register bundle on the trainer
+        if: steps.arm.outputs.armed == 'true' && steps.burst.outcome == 'success'
+        continue-on-error: true
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -uo pipefail
+          shopt -s nullglob
+          bundles=(runtime_logs/trainer_mirror/gpu_burst/*.bundle.json)
+          if [ ${#bundles[@]} -eq 0 ]; then
+            echo "::notice::no model bundle produced (verify/probe run?) — nothing to register."
+            exit 0
+          fi
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::warning::VM_SSH_KEY unset — bundle uploaded as artifact only, not registered."
+            exit 0
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/trainer_key && chmod 600 ~/.ssh/trainer_key
+          ssh-keyscan -t ed25519,ecdsa,rsa "${TRAINER_IP}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          SSHOPTS="-i $HOME/.ssh/trainer_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20"
+          REPO="/home/ubuntu/ict-trading-bot"
+          INBOX="${REPO}/runtime_logs/gpu_burst_inbox"
+          # shellcheck disable=SC2086
+          ssh $SSHOPTS "${TRAINER_USER}@${TRAINER_IP}" "mkdir -p ${INBOX}"
+          for b in "${bundles[@]}"; do
+            name="$(basename "$b")"
+            # shellcheck disable=SC2086
+            scp $SSHOPTS "$b" "${TRAINER_USER}@${TRAINER_IP}:${INBOX}/${name}"
+            # shellcheck disable=SC2086
+            ssh $SSHOPTS "${TRAINER_USER}@${TRAINER_IP}" \
+              "cd ${REPO} && { [ -f .venv/bin/activate ] && . .venv/bin/activate || true; } && \
+               GITHUB_SHA='${GITHUB_SHA}' python -m scripts.ml.gpu_burst.ingest_bundle \
+                 --bundle '${INBOX}/${name}' \
+                 --registry-root '${REPO}/ml/registry-store' \
+                 --experiments-root '${REPO}/ml/experiments-runs' \
+                 --code-revision '${GITHUB_SHA}'" \
+              && echo "registered ${name} on the trainer (candidate)" \
+              || echo "::warning::trainer-side ingest of ${name} failed — see artifact for manual retry."
+          done
+          rm -f ~/.ssh/trainer_key
+
       - name: Record cost + commit ledger
         if: steps.arm.outputs.armed == 'true' && steps.burst.outcome == 'success'
         run: |
