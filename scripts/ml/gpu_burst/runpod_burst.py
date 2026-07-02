@@ -187,7 +187,11 @@ def run(
                     container_disk_in_gb=20,
                     volume_in_gb=0,
                     support_public_ip=False,
-                    env={"SSH_PUBLIC_KEY": pub} if pub else None,
+                    # RunPod's official templates read PUBLIC_KEY at start to write
+                    # authorized_keys (SSH_PUBLIC_KEY is only an "override" the base
+                    # template doesn't honour — using it left the key uninstalled →
+                    # Permission denied). Pass both; PUBLIC_KEY is the one that works.
+                    env={"PUBLIC_KEY": pub, "SSH_PUBLIC_KEY": pub} if pub else None,
                 ) or {}
             except Exception as e:  # noqa: BLE001 - re-raised below unless it's a capacity miss
                 if _is_capacity_error(e):
