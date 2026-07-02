@@ -1,11 +1,16 @@
 # M19 Tier-1 — $10/mo spot-GPU burst tier — spend SPEC (proposal, no spend)
 
-> **Status:** PROPOSAL / decision memo (2026-07-01, operator-directed: "spec the
-> exact spend first, decide later"). This specs the mechanics, cost, and first
-> experiment for the Tier-1 **~$10/month gated spot-GPU burst** tier from the M19
-> roadmap. **It incurs no spend and ships no money-incurring workflow** — it is
-> the concrete proposal the operator approves *before* any paid resource is ever
-> stood up. Roadmap: [`ai-model-strategy-roadmap-2026-07-01.md`](ai-model-strategy-roadmap-2026-07-01.md)
+> **Status:** ✅ **SPEND APPROVED (operator, 2026-07-02)**, with the explicit
+> directive to **build the cost-tracking UI first** so each training session's cost
+> is visible. Originally a proposal / decision memo (2026-07-01, "spec the exact
+> spend first, decide later"). **Tracking rails SHIPPED before any spend:** the
+> committed `comms/gpu_spend_ledger.json` (this doc's ledger-gate), the
+> `src/runtime/gpu_spend.py` helper (`summarize_spend` / `would_exceed_budget` /
+> `record_run`), the `GET /api/bot/gpu/spend` endpoint, and a dashboard GPU-spend
+> panel. **Remaining human hand-off (the one real step):** add the RunPod API key to
+> Actions secrets + fund a small prepaid balance; then the burst workflow below is
+> built and the first ~1-GPU-hr T1.1 bake-off runs, writing its cost to the ledger.
+> Roadmap: [`ai-model-strategy-roadmap-2026-07-01.md`](ai-model-strategy-roadmap-2026-07-01.md)
 > § Tier 1. Live-serve contract reused from
 > [`T0.4-live-parity-spike-DESIGN.md`](T0.4-live-parity-spike-DESIGN.md).
 

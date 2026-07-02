@@ -1,0 +1,8 @@
+{
+  "schema": "gpu_spend_ledger/v1",
+  "budget_usd_per_month": 10.0,
+  "provider": "runpod",
+  "currency": "USD",
+  "notes": "Committed source of truth for M19 Tier-1 spot-GPU burst spend. The burst workflow reads month-to-date from here as its hard gate BEFORE launching, and appends one entry per run AFTER teardown. Surfaced read-only at GET /api/bot/gpu/spend and on the dashboard GPU-spend panel. Spend approved by operator 2026-07-02.",
+  "runs": []
+}
