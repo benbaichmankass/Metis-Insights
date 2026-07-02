@@ -11,6 +11,7 @@ from .families.execution_quality import ExecutionQualityBuilder
 from .families.exit_candidates import ExitCandidatesBuilder
 from .families.market_features import MarketFeaturesBuilder
 from .families.market_raw import MarketRawBuilder
+from .families.market_sequences import MarketSequencesBuilder
 from .families.review_journal import ReviewJournalBuilder
 from .families.setup_candidates import SetupCandidatesBuilder
 from .families.setup_labels import SetupLabelsBuilder
@@ -25,6 +26,7 @@ FAMILY_REGISTRY: Mapping[str, Type[DatasetBuilder]] = {
     ExitCandidatesBuilder.family: ExitCandidatesBuilder,
     MarketFeaturesBuilder.family: MarketFeaturesBuilder,
     MarketRawBuilder.family: MarketRawBuilder,
+    MarketSequencesBuilder.family: MarketSequencesBuilder,
     ReviewJournalBuilder.family: ReviewJournalBuilder,
     SetupCandidatesBuilder.family: SetupCandidatesBuilder,
     SetupLabelsBuilder.family: SetupLabelsBuilder,
