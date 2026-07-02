@@ -171,7 +171,12 @@ rm -rf ict-trading-bot
 git clone --quiet {REPO_URL}
 cd ict-trading-bot
 git checkout --quiet {repo_sha}
-python -m pip install --quiet -r requirements.txt
+# --ignore-installed: the RunPod image ships distutils-installed packages (e.g.
+# blinker 1.4) that pip cannot uninstall to satisfy a transitive dep, which aborts
+# a plain `-r requirements.txt` ("Cannot uninstall ... distutils installed").
+# Installing fresh over them sidesteps the whole class (requirements pins no torch,
+# so the image's CUDA torch is untouched).
+python -m pip install --quiet --ignore-installed -r requirements.txt
 python -m pip install --quiet "ccxt>=4.0" "lightgbm>=4.0"
 # >=5y window for the regime label (matches the daily cycle's rolling window).
 MARKET_START="$(date -u -d '5 years ago' +%Y-%m-%d 2>/dev/null || echo 2021-01-01)"
