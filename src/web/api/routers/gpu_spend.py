@@ -30,13 +30,13 @@ def get_gpu_spend() -> dict[str, Any]:
     """
     try:
         from src.runtime import gpu_spend as spend_mod
-    except Exception as exc:  # pragma: no cover - defensive import
+    except Exception as exc:  # allow-silent: read endpoint must never 5xx — logs + zeroed envelope
         logger.warning("gpu_spend: module not importable: %s", exc)
         return {"present": False, "error": "gpu_spend_unavailable", "runs": []}
 
     current_month = datetime.now(timezone.utc).strftime("%Y-%m")
     try:
         return spend_mod.summarize_spend(current_month=current_month)
-    except Exception as exc:  # pragma: no cover - defensive
+    except Exception as exc:  # allow-silent: read endpoint must never 5xx — logs + zeroed envelope
         logger.warning("gpu_spend: summarize failed: %s", exc)
         return {"present": False, "error": "gpu_spend_error", "runs": []}
