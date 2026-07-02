@@ -82,26 +82,38 @@ def test_runpod_ssh_probe_flag_fails_safe_without_sdk(monkeypatch):
     assert runpod_burst.main(["--ssh-probe", "--experiment", "smoke"]) == 3
 
 
-def test_resolve_ssh_key_none_when_unset(monkeypatch):
-    """No RUNPOD_SSH_KEY secret → (None, None), so the SSH path aborts cleanly."""
-    monkeypatch.delenv("RUNPOD_SSH_KEY", raising=False)
-    assert runpod_burst._resolve_ssh_key() == (None, None)
+def test_public_ssh_endpoint_parses_mapped_22():
+    """runtime.ports with a public 22 mapping → (ip, publicPort)."""
+    pod = {"runtime": {"ports": [
+        {"privatePort": 8888, "isIpPublic": True, "ip": "1.2.3.4", "publicPort": 40000, "type": "http"},
+        {"privatePort": 22, "isIpPublic": True, "ip": "1.2.3.4", "publicPort": 41234, "type": "tcp"},
+    ]}}
+    assert runpod_burst._public_ssh_endpoint(pod) == ("1.2.3.4", 41234)
 
 
-def test_resolve_ssh_key_materializes_0600_file(monkeypatch, tmp_path):
-    """A real ed25519 private key in the secret is written to a 0600 file + pub derived."""
-    import os
-    import shutil
-    import subprocess as sp
-    if not shutil.which("ssh-keygen"):
-        pytest.skip("ssh-keygen not available (present on the CI runner)")
-    kp = tmp_path / "gen"
-    sp.run(["ssh-keygen", "-t", "ed25519", "-N", "", "-f", str(kp)], check=True, capture_output=True)
-    monkeypatch.setenv("RUNPOD_SSH_KEY", kp.read_text())
-    key_path, pub = runpod_burst._resolve_ssh_key()
-    assert key_path and os.path.exists(key_path)
-    assert (os.stat(key_path).st_mode & 0o777) == 0o600  # private-key perms
-    assert pub and pub.startswith("ssh-ed25519")          # derived public half
+def test_public_ssh_endpoint_none_until_public_22():
+    """No public 22 mapping yet → (None, None) (a private-only or empty ports list)."""
+    assert runpod_burst._public_ssh_endpoint({}) == (None, None)
+    private = {"runtime": {"ports": [{"privatePort": 22, "isIpPublic": False, "ip": "10.0.0.1", "publicPort": 22}]}}
+    assert runpod_burst._public_ssh_endpoint(private) == (None, None)
+
+
+def test_ssh_argv_direct_uses_ip_port_root():
+    argv = _remote.ssh_argv_direct("1.2.3.4", 41234, "/tmp/k", "echo hi")
+    assert argv[0] == "ssh"
+    assert "root@1.2.3.4" in argv
+    assert "-p" in argv and "41234" in argv
+    assert "BatchMode=yes" in argv and "StrictHostKeyChecking=no" in argv
+    assert argv[-1] == "echo hi"
+
+
+def test_docker_ssh_bootstrap_is_self_contained_and_safe():
+    """The pod start command installs OUR key + runs sshd; no secret/DB reference."""
+    b = runpod_burst._DOCKER_SSH_BOOTSTRAP
+    assert "authorized_keys" in b and "$PUBLIC_KEY" in b
+    assert "sshd -D" in b                                   # own sshd, foreground
+    for forbidden in ("RUNPOD_API_KEY", "trade_journal", "SECRET", "TELEGRAM"):
+        assert forbidden not in b
 
 
 class _FakeRunpod:
