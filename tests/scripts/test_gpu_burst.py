@@ -194,22 +194,39 @@ def test_ssh_argv_requires_pod_id():
 
 def test_remote_script_is_safe_and_pinned():
     script = _remote.build_remote_train_script(
-        repo_sha="abc123", manifest="btc-regime-15m-tcn-v1", dataset_family="market_features",
+        repo_sha="abc123", manifest_path="ml/configs/btc-regime-15m-lgbm-v2.yaml",
+        symbol="BTCUSDT", timeframe="15m",
     )
-    assert "set -euo pipefail" in script          # abort-on-error
+    assert "set -euo pipefail" in script            # abort-on-error
     assert "git checkout --quiet abc123" in script  # pinned SHA, not a floating branch
+    # Real ml CLI: build the PUBLIC market dataset, then train the manifest.
+    assert "build-dataset market_raw" in script
     assert "build-dataset market_features" in script
-    assert "--parity-gate" in script              # CPU/GPU parity gate present
+    assert "python -m ml train ml/configs/btc-regime-15m-lgbm-v2.yaml" in script
+    assert "ICT_OFFVM_BUILD_HOST=1" in script       # off-VM adapter guard
     assert _remote._ARTIFACT_BEGIN in script and _remote._ARTIFACT_END in script
+    # ONNX export + parity gate are FICTIONAL — they don't exist in the codebase,
+    # so the script must not reference them (the v1-DRAFT regression).
+    assert "--parity-gate" not in script
+    assert "--export-onnx" not in script
     # Safety: no secret / money-DB / cred reference reaches the pod.
-    for forbidden in ("RUNPOD_API_KEY", "trade_journal.db", "DASHBOARD_API_TOKEN",
+    for forbidden in ("RUNPOD_API_KEY", "trade_journal", "DASHBOARD_API_TOKEN",
                       "SECRET", "TELEGRAM", ".env"):
         assert forbidden not in script
 
 
 def test_remote_script_rejects_floating_sha():
     with pytest.raises(ValueError):
-        _remote.build_remote_train_script(repo_sha="", manifest="m", dataset_family="f")
+        _remote.build_remote_train_script(
+            repo_sha="", manifest_path="m", symbol="BTCUSDT", timeframe="15m",
+        )
+
+
+def test_remote_script_requires_symbol_and_timeframe():
+    with pytest.raises(ValueError):
+        _remote.build_remote_train_script(
+            repo_sha="abc123", manifest_path="m", symbol="", timeframe="15m",
+        )
 
 
 def test_artifact_roundtrip_through_stream():
@@ -224,3 +241,52 @@ def test_artifact_roundtrip_through_stream():
 def test_artifact_extract_missing_markers_raises():
     with pytest.raises(ValueError):
         _remote.extract_artifact_b64("no markers here")
+
+
+def test_remote_script_embeds_symbol_timeframe_version():
+    script = _remote.build_remote_train_script(
+        repo_sha="deadbeef", manifest_path="ml/configs/eth-regime-15m-lgbm-v1.yaml",
+        symbol="ETHUSDT", timeframe="15m", version="v002",
+    )
+    # the built dataset path is symbol/timeframe/version-scoped
+    assert "datasets-out/market_raw/ETHUSDT/15m/v002" in script
+    assert "--symbol-scope ETHUSDT --timeframe 15m" in script
+    # the fixed crypto market_features params ride along (byte-identical to the cycle)
+    assert "vol_threshold=0.005 trend_threshold=0.005 n_vol_buckets=3" in script
+
+
+# ---- runpod_burst train-path helpers (no live pod) ----
+
+def test_manifest_dataset_scope_reads_dataset_block(tmp_path):
+    m = tmp_path / "head.yaml"
+    m.write_text(
+        "model_id: x\n"
+        "dataset:\n"
+        "  family: market_features\n"
+        "  symbol_scope: BTCUSDT\n"
+        "  timeframe: 15m\n"
+        "  version: v002\n",
+        encoding="utf-8",
+    )
+    scope = runpod_burst._manifest_dataset_scope(str(m))
+    assert scope == {"family": "market_features", "symbol": "BTCUSDT",
+                     "timeframe": "15m", "version": "v002"}
+
+
+def test_manifest_dataset_scope_defaults_version(tmp_path):
+    m = tmp_path / "head.yaml"
+    m.write_text("dataset:\n  family: market_features\n  symbol_scope: BTCUSDT\n  timeframe: 1h\n",
+                 encoding="utf-8")
+    assert runpod_burst._manifest_dataset_scope(str(m))["version"] == "v002"
+
+
+def test_resolve_repo_sha_prefers_github_sha(monkeypatch):
+    monkeypatch.setenv("GITHUB_SHA", "cafebabe1234")
+    assert runpod_burst._resolve_repo_sha() == "cafebabe1234"
+
+
+def test_write_bundle_lands_under_mirror(tmp_path, monkeypatch):
+    monkeypatch.setattr(_remote, "MIRROR_SUBDIR", str(tmp_path / "gpu_burst"))
+    dest = runpod_burst._write_bundle("ml/configs/btc-regime-15m-lgbm-v2.yaml", b"{\"ok\":1}")
+    assert dest.endswith("btc-regime-15m-lgbm-v2.bundle.json")
+    assert open(dest, "rb").read() == b"{\"ok\":1}"

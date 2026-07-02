@@ -6,23 +6,27 @@ The RunPod-specific half of `run_burst.sh`. Uses the official `runpod` Python SD
 (spot)** pod, hand back its id + billed rate, and **guarantee teardown** — pod
 termination is in a `finally`, so a crash/timeout can never leak a billing pod.
 
-Two entry points:
+Three entry points:
 
 - ``--verify`` — the money-safety smoke test: launch the cheapest pod, confirm it
   reaches RUNNING, then terminate it immediately. A few cents; proves
   launch→bill→teardown end-to-end BEFORE any real (armed) training run. Run this
   once after the key lands; only then set ``GPU_BURST_ARMED=1``.
-- default — launch a pod for a real burst, run the training command on it, retrieve
-  the exported CPU artifact, terminate. (The on-pod train/export exec is finalized +
-  validated during the first ``--verify`` pass; until then the real path stops after
-  a successful launch+teardown so it can't half-run untested logic.)
+- ``--ssh-probe`` — launch, connect over direct public-IP SSH with the ephemeral
+  key, run an env check (python/nvidia-smi/git), terminate. Proves the SSH exec
+  path the training run rides on.
+- default — launch a pod, clone the pinned SHA, build the PUBLIC market dataset,
+  ``python -m ml train <manifest>``, and stream the trained model bundle
+  (model_state + metrics + manifest, gzip|base64) back over SSH; the bundle lands
+  under ``runtime_logs/trainer_mirror/gpu_burst/``, then the pod is terminated.
+  Scoped to ``market_features`` crypto heads (public data only — no money DB).
 
 Cost facts (gpu_type, rate, gpu_hours, cost) are written to ``--emit-github-output``
 (``$GITHUB_OUTPUT``) for the workflow's ledger record-run step.
 
 Safety: reads ``RUNPOD_API_KEY`` from the env (never logged). No secrets, money-DB,
-or live creds ever go to the pod. Only the read-only training corpus goes up; only
-the exported CPU artifact comes back.
+or live creds ever go to the pod. Only public code + public market data go up; only
+the trained model bundle comes back.
 """
 from __future__ import annotations
 
@@ -33,6 +37,11 @@ import time
 from typing import Any
 
 from scripts.ml.gpu_burst import _remote
+
+# First on-pod training target: a cheap, robust BTC regime head. Its `dataset:`
+# block (market_features / BTCUSDT / 15m / v002) needs only PUBLIC Bybit klines —
+# no money DB — so it satisfies the pod data contract. Overridable via --manifest.
+_DEFAULT_MANIFEST = "ml/configs/btc-regime-15m-lgbm-v2.yaml"
 
 # SSH readiness + probe timings. A freshly-RUNNING pod takes a few seconds more
 # to accept the injected key on its sshd, so we retry the readiness echo.
@@ -205,6 +214,51 @@ def _wait_running(runpod: Any, pod_id: str, timeout_s: int = _POLL_TIMEOUT_S) ->
     return False
 
 
+def _resolve_repo_sha() -> str:
+    """The pinned SHA the pod clones — GITHUB_SHA on the runner, else local HEAD."""
+    sha = os.environ.get("GITHUB_SHA", "").strip()
+    if sha:
+        return sha
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, timeout=10,
+        )
+        if out.returncode == 0:
+            return out.stdout.strip()
+    except Exception:  # noqa: BLE001 - a resolve failure is reported by the caller
+        pass
+    return ""
+
+
+def _manifest_dataset_scope(manifest_path: str) -> dict:
+    """Read a manifest's `dataset:` block → {family, symbol, timeframe, version}.
+
+    The manifest is the single source of truth for what the pod builds. pyyaml is
+    lazy-imported so the module stays importable (and unit-testable) without it.
+    """
+    import yaml  # lazy: pyyaml need not be present just to import this module
+
+    with open(manifest_path, encoding="utf-8") as fh:
+        doc = yaml.safe_load(fh) or {}
+    ds = doc.get("dataset") or {}
+    return {
+        "family": ds.get("family"),
+        "symbol": ds.get("symbol_scope"),
+        "timeframe": ds.get("timeframe"),
+        "version": ds.get("version") or "v002",
+    }
+
+
+def _write_bundle(manifest: str, data: bytes) -> str:
+    """Write the returned model bundle under the trainer mirror, keyed by manifest."""
+    stem = os.path.splitext(os.path.basename(manifest))[0]
+    os.makedirs(_remote.MIRROR_SUBDIR, exist_ok=True)
+    dest = os.path.join(_remote.MIRROR_SUBDIR, f"{stem}.bundle.json")
+    with open(dest, "wb") as fh:
+        fh.write(data)
+    return dest
+
+
 def run(
     *,
     experiment: str,
@@ -213,6 +267,8 @@ def run(
     verify: bool,
     emit_path: str | None,
     ssh_probe: bool = False,
+    manifest: str = _DEFAULT_MANIFEST,
+    max_minutes: int = 60,
 ) -> int:
     runpod = _sdk()
     pod_id = ""
@@ -306,11 +362,53 @@ def run(
             print(f"SSH PROBE OK — public-IP SSH + ephemeral key work on pod {pod_id}; tearing down.")
             return 0
 
-        # Full on-pod train → export → parity → artifact-return is wired on top of
-        # the _remote helpers once this probe confirms SSH end-to-end (next increment).
-        print("::error::full train path not yet wired — run a probe:true issue first to validate SSH, "
-              "then the train driver lands. Stopping after launch (teardown follows).")
-        return 5
+        # --- Full on-pod training run -------------------------------------
+        # Scope guard: ONLY a market_features (crypto regime/direction) manifest
+        # may train on a pod — it needs public market data only, never the money
+        # DB. Anything else is refused before a byte leaves the VM (data contract).
+        try:
+            scope = _manifest_dataset_scope(manifest)
+        except Exception as e:  # noqa: BLE001 - a bad manifest path/parse is a clean abort
+            print(f"::error::could not read manifest '{manifest}': {e} — tearing down.")
+            return 9
+        family, symbol, timeframe = scope["family"], scope["symbol"], scope["timeframe"]
+        if family != "market_features" or not str(symbol or "").upper().endswith("USDT"):
+            print(f"::error::manifest '{manifest}' is out of pod scope "
+                  f"(family={family}, symbol={symbol}). Only market_features crypto heads "
+                  "train on a pod (public data only, no money DB). Tearing down.")
+            return 9
+        repo_sha = _resolve_repo_sha()
+        if not repo_sha:
+            print("::error::could not resolve a pinned repo SHA (GITHUB_SHA / git rev-parse) — tearing down.")
+            return 9
+
+        script = _remote.build_remote_train_script(
+            repo_sha=repo_sha, manifest_path=manifest,
+            symbol=symbol, timeframe=timeframe, version=scope["version"],
+        )
+        train_timeout = max(60, int(max_minutes) * 60)
+        print(f"training {manifest} on pod {pod_id} @ {repo_sha[:12]} "
+              f"(symbol={symbol} tf={timeframe}); ssh timeout {train_timeout}s")
+        rc, out, err = _ssh_capture(endpoint, key_path, script, timeout_s=train_timeout)
+        # stdout carries the artifact between markers — print only the pre-marker
+        # build/train chatter (bounded) so the log stays readable.
+        head = out.split(_remote._ARTIFACT_BEGIN, 1)[0]
+        print("---- pod train stdout (head) ----")
+        print(head[-4000:])
+        if err.strip():
+            print("---- pod train stderr (tail) ----")
+            print(err[-2000:])
+        if rc != 0:
+            print(f"::error::on-pod training failed (rc={rc}) — tearing down.")
+            return 5
+        try:
+            data = _remote.decode_artifact_stream(_remote.extract_artifact_b64(out))
+        except Exception as e:  # noqa: BLE001 - train ran but the return framing broke
+            print(f"::error::training finished but the artifact wasn't returned cleanly: {e} — tearing down.")
+            return 5
+        dest = _write_bundle(manifest, data)
+        print(f"TRAIN OK — {len(data)} bytes returned from pod {pod_id}; wrote {dest}. Tearing down.")
+        return 0
     finally:
         # ALWAYS runs — the money-safety guarantee.
         elapsed_hr = (time.monotonic() - started) / 3600.0
@@ -334,8 +432,12 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--verify", action="store_true", help="Smoke test: launch cheapest pod, confirm RUNNING, terminate.")
     ap.add_argument("--ssh-probe", action="store_true",
-                    help="Launch, prove proxy SSH + the ephemeral key work + the pod env (GPU/python/git), terminate.")
+                    help="Launch, prove public-IP SSH + the ephemeral key work + the pod env (GPU/python/git), terminate.")
     ap.add_argument("--experiment", default="(unnamed)")
+    ap.add_argument("--manifest", default=os.environ.get("MANIFEST") or _DEFAULT_MANIFEST,
+                    help="Manifest to train on the pod (market_features crypto head only). Default: a BTC regime head.")
+    ap.add_argument("--max-minutes", type=int, default=int(os.environ.get("MAX_MINUTES") or 60),
+                    help="Wall-clock cap for the on-pod train SSH command (minutes).")
     ap.add_argument("--gpu-type", default=os.environ.get("RUNPOD_GPU_TYPE", _DEFAULT_GPU))
     ap.add_argument("--image", default=os.environ.get("RUNPOD_IMAGE", _DEFAULT_IMAGE))
     ap.add_argument("--emit-github-output", default=os.environ.get("GITHUB_OUTPUT"))
@@ -348,6 +450,8 @@ def main(argv: list[str] | None = None) -> int:
             verify=args.verify,
             ssh_probe=args.ssh_probe,
             emit_path=args.emit_github_output,
+            manifest=args.manifest,
+            max_minutes=args.max_minutes,
         )
     except RuntimeError as e:
         print(f"::error::{e}")
