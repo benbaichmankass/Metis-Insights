@@ -8,28 +8,32 @@
 # running (billing) pod.
 #
 # Env in: GPU_PROVIDER (runpod|vast|oci), the provider's API key (its own secret),
-# EXPERIMENT, EST_COST, MAX_MINUTES, plus VERIFY=1 for the launch+teardown smoke test.
+# EXPERIMENT, EST_COST, MAX_MINUTES, plus VERIFY=1 for the launch+teardown smoke test
+# or PROBE=1 for the launch+SSH-probe+teardown connectivity check.
 # On success it writes cost facts (gpu_type, rate, gpu_hours, cost) to $GITHUB_OUTPUT.
 set -uo pipefail
 
 : "${GPU_PROVIDER:=}"
 : "${EXPERIMENT:=(unnamed)}"
 : "${VERIFY:=}"
+: "${PROBE:=}"
 
 if [ -z "$GPU_PROVIDER" ]; then
   echo "::error::GPU_PROVIDER unset — no provider adapter configured. Aborting (no pod, no spend)."
   exit 3
 fi
 
-VERIFY_FLAG=""
-[ "$VERIFY" = "1" ] && VERIFY_FLAG="--verify"
+# One mode flag: --verify (launch+teardown) or --ssh-probe (launch+ssh+teardown).
+MODE_FLAG=""
+[ "$VERIFY" = "1" ] && MODE_FLAG="--verify"
+[ "$PROBE" = "1" ] && MODE_FLAG="--ssh-probe"
 
 case "$GPU_PROVIDER" in
   runpod)
-    echo "== provider: runpod (community spot) · experiment: $EXPERIMENT · verify=${VERIFY:-0} =="
+    echo "== provider: runpod (community spot) · experiment: $EXPERIMENT · verify=${VERIFY:-0} probe=${PROBE:-0} =="
     pip install --quiet "runpod>=1.6" || { echo "::error::failed to install runpod SDK"; exit 3; }
     exec python -m scripts.ml.gpu_burst.runpod_burst \
-      --experiment "$EXPERIMENT" $VERIFY_FLAG
+      --experiment "$EXPERIMENT" $MODE_FLAG
     ;;
   vast|oci)
     echo "::error::GPU_PROVIDER=$GPU_PROVIDER has no verified adapter yet. Aborting safely (no spend)."
