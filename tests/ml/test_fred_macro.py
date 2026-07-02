@@ -94,6 +94,31 @@ def test_partial_series_does_not_crash(monkeypatch):
         assert r["ust_slope_3m10y"] == 0.0
 
 
+def test_fetch_raw_series_shape(monkeypatch):
+    """The raw-series helper returns ascending {date,value} rows per series (corpus feed)."""
+    monkeypatch.setenv("ICT_OFFVM_BUILD_HOST", "1")
+    dates = [f"2025-05-{i + 1:02d}" for i in range(6)]
+    csv_by_series = {
+        "DGS10": [(d, f"{4.0 + i * 0.01:.2f}") for i, d in enumerate(dates)],
+        "VIXCLS": [(d, "18.00") for d in dates],
+    }
+    monkeypatch.setattr(fm, "_download", _fake_download_factory(csv_by_series))
+    # `series=` merges with DEFAULT_SERIES (caller overrides win) — so all default names
+    # are present; the ones with no mocked CSV come back empty.
+    raw = fm.fetch_fred_raw_series(start="2025-05-01", end="2025-06-01")
+    assert set(raw) == set(fm.DEFAULT_SERIES)
+    assert [r["date"] for r in raw["ust10y"]] == dates
+    assert all(isinstance(r["value"], float) for r in raw["ust10y"])
+    assert raw["vix"][0] == {"date": "2025-05-01", "value": 18.0}
+    assert raw["dxy"] == []  # no mocked CSV → empty, not a crash
+
+
+def test_fetch_raw_series_offvm_guarded(monkeypatch):
+    monkeypatch.delenv("ICT_OFFVM_BUILD_HOST", raising=False)
+    with pytest.raises(fm.OffVmGuardrailViolation):
+        fm.fetch_fred_raw_series(start="2025-01-01", end="2025-02-01")
+
+
 def test_header_rename_read_positionally(monkeypatch):
     """Older FRED exports use a 'DATE' header; we read col 0/1 positionally."""
     monkeypatch.setenv("ICT_OFFVM_BUILD_HOST", "1")

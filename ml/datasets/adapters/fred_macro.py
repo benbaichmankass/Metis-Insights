@@ -173,3 +173,26 @@ def fetch_fred_macro_rows(
     return compute_macro_feature_rows(
         daily, zscore_window_n=zscore_window_n, return_window_n=return_window_n
     )
+
+
+def fetch_fred_raw_series(
+    *,
+    start: str,
+    end: str | None = None,
+    series: Mapping[str, str] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Raw per-series daily observations (the un-computed panel), keyed by series name.
+
+    Returns ``{series_name: [{"date": "YYYY-MM-DD", "value": <float>}, ...]}`` ascending
+    — the raw FRED closes *before* the `macro_features` z-score/slope computation. This is
+    what the wide-corpus store (`ml.datasets.corpus_store`) ingests: the encoder reads the
+    raw panel, not the tree-head feature transforms. Same keyless fetch + off-VM guard as
+    :func:`fetch_fred_macro_rows`.
+    """
+    _enforce_offvm()
+    smap: dict[str, str] = {**DEFAULT_SERIES, **(dict(series) if series else {})}
+    out: dict[str, list[dict[str, Any]]] = {}
+    for name, series_id in smap.items():
+        values = _daily_values(series_id, start, end)
+        out[name] = [{"date": d, "value": values[d]} for d in sorted(values)]
+    return out
