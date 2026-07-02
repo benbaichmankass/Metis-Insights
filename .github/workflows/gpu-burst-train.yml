@@ -1,0 +1,131 @@
+name: gpu-burst-train
+# M19 Tier-1 — ledger-gated, teardown-guaranteed spot-GPU burst training.
+#
+# Trigger: open an issue labelled `gpu-burst-train` whose body is:
+#     experiment: T1.1 deep-head bake-off
+#     est_cost: 0.40
+#     train_cmd: python -m ml train <manifest> ...
+#     max_minutes: 90
+#
+# Safety (why this cannot spend by accident):
+#   1. PREFLIGHT — reads comms/gpu_spend_ledger.json; ABORTS if
+#      month-to-date + est_cost > the $10 monthly cap.
+#   2. ARM GATE — even past preflight, nothing launches unless the repo variable
+#      GPU_BURST_ARMED == '1'. Unarmed = a **dry preflight only** (budget check +
+#      comment, ZERO spend). Set it to 1 only after a provider adapter is verified.
+#   3. run_burst.sh launches the ONLY pod, tears it down in a bash EXIT trap, and
+#      currently aborts (adapter pending) — so it can't spend even if armed early.
+#   4. RECORD — the actual billed cost is appended to the ledger + committed, so
+#      the dashboard GPU-spend panel shows every session's cost.
+#
+# Required (when armed): a provider API key secret (e.g. RUNPOD_API_KEY) + the repo
+# var GPU_PROVIDER. Required label: gpu-burst-train (bootstrap-labels.yml).
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write   # commit the updated ledger
+  issues: write     # comment back on the issue
+
+concurrency:
+  group: gpu-burst-train
+  cancel-in-progress: false
+
+jobs:
+  burst:
+    if: contains(github.event.issue.labels.*.name, 'gpu-burst-train')
+    runs-on: ubuntu-latest
+    env:
+      ISSUE_BODY: ${{ github.event.issue.body }}
+      GPU_PROVIDER: ${{ vars.GPU_PROVIDER }}
+      GPU_BURST_ARMED: ${{ vars.GPU_BURST_ARMED }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Parse issue body
+        id: parse
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import os, re
+          body = os.environ.get("ISSUE_BODY", "") or ""
+          def field(name, default=""):
+              m = re.search(rf"^\s*{name}\s*:\s*(.+?)\s*$", body, re.MULTILINE | re.IGNORECASE)
+              return m.group(1).strip() if m else default
+          exp = field("experiment", "(unnamed)")
+          est = field("est_cost", "0")
+          try:
+              est_f = max(0.0, float(est))
+          except ValueError:
+              est_f = 0.0
+          print(f"experiment={exp}")
+          print(f"est_cost={est_f}")
+          print(f"max_minutes={field('max_minutes', '90')}")
+          PY
+
+      - name: Preflight — ledger spend-gate (no spend)
+        id: preflight
+        run: |
+          python -m scripts.ml.gpu_burst.preflight \
+            --est-cost "${{ steps.parse.outputs.est_cost }}" \
+            --experiment "${{ steps.parse.outputs.experiment }}"
+
+      - name: Arm gate
+        id: arm
+        run: |
+          if [ "${GPU_BURST_ARMED:-}" = "1" ] && [ -n "${GPU_PROVIDER:-}" ]; then
+            echo "armed=true" >> "$GITHUB_OUTPUT"
+            echo "Armed (provider=$GPU_PROVIDER) — proceeding to launch."
+          else
+            echo "armed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GPU_BURST_ARMED != 1 (or GPU_PROVIDER unset) — DRY PREFLIGHT ONLY. No pod launched, no spend."
+          fi
+
+      - name: Burst — launch → train → export → teardown
+        id: burst
+        if: steps.arm.outputs.armed == 'true'
+        env:
+          EXPERIMENT: ${{ steps.parse.outputs.experiment }}
+          EST_COST: ${{ steps.parse.outputs.est_cost }}
+          MAX_MINUTES: ${{ steps.parse.outputs.max_minutes }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          VAST_API_KEY: ${{ secrets.VAST_API_KEY }}
+        run: bash scripts/ml/gpu_burst/run_burst.sh
+
+      - name: Record cost + commit ledger
+        if: steps.arm.outputs.armed == 'true' && steps.burst.outcome == 'success'
+        run: |
+          python -m scripts.ml.gpu_burst.record_run \
+            --run-id "gpu-${{ github.run_id }}" \
+            --experiment "${{ steps.parse.outputs.experiment }}" \
+            --gpu-type "${{ steps.burst.outputs.gpu_type }}" \
+            --gpu-hours "${{ steps.burst.outputs.gpu_hours }}" \
+            --rate "${{ steps.burst.outputs.rate }}" \
+            --cost "${{ steps.burst.outputs.cost }}" \
+            --ended "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --status completed
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add comms/gpu_spend_ledger.json
+          git commit -m "chore(gpu-spend): record burst gpu-${{ github.run_id }} (${{ steps.parse.outputs.experiment }})" || echo "no ledger change"
+          git push || echo "::warning::ledger push failed"
+
+      - name: Comment back
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const armed = "${{ steps.arm.outputs.armed }}" === "true";
+            const exp = "${{ steps.parse.outputs.experiment }}";
+            const est = "${{ steps.parse.outputs.est_cost }}";
+            const cost = "${{ steps.burst.outputs.cost }}" || "—";
+            const body = armed
+              ? `🖥️ **GPU burst** — \`${exp}\`\nOutcome: \`${{ steps.burst.outcome }}\` · billed: **$${cost}** (est $${est}). Cost appended to the ledger — see the dashboard GPU-spend panel.`
+              : `🧮 **GPU burst — dry preflight only** for \`${exp}\` (est $${est}).\nBudget gate passed; **no pod launched, no spend** (GPU_BURST_ARMED≠1 or GPU_PROVIDER unset). Arm it once a provider adapter is verified.`;
+            await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
+            await github.rest.issues.update({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, state: "closed" });
