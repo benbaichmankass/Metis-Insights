@@ -240,8 +240,25 @@ def _resolve_repo_sha() -> str:
     return ""
 
 
+# Families a pod may train: both read ONLY public Bybit klines (market_sequences
+# is a causal-window wrapper over market_features) — never the money DB. The data
+# contract that keeps a rented box free of any journal/secret/cred.
+_POD_SCOPE_FAMILIES = ("market_features", "market_sequences")
+
+
+def _in_pod_scope(family: str | None, symbol: str | None) -> bool:
+    """A manifest may train on a pod iff it's a public-data crypto head — one of
+    the allowed families on a Bybit ``*USDT`` symbol. Enforced before launch."""
+    return family in _POD_SCOPE_FAMILIES and str(symbol or "").upper().endswith("USDT")
+
+
 def _manifest_dataset_scope(manifest_path: str) -> dict:
     """Read a manifest's `dataset:` block → {family, symbol, timeframe, version}.
+
+    For a ``market_sequences`` (deep-sequence) manifest, ALSO surfaces the
+    ``sequence`` params from ``trainer_config`` (``seq_len`` + ``feature_columns``)
+    so the pod can materialize the causal-window dataset before training — the
+    window is built from the SAME public ``market_features`` (no money DB).
 
     The manifest is the single source of truth for what the pod builds. pyyaml is
     lazy-imported so the module stays importable (and unit-testable) without it.
@@ -251,12 +268,20 @@ def _manifest_dataset_scope(manifest_path: str) -> dict:
     with open(manifest_path, encoding="utf-8") as fh:
         doc = yaml.safe_load(fh) or {}
     ds = doc.get("dataset") or {}
-    return {
+    out: dict = {
         "family": ds.get("family"),
         "symbol": ds.get("symbol_scope"),
         "timeframe": ds.get("timeframe"),
         "version": ds.get("version") or "v002",
     }
+    if ds.get("family") == "market_sequences":
+        tc = doc.get("trainer_config") or {}
+        out["sequence"] = {
+            "version": ds.get("version") or "v001",
+            "seq_len": int(tc.get("seq_len") or 64),
+            "feature_columns": [str(c) for c in (tc.get("feature_columns") or [])],
+        }
+    return out
 
 
 def _write_bundle(manifest: str, data: bytes) -> str:
@@ -382,10 +407,10 @@ def run(
             print(f"::error::could not read manifest '{manifest}': {e} — tearing down.")
             return 9
         family, symbol, timeframe = scope["family"], scope["symbol"], scope["timeframe"]
-        if family != "market_features" or not str(symbol or "").upper().endswith("USDT"):
+        if not _in_pod_scope(family, symbol):
             print(f"::error::manifest '{manifest}' is out of pod scope "
-                  f"(family={family}, symbol={symbol}). Only market_features crypto heads "
-                  "train on a pod (public data only, no money DB). Tearing down.")
+                  f"(family={family}, symbol={symbol}). Only market_features / market_sequences "
+                  "crypto heads train on a pod (public data only, no money DB). Tearing down.")
             return 9
         repo_sha = _resolve_repo_sha()
         if not repo_sha:
@@ -395,6 +420,7 @@ def run(
         script = _remote.build_remote_train_script(
             repo_sha=repo_sha, manifest_path=manifest,
             symbol=symbol, timeframe=timeframe, version=scope["version"],
+            sequence=scope.get("sequence"),
         )
         train_timeout = max(60, int(max_minutes) * 60)
         print(f"training {manifest} on pod {pod_id} @ {repo_sha[:12]} "

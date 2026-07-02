@@ -145,6 +145,7 @@ def build_remote_train_script(
     symbol: str,
     timeframe: str,
     version: str = "v002",
+    sequence: dict | None = None,
 ) -> str:
     """Assemble the bash the pod runs over SSH: clone → deps → build the PUBLIC
     market dataset → `python -m ml train <manifest>` → gzip|base64 a JSON bundle
@@ -170,6 +171,27 @@ def build_remote_train_script(
     if not (symbol and timeframe):
         raise ValueError("symbol and timeframe are required to build the dataset")
     raw_path = f"datasets-out/market_raw/{symbol}/{timeframe}/{version}"
+    mf_path = f"datasets-out/market_features/{symbol}/{timeframe}/{version}"
+    # Deep-sequence (market_sequences) manifests need two extra things vs a
+    # LightGBM head: onnx/onnxruntime for the CPU-parity export gate (torch ships
+    # in the runpod/pytorch image — fail fast if not, rather than a 10-min install),
+    # and a market_sequences build that windows the SAME public market_features.
+    deep_deps = ""
+    seq_build = ""
+    if sequence:
+        seq_version = str(sequence.get("version") or version)
+        seq_len = int(sequence.get("seq_len") or 64)
+        feat_csv = ",".join(str(c) for c in (sequence.get("feature_columns") or []))
+        deep_deps = (
+            'python -c "import torch" || { echo "::error::torch missing on pod image '
+            '(a deep manifest needs a pytorch image)"; exit 1; }\n'
+            "python -m pip install --quiet onnx onnxruntime\n"
+        )
+        seq_build = (
+            f"python -m ml build-dataset market_sequences --output-dir datasets-out --version {seq_version} \\\n"
+            f"    --source market_features --symbol-scope {symbol} --timeframe {timeframe} --overwrite \\\n"
+            f"    market_features_path={mf_path} seq_len={seq_len} feature_columns={feat_csv}\n"
+        )
     # A single marker pair frames the base64 payload so the runner can slice the
     # artifact cleanly out of any build chatter on stdout.
     return f"""set -euo pipefail
@@ -191,7 +213,7 @@ git checkout --quiet {repo_sha}
 python -m pip install --quiet --ignore-installed blinker
 python -m pip install --quiet -r requirements.txt
 python -m pip install --quiet "ccxt>=4.0" "lightgbm>=4.0"
-# >=5y window for the regime label (matches the daily cycle's rolling window).
+{deep_deps}# >=5y window for the regime label (matches the daily cycle's rolling window).
 MARKET_START="$(date -u -d '5 years ago' +%Y-%m-%d 2>/dev/null || echo 2021-01-01)"
 MARKET_END="$(date -u +%Y-%m-%d)"
 # Build the PUBLIC market dataset ON the pod (Bybit klines -> derived features);
@@ -202,7 +224,7 @@ python -m ml build-dataset market_raw --output-dir datasets-out --version {versi
 python -m ml build-dataset market_features --output-dir datasets-out --version {version} \\
     --source {raw_path} --symbol-scope {symbol} --timeframe {timeframe} --overwrite \\
     market_raw_path={raw_path} {_CRYPTO_MARKET_FEATURES_PARAMS}
-# Train the manifest (registers into the pod-local registry-store; discarded with
+{seq_build}# Train the manifest (registers into the pod-local registry-store; discarded with
 # the pod -- only the returned bundle survives).
 python -m ml train {manifest_path} --datasets-root datasets-out \\
     --experiments-root ml/experiments-runs --registry-root ml/registry-store

@@ -302,6 +302,72 @@ def test_write_bundle_lands_under_mirror(tmp_path, monkeypatch):
     assert open(dest, "rb").read() == b"{\"ok\":1}"
 
 
+# ---- deep-sequence (market_sequences) burst wiring (M19 T1.1) ----
+
+def _write_seq_manifest(tmp_path):
+    m = tmp_path / "tcn.yaml"
+    m.write_text(
+        "model_id: btc-regime-15m-tcn-v1\n"
+        "trainer_config:\n"
+        "  seq_len: 64\n"
+        "  feature_columns: [log_return, rolling_log_return_vol, hour_of_day, dayofweek]\n"
+        "dataset:\n"
+        "  family: market_sequences\n"
+        "  symbol_scope: BTCUSDT\n"
+        "  timeframe: 15m\n"
+        "  version: v001\n",
+        encoding="utf-8",
+    )
+    return m
+
+
+def test_manifest_scope_surfaces_sequence_params(tmp_path):
+    scope = runpod_burst._manifest_dataset_scope(str(_write_seq_manifest(tmp_path)))
+    assert scope["family"] == "market_sequences"
+    assert scope["sequence"] == {
+        "version": "v001", "seq_len": 64,
+        "feature_columns": ["log_return", "rolling_log_return_vol", "hour_of_day", "dayofweek"],
+    }
+
+
+def test_pod_scope_accepts_both_public_families_only():
+    assert runpod_burst._in_pod_scope("market_features", "BTCUSDT")
+    assert runpod_burst._in_pod_scope("market_sequences", "ETHUSDT")
+    # Non-public families / non-crypto symbols are refused (data contract).
+    assert not runpod_burst._in_pod_scope("trade_outcomes", "BTCUSDT")
+    assert not runpod_burst._in_pod_scope("market_features", "MES")
+    assert not runpod_burst._in_pod_scope(None, "BTCUSDT")
+
+
+def test_remote_script_sequence_path_builds_window_and_installs_onnx():
+    seq = {"version": "v001", "seq_len": 64,
+           "feature_columns": ["log_return", "rolling_log_return_vol", "hour_of_day", "dayofweek"]}
+    s = _remote.build_remote_train_script(
+        repo_sha="abc123def456", manifest_path="ml/configs/btc-regime-15m-tcn-v1.yaml",
+        symbol="BTCUSDT", timeframe="15m", version="v001", sequence=seq,
+    )
+    # torch from the image (fail-fast, not a 10-min install) + onnx/onnxruntime for parity.
+    assert 'import torch' in s and "pip install --quiet onnx onnxruntime" in s
+    # windows the SAME public market_features → market_sequences, in order, before train.
+    assert "build-dataset market_sequences --output-dir datasets-out --version v001" in s
+    assert "seq_len=64" in s
+    assert "feature_columns=log_return,rolling_log_return_vol,hour_of_day,dayofweek" in s
+    assert "market_features_path=datasets-out/market_features/BTCUSDT/15m/v001" in s
+    assert s.index("build-dataset market_features") < s.index("build-dataset market_sequences") < s.index("ml train")
+    # data contract: still public-only — no money DB / secret / cred references.
+    assert "trade_journal" not in s and "DASHBOARD_API_TOKEN" not in s and "VM_SSH_KEY" not in s
+
+
+def test_remote_script_non_sequence_path_unchanged():
+    s = _remote.build_remote_train_script(
+        repo_sha="abc123def456", manifest_path="ml/configs/btc-regime-15m-lgbm-v2.yaml",
+        symbol="BTCUSDT", timeframe="15m", version="v002",
+    )
+    assert "market_sequences" not in s
+    assert "onnxruntime" not in s
+    assert "import torch" not in s
+
+
 # ---- bundle → registry ingest (M19 T1) ----
 
 def _write_bundle_json(tmp_path, *, model_id="btc-regime-15m-lgbm-v2", stage="shadow", run_id="20260702T183000Z"):
