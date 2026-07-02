@@ -64,6 +64,37 @@ def ssh_argv(
     ]
 
 
+def ssh_argv_direct(
+    host: str,
+    port: int,
+    key_path: str,
+    remote_command: str,
+    *,
+    user: str = "root",
+    connect_timeout: int = 30,
+) -> list[str]:
+    """Build the argv for a DIRECT (public-IP) SSH command against a RunPod pod.
+
+    Used when the pod is launched with a public IP + exposed port 22 and our own
+    ephemeral key in authorized_keys (set by the docker start command) — this
+    sidesteps the account-key-only proxy entirely. Same non-interactive hygiene
+    as the proxy path.
+    """
+    if not host or not port:
+        raise ValueError("host and port are required for direct ssh")
+    return [
+        "ssh",
+        "-i", key_path,
+        "-p", str(port),
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
+        "-o", "BatchMode=yes",
+        "-o", f"ConnectTimeout={connect_timeout}",
+        f"{user}@{host}",
+        remote_command,
+    ]
+
+
 def gen_ephemeral_keypair(dirpath: str | None = None) -> tuple[str, str]:
     """Generate a throwaway ed25519 keypair for one burst run.
 

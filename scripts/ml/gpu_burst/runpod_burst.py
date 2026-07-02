@@ -29,7 +29,6 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
-import tempfile
 import time
 from typing import Any
 
@@ -82,32 +81,51 @@ def _is_capacity_error(exc: Exception) -> bool:
     )
 
 
-def _resolve_ssh_key() -> tuple[str | None, str | None]:
-    """Materialize the account SSH private key from the RUNPOD_SSH_KEY secret.
+# Container start command: install our EPHEMERAL public key into authorized_keys
+# and run our own sshd in the foreground (keeps the pod alive). This makes SSH
+# fully self-managed — no dependency on RunPod's account-key proxy or the image's
+# template start-script, so an ephemeral per-run key works (zero operator config).
+# $PUBLIC_KEY is expanded on the POD (left literal here). Connect via public IP:22.
+_DOCKER_SSH_BOOTSTRAP = (
+    "bash -c '"
+    "set -e; mkdir -p /root/.ssh; "
+    'printf "%s\\n" "$PUBLIC_KEY" > /root/.ssh/authorized_keys; '
+    "chmod 700 /root/.ssh; chmod 600 /root/.ssh/authorized_keys; "
+    "if ! command -v sshd >/dev/null 2>&1; then "
+    "  apt-get update -qq && apt-get install -y -qq openssh-server >/dev/null; fi; "
+    "mkdir -p /run/sshd; "
+    "exec /usr/sbin/sshd -D -e"
+    "'"
+)
 
-    RunPod's proxy SSH (ssh.runpod.io) authenticates against a key registered on
-    the ACCOUNT (auto-injected by the platform), NOT a per-pod env key — so the
-    runner holds the matching PRIVATE key as the RUNPOD_SSH_KEY Actions secret.
-    Writes it to a run-scoped 0600 temp file and derives its public half (passed
-    back as PUBLIC_KEY too, belt-and-suspenders). Returns (None, None) when the
-    secret is unset.
+
+def _public_ssh_endpoint(pod: dict) -> tuple[str | None, int | None]:
+    """Extract the public (ip, host-port) mapped to the pod's private port 22.
+
+    RunPod get_pod returns runtime.ports = [{ip, isIpPublic, privatePort,
+    publicPort, type}]. Returns (None, None) until a public 22 mapping appears.
     """
-    raw = os.environ.get("RUNPOD_SSH_KEY", "").strip()
-    if not raw:
-        return None, None
-    d = tempfile.mkdtemp(prefix="ict-burst-key-")
-    key_path = os.path.join(d, "id_runpod")
-    with open(key_path, "w", encoding="utf-8") as fh:
-        fh.write(raw + "\n")   # a trailing newline is required for a valid key file
-    os.chmod(key_path, 0o600)
-    try:
-        pub = subprocess.run(
-            ["ssh-keygen", "-y", "-f", key_path],
-            capture_output=True, text=True, check=True,
-        ).stdout.strip()
-    except Exception:  # noqa: BLE001 - pub is a bonus; account-injection is the primary path
-        pub = None
-    return key_path, pub
+    ports = ((pod or {}).get("runtime") or {}).get("ports") or []
+    for p in ports:
+        try:
+            if int(p.get("privatePort")) == 22 and p.get("isIpPublic") and p.get("ip") and p.get("publicPort"):
+                return str(p["ip"]), int(p["publicPort"])
+        except (TypeError, ValueError):
+            continue
+    return None, None
+
+
+def _wait_public_ssh_endpoint(
+    runpod: Any, pod_id: str, timeout_s: int = _SSH_READY_TIMEOUT_S,
+) -> tuple[str | None, int | None]:
+    """Poll get_pod until RunPod publishes the public IP + mapped SSH port."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        ip, port = _public_ssh_endpoint(runpod.get_pod(pod_id) or {})
+        if ip and port:
+            return ip, port
+        time.sleep(_SSH_READY_INTERVAL_S)
+    return None, None
 
 
 def _sdk() -> Any:
@@ -143,9 +161,13 @@ def _pod_rate(runpod: Any, pod: dict, gpu_type: str) -> float:
     return 0.0
 
 
-def _ssh_capture(pod_id: str, key_path: str, command: str, timeout_s: int) -> tuple[int, str, str]:
-    """Run one proxy-SSH command; return (rc, stdout, stderr). A timeout → rc 124."""
-    argv = _remote.ssh_argv(pod_id, key_path, command)
+def _ssh_capture(
+    endpoint: tuple[str, int], key_path: str, command: str, timeout_s: int,
+) -> tuple[int, str, str]:
+    """Run one direct-SSH command against (ip, port); return (rc, stdout, stderr).
+    A timeout → rc 124."""
+    host, port = endpoint
+    argv = _remote.ssh_argv_direct(host, port, key_path, command)
     try:
         proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout_s)
     except subprocess.TimeoutExpired as e:
@@ -153,12 +175,14 @@ def _ssh_capture(pod_id: str, key_path: str, command: str, timeout_s: int) -> tu
     return proc.returncode, proc.stdout, proc.stderr
 
 
-def _wait_ssh_ready(pod_id: str, key_path: str, timeout_s: int = _SSH_READY_TIMEOUT_S) -> bool:
-    """Poll until the pod's sshd accepts the injected ephemeral key (or give up)."""
+def _wait_ssh_ready(
+    endpoint: tuple[str, int], key_path: str, timeout_s: int = _SSH_READY_TIMEOUT_S,
+) -> bool:
+    """Poll until the pod's sshd accepts our ephemeral key (or give up)."""
     deadline = time.monotonic() + timeout_s
     last = ""
     while time.monotonic() < deadline:
-        rc, out, err = _ssh_capture(pod_id, key_path, "echo __ssh_ok__", timeout_s=30)
+        rc, out, err = _ssh_capture(endpoint, key_path, "echo __ssh_ok__", timeout_s=30)
         if rc == 0 and "__ssh_ok__" in out:
             return True
         last = (err or out).strip()
@@ -194,17 +218,14 @@ def run(
     gpu_used = gpu_type
     started = time.monotonic()
     rate = 0.0
-    # Any SSH path (probe today, full train next) authenticates with the account
-    # SSH key (RUNPOD_SSH_KEY secret) over RunPod's proxy — the platform injects
-    # the matching account public key into the pod. Pure --verify stays key-free.
+    # Any SSH path (probe today, full train next) uses a THROWAWAY per-run key: the
+    # pod is launched with a public IP + our own sshd (docker start command) that
+    # installs this key — so it works with zero operator config (no account key).
+    # Pure --verify stays key-free + never opens a public port.
     key_path = pub = None
-    if ssh_probe or not verify:
-        key_path, pub = _resolve_ssh_key()
-        if not key_path:
-            print("::error::RUNPOD_SSH_KEY secret unset — add the account SSH private key "
-                  "(matching a public key registered in RunPod › Settings › SSH Keys). "
-                  "No pod launched, no spend.")
-            return 3
+    need_ssh = ssh_probe or not verify
+    if need_ssh:
+        key_path, pub = _remote.gen_ephemeral_keypair()
     try:
         # Try the requested card first, then walk the fallback list — but only
         # skip forward on a genuine capacity miss; any other error re-raises.
@@ -221,12 +242,12 @@ def run(
                     gpu_count=1,
                     container_disk_in_gb=20,
                     volume_in_gb=0,
-                    support_public_ip=False,
-                    # RunPod's official templates read PUBLIC_KEY at start to write
-                    # authorized_keys (SSH_PUBLIC_KEY is only an "override" the base
-                    # template doesn't honour — using it left the key uninstalled →
-                    # Permission denied). Pass both; PUBLIC_KEY is the one that works.
-                    env={"PUBLIC_KEY": pub, "SSH_PUBLIC_KEY": pub} if pub else None,
+                    # SSH paths need a public IP + exposed port 22 + our own sshd
+                    # (docker start cmd installs the ephemeral key). Verify skips it.
+                    support_public_ip=need_ssh,
+                    ports="22/tcp" if need_ssh else None,
+                    docker_args=_DOCKER_SSH_BOOTSTRAP if need_ssh else "",
+                    env={"PUBLIC_KEY": pub} if pub else None,
                 ) or {}
             except Exception as e:  # noqa: BLE001 - re-raised below unless it's a capacity miss
                 if _is_capacity_error(e):
@@ -256,13 +277,22 @@ def run(
             print(f"VERIFY OK — pod {pod_id} reached RUNNING; tearing down (smoke test, no training).")
             return 0
 
-        # SSH paths need the pod's sshd to accept the injected key first.
-        if not _wait_ssh_ready(pod_id, key_path):
-            print(f"::error::pod {pod_id} never accepted SSH within {_SSH_READY_TIMEOUT_S}s — tearing down.")
+        # SSH paths: wait for RunPod to publish the public IP + mapped SSH port,
+        # then wait for our own sshd to accept the ephemeral key.
+        ip, port = _wait_public_ssh_endpoint(runpod, pod_id)
+        if not (ip and port):
+            print(f"::error::pod {pod_id} never exposed a public SSH port in {_SSH_READY_TIMEOUT_S}s "
+                  "(community machine may not offer a public IP) — tearing down.")
+            return 7
+        endpoint = (ip, port)
+        print(f"pod {pod_id} public SSH endpoint: {ip}:{port}")
+        if not _wait_ssh_ready(endpoint, key_path):
+            print(f"::error::pod {pod_id} sshd never accepted the ephemeral key within "
+                  f"{_SSH_READY_TIMEOUT_S}s — tearing down.")
             return 7
 
         if ssh_probe:
-            rc, out, err = _ssh_capture(pod_id, key_path, _PROBE_CMD, timeout_s=_SSH_CMD_TIMEOUT_S)
+            rc, out, err = _ssh_capture(endpoint, key_path, _PROBE_CMD, timeout_s=_SSH_CMD_TIMEOUT_S)
             print("---- pod probe stdout ----")
             print(out)
             if err.strip():
@@ -271,7 +301,7 @@ def run(
             if rc != 0 or "=== probe end ===" not in out:
                 print(f"::error::probe command failed (rc={rc}) — SSH reached but pod env check incomplete.")
                 return 8
-            print(f"SSH PROBE OK — proxy SSH + ephemeral key work on pod {pod_id}; tearing down.")
+            print(f"SSH PROBE OK — public-IP SSH + ephemeral key work on pod {pod_id}; tearing down.")
             return 0
 
         # Full on-pod train → export → parity → artifact-return is wired on top of
