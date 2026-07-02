@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from scripts.ml.gpu_burst import _remote, preflight, record_run, runpod_burst
+from scripts.ml.gpu_burst import _remote, ingest_bundle, preflight, record_run, runpod_burst
 from src.runtime import gpu_spend
 
 
@@ -300,3 +300,52 @@ def test_write_bundle_lands_under_mirror(tmp_path, monkeypatch):
     dest = runpod_burst._write_bundle("ml/configs/btc-regime-15m-lgbm-v2.yaml", b"{\"ok\":1}")
     assert dest.endswith("btc-regime-15m-lgbm-v2.bundle.json")
     assert open(dest, "rb").read() == b"{\"ok\":1}"
+
+
+# ---- bundle → registry ingest (M19 T1) ----
+
+def _write_bundle_json(tmp_path, *, model_id="btc-regime-15m-lgbm-v2", stage="shadow", run_id="20260702T183000Z"):
+    bundle = {
+        "run_dir": f"ml/experiments-runs/{model_id}/{run_id}/",
+        "model_state": {"booster_str": "tree...", "feature_names": ["a", "b"]},
+        "metrics": {"macro_f1": 0.61, "f1_volatile": 0.40, "nested": {"x": 1}},
+        "manifest": {"model_id": model_id, "target_deployment_stage": stage,
+                     "dataset": {"family": "market_features"}},
+    }
+    p = tmp_path / f"{model_id}.bundle.json"
+    p.write_text(json.dumps(bundle), encoding="utf-8")
+    return p
+
+
+def test_ingest_forces_candidate_and_registers(tmp_path):
+    bundle = _write_bundle_json(tmp_path, stage="shadow")  # even if manifest says shadow
+    reg_root = tmp_path / "registry-store"
+    exp_root = tmp_path / "experiments-runs"
+    dest = ingest_bundle.ingest(
+        bundle_path=str(bundle), registry_root=str(reg_root),
+        experiments_root=str(exp_root), code_revision="deadbeef",
+    )
+    entry = json.loads(open(dest).read())
+    # forced candidate — never auto-land at shadow (which would auto-wire onto strategies)
+    assert entry["target_deployment_stage"] == "candidate"
+    assert entry["status"] == "candidate"
+    assert entry["model_id"] == "btc-regime-15m-lgbm-v2"
+    assert entry["code_revision"] == "deadbeef"
+    # registry metrics keep only scalar numerics (nested dropped); full metrics.json materialized
+    assert entry["metrics"] == {"macro_f1": 0.61, "f1_volatile": 0.40}
+    run = exp_root / "btc-regime-15m-lgbm-v2" / "20260702T183000Z"
+    assert (run / "model_state.json").exists()
+    assert json.loads((run / "metrics.json").read_text())["nested"] == {"x": 1}
+    assert entry["model_state_path"].endswith("model_state.json")
+
+
+def test_ingest_run_id_from_bundle_dir():
+    assert ingest_bundle._run_id_from_bundle({"run_dir": "a/b/RUNID/"}, "fb") == "RUNID"
+    assert ingest_bundle._run_id_from_bundle({}, "fb") == "fb"
+
+
+def test_ingest_rejects_bundle_without_model_id(tmp_path):
+    p = tmp_path / "bad.bundle.json"
+    p.write_text(json.dumps({"model_state": {}, "manifest": {"dataset": {}}}), encoding="utf-8")
+    assert ingest_bundle.main(["--bundle", str(p), "--registry-root", str(tmp_path / "r"),
+                               "--experiments-root", str(tmp_path / "e")]) == 1
