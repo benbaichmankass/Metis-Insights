@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 
-from scripts.ml.gpu_burst import preflight, record_run
+from scripts.ml.gpu_burst import preflight, record_run, runpod_burst
 from src.runtime import gpu_spend
 
 
@@ -56,3 +56,17 @@ def test_record_run_authoritative_cost_wins(tmp_path, monkeypatch):
     ])
     entry = json.loads(open(path).read())["runs"][0]
     assert entry["cost_usd"] == 0.95  # the recorded billed figure, not 1.02
+
+
+def test_runpod_adapter_fails_safe_without_key(monkeypatch):
+    """No RUNPOD_API_KEY → the adapter aborts (rc 3) before touching the API."""
+    monkeypatch.delenv("RUNPOD_API_KEY", raising=False)
+    assert runpod_burst.main(["--verify", "--experiment", "smoke"]) == 3
+
+
+def test_runpod_adapter_key_but_no_sdk_fails_safe(monkeypatch):
+    """Key set but SDK absent (sandbox) → still a clean abort, never a partial launch."""
+    monkeypatch.setenv("RUNPOD_API_KEY", "dummy")
+    # _sdk() raises RuntimeError if `runpod` isn't importable; main() maps it to rc 3.
+    rc = runpod_burst.main(["--verify", "--experiment", "smoke"])
+    assert rc == 3

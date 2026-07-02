@@ -64,9 +64,11 @@ jobs:
               est_f = max(0.0, float(est))
           except ValueError:
               est_f = 0.0
+          verify = field("verify", "false").lower() in ("1", "true", "yes")
           print(f"experiment={exp}")
           print(f"est_cost={est_f}")
           print(f"max_minutes={field('max_minutes', '90')}")
+          print(f"verify={'1' if verify else ''}")
           PY
 
       - name: Preflight — ledger spend-gate (no spend)
@@ -94,6 +96,7 @@ jobs:
           EXPERIMENT: ${{ steps.parse.outputs.experiment }}
           EST_COST: ${{ steps.parse.outputs.est_cost }}
           MAX_MINUTES: ${{ steps.parse.outputs.max_minutes }}
+          VERIFY: ${{ steps.parse.outputs.verify }}
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           VAST_API_KEY: ${{ secrets.VAST_API_KEY }}
         run: bash scripts/ml/gpu_burst/run_burst.sh

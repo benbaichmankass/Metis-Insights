@@ -12,20 +12,28 @@ ever on the money-box. Spec: [`docs/research/T1-gpu-burst-spend-SPEC.md`](../res
   budget preflight + comments back **with zero spend** until armed.
 - **Pending:** pick a provider, add its key, verify the launch/teardown adapter, arm.
 
-## The three arm steps (operator + Claude)
+## Provider: RunPod community spot (chosen 2026-07-02)
 
-1. **Pick a provider + create the account.** RunPod (or Vast) community spot is the
-   spec's pick — **~$0.20–0.40/GPU-hr**, so $10/mo buys ~25–33 GPU-hr. (OCI GPUs work
-   but are ~$2/hr on-demand with no cheap spot + need a service-limit-increase ticket
-   — ~5× fewer GPU-hr per dollar; only sensible for a one-off first test.)
-2. **Add the provider API key to Actions secrets** (e.g. `RUNPOD_API_KEY`) and set the
-   repo **variable** `GPU_PROVIDER` (`runpod` | `vast` | `oci`). *(Human step — a
-   secret value.)* Funding a **small prepaid balance** on the provider is the
-   belt-and-suspenders second ceiling (the account can't overspend it).
-3. **Verify + arm.** Claude fills in `provider_launch`/`provider_teardown` in
-   `scripts/ml/gpu_burst/run_burst.sh` for the chosen backend, verifies a manual
-   launch→terminate leaves no running pod, then the operator sets the repo variable
-   **`GPU_BURST_ARMED=1`**. Until then every trigger is a **dry preflight only**.
+**~$0.20–0.40/GPU-hr**, so $10/mo buys ~25–33 GPU-hr. Adapter:
+`scripts/ml/gpu_burst/runpod_burst.py` (official `runpod` Python SDK), dispatched by
+`run_burst.sh` when `GPU_PROVIDER=runpod`. It launches ONE community-cloud pod and
+**terminates it in a `finally`** — a crash/timeout can't leak a billing pod.
+
+## The arm steps (operator + Claude)
+
+1. **Operator — create the account + key.** Sign up (runpod.io) → create an API key →
+   add it to the bot repo's Actions secrets as **`RUNPOD_API_KEY`**; set repo
+   **variables** `GPU_PROVIDER=runpod` (leave `GPU_BURST_ARMED` unset). Fund a **small
+   prepaid balance** — the belt-and-suspenders second ceiling (the account can't
+   overspend it). *(The only human step — a secret value.)*
+2. **Claude — verify launch+teardown.** Open a `gpu-burst-train` issue with
+   `verify: true` while `GPU_BURST_ARMED=1` is set *temporarily* — the adapter's
+   `--verify` path launches the cheapest pod, confirms it reaches RUNNING, and tears
+   it down (a few cents), proving launch→bill→teardown end-to-end. Confirm on the
+   RunPod console + the dashboard GPU-spend panel that no pod lingers and the cost
+   posted. This is where the on-pod train/export exec is finalized against a live pod.
+3. **Arm.** Once the verify run is clean, the operator sets **`GPU_BURST_ARMED=1`**
+   for real. Until armed, every trigger is a **dry preflight only** (no spend).
 
 ## Running a burst
 
