@@ -1,9 +1,13 @@
 """Tests for the GPU-burst preflight gate + cost recorder (M19 Tier-1)."""
 from __future__ import annotations
 
+import base64
+import gzip
 import json
 
-from scripts.ml.gpu_burst import preflight, record_run, runpod_burst
+import pytest
+
+from scripts.ml.gpu_burst import _remote, preflight, record_run, runpod_burst
 from src.runtime import gpu_spend
 
 
@@ -123,3 +127,55 @@ def test_runpod_capacity_fallback_then_launch(monkeypatch, tmp_path):
     assert fake.terminated == ["pod-xyz"]  # teardown guarantee held
     out = emit.read_text()
     assert f"gpu_type={second}" in out  # emits the card actually launched, not the requested one
+
+
+# ---- on-pod exec building blocks (_remote.py, no live pod) ----
+
+def test_ssh_argv_is_noninteractive_proxy():
+    argv = _remote.ssh_argv("pod-123", "/tmp/k", "echo hi")
+    assert argv[0] == "ssh"
+    assert "pod-123@ssh.runpod.io" in argv
+    assert "echo hi" == argv[-1]
+    # ephemeral-key hygiene: no host-key prompt, batch mode, key passed via -i
+    assert "-i" in argv and "/tmp/k" in argv
+    assert "BatchMode=yes" in argv
+    assert "StrictHostKeyChecking=no" in argv
+
+
+def test_ssh_argv_requires_pod_id():
+    with pytest.raises(ValueError):
+        _remote.ssh_argv("", "/tmp/k", "echo hi")
+
+
+def test_remote_script_is_safe_and_pinned():
+    script = _remote.build_remote_train_script(
+        repo_sha="abc123", manifest="btc-regime-15m-tcn-v1", dataset_family="market_features",
+    )
+    assert "set -euo pipefail" in script          # abort-on-error
+    assert "git checkout --quiet abc123" in script  # pinned SHA, not a floating branch
+    assert "build-dataset market_features" in script
+    assert "--parity-gate" in script              # CPU/GPU parity gate present
+    assert _remote._ARTIFACT_BEGIN in script and _remote._ARTIFACT_END in script
+    # Safety: no secret / money-DB / cred reference reaches the pod.
+    for forbidden in ("RUNPOD_API_KEY", "trade_journal.db", "DASHBOARD_API_TOKEN",
+                      "SECRET", "TELEGRAM", ".env"):
+        assert forbidden not in script
+
+
+def test_remote_script_rejects_floating_sha():
+    with pytest.raises(ValueError):
+        _remote.build_remote_train_script(repo_sha="", manifest="m", dataset_family="f")
+
+
+def test_artifact_roundtrip_through_stream():
+    payload = b"onnx-model-bytes-\x00\x01\x02" * 100
+    b64 = base64.b64encode(gzip.compress(payload)).decode()
+    # the pod frames the base64 between markers amid ordinary build chatter
+    stdout = f"cloning...\ntraining...\n{_remote._ARTIFACT_BEGIN}\n{b64}\n{_remote._ARTIFACT_END}\ndone\n"
+    extracted = _remote.extract_artifact_b64(stdout)
+    assert _remote.decode_artifact_stream(extracted) == payload
+
+
+def test_artifact_extract_missing_markers_raises():
+    with pytest.raises(ValueError):
+        _remote.extract_artifact_b64("no markers here")

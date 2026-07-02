@@ -102,6 +102,68 @@ Key safety properties the spec mandates:
   existing per-bar scorer under its fetch-gate + wall-clock budget — identical to
   the T0.4 live-parity contract. **No torch/CUDA ever on the money-box.**
 
+## On-pod exec design (steps 2–5 made concrete, 2026-07-02)
+
+The workflow *shape* above left the **mechanism** of "get data onto the pod → run
+the train → pull the artifact back" unspecified. After the launch/verify/teardown
+adapter (`runpod_burst.py`) was proven live (issue #5439: launch → RUNNING →
+teardown, ~$0.0001), the mechanism is now fixed as follows — chosen to add **zero
+new operator steps** and keep the data-one-way rule airtight.
+
+**Transport: RunPod proxy SSH + an EPHEMERAL per-run keypair.** RunPod's proxy
+SSH (`ssh <pod-id>@ssh.runpod.io`) runs arbitrary shell commands **without a
+public IP**, authenticating with a key injected per-pod via the `SSH_PUBLIC_KEY`
+env at `create_pod`. So the runner **generates a throwaway ed25519 keypair each
+run**, passes the public half as `SSH_PUBLIC_KEY`, and keeps the private half
+in-memory for that job only. **No account SSH key, no new GitHub secret, no
+operator action** — the keypair is born and dies with the run. (The proxy does
+NOT support scp/sftp; that's fine — see artifact return below.)
+
+**Data onto the pod: the pod builds its own dataset from PUBLIC sources.** The
+`ict-trading-bot` repo is **public**, so the pod `git clone`s it directly (no
+token). The T1.1 dataset (`market_features` for a BTC regime head) is built from
+**public candle data + the committed corpus** (`runtime_logs/trainer_mirror/corpus`,
+the C1b FRED store) — it does **not** touch `trade_journal.db`. So the pod builds
+its own training input with `python -m ml build-dataset …`; nothing from the money
+box is ever uploaded. (Label-hungry heads that DO need the journal are out of
+scope for the burst tier by construction — that's the Tier-2 line, and the
+constraint is labels, not compute.)
+
+**Artifact back: gzip|base64 over the SSH channel.** A ≤5M-param head exports to a
+small ONNX (single-digit MB). The pod `gzip`s the parity-validated ONNX and emits
+it **base64 on the SSH command's stdout**; the runner decodes it straight into the
+registry mirror. Deterministic, dependency-free, no relay/one-time-code
+coordination, no public IP. (`runpodctl send/receive` is the documented scale-up
+path for the larger T1.2 encoder, where a multi-hundred-MB artifact outgrows an
+SSH stdout — noted, not built for v1.)
+
+**The exact per-run sequence (all driven from the runner over proxy SSH):**
+
+1. `create_pod(..., env={"SSH_PUBLIC_KEY": <ephemeral pub>})` → wait RUNNING
+   (existing adapter, with the capacity fallback).
+2. SSH: `git clone` the public repo at the pinned SHA + `pip install` the train deps.
+3. SSH: `python -m ml build-dataset <family>` from public candle data + the
+   committed corpus (no journal).
+4. SSH: `python -m ml train <manifest>` on the GPU → export ONNX → **numeric
+   parity gate** (GPU logits vs `onnxruntime` CPU logits within tol) — abort the
+   whole run on parity failure (a model that doesn't reproduce on CPU is useless
+   to the money box).
+5. SSH: `gzip -c model.onnx | base64 -w0` → runner decodes to
+   `runtime_logs/trainer_mirror/<...>/model.onnx` + its manifest/metrics JSON.
+6. `terminate_pod` in the `finally` (unchanged guarantee); append the **actual**
+   billed cost to `comms/gpu_spend_ledger.json`; the trainer VM ingests the mirror
+   artifact into the registry at **`candidate`** stage (operator-gated to go past
+   shadow, unchanged).
+
+**Safety deltas this introduces:** (a) the ephemeral key means a leaked pod can't
+be re-entered after the run (key is gone); (b) still **no secret / money-DB / live
+cred** touches the pod — it only ever holds public code + public market data + the
+model it trains; (c) the parity gate makes "trained on GPU" and "served on the CPU
+money box" numerically identical before anything is ingested; (d) teardown stays in
+the `finally`, and the ledger still hard-gates the monthly cap before launch. The
+model still lands at `candidate` — **the shadow→advisory promotion remains the
+operator-gated live switch**, untouched by this tier.
+
 ## The concrete FIRST experiment (what the first ~1 GPU-hr buys)
 
 **T1.1 — a small deep sequence regime head vs the LightGBM head, head-to-head on
