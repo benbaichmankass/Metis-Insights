@@ -107,17 +107,18 @@ def test_ssh_argv_direct_uses_ip_port_root():
     assert argv[-1] == "echo hi"
 
 
-def test_docker_ssh_bootstrap_is_self_contained_and_safe():
-    """The pod start command installs OUR key + runs sshd; no secret/DB reference."""
-    b = runpod_burst._DOCKER_SSH_BOOTSTRAP
-    assert "authorized_keys" in b and "$PUBLIC_KEY" in b
-    assert "sshd -D" in b                                   # own sshd, foreground
-    for forbidden in ("RUNPOD_API_KEY", "trade_journal", "SECRET", "TELEGRAM"):
-        assert forbidden not in b
-    # RunPod interpolates docker_args straight into a GraphQL mutation, so a '%'
-    # anywhere here raises `Syntax Error: Unexpected character: "%"` from the query
-    # builder BEFORE any pod launches (the printf "%s" regression, #5447).
-    assert "%" not in b
+def test_no_custom_docker_bootstrap_sent_to_runpod():
+    """We rely on the official image's own SSH start-script — NOT a custom
+    docker_args bootstrap. RunPod interpolates docker_args raw into its GraphQL
+    mutation, so any '%' (#5447) or '$' (#5449) in a shell snippet aborts the
+    launch before a pod is created. Guard the whole regression class: the module
+    must not carry a shell bootstrap constant, and run() must never pass a
+    non-empty docker_args to create_pod."""
+    import inspect
+
+    assert not hasattr(runpod_burst, "_DOCKER_SSH_BOOTSTRAP")
+    src = inspect.getsource(runpod_burst.run)
+    assert "docker_args=" not in src  # no docker_args kwarg passed to create_pod
 
 
 class _FakeRunpod:

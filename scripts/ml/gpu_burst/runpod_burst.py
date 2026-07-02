@@ -81,27 +81,23 @@ def _is_capacity_error(exc: Exception) -> bool:
     )
 
 
-# Container start command: install our EPHEMERAL public key into authorized_keys
-# and run our own sshd in the foreground (keeps the pod alive). This makes SSH
-# fully self-managed — no dependency on RunPod's account-key proxy or the image's
-# template start-script, so an ephemeral per-run key works (zero operator config).
-# $PUBLIC_KEY is expanded on the POD (left literal here). Connect via public IP:22.
+# Zero-config pod SSH — NO custom docker_args.
 #
-# NOTE: this string is naively interpolated into RunPod's GraphQL mutation, so it
-# must contain NO '%' character — a `printf "%s\n"` here raised
-# `Syntax Error: Unexpected character: "%"` from the query builder before any pod
-# launched. An SSH public key is a single line, so a plain `echo` is equivalent.
-_DOCKER_SSH_BOOTSTRAP = (
-    "bash -c '"
-    "set -e; mkdir -p /root/.ssh; "
-    'echo "$PUBLIC_KEY" > /root/.ssh/authorized_keys; '
-    "chmod 700 /root/.ssh; chmod 600 /root/.ssh/authorized_keys; "
-    "if ! command -v sshd >/dev/null 2>&1; then "
-    "  apt-get update -qq && apt-get install -y -qq openssh-server >/dev/null; fi; "
-    "mkdir -p /run/sshd; "
-    "exec /usr/sbin/sshd -D -e"
-    "'"
-)
+# The RunPod OFFICIAL images (we use `runpod/pytorch:*`) ship full SSH already
+# configured: on start they inject the `PUBLIC_KEY` env var into
+# ~/.ssh/authorized_keys and run sshd on port 22 (per RunPod's "Connect via SSH"
+# docs — official templates need NO setup). So for direct public-IP SSH we only
+# hand the pod our EPHEMERAL public key via `env={"PUBLIC_KEY": pub}`, a public IP,
+# and an exposed port 22 — the image does the rest. An ephemeral per-run key means
+# zero operator config (no account key, no GitHub secret).
+#
+# We deliberately DON'T pass a custom `docker_args` bootstrap: (1) it's redundant
+# with the image's own SSH start-script, and (2) RunPod interpolates docker_args
+# RAW into its GraphQL mutation, so any '%' (Unexpected character) or '$' (Expected
+# Name, found "$") in a shell snippet aborts the launch before a pod is even
+# created — a fragility class we sidestep entirely by not sending shell there.
+# `PUBLIC_KEY` is expanded by the IMAGE on the pod; our value carries only
+# ssh-ed25519 base64 (no '$'/'%'), so the structured env input is GraphQL-safe.
 
 
 def _public_ssh_endpoint(pod: dict) -> tuple[str | None, int | None]:
@@ -224,8 +220,9 @@ def run(
     started = time.monotonic()
     rate = 0.0
     # Any SSH path (probe today, full train next) uses a THROWAWAY per-run key: the
-    # pod is launched with a public IP + our own sshd (docker start command) that
-    # installs this key — so it works with zero operator config (no account key).
+    # pod is launched with a public IP + our ephemeral key handed to the image via
+    # PUBLIC_KEY (the official image installs it + runs sshd) — so it works with zero
+    # operator config (no account key).
     # Pure --verify stays key-free + never opens a public port.
     key_path = pub = None
     need_ssh = ssh_probe or not verify
@@ -247,11 +244,11 @@ def run(
                     gpu_count=1,
                     container_disk_in_gb=20,
                     volume_in_gb=0,
-                    # SSH paths need a public IP + exposed port 22 + our own sshd
-                    # (docker start cmd installs the ephemeral key). Verify skips it.
+                    # SSH paths need a public IP + exposed port 22; the official
+                    # image's own start-script installs PUBLIC_KEY + runs sshd, so
+                    # NO docker_args (see _public_ssh_endpoint note). Verify skips it.
                     support_public_ip=need_ssh,
                     ports="22/tcp" if need_ssh else None,
-                    docker_args=_DOCKER_SSH_BOOTSTRAP if need_ssh else "",
                     env={"PUBLIC_KEY": pub} if pub else None,
                 ) or {}
             except Exception as e:  # noqa: BLE001 - re-raised below unless it's a capacity miss
