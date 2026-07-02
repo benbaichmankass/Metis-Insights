@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260702-061700-since-last",
+      "window": "since-last",
+      "generated_at": "2026-07-02T06:17:00+00:00",
+      "window_start": "2026-07-01T06:10:00+00:00",
+      "window_end": "2026-07-02T06:17:00+00:00",
+      "roll_up_grade": "caution",
+      "headline": "Very quiet ~24h window: real-money flat (0 closed trades), one paper TLT loss (-$176.77, reconciler-estimated close, graded C). Two live incidents surfaced + driven: ict-trainer.service OOM-killed mid-cycle (fixed-forward pending, next run tomorrow) and the recurring ~06:00Z IB gateway wedge (ib_paper down, recovery dispatched, gateway login restored, trader-side reconnect still confirming). alpaca_live remains structurally unable to size real orders on its $150 balance, plus one contradicting 'unauthorized' rejection from the same day as the prior report's fix claim.",
+      "html_path": "comms/reports/since-last/20260702T061700Z/report.html",
+      "json_path": "comms/reports/since-last/20260702T061700Z/report.json",
+      "md_path": "comms/reports/since-last/20260702T061700Z/report.md"
+    },
+    {
       "id": "RPT-20260701-061000-since-last",
       "window": "since-last",
       "generated_at": "2026-07-01T06:10:00+00:00",

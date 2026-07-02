@@ -333,7 +333,10 @@ def _enrich_registry_row(
 
 @router.get("/registry")
 def get_registry() -> dict[str, Any]:
-    """Model registry rows — append-only history from `ml/registry-store/registry.jsonl`.
+    """Model registry rows — append-only history from the trainer mirror
+    `runtime_logs/trainer_mirror/registry.jsonl` (`_mirror_root()/'registry.jsonl'`),
+    NOT `ml/registry-store/registry.jsonl` (the trainer VM's own copy — this
+    router reads the live-VM mirror published from it).
 
     Each row is enriched (2026-05-18) with:
 

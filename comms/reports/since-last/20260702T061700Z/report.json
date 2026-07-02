@@ -1,0 +1,690 @@
+{
+  "report_id": "RPT-20260702-061700-since-last",
+  "reviewed_at": "2026-07-02T06:17:00+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-07-01T06:10:00+00:00",
+  "window_end": "2026-07-02T06:17:00+00:00",
+  "prior_report_id": "RPT-20260701-061000-since-last",
+  "overall_assessment": "caution",
+  "health": {
+    "request_id": "REQ-20260702-061700-health",
+    "reviewed_at": "2026-07-02T06:17:00+00:00",
+    "reviewer": "claude",
+    "window_start": "2026-07-01T06:10:00+00:00",
+    "window_end": "2026-07-02T06:17:00+00:00",
+    "overall_assessment": "caution",
+    "findings": {
+      "heartbeat": {
+        "status": "ok",
+        "note": "running, age 34s at capture; bot_uptime_s=2886 (~48min, restarted this morning), tick_age 2.7s at last check"
+      },
+      "ticks": {
+        "status": "ok",
+        "note": "last_tick_utc fresh (2.7s old); no gaps observed"
+      },
+      "signals": {
+        "status": "ok",
+        "note": "audit tail shows continuous *_eval events across the strategy roster through capture time"
+      },
+      "orders": {
+        "status": "watch",
+        "note": "alpaca_live signals repeatedly risk_refused (sized_qty=0, balance~$150) \u2014 no plumbing bug, but the account structurally can't size QQQ/GLD/IWM positions at this balance"
+      },
+      "trades": {
+        "status": "ok",
+        "note": "only 1 closed trade this window (paper TLT); order_package_id present, trade row well-formed"
+      },
+      "monitoring": {
+        "status": "ok",
+        "note": "no monitor-blindness alerts observed; bybit_2 BTCUSDT open position uPnL tracking live"
+      },
+      "sizing": {
+        "status": "ok",
+        "note": "spot-checked open positions (bybit_1/2 crypto, alpaca_paper equities) \u2014 sizes consistent with account balances and risk config"
+      },
+      "api_errors": {
+        "status": "watch",
+        "note": "one EXCHANGE_REJECTED 'unauthorized' on alpaca_live/SLV at 2026-07-01T14:26Z (see BL-20260627-ALPACA-LIVE-API-UNAUTH); current broker_account_status shows ACTIVE/unblocked"
+      },
+      "state_consistency": {
+        "status": "ok",
+        "note": "accounts.yaml mode:live matches runtime_status.json live{} map for all 9 accounts"
+      },
+      "alert_delivery": {
+        "status": "ok",
+        "note": "vm-ib-gateway-recover dispatched + completed this session; ping infrastructure functioning (recovery comment delivered)"
+      },
+      "strategy_silence": {
+        "status": "ok",
+        "note": "no enabled strategy showed zero *_eval in the sampled audit tail"
+      },
+      "db_integrity": {
+        "status": "ok",
+        "note": "db_info clean: 372MB, 15 tables, zero error_per_table, trades=3110/order_packages=2698 row counts sane, no load_error"
+      },
+      "data_validity": {
+        "status": "ok",
+        "note": "spot-checked rows (ids 3081-3110, trade 2774) \u2014 timestamps monotonic, closed trade carries exit_reason+pnl, no negative sizes"
+      },
+      "audit_log_freshness": {
+        "status": "ok",
+        "note": "signal_audit.jsonl actively appending through capture time"
+      },
+      "trainer_service": {
+        "status": "concern",
+        "note": "ict-trainer.service OOM-killed 2026-07-02T02:50:17Z mid-cycle (36min into a 68-manifest run); next scheduled run not until 2026-07-03T00:10Z \u2014 one full day of no further training. Trainer VM currently healthy (5.2Gi available)"
+      },
+      "health_snapshot": {
+        "status": "watch",
+        "note": "not independently pulled this session (relay budget prioritized toward live-incident verification); no contradiction detected in what was pulled"
+      }
+    },
+    "anomalies": [
+      "ict-trainer.service OOM-killed at 02:50:17Z partway through the daily training cycle (68 manifests); reached ~btc-regime-1h-trend-lgbm-v1 (roughly manifest 30-40 of 68) before being killed. Timer's next fire is tomorrow 00:10Z, so remaining manifests get no retry today.",
+      "ib_paper (mode:live, paper) read unreachable (positions=null) at 06:05Z, matching the known recurring ~06:00Z daily wedge (BL-20260623-002). Dispatched vm-ib-gateway-recover; gateway container login completed cleanly at 06:07:01Z, but the trader's own reachability read still showed null at 06:16Z (9 min post-restart) \u2014 likely still within the trader's own reconnect/breaker cadence, not a new failure mode.",
+      "Two advisory-stage shadow models (btc-regime-1h-lgbm-yz-v1, btc-regime-5m-lgbm-yz-v1) have stopped producing shadow_predictions rows since 2026-06-23 and 2026-06-25 respectively, while the third advisory model (btc-regime-15m-lgbm-v2, the one actually wired into the live ML vol-verdict gate) is scoring normally through capture time. Worth an /ml-review look at whether the yz advisory pair are silently dead or were superseded."
+    ],
+    "backlog_drain": [
+      {
+        "item_id": "BL-20260628-INTENTMUX-DOCDRIFT",
+        "action": "fixed",
+        "note": "intent_multiplexer.py docstring corrected: default-on, not opt-in"
+      },
+      {
+        "item_id": "BL-20260628-LEVERAGE-DOCSTRING",
+        "action": "fixed",
+        "note": "main.py _resolve_account_leverage docstring corrected: no top-level fallback exists"
+      },
+      {
+        "item_id": "BL-20260630-PRINTPACKETS",
+        "action": "fixed",
+        "note": "generate_strategy_review_packets_action.sh now resolves REVIEW_DIR via load_runtime_env instead of REPO_DIR-relative path"
+      },
+      {
+        "item_id": "BL-20260628-AUDITF-AUTH-LOGIN-UNDOCUMENTED",
+        "action": "fixed",
+        "note": "added POST /api/auth/login row to CLAUDE.md API table"
+      },
+      {
+        "item_id": "BL-20260628-AUDITF-ML-REGISTRY-DOCSTRING-PATH",
+        "action": "fixed",
+        "note": "training_center.py get_registry docstring corrected to the trainer-mirror path"
+      },
+      {
+        "item_id": "BL-20260629-ACCOUNT-DOWN-ALERT",
+        "action": "fixed",
+        "note": "confirmed already shipped: account_reachability_alert.py wired into main.py; requested feature exists"
+      },
+      {
+        "item_id": "BL-20260623-002",
+        "action": "deferred",
+        "note": "recurred again at 06:00Z; recovery dispatched + gateway login succeeded this session; check_log updated with fresh evidence; root cause (IBC nightly restart) still open, Tier-2"
+      },
+      {
+        "item_id": "BL-20260627-ALPACA-LIVE-API-UNAUTH",
+        "action": "deferred",
+        "note": "new contradicting evidence found (unauthorized SLV rejection 07-01T14:26Z) and logged; broker_account_status shows currently ACTIVE/unblocked; still awaiting the requested FILL confirmation"
+      },
+      {
+        "item_id": "(74 other open health-backlog items)",
+        "action": "deferred",
+        "note": "triaged by category during this session (see review_coverage.backlog_drive) \u2014 genuinely soaking/Tier-2/Tier-3-awaiting-operator/operator-only; not re-verified line-by-line this run due to session time budget"
+      }
+    ],
+    "sprint_doc_review": [
+      {
+        "sprint": "S-M19-EMBEDDINGS-FOLLOWUP-2026-07-01 / S-M19-T0.1-EMBEDDINGS-2026-07-01",
+        "finding": "Newest sprint logs (M19 data/embedding workstream) present and dated consistently with git log; no contradiction against canonical docs spotted in the commit messages reviewed",
+        "severity": "nit"
+      }
+    ],
+    "recommended_action": "Confirm ib_paper reachability recovered on the next check (should self-clear within ~10min of the 06:07Z gateway login); consider a MemoryMax/systemd resource cap or manifest-batching on ict-trainer.service so a single heavy cycle can't OOM-kill the whole run and strand 1 full day of training.",
+    "operator_attention_required": true,
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)",
+      "priority": "normal",
+      "message": "suppressed \u2014 consolidated ping only"
+    }
+  },
+  "performance": {
+    "request_id": "REQ-20260702-061700-performance",
+    "reviewed_at": "2026-07-02T06:17:00+00:00",
+    "reviewer": "claude",
+    "window_start": "2026-07-01T06:10:00+00:00",
+    "window_end": "2026-07-02T06:17:00+00:00",
+    "overall_assessment": "caution",
+    "strategy_performance": [
+      {
+        "strategy": "tlt_pullback_1h",
+        "execution": "live",
+        "n_decisions": 1,
+        "n_filled": 1,
+        "n_rejected": 0,
+        "win_rate": 0.0,
+        "pnl_total": -176.7747,
+        "pnl_avg_per_trade": -176.7747,
+        "avg_hold_seconds": 772890,
+        "rejection_cluster": null,
+        "accounts_touched": [
+          "alpaca_paper"
+        ],
+        "note": "only closed trade this window; 9-day hold, closed via reconciler estimate (exchange_flat_reconciled), not a confirmed broker fill \u2014 PnL is a mark-to-market estimate"
+      },
+      {
+        "strategy": "qqq_pullback_1h",
+        "execution": "live",
+        "n_decisions": 10,
+        "n_filled": 0,
+        "n_rejected": 10,
+        "win_rate": 0.0,
+        "pnl_total": 0.0,
+        "pnl_avg_per_trade": 0.0,
+        "avg_hold_seconds": 0,
+        "rejection_cluster": "failed_risk_gate",
+        "accounts_touched": [
+          "alpaca_live",
+          "alpaca_paper"
+        ],
+        "note": "every alpaca_live signal risk_refused sized_qty=0 on ~$150 balance; alpaca_paper side largely netting-guard-suppressed re-fires of the same signal (sample from the 30-row spot-check, not the full window)"
+      },
+      {
+        "strategy": "gld_pullback_1h",
+        "execution": "live",
+        "n_decisions": 8,
+        "n_filled": 0,
+        "n_rejected": 8,
+        "win_rate": 0.0,
+        "pnl_total": 0.0,
+        "pnl_avg_per_trade": 0.0,
+        "avg_hold_seconds": 0,
+        "rejection_cluster": "failed_risk_gate",
+        "accounts_touched": [
+          "alpaca_live",
+          "alpaca_paper"
+        ],
+        "note": "same alpaca_live sizing-floor pattern as qqq_pullback_1h (sample from the 30-row spot-check)"
+      }
+    ],
+    "trade_decision_grades": [
+      {
+        "order_package_id": "pkg-26aff4d63b24462b",
+        "trade_id": 2774,
+        "timestamp": "2026-06-22T14:09:54+00:00",
+        "symbol": "TLT",
+        "direction": "long",
+        "setup": "tlt_pullback_1h",
+        "entry_price": 86.28,
+        "exit_price": 85.515,
+        "stop_loss": 85.63267857,
+        "take_profit_1": 94.82172,
+        "position_size": 231.078,
+        "exit_reason": "exchange_flat_reconciled",
+        "decision_grade": "C",
+        "decision_grade_score": 2,
+        "entry_quality": "unknown",
+        "exit_quality": "sl_appropriate",
+        "risk_management": "unknown",
+        "rationale": "tlt_pullback_1h long; entry=unknown; exit=sl_appropriate(exchange_flat_reconciled,-1.18R); risk=unknown \u2014 graded via the canonical rubric (score_order_packages._grade_package) run through the diag grader",
+        "alternative_action": "none"
+      }
+    ],
+    "insights_review": [],
+    "proposed_tweaks": [
+      {
+        "_comment_inline": "alpaca_live sizing floor",
+        "strategy": "qqq_pullback_1h / gld_pullback_1h / iwm_trend_long_1d (all alpaca_live symbols)",
+        "tweak": "The $150 alpaca_live test balance produces sized_qty=0 on every QQQ/GLD/IWM/SPY-class signal (share prices $300-$800+). Either raise the test balance, add a min-notional-aware fractional-share path for this specific test account, or accept that alpaca_live cannot actually validate live order placement at this balance and treat BL-20260627-ALPACA-LIVE-API-UNAUTH's resolution criteria as effectively unreachable until funded higher.",
+        "tier": 3,
+        "rationale": "10 straight risk_refused rejections sampled this window alone; this is a structural sizing-floor issue, not noise"
+      }
+    ],
+    "backlog_drain_note": "performance-review backlog (58 items, 39 open) not exhaustively re-triaged this session beyond the items cross-referenced from live evidence gathered (see consolidated.review_coverage.backlog_drive) \u2014 session time budget prioritized live-incident verification (IB gateway, trainer OOM, alpaca_live auth) over a full backlog sweep.",
+    "recommended_action": "Resolve the alpaca_live sizing-floor problem (proposed_tweaks[0]) before treating any future alpaca_live report as a meaningful go-live signal \u2014 right now every signal dies at sizing before authorization is even tested.",
+    "operator_attention_required": true,
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)",
+      "priority": "normal",
+      "message": "suppressed \u2014 consolidated ping only"
+    }
+  },
+  "ml": {
+    "request_id": "REQ-20260702-061700-ml",
+    "reviewed_at": "2026-07-02T06:17:00+00:00",
+    "reviewer": "claude",
+    "window_start": "2026-07-01T06:10:00+00:00",
+    "window_end": "2026-07-02T06:17:00+00:00",
+    "overall_assessment": "caution",
+    "trainer_status": {
+      "service_enabled": false,
+      "service_active_last_run": "failed (oom-kill)",
+      "timer_enabled": true,
+      "timer_active": true,
+      "last_cycle_start": "2026-07-02T01:09:35+00:00",
+      "last_cycle_oom_killed_at": "2026-07-02T02:50:17+00:00",
+      "next_scheduled_run": "2026-07-03T00:09:58+00:00",
+      "note": "68-manifest daily cycle OOM-killed ~36min in (reached roughly the btc-regime-1h-trend-lgbm-v1 manifest); trainer VM memory is healthy now (5.2Gi available) so this reads as a transient peak-memory spike during the run, not a sustained shortage. Dataset builds (market_features/market_raw/MES) completed OK before the cycle started."
+    },
+    "model_status": [
+      {
+        "model_id": "btc-regime-15m-lgbm-v2",
+        "stage": "advisory",
+        "note": "actively scoring (count=502, last_seen at capture time) \u2014 this is the head wired into REGIME_ML_VERDICT_MODE=use for the live BTC vol-gate enforce (per CLAUDE.md, live since 2026-06-28)"
+      },
+      {
+        "model_id": "btc-regime-1h-lgbm-yz-v1",
+        "stage": "advisory",
+        "note": "STALE \u2014 last shadow_predictions row 2026-06-23T06:53Z, 9 days with no new score while nominally at advisory stage. Not the head the live vol-gate reads (that's the 15m head above), but worth confirming this one wasn't meant to still be accruing."
+      },
+      {
+        "model_id": "btc-regime-5m-lgbm-yz-v1",
+        "stage": "advisory",
+        "note": "STALE \u2014 last shadow_predictions row 2026-06-25T06:22Z, 7 days with no new score. Same note as the 1h sibling."
+      },
+      {
+        "model_id": "trade-outcome-winrate-baseline-v0",
+        "stage": "candidate",
+        "note": "demoted from shadow 2026-06-30 by a prior /ml-review (retired degenerate f1=0 baseline from shadow-wired conviction inputs, operator-approved) \u2014 confirmed still at candidate, no regression"
+      },
+      {
+        "model_id": "conviction-meta-v1 / setup-quality-lgbm-v2 / execution-quality-baseline-v0 / trade-outcome-* / prop-mission-policy-baseline-v0",
+        "stage": "shadow",
+        "note": "order-package-keyed shadow family; last scored 2026-06-30T06:29Z to 2026-07-01T15:57Z depending on model \u2014 gaps track when a relevant order package last fired for their wired strategies, not an obvious pipeline break, but not independently confirmed this session"
+      }
+    ],
+    "promotion_recommendations": [],
+    "experiments_proposed": [],
+    "backlog_drain": [
+      {
+        "item_id": "MB-20260627-001",
+        "action": "resolved",
+        "note": "stale \u2014 CLAUDE.md confirms the A vol-verdict enforce decision this item was tracking already shipped 2026-06-28, ahead of the item's own 2026-07-04 snooze"
+      }
+    ],
+    "recommended_action": "Add a MemoryMax / cgroup cap or batch the 68-manifest cycle into smaller chunks with checkpointing so an OOM mid-cycle doesn't strand the rest of the day's training; confirm whether btc-regime-1h-lgbm-yz-v1 / btc-regime-5m-lgbm-yz-v1 are intentionally idle or silently broken.",
+    "operator_attention_required": false,
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)",
+      "priority": "normal",
+      "message": "suppressed \u2014 consolidated ping only"
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "Very quiet ~24h window: real-money flat (0 closed trades), one paper TLT loss (-$176.77, reconciler-estimated close, graded C). Two live incidents surfaced + driven: ict-trainer.service OOM-killed mid-cycle (fixed-forward pending, next run tomorrow) and the recurring ~06:00Z IB gateway wedge (ib_paper down, recovery dispatched, gateway login restored, trader-side reconnect still confirming). alpaca_live remains structurally unable to size real orders on its $150 balance, plus one contradicting 'unauthorized' rejection from the same day as the prior report's fix claim.",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "ict-trainer.service OOM-killed mid-cycle; no retry until tomorrow 00:10Z",
+        "source_review": "ml",
+        "tier": 2,
+        "detail": "68-manifest daily cycle killed ~36min in at 02:50:17Z; VM memory is healthy now so this reads as a peak spike, not a shortage \u2014 add a memory cap/checkpointing so a bad cycle can't strand a full day.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 2,
+        "title": "alpaca_live cannot size any real order at its current ~$150 balance",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "Every QQQ/GLD/IWM-class signal risk_refused with sized_qty=0 this window; the 'test account can finally trade' fix from 2026-06-30 has not produced a single real fill.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 3,
+        "title": "alpaca_live 'unauthorized' order rejection on 2026-07-01, same day as the prior report's auth-fix claim",
+        "source_review": "health",
+        "tier": 2,
+        "detail": "SLV order EXCHANGE_REJECTED 'unauthorized' at 14:26Z RTH; current broker_account_status reads ACTIVE/unblocked, so likely a stale-cred edge case around the fix window \u2014 keep watching for an actual FILL to confirm.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 4,
+        "title": "Recurring ~06:00Z IB gateway wedge (BL-20260623-002)",
+        "source_review": "health",
+        "tier": 2,
+        "detail": "ib_paper unreachable again this morning; recovery dispatched and gateway login succeeded, but root cause (IBC nightly auto-restart unreliable) still not fixed at the source.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 5,
+        "title": "Two advisory-stage BTC regime models stopped scoring 7-9 days ago",
+        "source_review": "ml",
+        "tier": 1,
+        "detail": "btc-regime-1h-lgbm-yz-v1 (stale since 06-23) and btc-regime-5m-lgbm-yz-v1 (stale since 06-25) \u2014 not the head driving the live vol-gate, but worth confirming they're not silently dead.",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "The alpaca_live sizing-floor issue (performance) and the alpaca_live auth rejection (health) are two DIFFERENT problems on the same account \u2014 even if authorization is fixed, the account still can't size a real position at $150 against $300-800/share instruments.",
+      "The trainer OOM (ml) and the trader's own live incidents (health) are unrelated systems (trainer VM vs live VM) \u2014 no shared root cause, just a coincidentally busy 24h window."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": 0.0,
+        "profit_factor": null,
+        "max_drawdown": null,
+        "per_strategy": [],
+        "per_asset_class": {},
+        "equity_curve": []
+      },
+      "paper": {
+        "window_pnl": -176.7747,
+        "prior_window_pnl": null,
+        "trend": "down",
+        "trades": 1,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": -176.7747,
+        "profit_factor": 0.0,
+        "max_drawdown": -176.7747,
+        "per_strategy": [
+          {
+            "name": "tlt_pullback_1h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -176.7747
+          }
+        ],
+        "per_asset_class": {
+          "bond": -176.7747
+        },
+        "equity_curve": [
+          {
+            "t": "2026-07-01T13:41:25+00:00",
+            "cum": -176.7747
+          }
+        ]
+      },
+      "prop": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "fills_reported": 0,
+        "tickets_emitted": 0,
+        "unacted_tickets": 0,
+        "rule_distance": {
+          "daily_loss_remaining": null,
+          "static_dd_remaining": null
+        },
+        "per_account": []
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": null,
+        "close": 59780.3,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "trend_donchian long open on bybit_1/bybit_2 near $59.8k, small positive uPnL \u2014 quiet/consolidating, no candle pull this session (relay budget prioritized to incident verification)"
+      },
+      {
+        "symbol": "QQQ",
+        "open": null,
+        "close": 727.22,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "repeated pullback signals all risk_refused on alpaca_live sizing floor; alpaca_paper mirrors the same signals netting-guard-suppressed"
+      },
+      {
+        "symbol": "GLD",
+        "open": null,
+        "close": 373.335,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "short pullback signals, same alpaca_live sizing-floor rejection pattern as QQQ"
+      },
+      {
+        "symbol": "TLT",
+        "open": null,
+        "close": 85.515,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "the window's one closed trade \u2014 long pullback position held 9 days, closed by the reconciler as exchange-flat (estimated, not a confirmed broker fill)"
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": 2774,
+        "order_package_id": "pkg-26aff4d63b24462b",
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "TLT",
+        "direction": "long",
+        "strategy": "tlt_pullback_1h",
+        "opened_at": "2026-06-22T14:09:54+00:00",
+        "closed_at": "2026-07-01T13:41:25+00:00",
+        "hold_seconds": 772890,
+        "entry_price": 86.28,
+        "exit_price": 85.515,
+        "stop_loss": 85.63267857,
+        "take_profit": 94.82172,
+        "qty": 231.078,
+        "pnl": -176.77467,
+        "pnl_percent": -0.8866,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "unknown",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "Closed via position_snapshot_reconciler (exchange_flat_reconciled) after 2 confirmed-absent observations, not a real SL/TP fill; PnL is mark-to-market estimate (pnl_source=local_compute). -1.18R."
+        },
+        "model_scores": {},
+        "signal_logic": "tlt_pullback_1h signal",
+        "meta": {
+          "setup_type": "tlt_pullback_1h",
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      }
+    ],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 1,
+      "summarized_trades": 0,
+      "rule": "full-per-trade (since-last/daily)"
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 159,
+        "open": 74,
+        "resolved": 85,
+        "drained": 6
+      },
+      "performance": {
+        "total": 58,
+        "open": 39,
+        "resolved": 19,
+        "drained": 0
+      },
+      "ml": {
+        "total": 59,
+        "open": 23,
+        "resolved": 36,
+        "drained": 1
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "performance",
+        "summary": "alpaca_live $150 test balance structurally sizes to zero on every QQQ/GLD/IWM-class signal \u2014 needs a funding or sizing-path decision before the account can validate anything live",
+        "tier": 3
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "BL-20260627-ALPACA-LIVE-API-UNAUTH",
+        "domain": "health",
+        "category": "verify",
+        "detail": "Waiting for a confirmed alpaca_live FILL during RTH to prove the sync-vm-secrets auth fix holds; latest evidence is a contradicting unauthorized rejection from the same day as the fix.",
+        "since": "2026-06-27",
+        "next_check": "next real-money alpaca_live order attempt during RTH"
+      },
+      {
+        "item_id": "BL-20260623-002",
+        "domain": "health",
+        "category": "verify",
+        "detail": "Recurring ~06:00Z IB gateway wedge; watching whether the reactive watchdog catches it before a manual recover is needed.",
+        "since": "2026-06-23",
+        "next_check": "next daily 06:00Z window"
+      },
+      {
+        "item_id": "btc-regime-{1h,5m}-lgbm-yz-v1 stale advisory soak",
+        "domain": "ml",
+        "category": "verify",
+        "detail": "Both stopped producing shadow_predictions 7-9 days ago while at advisory stage; confirm intentional vs silently dead.",
+        "since": "2026-06-23",
+        "next_check": "next /ml-review"
+      },
+      {
+        "item_id": "MB-20260627-002",
+        "domain": "ml",
+        "category": "awaiting-data",
+        "detail": "Multi-symbol A (ETH/MES regime-head gating) blocked on RG4 trust criteria maturing.",
+        "since": "2026-06-27",
+        "next_check": "RG4 fleet scorecard re-run"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [],
+        "summary": "No new promote/demote gate crossings identified this window (extremely quiet trading \u2014 1 closed trade total). turtle_soup was de-routed from bybit_1 in a prior session (commit 8106255, net-negative at every stop) \u2014 already actioned, not a new finding. Full per-strategy M7 packet re-derivation was not run this session (relay budget prioritized to live-incident verification)."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 1,
+        "dataset_builds_ok": true,
+        "failing_or_stuck": [
+          "ict-trainer.service daily cycle OOM-killed 2026-07-02T02:50:17Z, ~36min into a 68-manifest run; next scheduled attempt 2026-07-03T00:10Z"
+        ],
+        "summary": "Dataset builds (market_features/market_raw/MES) completed cleanly; the training cycle itself was interrupted by an OOM kill partway through. Trainer VM memory is healthy now (5.2Gi available), consistent with a transient peak-memory spike rather than a sustained shortage."
+      },
+      "soak_status": [
+        {
+          "soak": "btc-regime-15m-lgbm-v2 (advisory, live vol-gate)",
+          "state": "accruing",
+          "detail": "count=502, scoring live through capture time \u2014 this is the head actually driving REGIME_ML_VERDICT_MODE=use"
+        },
+        {
+          "soak": "btc-regime-1h-lgbm-yz-v1 (advisory)",
+          "state": "stalled",
+          "detail": "no new shadow_predictions row since 2026-06-23T06:53Z (9 days)"
+        },
+        {
+          "soak": "btc-regime-5m-lgbm-yz-v1 (advisory)",
+          "state": "stalled",
+          "detail": "no new shadow_predictions row since 2026-06-25T06:22Z (7 days)"
+        },
+        {
+          "soak": "A vol-verdict enforce decision (MB-20260627-001)",
+          "state": "gate_met",
+          "detail": "Already enforced live 2026-06-28 per CLAUDE.md \u2014 closed this session as resolved (was tracked as still-pending)"
+        },
+        {
+          "soak": "conviction-meta-v1 / setup-quality / execution-quality shadow family",
+          "state": "accruing",
+          "detail": "scoring through 2026-06-30 to 2026-07-01 depending on model; gaps track order-package activity for their wired strategies"
+        }
+      ],
+      "flags_raised": [
+        "ict-trainer.service OOM-killed mid-cycle 2026-07-02T02:50:17Z \u2014 next scheduled retry not until 2026-07-03T00:10Z (a full day gap)",
+        "ib_paper (declared-live account) read unreachable at 2026-07-02T06:05Z \u2014 MANDATORY reachability flag; recovery dispatched this session (vm-ib-gateway-recover), gateway login succeeded 06:07:01Z, trader-side reconnect not yet independently reconfirmed as of 06:16Z",
+        "alpaca_live real-money account rejected an order as 'unauthorized' on 2026-07-01T14:26Z (RTH), the same day the prior report claimed the auth fix was verified \u2014 contradicts that claim; broker_account_status currently reads ACTIVE/unblocked"
+      ],
+      "account_reachability": {
+        "checked": [
+          "bybit_1",
+          "bybit_2",
+          "ib_paper",
+          "alpaca_paper",
+          "alpaca_live",
+          "alpaca_options_paper"
+        ],
+        "down": [
+          {
+            "account_id": "ib_paper",
+            "exchange": "interactive_brokers",
+            "evidence": "exchange_positions positions=null at 06:05Z and again at 06:16Z (11min post gateway-login-success)",
+            "remediation": "vm-ib-gateway-recover already dispatched this session (issue #5404); gateway container login confirmed successful; re-check next session/ping"
+          }
+        ],
+        "summary": "5 of 6 declared-live accounts reachable (bybit_1, bybit_2, alpaca_paper, alpaca_live, alpaca_options_paper); ib_paper down at both checks this session despite a successful gateway-side recovery \u2014 MANDATORY flag, see flags_raised."
+      },
+      "backlog_drive": {
+        "health": {
+          "drained": [
+            "BL-20260628-INTENTMUX-DOCDRIFT",
+            "BL-20260628-LEVERAGE-DOCSTRING",
+            "BL-20260630-PRINTPACKETS",
+            "BL-20260628-AUDITF-AUTH-LOGIN-UNDOCUMENTED",
+            "BL-20260628-AUDITF-ML-REGISTRY-DOCSTRING-PATH",
+            "BL-20260629-ACCOUNT-DOWN-ALERT"
+          ],
+          "deferred": [
+            {
+              "id": "BL-20260623-002",
+              "reason": "Tier-2, recurring live incident \u2014 refreshed with today's evidence, root cause (IBC nightly restart reliability) remains a separate deeper investigation"
+            },
+            {
+              "id": "BL-20260627-ALPACA-LIVE-API-UNAUTH",
+              "reason": "Tier-2, awaiting a confirmed real FILL to close \u2014 refreshed with contradicting evidence this session"
+            },
+            {
+              "id": "(72 remaining open items)",
+              "reason": "not individually re-triaged this session \u2014 sampled titles confirm the large majority are genuinely soaking (M15/M18/M19 research follow-ups), Tier-2/3-awaiting-operator, or operator-only (security hardening checklist); session time budget went to verifying + driving the three live incidents found this run instead of a full 80-item sweep"
+            }
+          ]
+        },
+        "performance": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "(39 open items)",
+              "reason": "not re-triaged this session beyond the alpaca_live sizing finding, which is new and captured in proposed_tweaks/operator_priorities rather than an existing backlog id \u2014 the open items are dominated by legitimate 'KEEP MONITORING' / 'revisit once N trades accrue' soak entries per their own titles"
+            }
+          ]
+        },
+        "ml": {
+          "drained": [
+            "MB-20260627-001"
+          ],
+          "deferred": [
+            {
+              "id": "(18 remaining open items)",
+              "reason": "not individually re-triaged \u2014 MB-20260626-* / MB-20260629-ALLOC-* / MB-20260618-XA-* are explicit soak/data-gated research threads per their own titles; not actionable this session without new data"
+            }
+          ]
+        },
+        "summary": "Drained 7 items this run (6 health doc/verify fixes + 1 stale ML gate-decision closure). Remainder of the 3 backlogs (134 of 141 open items) left in place \u2014 sampled and spot-checked rather than exhaustively re-verified; the 3 items touched with fresh evidence (2 health incidents + 1 ml resolution) were prioritized because they matched live incidents surfaced this session."
+      }
+    }
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260702T061700Z/report.json",
+    "html_path": "comms/reports/since-last/20260702T061700Z/report.html",
+    "md_path": "comms/reports/since-last/20260702T061700Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260702T061700Z/report.html",
+    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260702-061700-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "send-ping",
+    "priority": "normal",
+    "message": "[system-report:since-last] roll-up caution: H:caution P:caution M:caution. https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260702-061700-since-last"
+  }
+}

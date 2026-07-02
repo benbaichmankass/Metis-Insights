@@ -238,10 +238,11 @@ def _apply_per_account_leverage() -> None:
 def _resolve_account_leverage(account) -> int:
     """Pull integer leverage from an account's YAML config.
 
-    Preferred path: ``risk.leverage`` (groups it with other risk
-    caps). Fallback: top-level ``leverage`` on the account object.
-    Returns 0 when neither is set or the value can't be coerced to
-    a positive int.
+    Only source today: ``risk.leverage`` on the account's RiskManager
+    (groups it with other risk caps). The ``TradingAccount`` object
+    itself carries no leverage field, so there is no separate
+    top-level fallback. Returns 0 when unset or the value can't be
+    coerced to a positive int.
     """
     candidates = []
     rm = getattr(account, "risk_manager", None)
