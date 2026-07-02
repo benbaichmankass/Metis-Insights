@@ -2842,7 +2842,19 @@
       "resolution_criteria": "The staleness-check step in the ml-review / system-review skill (wherever it lives) re-resolves each candidate model's current registry stage before querying shadow_stats, rather than reusing a stage captured earlier in the session or assumed from a prior finding.",
       "resolved_at": "2026-07-02T07:50:00+00:00",
       "resolution": "Diagnosed as a false alarm, not a bug in the models or the shadow-logging pipeline (Track C of the 2026-07-02 system-review follow-up plan). Both btc-regime-1h-lgbm-yz-v1 and btc-regime-5m-lgbm-yz-v1 confirmed actively producing shadow-stage predictions in real time. Logged here as a methodology note for the next /ml-review or /system-review session to avoid re-flagging the same false positive \u2014 no code changed."
+    },
+    {
+      "id": "BL-20260702-002",
+      "opened_at": "2026-07-02T08:15:00+00:00",
+      "opened_by": "claude (2026-07-02 system-review follow-up sprint, session close)",
+      "source": "trainer-vm-diag SSH to the trainer VM (158.178.209.121) timed out three separate times in this sprint (07:42Z, 07:48Z, 08:12Z \u2014 \"Connection timed out during banner exchange\", 30 min apart), including once retried deliberately after the first failure on the assumption it was a transient blip. It never came back within the sprint's window.",
+      "tier": 1,
+      "status": "open",
+      "title": "Trainer VM (158.178.209.121) SSH unreachable for 30+ min this sprint \u2014 confirm liveness and finish activating Track B's unit/timer changes",
+      "description": "Three consecutive trainer-vm-diag SSH attempts timed out during banner exchange across a 30-minute window (2026-07-02 07:42Z-08:12Z). Unconfirmed whether this is a genuine VM outage (OCI Always-Free Ampere capacity is documented as sometimes intermittent) or a networking/security-group blip. Practical effect: PR #5424's Track B (trainer checkpoint/resume + memory guard) merged to main and its script change ships fine on the trainer's own next self-pull regardless of SSH reachability, but the unit/timer ACTIVATION step (sudo systemctl daemon-reload && enable --now ict-trainer-catchup.timer, plus confirming MemoryHigh/MemoryMax/OOMPolicy took effect on ict-trainer.service via systemctl show) could not be completed (trainer-vm-diag-request issue #5430, same timeout). Next session touching the trainer VM should: (1) confirm the box is actually up (a fresh trainer-vm-diag-request, or check the provision-training-vm-auto-retry workflow's state), (2) if up, re-run the activation command from issue #5430, (3) if still down, escalate per docs/runbooks/training-vm.md's provisioning path.",
+      "trigger_condition": "Next session that touches the trainer VM, or the next scheduled /health-review or /ml-review pass.",
+      "resolution_criteria": "trainer-vm-diag confirms the box answers SSH again, and ict-trainer-catchup.timer is confirmed enabled + ict-trainer.service's MemoryHigh/MemoryMax/OOMPolicy are confirmed set via systemctl show."
     }
   ],
-  "updated_at": "2026-07-02T07:50:00+00:00"
+  "updated_at": "2026-07-02T08:15:00+00:00"
 }
