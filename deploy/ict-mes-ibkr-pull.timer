@@ -6,7 +6,8 @@
 #
 # Cadence rationale: DAILY, scheduled BEFORE the trainer's ~00:50 UTC
 # sync_trainer_data.sh so the trainer picks up the fresh base on its next daily
-# cycle, and clear of the 05:30 UTC gateway reset. Daily keeps the base well
+# cycle, and clear of the 06:05 UTC gateway reset (retimed 2026-07-02, was
+# 05:30 — BL-20260623-002). Daily keeps the base well
 # inside the build's MES_IBKR_MAX_STALE_DAYS=5 freshness gate (so the trainer
 # always prefers the deep IBKR base over the ~60d yfinance fallback), and the
 # 5-day gate absorbs weekend market closures.

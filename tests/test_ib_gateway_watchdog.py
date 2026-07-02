@@ -156,12 +156,12 @@ def test_local_probe_no_docker_is_inconclusive(lp):
 
 def _decide(wd, *, healthy, state, auto_restart=True, now=10_000.0,
             restart_after=2, max_restarts=3, cooldown_s=1200.0,
-            exhaustion_reset_s=0.0, actionable=True):
+            exhaustion_reset_s=0.0, actionable=True, in_window=False):
     return wd.decide(healthy=healthy, state=state, restart_after=restart_after,
                      max_restarts=max_restarts, cooldown_s=cooldown_s, now=now,
                      auto_restart=auto_restart,
                      exhaustion_reset_s=exhaustion_reset_s,
-                     actionable=actionable)
+                     actionable=actionable, in_window=in_window)
 
 
 def test_healthy_from_clean_is_noop(wd):
@@ -293,3 +293,87 @@ def test_exhausted_rearms_after_reset_window_and_restarts(wd):
     assert d["new_state"]["restart_attempts"] == 1  # re-armed (0) then +1
     assert d["new_state"]["exhausted_alerted"] is False
     assert d["new_state"]["last_restart_ts"] == 10_000.0
+
+
+# --------------------------------------------------------------------------
+# in_suppression_window (2026-07-02, BL-20260623-002)
+# --------------------------------------------------------------------------
+
+
+def test_suppression_window_parses_and_checks_utc_range(wd):
+    from datetime import datetime, timezone
+
+    inside = datetime(2026, 7, 2, 4, 0, tzinfo=timezone.utc)
+    before = datetime(2026, 7, 2, 3, 44, tzinfo=timezone.utc)
+    at_end = datetime(2026, 7, 2, 5, 45, tzinfo=timezone.utc)  # end is exclusive
+    after = datetime(2026, 7, 2, 6, 5, tzinfo=timezone.utc)
+
+    assert wd.in_suppression_window("03:45-05:45", inside) is True
+    assert wd.in_suppression_window("03:45-05:45", before) is False
+    assert wd.in_suppression_window("03:45-05:45", at_end) is False
+    assert wd.in_suppression_window("03:45-05:45", after) is False
+
+
+def test_suppression_window_disabled_or_malformed_fails_open_to_false(wd):
+    from datetime import datetime, timezone
+
+    now = datetime(2026, 7, 2, 4, 0, tzinfo=timezone.utc)
+    assert wd.in_suppression_window("", now) is False
+    assert wd.in_suppression_window(None, now) is False
+    assert wd.in_suppression_window("garbage", now) is False
+    assert wd.in_suppression_window("03:45", now) is False
+
+
+# --------------------------------------------------------------------------
+# decide — suppression window (2026-07-02, BL-20260623-002): a wedge inside
+# IBKR's own reset window is logged but must never drive a restart, and the
+# streak must be frozen (not reset) so it resumes seamlessly once the window
+# closes.
+# --------------------------------------------------------------------------
+
+
+def test_wedge_inside_window_suppresses_and_freezes_streak(wd):
+    d = _decide(wd, healthy=False, state={}, in_window=True)
+    assert d["action"] == "suppressed" and d["alert"] is True
+    assert d["new_state"].get("wedged_streak", 0) == 0  # never touched/initialised
+    assert d["new_state"].get("restart_attempts", 0) == 0
+    assert d["new_state"]["last_status"] == "suppressed"
+
+
+def test_wedge_inside_window_alerts_once_then_silent(wd):
+    state = {"last_status": "suppressed"}
+    d = _decide(wd, healthy=False, state=state, in_window=True)
+    assert d["action"] == "none" and d["alert"] is False
+
+
+def test_wedge_never_restarts_inside_window_even_past_restart_after(wd):
+    # Streak would be well past restart_after outside the window, but inside
+    # it a restart must never fire.
+    state = {"last_status": "suppressed", "wedged_streak": 10, "restart_attempts": 0}
+    d = _decide(wd, healthy=False, state=state, in_window=True, restart_after=2)
+    assert d["action"] in ("none", "suppressed")
+    assert d["new_state"]["restart_attempts"] == 0
+
+
+def test_wedge_spanning_window_close_resumes_streak_without_duplicate_alert(wd):
+    # Wedge detected inside the window (alerts once)...
+    d1 = _decide(wd, healthy=False, state={}, in_window=True)
+    assert d1["action"] == "suppressed" and d1["alert"] is True
+    # ...stays wedged as the window closes: no duplicate "detected" alert,
+    # and the streak resumes counting from 1, not from a reset 0.
+    d2 = _decide(wd, healthy=False, state=d1["new_state"], in_window=False)
+    assert d2["action"] == "none" and d2["alert"] is False
+    assert d2["new_state"]["wedged_streak"] == 1
+    # One more wedged tick reaches restart_after=2 and becomes eligible.
+    d3 = _decide(wd, healthy=False, state=d2["new_state"], in_window=False,
+                 now=20_000.0, cooldown_s=0.0)
+    assert d3["action"] == "restart"
+
+
+def test_healthy_inside_window_still_recovers_normally(wd):
+    # Health checks are unaffected by the suppression window — only a wedge
+    # verdict is suppressed.
+    state = {"last_status": "suppressed", "wedged_streak": 4}
+    d = _decide(wd, healthy=True, state=state, in_window=True)
+    assert d["action"] == "recovered" and d["alert"] is True
+    assert d["new_state"]["wedged_streak"] == 0

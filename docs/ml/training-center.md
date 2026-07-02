@@ -21,7 +21,8 @@ Describes the repo-native training factory: directory layout, the
 experiment-runner contracts, the `Predictor` abstraction (WS4-FU),
 the split strategies (WS4-FU), and the umbrella CLI.
 
-## Cadence (S-AI-WS8-PART-2, adopted 2026-05-14)
+## Cadence (S-AI-WS8-PART-2, adopted 2026-05-14; checkpoint/resume + resource
+guard added 2026-07-02, BL-20260702-TRAINER-OOM)
 
 One training cycle per day. One shared data sync per cycle that all
 manifests reuse. Concretely:
@@ -43,7 +44,8 @@ manifests reuse. Concretely:
   3. **`build_trainer_datasets.sh`** — one rebuild of every dataset
      family on top of that shared snapshot. Shared by all manifests.
   4. **Iterate manifests** — `python -m ml train <manifest>` for each
-     `ml/configs/*.yaml`. Each manifest gets its own
+     `ml/configs/*.yaml` not already `done`/`skipped` in today's
+     checkpoint (see below). Each manifest gets its own
      `experiments-runs/<model_id>/<run_id>/` and append-only registry
      row, but they all see the same dataset version.
   5. **Publish to live VM mirror** — `publish_trainer_mirror.sh` at
@@ -60,9 +62,51 @@ trainer charter authorizes trainer-side systemd changes without
 operator approval.
 
 If a single cycle's runtime exceeds ~6 h (currently each manifest
-takes 2–10 minutes; 8 manifests fit comfortably in <1 h), revisit
-this single-umbrella-cycle design. Until then, daily-shared-sync is
-the canonical pattern.
+takes 2–10 minutes; 68 manifests currently fit comfortably within a
+single cycle), revisit this single-umbrella-cycle design. Until then,
+daily-shared-sync is the canonical pattern.
+
+### Checkpoint/resume + catch-up timer (2026-07-02, BL-20260702-TRAINER-OOM)
+
+The trainer VM has no per-manifest memory isolation, and a run that OOMs
+mid-cycle used to strand every manifest after the kill point until the next
+day's timer fire — a lost training day for ~half the fleet. Two changes close
+that gap:
+
+- **Checkpoint file.** `run_training_cycle.sh` writes
+  `runtime_logs/trainer/cycle_progress_<UTC-date>.json`, one row per manifest
+  (`pending` → `running` → `done`/`skipped`/`failed`), updated before and
+  after each `python -m ml train` invocation so a killed process leaves a
+  readable partial record. A fresh invocation on the same UTC date loads this
+  file and skips anything already `done`/`skipped`, resuming from the first
+  non-terminal manifest — so a same-day retry (either the catch-up timer below,
+  or a manual re-run) never re-trains what already succeeded.
+  `TRAINING_CYCLE_FORCE_RESTART=1` bypasses the checkpoint for a deliberate
+  clean restart. A `flock` on `runtime_logs/trainer/.cycle.lock` guards
+  against two invocations (primary + catch-up) racing the same checkpoint
+  file — the second exits immediately with a `cycle_locked` event.
+- **`ict-trainer-catchup.timer`** fires once daily at `OnCalendar=*-*-*
+  05:00:00 UTC` (the primary is `daily` + up to 1h random delay, so normally
+  long finished by 05:00) and re-invokes the same script. On a clean day
+  every manifest is already `done`, so it's a near-no-op
+  (`cycle_already_complete`, exits fast); on a day the primary run was
+  OOM-killed partway through, it picks up the remaining manifests same-day
+  instead of stranding them until tomorrow's primary fire.
+- **Resource guard.** `ict-trainer.service` now sets `MemoryHigh=4G` /
+  `MemoryMax=5G` (of the VM's 6GB) with `OOMPolicy=continue` — the default
+  systemd `OOMPolicy=stop` kills the whole cgroup (and therefore the entire
+  in-progress cycle) on any single manifest's OOM; `continue` lets the kernel
+  OOM-kill just the offending subprocess while the service (and the loop's
+  existing rc=137-tolerant "one failed manifest doesn't abort the cycle"
+  handling) keeps running. Combined with checkpoint/resume, one expensive
+  manifest now costs one `failed` row instead of the whole day.
+
+Both the script logic and the unit/timer definitions live in
+`deploy/training-vm-cloud-init.yaml` for re-provisioning; the live trainer VM
+picks up the script change on its next self-pull of `main` and the unit
+changes via a `trainer-vm-diag-request` (`daemon-reload` + `enable --now
+ict-trainer-catchup.timer`) — no operator approval needed, trainer-VM changes
+are Claude-autonomous per the VM-authority split.
 
 ## Directory layout
 

@@ -233,8 +233,20 @@ that script was on `main` failed loudly — that gate is now closed.
 
 The training cycle pulls `main`, builds a venv if needed, iterates
 the manifests under `ml/configs/` (or `TRAINING_MANIFESTS` if set),
-emits JSONL events to `runtime_logs/training_cycle.jsonl`, and
-short-circuits on the first manifest failure with overall_rc=1.
+and emits JSONL events to `runtime_logs/training_cycle.jsonl`. A
+manifest failure is logged (`manifest_failed`, `overall_rc=1`) and the
+loop continues to the next manifest rather than aborting the cycle —
+so one bad manifest costs one skip, not the rest of the fleet.
+
+**Checkpoint/resume (2026-07-02, BL-20260702-TRAINER-OOM):** each
+invocation reads/writes `runtime_logs/trainer/cycle_progress_<UTC-date>.json`
+and skips any manifest already `done`/`skipped` today, so a same-day
+re-run (either a manual retry or the `ict-trainer-catchup.timer` at
+`05:00 UTC`) resumes from where the prior run stopped instead of
+retraining everything. `ict-trainer.service` also now caps memory
+(`MemoryHigh=4G`/`MemoryMax=5G`, `OOMPolicy=continue`) so a single
+manifest's OOM no longer takes the whole cycle down. Full design:
+[`docs/ml/training-center.md`](../ml/training-center.md#checkpointresume--catch-up-timer-2026-07-02-bl-20260702-trainer-oom).
 
 The recurring cycle stops at `research_only` (which aliases to
 `candidate` on read via `ml.manifest.canonical_stage`) — that's the

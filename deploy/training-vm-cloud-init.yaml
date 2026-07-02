@@ -71,6 +71,22 @@ write_files:
       # backtest.md. That orchestrator can run without the
       # ict-trainer.service systemd unit being enabled; the unit is
       # for scheduled training cycles, not interactive backtests.
+      #
+      # RESOURCE CAP + OOMPolicy (2026-07-02, BL-20260702-TRAINER-OOM): the
+      # 6GB trainer VM has zero resource controls historically, and a
+      # 2026-07-02 OOM kill (mid-cycle, ~36min into a 68-manifest run) took
+      # down the WHOLE unit's cgroup — the systemd default OOMPolicy=stop —
+      # stranding the ~30 not-yet-trained manifests for a full day. MemoryHigh
+      # throttles/reclaims BEFORE the hard kill (soft cap); MemoryMax is the
+      # hard ceiling, leaving ~1GB headroom over the ~400Mi baseline + ~2Gi
+      # reclaimable buff/cache observed. OOMPolicy=continue means a kernel-OOM
+      # of ONE manifest's subprocess no longer takes the orchestrating bash
+      # (and hence the whole cycle) down with it — the loop's own rc=137
+      # handling in run_training_cycle.sh already treats a killed subprocess
+      # as a single manifest_failed + continue, which is a far cheaper outcome
+      # than losing the unit. The new checkpoint/resume in
+      # run_training_cycle.sh (+ ict-trainer-catchup.timer below) is the
+      # backstop for the rarer case of the whole VM/unit dying anyway.
       [Unit]
       Description=ICT model training center (S-AI-WS9)
       After=network-online.target
@@ -80,6 +96,9 @@ write_files:
       Type=oneshot
       User=ubuntu
       WorkingDirectory=/home/ubuntu/ict-trading-bot
+      MemoryHigh=4G
+      MemoryMax=5G
+      OOMPolicy=continue
       ExecStart=/bin/bash scripts/ops/run_training_cycle.sh
       StandardOutput=journal
       StandardError=journal
@@ -106,6 +125,58 @@ write_files:
       [Timer]
       OnCalendar=daily
       RandomizedDelaySec=1h
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+
+  - path: /etc/systemd/system/ict-trainer-catchup.service
+    permissions: '0644'
+    owner: root:root
+    content: |
+      # ICT trainer catch-up run (2026-07-02, BL-20260702-TRAINER-OOM).
+      #
+      # DISABLED BY DEFAULT (enable alongside ict-trainer.timer via the
+      # trainer-vm-diag relay — Tier-1 autonomous per docs/claude/trainer-vm-
+      # mode.md § 3.a). Re-invokes the SAME run_training_cycle.sh a few hours
+      # after the primary daily cycle. Thanks to the checkpoint/resume logic
+      # in that script (runtime_logs/trainer/cycle_progress_<UTC-date>.json),
+      # this is a near-no-op on a clean day (every manifest already
+      # done/skipped) and only actually retrains manifests a killed primary
+      # run never got to — so a mid-cycle OOM (or any other kill) no longer
+      # strands the rest of the day's training until tomorrow.
+      [Unit]
+      Description=ICT model training center — same-day catch-up run (S-AI-WS9)
+      After=network-online.target ict-trainer.service
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      User=ubuntu
+      WorkingDirectory=/home/ubuntu/ict-trading-bot
+      MemoryHigh=4G
+      MemoryMax=5G
+      OOMPolicy=continue
+      ExecStart=/bin/bash scripts/ops/run_training_cycle.sh
+      StandardOutput=journal
+      StandardError=journal
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/systemd/system/ict-trainer-catchup.timer
+    permissions: '0644'
+    owner: root:root
+    content: |
+      # Fires ict-trainer-catchup.service once daily at 05:00 UTC — well
+      # after the primary ict-trainer.timer's `daily` + up to 1h
+      # RandomizedDelaySec window (00:00-01:00 UTC), so a clean day's cycle
+      # is long finished before this fires and finds nothing to do.
+      [Unit]
+      Description=Same-day catch-up for an interrupted ICT training cycle
+
+      [Timer]
+      OnCalendar=*-*-* 05:00:00 UTC
       Persistent=true
 
       [Install]
@@ -334,6 +405,8 @@ final_message: |
   Repo: /home/ubuntu/ict-trading-bot
   ict-trainer.service: installed, disabled (Claude enables via diag relay).
   ict-trainer.timer:   installed, disabled (Claude enables via diag relay).
+  ict-trainer-catchup.service: installed, disabled (Claude enables via diag relay; same-day resume of an interrupted cycle, see run_training_cycle.sh checkpoint/resume).
+  ict-trainer-catchup.timer:   installed, disabled (Claude enables via diag relay; daily 05:00 UTC).
   ict-trainer-publish.service: installed, enabled (oneshot).
   ict-trainer-publish.timer:   installed, enabled (every 2 min).
   ict-promotion-readiness.service: installed, disabled (Claude enables via diag relay).
