@@ -2828,7 +2828,21 @@
       "resolution_criteria": "wrapper cats the correct DATA_DIR path; inline reasons appear",
       "resolved_at": "2026-07-02T05:57:00+00:00",
       "resolution": "Fixed: scripts/ops/generate_strategy_review_packets_action.sh now resolves REVIEW_DIR via load_runtime_env (RUNTIME_LOGS_DIR/DATA_DIR), matching scripts/ml/strategy_review_packet.py runtime_logs_dir() default, instead of the wrong REPO_DIR-relative path."
+    },
+    {
+      "id": "BL-20260702-001",
+      "opened_at": "2026-07-02T07:50:00+00:00",
+      "opened_by": "claude (2026-07-02 system-review follow-up, Track C)",
+      "source": "The RPT-20260702-061700-since-last /system-review report flagged btc-regime-1h-lgbm-yz-v1 and btc-regime-5m-lgbm-yz-v1 as advisory-stage models that had stopped producing shadow_predictions rows since 2026-06-23 / 2026-06-25. Diagnosis (vm-diag-request shadow_stats?model_id=...&stage=shadow on both, 2026-07-02T07:43Z) found both models ACTIVELY logging shadow-stage predictions with last_seen within minutes of the query (630 / 10169 records, healthy non-degenerate score distributions) \u2014 not stale at all.",
+      "tier": 1,
+      "status": "resolved",
+      "title": "ml-review staleness check should track a model's CURRENT registry stage, not the stage it was at when first observed",
+      "description": "Root cause of the false alarm: both models were demoted advisory\u2192shadow around 2026-06-23 / 2026-06-25 (MB-20260623-001 / MB-20260625-001, degenerate live-score reasons \u2014 the yz vol_bucket-edge calibration gap documented in src/runtime/regime_bar_scoring.py's own module docstring). ShadowPredictor logs whatever `stage` value it was instantiated with, so predictions before the demotion carry stage=\"advisory\" and predictions after carry stage=\"shadow\" for the SAME model_id. The staleness check that fed the system-review evidently kept querying (or reasoning about) the OLD stage label instead of re-resolving the model's current registry stage before judging it stale \u2014 so a clean, expected demotion looked identical to a silent failure. No code fix needed for the models themselves (they are healthy); the fix is in the review methodology: any future staleness/liveness check for a shadow model should look up its CURRENT target_deployment_stage from the registry first, then query shadow_stats for that stage specifically \u2014 never assume the stage recorded at first-flagged-stale time is still current.",
+      "trigger_condition": "Next /ml-review or /system-review session that flags a shadow/advisory model as stale or silently dead.",
+      "resolution_criteria": "The staleness-check step in the ml-review / system-review skill (wherever it lives) re-resolves each candidate model's current registry stage before querying shadow_stats, rather than reusing a stage captured earlier in the session or assumed from a prior finding.",
+      "resolved_at": "2026-07-02T07:50:00+00:00",
+      "resolution": "Diagnosed as a false alarm, not a bug in the models or the shadow-logging pipeline (Track C of the 2026-07-02 system-review follow-up plan). Both btc-regime-1h-lgbm-yz-v1 and btc-regime-5m-lgbm-yz-v1 confirmed actively producing shadow-stage predictions in real time. Logged here as a methodology note for the next /ml-review or /system-review session to avoid re-flagging the same false positive \u2014 no code changed."
     }
   ],
-  "updated_at": "2026-07-02T06:15:00+00:00"
+  "updated_at": "2026-07-02T07:50:00+00:00"
 }
