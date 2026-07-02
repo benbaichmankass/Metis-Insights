@@ -104,6 +104,8 @@ def test_ssh_argv_direct_uses_ip_port_root():
     assert "root@1.2.3.4" in argv
     assert "-p" in argv and "41234" in argv
     assert "BatchMode=yes" in argv and "StrictHostKeyChecking=no" in argv
+    # keepalive so a long, quiet training run isn't idle-dropped (#5455 broken-pipe)
+    assert "ServerAliveInterval=30" in argv and "ServerAliveCountMax=20" in argv
     assert argv[-1] == "echo hi"
 
 

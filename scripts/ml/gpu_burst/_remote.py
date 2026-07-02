@@ -78,9 +78,15 @@ def ssh_argv_direct(
     """Build the argv for a DIRECT (public-IP) SSH command against a RunPod pod.
 
     Used when the pod is launched with a public IP + exposed port 22 and our own
-    ephemeral key in authorized_keys (set by the docker start command) — this
-    sidesteps the account-key-only proxy entirely. Same non-interactive hygiene
-    as the proxy path.
+    ephemeral key in authorized_keys (the official image's start-script installs
+    `PUBLIC_KEY`) — this sidesteps the account-key-only proxy entirely.
+
+    Keepalive matters here: the training command is long-running and can go quiet
+    for minutes (dataset build → fit), during which a NAT/firewall idle-timeout on
+    the community pod's network silently drops the channel — surfacing as
+    `client_loop: send disconnect: Broken pipe` + `ssh` rc=255 mid-run (the
+    2026-07-02 armed-train #5455 failure, AFTER both datasets built). `ServerAlive*`
+    sends periodic keepalives so the connection survives the quiet training phase.
     """
     if not host or not port:
         raise ValueError("host and port are required for direct ssh")
@@ -92,6 +98,11 @@ def ssh_argv_direct(
         "-o", "UserKnownHostsFile=/dev/null",
         "-o", "BatchMode=yes",
         "-o", f"ConnectTimeout={connect_timeout}",
+        # keep the channel alive through quiet training phases (probe every 30s;
+        # tolerate ~10 min of server silence before declaring the link dead).
+        "-o", "ServerAliveInterval=30",
+        "-o", "ServerAliveCountMax=20",
+        "-o", "TCPKeepAlive=yes",
         f"{user}@{host}",
         remote_command,
     ]
