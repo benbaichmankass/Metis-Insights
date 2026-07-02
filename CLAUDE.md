@@ -933,6 +933,17 @@ below are the contract.
   `system-actions.yml` (whose Tier-2 ack is the operator's
   in-conversation approval — Claude carries that approval into the
   issue body).
+- **Alpaca account lookups (read-only)** — if the operator has connected
+  the official [Alpaca MCP server](https://docs.alpaca.markets/us/docs/alpaca-mcp-server)
+  to a session, it gives fast direct account/portfolio/market-data reads
+  (buying power, positions, margin status) without a diag-relay round trip.
+  **Its trading tools must never be used from a session touching this
+  repo** — they place orders directly against Alpaca's API, bypassing
+  `RiskManager.position_size()` (the repo's one sanctioned order path) and
+  the journal, which would surface as an un-audited phantom orphan. The
+  operator scopes this with `ALPACA_TOOLSETS` to exclude the trading
+  category; full writeup, the risk, and the setup contract:
+  `docs/claude/alpaca-mcp-server.md`.
 
 ## Running Locally
 ```bash
