@@ -77,13 +77,26 @@ feedstock.
 - `pytest tests/ml/test_conviction_meta_family.py` → 12 passed (3 new); ruff clean.
 - End-to-end pipeline validated: the conviction as-of join populated all 99 BTC
   rows with real embeddings (`nonzero_emb 99`).
-- **Production-threshold regime A/B (vol_threshold=0.005, purged-CV):** dispatched
-  on the trainer (rebuild BTC-15m `market_features` at the shipped-head threshold
-  0.005 + embeddings, base vs emb under purged walk-forward CV) as the go/no-go
-  number for the Option-D promotion path. The T0.1 lift is already established at
-  0.003 (purged-CV, multi-symbol); this confirms it transfers to the production
-  threshold. Result feeds the shadow-promotion decision, not the wiring — reported
-  separately when the run lands.
+- **`vol_threshold` sweep (purged-CV) — RAN, a BASE-RATE CLIFF:** rebuilt BTC-15m
+  `market_features` at 0.003/0.004/0.005 (all 175,272 rows embedded) + trained
+  base vs emb under purged walk-forward CV at each. The lift is **real across a
+  band and cliffs at 0.005**, tracking the volatile base rate:
+  - **0.003** (11.7% vol): Δmacro_f1 **+0.052**, Δf1_vol +0.035.
+  - **0.004** (8.4% vol): Δmacro_f1 **+0.037**, Δf1_vol +0.031 (base f1_vol 0.30 → emb 0.33).
+  - **0.005** (4.6% vol — shipped head): Δmacro_f1 **+0.012**, f1_vol flat (base f1_vol only 0.24 → the class is too rare for either model).
+  - **0.006** (2.6% vol): Δmacro_f1 **−0.004** (slightly HARMFUL), Δf1_vol −0.021 (base f1_vol 0.19 → nearly unlearnable; the extra 32 cols add noise).
+
+  **Mechanism:** a clean monotonic decay driven by the volatile *base rate*, not the
+  threshold per se — where the class is adequately populated (≥ ~8%) the embedding
+  clearly helps; at 4.6% neither model learns it. **Go/no-go — promotion sharpens,
+  doesn't close:** (1) if the head's threshold is revisitable, 0.004 gives a
+  better head (f1_vol 0.24→0.30) AND a lift → promote-candidate; (2) if 0.005 is
+  locked by the gate's semantics, embeddings don't help there → pivot to T0.2/T0.4.
+  Independent flag for the ML/regime track: the shipped head is weak at its own
+  0.005 operating point (f1_vol 0.24). **Note:** the full 3-threshold sweep
+  (0.004/0.006/0.007 in one relay) was **preempted** by the trainer's periodic
+  automated job (single-concurrency relay); re-run as short single-threshold jobs
+  — 0.004 landed, 0.006/0.007 confirm the collapse persists.
 
 ## Documentation Updated
 - This sprint log; three research evidence/design docs (above).
@@ -113,11 +126,15 @@ instead of the synced `data/` copy), and a dataset-version format bug
 - ETH/BTC-1h embedding regime heads at production threshold (BTC-15m done here).
 
 ## Next Recommended Sprint
-Build the **Option-D mirror-publish path** (Track A): a scheduled trainer job that
-embeds the latest window per live symbol and publishes `tsfm_emb_*` via
-`trainer_mirror/`, plus the live per-bar-scorer reader + a parity test — then
-promote the production-threshold BTC-15m embedding regime head `candidate →
-shadow` (operator gate) and soak.
+**Characterize the embedding lift before committing to the live-parity build** —
+the production-threshold result made this the priority. Run the `vol_threshold`
+sweep (0.004/0.006/0.007) + a second symbol to map where the lift lives; if a
+production-relevant configuration shows a robust lift, THEN build the Option-D
+mirror-publish path (scheduled trainer job publishing `tsfm_emb_*` via
+`trainer_mirror/` + the live per-bar-scorer reader + a parity test) and promote
+that head `candidate → shadow` (operator gate). If the sweep confirms the lift is
+research-threshold-specific, **pivot** to T0.2 (unsupervised regime discovery) or
+T0.4 (quantile-forecast features) instead.
 
 ## Wrap-Up Check
 All work offline/`candidate`; no live-path change. Three PRs (#5295, #5299,
