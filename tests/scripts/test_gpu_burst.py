@@ -82,6 +82,28 @@ def test_runpod_ssh_probe_flag_fails_safe_without_sdk(monkeypatch):
     assert runpod_burst.main(["--ssh-probe", "--experiment", "smoke"]) == 3
 
 
+def test_resolve_ssh_key_none_when_unset(monkeypatch):
+    """No RUNPOD_SSH_KEY secret → (None, None), so the SSH path aborts cleanly."""
+    monkeypatch.delenv("RUNPOD_SSH_KEY", raising=False)
+    assert runpod_burst._resolve_ssh_key() == (None, None)
+
+
+def test_resolve_ssh_key_materializes_0600_file(monkeypatch, tmp_path):
+    """A real ed25519 private key in the secret is written to a 0600 file + pub derived."""
+    import os
+    import shutil
+    import subprocess as sp
+    if not shutil.which("ssh-keygen"):
+        pytest.skip("ssh-keygen not available (present on the CI runner)")
+    kp = tmp_path / "gen"
+    sp.run(["ssh-keygen", "-t", "ed25519", "-N", "", "-f", str(kp)], check=True, capture_output=True)
+    monkeypatch.setenv("RUNPOD_SSH_KEY", kp.read_text())
+    key_path, pub = runpod_burst._resolve_ssh_key()
+    assert key_path and os.path.exists(key_path)
+    assert (os.stat(key_path).st_mode & 0o777) == 0o600  # private-key perms
+    assert pub and pub.startswith("ssh-ed25519")          # derived public half
+
+
 class _FakeRunpod:
     """Minimal stand-in for the runpod SDK for the capacity-fallback tests."""
 

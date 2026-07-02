@@ -101,6 +101,7 @@ jobs:
           VERIFY: ${{ steps.parse.outputs.verify }}
           PROBE: ${{ steps.parse.outputs.probe }}
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_SSH_KEY: ${{ secrets.RUNPOD_SSH_KEY }}
           VAST_API_KEY: ${{ secrets.VAST_API_KEY }}
         run: bash scripts/ml/gpu_burst/run_burst.sh
 

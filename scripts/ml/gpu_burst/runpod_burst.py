@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
+import tempfile
 import time
 from typing import Any
 
@@ -40,9 +41,9 @@ _SSH_READY_TIMEOUT_S = 180
 _SSH_READY_INTERVAL_S = 10
 _SSH_CMD_TIMEOUT_S = 60
 
-# The connectivity/environment probe: prove proxy SSH + the injected ephemeral
-# key work AND the pod is a usable train box (GPU present, python, git) — before
-# we ever build the full train path against it.
+# The connectivity/environment probe: prove proxy SSH + the account key work AND
+# the pod is a usable train box (GPU present, python, git) — before we ever build
+# the full train path against it.
 _PROBE_CMD = (
     "echo '=== ict burst ssh probe ==='; "
     "python --version 2>&1 || python3 --version 2>&1; "
@@ -79,6 +80,34 @@ def _is_capacity_error(exc: Exception) -> bool:
         s in msg
         for s in ("resource", "not have", "capacity", "no longer any instances", "out of stock")
     )
+
+
+def _resolve_ssh_key() -> tuple[str | None, str | None]:
+    """Materialize the account SSH private key from the RUNPOD_SSH_KEY secret.
+
+    RunPod's proxy SSH (ssh.runpod.io) authenticates against a key registered on
+    the ACCOUNT (auto-injected by the platform), NOT a per-pod env key — so the
+    runner holds the matching PRIVATE key as the RUNPOD_SSH_KEY Actions secret.
+    Writes it to a run-scoped 0600 temp file and derives its public half (passed
+    back as PUBLIC_KEY too, belt-and-suspenders). Returns (None, None) when the
+    secret is unset.
+    """
+    raw = os.environ.get("RUNPOD_SSH_KEY", "").strip()
+    if not raw:
+        return None, None
+    d = tempfile.mkdtemp(prefix="ict-burst-key-")
+    key_path = os.path.join(d, "id_runpod")
+    with open(key_path, "w", encoding="utf-8") as fh:
+        fh.write(raw + "\n")   # a trailing newline is required for a valid key file
+    os.chmod(key_path, 0o600)
+    try:
+        pub = subprocess.run(
+            ["ssh-keygen", "-y", "-f", key_path],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+    except Exception:  # noqa: BLE001 - pub is a bonus; account-injection is the primary path
+        pub = None
+    return key_path, pub
 
 
 def _sdk() -> Any:
@@ -165,11 +194,17 @@ def run(
     gpu_used = gpu_type
     started = time.monotonic()
     rate = 0.0
-    # Any SSH path (probe today, full train next) needs the ephemeral public key
-    # injected at create time. Pure --verify stays key-free + unchanged.
+    # Any SSH path (probe today, full train next) authenticates with the account
+    # SSH key (RUNPOD_SSH_KEY secret) over RunPod's proxy — the platform injects
+    # the matching account public key into the pod. Pure --verify stays key-free.
     key_path = pub = None
     if ssh_probe or not verify:
-        key_path, pub = _remote.gen_ephemeral_keypair()
+        key_path, pub = _resolve_ssh_key()
+        if not key_path:
+            print("::error::RUNPOD_SSH_KEY secret unset — add the account SSH private key "
+                  "(matching a public key registered in RunPod › Settings › SSH Keys). "
+                  "No pod launched, no spend.")
+            return 3
     try:
         # Try the requested card first, then walk the fallback list — but only
         # skip forward on a genuine capacity miss; any other error re-raises.
