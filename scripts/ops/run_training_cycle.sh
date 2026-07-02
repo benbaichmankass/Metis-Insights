@@ -32,9 +32,23 @@
 #   TRAINING_LOG_PATH     — defaults to "$REPO_ROOT/runtime_logs/training_cycle.jsonl"
 #                           One JSON line per manifest:
 #                           {ts, manifest, model_id, exit_code, metrics_path}
+#   TRAINING_CYCLE_FORCE_RESTART — set truthy to ignore today's checkpoint
+#                           file and start the cycle clean (see below).
+#
+# Checkpoint / resume (2026-07-02, BL-20260702-TRAINER-OOM): a mid-cycle kill
+# (OOM or otherwise) used to strand every not-yet-trained manifest for a full
+# day — the manifest list was always the full fresh glob, with no record of
+# what had already completed. Each invocation now reads/writes
+# runtime_logs/trainer/cycle_progress_<UTC-date>.json (one entry per manifest:
+# pending/running/done/skipped/failed) and only trains manifests NOT already
+# done/skipped today, so a second same-day invocation (the new
+# ict-trainer-catchup.timer, or a manual re-run) picks up exactly where the
+# last one stopped instead of retraining everything. A `flock` on
+# runtime_logs/trainer/.cycle.lock stops the catchup run from ever racing a
+# still-in-progress primary run.
 #
 # Exit codes:
-#   0   every manifest succeeded
+#   0   every manifest succeeded (or was already done/skipped on a resume)
 #   1   one or more manifests failed
 #   2   environment misconfigured (missing venv tooling, repo, etc.)
 set -euo pipefail
@@ -64,6 +78,18 @@ if [ ! -d "$REPO_ROOT/.git" ]; then
 fi
 
 cd "$REPO_ROOT"
+
+# --- Concurrency guard -------------------------------------------------------
+# Stops the new catch-up timer (ict-trainer-catchup.timer, ~05:00 UTC) from
+# ever racing a still-running primary cycle (or two manual invocations
+# overlapping). A run that can't acquire the lock exits 0 immediately —
+# "another cycle is already handling this" is not a failure.
+mkdir -p "$REPO_ROOT/runtime_logs/trainer"
+exec 9>"$REPO_ROOT/runtime_logs/trainer/.cycle.lock"
+if ! flock -n 9; then
+  emit "$(printf '{"ts":"%s","status":"cycle_locked","detail":"another run_training_cycle.sh invocation holds the lock; exiting"}' "$(iso_now)")"
+  exit 0
+fi
 
 # --- Pull latest -----------------------------------------------------------
 # Self-heal onto a clean `main` every cycle. Past interactive sessions have
@@ -125,6 +151,102 @@ fi
 
 emit "$(printf '{"ts":"%s","status":"cycle_start","manifest_count":%d,"head":"%s"}' "$(iso_now)" "${#TRAINING_MANIFEST_LIST[@]}" "$HEAD_SHA")"
 
+# --- Checkpoint / resume ----------------------------------------------------
+# One progress file per UTC date. load_or_init_progress.py loads it (unless
+# TRAINING_CYCLE_FORCE_RESTART is set or the file is missing/corrupt, in which
+# case it (re)initialises fresh), merges in any manifest from today's list
+# that the file doesn't know about yet (e.g. a new manifest landed since this
+# morning), persists the result, and prints the newline-separated list of
+# manifests still needing a run this cycle (any status other than
+# done/skipped — a prior failure IS retried, since it's cheap and the cause
+# may have been transient).
+CYCLE_DATE="$(date -u +%Y-%m-%d)"
+PROGRESS_FILE="$REPO_ROOT/runtime_logs/trainer/cycle_progress_${CYCLE_DATE}.json"
+mapfile -t TO_RUN_LIST < <(
+  python - "$PROGRESS_FILE" "$CYCLE_DATE" "$HEAD_SHA" "${TRAINING_CYCLE_FORCE_RESTART:-}" "${TRAINING_MANIFEST_LIST[@]}" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+
+path, cycle_date, head_sha, force = sys.argv[1:5]
+manifests = sys.argv[5:]
+force = force.strip().lower() in ("1", "true", "yes", "on")
+
+state = None
+if not force:
+    try:
+        with open(path, encoding="utf-8") as fh:
+            loaded = json.load(fh)
+        if loaded.get("date") == cycle_date and isinstance(loaded.get("manifests"), dict):
+            state = loaded
+    except (OSError, json.JSONDecodeError, AttributeError):
+        state = None
+
+now = datetime.now(timezone.utc).isoformat()
+if state is None:
+    state = {"date": cycle_date, "head_sha": head_sha, "started_at": now,
+              "updated_at": now, "status": "in_progress", "manifests": {}}
+
+# Merge in any manifest the file doesn't know about yet (never drop rows for
+# a manifest that vanished from today's list — keep its history).
+for m in manifests:
+    state["manifests"].setdefault(m, {"status": "pending", "started_at": None,
+                                        "finished_at": None, "rc": None, "model_id": None})
+state["status"] = "in_progress"
+state["updated_at"] = now
+
+import os
+os.makedirs(os.path.dirname(path), exist_ok=True)
+with open(path, "w", encoding="utf-8") as fh:
+    json.dump(state, fh, indent=2)
+
+for m in manifests:
+    if state["manifests"].get(m, {}).get("status") not in ("done", "skipped"):
+        print(m)
+PY
+)
+
+resumed_count=$(( ${#TRAINING_MANIFEST_LIST[@]} - ${#TO_RUN_LIST[@]} ))
+if [ "$resumed_count" -gt 0 ]; then
+  emit "$(printf '{"ts":"%s","status":"cycle_resumed","already_done":%d,"to_run":%d}' "$(iso_now)" "$resumed_count" "${#TO_RUN_LIST[@]}")"
+fi
+
+progress_mark() {
+  # progress_mark <manifest> <status> [key=value ...] — update one manifest's
+  # row in PROGRESS_FILE. Best-effort: a write failure is logged, never fatal
+  # (checkpoint/resume degrades to "start over next time", not a cycle abort).
+  local manifest="$1" status="$2"; shift 2
+  python - "$PROGRESS_FILE" "$manifest" "$status" "$@" <<'PY' 2>&1 || true
+import json, sys
+from datetime import datetime, timezone
+
+path, manifest, status = sys.argv[1:4]
+extra = dict(kv.split("=", 1) for kv in sys.argv[4:] if "=" in kv)
+
+try:
+    with open(path, encoding="utf-8") as fh:
+        state = json.load(fh)
+except (OSError, json.JSONDecodeError):
+    sys.exit(0)  # progress file missing/corrupt — resume just degrades, don't fail the cycle
+
+now = datetime.now(timezone.utc).isoformat()
+row = state.setdefault("manifests", {}).setdefault(manifest, {})
+row["status"] = status
+if status == "running":
+    row["started_at"] = now
+elif status in ("done", "skipped", "failed"):
+    row["finished_at"] = now
+row.update(extra)
+state["updated_at"] = now
+
+with open(path, "w", encoding="utf-8") as fh:
+    json.dump(state, fh, indent=2)
+PY
+}
+
+if [ "${#TO_RUN_LIST[@]}" -eq 0 ]; then
+  emit "$(printf '{"ts":"%s","status":"cycle_already_complete","detail":"every manifest already done/skipped today"}' "$(iso_now)")"
+fi
+
 # Mirror current state to the live VM before training starts so the
 # dashboard reflects "cycle in progress" within seconds. Failure here
 # is non-fatal — training proceeds and the post-cycle publish below
@@ -135,13 +257,14 @@ bash scripts/ops/publish_trainer_mirror.sh >/dev/null 2>&1 \
 
 # --- Train each manifest --------------------------------------------------
 overall_rc=0
-for manifest in "${TRAINING_MANIFEST_LIST[@]}"; do
+for manifest in "${TO_RUN_LIST[@]}"; do
   if [ ! -f "$manifest" ]; then
     emit "$(printf '{"ts":"%s","status":"manifest_missing","manifest":"%s"}' "$(iso_now)" "$manifest")"
     overall_rc=1
     continue
   fi
   start="$(iso_now)"
+  progress_mark "$manifest" running
   # --- Observe-only build-time dataset audit (BL-20260628-XA-TRAINING-ZERO class) ---
   # Audit this manifest's built dataset for dead/constant feature columns and
   # single-class labels; append one row to dataset_audit.jsonl. OBSERVE-ONLY:
@@ -214,6 +337,7 @@ print(json.dumps({
     "metrics_path": summary.get("metrics_path"),
 }))
 ' "$(iso_now)" "$manifest" "$start" "$summary")"
+    progress_mark "$manifest" done
   elif [ "$rc" -eq 78 ]; then
     # Exit 78 (BSD EX_CONFIG) — `python -m ml train` raised
     # EmptyDatasetError (reason=empty_dataset: dataset built but 0 rows yet —
@@ -243,6 +367,7 @@ print(json.dumps({
     "detail": summary.get("detail"),
 }))
 ' "$(iso_now)" "$manifest" "$start" "$summary")"
+    progress_mark "$manifest" skipped
     rm -f "/tmp/train_$$.out" "/tmp/train_$$.err"
     continue
   else
@@ -259,6 +384,7 @@ print(json.dumps({
     "stderr_tail": err,
 }))
 ' "$(iso_now)" "$manifest" "$start" "$rc" "$err_tail")"
+    progress_mark "$manifest" failed "rc=$rc"
     overall_rc=1
     rm -f "/tmp/train_$$.out" "/tmp/train_$$.err"
     continue
@@ -267,6 +393,21 @@ print(json.dumps({
 done
 
 emit "$(printf '{"ts":"%s","status":"cycle_end","overall_rc":%d}' "$(iso_now)" "$overall_rc")"
+
+python - "$PROGRESS_FILE" <<'PY' 2>&1 || true
+import json, sys
+from datetime import datetime, timezone
+path = sys.argv[1]
+try:
+    with open(path, encoding="utf-8") as fh:
+        state = json.load(fh)
+except (OSError, json.JSONDecodeError):
+    sys.exit(0)
+state["status"] = "complete"
+state["updated_at"] = datetime.now(timezone.utc).isoformat()
+with open(path, "w", encoding="utf-8") as fh:
+    json.dump(state, fh, indent=2)
+PY
 
 # --- Confidence calibrators (best-effort) ----------------------------------
 # Fit per-strategy confidence calibrators over the validated multiyear history
