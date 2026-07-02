@@ -2,11 +2,11 @@
 and aggregates them into one BTC/USDT target per tick.
 
 Replaces the first-wins multiplexer in
-``src/runtime/pipeline.py::multiplexed_signal_builder`` when the
-``MULTI_STRATEGY_INTENT_LAYER`` env var (or the equivalent settings key)
-is enabled. The legacy builder is preserved as the default so this PR
-does not change live behaviour on its own — the operator opts in at
-their cadence.
+``src/runtime/pipeline.py::multiplexed_signal_builder``. Gated by the
+``MULTI_STRATEGY_INTENT_LAYER`` env var (or the equivalent settings key),
+which now **defaults on** — this is the live intent-aggregation path.
+The legacy first-wins builder is preserved as the rollback (set
+``MULTI_STRATEGY_INTENT_LAYER=false`` to revert without a redeploy).
 
 Pipeline contract
 -----------------

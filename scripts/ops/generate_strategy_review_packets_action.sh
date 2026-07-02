@@ -93,10 +93,21 @@ set -e
 
 # Surface the per-day output dir so the operator can see what landed
 # without a second relay round-trip.
+#
+# scripts/ml/strategy_review_packet.py defaults --out-dir to
+# src.utils.paths.runtime_logs_dir()/strategy_reviews, which resolves
+# to ${DATA_DIR}/runtime_logs (/data/bot-data/runtime_logs on the live
+# VM) — NOT ${REPO_DIR}/runtime_logs. Reuse load_runtime_env's
+# RUNTIME_LOGS_DIR (falling back to DATA_DIR, then REPO_DIR, matching
+# the Python resolver's own fallback chain) so this wrapper looks in
+# the same place the packets actually landed (BL-20260630-PRINTPACKETS).
+load_runtime_env
 TODAY="$(date -u +%Y-%m-%d)"
-REVIEW_DIR="${REPO_DIR}/runtime_logs/strategy_reviews/${TODAY}"
+REVIEW_ROOT="${RUNTIME_LOGS_DIR:-${DATA_DIR:+${DATA_DIR}/runtime_logs}}"
+REVIEW_ROOT="${REVIEW_ROOT:-${REPO_DIR}/runtime_logs}"
+REVIEW_DIR="${REVIEW_ROOT}/strategy_reviews/${TODAY}"
 echo
-echo "===== runtime_logs/strategy_reviews/${TODAY}/ ====="
+echo "===== ${REVIEW_ROOT}/strategy_reviews/${TODAY}/ ====="
 if [ -d "${REVIEW_DIR}" ]; then
     ls -la "${REVIEW_DIR}" || true
     # Echo the proposed_action from each packet so the issue-comment

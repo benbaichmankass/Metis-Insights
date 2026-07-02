@@ -564,6 +564,7 @@ Unauthenticated GET routes — Tier 1 read surface. See
 | `GET /api/bot/devices/event-kinds` | `{kinds:[{kind, label, description, in_flight}]}` — the canonical push event-kind taxonomy the Android Notifications screen iterates to build per-kind toggles (so the app needn't mirror the list). Tier 1 | `src.runtime.mobile_push.event_kinds` |
 | `DELETE /api/bot/devices/{id}` | `{id, deleted:true}` — revoke a device (lost phone). 404 on unknown id. Token-gated via `DASHBOARD_API_TOKEN` when set. Tier 1 | `trade_journal.db::device_tokens` |
 | `PATCH /api/bot/devices/{id}/subscriptions` | `{id, subscriptions}` — replace a device's per-kind push subscription prefs (`{subscriptions: null\|[kinds]\|{kind:bool}}`; null/empty = all). 404 on unknown id; unknown kinds → 400. Token-gated when `DASHBOARD_API_TOKEN` set. Tier 1 | `trade_journal.db::device_tokens` |
+| `POST /api/auth/login` | `{access_token, token_type, expires_in}` (S-013 M3 PR #1) — issues a bearer session token for the session-gated `/api/pnl` + `/api/status` routes given `{email, password}`. **Issuance only**: `require_session` enforcement on protected routes is a separate PR — neither the Streamlit dashboard nor the Android app calls this path today (both consume only no-session routes), so it's invisible to either consumer. 500 (generic `auth_unavailable` body, no secret-name leak) if the auth env vars are unset. | env-configured allowed email + password hash (`src/web/api/auth.py`) |
 
 ### `BotStats` shape
 ```json
