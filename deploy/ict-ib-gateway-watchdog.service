@@ -99,11 +99,22 @@ Nice=-10
 # "Login has completed") using ONLY the docker CLI — no venv, no creds. --state
 # is pinned to the repo-local (writable) runtime_logs/ so the wedged streak
 # actually persists between the timer's 5-min runs.
+# SUPPRESSION WINDOW (2026-07-02, BL-20260623-002): 03:45-05:45 UTC matches
+# IBKR's own documented overnight reset window (see
+# deploy/ict-ib-gateway-reset.timer) — a wedge detected in here can't be
+# fixed by a restart, so this narrowly stops the watchdog from burning its
+# restart budget/cooldown on an attempt that was never going to work
+# (that's what pushed the effective restart past the observed 06:00-06:05Z
+# recurrence). Still logs/alerts on detection for visibility; the streak is
+# frozen, not reset, so it resumes the instant the window closes. Scoped to
+# exactly this window — the mid-day auto-heal re-armed 2026-06-22
+# (BL-20260622-GATEWAY-MIDDAY-WEDGE) is unaffected outside it.
 ExecStart=/usr/bin/python3 -u scripts/check_ib_gateway.py --probe-account ib_paper \
   --probe-script scripts/ops/ib_gateway_local_probe.py \
   --state runtime_logs/ib_gateway_watchdog_state.json \
   --auto-restart --restart-after 2 --max-restarts 3 \
-  --cooldown-min 20 --exhaustion-reset-min 120
+  --cooldown-min 20 --exhaustion-reset-min 120 \
+  --suppress-window-utc 03:45-05:45
 StandardOutput=journal
 StandardError=journal
 

@@ -231,11 +231,20 @@ watchdog escalations) instead of the disease.
   restarting gateway can now never touch the money loop. OCPU budget:
   trainer 1 + gateway 1 = 2 of the 4 Always-Free Ampere OCPUs.
 - **One scheduled `docker restart`/day** (`ict-ib-gateway-reset.{service,timer}`,
-  05:30 UTC, just after IBKR's overnight reset) — deterministic belt-and-suspenders
-  recovery for the single known failure (the in-place re-login wedging on the
-  reset), complementing the reactive watchdog below (which catches a wedge that
-  sets in at any other time). The reset unit is gated to the gateway VM via
-  `ConditionPathExists=/etc/ict/ib-gateway-docker.env`.
+  **06:05 UTC** — retimed 2026-07-02, was 05:30, see below) — deterministic
+  belt-and-suspenders recovery for the single known failure (the in-place
+  re-login wedging on the reset), complementing the reactive watchdog below
+  (which catches a wedge that sets in at any other time). The reset unit is
+  gated to the gateway VM via `ConditionPathExists=/etc/ict/ib-gateway-docker.env`.
+  **2026-07-02 retime (BL-20260623-002):** the original 05:30 fire was actually
+  *inside* IBKR's documented overnight reset window (~03:45–05:45 UTC), not
+  after it — the one deterministic restart the whole design relies on was
+  racing the outage it exists to fix, reproducing as a recurring wedge right
+  around 06:00–06:05Z (confirmed recurring 2026-06-23 and 2026-07-02). Retimed
+  to 06:05 (20min margin past the window's close), and the watchdog below now
+  carries `--suppress-window-utc 03:45-05:45` so it logs but never *acts* on a
+  wedge detected inside that window either — a restart in there can't succeed,
+  and attempting one just burns the `--cooldown-min` budget for no benefit.
 - **Reactive auto-restart re-armed (2026-06-22, BL-20260622-GATEWAY-MIDDAY-WEDGE).**
   `check_ib_gateway.py` / `ict-ib-gateway-watchdog.{service,timer}` runs **on the
   gateway VM** (auto-enabled only where `/etc/ict-vm-role` == `gateway`, via

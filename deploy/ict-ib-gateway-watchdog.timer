@@ -11,7 +11,10 @@
 # reactive restart churn can't touch the money loop, so the bounded reactive
 # probe is re-armed (guards live in the .service ExecStart). ~5 min cadence ⇒ a
 # mid-day wedge is caught within ~10 min (--restart-after 2). The daily
-# ict-ib-gateway-reset.timer stays as a belt-and-suspenders scheduled restart.
+# ict-ib-gateway-reset.timer stays as a belt-and-suspenders scheduled restart
+# (retimed to 06:05 UTC 2026-07-02, was 05:30 — BL-20260623-002; the .service
+# ExecStart now also carries --suppress-window-utc 03:45-05:45 so this watchdog
+# never burns a restart attempt on a wedge it can't fix during IBKR's own reset).
 #
 # Auto-installed + enabled by scripts/install_systemd_units.sh (gateway VM only).
 # Save to: /etc/systemd/system/ict-ib-gateway-watchdog.timer

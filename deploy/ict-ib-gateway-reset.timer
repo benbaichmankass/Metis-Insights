@@ -1,22 +1,34 @@
 # ============================================
-# ICT IB GATEWAY DAILY RESET TIMER (gateway-isolation redesign, 2026-06-10)
-# Fires ict-ib-gateway-reset.service once daily at 05:30 UTC — just after
+# ICT IB GATEWAY DAILY RESET TIMER (gateway-isolation redesign, 2026-06-10;
+# retimed 2026-07-02, BL-20260623-002 fix)
+# Fires ict-ib-gateway-reset.service once daily at 06:05 UTC — safely AFTER
 # IBKR's overnight US server-reset window (~03:45–05:45 UTC) and after the
 # image's own IBC AUTO_RESTART_TIME (23:59 UTC), so the full container restart
 # lands when IBKR is healthy again and re-establishes a clean session for the
 # trading day. One deterministic restart replaces the reactive 5-min restart
 # loop. Tune the time here if IBKR's reset window shifts.
 #
+# 2026-07-02 retime (05:30 -> 06:05): the prior 05:30 fire was INSIDE IBKR's
+# documented reset window, not after it (05:30 is 15min before the window's
+# ~05:45 close, not "just after" as the comment previously claimed) — the one
+# deterministic restart the whole recovery design depends on was racing the
+# outage it exists to fix. The container/IBC restart could complete cleanly
+# while the upstream IBKR session still wasn't serviceable, reproducing as a
+# wedge the reactive watchdog then caught mid-window (also ineffective) and
+# burned its 20-min cooldown on, blocking the next real attempt until the
+# observed ~06:00-06:05Z recurrence (BL-20260623-002, recurred again
+# 2026-07-02). 06:05 gives 20min margin past the window's documented close.
+#
 # Save to: /etc/systemd/system/ict-ib-gateway-reset.timer
 # ============================================
 
 [Unit]
-Description=ICT IB Gateway daily reset — fires at 05:30 UTC
+Description=ICT IB Gateway daily reset — fires at 06:05 UTC
 Requires=ict-ib-gateway-reset.service
 
 [Timer]
-OnCalendar=*-*-* 05:30:00 UTC
-# If the box was off at 05:30, run on next boot so a reset is never skipped.
+OnCalendar=*-*-* 06:05:00 UTC
+# If the box was off at 06:05, run on next boot so a reset is never skipped.
 Persistent=true
 AccuracySec=1min
 Unit=ict-ib-gateway-reset.service

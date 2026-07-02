@@ -50,6 +50,22 @@ CLI:
   python scripts/check_ib_gateway.py --probe-account ib_paper
   python scripts/check_ib_gateway.py --probe-account ib_paper --auto-restart
   python scripts/check_ib_gateway.py --probe-account ib_paper --dry-run
+
+Suppression window (``--suppress-window-utc``, 2026-07-02, BL-20260623-002)
+-----------------------------------------------------------------------------
+A wedge detected inside IBKR's own overnight reset window (~03:45-05:45 UTC,
+see ``deploy/ict-ib-gateway-reset.timer``) can't be fixed by a restart — the
+upstream session isn't serviceable yet regardless of how many times the
+container is bounced. Restarting anyway burns the ``--cooldown-min`` budget on
+an attempt that was never going to work, which is exactly what pushed the
+*next* (potentially effective) restart attempt past the observed recurring
+06:00-06:05Z wedge window. ``--suppress-window-utc HH:MM-HH:MM`` logs +
+alerts on a wedge detected inside that window (visibility preserved) but
+freezes the streak/restart bookkeeping — never increments it, never resets
+it — so a wedge spanning the window resumes counting the instant it closes
+instead of losing progress. Scoped narrowly to this one flag; the reactive
+watchdog's normal mid-day auto-heal (BL-20260622-GATEWAY-MIDDAY-WEDGE) is
+unaffected outside the window.
 """
 from __future__ import annotations
 
@@ -85,6 +101,31 @@ def _resolved_runtime_logs_dir() -> Path:
 DEFAULT_STATE = _resolved_runtime_logs_dir() / "ib_gateway_watchdog_state.json"
 DEFAULT_PROBE = _REPO_ROOT / "scripts" / "ib_connect_check.py"
 DEFAULT_RESTART = _REPO_ROOT / "scripts" / "ops" / "restart_ib_gateway.sh"
+
+
+def in_suppression_window(window: str, now: datetime) -> bool:
+    """Return True when ``now`` (UTC) falls inside ``"HH:MM-HH:MM"``.
+
+    Empty/unparseable ``window`` disables suppression entirely (returns
+    False) — fail-open, since a misconfigured flag must never silently
+    widen suppression beyond what was intended.
+    """
+    window = (window or "").strip()
+    if not window or "-" not in window:
+        return False
+    start_s, _, end_s = window.partition("-")
+    try:
+        start_h, start_m = (int(x) for x in start_s.strip().split(":"))
+        end_h, end_m = (int(x) for x in end_s.strip().split(":"))
+    except (ValueError, AttributeError):
+        return False
+    start_minutes = start_h * 60 + start_m
+    end_minutes = end_h * 60 + end_m
+    now_minutes = now.hour * 60 + now.minute
+    if start_minutes <= end_minutes:
+        return start_minutes <= now_minutes < end_minutes
+    # Window wraps midnight (not the IBKR case today, but handled for safety).
+    return now_minutes >= start_minutes or now_minutes < end_minutes
 
 
 # ---------------------------------------------------------------------------
@@ -257,6 +298,7 @@ def decide(
     auto_restart: bool,
     exhaustion_reset_s: float = 0.0,
     actionable: bool = True,
+    in_window: bool = False,
 ) -> Dict[str, Any]:
     """Pure decision over current health + prior state.
 
@@ -292,16 +334,28 @@ def decide(
     default) keeps the original give-up-for-the-episode behaviour. The
     anti-lockout guarantee is preserved: re-arming only after a long quiet
     gap means restarts can never become a tight loop.
+
+    ``in_window`` (2026-07-02, BL-20260623-002): True when the caller has
+    determined ``now`` falls inside a configured suppression window (e.g.
+    IBKR's own overnight reset window, during which a restart can't succeed
+    regardless of wedge state). A wedge detected here is logged/alerted once
+    per episode for visibility but the streak/restart bookkeeping is frozen
+    — never incremented, never reset — so it resumes exactly where it left
+    off the instant the window closes, instead of losing the signal or
+    burning a restart attempt that was never going to work.
     """
     s = dict(state)
-    last_status = s.get("last_status")  # "ok" | "wedged" | None
+    last_status = s.get("last_status")  # "ok" | "wedged" | "suppressed" | None
 
     if healthy:
         s["wedged_streak"] = 0
         s["restart_attempts"] = 0
         s["exhausted_alerted"] = False
         s["last_status"] = "ok"
-        if last_status == "wedged":
+        # "suppressed" is a wedge that was detected but held during the
+        # reset-suppression window — recovering from it is exactly as
+        # newsworthy as recovering from an acted-on "wedged" episode.
+        if last_status in ("wedged", "suppressed"):
             return {"action": "recovered", "alert": True, "new_state": s}
         return {"action": "none", "alert": False, "new_state": s}
 
@@ -316,12 +370,25 @@ def decide(
             return {"action": "inconclusive", "alert": True, "new_state": s}
         return {"action": "none", "alert": False, "new_state": s}
 
+    # Wedged, but inside the configured suppression window (e.g. IBKR's own
+    # reset window) — a restart can't succeed here. Freeze the streak/restart
+    # bookkeeping exactly as-is (touch neither) so it resumes seamlessly the
+    # instant the window closes; alert once per episode for visibility.
+    if in_window:
+        first_suppressed = last_status not in ("wedged", "suppressed")
+        s["last_status"] = "suppressed"
+        if first_suppressed:
+            return {"action": "suppressed", "alert": True, "new_state": s}
+        return {"action": "none", "alert": False, "new_state": s}
+
     # Wedged.
     streak = int(s.get("wedged_streak") or 0) + 1
     s["wedged_streak"] = streak
     attempts = int(s.get("restart_attempts") or 0)
     s["last_status"] = "wedged"
-    first_detection = last_status != "wedged"
+    # A prior "suppressed" episode already alerted about this same wedge —
+    # don't re-fire "detected" the instant the window closes.
+    first_detection = last_status not in ("wedged", "suppressed")
 
     def _detect() -> Dict[str, Any]:
         return {"action": "detected" if first_detection else "none",
@@ -378,6 +445,12 @@ def render(action: str, *, account: str, reason: str, streak: int,
     if action == "detected":
         return (f"[WARN] IB Gateway wedge detected ({_ts()})\n"
                 f"{account}: {reason}. MES strategies are skipping ticks.")
+    if action == "suppressed":
+        return (f"[WARN] IB Gateway wedge detected inside the reset-suppression "
+                f"window ({_ts()})\n"
+                f"{account}: {reason}. Not auto-restarting (inside IBKR's own "
+                f"reset window — a restart can't succeed yet); will resume "
+                f"normal auto-heal once the window closes.")
     if action == "inconclusive":
         return (f"[WARN] IB Gateway watchdog probe inconclusive ({_ts()})\n"
                 f"{account}: {reason}. Not auto-restarting (a restart can't fix a "
@@ -436,6 +509,12 @@ def main(argv: Optional[list] = None) -> int:
                    default=os.environ.get("IB_WATCHDOG_AUTO_RESTART", "").lower()
                    in ("1", "true", "yes"),
                    help="Enable the docker-restart recovery (default off = alert-only).")
+    p.add_argument("--suppress-window-utc",
+                   default=os.environ.get("IB_WATCHDOG_SUPPRESS_WINDOW_UTC", ""),
+                   help="\"HH:MM-HH:MM\" UTC window during which a detected wedge is "
+                        "logged/alerted but never drives a restart (e.g. IBKR's own "
+                        "overnight reset window, ~03:45-05:45 UTC) — a restart can't "
+                        "succeed inside it. Empty disables (default).")
     p.add_argument("--dry-run", action="store_true",
                    help="Evaluate + print, but never restart, alert, or write state.")
     args = p.parse_args(argv)
@@ -444,6 +523,8 @@ def main(argv: Optional[list] = None) -> int:
     healthy = bool(verdict["healthy"])
     actionable = bool(verdict.get("actionable", True))
     reason = verdict["reason"]
+
+    in_window = in_suppression_window(args.suppress_window_utc, datetime.now(timezone.utc))
 
     state = load_state(args.state)
     decision = decide(
@@ -456,12 +537,14 @@ def main(argv: Optional[list] = None) -> int:
         auto_restart=args.auto_restart,
         exhaustion_reset_s=args.exhaustion_reset_min * 60.0,
         actionable=actionable,
+        in_window=in_window,
     )
     action = decision["action"]
     new_state = decision["new_state"]
     restart_result: Optional[Dict[str, Any]] = None
 
-    print(f"probe: healthy={healthy} actionable={actionable} reason={reason} action={action}")
+    print(f"probe: healthy={healthy} actionable={actionable} in_window={in_window} "
+          f"reason={reason} action={action}")
 
     if args.dry_run:
         return 0
