@@ -282,6 +282,14 @@ def test_manifest_dataset_scope_defaults_version(tmp_path):
     assert runpod_burst._manifest_dataset_scope(str(m))["version"] == "v002"
 
 
+def test_as_text_coerces_bytes_and_none():
+    # subprocess.TimeoutExpired carries partial capture as BYTES even under
+    # text=True — coerce so the timeout handler doesn't `bytes + str` TypeError (#5457).
+    assert runpod_burst._as_text(b"partial train log") == "partial train log"
+    assert runpod_burst._as_text("already str") == "already str"
+    assert runpod_burst._as_text(None) == ""
+
+
 def test_resolve_repo_sha_prefers_github_sha(monkeypatch):
     monkeypatch.setenv("GITHUB_SHA", "cafebabe1234")
     assert runpod_burst._resolve_repo_sha() == "cafebabe1234"

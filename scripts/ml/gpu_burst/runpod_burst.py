@@ -181,8 +181,18 @@ def _ssh_capture(
     try:
         proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout_s)
     except subprocess.TimeoutExpired as e:
-        return 124, e.stdout or "", (e.stderr or "") + "\n(timeout)"
+        # On timeout, TimeoutExpired carries the partial capture as BYTES even
+        # under text=True (the decode step is bypassed) — decode before use, or
+        # `bytes + str` raises TypeError and we lose the partial-output diagnostic.
+        return 124, _as_text(e.stdout), _as_text(e.stderr) + "\n(timeout)"
     return proc.returncode, proc.stdout, proc.stderr
+
+
+def _as_text(v: Any) -> str:
+    """Coerce a subprocess capture (str | bytes | None) to str."""
+    if v is None:
+        return ""
+    return v.decode("utf-8", "replace") if isinstance(v, bytes) else v
 
 
 def _wait_ssh_ready(
