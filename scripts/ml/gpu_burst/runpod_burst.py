@@ -86,10 +86,15 @@ def _is_capacity_error(exc: Exception) -> bool:
 # fully self-managed — no dependency on RunPod's account-key proxy or the image's
 # template start-script, so an ephemeral per-run key works (zero operator config).
 # $PUBLIC_KEY is expanded on the POD (left literal here). Connect via public IP:22.
+#
+# NOTE: this string is naively interpolated into RunPod's GraphQL mutation, so it
+# must contain NO '%' character — a `printf "%s\n"` here raised
+# `Syntax Error: Unexpected character: "%"` from the query builder before any pod
+# launched. An SSH public key is a single line, so a plain `echo` is equivalent.
 _DOCKER_SSH_BOOTSTRAP = (
     "bash -c '"
     "set -e; mkdir -p /root/.ssh; "
-    'printf "%s\\n" "$PUBLIC_KEY" > /root/.ssh/authorized_keys; '
+    'echo "$PUBLIC_KEY" > /root/.ssh/authorized_keys; '
     "chmod 700 /root/.ssh; chmod 600 /root/.ssh/authorized_keys; "
     "if ! command -v sshd >/dev/null 2>&1; then "
     "  apt-get update -qq && apt-get install -y -qq openssh-server >/dev/null; fi; "

@@ -114,6 +114,10 @@ def test_docker_ssh_bootstrap_is_self_contained_and_safe():
     assert "sshd -D" in b                                   # own sshd, foreground
     for forbidden in ("RUNPOD_API_KEY", "trade_journal", "SECRET", "TELEGRAM"):
         assert forbidden not in b
+    # RunPod interpolates docker_args straight into a GraphQL mutation, so a '%'
+    # anywhere here raises `Syntax Error: Unexpected character: "%"` from the query
+    # builder BEFORE any pod launches (the printf "%s" regression, #5447).
+    assert "%" not in b
 
 
 class _FakeRunpod:
