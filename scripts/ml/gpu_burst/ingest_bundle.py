@@ -8,7 +8,9 @@ This script materializes that bundle into the standard experiment layout
 (``experiments-runs/<model_id>/<run_id>/{model_state,metrics,manifest}.json``) and
 registers it via :class:`ml.registry.ModelRegistry`, so the model shows up on the
 dashboard **Models** page (`/api/bot/ml/registry`, fed from the trainer mirror's
-``registry.jsonl``) — at **`candidate`** deployment stage, forced.
+``registry.jsonl``) — at **`candidate`** deployment stage, forced, under a
+**burst-namespaced id** (``<model_id>-gpuburst``) so it can never overwrite a
+same-named production model.
 
 **Why forced `candidate` (safety):** a freshly-registered model defaults to
 ``target_deployment_stage: shadow``, which auto-wires onto every strategy's
@@ -34,6 +36,17 @@ from pathlib import Path
 # A burst model is inert until an operator promotes it: candidate is refused by the
 # shadow factory, so it observes nothing. NEVER default to shadow here.
 _FORCED_STAGE = "candidate"
+
+# A burst artifact is namespaced with this suffix so it is ALWAYS a distinct
+# registry entry — it can never collide with (and thus never refresh / hijack the
+# served weights of) a same-named PRODUCTION model. The manifest a burst trains is
+# often an existing live head (e.g. `btc-regime-15m-lgbm-v2` is the advisory BTC
+# vol-gate), and ModelRegistry.register() on an existing id refreshes the top-level
+# model_state_path while PRESERVING its stage — so ingesting under the bare id would
+# silently repoint a live advisory model at the burst weights. Namespacing prevents
+# that: a burst retrain lands as its own candidate for comparison; replacing the
+# production model is a deliberate, separate operator action.
+_BURST_SUFFIX = "-gpuburst"
 
 
 def _run_id_from_bundle(bundle: dict, fallback: str) -> str:
@@ -74,12 +87,28 @@ def ingest(
     manifest = bundle.get("manifest")
     if not isinstance(model_state, dict) or not isinstance(manifest, dict):
         raise ValueError(f"bundle {bundle_path} is missing model_state/manifest dicts")
-    model_id = manifest.get("model_id")
-    if not model_id:
+    base_model_id = manifest.get("model_id")
+    if not base_model_id:
         raise ValueError(f"bundle {bundle_path} manifest has no model_id")
 
+    # Namespace to a burst-only id so we can NEVER touch a production model of the
+    # same name (idempotent if the bundle's id already carries the suffix).
+    model_id = base_model_id if base_model_id.endswith(_BURST_SUFFIX) else f"{base_model_id}{_BURST_SUFFIX}"
+
     # Force candidate stage — a burst model must be inert until an operator promotes.
-    manifest = {**manifest, "target_deployment_stage": _FORCED_STAGE}
+    manifest = {**manifest, "model_id": model_id, "target_deployment_stage": _FORCED_STAGE}
+
+    reg = ModelRegistry(Path(registry_root))
+    # Belt-and-suspenders: if an operator has already promoted THIS burst id past
+    # candidate, refuse to refresh its served weights — a re-burst must not silently
+    # swap a model someone deliberately advanced. (Fresh + still-candidate ids proceed.)
+    if reg.exists(model_id):
+        stage = getattr(reg.get(model_id), "target_deployment_stage", _FORCED_STAGE)
+        if stage != _FORCED_STAGE:
+            raise ValueError(
+                f"{model_id} already exists at stage '{stage}' (operator-promoted) — "
+                "refusing to overwrite its served weights via a burst ingest."
+            )
 
     run_id = _run_id_from_bundle(bundle, fallback="gpu-burst")
     run_dir = Path(experiments_root) / model_id / run_id
@@ -89,7 +118,6 @@ def ingest(
     (run_dir / "metrics.json").write_text(json.dumps(metrics), encoding="utf-8")
     (run_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
-    reg = ModelRegistry(Path(registry_root))
     reg.register(
         model_id=model_id,
         manifest=manifest,
