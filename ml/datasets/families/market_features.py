@@ -88,6 +88,17 @@ Knobs (all kwargs):
   are populated; when omitted they emit `0.0` (default-preserving). Meant for the
   "does an off-the-shelf probabilistic forecast lift a boosting head?" A/B;
   harmless on any symbol.
+- `corpus_embedding_path` (path, default None) — optional directory holding an
+  SSL corpus-encoder embedding side-stream (`data.jsonl`, rows `{ts,
+  corpus_emb_0, …, corpus_emb_N}`, produced by
+  `scripts/ml/build_corpus_embeddings.py` from the daily `corpus_panel` +
+  trained encoder). Each row is the in-house masked-reconstruction corpus
+  encoder's embedding over the trailing daily panel window, re-keyed one-day
+  lagged onto the bar grid — **past-only** by the producer, so this builder only
+  as-of carries each column forward onto the bars. When given, the corpus
+  embedding columns (M19 T1.2) are populated; when omitted they emit `0.0`
+  (default-preserving). Meant for the "does a learned breadth-aware
+  market-state vector lift a boosting head?" A/B; harmless on any symbol.
 
 ## Schema
 
@@ -174,6 +185,7 @@ from ..funding_oi_features import (
     rolling_zscore,
 )
 from ..cross_asset_features import CROSS_ASSET_FEATURE_COLUMNS
+from ..corpus_embedding_features import CORPUS_EMBEDDING_FEATURE_COLUMNS
 from ..embedding_features import EMBEDDING_FEATURE_COLUMNS
 from ..forecast_features import FORECAST_FEATURE_COLUMNS
 from ..macro_features import MACRO_FEATURE_COLUMNS
@@ -377,11 +389,15 @@ class MarketFeaturesBuilder(DatasetBuilder):
     # `fc_q90_rel`) — populated from the optional `forecast_path` side-stream (a
     # frozen Chronos-Bolt forecast of the next bar's price quantiles, converted to
     # log-return space vs the last close, past-only by the producer), 0.0 when it
-    # is absent. Earlier baselines that only read `vol_bucket` /
-    # `rolling_log_return_vol` are unaffected by the wider schema;
-    # builder_version is metadata-only (it does not gate dataset path
-    # resolution).
-    builder_version: ClassVar[str] = "v11"
+    # is absent. v12 (M19 T1.2): adds the SSL corpus-encoder embedding features
+    # (`corpus_emb_0..N`) — populated from the optional `corpus_embedding_path`
+    # side-stream (the in-house masked-reconstruction corpus encoder's embedding
+    # over the trailing daily corpus panel window, re-keyed one-day-lagged onto
+    # the bar grid, past-only by the producer), 0.0 when it is absent. Earlier
+    # baselines that only read `vol_bucket` / `rolling_log_return_vol` are
+    # unaffected by the wider schema; builder_version is metadata-only (it does
+    # not gate dataset path resolution).
+    builder_version: ClassVar[str] = "v12"
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.PASSED
     label_version: ClassVar[str] = "regime-3class-v1"
     schema: ClassVar[Mapping[str, type]] = {
@@ -455,6 +471,14 @@ class MarketFeaturesBuilder(DatasetBuilder):
         # when no `forecast_path` is supplied. Leakage-safe by construction (see
         # forecast_features.py § cadence + leakage discipline).
         **{col: float for col in FORECAST_FEATURE_COLUMNS},
+        # SSL corpus-encoder embedding features (M19 T1.2). As-of carried from
+        # the optional `corpus_embedding_path` side-stream (the in-house
+        # masked-reconstruction corpus encoder's embedding over the trailing
+        # daily corpus panel window, re-keyed one-day-lagged onto the bar grid by
+        # the producer, past-only) — 0.0 on every row when no
+        # `corpus_embedding_path` is supplied. Leakage-safe by construction (see
+        # corpus_embedding_features.py § cadence + leakage discipline).
+        **{col: float for col in CORPUS_EMBEDDING_FEATURE_COLUMNS},
         "hour_of_day": int,
         "dayofweek": int,
         "log_return_lag_1": float,
@@ -490,6 +514,7 @@ class MarketFeaturesBuilder(DatasetBuilder):
         macro_path: Path | str | None = None,
         cross_asset_path: Path | str | None = None,
         embedding_path: Path | str | None = None,
+        corpus_embedding_path: Path | str | None = None,
         forecast_path: Path | str | None = None,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
@@ -630,6 +655,28 @@ class MarketFeaturesBuilder(DatasetBuilder):
                         for r in emb_rows
                     ]
                     emb_aligned[col] = _align_asof(bar_ts, emb_ts, vals)
+
+        # SSL corpus-encoder embedding side-stream (M19 T1.2), as-of aligned onto
+        # the bars. The producer emits one daily embedding row per corpus-panel
+        # date, re-keyed one-day-lagged onto the bar grid (past-only); we carry
+        # each column forward so a bar sees only the most recent PAST corpus
+        # embedding. All-`None` (→ feature 0.0) when no `corpus_embedding_path`
+        # is given.
+        corpus_emb_aligned: dict[str, list[float | None]] = {
+            col: [None] * n for col in CORPUS_EMBEDDING_FEATURE_COLUMNS
+        }
+        if corpus_embedding_path is not None:
+            corpus_emb_rows = _load_funding_oi_rows(Path(corpus_embedding_path))
+            if corpus_emb_rows:
+                corpus_emb_ts = [str(r.get("ts", "")) for r in corpus_emb_rows]
+                for col in CORPUS_EMBEDDING_FEATURE_COLUMNS:
+                    vals = [
+                        (float(r[col]) if r.get(col) is not None else None)
+                        for r in corpus_emb_rows
+                    ]
+                    corpus_emb_aligned[col] = _align_asof(
+                        bar_ts, corpus_emb_ts, vals
+                    )
 
         # Pretrained-TSFM quantile-forecast side-stream (M19 T0.4), as-of aligned
         # onto the bars. The producer emits a forecast row at (possibly strided)
@@ -799,6 +846,10 @@ class MarketFeaturesBuilder(DatasetBuilder):
                 **{
                     col: _finite_or_zero(fc_aligned[col][i])
                     for col in FORECAST_FEATURE_COLUMNS
+                },
+                **{
+                    col: _finite_or_zero(corpus_emb_aligned[col][i])
+                    for col in CORPUS_EMBEDDING_FEATURE_COLUMNS
                 },
                 "hour_of_day": int(hour_of_day),
                 "dayofweek": int(dayofweek),
