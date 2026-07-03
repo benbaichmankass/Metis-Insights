@@ -2737,9 +2737,11 @@
       "source": "docs/audits/order-packages-zero-qty-2026-06-26.md \u00a7 Thread (b). RiskManager.position_size whole-share sizing for alpaca (risk.py:631-651 round-up-to-1-share).",
       "title": "[latent] whole-unit rounding-to-zero only bites a sub-$1.3k real-money alpaca account \u2014 confirm once funded",
       "description": "Whole-unit (alpaca) sizing refuses a sub-1-share ideal unless 1-share risk <= 1.5x (equity x risk_pct). At risk_pct=0.01 and the observed per-share risks (GLD $7.52, SPY $10.23, QQQ $19.51), refusal only occurs below ~$501/$682/$1301 of equity; above that the round-up-to-1-share fires and a single share is taken. NOT the cause of the 2026-06-25 alpaca_live zeros (those were zero_balance=$0, a funding/creds fetch failure owned by the key-rotation session). Action: once alpaca_live has working keys + real funding, confirm one ETF signal sizes a whole share (not refused). No code change proposed.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [],
+      "resolved_at": "2026-07-03T21:10:00+00:00",
+      "resolution": "OPERATOR DECISION 2026-07-03 (chat, /health-review follow-up): leave alpaca_live UNFUNDED as-is. The latent behaviour fired as designed on 2026-07-03 13:30Z \u2014 TLT sized to 0 whole shares and was refused per-trade (correct Prime-Directive shape). Accepted consequence: alpaca_live can only take trades whose 1-share risk fits its small balance (it holds IEF x1); most of its 9 symbols will refuse. No funding, no symbol-list trim requested. Future reviews should NOT re-raise this as a finding."
     },
     {
       "id": "BL-20260628-CRYPTO-INSTRUMENT-MIN-FLOOR",
@@ -2886,5 +2888,5 @@
       "suggested_fix": "Operator submits kind:\"account_status\" report-backs routinely; consider auto-prompting after prop_closed."
     }
   ],
-  "updated_at": "2026-07-03T20:05:00+00:00"
+  "updated_at": "2026-07-03T21:10:00+00:00"
 }
