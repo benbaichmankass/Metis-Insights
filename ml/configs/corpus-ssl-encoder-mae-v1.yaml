@@ -1,0 +1,68 @@
+# M19 T1.2 — the self-supervised "reads-everything" corpus encoder (v0).
+#
+# The first SELF-SUPERVISED model: a masked-reconstruction (MAE) autoencoder over
+# the wide, leakage-safe daily `corpus_panel` (the aligned date×series matrix of
+# rates / VIX / equity / commodity / credit / FX context). It learns a
+# market-state EMBEDDING from the abundant UNLABELED corpus — the one M19 lever
+# not bound by the ~350-real-trade label ceiling. Design:
+# `docs/research/T1.2-ssl-encoder-DESIGN.md`.
+#
+# GPU-burst trained, CPU-served: the trained artifact is the ONNX graph of the
+# ENCODER TRUNK only (decoder discarded), parity-gated at build time — no torch on
+# the money-box. Default stage `candidate` (inert); a burst ingest also forces
+# candidate + the `-gpuburst` namespace.
+#
+# This is a PRETRAINING run: the `reconstruction`/`val` loss it records is a
+# training diagnostic, NOT the promotion gate. The real T1.2 gate is the P2
+# downstream A/B — does the `corpus_emb_*` block (built from this encoder via
+# ml/datasets/corpus_embedding_features.py) lift >=1 boosting head's purged-CV
+# metric beyond BOTH the no-embedding baseline AND the frozen-Chronos T0.1
+# embedding. That A/B is a separate, classification-evaluator run on the
+# downstream head.
+#
+# Prereq: build the panel first, e.g.
+#   python -m ml build-dataset corpus_panel --output-dir datasets-out \
+#     --symbol-scope CORPUS --timeframe 1d --version v001
+# (the corpus_panel family is multi-asset/daily; symbol_scope=CORPUS + timeframe=1d
+# are path labels, not per-symbol filters.)
+
+manifest_version: v1
+model_id: corpus-ssl-encoder-mae-v1
+description: "M19 T1.2 self-supervised masked-reconstruction (MAE) encoder over the wide daily corpus_panel — learns a label-free market-state embedding (corpus_emb_*) for the boosting heads. GPU-burst trained, encoder-trunk ONNX/CPU-served. Candidate/offline — never order-influencing; the gate is the P2 downstream embedding A/B, not this reconstruction loss."
+model_family: ssl_corpus_encoder
+trainer: ml.trainers.ssl_corpus_encoder.SSLCorpusEncoderTrainer
+trainer_config:
+  seq_len: 64          # L — trailing days per window
+  embedding_dim: 16    # d — the served embedding width (corpus_emb_0..15)
+  mask_ratio: 0.5      # fraction of OBSERVED cells hidden for the MAE target
+  hidden: 64
+  epochs: 50
+  batch_size: 64
+  lr: 0.001
+  weight_decay: 0.0
+  val_fraction: 0.2    # trailing windows held out for the recorded val recon loss
+  seed: 42
+  onnx_opset: 17
+  parity_tol: 1.0e-4
+  # series: omitted -> ALL corpus_panel series (sorted, deterministic). Pin a
+  # comma list here only to freeze a subset across re-trains.
+dataset:
+  family: corpus_panel
+  symbol_scope: CORPUS
+  timeframe: 1d
+  version: v001
+evaluator: ml.evaluators.reconstruction.ReconstructionEvaluator
+evaluator_config:
+  split_strategy: holdout
+  # Self-supervised: the evaluator surfaces the trainer's recorded reconstruction
+  # / held-out val loss + the fail-closed ONNX parity max-abs-diff; there is no
+  # per-row label and no decoder at serve, so no per-row scoring.
+target_deployment_stage: candidate
+notes: |
+  Pretraining, not a labeled bake-off. Success is decided downstream (P2): the
+  corpus_emb_* block must beat both the no-embedding baseline and the frozen
+  Chronos T0.1 embedding on a boosting head's purged-CV metric. Trained on a
+  rented spot GPU; the served artifact is the encoder-trunk ONNX graph verified
+  for CUDA/CPU numeric parity at build time (fail-closed). No torch on the live
+  box. Corpus is still thin (~18 series) — widen via the stooq/yfinance breadth
+  adapter and re-run; the panel reads whatever the catalog holds.
