@@ -370,6 +370,7 @@ def feature_row_for_predictor(
     timeframe: str,
     candles_df: Any = None,
     cross_asset_row: Mapping[str, Any] | None = None,
+    forecast_row: Mapping[str, Any] | None = None,
 ) -> Mapping[str, Any] | None:
     """Build the feature row a single predictor should be scored on.
 
@@ -435,7 +436,14 @@ def feature_row_for_predictor(
         # the cross-asset regime head; non-cross-asset heads project only their
         # own feature columns, so the extra ``xa_*`` keys are inert for them.
         xa = dict(cross_asset_row) if cross_asset_row else {}
-        return {**base_row, **parity, **xa, feature_col: bucket}
+        # Live TSFM quantile-forecast block (M19 Track-1 PR 1b). Merged the same
+        # way as the ``xa`` block, so the ``fc_*`` columns land on the row
+        # exactly like the offline ``market_features`` forecast join. Inert for
+        # non-forecast heads (they project only their own feature columns, so the
+        # extra ``fc_*`` keys are ignored). ``None`` → the head's fc_* columns
+        # stay missing (NaN) — the honest degraded state.
+        fc = dict(forecast_row) if forecast_row else {}
+        return {**base_row, **parity, **xa, **fc, feature_col: bucket}
 
     # Legacy close-only fallback (no OHLC available): pre-S17 behaviour.
     bucket = bucket_for_vol(rolling_vol, edges, labels)

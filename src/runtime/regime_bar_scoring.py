@@ -451,6 +451,27 @@ def emit_regime_bar_predictions(
                     )
             except Exception:  # noqa: BLE001 — never break the tick
                 cross_asset_row = None
+            # Live TSFM quantile-forecast block (M19 Track-1 PR 1b): read ONCE
+            # per (symbol, timeframe) group, only when a head in the group
+            # trained on fc_* columns. A pure stdlib file read of the
+            # trainer-mirror artifact (no forecaster, no fetch) — cheap, so it
+            # rides outside the wall-clock fetch gate. Fail-permissive → None,
+            # leaving the head's fc_* columns missing (NaN) — the honest degraded
+            # state the LightGBM head handles. Observe-only; timeframe passed so
+            # a forecast published for a different cadence is never merged.
+            forecast_row = None
+            try:
+                from src.runtime.forecast_live import (
+                    compute_live_forecast_row,
+                    group_needs_forecast,
+                )
+
+                if group_needs_forecast(group):
+                    forecast_row = compute_live_forecast_row(
+                        symbol, timeframe=timeframe,
+                    )
+            except Exception:  # noqa: BLE001 — never break the tick
+                forecast_row = None
             for predictor in group:
                 model_id = getattr(predictor, "model_id", None) or id(predictor)
                 if bar_ts is not None and cache.get(model_id) == bar_ts:
@@ -459,6 +480,7 @@ def emit_regime_bar_predictions(
                     predictor, base_row, closes=closes,
                     symbol=symbol, timeframe=timeframe, candles_df=candles_df,
                     cross_asset_row=cross_asset_row,
+                    forecast_row=forecast_row,
                 )
                 if row is None:
                     continue  # mismatch / uncomputable vol — skip, don't log noise
