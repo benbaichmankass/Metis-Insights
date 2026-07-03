@@ -2866,13 +2866,15 @@
       "opened_at": "2026-07-03T17:05:00+00:00",
       "opened_by": "claude (/health-review 2026-07-03)",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "title": "Claude decision-grade coverage gap: ~158 order packages ungraded (all packages created since ~2026-06-28); daily system-reviews append only 1-2 grades/day",
       "source": "Operator flagged suspected backfill gaps. /health-review 2026-07-03: trade_journal.db::order_packages=2,724 rows (db_info, issue #5509) vs 2,566 distinct order_package_ids in comms/claude_strategy_scores.jsonl -> ~158 ungraded. Newest-9 spot check (issue #5508): ALL ungraded (created 2026-07-01..07-03). Newest graded created_at=2026-06-29; sources system-review-2026-06-29/30, -diag, -2026-07-02 appended only 2/2/1/1 rows.",
       "description": "The per-decision grading contract (.claude/skills/performance-review/SKILL.md: \"routine runs only append packages decided since the last review\") is not being met by the recent daily /system-review runs \u2014 coverage stops at packages created 2026-06-29. FIX (next /performance-review or /system-review run, Tier-1): grade + append every ungraded package since 2026-06-28 (~158). CAUTION: scripts/ops/score_order_packages.py opens out_path with mode \"w\" (WHOLESALE REWRITE + mechanical rubric) \u2014 it will clobber the LLM-authored grades and violates the file's APPEND-ONLY meta; run it to a temp file and append only missing ids, or add an --append/skip-existing mode. Dup ids in the jsonl (8) are benign re-grades-on-close (same letter, pnl filled in); consumers should last-write-win per id.",
       "trigger_condition": "next /performance-review or /system-review run",
-      "suggested_fix": "Append-only backfill of the ~158 missing grades; add --append + skip-existing flags to scripts/ops/score_order_packages.py."
+      "suggested_fix": "Append-only backfill of the ~158 missing grades; add --append + skip-existing flags to scripts/ops/score_order_packages.py.",
+      "resolved_at": "2026-07-03T21:25:00+00:00",
+      "resolution": "BACKFILLED SAME DAY (operator directive: do it now, not next review). 161 missing grades generated on the trainer VM against a FRESH live-DB sync (sync_trainer_data.sh 20:58Z; scored 2,727 pkgs total via the canonical scripts/ops/score_order_packages.py rubric to a TEMP file \u2014 the live scores file was never rewritten), deduped against the committed jsonl, and APPENDED with source=health-review-backfill-20260703 (grades: 82 C / 48 B / 31 D; created_at range 2026-06-24..2026-07-03T20:36Z). Post-append verification: 2,727 distinct graded ids == 2,727 order_packages in DB \u2014 coverage gap ZERO, newest package graded. Relay issues #5528-#5534. REMAINING (Tier-1, small): add --append/skip-existing flags to score_order_packages.py so future backfills cannot clobber the file (its default out-path still opens mode \"w\")."
     },
     {
       "id": "BL-20260703-PROP-STATUS-EMPTY",
@@ -2888,5 +2890,5 @@
       "suggested_fix": "Operator submits kind:\"account_status\" report-backs routinely; consider auto-prompting after prop_closed."
     }
   ],
-  "updated_at": "2026-07-03T21:10:00+00:00"
+  "updated_at": "2026-07-03T21:25:00+00:00"
 }
