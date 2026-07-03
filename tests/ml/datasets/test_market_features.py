@@ -430,13 +430,14 @@ class TestV2FeatureExpansion:
                 abs_tol=1e-12,
             )
 
-    def test_builder_version_is_v11(self):
+    def test_builder_version_is_v12(self):
         # v6 -> v7: S-MLOPT-S15 added the trend_regime_label column.
         # v7 -> v8: S-CROSS-ASSET-PROBE added the xa_peer{1,2}_* + breadth columns.
         # v8 -> v9: S-CROSS-ASSET-PROBE step 3 added the direction_label column.
         # v9 -> v10: M19 T0.1 added the tsfm_emb_* pretrained-TSFM embedding columns.
         # v10 -> v11: M19 T0.4 added the fc_* pretrained-TSFM quantile-forecast columns.
-        assert MarketFeaturesBuilder.builder_version == "v11"
+        # v11 -> v12: M19 T1.2 added the corpus_emb_* SSL corpus-encoder columns.
+        assert MarketFeaturesBuilder.builder_version == "v12"
 
 
 class TestRangeVolEstimators:
