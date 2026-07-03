@@ -1246,6 +1246,23 @@
         "2026-07-01 (trainer-vm-diag #5311/#5320/#5321, purged-CV BTC-15m, base vs base+32 tsfm_emb): vol_threshold sweep \u2014 base f1_volatile / (\u0394macro_f1 from embeddings): 0.003=0.38/(+0.052), 0.004=0.30/(+0.037), 0.005[shipped]=0.24/(+0.012), 0.006=0.19/(-0.004). The head's own volatile-class quality and the embedding lift both decay monotonically with the volatile base rate; the shipped 0.005 sits in the weak/marginal zone."
       ],
       "status_history": "open 2026-07-01 (M19 T0.1 threshold characterization surfaced that the BTC-15m regime head is data-starved at its shipped 0.005 operating point; filed for the regime track to evaluate the operating threshold on the RG4 axis)."
+    },
+    {
+      "id": "MB-20260703-001",
+      "opened_at": "2026-07-03T07:00:00+00:00",
+      "opened_by": "claude (M19 T1.1 deep-sequence bake-off session)",
+      "source": "M19 Tier-1 T1.1: trained a small causal TCN regime head (btc-regime-15m-tcn-v1) on a GPU burst (RunPod RTX 3090, issue #5472, $0.0269) and gate-checked it vs the incumbent LightGBM regime head under purged-CV (5 folds, ~87.6k eval bars) via trainer-vm-diag relay #5473. Full arc: PRs #5468 (design) + #5469 (trainer/predictor/ONNX-parity/market_sequences family) + #5470 (burst-pod wiring).",
+      "title": "T1.1 deep-sequence (TCN) head is a CLEAN NEGATIVE vs the LightGBM regime head - price-only depth exhausted; pivot to T1.2 breadth + graduate the T0.4 fc head",
+      "description": "RESULT: btc-regime-15m-tcn-v1-gpuburst (purged-CV): macro_f1 0.534, f1_volatile 0.162 (3.6% volatile base rate). Incumbent btc-regime-15m-lgbm-base-pcv-v003: macro_f1 0.560-0.582, f1_volatile 0.190-0.390 (on-disk metrics at 2%/14% base rates). The TCN is BELOW the tree on BOTH macro_f1 and f1_volatile against either incumbent baseline -> win bar (beat both by >0.01) met on neither -> left at candidate (inert), NOT promoted. CONCLUSION: a deep sequence model over raw bars does not beat the class-weighted boosted tree here. With T0.1 (frozen embeddings, marginal) this is the SECOND independent negative on PRICE-ONLY representation -> depth over a single instrument own bars is exhausted; the untested lever is BREADTH: T1.2 self-supervised encoder on the WIDE MULTI-ASSET CORPUS feeding the boosting heads (no labels needed). ALSO graduate the proven T0.4 fc_* head (candidate) to shadow via the mirror-publish serve job. DROP T1.1b (Transformer): TCN did not near-miss (~0.05 macro_f1 gap). CAVEAT: base rates not perfectly matched; a controlled re-run on identical market_features (vol_threshold 0.005) would tighten but not overturn the ~0.05 gap.",
+      "tier": 3,
+      "trigger_condition": "Next /ml-review or /system-review; or any session picking the next M19 lever.",
+      "resolution_criteria": "Operator picks the next lever (both fc-graduation + T1.2 corpus chosen 2026-07-03). Optional controlled LightGBM-vs-TCN re-run for a tighter number. T1.1 itself CLOSED as a decisive negative.",
+      "status": "open",
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-07-03 (gate-check, trainer-vm-diag #5473): TCN macro_f1 0.534 / f1_volatile 0.162 vs incumbent 0.56-0.58 / 0.19-0.39; TCN loses on both. Model at candidate, namespaced -gpuburst (production advisory head untouched). GPU spend: $0.0269 + $0.0136 transient = $0.0405."
+      ],
+      "status_history": "open 2026-07-03 (T1.1 clean negative; pivot to T1.2 breadth + T0.4 fc graduation; drop T1.1b)."
     }
   ],
   "updated_at": "2026-06-29T13:30:00+00:00"
