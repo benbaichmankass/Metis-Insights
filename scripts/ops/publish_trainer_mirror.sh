@@ -94,6 +94,13 @@ BACKTESTS_ROOT="${BACKTESTS_ROOT:-$ICT_TRADER_DATA_ROOT/backtests}"
 # conviction loader (src/runtime/conviction_inputs.py::load_calibrators_cached)
 # reads the fitted calibrators instead of falling back to raw normalization.
 CALIBRATION_ROOT="${CALIBRATION_ROOT:-$REPO_ROOT/artifacts/calibration}"
+# Live TSFM forecast-serve rows (M19 Track-1). scripts/ml/publish_live_forecasts.py
+# writes the latest fc_* row per live symbol to
+# runtime_logs/trainer_mirror/forecasts/<SYMBOL>.json. Mirror them to the live VM
+# under <mirror>/forecasts/ so a FUTURE live reader (PR 1b) can serve the row
+# with train==live parity. Empty/absent → the push below is a fail-permissive
+# no-op (no forecasts have been produced yet).
+FORECASTS_ROOT="${FORECASTS_ROOT:-$REPO_ROOT/runtime_logs/trainer_mirror/forecasts}"
 
 iso_now() { date -u +'%Y-%m-%dT%H:%M:%S+00:00'; }
 
@@ -433,7 +440,7 @@ SSH_OPTS="-i ${VM_SSH_KEY} -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o B
 # `models/` is read by the WS7 shadow factory; `trainer/` +
 # `experiments-runs/` are read by the dashboard router.
 ssh ${SSH_OPTS} "${LIVE_VM_USER}@${LIVE_VM_IP}" \
-  "mkdir -p '${LIVE_VM_MIRROR_PATH}/trainer' '${LIVE_VM_MIRROR_PATH}/experiments-runs' '${LIVE_VM_MIRROR_PATH}/models' '${LIVE_VM_MIRROR_PATH}/calibration'" \
+  "mkdir -p '${LIVE_VM_MIRROR_PATH}/trainer' '${LIVE_VM_MIRROR_PATH}/experiments-runs' '${LIVE_VM_MIRROR_PATH}/models' '${LIVE_VM_MIRROR_PATH}/calibration' '${LIVE_VM_MIRROR_PATH}/forecasts'" \
   || { emit "$(printf '{"ts":"%s","status":"mkdir_failed"}' "$(iso_now)")"; exit 1; }
 
 push_one() {
@@ -527,6 +534,22 @@ if [ -d "$BACKTESTS_ROOT" ]; then
     --exclude='*' \
     "${BACKTESTS_ROOT}/" \
     "${LIVE_VM_USER}@${LIVE_VM_IP}:${LIVE_VM_MIRROR_PATH}/backtests/" \
+    || overall_rc=1
+fi
+
+# Live TSFM forecast-serve rows (M19 Track-1): rsync the per-symbol
+# `forecasts/<SYMBOL>.json` artifacts written by
+# scripts/ml/publish_live_forecasts.py. A future live reader (PR 1b) serves the
+# latest fc_* row for train==live parity. `--include='*.json' --exclude='*'`
+# mirrors the models/ push (only the small JSON files cross the SSH hop). The
+# `-d` guard makes this a fail-permissive no-op until the first forecast run.
+if [ -d "$FORECASTS_ROOT" ]; then
+  rsync -az --no-perms --no-owner --no-group \
+    -e "ssh ${SSH_OPTS}" \
+    --include='*.json' \
+    --exclude='*' \
+    "${FORECASTS_ROOT}/" \
+    "${LIVE_VM_USER}@${LIVE_VM_IP}:${LIVE_VM_MIRROR_PATH}/forecasts/" \
     || overall_rc=1
 fi
 
