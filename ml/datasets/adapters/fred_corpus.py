@@ -27,9 +27,14 @@ Default series (override per build via ``series=``), grouped for the catalog:
 | ``DGS2`` | ``ust2y`` | rates | front-end policy expectations |
 | ``DGS30`` | ``ust30y`` | rates | long-end growth/term-premium |
 | ``T10Y2Y`` | ``ust_2s10s`` | rates | the 2s10s slope FRED publishes directly (recession tell) |
+| ``DEXJPUS`` | ``usdjpy`` | fx | yen carry / risk-sentiment barometer (JPY per USD) |
+| ``DEXUSEU`` | ``eurusd`` | fx | the deepest FX pair — dollar vs the euro bloc (USD per EUR) |
+| ``DEXUSUK`` | ``gbpusd`` | fx | sterling — a second major to triangulate dollar strength (USD per GBP) |
+| ``GOLDAMGBD228NLBM`` | ``gold`` | commodity | the monetary/haven metal — inflation + real-rate read |
+| ``DHHNGSP`` | ``natgas`` | commodity | Henry Hub natural gas — energy complex breadth beyond crude |
 
-Off-VM only; read-mostly; never `trade_journal.db`. Tests monkeypatch
-`fred_macro._download` so CI never touches the network.
+All keyless FRED daily series. Off-VM only; read-mostly; never `trade_journal.db`.
+Tests monkeypatch `fred_macro._download` so CI never touches the network.
 """
 from __future__ import annotations
 
@@ -48,6 +53,15 @@ CORPUS_SERIES: Mapping[str, tuple[str, str]] = {
     "DGS2": ("ust2y", "rates"),
     "DGS30": ("ust30y", "rates"),
     "T10Y2Y": ("ust_2s10s", "rates"),
+    # FX majors (2026-07-03) — the biggest gap in the panel; dollar strength +
+    # yen-carry/risk sentiment. All keyless FRED daily H.10 rates.
+    "DEXJPUS": ("usdjpy", "fx"),
+    "DEXUSEU": ("eurusd", "fx"),
+    "DEXUSUK": ("gbpusd", "fx"),
+    # Commodity complex beyond crude (2026-07-03): the haven metal + the energy
+    # second leg.
+    "GOLDAMGBD228NLBM": ("gold", "commodity"),
+    "DHHNGSP": ("natgas", "commodity"),
 }
 
 __all__ = ["CORPUS_SERIES", "OffVmGuardrailViolation", "fetch_fred_corpus_series"]

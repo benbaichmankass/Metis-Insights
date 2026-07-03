@@ -39,9 +39,13 @@ def test_fetch_groups_and_shape(monkeypatch):
         assert block["name"] == name and block["group"] == group
         assert [r["date"] for r in block["rows"]] == dates
         assert all(isinstance(r["value"], float) for r in block["rows"])
-    # groups span more than macro/rates (the C2 point)
+    # groups span the wide panel — equities, commodities, credit, the fuller
+    # rates curve, AND fx (the C2 breadth point; fx added 2026-07-03).
     groups = {block["group"] for block in panel.values()}
-    assert {"equity", "commodity", "credit", "rates"} <= groups
+    assert {"equity", "commodity", "credit", "rates", "fx"} <= groups
+    # the fx + commodity breadth additions are present by name
+    names = {block["name"] for block in panel.values()}
+    assert {"usdjpy", "eurusd", "gbpusd", "gold", "natgas"} <= names
 
 
 def test_custom_series_replaces_default(monkeypatch):
