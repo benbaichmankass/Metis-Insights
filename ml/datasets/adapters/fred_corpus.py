@@ -30,14 +30,21 @@ Default series (override per build via ``series=``), grouped for the catalog:
 | ``DEXJPUS`` | ``usdjpy`` | fx | yen carry / risk-sentiment barometer (JPY per USD) |
 | ``DEXUSEU`` | ``eurusd`` | fx | the deepest FX pair — dollar vs the euro bloc (USD per EUR) |
 | ``DEXUSUK`` | ``gbpusd`` | fx | sterling — a second major to triangulate dollar strength (USD per GBP) |
-| ``GOLDAMGBD228NLBM`` | ``gold`` | commodity | the monetary/haven metal — inflation + real-rate read |
+| ``GVZCLS`` | ``gold_vol`` | commodity | CBOE gold-ETF volatility index — the haven metal's stress/risk read (the LBMA gold *fixing* series `GOLDAMGBD228NLBM`/`GOLDPMGBD228NLBM` were discontinued by FRED → HTTP 404, so the gold-complex signal is its vol index, not a price level) |
 | ``DHHNGSP`` | ``natgas`` | commodity | Henry Hub natural gas — energy complex breadth beyond crude |
 
 All keyless FRED daily series. Off-VM only; read-mostly; never `trade_journal.db`.
 Tests monkeypatch `fred_macro._download` so CI never touches the network.
+
+**Per-series resilience:** a single upstream series that FRED discontinues (→
+404) must never zero the whole corpus, so `fetch_fred_corpus_series` fetches each
+series independently and **skips** any that fail (recording them under
+``_skipped``), rather than aborting. That is how the dead `GOLDAMGBD228NLBM`
+surfaced — one 404 had aborted the entire fetch (0 series ingested).
 """
 from __future__ import annotations
 
+import sys
 from typing import Any, Mapping
 
 from . import fred_macro
@@ -58,9 +65,11 @@ CORPUS_SERIES: Mapping[str, tuple[str, str]] = {
     "DEXJPUS": ("usdjpy", "fx"),
     "DEXUSEU": ("eurusd", "fx"),
     "DEXUSUK": ("gbpusd", "fx"),
-    # Commodity complex beyond crude (2026-07-03): the haven metal + the energy
-    # second leg.
-    "GOLDAMGBD228NLBM": ("gold", "commodity"),
+    # Commodity complex beyond crude (2026-07-03): the haven metal's stress read
+    # + the energy second leg. NB the LBMA gold *fixing* series
+    # (GOLDAMGBD228NLBM / GOLDPMGBD228NLBM) were discontinued by FRED (404), so
+    # the gold-complex signal is the CBOE gold-ETF vol index, not a price level.
+    "GVZCLS": ("gold_vol", "commodity"),
     "DHHNGSP": ("natgas", "commodity"),
 }
 
@@ -80,15 +89,34 @@ def fetch_fred_corpus_series(
     ``series`` fully replaces the default catalog when given (unlike `fred_macro`'s
     additive override, since here the *set* of series is the whole point). Off-VM
     guarded via the shared `fred_macro` contract.
+
+    **Per-series resilient:** each series is fetched independently and a failure
+    (e.g. an id FRED has discontinued → HTTP 404, or a transient fetch error) is
+    **skipped** — recorded under the sentinel key ``_skipped`` (``{fred_id:
+    error_str}``) and logged to stderr — rather than aborting the whole corpus.
+    A single dead upstream series must never zero the panel (the `GOLDAMGBD228NLBM`
+    incident). ``_skipped`` is metadata, not a series (callers that iterate the
+    result to register series should skip the ``_skipped`` key).
     """
     fred_macro._enforce_offvm()
     catalog: dict[str, tuple[str, str]] = dict(series) if series else dict(CORPUS_SERIES)
     out: dict[str, dict[str, Any]] = {}
+    skipped: dict[str, str] = {}
     for fred_id, (name, group) in catalog.items():
-        values = fred_macro._daily_values(fred_id, start, end)
+        try:
+            values = fred_macro._daily_values(fred_id, start, end)
+        except Exception as exc:  # discontinued id (404) / transient fetch error
+            skipped[fred_id] = f"{type(exc).__name__}: {exc}"
+            print(
+                f"[fred_corpus] WARNING: skipping series {fred_id} ({name}): {exc}",
+                file=sys.stderr,
+            )
+            continue
         out[fred_id] = {
             "name": name,
             "group": group,
             "rows": [{"date": d, "value": values[d]} for d in sorted(values)],
         }
+    if skipped:
+        out["_skipped"] = skipped  # type: ignore[assignment]
     return out

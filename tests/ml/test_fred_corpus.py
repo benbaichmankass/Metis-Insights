@@ -43,9 +43,10 @@ def test_fetch_groups_and_shape(monkeypatch):
     # rates curve, AND fx (the C2 breadth point; fx added 2026-07-03).
     groups = {block["group"] for block in panel.values()}
     assert {"equity", "commodity", "credit", "rates", "fx"} <= groups
-    # the fx + commodity breadth additions are present by name
+    # the fx + commodity breadth additions are present by name (gold as its vol
+    # index — the LBMA gold fixing series were discontinued by FRED)
     names = {block["name"] for block in panel.values()}
-    assert {"usdjpy", "eurusd", "gbpusd", "gold", "natgas"} <= names
+    assert {"usdjpy", "eurusd", "gbpusd", "gold_vol", "natgas"} <= names
 
 
 def test_custom_series_replaces_default(monkeypatch):
@@ -68,3 +69,25 @@ def test_missing_series_is_empty_not_crash(monkeypatch):
     panel = fc.fetch_fred_corpus_series(start="2020-01-01", end="2020-02-01")
     assert panel["SP500"]["rows"] == [{"date": "2020-01-01", "value": 3200.0}]
     assert panel["DCOILWTICO"]["rows"] == []
+
+
+def test_discontinued_series_is_skipped_not_fatal(monkeypatch):
+    """A single 404 (discontinued id) must skip that series, not zero the corpus."""
+    import urllib.error
+
+    monkeypatch.setenv("ICT_OFFVM_BUILD_HOST", "1")
+    dates = [("2020-01-01", "1.0")]
+    good = _fake_download_factory({sid: dates for sid in fc.CORPUS_SERIES})
+
+    def _fake(*, series_id: str, start: str, end: str | None):
+        if series_id == "GVZCLS":  # simulate a discontinued/404 upstream id
+            raise urllib.error.HTTPError("u", 404, "Not Found", {}, None)  # type: ignore[arg-type]
+        return good(series_id=series_id, start=start, end=end)
+
+    monkeypatch.setattr(fm, "_download", _fake)
+    panel = fc.fetch_fred_corpus_series(start="2020-01-01", end="2020-02-01")
+    # the good series survive; the dead one is recorded under _skipped, not fatal
+    assert "GVZCLS" not in panel
+    assert "SP500" in panel and panel["SP500"]["rows"] == [{"date": "2020-01-01", "value": 1.0}]
+    assert "GVZCLS" in panel["_skipped"]
+    assert len(panel) == len(fc.CORPUS_SERIES)  # (N-1 good series) + the _skipped key

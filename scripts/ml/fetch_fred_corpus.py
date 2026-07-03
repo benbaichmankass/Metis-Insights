@@ -48,6 +48,7 @@ def main(argv: list[str] | None = None) -> int:
 
     refreshed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     panel = fetch_fred_corpus_series(start=args.start, end=args.end)
+    skipped = panel.pop("_skipped", {})  # discontinued/failed ids — not series
 
     registered: list[dict] = []
     for fred_id, block in panel.items():
@@ -65,13 +66,18 @@ def main(argv: list[str] | None = None) -> int:
     summary = {
         "source": "fred_corpus_offvm",
         "series_registered": len(registered),
+        "series_skipped": len(skipped),
         "total_rows": sum(r["rows"] for r in registered),
         "start": args.start,
         "end": args.end,
         "registered": registered,
+        "skipped": skipped,
         "default_series": {v[0]: k for k, v in CORPUS_SERIES.items()},
     }
-    print(json.dumps({k: summary[k] for k in ("source", "series_registered", "total_rows", "start", "end")}, sort_keys=True))
+    print(json.dumps(
+        {k: summary[k] for k in ("source", "series_registered", "series_skipped", "total_rows", "start", "end", "skipped")},
+        sort_keys=True,
+    ))
     return 0
 
 
