@@ -373,6 +373,49 @@ write_files:
       [Install]
       WantedBy=timers.target
 
+  - path: /etc/systemd/system/ict-trainer-forecast.service
+    permissions: '0644'
+    owner: root:root
+    content: |
+      # Live TSFM forecast producer (M19 Track-1, fc-head serve).
+      # Regenerates runtime_logs/trainer_mirror/forecasts/<SYMBOL>.json via
+      # scripts/ml/publish_live_forecasts.py; the publish timer mirrors them to
+      # the live VM where forecast_live.py serves the fc_* row to the shadow /
+      # per-bar regime scorer. Produces only; publish mirrors.
+      [Unit]
+      Description=Produce live TSFM forecast-serve artifacts (fc_*)
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      User=ubuntu
+      WorkingDirectory=/home/ubuntu/ict-trading-bot
+      Nice=10
+      ExecStart=/bin/bash scripts/ops/run_forecast_producer.sh
+      StandardOutput=journal
+      StandardError=journal
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/systemd/system/ict-trainer-forecast.timer
+    permissions: '0644'
+    owner: root:root
+    content: |
+      # 15-minute cadence for the live TSFM forecast producer (the 15m bar the
+      # fc head scores). Persistent=true so a paused VM catches up on resume.
+      [Unit]
+      Description=Periodic live TSFM forecast production
+
+      [Timer]
+      OnBootSec=90sec
+      OnUnitActiveSec=15min
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+
 runcmd:
   # Idempotent repo clone. If the directory already exists (e.g.
   # cloud-init re-run on an image with prior state) skip the clone.
@@ -389,6 +432,9 @@ runcmd:
   # automatically so the dashboard sees the trainer immediately.
   - systemctl daemon-reload
   - systemctl enable --now ict-trainer-publish.timer || true
+  # M19 Track-1: the live fc_* forecast producer (15-min cadence). Enabled by
+  # default so a freshly-provisioned trainer serves forecasts immediately.
+  - systemctl enable --now ict-trainer-forecast.timer || true
   # Sanity check: print Python + repo state to /var/log/cloud-init-output.log
   - python3.11 --version
   - sudo -u ubuntu sh -c "cd /home/ubuntu/ict-trading-bot && git log -1 --oneline"
@@ -409,6 +455,8 @@ final_message: |
   ict-trainer-catchup.timer:   installed, disabled (Claude enables via diag relay; daily 05:00 UTC).
   ict-trainer-publish.service: installed, enabled (oneshot).
   ict-trainer-publish.timer:   installed, enabled (every 2 min).
+  ict-trainer-forecast.service: installed, enabled (oneshot; M19 fc_* producer).
+  ict-trainer-forecast.timer:   installed, enabled (every 15 min).
   ict-promotion-readiness.service: installed, disabled (Claude enables via diag relay).
   ict-promotion-readiness.timer:   installed, disabled (Claude enables via diag relay).
   ict-drift-retrain.service: installed, disabled (Claude enables via diag relay; RETRAIN_PLAN_ONLY=1 by default).
