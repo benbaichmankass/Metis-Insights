@@ -74,7 +74,7 @@
       "tier": 2,
       "trigger_condition": "NEXT /system-review or /health-review: CONFIRM alpaca_live actually PLACES + FILLS a real ETF order during US RTH (the 2026-07-01 sync+restart restored live auth but the market was closed, so no fill was observed yet). Also any session proposing an alpaca_live go-live.",
       "resolution_criteria": "A review confirms alpaca_live PLACED and FILLED at least one real-money ETF order during US RTH after 2026-07-01T06:03Z (order_packages/trades shows a filled alpaca_live row, not 'unauthorized'/'risk_refused'), OR /api/bot/accounts/balances shows alpaca_live api_ok:true from a post-fix hourly snapshot. Until a real fill is seen, keep OPEN \u2014 auth is verified but end-to-end execution is not.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -88,7 +88,9 @@
           "at": "2026-07-02T06:15:00+00:00",
           "note": "NEW EVIDENCE 2026-07-02 /system-review: found a real alpaca_live SLV order (trade journal id 3090) that hit EXCHANGE_REJECTED 'Alpaca rejected order for SLV: unauthorized' at 2026-07-01T14:26:19Z \u2014 during US RTH, the exact window the trigger_condition asked to watch. This is NOT yet the requested positive confirmation (a filled order); it is a contradicting negative data point on the SAME day the prior report claimed the sync-vm-secrets fix was verified. However /api/diag/broker_account_status?account_id=alpaca_live (pulled fresh this session, 2026-07-02T06:14:32Z) shows status=ACTIVE, trading_blocked=false, account_blocked=false, trade_suspended_by_user=false \u2014 the account is NOT currently blocked. Net read: the fix may be real but flaky/intermittent (stale-cred edge case), or was mid-rollout at 14:26. Every subsequent alpaca_live signal this window (QQQ/GLD, ids 3081-3110) was risk_refused (sized_qty=0 on a ~50 balance) before reaching the exchange, so no further live order-placement attempts have tested authorization since. STILL OPEN \u2014 resolution criteria (a confirmed FILL) not yet met."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-03T17:05:00+00:00",
+      "resolution": "VERIFIED RESOLVED by /health-review 2026-07-03: /api/diag/broker_account_status shows alpaca_live status=ACTIVE, trading_blocked=false, account_blocked=false; /api/diag/exchange_positions reads the account fine and it holds a real open position (IEF long x1). Reads AND trading authorize. Note for future routing: shorting_enabled=false + crypto_status=INACTIVE on alpaca_live \u2014 short signals routed there will be refused broker-side."
     },
     {
       "id": "BL-20260627-OPTIONS-SEPARATE-ACCT",
@@ -2501,7 +2503,7 @@
       "opened_by": "claude (system-report follow-up \u2014 telegram triage)",
       "source": "Telegram health 06:00Z: accounts_api 3/7 down: ib_paper, ib_live, breakout_1. ib_paper/ib_live down = IB Gateway unreachable; MES/MGC/MHG cannot trade. Also gates the MES regime-model promotions (live_agreement can't accrue with no MES trades). vm-ib-gateway-recover fired this session (issue #4242).",
       "title": "[gateway] recurring IB Gateway wedge \u2014 ib_paper/ib_live API down at 06:00Z (MES/MGC/MHG dark)",
-      "description": "The reactive gateway watchdog was re-armed 2026-06-22 (BL-20260622-GATEWAY-MIDDAY-WEDGE) but the gateway was still down at 06:00Z \u2014 check whether the watchdog exhausted its --max-restarts 3 budget or parked on an IBKR 2FA/credential re-login (the recover workflow's known operator-handoff failure mode). If 2FA, that is a genuine operator action. Track recurrence cadence; if the gateway keeps wedging, escalate the root cause (IBC nightly auto-restart unreliable, BL-20260527-003).",
+      "description": "The reactive gateway watchdog was re-armed 2026-06-22 (BL-20260622-GATEWAY-MIDDAY-WEDGE) but the gateway was still down at 06:00Z \u2014 check whether the watchdog exhausted its --max-restarts 3 budget or parked on an IBKR 2FA/credential re-login (the recover workflow's known operator-handoff failure mode). If 2FA, that is a genuine operator action. Track recurrence cadence; if the gateway keeps wedging, escalate the root cause (IBC nightly auto-restart unreliable, BL-20260527-003). RECURRENCE 2026-07-03: ib_paper positions=null at 17:00Z (mid-day wedge, ~11h after the 06:05Z daily reset; MGC order rejected 02:02Z so likely wedged most of the day). vm-ib-gateway-recover fired autonomously (issue #5511) by /health-review 2026-07-03. The reactive on-gateway watchdog did not clear it \u2014 check its restart budget / 2FA parking on the recover log. CHECK-IN VERDICT 2026-07-03 20:00Z: recover #5511 relogin VERIFIED at the gateway (login completed 17:01:44Z, API port up); trader loop journal at 20:00Z shows zero IBConnectionError/breaker fast-fails; ib_paper holds no open IB positions and CME was closed (Jul-3 early close). The persistent diag exchange_positions null is the conservative empty-snapshot + net_liquidation-unverifiable-over-cross-host-socat read path (clients.account_open_positions IB branch; BL-20260610-009 class) \u2014 an observability limitation, NOT evidence of a continuing outage. Definitive close-out: confirm MES/MGC/MHG evals produce signals/fetches next CME session (2026-07-06).",
       "tier": 2,
       "trigger_condition": "next ib_paper/ib_live accounts_api-down alert, or the #4242 recover result",
       "resolution_criteria": "gateway stays logged-in across the IBKR daily reset without manual recovery for a full week; or the root-cause re-login reliability is fixed.",
@@ -2735,9 +2737,11 @@
       "source": "docs/audits/order-packages-zero-qty-2026-06-26.md \u00a7 Thread (b). RiskManager.position_size whole-share sizing for alpaca (risk.py:631-651 round-up-to-1-share).",
       "title": "[latent] whole-unit rounding-to-zero only bites a sub-$1.3k real-money alpaca account \u2014 confirm once funded",
       "description": "Whole-unit (alpaca) sizing refuses a sub-1-share ideal unless 1-share risk <= 1.5x (equity x risk_pct). At risk_pct=0.01 and the observed per-share risks (GLD $7.52, SPY $10.23, QQQ $19.51), refusal only occurs below ~$501/$682/$1301 of equity; above that the round-up-to-1-share fires and a single share is taken. NOT the cause of the 2026-06-25 alpaca_live zeros (those were zero_balance=$0, a funding/creds fetch failure owned by the key-rotation session). Action: once alpaca_live has working keys + real funding, confirm one ETF signal sizes a whole share (not refused). No code change proposed.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [],
+      "resolved_at": "2026-07-03T21:10:00+00:00",
+      "resolution": "OPERATOR DECISION 2026-07-03 (chat, /health-review follow-up): leave alpaca_live UNFUNDED as-is. The latent behaviour fired as designed on 2026-07-03 13:30Z \u2014 TLT sized to 0 whole shares and was refused per-trade (correct Prime-Directive shape). Accepted consequence: alpaca_live can only take trades whose 1-share risk fits its small balance (it holds IEF x1); most of its 9 symbols will refuse. No funding, no symbol-list trim requested. Future reviews should NOT re-raise this as a finding."
     },
     {
       "id": "BL-20260628-CRYPTO-INSTRUMENT-MIN-FLOOR",
@@ -2849,12 +2853,42 @@
       "opened_by": "claude (2026-07-02 system-review follow-up sprint, session close)",
       "source": "trainer-vm-diag SSH to the trainer VM (158.178.209.121) timed out three separate times in this sprint (07:42Z, 07:48Z, 08:12Z \u2014 \"Connection timed out during banner exchange\", 30 min apart), including once retried deliberately after the first failure on the assumption it was a transient blip. It never came back within the sprint's window.",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
       "title": "Trainer VM (158.178.209.121) SSH unreachable for 30+ min this sprint \u2014 confirm liveness and finish activating Track B's unit/timer changes",
       "description": "Three consecutive trainer-vm-diag SSH attempts timed out during banner exchange across a 30-minute window (2026-07-02 07:42Z-08:12Z). Unconfirmed whether this is a genuine VM outage (OCI Always-Free Ampere capacity is documented as sometimes intermittent) or a networking/security-group blip. Practical effect: PR #5424's Track B (trainer checkpoint/resume + memory guard) merged to main and its script change ships fine on the trainer's own next self-pull regardless of SSH reachability, but the unit/timer ACTIVATION step (sudo systemctl daemon-reload && enable --now ict-trainer-catchup.timer, plus confirming MemoryHigh/MemoryMax/OOMPolicy took effect on ict-trainer.service via systemctl show) could not be completed (trainer-vm-diag-request issue #5430, same timeout). Next session touching the trainer VM should: (1) confirm the box is actually up (a fresh trainer-vm-diag-request, or check the provision-training-vm-auto-retry workflow's state), (2) if up, re-run the activation command from issue #5430, (3) if still down, escalate per docs/runbooks/training-vm.md's provisioning path.",
       "trigger_condition": "Next session that touches the trainer VM, or the next scheduled /health-review or /ml-review pass.",
-      "resolution_criteria": "trainer-vm-diag confirms the box answers SSH again, and ict-trainer-catchup.timer is confirmed enabled + ict-trainer.service's MemoryHigh/MemoryMax/OOMPolicy are confirmed set via systemctl show."
+      "resolution_criteria": "trainer-vm-diag confirms the box answers SSH again, and ict-trainer-catchup.timer is confirmed enabled + ict-trainer.service's MemoryHigh/MemoryMax/OOMPolicy are confirmed set via systemctl show.",
+      "resolved_at": "2026-07-03T17:05:00+00:00",
+      "resolution": "SSH reachability RESTORED: trainer-vm-diag relay succeeded 2026-07-03 16:54Z (issue #5506) and multiple relays succeeded earlier the same day (#5481-#5490) \u2014 the 2026-07-02 window was a transient outage. Residual finding routed to /ml-review: ict-trainer.service last run FAILED (ExecMainStatus=15) while ict-trainer.timer is enabled+active."
+    },
+    {
+      "id": "BL-20260703-GRADING-COVERAGE-GAP",
+      "opened_at": "2026-07-03T17:05:00+00:00",
+      "opened_by": "claude (/health-review 2026-07-03)",
+      "tier": 1,
+      "status": "resolved",
+      "snoozed_until": null,
+      "title": "Claude decision-grade coverage gap: ~158 order packages ungraded (all packages created since ~2026-06-28); daily system-reviews append only 1-2 grades/day",
+      "source": "Operator flagged suspected backfill gaps. /health-review 2026-07-03: trade_journal.db::order_packages=2,724 rows (db_info, issue #5509) vs 2,566 distinct order_package_ids in comms/claude_strategy_scores.jsonl -> ~158 ungraded. Newest-9 spot check (issue #5508): ALL ungraded (created 2026-07-01..07-03). Newest graded created_at=2026-06-29; sources system-review-2026-06-29/30, -diag, -2026-07-02 appended only 2/2/1/1 rows.",
+      "description": "The per-decision grading contract (.claude/skills/performance-review/SKILL.md: \"routine runs only append packages decided since the last review\") is not being met by the recent daily /system-review runs \u2014 coverage stops at packages created 2026-06-29. FIX (next /performance-review or /system-review run, Tier-1): grade + append every ungraded package since 2026-06-28 (~158). CAUTION: scripts/ops/score_order_packages.py opens out_path with mode \"w\" (WHOLESALE REWRITE + mechanical rubric) \u2014 it will clobber the LLM-authored grades and violates the file's APPEND-ONLY meta; run it to a temp file and append only missing ids, or add an --append/skip-existing mode. Dup ids in the jsonl (8) are benign re-grades-on-close (same letter, pnl filled in); consumers should last-write-win per id.",
+      "trigger_condition": "next /performance-review or /system-review run",
+      "suggested_fix": "Append-only backfill of the ~158 missing grades; add --append + skip-existing flags to scripts/ops/score_order_packages.py.",
+      "resolved_at": "2026-07-03T21:25:00+00:00",
+      "resolution": "BACKFILLED SAME DAY (operator directive: do it now, not next review). 161 missing grades generated on the trainer VM against a FRESH live-DB sync (sync_trainer_data.sh 20:58Z; scored 2,727 pkgs total via the canonical scripts/ops/score_order_packages.py rubric to a TEMP file \u2014 the live scores file was never rewritten), deduped against the committed jsonl, and APPENDED with source=health-review-backfill-20260703 (grades: 82 C / 48 B / 31 D; created_at range 2026-06-24..2026-07-03T20:36Z). Post-append verification: 2,727 distinct graded ids == 2,727 order_packages in DB \u2014 coverage gap ZERO, newest package graded. Relay issues #5528-#5534. REMAINING (Tier-1, small): add --append/skip-existing flags to score_order_packages.py so future backfills cannot clobber the file (its default out-path still opens mode \"w\")."
+    },
+    {
+      "id": "BL-20260703-PROP-STATUS-EMPTY",
+      "opened_at": "2026-07-03T17:05:00+00:00",
+      "opened_by": "claude (/health-review 2026-07-03)",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "title": "prop_account_status has 0 rows ever \u2014 Breakout rule-distance panel (daily-loss/static-DD cushion) is running blind",
+      "source": "db_info 2026-07-03 (issue #5509): prop_account_status=0 rows while prop_tickets=13 / prop_fills=12 \u2014 the account-status report-back half of the manual bridge has never been used.",
+      "description": "The prop rule-distance safety panel (dashboard Prop tab + /api/bot/prop/status) computes distance to the $150 daily-loss / $300 static-DD account-killers from the LATEST prop_account_status snapshot \u2014 with zero rows it can never warn. Tickets/fills flow (13/12) proves the bridge works; only the kind:\"account_status\" report is missing. Ask the operator to submit an account-status snapshot (dashboard Prop form or the prop-report issue relay) after each prop session, or add it to the prop_closed notification prompt text. Also of note 2026-07-03: a prop package (trend_donchian_eth_prop, pkg-7d4193885f794cb1) went status=orphaned \u2014 cross-check /api/bot/prop/reconcile un-acted tickets next session (BL-20260625-PROP-ETH-LIVE liveness check may now be answerable).",
+      "trigger_condition": "next prop session / next system-review",
+      "suggested_fix": "Operator submits kind:\"account_status\" report-backs routinely; consider auto-prompting after prop_closed."
     }
   ],
-  "updated_at": "2026-07-02T08:15:00+00:00"
+  "updated_at": "2026-07-03T21:25:00+00:00"
 }
