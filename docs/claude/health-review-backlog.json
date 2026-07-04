@@ -2759,7 +2759,7 @@
     {
       "id": "BL-20260629-ALPACA-NAKED-BRACKET",
       "title": "[order-path] Alpaca positions can sit NAKED (no SL/TP) \u2014 naked-autoprotect + reconciler-adopt are IB-only; no re-arm for non-IB",
-      "status": "open",
+      "status": "resolved",
       "opened_at": "2026-06-29T12:35:00+00:00",
       "opened_by": "claude (/system-review; operator-surfaced)",
       "snoozed_until": null,
@@ -2772,7 +2772,9 @@
           "status": "monitoring",
           "note": "RE-ARM SHIPPED + LIVE-VERIFIED. The broker-naked Alpaca sweep (_check_broker_naked_equity_positions) + AlpacaClient.place_protective (GTC OCO) merged (#5018) and deployed (cbceb5d); the OCO request shape was corrected (#5046 \u2014 nested take_profit.limit_price, after a live 'oco orders require take_profit.limit_price' refusal that failed safe). VERIFIED 2026-06-29T14:01Z: re-armed GTC OCO on broker-naked alpaca_paper SLV (no refusal), idempotent skip thereafter. REMAINING (this item stays OPEN, monitoring): (a) SOAK-VERIFY the re-arm keeps the ETF positions protected across RTH closes/weekends over ~1 week (no naked gaps, no OCO stacking, no churn); (b) ENTRY-TIME GTC half (operator chose 'Both') \u2014 now DE-RISKED since the GTC OCO shape is confirmed accepted; build it (market entry + immediate GTC OCO, or flip the bracket leg TIF) only once the soak confirms the re-arm path is clean. Next check: ~2026-07-06 (1wk soak) or sooner if a naked gap recurs."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-04T08:50:00+00:00",
+      "resolution": "VERIFIED ALREADY IMPLEMENTED (2026-07-04 audit during the operator-picked backlog drain; the fix landed in a prior session but this item was never closed). Evidence: (a) order_monitor._attempt_naked_autoprotect has a per-broker Alpaca branch (GTC OCO via AlpacaClient.place_protective) alongside the IB OCA path \u2014 its docstring cites this BL id; (b) the detection gap this item described (journal keeps sl/tp while the day-TIF broker legs die at the RTH close) is closed by the dedicated _check_broker_naked_equity_positions sweep (AlpacaClient.has_protective_orders per open Alpaca position; read-failure => skip, never a blind re-arm), wired unconditionally into the monitor tick (order_monitor.py:6503); (c) tests/test_alpaca_naked_rearm.py \u2014 8/8 pass. Bybit/OANDA remain deliberate no-ops (atomic SL/TP at entry, no session-boundary expiry)."
     },
     {
       "id": "BL-20260629-ACCOUNT-DOWN-ALERT",
@@ -2894,5 +2896,5 @@
       "resolution": "RESOLVED across 07-03/07-04: (1) first-ever prop_account_status row seeded via the prop-report relay (issue #5541) \u2014 balance 5215.27 / equity 5215.27 / realized_today +297.12, derived from terminal trade history and OPERATOR-RATIFIED in chat 2026-07-04 (\"that is the updated status of the prop account\"); rule-distance guard live (daily-loss cushion $147.54, DD-floor distance $515.27). (2) The structural fix shipped in PR #5521: src/prop/prop_status_request.py pings the operator with paste-ready reply formats whenever a prop position is open and the latest snapshot is absent/stale \u2014 the panel can no longer silently run blind. First live firing of the ping is the residual watch (monitoring item in RPT-20260704-061000)."
     }
   ],
-  "updated_at": "2026-07-04T08:40:00+00:00"
+  "updated_at": "2026-07-04T08:50:00+00:00"
 }
