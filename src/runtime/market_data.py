@@ -169,7 +169,21 @@ def connector_for_symbol(symbol: str, settings: Optional[Dict[str, Any]] = None)
     exchange = None
     try:
         from src.core.profile_loader import load_instrument_profiles
-        prof = (load_instrument_profiles() or {}).get(symbol)
+        profiles = load_instrument_profiles() or {}
+        prof = profiles.get(symbol)
+        if prof is None:
+            # Contract-month symbols (BL-20260617-MHGN6-CANDLEROUTE): an
+            # adopted/broker-specific futures contract like ``MHGN6`` has no
+            # instrument profile of its own — resolve its base root (``MHG``)
+            # so the fetch routes to the exchange that actually trades it
+            # (IBKR) instead of falling through to the process EXCHANGE
+            # default (Bybit). Same month-code grammar as
+            # ``order_monitor._base_futures_symbol``.
+            import re
+            m = re.match(r"^([A-Z]{2,})([FGHJKMNQUVXZ]\d{1,2})$",
+                         str(symbol or "").strip().upper())
+            if m:
+                prof = profiles.get(m.group(1))
         if prof is not None:
             exchange = getattr(prof, "exchange", None)
     except Exception:  # noqa: BLE001

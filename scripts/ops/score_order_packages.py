@@ -24,6 +24,22 @@ family mapping.
 
 Usage:
     python scripts/ops/score_order_packages.py <trade_journal.db> [out.jsonl]
+        [--append] [--force-rewrite]
+
+Write modes (BL-20260703-GRADING-COVERAGE-GAP hardening, 2026-07-04):
+
+* ``--append`` — open ``out.jsonl`` in append mode, SKIP every
+  ``order_package_id`` already present in it, and write only the missing
+  rows (no ``_meta`` header). This is the mode routine backfills must
+  use against the canonical ``comms/claude_strategy_scores.jsonl`` —
+  it honours the file's APPEND-ONLY contract and can never clobber the
+  LLM-authored grades.
+* default (rewrite) — the original retroactive full-pass behaviour
+  (truncate + regrade everything + fresh ``_meta`` line). As a guard,
+  rewriting a path whose basename is ``claude_strategy_scores.jsonl``
+  now requires an explicit ``--force-rewrite`` — pointing the default
+  mode at the canonical file was the footgun that nearly clobbered
+  2,500+ rows during the 2026-07-03 backfill.
 
 The DB path is taken from argv only (no CWD-relative default) so the
 canonical-db-resolver guard is satisfied. Read-only on the DB.
@@ -235,13 +251,47 @@ def _grade_package(row: dict) -> dict:
     }
 
 
+def _existing_ids(out_path: str) -> set:
+    """order_package_ids already present in ``out_path`` (empty set if absent)."""
+    ids: set = set()
+    try:
+        with open(out_path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    oid = json.loads(line).get("order_package_id")
+                except (ValueError, TypeError):
+                    continue
+                if oid:
+                    ids.add(oid)
+    except OSError:
+        pass
+    return ids
+
+
 def main() -> int:
-    if len(sys.argv) < 2:
-        print("usage: score_order_packages.py <trade_journal.db> [out.jsonl]",
-              file=sys.stderr)
+    argv = list(sys.argv[1:])
+    append = "--append" in argv
+    force_rewrite = "--force-rewrite" in argv
+    argv = [a for a in argv if a not in ("--append", "--force-rewrite")]
+    if not argv:
+        print("usage: score_order_packages.py <trade_journal.db> [out.jsonl] "
+              "[--append] [--force-rewrite]", file=sys.stderr)
         return 2
-    db_path = sys.argv[1]
-    out_path = sys.argv[2] if len(sys.argv) > 2 else "comms/claude_strategy_scores.jsonl"
+    db_path = argv[0]
+    out_path = argv[1] if len(argv) > 1 else "comms/claude_strategy_scores.jsonl"
+    import os
+    if (not append and not force_rewrite
+            and os.path.basename(out_path) == "claude_strategy_scores.jsonl"
+            and os.path.exists(out_path)):
+        print("REFUSING to rewrite the canonical append-only scores file "
+              f"({out_path}). Use --append to add only missing packages, or "
+              "--force-rewrite if a full retroactive re-grade is intended.",
+              file=sys.stderr)
+        return 3
+    skip_ids = _existing_ids(out_path) if append else set()
     reviewed_at = datetime.now(timezone.utc).isoformat()
 
     con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
@@ -260,17 +310,22 @@ def main() -> int:
     ).fetchall()
 
     n = 0
+    skipped = 0
     grade_hist: dict[str, int] = {}
-    with open(out_path, "w") as fh:
-        fh.write(json.dumps({
-            "_meta": "Per-ORDER-PACKAGE Claude decision scores (strategy-decision "
-                     "scores), keyed by order_package_id -> trade_journal.db::"
-                     "order_packages. Retroactive consistent-rubric pass + future "
-                     "/health-review appends. APPEND-ONLY after this line. Rubric: "
-                     "scripts/ops/score_order_packages.py::_grade_package. "
-                     f"schema_version={SCHEMA_VERSION}",
-        }) + "\n")
+    with open(out_path, "a" if append else "w") as fh:
+        if not append:
+            fh.write(json.dumps({
+                "_meta": "Per-ORDER-PACKAGE Claude decision scores (strategy-decision "
+                         "scores), keyed by order_package_id -> trade_journal.db::"
+                         "order_packages. Retroactive consistent-rubric pass + future "
+                         "/health-review appends. APPEND-ONLY after this line. Rubric: "
+                         "scripts/ops/score_order_packages.py::_grade_package. "
+                         f"schema_version={SCHEMA_VERSION}",
+            }) + "\n")
         for r in rows:
+            if append and r["order_package_id"] in skip_ids:
+                skipped += 1
+                continue
             d = dict(r)
             g = _grade_package(d)
             grade_hist[g["decision_grade"]] = grade_hist.get(g["decision_grade"], 0) + 1
@@ -296,7 +351,9 @@ def main() -> int:
             fh.write(json.dumps(rec) + "\n")
             n += 1
 
-    print(f"scored {n} order packages -> {out_path}")
+    mode = "appended" if append else "scored"
+    print(f"{mode} {n} order packages -> {out_path}"
+          + (f" (skipped {skipped} already present)" if append else ""))
     print(f"grade histogram: {dict(sorted(grade_hist.items()))}")
     return 0
 

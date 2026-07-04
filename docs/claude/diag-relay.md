@@ -68,13 +68,14 @@ The `order_packages`, `trades`, and `vm_health` sections are always
 truncated out. Use `snapshot?limit=5` when you need to inspect positions,
 packages, or trade SL/TP. Use `audit?limit=200` only for audit history.
 
-**4. Back-to-back requests queue cleanly — no spacing needed.**
-The workflow uses `concurrency: cancel-in-progress: false` (set on
-2026-05-16 after the preemption mode silently dropped three pairs
-of back-to-back requests fired ~3 s apart). Each diag-request job
-takes ~15 s and is bounded by `timeout-minutes: 5`, so the second
-of two simultaneous issues simply waits its turn. Fire as many as
-you need without artificial spacing.
+**4. Back-to-back requests run concurrently — no spacing needed.**
+Since 2026-07-04 (BL-20260611-002) the concurrency group is keyed on
+the issue number, so each request gets its own lane: bursts execute in
+parallel and cannot cancel one another. (The earlier shared-group setup
+dropped queued bursts even with `cancel-in-progress: false` — GitHub
+keeps at most one PENDING run per group; verified 2026-06-11 and
+2026-07-03.) Each job stays bounded by `timeout-minutes: 5` plus the
+SSH/curl timeouts. Fire as many as you need.
 
 ## TL;DR — fetching diag data from a sandbox session
 

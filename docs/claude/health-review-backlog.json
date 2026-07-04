@@ -221,10 +221,10 @@
           "note": "Still recurring: 'Error fetching OHLCV: bybit does not have market symbol MHGN6' seen in the ict-trader-live post-restart journal (2026-06-22 12:09, run 27951560947) during the Telegram-token .env restart. Confirms the contract-month\u2192Bybit misroute is unresolved; root-cause/fix in this item's description still stands."
         }
       ],
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-04T08:05:00+00:00",
       "resolved_by": null,
-      "resolution": null,
+      "resolution": "FIXED 2026-07-04: connector_for_symbol now falls back to the base futures root when the exact symbol has no instrument profile (MHGN6 -> MHG -> IBKR), using the same month-code grammar as order_monitor._base_futures_symbol; crypto/equity symbols are unaffected (regex-verified). Unit tests added (TestConnectorRouting: MHGN6 routes to IBMarketData; SOLUSDT stays Bybit).",
       "snoozed_until": null
     },
     {
@@ -437,10 +437,10 @@
           "note": "system-report health-review 2026-06-23: reproduced \u2014 during the concurrent system-report pull burst, several vm-diag-snapshot runs were cancelled (audit/services) while serial pulls (config/journal/snapshot) succeeded; the consolidated /api/diag/snapshot bundle is the effective workaround (one pull covers heartbeat+status+audit). KEEP OPEN."
         }
       ],
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-04T08:05:00+00:00",
       "resolved_by": null,
-      "resolution": null,
+      "resolution": "FIXED 2026-07-04 (operator-picked backlog drain): the relay concurrency groups are now keyed PER ISSUE NUMBER (vm-diag-snapshot.yml + trainer-vm-diag.yml) \u2014 GitHub only ever holds one PENDING run per group, so the shared group was structurally incapable of queueing a burst; per-issue groups make bursts run concurrently and un-cancellable by siblings, while the opened+labeled double-fire on one issue still shares its group and is caught by the dedup step. Stale guidance updated in diag-data SKILL.md + docs/claude/diag-relay.md. Recurrence signature: any future diag-request run ending cancelled.",
       "snoozed_until": null,
       "updates": [
         {
@@ -2892,5 +2892,5 @@
       "resolution": "RESOLVED across 07-03/07-04: (1) first-ever prop_account_status row seeded via the prop-report relay (issue #5541) \u2014 balance 5215.27 / equity 5215.27 / realized_today +297.12, derived from terminal trade history and OPERATOR-RATIFIED in chat 2026-07-04 (\"that is the updated status of the prop account\"); rule-distance guard live (daily-loss cushion $147.54, DD-floor distance $515.27). (2) The structural fix shipped in PR #5521: src/prop/prop_status_request.py pings the operator with paste-ready reply formats whenever a prop position is open and the latest snapshot is absent/stale \u2014 the panel can no longer silently run blind. First live firing of the ping is the residual watch (monitoring item in RPT-20260704-061000)."
     }
   ],
-  "updated_at": "2026-07-04T06:55:00+00:00"
+  "updated_at": "2026-07-04T08:05:00+00:00"
 }
