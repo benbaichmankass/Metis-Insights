@@ -2881,14 +2881,16 @@
       "opened_at": "2026-07-03T17:05:00+00:00",
       "opened_by": "claude (/health-review 2026-07-03)",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "title": "prop_account_status has 0 rows ever \u2014 Breakout rule-distance panel (daily-loss/static-DD cushion) is running blind",
       "source": "db_info 2026-07-03 (issue #5509): prop_account_status=0 rows while prop_tickets=13 / prop_fills=12 \u2014 the account-status report-back half of the manual bridge has never been used.",
       "description": "The prop rule-distance safety panel (dashboard Prop tab + /api/bot/prop/status) computes distance to the $150 daily-loss / $300 static-DD account-killers from the LATEST prop_account_status snapshot \u2014 with zero rows it can never warn. Tickets/fills flow (13/12) proves the bridge works; only the kind:\"account_status\" report is missing. Ask the operator to submit an account-status snapshot (dashboard Prop form or the prop-report issue relay) after each prop session, or add it to the prop_closed notification prompt text. Also of note 2026-07-03: a prop package (trend_donchian_eth_prop, pkg-7d4193885f794cb1) went status=orphaned \u2014 cross-check /api/bot/prop/reconcile un-acted tickets next session (BL-20260625-PROP-ETH-LIVE liveness check may now be answerable).",
       "trigger_condition": "next prop session / next system-review",
-      "suggested_fix": "Operator submits kind:\"account_status\" report-backs routinely; consider auto-prompting after prop_closed."
+      "suggested_fix": "Operator submits kind:\"account_status\" report-backs routinely; consider auto-prompting after prop_closed.",
+      "resolved_at": "2026-07-04T06:55:00+00:00",
+      "resolution": "RESOLVED across 07-03/07-04: (1) first-ever prop_account_status row seeded via the prop-report relay (issue #5541) \u2014 balance 5215.27 / equity 5215.27 / realized_today +297.12, derived from terminal trade history and OPERATOR-RATIFIED in chat 2026-07-04 (\"that is the updated status of the prop account\"); rule-distance guard live (daily-loss cushion $147.54, DD-floor distance $515.27). (2) The structural fix shipped in PR #5521: src/prop/prop_status_request.py pings the operator with paste-ready reply formats whenever a prop position is open and the latest snapshot is absent/stale \u2014 the panel can no longer silently run blind. First live firing of the ping is the residual watch (monitoring item in RPT-20260704-061000)."
     }
   ],
-  "updated_at": "2026-07-03T21:25:00+00:00"
+  "updated_at": "2026-07-04T06:55:00+00:00"
 }
