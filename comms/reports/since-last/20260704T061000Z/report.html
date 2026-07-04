@@ -1,0 +1,158 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-07-04T06:10:00+00:00 · window 2026-07-02T06:17:00+00:00 → 2026-07-04T06:10:00+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>First prop WINNER banked: Breakout ETH long closed at TP for +297.12 net (~2.2R) with the manual-bridge report loop working end to end. Claude decision-grade coverage RESTORED to 100% (161 backfilled; 2,727/2,727). IB gateway was dark most of 07-03 (recovered 17:01Z; benign-diag verdict, definitive check at Monday&#x27;s CME open). Real-money: no closed trades; one D-grade XRP long (~$33) opened on bybit_2. Paper: -531.87 realised, all intent_reduce churn under the #5101 soak watch. alpaca_live confirmed structurally size-0 on its $150 balance — operator accepted as-is. xauusd_trend_1h disabled (silent-enabled debris).</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Overwrite the seeded prop balance with terminal truth</b> <span class="pill">health · T1</span> ⚠️ operator<br><span class='muted'>After the +297 ETH win, send `bal &lt;balance&gt; &lt;equity&gt; [realized_today]` on the prop bot (or the dashboard Prop form). The first-ever prop_account_status row was seeded from screenshot-derived numbers (balance ~5,215.27) — good enough to arm the rule-distance guard, but the terminal&#x27;s actual figures should replace it (latest row wins).</span></li>
+<li><b>Monday 07-06 CME open: confirm MES/MGC/MHG trade data flows</b> <span class="pill">health · T1</span><br><span class='muted'>The definitive IB-gateway close-out after the 07-03 wedge+recovery: evals for the IB symbols should fetch and fire at the session open. If still dark, escalate the root cause (BL-20260527-003).</span></li>
+<li><b>Repoint the Claude cloud-env DIAG_BASE_URL</b> <span class="pill">health · T1</span> ⚠️ operator<br><span class='muted'>It still targets the terminated x86 micro (158.178.210.252), so every live read this session went through the slow GitHub-issue relay. In the Claude Code cloud environment settings, set DIAG_BASE_URL=http://141.145.193.91:8001 (takes effect on the next session).</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">— open</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">— open</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">— open</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>performance</span> xrp_pullback_2h min_confidence floor (&gt;=0.4): this window&#x27;s only real-money entry came from a conf-0.29 signal graded D (should_skip); the backfilled grade set clusters the family&#x27;s D grades below 0.4. Backtest-gated before any YAML change.</li>
+<li><span class='pill'>health</span> BL-20260629-ALPACA-NAKED-BRACKET: extend protective re-arm beyond IB (AlpacaClient already has modify_protective + open_orders) so alpaca positions that lose a bracket leg are re-armed, not alert-only.</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>The intent_reduce churn shows up in ALL THREE lenses this window: orphaned parent packages (health), reduce-leg PnL noise -531.87 paper (performance), and it is the #5101 fix&#x27;s soak (pending verify). One root cause, tracked once: BL-20260629-INTENT-REDUCE-CHURN-VERIFY.</li>
+<li>The grading backfill closes the loop the trainer depends on: review_journal-family training data now has decision grades for every package.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🔴 investigate</span></h2>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>heartbeat</td><td class="sev-ok">🟢 ok</td><td>age 49s, label running; uptime 3.6h (restart ~13:17Z aligns with #5492 deploy); git_sha 5fd8343f == main HEAD</td></tr>
+<tr><td>ticks</td><td class="sev-ok">🟢 ok</td><td>last_tick 16:54:26Z (fresh at capture); 43 strategies loaded; pipeline_result rows every tick</td></tr>
+<tr><td>signals</td><td class="sev-ok">🟢 ok</td><td>42/43 strategies emitted *_eval in tail; signals dual-write on (741,882 rows); TLT signal 13:30Z dispatched cleanly</td></tr>
+<tr><td>orders</td><td class="sev-ok">🟢 ok</td><td>signal-&gt;order plumbing intact: TLT pipeline_result multi_account_dispatched -&gt; pkg-917c39 + per-account trades rows within 1s</td></tr>
+<tr><td>trades</td><td class="sev-watch">🟡 watch</td><td>4 in-window packages status=orphaned (ADAUSDTx2, SOLUSDT, prop ETH) while paired trades read open — the open-&gt;reconcile churn BL-20260629-INTENT-REDUCE-CHURN-VERIFY watches; no clean-fill loss confirmed</td></tr>
+<tr><td>monitoring</td><td class="sev-ok">🟢 ok</td><td>no monitor gaps observable in 200-row tail (~1.5 ticks); heartbeat+tick fresh; open positions consistent DB vs exchange on bybit/alpaca</td></tr>
+<tr><td>sizing</td><td class="sev-watch">🟡 watch</td><td>alpaca_live sized TLT to 0 whole shares (rejected 13:30Z) — account (holds IEF x1) too small for most of its 9 symbols; refusal shape correct (BL-20260626-ALPACA-WHOLEUNIT-LATENT trigger fired)</td></tr>
+<tr><td>api_errors</td><td class="sev-watch">🟡 watch</td><td>diag relay burst-cancellation (BL-20260611-002) hit again: 8/11 first-wave pulls silently cancelled; serial refires all succeeded</td></tr>
+<tr><td>state_consistency</td><td class="sev-ok">🟢 ok</td><td>runtime live-flags match accounts.yaml modes exactly for all 9 accounts (ib_live/oanda_practice dry as declared)</td></tr>
+<tr><td>alert_delivery</td><td class="sev-ok">🟢 ok</td><td>db-integrity alerter ran hourly, &#x27;clean, nothing to send&#x27;; recover workflow commented+closed; no undrained alert evidence</td></tr>
+<tr><td>strategy_silence</td><td class="sev-watch">🟡 watch</td><td>xauusd_trend_1h enabled:true execution:live but ZERO audit events across the whole 33h window (only account oanda_practice is shelved/dry) — disable explicitly or accept debris</td></tr>
+<tr><td>db_integrity</td><td class="sev-ok">🟢 ok</td><td>canonical path /data/bot-data/trade_journal.db, 391MB, no per-table errors; newest trade 15:54Z (fresh); counts non-decreasing (trades 3,147; packages 2,724). PRAGMA not fetchable via relay</td></tr>
+<tr><td>data_validity</td><td class="sev-ok">🟢 ok</td><td>INV-1..5 recent=0 (17:02Z run, clean); legacy-only INV-2 total=102 / INV-3 total=72 (pre-backfill, informational)</td></tr>
+<tr><td>audit_log_freshness</td><td class="sev-ok">🟢 ok</td><td>audit tail current to capture time; audit_query dual_write_present:true and reaches full window</td></tr>
+<tr><td>trainer_service</td><td class="sev-watch">🟡 watch</td><td>ict-trainer.timer enabled+active but last service run FAILED (ExecMainStatus=15); SSH reachable again (BL-20260702-002 resolved) — cycle failure routed to /ml-review</td></tr>
+<tr><td>health_snapshot</td><td class="sev-ok">🟢 ok</td><td>cron health-snapshot: all scheduled runs succeeded through window (last 14:18Z); known ib_paper-balance blind spot BL-20260614-HEALTHSNAP-PY still open</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— </div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">—</div></div>
+</div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— </div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">—</div></div>
+</div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— </div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">—</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">5 full dossiers, — summarized (—).</p>
+<details><summary><span class="pill prop">prop</span> ETHUSDT long · trend_donchian_eth · <span class="pos">+$297.12</span> · grade A</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>14</div><div class="k">account</div><div>breakout_1</div><div class="k">opened</div><div>2026-07-01T18:06:00</div><div class="k">closed</div><div>2026-07-04T00:13:00</div><div class="k">hold (s)</div><div>195420</div><div class="k">entry</div><div>1613.78</div><div class="k">exit</div><div>1774.03</div><div class="k">stop</div><div>1700.51</div><div class="k">target</div><div>1773.54</div><div class="k">qty</div><div>1.87</div><div class="k">pnl %</div><div>9.9</div><div class="k">close reason</div><div>tp</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>optimal</div><div class="k">exit quality</div><div>tp_appropriate</div><div class="k">risk mgmt</div><div>correct</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>Donchian 20 breakout + ATR trail (prop alt-variant)</div><div class="k">grade rationale</div><div>Textbook prop-bridge trade: validated Donchian breakout, SL trailed above entry (profit locked), exit at TP within 0.5 of target, +297.12 net (~2.2R); report-back loop worked end to end.</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> XRPUSDT long · xrp_pullback_2h · <span class="">—</span> · grade D</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3136</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-02T22:52:55</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1.0818</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>1.04703214</div><div class="k">target</div><div>1.1888982</div><div class="k">qty</div><div>30.8</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>should_skip</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>correct</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>trend-pullback-confirmation, conf 0.29</div><div class="k">grade rationale</div><div>conf 0.29 pullback entry — should not have fired; paper leg of the same decision realised -526.76. Exposure tiny (~$33) and correctly sized.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> XRPUSDT short · xrp_pullback_2h (intent_reduce) · <span class="neg">$-526.76</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3135</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-02T22:52:55</div><div class="k">closed</div><div>2026-07-02T22:52:55</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>1.0818</div><div class="k">exit</div><div>1.0932</div><div class="k">stop</div><div>1.04703214</div><div class="k">target</div><div>1.1888982</div><div class="k">qty</div><div>46206.7</div><div class="k">pnl %</div><div>-1.05</div><div class="k">close reason</div><div>intent_reduce_executed</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>premature_exit</div><div class="k">risk mgmt</div><div>correct</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>reduce leg against parent 3116</div><div class="k">grade rationale</div><div>Reduce leg -526.76 (local mark). Mechanically correct netting; churn under #5101 soak.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT short · trend_donchian_ada_4h (intent_reduce) · <span class="neg">$-25.12</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3148</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-03T17:20:03</div><div class="k">closed</div><div>2026-07-03T17:20:03</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>0.1767</div><div class="k">exit</div><div>0.1804</div><div class="k">stop</div><div>0.16500357</div><div class="k">target</div><div>0.1941933</div><div class="k">qty</div><div>6790</div><div class="k">pnl %</div><div>-2.09</div><div class="k">close reason</div><div>intent_reduce_executed</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>premature_exit</div><div class="k">risk mgmt</div><div>correct</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>reduce leg</div><div class="k">grade rationale</div><div>Reduce leg -25.12; same churn family.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT short · trend_donchian_ada_4h (intent_reduce) · <span class="pos">+$20.01</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3142</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-03T01:40:43</div><div class="k">closed</div><div>2026-07-03T01:40:43</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>0.1657</div><div class="k">exit</div><div>0.1653</div><div class="k">stop</div><div>0.15484286</div><div class="k">target</div><div>0.1821043</div><div class="k">qty</div><div>50034</div><div class="k">pnl %</div><div>0.24</div><div class="k">close reason</div><div>intent_reduce_executed</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>tp_appropriate</div><div class="k">risk mgmt</div><div>correct</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>reduce leg</div><div class="k">grade rationale</div><div>Reduce leg +20.01; same churn family.</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>ETHUSDT</td><td>—</td><td>1774.03</td><td>—</td><td>—</td><td class="pos">9.9%</td><td>Strong window: +~10% from the 1613.78 prop entry (07-01) to the 1774.03 TP exit (07-04 00:13 terminal) — the tape that paid the prop winner.</td></tr>
+<tr><td>BTCUSDT</td><td>—</td><td>61521.3</td><td>—</td><td>—</td><td class="">—</td><td>~59.8k-61.5k drift upward; trend_donchian long from 59,807 carried through the window with positive uPnL.</td></tr>
+<tr><td>MES/MGC/MHG + equity ETFs</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>Jul-3 US half-day + Jul-4 holiday: CME closed from ~17:00Z Jul-3; the IB and Alpaca fleets idle until Monday 07-06 — crypto was the only live tape for most of the window.</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟡 watch</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>btc-regime-15m-lgbm-fc-pcv-v1</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>fc-conditioned head promoted candidate-&gt;shadow 07-03 (S-M19-FC-SHADOW-T12-P1); live soak accruing with populated fc_* features — first predictions verified non-degenerate (0.51-0.95).</td></tr>
+<tr><td>btc-regime-15m-lgbm-v2</td><td>advisory</td><td>—</td><td>—</td><td>—</td><td>continues to drive the BTC vol-gate enforce (unchanged this window).</td></tr>
+</table></div>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li class='muted'>No promote/demote gate crossings this window. xauusd_trend_1h explicitly DISABLED (operator, 2026-07-04) — silent-enabled debris on the shelved oanda_practice (zero audit events while loaded); validated XAU edge preserved for re-enable. The M7 per-strategy review-packet matrix was not regenerated (abbreviated review: /health-review + grading backfill + operator follow-ups); next full /system-review runs generate-strategy-review-packets.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">unknown (light-touch scope)</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">unavailable: not pulled this session</div></div>
+</div>
+<p class='muted'>Trainer SSH reachability RESTORED after the 07-02 outage (BL-20260702-002 resolved). fc-conditioned head promoted candidate-&gt;shadow 07-03 with live soak verified accruing.</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>btc-regime-15m-lgbm-fc-pcv-v1 (shadow, fc-conditioned)</td><td>accruing</td><td>promoted 07-03; first predictions non-degenerate (0.51-0.95) with populated fc_* features (verified via shadow_stats + feature_row, relays #5489-#5490)</td></tr>
+<tr><td>exit-ladder / allocator / conviction soaks</td><td>not re-checked</td><td>unavailable: abbreviated review — next /system-review tails runtime_logs/{exit_ladder_soak,allocator_soak,conviction_*}.jsonl</td></tr>
+<tr><td>intent_reduce churn fix (#5101)</td><td>accruing (adverse signal)</td><td>4 in-window orphaned parent packages + -531.87 paper reduce-leg PnL — the churn is still visible; verify item BL-20260629-INTENT-REDUCE-CHURN-VERIFY stays open</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 IB gateway dark most of 07-03 (mandatory reachability flag; recovered + verdict recorded)</li><li>🚩 trainer service exit-15 run</li><li>🚩 D-grade real-money XRP entry (conf 0.29)</li><li>🚩 prop rule-distance panel had ZERO snapshots ever (now seeded)</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>BL-20260623-002</code></td><td>health</td><td>🔁 verify</td><td>2026-07-06 CME open: MES/MGC/MHG evals fetch+fire =&gt; IB gateway definitively healthy; else escalate root cause (BL-20260527-003).</td><td>—</td></tr>
+<tr><td><code>BL-20260703-PROP-STATUS-EMPTY</code></td><td>health</td><td>🔁 verify</td><td>prop status-request ping first live firing on the next open prop position (shipped PR #5521); operator to overwrite the derived balance seed with terminal `bal` numbers.</td><td>—</td></tr>
+<tr><td><code>BL-20260629-INTENT-REDUCE-CHURN-VERIFY</code></td><td>performance</td><td>• soak</td><td>intent_reduce churn (-531.87 paper this window, orphaned parent packages) — confirm fix #5101 converges.</td><td>—</td></tr>
+</table></div>
+<footer>report_id RPT-20260704-061000-since-last · reviewer claude · prior RPT-20260702-061700-since-last · ICT Trading Bot system-report</footer></div></body></html>

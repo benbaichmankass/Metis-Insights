@@ -195,15 +195,22 @@
   "trend_donchian_sol_prop": [
     {
       "date": "2026-06-29",
-      "ref": "Unit C Phase 0 (DRAFT Tier-3) — swap-robust prop exit variant (prop-dynamic-exits-faster-banking-DESIGN.md § 5)",
-      "summary": "Created trend_donchian_sol_prop: trend_donchian_sol's entries (1h SOLUSDT, long-only) with the proven eth_pullback_prop_2h swap-robust exits (trail_mult 5.0->3.5, tp_r 50 sentinel->6.0 real cap). On the Breakout daily-swap prop venue hold time is the cost driver, so the let-winners-run profile is the wrong exit geometry. Wired (builder/registry/multiplexer/priorities) + routed to breakout_1 as execution: shadow (observe-only soak — logs order packages, emits no prop ticket). NOT a live promotion: the prop EV/survival gate (account_compat_matrix -> run_ev_montecarlo under breakout.yaml; sol +$696 / P0.79 ROUTE) must show strict net-$ improvement vs the single-far-target baseline without a worse p_breach; promotion shadow->live is operator-gated Tier-3. ROLLBACK: remove the block + the breakout_1 routing + the wiring."
+      "ref": "Unit C Phase 0 (DRAFT Tier-3) \u2014 swap-robust prop exit variant (prop-dynamic-exits-faster-banking-DESIGN.md \u00a7 5)",
+      "summary": "Created trend_donchian_sol_prop: trend_donchian_sol's entries (1h SOLUSDT, long-only) with the proven eth_pullback_prop_2h swap-robust exits (trail_mult 5.0->3.5, tp_r 50 sentinel->6.0 real cap). On the Breakout daily-swap prop venue hold time is the cost driver, so the let-winners-run profile is the wrong exit geometry. Wired (builder/registry/multiplexer/priorities) + routed to breakout_1 as execution: shadow (observe-only soak \u2014 logs order packages, emits no prop ticket). NOT a live promotion: the prop EV/survival gate (account_compat_matrix -> run_ev_montecarlo under breakout.yaml; sol +$696 / P0.79 ROUTE) must show strict net-$ improvement vs the single-far-target baseline without a worse p_breach; promotion shadow->live is operator-gated Tier-3. ROLLBACK: remove the block + the breakout_1 routing + the wiring."
     }
   ],
   "trend_donchian_eth_prop": [
     {
       "date": "2026-06-29",
-      "ref": "Unit C Phase 0 (DRAFT Tier-3) — swap-robust prop exit variant (prop-dynamic-exits-faster-banking-DESIGN.md § 5)",
-      "summary": "Created trend_donchian_eth_prop: trend_donchian_eth's entries (1h ETHUSDT, two-sided — ETH's edge is short-side-dependent) with the proven eth_pullback_prop_2h swap-robust exits (trail_mult 5.0->3.5, tp_r 50 sentinel->6.0 real cap). Wired + routed to breakout_1 as execution: shadow (observe-only soak). NOT a live promotion: the prop EV/survival gate (account_compat_matrix -> run_ev_montecarlo under breakout.yaml; eth +$1,205 / P0.87 ROUTE) must show strict net-$ improvement vs the single-far-target baseline without a worse p_breach; promotion shadow->live is operator-gated Tier-3. ROLLBACK: remove the block + the breakout_1 routing + the wiring."
+      "ref": "Unit C Phase 0 (DRAFT Tier-3) \u2014 swap-robust prop exit variant (prop-dynamic-exits-faster-banking-DESIGN.md \u00a7 5)",
+      "summary": "Created trend_donchian_eth_prop: trend_donchian_eth's entries (1h ETHUSDT, two-sided \u2014 ETH's edge is short-side-dependent) with the proven eth_pullback_prop_2h swap-robust exits (trail_mult 5.0->3.5, tp_r 50 sentinel->6.0 real cap). Wired + routed to breakout_1 as execution: shadow (observe-only soak). NOT a live promotion: the prop EV/survival gate (account_compat_matrix -> run_ev_montecarlo under breakout.yaml; eth +$1,205 / P0.87 ROUTE) must show strict net-$ improvement vs the single-far-target baseline without a worse p_breach; promotion shadow->live is operator-gated Tier-3. ROLLBACK: remove the block + the breakout_1 routing + the wiring."
+    }
+  ],
+  "xauusd_trend_1h": [
+    {
+      "date": "2026-07-04",
+      "ref": "health-review follow-up 2026-07-04 (operator-approved disable)",
+      "summary": "enabled true->false: explicit disable of silent-enabled debris -- only routed account oanda_practice shelved since 2026-06-12 (BL-20260611-007); zero audit events while loaded. Edge preserved for re-enable; gold covered by mgc_trend_1h + GLD."
     }
   ]
 }
