@@ -1263,7 +1263,31 @@
         "2026-07-03 (gate-check, trainer-vm-diag #5473): TCN macro_f1 0.534 / f1_volatile 0.162 vs incumbent 0.56-0.58 / 0.19-0.39; TCN loses on both. Model at candidate, namespaced -gpuburst (production advisory head untouched). GPU spend: $0.0269 + $0.0136 transient = $0.0405."
       ],
       "status_history": "open 2026-07-03 (T1.1 clean negative; pivot to T1.2 breadth + T0.4 fc graduation; drop T1.1b)."
+    },
+    {
+      "id": "MB-20260704-T12-SSL-NEGATIVE",
+      "opened_at": "2026-07-04T14:00:00+00:00",
+      "opened_by": "claude (M19 T1.2 SSL corpus-encoder A/B session)",
+      "source": "M19 T1.2 P2 A/B: the self-supervised corpus encoder's corpus_emb block was A/B'd into the BTC-15m vol-regime boosting head under purged-CV across two corpus widths (13-series v005 and 28-series widened v006, #5539). CLEAN NEGATIVE both times: corpusemb macro_f1 0.584 (< T0.1 emb 0.611) and f1_volatile 0.303 thin / 0.269 widened (worse than both base 0.389 and emb 0.423). Widening cut the encoder's OWN overfit (val_loss 2.0->1.3) but did not transfer downstream \u2014 the embedding buys majority-'range' accuracy (0.825, f1_range 0.898) by crushing minority 'volatile' recall. Evidence: docs/research/T1.2-ssl-encoder-AB-evidence-2026-07-04.md; log S-M19-T1.2-SSL-AB-2026-07-04.",
+      "title": "T1.2 corpus-SSL embedding: task-matched-head probe (regime head is a closed negative)",
+      "description": "The daily-panel SSL embedding fails the intraday BTC-15m vol-regime head because of a representation-target CLOCK mismatch (daily macro/rates/FX/credit backdrop vs 15-min volatility bursts). The reusable follow-up is NOT more corpus width or a bigger encoder (both fail the same way) \u2014 it is a head whose TARGET lives on the same daily/cross-asset clock as the corpus: e.g. a daily direction/risk head, or the M18 cross-sectional expected-net-R ranker over a multi-symbol daily universe (the M18 tabular ranker hit only OOS AUC ~0.51, and embeddings were the untested lever there). Only pursue if/when such a head is on the table; the corpus store + ssl_corpus_encoder + parity gate are already built and reusable.",
+      "tier": "Tier 1 (research; candidate-stage, offline)",
+      "trigger_condition": "A daily or cross-asset head (daily direction/risk, or the M18 ranker revival) becomes an active experiment.",
+      "resolution_criteria": "Either: corpus_emb clears the beat-BOTH-baselines gate on a task-matched head (\u2192 promote-candidate), OR a task-matched head is A/B'd and corpus_emb still misses (\u2192 T1.2 closes as a full negative, price+context representation exhausted for boosting heads).",
+      "status": "open",
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-07-04: BTC-15m regime head \u2014 clean negative across 13- and 28-series corpus widths (evidence doc + S-M19-T1.2-SSL-AB-2026-07-04)."
+      ],
+      "status_history": [
+        {
+          "at": "2026-07-04T14:00:00+00:00",
+          "status": "open",
+          "by": "claude (T1.2 A/B session)",
+          "note": "Opened on the T1.2 regime-head clean negative; scopes the only remaining place the corpus embedding might pay off."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-06-29T13:30:00+00:00"
+  "updated_at": "2026-07-04T14:00:00+00:00"
 }
