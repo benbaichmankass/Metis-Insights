@@ -54,9 +54,15 @@ def test_market_hours_fx_actually_closed_on_saturday():
 
 def test_strategy_yaml_pins_sweep_params():
     cfg = yaml.safe_load(open("config/strategies.yaml"))["strategies"]["xauusd_trend_1h"]
-    assert cfg["enabled"] is True
+    # DISABLED 2026-07-04 (operator, /health-review follow-up): the only routed
+    # account (oanda_practice) has been shelved since 2026-06-12, so the
+    # strategy was silent-enabled debris (loaded every boot, zero audit
+    # events). The sweep-validated params below stay PINNED so a re-enable
+    # resumes exactly the validated cell.
+    assert cfg["enabled"] is False
     # PROMOTED shadow -> live-on-practice 2026-06-11 (operator: "go live
-    # on practice"); oanda_practice is paper money.
+    # on practice"); oanda_practice is paper money. execution stays live so
+    # the enabled flip is the single gate to reverse.
     assert cfg["execution"] == "live"
     assert cfg["symbols"] == ["XAUUSD"]
     assert cfg["timeframe"] == "1h"
