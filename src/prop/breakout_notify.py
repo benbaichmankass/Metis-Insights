@@ -466,3 +466,75 @@ def emit_prop_sl_tp_alert(
             logger.warning("emit_prop_sl_tp_alert: telegram send failed: %s", exc)
 
     return out
+
+
+def render_status_request_message(account_id: str,
+                                  open_positions: list,
+                                  age_hours: "Optional[float]" = None) -> str:
+    """Body for the account-status request ping — includes the exact reply
+    formats ``telegram_report_handler`` parses, so the operator can answer by
+    editing one line in place."""
+    lines = [f"📋 PROP STATUS REQUEST [{account_id}]"]
+    for pos in open_positions[:5]:
+        lines.append(
+            f"open: {pos.get('symbol') or '?'} "
+            f"{str(pos.get('direction') or '').upper()} "
+            f"qty {_fmt(pos.get('qty'))} @ {_fmt(pos.get('entry') or pos.get('entry_price'))}"
+        )
+    if age_hours is None:
+        lines.append("No account-status snapshot has ever been reported — the "
+                     "rule-distance guard (daily-loss / DD-floor cushion) is blind.")
+    else:
+        lines.append(f"Last account-status snapshot is {age_hours:.0f}h old — "
+                     "too stale for the rule-distance guard.")
+    lines.append("Reply with the terminal's CURRENT numbers, either format:")
+    lines.append("• bal <balance> <equity> [realized_today]   e.g. `bal 5040 5010 -25`")
+    lines.append(
+        '• {"kind":"account_status","account_id":"%s","balance":0,"equity":0,'
+        '"realized_today":0,"unrealized":0,"day_start_balance":0}' % account_id)
+    return "\n".join(lines)
+
+
+def emit_prop_status_request(account_id: str, open_positions: list, *,
+                             age_hours: "Optional[float]" = None,
+                             push: bool = True,
+                             telegram: bool = True) -> Dict[str, bool]:
+    """Ask the operator for a fresh account-status report-back (manual bridge).
+
+    Fired by ``prop_status_request.run_prop_status_request`` when a prop
+    position is open but the latest ``prop_account_status`` snapshot is absent
+    or stale. Rides the existing ``prop_monitor`` push kind (it is a
+    monitoring nudge, not a trade event). Best-effort + fully isolated.
+    """
+    from src.runtime.mobile_push.event_kinds import PROP_MONITOR
+
+    text = render_status_request_message(account_id, open_positions, age_hours)
+    payload = {
+        "account": account_id,
+        "kind_detail": "status_request",
+        "open_positions": len(open_positions),
+        "status_age_hours": _fmt(age_hours),
+        "text": text,
+    }
+    out = {"push": False, "telegram": False}
+
+    if push:
+        try:
+            from src.runtime.mobile_push import publish_event
+
+            publish_event(PROP_MONITOR, payload)
+            out["push"] = True
+        except Exception as exc:  # noqa: BLE001 — notification never fatal
+            logger.warning("emit_prop_status_request: FCM push failed: %s", exc)
+
+    if telegram:
+        try:
+            from src.runtime.notify import send_telegram_direct
+
+            send_telegram_direct(text, parse_mode=None, mirror_to_fcm=False,
+                                 bot_token=_prop_bot_token())
+            out["telegram"] = True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("emit_prop_status_request: telegram send failed: %s", exc)
+
+    return out

@@ -675,6 +675,19 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 logger.exception("prop_expiry_prompt tick failed")
 
+            # The rule-distance guard is only as fresh as the last
+            # account-status report-back. While a prop position is open and
+            # the latest prop_account_status snapshot is absent/stale, ask
+            # the operator for one on the prop bot — with the paste-ready
+            # reply formats (`bal ...` / JSON) baked into the message.
+            # Internally rate-limited (PROP_STATUS_REQUEST_MAX_AGE_HOURS /
+            # PROP_STATUS_REQUEST_COOLDOWN_HOURS); best-effort.
+            try:
+                from src.prop.prop_status_request import run_prop_status_request
+                run_prop_status_request()
+            except Exception:  # noqa: BLE001
+                logger.exception("prop_status_request tick failed")
+
             # When an open prop trade's current price crosses its SL or TP
             # level, fire a one-shot Telegram + FCM alert prompting the
             # operator to check whether the trade closed and report back.
