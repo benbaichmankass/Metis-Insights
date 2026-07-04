@@ -38,10 +38,18 @@ Tests monkeypatch `fred_macro._download` so CI never touches the network.
 
 **Panel widened 2026-07-04 (M19 T1.2 Phase 3):** the ``CORPUS_SERIES`` dict below
 is the authoritative catalog — the table above lists the founding series; the
-2026-07-04 breadth pass roughly doubled it (fuller Treasury curve, breakevens,
-VIX + broader equity, IG credit, the broad-dollar index + more FX crosses) after
-the SSL encoder overfit the original thin 13-series panel. See the inline
-comment block on the dict for the additions and rationale.
+2026-07-04 breadth pass roughly doubled it to 28 (fuller Treasury curve,
+breakevens, VIX + broader equity, IG credit, the broad-dollar index + more FX
+crosses) after the SSL encoder overfit the original thin 13-series panel. See the
+inline comment block on the dict for the additions and rationale.
+
+**T1.2 outcome (2026-07-04):** the wider corpus DID cut the encoder's overfit
+(val_loss 2.0→1.3) but the `corpus_emb` block still lost the downstream BTC-15m
+regime A/B to both the baseline and the frozen-Chronos T0.1 embedding — a clean
+negative, replicated across both corpus widths
+(`docs/research/T1.2-ssl-encoder-AB-evidence-2026-07-04.md`). The adapter + store
+stay as sound reusable infra; the negative is about the daily-panel→intraday-vol
+representation mismatch, not the corpus tooling.
 
 **Per-series resilience:** a single upstream series that FRED discontinues (→
 404) must never zero the whole corpus, so `fetch_fred_corpus_series` fetches each
@@ -100,7 +108,10 @@ CORPUS_SERIES: Mapping[str, tuple[str, str]] = {
     # Equity vol + broader equity breadth:
     "VIXCLS": ("vix", "equity"),
     "DJIA": ("dow", "equity"),
-    "WILL5000INDFC": ("wilshire5000", "equity"),
+    # (WILL5000INDFC / Wilshire 5000 was dropped 2026-07-04 — that FRED id 404s;
+    # the per-series-resilient fetch skipped it, so it never zeroed the panel, but
+    # a known-dead id doesn't belong in the catalog. SP500/NASDAQCOM/DJIA/VIXCLS
+    # already cover the equity breadth axis.)
     # Investment-grade credit (pairs with the HY OAS for the credit axis):
     "BAMLC0A0CM": ("ig_credit_oas", "credit"),
     # Dollar breadth + more FX crosses (carry / commodity-currency / haven):
