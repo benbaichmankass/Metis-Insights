@@ -47,13 +47,12 @@ truncates comments ~55 kB), `audit?limit=600` (signal_audit tail),
   is for the **trainer** relay only.
 - Use `limit=5` for packages/trades; `snapshot?limit=200` (~665 kB) gets
   truncated to just the audit tail.
-- **Do NOT fire diag-request bursts.** `cancel-in-progress: false` only
-  protects the RUNNING request — GitHub keeps at most ONE *pending* run per
-  concurrency group, so each newly-queued request silently cancels the
-  previously-queued one (verified 2026-06-11: 14 issues filed in ~1 min →
-  9 runs `cancelled`, no comment posted on the cancelled issues). Space
-  requests ~90 s apart, or confirm the previous issue got its result
-  comment before filing the next.
+- **Bursts are safe since 2026-07-04** (BL-20260611-002 fix): the relay's
+  concurrency group is keyed per issue number, so parallel diag-requests run
+  CONCURRENTLY and cannot cancel each other. (History: with the old shared
+  group, GitHub kept at most ONE pending run, so bursts silently dropped —
+  verified 2026-06-11 and again 2026-07-03. If a run ever shows `cancelled`
+  again, suspect a regression of the per-issue group.)
 - curl exit 7 (`Failed to connect to 127.0.0.1`) = `ict-web-api.service` is
   down → fire `vm-web-api-recover` (label `vm-web-api-recover`) and retry once.
 - The live relay is fixed-curl only: it **cannot** run `sqlite3 PRAGMA` or

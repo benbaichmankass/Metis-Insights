@@ -362,3 +362,19 @@ class TestConnectorRouting:
         from src.exchange.bybit_connector import BybitConnector
         client = connector_for_symbol("BTCUSDT", {"EXCHANGE": "bybit"})
         assert isinstance(client, BybitConnector)
+
+    def test_connector_for_contract_month_symbol_routes_to_base_root(self):
+        # BL-20260617-MHGN6-CANDLEROUTE: a contract-month symbol (MHGN6)
+        # has no instrument profile of its own — it must resolve its base
+        # root (MHG -> IBKR), not fall through to the process EXCHANGE.
+        from src.runtime.market_data import connector_for_symbol
+        from src.exchange.ib_connector import IBMarketData
+        client = connector_for_symbol("MHGN6", {"EXCHANGE": "bybit"})
+        assert isinstance(client, IBMarketData)
+
+    def test_connector_month_grammar_never_strips_crypto(self):
+        # SOLUSDT/BTCUSDT must NOT be mistaken for month-coded futures.
+        from src.runtime.market_data import connector_for_symbol
+        from src.exchange.bybit_connector import BybitConnector
+        client = connector_for_symbol("SOLUSDT", {"EXCHANGE": "bybit"})
+        assert isinstance(client, BybitConnector)

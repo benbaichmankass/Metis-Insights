@@ -169,7 +169,7 @@ def _to_long_short(side: Any) -> str:
 
 
 def _broker_unrealised_for_trade(
-    account_id: Any, symbol: Any, direction: Any,
+    account_id: Any, symbol: Any, direction: Any, qty: Any = None,
 ) -> tuple[Any, str]:
     """Return ``(unrealised_pnl, source)``.
 
@@ -181,6 +181,19 @@ def _broker_unrealised_for_trade(
         measured" and the dashboard's client-side ``_position_upnl``
         fallback computes from the last candle close. Per CLAUDE.md
         Position-shape contract: null != 0.
+
+    Netted-position pro-rating (2026-07-04, operator-reported XRPUSDT
+    double count): brokers with one-way position mode (Bybit) report ONE
+    netted position per (symbol, side), but the journal can hold SEVERAL
+    open trade rows sharing it (two order packages -> two rows -> one
+    exchange position). Stamping the position's FULL ``unrealised_pnl``
+    onto every row made each row display — and any consumer sum count —
+    the whole position once per row. When the caller passes the row's
+    ``qty`` and it is smaller than the broker position ``size``, the
+    value is pro-rated by the row's share (``upnl * qty / size``, capped
+    at 1.0x so a stale over-sized row can never inflate). Source stays
+    ``"broker"`` — the number is broker-measured, scaled by the row's
+    declared share.
     """
     if not account_id or not symbol or not direction:
         return None, "unavailable"
@@ -198,7 +211,20 @@ def _broker_unrealised_for_trade(
         if upnl is None:
             return None, "unavailable"
         try:
-            return round(float(upnl), 2), "broker"
+            value = float(upnl)
+            try:
+                q = float(qty) if qty is not None else None
+                size = float(p.get("size")) if p.get("size") is not None else None
+            except (TypeError, ValueError):
+                q = size = None
+            if q is not None and size is not None and size > 0 and q > 0:
+                share = min(q / size, 1.0)
+                # Only scale when the row genuinely holds a sub-share;
+                # a lone row matching the whole position (share ~1)
+                # keeps the exact broker number.
+                if share < 0.999:
+                    value *= share
+            return round(value, 2), "broker"
         except (TypeError, ValueError):
             return None, "unavailable"
     return None, "unavailable"
@@ -606,7 +632,7 @@ async def get_positions(
         return []
     out: list[dict[str, Any]] = []
     for r in rows:
-        upnl, upnl_source = _broker_unrealised_for_trade(r[1], r[2], r[3])
+        upnl, upnl_source = _broker_unrealised_for_trade(r[1], r[2], r[3], r[4])
         # Server-side mark-to-market fallback (2026-06-16): when the broker
         # read is unavailable (logged-out IB Gateway, no matching position),
         # compute unrealised PnL from the last market close × the contract

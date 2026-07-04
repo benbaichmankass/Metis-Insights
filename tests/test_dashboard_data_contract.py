@@ -338,6 +338,51 @@ def test_positions_uses_broker_unrealised_when_available(
     assert body[0]["unrealizedPnlSource"] == "broker"
 
 
+def test_positions_prorates_netted_broker_upnl_across_sibling_rows(
+    client: TestClient, isolate_paths: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """2026-07-04 (operator-reported XRPUSDT double count): two open trade
+    rows sharing ONE netted broker position must split its unrealised PnL
+    by qty share — not each display the full amount (which double-counts
+    in every consumer sum: widget, Overview, per-group captions)."""
+    db = isolate_paths / "trade_journal.db"
+    _make_canonical_trades_db(db)
+    # Two long XRP rows on the same account: 30.8 + 95.1 = the broker's
+    # netted 125.9 position.
+    _insert_trade(
+        db, timestamp="2026-07-02T22:52:55Z", symbol="XRPUSDT",
+        direction="long", entry_price=1.0818, position_size=30.8,
+        status="open", is_backtest=0, account_id="bybit_2",
+    )
+    _insert_trade(
+        db, timestamp="2026-07-01T10:00:00Z", symbol="XRPUSDT",
+        direction="long", entry_price=1.05, position_size=95.1,
+        status="open", is_backtest=0, account_id="bybit_2",
+    )
+    dashboard_router._BROKER_POSITIONS_CACHE.clear()
+    monkeypatch.setattr(
+        "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
+        lambda: {"bybit_2": {"account_id": "bybit_2", "exchange": "bybit"}},
+    )
+    monkeypatch.setattr(
+        "src.units.accounts.clients.account_open_positions",
+        lambda cfg: [
+            {"symbol": "XRPUSDT", "side": "Buy", "size": 125.9,
+             "entry_price": 1.06, "unrealised_pnl": 10.42},
+        ],
+    )
+    resp = client.get("/api/bot/positions")
+    body = resp.json()
+    assert len(body) == 2
+    by_qty = {row["qty"]: row for row in body}
+    # Each row carries its share; together they sum to the position total.
+    assert by_qty[30.8]["unrealizedPnl"] == round(10.42 * 30.8 / 125.9, 2)
+    assert by_qty[95.1]["unrealizedPnl"] == round(10.42 * 95.1 / 125.9, 2)
+    assert all(row["unrealizedPnlSource"] == "broker" for row in body)
+    total = sum(row["unrealizedPnl"] for row in body)
+    assert abs(total - 10.42) < 0.02  # no double count
+
+
 def test_positions_unrealised_unavailable_when_broker_fails(
     client: TestClient, isolate_paths: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:

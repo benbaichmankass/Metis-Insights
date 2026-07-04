@@ -79,25 +79,23 @@ permissions:
   issues: write
 
 concurrency:
-  group: vm-diag-snapshot
-  # 2026-05-16: reverted to ``false`` after the cancel-in-progress
-  # mode silently dropped #1278 / #1281 / #1284 (three back-to-back
-  # diag-request pairs filed ~3 s apart during PR #1268 monitoring).
-  # The cancelled-run handler below was supposed to comment on
-  # preempted issues, but GitHub Actions cancels queued (not-yet-
-  # started) runs BEFORE the runner picks them up — so the
-  # ``if: cancelled()`` step never executes and no comment fires.
-  # The earlier issue stays open with no comment, indistinguishable
-  # from a wedge.
-  #
-  # The 2026-05-11 reason for ``true`` (a hung SSH/curl step holding
-  # the lane indefinitely) is moot now: ``timeout-minutes: 5`` on
-  # the job already bounds any hung run to 5 min, and the SSH
-  # ConnectTimeout + curl --max-time inside the step bound it
-  # further. With ``cancel-in-progress: false``, requests queue and
-  # each completes in turn — no silent cancellations, no lost
-  # diag-requests, worst-case latency for the second request is
-  # one full job cycle (typically ~15 s, hard-capped at 5 min).
+  # 2026-07-04 (BL-20260611-002): PER-ISSUE group. The single shared
+  # ``vm-diag-snapshot`` group silently dropped bursts even with
+  # ``cancel-in-progress: false`` — GitHub keeps at most ONE *pending*
+  # run per group, so each newly-queued diag-request cancelled the
+  # previously-queued one (only the running + newest-pending survive),
+  # and queued-cancelled runs never execute their ``if: cancelled()``
+  # commenter (verified again 2026-07-03: 8 of 11 burst pulls dropped,
+  # runs 28673741352…28673753514). Keying the group on the issue number
+  # gives every request its own lane: bursts run CONCURRENTLY instead of
+  # queuing, and nothing can cancel a sibling request. Concurrency
+  # within one issue (the ``opened``+``labeled`` double-fire) still
+  # shares a group and queues serially, which the dedup step handles.
+  # Load is bounded: each run is a read-only SSH+curl hard-capped at
+  # 5 min (job ``timeout-minutes``) with its own connect/max-time
+  # bounds. ``workflow_dispatch`` runs (no issue) fall back to run_id
+  # (always-unique group = unrestricted).
+  group: vm-diag-snapshot-${{ github.event.issue.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:

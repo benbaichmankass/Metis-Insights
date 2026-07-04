@@ -61,15 +61,14 @@ permissions:
   issues: write
 
 concurrency:
-  group: trainer-vm-diag
-  # 2026-06-08: ``false`` (was ``true``) — mirrors the 2026-05-16 fix on
-  # vm-diag-snapshot.yml. With ``cancel-in-progress: true``, the
-  # ``opened`` + ``labeled`` events that fire ~50 ms apart on a fresh
-  # issue race each other: the second cancels the first via concurrency
-  # before the dedup step can short-circuit it, and both runs end up
-  # ``cancelled`` (issue #3000). With ``false``, requests queue and
-  # execute serially; the dedup step (added 2026-06-08) catches the
-  # ``opened``+``labeled`` duplicate cleanly.
+  # 2026-07-04 (BL-20260611-002): PER-ISSUE group, mirroring
+  # vm-diag-snapshot.yml — the shared group dropped queued bursts
+  # (GitHub keeps at most one PENDING run per group regardless of
+  # cancel-in-progress). Per-issue keying lets independent requests run
+  # concurrently while the ``opened``+``labeled`` double-fire on ONE
+  # issue (issue #3000 race) still shares a group, queues serially, and
+  # is short-circuited by the dedup step (2026-06-08).
+  group: trainer-vm-diag-${{ github.event.issue.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
