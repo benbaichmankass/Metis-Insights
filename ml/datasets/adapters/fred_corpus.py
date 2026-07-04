@@ -36,6 +36,13 @@ Default series (override per build via ``series=``), grouped for the catalog:
 All keyless FRED daily series. Off-VM only; read-mostly; never `trade_journal.db`.
 Tests monkeypatch `fred_macro._download` so CI never touches the network.
 
+**Panel widened 2026-07-04 (M19 T1.2 Phase 3):** the ``CORPUS_SERIES`` dict below
+is the authoritative catalog — the table above lists the founding series; the
+2026-07-04 breadth pass roughly doubled it (fuller Treasury curve, breakevens,
+VIX + broader equity, IG credit, the broad-dollar index + more FX crosses) after
+the SSL encoder overfit the original thin 13-series panel. See the inline
+comment block on the dict for the additions and rationale.
+
 **Per-series resilience:** a single upstream series that FRED discontinues (→
 404) must never zero the whole corpus, so `fetch_fred_corpus_series` fetches each
 series independently and **skips** any that fail (recording them under
@@ -71,6 +78,36 @@ CORPUS_SERIES: Mapping[str, tuple[str, str]] = {
     # the gold-complex signal is the CBOE gold-ETF vol index, not a price level.
     "GVZCLS": ("gold_vol", "commodity"),
     "DHHNGSP": ("natgas", "commodity"),
+    # --- Breadth widening (2026-07-04, M19 T1.2 Phase 3) --------------------
+    # The 13-series panel was too thin for the SSL encoder to learn a
+    # generalizable market state (train recon 0.036 vs val 2.006 → overfit; the
+    # corpus_emb block LOST to the frozen-Chronos T0.1 emb on macro_f1 AND
+    # f1_volatile in the first P2 A/B on BTC-15m regime). More series = richer
+    # cross-asset structure for the masked-reconstruction objective and less
+    # capacity to memorize. All keyless FRED daily; the per-series resilience
+    # skips any id FRED discontinues (→ 404) so an over-reach can't zero the panel.
+    #
+    # Fuller Treasury curve (the whole-curve shape is high-signal for a regime encoder):
+    "DGS3MO": ("ust3mo", "rates"),
+    "DGS1": ("ust1y", "rates"),
+    "DGS5": ("ust5y", "rates"),
+    "DGS10": ("ust10y", "rates"),
+    "T10Y3M": ("ust_3m10y", "rates"),
+    "DFF": ("fed_funds", "rates"),
+    # Inflation expectations (breakevens) — the real-vs-nominal axis:
+    "T5YIE": ("breakeven5y", "rates"),
+    "T10YIE": ("breakeven10y", "rates"),
+    # Equity vol + broader equity breadth:
+    "VIXCLS": ("vix", "equity"),
+    "DJIA": ("dow", "equity"),
+    "WILL5000INDFC": ("wilshire5000", "equity"),
+    # Investment-grade credit (pairs with the HY OAS for the credit axis):
+    "BAMLC0A0CM": ("ig_credit_oas", "credit"),
+    # Dollar breadth + more FX crosses (carry / commodity-currency / haven):
+    "DTWEXBGS": ("broad_dollar", "fx"),
+    "DEXCAUS": ("usdcad", "fx"),
+    "DEXUSAL": ("audusd", "fx"),
+    "DEXSZUS": ("usdchf", "fx"),
 }
 
 __all__ = ["CORPUS_SERIES", "OffVmGuardrailViolation", "fetch_fred_corpus_series"]
