@@ -1080,7 +1080,15 @@ strategies:
     # BL-20260611-007.
     model: null
     signal_prefixes: [xauusd_trend]
-    enabled: true
+    enabled: false           # DISABLED 2026-07-04 (operator, /health-review
+                             # follow-up): silent-enabled debris -- the only
+                             # routed account (oanda_practice) has been shelved
+                             # since 2026-06-12 (BL-20260611-007), so the
+                             # strategy loaded every boot yet emitted ZERO
+                             # audit events. The validated XAU edge is
+                             # unchanged; re-enable if an account that can
+                             # trade XAU_USD is ever un-shelved. Gold coverage
+                             # continues live via IBKR mgc_trend_1h + Alpaca GLD.
     execution: live          # PROMOTED shadow -> live-on-practice 2026-06-11
                              # (operator: "go live on practice"). oanda_practice
                              # is PAPER money; per the operator policy

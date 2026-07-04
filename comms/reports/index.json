@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260704-061000-since-last",
+      "window": "since-last",
+      "generated_at": "2026-07-04T06:10:00+00:00",
+      "window_start": "2026-07-02T06:17:00+00:00",
+      "window_end": "2026-07-04T06:10:00+00:00",
+      "roll_up_grade": "caution",
+      "headline": "First prop WINNER banked: Breakout ETH long closed at TP for +297.12 net (~2.2R) with the manual-bridge report loop working end to end. Claude decision-grade coverage RESTORED to 100% (161 backfilled; 2,727/2,727). IB gateway was dark most of 07-03 (recovered 17:01Z; benign-diag verdict, definitive check at Monday's CME open). Real-money: no closed trades; one D-grade XRP long (~$33) opened on bybit_2. Paper: -531.87 realised, all intent_reduce churn under the #5101 soak watch. alpaca_live confirmed structurally size-0 on its $150 balance \u2014 operator accepted as-is. xauusd_trend_1h disabled (silent-enabled debris).",
+      "html_path": "comms/reports/since-last/20260704T061000Z/report.html",
+      "json_path": "comms/reports/since-last/20260704T061000Z/report.json",
+      "md_path": "comms/reports/since-last/20260704T061000Z/report.md"
+    },
+    {
       "id": "RPT-20260702-061700-since-last",
       "window": "since-last",
       "generated_at": "2026-07-02T06:17:00+00:00",
