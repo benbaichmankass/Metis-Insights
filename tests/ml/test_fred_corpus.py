@@ -47,6 +47,8 @@ def test_fetch_groups_and_shape(monkeypatch):
     # index — the LBMA gold fixing series were discontinued by FRED)
     names = {block["name"] for block in panel.values()}
     assert {"usdjpy", "eurusd", "gbpusd", "gold_vol", "natgas"} <= names
+    # the 2026-07-04 T1.2 Phase-3 breadth widening (fuller curve / vol / dollar):
+    assert {"vix", "broad_dollar", "ust10y", "breakeven5y", "ig_credit_oas"} <= names
 
 
 def test_custom_series_replaces_default(monkeypatch):
