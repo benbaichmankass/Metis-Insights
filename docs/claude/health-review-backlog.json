@@ -2232,8 +2232,10 @@
       "trigger_condition": "Next dashboard-repo sprint (preview-branch flow).",
       "resolution_criteria": "Client renders the API unrealizedPnl; no multiplier-blind local recompute.",
       "tier": "Tier-1 (dashboard read-only)",
-      "status": "open",
-      "progress": "PR ict-trader-dashboard#103 open (S-LIVETRADE-MGMT-S2): _position_upnl/_open_upnl trust the API's multiplier-aware unrealizedPnl; dropped the (price-entry)*qty recompute + the dead last_price plumbing (Positions per-render candle fetch, _render_trade_card last_price param). ruff + py_compile clean. HELD for operator preview verification (pushed to claude/web-app-preview) before merge to main per the dashboard preview-first rule \u2014 not yet resolved until merged + verified live."
+      "status": "resolved",
+      "progress": "PR ict-trader-dashboard#103 open (S-LIVETRADE-MGMT-S2): _position_upnl/_open_upnl trust the API's multiplier-aware unrealizedPnl; dropped the (price-entry)*qty recompute + the dead last_price plumbing (Positions per-render candle fetch, _render_trade_card last_price param). ruff + py_compile clean. HELD for operator preview verification (pushed to claude/web-app-preview) before merge to main per the dashboard preview-first rule \u2014 not yet resolved until merged + verified live.",
+      "resolved_at": "2026-07-04T08:40:00+00:00",
+      "resolution": "VERIFIED ALREADY FIXED (2026-07-04 audit during the operator-picked backlog drain): the dashboard's multiplier-blind client-side (last_price-entry)*qty recompute was removed in a prior session \u2014 streamlit_app.py _position_upnl/_open_upnl now trust the API's multiplier-aware unrealizedPnl (broker / markprice_local per the 2026-06-16 PnL-resolution contract) and render null/unavailable as em-dash, never a recomputed number (docstring cites this BL id). Grep confirms the only remaining client-side compute is the deliberate prop mark-price estimate (prop_estimate source, 1:1 crypto contracts, no broker feed). Related sibling fixed in this same PR: the bot-side netted-position uPnL double-count pro-rating."
     },
     {
       "id": "BL-20260616-TRADE-EVENT-TELEGRAM-GATE",
@@ -2892,5 +2894,5 @@
       "resolution": "RESOLVED across 07-03/07-04: (1) first-ever prop_account_status row seeded via the prop-report relay (issue #5541) \u2014 balance 5215.27 / equity 5215.27 / realized_today +297.12, derived from terminal trade history and OPERATOR-RATIFIED in chat 2026-07-04 (\"that is the updated status of the prop account\"); rule-distance guard live (daily-loss cushion $147.54, DD-floor distance $515.27). (2) The structural fix shipped in PR #5521: src/prop/prop_status_request.py pings the operator with paste-ready reply formats whenever a prop position is open and the latest snapshot is absent/stale \u2014 the panel can no longer silently run blind. First live firing of the ping is the residual watch (monitoring item in RPT-20260704-061000)."
     }
   ],
-  "updated_at": "2026-07-04T08:05:00+00:00"
+  "updated_at": "2026-07-04T08:40:00+00:00"
 }
