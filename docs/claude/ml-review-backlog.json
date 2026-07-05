@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "MB-20260705-TRAINER-OOM",
+      "opened_at": "2026-07-05T12:10:00+00:00",
+      "opened_by": "claude (/system-review 2026-07-05, ml sub-review)",
+      "source": "trainer-vm-diag run 28739962239: ict-trainer.service Active: failed (Result: oom-kill) since 2026-07-05 06:14:12 UTC after 41min CPU; the 01:32Z cycle trained the manifest fleet OK through ~02:30 (manifest_ok rows) then a later stage was OOM-killed on the 6GB box. Timer healthy (next 2026-07-06 00:57Z). Also: dataset_builds.jsonl not found at runtime_logs/ (path check MISSING).",
+      "title": "Trainer cycle OOM-killed mid-run (2026-07-05 06:14Z) \u2014 identify the offending stage and bound its memory; verify dataset_builds log path",
+      "description": "Next trainer session: journalctl around 06:14Z to identify the stage (likely a heavy dataset build / corpus job post-manifest-loop), add a memory bound or split the stage, confirm the next nightly cycle completes end-to-end. Also resolve where dataset_builds.jsonl actually lives (the diag cmd found nothing at ~/ict-trading-bot/runtime_logs/).",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-07-05T12:35:00+00:00",
+          "by": "claude (flag wrap-up 2026-07-05)",
+          "note": "DIAGNOSED via trainer relay run 28740341472: python pid 1890173 under ict-trainer.service reached 4.8G anon RSS on the 6G NO-SWAP box -> GLOBAL oom (apport invoked the killer); the unit's own journal is silent 05:40-06:15 (a quiet big-allocation stage, likely a corpus/dataset build after the manifest loop). CONTAINMENT APPLIED (autonomous trainer ops, relay issue #5621): systemd drop-in MemoryHigh=4G/MemoryMax=5G on ict-trainer.service (unit-scoped throttle+kill instead of global OOM) + 2G persistent swapfile + reset-failed. VERIFY: next nightly cycle (2026-07-06T00:57Z) completes end-to-end; if a stage still dies at the 5G cap, identify + split that stage."
+        }
+      ]
+    },
+    {
       "id": "MB-20260626-001",
       "opened_at": "2026-06-26T15:00:00+00:00",
       "opened_by": "claude (ml-strategies-deep-review / fleet scorecard session)",
@@ -1316,27 +1333,27 @@
     },
     {
       "id": "MB-20260705-FC-ADVISORY-READINESS",
-      "opened_at": "2026-07-05T13:30:00+00:00",
-      "opened_by": "claude (M19 next-direction deep-research session)",
-      "source": "M19 next-direction deep-research (external literature + live diag pulls #5610/#5611): the 07-04 RG4 first look (48 labeled BTC-fc rows, 0 ETH, stale mirror) returned ANTI_PREDICTIVE/AUC=None and was structurally unpowered. The rare-class validation literature says AUC quality is driven by the ABSOLUTE number of positive events (PMC12667734), assurance-based AUC CI planning needs ~36-48 positives even for a strong classifier (Stat Med 10.1002/sim.7992, logit-transformed CIs at small n), and fixed-EPV shortcuts are unreliable (Riley et al.). At the observed soak rate (~96 preds/day/symbol, 4.6% volatile base rate => ~4.4 positives/day/symbol) the first powered read lands ~10-14 soak days after 07-05.",
-      "title": "fc head shadow->advisory readiness: powered evidence standard before any Tier-3 promotion proposal (volatile-episode soak + fresh-mirror RG4)",
-      "description": "Promotion evidence standard for btc/eth-regime-15m-lgbm-fc-pcv-v1: (1) trainer shadow-log mirror FRESH at read time (the 07-04 read was ~19h stale - fix the sync-before-read, it gates everything); (2) >=40-50 labeled volatile-class bars per symbol spanning >=5 DISTINCT volatile episodes (volatile bars cluster; episode diversity is the effective sample size, not bar count); (3) logit-transformed-CI AUC on the live shadow record with the lower bound materially above the incumbent frozen vol_detector on the same window; (4) the head-pinned money-gate walk-forward (backtest harness resolves the vol head by STAGE, not id - needs the scratch-registry pinning step, set up deliberately); (5) then, and only then, a Tier-3 proposal to the operator. If a POWERED RG4 stays anti-predictive, that is a live train/serve-skew red flag: halt D4 and audit fc feature-serving parity before trusting further soak.",
-      "tier": "Tier-1 (evidence gathering); the promotion itself Tier-3 (operator money gate).",
-      "trigger_condition": "Soak reaches the positive-event + episode-diversity target (~mid-July at current accrual), with a fresh mirror.",
-      "resolution_criteria": "Either (a) powered RG4 positive + walk-forward PASS -> Tier-3 promotion proposal delivered to the operator; or (b) powered RG4 negative -> D4 halts, fc serving-parity audit opened, item resolves into that audit; or (c) the fc head is demoted/superseded first.",
+      "opened_at": "2026-07-05T11:15:00+00:00",
+      "opened_by": "claude (M19 T0.4 fc-graduation session \u2014 soak-tracking handoff)",
+      "source": "The T0.4 fc forecast heads (btc-regime-15m-lgbm-fc-pcv-v1, eth-regime-15m-lgbm-fc-pcv-v1) are at SHADOW, soaking live across BTC+ETH via the CPU mirror-publish serve chain (producer ict-trainer-forecast.timer 15-min; forecast_live reader; zero torch on the money-box). fc is M19's one durable classifier win. The only RG4 (train/serve-skew) look so far was LOW-POWER (stale mirror 03:26 UTC, ~48 labeled BTC-fc rows, 0 ETH, no volatile episodes) and returned ANTI_PREDICTIVE / AUC=None \u2014 noise-dominated, NOT a red alarm, but not yet clean positive discrimination either.",
+      "title": "fc heads (BTC+ETH 15m) at shadow, soaking toward the fc\u2192advisory Tier-3 money gate \u2014 CHECK the soak maturity and re-run a POWERED RG4 before proposing promotion; do not rush.",
+      "description": "This is the durable 'check the fc soak, act when ripe' record so a future ml-review/system-review picks up the fc\u2192advisory decision at the right time (it is otherwise only in the ROADMAP T0.4 row + sprint logs). The shadow\u2192advisory promotion is the Tier-3 live money gate (operator-approved) \u2014 the switch that turns fc from observing to influencing the vol-gate decision. It must NOT be proposed until: (1) the live shadow soak has accrued real VOLATILE episodes on BTC and ETH (the fc head's edge is vol-regime-specific; a soak with no volatile bars can't validate it \u2014 base_rate=0 \u2192 AUC=None); (2) a POWERED RG4 replay on a FRESH live\u2192trainer shadow-log mirror shows clean positive discrimination (TRUSTWORTHY_SIGNAL, real AUC > ~0.55), NOT the current low-power ANTI_PREDICTIVE/AUC=None; and (3) a head-pinned money-gate walk-forward (resolve the vol head by ID via a scratch-registry step, per the ROADMAP note) passes. If RG4 stays anti-predictive WITH power, that is a live train/serve skew that BLOCKS promotion \u2014 investigate fc feature-serving parity before anything else.",
+      "tier": "Tier-3 (shadow\u2192advisory is the live money gate, operator-approved). This backlog item is the readiness TRACKER; the promotion itself is proposed only when the criteria below are met.",
+      "trigger_condition": "Re-check on each ml-review / system-review: has the BTC+ETH fc shadow soak accrued volatile episodes AND has a fresh-mirror powered RG4 been run? First meaningful re-check ~2026-07-19 (\u22482 weeks soak); firm read once volatile episodes are present.",
+      "resolution_criteria": "Either (a) volatile episodes accrued + powered RG4 = TRUSTWORTHY_SIGNAL + head-pinned walk-forward passes \u2192 propose fc\u2192advisory to the operator (Tier-3); or (b) powered RG4 stays anti-predictive \u2192 open a train/serve feature-parity investigation and keep fc at shadow. Resolved when the promotion is made OR the head is demoted/retired.",
       "status": "open",
       "snoozed_until": null,
       "evidence_log": [
-        "2026-07-05: diag #5610 BTC-fc 199 shadow preds since 07-03 (score 0.51-0.999, mean 0.963); #5611 ETH-fc 74 preds since 07-04 - soak accruing at per-bar cadence.",
-        "2026-07-04: RG4 first look ANTI_PREDICTIVE/AUC=None on 48 labeled rows + stale mirror - unpowered watch-flag, not a verdict (S-M19-FC-GRADUATION-PROGRAM-2026-07-04).",
-        "2026-07-05: powered evidence standard derived + cited in docs/research/M19-next-direction-recommendation-2026-07-05.md section 4."
+        "ROADMAP.md T0.4 row \u2014 fc live shadow soak + RG4 low-power watch-flag.",
+        "docs/sprint-logs/S-M19-FC-GRADUATION-PROGRAM-2026-07-04.md \u2014 RG4 first-look caveats + money-gate walk-forward note.",
+        "scripts/ml/rg4_targeted.sh + scripts/ml/replay_pregate_live.py \u2014 the RG4 harness (re-run on a fresh mirror).",
+        "2026-07-05 (deep-research next-direction session): ranked D4/priority-1. Powered evidence standard quantified from the rare-class AUC literature (events drive AUC quality, PMC12667734; assurance-based CI planning needs ~36-48 positives even for a strong classifier, Stat Med 10.1002/sim.7992 - use logit-transformed CIs at small n): >=40-50 labeled volatile-class bars PER SYMBOL spanning >=5 DISTINCT volatile episodes, on a FRESH mirror. Fresh soak pulls: diag #5610 BTC-fc 199 preds since 07-03 (score 0.51-0.999), #5611 ETH-fc 74 preds since 07-04 => ~96 preds/day/symbol, ~4.4 expected volatile bars/day/symbol => first powered read ~mid-July. Full derivation: docs/research/M19-next-direction-recommendation-2026-07-05.md section 4."
       ],
       "status_history": [
         {
-          "at": "2026-07-05T13:30:00+00:00",
+          "at": "2026-07-05T11:15:00+00:00",
           "status": "open",
-          "by": "claude (M19 next-direction deep-research session)",
-          "note": "Opened as D4 priority-1 of the M19 next-direction ranking - the gate the operator directive requires before any fc->advisory proposal."
+          "note": "Opened to durably track the fc\u2192advisory soak-readiness so the Tier-3 decision is picked up when ripe (was only in ROADMAP + sprint logs)."
         }
       ]
     },
@@ -1365,5 +1382,5 @@
       ]
     }
   ],
-  "updated_at": "2026-07-05T13:30:00+00:00"
+  "updated_at": "2026-07-05T18:15:00+00:00"
 }

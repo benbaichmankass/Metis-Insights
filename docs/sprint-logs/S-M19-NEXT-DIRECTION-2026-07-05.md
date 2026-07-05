@@ -21,12 +21,15 @@ Representation frontier closed 3-for-3 (T0.1 marginal / T1.1 TCN negative /
 T1.2 SSL negative); fc head the one durable win, at shadow on BTC+ETH; the
 07-05 fc→SL/TP offline backtest INCONCLUSIVE (simulator failed its
 reality-calibration anchor by ~0.6R); RG4 first look unpowered
-(ANTI_PREDICTIVE watch-flag on 48 stale-mirror rows). **Discrepancy found at
-start:** the brief file (`docs/research/M19-next-direction-deep-research-brief-2026-07-05.md`)
-and the ROADMAP M19 "Next research directions" block the directive referenced,
-plus the `MB-20260705-FC-ADVISORY-READINESS` backlog id it cited, did not
-exist in the repo — reconstructed/created this session (each marked with its
-provenance).
+(ANTI_PREDICTIVE watch-flag on 48 stale-mirror rows). **Race found + resolved
+at merge time:** the brief file, the ROADMAP "Next research directions" block,
+and `MB-20260705-FC-ADVISORY-READINESS` that the directive referenced were
+absent from `main` when this session branched (@3b8437c) — they landed in
+#5593 (@60f6faf, ~11:55 UTC) minutes later, while the research ran. This
+session initially reconstructed them; at merge time the reconstruction was
+dropped in favour of the authentic committed versions and this session's
+additions (the ranking, the powered-gate numbers, the censoring requirement)
+were folded on top.
 
 ## Repo State Checked
 `main` @ 3b8437c (fetched; local branch `claude/m19-next-direction-research-zl2544`
@@ -57,34 +60,39 @@ this session (relay used, as designed).
   symbol); D1 soak must be censoring-aware (counterfactual exits only
   partially identified); D2 spike A = real+paper pooled labels (~2,700+ rows)
   with an `account_class` domain flag, real-money slice held for evaluation.
-- **Brief reconstructed + committed:** `M19-next-direction-deep-research-brief-2026-07-05.md`.
+- **Brief:** the authentic handoff brief from #5593 is kept verbatim (this
+  session's initial reconstruction was dropped at merge time in its favour).
 - **ROADMAP M19:** new "Next research directions (2026-07-05)" block with the
   D1–D4 tier/gate/constraint table + the chosen priority order.
-- **ml-review backlog:** opened `MB-20260705-FC-ADVISORY-READINESS` (the D4
-  powered evidence standard) + `MB-20260705-META-LABEL-WALL` (D2 spike A);
-  appended evidence-log updates to `MB-20260704-T12-SSL-NEGATIVE`
-  (spectral-overlap pre-check on the D3 trigger) and
-  `MB-20260705-FC-SLTP-GEOMETRY` (D1 censoring design requirement).
+- **ml-review backlog:** opened `MB-20260705-META-LABEL-WALL` (D2 spike A);
+  folded the powered evidence standard + fresh soak numbers into #5593's
+  `MB-20260705-FC-ADVISORY-READINESS`; appended evidence-log updates to
+  `MB-20260704-T12-SSL-NEGATIVE` (spectral-overlap pre-check on the D3
+  trigger) and `MB-20260705-FC-SLTP-GEOMETRY` (D1 censoring design
+  requirement).
 
 ## Validation Performed
 - Live soak/journal numbers pulled fresh over the relay (not reused from the
   07-04 snapshot) — #5610/#5611/#5613 outputs quoted in the report.
-- Backlog JSON validated (`json.load` clean, 64 items).
+- Backlog JSON validated (`json.load` clean; 65 items post-merge, no new dup ids).
 - Every external claim in the report carries its verification status
   ([✓3-0]/[✓2-1]/[◐]) — nothing unverified is presented as verified.
 
 ## Documentation Updated
 - `docs/research/M19-next-direction-recommendation-2026-07-05.md` (new)
-- `docs/research/M19-next-direction-deep-research-brief-2026-07-05.md` (new)
 - `ROADMAP.md` (M19 "Next research directions" block)
-- `docs/claude/ml-review-backlog.json` (+2 items, 2 evidence updates)
+- `docs/claude/ml-review-backlog.json` (+1 item, 3 evidence-log updates)
 - This log.
 
 ## Contradictions or Drift Found
-The operator directive referenced a brief file, a ROADMAP block, and a backlog
-id that had not been committed by any prior session — presumably drafted
-out-of-band and never landed. Resolved by creating all three with explicit
-provenance notes rather than routing around the gap.
+A same-day merge race: the drafting session's handoff (#5593 — the brief, the
+ROADMAP registration block, `MB-20260705-FC-ADVISORY-READINESS`) landed on
+`main` minutes after this session branched, so this session first saw the
+artifacts as missing and reconstructed them. Resolved at merge time by keeping
+the authentic committed versions and folding this session's additions on top
+(union on the backlog; unified ROADMAP block). Separately noted, not fixed
+(pre-existing on main, both entries resolved): duplicate backlog id
+`MB-20260609-001` appears twice in the ml-review backlog.
 
 ## Risks and Follow-Ups
 - The deep-research verification of ~4 late claims (cross-sectional-ranking

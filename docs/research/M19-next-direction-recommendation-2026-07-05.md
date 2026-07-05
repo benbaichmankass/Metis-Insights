@@ -1,7 +1,10 @@
 # M19 next direction — ranked, sequenced recommendation (2026-07-05)
 
 **Brief:** [`M19-next-direction-deep-research-brief-2026-07-05.md`](M19-next-direction-deep-research-brief-2026-07-05.md)
-(reconstructed + committed this session — see its provenance note).
+(the drafting session's handoff brief, landed on `main` in #5593 minutes after
+this session branched — this run answered it from the directive text plus the
+same M19 record it cites; the reconciliation is recorded in
+`S-M19-NEXT-DIRECTION-2026-07-05`).
 
 **Verdict up front — the chosen priority order:**
 

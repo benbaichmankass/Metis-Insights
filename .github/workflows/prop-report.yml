@@ -224,10 +224,18 @@ jobs:
           TOKEN=""
           if sudo test -f "$ENVFILE" 2>/dev/null; then
             TOKEN="$(sudo grep -E '^DASHBOARD_API_TOKEN=' "$ENVFILE" 2>/dev/null | tail -n1 | cut -d= -f2- || true)"
-            # Strip optional surrounding quotes that a .env line may carry.
-            TOKEN="${TOKEN%\"}"; TOKEN="${TOKEN#\"}"
-            TOKEN="${TOKEN%\'}"; TOKEN="${TOKEN#\'}"
           fi
+          # Fallback: sync-vm-secrets writes the token to the repo .env (the
+          # web-api unit's second EnvironmentFile) — read it from there when
+          # web-api.env doesn't carry it, so the relay's own POSTs keep their
+          # bearer once enforcement is armed (BL-20260705-DASHBOARD-API-TOKEN-UNSET).
+          if [ -z "${TOKEN}" ] && [ -f /home/ubuntu/ict-trading-bot/.env ]; then
+            TOKEN="$(grep -E '^DASHBOARD_API_TOKEN=' /home/ubuntu/ict-trading-bot/.env 2>/dev/null | tail -n1 | cut -d= -f2- || true)"
+          fi
+          # Strip optional surrounding quotes that a .env line may carry
+          # (applies to whichever source supplied the token).
+          TOKEN="${TOKEN%\"}"; TOKEN="${TOKEN#\"}"
+          TOKEN="${TOKEN%\'}"; TOKEN="${TOKEN#\'}"
 
           # Build the curl argv. Add the bearer header only when a token
           # was found; capture the HTTP status separately from the body.

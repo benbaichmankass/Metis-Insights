@@ -83,11 +83,15 @@ graduate an fc→SL/TP-geometry change on this evidence.**
 ## Next Recommended Sprint
 With Phase 2 assessed (inconclusive, needs a live soak not a backtest) and Phases 1/3
 deferred as data-constrained, M19's active offline exploration is substantially
-complete. The remaining forward motion is **soak maturation**: let the BTC+ETH fc
-shadow soak accrue volatile episodes, then re-run RG4 on a fresh mirror for a powered
-train/serve-skew verdict before any fc→advisory proposal. Treat further offline levers
-as closed pending either more real-trade labels (unlocks T1.3) or a live-soak build
-(unlocks the fc-geometry question).
+complete. Rather than pick the next lever by default, the **next session should be a
+deep-research pass** that prioritizes the candidate directions (D1 live fc-geometry
+soak · D2 break the label wall · D3 task-matched corpus-embedding head · D4 mature
+fc→advisory) against current data reality and returns an evidence-backed recommendation
+— brief: [`M19-next-direction-deep-research-brief-2026-07-05`](../research/M19-next-direction-deep-research-brief-2026-07-05.md);
+directions table in the ROADMAP M19 "Next research directions" block. In parallel,
+soak maturation continues (let the BTC+ETH fc shadow soak accrue volatile episodes,
+then re-run a powered fresh-mirror RG4 before any fc→advisory proposal —
+`MB-20260705-FC-ADVISORY-READINESS`).
 
 ## Wrap-Up Check
 - [x] Objective met (v2 built, ran, decided — honestly inconclusive).

@@ -319,26 +319,33 @@ the per-bar fetch-gate/budget, but compounds per head); the wide corpus is more
 data plumbing than modeling and must not starve the Tier-0 wins. ml-review-backlog
 items to open for the model/experiment proposals as the sprints kick off.
 
-### Next research directions (2026-07-05 — deep-research ranked)
+**Next research directions (2026-07-05 — post-representation-frontier; RANKED by the deep-research pass same day).** With the
+price-representation frontier closed three-for-three negative (T0.1 marginal, T1.1
+TCN, T1.2 SSL) and T0.4 `fc` established as the one durable win — its **classifier**
+use soaking toward the fc→advisory Tier-3 gate (`MB-20260705-FC-ADVISORY-READINESS`),
+its **geometry** extension found inconclusive offline (`MB-20260705-FC-SLTP-GEOMETRY`)
+— the milestone's *active offline exploration is substantially complete*. The candidate
+directions were registered here (brief:
+[`docs/research/M19-next-direction-deep-research-brief-2026-07-05.md`](docs/research/M19-next-direction-deep-research-brief-2026-07-05.md))
+and **the deep-research prioritization session RAN 2026-07-05** — full cited report:
+[`docs/research/M19-next-direction-recommendation-2026-07-05.md`](docs/research/M19-next-direction-recommendation-2026-07-05.md).
 
-With the price-representation frontier closed 3-for-3 (T0.1 marginal / T1.1
-TCN negative / T1.2 SSL negative) and the fc head soaking at shadow, the next
-execution line was ranked by an evidence-backed deep-research pass (external
-literature + live diag data): [`M19-next-direction-recommendation-2026-07-05`](docs/research/M19-next-direction-recommendation-2026-07-05.md)
-(brief: [`M19-next-direction-deep-research-brief-2026-07-05`](docs/research/M19-next-direction-deep-research-brief-2026-07-05.md)).
 **Chosen priority order: D4 ▸ D1 ▸ D2 ▸ D3** — start/keep every wall-clock
-data-accrual *clock* first (D4's soak is already running; D1's clock doesn't
-exist until built), spend researcher time offline (D2) while the clocks run,
-keep D3 dormant on its trigger. No further iteration on the
-reality-uncalibrated offline exit re-sim (backtest-overfitting literature +
-our own ~0.6R anchor failure).
+data-accrual *clock* first (D4's soak already runs; D1's clock doesn't exist until
+built), spend researcher time offline (D2) while the clocks run, keep D3 dormant on
+its trigger. No further iteration on the reality-uncalibrated offline exit re-sim
+(backtest-overfitting literature + our own ~0.6R anchor failure).
 
-| Pri | Direction | What | Tier | Gate | Binding constraint |
+| Pri | Direction | Type | Tier | Why / gate | Constraint |
 |---|---|---|---|---|---|
-| **1** | **D4 — mature fc→advisory (patiently)** | Fix trainer shadow-log mirror freshness, then a **powered** RG4 re-run: ≥40–50 labeled volatile-class bars/symbol spanning **≥5 distinct volatile episodes**, logit-CI AUC vs the incumbent frozen detector, + the head-pinned money-gate walk-forward. Soak keeps accruing (~96 preds/day/symbol at 4.6% base rate → ~4.4 volatile/day/symbol → first powered read ~mid-July). **No promotion proposal before that evidence** (`MB-20260705-FC-ADVISORY-READINESS`). | Tier-1 work; promotion Tier-3 | powered RG4 + walk-forward + operator | volatile-episode supply (market clock) |
-| **2** | **D1 — live fc-geometry shadow-soak (build now)** | Observe-only exit_ladder_soak-shaped logger: per opening order log placed SL/TP + fc-vol-scaled SL/TP + fc snapshot; resolve counterfactual barriers against the realized bar path with an explicit **censored** flag (shadow-mode lit: counterfactual exits are only partially identified from the placed order's path). Nothing reads it back. Replaces the offline route voided by the ~0.6R anchor failure (`MB-20260705-FC-SLTP-GEOMETRY`). | Tier-1/2 build (execute.py wiring = the one Tier-2 touch); any geometry change Tier-3 | soak shows net-R/maxDD edge under account rulesets | live trade rate (months-scale clock → start now) |
-| **3** | **D2 — label-wall spike A (meta-labeling on the full journal)** | Trade-outcome heads on real+paper pooled with an `account_class` domain flag (≈2,700+ labelable rows vs 214 real-only), purged CV, EPV-disciplined feature budget, calibration per the JFDS meta-labeling series; **real-money rows as the held evaluation slice**. Barrier labels as auxiliary/pre-training only (proven ~0.6R off live reality). No GAN/synthetic augmentation (memorization risk at this n). (`MB-20260705-META-LABEL-WALL`) | Tier-1 offline | clears purged-CV on the real-money slice with a defensible n before any soak | label volume + paper→real transfer |
-| **4** | **D3 — task-matched corpus head (dormant)** | Unchanged trigger (`MB-20260704-T12-SSL-NEGATIVE`: a daily/cross-asset head becomes active, e.g. ranker revival at ~500+ labels) **plus a spectral-overlap pre-check** before any embedding work; at trigger, the literature's first lever is hand-engineered features + learning-to-rank, not the corpus embedding. | — | corpus_emb beats BOTH baselines on a task-matched head | no active daily-clock head exists |
+| **1** | **D4 — mature fc → advisory (patiently)** | promotion harness (not new frontier) | T1 build → T3 gate | fix trainer shadow-log mirror freshness, then a **powered** RG4 re-run — ≥40–50 labeled volatile-class bars/symbol spanning **≥5 distinct volatile episodes**, logit-CI AUC vs the incumbent frozen detector — + the head-pinned money-gate walk-forward. At ~96 preds/day/symbol (4.6% base rate → ~4.4 volatile/day/symbol) the first powered read lands ~mid-July. **No promotion proposal before that evidence.** | soak-gated (market's volatile-episode supply); `MB-20260705-FC-ADVISORY-READINESS` |
+| **2** | **D1 — live fc-geometry shadow-soak (build now)** | observe-only instrumentation | T1/T2 build | the *faithful* Phase-2 test the backtest couldn't be — log fc-scaled SL/TP vs placed SL/TP per opening order (`exit_ladder_soak` shape), resolving counterfactual barriers against the realized bar path with an explicit **censored** flag (shadow-mode lit: counterfactual exits are only partially identified). Nothing reads it back. Gate: real net-R/maxDD improvement under the account rulesets. | months-scale accrual clock → build first; `MB-20260705-FC-SLTP-GEOMETRY` |
+| **3** | **D2 — break the label wall (spike A: meta-labeling on the full journal)** | supervised (more/better labels) | T0/T1 offline | trade-outcome heads on real+paper pooled with an `account_class` domain flag (≈2,700+ labelable rows vs 214 real-only), purged CV, EPV-disciplined feature budget, calibration per the JFDS meta-labeling series; **real-money rows as the held evaluation slice**. Barrier labels auxiliary/pre-training only (proven ~0.6R off live reality); no GAN augmentation at this n. Gate: clears purged-CV on the real slice with a defensible n before any soak. | label volume + paper→real transfer; `MB-20260705-META-LABEL-WALL` |
+| **4** | **D3 — task-matched corpus-embedding head (dormant)** | representation (re-use T1.2 encoder) | T0 ($0) | unchanged trigger (`MB-20260704-T12-SSL-NEGATIVE`: a daily/cross-asset head becomes active, e.g. ranker revival at ~500+ labels) **plus a mandatory spectral-overlap pre-check** before any embedding work; at trigger, the literature's first lever is hand-engineered features + learning-to-rank, not the corpus embedding. | no active daily-clock head exists today |
+
+Each direction, when executed, still graduates observe-only through
+`candidate → shadow → advisory`; nothing influences a live order without a backtest
+A/B and operator approval.
 
 ## Historical Sprint Ledger
 

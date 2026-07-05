@@ -1,82 +1,93 @@
-# M19 next-direction deep-research brief (2026-07-05)
+# M19 — Next-Direction Deep-Research Brief (handoff, 2026-07-05)
 
-> **Provenance note:** this brief was referenced by the operator's research
-> directive of 2026-07-05 but had not been committed to the repo (nor had the
-> ROADMAP "Next research directions" block it pointed at). It was reconstructed
-> at run time from the directive itself plus the M19 record (the T0.1/T0.3/T0.4/
-> T1.1/T1.2 evidence docs, the S-M19-* sprint logs, and the open ml-review
-> backlog items), and is committed here so the recommendation report has a
-> stable referent. The run's output is
-> [`M19-next-direction-recommendation-2026-07-05.md`](M19-next-direction-recommendation-2026-07-05.md).
+**Purpose.** This is the **spawn prompt for the next session.** M19's active offline
+exploration is substantially complete; rather than pick the next lever by default, the
+next session should run a **deep-research pass** that weighs the candidate directions
+against current data reality and returns a *prioritized, evidence-backed recommendation*
+for which line the following execution session should pick up.
 
-## Question
+Use the **`deep-research`** skill. This is a decision-support research task, not an
+implementation task — no `src/`/`config/`/`ml/` change, Tier-1.
 
-M19's representation frontier is closed as exhausted (three independent
-negatives on price-only representation learning) and the T0.4 `fc`
-quantile-forecast feature is the milestone's one durable win, now soaking at
-shadow on BTC+ETH. What is the next M19 execution line? Rank and sequence the
-four candidate directions against our data reality.
+---
 
-## The four candidate directions
+## Where M19 stands (grounding — cite, don't re-derive)
 
-| Direction | What it is | Tier | Gate | Binding constraint |
-|---|---|---|---|---|
-| **D1 — live fc-geometry shadow-soak** | Observe-only logger (exit_ladder_soak shape): per opening order, log the fc-vol-scaled SL/TP alongside the placed SL/TP; compare realized outcomes. Built because the offline 3-arm backtest failed its own reality-calibration anchor (real-realized −0.68R vs fixed-resim −0.06R, `MB-20260705-FC-SLTP-GEOMETRY`). | Tier-1/2 build (observe-only); any eventual geometry change Tier-3 | Soak shows a real net-R/maxDD edge under account rulesets before any Tier-3 proposal | Live trade rate (slow accrual clock) |
-| **D2 — break the label wall** | Label-efficiency program for the trade-outcome heads (conviction n_eval=20; ranker 214 labelable order-packages; ~350 real closed trades): meta-labeling on the journal's own outcomes, paper-trade labels with a domain flag, triple-barrier labels over historical bars as auxiliary signal. | Tier-1 (offline research) | A trade-outcome head clears purged-CV with an EPV-defensible sample before any soak | Label volume + label quality (paper≠real; barrier-sim≠live) |
-| **D3 — task-matched corpus-embedding head** | The only unexplored place the T1.2 corpus-SSL embedding might pay off: a head whose target lives on the corpus's daily/cross-asset clock (daily risk head, M18 cross-sectional ranker) — per the representation-target clock-mismatch root cause of the T1.2 negative (`MB-20260704-T12-SSL-NEGATIVE`). | Tier-1 (offline) | corpus_emb beats BOTH the no-embedding and frozen-Chronos baselines on a task-matched head | A daily/cross-asset head being an active experiment at all (it isn't — ranker deferred at 214 labels) |
-| **D4 — mature fc→advisory** | Graduate the validated fc vol-regime head from shadow to advisory: volatile-episode soak coverage + a powered fresh-mirror RG4 (first look was 48 labeled rows, ANTI_PREDICTIVE/AUC=None — noise, and a watch-flag) + a head-pinned money-gate walk-forward. | Tier-3 money gate (operator) | Powered RG4 positive + walk-forward PASS + operator approval | Volatile-episode accrual (~4.6% base rate → positives clock) |
+- **Price-representation frontier: closed, three-for-three negative.** T0.1 frozen TSFM
+  embeddings (marginal, base-rate cliff at the 0.005 operating point), T1.1 deep TCN
+  (clean negative vs the LightGBM regime head), T1.2 SSL "reads-everything" corpus encoder
+  (clean negative, replicated across two corpus widths — daily-panel→intraday-vol
+  target mismatch). Evidence docs under `docs/research/T0.1-*`, `T1.1-*`, `T1.2-*`.
+- **The one durable win: T0.4 `fc` forecast features** — quantile-forecast `fc_*` cols as
+  a **vol-regime classifier feature**. Positive + base-rate-robust under purged-CV; live at
+  **shadow** across BTC+ETH, soaking toward the fc→advisory Tier-3 gate.
+- **fc geometry extension (Phase 2): inconclusive.** Using the forecast to size SL/TP was
+  tested offline (`docs/research/T0.4-fc-sltp-geometry-evidence-2026-07-05.md`) — the
+  forward triple-barrier simulator failed its reality-calibration check (real-realized
+  −0.68R vs fixed-resim −0.06R), so the apparent edge is an in-simulator artifact. Needs a
+  live soak, not a backtest.
+- **The binding constraint (the M19 thesis): labels, not compute.** ~350 real-money trades;
+  MES label-blank historically; the free 1-OCPU trainer clears the daily cycle in <1h; GPU
+  bursts proven at ~$0.04/run against a $10/mo cap (spent ~$0.08 lifetime). Compute is a
+  distant second constraint.
+- **Deferred, data-walled:** T1.3 cross-sectional net-R ranker (214 labelable order-packages,
+  thin allocator decision space); T2.1 multi-task foundation encoder; T2.2 offline-RL sizing/exit.
 
-## Data reality (anchors)
+## The candidate directions to weigh (from ROADMAP M19 "Next research directions")
 
-- **Label scarcity:** ~350 real-money closed trades lifetime; 214 labelable
-  order-packages (07-04); conviction head n_eval=20; journal at 3,179 trades /
-  2,756 order-packages total incl. paper (07-05 diag pull).
-- **The fc win:** `btc-regime-15m-lgbm-fc-pcv-v1` at shadow since 07-03 (199
-  preds/~48h as of 07-05, per-15m-bar cadence ≈96/day/symbol), ETH head added
-  07-04 (74 preds/~18h). Purged-CV lift survives at the production threshold;
-  direction heads clean-negative.
-- **Price-representation frontier exhausted 3-for-3:** T0.1 frozen-TSFM
-  embeddings marginal at the production base rate; T1.1 TCN below the tree on
-  both metrics; T1.2 corpus-SSL clean negative across two corpus widths.
-- **Compute is slack:** ~$10/mo GPU burst path proven end-to-end (~$0.04/run);
-  the free trainer clears the daily cycle. Labels, not compute, bind.
-- **Offline exit re-simulation is unfaithful:** the triple-barrier forward
-  engine misses realized outcomes by ~0.6R (live closes are fees/monitor/flip/
-  reconciler exits, not clean barriers).
+- **D1 — live fc-geometry shadow-soak.** Build the faithful Phase-2 test: observe-only logger
+  of fc-scaled SL/TP vs placed SL/TP per opening order (`exit_ladder_soak` shape). Cost: a
+  Tier-1/2 build + weeks of soak. Payoff: the only honest answer to "does fc geometry help?".
+- **D2 — break the label wall.** Meta-labeling over dense triple-barrier candidates + MES label
+  backfill to grow usable labels; unlocks the decision heads and the deferred T1.3 ranker.
+  Highest leverage per the thesis; hardest; M14-style.
+- **D3 — task-matched corpus-embedding head.** Re-use the (sound) T1.2 encoder + corpus store on
+  a head whose target lives on the corpus's own daily/cross-asset clock (daily direction/risk
+  head, or the M18 ranker). Cheap, fast, offline A/B; may be another acceptable cheap negative.
+- **D4 — mature fc → advisory.** Build the head-pinned money-gate walk-forward + powered
+  fresh-mirror RG4 harness so the eventual fc→advisory Tier-3 promotion has real evidence.
+  Soak-gated; prep, not new frontier.
 
-## The five sub-questions
+## The deep-research question
 
-1. **Shadow-soak validity (D1):** is a live observe-only soak the
-   methodologically sound instrument for evaluating exit-geometry changes when
-   offline re-simulation fails reality-calibration — and what are its known
-   limits (counterfactual censoring) and duration norms?
-2. **Label efficiency (D2):** which techniques are evidence-backed for tiny
-   financial trade-outcome datasets — meta-labeling, triple-barrier labels,
-   transfer, semi-supervised, augmentation — and what are their pitfalls at
-   n≈200–350?
-3. **Cross-asset transfer (D3):** when do cross-asset/macro representations
-   transfer (frequency/task matching), and what does the evidence say about
-   cross-sectional ranking with learned embeddings at our data scale?
-4. **Powered promotion gates (D4):** what statistical standards govern
-   validating a rare-class (~4.6% positive) classifier's live discrimination
-   (AUC CIs, events-per-variable, positive-event counts), and what do
-   shadow-deployment promotion gates look like in practice?
-5. **Sequencing:** under a binding data constraint (labels/episodes accrue on
-   wall-clock, compute is slack), what ordering of D1–D4 maximizes information
-   gain per week?
+> **Given the current data reality (label scarcity, the fc classifier win in soak, the
+> representation frontier exhausted, ~$10/mo compute available but not the constraint),
+> which of D1–D4 — or a direction not yet listed — is the highest-expected-value next line
+> of ML research for this bot, and why?**
 
-## Constraints on the run
+Sub-questions the research should resolve with evidence (mix external literature + the
+repo's own data/history via the diag/trainer relays):
 
-Tier-1 only — no `src/`, `config/`, `ml/`, or live-path change; GPU spend stays
-gated; fc→advisory must NOT be proposed for promotion without a
-volatile-episode soak + a powered fresh-mirror RG4
-(`MB-20260705-FC-ADVISORY-READINESS`).
+1. **Label-wall economics.** How much would meta-labeling / triple-barrier candidate density
+   realistically move the usable-label count, and does the external evidence support meta-labeling
+   lifting decision quality at our sample size? (Ground against our own S5–S8 M14 findings — the
+   meta-label did NOT beat the majority baseline on real BTC trades.)
+2. **fc-geometry expected value.** Is there external + internal evidence that forecast-vol-scaled
+   exits beat fixed R:R exits *in live trading* (not simulation)? Is the soak build worth the weeks
+   of latency before a read?
+3. **Task-matched embeddings.** Does the literature support a daily macro/cross-asset SSL embedding
+   lifting a daily-horizon head or a cross-sectional ranker (vs the intraday-vol head it failed)?
+   Is our M18 ranker's label/decision space rich enough to test it?
+4. **Sequencing.** Given only one execution track at a time, what is the right *order* — e.g. start
+   D4 (cheap, matures the one real win) in parallel with a cheap D3 probe, defer D1's build until the
+   fc soak proves out, gate D2 behind a label-count trigger? Return a concrete sequenced plan.
+5. **Anything missing.** Is there a higher-EV direction none of D1–D4 name (e.g. a
+   non-ML execution-quality lever, a data-acquisition play, a different label source)?
 
-## Method
+## Deliverable of the next session
 
-External literature via the deep-research harness (5 search angles → 22
-sources → 103 extracted claims → adversarial 3-vote verification; 21 claims
-confirmed, 1 killed, verification of the last batch + synthesis truncated by a
-session rate limit and completed in the main session), plus our own data pulled
-live over the diag relays (#5610 BTC fc soak, #5611 ETH fc soak, #5613 journal
-counts) and the M19 evidence-doc record.
+A cited deep-research report (`docs/research/M19-next-direction-recommendation-<date>.md`) with:
+a ranked recommendation across D1–D4(+), the evidence for each, a concrete **sequenced** plan for
+the following execution session(s), and any new ml-review-backlog items the research surfaces.
+Then update the ROADMAP M19 "Next research directions" block with the chosen priority order.
+
+## Guardrails (carry into the next session)
+
+- Tier-1 research only; no live-path/config/ml change. Everything proposed still graduates
+  observe-only through `candidate → shadow → advisory`; order-influence is backtest-A/B-gated +
+  operator-approved.
+- GPU spend stays gated (`comms/gpu_spend_ledger.json`, $10/mo cap) — a research pass needs none.
+- fc → advisory is the one live money gate and is **not ripe** (soak young, RG4 unpowered) —
+  do not propose promotion without volatile-episode soak + a powered fresh-mirror RG4
+  (`MB-20260705-FC-ADVISORY-READINESS`).
+- Never put the running model's internal id string into any committed artifact — chat only.

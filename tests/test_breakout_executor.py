@@ -6,6 +6,8 @@ marker is returned (no live position).
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from src.prop.breakout_executor import (
@@ -13,6 +15,17 @@ from src.prop.breakout_executor import (
     emit_prop_ticket,
     is_manual_fill_id,
 )
+
+
+@pytest.fixture(autouse=True)
+def _isolated_journal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Each emit journals a prop_tickets row, and the ONE-TICKET-PER-TRADE guard
+    # reads that journal back — without per-test isolation the first test's
+    # 'emitted' SOLUSDT-long ticket suppresses every later emit for the same
+    # key (CI failure on PR #5622), and pre-guard the emits silently polluted
+    # a shared repo-root DB. Same isolation as test_prop_ticket_journaling.
+    monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "trade_journal.db"))
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "bot-data"))
 
 
 def _order(**over):
