@@ -129,6 +129,46 @@ def test_ingest_close_links_ticket_and_notifies(
     assert prop_journal.list_tickets()[0]["status"] == "closed"
 
 
+def test_ingest_buy_synonym_links_long_ticket(
+    isolated_db: Path, no_notify: list
+) -> None:
+    """A fill reported with the terminal's Buy/Sell wording must still link
+    to its long/short ticket (BL-20260705-PROP-DIRECTION-SYNONYM-MATCH: the
+    2026-07-05 ETHUSD fill sent direction 'buy', the exact string compare vs
+    the ticket's 'long' failed, and the fill landed with ticket_id null)."""
+    from src.prop import prop_journal, prop_report
+
+    prop_journal.record_ticket({
+        "ticket_id": "prop-manual-buy", "account_id": "breakout_1",
+        "symbol": "ETHUSDT", "direction": "long", "entry": 1770.17,
+    })
+    out = prop_report.ingest_report({
+        "account_id": "breakout_1", "symbol": "ETHUSDT", "direction": "buy",
+        "status": "filled", "entry_price": 1767.71, "qty": 1.9,
+    })
+    assert out["ok"] and out["ticket_id"] == "prop-manual-buy"
+    assert prop_journal.list_tickets()[0]["status"] == "filled"
+
+
+def test_ingest_sell_synonym_does_not_link_long_ticket(
+    isolated_db: Path, no_notify: list
+) -> None:
+    """The synonym map must not collapse opposite sides: a 'sell' fill is
+    short and must NOT link to a long ticket."""
+    from src.prop import prop_journal, prop_report
+
+    prop_journal.record_ticket({
+        "ticket_id": "prop-manual-longonly", "account_id": "breakout_1",
+        "symbol": "ETHUSDT", "direction": "long", "entry": 1770.17,
+    })
+    out = prop_report.ingest_report({
+        "account_id": "breakout_1", "symbol": "ETHUSDT", "direction": "sell",
+        "status": "filled", "entry_price": 1767.71, "qty": 1.9,
+    })
+    assert out["ok"] and out["ticket_id"] is None
+    assert prop_journal.list_tickets()[0]["status"] == "emitted"
+
+
 def test_ingest_placed_advances_to_placed_not_filled(
     isolated_db: Path, no_notify: list
 ) -> None:

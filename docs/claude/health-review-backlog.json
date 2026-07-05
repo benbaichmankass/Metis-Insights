@@ -3,6 +3,34 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260705-SHADOW-PKG-ORPHAN-STATUS",
+      "opened_at": "2026-07-05T11:05:00+00:00",
+      "opened_by": "claude (/health-review 2026-07-05 follow-up)",
+      "source": "9 order_packages from the execution:shadow trend_donchian_{eth,sol}_prop legs (2026-07-01..07-04) end status='orphaned' \u2014 the package watchdog orphans any package with no trade, but a shadow-execution package NEVER gets a trade by design, so every shadow signal pollutes the orphan-rate metrics (BL-20260601-001 / BL-20260607-003) and briefly misled the 2026-07-05 health review into a false ticket-emit-bug diagnosis.",
+      "title": "Package watchdog marks execution:shadow packages 'orphaned' \u2014 shadow soak noise pollutes orphan metrics; give them a distinct terminal status",
+      "description": "Tier-2 observability fix: when the owning strategy resolves execution:shadow at watchdog time (or the package is flagged shadow at creation), close the package as e.g. 'shadow_expired' (or 'shadow_logged') instead of 'orphaned', excluded from orphan-rate analytics. Keeps 'orphaned' meaning what reviews assume: an executed decision whose trade went missing.",
+      "tier": 2,
+      "trigger_condition": "Next order-package watchdog code session; one operator OK (runtime change).",
+      "resolution_criteria": "A shadow-strategy package reaching end-of-life carries the distinct status; orphan-rate queries exclude it; existing 9 rows optionally backfilled.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260705-PROP-RETICKET-WHILE-OPEN",
+      "opened_at": "2026-07-05T11:05:00+00:00",
+      "opened_by": "claude (/health-review 2026-07-05 follow-up)",
+      "source": "order_packages: pkg-5756a4bcfa0c4328 (10:05Z) + pkg-3eb12a1570cf4198 (10:08Z) both emitted NEW ETHUSDT-long prop tickets ~2h AFTER the operator filled the 08:00Z ticket (prop_fills 16, position open since 08:06 terminal time). The prop emit path does not consult open prop positions \u2014 prop fills live in prop_fills, not the trades table the netting guard / has_open_trade_for_strategy reads.",
+      "title": "Prop emit path re-tickets while a prop position is already open \u2014 operator gets repeat tickets for the held (symbol, direction)",
+      "description": "DECISION FOR OPERATOR (Tier-2/3, changes emission behaviour): should ticket emission for (account, symbol, direction) be suppressed while an unclosed prop_fills position exists (mirroring the netting-guard monocle), or kept as-is (operator gates every ticket; expiry prompt cleans up unacted ones)? If suppressing: check open prop position via prop_journal (fills with status open/filled and no later closed row) inside breakout_executor before emit, and journal a suppressed-reticket rejection row. Related: BL-20260628-PROP-ISPROP-PREDICATE-DRIFT.",
+      "tier": 3,
+      "trigger_condition": "Operator decides suppress-vs-keep; then a prop-bridge code session.",
+      "resolution_criteria": "Either an explicit operator 'keep as-is' recorded here, or the suppression shipped + a re-signal while open journals a suppression instead of a ticket.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "BL-20260705-PROP-DIRECTION-SYNONYM-MATCH",
       "opened_at": "2026-07-05T08:20:00+00:00",
       "opened_by": "claude (/health-review + prop fill logging session)",
@@ -12,9 +40,15 @@
       "tier": 1,
       "trigger_condition": "Next prop-bridge code session (or any session touching src/prop/).",
       "resolution_criteria": "A fill reported with direction buy/sell links to its long/short ticket without an explicit ticket_id; regression test added.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-05T11:05:00+00:00",
+          "by": "claude (operator-approved fix session 2026-07-05)",
+          "note": "FIXED: src/prop/prop_reconcile.py::_norm_direction normalises buy/b/1->long, sell/s/-1->short in match_fill_to_ticket AND find_unacted_tickets' acted-keys (same synonym sets as breakout_executor/funding). Regression tests: test_ingest_buy_synonym_links_long_ticket + test_ingest_sell_synonym_does_not_link_long_ticket in tests/test_prop_report_ingest.py."
+        }
+      ]
     },
     {
       "id": "BL-20260705-DASHBOARD-API-TOKEN-UNSET",
@@ -200,15 +234,20 @@
       "opened_at": "2026-06-25T09:20:00+00:00",
       "opened_by": "claude (prop-trade-pipeline-debug \u2014 eth_pullback prop go-live wiring check)",
       "source": "PR #4533 set eth_pullback_prop_2h execution: live and routed it + eth_pullback_2h to breakout_1. Diag /api/bot/strategies confirmed BOTH in loaded_strategies + bot_running 2026-06-25 \u2014 but loading is not the same as the prop emit path producing a ticket.",
-      "title": "CONFIRMED: trend_donchian_{eth,sol}_prop alt-variant legs produce order packages but NEVER emit a prop ticket (packages orphan); eth_pullback_2h path verified working",
+      "title": "RESOLVED: ETH prop legs verified live end-to-end \u2014 eth_pullback_2h + eth_pullback_prop_2h aggregate into ONE ticket per signal; donchian *_prop legs are execution: shadow BY DESIGN",
       "description": "WIRING LIVENESS CHECK. On the first ETHUSDT signal on breakout_1 for either leg, confirm end-to-end: (a) a prop_signal ticket is emitted (Telegram prop bot + FCM) carrying the Yes/No place-decision buttons; (b) a prop_tickets row is written with order_package_id POPULATED (the sizing+journaling fixes from PR #4460/#4469 \u2014 risk_usd should size off 1.5% = ~$75, not the old $25); (c) /api/bot/prop/reconcile sees it. Both legs share (ETHUSDT, breakout_1), so also confirm they emit as SEPARATE tickets (per-strategy netting guard) and do not collide on the same position. Until one fires we have only confirmed they load, not that the prop ticket path works for them.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-05T08:20:00+00:00",
           "by": "claude (/health-review 2026-07-05)",
           "note": "PARTIALLY CONFIRMED + NEW BUG EVIDENCE. eth_pullback_2h DOES emit+journal prop tickets on breakout_1 (prop-manual-90982c696cb1 04:05Z, -72323e63411b 06:35Z, -5bc393741ec4 08:00Z on 2026-07-05; risk_usd=75 = the 1.5% sizing fix; operator filled the 08:00Z ticket, prop_fills id 16 linked, ticket advanced to filled). BUT the trend_donchian_{eth,sol}_prop ALT-VARIANT legs NEVER ticket: 9 order_packages 2026-07-01..07-04 (e.g. pkg-6d8702300366412b, pkg-285f2ea783d346e3, pkg-8513a497e50245ae) all have ticket_id null, qty/risk_usd/valid_until null, and end status 'orphaned' \u2014 the emit path never ran for them while plain trend_donchian_eth DID ticket (prop-manual-fd4469985586 07-01). Scope narrowed: fix/inspect the *_prop alt-variant \u2192 breakout_executor wiring."
+        },
+        {
+          "at": "2026-07-05T11:05:00+00:00",
+          "by": "claude (/health-review 2026-07-05 follow-up, operator-approved fix session)",
+          "note": "CORRECTION of the 08:20 update (which wrongly asserted a confirmed ticket-emit bug \u2014 field beats inference): (1) trend_donchian_{eth,sol}_prop are execution: shadow BY EXPLICIT CONFIG (Unit C Phase 0 observe-only prop soak, promotion operator-gated per the YAML shadow-guard comment) \u2014 no ticket is expected from them; their 'orphaned' packages are shadow-soak watchdog artifacts, not missed executions. (2) The LIVE legs verified working end-to-end: eth_pullback_prop_2h evals + signals (conf ~0.84, 2026-07-05 10:05Z multi_account_dispatched) and its identical-entry sibling eth_pullback_2h AGGREGATE in the intent multiplexer into ONE order package/ticket per signal (pkg-57ac9498afbc4f62 carries strategy=eth_pullback_prop_2h while its ticket message rendered eth_pullback_2h) \u2014 the item's 'confirm they emit as SEPARATE tickets' expectation doesn't hold; aggregation is the multiplexer's design. Operator filled the 08:00Z ticket (prop_fills 16). Original liveness question answered: the prop emit path WORKS for the live ETH legs. Follow-on observations split to BL-20260705-PROP-RETICKET-WHILE-OPEN + BL-20260705-SHADOW-PKG-ORPHAN-STATUS."
         }
       ]
     },
@@ -2972,5 +3011,5 @@
       "resolution": "RESOLVED across 07-03/07-04: (1) first-ever prop_account_status row seeded via the prop-report relay (issue #5541) \u2014 balance 5215.27 / equity 5215.27 / realized_today +297.12, derived from terminal trade history and OPERATOR-RATIFIED in chat 2026-07-04 (\"that is the updated status of the prop account\"); rule-distance guard live (daily-loss cushion $147.54, DD-floor distance $515.27). (2) The structural fix shipped in PR #5521: src/prop/prop_status_request.py pings the operator with paste-ready reply formats whenever a prop position is open and the latest snapshot is absent/stale \u2014 the panel can no longer silently run blind. First live firing of the ping is the residual watch (monitoring item in RPT-20260704-061000)."
     }
   ],
-  "updated_at": "2026-07-05T08:20:00+00:00"
+  "updated_at": "2026-07-05T11:05:00+00:00"
 }
