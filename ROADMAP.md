@@ -319,6 +319,30 @@ the per-bar fetch-gate/budget, but compounds per head); the wide corpus is more
 data plumbing than modeling and must not starve the Tier-0 wins. ml-review-backlog
 items to open for the model/experiment proposals as the sprints kick off.
 
+**Next research directions (2026-07-05 — post-representation-frontier).** With the
+price-representation frontier closed three-for-three negative (T0.1 marginal, T1.1
+TCN, T1.2 SSL) and T0.4 `fc` established as the one durable win — its **classifier**
+use soaking toward the fc→advisory Tier-3 gate (`MB-20260705-FC-ADVISORY-READINESS`),
+its **geometry** extension found inconclusive offline (`MB-20260705-FC-SLTP-GEOMETRY`)
+— the milestone's *active offline exploration is substantially complete*. The candidate
+next directions, to be **prioritized by a dedicated deep-research session** (see
+[`docs/research/M19-next-direction-deep-research-brief-2026-07-05.md`](docs/research/M19-next-direction-deep-research-brief-2026-07-05.md))
+rather than picked by default:
+
+| Direction | Type | Tier | Why / gate | Constraint |
+|---|---|---|---|---|
+| **D1 — live fc-geometry shadow-soak** | observe-only instrumentation | T1/T2 build | the *faithful* Phase-2 test the backtest couldn't be — log fc-scaled SL/TP vs placed SL/TP per opening order (`exit_ladder_soak` shape), compare real fills. Gate: real net-R/maxDD improvement under the account rulesets. | weeks of soak before any read; `MB-20260705-FC-SLTP-GEOMETRY` |
+| **D2 — break the label wall** | supervised (more/better labels) | T0/T1 | the M19 thesis names labels (~350 real trades) as THE binding constraint; meta-labeling over dense triple-barrier candidates + MES label backfill unlock the decision heads AND the deferred T1.3 ranker. Highest leverage. | hardest; returns to M14-style work |
+| **D3 — task-matched corpus-embedding head** | representation (re-use T1.2 encoder) | T0 ($0) | the one live hypothesis the T1.2 negative left open — the daily corpus embedding may lift a head whose target lives on the SAME daily clock (a daily direction/risk head, or the M18 ranker), not the intraday vol head it lost on. Cheap, fast, offline A/B. | may be another cheap negative (acceptable) |
+| **D4 — mature fc → advisory** | promotion harness (not new frontier) | T1 build → T3 gate | build the head-pinned money-gate walk-forward + powered RG4 (fresh-mirror) harness so the eventual fc→advisory Tier-3 call has real evidence when the soak matures. | soak-gated; `MB-20260705-FC-ADVISORY-READINESS` |
+
+**Recommended next session:** a **deep-research** pass (brief linked above) that
+weighs D1–D4 against current data reality and returns a prioritized recommendation —
+so the *next* execution session picks up the highest-leverage line with evidence, not
+by default. Each direction, when chosen, still graduates observe-only through
+`candidate → shadow → advisory`; nothing influences a live order without a backtest
+A/B and operator approval.
+
 ## Historical Sprint Ledger
 
 Full detail preserved in git history. Recent AI-traders sprints:
