@@ -1287,7 +1287,31 @@
           "note": "Opened on the T1.2 regime-head clean negative; scopes the only remaining place the corpus embedding might pay off."
         }
       ]
+    },
+    {
+      "id": "MB-20260705-FC-SLTP-GEOMETRY",
+      "opened_at": "2026-07-05T11:00:00+00:00",
+      "opened_by": "claude (M19 T0.4 Phase-2 fc\u2192SL/TP geometry backtest session)",
+      "source": "Ran the confound-removed 3-arm fc SL/TP-geometry backtest (scripts/ml/fc_sltp_geometry_backtest.py, #5587) on the trainer VM (relay #5588) over the full synced trade_journal.db: BTCUSDT n=552 sims / 458 real, full fc coverage (no_fc_cover=0), fc span 2021-07..2026-06. Arms: real-realized (pnl/risk_$, the anchor), fixed-resim (actual SL/TP re-simulated forward), fc-vol-scaled (SL/TP distance \u00d7 clamp(fc_range_rel/median,[0.5,2.0]), same engine, R:R preserved).",
+      "title": "fc\u2192SL/TP geometry offline backtest INCONCLUSIVE: forward triple-barrier re-sim fails reality-calibration (real-realized -0.68R vs fixed-resim -0.06R, ~0.6R gap) so the fc-vol-scaled +0.42R 'edge' is an in-simulator artifact, not a real-money result.",
+      "description": "The anchor arm exposed the confound: real-realized (ground-truth pnl/risk_$, mean_R -0.675) and fixed-resim (same SL/TP re-simulated, mean_R -0.058) diverge by ~0.6R. The forward triple-barrier engine answers a counterfactual the live system does not run ('hold to SL/TP or the 24h cap') \u2014 live trades close mostly on fees/slippage, monitor exits, flip-policy closes, and netting-guard/reconciler closes, NOT clean barrier hits. Since fc-vol-scaled uses the SAME engine, its +0.47R apparent improvement over fixed-resim is measured inside a simulator ~0.6R too optimistic vs a losing ground truth (real BTC trades lose 0.68x intended risk) \u2014 an artifact of how scaled barrier distance interacts with the max-hold mark-to-close cap, not a validated edge. fc's validated use (vol-regime classifier feature, at shadow) is unchanged; no order-path change proposed.",
+      "tier": "Tier-1 (research/observability); any eventual fc\u2192SL/TP-geometry order change would be Tier-3.",
+      "trigger_condition": "Revisit if/when a live observe-only fc-geometry shadow-soak is built, OR if the offline simulator is made faithful (reproduces live exit behavior so fixed-resim matches real-realized).",
+      "resolution_criteria": "Either (a) a live fc-geometry shadow-soak (exit_ladder_soak shape: log the fc-scaled SL/TP alongside the placed SL/TP per opening order, compare realized outcomes) shows a real net-R/maxDD improvement under the account rulesets, gating a Tier-3 proposal; or (b) the lever is closed as not-worth-pursuing after the soak shows no edge. A pure offline backtest is NOT sufficient (proven unfaithful here).",
+      "status": "open",
+      "snoozed_until": null,
+      "evidence_log": [
+        "docs/research/T0.4-fc-sltp-geometry-evidence-2026-07-05.md \u2014 full 3-arm table + interpretation + reproduce steps.",
+        "Trainer relay #5588 raw output (BTC real-realized n=458 mean_R -0.675 / fixed-resim n=552 -0.058 / fc-vol-scaled n=552 +0.416; ETH n=20 too thin)."
+      ],
+      "status_history": [
+        {
+          "at": "2026-07-05T11:00:00+00:00",
+          "status": "open",
+          "note": "Opened from the Phase-2 fc\u2192SL/TP geometry backtest \u2014 inconclusive; simulator unfaithful, needs a live soak."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-07-04T14:00:00+00:00"
+  "updated_at": "2026-07-05T11:00:00+00:00"
 }
