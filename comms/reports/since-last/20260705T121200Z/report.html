@@ -1,0 +1,190 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-07-05T12:12:00+00:00 · window 2026-07-04T06:10:00+00:00 → 2026-07-05T12:12:00+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>Quiet, healthy weekend window with one real-money win and the prop account&#x27;s first ETH fill of the cycle. Real money: 1 closed trade, ADAUSDT long +$9.31 (broker-truth, +2.03R, graded C) on bybit_2; two real positions open (ETH 0.07, BTC 0.002). Prop: the operator filled the 08:00Z eth_pullback ticket (1.9 ETH @1767.71, SL 1732/TP 1945.9) — logged as prop_fills 16, linked, monitored; $147.54 daily-loss cushion intact. Paper (bybit_1 demo) gave back -$1.7k, dominated by one AVAX 4h stop-out (-$2,276) against the ADA pump it also caught (+$1,483). Pipeline plumbing, DB integrity and alerting are clean; earlier suspicion of a prop ticket-emit bug was CORRECTED (donchian *_prop legs are shadow by design; the live ETH legs verified end-to-end). Watch items: ib_paper positions-read null over the weekend (0 IB positions at risk; re-probe at CME reopen), the trainer&#x27;s 06:14Z OOM-kill mid-cycle, and prop re-ticketing while a position is open. Two fixes shipped this window: buy/long direction-synonym matcher (PR #5592) and the backlog drain (PR #5582).</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>—</b> <span class="pill">— · T2</span> ⚠️ operator<br><span class='muted'>—</span></li>
+<li><b>—</b> <span class="pill">— · T3</span> ⚠️ operator<br><span class='muted'>—</span></li>
+<li><b>—</b> <span class="pill">— · T1</span><br><span class='muted'>—</span></li>
+<li><b>—</b> <span class="pill">— · T1</span><br><span class='muted'>—</span></li>
+<li><b>—</b> <span class="pill">— · T3</span> ⚠️ operator<br><span class='muted'>—</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">74 open / 171 total · 5 drained</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">39 open / 58 total</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">28 open / 64 total</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>health</span> DASHBOARD_API_TOKEN handoff (operator deferred to &#x27;later&#x27; 2026-07-05) — prop-report + device write endpoints currently unauthenticated</li>
+<li><span class='pill'>performance</span> Prop re-ticket-while-open policy: suppress vs keep (BL-20260705-PROP-RETICKET-WHILE-OPEN)</li>
+<li><span class='pill'>ml</span> MES 15m heads promotion vs the live_agreement gate design (MB-20260626-003)</li>
+<li><span class='pill'>ml</span> donchian *_prop shadow-&gt;live graduation awaits the prop EV/survival gate (Unit C Phase 0, by design)</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>The same prop-bridge evidence closed a health item and opened a performance decision: emit path verified working (health), but re-tickets while holding (performance/ops decision).</li>
+<li>Paper drawdown concentrated in 4h donchian alt-cells (AVAX -2276, ADA -646) on a spike-fade day, while the 2h pullback family printed the real win — consistent with the regime-router thesis; no Tier-3 change proposed on n=1 day.</li>
+<li>The trainer OOM (ml) is also the health trainer_service watch — one root cause, tracked once (MB-20260705-TRAINER-OOM).</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>heartbeat</td><td class="sev-ok">🟢 ok</td><td>age 19s label=running; uptime 17.9h; git_sha da27520d == origin/main</td></tr>
+<tr><td>ticks</td><td class="sev-ok">🟢 ok</td><td>last_tick fresh; 15-min health-snapshot cadence unbroken across window</td></tr>
+<tr><td>signals</td><td class="sev-ok">🟢 ok</td><td>42 strategies loaded; *_eval firing across symbols incl. prop legs</td></tr>
+<tr><td>orders</td><td class="sev-ok">🟢 ok</td><td>CORRECTED: donchian *_prop legs are execution:shadow by config (no ticket expected); live ETH pullback legs emit + journal tickets correctly</td></tr>
+<tr><td>trades</td><td class="sev-ok">🟢 ok</td><td>all rows carry pkg id + SL/TP; closed rows carry closed_at/pnl/exit_reason with correct pnl_source</td></tr>
+<tr><td>monitoring</td><td class="sev-ok">🟢 ok</td><td>tick fresh; no monitor-blindness alerts</td></tr>
+<tr><td>sizing</td><td class="sev-ok">🟢 ok</td><td>prop ticket risk 1.5%=$75; real-money qtys modest; no fractional-contract rows</td></tr>
+<tr><td>api_errors</td><td class="sev-watch">🟡 watch</td><td>ib_paper positions-read null while balance api_ok (Sunday, CME closed, 0 IB positions); re-probe after 22:00Z</td></tr>
+<tr><td>state_consistency</td><td class="sev-ok">🟢 ok</td><td>runtime live map matches accounts.yaml</td></tr>
+<tr><td>alert_delivery</td><td class="sev-ok">🟢 ok</td><td>prop_fill push+telegram fired; send-ping delivered (issue 5583 closed by bot)</td></tr>
+<tr><td>strategy_silence</td><td class="sev-ok">🟢 ok</td><td>evals observed across strategies; full-window enumeration summarized at relay limits</td></tr>
+<tr><td>db_integrity</td><td class="sev-ok">🟢 ok</td><td>trades rows minutes-fresh; counts coherent; PRAGMA not fetchable via relay</td></tr>
+<tr><td>data_validity</td><td class="sev-ok">🟢 ok</td><td>timestamps monotonic; closed rows priced; no impossible values</td></tr>
+<tr><td>health_snapshot</td><td class="sev-watch">🟡 watch</td><td>105/105 snapshots perma-watch from shelved ib_live in check_accounts_api (BL-20260705-HEALTHCHECK-SHELVED-ACCOUNTS)</td></tr>
+<tr><td>trainer_service</td><td class="sev-watch">🟡 watch</td><td>timer active; ict-trainer.service failed — see ml sub-review (oom-kill 06:14Z)</td></tr>
+<tr><td>broker_reachability</td><td class="sev-watch">🟡 watch</td><td>bybit_1/2 + alpaca x3 reachable; ib_paper positions-read null (balance OK, 0 positions, Sunday); breakout_1 API-less by design</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$9.31</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">1</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">100.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$9.31</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">+$0.00</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">1</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>ada_pullback_2h</td><td>1</td><td>100.0%</td><td class="pos">+$9.31</td></tr>
+</table></div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-1,706.13</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">9</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">33.3%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-189.57</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.43</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-2,957.05</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">3</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>ada_pullback_2h</td><td>1</td><td>100.0%</td><td class="pos">+$1,483.21</td></tr>
+<tr><td>sol_pullback_2h</td><td>3</td><td>33.3%</td><td class="pos">+$166.97</td></tr>
+<tr><td>htf_pullback_trend_2h</td><td>1</td><td>100.0%</td><td class="pos">+$87.74</td></tr>
+<tr><td>trend_donchian_ada_4h</td><td>1</td><td>0.0%</td><td class="neg">$-646.07</td></tr>
+<tr><td>trend_donchian_avax_4h</td><td>2</td><td>0.0%</td><td class="neg">$-2,638.87</td></tr>
+<tr><td>avax_pullback_2h</td><td>1</td><td>0.0%</td><td class="neg">$-1.08</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$297.12 →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">2</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">0</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">5</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">11 full dossiers, 0 summarized (since-last =&gt; full dossier per closed trade + the open prop fill).</p>
+<details><summary><span class="pill prop">prop</span> ETHUSDT long · eth_pullback_2h (+prop variant, aggregated ticket prop-manual-5bc393741ec4) · <span class="">—</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>prop_fills:16</div><div class="k">account</div><div>breakout_1</div><div class="k">opened</div><div>2026-07-05T08:06:00 (terminal-local 11:06)</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1767.71</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>1732.0</div><div class="k">target</div><div>1945.9</div><div class="k">qty</div><div>1.9</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> BTCUSDT short · htf_pullback_trend_2h · <span class="pos">+$87.74</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3170</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-05 04:11:30</div><div class="k">closed</div><div>2026-07-05T04:11:30.325590+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>62781.7</div><div class="k">exit</div><div>62695</div><div class="k">stop</div><div>61965.39642857</div><div class="k">target</div><div>68997.0883</div><div class="k">qty</div><div>1.012</div><div class="k">pnl %</div><div>0.1381</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT short · sol_pullback_2h · <span class="pos">+$242.60</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3165</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-04 18:06:15</div><div class="k">closed</div><div>2026-07-04T18:06:15.196947+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>82.6</div><div class="k">exit</div><div>81.68</div><div class="k">stop</div><div>80.33035714</div><div class="k">target</div><div>90.7774</div><div class="k">qty</div><div>263.7</div><div class="k">pnl %</div><div>1.1138</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> AVAXUSDT long · trend_donchian_avax_4h · <span class="neg">$-2,276.60</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3164</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-04 17:54:33</div><div class="k">closed</div><div>2026-07-04T17:54:33.250000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>7.098</div><div class="k">exit</div><div>6.861</div><div class="k">stop</div><div>6.826</div><div class="k">target</div><div>7.803999</div><div class="k">qty</div><div>9605.9</div><div class="k">pnl %</div><div>-3.339</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> ADAUSDT long · ada_pullback_2h · <span class="pos">+$9.31</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3155</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-04 10:07:43</div><div class="k">closed</div><div>2026-07-04T16:02:48.153000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.176</div><div class="k">exit</div><div>0.1933</div><div class="k">stop</div><div>0.16760714</div><div class="k">target</div><div>0.193424</div><div class="k">qty</div><div>545</div><div class="k">pnl %</div><div>9.7033</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT short · trend_donchian_ada_4h · <span class="neg">$-646.07</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3161</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-04 15:14:16</div><div class="k">closed</div><div>2026-07-04T15:14:16.915747+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.1871</div><div class="k">exit</div><div>0.1927</div><div class="k">stop</div><div>0.17345714</div><div class="k">target</div><div>0.2056229</div><div class="k">qty</div><div>115369</div><div class="k">pnl %</div><div>-2.9931</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT short · sol_pullback_2h · <span class="neg">$-34.39</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3157</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-04 12:00:53</div><div class="k">closed</div><div>2026-07-04T12:00:53.152186+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>81.85</div><div class="k">exit</div><div>82.51</div><div class="k">stop</div><div>79.55</div><div class="k">target</div><div>89.95315</div><div class="k">qty</div><div>52.1</div><div class="k">pnl %</div><div>-0.8064</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT long · ada_pullback_2h · <span class="pos">+$1,483.21</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3154</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-04 10:07:42</div><div class="k">closed</div><div>2026-07-04T10:07:42.691000+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.1759</div><div class="k">exit</div><div>0.1926</div><div class="k">stop</div><div>0.16760714</div><div class="k">target</div><div>0.193424</div><div class="k">qty</div><div>88815</div><div class="k">pnl %</div><div>9.494</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT short · sol_pullback_2h · <span class="neg">$-41.25</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3153</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-04 10:07:20</div><div class="k">closed</div><div>2026-07-04T10:07:20.168170+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>81.77</div><div class="k">exit</div><div>82.1</div><div class="k">stop</div><div>79.39321429</div><div class="k">target</div><div>89.86523</div><div class="k">qty</div><div>125</div><div class="k">pnl %</div><div>-0.4036</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> AVAXUSDT short · avax_pullback_2h · <span class="neg">$-362.28</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3152</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-04 08:09:16</div><div class="k">closed</div><div>2026-07-04T08:09:16.173967+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>6.874</div><div class="k">exit</div><div>6.922</div><div class="k">stop</div><div>6.6865</div><div class="k">target</div><div>7.554526</div><div class="k">qty</div><div>7547.4</div><div class="k">pnl %</div><div>-0.6983</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> AVAXUSDT long · trend_donchian_avax_4h · <span class="neg">$-1.08</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3149</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-03 21:54:45</div><div class="k">closed</div><div>2026-07-04T08:09:15.806765+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>7.022</div><div class="k">exit</div><div>6.874</div><div class="k">stop</div><div>6.75110714</div><div class="k">target</div><div>7.717178</div><div class="k">qty</div><div>7.299999999999272</div><div class="k">pnl %</div><div>-2.1077</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>62633.0</td><td>62667.2</td><td>63462.7</td><td>62333.4</td><td class="pos">0.1%</td><td>rangebound; Saturday push to 63.4k faded — chop</td></tr>
+<tr><td>ETHUSDT</td><td>1753.88</td><td>1760.63</td><td>1808.37</td><td>1748.66</td><td class="pos">0.4%</td><td>rallied to 1808 then faded to ~1760; prop entry 1767.71 marginally underwater at window end</td></tr>
+<tr><td>SOLUSDT</td><td>82.73</td><td>80.58</td><td>83.98</td><td>79.69</td><td class="neg">-2.6%</td><td>steady downtrend all window</td></tr>
+<tr><td>ADAUSDT</td><td>0.1771</td><td>0.1869</td><td>0.1999</td><td>0.175</td><td class="pos">5.5%</td><td>sharp pump to 0.20 then partial fade — the window&#x27;s real-money win rode this</td></tr>
+<tr><td>AVAXUSDT</td><td>6.933</td><td>6.876</td><td>7.113</td><td>6.756</td><td class="neg">-0.8%</td><td>spike to 7.11 then dump to 6.76 — stopped the paper 4h donchian long</td></tr>
+<tr><td>XRPUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>unavailable: candle pull not run this session (relay budget)</td></tr>
+<tr><td>MES/MGC/MHG + equities (SPY/QQQ/IWM/GLD/SLV/TLT/IEF/...)</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>market closed (weekend) — no session in window</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟡 caution</span></h2>
+<p class="section-empty">No model status in this report.</p>
+<h3>Promotion / demotion recommendations (Tier-3)</h3><ul class='pri'>
+<li>— <b>—</b> —→—: —</li>
+<li>— <b>—</b> —→—: —</li>
+</ul>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li class='muted'>All strategies HOLD this window. Live ETH pullback prop family verified working end-to-end (first fill placed). donchian *_prop stays shadow by design pending the prop EV/survival gate. trend_donchian_avax_4h logged the window&#x27;s big paper loss (n=1, no action). MES 15m ML heads remain promotion candidates blocked on the live_agreement gate (operator decision). fc heads soaking, not yet at gate volume.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">1</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">unavailable: dataset_builds.jsonl not found at expected trainer path (flagged in MB-20260705-TRAINER-OOM)</div></div>
+</div>
+<p class='muted'>Cycle ran and trained the fleet; a later stage OOM-killed on the 6GB box — bounded fix queued (MB-20260705-TRAINER-OOM).</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>shadow regime fleet (btc/eth/sol/mes heads)</td><td>accruing</td><td>all active heads scored within 15min of pull; btc-regime-15m-lgbm-v2 ADVISORY 831 preds (live vol-gate input)</td></tr>
+<tr><td>fc forecast heads (btc/eth 15m)</td><td>accruing</td><td>btc fc-pcv 199 preds since 07-03; eth fc-pcv 74 preds since 07-04 17:44 (newly promoted)</td></tr>
+<tr><td>conviction-meta-v1</td><td>accruing</td><td>4533 preds, last 11:56Z</td></tr>
+<tr><td>exit-ladder (ExitPlan P3)</td><td>accruing</td><td>rows for every prop ticket incl. 10:05/10:08Z; prop legs show single-target parity (0 differing rungs)</td></tr>
+<tr><td>allocator (M18 P0c, ev_net_r)</td><td>accruing</td><td>ETHUSDT 2-candidate ticks through 11:14Z, mostly agree, regret &lt;=0.016</td></tr>
+<tr><td>prop-mission-policy + trade-outcome baselines</td><td>stalled</td><td>last_seen 06-30 — verify deliberate unwire vs stall at next /ml-review</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 trainer OOM-kill mid-cycle 06:14Z (MB-20260705-TRAINER-OOM) — fleet trained OK first; nightly timer still armed</li><li>🚩 ib_paper positions-read null over the weekend (balance path OK, 0 IB positions at risk) — standalone re-probe armed 22:10Z (BL-20260705-IBPAPER-POSITIONS-NULL-WEEKEND)</li><li>🚩 DASHBOARD_API_TOKEN unset — Tier-2 write endpoints unauthenticated (operator deferred to &#x27;later&#x27;; standing reminder BL-20260705-DASHBOARD-API-TOKEN-UNSET)</li><li>🚩 prop emits fresh tickets while a position is open (10:05/10:08Z vs the 08:06 fill) — operator decision queued (BL-20260705-PROP-RETICKET-WHILE-OPEN)</li><li>🚩 prop-mission/trade-outcome baseline soaks silent since 06-30 — verify deliberate vs stalled</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>BL-20260705-IBPAPER-POSITIONS-NULL-WEEKEND</code></td><td>health</td><td>🔁 verify</td><td>ib_paper positions-read null while balance ok (weekend)</td><td>22:10Z self check-in post-CME-reopen</td></tr>
+<tr><td><code>PB-20260625-001</code></td><td>performance</td><td>🧱 awaiting-data</td><td>real swap charge on the open prop ETH position vs the 0.033%/day model</td><td>first daily swap event on the open position</td></tr>
+<tr><td><code>MB-20260705-TRAINER-OOM</code></td><td>ml</td><td>🔁 verify</td><td>trainer OOM-kill mid-cycle</td><td>next nightly cycle 2026-07-06T00:57Z completes end-to-end</td></tr>
+<tr><td><code>BL-20260705-PROP-RETICKET-WHILE-OPEN</code></td><td>performance</td><td>🗳️ awaiting-decision</td><td>suppress vs keep re-tickets while prop position open</td><td>operator go</td></tr>
+<tr><td><code>fc-soak</code></td><td>ml</td><td>⏳ soaking</td><td>btc/eth 15m fc heads accruing toward shadow-&gt;advisory gate (199/74 preds)</td><td>gate volume per fc-graduation program</td></tr>
+</table></div>
+<footer>report_id RPT-20260705-121200-since-last · reviewer claude · prior RPT-20260704-061000-since-last · ICT Trading Bot system-report</footer></div></body></html>
