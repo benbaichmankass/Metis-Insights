@@ -100,3 +100,98 @@ def test_emit_sizes_off_configured_risk_pct(isolated_env: Path) -> None:
     row = prop_journal.list_tickets(limit=10)[0]
     # 1.5% of the $5k account = $75 risk (the fix); the 0.5% default was $25.
     assert row["risk_usd"] == pytest.approx(75.0, abs=0.01)
+
+
+# ── ONE TICKET PER TRADE — reticket suppression (BL-20260705-PROP-RETICKET-WHILE-OPEN) ──
+
+def _order(direction: str = "long", **over) -> dict:
+    side = "Buy" if direction == "long" else "Sell"
+    base = {
+        "symbol": "ETHUSDT", "direction": direction, "side": side,
+        "entry": 1770.0, "sl": 1732.0, "tp": 1945.0,
+        "strategy": "eth_pullback_2h",
+        "meta": {"order_package_id": "op-guard-1", "timeframe": "2h"},
+    }
+    base.update(over)
+    return base
+
+
+def test_reticket_suppressed_while_ticket_live(isolated_env: Path) -> None:
+    """A second signal for the same (account, symbol, direction) while the
+    first ticket is still within its validity window must NOT page the
+    operator again — one ticket per trade (operator directive 2026-07-05)."""
+    from src.prop import prop_journal
+    from src.prop.breakout_executor import emit_prop_ticket
+
+    pushes: list = []
+    emit_prop_ticket(_order(), _account_cfg(), timeframe="2h",
+                     _emitter=lambda t: pushes.append(t))
+    assert len(pushes) == 1
+
+    emit_prop_ticket(_order(), _account_cfg(), timeframe="2h",
+                     _emitter=lambda t: pushes.append(t))
+    assert len(pushes) == 1  # no second push
+
+    rows = prop_journal.list_tickets(limit=10)
+    statuses = sorted(r["status"] for r in rows)
+    assert statuses == ["emitted", "suppressed"]
+    sup = next(r for r in rows if r["status"] == "suppressed")
+    assert "outstanding_ticket:emitted" in (sup.get("message") or "")
+
+
+def test_reticket_suppressed_while_position_open(isolated_env: Path) -> None:
+    """An OPEN prop position (newest fill open/filled) suppresses new tickets
+    for its (account, symbol, direction) key."""
+    from src.prop import prop_journal
+    from src.prop.breakout_executor import emit_prop_ticket
+
+    prop_journal.insert_fill({
+        "account_id": "breakout_1", "symbol": "ETHUSDT", "direction": "long",
+        "qty": 1.9, "entry_price": 1767.71, "status": "filled",
+    })
+    pushes: list = []
+    emit_prop_ticket(_order(), _account_cfg(), timeframe="2h",
+                     _emitter=lambda t: pushes.append(t))
+    assert pushes == []
+    rows = prop_journal.list_tickets(limit=10)
+    assert [r["status"] for r in rows] == ["suppressed"]
+    assert "open_position" in (rows[0].get("message") or "")
+
+
+def test_reticket_allowed_after_expiry_and_after_close(isolated_env: Path) -> None:
+    """An EXPIRED unacted ticket and a CLOSED position must NOT block a fresh
+    signal — a new setup after the old one went stale is a new trade."""
+    from src.prop import prop_journal
+    from src.prop.breakout_executor import emit_prop_ticket
+
+    prop_journal.record_ticket({
+        "ticket_id": "prop-manual-old", "account_id": "breakout_1",
+        "symbol": "ETHUSDT", "direction": "long", "entry": 1700.0,
+        "status": "emitted", "valid_until": "2026-07-01T00:00:00+00:00",
+    })
+    prop_journal.insert_fill({
+        "account_id": "breakout_1", "symbol": "ETHUSDT", "direction": "long",
+        "qty": 1.9, "entry_price": 1700.0, "exit_price": 1720.0,
+        "status": "closed",
+    })
+    pushes: list = []
+    emit_prop_ticket(_order(), _account_cfg(), timeframe="2h",
+                     _emitter=lambda t: pushes.append(t))
+    assert len(pushes) == 1  # emitted normally
+
+
+def test_reticket_opposite_direction_not_suppressed(isolated_env: Path) -> None:
+    """The guard is per (account, symbol, DIRECTION) — a short setup is not
+    blocked by an open long."""
+    from src.prop import prop_journal
+    from src.prop.breakout_executor import emit_prop_ticket
+
+    prop_journal.insert_fill({
+        "account_id": "breakout_1", "symbol": "ETHUSDT", "direction": "long",
+        "qty": 1.9, "entry_price": 1767.71, "status": "filled",
+    })
+    pushes: list = []
+    emit_prop_ticket(_order("short", entry=1770.0, sl=1800.0, tp=1650.0),
+                     _account_cfg(), timeframe="2h",
+                     _emitter=lambda t: pushes.append(t))
+    assert len(pushes) == 1

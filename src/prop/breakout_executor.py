@@ -66,6 +66,70 @@ def _per_symbol(routing: Dict[str, Any], symbol: str, key: str, default: Any) ->
     return default
 
 
+def _reticket_suppress_reason(
+    account_id: str, symbol: str, direction: str,
+) -> Optional[str]:
+    """Reason to SUPPRESS a new ticket for (account, symbol, direction), or None.
+
+    ONE TICKET PER TRADE (operator directive 2026-07-05, BL-20260705-PROP-
+    RETICKET-WHILE-OPEN): the manual bridge re-fired fresh tickets every time a
+    prop-routed strategy re-signalled — two new ETHUSDT-long tickets landed at
+    10:05Z/10:08Z while the operator was already holding the 08:06Z fill.
+    Suppress when either:
+
+    - an OPEN prop position exists for the key (newest ``prop_fills`` row is
+      ``open``/``filled`` — the same derivation the monitor pulse uses), or
+    - a still-LIVE outstanding ticket exists: ``placed`` (working order on the
+      terminal), ``expiry_prompted``/``awaiting_report`` (operator mid-dialog),
+      or ``emitted`` whose ``valid_until`` has not passed. An EXPIRED unacted
+      ticket does NOT block — a fresh signal after the old setup went stale is
+      a new trade decision.
+
+    Fail-OPEN: any journal read error returns None so a genuine trade is never
+    stranded by a read hiccup (same posture as the reconciler guards).
+    """
+    try:
+        from src.prop.prop_monitor_pulse import find_open_prop_positions
+
+        sym = str(symbol or "").upper()
+        d = str(direction or "").lower()
+        for pos in find_open_prop_positions(account_id=account_id):
+            if (str(pos.get("symbol") or "").upper() == sym
+                    and str(pos.get("direction") or "").lower() == d):
+                return (
+                    f"open_position: {pos.get('qty')} @ {pos.get('entry_price')} "
+                    f"since {pos.get('opened_at')} (ticket {pos.get('ticket_id')})"
+                )
+
+        from src.prop import prop_journal
+
+        now = datetime.now(timezone.utc)
+        for t in prop_journal.list_tickets(account_id=account_id, limit=200):
+            if (str(t.get("symbol") or "").upper() != sym
+                    or str(t.get("direction") or "").lower() != d):
+                continue
+            status = str(t.get("status") or "").lower()
+            if status in ("placed", "expiry_prompted", "awaiting_report"):
+                return f"outstanding_ticket:{status}: {t.get('ticket_id')}"
+            if status == "emitted":
+                vu = t.get("valid_until")
+                try:
+                    vu_dt = datetime.fromisoformat(
+                        str(vu).replace("Z", "+00:00")) if vu else None
+                    if vu_dt is not None and vu_dt.tzinfo is None:
+                        vu_dt = vu_dt.replace(tzinfo=timezone.utc)
+                except (ValueError, TypeError):
+                    vu_dt = None
+                if vu_dt is None or vu_dt > now:
+                    return f"outstanding_ticket:emitted: {t.get('ticket_id')}"
+    except Exception as exc:  # noqa: BLE001 — fail-open, never strand a trade
+        logger.warning(
+            "breakout_executor: reticket guard read failed for %s/%s/%s (%s) — "
+            "allowing emission", account_id, symbol, direction, exc,
+        )
+    return None
+
+
 def emit_prop_ticket(
     order: Dict[str, Any],
     account_cfg: Dict[str, Any],
@@ -112,6 +176,41 @@ def emit_prop_ticket(
         )
 
     account_id = str(account_cfg.get("account_id") or account_cfg.get("id") or "breakout")
+
+    # ONE TICKET PER TRADE: a held position or a still-live outstanding ticket
+    # for this (account, symbol, direction) suppresses a fresh emission — the
+    # suppressed row is journaled (status 'suppressed', no push) so the decision
+    # stays auditable without paging the operator again.
+    suppress = _reticket_suppress_reason(account_id, symbol, direction)
+    if suppress:
+        trade_id = f"{MANUAL_FILL_PREFIX}{uuid.uuid4().hex[:12]}"
+        logger.info(
+            "breakout_executor: %s reticket SUPPRESSED for %s %s (%s) → %s",
+            account_id, symbol, direction, suppress, trade_id,
+        )
+        try:
+            from src.prop import prop_journal
+
+            prop_journal.record_ticket({
+                "ticket_id": trade_id,
+                "account_id": account_id,
+                "strategy": strategy,
+                "symbol": symbol,
+                "direction": direction,
+                "entry": entry, "sl": sl, "tp": tp,
+                "signal_time": datetime.now(timezone.utc).isoformat(),
+                "status": "suppressed",
+                "message": f"reticket suppressed — {suppress}",
+                "order_package_id": order.get("order_package_id") or (
+                    order["meta"].get("order_package_id")
+                    if isinstance(order.get("meta"), dict) else None
+                ),
+            })
+        except Exception as exc:  # noqa: BLE001 — audit row is best-effort
+            logger.warning(
+                "breakout_executor: suppressed-ticket journal write failed: %s", exc)
+        return trade_id
+
     routing = _load_routing()
     sig = BreakoutSignal(
         strategy=strategy, symbol=symbol, direction=direction,
