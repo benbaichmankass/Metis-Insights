@@ -37,11 +37,30 @@ def _parse_iso(ts: Optional[str]) -> Optional[datetime]:
         return None
 
 
+def _norm_direction(value: Any) -> str:
+    """Normalise direction synonyms to the ticket vocabulary (long/short).
+
+    Terminal UIs (Breakout/DXTrade) say Buy/Sell while outbound tickets carry
+    long/short; an inbound report typed from the terminal wording must still
+    match its ticket (prop_fills id 15, 2026-07-05: 'buy' failed the exact
+    compare vs the ticket's 'long' and left it un-linked, BL-20260705-PROP-
+    DIRECTION-SYNONYM-MATCH). Same synonym sets as ``breakout_executor`` /
+    ``funding``. Unknown values pass through lowered (never raises).
+    """
+    d = str(value or "").strip().lower()
+    if d in ("buy", "b", "long", "1"):
+        return "long"
+    if d in ("sell", "s", "short", "-1"):
+        return "short"
+    return d
+
+
 def match_fill_to_ticket(fill: Dict[str, Any]) -> Optional[str]:
     """Return the ticket_id an inbound fill most likely belongs to (or None).
 
     Explicit ``fill['ticket_id']`` wins. Otherwise the newest still-open
-    (``emitted``/``filled``) ticket for the same account + symbol + direction.
+    (``emitted``/``filled``) ticket for the same account + symbol + direction
+    (direction compared synonym-normalised: buy==long, sell==short).
     """
     explicit = fill.get("ticket_id")
     if explicit:
@@ -50,7 +69,7 @@ def match_fill_to_ticket(fill: Dict[str, Any]) -> Optional[str]:
     if not account_id:
         return None
     symbol = str(fill.get("symbol") or "").upper()
-    direction = str(fill.get("direction") or "").lower()
+    direction = _norm_direction(fill.get("direction"))
     candidates = prop_journal.list_tickets(account_id=account_id, limit=200)
     for t in candidates:
         # "Open" = awaiting a fill report. Beyond emitted/filled this includes
@@ -65,7 +84,7 @@ def match_fill_to_ticket(fill: Dict[str, Any]) -> Optional[str]:
             continue
         if symbol and str(t.get("symbol") or "").upper() != symbol:
             continue
-        if direction and str(t.get("direction") or "").lower() != direction:
+        if direction and _norm_direction(t.get("direction")) != direction:
             continue
         return t.get("ticket_id")
     return None
@@ -97,7 +116,7 @@ def find_unacted_tickets(
     acted_keys = {
         (str(f.get("account_id") or "").strip(),
          str(f.get("symbol") or "").upper(),
-         str(f.get("direction") or "").lower())
+         _norm_direction(f.get("direction")))
         for f in fills
     }
     out: List[Dict[str, Any]] = []
@@ -108,7 +127,7 @@ def find_unacted_tickets(
             continue
         key = (str(t.get("account_id") or "").strip(),
                str(t.get("symbol") or "").upper(),
-               str(t.get("direction") or "").lower())
+               _norm_direction(t.get("direction")))
         if key in acted_keys:
             continue
         vu = _parse_iso(t.get("valid_until"))
