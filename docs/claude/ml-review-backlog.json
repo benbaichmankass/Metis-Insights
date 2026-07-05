@@ -11,7 +11,13 @@
       "description": "Next trainer session: journalctl around 06:14Z to identify the stage (likely a heavy dataset build / corpus job post-manifest-loop), add a memory bound or split the stage, confirm the next nightly cycle completes end-to-end. Also resolve where dataset_builds.jsonl actually lives (the diag cmd found nothing at ~/ict-trading-bot/runtime_logs/).",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-05T12:35:00+00:00",
+          "by": "claude (flag wrap-up 2026-07-05)",
+          "note": "DIAGNOSED via trainer relay run 28740341472: python pid 1890173 under ict-trainer.service reached 4.8G anon RSS on the 6G NO-SWAP box -> GLOBAL oom (apport invoked the killer); the unit's own journal is silent 05:40-06:15 (a quiet big-allocation stage, likely a corpus/dataset build after the manifest loop). CONTAINMENT APPLIED (autonomous trainer ops, relay issue #5621): systemd drop-in MemoryHigh=4G/MemoryMax=5G on ict-trainer.service (unit-scoped throttle+kill instead of global OOM) + 2G persistent swapfile + reset-failed. VERIFY: next nightly cycle (2026-07-06T00:57Z) completes end-to-end; if a stage still dies at the 5G cap, identify + split that stage."
+        }
+      ]
     },
     {
       "id": "MB-20260626-001",
@@ -1349,5 +1355,5 @@
       ]
     }
   ],
-  "updated_at": "2026-07-05T11:15:00+00:00"
+  "updated_at": "2026-07-05T12:35:00+00:00"
 }
