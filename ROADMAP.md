@@ -319,27 +319,31 @@ the per-bar fetch-gate/budget, but compounds per head); the wide corpus is more
 data plumbing than modeling and must not starve the Tier-0 wins. ml-review-backlog
 items to open for the model/experiment proposals as the sprints kick off.
 
-**Next research directions (2026-07-05 — post-representation-frontier).** With the
+**Next research directions (2026-07-05 — post-representation-frontier; RANKED by the deep-research pass same day).** With the
 price-representation frontier closed three-for-three negative (T0.1 marginal, T1.1
 TCN, T1.2 SSL) and T0.4 `fc` established as the one durable win — its **classifier**
 use soaking toward the fc→advisory Tier-3 gate (`MB-20260705-FC-ADVISORY-READINESS`),
 its **geometry** extension found inconclusive offline (`MB-20260705-FC-SLTP-GEOMETRY`)
 — the milestone's *active offline exploration is substantially complete*. The candidate
-next directions, to be **prioritized by a dedicated deep-research session** (see
+directions were registered here (brief:
 [`docs/research/M19-next-direction-deep-research-brief-2026-07-05.md`](docs/research/M19-next-direction-deep-research-brief-2026-07-05.md))
-rather than picked by default:
+and **the deep-research prioritization session RAN 2026-07-05** — full cited report:
+[`docs/research/M19-next-direction-recommendation-2026-07-05.md`](docs/research/M19-next-direction-recommendation-2026-07-05.md).
 
-| Direction | Type | Tier | Why / gate | Constraint |
-|---|---|---|---|---|
-| **D1 — live fc-geometry shadow-soak** | observe-only instrumentation | T1/T2 build | the *faithful* Phase-2 test the backtest couldn't be — log fc-scaled SL/TP vs placed SL/TP per opening order (`exit_ladder_soak` shape), compare real fills. Gate: real net-R/maxDD improvement under the account rulesets. | weeks of soak before any read; `MB-20260705-FC-SLTP-GEOMETRY` |
-| **D2 — break the label wall** | supervised (more/better labels) | T0/T1 | the M19 thesis names labels (~350 real trades) as THE binding constraint; meta-labeling over dense triple-barrier candidates + MES label backfill unlock the decision heads AND the deferred T1.3 ranker. Highest leverage. | hardest; returns to M14-style work |
-| **D3 — task-matched corpus-embedding head** | representation (re-use T1.2 encoder) | T0 ($0) | the one live hypothesis the T1.2 negative left open — the daily corpus embedding may lift a head whose target lives on the SAME daily clock (a daily direction/risk head, or the M18 ranker), not the intraday vol head it lost on. Cheap, fast, offline A/B. | may be another cheap negative (acceptable) |
-| **D4 — mature fc → advisory** | promotion harness (not new frontier) | T1 build → T3 gate | build the head-pinned money-gate walk-forward + powered RG4 (fresh-mirror) harness so the eventual fc→advisory Tier-3 call has real evidence when the soak matures. | soak-gated; `MB-20260705-FC-ADVISORY-READINESS` |
+**Chosen priority order: D4 ▸ D1 ▸ D2 ▸ D3** — start/keep every wall-clock
+data-accrual *clock* first (D4's soak already runs; D1's clock doesn't exist until
+built), spend researcher time offline (D2) while the clocks run, keep D3 dormant on
+its trigger. No further iteration on the reality-uncalibrated offline exit re-sim
+(backtest-overfitting literature + our own ~0.6R anchor failure).
 
-**Recommended next session:** a **deep-research** pass (brief linked above) that
-weighs D1–D4 against current data reality and returns a prioritized recommendation —
-so the *next* execution session picks up the highest-leverage line with evidence, not
-by default. Each direction, when chosen, still graduates observe-only through
+| Pri | Direction | Type | Tier | Why / gate | Constraint |
+|---|---|---|---|---|---|
+| **1** | **D4 — mature fc → advisory (patiently)** | promotion harness (not new frontier) | T1 build → T3 gate | fix trainer shadow-log mirror freshness, then a **powered** RG4 re-run — ≥40–50 labeled volatile-class bars/symbol spanning **≥5 distinct volatile episodes**, logit-CI AUC vs the incumbent frozen detector — + the head-pinned money-gate walk-forward. At ~96 preds/day/symbol (4.6% base rate → ~4.4 volatile/day/symbol) the first powered read lands ~mid-July. **No promotion proposal before that evidence.** | soak-gated (market's volatile-episode supply); `MB-20260705-FC-ADVISORY-READINESS` |
+| **2** | **D1 — live fc-geometry shadow-soak (build now)** | observe-only instrumentation | T1/T2 build | the *faithful* Phase-2 test the backtest couldn't be — log fc-scaled SL/TP vs placed SL/TP per opening order (`exit_ladder_soak` shape), resolving counterfactual barriers against the realized bar path with an explicit **censored** flag (shadow-mode lit: counterfactual exits are only partially identified). Nothing reads it back. Gate: real net-R/maxDD improvement under the account rulesets. | months-scale accrual clock → build first; `MB-20260705-FC-SLTP-GEOMETRY` |
+| **3** | **D2 — break the label wall (spike A: meta-labeling on the full journal)** | supervised (more/better labels) | T0/T1 offline | trade-outcome heads on real+paper pooled with an `account_class` domain flag (≈2,700+ labelable rows vs 214 real-only), purged CV, EPV-disciplined feature budget, calibration per the JFDS meta-labeling series; **real-money rows as the held evaluation slice**. Barrier labels auxiliary/pre-training only (proven ~0.6R off live reality); no GAN augmentation at this n. Gate: clears purged-CV on the real slice with a defensible n before any soak. | label volume + paper→real transfer; `MB-20260705-META-LABEL-WALL` |
+| **4** | **D3 — task-matched corpus-embedding head (dormant)** | representation (re-use T1.2 encoder) | T0 ($0) | unchanged trigger (`MB-20260704-T12-SSL-NEGATIVE`: a daily/cross-asset head becomes active, e.g. ranker revival at ~500+ labels) **plus a mandatory spectral-overlap pre-check** before any embedding work; at trigger, the literature's first lever is hand-engineered features + learning-to-rank, not the corpus embedding. | no active daily-clock head exists today |
+
+Each direction, when executed, still graduates observe-only through
 `candidate → shadow → advisory`; nothing influences a live order without a backtest
 A/B and operator approval.
 

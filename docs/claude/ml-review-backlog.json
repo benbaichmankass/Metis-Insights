@@ -1294,7 +1294,8 @@
       "status": "open",
       "snoozed_until": null,
       "evidence_log": [
-        "2026-07-04: BTC-15m regime head \u2014 clean negative across 13- and 28-series corpus widths (evidence doc + S-M19-T1.2-SSL-AB-2026-07-04)."
+        "2026-07-04: BTC-15m regime head \u2014 clean negative across 13- and 28-series corpus widths (evidence doc + S-M19-T1.2-SSL-AB-2026-07-04).",
+        "2026-07-05: M19 next-direction research adds a MANDATORY spectral-overlap pre-check to the trigger (assess corpus-vs-target dominant frequency bands before any embedding work - arXiv 2511.05619 practitioner recommendation), and notes the literature's first lever on a revived daily/cross-asset ranker is hand-engineered features + learning-to-rank (LambdaMART ~3x Sharpe, arXiv 2012.07149), not the corpus embedding. Ranked D3/priority-4 (dormant) in docs/research/M19-next-direction-recommendation-2026-07-05.md."
       ],
       "status_history": [
         {
@@ -1319,7 +1320,8 @@
       "snoozed_until": null,
       "evidence_log": [
         "docs/research/T0.4-fc-sltp-geometry-evidence-2026-07-05.md \u2014 full 3-arm table + interpretation + reproduce steps.",
-        "Trainer relay #5588 raw output (BTC real-realized n=458 mean_R -0.675 / fixed-resim n=552 -0.058 / fc-vol-scaled n=552 +0.416; ETH n=20 too thin)."
+        "Trainer relay #5588 raw output (BTC real-realized n=458 mean_R -0.675 / fixed-resim n=552 -0.058 / fc-vol-scaled n=552 +0.416; ETH n=20 too thin).",
+        "2026-07-05: M19 next-direction research ranks the live fc-geometry shadow-soak D1/priority-2 (build now - months-scale accrual clock). Design requirement added from the shadow-mode literature: counterfactual SL/TP outcomes are only PARTIALLY identified from the placed order's realized path - the logger must resolve counterfactual barriers against the bar path and carry an explicit censored flag (never silently score truncated counterfactuals). See docs/research/M19-next-direction-recommendation-2026-07-05.md section 1."
       ],
       "status_history": [
         {
@@ -1344,7 +1346,8 @@
       "evidence_log": [
         "ROADMAP.md T0.4 row \u2014 fc live shadow soak + RG4 low-power watch-flag.",
         "docs/sprint-logs/S-M19-FC-GRADUATION-PROGRAM-2026-07-04.md \u2014 RG4 first-look caveats + money-gate walk-forward note.",
-        "scripts/ml/rg4_targeted.sh + scripts/ml/replay_pregate_live.py \u2014 the RG4 harness (re-run on a fresh mirror)."
+        "scripts/ml/rg4_targeted.sh + scripts/ml/replay_pregate_live.py \u2014 the RG4 harness (re-run on a fresh mirror).",
+        "2026-07-05 (deep-research next-direction session): ranked D4/priority-1. Powered evidence standard quantified from the rare-class AUC literature (events drive AUC quality, PMC12667734; assurance-based CI planning needs ~36-48 positives even for a strong classifier, Stat Med 10.1002/sim.7992 - use logit-transformed CIs at small n): >=40-50 labeled volatile-class bars PER SYMBOL spanning >=5 DISTINCT volatile episodes, on a FRESH mirror. Fresh soak pulls: diag #5610 BTC-fc 199 preds since 07-03 (score 0.51-0.999), #5611 ETH-fc 74 preds since 07-04 => ~96 preds/day/symbol, ~4.4 expected volatile bars/day/symbol => first powered read ~mid-July. Full derivation: docs/research/M19-next-direction-recommendation-2026-07-05.md section 4."
       ],
       "status_history": [
         {
@@ -1353,7 +1356,31 @@
           "note": "Opened to durably track the fc\u2192advisory soak-readiness so the Tier-3 decision is picked up when ripe (was only in ROADMAP + sprint logs)."
         }
       ]
+    },
+    {
+      "id": "MB-20260705-META-LABEL-WALL",
+      "opened_at": "2026-07-05T13:30:00+00:00",
+      "opened_by": "claude (M19 next-direction deep-research session)",
+      "source": "M19 next-direction deep-research (D2). The trade-outcome heads are an order of magnitude under any defensible sample-size standard (conviction n_eval=20/5 positives; ranker 214 labelable order-packages vs 16-32 dims; EPV literature: ~10+ events/variable as a floor and even that unreliable - Riley et al.). But the journal already holds 3,179 trades / 2,756 order-packages INCLUDING paper (diag #5613) - ~10x the ~350 real-money rows, same strategies/signal builders/feature surface. The meta-labeling literature (JFDS series, Joubert et al.; Hudson & Thames reproduction; E-mini triple-barrier study arXiv 2209.04895) validates the secondary-model-on-own-outcomes frame the conviction stacker already uses.",
+      "title": "D2 label-wall spike A: meta-labeling trade-outcome heads on the FULL journal (real+paper pooled, account_class domain flag), real-money slice as the held evaluation",
+      "description": "Retrain the conviction/trade-outcome heads on real+paper pooled with an account_class domain-flag feature (~2,700+ labelable rows), purged CV, EPV-disciplined feature budget (<= n_positives/10 effective dims), probability calibration per the JFDS meta-labeling calibration paper (calibration helps fixed sizing methods, not learned ones). EVALUATION: real-money rows as the decisive held slice - paper execution differs (fills/slippage/sizing), so paper-trained lift must show up on the real slice or it does not count. Triple-barrier labels over historical bars are allowed ONLY as auxiliary/pre-training signal (our own anchor result shows barrier outcomes diverge ~0.6R from live closes - MB-20260705-FC-SLTP-GEOMETRY); a promotion decision label stays a realized trade outcome. NO GAN/synthetic augmentation (memorization risk documented at n~100). Offline, Tier-1, $0 (CPU; a burst retrain would be <$1 if wanted).",
+      "tier": "Tier 1 (offline research; candidate-stage).",
+      "trigger_condition": "Next M19 research slot (after the D1 soak-logger build starts its clock).",
+      "resolution_criteria": "Either (a) a pooled-label head clears purged-CV on the real-money slice with a defensible n -> promote-candidate + shadow-soak proposal; or (b) paper->real transfer fails on the real slice -> D2 closes until real labels accrue (account-sizing decision), recorded as an honest negative.",
+      "status": "open",
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-07-05: ranked D2/priority-3 with full external citations in docs/research/M19-next-direction-recommendation-2026-07-05.md section 2 (meta-labeling evidence base, EPV/sample-size arithmetic, augmentation counter-evidence)."
+      ],
+      "status_history": [
+        {
+          "at": "2026-07-05T13:30:00+00:00",
+          "status": "open",
+          "by": "claude (M19 next-direction deep-research session)",
+          "note": "Opened as D2 spike A of the M19 next-direction ranking."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-07-05T12:35:00+00:00"
+  "updated_at": "2026-07-05T18:15:00+00:00"
 }
