@@ -246,16 +246,34 @@ def run(model_id: str, *, shadow_log: str, candles: str, forward_m: int,
             p = float(proba.get(positive_class, 0.0))
         except Exception:  # noqa: BLE001
             continue
-        b = by_stage.setdefault(stage, {"scores": [], "labels": [], "keys": set()})
+        b = by_stage.setdefault(stage, {"scores": [], "labels": [], "keys": set(),
+                                        "pos_ts": []})
         b["scores"].append(p)
         b["labels"].append(int(y))
         b["keys"].update(row.keys())
+        if int(y) == 1:
+            b["pos_ts"].append(when.timestamp())
 
     stages_out = {}
     for stage, b in by_stage.items():
         blk = _score_block(b["scores"], b["labels"])
         blk["n_feature_keys"] = len(b["keys"])
         blk["has_market_features"] = "vol_bucket" in b["keys"] or "yang_zhang_vol" in b["keys"]
+        # Power accounting for the shadow→advisory readiness gate
+        # (MB-20260705-FC-ADVISORY-READINESS): the rare-class AUC literature says
+        # the ABSOLUTE positive count drives estimate quality, and volatile bars
+        # cluster — so report the positive count AND the number of distinct
+        # positive EPISODES (positive-labeled rows separated by > 2h), the
+        # effective sample size a bar count alone overstates.
+        pos_ts = sorted(b["pos_ts"])
+        episodes = 0
+        prev = None
+        for t in pos_ts:
+            if prev is None or (t - prev) > 7200.0:
+                episodes += 1
+            prev = t
+        blk["n_pos"] = len(pos_ts)
+        blk["pos_episodes"] = episodes
         auc = blk.get("auc") or 0.0
         blk["verdict"] = ("TRUSTWORTHY_SIGNAL" if auc >= 0.55
                           else "ANTI_PREDICTIVE" if auc < 0.45 else "NO_EDGE")

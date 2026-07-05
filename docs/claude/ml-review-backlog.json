@@ -1370,7 +1370,8 @@
       "status": "open",
       "snoozed_until": null,
       "evidence_log": [
-        "2026-07-05: ranked D2/priority-3 with full external citations in docs/research/M19-next-direction-recommendation-2026-07-05.md section 2 (meta-labeling evidence base, EPV/sample-size arithmetic, augmentation counter-evidence)."
+        "2026-07-05: ranked D2/priority-3 with full external citations in docs/research/M19-next-direction-recommendation-2026-07-05.md section 2 (meta-labeling evidence base, EPV/sample-size arithmetic, augmentation counter-evidence).",
+        "2026-07-05 (addendum, authentic-brief Q1 grounding): the M14 track record calibrates spike A - S-MLOPT-S6's meta-label on ~15.7k SYNTHETIC candidates FAILED the majority baseline on 352 real BTC trades (acc 0.670 < 0.756; synth->real domain gap, win rate 0.457 vs 0.244) => barrier/synthetic labels are auxiliary-only, real slice is the evaluation. S-MLOPT-S8's cross-symbol POOLED variant (+domain feature) was the first to clear the baseline (0.7571 > 0.7514, precision 0.54 = 2.2x base rate) but weakly (purged-WF not corroborating) => pooling+domain-flag is the one direction with an internal partial win; spike A retries it with real-execution paper rows (smaller domain gap) instead of synthetic events."
       ],
       "status_history": [
         {
@@ -1382,5 +1383,5 @@
       ]
     }
   ],
-  "updated_at": "2026-07-05T18:15:00+00:00"
+  "updated_at": "2026-07-05T20:30:00+00:00"
 }

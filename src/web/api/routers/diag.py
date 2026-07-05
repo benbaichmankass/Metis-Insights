@@ -170,6 +170,7 @@ _NEWS_DECISIONS_LOG = runtime_logs_dir() / "news_decisions.jsonl"
 _CONVICTION_SIZING_LOG = runtime_logs_dir() / "conviction_sizing.jsonl"
 _CONVICTION_ARBITRATION_LOG = runtime_logs_dir() / "conviction_arbitration.jsonl"
 _EXIT_LADDER_SOAK_LOG = runtime_logs_dir() / "exit_ladder_soak.jsonl"
+_FC_GEOMETRY_SOAK_LOG = runtime_logs_dir() / "fc_geometry_soak.jsonl"
 _ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
 _ORPHAN_EVENTS_LOG = runtime_logs_dir() / "orphan_events.jsonl"
 
@@ -224,6 +225,14 @@ _LOG_FILES: dict[str, Path] = {
     # verify the soak is accruing before P4 graduates the ladder to the real
     # exit. Absent until the first live opening order runs.
     "exit_ladder_soak": _EXIT_LADDER_SOAK_LOG,
+    # fc-geometry soak (M19 D1): one line per live opening order — the SL/TP
+    # actually placed next to the decision-time quantile-forecast snapshot
+    # (forecast_live's fc_* row). Observe-only; never changes an exit. The
+    # fc-scaled counterfactual + censored-aware outcome resolution live
+    # trainer-side (scripts/ml/fc_geometry_resolve.py). Tail it to verify the
+    # soak is accruing + its fc coverage. Absent until the first live opening
+    # order runs post-deploy. Also surfaced at /api/bot/fc-geometry/soak.
+    "fc_geometry_soak": _FC_GEOMETRY_SOAK_LOG,
     # Allocator soak (M18 P0c, portfolio capital allocator): one line per tick
     # with ≥2 actionable candidates — what a capital allocator WOULD pick (the
     # top-ranked candidate of the full opportunity set) vs what the aggregator

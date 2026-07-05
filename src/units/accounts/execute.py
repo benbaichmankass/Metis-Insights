@@ -553,6 +553,28 @@ def execute_pkg(
         except Exception as exc:  # noqa: BLE001 — observe-only metadata
             logger.debug("exit_ladder_soak(api) skipped for %s: %s", pkg.symbol, exc)
 
+    # M19 D1 observe-only fc-geometry soak: for a live OPENING order, log the
+    # placed SL/TP next to the decision-time quantile-forecast snapshot
+    # (forecast_live's fc_* row). The offline fc→geometry backtest failed its
+    # reality-calibration anchor (MB-20260705-FC-SLTP-GEOMETRY); this soak is
+    # the faithful replacement. Best-effort — never changes or blocks the
+    # order; nothing reads it back (counterfactual resolution + the censored
+    # flag live trainer-side in scripts/ml/fc_geometry_resolve.py).
+    if not reduce_only:
+        try:
+            from src.runtime.fc_geometry_soak import record_fc_geometry_soak
+            record_fc_geometry_soak(
+                venue="api",
+                strategy=pkg.strategy, symbol=pkg.symbol, direction=pkg.direction,
+                entry=pkg.entry, sl=pkg.sl, tp=pkg.tp, qty=qty,
+                account_id=account_id,
+                account_class=str(account_cfg.get("account_class") or ""),
+                timeframe=str((getattr(pkg, "meta", None) or {}).get("timeframe") or ""),
+                extra={"side": side, "exchange": _exchange},
+            )
+        except Exception as exc:  # noqa: BLE001 — observe-only metadata
+            logger.debug("fc_geometry_soak(api) skipped for %s: %s", pkg.symbol, exc)
+
     return trade_id
 
 

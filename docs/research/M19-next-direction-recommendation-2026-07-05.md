@@ -281,6 +281,62 @@ lever closes per `MB-20260705-FC-SLTP-GEOMETRY` resolution criteria.
 
 ---
 
+## Addendum (same day, post-merge) — the authentic brief's remaining sub-questions
+
+The handoff brief (#5593) landed on `main` minutes after this session branched;
+its committed sub-questions differ slightly from the reconstruction this run
+answered. Two gaps are closed here so the record answers the brief as written.
+
+### Q1 grounding — our own meta-labeling track record (the M14 S6/S8 findings)
+
+The brief asks that D2's meta-labeling case be grounded against our own M14
+results, and they sharpen rather than contradict the recommendation:
+
+- **S-MLOPT-S6 [internal]:** a meta-label trained on ~15.7k *synthetic*
+  triple-barrier/CUSUM candidates **failed the majority baseline on the 352
+  real BTC trades** (accuracy 0.670 vs baseline 0.756) — root cause a large
+  synthetic→real domain gap (synthetic candidate win rate ~0.457 vs real
+  0.244). This is the in-house proof of the rule the external evidence also
+  implies and spike A encodes: **barrier/synthetic labels are auxiliary
+  signal only; the evaluation slice must be real outcomes.**
+- **S-MLOPT-S8 finish [internal]:** the cross-symbol **pooled** variant (+MES
+  synthetic + a `symbol` domain feature, same real-BTC holdout) became the
+  *first* meta-label in the family to clear the majority baseline (0.7571 >
+  0.7514; precision 0.54 ≈ 2.2× base rate) — but weakly (purged-WF did not
+  corroborate). Direction of the one partial win: **pooling more data with a
+  domain flag** — exactly spike A's shape, now with ~2,700 *real-execution
+  paper* rows (a far smaller domain gap than synthetic CUSUM events) instead
+  of synthetic candidates.
+
+Net: D2 stays priority 3 with expectations calibrated by our own negatives —
+spike A is a retry of the pooling direction with a better-matched pool and a
+real-money held slice, not a fresh bet that meta-labeling is magic at this n.
+
+### Q5 — anything missing beyond D1–D4?
+
+Two levers the D1–D4 frame doesn't name, both real, neither displacing the
+ranking:
+
+1. **The strategies' own realized expectancy is the dominant EV term.** The
+   anchor arm showed real BTC trades average **−0.68R** [internal:
+   `T0.4-fc-sltp-geometry-evidence-2026-07-05`]. No fc feature, embedding, or
+   label trick moves P&L as much as the strategy/exit behaviour that produces
+   that number — but that lever is owned by the M7 strategy-review gate and
+   `/performance-review` (KILL/DEMOTE/TUNE actions), not by M19. The M19
+   recommendation deliberately does not annex it; the reviews should keep
+   driving it in parallel.
+2. **Cost-data unlock (the deferred Tier-2 `exchange_fills → trades`
+   broker-truth fee writer).** Audited 07-04: smaller than designed, Tier-2,
+   one operator OK. It sharpens every future net-R label and the EV allocator
+   — a cheap enabler worth shipping opportunistically alongside D-line work
+   rather than as its own track.
+
+No higher-EV *research* direction surfaced that the four candidates miss: the
+external evidence consistently pushes toward live evidence accrual (D1/D4) and
+label economics (D2) over further representation or simulation work.
+
+---
+
 ## Sources
 
 External (fetched + claim-extracted by the deep-research harness; verification
