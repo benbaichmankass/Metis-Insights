@@ -25,6 +25,7 @@ from src.web.api.routers import health_snapshots as health_snapshots_router
 from src.web.api.routers import insights as insights_router
 from src.web.api.routers import gpu_spend as gpu_spend_router
 from src.web.api.routers import exit_ladder as exit_ladder_router
+from src.web.api.routers import fc_geometry as fc_geometry_router
 from src.web.api.routers import allocator as allocator_router
 from src.web.api.routers import liquidity as liquidity_router
 from src.web.api.routers import news as news_router
@@ -88,6 +89,7 @@ app.include_router(insights_router.router)
 app.include_router(gpu_spend_router.router)
 app.include_router(news_router.router)
 app.include_router(exit_ladder_router.router)
+app.include_router(fc_geometry_router.router)
 app.include_router(allocator_router.router)
 app.include_router(prop_router.router)
 app.include_router(reports_router.router)

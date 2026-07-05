@@ -18,14 +18,42 @@ PY=python3; for c in .venv/bin/python venv/bin/python; do [ -x "$c" ] && PY="$c"
 export PYTHONPATH=.
 
 # Locate the live shadow log (mirrored onto the trainer).
-SL=""
-for c in runtime_logs/shadow_predictions.jsonl \
-         runtime_logs/trainer_mirror/shadow_predictions.jsonl \
-         runtime_logs/trainer_mirror/live/shadow_predictions.jsonl; do
-  [ -f "$c" ] && SL="$c" && break
-done
-echo "== shadow_log=${SL:-NONE} rows=$([ -n "$SL" ] && wc -l < "$SL" || echo 0) =="
-if [ -z "$SL" ]; then
+_find_shadow_log() {
+  SL=""
+  for c in runtime_logs/shadow_predictions.jsonl \
+           runtime_logs/trainer_mirror/shadow_predictions.jsonl \
+           runtime_logs/trainer_mirror/live/shadow_predictions.jsonl; do
+    [ -f "$c" ] && SL="$c" && break
+  done
+}
+_log_age_min() {  # minutes since the shadow log's last mtime, or empty
+  [ -n "${SL:-}" ] && [ -f "$SL" ] && echo $(( ( $(date +%s) - $(stat -c %Y "$SL") ) / 60 )) || echo ""
+}
+
+_find_shadow_log
+
+# MIRROR FRESHNESS GATE (MB-20260705-FC-ADVISORY-READINESS / D4a): the
+# 2026-07-04 fc first-look read a ~19h-stale mirror and produced a
+# noise-verdict. An RG4 read on a stale mirror is not evidence — so when the
+# log is older than RG4_MAX_AGE_MIN (default 90) and the live→trainer sync
+# script is present, refresh it first (best-effort; RG4_NO_SYNC=1 skips).
+# Either way the age is printed loudly so a stale read can never pass silently.
+RG4_MAX_AGE_MIN="${RG4_MAX_AGE_MIN:-90}"
+AGE_MIN="$(_log_age_min)"
+if [ -n "${SL:-}" ] && [ -n "$AGE_MIN" ] && [ "$AGE_MIN" -gt "$RG4_MAX_AGE_MIN" ] \
+   && [ -z "${RG4_NO_SYNC:-}" ] && [ -x scripts/ops/sync_trainer_data.sh ]; then
+  echo "== shadow_log is ${AGE_MIN}min old (> ${RG4_MAX_AGE_MIN}min) — syncing from live VM =="
+  bash scripts/ops/sync_trainer_data.sh >/tmp/rg4_sync.log 2>&1 \
+    || echo "== WARN: sync_trainer_data.sh failed (see /tmp/rg4_sync.log) — reading the STALE mirror =="
+  _find_shadow_log
+  AGE_MIN="$(_log_age_min)"
+fi
+
+echo "== shadow_log=${SL:-NONE} rows=$([ -n "${SL:-}" ] && wc -l < "$SL" || echo 0) age_min=${AGE_MIN:-n/a} =="
+if [ -n "$AGE_MIN" ] && [ "$AGE_MIN" -gt "$RG4_MAX_AGE_MIN" ]; then
+  echo "== WARN: MIRROR IS STALE (${AGE_MIN}min) — treat every verdict below as UNPOWERED =="
+fi
+if [ -z "${SL:-}" ]; then
   echo "RG4 cannot run — no live shadow_predictions.jsonl on this host"
   echo "RG4_TARGETED_DONE"
   exit 0

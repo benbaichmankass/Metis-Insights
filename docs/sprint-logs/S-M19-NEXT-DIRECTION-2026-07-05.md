@@ -12,9 +12,13 @@ current data reality, answer the brief's five sub-questions with evidence
 sequenced recommendation for the next M19 execution line.
 
 ## Tier
-Tier 1 throughout — docs + backlog only. No `src/`, `config/`, `ml/`, or
-live-path change; no GPU spend ($0); no promotion proposed (explicitly out of
-scope per the operator constraint).
+Research half: Tier 1 (docs + backlog). Execution half (operator-approved
+"move forward" on the ranked plan): Tier 1 for the D4a scripts, the soak
+module, endpoint, resolver, and tests; **one Tier-2 touch** — the observe-only
+`record_fc_geometry_soak` call added to `src/units/accounts/execute.py`
+(order-path file; the call is best-effort, exception-swallowed, and changes no
+order — the operator's plan approval is carried as the Tier-2 OK, stated in
+the PR). No GPU spend ($0); no promotion proposed.
 
 ## Starting Context
 Representation frontier closed 3-for-3 (T0.1 marginal / T1.1 TCN negative /
@@ -104,9 +108,40 @@ the authentic committed versions and folding this session's additions on top
 - D1's `execute.py` wiring touch is Tier-2 — needs one operator OK at build
   time.
 
+## Execution work (same session, post-approval)
+Operator approved the ranked plan ("looks good, let's move forward") →
+executed priorities 1–2 immediately:
+
+- **D4a (Tier-1):** `rg4_targeted.sh` now freshness-gates the shadow-log
+  mirror — prints its age loudly, auto-runs `sync_trainer_data.sh` when older
+  than `RG4_MAX_AGE_MIN` (default 90 min; `RG4_NO_SYNC=1` skips), and warns
+  that a still-stale read is UNPOWERED. `replay_pregate_live.py` emits per-stage
+  `n_pos` + `pos_episodes` (positive rows clustered by >2h gaps);
+  `_rg4_print.py` renders the POWERED/UNPOWERED verdict against the
+  MB-20260705-FC-ADVISORY-READINESS standard (≥40 positives, ≥5 episodes) so
+  a thin-sample verdict can never read as evidence again.
+- **D1 (Tier-1/2):** new `src/runtime/fc_geometry_soak.py` (exit_ladder_soak
+  shape — pure builder, never raises; logs placed SL/TP + the `forecast_live`
+  fc snapshot, `fc_present:false` coverage rows); wired into `execute.py` for
+  live opening orders (best-effort, observe-only — the Tier-2 touch); Tier-1
+  read endpoint `GET /api/bot/fc-geometry/soak` + `fc_geometry_soak` diag
+  log_file name; trainer-side resolver `scripts/ml/fc_geometry_resolve.py`
+  (fc-vol-scaled counterfactual from the LOGGED fc_range_rel, **explicit
+  censoring** — max_hold/data_edge counterfactuals are reported, never
+  averaged in; real arm joined from the journal, no re-simulation). 11 new
+  tests (`tests/test_fc_geometry_soak.py`) green.
+- **Report addendum:** answered the authentic brief's Q1 grounding (M14
+  S6 meta-label FAILED the majority baseline on 352 real trades — synthetic
+  domain gap; S8's pooled+domain-flag variant the first weak pass → spike A's
+  calibration) and Q5 (dominant non-M19 levers: strategy expectancy — owned by
+  the M7/performance-review track; the Tier-2 cost-data writer). Evidence note
+  added to `MB-20260705-META-LABEL-WALL`.
+- Session-board entry registered (+ one stale 06-28 entry pruned).
+
 ## Deferred Items
-- The D1 build itself, the D2 spike A run, the D4 mirror-freshness fix +
-  powered RG4 — all next-session execution items per the ranked plan.
+- D2 spike A run (next research slot); the powered RG4 re-run itself
+  (~mid-July, soak-gated); live verification of the fc-geometry soak accrual
+  after deploy (first task next session touching the live VM).
 
 ## Next Recommended Sprint
 Per the ranking: (a) fix the trainer shadow-log mirror freshness + script the
