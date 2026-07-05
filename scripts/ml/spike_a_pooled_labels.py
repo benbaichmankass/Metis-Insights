@@ -42,8 +42,11 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Optional
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 FEATURES_CAT = ["strategy_name", "symbol", "direction", "setup_type",
                 "killzone", "bias"]
@@ -70,24 +73,21 @@ def _load_rows(path: Path) -> list[dict]:
 
 def _account_class_map(accounts_yaml: Path) -> dict[str, str]:
     """account_id → 'real_money'/'paper' from config/accounts.yaml (public
-    field only). Missing file / field → empty map (heuristic fallback)."""
+    field only), via the canonical reader
+    ``src.config.accounts_loader.load_accounts_dict`` (the CI guard forbids
+    hand-rolled parsers). Missing file / field / import failure → empty map
+    (the id-heuristic fallback in ``_domain_of`` takes over)."""
     try:
-        import yaml
+        from src.config.accounts_loader import load_accounts_dict
 
-        cfg = yaml.safe_load(accounts_yaml.read_text()) or {}
+        accounts = load_accounts_dict(accounts_yaml)
     except Exception:
         return {}
-    out = {}
-    accounts = cfg.get("accounts") or cfg
-    if isinstance(accounts, dict):
-        for aid, a in accounts.items():
-            if isinstance(a, dict) and a.get("account_class"):
-                out[str(aid)] = str(a["account_class"])
-    elif isinstance(accounts, list):
-        for a in accounts:
-            if isinstance(a, dict) and a.get("id") and a.get("account_class"):
-                out[str(a["id"])] = str(a["account_class"])
-    return out
+    return {
+        str(aid): str(a["account_class"])
+        for aid, a in accounts.items()
+        if isinstance(a, dict) and a.get("account_class")
+    }
 
 
 def _domain_of(account_id: str, amap: dict[str, str]) -> str:
