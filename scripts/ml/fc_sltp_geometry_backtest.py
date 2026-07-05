@@ -182,6 +182,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--datasets-root", default="datasets-out")
     ap.add_argument("--symbols", default="BTCUSDT,ETHUSDT")
     ap.add_argument("--max-hold", type=int, default=96, help="max bars to hold (96 = 24h at 15m)")
+    ap.add_argument("--vol-clamp-lo", type=float, default=0.5,
+                    help="lower clamp on fc_range_rel/median ratio for the fc-vol-scaled arm")
+    ap.add_argument("--vol-clamp-hi", type=float, default=2.0,
+                    help="upper clamp on fc_range_rel/median ratio for the fc-vol-scaled arm")
     args = ap.parse_args(argv)
 
     ds_root = Path(args.datasets_root)
@@ -189,20 +193,36 @@ def main(argv: list[str] | None = None) -> int:
     con = sqlite3.connect(f"file:{args.db}?mode=ro", uri=True)
     con.row_factory = sqlite3.Row
 
-    skipped = {"no_fc_cover": 0, "no_candle": 0, "bad_row": 0, "unsimulable": 0}
-    fc_rs: dict[str, list[float]] = {s: [] for s in symbols}
-    actual_rs: dict[str, list[float]] = {s: [] for s in symbols}
+    lo, hi = args.vol_clamp_lo, args.vol_clamp_hi
+    skipped = {"no_fc_cover": 0, "bad_row": 0}
+    # Three internally-consistent arms (v2 — the v1 "absolute 15m quantile"
+    # barrier was a tight-coin-flip confound; dropped):
+    #   real         = the trade's ACTUAL realized R (pnl / risk_$) — ground truth.
+    #   fixed_resim  = the actual SL/TP re-simulated forward (calibration: does the
+    #                  re-sim engine even track reality?).
+    #   fc_volscaled = actual direction + R:R, but the stop/target DISTANCE scaled
+    #                  by clamp(fc_range_rel / median_fc_range), re-simulated the
+    #                  SAME way as fixed_resim — so fc_volscaled vs fixed_resim
+    #                  isolates the fc-vol-timing effect (same engine, same R:R).
+    real_rs: dict[str, list[float]] = {s: [] for s in symbols}
+    fixed_rs: dict[str, list[float]] = {s: [] for s in symbols}
+    volsc_rs: dict[str, list[float]] = {s: [] for s in symbols}
 
+    # pass 1: collect matched trades per symbol
+    matched: dict[str, list[dict]] = {s: [] for s in symbols}
+    data: dict[str, tuple] = {}
     for sym in symbols:
         fts, frows = _load_forecasts(sym, ds_root)
         candles = _load_candles(sym, ds_root)
         cand_ts = [c["t"] for c in candles]
+        data[sym] = (fts, frows, candles, cand_ts)
         if not fts or not candles:
-            print(f"[{sym}] no fc side-stream ({len(fts)} rows) or candles ({len(candles)}) — skipping")
+            print(f"[{sym}] no fc side-stream ({len(fts)}) or candles ({len(candles)}) — skipping")
             continue
         rows = con.execute(
-            "SELECT entry_price, direction, stop_loss, take_profit_1, timestamp, created_at "
-            "FROM trades WHERE symbol=? AND status='closed' AND COALESCE(is_backtest,0)=0",
+            "SELECT entry_price, direction, stop_loss, take_profit_1, position_size, pnl, "
+            "timestamp, created_at FROM trades WHERE symbol=? AND status='closed' "
+            "AND COALESCE(is_backtest,0)=0",
             (sym,),
         ).fetchall()
         print(f"[{sym}] closed trades={len(rows)} fc_rows={len(fts)} candles={len(candles)} "
@@ -211,41 +231,57 @@ def main(argv: list[str] | None = None) -> int:
             entry = _f(r["entry_price"])
             when = _epoch(r["timestamp"] or r["created_at"])
             dirn = (r["direction"] or "").lower()
-            is_long = dirn in ("buy", "long")
             if entry is None or when is None or not dirn:
                 skipped["bad_row"] += 1
                 continue
             fc = _asof(fts, frows, when)
-            if fc is None:
+            if fc is None or fc.get("range") is None:
                 skipped["no_fc_cover"] += 1
                 continue
-            # fc quantiles are log-returns; convert to prices around entry.
-            q10p = entry * math.exp(fc["q10"])
-            q90p = entry * math.exp(fc["q90"])
-            if is_long:
-                fc_sl, fc_tp = q10p, q90p
-            else:
-                fc_sl, fc_tp = q90p, q10p
-            fr = _simulate(candles, cand_ts, when, entry, is_long, fc_sl, fc_tp, args.max_hold)
-            if fr is None:
-                skipped["unsimulable"] += 1
-                continue
-            fc_rs[sym].append(fr)
-            # actual arm: re-simulate the SL/TP the bot actually placed, same engine.
-            a_sl, a_tp = _f(r["stop_loss"]), _f(r["take_profit_1"])
-            if a_sl is not None and a_tp is not None:
-                ar = _simulate(candles, cand_ts, when, entry, is_long, a_sl, a_tp, args.max_hold)
-                if ar is not None:
-                    actual_rs[sym].append(ar)
+            matched[sym].append({
+                "entry": entry, "is_long": dirn in ("buy", "long"), "when": when,
+                "sl": _f(r["stop_loss"]), "tp": _f(r["take_profit_1"]),
+                "qty": _f(r["position_size"]), "pnl": _f(r["pnl"]), "fc_range": fc["range"],
+            })
 
-    print("\n=== RESULTS (R in units of each arm's own stop distance) ===")
+    # pass 2: per-symbol median fc_range, then simulate the three arms
     for sym in symbols:
-        print(f"[{sym}] fc-geometry {_agg(fc_rs[sym])}")
-        print(f"[{sym}] actual-SLTP {_agg(actual_rs[sym])}")
-    all_fc = [r for s in symbols for r in fc_rs[s]]
-    all_ac = [r for s in symbols for r in actual_rs[s]]
-    print(f"[ALL] fc-geometry {_agg(all_fc)}")
-    print(f"[ALL] actual-SLTP {_agg(all_ac)}")
+        ms = matched[sym]
+        if not ms:
+            continue
+        ranges = sorted(m["fc_range"] for m in ms if m["fc_range"] and m["fc_range"] > 0)
+        med = ranges[len(ranges) // 2] if ranges else None
+        _, _, candles, cand_ts = data[sym]
+        for m in ms:
+            entry, is_long, when = m["entry"], m["is_long"], m["when"]
+            sl, tp, qty, pnl = m["sl"], m["tp"], m["qty"], m["pnl"]
+            # real realized R (assumes contract_value≈1 for these perps: risk_$ = |entry-sl|·qty)
+            if pnl is not None and sl is not None and qty and entry:
+                risk = abs(entry - sl) * qty
+                if risk > 0:
+                    real_rs[sym].append(pnl / risk)
+            if sl is None or tp is None:
+                continue
+            x = _simulate(candles, cand_ts, when, entry, is_long, sl, tp, args.max_hold)
+            if x is not None:
+                fixed_rs[sym].append(x)
+            if med and m["fc_range"] and m["fc_range"] > 0:
+                ratio = min(hi, max(lo, m["fc_range"] / med))
+                sl_d, tp_d = abs(entry - sl) * ratio, abs(tp - entry) * ratio
+                v_sl, v_tp = (entry - sl_d, entry + tp_d) if is_long else (entry + sl_d, entry - tp_d)
+                xv = _simulate(candles, cand_ts, when, entry, is_long, v_sl, v_tp, args.max_hold)
+                if xv is not None:
+                    volsc_rs[sym].append(xv)
+
+    print(f"\n=== RESULTS (R units; fc-vol-scale clamp [{lo},{hi}], max-hold {args.max_hold}) ===")
+    for sym in symbols:
+        print(f"[{sym}] real-realized   {_agg(real_rs[sym])}")
+        print(f"[{sym}] fixed-resim     {_agg(fixed_rs[sym])}")
+        print(f"[{sym}] fc-vol-scaled   {_agg(volsc_rs[sym])}")
+    both = lambda d: [r for s in symbols for r in d[s]]  # noqa: E731
+    print(f"[ALL] real-realized {_agg(both(real_rs))}")
+    print(f"[ALL] fixed-resim   {_agg(both(fixed_rs))}")
+    print(f"[ALL] fc-vol-scaled {_agg(both(volsc_rs))}")
     print(f"skipped: {skipped}")
     con.close()
     return 0
