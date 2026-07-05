@@ -1,0 +1,911 @@
+{
+ "report_id": "RPT-20260705-121200-since-last",
+ "reviewed_at": "2026-07-05T12:12:00+00:00",
+ "reviewer": "claude",
+ "window": "since-last",
+ "window_start": "2026-07-04T06:10:00+00:00",
+ "window_end": "2026-07-05T12:12:00+00:00",
+ "prior_report_id": "RPT-20260704-061000-since-last",
+ "overall_assessment": "caution",
+ "health": {
+  "reviewed_at": "2026-07-05T08:30:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-07-04T08:50:00+00:00",
+  "window_end": "2026-07-05T08:15:00+00:00",
+  "overall_assessment": "caution",
+  "_correction": "The original 08:30Z run graded orders=concern on a suspected *_prop ticket-emit bug; follow-up verification showed trend_donchian_{eth,sol}_prop are execution: shadow BY DESIGN (no ticket expected) and the live ETH pullback legs emit correctly — orders re-graded ok, overall investigate→caution.",
+  "findings": {
+   "heartbeat": {
+    "status": "ok",
+    "note": "age 19s label=running; uptime 17.9h; git_sha da27520d == origin/main"
+   },
+   "ticks": {
+    "status": "ok",
+    "note": "last_tick fresh; 15-min health-snapshot cadence unbroken across window"
+   },
+   "signals": {
+    "status": "ok",
+    "note": "42 strategies loaded; *_eval firing across symbols incl. prop legs"
+   },
+   "orders": {
+    "status": "ok",
+    "note": "CORRECTED: donchian *_prop legs are execution:shadow by config (no ticket expected); live ETH pullback legs emit + journal tickets correctly"
+   },
+   "trades": {
+    "status": "ok",
+    "note": "all rows carry pkg id + SL/TP; closed rows carry closed_at/pnl/exit_reason with correct pnl_source"
+   },
+   "monitoring": {
+    "status": "ok",
+    "note": "tick fresh; no monitor-blindness alerts"
+   },
+   "sizing": {
+    "status": "ok",
+    "note": "prop ticket risk 1.5%=$75; real-money qtys modest; no fractional-contract rows"
+   },
+   "api_errors": {
+    "status": "watch",
+    "note": "ib_paper positions-read null while balance api_ok (Sunday, CME closed, 0 IB positions); re-probe after 22:00Z"
+   },
+   "state_consistency": {
+    "status": "ok",
+    "note": "runtime live map matches accounts.yaml"
+   },
+   "alert_delivery": {
+    "status": "ok",
+    "note": "prop_fill push+telegram fired; send-ping delivered (issue 5583 closed by bot)"
+   },
+   "strategy_silence": {
+    "status": "ok",
+    "note": "evals observed across strategies; full-window enumeration summarized at relay limits"
+   },
+   "db_integrity": {
+    "status": "ok",
+    "note": "trades rows minutes-fresh; counts coherent; PRAGMA not fetchable via relay"
+   },
+   "data_validity": {
+    "status": "ok",
+    "note": "timestamps monotonic; closed rows priced; no impossible values"
+   },
+   "health_snapshot": {
+    "status": "watch",
+    "note": "105/105 snapshots perma-watch from shelved ib_live in check_accounts_api (BL-20260705-HEALTHCHECK-SHELVED-ACCOUNTS)"
+   },
+   "trainer_service": {
+    "status": "watch",
+    "note": "timer active; ict-trainer.service failed — see ml sub-review (oom-kill 06:14Z)"
+   },
+   "broker_reachability": {
+    "status": "watch",
+    "note": "bybit_1/2 + alpaca x3 reachable; ib_paper positions-read null (balance OK, 0 positions, Sunday); breakout_1 API-less by design"
+   }
+  },
+  "orphan_events": {
+   "new_in_window": 0,
+   "resting_unreconciled": 34,
+   "note": "all pre-window (newest 06-30), explicit reconcile_status=unreconciled, tracked BL-20260601-001"
+  },
+  "claude_channel_ping": {
+   "delivered_via": "suppressed (system-report) — the standalone 08:22Z health ping (issue 5583) predates this consolidated run"
+  }
+ },
+ "performance": {
+  "reviewed_at": "2026-07-05T12:12:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-07-04T06:10:00+00:00",
+  "window_end": "2026-07-05T12:12:00+00:00",
+  "overall_assessment": "caution",
+  "summary": {
+   "real": {
+    "trades": 1,
+    "wins": 1,
+    "win_rate": 100.0,
+    "pnl": 9.31,
+    "note": "ada_pullback_2h ADAUSDT long on bybit_2, broker-truth pnl (bybit_closed_pnl), exit reconciler_filled at ~TP (+2.03R)"
+   },
+   "paper": {
+    "trades": 9,
+    "wins": 3,
+    "win_rate": 33.3,
+    "pnl": -1706.13,
+    "note": "bybit_1 demo: ADA pump ride +1483 offset by AVAX 4h stop -2276.6 and ADA 4h reduce -646; intent_reduce churn on SOL. (perf endpoint 24h sub-window shows -2626.71 over 5 trades)"
+   },
+   "prop": {
+    "fills": 1,
+    "pnl_realised": 0.0,
+    "note": "ETHUSDT long 1.9 @1767.71 OPEN (ticket prop-manual-5bc393741ec4); prior-day realized +297.12 per account_status 07-04"
+   }
+  },
+  "grading": {
+   "graded_this_run": 10,
+   "histogram": {
+    "B": 4,
+    "C": 6
+   },
+   "log": "comms/claude_strategy_scores.jsonl (grade_closed_trades_from_diag.py --include-paper, newest reviewed_at 2026-07-05T11:58Z >= window_start)"
+  },
+  "insights_cross_check": {
+   "cache_fresh": true,
+   "generated_at": "2026-07-05T11:43:00Z",
+   "grade": "good",
+   "consistent": true,
+   "note": "M13 template:v1 summary matches diag truth (1 real closed, +$9.31, ada_pullback_2h)"
+  },
+  "proposed_tweaks": [
+   {
+    "tier": 3,
+    "proposal": "Decide re-ticket policy while a prop position is open (BL-20260705-PROP-RETICKET-WHILE-OPEN): suppress emission for held (account,symbol,direction) vs keep operator-gated tickets. Evidence: 2 fresh ETH tickets 10:05/10:08Z with the 08:06 position open."
+   },
+   {
+    "tier": 2,
+    "proposal": "Give execution:shadow packages a distinct terminal status instead of 'orphaned' (BL-20260705-SHADOW-PKG-ORPHAN-STATUS) — 9 shadow-soak packages currently pollute orphan metrics."
+   }
+  ],
+  "claude_channel_ping": {
+   "delivered_via": "suppressed (system-report)"
+  }
+ },
+ "ml": {
+  "reviewed_at": "2026-07-05T12:12:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-07-04T06:10:00+00:00",
+  "window_end": "2026-07-05T12:12:00+00:00",
+  "overall_assessment": "caution",
+  "trainer": {
+   "timer": "enabled+active (next 2026-07-06T00:57Z)",
+   "last_cycle": "2026-07-05T01:32Z ran; manifest fleet trained ~02:21-02:30 (manifest_ok across btc-regime 15m/1h fleet; btc-regime-15m-tcn-v1 skipped empty_dataset; repeated observe-only manifest_audit_flagged dead-feature warnings)",
+   "failure": "service OOM-KILLED 06:14:12Z mid-run after 41min CPU (Result: oom-kill) — MB-20260705-TRAINER-OOM; dataset_builds.jsonl not found at expected path (unavailable: path check MISSING)"
+  },
+  "soaks": {
+   "shadow_fleet": "accruing — all active regime heads scored within last 15min of pull (btc 5m/15m/1h, eth, sol, mes families); btc-regime-15m-lgbm-v2 ADVISORY 831 preds (live vol-gate input)",
+   "fc_heads": "btc-regime-15m-lgbm-fc-pcv-v1 199 preds since 07-03; eth-regime-15m-lgbm-fc-pcv-v1 74 preds since 07-04 17:44 (newly promoted, soaking)",
+   "stopped": "prop-mission-policy-baseline-v0 + trade-outcome baselines last_seen 06-30 (check deliberate unwire vs stall next /ml-review)",
+   "conviction": "conviction-meta-v1 4533 preds, accruing to 11:56Z",
+   "exit_ladder": "accruing — rows for every prop ticket incl. 10:05/10:08Z; 0 rungs differ (single-target parity) on prop legs",
+   "allocator": "accruing (ev_net_r) — ETHUSDT 2-candidate ticks through 11:14Z, mostly agree, regret <=0.016"
+  },
+  "promotion_recommendations": [
+   {
+    "model": "eth/sol 15m regime heads",
+    "stance": "HOLD in shadow — prerequisites for extending the ML vol-gate to ETH/SOL cells (MB-20260628-VOLGATE-GOLIVE); let fc + 15m soak volume accrue"
+   },
+   {
+    "model": "mes-5m-lgbm-v2",
+    "stance": "promotion candidate (RG4-confirmed, MB-20260627-002) but structurally blocked on the live_agreement gate (MB-20260626-003) — operator decision on the gate, not a YAML change"
+   }
+  ],
+  "experiments_proposed": [
+   {
+    "proposal": "After OOM fix: re-run the interrupted 07-05 cycle stage; verify eth-fc soak reaches gate volume before next weekly review"
+   }
+  ],
+  "claude_channel_ping": {
+   "delivered_via": "suppressed (system-report)"
+  }
+ },
+ "consolidated": {
+  "roll_up_grade": "caution",
+  "headline": "Quiet, healthy weekend window with one real-money win and the prop account's first ETH fill of the cycle. Real money: 1 closed trade, ADAUSDT long +$9.31 (broker-truth, +2.03R, graded C) on bybit_2; two real positions open (ETH 0.07, BTC 0.002). Prop: the operator filled the 08:00Z eth_pullback ticket (1.9 ETH @1767.71, SL 1732/TP 1945.9) — logged as prop_fills 16, linked, monitored; $147.54 daily-loss cushion intact. Paper (bybit_1 demo) gave back -$1.7k, dominated by one AVAX 4h stop-out (-$2,276) against the ADA pump it also caught (+$1,483). Pipeline plumbing, DB integrity and alerting are clean; earlier suspicion of a prop ticket-emit bug was CORRECTED (donchian *_prop legs are shadow by design; the live ETH legs verified end-to-end). Watch items: ib_paper positions-read null over the weekend (0 IB positions at risk; re-probe at CME reopen), the trainer's 06:14Z OOM-kill mid-cycle, and prop re-ticketing while a position is open. Two fixes shipped this window: buy/long direction-synonym matcher (PR #5592) and the backlog drain (PR #5582).",
+  "operator_priorities": [
+   {
+    "priority": 1,
+    "tier": 2,
+    "operator_action_required": true,
+    "action": "Set DASHBOARD_API_TOKEN (verified UNSET — prop-report + device write endpoints unauthenticated to anyone reaching :8001). You originate the value into Actions secrets; propagation via sync-vm-secrets is prepared. (BL-20260705-DASHBOARD-API-TOKEN-UNSET; you said 'later' — this is the standing reminder.)"
+   },
+   {
+    "priority": 2,
+    "tier": 3,
+    "operator_action_required": true,
+    "action": "Decide prop re-ticket policy: suppress new tickets for a held (account,symbol,direction) or keep them (you gate every ticket). Evidence: 2 new ETH tickets at 10:05/10:08Z while your 08:06 position is open. (BL-20260705-PROP-RETICKET-WHILE-OPEN)"
+   },
+   {
+    "priority": 3,
+    "tier": 1,
+    "operator_action_required": false,
+    "action": "Trainer OOM-kill 06:14Z mid-cycle — Claude will identify the offending stage and bound it next trainer session (MB-20260705-TRAINER-OOM); nightly timer still armed."
+   },
+   {
+    "priority": 4,
+    "tier": 1,
+    "operator_action_required": false,
+    "action": "ib_paper positions-read re-probe scheduled ~22:10Z post-CME-reopen; vm-ib-gateway-recover only if it persists (0 IB positions open today)."
+   },
+   {
+    "priority": 5,
+    "tier": 3,
+    "operator_action_required": true,
+    "action": "MES 15m regime heads remain promotion-candidates blocked on the live_agreement gate design (MB-20260626-003) — needs an operator call on the gate."
+   }
+  ],
+  "cross_review_notes": [
+   "The same prop-bridge evidence closed a health item and opened a performance decision: emit path verified working (health), but re-tickets while holding (performance/ops decision).",
+   "Paper drawdown concentrated in 4h donchian alt-cells (AVAX -2276, ADA -646) on a spike-fade day, while the 2h pullback family printed the real win — consistent with the regime-router thesis; no Tier-3 change proposed on n=1 day.",
+   "The trainer OOM (ml) is also the health trainer_service watch — one root cause, tracked once (MB-20260705-TRAINER-OOM)."
+  ],
+  "pnl_by_class": {
+   "real": {
+    "window_pnl": 9.31,
+    "prior_window_pnl": null,
+    "trend": "flat",
+    "trades": 1,
+    "wins": 1,
+    "win_rate": 100.0,
+    "expectancy": 9.31,
+    "profit_factor": null,
+    "max_drawdown": 0.0,
+    "per_strategy": [
+     {
+      "name": "ada_pullback_2h",
+      "trades": 1,
+      "win_rate": 100.0,
+      "pnl": 9.31
+     }
+    ],
+    "per_asset_class": {
+     "crypto": 9.31
+    },
+    "equity_curve": [
+     {
+      "t": "2026-07-04T16:02:48+00:00",
+      "cum": 9.31
+     }
+    ],
+    "note": "prior_window_pnl unavailable: /api/pnl/history unreachable via relay (BL-20260705-RELAY-ALLOWLIST-GAPS) and the prior report carried null PnL blocks"
+   },
+   "paper": {
+    "window_pnl": -1706.13,
+    "prior_window_pnl": null,
+    "trend": "down",
+    "trades": 9,
+    "wins": 3,
+    "win_rate": 33.3,
+    "expectancy": -189.57,
+    "profit_factor": 0.43,
+    "max_drawdown": -2957.05,
+    "per_strategy": [
+     {
+      "name": "ada_pullback_2h",
+      "trades": 1,
+      "win_rate": 100.0,
+      "pnl": 1483.21
+     },
+     {
+      "name": "sol_pullback_2h",
+      "trades": 3,
+      "win_rate": 33.3,
+      "pnl": 166.97
+     },
+     {
+      "name": "htf_pullback_trend_2h",
+      "trades": 1,
+      "win_rate": 100.0,
+      "pnl": 87.74
+     },
+     {
+      "name": "trend_donchian_ada_4h",
+      "trades": 1,
+      "win_rate": 0.0,
+      "pnl": -646.07
+     },
+     {
+      "name": "trend_donchian_avax_4h",
+      "trades": 2,
+      "win_rate": 0.0,
+      "pnl": -2638.87
+     },
+     {
+      "name": "avax_pullback_2h",
+      "trades": 1,
+      "win_rate": 0.0,
+      "pnl": -1.08
+     }
+    ],
+    "per_asset_class": {
+     "crypto": -1706.13
+    },
+    "equity_curve": [
+     {
+      "t": "2026-07-04 12:00:53",
+      "cum": -34.39
+     },
+     {
+      "t": "2026-07-04 15:14:16",
+      "cum": -680.45
+     },
+     {
+      "t": "2026-07-04 17:54:33",
+      "cum": -2957.05
+     },
+     {
+      "t": "2026-07-04 18:06:15",
+      "cum": -2714.45
+     },
+     {
+      "t": "2026-07-05 04:11:30",
+      "cum": -2626.71
+     }
+    ]
+   },
+   "prop": {
+    "window_pnl": 0.0,
+    "prior_window_pnl": 297.12,
+    "trend": "flat",
+    "fills_reported": 2,
+    "tickets_emitted": 5,
+    "unacted_tickets": 0,
+    "rule_distance": {
+     "as_of": "2026-07-04T06:02:11Z",
+     "balance": 5215.27,
+     "distance_to_daily_loss_usd": 147.54,
+     "distance_to_dd_floor_usd": 515.27
+    },
+    "per_account": [
+     {
+      "account_id": "breakout_1",
+      "open_position": "ETHUSDT long 1.9 @1767.71 (SL 1732 / TP 1945.9), ticket prop-manual-5bc393741ec4, opened 08:06Z",
+      "realised_window": 0.0
+     }
+    ],
+    "note": "window realised 0 (position still open); prior-day realised +297.12 from the 07-04 account_status"
+   }
+  },
+  "market_context": [
+   {
+    "symbol": "BTCUSDT",
+    "open": 62633.0,
+    "close": 62667.2,
+    "high": 63462.7,
+    "low": 62333.4,
+    "pct_change": 0.05,
+    "note": "rangebound; Saturday push to 63.4k faded — chop"
+   },
+   {
+    "symbol": "ETHUSDT",
+    "open": 1753.88,
+    "close": 1760.63,
+    "high": 1808.37,
+    "low": 1748.66,
+    "pct_change": 0.38,
+    "note": "rallied to 1808 then faded to ~1760; prop entry 1767.71 marginally underwater at window end"
+   },
+   {
+    "symbol": "SOLUSDT",
+    "open": 82.73,
+    "close": 80.58,
+    "high": 83.98,
+    "low": 79.69,
+    "pct_change": -2.6,
+    "note": "steady downtrend all window"
+   },
+   {
+    "symbol": "ADAUSDT",
+    "open": 0.1771,
+    "close": 0.1869,
+    "high": 0.1999,
+    "low": 0.175,
+    "pct_change": 5.53,
+    "note": "sharp pump to 0.20 then partial fade — the window's real-money win rode this"
+   },
+   {
+    "symbol": "AVAXUSDT",
+    "open": 6.933,
+    "close": 6.876,
+    "high": 7.113,
+    "low": 6.756,
+    "pct_change": -0.82,
+    "note": "spike to 7.11 then dump to 6.76 — stopped the paper 4h donchian long"
+   },
+   {
+    "symbol": "XRPUSDT",
+    "open": null,
+    "close": null,
+    "high": null,
+    "low": null,
+    "pct_change": null,
+    "note": "unavailable: candle pull not run this session (relay budget)"
+   },
+   {
+    "symbol": "MES/MGC/MHG + equities (SPY/QQQ/IWM/GLD/SLV/TLT/IEF/...)",
+    "open": null,
+    "close": null,
+    "high": null,
+    "low": null,
+    "pct_change": null,
+    "note": "market closed (weekend) — no session in window"
+   }
+  ],
+  "trade_dossiers": [
+   {
+    "trade_id": "prop_fills:16",
+    "order_package_id": "pkg-57ac9498afbc4f62",
+    "account": "breakout_1",
+    "account_class": "prop",
+    "symbol": "ETHUSDT",
+    "direction": "long",
+    "strategy": "eth_pullback_2h (+prop variant, aggregated ticket prop-manual-5bc393741ec4)",
+    "opened_at": "2026-07-05T08:06:00 (terminal-local 11:06)",
+    "closed_at": null,
+    "entry_price": 1767.71,
+    "exit_price": null,
+    "stop_loss": 1732.0,
+    "take_profit": 1945.9,
+    "qty": 1.9,
+    "pnl": null,
+    "pnl_percent": null,
+    "exit_reason": null,
+    "confidence": 0.7406,
+    "signal_logic": null,
+    "pnl_source": "open — no broker feed (manual bridge)",
+    "claude_grade": null,
+    "claude_score": null,
+    "grade_rationale": "OPEN prop position — graded at close. Entry inside ticket band 1760.66-1779.68; SL/TP placed as bracketed (rounded from 1732.14/1945.42). Position code 500139412.",
+    "model_scores": null,
+    "notable": true
+   },
+   {
+    "trade_id": 3170,
+    "order_package_id": "pkg-85a3e002d9954d16",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "BTCUSDT",
+    "direction": "short",
+    "strategy": "htf_pullback_trend_2h",
+    "opened_at": "2026-07-05 04:11:30",
+    "closed_at": "2026-07-05T04:11:30.325590+00:00",
+    "entry_price": 62781.7,
+    "exit_price": 62695,
+    "stop_loss": 61965.39642857,
+    "take_profit": 68997.0883,
+    "qty": 1.012,
+    "pnl": 87.7404,
+    "pnl_percent": 0.1381,
+    "exit_reason": "intent_reduce_executed",
+    "confidence": 0.6471,
+    "signal_logic": null,
+    "pnl_source": "local_compute",
+    "claude_grade": null,
+    "claude_score": null,
+    "grade_rationale": "htf_pullback_trend_2h short; conf 0.65; entry=acceptable; exit=premature_exit(intent_reduce_executed,0.11R); risk=unknown",
+    "model_scores": null,
+    "notable": false
+   },
+   {
+    "trade_id": 3165,
+    "order_package_id": "pkg-c3512379a8624406",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "SOLUSDT",
+    "direction": "short",
+    "strategy": "sol_pullback_2h",
+    "opened_at": "2026-07-04 18:06:15",
+    "closed_at": "2026-07-04T18:06:15.196947+00:00",
+    "entry_price": 82.6,
+    "exit_price": 81.68,
+    "stop_loss": 80.33035714,
+    "take_profit": 90.7774,
+    "qty": 263.7,
+    "pnl": 242.604,
+    "pnl_percent": 1.1138,
+    "exit_reason": "intent_reduce_executed",
+    "confidence": 0.5267,
+    "signal_logic": null,
+    "pnl_source": "local_compute",
+    "claude_grade": null,
+    "claude_score": null,
+    "grade_rationale": "sol_pullback_2h short; conf 0.53; entry=acceptable; exit=tp_appropriate(intent_reduce_executed,0.41R); risk=unknown",
+    "model_scores": null,
+    "notable": false
+   },
+   {
+    "trade_id": 3164,
+    "order_package_id": "pkg-78d47cd467b44561",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "AVAXUSDT",
+    "direction": "long",
+    "strategy": "trend_donchian_avax_4h",
+    "opened_at": "2026-07-04 17:54:33",
+    "closed_at": "2026-07-04T17:54:33.250000+00:00",
+    "entry_price": 7.098,
+    "exit_price": 6.861,
+    "stop_loss": 6.826,
+    "take_profit": 7.803999,
+    "qty": 9605.9,
+    "pnl": -2276.5983,
+    "pnl_percent": -3.339,
+    "exit_reason": "reconciler_filled",
+    "confidence": 0.6,
+    "signal_logic": null,
+    "pnl_source": "local_compute",
+    "claude_grade": null,
+    "claude_score": null,
+    "grade_rationale": "trend_donchian_avax_4h long; conf 0.60; entry=acceptable; exit=sl_appropriate(reconciler_filled,-0.87R); risk=unknown",
+    "model_scores": null,
+    "notable": true
+   },
+   {
+    "trade_id": 3155,
+    "order_package_id": "pkg-1130be111944442d",
+    "account": "bybit_2",
+    "account_class": "real_money",
+    "symbol": "ADAUSDT",
+    "direction": "long",
+    "strategy": "ada_pullback_2h",
+    "opened_at": "2026-07-04 10:07:43",
+    "closed_at": "2026-07-04T16:02:48.153000+00:00",
+    "entry_price": 0.176,
+    "exit_price": 0.1933,
+    "stop_loss": 0.16760714,
+    "take_profit": 0.193424,
+    "qty": 545,
+    "pnl": 9.30740372,
+    "pnl_percent": 9.7033,
+    "exit_reason": "reconciler_filled",
+    "confidence": 0.5379,
+    "signal_logic": null,
+    "pnl_source": null,
+    "claude_grade": null,
+    "claude_score": null,
+    "grade_rationale": "ada_pullback_2h long; conf 0.54; entry=acceptable; exit=tp_appropriate(reconciler_filled,2.01R); risk=unknown",
+    "model_scores": null,
+    "notable": false
+   },
+   {
+    "trade_id": 3161,
+    "order_package_id": "pkg-129e73ab2cd1441f",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "ADAUSDT",
+    "direction": "short",
+    "strategy": "trend_donchian_ada_4h",
+    "opened_at": "2026-07-04 15:14:16",
+    "closed_at": "2026-07-04T15:14:16.915747+00:00",
+    "entry_price": 0.1871,
+    "exit_price": 0.1927,
+    "stop_loss": 0.17345714,
+    "take_profit": 0.2056229,
+    "qty": 115369,
+    "pnl": -646.0664,
+    "pnl_percent": -2.9931,
+    "exit_reason": "intent_reduce_executed",
+    "confidence": 0.733,
+    "signal_logic": null,
+    "pnl_source": "local_compute",
+    "claude_grade": null,
+    "claude_score": null,
+    "grade_rationale": "trend_donchian_ada_4h short; conf 0.73; entry=optimal; exit=sl_appropriate(intent_reduce_executed,-0.41R); risk=unknown",
+    "model_scores": null,
+    "notable": true
+   },
+   {
+    "trade_id": 3157,
+    "order_package_id": "pkg-b9c41f6fae30480f",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "SOLUSDT",
+    "direction": "short",
+    "strategy": "sol_pullback_2h",
+    "opened_at": "2026-07-04 12:00:53",
+    "closed_at": "2026-07-04T12:00:53.152186+00:00",
+    "entry_price": 81.85,
+    "exit_price": 82.51,
+    "stop_loss": 79.55,
+    "take_profit": 89.95315,
+    "qty": 52.1,
+    "pnl": -34.386,
+    "pnl_percent": -0.8064,
+    "exit_reason": "intent_reduce_executed",
+    "confidence": 0.7295,
+    "signal_logic": null,
+    "pnl_source": "local_compute",
+    "claude_grade": null,
+    "claude_score": null,
+    "grade_rationale": "sol_pullback_2h short; conf 0.73; entry=optimal; exit=sl_appropriate(intent_reduce_executed,-0.29R); risk=unknown",
+    "model_scores": null,
+    "notable": false
+   },
+   {
+    "trade_id": 3154,
+    "order_package_id": "pkg-1130be111944442d",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "ADAUSDT",
+    "direction": "long",
+    "strategy": "ada_pullback_2h",
+    "opened_at": "2026-07-04 10:07:42",
+    "closed_at": "2026-07-04T10:07:42.691000+00:00",
+    "entry_price": 0.1759,
+    "exit_price": 0.1926,
+    "stop_loss": 0.16760714,
+    "take_profit": 0.193424,
+    "qty": 88815,
+    "pnl": 1483.2105,
+    "pnl_percent": 9.494,
+    "exit_reason": "reconciler_filled",
+    "confidence": 0.5379,
+    "signal_logic": null,
+    "pnl_source": "local_compute",
+    "claude_grade": null,
+    "claude_score": null,
+    "grade_rationale": "ada_pullback_2h long; conf 0.54; entry=acceptable; exit=tp_appropriate(reconciler_filled,2.01R); risk=unknown",
+    "model_scores": null,
+    "notable": true
+   },
+   {
+    "trade_id": 3153,
+    "order_package_id": "pkg-6e9a7eedb57744a6",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "SOLUSDT",
+    "direction": "short",
+    "strategy": "sol_pullback_2h",
+    "opened_at": "2026-07-04 10:07:20",
+    "closed_at": "2026-07-04T10:07:20.168170+00:00",
+    "entry_price": 81.77,
+    "exit_price": 82.1,
+    "stop_loss": 79.39321429,
+    "take_profit": 89.86523,
+    "qty": 125,
+    "pnl": -41.25,
+    "pnl_percent": -0.4036,
+    "exit_reason": "intent_reduce_executed",
+    "confidence": 0.7246,
+    "signal_logic": null,
+    "pnl_source": "local_compute",
+    "claude_grade": null,
+    "claude_score": null,
+    "grade_rationale": "sol_pullback_2h short; conf 0.72; entry=optimal; exit=sl_appropriate(intent_reduce_executed,-0.14R); risk=unknown",
+    "model_scores": null,
+    "notable": false
+   },
+   {
+    "trade_id": 3152,
+    "order_package_id": "pkg-b30991a1eff64c73",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "AVAXUSDT",
+    "direction": "short",
+    "strategy": "avax_pullback_2h",
+    "opened_at": "2026-07-04 08:09:16",
+    "closed_at": "2026-07-04T08:09:16.173967+00:00",
+    "entry_price": 6.874,
+    "exit_price": 6.922,
+    "stop_loss": 6.6865,
+    "take_profit": 7.554526,
+    "qty": 7547.4,
+    "pnl": -362.2752,
+    "pnl_percent": -0.6983,
+    "exit_reason": "intent_reduce_executed",
+    "confidence": 0.6403,
+    "signal_logic": null,
+    "pnl_source": "local_compute",
+    "claude_grade": null,
+    "claude_score": null,
+    "grade_rationale": "avax_pullback_2h short; conf 0.64; entry=acceptable; exit=sl_appropriate(intent_reduce_executed,-0.26R); risk=unknown",
+    "model_scores": null,
+    "notable": false
+   },
+   {
+    "trade_id": 3149,
+    "order_package_id": "pkg-75aecc6d1d494edb",
+    "account": "bybit_1",
+    "account_class": "paper",
+    "symbol": "AVAXUSDT",
+    "direction": "long",
+    "strategy": "trend_donchian_avax_4h",
+    "opened_at": "2026-07-03 21:54:45",
+    "closed_at": "2026-07-04T08:09:15.806765+00:00",
+    "entry_price": 7.022,
+    "exit_price": 6.874,
+    "stop_loss": 6.75110714,
+    "take_profit": 7.717178,
+    "qty": 7.299999999999272,
+    "pnl": -1.0804,
+    "pnl_percent": -2.1077,
+    "exit_reason": "intent_reduce",
+    "confidence": 0.7752,
+    "signal_logic": null,
+    "pnl_source": "local_compute",
+    "claude_grade": null,
+    "claude_score": null,
+    "grade_rationale": "trend_donchian_avax_4h long; conf 0.78; entry=optimal; exit=sl_appropriate(intent_reduce,-0.55R); risk=unknown",
+    "model_scores": null,
+    "notable": false
+   }
+  ],
+  "dossier_coverage": {
+   "window": "since-last",
+   "full_dossiers": 11,
+   "summarized_trades": 0,
+   "rule": "since-last => full dossier per closed trade + the open prop fill"
+  },
+  "backlog_summary": {
+   "health": {
+    "total": 171,
+    "open": 74,
+    "resolved": 97,
+    "drained": 5
+   },
+   "performance": {
+    "total": 58,
+    "open": 39,
+    "resolved": 19,
+    "drained": 0
+   },
+   "ml": {
+    "total": 64,
+    "open": 28,
+    "resolved": 36,
+    "drained": 0
+   }
+  },
+  "tier3_proposals_pending": [
+   {
+    "source_review": "health",
+    "tier": 2,
+    "summary": "DASHBOARD_API_TOKEN handoff (operator deferred to 'later' 2026-07-05) — prop-report + device write endpoints currently unauthenticated"
+   },
+   {
+    "source_review": "performance",
+    "tier": 3,
+    "summary": "Prop re-ticket-while-open policy: suppress vs keep (BL-20260705-PROP-RETICKET-WHILE-OPEN)"
+   },
+   {
+    "source_review": "ml",
+    "tier": 3,
+    "summary": "MES 15m heads promotion vs the live_agreement gate design (MB-20260626-003)"
+   },
+   {
+    "source_review": "ml",
+    "tier": 3,
+    "summary": "donchian *_prop shadow->live graduation awaits the prop EV/survival gate (Unit C Phase 0, by design)"
+   }
+  ],
+  "monitoring": [
+   {
+    "item_id": "BL-20260705-IBPAPER-POSITIONS-NULL-WEEKEND",
+    "domain": "health",
+    "category": "verify",
+    "detail": "ib_paper positions-read null while balance ok (weekend)",
+    "since": "2026-07-05",
+    "next_check": "22:10Z self check-in post-CME-reopen"
+   },
+   {
+    "item_id": "PB-20260625-001",
+    "domain": "performance",
+    "category": "awaiting-data",
+    "detail": "real swap charge on the open prop ETH position vs the 0.033%/day model",
+    "since": "2026-06-25",
+    "next_check": "first daily swap event on the open position"
+   },
+   {
+    "item_id": "MB-20260705-TRAINER-OOM",
+    "domain": "ml",
+    "category": "verify",
+    "detail": "trainer OOM-kill mid-cycle",
+    "since": "2026-07-05",
+    "next_check": "next nightly cycle 2026-07-06T00:57Z completes end-to-end"
+   },
+   {
+    "item_id": "BL-20260705-PROP-RETICKET-WHILE-OPEN",
+    "domain": "performance",
+    "category": "awaiting-decision",
+    "detail": "suppress vs keep re-tickets while prop position open",
+    "since": "2026-07-05",
+    "next_check": "operator go"
+   },
+   {
+    "item_id": "fc-soak",
+    "domain": "ml",
+    "category": "soaking",
+    "detail": "btc/eth 15m fc heads accruing toward shadow->advisory gate (199/74 preds)",
+    "since": "2026-07-03",
+    "next_check": "gate volume per fc-graduation program"
+   }
+  ],
+  "review_coverage": {
+   "strategy_promotion": {
+    "ready_to_promote": [],
+    "demote_or_kill": [],
+    "summary": "All strategies HOLD this window. Live ETH pullback prop family verified working end-to-end (first fill placed). donchian *_prop stays shadow by design pending the prop EV/survival gate. trend_donchian_avax_4h logged the window's big paper loss (n=1, no action). MES 15m ML heads remain promotion candidates blocked on the live_agreement gate (operator decision). fc heads soaking, not yet at gate volume."
+   },
+   "ml_training_health": {
+    "cycles_since_last_review": 1,
+    "dataset_builds_ok": "unavailable: dataset_builds.jsonl not found at expected trainer path (flagged in MB-20260705-TRAINER-OOM)",
+    "failing_or_stuck": "ict-trainer.service OOM-killed 06:14:12Z mid-run (after the manifest fleet trained OK 02:21-02:30); timer armed for 2026-07-06T00:57Z",
+    "summary": "Cycle ran and trained the fleet; a later stage OOM-killed on the 6GB box — bounded fix queued (MB-20260705-TRAINER-OOM)."
+   },
+   "soak_status": [
+    {
+     "soak": "shadow regime fleet (btc/eth/sol/mes heads)",
+     "state": "accruing",
+     "detail": "all active heads scored within 15min of pull; btc-regime-15m-lgbm-v2 ADVISORY 831 preds (live vol-gate input)"
+    },
+    {
+     "soak": "fc forecast heads (btc/eth 15m)",
+     "state": "accruing",
+     "detail": "btc fc-pcv 199 preds since 07-03; eth fc-pcv 74 preds since 07-04 17:44 (newly promoted)"
+    },
+    {
+     "soak": "conviction-meta-v1",
+     "state": "accruing",
+     "detail": "4533 preds, last 11:56Z"
+    },
+    {
+     "soak": "exit-ladder (ExitPlan P3)",
+     "state": "accruing",
+     "detail": "rows for every prop ticket incl. 10:05/10:08Z; prop legs show single-target parity (0 differing rungs)"
+    },
+    {
+     "soak": "allocator (M18 P0c, ev_net_r)",
+     "state": "accruing",
+     "detail": "ETHUSDT 2-candidate ticks through 11:14Z, mostly agree, regret <=0.016"
+    },
+    {
+     "soak": "prop-mission-policy + trade-outcome baselines",
+     "state": "stalled",
+     "detail": "last_seen 06-30 — verify deliberate unwire vs stall at next /ml-review"
+    }
+   ],
+   "flags_raised": [
+    "trainer OOM-kill mid-cycle 06:14Z (MB-20260705-TRAINER-OOM) — fleet trained OK first; nightly timer still armed",
+    "ib_paper positions-read null over the weekend (balance path OK, 0 IB positions at risk) — standalone re-probe armed 22:10Z (BL-20260705-IBPAPER-POSITIONS-NULL-WEEKEND)",
+    "DASHBOARD_API_TOKEN unset — Tier-2 write endpoints unauthenticated (operator deferred to 'later'; standing reminder BL-20260705-DASHBOARD-API-TOKEN-UNSET)",
+    "prop emits fresh tickets while a position is open (10:05/10:08Z vs the 08:06 fill) — operator decision queued (BL-20260705-PROP-RETICKET-WHILE-OPEN)",
+    "prop-mission/trade-outcome baseline soaks silent since 06-30 — verify deliberate vs stalled"
+   ],
+   "account_reachability": {
+    "checked": [
+     "bybit_1",
+     "bybit_2",
+     "alpaca_paper",
+     "alpaca_live",
+     "alpaca_options_paper",
+     "ib_paper"
+    ],
+    "down": [],
+    "summary": "All 6 probeable live accounts reachable at the balance/API level (api_ok true incl. ib_paper $1.27M). ib_paper's POSITIONS-read returned null at 08:12Z (weekend/IBKR state; balance path fine; zero IB positions open, so no monitor-blindness exposure) — graded watch, standalone re-probe armed for 22:10Z; NOT latched down. ib_live/oanda_practice shelved-dry (excluded); breakout_1 API-less by design."
+   },
+   "backlog_drive": {
+    "health": {
+     "drained": [
+      "BL-20260625-PROP-ETH-LIVE (resolved: legs verified live; misdiagnosis corrected)",
+      "BL-20260705-PROP-DIRECTION-SYNONYM-MATCH (resolved: fix merged PR #5592)"
+     ],
+     "deferred": [
+      "BL-20260705-DASHBOARD-API-TOKEN-UNSET (Tier-2, operator deferred 'later')",
+      "BL-20260705-IBPAPER-POSITIONS-NULL-WEEKEND (verify at 22:10Z)",
+      "BL-20260705-HEALTHCHECK-SHELVED-ACCOUNTS + BL-20260705-RELAY-ALLOWLIST-GAPS (Tier-1 code fixes, next tooling session)",
+      "remaining 60+ open items: soaking / Tier-3-awaiting-operator / future-data per their trigger_condition fields"
+     ]
+    },
+    "performance": {
+     "drained": [],
+     "deferred": [
+      "PB-20260625-001 updated with first-fill evidence, stays open awaiting real swap data",
+      "other 38 open items are soak-gated (TQQQ/QLD, ExitPlan P4), data-blocked (June-7 contamination) or Tier-3-awaiting-operator per item fields"
+     ]
+    },
+    "ml": {
+     "drained": [],
+     "deferred": [
+      "MB-20260705-TRAINER-OOM opened this run (actionable next trainer session)",
+      "open items are promotion-gate decisions (MB-20260626-003), data-blocked (VPIN), or soak-gated (conviction P4/P5, XA-D2B) per item fields"
+     ]
+    },
+    "summary": "2 health items resolved this window (both with merged PRs); 3 new items opened with evidence; perf/ml drains were updates-not-closures because their open sets are genuinely gated on soak volume, future data, or operator Tier-3 decisions."
+   }
+  }
+ },
+ "artifacts": {
+  "json_path": "comms/reports/since-last/20260705T121200Z/report.json",
+  "html_path": "comms/reports/since-last/20260705T121200Z/report.html",
+  "md_path": "comms/reports/since-last/20260705T121200Z/report.md",
+  "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260705T121200Z/report.html",
+  "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260705-121200-since-last"
+ },
+ "claude_channel_ping": {
+  "delivered_via": "send-ping system-action (single consolidated ping)"
+ }
+}

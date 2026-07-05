@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260705-121200-since-last",
+      "window": "since-last",
+      "generated_at": "2026-07-05T12:12:00+00:00",
+      "window_start": "2026-07-04T06:10:00+00:00",
+      "window_end": "2026-07-05T12:12:00+00:00",
+      "roll_up_grade": "caution",
+      "headline": "Quiet, healthy weekend window with one real-money win and the prop account's first ETH fill of the cycle. Real money: 1 closed trade, ADAUSDT long +$9.31 (broker-truth, +2.03R, graded C) on bybit_2; two real positions open (ETH 0.07, BTC 0.002). Prop: the operator filled the 08:00Z eth_pullback ticket (1.9 ETH @1767.71, SL 1732/TP 1945.9) \u2014 logged as prop_fills 16, linked, monitored; $147.54 daily-loss cushion intact. Paper (bybit_1 demo) gave back -$1.7k, dominated by one AVAX 4h stop-out (-$2,276) against the ADA pump it also caught (+$1,483). Pipeline plumbing, DB integrity and alerting are clean; earlier suspicion of a prop ticket-emit bug was CORRECTED (donchian *_prop legs are shadow by design; the live ETH legs verified end-to-end). Watch items: ib_paper positions-read null over the weekend (0 IB positions at risk; re-probe at CME reopen), the trainer's 06:14Z OOM-kill mid-cycle, and prop re-ticketing while a position is open. Two fixes shipped this window: buy/long direction-synonym matcher (PR #5592) and the backlog drain (PR #5582).",
+      "html_path": "comms/reports/since-last/20260705T121200Z/report.html",
+      "json_path": "comms/reports/since-last/20260705T121200Z/report.json",
+      "md_path": "comms/reports/since-last/20260705T121200Z/report.md"
+    },
+    {
       "id": "RPT-20260704-061000-since-last",
       "window": "since-last",
       "generated_at": "2026-07-04T06:10:00+00:00",

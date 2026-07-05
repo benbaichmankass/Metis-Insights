@@ -3,6 +3,17 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "MB-20260705-TRAINER-OOM",
+      "opened_at": "2026-07-05T12:10:00+00:00",
+      "opened_by": "claude (/system-review 2026-07-05, ml sub-review)",
+      "source": "trainer-vm-diag run 28739962239: ict-trainer.service Active: failed (Result: oom-kill) since 2026-07-05 06:14:12 UTC after 41min CPU; the 01:32Z cycle trained the manifest fleet OK through ~02:30 (manifest_ok rows) then a later stage was OOM-killed on the 6GB box. Timer healthy (next 2026-07-06 00:57Z). Also: dataset_builds.jsonl not found at runtime_logs/ (path check MISSING).",
+      "title": "Trainer cycle OOM-killed mid-run (2026-07-05 06:14Z) \u2014 identify the offending stage and bound its memory; verify dataset_builds log path",
+      "description": "Next trainer session: journalctl around 06:14Z to identify the stage (likely a heavy dataset build / corpus job post-manifest-loop), add a memory bound or split the stage, confirm the next nightly cycle completes end-to-end. Also resolve where dataset_builds.jsonl actually lives (the diag cmd found nothing at ~/ict-trading-bot/runtime_logs/).",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "MB-20260626-001",
       "opened_at": "2026-06-26T15:00:00+00:00",
       "opened_by": "claude (ml-strategies-deep-review / fleet scorecard session)",

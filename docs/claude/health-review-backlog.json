@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260705-RELAY-ALLOWLIST-GAPS",
+      "opened_at": "2026-07-05T12:10:00+00:00",
+      "opened_by": "claude (/system-review 2026-07-05)",
+      "source": "vm-diag-snapshot runs 28739952003/28740031981 (exit-ladder/soak), 28739952630 (allocator/soak), 28739944549/28740022385 (pnl/history) all hard-failed: exit-ladder/soak + allocator/soak are missing from the workflow's /api/bot/* read allowlist, and pnl/history is allowlisted but maps to /api/bot/pnl/history while the real route is /api/pnl/history (outside /api/bot/). Workarounds used: diag log_file names exit_ladder_soak/allocator_soak; pnl history left unavailable.",
+      "title": "Diag-relay /api/bot allowlist gaps: exit-ladder/soak + allocator/soak missing; pnl/history maps to a nonexistent /api/bot path",
+      "description": "Tier-1 fix in .github/workflows/vm-diag-snapshot.yml: add exit-ladder/soak and allocator/soak to the botbase allowlist, and special-case pnl/history to upstream /api/pnl/history (its real mount). Until then reviews must use log_file?name={exit_ladder_soak,allocator_soak} and have no relay path to daily PnL history.",
+      "tier": 1,
+      "trigger_condition": "Next workflows/tooling session.",
+      "resolution_criteria": "All three paths return JSON via the relay.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "BL-20260705-SHADOW-PKG-ORPHAN-STATUS",
       "opened_at": "2026-07-05T11:05:00+00:00",
       "opened_by": "claude (/health-review 2026-07-05 follow-up)",
@@ -3011,5 +3025,5 @@
       "resolution": "RESOLVED across 07-03/07-04: (1) first-ever prop_account_status row seeded via the prop-report relay (issue #5541) \u2014 balance 5215.27 / equity 5215.27 / realized_today +297.12, derived from terminal trade history and OPERATOR-RATIFIED in chat 2026-07-04 (\"that is the updated status of the prop account\"); rule-distance guard live (daily-loss cushion $147.54, DD-floor distance $515.27). (2) The structural fix shipped in PR #5521: src/prop/prop_status_request.py pings the operator with paste-ready reply formats whenever a prop position is open and the latest snapshot is absent/stale \u2014 the panel can no longer silently run blind. First live firing of the ping is the residual watch (monitoring item in RPT-20260704-061000)."
     }
   ],
-  "updated_at": "2026-07-05T11:05:00+00:00"
+  "updated_at": "2026-07-05T12:10:00+00:00"
 }
