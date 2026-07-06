@@ -2936,7 +2936,7 @@
     {
       "id": "BL-20260628-CRYPTO-INSTRUMENT-MIN-FLOOR",
       "title": "[risk] crypto/fx sub-min-lot refusal uses account-default min_qty, not the per-instrument platform lot (ETH 0.01 gap)",
-      "status": "open",
+      "status": "resolved",
       "opened_at": "2026-06-29T00:00:00+00:00",
       "opened_by": "claude (M17 #3910 Item 3 refuse fix, #4969)",
       "snoozed_until": null,
@@ -2948,7 +2948,9 @@
           "by": "claude (order-qty-rounding-issue session)",
           "note": "THIRD sibling of this defect found + fixed on branch claude/order-qty-rounding-issue-wj1d1v (Tier-3, draft PR pending operator approval). The intent-mode netting-DELTA guard in coordinator.py::multi_account_execute (~line 1900) also compared delta.qty_delta against account.risk_manager.min_qty (0.001), NOT the venue lot. A live ETHUSDT/bybit_2 top-up (sized 0.111, held ~0.102 -> delta 0.009) slipped the guard and hit the _submit_order pre-flight ('below the exchange lot minimum after step-alignment') -> bybit_place_order_failed error ping on every top-up/trim signal. Fix folds venue_min_qty_for into the delta guard (max(account_min, venue_min); None -> account_min unchanged), converting the noisy ping into a clean intent_sub_min_qty_delta noop. Regression tests in tests/test_intent_delta_dispatch.py::TestIntentModeVenueMinDelta. The risk.py::position_size path this item primarily tracks is STILL OPEN (separate location)."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-06T13:10:00+00:00",
+      "resolution": "RESOLVED by the sizing/qty-legalization consolidation (docs/sizing-legalization-DESIGN.md, operator-approved). The recurring root cause — four divergent copies of 'the venue minimum' — was collapsed onto ONE seam, src/units/accounts/qty_legalize.py::legalize_qty, resolving (qty_step, min_qty) from the per-instrument InstrumentProfile (config/instruments.yaml) first, live Bybit lot rule second, passthrough third. Phase 2 wired the seam into the two coordinator guards (sized-qty ~1503, intent-delta ~1900) + the execute._submit_order Bybit pre-flight (#5720). Phase 3 (#5732, merged 581b45e, Tier-3 operator-approved) closed the risk.py::position_size half this item primarily tracked: the non-whole path now resolves eff_min_qty/eff_precision from qty_legalize.instrument_lot(symbol) when 0 < step < 1 (ETHUSDT 0.01, SOLUSDT 0.1), so a risk-based ETH size in [0.001, 0.0099) is now REFUSED per-trade at the sizing layer instead of passing risk.py's own 0.001 account-min. Whole-share sizing stays exchange-gated by whole_units (BL-20260622), never inferred from the instrument; BTC (step 0.001 == account default) unchanged. Tests: tests/test_instrument_min_sizing.py (11), tests/test_qty_legalize.py, tests/test_intent_delta_dispatch.py. Phase 4 (a qty-legalization CI guard forbidding raw-min comparisons outside the seam) is the remaining Tier-1 follow-up to prevent a fifth copy re-appearing."
     },
     {
       "id": "BL-20260629-ALPACA-NAKED-BRACKET",
