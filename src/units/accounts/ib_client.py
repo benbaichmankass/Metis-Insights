@@ -86,6 +86,16 @@ def _env_float(name: str, default: float) -> float:
 # healthy gateway answers in milliseconds; a logged-out one never answers, so
 # this is the bound that converts "hang forever" into "fail in N seconds".
 _IB_PROBE_TIMEOUT_S = _env_float("IB_PROBE_TIMEOUT_S", 5.0)
+# Grace gap before a single bounded retry of the liveness probe
+# (BL-20260610-009). A freshly-established connection over the cross-host
+# socat relay to the isolated gateway VM can miss the very first round-trip
+# on a cold TCP flow even though the session is genuinely healthy — every
+# OTHER call on the same socket (reqHistoricalData, accountSummary) works
+# fine once the connection has exchanged a few messages; only this probe
+# fires as the very first thing sent right after connect(). One retry after
+# this gap absorbs a cold-start miss without abandoning detection: a
+# genuinely logged-out/wedged Gateway still never answers either attempt.
+_IB_PROBE_RETRY_GAP_S = _env_float("IB_PROBE_RETRY_GAP_S", 1.5)
 # How long connect() fast-fails after a probe/connect failure before retrying
 # the gateway again. Long enough that a wedged gateway can't be hammered every
 # tick; short enough that a genuine recovery is picked up promptly.
@@ -400,26 +410,46 @@ class IBClient:
         if req is None:
             # Unknown IB implementation — don't assume it's dead.
             return True
-        try:
-            loop.run_until_complete(
-                asyncio.wait_for(req(), timeout=_IB_PROBE_TIMEOUT_S)
-            )
-            return True
-        except asyncio.TimeoutError:
-            logger.warning(
-                "IBClient: liveness probe timed out after %.0fs for %s:%s "
-                "(account=%s) — gateway likely logged out.",
-                _IB_PROBE_TIMEOUT_S, self.host, self.port,
-                self._masked_account(),
-            )
-            return False
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "IBClient: liveness probe error for %s:%s (account=%s): %s: %s",
-                self.host, self.port, self._masked_account(),
-                type(exc).__name__, exc,
-            )
-            return False
+        # Two attempts (see _IB_PROBE_RETRY_GAP_S above): a timeout on the
+        # first, cold-connection attempt is retried once after a short grace
+        # gap before condemning the connection. Any non-timeout exception, or
+        # a second timeout, fails immediately — a real wedge never answers
+        # either attempt, so detection is unaffected; only a one-off
+        # cold-start relay miss on a genuinely healthy session is absorbed.
+        for attempt in (1, 2):
+            try:
+                loop.run_until_complete(
+                    asyncio.wait_for(req(), timeout=_IB_PROBE_TIMEOUT_S)
+                )
+                return True
+            except asyncio.TimeoutError:
+                if attempt == 1:
+                    logger.info(
+                        "IBClient: liveness probe attempt 1/2 timed out after "
+                        "%.0fs for %s:%s (account=%s) — retrying once after "
+                        "%.1fs before concluding the gateway is wedged.",
+                        _IB_PROBE_TIMEOUT_S, self.host, self.port,
+                        self._masked_account(), _IB_PROBE_RETRY_GAP_S,
+                    )
+                    time.sleep(_IB_PROBE_RETRY_GAP_S)
+                    continue
+                logger.warning(
+                    "IBClient: liveness probe timed out twice (%.0fs + "
+                    "%.0fs retry) for %s:%s (account=%s) — gateway likely "
+                    "logged out.",
+                    _IB_PROBE_TIMEOUT_S, _IB_PROBE_TIMEOUT_S, self.host,
+                    self.port, self._masked_account(),
+                )
+                return False
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "IBClient: liveness probe error for %s:%s (account=%s): "
+                    "%s: %s",
+                    self.host, self.port, self._masked_account(),
+                    type(exc).__name__, exc,
+                )
+                return False
+        return False  # pragma: no cover — loop always returns/raises above
 
     def _ensure_event_loop(self) -> None:
         """Make this client's persistent asyncio loop the thread's current loop.

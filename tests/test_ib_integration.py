@@ -612,6 +612,7 @@ class TestIBIsolationGuardRails:
         import src.units.accounts.ib_client as mod
 
         monkeypatch.setattr(mod, "_IB_PROBE_TIMEOUT_S", 0.2)
+        monkeypatch.setattr(mod, "_IB_PROBE_RETRY_GAP_S", 0.05)
 
         class HangIB(FakeIB):
             async def reqCurrentTimeAsync(self):
@@ -623,7 +624,9 @@ class TestIBIsolationGuardRails:
         inj.IB = HangIB
         monkeypatch.setitem(sys.modules, "ib_insync", inj)
 
-        # No _ib_factory → the real probe path runs.
+        # No _ib_factory → the real probe path runs. A genuine wedge never
+        # answers EITHER of the two bounded attempts, so it's still caught —
+        # just with the one retry's grace gap added to the bound.
         c = IBClient(port=7497, client_id=3, account="DUQ325724")
         t0 = time.monotonic()
         with pytest.raises(IBConnectionError) as ei:
@@ -635,6 +638,40 @@ class TestIBIsolationGuardRails:
         with pytest.raises(IBConnectionError) as ei2:
             c.connect()
         assert "circuit breaker OPEN" in str(ei2.value)
+
+    def test_liveness_probe_cold_miss_then_recovers(self, monkeypatch):
+        # BL-20260610-009: the first bounded attempt over a freshly-established
+        # connection (the cross-host relay's cold-TCP-flow miss) times out, but
+        # the gateway is genuinely healthy and answers the retry — connect()
+        # must succeed and the breaker must stay closed, instead of condemning
+        # a healthy session on a single missed first round-trip.
+        import src.units.accounts.ib_client as mod
+
+        monkeypatch.setattr(mod, "_IB_PROBE_TIMEOUT_S", 0.2)
+        monkeypatch.setattr(mod, "_IB_PROBE_RETRY_GAP_S", 0.05)
+
+        calls = {"n": 0}
+
+        class ColdThenHealthyIB(FakeIB):
+            async def reqCurrentTimeAsync(self):
+                import asyncio
+
+                calls["n"] += 1
+                if calls["n"] == 1:
+                    await asyncio.sleep(30)  # cold-start miss on attempt 1
+                return 1_700_000_000  # attempt 2 answers normally
+
+        inj = types.ModuleType("ib_insync")
+        inj.IB = ColdThenHealthyIB
+        monkeypatch.setitem(sys.modules, "ib_insync", inj)
+
+        c = IBClient(port=7497, client_id=33, account="DUQ325724")
+        ib = c.connect()
+        assert ib is not None
+        assert c.connected is True
+        assert calls["n"] == 2
+        assert c._breaker_open_until == 0.0
+        assert c._breaker_fail_count == 0
 
     def test_healthy_probe_connects_and_keeps_breaker_closed(self, monkeypatch):
         class HealthyIB(FakeIB):

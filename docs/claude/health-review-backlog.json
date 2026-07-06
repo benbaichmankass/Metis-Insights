@@ -2046,13 +2046,20 @@
       "opened_at": "2026-06-10T22:10:00+00:00",
       "opened_by": "claude (gateway-isolation MES restore session)",
       "source": "MES restore on the isolated-gateway topology (2026-06-10). Connectivity fixed via the OCI SL rule (#3313); the post-connect liveness probe then false-tripped the breaker. Shipped an opt-out (PR #3318) and disabled the probe via env to restore MES; this is the follow-up to do it properly.",
-      "title": "Re-enable the IB liveness probe: make it work over the cross-host (socat-relayed) gateway loop, then restore IB_PROBE_TIMEOUT_S=5",
+      "title": "Re-enable the IB liveness probe: retry-tolerant fix shipped, live env flip (IB_PROBE_TIMEOUT_S=5) still pending",
       "description": "The IB post-connect liveness probe (IBClient._probe_liveness, src/units/accounts/ib_client.py) runs loop.run_until_complete(asyncio.wait_for(ib.reqCurrentTimeAsync(), IB_PROBE_TIMEOUT_S)) on the persistent loop. Over the isolated gateway (10.0.0.251, socat-relayed cross-host) this never resolves even though the connection is fully healthy (connect + 'Logged on server v176' + 'Market data farm connection is OK' + 'Synchronization complete', and the read-path client which skips the probe works) - verified timing out at BOTH 5s and 15s while sync completes in <1s. As a workaround MES is currently running with the probe DISABLED via IB_PROBE_TIMEOUT_S=0 on the live VM (the <=0 skip added in PR #3318); IB_FETCH_TIMEOUT_S=8 is the backstop. Proper fix: make the probe resolve over this path - likely use ib_insync's sync wrapper ib.reqCurrentTime() (which drives the loop the way connectAsync does) instead of the manual run_until_complete(reqCurrentTimeAsync()), or otherwise pump the reader during the probe; add a regression test mirroring tests/test_ib_integration.py TestEventLoopResilience. Then set-env IB_PROBE_TIMEOUT_S back to 5 (restores the cheap dead-session catch on top of the per-fetch timeout). Related: BL-20260610-004 Fix 3 (IBMarketData.get_ohlcv should also consult the breaker). Tier-3 (live IB connection path); PR + verify on the live gateway.",
       "tier": 3,
       "status": "open",
       "resolved_at": null,
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "check_log": [
+        {
+          "at": "2026-07-06T07:35:00+00:00",
+          "by": "claude (IB pipeline stability review follow-up, 2026-07-06, operator-requested)",
+          "note": "Shipped a code fix (PR TBD): IBClient._probe_liveness now retries the reqCurrentTime round-trip ONCE after IB_PROBE_RETRY_GAP_S (default 1.5s) before condemning the connection, instead of failing on a single timeout. Rationale: the probe fires as the FIRST message on a freshly-established connection, right after connect() \u2014 a cold TCP flow over the cross-host socat relay can miss that one round-trip even on a genuinely healthy session (every OTHER call \u2014 reqHistoricalData, accountSummary \u2014 is proven reliable over this exact relay per today's live selftest + diag pulls). A real wedge still never answers either attempt, so detection is unaffected; only a one-off cold-start miss on a healthy session is absorbed. Added 2 regression tests (tests/test_ib_integration.py: cold-miss-then-recovers stays connected + breaker closed; still-hung-after-retry trips the breaker, bounded). This does NOT yet restore protection on the live VM \u2014 IB_PROBE_TIMEOUT_S is still 0 (disabled) in the live .env. Re-enabling it (set to 5, restart ict-trader-live.service) is a deliberate follow-up step that should be verified against a real cold connect over the relay first, not flipped blind alongside the code merge."
+        }
+      ]
     },
     {
       "id": "BL-20260611-M15-1",
@@ -3059,5 +3066,5 @@
       "resolution": null
     }
   ],
-  "updated_at": "2026-07-06T07:10:00+00:00"
+  "updated_at": "2026-07-06T07:35:00+00:00"
 }
