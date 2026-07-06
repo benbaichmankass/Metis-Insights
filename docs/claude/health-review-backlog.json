@@ -12,15 +12,23 @@
       "tier": 2,
       "trigger_condition": "Needs VM-side inspection this repo's current tooling can't do read-only (no arbitrary-shell relay for the live VM). Likely needs either (a) the operator to check/refresh whatever git credential the VM's origin remote relies on, or (b) a system-action addition (mirroring the gateway VM's unrestricted diag pattern, scoped read-only) if this needs to be self-diagnosable going forward.",
       "resolution_criteria": "ict-git-sync.service fetch succeeds again; a subsequent pull-and-deploy lands ee522ca (or later) and /api/diag/version reflects it.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "check_log": [
         {
           "at": "2026-07-06T08:20:00+00:00",
           "by": "claude (2026-07-06)",
           "note": "ROOT CAUSE CONFIRMED (operator): the repo was flipped from public to private this session, right around the failure window \u2014 the VM's anonymous HTTPS `git fetch` had never needed a credential before and now does. Fix prepared (PR TBD): deploy_pull_restart.sh now authenticates via an inline Basic-auth header built from a new optional VM_GIT_DEPLOY_TOKEN (fine-grained, Contents:Read-only PAT), read from .env (systemd EnvironmentFile= already exports it; a targeted single-line grep fallback covers a direct SSH/pull-and-deploy invocation). Falls back to the current plain fetch when unset, so this is a no-op until the token exists. Wired into the existing sync-vm-secrets.yml OPTIONAL_SECRETS propagation path (same mechanism as DASHBOARD_API_TOKEN). Operator is creating the token now. KNOWN GAP not yet addressed: the dedicated IB-Gateway VM has no .env by design and also does a plain `git clone`/fetch from this same repo (deploy/ib-gateway-cloud-init.yaml + the gateway branch of deploy_pull_restart.sh) \u2014 unverified whether it's currently affected; needs a separate propagation step if so. Filed as a standalone follow-up rather than blocking this fix."
+        },
+        {
+          "at": "2026-07-06T09:22:00+00:00",
+          "by": "claude (IB liveness-probe verify-and-flip session, 2026-07-06)",
+          "note": "RESOLVED. See resolution_note for the full two-recurrence history. Final state: global git credential set on ict-bot-arm, on-disk deploy_pull_restart.sh current (no duplicate-header bug), ict-trader-live.service restarted onto d5276f74, /api/diag/version confirms git_sha=d5276f74. Deploy pipeline is unblocked \u2014 other concurrent sessions were told they could resume."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-06T09:22:00+00:00",
+      "resolved_by": "claude (IB liveness-probe verify-and-flip session, 2026-07-06)",
+      "resolution_note": "Recurred twice after the initial fix before landing clean. (1) The per-invocation http.extraheader approach (first fix attempt) caused a duplicate-Authorization-header 400 once a global git credential was also set \u2014 http.extraheader is multi-valued, confirmed experimentally, not just assumed. Fixed by reverting deploy_pull_restart.sh to a plain fetch and relying solely on the global credential set by vm-git-credential-bootstrap.yml (PR #5678). (2) Even after that merged, pull-and-deploy failed identically again because the ON-DISK deploy_pull_restart.sh was itself still the old, broken pre-fix copy \u2014 same deadlock shape one level deeper. Fixed by extending vm-git-credential-bootstrap.yml to git reset --hard origin/main + invoke the deploy script directly when the worktree reads behind origin/main (PR #5681). Live-verified end to end: dispatched the bootstrap (issue #5682, exit 0, correctly reported the worktree behind origin/main + did the reset + ran the deploy script), caught that the deploy script itself skipped the service restart (zero diff after the outer reset) and explicitly dispatched restart-bot-service (issue #5683) to actually load the new code, then confirmed /api/diag/version reports git_sha=d5276f74 (the merged commit). ict-git-sync.timer now authenticates on every scheduled fetch."
     },
     {
       "id": "BL-20260705-RELAY-ALLOWLIST-GAPS",
@@ -2069,15 +2077,20 @@
       "title": "Re-enable the IB liveness probe: retry-tolerant fix shipped, live env flip (IB_PROBE_TIMEOUT_S=5) still pending",
       "description": "The IB post-connect liveness probe (IBClient._probe_liveness, src/units/accounts/ib_client.py) runs loop.run_until_complete(asyncio.wait_for(ib.reqCurrentTimeAsync(), IB_PROBE_TIMEOUT_S)) on the persistent loop. Over the isolated gateway (10.0.0.251, socat-relayed cross-host) this never resolves even though the connection is fully healthy (connect + 'Logged on server v176' + 'Market data farm connection is OK' + 'Synchronization complete', and the read-path client which skips the probe works) - verified timing out at BOTH 5s and 15s while sync completes in <1s. As a workaround MES is currently running with the probe DISABLED via IB_PROBE_TIMEOUT_S=0 on the live VM (the <=0 skip added in PR #3318); IB_FETCH_TIMEOUT_S=8 is the backstop. Proper fix: make the probe resolve over this path - likely use ib_insync's sync wrapper ib.reqCurrentTime() (which drives the loop the way connectAsync does) instead of the manual run_until_complete(reqCurrentTimeAsync()), or otherwise pump the reader during the probe; add a regression test mirroring tests/test_ib_integration.py TestEventLoopResilience. Then set-env IB_PROBE_TIMEOUT_S back to 5 (restores the cheap dead-session catch on top of the per-fetch timeout). Related: BL-20260610-004 Fix 3 (IBMarketData.get_ohlcv should also consult the breaker). Tier-3 (live IB connection path); PR + verify on the live gateway.",
       "tier": 3,
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-06T09:22:00+00:00",
+      "resolved_by": "claude (IB liveness-probe verify-and-flip session, 2026-07-06)",
+      "resolution_note": "IB_PROBE_TIMEOUT_S set back to 5 on the live VM via the set-env system-action (issue #5685) and live-verified against a real forced cold reconnect (vm-ib-gateway-recover, issue #5686: gateway container restarted 09:14:25, IBC login completed 09:14:48). In the minutes after, the retry-tolerant probe hit four separate cold-TCP-flow misses (MES, MGC x2, MHG) between 09:17:42-09:18:10, each logging \"attempt 1/2 timed out ... retrying once after 1.5s\" and recovering cleanly on the retry with real candle data fetched right after \u2014 zero circuit-breaker trips, zero IBConnectionError/ConnectionError in that window (confirmed via journalctl pulls, issues #5688 + #5689). One genuine breaker trip DID fire at 09:14:26, the moment the gateway container was actually down mid-restart (ConnectionError: Socket disconnect) \u2014 correct behavior, not a false trip, since it was not a first-attempt asyncio.TimeoutError.",
       "check_log": [
         {
           "at": "2026-07-06T07:35:00+00:00",
           "by": "claude (IB pipeline stability review follow-up, 2026-07-06, operator-requested)",
           "note": "Shipped a code fix (PR TBD): IBClient._probe_liveness now retries the reqCurrentTime round-trip ONCE after IB_PROBE_RETRY_GAP_S (default 1.5s) before condemning the connection, instead of failing on a single timeout. Rationale: the probe fires as the FIRST message on a freshly-established connection, right after connect() \u2014 a cold TCP flow over the cross-host socat relay can miss that one round-trip even on a genuinely healthy session (every OTHER call \u2014 reqHistoricalData, accountSummary \u2014 is proven reliable over this exact relay per today's live selftest + diag pulls). A real wedge still never answers either attempt, so detection is unaffected; only a one-off cold-start miss on a healthy session is absorbed. Added 2 regression tests (tests/test_ib_integration.py: cold-miss-then-recovers stays connected + breaker closed; still-hung-after-retry trips the breaker, bounded). This does NOT yet restore protection on the live VM \u2014 IB_PROBE_TIMEOUT_S is still 0 (disabled) in the live .env. Re-enabling it (set to 5, restart ict-trader-live.service) is a deliberate follow-up step that should be verified against a real cold connect over the relay first, not flipped blind alongside the code merge."
+        },
+        {
+          "at": "2026-07-06T09:22:00+00:00",
+          "by": "claude (IB liveness-probe verify-and-flip session, 2026-07-06)",
+          "note": "RESOLVED + live-flipped. IB_PROBE_TIMEOUT_S=5 is enabled on ict-bot-arm; the retry-tolerant probe (ee522ca) has been proven against a real cold gateway restart with zero false breaker trips. See resolution_note for the full verification trail."
         }
       ]
     },
@@ -3099,7 +3112,20 @@
       "snoozed_until": null,
       "resolved_at": null,
       "resolution": null
+    },
+    {
+      "id": "BL-20260706-GATEWAY-VM-GIT-AUTH-UNVERIFIED",
+      "opened_at": "2026-07-06T09:24:00+00:00",
+      "opened_by": "claude (IB liveness-probe verify-and-flip session, session wrap-up, 2026-07-06)",
+      "title": "Unverified: does the dedicated IB-Gateway VM still authenticate git fetch now the repo is private?",
+      "description": "BL-20260706-GITSYNC-AUTH-BROKEN fixed git-fetch auth on the live trader VM (ict-bot-arm) via a global git credential set by vm-git-credential-bootstrap.yml. The dedicated IB-Gateway VM (10.0.0.251) has no .env by design and provisions/updates via a plain git clone/fetch per deploy/ib-gateway-cloud-init.yaml + the gateway branch of deploy_pull_restart.sh \u2014 this was flagged as a known gap in the original BL-20260706-GITSYNC-AUTH-BROKEN check_log but never confirmed affected or fixed. Since the gateway VM is not on the ict-git-sync auto-deploy path in the same way (it is provisioned rather than continuously synced), the blast radius may be limited to re-provisioning, but this is unconfirmed.",
+      "tier": 2,
+      "trigger_condition": "Check whether the gateway VM ever runs an unauthenticated git fetch against this repo (e.g. on re-provision, or if it has its own sync timer) and whether that path would now fail the same way ict-git-sync did.",
+      "resolution_criteria": "Either confirm the gateway VM has no live git-fetch dependency on this repo (no fix needed), or extend vm-git-credential-bootstrap.yml (or an equivalent) to also set the global credential on the gateway VM.",
+      "status": "open",
+      "snoozed_until": null,
+      "check_log": []
     }
   ],
-  "updated_at": "2026-07-06T08:20:00+00:00"
+  "updated_at": "2026-07-06T09:24:00+00:00"
 }
