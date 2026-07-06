@@ -1365,13 +1365,14 @@
       "title": "D2 label-wall spike A: meta-labeling trade-outcome heads on the FULL journal (real+paper pooled, account_class domain flag), real-money slice as the held evaluation",
       "description": "Retrain the conviction/trade-outcome heads on real+paper pooled with an account_class domain-flag feature (~2,700+ labelable rows), purged CV, EPV-disciplined feature budget (<= n_positives/10 effective dims), probability calibration per the JFDS meta-labeling calibration paper (calibration helps fixed sizing methods, not learned ones). EVALUATION: real-money rows as the decisive held slice - paper execution differs (fills/slippage/sizing), so paper-trained lift must show up on the real slice or it does not count. Triple-barrier labels over historical bars are allowed ONLY as auxiliary/pre-training signal (our own anchor result shows barrier outcomes diverge ~0.6R from live closes - MB-20260705-FC-SLTP-GEOMETRY); a promotion decision label stays a realized trade outcome. NO GAN/synthetic augmentation (memorization risk documented at n~100). Offline, Tier-1, $0 (CPU; a burst retrain would be <$1 if wanted).",
       "tier": "Tier 1 (offline research; candidate-stage).",
-      "trigger_condition": "Next M19 research slot (after the D1 soak-logger build starts its clock).",
+      "trigger_condition": "Re-run when the harness's pre-cutoff paper n_train approaches ~1x the real n_train (contemporaneous accrual), or a new paper account back-fills history.",
       "resolution_criteria": "Either (a) a pooled-label head clears purged-CV on the real-money slice with a defensible n -> promote-candidate + shadow-soak proposal; or (b) paper->real transfer fails on the real slice -> D2 closes until real labels accrue (account-sizing decision), recorded as an honest negative.",
       "status": "open",
       "snoozed_until": null,
       "evidence_log": [
         "2026-07-05: ranked D2/priority-3 with full external citations in docs/research/M19-next-direction-recommendation-2026-07-05.md section 2 (meta-labeling evidence base, EPV/sample-size arithmetic, augmentation counter-evidence).",
-        "2026-07-05 (addendum, authentic-brief Q1 grounding): the M14 track record calibrates spike A - S-MLOPT-S6's meta-label on ~15.7k SYNTHETIC candidates FAILED the majority baseline on 352 real BTC trades (acc 0.670 < 0.756; synth->real domain gap, win rate 0.457 vs 0.244) => barrier/synthetic labels are auxiliary-only, real slice is the evaluation. S-MLOPT-S8's cross-symbol POOLED variant (+domain feature) was the first to clear the baseline (0.7571 > 0.7514, precision 0.54 = 2.2x base rate) but weakly (purged-WF not corroborating) => pooling+domain-flag is the one direction with an internal partial win; spike A retries it with real-execution paper rows (smaller domain gap) instead of synthetic events."
+        "2026-07-05 (addendum, authentic-brief Q1 grounding): the M14 track record calibrates spike A - S-MLOPT-S6's meta-label on ~15.7k SYNTHETIC candidates FAILED the majority baseline on 352 real BTC trades (acc 0.670 < 0.756; synth->real domain gap, win rate 0.457 vs 0.244) => barrier/synthetic labels are auxiliary-only, real slice is the evaluation. S-MLOPT-S8's cross-symbol POOLED variant (+domain feature) was the first to clear the baseline (0.7571 > 0.7514, precision 0.54 = 2.2x base rate) but weakly (purged-WF not corroborating) => pooling+domain-flag is the one direction with an internal partial win; spike A retries it with real-execution paper rows (smaller domain gap) instead of synthetic events.",
+        "2026-07-06 (spike-A RUN, relay #5632, fresh sync + trade_outcomes v002 rebuild w/ snapshots): ANSWERED-NEGATIVE, STRUCTURAL. 605 closed trades (375 real @ 26.7% win / 230 paper @ 34.4% / 0 unknown). Under the leak-free chronological design the pool barely exists: only 6/230 paper rows predate the primary real holdout window (n_train 306 vs 300) and ZERO at the 0.3 cut - the paper accounts ramped 2026-06+, after most real history. All three arms produce identical predictions (AUC 0.697 primary / 0.622 fold-0.3; acc = majority baseline 0.653; recall_win 0 at the 27% base rate). S-MLOPT-S6 bar NOT cleared; the S8 analogy does not transfer (S8 pooled cross-SYMBOL = contemporaneous; real-vs-paper is cross-TIME = chronologically disjoint). EPV 5-7 across arms - unpowered on feature quality regardless. Disposition: keep OPEN for re-run as contemporaneous history accrues (re-run when pre-cutoff paper n_train approaches ~1x real n_train; harness prints it). Full write-up: docs/research/D2-spike-A-pooled-labels-evidence-2026-07-06.md."
       ],
       "status_history": [
         {
@@ -1379,6 +1380,12 @@
           "status": "open",
           "by": "claude (M19 next-direction deep-research session)",
           "note": "Opened as D2 spike A of the M19 next-direction ranking."
+        },
+        {
+          "at": "2026-07-06T06:35:00+00:00",
+          "status": "open",
+          "by": "claude (M19 overnight session)",
+          "note": "Spike A executed - negative (structural: paper history postdates real holdout window). Stays open as an accrual-gated re-run, not an active work item."
         }
       ]
     }
