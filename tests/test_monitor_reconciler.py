@@ -1717,18 +1717,19 @@ class TestStuckStrategyWatchdog:
         assert pkg["close_reason"] == "stuck_strategy_watchdog"
 
         trade = _read_trade(tmp_db, trade_id)
-        assert trade["status"] == "orphaned"
+        # BL-20260620-WATCHDOGORPHAN (watchdog half): position confirmed flat +
+        # broker closed-pnl unmatched (the per-leg case on a netting account) →
+        # finalise CLOSED (local-compute pnl next tick), NOT orphaned.
+        assert trade["status"] == "closed"
         assert trade["exit_reason"] == "stuck_strategy_watchdog"
+        assert summary["closed_local_unmatched"] == 1
 
-        # High-priority Telegram-ready alert with the watchdog body. The watchdog
-        # also orphans the linked trade, which now fires the orphan red-flag
-        # (operator directive 2026-06-24) — count the stuck alert separately.
+        # High-priority Telegram-ready stuck alert still fires. The linked trade
+        # is now a clean close, so NO orphan red-flag ping is queued.
         queued = sorted(p for p in pings_dir.glob("*.json")
                         if not p.name.endswith("-orphanflag.json"))
         assert len(queued) == 1
-        flags = list(pings_dir.glob("*-orphanflag.json"))
-        assert len(flags) == 1
-        assert "/system-review" in json.loads(flags[0].read_text())["body"]
+        assert len(list(pings_dir.glob("*-orphanflag.json"))) == 0
         evt = json.loads(queued[0].read_text())
         assert evt["priority"] == "high"
         assert "Stuck-strategy watchdog" in evt["body"]
@@ -1800,14 +1801,18 @@ class TestStuckStrategyWatchdog:
         assert notes["closed_by"] == "stuck_strategy_watchdog"
         assert notes["closed_at"]
 
-    def test_position_flat_no_broker_record_falls_back_to_orphan(
+    def test_position_flat_no_broker_record_finalizes_closed_local(
         self, tmp_db, tmp_path, monkeypatch,
     ):
         """When the position is flat but Bybit's closed-pnl has NO matching
-        record (lookup returns None — e.g. retention expired, or a genuine
-        orphan with no real close), the watchdog falls back to the legacy
-        ``status='orphaned'`` mark. Recovery is best-effort and never
-        fabricates a close.
+        record (lookup returns None — the EXPECTED per-leg case on a one-way
+        NETTING account, where N strategy rows share one net position), the
+        watchdog now finalises the row ``status='closed'`` (local-compute pnl
+        filled by ``_sweep_local_pnl_for_unpriced`` next tick) instead of
+        orphaning it with a red-flag ping. The position is confirmed flat → the
+        leg DID close; only broker-truth PnL is unavailable, so this is a normal
+        local-compute close, not an orphan (BL-20260620-WATCHDOGORPHAN watchdog
+        half — the recurring bybit_2 BTCUSDT orphan noise).
         """
         trade_id = _insert_trade(tmp_db, status="open")
         self._insert_pkg_with_age(
@@ -1835,12 +1840,17 @@ class TestStuckStrategyWatchdog:
 
         assert summary["auto_cleared"] == 1
         assert summary["recovered_closed"] == 0
+        assert summary["closed_local_unmatched"] == 1
         assert summary["errors"] == 0
 
         trade = _read_trade_full(tmp_db, trade_id)
-        assert trade["status"] == "orphaned"
+        assert trade["status"] == "closed"
         assert trade["exit_reason"] == "stuck_strategy_watchdog"
+        # pnl is still None HERE (the local-pnl sweep runs as its own tick pass);
+        # the point is the row is a clean close, not an orphan with a red flag.
         assert trade["pnl"] is None
+        # No orphan red-flag ping fired.
+        assert len(list(pings_dir.glob("*-orphanflag.json"))) == 0
 
     def test_recent_package_not_touched(self, tmp_db, monkeypatch):
         """Defence boundary: a package stuck only 5 min (under the
@@ -1985,17 +1995,18 @@ class TestStuckStrategyWatchdog:
         assert second == {
             "checked": 0, "alerted": 0, "auto_cleared": 0,
             "recovered_closed": 0,
+            "closed_local_unmatched": 0,
             "deferred_position_alive": 0,
             "deferred_below_timeframe": 0,
             "skipped_position_read_failed": 0,
             "errors": 0,
         }
-        # Only ONE stuck-watchdog ping across both ticks (idempotent). The orphan
-        # red-flag also fires exactly once — the row is orphaned on tick 1 and is
-        # no longer status='open' on tick 2, so it isn't re-orphaned.
+        # Only ONE stuck-watchdog ping across both ticks (idempotent). The row is
+        # finalised CLOSED on tick 1 (no orphan red-flag ping) and is no longer
+        # status='open' on tick 2, so it isn't re-touched.
         assert len([p for p in pings_dir.glob("*.json")
                     if not p.name.endswith("-orphanflag.json")]) == 1
-        assert len(list(pings_dir.glob("*-orphanflag.json"))) == 1
+        assert len(list(pings_dir.glob("*-orphanflag.json"))) == 0
 
     def test_position_alive_defers_force_clear(
         self, tmp_db, tmp_path, monkeypatch,
@@ -2309,7 +2320,9 @@ class TestStuckStrategyWatchdog:
         assert summary["deferred_below_timeframe"] == 0
         assert summary["auto_cleared"] == 1
         assert _read_package(tmp_db, "pkg-2h-orphan")["status"] == "closed"
-        assert _read_trade(tmp_db, trade_id)["status"] == "orphaned"
+        # Position flat + broker closed-pnl unmatched → finalised CLOSED
+        # (local-compute pnl), not orphaned (BL-20260620-WATCHDOGORPHAN).
+        assert _read_trade(tmp_db, trade_id)["status"] == "closed"
 
 
 class TestTimeframeAwareThresholdHelpers:

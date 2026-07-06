@@ -4067,6 +4067,12 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
         # broker closed-pnl recovery (finalised status='closed' with real
         # exit_price+pnl rather than orphaned with NULL pnl).
         "recovered_closed": 0,
+        # Position-flat trades finalised status='closed' with a LOCAL-compute
+        # pnl (the _sweep_local_pnl_for_unpriced pass fills it next tick) when
+        # broker closed-pnl couldn't be matched — the expected per-leg case on
+        # a one-way netting account. Replaces the old orphan+red-flag path
+        # (BL-20260620-WATCHDOGORPHAN watchdog half).
+        "closed_local_unmatched": 0,
         "deferred_position_alive": 0,
         # Position-alive packages skipped because they haven't been
         # silent for their TIMEFRAME-scaled quiet window yet (a healthy
@@ -4318,43 +4324,60 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                         recovered.get("pnl"),
                     )
                 else:
+                    # Position CONFIRMED FLAT at the exchange + package stuck >
+                    # threshold, but broker closed-pnl couldn't be MATCHED to
+                    # this leg. On a one-way NETTING account (e.g. bybit_2) that
+                    # is the EXPECTED case, not an anomaly: N strategies each hold
+                    # their OWN per-strategy trade row while the exchange holds
+                    # ONE net position, so Bybit's closed-pnl records the NET
+                    # close, never a per-leg 0.002/0.003 close the matcher can
+                    # find. The position is genuinely flat → the leg DID close;
+                    # the only thing we lack is broker-truth PnL.
+                    #
+                    # Finalising it 'orphaned' (NULL pnl + a loud "needs
+                    # reconciliation" ping) was the wrong call: it red-flags a
+                    # trade that actually closed, hides it from
+                    # /api/bot/trades/closed, and fires the ping on EVERY netting
+                    # leg — training the operator to ignore the orphan alert (the
+                    # recurring bybit_2 BTCUSDT orphan noise; the watchdog half of
+                    # BL-20260620-WATCHDOGORPHAN that PR #1299 left un-recovered).
+                    #
+                    # Finalise as 'closed' instead. The existing
+                    # _sweep_local_pnl_for_unpriced pass already scans
+                    # status IN ('closed','orphaned') and fills pnl +
+                    # pnl_source='local_compute' next tick — so this becomes a
+                    # clean local-compute close (visible in /trades/closed, no
+                    # red-flag ping) exactly as it would have been priced as an
+                    # orphan, minus the false alarm. The operator's
+                    # exchange-history export still corrects the exact PnL later.
+                    # (A genuinely anomalous close is still WARNING-logged below.)
                     trade_notes = _decode_notes(trade_row["notes"])
                     trade_notes.update({
-                        "orphaned_at": now_iso,
-                        "orphaned_by": "stuck_strategy_watchdog",
-                        "orphaned_reason": (
-                            "watchdog — package stuck > "
-                            f"{int(threshold_minutes)} min; gate was blocked"
+                        "closed_at": now_iso,
+                        "closed_by": "stuck_strategy_watchdog",
+                        "closed_reason": (
+                            "watchdog — position flat at exchange; broker "
+                            "closed-pnl unmatched (per-leg on a netting "
+                            f"account); package stuck > {int(threshold_minutes)} "
+                            "min; finalized closed with local-compute pnl"
                         ),
                     })
                     db.update_trade(int(trade_row["id"]), {
-                        "status": "orphaned",
+                        "status": "closed",
                         "exit_reason": "stuck_strategy_watchdog",
+                        "closed_at": now_iso,
                         "notes": dump_capped(trade_notes, 500),
-                        # Orphan = red-flag state to resolve (item #4).
-                        "reconcile_status": "unreconciled",
                     })
-                    # Operator directive (2026-06-24): a row entering the
-                    # orphaned state is a red flag. Durably log + fire the loud
-                    # "/system-review" ping. Best-effort.
-                    try:
-                        from src.runtime.execution_diagnostics import (
-                            enqueue_orphan_created_flag,
-                        )
-                        enqueue_orphan_created_flag(
-                            account=aid, symbol=symbol, side=direction,
-                            trade_id=int(trade_row["id"]),
-                            origin="stuck_strategy_watchdog",
-                            reason=("strategy-monocle gate blocked > "
-                                    f"{int(threshold_minutes)} min; watchdog "
-                                    "orphaned the row"),
-                        )
-                    except Exception as exc:  # noqa: BLE001
-                        logger.warning(
-                            "_watchdog_stuck_strategies: orphan-created flag "
-                            "failed for trade_id=%s: %s",
-                            trade_row.get("id"), exc,
-                        )
+                    summary["closed_local_unmatched"] += 1
+                    logger.warning(
+                        "_watchdog_stuck_strategies: FINALIZED CLOSED "
+                        "(local-compute pnl) instead of orphaning — trade_id=%s "
+                        "account=%s symbol=%s side=%s (position flat at exchange; "
+                        "broker closed-pnl unmatched — expected per-leg on a "
+                        "netting account; _sweep_local_pnl_for_unpriced prices it "
+                        "next tick)",
+                        trade_row["id"], aid, symbol, direction,
+                    )
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "_watchdog_stuck_strategies: trade cascade failed for "
