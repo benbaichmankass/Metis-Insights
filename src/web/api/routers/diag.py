@@ -34,6 +34,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request, status
 
 from src.utils.paths import runtime_logs_dir, trade_journal_db_path
+from src.web.api._account_read_executor import run_account_read
 from src.web.runtime_status import _resolve_git_sha
 
 logger = logging.getLogger(__name__)
@@ -1096,7 +1097,13 @@ async def get_exchange_positions(
     ``get_account_balances`` exactly — it opens a brief read-only client per
     account via ``account_open_positions`` (the same primitive the live
     reconciler calls each tick), so it adds no new connection class and places
-    NO order.
+    NO order. The call is offloaded to the dedicated single-worker
+    account-read executor (``src.web.api._account_read_executor``) rather
+    than invoked directly — ``account_open_positions``'s IB branch is a
+    synchronous, event-loop-driving call that is unsafe to run directly on
+    this coroutine's thread (uvicorn's already-running loop); see that
+    module's docstring for the full incident writeup
+    (BL-20260706-IBCONCURRENCY).
 
     ``account_id`` filters to one account. Per-account ``positions`` is:
       * ``null``  — could-not-read (logged-out IB gateway / missing creds /
@@ -1130,7 +1137,11 @@ async def get_exchange_positions(
         positions: Any = None
         err: str | None = None
         try:
-            positions = account_open_positions(acc)
+            # Offloaded — see the docstring above + _account_read_executor
+            # module docstring (BL-20260706-IBCONCURRENCY): a direct call
+            # here would drive ib_insync's own event loop on top of
+            # uvicorn's already-running one under concurrent requests.
+            positions = await run_account_read(account_open_positions, acc)
         except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row (error + positions=null), logged; one account must not fail the call
             err = f"{type(exc).__name__}: {exc}"
             logger.warning("get_exchange_positions: %s raised %s", aid, exc)
