@@ -1021,7 +1021,18 @@
       "description": "M7 90d packets: squeeze_breakout_4h 84 decisions -> 1 fill (1.2%); htf_pullback_trend_2h 55 decisions -> 5 fills (9%). 84/55 decisions in 90d but almost nothing converts to a fill. Investigate WHY: rare setup geometry, sizing/risk refusal cluster (rejection_cluster was null in both packets), regime-gate drops, or an execution issue. This \u2014 not a demote \u2014 is the actionable signal on these two cells. NOTE htf chop cell (policy off) correctly shows 0 closed (regime gate working).",
       "trigger_condition": "per /performance-review of these two cells",
       "resolution_criteria": "fill-rate root cause identified; decisions-vs-fills explained"
+    },
+    {
+      "id": "PB-20260706-ETH-BOOK-RECHECK",
+      "opened_at": "2026-07-06T15:40:00+00:00",
+      "opened_by": "claude (ETH book review, post vol-gate evidence session)",
+      "source": "ETH/SOL vol-gate evidence (PR #5747): the ungated ETH backtest book is net-negative in 3 of 4 yearly folds (2022-2025), driven by trend_donchian_eth trending-calm-long (-$435/121t) + trending-volatile-short cells. M7 packets 2026-07-06 (issue #5766, 30d window): ALL THREE ETH strategies = hold on low-n (trend_donchian_eth 0 fills/0 closed; _4h 1 fill/0 closed; eth_pullback_2h 3 fills/2 closed +$0.24) - the gate correctly refuses to act without live evidence (PR #1358 lesson).",
+      "title": "ETH book: re-run the M7 gate when live n accrues (>=20 closed across the ETH strategies), anchored on the 2026-07-06 backtest fold evidence",
+      "description": "When the ETH strategies (trend_donchian_eth, trend_donchian_eth_4h, eth_pullback_2h) reach a meaningful live sample (~>=20 closed trades combined, or any single strategy >=10 closed), re-dispatch generate-strategy-review-packets with backtest_anchor context from docs/research/A-vol-gating-ETH-SOL-OFFcell-evidence-2026-07-06.md (3/4 ungated folds net-negative; maxDD 15.7% full-history). If the live sample confirms the backtest shape, the expected Tier-3 proposal is demote_shadow for trend_donchian_eth (its trending|calm|long cell is the dominant loser). Do NOT act on backtest evidence alone - the M7 low-n hold stands until live n accrues. Note live fill rates are tiny (0-4.5% of decisions), so accrual may take weeks; if fill rate itself looks broken, that is a health-review item, not a performance one.",
+      "tier": 3,
+      "status": "open",
+      "snoozed_until": "2026-08-01T00:00:00+00:00"
     }
   ],
-  "updated_at": "2026-06-30T12:27:10+00:00"
+  "updated_at": "2026-07-06T15:40:00+00:00"
 }
