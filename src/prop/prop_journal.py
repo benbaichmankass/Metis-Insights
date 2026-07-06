@@ -274,18 +274,10 @@ def _prop_scope(account_id: Optional[str] = None) -> set:
     except Exception as exc:  # noqa: BLE001 — fail soft to "no scope"
         logger.warning("prop_journal: accounts.yaml load failed: %s", exc)
         return set()
+    from src.prop.prop_identity import is_prop_account
     strategies: set = set()
     for aid, a in (accts or {}).items():
-        if not isinstance(a, dict):
-            continue
-        is_prop = (
-            str(a.get("exchange", "")).lower() == "breakout"
-            or str(a.get("account_class", "")).lower() == "prop"
-            or str(a.get("type", "")).lower() == "prop"
-            or bool(a.get("backtest_ruleset")
-                    and str(a.get("backtest_ruleset")) != "standard")
-        )
-        if not is_prop:
+        if not isinstance(a, dict) or not is_prop_account(a):
             continue
         if account_id and aid != account_id:
             continue

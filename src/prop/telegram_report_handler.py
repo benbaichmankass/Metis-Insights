@@ -46,12 +46,10 @@ def default_prop_account() -> Optional[str]:
     except Exception as exc:  # noqa: BLE001 — no config → no default
         logger.warning("telegram_report_handler: accounts load failed: %s", exc)
         return None
+    from src.prop.prop_identity import is_prop_account
     prop_ids = [
         aid for aid, a in accts.items()
-        if isinstance(a, dict) and (
-            str(a.get("exchange", "")).lower() == "breakout"
-            or str(a.get("account_class", "")).lower() == "prop"
-        )
+        if isinstance(a, dict) and is_prop_account(a)
     ]
     return prop_ids[0] if len(prop_ids) == 1 else None
 
