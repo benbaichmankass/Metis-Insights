@@ -41,14 +41,19 @@ compared across separately-built datasets; SOL compares within ONE build)
 and establishes the quantile-forecast feature block generalizes across all
 three symbols tested.
 
-**Disposition — proposal, not promotion:** the manifest's own gate requires
-a second condition before candidate→shadow: the SOL forecast side-stream
-must be produced + served in production (`FORECAST_SYMBOLS` producer
-extension — a trainer-timer env/service change, **flagged to the operator**
-rather than applied, per the overnight program's Tier-1 constraint). Once
-the producer covers SOLUSDT, promote `sol-regime-15m-lgbm-fc-pcv-v1`
-candidate→shadow mirroring the ETH graduation record; the base-pcv-v530
-control stays candidate forever (it exists only as the A/B control).
+**Disposition — APPLIED (operator approved in chat, 2026-07-06 ~11:00Z):**
+the second gate condition — the SOL forecast side-stream in production —
+was wired the same morning: `FORECAST_SYMBOLS` default extended to
+`BTCUSDT,ETHUSDT,SOLUSDT` in `scripts/ops/run_forecast_producer.sh` (repo
+PR + applied on the trainer via the relay no-git path, issue #5701); the
+first production wrote a valid `SOLUSDT.json` artifact (fresh `as_of_ts`,
+populated `fc_row`), and `sol-regime-15m-lgbm-fc-pcv-v1` was promoted
+candidate→**shadow** (stage_history 11:12:55Z — observe-only; shadow never
+influences an order) with the mirror publish confirming
+`published → 141.145.193.91`. fc now soaks across BTC+ETH+SOL. The
+base-pcv-v530 control stays candidate forever (it exists only as the A/B
+control). Live soak-accrual verification (shadow_stats + populated `fc_*`
+feature_row) follows the BTC verification record.
 
 ## Honest bounds
 
