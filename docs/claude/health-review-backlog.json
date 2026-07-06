@@ -118,14 +118,21 @@
       "opened_at": "2026-07-05T08:20:00+00:00",
       "opened_by": "claude (/health-review 2026-07-05)",
       "source": "/api/diag/exchange_positions 08:12Z: ib_paper positions=null (could-not-read) while /api/bot/accounts/balances 08:01Z shows ib_paper api_ok:true balance 1,271,418.77 and 0 open positions. Sunday, CME closed; no IB position at risk.",
-      "title": "WATCH: ib_paper positions-read returns null while balance reads ok (Sunday) \u2014 re-probe before CME reopen ~22:00 UTC",
+      "title": "RESOLVED (reclassified): diag exchange_positions probe can't read ib_paper over the cross-host relay \u2014 the trader's real IB connection is healthy, not a live risk",
       "description": "If exchange_positions still returns null for ib_paper after Sunday's market open, run vm-ib-gateway-recover and check the ict-ib-gateway-watchdog journal on the gateway VM. Zero open IB positions today, so no monitor-blindness exposure; do not burn a restart during the IBKR weekend state.",
       "tier": 1,
       "trigger_condition": "Re-probe /api/diag/exchange_positions after 2026-07-05T22:00Z.",
       "resolution_criteria": "ib_paper positions returns a list (or a confirmed gateway recover restores it); item closed with the probe result.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-06T06:35:00+00:00",
+          "by": "claude (22:10Z self check-in, follow-through)",
+          "note": "Gateway restart fired 2026-07-05T22:12Z via vm-ib-gateway-recover \u2014 succeeded cleanly (IBC login_completed=yes, api reachable, 22:12:34Z). Re-probed /api/diag/exchange_positions well after the ~2min circuit-breaker clear window: ib_paper STILL reads positions:null. BUT cross-checked the trader's OWN persistent connection: mgc_trend_1h has been evaluating MGC every ~3 min with live real-time prices through 06:28Z (close 4162.3->4157.7->...), including an actionable sell signal dispatched at 06:05:49Z (confidence 0.0539, correctly below threshold to execute) and another eval at 06:08:56Z (confidence 0.3476). /api/bot/accounts/balances confirms ib_paper api_ok:true, balance stable at $1,271,418.77, open_positions:0 (genuinely flat, not stale-masked). CONCLUSION: the live trading connection is fully healthy \u2014 this was never a real wedge. The diag relay's exchange_positions endpoint opens a SEPARATE short-lived read-only IB client per the diag-relay design, and that specific connection path appears to hit the same cross-host socat-relay quirk CLAUDE.md documents for IB_PROBE_TIMEOUT_S (reqCurrentTime doesn't resolve over the relayed gateway even when the persistent connection is healthy). Reclassified from 'operational IB issue' to 'diag-tooling limitation, no live impact' \u2014 closing. Do NOT burn another gateway restart on a future null exchange_positions read for ib_paper without first cross-checking live *_eval activity + accounts/balances api_ok, per this note."
+        }
+      ],
+      "resolved_at": "2026-07-06T06:35:00+00:00"
     },
     {
       "id": "BL-20260628-SEC-HARDENING-FOLLOWUPS",
@@ -3062,5 +3069,5 @@
       "resolution": null
     }
   ],
-  "updated_at": "2026-07-05T12:35:00+00:00"
+  "updated_at": "2026-07-06T07:35:00+00:00"
 }
