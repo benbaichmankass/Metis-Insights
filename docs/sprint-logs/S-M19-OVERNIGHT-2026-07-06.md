@@ -70,14 +70,25 @@ RG4 — see Contradictions).
   label-sensitivity arm manifests (`btc-regime-15m-tcn-vt003/vt004-v1`,
   class_weight omitted → per-arm auto-weighting, explicitly not
   promotion-eligible). 37 burst tests pass.
-- **GPU bursts fired:** arm A (vt003, issue #5641) launched on a pod and
-  **failed at manifest load** ($0.0167 billed) — `DatasetRef` rejected the new
-  `dataset.build_params` key when `python -m ml train` parsed the manifest
-  on-pod (#5635 threaded it through the driver but not the schema). Fixed in
-  this PR (`ml/manifest.py`: optional `build_params` field, round-trip
-  tested); both arms re-fire after this merges. Arm B (#5642) was separately
-  **cancelled by the gpu-burst workflow's concurrency group** (see
-  Contradictions).
+- **GPU bursts — both arms COMPLETED** (after two operational failures, both
+  root-caused): first launch #5641 failed at on-pod manifest load ($0.0167) —
+  `DatasetRef` rejected `dataset.build_params`; fixed in #5645 (optional
+  schema field, round-trip tested). Arm B's first firing (#5642) was
+  cancelled by the gpu-burst concurrency group (see Contradictions).
+  **Results** (same TCN/purged-CV/87,605 eval bars; issues #5647/#5650,
+  $0.0257 + $0.0334): f1_volatile rises monotonically with label density —
+  0.162 (0.005 label, 3.6% base rate) → 0.282 (0.004, 7.0%) → **0.423**
+  (0.003, 14.0%); macro_f1 0.534 → 0.590 → 0.635. The T1.1 negative is
+  **sparsity-confounded**; the matched-label LightGBM control (cheap CPU)
+  is the decider before any deep-vs-tree conclusion. Evidence:
+  `docs/research/T1.1-tcn-label-sensitivity-evidence-2026-07-06.md`;
+  `MB-20260703-001` updated. Both bundles live as Actions artifacts (30d) —
+  trainer-side ingest failed on the box's SSH pressure.
+- **Ledger reconciled by hand** (3 dropped rows; July $0.116/$10): the
+  burst workflow's direct ledger push to main is now BROKEN outright —
+  GH006 branch-protection rejection on top of the earlier stale-ref race
+  (`BL-20260706-GPU-BURST-LEDGER-PUSH-RACE`, updated with the root cause +
+  fix options).
 - **SOL fc side-stream:** forecast build started detached on the trainer
   (#5639, pid confirmed); `sol-regime-15m-lgbm-base-pcv-v530` control manifest
   authored (same v530 dataset, base features — a cleaner control than the
