@@ -3125,6 +3125,21 @@
       "status": "open",
       "snoozed_until": null,
       "check_log": []
+    },
+    {
+      "id": "BL-20260706-TRAINER-GIT-AUTH-BROKEN",
+      "opened_at": "2026-07-06T10:12:00+00:00",
+      "opened_by": "claude (M19 morning session)",
+      "source": "Trainer relay #5693: `git pull -q origin main` on the trainer VM failed with 'fatal: could not read Username for https://github.com' - the trainer's git remote is anonymous-HTTPS, broken by the repo going private 2026-07-06 (same root cause as the live VM's BL-20260706-GITSYNC-AUTH-BROKEN, which another session fixed via vm-git-credential-bootstrap - that workflow targets the LIVE VM only).",
+      "title": "Trainer VM git pull broken by repo going private (needs the same credential bootstrap as the live VM)",
+      "description": "The trainer's working tree is pinned at whatever it last pulled (0b9c7bbc, 06:21Z); manifests/scripts merged after that don't reach it via git. Immediate workaround in use: write needed files onto the trainer directly via the trainer-vm-diag relay. Durable fix: extend/parameterize .github/workflows/vm-git-credential-bootstrap.yml (or a trainer variant) to set the same http.extraheader credential on the trainer's global git config.",
+      "suggested_fix": "Re-run the credential bootstrap pattern against TRAINER_IP (the workflow already holds VM_SSH_KEY + VM_GIT_DEPLOY_TOKEN; add a host input or a trainer job). One source of truth per box (global git config), same as the live VM fix.",
+      "tier": "Tier 1 (CI workflow change; trainer VM is autonomous territory).",
+      "trigger_condition": "Next session touching trainer git state, or the other session's git-auth workstream.",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "resolution": null
     }
   ],
   "updated_at": "2026-07-06T09:24:00+00:00"
