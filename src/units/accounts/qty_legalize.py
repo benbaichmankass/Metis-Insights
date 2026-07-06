@@ -251,3 +251,36 @@ def legalize_qty(
         qty=aligned, ok=True, reason="",
         venue_min=venue_min, step=step, source=source, qty_str=aligned_str,
     )
+
+
+def instrument_lot(
+    symbol: str,
+    *,
+    exchange: str = "",
+    client: Any = None,
+    prefer_live: bool = False,
+    instruments_path: Optional[str] = None,
+) -> Optional[Tuple[float, float]]:
+    """Public ``(qty_step, min_qty)`` resolver for *symbol*, or ``None``.
+
+    The offline-friendly lot lookup the RiskManager uses to make its sub-min
+    refusal + flooring INSTRUMENT-aware (Phase 3,
+    BL-20260628-CRYPTO-INSTRUMENT-MIN-FLOOR) — resolving from the SAME
+    ``InstrumentProfile`` (``config/instruments.yaml``) the guards resolve from,
+    so there is one source of truth for the venue minimum. ``None`` when the
+    symbol has no profile and no live rule (caller falls back to its own
+    default). ``exchange``/``client`` are optional — the sizing layer resolves
+    offline by symbol and passes neither. Never raises.
+    """
+    try:
+        rule = _resolve_venue_lot_rule(
+            symbol, {"exchange": exchange}, client,
+            prefer_live=prefer_live, instruments_path=instruments_path,
+        )
+    except Exception as exc:  # noqa: BLE001 — never block sizing on a lookup
+        logger.debug("instrument_lot: resolution error for %s: %s", symbol, exc)
+        return None
+    if rule is None:
+        return None
+    step, vmin, _source = rule
+    return (step, vmin)
