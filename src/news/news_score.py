@@ -152,6 +152,7 @@ def _item_score(
 
     return {
         "headline": item.get("headline", ""),
+        "url": item.get("url", ""),
         "sentiment": sentiment,
         "relevance": relevance,
         "freshness_score": round(freshness_score, 4),
