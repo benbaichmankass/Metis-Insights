@@ -148,8 +148,18 @@ between phases — never one big-bang refactor.
 - **Phase 3:** fold the `risk.py` whole-unit/sub-min refusals onto the same
   resolver (closes `BL-20260628`), so `risk.py` no longer carries its own copy of
   the minimum. Tier-3. Verify Alpaca whole-share + futures whole-contract parity.
-- **Phase 4:** add the `qty-legalization-guard` CI check and remove the now-dead
-  ad-hoc min reads. Tier-1.
+- **Phase 4 (DONE, #TBD):** added the `qty-legalization-guard` CI check
+  (`scripts/check_qty_legalization_guard.py` + `.github/workflows/qty-legalization-guard.yml`)
+  — an AST scan that fails the build if any `src/` file outside the seam
+  (`src/units/accounts/qty_legalize.py`) *calls* a venue-lot primitive
+  (`precision.get_lot_rule` / `quantize_qty`), the pattern that would seed a
+  fifth private copy of the minimum; a genuine exception carries an inline
+  `# qty-legalize-allow: <reason>`. Self-test: `tests/test_qty_legalization_guard.py`.
+  Also removed the now-dead ad-hoc min read `execute.venue_min_qty_for` (no `src/`
+  caller after Phase 2 migrated the coordinator guards to `legalize_qty`); its
+  direct-resolver coverage now lives in `tests/test_qty_legalize.py`, and the
+  live-path clean-refusal integration test is kept in
+  `tests/test_venue_min_qty_refusal.py`. Tier-1.
 
 Roll-back at every phase is a revert; the seam is fail-safe (rule unknown →
 passthrough), so a resolver miss degrades to today's behaviour, never to a

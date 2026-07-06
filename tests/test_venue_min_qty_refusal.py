@@ -13,10 +13,16 @@ cause, NOT an ``exchange_rejected`` fill row. The qty is never floored UP
 (that would silently exceed the configured risk). The account stays live
 (Prime Directive) — only this one trade is refused.
 
-Two layers exercised:
-  * ``venue_min_qty_for`` resolves the per-symbol venue minimum (Bybit-only).
-  * ``Coordinator.multi_account_execute`` routes a sub-min sized qty through
-    the clean-refusal path with the ``below_venue_min_qty`` token.
+Exercised end-to-end: ``Coordinator.multi_account_execute`` routes a sub-min
+sized qty through the clean-refusal path with the ``below_venue_min_qty`` token.
+
+The per-symbol venue-minimum RESOLUTION now lives in the one seam,
+``src/units/accounts/qty_legalize.py`` (``legalize_qty`` / ``instrument_lot``);
+the sizing-layer ``execute.venue_min_qty_for`` copy was retired in Phase 4 of the
+qty-legalization consolidation (``docs/sizing-legalization-DESIGN.md``). Direct
+resolver-matrix coverage now lives in ``tests/test_qty_legalize.py``; this file
+keeps the live-path integration regression that proves the seam is wired into the
+coordinator's clean refusal.
 """
 from __future__ import annotations
 
@@ -28,7 +34,6 @@ import pytest
 
 from src.core.coordinator import Coordinator, OrderPackage
 from src.units.accounts import precision
-from src.units.accounts.execute import venue_min_qty_for
 
 
 @pytest.fixture(autouse=True)
@@ -38,38 +43,6 @@ def _clean_caches():
     yield
     precision._LOT_CACHE.clear()
     precision._LIVE_CACHE.clear()
-
-
-class TestVenueMinQtyFor:
-    """The sizing-layer venue-minimum resolver."""
-
-    def test_eth_linear_static_min(self):
-        # No client → static-map fallback: ETHUSDT linear = (0.01, 0.01).
-        cfg = {"account_id": "bybit_2", "exchange": "bybit", "market_type": "linear"}
-        assert venue_min_qty_for(None, cfg, "ETHUSDT") == pytest.approx(0.01)
-
-    def test_btc_linear_static_min(self):
-        cfg = {"account_id": "bybit_1", "exchange": "bybit", "market_type": "linear"}
-        assert venue_min_qty_for(None, cfg, "BTCUSDT") == pytest.approx(0.001)
-
-    def test_unknown_symbol_returns_none(self):
-        # No static entry + no client → rule unknown → None (no refusal).
-        cfg = {"account_id": "bybit_2", "exchange": "bybit", "market_type": "linear"}
-        assert venue_min_qty_for(None, cfg, "DOGEUSDT") is None
-
-    def test_non_bybit_exchange_returns_none(self):
-        cfg = {"account_id": "ib_paper", "exchange": "interactive_brokers"}
-        assert venue_min_qty_for(None, cfg, "MES") is None
-
-    def test_live_lookup_used_when_client_present(self):
-        class _LotClient:
-            def get_instruments_info(self, *, category, symbol):
-                return {"result": {"list": [{
-                    "lotSizeFilter": {"qtyStep": "0.02", "minOrderQty": "0.05"},
-                }]}}
-
-        cfg = {"account_id": "bybit_2", "exchange": "bybit", "market_type": "linear"}
-        assert venue_min_qty_for(_LotClient(), cfg, "ETHUSDT") == pytest.approx(0.05)
 
 
 # --- Coordinator integration: live path routes sub-min through clean refusal ---
