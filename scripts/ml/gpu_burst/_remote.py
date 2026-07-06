@@ -132,10 +132,32 @@ def gen_ephemeral_keypair(dirpath: str | None = None) -> tuple[str, str]:
 # Bybit-klines `market_raw` family — no journal/money-DB rows. These are the fixed
 # build params the trainer VM's daily cycle uses (build_trainer_datasets.sh
 # ::build_bybit_pair), replicated so the pod builds a byte-identical dataset.
-_CRYPTO_MARKET_FEATURES_PARAMS = (
-    "vol_window_n=20 forward_window_m=5 "
-    "vol_threshold=0.005 trend_threshold=0.005 n_vol_buckets=3"
-)
+# A manifest may override individual values via its `dataset.build_params` map
+# (e.g. a vol_threshold arm of a label-sensitivity A/B) — overrides are limited
+# to these known keys so an experiment can't smuggle arbitrary kwargs into the
+# pod build.
+_CRYPTO_MARKET_FEATURES_DEFAULTS = {
+    "vol_window_n": "20",
+    "forward_window_m": "5",
+    "vol_threshold": "0.005",
+    "trend_threshold": "0.005",
+    "n_vol_buckets": "3",
+}
+
+
+def _market_features_params(build_params: dict | None = None) -> str:
+    """The market_features key=value param string for the pod build — the cycle
+    defaults, with any manifest `dataset.build_params` overrides applied.
+    Unknown keys are rejected (the defaults enumerate the full allowed surface)."""
+    merged = dict(_CRYPTO_MARKET_FEATURES_DEFAULTS)
+    for k, v in (build_params or {}).items():
+        if k not in merged:
+            raise ValueError(
+                f"unknown market_features build_params key {k!r} "
+                f"(allowed: {sorted(merged)})"
+            )
+        merged[k] = str(v)
+    return " ".join(f"{k}={v}" for k, v in merged.items())
 
 
 def build_remote_train_script(
@@ -146,6 +168,7 @@ def build_remote_train_script(
     timeframe: str,
     version: str = "v002",
     sequence: dict | None = None,
+    build_params: dict | None = None,
 ) -> str:
     """Assemble the bash the pod runs over SSH: clone → deps → build the PUBLIC
     market dataset → `python -m ml train <manifest>` → gzip|base64 a JSON bundle
@@ -170,6 +193,7 @@ def build_remote_train_script(
         raise ValueError("repo_sha must be pinned (no floating branch on a paid pod)")
     if not (symbol and timeframe):
         raise ValueError("symbol and timeframe are required to build the dataset")
+    features_params = _market_features_params(build_params)
     raw_path = f"datasets-out/market_raw/{symbol}/{timeframe}/{version}"
     mf_path = f"datasets-out/market_features/{symbol}/{timeframe}/{version}"
     # Deep-sequence (market_sequences) manifests need two extra things vs a
@@ -223,7 +247,7 @@ python -m ml build-dataset market_raw --output-dir datasets-out --version {versi
     adapter=bybit_v5_offvm symbol={symbol} timeframe={timeframe} start="$MARKET_START" end="$MARKET_END"
 python -m ml build-dataset market_features --output-dir datasets-out --version {version} \\
     --source {raw_path} --symbol-scope {symbol} --timeframe {timeframe} --overwrite \\
-    market_raw_path={raw_path} {_CRYPTO_MARKET_FEATURES_PARAMS}
+    market_raw_path={raw_path} {features_params}
 {seq_build}# Train the manifest (registers into the pod-local registry-store; discarded with
 # the pod -- only the returned bundle survives).
 python -m ml train {manifest_path} --datasets-root datasets-out \\

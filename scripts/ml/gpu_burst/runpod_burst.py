@@ -281,6 +281,12 @@ def _manifest_dataset_scope(manifest_path: str) -> dict:
             "seq_len": int(tc.get("seq_len") or 64),
             "feature_columns": [str(c) for c in (tc.get("feature_columns") or [])],
         }
+    # Optional per-manifest market_features build-param overrides (e.g. a
+    # vol_threshold arm of a label-sensitivity A/B). Keys are validated against
+    # the fixed allowed set in _remote._market_features_params at script-build
+    # time — an unknown key aborts before any pod is rented.
+    if isinstance(ds.get("build_params"), dict):
+        out["build_params"] = ds["build_params"]
     return out
 
 
@@ -421,6 +427,7 @@ def run(
             repo_sha=repo_sha, manifest_path=manifest,
             symbol=symbol, timeframe=timeframe, version=scope["version"],
             sequence=scope.get("sequence"),
+            build_params=scope.get("build_params"),
         )
         train_timeout = max(60, int(max_minutes) * 60)
         print(f"training {manifest} on pod {pod_id} @ {repo_sha[:12]} "
