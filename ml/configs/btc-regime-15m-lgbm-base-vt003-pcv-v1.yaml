@@ -1,0 +1,75 @@
+# M19 T1.1 follow-up — the MATCHED-LABEL TREE CONTROL for the TCN
+# label-sensitivity arm A (btc-regime-15m-tcn-vt003-v1): the class-weighted
+# LightGBM regime head trained on market_features built at the SAME
+# vol_threshold=0.003 label (via dataset.build_params, on-pod), same purged
+# 5-fold CV. This is the decider the sensitivity evidence doc calls for
+# (docs/research/T1.1-tcn-label-sensitivity-evidence-2026-07-06.md): the TCN's
+# f1_volatile gain at denser labels only counts as a deep-model edge if THIS
+# tree does not gain equally.
+#
+# class_weight is the explicit inverse-class-frequency ratio at the 14.0%
+# volatile base rate the 0.003 label produces (support 12,260/87,605 in the
+# TCN arm-A eval): volatile ~= 0.86/0.14 ~= 6.14 vs range 1.0 — matching the
+# TCN trainer's auto-weighting policy (the LightGBM trainer has NO auto-weight
+# on omission, so an omitted weight would be an unweighted, unfair control).
+#
+# Candidate/offline sensitivity probe at a non-production label — NOT
+# promotion-eligible; refused by the live shadow factory.
+manifest_version: v1
+model_id: btc-regime-15m-lgbm-base-vt003-pcv-v1
+description: "T1.1 matched-label tree control: class-weighted LightGBM regime head on BTC-15m market_features built at vol_threshold 0.003 (same label as the TCN vt003 arm), identical purged walk-forward CV. Candidate/offline probe — never order-influencing."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+  - vol_bucket
+  - rolling_log_return_vol
+  - log_return
+  - log_return_lag_1
+  - log_return_lag_2
+  - hour_of_day
+  - dayofweek
+  categorical_columns:
+  - vol_bucket
+  - hour_of_day
+  - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  class_weight:
+    range: 1.0
+    volatile: 6.14
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 15m
+  version: v001
+  build_params:
+    vol_threshold: 0.003
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: purged_walk_forward
+  time_column: ts
+  n_folds: 5
+  min_train_fraction: 0.5
+  label_horizon: 5
+  embargo_fraction: 0.01
+target_deployment_stage: candidate
+notes: |
+  Decider for the T1.1 sparsity-confound question: compare f1_volatile /
+  macro_f1 against btc-regime-15m-tcn-vt003-v1 (same 0.003 label, same CV,
+  same eval rows). TCN wins only if it beats this tree beyond run-noise on
+  BOTH metrics (the original T1.1 win bar). Sensitivity probe at a
+  non-production label: NOT promotion-eligible. Leakage gate forbids
+  forward_log_return / forward_log_return_vol / regime_label.
