@@ -141,9 +141,27 @@ RG4 — see Contradictions).
 - Timer-tool failure root cause (`send_later` permission stream) is
   environmental; `create_trigger` is the working path in this session shape.
 
+## Morning Addendum (2026-07-06 ~10:45Z) — SOL fc A/B RESOLVED: fc WINS
+
+The SOL leg completed via the relay no-git path (manifests shipped base64
+onto the trainer, relays #5697–#5699, sidestepping
+`BL-20260706-TRAINER-GIT-AUTH-BROKEN`): v530 dataset built WITH the
+forecast side-stream (425 MB, 41,399 fc rows), both arms trained on
+identical rows under identical purged 5-fold CV. **fc arm wins both gate
+metrics beyond the noise bar** — f1_volatile 0.3957 vs 0.3719 (+0.024),
+macro_f1 0.5491 vs 0.5044 (+0.045), n_eval 82,788. Third-symbol confirm of
+the fc family, and the cleanest of the three (single-build, feature-set-only
+comparison). Evidence: `docs/research/SOL-fc-family-AB-evidence-2026-07-06.md`;
+backlog evidence appended to `MB-20260705-FC-ADVISORY-READINESS`.
+Candidate→shadow is **proposed but gated** on extending the forecast
+producer to SOLUSDT (`FORECAST_SYMBOLS` — a trainer-timer env/service
+change, flagged to the operator, not applied).
+
 ## Deferred Items
 - Collect: RG4-with-rails output, burst arm A/B bundles + eval, SOL chain
-  results (fc vs base A/B on v530).
+  results (fc vs base A/B on v530). — **all collected by the morning
+  addendum above (RG4 rails: #5690/#5692; TCN control: closed in the T1.1
+  evidence doc; SOL: fc win).**
 - Burst-bundle ingest + candidate registration for the TCN arms (existing
   `ingest_bundle.py` path) once both bundles exist.
 - gpu-burst concurrency-key fix (Tier-1 CI change, backlogged).
