@@ -286,6 +286,41 @@ def test_accounts_api_skips_manual_bridge_breakout():
     assert "1 manual-bridge skipped" in c.detail
 
 
+def test_accounts_api_skips_shelved_dry_account():
+    # BL-20260705-HEALTHCHECK-SHELVED-ACCOUNTS: a dry/shelved account
+    # (mode != live, e.g. the 2FA-blocked ib_live) reads unreachable BY
+    # DESIGN. It must be SKIPPED into the 'shelved' bucket, not counted as
+    # "API down" — otherwise the roll-up is perma-WARN and everyone learns
+    # to ignore WARN. The one genuinely-live account still grades OK.
+    fake = MagicMock()
+    fake.list_accounts = lambda: [
+        {"account_id": "bybit_2", "exchange": "bybit", "mode": "live"},
+        {"account_id": "ib_live", "exchange": "interactive_brokers", "mode": "dry_run"},
+    ]
+    fake.account_balance = lambda acc: (
+        {"total_usdt": 100.0} if acc.get("account_id") == "bybit_2" else None
+    )
+    sys.modules["src.bot.data_loaders"] = fake
+    c = check_accounts_api()
+    assert c.status == "ok"
+    assert c.ctx.get("shelved") == ["ib_live"]
+    assert c.ctx.get("total") == 1
+    assert "1 dry/shelved skipped" in c.detail
+
+
+def test_accounts_api_absent_mode_defaults_live_and_is_probed():
+    # An account that omits `mode` is treated as live (default-permissive) and
+    # still probed — so a genuinely-down account without an explicit mode is
+    # NOT silently hidden in the shelved bucket.
+    fake = MagicMock()
+    fake.list_accounts = lambda: [{"account_id": "bybit_2", "exchange": "bybit"}]
+    fake.account_balance = lambda _: None
+    sys.modules["src.bot.data_loaders"] = fake
+    c = check_accounts_api()
+    assert c.status == "warn"
+    assert "bybit_2" in c.detail
+
+
 def test_accounts_api_loader_explosion_is_warn():
     fake = MagicMock()
     fake.list_accounts.side_effect = RuntimeError("loaders broken")

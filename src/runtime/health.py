@@ -365,12 +365,29 @@ def check_accounts_api() -> HealthCheck:
         # (breakout stub) -> no API, skip; non-empty -> real API, probe.
         return caps != frozenset()
 
+    def _is_declared_live(acc: Dict[str, Any]) -> bool:
+        # BL-20260705-HEALTHCHECK-SHELVED-ACCOUNTS: a dry/shelved account
+        # (``mode != live`` — the 2FA-blocked ``ib_live`` / ``oanda_practice``)
+        # reads unreachable BY DESIGN, so counting it as "API down" pinned the
+        # health roll-up at a permanent WARN and trained everyone to ignore
+        # WARN. Skip it the same way ``breakout_1`` is skipped. Mirrors the SAME
+        # rule the reachability latch uses
+        # (``account_reachability_alert._checkable_accounts``: ``mode == live``),
+        # reading the single source of truth — the account's ``mode`` field.
+        # Default ``live`` when omitted (two-gates default-permissive: an account
+        # is demoted only by an EXPLICIT ``dry_run``).
+        return str(acc.get("mode") or "live").strip().lower() == "live"
+
     failed: List[str] = []
     skipped: List[str] = []
+    shelved: List[str] = []
     for acc in accounts:
         aid = acc.get("account_id") or "unknown"
         if not _has_broker_api(acc):
             skipped.append(aid)
+            continue
+        if not _is_declared_live(acc):
+            shelved.append(aid)
             continue
         try:
             bal = account_balance(acc)
@@ -380,16 +397,21 @@ def check_accounts_api() -> HealthCheck:
         if bal is None:
             failed.append(aid)
 
-    total = len(accounts) - len(skipped)
+    total = len(accounts) - len(skipped) - len(shelved)
     if not failed:
         detail = f"all {total} broker-API accounts ok"
+        extras: List[str] = []
         if skipped:
-            detail += f" ({len(skipped)} manual-bridge skipped: {', '.join(skipped)})"
-        return _ok(name, detail, total=total, skipped=skipped)
+            extras.append(f"{len(skipped)} manual-bridge skipped: {', '.join(skipped)}")
+        if shelved:
+            extras.append(f"{len(shelved)} dry/shelved skipped: {', '.join(shelved)}")
+        if extras:
+            detail += " (" + "; ".join(extras) + ")"
+        return _ok(name, detail, total=total, skipped=skipped, shelved=shelved)
     return _warn(
         name,
         f"{len(failed)}/{total} accounts API down: {', '.join(failed)}",
-        failed=failed, total=total, skipped=skipped,
+        failed=failed, total=total, skipped=skipped, shelved=shelved,
     )
 
 
