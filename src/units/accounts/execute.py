@@ -25,7 +25,6 @@ from typing import Any, Optional
 
 from src.core.coordinator import OrderPackage, is_paused
 from src.units.accounts.precision import (
-    get_lot_rule,
     get_tick_size,
     invalidate_tick_cache,
     live_instrument_diagnostic,
@@ -95,55 +94,6 @@ def _bybit_category(account_cfg: dict) -> str:
         )
         return _BYBIT_CATEGORY_DEFAULT
     return raw
-
-
-def venue_min_qty_for(
-    client: Any,
-    account_cfg: dict,
-    symbol: str,
-) -> Optional[float]:
-    """Resolve the exchange's minimum order qty for ``symbol`` on this account.
-
-    Returns ``minOrderQty`` (as a float) when the venue lot rule is
-    resolvable, else ``None`` (rule unknown / non-Bybit exchange) — in
-    which case the caller must NOT refuse on a venue-min basis (mirrors the
-    "rule unknown → submit unmodified" contract in ``_submit_order``).
-
-    This is the sizing-layer counterpart to the pre-flight lot-minimum
-    check in ``_submit_order``. Surfacing the venue minimum *at sizing time*
-    lets the coordinator refuse a sub-min risk-sized qty as a clean per-trade
-    risk refusal (``status='rejected'``) instead of letting it reach the
-    exchange / pre-flight and recording a noisy ``exchange_rejected`` row on
-    every recurring signal (the ETHUSDT-on-bybit_2 churn: a ~$100 balance at
-    ~0.26% risk sizes ~0.005–0.007 ETH, below Bybit's 0.01 ETH minimum, so
-    every order was rejected). It does NOT floor the qty up — that would
-    silently exceed the configured risk; the trade is refused.
-
-    Bybit-only today: ``get_lot_rule`` resolves via the same
-    cache → live instruments-info → static-map chain as the pre-flight, and
-    falls back to ``None`` when the rule can't be resolved. Other exchanges
-    (IBKR/Alpaca/OANDA) return ``None`` here — futures whole-contract
-    refusal already lives in ``RiskManager.position_size``.
-    """
-    exchange = (account_cfg.get("exchange") or "bybit").lower()
-    if exchange != "bybit":
-        return None
-    try:
-        category = _bybit_category(account_cfg)
-        lot_rule = get_lot_rule(client, symbol, category)
-    except Exception as exc:  # noqa: BLE001 — never block sizing on a lookup
-        logger.debug(
-            "venue_min_qty_for: lot-rule lookup failed for %s: %s — "
-            "no venue-min refusal applied", symbol, exc,
-        )
-        return None
-    if lot_rule is None:
-        return None
-    _step, min_qty = lot_rule
-    try:
-        return float(min_qty)
-    except (TypeError, ValueError):
-        return None
 
 
 def execute_pkg(
