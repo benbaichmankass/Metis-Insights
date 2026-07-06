@@ -123,9 +123,14 @@ def unit_for_account(account_id: str, account: Dict[str, Any]) -> AccountBacktes
     risk_pct = (risk_pct * 100.0) if (risk_pct is not None and risk_pct <= 1.0) else (risk_pct or _DEFAULT_RISK_PCT)
     account_class = str(account.get("account_class") or ("paper" if account.get("demo") else "real_money"))
 
-    # Prop binding: explicit field wins; else exchange==breakout is prop.
+    # Prop binding: any prop signal (the canonical predicate) binds this
+    # account to a prop ruleset; an explicit ``backtest_ruleset`` still names
+    # WHICH one below. Single source of truth for the prop test —
+    # BL-20260628-PROP-ISPROP-PREDICATE-DRIFT (was a local subset here: it
+    # ignored account_class/type and was case-sensitive on exchange).
+    from src.prop.prop_identity import is_prop_account
     spec = account.get("backtest_ruleset")
-    is_prop = bool(spec and spec != "standard") or account.get("exchange") == "breakout"
+    is_prop = is_prop_account(account)
 
     if is_prop:
         if not spec or spec == "standard":
