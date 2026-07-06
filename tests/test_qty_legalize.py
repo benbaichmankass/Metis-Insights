@@ -169,6 +169,59 @@ class TestLiveLotFallback:
 
 # --- Integration against the real config/instruments.yaml ------------------
 
+class TestPreferLive:
+    """prefer_live flips the resolution order (Phase 2 wiring).
+
+    The pre-flight + coordinator guards call with prefer_live=True so the LIVE
+    lot rule stays authoritative and the profile is only an added fallback — a
+    strict superset of the prior get_lot_rule-only path.
+    """
+
+    def test_prefer_live_picks_live_over_profile(self):
+        # Profile says 0.01/0.01; live client says 0.02/0.05. prefer_live=True
+        # must use the LIVE rule; default (profile-first) uses the profile.
+        class _LotClient:
+            def get_instruments_info(self, *, category, symbol):
+                return {"result": {"list": [{
+                    "lotSizeFilter": {"qtyStep": "0.02", "minOrderQty": "0.05"},
+                }]}}
+        profs = {"ETHUSDT": _profile("ETHUSDT", "bybit", "linear", 0.01, 0.01)}
+        live = legalize_qty(0.03, account_cfg=_BYBIT, symbol="ETHUSDT",
+                            client=_LotClient(), profiles=profs, prefer_live=True)
+        assert live.venue_min == pytest.approx(0.05)
+        assert live.source == "live_lot_rule"
+        offline = legalize_qty(0.03, account_cfg=_BYBIT, symbol="ETHUSDT",
+                               client=_LotClient(), profiles=profs, prefer_live=False)
+        assert offline.venue_min == pytest.approx(0.01)
+        assert offline.source == "instrument_profile"
+
+    def test_prefer_live_falls_back_to_profile(self):
+        # No client, no static-map entry for a profiled symbol -> live misses
+        # -> profile fallback still resolves under prefer_live.
+        profs = {"XAUUSD": _profile("XAUUSD", "bybit", "linear", 0.1, 0.1)}
+        r = legalize_qty(0.05, account_cfg=_BYBIT, symbol="XAUUSD",
+                         profiles=profs, prefer_live=True)
+        assert r.ok is False  # 0.05 floors to 0.0 < 0.1
+        assert r.source == "instrument_profile"
+
+
+class TestWireString:
+    """qty_str is the step-precise wire representation (preserves trailing zeros)."""
+
+    def test_qty_str_keeps_trailing_zeros(self):
+        profs = {"BTCUSDT": _profile("BTCUSDT", "bybit", "linear", 0.001, 0.001)}
+        # 0.1009 floors to 0.100 on a 0.001 step -> wire string "0.100".
+        r = legalize_qty(0.1009, account_cfg=_BYBIT, symbol="BTCUSDT", profiles=profs)
+        assert r.ok is True
+        assert r.qty == pytest.approx(0.1)
+        assert r.qty_str == "0.100"
+
+    def test_qty_str_passthrough_is_float_str(self):
+        r = legalize_qty(1.2345, account_cfg=_BYBIT, symbol="DOGEUSDT", profiles={})
+        assert r.source == "unknown"
+        assert r.qty_str == str(float(1.2345))
+
+
 class TestRealInstrumentsYaml:
     def test_eth_from_repo_yaml_refuses_sub_lot(self):
         # profiles=None -> loads the real config/instruments.yaml (ETHUSDT 0.01).
