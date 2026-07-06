@@ -3140,7 +3140,18 @@
       "snoozed_until": null,
       "resolved_at": null,
       "resolution": null
+    },
+    {
+      "id": "BL-20260706-SPOTMARGIN-RUNBOOK-STALE-GATE",
+      "opened_at": "2026-07-06T11:50:00+00:00",
+      "opened_by": "claude (doc-freshness pass, M19 SOL-graduation wrap-up session)",
+      "source": "doc-freshness mechanical scan: rg for removed gates outside the canonical set",
+      "title": "docs/runbooks/spot-margin.md still describes the REMOVED MONITOR_RECONCILE_ENABLED gate as an active env toggle (4+ mentions)",
+      "description": "MONITOR_RECONCILE_ENABLED was removed 2026-06-15 (BL-20260615-MGCNAKED) - the monitor reconciler is unconditional baseline and a leftover env value is ignored. The spot-margin runbook (lines ~102/225/268/327) still instructs keeping it =true in the deployed .env and warns against disabling it. Pre-existing drift, not this session's change; the canonical-doc-coherence CI guard does not scan docs/runbooks/. Fix: annotate those mentions as removed/baseline (Tier-1 doc edit) next time the runbook is touched, or in a health-review drain pass.",
+      "tier": "Tier-1 (doc-only)",
+      "status": "open",
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-07-06T09:24:00+00:00"
+  "updated_at": "2026-07-06T11:50:00+00:00"
 }
