@@ -3164,7 +3164,18 @@
       "tier": "Tier-1 (doc-only)",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260706-VOLGATE-REPLAY",
+      "opened_at": "2026-07-06T13:20:00+00:00",
+      "opened_by": "claude (ETH/SOL vol-gate evidence session)",
+      "source": "First ETH phase-2 A/B returned byte-identical arms (ungated == ev-frozen == ev-ml) on the trainer; traced to intents._hard_regime_gate's #4896 ML-only-enforce guard",
+      "title": "Offline harness --regime-router on stopped enforcing trend_vol vol cells after the #4896 ML-only-enforce guard (every vol-gating walk-forward script silently became a no-op) - FIXED this session",
+      "description": "The guard keys vol enforcement on REGIME_ML_VERDICT_MODE=use AND the LIVE per-symbol advisory resolver (ml_vol_regime_for_symbol) returning calm/volatile - neither exists in an offline replay, and the gate is fail-permissive, so scripts/backtest_system.py --regime-router on kept every vol-cell intent. All vol-gating research scripts (walkforward_vol_gating.sh, walkforward_evidence_cells.sh, walkforward_cell_selection.py) regressed to no-ops after 2026-06-28; the BTC evidence runs (06-27) predate the guard and are unaffected. FIX (branch claude/eth-sol-volgate-evidence-84bkhz): run_system_backtest sets REGIME_ML_VERDICT_MODE=use in-process and points intents._decision_vol_regime at the label the run stamped on each intent (frozen or ML per --vol-verdict), both restored on teardown; regression test test_regime_router_on_enforces_trend_vol_cell_on_stamped_label covers the 2-D drop + teardown restore. Residue: the existing test only covered the 1-D trend axis, which is why this went unnoticed for 8 days.",
+      "tier": 1,
+      "status": "resolved",
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-07-06T12:00:00+00:00"
+  "updated_at": "2026-07-06T13:20:00+00:00"
 }
