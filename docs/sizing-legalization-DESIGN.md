@@ -148,7 +148,7 @@ between phases — never one big-bang refactor.
 - **Phase 3:** fold the `risk.py` whole-unit/sub-min refusals onto the same
   resolver (closes `BL-20260628`), so `risk.py` no longer carries its own copy of
   the minimum. Tier-3. Verify Alpaca whole-share + futures whole-contract parity.
-- **Phase 4 (DONE, #TBD):** added the `qty-legalization-guard` CI check
+- **Phase 4 (DONE, #5736):** added the `qty-legalization-guard` CI check
   (`scripts/check_qty_legalization_guard.py` + `.github/workflows/qty-legalization-guard.yml`)
   — an AST scan that fails the build if any `src/` file outside the seam
   (`src/units/accounts/qty_legalize.py`) *calls* a venue-lot primitive
