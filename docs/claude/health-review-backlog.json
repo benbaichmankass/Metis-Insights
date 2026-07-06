@@ -3030,6 +3030,21 @@
       "suggested_fix": "Operator submits kind:\"account_status\" report-backs routinely; consider auto-prompting after prop_closed.",
       "resolved_at": "2026-07-04T06:55:00+00:00",
       "resolution": "RESOLVED across 07-03/07-04: (1) first-ever prop_account_status row seeded via the prop-report relay (issue #5541) \u2014 balance 5215.27 / equity 5215.27 / realized_today +297.12, derived from terminal trade history and OPERATOR-RATIFIED in chat 2026-07-04 (\"that is the updated status of the prop account\"); rule-distance guard live (daily-loss cushion $147.54, DD-floor distance $515.27). (2) The structural fix shipped in PR #5521: src/prop/prop_status_request.py pings the operator with paste-ready reply formats whenever a prop position is open and the latest snapshot is absent/stale \u2014 the panel can no longer silently run blind. First live firing of the ping is the residual watch (monitoring item in RPT-20260704-061000)."
+    },
+    {
+      "id": "BL-20260706-GPU-BURST-CONCURRENCY-CANCEL",
+      "opened_at": "2026-07-06T06:50:00+00:00",
+      "opened_by": "claude (M19 overnight session)",
+      "source": "gpu-burst-train.yml run 28772601594 (arm-B burst issue #5642) was CANCELLED while queued: the workflow triggers on EVERY issues.opened (non-labeled ones conclude 'skipped'), and its single `concurrency: group: gpu-burst-train` means each new issue's run displaces the previously PENDING run in the group - so an unrelated trainer-diag/diag-request issue opened while one burst runs silently cancels the next queued burst.",
+      "title": "gpu-burst-train concurrency group lets ANY new issue cancel a queued burst",
+      "description": "Queued (pending) gpu-burst runs are silently cancelled by any subsequent issue in the repo because all issues.opened events share the one concurrency group. A cancelled burst looks like 'never ran' unless someone inspects the Actions history. Observed 2026-07-06 (arm B #5642 cancelled by the #5643 trainer-diag issue's skip-run); worked around by firing bursts one at a time.",
+      "suggested_fix": "Gate the concurrency group on the label match (e.g. move the label check to a first job whose output gates the burst job, and key concurrency as gpu-burst-${{ github.event.issue.number }} on the burst job only, or set the group at job level only for labeled issues). Keep spend-gate serialization by having the burst job itself take a repo-level lock (the ledger commit step already serializes on push).",
+      "tier": "Tier 1 (CI workflow change).",
+      "trigger_condition": "Next health-review / CI-touching session.",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "resolution": null
     }
   ],
   "updated_at": "2026-07-05T12:35:00+00:00"
