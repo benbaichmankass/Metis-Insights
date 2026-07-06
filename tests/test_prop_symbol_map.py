@@ -83,6 +83,10 @@ def test_ingest_venue_symbol_links_canonical_ticket(
         "ticket_id": "prop-manual-eth1", "account_id": "breakout_1",
         "symbol": "ETHUSDT", "direction": "short", "entry": 3000.0,
     })
+    # A close links only to a ticket that represents a position (never a
+    # never-placed `emitted` signal — BL-20260706-PROP-CLOSE-MISLINK); advance
+    # it to `filled` first. This test's point is the ETHUSD→ETHUSDT normalise.
+    prop_journal.set_ticket_status("prop-manual-eth1", "filled")
     out = prop_report.ingest_report({
         "account_id": "breakout_1", "symbol": "ETHUSD", "direction": "short",
         "status": "closed", "exit_price": 2950.0, "pnl": 80.0, "reason": "tp",

@@ -116,12 +116,16 @@ def test_ingest_close_links_ticket_and_notifies(
         "ticket_id": "prop-manual-xyz", "account_id": "breakout_1",
         "symbol": "SOLUSDT", "direction": "long", "entry": 73.0,
     })
+    # The ticket must represent a POSITION for a close to link to it — a close
+    # never links to a never-placed `emitted` signal (BL-20260706-PROP-CLOSE-
+    # MISLINK). Advance it to `filled` as the operator's fill report would.
+    prop_journal.set_ticket_status("prop-manual-xyz", "filled")
     out = prop_report.ingest_report({
         "account_id": "breakout_1", "symbol": "SOLUSDT", "direction": "long",
         "status": "closed", "exit_price": 80.5, "pnl": 100.0, "reason": "tp",
     })
     assert out["ok"] and out["kind"] == "fill"
-    # Reconciliation linked the fill to the open ticket by symbol+direction.
+    # Reconciliation linked the close to the filled position by symbol+direction.
     assert out["ticket_id"] == "prop-manual-xyz"
     # The close fired exactly one notification.
     assert len(no_notify) == 1 and no_notify[0]["status"] == "closed"
