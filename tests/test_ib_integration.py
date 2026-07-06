@@ -698,6 +698,129 @@ class TestIBIsolationGuardRails:
         assert c._breaker_open_until == 0.0
 
 
+class TestAccountWarmup:
+    """BL-20260706-IBWARMUP — connect() must BLOCK (bounded) for the FIRST
+    real accountSummary/portfolio data to land before declaring success, so
+    balance()/positions() never race an empty/never-populated cache and
+    misreport "gateway not logged in" on a perfectly healthy gateway.
+    Mirrors the shape of ``TestIBIsolationGuardRails``'s liveness-probe
+    tests, but for the account/portfolio warm-up added alongside it.
+    """
+
+    def test_warmup_waits_for_delayed_data_then_succeeds(self, monkeypatch):
+        # A fresh connect whose accountSummary/accountUpdates callbacks
+        # answer only after a delay (well inside the bound) must still
+        # succeed — connect() waits, it does not falsely condemn a healthy,
+        # merely-slow-to-answer gateway.
+        import src.units.accounts.ib_client as mod
+
+        monkeypatch.setattr(mod, "_IB_ACCOUNT_WARMUP_TIMEOUT_S", 2.0)
+        monkeypatch.setattr(mod, "_IB_PROBE_RETRY_GAP_S", 0.05)
+
+        class DelayedIB(FakeIB):
+            async def reqAccountSummaryAsync(self):
+                import asyncio
+
+                await asyncio.sleep(0.3)  # arrives well inside the bound
+                return None
+
+            async def reqAccountUpdatesAsync(self, account):
+                import asyncio
+
+                await asyncio.sleep(0.3)
+                return None
+
+        inj = types.ModuleType("ib_insync")
+        inj.IB = DelayedIB
+        monkeypatch.setitem(sys.modules, "ib_insync", inj)
+
+        c = IBClient(port=7497, client_id=50, account="DUQ325724")
+        t0 = time.monotonic()
+        ib = c.connect()
+        elapsed = time.monotonic() - t0
+        assert ib is not None
+        assert c.connected is True
+        assert c._account_data_ready is True
+        assert c._breaker_open_until == 0.0
+        assert elapsed < 2.0, f"warm-up did not return promptly (took {elapsed:.1f}s)"
+
+    def test_warmup_never_arrives_is_bounded_and_trips_breaker(self, monkeypatch):
+        # A genuinely wedged gateway that never answers reqAccountSummary
+        # must still be caught within a bounded time (not hang forever —
+        # ib_insync's own RequestTimeout for this call is 0 = unbounded)
+        # and must trip the circuit breaker exactly like the liveness probe.
+        import src.units.accounts.ib_client as mod
+
+        monkeypatch.setattr(mod, "_IB_ACCOUNT_WARMUP_TIMEOUT_S", 0.2)
+        monkeypatch.setattr(mod, "_IB_PROBE_RETRY_GAP_S", 0.05)
+
+        class WedgedIB(FakeIB):
+            async def reqAccountSummaryAsync(self):
+                import asyncio
+
+                await asyncio.sleep(30)  # never answers within the bound
+
+        inj = types.ModuleType("ib_insync")
+        inj.IB = WedgedIB
+        monkeypatch.setitem(sys.modules, "ib_insync", inj)
+
+        c = IBClient(port=7497, client_id=51, account="DUQ325724")
+        t0 = time.monotonic()
+        with pytest.raises(IBConnectionError) as ei:
+            c.connect()
+        elapsed = time.monotonic() - t0
+        assert "account/portfolio data" in str(ei.value)
+        assert elapsed < 5.0, f"warm-up was not bounded (took {elapsed:.1f}s)"
+        assert c._account_data_ready is False
+        # Breaker now open — a subsequent connect fast-fails without
+        # touching the socket again.
+        with pytest.raises(IBConnectionError) as ei2:
+            c.connect()
+        assert "circuit breaker OPEN" in str(ei2.value)
+
+    def test_reconnect_after_idle_drop_rewarms(self, monkeypatch):
+        # A cached, still-"connected" handle must NOT re-warm on every
+        # connect() call (cheap steady-state reads) — but once the socket
+        # silently drops (isConnected() flips False, no exception raised,
+        # the idle-timeout scenario this fix targets), the NEXT connect()
+        # builds a fresh ``ib`` and MUST re-run the warm-up before
+        # declaring success, so a stale/empty cache is never trusted.
+        import src.units.accounts.ib_client as mod
+
+        monkeypatch.setattr(mod, "_IB_ACCOUNT_WARMUP_TIMEOUT_S", 2.0)
+        monkeypatch.setattr(mod, "_IB_PROBE_RETRY_GAP_S", 0.05)
+
+        calls = {"n": 0}
+
+        class ReconnectableIB(FakeIB):
+            async def reqAccountSummaryAsync(self):
+                calls["n"] += 1
+                return None
+
+        inj = types.ModuleType("ib_insync")
+        inj.IB = ReconnectableIB
+        monkeypatch.setitem(sys.modules, "ib_insync", inj)
+
+        c = IBClient(port=7497, client_id=52, account="DUQ325724")
+        ib1 = c.connect()
+        assert calls["n"] == 1
+        assert c._account_data_ready is True
+
+        # A second connect() on the still-open handle must skip the
+        # warm-up entirely (cheap steady-state path).
+        ib_again = c.connect()
+        assert ib_again is ib1
+        assert calls["n"] == 1
+
+        # Simulate a silent idle-timeout drop: the socket is dead but no
+        # exception was raised anywhere — isConnected() now reports False.
+        ib1._connected = False
+        ib2 = c.connect()
+        assert ib2 is not ib1
+        assert calls["n"] == 2, "reconnect after an idle drop must re-warm"
+        assert c._account_data_ready is True
+
+
 # ---------------------------------------------------------------------------
 # Connection registry
 # ---------------------------------------------------------------------------
