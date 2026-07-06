@@ -915,6 +915,14 @@ below are the contract.
   broken script to pull it. **BL-20260706-GITSYNC-AUTH-BROKEN is
   resolved and live-verified** — `git_sha` confirmed current via
   `/api/diag/version` after a real restart-bot-service cycle.
+  **Trainer target (2026-07-06, BL-20260706-TRAINER-GIT-AUTH-BROKEN):**
+  the trainer VM's anonymous `git pull` broke identically, so the
+  workflow takes a `target` (live default | trainer — via the
+  `workflow_dispatch` input or a `target: trainer` issue-body line).
+  The trainer branch sets the same single credential on
+  `158.178.209.121` and recovers with a plain
+  `git reset --hard origin/main` (no deploy script / service restart
+  on the trainer).
 - **Prop report-back POST (the diag relay's write counterpart)** —
   `.github/workflows/prop-report.yml` is the issue-driven path to
   `POST /api/bot/prop/report` (the read-only `vm-diag-snapshot` relay
