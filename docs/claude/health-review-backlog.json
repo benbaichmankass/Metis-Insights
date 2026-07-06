@@ -3,6 +3,18 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260706-PROP-REPORT-DEVNULL-NOISE",
+      "opened_at": "2026-07-06T13:20:00+00:00",
+      "opened_by": "claude (order-qty-rounding-issue session; prop ETHUSD close report-back)",
+      "source": "prop-report.yml run 28794297803 (issue #5734) comment: the ingest returned HTTP 200 (success) but the run log showed 'bash: line NN: /dev/null: Permission denied' at four points and '(no response body)' — the endpoint's JSON response ({ok,kind,status,ticket_id,...}) was not echoed back to the issue comment.",
+      "title": "[workflow] prop-report.yml can't write /dev/null on the VM step, so the endpoint response body isn't echoed back (ingest still succeeds)",
+      "description": "The issue-driven prop-report relay (.github/workflows/prop-report.yml, or its VM-side curl wrapper) redirects some output to /dev/null and hit 'Permission denied' four times during the 2026-07-06 ETHUSD close report-back — a symptom of the same OCI host-side /dev/null-clobbering pattern already tracked (BL-20260629-DEVNULL-CLOBBERED-LIVE-VM): /dev/null on the VM is a regular non-writable file, not the char device. Consequence is purely observability: the POST still returned HTTP 200 (so the prop_fills write + ticket-link + prop_closed notification all fired), but the endpoint's JSON response body was swallowed, so the confirmation comment reads '(no response body)' and a future reporter can't see {ok,ticket_id,...}. FIX (Tier-1, cosmetic): (a) capture the curl response body to a tmp file / var instead of relying on /dev/null redirects in the report step, and/or (b) re-assert /dev/null as a char device at the top of the VM step (the mitigation used elsewhere for the DEVNULL class). Verify by re-running a prop-report and confirming the JSON body appears in the comment. Low priority — no data was lost and the 200 is authoritative.",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "BL-20260706-GITSYNC-AUTH-BROKEN",
       "opened_at": "2026-07-06T08:05:00+00:00",
       "opened_by": "claude (IB liveness-probe deploy attempt, 2026-07-06)",
