@@ -28,6 +28,7 @@ from src.web.api.routers import exit_ladder as exit_ladder_router
 from src.web.api.routers import fc_geometry as fc_geometry_router
 from src.web.api.routers import allocator as allocator_router
 from src.web.api.routers import liquidity as liquidity_router
+from src.web.api.routers import market_ws as market_ws_router
 from src.web.api.routers import news as news_router
 from src.web.api.routers import order_packages as order_packages_router
 from src.web.api.routers import pnl as pnl_router
@@ -94,6 +95,7 @@ app.include_router(allocator_router.router)
 app.include_router(prop_router.router)
 app.include_router(reports_router.router)
 app.include_router(roadmap_router.router)
+app.include_router(market_ws_router.router)
 
 
 @app.get("/api/health", tags=["health"])
