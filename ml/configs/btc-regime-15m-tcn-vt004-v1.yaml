@@ -1,0 +1,70 @@
+# M19 T1.1 follow-up — TCN label-sensitivity arm B: vol_threshold 0.004.
+#
+# The T1.1 bake-off (2026-07-02) read NEGATIVE for the TCN vs the LightGBM
+# regime head at the production label (vol_threshold=0.005, ~4% volatile base
+# rate). The logged follow-up asks whether that negative is label-sparsity-
+# driven: at a lower threshold the volatile class is denser, giving the deep
+# model more positive gradient signal per epoch. This manifest re-runs the SAME
+# TCN architecture with the pod's market_features built at vol_threshold=0.004
+# via `dataset.build_params` (threaded through the gpu-burst driver; unknown
+# keys are refused before a pod is rented).
+#
+# class_weight is deliberately OMITTED (unlike the 0.005 base manifest's
+# hand-set 28.0): the trainer auto-weights by inverse class frequency, so each
+# threshold arm gets the weighting its own base rate implies — the comparison
+# is threshold-vs-threshold, not threshold-vs-stale-weight.
+#
+# GPU-burst trained, CPU-served (ONNX, parity-gated). Registers candidate/
+# offline — refused by the live shadow factory, never order-influencing.
+# NOTE: an arm at a non-production label is a SENSITIVITY probe — its metrics
+# are not comparable to production heads and do not qualify it for promotion.
+
+manifest_version: v1
+model_id: btc-regime-15m-tcn-vt004-v1
+description: "T1.1 label-sensitivity arm: causal TCN over BTC-15m windows with the regime label built at vol_threshold 0.004 (denser volatile class). Tests whether the TCN negative at 0.005 was label-sparsity-driven. Candidate/offline probe — never order-influencing."
+model_family: sequence_torch_tcn
+trainer: ml.trainers.torch_sequence.TorchSequenceTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - log_return
+    - rolling_log_return_vol
+    - hour_of_day
+    - dayofweek
+  seq_len: 64
+  channels: 48
+  kernel_size: 2
+  dilations: [1, 2, 4, 8, 16]
+  epochs: 30
+  batch_size: 256
+  lr: 0.001
+  weight_decay: 0.0
+  seed: 42
+  onnx_opset: 17
+  parity_tol: 1.0e-4
+dataset:
+  family: market_sequences
+  symbol_scope: BTCUSDT
+  timeframe: 15m
+  version: v001
+  build_params:
+    vol_threshold: 0.004
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: purged_walk_forward
+  time_column: ts
+  n_folds: 5
+  min_train_fraction: 0.5
+  label_horizon: 5
+  embargo_fraction: 0.01
+target_deployment_stage: candidate
+notes: |
+  M19 T1.1 label-sensitivity probe, arm B (vol_threshold=0.004). Compare
+  f1_volatile / macro_f1 against BOTH (a) the 0.005 TCN run and (b) a LightGBM
+  head trained at the SAME 0.003 label if the TCN improves — a deep-model win
+  only counts if the tree does not improve equally at the denser label.
+  class_weight omitted → inverse-class-frequency auto-weighting per arm.
+  Sensitivity probe at a non-production label: NOT promotion-eligible.
+  Leakage gate forbids forward_log_return / forward_log_return_vol /
+  regime_label as window features.

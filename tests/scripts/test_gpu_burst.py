@@ -437,3 +437,46 @@ def test_ingest_rejects_bundle_without_model_id(tmp_path):
     p.write_text(json.dumps({"model_state": {}, "manifest": {"dataset": {}}}), encoding="utf-8")
     assert ingest_bundle.main(["--bundle", str(p), "--registry-root", str(tmp_path / "r"),
                                "--experiments-root", str(tmp_path / "e")]) == 1
+
+
+def test_remote_script_build_params_override_vol_threshold():
+    script = _remote.build_remote_train_script(
+        repo_sha="deadbeef", manifest_path="ml/configs/btc-regime-15m-tcn-vt003-v1.yaml",
+        symbol="BTCUSDT", timeframe="15m", version="v001",
+        build_params={"vol_threshold": 0.003},
+    )
+    # override lands; the other cycle params stay at their defaults
+    assert "vol_threshold=0.003" in script
+    assert "vol_threshold=0.005" not in script
+    assert "vol_window_n=20 forward_window_m=5" in script
+    assert "trend_threshold=0.005 n_vol_buckets=3" in script
+
+
+def test_remote_script_build_params_unknown_key_refused():
+    with pytest.raises(ValueError, match="unknown market_features build_params"):
+        _remote.build_remote_train_script(
+            repo_sha="deadbeef", manifest_path="m.yaml",
+            symbol="BTCUSDT", timeframe="15m",
+            build_params={"db_path": "/data/trade_journal.db"},
+        )
+
+
+def test_manifest_dataset_scope_surfaces_build_params(tmp_path):
+    m = tmp_path / "head.yaml"
+    m.write_text(
+        "model_id: x\n"
+        "dataset:\n"
+        "  family: market_sequences\n"
+        "  symbol_scope: BTCUSDT\n"
+        "  timeframe: 15m\n"
+        "  version: v001\n"
+        "  build_params:\n"
+        "    vol_threshold: 0.003\n"
+        "trainer_config:\n"
+        "  seq_len: 64\n"
+        "  feature_columns: [log_return]\n",
+        encoding="utf-8",
+    )
+    scope = runpod_burst._manifest_dataset_scope(str(m))
+    assert scope["build_params"] == {"vol_threshold": 0.003}
+    assert scope["sequence"]["seq_len"] == 64
