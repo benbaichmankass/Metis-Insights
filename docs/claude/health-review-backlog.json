@@ -2942,7 +2942,13 @@
       "snoozed_until": null,
       "description": "PR #4969 (merged) made a sub-min-lot risk-based size a per-trade REFUSAL on the crypto/fx (non-whole-unit) path instead of bumping it up to min_qty (the over-risk #3910 flagged). It was scoped MINIMALLY: the refusal threshold is the ACCOUNT-configured min_qty (RiskManager.min_qty, default 0.001), NOT the per-instrument platform lot from config/instruments.yaml. For BTCUSDT that's correct (real lot == 0.001), but ETHUSDT's real Bybit lot is 0.01 (instruments.yaml min_qty/qty_step 0.01) \u2014 so a risk-based ETH size in [0.001, 0.0099) currently passes the refusal (>= account 0.001) yet the exchange would reject it as sub-lot. Pre-existing (the old bump was equally wrong there) and NOT worsened by #4969 \u2014 bybit_2's live ETH position (0.01) sizes legitimately today. FOLLOW-UP (the part of #3910 deliberately left out of #4969 to keep the real-money PR surgical): add an instrument-aware floor \u2014 instrument_min_qty_step_for(symbol) reading (min_qty, qty_precision from qty_step) from config/instruments.yaml \u2014 and resolve eff_min_qty/eff_precision from it on the non-whole path, falling back to the account min_qty when a symbol has no profile. The reference implementation is in the closed #3910 diff (src/units/accounts/risk.py). Tier-3 (sizing on the live order path) + needs the test reworks for profiled-symbol precision (IWM-on-bybit synthetic tests in test_alpaca_whole_share_sizing.py).",
       "source": "PR #4969 (merged 744ac178) \u00a7 'Why minimal (vs full #3910)'; src/units/accounts/risk.py::position_size non-whole-unit refusal branch; config/instruments.yaml ETHUSDT min_qty/qty_step 0.01 vs RiskManager default min_qty 0.001.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-06T00:00:00+00:00",
+          "by": "claude (order-qty-rounding-issue session)",
+          "note": "THIRD sibling of this defect found + fixed on branch claude/order-qty-rounding-issue-wj1d1v (Tier-3, draft PR pending operator approval). The intent-mode netting-DELTA guard in coordinator.py::multi_account_execute (~line 1900) also compared delta.qty_delta against account.risk_manager.min_qty (0.001), NOT the venue lot. A live ETHUSDT/bybit_2 top-up (sized 0.111, held ~0.102 -> delta 0.009) slipped the guard and hit the _submit_order pre-flight ('below the exchange lot minimum after step-alignment') -> bybit_place_order_failed error ping on every top-up/trim signal. Fix folds venue_min_qty_for into the delta guard (max(account_min, venue_min); None -> account_min unchanged), converting the noisy ping into a clean intent_sub_min_qty_delta noop. Regression tests in tests/test_intent_delta_dispatch.py::TestIntentModeVenueMinDelta. The risk.py::position_size path this item primarily tracks is STILL OPEN (separate location)."
+        }
+      ]
     },
     {
       "id": "BL-20260629-ALPACA-NAKED-BRACKET",

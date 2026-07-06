@@ -1897,14 +1897,44 @@ class Coordinator:
                         })
                         continue
 
-                    if delta.qty_delta < account.risk_manager.min_qty:
+                    # Sub-min-lot delta guard. A netting delta smaller than the
+                    # minimum tradeable lot is dust — treat it as a noop rather
+                    # than dispatching an order the exchange will reject. The
+                    # account-level ``risk_manager.min_qty`` is NOT symbol-aware
+                    # (default 0.001, BTC-shaped), so on a higher-lot symbol a
+                    # delta in e.g. [0.001, 0.0099) ETH slips past an
+                    # account-min-only check and reaches the ``_submit_order``
+                    # pre-flight, which floors it to 0 and raises "below the
+                    # exchange lot minimum after step-alignment" — surfacing as a
+                    # noisy ``bybit_place_order_failed`` error ping on every
+                    # top-up/trim signal. This is the delta-path flavour of the
+                    # sized-qty venue-min gap fixed above (BL-20260619-ETHMIN) and
+                    # the risk.py gap tracked in BL-20260628-CRYPTO-INSTRUMENT-MIN-FLOOR.
+                    # Fold the EXCHANGE minimum into the threshold the same way the
+                    # sized-qty guard does: ``venue_min_qty_for`` → None when the
+                    # rule is unknown / non-Bybit, so the effective minimum
+                    # degrades to the account min — byte-for-byte the pre-fix
+                    # behaviour where the venue rule can't be resolved.
+                    try:
+                        from src.units.accounts.execute import venue_min_qty_for
+                        _delta_venue_min = venue_min_qty_for(
+                            client, account_cfg, pkg.symbol,
+                        )
+                    except Exception:  # noqa: BLE001 — never block on a lookup
+                        _delta_venue_min = None
+                    _eff_min_qty = account.risk_manager.min_qty
+                    if _delta_venue_min is not None:
+                        _eff_min_qty = max(_eff_min_qty, _delta_venue_min)
+                    if delta.qty_delta < _eff_min_qty:
                         # Position is within one min-lot of the target;
                         # treat as noop to avoid spamming dust orders.
                         logger.info(
                             "[coordinator] intent-mode sub-min_qty delta for "
-                            "%s/%s (delta=%s min_qty=%s) — treating as noop",
+                            "%s/%s (delta=%s eff_min_qty=%s account_min=%s "
+                            "venue_min=%s) — treating as noop",
                             account.name, pkg.symbol,
-                            delta.qty_delta, account.risk_manager.min_qty,
+                            delta.qty_delta, _eff_min_qty,
+                            account.risk_manager.min_qty, _delta_venue_min,
                         )
                         from src.units.accounts.execute import log_rejection_to_journal
                         log_rejection_to_journal(
