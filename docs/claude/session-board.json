@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01Hgd5hvGw4sCrPjTurUP6zR",
-    "branch": "claude/eth-sol-volgate-evidence-84bkhz",
-    "pr": 5747,
-    "claimed_at": "2026-07-06T15:05:00Z"
+    "held_by": null,
+    "branch": null,
+    "pr": null,
+    "claimed_at": null
   },
   "active_sessions": [
     {
@@ -17,13 +17,6 @@
       "intent": "M19 next-direction: deep-research recommendation MERGED (#5626); now the ranked follow-up — D4a RG4 mirror-freshness+power gate, D1 fc-geometry soak build, report addendum.",
       "started_at": "2026-07-05T11:40:00Z",
       "updated_at": "2026-07-05T20:35:00Z"
-    },
-    {
-      "session_id": "session_01Hgd5hvGw4sCrPjTurUP6zR",
-      "branch": "claude/eth-sol-volgate-evidence-84bkhz",
-      "intent": "ETH/SOL vol-gate evidence (honest negative recorded) + harness vol-replay regression fix; merging PR #5747 (operator-approved in chat).",
-      "started_at": "2026-07-06T12:10:00Z",
-      "updated_at": "2026-07-06T15:05:00Z"
     }
   ],
   "_note_unregistered": "Sessions for S-AUDIT-B (zombie/env-gate) and S-AUDIT-C (consumer wiring) were launched by the operator 2026-06-28 but have not yet self-registered here — they must add their entry at preflight per the session-coordination skill. Until they do, the live open-PR list is the authoritative signal for what they're working on."
