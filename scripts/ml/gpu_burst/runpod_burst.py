@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
+import tempfile
 import time
 from typing import Any
 
@@ -193,6 +194,38 @@ def _as_text(v: Any) -> str:
     if v is None:
         return ""
     return v.decode("utf-8", "replace") if isinstance(v, bytes) else v
+
+
+def _ship_repo_tarball(
+    endpoint: tuple[str, int], key_path: str, repo_sha: str, timeout_s: int = 300,
+) -> bool:
+    """`git archive` the pinned sha on the RUNNER and scp it to the pod as
+    /workspace/repo.tar.gz (the remote train script extracts it). Returns False
+    on any failure — the caller aborts before training. No credential leaves
+    the runner; the pod only ever sees the code tree it would have cloned."""
+    host, port = endpoint
+    with tempfile.TemporaryDirectory(prefix="ict-burst-repo-") as td:
+        tarball = os.path.join(td, "repo.tar.gz")
+        arch = subprocess.run(
+            ["git", "archive", "--format=tar.gz", "-o", tarball, repo_sha],
+            capture_output=True, text=True, timeout=120,
+        )
+        if arch.returncode != 0 or not os.path.isfile(tarball):
+            print(f"::error::git archive {repo_sha[:12]} failed: {arch.stderr.strip()[:300]}")
+            return False
+        argv = _remote.scp_argv_direct(host, port, key_path, tarball, "/workspace/repo.tar.gz")
+        try:
+            proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            print("::error::scp of repo tarball to the pod timed out")
+            return False
+        if proc.returncode != 0:
+            print(f"::error::scp of repo tarball failed (rc={proc.returncode}): "
+                  f"{proc.stderr.strip()[:300]}")
+            return False
+        size_kb = os.path.getsize(tarball) // 1024
+        print(f"shipped repo.tar.gz ({size_kb} KiB, sha {repo_sha[:12]}) to the pod")
+        return True
 
 
 def _wait_ssh_ready(
@@ -429,6 +462,13 @@ def run(
             sequence=scope.get("sequence"),
             build_params=scope.get("build_params"),
         )
+        # Ship the repo as a runner-built archive of the PINNED sha — the repo
+        # is private (2026-07-06) so the pod cannot clone anonymously, and no
+        # credential may reach a rented pod (data contract). git-archive of the
+        # sha preserves the pinned property the old clone+checkout had.
+        if not _ship_repo_tarball(endpoint, key_path, repo_sha):
+            print("::error::could not ship the repo tarball to the pod — tearing down.")
+            return 10
         train_timeout = max(60, int(max_minutes) * 60)
         print(f"training {manifest} on pod {pod_id} @ {repo_sha[:12]} "
               f"(symbol={symbol} tf={timeframe}); ssh timeout {train_timeout}s")

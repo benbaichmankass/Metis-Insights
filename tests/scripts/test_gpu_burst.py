@@ -200,7 +200,9 @@ def test_remote_script_is_safe_and_pinned():
         symbol="BTCUSDT", timeframe="15m",
     )
     assert "set -euo pipefail" in script            # abort-on-error
-    assert "git checkout --quiet abc123" in script  # pinned SHA, not a floating branch
+    assert "repo tree from pinned sha abc123" in script  # pinned SHA (runner-shipped archive)
+    assert "repo.tar.gz" in script                  # repo arrives by scp, no clone
+    assert "git clone" not in script                # private repo: no anonymous clone on the pod
     # Real ml CLI: build the PUBLIC market dataset, then train the manifest.
     assert "build-dataset market_raw" in script
     assert "build-dataset market_features" in script
