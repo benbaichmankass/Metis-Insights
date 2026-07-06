@@ -7,6 +7,15 @@ name: repo-inventory
 #
 # Promotion to a blocking check is a follow-up sprint after the
 # inventory artifact has been observed across ≥ 5 PRs.
+#
+# **2026-07-06 (Actions-minutes billing cap, MB-20260706-CI-MINUTES
+# survey):** deliberately left WITHOUT a `paths:` filter or a
+# changed-files short-circuit. Its whole point is a full-tree scan
+# (extension counts, large files, junk candidates) that can drift
+# regardless of which specific files a PR touched, and it has no pip
+# install to save (stdlib-only script) — narrowing its trigger would
+# blind it to the exact class of drift it exists to catch, for near-zero
+# billing savings.
 
 on:
   pull_request:

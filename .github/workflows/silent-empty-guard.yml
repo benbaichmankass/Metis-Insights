@@ -5,6 +5,12 @@ name: Silent-empty guard
 # explicit `# allow-silent: <reason>` justification.
 # See scripts/check_silent_empty_in_diff.py and
 # docs/audits/silent-empty-2026-05-10.md.
+#
+# **2026-07-06 (Actions-minutes billing cap, MB-20260706-CI-MINUTES):**
+# REQUIRED status check — trigger can never carry `paths:` (would leave
+# the check permanently "pending" on a non-matching PR). A PR touching
+# no `.py` file skips the scan step below (no pip install here to save,
+# so the win is small — see PR body).
 
 on:
   pull_request:
@@ -31,8 +37,20 @@ jobs:
           git diff "origin/${{ github.base_ref }}"...HEAD > /tmp/pr.diff
           wc -l /tmp/pr.diff
 
+      - name: Determine relevance
+        id: changed
+        run: |
+          FILES=$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD)
+          if echo "$FILES" | grep -Eq '\.py$'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No .py changes — skipping the scan (short-circuit, MB-20260706-CI-MINUTES)."
+          fi
+
       - name: Scan for new broad except handlers in protected paths
         id: scan
+        if: steps.changed.outputs.relevant == 'true'
         run: |
           set +e
           python scripts/check_silent_empty_in_diff.py /tmp/pr.diff
@@ -40,7 +58,7 @@ jobs:
           set -e
 
       - name: Notify operator on hit
-        if: steps.scan.outputs.exit != '0'
+        if: steps.changed.outputs.relevant == 'true' && steps.scan.outputs.exit != '0'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -64,7 +82,7 @@ jobs:
             -d "text=${MESSAGE}" >/dev/null
 
       - name: Fail the check on hit
-        if: steps.scan.outputs.exit != '0'
+        if: steps.changed.outputs.relevant == 'true' && steps.scan.outputs.exit != '0'
         run: |
           echo "::error::silent-empty guard tripped — see job output."
           exit 1

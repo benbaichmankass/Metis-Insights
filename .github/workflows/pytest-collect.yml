@@ -15,6 +15,17 @@ name: pytest-collect
 # drops the `|| true` shim and `--continue-on-collection-errors`. The
 # workflow now fails any PR that introduces a collection regression.
 # See `docs/claude/ci-status-checks.md` § pytest-collect.
+#
+# **2026-07-06 (Actions-minutes billing cap, MB-20260706-CI-MINUTES):**
+# this is a REQUIRED status check (branch-protection-sync.yml
+# REQUIRED_CONTEXTS), so its trigger can NEVER carry a `paths:` filter —
+# GitHub would leave the check permanently "pending" on any PR that
+# doesn't touch a matching path, blocking that PR from ever merging.
+# Instead the job always runs (cheap: checkout + a `git diff --name-only`)
+# but SKIPS the expensive steps (pip install of the full dependency set +
+# the actual collect) when nothing python/test-relevant changed — see the
+# "Determine relevant changed files" step. A doc-only / config-only PR
+# still gets a green required check, just without paying for the install.
 
 on:
   pull_request:
@@ -33,20 +44,51 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine relevant changed files
+        id: changed
+        run: |
+          set -e
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --quiet
+            RANGE="origin/${{ github.base_ref }}...HEAD"
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              echo "relevant=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::No prior commit to diff against — running the full check."
+              exit 0
+            fi
+            RANGE="$BEFORE...${{ github.sha }}"
+          fi
+          FILES=$(git diff --name-only $RANGE || true)
+          echo "Changed files ($RANGE):"
+          echo "$FILES"
+          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|\.github/workflows/pytest-collect\.yml$'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No .py/test-config files changed — skipping the pip install + collect steps (short-circuit, MB-20260706-CI-MINUTES)."
+          fi
 
       - name: Set up Python 3.11
+        if: steps.changed.outputs.relevant == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
 
       - name: Install runtime + test dependencies
+        if: steps.changed.outputs.relevant == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-test.txt
 
       - name: Collect tests (no execution; blocking)
+        if: steps.changed.outputs.relevant == 'true'
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |

@@ -77,6 +77,25 @@ keeps at most one PENDING run per group; verified 2026-06-11 and
 2026-07-03.) Each job stays bounded by `timeout-minutes: 5` plus the
 SSH/curl timeouts. Fire as many as you need.
 
+**5. Batch your reads — every issue is a separately-billed Actions job.**
+`vm-diag-snapshot.yml` takes exactly ONE `diag_path` per issue/dispatch
+today — there is no multi-path request in a single run (verified
+2026-07-06, MB-20260706-CI-MINUTES: the workflow reads a single
+`diag_path` input / issue-title path, no loop over a list). Point 4
+above means bursts don't collide, but they are NOT free: this repo hit
+its GitHub Actions free-tier minutes cap (2,000/month) on
+2026-07-06, and every diag-relay issue — like every PR push — is its
+own billed runner-minute. Before opening a burst of single-path issues
+in a row, ask whether one `snapshot?limit=N` call already carries what
+you need (heartbeat, status, audit tail, order_packages, trades,
+vm_health, service states in one shot) instead of separate
+`status`/`services`/`journal?table=trades` requests. A genuine
+multi-path-per-issue enhancement (e.g. a `diag_paths:` CSV input the
+workflow loops over server-side) would cut this further but doesn't
+exist yet — flag it as a future workflow enhancement if you find
+yourself opening 3+ single-path issues back-to-back for the same
+question.
+
 ## TL;DR — fetching diag data from a sandbox session
 
 ```

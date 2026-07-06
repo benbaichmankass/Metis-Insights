@@ -8,11 +8,19 @@ name: qty-legalization guard
 # collapsed the four copies onto one seam; this guard (Phase 4) keeps it that
 # way. See scripts/check_qty_legalization_guard.py and
 # docs/sizing-legalization-DESIGN.md.
+#
+# **2026-07-06 (Actions-minutes billing cap, MB-20260706-CI-MINUTES):**
+# NOT a required status check, so it's safe to trigger-filter with
+# `paths:` — the guard statically scans `src/` for out-of-seam Python
+# calls, so it can only ever change result on a `.py` diff.
 
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
+    paths:
+      - "**/*.py"
+      - ".github/workflows/qty-legalization-guard.yml"
 
 permissions:
   contents: read

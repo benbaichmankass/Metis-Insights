@@ -6,10 +6,19 @@ name: New-table wiring guard
 # backstop for docs/CLAUDE-RULES-CANONICAL.md § Generation Discipline Rule 3 +
 # the db-wiring skill — prevents the parallel-empty-store bug class
 # (2026-06-21 prop-tickets incident). See scripts/check_new_table_wiring.py.
+#
+# **2026-07-06 (Actions-minutes billing cap, MB-20260706-CI-MINUTES):**
+# NOT a required status check, so it's safe to trigger-filter with
+# `paths:` — a `CREATE TABLE` can only appear in a `.py` or `.sql` file.
 
 on:
   pull_request:
     branches: [main]
+    paths:
+      - "**/*.py"
+      - "**/*.sql"
+      - "scripts/check_new_table_wiring.py"
+      - ".github/workflows/new-table-wiring-guard.yml"
 
 permissions:
   contents: read
