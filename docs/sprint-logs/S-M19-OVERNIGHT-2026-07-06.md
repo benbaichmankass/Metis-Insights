@@ -70,9 +70,14 @@ RG4 — see Contradictions).
   label-sensitivity arm manifests (`btc-regime-15m-tcn-vt003/vt004-v1`,
   class_weight omitted → per-arm auto-weighting, explicitly not
   promotion-eligible). 37 burst tests pass.
-- **GPU bursts fired:** arm A (vt003, issue #5641) ran on a pod; arm B
-  (#5642) was **cancelled by the gpu-burst workflow's concurrency group**
-  (see Contradictions) and re-fired after A completed.
+- **GPU bursts fired:** arm A (vt003, issue #5641) launched on a pod and
+  **failed at manifest load** ($0.0167 billed) — `DatasetRef` rejected the new
+  `dataset.build_params` key when `python -m ml train` parsed the manifest
+  on-pod (#5635 threaded it through the driver but not the schema). Fixed in
+  this PR (`ml/manifest.py`: optional `build_params` field, round-trip
+  tested); both arms re-fire after this merges. Arm B (#5642) was separately
+  **cancelled by the gpu-burst workflow's concurrency group** (see
+  Contradictions).
 - **SOL fc side-stream:** forecast build started detached on the trainer
   (#5639, pid confirmed); `sol-regime-15m-lgbm-base-pcv-v530` control manifest
   authored (same v530 dataset, base features — a cleaner control than the
