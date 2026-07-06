@@ -148,6 +148,11 @@ EXPECTED_ACTIONS = {
     # void-flag the historical phantom paper rows that the equity-pricing
     # sweep fabricated. DRY-RUN by default; apply gated + DB backup.
     "supersede-options-adoption-artifacts": "supersede_options_adoption_artifacts_action.sh",
+    # 2026-07-06 — one-shot repair of the mis-linked ETH prop close
+    # (BL-20260706-PROP-CLOSE-MISLINK; root cause fixed in #5744): relink the
+    # close fill to the real position ticket, close it, restore the phantom.
+    # DRY-RUN by default; apply gated + DB backup; guarded + idempotent.
+    "fix-prop-mislinked-close": "prop_fix_mislinked_close_action.sh",
     # 2026-06-30 — clear the daily_risk_state row for one account so
     # INTRADAY_DRAWDOWN counters reset without a full service restart.
     "reset-daily-risk-state": "reset_daily_risk_state.sh",
@@ -190,6 +195,7 @@ TIER_2_ACTIONS = {
     "flatten-bybit-position",
     "reconcile-orphan-history",
     "supersede-options-adoption-artifacts",
+    "fix-prop-mislinked-close",
     "reset-daily-risk-state",
 }
 
