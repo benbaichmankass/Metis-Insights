@@ -130,6 +130,11 @@ jobs:
                 description: 'Triggers vm-ib-gateway-recover — autonomous ib-gateway container restart (IBKR error 162).',
               },
               {
+                name: 'vm-git-credential-bootstrap',
+                color: 'b60205',
+                description: 'Triggers vm-git-credential-bootstrap — one-time global git credential setup on the live VM so git fetch authenticates now that the repo is private (BL-20260706-GITSYNC-AUTH-BROKEN).',
+              },
+              {
                 name: 'vm-ib-gateway-deploy',
                 color: 'b60205',
                 description: 'Triggers vm-ib-gateway-deploy — pull origin/main on the gateway VM, re-install systemd units, restart the watchdog timer (the gateway VM has no git-sync auto-deploy).',
