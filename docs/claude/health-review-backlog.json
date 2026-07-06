@@ -3204,7 +3204,19 @@
       "tier": 1,
       "status": "resolved",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260706-ACTIONS-MINUTES-MONITOR",
+      "opened_at": "2026-07-06T16:25:00+00:00",
+      "opened_by": "claude (Actions-minutes budget investigation session, PR #5789)",
+      "source": "Operator-reported GitHub Actions billing screenshot: 2000/2000 free minutes exhausted mid-cycle (reset 2026-08-01). Investigation found ~427 issues + ~123 PRs opened July 1-6 (~5.5 days); ~90% of issues are vm-diag-request/trainer-vm-diag-request/system-action relay calls (one single weekly-review session alone opened 33 separate relay issues), and every PR push fans out across 24 unfiltered CI workflow files. Operator added $20 budget as an interim top-up.",
+      "title": "[ops] Monitor GitHub Actions minutes burn-rate for real after the CI short-circuit + diag-relay-batching fix (PR #5789) lands",
+      "description": "PR #5789 landed two fixes aimed at cutting Actions minutes consumption: (1) a changed-files short-circuit on the 9 required + 7 non-required CI workflows so a docs-only push skips expensive pip-install/run steps (est. ~25-35 min/push -> ~10-12 min/push), and (2) multi-path batching support in vm-diag-snapshot.yml so a review session can pull several diag paths in one issue/one SSH session instead of one issue per path (relay batching is opt-in via the issue BODY carrying multiple paths -- the single-path title fallback still works, so adoption is not automatically enforced). Combined estimate was directional only (~100-230 min/day, ~3,000-7,000 min/month) since GitHub Actions was billing-blocked at investigation time and none of it could be exercised live. Operator decision (2026-07-06): hold off on the bigger VM-ops-API build (a direct authenticated interface on the live VM bypassing GitHub Actions for reads/mutations) and watch the REAL numbers for a few days first before deciding if it is still needed. ACTION FOR THE NEXT FEW /health-review, /performance-review, /ml-review, and /system-review runs: check Settings -> Billing -> Actions usage (or ask the operator to share the day-by-day minutes graph, since no billing API is exposed to these tools) and report the actual post-fix daily/monthly burn rate against the ~100-230 min/day estimate. Also spot-check whether recent review sessions are actually using the new batched vm-diag-snapshot.yml pattern (one issue, multiple paths in the body) instead of the old one-issue-per-path pattern documented pre-fix -- if not, note that adoption gap explicitly, since the relay-batching saving is opt-in only. Close this item once 3-5 real days of post-fix data confirms the estimate held (or note where it diverged) and the operator has decided whether the VM-ops-API build is still warranted.",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-06T15:52:00+00:00"
+  "updated_at": "2026-07-06T16:25:00+00:00"
 }
