@@ -1160,6 +1160,134 @@ class TestNettingGuardMonocle:
         assert "reentry_suppressed_netting_guard" in (results[0]["error"] or "")
 
 
+ETH_ACCOUNTS_YAML = textwrap.dedent("""\
+    accounts:
+      bybit_2:
+        type: regular
+        exchange: bybit
+        api_key_env: BYBIT_API_KEY_2
+        mode: live
+        market_type: linear
+        account_class: real_money
+        strategies: [eth_pullback_2h, vwap]
+        risk:
+          max_dd_pct: 0.05
+          daily_usd: 100
+          pos_size: 500
+          risk_pct: 0.01
+          min_balance_usd: 50
+          leverage: 3
+""")
+
+
+@pytest.fixture()
+def eth_accounts_yaml(tmp_path):
+    p = tmp_path / "accounts_eth.yaml"
+    p.write_text(ETH_ACCOUNTS_YAML)
+    return str(p)
+
+
+def _eth_intent_pkg(direction: str = "long") -> OrderPackage:
+    return OrderPackage(
+        strategy="eth_pullback_2h",
+        symbol="ETHUSDT",
+        direction=direction,
+        entry=1700.0,
+        sl=1660.0 if direction == "long" else 1740.0,
+        tp=1780.0 if direction == "long" else 1620.0,
+        meta={
+            INTENT_MODE_META_KEY: INTENT_MODE_META_VALUE,
+            "aggregated_target_qty": 0.0,
+            "contributing_strategies": ["eth_pullback_2h"],
+        },
+    )
+
+
+class TestIntentModeVenueMinDelta:
+    """A netting DELTA below the EXCHANGE lot minimum is a clean noop, not a
+    dispatched sub-lot order that trips the ``_submit_order`` pre-flight
+    ("below the exchange lot minimum after step-alignment" →
+    ``bybit_place_order_failed`` error ping).
+
+    Reproduces the recurring ETHUSDT/bybit_2 ping: the strategy sizes 0.11
+    ETH (clears the sized-qty venue-min guard), but the account already
+    holds ~0.101, so the intent layer computes a top-up delta of ~0.009 —
+    above the account-default ``min_qty`` (0.001) yet below ETHUSDT's real
+    Bybit lot (0.01). Pre-fix that 0.009 delta slipped past the
+    account-min-only guard, was dispatched, and rejected at pre-flight on
+    every top-up/trim signal. The fix folds the venue minimum
+    (``venue_min_qty_for``) into the sub-min delta guard so it is treated as
+    dust (noop), matching the sized-qty guard (BL-20260619-ETHMIN) and the
+    risk.py gap (BL-20260628-CRYPTO-INSTRUMENT-MIN-FLOOR).
+    """
+
+    def _balance_fetcher(self, account):
+        return 10_000.0
+
+    @pytest.fixture(autouse=True)
+    def _clear_lot_cache(self):
+        from src.units.accounts import precision
+        precision._LOT_CACHE.clear()
+        precision._LIVE_CACHE.clear()
+        yield
+        precision._LOT_CACHE.clear()
+        precision._LIVE_CACHE.clear()
+
+    def test_sub_venue_min_eth_delta_is_noop_not_dispatched(
+        self, coord, eth_accounts_yaml, trade_db, monkeypatch,
+    ):
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+        # Pin the risk-sized target at 0.11 ETH regardless of sizing math.
+        monkeypatch.setattr(
+            "src.units.accounts.risk.RiskManager.position_size",
+            lambda self, *a, **k: 0.11,
+        )
+        # Seed an existing 0.101 ETH long owned by a DIFFERENT strategy: the
+        # (strategy, account, symbol) netting guard must NOT fire first, but
+        # the net-position read still sees 0.101 → increase delta ~0.009.
+        _insert_trade(
+            trade_db, account_id="bybit_2", symbol="ETHUSDT",
+            direction="long", position_size=0.101, strategy_name="vwap",
+        )
+
+        pkg = _eth_intent_pkg(direction="long")
+        results = coord.multi_account_execute(
+            pkg, accounts_path=eth_accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
+        # The 0.009 delta (< ETHUSDT 0.01 venue lot) must NOT be dispatched
+        # to the pre-flight; it is a clean noop.
+        assert captured == [], (
+            "sub-venue-min delta must be a noop, never dispatched to pre-flight"
+        )
+        assert "intent_sub_min_qty_delta" in (results[0]["error"] or "")
+        assert pkg.meta["execution_delta"]["action"] == "increase"
+        assert pkg.meta["execution_delta"]["qty_delta"] == pytest.approx(
+            0.009, abs=1e-6,
+        )
+
+    def test_btc_sub_account_min_delta_still_noop_regression(
+        self, coord, accounts_yaml, trade_db, monkeypatch,
+    ):
+        """Fallback-path guard: on BTCUSDT (venue lot == account min 0.001)
+        the behaviour is unchanged — a delta below 0.001 is still a noop, and
+        the folded venue minimum equals the account min (no regression)."""
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+        _insert_trade(
+            trade_db, account_id="bybit_2", symbol="BTCUSDT",
+            direction="long", position_size=0.1999, strategy_name="vwap",
+        )
+        pkg = _intent_pkg(direction="long")
+        results = coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
+        assert captured == []
+        assert "intent_sub_min_qty_delta" in (results[0]["error"] or "")
+
+
 class TestPackageIsIntentModeHelper:
     def test_true_when_marker_set(self):
         pkg = _intent_pkg()
