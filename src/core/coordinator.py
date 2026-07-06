@@ -1500,10 +1500,18 @@ class Coordinator:
             _pkg_is_test = bool(getattr(pkg, "meta", None) and (pkg.meta or {}).get("is_test"))
             if sized_qty > 0 and not effective_dry and not _pkg_is_test:
                 try:
-                    from src.units.accounts.execute import venue_min_qty_for
-                    _venue_min = venue_min_qty_for(
-                        client, _early_account_cfg, pkg.symbol,
-                    )
+                    # Resolve the venue minimum through the single legalization
+                    # seam (docs/sizing-legalization-DESIGN.md Phase 2). Same
+                    # refusal logic as before (sized_qty < venue_min); only the
+                    # resolver is unified. prefer_live=True keeps the live lot
+                    # rule authoritative (strict superset of the prior
+                    # venue_min_qty_for path — profile is only an added
+                    # fallback), so no verdict changes for any current symbol.
+                    from src.units.accounts.qty_legalize import legalize_qty
+                    _venue_min = legalize_qty(
+                        sized_qty, account_cfg=_early_account_cfg,
+                        symbol=pkg.symbol, client=client, prefer_live=True,
+                    ).venue_min
                 except Exception as _vexc:  # noqa: BLE001 — never block on lookup
                     _venue_min = None
                     logger.debug(
@@ -1910,16 +1918,19 @@ class Coordinator:
                     # top-up/trim signal. This is the delta-path flavour of the
                     # sized-qty venue-min gap fixed above (BL-20260619-ETHMIN) and
                     # the risk.py gap tracked in BL-20260628-CRYPTO-INSTRUMENT-MIN-FLOOR.
-                    # Fold the EXCHANGE minimum into the threshold the same way the
-                    # sized-qty guard does: ``venue_min_qty_for`` → None when the
-                    # rule is unknown / non-Bybit, so the effective minimum
-                    # degrades to the account min — byte-for-byte the pre-fix
-                    # behaviour where the venue rule can't be resolved.
+                    # Fold the EXCHANGE minimum into the threshold, resolved via
+                    # the single legalization seam (docs/sizing-legalization-DESIGN.md
+                    # Phase 2). ``.venue_min`` is None when the rule is unknown /
+                    # non-Bybit, so the effective minimum degrades to the account
+                    # min — byte-for-byte the pre-fix behaviour. prefer_live=True
+                    # keeps the live lot rule authoritative (strict superset of
+                    # the prior venue_min_qty_for path).
                     try:
-                        from src.units.accounts.execute import venue_min_qty_for
-                        _delta_venue_min = venue_min_qty_for(
-                            client, account_cfg, pkg.symbol,
-                        )
+                        from src.units.accounts.qty_legalize import legalize_qty
+                        _delta_venue_min = legalize_qty(
+                            delta.qty_delta, account_cfg=account_cfg,
+                            symbol=pkg.symbol, client=client, prefer_live=True,
+                        ).venue_min
                     except Exception:  # noqa: BLE001 — never block on a lookup
                         _delta_venue_min = None
                     _eff_min_qty = account.risk_manager.min_qty

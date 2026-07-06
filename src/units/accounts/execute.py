@@ -30,7 +30,6 @@ from src.units.accounts.precision import (
     invalidate_tick_cache,
     live_instrument_diagnostic,
     quantize_price,
-    quantize_qty,
 )
 from src.units.accounts.risk import (
     requires_whole_unit_qty,
@@ -953,26 +952,36 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
             # exactly the pre-fix behaviour. The smoke-test path
             # (_submit_test_order) is intentionally NOT aligned — its qty is
             # meant to be sub-min-lot so the exchange rejects it.
-            qty_str = str(order["qty"])
-            lot_rule = get_lot_rule(client, order["symbol"], category)
-            if lot_rule is not None:
-                _step, _min_qty = lot_rule
-                _aligned = quantize_qty(order["qty"], _step)
-                if _aligned <= 0 or _aligned < _min_qty:
-                    raise RuntimeError(
-                        f"qty {order['qty']} for {order['symbol']} is below "
-                        f"the exchange lot minimum after step-alignment "
-                        f"(qtyStep={_step}, minOrderQty={_min_qty}) — "
-                        "refusing pre-flight."
-                    )
-                if float(_aligned) != float(order["qty"]):
-                    logger.warning(
-                        "_submit_order: aligning %s qty %s -> %s (qtyStep=%s)",
-                        order["symbol"], order["qty"], _aligned, _step,
-                    )
-                    # Write back so the journal row records what was sent.
-                    order["qty"] = float(_aligned)
-                qty_str = str(_aligned)
+            # Legalize the qty through the single seam
+            # (docs/sizing-legalization-DESIGN.md Phase 2). prefer_live=True
+            # keeps the live lot rule authoritative (get_lot_rule →
+            # cache/live/static), with the InstrumentProfile only an added
+            # fallback — a strict superset of the prior get_lot_rule-only path,
+            # so the wire qty and the refusal are byte-for-byte unchanged for
+            # every symbol that already resolved. Rule unknown → passthrough
+            # (submit unmodified), exactly the pre-seam behaviour. The
+            # smoke-test path (_submit_test_order) is a different function and
+            # never reaches here, so its deliberately sub-min qty is untouched.
+            from src.units.accounts.qty_legalize import legalize_qty
+            _legal = legalize_qty(
+                order["qty"], account_cfg=account_cfg, symbol=order["symbol"],
+                client=client, prefer_live=True,
+            )
+            if not _legal.ok:
+                raise RuntimeError(
+                    f"qty {order['qty']} for {order['symbol']} is below "
+                    f"the exchange lot minimum after step-alignment "
+                    f"(qtyStep={_legal.step}, minOrderQty={_legal.venue_min}) — "
+                    "refusing pre-flight."
+                )
+            if float(_legal.qty) != float(order["qty"]):
+                logger.warning(
+                    "_submit_order: aligning %s qty %s -> %s (qtyStep=%s)",
+                    order["symbol"], order["qty"], _legal.qty, _legal.step,
+                )
+                # Write back so the journal row records what was sent.
+                order["qty"] = float(_legal.qty)
+            qty_str = _legal.qty_str
             kwargs = {
                 "category": category,
                 "symbol": order["symbol"],

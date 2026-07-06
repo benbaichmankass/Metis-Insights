@@ -65,6 +65,11 @@ class LegalizedQty:
     venue_min: Optional[float]
     step: Optional[float]
     source: str  # "instrument_profile" | "live_lot_rule" | "unknown"
+    # The exact string to put on the wire — the step-precise Decimal
+    # representation (preserves trailing zeros, e.g. "0.100" for step 0.001),
+    # so a caller that submits a string (the Bybit pre-flight) sends byte-for-
+    # byte what it sent pre-seam. Equal to ``str(float(qty))`` on passthrough.
+    qty_str: str = ""
 
 
 # --- profile cache (instruments.yaml rarely changes at runtime; a restart
@@ -105,6 +110,7 @@ def _resolve_venue_lot_rule(
     *,
     profiles: Optional[Dict[str, Any]] = None,
     instruments_path: Optional[str] = None,
+    prefer_live: bool = False,
 ) -> Optional[Tuple[float, float, str]]:
     """Resolve ``(qty_step, min_qty, source)`` for *symbol*, or ``None``.
 
@@ -112,13 +118,25 @@ def _resolve_venue_lot_rule(
     basis (passthrough). ``source`` is ``"instrument_profile"`` or
     ``"live_lot_rule"``. ``profiles`` may be injected (tests); otherwise the
     cached ``instruments.yaml`` load is used.
+
+    ``prefer_live``: when False (default), the offline ``InstrumentProfile``
+    is authoritative and the live lot rule is the fallback — right for the
+    coordinator's *sizing-time* guards (deterministic, no exchange round-trip
+    on the hot path). When True, the LIVE lot rule (``get_lot_rule`` →
+    cache/live/static) is preferred and the profile is the fallback — right
+    for the ``_submit_order`` pre-flight, the last gate before the exchange,
+    where the freshest venue truth matters and the profile only ADDS coverage
+    for a symbol the live path can't resolve. With ``prefer_live=True`` this is
+    a strict superset of the pre-fix ``get_lot_rule``-only resolution, so
+    wiring it in never changes a verdict for a symbol that already resolved.
     """
     acct_exchange = str(account_cfg.get("exchange") or "").strip().lower()
 
-    # 1. InstrumentProfile (authoritative, offline).
-    prof_map = profiles if profiles is not None else _load_profiles(instruments_path)
-    prof = prof_map.get(symbol) if prof_map else None
-    if prof is not None:
+    def _from_profile() -> Optional[Tuple[float, float, str]]:
+        prof_map = profiles if profiles is not None else _load_profiles(instruments_path)
+        prof = prof_map.get(symbol) if prof_map else None
+        if prof is None:
+            return None
         prof_exchange = str(getattr(prof, "exchange", "") or "").strip().lower()
         # Only trust the profile when its venue matches the account's (or
         # either is unknown) — guards against a same-named symbol on a
@@ -134,10 +152,14 @@ def _resolve_venue_lot_rule(
         vmin = float(getattr(prof, "min_qty", 0.0) or 0.0)
         if venue_matches and step > 0 and vmin > 0:
             return (step, vmin, "instrument_profile")
+        return None
 
-    # 2. Live venue lot rule (Bybit-only), for a symbol with no profile entry.
-    exchange = acct_exchange or "bybit"
-    if exchange == "bybit":
+    def _from_live() -> Optional[Tuple[float, float, str]]:
+        # Live venue lot rule (Bybit-only). Non-Bybit venues carry their own
+        # whole-unit handling in risk.py, so they resolve None here.
+        exchange = acct_exchange or "bybit"
+        if exchange != "bybit":
+            return None
         try:
             from src.units.accounts.execute import _bybit_category
             from src.units.accounts.precision import get_lot_rule
@@ -147,16 +169,21 @@ def _resolve_venue_lot_rule(
             logger.debug(
                 "qty_legalize: live lot-rule lookup failed for %s: %s", symbol, exc,
             )
-            lot = None
-        if lot is not None:
-            step_d, min_d = lot
-            try:
-                return (float(step_d), float(min_d), "live_lot_rule")
-            except (TypeError, ValueError):
-                return None
+            return None
+        if lot is None:
+            return None
+        step_d, min_d = lot
+        try:
+            return (float(step_d), float(min_d), "live_lot_rule")
+        except (TypeError, ValueError):
+            return None
 
-    # 3. Rule unknown.
-    return None
+    order = (_from_live, _from_profile) if prefer_live else (_from_profile, _from_live)
+    for resolver in order:
+        result = resolver()
+        if result is not None:
+            return result
+    return None  # rule unknown
 
 
 def legalize_qty(
@@ -167,6 +194,7 @@ def legalize_qty(
     client: Any = None,
     profiles: Optional[Dict[str, Any]] = None,
     instruments_path: Optional[str] = None,
+    prefer_live: bool = False,
 ) -> LegalizedQty:
     """Turn *qty* into an exchange-legal quantity for *symbol* on this account.
 
@@ -183,6 +211,7 @@ def legalize_qty(
         rule = _resolve_venue_lot_rule(
             symbol, account_cfg, client,
             profiles=profiles, instruments_path=instruments_path,
+            prefer_live=prefer_live,
         )
     except Exception as exc:  # noqa: BLE001 — legalization must never crash the order path
         logger.warning("qty_legalize: resolution error for %s: %s — passthrough", symbol, exc)
@@ -192,6 +221,7 @@ def legalize_qty(
         return LegalizedQty(
             qty=float(qty), ok=True, reason="",
             venue_min=None, step=None, source="unknown",
+            qty_str=str(float(qty)),
         )
 
     step, venue_min, source = rule
@@ -206,16 +236,18 @@ def legalize_qty(
         return LegalizedQty(
             qty=float(qty), ok=True, reason="",
             venue_min=venue_min, step=step, source=source,
+            qty_str=str(float(qty)),
         )
 
     min_d = Decimal(str(venue_min))
     aligned = float(aligned_d)
+    aligned_str = str(aligned_d)  # step-precise wire string (keeps trailing zeros)
     if aligned_d <= 0 or aligned_d < min_d:
         return LegalizedQty(
             qty=aligned, ok=False, reason="below_venue_min_qty",
-            venue_min=venue_min, step=step, source=source,
+            venue_min=venue_min, step=step, source=source, qty_str=aligned_str,
         )
     return LegalizedQty(
         qty=aligned, ok=True, reason="",
-        venue_min=venue_min, step=step, source=source,
+        venue_min=venue_min, step=step, source=source, qty_str=aligned_str,
     )
