@@ -55,12 +55,39 @@ def _norm_direction(value: Any) -> str:
     return d
 
 
+# Open-lifecycle ticket statuses a fallback match may link to, and which of
+# them actually represent a *position* (something a close can act on).
+_OPEN_TICKET_STATUSES = ("emitted", "placed", "filled", "expiry_prompted", "awaiting_report")
+# A ``closed`` report closes a real position, so it may ONLY link to a ticket
+# that has (or plausibly has) a position — a filled position, an operator-
+# confirmed-placed ticket awaiting its paste, or a working `placed` limit that
+# may have just filled. It must NEVER link to a never-placed `emitted` (or its
+# `expiry_prompted` variant) SIGNAL: doing so marked a phantom signal "closed"
+# and left the real filled position open (BL-20260706-PROP-CLOSE-MISLINK — my
+# ETH close (fill 17) landed on the newer emitted ticket 849ece101a3c instead of
+# the filled position ticket 5bc393741ec4). Ordered by preference (best first).
+_CLOSE_LINKABLE_STATUSES = ("filled", "awaiting_report", "placed")
+
+
 def match_fill_to_ticket(fill: Dict[str, Any]) -> Optional[str]:
     """Return the ticket_id an inbound fill most likely belongs to (or None).
 
-    Explicit ``fill['ticket_id']`` wins. Otherwise the newest still-open
-    (``emitted``/``filled``) ticket for the same account + symbol + direction
-    (direction compared synonym-normalised: buy==long, sell==short).
+    Explicit ``fill['ticket_id']`` wins. Otherwise a still-open ticket for the
+    same account + symbol + direction (direction compared synonym-normalised:
+    buy==long, sell==short), chosen by lifecycle appropriateness:
+
+    - a **closing** report (``status='closed'``) links only to a ticket that
+      represents a *position* — ``filled`` (best), then ``awaiting_report``,
+      then ``placed`` — newest within each; it NEVER links to a never-placed
+      ``emitted`` / ``expiry_prompted`` signal (that was the recurring mis-link
+      that left the real position open, BL-20260706-PROP-CLOSE-MISLINK). If no
+      position-bearing ticket matches, returns ``None`` so the close is
+      journaled unlinked rather than corrupting an unrelated signal ticket.
+    - any other report keeps the prior behaviour: the newest still-open ticket
+      (``emitted``/``placed``/``filled``/``expiry_prompted``/``awaiting_report``).
+      ``placed``/``expiry_prompted``/``awaiting_report`` are all "awaiting a fill
+      report" — a working order or an operator-confirmed ticket whose later
+      fill/close must link back.
     """
     explicit = fill.get("ticket_id")
     if explicit:
@@ -70,23 +97,30 @@ def match_fill_to_ticket(fill: Dict[str, Any]) -> Optional[str]:
         return None
     symbol = str(fill.get("symbol") or "").upper()
     direction = _norm_direction(fill.get("direction"))
+    inbound_status = str(fill.get("status") or "").strip().lower()
     candidates = prop_journal.list_tickets(account_id=account_id, limit=200)
-    for t in candidates:
-        # "Open" = awaiting a fill report. Beyond emitted/filled this includes
-        # the working-order `placed` state (a limit order on the terminal whose
-        # later fill/close must link back to it) AND the ticket-expiry-prompt
-        # states (expiry_prompted → awaiting_report): when the operator answers
-        # "yes, I placed it" the ticket sits at awaiting_report until they paste
-        # the details, and that inbound fill must still link back to it.
-        if t.get("status") not in (
-            "emitted", "placed", "filled", "expiry_prompted", "awaiting_report"
-        ):
-            continue
+
+    def _matches(t: Dict[str, Any]) -> bool:
         if symbol and str(t.get("symbol") or "").upper() != symbol:
-            continue
+            return False
         if direction and _norm_direction(t.get("direction")) != direction:
+            return False
+        return True
+
+    # candidates is newest-first (list_tickets ORDER BY created_at DESC).
+    if inbound_status == "closed":
+        # Preference-ranked over position-bearing statuses; newest within each.
+        for status in _CLOSE_LINKABLE_STATUSES:
+            for t in candidates:
+                if t.get("status") == status and _matches(t):
+                    return t.get("ticket_id")
+        return None
+
+    for t in candidates:
+        if t.get("status") not in _OPEN_TICKET_STATUSES:
             continue
-        return t.get("ticket_id")
+        if _matches(t):
+            return t.get("ticket_id")
     return None
 
 
