@@ -3,6 +3,30 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260706-PROP-INSERT-FILL-IDEMPOTENCY",
+      "opened_at": "2026-07-06T15:55:00+00:00",
+      "opened_by": "claude (order-qty-rounding-issue session; prop close-mislink follow-up)",
+      "source": "src/prop/prop_journal.py::insert_fill — plain INSERT, no dedup. Live evidence: breakout_1 prop_fills id 15 (buy) + id 16 (long) are the SAME ETH trade (external_order_id 500139412) logged twice (the buy/long direction-synonym correction saga, BL-20260705-PROP-DIRECTION-SYNONYM-MATCH).",
+      "title": "[prop] insert_fill is a blind append (no idempotency) — a re-reported / duplicate fill creates a second prop_fills row",
+      "description": "prop_journal.insert_fill does a straight INSERT with no dedup guard, so re-posting the same fill (operator re-report, corrective re-report, or a relay retry) creates a duplicate prop_fills row. This is the SECONDARY double-log vector behind BL-20260706-PROP-CLOSE-MISLINK (the primary — a close linking to the wrong ticket — was fixed in #5744). Concrete residue: prop_fills 15/16 are the same trade (ext order 500139412) as two rows. FIX (Tier-2, prop DB write path): make insert_fill idempotent/upsert-ish on a natural key — (account_id, external_order_id, status) when external_order_id is present, else (account_id, ticket_id, status, qty, exit_price) — updating the existing row instead of inserting a duplicate; or at minimum flag/supersede the older duplicate in raw/notes. Prop journal is isolated from real-money/paper KPIs so this is data-hygiene, not money-at-risk. Verify with a re-post of an existing fill producing no new row.",
+      "tier": 2,
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260706-PROP-STALE-EMITTED-TICKETS",
+      "opened_at": "2026-07-06T15:55:00+00:00",
+      "opened_by": "claude (order-qty-rounding-issue session; prop close-mislink follow-up)",
+      "source": "GET /api/bot/prop/tickets?account_id=breakout_1 (via diag relay #5742/#5790, 2026-07-06): ~5 ETH-long tickets stuck in status='emitted' from 2026-07-05 (04:05/10:05/10:08/12:18), all past valid_until, never filled/expired; plus ~17 ETHUSDT order_packages in status='orphaned' (trend_donchian_eth_prop shadow-soak + a few live legs) with ticket_id null.",
+      "title": "[prop] breakout_1 has stale never-resolved 'emitted' prop tickets (pre-suppress-guard) + orphaned ETH order-packages — cosmetic backlog",
+      "description": "On breakout_1, ~5 ETH-long prop tickets from 2026-07-05 sit in status='emitted' past their valid_until — they predate the re-ticket-suppress guard (BL-20260705-PROP-RETICKET-WHILE-OPEN, which now suppresses new emits while a position is open) and the close-mislink fix (#5744), so nothing ever moved them to 'expired'. They're harmless (past validity; a close can no longer mis-link to them after #5744) but they clutter the tickets view and the prop reconcile 'unacted' count. Separately, ~17 ETHUSDT order_packages read status='orphaned' (mostly trend_donchian_eth_prop shadow-soak artifacts — execution:shadow, no ticket expected — plus a few live legs). FIX (Tier-1/2 hygiene): a small pass to expire the stale past-valid emitted tickets (mirroring the expiry-prompt terminal state) and/or reconcile the orphaned shadow-soak order-packages; could reuse/extend the fix-prop-mislinked-close tooling pattern. Low priority — no money impact, no open position affected.",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "BL-20260706-PROP-REPORT-DEVNULL-NOISE",
       "opened_at": "2026-07-06T13:20:00+00:00",
       "opened_by": "claude (order-qty-rounding-issue session; prop ETHUSD close report-back)",

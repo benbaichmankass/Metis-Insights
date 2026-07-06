@@ -55,7 +55,7 @@ the `/system-review` soak_status coverage + `/ml-review` should walk this list.
 | 3 | **D2 label-wall accrual** (spike-A closed structural-negative 07-06) | `trade_journal.db::trades` real vs paper counts by window | Re-run pooled meta-label spike when pre-cutoff paper n_train ≈ real n_train (paper ramped 2026-06+ → likely weeks) | `MB-20260705-META-LABEL-WALL` |
 | 4 | **ETH/SOL vol-gate base-head soak** (eth 856 / sol 820 preds @ shadow since 06-28) | `/api/diag/shadow_stats`; cells in `config/regime_policy.yaml::trend_vol` (BTC-only today) | Per-symbol vol-split cell-attribution study (mirror `A-vol-gating-OFFcell-design-2026-06-27`) → per-symbol walk-forward → head shadow→advisory + cell authoring (both Tier-3) | `MB-20260628-VOLGATE-GOLIVE` |
 | 5 | **Exit-ladder soak** (laddered-vs-single-target per executed order) | `/api/bot/exit-ladder/soak` · diag `log_file=exit_ladder_soak` | P4 (graduate ladder to the real exit) = Tier-3 + backtest-gated on accrued soak data | `PB-20260617-002` (performance backlog) |
-| 6 | **Allocator soak** (M18 P0c would-pick vs routed + regret, ≥2-candidate ticks) | `/api/bot/allocator/soak` | M18 P1 swaps in the cost-aware EV_net scorer (buildable); P2+ (allocator selects) backtest-gated | M18 roadmap rows |
+| 6 | **Allocator soak** (M18 P0c would-pick vs routed + regret, ≥2-candidate ticks) | `/api/bot/allocator/soak` | ~~M18 P1 swaps in the EV_net scorer (buildable)~~ *[stale — P1 already live (`ev_net_r`, #5098); selection edge tested negative 06-30]*; P2+ PARKED per M18 findings | M18 roadmap rows |
 | 7 | **Conviction sizing/arbitration soaks** (observe-only unified-confidence) | diag `log_file=conviction_sizing` / `conviction_arbitration` | P4/P5 graduation operator+backtest-gated (symmetric sizing FAILED its A/B — stays off) | roadmap M14/conviction rows |
 | 8 | **News-layer soak** (rss active, veto armed) | `/api/bot/news/recent` | `NEWS_INFLUENCE_MODE` graduation Tier-3 | news roadmap rows |
 
@@ -68,7 +68,7 @@ the `/system-review` soak_status coverage + `/ml-review` should walk this list.
 
 ## Deferred Items
 - **ETH/SOL vol-gate go-live** (research: per-symbol cell evidence + walk-forward; then Tier-3 promotions) — first candidate for the next research session.
-- **M18 P1 EV_net scorer** (buildable non-research follow-up if wanted).
+- **M18 P1 EV_net scorer** (buildable non-research follow-up if wanted). *[CORRECTION 2026-07-06, next session: P1 was ALREADY BUILT (#5098, live `score_kind=ev_net_r`) and its selection edge tested NEGATIVE on 2026-06-30 — P2/P3 parked; see the M18 ROADMAP section. This line was stale when written.]*
 - **D3** stays dormant on its trigger.
 
 ## Next Recommended Sprint
