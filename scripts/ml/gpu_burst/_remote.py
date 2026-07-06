@@ -108,6 +108,36 @@ def ssh_argv_direct(
     ]
 
 
+def scp_argv_direct(
+    host: str,
+    port: int,
+    key_path: str,
+    local_path: str,
+    remote_path: str,
+    *,
+    user: str = "root",
+    connect_timeout: int = 30,
+) -> list[str]:
+    """Build the argv for a direct (public-IP) scp upload to a RunPod pod.
+
+    Used to ship the runner-built `git archive` repo tarball to the pod — the
+    repo is private (2026-07-06), so the pod can no longer `git clone`
+    anonymously, and no credential may reach a rented pod (data contract)."""
+    if not host or not port:
+        raise ValueError("host and port are required for direct scp")
+    return [
+        "scp",
+        "-i", key_path,
+        "-P", str(port),
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
+        "-o", "BatchMode=yes",
+        "-o", f"ConnectTimeout={connect_timeout}",
+        local_path,
+        f"{user}@{host}:{remote_path}",
+    ]
+
+
 def gen_ephemeral_keypair(dirpath: str | None = None) -> tuple[str, str]:
     """Generate a throwaway ed25519 keypair for one burst run.
 
@@ -224,10 +254,17 @@ export DEBIAN_FRONTEND=noninteractive
 # a build never fires on the live trader VM). A rented pod is not that VM.
 export ICT_OFFVM_BUILD_HOST=1
 cd /workspace
-rm -rf ict-trading-bot
-git clone --quiet {REPO_URL}
+# The repo arrives as a runner-built `git archive` tarball of the PINNED SHA
+# ({repo_sha}), scp'd to /workspace/repo.tar.gz BEFORE this script runs — the
+# repo went private 2026-07-06 so anonymous cloning from the pod no longer
+# works, and shipping a credential to a rented pod would violate the
+# no-secret-on-pod data contract. The tarball preserves the pinned-SHA property
+# (it IS the sha's tree; there is no branch to float).
+test -f /workspace/repo.tar.gz || {{ echo "::error::repo.tar.gz missing — scp step did not run"; exit 1; }}
+rm -rf ict-trading-bot && mkdir ict-trading-bot
+tar -xzf /workspace/repo.tar.gz -C ict-trading-bot
 cd ict-trading-bot
-git checkout --quiet {repo_sha}
+echo "repo tree from pinned sha {repo_sha}"
 # The RunPod image ships a distutils-installed `blinker` that pip can't uninstall
 # to satisfy a transitive dep, aborting a plain `-r requirements.txt`. Install a
 # pip-managed blinker over it FIRST (scoped to that one package) so the bulk
