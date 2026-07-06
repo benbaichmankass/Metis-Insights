@@ -64,17 +64,27 @@ class DatasetRef:
     symbol_scope: str
     timeframe: str
     version: str
+    # Optional dataset-BUILD parameterization (e.g. a vol_threshold arm of a
+    # label-sensitivity A/B). Consumed only by offline dataset builders — the
+    # GPU-burst driver threads it into the on-pod market_features build
+    # (scripts/ml/gpu_burst/runpod_burst.py::_manifest_dataset_scope). Trainers,
+    # evaluators, and path resolution ignore it entirely; None for the normal
+    # cycle-built datasets.
+    build_params: Mapping[str, Any] | None = None
 
     def path_under(self, root: Path) -> Path:
         return root / self.family / self.symbol_scope / self.timeframe / self.version
 
-    def to_dict(self) -> dict[str, str]:
-        return {
+    def to_dict(self) -> dict[str, Any]:
+        out: dict[str, Any] = {
             "family": self.family,
             "symbol_scope": self.symbol_scope,
             "timeframe": self.timeframe,
             "version": self.version,
         }
+        if self.build_params is not None:
+            out["build_params"] = dict(self.build_params)
+        return out
 
 
 @dataclass(frozen=True)
