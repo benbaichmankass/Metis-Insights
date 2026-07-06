@@ -58,6 +58,28 @@
       "run_id": "gpu-28773756599",
       "started_at": "2026-07-06T07:00:30Z",
       "status": "completed"
+    },
+    {
+      "cost_usd": 0.0014,
+      "ended_at": "2026-07-06T07:58:07Z",
+      "experiment": "T1.1 matched-label LGBM control vt003",
+      "gpu_hours": 0.004,
+      "gpu_type": "NVIDIA GeForce RTX 4090",
+      "rate_usd_per_hour": 0.34,
+      "run_id": "gpu-28776593056",
+      "started_at": "2026-07-06T07:57:34Z",
+      "status": "failed"
+    },
+    {
+      "cost_usd": 0.0987,
+      "ended_at": "2026-07-06T08:46:14Z",
+      "experiment": "T1.1 matched-label LGBM control vt003",
+      "gpu_hours": 0.4487,
+      "gpu_type": "NVIDIA GeForce RTX 3090",
+      "rate_usd_per_hour": 0.22,
+      "run_id": "gpu-28777731651",
+      "started_at": "2026-07-06T08:18:37Z",
+      "status": "completed"
     }
   ],
   "schema": "gpu_spend_ledger/v1"
