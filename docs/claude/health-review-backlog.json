@@ -3142,10 +3142,17 @@
       "suggested_fix": "Re-run the credential bootstrap pattern against TRAINER_IP (the workflow already holds VM_SSH_KEY + VM_GIT_DEPLOY_TOKEN; add a host input or a trainer job). One source of truth per box (global git config), same as the live VM fix.",
       "tier": "Tier 1 (CI workflow change; trainer VM is autonomous territory).",
       "trigger_condition": "Next session touching trainer git state, or the other session's git-auth workstream.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "resolved_at": null,
-      "resolution": null
+      "resolution": null,
+      "status_history": [
+        {
+          "at": "2026-07-06T12:00:00+00:00",
+          "status": "resolved",
+          "note": "RESOLVED + verified same day: vm-git-credential-bootstrap.yml extended with a target=trainer selector (PR #5702), dispatched via issue #5718 - credential configured for ubuntu@ict-trainer-vm, real authenticated fetch OK (origin/main ec8543f), stale worktree (0b9c7bbc since the private flip) reset --hard to origin/main. The trainer's git pull works again; the relay base64 file-write workaround is retired. Re-provisioning a fresh trainer needs one re-run of the workflow with target=trainer (recorded in the workflow header + CLAUDE.md bullet)."
+        }
+      ]
     },
     {
       "id": "BL-20260706-SPOTMARGIN-RUNBOOK-STALE-GATE",
@@ -3159,5 +3166,5 @@
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-07-06T11:50:00+00:00"
+  "updated_at": "2026-07-06T12:00:00+00:00"
 }
