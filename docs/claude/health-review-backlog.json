@@ -14,7 +14,13 @@
       "resolution_criteria": "ict-git-sync.service fetch succeeds again; a subsequent pull-and-deploy lands ee522ca (or later) and /api/diag/version reflects it.",
       "status": "open",
       "snoozed_until": null,
-      "check_log": []
+      "check_log": [
+        {
+          "at": "2026-07-06T08:20:00+00:00",
+          "by": "claude (2026-07-06)",
+          "note": "ROOT CAUSE CONFIRMED (operator): the repo was flipped from public to private this session, right around the failure window \u2014 the VM's anonymous HTTPS `git fetch` had never needed a credential before and now does. Fix prepared (PR TBD): deploy_pull_restart.sh now authenticates via an inline Basic-auth header built from a new optional VM_GIT_DEPLOY_TOKEN (fine-grained, Contents:Read-only PAT), read from .env (systemd EnvironmentFile= already exports it; a targeted single-line grep fallback covers a direct SSH/pull-and-deploy invocation). Falls back to the current plain fetch when unset, so this is a no-op until the token exists. Wired into the existing sync-vm-secrets.yml OPTIONAL_SECRETS propagation path (same mechanism as DASHBOARD_API_TOKEN). Operator is creating the token now. KNOWN GAP not yet addressed: the dedicated IB-Gateway VM has no .env by design and also does a plain `git clone`/fetch from this same repo (deploy/ib-gateway-cloud-init.yaml + the gateway branch of deploy_pull_restart.sh) \u2014 unverified whether it's currently affected; needs a separate propagation step if so. Filed as a standalone follow-up rather than blocking this fix."
+        }
+      ]
     },
     {
       "id": "BL-20260705-RELAY-ALLOWLIST-GAPS",
@@ -3095,5 +3101,5 @@
       "resolution": null
     }
   ],
-  "updated_at": "2026-07-06T08:05:00+00:00"
+  "updated_at": "2026-07-06T08:20:00+00:00"
 }
