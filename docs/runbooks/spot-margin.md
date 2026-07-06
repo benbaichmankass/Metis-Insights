@@ -98,9 +98,13 @@ against the bot's view above; any divergence is a reconciler bug.
 ## 3. The reconciler stack
 
 Three independent layers run on every monitor tick (15-min cadence by
-default; per-tick when `TICK_INTERVAL_SECONDS` is shorter). All gated
-by `MONITOR_RECONCILE_ENABLED=true`. Each is best-effort — failures
-log and skip; the next tick re-attempts.
+default; per-tick when `TICK_INTERVAL_SECONDS` is shorter). **Historical
+note (BL-20260706-SPOTMARGIN-RUNBOOK-STALE-GATE):** these were originally
+gated by `MONITOR_RECONCILE_ENABLED=true`; that flag was **removed
+2026-06-15** (BL-20260615-MGCNAKED) — the reconciler is now unconditional
+baseline behaviour (no enable gate, per the Prime Directive) and a
+leftover value in `.env` is ignored. Each layer is still best-effort —
+failures log and skip; the next tick re-attempts.
 
 ### Layer 1 — main reconciler (`_reconcile_open_trades`)
 
@@ -222,11 +226,13 @@ Use this when:
 
 ### What NOT to do
 
-- **Don't disable `MONITOR_RECONCILE_ENABLED`** to silence a noisy
-  reconciler. Fix the underlying bug. The flag is wired to ship as
-  `true` in every `.env` rendered from
-  `scripts/render_env_from_master.py` (BUG-048 wired the contract test
-  for that).
+- **There is no `MONITOR_RECONCILE_ENABLED` toggle to disable anymore**
+  (removed 2026-06-15, BL-20260615-MGCNAKED — the reconciler is
+  unconditional baseline; a leftover env value is ignored). If the
+  reconciler is misbehaving, fix the underlying bug — there is no
+  flag-flip escape hatch. (Historically the flag shipped `true` in every
+  `.env` rendered from `scripts/render_env_from_master.py` — BUG-048
+  wired the contract test for that — before it was removed entirely.)
 - **Don't manually delete `trade_journal.db` rows.** The reconciler
   uses them to decide whether a borrow is orphaned. Use
   `Database.update_trade(trade_id, {"status": "orphaned", ...})`
@@ -265,7 +271,8 @@ and leaves the journal + reconciler in agreement.
 - ✅ T1–T5 merged (D2..D7 — already done at sprint start of T6).
 - ✅ Trader running on the VM (`ict-trader-live.service` active).
 - ✅ `bybit_2.mode: live` in `config/accounts.yaml` (NOT `dry_run`).
-- ✅ `MONITOR_RECONCILE_ENABLED=true` in the deployed `.env`.
+- ✅ Reconciler runs unconditionally — no `MONITOR_RECONCILE_ENABLED` gate
+  to check (the flag was removed 2026-06-15, BL-20260615-MGCNAKED).
 
 ### Run
 
@@ -326,7 +333,9 @@ The smoke is **OK** when, within 2–3 monitor ticks of the open:
     BUG-046 packages on `bybit_2`.
   - BUG-048 — `MONITOR_RECONCILE_ENABLED` env render drift made the
     reconciler no-op for ~8 h; trade #24 sat open while the wallet was
-    flat.
+    flat. (The flag was removed entirely 2026-06-15, BL-20260615-MGCNAKED
+    — the reconciler is now unconditional baseline, so this class of
+    drift can't recur.)
 - All three were structural symptoms of the missing spot-margin handling that S-047 fixes. See the bug-log entry referencing S-047.
 - Live-smoke generic doc: [`docs/runbooks/live-smoke-test.md`](live-smoke-test.md).
 - Monitor + reconciler design: [`docs/runbooks/monitor-reconciler.md`](monitor-reconciler.md).

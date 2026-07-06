@@ -196,7 +196,16 @@ jobs:
               botpath="${path#api/bot/}"
               botbase="${botpath%%\?*}"   # drop query string for the allowlist check
               case "$botbase" in
-                performance|stats|positions|signals|strategies|strategies/*/review|strategies/*/tune|backtests|backtests/sweeps|order-packages|trades/closed|trades/scores|pnl/history|candles|accounts/balances|liquidity|config|insights/summary|insights/recent|insights/health|insights/usage|insights/history|insights/strategy/*|health/latest|health/history|health/services|shadow/stats|shadow/drift|shadow/predictions|prop/fills|prop/tickets|prop/status|prop/reconcile|db/tables|db/table/*)
+                # pnl/history is a caller-facing alias only: the real route is
+                # the top-level /api/pnl/history (NOT under /api/bot/), so it
+                # gets its own upstream_prefix instead of falling into the
+                # generic /api/bot/ case below (BL-20260705-RELAY-ALLOWLIST-GAPS —
+                # this used to construct /api/bot/pnl/history, which 404s).
+                pnl/history)
+                  upstream_prefix="/api/"
+                  path="$botpath"
+                  ;;
+                performance|stats|positions|signals|strategies|strategies/*/review|strategies/*/tune|backtests|backtests/sweeps|order-packages|trades/closed|trades/scores|candles|accounts/balances|liquidity|config|insights/summary|insights/recent|insights/health|insights/usage|insights/history|insights/strategy/*|health/latest|health/history|health/services|shadow/stats|shadow/drift|shadow/predictions|exit-ladder/soak|allocator/soak|fc-geometry/soak|prop/fills|prop/tickets|prop/status|prop/reconcile|db/tables|db/table/*)
                   upstream_prefix="/api/bot/"
                   path="$botpath"
                   ;;
