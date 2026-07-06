@@ -1,23 +1,30 @@
 {
-  "_doc": "CROSS-SESSION COORDINATION BOARD (Workstream-D, 2026-06-28). ADVISORY, last-writer-wins. Every Claude session registers in `active_sessions` at start and MUST claim `merge_slot` before merging any PR, releasing it after. Purpose: serialize merges so two concurrent sessions don't both drive a merge and force each other into the behind-rebase retest churn (hit twice on 2026-06-28). The LIVE open-PR list (GitHub) is the authoritative real-time signal; this file records intent + the single merge claim. Protocol is binding: see `.claude/skills/session-coordination/SKILL.md` and `docs/CLAUDE-RULES-CANONICAL.md` (multi-session coordination). This board is NOT a hard lock \u2014 it is honour-system coordination for the small number of concurrent sessions the operator runs; the real safety net is branch-protection require-up-to-date.",
+  "_doc": "CROSS-SESSION COORDINATION BOARD (Workstream-D, 2026-06-28). ADVISORY, last-writer-wins. Every Claude session registers in `active_sessions` at start and MUST claim `merge_slot` before merging any PR, releasing it after. Purpose: serialize merges so two concurrent sessions don't both drive a merge and force each other into the behind-rebase retest churn (hit twice on 2026-06-28). The LIVE open-PR list (GitHub) is the authoritative real-time signal; this file records intent + the single merge claim. Protocol is binding: see `.claude/skills/session-coordination/SKILL.md` and `docs/CLAUDE-RULES-CANONICAL.md` (multi-session coordination). This board is NOT a hard lock — it is honour-system coordination for the small number of concurrent sessions the operator runs; the real safety net is branch-protection require-up-to-date.",
   "schema": {
-    "merge_slot": "{ held_by: <session_id|null>, branch: <str|null>, pr: <int|null>, claimed_at: <iso8601|null> } \u2014 at most ONE session holds this at a time. Claim before merge, clear after (merged or aborted).",
-    "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] \u2014 one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
+    "merge_slot": "{ held_by: <session_id|null>, branch: <str|null>, pr: <int|null>, claimed_at: <iso8601|null> } — at most ONE session holds this at a time. Claim before merge, clear after (merged or aborted).",
+    "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": null,
-    "branch": null,
-    "pr": null,
-    "claimed_at": null
+    "held_by": "session_01Hgd5hvGw4sCrPjTurUP6zR",
+    "branch": "claude/eth-sol-volgate-evidence-84bkhz",
+    "pr": 5747,
+    "claimed_at": "2026-07-06T15:05:00Z"
   },
   "active_sessions": [
     {
       "session_id": "session_01FKvQBjFg7oUQrBsrWCH3KL",
       "branch": "claude/m19-next-direction-research-zl2544",
-      "intent": "M19 next-direction: deep-research recommendation MERGED (#5626); now the ranked follow-up \u2014 D4a RG4 mirror-freshness+power gate, D1 fc-geometry soak build, report addendum.",
+      "intent": "M19 next-direction: deep-research recommendation MERGED (#5626); now the ranked follow-up — D4a RG4 mirror-freshness+power gate, D1 fc-geometry soak build, report addendum.",
       "started_at": "2026-07-05T11:40:00Z",
       "updated_at": "2026-07-05T20:35:00Z"
+    },
+    {
+      "session_id": "session_01Hgd5hvGw4sCrPjTurUP6zR",
+      "branch": "claude/eth-sol-volgate-evidence-84bkhz",
+      "intent": "ETH/SOL vol-gate evidence (honest negative recorded) + harness vol-replay regression fix; merging PR #5747 (operator-approved in chat).",
+      "started_at": "2026-07-06T12:10:00Z",
+      "updated_at": "2026-07-06T15:05:00Z"
     }
   ],
-  "_note_unregistered": "Sessions for S-AUDIT-B (zombie/env-gate) and S-AUDIT-C (consumer wiring) were launched by the operator 2026-06-28 but have not yet self-registered here \u2014 they must add their entry at preflight per the session-coordination skill. Until they do, the live open-PR list is the authoritative signal for what they're working on."
+  "_note_unregistered": "Sessions for S-AUDIT-B (zombie/env-gate) and S-AUDIT-C (consumer wiring) were launched by the operator 2026-06-28 but have not yet self-registered here — they must add their entry at preflight per the session-coordination skill. Until they do, the live open-PR list is the authoritative signal for what they're working on."
 }
