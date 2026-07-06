@@ -118,6 +118,22 @@ def _floor_to_step(value: float, precision: int) -> float:
     return math.floor(value * factor) / factor
 
 
+def _step_to_precision(step: float) -> int:
+    """Decimal places implied by a lot *step* (0.01 -> 2, 0.001 -> 3, 1 -> 0).
+
+    Converts an instrument's ``qty_step`` into the decimal precision
+    ``_floor_to_step`` expects (Phase 3). Falls back to the account-shaped
+    default on a degenerate step. String-based so no Decimal import is needed.
+    """
+    try:
+        s = ("%.10f" % float(step)).rstrip("0")
+        if "." not in s:
+            return 0
+        return len(s.split(".", 1)[1])
+    except Exception:  # noqa: BLE001
+        return _DEFAULT_QTY_PRECISION
+
+
 def _size_unbounded(
     pkg: OrderPackage,
     *,
@@ -701,6 +717,37 @@ class RiskManager:
         force_whole = is_futures or bool(whole_units)
         eff_precision = 0 if force_whole else self.qty_precision
         eff_min_qty = 1.0 if force_whole else self.min_qty
+        # Phase 3 (BL-20260628-CRYPTO-INSTRUMENT-MIN-FLOOR): make the non-whole
+        # sub-min refusal + step INSTRUMENT-aware. The account default
+        # (min_qty 0.001 / qty_precision 3, BTC-shaped) is not symbol-aware, so
+        # an ETHUSDT size in [0.001, 0.0099) passed risk.py's OWN account-min
+        # refusal even though ETHUSDT's real Bybit lot is 0.01 — a second, wrong
+        # copy of "the minimum" (the coordinator sized-qty guard backstopped it).
+        # Resolve the per-instrument (qty_step, min_qty) from the SAME
+        # InstrumentProfile the legalize_qty seam uses, so there is ONE source of
+        # truth for the venue minimum. Fall back to the account values when the
+        # symbol has no profile (unchanged). Whole-unit/futures keep their strict
+        # 1-unit floor (never instrument-relaxed).
+        if not force_whole:
+            try:
+                from src.units.accounts.qty_legalize import instrument_lot
+                _inst = instrument_lot(getattr(package, "symbol", "") or "")
+            except Exception:  # noqa: BLE001 — never block sizing on a lookup
+                _inst = None
+            if _inst is not None:
+                _inst_step, _inst_min = _inst
+                # Only tighten to the instrument lot when it is a FRACTIONAL
+                # step (crypto/fx — e.g. ETHUSDT 0.01, SOLUSDT 0.1). A
+                # whole-unit instrument (equity/futures, step >= 1) is handled
+                # by the EXCHANGE-gated whole_units / force_whole path above,
+                # NOT inferred here — whole-share sizing is opt-in per exchange
+                # (alpaca rejects fractional brackets), not a property of the
+                # instrument profile alone. This keeps a non-whole account's
+                # fractional contract intact (BL-20260622) while still closing
+                # the crypto sub-min gap (BL-20260628).
+                if 0 < _inst_step < 1.0:
+                    eff_min_qty = _inst_min
+                    eff_precision = _step_to_precision(_inst_step)
 
         qty = _size_unbounded(
             package,
