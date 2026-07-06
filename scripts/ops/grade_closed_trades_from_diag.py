@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Grade CLOSED trades from diag-relay JSON — the web-session grading path.
+"""Grade CLOSED trades from diag-relay JSON — the web-session grading FALLBACK.
+
+**Superseded as the primary path by the `grade-closed-trades` system-action**
+(2026-07-06, `scripts/ops/grade_closed_trades_action.sh` +
+`score_order_packages.py --emit-delta-only`; see
+`docs/claude/system-actions.md`). That action runs this same rubric ON the VM
+(where the DB already lives) and returns only the small ungraded delta as
+NDJSON, avoiding the size wall below entirely. Keep using THIS script only
+when `system-actions.yml` itself is unavailable — it is kept in the repo
+deliberately as a documented fallback, not removed.
 
 WHY THIS EXISTS (operator directive 2026-06-29: "NO SYSTEM REVIEW SESSION IS
 COMPLETE WITHOUT CLAUDE SCORES FOR ALL CLOSED TRADES"). The canonical scorer

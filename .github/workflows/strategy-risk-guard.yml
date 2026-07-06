@@ -7,10 +7,19 @@ name: Strategy-risk guard
 # confidence scalar); a strategy carries no risk level. Removed 2026-06-29.
 # See scripts/check_strategy_risk_field_in_diff.py and
 # docs/research/position-sizing-confidence-DESIGN.md.
+#
+# **2026-07-06 (Actions-minutes billing cap, MB-20260706-CI-MINUTES):**
+# NOT a required status check, so it's safe to trigger-filter with
+# `paths:` — the pattern can only reappear in `config/strategies.yaml`
+# or a `.py` file.
 
 on:
   pull_request:
     branches: [main]
+    paths:
+      - "**/*.py"
+      - "config/strategies.yaml"
+      - ".github/workflows/strategy-risk-guard.yml"
 
 permissions:
   contents: read

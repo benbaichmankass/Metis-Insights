@@ -11,6 +11,14 @@ name: Canonical config loaders
 # having nine independent parsers for one config file. This guard
 # freezes the count at the two allowlisted readers.
 
+# **2026-07-06 (Actions-minutes billing cap, MB-20260706-CI-MINUTES):**
+# this is a REQUIRED status check, so its trigger can NEVER carry a
+# `paths:` filter (would leave the check permanently "pending" on a
+# non-matching PR). Instead the job always runs (cheap: checkout +
+# `git diff --name-only`) but skips the guard script itself when no
+# `.py` file / `config/accounts.yaml` changed — there can be no new
+# hand-rolled parser without a changed `.py` file.
+
 on:
   pull_request:
     branches: [main]
@@ -25,11 +33,31 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine relevant changed files
+        id: changed
+        run: |
+          set -e
+          git fetch origin "${{ github.base_ref }}" --quiet
+          RANGE="origin/${{ github.base_ref }}...HEAD"
+          FILES=$(git diff --name-only $RANGE || true)
+          echo "Changed files ($RANGE):"
+          echo "$FILES"
+          if echo "$FILES" | grep -Eq '\.py$|config/accounts\.yaml$|\.github/workflows/canonical-config-loaders\.yml$'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No .py files / config/accounts.yaml changed — skipping the guard (short-circuit, MB-20260706-CI-MINUTES)."
+          fi
 
       - name: Set up Python
+        if: steps.changed.outputs.relevant == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Run guard
+        if: steps.changed.outputs.relevant == 'true'
         run: python scripts/check_canonical_config_loaders.py --list

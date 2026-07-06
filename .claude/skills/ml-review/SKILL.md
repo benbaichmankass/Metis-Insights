@@ -117,6 +117,20 @@ diag relay or direct HTTPS:
 | Shadow drift | `GET /api/bot/shadow/drift?model_id=X` | KS + PSI score-distribution drift |
 | Trade scores | `GET /api/bot/trades/scores?limit=N` | predictions joined to closed trades — the realized-track-record source |
 
+**Relay reachability note:** only the `shadow/predictions`, `shadow/stats`,
+`shadow/drift`, and `trades/scores` rows above are in the
+`vm-diag-snapshot` relay's `/api/bot/*` allowlist — the `ml/*` rows
+(`ml/status`, `ml/cycle`, `ml/sessions`, `ml/registry`, `ml/builds`,
+`ml/db_pulls`, `ml/runs/*`) are **direct-HTTPS-only** (or the trainer-VM
+relay for the underlying trainer-side data). **Batch the relay-eligible
+rows into ONE `vm-diag-request` issue** (JSON array or one-per-line body,
+e.g. `["shadow/stats?model_id=X", "shadow/drift?model_id=X",
+"trades/scores?limit=200"]`) rather than a separate issue per path — per
+the `diag-data` skill's default pattern (MB-20260706-CI-MINUTES: this
+repo hit its Actions minutes cap opening 427 issues in 5.5 days). The
+trainer-VM pull below is already correctly batched into a single
+`cmd:` block — keep doing that.
+
 If the trainer-mirror age (`/api/bot/ml/status`) is far older than the
 last trainer cycle, the live VM's view is stale — note that and
 prefer the trainer-VM pull as ground truth.

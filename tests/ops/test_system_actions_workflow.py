@@ -113,6 +113,10 @@ EXPECTED_ACTIONS = {
     # M7 — autonomous strategy-review-packet generator (Tier 1: read-only
     # SQL + write to runtime_logs/strategy_reviews/).
     "generate-strategy-review-packets": "generate_strategy_review_packets_action.sh",
+    # 2026-07-06 (MB-20260706-GRADING-DELTA) — Tier 1: read-only rubric scoring
+    # against the live trade_journal.db, emits ONLY the ungraded delta as NDJSON
+    # (never writes comms/claude_strategy_scores.jsonl on the VM).
+    "grade-closed-trades": "grade_closed_trades_action.sh",
     "set-env": "set_env.sh",              # Tier 2: .env upsert + service restart
     # 2026-05-27 — strips systemd-EnvironmentFile-noncompliant lines from .env
     # (the orphan FCM-JSON-blob case that bled a PEM private key into the

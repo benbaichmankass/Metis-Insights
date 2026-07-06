@@ -214,6 +214,39 @@ Claude may dispatch these without operator approval:
   `proposed_action` in the issue-comment reply so the operator gets
   a one-line verdict per strategy without a follow-up curl. Gate doc:
   [`docs/strategy-review-gate.md`](../strategy-review-gate.md).
+- `grade-closed-trades` — added 2026-07-06 to fix a recurring
+  size-limit failure in every `/system-review` / `/performance-review`
+  session's mandatory grading pass. The Claude decision grade is a
+  **pure deterministic rubric** (`scripts/ops/score_order_packages.py::
+  _grade_package` — no LLM call), so it can run wherever the DB
+  already lives instead of pulling the whole `trades` table back to a
+  web/PM session. This action runs
+  `score_order_packages.py --emit-delta-only` against the live
+  `trade_journal.db` and the VM's read-only `ict-git-sync` mirror of
+  `comms/claude_strategy_scores.jsonl`, and returns **only the new
+  (ungraded) rows** as NDJSON in the issue-comment reply — a bounded
+  delta (typically tens of KB) instead of the full journal dump
+  (~650KB, which routinely exceeded the diag relay's ~55KB comment
+  budget and blocked full-window grading). **Read-only end to end:**
+  sqlite `mode=ro`; the score file is only ever read to compute the
+  skip-set — nothing is written or committed on the VM (its
+  `VM_GIT_DEPLOY_TOKEN` credential is Contents:Read-only by design;
+  see § "Live-VM git-fetch credential" in the bot `CLAUDE.md`). Issue
+  body fields: optional `since: <ISO_TS>` (only packages created at/
+  after this timestamp), `limit: <int>` (default 300 — never
+  truncates silently: an exceeded limit surfaces a trailing
+  `{"_delta_summary": ..., "truncated": true, "more_available": N}`
+  NDJSON line, mirroring the diag relay's `(truncated, N more bytes)`
+  convention), and `include_open: true` (widen scope beyond
+  `order_packages.status='closed'` to every ungraded package,
+  matching `score_order_packages.py --append`'s scope). The caller
+  (a review session) appends the returned delta to
+  `comms/claude_strategy_scores.jsonl` in a normal PR. **Fallback:**
+  `scripts/ops/grade_closed_trades_from_diag.py` (feed it a
+  `/api/diag/journal?table=trades` pull) remains in the repo for the
+  rare case this system-action path itself is unavailable — see that
+  script's docstring for the size-limit history it was originally
+  built to work around.
 
 `send-ping` is non-mutating (it enqueues one Telegram message, no
 restart) so it sits at Tier 1 — this is the autonomous path for Claude

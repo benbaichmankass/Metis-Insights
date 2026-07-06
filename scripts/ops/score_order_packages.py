@@ -25,6 +25,8 @@ family mapping.
 Usage:
     python scripts/ops/score_order_packages.py <trade_journal.db> [out.jsonl]
         [--append] [--force-rewrite]
+    python scripts/ops/score_order_packages.py <trade_journal.db> \
+        --emit-delta-only [--since ISO_TS] [--limit N] [--include-open]
 
 Write modes (BL-20260703-GRADING-COVERAGE-GAP hardening, 2026-07-04):
 
@@ -40,9 +42,34 @@ Write modes (BL-20260703-GRADING-COVERAGE-GAP hardening, 2026-07-04):
   now requires an explicit ``--force-rewrite`` — pointing the default
   mode at the canonical file was the footgun that nearly clobbered
   2,500+ rows during the 2026-07-03 backfill.
+* ``--emit-delta-only`` — VM-side, side-effect-free mode added
+  2026-07-06 (the "stop shipping the whole haystack" fix). Instead of
+  writing anywhere, it reads the CHECKED-IN
+  ``comms/claude_strategy_scores.jsonl`` (the VM's read-only
+  `ict-git-sync` mirror) to see which ``order_package_id`` values are
+  already graded, grades the CLOSED order packages that are missing
+  (same skip-logic as ``--append``), and prints ONLY those new rows as
+  NDJSON to **stdout** — never opening the file for write. This is the
+  system-action (`grade-closed-trades`) path: a web/PM session can't
+  reach the DB file directly and previously had to pull the ENTIRE
+  ``trades`` table back through the size-limited GitHub-issue diag
+  relay (~650KB, routinely truncated past the relay's ~55KB comment
+  budget) just to run this deterministic rubric locally. Running the
+  rubric where the DB already lives and returning only the bounded
+  incremental delta avoids that wall entirely. Accepts ``--since
+  ISO_TS`` (filter to packages created at/after this timestamp) and
+  ``--limit N`` (default 300; NEVER truncates silently — when the true
+  delta exceeds the cap, the last emitted line is a
+  ``{"_delta_summary": ...}`` marker with ``truncated: true`` and the
+  count of rows withheld, mirroring the diag-relay's
+  ``(truncated, N more bytes)`` convention). ``--include-open`` widens
+  the scope to every ungraded package (matching ``--append``'s scope)
+  instead of closed-only.
 
 The DB path is taken from argv only (no CWD-relative default) so the
-canonical-db-resolver guard is satisfied. Read-only on the DB.
+canonical-db-resolver guard is satisfied. Read-only on the DB in every
+mode, incl. ``--emit-delta-only`` (never writes back to the VM's git
+working copy — the VM's git credential is read-only by design).
 """
 from __future__ import annotations
 
@@ -251,6 +278,111 @@ def _grade_package(row: dict) -> dict:
     }
 
 
+DEFAULT_DELTA_LIMIT = 300
+
+
+def _row_created_at(row: dict) -> str:
+    return str(row.get("created_at") or "")
+
+
+def _iter_delta_records(con: sqlite3.Connection, *, skip_ids: set,
+                          since: Optional[str], closed_only: bool):
+    """Yield graded records for ungraded order packages, oldest-first.
+
+    Mirrors the ``--append`` skip-logic (``skip_ids``). ``closed_only``
+    restricts to ``order_packages.status='closed'`` (the operator
+    directive's "closed trades" scope); pass ``closed_only=False`` to
+    widen to every ungraded package, matching ``--append``'s scope.
+    """
+    where = []
+    params: list = []
+    if closed_only:
+        where.append("op.status = 'closed'")
+    if since:
+        where.append("op.created_at >= ?")
+        params.append(since)
+    clause = f"WHERE {' AND '.join(where)}" if where else ""
+    rows = con.execute(
+        f"""
+        SELECT op.order_package_id, op.strategy_name, op.symbol, op.direction,
+               op.status, op.close_reason, op.linked_trade_id, op.signal_logic,
+               op.entry, op.sl, op.tp, op.created_at,
+               t.pnl AS pnl, t.exit_price AS exit_price,
+               t.exit_reason AS exit_reason, t.position_size AS position_size
+        FROM order_packages op
+        LEFT JOIN trades t ON t.id = op.linked_trade_id
+        {clause}
+        ORDER BY op.created_at, op.order_package_id
+        """,
+        params,
+    ).fetchall()
+    reviewed_at = datetime.now(timezone.utc).isoformat()
+    for r in rows:
+        if r["order_package_id"] in skip_ids:
+            continue
+        d = dict(r)
+        g = _grade_package(d)
+        yield {
+            "order_package_id": d.get("order_package_id"),
+            "linked_trade_id": d.get("linked_trade_id"),
+            "reviewed_at": reviewed_at,
+            "reviewer": "claude",
+            "source": "grade-closed-trades-action",
+            "strategy_name": d.get("strategy_name"),
+            "symbol": d.get("symbol"),
+            "direction": d.get("direction"),
+            "status": d.get("status"),
+            "executed": d.get("linked_trade_id") is not None,
+            "created_at": d.get("created_at"),
+            "entry": _f(d.get("entry")),
+            "sl": _f(d.get("sl")),
+            "tp": _f(d.get("tp")),
+            "pnl": _f(d.get("pnl")),
+            "exit_reason": (d.get("exit_reason") or d.get("close_reason")),
+            **g,
+        }
+
+
+def _emit_delta_only(db_path: str, scores_path: str, *, since: Optional[str],
+                      limit: int, closed_only: bool) -> int:
+    """Print NDJSON delta rows to stdout. Never writes anything. Read-only DB."""
+    skip_ids = _existing_ids(scores_path)
+    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    con.row_factory = sqlite3.Row
+    try:
+        emitted = 0
+        truncated_count = 0
+        grade_hist: dict[str, int] = {}
+        for rec in _iter_delta_records(con, skip_ids=skip_ids, since=since,
+                                        closed_only=closed_only):
+            if emitted >= limit:
+                truncated_count += 1
+                continue
+            print(json.dumps(rec))
+            grade_hist[rec["decision_grade"]] = grade_hist.get(rec["decision_grade"], 0) + 1
+            emitted += 1
+    finally:
+        con.close()
+    summary = {
+        "_delta_summary": True,
+        "emitted": emitted,
+        "truncated": truncated_count > 0,
+        "more_available": truncated_count,
+        "limit": limit,
+        "closed_only": closed_only,
+        "since": since,
+        "grade_histogram": dict(sorted(grade_hist.items())),
+    }
+    print(json.dumps(summary))
+    # Human-readable echo on stderr so a run log / issue-comment preview
+    # (which truncates the raw NDJSON) still shows the headline numbers.
+    print(f"emitted {emitted} new delta rows (limit={limit}, closed_only={closed_only})"
+          + (f" — TRUNCATED, {truncated_count} more rows available (raise --limit or re-run)"
+             if truncated_count else ""),
+          file=sys.stderr)
+    return 0
+
+
 def _existing_ids(out_path: str) -> set:
     """order_package_ids already present in ``out_path`` (empty set if absent)."""
     ids: set = set()
@@ -271,16 +403,49 @@ def _existing_ids(out_path: str) -> set:
     return ids
 
 
+def _pop_valued_flag(argv: list, flag: str) -> Optional[str]:
+    """Remove ``--flag value`` (or ``--flag=value``) from argv, return value."""
+    for i, a in enumerate(argv):
+        if a == flag and i + 1 < len(argv):
+            val = argv[i + 1]
+            del argv[i:i + 2]
+            return val
+        if a.startswith(flag + "="):
+            val = a.split("=", 1)[1]
+            del argv[i]
+            return val
+    return None
+
+
 def main() -> int:
     argv = list(sys.argv[1:])
     append = "--append" in argv
     force_rewrite = "--force-rewrite" in argv
-    argv = [a for a in argv if a not in ("--append", "--force-rewrite")]
+    emit_delta_only = "--emit-delta-only" in argv
+    include_open = "--include-open" in argv
+    argv = [a for a in argv if a not in
+            ("--append", "--force-rewrite", "--emit-delta-only", "--include-open")]
+    since = _pop_valued_flag(argv, "--since")
+    limit_str = _pop_valued_flag(argv, "--limit")
+
     if not argv:
         print("usage: score_order_packages.py <trade_journal.db> [out.jsonl] "
-              "[--append] [--force-rewrite]", file=sys.stderr)
+              "[--append] [--force-rewrite]\n"
+              "       score_order_packages.py <trade_journal.db> --emit-delta-only "
+              "[--since ISO_TS] [--limit N] [--include-open]", file=sys.stderr)
         return 2
     db_path = argv[0]
+
+    if emit_delta_only:
+        try:
+            limit = int(limit_str) if limit_str else DEFAULT_DELTA_LIMIT
+        except ValueError:
+            print(f"invalid --limit value: {limit_str!r}", file=sys.stderr)
+            return 2
+        scores_path = argv[1] if len(argv) > 1 else "comms/claude_strategy_scores.jsonl"
+        return _emit_delta_only(db_path, scores_path, since=since, limit=limit,
+                                 closed_only=not include_open)
+
     out_path = argv[1] if len(argv) > 1 else "comms/claude_strategy_scores.jsonl"
     import os
     if (not append and not force_rewrite

@@ -77,13 +77,83 @@ keeps at most one PENDING run per group; verified 2026-06-11 and
 2026-07-03.) Each job stays bounded by `timeout-minutes: 5` plus the
 SSH/curl timeouts. Fire as many as you need.
 
+**5. Batch your reads — every issue is a separately-billed Actions job.**
+This repo hit its GitHub Actions free-tier minutes cap (2,000/month) on
+2026-07-06; in the first 5.5 days of that billing cycle alone this repo
+opened 427 issues, 90% of them single-path relay/action calls (one
+`/system-review` session alone opened 33 separate diag-request issues —
+MB-20260706-CI-MINUTES). Every diag-relay issue, like every PR push, is
+its own billed runner-minute, and point 4 above (bursts don't collide)
+does NOT mean bursts are free.
+
+Two ways to cut this, both live now:
+
+- **Prefer the bundled endpoint.** `snapshot?limit=N` already carries
+  heartbeat, status, audit tail, order_packages, trades, vm_health, and
+  service states in one path. If that covers what you need, request it
+  instead of separate `status`/`services`/`journal?table=trades` calls.
+- **Batch multiple paths into ONE `vm-diag-snapshot` issue** (added
+  2026-07-06, MB-20260706-CI-MINUTES). The issue **title** still carries a
+  single path exactly as before (kept as the documented fallback — no
+  existing muscle-memory/doc breaks). To request several paths in one
+  issue instead, put a list in the issue **body**: either a JSON array
+  (`["snapshot?limit=5", "audit?limit=200"]`, optionally inside a ```json
+  fence) or one path per line (plain text or a `-`/`*` bulleted list).
+  When the body parses to a non-empty list it wins over the title; an
+  empty/unparsable body falls back to the single title path exactly as
+  before — so old single-path issues keep working unmodified. All
+  requested paths run over **one ssh session** server-side (the reconnect
+  is the expensive/billed part, not the curl) and come back as **one**
+  combined issue comment, one `## <path>` section per result. Capped at 15
+  paths per issue (GitHub's ~65 KB comment limit); if the combined output
+  would exceed the safe size, each path gets a `(truncated, N more bytes)`
+  marker rather than being silently dropped. Every path — title or body —
+  still passes through the exact same validation regex/allowlist
+  individually; nothing about the trust contract is relaxed.
+
+**`trainer-vm-diag`'s `cmd:` block already supports chaining multiple
+bash commands in one issue** — no workflow change was needed there. The
+fix for that relay is purely behavioral: combine several commands into
+one `cmd:` block instead of opening N issues for N commands.
+
+Rule of thumb: before opening a diag-relay issue, ask "could this be one
+`snapshot` call, or one multi-path body / multi-command `cmd:` block,
+instead of N single-path issues?" If yes, batch it. See the `diag-data`
+skill for the same guidance framed as the default recommended pattern.
+
 ## TL;DR — fetching diag data from a sandbox session
+
+**Default pattern — batch every path you'll need into ONE issue** (added
+2026-07-06; see point 5 above for why this matters):
+
+```
+1. Use `mcp__github__issue_write` (method: create) with:
+     title  = "[diag-request] snapshot?limit=5"   ← still required (fallback path)
+     labels = ["vm-diag-request"]
+     body   = ["snapshot?limit=5", "audit?limit=200",
+                "journal?table=trades&limit=20"]
+              ← a JSON array (or one path per line) of every path you
+                need this round. Wins over the title when non-empty.
+
+2. Wait ~30–60 s. The `vm-diag-snapshot` workflow fetches ALL listed
+   paths over one ssh session and posts ONE combined comment, closes
+   the issue.
+
+3. Poll `mcp__github__issue_read` (method: get_comments). The newest
+   `github-actions[bot]` comment carries one `## <path>` section per
+   requested path, each with its own fenced JSON block.
+
+4. Parse and proceed. Closed issues stay as a permanent audit log.
+```
+
+**Single-path fallback (still fully supported, unchanged since before
+2026-07-06)** — use when you only need one path:
 
 ```
 1. Use `mcp__github__issue_write` (method: create) with:
      title  = "[diag-request] snapshot?limit=5"
      labels = ["vm-diag-request"]
-     body   = ""  ← ignored; anything or empty works
+     body   = ""  ← empty/unparsable body falls back to the title path
 
    Use snapshot?limit=5 for packages/trades/health.
    Use audit?limit=200 for audit trail only.
@@ -97,10 +167,10 @@ SSH/curl timeouts. Fire as many as you need.
 
 3. Poll `mcp__github__issue_read` (method: get_comments) on the
    issue number. The newest comment from `github-actions[bot]` carries:
-     **vm-diag-snapshot** result for `<path>`
+     **vm-diag-snapshot** result — 1 path(s) fetched over one ssh session
      Run: <url>
-     Bytes: <size>
 
+     ## `<path>`
      ```json
      <pretty-printed snapshot>
      ```

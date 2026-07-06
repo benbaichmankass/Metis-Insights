@@ -10,10 +10,20 @@ name: Account class guard
 # aggregate). A missing or inconsistent value silently mis-attributes
 # paper trades as real money (the pre-2026-06-15 ib_paper bug), so the
 # invariant is frozen in CI.
+#
+# **2026-07-06 (Actions-minutes billing cap, MB-20260706-CI-MINUTES):**
+# NOT a required status check (not in branch-protection-sync.yml's
+# REQUIRED_CONTEXTS), so it's safe to trigger-filter with `paths:` —
+# the job never even queues on a PR that doesn't touch the file it
+# validates.
 
 on:
   pull_request:
     branches: [main]
+    paths:
+      - "config/accounts.yaml"
+      - "scripts/check_account_class.py"
+      - ".github/workflows/account-class-guard.yml"
 
 permissions:
   contents: read

@@ -103,6 +103,17 @@ paste anything. If the relay fails, fire `vm-web-api-recover` once
 and retry; if still failing, emit a partial review with a note —
 **never fabricate**.
 
+**Batch the diag-labeled rows above into ONE `vm-diag-request` issue.**
+Per the `diag-data` skill's default pattern (MB-20260706-CI-MINUTES —
+every relay issue is its own billed Actions job; this repo hit its 2,000
+min/month cap opening 427 issues in 5.5 days, mostly single-path relay
+calls), put every diag path you need this run in the issue **body** as a
+JSON array or one-per-line list (e.g. `journal?table=order_packages&limit=200`,
+`journal?table=trades&limit=200`, `audit?limit=600` in one issue) instead
+of three separate issues. The non-diag `GET /api/bot/*` rows above are
+direct HTTPS/no-relay reads when the session is configured for it, so
+they don't add to the issue count either way.
+
 ## Bucket records before aggregating (artifact pre-filter)
 
 Paper (and some real) records are dominated by **technical artifacts** — intent
@@ -200,6 +211,19 @@ append packages decided since the last review.
 
 The retroactive backfiller for historical windows is
 `scripts/ops/score_order_packages.py` — re-use it, do not reinvent.
+
+**Web / PM session (no DB file):** dispatch the **`grade-closed-trades`**
+system-action (Tier-1, `docs/claude/system-actions.md`) instead of pulling the
+whole `trades` table through the diag relay. It runs
+`score_order_packages.py --emit-delta-only` on the VM (where the DB lives) and
+returns only the ungraded delta as NDJSON — bounded and small, unlike a full
+`~650KB` table dump against the relay's `~55KB` comment budget. Append the
+returned rows to `comms/claude_strategy_scores.jsonl` and commit; a truncated
+delta always carries an explicit trailing `{"_delta_summary": ...,
+"truncated": true}` marker, never a silent drop. `scripts/ops/
+grade_closed_trades_from_diag.py` (feed it a `/api/diag/journal?table=trades`
+pull) remains as a documented fallback for when the system-action path itself
+is unavailable.
 
 ## Verification
 

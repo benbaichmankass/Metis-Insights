@@ -8,10 +8,19 @@ name: Writer-conformance guard
 #      long/short),
 # without an explicit `# writer-conformance: allow <reason>` justification.
 # See scripts/check_writer_conformance.py (WC-6).
+#
+# **2026-07-06 (Actions-minutes billing cap, MB-20260706-CI-MINUTES):**
+# NOT a required status check, so it's safe to trigger-filter with
+# `paths:` — a raw INSERT/UPDATE or a buy/sell direction literal can
+# only appear in a `.py` or `.sql` file.
 
 on:
   pull_request:
     branches: [main]
+    paths:
+      - "**/*.py"
+      - "**/*.sql"
+      - ".github/workflows/writer-conformance-guard.yml"
 
 permissions:
   contents: read

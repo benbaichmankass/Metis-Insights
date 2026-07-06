@@ -13,10 +13,46 @@ name: arch-doc-guard
 #
 # Heuristic + path patterns live in scripts/arch_doc_guard.py
 # (pure Python, stdlib-only, no external deps).
+#
+# **2026-07-06 (Actions-minutes billing cap, MB-20260706-CI-MINUTES):**
+# NOT a required status check, so it's safe to trigger-filter with
+# `paths:` mirroring scripts/arch_doc_guard.py's own
+# HIGH_IMPACT_PATTERNS ∪ ARCH_DOC_PATTERNS — if a PR touches neither a
+# high-impact subsystem nor an arch doc, the guard has nothing to check
+# (it can only ever fire when a HIGH_IMPACT_PATTERNS file changed) so
+# the job never needs to queue.
 
 on:
   pull_request:
     branches: [main]
+    paths:
+      - "src/pipeline/**"
+      - "src/core/coordinator.py"
+      - "src/core/dispatcher*.py"
+      - "src/runtime/pipeline.py"
+      - "src/runtime/shadow_adapter.py"
+      - "src/runtime/health.py"
+      - "src/units/strategies/**"
+      - "src/units/dashboards/**"
+      - "src/web/api/main.py"
+      - "src/web/api/routers/**"
+      - "ml/registry/**"
+      - "ml/predictors/**"
+      - "ml/promotion/**"
+      - "ml/shadow/**"
+      - "ml/trainers/**"
+      - "ml/evaluators/**"
+      - "ml/datasets/**"
+      - "config/strategies.yaml"
+      - "config/accounts.yaml"
+      - "config/units.yaml"
+      - "docs/ARCHITECTURE-CANONICAL.md"
+      - "docs/architecture/**"
+      - "docs/pipeline/stage-contracts.md"
+      - "docs/CLAUDE-RULES-CANONICAL.md"
+      - "CLAUDE.md"
+      - "scripts/arch_doc_guard.py"
+      - ".github/workflows/arch-doc-guard.yml"
 
 permissions:
   contents: read

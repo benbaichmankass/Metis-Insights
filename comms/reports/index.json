@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260706-153200-weekly",
+      "window": "weekly",
+      "generated_at": "2026-07-06T15:32:00+00:00",
+      "window_start": "2026-06-29T15:32:00+00:00",
+      "window_end": "2026-07-06T15:32:00+00:00",
+      "roll_up_grade": "caution",
+      "headline": "First-ever WEEKLY-window /system-review (no prior weekly report to diff against). The trader restarted recently (bot_uptime_s=1474 at snapshot time, git_sha 9cc460bf matching the latest merged commit) and is heartbeating normally. All probeable real-money/paper accounts (bybit_1, bybit_2, alpaca_paper, alpaca_options_paper, alpaca_live, oanda_practice) read reachable; ib_paper is declared live but its broker-side position probe returned null at snapshot time -- flagged, not yet confirmed as a sustained outage (see flags). The relay allowlist was missing exit-ladder/allocator/fc-geometry soak endpoints and the pnl/history alias -- fixed in this branch, but since the vm-diag-snapshot workflow runs off main, those three soaks could not be read this session (fix needs to merge first). Shadow-model fleet: 37 (model_id, stage) combinations logging, one already at advisory (btc-regime-15m-lgbm-v2) showing stable/no-drift scores -- healthy, hold. The highest-volume shadow candidate (btc-regime-5m-lgbm-v2, 14.2k observations) shows SIGNIFICANT KS/moderate PSI score drift week-over-week -- do not promote until the drift is investigated. Conviction-sizing (Design-B) soak is accruing normally in annotate-only mode. Full order-package grading and per-trade dossiers could not be completed this session -- the /api/diag/journal trades pull truncates at 55KB per relay message vs a 650KB payload, so the grader script never received the full closed-trade set. ML training-cycle health from the trainer VM could not be read (sqlite3 CLI absent, and the python3 sqlite3 fallback hit 'unable to open database file' -- a path/permissions issue on the trainer VM, not yet root-caused).",
+      "html_path": "comms/reports/weekly/20260706T153200Z/report.html",
+      "json_path": "comms/reports/weekly/20260706T153200Z/report.json",
+      "md_path": "comms/reports/weekly/20260706T153200Z/report.md"
+    },
+    {
       "id": "RPT-20260705-121200-since-last",
       "window": "since-last",
       "generated_at": "2026-07-05T12:12:00+00:00",

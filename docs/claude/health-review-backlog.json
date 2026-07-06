@@ -30,9 +30,9 @@
       "id": "BL-20260706-PROP-REPORT-DEVNULL-NOISE",
       "opened_at": "2026-07-06T13:20:00+00:00",
       "opened_by": "claude (order-qty-rounding-issue session; prop ETHUSD close report-back)",
-      "source": "prop-report.yml run 28794297803 (issue #5734) comment: the ingest returned HTTP 200 (success) but the run log showed 'bash: line NN: /dev/null: Permission denied' at four points and '(no response body)' — the endpoint's JSON response ({ok,kind,status,ticket_id,...}) was not echoed back to the issue comment.",
+      "source": "prop-report.yml run 28794297803 (issue #5734) comment: the ingest returned HTTP 200 (success) but the run log showed 'bash: line NN: /dev/null: Permission denied' at four points and '(no response body)' \u2014 the endpoint's JSON response ({ok,kind,status,ticket_id,...}) was not echoed back to the issue comment.",
       "title": "[workflow] prop-report.yml can't write /dev/null on the VM step, so the endpoint response body isn't echoed back (ingest still succeeds)",
-      "description": "The issue-driven prop-report relay (.github/workflows/prop-report.yml, or its VM-side curl wrapper) redirects some output to /dev/null and hit 'Permission denied' four times during the 2026-07-06 ETHUSD close report-back — a symptom of the same OCI host-side /dev/null-clobbering pattern already tracked (BL-20260629-DEVNULL-CLOBBERED-LIVE-VM): /dev/null on the VM is a regular non-writable file, not the char device. Consequence is purely observability: the POST still returned HTTP 200 (so the prop_fills write + ticket-link + prop_closed notification all fired), but the endpoint's JSON response body was swallowed, so the confirmation comment reads '(no response body)' and a future reporter can't see {ok,ticket_id,...}. FIX (Tier-1, cosmetic): (a) capture the curl response body to a tmp file / var instead of relying on /dev/null redirects in the report step, and/or (b) re-assert /dev/null as a char device at the top of the VM step (the mitigation used elsewhere for the DEVNULL class). Verify by re-running a prop-report and confirming the JSON body appears in the comment. Low priority — no data was lost and the 200 is authoritative.",
+      "description": "The issue-driven prop-report relay (.github/workflows/prop-report.yml, or its VM-side curl wrapper) redirects some output to /dev/null and hit 'Permission denied' four times during the 2026-07-06 ETHUSD close report-back \u2014 a symptom of the same OCI host-side /dev/null-clobbering pattern already tracked (BL-20260629-DEVNULL-CLOBBERED-LIVE-VM): /dev/null on the VM is a regular non-writable file, not the char device. Consequence is purely observability: the POST still returned HTTP 200 (so the prop_fills write + ticket-link + prop_closed notification all fired), but the endpoint's JSON response body was swallowed, so the confirmation comment reads '(no response body)' and a future reporter can't see {ok,ticket_id,...}. FIX (Tier-1, cosmetic): (a) capture the curl response body to a tmp file / var instead of relying on /dev/null redirects in the report step, and/or (b) re-assert /dev/null as a char device at the top of the VM step (the mitigation used elsewhere for the DEVNULL class). Verify by re-running a prop-report and confirming the JSON body appears in the comment. Low priority \u2014 no data was lost and the 200 is authoritative.",
       "tier": 1,
       "status": "open",
       "snoozed_until": null,
@@ -76,9 +76,12 @@
       "tier": 1,
       "trigger_condition": "Next workflows/tooling session.",
       "resolution_criteria": "All three paths return JSON via the relay.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [],
+      "resolved_at": "2026-07-06T15:45:00+00:00",
+      "resolved_by": "claude (/system-review weekly 2026-07-06)",
+      "resolution": "Fixed .github/workflows/vm-diag-snapshot.yml: added exit-ladder/soak, allocator/soak, fc-geometry/soak to the /api/bot/ relay allowlist; pnl/history now gets its own upstream_prefix=/api/ (the real route is top-level /api/pnl/history, not /api/bot/pnl/history) instead of 404ing. Not live-VM-verified from this session (workflow-file change only) \u2014 verify on next relay pull that used these paths."
     },
     {
       "id": "BL-20260705-SHADOW-PKG-ORPHAN-STATUS",
@@ -175,7 +178,13 @@
       "resolution_criteria": "A new web session resolves scripts/ops/diag_fetch.sh against the live VM (exit 0).",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-06T15:45:00+00:00",
+          "by": "claude (/system-review weekly 2026-07-06)",
+          "note": "Reconfirmed still stale this session (DIAG_BASE_URL=http://158.178.210.252:8001, the terminated x86 micro). Left open \u2014 fix requires the operator to edit the Claude Code cloud-environment settings, which this session cannot do. All pulls this run used the vm-diag-snapshot/trainer-vm-diag issue relay instead."
+        }
+      ]
     },
     {
       "id": "BL-20260705-IBPAPER-POSITIONS-NULL-WEEKEND",
@@ -194,6 +203,11 @@
           "at": "2026-07-06T06:35:00+00:00",
           "by": "claude (22:10Z self check-in, follow-through)",
           "note": "Gateway restart fired 2026-07-05T22:12Z via vm-ib-gateway-recover \u2014 succeeded cleanly (IBC login_completed=yes, api reachable, 22:12:34Z). Re-probed /api/diag/exchange_positions well after the ~2min circuit-breaker clear window: ib_paper STILL reads positions:null. BUT cross-checked the trader's OWN persistent connection: mgc_trend_1h has been evaluating MGC every ~3 min with live real-time prices through 06:28Z (close 4162.3->4157.7->...), including an actionable sell signal dispatched at 06:05:49Z (confidence 0.0539, correctly below threshold to execute) and another eval at 06:08:56Z (confidence 0.3476). /api/bot/accounts/balances confirms ib_paper api_ok:true, balance stable at $1,271,418.77, open_positions:0 (genuinely flat, not stale-masked). CONCLUSION: the live trading connection is fully healthy \u2014 this was never a real wedge. The diag relay's exchange_positions endpoint opens a SEPARATE short-lived read-only IB client per the diag-relay design, and that specific connection path appears to hit the same cross-host socat-relay quirk CLAUDE.md documents for IB_PROBE_TIMEOUT_S (reqCurrentTime doesn't resolve over the relayed gateway even when the persistent connection is healthy). Reclassified from 'operational IB issue' to 'diag-tooling limitation, no live impact' \u2014 closing. Do NOT burn another gateway restart on a future null exchange_positions read for ib_paper without first cross-checking live *_eval activity + accounts/balances api_ok, per this note."
+        },
+        {
+          "at": "2026-07-06T20:00:00+00:00",
+          "by": "claude (IB account-warmup structural fix session)",
+          "note": "STRUCTURAL FIX LANDED, superseding the diag-tooling-limitation reclassification above (PR #5789, branch claude/intelligent-dijkstra-hs2271). Root-caused the actual mechanism (not just the symptom): IBClient.connect() verified liveness (reqCurrentTime) but never guaranteed the FIRST real accountSummary()/portfolio() data had landed before declaring success \u2014 ib_insync's accountSummary() only populates from an explicit reqAccountSummary() subscription (never called anywhere in this repo) and, per ib_insync's own RequestTimeout defaulting to 0 (unbounded), that lazy first call had NO timeout of its own; portfolio() similarly depends on reqAccountUpdates(), which connect()'s own init requests race with a silently-swallowed timeout that never fails connect(). So account_open_positions()'s net_liquidation disambiguation (this item's title) could misreport 'not logged in' on a perfectly healthy gateway whenever the diag read client's cache was cold (first use, or a fresh reconnect after a silent idle-timeout drop) \u2014 exactly this item's symptom, and it recurred again in the 2026-07-06 weekly /system-review. Fix: IBClient.connect() now runs a bounded account/portfolio WARM-UP (subscribe + wait for real data, retry-once-then-condemn \u2014 same shape as the existing liveness probe) right after the liveness probe succeeds, gated to run once per underlying connection (a still-open cached handle skips it; a fresh connect or a reconnect after an idle drop re-runs it). New env var IB_ACCOUNT_WARMUP_TIMEOUT_S (default 8.0s; <=0 opts out). By the time connect() returns success, balance()/positions() are always served from an already-warm cache \u2014 no cold race left to lose. Regression-tested (delayed data still succeeds; a genuinely wedged gateway is still bounded + trips the breaker; reconnect-after-idle-drop re-warms); full existing IB/accounts/reconciler suite (217+ tests) still green. NOT YET DEPLOYED to the live VM \u2014 this is Tier-2 (live IB connection/read behaviour); needs an explicit operator OK before restart-bot-service/pull-and-deploy is dispatched. This item stays 'resolved' (its own symptom was benign that day); tracking the deploy-and-verify follow-through as a NEW item is the correct next step if the operator wants a dedicated tracker, but the fix itself is code-complete and PR-linked here."
         }
       ],
       "resolved_at": "2026-07-06T06:35:00+00:00"
@@ -849,7 +863,10 @@
       "title": "Consider an ARCHITECTURE-CANONICAL.md Change-log row for the 2026-06-07 closeout (S18 + S16 + S12 Part B + PERF-006 P3)",
       "description": "The arch change log historically captures every persistence-contract change (new table) and every runtime-behaviour-changing kill-switch; the 2026-06-07 closeout adds both (`trade_journal.db::account_context_snapshots` + `REGIME_ROUTER_ENABLED` / `ACCOUNT_CONTEXT_SNAPSHOTS_DISABLED`). Decision deferred at session-end (a) to avoid scope creep on the sprint-log PR; (b) because each row in the log historically lands in its own enabling PR, not in a retroactive doc-only PR. A future `/health-review` should either write one consolidated 2026-06-07 row (citing PR numbers from this session's sprint log) or close this item as not-needed.",
       "tier": 1,
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-07-06T15:52:00+00:00",
+      "resolved_by": "claude (/system-review weekly 2026-07-06)",
+      "resolution": "Added the consolidated 2026-06-07 closeout row to docs/ARCHITECTURE-CANONICAL.md's Change log (S18 champion-challenger orchestrator, S16 ADWIN drift retraining, S12 Part B account_context_snapshots table, PERF-006 Phase 3 regime hard-gate) citing docs/sprint-logs/S-MLOPT-CLOSEOUT-2026-06-07.md."
     },
     {
       "id": "BL-20260607-003",
@@ -2986,7 +3003,7 @@
         }
       ],
       "resolved_at": "2026-07-06T13:10:00+00:00",
-      "resolution": "RESOLVED by the sizing/qty-legalization consolidation (docs/sizing-legalization-DESIGN.md, operator-approved). The recurring root cause — four divergent copies of 'the venue minimum' — was collapsed onto ONE seam, src/units/accounts/qty_legalize.py::legalize_qty, resolving (qty_step, min_qty) from the per-instrument InstrumentProfile (config/instruments.yaml) first, live Bybit lot rule second, passthrough third. Phase 2 wired the seam into the two coordinator guards (sized-qty ~1503, intent-delta ~1900) + the execute._submit_order Bybit pre-flight (#5720). Phase 3 (#5732, merged 581b45e, Tier-3 operator-approved) closed the risk.py::position_size half this item primarily tracked: the non-whole path now resolves eff_min_qty/eff_precision from qty_legalize.instrument_lot(symbol) when 0 < step < 1 (ETHUSDT 0.01, SOLUSDT 0.1), so a risk-based ETH size in [0.001, 0.0099) is now REFUSED per-trade at the sizing layer instead of passing risk.py's own 0.001 account-min. Whole-share sizing stays exchange-gated by whole_units (BL-20260622), never inferred from the instrument; BTC (step 0.001 == account default) unchanged. Tests: tests/test_instrument_min_sizing.py (11), tests/test_qty_legalize.py, tests/test_intent_delta_dispatch.py. Phase 4 (a qty-legalization CI guard forbidding raw-min comparisons outside the seam) is the remaining Tier-1 follow-up to prevent a fifth copy re-appearing."
+      "resolution": "RESOLVED by the sizing/qty-legalization consolidation (docs/sizing-legalization-DESIGN.md, operator-approved). The recurring root cause \u2014 four divergent copies of 'the venue minimum' \u2014 was collapsed onto ONE seam, src/units/accounts/qty_legalize.py::legalize_qty, resolving (qty_step, min_qty) from the per-instrument InstrumentProfile (config/instruments.yaml) first, live Bybit lot rule second, passthrough third. Phase 2 wired the seam into the two coordinator guards (sized-qty ~1503, intent-delta ~1900) + the execute._submit_order Bybit pre-flight (#5720). Phase 3 (#5732, merged 581b45e, Tier-3 operator-approved) closed the risk.py::position_size half this item primarily tracked: the non-whole path now resolves eff_min_qty/eff_precision from qty_legalize.instrument_lot(symbol) when 0 < step < 1 (ETHUSDT 0.01, SOLUSDT 0.1), so a risk-based ETH size in [0.001, 0.0099) is now REFUSED per-trade at the sizing layer instead of passing risk.py's own 0.001 account-min. Whole-share sizing stays exchange-gated by whole_units (BL-20260622), never inferred from the instrument; BTC (step 0.001 == account default) unchanged. Tests: tests/test_instrument_min_sizing.py (11), tests/test_qty_legalize.py, tests/test_intent_delta_dispatch.py. Phase 4 (a qty-legalization CI guard forbidding raw-min comparisons outside the seam) is the remaining Tier-1 follow-up to prevent a fifth copy re-appearing."
     },
     {
       "id": "BL-20260629-ALPACA-NAKED-BRACKET",
@@ -3200,8 +3217,11 @@
       "title": "docs/runbooks/spot-margin.md still describes the REMOVED MONITOR_RECONCILE_ENABLED gate as an active env toggle (4+ mentions)",
       "description": "MONITOR_RECONCILE_ENABLED was removed 2026-06-15 (BL-20260615-MGCNAKED) - the monitor reconciler is unconditional baseline and a leftover env value is ignored. The spot-margin runbook (lines ~102/225/268/327) still instructs keeping it =true in the deployed .env and warns against disabling it. Pre-existing drift, not this session's change; the canonical-doc-coherence CI guard does not scan docs/runbooks/. Fix: annotate those mentions as removed/baseline (Tier-1 doc edit) next time the runbook is touched, or in a health-review drain pass.",
       "tier": "Tier-1 (doc-only)",
-      "status": "open",
-      "snoozed_until": null
+      "status": "resolved",
+      "snoozed_until": null,
+      "resolved_at": "2026-07-06T15:45:00+00:00",
+      "resolved_by": "claude (/system-review weekly 2026-07-06)",
+      "resolution": "Annotated all 4 MONITOR_RECONCILE_ENABLED mentions in docs/runbooks/spot-margin.md (~lines 102/225/268/327) as removed 2026-06-15 (BL-20260615-MGCNAKED) / reconciler now unconditional baseline; no live-path files touched."
     },
     {
       "id": "BL-20260706-VOLGATE-REPLAY",
@@ -3213,7 +3233,19 @@
       "tier": 1,
       "status": "resolved",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260706-ACTIONS-MINUTES-MONITOR",
+      "opened_at": "2026-07-06T16:25:00+00:00",
+      "opened_by": "claude (Actions-minutes budget investigation session, PR #5789)",
+      "source": "Operator-reported GitHub Actions billing screenshot: 2000/2000 free minutes exhausted mid-cycle (reset 2026-08-01). Investigation found ~427 issues + ~123 PRs opened July 1-6 (~5.5 days); ~90% of issues are vm-diag-request/trainer-vm-diag-request/system-action relay calls (one single weekly-review session alone opened 33 separate relay issues), and every PR push fans out across 24 unfiltered CI workflow files. Operator added $20 budget as an interim top-up.",
+      "title": "[ops] Monitor GitHub Actions minutes burn-rate for real after the CI short-circuit + diag-relay-batching fix (PR #5789) lands",
+      "description": "PR #5789 landed two fixes aimed at cutting Actions minutes consumption: (1) a changed-files short-circuit on the 9 required + 7 non-required CI workflows so a docs-only push skips expensive pip-install/run steps (est. ~25-35 min/push -> ~10-12 min/push), and (2) multi-path batching support in vm-diag-snapshot.yml so a review session can pull several diag paths in one issue/one SSH session instead of one issue per path (relay batching is opt-in via the issue BODY carrying multiple paths -- the single-path title fallback still works, so adoption is not automatically enforced). Combined estimate was directional only (~100-230 min/day, ~3,000-7,000 min/month) since GitHub Actions was billing-blocked at investigation time and none of it could be exercised live. Operator decision (2026-07-06): hold off on the bigger VM-ops-API build (a direct authenticated interface on the live VM bypassing GitHub Actions for reads/mutations) and watch the REAL numbers for a few days first before deciding if it is still needed. ACTION FOR THE NEXT FEW /health-review, /performance-review, /ml-review, and /system-review runs: check Settings -> Billing -> Actions usage (or ask the operator to share the day-by-day minutes graph, since no billing API is exposed to these tools) and report the actual post-fix daily/monthly burn rate against the ~100-230 min/day estimate. Also spot-check whether recent review sessions are actually using the new batched vm-diag-snapshot.yml pattern (one issue, multiple paths in the body) instead of the old one-issue-per-path pattern documented pre-fix -- if not, note that adoption gap explicitly, since the relay-batching saving is opt-in only. Close this item once 3-5 real days of post-fix data confirms the estimate held (or note where it diverged) and the operator has decided whether the VM-ops-API build is still warranted.",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-06T13:20:00+00:00"
+  "updated_at": "2026-07-06T16:25:00+00:00"
 }

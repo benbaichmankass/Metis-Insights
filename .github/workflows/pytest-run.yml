@@ -26,6 +26,15 @@ name: pytest-run
 # verification". Any other module that proves CI-unsafe should be fixed,
 # not blanket-ignored — add a narrow `--ignore` with a comment if truly
 # unavoidable.
+#
+# **2026-07-06 (Actions-minutes billing cap, MB-20260706-CI-MINUTES):**
+# this is a REQUIRED status check, so its trigger can NEVER carry a
+# `paths:` filter — GitHub would leave the check permanently "pending" on
+# a non-matching PR, blocking it from merging forever. Instead the job
+# always runs (cheap: checkout + `git diff --name-only`) but SKIPS the
+# expensive steps (full pip install + the actual test run — the bulk of
+# the cost) when nothing python/test-relevant changed. See "Determine
+# relevant changed files" below.
 
 on:
   pull_request:
@@ -44,20 +53,51 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine relevant changed files
+        id: changed
+        run: |
+          set -e
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --quiet
+            RANGE="origin/${{ github.base_ref }}...HEAD"
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              echo "relevant=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::No prior commit to diff against — running the full check."
+              exit 0
+            fi
+            RANGE="$BEFORE...${{ github.sha }}"
+          fi
+          FILES=$(git diff --name-only $RANGE || true)
+          echo "Changed files ($RANGE):"
+          echo "$FILES"
+          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|\.github/workflows/pytest-run\.yml$'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No .py/test-config files changed — skipping the pip install + test-run steps (short-circuit, MB-20260706-CI-MINUTES)."
+          fi
 
       - name: Set up Python 3.11
+        if: steps.changed.outputs.relevant == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
 
       - name: Install runtime + test dependencies
+        if: steps.changed.outputs.relevant == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-test.txt
 
       - name: Run tests
+        if: steps.changed.outputs.relevant == 'true'
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |

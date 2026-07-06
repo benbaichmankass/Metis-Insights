@@ -101,6 +101,25 @@ _IB_PROBE_RETRY_GAP_S = _env_float("IB_PROBE_RETRY_GAP_S", 1.5)
 # tick; short enough that a genuine recovery is picked up promptly.
 _IB_BREAKER_COOLDOWN_S = _env_float("IB_BREAKER_COOLDOWN_S", 120.0)
 
+# Hard cap on the post-connect account/portfolio WARM-UP
+# (BL-20260706-IBWARMUP). ib_insync's ``accountSummary()`` (used by
+# :meth:`IBClient.balance`) only ever returns data from an explicit
+# ``reqAccountSummary()`` subscription — it is lazily triggered on first
+# call and, per ``IB.RequestTimeout`` defaulting to ``0`` (unbounded),
+# that first call has NO timeout of its own. Likewise ``portfolio()``
+# (used by :meth:`IBClient.positions`) only fills once ``reqAccountUpdates``
+# has actually been answered; ``ib.connect()``'s own init requests race a
+# silently-swallowed timeout (a slow response there is logged, not raised,
+# and does not fail connect()). So a caller's FIRST balance()/positions()
+# call after a fresh connect — or a reconnect after a silent idle-timeout
+# drop — could race an empty/never-populated cache and misreport "gateway
+# not logged in" even on a perfectly healthy gateway. This bound converts
+# that race into "wait, bounded, for the real data" so every subsequent
+# read is served from an already-warm cache. ``<= 0`` opts out (skips the
+# warm-up entirely, restoring the pre-fix racy behaviour) — the same escape
+# hatch shape as ``IB_PROBE_TIMEOUT_S``.
+_IB_ACCOUNT_WARMUP_TIMEOUT_S = _env_float("IB_ACCOUNT_WARMUP_TIMEOUT_S", 8.0)
+
 # Bounded post-place rejection window (seconds; <= 0 restores the legacy
 # fire-and-forget behaviour). ``IB.placeOrder`` is asynchronous — IBKR's
 # accept/reject arrives on the event loop AFTER the call returns, so a
@@ -249,6 +268,13 @@ class IBClient:
         # touching the socket, so a wedged gateway can't stall the loop.
         self._breaker_open_until: float = 0.0
         self._breaker_fail_count: int = 0
+        # Set True only once the post-connect account/portfolio warm-up
+        # (BL-20260706-IBWARMUP) has actually landed real data for the
+        # CURRENT underlying ``ib`` object. Reset to False whenever a fresh
+        # ``ib`` is created (fresh connect / reconnect after a dropped
+        # socket) or the handle is torn down, so the next connect() always
+        # re-warms before declaring success.
+        self._account_data_ready: bool = False
 
     # ------------------------------------------------------------------
     # Connection lifecycle
@@ -323,6 +349,9 @@ class IBClient:
                     "Is IB Gateway / TWS running with the API enabled on this port?"
                 ) from exc
             self._ib = ib
+            # Fresh handle (new socket or first-ever connect) — its wrapper
+            # caches are empty, so the warm-up below must run again.
+            self._account_data_ready = False
 
         # Post-connect liveness probe. ib.connect() succeeding only proves the
         # socket was accepted — a logged-out Gateway accepts the socket but then
@@ -339,6 +368,25 @@ class IBClient:
                 "(likely logged out). Tripping circuit breaker so IB calls do "
                 "not block the trader loop."
             )
+
+        # Post-connect account/portfolio warm-up (BL-20260706-IBWARMUP). Runs
+        # once per underlying ``ib`` handle (guarded by
+        # ``_account_data_ready``, reset above whenever a fresh handle is
+        # created) — a still-connected, already-warm cached handle skips
+        # straight through on every subsequent connect() call.
+        if not self._account_data_ready:
+            if not self._warm_account_data(ib):
+                self._trip_breaker()
+                self._safe_disconnect(ib)
+                raise IBConnectionError(
+                    f"IBClient: Gateway at {self.host}:{self.port} "
+                    f"(account={self._masked_account()}) answered the liveness "
+                    f"probe but never delivered account/portfolio data within "
+                    f"{_IB_ACCOUNT_WARMUP_TIMEOUT_S:.0f}s (likely logged out or "
+                    "no account resolved). Tripping circuit breaker so IB "
+                    "calls do not block the trader loop."
+                )
+            self._account_data_ready = True
 
         # Healthy round-trip — clear any prior failure streak.
         self._breaker_fail_count = 0
@@ -363,6 +411,10 @@ class IBClient:
             pass
         self._ib = None
         self._contract = None
+        # The next connect() builds a brand-new ``ib`` with empty wrapper
+        # caches, so the warm-up must run again — never trust a torn-down
+        # handle's stale "ready" state.
+        self._account_data_ready = False
 
     def _probe_liveness(self, ib: Any) -> bool:
         """Hard-bounded liveness check on the client's persistent loop.
@@ -451,6 +503,116 @@ class IBClient:
                 return False
         return False  # pragma: no cover — loop always returns/raises above
 
+    def _warm_account_data(self, ib: Any) -> bool:
+        """Bounded post-connect account/portfolio warm-up (BL-20260706-IBWARMUP).
+
+        ``ib.accountSummary()`` (:meth:`balance`) only ever returns data
+        populated by an explicit ``reqAccountSummary()`` subscription — it
+        is triggered lazily on first call, and the underlying
+        ``IB.RequestTimeout`` defaults to ``0`` (unbounded), so that first
+        call has no bound of its own. ``ib.portfolio()`` (:meth:`positions`)
+        similarly only fills once ``reqAccountUpdates`` has actually been
+        answered; ``ib.connect()``'s own init requests race a
+        silently-swallowed timeout that never fails ``connect()`` itself.
+        Net effect: the FIRST balance()/positions() call after a fresh
+        connect — or a reconnect after a silent idle-timeout drop — could
+        race an empty/never-populated cache and misreport "gateway not
+        logged in" on a perfectly healthy gateway.
+
+        This explicitly (re-)subscribes to both accountSummary and (once an
+        account is known) accountUpdates and BLOCKS — bounded, with the
+        same retry-then-condemn shape as :meth:`_probe_liveness` — until the
+        first real data lands. By the time :meth:`connect` returns success,
+        every subsequent balance()/positions() read is served from an
+        already-warm cache — there is no cold race left to lose.
+
+        Built to be safe in every context, mirroring :meth:`_probe_liveness`:
+
+        * An IB stand-in with no ``reqAccountSummaryAsync`` (the plain test
+          fakes that predate this warm-up, and any unrecognised
+          implementation) skips the warm-up rather than assuming it's dead.
+        * If we don't own a usable, non-running loop, skip rather than risk
+          breaking a healthy gateway.
+        * Any unexpected error is treated as "not warm" — fail safe, the
+          breaker trips, IB is isolated, the loop keeps going.
+
+        Returns True when warm (data landed, or the warm-up was
+        skipped/opted-out), False when the gateway never answered within
+        the bound.
+        """
+        if _IB_ACCOUNT_WARMUP_TIMEOUT_S <= 0:
+            # Operator opt-out: skip the warm-up, restoring the pre-fix
+            # racy behaviour (see the env var's module-level docstring).
+            return True
+        req_summary = getattr(ib, "reqAccountSummaryAsync", None)
+        if req_summary is None:
+            # Unknown/stub IB implementation — don't assume it's dead.
+            return True
+        import asyncio
+
+        loop = self._loop
+        if loop is None or loop.is_closed():
+            return True
+        try:
+            if loop.is_running():
+                return True
+        except Exception:  # noqa: BLE001
+            return True
+
+        async def _warm() -> None:
+            tasks = [req_summary()]
+            account = self.account or ""
+            if not account:
+                try:
+                    accounts = ib.client.getAccounts()
+                except Exception:  # noqa: BLE001
+                    accounts = []
+                if len(accounts) == 1:
+                    account = accounts[0]
+            req_updates = getattr(ib, "reqAccountUpdatesAsync", None)
+            if account and req_updates is not None:
+                tasks.append(req_updates(account))
+            await asyncio.gather(*tasks)
+
+        # Two attempts, same shape as _probe_liveness: a timeout on the
+        # first (cold-connection) attempt is retried once after the grace
+        # gap before condemning the connection.
+        for attempt in (1, 2):
+            try:
+                loop.run_until_complete(
+                    asyncio.wait_for(_warm(), timeout=_IB_ACCOUNT_WARMUP_TIMEOUT_S)
+                )
+                return True
+            except asyncio.TimeoutError:
+                if attempt == 1:
+                    logger.info(
+                        "IBClient: account/portfolio warm-up attempt 1/2 "
+                        "timed out after %.0fs for %s:%s (account=%s) — "
+                        "retrying once after %.1fs before concluding the "
+                        "gateway is wedged.",
+                        _IB_ACCOUNT_WARMUP_TIMEOUT_S, self.host, self.port,
+                        self._masked_account(), _IB_PROBE_RETRY_GAP_S,
+                    )
+                    time.sleep(_IB_PROBE_RETRY_GAP_S)
+                    continue
+                logger.warning(
+                    "IBClient: account/portfolio warm-up timed out twice "
+                    "(%.0fs + %.0fs retry) for %s:%s (account=%s) — gateway "
+                    "likely logged out.",
+                    _IB_ACCOUNT_WARMUP_TIMEOUT_S, _IB_ACCOUNT_WARMUP_TIMEOUT_S,
+                    self.host, self.port, self._masked_account(),
+                )
+                return False
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "IBClient: account/portfolio warm-up error for %s:%s "
+                    "(account=%s): %s: %s",
+                    self.host, self.port, self._masked_account(),
+                    type(exc).__name__, exc,
+                )
+                return False
+        return False  # pragma: no cover — loop always returns/raises above
+
     def _ensure_event_loop(self) -> None:
         """Make this client's persistent asyncio loop the thread's current loop.
 
@@ -501,6 +663,7 @@ class IBClient:
             finally:
                 self._ib = None
                 self._contract = None
+                self._account_data_ready = False
 
     # ------------------------------------------------------------------
     # Contract construction
