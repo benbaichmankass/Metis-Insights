@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260706-GITSYNC-AUTH-BROKEN",
+      "opened_at": "2026-07-06T08:05:00+00:00",
+      "opened_by": "claude (IB liveness-probe deploy attempt, 2026-07-06)",
+      "source": "journalctl -u ict-git-sync.service on the live VM: every fetch succeeded cleanly through 07:08:59Z (pulled 200a536c fine), then EVERY run since 07:14:18Z fails identically: 'fatal: could not read Username for \"https://github.com\": No such device or address' (exit 128). Confirmed via two independent pull-and-deploy system-action dispatches (issues #5659, #5661) at 07:55Z and 07:59Z, both hitting the exact same error \u2014 not transient.",
+      "title": "ict-git-sync auto-deploy broken VM-wide since ~07:14Z today \u2014 git fetch can't authenticate to GitHub",
+      "description": "Auto-deploy (`ict-git-sync.timer`, fires every ~5min) has been failing on EVERY run for the last ~50+ minutes as of this writing \u2014 this blocks ALL merged PRs from reaching the live VM, not just one. The live trader process itself (`ict-trader-live.service`) is unaffected and healthy (confirmed via the liveness-watchdog journal + /api/diag/services) \u2014 this is purely the deploy pipeline. `/api/diag/version` still reports git_sha=200a536c, the last commit that landed before the failure started. This directly blocked deploying the operator-approved IB liveness-probe fix (PR #5654, merged as ee522ca) for verification. Root cause is unknown from the diag surface available (no dispatchable action exists to inspect/fix a VM-side git credential \u2014 unlike the trainer VM's full-SSH relay, the live VM only has the fixed `system-actions.yml` allowlist + GET-only diag). The 'could not read Username' signature is the canonical symptom of an HTTPS git remote with no working credential (expired/revoked PAT, or a credential helper that stopped resolving) \u2014 git falls back to an interactive username prompt, which fails headless. Timing note: this VM has an open, known pattern of an OCI host-side agent silently mutating filesystem state without warning (BL-20260629-DEVNULL-CLOBBERED-LIVE-VM / BL-20260629-DEVNULL-OCI-SOURCE-KILL) \u2014 worth checking whether the same class of interference touched `~/.git-credentials` / the git credential helper around 07:09-07:14Z, though this is unconfirmed.",
+      "tier": 2,
+      "trigger_condition": "Needs VM-side inspection this repo's current tooling can't do read-only (no arbitrary-shell relay for the live VM). Likely needs either (a) the operator to check/refresh whatever git credential the VM's origin remote relies on, or (b) a system-action addition (mirroring the gateway VM's unrestricted diag pattern, scoped read-only) if this needs to be self-diagnosable going forward.",
+      "resolution_criteria": "ict-git-sync.service fetch succeeds again; a subsequent pull-and-deploy lands ee522ca (or later) and /api/diag/version reflects it.",
+      "status": "open",
+      "snoozed_until": null,
+      "check_log": []
+    },
+    {
       "id": "BL-20260705-RELAY-ALLOWLIST-GAPS",
       "opened_at": "2026-07-05T12:10:00+00:00",
       "opened_by": "claude (/system-review 2026-07-05)",
@@ -3081,5 +3095,5 @@
       "resolution": null
     }
   ],
-  "updated_at": "2026-07-06T07:35:00+00:00"
+  "updated_at": "2026-07-06T08:05:00+00:00"
 }
