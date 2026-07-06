@@ -16,6 +16,11 @@
           "at": "2026-07-05T12:35:00+00:00",
           "by": "claude (flag wrap-up 2026-07-05)",
           "note": "DIAGNOSED via trainer relay run 28740341472: python pid 1890173 under ict-trainer.service reached 4.8G anon RSS on the 6G NO-SWAP box -> GLOBAL oom (apport invoked the killer); the unit's own journal is silent 05:40-06:15 (a quiet big-allocation stage, likely a corpus/dataset build after the manifest loop). CONTAINMENT APPLIED (autonomous trainer ops, relay issue #5621): systemd drop-in MemoryHigh=4G/MemoryMax=5G on ict-trainer.service (unit-scoped throttle+kill instead of global OOM) + 2G persistent swapfile + reset-failed. VERIFY: next nightly cycle (2026-07-06T00:57Z) completes end-to-end; if a stage still dies at the 5G cap, identify + split that stage."
+        },
+        {
+          "at": "2026-07-06T15:40:00+00:00",
+          "by": "claude (/system-review weekly 2026-07-06)",
+          "note": "Trainer-VM pull this session: systemctl is-enabled=disabled / is-active=failed, ExecMainStatus=15 (SIGTERM, not SIGKILL-OOM) for ict-trainer.service; timer enabled+active. journalctl -n150 tail shows clean manifest_ok/manifest_audit_flagged rows through 2026-07-05 02:30Z and a successful DB pull 2026-07-06T04:00-04:00:54Z (trade_journal.db 420MB, signal_audit.jsonl 788871 lines) -- no new OOM signature visible in the tail pulled. Could not confirm end-to-end whether the 2026-07-05 MemoryHigh/MemoryMax containment fix has been cleanly verified across a full nightly cycle post-fix (the service's last recorded ExecMainStatus is 15, which is a plain SIGTERM -- consistent with a manual/deploy-triggered stop, not necessarily a fresh OOM). Left open pending a direct post-nightly-cycle status check (next timer fire ~00:57Z)."
         }
       ]
     },
@@ -1403,5 +1408,5 @@
       ]
     }
   ],
-  "updated_at": "2026-07-06T14:45:00+00:00"
+  "updated_at": "2026-07-06T15:40:00+00:00"
 }

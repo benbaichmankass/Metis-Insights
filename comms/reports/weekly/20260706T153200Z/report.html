@@ -1,0 +1,137 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — weekly</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — weekly</h1>
+<p class="meta">Generated 2026-07-06T15:32:00+00:00 · window 2026-06-29T15:32:00+00:00 → 2026-07-06T15:32:00+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>First-ever WEEKLY-window /system-review (no prior weekly report to diff against). The trader restarted recently (bot_uptime_s=1474 at snapshot time, git_sha 9cc460bf matching the latest merged commit) and is heartbeating normally. All probeable real-money/paper accounts (bybit_1, bybit_2, alpaca_paper, alpaca_options_paper, alpaca_live, oanda_practice) read reachable; ib_paper is declared live but its broker-side position probe returned null at snapshot time -- flagged, not yet confirmed as a sustained outage (see flags). The relay allowlist was missing exit-ladder/allocator/fc-geometry soak endpoints and the pnl/history alias -- fixed in this branch, but since the vm-diag-snapshot workflow runs off main, those three soaks could not be read this session (fix needs to merge first). Shadow-model fleet: 37 (model_id, stage) combinations logging, one already at advisory (btc-regime-15m-lgbm-v2) showing stable/no-drift scores -- healthy, hold. The highest-volume shadow candidate (btc-regime-5m-lgbm-v2, 14.2k observations) shows SIGNIFICANT KS/moderate PSI score drift week-over-week -- do not promote until the drift is investigated. Conviction-sizing (Design-B) soak is accruing normally in annotate-only mode. Full order-package grading and per-trade dossiers could not be completed this session -- the /api/diag/journal trades pull truncates at 55KB per relay message vs a 650KB payload, so the grader script never received the full closed-trade set. ML training-cycle health from the trainer VM could not be read (sqlite3 CLI absent, and the python3 sqlite3 fallback hit &#x27;unable to open database file&#x27; -- a path/permissions issue on the trainer VM, not yet root-caused).</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Merge this PR (relay allowlist fix)</b> <span class="pill">health · T1</span><br><span class='muted'>vm-diag-snapshot allowlist was missing exit-ladder/allocator/fc-geometry soak + pnl/history; fixed locally, needs merge to take effect for future soak reads.</span></li>
+<li><b>Investigate btc-regime-5m-lgbm-v2 score drift before promotion</b> <span class="pill">ml · T3</span> ⚠️ operator<br><span class='muted'>14.2k-observation shadow candidate shows significant KS/moderate PSI drift week-over-week -- do not promote on volume alone.</span></li>
+<li><b>Confirm ib_paper reachability</b> <span class="pill">health · T1</span><br><span class='muted'>Declared-live account read positions=null at probe time; could not cross-check the reachability latch state this session.</span></li>
+<li><b>Fix the diag-relay trades-pull truncation blocking weekly grading</b> <span class="pill">performance · T1</span><br><span class='muted'>/api/diag/journal?table=trades truncates at 55KB vs a 650KB payload -- no closed trades were graded this week as a result.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">70 open / 179 total · 1 drained</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">39 open / 58 total</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">28 open / 65 total</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>ml</span> No promotion proposed this session -- btc-regime-5m-lgbm-v2 flagged HOLD pending drift investigation, not a promotion ask.</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>The relay-allowlist gap (health) directly blocked the ml-review&#x27;s soak-coverage mandate (exit-ladder/allocator/fc-geometry) -- same root cause, filed once.</li>
+<li>The DIAG_BASE_URL stale-env backlog item (BL-20260705-ENV-DIAG-BASE-URL-STALE) remains open and was reconfirmed again this session -- it only blocks direct HTTP, not the relay, so it did not block this review, but every session pays the relay-latency tax until an operator fixes the cloud-environment setting.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟡 caution</span></h2>
+<p class="section-empty">No health findings in this report.</p>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">—</div></div>
+</div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">—</div></div>
+</div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">—</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">0 full dossiers, 0 summarized (outliers-only (weekly/monthly)).</p>
+<p class="section-empty">No trades in this window.</p>
+<h2>Market context</h2>
+<p class="section-empty">No market context captured.</p>
+<h2>ML / models <span class="grade">🟡 caution</span></h2>
+<p class="section-empty">No model status in this report.</p>
+<h3>Promotion / demotion recommendations (Tier-3)</h3><ul class='pri'>
+<li>— <b>btc-regime-15m-lgbm-v2</b> —→—: drift verdict minor/no_change, KS=0.073, PSI=0.015, n=722 current-window/951 lifetime -- stable at advisory.</li>
+<li>— <b>btc-regime-5m-lgbm-v2</b> —→—: n=14202 lifetime (highest-volume shadow candidate) but drift verdict significant/moderate (KS=0.222, PSI=0.215); score mean shifted 0.949-&gt;0.982 week-over-week. Volume alone is not sufficient evidence.</li>
+</ul>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li class='muted'>Not freshly assessed with per-strategy M7 review-packet pulls this session (time spent on the ML soak/promotion mandate + account-reachability + grading gaps per the operator&#x27;s explicit ask). No KILL/DEMOTE signal surfaced in what WAS pulled (heartbeat healthy, no strategy-silence visible in the truncated audit tail). All HOLD by default; deferred to next review with explicit per-strategy pulls.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">True</div></div>
+</div>
+<p class='muted'>Partial: journalctl tail shows clean manifest_ok/manifest_audit_flagged rows through 2026-07-05 02:30Z and a successful live-DB pull 2026-07-06T04:00Z (420MB journal, 788871 audit lines). Could not confirm the 2026-07-05 OOM-containment fix (MemoryHigh/MemoryMax) survived a full nightly cycle post-fix -- next timer fire ~00:57Z is the check.</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>shadow_models (btc-regime-15m-lgbm-v2, advisory)</td><td>accruing</td><td>n=722 current-window/951 lifetime; drift minor/no_change -- healthy, hold at advisory.</td></tr>
+<tr><td>shadow_models (btc-regime-5m-lgbm-v2, shadow)</td><td>accruing</td><td>n=1986 current-window/14202 lifetime; drift significant/moderate -- accruing volume but do not promote yet.</td></tr>
+<tr><td>conviction_sizing (Design-B, annotate-only)</td><td>accruing</td><td>142KB log, oldest record 2026-06-18, still logging would_be_size decisions.</td></tr>
+<tr><td>exit_ladder</td><td>stalled</td><td>Not a real soak stall -- relay-allowlist gap blocked the read this session (fix committed, needs merge).</td></tr>
+<tr><td>allocator</td><td>stalled</td><td>Same relay-allowlist gap as exit_ladder.</td></tr>
+<tr><td>fc_geometry</td><td>stalled</td><td>Same relay-allowlist gap as exit_ladder.</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 ib_paper is a declared-live account (status.live.ib_paper=true) whose broker-side exchange_positions probe returned null at snapshot time (2026-07-06T15:33Z) -- could not cross-check against the account-reachability latch state (runtime_logs/account_reachability_alert_state.json) this session, so this is raised as an open flag, not a confirmed sustained DOWN.</li><li>🚩 btc-regime-5m-lgbm-v2 (shadow, highest observation count of any non-advisory model) shows significant score-distribution drift week-over-week -- do not let volume alone drive a promotion decision here.</li><li>🚩 The vm-diag-snapshot relay allowlist gap (exit-ladder/allocator/fc-geometry soak + pnl/history) blocked three of the mandatory soak reads this session -- fixed in this branch, needs merge to take effect.</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>btc-regime-5m-lgbm-v2-drift</code></td><td>ml</td><td>⏳ soaking</td><td>Significant KS/moderate PSI score drift week-over-week on the highest-volume shadow candidate; re-check drift verdict next review before considering promotion.</td><td>next /system-review or /ml-review drift re-pull</td></tr>
+<tr><td><code>ib_paper-reachability</code></td><td>health</td><td>🧱 awaiting-data</td><td>exchange_positions probe returned null for ib_paper at snapshot time; could not confirm against the reachability-alert latch state this session.</td><td>next diag pull of runtime_logs/account_reachability_alert_state.json</td></tr>
+<tr><td><code>conviction-sizing-soak</code></td><td>ml</td><td>⏳ soaking</td><td>Design-B conviction-sizing soak (annotate-only) accruing since 2026-06-18, 142KB log, no gate-check due yet per CLAUDE.md (symmetric apply already failed the backtest gate; reductive apply not yet evaluated).</td><td>next backtest A/B evidence run for reductive conviction sizing</td></tr>
+</table></div>
+<footer>report_id RPT-20260706-153200-weekly · reviewer claude · prior — · ICT Trading Bot system-report</footer></div></body></html>

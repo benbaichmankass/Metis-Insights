@@ -1,0 +1,312 @@
+{
+  "report_id": "RPT-20260706-153200-weekly",
+  "reviewed_at": "2026-07-06T15:32:00+00:00",
+  "reviewer": "claude",
+  "window": "weekly",
+  "window_start": "2026-06-29T15:32:00+00:00",
+  "window_end": "2026-07-06T15:32:00+00:00",
+  "prior_report_id": null,
+  "overall_assessment": "caution",
+  "health": {
+    "overall_assessment": "caution",
+    "summary": "Trader heartbeat healthy (49s age), recent restart (uptime 1474s, git_sha 9cc460bf). All probeable declared-live accounts reachable except ib_paper (positions=null at probe time, unconfirmed vs the reachability latch). vm-diag-snapshot relay allowlist was missing exit-ladder/allocator/fc-geometry soak + pnl/history -- fixed this session (branch-local, not yet merged).",
+    "flags": [
+      "ib_paper exchange_positions probe returned null despite status.live.ib_paper=true -- unconfirmed sustained-down vs transient cold-connect miss.",
+      "relay allowlist gap blocked 3 soak endpoints + pnl/history alias -- fix committed, needs merge."
+    ],
+    "backlog_drained_this_run": [
+      "BL-20260607-006"
+    ],
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "degraded": true,
+    "degraded_reason": "Full /api/diag/snapshot payload truncated (55KB relay cap vs 1.54MB actual) -- vm_health/services/full order_packages/trades sections not read this session; account-reachability latch state file not fetched."
+  },
+  "performance": {
+    "overall_assessment": "caution",
+    "summary": "Order-package grading COULD NOT complete this session: /api/diag/journal?table=trades truncates at 55KB per relay message vs a 650KB actual payload, so scripts/ops/grade_closed_trades_from_diag.py never received the full closed-trade set for the window. No grades were written this run -- comms/claude_strategy_scores.jsonl is UNCHANGED. This is a genuine grading-freshness gap, disclosed rather than papered over.",
+    "grading_freshness": {
+      "ran_this_session": false,
+      "reason": "relay message-size truncation (55KB cap vs 650KB payload); needs a paginated/smaller-limit pull or workflow_dispatch artifact retrieval as a follow-up"
+    },
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "degraded": true,
+    "degraded_reason": "See grading_freshness above."
+  },
+  "ml": {
+    "overall_assessment": "caution",
+    "summary": "37 (model_id,stage) rows logging via shadow/stats. btc-regime-15m-lgbm-v2 (advisory, n=951) drift verdict minor/no_change -- healthy hold. btc-regime-5m-lgbm-v2 (shadow, n=14202, highest-volume non-advisory candidate) drift verdict significant/moderate (KS=0.222, PSI=0.215) -- do not promote on volume alone; investigate the drift first. Conviction-sizing (Design-B) soak accruing normally, annotate-only. exit-ladder/allocator/fc-geometry soaks UNAVAILABLE this session (relay allowlist gap). Trainer training-cycle health PARTIALLY confirmed via journalctl (clean through 2026-07-05, successful DB pull 07-06T04:00Z) but ict-trainer.service currently reads is-active=failed (SIGTERM) -- not yet confirmed whether the OOM-containment fix survived a full post-fix nightly cycle.",
+    "shadow_models_tracked": 37,
+    "promotion_recommendations": [
+      {
+        "model_id": "btc-regime-15m-lgbm-v2",
+        "stage": "advisory",
+        "recommendation": "HOLD",
+        "evidence": "drift verdict minor/no_change, KS=0.073, PSI=0.015, n=722 current-window/951 lifetime -- stable at advisory."
+      },
+      {
+        "model_id": "btc-regime-5m-lgbm-v2",
+        "stage": "shadow",
+        "recommendation": "HOLD -- do not promote",
+        "evidence": "n=14202 lifetime (highest-volume shadow candidate) but drift verdict significant/moderate (KS=0.222, PSI=0.215); score mean shifted 0.949->0.982 week-over-week. Volume alone is not sufficient evidence."
+      }
+    ],
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "degraded": true,
+    "degraded_reason": "exit-ladder/allocator/fc-geometry soaks unreachable via relay this session (allowlist fix committed, not yet merged). Direct sqlite3 table queries (training_cycle/model_registry/dataset_builds) failed on the trainer VM (no sqlite3 CLI; python3 sqlite3 fallback got 'unable to open database file'), but a journalctl-based check confirms the trainer service ran cleanly through 2026-07-05 02:30Z with a successful DB pull 2026-07-06T04:00Z; service is currently is-active=failed (SIGTERM, not confirmed OOM) with its timer still enabled -- see review_coverage.ml_training_health."
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "First-ever WEEKLY-window /system-review (no prior weekly report to diff against). The trader restarted recently (bot_uptime_s=1474 at snapshot time, git_sha 9cc460bf matching the latest merged commit) and is heartbeating normally. All probeable real-money/paper accounts (bybit_1, bybit_2, alpaca_paper, alpaca_options_paper, alpaca_live, oanda_practice) read reachable; ib_paper is declared live but its broker-side position probe returned null at snapshot time -- flagged, not yet confirmed as a sustained outage (see flags). The relay allowlist was missing exit-ladder/allocator/fc-geometry soak endpoints and the pnl/history alias -- fixed in this branch, but since the vm-diag-snapshot workflow runs off main, those three soaks could not be read this session (fix needs to merge first). Shadow-model fleet: 37 (model_id, stage) combinations logging, one already at advisory (btc-regime-15m-lgbm-v2) showing stable/no-drift scores -- healthy, hold. The highest-volume shadow candidate (btc-regime-5m-lgbm-v2, 14.2k observations) shows SIGNIFICANT KS/moderate PSI score drift week-over-week -- do not promote until the drift is investigated. Conviction-sizing (Design-B) soak is accruing normally in annotate-only mode. Full order-package grading and per-trade dossiers could not be completed this session -- the /api/diag/journal trades pull truncates at 55KB per relay message vs a 650KB payload, so the grader script never received the full closed-trade set. ML training-cycle health from the trainer VM could not be read (sqlite3 CLI absent, and the python3 sqlite3 fallback hit 'unable to open database file' -- a path/permissions issue on the trainer VM, not yet root-caused).",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Merge this PR (relay allowlist fix)",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "vm-diag-snapshot allowlist was missing exit-ladder/allocator/fc-geometry soak + pnl/history; fixed locally, needs merge to take effect for future soak reads.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 2,
+        "title": "Investigate btc-regime-5m-lgbm-v2 score drift before promotion",
+        "source_review": "ml",
+        "tier": 3,
+        "detail": "14.2k-observation shadow candidate shows significant KS/moderate PSI drift week-over-week -- do not promote on volume alone.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 3,
+        "title": "Confirm ib_paper reachability",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "Declared-live account read positions=null at probe time; could not cross-check the reachability latch state this session.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 4,
+        "title": "Fix the diag-relay trades-pull truncation blocking weekly grading",
+        "source_review": "performance",
+        "tier": 1,
+        "detail": "/api/diag/journal?table=trades truncates at 55KB vs a 650KB payload -- no closed trades were graded this week as a result.",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "The relay-allowlist gap (health) directly blocked the ml-review's soak-coverage mandate (exit-ladder/allocator/fc-geometry) -- same root cause, filed once.",
+      "The DIAG_BASE_URL stale-env backlog item (BL-20260705-ENV-DIAG-BASE-URL-STALE) remains open and was reconfirmed again this session -- it only blocks direct HTTP, not the relay, so it did not block this review, but every session pays the relay-latency tax until an operator fixes the cloud-environment setting."
+    ],
+    "tier3_proposals_pending": [
+      {
+        "source_review": "ml",
+        "summary": "No promotion proposed this session -- btc-regime-5m-lgbm-v2 flagged HOLD pending drift investigation, not a promotion ask.",
+        "tier": 3
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "btc-regime-5m-lgbm-v2-drift",
+        "domain": "ml",
+        "category": "soaking",
+        "detail": "Significant KS/moderate PSI score drift week-over-week on the highest-volume shadow candidate; re-check drift verdict next review before considering promotion.",
+        "since": "2026-07-06",
+        "next_check": "next /system-review or /ml-review drift re-pull"
+      },
+      {
+        "item_id": "ib_paper-reachability",
+        "domain": "health",
+        "category": "awaiting-data",
+        "detail": "exchange_positions probe returned null for ib_paper at snapshot time; could not confirm against the reachability-alert latch state this session.",
+        "since": "2026-07-06",
+        "next_check": "next diag pull of runtime_logs/account_reachability_alert_state.json"
+      },
+      {
+        "item_id": "conviction-sizing-soak",
+        "domain": "ml",
+        "category": "soaking",
+        "detail": "Design-B conviction-sizing soak (annotate-only) accruing since 2026-06-18, 142KB log, no gate-check due yet per CLAUDE.md (symmetric apply already failed the backtest gate; reductive apply not yet evaluated).",
+        "since": "2026-06-18",
+        "next_check": "next backtest A/B evidence run for reductive conviction sizing"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [],
+        "summary": "Not freshly assessed with per-strategy M7 review-packet pulls this session (time spent on the ML soak/promotion mandate + account-reachability + grading gaps per the operator's explicit ask). No KILL/DEMOTE signal surfaced in what WAS pulled (heartbeat healthy, no strategy-silence visible in the truncated audit tail). All HOLD by default; deferred to next review with explicit per-strategy pulls."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": null,
+        "dataset_builds_ok": true,
+        "failing_or_stuck": [
+          "ict-trainer.service currently is-active=failed (ExecMainStatus=15/SIGTERM -- consistent with a stop/deploy, not necessarily a fresh OOM); timer is enabled+active."
+        ],
+        "summary": "Partial: journalctl tail shows clean manifest_ok/manifest_audit_flagged rows through 2026-07-05 02:30Z and a successful live-DB pull 2026-07-06T04:00Z (420MB journal, 788871 audit lines). Could not confirm the 2026-07-05 OOM-containment fix (MemoryHigh/MemoryMax) survived a full nightly cycle post-fix -- next timer fire ~00:57Z is the check."
+      },
+      "soak_status": [
+        {
+          "soak": "shadow_models (btc-regime-15m-lgbm-v2, advisory)",
+          "state": "accruing",
+          "detail": "n=722 current-window/951 lifetime; drift minor/no_change -- healthy, hold at advisory."
+        },
+        {
+          "soak": "shadow_models (btc-regime-5m-lgbm-v2, shadow)",
+          "state": "accruing",
+          "detail": "n=1986 current-window/14202 lifetime; drift significant/moderate -- accruing volume but do not promote yet."
+        },
+        {
+          "soak": "conviction_sizing (Design-B, annotate-only)",
+          "state": "accruing",
+          "detail": "142KB log, oldest record 2026-06-18, still logging would_be_size decisions."
+        },
+        {
+          "soak": "exit_ladder",
+          "state": "stalled",
+          "detail": "Not a real soak stall -- relay-allowlist gap blocked the read this session (fix committed, needs merge)."
+        },
+        {
+          "soak": "allocator",
+          "state": "stalled",
+          "detail": "Same relay-allowlist gap as exit_ladder."
+        },
+        {
+          "soak": "fc_geometry",
+          "state": "stalled",
+          "detail": "Same relay-allowlist gap as exit_ladder."
+        }
+      ],
+      "flags_raised": [
+        "ib_paper is a declared-live account (status.live.ib_paper=true) whose broker-side exchange_positions probe returned null at snapshot time (2026-07-06T15:33Z) -- could not cross-check against the account-reachability latch state (runtime_logs/account_reachability_alert_state.json) this session, so this is raised as an open flag, not a confirmed sustained DOWN.",
+        "btc-regime-5m-lgbm-v2 (shadow, highest observation count of any non-advisory model) shows significant score-distribution drift week-over-week -- do not let volume alone drive a promotion decision here.",
+        "The vm-diag-snapshot relay allowlist gap (exit-ladder/allocator/fc-geometry soak + pnl/history) blocked three of the mandatory soak reads this session -- fixed in this branch, needs merge to take effect."
+      ],
+      "account_reachability": {
+        "declared_live_accounts_checked": [
+          "bybit_1",
+          "bybit_2",
+          "alpaca_live",
+          "alpaca_paper",
+          "alpaca_options_paper",
+          "oanda_practice",
+          "ib_paper"
+        ],
+        "excluded_by_design": [
+          "ib_live (shelved, dry)",
+          "breakout_1 (no broker API, manual bridge)"
+        ],
+        "results": {
+          "bybit_1": "reachable (5 open positions read via /api/diag/exchange_positions; api_ok=true on balances)",
+          "bybit_2": "reachable (3 open positions read; api_ok=true)",
+          "alpaca_live": "reachable (1 open position read; api_ok=true; note: balance is a structurally-small $150 -- a known, operator-accepted sizing constraint per prior reports, not a new finding)",
+          "alpaca_paper": "reachable (7 open positions read; api_ok=true)",
+          "alpaca_options_paper": "reachable (0 open positions -- genuinely flat; api_ok=true)",
+          "oanda_practice": "reachable (api_ok=true; open_positions field null on the balances endpoint, not probed via exchange_positions this session -- oanda_practice is excluded from the mandatory declared-live set per its dry/shelved status in CLAUDE.md, included here only because status.live showed it False so no live probe was owed)",
+          "ib_paper": "UNREACHABLE at probe time (exchange_positions positions=null) despite status.live.ib_paper=true and a fresh cached balance (api_ok=true, ts 2026-07-06T15:08Z) -- see flags_raised."
+        }
+      },
+      "backlog_drive": {
+        "drained": {
+          "health": [
+            "BL-20260607-006 (added the missing 2026-06-07 closeout row to ARCHITECTURE-CANONICAL.md's Change log)"
+          ]
+        },
+        "deferred": {
+          "health": "Remaining ~65-70 open health items are a mix of Tier-2/3 (operator-gated: e.g. BL-20260628-SEC-HARDENING-FOLLOWUPS, BL-20260627-OPTIONS-SEPARATE-ACCT), genuinely-soaking verifications (BL-20260624-MHG-CLOSE-CONFIRM-VERIFY, BL-20260629-INTENT-REDUCE-CHURN-VERIFY), Tier-3 doc-only items riding a strategies.yaml touch that hasn't happened yet (BL-20260611-004, BL-20260527-002), and VM-side items this sandbox session cannot execute (BL-20260629-DEVNULL-* infra fixes, BL-20260614-HEALTHSNAP-PY). None were skipped for lack of time to look -- each was reviewed and left open with the reason above.",
+          "performance": "Not drained this session -- time was spent on the ML soak/promotion mandate (the operator's explicit ask) and the relay/grading gaps; the performance backlog needs its own pass next session.",
+          "ml": "Not actively drained beyond what surfaced during the soak review (no new ml-backlog items closed this session; the sqlite3-on-trainer gap was not yet filed as its own item -- see note below, will file if this doesn't get picked up next session)."
+        }
+      }
+    },
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "trades": null,
+        "wins": null,
+        "win_rate": null,
+        "expectancy": null,
+        "profit_factor": null,
+        "max_drawdown": null,
+        "per_strategy": [],
+        "per_asset_class": {},
+        "equity_curve": []
+      },
+      "paper": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "trades": null,
+        "wins": null,
+        "win_rate": null,
+        "expectancy": null,
+        "profit_factor": null,
+        "max_drawdown": null,
+        "per_strategy": [],
+        "per_asset_class": {},
+        "equity_curve": []
+      },
+      "prop": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "fills_reported": null,
+        "tickets_emitted": null,
+        "unacted_tickets": null,
+        "rule_distance": {
+          "daily_loss_remaining": null,
+          "static_dd_remaining": null
+        },
+        "per_account": []
+      },
+      "_note": "UNAVAILABLE this session -- /api/bot/performance and /api/pnl/history were not pulled via the relay due to time; the trades-table relay truncation (see performance sub-review) already signalled the same underlying constraint. Not fabricated as zero."
+    },
+    "market_context": [],
+    "trade_dossiers": [],
+    "dossier_coverage": {
+      "window": "weekly",
+      "full_dossiers": 0,
+      "summarized_trades": 0,
+      "rule": "outliers-only (weekly/monthly)",
+      "note": "UNAVAILABLE this session -- trades/closed + order-packages joins were not pulled; the /api/diag/journal?table=trades truncation already blocked grading, and no additional relay round-trip was spent re-pulling a filtered dossier set given the time already spent on the ML soak mandate. Genuine gap, not a zero-trade week."
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 179,
+        "open": 70,
+        "resolved": 109,
+        "drained": 1
+      },
+      "performance": {
+        "total": 58,
+        "open": 39,
+        "resolved": 19,
+        "drained": 0
+      },
+      "ml": {
+        "total": 65,
+        "open": 28,
+        "resolved": 37,
+        "drained": 0
+      }
+    }
+  },
+  "artifacts": {
+    "json_path": "comms/reports/weekly/20260706T153200Z/report.json",
+    "html_path": "comms/reports/weekly/20260706T153200Z/report.html",
+    "md_path": "comms/reports/weekly/20260706T153200Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/weekly/20260706T153200Z/report.html",
+    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260706-153200-weekly"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "pending-pings.jsonl",
+    "priority": "normal",
+    "message": "[system-report:weekly] roll-up caution: H:caution P:caution M:caution. https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260706-153200-weekly"
+  },
+  "_first_weekly_report": true
+}
