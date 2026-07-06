@@ -102,3 +102,23 @@ class TestTrainingManifest:
 
 def test_valid_deployment_stages_distinct():
     assert len(set(VALID_DEPLOYMENT_STAGES)) == len(VALID_DEPLOYMENT_STAGES)
+
+
+class TestDatasetBuildParams:
+    def test_dataset_build_params_roundtrips(self):
+        ds = {
+            "family": "market_sequences",
+            "symbol_scope": "BTCUSDT",
+            "timeframe": "15m",
+            "version": "v001",
+            "build_params": {"vol_threshold": 0.003},
+        }
+        m = TrainingManifest.from_dict(_payload(dataset=ds))
+        assert m.dataset.build_params == {"vol_threshold": 0.003}
+        assert m.to_dict()["dataset"]["build_params"] == {"vol_threshold": 0.003}
+        assert TrainingManifest.from_dict(m.to_dict()) == m
+
+    def test_dataset_build_params_defaults_none_and_absent(self):
+        m = TrainingManifest.from_dict(_payload())
+        assert m.dataset.build_params is None
+        assert "build_params" not in m.to_dict()["dataset"]
