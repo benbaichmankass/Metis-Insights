@@ -647,6 +647,7 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
     # global directly for the run (and restore it on teardown) so the
     # backtest-local policy actually drives ``would_gate``.
     _prev_policy_path = {"set": False, "value": None}
+    _prev_gate_hooks: Dict[str, Any] = {}
 
     def _clear_intents_policy_cache() -> None:
         try:
@@ -667,10 +668,43 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                 _pol._REGIME_POLICY_PATH = _prev_policy_path["value"]
             except Exception:  # noqa: BLE001
                 pass
+        if _prev_gate_hooks:
+            try:
+                import src.runtime.intents as _im
+                _im._decision_vol_regime = _prev_gate_hooks["decision"]
+                _im._emit_ml_vol_shadow_rows = _prev_gate_hooks["shadow_rows"]
+            except Exception:  # noqa: BLE001
+                pass
         _clear_intents_policy_cache()
 
     if regime_router == "on":
         _set_env("REGIME_ROUTER_ENABLED", "1")
+        # Vol-axis enforce for the offline replay (BL-20260706-VOLGATE-REPLAY):
+        # since the #4896 ML-only-enforce guard, the live hard gate drops a
+        # trend_vol OFF-cell only when REGIME_ML_VERDICT_MODE=use AND the LIVE
+        # per-symbol advisory resolver returns a concrete calm/volatile. Neither
+        # holds in a backtest (no live bar cache; the studied heads are often
+        # pre-advisory), so a `--regime-router on` run silently stopped gating
+        # vol cells — every A/B arm came back identical to ungated (caught
+        # 2026-07-06 on the ETH/SOL evidence runs). The replay's contract is
+        # that the label THIS RUN stamps on each intent (frozen or ML per
+        # --vol-verdict) IS the decision label, so trust it: set the mode env
+        # in-process and point the gate's decision hook at the stamped label.
+        # Both are restored on teardown; the 1-D trend axis is unchanged.
+        _set_env("REGIME_ML_VERDICT_MODE", "use")
+        try:
+            import src.runtime.intents as _im
+
+            def _stamped_decision(intent, mode):  # noqa: ANN001 — mirror live signature
+                v = getattr(intent, "vol_regime", None)
+                return v, v, v, "backtest-stamped"
+
+            _prev_gate_hooks["decision"] = _im._decision_vol_regime
+            _prev_gate_hooks["shadow_rows"] = _im._emit_ml_vol_shadow_rows
+            _im._decision_vol_regime = _stamped_decision
+            _im._emit_ml_vol_shadow_rows = lambda c: None
+        except Exception:  # noqa: BLE001 — replay degrades to trend-axis-only
+            pass
     else:
         # The live regime router is BASELINE-ON (baseline-on + REGIME_ROUTER_DISABLED
         # kill-switch, since the Design-A vol-gate go-live). A backtest must NOT

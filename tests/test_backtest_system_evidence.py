@@ -267,3 +267,45 @@ def test_active_fmt_shows_evidence_footer(monkeypatch):
     out = _run(base, conviction_sizing=True)
     text = bs._fmt(out)
     assert "evidence layer" in text
+
+
+# ---------------------------------------------------------------------------
+# (h) --regime-router on enforces the 2-D trend_vol OFF-cells on the STAMPED
+#     vol label (BL-20260706-VOLGATE-REPLAY). Post-#4896 the live hard gate
+#     vol-enforces only on a live-resolved ML label, which never exists
+#     offline — the replay must trust the label the run stamped instead, or
+#     every vol-cell A/B arm silently equals ungated (the 2026-07-06 ETH/SOL
+#     evidence-session regression).
+# ---------------------------------------------------------------------------
+def test_regime_router_on_enforces_trend_vol_cell_on_stamped_label(
+        monkeypatch, tmp_path):
+    base = _inject_stream(monkeypatch)
+    # Force a concrete stamped vol label (the synthetic climb yields 'unknown'
+    # from the real frozen detector, which is correctly never gated).
+    monkeypatch.setattr(bs, "_frozen_vol_regime_for_window",
+                        lambda *a, **k: "calm")
+    policy = tmp_path / "local_policy.yaml"
+    policy.write_text(
+        "schema_version: 2\n"
+        "trend_vol:\n"
+        "  trending:\n"
+        "    calm:\n"
+        "      trend_donchian:\n"
+        "        long: off\n"
+    )
+
+    ungated = _run(base, vol_verdict="frozen")
+    gated = _run(base, regime_router="on", regime_policy_path=str(policy),
+                 vol_verdict="frozen")
+
+    assert ungated["total_trades"] >= 1
+    # The vol cell must drop every trending|calm|long trend_donchian intent.
+    assert gated["total_trades"] == 0
+
+    # Teardown restored the in-process gate hooks + env.
+    import os
+
+    import src.runtime.intents as im
+    assert os.environ.get("REGIME_ML_VERDICT_MODE") is None
+    assert im._decision_vol_regime.__name__ == "_decision_vol_regime"
+    assert im._emit_ml_vol_shadow_rows.__name__ == "_emit_ml_vol_shadow_rows"
