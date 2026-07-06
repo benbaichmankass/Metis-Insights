@@ -66,28 +66,28 @@ echo ">>> Pre-sync HEAD: ${PRE_SYNC_HEAD}"
 echo ">>> Fetching latest from origin..."
 # BL-20260706-GITSYNC-AUTH-BROKEN: the repo went private 2026-07-06, so the
 # plain anonymous HTTPS fetch this script relied on since inception no longer
-# authenticates (git falls back to an interactive username prompt, which
-# fails headless: "could not read Username for 'https://github.com'"). If a
-# fine-grained, Contents:Read-only PAT is available, authenticate via an
-# inline Basic-auth header (the same mechanism actions/checkout uses for
-# GITHUB_TOKEN) so the token never touches .git/config or `git remote -v`
-# output. Falls back to a plain fetch when unset — a no-op today, and the
-# safe default if the repo is ever made public again.
+# authenticates ("could not read Username for 'https://github.com'"). The
+# credential lives in a GLOBAL git config value
+# (http.https://github.com/.extraheader, a Basic-auth header built from a
+# fine-grained Contents:Read-only PAT) set once by the one-shot
+# vm-git-credential-bootstrap.yml workflow — NOT per-invocation here.
 #
-# The systemd unit (ict-git-sync.service) already exports this via its
-# EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env; a direct SSH/
-# pull-and-deploy invocation does not source .env automatically, so fall
-# back to reading just this one line if it isn't already in the environment.
-# A targeted grep (not a full `source .env`) sidesteps the multi-line-value
-# hazard other .env entries can carry (e.g. FCM_SERVICE_ACCOUNT_JSON).
-if [ -z "${VM_GIT_DEPLOY_TOKEN:-}" ] && [ -f "${REPO_DIR}/.env" ]; then
-    VM_GIT_DEPLOY_TOKEN="$(grep -m1 '^VM_GIT_DEPLOY_TOKEN=' "${REPO_DIR}/.env" | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")"
-fi
-if [ -n "${VM_GIT_DEPLOY_TOKEN:-}" ]; then
-    git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $(printf 'x-access-token:%s' "${VM_GIT_DEPLOY_TOKEN}" | base64 -w0)" fetch --prune origin
-else
-    git fetch --prune origin
-fi
+# An earlier version of this fix attached the SAME header again per-call via
+# `git -c http...extraheader=X fetch`. http.extraheader is a documented
+# MULTI-VALUED git config key, so that -c value ADDED to (never replaced)
+# the already-global one — git sent BOTH as separate Authorization headers,
+# and GitHub's HTTP layer flat-out rejects that: "remote: Duplicate header:
+# Authorization" / 400 (confirmed live, BL-20260706-GITSYNC-AUTH-BROKEN
+# follow-up). A `-c ...extraheader=` (empty) does NOT clear a multi-valued
+# key's other sources either — verified experimentally, not merely assumed.
+# So: exactly ONE source of this credential, ever — the global config —
+# and this script trusts whatever git already knows how to authenticate
+# with, same as before the repo ever went private.
+#
+# Re-provisioning a fresh VM needs vm-git-credential-bootstrap.yml re-run
+# once (its own header explains why) — the global config doesn't survive a
+# fresh clone/home-dir.
+git fetch --prune origin
 
 echo ">>> Hard-resetting to origin/main (VM is a read-only mirror)..."
 git reset --hard origin/main
