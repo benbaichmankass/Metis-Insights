@@ -212,6 +212,19 @@ append packages decided since the last review.
 The retroactive backfiller for historical windows is
 `scripts/ops/score_order_packages.py` — re-use it, do not reinvent.
 
+**Web / PM session (no DB file):** dispatch the **`grade-closed-trades`**
+system-action (Tier-1, `docs/claude/system-actions.md`) instead of pulling the
+whole `trades` table through the diag relay. It runs
+`score_order_packages.py --emit-delta-only` on the VM (where the DB lives) and
+returns only the ungraded delta as NDJSON — bounded and small, unlike a full
+`~650KB` table dump against the relay's `~55KB` comment budget. Append the
+returned rows to `comms/claude_strategy_scores.jsonl` and commit; a truncated
+delta always carries an explicit trailing `{"_delta_summary": ...,
+"truncated": true}` marker, never a silent drop. `scripts/ops/
+grade_closed_trades_from_diag.py` (feed it a `/api/diag/journal?table=trades`
+pull) remains as a documented fallback for when the system-action path itself
+is unavailable.
+
 ## Verification
 
 The whole point of this skill is that scores match reality:

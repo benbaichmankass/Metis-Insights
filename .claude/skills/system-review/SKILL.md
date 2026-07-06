@@ -199,16 +199,34 @@ skip grading. Two paths, by session type:
 - **DB-bearing session (VM / desktop CLI):** run the canonical
   `scripts/ops/score_order_packages.py <trade_journal.db>` — it rewrites the full
   JSONL from the live `order_packages`.
-- **Web / PM session (no DB file, diag relay only):** pull the window's closed
-  trades via `GET /api/diag/journal?table=trades` and run
+- **Web / PM session (no DB file) — PRIMARY path: the `grade-closed-trades`
+  system-action** (added 2026-07-06, see `docs/claude/system-actions.md`).
+  Dispatch it (Tier-1, autonomous) via a labelled `system-action` issue with
+  `action: grade-closed-trades` (+ optional `since:`/`limit:`/`include_open:`).
+  It runs the SAME `_grade_package` rubric on the VM (where the DB already
+  lives) and returns **only the ungraded delta** as NDJSON in the issue-comment
+  reply — a bounded, small payload, unlike pulling the whole `trades` table
+  through the diag relay (a full table runs ~650KB against the relay's ~55KB
+  comment budget, which repeatedly truncated/failed full-window grading before
+  this fix). Append the returned NDJSON rows to
+  `comms/claude_strategy_scores.jsonl` and commit. The response never
+  truncates silently — an oversized delta ends with a trailing
+  `{"_delta_summary": ..., "truncated": true, "more_available": N}` line; raise
+  `limit:` or re-dispatch if you see one.
+- **Web / PM session — documented FALLBACK** (only if `system-actions.yml`
+  itself is unavailable): pull the window's closed trades via
+  `GET /api/diag/journal?table=trades` and run
   **`scripts/ops/grade_closed_trades_from_diag.py <trades.json> --since <window_start>`**
   — it APPENDS one grade per closed trade using the SAME `_grade_package` rubric
   (imported, not re-implemented), and last-occurrence-wins means it supersedes any
   stale open-status grade. (Prop rows are isolated — not in `trades`, not graded
-  here.) Then **commit `comms/claude_strategy_scores.jsonl`.**
+  here.) Then **commit `comms/claude_strategy_scores.jsonl`.** This path is the
+  one that previously hit the diag relay's comment-size wall for anything beyond
+  a tiny window — prefer `grade-closed-trades` above.
   *(The 2026-06-29 incident this fixes: a web-session review skipped grading
   believing it needed live-DB write, shipping a report whose closed trades read
-  ungraded. The diag grader removes that excuse.)*
+  ungraded. The diag grader removed that excuse; the system-action above removes
+  the size-limit wall the diag grader then ran into.)*
 
 Record the roll-up in `consolidated.backlog_summary` — **computed, never
 hand-entered.** Run:

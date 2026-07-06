@@ -107,6 +107,7 @@ on:
           - send-ping
           - send-prop-test-ping
           - generate-strategy-review-packets
+          - grade-closed-trades
           - set-env
           - scrub-env-noncompliant
           - pause-autoheal
@@ -322,6 +323,21 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*print_packets[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Pp]rint_packets[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            # grade-closed-trades params: `since:` is an ISO timestamp,
+            # `limit:` an int (defaults inside the wrapper), `include_open:`
+            # a truthy gate to widen scope beyond closed-only packages.
+            grade_since=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*since[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ss]ince[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
+            grade_limit=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*limit[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ll]imit[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
+            grade_include_open=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*include_open[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ii]nclude_open[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             # bt_mode chosen distinct from `mode:` (which set-account-mode owns).
             # Used by vwap-backtest-sweep to select the run_backtest_vwap flag:
             # compare → --compare, threshold-sweep → --threshold-sweep,
@@ -387,6 +403,9 @@ jobs:
           echo "ACTION_ALL_BTC=${review_all_btc:-}" >>"$GITHUB_ENV"
           echo "ACTION_SHADOW_SOAK_DAYS=${review_shadow_soak_days:-}" >>"$GITHUB_ENV"
           echo "ACTION_PRINT_PACKETS=${review_print_packets:-}" >>"$GITHUB_ENV"
+          echo "ACTION_SINCE=${grade_since:-}" >>"$GITHUB_ENV"
+          echo "ACTION_LIMIT=${grade_limit:-}" >>"$GITHUB_ENV"
+          echo "ACTION_INCLUDE_OPEN=${grade_include_open:-}" >>"$GITHUB_ENV"
           # send-ping / set-env params. ACTION_MESSAGE + ENV_VALUE may
           # contain spaces, so they ride to later steps via $GITHUB_ENV
           # (env, not inline interpolation) for shell safety.
@@ -411,7 +430,7 @@ jobs:
         run: |
           set -euo pipefail
           case "${ACTION}" in
-            status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets)
+            status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
             pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|migrate-closed-at-iso|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|flatten-ib-position|flatten-bybit-position|reconcile-orphan-history|supersede-options-adoption-artifacts|fix-prop-mislinked-close|reset-daily-risk-state)
@@ -636,6 +655,7 @@ jobs:
             bybit-account-audit)                SCRIPT="bybit_account_audit_action.sh" ;;
             strategy-performance-audit)         SCRIPT="strategy_performance_audit_action.sh" ;;
             generate-strategy-review-packets)   SCRIPT="generate_strategy_review_packets_action.sh" ;;
+            grade-closed-trades)                SCRIPT="grade_closed_trades_action.sh" ;;
             monitor-miss-analysis)              SCRIPT="monitor_miss_analysis_action.sh" ;;
             vwap-backtest-sweep)                SCRIPT="vwap_backtest_sweep_action.sh" ;;
             pull-mes-ibkr-history)              SCRIPT="pull_mes_ibkr_history.sh" ;;
@@ -725,6 +745,9 @@ jobs:
           fi
           if [ "${ACTION}" = "generate-strategy-review-packets" ]; then
             REMOTE_CMD="ACTION_STRATEGY=$(printf '%q' "${ACTION_STRATEGY}") ACTION_WINDOW_DAYS=$(printf '%q' "${ACTION_WINDOW_DAYS}") ACTION_ALL_BTC=$(printf '%q' "${ACTION_ALL_BTC}") ACTION_SHADOW_SOAK_DAYS=$(printf '%q' "${ACTION_SHADOW_SOAK_DAYS}") ACTION_PRINT_PACKETS=$(printf '%q' "${ACTION_PRINT_PACKETS}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "grade-closed-trades" ]; then
+            REMOTE_CMD="ACTION_SINCE=$(printf '%q' "${ACTION_SINCE}") ACTION_LIMIT=$(printf '%q' "${ACTION_LIMIT:-300}") ACTION_INCLUDE_OPEN=$(printf '%q' "${ACTION_INCLUDE_OPEN}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "send-ping" ]; then
             REMOTE_CMD="ACTION_MESSAGE=$(printf '%q' "${ACTION_MESSAGE}") ACTION_PRIORITY=$(printf '%q' "${ACTION_PRIORITY:-normal}") ACTION_TARGET=$(printf '%q' "${ACTION_TARGET:-claude}") ${REMOTE_CMD}"
