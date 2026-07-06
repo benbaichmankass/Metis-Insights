@@ -6,9 +6,9 @@
       "id": "BL-20260706-PROP-REPORT-DEVNULL-NOISE",
       "opened_at": "2026-07-06T13:20:00+00:00",
       "opened_by": "claude (order-qty-rounding-issue session; prop ETHUSD close report-back)",
-      "source": "prop-report.yml run 28794297803 (issue #5734) comment: the ingest returned HTTP 200 (success) but the run log showed 'bash: line NN: /dev/null: Permission denied' at four points and '(no response body)' — the endpoint's JSON response ({ok,kind,status,ticket_id,...}) was not echoed back to the issue comment.",
+      "source": "prop-report.yml run 28794297803 (issue #5734) comment: the ingest returned HTTP 200 (success) but the run log showed 'bash: line NN: /dev/null: Permission denied' at four points and '(no response body)' \u2014 the endpoint's JSON response ({ok,kind,status,ticket_id,...}) was not echoed back to the issue comment.",
       "title": "[workflow] prop-report.yml can't write /dev/null on the VM step, so the endpoint response body isn't echoed back (ingest still succeeds)",
-      "description": "The issue-driven prop-report relay (.github/workflows/prop-report.yml, or its VM-side curl wrapper) redirects some output to /dev/null and hit 'Permission denied' four times during the 2026-07-06 ETHUSD close report-back — a symptom of the same OCI host-side /dev/null-clobbering pattern already tracked (BL-20260629-DEVNULL-CLOBBERED-LIVE-VM): /dev/null on the VM is a regular non-writable file, not the char device. Consequence is purely observability: the POST still returned HTTP 200 (so the prop_fills write + ticket-link + prop_closed notification all fired), but the endpoint's JSON response body was swallowed, so the confirmation comment reads '(no response body)' and a future reporter can't see {ok,ticket_id,...}. FIX (Tier-1, cosmetic): (a) capture the curl response body to a tmp file / var instead of relying on /dev/null redirects in the report step, and/or (b) re-assert /dev/null as a char device at the top of the VM step (the mitigation used elsewhere for the DEVNULL class). Verify by re-running a prop-report and confirming the JSON body appears in the comment. Low priority — no data was lost and the 200 is authoritative.",
+      "description": "The issue-driven prop-report relay (.github/workflows/prop-report.yml, or its VM-side curl wrapper) redirects some output to /dev/null and hit 'Permission denied' four times during the 2026-07-06 ETHUSD close report-back \u2014 a symptom of the same OCI host-side /dev/null-clobbering pattern already tracked (BL-20260629-DEVNULL-CLOBBERED-LIVE-VM): /dev/null on the VM is a regular non-writable file, not the char device. Consequence is purely observability: the POST still returned HTTP 200 (so the prop_fills write + ticket-link + prop_closed notification all fired), but the endpoint's JSON response body was swallowed, so the confirmation comment reads '(no response body)' and a future reporter can't see {ok,ticket_id,...}. FIX (Tier-1, cosmetic): (a) capture the curl response body to a tmp file / var instead of relying on /dev/null redirects in the report step, and/or (b) re-assert /dev/null as a char device at the top of the VM step (the mitigation used elsewhere for the DEVNULL class). Verify by re-running a prop-report and confirming the JSON body appears in the comment. Low priority \u2014 no data was lost and the 200 is authoritative.",
       "tier": 1,
       "status": "open",
       "snoozed_until": null,
@@ -52,9 +52,12 @@
       "tier": 1,
       "trigger_condition": "Next workflows/tooling session.",
       "resolution_criteria": "All three paths return JSON via the relay.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [],
+      "resolved_at": "2026-07-06T15:45:00+00:00",
+      "resolved_by": "claude (/system-review weekly 2026-07-06)",
+      "resolution": "Fixed .github/workflows/vm-diag-snapshot.yml: added exit-ladder/soak, allocator/soak, fc-geometry/soak to the /api/bot/ relay allowlist; pnl/history now gets its own upstream_prefix=/api/ (the real route is top-level /api/pnl/history, not /api/bot/pnl/history) instead of 404ing. Not live-VM-verified from this session (workflow-file change only) \u2014 verify on next relay pull that used these paths."
     },
     {
       "id": "BL-20260705-SHADOW-PKG-ORPHAN-STATUS",
@@ -151,7 +154,13 @@
       "resolution_criteria": "A new web session resolves scripts/ops/diag_fetch.sh against the live VM (exit 0).",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-06T15:45:00+00:00",
+          "by": "claude (/system-review weekly 2026-07-06)",
+          "note": "Reconfirmed still stale this session (DIAG_BASE_URL=http://158.178.210.252:8001, the terminated x86 micro). Left open \u2014 fix requires the operator to edit the Claude Code cloud-environment settings, which this session cannot do. All pulls this run used the vm-diag-snapshot/trainer-vm-diag issue relay instead."
+        }
+      ]
     },
     {
       "id": "BL-20260705-IBPAPER-POSITIONS-NULL-WEEKEND",
@@ -825,7 +834,10 @@
       "title": "Consider an ARCHITECTURE-CANONICAL.md Change-log row for the 2026-06-07 closeout (S18 + S16 + S12 Part B + PERF-006 P3)",
       "description": "The arch change log historically captures every persistence-contract change (new table) and every runtime-behaviour-changing kill-switch; the 2026-06-07 closeout adds both (`trade_journal.db::account_context_snapshots` + `REGIME_ROUTER_ENABLED` / `ACCOUNT_CONTEXT_SNAPSHOTS_DISABLED`). Decision deferred at session-end (a) to avoid scope creep on the sprint-log PR; (b) because each row in the log historically lands in its own enabling PR, not in a retroactive doc-only PR. A future `/health-review` should either write one consolidated 2026-06-07 row (citing PR numbers from this session's sprint log) or close this item as not-needed.",
       "tier": 1,
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-07-06T15:52:00+00:00",
+      "resolved_by": "claude (/system-review weekly 2026-07-06)",
+      "resolution": "Added the consolidated 2026-06-07 closeout row to docs/ARCHITECTURE-CANONICAL.md's Change log (S18 champion-challenger orchestrator, S16 ADWIN drift retraining, S12 Part B account_context_snapshots table, PERF-006 Phase 3 regime hard-gate) citing docs/sprint-logs/S-MLOPT-CLOSEOUT-2026-06-07.md."
     },
     {
       "id": "BL-20260607-003",
@@ -2962,7 +2974,7 @@
         }
       ],
       "resolved_at": "2026-07-06T13:10:00+00:00",
-      "resolution": "RESOLVED by the sizing/qty-legalization consolidation (docs/sizing-legalization-DESIGN.md, operator-approved). The recurring root cause — four divergent copies of 'the venue minimum' — was collapsed onto ONE seam, src/units/accounts/qty_legalize.py::legalize_qty, resolving (qty_step, min_qty) from the per-instrument InstrumentProfile (config/instruments.yaml) first, live Bybit lot rule second, passthrough third. Phase 2 wired the seam into the two coordinator guards (sized-qty ~1503, intent-delta ~1900) + the execute._submit_order Bybit pre-flight (#5720). Phase 3 (#5732, merged 581b45e, Tier-3 operator-approved) closed the risk.py::position_size half this item primarily tracked: the non-whole path now resolves eff_min_qty/eff_precision from qty_legalize.instrument_lot(symbol) when 0 < step < 1 (ETHUSDT 0.01, SOLUSDT 0.1), so a risk-based ETH size in [0.001, 0.0099) is now REFUSED per-trade at the sizing layer instead of passing risk.py's own 0.001 account-min. Whole-share sizing stays exchange-gated by whole_units (BL-20260622), never inferred from the instrument; BTC (step 0.001 == account default) unchanged. Tests: tests/test_instrument_min_sizing.py (11), tests/test_qty_legalize.py, tests/test_intent_delta_dispatch.py. Phase 4 (a qty-legalization CI guard forbidding raw-min comparisons outside the seam) is the remaining Tier-1 follow-up to prevent a fifth copy re-appearing."
+      "resolution": "RESOLVED by the sizing/qty-legalization consolidation (docs/sizing-legalization-DESIGN.md, operator-approved). The recurring root cause \u2014 four divergent copies of 'the venue minimum' \u2014 was collapsed onto ONE seam, src/units/accounts/qty_legalize.py::legalize_qty, resolving (qty_step, min_qty) from the per-instrument InstrumentProfile (config/instruments.yaml) first, live Bybit lot rule second, passthrough third. Phase 2 wired the seam into the two coordinator guards (sized-qty ~1503, intent-delta ~1900) + the execute._submit_order Bybit pre-flight (#5720). Phase 3 (#5732, merged 581b45e, Tier-3 operator-approved) closed the risk.py::position_size half this item primarily tracked: the non-whole path now resolves eff_min_qty/eff_precision from qty_legalize.instrument_lot(symbol) when 0 < step < 1 (ETHUSDT 0.01, SOLUSDT 0.1), so a risk-based ETH size in [0.001, 0.0099) is now REFUSED per-trade at the sizing layer instead of passing risk.py's own 0.001 account-min. Whole-share sizing stays exchange-gated by whole_units (BL-20260622), never inferred from the instrument; BTC (step 0.001 == account default) unchanged. Tests: tests/test_instrument_min_sizing.py (11), tests/test_qty_legalize.py, tests/test_intent_delta_dispatch.py. Phase 4 (a qty-legalization CI guard forbidding raw-min comparisons outside the seam) is the remaining Tier-1 follow-up to prevent a fifth copy re-appearing."
     },
     {
       "id": "BL-20260629-ALPACA-NAKED-BRACKET",
@@ -3176,8 +3188,11 @@
       "title": "docs/runbooks/spot-margin.md still describes the REMOVED MONITOR_RECONCILE_ENABLED gate as an active env toggle (4+ mentions)",
       "description": "MONITOR_RECONCILE_ENABLED was removed 2026-06-15 (BL-20260615-MGCNAKED) - the monitor reconciler is unconditional baseline and a leftover env value is ignored. The spot-margin runbook (lines ~102/225/268/327) still instructs keeping it =true in the deployed .env and warns against disabling it. Pre-existing drift, not this session's change; the canonical-doc-coherence CI guard does not scan docs/runbooks/. Fix: annotate those mentions as removed/baseline (Tier-1 doc edit) next time the runbook is touched, or in a health-review drain pass.",
       "tier": "Tier-1 (doc-only)",
-      "status": "open",
-      "snoozed_until": null
+      "status": "resolved",
+      "snoozed_until": null,
+      "resolved_at": "2026-07-06T15:45:00+00:00",
+      "resolved_by": "claude (/system-review weekly 2026-07-06)",
+      "resolution": "Annotated all 4 MONITOR_RECONCILE_ENABLED mentions in docs/runbooks/spot-margin.md (~lines 102/225/268/327) as removed 2026-06-15 (BL-20260615-MGCNAKED) / reconciler now unconditional baseline; no live-path files touched."
     },
     {
       "id": "BL-20260706-VOLGATE-REPLAY",
@@ -3191,5 +3206,5 @@
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-07-06T13:20:00+00:00"
+  "updated_at": "2026-07-06T15:52:00+00:00"
 }
