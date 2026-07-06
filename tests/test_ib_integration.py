@@ -821,6 +821,136 @@ class TestAccountWarmup:
         assert c._account_data_ready is True
 
 
+class _FakePositionContract:
+    """Minimal contract stand-in carrying the fields positions() reads."""
+
+    def __init__(self, symbol, local_symbol, multiplier):
+        self.symbol = symbol
+        self.localSymbol = local_symbol
+        self.multiplier = multiplier
+
+
+class _FakePosition:
+    """Stand-in for ib_insync's ``Position`` namedtuple (reqPositions())."""
+
+    def __init__(self, account, symbol, local_symbol, avg_cost, position, multiplier="1"):
+        self.account = account
+        self.contract = _FakePositionContract(symbol, local_symbol, multiplier)
+        self.avgCost = avg_cost
+        self.position = position
+
+
+class TestReadonlyAccountUpdatesCollision:
+    """BL-20260706-IBACCTUPDATES-COLLISION — a readonly client (diagnostics,
+    the dashboard/reconciler read path) must never subscribe to
+    ``reqAccountUpdates``: it is a persistent per-account subscription the
+    trader's own execution connection already holds, and a second concurrent
+    subscriber for the SAME account is the documented IB-API collision that
+    left the diag read client's warm-up timing out (8s + 8s retry) while the
+    trader's own connection stayed healthy throughout. Readonly clients read
+    positions via ``reqPositions()`` instead — a stateless, one-shot request
+    safe for any number of concurrent clients.
+    """
+
+    def test_readonly_warmup_never_calls_account_updates(self, monkeypatch):
+        import src.units.accounts.ib_client as mod
+
+        monkeypatch.setattr(mod, "_IB_ACCOUNT_WARMUP_TIMEOUT_S", 2.0)
+        monkeypatch.setattr(mod, "_IB_PROBE_RETRY_GAP_S", 0.05)
+
+        class HangsIfSubscribedIB(FakeIB):
+            async def reqAccountSummaryAsync(self):
+                return None
+
+            async def reqAccountUpdatesAsync(self, account):
+                # A second concurrent subscriber for an account the trader's
+                # own connection already holds never gets its data — this
+                # simulates that hang. If the readonly warm-up ever calls
+                # this, the test times out instead of finishing promptly.
+                import asyncio
+
+                await asyncio.sleep(30)
+
+            async def reqPositionsAsync(self):
+                return None
+
+        inj = types.ModuleType("ib_insync")
+        inj.IB = HangsIfSubscribedIB
+        monkeypatch.setitem(sys.modules, "ib_insync", inj)
+
+        c = IBClient(port=4002, client_id=9585, account="DUQ325724", readonly=True)
+        t0 = time.monotonic()
+        ib = c.connect()
+        elapsed = time.monotonic() - t0
+        assert ib is not None
+        assert c._account_data_ready is True
+        assert elapsed < 2.0, (
+            f"readonly warm-up took {elapsed:.1f}s — it must never wait on "
+            "reqAccountUpdates"
+        )
+
+    def test_readonly_positions_uses_req_positions_not_portfolio(self, monkeypatch):
+        import src.units.accounts.ib_client as mod
+
+        monkeypatch.setattr(mod, "_IB_ACCOUNT_WARMUP_TIMEOUT_S", 2.0)
+        monkeypatch.setattr(mod, "_IB_PROBE_RETRY_GAP_S", 0.05)
+
+        class ReqPositionsIB(FakeIB):
+            def __init__(self):
+                super().__init__()
+                self.portfolio_called = False
+
+            async def reqAccountSummaryAsync(self):
+                return None
+
+            async def reqPositionsAsync(self):
+                return None
+
+            def positions(self):
+                return [
+                    # MHG: avgCost 15989.72 = 6.39588 × 2500 multiplier.
+                    _FakePosition("DUQ325724", "MHG", "MHGN6", 15989.72, 3.0, "2500"),
+                    _FakePosition("DUQ325724", "MHG", "MHGN6", 0.0, 0.0, "2500"),  # flat
+                    _FakePosition("OTHERACCT", "ES", "ESZ5", 100.0, 2.0, "50"),   # other acct
+                ]
+
+            def portfolio(self):
+                self.portfolio_called = True
+                raise AssertionError("readonly positions() must not call portfolio()")
+
+        inj = types.ModuleType("ib_insync")
+        inj.IB = ReqPositionsIB
+        monkeypatch.setitem(sys.modules, "ib_insync", inj)
+
+        c = IBClient(port=4002, client_id=9585, account="DUQ325724", readonly=True)
+        out = c.positions()
+        assert out == [{
+            "symbol": "MHG", "side": "long", "size": 3.0,
+            "entry_price": pytest.approx(6.39588, abs=1e-4),
+            "unrealised_pnl": None,  # Position carries no unrealizedPNL
+        }]
+
+    def test_non_readonly_positions_unaffected_still_uses_portfolio(self, monkeypatch):
+        # The trader's own execution connection keeps using portfolio()/
+        # reqAccountUpdates exactly as before — only the readonly diagnostic
+        # path changes.
+        c, fake = _client(readonly=False)
+
+        class _Portfolio:
+            account = "DUQ325724"
+            contract = _FakePositionContract("MES", "MESM6", "5")
+            averageCost = 26500.0
+            position = 1.0
+            unrealizedPNL = 12.5
+
+        fake.portfolio = lambda: [_Portfolio()]
+        out = c.positions()
+        assert out == [{
+            "symbol": "MES", "side": "long", "size": 1.0,
+            "entry_price": 5300.0, "unrealised_pnl": 12.5,
+        }]
+
+
 # ---------------------------------------------------------------------------
 # Connection registry
 # ---------------------------------------------------------------------------

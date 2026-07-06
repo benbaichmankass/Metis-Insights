@@ -107,17 +107,38 @@ _IB_BREAKER_COOLDOWN_S = _env_float("IB_BREAKER_COOLDOWN_S", 120.0)
 # ``reqAccountSummary()`` subscription — it is lazily triggered on first
 # call and, per ``IB.RequestTimeout`` defaulting to ``0`` (unbounded),
 # that first call has NO timeout of its own. Likewise ``portfolio()``
-# (used by :meth:`IBClient.positions`) only fills once ``reqAccountUpdates``
-# has actually been answered; ``ib.connect()``'s own init requests race a
-# silently-swallowed timeout (a slow response there is logged, not raised,
-# and does not fail connect()). So a caller's FIRST balance()/positions()
-# call after a fresh connect — or a reconnect after a silent idle-timeout
-# drop — could race an empty/never-populated cache and misreport "gateway
-# not logged in" even on a perfectly healthy gateway. This bound converts
-# that race into "wait, bounded, for the real data" so every subsequent
-# read is served from an already-warm cache. ``<= 0`` opts out (skips the
-# warm-up entirely, restoring the pre-fix racy behaviour) — the same escape
-# hatch shape as ``IB_PROBE_TIMEOUT_S``.
+# (used by :meth:`IBClient.positions` on the trader's own, non-readonly
+# connection) only fills once ``reqAccountUpdates`` has actually been
+# answered; ``ib.connect()``'s own init requests race a silently-swallowed
+# timeout (a slow response there is logged, not raised, and does not fail
+# connect()). So a caller's FIRST balance()/positions() call after a fresh
+# connect — or a reconnect after a silent idle-timeout drop — could race an
+# empty/never-populated cache and misreport "gateway not logged in" even on
+# a perfectly healthy gateway. This bound converts that race into "wait,
+# bounded, for the real data" so every subsequent read is served from an
+# already-warm cache. ``<= 0`` opts out (skips the warm-up entirely,
+# restoring the pre-fix racy behaviour) — the same escape hatch shape as
+# ``IB_PROBE_TIMEOUT_S``.
+#
+# BL-20260706-IBACCTUPDATES-COLLISION: ``reqAccountUpdates`` is a
+# persistent PER-ACCOUNT subscription. The live trader's own execution
+# connection (clientId 496/497) already holds it for every account it
+# trades — sizing and naked-position checks depend on it. A second,
+# concurrent client (:func:`ib_read_client_for`'s readonly, PID-salted
+# clientId — used for diagnostics, the dashboard/reconciler position read,
+# and every other out-of-band probe) subscribing to ``reqAccountUpdates``
+# for the SAME account is the documented IB-API multi-client collision:
+# the Gateway does not reliably deliver a fresh ``accountDownloadEnd`` to
+# the second subscriber, so the warm-up (and any later ``portfolio()``
+# read) can time out indefinitely for that connection alone — even though
+# the trader's own connection stays perfectly healthy throughout (verified
+# live 2026-07-06: the diag read client's warm-up timed out twice while the
+# trader's connection kept evaluating mgc_trend_1h on fresh prices). Rather
+# than fight that contention with a longer timeout, readonly clients never
+# subscribe to ``reqAccountUpdates`` at all — see :meth:`_warm_account_data`
+# and :meth:`IBClient.positions`, which route them through ``reqPositions()``
+# instead: a stateless, one-shot request IBKR documents as safe for any
+# number of concurrent clients against the same account.
 _IB_ACCOUNT_WARMUP_TIMEOUT_S = _env_float("IB_ACCOUNT_WARMUP_TIMEOUT_S", 8.0)
 
 # Bounded post-place rejection window (seconds; <= 0 restores the legacy
@@ -561,17 +582,27 @@ class IBClient:
 
         async def _warm() -> None:
             tasks = [req_summary()]
-            account = self.account or ""
-            if not account:
-                try:
-                    accounts = ib.client.getAccounts()
-                except Exception:  # noqa: BLE001
-                    accounts = []
-                if len(accounts) == 1:
-                    account = accounts[0]
-            req_updates = getattr(ib, "reqAccountUpdatesAsync", None)
-            if account and req_updates is not None:
-                tasks.append(req_updates(account))
+            if self.readonly:
+                # Never subscribe a readonly client to reqAccountUpdates —
+                # see BL-20260706-IBACCTUPDATES-COLLISION above. positions()
+                # reads via reqPositions() instead, which this warms too
+                # (under the same bounded retry-then-condemn budget) so a
+                # hang surfaces here rather than as an unbounded call later.
+                req_positions = getattr(ib, "reqPositionsAsync", None)
+                if req_positions is not None:
+                    tasks.append(req_positions())
+            else:
+                account = self.account or ""
+                if not account:
+                    try:
+                        accounts = ib.client.getAccounts()
+                    except Exception:  # noqa: BLE001
+                        accounts = []
+                    if len(accounts) == 1:
+                        account = accounts[0]
+                req_updates = getattr(ib, "reqAccountUpdatesAsync", None)
+                if account and req_updates is not None:
+                    tasks.append(req_updates(account))
             await asyncio.gather(*tasks)
 
         # Two attempts, same shape as _probe_liveness: a timeout on the
@@ -1422,17 +1453,40 @@ class IBClient:
         Shape mirrors ``account_open_positions``'s Bybit/Binance return so
         the hourly report, dashboard and reconciler consume IB the same
         way: ``[{symbol, side, size, entry_price, unrealised_pnl}]``. Only
-        non-zero positions are returned. Reads IB's portfolio (per-account
-        market value + unrealised PnL); raises :class:`IBConnectionError`
+        non-zero positions are returned; raises :class:`IBConnectionError`
         if the read fails so callers map it to "could not read" rather than
         "no positions".
+
+        Two distinct sources depending on the client:
+
+        * The trader's own, non-readonly execution connection reads IB's
+          ``portfolio()`` (per-account market value + unrealised PnL, fed
+          by its own persistent ``reqAccountUpdates`` subscription).
+        * A **readonly** client (:func:`ib_read_client_for` — diagnostics,
+          the dashboard/reconciler read path, every other out-of-band
+          probe) instead calls ``reqPositions()`` — see
+          BL-20260706-IBACCTUPDATES-COLLISION: ``reqAccountUpdates`` is a
+          persistent per-account subscription the trader's own connection
+          already holds, and a second concurrent subscriber for the SAME
+          account is a documented IB-API collision that can leave the
+          second client's data never delivered. ``reqPositions()`` is a
+          stateless, one-shot request IBKR documents as safe for any
+          number of concurrent clients. The cost: it carries no
+          ``unrealizedPNL`` (only ``portfolio()``'s ``PortfolioItem`` does)
+          — ``unrealised_pnl`` is ``None`` on this path, which the rest of
+          the stack already treats as "not measured" (broker-truth
+          unavailable), not a fabricated zero.
         """
         ib = self.connect()
         try:
-            items = ib.portfolio()
+            if self.readonly:
+                items = self._req_positions_snapshot(ib)
+            else:
+                items = ib.portfolio()
         except Exception as exc:  # noqa: BLE001
+            source = "reqPositions" if self.readonly else "portfolio()"
             raise IBConnectionError(
-                f"IBClient.positions: portfolio() failed for "
+                f"IBClient.positions: {source} failed for "
                 f"{self._masked_account()}: {type(exc).__name__}: {exc}"
             ) from exc
         out = []
@@ -1440,17 +1494,17 @@ class IBClient:
             size = float(getattr(it, "position", 0) or 0)
             if size == 0:
                 continue
-            # A multi-account login returns portfolio items for every
-            # account on the login; keep only this client's account when
-            # one is configured so a shared Gateway doesn't leak positions.
+            # A multi-account login returns items for every account on the
+            # login; keep only this client's account when one is configured
+            # so a shared Gateway doesn't leak positions.
             if self.account:
                 it_acct = getattr(it, "account", None)
                 if it_acct and str(it_acct) != str(self.account):
                     continue
             contract = getattr(it, "contract", None)
-            # Normalise the IB portfolio item to the SAME shape every other
-            # consumer (journal, reconcilers, dashboard, SL/TP math) speaks —
-            # the generic root symbol + a per-unit entry price, exactly like
+            # Normalise the IB item to the SAME shape every other consumer
+            # (journal, reconcilers, dashboard, SL/TP math) speaks — the
+            # generic root symbol + a per-unit entry price, exactly like
             # the Bybit/Binance position rows this method mirrors:
             #
             #  * Symbol — IB's ``localSymbol`` carries the expiry month code
@@ -1460,10 +1514,10 @@ class IBClient:
             #    ``MHG``) could never reconcile against its own exchange
             #    position (symbol ``MHGN6``) — it orphaned, and the adopted
             #    orphan diverged from the strategy symbol forever.
-            #  * Entry price — IB's ``averageCost`` for a future is the
-            #    per-unit price TIMES the contract multiplier (MHG: 6.396 ×
-            #    2500 = 15989.72). Divide by the multiplier so ``entry_price``
-            #    is the per-unit price like every other exchange, instead of a
+            #  * Entry price — IB's per-unit average cost for a future is
+            #    TIMES the contract multiplier (MHG: 6.396 × 2500 =
+            #    15989.72). Divide by the multiplier so ``entry_price`` is
+            #    the per-unit price like every other exchange, instead of a
             #    multiplier-inflated number that corrupts the adopted-orphan
             #    entry, PnL display, and any entry-based math.
             #    (BL-20260613-IBPOS: the 15989.72-entry / MHGN6-symbol
@@ -1473,20 +1527,63 @@ class IBClient:
                 or getattr(contract, "localSymbol", None)
                 or self.symbol
             )
-            avg_cost = float(getattr(it, "averageCost", 0) or 0)
+            # ``PortfolioItem`` (portfolio(), the non-readonly path) exposes
+            # ``averageCost``; the plain ``Position`` object returned by
+            # reqPositions() (the readonly path) exposes the same figure as
+            # ``avgCost`` instead — check both.
+            avg_cost_raw = getattr(it, "averageCost", None)
+            if avg_cost_raw is None:
+                avg_cost_raw = getattr(it, "avgCost", 0)
+            avg_cost = float(avg_cost_raw or 0)
             try:
                 multiplier = float(getattr(contract, "multiplier", "") or 0)
             except (TypeError, ValueError):
                 multiplier = 0.0
             entry_price = avg_cost / multiplier if multiplier > 0 else avg_cost
+            # ``Position`` (reqPositions(), the readonly path) carries no
+            # unrealizedPNL — only ``PortfolioItem`` does. ``None`` is the
+            # honest "not measured" value, matching the broker-truth-else-
+            # unavailable contract the rest of the stack already applies
+            # (see dashboard.py::_broker_unrealised_for_trade).
+            upnl_raw = getattr(it, "unrealizedPNL", None)
             out.append({
                 "symbol": symbol,
                 "side": "long" if size > 0 else "short",
                 "size": abs(size),
                 "entry_price": entry_price,
-                "unrealised_pnl": float(getattr(it, "unrealizedPNL", 0) or 0),
+                "unrealised_pnl": float(upnl_raw) if upnl_raw is not None else None,
             })
         return out
+
+    def _req_positions_snapshot(self, ib: Any) -> list:
+        """Fresh, bounded ``reqPositions()`` snapshot for a readonly client.
+
+        Stateless and multi-client-safe (unlike ``portfolio()``, which
+        depends on the persistent, single-effective-subscriber
+        ``reqAccountUpdates`` — see :meth:`_warm_account_data`). Bounded the
+        same way as the warm-up so a mid-session Gateway hiccup can't hang
+        this call forever; falls back to the (possibly stale/empty) cached
+        ``ib.positions()`` when the client has no async variant (test
+        stubs) or this thread doesn't own a usable, non-running loop.
+        """
+        req = getattr(ib, "reqPositionsAsync", None)
+        loop = self._loop
+        if req is None or loop is None or loop.is_closed():
+            return list(ib.positions() or [])
+        try:
+            if loop.is_running():
+                return list(ib.positions() or [])
+        except Exception:  # noqa: BLE001
+            return list(ib.positions() or [])
+        import asyncio
+
+        timeout = (
+            _IB_ACCOUNT_WARMUP_TIMEOUT_S if _IB_ACCOUNT_WARMUP_TIMEOUT_S > 0
+            else _IB_PROBE_TIMEOUT_S if _IB_PROBE_TIMEOUT_S > 0
+            else 8.0
+        )
+        loop.run_until_complete(asyncio.wait_for(req(), timeout=timeout))
+        return list(ib.positions() or [])
 
     # ------------------------------------------------------------------
     # Diagnostics
