@@ -697,7 +697,6 @@ stay in place for any future browser-direct consumer.
 |----------|---------|
 | `DASHBOARD_ORIGIN` | Legacy Vercel app URL — added to CORS allow-list. No-op for the Streamlit dashboard but kept for future browser-direct consumers. |
 | `DASHBOARD_API_TOKEN` | Optional bearer token for auth routes |
-| `VM_GIT_DEPLOY_TOKEN` | Optional. A fine-grained, **Contents:Read-only** GitHub PAT scoped to just this repo, read by `scripts/deploy_pull_restart.sh` and attached as an inline `git -c http.extraheader` Basic-auth header on the `git fetch` (never written to `.git/config` or exposed by `git remote -v`). Added 2026-07-06 (`BL-20260706-GITSYNC-AUTH-BROKEN`) when the repo went private and `ict-git-sync.timer`'s previously-anonymous fetch stopped authenticating. Falls back to a plain unauthenticated fetch when unset — a no-op if the repo is ever public again. Propagated to the VM's `.env` via the standard `sync-vm-secrets` OPTIONAL_SECRETS path. |
 | `SIGNAL_DUAL_WRITE_DISABLED` | When truthy, `signal_audit_logger._dual_write_to_db` skips hydrating `trade_journal.db::signals` (JSONL stays the source of truth). Default off → dual-write on. Toggle on the live VM via the `enable-signal-dual-write` / `disable-signal-dual-write` operator actions. |
 | `TRADE_JOURNAL_DB` | Canonical trade-journal SQLite path (live VM: `/data/bot-data/trade_journal.db`). Resolved by the single Python resolver `src.utils.paths.trade_journal_db_path()` (env → `$DATA_DIR/trade_journal.db` → repo-root; never a CWD-relative basename). The `canonical-db-resolver` CI guard forbids re-introducing the old inline `os.environ.get("TRADE_JOURNAL_DB") or "trade_journal.db"` fallback that seeded the stray duplicate journals. |
 | `TRAINER_STORE_DB` | Path to the trainer-store sidecar SQLite (default `$DATA_DIR/trainer_store.db`). Holds trainer/ML lifecycle data ingested from `runtime_logs/trainer_mirror/`; federated into the Data Explorer alongside `trade_journal.db`. Resolved by `src.utils.paths.trainer_store_db_path()`. Read-mostly — ingest writers never touch the money DB. |
@@ -884,6 +883,26 @@ below are the contract.
   probe; the workflow comments back and closes. Restart-only, no
   edits, no other unit touched. Wrapper:
   `scripts/ops/restart_web_api.sh`.
+- **Live-VM git-fetch credential (the repo-went-private fix)** —
+  the repo flipped from public to private 2026-07-06
+  (`BL-20260706-GITSYNC-AUTH-BROKEN`); `ict-git-sync.timer`'s
+  `git fetch` on the live VM had always been anonymous and stopped
+  authenticating. The credential is a **single global git config
+  value** (`http.https://github.com/.extraheader`, a Basic-auth
+  header built from a fine-grained Contents:Read-only PAT stored as
+  the `VM_GIT_DEPLOY_TOKEN` Actions secret) set ONCE by the
+  one-shot `.github/workflows/vm-git-credential-bootstrap.yml`
+  (label `vm-git-credential-bootstrap`) — it runs on a GitHub-hosted
+  runner (auto-authenticated to the private repo, no VM-side git
+  state involved) and SSHes the credential onto the VM directly,
+  breaking the chicken-and-egg where the fix can't reach the VM via
+  the mechanism it fixes. **Deliberately not per-invocation** —
+  `http.extraheader` is a multi-valued git config key, so an
+  earlier version that ALSO attached the header per-fetch call
+  caused git to send it twice, which GitHub rejects outright
+  (`remote: Duplicate header: Authorization`, 400). One source of
+  truth only. Re-provisioning a fresh VM needs this workflow re-run
+  once (a fresh home dir has no global git config).
 - **Prop report-back POST (the diag relay's write counterpart)** —
   `.github/workflows/prop-report.yml` is the issue-driven path to
   `POST /api/bot/prop/report` (the read-only `vm-diag-snapshot` relay
