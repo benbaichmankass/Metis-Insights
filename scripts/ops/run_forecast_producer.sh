@@ -19,7 +19,11 @@
 # Env knobs:
 #   REPO_ROOT           — defaults to /home/ubuntu/ict-trading-bot
 #   VENV_DIR            — defaults to "$REPO_ROOT/.venv"
-#   FORECAST_SYMBOLS    — comma-separated live symbols (default BTCUSDT,ETHUSDT)
+#   FORECAST_SYMBOLS    — comma-separated live symbols (default
+#                         BTCUSDT,ETHUSDT,SOLUSDT — SOL added 2026-07-06 for
+#                         the 3rd fc-family leg after the SOL fc-vs-base
+#                         purged-CV win, operator-approved; see
+#                         docs/research/SOL-fc-family-AB-evidence-2026-07-06.md)
 #   FORECAST_TIMEFRAME  — candle timeframe (default 15m)
 #
 # Idempotent: re-running re-forecasts the current bar and atomically rewrites
@@ -29,7 +33,7 @@ set -euo pipefail
 
 REPO_ROOT="${REPO_ROOT:-/home/ubuntu/ict-trading-bot}"
 VENV_DIR="${VENV_DIR:-$REPO_ROOT/.venv}"
-FORECAST_SYMBOLS="${FORECAST_SYMBOLS:-BTCUSDT,ETHUSDT}"
+FORECAST_SYMBOLS="${FORECAST_SYMBOLS:-BTCUSDT,ETHUSDT,SOLUSDT}"
 FORECAST_TIMEFRAME="${FORECAST_TIMEFRAME:-15m}"
 
 cd "$REPO_ROOT"
