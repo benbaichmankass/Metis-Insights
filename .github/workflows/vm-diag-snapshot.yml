@@ -17,6 +17,28 @@ name: vm-diag-snapshot
 #      (`issue_write` to open, `pull_request_read` / equivalent on
 #      issue comments to read the result back).
 #
+#      **Batched multi-path requests (2026-07-06, MB-20260706-CI-MINUTES):**
+#      the issue TITLE still carries exactly one path (unchanged, kept as
+#      the documented fallback so existing muscle-memory/docs keep
+#      working). To request SEVERAL paths in one issue — and therefore
+#      one billed job instead of N — put the list in the issue BODY as
+#      either a JSON array (`["snapshot?limit=5", "audit?limit=50"]`,
+#      optionally inside a ```json fence) or one path per line (plain
+#      text or a `-`/`*` bulleted list). When the body parses to a
+#      non-empty list, it wins over the title; an empty/unparsable body
+#      falls back to the single title path exactly as before. All paths
+#      run over ONE ssh session server-side (the reconnect, not the
+#      curl, is the expensive part) and come back as ONE issue comment,
+#      one `## <path>` section per result. Capped at 15 paths per issue
+#      (extras silently would blow the ~65 KB GitHub comment cap); each
+#      path gets its own truncation marker if the combined output would
+#      exceed the safe comment size, rather than dropping a path outright.
+#      Every path — title or body — still passes through the SAME
+#      validation regex individually; nothing is relaxed. See
+#      docs/claude/diag-relay.md for the batched-request pattern and why
+#      it matters (427 issues opened in the first 5.5 days of the
+#      2026-07 billing cycle, 90% of them single-path relay/action calls).
+#
 # Trust contract (matches docs/claude/vm-operator-mode.md § 9):
 #   * Read-only — only allowlisted GET paths under /api/diag/* run.
 #   * Token-gated — DIAG_READ_TOKEN authenticates against the FastAPI
@@ -141,41 +163,22 @@ jobs:
               core.setOutput('skip', 'false');
             }
 
+      # ────────────────────────────────────────────────────────────
+      # workflow_dispatch path: single path, operator-driven, unchanged
+      # behaviour/artifact contract from before the 2026-07-06 batching
+      # change. The issues path (below) is where multi-path batching
+      # lives — kept separate so the operator UI flow never changes.
+      # ────────────────────────────────────────────────────────────
+
       - name: Resolve and validate diag path
-        if: steps.dedup.outputs.skip != 'true'
+        if: github.event_name == 'workflow_dispatch' && steps.dedup.outputs.skip != 'true'
         id: resolve
         env:
-          EVENT_NAME: ${{ github.event_name }}
           DISPATCH_PATH: ${{ inputs.diag_path }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
           set -euo pipefail
 
-          if [ "${EVENT_NAME}" = "issues" ]; then
-            # Title format: "[diag-request] <path>"
-            # Strip the prefix; allow either bracket form or a bare path.
-            raw="${ISSUE_TITLE}"
-            raw="${raw#\[diag-request\] }"
-            raw="${raw#\[diag-request\]}"
-            raw="${raw# }"
-            # GitHub stores `&` in issue titles as the HTML entity
-            # `&amp;` (verified 2026-05-11 — the title coming from the
-            # webhook payload contains literal "&amp;", not "&"). Any
-            # path with a `&` query separator therefore fails the
-            # validation regex below (the `;` of `amp;` is rejected,
-            # and decoded-then-re-encoded paths look wrong to curl).
-            # Decode the common entities here so issue-driven callers
-            # don't have to URL-encode every separator. `&amp;` first
-            # so a literal `&` in the body of any other entity doesn't
-            # get re-substituted.
-            raw="${raw//&amp;/&}"
-            raw="${raw//&lt;/<}"
-            raw="${raw//&gt;/>}"
-            raw="${raw//&quot;/\"}"
-            DIAG_PATH="${raw:-snapshot?limit=200}"
-          else
-            DIAG_PATH="${DISPATCH_PATH}"
-          fi
+          DIAG_PATH="${DISPATCH_PATH}"
 
           # Strip optional leading /api/diag/ so callers can pass either
           # "snapshot?limit=200" or "/api/diag/snapshot?limit=200".
@@ -250,7 +253,7 @@ jobs:
           ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Fetch diag endpoint
-        if: steps.dedup.outputs.skip != 'true'
+        if: github.event_name == 'workflow_dispatch' && steps.dedup.outputs.skip != 'true'
         env:
           DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
           VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
@@ -273,7 +276,7 @@ jobs:
           python3 -c "import json,sys; json.load(open('diag-output.json')); print('valid json,', __import__('os').path.getsize('diag-output.json'), 'bytes')"
 
       - name: Pretty-print diag response (run-log preview)
-        if: steps.dedup.outputs.skip != 'true'
+        if: github.event_name == 'workflow_dispatch' && steps.dedup.outputs.skip != 'true'
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -298,39 +301,304 @@ jobs:
           if-no-files-found: error
 
       # ────────────────────────────────────────────────────────────
-      # Issue-driven path: post result back as a comment + close.
+      # Issue-driven path: batched multi-path support (2026-07-06,
+      # MB-20260706-CI-MINUTES). Resolve/validate the full path list,
+      # fetch every path over ONE ssh session, build one combined
+      # comment, post it, and close the issue.
       # ────────────────────────────────────────────────────────────
+
+      - name: Resolve and validate diag path(s)
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'
+        id: resolve_multi
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import fnmatch
+          import json
+          import os
+          import re
+          import sys
+
+          MAX_PATHS = 15
+          PATH_RE = re.compile(r'^[A-Za-z0-9/?&=_.:%-]+$')
+
+          # Mirrors the workflow_dispatch allowlist above exactly — keep
+          # the two in sync if the allowlist ever changes.
+          BOT_ALLOWLIST_EXACT = {
+              "performance", "stats", "positions", "signals", "strategies",
+              "backtests", "backtests/sweeps", "order-packages",
+              "trades/closed", "trades/scores", "candles",
+              "accounts/balances", "liquidity", "config",
+              "insights/summary", "insights/recent", "insights/health",
+              "insights/usage", "insights/history",
+              "health/latest", "health/history", "health/services",
+              "shadow/stats", "shadow/drift", "shadow/predictions",
+              "exit-ladder/soak", "allocator/soak", "fc-geometry/soak",
+              "prop/fills", "prop/tickets", "prop/status", "prop/reconcile",
+              "db/tables",
+          }
+          BOT_ALLOWLIST_GLOB = (
+              "strategies/*/review", "strategies/*/tune",
+              "insights/strategy/*", "db/table/*",
+          )
+
+          def decode_entities(s: str) -> str:
+              # GitHub stores `&` in issue titles/bodies as `&amp;` — see
+              # the note in the original single-path resolver.
+              return (
+                  s.replace("&amp;", "&")
+                   .replace("&lt;", "<")
+                   .replace("&gt;", ">")
+                   .replace("&quot;", '"')
+              )
+
+          def resolve_one(raw: str):
+              path = raw.strip()
+              if not path:
+                  raise ValueError("empty path")
+              if path.startswith("/api/diag/"):
+                  path = path[len("/api/diag/"):]
+              path = path.lstrip("/")
+              upstream_prefix = "/api/diag/"
+              if path.startswith("api/bot/"):
+                  botpath = path[len("api/bot/"):]
+                  botbase = botpath.split("?", 1)[0]
+                  if botbase == "pnl/history":
+                      upstream_prefix = "/api/"
+                      path = botpath
+                  elif botbase in BOT_ALLOWLIST_EXACT or any(
+                      fnmatch.fnmatch(botbase, pat) for pat in BOT_ALLOWLIST_GLOB
+                  ):
+                      upstream_prefix = "/api/bot/"
+                      path = botpath
+                  else:
+                      raise ValueError(
+                          f"/api/bot/ path not in the relay read-only allowlist: {botbase}"
+                      )
+              # Same charset as the single-path validator — nothing relaxed.
+              if not PATH_RE.match(path):
+                  raise ValueError(f"illegal characters in resolved path: {path}")
+              return upstream_prefix, path
+
+          title = os.environ.get("ISSUE_TITLE", "") or ""
+          body = (os.environ.get("ISSUE_BODY", "") or "").strip()
+
+          raw_title = title
+          for prefix in ("[diag-request] ", "[diag-request]"):
+              if raw_title.startswith(prefix):
+                  raw_title = raw_title[len(prefix):]
+                  break
+          raw_title = raw_title.lstrip(" ")
+          title_path = decode_entities(raw_title).strip() or "snapshot?limit=200"
+
+          candidates = []
+          if body:
+              parsed = None
+              try:
+                  parsed = json.loads(body)
+              except Exception:
+                  m = re.search(r"```(?:json)?\s*(\[.*?\])\s*```", body, re.S)
+                  if m:
+                      try:
+                          parsed = json.loads(m.group(1))
+                      except Exception:
+                          parsed = None
+              if isinstance(parsed, list) and parsed and all(isinstance(x, str) for x in parsed):
+                  candidates = [decode_entities(x) for x in parsed]
+              else:
+                  lines = []
+                  for line in body.splitlines():
+                      s = line.strip()
+                      if not s or s.startswith("```"):
+                          continue
+                      s = re.sub(r"^[-*]\s+", "", s)
+                      lines.append(decode_entities(s))
+                  candidates = lines
+
+          # Empty/unparsable body -> fall back to the single title path
+          # exactly as before the batching change (backward compat).
+          is_multi = bool(candidates)
+          if not candidates:
+              candidates = [title_path]
+
+          dropped = 0
+          if len(candidates) > MAX_PATHS:
+              dropped = len(candidates) - MAX_PATHS
+              candidates = candidates[:MAX_PATHS]
+
+          resolved = []
+          for c in candidates:
+              try:
+                  prefix, p = resolve_one(c)
+              except ValueError as e:
+                  print(f"::error::Rejected diag path {c!r}: {e}", file=sys.stderr)
+                  sys.exit(1)
+              resolved.append((c, prefix, p))
+
+          with open("diag_paths.tsv", "w") as f:
+              for display, prefix, p in resolved:
+                  # Tabs/newlines can't occur in `display` past this point —
+                  # decode_entities + strip already removed line breaks, and
+                  # a literal tab would have failed PATH_RE for an
+                  # /api/diag/ path or is simply carried as free text for a
+                  # display-only value; strip it defensively regardless.
+                  safe_display = display.replace("\t", " ").replace("\n", " ")
+                  f.write(f"{safe_display}\t{prefix}\t{p}\n")
+
+          print(f"Resolved {len(resolved)} diag path(s) (dropped {dropped} over the {MAX_PATHS}-path cap):")
+          for display, prefix, p in resolved:
+              print(f"  {display} -> {prefix}{p}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"path_count={len(resolved)}\n")
+              f.write(f"dropped_count={dropped}\n")
+              f.write(f"multi={'true' if is_multi else 'false'}\n")
+          PY
+
+      - name: Fetch diag endpoint(s)
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+          VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DIAG_READ_TOKEN}" ]; then
+            echo "::error::DIAG_READ_TOKEN secret is unset. Add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+
+          # Build ONE remote bash script covering every requested path so
+          # the whole batch rides a SINGLE ssh session (server-side loop)
+          # instead of reconnecting per path — the reconnect, not the
+          # curl, is the expensive/billed part (MB-20260706-CI-MINUTES:
+          # 201 vm-diag-request issues opened in the first 5.5 days of the
+          # 2026-07 billing cycle). Each path's result is bracketed by
+          # plain-text markers so the next step can split them back apart
+          # even though one is JSON and captures newlines.
+          REMOTE_SCRIPT=""
+          while IFS=$'\t' read -r display prefix path; do
+            REMOTE_SCRIPT+="echo '===DIAG_PATH_START==='"$'\n'
+            REMOTE_SCRIPT+="printf '%s\n' $(printf '%q' "$display")"$'\n'
+            REMOTE_SCRIPT+="curl -sS --fail --max-time 40 -H 'Authorization: Bearer ${DIAG_READ_TOKEN}' $(printf '%q' "http://127.0.0.1:8001${prefix}${path}") || printf '%s' '{\"error\":\"fetch_failed\"}'"$'\n'
+            REMOTE_SCRIPT+=$'\n'
+            REMOTE_SCRIPT+="echo '===DIAG_PATH_END==='"$'\n'
+          done < diag_paths.tsv
+
+          # No `set -e` in the remote script on purpose — a failing path
+          # (handled by its own `|| printf` fallback above) must never
+          # abort the loop before later paths run.
+          printf '%s' "$REMOTE_SCRIPT" | ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              'bash -s' > diag-multi-output.txt
+          wc -l diag-multi-output.txt
+
+      - name: Build combined diag comment
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'
+        id: build_comment
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+
+          # Shared 55 KB budget (same cap the single-path comment always
+          # used — GitHub caps comments at ~65 KB, this leaves headroom
+          # for headers/fences), split evenly across paths so one huge
+          # result can't starve the others. Each path gets its own
+          # truncation marker rather than being silently dropped.
+          MAX_TOTAL = 55_000
+
+          with open("diag_paths.tsv") as f:
+              rows = [line.rstrip("\n").split("\t") for line in f if line.strip()]
+
+          with open("diag-multi-output.txt") as f:
+              raw = f.read()
+
+          chunks = []
+          rest = raw
+          while "===DIAG_PATH_START===" in rest:
+              rest = rest.split("===DIAG_PATH_START===", 1)[1]
+              chunk, rest = rest.split("===DIAG_PATH_END===", 1) if "===DIAG_PATH_END===" in rest else (rest, "")
+              # `echo '===DIAG_PATH_START==='` itself emits a trailing
+              # newline, so `chunk` starts with that blank line — strip it
+              # before splitting off the display-name line (from
+              # `printf '%s\n' ...`). Everything after it up to the end
+              # marker is the curl output (which may itself contain
+              # newlines — it's the JSON response body).
+              chunk = chunk.lstrip("\n")
+              parts = chunk.split("\n", 1)
+              display_line = parts[0].strip()
+              payload = parts[1] if len(parts) > 1 else ""
+              chunks.append((display_line, payload.strip("\n")))
+
+          n = max(len(chunks), 1)
+          per_path_budget = max(1500, MAX_TOTAL // n)
+
+          sections = []
+          for display, payload in chunks:
+              try:
+                  data = json.loads(payload)
+                  pretty = json.dumps(data, indent=2, default=str)
+              except Exception:
+                  pretty = payload  # not JSON (e.g. a curl-level error string) — show raw
+              if len(pretty) > per_path_budget:
+                  shown = pretty[:per_path_budget]
+                  note = (
+                      f"\n_(truncated, {len(pretty) - per_path_budget} more bytes of "
+                      f"{len(pretty)} total not shown — this path's share of the "
+                      f"{MAX_TOTAL}-byte combined comment budget was used up; "
+                      f"re-request just this path alone for the full result)_"
+                  )
+              else:
+                  shown = pretty
+                  note = ""
+              sections.append(f"## `{display}`\n```json\n{shown}\n```{note}")
+
+          dropped = int(os.environ.get("DROPPED_COUNT", "0") or "0")
+          extra = ""
+          if dropped:
+              extra = f"\n\n_(**{dropped} additional path(s) dropped** — capped at 15 paths per issue; split into a follow-up request.)_"
+
+          body_md = "\n\n".join(sections) + extra
+          with open("diag-comment-body.md", "w") as f:
+              f.write(body_md)
+
+          print(f"Built combined comment: {len(chunks)} path(s), {len(body_md)} bytes total.")
+          PY
+        env:
+          DROPPED_COUNT: ${{ steps.resolve_multi.outputs.dropped_count }}
 
       - name: Reply to issue with diag result
         if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'
         uses: actions/github-script@v7
         env:
-          DIAG_PATH_DISPLAY: ${{ env.diag_path_display }}
+          PATH_COUNT: ${{ steps.resolve_multi.outputs.path_count }}
         with:
           script: |
             const fs = require('fs');
-            const data = JSON.parse(fs.readFileSync('diag-output.json', 'utf8'));
-            const pretty = JSON.stringify(data, null, 2);
-            // GitHub comments cap at ~65 KB; leave headroom for the
-            // header + fenced-code wrapper. Truncate from the *end*
-            // (audit_tail and trades arrays are reverse-chron, so the
-            // top of the JSON is the most recent / most useful bit).
-            const MAX_BODY = 55_000;
-            const path = process.env.DIAG_PATH_DISPLAY;
+            const body_md = fs.readFileSync('diag-comment-body.md', 'utf8');
+            const pathCount = process.env.PATH_COUNT || '1';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const header = [
-              `**vm-diag-snapshot** result for \`${path}\``,
+              `**vm-diag-snapshot** result — ${pathCount} path(s) fetched over one ssh session`,
               `Run: ${runUrl}`,
-              `Bytes: ${pretty.length}`,
               ''
             ].join('\n');
-            let body;
-            if (pretty.length <= MAX_BODY) {
-              body = header + '\n```json\n' + pretty + '\n```';
-            } else {
-              body = header
-                + `\n_(Truncated to first ${MAX_BODY} bytes of ${pretty.length}; full JSON not retained as artifact on the issue path — re-run via workflow_dispatch with the same path to get the full artifact.)_`
-                + '\n```json\n' + pretty.slice(0, MAX_BODY) + '\n... (truncated)\n```';
+            let body = header + '\n' + body_md;
+            // Final hard cap in case the per-path budgeting above still
+            // produced something over GitHub's ~65 KB comment limit
+            // (header + multiple fences add overhead the per-path budget
+            // doesn't account for exactly).
+            const HARD_MAX = 60_000;
+            if (body.length > HARD_MAX) {
+              body = body.slice(0, HARD_MAX) + '\n\n_(comment hard-capped at 60000 bytes; some path output cut off)_';
             }
             await github.rest.issues.createComment({
               owner: context.repo.owner,

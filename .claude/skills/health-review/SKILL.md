@@ -100,6 +100,23 @@ specific pulls health-review needs.
 | Health snapshot — history | `GET /api/bot/health/history?hours=N` | newest-first list of snapshots in the window |
 | Health services | `GET /api/bot/health/services` | systemd state of `ict-trader-live` + `ict-web-api` |
 
+**Batch these into ONE `vm-diag-request` issue, not nine.** Per the
+`diag-data` skill's default pattern (MB-20260706-CI-MINUTES — every
+relay issue is its own billed Actions job, and this repo hit its 2,000
+min/month cap opening 427 issues in 5.5 days), open a single issue with
+the body as a JSON array (or one path per line) covering every row of
+this table you actually need this run, e.g.:
+```json
+["audit?limit=600", "journal?table=order_packages&limit=100",
+ "journal?table=trades&limit=100", "status", "services",
+ "health/latest", "health/history?hours=24", "health/services"]
+```
+The `vm-diag-snapshot` workflow fetches all of them over one ssh session
+and posts one combined comment (`## <path>` per result). Only fall back
+to separate single-path issues for a path you need to re-fetch later in
+the review (e.g. a follow-up `journalctl` window after seeing the first
+batch's results).
+
 **Trainer VM (light touch only — service health):**
 
 Open a `trainer-vm-diag-request` issue with:

@@ -41,6 +41,53 @@ truncates comments ~55 kB), `audit?limit=600` (signal_audit tail),
 `journalctl?unit=ict-trader-live&lines=200`,
 `log_file?name=heartbeat&lines=5`.
 
+## Batch your reads — default to ONE issue per session, not one per path
+
+**This is the default recommended pattern, not an edge case.** Every relay
+issue is its own separately-billed GitHub Actions job. This repo hit its
+Actions free-tier cap (2,000 min/month) on 2026-07-06; in just the first 5.5
+days of that billing cycle this repo opened **427 issues**, 90% of them
+single-path `vm-diag-request`/`trainer-vm-diag-request`/`system-action`
+relay calls — one `/system-review` session alone opened 33 separate
+diag-request issues for what could have been a handful of batched reads
+(MB-20260706-CI-MINUTES). Two concrete fixes, both live now:
+
+1. **Prefer the bundled endpoint over its constituent parts.**
+   `snapshot?limit=N` already bundles heartbeat + status + audit tail +
+   order_packages + trades + vm_health + service states in ONE path. If
+   what you need is covered by `snapshot`, request `snapshot` — don't
+   separately request `status`, `services`, and `journal?table=trades` as
+   three issues (or even three paths) when one `snapshot?limit=5` covers
+   all three.
+2. **Batch multiple paths into ONE `vm-diag-snapshot` issue** (added
+   2026-07-06). The issue **title** still carries a single path exactly as
+   before (backward-compatible fallback) — but you can instead put a list
+   of paths in the issue **body**, either a JSON array:
+   ```json
+   ["snapshot?limit=5", "audit?limit=200", "journalctl?unit=ict-trader-live&lines=100"]
+   ```
+   or one path per line (plain or `-`/`*` bulleted):
+   ```
+   snapshot?limit=5
+   audit?limit=200
+   journalctl?unit=ict-trader-live&lines=100
+   ```
+   The workflow fetches all of them over **one ssh session** (the
+   reconnect, not the curl, is the expensive/billed part) and posts **one**
+   combined comment, `## <path>` per result. Capped at 15 paths per issue;
+   each path gets its own truncation marker (never silently dropped) if the
+   combined output would exceed the ~55 KB comment budget. Every path is
+   still individually validated against the same allowlist/regex as
+   before — nothing about the trust contract changed, only the transport.
+
+   **`trainer-vm-diag`'s `cmd:` block already supports multiple chained
+   commands** in one issue (no workflow change needed there) — combine
+   several commands into one `cmd:` block instead of opening N issues.
+
+Rule of thumb before opening a diag-relay issue: **"could this be one
+`snapshot` call, or one multi-path body, instead of N single-path issues?"**
+If yes, batch it.
+
 ## Pitfalls (from `docs/claude/diag-relay.md` + debug-memory)
 
 - Live VM: the **title is the path**; the body is ignored. `cmd:` in the body

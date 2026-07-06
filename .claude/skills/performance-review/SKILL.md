@@ -103,6 +103,17 @@ paste anything. If the relay fails, fire `vm-web-api-recover` once
 and retry; if still failing, emit a partial review with a note —
 **never fabricate**.
 
+**Batch the diag-labeled rows above into ONE `vm-diag-request` issue.**
+Per the `diag-data` skill's default pattern (MB-20260706-CI-MINUTES —
+every relay issue is its own billed Actions job; this repo hit its 2,000
+min/month cap opening 427 issues in 5.5 days, mostly single-path relay
+calls), put every diag path you need this run in the issue **body** as a
+JSON array or one-per-line list (e.g. `journal?table=order_packages&limit=200`,
+`journal?table=trades&limit=200`, `audit?limit=600` in one issue) instead
+of three separate issues. The non-diag `GET /api/bot/*` rows above are
+direct HTTPS/no-relay reads when the session is configured for it, so
+they don't add to the issue count either way.
+
 ## Bucket records before aggregating (artifact pre-filter)
 
 Paper (and some real) records are dominated by **technical artifacts** — intent
