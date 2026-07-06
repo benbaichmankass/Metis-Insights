@@ -36,6 +36,34 @@ def news_decisions_path():
     return runtime_logs_dir() / _LOG_BASENAME
 
 
+def _top_items(result: NewsScoreResult, limit: int = 3) -> list:
+    """The top-N scored news items the layer read, as ``{headline, url, score}``.
+
+    Surfaced on ``/api/bot/news/recent`` so a consumer can render a clickable
+    ticker of the specific articles that drove the decision (highest absolute
+    score first — the items that moved the tilt most). Best-effort: a missing
+    field degrades to an empty string, never raises.
+    """
+    try:
+        scores = list(result.raw_scores or [])
+        scores.sort(key=lambda s: abs(float(s.get("score", 0.0) or 0.0)), reverse=True)
+        out = []
+        for s in scores[:limit]:
+            headline = str(s.get("headline", "") or "")
+            if not headline:
+                continue
+            out.append(
+                {
+                    "headline": headline[:200],
+                    "url": str(s.get("url", "") or ""),
+                    "score": s.get("score", 0.0),
+                }
+            )
+        return out
+    except Exception:  # noqa: BLE001
+        return []
+
+
 def log_news_decision(
     *,
     result: NewsScoreResult,
@@ -58,6 +86,7 @@ def log_news_decision(
             "veto": result.veto,
             "item_count": result.item_count,
             "reason": (result.reason or "")[:240],
+            "top_items": _top_items(result),
         }
         if extra:
             record.update(extra)

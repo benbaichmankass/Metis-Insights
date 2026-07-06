@@ -274,3 +274,40 @@ class TestBackwardCompat:
         item = _item(sentiment=0.9, relevance=0.9, freshness=500.0)
         result = score_news([item], {"NEWS_MAX_AGE_MINUTES": "120"})
         assert result.item_count == 0
+
+
+# ===========================================================================
+# top_items / url — clickable news ticker (2026-07-06)
+# ===========================================================================
+
+class TestTopItemsForTicker:
+    def test_raw_scores_carry_url(self):
+        """Each scored item retains its source url for the clickable ticker."""
+        item = _item(sentiment=0.8, relevance=0.9, impact=0.8)
+        item["url"] = "https://example.com/btc-surges"
+        result = score_news([item])
+        assert result.raw_scores
+        assert result.raw_scores[0]["url"] == "https://example.com/btc-surges"
+        assert result.raw_scores[0]["headline"] == "synthetic item"
+
+    def test_top_items_orders_by_abs_score_and_shapes(self):
+        from src.news.news_audit import _top_items
+
+        big = _item(sentiment=0.9, relevance=0.9, impact=0.9)
+        big["headline"] = "big mover"
+        big["url"] = "https://example.com/big"
+        small = _item(sentiment=0.1, relevance=0.2, impact=0.2)
+        small["headline"] = "small mover"
+        result = score_news([small, big])
+        top = _top_items(result, limit=3)
+        assert top, "expected at least one top item"
+        # Highest |score| first.
+        assert top[0]["headline"] == "big mover"
+        assert top[0]["url"] == "https://example.com/big"
+        assert set(top[0].keys()) == {"headline", "url", "score"}
+
+    def test_top_items_empty_when_no_scores(self):
+        from src.news.news_audit import _top_items
+
+        result = score_news([])
+        assert _top_items(result) == []
