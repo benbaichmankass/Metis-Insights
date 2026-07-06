@@ -1277,7 +1277,8 @@
       "status": "open",
       "snoozed_until": null,
       "evidence_log": [
-        "2026-07-03 (gate-check, trainer-vm-diag #5473): TCN macro_f1 0.534 / f1_volatile 0.162 vs incumbent 0.56-0.58 / 0.19-0.39; TCN loses on both. Model at candidate, namespaced -gpuburst (production advisory head untouched). GPU spend: $0.0269 + $0.0136 transient = $0.0405."
+        "2026-07-03 (gate-check, trainer-vm-diag #5473): TCN macro_f1 0.534 / f1_volatile 0.162 vs incumbent 0.56-0.58 / 0.19-0.39; TCN loses on both. Model at candidate, namespaced -gpuburst (production advisory head untouched). GPU spend: $0.0269 + $0.0136 transient = $0.0405.",
+        "2026-07-06 (label-sensitivity arms, issues #5647/#5650, $0.076): the 0.005 negative is SPARSITY-CONFOUNDED. Same TCN/CV/eval-rows at denser labels: f1_volatile 0.162 (3.6% base rate, 0.005) -> 0.282 (7.0%, 0.004) -> 0.423 (14.0%, 0.003); macro_f1 0.534 -> 0.590 -> 0.635. At matched 14% prevalence the vt003 TCN reads above the LightGBM REGISTRY-row numbers (0.423/0.635 vs 0.390/0.560) but that row is a different protocol - NOT a controlled A/B. Decider: matched-label LightGBM control (market_features @ vol_threshold 0.003, identical purged CV) - cheap CPU train on the trainer, next session. Neither arm promotion-eligible (non-production label). Full write-up: docs/research/T1.1-tcn-label-sensitivity-evidence-2026-07-06.md."
       ],
       "status_history": "open 2026-07-03 (T1.1 clean negative; pivot to T1.2 breadth + T0.4 fc graduation; drop T1.1b)."
     },

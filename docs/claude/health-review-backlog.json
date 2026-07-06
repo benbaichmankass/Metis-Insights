@@ -3052,7 +3052,22 @@
       "snoozed_until": null,
       "resolved_at": null,
       "resolution": null
+    },
+    {
+      "id": "BL-20260706-GPU-BURST-LEDGER-PUSH-RACE",
+      "opened_at": "2026-07-06T07:05:00+00:00",
+      "opened_by": "claude (M19 overnight session)",
+      "source": "gpu-burst-train run 28773344221 (arm-A retry, issue #5647): the end-of-job ledger commit push to main was rejected 'fetch first' because main advanced during the ~8-min burst (PR #5645 merged mid-run). The workflow only warns - the $0.0257 row was silently dropped. The 06:51Z preflight also showed month-to-date $0.04, i.e. the earlier failed-run row (gpu-28772600180, $0.0167) was ALSO missing - same race with #5635's merge.",
+      "title": "gpu-burst ledger persistence to main is BROKEN (branch protection rejects the direct push; races also observed)",
+      "description": "THREE rows dropped 2026-07-06 (gpu-28772600180 $0.0167 failed-run, gpu-28773344221 $0.0257, gpu-28773756599 $0.0334; reconciled by hand same morning - July now $0.116/$10). Two failure modes observed: (a) 'fetch first' stale-ref race when main advanced during the burst; (b) GH006 'Protected branch update failed - 9 of 9 required status checks are expected' on run 28773756599 - main's protection now blocks the workflow's direct push OUTRIGHT, so every future burst run will drop its ledger row until this is fixed. The ledger is the budget GATE input; silent under-counting defeats it.",
+      "suggested_fix": "Direct push to main can no longer work under the protection rules. Options: (1) have the workflow open/append to a ledger PR with auto-merge (checks are cheap and would pass); (2) write the row to a ledger BRANCH consumed by summarize_spend from both main+branch; (3) grant the Actions bot a bypass-list entry for the protection rule (operator decision). Until fixed, reconcile rows by hand from the run logs after each burst (record_run.py locally with the logged cost facts).",
+      "tier": "Tier 1 (CI workflow change).",
+      "trigger_condition": "Next CI-touching session (pairs with BL-20260706-GPU-BURST-CONCURRENCY-CANCEL).",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "resolution": null
     }
   ],
-  "updated_at": "2026-07-06T06:35:00+00:00"
+  "updated_at": "2026-07-06T07:35:00+00:00"
 }

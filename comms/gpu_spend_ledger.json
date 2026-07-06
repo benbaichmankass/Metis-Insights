@@ -25,6 +25,39 @@
       "run_id": "gpu-28642731115",
       "started_at": "2026-07-03T06:26:17Z",
       "status": "completed"
+    },
+    {
+      "cost_usd": 0.0167,
+      "ended_at": "2026-07-06T06:38:44Z",
+      "experiment": "T1.1 TCN label-sensitivity vt003",
+      "gpu_hours": 0.0757,
+      "gpu_type": "NVIDIA GeForce RTX 3090",
+      "rate_usd_per_hour": 0.22,
+      "run_id": "gpu-28772600180",
+      "started_at": "2026-07-06T06:33:43Z",
+      "status": "failed"
+    },
+    {
+      "cost_usd": 0.0257,
+      "ended_at": "2026-07-06T06:58:47Z",
+      "experiment": "T1.1 TCN label-sensitivity vt003",
+      "gpu_hours": 0.1167,
+      "gpu_type": "NVIDIA GeForce RTX 3090",
+      "rate_usd_per_hour": 0.22,
+      "run_id": "gpu-28773344221",
+      "started_at": "2026-07-06T06:51:05Z",
+      "status": "completed"
+    },
+    {
+      "cost_usd": 0.0334,
+      "ended_at": "2026-07-06T07:10:09Z",
+      "experiment": "T1.1 TCN label-sensitivity vt004",
+      "gpu_hours": 0.1516,
+      "gpu_type": "NVIDIA GeForce RTX 3090",
+      "rate_usd_per_hour": 0.22,
+      "run_id": "gpu-28773756599",
+      "started_at": "2026-07-06T07:00:30Z",
+      "status": "completed"
     }
   ],
   "schema": "gpu_spend_ledger/v1"
