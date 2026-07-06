@@ -23,6 +23,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, status
 
 from src.utils.paths import runtime_logs_dir, trade_journal_db_path
+from src.web.api._account_read_executor import run_account_read
 from src.web.api._asset_class import asset_class_for_symbol
 from src.web.api._clean_trades import (
     account_class_wire,
@@ -262,6 +263,29 @@ def _local_unrealised_for_trade(
             symbol, exc,
         )
         return None, "unavailable"
+
+
+def _resolve_position_pnl(
+    account_id: Any, symbol: Any, direction: Any, qty: Any, entry_price: Any,
+) -> tuple[Any, str]:
+    """Broker-truth unrealised PnL, falling back to the local mark-to-market
+    compute — bundles :func:`_broker_unrealised_for_trade` and
+    :func:`_local_unrealised_for_trade` into one synchronous unit so a single
+    ``/api/bot/positions`` row is resolved with exactly one executor
+    round-trip (see ``get_positions`` below).
+
+    Both halves can reach a blocking, event-loop-driving IB call (the broker
+    path via ``account_open_positions``; the local-fallback path via
+    ``last_mark_price`` -> ``fetch_candles`` for an IB-routed symbol like
+    MES/MGC/MHG) — see ``src.web.api._account_read_executor`` for why this
+    must run off uvicorn's event-loop thread (BL-20260706-IBCONCURRENCY).
+    """
+    upnl, upnl_source = _broker_unrealised_for_trade(account_id, symbol, direction, qty)
+    if upnl is None and upnl_source == "unavailable":
+        upnl, upnl_source = _local_unrealised_for_trade(
+            symbol=symbol, direction=direction, entry_price=entry_price, qty=qty,
+        )
+    return upnl, upnl_source
 
 
 def _bot_status() -> str:
@@ -632,7 +656,15 @@ async def get_positions(
         return []
     out: list[dict[str, Any]] = []
     for r in rows:
-        upnl, upnl_source = _broker_unrealised_for_trade(r[1], r[2], r[3], r[4])
+        # Offloaded to the dedicated single-worker account-read executor
+        # (BL-20260706-IBCONCURRENCY): both the broker-truth read and its
+        # local mark-to-market fallback can drive a blocking, event-loop-
+        # owning IB call, which is unsafe to run directly on this coroutine's
+        # thread (uvicorn's already-running loop) — see
+        # src.web.api._account_read_executor for the incident writeup. The
+        # 10s per-account/per-symbol caches inside each half keep this cheap
+        # under repeated polling.
+        #
         # Server-side mark-to-market fallback (2026-06-16): when the broker
         # read is unavailable (logged-out IB Gateway, no matching position),
         # compute unrealised PnL from the last market close × the contract
@@ -640,10 +672,9 @@ async def get_positions(
         # of $0.00. The client-side candle fallback was multiplier-blind for
         # futures (MGC=10× / MHG=2500×); this is computed where the canonical
         # contract_value_usd lives. Marked with a distinct source.
-        if upnl is None and upnl_source == "unavailable":
-            upnl, upnl_source = _local_unrealised_for_trade(
-                symbol=r[2], direction=r[3], entry_price=r[5], qty=r[4],
-            )
+        upnl, upnl_source = await run_account_read(
+            _resolve_position_pnl, r[1], r[2], r[3], r[4], r[5],
+        )
         # Options-expression rows carry a structure block in notes.options
         # (legs / strikes / defined risk). Surface it as a nested ``options``
         # object so the dashboard + Android can render the spread; null for a
