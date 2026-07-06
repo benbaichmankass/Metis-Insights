@@ -3045,6 +3045,21 @@
       "snoozed_until": null,
       "resolved_at": null,
       "resolution": null
+    },
+    {
+      "id": "BL-20260706-GPU-BURST-LEDGER-PUSH-RACE",
+      "opened_at": "2026-07-06T07:05:00+00:00",
+      "opened_by": "claude (M19 overnight session)",
+      "source": "gpu-burst-train run 28773344221 (arm-A retry, issue #5647): the end-of-job ledger commit push to main was rejected 'fetch first' because main advanced during the ~8-min burst (PR #5645 merged mid-run). The workflow only warns - the $0.0257 row was silently dropped. The 06:51Z preflight also showed month-to-date $0.04, i.e. the earlier failed-run row (gpu-28772600180, $0.0167) was ALSO missing - same race with #5635's merge.",
+      "title": "gpu-burst ledger push races concurrent main merges and silently drops spend rows",
+      "description": "The spend ledger (comms/gpu_spend_ledger.json) is the budget GATE input; dropped rows under-count month-to-date spend. Two rows dropped 2026-07-06 (reconciled by hand the same morning). The job checks out main at start and pushes ~8+ min later with no pull/rebase/retry.",
+      "suggested_fix": "In the 'Record cost + commit ledger' step: `git pull --rebase origin main` immediately before the push, in a small retry loop (3 attempts). The ledger is append-only JSON so a rebase conflict is near-impossible; worst case re-run record_run after pull.",
+      "tier": "Tier 1 (CI workflow change).",
+      "trigger_condition": "Next CI-touching session (pairs with BL-20260706-GPU-BURST-CONCURRENCY-CANCEL).",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "resolution": null
     }
   ],
   "updated_at": "2026-07-05T12:35:00+00:00"
