@@ -184,6 +184,69 @@ def test_client_positions_empty_list_when_genuinely_flat(monkeypatch):
     assert cli.positions() == []
 
 
+# ------------------------------------------------- balance/buying_power(0.0)
+# BL-20260707: `equity or cash` / `if bp > 0:` treated a genuinely-zero
+# reading the same as "couldn't parse" — the same truthiness shape as the
+# already-fixed account_open_positions bug, just one layer up.
+
+def test_client_balance_zero_equity_is_not_dropped(monkeypatch):
+    """A real equity=0.0 must be returned as 0.0, not silently swapped for
+    a different field (cash) just because 0.0 is falsy."""
+    monkeypatch.setattr(
+        "src.units.accounts.alpaca_client.requests.request",
+        lambda *a, **k: _Resp({"equity": "0", "cash": "149.80"}, status=200),
+    )
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    assert cli.balance() == 0.0
+
+
+def test_client_balance_falls_back_to_cash_only_when_equity_absent(monkeypatch):
+    """Falling back to `cash` is correct when `equity` is genuinely ABSENT
+    from the response, not merely zero."""
+    monkeypatch.setattr(
+        "src.units.accounts.alpaca_client.requests.request",
+        lambda *a, **k: _Resp({"cash": "149.80"}, status=200),
+    )
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    assert cli.balance() == 149.80
+
+
+def test_client_buying_power_zero_is_returned_not_none(monkeypatch):
+    """A genuine regt_buying_power=0.0 (fully invested / no free margin) must
+    be returned as 0.0 — the caller (Coordinator.multi_account_execute) reads
+    None as 'could not determine' and falls back to a MORE PERMISSIVE sizing
+    basis, which is backwards for an account with zero free margin."""
+    monkeypatch.setattr(
+        "src.units.accounts.alpaca_client.requests.request",
+        lambda *a, **k: _Resp(
+            {"regt_buying_power": "0", "buying_power": "500.00", "cash": "500.00"},
+            status=200,
+        ),
+    )
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    assert cli.buying_power() == 0.0
+
+
+def test_client_buying_power_falls_back_when_key_absent(monkeypatch):
+    """Falling through to the next key is correct when regt_buying_power is
+    ABSENT, not merely zero."""
+    monkeypatch.setattr(
+        "src.units.accounts.alpaca_client.requests.request",
+        lambda *a, **k: _Resp({"buying_power": "500.00"}, status=200),
+    )
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    assert cli.buying_power() == 500.00
+
+
+def test_client_buying_power_none_when_all_keys_absent_or_unparseable(monkeypatch):
+    monkeypatch.setattr(
+        "src.units.accounts.alpaca_client.requests.request",
+        lambda *a, **k: _Resp({"regt_buying_power": "not-a-number"}, status=200),
+    )
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    assert cli.buying_power() is None
+
+
 # --- account_status() — BL-20260701-ALPACA-STATUS-VISIBILITY ---------------
 
 def test_client_account_status_surfaces_authorization_flags(monkeypatch):
@@ -293,6 +356,109 @@ def test_client_close_no_resting_orders_is_single_call(monkeypatch):
     res = cli.close("SPY")
     assert res["retCode"] == 0
     assert [p for (m, p) in calls if m == "DELETE"] == ["/v2/positions/SPY"]
+
+
+# --------------------------------------------- close() flatten confirmation
+# BL-20260707-ALPACA-CLOSE-NOT-CONFIRMED-FLAT: Alpaca's HTTP 2xx on the
+# flatten DELETE means "accepted", not "actually flat" — close() must poll
+# positions() and require the symbol to disappear before reporting ok.
+
+def test_client_close_confirms_flat_before_reporting_ok(monkeypatch):
+    """The DELETE succeeds and a post-close positions() read shows the
+    symbol gone — close() reports ok on the FIRST confirmation poll, no
+    sleeping needed."""
+    monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep",
+                         lambda *_: pytest.fail("should not need to sleep"))
+
+    def fake_request(method, path, json_body=None):
+        if method == "GET" and path == "/v2/orders":
+            return {"retCode": 0, "result": []}
+        if method == "GET" and path == "/v2/positions":
+            return {"retCode": 0, "result": []}  # confirmed flat
+        if method == "DELETE" and path == "/v2/positions/QQQ":
+            return {"retCode": 0, "result": {"id": "flatten-ok"}}
+        return {"retCode": 0, "result": []}
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_request", fake_request)
+    res = cli.close("QQQ")
+    assert res["retCode"] == 0
+    assert res["result"]["orderId"] == "flatten-ok"
+
+
+def test_client_close_not_confirmed_flat_returns_retcode_1(monkeypatch):
+    """The regression case: DELETE accepted, but the symbol is STILL open on
+    every positions() poll — close() must NOT report success. The old
+    accept-is-success behaviour is exactly what let a close accepted right
+    after market close fabricate a 'closed' DB row + PnL for a position that
+    never actually flattened (the live SLV incident)."""
+    monkeypatch.setenv("ALPACA_CLOSE_CONFIRM_S", "0.05")
+    monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep",
+                         lambda *_: None)
+
+    def fake_request(method, path, json_body=None):
+        if method == "GET" and path == "/v2/orders":
+            return {"retCode": 0, "result": []}
+        if method == "GET" and path == "/v2/positions":
+            # Still open — the flatten never actually filled.
+            return {"retCode": 0, "result": [
+                {"symbol": "SLV", "side": "short", "qty": "1360",
+                 "avg_entry_price": "53.94", "unrealized_pl": "-353.6"},
+            ]}
+        if method == "DELETE" and path == "/v2/positions/SLV":
+            return {"retCode": 0, "result": {"id": "accepted-not-filled"}}
+        return {"retCode": 0, "result": []}
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_request", fake_request)
+    res = cli.close("SLV")
+    assert res["retCode"] != 0
+    assert "not confirmed flat" in res["retMsg"].lower()
+
+
+def test_client_close_confirm_read_failure_not_treated_as_flat(monkeypatch):
+    """A positions() read failure DURING the confirm poll must not be
+    mistaken for 'the position is gone' — mirrors IBClient.close's identical
+    rule (a read failure is not confirmation)."""
+    monkeypatch.setenv("ALPACA_CLOSE_CONFIRM_S", "0.05")
+    monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep",
+                         lambda *_: None)
+
+    def fake_request(method, path, json_body=None):
+        if method == "GET" and path == "/v2/orders":
+            return {"retCode": 0, "result": []}
+        if method == "GET" and path == "/v2/positions":
+            return {"retCode": 500, "retMsg": "internal error"}  # read failure
+        if method == "DELETE" and path == "/v2/positions/QQQ":
+            return {"retCode": 0, "result": {"id": "accepted"}}
+        return {"retCode": 0, "result": []}
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_request", fake_request)
+    res = cli.close("QQQ")
+    assert res["retCode"] != 0
+    assert "not confirmed flat" in res["retMsg"].lower()
+
+
+def test_client_close_confirm_disabled_restores_legacy_behavior(monkeypatch):
+    """ALPACA_CLOSE_CONFIRM_S <= 0 restores the pre-fix accept-is-success
+    behaviour (the documented escape hatch, same shape as IB_CLOSE_CONFIRM_S
+    / IB_PROBE_TIMEOUT_S) — no confirmation poll at all."""
+    monkeypatch.setenv("ALPACA_CLOSE_CONFIRM_S", "0")
+    calls = []
+
+    def fake_request(method, path, json_body=None):
+        calls.append((method, path))
+        if method == "GET":
+            return {"retCode": 0, "result": []}
+        return {"retCode": 0, "result": {"id": "accepted-unconfirmed"}}
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_request", fake_request)
+    res = cli.close("QQQ")
+    assert res["retCode"] == 0
+    # Only the cancel-pre-pass GET + the flatten DELETE — no confirm-poll GET.
+    assert [m for (m, _) in calls] == ["GET", "DELETE"]
 
 
 # ------------------------------------------------------------ config gates

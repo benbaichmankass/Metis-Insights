@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import Any, Dict, Optional
 
 import requests
@@ -37,6 +38,14 @@ _HOSTS = {
     "paper": "https://paper-api.alpaca.markets",
     "live": "https://api.alpaca.markets",
 }
+
+
+def _env_float(name: str, default: float) -> float:
+    """Read-at-call-time float env var (mirrors ib_client.py's helper)."""
+    try:
+        return float(os.environ.get(name, "") or default)
+    except (TypeError, ValueError):
+        return default
 
 
 class MissingCredentialsError(RuntimeError):
@@ -151,8 +160,15 @@ class AlpacaClient:
             logger.warning("alpaca balance: %s", env.get("retMsg"))
             return None
         acct = env.get("result") or {}
+        # `or` here would treat a genuine equity=0.0 as falsy and silently
+        # substitute cash instead — the same truthiness shape as the
+        # already-fixed account_open_positions bug (BL-20260707). `equity`
+        # is the authoritative figure; only fall back to `cash` when it is
+        # actually ABSENT, not merely zero.
+        equity = acct.get("equity")
+        raw = equity if equity is not None else acct.get("cash")
         try:
-            return float(acct.get("equity") or acct.get("cash"))
+            return float(raw)
         except (TypeError, ValueError):
             return None
 
@@ -195,8 +211,16 @@ class AlpacaClient:
                 bp = float(raw)
             except (TypeError, ValueError):
                 continue
-            if bp > 0:
-                return bp
+            # BL-20260707: `if bp > 0:` treated a genuinely-zero buying power
+            # (fully invested / no free margin — a real, common account
+            # state) the same as "couldn't parse", falling through to a LESS
+            # authoritative key and, if all three are absent, returning None
+            # — which the caller (Coordinator.multi_account_execute) reads as
+            # "couldn't determine" and falls back to a MORE PERMISSIVE sizing
+            # basis. That's backwards: a genuine 0.0 is the most conservative,
+            # most correct answer and must be returned as-is, not papered
+            # over. Only an ABSENT or unparseable key should fall through.
+            return bp
         return None
 
     def account_status(self) -> Optional[Dict[str, Any]]:
@@ -293,13 +317,70 @@ class AlpacaClient:
         "insufficient qty available for order (requested: N,
         available: 0)" — the DB row then never closes and the monitor
         retries the same failing close every tick.
+
+        Bounded post-DELETE FLATTEN CONFIRMATION (BL-20260707-ALPACA-CLOSE-
+        NOT-CONFIRMED-FLAT), mirroring ``IBClient.close``'s
+        ``IB_CLOSE_CONFIRM_S`` contract exactly: Alpaca returning HTTP 2xx
+        for the DELETE means the close order was ACCEPTED, not that the
+        position actually flattened. Treating acceptance as success let a
+        close accepted right at/after the market close never actually fill —
+        the trade was journaled `closed` with a FABRICATED local mark-to-
+        market PnL while the position was still fully open (and, because the
+        cancel step above already removed its protective bracket, naked) on
+        the broker; the reverse reconciler then re-adopted it minutes later
+        as a brand-new orphan. So we now re-read the live position and
+        require the symbol to actually disappear within ``ALPACA_CLOSE_
+        CONFIRM_S`` (default 6.0s; ``<= 0`` restores the legacy accept-is-
+        success behaviour) before reporting success. On timeout the retMsg
+        carries the exact substring "not confirmed flat" that order_monitor's
+        existing IB-built cooldown/retry/consecutive-failure-alert machinery
+        already keys on generically (by (account, symbol, direction), not by
+        exchange) — so this activates that whole safety net with no changes
+        needed anywhere else.
         """
         self._require_creds("close")
         self._cancel_open_orders_for_symbol(symbol)
-        env = self._request("DELETE", f"/v2/positions/{str(symbol).upper()}")
+        sym = str(symbol).upper()
+        env = self._request("DELETE", f"/v2/positions/{sym}")
         if env.get("retCode") == 404:
             return {"retCode": 0, "result": {"note": "no open position"}}
-        return env
+        if env.get("retCode") != 0:
+            return env
+
+        confirm_s = _env_float("ALPACA_CLOSE_CONFIRM_S", 6.0)
+        if confirm_s > 0:
+            deadline = time.monotonic() + confirm_s
+            last_qty: Optional[float] = None
+            flat = False
+            while True:
+                positions = self.positions()
+                # A read failure (None) is NOT treated as flat — we don't
+                # know, so keep polling until the deadline rather than
+                # confirming a close we can't actually see.
+                if positions is not None:
+                    match = next(
+                        (p for p in positions if p.get("symbol") == sym), None
+                    )
+                    if match is None:
+                        flat = True
+                        break
+                    last_qty = match.get("qty")
+                if time.monotonic() >= deadline:
+                    break
+                time.sleep(0.5)
+            if not flat:
+                return {
+                    "retCode": 1,
+                    "retMsg": (
+                        f"alpaca close not confirmed flat: symbol={sym} "
+                        f"last_qty={last_qty} after ~{confirm_s}s — the "
+                        "flatten was accepted but the position is still "
+                        "open; leaving DB row open to retry next tick"
+                    ),
+                }
+
+        result = env.get("result") or {}
+        return {"retCode": 0, "result": {"orderId": str(result.get("id") or "")}}
 
     def _open_orders_for_symbol(self, symbol: str) -> Optional[list]:
         """Open (working) orders on *symbol*, including bracket child legs.

@@ -3471,10 +3471,68 @@
       "tier": 2,
       "trigger_condition": "Already fixed this session; re-open only if a close still fails with the same error after this fix deploys.",
       "resolution_criteria": "Fix ships, deploys to the live VM, and a subsequent close attempt on an affected symbol (QQQ or any of SPY/IWM/IEF/TLT/USO, whichever exits next) succeeds instead of repeating 'insufficient qty available'.",
+      "status": "resolved",
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-07-07T21:20:00+00:00",
+          "by": "claude (dispatch-failure investigation session, 2026-07-07)",
+          "note": "PR #5918 merged (squash sha 2a8a91f), confirmed in main's ancestry. Deploy verification folded into the next entry's deploy check (both landed close together)."
+        }
+      ]
+    },
+    {
+      "id": "BL-20260707-ALPACA-CLOSE-NOT-CONFIRMED-FLAT",
+      "opened_at": "2026-07-07T20:50:00+00:00",
+      "opened_by": "claude (full Alpaca-pipeline audit session, 2026-07-07)",
+      "title": "AlpacaClient.close() treated Alpaca's HTTP-accept as a confirmed flatten — a close accepted right after market close never actually filled, fabricating a phantom-closed row with a made-up PnL, then re-adopted 7 minutes later as a fresh orphan; the re-adopt guard had zero protection for this because it only matched setup_type='adopted_orphan'",
+      "description": "Live incident: `_close_unattributable_orphan` (exit_coverage_resolver) closed an orphaned SLV short (1360sh @ $53.94) at 2026-07-07T20:33:45Z (4:33pm ET, just after the US equity close). `AlpacaClient.close()`'s DELETE /v2/positions/SLV returned HTTP 200 (accepted); the code treated that as confirmed-flat, fabricated a local mark-to-market PnL (-$693.60, pnl_source=local_compute), and marked the trade row closed. The position never actually flattened on the broker. 7 minutes later the reverse reconciler found SLV still fully open (same 1360sh, same $53.94 entry) and bare-adopted it as a brand-new orphan trade row — TWO DB rows now exist for the SAME broker position, the phantom-closed one carrying a fabricated realized PnL that is never corrected. Root cause: `close_open_position`'s Alpaca branch (src/units/accounts/execute.py) and AlpacaClient.close() had no fill-confirmation step, unlike IBClient.close()'s IB_CLOSE_CONFIRM_S contract (poll the live position, require it to actually reach flat within a bounded window before declaring success). Compounding factor: the just-shipped resting-order-cancel fix (BL-20260707-ALPACA-CLOSE-RESTING-ORDER-BLOCK, PR #5918) cancels the protective bracket BEFORE the flatten attempt, so a phantom-closed position is genuinely NAKED on the broker for the entire gap — and invisible to `_check_naked_positions` (which only scans status='open' rows), so there was zero monitoring or alerting on the exposure window either. Separately, the re-adopt flap guard (RECONCILER_READOPT_GUARD_SECONDS, BL-20260618-RECONCILE-DUP) only matched rows with setup_type='adopted_orphan' — a phantom-closed STRATEGY-ATTRIBUTED row (still carrying its original strategy's setup_type) fell through with ZERO flap protection, not even the 300s SLV incidentally got via its own setup_type. Full investigation ordered by the operator ('do a full audit of the entire Alpaca pipeline... I don't want to keep fixing one bug just to create another') — four parallel read-only audit agents covered order placement/sizing, position/balance reads, close/flatten paths, and reconciler/re-adopt-guard logic; this entry captures the three findings judged tightly coupled enough to fix together. FIX (all three parts landed in one PR): (1) AlpacaClient.close() now polls positions() after the DELETE, bounded by new ALPACA_CLOSE_CONFIRM_S (default 6.0s, <=0 restores legacy accept-is-success), mirroring IB_CLOSE_CONFIRM_S exactly — and deliberately reuses the exact 'not confirmed flat' retMsg substring order_monitor.py's existing IB-built cooldown/retry/consecutive-failure-alert machinery already keys on generically (by account/symbol/direction, not by exchange), so no other file needed to change for that half. (2) _recently_closed_adopted_orphan (src/runtime/order_monitor.py) widened to also match a row closed via exit_reason IN ('exchange_flat_reconciled', 'exit_coverage_no_strategy') regardless of setup_type — deliberately NOT widened to every close reason (a genuine broker-confirmed close like Bybit's reconciler_filled or a normal sl_cross/tp_cross strategy exit must never suppress a legitimate new position). (3) AlpacaClient.balance()/buying_power() truthiness bugs fixed in the same PR (see BL-20260707-ALPACA-BALANCE-TRUTHINESS below) since they surfaced in the same audit pass and are the same bug shape as the original BL-20260707-RECONCILER-MASS-FALSE-CLOSE fix.",
+      "tier": 2,
+      "trigger_condition": "Already fixed this session; re-open if a close is ever confirmed accepted-but-not-flat again after this deploys, or if a phantom-close/re-adopt double-row is observed for a close_reason not covered by the widened guard.",
+      "resolution_criteria": "Fix ships, deploys to the live VM, and is verified via git_sha; ideally also observed live the next time an Alpaca close is attempted near/after market hours (the close should now retry with the naked-sweep/cooldown machinery instead of fabricating a phantom close).",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260707-ALPACA-BALANCE-TRUTHINESS",
+      "opened_at": "2026-07-07T20:50:00+00:00",
+      "opened_by": "claude (full Alpaca-pipeline audit session, 2026-07-07)",
+      "title": "AlpacaClient.balance()/buying_power() treated a genuine $0 reading the same as 'could not read' — same truthiness bug shape as the already-fixed account_open_positions bug, one layer up",
+      "description": "balance(): `float(acct.get('equity') or acct.get('cash'))` — a real equity=0.0 is falsy, so the code silently substitutes cash instead, even though equity is the more authoritative figure. buying_power(): `if bp > 0: return bp` inside a fallback loop over (regt_buying_power, buying_power, cash) — a genuine regt_buying_power=0.0 (fully invested / no free margin, a real and common account state) is treated identically to an unparseable value and falls through to a LESS authoritative key; if all three read non-positive, the function returns None. Coordinator.multi_account_execute reads a None buying_power() as 'could not determine' and falls back to a MORE PERMISSIVE sizing basis (total_account_usd/balance_usd x leverage) — exactly backwards: the account has genuinely zero free margin and the sizer should be MOST conservative, not fall back to a laxer basis. Verified safe to fix: Coordinator's caller already does `if _bp is not None: available_usd = _bp`, and RiskManager.position_size's margin cap correctly computes max_qty_by_margin=0 when available_usd=0.0, safely refusing the trade rather than erroring.",
+      "tier": 2,
+      "trigger_condition": "Already fixed this session (shipped in the same PR as BL-20260707-ALPACA-CLOSE-NOT-CONFIRMED-FLAT).",
+      "resolution_criteria": "Fix ships and deploys to the live VM.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260707-ALPACA-ENTRY-FILL-CONFIRM-GAP",
+      "opened_at": "2026-07-07T20:50:00+00:00",
+      "opened_by": "claude (full Alpaca-pipeline audit session, 2026-07-07)",
+      "title": "Order ENTRY has the same accept-vs-fill confirmation gap as the close side (BL-20260707-ALPACA-CLOSE-NOT-CONFIRMED-FLAT) — a bracket order journals status='open' the instant it's HTTP-accepted, with a fabricated entry price, no fill confirmation",
+      "description": "`_submit_order`'s Alpaca branch (src/units/accounts/execute.py ~line 780) treats any retCode==0 (HTTP 2xx accept) from AlpacaClient.place() as success; execute_pkg then calls `_log_trade_to_journal` synchronously right after, writing status='open' with entry_price=the strategy's DECISION-TIME signal price, not a broker-confirmed fill price — no polling for an actual fill. Lower urgency than the close-side bug fixed today: Alpaca bracket orders are time_in_force:day MARKET orders, which fill almost instantly during RTH, and RECONCILER_SNAPSHOT_MIN_FILL_AGE_S (BL-20260622-ALPACA-SNAPSHOT-FALSECLOSE) already exists specifically as a grace period for a just-placed order that hasn't propagated to the positions() snapshot yet — i.e. the team already knew entries can sit apparently-unfilled for minutes. NOT yet confirmed whether a genuinely NEVER-filled entry (rejected post-accept, or placed outside RTH) converges to a correct state or fabricates a phantom trade with fake entry+exit+PnL for a position that never existed on the broker — this needs tracing before a fix is designed. Deliberately deferred out of today's close-side fix: the entry path is more sensitive (delaying/blocking a live entry has different risk than delaying a close) and deserves its own careful design, not a bolt-on.",
+      "tier": 2,
+      "trigger_condition": "Next full-pipeline review, or if a phantom-entry (journaled open, never actually filled) is observed live.",
+      "resolution_criteria": "Trace whether a never-filled Alpaca entry self-heals cleanly today; if not, design + ship an entry-side fill-confirmation step analogous to the close-side fix, sized to the entry path's different risk profile (do not just copy-paste the close-side poll loop without considering it delays a live entry, not a close).",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260707-ALPACA-PIPELINE-AUDIT-FOLLOWUPS",
+      "opened_at": "2026-07-07T20:50:00+00:00",
+      "opened_by": "claude (full Alpaca-pipeline audit session, 2026-07-07)",
+      "title": "Minor / lower-priority findings from the full Alpaca-pipeline audit — logged, not blocking",
+      "description": "Bundle of smaller findings from the four-way parallel audit (order placement/sizing, position/balance reads, close/flatten paths, reconciler/re-adopt-guards), none individually urgent enough to block the main close-confirm fix: (1) OandaClient.close() (src/units/accounts/oanda_client.py) has the IDENTICAL accept-is-success defect as the pre-fix Alpaca close — not live-impactful today since oanda_practice is dry-run-only, but will need the same confirm-flat treatment before any OANDA account goes live. (2) No client_order_id / idempotency key on AlpacaClient.place()/place_protective() — a lost HTTP response to a timeout could leave a real accepted broker order un-journaled; low probability today since there's no retry loop in execute.py/coordinator.py to trigger a double-submit, but worth hardening. (3) The naked-position re-arm paths (_rearm_broker_protection_after_recovery, _check_broker_naked_equity_positions in order_monitor.py) size the re-armed OCO from trades.position_size (the journal column) rather than a fresh broker-side qty read — suspected staleness risk, not confirmed as a live bug, needs a follow-up trace of whether position_size reliably stays broker-truth-synced across partial fills/closes. (4) AlpacaClient.place_protective() duplicates whole_unit_qty's rounding logic inline instead of calling the shared helper place() already uses — cosmetic DRY violation, functionally identical today but a latent drift risk if the rounding rule ever changes. (5) _PENDING_ORPHAN_NOSTRAT_CLOSE (order_monitor.py) is never popped on the 'absent' (closed via disappear-confirm) branch, only the 'recoverable' branch — an unbounded but harmless in-process dict leak (trade ids are never reused). (6) _recover_orphan_order_package searches order packages of ANY status (not just open) for a symbol/direction/entry-price(+-2%) match — theoretical risk of resurrecting an already-closed, unrelated order package on a coincidental price match; not observed live, worth a defensive exclusion (e.g. skip packages whose linked trade closed via exit_coverage_no_strategy/exchange_flat_reconciled within the readopt-guard window) as a follow-up.",
+      "tier": 1,
+      "trigger_condition": "Next /health-review, or before any OANDA account goes live (item 1 becomes Tier-2 at that point).",
+      "resolution_criteria": "Each item addressed individually as time/priority allows; item 1 must be resolved before oanda_practice (or any OANDA account) flips off dry_run.",
       "status": "open",
       "snoozed_until": null,
       "updates": []
     }
   ],
-  "updated_at": "2026-07-07T20:30:00+00:00"
+  "updated_at": "2026-07-07T21:20:00+00:00"
 }

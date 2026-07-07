@@ -827,6 +827,118 @@ def test_readopt_guard_disabled_with_zero_window(tmp_db, monkeypatch):
     assert summary["adopted"] == 1
 
 
+def _insert_closed_strategy_trade(db, *, symbol="SLV", direction="short",
+                                   account_id="bybit_2", entry=53.94,
+                                   size=1360.0, exit_reason, closed_at,
+                                   setup_type="slv_trend_1h"):
+    """Insert a CLOSED trade that still carries its ORIGINAL strategy
+    setup_type (never reclassified to 'adopted_orphan') — the shape a
+    position_snapshot_reconciler / exit_coverage_resolver close produces."""
+    db.insert_trade({
+        "timestamp": "2026-07-07T20:27:00+00:00",
+        "symbol": symbol, "direction": direction, "entry_price": entry,
+        "position_size": size, "setup_type": setup_type, "status": "closed",
+        "exit_reason": exit_reason, "pnl": -693.6, "closed_at": closed_at,
+        "is_backtest": 0, "strategy_name": setup_type,
+        "account_id": account_id,
+        "notes": '{"pnl_source": "local_compute", "exit_price_source": "local_markprice"}',
+    })
+
+
+# BL-20260707-ALPACA-CLOSE-NOT-CONFIRMED-FLAT: the guard above only matched
+# setup_type='adopted_orphan' — a STRATEGY-ATTRIBUTED row phantom-closed by
+# position_snapshot_reconciler or exit_coverage_resolver (still carrying its
+# original strategy's setup_type) fell straight through with zero flap
+# protection, letting the SLV incident re-adopt 7 minutes after a phantom
+# close with no suppression at all.
+
+def test_readopt_guard_suppresses_phantom_closed_strategy_row_exchange_flat_reconciled(
+    tmp_db, monkeypatch,
+):
+    monkeypatch.setenv("ORPHAN_POSITION_POLICY", "adopt")
+    monkeypatch.setenv("RECONCILER_READOPT_GUARD_SECONDS", "300")
+    enqueued: list = []
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_exchange_orphan_adoption",
+        lambda **kw: enqueued.append(kw),
+    )
+    recent = (datetime.now(timezone.utc) - timedelta(seconds=10)).isoformat()
+    _insert_closed_strategy_trade(
+        tmp_db, exit_reason="exchange_flat_reconciled", closed_at=recent,
+    )
+
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[_bybit_position(
+            symbol="SLV", side="Sell", size=1360.0, entry=53.94,
+        )],
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+
+    assert summary["readopt_suppressed"] == 1
+    assert summary["adopted"] == 0
+    assert _open_trade_count(tmp_db) == 0
+    assert len(enqueued) == 1
+    assert enqueued[0]["policy"] == "detect_only"
+
+
+def test_readopt_guard_suppresses_phantom_closed_strategy_row_exit_coverage(
+    tmp_db, monkeypatch,
+):
+    """Same guard, the OTHER phantom-close source (exit_coverage_resolver) —
+    the exact SLV incident: a 'no recoverable strategy' close that fabricates
+    a PnL without confirming the flatten actually happened."""
+    monkeypatch.setenv("ORPHAN_POSITION_POLICY", "adopt")
+    monkeypatch.setenv("RECONCILER_READOPT_GUARD_SECONDS", "300")
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_exchange_orphan_adoption",
+        lambda **kw: None,
+    )
+    recent = (datetime.now(timezone.utc) - timedelta(seconds=10)).isoformat()
+    _insert_closed_strategy_trade(
+        tmp_db, exit_reason="exit_coverage_no_strategy", closed_at=recent,
+        setup_type="orphan_adopt",  # exit-coverage closes carry this setup_type
+    )
+
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[_bybit_position(
+            symbol="SLV", side="Sell", size=1360.0, entry=53.94,
+        )],
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+
+    assert summary["readopt_suppressed"] == 1
+    assert summary["adopted"] == 0
+
+
+def test_readopt_guard_does_not_suppress_a_genuine_strategy_exit(tmp_db, monkeypatch):
+    """The widening must stay NARROW: a normal, broker-CONFIRMED strategy exit
+    (sl_cross/tp_cross — not a reconciler best-guess close) must NOT block a
+    legitimate new position on the same symbol/direction shortly after."""
+    monkeypatch.setenv("ORPHAN_POSITION_POLICY", "adopt")
+    monkeypatch.setenv("RECONCILER_READOPT_GUARD_SECONDS", "300")
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_exchange_orphan_adoption",
+        lambda **kw: None,
+    )
+    recent = (datetime.now(timezone.utc) - timedelta(seconds=10)).isoformat()
+    _insert_closed_strategy_trade(
+        tmp_db, exit_reason="sl_cross", closed_at=recent,
+    )
+
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[_bybit_position(
+            symbol="SLV", side="Sell", size=1360.0, entry=53.94,
+        )],
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+
+    assert summary["readopt_suppressed"] == 0
+    assert summary["adopted"] == 1
+
+
 def test_mark_orphaned_fires_orphan_red_flag(monkeypatch):
     """Operator directive: a row entering status='orphaned' via the forward
     reconciler must fire the orphan red-flag (durable log + /system-review ping),
