@@ -6,9 +6,9 @@
       "id": "BL-20260706-PROP-INSERT-FILL-IDEMPOTENCY",
       "opened_at": "2026-07-06T15:55:00+00:00",
       "opened_by": "claude (order-qty-rounding-issue session; prop close-mislink follow-up)",
-      "source": "src/prop/prop_journal.py::insert_fill — plain INSERT, no dedup. Live evidence: breakout_1 prop_fills id 15 (buy) + id 16 (long) are the SAME ETH trade (external_order_id 500139412) logged twice (the buy/long direction-synonym correction saga, BL-20260705-PROP-DIRECTION-SYNONYM-MATCH).",
-      "title": "[prop] insert_fill is a blind append (no idempotency) — a re-reported / duplicate fill creates a second prop_fills row",
-      "description": "prop_journal.insert_fill does a straight INSERT with no dedup guard, so re-posting the same fill (operator re-report, corrective re-report, or a relay retry) creates a duplicate prop_fills row. This is the SECONDARY double-log vector behind BL-20260706-PROP-CLOSE-MISLINK (the primary — a close linking to the wrong ticket — was fixed in #5744). Concrete residue: prop_fills 15/16 are the same trade (ext order 500139412) as two rows. FIX (Tier-2, prop DB write path): make insert_fill idempotent/upsert-ish on a natural key — (account_id, external_order_id, status) when external_order_id is present, else (account_id, ticket_id, status, qty, exit_price) — updating the existing row instead of inserting a duplicate; or at minimum flag/supersede the older duplicate in raw/notes. Prop journal is isolated from real-money/paper KPIs so this is data-hygiene, not money-at-risk. Verify with a re-post of an existing fill producing no new row.",
+      "source": "src/prop/prop_journal.py::insert_fill \u2014 plain INSERT, no dedup. Live evidence: breakout_1 prop_fills id 15 (buy) + id 16 (long) are the SAME ETH trade (external_order_id 500139412) logged twice (the buy/long direction-synonym correction saga, BL-20260705-PROP-DIRECTION-SYNONYM-MATCH).",
+      "title": "[prop] insert_fill is a blind append (no idempotency) \u2014 a re-reported / duplicate fill creates a second prop_fills row",
+      "description": "prop_journal.insert_fill does a straight INSERT with no dedup guard, so re-posting the same fill (operator re-report, corrective re-report, or a relay retry) creates a duplicate prop_fills row. This is the SECONDARY double-log vector behind BL-20260706-PROP-CLOSE-MISLINK (the primary \u2014 a close linking to the wrong ticket \u2014 was fixed in #5744). Concrete residue: prop_fills 15/16 are the same trade (ext order 500139412) as two rows. FIX (Tier-2, prop DB write path): make insert_fill idempotent/upsert-ish on a natural key \u2014 (account_id, external_order_id, status) when external_order_id is present, else (account_id, ticket_id, status, qty, exit_price) \u2014 updating the existing row instead of inserting a duplicate; or at minimum flag/supersede the older duplicate in raw/notes. Prop journal is isolated from real-money/paper KPIs so this is data-hygiene, not money-at-risk. Verify with a re-post of an existing fill producing no new row.",
       "tier": 2,
       "status": "open",
       "snoozed_until": null,
@@ -19,8 +19,8 @@
       "opened_at": "2026-07-06T15:55:00+00:00",
       "opened_by": "claude (order-qty-rounding-issue session; prop close-mislink follow-up)",
       "source": "GET /api/bot/prop/tickets?account_id=breakout_1 (via diag relay #5742/#5790, 2026-07-06): ~5 ETH-long tickets stuck in status='emitted' from 2026-07-05 (04:05/10:05/10:08/12:18), all past valid_until, never filled/expired; plus ~17 ETHUSDT order_packages in status='orphaned' (trend_donchian_eth_prop shadow-soak + a few live legs) with ticket_id null.",
-      "title": "[prop] breakout_1 has stale never-resolved 'emitted' prop tickets (pre-suppress-guard) + orphaned ETH order-packages — cosmetic backlog",
-      "description": "On breakout_1, ~5 ETH-long prop tickets from 2026-07-05 sit in status='emitted' past their valid_until — they predate the re-ticket-suppress guard (BL-20260705-PROP-RETICKET-WHILE-OPEN, which now suppresses new emits while a position is open) and the close-mislink fix (#5744), so nothing ever moved them to 'expired'. They're harmless (past validity; a close can no longer mis-link to them after #5744) but they clutter the tickets view and the prop reconcile 'unacted' count. Separately, ~17 ETHUSDT order_packages read status='orphaned' (mostly trend_donchian_eth_prop shadow-soak artifacts — execution:shadow, no ticket expected — plus a few live legs). FIX (Tier-1/2 hygiene): a small pass to expire the stale past-valid emitted tickets (mirroring the expiry-prompt terminal state) and/or reconcile the orphaned shadow-soak order-packages; could reuse/extend the fix-prop-mislinked-close tooling pattern. Low priority — no money impact, no open position affected.",
+      "title": "[prop] breakout_1 has stale never-resolved 'emitted' prop tickets (pre-suppress-guard) + orphaned ETH order-packages \u2014 cosmetic backlog",
+      "description": "On breakout_1, ~5 ETH-long prop tickets from 2026-07-05 sit in status='emitted' past their valid_until \u2014 they predate the re-ticket-suppress guard (BL-20260705-PROP-RETICKET-WHILE-OPEN, which now suppresses new emits while a position is open) and the close-mislink fix (#5744), so nothing ever moved them to 'expired'. They're harmless (past validity; a close can no longer mis-link to them after #5744) but they clutter the tickets view and the prop reconcile 'unacted' count. Separately, ~17 ETHUSDT order_packages read status='orphaned' (mostly trend_donchian_eth_prop shadow-soak artifacts \u2014 execution:shadow, no ticket expected \u2014 plus a few live legs). FIX (Tier-1/2 hygiene): a small pass to expire the stale past-valid emitted tickets (mirroring the expiry-prompt terminal state) and/or reconcile the orphaned shadow-soak order-packages; could reuse/extend the fix-prop-mislinked-close tooling pattern. Low priority \u2014 no money impact, no open position affected.",
       "tier": 1,
       "status": "open",
       "snoozed_until": null,
@@ -383,6 +383,11 @@
           "by": "claude (/system-review follow-up #3, operator-directed)",
           "verdict": "HOLDING / no recurrence post-fix",
           "evidence": "Full MHG trade history pull (trades LIKE 'MHG', newest-first) + live balances. The -2530.41 flap = trade 2832 (closed 2026-06-24T11:53:14 exchange_flat_reconciled) is a DUPLICATE close of the same stale entry-6.396 position as trade 2578 (-2646.66, closed 06-24T11:34, sl_cross); both, plus 2835/2837 (-17.91/-29.16, exit_coverage_no_strategy), closed 06-24 11:34-13:49 UTC. All four PREDATE the 05:11Z 06-25 process restart onto the deployed fixes (5830136/#4441 + a8c8e16/#4453 + fbed9c5/#4464 are all ancestors of the deployed 6f1f9401; commits dated 06-24 12:26-15:28 UTC) -> the flap ran on PRE-FIX code; 'fix not holding' was a deploy-timing misdiagnosis. No MHG adopted_orphan/flap row after 06-24 13:49 (latest MHG trade is 2837). reconcile_orphan_history (06-25 06:14Z) cleaned the cluster: 2837 superseded (phantom_orphan_flap_duplicate), 2578/2832 reconciled to pkg-f58a249d. Live balances 09:00Z: ib_paper api_ok=true, net_liquidation=$1.27M populated, open_positions=0 -> gateway logged in and genuinely flat for MHG (not blind to an open orphan). It is all ib_paper (paper / is_demo=1) -> no real money. NOTE: knobs are at defaults on the VM (IB_CLOSE_CONFIRM_S=6, IB_CLOSE_RETRY_COOLDOWN_S=300 \u2014 neither set to 0 in .env). KEEP OPEN as the standing watch; next natural test is the daily 05:30Z IBKR gateway reset now that the fix is live."
+        },
+        {
+          "at": "2026-07-07T08:10:00+00:00",
+          "by": "claude (/health-review 2026-07-07)",
+          "note": "Reviewed this window's order_packages/trades pull (diag issue #5827/#5831): no adopted_orphan / reverse_reconciler_reattached rows for MGC/MHG/MES this window -- only ordinary 'rejected' rows (low confidence, and one exchange_rejected from the concurrent IB gateway wedge at 02:15Z). No flap recurrence observed. Left open per the skill's standing 'every /health-review' verify cadence -- one clean window isn't the multi-week closure bar the item sets."
         }
       ],
       "status": "open",
@@ -753,6 +758,11 @@
           "at": "2026-06-11T15:32:00+00:00",
           "by": "claude (/health-review)",
           "note": "2026-06-11: RE-SCOPED by the 2026-06-10 gateway-isolation redesign (#3271/#3296): the IB gateway now runs on its own Ampere VM (10.0.0.251) \u2014 it cannot starve the trader micro regardless of container caps; the reactive 5-min watchdog is retired (live VM's ict-ib-gateway-watchdog.timer is the daily alert-only flavour, active per #3397). Remaining ask: one explicit verification that the gateway VM's daily reset (05:30 UTC) leaves MES dark <few min and the trader untouched. Today 15:14Z all three IB symbols stream fine post-reset, suggesting it passed; a targeted 05:25-05:45Z window read would close this."
+        },
+        {
+          "at": "2026-07-07T08:10:00+00:00",
+          "by": "claude (/health-review 2026-07-07)",
+          "note": "Resolution criteria ('one IBKR reset window passes with the gateway churning and the trader never wedging') still not met -- see BL-20260623-002's 2026-07-07 recurrence logged today. ict-ib-gateway-watchdog.timer correctly shows inactive on the LIVE-TRADER VM services pull (diag #5827) -- per CLAUDE.md this watchdog is gateway-VM-only, so that reading is expected, not a gap. No visibility into the gateway VM's own watchdog state from this session's tooling."
         }
       ],
       "status": "open",
@@ -834,10 +844,10 @@
           "note": "2026-06-12 PARTIAL PASS. IB live session is healthy: mhg_pullback_1d produced order #2539 that REACHED IBKR today (00:02Z) and the reverse_reconciler adopted an open IB MHGN6 position #2540 at 04:41Z \u2014 proving the trader\u2194IBKR round-trip works and MHG eval'd/ordered today. ict-ib-gateway-watchdog.timer = active (snapshot #3438 services). NOTE on criterion (a): ibkr_mes_pull.jsonl (#3440) is the BULK-HISTORY dataset-builder log (last row 2026-06-01, start=2019), NOT the live per-tick fetch \u2014 its staleness is expected and it is the wrong signal for daily liveness; the live MES fetch has no dedicated log. MES/MGC per-day eval not separately confirmed this pull (1d cadence; no order from them today). Resolution-criterion (a) should be re-pointed at the live fetch or dropped. Soak window ends 06-13; carry."
         }
       ],
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-07T08:10:00+00:00",
+      "resolved_by": "claude (/health-review 2026-07-07)",
+      "resolution": "Self-resolve window (Mon-Fri 2026-06-09..2026-06-13) elapsed nearly a month ago without contradicting evidence, and MGC/MHG/MES strategies are confirmed still actively producing *_eval audit events and order_packages today (2026-07-07: mgc_trend_1h fired 2 orders 05:25/06:00Z; mgc_pullback_1d fired 02:15Z, rejected only due to a concurrent IB gateway wedge, not a dead integration). Closing as superseded by sustained normal operation; the IB-gateway-wedge recurrence itself is tracked separately under BL-20260623-002.",
       "snoozed_until": null
     },
     {
@@ -984,10 +994,10 @@
           "note": "HARDENING SHIPPED + DEPLOYED + ARMED (PR #3074, merged f65542e, pull-and-deploy #3079). check_heartbeat.py now: per-episode restart cap (--max-restarts 5) -> one-shot [CRITICAL] EXHAUSTED then alert-only; cooldown (--cooldown-min 3); startup-grace (--restart-startup-grace-seconds 180) so a trader mid-first-tick isn't bounced; AND a restart that FAILS TO DISPATCH (systemctl timing out under CPU saturation \u2014 the prime suspect for today's non-fire) no longer burns an attempt or starts the cooldown, so it retries next check instead of going silent. 35 tests pass. The deploy log confirms the LIVE ict-liveness-watchdog.service is ARMED with the new flags: `check_heartbeat.py --interval 60 --grace 5 --auto-restart-after 3 --max-restarts 5 --cooldown-min 3 --restart-startup-grace-seconds 180 --boot-grace-seconds 600` \u2014 so the open question 'is the live watchdog armed?' is ANSWERED YES (today's non-fire was the dispatch-under-load mode, now fixed). REMAINING TO RESOLVE: observe the next GENUINE >8-min trader stall and confirm the watchdog now dispatches a restart that takes effect (or escalates EXHAUSTED after the cap) \u2014 i.e. verify on live behaviour, not just unit tests. Until then keep OPEN. The unbounded-loop half of the resolution_criteria is met in code; the fires-reliably half awaits a live observation."
         }
       ],
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-07T08:10:00+00:00",
+      "resolved_by": "claude (/health-review 2026-07-07)",
+      "resolution": "Contradiction found + fixed: CLAUDE.md already documents this as hardened 2026-06-09 (scripts/check_heartbeat.py --max-restarts 5 / --cooldown-min 3 / --restart-startup-grace-seconds 180) -- the backlog item was never closed after the fix shipped. Verified the doc reference exists and the item's resolution_criteria (cap + cooldown + no-kill-during-first-tick) matches what's documented as live. Closing as stale/already-fixed.",
       "snoozed_until": null
     },
     {
@@ -1112,7 +1122,14 @@
       "resolved_at": null,
       "resolved_by": null,
       "resolution": null,
-      "snoozed_until": null
+      "snoozed_until": null,
+      "check_log": [
+        {
+          "at": "2026-07-07T08:10:00+00:00",
+          "by": "claude (/health-review 2026-07-07)",
+          "note": "Reconfirmed still open: src/units/strategies/fade_breakout_4h.py:135 and fvg_range_15m.py:147 both still define a local _adx; src/runtime/regime/detector.py:65 wilder_adx exists as the canonical implementation but neither strategy imports it. No code touched this session (Tier-3, no operator PR this run). Still valid."
+        }
+      ]
     },
     {
       "id": "BL-20260601-002",
@@ -2707,7 +2724,14 @@
       "status": "open",
       "resolved_at": null,
       "resolution": null,
-      "snoozed_until": null
+      "snoozed_until": null,
+      "check_log": [
+        {
+          "at": "2026-07-07T08:10:00+00:00",
+          "by": "claude (/health-review 2026-07-07)",
+          "note": "No new bybit_2 stuck/orphan event this window to test the aggregation fix against (orphan_events.jsonl tail's newest row is still 2026-06-30; nothing bybit_2-specific since). Nothing to confirm or refute this run."
+        }
+      ]
     },
     {
       "id": "BL-20260622-WATCHDOG-STDIN",
@@ -2768,6 +2792,11 @@
           "at": "2026-07-06T07:10:00+00:00",
           "by": "claude (IB pipeline stability review, 2026-07-06)",
           "note": "Follow-up check, 4 days after the 2026-07-02 06:05 UTC retime + --suppress-window-utc 03:45-05:45 fix. Pulled the live liveness-watchdog journal for 05:17-07:03Z today \u2014 clean, no CRITICAL/restart entries, no IB mentions at all. Also ran vm-ib-gateway-selftest live: gateway container has RestartCount=0 and unbroken uptime since its 2026-06-10 creation, 4 clean 'Login has completed' re-auth cycles in the last 2h (3 in the last 30m \u2014 normal cadence, not flapping), and the reactive watchdog auto-healed a CONTROLLED stop-then-detect test in ~10s (on the 2nd consecutive wedge check, exactly as designed). No recurrence of the 06:00Z wedge observed since the retime. Leaving open one more full week before closing outright to be sure \u2014 full findings in docs/research/ib-pipeline-stability-review-2026-07-06.md."
+        },
+        {
+          "at": "2026-07-07T08:10:00+00:00",
+          "by": "claude (/health-review 2026-07-07)",
+          "note": "RECURRENCE 2026-07-07 ~07:55:14Z: ict-web-api.service journal (diag #5829) shows 'IBClient: account/portfolio warm-up timed out twice (8s+8s retry) for 10.0.0.251:4002 (account=...5724) -- gateway likely logged out' + 'circuit breaker tripped ... consecutive failures=16'; concurrent exchange_positions?account_id=ib_paper (diag #5831) reads positions=null (could-not-read). This is OUTSIDE the 03:45-05:45 UTC daily-reset suppress window, so it is a genuine mid-morning wedge, not the expected daily reset. Raised as the mandatory broker-reachability flag for this review (see anomalies/flags). Recommend vm-ib-gateway-recover if not already auto-fired by the reachability-alert latch."
         }
       ],
       "status": "open",
@@ -3080,7 +3109,20 @@
       "category": "verify",
       "description": "FIX DEPLOYED 2026-06-29: #5101 (merged + deployed, live trader HEAD 2b723d42) reworks an intent-mode reduce_only leg from a phantom status='open' opposite-direction row (which the reverse reconciler immediately closed as reconciler_filled, snapping the DB net back and looping the same reduce every tick) into a FIFO PARTIAL-CLOSE of the parent position (decrement open parent rows + one closed setup_type='intent_reduce' audit row, exit_reason='intent_reduce_executed'). 8 unit tests + adjacent suites green. NEEDS LIVE SOAK VERIFICATION (next reduce cycle was ~every 28 min on bybit_1 BTCUSDT htf_pullback_trend_2h; pre-fix examples DB ids 3041/3043): confirm via diag /journal?table=trades that (a) NO new intent_reduce rows close as 'reconciler_filled' (the churn signature is gone), (b) a real reduce now appears as a parent-row decrement + an 'intent_reduce_executed' closed audit row, and (c) the DB net (current_net_position_qty) converges toward the exchange-truth net (pre-fix the DB showed BTCUSDT net 0.761 while the exchange held 0.17). Also confirm no spurious open/close ping spam recurs. If the churn persists, re-open the order-accounting investigation. Owner note: PnL on reduce-closed chunks is deferred-NULL by design (pnl_source='deferred_intent_reduce') \u2014 the local-PnL sweep / Bybit closed-pnl lookup is the SSOT; sanity-check it marks those chunks without double-counting during the soak.",
       "source": "operator request 2026-06-29 (log on system-review to follow up) + PR #5101",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-07T08:10:00+00:00",
+          "by": "claude (/health-review 2026-07-07)",
+          "note": "No htf_pullback_trend_2h BTCUSDT reduce cycle observed in this window's (truncated) trades/order_packages pull to re-verify against. Left open pending a live reduce cycle in a future review window."
+        }
+      ],
+      "check_log": [
+        {
+          "at": "2026-07-07T08:10:00+00:00",
+          "by": "claude (/health-review 2026-07-07)",
+          "note": "No htf_pullback_trend_2h BTCUSDT reduce cycle observed in this window's (truncated) trades/order_packages pull to re-verify against. Left open pending a live reduce cycle in a future review window."
+        }
+      ]
     },
     {
       "id": "BL-20260630-PRINTPACKETS",
@@ -3251,6 +3293,54 @@
       "source": "Operator-reported GitHub Actions billing screenshot: 2000/2000 free minutes exhausted mid-cycle (reset 2026-08-01). Investigation found ~427 issues + ~123 PRs opened July 1-6 (~5.5 days); ~90% of issues are vm-diag-request/trainer-vm-diag-request/system-action relay calls (one single weekly-review session alone opened 33 separate relay issues), and every PR push fans out across 24 unfiltered CI workflow files. Operator added $20 budget as an interim top-up.",
       "title": "[ops] Monitor GitHub Actions minutes burn-rate for real after the CI short-circuit + diag-relay-batching fix (PR #5789) lands",
       "description": "PR #5789 landed two fixes aimed at cutting Actions minutes consumption: (1) a changed-files short-circuit on the 9 required + 7 non-required CI workflows so a docs-only push skips expensive pip-install/run steps (est. ~25-35 min/push -> ~10-12 min/push), and (2) multi-path batching support in vm-diag-snapshot.yml so a review session can pull several diag paths in one issue/one SSH session instead of one issue per path (relay batching is opt-in via the issue BODY carrying multiple paths -- the single-path title fallback still works, so adoption is not automatically enforced). Combined estimate was directional only (~100-230 min/day, ~3,000-7,000 min/month) since GitHub Actions was billing-blocked at investigation time and none of it could be exercised live. Operator decision (2026-07-06): hold off on the bigger VM-ops-API build (a direct authenticated interface on the live VM bypassing GitHub Actions for reads/mutations) and watch the REAL numbers for a few days first before deciding if it is still needed. ACTION FOR THE NEXT FEW /health-review, /performance-review, /ml-review, and /system-review runs: check Settings -> Billing -> Actions usage (or ask the operator to share the day-by-day minutes graph, since no billing API is exposed to these tools) and report the actual post-fix daily/monthly burn rate against the ~100-230 min/day estimate. Also spot-check whether recent review sessions are actually using the new batched vm-diag-snapshot.yml pattern (one issue, multiple paths in the body) instead of the old one-issue-per-path pattern documented pre-fix -- if not, note that adoption gap explicitly, since the relay-batching saving is opt-in only. Close this item once 3-5 real days of post-fix data confirms the estimate held (or note where it diverged) and the operator has decided whether the VM-ops-API build is still warranted.",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260707-HEALTHAPI-ACCTBAL-BLOCKING-DB",
+      "opened_at": "2026-07-07T08:15:00+00:00",
+      "opened_by": "claude (/health-review 2026-07-07)",
+      "source": "diag relay issues #5827/#5829/#5831 (2026-07-07): GET /api/bot/health/latest and /api/bot/health/services both returned non-2xx (curl --fail -> 'fetch_failed') on TWO independent pulls this session, and /api/bot/accounts/balances failed the same way once, while every sibling /api/bot/* route in the SAME ssh batch (stats, positions, order-packages, trades/closed, strategies/*/review, candles, config, etc.) succeeded. Code review: src/web/api/routers/accounts.py::get_account_balances is `async def` but calls `_from_db()` -> `Database().get_latest_balance_snapshots()` synchronously (a blocking sqlite3 read against a 433MB trade_journal.db under constant live-trader write load), not wrapped in run_in_threadpool/asyncio.to_thread.",
+      "title": "GET /api/bot/health/{latest,services} and /api/bot/accounts/balances intermittently return non-2xx -- likely a blocking DB call stalling uvicorn's single event loop under load",
+      "description": "Reproduced twice this session (diag #5827 first batch, #5829 targeted retry) for health/latest + health/services; accounts/balances failed once (#5831), succeeded in other pulls. Hypothesis: `accounts.py::_from_db()` runs a synchronous sqlite3 read directly inside an `async def` route with no thread-pool offload -- if that read blocks (WAL lock contention / long fsync under the live trader's constant write volume), it freezes uvicorn's whole single-worker event loop, starving every other in-flight request (which is why health/latest and health/services, both otherwise-trivial file/subprocess reads, failed in the same window). This co-occurred with a live IB-gateway circuit-breaker trip (BL-20260623-002 recurrence) and a burst of ~80 near-simultaneous dashboard/Android requests in the same ~90s window (ict-web-api journalctl, diag #5829) -- consistent with event-loop contention, though not proven without a direct trace. A similar class of bug was just fixed for IB account/position reads in commit 1f286ee (BL-20260706-IBCONCURRENCY, 'offload IB account/position reads off uvicorn's event loop') -- this may be the same pattern in a different router. FIX (Tier-1, API code, no live-trade-path risk): wrap `Database().get_latest_balance_snapshots()` in `asyncio.to_thread(...)` (or equivalent) inside `accounts.py::get_account_balances`; audit `health_snapshots.py::get_services`'s `subprocess.run` similarly (it already has timeout=3 but is still a blocking call inside an async route). Verify by re-pulling health/latest + health/services + accounts/balances via the diag relay several times back-to-back and confirming no repeat 'fetch_failed', ideally during/after a deliberately-induced DB-busy window.",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260707-TRAINER-VM-SSH-UNREACHABLE",
+      "opened_at": "2026-07-07T08:15:00+00:00",
+      "opened_by": "claude (/health-review 2026-07-07)",
+      "source": "trainer-vm-diag-request issues #5828 and #5830 (2026-07-07, two independent attempts ~2 min apart): both returned 'Connection timed out during banner exchange / Connection to 158.178.209.121 port 22 timed out' -- the relay's SSH client never got a TCP/SSH banner from the trainer VM at all.",
+      "title": "Trainer VM (158.178.209.121) unreachable via SSH -- two consecutive connection timeouts during banner exchange, ict-trainer.service health could not be verified this review",
+      "description": "This is a network-level failure (no SSH banner at all, not an auth/command failure), so the trainer VM is either down, rebooting, or its OCI security list / SSH daemon is wedged. Not a live-trading blocker (trainer VM carries no order authority) but it does block the mandatory (light-touch) trainer_service health check this review, and blocks the trainer-VM-dependent skills (/ml-review, model-training) entirely until resolved. FIX/NEXT STEP: retry the trainer-vm-diag relay next session; if it still times out, this needs an OCI-console-level check (the one genuinely operator-only action per the trainer VM's autonomous-territory contract) -- Claude has no reboot/console-access workflow for the trainer VM analogous to the live VM's reboot-vm system-action. Resolution: a subsequent trainer-vm-diag-request issue succeeds (SSH banner received, command output returned).",
+      "tier": 2,
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260707-DIAG-ALLOWLIST-REACHABILITY-LOG",
+      "opened_at": "2026-07-07T08:15:00+00:00",
+      "opened_by": "claude (/health-review 2026-07-07)",
+      "source": "diag issue #5831 (2026-07-07): `log_file?name=account_reachability_alert_state&lines=50` returned 'fetch_failed'. The health-review SKILL.md itself instructs pulling this exact file ('the in-process latch state file runtime_logs/account_reachability_alert_state.json ... pull via /api/diag/log_file') as one of the three ways to read broker-account reachability, but /api/diag/log_file's `name` allowlist (documented in CLAUDE.md's diag API table) does not include 'account_reachability_alert_state' -- only audit/status/heartbeat/bot_log/advisory_decisions/shadow_predictions/shadow_predictions_backfill/ibkr_mes_pull/news_decisions/conviction_sizing/conviction_arbitration/exit_ladder_soak/fc_geometry_soak/allocator_soak.",
+      "title": "health-review skill references /api/diag/log_file?name=account_reachability_alert_state, but that name isn't in the log_file allowlist -- the skill's own documented reachability check is unreachable via the relay",
+      "description": "Tier-1 fix: add 'account_reachability_alert_state' to the log_file name allowlist in the diag router (src/web/api/routers/diag.py or wherever the allowlist lives) so a health-review can read the in-process down-latch state directly instead of relying solely on exchange_positions nullness + accounts/balances api_ok (which this session had to fall back to). Verify by re-pulling the path via the relay and confirming valid JSON instead of fetch_failed.",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260707-WORKFLOW-STALE-MICRO-DEFAULTS",
+      "opened_at": "2026-07-07T08:15:00+00:00",
+      "opened_by": "claude (/health-review 2026-07-07)",
+      "source": "Tuesday compliance-audit rotation (.github/workflows/ + scripts/ops/, 2026-07-07): vm-ib-gateway-watchdog-enable.yml (VM_SSH_HOST defaults 158.178.210.252, no ProxyJump to the gateway at all), vm-cloud-open-ib-port.yml (VM_SSH_HOST defaults 158.178.210.252, comment claims it shares a subnet with the gateway), oci-storage.yml + oci-storage-verify.yml (VM_HOST hardcoded 158.178.210.252) all still default at or reference the x86 micro that was TERMINATED 2026-06-16 (BL-20260615-DECOMMISSION-MICRO / CLAUDE.md VM authority split section).",
+      "title": "Four workflows (vm-ib-gateway-watchdog-enable, vm-cloud-open-ib-port, oci-storage, oci-storage-verify) still default their SSH/host target at the terminated x86 micro (158.178.210.252) instead of the live Ampere VM (141.145.193.91) or gateway VM (10.0.0.251 via ProxyJump)",
+      "description": "These four workflows would fail outright (or worse, silently target a non-existent/reassigned instance) if run with defaults post-decommission. Compare the already-correct pattern in vm-ib-gateway-recover.yml (JUMP_HOST defaults 141.145.193.91, GATEWAY_HOST defaults 10.0.0.251 via ProxyJump) and vm-ib-gateway-stop.yml (VM_SSH_HOST defaults 141.145.193.91). FIX (Tier-1, CI-only, no live-trade-path risk): update the four workflows' host defaults to match the sibling pattern -- vm-ib-gateway-watchdog-enable.yml and vm-cloud-open-ib-port.yml need a ProxyJump to 10.0.0.251 like vm-ib-gateway-recover.yml (they're gateway-VM operations mistakenly defaulted at the old trader micro); oci-storage.yml/oci-storage-verify.yml need VM_HOST -> 141.145.193.91 (they're live-trader block-storage operations). Other workflows referencing 158.178.210.252 only in explanatory/historical comments (vm-diag-snapshot.yml, get-diag-token.yml, sync-vm-secrets.yml, etc.) are fine as-is -- no action needed there.",
       "tier": 1,
       "status": "open",
       "snoozed_until": null,
