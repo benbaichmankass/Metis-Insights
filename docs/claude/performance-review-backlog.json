@@ -116,7 +116,12 @@
         {
           "at": "2026-07-07T09:50:00+00:00",
           "by": "claude (/performance-review 2026-07-07)",
-          "note": "Prop-sizing-via-balance() wiring gap RECURRED, on a different symbol this time: trend_donchian_sol_prop long SOLUSDT (pkg-042861cfbf8d4043, conf=0.87, created 2026-07-06T21:12Z) went status=orphaned rather than emitting a prop ticket -- same root cause as the 2026-06-29 SOL rejection above (breakout_1 can't size off a live balance() call). Graded A on setup quality this session (comms/claude_strategy_scores.jsonl) -- the decision itself was sound; the miss is purely the known wiring gap, not a strategy problem. Now observed on 2+ occasions; worth prioritizing a fix over the swap-rate confirmation (which is comparatively cosmetic)."
+          "note": "[SUPERSEDED BY THE 2026-07-07T10:15 CORRECTION BELOW -- kept for the record.] Initially read as: prop-sizing-via-balance() gap recurred on trend_donchian_sol_prop SOLUSDT (pkg-042861cfbf8d4043, conf=0.87) going status=orphaned. That characterization was WRONG (see next entry)."
+        },
+        {
+          "at": "2026-07-07T10:15:00+00:00",
+          "by": "claude (/performance-review 2026-07-07, self-correction on operator follow-up)",
+          "note": "CORRECTION (honesty): the 09:50 note above misdiagnosed pkg-042861cfbf8d4043. trend_donchian_sol_prop is execution:shadow (config/strategies.yaml L785) -- observe-only, it NEVER emits a prop ticket by design, so an orphaned order package is the EXPECTED shadow-soak artifact (same class already tracked in health-review-backlog BL-20260706-PROP-STALE-EMITTED-TICKETS: 'trend_donchian_eth_prop shadow-soak artifacts -- execution:shadow, no ticket expected'). It is NOT a recurrence of the 2026-06-29 balance()-sizing failure, which was on trend_donchian_sol (the LIVE strategy, no _prop suffix) and was ALREADY FIXED by the coordinator _is_prop_bridge bypass (src/core/coordinator.py:1275-1287) -- verified deployed on the live VM (commit 3b8437c is an ancestor of the live git_sha 9b06c97). So there is NO open prop-sizing wiring bug here. The item's genuine remaining ask is unchanged: confirm the REAL Breakout swap rate on the LIVE eth_pullback prop legs once a position crosses a daily swap event. The pkg-042861cfbf8d4043 grade (A on setup quality) stands; its rationale in claude_strategy_scores.jsonl was corrected in the same commit."
         }
       ]
     },
