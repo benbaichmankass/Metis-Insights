@@ -3461,7 +3461,20 @@
           "note": "Closed as won't-fix. Before drafting the proposed max_position_notional_pct clamp, found that PR #4442 (2026-06-24, commit 0c6b7881d02a770e771ba3604d89460194d1fa57, operator-approved Tier-3) already deliberately REMOVED all position notional/quantity ceilings from RiskManager.position_size — the current module docstring in src/units/accounts/risk.py states explicitly: 'There is NO position-notional ceiling ... so it does not exist (operator directive 2026-06-24). Size is bounded only by the risk budget, the daily-loss budget, the margin/buying-power ceiling, and the exchange's lot size.' Implementing this backlog item's proposed fix would have directly reversed that prior explicit operator directive. Surfaced the conflict to the operator via AskUserQuestion (options: reconsider-and-add-the-cap / leave-as-is-drop-the-fix / something-narrower); operator chose 'Leave sizing as-is, drop this fix.' No code change made. The large-notional mechanism this item flagged for a single trade is still real in aggregate — see BL-20260707-RECONCILER-MASS-FALSE-CLOSE, which is a genuine bug (not a sizing-design question) and is being fixed separately."
         }
       ]
+    },
+    {
+      "id": "BL-20260707-ALPACA-CLOSE-RESTING-ORDER-BLOCK",
+      "opened_at": "2026-07-07T20:30:00+00:00",
+      "opened_by": "claude (dispatch-failure investigation session, 2026-07-07)",
+      "title": "AlpacaClient.close() rejected with \"insufficient qty available for order\" because it never cancels the position's resting bracket SL/TP leg before flattening",
+      "description": "Discovered while investigating a live '🛑 Position CLOSE failing' alert for QQQ/alpaca_paper (12 consecutive close failures, error 'insufficient qty available for order (requested: 16, available: 0)'). A fresh broker-truth pull (`/api/diag/exchange_positions`) confirmed QQQ (and SPY/IWM/IEF/TLT/USO) are genuinely open on the broker — this is NOT another instance of BL-20260707-RECONCILER-MASS-FALSE-CLOSE, it's a different bug in the ACTIVE-CLOSE path. Alpaca's exact error phrasing (`available: 0` while `existing_qty` matches the full position) is the documented signature of shares already `held_for_orders` by another resting order. Every Alpaca position here was opened as a bracket order (entry + SL + TP legs placed atomically, per AlpacaClient.place()'s docstring), so the original protective stop leg is still resting on the broker holding the full qty. `AlpacaClient.close()` (src/units/accounts/alpaca_client.py) just issued `DELETE /v2/positions/{symbol}` with no cancel-first step, unlike `IBClient.close()` (which explicitly cancels resting protective legs before the opposing order) and `AlpacaClient.place_protective()` (which already calls the same `_cancel_open_orders_for_symbol()` helper before re-arming, to avoid OCO stacking). Since nothing ever cancelled the stale leg, the close retried the identical failing DELETE every monitor tick indefinitely, leaving the DB row permanently open. FIX: `close()` now calls `self._cancel_open_orders_for_symbol(symbol)` before the flatten DELETE, mirroring the IB contract and reusing the helper `place_protective` already relies on. Regression tests added in tests/test_alpaca_wiring.py (`test_client_close_cancels_resting_orders_first`, `test_client_close_no_resting_orders_is_single_call`) pin that cancels happen, target the right order ids, and happen BEFORE the flatten call; existing `test_client_close_idempotent_on_404` still passes unchanged. This is a real-money order-path fix — `close_open_position` → `AlpacaClient.close()` is shared by alpaca_paper AND alpaca_live.",
+      "tier": 2,
+      "trigger_condition": "Already fixed this session; re-open only if a close still fails with the same error after this fix deploys.",
+      "resolution_criteria": "Fix ships, deploys to the live VM, and a subsequent close attempt on an affected symbol (QQQ or any of SPY/IWM/IEF/TLT/USO, whichever exits next) succeeds instead of repeating 'insufficient qty available'.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-07T20:23:00+00:00"
+  "updated_at": "2026-07-07T20:30:00+00:00"
 }
