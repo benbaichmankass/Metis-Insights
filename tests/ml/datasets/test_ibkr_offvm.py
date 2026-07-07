@@ -200,3 +200,136 @@ def test_request_timeout_on_one_contract_is_swallowed(monkeypatch):
     _install_fake_ib(monkeypatch, hist_side_effects=[TimeoutError("paced out")])
     out = _run_hist()  # must not raise
     assert out == []
+
+
+# ---------------------------------------------------------------------------
+# Per-contract pull (roll-adjustment increment 2). iter_contract_bars keeps
+# each contract's own bars (cross-contract overlaps preserved — the overlap is
+# where the roll offset is measured) and tags each row with its contract month.
+# ---------------------------------------------------------------------------
+
+
+def _install_fake_ib_multi(monkeypatch, expiries, hist_side_effects):
+    """Fake ib_insync with N dated contracts (newest-first) + FIFO hist results."""
+    calls = {"n": 0}
+
+    class _FakeIB:
+        def connect(self, *a, **k):
+            self._connected = True
+
+        def isConnected(self):
+            return True
+
+        def reqMarketDataType(self, *a, **k):
+            return None
+
+        def reqContractDetails(self, *a, **k):
+            return [_FakeDetails(_FakeContract(e)) for e in expiries]
+
+        def reqHistoricalData(self, *a, **k):
+            i = calls["n"]
+            calls["n"] += 1
+            return hist_side_effects[i] if i < len(hist_side_effects) else []
+
+        def disconnect(self):
+            self._connected = False
+
+    mod = types.ModuleType("ib_insync")
+    mod.IB = _FakeIB
+    mod.Future = lambda *a, **kw: _FakeContract(kw.get("lastTradeDateOrContractMonth", ""))
+    monkeypatch.setitem(sys.modules, "ib_insync", mod)
+    return calls
+
+
+def test_historical_bars_percontract_keeps_cross_contract_overlaps(monkeypatch):
+    # Newer contract 20240615 and older 20240315 SHARE the 2024-03-10 bar.
+    c_new = [
+        _FakeBar(date(2024, 3, 10), 200, 201, 199, 200, 10),
+        _FakeBar(date(2024, 3, 11), 201, 202, 200, 201, 10),
+    ]
+    c_old = [
+        _FakeBar(date(2024, 3, 10), 100, 101, 99, 100, 10),
+        _FakeBar(date(2024, 3, 9), 99, 100, 98, 99, 10),
+    ]
+    # FIFO: newer contract (chunk, then [] to end its while), then older.
+    _install_fake_ib_multi(monkeypatch, ["20240615", "20240315"], [c_new, [], c_old, []])
+    out = _run_hist(per_contract=True)
+    tagged = {(r["ts"], r["contract"]) for r in out}
+    # the SAME 2024-03-10 ts survives under BOTH contracts (the overlap kept)
+    assert ("2024-03-10T00:00:00Z", "20240615") in tagged
+    assert ("2024-03-10T00:00:00Z", "20240315") in tagged
+
+    # default (cross-contract dedup) collapses the overlap + carries no tag
+    _install_fake_ib_multi(monkeypatch, ["20240615", "20240315"], [c_new, [], c_old, []])
+    out2 = _run_hist(per_contract=False)
+    assert sum(1 for r in out2 if r["ts"] == "2024-03-10T00:00:00Z") == 1
+    assert all("contract" not in r for r in out2)
+
+
+def test_iter_contract_bars_tags_and_passes_flag(monkeypatch):
+    monkeypatch.setenv(IB_HIST_ENV, "1")
+    captured: dict = {}
+
+    def fake(cls, **kw):
+        captured.update(kw)
+        return [
+            {"ts": "2024-03-10T00:00:00Z", "contract": "20240615",
+             "open": 200, "high": 201, "low": 199, "close": 200, "volume": 10},
+            {"ts": "2024-03-10T00:00:00Z", "contract": "20240315",
+             "open": 100, "high": 101, "low": 99, "close": 100, "volume": 10},
+        ]
+
+    monkeypatch.setattr(
+        IBKRHistoricalMarketRawAdapter, "_historical_bars", classmethod(fake))
+    rows = list(IBKRHistoricalMarketRawAdapter().iter_contract_bars(
+        symbol="MGC", timeframe="1h", start="2024-01-01", end="2024-04-01"))
+    assert captured["per_contract"] is True          # per-contract collection
+    assert captured["exchange"] == "COMEX"           # MGC per-symbol exchange
+    assert {r["contract"] for r in rows} == {"20240615", "20240315"}
+    for r in rows:
+        assert r["symbol"] == "MGC" and r["timeframe"] == "1h"
+        assert r["source"] == "ibkr_offvm"
+        assert isinstance(r["close"], float)
+
+
+def test_iter_contract_bars_requires_opt_in(monkeypatch):
+    monkeypatch.delenv(IB_HIST_ENV, raising=False)
+    with pytest.raises(IBHistoricalGuardViolation):
+        list(IBKRHistoricalMarketRawAdapter().iter_contract_bars(
+            symbol="MGC", timeframe="1h", start="2024-01-01"))
+
+
+# --- writer module ---------------------------------------------------------
+
+def test_write_percontract_jsonl(tmp_path):
+    import json
+    from ml.datasets import percontract_pull
+    rows = [{"ts": "2024-03-10T00:00:00Z", "contract": "20240615", "symbol": "MGC",
+             "timeframe": "1h", "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0,
+             "volume": 1.0, "source": "ibkr_offvm"}]
+    out = str(tmp_path / "sub" / "data.jsonl")
+    n = percontract_pull.write_percontract_jsonl(rows, out)
+    assert n == 1
+    got = [json.loads(x) for x in open(out, encoding="utf-8")]
+    assert got[0]["contract"] == "20240615"
+
+
+def test_pull_and_write_routes_through_iter_contract_bars(tmp_path):
+    from ml.datasets import percontract_pull
+
+    class _FakeAdapter:
+        def iter_contract_bars(self, **kw):
+            self.kw = kw
+            return [{"ts": "2024-03-10T00:00:00Z", "contract": "20240615",
+                     "symbol": kw["symbol"], "timeframe": kw["timeframe"],
+                     "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0,
+                     "volume": 1.0, "source": "ibkr_offvm"}]
+
+    fa = _FakeAdapter()
+    out_path, n = percontract_pull.pull_and_write(
+        symbol="MGC", timeframe="1h", start="2024-01-01", end=None,
+        out_dir=str(tmp_path), version="v001", host="h", port=4002,
+        client_id=450, pause_s=0, max_contracts=4, adapter=fa)
+    assert n == 1
+    assert out_path.endswith("market_raw_percontract/MGC/1h/v001/data.jsonl")
+    assert fa.kw["symbol"] == "MGC" and fa.kw["max_contracts"] == 4

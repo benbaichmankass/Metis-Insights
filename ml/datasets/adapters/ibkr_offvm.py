@@ -138,6 +138,78 @@ class IBKRHistoricalMarketRawAdapter(MarketRawAdapter):
                 "source": self.source,
             }
 
+    def iter_contract_bars(
+        self,
+        *,
+        symbol: str,
+        timeframe: str,
+        start: str,
+        end: str | None = None,
+        host: str = "127.0.0.1",
+        port: int = 4002,
+        client_id: int = 450,
+        exchange: str = "CME",
+        currency: str = "USD",
+        what_to_show: str = "TRADES",
+        use_rth: bool = False,
+        pause_s: float = 12.0,
+        max_contracts: int = 4,
+        **_: Any,
+    ) -> Iterator[Mapping[str, Any]]:
+        """Yield PER-CONTRACT bars tagged with their `contract` month.
+
+        The roll-adjustment-ready sibling of `iter_bars`. `iter_bars` dedups
+        ACROSS contracts (one merged stream, contract identity lost) — which is
+        wrong for building a back-adjusted continuous series, where the
+        cross-contract OVERLAP is exactly what measures the roll offset. This
+        method keeps every contract's own bars (deduped only WITHIN a contract)
+        and tags each row with `contract` (the dated `lastTradeDateOrContractMonth`,
+        `YYYYMMDD`). The extra `contract` key means these rows are NOT canonical
+        `market_raw` — they feed `ml/datasets/continuous.py::build_continuous`
+        (via `group_bars_by_contract`), not the `market_raw` builder.
+
+        Same guard, paging, pacing, and per-symbol exchange resolution
+        (`_SYMBOL_EXCHANGE`) as `iter_bars` — the ONLY difference is the
+        no-cross-contract-dedup collection + the `contract` tag.
+        """
+        self._enforce_opt_in()
+        if timeframe not in _TIMEFRAME_TO_IB:
+            raise ValueError(
+                f"unsupported timeframe {timeframe!r}; known: {sorted(_TIMEFRAME_TO_IB)}"
+            )
+        bar_size, chunk_days = _TIMEFRAME_TO_IB[timeframe]
+        start_dt = _parse_dt(start)
+        end_dt = _parse_dt(end) if end else datetime.now(timezone.utc)
+        if end_dt <= start_dt:
+            raise ValueError(f"end {end!r} must be after start {start!r}")
+        exchange = _SYMBOL_EXCHANGE.get(symbol.upper(), exchange)
+
+        bars = self._historical_bars(
+            symbol=symbol, exchange=exchange, currency=currency,
+            bar_size=bar_size, chunk_days=chunk_days,
+            start_dt=start_dt, end_dt=end_dt,
+            host=host, port=int(port), client_id=int(client_id),
+            what_to_show=what_to_show, use_rth=bool(use_rth),
+            pause_s=float(pause_s), max_contracts=int(max_contracts),
+            per_contract=True,
+        )
+        for b in sorted(bars, key=lambda r: (r.get("contract", ""), r["ts"])):
+            close = b.get("close")
+            if close is None or close != close:  # noqa: PLR0124
+                continue
+            yield {
+                "ts": b["ts"],
+                "contract": b.get("contract", ""),
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "open": float(b["open"]),
+                "high": float(b["high"]),
+                "low": float(b["low"]),
+                "close": float(close),
+                "volume": float(b.get("volume") or 0.0),
+                "source": self.source,
+            }
+
     @classmethod
     def _historical_bars(
         cls,
@@ -156,6 +228,7 @@ class IBKRHistoricalMarketRawAdapter(MarketRawAdapter):
         use_rth: bool,
         pause_s: float,
         max_contracts: int = 4,
+        per_contract: bool = False,
     ) -> list[dict[str, Any]]:
         """Connect to the live IB gateway and pull chunked history.
 
@@ -220,6 +293,11 @@ class IBKRHistoricalMarketRawAdapter(MarketRawAdapter):
                 if reached_start or total_chunks >= MAX_TOTAL_CHUNKS:
                     break
                 exp = (c.lastTradeDateOrContractMonth or "")[:8]
+                # per_contract keeps each contract's OWN bars (dedup only within
+                # a contract, so cross-contract overlaps survive for roll-offset
+                # measurement); the default path dedups globally as before.
+                seen_contract: set[str] = set()
+                active_seen = seen_contract if per_contract else seen
                 try:
                     exp_dt = datetime.strptime(exp, "%Y%m%d").replace(tzinfo=timezone.utc) + timedelta(days=2)
                 except ValueError:
@@ -248,13 +326,16 @@ class IBKRHistoricalMarketRawAdapter(MarketRawAdapter):
                         if dt < start_dt or dt > end_dt:
                             continue
                         ts = _iso(dt)
-                        if ts in seen:
+                        if ts in active_seen:
                             continue
-                        seen.add(ts)
-                        out.append({
+                        active_seen.add(ts)
+                        row: dict[str, Any] = {
                             "ts": ts, "open": b.open, "high": b.high,
                             "low": b.low, "close": b.close, "volume": b.volume,
-                        })
+                        }
+                        if per_contract:
+                            row["contract"] = exp
+                        out.append(row)
                     earliest_dt = min(_to_dt(b.date) for b in bars)
                     if earliest_dt <= start_dt:
                         reached_start = True

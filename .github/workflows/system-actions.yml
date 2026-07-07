@@ -332,6 +332,13 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*max_contracts[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Mm]ax_contracts[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            # per_contract: a truthy value (1/true/yes) writes the PER-CONTRACT
+            # roll-adjustment stream (market_raw_percontract/) instead of the
+            # deduped market_raw shard. Blank/absent = the normal shard.
+            pull_per_contract=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*per_contract[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Pp]er_contract[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             # generate-strategy-review-packets params. `strategy:` may carry
             # a comma-separated list; the wrapper splits on comma. `all_btc:`
             # is a truthy gate that lets the operator iterate every BTCUSDT
@@ -445,6 +452,7 @@ jobs:
           echo "PULL_HIST_START=${pull_hist_start:-}" >>"$GITHUB_ENV"
           echo "PULL_DATASET_VERSION=${pull_dataset_version:-}" >>"$GITHUB_ENV"
           echo "PULL_MAX_CONTRACTS=${pull_max_contracts:-}" >>"$GITHUB_ENV"
+          echo "PULL_PER_CONTRACT=${pull_per_contract:-}" >>"$GITHUB_ENV"
           # send-ping / set-env params. ACTION_MESSAGE + ENV_VALUE may
           # contain spaces, so they ride to later steps via $GITHUB_ENV
           # (env, not inline interpolation) for shell safety.
@@ -825,6 +833,17 @@ jobs:
             [ -n "${PULL_HIST_START// }" ] && REMOTE_CMD="MES_HIST_START=$(printf '%q' "${PULL_HIST_START}") ${REMOTE_CMD}"
             [ -n "${PULL_DATASET_VERSION// }" ] && REMOTE_CMD="DATASET_VERSION=$(printf '%q' "${PULL_DATASET_VERSION}") ${REMOTE_CMD}"
             [ -n "${PULL_MAX_CONTRACTS// }" ] && REMOTE_CMD="MES_MAX_CONTRACTS=$(printf '%q' "${PULL_MAX_CONTRACTS}") ${REMOTE_CMD}"
+            # per_contract: any truthy value flips the wrapper to the per-contract
+            # writer (market_raw_percontract/ — the roll-adjustment input). Only
+            # 1/true/yes are accepted so a stray value can't silently enable it.
+            case "$(printf '%s' "${PULL_PER_CONTRACT}" | tr '[:upper:]' '[:lower:]')" in
+              1|true|yes) REMOTE_CMD="PER_CONTRACT=1 ${REMOTE_CMD}" ;;
+              ''|0|false|no) : ;;
+              *)
+                echo "::error::pull-ibkr-history per_contract '${PULL_PER_CONTRACT}' invalid (use 1/true/yes or omit)."
+                exit 1
+                ;;
+            esac
           fi
           if [ "${ACTION}" = "bybit-account-audit" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
