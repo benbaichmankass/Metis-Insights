@@ -453,3 +453,62 @@ instruments:
     max_leverage: 4
     display_name: "VanEck Gold Miners ETF (Alpaca)"
     ib: { sec_type: STK, exchange: SMART, primary_exchange: ARCA, currency: USD }
+
+  # ------------------------------------------------------------------
+  # Sub-$100 "proxy" ETFs (2026-07-07, Tier-3) — cheap-share equivalents of
+  # the expensive index/gold legs so the small ~$150 alpaca_live account can
+  # afford ≥1 whole share (bracket orders are whole-share only on Alpaca).
+  # Each tracks the SAME underlying as its expensive sibling, so the validated
+  # strategy transfers (backtest evidence: trainer-vm-diag 2026-07-07). Same
+  # whole-share / 2dp / alpaca profile as SPY/GLD/IWM.
+  #   SPLG  — SPDR Portfolio S&P 500 (~$84): identical S&P 500 index as SPY.
+  #   IAUM  — iShares Gold Trust Micro (~$41): same spot gold as GLD.
+  #   SCHA  — Schwab US Small-Cap (~$35): broad small-cap proxy for IWM's
+  #           Russell 2000 (0.99 return corr; a DIFFERENT index, so revalidated
+  #           on its own series — marginal edge, observe-only paper soak).
+  # All three list on NYSE Arca (primary_exchange: ARCA), same as SPY/GLD/IWM.
+  # ------------------------------------------------------------------
+  SPLG:
+    exchange: alpaca
+    category: spot
+    base_asset: SPLG
+    asset_class: equity        # SPDR Portfolio S&P 500 ETF — S&P 500 index proxy for SPY
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "SPDR Portfolio S&P 500 ETF (Alpaca)"
+    ib: { sec_type: STK, exchange: SMART, primary_exchange: ARCA, currency: USD }
+
+  IAUM:
+    exchange: alpaca
+    category: spot
+    base_asset: IAUM
+    asset_class: commodity     # gold-tracking ETF (iShares Gold Micro) — GLD proxy
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "iShares Gold Trust Micro ETF (Alpaca)"
+    ib: { sec_type: STK, exchange: SMART, primary_exchange: ARCA, currency: USD }
+
+  SCHA:
+    exchange: alpaca
+    category: spot
+    base_asset: SCHA
+    asset_class: equity        # Schwab US Small-Cap ETF — broad small-cap proxy for IWM
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.01
+    min_qty: 1
+    qty_step: 1
+    contract_value_usd: 1.0
+    max_leverage: 4
+    display_name: "Schwab U.S. Small-Cap ETF (Alpaca)"
+    ib: { sec_type: STK, exchange: SMART, primary_exchange: ARCA, currency: USD }

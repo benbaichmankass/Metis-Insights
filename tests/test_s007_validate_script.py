@@ -174,6 +174,8 @@ def test_run_checks_strategies_match_roster():
         "slv_pullback_1d", "gdx_pullback_1d",
         # Unit C prop EXIT variants — breakout_1 shadow soak (DRAFT, Tier-3, 2026-06-29):
         "trend_donchian_sol_prop", "trend_donchian_eth_prop",
+        # sub-$100 proxy cells on alpaca_paper (2026-07-07, Tier-3) — SPLG/IAUM/SCHA.
+        "splg_trend_long_1d", "iaum_pullback_1d", "scha_trend_long_1d",
     }
 
 

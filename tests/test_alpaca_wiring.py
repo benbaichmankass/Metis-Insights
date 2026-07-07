@@ -316,9 +316,11 @@ def test_accounts_yaml_alpaca_paper_ships_inert():
         "spy_pullback_1h", "qqq_pullback_1h", "tlt_pullback_1h", "uso_trend_1h",
         "slv_pullback_1d", "gdx_pullback_1d",
         "tqqq_trend_long_1d", "qld_trend_long_1d",
+        # sub-$100 proxy cells (2026-07-07, Tier-3) — SPLG/IAUM/SCHA paper soak.
+        "splg_trend_long_1d", "iaum_pullback_1d", "scha_trend_long_1d",
     ]
     # 2026-06-15: the old `demo: true` category stamp was superseded by
     # account_class (non-Bybit, so demo was only the category marker).
     assert "demo" not in acct
     assert acct["account_class"] == "paper"
-    assert acct["symbols"] == ["SPY", "QQQ", "GLD", "IWM", "TLT", "IEF", "SLV", "USO", "GDX", "TQQQ", "QLD"]
+    assert acct["symbols"] == ["SPY", "QQQ", "GLD", "IWM", "TLT", "IEF", "SLV", "USO", "GDX", "TQQQ", "QLD", "SPLG", "IAUM", "SCHA"]
