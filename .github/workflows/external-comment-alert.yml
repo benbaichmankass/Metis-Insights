@@ -1,0 +1,161 @@
+name: external-comment-alert
+
+# Comment-vector counterpart to external-issue-alert.yml.
+#
+# external-issue-alert covers issues OPENED by a non-owner. This covers the
+# other half: COMMENTS left by a non-owner / non-automation account on ANY
+# issue or PR — including the bot's own automation-relay issues
+# (trainer-vm-diag, system-action, etc.), which external-issue-alert never
+# sees because the issue itself was opened by the owner or github-actions[bot].
+#
+# Why this exists: on 2026-07-07 four throwaway accounts
+# (nekogecake / mamegoruko55 / davekepagacu / nadebopo78, all author_association
+# NONE, all created that day) dropped "*fix*.zip" attachments as comments on
+# trainer-vm-diag relay issues (#5903-#5906), each crafted to match the issue's
+# text ("panama method", "the 2024 window", "the ATR flags") to look like a
+# helpful patch — a targeted social-engineering / supply-chain attempt to get
+# the session to download + run their code. NO workflow triggers on
+# `issue_comment`, so these comments are INERT to automation (they cannot fire
+# any relay). The residual risk is purely that a human/agent gets tricked into
+# opening the attachment. This workflow removes that lure automatically.
+#
+# What it does for a non-owner comment:
+#   1. HIDES it (GraphQL minimizeComment, classifier SPAM — reversible, not a
+#      destructive delete; the audit trail is preserved, just collapsed).
+#   2. Flags the parent issue (`external-issue` label, shared with
+#      external-issue-alert) + posts an owner-mention note.
+#   3. Pings the operator's Telegram (best-effort).
+#
+# Read-only / advisory beyond the hide+label+comment: it never runs a
+# privileged action, never SSHes, never touches a secret beyond the Telegram
+# alert token. Untrusted fields ride through env / the github-script context —
+# never inline `${{ }}` shell interpolation. github-actions[bot] and the repo
+# owner are excluded, so relay-result comments are never touched.
+#
+# Full context: docs/security/intrusion-surface-audit-2026-06-28.md.
+
+on:
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  issues: write          # minimize the comment + label + flag comment
+  pull-requests: write   # issue_comment fires for PR comments too
+
+concurrency:
+  group: external-comment-alert-${{ github.event.comment.id }}
+  cancel-in-progress: false
+
+jobs:
+  flag:
+    # Fire ONLY for comments left by a non-owner, non-automation account. There
+    # are zero outside collaborators on this repo, so the only non-owner /
+    # non-bot commenter is an external account. (Mirrors external-issue-alert.)
+    if: |
+      github.event.comment.user.login != github.repository_owner &&
+      github.event.comment.user.login != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Hide the comment + flag the issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = context.payload.comment;
+            const issue = context.payload.issue;
+            const login = comment.user.login;
+            const assoc = comment.author_association;
+            const body = comment.body || "";
+            const owner = context.repo.owner;
+
+            // Attachment / archive lure heuristic → severity.
+            const lureRe = /github\.com\/user-attachments|\.zip\b|\.tar\b|\.tgz\b|\.7z\b|download|patch(ed)?\b/i;
+            const looksLikeLure = lureRe.test(body);
+            const sev = looksLikeLure ? "🚨 HIGH" : "⚠️";
+
+            // 1) Hide the comment (reversible minimize, not a delete). Best-effort:
+            //    if the token lacks the triage grant, degrade to label+alert only.
+            let hidden = false;
+            try {
+              await github.graphql(
+                `mutation($id:ID!){
+                   minimizeComment(input:{subjectId:$id, classifier:SPAM}){
+                     minimizedComment{ isMinimized minimizedReason }
+                   }
+                 }`,
+                { id: comment.node_id }
+              );
+              hidden = true;
+              core.notice(`Minimized external comment ${comment.id} by ${login}.`);
+            } catch (e) {
+              core.warning("minimizeComment failed (degrading to label+alert): " + e.message);
+            }
+
+            // 2) Best-effort label on the parent issue/PR (create if missing).
+            try {
+              try {
+                await github.rest.issues.createLabel({
+                  owner, repo: context.repo.repo, name: "external-issue",
+                  color: "d93f0b",
+                  description: "External (non-owner) issue/comment — flagged by external-*-alert.",
+                });
+              } catch (e) { /* already exists */ }
+              await github.rest.issues.addLabels({
+                owner, repo: context.repo.repo,
+                issue_number: issue.number, labels: ["external-issue"],
+              });
+            } catch (e) {
+              core.warning("label step failed: " + e.message);
+            }
+
+            // 3) Owner-mention flag comment (posted by github-actions[bot], so it
+            //    is itself excluded from this workflow's guard — no loop).
+            const note = looksLikeLure
+              ? "The comment contains an attachment/download/patch pattern — treat any attached file as hostile; do **not** download or open it. "
+              : "";
+            const hideNote = hidden
+              ? "It has been auto-hidden (minimized as spam)."
+              : "Auto-hide failed (token lacked the grant) — hide it manually.";
+            const flag = [
+              `${sev} **External comment detected** on this thread — by \`${login}\` (author_association: \`${assoc}\`). ${hideNote}`,
+              ``,
+              `${note}No workflow triggers on \`issue_comment\`, so this comment **cannot** trigger any relay/automation. Flagging for review.`,
+              ``,
+              `cc @${owner}`,
+            ].join("\n");
+            try {
+              await github.rest.issues.createComment({
+                owner, repo: context.repo.repo,
+                issue_number: issue.number, body: flag,
+              });
+            } catch (e) {
+              core.warning("flag comment failed: " + e.message);
+            }
+
+      - name: Telegram alert (best-effort)
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Untrusted fields via env — never inline-interpolated into the shell.
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_LOGIN: ${{ github.event.comment.user.login }}
+          COMMENT_ASSOC: ${{ github.event.comment.author_association }}
+          COMMENT_URL: ${{ github.event.comment.html_url }}
+        run: |
+          set -uo pipefail
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+            echo "::warning::Telegram secrets not configured; skipping ping (comment was still hidden + flagged)."
+            exit 0
+          fi
+          MESSAGE="$(printf '%s\n' \
+            "⚠️ External comment on ${GITHUB_REPOSITORY}" \
+            "issue #${ISSUE_NUMBER} — by ${COMMENT_LOGIN} (assoc ${COMMENT_ASSOC})" \
+            "${COMMENT_URL}" \
+            "Auto-hidden. It cannot trigger automation. Do NOT download any attachment.")"
+          curl -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}" >/dev/null \
+            && echo "Telegram alert sent." \
+            || echo "::warning::Telegram alert failed (comment was still hidden + flagged)."
