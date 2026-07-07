@@ -682,10 +682,19 @@ accounts:
     exchange: alpaca
     account_class: paper               # PAPER money (Alpaca paper host).
     mode: live                         # paper host = paper money; executes.
-    # No api_key_env/api_secret_env → falls back to the SHARED paper pair
-    # (ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY, same login as alpaca_paper), so
-    # this account is ACTIVE without a second Alpaca account. asset_class filtering
-    # in account_open_positions keeps equity + option legs from colliding.
+    # DEDICATED paper login (2026-07-07, BL-20260707-ALPACA-PAPER-NEGATIVE-EQUITY
+    # follow-up): moved OFF the shared alpaca_paper pair onto its own Alpaca
+    # paper account. The shared login went deeply negative (~-$67,946 broker
+    # equity, root cause still under investigation) and, because alpaca_paper
+    # and alpaca_options_paper read the SAME account, one login's trouble
+    # silently blocked BOTH bot-accounts' dispatch. A dedicated login makes
+    # the isolation structural instead of filter-dependent (previously only
+    # asset-class filtering in account_open_positions kept the two from
+    # adopting each other's legs — see the 2026-06-27 orphan-adoption
+    # incident). Secrets: ALPACA_API_KEY_ID_OPTIONS / ALPACA_API_SECRET_KEY_OPTIONS
+    # (operator-provisioned in GitHub Actions secrets; propagate via sync-vm-secrets).
+    api_key_env: ALPACA_API_KEY_ID_OPTIONS
+    api_secret_env: ALPACA_API_SECRET_KEY_OPTIONS
     options:                           # account-scoped options-expression capability
       express_as: debit_vertical       # the only supported structure (memo §0: $150 cash)
       max_loss_per_trade_usd: 60       # REAL per-trade risk cap (mirrors $150 account;
