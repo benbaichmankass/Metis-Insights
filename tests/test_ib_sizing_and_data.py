@@ -115,6 +115,69 @@ class TestPositionSize:
         assert qty == pytest.approx(4.0)
 
 
+class TestIbEquitySizingResolution:
+    """2026-07-07: ib_paper mixes futures (MES/MGC/MHG, accounts.yaml
+    ``market_type: futures``) and equities (the alpaca-ETF basket) on ONE
+    account. ``Coordinator.multi_account_execute`` resolves the EFFECTIVE
+    per-order market_type/whole_units symbol-aware via
+    ``ib_order_market_type`` + ``requires_whole_unit_qty`` (see
+    docs/integrations/ibkr-equity-etf-support-DESIGN.md §4.3) BEFORE calling
+    ``position_size`` — these tests exercise that exact composition rather
+    than the account's static configured market_type, so a regression in the
+    resolver would show up here even without a full coordinator harness.
+    """
+
+    def _effective_call_kwargs(self, symbol, configured_market_type="futures"):
+        from src.units.accounts.ib_instruments import ib_order_market_type
+        from src.units.accounts.risk import requires_whole_unit_qty
+
+        market_type = ib_order_market_type(symbol, default=configured_market_type)
+        whole_units = (
+            requires_whole_unit_qty("interactive_brokers")
+            or market_type == "equity"
+        )
+        return market_type, whole_units
+
+    def test_futures_symbol_keeps_strict_whole_contract_path(self):
+        market_type, whole_units = self._effective_call_kwargs("MES")
+        assert market_type == "futures"
+        assert whole_units is False
+
+    def test_etf_symbol_switches_to_equity_whole_share_path(self):
+        market_type, whole_units = self._effective_call_kwargs("SPY")
+        assert market_type == "equity"
+        assert whole_units is True
+
+    def test_spy_sizes_whole_shares_not_whole_contracts(self):
+        # A sub-1-share risk-based ideal on the equity path rounds UP to 1
+        # share (whole_units relaxation); on the strict futures path the
+        # same ideal would be refused outright (0.0). Confirms the resolved
+        # kwargs actually change position_size's behavior, not just their
+        # own values.
+        rm = RiskManager({"risk_pct": 0.0004, "daily_usd": 100000, "min_qty": 1, "qty_precision": 0})
+        pkg = _pkg("SPY", 500.0, 495.0, 510.0)  # risk_budget=4, 1-share risk=5 → in round-up band
+        market_type, whole_units = self._effective_call_kwargs("SPY")
+        qty = rm.position_size(pkg, 10_000, market_type=market_type, whole_units=whole_units)
+        assert qty == pytest.approx(1.0)
+
+    def test_mgc_still_refuses_sub_one_contract(self):
+        # Same tiny-risk shape, but MGC keeps the strict futures refusal
+        # (not rounded up) — the equity relaxation must not leak onto futures.
+        rm = RiskManager({"risk_pct": 0.001, "daily_usd": 100000, "min_qty": 1, "qty_precision": 0})
+        pkg = _pkg("MGC", 2000.0, 1990.0, 2020.0)
+        market_type, whole_units = self._effective_call_kwargs("MGC")
+        qty = rm.position_size(pkg, 10_000, market_type=market_type, whole_units=whole_units)
+        assert qty == 0.0
+
+    def test_unrecognized_symbol_keeps_account_default(self):
+        # A non-IB-mapped symbol (shouldn't reach an IB account in practice)
+        # falls through to the account's configured market_type unchanged —
+        # the resolver never invents a new behavior for a symbol it doesn't
+        # know.
+        market_type, _ = self._effective_call_kwargs("BTCUSDT", configured_market_type="futures")
+        assert market_type == "futures"
+
+
 class TestFuturesWholeContractEnforcement:
     """BL-20260611-001: ``market_type: futures`` forces integer-contract
     sizing in ``position_size`` regardless of the account's configured

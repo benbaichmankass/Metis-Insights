@@ -49,6 +49,8 @@ class _FakeContract:
         self.exchange = kw.get("exchange")
         self.symbol = kw.get("symbol")
         self.currency = kw.get("currency")
+        self.primaryExchange = kw.get("primaryExchange")
+        self.secType = kw.get("secType")
 
 
 class _FakeOrder:
@@ -158,9 +160,13 @@ def fake_ib_module(monkeypatch):
     mod = types.ModuleType("ib_insync")
     mod.IB = FakeIB
     mod.ContFuture = lambda symbol, exchange, currency=None: _FakeContract(
-        symbol=symbol, exchange=exchange, currency=currency
+        symbol=symbol, exchange=exchange, currency=currency, secType="FUT"
     )
-    mod.Future = lambda **kw: _FakeContract(**kw)
+    mod.Future = lambda **kw: _FakeContract(secType="FUT", **kw)
+    mod.Stock = lambda symbol, exchange, currency=None, primaryExchange=None: _FakeContract(
+        symbol=symbol, exchange=exchange, currency=currency,
+        primaryExchange=primaryExchange, secType="STK",
+    )
     mod.MarketOrder = lambda action, qty: _FakeOrder(action, qty)
     mod.LimitOrder = lambda action, qty, price: _FakeOrder(action, qty, price)
     mod.StopOrder = lambda action, qty, price: _FakeOrder(action, qty, price)
@@ -948,6 +954,85 @@ class TestReadonlyAccountUpdatesCollision:
             "symbol": "MES", "side": "long", "size": 1.0,
             "entry_price": 5300.0, "unrealised_pnl": 12.5,
         }]
+
+
+# ---------------------------------------------------------------------------
+# Equity/ETF (STK) contract support (2026-07-07,
+# docs/integrations/ibkr-equity-etf-support-DESIGN.md)
+# ---------------------------------------------------------------------------
+
+
+class TestStkContractSupport:
+    def test_build_contract_stk_for_spy(self, fake_ib_module):
+        c, fake = _client()
+        contract = c._build_contract("SPY")
+        assert contract.secType == "STK"
+        assert contract.exchange == "SMART"
+        assert contract.primaryExchange == "ARCA"
+        assert contract.conId  # qualifyContracts resolved a conId
+
+    def test_build_contract_fut_unchanged_for_mes(self, fake_ib_module):
+        c, fake = _client()
+        contract = c._build_contract("MES")
+        assert contract.secType == "FUT"
+        assert contract.exchange == "CME"
+
+    def test_build_contract_cache_is_per_symbol_mixed_fut_stk(self, fake_ib_module):
+        # ib_paper mixes futures and equities on one clientId (operator
+        # decision 2026-07-07) — a stale cache from a different symbol must
+        # never leak a FUT contract into a STK order or vice versa.
+        c, fake = _client()
+        fut = c._build_contract("MES")
+        stk = c._build_contract("SPY")
+        assert fut.secType == "FUT"
+        assert stk.secType == "STK"
+        # Re-requesting MES after SPY must rebuild the FUT contract, not
+        # return the cached SPY Stock.
+        fut_again = c._build_contract("MES")
+        assert fut_again.secType == "FUT"
+
+    def test_build_contract_unmapped_symbol_raises(self, fake_ib_module):
+        c, _ = _client()
+        with pytest.raises(ValueError):
+            c._build_contract("BTCUSDT")
+
+    def test_place_builds_bracket_for_etf(self, fake_ib_module):
+        c, fake = _client()
+        resp = c.place({"symbol": "SPY", "direction": "long", "qty": 3, "sl": 449.10, "tp": 455.40})
+        assert resp["retCode"] == 0
+        assert len(fake.placed) == 3
+        contract = fake.placed[0][0]
+        assert contract.secType == "STK"
+
+    def test_place_rounds_etf_prices_to_penny_tick(self, fake_ib_module):
+        c, fake = _client()
+        c.place({"symbol": "SPY", "direction": "long", "qty": 1, "sl": 449.103, "tp": 455.407})
+        prices = [o.lmtPrice for (_, o) in fake.placed if o.lmtPrice is not None]
+        assert prices
+        for p in prices:
+            assert abs(round(p, 2) - p) < 1e-9  # snapped to the 0.01 penny grid
+
+    def test_place_protective_builds_stk_contract(self, fake_ib_module):
+        c, fake = _client()
+        resp = c.place_protective(
+            {"symbol": "QQQ", "direction": "long", "qty": 2, "sl": 379.5, "tp": 392.25}
+        )
+        assert resp["retCode"] == 0
+        contract = fake.placed[0][0]
+        assert contract.secType == "STK"
+        assert contract.primaryExchange == "NASDAQ"
+
+    def test_tick_size_for_etf_is_penny(self):
+        from src.units.accounts.ib_client import tick_size_for
+
+        assert tick_size_for("SPY") == 0.01
+        assert tick_size_for("QQQ") == 0.01
+
+    def test_tick_size_for_mes_unchanged(self):
+        from src.units.accounts.ib_client import tick_size_for
+
+        assert tick_size_for("MES") == 0.25
+        assert tick_size_for("MGC") == 0.10
 
 
 # ---------------------------------------------------------------------------
