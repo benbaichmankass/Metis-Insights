@@ -886,6 +886,15 @@ below are the contract.
   edits, no other unit touched. Wrapper:
   `scripts/ops/restart_web_api.sh`.
 - **Live-VM git-fetch credential (the repo-went-private fix)** —
+  **Current visibility (2026-07-07): the repo is PUBLIC.** It was flipped
+  back from private by operator choice to keep the free unlimited GitHub
+  Actions budget; the guard against external abuse is the repo interaction
+  limit **"Limit to repository collaborators"** (only the owner/collaborators
+  — of which there are none besides the owner — can comment / open issues or
+  PRs) plus the `external-comment-alert.yml` workflow (auto-hides + alerts on
+  any external comment), NOT privacy. The git credential below stays in place
+  and is harmless on a public repo (anonymous fetch would also work again).
+  The incident record follows as history:
   the repo flipped from public to private 2026-07-06
   (`BL-20260706-GITSYNC-AUTH-BROKEN`); `ict-git-sync.timer`'s
   `git fetch` on the live VM had always been anonymous and stopped
