@@ -650,21 +650,34 @@ accounts:
       - uso_trend_1h                    # intraday ETF rollout, paper-validated 2026-06-20+
       - slv_pullback_1d                 # daily ETF pullback, sister to gld_pullback_1d — added 2026-06-27 (Tier-3)
       - gdx_pullback_1d                 # daily ETF pullback, gold miners — added 2026-06-27 (Tier-3)
-    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX]   # instrument identity
-                                       # (mirrors alpaca_paper; routing is by
-                                       # the strategies list above, empty here).
+      - splg_trend_long_1d              # sub-$100 proxy promotion (2026-07-07, Tier-3, operator-approved):
+      - iaum_pullback_1d                # SPLG (~$84, S&P 500 proxy for SPY) + IAUM (~$41, gold proxy for GLD)
+                                       # — the two proxies that clear BOTH the survival gate and affordability
+                                       # at the normalized risk_pct below. Paper-validated (#5895), risk-sized
+                                       # via the compat sweep (#5911/#5916). SCHA intentionally NOT promoted
+                                       # (marginal edge, paper-only). ROLLBACK: drop these two lines + SPLG/IAUM below.
+    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX, SPLG, IAUM]   # instrument identity
+                                       # (mirrors alpaca_paper; sub-$100 proxies SPLG/IAUM
+                                       # added 2026-07-07 for the promotion).
     risk:
-      # TEST-ACCOUNT risk escalation (operator 2026-06-30: "this is a test
-      # account and we need to see it trade"). At $150 equity the prior 1.5%
-      # per-trade budget ($2.25) couldn't afford even 1 share of the $300-700
-      # ETFs, so alpaca_live was inert since its 2026-06-26 live flip. All three
-      # caps move in lockstep: a 10% per-trade budget is useless if the 5%
-      # daily-loss / max-DD caps clamp it on the first trade. ROLLBACK: restore
-      # 0.05 / 0.05 / 0.015.
-      max_dd_pct: 0.10                 # 10% max intra-day drawdown (was 0.05)
-      daily_loss_pct: 0.10             # daily-loss cap = 10% of equity (was 0.05)
+      # RISK NORMALIZATION for the sub-$100 proxy promotion (2026-07-07, Tier-3,
+      # operator-approved). SUPERSEDES the 2026-06-30 "test-account escalation"
+      # (0.10 / 0.10 / 0.10) — that 10% per-trade budget was a hack to force the
+      # unaffordable $300-700 ETFs to fire even one share; it blew the survival
+      # gate (survival 0.69, well under the 0.90 floor). With the cheap proxies
+      # SPLG (~$84) + IAUM (~$41) now routed, 2% risk is enough to afford ≥1 whole
+      # share at ~$150 (affordability threshold: SPLG 1.93%, IAUM 1.03%) while
+      # BOTH proxies pass the compat survival gate under the RESTORED 5% caps
+      # (SPLG survival 1.00 / P(breach) 0.093; IAUM 1.00 / 0.035 — both ROUTE).
+      # Evidence: risk_pct sweep #5911, research doc #5916. Sizing is fail-safe:
+      # if real equity can't afford a share, the RiskManager refuses (0 shares),
+      # never oversizes. ROLLBACK: restore 0.10 / 0.10 / 0.10.
+      max_dd_pct: 0.05                 # 5% max intra-day drawdown (restored from the 0.10 hack)
+      daily_loss_pct: 0.05             # daily-loss cap = 5% of equity (restored from the 0.10 hack)
       daily_usd: 200                   # absolute fallback (no equity snapshot)
-      risk_pct: 0.10                   # 10% balance risked per trade (was 0.015) — test-account escalation
+      risk_pct: 0.02                   # 2% balance risked per trade — max that keeps SPLG+IAUM
+                                       # inside the survival gate under the 5% caps, and ≥ the
+                                       # ≥1-whole-share affordability threshold at ~$150.
 
   # alpaca_options_paper: Phase-1 Slice-3b (Alpaca L3 options) — an Alpaca PAPER
   # account that EXPRESSES its equity signals as defined-risk DEBIT VERTICALS
