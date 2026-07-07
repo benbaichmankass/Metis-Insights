@@ -1290,15 +1290,51 @@ def account_open_positions(
                 # conservatively"). The order_monitor's fresh-fill grace is the
                 # belt to this suspenders: even a verified-live empty read won't
                 # close a too-young row.
+                #
+                # BL-20260707-RECONCILER-MASS-FALSE-CLOSE: the original check
+                # here was ``if not bal:``, which is FALSE for a negative
+                # balance (a negative float is truthy in Python) — so a deeply
+                # negative account (alpaca_paper, ~-$67,946) sailed straight
+                # through as "verified live" and an empty positions() read got
+                # trusted as genuinely flat, even though several positions
+                # (SPY/SLV/QQQ/TLT/GLD/IWM/IEF) were still open on the broker.
+                # position_snapshot_reconciler then mass-closed all of them
+                # with a fabricated local-mark PnL; the reverse reconciler
+                # re-adopted the same still-open positions ~2h later. Two
+                # fixes: (1) ``bal is None`` correctly distinguishes "balance
+                # read failed" from "balance is a real number, even 0 or
+                # negative"; (2) a NEGATIVE balance is itself an anomalous
+                # account state — verifying liveness via balance() only proves
+                # the account is reachable, not that the positions() list is
+                # accurate, and trusting an ambiguous empty read is highest-
+                # stakes exactly when equity is already wrong. So a negative
+                # balance does NOT auto-verify; treat it the same as an
+                # unreadable balance (return None — skip conservatively rather
+                # than mass-close rows on a read that can't be fully trusted).
                 bal = client.balance()
-                if not bal:
+                if bal is None:
                     logger.warning(
                         "account_open_positions(%s): alpaca empty snapshot but "
-                        "balance() not populated (=%r) — treating as read-failure, "
+                        "balance() unreadable (None) — treating as read-failure, "
                         "not flat; returning None.",
+                        account.get("account_id") or "unknown",
+                    )
+                    return None
+                if bal < 0:
+                    logger.warning(
+                        "account_open_positions(%s): alpaca empty snapshot with "
+                        "NEGATIVE balance()=%.2f — anomalous account state, not "
+                        "trusting the empty read as genuinely flat; returning "
+                        "None (read-failure, skip) rather than risk a mass "
+                        "false-close (BL-20260707-RECONCILER-MASS-FALSE-CLOSE).",
                         account.get("account_id") or "unknown", bal,
                     )
                     return None
+                logger.info(
+                    "account_open_positions(%s): alpaca empty snapshot verified "
+                    "via balance()=%.2f — trusting as genuinely flat.",
+                    account.get("account_id") or "unknown", bal,
+                )
                 return []
             out = []
             # AlpacaClient.positions() emits

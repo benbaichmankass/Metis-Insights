@@ -3430,7 +3430,13 @@
       "resolution_criteria": "Root cause of the 14:15:56Z false-close batch is confirmed from logs (not just inferred from journal state) and a fix lands so the close-confirm path can't mass-close genuinely-open positions on a degraded/empty exchange read. Regression test: a simulated empty/failed positions() read during the close-confirm path must NOT close an open trade.",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-07T17:10:00+00:00",
+          "by": "claude (dispatch-failure investigation session, 2026-07-07)",
+          "note": "Root cause found by static analysis of src/units/accounts/clients.py::account_open_positions (the single function position_snapshot_reconciler calls for its exchange-truth read), not from logs — journalctl around 14:15:56Z was repeatedly requested via the diag relay but the issue-comment reply is capped at ~55KB and the trader logs too verbosely per tick to fit a usable window; log-level confirmation was not achieved despite 3+ attempts with progressively narrower windows. The code-level bug is nonetheless conclusive: the Alpaca branch's empty-snapshot verification used `if not bal:` to decide whether client.balance() proved the account genuinely reachable before trusting an empty positions() read as flat. A negative float is TRUTHY in Python, so alpaca_paper's ~-$67,946 balance sailed straight through as 'verified live' and the empty read was trusted as [] (flat) — exactly the mechanism this entry hypothesized. FIX LANDED (not yet pushed/deployed): commit bf0c0fe on branch claude/spy-dispatch-failures-ir2ktj changes the guard to `bal is None` (correctly means 'read failed') plus a new explicit `bal < 0` check (anomalous account state — don't trust the empty read even though it's a successful call) — both now return None (skip, no false-close) instead of falling through to return [] (flat). `bal == 0.0` now correctly returns [] where it previously also incorrectly returned None under the old truthiness bug — an intentional, low-risk behavior change (a genuinely-zero-balance account is separately blocked from new orders by the zero_balance gate). Regression tests added in tests/test_accounts_clients_open_positions.py: test_alpaca_empty_balance_negative_returns_none, test_alpaca_empty_balance_zero_returns_flat. Full suite green (20/20 in that file; 218 passed across the broader reconciler test set). Status stays 'open' until this is pushed, PR'd, merged, deployed to the live VM, and verified live."
+        }
+      ]
     },
     {
       "id": "BL-20260707-ALPACA-PULLBACK-NOTIONAL-SIZING",
@@ -3441,10 +3447,16 @@
       "tier": 3,
       "trigger_condition": "Next /performance-review or /system-review, or when the operator is ready to review a proposed RiskManager notional-cap change.",
       "resolution_criteria": "Operator reviews and either approves a specific fix (e.g. a max_position_notional_pct clamp) that ships via a normal Tier-3 PR, or explicitly decides the current dollar-risk-only design is acceptable and this is closed as won't-fix.",
-      "status": "open",
+      "status": "wont_fix",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-07T17:10:00+00:00",
+          "by": "claude (dispatch-failure investigation session, 2026-07-07)",
+          "note": "Closed as won't-fix. Before drafting the proposed max_position_notional_pct clamp, found that PR #4442 (2026-06-24, commit 0c6b7881d02a770e771ba3604d89460194d1fa57, operator-approved Tier-3) already deliberately REMOVED all position notional/quantity ceilings from RiskManager.position_size — the current module docstring in src/units/accounts/risk.py states explicitly: 'There is NO position-notional ceiling ... so it does not exist (operator directive 2026-06-24). Size is bounded only by the risk budget, the daily-loss budget, the margin/buying-power ceiling, and the exchange's lot size.' Implementing this backlog item's proposed fix would have directly reversed that prior explicit operator directive. Surfaced the conflict to the operator via AskUserQuestion (options: reconsider-and-add-the-cap / leave-as-is-drop-the-fix / something-narrower); operator chose 'Leave sizing as-is, drop this fix.' No code change made. The large-notional mechanism this item flagged for a single trade is still real in aggregate — see BL-20260707-RECONCILER-MASS-FALSE-CLOSE, which is a genuine bug (not a sizing-design question) and is being fixed separately."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-07-07T16:30:00+00:00"
+  "updated_at": "2026-07-07T17:10:00+00:00"
 }
