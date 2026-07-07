@@ -426,7 +426,8 @@ accounts:
                                        # localhost (TrustedIPs=127.0.0.1)
     ib_account: DUQ325724
     ib_client_id: 497                  # unique per concurrent socket
-    strategies: [mes_trend_long_1d, mgc_pullback_1d, mhg_pullback_1d, mgc_trend_1h]
+    strategies: [mes_trend_long_1d, mgc_pullback_1d, mhg_pullback_1d, mgc_trend_1h,
+      spy_trend_long_1d, qqq_trend_long_1d, iwm_trend_long_1d, tlt_pullback_1d]
                                        # 2026-07-07 (Tier-3, operator-approved, routing-coverage
                                        # audit): DROPPED the three BTCUSDT crypto strategies
                                        # (turtle_soup, vwap, ict_scalp_5m) that were parked here.
@@ -451,12 +452,43 @@ accounts:
                                        # diversifiers, both execution: live.
                                        # IBKR PAPER money only; real money
                                        # (ib_live) stays a separate Tier-3 gate.
-    symbols: [MES, MGC, MHG]           # the instruments; the multi-symbol tick
+                                       #
+                                       # 2026-07-07 (IBKR equity/ETF STK support, step 6 —
+                                       # docs/integrations/ibkr-equity-etf-support-DESIGN.md,
+                                       # backlog PB-20260707-IBKR-STK-ETF-SUPPORT): added
+                                       # spy_trend_long_1d / qqq_trend_long_1d / iwm_trend_long_1d /
+                                       # tlt_pullback_1d — the 4 alpaca_paper ETF cells that scored
+                                       # ROUTE against ib_paper's OWN ruleset (risk_pct 1.5%, the
+                                       # mandatory scripts/ops/etf_account_compat.sh ACCOUNTS=ib_paper
+                                       # run, issue #5908 on the trainer VM: P(breach) 0.005-0.042,
+                                       # survival 1.0 for all four). The other 9 cells the harness
+                                       # could score (gld/ief pullback 1d, the five 1h intraday
+                                       # cells, slv_pullback_1d) SKIPPED at ib_paper's 1.5% risk_pct
+                                       # — same failure class as the TQQQ/QLD-on-alpaca_live gate in
+                                       # PB-20260630-002 (a real, positive-EV edge still trips
+                                       # P(breach) at a risk_pct this high); they stay OFF ib_paper
+                                       # until either ib_paper's risk_pct is lowered and re-scored,
+                                       # or real ib_paper fills accrue their own evidence. TQQQ /
+                                       # QLD / GDX daily cells have no trainer-VM candle CSV yet, so
+                                       # the harness couldn't score them at all — also excluded
+                                       # pending data. This mirrors the exact ETF strategies already
+                                       # live on alpaca_paper (a second paper venue for cross-broker
+                                       # validation, per the operator's 2026-07-07 decision) — no new
+                                       # strategy logic, just a second execution venue for four
+                                       # already-approved cells.
+    symbols: [MES, MGC, MHG, SPY, QQQ, IWM, TLT]
+                                       # the instruments; the multi-symbol tick
                                        # loop unions these so MES/MGC/MHG signals
                                        # are GENERATED. BTCUSDT signals never
                                        # reach this account (coordinator
                                        # symbol→exchange gate). This is the live
-                                       # MES + metals-sleeve enablement.
+                                       # MES + metals-sleeve enablement. SPY/QQQ/
+                                       # IWM/TLT added 2026-07-07 alongside the 4
+                                       # ROUTE-verdict ETF cells above — resolved
+                                       # to IBKR STK contracts via the per-symbol
+                                       # instrument-type resolver
+                                       # (src/units/accounts/ib_instruments.py,
+                                       # PR #5871), not the futures path.
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
