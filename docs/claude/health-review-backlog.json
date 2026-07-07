@@ -3428,13 +3428,18 @@
       "tier": 2,
       "trigger_condition": "Next /health-review or /system-review; investigate before any real-money account routes through the same close-confirm path (alpaca_live currently has only 1 tiny position, low exposure, but this is a correctness bug that would apply there too).",
       "resolution_criteria": "Root cause of the 14:15:56Z false-close batch is confirmed from logs (not just inferred from journal state) and a fix lands so the close-confirm path can't mass-close genuinely-open positions on a degraded/empty exchange read. Regression test: a simulated empty/failed positions() read during the close-confirm path must NOT close an open trade.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-07T17:10:00+00:00",
           "by": "claude (dispatch-failure investigation session, 2026-07-07)",
           "note": "Root cause found by static analysis of src/units/accounts/clients.py::account_open_positions (the single function position_snapshot_reconciler calls for its exchange-truth read), not from logs — journalctl around 14:15:56Z was repeatedly requested via the diag relay but the issue-comment reply is capped at ~55KB and the trader logs too verbosely per tick to fit a usable window; log-level confirmation was not achieved despite 3+ attempts with progressively narrower windows. The code-level bug is nonetheless conclusive: the Alpaca branch's empty-snapshot verification used `if not bal:` to decide whether client.balance() proved the account genuinely reachable before trusting an empty positions() read as flat. A negative float is TRUTHY in Python, so alpaca_paper's ~-$67,946 balance sailed straight through as 'verified live' and the empty read was trusted as [] (flat) — exactly the mechanism this entry hypothesized. FIX LANDED (not yet pushed/deployed): commit bf0c0fe on branch claude/spy-dispatch-failures-ir2ktj changes the guard to `bal is None` (correctly means 'read failed') plus a new explicit `bal < 0` check (anomalous account state — don't trust the empty read even though it's a successful call) — both now return None (skip, no false-close) instead of falling through to return [] (flat). `bal == 0.0` now correctly returns [] where it previously also incorrectly returned None under the old truthiness bug — an intentional, low-risk behavior change (a genuinely-zero-balance account is separately blocked from new orders by the zero_balance gate). Regression tests added in tests/test_accounts_clients_open_positions.py: test_alpaca_empty_balance_negative_returns_none, test_alpaca_empty_balance_zero_returns_flat. Full suite green (20/20 in that file; 218 passed across the broader reconciler test set). Status stays 'open' until this is pushed, PR'd, merged, deployed to the live VM, and verified live."
+        },
+        {
+          "at": "2026-07-07T20:23:00+00:00",
+          "by": "claude (dispatch-failure investigation session, 2026-07-07)",
+          "note": "Deployed and live-verified. PR #5901 merged (squash sha 0297fff) with operator OK in chat. `ict-git-sync` auto-deploy confirmed via `/api/diag/version`: live VM git_sha advanced from b7fcc87f (pre-merge) to 3a41031b (post-merge, includes 0297fff in ancestry, both trader + web-api services active) within ~10 minutes of merge. Closing resolved — the code-level defect is fixed and running; genuinely-open Alpaca positions can no longer be mass-closed on a negative-or-unreadable-balance empty-snapshot read. Note: while investigating a follow-on alert (QQQ close failing with 'insufficient qty available'), confirmed via a fresh /api/diag/exchange_positions pull that alpaca_paper's positions (QQQ, SPY, IWM, IEF, TLT, USO) were never actually flat/reset — they're still genuinely open on the broker, consistent with this fix's diagnosis. A separate, unrelated bug was found in the active-close path (AlpacaClient.close() doesn't cancel resting bracket legs before flattening) — tracked as a new task, not this backlog item."
         }
       ]
     },
@@ -3458,5 +3463,5 @@
       ]
     }
   ],
-  "updated_at": "2026-07-07T17:10:00+00:00"
+  "updated_at": "2026-07-07T20:23:00+00:00"
 }
