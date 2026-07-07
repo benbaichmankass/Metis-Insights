@@ -1861,16 +1861,31 @@ def _snapshot_min_fill_age_seconds() -> float:
 def _recently_closed_adopted_orphan(
     db, *, account_id: str, symbol: str, direction: str, window_seconds: float,
 ) -> Optional[dict]:
-    """Return the most-recently-closed ``adopted_orphan`` trade for this
-    ``(account_id, symbol, direction)`` whose ``closed_at`` is within
-    ``window_seconds`` of now, else ``None``.
+    """Return the most-recently-closed trade for this ``(account_id, symbol,
+    direction)`` whose ``closed_at`` is within ``window_seconds`` of now AND
+    whose close was either an adopted-orphan row OR a reconciler-initiated
+    "we THINK this is flat" close on a non-Bybit integration — else ``None``.
 
     Backs the re-adopt flap guard (BL-20260618-RECONCILE-DUP): a position that
-    matches an adopted orphan closed seconds ago is a gateway flap, not a new
-    position — re-adopting it loops and books phantom losses. Matches BOTH the
-    bare ``orphan_adopt`` rows and the strategy-reattached adopted orphans
-    (both carry ``setup_type='adopted_orphan'``). Best-effort: any DB error
-    returns ``None`` (fail-open — never blocks a genuine adoption on an error).
+    matches a recently-closed row is a flap, not a new position — re-adopting
+    it loops and books phantom losses. Originally matched only
+    ``setup_type='adopted_orphan'`` (the bare ``orphan_adopt`` rows and the
+    strategy-reattached adopted orphans). BL-20260707-ALPACA-CLOSE-NOT-
+    CONFIRMED-FLAT widened this: a STRATEGY-ATTRIBUTED row closed by
+    ``position_snapshot_reconciler`` (``exit_reason='exchange_flat_
+    reconciled'``) or ``exit_coverage_resolver`` (``exit_reason=
+    'exit_coverage_no_strategy'``) carries the ORIGINAL strategy's
+    ``setup_type``, never ``'adopted_orphan'`` — so it fell straight through
+    the old guard with ZERO flap protection. Both closers can be wrong on a
+    non-Bybit integration with no per-order status reader (the position
+    genuinely never left the broker, just went "accept-not-confirmed-flat" —
+    the live SLV incident); a fresh false-close should not re-adopt
+    immediately just because it didn't happen to carry the orphan setup_type.
+    Deliberately NOT widened to every close reason — a real, broker-confirmed
+    close (e.g. Bybit's ``reconciler_filled``, a normal ``sl_cross``/
+    ``tp_cross`` strategy exit) is a genuine flatten and must never suppress a
+    legitimate new position on the same symbol/direction. Best-effort: any DB
+    error returns ``None`` (fail-open — never blocks a genuine adoption).
     """
     if window_seconds <= 0:
         return None
@@ -1886,7 +1901,10 @@ def _recently_closed_adopted_orphan(
                 "SELECT id, symbol, direction, closed_at, pnl, order_package_id "
                 "FROM trades "
                 "WHERE status='closed' AND COALESCE(is_backtest,0)=0 "
-                "  AND account_id=? AND symbol=? AND setup_type='adopted_orphan' "
+                "  AND account_id=? AND symbol=? "
+                "  AND (setup_type='adopted_orphan' "
+                "       OR exit_reason IN "
+                "           ('exchange_flat_reconciled', 'exit_coverage_no_strategy')) "
                 "  AND closed_at IS NOT NULL "
                 "ORDER BY closed_at DESC LIMIT 8",
                 (account_id, symbol),
