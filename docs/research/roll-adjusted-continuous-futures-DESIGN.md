@@ -1,8 +1,11 @@
 # Roll-adjusted continuous native-futures data — DESIGN + plan
 
-**Status:** increment 1 BUILT (this doc's §3, Tier-1 offline tooling, merged with
-tests). Increment 2 (per-contract pull) + increment 3 (re-backtest) are SPEC'd
-below, not yet built.
+**Status:** increments 1 + 2 BUILT & MERGED (#5870). Increment 3 (re-backtest)
+RAN 2026-07-07 — result below and in `ib-metals-native-backtest-2026-07-07.md`:
+the roll-artifact hypothesis for `mgc_trend_1h` is **refuted** (spliced +221.6R
+→ continuous +196.2R on native MGC 1h, only −11%); the edge survives
+roll-adjustment. It stays shadow for a different reason (cross-series conflict
+with the GC=F/spot demote + 2023-concentrated returns).
 **Author:** Claude, 2026-07-07.
 **Motivating finding:** `docs/research/ib-metals-native-backtest-2026-07-07.md`
 — `mgc_trend_1h` scored a surprising **+57.8R** on native MGC 1h that did NOT
