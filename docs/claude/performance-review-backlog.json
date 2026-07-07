@@ -15,7 +15,13 @@
       "promotion_prerequisite": "REQUIRED RISK ADJUSTMENT BEFORE ANY alpaca_live PROMOTION (operator-flagged 2026-06-30): the account_compat_matrix run 2026-06-30 returned **SKIP** for BOTH cells on alpaca_live AT ITS CURRENT 10% per-trade risk (config/accounts.yaml::alpaca_live.risk.risk_pct = 0.10) \u2014 TQQQ P(breach)=10.8%, QLD P(breach)=20.3%, both above the 10% breach cap \u2014 because a 3x/2x leveraged instrument at 10% risk has too high a chance of tripping the account's daily-loss/static-DD limits. The SKIP is driven by the RISK SETTING, not the edge: at 1.5% risk (the alpaca_paper basis) both cells ROUTE with P(breach) ~0. SO: when promoting TQQQ/QLD to alpaca_live, FIRST lower alpaca_live.risk_pct (Tier-3 risk-cap change, operator-approved) to a level where account_compat_matrix returns ROUTE for these cells (sweep 0.02->0.05 and pick the highest that keeps P(breach)<=0.10 + survival>=0.90 for BOTH), THEN flip the routing. Do NOT add TQQQ/QLD to alpaca_live.strategies at the current 10% risk \u2014 the compat gate says it would risk a limit breach. Note this also affects the existing unleveraged alpaca_live cells' breach math; re-run the full etf_account_compat.sh after any risk_pct change.",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-07T09:50:00+00:00",
+          "by": "claude (/performance-review 2026-07-07)",
+          "note": "No qualifying data this window: zero TQQQ/QLD order packages or trades observed in the 2026-07-06T15:37 -> 2026-07-07T09:50 sample (this window was also outside/at the edge of US RTH for most of its span, and only a partial order-package sample was pulled -- see this review's response for the coverage caveat). Still awaiting the first real alpaca_paper fills. Stays open."
+        }
+      ]
     },
     {
       "id": "PB-20260630-001",
@@ -61,7 +67,13 @@
       "resolution_criteria": "A small-ticket strategy on alpaca_live (slv/gdx/uso) produces an order_packages row that FILLS (open or closed trade row for account_id=alpaca_live, non-dry_run, real qty>=1 share), proving small-ticket placement works end-to-end on real money. Record the fill (symbol, qty, price, strategy, timestamp) and resolve. ALTERNATIVELY resolve only if the operator explicitly decides to pause/deactivate alpaca_live and that decision is recorded here.",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-07T09:50:00+00:00",
+          "by": "claude (/performance-review 2026-07-07)",
+          "note": "No qualifying data this window: zero alpaca_live/slv/gdx/uso order packages observed in the sampled window (2026-07-06T15:37 -> 2026-07-07T09:50; note the sample was partial -- see this review's coverage caveat -- and most of the window fell outside 13:30-20:00 UTC RTH anyway). Still awaiting a real small-ticket fill on alpaca_live. Stays open."
+        }
+      ]
     },
     {
       "id": "PB-20260625-002",
@@ -100,6 +112,11 @@
           "at": "2026-07-05T12:10:00+00:00",
           "by": "claude (/system-review 2026-07-05)",
           "note": "First real prop fill on the leg family: operator filled prop-manual-5bc393741ec4 (ETHUSDT long 1.9 @1767.71, SL 1732/TP 1945.9, prop_fills 16, 2026-07-05). Emit path verified end-to-end; allocator soak shows the prop/api legs scoring within ~0.5% of each other (ev_net_r). Keep open for the original ask: confirm REAL swap charges on the live position vs the 0.033%/day model once the position crosses a daily swap event."
+        },
+        {
+          "at": "2026-07-07T09:50:00+00:00",
+          "by": "claude (/performance-review 2026-07-07)",
+          "note": "Prop-sizing-via-balance() wiring gap RECURRED, on a different symbol this time: trend_donchian_sol_prop long SOLUSDT (pkg-042861cfbf8d4043, conf=0.87, created 2026-07-06T21:12Z) went status=orphaned rather than emitting a prop ticket -- same root cause as the 2026-06-29 SOL rejection above (breakout_1 can't size off a live balance() call). Graded A on setup quality this session (comms/claude_strategy_scores.jsonl) -- the decision itself was sound; the miss is purely the known wiring gap, not a strategy problem. Now observed on 2+ occasions; worth prioritizing a fix over the swap-rate confirmation (which is comparatively cosmetic)."
         }
       ]
     },
@@ -1034,5 +1051,5 @@
       "snoozed_until": "2026-08-01T00:00:00+00:00"
     }
   ],
-  "updated_at": "2026-07-06T15:40:00+00:00"
+  "updated_at": "2026-07-07T09:50:00+00:00"
 }
