@@ -57,6 +57,7 @@ import math
 import os
 import threading
 import time
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -296,6 +297,22 @@ class IBClient:
         # socket) or the handle is torn down, so the next connect() always
         # re-warms before declaring success.
         self._account_data_ready: bool = False
+        # Connection-legibility state (observability only — never gates a
+        # connect/place/close decision). ``_last_ok_wall`` is the wall-clock
+        # UTC ISO timestamp of the last fully-healthy round-trip (probe +
+        # warm-up passed); ``_last_fail_wall`` / ``_last_fail_reason`` record
+        # the last connect/probe/warm-up failure. Surfaced via
+        # ``connection_state()`` → ``runtime_logs/ib_state.json`` → the diag
+        # ``/api/diag/ib_state`` endpoint so a session/operator can tell
+        # "connected vs down, transitory backoff vs real wedge" at a glance
+        # (BL-20260707-IB-STATE-LEGIBILITY).
+        self._last_ok_wall: Optional[str] = None
+        self._last_fail_wall: Optional[str] = None
+        self._last_fail_reason: Optional[str] = None
+
+    @staticmethod
+    def _utc_now_iso() -> str:
+        return datetime.now(timezone.utc).isoformat()
 
     # ------------------------------------------------------------------
     # Connection lifecycle
@@ -362,7 +379,7 @@ class IBClient:
                     readonly=self.readonly,
                 )
             except Exception as exc:  # noqa: BLE001 — normalise every connect failure
-                self._trip_breaker()
+                self._trip_breaker(reason=f"connect_failed: {type(exc).__name__}")
                 raise IBConnectionError(
                     f"IBClient: failed to connect to IB Gateway at "
                     f"{self.host}:{self.port} (clientId={self.client_id}, "
@@ -380,7 +397,7 @@ class IBClient:
         # so a wedged gateway is caught here (and trips the breaker) instead of
         # hanging the first real request (accountSummary / portfolio / bars).
         if not self._probe_liveness(ib):
-            self._trip_breaker()
+            self._trip_breaker(reason="liveness_probe_timeout")
             self._safe_disconnect(ib)
             raise IBConnectionError(
                 f"IBClient: Gateway at {self.host}:{self.port} "
@@ -397,7 +414,7 @@ class IBClient:
         # straight through on every subsequent connect() call.
         if not self._account_data_ready:
             if not self._warm_account_data(ib):
-                self._trip_breaker()
+                self._trip_breaker(reason="account_warmup_timeout")
                 self._safe_disconnect(ib)
                 raise IBConnectionError(
                     f"IBClient: Gateway at {self.host}:{self.port} "
@@ -411,12 +428,16 @@ class IBClient:
 
         # Healthy round-trip — clear any prior failure streak.
         self._breaker_fail_count = 0
+        self._last_ok_wall = self._utc_now_iso()
         return ib
 
-    def _trip_breaker(self) -> None:
+    def _trip_breaker(self, reason: Optional[str] = None) -> None:
         """Open the circuit breaker for the cooldown window."""
         self._breaker_fail_count += 1
         self._breaker_open_until = time.monotonic() + _IB_BREAKER_COOLDOWN_S
+        self._last_fail_wall = self._utc_now_iso()
+        if reason:
+            self._last_fail_reason = reason
         logger.warning(
             "IBClient: circuit breaker tripped for %s:%s (account=%s, "
             "consecutive failures=%d); IB calls suppressed for %.0fs.",
@@ -1589,6 +1610,78 @@ class IBClient:
     # Diagnostics
     # ------------------------------------------------------------------
 
+    def connection_state(self) -> Dict[str, Any]:
+        """Report the CURRENT connection state WITHOUT touching the socket.
+
+        Pure read of the client's own in-process state — never calls
+        ``connect()``, never issues an IB request, never blocks. This is the
+        legibility surface for "is IB connected, and is a current failure a
+        transitory circuit-breaker backoff or a real wedge?" (the operator's
+        recurring confusion). Consumed by the trader-side
+        :func:`write_ib_state_file` writer → ``runtime_logs/ib_state.json`` →
+        the read-only ``/api/diag/ib_state`` endpoint.
+
+        ``state`` ∈:
+          * ``connected``       — live handle, probe+warm-up passed.
+          * ``breaker_open``    — TRANSITORY: a probe/connect/warm-up failed
+                                  and the breaker is in its cooldown; connect()
+                                  auto-retries when it elapses. Normal during
+                                  the IBKR ~03:45–05:45 UTC reset window.
+          * ``disconnected``    — had a good connection before, not currently
+                                  connected, breaker not open (between ticks).
+          * ``never_connected`` — no successful round-trip has ever happened.
+        ``likely_wedged`` is the one-glance "transitory vs bug" flag: True when
+        the breaker has tripped on ``>= 3`` consecutive attempts (mirrors the
+        gateway-watchdog escalation threshold) — i.e. it is NOT recovering on
+        its own and warrants a look.
+        """
+        now = time.monotonic()
+        breaker_open = now < self._breaker_open_until
+        try:
+            live = self._ib is not None and self._is_connected(self._ib)
+        except Exception:  # noqa: BLE001 — never let a status read raise
+            live = False
+        if breaker_open:
+            state = "breaker_open"
+        elif live and self._account_data_ready:
+            state = "connected"
+        elif self._last_ok_wall is None:
+            state = "never_connected"
+        else:
+            state = "disconnected"
+        last_ok_age = None
+        if self._last_ok_wall is not None:
+            try:
+                last_ok_age = (
+                    datetime.now(timezone.utc)
+                    - datetime.fromisoformat(self._last_ok_wall)
+                ).total_seconds()
+            except Exception:  # noqa: BLE001
+                last_ok_age = None
+        return {
+            "host": self.host,
+            "port": self.port,
+            "client_id": self.client_id,
+            "account": self._masked_account(),
+            "symbol": self.symbol,
+            "readonly": self.readonly,
+            "state": state,
+            "connected": bool(live),
+            "account_data_ready": bool(self._account_data_ready),
+            "breaker_open": bool(breaker_open),
+            "breaker_seconds_remaining": (
+                round(self._breaker_open_until - now, 1) if breaker_open else 0.0
+            ),
+            "consecutive_failures": self._breaker_fail_count,
+            "likely_wedged": bool(self._breaker_fail_count >= 3),
+            "last_ok_utc": self._last_ok_wall,
+            "last_ok_age_seconds": (
+                round(last_ok_age, 1) if last_ok_age is not None else None
+            ),
+            "last_fail_utc": self._last_fail_wall,
+            "last_fail_reason": self._last_fail_reason,
+        }
+
     def self_test(self) -> Dict[str, Any]:
         """Connect and report a non-mutating connectivity snapshot.
 
@@ -1669,6 +1762,53 @@ class IBClient:
 
 _CONN_REGISTRY: Dict[Tuple[str, int, int], IBClient] = {}
 _REGISTRY_LOCK = threading.Lock()
+
+
+def snapshot_ib_connection_states() -> list:
+    """Return ``connection_state()`` for every live IBClient in the registry.
+
+    Pure read — iterates the process-local connection registry and calls each
+    client's non-blocking :meth:`IBClient.connection_state`. Empty when the
+    process has never built an IB client (e.g. a web-api that hasn't fetched
+    IB candles, or a trader that hasn't yet dispatched to an IB account).
+    """
+    with _REGISTRY_LOCK:
+        clients = list(_CONN_REGISTRY.values())
+    out = []
+    for c in clients:
+        try:
+            out.append(c.connection_state())
+        except Exception:  # noqa: BLE001 — one bad client never breaks the snapshot
+            continue
+    return out
+
+
+def write_ib_state_file(path: Optional[Any] = None) -> None:
+    """Best-effort dump of the IB connection states to ``ib_state.json``.
+
+    Called once per trader tick (from ``src/main.py``) so the SEPARATE
+    web-api process can surface the trader's live IB connection state via
+    ``/api/diag/ib_state`` — the two run in different processes, so the
+    trader's in-memory ``_CONN_REGISTRY`` is only reachable cross-process
+    through a file it writes and diag reads (the same pattern as
+    ``runtime_status.json``). Never raises: observability must not perturb the
+    trader loop.
+    """
+    import json
+
+    try:
+        from src.utils.paths import runtime_logs_dir
+        target = path if path is not None else (runtime_logs_dir() / "ib_state.json")
+        payload = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "clients": snapshot_ib_connection_states(),
+        }
+        tmp = f"{target}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh)
+        os.replace(tmp, target)
+    except Exception as exc:  # noqa: BLE001 — best-effort; never break the tick
+        logger.debug("write_ib_state_file skipped: %s: %s", type(exc).__name__, exc)
 
 
 def get_ib_client(
