@@ -47,31 +47,56 @@ Per-year net R (@1bps): 2023 +5.46, 2024 +3.34, 2025 +20.28, 2026 −1.23
 best DD of the sleeve (2.9R). **Confirms the copper pullback edge on native MHG
 futures.**
 
-### ⏸ `mgc_trend_1h` — STAYS SHADOW (native "pass" is a roll artifact, not an edge)
-`scripts/research/backtest_trend.py` (donchian 20, atr 14, stop 2.5, trail 3.0,
-fee 7.5bps hardcoded): native MGC 1h = **+57.77R / 94 trades / 41.5% win**
-(long +39.5, short +18.3).
+### ⏸ `mgc_trend_1h` — STAYS SHADOW, but the roll-artifact hypothesis is REFUTED (updated 2026-07-07)
 
-This **contradicts** the shadow demote (−15.5R on real GC=F 1h, −50.7R on XAUUSD
-spot; `docs/research/recombination-sweep-2026-06-18.md`). **It does NOT reverse
-the demote** — the native result is almost certainly a **roll-gap artifact**:
-1. The native 1h shard is **stitched dated contracts without roll back-adjustment**.
-   At each contract roll the price gaps (contango/backwardation); a Donchian
-   **breakout** reads that gap as a breakout and "rides" it → manufactured edge.
-2. It's not a fee artifact — it's net of **7.5 bps** (the research script's
-   hardcoded fee), so the +57R survives a high cost. Fee isn't the cause; the
-   **data** is.
-3. The demote was validated on **continuous** GC=F/spot (no roll artifacts) —
-   the trustworthy series for a breakout cell. Two independent continuous series
-   (GC=F futures + XAUUSD spot) both said negative.
-4. The pullback cells (which enter on pullbacks into a range, not on gap-driven
-   breakouts) are far less roll-sensitive — which is why their positive native
-   results ARE credible while the breakout's is not.
+**Superseded finding.** The first pass (on the spliced v002 shard, +57.77R / 94
+trades) guessed the native "pass" was a **roll-gap artifact** and predicted it
+would collapse once the gaps were removed. The **roll-adjusted continuous test
+now DISPROVES that guess** — the earlier reasoning (the pre-2026-07-07 points
+1–4 in this section) was wrong.
 
-**Recommendation:** `mgc_trend_1h` stays `shadow`. A genuine native-futures test
-of the trend cell would need **roll-back-adjusted continuous** MGC data (the
-`ibkr_offvm` adapter does not build a continuous series today) — logged as a
-follow-up, not a promotion path.
+Built the roll-adjusted continuous series from a fresh **per-contract** pull
+(`per_contract` pull → `market_raw_percontract/MGC/1h/v001`, 86,075 per-contract
+bars → **15,003 continuous 1h bars**, 2023-03-21 → 2026-07-06, 14 stitched
+contracts) via `scripts/research/build_continuous_contract.py` (#5870), then ran
+`backtest_trend.py` (donchian 20, atr 14, stop 2.5, trail 3.0, 7.5bps) on the
+**continuous (panama/back-adjusted)** series vs the **spliced (`none`, = today's
+adapter behaviour)** baseline on the SAME 15,003 bars:
+
+| Arm | Trades | Win% | Net R | Expectancy | MaxDD | net R by year (23/24/25/26) |
+|---|---|---|---|---|---|---|
+| **Spliced** (`none`) | 672 | 38.2% | **+221.6R** | 0.330R | 57.7R | +123 / −14 / +83 / +29 |
+| **Continuous** (panama) | 680 | 37.9% | **+196.2R** | 0.289R | 62.0R | +120 / −28 / +72 / +32 |
+
+**Removing the roll gaps cost only −25.3R (−11%).** The edge is NOT
+gap-manufactured — a Donchian breakout on **roll-adjusted** native MGC 1h is
+still **strongly positive** (+196R, +0.29R expectancy, 680 trades over ~3.3y).
+The roll-artifact hypothesis is refuted.
+
+**So why does it STILL stay shadow?** The clean result now **conflicts** with the
+shadow demote, which was validated on OTHER continuous gold-1h series — **GC=F
+1h −15.5R, XAUUSD spot 1h −50.7R** (`docs/research/recombination-sweep-2026-06-18.md`).
+Three continuous gold-1h series disagree by sign and by a wide margin — a genuine
+**unresolved cross-series conflict**, not a settled promotion case. Likely
+drivers, to test before any promotion:
+- **Window / concentration.** The native window is 2023-03→2026-07 and **2023
+  alone carries +120R of the +196R**; 2024 was negative (−28R). A single
+  strong-trend year does most of the work — concentration risk, not a proven
+  multi-regime edge. If the GC=F/spot demote windows spanned different years,
+  that alone could flip the sign.
+- **Session / vendor structure.** Native MGC futures (~23h/day) vs GC=F (Yahoo
+  futures) vs XAUUSD spot (24h) have different bar/session structures a breakout
+  reads differently.
+
+**Recommendation (unchanged action, corrected reason):** `mgc_trend_1h` **stays
+`shadow`** — but NOT for "roll artifact" (refuted); for an **unresolved
+cross-series/regime conflict with 2023-concentrated returns**. Before any Tier-3
+promotion it needs a **window-aligned walk-forward / OOS** test reconciling the
+native-MGC vs GC=F vs spot disagreement (same windows, same fee, per-year
+stability). That is a *proposed research follow-up*, **not** a promotion — no
+`strategies.yaml` change here. The roll-adjustment tooling that made this test
+possible (`ml/datasets/continuous.py` + the per-contract pull, #5870) is now in
+place and reusable for the intraday breakout candidates.
 
 ## Cross-cutting caveats
 - **Sample size:** 29–33 daily trades over ~4y is modest (a daily pullback fires
@@ -81,21 +106,30 @@ follow-up, not a promotion path.
   expected (different vendor/window/length). The load-bearing fact is the **same
   positive sign, fee-robust, healthy expectancy** on the real instrument.
 - **Roll-adjustment gap** (adapter builds stitched, not back-adjusted, series) —
-  fine for pullback/mean-reversion cells, **corrupting for breakout/trend cells**.
-  Any future native-futures backtest of a breakout strategy must account for it.
+  fine for pullback/mean-reversion cells. **Its impact on breakout/trend cells is
+  now MEASURED, not assumed: on native MGC 1h it cost only ~11% (spliced +221.6R
+  → continuous +196.2R), NOT the bulk of the P&L** (2026-07-07 continuous test,
+  above). A native-futures breakout backtest should still use the roll-adjusted
+  continuous series (`build_continuous_contract.py`) for correctness, but the gap
+  is a modest correction here, not an edge-manufacturing artifact.
 
-## Intraday shortlist — deferred
+## Intraday shortlist — deferred (but the roll-artifact worry is now quantified)
 The intraday test matrix (`docs/research/ib-intraday-strategy-survey-2026-07-07.md`
-#1/#2/#5/#6/#7) is **partly compromised by the same roll issue**: the trend/breakout
-candidates (MGC trend 4h) on stitched native data would inherit the artifact. The
-pullback-based intraday cells (MGC pullback 1h, MES pullback 1h) are credible and
-worth a native run, but the survey's headline stands — **no validated intraday
-edge yet**, and now with the added constraint that native-futures breakout
-backtests need roll-adjusted data. Deferred to a scoped follow-up.
+#1/#2/#5/#6/#7) can now be run **honestly** on the roll-adjusted continuous series
+the per-contract pull + `build_continuous_contract.py` produce. The earlier fear
+that native-futures breakout results are dominated by roll gaps is **disproved**
+for MGC 1h (~11% impact), so the trend/breakout candidates are worth a clean
+native run rather than being written off. The survey's headline (**no *validated*
+intraday edge yet**) still stands pending those runs + a window-aligned
+walk-forward. Deferred to a scoped follow-up.
 
 ## Bottom line
 The two **LIVE** metals paper strategies are **validated on their own instrument
-for the first time** and both **confirm** — keep them live. The one **shadow**
-strategy's surprising native "pass" is a data artifact, not a reason to promote —
-it stays shadow. And the COMEX fix means the whole sleeve is now natively
-backtestable going forward.
+for the first time** and both **confirm** — keep them live. The **shadow**
+`mgc_trend_1h` cell got its **definitive native-instrument test** (roll-adjusted
+continuous MGC 1h): the earlier "roll artifact" call is **refuted** — the edge is
+real and strongly positive (+196R clean, only 11% below the spliced +221R) — but
+it **stays shadow** because it now *conflicts* with the GC=F −15.5R / spot −50.7R
+demote on a 2023-concentrated window; the promotion case needs a window-aligned
+walk-forward, not a config flip. And the COMEX fix + the roll-adjustment tooling
+(#5870) mean the whole sleeve is now natively AND continuously backtestable.
