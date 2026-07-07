@@ -32,7 +32,7 @@
       "tier": 3,
       "trigger_condition": "Operator approves fetching MGC/MHG history on the live VM (shared-gateway op), OR a dedicated session picks up the metals-sleeve backtest. Also relevant on any /system-review assessing IB metals promotion readiness.",
       "resolution_criteria": "The two LIVE daily metals strategies (mgc_pullback_1d, mhg_pullback_1d) are backtested on NATIVE MGC/MHG futures 1d history (not just the proxies they were validated on), producing either a confirmation the paper-money edge holds on the real instrument or a demote/keep decision. mgc_trend_1h's shadow status is already evidence-backed (net-negative on real GC=F 1h) and needs no promotion backtest.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -44,6 +44,11 @@
           "at": "2026-07-07T11:50:00+00:00",
           "by": "claude (metals-sleeve validation, 2026-07-07)",
           "note": "CORRECTION to this item's premise. The sleeve was NOT 'never backtested' \u2014 it was validated on PROXY instruments, never on NATIVE MGC/MHG futures. Reading the strategies.yaml configs in full: (a) mgc_trend_1h (execution:shadow) was ALREADY backtested on real GC=F 1h (-15.5R over 2.4y) AND the XAUUSD spot proxy (-50.7R) and was correctly DEMOTED live->shadow 2026-06-18 (Tier-3, operator-approved; docs/research/recombination-sweep-2026-06-18.md) \u2014 a 1h donchian-trend on gold is too chop-exposed. So the 'shadow->live promotion' question for mgc_trend_1h is ALREADY ANSWERED NO on real-instrument data; native MGC 1h would only close the 'MGC basis/roll unmodelled' caveat, not resurrect an absent edge. (b) The two LIVE paper strategies mgc_pullback_1d (+56R robust, survives >30bps) and mhg_pullback_1d were WS-A S2/S3-validated but only on PROXY data (Dukascopy spot gold / GC=F / HG=F / GLD daily), never native MGC/MHG futures. So the genuinely decision-relevant native-data validation is for the two LIVE dailies (confirm the paper-money edge holds on the real instrument incl. basis/roll), NOT the already-settled mgc_trend_1h. INFRA BUILT: the generalized pull-ibkr-history system-action shipped (PR #5851, symbol/timeframes/hist_start/dataset_version/max_contracts params); native MGC 1h pull dispatched + running (issue #5852). NEXT: pull MGC 1d + MHG 1d (start 2019, max_contracts 28, v003) once the 1h pull releases the single-instance lock, then backtest_pullback.py on native 1d for both LIVE dailies on the trainer VM."
+        },
+        {
+          "at": "2026-07-07T14:50:00+00:00",
+          "by": "claude (metals native backtest, 2026-07-07)",
+          "note": "RESOLVED. Native-instrument backtest done (docs/research/ib-metals-native-backtest-2026-07-07.md), unblocked by the COMEX exchange fix (#5853). VERDICTS: mgc_pullback_1d native MGC 1d = +25.1R net @1bps (+23.7R @7.5bps) / 29 trades / 37.9% win / 0.87R expectancy / 4.2R maxDD \u2014 CONFIRMS the proxy edge, KEEP LIVE. mhg_pullback_1d native MHG 1d = +29.9R @1bps (+28.7R @7.5bps) / 33 trades / 45.5% win / both sides / 2.9R maxDD \u2014 CONFIRMS, KEEP LIVE. mgc_trend_1h native MGC 1h = +57.8R BUT that's a roll-gap artifact (stitched non-back-adjusted contracts + a Donchian breakout reads roll gaps as breakouts; net of 7.5bps so not a fee artifact) \u2014 the shadow demote (validated on continuous GC=F/spot) STANDS. Follow-up: the intraday shortlist + a roll-adjusted native-futures test of breakout cells (the adapter builds stitched, not back-adjusted, series)."
         }
       ]
     },
