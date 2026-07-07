@@ -3355,7 +3355,35 @@
       "status": "open",
       "snoozed_until": null,
       "updates": []
+    },
+    {
+      "id": "BL-20260707-IBWARMUP-RECURRENCE",
+      "opened_at": "2026-07-07T09:45:00+00:00",
+      "opened_by": "claude (/performance-review 2026-07-07)",
+      "source": "journal?table=trades (diag relay #5836), trade id 3224: 2026-07-07T02:15:10Z, mgc_pullback_1d short MGC on ib_paper, status=exchange_rejected. entry_reason: 'RuntimeError: IB _submit_order: IBClient: Gateway at 10.0.0.251:4002 (account=…5724) answered the liveness probe but never delivered account/portfolio data within 8s (likely logged out or no account resolved). Tripping circuit breaker so IB calls do not block the trader loop.'",
+      "title": "IB account/portfolio-warmup timeout recurred on ib_paper the day after BL-20260706-IBWARMUP / BL-20260706-IBACCTUPDATES-COLLISION landed — confirm the fix is actually deployed + effective",
+      "description": "This is the exact failure signature (`IB_ACCOUNT_WARMUP_TIMEOUT_S` probe-then-condemn path in `IBClient.connect()`/`_warm_account_data`) that BL-20260706-IBWARMUP and its BL-20260706-IBACCTUPDATES-COLLISION follow-up were supposed to fix on 2026-07-06. Seeing it trip again on 2026-07-07T02:15Z blocked a legitimate mgc_pullback_1d short (confidence 0.55, trending regime ADX 37.9 — a decent setup that never got a chance to fill; see performance-review scoring for pkg-8d2b5d6cffbc4552). Two possibilities: (a) the fix reduces but does not eliminate cold-TCP-flow misses (the retry-then-condemn design accepts SOME residual failures by construction, per IB_PROBE_TIMEOUT_S's own docs — in which case this is expected background noise, not a regression); or (b) the fix hasn't actually rolled to the live VM (check `/api/diag/version` git_sha against the PR merge commit) or isn't retrying as designed. FIX: pull `/api/diag/version` + `/api/diag/journalctl?unit=ict-trader-live.service` around 2026-07-07T02:14-02:16Z to see whether `_warm_account_data` actually attempted its documented retry before condemning the connection; if the retry never fired, the deploy or the retry logic itself needs a second look. If it did retry and still failed, this is within the documented residual-failure envelope and just needs a frequency count over a longer window before deciding whether IB_ACCOUNT_WARMUP_TIMEOUT_S/IB_PROBE_RETRY_GAP_S need raising.",
+      "tier": 2,
+      "trigger_condition": "Next health-review or VM investigation session; also re-check if this recurs multiple times in a short window (would argue for (b) over (a)).",
+      "resolution_criteria": "Either confirmed as expected residual noise within the documented retry-tolerant design (close as won't-fix, cite the retry evidence), or confirmed as a deploy/logic gap and fixed with a follow-up PR.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260707-MGCTREND-REASON-MISMATCH",
+      "opened_at": "2026-07-07T09:45:00+00:00",
+      "opened_by": "claude (/performance-review 2026-07-07)",
+      "source": "journal?table=trades (diag relay #5836), trade ids 3226/3227 (mgc_trend_1h short MGC, ib_paper, 2026-07-07 05:25/06:00Z): `entry_reason` reads 'REJECTED: dry_run_no_order_placed | mgc_trend_1h signal' and `notes.reason` is 'dry_run_no_order_placed' with `notes.is_dry: false` — but the linked order_package's `meta.rejected_reason` says 'risk-refused (no fill placed); reconciled from the journalled rejection row' and `meta.rejected_by: monitor_reconciler`.",
+      "title": "mgc_trend_1h rejections carry a stale/mismatched 'dry_run_no_order_placed' entry_reason text while the order-package meta records the real cause as risk-refused (reconciled)",
+      "description": "Two data points disagree about WHY the same rejected trade happened: the `trades.entry_reason`/`notes.reason` literally say 'dry_run_no_order_placed' (which would imply `is_dry: true`), yet the same row's `notes.is_dry` is `false` and the linked order_package's `meta` says the real cause was a risk-manager refusal later reconciled by `monitor_reconciler`. This is confusing for anyone (human or /performance-review) reading `trades.entry_reason` at face value — it doesn't match the account's actual dry-run state or the order package's own recorded rejection cause. Likely a stale/leftover reason string written at an earlier point in the rejection path that never got updated when the reconciler backfilled the real cause into `meta`. FIX (Tier-1, observability/data-integrity, no live-trade-path change): trace where `entry_reason='dry_run_no_order_placed'` gets written for a `mgc_trend_1h`/ib_paper rejection (likely `src/runtime/orders.py` or the risk-refusal path in `RiskManager`) and confirm it reflects the account's actual `is_dry` state, or have the reconciler backfill the same corrected text into `trades.entry_reason` (not just `order_packages.meta`) so the two never disagree again.",
+      "tier": 1,
+      "trigger_condition": "Next health-review or a session touching the risk-refusal/reconciler rejection-reason write path.",
+      "resolution_criteria": "Either the root cause is found and the reason text is corrected (both fields agree), or the discrepancy is explained as intentional (e.g. two independent 'reason' fields with legitimately different meanings) and documented so it stops looking like a bug.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-06T16:25:00+00:00"
+  "updated_at": "2026-07-07T09:45:00+00:00"
 }

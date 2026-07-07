@@ -34,6 +34,11 @@
           "at": "2026-06-18T11:45:00+00:00",
           "by": "/performance-review",
           "note": "Recombination orchestrator + ADX regime-filter lever SHIPPED (#3945). The regime-swap re-sweep (adx_min~20 on these cells) is now runnable via scripts/ops/recombination_sweep.py — trainer-gated, queued behind the WS-C sweep. Live 06-18 grading corroborates: the cells' weak-regime tail (eth_pullback conf<0.15 in chop) is exactly what an adx_min gate removes. Status unchanged (awaiting the trainer re-sweep + re-tier)."
+        },
+        {
+          "at": "2026-07-07T09:50:00+00:00",
+          "by": "/performance-review 2026-07-07",
+          "note": "'Let time + the live demo soak be the arbiter' (2026-06-18 next_refinement) is starting to accrue real signal: today's diversified-paper-book tracker run (100-trade bybit_1 sample, 2026-06-16 -> 2026-07-05) shows trend_donchian_ada_4h net +$6748.97 (n=11, WR 81.8%), trend_donchian_eth_4h net +$2407.44 (n=3, WR 66.7%), trend_donchian_xrp_4h net +$2073.79 (n=4, WR 75.0%) — all net-positive on live paper — while trend_donchian_avax_4h is net -$1123.15 (n=5, WR 60%) and trend_donchian_sol_4h is net -$1086.35 (n=4, WR 50%). Sample sizes are still thin (3-11 closes/cell) — not yet enough for a re-tier verdict — but the split (ETH/ADA/XRP trending positive, AVAX/SOL lagging) is a useful early read to track against the backtest fold evidence. No re-tier action yet; keep accruing."
         }
       ],
       "resweep_results": [
@@ -91,6 +96,11 @@
           "at": "2026-06-18T11:45:00+00:00",
           "by": "/performance-review",
           "note": "Recombination orchestrator + ADX regime-filter lever SHIPPED (#3945). The regime-swap re-sweep (adx_min~20 on these cells) is now runnable via scripts/ops/recombination_sweep.py — trainer-gated, queued behind the WS-C sweep. Live 06-18 grading corroborates: the cells' weak-regime tail (eth_pullback conf<0.15 in chop) is exactly what an adx_min gate removes. Status unchanged (awaiting the trainer re-sweep + re-tier)."
+        },
+        {
+          "at": "2026-07-07T09:50:00+00:00",
+          "by": "/performance-review 2026-07-07",
+          "note": "Today's diversified-paper-book tracker run (100-trade bybit_1 sample, 2026-06-16 -> 2026-07-05) shows the pullback family mixed: ada_pullback_2h net +$2240.20 (n=9, WR 66.7%), eth_pullback_2h net +$2916.26 (n=11, WR 54.5%), xrp_pullback_2h net +$748.60 (n=8, WR 62.5%) are net-positive, while avax_pullback_2h net -$1888.79 (n=10, WR 30%) and sol_pullback_2h net -$2039.81 (n=17, WR 23.5%) are the book's clearest live-paper laggards — consistent with this item's 'not every-fold' backtest finding for those two names. Sample still thin for a re-tier call; keep accruing, but AVAX/SOL pullback are now the strongest candidates for the exit-manager/regime-weight refinement axis this item already flagged."
         }
       ],
       "resweep_results": [
@@ -161,5 +171,5 @@
       ]
     }
   ],
-  "updated_at": "2026-06-18T13:43:00+00:00"
+  "updated_at": "2026-07-07T09:50:00+00:00"
 }
