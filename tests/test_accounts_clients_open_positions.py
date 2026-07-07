@@ -390,6 +390,39 @@ def test_alpaca_empty_balance_none_returns_none(alpaca_account):
     assert fake.balance_calls == 1
 
 
+def test_alpaca_empty_balance_negative_returns_none(alpaca_account):
+    """BL-20260707-RECONCILER-MASS-FALSE-CLOSE: empty snapshot + a NEGATIVE
+    balance() must NOT be trusted as "genuinely flat". Before the fix, the
+    guard was ``if not bal:`` — a negative float is truthy in Python, so a
+    deeply negative account (the real incident: alpaca_paper at ~-$67,946)
+    sailed through as "verified live" and the empty read got trusted as [],
+    letting position_snapshot_reconciler mass-close several still-open
+    positions with fabricated PnL. A negative balance is itself an anomalous
+    account state — it must return None (skip) exactly like an unreadable
+    balance, not a trustworthy [] (flat)."""
+    fake = _FakeAlpacaClient(positions=[], bal=-67945.12)
+    with patch(
+        "src.units.accounts.clients.alpaca_client_for", return_value=fake,
+    ):
+        out = account_open_positions(alpaca_account)
+    assert out is None
+    assert fake.balance_calls == 1
+
+
+def test_alpaca_empty_balance_zero_returns_flat(alpaca_account):
+    """Empty snapshot + balance()==0.0 (a real, successful read of a
+    genuinely-zero-equity account) is trusted as flat — 0.0 is not None and
+    not negative, so it's a legitimate "verified live" reading, distinct from
+    the read-failure case (bal is None)."""
+    fake = _FakeAlpacaClient(positions=[], bal=0.0)
+    with patch(
+        "src.units.accounts.clients.alpaca_client_for", return_value=fake,
+    ):
+        out = account_open_positions(alpaca_account)
+    assert out == []
+    assert fake.balance_calls == 1
+
+
 def test_alpaca_nonempty_returned_normalised_no_health_call(alpaca_account):
     """A non-empty snapshot is proof of a live session → returned normalised to
     the canonical shape with NO extra balance() round-trip."""
