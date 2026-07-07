@@ -3,6 +3,40 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "PB-20260707-IBKR-STK-ETF-SUPPORT",
+      "opened_at": "2026-07-07T10:55:00+00:00",
+      "opened_by": "claude (routing-coverage audit 2026-07-07, operator-directed 'scope the build')",
+      "source": "Operator question 2026-07-07: 'check if anything trading on alpaca paper can trade on ibkr paper as well.' Finding: NO, as built. IBClient._build_contract (src/units/accounts/ib_client.py) wires ONLY three FUTURES contracts — MES (CME), MGC + MHG (COMEX) — and raises ValueError for any other symbol; there is ZERO equity/ETF (STK) support anywhere in the IB path (no secType='STK', no Stock() construction). alpaca_paper trades equity ETFs (SPY/QQQ/GLD/IWM/TLT/IEF/SLV/USO/GDX/TQQQ/QLD). So none of the alpaca ETF strategies can run on ib_paper without first building STK support. Operator answer 2026-07-07: 'Yes — scope the build.'",
+      "title": "Scope + build IBKR equity/ETF (STK) contract support so the alpaca ETF strategies can also run on ib_paper (2nd paper venue / future IBKR ETF real-money route)",
+      "description": "APPROVED TO SCOPE (operator 2026-07-07). IBKR can trade all the alpaca ETFs (SPY/QQQ/GLD/etc.) as US equities, but the IB integration only knows the 3 micro-futures. To let the ETF strategies mirror onto ib_paper (a second paper venue, cross-broker validation, and a path to an eventual IBKR real-money ETF route) the build needs: (1) IBClient._build_contract: add an STK branch (ib_insync Stock(symbol, 'SMART', 'USD') with primaryExchange hints) alongside the Future branch, gated by a per-symbol instrument-type map (futures MES/MGC/MHG vs equity SPY/QQQ/...); (2) tick sizing / min-tick + contract_value_usd handling for equities (shares, $1 multiplier) vs the futures multipliers already wired in config/instruments.yaml; (3) whole-share qty (equities are whole-unit like Alpaca — reuse the risk.WHOLE_UNIT_QTY_EXCHANGES / requires_whole_unit_qty path, extend to interactive_brokers-equities); (4) market-hours gating (RTH for equities, already handled for the alpaca ETF strategies via 'US market closed' — confirm it applies on the IB path); (5) add the chosen ETF symbols to ib_paper.symbols + route the strategies in accounts.yaml (Tier-3); (6) the mandatory account_compat_matrix run for ib_paper before any real-money IBKR ETF wire. NON-TRIVIAL — this is a new instrument class on an existing broker (new-broker-skill-adjacent), not a routing toggle. NO URGENT GAP: the ETFs already soak on alpaca_paper, so this is for redundancy / a future IBKR ETF real-money option. NEXT STEP: write the design doc (docs/integrations/ibkr-equity-etf-support-DESIGN.md) enumerating the contract map + sizing + hours + the per-symbol instrument-type resolver, for operator review before implementation.",
+      "tier": 3,
+      "trigger_condition": "A dedicated session picks up the IBKR-STK build, OR the operator wants IBKR as a real-money ETF venue.",
+      "resolution_criteria": "IBClient supports STK/ETF contracts (tested), the chosen ETF strategies run on ib_paper end-to-end (real paper fills journaled), and account_compat_matrix has scored ib_paper for them — OR a documented decision not to pursue it.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "PB-20260707-IB-METALS-NO-BACKTEST-DATA",
+      "opened_at": "2026-07-07T10:35:00+00:00",
+      "opened_by": "claude (IBKR-pipeline investigation 2026-07-07, operator-directed)",
+      "source": "trainer-vm-diag relay #5849: attempted to backtest mgc_trend_1h (trend_donchian unit on MGC 1h) via scripts/backtest_trend.py and found the trainer VM has NO MGC candle data at all (find over /data/bot-data/ibkr_datasets + repo data/ returned nothing). The IBKR historical pull (scripts/ops/pull_mes_ibkr_history.sh) has only ever been run for MES (5m/15m); no MGC or MHG history was ever fetched. Confirmed against the earlier ibkr_mes_pull.jsonl (MES-only) + this find.",
+      "title": "The IB metals sleeve (mgc_trend_1h / mgc_pullback_1d / mhg_pullback_1d) trades LIVE but has NEVER been backtested on its own instrument history — no MGC/MHG candle data exists in the system",
+      "description": "GAP in the evidence base for the whole IB metals sleeve, surfaced while trying to answer the operator's step-2 ask (backtest mgc_trend_1h for a shadow->live promotion). mgc_pullback_1d + mhg_pullback_1d are execution:live on ib_paper and mgc_trend_1h is execution:shadow, all trading/soaking on MGC/MHG — but the system stores ZERO MGC/MHG history, so none has ever been validated on its own instrument. The live strategies generate signals by fetching MGC/MHG candles per-tick (live, not stored), and the only IBKR historical pull ever run is the MES-only pull_mes_ibkr_history.sh (built for the MES regime models). PREREQUISITE to backtest ANY metals strategy: fetch MGC (and MHG) history first. The pull script is parameterized (env MES_SYMBOL=MGC, MES_TIMEFRAMES=1h) but MUST run on the LIVE VM (only it reaches the dedicated IB gateway at 10.0.0.251:4002; the trainer cannot) and makes ~80 paced reqHistoricalData calls against the SAME gateway the live trader uses — a shared-resource operation that needs operator go-ahead (the gateway's wedges are the subject of this same investigation). PLAN once data exists: (1) run scripts/backtest_trend.py on MGC 1h with the live params (donchian 20, atr_period 14, atr_stop_mult 2.5, trail_mult 3.0, two-sided, fee ~0.3bps for MGC futures not the 7.5bps crypto default) for a full-window + walk-forward/k-fold read; (2) same for the mgc_pullback_1d / mhg_pullback_1d pullback cells via scripts/backtest_pullback.py; (3) run scripts/prop/account_compat_matrix.py for the routing gate. Only then is a Tier-3 mgc_trend_1h shadow->live promotion (or a demote/keep decision on the daily metals cells) evidence-backed.",
+      "tier": 3,
+      "trigger_condition": "Operator approves fetching MGC/MHG history on the live VM (shared-gateway op), OR a dedicated session picks up the metals-sleeve backtest. Also relevant on any /system-review assessing IB metals promotion readiness.",
+      "resolution_criteria": "MGC (+MHG) history is fetched and the metals sleeve is backtested net-of-fee on its own instrument history, producing either a Tier-3 mgc_trend_1h promotion proposal with evidence or a documented keep/demote decision for the daily metals cells.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-07-07T10:35:00+00:00",
+          "by": "claude (IBKR-pipeline investigation 2026-07-07)",
+          "note": "Companion context: mgc_trend_1h's recent LIVE shadow signals graded D/F/C this session (weak low-confidence chop shorts, conf 0.007-0.19; see comms/claude_strategy_scores.jsonl 2026-07-07). So promoting it to make the account 'more active' would trade a weak, backtest-unvalidated edge — recommend gating any promotion on the MGC-history backtest above rather than flipping it live on the thin live evidence. The account being 'quiet' is mostly structural (3 of 4 IB strategies are 1d cadence; the only intraday one, mgc_trend_1h, is shadow) — see the IBKR-pipeline investigation summary. Observability for the connection side shipped as /api/diag/ib_state (PR #5845)."
+        }
+      ]
+    },
+    {
       "id": "PB-20260630-002",
       "opened_at": "2026-06-30T20:10:00+00:00",
       "opened_by": "claude (leveraged-etf-research session 2026-06-30, operator directive)",
