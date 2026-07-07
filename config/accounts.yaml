@@ -134,7 +134,16 @@ accounts:
     market_type: linear                # USDT-margined linear perpetuals — same
                                        # as bybit_2. set-leverage fires at boot
                                        # via _apply_per_account_leverage.
-    strategies: [trend_donchian, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, fvg_range_15m, htf_pullback_trend_2h, trend_donchian_1h, eth_pullback_2h, trend_donchian_eth_4h, trend_donchian_sol_4h, trend_donchian_xrp_4h, trend_donchian_ada_4h, trend_donchian_avax_4h, sol_pullback_2h, xrp_pullback_2h, ada_pullback_2h, avax_pullback_2h]
+    strategies: [trend_donchian, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, fvg_range_15m, htf_pullback_trend_2h, trend_donchian_1h, eth_pullback_2h, trend_donchian_eth_4h, trend_donchian_sol_4h, trend_donchian_xrp_4h, trend_donchian_ada_4h, trend_donchian_avax_4h, sol_pullback_2h, xrp_pullback_2h, ada_pullback_2h, avax_pullback_2h, trend_donchian_sol, trend_donchian_eth, eth_pullback_prop_2h]
+                                       # 2026-07-07 (Tier-3, operator-approved, routing-coverage
+                                       # audit): added trend_donchian_sol (SOL 1h), trend_donchian_eth
+                                       # (ETH 1h) + eth_pullback_prop_2h (ETH 2h prop-tuned exits).
+                                       # These three were execution:live but routed ONLY to the prop
+                                       # account breakout_1 — no paper soak, violating "every
+                                       # non-downgraded strategy soaks on a paper account". bybit_1
+                                       # trades SOL/ETH so it can host them; they keep their
+                                       # breakout_1 prop route too (a strategy may route to both).
+                                       # ROLLBACK: drop the three names above.
                                        # turtle_soup DE-ROUTED from bybit_1 2026-07-01
                                        # (Tier-3, operator-approved): the atr_stop_mult
                                        # sweep (BTCUSDT 2024-05→2026-05, net 7.5bps) showed
@@ -417,7 +426,20 @@ accounts:
                                        # localhost (TrustedIPs=127.0.0.1)
     ib_account: DUQ325724
     ib_client_id: 497                  # unique per concurrent socket
-    strategies: [turtle_soup, vwap, ict_scalp_5m, mes_trend_long_1d, mgc_pullback_1d, mhg_pullback_1d, mgc_trend_1h]
+    strategies: [mes_trend_long_1d, mgc_pullback_1d, mhg_pullback_1d, mgc_trend_1h]
+                                       # 2026-07-07 (Tier-3, operator-approved, routing-coverage
+                                       # audit): DROPPED the three BTCUSDT crypto strategies
+                                       # (turtle_soup, vwap, ict_scalp_5m) that were parked here.
+                                       # ALL THREE were inert no-ops — BTCUSDT cannot trade on the
+                                       # IBKR futures account (this account trades MES/MGC/MHG
+                                       # only; IBClient._build_contract raises ValueError for any
+                                       # other symbol). They read as "routed" but never traded,
+                                       # which is exactly the illegible cruft that masked
+                                       # turtle_soup's stranding. Their real soak lives elsewhere:
+                                       # ict_scalp_5m soaks on bybit_1 (BTCUSDT), vwap is disabled
+                                       # + execution:shadow, turtle_soup is now execution:shadow
+                                       # (net-negative money-loser, de-routed everywhere).
+                                       # ROLLBACK: re-add the three names (they'd stay no-ops here).
                                        # MES + the WS-A metals sleeve (MGC/MHG);
                                        # BTCUSDT is gated out by exchange (see
                                        # header). mes_trend_long_1d added

@@ -49,20 +49,35 @@ strategies:
     model: null
     signal_prefixes: [turtle_soup, sweep_reversal]
     enabled: true
-    execution: live          # S9 per-strategy execution gate: live = eligible
-                             # to execute; shadow = data-only (log packages,
-                             # never send a live order). Default live.
+    execution: shadow        # shadow-guard: allow — turtle_soup net-negative money-loser, operator-approved demote 2026-07-07 (Tier-3)
+                             # DOWNGRADED to shadow 2026-07-07 (Tier-3, operator-approved):
+                             # turtle_soup is net-negative at EVERY stop setting on BTCUSDT
+                             # (atr_stop_mult sweep 2024-05..2026-05 net 7.5bps — worst 0.30 at
+                             # -66.5%/67% maxDD, least-bad 2.00 still -11%). Already de-routed
+                             # from real-money bybit_2 AND paper bybit_1 (2026-07-01) for the
+                             # bleed, but left execution:live + parked in ib_paper's routing
+                             # list — which READ as live yet was inert (symbol BTCUSDT cannot
+                             # trade on the IBKR futures account). Setting shadow makes the
+                             # downgrade EXPLICIT + robust: logs packages for data, never sends
+                             # a live order on ANY account/symbol. ROLLBACK: execution:live +
+                             # re-route to bybit_1. (S9 gate: live=execute; shadow=data-only.)
     timeframe: "15m"          # setup TF; entry TF is 1m
     symbols:
       - BTCUSDT
-      # NOTE (2026-05-22): this per-strategy `symbols` list is NOT the
-      # runtime source of truth and is unused by the tick loop. The
-      # traded-symbol set is derived from `config/accounts.yaml`
-      # (`_resolve_tick_symbols` unions every configured account's
-      # `symbols`); which strategy runs on which symbol follows from each
-      # account's `strategies` + the symbol→exchange dispatch gate. So
-      # turtle_soup runs on MES via the ib_paper account, not via a symbol
-      # added here. Kept as documentation of intended applicability.
+      # NOTE (2026-05-22): the traded-symbol set is derived from
+      # `config/accounts.yaml` (`_resolve_tick_symbols` unions every
+      # configured account's `symbols`); which strategy runs on which
+      # symbol follows from each account's `strategies` + the
+      # symbol→exchange dispatch gate.
+      # CORRECTION (2026-07-07, field-beats-comment): the prior note here
+      # claimed "turtle_soup runs on MES via the ib_paper account". That is
+      # WRONG — turtle_soup operates on BTCUSDT (confirmed by the live
+      # turtle_soup_eval audit rows, all BTCUSDT), and BTCUSDT is not
+      # tradeable on the IBKR futures account (ib_paper trades MES/MGC/MHG
+      # only, and `IBClient._build_contract` raises ValueError for any other
+      # symbol). So the ib_paper routing entry was an INERT no-op; it has
+      # been removed from ib_paper's `strategies` list (2026-07-07), and the
+      # strategy is now execution:shadow (see above) — it trades nowhere live.
     # Strategy-specific (mirrors the legacy class defaults at
     # strategies/turtle_soup_mtf_v1.py:38-55)
     sweep_lookback_15m: 60
