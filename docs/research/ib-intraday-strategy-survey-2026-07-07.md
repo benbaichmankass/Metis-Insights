@@ -16,6 +16,17 @@ actively — **with a real edge, never activity for its own sake.**
 
 ## Bottom line (honest)
 
+> **UPDATE 2026-07-07 — the test matrix has now been RUN**
+> (`ib-intraday-shortlist-backtest-2026-07-07.md`) on native/roll-adjusted data.
+> The headline below is **partially superseded**: one candidate —
+> **MGC pullback 1h (+185R over ~3.3y, +0.56R expectancy, positive every year)**
+> — is a strong GO-to-walk-forward, and the roll-artifact worry for the
+> MGC breakout/trend cells was disproved (roll impact only ~3–11% on native
+> MGC; `ib-metals-native-backtest-2026-07-07.md`). The trend/breakout intraday
+> cells and MES scalp are NOT edges; MES pullback/fvg are data-starved (need a
+> deeper native-MES pull). So there is now ONE validated *candidate*, pending a
+> proper walk-forward — not yet a promotion.
+
 **No validated intraday edge exists on native IBKR MES/MGC/MHG data today.**
 
 - The only intraday family ever tested on a *real* futures 1h series (`mgc_trend_1h`,
