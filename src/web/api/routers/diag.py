@@ -961,6 +961,10 @@ async def get_ib_state(request: Request) -> dict[str, Any]:
     out["present"] = True
     out["generated_at"] = payload.get("generated_at")
     out["clients"] = payload.get("clients", [])
+    # age_seconds is a derived convenience field; a malformed/absent
+    # generated_at (ValueError from fromisoformat, TypeError from arithmetic on
+    # a non-str) must leave it None, not fail the read. Narrow types only —
+    # the payload was already parsed as valid JSON above.
     try:
         gen = payload.get("generated_at")
         if gen:
@@ -968,8 +972,9 @@ async def get_ib_state(request: Request) -> dict[str, Any]:
                 (datetime.now(timezone.utc) - datetime.fromisoformat(gen)).total_seconds(),
                 1,
             )
-    except Exception:  # noqa: BLE001
-        pass
+    except (ValueError, TypeError) as exc:
+        logger.warning("diag: ib_state age_seconds compute failed: %s: %s",
+                       type(exc).__name__, exc)
     return out
 
 
