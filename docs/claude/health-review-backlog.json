@@ -3405,7 +3405,20 @@
       "status": "open",
       "snoozed_until": null,
       "updates": []
+    },
+    {
+      "id": "BL-20260707-ALPACA-PAPER-NEGATIVE-EQUITY",
+      "opened_at": "2026-07-07T16:00:00+00:00",
+      "opened_by": "claude (dispatch-failure investigation session, 2026-07-07)",
+      "title": "alpaca_paper (shared login with alpaca_options_paper) has gone deeply negative (~-$67,946 broker equity) via a path the trades journal can't explain — blocking ALL alpaca_paper dispatch",
+      "description": "Investigated a 'ALL accounts failed to dispatch' alert (spy_pullback_1h/SPY, alpaca_paper + alpaca_live). alpaca_live's risk_refused was plain underfunding (balance=$149.83, buying_power=$55.93, can't buy 1 whole SPY share even at the operator's 10% test-account risk escalation — not a bug, no action needed beyond funding/routing decisions). alpaca_paper's zero_balance is the real finding: /api/bot/accounts/balances shows alpaca_paper AND alpaca_options_paper both reading ~-$67,946 (drifting together, confirming they share one Alpaca paper login per accounts.yaml — broker-truth equity is per-login, not per bot-account). Searched the trades journal exhaustively for the loss: alpaca_options_paper's worst realized loss is -$537.12 (the known, already-fixed 2026-06-27 orphan-adoption incident, net ~-$46 total); the GLOBAL worst realized loss across EVERY account in the entire trades table (ORDER BY pnl ASC, all accounts) is -$4,437.76 (ib_paper MGC futures) — nothing alpaca-side comes remotely close to -$67,946. Conclusion: this equity loss did not happen through the bot's own order path / journal at all — it originated outside what `trades` captures (most likely manual/external activity directly on the shared Alpaca paper login, though a broker-side event like an unjournaled assignment can't be ruled out from the journal alone). Diag-relay budget was exhausted before a definitive external cause could be pinned down (see issues #5873-#5878 on ict-trading-bot for the full trail).",
+      "tier": 2,
+      "trigger_condition": "Next /health-review or /system-review; also whenever alpaca_paper/alpaca_options_paper dispatch is checked.",
+      "resolution_criteria": "The shared Alpaca paper login's equity is reset via the Alpaca paper dashboard (operator-only action — Claude has no Alpaca dashboard access) and alpaca_paper/alpaca_options_paper resume dispatching (gate_balance > 0). Separately, consider giving alpaca_options_paper its own dedicated paper login (already flagged as a standing operator decision in this same backlog, source: 2026-06-27 orphan-adoption incident) — this incident is a second, independent argument for that: a shared login means one account's external/unexplained loss silently blocks the OTHER account's real signal flow too.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-07T10:30:00+00:00"
+  "updated_at": "2026-07-07T16:00:00+00:00"
 }
