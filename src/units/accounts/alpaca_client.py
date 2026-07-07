@@ -283,8 +283,19 @@ class AlpacaClient:
 
         A 404 (no open position) maps to retCode 0 — idempotent close,
         matching the reconciler's expectations.
+
+        Cancels resting orders on the symbol FIRST (e.g. the entry
+        bracket's still-open SL/TP legs) before the flatten DELETE —
+        mirrors ``IBClient.close``'s cancel-then-close contract and
+        ``place_protective``'s cancel-before-re-arm idempotency guard.
+        Without this, the resting protective leg still holds the full
+        qty as ``held_for_orders`` and Alpaca rejects the flatten with
+        "insufficient qty available for order (requested: N,
+        available: 0)" — the DB row then never closes and the monitor
+        retries the same failing close every tick.
         """
         self._require_creds("close")
+        self._cancel_open_orders_for_symbol(symbol)
         env = self._request("DELETE", f"/v2/positions/{str(symbol).upper()}")
         if env.get("retCode") == 404:
             return {"retCode": 0, "result": {"note": "no open position"}}
