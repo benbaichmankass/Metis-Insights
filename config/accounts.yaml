@@ -591,10 +591,18 @@ accounts:
       - gdx_pullback_1d                # daily ETF pullback, gold miners — added 2026-06-27 (Tier-3)
       - tqqq_trend_long_1d             # leveraged Nasdaq-100 ETF trend: TQQQ (3x)
       - qld_trend_long_1d              # + QLD (2x) — paper soak, added 2026-06-30 (Tier-3)
-    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX, TQQQ, QLD]   # instrument identity (Phase-0 +
+      - splg_trend_long_1d             # sub-$100 proxy cells (2026-07-07, Tier-3): SPLG
+      - iaum_pullback_1d               # (~$84, S&P 500 proxy for SPY) + IAUM (~$41, gold
+      - scha_trend_long_1d             # proxy for GLD) + SCHA (~$35, small-cap proxy for
+                                       # IWM, marginal/observe). PAPER SOAK only — so the
+                                       # ~$150 alpaca_live can later afford ≥1 whole share.
+                                       # alpaca_live promotion is a separate Tier-3 gate
+                                       # (needs risk_pct→~1.5% + real-venue revalidation).
+    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX, TQQQ, QLD, SPLG, IAUM, SCHA]   # instrument identity (Phase-0 +
                                        # ETF-breadth daily 2026-06-20 + intraday
                                        # ETF pilot 2026-06-20 § 0e adds SLV +
-                                       # rollout 2b 2026-06-20 § 0e adds USO).
+                                       # rollout 2b 2026-06-20 § 0e adds USO +
+                                       # sub-$100 proxies 2026-07-07 add SPLG/IAUM/SCHA).
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity

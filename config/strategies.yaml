@@ -1580,6 +1580,96 @@ strategies:
     min_confidence: 0.0
     shadow_model_ids: []
 
+  # ------------------------------------------------------------------
+  # Sub-$100 "proxy" cells (2026-07-07, Tier-3) — cheap-share equivalents so
+  # the ~$150 alpaca_live account can afford ≥1 whole share. Each clones a
+  # VALIDATED expensive-sibling cell verbatim (same unit + params) and swaps
+  # the symbol for a fund that tracks the SAME underlying. Backtest evidence
+  # (trainer-vm-diag 2026-07-07, daily 2010→2026, net of 1bp):
+  #   SPLG (spy params): +33.6R / +0.61R exp / 55 trades — >= SPY (+28.0R).
+  #   IAUM (gld params): +21.1R / +0.78R exp / 27 trades (2021+; 0.999 corr GLD).
+  #   SCHA (iwm params): +9.8R / +0.19R exp / 53 trades — ~ IWM (marginal).
+  # Account-compat ROUTE gate: all three ROUTE on alpaca_paper (1.5% risk,
+  # survival 1.0); all SKIP on alpaca_live at its current 10% risk_pct (a
+  # separate blocker — the 10% was the hack to force the unaffordable ETFs to
+  # trade). SO: routed on alpaca_paper ONLY for the soak. Promotion to
+  # alpaca_live is a later Tier-3 gate on (a) normalizing alpaca_live risk to
+  # ~1.5% and (b) real-venue revalidation.
+  # ------------------------------------------------------------------
+  splg_trend_long_1d:
+    # SPLG daily LONG-ONLY trend-follower — cheap-share (~$84) proxy for
+    # spy_trend_long_1d. SPDR Portfolio S&P 500 tracks the IDENTICAL S&P 500
+    # index as SPY (lower fee 0.02% vs 0.09%), so the validated SPY cell
+    # transfers ~1:1 (backtest SPLG +33.6R >= SPY +28.0R). Same trend_donchian
+    # unit + params as spy_trend_long_1d. alpaca_paper (PAPER money), bracket
+    # orders, US-session gate. execution: live per the paper-accounts-execute
+    # policy.
+    model: null
+    signal_prefixes: [splg_trend_long, splg_trend]
+    enabled: true
+    execution: live
+    long_only: true
+    timeframe: "1d"
+    symbols:
+      - SPLG
+    donchian: 30
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 4.0
+    tp_r: 50.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  iaum_pullback_1d:
+    # IAUM daily HTF-pullback (bidirectional) — cheap-share (~$41) proxy for
+    # gld_pullback_1d. iShares Gold Trust Micro tracks the SAME spot gold as
+    # GLD (0.999 return corr, 0.78% ann tracking error), so the validated GLD
+    # cell transfers ~1:1. Same htf_pullback_trend_2h unit + params as
+    # gld_pullback_1d. alpaca_paper (PAPER money), bracket orders, US-session
+    # gate. NOTE: IAUM's own price history only starts 2021 (fund inception);
+    # GLD's full-history +52R edge is the deeper evidence base.
+    model: null
+    signal_prefixes: [iaum_pullback]
+    enabled: true
+    execution: live
+    timeframe: "1d"
+    symbols:
+      - IAUM
+    trend_lookback: 40
+    pullback_lookback: 15
+    pullback_frac: 0.618
+    atr_period: 14
+    atr_stop_mult: 2.0
+    trail_mult: 4.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
+  scha_trend_long_1d:
+    # SCHA daily LONG-ONLY trend-follower — cheap-share (~$35) proxy for
+    # iwm_trend_long_1d. Schwab US Small-Cap is a BROAD small-cap ETF, a
+    # DIFFERENT index than IWM's Russell 2000 (0.99 return corr, 2.9% ann
+    # tracking error), so it was revalidated on its OWN series: +9.8R / +0.19R
+    # expectancy / 53 trades — MARGINAL (~ IWM's own +12.3R, the weakest cell
+    # in the ETF-trend family). Added as a paper SOAK only; alpaca_live
+    # promotion NOT proposed. Same trend_donchian unit + params as
+    # iwm_trend_long_1d. alpaca_paper (PAPER money), bracket orders,
+    # US-session gate.
+    model: null
+    signal_prefixes: [scha_trend_long, scha_trend]
+    enabled: true
+    execution: live
+    long_only: true
+    timeframe: "1d"
+    symbols:
+      - SCHA
+    donchian: 30
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 4.0
+    tp_r: 50.0
+    min_confidence: 0.0
+    shadow_model_ids: []
+
   eth_pullback_2h:
     # ETH/USDT 2h HTF-pullback (bidirectional) — M15 WS-C alt sleeve: the
     # strongest cell of the alt generalization sweep
