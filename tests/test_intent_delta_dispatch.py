@@ -188,9 +188,17 @@ class TestCurrentNetPositionQty:
 # ---------------------------------------------------------------------------
 
 
-def _intent_pkg(direction: str = "long", aggregated_target_qty: float = 0.0) -> OrderPackage:
+def _intent_pkg(
+    direction: str = "long",
+    aggregated_target_qty: float = 0.0,
+    strategy: str = "turtle_soup",
+) -> OrderPackage:
+    # `strategy` is overridable so a test that needs a LIVE-executing strategy
+    # (e.g. to assert a real flatten dispatches) isn't broken by turtle_soup's
+    # 2026-07-07 demote to execution: shadow (#5850) — a shadow strategy folds
+    # into effective_dry and never dispatches a live order/close.
     return OrderPackage(
-        strategy="turtle_soup",
+        strategy=strategy,
         symbol="BTCUSDT",
         direction=direction,
         entry=50_000.0,
@@ -199,7 +207,7 @@ def _intent_pkg(direction: str = "long", aggregated_target_qty: float = 0.0) -> 
         meta={
             INTENT_MODE_META_KEY: INTENT_MODE_META_VALUE,
             "aggregated_target_qty": aggregated_target_qty,
-            "contributing_strategies": ["turtle_soup", "vwap"],
+            "contributing_strategies": [strategy, "vwap"],
         },
     )
 
@@ -772,6 +780,9 @@ class TestIntentModeReduceClose:
         is EXECUTED via close_open_position (not held), distinguishing it from
         the sizing-0 artifact close. The close carve-out of hold-to-bracket
         (BL-20260622-ALPACA-REDUCE-HOLD)."""
+        # trend_donchian (execution: live) — NOT turtle_soup, which was demoted
+        # to shadow 2026-07-07 (#5850) and would fold into effective_dry, so no
+        # live close would dispatch and the flatten assertion below would fail.
         spot_yaml = textwrap.dedent("""\
             accounts:
               bybit_spot:
@@ -780,7 +791,7 @@ class TestIntentModeReduceClose:
                 api_key_env: BYBIT_API_KEY_2
                 mode: live
                 market_type: spot
-                strategies: [turtle_soup, vwap]
+                strategies: [trend_donchian, vwap]
                 risk:
                   max_dd_pct: 0.05
                   daily_usd: 100
@@ -819,7 +830,7 @@ class TestIntentModeReduceClose:
 
         monkeypatch.setattr(execute_mod, "close_open_position", _fake_close)
 
-        pkg = _intent_pkg(direction="short")
+        pkg = _intent_pkg(direction="short", strategy="trend_donchian")
         results = spot_coord.multi_account_execute(
             pkg, accounts_path=str(spot_path),
             balance_fetcher=lambda acc: 10_000.0,

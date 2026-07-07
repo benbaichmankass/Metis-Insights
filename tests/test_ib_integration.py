@@ -201,15 +201,14 @@ class TestAccountsYaml:
         assert paper["mode"] == "live"          # paper → live (paper money)
         assert paper["ib_port"] == 4002         # host 4002 → gnzsnz socat relay 4004
         assert paper["ib_account"] == "DUQ325724"
-        # turtle_soup/vwap/ict_scalp_5m on MES + mes_trend_long_1d (daily long-only
-        # diversifier, wired 2026-06-01, PROMOTED to execution: live 2026-06-02 —
-        # executes on ib_paper PAPER money; collects live-MES trend data via real
-        # paper execution. Real-money IB (ib_live) stays a separate Tier-3 gate).
-        # + the WS-A metals sleeve mgc_pullback_1d (MGC) / mhg_pullback_1d (MHG),
-        # added 2026-06-02, execution: live on ib_paper PAPER money.
+        # mes_trend_long_1d (daily long-only diversifier, execution: live on
+        # ib_paper PAPER money) + the WS-A metals sleeve mgc_pullback_1d (MGC) /
+        # mhg_pullback_1d (MHG) + mgc_trend_1h (MGC 1h, execution: shadow).
+        # turtle_soup/vwap/ict_scalp_5m were DROPPED from ib_paper 2026-07-07
+        # (PR #5850): they are BTCUSDT strategies that no-op on this IBKR
+        # futures account (MES/MGC/MHG only) — dead routing, not real coverage.
         assert paper["strategies"] == [
-            "turtle_soup", "vwap", "ict_scalp_5m", "mes_trend_long_1d",
-            "mgc_pullback_1d", "mhg_pullback_1d", "mgc_trend_1h",
+            "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d", "mgc_trend_1h",
         ]
 
         live = accts["ib_live"]
@@ -266,9 +265,9 @@ class TestLoadAccounts:
         assert paper.ib_account == "DUQ325724"
         assert paper.ib_client_id == 497
         assert paper.strategies == [
-            "turtle_soup", "vwap", "ict_scalp_5m", "mes_trend_long_1d",
-            "mgc_pullback_1d", "mhg_pullback_1d", "mgc_trend_1h",
-        ]  # + long-only diversifier (2026-06-01) + WS-A metals sleeve (2026-06-02)
+            "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d", "mgc_trend_1h",
+        ]  # long-only diversifier + WS-A metals sleeve; BTCUSDT strats (turtle_soup/
+        #   vwap/ict_scalp_5m) dropped 2026-07-07 (#5850) — dead no-ops on IBKR futures
 
         live = accounts["ib_live"]
         assert live.dry_run is True           # mode: dry_run

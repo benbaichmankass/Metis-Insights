@@ -98,6 +98,9 @@ EXPECTED_ACTIONS = {
     # 2026-06-01 — same wrapper baked to a DAILY multi-year pull (native MES 1d
     # back to ~2019) for validating mes_trend_long_1d on real MES vs SPX proxy.
     "pull-mes-ibkr-history-daily": "pull_mes_ibkr_history.sh",
+    # 2026-07-07 — generalized symbol-parameterized sibling so MGC/MHG (metals
+    # sleeve) can be backfilled from native IBKR history, not just MES (#5851).
+    "pull-ibkr-history": "pull_mes_ibkr_history.sh",
     "set-account-mode": "set_account_mode.sh",
     # enable-mes / disable-mes removed 2026-05-22 — they flipped a
     # forbidden second gate (MULTI_SYMBOL_ENABLED). The traded-symbol set
@@ -185,6 +188,7 @@ TIER_2_ACTIONS = {
     "migrate-closed-at-iso",
     "pull-mes-ibkr-history",
     "pull-mes-ibkr-history-daily",
+    "pull-ibkr-history",
     "set-account-mode",
     "fix-data-dir",
     "rotate-account-keys",
