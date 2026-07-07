@@ -223,6 +223,14 @@ jobs:
     env:
       VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+      # The IB-Gateway container lives on its own dedicated VM (gateway-
+      # isolation, 2026-06-10) — private IP, reached from the live trader
+      # over the 10.0.0.0/24 subnet. `gateway-logs` is the one action in
+      # this workflow's fixed allowlist that must run there instead of on
+      # VM_SSH_HOST; every other action is unaffected. Mirrors the
+      # JUMP_HOST/GATEWAY_HOST + ProxyJump pattern already used by
+      # vm-ib-gateway-recover.yml / vm-ib-gateway-selftest.yml.
+      GATEWAY_HOST: ${{ vars.IB_GATEWAY_HOST || '10.0.0.251' }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Checkout (for wrapper scripts inside repo)
@@ -683,7 +691,11 @@ jobs:
               exit 2
               ;;
           esac
-          echo ">>> Running scripts/ops/${SCRIPT} on ${VM_SSH_HOST}"
+          if [ "${ACTION}" = "gateway-logs" ]; then
+            echo ">>> Running scripts/ops/${SCRIPT} on ${GATEWAY_HOST} (via ${VM_SSH_HOST})"
+          else
+            echo ">>> Running scripts/ops/${SCRIPT} on ${VM_SSH_HOST}"
+          fi
           # Build the remote command. For set-account-mode, prepend
           # ACCOUNT_ID + MODE.
           # We pipe through `printf %q` to keep substitutions shell-safe.
@@ -805,14 +817,31 @@ jobs:
             fi
             REMOTE_CMD="ENV_VALUE=$(printf '%q' "${SECRET_FCM_SERVICE_ACCOUNT_JSON}") ${REMOTE_CMD}"
           fi
+          # gateway-logs targets the dedicated IB-Gateway VM (GATEWAY_HOST),
+          # not the live trader (VM_SSH_HOST) — the ib-gateway container has
+          # lived there since the 2026-06-10 gateway-isolation redesign, so a
+          # direct call at VM_SSH_HOST always reports "No such container"
+          # instead of the real login/auth diagnostics. ProxyJump through the
+          # trader unless the two hosts coincide (degenerate config), same
+          # pattern as vm-ib-gateway-recover.yml / vm-ib-gateway-selftest.yml.
+          SSH_TARGET_HOST="${VM_SSH_HOST}"
+          SSH_ARGS=( -i ~/.ssh/id_rsa
+                     -o BatchMode=yes
+                     -o StrictHostKeyChecking=accept-new
+                     -o ConnectTimeout=15 )
+          if [ "${ACTION}" = "gateway-logs" ]; then
+            SSH_TARGET_HOST="${GATEWAY_HOST}"
+            if [ "${GATEWAY_HOST}" != "${VM_SSH_HOST}" ]; then
+              SSH_ARGS+=( -o "ProxyJump=${VM_SSH_USER}@${VM_SSH_HOST}" )
+              echo ">>> gateway-logs: reaching ${GATEWAY_HOST} via ProxyJump ${VM_SSH_USER}@${VM_SSH_HOST}"
+            fi
+          fi
+
           # Capture both stdout and exit code; never let the SSH wrap
           # swallow the wrapper's exit status.
           set +e
-          ssh -i ~/.ssh/id_rsa \
-              -o BatchMode=yes \
-              -o StrictHostKeyChecking=accept-new \
-              -o ConnectTimeout=15 \
-              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+          ssh "${SSH_ARGS[@]}" \
+              "${VM_SSH_USER}@${SSH_TARGET_HOST}" \
               "${REMOTE_CMD}" \
               > action-output.txt 2>&1
           rc=$?
