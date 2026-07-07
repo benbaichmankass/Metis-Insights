@@ -65,7 +65,10 @@ from src.runtime.strategy_signal_builders import (
     tqqq_trend_long_1d_signal_builder,
     qld_trend_long_1d_signal_builder,
     iwm_trend_long_1d_signal_builder,
+    splg_trend_long_1d_signal_builder,
+    scha_trend_long_1d_signal_builder,
     gld_pullback_1d_signal_builder,
+    iaum_pullback_1d_signal_builder,
     slv_pullback_1d_signal_builder,
     gdx_pullback_1d_signal_builder,
     tlt_pullback_1d_signal_builder,
@@ -211,6 +214,12 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # fee-robust (pooled book Sharpe 3.88). Each is the sole strategy on
         # its symbol, so arbitration never fires.
         "iwm_trend_long_1d": iwm_trend_long_1d_signal_builder,
+        # Cheap-share proxy cells (paper soak) — SPLG (~$84 SPY proxy) +
+        # SCHA (~$35 IWM proxy) long-only trend (trend_donchian) + IAUM
+        # (~$41 GLD proxy) bidirectional pullback (htf_pullback_trend_2h).
+        "splg_trend_long_1d": splg_trend_long_1d_signal_builder,
+        "scha_trend_long_1d": scha_trend_long_1d_signal_builder,
+        "iaum_pullback_1d": iaum_pullback_1d_signal_builder,
         "tlt_pullback_1d": tlt_pullback_1d_signal_builder,
         "ief_pullback_1d": ief_pullback_1d_signal_builder,
         # SLV/GDX daily pullback — gold/silver-complex siblings of gld_pullback_1d,

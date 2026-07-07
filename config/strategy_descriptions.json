@@ -71,6 +71,18 @@
     "short": "IWM daily long-only trend-follower (Alpaca paper) — Donchian-30 breakout with a 4x ATR trail; small-cap (Russell 2000) breadth leg.",
     "how_it_works": "Same logic as the SPY/QQQ legs on the Russell-2000 small-cap ETF: a daily close above the highest high of the prior 30 days triggers a long entry (shorts suppressed), with a 2.5x ATR(14) initial stop and a 4x ATR trailing exit, via bracket orders on the Alpaca paper account during US market hours. Adds small-cap breadth to the large-cap SPY/QQQ legs. From the ETF-breadth daily sweep (2026-06-20) it was the only live_ready cell, positive in every walk-forward fold (pooled book Sharpe 3.88, all holdouts positive)."
   },
+  "splg_trend_long_1d": {
+    "short": "SPLG daily long-only trend-follower (Alpaca paper) — a cheap-share (~$84) S&P 500 proxy for spy_trend_long_1d so the small alpaca_live account can afford ≥1 whole share.",
+    "how_it_works": "Identical Donchian-30 breakout logic and params as the SPY leg, run on SPDR Portfolio S&P 500 (SPLG), which tracks the SAME S&P 500 index as SPY at ~1/9th the share price (and a lower 0.02% fee). A daily close above the prior 30-day high triggers a long (shorts suppressed) with a 2.5x ATR(14) stop and 4x ATR trail, via bracket orders during US market hours. Backtest on SPLG's own 2010-2026 series: net +33.6R / +0.61R expectancy over 55 trades — at or above the SPY cell (+28.0R). Paper soak; alpaca_live promotion is a separate Tier-3 gate."
+  },
+  "iaum_pullback_1d": {
+    "short": "IAUM daily pullback trader (Alpaca paper) — a cheap-share (~$41) gold proxy for gld_pullback_1d so the small alpaca_live account can afford ≥1 whole share.",
+    "how_it_works": "Identical HTF-pullback logic and params as the GLD leg, run on iShares Gold Trust Micro (IAUM), which tracks the SAME spot gold as GLD (0.999 return correlation). When a 40-day trend filter is in force and price pulls back into the 61.8% zone of the recent 15-day range, it enters in the trend direction (long or short) with a 2x ATR(14) stop and 4x ATR trail, via bracket orders during US market hours. Backtest on IAUM's own series (2021+, fund inception): net +21.1R / +0.78R expectancy over 27 trades; GLD's full-history +52R edge is the deeper evidence base. Paper soak."
+  },
+  "scha_trend_long_1d": {
+    "short": "SCHA daily long-only trend-follower (Alpaca paper) — a cheap-share (~$35) small-cap proxy for iwm_trend_long_1d; observe-only paper soak (marginal edge).",
+    "how_it_works": "Identical Donchian-30 breakout logic and params as the IWM leg, run on Schwab US Small-Cap (SCHA). Unlike SPLG/IAUM, SCHA tracks a DIFFERENT index (broad US small-cap vs IWM's Russell 2000, 0.99 return correlation), so it was revalidated on its own 2010-2026 series: net +9.8R / +0.19R expectancy over 53 trades — MARGINAL, on par with IWM's own weak +12.3R. Added purely to soak on paper; alpaca_live promotion is NOT proposed."
+  },
   "gld_pullback_1d": {
     "short": "GLD daily pullback trader (Alpaca paper) \u2014 buys/sells pullbacks within the prevailing gold trend; the ETF replacement for the MGC futures leg.",
     "how_it_works": "Watches the gold ETF on daily candles during US market hours. When a 40-day trend filter is in force and price pulls back into the deeper 61.8% zone of the recent 15-day range, it enters in the trend direction (both long and short validated) with a 2x ATR(14) stop and a 4x ATR trailing exit, via bracket orders on the Alpaca paper account. Validated in the M15 Phase-0 sweep mirroring the live Micro-Gold futures strategy (train +4.9R, out-of-sample +19.7R)."
