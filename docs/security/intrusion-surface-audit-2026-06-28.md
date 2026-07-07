@@ -426,3 +426,39 @@ free-push-protection status, and `danleejames23` account age/history (the MCP
 exposes no get-user-by-login). The live VM's actual `DASHBOARD_API_TOKEN`
 set/unset state and port-8001 firewall posture were not probed from this session
 (would require a live diag/SSH pull) — operator to confirm per §5.2 / §8.5.
+
+## 11. Comment-vector addendum (2026-07-07)
+
+The 2026-06-28 detection layer (§7, `external-issue-alert.yml`) covers issues
+*opened* by a non-owner. It does **not** cover **comments** left by external
+accounts on issues the owner / `github-actions[bot]` opened — including the
+bot's own automation-relay issues (`trainer-vm-diag`, `system-action`, …).
+
+**Incident (2026-07-07):** five throwaway accounts (`nekogecake`,
+`mamegoruko55`, `davekepagacu`, `nadebopo78`, `genugocuko58` — all
+`author_association: NONE`, all created that day, near-sequential IDs ⇒ one
+actor) dropped `*fix*.zip` attachments as comments on the trainer-diag relay
+issues (#5903–#5906, #5911), each crafted to echo the issue's own wording so it
+read as a helpful patch — a targeted social-engineering / supply-chain lure to
+get a session to download + run their code. The attachments were never touched.
+
+**Why the automation was already safe (re-verified this session):**
+- **No workflow triggers on `issue_comment`** ⇒ a comment is inert to
+  automation; it cannot fire any relay.
+- **Every issue-triggered workflow (~30) gates on `issue.user.login ==
+  github.repository_owner || 'github-actions[bot]'`** ⇒ a stranger can't fire a
+  VM action even by *opening* a labelled issue.
+
+So the residual risk was purely the human/agent lure. Closed by
+**`external-comment-alert.yml`** (PR #5910): for any comment by a
+non-owner/non-automation account it **auto-hides** the comment (GraphQL
+`minimizeComment`, classifier SPAM — reversible), flags the parent issue
+(`external-issue` label), and Telegram-alerts. Live-verified on #5911 minutes
+after merge. It is the comment-vector counterpart to `external-issue-alert.yml`.
+
+**Repo-level control (operator, 2026-07-07):** the repo was kept **public** (for
+the free unlimited GitHub Actions budget) with the interaction limit **"Limit to
+repository collaborators"** enabled — only the owner/collaborators (none besides
+the owner) can comment or open issues/PRs, which blocks the whole external-account
+class at the source. `external-comment-alert.yml` is the standing belt-and-suspenders
+guard for any future public window where the limit lapses.

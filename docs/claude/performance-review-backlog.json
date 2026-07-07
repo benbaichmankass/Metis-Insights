@@ -1114,7 +1114,63 @@
       "tier": 3,
       "status": "open",
       "snoozed_until": "2026-08-01T00:00:00+00:00"
+    },
+    {
+      "id": "PB-20260707-MGC-PULLBACK-1H-WALKFORWARD",
+      "opened_at": "2026-07-07T20:45:00+00:00",
+      "opened_by": "claude (S-IB-NATIVE-FUTURES-RESEARCH-2026-07-07, doc-freshness decision-landing)",
+      "source": "docs/research/ib-intraday-shortlist-backtest-2026-07-07.md (#5902). MGC pullback 1h on native roll-adjusted continuous data = +185.3R over ~3.3y, +0.56R expectancy, positive in EVERY calendar year (2023 +71/2024 +28/2025 +51/2026 +36), both sides contributing, shallow DD. Live mgc_pullback_1d params applied to 1h, NOT tuned. The single genuine intraday edge found in the whole IB survey.",
+      "title": "mgc_pullback_1h — proper walk-forward + account_compat_matrix, then propose as a new intraday strategy variant (the strongest intraday lead)",
+      "description": "One in-sample window only. Before proposing a live mgc_pullback_1h cell: run the anchored k-fold walk-forward (research_sweep -> m15_ws_b_fold_report -> classify_strategy_tier at >=2x fees) + the mandatory scripts/prop/account_compat_matrix.py for ib_paper. If it holds OOS, propose (Tier-3) as an ib_paper intraday variant, paper-soak first.",
+      "tier": 3,
+      "trigger_condition": "next IB-research session",
+      "resolution_criteria": "walk-forward + account_compat run; either a Tier-3 proposal PR opened or a documented reject",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "PB-20260707-MGC-TREND-1H-STRUCTURAL",
+      "opened_at": "2026-07-07T20:45:00+00:00",
+      "opened_by": "claude (S-IB-NATIVE-FUTURES-RESEARCH-2026-07-07, doc-freshness decision-landing)",
+      "source": "docs/research/mgc-trend-1h-walkforward-2026-07-07.md (#5907) + ib-metals-native-backtest-2026-07-07.md. Aligned walk-forward refuted BOTH the roll-artifact (-11% impact) and 2023-concentration (+77R on the 2023-excluded 2024-01..2026-06 window) hypotheses. mgc_trend_1h native MGC continuous is +77R where GC=F is -15.5R and spot -50.7R on the identical window -> unresolved STRUCTURAL cross-series conflict (instrument/vendor/session).",
+      "title": "mgc_trend_1h stays shadow — isolate the structural cross-series driver (matched-session GC=F/spot re-pull) before any promotion",
+      "description": "Re-pull GC=F + XAUUSD 1h on the native window bounds and compare bar/session structure (RTH vs ~23h vs 24h) under a common session mask. If native-vs-GC=F reconciles under a matched session, native is the trustworthy series; if it persists, the micro-contract tape is the edge and needs a paper soak, not a backtest, to trust. No strategies.yaml change until resolved.",
+      "tier": 3,
+      "trigger_condition": "next IB-research session",
+      "resolution_criteria": "matched-session comparison run; driver identified; keep-shadow-or-propose decision recorded",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "PB-20260707-NATIVE-MES-PULL",
+      "opened_at": "2026-07-07T20:45:00+00:00",
+      "opened_by": "claude (S-IB-NATIVE-FUTURES-RESEARCH-2026-07-07, doc-freshness decision-landing)",
+      "source": "docs/research/ib-intraday-shortlist-backtest-2026-07-07.md (#5902). MES pullback 1h (+10.1R/41t) and MES fvg 15m (4t) are directionally encouraging but DATA-STARVED — the trainer MES shard is ~1y (2025-07..2026-07). MES scalp 5m flat (consistent with the ict_scalp_5m demote).",
+      "title": "Deeper native-MES per-contract history — re-judge MES pullback 1h + fvg 15m on 3y+",
+      "description": "Run a per-contract MES pull (same mechanism as the MGC pull, PULL_PER_CONTRACT via pull-ibkr-history) -> build_continuous_contract.py -> re-run the #2 MES pullback 1h + #5 fvg 15m shortlist cells on 3y+ before any judgement. Tier-1 research; any resulting cell proposal is Tier-3.",
+      "tier": 1,
+      "trigger_condition": "next IB-research session / weekend CME break",
+      "resolution_criteria": "native MES per-contract shard pulled + cells re-backtested; verdict recorded",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "PB-20260707-SPLG-IAUM-PROMOTION",
+      "opened_at": "2026-07-07T20:45:00+00:00",
+      "opened_by": "claude (S-IB-NATIVE-FUTURES-RESEARCH-2026-07-07, doc-freshness decision-landing)",
+      "source": "docs/research/alpaca-live-splg-iaum-promotion-sizing-2026-07-07.md (#5916). Both cheap ETF proxies clear account_compat_matrix and backtest positively (SPLG +33.6R/16y durable; IAUM +21.1R/5y but 2025-concentrated). Affordability floor 1.93%/1.03%; survival ceiling 2.0% at 5%-dd. Recommend risk_pct~2.0% both.",
+      "title": "alpaca_live SPLG + IAUM promotion — alpaca_paper soak then Tier-3 real-money sizing (risk_pct~2%)",
+      "description": "Soak SPLG/IAUM on alpaca_paper first (yfinance-ETF backtests are not native Alpaca fills). Then, operator-gated Tier-3: add SPLG/IAUM to alpaca_live with risk_pct~=2.0% under a 5%-dd ruleset, IAUM at the low end given its short/concentrated record. Note the account funding floor (FINRA Reg-T $2k margin minimum, PB-20260630-002) may still bind.",
+      "tier": 3,
+      "trigger_condition": "operator go-signal + paper soak accrued",
+      "resolution_criteria": "paper soak reviewed; Tier-3 promotion PR proposed or deferred with reason",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-07T09:50:00+00:00"
+  "updated_at": "2026-07-07T20:45:00+00:00"
 }
