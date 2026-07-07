@@ -62,6 +62,8 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         "gld_pullback_1d",
         "gld_pullback_1h",
         "htf_pullback_trend_2h",
+        # sub-$100 gold proxy for gld (2026-07-07, Tier-3):
+        "iaum_pullback_1d",
         "ict_scalp_5m",
         "ief_pullback_1d",
         "iwm_trend_long_1d",
@@ -72,9 +74,13 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         "qld_trend_long_1d",
         "qqq_pullback_1h",
         "qqq_trend_long_1d",
+        # sub-$100 small-cap proxy for iwm (2026-07-07, Tier-3):
+        "scha_trend_long_1d",
         "slv_pullback_1d",
         "slv_trend_1h",
         "sol_pullback_2h",
+        # sub-$100 S&P 500 proxy for spy (2026-07-07, Tier-3):
+        "splg_trend_long_1d",
         "spy_pullback_1h",
         "spy_trend_long_1d",
         "squeeze_breakout_4h",

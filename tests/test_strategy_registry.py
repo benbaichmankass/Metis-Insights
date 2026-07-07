@@ -216,7 +216,9 @@ def test_real_yaml_loads():
     # as qqq_trend_long_1d, backtested on the actual leveraged price series
     # (decay + expense embedded) — both paper_ready, TQQQ beat the QQQ cell. Routed
     # to alpaca_paper (paper money). docs/research/leveraged-etf-research-2026-06-30.md.
-    assert len(strategies) == 45
+    # 45 → 48 by the sub-$100 proxy cells splg_trend_long_1d + iaum_pullback_1d +
+    # scha_trend_long_1d (2026-07-07, Tier-3): cheap-share equivalents of SPY/GLD/IWM.
+    assert len(strategies) == 48
 
 
 def test_real_yaml_has_required_strategies():
@@ -249,6 +251,9 @@ def test_real_yaml_has_required_strategies():
         "slv_pullback_1d", "gdx_pullback_1d",
         # Unit C prop EXIT variants — breakout_1 shadow soak (DRAFT, Tier-3, 2026-06-29):
         "trend_donchian_sol_prop", "trend_donchian_eth_prop",
+        # sub-$100 proxy cells on alpaca_paper (2026-07-07, Tier-3) — cheap-share
+        # equivalents of SPY/GLD/IWM: SPLG + IAUM + SCHA.
+        "splg_trend_long_1d", "iaum_pullback_1d", "scha_trend_long_1d",
     }
 
 

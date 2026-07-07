@@ -5338,6 +5338,11 @@ for _builder, _monitor_unit in (
     # iwm_trend_long_1d — ETF-breadth daily sweep (2026-06-20), small-cap
     # trend sibling of spy/qqq (reuses the trend_donchian unit).
     (iwm_trend_long_1d_signal_builder, "trend_donchian"),
+    # splg_trend_long_1d / scha_trend_long_1d — sub-$100 proxy trend cells
+    # (2026-07-07): SPLG (S&P 500 proxy for spy) + SCHA (small-cap proxy for
+    # iwm), both reuse the trend_donchian unit.
+    (splg_trend_long_1d_signal_builder, "trend_donchian"),
+    (scha_trend_long_1d_signal_builder, "trend_donchian"),
     (mgc_pullback_1d_signal_builder, "htf_pullback_trend_2h"),
     (mhg_pullback_1d_signal_builder, "htf_pullback_trend_2h"),
     (gld_pullback_1d_signal_builder, "htf_pullback_trend_2h"),
@@ -5350,6 +5355,9 @@ for _builder, _monitor_unit in (
     # the audit found them enabled+live in YAML but missing a builder.
     (slv_pullback_1d_signal_builder, "htf_pullback_trend_2h"),
     (gdx_pullback_1d_signal_builder, "htf_pullback_trend_2h"),
+    # iaum_pullback_1d — sub-$100 gold proxy for gld (2026-07-07); reuses the
+    # htf_pullback_trend_2h unit.
+    (iaum_pullback_1d_signal_builder, "htf_pullback_trend_2h"),
     # gld_pullback_1h / slv_trend_1h — intraday 1h ETF pilot (2026-06-20 § 0e):
     # GLD 1h bidirectional pullback (htf_pullback_trend_2h unit) + SLV 1h
     # bidirectional Donchian trend (trend_donchian unit, both-sides).
