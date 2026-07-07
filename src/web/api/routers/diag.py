@@ -53,6 +53,7 @@ _AUDIT_LOG = runtime_logs_dir() / "signal_audit.jsonl"
 _BOT_LOG = _REPO_ROOT / "bot.log"
 _HEARTBEAT = runtime_logs_dir() / "heartbeat.txt"
 _STATUS_JSON = runtime_logs_dir() / "runtime_status.json"
+_IB_STATE_JSON = runtime_logs_dir() / "ib_state.json"
 
 _JOURNAL_TABLES: dict[str, str] = {
     "order_packages": "datetime(updated_at)",
@@ -920,6 +921,56 @@ async def get_services(request: Request) -> list[dict[str, str]]:
     _require_diag_token(request)
     states = _is_active_batch(list(_CANONICAL_UNITS))
     return [{"unit": u, "state": states.get(u, "unknown")} for u in _CANONICAL_UNITS]
+
+
+@router.get("/ib_state")
+async def get_ib_state(request: Request) -> dict[str, Any]:
+    """IB connection-state legibility (BL-20260707-IB-STATE-LEGIBILITY).
+
+    Read-only view of ``runtime_logs/ib_state.json`` — the per-tick snapshot
+    the TRADER process writes of each live ``IBClient``'s connection state
+    (``src.units.accounts.ib_client.write_ib_state_file``). Answers, at a
+    glance, the question that kept being confusing: is IB connected, and is a
+    current failure a TRANSITORY circuit-breaker backoff (``state:breaker_open``,
+    ``likely_wedged:false`` — auto-recovers) or a REAL wedge
+    (``likely_wedged:true`` — needs a look)?
+
+    ``present:false`` when the trader hasn't written the file yet (e.g. it has
+    not dispatched to an IB account since the last restart) or the file is
+    unreadable. ``age_seconds`` is how stale the snapshot is — a large value
+    while the trader is otherwise ticking means the writer hook isn't running
+    (deploy check). Never opens a socket; pure file read. Tier 1.
+    """
+    _require_diag_token(request)
+    out: dict[str, Any] = {
+        "present": False,
+        "path": str(_IB_STATE_JSON),
+        "generated_at": None,
+        "age_seconds": None,
+        "clients": [],
+    }
+    if not _IB_STATE_JSON.exists():
+        return out
+    try:
+        with _IB_STATE_JSON.open(encoding="utf-8") as fh:
+            payload = json.load(fh)
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("diag: ib_state read failed: %s: %s", type(exc).__name__, exc)
+        out["error"] = f"{type(exc).__name__}: {exc}"
+        return out
+    out["present"] = True
+    out["generated_at"] = payload.get("generated_at")
+    out["clients"] = payload.get("clients", [])
+    try:
+        gen = payload.get("generated_at")
+        if gen:
+            out["age_seconds"] = round(
+                (datetime.now(timezone.utc) - datetime.fromisoformat(gen)).total_seconds(),
+                1,
+            )
+    except Exception:  # noqa: BLE001
+        pass
+    return out
 
 
 @router.get("/journalctl")

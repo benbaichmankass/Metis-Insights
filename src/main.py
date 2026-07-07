@@ -715,6 +715,18 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 logger.exception("account_reachability_check tick failed")
 
+            # IB connection-state legibility (BL-20260707-IB-STATE-LEGIBILITY):
+            # dump each live IBClient's non-blocking connection_state() to
+            # runtime_logs/ib_state.json so the SEPARATE web-api process can
+            # surface "connected vs down, transitory backoff vs real wedge" via
+            # /api/diag/ib_state. Pure observability, best-effort — never
+            # touches the socket, never gates a trade.
+            try:
+                from src.units.accounts.ib_client import write_ib_state_file
+                write_ib_state_file()
+            except Exception:  # noqa: BLE001
+                logger.debug("write_ib_state_file tick hook skipped", exc_info=True)
+
             # PR5: heartbeat is the single source of truth for "trader is
             # alive". Writes after a successful tick, not before — so a
             # tick that crashes mid-run doesn't refresh the heartbeat and
