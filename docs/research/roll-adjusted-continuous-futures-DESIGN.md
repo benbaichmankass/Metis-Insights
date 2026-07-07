@@ -85,32 +85,52 @@ Offline, stdlib-only, no socket, no live path:
   un-adjusted, cumulative offsets across 3 contracts, ratio/none methods,
   no-overlap degradation, canonical-shape + no-dup-timestamp invariants.
 
-## 4. Increment 2 — per-contract pull (SPEC, Tier-2, live-VM)
+## 4. Increment 2 — per-contract pull (BUILT, Tier-2, live-VM)
 
 The core needs per-contract input with overlaps. Today's `iter_bars` dedups
-across contracts and discards contract identity — so we add an **additive**
-per-contract path that does NOT change `iter_bars` (the working metals/MES pull
-is untouched):
+across contracts and discards contract identity — so the per-contract path is
+**additive** and does NOT change `iter_bars` (the working metals/MES pull is
+untouched):
 
-- Add `IBKRHistoricalMarketRawAdapter.iter_contract_bars(...)` (or a
-  `per_contract=True` flag on `_historical_bars`) that collects bars **per
-  dated contract without the cross-contract dedup** (overlaps are load-bearing)
-  and yields rows tagged with their `contract` month (the
-  `lastTradeDateOrContractMonth`). Same paging, pacing, exchange-per-symbol
-  (`_SYMBOL_EXCHANGE`, the 2026-07-07 COMEX fix) as `iter_bars`.
-- A pull entry point that writes the tagged per-contract stream to
+- **`IBKRHistoricalMarketRawAdapter.iter_contract_bars(...)`** — collects bars
+  **per dated contract without the cross-contract dedup** (overlaps are
+  load-bearing) and yields rows tagged with their `contract` month (the
+  `lastTradeDateOrContractMonth[:8]`). Same paging, pacing, exchange-per-symbol
+  (`_SYMBOL_EXCHANGE`, the 2026-07-07 COMEX fix) as `iter_bars`; the only
+  difference is a `per_contract=True` flag on `_historical_bars` that swaps the
+  global dedup for a per-contract one and stamps the `contract` tag.
+- **`ml/datasets/percontract_pull.py`** (`python -m ml.datasets.percontract_pull`)
+  — writes the tagged per-contract stream to
   `market_raw_percontract/<SYM>/<tf>/<ver>/data.jsonl` (a NEW artifact family,
   distinct from `market_raw/` — the per-contract stream is NOT canonical
-  `market_raw`, it carries the extra `contract` key). Simplest: a small
-  `scripts/ops/pull_ibkr_percontract.sh` sibling of `pull_mes_ibkr_history.sh`
-  reusing all its safety rails (distinct clientId, `nice`/`ionice`, heartbeat
-  live-first guard, single-instance lock, detach), OR a `--per-contract` mode on
-  the existing script.
-- Wire it into the `pull-ibkr-history` system-action (a `per_contract: true`
-  issue-body knob) so it's Claude-dispatchable like the current pull.
+  `market_raw`; it carries the extra `contract` key, so it deliberately does not
+  go through the `market_raw` builder/schema check).
+- **Pull vehicle:** `scripts/ops/pull_mes_ibkr_history.sh` gains a `PER_CONTRACT=1`
+  branch that swaps `python -m ml build-dataset market_raw` for the writer above
+  — reusing ALL the existing safety rails (distinct clientId, `nice`/`ionice`,
+  heartbeat live-first guard, single-instance lock, detach).
+- **`pull-ibkr-history` system-action** gains a `per_contract: 1|true|yes`
+  issue-body knob (validated; injects `PER_CONTRACT=1`) so it's Claude-dispatchable.
 - **Tier-2**: it runs on the live VM and shares the IB gateway. Additive (no
-  change to the existing pull path), but still gets an operator OK before the
-  first real pull, per the tier rules.
+  change to the existing pull path), but the FIRST real pull gets an operator OK
+  before dispatch, per the tier rules.
+
+**To run it (after the PR merges + deploys):** dispatch a `system-action` issue
+with body:
+
+```
+action: pull-ibkr-history
+symbol: MGC
+timeframes: 1h
+hist_start: 2019-05-06
+dataset_version: v001
+max_contracts: 28
+per_contract: 1
+reason: per-contract MGC 1h for the roll-adjusted continuous backtest of mgc_trend_1h
+```
+
+then (trainer VM) rsync `market_raw_percontract/` over and run
+`build_continuous_contract.py` (§5).
 
 ## 5. Increment 3 — re-backtest breakout cells on the clean series
 
