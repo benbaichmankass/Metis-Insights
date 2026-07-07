@@ -107,6 +107,12 @@ MES_HIST_END="${MES_HIST_END:-$(date -u +%Y-%m-%d)}"
 # fall past index 4). Bump to 8 so a full year's quarterly contracts are paged.
 # Depth is ultimately capped by IBKR's per-contract intraday retention.
 MES_MAX_CONTRACTS="${MES_MAX_CONTRACTS:-8}"
+# PER_CONTRACT (roll-adjustment increment 2): when truthy, write the PER-CONTRACT
+# stream (no cross-contract dedup, each bar tagged with its contract month) via
+# `python -m ml.datasets.percontract_pull` to market_raw_percontract/<sym>/<tf>/<ver>/,
+# instead of the deduped canonical market_raw shard. That stream is the input to
+# scripts/research/build_continuous_contract.py (roll-adjusted continuous series).
+PER_CONTRACT="${PER_CONTRACT:-}"
 PULL_LOG_PATH="${PULL_LOG_PATH:-$DATA_DIR/runtime_logs/ibkr_mes_pull.jsonl}"
 LOCK_FILE="${LOCK_FILE:-$DATA_DIR/runtime_logs/ibkr_mes_pull.lock}"
 
@@ -193,18 +199,31 @@ emit "$(printf '{"ts":"%s","status":"pull_start","symbol":"%s","timeframes":"%s"
   "$(iso_now)" "$MES_SYMBOL" "$MES_TIMEFRAMES" "$MES_HIST_START" "$MES_HIST_END" "$IB_HIST_CLIENT_ID" "$IB_HIST_PAUSE_S" "$MES_MAX_CONTRACTS")"
 
 any_ok=0
+family="market_raw"; [ -n "${PER_CONTRACT// }" ] && family="market_raw_percontract"
 for tf in $MES_TIMEFRAMES; do
-  out_path="${IBKR_OUT}/market_raw/${MES_SYMBOL}/${tf}/${DATASET_VERSION}/data.jsonl"
-  emit "$(printf '{"ts":"%s","status":"building","family":"market_raw","symbol":"%s","timeframe":"%s"}' "$(iso_now)" "$MES_SYMBOL" "$tf")"
+  out_path="${IBKR_OUT}/${family}/${MES_SYMBOL}/${tf}/${DATASET_VERSION}/data.jsonl"
+  emit "$(printf '{"ts":"%s","status":"building","family":"%s","symbol":"%s","timeframe":"%s"}' "$(iso_now)" "$family" "$MES_SYMBOL" "$tf")"
   set +e
-  "$PY" -m ml build-dataset market_raw \
-    --output-dir "$IBKR_OUT" --version "$DATASET_VERSION" \
-    --source ibkr_offvm --symbol-scope "$MES_SYMBOL" --timeframe "$tf" --overwrite \
-    "adapter=ibkr_offvm" "symbol=${MES_SYMBOL}" "timeframe=${tf}" \
-    "start=${MES_HIST_START}" "end=${MES_HIST_END}" \
-    "host=${IB_HOST}" "port=${IB_PORT}" "client_id=${IB_HIST_CLIENT_ID}" \
-    "use_rth=false" "pause_s=${IB_HIST_PAUSE_S}" "max_contracts=${MES_MAX_CONTRACTS}" \
-    >"/tmp/ibkr_mes_${tf}_$$.out" 2>"/tmp/ibkr_mes_${tf}_$$.err"
+  if [ -n "${PER_CONTRACT// }" ]; then
+    # Roll-adjustment increment 2: per-contract stream (tagged, no cross-contract
+    # dedup) -> market_raw_percontract/. Same gateway + pacing + guard as below.
+    "$PY" -m ml.datasets.percontract_pull \
+      --symbol "${MES_SYMBOL}" --timeframe "${tf}" \
+      --start "${MES_HIST_START}" --end "${MES_HIST_END}" \
+      --out-dir "${IBKR_OUT}" --version "${DATASET_VERSION}" \
+      --host "${IB_HOST}" --port "${IB_PORT}" --client-id "${IB_HIST_CLIENT_ID}" \
+      --pause-s "${IB_HIST_PAUSE_S}" --max-contracts "${MES_MAX_CONTRACTS}" \
+      >"/tmp/ibkr_mes_${tf}_$$.out" 2>"/tmp/ibkr_mes_${tf}_$$.err"
+  else
+    "$PY" -m ml build-dataset market_raw \
+      --output-dir "$IBKR_OUT" --version "$DATASET_VERSION" \
+      --source ibkr_offvm --symbol-scope "$MES_SYMBOL" --timeframe "$tf" --overwrite \
+      "adapter=ibkr_offvm" "symbol=${MES_SYMBOL}" "timeframe=${tf}" \
+      "start=${MES_HIST_START}" "end=${MES_HIST_END}" \
+      "host=${IB_HOST}" "port=${IB_PORT}" "client_id=${IB_HIST_CLIENT_ID}" \
+      "use_rth=false" "pause_s=${IB_HIST_PAUSE_S}" "max_contracts=${MES_MAX_CONTRACTS}" \
+      >"/tmp/ibkr_mes_${tf}_$$.out" 2>"/tmp/ibkr_mes_${tf}_$$.err"
+  fi
   rc=$?
   set -e
   rows=0
@@ -212,12 +231,12 @@ for tf in $MES_TIMEFRAMES; do
     rows="$(wc -l < "$out_path" 2>/dev/null | tr -d ' ' || echo 0)"
   fi
   if [ "$rc" -eq 0 ] && [ "${rows:-0}" -gt 0 ]; then
-    emit "$(printf '{"ts":"%s","status":"ok","family":"market_raw","symbol":"%s","timeframe":"%s","rows":%s}' "$(iso_now)" "$MES_SYMBOL" "$tf" "${rows:-0}")"
+    emit "$(printf '{"ts":"%s","status":"ok","family":"%s","symbol":"%s","timeframe":"%s","rows":%s}' "$(iso_now)" "$family" "$MES_SYMBOL" "$tf" "${rows:-0}")"
     any_ok=1
   else
     err="$(tail -n 3 "/tmp/ibkr_mes_${tf}_$$.err" 2>/dev/null | tr '\n' ' ' | head -c 400 || true)"
-    emit "$(python3 -c "import json,sys; print(json.dumps({'ts':sys.argv[1],'status':'failed','family':'market_raw','symbol':sys.argv[2],'timeframe':sys.argv[3],'exit_code':int(sys.argv[4]),'stderr_tail':sys.argv[5]}))" \
-      "$(iso_now)" "$MES_SYMBOL" "$tf" "$rc" "$err")"
+    emit "$(python3 -c "import json,sys; print(json.dumps({'ts':sys.argv[1],'status':'failed','family':sys.argv[6],'symbol':sys.argv[2],'timeframe':sys.argv[3],'exit_code':int(sys.argv[4]),'stderr_tail':sys.argv[5]}))" \
+      "$(iso_now)" "$MES_SYMBOL" "$tf" "$rc" "$err" "$family")"
   fi
   rm -f "/tmp/ibkr_mes_${tf}_$$.out" "/tmp/ibkr_mes_${tf}_$$.err"
 done
