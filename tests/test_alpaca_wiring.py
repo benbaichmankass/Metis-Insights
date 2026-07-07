@@ -247,6 +247,54 @@ def test_client_close_idempotent_on_404(monkeypatch):
     assert cli.close("SPY")["retCode"] == 0
 
 
+def test_client_close_cancels_resting_orders_first(monkeypatch):
+    """BL-20260707: a resting bracket SL/TP leg still holds the full qty as
+    held_for_orders, so DELETE /v2/positions/{symbol} alone can be rejected
+    with "insufficient qty available for order" — close() must cancel the
+    symbol's resting orders BEFORE the flatten, mirroring IBClient.close and
+    place_protective's own cancel-before-place idempotency guard."""
+    calls = []
+
+    def fake_request(method, path, json_body=None):
+        calls.append((method, path))
+        if method == "GET":  # _open_orders_for_symbol (cancel pre-pass)
+            return {"retCode": 0, "result": [
+                {"id": "resting-sl", "symbol": "QQQ", "type": "stop"},
+                {"id": "resting-tp", "symbol": "QQQ", "type": "limit"},
+            ]}
+        return {"retCode": 0, "result": {"id": "flatten-1"}}
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_request", fake_request)
+    res = cli.close("QQQ")
+    assert res["retCode"] == 0
+    deletes = [p for (m, p) in calls if m == "DELETE"]
+    # Both resting legs cancelled, and BEFORE the position-flatten DELETE.
+    assert "/v2/orders/resting-sl" in deletes
+    assert "/v2/orders/resting-tp" in deletes
+    assert deletes.index("/v2/orders/resting-sl") < deletes.index("/v2/positions/QQQ")
+    assert deletes.index("/v2/orders/resting-tp") < deletes.index("/v2/positions/QQQ")
+    assert deletes[-1] == "/v2/positions/QQQ"
+
+
+def test_client_close_no_resting_orders_is_single_call(monkeypatch):
+    """No resting orders → the cancel pre-pass is a cheap no-op GET, no
+    spurious DELETEs, and the flatten still goes through unchanged."""
+    calls = []
+
+    def fake_request(method, path, json_body=None):
+        calls.append((method, path))
+        if method == "GET":
+            return {"retCode": 0, "result": []}
+        return {"retCode": 0, "result": {"id": "flatten-2"}}
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_request", fake_request)
+    res = cli.close("SPY")
+    assert res["retCode"] == 0
+    assert [p for (m, p) in calls if m == "DELETE"] == ["/v2/positions/SPY"]
+
+
 # ------------------------------------------------------------ config gates
 def test_accounts_yaml_alpaca_paper_ships_inert():
     acct = yaml.safe_load(open("config/accounts.yaml"))["accounts"]["alpaca_paper"]
