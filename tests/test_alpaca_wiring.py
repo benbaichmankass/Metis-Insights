@@ -129,6 +129,9 @@ class _Resp:
 
 
 def test_client_place_builds_bracket_order(monkeypatch):
+    """Body-construction test — disables the post-accept confirm-poll
+    (covered separately below) so a single POST is the only call made."""
+    monkeypatch.setenv("ALPACA_PLACE_CONFIRM_S", "0")
     captured = {}
 
     def fake_request(method, url, headers=None, json=None, timeout=None):
@@ -150,6 +153,98 @@ def test_client_place_builds_bracket_order(monkeypatch):
     assert b["take_profit"]["limit_price"] == "588.10"
     assert b["stop_loss"]["stop_price"] == "610.46"
     assert "/v2/orders" in captured["url"]
+
+
+# ------------------------------------------ place() post-accept rejection
+# BL-20260707-ALPACA-ENTRY-FILL-CONFIRM-GAP: Alpaca's HTTP 2xx on POST
+# /v2/orders means the order passed SYNCHRONOUS validation, not that it will
+# actually execute — an async risk check can still reject it moments later.
+# place() must poll and surface that as a real failure, not journal a
+# phantom position for an order the broker never actually executed.
+
+def test_client_place_confirms_no_rejection_when_filled(monkeypatch):
+    """The order fills on the FIRST confirmation poll — success, no sleep
+    needed."""
+    monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep",
+                         lambda *_: pytest.fail("should not need to sleep"))
+
+    def fake_request(method, path, json_body=None):
+        if method == "POST":
+            return {"retCode": 0, "result": {"id": "ord-filled"}}
+        if method == "GET" and path == "/v2/orders/ord-filled":
+            return {"retCode": 0, "result": {"status": "filled"}}
+        return {"retCode": 0, "result": {}}
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_request", fake_request)
+    res = cli.place({"symbol": "SPY", "side": "Buy", "qty": 5,
+                     "sl": 594.0, "tp": 612.0})
+    assert res == {"retCode": 0, "result": {"orderId": "ord-filled"}}
+
+
+def test_client_place_detects_post_accept_rejection(monkeypatch):
+    """The regression case: the order is accepted (2xx), then an async
+    Alpaca risk check rejects it moments later — place() must NOT report
+    success, or _submit_order/_log_trade_to_journal will journal a phantom
+    open position for a trade that never actually happened on the broker."""
+    monkeypatch.setenv("ALPACA_PLACE_CONFIRM_S", "0.05")
+    monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep",
+                         lambda *_: None)
+
+    def fake_request(method, path, json_body=None):
+        if method == "POST":
+            return {"retCode": 0, "result": {"id": "ord-rejected"}}
+        if method == "GET" and path == "/v2/orders/ord-rejected":
+            return {"retCode": 0, "result": {"status": "rejected"}}
+        return {"retCode": 0, "result": {}}
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_request", fake_request)
+    res = cli.place({"symbol": "QQQ", "side": "Buy", "qty": 3,
+                     "sl": 700.0, "tp": 730.0})
+    assert res["retCode"] != 0
+    assert "accepted then rejected" in res["retMsg"].lower()
+
+
+def test_client_place_still_pending_at_deadline_is_success(monkeypatch):
+    """An order still 'new'/pending at the confirm deadline is reported as
+    success unchanged — a genuinely-slow-but-good fill must never be treated
+    as a failure (that would leave a REAL accepted broker order untracked
+    and unjournaled, which is worse than a possibly-stale entry price)."""
+    monkeypatch.setenv("ALPACA_PLACE_CONFIRM_S", "0.05")
+    monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep",
+                         lambda *_: None)
+
+    def fake_request(method, path, json_body=None):
+        if method == "POST":
+            return {"retCode": 0, "result": {"id": "ord-pending"}}
+        if method == "GET" and path == "/v2/orders/ord-pending":
+            return {"retCode": 0, "result": {"status": "new"}}
+        return {"retCode": 0, "result": {}}
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_request", fake_request)
+    res = cli.place({"symbol": "GLD", "side": "Buy", "qty": 2,
+                     "sl": 370.0, "tp": 400.0})
+    assert res == {"retCode": 0, "result": {"orderId": "ord-pending"}}
+
+
+def test_client_place_confirm_disabled_restores_legacy_behavior(monkeypatch):
+    """ALPACA_PLACE_CONFIRM_S <= 0 restores the pre-fix accept-is-success
+    behaviour — no confirmation poll at all."""
+    monkeypatch.setenv("ALPACA_PLACE_CONFIRM_S", "0")
+    calls = []
+
+    def fake_request(method, path, json_body=None):
+        calls.append(method)
+        return {"retCode": 0, "result": {"id": "ord-unconfirmed"}}
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_request", fake_request)
+    res = cli.place({"symbol": "SPY", "side": "Buy", "qty": 1,
+                     "sl": 594.0, "tp": 612.0})
+    assert res == {"retCode": 0, "result": {"orderId": "ord-unconfirmed"}}
+    assert calls == ["POST"]  # no confirm-poll GET
 
 
 def test_client_requires_creds_and_degrades():
