@@ -14,7 +14,13 @@
       "resolution_criteria": "IBClient supports STK/ETF contracts (tested), the chosen ETF strategies run on ib_paper end-to-end (real paper fills journaled), and account_compat_matrix has scored ib_paper for them \u2014 OR a documented decision not to pursue it.",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-07T13:05:00+00:00",
+          "by": "claude (2026-07-07, while waiting on the metals backtests)",
+          "note": "Design doc WRITTEN: docs/integrations/ibkr-equity-etf-support-DESIGN.md \u2014 the 'NEXT STEP' from this item's description is done. Covers: a per-symbol IB instrument-type map in config/instruments.yaml (FUT vs STK + exchange, single source of truth the offvm adapter's _SYMBOL_EXCHANGE should also read); an STK branch in _build_contract (Stock(sym,'SMART','USD',primaryExchange=...) + qualifyContracts); reuse of the existing whole-share qty path (risk.WHOLE_UNIT_QTY_EXCHANGES) extended to IBKR-equity; equity contract_value_usd (mult 1); confirm/lift the US-cash-session market-hours gate to the strategy side; and a recommended dedicated `ib_equity_paper` account (mirrors alpaca_options_paper). 4 open questions for the operator (which ETFs, new vs reuse account, candle source, real-money goal) + a 7-step build plan. Still awaiting operator answers to those + approval before build (Tier-3 for the live wire)."
+        }
+      ]
     },
     {
       "id": "PB-20260707-IB-METALS-NO-BACKTEST-DATA",
