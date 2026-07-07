@@ -91,6 +91,11 @@ CELLS=(
   "qqq_pullback_1h|pullback|1h|QQQ|0.3||60|12|0.618|2.5|5.0"
   "tlt_pullback_1h|pullback|1h|TLT|0.3||60|12|0.5|2.5|4.0"
   "uso_trend_1h|trend|1h|USO|0.3|1|24|2.5|4.0||"
+  # gld_pullback_1d siblings (2026-06-27), mirrored params — added here
+  # 2026-07-07 so the mandatory coverage gate reaches every alpaca_paper
+  # ETF cell, not just the 14 present before this pass.
+  "slv_pullback_1d|pullback|1d|SLV|0.3||40|15|0.618|2.0|4.0"
+  "gdx_pullback_1d|pullback|1d|GDX|0.3||40|15|0.618|2.0|4.0"
 )
 
 # Optional subset filter: any positional args restrict the run to those cells.
