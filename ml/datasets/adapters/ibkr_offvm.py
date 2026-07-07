@@ -49,6 +49,21 @@ _TIMEFRAME_TO_IB: Mapping[str, tuple[str, int]] = {
 }
 
 
+# Canonical IB futures-root -> listing exchange. MIRRORS the live order path's
+# contract builder (src/units/accounts/ib_client.py::_build_contract
+# `ib_exchanges`): MES is CME, the metals micros MGC/MHG are COMEX. A symbol NOT
+# in this map falls back to the caller-supplied `exchange` (default CME), so any
+# other IB-addressable instrument keeps working. Without this, an MGC/MHG pull
+# requested Future(exchange='CME') and IBKR returned Error 200 "No security
+# definition has been found" — the reason the metals sleeve could never be
+# backfilled on its native instrument (BL-20260707-IBKR-METALS-CME-EXCHANGE).
+_SYMBOL_EXCHANGE: Mapping[str, str] = {
+    "MES": "CME",
+    "MGC": "COMEX",
+    "MHG": "COMEX",
+}
+
+
 class IBHistoricalGuardViolation(RuntimeError):
     """Raised when the IB adapter is invoked without the explicit opt-in."""
 
@@ -88,6 +103,11 @@ class IBKRHistoricalMarketRawAdapter(MarketRawAdapter):
         end_dt = _parse_dt(end) if end else datetime.now(timezone.utc)
         if end_dt <= start_dt:
             raise ValueError(f"end {end!r} must be after start {start!r}")
+
+        # Resolve the listing exchange PER SYMBOL (MES=CME, MGC/MHG=COMEX) so a
+        # metals pull isn't sent to CME (IBKR Error 200). An unknown symbol keeps
+        # the caller-supplied `exchange` for back-compat.
+        exchange = _SYMBOL_EXCHANGE.get(symbol.upper(), exchange)
 
         bars = self._historical_bars(
             symbol=symbol, exchange=exchange, currency=currency,

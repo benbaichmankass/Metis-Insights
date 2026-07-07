@@ -63,6 +63,28 @@ class TestFetch:
         assert captured["port"] == 4002
         assert captured["symbol"] == "MES"
 
+    def test_resolves_exchange_per_symbol(self, monkeypatch):
+        """MES->CME, MGC/MHG->COMEX; an unknown symbol keeps the passed exchange.
+
+        Regression for the metals sleeve: an MGC/MHG pull was sent to CME
+        (the default) and IBKR returned Error 200 "No security definition",
+        so the metals sleeve could never be backfilled on its native contract.
+        """
+        monkeypatch.setenv(IB_HIST_ENV, "1")
+        for symbol, expected in [("MES", "CME"), ("MGC", "COMEX"), ("MHG", "COMEX")]:
+            captured: dict = {}
+            self._patch(monkeypatch, _bars(), captured)
+            list(IBKRHistoricalMarketRawAdapter().iter_bars(
+                symbol=symbol, timeframe="1h", start="2024-01-01"))
+            assert captured["exchange"] == expected, symbol
+            assert captured["symbol"] == symbol
+        # an unknown symbol falls back to the caller-supplied exchange
+        captured = {}
+        self._patch(monkeypatch, _bars(), captured)
+        list(IBKRHistoricalMarketRawAdapter().iter_bars(
+            symbol="ZZZ", timeframe="1h", start="2024-01-01", exchange="NYMEX"))
+        assert captured["exchange"] == "NYMEX"
+
     def test_unknown_timeframe_raises(self, monkeypatch):
         monkeypatch.setenv(IB_HIST_ENV, "1")
         with pytest.raises(ValueError, match="unsupported timeframe"):
