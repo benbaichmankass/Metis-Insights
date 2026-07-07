@@ -49,7 +49,8 @@ strategies:
     model: null
     signal_prefixes: [turtle_soup, sweep_reversal]
     enabled: true
-    execution: shadow        # DOWNGRADED to shadow 2026-07-07 (Tier-3, operator-approved):
+    execution: shadow        # shadow-guard: allow — turtle_soup net-negative money-loser, operator-approved demote 2026-07-07 (Tier-3)
+                             # DOWNGRADED to shadow 2026-07-07 (Tier-3, operator-approved):
                              # turtle_soup is net-negative at EVERY stop setting on BTCUSDT
                              # (atr_stop_mult sweep 2024-05..2026-05 net 7.5bps — worst 0.30 at
                              # -66.5%/67% maxDD, least-bad 2.00 still -11%). Already de-routed
