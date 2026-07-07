@@ -47,7 +47,7 @@ Per-year net R (@1bps): 2023 +5.46, 2024 +3.34, 2025 +20.28, 2026 −1.23
 best DD of the sleeve (2.9R). **Confirms the copper pullback edge on native MHG
 futures.**
 
-### ⏸ `mgc_trend_1h` — STAYS SHADOW, but the roll-artifact hypothesis is REFUTED (updated 2026-07-07)
+### ⏸ `mgc_trend_1h` — STAYS SHADOW; roll-artifact AND 2023-concentration both REFUTED (updated 2026-07-07)
 
 **Superseded finding.** The first pass (on the spliced v002 shard, +57.77R / 94
 trades) guessed the native "pass" was a **roll-gap artifact** and predicted it
@@ -73,30 +73,38 @@ gap-manufactured — a Donchian breakout on **roll-adjusted** native MGC 1h is
 still **strongly positive** (+196R, +0.29R expectancy, 680 trades over ~3.3y).
 The roll-artifact hypothesis is refuted.
 
-**So why does it STILL stay shadow?** The clean result now **conflicts** with the
+**So why does it STILL stay shadow?** The clean result **conflicts** with the
 shadow demote, which was validated on OTHER continuous gold-1h series — **GC=F
 1h −15.5R, XAUUSD spot 1h −50.7R** (`docs/research/recombination-sweep-2026-06-18.md`).
 Three continuous gold-1h series disagree by sign and by a wide margin — a genuine
-**unresolved cross-series conflict**, not a settled promotion case. Likely
-drivers, to test before any promotion:
-- **Window / concentration.** The native window is 2023-03→2026-07 and **2023
-  alone carries +120R of the +196R**; 2024 was negative (−28R). A single
-  strong-trend year does most of the work — concentration risk, not a proven
-  multi-regime edge. If the GC=F/spot demote windows spanned different years,
-  that alone could flip the sign.
-- **Session / vendor structure.** Native MGC futures (~23h/day) vs GC=F (Yahoo
-  futures) vs XAUUSD spot (24h) have different bar/session structures a breakout
-  reads differently.
+**unresolved cross-series conflict**, not a settled promotion case.
 
-**Recommendation (unchanged action, corrected reason):** `mgc_trend_1h` **stays
-`shadow`** — but NOT for "roll artifact" (refuted); for an **unresolved
-cross-series/regime conflict with 2023-concentrated returns**. Before any Tier-3
-promotion it needs a **window-aligned walk-forward / OOS** test reconciling the
-native-MGC vs GC=F vs spot disagreement (same windows, same fee, per-year
-stability). That is a *proposed research follow-up*, **not** a promotion — no
-`strategies.yaml` change here. The roll-adjustment tooling that made this test
-possible (`ml/datasets/continuous.py` + the per-contract pull, #5870) is now in
-place and reusable for the intraday breakout candidates.
+**The 2023-concentration hypothesis has now also been TESTED and REFUTED
+(window-aligned walk-forward, 2026-07-07 —
+`docs/research/mgc-trend-1h-walkforward-2026-07-07.md`).** The worry was that the
+native +196R was just 2023 (**+120R of it sits in 2023**) while the GC=F/spot
+demote windows start in 2024. Restricting the native MGC continuous series to the
+**exact demote window (2024-01→2026-06)** — 2023 fully excluded — still yields
+**+77.0R** (570 trades; per-year 2024 −26.8 / 2025 +71.0 / 2026-H1 +31.9). So on
+the identical window, native MGC (+77R) still disagrees **by sign** with GC=F
+(−15.5R) and spot (−50.7R). The cross-series conflict is therefore **structural**
+(instrument / vendor / session — native COMEX MGC micro ~23h vs GC=F full-size
+Yahoo futures vs 24h spot), **not** a windowing/concentration artifact. Note the
+native series is nonetheless **regime-dependent**: even in the aligned window its
+2024 is −26.8R (positive-but-with-a-losing-year, not a clean multi-regime edge).
+
+**Recommendation (unchanged action, reason now fully pinned down):**
+`mgc_trend_1h` **stays `shadow`** — NOT for "roll artifact" (refuted) and NOT for
+"2023-concentration" (refuted by the aligned walk-forward); it stays shadow for
+an **unresolved *structural* cross-series conflict**: you can't promote a cell on
+one series (native MGC +77R) when the two other legitimate representations of the
+same underlying are negative on the identical window, because it's not yet known
+which series a live MGC-micro fill tracks. The proposed follow-up is now to
+**isolate the driver** (matched-session re-pull of GC=F/spot on the native window
+bounds) — see the walk-forward note. **No `strategies.yaml` change here.** The
+roll-adjustment tooling that made this possible (`ml/datasets/continuous.py` +
+the per-contract pull, #5870) is in place and reusable for the intraday breakout
+candidates.
 
 ## Cross-cutting caveats
 - **Sample size:** 29–33 daily trades over ~4y is modest (a daily pullback fires
@@ -113,23 +121,28 @@ place and reusable for the intraday breakout candidates.
   continuous series (`build_continuous_contract.py`) for correctness, but the gap
   is a modest correction here, not an edge-manufacturing artifact.
 
-## Intraday shortlist — deferred (but the roll-artifact worry is now quantified)
+## Intraday shortlist — RUN (roll-artifact worry quantified, one strong find)
 The intraday test matrix (`docs/research/ib-intraday-strategy-survey-2026-07-07.md`
-#1/#2/#5/#6/#7) can now be run **honestly** on the roll-adjusted continuous series
-the per-contract pull + `build_continuous_contract.py` produce. The earlier fear
-that native-futures breakout results are dominated by roll gaps is **disproved**
-for MGC 1h (~11% impact), so the trend/breakout candidates are worth a clean
-native run rather than being written off. The survey's headline (**no *validated*
-intraday edge yet**) still stands pending those runs + a window-aligned
-walk-forward. Deferred to a scoped follow-up.
+#1/#2/#5/#6/#7) has now been run **honestly** on the roll-adjusted continuous
+series (`docs/research/ib-intraday-shortlist-backtest-2026-07-07.md`, #5902). The
+earlier fear that native-futures breakout results are dominated by roll gaps is
+**disproved** for MGC 1h (~11% impact). Headline: one strong candidate —
+**MGC pullback 1h (+185R over ~3.3y, +0.56R expectancy, positive every calendar
+year)** — a GO-to-walk-forward; the trend/breakout intraday cells are weak (MGC
+trend 4h +27R, 2023-concentrated) and MES cells are data-starved. Still a
+*candidate* pending a proper walk-forward + `account_compat_matrix`, not a
+promotion.
 
 ## Bottom line
 The two **LIVE** metals paper strategies are **validated on their own instrument
 for the first time** and both **confirm** — keep them live. The **shadow**
 `mgc_trend_1h` cell got its **definitive native-instrument test** (roll-adjusted
-continuous MGC 1h): the earlier "roll artifact" call is **refuted** — the edge is
-real and strongly positive (+196R clean, only 11% below the spliced +221R) — but
-it **stays shadow** because it now *conflicts* with the GC=F −15.5R / spot −50.7R
-demote on a 2023-concentrated window; the promotion case needs a window-aligned
-walk-forward, not a config flip. And the COMEX fix + the roll-adjustment tooling
-(#5870) mean the whole sleeve is now natively AND continuously backtestable.
+continuous MGC 1h) plus a **window-aligned walk-forward**: the "roll artifact"
+call is **refuted** (+196R clean, only 11% below the spliced +221R) AND the
+"2023-concentration" call is **refuted** (+77R on the 2023-excluded 2024-01→2026-06
+window). It **stays shadow** for the surviving reason — an **unresolved
+*structural* cross-series conflict** (native MGC +77R vs GC=F −15.5R vs spot
+−50.7R on the identical window); the promotion case needs the driver isolated
+(matched-session re-pull), not a config flip. And the COMEX fix + the
+roll-adjustment tooling (#5870) mean the whole sleeve is now natively AND
+continuously backtestable.
