@@ -213,8 +213,15 @@ class TestAccountsYaml:
         # turtle_soup/vwap/ict_scalp_5m were DROPPED from ib_paper 2026-07-07
         # (PR #5850): they are BTCUSDT strategies that no-op on this IBKR
         # futures account (MES/MGC/MHG only) — dead routing, not real coverage.
+        # spy_trend_long_1d/qqq_trend_long_1d/iwm_trend_long_1d/tlt_pullback_1d
+        # added 2026-07-07 (IBKR equity/ETF STK support step 6) — the 4
+        # alpaca_paper ETF cells that scored ROUTE against ib_paper's own
+        # ruleset (mandatory scripts/ops/etf_account_compat.sh run, issue
+        # #5908); see the accounts.yaml comment for the full compat-matrix
+        # record and the 9 cells that SKIPPED and stay unwired.
         assert paper["strategies"] == [
             "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d", "mgc_trend_1h",
+            "spy_trend_long_1d", "qqq_trend_long_1d", "iwm_trend_long_1d", "tlt_pullback_1d",
         ]
 
         live = accts["ib_live"]
@@ -272,8 +279,11 @@ class TestLoadAccounts:
         assert paper.ib_client_id == 497
         assert paper.strategies == [
             "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d", "mgc_trend_1h",
+            "spy_trend_long_1d", "qqq_trend_long_1d", "iwm_trend_long_1d", "tlt_pullback_1d",
         ]  # long-only diversifier + WS-A metals sleeve; BTCUSDT strats (turtle_soup/
-        #   vwap/ict_scalp_5m) dropped 2026-07-07 (#5850) — dead no-ops on IBKR futures
+        #   vwap/ict_scalp_5m) dropped 2026-07-07 (#5850) — dead no-ops on IBKR futures.
+        #   4 ETF cells added 2026-07-07 (STK support step 6) — ROUTE-verdict per
+        #   the mandatory account_compat_matrix run (issue #5908).
 
         live = accounts["ib_live"]
         assert live.dry_run is True           # mode: dry_run
