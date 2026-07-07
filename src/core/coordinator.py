@@ -1295,6 +1295,23 @@ class Coordinator:
                 _market_type = (
                     getattr(account, "market_type", "spot") or "spot"
                 ).lower()
+                # IBKR equity/ETF override (2026-07-07,
+                # docs/integrations/ibkr-equity-etf-support-DESIGN.md §4.3).
+                # ib_paper mixes futures (MES/MGC/MHG, market_type: futures in
+                # accounts.yaml) and equities (the alpaca-ETF basket, reused
+                # on the same clientId per the 2026-07-07 operator decision)
+                # on ONE account — a single static account-level market_type
+                # can't express that split. Resolve it PER ORDER from the
+                # package's symbol: a STK symbol sizes on the whole-SHARE
+                # path (round-up-to-1-share relaxation + the margin/
+                # buying-power notional cap) instead of inheriting the
+                # account's strict futures refuse-sub-1-contract path. A
+                # symbol the resolver doesn't recognize (incl. every
+                # non-IBKR account, where this is a no-op) keeps the
+                # account's configured market_type unchanged.
+                if (account.exchange or "").lower() == "interactive_brokers":
+                    from src.units.accounts.ib_instruments import ib_order_market_type
+                    _market_type = ib_order_market_type(pkg.symbol, default=_market_type)
                 available_usd = None
                 total_account_usd = None
                 if (
@@ -1388,7 +1405,15 @@ class Coordinator:
                         # reject fractional shares). The RiskManager is built from
                         # the risk sub-block and never sees the exchange, so resolve
                         # it from the account here (BL-20260622-ALPACA-FRACTIONAL-SIZE).
-                        whole_units=requires_whole_unit_qty(account.exchange),
+                        # ``_market_type == "equity"`` is the IBKR-STK override
+                        # resolved above — same whole-share treatment as alpaca
+                        # (round-up-to-1-share relaxation on a sub-1 risk-based
+                        # ideal), extended 2026-07-07 to a symbol-resolved IB
+                        # equity/ETF order.
+                        whole_units=(
+                            requires_whole_unit_qty(account.exchange)
+                            or _market_type == "equity"
+                        ),
                     )
             except Exception as exc:  # noqa: BLE001
                 logger.exception(

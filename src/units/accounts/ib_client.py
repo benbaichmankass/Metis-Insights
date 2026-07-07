@@ -60,6 +60,8 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from src.units.accounts.ib_instruments import ib_instrument_spec, is_ib_equity_symbol
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_IB_HOST = "127.0.0.1"
@@ -162,6 +164,10 @@ MES_TICK_SIZE = 0.25
 MGC_TICK_SIZE = 0.10
 # MHG (Micro Copper, COMEX) trades in 0.0005 ticks ($1.25/tick on 2,500 lb).
 MHG_TICK_SIZE = 0.0005
+# US equities/ETFs (the STK branch, 2026-07-07) trade in penny ticks —
+# distinct from the futures grids above, which is why this can't just be
+# the MES_TICK_SIZE default (0.25 would corrupt an equity limit price).
+US_EQUITY_TICK_SIZE = 0.01
 
 # Per-symbol tick-size lookup. SL/TP prices sent to IB must sit on the
 # contract's tick grid or the order is rejected; the lookup keeps the
@@ -174,8 +180,21 @@ TICK_SIZES: Dict[str, float] = {
 
 
 def tick_size_for(symbol: Optional[str]) -> float:
-    """Return the contract tick size for *symbol* (defaults to MES)."""
-    return TICK_SIZES.get(str(symbol or "MES").upper(), MES_TICK_SIZE)
+    """Return the contract tick size for *symbol* (defaults to MES).
+
+    Checks the explicit futures grid first (unchanged), then the IB
+    instrument-type resolver: any symbol that resolves to a STK contract
+    gets the standard US-equity penny tick rather than falling through to
+    the MES 0.25 default, which would round an equity SL/TP onto the wrong
+    grid. A symbol this resolver doesn't recognize keeps the MES default
+    (unchanged pre-2026-07-07 behavior).
+    """
+    sym = str(symbol or "MES").upper()
+    if sym in TICK_SIZES:
+        return TICK_SIZES[sym]
+    if is_ib_equity_symbol(sym):
+        return US_EQUITY_TICK_SIZE
+    return MES_TICK_SIZE
 
 
 class IBConnectionError(RuntimeError):
@@ -722,27 +741,36 @@ class IBClient:
     # ------------------------------------------------------------------
 
     def _build_contract(self, symbol: Optional[str] = None) -> Any:
-        """Resolve and cache the front-month future contract for *symbol*.
+        """Resolve and cache the IB contract for *symbol* (futures or equity).
 
-        Uses ib_insync's continuous-future lookup to find the active
-        front month, then qualifies the concrete ``Future`` so it carries
-        a ``conId`` IB will accept on an order. Three symbols are wired:
-        ``MES`` (Micro E-mini S&P 500, CME) and the WS-A metals sleeve
-        ``MGC`` (Micro Gold, COMEX) + ``MHG`` (Micro Copper, COMEX). Any
-        other symbol raises ``ValueError`` (a stray BTCUSDT package must
-        never reach here). The resolved contract is cached on the client.
+        Per-symbol instrument-type resolution (FUT vs STK) via
+        :func:`~src.units.accounts.ib_instruments.ib_instrument_spec`
+        (``config/instruments.yaml::instruments.<SYM>.ib``, falling back to
+        the legacy ``{MES: CME, MGC: COMEX, MHG: COMEX}`` futures map for
+        back-compat). An unmapped symbol raises ``ValueError`` from the
+        resolver — a stray BTCUSDT package must never reach here.
+
+        **Futures** (unchanged behavior): uses ib_insync's continuous-future
+        lookup to find the active front month, then qualifies the concrete
+        ``Future`` so it carries a ``conId`` IB will accept on an order.
+
+        **Equities/ETFs** (added 2026-07-07,
+        docs/integrations/ibkr-equity-etf-support-DESIGN.md §4.2): builds a
+        ``Stock`` with SMART routing + a ``primaryExchange`` hint (the
+        IBKR-recommended way to avoid ambiguous-contract errors for a US
+        equity) and qualifies it directly — no front-month rollover to
+        resolve.
+
+        The resolved contract is cached on the client, keyed per-symbol —
+        this guard matters more now than before the STK branch existed:
+        ``ib_paper`` mixes futures and equities on one clientId
+        (operator decision 2026-07-07), so a stale cache from a different
+        symbol must never leak a FUT contract into a STK order or vice
+        versa.
         """
         sym = str(symbol or self.symbol or "MES").upper()
-        # symbol → IB primary exchange. CME for the equity-index micro;
-        # COMEX for the metals micros.
-        ib_exchanges = {"MES": "CME", "MGC": "COMEX", "MHG": "COMEX"}
-        ib_exchange = ib_exchanges.get(sym)
-        if ib_exchange is None:
-            raise ValueError(
-                f"IBClient: only {sorted(ib_exchanges)} are wired for the IB "
-                f"execution path; got symbol={sym!r}. Add the contract spec to "
-                f"_build_contract before routing it to an IB account."
-            )
+        spec = ib_instrument_spec(sym)  # raises ValueError for an unmapped symbol
+
         # Cache is per-symbol — guard against a stale cache from a different
         # symbol when one client is reused across instruments.
         cached = self._contract
@@ -750,10 +778,32 @@ class IBClient:
             return cached
         ib = self.connect()
         try:
-            from ib_insync import ContFuture, Future  # type: ignore
+            from ib_insync import ContFuture, Future, Stock  # type: ignore
         except ImportError:
-            from ib_async import ContFuture, Future  # type: ignore
-        cont = ContFuture(sym, ib_exchange, currency="USD")
+            from ib_async import ContFuture, Future, Stock  # type: ignore
+
+        if spec.sec_type == "STK":
+            contract = Stock(
+                sym,
+                spec.exchange or "SMART",
+                spec.currency or "USD",
+                primaryExchange=spec.primary_exchange,
+            )
+            ib.qualifyContracts(contract)
+            con_id = getattr(contract, "conId", 0)
+            if not con_id:
+                raise IBConnectionError(
+                    f"IBClient: could not resolve the {sym} equity contract "
+                    "from the Gateway (empty conId). Check US-equity "
+                    "market-data / contract permissions on the IB account."
+                )
+            self._contract = contract
+            return contract
+
+        # Futures path (unchanged; ``ib_exchange`` now sourced from the
+        # resolver rather than a hardcoded dict literal).
+        ib_exchange = spec.exchange
+        cont = ContFuture(sym, ib_exchange, currency=spec.currency or "USD")
         ib.qualifyContracts(cont)
         con_id = getattr(cont, "conId", 0)
         if not con_id:

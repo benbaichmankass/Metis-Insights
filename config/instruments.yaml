@@ -25,14 +25,32 @@
 #                        inferred from exchange/category/base_asset, so this is a
 #                        pin for the ambiguous cases (a gold ETF on an equity
 #                        venue, an index future on IB, …).
+#   ib:                  OPTIONAL per-symbol IBKR instrument-type map (added
+#                        2026-07-07, docs/integrations/ibkr-equity-etf-support-DESIGN.md
+#                        §4.1). Consumed by
+#                        src/units/accounts/ib_instruments.py::ib_instrument_spec()
+#                        — the single source of truth for "is this symbol a
+#                        FUT or a STK on IBKR, and on which exchange?", used by
+#                        IBClient._build_contract (src/units/accounts/ib_client.py)
+#                        and the coordinator's per-order whole-share sizing
+#                        resolution. Fields: sec_type (FUT|STK), exchange
+#                        (CME/COMEX for futures; SMART for equities),
+#                        primary_exchange (equities only — a qualifyContracts
+#                        disambiguation hint), currency. A symbol with no `ib:`
+#                        block falls back to the legacy MES/MGC/MHG futures map
+#                        inside the resolver (purely additive; unmapped symbols
+#                        still raise a clear error rather than routing wrong).
 #
 # Adding a new instrument:
 #   1. Add entry here following the schema above.
 #   2. If IB: ensure the execution layer handles the symbol before enabling
-#      live. The IB execution path is wired (2026-05-21): IBClient
-#      (src/units/accounts/ib_client.py) + the interactive_brokers branch in
-#      execute._submit_order currently build the MES contract only — extend
-#      IBClient._build_contract before routing a new IB symbol.
+#      live. The IB execution path is wired (2026-05-21, STK support added
+#      2026-07-07): IBClient (src/units/accounts/ib_client.py) +
+#      the interactive_brokers branch in execute._submit_order build the
+#      contract via ib_instrument_spec() — add the symbol's `ib:` block above
+#      before routing a new IB symbol (futures need a new sec_type:FUT entry
+#      only if it isn't MES/MGC/MHG; equities/ETFs always need a sec_type:STK
+#      entry — there is no equity default).
 #   3. Add the symbol to the relevant strategy's config/strategies.yaml entry.
 #   4. Run tests/test_s2_profile_wiring.py to validate the new entry loads cleanly.
 
@@ -162,6 +180,7 @@ instruments:
     contract_value_usd: 5.0     # $5 per index point per contract
     max_leverage: 0             # no leverage cap (futures margin set by broker)
     display_name: "Micro E-mini S&P 500 (CME/IB)"
+    ib: { sec_type: FUT, exchange: CME, currency: USD }
 
   # ------------------------------------------------------------------
   # MGC — Micro Gold futures via COMEX / Interactive Brokers (WS-A, 2026-06-02)
@@ -185,6 +204,7 @@ instruments:
     contract_value_usd: 10.0    # 10 troy oz per contract
     max_leverage: 0             # no leverage cap (futures margin set by broker)
     display_name: "Micro Gold (COMEX/IB)"
+    ib: { sec_type: FUT, exchange: COMEX, currency: USD }
 
   # ------------------------------------------------------------------
   # MHG — Micro Copper futures via COMEX / Interactive Brokers (WS-A, 2026-06-02)
@@ -207,6 +227,7 @@ instruments:
     contract_value_usd: 2500.0  # 2,500 lb per contract
     max_leverage: 0             # no leverage cap (futures margin set by broker)
     display_name: "Micro Copper (COMEX/IB)"
+    ib: { sec_type: FUT, exchange: COMEX, currency: USD }
 
   # ------------------------------------------------------------------
   # XAUUSD — spot gold vs USD via OANDA v20 (practice account first).
@@ -246,6 +267,7 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "SPDR S&P 500 ETF (Alpaca paper)"
+    ib: { sec_type: STK, exchange: SMART, primary_exchange: ARCA, currency: USD }
 
   QQQ:
     exchange: alpaca
@@ -260,6 +282,7 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "Invesco QQQ ETF (Alpaca paper)"
+    ib: { sec_type: STK, exchange: SMART, primary_exchange: NASDAQ, currency: USD }
 
   # ------------------------------------------------------------------
   # Leveraged Nasdaq-100 ETFs (2026-06-30, Tier-3) — TQQQ (3x) + QLD (2x),
@@ -284,6 +307,7 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "ProShares UltraPro QQQ 3x ETF (Alpaca)"
+    ib: { sec_type: STK, exchange: SMART, primary_exchange: NASDAQ, currency: USD }
 
   QLD:
     exchange: alpaca
@@ -298,6 +322,7 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "ProShares Ultra QQQ 2x ETF (Alpaca)"
+    ib: { sec_type: STK, exchange: SMART, primary_exchange: ARCA, currency: USD }
 
   GLD:
     exchange: alpaca
@@ -312,6 +337,7 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "SPDR Gold Shares ETF (Alpaca paper)"
+    ib: { sec_type: STK, exchange: SMART, primary_exchange: ARCA, currency: USD }
 
   # ------------------------------------------------------------------
   # ETF-breadth daily sweep (2026-06-20) — three new Alpaca-paper ETF cells:
@@ -331,6 +357,7 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "iShares Russell 2000 ETF (Alpaca paper)"
+    ib: { sec_type: STK, exchange: SMART, primary_exchange: ARCA, currency: USD }
 
   TLT:
     exchange: alpaca
@@ -346,6 +373,7 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "iShares 20+ Year Treasury Bond ETF (Alpaca paper)"
+    ib: { sec_type: STK, exchange: SMART, primary_exchange: NASDAQ, currency: USD }
 
   IEF:
     exchange: alpaca
@@ -361,6 +389,7 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "iShares 7-10 Year Treasury Bond ETF (Alpaca paper)"
+    ib: { sec_type: STK, exchange: SMART, primary_exchange: NASDAQ, currency: USD }
 
   # ------------------------------------------------------------------
   # Intraday ETF pilot (2026-06-20 § 0e) — new Alpaca-paper silver ETF for the
@@ -380,6 +409,7 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "iShares Silver Trust ETF (Alpaca paper)"
+    ib: { sec_type: STK, exchange: SMART, primary_exchange: ARCA, currency: USD }
 
   # ------------------------------------------------------------------
   # Intraday ETF rollout 2b (2026-06-20 § 0e) — new Alpaca-paper crude-oil ETF
@@ -400,6 +430,7 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "United States Oil Fund ETF (Alpaca paper)"
+    ib: { sec_type: STK, exchange: SMART, primary_exchange: ARCA, currency: USD }
 
   # ------------------------------------------------------------------
   # GDX: VanEck Gold Miners ETF — new Alpaca cell for gdx_pullback_1d.
@@ -421,3 +452,4 @@ instruments:
     contract_value_usd: 1.0
     max_leverage: 4
     display_name: "VanEck Gold Miners ETF (Alpaca)"
+    ib: { sec_type: STK, exchange: SMART, primary_exchange: ARCA, currency: USD }
