@@ -30,6 +30,7 @@ from src.runtime.positions import net_positions_by_symbol
 from src.utils.paths import trade_journal_db_path
 from src.web.api._clean_trades import (
     exclude_reconciler_predicate,
+    exclude_reset_flat_predicate,
     exclude_superseded_predicate,
     not_paper_predicate,
 )
@@ -104,7 +105,11 @@ def _query_attribution(db_path: Path) -> List[Dict[str, Any]]:
             # Canonical predicates (src.web.api._clean_trades). ``_excl`` drops
             # reconciler ``orphan_adopt`` artifacts from the per-strategy stats.
             _not_paper = not_paper_predicate("")
-            _excl = exclude_reconciler_predicate("") + exclude_superseded_predicate("")
+            _excl = (
+                exclude_reconciler_predicate("")
+                + exclude_superseded_predicate("")
+                + exclude_reset_flat_predicate("")
+            )
             closed_rows = conn.execute(
                 f"""
                 SELECT

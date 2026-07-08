@@ -155,6 +155,13 @@ EXPECTED_ACTIONS = {
     # void-flag the historical phantom paper rows that the equity-pricing
     # sweep fabricated. DRY-RUN by default; apply gated + DB backup.
     "supersede-options-adoption-artifacts": "supersede_options_adoption_artifacts_action.sh",
+    # 2026-07-07 — one-shot cleanup of the alpaca_paper external-reset
+    # orphan-adoption artifacts (BL-20260707-ALPACA-RESET; live-path fix in
+    # #5951): void-flag the historical BARE phantom paper rows
+    # (strategy_name='orphan_adopt' + NULL order_package_id) the equity-pricing
+    # sweep fabricated. DRY-RUN by default; apply gated + DB backup; optional
+    # ids: allowlist. A genuinely-reattached orphan is categorically excluded.
+    "supersede-reset-orphan-artifacts": "supersede_reset_orphan_artifacts_action.sh",
     # 2026-07-06 — one-shot repair of the mis-linked ETH prop close
     # (BL-20260706-PROP-CLOSE-MISLINK; root cause fixed in #5744): relink the
     # close fill to the real position ticket, close it, restore the phantom.
@@ -203,6 +210,7 @@ TIER_2_ACTIONS = {
     "flatten-bybit-position",
     "reconcile-orphan-history",
     "supersede-options-adoption-artifacts",
+    "supersede-reset-orphan-artifacts",
     "fix-prop-mislinked-close",
     "reset-daily-risk-state",
 }

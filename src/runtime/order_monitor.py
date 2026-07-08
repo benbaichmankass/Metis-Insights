@@ -1677,6 +1677,17 @@ _DEFAULT_READOPT_GUARD_SECONDS = 300
 # adopted orphan is by definition already confirmed live on the exchange).
 _DEFAULT_SNAPSHOT_MIN_FILL_AGE_SECONDS = 300
 
+# Account-reset detection (operator-requested 2026-07-08). When the
+# position-snapshot reconciler confirms >= this many strategy-attributed
+# positions on ONE account absent in a single pass, that is a wholesale
+# account RESET (the 2026-07-07 alpaca_paper paper-account reset wiped all 8
+# positions at once), not a set of individual disappearances. Reset-driven
+# closes are tagged ``exit_reason='exchange_reset_flat'`` (excluded from
+# strategy performance — they aren't strategy exits) and fire ONE consolidated
+# alert instead of one per position. 3 keeps a normal 1-2 position exit out of
+# the reset path while catching any genuine wipe.
+_ACCOUNT_RESET_SNAPSHOT_THRESHOLD = 3
+
 # Exit-coverage reattach-or-close (2026-06-15): an open ``orphan_adopt`` trade
 # with NO recoverable order package has no rational exit strategy and is
 # flattened. Like ``_PENDING_CLOSE_CONFIRM`` above, the flatten waits for a 2nd
@@ -2180,6 +2191,42 @@ def _orphan_position_policy() -> str:
     return "adopt"
 
 
+def _alert_account_reset(account_id: str, symbols: List[str]) -> None:
+    """One consolidated 'account reset detected' alert (Telegram + WARNING FCM).
+
+    Fired once when the position-snapshot reconciler closes
+    >= ``_ACCOUNT_RESET_SNAPSHOT_THRESHOLD`` positions for one account in a
+    single pass (a wholesale paper-account reset), instead of one ping per
+    closed position (the 2026-07-07 alpaca_paper reset fired 8 separate pings).
+    Best-effort — never raises into the reconcile sweep.
+    """
+    uniq: List[str] = []
+    for s in symbols:
+        if s and s not in uniq:
+            uniq.append(s)
+    n = len(symbols)
+    msg = (
+        f"\U0001F501 [ALERT] Account RESET detected: {account_id}\n"
+        f"{n} open position(s) vanished from the exchange in one snapshot "
+        f"({', '.join(uniq[:12])}{' …' if len(uniq) > 12 else ''}) — the "
+        "account was reset/wiped externally (NOT by the bot). The DB rows were "
+        "closed to match (tagged exchange_reset_flat, excluded from strategy "
+        "performance); strategies re-enter as normal. If this recurs, check "
+        "who/what has reset access to the account."
+    )
+    try:
+        from src.runtime.notify import send_telegram_direct
+        send_telegram_direct(msg, parse_mode=None, mirror_to_fcm=False)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_alert_account_reset: telegram send failed: %s", exc)
+    try:
+        from src.runtime.mobile_push import publish_event
+        from src.runtime.mobile_push.event_kinds import WARNING
+        publish_event(WARNING, {"text": msg})
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("_alert_account_reset: fcm WARNING publish failed: %s", exc)
+
+
 def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
     """Reverse reconciler — finds Bybit positions with no journal row.
 
@@ -2264,6 +2311,10 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         # SUCCESSFUL exchange snapshot and closed (snapshot_closed), or absent
         # this pass but inside the 2-observation confirm window (snapshot_pending).
         "snapshot_closed": 0,
+        # Subset of snapshot_closed that closed as part of a wholesale account
+        # RESET (>= _ACCOUNT_RESET_SNAPSHOT_THRESHOLD absent at once) —
+        # exit_reason='exchange_reset_flat', excluded from strategy performance.
+        "snapshot_reset_closed": 0,
         "snapshot_pending": 0,
         # Strategy-attributed rows absent from the snapshot but younger than the
         # fresh-fill grace (_snapshot_min_fill_age_seconds) — skipped, NOT armed
@@ -2495,6 +2546,14 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         _supports_order_status = account_supports_management(cfg, "order_status")
         _supports_open_positions = account_supports_management(cfg, "open_positions")
         if not _supports_order_status and _supports_open_positions:
+            # Collect the rows that reach "close now" (confirm-window elapsed)
+            # this pass, then decide AFTER the loop whether this is a wholesale
+            # account RESET (>= _ACCOUNT_RESET_SNAPSHOT_THRESHOLD positions
+            # vanishing at once — the 2026-07-07 alpaca_paper paper-reset
+            # signature) vs individual disappearances. A reset tags its closes
+            # `exchange_reset_flat` (excluded from strategy metrics — they aren't
+            # strategy exits) and fires ONE consolidated alert instead of N.
+            _snapshot_to_close: List[Tuple[Any, int, str, str]] = []
             for r in open_rows:
                 # orphan_adopt rows are owned by the close-on-disappear pass
                 # above; only reconcile genuine strategy-attributed trades.
@@ -2562,31 +2621,59 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                     summary["snapshot_pending"] += 1
                     continue
                 _PENDING_SNAPSHOT_DISAPPEAR_CONFIRM.pop(tid_int, None)
+                # Defer the close: collect it and decide reset-vs-single AFTER
+                # the whole account's open_rows are scanned (below).
+                _snapshot_to_close.append((r, tid_int, sym, canonical))
+
+            # ── decide: wholesale account RESET vs individual disappearance ──
+            _is_reset = (
+                len(_snapshot_to_close) >= _ACCOUNT_RESET_SNAPSHOT_THRESHOLD
+            )
+            _reset_exit_reason = (
+                "exchange_reset_flat" if _is_reset else "exchange_flat_reconciled"
+            )
+            _reset_note = (
+                (
+                    f"account-wide RESET detected: {len(_snapshot_to_close)} "
+                    "positions confirmed absent from the exchange snapshot in one "
+                    "pass (paper-account reset / wholesale wipe). NOT strategy "
+                    "exits — excluded from strategy performance. PnL via local sweep."
+                )
+                if _is_reset else
+                (
+                    "(symbol, side) confirmed absent from the exchange "
+                    "open-positions snapshot across two observations; integration "
+                    "has no per-order status reader (non-Bybit). PnL filled by the "
+                    "local-PnL sweep (mark-to-market)."
+                )
+            )
+            _reset_closed_syms: List[str] = []
+            for (r, tid_int, sym, canonical) in _snapshot_to_close:
                 try:
                     db.update_trade(tid_int, {
                         "status": "closed",
-                        "exit_reason": "exchange_flat_reconciled",
+                        "exit_reason": _reset_exit_reason,
                         "closed_at": now_iso,
                         "notes": json.dumps({
                             "closed_at": now_iso,
                             "closed_by": "position_snapshot_reconciler",
-                            "closed_reason": (
-                                "(symbol, side) confirmed absent from the "
-                                "exchange open-positions snapshot across two "
-                                "observations; integration has no per-order "
-                                "status reader (non-Bybit). PnL filled by the "
-                                "local-PnL sweep (mark-to-market)."
-                            ),
+                            "reset_event": _is_reset,
+                            "closed_reason": _reset_note,
                         }, ensure_ascii=False)[:500],
                     })
                     # Cascade-close the linked order package, like every other
                     # reconciler close path.
                     _cascade_close_linked_package(
                         db, tid_int,
-                        close_reason="exchange_flat_reconciled",
+                        close_reason=_reset_exit_reason,
                         caller="_reconcile_orphan_exchange_positions(snapshot)",
                     )
                     summary["snapshot_closed"] += 1
+                    if _is_reset:
+                        summary["snapshot_reset_closed"] = (
+                            summary.get("snapshot_reset_closed", 0) + 1
+                        )
+                        _reset_closed_syms.append(str(sym))
                     # Sweep resting protective legs now the position is confirmed
                     # flat (this snapshot reconcile never went through
                     # IBClient.close) so a stale IB OCA stop can't fire and flip
@@ -2595,9 +2682,11 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                     logger.warning(
                         "_reconcile_orphan_exchange_positions: CLOSED via "
                         "position-snapshot reconcile — trade_id=%s account=%s "
-                        "symbol=%s side=%s strategy=%s (confirmed absent from "
-                        "exchange snapshot; PnL via local sweep)",
+                        "symbol=%s side=%s strategy=%s reset=%s exit_reason=%s "
+                        "(confirmed absent from exchange snapshot; PnL via local "
+                        "sweep)",
                         tid_int, aid, sym, canonical, r["strategy_name"],
+                        _is_reset, _reset_exit_reason,
                     )
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(
@@ -2606,6 +2695,20 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                         r.get("id"), aid, sym, exc,
                     )
                     summary["errors"] += 1
+
+            # One consolidated alert for a wholesale reset (instead of N
+            # per-close pings) — operator-requested 2026-07-08 after the
+            # alpaca_paper paper-account reset closed 8 positions at once and
+            # fired 8 separate Telegram pings. Best-effort; a notify failure
+            # never aborts the reconcile sweep.
+            if _is_reset and _reset_closed_syms:
+                try:
+                    _alert_account_reset(aid, _reset_closed_syms)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "_reconcile_orphan_exchange_positions: reset-alert "
+                        "enqueue failed for account=%s: %s", aid, exc,
+                    )
 
         if not positions:
             # No exchange positions to walk for the adopt pass; the
