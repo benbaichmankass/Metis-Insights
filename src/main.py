@@ -715,6 +715,21 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 logger.exception("account_reachability_check tick failed")
 
+            # Trainer-VM-down alert (operator-requested 2026-07-08): the trainer
+            # VM can go SSH-dead / OOM-hung and nothing fires a loud alert. The
+            # trainer rsyncs trainer_status.json into the mirror every ~2 min, so
+            # a mirror stale beyond TRAINER_DOWN_STALE_SECONDS (default 20 min) is
+            # a confirmed DOWN. Latched: one 🔴 DOWN ping (Telegram + WARNING FCM)
+            # + surfaced on /api/bot/notifications for the app banners, one 🟢 OK
+            # on recovery. Internally cadence-gated (5 min); best-effort.
+            try:
+                from src.runtime.trainer_reachability_alert import (
+                    run_trainer_reachability_check,
+                )
+                run_trainer_reachability_check()
+            except Exception:  # noqa: BLE001
+                logger.exception("trainer_reachability_check tick failed")
+
             # IB connection-state legibility (BL-20260707-IB-STATE-LEGIBILITY):
             # dump each live IBClient's non-blocking connection_state() to
             # runtime_logs/ib_state.json so the SEPARATE web-api process can

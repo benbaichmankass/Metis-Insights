@@ -30,6 +30,7 @@ from src.web.api.routers import allocator as allocator_router
 from src.web.api.routers import liquidity as liquidity_router
 from src.web.api.routers import market_ws as market_ws_router
 from src.web.api.routers import news as news_router
+from src.web.api.routers import notifications as notifications_router
 from src.web.api.routers import order_packages as order_packages_router
 from src.web.api.routers import pnl as pnl_router
 from src.web.api.routers import prop as prop_router
@@ -89,6 +90,7 @@ app.include_router(devices_router.router)
 app.include_router(insights_router.router)
 app.include_router(gpu_spend_router.router)
 app.include_router(news_router.router)
+app.include_router(notifications_router.router)
 app.include_router(exit_ladder_router.router)
 app.include_router(fc_geometry_router.router)
 app.include_router(allocator_router.router)
