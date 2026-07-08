@@ -962,6 +962,81 @@ def render_accounts_report(report: Dict[str, Any]) -> str:
     )
 
 
+def render_combined_report(report: Dict[str, Any]) -> str:
+    """Render the strategy + accounts halves as ONE HTML message.
+
+    The operator wants a single hourly ping (directive 2026-07-08), but the
+    old path rendered the two halves *separately* and concatenated them —
+    each half was already ``_truncate``-capped at Telegram's 4096-char limit,
+    so the concatenation ran up to ~8192 chars and the "send as one" guard
+    (``combined <= 4096``) almost never held, silently falling back to two
+    messages every hour.
+
+    Rendering everything through a **single** ``render_html`` call fixes that
+    structurally: one header, all sections (strategy → training → accounts),
+    one footer, and the shared ``_truncate`` guarantees the whole thing fits
+    in one Telegram message (the verbose tail is collapsed in expandable
+    blockquotes and truncated last if the hour is unusually noisy).
+    """
+    from src.units.ui.telegram_format import render_html
+
+    now: datetime = report["now_utc"]
+    health = report["health"]
+    glyph = _overall_glyph(health["overall"])
+    sections = (
+        _build_strategy_sections(
+            ticks=report["ticks"],
+            strategies=report["strategies"],
+            outcomes=report["outcomes"],
+            health=health,
+        )
+        + [_build_training_section(report.get("training"))]
+        + _build_account_sections(
+            trades=report["trades"], accounts=report["accounts"],
+        )
+    )
+    footer = {
+        "ok": "All systems normal",
+        "warn": "WARN: errors logged but no critical issues",
+        "degraded": "ACTION NEEDED: see Errors / Health sections",
+    }.get(health["overall"], "")
+    return render_html(
+        header=f"[{glyph}] Hourly Snapshot — {now.strftime('%Y-%m-%d %H:00 UTC')}",
+        sections=sections,
+        footer=footer,
+    )
+
+
+def build_combined_hourly_report(
+    *,
+    now_utc: Optional[datetime] = None,
+    tick_interval_s: int = 900,
+) -> str:
+    """Assemble + render the combined (strategy + accounts) hourly snapshot.
+
+    One data sweep, one HTML message. This is the single-ping producer the
+    hourly-snapshot service uses; ``build_hourly_report`` /
+    ``build_accounts_hourly_report`` remain for callers that want the halves
+    separately (e.g. the ``/hourly`` command).
+    """
+    try:
+        return render_combined_report(
+            assemble_hourly_data(
+                now_utc=now_utc, tick_interval_s=tick_interval_s,
+            )
+        )
+    except Exception as exc:  # noqa: BLE001  # allow-silent: the hourly report must never raise — a report-assembly failure degrades to a logged WARN placeholder string (logger.exception records the stack), never a 5xx/exception; mirrors build_hourly_report / build_accounts_hourly_report
+        logger.exception(
+            "hourly_report.build_combined_hourly_report failed: %s", exc,
+        )
+        ts = (now_utc or datetime.now(timezone.utc)).strftime("%Y-%m-%d %H:00 UTC")
+        return (
+            f"[WARN] Hourly Snapshot - {ts}\n"
+            f"Report assembly failed: {type(exc).__name__}: {exc}\n"
+            f"Check runtime_logs/ for details."
+        )
+
+
 def render_report(report: Dict[str, Any]) -> str:
     """Back-compat: return the strategy-focused HTML rendering.
 

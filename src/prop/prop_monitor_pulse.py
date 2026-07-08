@@ -52,6 +52,30 @@ _STATE_FILENAME = "prop_monitor_pulse.json"
 _OPEN_STATUSES = {"open", "filled"}
 _CONSOLIDATED_KEY = "__consolidated__"
 
+# Direction aliases collapse to one canonical side so a position keyed by
+# (account, symbol, direction) is stable regardless of which vocabulary a
+# report-back used. Prop fills arrive from a human bridge, so the SAME position
+# can be reported "buy" on the open (broker vocabulary) and "long" on the close
+# (order-package vocabulary). Without this, the aliased fills land under
+# DIFFERENT keys and a closed position's stale "buy" fill lingers as a phantom
+# open — the 2026-07-08 ETHUSDT "still monitoring a closed trade" pulse
+# (BL-20260708-PROP-PULSE-DIRECTION-ALIAS).
+_DIRECTION_ALIASES = {
+    "buy": "long", "b": "long", "bought": "long",
+    "sell": "short", "s": "short", "sold": "short",
+}
+
+
+def _canonical_direction(direction: Any) -> str:
+    """Map any long/short vocabulary to the canonical ``long``/``short``.
+
+    ``buy``/``sell`` (broker vocabulary) collapse to ``long``/``short``
+    (order-package vocabulary); an already-canonical or unknown value passes
+    through lowercased, so nothing is silently dropped.
+    """
+    d = str(direction or "").strip().lower()
+    return _DIRECTION_ALIASES.get(d, d)
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -86,11 +110,16 @@ def _position_key(fill: Dict[str, Any]) -> str:
     so the akd key is sufficient AND avoids the split-key bug where an open
     fill (no ticket) and its close fill (matched to a ticket) end up under
     different keys, making the close invisible to the open-position filter.
+
+    Direction is **canonicalized** (buy→long, sell→short) so a position
+    reported "buy" on the open and "long" on the close shares one key — else
+    the aliased fills split into two keys and a closed position's stale open
+    fill lingers as a phantom-open pulse (BL-20260708-PROP-PULSE-DIRECTION-ALIAS).
     """
     return (
         f"akd:{fill.get('account_id') or ''}|"
         f"{str(fill.get('symbol') or '').upper()}|"
-        f"{str(fill.get('direction') or '').lower()}"
+        f"{_canonical_direction(fill.get('direction'))}"
     )
 
 
