@@ -419,11 +419,38 @@ class AlpacaClient:
                     break
                 time.sleep(0.4)
 
-        env = self._request("DELETE", f"/v2/positions/{sym}")
-        if env.get("retCode") == 404:
-            return {"retCode": 0, "result": {"note": "no open position"}}
-        if env.get("retCode") != 0:
-            return env
+        # Flatten the position, retrying through the async share-release window.
+        # Waiting for the cancel to leave the OPEN-ORDERS list (above) is not
+        # enough: Alpaca drops the cancelled order from `status=open` a beat
+        # BEFORE it restores the position's `qty_available`, so a single DELETE
+        # still races and fails "insufficient qty available for order
+        # (requested: N, available: 0)". Worse, a naked-protection re-arm on an
+        # INTERVENING monitor tick (when no close is running, so the #5984
+        # same-tick guard doesn't apply) places a FRESH OCO that re-holds all
+        # the shares — so the close never completes and the monitor loops
+        # forever re-alerting (the perpetual QQQ #3269 close-failure,
+        # BL-20260708-ALPACA-CLOSE-CANCEL-RACE round 2). Retry the flatten within
+        # a bounded window: on an insufficient-qty rejection, re-cancel any
+        # (possibly freshly re-armed) resting order and retry until the shares
+        # free, so ONE close attempt reliably flattens instead of racing.
+        # `ALPACA_FLATTEN_RETRY_S` <= 0 restores the single-shot DELETE.
+        flatten_s = _env_float("ALPACA_FLATTEN_RETRY_S", 6.0)
+        flatten_deadline = time.monotonic() + flatten_s
+        while True:
+            env = self._request("DELETE", f"/v2/positions/{sym}")
+            if env.get("retCode") == 404:
+                return {"retCode": 0, "result": {"note": "no open position"}}
+            if env.get("retCode") == 0:
+                break
+            msg = str(env.get("retMsg") or "").lower()
+            held = "insufficient qty" in msg or "available: 0" in msg
+            if not held or flatten_s <= 0 or time.monotonic() >= flatten_deadline:
+                return env
+            # A resting order still holds the shares — cancel it (catches a
+            # freshly re-armed protective OCO too) and give Alpaca a beat to
+            # release the shares before retrying the flatten.
+            self._cancel_open_orders_for_symbol(sym)
+            time.sleep(0.5)
 
         confirm_s = _env_float("ALPACA_CLOSE_CONFIRM_S", 6.0)
         if confirm_s > 0:

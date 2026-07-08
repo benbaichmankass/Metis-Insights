@@ -495,6 +495,100 @@ def test_client_close_waits_for_cancels_to_settle_before_flatten(monkeypatch):
     assert len(settle_polls) >= 2
 
 
+def test_client_close_retries_flatten_on_insufficient_qty(monkeypatch):
+    """BL-20260708-ALPACA-CLOSE-CANCEL-RACE round 2 (the perpetual QQQ #3269):
+    even after the open-orders list clears, Alpaca can still hold the shares
+    (`qty_available: 0`) for a beat while it releases them — AND a naked-
+    protection re-arm on an intervening tick can place a fresh OCO that
+    re-holds them. A single DELETE then fails 'insufficient qty available for
+    order (requested: 16, available: 0)' and the close never completes. close()
+    must RETRY the flatten (re-cancelling the resting order) until the shares
+    free, so one close attempt reliably flattens."""
+    monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep", lambda *_: None)
+    delete_pos = {"n": 0}
+    cancels: list = []
+
+    def fake_request(method, path, json_body=None):
+        if method == "GET" and path.startswith("/v2/orders?"):
+            # A resting OCO leg is present (so the retry re-cancels it).
+            return {"retCode": 0, "result": [
+                {"id": "resting-oco", "symbol": "QQQ", "type": "stop"},
+            ]}
+        if method == "DELETE" and path.startswith("/v2/orders/"):
+            cancels.append(path)
+            return {"retCode": 0, "result": {"id": "cancelled"}}
+        if method == "DELETE" and path == "/v2/positions/QQQ":
+            delete_pos["n"] += 1
+            if delete_pos["n"] == 1:
+                # First flatten races the async release → rejected.
+                return {"retCode": 422, "retMsg": (
+                    "insufficient qty available for order "
+                    "(requested: 16, available: 0)"
+                )}
+            return {"retCode": 0, "result": {"id": "flatten-ok"}}
+        if method == "GET" and path == "/v2/positions":
+            return {"retCode": 0, "result": []}  # confirm loop: flat
+        return {"retCode": 0, "result": []}
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_request", fake_request)
+    res = cli.close("QQQ")
+    assert res["retCode"] == 0
+    assert res["result"]["orderId"] == "flatten-ok"
+    # The flatten was retried (2 DELETE /v2/positions), and the retry
+    # re-cancelled the (freshly re-armed) resting order before retrying.
+    assert delete_pos["n"] == 2
+    assert len(cancels) >= 2  # pre-pass cancel + at least one retry re-cancel
+
+
+def test_client_close_insufficient_qty_gives_up_after_window(monkeypatch):
+    """If the shares never free within ALPACA_FLATTEN_RETRY_S, close() returns
+    the broker's error (leaving the DB row open to retry next tick) rather than
+    looping forever inside one call."""
+    monkeypatch.setenv("ALPACA_FLATTEN_RETRY_S", "0.05")
+    monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep", lambda *_: None)
+
+    def fake_request(method, path, json_body=None):
+        if method == "GET" and path.startswith("/v2/orders?"):
+            return {"retCode": 0, "result": [
+                {"id": "resting-oco", "symbol": "QQQ", "type": "stop"},
+            ]}
+        if method == "DELETE" and path.startswith("/v2/orders/"):
+            return {"retCode": 0, "result": {"id": "cancelled"}}
+        if method == "DELETE" and path == "/v2/positions/QQQ":
+            return {"retCode": 422, "retMsg": (
+                "insufficient qty available for order (requested: 16, available: 0)"
+            )}
+        return {"retCode": 0, "result": []}
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_request", fake_request)
+    res = cli.close("QQQ")
+    assert res["retCode"] != 0
+    assert "insufficient qty" in str(res["retMsg"]).lower()
+
+
+def test_client_close_flatten_retry_disabled_is_single_shot(monkeypatch):
+    """ALPACA_FLATTEN_RETRY_S <= 0 restores the single-shot DELETE (no retry)."""
+    monkeypatch.setenv("ALPACA_FLATTEN_RETRY_S", "0")
+    monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep", lambda *_: None)
+    deletes = {"n": 0}
+
+    def fake_request(method, path, json_body=None):
+        if method == "GET" and path.startswith("/v2/orders?"):
+            return {"retCode": 0, "result": []}
+        if method == "DELETE" and path == "/v2/positions/QQQ":
+            deletes["n"] += 1
+            return {"retCode": 422, "retMsg": "insufficient qty available (available: 0)"}
+        return {"retCode": 0, "result": []}
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_request", fake_request)
+    res = cli.close("QQQ")
+    assert res["retCode"] != 0
+    assert deletes["n"] == 1  # single shot, no retry
+
+
 # --------------------------------------------- close() flatten confirmation
 # BL-20260707-ALPACA-CLOSE-NOT-CONFIRMED-FLAT: Alpaca's HTTP 2xx on the
 # flatten DELETE means "accepted", not "actually flat" — close() must poll
