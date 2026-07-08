@@ -3,7 +3,7 @@
 > **Status:** Canonical. Adopted in sprint **S-CANON-1** (2026-05-10).
 > **Repo:** `benbaichmankass/ict-trading-bot`.
 > **Companion:** [`ARCHITECTURE-CANONICAL.md`](ARCHITECTURE-CANONICAL.md) — this doc is the deeper, stage-by-stage expansion of its `End-to-End Trade Pipeline` section.
-> **Consumed by:** the `ict-trader-dashboard` Vercel app fetches this file at runtime (raw URL on `main`) and renders each stage as a card in its **Trade Process** tab. Stale doc = stale operator UI.
+> **Consumed by:** historically the `ict-trader-dashboard` Vercel app's **Trade Process** tab fetched this file at runtime and rendered each stage as a card. The dashboard migrated Vercel → Streamlit 2026-05-12 ([PR #32](https://github.com/benbaichmankass/ict-trader-dashboard/pull/32)) and the Trade Process tab was **not carried over** — it's listed under "Not (yet) ported from the old React app" in the dashboard's own `CLAUDE.md`. **No live consumer currently fetches this doc.** It remains the canonical human/Claude-readable pipeline map; re-port the tab (or drop this note) when/if that gap is closed. (Fixed 2026-07-08, doc-freshness sweep, `S-ALPACA-PIPELINE-AUDIT-2026-07-07`.)
 
 ---
 
@@ -19,7 +19,7 @@ Any sprint that touches a pipeline stage **must**:
 
 1. Update the affected `## Stage N:` block in this file (files list, inputs/outputs, description, failure modes — whichever changed).
 2. Bump the **Last verified** date in the relevant stage block.
-3. Open the dashboard's **Trade Process** tab after merge to `main` and visually confirm the change appears as expected.
+3. ~~Open the dashboard's **Trade Process** tab after merge to `main` and visually confirm the change appears as expected.~~ **Currently N/A** — the tab isn't ported to the Streamlit dashboard (see "Consumed by" above); skip this step until it is, and don't fail a sprint's wrap-up checklist on it in the meantime.
 4. Tick the corresponding wrap-up checkbox in the sprint log (see [`SPRINT-LOG-TEMPLATE-CANONICAL.md`](SPRINT-LOG-TEMPLATE-CANONICAL.md)).
 
 If a stage is added, removed, or reordered, also update the top-level diagram below and the matching summary in `ARCHITECTURE-CANONICAL.md`.
@@ -244,12 +244,12 @@ All thresholds live in `config/strategies.yaml` (`strategies.<strategy>.{be_at_r
 
 **Outputs:** Hourly Telegram summaries (per-strategy and per-account); FastAPI diagnostic endpoints (live status, halt/resume, pending alerts); dashboard tabs consuming the unauthenticated Tier 1 endpoints documented in [`api-tier-policy.md`](api-tier-policy.md).
 
-**Description:** The pipeline isn't done until the operator can see what happened and intervene if needed. Telegram is the synchronous channel (queries, alerts, halt commands). The FastAPI diag router is the async channel (dashboard reads). The dashboard's **Trade Process** tab fetches *this* document at runtime so operators can see the current pipeline structure alongside live status.
+**Description:** The pipeline isn't done until the operator can see what happened and intervene if needed. Telegram is the synchronous channel (queries, alerts, halt commands). The FastAPI diag router is the async channel (dashboard reads). Historically the dashboard's **Trade Process** tab fetched *this* document at runtime so operators could see the current pipeline structure alongside live status — that tab was not carried over in the Vercel→Streamlit migration (see the doc header); today this document's readers are operators/Claude sessions directly, not a rendered UI tab.
 
 **Failure modes:**
 - Telegram outage — bot continues trading; operator visibility degraded; alert when the channel comes back.
 - Diag API down — dashboard shows degraded state; recovery handled by `vm-web-api-recover.yml` workflow.
-- This doc out of sync with the code — dashboard tab misleads operators. Caught only by sprint-time review; that's why the wrap-up checklist exists.
+- This doc out of sync with the code — misleads whoever reads it next (no live UI tab today to surface staleness visually). Caught only by sprint-time review; that's why the wrap-up checklist exists.
 
 **Last verified:** 2026-05-10
 
