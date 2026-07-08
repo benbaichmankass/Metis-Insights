@@ -369,11 +369,14 @@ fi
 # on the VM, and the enable loop below SKIPS it so a deploy never re-enables it.
 _RETIRED_TIMERS=" ict-heartbeat.timer "
 for _rt in $_RETIRED_TIMERS; do
-    if "${SUDO[@]}" systemctl is-enabled "$_rt" >/dev/null 2>&1 \
-       || "${SUDO[@]}" systemctl is-active "$_rt" >/dev/null 2>&1; then
-        echo ">>> install_systemd_units: retiring $_rt (superseded by the hourly snapshot)"
-        "${SUDO[@]}" systemctl disable --now "$_rt" 2>/dev/null || true
-    fi
+    # Unconditional idempotent disable — `disable --now` on an already-disabled
+    # timer is a harmless no-op. Deliberately NOT guarded on `is-enabled
+    # >/dev/null` because this box periodically loses /dev/null write perms
+    # (the reason ict-devnull-guard exists); a guard whose redirect fails would
+    # silently skip the disable. `|| true` keeps a genuinely-absent unit from
+    # failing the deploy.
+    echo ">>> install_systemd_units: retiring $_rt (superseded by the hourly snapshot)"
+    "${SUDO[@]}" systemctl disable --now "$_rt" >/dev/null 2>&1 || true
 done
 
 shopt -s nullglob
