@@ -392,8 +392,33 @@ class AlpacaClient:
         needed anywhere else.
         """
         self._require_creds("close")
-        self._cancel_open_orders_for_symbol(symbol)
         sym = str(symbol).upper()
+        n_cancelled = self._cancel_open_orders_for_symbol(symbol)
+
+        # Alpaca order cancels are ASYNCHRONOUS — `DELETE /v2/orders/{id}`
+        # returns immediately but the order sits in `pending_cancel` for a
+        # moment, during which its shares stay `held_for_orders`. Firing the
+        # position-flatten DELETE before the cancels settle RACES them, and
+        # Alpaca rejects the flatten with "insufficient qty available for order
+        # (requested: N, available: 0)" — the exact spam seen on the 2026-07-07
+        # reset-seeded QQQ (BL-20260708-ALPACA-CLOSE-CANCEL-RACE): the protective
+        # bracket held all 16 shares, the cancel was in-flight, and every tick's
+        # flatten hit available:0 and re-alerted. Wait (bounded) for the symbol's
+        # open orders to actually clear before flattening. Only when the pre-pass
+        # actually cancelled something (nothing cancelled ⇒ no held shares to
+        # release). `ALPACA_CANCEL_SETTLE_S` <= 0 restores fire-immediately.
+        settle_s = _env_float("ALPACA_CANCEL_SETTLE_S", 3.0)
+        if n_cancelled and settle_s > 0:
+            settle_deadline = time.monotonic() + settle_s
+            while True:
+                # `[]` = cancels settled (shares freed); `None` = read failure
+                # (proceed anyway — the post-flatten confirm below is the guard).
+                if not self._open_orders_for_symbol(sym):
+                    break
+                if time.monotonic() >= settle_deadline:
+                    break
+                time.sleep(0.4)
+
         env = self._request("DELETE", f"/v2/positions/{sym}")
         if env.get("retCode") == 404:
             return {"retCode": 0, "result": {"note": "no open position"}}
@@ -534,8 +559,13 @@ class AlpacaClient:
                 return True
         return False
 
-    def _cancel_open_orders_for_symbol(self, symbol: str) -> None:
+    def _cancel_open_orders_for_symbol(self, symbol: str) -> int:
         """Cancel every resting order on *symbol* (best-effort, never raises).
+
+        Returns the number of distinct orders a cancel was ISSUED for (0 when
+        there were none) so ``close()`` can skip its cancel-settle wait when
+        nothing was held. Callers that don't care about the count (e.g.
+        ``place_protective``'s re-arm pre-pass) can ignore it.
 
         Called before placing a fresh protective OCO so repeated re-arms can't
         STACK multiple live OCO groups on the one position — the same
@@ -545,7 +575,7 @@ class AlpacaClient:
         """
         legs = self._open_orders_for_symbol(symbol)
         if not legs:
-            return
+            return 0
         seen: set = set()
         for o in legs:
             oid = o.get("id")
@@ -559,6 +589,7 @@ class AlpacaClient:
                     "alpaca _cancel_open_orders_for_symbol(%s): cancel %s "
                     "failed: %s", symbol, oid, exc,
                 )
+        return len(seen)
 
     def place_protective(self, order: Dict[str, Any]) -> Dict[str, Any]:
         """Attach a **GTC OCO** SL/TP to an ALREADY-OPEN position (no entry).

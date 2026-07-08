@@ -34,15 +34,17 @@ never 5xxs. See ``docs/api-tier-policy.md`` Tier 1.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import re
 import sqlite3
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter
 
-from src.utils.paths import trade_journal_db_path
+from src.utils.paths import runtime_logs_dir, trade_journal_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +188,94 @@ def _parse_ts(value: Any) -> Optional[datetime]:
         return None
 
 
+def _warning_window_min() -> int:
+    try:
+        n = int(os.environ.get("NOTIF_WARNING_WINDOW_MIN", "60"))
+        return n if n > 0 else 60
+    except (TypeError, ValueError):
+        return 60
+
+
+_WARN_MAX_BANNERS = 3
+_WARN_LEVELS = {"WARNING", "ERROR", "CRITICAL"}
+
+
+def _tail_lines(path: Any, max_bytes: int = 65536) -> List[str]:
+    """Return the trailing lines of a text file (last ``max_bytes``)."""
+    try:
+        size = path.stat().st_size
+        with open(path, "rb") as fh:
+            if size > max_bytes:
+                fh.seek(size - max_bytes)
+                fh.readline()  # drop the partial first line
+            data = fh.read()
+        return data.decode("utf-8", "replace").splitlines()
+    except OSError:
+        return []
+
+
+def _recent_warning_banners() -> List[Dict[str, Any]]:
+    """Recent operator WARN+ outcomes as banners.
+
+    The "certainly anything that's a warning" half of the operator's banner ask
+    (2026-07-08): surface the last hour's persisted ``outcomes.jsonl`` rows at
+    level WARNING/ERROR/CRITICAL (the same feed that Telegrams ERROR/CRITICAL) —
+    so a live operational condition like a stuck position-close ("Position CLOSE
+    failing — won't flatten") shows on the app banner, not only in Telegram.
+    CRITICAL/ERROR → ``alert``, WARNING → ``warning``. Deduped (a per-tick
+    repeat like a close-retry collapses to one banner), newest-first, capped.
+    Best-effort — a missing/garbled log yields no banners, never raises.
+    """
+    out: List[Dict[str, Any]] = []
+    try:
+        path = runtime_logs_dir() / "outcomes.jsonl"
+        if not path.is_file():
+            return out
+        cutoff = datetime.now(timezone.utc).timestamp() - _warning_window_min() * 60
+        seen: set = set()
+        rows: List[tuple] = []
+        for line in _tail_lines(path):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            lvl = str(r.get("level") or "").upper()
+            if lvl not in _WARN_LEVELS:
+                continue
+            dt = _parse_ts(r.get("ts"))
+            if dt is None or dt.timestamp() < cutoff:
+                continue
+            reason = str(r.get("reason") or r.get("action") or "").strip()
+            if not reason:
+                continue
+            # Dedup a per-tick repeat: normalise digits (e.g. "failures: 3/4/5").
+            key = (lvl, re.sub(r"\d+", "#", reason)[:80])
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append((dt, lvl, reason, r.get("action"), r.get("status")))
+        rows.sort(key=lambda x: x[0], reverse=True)
+        for dt, lvl, reason, action, status in rows[:_WARN_MAX_BANNERS]:
+            sev = "alert" if lvl in ("ERROR", "CRITICAL") else "warning"
+            msg = reason if len(reason) <= 160 else reason[:157] + "…"
+            detail = None
+            if action:
+                detail = f"{action}" + (f" · {status}" if status else "")
+            out.append({
+                "severity": sev,
+                "kind": "operator_warning",
+                "message": msg,
+                "detail": detail,
+                "since": dt.isoformat(),
+            })
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort banner feed — omit this kind on any source failure, the endpoint never 5xxs (documented contract)
+        logger.debug("notifications: operator-warning banners failed: %s", exc)
+    return out
+
+
 @router.get("/notifications")
 def get_notifications() -> Dict[str, Any]:
     """Aggregate the active banner-worthy conditions (Tier 1, best-effort)."""
@@ -195,6 +285,7 @@ def get_notifications() -> Dict[str, Any]:
     if tb:
         banners.append(tb)
     banners.extend(_account_down_banners())
+    banners.extend(_recent_warning_banners())
     ob = _recent_trade_open_banner()
     if ob:
         banners.append(ob)
