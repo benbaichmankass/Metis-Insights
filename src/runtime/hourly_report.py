@@ -524,7 +524,7 @@ def training_activity_in_window(since: datetime) -> Dict[str, Any]:
                 out["trainer_present"] = age <= 1200  # 20 min ≈ 10 missed pubs
             except OSError:
                 pass
-    except Exception as exc:  # noqa: BLE001 — the report must never raise
+    except Exception as exc:  # noqa: BLE001  # allow-silent: the hourly report must never raise — a trainer-mirror read failure degrades the Training section to "not present", logged at WARNING, never a 5xx/exception
         logger.warning("hourly_report: training activity read failed: %s", exc)
     return out
 
