@@ -495,36 +495,34 @@ def test_client_close_waits_for_cancels_to_settle_before_flatten(monkeypatch):
     assert len(settle_polls) >= 2
 
 
-def test_client_close_retries_flatten_on_insufficient_qty(monkeypatch):
-    """BL-20260708-ALPACA-CLOSE-CANCEL-RACE round 2 (the perpetual QQQ #3269):
-    even after the open-orders list clears, Alpaca can still hold the shares
-    (`qty_available: 0`) for a beat while it releases them — AND a naked-
-    protection re-arm on an intervening tick can place a fresh OCO that
-    re-holds them. A single DELETE then fails 'insufficient qty available for
-    order (requested: 16, available: 0)' and the close never completes. close()
-    must RETRY the flatten (re-cancelling the resting order) until the shares
-    free, so one close attempt reliably flattens."""
+def test_client_close_waits_for_qty_available_before_flatten(monkeypatch):
+    """BL-20260708-ALPACA-CLOSE-QTY-AVAILABLE (the perpetual QQQ #3269): after
+    the cancel, Alpaca drops the order from status=open a beat BEFORE it restores
+    the position's `qty_available`, so a DELETE fired on "orders cleared" races
+    and fails 'insufficient qty available (available: 0)'. close() must WAIT for
+    `qty_available` to actually reach the position size (the real precondition)
+    before the flatten — deterministic, not a blind timer. Here qty_available
+    starts at 0 and rises to 16; the DELETE must fire only after it does, and
+    then succeed on the FIRST attempt."""
     monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep", lambda *_: None)
+    avail_reads = {"n": 0}
     delete_pos = {"n": 0}
-    cancels: list = []
 
     def fake_request(method, path, json_body=None):
         if method == "GET" and path.startswith("/v2/orders?"):
-            # A resting OCO leg is present (so the retry re-cancels it).
             return {"retCode": 0, "result": [
                 {"id": "resting-oco", "symbol": "QQQ", "type": "stop"},
             ]}
         if method == "DELETE" and path.startswith("/v2/orders/"):
-            cancels.append(path)
             return {"retCode": 0, "result": {"id": "cancelled"}}
+        if method == "GET" and path == "/v2/positions/QQQ":
+            # Raw single-position read: qty_available released only after a
+            # couple of polls (mimics Alpaca's async release lag).
+            avail_reads["n"] += 1
+            avail = 0 if avail_reads["n"] < 3 else 16
+            return {"retCode": 0, "result": {"qty": "16", "qty_available": str(avail)}}
         if method == "DELETE" and path == "/v2/positions/QQQ":
             delete_pos["n"] += 1
-            if delete_pos["n"] == 1:
-                # First flatten races the async release → rejected.
-                return {"retCode": 422, "retMsg": (
-                    "insufficient qty available for order "
-                    "(requested: 16, available: 0)"
-                )}
             return {"retCode": 0, "result": {"id": "flatten-ok"}}
         if method == "GET" and path == "/v2/positions":
             return {"retCode": 0, "result": []}  # confirm loop: flat
@@ -535,26 +533,30 @@ def test_client_close_retries_flatten_on_insufficient_qty(monkeypatch):
     res = cli.close("QQQ")
     assert res["retCode"] == 0
     assert res["result"]["orderId"] == "flatten-ok"
-    # The flatten was retried (2 DELETE /v2/positions), and the retry
-    # re-cancelled the (freshly re-armed) resting order before retrying.
-    assert delete_pos["n"] == 2
-    assert len(cancels) >= 2  # pre-pass cancel + at least one retry re-cancel
+    # The DELETE fired ONCE, only after qty_available reached 16 (>= 3 raw reads:
+    # one for want_qty + the poll until release).
+    assert delete_pos["n"] == 1
+    assert avail_reads["n"] >= 3
 
 
-def test_client_close_insufficient_qty_gives_up_after_window(monkeypatch):
+def test_client_close_insufficient_qty_gives_up_and_logs_residual(monkeypatch, caplog):
     """If the shares never free within ALPACA_FLATTEN_RETRY_S, close() returns
-    the broker's error (leaving the DB row open to retry next tick) rather than
-    looping forever inside one call."""
+    the broker's error (leaving the DB row open to retry next tick) AND logs the
+    residual open orders so the 'won't flatten' failure is self-diagnosing."""
+    import logging
     monkeypatch.setenv("ALPACA_FLATTEN_RETRY_S", "0.05")
     monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep", lambda *_: None)
 
     def fake_request(method, path, json_body=None):
         if method == "GET" and path.startswith("/v2/orders?"):
             return {"retCode": 0, "result": [
-                {"id": "resting-oco", "symbol": "QQQ", "type": "stop"},
+                {"id": "resting-oco", "symbol": "QQQ", "type": "stop", "status": "held"},
             ]}
         if method == "DELETE" and path.startswith("/v2/orders/"):
             return {"retCode": 0, "result": {"id": "cancelled"}}
+        if method == "GET" and path == "/v2/positions/QQQ":
+            # qty_available never recovers — the shares stay held.
+            return {"retCode": 0, "result": {"qty": "16", "qty_available": "0"}}
         if method == "DELETE" and path == "/v2/positions/QQQ":
             return {"retCode": 422, "retMsg": (
                 "insufficient qty available for order (requested: 16, available: 0)"
@@ -563,20 +565,29 @@ def test_client_close_insufficient_qty_gives_up_after_window(monkeypatch):
 
     cli = AlpacaClient(api_key="k", api_secret="s")
     monkeypatch.setattr(cli, "_request", fake_request)
-    res = cli.close("QQQ")
+    with caplog.at_level(logging.WARNING, logger="src.units.accounts.alpaca_client"):
+        res = cli.close("QQQ")
     assert res["retCode"] != 0
     assert "insufficient qty" in str(res["retMsg"]).lower()
+    # The failure surfaced WHAT held the shares (the residual resting order).
+    assert any("residual open orders" in r.message for r in caplog.records)
+    assert any("resting-oco" in r.getMessage() for r in caplog.records)
 
 
 def test_client_close_flatten_retry_disabled_is_single_shot(monkeypatch):
-    """ALPACA_FLATTEN_RETRY_S <= 0 restores the single-shot DELETE (no retry)."""
+    """ALPACA_FLATTEN_RETRY_S <= 0 restores the single-shot DELETE (no await,
+    no retry — not even the raw qty_available read)."""
     monkeypatch.setenv("ALPACA_FLATTEN_RETRY_S", "0")
     monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep", lambda *_: None)
     deletes = {"n": 0}
+    raw_reads = {"n": 0}
 
     def fake_request(method, path, json_body=None):
         if method == "GET" and path.startswith("/v2/orders?"):
             return {"retCode": 0, "result": []}
+        if method == "GET" and path == "/v2/positions/QQQ":
+            raw_reads["n"] += 1
+            return {"retCode": 0, "result": {"qty": "16", "qty_available": "0"}}
         if method == "DELETE" and path == "/v2/positions/QQQ":
             deletes["n"] += 1
             return {"retCode": 422, "retMsg": "insufficient qty available (available: 0)"}
@@ -587,6 +598,7 @@ def test_client_close_flatten_retry_disabled_is_single_shot(monkeypatch):
     res = cli.close("QQQ")
     assert res["retCode"] != 0
     assert deletes["n"] == 1  # single shot, no retry
+    assert raw_reads["n"] == 0  # disabled → no qty_available await at all
 
 
 # --------------------------------------------- close() flatten confirmation
@@ -688,8 +700,13 @@ def test_client_close_confirm_disabled_restores_legacy_behavior(monkeypatch):
     monkeypatch.setattr(cli, "_request", fake_request)
     res = cli.close("QQQ")
     assert res["retCode"] == 0
-    # Only the cancel-pre-pass GET + the flatten DELETE — no confirm-poll GET.
-    assert [m for (m, _) in calls] == ["GET", "DELETE"]
+    # No confirmation poll AFTER the flatten: the DELETE is the last call, and
+    # the confirm-loop list read (GET /v2/positions) never happens. (A
+    # pre-DELETE raw single-position read GET /v2/positions/QQQ for the
+    # qty_available await is fine — that's the flatten precondition, not the
+    # confirm poll.)
+    assert calls[-1][0] == "DELETE"
+    assert ("GET", "/v2/positions") not in calls
 
 
 # ------------------------------------------------------------ config gates

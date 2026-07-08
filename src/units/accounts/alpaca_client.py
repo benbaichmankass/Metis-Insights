@@ -355,6 +355,50 @@ class AlpacaClient:
             )
         return out
 
+    def _position_raw(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Raw ``/v2/positions/{symbol}`` object, or ``None`` (404 = flat, or read fail).
+
+        Unlike :meth:`positions` this exposes the fields the close path needs to
+        gate on — notably ``qty_available`` (shares NOT reserved by a resting
+        order). ``None`` is returned both for a genuine 404 (position gone) and
+        for a read failure; the caller distinguishes by context (the close loop
+        treats ``None`` as "can't confirm held → fall through to the DELETE").
+        """
+        sym = str(symbol).upper()
+        env = self._request("GET", f"/v2/positions/{sym}")
+        if env.get("retCode") != 0:
+            return None
+        result = env.get("result")
+        return result if isinstance(result, dict) else None
+
+    def _await_qty_available(self, symbol: str, want_qty: float, deadline: float) -> Optional[float]:
+        """Poll until the position's ``qty_available`` reaches ``want_qty``.
+
+        The deterministic replacement for the blind post-cancel sleep: Alpaca
+        drops a cancelled order from ``status=open`` a beat BEFORE it restores
+        the position's ``qty_available``, so "open orders cleared" is NOT the
+        same signal as "shares released". This waits for the ACTUAL release —
+        the exact precondition the flatten DELETE needs — bounded by *deadline*
+        (``time.monotonic()``). Returns the last-observed ``qty_available``
+        (or ``None`` if the position could not be read / is already gone), so
+        the caller can log why it gave up. Fail-open: an unreadable position
+        returns immediately (let the DELETE / confirm path decide).
+        """
+        last: Optional[float] = None
+        while True:
+            pos = self._position_raw(symbol)
+            if pos is None:
+                return last  # 404/gone or read fail — don't spin, let DELETE run
+            try:
+                last = abs(float(pos.get("qty_available") or 0))
+            except (TypeError, ValueError):
+                last = 0.0
+            if last >= want_qty:
+                return last
+            if time.monotonic() >= deadline:
+                return last
+            time.sleep(0.4)
+
     def close(self, symbol: str) -> Dict[str, Any]:
         """Close the full position on *symbol*; retCode envelope.
 
@@ -419,24 +463,46 @@ class AlpacaClient:
                     break
                 time.sleep(0.4)
 
-        # Flatten the position, retrying through the async share-release window.
-        # Waiting for the cancel to leave the OPEN-ORDERS list (above) is not
-        # enough: Alpaca drops the cancelled order from `status=open` a beat
-        # BEFORE it restores the position's `qty_available`, so a single DELETE
-        # still races and fails "insufficient qty available for order
-        # (requested: N, available: 0)". Worse, a naked-protection re-arm on an
-        # INTERVENING monitor tick (when no close is running, so the #5984
-        # same-tick guard doesn't apply) places a FRESH OCO that re-holds all
-        # the shares — so the close never completes and the monitor loops
-        # forever re-alerting (the perpetual QQQ #3269 close-failure,
-        # BL-20260708-ALPACA-CLOSE-CANCEL-RACE round 2). Retry the flatten within
-        # a bounded window: on an insufficient-qty rejection, re-cancel any
-        # (possibly freshly re-armed) resting order and retry until the shares
-        # free, so ONE close attempt reliably flattens instead of racing.
+        # Flatten the position, gating each DELETE on the position's ACTUAL
+        # share-release signal (`qty_available`) — deterministic, not a blind
+        # timer. Waiting for the cancel to leave the OPEN-ORDERS list (above) is
+        # NOT the same signal: Alpaca drops the cancelled order from
+        # `status=open` a beat BEFORE it restores `qty_available`, so a DELETE
+        # fired on "orders cleared" still races and fails "insufficient qty
+        # available for order (requested: N, available: 0)". And a naked-
+        # protection re-arm on an INTERVENING monitor tick (no close running →
+        # the #5984 same-tick guard doesn't apply) places a FRESH OCO that
+        # re-reserves all the shares. The blind re-cancel+sleep retry shipped in
+        # PR #5997 did NOT fix the perpetual QQQ #3269 close-failure (verified
+        # still failing post-deploy, BL-20260708-ALPACA-CLOSE-QTY-AVAILABLE), so:
+        #   1. before each DELETE, WAIT for `qty_available` to actually reach the
+        #      position size (the real precondition), re-cancelling any resting
+        #      (incl. freshly re-armed) order each pass;
+        #   2. if it never releases within the window, return the broker error
+        #      AND log the residual open orders so the failure is self-diagnosing
+        #      (answers "what is holding the shares?" from the logs, no separate
+        #      endpoint needed).
         # `ALPACA_FLATTEN_RETRY_S` <= 0 restores the single-shot DELETE.
         flatten_s = _env_float("ALPACA_FLATTEN_RETRY_S", 6.0)
         flatten_deadline = time.monotonic() + flatten_s
+        # Position size we need released before the flatten can fill. Read once;
+        # fail-open to 0 (skip the await, let the DELETE + confirm path decide).
+        want_qty = 0.0
+        if flatten_s > 0:
+            _pos0 = self._position_raw(sym)
+            if _pos0 is None:
+                # Already gone (404) or unreadable — if truly flat the DELETE
+                # returns 404 → retCode 0 below.
+                pass
+            else:
+                try:
+                    want_qty = abs(float(_pos0.get("qty") or 0))
+                except (TypeError, ValueError):
+                    want_qty = 0.0
         while True:
+            # Wait for the shares to actually be released before flattening.
+            if flatten_s > 0 and want_qty > 0:
+                self._await_qty_available(sym, want_qty, flatten_deadline)
             env = self._request("DELETE", f"/v2/positions/{sym}")
             if env.get("retCode") == 404:
                 return {"retCode": 0, "result": {"note": "no open position"}}
@@ -445,12 +511,20 @@ class AlpacaClient:
             msg = str(env.get("retMsg") or "").lower()
             held = "insufficient qty" in msg or "available: 0" in msg
             if not held or flatten_s <= 0 or time.monotonic() >= flatten_deadline:
+                if held:
+                    # Give-up path: surface WHAT is holding the shares so the
+                    # "won't flatten" failure is diagnosable from the logs.
+                    residual = self._open_orders_for_symbol(sym)
+                    logger.warning(
+                        "alpaca close %s still insufficient-qty after ~%.1fs "
+                        "(want_qty=%s); residual open orders=%s",
+                        sym, flatten_s, want_qty, residual,
+                    )
                 return env
             # A resting order still holds the shares — cancel it (catches a
-            # freshly re-armed protective OCO too) and give Alpaca a beat to
-            # release the shares before retrying the flatten.
+            # freshly re-armed protective OCO too); the next loop re-awaits the
+            # `qty_available` release before retrying the flatten.
             self._cancel_open_orders_for_symbol(sym)
-            time.sleep(0.5)
 
         confirm_s = _env_float("ALPACA_CLOSE_CONFIRM_S", 6.0)
         if confirm_s > 0:
