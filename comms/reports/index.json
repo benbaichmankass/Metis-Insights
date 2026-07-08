@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260708-074700-since-last",
+      "window": "since-last",
+      "generated_at": "2026-07-08T07:47:00+00:00",
+      "window_start": "2026-07-06T15:32:00+00:00",
+      "window_end": "2026-07-08T07:47:00+00:00",
+      "roll_up_grade": "investigate",
+      "headline": "Core money-trader healthy and trading (Bybit real + Alpaca real reachable, heartbeat live). Two infra failures found: (1) the IB ib_paper execution client is wedged on account_warmup_timeout since the 07:08 restart \u2014 MES/MGC/MHG dark. A vm-ib-gateway-recover re-logged the gateway in (readonly client healthy) but did NOT clear the exec client \u2014 it stays breaker_open with failures climbing 9\u219213, so this is a warm-up bug on the non-readonly client, not a gateway login problem, and needs operator action. (2) The trainer VM is SSH-unreachable (down/hung post-OOM) \u2014 ML training offline, sweeps 29d stale \u2014 needs an operator OCI reboot. Real-money is roughly flat in $ over 30d but -12.2R, ict_scalp_5m (-11.4R) the clear drag. Since-last real window: 2 trades, both losses (-$5.20).",
+      "html_path": "comms/reports/since-last/20260708T074700Z/report.html",
+      "json_path": "comms/reports/since-last/20260708T074700Z/report.json",
+      "md_path": "comms/reports/since-last/20260708T074700Z/report.md"
+    },
+    {
       "id": "RPT-20260706-153200-weekly",
       "window": "weekly",
       "generated_at": "2026-07-06T15:32:00+00:00",
