@@ -3562,7 +3562,39 @@
       "status": "open",
       "snoozed_until": null,
       "updates": []
+    },
+    {
+      "id": "BL-20260708-ALPACA-PIPELINE-VERIFICATION-WATCH",
+      "opened_at": "2026-07-08T05:35:00+00:00",
+      "opened_by": "claude (post-audit session, 2026-07-08)",
+      "title": "Sustained verification watch: keep doing a full Alpaca-pipeline health check for the next several days until the 4-PR remediation is proven stable under real conditions, not just deploy-verified",
+      "description": "Operator directive after the full Alpaca-pipeline audit landed (PRs #5918, #5923, #5924, #5930 — resting-order-cancel before close, close-confirm-flat poll + widened re-adopt guard + balance/buying_power truthiness, entry-side post-accept rejection detection): all four fixes are merged, deployed, and confirmed live via git_sha, but none has yet been observed live against the actual failure conditions they target (a close attempted near/after market hours, a rejected entry, a genuine flap). Deploy-verification is necessary but not sufficient proof of stability. This entry exists so the next several `/health-review` / `/system-review` passes explicitly check, beyond the routine sweep: (1) no new alpaca_paper (or any Alpaca account) orphan/adopted_orphan rows since the deploy; (2) no phantom-close double-rows (a trade closed via exchange_flat_reconciled/exit_coverage_no_strategy immediately followed by a same-symbol adopted_orphan — the exact SLV pattern this audit fixed); (3) no naked-position alerts on an Alpaca account; (4) if a close-not-confirmed-flat or entry-rejected event DID fire (check runtime_logs/outcomes.jsonl / signal_audit.jsonl for the new retMsg substrings 'alpaca close not confirmed flat' / 'was accepted then <status>'), that it resolved cleanly via the existing cooldown/retry machinery rather than wedging. A clean run each day counts toward the resolution window below.",
+      "tier": 1,
+      "trigger_condition": "Every /health-review or /system-review run for roughly the next 5-7 calendar days from 2026-07-08 (through ~2026-07-15), or sooner if a live Alpaca close/entry/reconcile event is observed that exercises the new code paths.",
+      "resolution_criteria": "Mark resolved once either (a) ~5-7 consecutive days pass with zero Alpaca orphan/phantom-close/naked-position incidents on the reviewed accounts, or (b) at least one real close-not-confirmed-flat or entry-rejection event is directly observed in the logs and confirmed to have resolved cleanly (no phantom row, no naked exposure, no re-adopt flap) — whichever gives genuine confidence first. If a new Alpaca orphan/phantom-close incident DOES occur during the window, do not resolve this entry — open a fresh, specific incident entry instead and cross-reference it here.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260708-TRADE-PIPELINE-DOC-ALPACA-GAP",
+      "opened_at": "2026-07-08T05:40:00+00:00",
+      "opened_by": "claude (doc-freshness sweep, post Alpaca-pipeline-audit session, 2026-07-08)",
+      "title": "docs/TRADE-PIPELINE.md has zero mentions of Alpaca — not confirmed whether the doc's per-stage detail should cover the new close/entry-confirm behaviour",
+      "description": "During the doc-freshness sweep for the full Alpaca-pipeline audit session (sprint log S-ALPACA-PIPELINE-AUDIT-2026-07-07), `docs/TRADE-PIPELINE.md` was checked per the sprint-log template's Wrap-Up Check item. `grep -i alpaca docs/TRADE-PIPELINE.md` returned zero matches — the doc's per-stage detail does not describe the Alpaca close/entry confirm-poll behaviour added this session (ALPACA_CLOSE_CONFIRM_S / ALPACA_PLACE_CONFIRM_S), nor any Alpaca-specific pipeline stage at all. Separately, this same check found (and this session already FIXED, see updates) a real doc-vs-reality contradiction: the doc's header + Stage 10 description + 'How to update' step 3 all claimed the dashboard's **Trade Process** tab fetches this doc at runtime — but that tab was never carried over in the 2026-05-12 Vercel→Streamlit migration (confirmed via the dashboard repo's own CLAUDE.md 'Not (yet) ported' list). That contradiction is now fixed. What remains open is narrower: whether the doc's per-stage content (not its consumer note) should be extended to mention Alpaca-specific execution behavior, or whether broker-specific detail is intentionally out of this doc's scope (it reads IB/Bybit-oriented by default, generic elsewhere).",
+      "tier": 1,
+      "trigger_condition": "Next /health-review, or the next session that materially changes a pipeline stage (a natural forcing function to read + settle this doc's current scope).",
+      "resolution_criteria": "Read docs/TRADE-PIPELINE.md's stage-by-stage content in full, determine whether Alpaca-specific execution behavior belongs in a stage description per the doc's actual intended scope, and either add the missing coverage or note explicitly why broker-specific detail is out of scope (so this doesn't get re-flagged every sweep).",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-07-08T05:45:00+00:00",
+          "by": "claude (doc-freshness sweep, post Alpaca-pipeline-audit session, 2026-07-08)",
+          "note": "Fixed the doc-vs-reality contradiction found in the same check: docs/TRADE-PIPELINE.md's header note, 'How to update' step 3, and Stage 10 description all claimed the dashboard's Trade Process tab fetches this doc live. That tab does not exist in the current Streamlit dashboard (never ported off the retired Vercel app, per the dashboard repo's own CLAUDE.md). Updated all three spots to state there is currently no live UI consumer of this doc, and struck the now-impossible 'visually verify the dashboard tab' wrap-up step. Narrowed this entry's remaining scope to just the Alpaca-content question (see updated description) since the contradiction itself is resolved."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-07-08T04:56:00+00:00"
+  "updated_at": "2026-07-08T05:50:00+00:00"
 }
