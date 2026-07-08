@@ -1,0 +1,1384 @@
+{
+  "report_id": "RPT-20260708-074700-since-last",
+  "reviewed_at": "2026-07-08T07:47:00+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-07-06T15:32:00+00:00",
+  "window_end": "2026-07-08T07:47:00+00:00",
+  "prior_report_id": "RPT-20260706-153200-weekly",
+  "overall_assessment": "investigate",
+  "health": {
+    "overall_assessment": "caution",
+    "findings": {
+      "trader_process": {
+        "status": "ok",
+        "note": "ict-trader-live active/running since 07:08:58Z; heartbeat age 2.7s (running); last tick 07:37:35Z; git_sha 757027f4."
+      },
+      "web_api": {
+        "status": "ok",
+        "note": "ict-web-api active/running; diag relays served all paths."
+      },
+      "ib_execution": {
+        "status": "concern",
+        "note": "ib_paper exec client (498) breaker_open, 9 consec fails, account_warmup_timeout, no OK since 07:08 restart \u2014 MES/MGC/MHG dark. REMEDIATED live via vm-ib-gateway-recover (login_completed=yes); verifying breaker cleared."
+      },
+      "trainer_vm": {
+        "status": "concern",
+        "note": "158.178.209.121 SSH-unreachable (banner timeout) x2 \u2014 training lifecycle offline; sweep mirror stale ~29d."
+      },
+      "health_checks": {
+        "status": "watch",
+        "note": "5/7 checks ok on-VM; FAILING: git_drift, accounts_api (accounts_api fails partly because ib_paper was exec-down + shelved dry accounts counted, BL-20260705-HEALTHCHECK-SHELVED-ACCOUNTS)."
+      },
+      "data_endpoints": {
+        "status": "watch",
+        "note": "/api/pnl/history and /api/bot/shadow/drift both returned fetch_failed this run \u2014 minor observability gap."
+      },
+      "reconciler_artifacts": {
+        "status": "watch",
+        "note": "paper book carries SLV orphan_adopt duplicate closes (-693.6 x2) + an 8-trade mass-reconcile batch at 14:15:56Z; 2 prop packages marked 'orphaned' (sol_prop/eth_prop) by the package watchdog (BL-20260705-SHADOW-PKG-ORPHAN-STATUS)."
+      }
+    },
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "performance": {
+    "overall_assessment": "caution",
+    "summary": "Real-money since-last window: 2 closed, both losses (-$5.20), both via reconciler/other (not clean TP/SL). Real-money 30d: 19 trades, 52.6% WR, -$0.33 but -12.24R (expectancyR -0.64, PF 0.98) \u2014 ict_scalp_5m the dominant R-drag (-11.35R over 9 trades) + htf_pullback_trend_2h (-2.14R, 0% WR). Paper book noisy (+~$363 window) but contaminated by orphan_adopt + mass-reconcile artifacts.",
+    "grading": {
+      "window_packages_graded": 1,
+      "newest_grade_reviewed_at": "2026-07-08T07:39:16Z",
+      "grade_histogram": {
+        "C": 1
+      },
+      "note": "grade-closed-trades action ran on-VM; only 1 gradeable package was newly ungraded (GLD #3264=C); appended to comms/claude_strategy_scores.jsonl. Window fully covered."
+    },
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "ml": {
+    "overall_assessment": "investigate",
+    "model_status": [
+      {
+        "model_id": "btc-regime-15m-lgbm-v2",
+        "stage": "advisory",
+        "last_training": {
+          "headline_metric": "n/a (trainer unreachable)",
+          "trend_vs_prior_run": null
+        },
+        "live_shadow": {
+          "drift": "n/a (shadow/drift fetch_failed)"
+        },
+        "note": "Only advisory head; actively scoring live (15 scores/trade), score_mean ~0.97."
+      },
+      {
+        "model_id": "btc-regime-5m-baseline-v1",
+        "stage": "shadow",
+        "last_training": {
+          "headline_metric": null,
+          "trend_vs_prior_run": null
+        },
+        "live_shadow": {
+          "drift": null
+        },
+        "note": "Accruing (211 obs, last 07:33Z) but score_mean 0.99 near-degenerate (BL-20260525-005 class)."
+      },
+      {
+        "model_id": "eth-regime-5m-lgbm-v1",
+        "stage": "shadow",
+        "last_training": {
+          "headline_metric": null,
+          "trend_vs_prior_run": null
+        },
+        "live_shadow": {
+          "drift": null
+        },
+        "note": "Accruing (218 obs, last 07:35Z)."
+      },
+      {
+        "model_id": "sol-regime-5m-lgbm-v1",
+        "stage": "shadow",
+        "last_training": {
+          "headline_metric": null,
+          "trend_vs_prior_run": null
+        },
+        "live_shadow": {
+          "drift": null
+        },
+        "note": "Accruing (190 obs, last 07:36Z)."
+      },
+      {
+        "model_id": "btc-regime-15m-lgbm-fc-pcv-v1",
+        "stage": "shadow",
+        "last_training": {
+          "headline_metric": null,
+          "trend_vs_prior_run": null
+        },
+        "live_shadow": {
+          "drift": null
+        },
+        "note": "fc head, soaking toward advisory (MB-20260705-FC-ADVISORY-READINESS)."
+      }
+    ],
+    "promotion_recommendations": [],
+    "summary": "Live shadow/advisory INFERENCE is healthy (heads accruing, advisory scoring). TRAINING is OFFLINE: trainer VM SSH-unreachable x2; sweep mirror 29d stale; no cycle/dataset/registry verification possible. Escalated MB-20260705-TRAINER-OOM to operator.",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "investigate",
+    "headline": "Core money-trader healthy and trading (Bybit real + Alpaca real reachable, heartbeat live). Two infra failures found: (1) the IB ib_paper execution client wedged on account_warmup_timeout since the 07:08 restart \u2014 MES/MGC/MHG dark \u2014 REMEDIATED live this session via vm-ib-gateway-recover; (2) the trainer VM is SSH-unreachable (down/hung post-OOM), so ML training is offline and sweeps are 29d stale \u2014 needs an operator OCI reboot. Real-money is roughly flat in $ over 30d but -12.2R, with ict_scalp_5m (-11.4R) the clear drag. Since-last real window: 2 trades, both losses (-$5.20).",
+    "services": [
+      {
+        "unit": "ict-trader-live.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "2026-07-08 07:08:58 UTC"
+      },
+      {
+        "unit": "ict-web-api.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "2026-07-08 07:08:59 UTC"
+      }
+    ],
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Trainer VM down \u2014 reboot/re-provision (OCI console)",
+        "source_review": "ml",
+        "tier": 2,
+        "detail": "158.178.209.121 SSH-unreachable (banner timeout) x2; ML training offline, sweeps 29d stale; probable hung box post the 07-05 OOM-kill. SSH-dead blocks the relay, so needs an OCI-console reboot. Live inference unaffected. (MB-20260705-TRAINER-OOM escalated.)",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "IB exec wedge remediated \u2014 verify breaker cleared + harden warm-up",
+        "source_review": "health",
+        "tier": 2,
+        "detail": "ib_paper exec client wedged on account_warmup_timeout (9 fails, no OK since 07:08). Drove vm-ib-gateway-recover live (login OK). Verify MES/MGC/MHG resumed; consider self-heal on N consecutive warmup_timeouts so it doesn't need a manual gateway restart (BL-20260708-IB-WARMUP-WEDGE-RECUR).",
+        "operator_action_required": false
+      },
+      {
+        "rank": 3,
+        "title": "Review ict_scalp_5m (+ htf_pullback_trend_2h) for demote/tune",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "Real-money 30d: ict_scalp_5m -11.35R (9 trades, wins small/losses big), htf_pullback_trend_2h -2.14R (0% WR/3). Dominates the -12.2R book drag; ML setup-quality heads also score ict_scalp low. Tier-3 strategy change \u2014 operator decision. (PB-20260630-ICTSCALP-DEGRADE.)",
+        "operator_action_required": true
+      },
+      {
+        "rank": 4,
+        "title": "Clean up reconciler/orphan artifacts polluting paper + prop",
+        "source_review": "cross",
+        "tier": 2,
+        "detail": "SLV orphan_adopt duplicate -693.6 closes + an 8-trade 14:15:56Z mass-reconcile batch skew paper metrics; 2 prop packages (sol_prop/eth_prop) mis-marked 'orphaned' by the package watchdog. Bucket/exclude artifacts (PB-20260626-ARTIFACT-BUCKETS, BL-20260705-SHADOW-PKG-ORPHAN-STATUS).",
+        "operator_action_required": false
+      },
+      {
+        "rank": 5,
+        "title": "Live-VM health checks git_drift + accounts_api failing",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "5/7 health checks ok. git_drift (worktree vs main) + accounts_api (counts down/shelved accounts \u2014 worsened by the IB exec-down). Reconcile git state; fix the shelved-account overcount (BL-20260705-HEALTHCHECK-SHELVED-ACCOUNTS).",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "One root cause, three symptoms: the IB gateway wedge blocked MES/MGC/MHG execution AND made /api/bot/candles return no_data for the futures (market_context null) AND is a contributor to the accounts_api health-check failing.",
+      "Trainer-VM-down (ml) directly explains the 29d-stale /api/bot/backtests/sweeps mirror that both health and performance consume \u2014 no fresh sweeps can land while the trainer is offline.",
+      "Real-money bleed is concentrated in ict_scalp_5m: 30d -11.4R (performance) while its shadow setup-quality heads emit negative c_setup conviction (order-package provenance) \u2014 the ML signal and the realised P&L agree it is the weak link."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": -5.1987,
+        "prior_window_pnl": 10.2714,
+        "trend": "down",
+        "trades": 2,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": -2.5994,
+        "profit_factor": 0.0,
+        "max_drawdown": -5.1987,
+        "per_strategy": [
+          {
+            "name": "ada_pullback_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -4.7803
+          },
+          {
+            "name": "trend_donchian_xrp_4h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -0.4184
+          }
+        ],
+        "per_asset_class": {
+          "crypto": -5.1987
+        },
+        "equity_curve": []
+      },
+      "paper": {
+        "window_pnl": 362.83,
+        "prior_window_pnl": 246.0,
+        "trend": "up",
+        "trades": 20,
+        "wins": 4,
+        "win_rate": 22.2,
+        "expectancy": 20.16,
+        "profit_factor": null,
+        "max_drawdown": null,
+        "per_strategy": [
+          {
+            "name": "slv_trend_1h",
+            "trades": 2,
+            "win_rate": 50.0,
+            "pnl": 1444.3
+          },
+          {
+            "name": "spy_pullback_1h",
+            "trades": 2,
+            "win_rate": 100.0,
+            "pnl": 1658.13
+          },
+          {
+            "name": "gld_pullback_1h",
+            "trades": 4,
+            "win_rate": 0.0,
+            "pnl": -968.0
+          },
+          {
+            "name": "orphan_adopt",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -1387.2
+          },
+          {
+            "name": "qqq_pullback_1h",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -390.77
+          }
+        ],
+        "per_asset_class": {
+          "commodity": -181.1,
+          "equity": 1046.9,
+          "bond": -18.03,
+          "crypto": 48.8
+        },
+        "equity_curve": []
+      },
+      "prop": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": -71.66,
+        "trend": "up",
+        "fills_reported": 18,
+        "tickets_emitted": 24,
+        "unacted_tickets": 0,
+        "rule_distance": {
+          "daily_loss_remaining": 153.48,
+          "static_dd_remaining": 418.0
+        },
+        "per_account": [
+          {
+            "account_id": "breakout_1",
+            "balance": 5116.0,
+            "equity": 5118.0,
+            "realized_window": 0.0
+          }
+        ]
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": 63020.3,
+        "close": null,
+        "high": 64000.0,
+        "low": 62431.6,
+        "pct_change": null,
+        "range_pct": 2.5,
+        "note": "Chop ~62.4k-64.0k over the window, roughly flat; brief pop to 64k then faded. (bot-exchange/Bybit)"
+      },
+      {
+        "symbol": "ETHUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "Traded live (bybit_1/2 long open, +uPnL); candles not separately fetched this run."
+      },
+      {
+        "symbol": "MES",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "no_data \u2014 IB gateway wedged during window (remediated); IBKR candle feed unavailable."
+      },
+      {
+        "symbol": "MGC",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "no_data \u2014 IB gateway wedged during window (remediated)."
+      },
+      {
+        "symbol": "MHG",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "no_data \u2014 IB gateway wedged during window (remediated)."
+      },
+      {
+        "symbol": "SPY",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "Paper longs profitable (+$1.66k window); equities firm."
+      },
+      {
+        "symbol": "GLD",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "gld_pullback legs bled (-$968 window) \u2014 GLD ~377-381, chopped against the pullback longs."
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": 3117,
+        "order_package_id": null,
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "XRPUSDT",
+        "direction": "long",
+        "strategy": "trend_donchian_xrp_4h",
+        "opened_at": "2026-07-02T13:24:23Z",
+        "closed_at": "2026-07-08T02:37:58Z",
+        "hold_seconds": null,
+        "entry_price": 1.1026,
+        "exit_price": 1.0982,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -0.4184,
+        "pnl_percent": -0.3991,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3184,
+        "order_package_id": null,
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "ADAUSDT",
+        "direction": "long",
+        "strategy": "ada_pullback_2h",
+        "opened_at": "2026-07-05T12:32:14Z",
+        "closed_at": "2026-07-07T19:00:12Z",
+        "hold_seconds": null,
+        "entry_price": 0.1869,
+        "exit_price": 0.1748,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -4.7803,
+        "pnl_percent": -6.575,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3264,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "GLD",
+        "direction": "long",
+        "strategy": "gld_pullback_1h",
+        "opened_at": "2026-07-07T20:27:39Z",
+        "closed_at": "2026-07-07T20:53:35Z",
+        "hold_seconds": null,
+        "entry_price": 380.380506,
+        "exit_price": 377.46,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -122.6613,
+        "pnl_percent": -0.7678,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "gld_pullback_1h long; conf 0.69; exit exchange_flat_reconciled -0.99R"
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3266,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "SLV",
+        "direction": "short",
+        "strategy": "orphan_adopt",
+        "opened_at": "2026-07-07T20:40:26Z",
+        "closed_at": "2026-07-07T20:53:35Z",
+        "hold_seconds": null,
+        "entry_price": 53.94,
+        "exit_price": 54.45,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -693.6,
+        "pnl_percent": -0.9455,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3265,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "SLV",
+        "direction": "short",
+        "strategy": "orphan_adopt",
+        "opened_at": "2026-07-07T20:27:40Z",
+        "closed_at": "2026-07-07T20:33:45Z",
+        "hold_seconds": null,
+        "entry_price": 53.94,
+        "exit_price": 54.45,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -693.6,
+        "pnl_percent": -0.9455,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3247,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "IEF",
+        "direction": "long",
+        "strategy": "ief_pullback_1d",
+        "opened_at": "2026-07-07T16:19:38Z",
+        "closed_at": "2026-07-07T20:27:41Z",
+        "hold_seconds": null,
+        "entry_price": 94.14,
+        "exit_price": 93.71,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -3.44,
+        "pnl_percent": -0.4568,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 3248,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "IWM",
+        "direction": "long",
+        "strategy": "iwm_trend_long_1d",
+        "opened_at": "2026-07-07T16:19:40Z",
+        "closed_at": "2026-07-07T20:27:41Z",
+        "hold_seconds": null,
+        "entry_price": 298.53,
+        "exit_price": 296.19,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -21.06,
+        "pnl_percent": -0.7838,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 3249,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "QQQ",
+        "direction": "long",
+        "strategy": "qqq_pullback_1h",
+        "opened_at": "2026-07-07T16:19:41Z",
+        "closed_at": "2026-07-07T20:27:41Z",
+        "hold_seconds": null,
+        "entry_price": 720.633125,
+        "exit_price": 710.02,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -169.81,
+        "pnl_percent": -1.4728,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 3251,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "SPY",
+        "direction": "long",
+        "strategy": "spy_pullback_1h",
+        "opened_at": "2026-07-07T16:19:43Z",
+        "closed_at": "2026-07-07T20:27:41Z",
+        "hold_seconds": null,
+        "entry_price": 740.67,
+        "exit_price": 747.49,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": 852.5,
+        "pnl_percent": 0.9208,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3252,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "TLT",
+        "direction": "long",
+        "strategy": "tlt_pullback_1d",
+        "opened_at": "2026-07-07T16:19:45Z",
+        "closed_at": "2026-07-07T20:27:41Z",
+        "hold_seconds": null,
+        "entry_price": 85.54,
+        "exit_price": 84.54,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -10.0,
+        "pnl_percent": -1.169,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 3263,
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "strategy": "squeeze_breakout_4h",
+        "opened_at": "2026-07-07T20:00:42Z",
+        "closed_at": "2026-07-07T20:00:42Z",
+        "hold_seconds": null,
+        "entry_price": 63840.4,
+        "exit_price": 62901.9,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": 48.802,
+        "pnl_percent": 1.4701,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3250,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "SLV",
+        "direction": "long",
+        "strategy": "slv_trend_1h",
+        "opened_at": "2026-07-07T16:19:42Z",
+        "closed_at": "2026-07-07T19:18:29Z",
+        "hold_seconds": null,
+        "entry_price": 54.043015,
+        "exit_price": 53.85,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -262.5004,
+        "pnl_percent": -0.3572,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 3255,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "GLD",
+        "direction": "long",
+        "strategy": "gld_pullback_1h",
+        "opened_at": "2026-07-07T17:02:51Z",
+        "closed_at": "2026-07-07T19:11:06Z",
+        "hold_seconds": null,
+        "entry_price": 380.355,
+        "exit_price": 376.955,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -125.8,
+        "pnl_percent": -0.8939,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 3246,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "GLD",
+        "direction": "short",
+        "strategy": "gld_pullback_1h",
+        "opened_at": "2026-07-07T16:19:37Z",
+        "closed_at": "2026-07-07T16:23:01Z",
+        "hold_seconds": null,
+        "entry_price": 373.486429,
+        "exit_price": 380.27,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -284.91,
+        "pnl_percent": -1.8163,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 2634,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "GLD",
+        "direction": "short",
+        "strategy": "gld_pullback_1d",
+        "opened_at": "2026-06-16T14:28:22Z",
+        "closed_at": "2026-07-07T14:15:56Z",
+        "hold_seconds": null,
+        "entry_price": 396.33,
+        "exit_price": null,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 2772,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "IWM",
+        "direction": "long",
+        "strategy": "iwm_trend_long_1d",
+        "opened_at": "2026-06-22T13:38:34Z",
+        "closed_at": "2026-07-07T14:15:56Z",
+        "hold_seconds": null,
+        "entry_price": 298.53,
+        "exit_price": null,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 2868,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "GLD",
+        "direction": "short",
+        "strategy": "gld_pullback_1h",
+        "opened_at": "2026-06-25T15:02:49Z",
+        "closed_at": "2026-07-07T14:15:56Z",
+        "hold_seconds": null,
+        "entry_price": 368.03,
+        "exit_price": 380.95,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -434.5254,
+        "pnl_percent": -3.5106,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3060,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "SLV",
+        "direction": "long",
+        "strategy": "slv_trend_1h",
+        "opened_at": "2026-06-30T14:10:23Z",
+        "closed_at": "2026-07-07T14:15:56Z",
+        "hold_seconds": null,
+        "entry_price": 54.05,
+        "exit_price": 55.305,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": 1706.8,
+        "pnl_percent": 2.3219,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3118,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "IEF",
+        "direction": "long",
+        "strategy": "ief_pullback_1d",
+        "opened_at": "2026-07-02T13:31:59Z",
+        "closed_at": "2026-07-07T14:15:56Z",
+        "hold_seconds": null,
+        "entry_price": 94.1,
+        "exit_price": 93.89,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -1.68,
+        "pnl_percent": -0.2232,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 3127,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "TLT",
+        "direction": "long",
+        "strategy": "tlt_pullback_1d",
+        "opened_at": "2026-07-02T14:19:04Z",
+        "closed_at": "2026-07-07T14:15:56Z",
+        "hold_seconds": null,
+        "entry_price": 85.54,
+        "exit_price": 84.905,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -6.35,
+        "pnl_percent": -0.7423,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 3131,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "SPY",
+        "direction": "long",
+        "strategy": "spy_pullback_1h",
+        "opened_at": "2026-07-02T18:02:27Z",
+        "closed_at": "2026-07-07T14:15:56Z",
+        "hold_seconds": null,
+        "entry_price": 740.455,
+        "exit_price": 746.9,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": 805.625,
+        "pnl_percent": 0.8704,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3206,
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "QQQ",
+        "direction": "long",
+        "strategy": "qqq_pullback_1h",
+        "opened_at": "2026-07-06T13:33:48Z",
+        "closed_at": "2026-07-07T14:15:56Z",
+        "hold_seconds": null,
+        "entry_price": 721.63,
+        "exit_price": 707.82,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": null,
+        "pnl": -220.96,
+        "pnl_percent": -1.9137,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      }
+    ],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 22,
+      "summarized_trades": 0,
+      "rule": "full-per-trade (since-last)"
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 201,
+        "open": 83,
+        "resolved": 118,
+        "drained": 6
+      },
+      "performance": {
+        "total": 66,
+        "open": 46,
+        "resolved": 20,
+        "drained": 0
+      },
+      "ml": {
+        "total": 65,
+        "open": 28,
+        "resolved": 37,
+        "drained": 0
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "performance",
+        "summary": "Demote/tune ict_scalp_5m \u2014 real-money 30d -11.35R, recent-30d degrading (PB-20260630-ICTSCALP-DEGRADE).",
+        "tier": 3
+      },
+      {
+        "source_review": "performance",
+        "summary": "Review htf_pullback_trend_2h \u2014 0% WR / -2.14R real-money over recent window.",
+        "tier": 3
+      },
+      {
+        "source_review": "ml",
+        "summary": "fc heads (BTC+ETH 15m) shadow->advisory readiness (MB-20260705-FC-ADVISORY-READINESS) \u2014 soaking, operator-gated.",
+        "tier": 3
+      },
+      {
+        "source_review": "ml",
+        "summary": "Enable downsize influence for advisory models (currently annotate-by-default) (MB-20260613-004).",
+        "tier": 3
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "MB-20260705-FC-ADVISORY-READINESS",
+        "domain": "ml",
+        "category": "soaking",
+        "detail": "fc BTC+ETH 15m heads at shadow soaking toward the fc->advisory Tier-3 gate.",
+        "since": "2026-07-05",
+        "next_check": "soak-days + score-sanity criteria met"
+      },
+      {
+        "item_id": "MB-20260628-REGIME-SOAK-READINESS",
+        "domain": "ml",
+        "category": "awaiting-data",
+        "detail": "ETH/SOL 15m regime heads soak->advisory readiness.",
+        "since": "2026-06-28",
+        "next_check": "RG4 re-check on fixed data"
+      },
+      {
+        "item_id": "PB-20260617-002",
+        "domain": "performance",
+        "category": "awaiting-decision",
+        "detail": "Graduate the ExitPlan ladder to the real exit (P4) \u2014 soak shows ladder==single-target so far.",
+        "since": "2026-06-17",
+        "next_check": "backtest gate + operator go"
+      },
+      {
+        "item_id": "M18-allocator",
+        "domain": "performance",
+        "category": "awaiting-decision",
+        "detail": "Allocator soak accruing (regret logged, disagrees on GLD/SOL); P2 parked pending a proven P_win input.",
+        "since": "2026-06-29",
+        "next_check": "operator go / P_win ranker"
+      },
+      {
+        "item_id": "PB-20260628-001",
+        "domain": "performance",
+        "category": "awaiting-data",
+        "detail": "Confirm small-ticket real-money orders actually place + fill.",
+        "since": "2026-06-28",
+        "next_check": "next real-money fills"
+      },
+      {
+        "item_id": "BL-20260624-MHG-CLOSE-CONFIRM-VERIFY",
+        "domain": "health",
+        "category": "verify",
+        "detail": "Verify IB close-confirm/close-retry-cooldown holds \u2014 blocked until IB stably back after this recover.",
+        "since": "2026-06-24",
+        "next_check": "next review with IB healthy"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [
+          {
+            "name": "ict_scalp_5m",
+            "gate": "DEMOTE_SHADOW",
+            "evidence": "real-money 30d -11.35R over 9 trades (66.7% WR but wins small / losses big); recent-30d degrading; ML setup-quality heads score it negative."
+          },
+          {
+            "name": "htf_pullback_trend_2h",
+            "gate": "DEMOTE_SHADOW",
+            "evidence": "0% WR / -2.14R over 3 real-money trades this 30d window."
+          }
+        ],
+        "summary": "Mostly HOLD. ict_scalp_5m + htf_pullback_trend_2h are demote/tune candidates on 30d R-metrics. Formal M7 review packets were NOT re-generated this run (packet generation is trainer-adjacent tooling and the trainer VM is down); stance is from live /performance R-metrics."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": "unavailable: trainer VM SSH-unreachable x2",
+        "dataset_builds_ok": null,
+        "failing_or_stuck": [
+          "trainer VM 158.178.209.121 SSH-unreachable (banner timeout) x2 \u2014 whole training pipeline offline",
+          "/api/bot/backtests/sweeps mirror stale ~29d (newest 2026-06-09)"
+        ],
+        "summary": "unavailable: trainer VM SSH-unreachable \u2014 no registry/cycle/dataset-build verification. Live shadow inference healthy (heads accruing, advisory scoring). Escalated MB-20260705-TRAINER-OOM to operator."
+      },
+      "soak_status": [
+        {
+          "soak": "shadow regime heads (btc/eth/sol 5m/15m)",
+          "state": "accruing",
+          "detail": "190-218 obs each, last_seen ~07:33-07:36Z; advisory btc-regime-15m-lgbm-v2 scoring live."
+        },
+        {
+          "soak": "fc-geometry soak",
+          "state": "accruing",
+          "detail": "6 records; fc coverage low (1/6 fc_present) \u2014 placed SL/TP + decision-time fc snapshot per opening order."
+        },
+        {
+          "soak": "exit-ladder soak",
+          "state": "accruing",
+          "detail": "20 records, differs_from_single_target=false throughout (n_rungs 0)."
+        },
+        {
+          "soak": "allocator soak (M18)",
+          "state": "accruing",
+          "detail": "20 records; disagreements+regret logged (GLD 1h-long vs 1d-short, SOL); observe-only, routing unchanged."
+        },
+        {
+          "soak": "training-side dataset builds",
+          "state": "stalled",
+          "detail": "BLOCKED \u2014 trainer VM down; no new dataset/training work landing."
+        }
+      ],
+      "flags_raised": [
+        "IB ib_paper execution client wedged (breaker_open, account_warmup_timeout, 9 fails, no OK since 07:08 restart) \u2014 MES/MGC/MHG dark. REMEDIATED live via vm-ib-gateway-recover.",
+        "Trainer VM 158.178.209.121 DOWN/unreachable (SSH banner timeout x2) \u2014 ML training offline, sweeps 29d stale; needs operator OCI reboot.",
+        "Real-money 30d negative in R: -12.24R (expectancyR -0.64), ict_scalp_5m -11.35R the dominant drag + htf_pullback_trend_2h -2.14R.",
+        "Paper/prop data-quality: SLV orphan_adopt duplicate -693.6 closes, 8-trade 14:15:56Z mass-reconcile batch, 2 prop packages mis-marked 'orphaned'.",
+        "Live-VM health checks git_drift + accounts_api FAILING (5/7 ok).",
+        "/api/pnl/history and /api/bot/shadow/drift returned fetch_failed this run (minor observability gap)."
+      ],
+      "account_reachability": {
+        "checked": [
+          "bybit_1",
+          "bybit_2",
+          "ib_paper",
+          "alpaca_paper",
+          "alpaca_live",
+          "alpaca_options_paper"
+        ],
+        "down": [
+          {
+            "account_id": "ib_paper",
+            "exchange": "interactive_brokers",
+            "evidence": "exec client 498 breaker_open, account_warmup_timeout, api_ok=false in balances; readonly reads OK (positions=[]).",
+            "remediation": "vm-ib-gateway-recover dispatched + succeeded (login_completed=yes); breaker auto-clears ~2min \u2014 verifying."
+          }
+        ],
+        "summary": "6 declared-live probeable accounts; 5 fully reachable (bybit_1, bybit_2, alpaca_paper, alpaca_live, alpaca_options_paper \u2014 all api_ok). ib_paper execution client was wedged (paper account) \u2014 remediated live via gateway recover, verifying. Dry/shelved ib_live+oanda_practice and API-less breakout_1 correctly excluded."
+      },
+      "backlog_drive": {
+        "health": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "BL-20260705-ENV-DIAG-BASE-URL-STALE",
+              "reason": "re-confirmed stale this session (DIAG_BASE_URL still points at retired micro 158.178.210.252) but it's a cloud-ENV var, operator-owned \u2014 not repo-fixable."
+            },
+            {
+              "id": "BL-20260705-DASHBOARD-API-TOKEN-UNSET",
+              "reason": "Tier-2 VM env change (sync-vm-secrets/operator) \u2014 not a web-review action."
+            },
+            {
+              "id": "BL-20260624-MHG-CLOSE-CONFIRM-VERIFY",
+              "reason": "blocked \u2014 IB only just recovered; verify next review when IB is stably up."
+            }
+          ]
+        },
+        "performance": {
+          "drained": [
+            "grading-refresh"
+          ],
+          "deferred": [
+            {
+              "id": "PB-20260630-ICTSCALP-DEGRADE",
+              "reason": "Tier-3 \u2014 surfaced to operator as priority #3 (demote/tune decision)."
+            },
+            {
+              "id": "PB-20260630-001",
+              "reason": "awaiting clean data \u2014 htf metrics contaminated by the mass-reconcile; re-assess post-cleanup."
+            }
+          ]
+        },
+        "ml": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "MB-20260705-TRAINER-OOM",
+              "reason": "escalated to operator this session (trainer SSH-dead \u2014 OCI reboot needed); can't drain from a web session."
+            },
+            {
+              "id": "MB-20260705-FC-ADVISORY-READINESS",
+              "reason": "soaking \u2014 fc heads accruing toward the Tier-3 advisory gate."
+            },
+            {
+              "id": "MB-20260613-004",
+              "reason": "Tier-3 live-order-path, operator-gated."
+            }
+          ]
+        },
+        "summary": "Performance grading refreshed (window fully covered; 1 package graded). Two live incidents DRIVEN: IB exec wedge remediated via vm-ib-gateway-recover; trainer-VM-down escalated to operator (MB-20260705-TRAINER-OOM) + new BL-20260708-IB-WARMUP-WEDGE-RECUR logged. Remaining open items are Tier-3-operator-gated, soaking, or blocked by the trainer being offline / IB just-recovered \u2014 deferred with reasons (a web review can't land VM/code mutations)."
+      }
+    }
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260708T074700Z/report.json",
+    "html_path": "comms/reports/since-last/20260708T074700Z/report.html",
+    "md_path": "comms/reports/since-last/20260708T074700Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260708T074700Z/report.html",
+    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260708-074700-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "send-ping",
+    "priority": "high",
+    "message": "[system-report:since-last] roll-up investigate: H:caution P:caution M:investigate. https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260708-074700-since-last"
+  }
+}
