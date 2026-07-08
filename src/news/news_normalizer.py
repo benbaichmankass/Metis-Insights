@@ -24,7 +24,11 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Dict, FrozenSet, List, Optional
 
-from src.news.news_symbols import keywords_for_base as _config_keywords_for_base
+from src.news.news_symbols import (
+    keywords_for_base as _config_keywords_for_base,
+    macro_keywords as _config_macro_keywords,
+    macro_relevance_weight as _config_macro_relevance_weight,
+)
 
 # ---------------------------------------------------------------------------
 # Sentiment keyword dictionaries
@@ -158,18 +162,53 @@ def _score_sentiment(
     return round(max(-1.0, min(1.0, raw * weight)), 4)
 
 
-def _score_relevance(text: str, symbol_tags: List[str]) -> float:
-    """Return relevance in [0, 1] based on symbol keyword matches."""
+def _relevance_breakdown(text: str, symbol_tags: List[str]) -> tuple[float, bool]:
+    """Return ``(relevance_score, symbol_matched)`` for *text* vs *symbol_tags*.
+
+    A symbol whose own keywords appear scores a full unit; a symbol that does
+    NOT match its own keywords but where the text hits a shared macro keyword
+    scores a partial unit (``macro_relevance_weight``). This is what lets a
+    macro article (Fed / inflation / the dollar) register relevance for a
+    crypto symbol whose keywords are ticker-only, so general market trends
+    inform every decision — not just the instrument-specific headlines.
+
+    ``symbol_matched`` is True iff at least one symbol matched on its OWN
+    keywords (not merely macro). The veto path keys off this so a broad macro
+    article never becomes a live trade-blocking veto on its own.
+    """
+    if not symbol_tags:
+        return 0.0, False
     text_lower = text.lower()
-    hits = 0
+    # De-duplicate to bases so ["BTC","BTCUSDT"] counts once (same instrument).
+    bases: List[str] = []
+    seen: set[str] = set()
     for sym in symbol_tags:
         base = sym.upper().replace("USDT", "").replace("PERP", "")
+        if base and base not in seen:
+            seen.add(base)
+            bases.append(base)
+    if not bases:
+        return 0.0, False
+
+    macro_kws = _config_macro_keywords()
+    macro_hit = any(kw in text_lower for kw in macro_kws)
+    macro_w = _config_macro_relevance_weight()
+
+    hits = 0.0
+    symbol_matched = False
+    for base in bases:
         keywords = _resolve_keywords(base)
         if any(kw in text_lower for kw in keywords):
-            hits += 1
-    if not symbol_tags:
-        return 0.0
-    return round(min(1.0, hits / len(symbol_tags)), 4)
+            hits += 1.0
+            symbol_matched = True
+        elif macro_hit:
+            hits += macro_w
+    return round(min(1.0, hits / len(bases)), 4), symbol_matched
+
+
+def _score_relevance(text: str, symbol_tags: List[str]) -> float:
+    """Back-compat scalar wrapper around :func:`_relevance_breakdown`."""
+    return _relevance_breakdown(text, symbol_tags)[0]
 
 
 def _score_impact(text: str, sentiment: float) -> float:
@@ -276,7 +315,12 @@ def normalize_article(
     freshness = _freshness_minutes(published_at)
     tags = _extract_symbol_tags(combined_text, symbol_tags)
     sentiment = _score_sentiment(combined_text, extra_positive=extra_pos, extra_negative=extra_neg)
-    relevance = _score_relevance(combined_text, tags if tags else (symbol_tags or []))
+    # Score relevance against the trading symbol(s) the caller asked about
+    # (falling back to auto-detected tags when called standalone). A macro-only
+    # match yields partial relevance; ``symbol_matched`` flags a genuine
+    # instrument-specific hit for the veto gate below.
+    relevance_targets = list(symbol_tags) if symbol_tags else tags
+    relevance, symbol_matched = _relevance_breakdown(combined_text, relevance_targets)
     impact = _score_impact(combined_text, sentiment)
     reason = _build_reason(sentiment, relevance, impact, freshness)
 
@@ -289,6 +333,11 @@ def normalize_article(
         "symbol_tags": tags,
         "sentiment_score": sentiment,
         "relevance_score": relevance,
+        # True when this article is relevant ONLY via the shared macro keywords
+        # (no instrument-specific match). The scorer excludes such items from
+        # the adverse-news veto so broad macro can inform sizing/visibility
+        # without silently expanding what blocks a live trade.
+        "is_macro_only": bool(relevance > 0.0 and not symbol_matched),
         "impact_score": impact,
         "freshness_minutes": freshness,
         "reason": reason,

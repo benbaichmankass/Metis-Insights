@@ -31,6 +31,29 @@ _CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "news_symbols.ya
 
 _DEFAULT_QUERY = "Bitcoin OR BTC"
 
+_DEFAULT_MACRO_RELEVANCE_WEIGHT = 0.5
+
+# Built-in macro / cross-asset relevance keywords. These are considered
+# relevant to EVERY traded symbol (crypto included) so general market-moving
+# news — the Fed, inflation, rates, risk sentiment, the dollar — informs every
+# decision, not just the instrument-specific headlines. Used as the fallback
+# when ``config/news_symbols.yaml`` has no ``defaults.macro_keywords`` block,
+# so the macro layer works even if the config is stale/absent.
+_BUILTIN_MACRO_KEYWORDS: List[str] = [
+    "federal reserve", "fed", "fomc", "jerome powell", "powell",
+    "interest rate", "interest rates", "rate cut", "rate hike", "rate decision",
+    "monetary policy", "quantitative", "liquidity",
+    "inflation", "cpi", "pce", "deflation", "stagflation",
+    "recession", "gdp", "economy", "economic growth", "soft landing",
+    "jobs report", "payrolls", "nonfarm", "unemployment", "labor market",
+    "treasury", "treasury yield", "bond yield", "yields", "10-year", "10 year",
+    "dollar", "u.s. dollar", "us dollar", "dxy", "greenback",
+    "risk-off", "risk off", "risk-on", "risk on", "risk appetite", "risk sentiment",
+    "stock market", "wall street", "equities", "s&p 500", "nasdaq",
+    "tariff", "tariffs", "trade war", "sanctions", "geopolitical", "geopolitics",
+    "central bank", "ecb", "boj",
+]
+
 
 def _base_of(tag: str) -> str:
     """Normalize a symbol tag to its base token (matches the pipeline's rule)."""
@@ -111,3 +134,37 @@ def keywords_for_base(base: str) -> Optional[List[str]]:
     if not isinstance(kws, list):
         return None
     return [str(k).strip().lower() for k in kws if str(k).strip()]
+
+
+def macro_keywords() -> List[str]:
+    """Shared macro / cross-asset relevance keywords applied to EVERY symbol.
+
+    Resolution: ``config/news_symbols.yaml::defaults.macro_keywords`` (operator
+    edited) -> the built-in :data:`_BUILTIN_MACRO_KEYWORDS`. These let a
+    market-moving macro article (Fed, inflation, the dollar, risk sentiment)
+    register non-zero relevance for a crypto symbol whose own keywords are
+    ticker-only — i.e. general macro trends inform crypto decisions, not just
+    Bitcoin-specific headlines.
+    """
+    raw = load_symbol_config().get("defaults", {}).get("macro_keywords")
+    if not isinstance(raw, list):
+        return list(_BUILTIN_MACRO_KEYWORDS)
+    kws = [str(k).strip().lower() for k in raw if str(k).strip()]
+    return kws or list(_BUILTIN_MACRO_KEYWORDS)
+
+
+def macro_relevance_weight() -> float:
+    """Partial relevance (0..1) a macro-only article gets for a symbol.
+
+    Reads ``defaults.macro_relevance_weight`` (default ``0.5``). Kept below 1.0
+    so instrument-specific news still dominates the weighted aggregate while
+    macro news contributes a real, secondary voice.
+    """
+    raw = load_symbol_config().get("defaults", {}).get(
+        "macro_relevance_weight", _DEFAULT_MACRO_RELEVANCE_WEIGHT
+    )
+    try:
+        w = float(raw)
+    except (TypeError, ValueError):
+        return _DEFAULT_MACRO_RELEVANCE_WEIGHT
+    return min(1.0, max(0.0, w))

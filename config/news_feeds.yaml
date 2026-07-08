@@ -22,6 +22,8 @@ groups:
   global:
     - https://www.federalreserve.gov/feeds/press_all.xml
     - https://feeds.content.dowjones.io/public/rss/mw_topstories   # MarketWatch top stories
+    - https://www.cnbc.com/id/20910258/device/rss/rss.html         # CNBC Economy (macro / Fed / data)
+    - https://www.cnbc.com/id/10000664/device/rss/rss.html         # CNBC Markets (broad risk sentiment)
   crypto:
     - https://www.coindesk.com/arc/outboundfeeds/rss/
     - https://cointelegraph.com/rss

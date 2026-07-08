@@ -25,6 +25,79 @@ defaults:
   # new instrument still pulls market-moving headlines rather than nothing.
   query: "stock market OR federal reserve OR inflation OR economy OR interest rates"
 
+  # Shared macro / cross-asset relevance keywords applied to EVERY traded symbol
+  # (crypto included). A market-moving macro article (Fed, inflation, rates, the
+  # dollar, risk sentiment) that doesn't mention an instrument's own ticker now
+  # scores PARTIAL relevance (macro_relevance_weight) for that symbol, instead
+  # of being dropped. This is what makes the layer consider general macro trends
+  # for crypto — whose per-symbol keywords are ticker-only — not just
+  # Bitcoin-specific headlines. Macro-only items inform the sentiment adjustment
+  # and dashboard feed but are excluded from the adverse-news VETO (that stays
+  # scoped to instrument-specific news; see src/news/news_score.py).
+  # If this block is removed, the built-in list in src/news/news_symbols.py
+  # (_BUILTIN_MACRO_KEYWORDS) is used instead — the layer never strands.
+  macro_relevance_weight: 0.5
+  macro_keywords:
+    - "federal reserve"
+    - fed
+    - fomc
+    - "jerome powell"
+    - powell
+    - "interest rate"
+    - "interest rates"
+    - "rate cut"
+    - "rate hike"
+    - "rate decision"
+    - "monetary policy"
+    - "quantitative"
+    - liquidity
+    - inflation
+    - cpi
+    - pce
+    - deflation
+    - stagflation
+    - recession
+    - gdp
+    - economy
+    - "economic growth"
+    - "soft landing"
+    - "jobs report"
+    - payrolls
+    - nonfarm
+    - unemployment
+    - "labor market"
+    - treasury
+    - "treasury yield"
+    - "bond yield"
+    - yields
+    - "10-year"
+    - "10 year"
+    - dollar
+    - "u.s. dollar"
+    - "us dollar"
+    - dxy
+    - greenback
+    - "risk-off"
+    - "risk off"
+    - "risk-on"
+    - "risk on"
+    - "risk appetite"
+    - "risk sentiment"
+    - "stock market"
+    - "wall street"
+    - equities
+    - "s&p 500"
+    - nasdaq
+    - tariff
+    - tariffs
+    - "trade war"
+    - sanctions
+    - geopolitical
+    - geopolitics
+    - "central bank"
+    - ecb
+    - boj
+
 symbols:
   # ---- Crypto ----
   BTC:

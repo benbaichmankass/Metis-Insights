@@ -45,6 +45,7 @@ Each news article is normalized into this structure before scoring:
     "symbol_tags":      ["BTC"],                   # matched symbols found in text
     "sentiment_score":  0.4,                       # float in [-1, 1]
     "relevance_score":  0.8,                       # float in [0, 1]
+    "is_macro_only":    false,                     # relevant only via shared macro keywords (no ticker hit)
     "impact_score":     0.6,                       # float in [0, 1]
     "freshness_minutes": 12.0,                     # minutes since publication
     "reason":           "positive sentiment; high relevance; high impact",
@@ -264,6 +265,45 @@ re-break a futures instrument.
 `_SYMBOL_KEYWORDS` crypto map → the base's own lower-cased token. The loader
 **never raises**: an absent/malformed file degrades to the built-in crypto
 behaviour. Adding a new instrument is a **YAML edit, not a code change**.
+
+## Macro / cross-asset relevance (2026-07-08)
+
+The per-symbol `keywords` above answer *"is this article about the instrument
+I'm trading?"* — but they're **ticker-only for crypto** (`bitcoin`, `btc`,
+`crypto`, …). That reintroduced the original blindness for the *most-traded*
+symbol: the `global` macro feed (Fed, MarketWatch, CNBC) **was** fetched for a
+BTC signal, but a Fed / inflation / dollar article that never says "bitcoin"
+scored relevance `0` and was dropped before scoring. So the layer only ever
+weighed Bitcoin-specific headlines — never the general macro that actually
+drives crypto (Fed liquidity, risk sentiment, the dollar). Index/commodity
+symbols escaped this only because their `keywords` already inlined macro terms.
+
+The fix is a **shared macro keyword layer** applied to *every* symbol
+(`config/news_symbols.yaml::defaults.macro_keywords`, with a built-in fallback
+in `news_symbols._BUILTIN_MACRO_KEYWORDS` so it never strands). Relevance is now
+**tiered** (`news_normalizer._relevance_breakdown`):
+
+| Article matches… | relevance contribution |
+|---|---|
+| the instrument's own `keywords` | **full** (1.0) — `symbol_matched=True` |
+| **only** a shared macro keyword | **partial** (`defaults.macro_relevance_weight`, default `0.5`) |
+| neither | `0.0` (dropped, unchanged) |
+
+So a macro article informs **every** decision (crypto included) at a secondary
+weight, while instrument-specific news still dominates the relevance-weighted
+aggregate. Each normalized article carries **`is_macro_only`** (relevant only
+via macro, no ticker hit).
+
+**Veto stays scoped to instrument-specific news.** The adverse-news veto
+(`news_score.score_news`) **excludes `is_macro_only` items**, so switching the
+macro layer on does **not** change what blocks a live trade — macro moves the
+sizing adjustment and the dashboard feed, never the veto on its own. (A macro
+article that *also* hits an instrument keyword is not macro-only and vetoes as
+before.)
+
+Feeds: the shared **`global`** group in `config/news_feeds.yaml` now also
+carries CNBC Economy + CNBC Markets, so every symbol pulls a solid macro/econ
+feed regardless of its asset-class group.
 
 ## Shadow-soak log (`runtime_logs/news_decisions.jsonl`)
 

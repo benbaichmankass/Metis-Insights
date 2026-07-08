@@ -133,8 +133,15 @@ class TestRelevanceScoring:
         assert score > 0.0
 
     def test_no_symbol_match(self):
-        score = _score_relevance("Stock market rallies", ["BTC"])
+        # Neither an instrument ticker nor any macro theme → relevance 0.
+        score = _score_relevance("Apple unveils a new iPhone model", ["BTC"])
         assert score == 0.0
+
+    def test_macro_theme_partial_match_for_crypto(self):
+        # A macro article (no crypto ticker) now scores PARTIAL relevance for a
+        # crypto symbol — general macro trends inform the crypto decision.
+        score = _score_relevance("Federal Reserve holds interest rates steady", ["BTC"])
+        assert 0.0 < score < 1.0
 
     def test_empty_symbol_tags(self):
         score = _score_relevance("Bitcoin surges", [])
