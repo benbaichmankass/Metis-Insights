@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.fixtures.real_schema_db import real_schema_db, insert_trade  # noqa: F401
+from tests.fixtures.real_schema_db import insert_trade
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
