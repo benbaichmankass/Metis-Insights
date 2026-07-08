@@ -276,6 +276,70 @@ def _recent_warning_banners() -> List[Dict[str, Any]]:
     return out
 
 
+def _operator_alert_banners() -> List[Dict[str, Any]]:
+    """Recent durable operator alerts as banners.
+
+    The trader's ``execution_diagnostics.enqueue_*`` alerts (stuck close, orphan
+    flag, failed dispatch, …) Telegram via transient pending-ping files that the
+    sender consumes + deletes — so they can't back this banner. Every such alert
+    now ALSO appends a structured row to ``runtime_logs/operator_alerts.jsonl``
+    (a bounded ring); this reads its recent tail so a live operational condition
+    — e.g. the ``alpaca_paper`` QQQ "Position CLOSE failing — won't flatten" —
+    surfaces on the Overview banner, not only in Telegram. ``priority=="critical"``
+    → ``alert``, anything else → ``warning``. Deduped by (kind, digit-normalised
+    first line) so a per-tick close-retry collapses to one banner; newest-first,
+    capped. Best-effort — a missing/garbled log yields no banners, never raises.
+    """
+    out: List[Dict[str, Any]] = []
+    try:
+        path = runtime_logs_dir() / "operator_alerts.jsonl"
+        if not path.is_file():
+            return out
+        cutoff = datetime.now(timezone.utc).timestamp() - _warning_window_min() * 60
+        seen: set = set()
+        rows: List[tuple] = []
+        for line in _tail_lines(path):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            dt = _parse_ts(r.get("ts"))
+            if dt is None or dt.timestamp() < cutoff:
+                continue
+            body = str(r.get("body") or "").strip()
+            if not body:
+                continue
+            kind = str(r.get("kind") or "operator_alert").strip() or "operator_alert"
+            body_lines = [ln.strip() for ln in body.splitlines() if ln.strip()]
+            head = body_lines[0] if body_lines else body
+            key = (kind, re.sub(r"\d+", "#", head)[:80])
+            if key in seen:
+                continue
+            seen.add(key)
+            prio = str(r.get("priority") or "high").lower()
+            rows.append((dt, kind, prio, head, body_lines[1:]))
+        rows.sort(key=lambda x: x[0], reverse=True)
+        for dt, kind, prio, head, rest in rows[:_WARN_MAX_BANNERS]:
+            sev = "alert" if prio == "critical" else "warning"
+            msg = head if len(head) <= 160 else head[:157] + "…"
+            detail = " · ".join(rest[:4]) or None
+            if detail and len(detail) > 300:
+                detail = detail[:297] + "…"
+            out.append({
+                "severity": sev,
+                "kind": kind,
+                "message": msg,
+                "detail": detail,
+                "since": dt.isoformat(),
+            })
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort banner feed — omit this kind on any source failure, the endpoint never 5xxs (documented contract)
+        logger.debug("notifications: operator-alert banners failed: %s", exc)
+    return out
+
+
 @router.get("/notifications")
 def get_notifications() -> Dict[str, Any]:
     """Aggregate the active banner-worthy conditions (Tier 1, best-effort)."""
@@ -285,6 +349,7 @@ def get_notifications() -> Dict[str, Any]:
     if tb:
         banners.append(tb)
     banners.extend(_account_down_banners())
+    banners.extend(_operator_alert_banners())
     banners.extend(_recent_warning_banners())
     ob = _recent_trade_open_banner()
     if ob:
