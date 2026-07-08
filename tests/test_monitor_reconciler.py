@@ -72,6 +72,37 @@ def _reconcile_to_close(db):
             os.environ["RECONCILER_CLOSE_CONFIRM_SECONDS"] = prev
 
 
+def _watchdog_to_close(db):
+    """Drive ``_watchdog_stuck_strategies`` to a settled position-flat finalize.
+
+    BL-20260708-WATCHDOG-FALSEFLAT-FLAP: the watchdog's "position flat at
+    exchange → finalize closed" branch now requires a 2-observation confirm
+    (``RECONCILER_CLOSE_CONFIRM_SECONDS`` apart) so a transient/partial exchange
+    snapshot that momentarily omits a symbol can't false-close a still-live
+    position (the alpaca_paper QQQ #3249→#3269 re-adopt flap). This helper sets
+    the confirm window to 0 (so the second observation alone confirms), clears
+    the pending cache, runs two ticks, and returns the SECOND summary (the one
+    that performed the finalize). Use it in place of a single
+    ``_watchdog_stuck_strategies(db)`` call wherever the test asserts a flat
+    package/trade ends up finalized.
+    """
+    import os
+
+    from src.runtime import order_monitor as _om
+
+    prev = os.environ.get("RECONCILER_CLOSE_CONFIRM_SECONDS")
+    os.environ["RECONCILER_CLOSE_CONFIRM_SECONDS"] = "0"
+    _om._PENDING_WATCHDOG_FLAT_CONFIRM.clear()
+    try:
+        _om._watchdog_stuck_strategies(db)          # 1st flat → arms pending
+        return _om._watchdog_stuck_strategies(db)   # 2nd flat → confirms + finalizes
+    finally:
+        if prev is None:
+            os.environ.pop("RECONCILER_CLOSE_CONFIRM_SECONDS", None)
+        else:
+            os.environ["RECONCILER_CLOSE_CONFIRM_SECONDS"] = prev
+
+
 _ACCOUNTS_YAML = textwrap.dedent("""\
     accounts:
       bybit_2:
@@ -1655,6 +1686,17 @@ class TestStuckStrategyWatchdog:
     30 min, env ``STUCK_STRATEGY_THRESHOLD_MINUTES``).
     """
 
+    @pytest.fixture(autouse=True)
+    def _clear_watchdog_flat_confirm(self):
+        # The 2-observation flat-confirm cache (BL-20260708-WATCHDOG-FALSEFLAT-
+        # FLAP) is a module global keyed by trade id; DB ids repeat across
+        # fresh tmp_db fixtures, so a leaked stamp could turn a later test's
+        # FIRST flat read into a spurious 2nd observation. Clear before + after.
+        from src.runtime import order_monitor as _om
+        _om._PENDING_WATCHDOG_FLAT_CONFIRM.clear()
+        yield
+        _om._PENDING_WATCHDOG_FLAT_CONFIRM.clear()
+
     def _insert_pkg_with_age(
         self, db, *, pkg_id, linked_trade_id, age_minutes,
         strategy="vwap", status="open", meta=None,
@@ -1705,7 +1747,7 @@ class TestStuckStrategyWatchdog:
             "src.units.accounts.clients.account_open_positions",
             return_value=[],
         ):
-            summary = _watchdog_stuck_strategies(tmp_db)
+            summary = _watchdog_to_close(tmp_db)
 
         assert summary["checked"] == 1
         assert summary["auto_cleared"] == 1
@@ -1776,7 +1818,7 @@ class TestStuckStrategyWatchdog:
                 "closed_at": "1762620000000",
             },
         ):
-            summary = _watchdog_stuck_strategies(tmp_db)
+            summary = _watchdog_to_close(tmp_db)
 
         assert summary["auto_cleared"] == 1
         assert summary["recovered_closed"] == 1
@@ -1836,7 +1878,7 @@ class TestStuckStrategyWatchdog:
             "src.units.accounts.clients.account_closed_pnl_for_trade",
             return_value=None,
         ):
-            summary = _watchdog_stuck_strategies(tmp_db)
+            summary = _watchdog_to_close(tmp_db)
 
         assert summary["auto_cleared"] == 1
         assert summary["recovered_closed"] == 0
@@ -1917,7 +1959,7 @@ class TestStuckStrategyWatchdog:
             "src.units.accounts.clients.account_open_positions",
             return_value=[],
         ):
-            summary = _watchdog_stuck_strategies(tmp_db)
+            summary = _watchdog_to_close(tmp_db)
         assert summary["auto_cleared"] == 1
         # Package force-closed.
         assert _read_package(
@@ -1942,7 +1984,7 @@ class TestStuckStrategyWatchdog:
             "src.units.accounts.clients.account_open_positions",
             return_value=[],
         ):
-            summary = _watchdog_stuck_strategies(tmp_db)
+            summary = _watchdog_to_close(tmp_db)
         assert summary["auto_cleared"] == 1
         assert _read_package(
             tmp_db, "pkg-tight-threshold",
@@ -1964,6 +2006,58 @@ class TestStuckStrategyWatchdog:
         assert summary["checked"] == 0
         assert _read_package(tmp_db, "pkg-garbage-env")["status"] == "open"
 
+    def test_false_flat_then_alive_does_not_finalize(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """BL-20260708-WATCHDOG-FALSEFLAT-FLAP (the alpaca_paper QQQ #3249→#3269
+        flap): a SINGLE flat read is not proof — a transient/partial exchange
+        snapshot that momentarily omits the symbol is a false flat. If the very
+        next observation reads the position ALIVE again, the watchdog must NOT
+        have finalized the row on the first (false) flat read. Without the
+        2-observation confirm the watchdog closed the row with a fabricated PnL
+        and the still-live exchange position was re-adopted as a naked orphan.
+        """
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-false-flat", linked_trade_id=trade_id,
+            age_minutes=45,
+        )
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+        from src.runtime import order_monitor as _om_local
+        _om_local._PENDING_WATCHDOG_FLAT_CONFIRM.clear()
+
+        # Tick 1: a false-flat snapshot (position momentarily absent).
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            first = _watchdog_stuck_strategies(tmp_db)
+        # Tick 2: the position reads ALIVE again (it never actually closed).
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[{"symbol": "BTCUSDT", "side": "long", "size": 0.001}],
+        ):
+            second = _watchdog_stuck_strategies(tmp_db)
+
+        # The first flat read only ARMED the confirm (deferred) — it must not
+        # have finalized anything.
+        assert first["deferred_flat_confirm"] == 1
+        assert first["auto_cleared"] == 0
+        assert first["closed_local_unmatched"] == 0
+        # The alive read cleared the pending stamp and deferred as position-alive.
+        assert second["auto_cleared"] == 0
+        assert second["closed_local_unmatched"] == 0
+        assert second["deferred_position_alive"] == 1
+        # The row is STILL OPEN — never false-closed.
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"
+        assert _read_package(tmp_db, "pkg-false-flat")["status"] == "open"
+        # The pending stamp was cleared by the alive read (flap reset).
+        assert trade_id not in _om_local._PENDING_WATCHDOG_FLAT_CONFIRM
+
     def test_idempotent_across_consecutive_ticks(
         self, tmp_db, tmp_path, monkeypatch,
     ):
@@ -1983,27 +2077,38 @@ class TestStuckStrategyWatchdog:
             pings_dir,
         )
 
+        # BL-20260708-WATCHDOG-FALSEFLAT-FLAP: the flat-finalize now needs a
+        # 2-observation confirm, so tick 1 DEFERS (arms the flat-confirm) and
+        # tick 2 finalizes. Confirm window 0 so the 2nd observation alone
+        # confirms; clear the module-global pending cache first (it may carry
+        # over from a prior test).
+        from src.runtime import order_monitor as _om_local
+        monkeypatch.setenv("RECONCILER_CLOSE_CONFIRM_SECONDS", "0")
+        _om_local._PENDING_WATCHDOG_FLAT_CONFIRM.clear()
         with patch(
             "src.units.accounts.clients.account_open_positions",
             return_value=[],
         ):
-            first = _watchdog_stuck_strategies(tmp_db)
-            second = _watchdog_stuck_strategies(tmp_db)
+            first = _watchdog_stuck_strategies(tmp_db)    # arms flat-confirm (defers)
+            second = _watchdog_stuck_strategies(tmp_db)   # confirms → finalizes + alerts
+            third = _watchdog_stuck_strategies(tmp_db)    # row now closed → no-op
 
-        assert first["alerted"] == 1
-        assert first["auto_cleared"] == 1
-        assert second == {
-            "checked": 0, "alerted": 0, "auto_cleared": 0,
-            "recovered_closed": 0,
-            "closed_local_unmatched": 0,
-            "deferred_position_alive": 0,
-            "deferred_below_timeframe": 0,
-            "skipped_position_read_failed": 0,
-            "errors": 0,
-        }
-        # Only ONE stuck-watchdog ping across both ticks (idempotent). The row is
-        # finalised CLOSED on tick 1 (no orphan red-flag ping) and is no longer
-        # status='open' on tick 2, so it isn't re-touched.
+        # Tick 1 defers on the first flat read (never finalizes on a single read).
+        assert first["checked"] == 1
+        assert first["deferred_flat_confirm"] == 1
+        assert first["auto_cleared"] == 0
+        assert first["alerted"] == 0
+        # Tick 2 confirms flat and finalizes + alerts exactly once.
+        assert second["checked"] == 1
+        assert second["auto_cleared"] == 1
+        assert second["alerted"] == 1
+        # Tick 3 finds the package already closed → idempotent no-op.
+        assert third["checked"] == 0
+        assert third["auto_cleared"] == 0
+        assert third["alerted"] == 0
+        # Only ONE stuck-watchdog ping across all ticks (idempotent). The row is
+        # finalised CLOSED on tick 2 (no orphan red-flag ping) and is no longer
+        # status='open' on tick 3, so it isn't re-touched.
         assert len([p for p in pings_dir.glob("*.json")
                     if not p.name.endswith("-orphanflag.json")]) == 1
         assert len(list(pings_dir.glob("*-orphanflag.json"))) == 0
@@ -2315,7 +2420,7 @@ class TestStuckStrategyWatchdog:
             "src.units.accounts.clients.account_open_positions",
             return_value=[],  # position flat → genuine orphan
         ):
-            summary = _watchdog_stuck_strategies(tmp_db)
+            summary = _watchdog_to_close(tmp_db)
 
         assert summary["deferred_below_timeframe"] == 0
         assert summary["auto_cleared"] == 1
