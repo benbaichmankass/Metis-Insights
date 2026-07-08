@@ -164,3 +164,40 @@
 - Unknowns stated plainly — real-venue revalidation is UNVERIFIED (next US RTH);
   everything claimed "merged" is confirmed via the PR merge state, not inferred.
 - doc-freshness coherence check run this session (see PR).
+
+## Revalidation addendum (2026-07-08, live US session — substantively PASSED)
+
+Pulled live state on `alpaca_live` during the 2026-07-08 US RTH via the diag
+relay (issue #5989 → `/api/diag/audit_query` + `/api/diag/exchange_positions`).
+Findings:
+
+- **Both proxy cells are LIVE and evaluated every tick** on the real-money
+  pipeline (14:16–15:02 UTC, ~one eval per 3–4 min). `splg_trend_long_1d`:
+  `regime: transitional`, ADX 20.8, "no breakout on the latest bar (close=80.0
+  within channel [76.79, 81.13]) — non-actionable." `iaum_pullback_1d`:
+  `regime: trending`, ADX 31.9, "no trend-pullback-confirmation setup —
+  non-actionable." **No monitor-unit resolution gap, no error** — the wiring
+  that failed CI on #5895 is clean in production; both cells resolve their
+  monitor unit and run to a correct non-actionable verdict.
+- **`alpaca_live` is reachable and actively trading whole-share ETF brackets on
+  real money.** The exchange-truth read returned `error: null` (account NOT
+  latched down — account-down alert clear) with a live position:
+  **`IEF long, 1 whole share, entry $94.11, uPnL −$0.72`** (the pre-existing
+  `ief_pullback_1d` cell). This is the load-bearing proof: the account is
+  placing 1-whole-share real-money ETF bracket orders at the new 2% caps.
+- **Affordability effectively confirmed for the proxies.** SPLG (~$80) and IAUM
+  (~$63) are BOTH cheaper than the IEF (~$94) the account just sized 1 whole
+  share of — so at the same 2% risk they clear the whole-share affordability
+  bar the promotion depended on. The fail-safe (0-share refusal) remains the
+  safe floor if equity ever can't afford a share.
+
+**Verdict:** substantively PASSED. Everything that was actually at risk — cell
+wiring/monitor-unit resolution, account reachability, and whole-share
+affordability at the new caps — is confirmed on real money. The only thing NOT
+directly observed is a SPLG/IAUM order itself, because neither cell has thrown
+an actionable signal yet (both correctly non-actionable given current price
+action — SPLG inside its Donchian channel, IAUM no pullback setup). That awaits
+a live breakout/pullback (market-timing dependent, expected within days). Tracked
+by `PB-20260707-SPLG-IAUM-LIVE-REVALIDATION` (kept open with a light residual
+watch) + one more check-in for the next session; the first actual proxy fill
+will also surface in the normal `/system-review`.
