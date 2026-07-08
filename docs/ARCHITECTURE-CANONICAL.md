@@ -337,8 +337,12 @@ heartbeat:
 - Stdlib-only — runs even when the trader's venv is wedged.
 - Full operator runbook: [`docs/runbooks/liveness-watchdog.md`](runbooks/liveness-watchdog.md).
 
-Distinct from `ict-heartbeat.{service,timer}`, which is the
-once-daily operator status digest at 13:00 UTC.
+Distinct from `ict-heartbeat.{service,timer}`, which WAS the
+once-daily operator status digest at 13:00 UTC — **retired 2026-07-08**
+(notification streamlining), superseded by the hourly snapshot
+(`ict-hourly-snapshot.timer`, now with a Training/ML section) + the
+once-an-hour consolidated prop pulse; `install_systemd_units.sh`
+disables it and never re-enables it (unit files kept inert).
 
 The watchdog *restarts* the trader — it does not change the account
 mode, and the Mode Mutation Contract does not regulate it. Restarts
@@ -424,7 +428,7 @@ final pre-expiry alert (M1 P1-B) prevent silent expiry.
 | Trader service | `deploy/ict-trader-live.service` |
 | Web API service | `deploy/ict-web-api.service` |
 | Telegram bot service | `deploy/ict-telegram-bot.service` |
-| Heartbeat timer | `deploy/ict-heartbeat.{service,timer}` — once-daily operator status digest (13:00 UTC) |
+| Heartbeat timer | `deploy/ict-heartbeat.{service,timer}` — **RETIRED 2026-07-08** (was the once-daily 13:00 UTC operator digest; superseded by the hourly snapshot + consolidated prop pulse; installer disables it, files kept inert) |
 | Liveness watchdog | `deploy/ict-liveness-watchdog.{service,timer}` — per-minute dead-man switch on `heartbeat.txt` mtime; alerts within 5 min and autoheals trader after 8 min stall (PRs #950/#956). Runbook: `docs/runbooks/liveness-watchdog.md`. Restarts only; does not change account mode. |
 | Hourly snapshot | `deploy/ict-hourly-snapshot.{service,timer}` |
 | Smoke once | `deploy/ict-smoke-once.service` |

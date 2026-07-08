@@ -19,7 +19,7 @@ import json
 import logging
 import os
 from datetime import timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from src.prop.breakout_ticket import Ticket, render_ticket
 
@@ -230,6 +230,77 @@ def emit_prop_monitor_pulse(position: Dict[str, Any], *, push: bool = True,
             out["telegram"] = True
         except Exception as exc:  # noqa: BLE001
             logger.warning("emit_prop_monitor_pulse: telegram send failed: %s", exc)
+
+    return out
+
+
+def render_monitor_consolidated_message(positions: List[Dict[str, Any]]) -> str:
+    """One 'still monitoring' Telegram body covering ALL open prop trades.
+
+    Replaces the per-position pulse (operator directive 2026-07-08 — "turn the
+    monitoring down to once an hour, one ping with all the open trades"). Lists
+    each open prop position on its own line under a single header.
+    """
+    n = len(positions)
+    header = (
+        f"\U0001f535 PROP MONITOR — still monitoring "
+        f"{n} open prop trade{'s' if n != 1 else ''} · no change"
+    )
+    lines = [header]
+    for p in positions:
+        sym = p.get("symbol") or "?"
+        direction = str(p.get("direction") or "").upper()
+        account = p.get("account_id") or p.get("account") or "prop"
+        age_min = p.get("age_minutes")
+        age_str = f" · open {_fmt(age_min)}m" if age_min is not None else ""
+        levels = (
+            f"entry {_fmt(p.get('entry') or p.get('entry_price'))} · "
+            f"SL {_fmt(p.get('sl'))} · TP {_fmt(p.get('tp'))}"
+        )
+        lines.append(f"• {sym} {direction} [{account}] — {levels}{age_str}")
+    return "\n".join(lines)
+
+
+def emit_prop_monitor_consolidated(positions: List[Dict[str, Any]], *,
+                                   push: bool = True,
+                                   telegram: bool = True) -> Dict[str, bool]:
+    """Fan ONE consolidated 'still monitoring' pulse for all open prop trades.
+
+    The once-an-hour replacement for the per-position ``emit_prop_monitor_pulse``
+    (kept for back-compat). Rides the same ``prop_monitor`` push kind; the FCM
+    payload carries a compact ``count`` + the rendered ``text``. Best-effort +
+    fully isolated — a leg failure logs a WARNING but never raises.
+    """
+    from src.runtime.mobile_push.event_kinds import PROP_MONITOR
+
+    text = render_monitor_consolidated_message(positions)
+    first = positions[0] if positions else {}
+    payload = {
+        "count": str(len(positions)),
+        "account": str(first.get("account_id") or first.get("account") or ""),
+        "symbol": str(first.get("symbol") or "") if len(positions) == 1 else "",
+        "text": text,
+    }
+    out = {"push": False, "telegram": False}
+
+    if push:
+        try:
+            from src.runtime.mobile_push import publish_event
+
+            publish_event(PROP_MONITOR, payload)
+            out["push"] = True
+        except Exception as exc:  # noqa: BLE001 — notification never fatal
+            logger.warning("emit_prop_monitor_consolidated: FCM push failed: %s", exc)
+
+    if telegram:
+        try:
+            from src.runtime.notify import send_telegram_direct
+
+            send_telegram_direct(text, parse_mode=None, mirror_to_fcm=False,
+                                 bot_token=_prop_bot_token())
+            out["telegram"] = True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("emit_prop_monitor_consolidated: telegram send failed: %s", exc)
 
     return out
 

@@ -433,6 +433,103 @@ def outcomes_in_window(since: datetime) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Training / ML activity (operator directive 2026-07-08 — the hourly snapshot
+# should include anything that happened training-wise in the last hour)
+# ---------------------------------------------------------------------------
+
+
+def _parse_ts(ts: Any) -> Optional[datetime]:
+    """Lenient ISO-8601 → aware-UTC datetime; None on anything unparseable."""
+    if not ts:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return None
+
+
+def training_activity_in_window(since: datetime) -> Dict[str, Any]:
+    """Training / ML activity in the last window, from the trainer mirror.
+
+    Reads the file-based trainer mirror the trainer VM rsyncs onto the live box
+    (``runtime_logs/trainer_mirror/``) directly — no sidecar rebuild, no
+    trader→trainer SSH. Returns a summary of:
+
+      * ``cycles``  — training-cycle rows (ts/status/head) newer than ``since``
+      * ``builds``  — dataset-build rows (ts/status/family) newer than ``since``
+      * ``latest_sweep_date`` — the newest backtest-sweep date on disk
+      * ``trainer_present`` / ``mirror_age_s`` — trainer heartbeat liveness
+
+    Best-effort: a missing mirror (trainer not publishing) returns
+    ``present=False`` with empty lists. Never raises.
+    """
+    out: Dict[str, Any] = {
+        "present": False, "cycles": [], "builds": [],
+        "latest_sweep_date": None, "trainer_present": False,
+        "mirror_age_s": None,
+    }
+    try:
+        mirror = RUNTIME_LOGS / "trainer_mirror"
+        if not mirror.is_dir():
+            return out
+        out["present"] = True
+
+        def _recent(path: Path, fields: tuple) -> List[Dict[str, Any]]:
+            rows: List[Dict[str, Any]] = []
+            if not path.is_file():
+                return rows
+            try:
+                with open(path, encoding="utf-8") as fh:
+                    for line in fh:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            r = json.loads(line)
+                        except (ValueError, TypeError):
+                            continue
+                        dt = _parse_ts(r.get("ts") or r.get("timestamp"))
+                        if dt is None or dt < since:
+                            continue
+                        rows.append({k: r.get(k) for k in fields})
+            except OSError:
+                return rows
+            return rows
+
+        out["cycles"] = _recent(mirror / "training_cycle.jsonl",
+                                 ("ts", "status", "head"))
+        out["builds"] = _recent(mirror / "trainer" / "dataset_builds.jsonl",
+                                 ("ts", "status", "family", "version"))
+
+        # Newest backtest-sweep date (dirs named by UTC date).
+        sweeps_dir = mirror / "backtests"
+        if sweeps_dir.is_dir():
+            dates = sorted(
+                (p.name for p in sweeps_dir.iterdir() if p.is_dir()),
+                reverse=True,
+            )
+            if dates:
+                out["latest_sweep_date"] = dates[0]
+
+        # Trainer heartbeat: the publish timer rsyncs trainer_status.json ~2m.
+        status_path = mirror / "trainer_status.json"
+        if status_path.is_file():
+            try:
+                age = (
+                    datetime.now(timezone.utc).timestamp()
+                    - status_path.stat().st_mtime
+                )
+                out["mirror_age_s"] = int(age)
+                out["trainer_present"] = age <= 1200  # 20 min ≈ 10 missed pubs
+            except OSError:
+                pass
+    except Exception as exc:  # noqa: BLE001  # allow-silent: the hourly report must never raise — a trainer-mirror read failure degrades the Training section to "not present", logged at WARNING, never a 5xx/exception
+        logger.warning("hourly_report: training activity read failed: %s", exc)
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Health (PR2: thin — last-tick freshness + outcome counts)
 # ---------------------------------------------------------------------------
 
@@ -657,6 +754,68 @@ def _build_strategy_sections(
     ]
 
 
+def _build_training_section(training: Optional[Dict[str, Any]]):
+    """Collapsible Training / ML section for the hourly report.
+
+    Summarises what happened training-wise in the last hour (cycles run,
+    dataset builds, newest backtest sweep) + trainer liveness. Rendered as an
+    expandable blockquote like the other sections. Absent trainer mirror →
+    an explicit "trainer mirror not present" body rather than silence.
+    """
+    from src.units.ui.telegram_format import Section
+
+    t = training or {}
+    cycles = t.get("cycles") or []
+    builds = t.get("builds") or []
+    sweep = t.get("latest_sweep_date")
+
+    if not t.get("present"):
+        return Section(
+            summary="Training / ML — mirror not present",
+            body=("No trainer_mirror/ on this host — the trainer VM has not "
+                  "published (or the mirror path is missing)."),
+            priority=25,
+        )
+
+    trainer_glyph = "🟢" if t.get("trainer_present") else "🔴"
+    age = t.get("mirror_age_s")
+    age_str = f"{age // 60}m" if isinstance(age, int) else "?"
+    summary = (
+        f"Training / ML — {len(cycles)} cycle(s), {len(builds)} build(s) in "
+        f"the last hour · trainer {trainer_glyph}"
+    )
+
+    lines = [f"Trainer heartbeat: {trainer_glyph} (mirror age {age_str})"]
+    if cycles:
+        lines.append("")
+        lines.append("Training cycles this hour:")
+        for c in cycles[:10]:
+            lines.append(
+                f"- {c.get('ts')}: {c.get('status') or '?'} "
+                f"[{c.get('head') or 'n/a'}]"
+            )
+    if builds:
+        lines.append("")
+        lines.append("Dataset builds this hour:")
+        for b in builds[:10]:
+            lines.append(
+                f"- {b.get('ts')}: {b.get('status') or '?'} "
+                f"{b.get('family') or ''} {b.get('version') or ''}".rstrip()
+            )
+    if not cycles and not builds:
+        lines.append("")
+        lines.append("No training cycles or dataset builds in the last hour.")
+    if sweep:
+        lines.append("")
+        lines.append(f"Newest backtest sweep on disk: {sweep}")
+
+    return Section(
+        summary=summary,
+        body="\n".join(lines),
+        priority=25,
+    )
+
+
 def _build_account_sections(
     *,
     trades: Dict[str, Any],
@@ -771,6 +930,10 @@ def render_strategy_report(report: Dict[str, Any]) -> str:
         outcomes=report["outcomes"],
         health=health,
     )
+    # Training / ML section (operator directive 2026-07-08) — folded into the
+    # strategy-focused hourly snapshot so the hour's training activity rides
+    # the same message. `.get` keeps older report dicts (no training key) safe.
+    sections.append(_build_training_section(report.get("training")))
     footer = {
         "ok": "All systems normal",
         "warn": "WARN: errors logged but no critical issues",
@@ -831,7 +994,7 @@ def render_report_plain(report: Dict[str, Any]) -> str:
         strategies=report["strategies"],
         outcomes=report["outcomes"],
         health=health,
-    ) + _build_account_sections(
+    ) + [_build_training_section(report.get("training"))] + _build_account_sections(
         trades=report["trades"], accounts=report["accounts"],
     )
     footer = {
@@ -871,6 +1034,7 @@ def assemble_hourly_data(
     accounts = account_snapshots()
     strategies = strategy_snapshots()
     outcomes = outcomes_in_window(since)
+    training = training_activity_in_window(since)
     health = health_summary(
         last_tick_ts=ticks["last_tick_ts"],
         outcomes=outcomes,
@@ -884,6 +1048,7 @@ def assemble_hourly_data(
         "accounts": accounts,
         "strategies": strategies,
         "outcomes": outcomes,
+        "training": training,
         "health": health,
     }
 

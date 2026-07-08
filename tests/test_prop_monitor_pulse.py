@@ -156,9 +156,10 @@ def test_closed_position_pruned_from_state(isolated_env: Path) -> None:
         return {}
 
     prop_monitor_pulse.run_prop_monitor_pulse(now=t0, interval_seconds=900, emitter=emit)
-    assert "akd:breakout_1|BTCUSDT|long" in prop_monitor_pulse._load_state()
+    # Consolidated model: state carries a single global timestamp key.
+    assert prop_monitor_pulse._CONSOLIDATED_KEY in prop_monitor_pulse._load_state()
 
-    # Position closes — next run drops it from the state file.
+    # Position closes — nothing open → the consolidated state resets to empty.
     prop_journal.insert_fill({
         "account_id": "breakout_1", "ticket_id": "prop-1",
         "symbol": "BTCUSDT", "direction": "long", "status": "closed",
@@ -166,11 +167,30 @@ def test_closed_position_pruned_from_state(isolated_env: Path) -> None:
     s = prop_monitor_pulse.run_prop_monitor_pulse(
         now=t0 + timedelta(minutes=20), interval_seconds=900, emitter=emit)
     assert s["open"] == 0
-    assert "akd:breakout_1|BTCUSDT|long" not in prop_monitor_pulse._load_state()
+    assert prop_monitor_pulse._load_state() == {}
+
+
+def test_consolidated_single_ping_lists_all_open(isolated_env: Path) -> None:
+    """Two open prop positions → ONE emitter call receiving both."""
+    from src.prop import prop_journal, prop_monitor_pulse
+
+    for sym in ("BTCUSDT", "ETHUSDT"):
+        prop_journal.insert_fill({
+            "account_id": "breakout_1", "ticket_id": f"prop-{sym}",
+            "symbol": sym, "direction": "long", "status": "open",
+        })
+    calls: list = []
+    s = prop_monitor_pulse.run_prop_monitor_pulse(
+        now=_utc("2026-06-22T12:00:00"), interval_seconds=3600,
+        emitter=lambda positions: calls.append(positions) or {})
+    assert s["fired"] == 1 and s["open"] == 2
+    # Exactly one emitter call, receiving the FULL list of open positions.
+    assert len(calls) == 1
+    assert {p["symbol"] for p in calls[0]} == {"BTCUSDT", "ETHUSDT"}
 
 
 def test_default_emitter_is_breakout_notify(isolated_env: Path, monkeypatch) -> None:
-    """With no injected emitter, it routes through breakout_notify (stubbed)."""
+    """With no injected emitter, it routes through the consolidated emitter (stubbed)."""
     from src.prop import prop_journal, prop_monitor_pulse
     from src.prop import breakout_notify
 
@@ -179,7 +199,7 @@ def test_default_emitter_is_breakout_notify(isolated_env: Path, monkeypatch) -> 
         "symbol": "BTCUSDT", "direction": "long", "status": "open",
     })
     calls: list = []
-    monkeypatch.setattr(breakout_notify, "emit_prop_monitor_pulse",
-                        lambda p, **k: calls.append(p) or {"push": True, "telegram": True})
-    s = prop_monitor_pulse.run_prop_monitor_pulse(interval_seconds=900)
+    monkeypatch.setattr(breakout_notify, "emit_prop_monitor_consolidated",
+                        lambda positions, **k: calls.append(positions) or {"push": True, "telegram": True})
+    s = prop_monitor_pulse.run_prop_monitor_pulse(interval_seconds=3600)
     assert s["fired"] == 1 and len(calls) == 1

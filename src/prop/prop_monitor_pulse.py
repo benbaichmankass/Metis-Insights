@@ -6,30 +6,34 @@ posts it back (``prop_report.ingest_report``). Between those report-backs the
 operator has no signal that the system is still tracking the position — unlike
 a live-broker trade, whose monitor runs every tick.
 
-This module closes that gap. While a prop position is open, it emits a
-``prop_monitor`` pulse on a fixed cadence (default every 15 min) saying "still
-monitoring — no change". It does **not** replace the real-time ``prop_fill`` /
-``prop_closed`` notifications; it's the liveness signal *between* them.
+This module closes that gap. While any prop position is open, it emits **one
+consolidated** ``prop_monitor`` pulse on a fixed cadence (default hourly) saying
+"still monitoring N open prop trades — no change" and listing each. It does
+**not** replace the real-time ``prop_fill`` / ``prop_closed`` notifications;
+it's the liveness signal *between* them.
+
+Notification-streamlining update (operator directive 2026-07-08): the pulse was
+per-position every 15 min; it is now **once an hour, one ping with all the open
+trades**. The cadence default moved 900 → 3600 and the emit fans a single
+consolidated message rather than one per position.
 
 Design notes:
 
 - **Open-position detection is derived, not stored.** A position is "open" when
-  the latest ``prop_fills`` row for its key is ``open``/``filled`` (not
-  ``closed``/``skipped``). The key is the ``ticket_id`` when present, else
-  ``(account_id, symbol, direction)`` (so a fill reported without a ticket link
-  still gets tracked). Levels (entry/SL/TP) are enriched from the linked
-  outbound ticket when available.
+  the latest ``prop_fills`` row for its ``(account_id, symbol, direction)`` key
+  is ``open``/``filled`` (not ``closed``/``skipped``). Levels (entry/SL/TP) are
+  enriched from the linked outbound ticket when available.
 - **Cadence state is a small JSON file** (``runtime_logs/prop_monitor_pulse.json``):
-  ``{position_key: last_pulse_iso}``. Persisted so a trader restart doesn't
-  re-fire every open position immediately, and pruned to only currently-open
-  keys so it can't grow unbounded.
+  a single ``{"__consolidated__": last_pulse_iso}`` timestamp. Persisted so a
+  trader restart doesn't immediately re-fire, and reset to empty when nothing
+  is open.
 - **Baseline, not gated.** There is no default-off enable flag (Prime
   Directive). The only knob is the cadence ``PROP_MONITOR_PULSE_SECONDS``
-  (default 900); set it ``<= 0`` to pause pulses without a redeploy.
+  (default 3600); set it ``<= 0`` to pause pulses without a redeploy.
 - **Best-effort + isolated.** Every path swallows its own exceptions; a pulse
   failure never propagates into the trader loop. Called once per tick from
   ``src/main.py``; the cadence gate inside means a 60 s tick still only pings
-  every 15 min.
+  every hour.
 """
 from __future__ import annotations
 
@@ -43,9 +47,10 @@ from src.prop import prop_journal
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_INTERVAL_SECONDS = 900  # 15 minutes
+_DEFAULT_INTERVAL_SECONDS = 3600  # hourly (was 900 = 15 min; streamlined 2026-07-08)
 _STATE_FILENAME = "prop_monitor_pulse.json"
 _OPEN_STATUSES = {"open", "filled"}
+_CONSOLIDATED_KEY = "__consolidated__"
 
 
 def _now() -> datetime:
@@ -189,15 +194,16 @@ def _save_state(state: Dict[str, str]) -> None:
 def run_prop_monitor_pulse(
     *, now: Optional[datetime] = None,
     interval_seconds: Optional[int] = None,
-    emitter: Optional[Callable[[Dict[str, Any]], Dict[str, bool]]] = None,
+    emitter: Optional[Callable[[List[Dict[str, Any]]], Dict[str, bool]]] = None,
 ) -> Dict[str, Any]:
-    """Emit a 'still monitoring' pulse for any open prop trade that is due.
+    """Emit ONE consolidated 'still monitoring' pulse for all open prop trades.
 
-    Called once per trader tick. Internally rate-limited per position to
-    ``interval_seconds`` (env ``PROP_MONITOR_PULSE_SECONDS``, default 900).
-    A newly-seen open position pulses immediately (an acknowledgement that
-    monitoring has started), then every interval thereafter. Returns a stats
-    dict ``{open, fired, skipped, paused}``. Never raises.
+    Called once per trader tick. Rate-limited GLOBALLY to ``interval_seconds``
+    (env ``PROP_MONITOR_PULSE_SECONDS``, default 3600 = hourly). When at least
+    one prop position is open and the consolidated pulse is due, fires a single
+    ping listing every open position (operator directive 2026-07-08 — "once an
+    hour, one ping with all the open trades"). Returns a stats dict
+    ``{open, fired, skipped, paused}`` (``fired`` is 0 or 1). Never raises.
     """
     stats = {"open": 0, "fired": 0, "skipped": 0, "paused": False}
     interval = interval_seconds if interval_seconds is not None else _interval_seconds()
@@ -213,50 +219,44 @@ def run_prop_monitor_pulse(
         return stats
     stats["open"] = len(positions)
 
-    if emitter is None:
-        from src.prop.breakout_notify import emit_prop_monitor_pulse as emitter  # type: ignore
-
     state = _load_state()
-    new_state: Dict[str, str] = {}
-    open_keys = {p["key"] for p in positions}
+    if not positions:
+        # Nothing open → reset the consolidated timestamp so the next open
+        # position pulses promptly (and the state file never carries a stale
+        # key). Only write when it actually changes.
+        if state:
+            _save_state({})
+        return stats
 
-    for pos in positions:
-        key = pos["key"]
-        last = _parse_iso(state.get(key))
-        due = last is None or (now - last).total_seconds() >= interval
-        if not due:
-            # Carry the prior pulse time forward unchanged.
-            new_state[key] = state[key]
-            stats["skipped"] += 1
-            continue
-        try:
-            emitter(pos)
-            stats["fired"] += 1
-            logger.info(
-                "prop_monitor_pulse: fired pulse %s %s [%s] age=%smin (key=%s)",
-                pos.get("symbol"), pos.get("direction"),
-                pos.get("account_id"), pos.get("age_minutes"), key,
-            )
-        except Exception as exc:  # noqa: BLE001 — emission never fatal
-            logger.warning("prop_monitor_pulse: emit failed for %s: %s", key, exc)
-        new_state[key] = now.isoformat()
+    if emitter is None:
+        from src.prop.breakout_notify import emit_prop_monitor_consolidated as emitter  # type: ignore
 
-    # Drop state for positions that are no longer open (closed/skipped/gone)
-    # so the file only ever holds live keys. (Closed keys not in open_keys are
-    # simply not copied into new_state.)
-    if new_state != state or open_keys != set(state.keys()):
-        _save_state(new_state)
-
-    # Observability: surface the scan outcome in the trader journal whenever
-    # there's an open prop position (so the pulse is verifiable via journalctl,
-    # not just by the operator's Telegram). Silent when nothing is open, to
-    # avoid spamming a per-tick line on every tick with no prop trades.
-    if stats["open"]:
+    last = _parse_iso(state.get(_CONSOLIDATED_KEY))
+    due = last is None or (now - last).total_seconds() >= interval
+    if not due:
+        stats["skipped"] = 1
         logger.info(
-            "prop_monitor_pulse: open=%d fired=%d skipped=%d (interval=%ds)",
-            stats["open"], stats["fired"], stats["skipped"], interval,
+            "prop_monitor_pulse: open=%d fired=0 (not due; interval=%ds)",
+            stats["open"], interval,
         )
+        return stats
 
+    try:
+        emitter(positions)
+        stats["fired"] = 1
+        logger.info(
+            "prop_monitor_pulse: fired consolidated pulse for %d open prop trade(s): %s",
+            stats["open"],
+            ", ".join(f"{p.get('symbol')} {p.get('direction')}" for p in positions),
+        )
+    except Exception as exc:  # noqa: BLE001 — emission never fatal
+        logger.warning("prop_monitor_pulse: consolidated emit failed: %s", exc)
+
+    _save_state({_CONSOLIDATED_KEY: now.isoformat()})
+    logger.info(
+        "prop_monitor_pulse: open=%d fired=%d (interval=%ds)",
+        stats["open"], stats["fired"], interval,
+    )
     return stats
 
 
