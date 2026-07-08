@@ -1742,6 +1742,21 @@ _PENDING_ORPHAN_DISAPPEAR_CONFIRM: Dict[int, datetime] = {}
 # Directive (mirrors the always-on reverse reconciler).
 _PENDING_SNAPSHOT_DISAPPEAR_CONFIRM: Dict[int, datetime] = {}
 
+# 2-observation confirm cache for the STUCK-STRATEGY WATCHDOG's "position flat
+# at exchange → finalize closed" branch (BL-20260708-WATCHDOG-FALSEFLAT-FLAP).
+# The watchdog read ``account_open_positions`` ONCE and finalized the DB row
+# closed on that single flat read — but a transient/partial Alpaca snapshot that
+# momentarily omits a symbol is a FALSE flat: the position is still live. That
+# false-close (with a fabricated local-compute PnL) then flapped via the reverse
+# reconciler re-adopting the still-live exchange position as a brand-new
+# ``adopted_orphan`` (the alpaca_paper QQQ #3249 → #3269 flap, ~17h open, naked).
+# So the flat-finalize now requires the SAME 2-observation confirm the reverse
+# reconciler already uses (``_close_confirm_seconds`` apart), keyed by trade id;
+# the stamp is cleared the instant the position reads alive again (a flap resets
+# the counter). In-process (a restart re-arms from scratch — fail-safe, never
+# finalizes early).
+_PENDING_WATCHDOG_FLAT_CONFIRM: Dict[int, datetime] = {}
+
 # Bybit V5 ``orderStatus`` values that mean "order is still live on
 # the exchange and has not reached a terminal state". A DB row whose
 # orderId reports any of these stays ``status='open'`` regardless of
@@ -4199,6 +4214,10 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
         # silent for their TIMEFRAME-scaled quiet window yet (a healthy
         # 2h/4h trade that simply hasn't ratcheted) — no alert, no churn.
         "deferred_below_timeframe": 0,
+        # Position-flat packages deferred for a 2nd confirming flat read
+        # (BL-20260708-WATCHDOG-FALSEFLAT-FLAP) so a transient/partial exchange
+        # snapshot can't false-close a still-live position.
+        "deferred_flat_confirm": 0,
         "skipped_position_read_failed": 0,
         "errors": 0,
     }
@@ -4318,6 +4337,12 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
             # Genuine orphans never reach here (handled by the
             # position-flat branch below at the floor), so this
             # only quiets benign alerts.
+            # A position that reads alive resets any pending flat-confirm
+            # stamp — a flap (flat read → alive read) must restart the
+            # 2-observation counter, never carry a stale "first flat" forward.
+            if trade_id is not None:
+                _PENDING_WATCHDOG_FLAT_CONFIRM.pop(int(trade_id), None)
+
             pkg_threshold = _stuck_threshold_for_package(meta)
             age_minutes = _pkg_age_minutes(row["updated_at"])
             if age_minutes is not None and age_minutes < pkg_threshold:
@@ -4372,6 +4397,41 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
             # force-clear blind on an exchange we can't see.
             summary["skipped_position_read_failed"] += 1
             continue
+
+        # Position reads flat at the exchange. BUT a SINGLE flat read is not
+        # proof — a transient/partial Alpaca positions snapshot that momentarily
+        # omits a symbol is a FALSE flat (the alpaca_paper QQQ #3249→#3269 flap:
+        # finalized closed with a fabricated PnL on a false flat, then the still-
+        # live exchange position was re-adopted 23 min later as a naked orphan).
+        # Require a 2-observation confirm (``_close_confirm_seconds`` apart), the
+        # SAME discipline the reverse reconciler's close-on-disappear already
+        # uses, before finalizing — keyed by trade id, cleared above the instant
+        # the position reads alive again. Best-effort: an unkeyable row (no
+        # trade_id) can't be double-confirmed, so it falls through as before.
+        if trade_id is not None:
+            tid_confirm = int(trade_id)
+            _first_flat = _PENDING_WATCHDOG_FLAT_CONFIRM.get(tid_confirm)
+            _now_dt = datetime.now(timezone.utc)
+            if _first_flat is None:
+                _PENDING_WATCHDOG_FLAT_CONFIRM[tid_confirm] = _now_dt
+                summary["deferred_flat_confirm"] = (
+                    summary.get("deferred_flat_confirm", 0) + 1
+                )
+                logger.warning(
+                    "_watchdog_stuck_strategies: %s/%s/%s reads flat at exchange "
+                    "— pending finalize (awaiting 2nd confirming flat read, "
+                    "%.0fs apart) so a transient/partial snapshot can't false-"
+                    "close a still-live position",
+                    aid, symbol, direction, _close_confirm_seconds(),
+                )
+                continue
+            if (_now_dt - _first_flat).total_seconds() < _close_confirm_seconds():
+                summary["deferred_flat_confirm"] = (
+                    summary.get("deferred_flat_confirm", 0) + 1
+                )
+                continue
+            # Confirmed flat across >= 2 observations → safe to finalize.
+            _PENDING_WATCHDOG_FLAT_CONFIRM.pop(tid_confirm, None)
 
         # Position is genuinely flat at the exchange — true orphan.
         # Force-close the package + cascade the trade as before.
