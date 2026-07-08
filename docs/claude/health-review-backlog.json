@@ -3490,9 +3490,15 @@
       "tier": 2,
       "trigger_condition": "Already fixed this session; re-open if a close is ever confirmed accepted-but-not-flat again after this deploys, or if a phantom-close/re-adopt double-row is observed for a close_reason not covered by the widened guard.",
       "resolution_criteria": "Fix ships, deploys to the live VM, and is verified via git_sha; ideally also observed live the next time an Alpaca close is attempted near/after market hours (the close should now retry with the naked-sweep/cooldown machinery instead of fabricating a phantom close).",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-07T22:15:00+00:00",
+          "by": "claude (full Alpaca-pipeline audit session, 2026-07-07)",
+          "note": "Deploy-verified. PR #5923 (close-confirm-flat poll + widened re-adopt guard, bundled with BL-20260707-ALPACA-BALANCE-TRUTHINESS since they're the same audit pass) merged to main and confirmed live via git_sha. Superseding PR #5924 (entry-side rejection confirm, BL-20260707-ALPACA-ENTRY-FILL-CONFIRM-GAP) branched from post-#5923 main and is also merged+deployed, so #5923's changes are necessarily included in its ancestry — live VM git_sha 07f2b3fa matches #5924's merge commit exactly, confirming this fix is live. Closing on ships+deploys+git_sha-verified per resolution_criteria; the 'ideally also observed live near/after market hours' clause is a soft/optional condition (same standard applied to BL-20260707-RECONCILER-MASS-FALSE-CLOSE) — re-open per trigger_condition if a phantom-close/re-adopt double-row is ever observed post-deploy."
+        }
+      ]
     },
     {
       "id": "BL-20260707-ALPACA-BALANCE-TRUTHINESS",
@@ -3503,9 +3509,15 @@
       "tier": 2,
       "trigger_condition": "Already fixed this session (shipped in the same PR as BL-20260707-ALPACA-CLOSE-NOT-CONFIRMED-FLAT).",
       "resolution_criteria": "Fix ships and deploys to the live VM.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-07T22:15:00+00:00",
+          "by": "claude (full Alpaca-pipeline audit session, 2026-07-07)",
+          "note": "Deploy-verified alongside BL-20260707-ALPACA-CLOSE-NOT-CONFIRMED-FLAT — same PR (#5923), same deploy, same git_sha confirmation (live VM git_sha 07f2b3fa, PR #5924's merge sha, which supersedes #5923 in main's ancestry). balance()/buying_power() truthiness fixes are live."
+        }
+      ]
     },
     {
       "id": "BL-20260707-ALPACA-ENTRY-FILL-CONFIRM-GAP",
