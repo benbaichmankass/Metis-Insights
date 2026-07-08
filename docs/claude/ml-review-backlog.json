@@ -26,6 +26,11 @@
           "at": "2026-07-08T07:45:00+00:00",
           "by": "claude (/system-review 2026-07-08)",
           "note": "ESCALATION: trainer VM 158.178.209.121 is now fully SSH-unreachable — 'Connection timed out during banner exchange' on TWO trainer-vm-diag attempts this session (runs 28925972357, 28926088174). ML training lifecycle cannot be verified: no registry read, no training-cycle journal, no dataset-build confirmation. The /api/bot/backtests/sweeps trainer mirror is stale ~29d (mirror_age_seconds 2510515, newest sweep date 2026-06-09). Shadow-prediction logging on the LIVE VM is healthy (heads accruing, last_seen ~07:36Z, advisory btc-regime-15m-lgbm-v2 scoring) so live inference is unaffected — but no NEW training/dataset work can be landing while the trainer is down. OPERATOR ACTION LIKELY NEEDED: the box is unreachable via the SSH relay, so it may be hung/down post-OOM (this item's original 07-05 OOM-kill is the probable cause) and need an OCI-console reboot / re-provision (trainer is autonomous territory but SSH-dead blocks the relay path)."
+        },
+        {
+          "at": "2026-07-08T16:52:24.062882+00:00",
+          "by": "claude (trainer OOM fix 2026-07-08)",
+          "note": "SWAP HEADROOM FIX + trainer back online. The 07-05 containment (MemoryHigh=4G/MemoryMax=5G + 2G swap) proved INSUFFICIENT: OOM-kills recurred 2026-07-07 08:48Z and 2026-07-08 07:06Z (both Result: oom-kill, status=killed/15, ~40min CPU each) because the service MAIN process blew the 5G RAM + only-2G swap = ~7G effective ceiling (OOMPolicy=continue only contains a per-manifest SUBPROCESS OOM, not the orchestrator itself). The 07-08 SSH-dead escalation has CLEARED — trainer 158.178.209.121 reachable again via the relay this session (runs on issues #6003-#6006); host memory healthy (5.8G total, ~370M used, 5.2G avail) and the two OOMs were cgroup/host-ceiling kills, not a leak visible at idle. FIX APPLIED (autonomous trainer ops, relay #6006): grew /swapfile 2G → 8G (persisted in /etc/fstab; dd+mkswap+swapon verified Swap: 8.0Gi after). With MemorySwapMax=infinity the main process can now swap past the 5G RAM cap (13G addressable) instead of being OOM-killed; the 5G RAM cap still protects the ~6G host. Made durable in deploy/training-vm-cloud-init.yaml (runcmd provisions 8G swap idempotently) + documented in docs/ml/training-center.md. Disk after: 45G/38G used/7.8G free (83%) — acceptable, watch it. VERIFY: next nightly cycle (ict-trainer.timer ~00:43Z) completes end-to-end without oom-kill; a manual run_training_cycle.sh can verify sooner. DEEPER FOLLOW-UP (the real fix, avoids swap-thrash slowdown): run each manifest in its own subprocess so the orchestrator's RSS stays low and any single manifest's OOM is fully contained by OOMPolicy=continue — currently the heavy stage lives in the main process. Also still open: confirm where dataset_builds.jsonl actually lives (original path check MISSING)."
         }
       ]
     },
@@ -1416,5 +1421,5 @@
       ]
     }
   ],
-  "updated_at": "2026-07-08T07:45:00+00:00"
+  "updated_at": "2026-07-08T16:52:24.062882+00:00"
 }

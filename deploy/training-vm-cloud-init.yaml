@@ -417,6 +417,26 @@ write_files:
       WantedBy=timers.target
 
 runcmd:
+  # OOM fix (2026-07-08, MB-20260705-TRAINER-OOM): ensure an 8G swapfile so the
+  # memory-heavy training cycle's MAIN process has headroom to complete. The
+  # MemoryHigh=4G / MemoryMax=5G cgroup cap on ict-trainer.service protects the
+  # ~6G host, and OOMPolicy=continue contains a per-manifest SUBPROCESS OOM —
+  # but the OOM-kills on 2026-07-07 08:48 and 2026-07-08 07:06 were the service's
+  # MAIN process blowing the 5G RAM + only-2G swap ceiling, which OOMPolicy
+  # cannot save. With MemorySwapMax=infinity + 8G swap the main process swaps
+  # past 5G RAM instead of being killed (a nightly cycle completing slowly beats
+  # one OOM-killed mid-run). Deeper fix (per-manifest subprocess isolation so the
+  # orchestrator's own RSS stays low) is tracked in the ml-review backlog.
+  # Idempotent: only (re)builds when total swap is under ~7000 MB.
+  - |
+    if [ "$(free -m | awk '/Swap:/{print $2}')" -lt 7000 ]; then
+      swapoff /swapfile 2>/dev/null || true
+      dd if=/dev/zero of=/swapfile bs=1M count=8192
+      chmod 600 /swapfile
+      mkswap /swapfile
+      swapon /swapfile
+      grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    fi
   # Idempotent repo clone. If the directory already exists (e.g.
   # cloud-init re-run on an image with prior state) skip the clone.
   - |
