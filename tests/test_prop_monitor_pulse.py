@@ -84,6 +84,61 @@ def test_levels_enriched_from_ticket(isolated_env: Path) -> None:
     assert pos["tp"] == 82000
 
 
+# ── direction-alias collapse (BL-20260708-PROP-PULSE-DIRECTION-ALIAS) ──
+
+def test_buy_open_then_long_close_is_not_open(isolated_env: Path) -> None:
+    """A position opened as ``buy`` and closed as ``long`` must NOT read open.
+
+    The manual bridge reports the open in broker vocabulary (``buy``) and the
+    close in order-package vocabulary (``long``). Before the canonicalization
+    fix these landed under different akd keys, so the stale ``buy`` open fill
+    lingered as a phantom-open pulse — the 2026-07-08 ETHUSDT "still monitoring
+    a closed trade" incident.
+    """
+    from src.prop import prop_journal, prop_monitor_pulse
+
+    # id 1: opened, reported as "buy" (broker vocabulary).
+    prop_journal.insert_fill({
+        "account_id": "breakout_1", "ticket_id": "prop-1",
+        "symbol": "ETHUSDT", "direction": "buy", "qty": 1.57,
+        "entry_price": 1767.71, "status": "filled",
+    })
+    # id 2 (newest): closed, reported as "long" (order-package vocabulary).
+    prop_journal.insert_fill({
+        "account_id": "breakout_1", "ticket_id": "prop-1",
+        "symbol": "ETHUSDT", "direction": "long", "status": "closed",
+        "pnl": -78.76,
+    })
+    assert prop_monitor_pulse.find_open_prop_positions() == []
+
+
+def test_buy_and_long_open_fills_collapse_to_one_position(isolated_env: Path) -> None:
+    """``buy`` + ``long`` open fills for one symbol are ONE position, not two."""
+    from src.prop import prop_journal, prop_monitor_pulse
+
+    prop_journal.insert_fill({
+        "account_id": "breakout_1", "ticket_id": "prop-1",
+        "symbol": "ETHUSDT", "direction": "buy", "status": "filled",
+    })
+    prop_journal.insert_fill({
+        "account_id": "breakout_1", "ticket_id": "prop-1",
+        "symbol": "ETHUSDT", "direction": "long", "status": "open",
+    })
+    positions = prop_monitor_pulse.find_open_prop_positions()
+    assert len(positions) == 1
+    assert positions[0]["symbol"] == "ETHUSDT"
+
+
+def test_canonical_direction_maps_aliases() -> None:
+    from src.prop import prop_monitor_pulse as p
+
+    assert p._canonical_direction("buy") == "long"
+    assert p._canonical_direction("SELL") == "short"
+    assert p._canonical_direction("Long") == "long"
+    assert p._canonical_direction("short") == "short"
+    assert p._canonical_direction(None) == ""
+
+
 # ── cadence gate ──────────────────────────────────────────────────────
 
 def test_fires_on_first_seen_then_skips_within_interval(isolated_env: Path) -> None:
