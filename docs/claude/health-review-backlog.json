@@ -3617,7 +3617,19 @@
           "note": "Fixed the doc-vs-reality contradiction found in the same check: docs/TRADE-PIPELINE.md's header note, 'How to update' step 3, and Stage 10 description all claimed the dashboard's Trade Process tab fetches this doc live. That tab does not exist in the current Streamlit dashboard (never ported off the retired Vercel app, per the dashboard repo's own CLAUDE.md). Updated all three spots to state there is currently no live UI consumer of this doc, and struck the now-impossible 'visually verify the dashboard tab' wrap-up step. Narrowed this entry's remaining scope to just the Alpaca-content question (see updated description) since the contradiction itself is resolved."
         }
       ]
+    },
+    {
+      "id": "BL-20260708-ALPACA-CLOSE-QTY-AVAILABLE",
+      "opened_at": "2026-07-08T16:58:36.988383+00:00",
+      "opened_by": "claude (QQQ close-retry follow-up 2026-07-08)",
+      "source": "Post-deploy verify of PR #5997's Alpaca close-retry (commit d3a26335, live-verified via diag #6008 at 16:56Z): QQQ/alpaca_paper #3269 (16 shares, adopted_orphan) STILL fails to flatten with 'insufficient qty available for order (requested: 16, available: 0)', fresh failures continuing after the 16:32Z restart (close_failure banner count 6, since 16:07Z). The flatten-retry loop (ALPACA_FLATTEN_RETRY_S=6s, re-cancel-on-insufficient-qty) did NOT free the shares.",
+      "title": "Alpaca close() still races share-release on a re-arming OCO (QQQ #3269) — needs qty_available-gated flatten, not blind retry",
+      "description": "MECHANISM: the position's protective OCO stop-sell leg (stop 708.38, price hovering ~708.7) reserves all 16 shares as held_for_orders. close() cancels the leg + retries the DELETE within a 6s window, but Alpaca's cancel->qty_available release appears to take longer than 6s AND/OR the naked-autoprotect sweep re-arms a fresh OCO on an intervening monitor tick, so every close attempt re-hits available:0. This is a real close-path bug that could also strand a REAL alpaca_live position on a slow cancel, not just this paper orphan. CORRECT FIX (deterministic, not another blind retry): after the cancel pre-pass, POLL the position's qty_available (raw /v2/positions/{sym} field, add to AlpacaClient.positions() or a helper) until it == qty before issuing the DELETE, with a longer bound; and/or make the close a persistent 'closing' latch that suppresses the naked re-arm for that (account,symbol) until confirmed flat (not just the same-tick guard). NEEDS order/qty-level broker visibility — consider adding /api/diag/exchange_orders?account_id (read-only, mirrors exchange_positions) to SEE what holds the shares before the next attempt. LOW URGENCY: QQQ is alpaca_paper (is_demo, no real capital) — the live cost is the 'won't flatten' banner/Telegram noise, bounded to every-Nth-failure. Deprioritized behind real-money work per operator.",
+      "tier": "tier-2",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-08T08:05:00+00:00"
+  "updated_at": "2026-07-08T16:58:36.988383+00:00"
 }
