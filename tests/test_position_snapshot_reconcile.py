@@ -496,3 +496,72 @@ def test_orphan_adopt_row_not_double_handled(tmp_db):
     row = _trade_row(tmp_db, tid)
     assert row["status"] == "closed"
     assert row["exit_reason"] == "adopted_orphan_disappeared"
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Account-wide RESET detection (operator-requested 2026-07-08)
+# ─────────────────────────────────────────────────────────────────────
+
+
+def test_account_wide_reset_tags_reset_flat_and_one_alert(tmp_db, monkeypatch):
+    """>= _ACCOUNT_RESET_SNAPSHOT_THRESHOLD positions on ONE account confirmed
+    absent in a single pass is a wholesale RESET (the 2026-07-07 alpaca_paper
+    paper-account reset): closes are tagged exit_reason='exchange_reset_flat'
+    (excluded from strategy metrics) and fire ONE consolidated alert, not N."""
+    import src.runtime.order_monitor as _om
+    alerts = []
+    monkeypatch.setattr(
+        _om, "_alert_account_reset",
+        lambda aid, syms: alerts.append((aid, list(syms))),
+    )
+    for sym in ("MES", "MGC", "MHG", "SPY"):  # 4 >= threshold (3)
+        _insert_open_trade(tmp_db, symbol=sym, direction="long")
+    with patch(
+        "src.units.accounts.clients.account_open_positions", return_value=[],
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)            # arms all 4
+        summary = _reconcile_orphan_exchange_positions(tmp_db)  # confirms + closes
+    assert summary["snapshot_closed"] == 4
+    assert summary["snapshot_reset_closed"] == 4
+    conn = tmp_db.connect()
+    try:
+        rows = conn.execute(
+            "SELECT exit_reason, notes FROM trades WHERE account_id='ib_paper'"
+        ).fetchall()
+    finally:
+        conn.close()
+    assert rows and all(r[0] == "exchange_reset_flat" for r in rows)
+    assert all(json.loads(r[1]).get("reset_event") is True for r in rows)
+    # Exactly ONE consolidated alert for the account (not one per position).
+    assert len(alerts) == 1
+    assert alerts[0][0] == "ib_paper"
+    assert set(alerts[0][1]) == {"MES", "MGC", "MHG", "SPY"}
+
+
+def test_below_threshold_is_normal_flat_no_reset_alert(tmp_db, monkeypatch):
+    """< threshold absent positions close as individual
+    exchange_flat_reconciled disappearances — NOT a reset, no reset alert."""
+    import src.runtime.order_monitor as _om
+    alerts = []
+    monkeypatch.setattr(
+        _om, "_alert_account_reset",
+        lambda aid, syms: alerts.append((aid, list(syms))),
+    )
+    for sym in ("MES", "MGC"):  # 2 < threshold (3)
+        _insert_open_trade(tmp_db, symbol=sym, direction="long")
+    with patch(
+        "src.units.accounts.clients.account_open_positions", return_value=[],
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+    assert summary["snapshot_closed"] == 2
+    assert summary.get("snapshot_reset_closed", 0) == 0
+    conn = tmp_db.connect()
+    try:
+        rows = conn.execute(
+            "SELECT exit_reason FROM trades WHERE account_id='ib_paper'"
+        ).fetchall()
+    finally:
+        conn.close()
+    assert rows and all(r[0] == "exchange_flat_reconciled" for r in rows)
+    assert alerts == []

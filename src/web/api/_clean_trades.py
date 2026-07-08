@@ -94,6 +94,23 @@ def exclude_superseded_predicate(prefix: str = "") -> str:
     return f" AND COALESCE({rs},'') != 'superseded'"
 
 
+def exclude_reset_flat_predicate(prefix: str = "") -> str:
+    """``AND``-able SQL fragment dropping ``exit_reason='exchange_reset_flat'``
+    rows from analytics.
+
+    An ``exchange_reset_flat`` row is a position the position-snapshot
+    reconciler closed as part of a **wholesale account RESET** (>= threshold
+    positions vanishing from the exchange snapshot in one pass — the 2026-07-07
+    alpaca_paper paper-account reset wiped all 8 at once). Those closes carry a
+    real strategy name and a mark-to-market PnL, but they are NOT strategy exit
+    decisions — the account was reset externally — so counting them would
+    contaminate per-strategy win-rate / PnL. They stay in the journal (audit)
+    but are excluded from KPI aggregates. NULL-safe; the literal is hard-coded
+    (no injection surface). Operator-requested 2026-07-08."""
+    er = _col(prefix, "exit_reason")
+    return f" AND COALESCE({er},'') != 'exchange_reset_flat'"
+
+
 def r_multiple(
     pnl: Any,
     entry_price: Any,

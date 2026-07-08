@@ -47,6 +47,7 @@ from src.config.accounts_loader import load_accounts_dict
 from src.utils.paths import runtime_logs_dir, trade_journal_db_path
 from src.web.api._clean_trades import (
     exclude_reconciler_predicate,
+    exclude_reset_flat_predicate,
     exclude_superseded_predicate,
     not_paper_predicate,
 )
@@ -148,6 +149,7 @@ def _query_stats(db_path: Path) -> Dict[str, Dict[str, Any]]:
                 + not_paper_predicate("")
                 + exclude_reconciler_predicate("")
                 + exclude_superseded_predicate("")
+                + exclude_reset_flat_predicate("")
                 + """
                 GROUP BY strategy_name, exit_reason
                 """

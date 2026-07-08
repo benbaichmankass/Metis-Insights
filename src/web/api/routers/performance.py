@@ -60,6 +60,7 @@ from src.web.api._asset_class import CLASS_ORDER, asset_class_for_symbol
 from src.runtime.local_pnl import contract_value_usd_for
 from src.web.api._clean_trades import (
     exclude_reconciler_predicate,
+    exclude_reset_flat_predicate,
     exclude_superseded_predicate,
     not_paper_predicate,
     paper_predicate,
@@ -141,7 +142,7 @@ _NOT_PAPER_PREDICATE = not_paper_predicate("t.")
 _EXCLUDE_RECONCILER = exclude_reconciler_predicate("t.")
 # Drop superseded phantom orphan-flap duplicates (void-flagged by the
 # historical reconciliation pass, orphan-flap hardening #5) from the aggregates.
-_EXCLUDE_SUPERSEDED = exclude_superseded_predicate("t.")
+_EXCLUDE_SUPERSEDED = exclude_superseded_predicate("t.") + exclude_reset_flat_predicate("t.")
 
 
 def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqlite3.Row]:
