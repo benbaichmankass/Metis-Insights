@@ -110,6 +110,80 @@ def test_bitcoin_article_still_relevant():
     }
     item = normalize_article(raw, symbol_tags=["BTC"])
     assert item["relevance_score"] > 0.0
+    # A genuine instrument-specific hit is NOT macro-only.
+    assert item["is_macro_only"] is False
+
+
+# --------------------------------------------------------------------------
+# Shared macro layer — general macro trends inform EVERY symbol (incl. crypto)
+# --------------------------------------------------------------------------
+
+def test_macro_keywords_load():
+    kws = news_symbols.macro_keywords()
+    assert "federal reserve" in kws
+    assert "inflation" in kws
+    # Weight is a partial (secondary) relevance.
+    assert 0.0 < news_symbols.macro_relevance_weight() <= 1.0
+
+
+def test_macro_article_relevant_to_crypto():
+    """The crypto macro-blindness fix: a Fed/inflation article — no crypto
+    ticker anywhere — must now score PARTIAL relevance for a BTC signal so
+    general macro trends inform the crypto decision (previously dropped)."""
+    raw = {
+        "title": "Federal Reserve signals rate cut as inflation cools",
+        "description": "Wall Street rallied and Treasury yields fell.",
+        "url": "http://x",
+        "publishedAt": "2999-01-01T00:00:00Z",
+        "source": {"name": "Reuters"},
+    }
+    item = normalize_article(raw, symbol_tags=["BTC", "BTCUSDT"])
+    assert item["relevance_score"] > 0.0, "macro news should now be relevant to BTC"
+    # It matched only via macro keywords, not a crypto ticker.
+    assert item["is_macro_only"] is True
+    # Partial, not full — instrument-specific news still outweighs macro.
+    assert item["relevance_score"] <= news_symbols.macro_relevance_weight() + 1e-9
+
+
+def test_non_macro_non_symbol_article_irrelevant():
+    """An article that mentions neither the instrument nor any macro theme
+    stays at relevance 0 (unchanged) — the fix doesn't make everything relevant."""
+    raw = {
+        "title": "Solana network upgrade confirmed by validators",
+        "description": "The Solana blockchain completed a routine upgrade.",
+        "url": "http://x",
+        "publishedAt": "2999-01-01T00:00:00Z",
+        "source": {"name": "Decrypt"},
+    }
+    item = normalize_article(raw, symbol_tags=["BTC"])
+    assert item["relevance_score"] == 0.0
+    assert item["is_macro_only"] is False
+
+
+def test_macro_only_article_does_not_veto():
+    """A macro-only adverse+high-impact article must NOT trigger the live veto —
+    the veto stays scoped to instrument-specific news."""
+    from src.news.news_score import score_news
+
+    # Force veto-eligible raw fields (sentiment below −0.6, impact above 0.7)
+    # on a macro-only item; the scorer must still not veto.
+    macro_only = {
+        "headline": "Recession fears mount as regulation and bans hit markets",
+        "url": "http://x",
+        "sentiment_score": -0.8,
+        "relevance_score": 0.5,
+        "impact_score": 0.9,
+        "freshness_minutes": 1.0,
+        "is_macro_only": True,
+        "reason": "",
+    }
+    result = score_news([macro_only], settings={"NEWS_VETO_ENABLED": "true"})
+    assert result.veto is False, "macro-only news must not veto a live trade"
+
+    # The same fields on an instrument-specific item DO veto (behaviour intact).
+    symbol_specific = dict(macro_only, is_macro_only=False)
+    result2 = score_news([symbol_specific], settings={"NEWS_VETO_ENABLED": "true"})
+    assert result2.veto is True
 
 
 # --------------------------------------------------------------------------

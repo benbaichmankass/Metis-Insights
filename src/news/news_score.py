@@ -206,8 +206,12 @@ def score_news(
         # Weight = relevance_score so high-relevance items dominate the aggregate.
         valid_weights.append(entry["relevance"])
 
-        # Veto check on the raw item fields (not the compound score).
-        if veto_enabled:
+        # Veto check on the raw item fields (not the compound score). Scoped to
+        # instrument-specific items: a macro-only article (relevant only via the
+        # shared macro keywords) informs the adjustment/sizing but never becomes
+        # a live trade-blocking veto on its own — that keeps the veto surface
+        # unchanged as the macro layer is switched on.
+        if veto_enabled and not item.get("is_macro_only", False):
             sent = float(item.get("sentiment_score", 0.0))
             imp = float(item.get("impact_score", 0.0))
             if sent < veto_sentiment_thresh and imp > veto_impact_thresh:
