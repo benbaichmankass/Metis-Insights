@@ -88,22 +88,49 @@ def main() -> int:
         # src/main.py was removed so the operator gets exactly one dispatch
         # per hour — see TELEGRAM-SPEC.md § 4.1). Two parts — strategies and
         # accounts/trades — each HTML so the detail sections render as
-        # collapsible blockquotes; fall back to the plain scheduled path
-        # per-part if an HTML send fails, so one bad render never drops both.
+        # collapsible blockquotes.
         strat_msg = build_hourly_report(now_utc=now, tick_interval_s=900)
         acct_msg = build_accounts_hourly_report(now_utc=now, tick_interval_s=900)
-        for label, body in (("strategies", strat_msg), ("accounts", acct_msg)):
-            print(f"--- {label} ({len(body)} chars) ---")
-            print(body)
+
+        # Notification streamlining (2026-07-08): the operator was getting TWO
+        # long hourly messages. Concatenate into ONE message when it fits under
+        # Telegram's hard 4096-char limit (a small margin left for safety), so
+        # the hourly snapshot is a single ping. Only when the combined body
+        # would be rejected do we fall back to sending the two parts separately
+        # (each with its own HTML→scheduled fallback), so a very verbose hour
+        # never drops a report.
+        TELEGRAM_MAX = 4096
+        combined = strat_msg + "\n\n" + acct_msg
+        if len(combined) <= TELEGRAM_MAX - 32:
+            print(f"--- combined ({len(combined)} chars) ---")
+            print(combined)
             try:
-                send_telegram_direct(body, parse_mode="HTML")
+                send_telegram_direct(combined, parse_mode="HTML")
+                print("dispatched (combined strategies + accounts).")
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
-                    "hourly %s HTML send failed (%s); falling back to scheduled",
-                    label, exc,
+                    "hourly combined HTML send failed (%s); falling back to "
+                    "per-part scheduled", exc,
                 )
-                send_scheduled(body)
-        print("dispatched (strategies + accounts).")
+                send_scheduled(combined)
+                print("dispatched (combined, scheduled fallback).")
+        else:
+            logger.info(
+                "hourly combined body %d chars exceeds Telegram limit; "
+                "sending the two parts separately", len(combined),
+            )
+            for label, body in (("strategies", strat_msg), ("accounts", acct_msg)):
+                print(f"--- {label} ({len(body)} chars) ---")
+                print(body)
+                try:
+                    send_telegram_direct(body, parse_mode="HTML")
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "hourly %s HTML send failed (%s); falling back to scheduled",
+                        label, exc,
+                    )
+                    send_scheduled(body)
+            print("dispatched (strategies + accounts, separate).")
 
         # Liveness watchdog piggybacks on the hourly cycle (moved here from
         # the trader loop): pings when actionable signals fired but no

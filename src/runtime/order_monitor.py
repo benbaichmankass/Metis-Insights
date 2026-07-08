@@ -777,6 +777,15 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                 # Window elapsed → drop the stale marker and retry the close.
                 _PENDING_CLOSE_RETRY_COOLDOWN.pop(_close_key, None)
 
+        # Mark this (account, symbol) as actively-closing THIS tick so the
+        # broker-naked equity re-arm (which runs later in the same tick) does not
+        # re-place a protective OCO on a position we're trying to flatten — that
+        # fight is BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT (see the set's comment).
+        _TICK_ACTIVE_CLOSE_SYMBOLS.add((
+            str(matched_trade.get("account_id") or ""),
+            str(matched_trade.get("symbol") or "").upper(),
+        ))
+
         # Exchange-first: attempt the live close BEFORE any DB write.
         ex_result = _send_close_to_exchange(matched_trade)
         logger.info(
@@ -1756,6 +1765,23 @@ _PENDING_SNAPSHOT_DISAPPEAR_CONFIRM: Dict[int, datetime] = {}
 # the counter). In-process (a restart re-arms from scratch — fail-safe, never
 # finalizes early).
 _PENDING_WATCHDOG_FLAT_CONFIRM: Dict[int, datetime] = {}
+
+# Per-tick set of ``(account_id, symbol)`` the monitor ATTEMPTED an active close
+# on this tick (BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT). Cleared at the top of
+# every ``run_monitor_tick``, populated in ``_apply_update`` just before the
+# exchange close. The Alpaca broker-naked re-arm
+# (``_check_broker_naked_equity_positions``) runs LATER in the same tick and
+# skips any symbol in this set: without it the two subsystems FIGHT — the monitor
+# cancels the resting OCO to close, its DELETE /v2/positions races the async
+# cancel and fails ``insufficient qty available (available: 0)``, then the
+# re-arm re-places the OCO before the next tick, so the shares stay perpetually
+# ``held_for_orders``, the OCO stop never survives long enough to trigger, and
+# the close never completes (the alpaca_paper QQQ #3269 perpetual close-failure).
+# Suppressing the re-arm while a close is in flight lets the cancel settle and the
+# market close flatten the position. In-process, per-tick (a restart / next tick
+# rebuilds it — fail-safe: a genuinely naked position with no active close is
+# still re-armed as before).
+_TICK_ACTIVE_CLOSE_SYMBOLS: set = set()
 
 # Bybit V5 ``orderStatus`` values that mean "order is still live on
 # the exchange and has not reached a terminal state". A DB row whose
@@ -5569,6 +5595,17 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
         symbol = str(row["symbol"] or "")
         if not symbol:
             continue
+        # Skip a position the monitor is ACTIVELY CLOSING this tick
+        # (BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT). Re-arming a protective OCO
+        # on it would re-hold the shares the close is trying to sell, and the two
+        # fight forever (the QQQ #3269 perpetual close-failure). Let the close win.
+        if (account_id, symbol.upper()) in _TICK_ACTIVE_CLOSE_SYMBOLS:
+            logger.info(
+                "_check_broker_naked_equity_positions: skipping re-arm for "
+                "%s/%s — an active close is in flight this tick (let it flatten)",
+                account_id, symbol,
+            )
+            continue
         try:
             if account_id not in clients:
                 clients[account_id] = alpaca_client_for(acc_by_id[account_id])
@@ -6444,6 +6481,11 @@ def run_monitor_tick(
         inaccessible, etc.).
     """
     summaries: Dict[str, Dict[str, Any]] = {}
+    # Reset the per-tick active-close set (BL-20260708-ALPACA-REARM-VS-CLOSE-
+    # FIGHT). The strategy monitor loop below populates it as it attempts closes;
+    # the broker-naked equity re-arm later in this tick reads it to avoid re-arming
+    # a position we're actively flattening.
+    _TICK_ACTIVE_CLOSE_SYMBOLS.clear()
     try:
         db = _resolve_db(db_path)
     except Exception as exc:  # noqa: BLE001

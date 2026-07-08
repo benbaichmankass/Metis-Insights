@@ -202,6 +202,37 @@ def test_broker_naked_sweep_rearms_unprotected(tmp_path, monkeypatch):
     assert fake.rearmed[0]["sl"] == 730.0 and fake.rearmed[0]["tp"] == 818.5
 
 
+def test_broker_naked_sweep_skips_active_close(tmp_path, monkeypatch):
+    """BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT: the re-arm must NOT re-protect a
+    position the monitor is actively closing this tick — else it re-holds the
+    shares the close is trying to sell and the two fight forever (the QQQ #3269
+    perpetual close-failure). A symbol in ``_TICK_ACTIVE_CLOSE_SYMBOLS`` is
+    skipped entirely (no broker read, no re-arm)."""
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="alpaca_paper", symbol="QQQ", direction="long",
+            position_size=16, stop_loss=708.39, take_profit_1=792.9,
+            created_at="2026-06-25T00:00:00+00:00", status="open")
+    monkeypatch.setattr(
+        "src.bot.data_loaders.list_accounts",
+        lambda: [{"account_id": "alpaca_paper", "exchange": "alpaca"}],
+    )
+    fake = _FakeAlpaca(protected=False)  # broker-naked, WOULD re-arm normally
+    monkeypatch.setattr(
+        "src.units.accounts.clients.alpaca_client_for", lambda acc: fake
+    )
+    # The monitor attempted a close on QQQ this tick.
+    om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+    om._TICK_ACTIVE_CLOSE_SYMBOLS.add(("alpaca_paper", "QQQ"))
+    try:
+        summary = om._check_broker_naked_equity_positions(db)
+    finally:
+        om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+    # Skipped before the broker read → not counted broker_naked, never re-armed.
+    assert summary["broker_naked"] == 0
+    assert summary["rearmed"] == 0
+    assert fake.rearmed == []
+
+
 def test_broker_naked_sweep_skips_protected(tmp_path, monkeypatch):
     db = _FakeDB(tmp_path / "j.db")
     _insert(db, id=1, account_id="alpaca_paper", symbol="TLT", direction="long",
