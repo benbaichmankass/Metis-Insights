@@ -100,6 +100,18 @@ that gap:
   existing rc=137-tolerant "one failed manifest doesn't abort the cycle"
   handling) keeps running. Combined with checkpoint/resume, one expensive
   manifest now costs one `failed` row instead of the whole day.
+- **Swap headroom (2026-07-08, MB-20260705-TRAINER-OOM).** `OOMPolicy=continue`
+  only contains a per-manifest *subprocess* OOM; the 2026-07-07 08:48 and
+  2026-07-08 07:06 kills were the service's **main process** exceeding the 5G
+  `MemoryMax` (RAM) plus the then-only-2G swap, which `OOMPolicy` cannot save.
+  The swapfile was grown **2G → 8G** (`/swapfile`, persisted in `/etc/fstab`;
+  the trainer cloud-init `runcmd` provisions 8G idempotently on re-provision).
+  With `MemorySwapMax=infinity` the main process now swaps past the 5G RAM cap
+  and completes (slowly under memory pressure) instead of being OOM-killed —
+  the 5G RAM cap still protects the host. The **deeper** fix — running each
+  manifest in its own subprocess so the orchestrator's RSS stays low and any
+  single manifest's OOM is fully contained by `OOMPolicy=continue` — is logged
+  to the ml-review backlog (avoids the swap-thrash slowdown).
 
 Both the script logic and the unit/timer definitions live in
 `deploy/training-vm-cloud-init.yaml` for re-provisioning; the live trainer VM
