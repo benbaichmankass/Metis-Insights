@@ -9,10 +9,16 @@
       "source": "diag /api/diag/ib_state 2026-07-08T07:38Z: trader non-readonly IB exec client (client_id 498, ib_paper/MES) state=breaker_open, connected=false, consecutive_failures=9, likely_wedged=true, last_ok_utc=null since the 07:08:58Z trader restart, last_fail_reason=account_warmup_timeout. Readonly client (9753) healthy. MES/MGC/MHG could not execute; /api/bot/candles MES|MGC|MHG returned no_data. Outside the IBKR ~03:45-05:45Z reset window. Remediated live this session via vm-ib-gateway-recover (run 28926194419, exit 0, login_completed=yes) — breaker auto-clears ~2min.",
       "title": "IB exec client wedged on account_warmup_timeout after a fresh trader restart (recurred 2026-07-08) — warm-up never completes, MES/MGC/MHG dark until a gateway docker-restart",
       "description": "The account warm-up (reqAccountSummary, IB_ACCOUNT_WARMUP_TIMEOUT_S, BL-20260706-IBWARMUP) timed out 9x in a row on the trader's own execution client immediately after the 07:08Z restart and never recovered on its own — the circuit breaker just kept re-opening. A gateway docker-restart (vm-ib-gateway-recover) cleared it. This is the SECOND time the warm-up path has stranded MES since it was added (see BL-20260706-IBWARMUP / -IBACCTUPDATES-COLLISION). Investigate: does a trader restart while the gateway holds a stale session reliably wedge warm-up? Should the trader force a gateway session-reset (or a longer/again-retried warm-up) on N consecutive account_warmup_timeout before condemning, so MES self-heals without an operator/Claude-triggered gateway restart? Verify the ict-ib-gateway-watchdog on the gateway VM would have caught this (it probes net_liquidation) — if so, why did it not restart before this review found it (was the wedge < its 2-check threshold, or is the daily-only reset the only guard mid-day?).",
-      "tier": 2,
+      "tier": 3,
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-08T07:52:00+00:00",
+          "by": "claude (/system-review 2026-07-08 verify)",
+          "note": "VERIFY (ib_state 07:50:58Z): the vm-ib-gateway-recover did NOT clear the trader exec client — still state=breaker_open, account_warmup_timeout, consecutive_failures 13 (up from 9), last_ok_utc still null. The gateway itself is fine: the READONLY client (9753) is connected + account_data_ready and even recovered from a liveness_probe_timeout at 07:44. So the fault is specifically the NON-readonly exec client's account warm-up (reqAccountSummary), NOT gateway login. A gateway docker-restart cannot fix this. Remaining levers: restart ict-trader-live (may not help; the 07:08 restart is what STARTED the wedge; interrupts the healthy real-money path), OR IB_ACCOUNT_WARMUP_TIMEOUT_S<=0 escape hatch (bypass the blocking warm-up, Tier-2 env), OR a code fix to _warm_account_data for the non-readonly client (Tier-3). Escalated to operator via /system-review. MES/MGC/MHG remain dark."
+        }
+      ]
     },
     {
       "id": "BL-20260706-PROP-INSERT-FILL-IDEMPOTENCY",
@@ -3608,5 +3614,5 @@
       ]
     }
   ],
-  "updated_at": "2026-07-08T07:45:00+00:00"
+  "updated_at": "2026-07-08T07:52:00+00:00"
 }

@@ -8,7 +8,7 @@
   "prior_report_id": "RPT-20260706-153200-weekly",
   "overall_assessment": "investigate",
   "health": {
-    "overall_assessment": "caution",
+    "overall_assessment": "investigate",
     "findings": {
       "trader_process": {
         "status": "ok",
@@ -20,7 +20,7 @@
       },
       "ib_execution": {
         "status": "concern",
-        "note": "ib_paper exec client (498) breaker_open, 9 consec fails, account_warmup_timeout, no OK since 07:08 restart \u2014 MES/MGC/MHG dark. REMEDIATED live via vm-ib-gateway-recover (login_completed=yes); verifying breaker cleared."
+        "note": "ib_paper exec client (498) breaker_open, account_warmup_timeout, no OK since the 07:08 restart \u2014 MES/MGC/MHG dark. vm-ib-gateway-recover re-logged the gateway in (readonly client 9753 healthy, account_data_ready) but the exec client STILL times out account warm-up \u2014 consecutive_failures climbed 9\u219213 across the recover. Not a gateway-login problem; the non-readonly warm-up path is the fault. Unresolved \u2014 operator action needed."
       },
       "trainer_vm": {
         "status": "concern",
@@ -130,7 +130,7 @@
   },
   "consolidated": {
     "roll_up_grade": "investigate",
-    "headline": "Core money-trader healthy and trading (Bybit real + Alpaca real reachable, heartbeat live). Two infra failures found: (1) the IB ib_paper execution client wedged on account_warmup_timeout since the 07:08 restart \u2014 MES/MGC/MHG dark \u2014 REMEDIATED live this session via vm-ib-gateway-recover; (2) the trainer VM is SSH-unreachable (down/hung post-OOM), so ML training is offline and sweeps are 29d stale \u2014 needs an operator OCI reboot. Real-money is roughly flat in $ over 30d but -12.2R, with ict_scalp_5m (-11.4R) the clear drag. Since-last real window: 2 trades, both losses (-$5.20).",
+    "headline": "Core money-trader healthy and trading (Bybit real + Alpaca real reachable, heartbeat live). Two infra failures found: (1) the IB ib_paper execution client is wedged on account_warmup_timeout since the 07:08 restart \u2014 MES/MGC/MHG dark. A vm-ib-gateway-recover re-logged the gateway in (readonly client healthy) but did NOT clear the exec client \u2014 it stays breaker_open with failures climbing 9\u219213, so this is a warm-up bug on the non-readonly client, not a gateway login problem, and needs operator action. (2) The trainer VM is SSH-unreachable (down/hung post-OOM) \u2014 ML training offline, sweeps 29d stale \u2014 needs an operator OCI reboot. Real-money is roughly flat in $ over 30d but -12.2R, ict_scalp_5m (-11.4R) the clear drag. Since-last real window: 2 trades, both losses (-$5.20).",
     "services": [
       {
         "unit": "ict-trader-live.service",
@@ -156,11 +156,11 @@
       },
       {
         "rank": 2,
-        "title": "IB exec wedge remediated \u2014 verify breaker cleared + harden warm-up",
+        "title": "IB exec client STILL wedged after gateway recover \u2014 operator decision needed",
         "source_review": "health",
         "tier": 2,
-        "detail": "ib_paper exec client wedged on account_warmup_timeout (9 fails, no OK since 07:08). Drove vm-ib-gateway-recover live (login OK). Verify MES/MGC/MHG resumed; consider self-heal on N consecutive warmup_timeouts so it doesn't need a manual gateway restart (BL-20260708-IB-WARMUP-WEDGE-RECUR).",
-        "operator_action_required": false
+        "detail": "ib_paper exec client (498) times out account_warmup on every attempt (failures 9\u219213); the gateway is fine (readonly client healthy) so the fault is the non-readonly warm-up path. MES/MGC/MHG remain dark. Options: (a) restart ict-trader-live (Tier-2, may not help; interrupts the HEALTHY real-money Bybit/Alpaca path); (b) set IB_ACCOUNT_WARMUP_TIMEOUT_S<=0 to bypass the blocking warm-up (Tier-2 env); (c) code fix to _warm_account_data on the exec client (Tier-3). See BL-20260708-IB-WARMUP-WEDGE-RECUR.",
+        "operator_action_required": true
       },
       {
         "rank": 3,
@@ -1286,10 +1286,15 @@
           "soak": "training-side dataset builds",
           "state": "stalled",
           "detail": "BLOCKED \u2014 trainer VM down; no new dataset/training work landing."
+        },
+        {
+          "soak": "ib_paper exec client",
+          "state": "stalled",
+          "detail": "warm-up wedged; recover didn't clear; MES/MGC/MHG cannot execute."
         }
       ],
       "flags_raised": [
-        "IB ib_paper execution client wedged (breaker_open, account_warmup_timeout, 9 fails, no OK since 07:08 restart) \u2014 MES/MGC/MHG dark. REMEDIATED live via vm-ib-gateway-recover.",
+        "IB ib_paper execution client WEDGED on account_warmup_timeout (breaker_open, failures 9\u219213, no OK since the 07:08 restart) \u2014 MES/MGC/MHG dark. vm-ib-gateway-recover re-logged the gateway in but did NOT clear it (readonly client healthy; non-readonly warm-up path is the fault). UNRESOLVED \u2014 operator decision needed.",
         "Trainer VM 158.178.209.121 DOWN/unreachable (SSH banner timeout x2) \u2014 ML training offline, sweeps 29d stale; needs operator OCI reboot.",
         "Real-money 30d negative in R: -12.24R (expectancyR -0.64), ict_scalp_5m -11.35R the dominant drag + htf_pullback_trend_2h -2.14R.",
         "Paper/prop data-quality: SLV orphan_adopt duplicate -693.6 closes, 8-trade 14:15:56Z mass-reconcile batch, 2 prop packages mis-marked 'orphaned'.",
@@ -1310,10 +1315,10 @@
             "account_id": "ib_paper",
             "exchange": "interactive_brokers",
             "evidence": "exec client 498 breaker_open, account_warmup_timeout, api_ok=false in balances; readonly reads OK (positions=[]).",
-            "remediation": "vm-ib-gateway-recover dispatched + succeeded (login_completed=yes); breaker auto-clears ~2min \u2014 verifying."
+            "remediation": "vm-ib-gateway-recover ran (login_completed=yes) but did NOT clear the exec client \u2014 still breaker_open, failures 9\u219213. Gateway healthy; warm-up path is the fault. UNRESOLVED \u2014 operator decision (trader restart vs IB_ACCOUNT_WARMUP_TIMEOUT_S<=0 vs code fix)."
           }
         ],
-        "summary": "6 declared-live probeable accounts; 5 fully reachable (bybit_1, bybit_2, alpaca_paper, alpaca_live, alpaca_options_paper \u2014 all api_ok). ib_paper execution client was wedged (paper account) \u2014 remediated live via gateway recover, verifying. Dry/shelved ib_live+oanda_practice and API-less breakout_1 correctly excluded."
+        "summary": "6 declared-live probeable accounts; 5 fully reachable (bybit_1, bybit_2, alpaca_paper, alpaca_live, alpaca_options_paper \u2014 all api_ok). ib_paper execution client (paper) WEDGED on account_warmup_timeout and NOT cleared by the gateway recover \u2014 MES/MGC/MHG remain dark. Operator action needed."
       },
       "backlog_drive": {
         "health": {

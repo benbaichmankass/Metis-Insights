@@ -4,7 +4,7 @@
 - Window: 2026-07-06T15:32:00+00:00 → 2026-07-08T07:47:00+00:00
 - Roll-up grade: investigate
 
-Core money-trader healthy and trading (Bybit real + Alpaca real reachable, heartbeat live). Two infra failures found: (1) the IB ib_paper execution client wedged on account_warmup_timeout since the 07:08 restart — MES/MGC/MHG dark — REMEDIATED live this session via vm-ib-gateway-recover; (2) the trainer VM is SSH-unreachable (down/hung post-OOM), so ML training is offline and sweeps are 29d stale — needs an operator OCI reboot. Real-money is roughly flat in $ over 30d but -12.2R, with ict_scalp_5m (-11.4R) the clear drag. Since-last real window: 2 trades, both losses (-$5.20).
+Core money-trader healthy and trading (Bybit real + Alpaca real reachable, heartbeat live). Two infra failures found: (1) the IB ib_paper execution client is wedged on account_warmup_timeout since the 07:08 restart — MES/MGC/MHG dark. A vm-ib-gateway-recover re-logged the gateway in (readonly client healthy) but did NOT clear the exec client — it stays breaker_open with failures climbing 9→13, so this is a warm-up bug on the non-readonly client, not a gateway login problem, and needs operator action. (2) The trainer VM is SSH-unreachable (down/hung post-OOM) — ML training offline, sweeps 29d stale — needs an operator OCI reboot. Real-money is roughly flat in $ over 30d but -12.2R, ict_scalp_5m (-11.4R) the clear drag. Since-last real window: 2 trades, both losses (-$5.20).
 
 ## P&L by class
 - **real**: window $-5.20 (prior +$10.27, down)
@@ -13,7 +13,7 @@ Core money-trader healthy and trading (Bybit real + Alpaca real reachable, heart
 
 ## Operator priorities
 1. Trainer VM down — reboot/re-provision (OCI console) — 158.178.209.121 SSH-unreachable (banner timeout) x2; ML training offline, sweeps 29d stale; probable hung box post the 07-05 OOM-kill. SSH-dead blocks the relay, so needs an OCI-console reboot. Live inference unaffected. (MB-20260705-TRAINER-OOM escalated.)
-2. IB exec wedge remediated — verify breaker cleared + harden warm-up — ib_paper exec client wedged on account_warmup_timeout (9 fails, no OK since 07:08). Drove vm-ib-gateway-recover live (login OK). Verify MES/MGC/MHG resumed; consider self-heal on N consecutive warmup_timeouts so it doesn't need a manual gateway restart (BL-20260708-IB-WARMUP-WEDGE-RECUR).
+2. IB exec client STILL wedged after gateway recover — operator decision needed — ib_paper exec client (498) times out account_warmup on every attempt (failures 9→13); the gateway is fine (readonly client healthy) so the fault is the non-readonly warm-up path. MES/MGC/MHG remain dark. Options: (a) restart ict-trader-live (Tier-2, may not help; interrupts the HEALTHY real-money Bybit/Alpaca path); (b) set IB_ACCOUNT_WARMUP_TIMEOUT_S<=0 to bypass the blocking warm-up (Tier-2 env); (c) code fix to _warm_account_data on the exec client (Tier-3). See BL-20260708-IB-WARMUP-WEDGE-RECUR.
 3. Review ict_scalp_5m (+ htf_pullback_trend_2h) for demote/tune — Real-money 30d: ict_scalp_5m -11.35R (9 trades, wins small/losses big), htf_pullback_trend_2h -2.14R (0% WR/3). Dominates the -12.2R book drag; ML setup-quality heads also score ict_scalp low. Tier-3 strategy change — operator decision. (PB-20260630-ICTSCALP-DEGRADE.)
 4. Clean up reconciler/orphan artifacts polluting paper + prop — SLV orphan_adopt duplicate -693.6 closes + an 8-trade 14:15:56Z mass-reconcile batch skew paper metrics; 2 prop packages (sol_prop/eth_prop) mis-marked 'orphaned' by the package watchdog. Bucket/exclude artifacts (PB-20260626-ARTIFACT-BUCKETS, BL-20260705-SHADOW-PKG-ORPHAN-STATUS).
 5. Live-VM health checks git_drift + accounts_api failing — 5/7 health checks ok. git_drift (worktree vs main) + accounts_api (counts down/shelved accounts — worsened by the IB exec-down). Reconcile git state; fix the shelved-account overcount (BL-20260705-HEALTHCHECK-SHELVED-ACCOUNTS).
@@ -26,7 +26,8 @@ Core money-trader healthy and trading (Bybit real + Alpaca real reachable, heart
 - Soak `exit-ladder soak`: accruing — 20 records, differs_from_single_target=false throughout (n_rungs 0).
 - Soak `allocator soak (M18)`: accruing — 20 records; disagreements+regret logged (GLD 1h-long vs 1d-short, SOL); observe-only, routing unchanged.
 - Soak `training-side dataset builds`: stalled — BLOCKED — trainer VM down; no new dataset/training work landing.
-- 🚩 IB ib_paper execution client wedged (breaker_open, account_warmup_timeout, 9 fails, no OK since 07:08 restart) — MES/MGC/MHG dark. REMEDIATED live via vm-ib-gateway-recover.
+- Soak `ib_paper exec client`: stalled — warm-up wedged; recover didn't clear; MES/MGC/MHG cannot execute.
+- 🚩 IB ib_paper execution client WEDGED on account_warmup_timeout (breaker_open, failures 9→13, no OK since the 07:08 restart) — MES/MGC/MHG dark. vm-ib-gateway-recover re-logged the gateway in but did NOT clear it (readonly client healthy; non-readonly warm-up path is the fault). UNRESOLVED — operator decision needed.
 - 🚩 Trainer VM 158.178.209.121 DOWN/unreachable (SSH banner timeout x2) — ML training offline, sweeps 29d stale; needs operator OCI reboot.
 - 🚩 Real-money 30d negative in R: -12.24R (expectancyR -0.64), ict_scalp_5m -11.35R the dominant drag + htf_pullback_trend_2h -2.14R.
 - 🚩 Paper/prop data-quality: SLV orphan_adopt duplicate -693.6 closes, 8-trade 14:15:56Z mass-reconcile batch, 2 prop packages mis-marked 'orphaned'.
