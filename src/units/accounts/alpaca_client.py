@@ -112,6 +112,31 @@ class AlpacaClient:
         at 1 whole share — bracket orders disallow fractionals),
         optional ``sl`` / ``tp`` prices (both present → bracket; one →
         OTO; none → plain market). Equity prices are 2dp.
+
+        Bounded post-accept REJECTION confirmation (BL-20260707-ALPACA-
+        ENTRY-FILL-CONFIRM-GAP), mirroring ``IBClient.place``'s
+        ``IB_PLACE_CONFIRM_S`` contract: Alpaca's initial HTTP 2xx on POST
+        ``/v2/orders`` means the order passed SYNCHRONOUS validation, not
+        that it will actually execute — an async risk check (PDT rule,
+        wash-trade prevention, extended-hours restriction, a deeper margin
+        check) can still reject it moments later. Without this, a
+        post-accept rejection was invisible to the caller: ``_submit_order``
+        only ever saw the initial 2xx and ``_log_trade_to_journal`` wrote a
+        phantom ``open`` trade row for a position that never actually
+        existed on the broker. ``ALPACA_PLACE_CONFIRM_S`` (default 3.0s,
+        matching ``IB_PLACE_CONFIRM_S``'s default; ``<= 0`` restores the
+        legacy accept-is-success/no-poll behaviour): if the order reaches a
+        terminal ``rejected``/``canceled``/``expired`` state within the
+        window, that is surfaced as a real failure (``retCode != 0``) so the
+        caller refuses the trade instead of journaling a phantom position.
+        Still-pending or already-``filled`` at the deadline is reported as
+        success unchanged. Deliberately does NOT attempt to capture/backfill
+        the broker's real fill price into the journal — that is a separate,
+        larger design question ``_submit_order``'s shared str-only return
+        contract (identical across bybit/IB/alpaca/oanda) doesn't
+        accommodate without a broader refactor, and
+        ``RECONCILER_SNAPSHOT_MIN_FILL_AGE_S`` already exists as the
+        downstream grace period for a genuinely-slow-but-good fill.
         """
         self._require_creds("place")
         side = str(order.get("side", "")).strip().lower()
@@ -145,7 +170,35 @@ class AlpacaClient:
         if env.get("retCode") != 0:
             return env
         result = env.get("result") or {}
-        return {"retCode": 0, "result": {"orderId": str(result.get("id") or "")}}
+        order_id = str(result.get("id") or "")
+
+        confirm_s = _env_float("ALPACA_PLACE_CONFIRM_S", 3.0)
+        if confirm_s > 0 and order_id:
+            deadline = time.monotonic() + confirm_s
+            while True:
+                status_env = self._request("GET", f"/v2/orders/{order_id}")
+                if status_env.get("retCode") == 0:
+                    st = str(
+                        (status_env.get("result") or {}).get("status") or ""
+                    ).lower()
+                    if st in ("rejected", "canceled", "cancelled", "expired"):
+                        return {
+                            "retCode": 1,
+                            "retMsg": (
+                                f"alpaca order {order_id} for "
+                                f"{body['symbol']} was accepted then {st} — "
+                                "refusing to journal a phantom position"
+                            ),
+                        }
+                    if st == "filled":
+                        break
+                # An unreadable status mid-poll is NOT treated as terminal —
+                # keep polling until the deadline rather than guessing.
+                if time.monotonic() >= deadline:
+                    break
+                time.sleep(0.25)
+
+        return {"retCode": 0, "result": {"orderId": order_id}}
 
     # ------------------------------------------------------------ account
     def balance(self) -> Optional[float]:

@@ -3516,9 +3516,15 @@
       "tier": 2,
       "trigger_condition": "Next full-pipeline review, or if a phantom-entry (journaled open, never actually filled) is observed live.",
       "resolution_criteria": "Trace whether a never-filled Alpaca entry self-heals cleanly today; if not, design + ship an entry-side fill-confirmation step analogous to the close-side fix, sized to the entry path's different risk profile (do not just copy-paste the close-side poll loop without considering it delays a live entry, not a close).",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-07T21:40:00+00:00",
+          "by": "claude (full Alpaca-pipeline audit session, 2026-07-07)",
+          "note": "Operator directive: 'finish the fix for the entry side as well - I want full pipeline stability.' Fixed the REJECTION half only, deliberately NOT the fill-price half (scoped down from the original description after tracing the actual call path). AlpacaClient.place() (src/units/accounts/alpaca_client.py) now polls the order by id after a successful POST, bounded by new ALPACA_PLACE_CONFIRM_S (default 3.0s, matching IB_PLACE_CONFIRM_S; <=0 restores legacy behaviour): a terminal rejected/canceled/expired status within the window is surfaced as retCode!=0 so _submit_order raises and _log_trade_to_journal never writes a phantom open trade row for an order the broker never actually executed. Still-pending or filled at the deadline is reported as success unchanged. Deliberately did NOT attempt to capture/backfill the broker's real filled_avg_price into the journal: _submit_order's return contract is a bare str (order_id) shared byte-for-byte across bybit/IB/alpaca/oanda; threading a richer fill-price payload through it would be a materially larger, cross-exchange refactor and a separate design decision, not a bug fix — the decision-time entry price is already the documented, accepted convention for every exchange here (IB's own IB_PLACE_CONFIRM_S only checks non-rejection too, never fill price), and RECONCILER_SNAPSHOT_MIN_FILL_AGE_S remains the existing downstream grace period for a genuinely-slow-but-good fill. Tests: test_client_place_confirms_no_rejection_when_filled, test_client_place_detects_post_accept_rejection, test_client_place_still_pending_at_deadline_is_success, test_client_place_confirm_disabled_restores_legacy_behavior (tests/test_alpaca_wiring.py) — 34/34 in that file, 323 across the broader order-management/reconciler surface."
+        }
+      ]
     },
     {
       "id": "BL-20260707-ALPACA-PIPELINE-AUDIT-FOLLOWUPS",
@@ -3534,5 +3540,5 @@
       "updates": []
     }
   ],
-  "updated_at": "2026-07-07T21:20:00+00:00"
+  "updated_at": "2026-07-07T21:40:00+00:00"
 }
