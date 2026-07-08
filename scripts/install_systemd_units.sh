@@ -370,13 +370,14 @@ fi
 _RETIRED_TIMERS=" ict-heartbeat.timer "
 for _rt in $_RETIRED_TIMERS; do
     # Unconditional idempotent disable — `disable --now` on an already-disabled
-    # timer is a harmless no-op. Deliberately NOT guarded on `is-enabled
-    # >/dev/null` because this box periodically loses /dev/null write perms
-    # (the reason ict-devnull-guard exists); a guard whose redirect fails would
-    # silently skip the disable. `|| true` keeps a genuinely-absent unit from
-    # failing the deploy.
+    # timer is a harmless no-op. Deliberately NOT guarded on `is-enabled` AND
+    # NOT redirected to /dev/null: this box periodically loses /dev/null write
+    # perms (the reason ict-devnull-guard exists, and the installer runs BEFORE
+    # that guard's restart), so ANY `>/dev/null` here fails to open the fd and
+    # bash skips the command before it runs. Let the output land in the deploy
+    # log instead. `|| true` keeps a genuinely-absent unit from failing the deploy.
     echo ">>> install_systemd_units: retiring $_rt (superseded by the hourly snapshot)"
-    "${SUDO[@]}" systemctl disable --now "$_rt" >/dev/null 2>&1 || true
+    "${SUDO[@]}" systemctl disable --now "$_rt" || true
 done
 
 shopt -s nullglob
