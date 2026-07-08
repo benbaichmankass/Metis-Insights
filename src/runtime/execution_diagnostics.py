@@ -40,6 +40,47 @@ logger = logging.getLogger(__name__)
 
 PENDING_PINGS_DIR = runtime_logs_dir() / "pending_pings"
 
+# Durable ring of the operator alerts this module raises (2026-07-08). The
+# pending-ping files are transient (the Telegram sender consumes + deletes
+# them), so they can't back the app's Overview notification banner. Every
+# enqueue_* alert also appends a structured row here; ``GET /api/bot/notifications``
+# (a DIFFERENT process from the trader) reads the recent tail so a live
+# operational condition — a stuck position-close, a naked/orphan flag, a
+# failed dispatch — surfaces on the banner, not only in Telegram. Best-effort,
+# bounded (trimmed to the last _OPERATOR_ALERTS_KEEP rows); never raises into
+# the caller.
+OPERATOR_ALERTS_LOG = runtime_logs_dir() / "operator_alerts.jsonl"
+_OPERATOR_ALERTS_KEEP = 300
+
+
+def _append_operator_alert(kind: str, priority: str, body: str) -> None:
+    """Append one operator alert to the durable banner-feed ring (best-effort)."""
+    try:
+        from datetime import datetime, timezone
+
+        OPERATOR_ALERTS_LOG.parent.mkdir(parents=True, exist_ok=True)
+        row = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "kind": kind,
+            "priority": str(priority or "high"),
+            "body": str(body or "")[:1024],
+        }
+        with OPERATOR_ALERTS_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+        # Trim the ring when it grows past ~2x the keep target (cheap amortised).
+        try:
+            with OPERATOR_ALERTS_LOG.open("r", encoding="utf-8") as fh:
+                lines = fh.readlines()
+            if len(lines) > _OPERATOR_ALERTS_KEEP * 2:
+                tmp = OPERATOR_ALERTS_LOG.with_suffix(".jsonl.tmp")
+                with tmp.open("w", encoding="utf-8") as fh:
+                    fh.writelines(lines[-_OPERATOR_ALERTS_KEEP:])
+                os.replace(tmp, OPERATOR_ALERTS_LOG)
+        except OSError:
+            pass
+    except Exception as exc:  # noqa: BLE001 — an alert-feed append must never break a ping
+        logger.warning("execution_diagnostics: operator-alert append failed: %s", exc)
+
 # Durable follow-up log of NEW orphan trade rows. The operator's standing
 # directive (2026-06-24): an orphan is NEVER an acceptable resting status — it
 # is a problem to be reconciled. Every time a row enters an orphan state we
@@ -75,6 +116,7 @@ def enqueue_execution_failure(
             f"Symbol: {symbol} | Side: {side} | Qty: {qty if qty is not None else '?'}\n"
             f"Reason: {reason}"
         )[:1024]
+        _append_operator_alert("execution_failure", priority, body)
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-execfail.json"
@@ -153,6 +195,7 @@ def enqueue_orphan_created_flag(
             "▶️ Initiate a /system-review to reconcile this to its real "
             "trade/order package (or mark it explicitly unreconcilable)."
         )[:1024]
+        _append_operator_alert("orphan_created", priority, body)
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-orphanflag.json"
@@ -200,6 +243,7 @@ def enqueue_close_failure(
             "The DB row is left OPEN and retried each tick — investigate the "
             "venue/connection; the stuck-strategy watchdog is the backstop."
         )[:1024]
+        _append_operator_alert("close_failure", priority, body)
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-closefail.json"
@@ -237,6 +281,7 @@ def enqueue_stuck_package_sweep(
             "This is the second-line self-heal — a non-zero count means a primary "
             "cascade path missed; worth a look."
         )[:1024]
+        _append_operator_alert("stuck_package_sweep", priority, body)
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-stucksweep.json"
@@ -290,6 +335,7 @@ def enqueue_daily_cap_alert(
                 f"Today's PnL: {pnl_str} USD  (cap: -{cap_str} USD)\n"
                 f"Trading resumed."
             )[:1024]
+        _append_operator_alert("daily_cap", priority, body)
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-dailycap.json"
@@ -405,6 +451,7 @@ def enqueue_orphan_reconciliation(
         if classification_note:
             lines.append(f"Note: {classification_note}")
         body = "\n".join(lines)[:1024]
+        _append_operator_alert("orphan_reconciliation", priority, body)
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-reconciler.json"
@@ -470,6 +517,7 @@ def enqueue_exchange_orphan_adoption(
         if note:
             lines.append(f"Note: {note}")
         body = "\n".join(lines)[:1024]
+        _append_operator_alert("exchange_orphan_adoption", priority, body)
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-exch-orphan.json"
@@ -569,6 +617,7 @@ def enqueue_all_accounts_failed_dispatch(
             f"Accounts attempted: {attempted} | Trades placed: {placed}\n"
             "Failures:\n" + "\n".join(lines) + held_note
         )[:1024]
+        _append_operator_alert("all_accounts_failed", priority, body)
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-allfail.json"
@@ -651,6 +700,7 @@ def enqueue_stuck_strategy_alert(
                 "did NOT catch this — possible exchange-side stale "
                 "position or reconciler skip path."
             )[:1024]
+        _append_operator_alert("stuck_strategy", eff_priority, body)
         payload = {"priority": eff_priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-stuckstrat.json"
@@ -695,6 +745,7 @@ def enqueue_naked_position_alert(
             f"stop_loss={sl_str}  take_profit_1={tp_str}\n"
             "Action: check trade on exchange and set SL/TP manually."
         )[:1024]
+        _append_operator_alert("naked_position", priority, body)
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-naked-position.json"
@@ -741,6 +792,7 @@ def enqueue_monitor_blindness_alert(
             "exits are NOT running.\n"
             "Action: check the strategy module / candle feed for this symbol."
         )[:1024]
+        _append_operator_alert("monitor_blindness", priority, body)
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-monitor-blind.json"
@@ -776,6 +828,7 @@ def enqueue_orphan_rollup(
             f"Suppressed: {suppressed_count} more orphan(s) this tick. "
             f"See /last5 / /packages for the full list."
         )[:1024]
+        _append_operator_alert("orphan_rollup", priority, body)
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-reconciler-rollup.json"
