@@ -3550,7 +3550,19 @@
       "status": "open",
       "snoozed_until": null,
       "updates": []
+    },
+    {
+      "id": "BL-20260708-ARCH-DOC-STRATEGY-ROSTER-STALE",
+      "opened_at": "2026-07-08T04:56:00+00:00",
+      "opened_by": "claude (doc-freshness sweep after the IBKR equity/ETF STK support build, PR #5929)",
+      "source": "docs/ARCHITECTURE-CANONICAL.md § Step 2 — Strategy evaluation: \"The roster has 12 strategies registered in config/strategies.yaml (verified 2026-06-10)\" — noticed while fixing an unrelated, directly-caused staleness in the same paragraph (the ib_paper roster bullet omitting the new equity-ETF cells, fixed in the same PR).",
+      "title": "[docs] ARCHITECTURE-CANONICAL.md's \"12 strategies registered (verified 2026-06-10)\" strategy-count claim is stale — the roster has grown well past 12 since (ETF family, ADA/XRP/AVAX crypto cells, options overlay, etc.)",
+      "description": "Not caused by this session's work and out of its scope to fix (a full re-audit of the strategy roster count + per-instrument breakdown), but flagged per the CLAUDE.md 'log anything noticed but not fixed' mandate. The same paragraph's per-instrument bullets (Crypto / Index-metals-futures) are also missing several strategies that exist in config/strategies.yaml today (e.g. mgc_trend_1h is on ib_paper but absent from the Index/metals bullet). Fix: re-count the live roster from config/strategies.yaml and rewrite the 'Current roster, by instrument' block + the '12 strategies' claim to match, or replace the hardcoded count with a pointer to the live /api/bot/strategies endpoint so it can't drift again.",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-07T21:40:00+00:00"
+  "updated_at": "2026-07-08T04:56:00+00:00"
 }

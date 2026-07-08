@@ -412,7 +412,14 @@ accounts:
                                        # carried no category stamp, so its paper
                                        # trades were journaled is_demo=0 (real money).
     mode: live                         # IB paper gateway — paper money (see header)
-    market_type: futures
+    market_type: futures                # static default for MES/MGC/MHG; since the
+                                       # 2026-07-07 STK support build this account also
+                                       # holds equity-ETF strategies (SPY/QQQ/IWM/TLT) —
+                                       # Coordinator.multi_account_execute resolves the
+                                       # EFFECTIVE market_type/whole_units PER ORDER via
+                                       # ib_instruments.ib_order_market_type() (symbol-
+                                       # aware), so an equity order is NOT sized as a
+                                       # futures contract despite this static field.
     ib_host: 10.0.0.251                # DEDICATED IB-Gateway VM (ict-ib-gateway)
                                        # private IP — gateway-isolation, 2026-06-10.
                                        # The gateway moved OFF the trader's money
@@ -431,10 +438,12 @@ accounts:
                                        # 2026-07-07 (Tier-3, operator-approved, routing-coverage
                                        # audit): DROPPED the three BTCUSDT crypto strategies
                                        # (turtle_soup, vwap, ict_scalp_5m) that were parked here.
-                                       # ALL THREE were inert no-ops — BTCUSDT cannot trade on the
-                                       # IBKR futures account (this account trades MES/MGC/MHG
-                                       # only; IBClient._build_contract raises ValueError for any
-                                       # other symbol). They read as "routed" but never traded,
+                                       # ALL THREE were inert no-ops — BTCUSDT cannot trade on
+                                       # IBKR (as of 2026-07-07 this account also holds equity-ETF
+                                       # strategies via the STK contract branch — see below — but
+                                       # BTCUSDT is still unmapped in ib_instruments.py, so
+                                       # IBClient._build_contract still raises ValueError for it).
+                                       # They read as "routed" but never traded,
                                        # which is exactly the illegible cruft that masked
                                        # turtle_soup's stranding. Their real soak lives elsewhere:
                                        # ict_scalp_5m soaks on bybit_1 (BTCUSDT), vwap is disabled
