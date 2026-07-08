@@ -41,6 +41,21 @@ if [ -z "${DIAG_BASE_URL:-}" ] || [ -z "${DIAG_READ_TOKEN:-}" ]; then
   exit 3
 fi
 
+# Stale-env self-heal (BL-20260705-ENV-DIAG-BASE-URL-STALE): several cloud
+# environments still carry a DIAG_BASE_URL pointing at the RETIRED x86 micro
+# (158.178.210.252, terminated 2026-06-16) instead of the Ampere live trader
+# (141.145.193.91, the 2026-06-14 cutover target). A dead host makes every
+# direct fetch time out and silently fall back to the slow issue relay. Rewrite
+# the known-retired host to the canonical live IP here so a Full-network session
+# is not broken by the stale setting — the PERMANENT fix is still the operator
+# updating DIAG_BASE_URL in the cloud-environment settings.
+_RETIRED_LIVE_HOST="158.178.210.252"
+_CANONICAL_LIVE_HOST="141.145.193.91"
+if printf '%s' "${DIAG_BASE_URL}" | grep -q "${_RETIRED_LIVE_HOST}"; then
+  echo "diag_fetch: DIAG_BASE_URL points at the retired micro ${_RETIRED_LIVE_HOST}; rewriting to the live Ampere host ${_CANONICAL_LIVE_HOST} (BL-20260705-ENV-DIAG-BASE-URL-STALE — update the cloud-env setting to make this permanent)." >&2
+  DIAG_BASE_URL="${DIAG_BASE_URL//${_RETIRED_LIVE_HOST}/${_CANONICAL_LIVE_HOST}}"
+fi
+
 cfg="$(mktemp)"
 chmod 600 "$cfg"
 trap 'rm -f "$cfg"' EXIT

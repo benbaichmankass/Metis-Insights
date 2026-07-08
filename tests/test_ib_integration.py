@@ -835,6 +835,51 @@ class TestAccountWarmup:
         assert calls["n"] == 2, "reconnect after an idle drop must re-warm"
         assert c._account_data_ready is True
 
+    def test_nonreadonly_warmup_survives_hung_account_updates(self, monkeypatch):
+        # BL-20260708-IB-WARMUP-WEDGE-RECUR: reqAccountSummary answers fine but
+        # reqAccountUpdates (the flaky per-account subscription) never confirms.
+        # The warm-up MUST still succeed — accountSummary is the REQUIRED signal
+        # and accountUpdates is BEST-EFFORT; a hang there must NOT condemn the
+        # connection. Before the fix the warm-up gather-ed both, so a hung
+        # accountUpdates timed out the whole warm-up and tripped the breaker,
+        # leaving MES/MGC/MHG dark across a gateway restart (the 2026-07-08 live
+        # wedge) even though balance() data was flowing fine.
+        import src.units.accounts.ib_client as mod
+
+        monkeypatch.setattr(mod, "_IB_ACCOUNT_WARMUP_TIMEOUT_S", 5.0)
+        monkeypatch.setattr(mod, "_IB_ACCTUPDATES_WARMUP_TIMEOUT_S", 0.2)
+        monkeypatch.setattr(mod, "_IB_PROBE_RETRY_GAP_S", 0.05)
+
+        class HungAcctUpdatesIB(FakeIB):
+            async def reqAccountSummaryAsync(self):
+                return None  # the reliable warm-up signal answers promptly
+
+            async def reqAccountUpdatesAsync(self, account):
+                import asyncio
+
+                await asyncio.sleep(30)  # never confirms — the collision hang
+
+        inj = types.ModuleType("ib_insync")
+        inj.IB = HungAcctUpdatesIB
+        monkeypatch.setitem(sys.modules, "ib_insync", inj)
+
+        c = IBClient(port=4002, client_id=54, account="DUQ325724")
+        t0 = time.monotonic()
+        ib = c.connect()
+        elapsed = time.monotonic() - t0
+        assert ib is not None
+        assert c.connected is True
+        assert c._account_data_ready is True
+        assert c._breaker_open_until == 0.0, (
+            "a hung reqAccountUpdates must NOT trip the circuit breaker — "
+            "accountSummary answered, so the connection is usable"
+        )
+        # Bounded by the best-effort accountUpdates timeout (0.2s), NOT the 30s
+        # hang — proves the swallow works and warm-up returns promptly.
+        assert elapsed < 3.0, (
+            f"best-effort accountUpdates was not bounded (took {elapsed:.1f}s)"
+        )
+
 
 class _FakePositionContract:
     """Minimal contract stand-in carrying the fields positions() reads."""

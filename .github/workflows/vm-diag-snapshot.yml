@@ -208,7 +208,7 @@ jobs:
                   upstream_prefix="/api/"
                   path="$botpath"
                   ;;
-                performance|stats|positions|signals|strategies|strategies/*/review|strategies/*/tune|backtests|backtests/sweeps|order-packages|trades/closed|trades/scores|candles|accounts/balances|liquidity|config|insights/summary|insights/recent|insights/health|insights/usage|insights/history|insights/strategy/*|health/latest|health/history|health/services|shadow/stats|shadow/drift|shadow/predictions|exit-ladder/soak|allocator/soak|fc-geometry/soak|prop/fills|prop/tickets|prop/status|prop/reconcile|db/tables|db/table/*)
+                performance|stats|positions|positions/net|signals|strategies|strategies/*/review|strategies/*/tune|strategy/attribution|backtests|backtests/sweeps|order-packages|trades/closed|trades/scores|candles|accounts/balances|liquidity|config|insights/summary|insights/recent|insights/health|insights/usage|insights/history|insights/strategy/*|health/latest|health/history|health/services|health/snapshot|shadow/stats|shadow/drift|shadow/predictions|exit-ladder/soak|allocator/soak|fc-geometry/soak|ml/status|ml/cycle|ml/sessions|ml/registry|ml/builds|ml/db_pulls|ml/runs/*|news/recent|pnl/exchange|gpu/spend|roadmap|roadmap/sprint/*|reports|reports/*|prop/fills|prop/tickets|prop/status|prop/reconcile|db/tables|db/table/*)
                   upstream_prefix="/api/bot/"
                   path="$botpath"
                   ;;
@@ -328,21 +328,34 @@ jobs:
           # Mirrors the workflow_dispatch allowlist above exactly — keep
           # the two in sync if the allowlist ever changes.
           BOT_ALLOWLIST_EXACT = {
-              "performance", "stats", "positions", "signals", "strategies",
+              "performance", "stats", "positions", "positions/net", "signals",
+              "strategies", "strategy/attribution",
               "backtests", "backtests/sweeps", "order-packages",
               "trades/closed", "trades/scores", "candles",
               "accounts/balances", "liquidity", "config",
               "insights/summary", "insights/recent", "insights/health",
               "insights/usage", "insights/history",
               "health/latest", "health/history", "health/services",
+              "health/snapshot",
               "shadow/stats", "shadow/drift", "shadow/predictions",
               "exit-ladder/soak", "allocator/soak", "fc-geometry/soak",
+              # ML lifecycle (BL-20260708-RELAY-ALLOWLIST-ML) — the /ml-review's
+              # registry/cycle/dataset-build/db-pull mandate. These read the
+              # trainer-store sidecar mirrored onto the LIVE VM, so they stay
+              # reachable via the relay even when the trainer VM's SSH is down
+              # (the 2026-07-08 review had to skip ML lifecycle for exactly this
+              # gap while the trainer box was unreachable).
+              "ml/status", "ml/cycle", "ml/sessions", "ml/registry",
+              "ml/builds", "ml/db_pulls",
+              "news/recent", "pnl/exchange", "gpu/spend",
+              "roadmap", "reports",
               "prop/fills", "prop/tickets", "prop/status", "prop/reconcile",
               "db/tables",
           }
           BOT_ALLOWLIST_GLOB = (
               "strategies/*/review", "strategies/*/tune",
               "insights/strategy/*", "db/table/*",
+              "ml/runs/*", "roadmap/sprint/*", "reports/*",
           )
 
           def decode_entities(s: str) -> str:

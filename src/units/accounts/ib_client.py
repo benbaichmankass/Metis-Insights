@@ -144,6 +144,26 @@ _IB_BREAKER_COOLDOWN_S = _env_float("IB_BREAKER_COOLDOWN_S", 120.0)
 # number of concurrent clients against the same account.
 _IB_ACCOUNT_WARMUP_TIMEOUT_S = _env_float("IB_ACCOUNT_WARMUP_TIMEOUT_S", 8.0)
 
+# Best-effort bound (seconds) on the NON-readonly warm-up's ``reqAccountUpdates``
+# subscription (BL-20260708-IB-WARMUP-WEDGE-RECUR). ``reqAccountUpdates`` is a
+# flaky per-account subscription: the Gateway does not reliably deliver a fresh
+# ``accountDownloadEnd`` to a client whose account already has an active
+# subscription from a prior/overlapping connection (the same collision class as
+# BL-20260706-IBACCTUPDATES-COLLISION). Before this fix the warm-up
+# ``asyncio.gather``-ed reqAccountSummary AND reqAccountUpdates, so a hung
+# accountUpdates timed out the WHOLE warm-up and condemned the connection —
+# leaving MES/MGC/MHG dark across a gateway restart even though accountSummary
+# (the reliable balance() signal) had answered fine (2026-07-08 live wedge:
+# consecutive_failures climbed with last_fail_reason=account_warmup_timeout, and
+# a gateway docker-restart did NOT clear it because the fault was the
+# subscription, not the login). accountSummary is now the REQUIRED warm-up
+# signal; reqAccountUpdates is fired best-effort under this shorter bound and a
+# hang is swallowed (portfolio() populates as updates arrive; positions()'
+# empty-snapshot guards already tolerate a brief cold read). ``<= 0`` skips the
+# best-effort accountUpdates warm-up entirely (still a healthy warm-up — the
+# subscription simply isn't pre-warmed).
+_IB_ACCTUPDATES_WARMUP_TIMEOUT_S = _env_float("IB_ACCTUPDATES_WARMUP_TIMEOUT_S", 4.0)
+
 # Bounded post-place rejection window (seconds; <= 0 restores the legacy
 # fire-and-forget behaviour). ``IB.placeOrder`` is asynchronous — IBKR's
 # accept/reject arrives on the event loop AFTER the call returns, so a
@@ -580,12 +600,19 @@ class IBClient:
         race an empty/never-populated cache and misreport "gateway not
         logged in" on a perfectly healthy gateway.
 
-        This explicitly (re-)subscribes to both accountSummary and (once an
-        account is known) accountUpdates and BLOCKS — bounded, with the
-        same retry-then-condemn shape as :meth:`_probe_liveness` — until the
-        first real data lands. By the time :meth:`connect` returns success,
-        every subsequent balance()/positions() read is served from an
-        already-warm cache — there is no cold race left to lose.
+        This explicitly (re-)subscribes to accountSummary and BLOCKS on it —
+        bounded, with the same retry-then-condemn shape as
+        :meth:`_probe_liveness` — until the first real data lands; that is the
+        REQUIRED warm-up signal. On the non-readonly connection it ALSO fires
+        reqAccountUpdates (which feeds portfolio()/positions()) but only
+        BEST-EFFORT, under a separate short bound (:data:`_IB_ACCTUPDATES_WARMUP_TIMEOUT_S`):
+        a hang there is swallowed and does NOT condemn the connection
+        (BL-20260708-IB-WARMUP-WEDGE-RECUR — a flaky per-account subscription
+        that never confirms must not take MES/MGC/MHG dark when balance data is
+        flowing fine). By the time :meth:`connect` returns success, balance()
+        is served from an already-warm cache; positions() populates as the
+        best-effort subscription's updates arrive (its empty-snapshot guards
+        tolerate a brief cold read).
 
         Built to be safe in every context, mirroring :meth:`_probe_liveness`:
 
@@ -621,17 +648,33 @@ class IBClient:
             return True
 
         async def _warm() -> None:
-            tasks = [req_summary()]
+            # reqAccountSummary is the RELIABLE warm-up signal — both readonly
+            # and non-readonly clients get their balance() data from it, and it
+            # is what proves the gateway is actually delivering account data.
+            # It is the REQUIRED, awaited part: if it never lands, the outer
+            # wait_for times out, the warm-up fails, and the breaker trips (a
+            # genuine logged-out gateway). readonly clients additionally warm
+            # reqPositions() (their positions() read path) here, under the same
+            # required budget — never reqAccountUpdates (BL-20260706-IBACCTUPDATES-COLLISION).
+            required = [req_summary()]
             if self.readonly:
-                # Never subscribe a readonly client to reqAccountUpdates —
-                # see BL-20260706-IBACCTUPDATES-COLLISION above. positions()
-                # reads via reqPositions() instead, which this warms too
-                # (under the same bounded retry-then-condemn budget) so a
-                # hang surfaces here rather than as an unbounded call later.
                 req_positions = getattr(ib, "reqPositionsAsync", None)
                 if req_positions is not None:
-                    tasks.append(req_positions())
-            else:
+                    required.append(req_positions())
+            await asyncio.gather(*required)
+
+            # reqAccountUpdates (non-readonly; feeds portfolio()/positions())
+            # is fired BEST-EFFORT — it must NEVER condemn the connection
+            # (BL-20260708-IB-WARMUP-WEDGE-RECUR). It is a flaky per-account
+            # subscription the Gateway may never confirm (no fresh
+            # accountDownloadEnd) when the account already has an active
+            # subscription from a prior/overlapping connection; before this fix
+            # a hang here timed out the whole gather and left MES/MGC/MHG dark
+            # across a gateway restart even though accountSummary answered fine.
+            # Bound it separately and swallow a hang: the subscription request
+            # was already sent, so portfolio() populates as updates arrive, and
+            # positions()' empty-snapshot guards tolerate a brief cold read.
+            if not self.readonly and _IB_ACCTUPDATES_WARMUP_TIMEOUT_S > 0:
                 account = self.account or ""
                 if not account:
                     try:
@@ -642,8 +685,29 @@ class IBClient:
                         account = accounts[0]
                 req_updates = getattr(ib, "reqAccountUpdatesAsync", None)
                 if account and req_updates is not None:
-                    tasks.append(req_updates(account))
-            await asyncio.gather(*tasks)
+                    try:
+                        await asyncio.wait_for(
+                            req_updates(account),
+                            timeout=_IB_ACCTUPDATES_WARMUP_TIMEOUT_S,
+                        )
+                    except asyncio.TimeoutError:
+                        logger.info(
+                            "IBClient: reqAccountUpdates warm-up for %s:%s "
+                            "(account=%s) did not confirm within %.0fs — "
+                            "proceeding best-effort (accountSummary already "
+                            "succeeded; portfolio() will populate as updates "
+                            "arrive). This no longer condemns the connection.",
+                            self.host, self.port, self._masked_account(),
+                            _IB_ACCTUPDATES_WARMUP_TIMEOUT_S,
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.info(
+                            "IBClient: reqAccountUpdates warm-up for %s:%s "
+                            "(account=%s) errored (best-effort, ignored): "
+                            "%s: %s",
+                            self.host, self.port, self._masked_account(),
+                            type(exc).__name__, exc,
+                        )
 
         # Two attempts, same shape as _probe_liveness: a timeout on the
         # first (cold-connection) attempt is retried once after the grace

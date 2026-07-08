@@ -201,6 +201,11 @@
           "at": "2026-07-06T15:45:00+00:00",
           "by": "claude (/system-review weekly 2026-07-06)",
           "note": "Reconfirmed still stale this session (DIAG_BASE_URL=http://158.178.210.252:8001, the terminated x86 micro). Left open — fix requires the operator to edit the Claude Code cloud-environment settings, which this session cannot do. All pulls this run used the vm-diag-snapshot/trainer-vm-diag issue relay instead."
+        },
+        {
+          "at": "2026-07-08T08:05:00+00:00",
+          "by": "claude (/system-review 2026-07-08, operator-requested)",
+          "note": "PARTIAL REPO-SIDE FIX landed this session (operator ask): scripts/ops/diag_fetch.sh now self-heals a DIAG_BASE_URL pointing at the retired micro 158.178.210.252 by rewriting the host to the canonical live Ampere IP 141.145.193.91 (with a stderr warning) before the direct fetch — so a Full-network session is no longer broken by the stale env. This does NOT close the item: the PERMANENT fix is the operator updating DIAG_BASE_URL in the cloud-environment settings to http://141.145.193.91:8001 (takes effect on a NEW session). Note the direct path ALSO needs Network access = Full; at the default Trusted level egress to the VM is firewalled regardless, so this session still used the relay. Also confirmed still-stale again this session."
         }
       ]
     },
@@ -3614,5 +3619,5 @@
       ]
     }
   ],
-  "updated_at": "2026-07-08T07:52:00+00:00"
+  "updated_at": "2026-07-08T08:05:00+00:00"
 }
