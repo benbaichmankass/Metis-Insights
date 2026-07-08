@@ -1,0 +1,151 @@
+name: reset-instance
+
+# Out-of-band OCI instance RESET by display name — recover a HUNG / SSH-dead VM.
+# Built for the 2026-07-08 trainer-VM recovery (MB-20260705-TRAINER-OOM): the
+# trainer OOM-wedged into a banner-exchange timeout, so the in-band `reboot-vm`
+# system-action (SSH + `shutdown -r`) can't reach it. An OCI `instance_action`
+# runs through the control plane, so a hard RESET power-cycles the box back to
+# RUNNING even when the guest OS is fully wedged — WITHOUT terminating it (the
+# Always-Free Ampere capacity is preserved, unlike a terminate+re-provision that
+# may not reclaim scarce capacity). Reusable for the live / gateway boxes too.
+#
+# Trigger: issues.opened/labeled `reset-instance`. Body MUST contain:
+#   display_name: ict-trainer-vm       (or instance_id: <ocid>)
+#   confirm: yes
+#   action: RESET                      (optional; RESET default; SOFTRESET/STOP/START)
+#
+# Reuses scripts/ops/reset_instance.py (single-match + confirm guards).
+# Required secrets: VM_SSH_KEY (IMDS hop via the LIVE VM) + OCI_CLI_*.
+# Required label: reset-instance.
+
+on:
+  workflow_dispatch:
+    inputs:
+      display_name: { description: "Instance display name to reset (omit if using instance_id)", required: false }
+      instance_id: { description: "Instance OCID to reset (rename-proof; wins over display_name)", required: false }
+      action: { description: "RESET (hard, default) | SOFTRESET | STOP | START", required: false, default: "RESET" }
+      mode: { description: "list = read-only enumerate instances (no confirm); empty = act", required: false, default: "" }
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: reset-instance
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'reset-instance'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dedup
+        if: github.event_name == 'issues'
+        id: dedup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, per_page: 100 });
+            core.setOutput('skip',
+              comments.some(c => c.user && c.user.login === 'github-actions[bot]') ? 'true' : 'false');
+
+      - name: Parse mode + target + confirm (issue path)
+        id: parse
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          fld() { printf '%s' "${ISSUE_BODY}" | awk -F: -v k="$1" '$1 ~ "^[[:space:]]*"k"[[:space:]]*$"{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$2);print $2;exit}'; }
+          mode="$(fld mode | tr '[:upper:]' '[:lower:]')"
+          dn="$(fld display_name)"
+          iid="$(fld instance_id)"
+          act="$(fld action | tr '[:lower:]' '[:upper:]')"
+          if [ "${mode}" = "list" ]; then
+            echo "mode=list" >> "$GITHUB_OUTPUT"
+          else
+            if [ -z "${dn}" ] && [ -z "${iid}" ]; then
+              echo "::error::Body must contain 'display_name:' or 'instance_id:'."; exit 1; fi
+            if ! printf '%s' "${ISSUE_BODY}" | grep -qE '^[[:space:]]*confirm:[[:space:]]*yes[[:space:]]*$'; then
+              echo "::error::Body must contain a line 'confirm: yes'."; exit 1; fi
+            echo "display_name=${dn}" >> "$GITHUB_OUTPUT"
+            echo "instance_id=${iid}" >> "$GITHUB_OUTPUT"
+            echo "action=${act:-RESET}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up SSH (IMDS hop)
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/k && chmod 600 ~/.ssh/k
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Discover compartment + region via IMDS (through the LIVE VM)
+        id: imds
+        if: steps.dedup.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/k -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              'curl -sS -H "Authorization: Bearer Oracle" --max-time 5 http://169.254.169.254/opc/v2/instance/' > imds.json
+          echo "compartment_id=$(python3 -c 'import json;print(json.load(open("imds.json"))["compartmentId"])')" >> "$GITHUB_OUTPUT"
+          echo "region=$(python3 -c 'import json;print(json.load(open("imds.json"))["regionInfo"]["regionIdentifier"])')" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v5
+        if: steps.dedup.outputs.skip != 'true'
+        with: { python-version: "3.11" }
+      - name: Install oci sdk
+        if: steps.dedup.outputs.skip != 'true'
+        run: python3 -m pip install --quiet 'oci>=2.119,<3'
+
+      - name: Reset (or list)
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION || steps.imds.outputs.region }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          COMPARTMENT_ID: ${{ steps.imds.outputs.compartment_id }}
+          DISPLAY_NAME: ${{ steps.parse.outputs.display_name || inputs.display_name }}
+          INSTANCE_ID: ${{ steps.parse.outputs.instance_id || inputs.instance_id }}
+          ACTION: ${{ steps.parse.outputs.action || inputs.action }}
+          MODE: ${{ steps.parse.outputs.mode || inputs.mode }}
+          CONFIRM: "yes"
+        run: |
+          set -uo pipefail
+          python3 scripts/ops/reset_instance.py > result.jsonl 2>err.txt
+          echo "---result---"; cat result.jsonl; echo "---err---"; cat err.txt || true
+
+      - name: Post result
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const out = (() => { try { return fs.readFileSync('result.jsonl','utf8'); } catch { return '(no result)'; } })();
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              body: `**reset-instance** result\nRun: ${runUrl}\n\n\`\`\`json\n${out.slice(0,8000)}\n\`\`\`` });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              state: 'closed', state_reason: 'completed' });
