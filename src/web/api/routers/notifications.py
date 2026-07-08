@@ -70,7 +70,7 @@ def _trainer_banner() -> Optional[Dict[str, Any]]:
             + " Live shadow/advisory inference is unaffected; probable OCI-console reboot needed.",
             "since": st.get("since"),
         }
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort banner feed — omit this kind on any source failure, the endpoint never 5xxs (documented contract)
         logger.debug("notifications: trainer banner failed: %s", exc)
         return None
 
@@ -87,7 +87,7 @@ def _account_down_banners() -> List[Dict[str, Any]]:
                 "detail": "Reading unreachable — trades on this account may be unprotected or going dark.",
                 "since": (st or {}).get("last_change"),
             })
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort banner feed — omit this kind on any source failure, the endpoint never 5xxs (documented contract)
         logger.debug("notifications: account-down banners failed: %s", exc)
     return out
 
@@ -157,7 +157,7 @@ def _recent_trade_open_banner() -> Optional[Dict[str, Any]]:
             "detail": None,
             "since": None,
         }
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort banner feed — omit this kind on any source failure, the endpoint never 5xxs (documented contract)
         logger.debug("notifications: recent-trade-open banner failed: %s", exc)
         return None
 
@@ -182,7 +182,7 @@ def _parse_ts(value: Any) -> Optional[datetime]:
             return datetime.fromtimestamp(secs, tz=timezone.utc)
         dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
         return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001  # allow-silent: best-effort ts parse — unparseable timestamp yields no banner, never raises
         return None
 
 
