@@ -453,6 +453,48 @@ def test_client_close_no_resting_orders_is_single_call(monkeypatch):
     assert [p for (m, p) in calls if m == "DELETE"] == ["/v2/positions/SPY"]
 
 
+def test_client_close_waits_for_cancels_to_settle_before_flatten(monkeypatch):
+    """BL-20260708-ALPACA-CLOSE-CANCEL-RACE: Alpaca order cancels are async —
+    after DELETE /v2/orders/{id} the leg sits in pending_cancel holding the
+    shares. close() must WAIT for the symbol's open orders to clear before the
+    position-flatten DELETE, else the flatten races the cancel and Alpaca
+    rejects it with 'insufficient qty available (available: 0)'. Here the
+    open-orders GET reports the resting leg still present on the first
+    post-cancel poll, then clears — the flatten must fire only AFTER it clears."""
+    monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep", lambda *_: None)
+    seq = []          # ordered record of (method, path)
+    open_reads = {"n": 0}
+
+    def fake_request(method, path, json_body=None):
+        seq.append((method, path))
+        if method == "GET" and path.startswith("/v2/orders?"):
+            # cancel pre-pass (read 0) + settle polls: still present on the
+            # first settle poll (read 1), cleared from read 2 on.
+            open_reads["n"] += 1
+            if open_reads["n"] <= 2:
+                return {"retCode": 0, "result": [
+                    {"id": "resting-sl", "symbol": "QQQ", "type": "stop"},
+                ]}
+            return {"retCode": 0, "result": []}
+        if method == "GET" and path == "/v2/positions":
+            return {"retCode": 0, "result": []}  # confirm loop: flat
+        return {"retCode": 0, "result": {"id": "flatten-x"}}
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_request", fake_request)
+    res = cli.close("QQQ")
+    assert res["retCode"] == 0
+    order_paths = [p for (m, p) in seq]
+    # The position-flatten DELETE fires only after at least one settle-poll GET.
+    flatten_idx = order_paths.index("/v2/positions/QQQ")
+    settle_polls = [
+        i for i, (m, p) in enumerate(seq)
+        if m == "GET" and p.startswith("/v2/orders?") and i < flatten_idx
+    ]
+    # cancel pre-pass GET + >=1 settle-poll GET, all before the flatten.
+    assert len(settle_polls) >= 2
+
+
 # --------------------------------------------- close() flatten confirmation
 # BL-20260707-ALPACA-CLOSE-NOT-CONFIRMED-FLAT: Alpaca's HTTP 2xx on the
 # flatten DELETE means "accepted", not "actually flat" — close() must poll
