@@ -1,6 +1,15 @@
 # IBKR equity/ETF (STK) contract support — DESIGN
 
-**Status:** PROPOSAL for operator review (not built). Tier-3 to wire live.
+**Status (updated 2026-07-08):** Steps 1-6 of §6 BUILT and MERGED (#5871 steps
+1-5; #5914 step 6 — Tier-3, operator-authorized). Only **step 7 (live paper
+verification)** remains open — no `ib_paper` SPY/QQQ/IWM/TLT fill has occurred
+yet as of 2026-07-08 (the 4 wired cells are daily-cadence and haven't hit a
+candle close since wiring; see the backlog item's latest update). §5's open
+questions were answered by the operator 2026-07-07 (recorded below and in the
+backlog) — reuse `ib_paper` (not a new `ib_equity_paper` account, contra the
+§4.6b/§6-step-6 recommendation below), all 10 Alpaca ETFs, keep the existing
+Alpaca/yfinance signal-candle source, and real-money IBKR ETF is the eventual
+goal. Tier-3 (`accounts.yaml` wiring) already merged with that approval.
 **Backlog:** `PB-20260707-IBKR-STK-ETF-SUPPORT` (approved-to-scope 2026-07-07).
 **Author:** Claude, 2026-07-07.
 
@@ -119,31 +128,39 @@ recommended** — it isolates the new instrument class, keeps the futures accoun
 contract cache/clientId clean, and mirrors how Alpaca options got its own account
 (`alpaca_options_paper`). Both are **Tier-3** (accounts.yaml).
 
-## 5. Open questions for the operator
-1. **Which ETFs?** All 10 Alpaca ones, or a subset (e.g. just SPY/QQQ/GLD to
-   start)?
-2. **New account or reuse `ib_paper`?** Recommend a new `ib_equity_paper`
-   (§4.6b).
-3. **Candle source for IB equities** — keep Alpaca/yfinance for the signal
-   candles (only route *execution* to IB), or pull equity candles from IB too?
-   Recommend keeping the existing candle source and only routing execution to IB
-   (smallest change; the signal is identical, only the fill venue differs).
-4. **Real-money IBKR ETF** — is that a goal, or is paper cross-validation the
-   whole point? Determines whether we harden for `ib_live`.
+## 5. Open questions for the operator (ANSWERED 2026-07-07, see §0 status)
+1. **Which ETFs?** ANSWERED: all 10 Alpaca ones. (§6 step 6 note: only 4 of the
+   13 evaluable cells actually cleared `ib_paper`'s compat-matrix gate and got
+   wired — the other 6 stayed off, an evidence-driven outcome, not a scope walk-back.)
+2. **New account or reuse `ib_paper`?** ANSWERED: reuse `ib_paper` (contra this
+   doc's §4.6b recommendation of a new `ib_equity_paper`).
+3. **Candle source for IB equities** — ANSWERED: kept the existing Alpaca/yfinance
+   signal-candle source, routed only execution to IB, per this doc's recommendation.
+4. **Real-money IBKR ETF** — ANSWERED: yes, that is the eventual goal; the build
+   hardens toward `ib_live` (mandatory compat-matrix gate before any real-money wire).
 
 ## 6. Build plan (once approved)
-1. Add the per-symbol `ib` instrument-type map to `config/instruments.yaml` +
-   an `ib_instrument_spec()` resolver (Tier-1, tested).
-2. STK branch in `_build_contract` + unit tests (monkeypatched `qualifyContracts`,
-   like the existing futures tests) (Tier-2, order-path code).
-3. Extend the whole-share qty path to IBKR-equity (Tier-2).
-4. `config/instruments.yaml` equity `contract_value_usd` entries (Tier-1).
-5. Confirm/lift the market-hours gate (Tier-2).
-6. `ib_equity_paper` account + strategy routing in `accounts.yaml` (Tier-3,
-   operator-gated) — **after** `scripts/prop/account_compat_matrix.py` scores the
-   account for the chosen strategies.
-7. Live paper verification: place → journal → monitor → close a real IB paper ETF
-   trade end-to-end, confirm PnL resolves.
+1. **DONE (#5871).** Add the per-symbol `ib` instrument-type map to
+   `config/instruments.yaml` + an `ib_instrument_spec()` resolver (Tier-1, tested).
+2. **DONE (#5871).** STK branch in `_build_contract` + unit tests (monkeypatched
+   `qualifyContracts`, like the existing futures tests) (Tier-2, order-path code).
+3. **DONE (#5871).** Extend the whole-share qty path to IBKR-equity (Tier-2).
+4. **DONE (#5871).** `config/instruments.yaml` equity `contract_value_usd` entries
+   (Tier-1) — already present from the alpaca-ETF entries, no new rows needed.
+5. **DONE (#5871).** Confirm/lift the market-hours gate (Tier-2) — confirmed
+   already strategy-side, no code change needed.
+6. **DONE (#5914), with a scope change.** Strategy routing in `accounts.yaml`
+   (Tier-3, operator-approved) — wired onto the **existing `ib_paper`** account
+   (operator chose reuse over a new `ib_equity_paper`, §5 Q2), **after** the
+   mandatory `scripts/prop/account_compat_matrix.py` run scored 4 of 13 evaluable
+   cells ROUTE at `ib_paper`'s own risk_pct (spy_trend_long_1d, qqq_trend_long_1d,
+   iwm_trend_long_1d, tlt_pullback_1d — only those 4 wired, not the full 10-ETF
+   set from §5 Q1; see the accounts.yaml comment + backlog for the per-cell
+   numbers).
+7. **OPEN.** Live paper verification: place → journal → monitor → close a real IB
+   paper ETF trade end-to-end, confirm PnL resolves. Checked 2026-07-08 (issue
+   #5926) — no fill yet on any of the 4 wired cells (daily-cadence, hasn't hit a
+   candle close since wiring).
 
 ## 7. Risk / guardrails
 - **No futures regression** — the change is additive; MES/MGC/MHG keep their exact

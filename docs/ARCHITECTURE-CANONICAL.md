@@ -191,7 +191,14 @@ behaviour is intentionally retired). Current roster, by instrument:
 - **Index/metals futures (IBKR `ib_paper`, paper money):**
   `mes_trend_long_1d` (MES), `mgc_pullback_1d` (MGC),
   `mhg_pullback_1d` (MHG) — all `execution: live`, validated params
-  per the 2026-06-02 WS-A metals sleeve.
+  per the 2026-06-02 WS-A metals sleeve. Since the 2026-07-07 IBKR
+  equity/ETF (STK) support build, `ib_paper` ALSO trades equity ETFs
+  — `spy_trend_long_1d` (SPY), `qqq_trend_long_1d` (QQQ),
+  `iwm_trend_long_1d` (IWM), `tlt_pullback_1d` (TLT) — the 4
+  compat-matrix-approved cells from `PB-20260707-IBKR-STK-ETF-SUPPORT`
+  (see the 2026-07-07 change-log rows). `ib_paper` is no longer
+  futures-only; `IBClient._build_contract` resolves FUT vs STK
+  per-symbol via `ib_instruments.py`.
 
 Each strategy carries a per-strategy `execution: live | shadow` gate in
 `config/strategies.yaml` (S9, 2026-05-24): `live` is eligible to execute;
