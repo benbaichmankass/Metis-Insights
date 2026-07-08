@@ -360,10 +360,31 @@ if [ "$_VM_ROLE" = "gateway" ]; then
     done < <("${SUDO[@]}" systemctl list-units 'ict-*.service' --all --state=active,activating,failed --plain --no-legend 2>/dev/null | awk '{print $1}')
 fi
 
+# Retired timers (notification-streamlining 2026-07-08): the daily 13:00 UTC
+# operator digest (ict-heartbeat.timer → daily_heartbeat.py) is superseded by
+# the hourly snapshot (ict-hourly-snapshot.timer), which now folds in the
+# training/ML section, and by the once-an-hour consolidated prop pulse. The
+# unit files are kept (inert) so re-enabling is trivial and nothing that
+# references them breaks; this block ACTIVELY disables an already-enabled timer
+# on the VM, and the enable loop below SKIPS it so a deploy never re-enables it.
+_RETIRED_TIMERS=" ict-heartbeat.timer "
+for _rt in $_RETIRED_TIMERS; do
+    if "${SUDO[@]}" systemctl is-enabled "$_rt" >/dev/null 2>&1 \
+       || "${SUDO[@]}" systemctl is-active "$_rt" >/dev/null 2>&1; then
+        echo ">>> install_systemd_units: retiring $_rt (superseded by the hourly snapshot)"
+        "${SUDO[@]}" systemctl disable --now "$_rt" 2>/dev/null || true
+    fi
+done
+
 shopt -s nullglob
 for timer_path in deploy/*.timer; do
     timer_name=$(basename "$timer_path")
     if [[ "$timer_name" == *@* ]]; then
+        continue
+    fi
+    # Retired timers are never (re-)enabled — disabled once above, kept inert.
+    if [[ "$_RETIRED_TIMERS" == *" $timer_name "* ]]; then
+        echo ">>> install_systemd_units: skip enable $timer_name (retired; superseded by hourly snapshot)"
         continue
     fi
     if [ "$_VM_ROLE" = "gateway" ]; then
