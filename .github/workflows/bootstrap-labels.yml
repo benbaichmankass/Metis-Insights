@@ -85,6 +85,11 @@ jobs:
                 description: 'Triggers terminate-instance — terminate an OCI instance by display_name (frees Ampere budget). Requires confirm: yes.',
               },
               {
+                name: 'reset-instance',
+                color: 'd93f0b',
+                description: 'Triggers reset-instance — out-of-band OCI hard RESET of a hung/SSH-dead VM by display_name (preserves the box). Requires confirm: yes.',
+              },
+              {
                 name: 'vm-resize-live',
                 color: 'b60205',
                 description: 'Triggers vm-resize-live workflow — stop/resize/start the live trader VM (Ampere A1.Flex OCPU/RAM) within the Always-Free pool. Operator-gated (brief live-trader outage).',
