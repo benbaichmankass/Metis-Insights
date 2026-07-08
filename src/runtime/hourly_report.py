@@ -1025,7 +1025,7 @@ def build_combined_hourly_report(
                 now_utc=now_utc, tick_interval_s=tick_interval_s,
             )
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: the hourly report must never raise — a report-assembly failure degrades to a logged WARN placeholder string (logger.exception records the stack), never a 5xx/exception; mirrors build_hourly_report / build_accounts_hourly_report
         logger.exception(
             "hourly_report.build_combined_hourly_report failed: %s", exc,
         )
