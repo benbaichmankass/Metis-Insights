@@ -210,8 +210,15 @@ def main() -> int:
                              "further restrict the match.")
     args = parser.parse_args()
 
-    from src.utils.paths import trade_journal_db_path
-    db_path = args.db or str(trade_journal_db_path())
+    # Resolve the DB path. When --db is passed (the action wrapper always does),
+    # never import `src` — the script is invoked by absolute path, so `src` may
+    # not be on sys.path unless the venv installed the repo editable; the lazy
+    # import keeps the tool runnable from anywhere with an explicit --db.
+    if args.db:
+        db_path = args.db
+    else:
+        from src.utils.paths import trade_journal_db_path
+        db_path = str(trade_journal_db_path())
     if not os.path.exists(db_path):
         print(f"error: db not found at {db_path}", file=sys.stderr)
         return 2
