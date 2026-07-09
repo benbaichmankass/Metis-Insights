@@ -12,12 +12,12 @@
   },
   "active_sessions": [
     {
-      "session_id": "session_01FKvQBjFg7oUQrBsrWCH3KL",
-      "branch": "claude/m19-next-direction-research-zl2544",
-      "intent": "M19 next-direction: deep-research recommendation MERGED (#5626); now the ranked follow-up — D4a RG4 mirror-freshness+power gate, D1 fc-geometry soak build, report addendum.",
-      "started_at": "2026-07-05T11:40:00Z",
-      "updated_at": "2026-07-05T20:35:00Z"
+      "session_id": "session_013YMtQmKVzkDCPECSU4tbwD",
+      "branch": "claude/full-system-audit-rmdf0t",
+      "intent": "Full-system audit 2026-07-09 (operator-requested). LEAD session. Phase 0 (rules) DONE + settled with operator (R1-R5 fixed). Now orchestrating S-AUDIT-A..H across all 3 repos + VMs + data. Findings doc: docs/audits/full-system-audit-2026-07-09.md.",
+      "started_at": "2026-07-09T06:00:00Z",
+      "updated_at": "2026-07-09T06:45:49Z"
     }
   ],
-  "_note_unregistered": "Sessions for S-AUDIT-B (zombie/env-gate) and S-AUDIT-C (consumer wiring) were launched by the operator 2026-06-28 but have not yet self-registered here — they must add their entry at preflight per the session-coordination skill. Until they do, the live open-PR list is the authoritative signal for what they're working on."
+  "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass."
 }

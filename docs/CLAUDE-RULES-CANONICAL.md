@@ -208,15 +208,35 @@ decides whether to intervene.
 
    Both default permissive, so omitting either never strands capability;
    a strategy or account is demoted only by an *explicit* `dry_run` /
-   `shadow`. **Never add a third gate** — never hide a capability behind
-   a separate default-off `*_ENABLED` flag. **The 2026-05-22 MES
-   discovery demonstrated why:** the IB `ib_paper` account declared
-   `mode: live` with all three strategies, yet MES never traded because
-   a `MULTI_SYMBOL_ENABLED` env defaulted off — a hidden third gate. The
-   fix removed the flag and derives the traded-symbol set from
+   `shadow`. **Never add a third gate** — never hide a **required
+   capability** behind a separate default-off `*_ENABLED` flag. **The
+   2026-05-22 MES discovery demonstrated why:** the IB `ib_paper` account
+   declared `mode: live` with all three strategies, yet MES never traded
+   because a `MULTI_SYMBOL_ENABLED` env defaulted off — a hidden third
+   gate. The fix removed the flag and derives the traded-symbol set from
    `config/accounts.yaml` (`_resolve_tick_symbols` unions every
    configured account's `symbols`). What accounts.yaml + strategies.yaml
    declare, runs.
+
+   **Precise scope of the rule** (settled 2026-07-09, full-system-audit
+   Phase 0). What is forbidden is a **default-off `*_ENABLED` flag in
+   front of a *required* capability** (the MES-stranding class). Three
+   things are therefore *not* violations, and the `env-gate-guard` CI
+   check enforces this narrower rule, not the literal-suffix ban:
+   - a **default-ON** blocking gate is allowed — e.g. `NEWS_VETO_ENABLED`
+     (default `true`, a per-trade refusal, not a capability-stranding
+     off-by-default gate);
+   - a default-off flag over **opt-in tooling that is not a required
+     capability** is allowed — e.g. `M5_CONSUMER_ENABLED` (research
+     backtest consumer; carved out in
+     `docs/audits/env-gate-purge-2026-05-10.md`);
+   - a `*_MODE` selector (`off`/`shadow`/`use`, `off`/`annotate`/`apply`)
+     is the sanctioned shape for a graduated influence and passes the
+     guard (e.g. `NEWS_INFLUENCE_MODE`, `CONVICTION_SIZING_MODE`,
+     `REGIME_ML_VERDICT_MODE`).
+   `NEWS_VETO_ENABLED` and `M5_CONSUMER_ENABLED` keep their legacy
+   `*_ENABLED` names as grandfathered exceptions; new gates use `*_MODE`
+   or a default-permissive YAML declaration.
 
 ### What this rules out (queued for the safeguards PR follow-on)
 
@@ -400,7 +420,11 @@ flip it.
 ## Permission Tiers
 
 The permission model is explicit and must be used consistently. You work on
-`main` and commit Tier-1 work there directly once it is validated; you ask the
+`main` and land Tier-1 work there without operator approval once it is
+validated — "commit to `main`" throughout this doc means **no operator
+approval gate**, not "bypass the PR flow": every change still rides a PR
+through the merge protocol (§ Multi-session coordination) and
+branch-protection, Tier-1 simply needs no human OK to merge. You ask the
 operator for approval only when the tier requires it (Tier 2 / Tier 3 below).
 
 | Tier | Meaning | Claude may do | Claude must not do | Approval requirement |
@@ -423,12 +447,14 @@ operator for approval only when the tier requires it (Tier 2 / Tier 3 below).
 
 ### Tier 2 examples
 
-- Order-path integrations (`src/runtime/orders.py`,
-  `src/units/accounts/execute.py`).
-- Deploy timer changes (`deploy/*.timer`, `deploy/*.service`).
-- Service unit changes (`ict-trader-live`, `ict-web-api`,
-  `ict-telegram-bot`, `ict-git-sync`, `ict-hourly-snapshot`,
-  `ict-heartbeat`, etc.).
+- Deploy timer changes for observability / non-order-path units
+  (`deploy/*.timer`, `deploy/*.service`).
+- Service unit changes for units the live VM does **not** consume on the
+  order path — e.g. `ict-telegram-bot`, `ict-git-sync`,
+  `ict-hourly-snapshot`, `ict-health-snapshot`. (Units the live VM
+  consumes on the trading path — `ict-trader-live`, `ict-web-api`, or any
+  unit file the live VM consumes — are **Tier-3** per § VM authority split
+  hard limits and the Tier-3 examples below.)
 - Telegram bot writeback behaviour (`src/bot/`).
 - Runtime pipeline plumbing (`src/runtime/pipeline.py`,
   `src/runtime/health.py`).
@@ -450,6 +476,14 @@ operator for approval only when the tier requires it (Tier 2 / Tier 3 below).
   a PR that adds a *new* code path that writes to mode is Tier-3.
 - Changing what conditions permit or block trading
   (news veto, halt logic, mode interlock).
+- **The live order path** — `src/runtime/orders.py`,
+  `src/units/accounts/execute.py`, `src/runtime/risk_counters.py` — and
+  **any unit file the live VM consumes on the trading path**
+  (`ict-trader-live`, `ict-web-api`). These are hard-blocked from a
+  self-merge by § VM authority split; prepare + propose them as a draft
+  PR, merge only on explicit operator approval. (You may *prepare and
+  validate* order-path changes as Tier-2 work, but the **merge** is
+  Tier-3 — the classification is set by the merge gate, not the prep.)
 
 ## Code-First Verification Rule
 
@@ -622,6 +656,17 @@ prior session read this document. Mechanical guardrails on top of a
 discipline failure are patches on patches. The fix is for Claude
 sessions to actually follow the rules they have already loaded — the
 documentation hygiene loop above is the mechanism.
+
+**Scope of this rejection** (clarified 2026-07-09, Phase 0): it applies
+specifically to guarding the **Tier-3 operator-approval discipline** (the
+PR #1358 class — a judgment failure no CI gate can see). It is **not** a
+blanket ban on all CI guards: guards that mechanically catch a
+*structural* class of bug the author cannot self-verify are explicitly
+sanctioned and in force — `new-table-wiring` (Rule 3 below),
+`canonical-doc-coherence`, `canonical-db-resolver`, `env-gate-guard`,
+`dry-run-guard`, `silent-empty-guard`. The `SessionStart` hook and the
+session-board are the two other named exceptions (documented at their call
+sites). The distinction: guard structure/wiring, not judgment.
 
 If a future incident demonstrates that this loop also fails in
 practice, the right response is to reconsider this decision then,
