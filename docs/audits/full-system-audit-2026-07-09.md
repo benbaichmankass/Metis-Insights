@@ -184,6 +184,18 @@ implements (single-writer), presents Tier-3 for approval, deploys + diag-verifie
 Branch strategy (operator-approved): **separate focused branch per concern off `main`.**
 Tier-1/2 → merge + deploy + live-verify as ready; Tier-3 → draft PR, explicit operator OK.
 
+> **PREMISE-VERIFY EACH SPEC AGAINST `main` BEFORE CODING** (this repo's rule — agent
+> line refs/paths can be stale). Corrections confirmed by the lead 2026-07-09:
+> - **RISK-1 Task 2 code migration is ALREADY DONE:** `grep -rE 'json\.dumps\(...\)\[:N\]'`
+>   over all of `src/` = **zero** matches on `main`; the "4 leftover sites" the agent
+>   cited do not exist. Residual = (a) a regression CI guard forbidding the pattern
+>   (Tier-1), (b) a one-shot DB repair ONLY if `SELECT COUNT(*) FROM trades WHERE
+>   json_valid(notes)=0` (via diag) is >0 (may be a no-op). Read-side guard already in.
+> - **Path fix:** `order_monitor.py` is at **`src/runtime/order_monitor.py`** (not
+>   `src/units/accounts/`). Re-map all RISK-1 line refs there and re-confirm exact lines.
+> - Re-grep RISK-2 (`src/units/accounts/ib_client.py`) + RISK-3 + E1-F1 line numbers on
+>   `main` before editing; the structural analyses are sound, the line refs may drift.
+
 ### RISK-3 Task 1 — async-route event-loop blocking (Tier-1) [BL-20260707-HEALTHAPI-ACCTBAL-BLOCKING-DB]
 - ROOT CLASS: a blocking sqlite/file/subprocess call inside an `async def` FastAPI route runs on uvicorn's single loop → starves ALL requests (why the sync health endpoints failed in the same window as `accounts/balances`).
 - FIX: convert blocking read routes `async def`→`def` (threadpooled) or wrap the blocking call in `await asyncio.to_thread(...)` for routes that must stay async (`prop.post_report`, `devices.register`). Add `PRAGMA busy_timeout=3000` to `prop_journal._connect` + the accounts/db connect helper. Graceful-degrade prop GETs (present:false, not 500). Add `scripts/ci/check_async_route_blocking.py` (AST guard: no blocking primitive in an `async def` route outside to_thread) = permanent class-eliminator.
