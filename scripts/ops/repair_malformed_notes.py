@@ -33,6 +33,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sqlite3
 import sys
@@ -43,7 +44,7 @@ from typing import Any, Dict, List, Tuple
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from src.utils.json_notes import dump_capped  # noqa: E402
+from src.utils.json_notes import dump_capped, sanitize_nonfinite  # noqa: E402
 
 # (table, column, cap) — the blobs the char-slice footgun could truncate.
 _TARGETS: Tuple[Tuple[str, str, int], ...] = (
@@ -75,7 +76,52 @@ def _salvage(raw: str) -> Dict[str, Any]:
     return out
 
 
+def _classify(raw: str) -> str:
+    """Why is ``raw`` ``json_valid=0``? Drives the repair strategy.
+
+    * ``"nonfinite"`` — COMPLETE JSON that is invalid ONLY because it carries a
+      non-finite float token (``NaN`` / ``Infinity`` / ``-Infinity``).
+      ``json.loads`` accepts those tokens by default, so a complete-but-non-
+      finite blob parses cleanly here while a genuinely-truncated one raises.
+      This is the dominant BL-20260709 case (a ``std_dev`` / z-score with a
+      zero denominator serialized by the old ``json.dumps`` default) and it is
+      **losslessly** repairable — re-serialize the whole object with the
+      non-finite values mapped to ``null``.
+    * ``"truncated"`` — does not parse even with the permissive loader: the
+      char-slice footgun cut it mid-token. Only a best-effort salvage of the
+      still-readable front keys is possible.
+    """
+    try:
+        json.loads(raw)  # stdlib accepts NaN/Infinity/-Infinity by default
+    except (ValueError, TypeError):
+        return "truncated"
+    return "nonfinite"
+
+
 def _repaired_blob(raw: str, cap: int) -> str:
+    if _classify(raw) == "nonfinite":
+        # Complete JSON, invalid only for a non-finite float. Re-serialize the
+        # WHOLE object with NaN/Infinity → null (dump_capped now does this via
+        # sanitize_nonfinite) — lossless, every field preserved. A tiny
+        # provenance marker is added only to a dict (a top-level array is left
+        # structurally intact). Idempotent: the result is json_valid=1, so a
+        # re-scan never re-touches it.
+        try:
+            parsed = json.loads(raw)
+        except (ValueError, TypeError):
+            parsed = None
+        if isinstance(parsed, dict):
+            clean = sanitize_nonfinite(parsed)
+            clean.setdefault("_repaired_at", _now_iso())
+            clean.setdefault(
+                "_repair_reason",
+                "json_valid=0 (non-finite float NaN/Infinity → null, BL-20260709)",
+            )
+            return dump_capped(clean, cap)
+        if parsed is not None:  # top-level array / scalar — re-dump losslessly
+            return dump_capped(parsed, cap)
+    # Truncated / unparseable: best-effort salvage of the intact front keys,
+    # raw preserved under _original_truncated for forensics.
     envelope: Dict[str, Any] = {
         "_repaired_at": _now_iso(),
         "_repair_reason": "json_valid=0 (char-slice truncation, BL-20260618)",
@@ -133,9 +179,21 @@ def repair(db_path: str, apply: bool) -> int:
               f"{len(found)} column(s){' — DRY RUN' if not apply else ''}:")
         for key, rows in found.items():
             table, col = key.split(".")
-            print(f"  {key}: {len(rows)} row(s)")
+            # Classify so the operator sees WHY these are invalid before a write:
+            # a "nonfinite" majority is losslessly repairable (re-dump with
+            # NaN→null), a "truncated" row can only be front-key-salvaged.
+            n_nonfinite = sum(1 for _rid, raw in rows if _classify(raw) == "nonfinite")
+            n_truncated = len(rows) - n_nonfinite
+            print(f"  {key}: {len(rows)} row(s) "
+                  f"[nonfinite={n_nonfinite} (lossless), truncated={n_truncated} (salvage)]")
             sample_id, sample_raw = rows[0]
             print(f"    e.g. id={sample_id} raw[:120]={sample_raw[:120]!r}")
+            # Show a truncated sample's TAIL too (the front looks like valid
+            # JSON, so the cut only shows at the end) when any exist.
+            for rid, raw in rows:
+                if _classify(raw) == "truncated":
+                    print(f"    trunc e.g. id={rid} raw[-80:]={raw[-80:]!r}")
+                    break
             if not apply:
                 continue
             cap = caps[(table, col)]
