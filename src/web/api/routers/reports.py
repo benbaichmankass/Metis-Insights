@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot/reports", tags=["reports"])
 
-_VALID_WINDOWS = {"since-last", "daily", "weekly", "monthly"}
+_VALID_WINDOWS = {"since-last", "daily", "weekly", "monthly", "audit"}
 
 
 def _reports_dir() -> Path:

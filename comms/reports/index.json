@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260709-104702-audit",
+      "window": "audit",
+      "generated_at": "2026-07-09T10:47:02+00:00",
+      "window_start": "2026-07-09T06:00:00+00:00",
+      "window_end": "2026-07-09T10:47:02+00:00",
+      "roll_up_grade": "caution",
+      "headline": "Full-system audit \u2014 Phase 0 (rules) + kickoff pass. This is the INTERIM audit report: the rules-first gate is settled, canonical-doc drift is corrected (ARCH) or specced (ROADMAP), zombie infra is cleaned up, the live trader/web-api/DB verified healthy, and the OOM-dead trainer recovered (operator-confirmed). The money-path structural risks (RISK-1/2, E1-F1) are root-caused into verified fix specs but NOT yet shipped \u2014 they + the S-AUDIT-C/E/G/H workstreams are in flight in the follow-on session. A final closing audit report will publish once the fixes are shipped + live-verified.",
+      "html_path": "comms/reports/audit/20260709T104702Z/report.html",
+      "json_path": "comms/reports/audit/20260709T104702Z/report.json",
+      "md_path": "comms/reports/audit/20260709T104702Z/report.md"
+    },
+    {
       "id": "RPT-20260708-074700-since-last",
       "window": "since-last",
       "generated_at": "2026-07-08T07:47:00+00:00",
