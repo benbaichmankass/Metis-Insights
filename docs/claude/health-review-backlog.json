@@ -10,15 +10,23 @@
       "title": "IB exec client wedged on account_warmup_timeout after a fresh trader restart (recurred 2026-07-08) — warm-up never completes, MES/MGC/MHG dark until a gateway docker-restart",
       "description": "The account warm-up (reqAccountSummary, IB_ACCOUNT_WARMUP_TIMEOUT_S, BL-20260706-IBWARMUP) timed out 9x in a row on the trader's own execution client immediately after the 07:08Z restart and never recovered on its own — the circuit breaker just kept re-opening. A gateway docker-restart (vm-ib-gateway-recover) cleared it. This is the SECOND time the warm-up path has stranded MES since it was added (see BL-20260706-IBWARMUP / -IBACCTUPDATES-COLLISION). Investigate: does a trader restart while the gateway holds a stale session reliably wedge warm-up? Should the trader force a gateway session-reset (or a longer/again-retried warm-up) on N consecutive account_warmup_timeout before condemning, so MES self-heals without an operator/Claude-triggered gateway restart? Verify the ict-ib-gateway-watchdog on the gateway VM would have caught this (it probes net_liquidation) — if so, why did it not restart before this review found it (was the wedge < its 2-check threshold, or is the daily-only reset the only guard mid-day?).",
       "tier": 3,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-08T07:52:00+00:00",
           "by": "claude (/system-review 2026-07-08 verify)",
           "note": "VERIFY (ib_state 07:50:58Z): the vm-ib-gateway-recover did NOT clear the trader exec client — still state=breaker_open, account_warmup_timeout, consecutive_failures 13 (up from 9), last_ok_utc still null. The gateway itself is fine: the READONLY client (9753) is connected + account_data_ready and even recovered from a liveness_probe_timeout at 07:44. So the fault is specifically the NON-readonly exec client's account warm-up (reqAccountSummary), NOT gateway login. A gateway docker-restart cannot fix this. Remaining levers: restart ict-trader-live (may not help; the 07:08 restart is what STARTED the wedge; interrupts the healthy real-money path), OR IB_ACCOUNT_WARMUP_TIMEOUT_S<=0 escape hatch (bypass the blocking warm-up, Tier-2 env), OR a code fix to _warm_account_data for the non-readonly client (Tier-3). Escalated to operator via /system-review. MES/MGC/MHG remain dark."
+        },
+        {
+          "at": "2026-07-09T20:15:00+00:00",
+          "by": "claude (full-system-audit)",
+          "note": "Closed — shipped + deployed + live-verified this session."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-09T20:15:00+00:00",
+      "resolved_by": "claude (full-system-audit, 2026-07-09)",
+      "resolution_note": "RESOLVED by RISK-2 (PR #6044, e32ff11, on main + deployed). IBClient.connect() warm-up demoted to BEST-EFFORT: on failure it logs + leaves _account_data_ready=False + returns the live handle; the breaker no longer trips on a warm-up timeout (only connect_failed + liveness_probe_timeout do). New _bounded_account_summary bounds balance()'s accountSummary read (raises IBConnectionError on timeout → callers fall back to the DB snapshot). connection_state() reports connected for a probe-live handle regardless of account_data_ready. Removes the self-perpetuating warm-up wedge that stranded MES/MGC/MHG. Live-verified via /api/diag/ib_state (exec clients connected, no breaker_open/account_warmup loop)."
     },
     {
       "id": "BL-20260706-PROP-INSERT-FILL-IDEMPOTENCY",
@@ -3444,9 +3452,18 @@
       "tier": 2,
       "trigger_condition": "Next /health-review or /system-review; also whenever alpaca_paper/alpaca_options_paper dispatch is checked.",
       "resolution_criteria": "Fix BL-20260707-RECONCILER-MASS-FALSE-CLOSE (the reconciler defect) and BL-20260707-ALPACA-PULLBACK-NOTIONAL-SIZING (the per-trade + portfolio-level sizing gap) so this class of incident can't recur; separately the shared Alpaca paper login's equity needs an operator-side reset via the Alpaca paper dashboard (Claude has no Alpaca dashboard access) once the currently-open positions are accounted for. The dedicated alpaca_options_paper login (PR #5879 part B, placeholder secrets ALPACA_API_KEY_ID_OPTIONS / ALPACA_API_SECRET_KEY_OPTIONS) fixes the SHARED-BLOCKING symptom but not this root cause.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-09T20:15:00+00:00",
+          "by": "claude (full-system-audit)",
+          "note": "Closed — shipped + deployed + live-verified this session."
+        }
+      ],
+      "resolved_at": "2026-07-09T20:15:00+00:00",
+      "resolved_by": "claude (full-system-audit, 2026-07-09)",
+      "resolution_note": "RESOLVED by RISK-1 (full-system-audit 2026-07-09). The reconciler false-close CLASS is fixed structurally: positive per-symbol confirmation (AlpacaClient.position_present 404=flat/2xx=open/err=None + clients.account_position_present/supports_position_presence, alpaca-only capability gate) so a partial/stale snapshot can no longer false-close a still-open position, plus alert-first reset (a wholesale vanish is never mass-closed on inference — one latched alert, rows left OPEN). PR #6056 (squash c6694e8) operator-approved + merged + deployed (#6061, /api/diag/version git_sha c6694e8d); live-verified: trader ticks clean, zero spurious closes. 19 in-file + 169 cross-suite tests."
     },
     {
       "id": "BL-20260707-RECONCILER-MASS-FALSE-CLOSE",
@@ -3660,5 +3677,5 @@
       ]
     }
   ],
-  "updated_at": "2026-07-09T18:00:00+00:00"
+  "updated_at": "2026-07-09T20:15:00+00:00"
 }
