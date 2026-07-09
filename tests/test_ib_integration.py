@@ -759,11 +759,16 @@ class TestAccountWarmup:
         assert c._breaker_open_until == 0.0
         assert elapsed < 2.0, f"warm-up did not return promptly (took {elapsed:.1f}s)"
 
-    def test_warmup_never_arrives_is_bounded_and_trips_breaker(self, monkeypatch):
-        # A genuinely wedged gateway that never answers reqAccountSummary
-        # must still be caught within a bounded time (not hang forever —
-        # ib_insync's own RequestTimeout for this call is 0 = unbounded)
-        # and must trip the circuit breaker exactly like the liveness probe.
+    def test_warmup_never_arrives_does_not_condemn_connection(self, monkeypatch):
+        # RISK-2 (BL-20260708-IB-WARMUP-WEDGE-RECUR): a gateway that passed the
+        # liveness probe but never answers reqAccountSummary must NOT trip the
+        # breaker. The warm-up is best-effort — the order path is usable
+        # (socket + qualifyContracts + placeOrder; RiskManager reads equity
+        # from the balance-snapshot DB), so condemning the connection here was
+        # the self-perpetuating wedge that stranded MES/MGC/MHG across a
+        # gateway restart. connect() must return the LIVE handle within the
+        # bound, leave _account_data_ready False, and keep the breaker CLOSED
+        # (so a second connect() does NOT fast-fail — it retries the warm-up).
         import src.units.accounts.ib_client as mod
 
         monkeypatch.setattr(mod, "_IB_ACCOUNT_WARMUP_TIMEOUT_S", 0.2)
@@ -781,17 +786,19 @@ class TestAccountWarmup:
 
         c = IBClient(port=7497, client_id=51, account="DUQ325724")
         t0 = time.monotonic()
-        with pytest.raises(IBConnectionError) as ei:
-            c.connect()
+        ib = c.connect()  # best-effort — does NOT raise
         elapsed = time.monotonic() - t0
-        assert "account/portfolio data" in str(ei.value)
-        assert elapsed < 5.0, f"warm-up was not bounded (took {elapsed:.1f}s)"
+        assert ib is not None
+        assert c.connected is True
         assert c._account_data_ready is False
-        # Breaker now open — a subsequent connect fast-fails without
-        # touching the socket again.
-        with pytest.raises(IBConnectionError) as ei2:
-            c.connect()
-        assert "circuit breaker OPEN" in str(ei2.value)
+        assert c._breaker_open_until == 0.0, "warm-up timeout must NOT trip the breaker (RISK-2)"
+        assert c._breaker_fail_count == 0
+        assert elapsed < 5.0, f"warm-up was not bounded (took {elapsed:.1f}s)"
+        # Breaker CLOSED → a subsequent connect() reuses the cached handle
+        # (still "connected"), never fast-fails with "circuit breaker OPEN".
+        ib2 = c.connect()
+        assert ib2 is not None
+        assert c._breaker_open_until == 0.0
 
     def test_reconnect_after_idle_drop_rewarms(self, monkeypatch):
         # A cached, still-"connected" handle must NOT re-warm on every
@@ -879,6 +886,72 @@ class TestAccountWarmup:
         assert elapsed < 3.0, (
             f"best-effort accountUpdates was not bounded (took {elapsed:.1f}s)"
         )
+
+    def test_balance_read_is_bounded_and_raises_on_timeout(self, monkeypatch):
+        # RISK-2: with the connect-time warm-up now best-effort, the bounded
+        # read moved INTO balance() — a hung accountSummary must be caught
+        # within the bound and surfaced as IBConnectionError (so RiskManager /
+        # the hourly report fall back to the balance-snapshot DB) rather than
+        # hanging the caller forever (ib_insync's own RequestTimeout is 0).
+        import src.units.accounts.ib_client as mod
+
+        monkeypatch.setattr(mod, "_IB_ACCOUNT_WARMUP_TIMEOUT_S", 0.2)
+        monkeypatch.setattr(mod, "_IB_PROBE_RETRY_GAP_S", 0.05)
+
+        class HungSummaryIB(FakeIB):
+            async def reqAccountSummaryAsync(self):
+                import asyncio
+
+                await asyncio.sleep(30)  # warm-up never confirms (best-effort)
+
+            async def accountSummaryAsync(self, account=None):
+                import asyncio
+
+                await asyncio.sleep(30)  # balance() read hangs → must be bounded
+
+        inj = types.ModuleType("ib_insync")
+        inj.IB = HungSummaryIB
+        monkeypatch.setitem(sys.modules, "ib_insync", inj)
+
+        c = IBClient(port=7497, client_id=55, account="DUQ325724")
+        c.connect()  # best-effort — succeeds despite the un-warm cache
+        assert c._account_data_ready is False
+        t0 = time.monotonic()
+        with pytest.raises(IBConnectionError) as ei:
+            c.balance()
+        elapsed = time.monotonic() - t0
+        assert "did not return within" in str(ei.value)
+        assert elapsed < 3.0, f"balance() read was not bounded (took {elapsed:.1f}s)"
+
+    def test_connection_state_connected_without_account_data(self, monkeypatch):
+        # RISK-2: a live handle whose liveness probe passed reports
+        # state="connected" even when the best-effort account-data warm-up
+        # never confirmed — the order path is usable. The actual warm-up state
+        # stays visible in the separate account_data_ready field.
+        import src.units.accounts.ib_client as mod
+
+        monkeypatch.setattr(mod, "_IB_ACCOUNT_WARMUP_TIMEOUT_S", 0.2)
+        monkeypatch.setattr(mod, "_IB_PROBE_RETRY_GAP_S", 0.05)
+
+        class WedgedIB(FakeIB):
+            async def reqAccountSummaryAsync(self):
+                import asyncio
+
+                await asyncio.sleep(30)
+
+        inj = types.ModuleType("ib_insync")
+        inj.IB = WedgedIB
+        monkeypatch.setitem(sys.modules, "ib_insync", inj)
+
+        c = IBClient(port=7497, client_id=56, account="DUQ325724")
+        c.connect()
+        state = c.connection_state()
+        assert state["state"] == "connected", (
+            "a probe-live handle is connected even without account-data warm-up"
+        )
+        assert state["connected"] is True
+        assert state["account_data_ready"] is False
+        assert state["breaker_open"] is False
 
 
 class _FakePositionContract:

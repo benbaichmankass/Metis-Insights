@@ -452,20 +452,38 @@ class IBClient:
         # created) — a still-connected, already-warm cached handle skips
         # straight through on every subsequent connect() call.
         if not self._account_data_ready:
-            if not self._warm_account_data(ib):
-                self._trip_breaker(reason="account_warmup_timeout")
-                self._safe_disconnect(ib)
-                raise IBConnectionError(
-                    f"IBClient: Gateway at {self.host}:{self.port} "
-                    f"(account={self._masked_account()}) answered the liveness "
-                    f"probe but never delivered account/portfolio data within "
-                    f"{_IB_ACCOUNT_WARMUP_TIMEOUT_S:.0f}s (likely logged out or "
-                    "no account resolved). Tripping circuit breaker so IB "
-                    "calls do not block the trader loop."
+            # RISK-2 (BL-20260708-IB-WARMUP-WEDGE-RECUR): the account-data
+            # warm-up is BEST-EFFORT — it must NEVER condemn a connection the
+            # liveness probe just proved live. Warm-up (reqAccountSummary)
+            # proves nothing the ORDER path needs: that path is
+            # socket + qualifyContracts + placeOrder, and the RiskManager
+            # reads equity from the balance_snapshots DB, not a live
+            # accountSummary. A flaky / never-confirming warm-up on a
+            # provably-live session used to trip the breaker → a
+            # self-perpetuating wedge that stranded MES/MGC/MHG and survived a
+            # gateway restart. Now: log it, leave ``_account_data_ready``
+            # False, and RETURN the live handle so the order path proceeds.
+            # ``balance()`` bounds its OWN accountSummary read (raising
+            # IBConnectionError on timeout so callers fall back to the DB
+            # snapshot); the breaker trips ONLY on connect_failed +
+            # liveness_probe_timeout above.
+            if self._warm_account_data(ib):
+                self._account_data_ready = True
+            else:
+                logger.warning(
+                    "IBClient: Gateway at %s:%s (account=%s) passed the "
+                    "liveness probe but account-data warm-up did not confirm "
+                    "within %.0fs — proceeding best-effort (the connection is "
+                    "live; balance() bounds its own read and falls back to the "
+                    "DB snapshot on timeout). NOT tripping the breaker (RISK-2, "
+                    "BL-20260708-IB-WARMUP-WEDGE-RECUR).",
+                    self.host, self.port, self._masked_account(),
+                    _IB_ACCOUNT_WARMUP_TIMEOUT_S,
                 )
-            self._account_data_ready = True
 
-        # Healthy round-trip — clear any prior failure streak.
+        # Healthy round-trip — clear any prior failure streak. The liveness
+        # probe passed (order path is usable), so this IS a healthy connect
+        # even if the best-effort account-data warm-up above did not confirm.
         self._breaker_fail_count = 0
         self._last_ok_wall = self._utc_now_iso()
         return ib
@@ -747,6 +765,65 @@ class IBClient:
                 )
                 return False
         return False  # pragma: no cover — loop always returns/raises above
+
+    def _bounded_account_summary(self, ib: Any) -> list:
+        """Read ``accountSummary`` under a hard time bound (RISK-2,
+        BL-20260708-IB-WARMUP-WEDGE-RECUR).
+
+        Now that the account-data warm-up in :meth:`connect` is best-effort, a
+        fresh/unwarmed connection can reach :meth:`balance` before
+        ``reqAccountSummary`` has been answered. ib_insync's sync
+        ``accountSummary()`` triggers the subscription lazily and waits with
+        ``RequestTimeout=0`` (unbounded), so an un-warm read could hang the
+        caller indefinitely. Bound it here, mirroring :meth:`_probe_liveness`:
+        on timeout raise :class:`IBConnectionError` so callers (RiskManager
+        sizing, the hourly report) fall back to the ``balance_snapshots`` DB
+        snapshot instead of blocking. The bounded read moved OUT of the
+        connect-time gate (which used to condemn the whole connection) and
+        INTO the one caller that actually needs live account numbers.
+
+        Safe in every context, same guards as :meth:`_probe_liveness`:
+
+        * A stub IB (``_ib_factory`` set — the test suite) or one lacking
+          ``accountSummaryAsync`` uses the plain sync ``accountSummary`` (there
+          is no real socket to bound).
+        * No usable / own non-running loop, or the bound disabled
+          (``_IB_ACCOUNT_WARMUP_TIMEOUT_S <= 0``) → plain sync call.
+        """
+        acct = self.account or None
+
+        def _sync() -> list:
+            return ib.accountSummary(acct) if acct else ib.accountSummary()
+
+        if self._ib_factory is not None or _IB_ACCOUNT_WARMUP_TIMEOUT_S <= 0:
+            return _sync()
+        req_async = getattr(ib, "accountSummaryAsync", None)
+        if req_async is None:
+            return _sync()
+        import asyncio
+
+        loop = self._loop
+        if loop is None or loop.is_closed():
+            return _sync()
+        try:
+            if loop.is_running():
+                return _sync()
+        except Exception:  # noqa: BLE001
+            return _sync()
+        try:
+            return loop.run_until_complete(
+                asyncio.wait_for(
+                    req_async(acct) if acct else req_async(),
+                    timeout=_IB_ACCOUNT_WARMUP_TIMEOUT_S,
+                )
+            )
+        except asyncio.TimeoutError as exc:
+            raise IBConnectionError(
+                f"IBClient.balance: accountSummary did not return within "
+                f"{_IB_ACCOUNT_WARMUP_TIMEOUT_S:.0f}s for "
+                f"{self._masked_account()} (gateway likely logged out); "
+                "caller should fall back to the balance-snapshot DB."
+            ) from exc
 
     def _ensure_event_loop(self) -> None:
         """Make this client's persistent asyncio loop the thread's current loop.
@@ -1556,7 +1633,12 @@ class IBClient:
         avail = 0.0
         currency = "USD"
         try:
-            rows = ib.accountSummary(self.account) if self.account else ib.accountSummary()
+            # RISK-2: bounded read (raises IBConnectionError on timeout so the
+            # caller falls back to the balance-snapshot DB) — the connect-time
+            # warm-up is now best-effort and no longer guarantees a warm cache.
+            rows = self._bounded_account_summary(ib)
+        except IBConnectionError:
+            raise
         except Exception as exc:  # noqa: BLE001
             raise IBConnectionError(
                 f"IBClient.balance: accountSummary failed for "
@@ -1757,7 +1839,13 @@ class IBClient:
             live = False
         if breaker_open:
             state = "breaker_open"
-        elif live and self._account_data_ready:
+        elif live:
+            # RISK-2: a live handle whose liveness probe passed is "connected"
+            # even if the best-effort account-data warm-up did not confirm —
+            # the order path is usable and balance() bounds its own read. The
+            # actual warm-up state is still reported in ``account_data_ready``
+            # below, so the distinction stays visible without downgrading a
+            # usable connection to "disconnected".
             state = "connected"
         elif self._last_ok_wall is None:
             state = "never_connected"
