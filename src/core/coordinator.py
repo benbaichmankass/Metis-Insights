@@ -2078,14 +2078,13 @@ class Coordinator:
                     "leg_trade_ids": leg_trade_ids if len(leg_trade_ids) > 1 else None,
                 })
                 _EXCHANGE_REJECTION_COUNTS.pop(account.name, None)
-                if getattr(account, "demo", False):
-                    _enqueue_demo_ping(
-                        account=account.name,
-                        pkg=pkg,
-                        qty=effective_qty,
-                        status="submitted",
-                        detail=f"trade_id={trade_id}",
-                    )
+                # NOTE: the demo-account "*DEMO TRADER* SUBMITTED" ping was
+                # removed 2026-07-09 (operator ask — no double trade-open
+                # message). The single "🟢 TRADE OPENED" ping from
+                # execute.execute_pkg already covers demo opens; it now carries
+                # a 🧪 DEMO marker (enqueue_trade_open(demo=...)) so demo trades
+                # still read clearly. `_enqueue_demo_ping` is retained for any
+                # future non-open demo event.
             except RiskBreach as exc:
                 _emit_execution_failure_ping(
                     account=account.name,
