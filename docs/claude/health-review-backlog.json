@@ -29,6 +29,43 @@
       "resolution_note": "RESOLVED by RISK-2 (PR #6044, e32ff11, on main + deployed). IBClient.connect() warm-up demoted to BEST-EFFORT: on failure it logs + leaves _account_data_ready=False + returns the live handle; the breaker no longer trips on a warm-up timeout (only connect_failed + liveness_probe_timeout do). New _bounded_account_summary bounds balance()'s accountSummary read (raises IBConnectionError on timeout → callers fall back to the DB snapshot). connection_state() reports connected for a probe-live handle regardless of account_data_ready. Removes the self-perpetuating warm-up wedge that stranded MES/MGC/MHG. Live-verified via /api/diag/ib_state (exec clients connected, no breaker_open/account_warmup loop)."
     },
     {
+      "id": "BL-20260709-DASHBOARD-SECRETS-SSH-KEY-EXPOSURE",
+      "opened_at": "2026-07-09T22:20:00+00:00",
+      "opened_by": "claude (full-system-audit session, 2026-07-09)",
+      "source": "During RISK-3 Task 2 token setup the operator pasted their Streamlit dashboard Secrets; it held TRADER_SSH_HOST (=158.178.210.252, the TERMINATED x86 micro), TRADER_SSH_USER, TRADER_BOT_REPO_DIR, GEMINI_API_KEY and a full TRADER_SSH_PRIVATE_KEY. Verified against ict-trader-dashboard/streamlit_app.py: the dashboard reads ONLY BOT_API_URL + DASHBOARD_API_TOKEN — it never uses any TRADER_SSH_*/GEMINI value (read-only HTTP consumer, no SSH).",
+      "title": "Production SSH private key + terminated-VM host sat unused in the Streamlit dashboard Secrets (dashboard never uses them)",
+      "description": "A prod SSH private key in a third-party free host (Streamlit Community Cloud), pointing at a dead VM, + exposed in the assistant chat. Recommended: delete the 5 unused keys from the dashboard Secrets (keep only DASHBOARD_API_TOKEN, and BOT_API_URL if pinning) and rotate the SSH key.",
+      "tier": 1,
+      "status": "resolved",
+      "snoozed_until": null,
+      "resolution_note": "RESOLVED 2026-07-09 — operator confirmed in chat ('keys are done') after being flagged. Durable record so a future session knows those keys should be ABSENT from the dashboard Secrets and the SSH key was rotated. Re-open if a future dashboard Secrets dump shows TRADER_SSH_*/a private key reappearing.",
+      "updates": []
+    },
+    {
+      "id": "BL-20260709-IB-BROKER-PROTECTION-UNVERIFIED",
+      "opened_at": "2026-07-09T22:40:00+00:00",
+      "opened_by": "claude (full-system-audit session, MGC monitor-blind incident, operator-flagged)",
+      "source": "Live incident 2026-07-09 ~22:14-22:37Z: an ib_paper MGC short (mgc_pullback_1d, pkg-a4a957610253455e, order 188, -9 @ 4128.91) tripped MONITOR BLIND (candles_unavailable 3 ticks) because the IB exec client's circuit breaker was open (gateway wedge). The alert reads 'Broker SL/TP backstop (if any) still holds' — but there is NO way to VERIFY that: _check_naked_positions is journal-driven (MGC's journal had sl/tp -> never flagged), and the broker-side resting-order verification (_check_broker_naked_equity_positions via AlpacaClient.has_protective_orders) is ALPACA-ONLY. There is no IB analogue.",
+      "title": "No IB broker-side protection VERIFICATION — an IB futures position with journal SL/TP but no RESTING broker bracket is invisible to every naked check",
+      "description": "GUARDRAIL GAP (operator asked for a guardrail on the MGC monitor-blind trade). For Alpaca, _check_broker_naked_equity_positions asks the broker whether a resting protective leg exists (has_protective_orders) and re-arms a GTC OCO if none; for IB there is no equivalent, so an IB position whose broker OCA bracket was never placed / got cancelled / failed during a breaker flap stays silently naked while the monitor is also blind. PROPOSED FIX (held for operator/supervised build): add IBClient.has_protective_orders(symbol) (account-wide reqAllOpenOrders read, fail-safe None on read failure) + an IB analogue of the broker-naked sweep that re-arms via the EXISTING _attempt_naked_autoprotect on a confirmed-clean 'no resting bracket' read. CRITICAL BUILD CONSTRAINTS: (1) do NOT add a per-monitor-tick account-wide IB order read — that risks re-triggering the tick-latency/pacing wedge class (BL-20260609); cadence-gate it. (2) IB order visibility is per-client-session — ib.openTrades() only sees THIS client's orders, so a readonly client would false-read 'naked'; must use reqAllOpenOrders (account-wide) and validate against the live gateway before trusting it to PLACE orders. (3) fail-safe: read failure/ambiguity -> skip, never place. Deliberately NOT shipped unsupervised overnight (order-placing path needs live IB cross-client validation).",
+      "tier": 3,
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260709-IB-POSTRESTART-RECONNECT-WEDGE",
+      "opened_at": "2026-07-09T22:40:00+00:00",
+      "opened_by": "claude (full-system-audit session, MGC monitor-blind incident)",
+      "source": "Live 2026-07-09: the ib-gateway container restarted ~22:15Z (last_ok of both exec clients = 22:14:40Z). The trader's IB exec client (498) then could NOT re-establish — last_fail_reason 'connect_failed: TimeoutError', breaker re-opening, consecutive_failures climbing 3->5->8, cooldown escalating 69s->119s — and stayed wedged ~18 min (MES/MGC/MHG market data all suppressed, MGC monitor blind) until a MANUAL vm-ib-gateway-recover (#6075) docker-restarted the gateway; the exec client then reconnected cleanly at 22:37:25 (data farms OK, Synchronization complete).",
+      "title": "IB exec client fails to cleanly reconnect after a gateway (container) restart — connect_failed:TimeoutError, ~18-min wedge until a fresh manual gateway restart",
+      "description": "DISTINCT from BL-20260708-IB-WARMUP-WEDGE-RECUR (that was account_warmup_timeout, fixed by RISK-2 #6044). This one is a CONNECT-level failure (connect_failed: TimeoutError) after the gateway restarts underneath a live trader: the exec client's reconnect times out repeatedly while the readonly client and a sibling exec client are fine, so it's the specific (host,port,clientId) connect flow not recovering — the cold-TCP-flow class (cf. BL-20260610-009, the liveness-probe retry) but at connect() rather than the probe. The reactive ict-ib-gateway-watchdog on the gateway VM did not clear it within the wedge window. INVESTIGATE (morning): why does a gateway restart wedge the trader's exec reconnect for ~18 min when a SECOND gateway restart fixes it in <2 min (stale half-open socket on the socat relay? clientId collision with a not-yet-reaped session? connect timeout too short for a cold relay flow?); should the trader force a fresh clientId / socket teardown after N connect_failed, or should the gateway-side restart be followed by a trader-side IB reconnect kick? Recurring MES/MGC/MHG availability risk.",
+      "tier": 2,
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "BL-20260706-PROP-INSERT-FILL-IDEMPOTENCY",
       "opened_at": "2026-07-06T15:55:00+00:00",
       "opened_by": "claude (order-qty-rounding-issue session; prop close-mislink follow-up)",
@@ -3354,8 +3391,9 @@
       "title": "GET /api/bot/health/{latest,services} and /api/bot/accounts/balances intermittently return non-2xx -- likely a blocking DB call stalling uvicorn's single event loop under load",
       "description": "Reproduced twice this session (diag #5827 first batch, #5829 targeted retry) for health/latest + health/services; accounts/balances failed once (#5831), succeeded in other pulls. Hypothesis: `accounts.py::_from_db()` runs a synchronous sqlite3 read directly inside an `async def` route with no thread-pool offload -- if that read blocks (WAL lock contention / long fsync under the live trader's constant write volume), it freezes uvicorn's whole single-worker event loop, starving every other in-flight request (which is why health/latest and health/services, both otherwise-trivial file/subprocess reads, failed in the same window). This co-occurred with a live IB-gateway circuit-breaker trip (BL-20260623-002 recurrence) and a burst of ~80 near-simultaneous dashboard/Android requests in the same ~90s window (ict-web-api journalctl, diag #5829) -- consistent with event-loop contention, though not proven without a direct trace. A similar class of bug was just fixed for IB account/position reads in commit 1f286ee (BL-20260706-IBCONCURRENCY, 'offload IB account/position reads off uvicorn's event loop') -- this may be the same pattern in a different router. FIX (Tier-1, API code, no live-trade-path risk): wrap `Database().get_latest_balance_snapshots()` in `asyncio.to_thread(...)` (or equivalent) inside `accounts.py::get_account_balances`; audit `health_snapshots.py::get_services`'s `subprocess.run` similarly (it already has timeout=3 but is still a blocking call inside an async route). Verify by re-pulling health/latest + health/services + accounts/balances via the diag relay several times back-to-back and confirming no repeat 'fetch_failed', ideally during/after a deliberately-induced DB-busy window.",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
+      "resolution_note": "RESOLVED (RISK-3 Task 1) by PR #6029 (9c3987d, 'web-api: eliminate event-loop-blocking in async routes'), verified on main 2026-07-09. Every blocking read route across 23 routers is now either a plain `def` (FastAPI threadpools sync routes) or an `async def` that offloads via `asyncio.to_thread` (`get_account_balances` is now plain `def`; `prop.post_report` offloads `ingest_report`). `PRAGMA busy_timeout=3000` added to both connect paths (`prop_journal._connect` + `units/db/database.py`). A permanent class-eliminator AST guard `scripts/ci/check_async_route_blocking.py` is wired as the `async-route-blocking-guard` CI merge gate (green) + `tests/test_async_route_blocking_guard.py`.",
       "updates": []
     },
     {
