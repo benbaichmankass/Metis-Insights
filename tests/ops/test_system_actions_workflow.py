@@ -170,6 +170,10 @@ EXPECTED_ACTIONS = {
     # 2026-06-30 — clear the daily_risk_state row for one account so
     # INTRADAY_DRAWDOWN counters reset without a full service restart.
     "reset-daily-risk-state": "reset_daily_risk_state.sh",
+    # 2026-07-09 — one-shot repair of legacy malformed-JSON blobs in
+    # trade_journal.db (BL-20260618 / BL-20260709; write-path fixed in RISK-1
+    # Task 2 #6037). DRY-RUN by default; apply gated; idempotent by construction.
+    "repair-malformed-notes": "repair_malformed_notes_action.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -213,6 +217,7 @@ TIER_2_ACTIONS = {
     "supersede-reset-orphan-artifacts",
     "fix-prop-mislinked-close",
     "reset-daily-risk-state",
+    "repair-malformed-notes",
 }
 
 
