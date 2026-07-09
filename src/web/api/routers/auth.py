@@ -28,7 +28,7 @@ class LoginResponse(BaseModel):
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(body: LoginRequest) -> LoginResponse:
+def login(body: LoginRequest) -> LoginResponse:
     # Read auth config first. Any missing env var → 500 with a generic
     # body so we don't leak which secret is unset.
     try:

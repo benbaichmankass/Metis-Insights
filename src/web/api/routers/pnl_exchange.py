@@ -70,7 +70,7 @@ MAX_DAYS = 90
 
 
 @router.get("/pnl/exchange")
-async def get_exchange_pnl(
+def get_exchange_pnl(
     days: int = Query(DEFAULT_DAYS, ge=1, le=MAX_DAYS),
 ) -> dict[str, Any]:
     """Per-symbol fee + flow aggregates plus FIFO realised/unrealised P&L."""

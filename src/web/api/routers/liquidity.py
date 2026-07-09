@@ -84,7 +84,7 @@ def build_liquidity(
 
 
 @router.get("/liquidity")
-async def get_liquidity(
+def get_liquidity(
     symbol: Optional[str] = Query(None, min_length=1, max_length=32),
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     sweeps_limit: int = Query(DEFAULT_SWEEP_LIMIT, ge=1, le=MAX_LIMIT),

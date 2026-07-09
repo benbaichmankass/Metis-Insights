@@ -54,6 +54,11 @@ def _connect(read_only: bool = False) -> sqlite3.Connection:
     else:
         conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
+    # Wait up to 3s for a lock rather than raising "database is locked"
+    # immediately — the money DB is shared with the live trader, and a brief
+    # write lock should degrade to a short wait, not a failed read
+    # (RISK-3, BL-20260707-HEALTHAPI-ACCTBAL-BLOCKING-DB).
+    conn.execute("PRAGMA busy_timeout=3000")
     return conn
 
 

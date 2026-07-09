@@ -124,7 +124,7 @@ def _resolve_table_db(table: str, db: Optional[str]) -> Optional[Tuple[str, Path
 
 
 @router.get("/db/tables")
-async def db_tables() -> Dict[str, Any]:
+def db_tables() -> Dict[str, Any]:
     """List every table across the federated store (trade_journal +
     trainer_store) with its columns + row count + owning ``db``."""
     dbs = _federated_dbs()
@@ -161,7 +161,7 @@ async def db_tables() -> Dict[str, Any]:
 
 
 @router.get("/db/table/{table}")
-async def db_table(
+def db_table(
     table: str,
     db: Optional[str] = Query(None, max_length=32),
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),

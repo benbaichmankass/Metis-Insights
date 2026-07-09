@@ -22,7 +22,7 @@ router = APIRouter(prefix="/api/bot", tags=["bot"])
 
 
 @router.get("/news/recent")
-async def news_recent(limit: int = Query(100, ge=1, le=500)) -> dict:
+def news_recent(limit: int = Query(100, ge=1, le=500)) -> dict:
     """Newest-first tail of the news shadow-soak decisions log."""
     path = news_decisions_path()
     if not path.exists():

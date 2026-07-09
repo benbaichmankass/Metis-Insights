@@ -278,6 +278,11 @@ class Database:
         """Create database connection"""
         self.conn = sqlite3.connect(str(self.db_path))
         self.conn.row_factory = sqlite3.Row  # Allow dict-like access
+        # Wait up to 3s for a lock rather than raising "database is locked"
+        # immediately. The journal is shared (live trader + web-api + sidecars);
+        # a brief writer lock should degrade to a short wait, not a hard error
+        # (RISK-3, BL-20260707-HEALTHAPI-ACCTBAL-BLOCKING-DB).
+        self.conn.execute("PRAGMA busy_timeout=3000")
         return self.conn
     
     def create_tables(self):

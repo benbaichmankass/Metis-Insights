@@ -379,7 +379,7 @@ def _strip_envelope(agg: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @router.get("/performance")
-async def get_performance(
+def get_performance(
     window: str = Query("all", max_length=8),
 ) -> Dict[str, Any]:
     """Aggregate trade performance for the requested *window*.
