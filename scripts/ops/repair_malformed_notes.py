@@ -100,8 +100,15 @@ def find_malformed(conn: sqlite3.Connection) -> Dict[str, List[Tuple[Any, str]]]
         if not _table_has_column(conn, table, col):
             continue
         try:
+            # Use SQLite's implicit ``rowid`` rather than a declared ``id``
+            # column: ``trades`` has ``id INTEGER PRIMARY KEY`` (an alias for
+            # rowid) but ``order_packages``'s PK is ``order_package_id`` with
+            # NO ``id`` column — a hardcoded ``SELECT id`` raised "no such
+            # column: id" there and silently skipped both order_packages
+            # targets (BL-20260709 dry-run, 2026-07-09). ``rowid`` addresses
+            # any ordinary (non-WITHOUT-ROWID) table uniformly.
             rows = conn.execute(
-                f"SELECT id, {col} FROM {table} "
+                f"SELECT rowid, {col} FROM {table} "
                 f"WHERE {col} IS NOT NULL AND {col} != '' AND json_valid({col}) = 0"
             ).fetchall()
         except sqlite3.Error as exc:
@@ -134,7 +141,7 @@ def repair(db_path: str, apply: bool) -> int:
             cap = caps[(table, col)]
             for rowid, raw in rows:
                 conn.execute(
-                    f"UPDATE {table} SET {col} = ? WHERE id = ?",
+                    f"UPDATE {table} SET {col} = ? WHERE rowid = ?",
                     (_repaired_blob(raw, cap), rowid),
                 )
         if apply:
