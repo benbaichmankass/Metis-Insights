@@ -1,0 +1,40 @@
+name: json-notes-cap guard
+
+# Fails the PR check on a json.dumps(...)[:N] char-slice truncation anywhere in
+# src/ — the footgun that persists INVALID JSON into trades.notes /
+# order_packages.signal_logic and aborted the closed_flat_invariant query
+# (BL-20260618-CLOSEDFLAT-MALFORMED-JSON). The write-side was migrated to
+# src/utils/json_notes.dump_capped; this guard keeps it that way. See
+# scripts/ci/check_json_notes_cap.py.
+#
+# NOT a required status check, so it's safe to trigger-filter with `paths:` —
+# the guard statically scans src/ for the slice pattern, so it can only change
+# result on a `.py` (or workflow) diff.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+    paths:
+      - "src/**/*.py"
+      - "scripts/ci/check_json_notes_cap.py"
+      - ".github/workflows/json-notes-cap-guard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  json-notes-cap-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Scan src/ for json.dumps(...)[:N] char-slice truncation
+        run: python scripts/ci/check_json_notes_cap.py

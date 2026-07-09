@@ -942,9 +942,7 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             if exit_price_source == "verdict" and actual_exit_price is not None:
                 existing_notes = _decode_notes(matched_trade.get("notes"))
                 existing_notes["exit_price_source"] = "verdict"
-                close_updates["notes"] = json.dumps(
-                    existing_notes, ensure_ascii=False,
-                )[:2000]
+                close_updates["notes"] = dump_capped(existing_notes, 2000)
             trade_id = matched_trade.get("id")
             if trade_id is not None:
                 db.update_trade(int(trade_id), close_updates)
@@ -2535,14 +2533,14 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                     "status": "closed",
                     "exit_reason": "adopted_orphan_disappeared",
                     "closed_at": now_iso,
-                    "notes": json.dumps({
+                    "notes": dump_capped({
                         "closed_at": now_iso,
                         "closed_by": "reverse_reconciler",
                         "closed_reason": (
                             "exchange no longer reports the adopted position; "
                             "exchange-side SL/TP or manual close took it out"
                         ),
-                    }, ensure_ascii=False)[:500],
+                    }, 500),
                 })
                 summary["closed_disappeared"] += 1
                 # Sweep any resting protective legs now that the position is
@@ -2695,12 +2693,12 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                         "status": "closed",
                         "exit_reason": _reset_exit_reason,
                         "closed_at": now_iso,
-                        "notes": json.dumps({
+                        "notes": dump_capped({
                             "closed_at": now_iso,
                             "closed_by": "position_snapshot_reconciler",
                             "reset_event": _is_reset,
                             "closed_reason": _reset_note,
-                        }, ensure_ascii=False)[:500],
+                        }, 500),
                     })
                     # Cascade-close the linked order package, like every other
                     # reconciler close path.
@@ -3259,7 +3257,7 @@ def _adopt_orphan_position(
         strategy_name = recovered.get("strategy_name")
         sl = recovered.get("sl")
         tp = recovered.get("tp")
-        notes_payload = json.dumps(
+        notes_payload = dump_capped(
             {
                 "adopted_at": now_iso,
                 "adopted_by": "reverse_reconciler",
@@ -3274,8 +3272,8 @@ def _adopt_orphan_position(
                 "exchange_entry_price": entry_price,
                 "exchange_size": size,
             },
-            ensure_ascii=False,
-        )[:500]
+            500,
+        )
         trade_data = {
             "timestamp": now_iso,
             "symbol": symbol,
@@ -3330,7 +3328,7 @@ def _adopt_orphan_position(
         return trade_id
 
     # Fallback: bare orphan_adopt (origin not confidently recoverable).
-    notes_payload = json.dumps(
+    notes_payload = dump_capped(
         {
             "adopted_at": now_iso,
             "adopted_by": "reverse_reconciler",
@@ -3342,8 +3340,8 @@ def _adopt_orphan_position(
             "exchange_entry_price": entry_price,
             "exchange_size": size,
         },
-        ensure_ascii=False,
-    )[:500]
+        500,
+    )
     trade_data = {
         "timestamp": now_iso,
         "symbol": symbol,

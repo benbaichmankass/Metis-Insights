@@ -409,6 +409,53 @@ def test_inv5_open_package_not_terminal_not_flagged(real_schema_db):
 
 
 # ---------------------------------------------------------------------------
+# INV-6 — malformed-JSON notes (BL-20260618-CLOSEDFLAT-MALFORMED-JSON)
+# ---------------------------------------------------------------------------
+
+
+def test_inv6_malformed_notes_recent_alerts(real_schema_db):
+    db = real_schema_db()
+    # Recent trade whose notes is INVALID JSON (char-slice truncation) → alert.
+    insert_trade(
+        db, is_backtest=0, status="closed", account_class="real_money",
+        symbol="BTCUSDT", direction="long", entry_price=1.0, position_size=1.0,
+        pnl=1.0, notes='{"closed_at": "2026-07-09T00:00:00Z", "reason": "trunc',
+        closed_at=_recent_ts(), created_at=_recent_ts(), timestamp=_recent_ts(),
+    )
+    # Legacy malformed row (informational — total, not recent).
+    insert_trade(
+        db, is_backtest=0, status="closed", account_class="real_money",
+        symbol="ETHUSDT", direction="long", entry_price=1.0, position_size=1.0,
+        pnl=1.0, notes='{"closed_at": "old", "reason": "trunc',
+        closed_at=_legacy_ts(), created_at=_legacy_ts(), timestamp=_legacy_ts(),
+    )
+    inv6 = _check(_run(db), "INV-6")
+    assert inv6["recent_count"] == 1
+    assert inv6["total_count"] == 2
+    assert inv6["alert"] is True
+
+
+def test_inv6_valid_and_null_notes_not_flagged(real_schema_db):
+    db = real_schema_db()
+    insert_trade(
+        db, is_backtest=0, status="closed", account_class="real_money",
+        symbol="BTCUSDT", direction="long", entry_price=1.0, position_size=1.0,
+        pnl=1.0, notes='{"closed_at": "2026-07-09T00:00:00Z", "ok": true}',
+        closed_at=_recent_ts(), created_at=_recent_ts(), timestamp=_recent_ts(),
+    )
+    insert_trade(
+        db, is_backtest=0, status="closed", account_class="real_money",
+        symbol="ETHUSDT", direction="long", entry_price=1.0, position_size=1.0,
+        pnl=1.0, notes=None,
+        closed_at=_recent_ts(), created_at=_recent_ts(), timestamp=_recent_ts(),
+    )
+    inv6 = _check(_run(db), "INV-6")
+    assert inv6["recent_count"] == 0
+    assert inv6["total_count"] == 0
+    assert inv6["alert"] is False
+
+
+# ---------------------------------------------------------------------------
 # any_alert + --fail-on-alert exit codes
 # ---------------------------------------------------------------------------
 
