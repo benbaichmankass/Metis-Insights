@@ -831,14 +831,14 @@ class TestVwapPipelineRouting:
 
         assert called_with, "vwap_signal_builder was not called"
 
-    def test_legacy_path_calls_exchange_for_validation(self):
-        """2026-05-03 operator directive: DRY_RUN is no longer a
-        process-level gate. The per-account RiskManager (mode:
-        live|dry_run in accounts.yaml) is the only dry/live toggle.
-        The legacy single-client path (signals without sl/tp) calls
-        exchange_client for halt-flag / validation rails regardless
-        of the DRY_RUN settings key. See pipeline.py comment at the
-        legacy path block and orders.py § Operator directive 2026-05-03."""
+    def test_legacy_path_never_calls_exchange(self):
+        """E1-F1 (full-system audit 2026-07-09): the legacy single-client
+        branch (an actionable signal without top-level sl/tp) used to place
+        a naked placeholder-qty order on the injected exchange client — a
+        live-money bypass of the one sanctioned order path
+        (Coordinator.multi_account_execute + per-account RiskManager). That
+        placement was removed: the branch now refuses, so exchange_client is
+        NEVER called."""
         exchange = DummyExchangeClient()
         settings = {
             "SYMBOL": "BTCUSDT",
@@ -851,19 +851,14 @@ class TestVwapPipelineRouting:
             telegram_client=DummyTelegramClient(),
             signal_builder=self._vwap_buy_signal_builder,
         )
-        # Per the 2026-05-03 directive, the legacy path submits via
-        # safe_place_order regardless of DRY_RUN; the test stubs the
-        # exchange_client to assert the dispatch shape is correct.
-        assert len(exchange.calls) == 1, (
-            "Legacy path must call exchange_client.place_order for "
-            "validation; DRY_RUN is not a process-level gate (2026-05-03)"
+        assert len(exchange.calls) == 0, (
+            "E1-F1: the legacy path must NEVER place an order — it refuses "
+            "(no sanctioned per-account sizing path)"
         )
 
-    def test_legacy_path_returns_submitted_status(self):
-        """Per the 2026-05-03 directive: the legacy path always calls
-        safe_place_order which returns status='submitted' on success
-        (not 'dry_run'). DRY_RUN status comes from the multi-account
-        path when the per-account RiskManager has dry_run=True."""
+    def test_legacy_path_returns_refused_status(self):
+        """E1-F1: an SL/TP-less actionable signal is refused, not placed —
+        ``status:refused`` reason ``actionable_signal_missing_sltp``."""
         settings = {
             "SYMBOL": "BTCUSDT",
             "DRY_RUN": "true",
@@ -875,7 +870,8 @@ class TestVwapPipelineRouting:
             telegram_client=DummyTelegramClient(),
             signal_builder=self._vwap_buy_signal_builder,
         )
-        assert result["order_result"]["status"] == "submitted"
+        assert result["order_result"]["status"] == "refused"
+        assert result["order_result"]["reason"] == "actionable_signal_missing_sltp"
 
     def test_vwap_no_signal_returns_skipped(self):
         settings = {
