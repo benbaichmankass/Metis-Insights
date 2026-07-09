@@ -101,8 +101,9 @@ confirmed flip persists by invoking `scripts/ops/set_account_mode.sh`
 — the sanctioned writer — so there is exactly one on-disk mutation
 surface. The legacy `/accounts dry|live <name>` command, which wrote
 the in-memory `_DRY_RUN_OVERRIDES` dict, was removed in #1933; the
-override dict + `set_account_dry_run()` themselves remain queued for
-deletion (item 3 above).
+override dict + `set_account_dry_run()` themselves were subsequently
+**deleted** in the 2026-06-10 dead-code cleanup (item 3 above; verified
+still-absent 2026-07-09), leaving `_resolve_mode()` reading YAML directly.
 
 ## System Layers
 
@@ -175,30 +176,41 @@ See `docs/runbooks/ib-integration.md`.
 
 ### Step 2 — Strategy evaluation
 Strategy modules in `src/units/strategies/` consume market data and emit
-signals. The roster has **12 strategies registered** in
-`config/strategies.yaml` (verified 2026-06-10). Each declares a
+signals. The roster has **48 strategy cells registered** in
+`config/strategies.yaml` (verified 2026-07-09 — grown from the 12-cell
+2026-06-10 crypto+futures core through the multi-symbol crypto alts
+(ETH/SOL/XRP/ADA/AVAX + prop variants), the OANDA/Alpaca/IBKR equity-ETF
+sleeves, and the sub-$100 real-money proxy cells; see the change log).
+Each declares a
 `symbols:` list and is **scoped to it** by the per-strategy symbol gate
 (`intent_multiplexer._collect_intents`, 2026-06-02): a strategy is skipped
 on any tick symbol not in its `symbols:` — so a strategy no longer
 "evaluates every configured symbol each tick" (the earlier MES-mirror
-behaviour is intentionally retired). Current roster, by instrument:
-- **Crypto (BTCUSDT):** `turtle_soup`, `trend_donchian`, `ict_scalp_5m`,
-  `fvg_range_15m`, `htf_pullback_trend_2h` (all `execution: live`);
-  `fade_breakout_4h`, `squeeze_breakout_4h` (`execution: shadow` —
-  DEMOTED live→shadow 2026-06-01); `vwap` (`enabled: false` — M7
-  kill, no net-of-fee edge); `trend_donchian_1h` (`enabled: false` —
-  retired, config adopted into `trend_donchian`).
-- **Index/metals futures (IBKR `ib_paper`, paper money):**
-  `mes_trend_long_1d` (MES), `mgc_pullback_1d` (MGC),
-  `mhg_pullback_1d` (MHG) — all `execution: live`, validated params
-  per the 2026-06-02 WS-A metals sleeve. Since the 2026-07-07 IBKR
-  equity/ETF (STK) support build, `ib_paper` ALSO trades equity ETFs
-  — `spy_trend_long_1d` (SPY), `qqq_trend_long_1d` (QQQ),
-  `iwm_trend_long_1d` (IWM), `tlt_pullback_1d` (TLT) — the 4
-  compat-matrix-approved cells from `PB-20260707-IBKR-STK-ETF-SUPPORT`
-  (see the 2026-07-07 change-log rows). `ib_paper` is no longer
-  futures-only; `IBClient._build_contract` resolves FUT vs STK
-  per-symbol via `ib_instruments.py`.
+behaviour is intentionally retired). **The authoritative per-cell
+`execution:`/`enabled:`/`symbols:` matrix is `config/strategies.yaml`,
+surfaced on `/api/bot/strategies` — it is deliberately NOT re-enumerated in
+prose here** (an exhaustive per-cell list in this doc is exactly what drifted
+the earlier "12-cell" snapshot). Current roster *shape*, by instrument family
+(verified 2026-07-09):
+- **Crypto** — BTCUSDT core (`trend_donchian`, `fvg_range_15m`,
+  `htf_pullback_trend_2h` are live; `turtle_soup`/`ict_scalp_5m`/`fade_breakout_4h`
+  shadow; `squeeze_breakout_4h` live — RE-PROMOTED 2026-06-23, operator-approved;
+  `vwap`/`trend_donchian_1h` `enabled: false`) plus the multi-symbol alts
+  ETH/SOL/XRP/ADA/AVAX (`trend_donchian_*`, `*_pullback_2h`, `*_4h` cells) and the
+  `*_prop` shadow variants that feed the Breakout prop bridge.
+- **Index/metals futures (IBKR `ib_paper`, paper money):** `mes_trend_long_1d`
+  (MES), `mgc_pullback_1d` (MGC), `mhg_pullback_1d` (MHG) live; `mgc_trend_1h`
+  shadow. Since the 2026-07-07 IBKR STK build, `ib_paper` ALSO trades the 4
+  compat-matrix-approved equity ETFs SPY/QQQ/IWM/TLT — no longer futures-only;
+  `IBClient._build_contract` resolves FUT vs STK per-symbol via `ib_instruments.py`.
+- **Equity/ETF (Alpaca):** `alpaca_paper` (paper) runs the broad ETF sleeve
+  (SPY/QQQ/GLD/IWM/TLT/IEF/SLV/USO/GDX + leveraged TQQQ/QLD + proxies
+  SPLG/IAUM/SCHA); **`alpaca_live` runs a real-money subset** (operator-approved
+  2026-06-25→2026-07-07, incl. the sub-$100 proxies SPLG/IAUM at `risk_pct 0.02`
+  — the earlier "Real-money Alpaca remains gated" note is superseded);
+  `alpaca_options_paper` runs the defined-risk options overlay (SLV/GDX).
+- **FX/metals (OANDA `oanda_practice`):** `xauusd_trend_1h` (currently
+  `enabled: false`; account `mode: dry_run`).
 
 Each strategy carries a per-strategy `execution: live | shadow` gate in
 `config/strategies.yaml` (S9, 2026-05-24): `live` is eligible to execute;
@@ -224,9 +236,12 @@ same-direction takes max `target_qty`). This is the **single-account
 design** (operator direction 2026-05-24): one pot of capital used
 maximally — NOT a per-strategy capital split — with the decider
 concentrating the fund on the highest-probability trade each tick.
-bybit_1 (demo) and bybit_2 (live) are mirrors (same roster, same decider,
-same gates); MES is a separate IBKR book, not a redundant split of the
-crypto fund. **Decider-v2** (research) makes the selection smart
+bybit_1 (paper) and bybit_2 (real money) share the decider + gate
+machinery but are **no longer identical-roster mirrors** — bybit_2 was
+narrowed to a winners-only real-money subset on 2026-06-02 (fewer
+strategies than the bybit_1 paper book; the authoritative per-account
+routing is `config/accounts.yaml`, surfaced on `/api/bot/config`). MES is a
+separate IBKR book, not a redundant split of the crypto fund. **Decider-v2** (research) makes the selection smart
 (regime-rule or selection-model, highest P(profit)) once ≥2 members are
 live — a naive greedy decider lets the high-frequency 2h trend hog the
 book and forfeits ~half the blend's return + diversification, so v2's job
@@ -273,13 +288,13 @@ only canonical execution gate; the **only** sanctioned mutation path
 for that field is the `set-account-mode` operator action (§ Mode
 Mutation Contract). The real-money `ib_live` account is held
 `mode: dry_run`; the `ib_paper` account runs `mode: live` (paper
-money) and went **live for MES on 2026-05-22**. NOTE (2026-05-24):
-the IBKR account is currently **offline pending new-user approval**,
-so MES is not executing right now even though the config still
-declares it live — the data, edge, and cross-asset diversification
-(corr 0.009 vs the BTC book) are validated and
-`data/SPX500_1m.parquet` (1m S&P 500, 2020–2026, Dukascopy) is cached
-on the trainer, so only the broker login waits. **IBKR is the futures
+money) and went **live for MES on 2026-05-22**. **MES/MGC/MHG (and,
+since 2026-07-07, the SPY/QQQ/IWM/TLT equity ETFs) execute live on
+`ib_paper`** — the 2026-05-24 "IBKR offline pending new-user approval"
+window is closed; the broker session is reached over the private subnet
+from the isolated IB-Gateway VM (`10.0.0.251`), post the 2026-06-14
+Ampere migration + gateway-isolation redesign (see the change log +
+`docs/runbooks/ib-integration.md`). **IBKR is the futures
 broker** (a Tradovate sleeve was evaluated and retired; its dead wiring
 was purged 2026-06-10). **OANDA v20** joined as the FX/metals broker in
 M15 Phase 2 (2026-06-10, S-M15-PHASE2-OANDA): an `oanda` branch in
@@ -855,6 +870,7 @@ filtered to architecture-level deltas only.
 | 2026-06-07 | S-MLOPT-CLOSEOUT-2026-06-07 | **Retroactive consolidated row for the 2026-06-07 closeout (deferred at session-end per `BL-20260607-006`, filed 2026-07-06 by `/system-review` weekly).** Four items shipped that session without their own arch-log row: (1) **S-MLOPT-S18** — champion-challenger promotion-readiness orchestrator (trainer-side, standalone systemd unit) that surfaces shadow/advisory promotion candidates. (2) **S-MLOPT-S16** — ADWIN drift-triggered retraining tooling (trainer-side): detects feature/score drift and schedules an out-of-cycle retrain instead of waiting for the daily timer. (3) **S-MLOPT-S12 Part B** — new `trade_journal.db::account_context_snapshots` table + a best-effort `Coordinator` writer hook (`src/units/accounts/context_snapshot.py`) capturing per-signal pre-decision account state (equity, daily PnL, daily equity-high, drawdown%, open-trade count); observe-only, gated by `ACCOUNT_CONTEXT_SNAPSHOTS_DISABLED` (default on). (4) **PERF-20260601-006 Phase 3** — the regime-router hard-gate runtime path (`config/regime_policy.yaml` OFF-cell enforcement), at the time gated by `REGIME_ROUTER_ENABLED`/shadow-log-only default (later flipped baseline-on at the Design-A vol-gate go-live, 2026-06-28 — see that row). All four are detailed in `docs/sprint-logs/S-MLOPT-CLOSEOUT-2026-06-07.md`; `CLAUDE.md` Env Variables + API tables were updated in-session for both new env-var gates and the new table. | `ml/` (trainer-side S18/S16 tooling), `src/units/accounts/context_snapshot.py`, `src/core/coordinator.py`, `trade_journal.db::account_context_snapshots` (new table), `config/regime_policy.yaml`, `docs/sprint-logs/S-MLOPT-CLOSEOUT-2026-06-07.md`, this file | No new operator impact beyond what shipped 2026-06-07 (already deployed and stable) — this row only closes the doc-freshness gap so the change log matches what's actually running; `arch-doc-guard` did not block any of the four PRs since none touched an arch-doc path directly. |
 | 2026-07-07 | (IBKR equity/ETF STK contract support, steps 1-5) | **New per-symbol IBKR instrument-type resolver — `ib_paper` can now build BOTH futures and equity/ETF contracts on one account/clientId.** `docs/integrations/ibkr-equity-etf-support-DESIGN.md` (operator-approved 2026-07-07: all 10 alpaca ETFs, reuse `ib_paper` rather than a new account, keep the existing Alpaca/yfinance signal-candle source and route only execution to IB). (1) New `config/instruments.yaml::instruments.<SYM>.ib` block (config-driven `{sec_type: FUT\|STK, exchange, primary_exchange, currency}`) + resolver `src/units/accounts/ib_instruments.py::ib_instrument_spec()` — the single source of truth for "is this symbol a FUT or a STK on IBKR, and on which exchange", falling back to the legacy hardcoded `{MES:CME, MGC:COMEX, MHG:COMEX}` map for back-compat. (2) `IBClient._build_contract` gains a STK branch (`Stock(sym,'SMART','USD',primaryExchange=...)` + `qualifyContracts`) alongside the unchanged futures path; the per-symbol contract cache now matters more since one clientId can hold both a FUT and a STK contract. `tick_size_for` resolves the standard equity penny tick instead of falling through to the MES 0.25 default. (3) `Coordinator.multi_account_execute` resolves `market_type`/`whole_units` PER ORDER (symbol-aware, via `ib_instruments.ib_order_market_type()`) instead of trusting the account's static `market_type: futures` — an IB equity order now takes the whole-SHARE sizing path (round-up-to-1-share relaxation + margin/buying-power cap), MES/MGC/MHG keep the unchanged strict whole-contract path. NOT included: the `accounts.yaml` wiring that actually routes ETF strategies onto `ib_paper` (Tier-3, pending the mandatory `scripts/prop/account_compat_matrix.py` evidence run + explicit operator approval) and live paper verification — tracked in `docs/claude/performance-review-backlog.json::PB-20260707-IBKR-STK-ETF-SUPPORT`. | `config/instruments.yaml`, `src/units/accounts/ib_instruments.py` (NEW), `src/units/accounts/ib_client.py`, `src/core/coordinator.py`, `tests/test_ib_instruments.py` (NEW), `tests/test_ib_integration.py`, `tests/test_ib_sizing_and_data.py`, `docs/claude/performance-review-backlog.json`, this file | None on live-VM behaviour yet — purely additive contract-building + sizing-resolution capability; `ib_paper` doesn't route any ETF strategy until the separate Tier-3 accounts.yaml PR merges. MES/MGC/MHG unaffected (same `_build_contract`/whole-contract-sizing path, just resolved from the new per-symbol map instead of a hardcoded dict literal). |
 | 2026-07-07 | (IBKR equity/ETF STK contract support, step 6 — `ib_paper` ETF wiring) | **`ib_paper` now trades 4 equity-ETF cells alongside MES/MGC/MHG, gated by the mandatory per-account compatibility matrix.** Completes step 6 of the design (operator-authorized "merge and continue" after the pre-established decisions). `scripts/ops/etf_account_compat.sh`'s `CELLS` array was missing `slv_pullback_1d` + `gdx_pullback_1d` (2 of the 16 alpaca_paper ETF cells) — added, params mirrored from `gld_pullback_1d`. Ran `ACCOUNTS=ib_paper bash scripts/ops/etf_account_compat.sh` on the trainer VM (issue #5908): 13/16 cells scored (3 skipped — no trainer-VM candle CSV for TQQQ/QLD/GDX), and **only 4 scored ROUTE against `ib_paper`'s own ruleset** (`risk_pct: 0.015`, far more aggressive than `alpaca_paper`'s 0.3% per-cell harness assumption): `spy_trend_long_1d`, `qqq_trend_long_1d`, `iwm_trend_long_1d`, `tlt_pullback_1d` (P(breach) 0.005–0.042, survival 1.0 on all four). The other 9 scored cells SKIPPED at that risk_pct — the same failure class as the TQQQ/QLD-on-`alpaca_live` gate in `PB-20260630-002` (a real edge still trips the breach cap at a risk_pct this high). Wired **only the 4 ROUTE cells** onto `ib_paper` (`config/accounts.yaml::ib_paper.strategies` += the 4 names, `.symbols` += `[SPY, QQQ, IWM, TLT]`); the 9 SKIP cells and 3 no-data cells stay off `ib_paper` this pass — full rationale recorded inline in the `accounts.yaml` comment and in the backlog item. Live paper verification (design step 7 — place → journal → monitor → close a real fill) is the remaining follow-up. | `config/accounts.yaml`, `scripts/ops/etf_account_compat.sh`, `tests/test_ib_integration.py`, `docs/claude/performance-review-backlog.json`, this file | Live VM (next deploy): `ib_paper` starts evaluating SPY/QQQ/IWM/TLT signals and can place real IBKR paper-money equity orders for the 4 wired cells, in parallel with the same 4 already trading on `alpaca_paper` — cross-broker fill validation, no new strategy logic. MES/MGC/MHG unaffected. |
+| 2026-07-09 | (Full-system audit 2026-07-09 — canonical-doc reconciliation, S-AUDIT-A) | **Reconciled this doc + `ROADMAP.md` against config/code on disk after Phase-0 of the full-system audit found material drift in the #2/#3 yardsticks.** Fixes: the "12 strategies registered (verified 2026-06-10)" count → **48 cells**, and the exhaustive per-cell enumeration in Step 2 replaced with a family-level *shape* + a pointer to the authoritative source (`config/strategies.yaml` / `/api/bot/strategies`) so the prose can't re-drift; the stale per-cell gate claims corrected (`squeeze_breakout_4h` is `execution: live`, re-promoted 2026-06-23 operator-approved, NOT shadow; `turtle_soup`/`ict_scalp_5m` are shadow, not "all live"); the 2026-05-24 "IBKR offline pending approval" note retired (MES/MGC/MHG + the 2026-07-07 ETFs execute live on `ib_paper`); the Step-3 "bybit_1/bybit_2 are mirrors" claim corrected to the 2026-06-02 winners-only divergence; the Step-6 "Real-money Alpaca remains gated" note superseded (`alpaca_live` is a live real-money book, operator-approved). The `_DRY_RUN_OVERRIDES`/`set_account_dry_run()` "deletion never landed" self-contradiction resolved in favour of reality (deleted; regression test asserts absence). No code/config changed — documentation-hygiene only (field-beats-comment; the field changes were all operator-approved). Audit program doc: `docs/audits/full-system-audit-2026-07-09.md`. | `docs/ARCHITECTURE-CANONICAL.md`, `ROADMAP.md`, `docs/CLAUDE-RULES-CANONICAL.md` (Phase-0 rule fixes R1-R5), `docs/audits/full-system-audit-2026-07-09.md` | Tier-1 (docs only; no runtime/order-path/config change). |
 
 ---
 
@@ -868,7 +884,7 @@ milestone.
 
 | Gap | Why deferred | Tracking |
 |---|---|---|
-| **Orphaned mode-override dead code in `src/`** | **Behaviour remediated; residual dead code only (verified 2026-06-10).** The two Prime-Directive-violating vectors are gone: the breaker auto-flip is removed (rejection path at `src/core/coordinator.py:1669-1689` is alert-only) and the Telegram `/accounts dry\|live` handler was removed in #1933. What remains is **orphaned shim code with no caller** — `_DRY_RUN_OVERRIDES` + `set_account_dry_run()` (`src/units/accounts/__init__.py:33,36`), `Coordinator.set_account_dry_run()` (`coordinator.py:1760`), and the `account_state.yaml` dry-only override read (`coordinator.py:1100`). The promised safeguards-PR deletion never landed. | Cleanup PR (delete the dead dict + functions + override read). Low risk — no live caller. |
+| **Orphaned mode-override dead code in `src/`** — **RESOLVED (verified 2026-07-09, full-system audit S-AUDIT-E).** The Prime-Directive-violating vectors are gone (breaker auto-flip removed → the rejection path is alert-only; Telegram `/accounts dry\|live` removed in #1933), AND the shim code itself is now **deleted**: `_DRY_RUN_OVERRIDES` + `set_account_dry_run()` (+ the `Coordinator` wrapper) survive only as a removal docstring in `src/units/accounts/__init__.py`, with a regression test asserting their absence (`tests/test_exchange_rejection_circuit_breaker.py` — `assert not hasattr(...)`). The earlier "deletion never landed" note was itself stale. **The `account_state.yaml` dry-only override read (`src/runtime/orders.py::account_state_dry_run`, consumed in `coordinator.py`) is NOT dead code** — it is a live, intentional, Prime-Directive-compliant belt-and-suspenders gate that can only *increase* dryness (never forces a dry account live), fail-open on a missing file. It stays. | Closed — no action (the "two execution gates" wording should acknowledge `account_state.yaml` as a dry-only override; tracked in the audit findings doc as E1-F3). |
 | **Per-trade RiskManager rejection → per-trade Telegram** | The Prime Directive (§ rules doc) requires every refusal to emit its own Telegram with account/symbol/side/qty/reason/exchange-error. Today's path uses aggregate alerts when conditions cluster. The per-trade wiring ships in the safeguards PR. | Safeguards PR. |
 | ~~**WS5 baselines not yet at `shadow` in any registry**~~ | **Resolved.** The trainer VM is provisioned and the M14 program has been running training cycles for weeks; baseline + regime heads sit at `shadow` and log predictions live (`runtime_logs/shadow_predictions.jsonl`, surfaced on `/api/bot/shadow/*` + `/api/bot/trades/scores`). | Closed (M14 in progress). |
 | **`shadow_model_ids` empty in production strategy YAML** | ~~Operator step~~. **Resolved 2026-05-19 by the default-flip + auto-wire.** Strategies that omit `shadow_model_ids` (or set it to `None`) auto-discover every model at `target_deployment_stage: shadow` and attach them as shadow predictors. The boundary between trainer-VM Claude and live trading moves from `shadow_model_ids` wiring to the `shadow → advisory` promotion gate; the latter still requires operator approval. | Closed. |
