@@ -44,6 +44,11 @@ Invariants
   (``trades.order_package_id`` is a different package id, i.e. a concrete
   mismatch — NULL back-refs are the documented many-to-one design and are
   NOT flagged).
+- **INV-6**  ``trades.notes`` present but ``json_valid(notes)=0`` — invalid
+  JSON (BL-20260618). Recent ⇒ a write path emitted a malformed blob (should
+  be impossible now the char-slice footgun is gone + the json-notes-cap guard
+  is a merge gate). Legacy ⇒ pre-fix backlog, cleared by
+  ``scripts/ops/repair_malformed_notes.py``.
 
 Output
 ------
@@ -292,6 +297,28 @@ def run_checks(
         checks.append(
             _inv5_check(
                 conn,
+                since_iso=since_iso,
+            )
+        )
+
+        # INV-6 — trade row whose ``notes`` blob is INVALID JSON
+        # (BL-20260618-CLOSEDFLAT-MALFORMED-JSON). The retired
+        # ``json.dumps(payload)[:N]`` char-slice footgun cut mid-token and
+        # persisted invalid JSON, which made ``closed_flat_invariant``'s
+        # ``json_extract(notes,'$.closed_at')`` raise "malformed JSON" and abort
+        # the whole safety-invariant query. The write-side is now
+        # ``dump_capped`` (always-valid) + guarded by the json-notes-cap CI
+        # check, so recent > 0 is a genuine regression; the legacy backlog
+        # (total, pre-fix rows) is cleared by ``scripts/ops/repair_malformed_notes.py``.
+        checks.append(
+            _check(
+                conn,
+                check_id="INV-6",
+                title="trade with malformed-JSON notes (invalid json_valid)",
+                base_where=(
+                    f"{_NON_BACKTEST} AND t.notes IS NOT NULL "
+                    "AND t.notes != '' AND json_valid(t.notes) = 0"
+                ),
                 since_iso=since_iso,
             )
         )

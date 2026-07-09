@@ -2650,8 +2650,11 @@
       "title": "closed_flat_invariant trades query fails with 'malformed JSON' on the live VM",
       "description": "The closed-flat invariant check logs 'trades query failed: malformed JSON' each tick on the live trader. Likely a row in trade_journal.db with a malformed JSON column (meta/notes/exit_plan_state) that the invariant query json-parses, or a query that hit a partial write. Non-fatal (warning, the tick continues) but it means the closed-flat invariant isn't actually validating. Investigate: find the offending trade row(s) + harden the parse (skip/repair malformed JSON) so the invariant runs. Pre-existing — noticed during the D2a restart, not caused by it.",
       "tier": 1,
-      "status": "open",
-      "snoozed_until": null
+      "status": "resolved",
+      "snoozed_until": null,
+      "resolved_at": "2026-07-09T11:58:25+00:00",
+      "resolved_by": "claude (full-system-audit RISK-1 Task 2, 2026-07-09)",
+      "resolution_note": "Structural fix shipped. Premise re-checked with an AST guard (not the weak grep, which under-matched nested parens): 5 live char-slice sites REMAINED in src/runtime/order_monitor.py (945/2538/2698/3262/3333) still writing json.dumps(...)[:N] — migrated all 5 to json_notes.dump_capped. Added scripts/ci/check_json_notes_cap.py (+ workflow) as the permanent merge-gate forbidding the char-slice pattern; added INV-6 to check_db_integrity.py (malformed-JSON notes now a monitored invariant — recent>0 alerts, total surfaces the legacy count each hourly run); and shipped the idempotent one-shot scripts/ops/repair_malformed_notes.py (dry-run default, --apply repairs + salvages intact closed_at). Read-side json_valid guard in closed_flat_invariant.py was already in. Follow-up: BL-20260709-MALFORMED-NOTES-LEGACY-REPAIR (Tier-2 run of the repair script once INV-6 reports the live legacy total)."
     },
     {
       "id": "BL-20260619-NULLPNL-REALMONEY-CLOSED",
@@ -3629,6 +3632,20 @@
       "title": "Alpaca close() still races share-release on a re-arming OCO (QQQ #3269) — needs qty_available-gated flatten, not blind retry",
       "description": "MECHANISM: the position's protective OCO stop-sell leg (stop 708.38, price hovering ~708.7) reserves all 16 shares as held_for_orders. close() cancels the leg + retries the DELETE within a 6s window, but Alpaca's cancel->qty_available release appears to take longer than 6s AND/OR the naked-autoprotect sweep re-arms a fresh OCO on an intervening monitor tick, so every close attempt re-hits available:0. This is a real close-path bug that could also strand a REAL alpaca_live position on a slow cancel, not just this paper orphan. CORRECT FIX (deterministic, not another blind retry): after the cancel pre-pass, POLL the position's qty_available (raw /v2/positions/{sym} field, add to AlpacaClient.positions() or a helper) until it == qty before issuing the DELETE, with a longer bound; and/or make the close a persistent 'closing' latch that suppresses the naked re-arm for that (account,symbol) until confirmed flat (not just the same-tick guard). NEEDS order/qty-level broker visibility — consider adding /api/diag/exchange_orders?account_id (read-only, mirrors exchange_positions) to SEE what holds the shares before the next attempt. LOW URGENCY: QQQ is alpaca_paper (is_demo, no real capital) — the live cost is the 'won't flatten' banner/Telegram noise, bounded to every-Nth-failure. Deprioritized behind real-money work per operator.",
       "tier": "tier-2",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260709-MALFORMED-NOTES-LEGACY-REPAIR",
+      "opened_at": "2026-07-09T11:58:25+00:00",
+      "opened_by": "claude (full-system-audit RISK-1 Task 2, 2026-07-09)",
+      "source": "RISK-1 Task 2 residual. The structural fix (BL-20260618) stops NEW malformed-JSON notes and monitors them (INV-6), but pre-fix legacy rows written by the 5 now-removed order_monitor char-slice sites may still carry invalid JSON in trades.notes / order_packages.{signal_logic,meta}. The live count could not be read from the current diag surface (INV-1..5 didn't check json_valid; no arbitrary-SQL diag path) — INV-6, deployed with the fix, will report the legacy `total` on its next hourly run.",
+      "title": "Run the one-shot malformed-notes repair on the live DB (Tier-2)",
+      "description": "Once INV-6 reports total>0 on the live VM, run scripts/ops/repair_malformed_notes.py --apply (Tier-2 DB write) to rewrite the legacy invalid-JSON blobs into valid envelopes (salvaging intact closed_at). Idempotent + dry-run-verified. If INV-6 total==0, close as a no-op. Needs a Tier-2 execution path (operator run, or a new allowlisted system-action) since script execution isn't in the current allowlist.",
+      "tier": 2,
+      "trigger_condition": "INV-6 total_count > 0 on the live VM (visible in the ict-db-integrity journal), or the next /health-review.",
+      "resolution_criteria": "repair_malformed_notes.py --apply run on the live DB with INV-6 total returning to 0, OR INV-6 confirmed total==0 (no-op) and recorded.",
       "status": "open",
       "snoozed_until": null,
       "updates": []
