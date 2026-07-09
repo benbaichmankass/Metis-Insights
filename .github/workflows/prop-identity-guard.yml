@@ -1,0 +1,42 @@
+name: prop-identity guard
+
+# Fails the PR check when code OUTSIDE the seam (src/prop/prop_identity.py)
+# re-derives the "is this account prop?" funding-class classification by
+# string-compare — account_class/type == "prop" anywhere, or exchange ==
+# "breakout" inside src/prop/. That is the drift class that produced
+# BL-20260628-PROP-ISPROP-PREDICATE-DRIFT (three divergent copies, each blind to
+# a different signal). Connector dispatch (exchange == "breakout" in the
+# executor/coordinator) is NOT flagged. See
+# scripts/ci/check_prop_identity_single_home.py.
+#
+# NOT a required status check, so it's safe to trigger-filter with `paths:` —
+# the guard statically scans src/ for out-of-seam classifiers, so it can only
+# change result on a `.py` (or workflow) diff.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+    paths:
+      - "src/**/*.py"
+      - "scripts/ci/check_prop_identity_single_home.py"
+      - ".github/workflows/prop-identity-guard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  prop-identity-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Scan src/ for out-of-seam prop classifiers
+        run: python scripts/ci/check_prop_identity_single_home.py
