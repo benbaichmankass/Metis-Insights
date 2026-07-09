@@ -147,6 +147,38 @@ zombies, and 7 pre-existing backlog system-risks worth escalating.
 - S-AUDIT-H (stale PR/issue closeout) — not started.
 - Apply the B zombie cleanups + G quick-wins + close-outs (Tier-1 batch).
 
+## Phase 4 — structural-fix program (operator directive 2026-07-09: no backlog, no band-aid, verify live)
+
+Elevated standard: every problem across all 3 repos is root-caused + structurally
+fixed + verified LIVE. Tier-3 money-path merges pause for explicit operator OK.
+
+**Determinations made by the lead (unblocking fixes):**
+- **D7 ROADMAP heading is SAFE to retitle.** `roadmap.py:150` matches the milestone
+  table on the substring `"Milestone Roadmap"` (NOT the literal `"M0..M15"`), and the
+  sprint ledger on `"Sprint Ledger"`. So retitle `## M0..M15 Milestone Roadmap` →
+  `## Milestone Roadmap` (keep the substring) + add the M16 row. The earlier
+  "retitle breaks the parser" caution is withdrawn — verified against the parser.
+  Note: filename→milestone rule maps `S-AUDIT-*` → M17 (roadmap.py:63).
+- **RISK-4 (/dev/null clobber) root cause CONFIRMED** (`docs/runbooks/devnull-guard.md`):
+  OCI `oracle-cloud-agent` `oci-wlp` (workload-protection/FIM) remediates
+  world-writable files and clobbers `/dev/null`. 3 self-heal layers already prevent
+  breakage (guard timer + deploy_pull_restart + _lib.sh::require_systemctl). Structural
+  source-kill = exclude `/dev` from the FIM profile on the live VM. Requires a NEW
+  allowlisted system-action (identify via `ausearch -k devnull`, then apply the
+  exclusion) — Tier-2 VM-infra, one operator ack to run the mutating step. Three linked
+  backlog items collapse here: BL-20260629-DEVNULL-OCI-SOURCE-KILL (root),
+  -CLOBBERED-LIVE-VM (symptom), BL-20260706-PROP-REPORT-DEVNULL-NOISE (prop-relay symptom).
+
+**Relay contract note (Tier-1 doc fix):** the `vm-diag-snapshot` relay resolves diag
+paths from the issue **BODY** (one path per line), NOT the title — a prose body is
+rejected as an "illegal path". CLAUDE.md's example implies title=path; clarify the doc.
+
+**Structural-fix agents in flight (2026-07-09):** RISK-1 (reconciler false-close +
+closed-flat integrity), RISK-2 (IB warm-up wedge), RISK-3 (web-api blocking-DB + prop
+auth/idempotency + is_prop predicate), E1-F1 (order-path bypass). Each returns
+root-cause + exact structural fix + regression test + tier + live-verify. Lead
+implements (single-writer), presents Tier-3 for approval, deploys + diag-verifies.
+
 ## Honesty / coverage gaps so far
 - VM/data state NOT yet pulled (direct diag broken per ENV1; issue relay pending in S-AUDIT-D/F).
 - `src/` per-line sweep NOT started (S-AUDIT-E).
