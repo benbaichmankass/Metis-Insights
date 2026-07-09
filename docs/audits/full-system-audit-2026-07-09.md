@@ -179,6 +179,44 @@ auth/idempotency + is_prop predicate), E1-F1 (order-path bypass). Each returns
 root-cause + exact structural fix + regression test + tier + live-verify. Lead
 implements (single-writer), presents Tier-3 for approval, deploys + diag-verifies.
 
+## Structural-fix specs (agent root-causes, verified against code 2026-07-09)
+
+Branch strategy (operator-approved): **separate focused branch per concern off `main`.**
+Tier-1/2 → merge + deploy + live-verify as ready; Tier-3 → draft PR, explicit operator OK.
+
+### RISK-3 Task 1 — async-route event-loop blocking (Tier-1) [BL-20260707-HEALTHAPI-ACCTBAL-BLOCKING-DB]
+- ROOT CLASS: a blocking sqlite/file/subprocess call inside an `async def` FastAPI route runs on uvicorn's single loop → starves ALL requests (why the sync health endpoints failed in the same window as `accounts/balances`).
+- FIX: convert blocking read routes `async def`→`def` (threadpooled) or wrap the blocking call in `await asyncio.to_thread(...)` for routes that must stay async (`prop.post_report`, `devices.register`). Add `PRAGMA busy_timeout=3000` to `prop_journal._connect` + the accounts/db connect helper. Graceful-degrade prop GETs (present:false, not 500). Add `scripts/ci/check_async_route_blocking.py` (AST guard: no blocking primitive in an `async def` route outside to_thread) = permanent class-eliminator.
+- Offenders: `accounts.py:145 get_account_balances`; `prop.py` get_fills/tickets/status/reconcile; `dashboard.py` get_stats/logs/positions/signals (verify no real await); devices GETs. Keep async+to_thread where a real await exists.
+- TESTS: concurrent slow-balances vs health-not-starved; balances degrade on locked DB → 200 present:false; guard self-test. VERIFY: re-pull health/latest+services+balances back-to-back via relay, zero fetch_failed; /api/diag/version = new SHA.
+
+### RISK-3 Task 2 — prop write-auth fail-closed (Tier-1 code + Tier-2 ops) [BL-20260705-DASHBOARD-API-TOKEN-UNSET]
+- ROOT: `_check_admin_token` is permissive-when-unset; POST /api/bot/prop/report (Tier-2 write) is unauthenticated on live VM (token unset).
+- FIX: new `src/web/api/dashboard_auth.py` with `optional_read_token` (permissive, reads) + `require_write_token` (unset→503, bad/missing bearer→401). Apply `require_write_token` to POST /prop/report ONLY. Keep register (Android's write) permissive. SEQUENCING: token must be live FIRST (operator originates DASHBOARD_API_TOKEN value → sync-vm-secrets → dashboard Settings→Secrets → restart web-api), THEN merge fail-closed code. OPERATOR HANDOFF: originate the token value.
+
+### RISK-3 Task 3 — prop fill idempotency (Tier-2) [BL-20260706-PROP-INSERT-FILL-IDEMPOTENCY]
+- ROOT: `prop_journal.insert_fill` blind append → re-report → phantom prop position (live residue: prop_fills id 15/16 same ETH trade).
+- FIX: idempotent upsert on natural key `(account_id, external_order_id, status)` primary / `(account_id, ticket_id, status, qty, exit_price)` fallback + partial unique index `ux_prop_fills_extkey` + direction-synonym normalize (buy→long). Return affected id. One-shot supersede of id 16. TEST: dup re-post count==1; corrective re-post updates in place; distinct status kept.
+
+### RISK-3 Task 4 — is_prop predicate (Tier-1, ALREADY RESOLVED) [BL-20260628-PROP-ISPROP-PREDICATE-DRIFT]
+- All 3 sites already delegate to `src/prop/prop_identity.is_prop_account` (prop_journal._prop_scope, account_rulesets.unit_for_account, telegram_report_handler.default_prop_account); tests/test_prop_identity.py covers account_class:prop-without-breakout. VERIFY-AND-CLOSE + optional cross-site delegation test + a CI guard forbidding a re-inlined `=="breakout"` classifier outside prop_identity.py.
+
+### RISK-1 Task 1 — reconciler absence-inference false-close (Tier-3) [BL-20260707-ALPACA-PAPER-NEGATIVE-EQUITY]
+- VERDICT: specific 2026-07-07 truthiness trigger fixed, but the CLASS is still reachable: a **partial 200** positions() snapshot (some rows visible) bypasses the empty-only balance guard (`clients.py:1283 if not raw_positions:`) → missing symbols read absent → closed; the ≥3 "reset" batch-close (`order_monitor.py:1698,2669-2704`) AMPLIFIES one bad read into N false closes; false-closed rows then get fabricated mark-price PnL (`_sweep_local_pnl_for_unpriced`).
+- FIX: positive PER-SYMBOL confirmation before any absence-close on non-order-status integrations (alpaca/oanda): add `AlpacaClient.position(symbol)`→GET /v2/positions/{symbol} (404=flat present:False / 2xx=open present:True / error=None) + `account_position_present()`; require `is False` to close (order_monitor.py:2646-2667); reset branch becomes alert-first (never auto-close on inference). TESTS: partial snapshot→zero closes; per-symbol 404→close; reset amplifier→zero closes+1 alert; read-fail→no close. Tier-3 (real-money-capable alpaca_live).
+
+### RISK-1 Task 2 — closed-flat malformed JSON (Tier-1 + Tier-2 repair) [BL-20260618-CLOSEDFLAT-MALFORMED-JSON]
+- ROOT: `json.dumps(payload)[:N]` char-slice truncation cuts mid-token → invalid JSON in trades.notes → the whole closed_flat_invariant query aborts ("malformed JSON") → invariant silently blind.
+- MOSTLY FIXED: read-side `CASE WHEN json_valid(notes)` guard + write-side `src/utils/json_notes.dump_capped` at 14+ sites. RESIDUAL (land to close): migrate 4 leftover `json.dumps(...)[:500]` sites — `order_monitor.py:2545,2703,3278,3346` → `dump_capped`; add `scripts/ci/` grep-guard forbidding `json.dumps(...)[:N]`; one-shot `scripts/ops/repair_malformed_notes.py` for rows where `json_valid(notes)=0` (+ order_packages signal_logic/meta). Tier-1 (migrations+guard) / Tier-2 (DB repair). VERIFY: journalctl zero "malformed JSON"; `SELECT COUNT(*) ... json_valid(notes)=0` == 0.
+
+### RISK-2 — IB warm-up wedge (Tier-3) [BL-20260708-IB-WARMUP-WEDGE-RECUR]
+- ROOT: account-data warm-up is a hard connection-CONDEMNING gate in `IBClient.connect()` (order path), but warm-up (reqAccountSummary) proves nothing the order path needs (order path = socket+qualify+placeOrder; RiskManager reads equity from balance_snapshots.json). Warm-up flakiness on a provably-live session trips the breaker → self-perpetuating wedge, strands MES/MGC/MHG; a gateway restart doesn't clear it.
+- FIX (ib_client.py): demote warm-up to best-effort — on failure log + leave `_account_data_ready=False` + RETURN the live handle; never `_trip_breaker`/`_safe_disconnect`/raise (connect() lines ~454-466). Breaker trips ONLY on connect_failed + liveness_probe_timeout. Move the bounded-read guarantee into `balance()` (bound its own accountSummary read via a `_bounded_account_summary` helper, raise IBConnectionError on timeout → callers fall back to DB snapshot). `connection_state()`: report `connected` when probe-live regardless of account_data_ready. Doesn't regress BL-20260706-IBWARMUP/-IBACCTUPDATES-COLLISION/PR#2827. TESTS: warmup-timeout-does-not-condemn (+ place succeeds); liveness-failure-still-condemns; balance-is-bounded; state-connected-without-account-data. VERIFY: force cold reconnect (vm-ib-gateway-recover + restart-bot-service), poll /api/diag/ib_state → exec client reaches connected, no breaker_open/account_warmup_timeout loop; MES/MGC/MHG dispatch resumes.
+
+### E1-F1 — legacy order-path naked-order bypass (Tier-3) [audit E1-F1]
+- ROOT: `pipeline.py` else-branch (~736-754) calls `safe_place_order` with hardcoded qty=1.0, no SL/TP, no RiskManager sizing, no mode gate → on the real Bybit mainnet client a naked ~1 BTC market order. LATENT (builders currently populate SL/TP; MULTI_ACCOUNT_DISPATCH default true) but no invariant guarantees it; reachable via a missing-SL/TP actionable signal or MULTI_ACCOUNT_DISPATCH=false.
+- FIX: REMOVE the divergent live path — replace the else-branch with a journaled REFUSAL (`status:refused`, reason `actionable_signal_missing_sltp` | `multi_account_dispatch_disabled`); drop `_DRY_MODE_PLACEHOLDER_QTY` + the safe_place_order import; KEEP `_multi_account_dispatch_enabled` (3 tests pin it). Confine to pipeline.py + tests. Blast radius: safe_place_order has ONE live caller (this); order_monitor refs are docstrings/detect_only stub. Invert the bug-encoding pin `test_run_pipeline_places_order_when_halt_flag_absent` → assert refusal + client.place_order never called. Tier-3 draft PR. VERIFY: post-deploy audit shows every live order carries SL/TP+sizing; any new `refused:actionable_signal_missing_sltp` row is a caught upstream builder bug.
+
 ## Honesty / coverage gaps so far
 - VM/data state NOT yet pulled (direct diag broken per ENV1; issue relay pending in S-AUDIT-D/F).
 - `src/` per-line sweep NOT started (S-AUDIT-E).
