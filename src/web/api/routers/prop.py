@@ -8,8 +8,10 @@ reads the journal + rule-distance.
 Endpoints:
 
 - ``POST /api/bot/prop/report`` — ingest a fill/close OR account-status report
-  (auto-detected, or set ``kind``). Token-gated via ``DASHBOARD_API_TOKEN`` when
-  set (a write that fires a notification). Fires ``prop_closed`` on a close.
+  (auto-detected, or set ``kind``). **Fail-closed write gate**: requires
+  ``Authorization: Bearer <DASHBOARD_API_TOKEN>``; refuses with 503 when the
+  token is unset (never accepts an unauthenticated write) and 401 on a
+  missing/wrong bearer. Fires ``prop_closed`` on a close.
 - ``GET  /api/bot/prop/fills?account_id=&limit=`` — inbound fills/closes.
 - ``GET  /api/bot/prop/tickets?account_id=&status=&limit=`` — outbound tickets.
 - ``GET  /api/bot/prop/status?account_id=`` — latest account-status snapshot +
@@ -35,15 +37,26 @@ router = APIRouter(prefix="/api/bot/prop", tags=["prop"])
 _DEFAULT_ACCOUNT = "breakout_1"
 
 
-def _check_admin_token(authorization: str | None) -> None:
-    """Enforce ``Authorization: Bearer <DASHBOARD_API_TOKEN>`` when set.
+def _require_write_token(authorization: str | None) -> None:
+    """Fail-closed bearer gate for the prop **write** route.
 
-    Permissive default (matches the rest of the dashboard API): returns
-    silently when the env var is unset; 401 on present-but-wrong bearer.
+    ``POST /api/bot/prop/report`` is a Tier-2 write (DB write + notification),
+    so unlike the permissive read surface it must never accept an
+    *unauthenticated* write. When ``DASHBOARD_API_TOKEN`` is unset the route
+    refuses with **503** (fail-closed) rather than silently accepting anonymous
+    writes — so a dropped ``.env`` value (e.g. a VM migration) can never
+    reopen an anonymous write hole (BL-20260705-DASHBOARD-API-TOKEN-UNSET).
+    A missing / mis-scheme / wrong bearer is **401**.
+
+    (The earlier permissive-when-unset ``_check_admin_token`` was the hole:
+    with the token unset on the live VM the write path was unauthenticated.)
     """
     expected = os.environ.get("DASHBOARD_API_TOKEN", "").strip()
     if not expected:
-        return
+        raise HTTPException(
+            status_code=503,
+            detail="prop report endpoint is not configured to accept writes",
+        )
     if not authorization:
         raise HTTPException(status_code=401, detail="missing authorization")
     if not authorization.lower().startswith("bearer "):
@@ -58,7 +71,7 @@ async def post_report(
     authorization: str | None = Header(default=None),
 ) -> dict[str, Any]:
     """Ingest a prop fill/close or account-status report-back."""
-    _check_admin_token(authorization)
+    _require_write_token(authorization)
     try:
         body = await request.json()
     except (ValueError, TypeError) as exc:
