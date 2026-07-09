@@ -21,6 +21,7 @@ The read endpoints are Tier-1; the POST is Tier-2 (a DB write + notification).
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from typing import Any
@@ -68,7 +69,11 @@ async def post_report(
     from src.prop.prop_report import ingest_report
 
     try:
-        return ingest_report(body)
+        # Offload the blocking DB write + notification to a worker thread so it
+        # never runs on uvicorn's event loop; this route stays async for
+        # ``await request.json()`` above (RISK-3,
+        # BL-20260707-HEALTHAPI-ACCTBAL-BLOCKING-DB).
+        return await asyncio.to_thread(ingest_report, body)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001  # allow-silent: re-raises as HTTP 500 after logging the stack
@@ -77,17 +82,24 @@ async def post_report(
 
 
 @router.get("/fills")
-async def get_fills(account_id: str | None = None, limit: int = 100) -> dict[str, Any]:
+def get_fills(account_id: str | None = None, limit: int = 100) -> dict[str, Any]:
+    # Sync route → FastAPI runs it in a threadpool, so the blocking DB read
+    # never touches uvicorn's event loop. Graceful-degrade to a present:false
+    # envelope on any read error (a locked/absent DB is degraded, not a 500).
     from src.prop import prop_journal
 
     limit = max(1, min(int(limit), 500))
-    rows = prop_journal.list_fills(account_id=account_id, limit=limit)
-    return {"present": bool(prop_journal.tables_present()), "count": len(rows),
-            "fills": rows}
+    try:
+        rows = prop_journal.list_fills(account_id=account_id, limit=limit)
+        return {"present": bool(prop_journal.tables_present()), "count": len(rows),
+                "fills": rows}
+    except Exception:  # noqa: BLE001  # allow-silent: degrade to present:false, not a 500
+        logger.warning("prop: /fills read failed; degrading to present:false", exc_info=True)
+        return {"present": False, "count": 0, "fills": []}
 
 
 @router.get("/tickets")
-async def get_tickets(
+def get_tickets(
     account_id: str | None = None, status: str | None = None, limit: int = 100,
 ) -> dict[str, Any]:
     from src.prop import prop_journal
@@ -96,40 +108,55 @@ async def get_tickets(
     # Canonical view: project over order_packages (every prop decision is
     # journaled there) enriched by the prop_tickets sidecar — NOT the sidecar
     # alone, so tickets emitted before the sidecar existed still appear.
-    rows = prop_journal.list_outbound_tickets(
-        account_id=account_id, status=status, limit=limit)
-    return {"present": bool(rows) or bool(prop_journal.tables_present()),
-            "count": len(rows), "tickets": rows}
+    try:
+        rows = prop_journal.list_outbound_tickets(
+            account_id=account_id, status=status, limit=limit)
+        return {"present": bool(rows) or bool(prop_journal.tables_present()),
+                "count": len(rows), "tickets": rows}
+    except Exception:  # noqa: BLE001  # allow-silent: degrade to present:false, not a 500
+        logger.warning("prop: /tickets read failed; degrading to present:false", exc_info=True)
+        return {"present": False, "count": 0, "tickets": []}
 
 
 @router.get("/status")
-async def get_status(account_id: str | None = None) -> dict[str, Any]:
+def get_status(account_id: str | None = None) -> dict[str, Any]:
     from src.prop import prop_journal, prop_reconcile
 
     acct = account_id or _DEFAULT_ACCOUNT
-    snapshot = prop_journal.latest_account_status(acct)
-    rule_distance = prop_reconcile.compute_rule_distance(acct, snapshot)
-    return {
-        "account_id": acct,
-        "present": snapshot is not None,
-        "status": snapshot,
-        "rule_distance": rule_distance,
-    }
+    try:
+        snapshot = prop_journal.latest_account_status(acct)
+        rule_distance = prop_reconcile.compute_rule_distance(acct, snapshot)
+        return {
+            "account_id": acct,
+            "present": snapshot is not None,
+            "status": snapshot,
+            "rule_distance": rule_distance,
+        }
+    except Exception:  # noqa: BLE001  # allow-silent: degrade to present:false, not a 500
+        logger.warning("prop: /status read failed; degrading to present:false", exc_info=True)
+        return {"account_id": acct, "present": False, "status": None,
+                "rule_distance": None}
 
 
 @router.get("/reconcile")
-async def get_reconcile(account_id: str | None = None) -> dict[str, Any]:
+def get_reconcile(account_id: str | None = None) -> dict[str, Any]:
     from src.prop import prop_journal, prop_reconcile
 
-    unacted = prop_reconcile.find_unacted_tickets(account_id=account_id)
-    all_tickets = prop_journal.list_tickets(account_id=account_id, limit=500)
-    fills = prop_journal.list_fills(account_id=account_id, limit=500)
-    return {
-        "present": bool(prop_journal.tables_present()),
-        "summary": {
-            "tickets_total": len(all_tickets),
-            "fills_total": len(fills),
-            "unacted_count": len(unacted),
-        },
-        "unacted_tickets": unacted,
-    }
+    try:
+        unacted = prop_reconcile.find_unacted_tickets(account_id=account_id)
+        all_tickets = prop_journal.list_tickets(account_id=account_id, limit=500)
+        fills = prop_journal.list_fills(account_id=account_id, limit=500)
+        return {
+            "present": bool(prop_journal.tables_present()),
+            "summary": {
+                "tickets_total": len(all_tickets),
+                "fills_total": len(fills),
+                "unacted_count": len(unacted),
+            },
+            "unacted_tickets": unacted,
+        }
+    except Exception:  # noqa: BLE001  # allow-silent: degrade to present:false, not a 500
+        logger.warning("prop: /reconcile read failed; degrading to present:false", exc_info=True)
+        return {"present": False,
+                "summary": {"tickets_total": 0, "fills_total": 0, "unacted_count": 0},
+                "unacted_tickets": []}

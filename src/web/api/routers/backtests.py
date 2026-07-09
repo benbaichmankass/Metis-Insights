@@ -141,7 +141,7 @@ def _query_backtests(
 
 
 @router.get("/backtests")
-async def get_backtests(
+def get_backtests(
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     strategy: Optional[str] = Query(None, max_length=64),
 ) -> List[Dict[str, Any]]:
@@ -234,7 +234,7 @@ def _sweep_to_wire(sweep_dir: Path) -> Dict[str, Any]:
 
 
 @router.get("/backtests/sweeps")
-async def get_backtest_sweeps(
+def get_backtest_sweeps(
     limit: int = Query(SWEEPS_DEFAULT_LIMIT, ge=1, le=SWEEPS_MAX_LIMIT),
 ) -> Dict[str, Any]:
     """Return the mirrored strategy-improvement / validation backtest sweeps.

@@ -27,6 +27,7 @@ tables.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -137,49 +138,20 @@ def _normalize_subscriptions(value: Any) -> str | None:
     )
 
 
-@router.post("/register")
-async def register_device(request: Request) -> dict[str, Any]:
-    """Upsert a device by FCM token.
+def _upsert_device_row(
+    token: str, platform: str, label: str | None, subscriptions: str | None,
+) -> tuple[Any, bool]:
+    """Blocking table-ensure + idempotent upsert, isolated for ``to_thread``.
 
-    Request JSON: ``{token, platform?, label?, subscriptions?}``.
-
-    Returns ``{id, token_suffix, platform, label, subscriptions,
-    created_at, last_seen_at, is_new}`` where ``token_suffix`` is the
-    last 8 chars of the token (full token is never echoed back; the
-    caller already has it).
+    Returns ``(row, is_new)`` where *row* is
+    ``(id, platform, label, subscriptions, created_at, last_seen_at)``.
     """
-    try:
-        body = await request.json()
-    except (ValueError, TypeError) as exc:
-        raise HTTPException(status_code=400, detail="invalid JSON") from exc
-    if not isinstance(body, dict):
-        raise HTTPException(status_code=400, detail="body must be a JSON object")
-
-    token = (body.get("token") or "").strip()
-    if not token:
-        raise HTTPException(status_code=400, detail="token required")
-    if len(token) > _MAX_TOKEN_LEN:
-        raise HTTPException(status_code=400, detail="token too long")
-
-    platform = (body.get("platform") or "android").strip().lower()
-    if platform not in _ALLOWED_PLATFORMS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"platform must be one of: {sorted(_ALLOWED_PLATFORMS)}",
-        )
-
-    label = body.get("label")
-    if label is not None:
-        if not isinstance(label, str):
-            raise HTTPException(status_code=400, detail="label must be a string")
-        label = label.strip()[:_MAX_LABEL_LEN] or None
-
-    subscriptions = _normalize_subscriptions(body.get("subscriptions"))
-
     _ensure_device_tokens_table_exists()
     db_path = _resolve_db_path()
     conn = sqlite3.connect(db_path)
     try:
+        # A locked DB waits up to 3s rather than raising immediately.
+        conn.execute("PRAGMA busy_timeout=3000")
         cur = conn.execute(
             "SELECT id, created_at FROM device_tokens WHERE token = ?",
             (token,),
@@ -222,6 +194,54 @@ async def register_device(request: Request) -> dict[str, Any]:
         ).fetchone()
     finally:
         conn.close()
+    return row, is_new
+
+
+@router.post("/register")
+async def register_device(request: Request) -> dict[str, Any]:
+    """Upsert a device by FCM token.
+
+    Request JSON: ``{token, platform?, label?, subscriptions?}``.
+
+    Returns ``{id, token_suffix, platform, label, subscriptions,
+    created_at, last_seen_at, is_new}`` where ``token_suffix`` is the
+    last 8 chars of the token (full token is never echoed back; the
+    caller already has it).
+    """
+    try:
+        body = await request.json()
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail="invalid JSON") from exc
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="body must be a JSON object")
+
+    token = (body.get("token") or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="token required")
+    if len(token) > _MAX_TOKEN_LEN:
+        raise HTTPException(status_code=400, detail="token too long")
+
+    platform = (body.get("platform") or "android").strip().lower()
+    if platform not in _ALLOWED_PLATFORMS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"platform must be one of: {sorted(_ALLOWED_PLATFORMS)}",
+        )
+
+    label = body.get("label")
+    if label is not None:
+        if not isinstance(label, str):
+            raise HTTPException(status_code=400, detail="label must be a string")
+        label = label.strip()[:_MAX_LABEL_LEN] or None
+
+    subscriptions = _normalize_subscriptions(body.get("subscriptions"))
+
+    # Offload the blocking table-ensure + upsert to a worker thread; this route
+    # stays async for ``await request.json()`` above but the DB work must not
+    # run on uvicorn's event loop (RISK-3, BL-20260707-HEALTHAPI-ACCTBAL-BLOCKING-DB).
+    row, is_new = await asyncio.to_thread(
+        _upsert_device_row, token, platform, label, subscriptions,
+    )
 
     return {
         "id": row[0],
@@ -236,7 +256,7 @@ async def register_device(request: Request) -> dict[str, Any]:
 
 
 @router.get("/event-kinds")
-async def get_event_kinds() -> dict[str, Any]:
+def get_event_kinds() -> dict[str, Any]:
     """Return the canonical event-kind taxonomy.
 
     Used by the Android Notifications screen to populate per-kind toggles
@@ -270,7 +290,7 @@ async def get_event_kinds() -> dict[str, Any]:
 
 
 @router.get("")
-async def list_devices(
+def list_devices(
     authorization: str | None = Header(default=None),
 ) -> dict[str, Any]:
     """List registered devices.
@@ -284,6 +304,7 @@ async def list_devices(
     db_path = _resolve_db_path()
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
+        conn.execute("PRAGMA busy_timeout=3000")
         rows = conn.execute(
             """
             SELECT id, token, platform, label, subscriptions,
@@ -310,7 +331,7 @@ async def list_devices(
 
 
 @router.delete("/{device_id}")
-async def revoke_device(
+def revoke_device(
     device_id: int,
     authorization: str | None = Header(default=None),
 ) -> dict[str, Any]:
@@ -320,6 +341,7 @@ async def revoke_device(
     db_path = _resolve_db_path()
     conn = sqlite3.connect(db_path)
     try:
+        conn.execute("PRAGMA busy_timeout=3000")
         cur = conn.execute(
             "DELETE FROM device_tokens WHERE id = ?",
             (device_id,),
@@ -331,6 +353,23 @@ async def revoke_device(
     if deleted == 0:
         raise HTTPException(status_code=404, detail="device not found")
     return {"id": device_id, "deleted": True}
+
+
+def _update_device_subscriptions(device_id: int, subscriptions: str | None) -> int:
+    """Blocking subscriptions write, isolated for ``to_thread``. Returns rowcount."""
+    _ensure_device_tokens_table_exists()
+    db_path = _resolve_db_path()
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute("PRAGMA busy_timeout=3000")
+        cur = conn.execute(
+            "UPDATE device_tokens SET subscriptions = ? WHERE id = ?",
+            (subscriptions, device_id),
+        )
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
 
 
 @router.patch("/{device_id}/subscriptions")
@@ -352,18 +391,11 @@ async def update_subscriptions(
         )
     subscriptions = _normalize_subscriptions(body["subscriptions"])
 
-    _ensure_device_tokens_table_exists()
-    db_path = _resolve_db_path()
-    conn = sqlite3.connect(db_path)
-    try:
-        cur = conn.execute(
-            "UPDATE device_tokens SET subscriptions = ? WHERE id = ?",
-            (subscriptions, device_id),
-        )
-        conn.commit()
-        updated = cur.rowcount
-    finally:
-        conn.close()
+    # Offload the blocking write to a worker thread; this route stays async
+    # for ``await request.json()`` above (RISK-3, BL-20260707-HEALTHAPI-ACCTBAL-BLOCKING-DB).
+    updated = await asyncio.to_thread(
+        _update_device_subscriptions, device_id, subscriptions,
+    )
     if updated == 0:
         raise HTTPException(status_code=404, detail="device not found")
     return {

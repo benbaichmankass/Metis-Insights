@@ -142,7 +142,7 @@ def _from_json() -> Dict[str, Any]:
 
 
 @router.get("/accounts/balances")
-async def get_account_balances() -> Dict[str, Any]:
+def get_account_balances() -> Dict[str, Any]:
     """Return the most recent per-account balance snapshot.
 
     DB-authoritative (``balance_snapshots`` table), with the legacy JSON
