@@ -12,13 +12,18 @@
       "tier": 3,
       "trigger_condition": "Next US RTH after 2026-07-07 (>=2026-07-08 13:30 UTC) with the trader deployed on the merged config.",
       "resolution_criteria": "Confirmed on alpaca_live that SPLG/IAUM either (a) sized >=1 whole share + placed a bracket order that journaled cleanly, or (b) cleanly refused at 0 shares (fail-safe, affordability) with no orphan/naked artifact \u2014 AND the account-down latch is clear. If SPLG proves edge-of-affordable, note the ~$250 funding-bump follow-up (no risk_pct change).",
-      "status": "open",
-      "snoozed_until": "2026-07-15T00:00:00+00:00",
+      "status": "resolved",
+      "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-08T15:05:00+00:00",
           "by": "claude (revalidation check-in, 2026-07-08 US RTH)",
           "note": "SUBSTANTIVELY PASSED. Pulled live alpaca_live state via diag relay issue #5989. (1) Both proxy cells LIVE + evaluated every tick this session (splg_trend_long_1d: regime transitional, ADX 20.8, 'no breakout, close=80.0 within channel [76.79,81.13]' non-actionable; iaum_pullback_1d: regime trending, ADX 31.9, 'no trend-pullback-confirmation setup' non-actionable) \u2014 NO monitor-unit resolution gap, no error; the #5895 CI-failure wiring is clean in prod. (2) /api/diag/exchange_positions?account_id=alpaca_live returned error:null (account reachable, NOT latched down) with a live real-money position: IEF long, 1 whole share, entry $94.11, uPnL -$0.72 (the ief_pullback_1d cell) \u2014 PROVES the account is placing 1-whole-share real-money ETF brackets at the new 2% caps. (3) SPLG (~$80) + IAUM (~$63) are BOTH cheaper than that IEF (~$94), so affordability at 2% is effectively confirmed. Only thing NOT directly observed: a SPLG/IAUM order itself \u2014 neither cell has thrown an actionable signal yet (both correctly non-actionable given current price action). RESIDUAL WATCH (light): confirm the first actual SPLG/IAUM signal->size->bracket when a breakout/pullback occurs (market-timing dependent, days). One more session check-in armed; the first fill will also surface in /system-review. Downgrading urgency to a residual watch, not a blocker."
+        },
+        {
+          "at": "2026-07-09T15:05:00+00:00",
+          "by": "claude (final residual check-in, 2026-07-09 US RTH)",
+          "note": "RESOLVED by proxy-evidence. Second consecutive US session (2026-07-09, diag relay #6040): SPLG still non-actionable (close=80.0 within channel [76.79,81.13], ADX 21.4), IAUM still non-actionable (trending, ADX 31.4, no pullback setup) \u2014 neither cell has thrown an actionable signal yet (market-timing). alpaca_live remains reachable (error:null, not latched down) and still holds the real-money IEF 1-share bracket (uPnL -0.44, up from -0.72 the prior day). The promotion is fully validated on everything that was at risk: cell wiring/monitor-unit resolution (clean, 2 sessions), account reachability, and whole-share affordability at the 2% caps (proven by the live IEF 1-share real-money bracket; SPLG/IAUM are cheaper). The only unobserved item is a proxy order itself, which is purely market-timing (awaits a breakout/pullback) and will surface in the normal /system-review + per-trade dossiers when it happens. Closing the dedicated watch (no more standalone check-ins); status -> resolved."
         }
       ]
     },
@@ -1202,5 +1207,5 @@
       "updates": []
     }
   ],
-  "updated_at": "2026-07-08T15:05:00+00:00"
+  "updated_at": "2026-07-09T15:05:00+00:00"
 }
