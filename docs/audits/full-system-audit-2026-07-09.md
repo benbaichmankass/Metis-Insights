@@ -141,7 +141,7 @@ zombies, and 7 pre-existing backlog system-risks worth escalating.
   7. **BL-20260707-HEALTHAPI-ACCTBAL-BLOCKING-DB** (T1) — `/api/bot/health/*` + `/accounts/balances` intermittently non-200 under a blocking DB read.
 
 ### Pending (this program, not yet done)
-- ROADMAP D7 (add M16 row) + D8 (fix "Active milestone queue" staleness). **D7 caution:** the `/api/bot/roadmap` parser keys on the literal "## M0..M15 Milestone Roadmap" heading — verify roadmap.py before retitling (retitle = coordinated code+doc change, or keep heading + just add the M16 row).
+- ~~ROADMAP D7 (add M16 row) + D8 (fix "Active milestone queue" staleness).~~ **DONE 2026-07-09 (#6063 `59425fd`)** — retitled `## M0..M15 Milestone Roadmap` → `## Milestone Roadmap` (substring-safe per the Phase-4 determination), added the M16 row, refreshed the active queue; parser docstring + `CLAUDE.md` prose mirror updated in the same PR.
 - Diag relays in flight: #6017 (snapshot), #6018 (db_info), #6019 (trainer) — S-AUDIT-D/F.
 - S-AUDIT-E further slices (E2+: reconciler bodies in order_monitor.py, signal builders, web/api routers, prop/, ml/) — E1 covered the core money path only.
 - S-AUDIT-H (stale PR/issue closeout) — not started.
