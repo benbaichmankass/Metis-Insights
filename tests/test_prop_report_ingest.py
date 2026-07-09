@@ -298,12 +298,20 @@ def test_unacted_ticket_fill_match_is_account_scoped(isolated_db: Path) -> None:
 # ── REST router ───────────────────────────────────────────────────────
 
 def test_router_post_report_and_reads(
-    client: TestClient, isolated_db: Path, no_notify: list
+    client: TestClient, isolated_db: Path, no_notify: list,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    r = client.post("/api/bot/prop/report", json={
-        "account_id": "breakout_1", "symbol": "SOLUSDT", "direction": "long",
-        "status": "closed", "pnl": 42.0, "exit_price": 80.0,
-    })
+    # The write gate is fail-closed: authenticate the POST. (Reads below stay
+    # unauthenticated — the read surface is intentionally permissive.)
+    monkeypatch.setenv("DASHBOARD_API_TOKEN", "secret")
+    r = client.post(
+        "/api/bot/prop/report",
+        headers={"Authorization": "Bearer secret"},
+        json={
+            "account_id": "breakout_1", "symbol": "SOLUSDT", "direction": "long",
+            "status": "closed", "pnl": 42.0, "exit_price": 80.0,
+        },
+    )
     assert r.status_code == 200, r.text
     assert r.json()["ok"] is True
 
