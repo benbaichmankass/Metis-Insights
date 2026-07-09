@@ -14,7 +14,7 @@ import json
 
 import pytest
 
-from src.utils.json_notes import dump_capped
+from src.utils.json_notes import dump_capped, sanitize_nonfinite
 
 
 def test_short_payload_passthrough():
@@ -120,3 +120,47 @@ def test_ensure_ascii_passthrough_for_unicode():
     parsed = json.loads(out)
     assert len(out) <= 200
     assert parsed["_truncated"] is True
+
+
+def test_nonfinite_floats_become_null_and_stay_valid():
+    """The other json.dumps footgun: NaN/Infinity/-Infinity are emitted as bare
+    tokens (invalid JSON, json_valid=0). dump_capped maps them to null — the
+    BL-20260709 root cause (a std_dev/z-score with a zero denominator)."""
+    obj = {
+        "strategy_name": "vwap",
+        "std_dev": 0.0,          # a finite zero survives as-is
+        "deviation": float("nan"),
+        "up": float("inf"),
+        "down": float("-inf"),
+    }
+    out = dump_capped(obj, 2000)
+    # Demonstrate the footgun: the old json.dumps default emits the bare tokens
+    # NaN/Infinity (Python's own json.loads is lenient and accepts them, but a
+    # STRICT parser — and sqlite json_valid() — rejects them). dump_capped must
+    # never emit those tokens.
+    assert "NaN" in json.dumps(obj) and "Infinity" in json.dumps(obj)
+    assert "NaN" not in out and "Infinity" not in out
+    parsed = json.loads(out)          # dump_capped output ALWAYS parses
+    assert parsed["strategy_name"] == "vwap"
+    assert parsed["std_dev"] == 0.0
+    assert parsed["deviation"] is None
+    assert parsed["up"] is None
+    assert parsed["down"] is None
+    # strict=True (the json_valid() equivalent) also accepts it.
+    assert json.loads(out) == parsed
+
+
+def test_nonfinite_nested_in_list_and_dict():
+    obj = {"rows": [{"z": float("nan")}, {"z": 1.5}], "top": float("inf")}
+    parsed = json.loads(dump_capped(obj, 2000))
+    assert parsed["rows"][0]["z"] is None
+    assert parsed["rows"][1]["z"] == 1.5
+    assert parsed["top"] is None
+
+
+def test_sanitize_nonfinite_is_noop_on_finite_data():
+    obj = {"a": 1, "b": 2.5, "c": "x", "d": [1, 2, {"e": 3.0}], "f": True, "g": None}
+    # Structure + values identical; only the container types are rebuilt.
+    assert sanitize_nonfinite(obj) == obj
+    # And the serialization is byte-identical to a plain dumps (passthrough).
+    assert dump_capped(obj, 2000) == json.dumps(obj, ensure_ascii=False, default=str)

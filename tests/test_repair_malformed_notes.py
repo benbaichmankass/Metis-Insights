@@ -37,6 +37,16 @@ def _make_db(path: str) -> None:
         "INSERT INTO order_packages (order_package_id, signal_logic, meta) VALUES (?, ?, ?)",
         ("pkg-abc123", op_truncated, '{"killzone": "ny", "ok": true}'),  # meta already valid
     )
+    # A COMPLETE-but-non-finite signal_logic — the dominant BL-20260709 case: a
+    # std_dev / z-score with a zero denominator serialized by the old
+    # json.dumps default emits the bare token NaN (invalid JSON). This is
+    # LOSSLESSLY repairable (re-dump with NaN→null), NOT a truncation.
+    op_nonfinite = ('{"strategy_name": "vwap", "vwap": 77114.58, '
+                    '"std_dev": 0.0, "deviation": NaN, "z": Infinity}')
+    conn.execute(
+        "INSERT INTO order_packages (order_package_id, signal_logic, meta) VALUES (?, ?, ?)",
+        ("pkg-nonfinite", op_nonfinite, '{"ok": true}'),
+    )
     conn.commit()
     conn.close()
 
@@ -53,7 +63,8 @@ def test_finds_only_the_malformed_row(tmp_path):
     # are found — the latter proves the rowid fix (order_packages has no `id`).
     assert set(found.keys()) == {"trades.notes", "order_packages.signal_logic"}
     assert [rowid for rowid, _ in found["trades.notes"]] == [1]
-    assert len(found["order_packages.signal_logic"]) == 1
+    # Both the truncated AND the non-finite signal_logic rows are found.
+    assert len(found["order_packages.signal_logic"]) == 2
 
 
 def test_dry_run_does_not_write(tmp_path):
@@ -107,5 +118,23 @@ def test_apply_repairs_and_is_idempotent(tmp_path):
     op_repaired = json.loads(op_sig)
     assert op_repaired["_repair_reason"].startswith("json_valid=0")
     assert op_repaired["_original_truncated"].startswith('{"setup_type": "breakout"')
+    # The COMPLETE-but-non-finite row is repaired LOSSLESSLY: every field is
+    # preserved (not dumped into _original_truncated), the non-finite floats
+    # become null, and the blob is now valid JSON.
+    conn3 = sqlite3.connect(db)
+    try:
+        nf_sig = conn3.execute(
+            "SELECT signal_logic FROM order_packages WHERE order_package_id='pkg-nonfinite'"
+        ).fetchone()[0]
+    finally:
+        conn3.close()
+    nf = json.loads(nf_sig)
+    assert nf["strategy_name"] == "vwap"        # structure preserved
+    assert nf["vwap"] == 77114.58               # finite value untouched
+    assert nf["std_dev"] == 0.0
+    assert nf["deviation"] is None              # NaN → null
+    assert nf["z"] is None                      # Infinity → null
+    assert "_original_truncated" not in nf      # NOT the destructive salvage path
+    assert nf["_repair_reason"].startswith("json_valid=0")
     # Idempotent: a second apply finds nothing to do.
     assert repair(db, apply=True) == 0
