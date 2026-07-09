@@ -41,6 +41,26 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# Direction synonyms → canonical long/short. A prop fill/close may be reported
+# as buy/sell (broker verb) or long/short (position side); normalizing on write
+# keeps prop_fills canonical AND lets a synonym re-report of the same trade
+# match its earlier row for idempotency (BL-20260706-PROP-INSERT-FILL-IDEMPOTENCY /
+# BL-20260705-PROP-DIRECTION-SYNONYM-MATCH — the buy(id15)/long(id16) double-log).
+_DIRECTION_SYNONYMS = {
+    "buy": "long", "b": "long", "long": "long",
+    "sell": "short", "s": "short", "short": "short",
+}
+
+
+def _normalize_direction(direction: Any) -> Optional[str]:
+    if direction is None:
+        return None
+    key = str(direction).strip().lower()
+    if not key:
+        return None
+    return _DIRECTION_SYNONYMS.get(key, key)
+
+
 def _db_path() -> str:
     from src.utils.paths import trade_journal_db_path
 
@@ -393,13 +413,90 @@ def list_outbound_tickets(
 # ── Inbound fills ─────────────────────────────────────────────────────
 
 def insert_fill(fill: Dict[str, Any]) -> int:
-    """Insert one inbound fill/close report; returns the new row id."""
+    """Insert one inbound fill/close report; returns the affected row id.
+
+    **Idempotent** (BL-20260706-PROP-INSERT-FILL-IDEMPOTENCY): a re-reported
+    fill — an operator re-report, a corrective re-report, or a relay retry —
+    UPDATES the existing row in place instead of appending a duplicate (the
+    prop_fills id 15/16 same-ETH-trade double-log). The natural key is
+    ``(account_id, external_order_id, status)`` when ``external_order_id`` is
+    present, else ``(account_id, ticket_id, status, qty, exit_price)``.
+    ``direction`` is normalized to long/short so a buy/sell synonym re-report
+    still matches its earlier row. Returns the existing id on update, the new
+    id on insert. When neither key part is present the fill can't be de-duped,
+    so it falls back to a plain append (unchanged pre-fix behaviour).
+
+    (Idempotency is enforced here at the application layer rather than a UNIQUE
+    index because the live prop_fills already holds pre-fix duplicates that a
+    unique constraint could not be created over until they are superseded — a
+    separate one-shot cleanup. This guard stops NEW duplicates immediately and
+    needs no schema migration.)
+    """
     account_id = str(fill.get("account_id") or "").strip()
     if not account_id:
         raise ValueError("insert_fill needs account_id")
+
+    status = str(fill.get("status") or "closed")
+    direction = _normalize_direction(fill.get("direction"))
+    ext = fill.get("external_order_id")
+    ext = str(ext).strip() if ext not in (None, "") else None
+    ticket_id = fill.get("ticket_id")
+    ticket_id = str(ticket_id).strip() if ticket_id not in (None, "") else None
+    qty = _f(fill.get("qty"))
+    exit_price = _f(fill.get("exit_price"))
+    now = _now_iso()
+    raw = json.dumps(fill.get("raw")) if fill.get("raw") is not None else None
+
+    # Mutable columns (everything except account_id / created_at), in the order
+    # shared by the UPDATE SET list and the INSERT column list below.
+    mutable = (
+        ticket_id, ext, fill.get("symbol"), direction,
+        qty, _f(fill.get("entry_price")), exit_price,
+        _f(fill.get("sl")), _f(fill.get("tp")),
+        _f(fill.get("pnl")), _f(fill.get("pnl_percent")), status,
+        fill.get("reason"), fill.get("opened_at"), fill.get("closed_at"),
+        now, raw,
+    )
+
     conn = _connect()
     try:
         ensure_tables(conn)
+
+        # Locate an existing row by the natural key (idempotency). `IS` is used
+        # (not `=`) so a NULL qty/exit_price in the fallback key matches a NULL.
+        existing_id: Optional[int] = None
+        if ext is not None:
+            r = conn.execute(
+                "SELECT id FROM prop_fills WHERE account_id=? AND "
+                "external_order_id=? AND status=? ORDER BY id DESC LIMIT 1",
+                (account_id, ext, status),
+            ).fetchone()
+            if r:
+                existing_id = int(r[0])
+        elif ticket_id is not None:
+            r = conn.execute(
+                "SELECT id FROM prop_fills WHERE account_id=? AND ticket_id=? AND "
+                "status=? AND qty IS ? AND exit_price IS ? ORDER BY id DESC LIMIT 1",
+                (account_id, ticket_id, status, qty, exit_price),
+            ).fetchone()
+            if r:
+                existing_id = int(r[0])
+
+        if existing_id is not None:
+            conn.execute(
+                """
+                UPDATE prop_fills SET
+                    ticket_id=?, external_order_id=?, symbol=?, direction=?,
+                    qty=?, entry_price=?, exit_price=?, sl=?, tp=?, pnl=?,
+                    pnl_percent=?, status=?, reason=?, opened_at=?, closed_at=?,
+                    reported_at=?, raw=?
+                WHERE id=?
+                """,
+                mutable + (existing_id,),
+            )
+            conn.commit()
+            return existing_id
+
         cur = conn.execute(
             """
             INSERT INTO prop_fills
@@ -408,18 +505,7 @@ def insert_fill(fill: Dict[str, Any]) -> int:
                  reason, opened_at, closed_at, reported_at, raw, created_at)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
-            (
-                account_id, fill.get("ticket_id"), fill.get("external_order_id"),
-                fill.get("symbol"), fill.get("direction"),
-                _f(fill.get("qty")), _f(fill.get("entry_price")),
-                _f(fill.get("exit_price")), _f(fill.get("sl")), _f(fill.get("tp")),
-                _f(fill.get("pnl")), _f(fill.get("pnl_percent")),
-                str(fill.get("status") or "closed"), fill.get("reason"),
-                fill.get("opened_at"), fill.get("closed_at"),
-                _now_iso(),
-                json.dumps(fill.get("raw")) if fill.get("raw") is not None else None,
-                _now_iso(),
-            ),
+            (account_id,) + mutable + (now,),
         )
         conn.commit()
         return int(cur.lastrowid)
