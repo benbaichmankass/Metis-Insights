@@ -87,16 +87,15 @@ def test_submitted_logs_info_no_telegram(reporter, tmp_path):
     assert not reporter.outcomes_log.exists()
 
 
-def test_failed_exchange_pages_operator(reporter):
-    """Exchange exception → ERROR outcome → telegram.
-
-    Force the legacy single-client path (MULTI_ACCOUNT_DISPATCH=false) so
-    the injected _BoomClient is actually invoked via safe_place_order.
-    With a full SL/TP signal the default path goes through Coordinator
-    (multi-account fast-path) which doesn't use the exchange_client arg
-    directly — pinning MULTI_ACCOUNT_DISPATCH=false keeps this test on the
-    code-path that exercises the exchange_client injection contract.
-    """
+def test_dispatch_disabled_refuses_and_never_touches_exchange(reporter):
+    """E1-F1 (full-system audit 2026-07-09): with MULTI_ACCOUNT_DISPATCH
+    pinned off, a full-SL/TP actionable signal reaches the legacy
+    single-client branch. That branch used to invoke the injected exchange
+    client (here a _BoomClient that raises) via safe_place_order — the exact
+    live-money bypass being removed. It now REFUSES (``status:refused`` reason
+    ``multi_account_dispatch_disabled``): the _BoomClient is never called (no
+    RuntimeError escapes), and a refusal is INFO — no ERROR page, nothing
+    persisted to the WARN+ outcomes log."""
     with patch("src.runtime.pipeline.os.path.exists", return_value=False), \
             patch("src.runtime.outcomes._Reporter._send_telegram_or_queue") as send:
         result = run_pipeline(
@@ -104,15 +103,11 @@ def test_failed_exchange_pages_operator(reporter):
             exchange_client=_BoomClient(),
             signal_builder=_signal_stub(_ACTIONABLE),
         )
-    assert result["order_result"]["status"] == "failed_exchange"
-    send.assert_called_once()
-    msg = send.call_args[0][0]
-    assert "[ERROR]" in msg
-    assert "pipeline_order" in msg
-    assert "failed_exchange" in msg
-    # And persisted
-    lines = reporter.outcomes_log.read_text().splitlines()
-    assert any("failed_exchange" in line for line in lines)
+    assert result["order_result"]["status"] == "refused"
+    assert result["order_result"]["reason"] == "multi_account_dispatch_disabled"
+    # Refusal is INFO → no operator page, nothing in the WARN+ log.
+    send.assert_not_called()
+    assert not reporter.outcomes_log.exists()
 
 
 def test_failed_validation_logs_warn_no_telegram(reporter):

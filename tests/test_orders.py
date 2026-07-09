@@ -17,6 +17,18 @@ class _DummyClient:
         return {"ok": True}
 
 
+class _CountingClient:
+    """Records place_order invocations so a test can assert the legacy
+    branch never reaches the exchange (E1-F1)."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def place_order(self, **order):
+        self.calls += 1
+        return {"ok": True}
+
+
 def _settings(**overrides):
     base = {"DRY_RUN": "false", "ALLOW_LIVE_TRADING": "true"}
     base.update(overrides)
@@ -105,14 +117,25 @@ def test_run_pipeline_skips_order_when_halt_flag_exists():
     assert order_result.get("reason") == "halt_flag_active"
 
 
-def test_run_pipeline_places_order_when_halt_flag_absent():
+def test_run_pipeline_refuses_sltp_less_signal_and_never_touches_exchange():
+    """E1-F1 (full-system audit 2026-07-09): an actionable signal with no
+    top-level SL/TP reaches the legacy single-client branch. That branch
+    used to size a placeholder qty and place a naked order on the injected
+    exchange client — a live-money bypass of the one sanctioned order path.
+    It now REFUSES (``status:refused``) and never calls ``place_order``.
+    (Halt-flag absent so we reach the order block; ``_ACTIONABLE_SIGNAL``
+    carries no entry/sl/tp.)"""
+    client = _CountingClient()
     with patch("src.runtime.pipeline.os.path.exists", return_value=False):
         result = run_pipeline(
             settings=_settings(),
-            exchange_client=_DummyClient(),
+            exchange_client=client,
             signal_builder=_signal_stub(_ACTIONABLE_SIGNAL),
         )
-    assert result["order_result"]["status"] == "submitted"
+    order_result = result["order_result"]
+    assert order_result["status"] == "refused"
+    assert order_result["reason"] == "actionable_signal_missing_sltp"
+    assert client.calls == 0, "legacy path must never place an order (E1-F1)"
 
 
 # ---------------------------------------------------------------------------

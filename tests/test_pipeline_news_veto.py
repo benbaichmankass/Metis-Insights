@@ -2,8 +2,14 @@
 Tests for the news veto hook wired into run_pipeline.
 
 Verifies that get_news_score is called for every actionable signal,
-that a veto short-circuits safe_place_order, and that a non-veto
-passes through to safe_place_order normally.
+that a veto short-circuits the order block, and that a non-veto passes
+through to the order decision normally.
+
+(E1-F1, full-system audit 2026-07-09: the legacy single-client
+``safe_place_order`` placement was removed from the pipeline — an
+SL/TP-less actionable signal now refuses instead of placing a naked
+order — so these tests no longer patch ``pipeline.safe_place_order``,
+which no longer exists as a module attribute.)
 
 All tests are network-free; heavy deps are stubbed out via sys.modules
 before any src import (same pattern as test_kill_switch.py).
@@ -60,13 +66,12 @@ def _veto_result():
 
 
 # ---------------------------------------------------------------------------
-# Test 1: veto → safe_place_order is NOT called; status=news_veto
+# Test 1: veto → order block is NOT reached; status=news_veto
 # ---------------------------------------------------------------------------
 
 def test_news_veto_short_circuits_order():
     with (
         patch("src.runtime.pipeline.get_news_score", return_value=_veto_result()) as mock_news,
-        patch("src.runtime.pipeline.safe_place_order") as mock_order,
         patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),
@@ -77,19 +82,22 @@ def test_news_veto_short_circuits_order():
     order_result = result["order_result"]
     assert order_result["status"] == "news_veto"
     assert "bearish" in order_result["reason"]
-    mock_order.assert_not_called()
     mock_news.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
-# Test 2: non-veto → safe_place_order IS called
+# Test 2: non-veto → the signal proceeds to the order block
 # ---------------------------------------------------------------------------
 
-def test_news_non_veto_calls_safe_place_order():
-    mock_order_result = {"status": "dry_run", "order": None}
+def test_news_non_veto_proceeds_to_order_block():
+    """A neutral (non-veto) news result must NOT short-circuit — the signal
+    reaches the order block. ``_actionable_signal()`` carries no SL/TP, so
+    the order block refuses it (E1-F1: ``status:refused`` reason
+    ``actionable_signal_missing_sltp``) rather than short-circuiting at the
+    veto (which would be ``news_veto``). The distinct status proves the
+    non-veto path was taken."""
     with (
         patch("src.runtime.pipeline.get_news_score", return_value=_neutral_result()),
-        patch("src.runtime.pipeline.safe_place_order", return_value=mock_order_result) as mock_order,
         patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),
@@ -97,8 +105,10 @@ def test_news_non_veto_calls_safe_place_order():
     ):
         result = run_pipeline(_settings(), signal_builder=lambda s: _actionable_signal())
 
-    mock_order.assert_called_once()
-    assert result["order_result"]["status"] == "dry_run"
+    order_result = result["order_result"]
+    assert order_result["status"] != "news_veto"
+    assert order_result["status"] == "refused"
+    assert order_result["reason"] == "actionable_signal_missing_sltp"
 
 
 # ---------------------------------------------------------------------------
@@ -108,7 +118,6 @@ def test_news_non_veto_calls_safe_place_order():
 def test_no_signal_skips_news_check():
     with (
         patch("src.runtime.pipeline.get_news_score") as mock_news,
-        patch("src.runtime.pipeline.safe_place_order"),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),
         patch("src.runtime.pipeline.send_to_operator"),
@@ -131,7 +140,6 @@ def test_symbol_tags_derived_from_signal():
 
     with (
         patch("src.runtime.pipeline.get_news_score", side_effect=_capture),
-        patch("src.runtime.pipeline.safe_place_order", return_value={"status": "dry_run"}),
         patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),
@@ -156,7 +164,6 @@ def test_symbol_tags_slash_format():
 
     with (
         patch("src.runtime.pipeline.get_news_score", side_effect=_capture),
-        patch("src.runtime.pipeline.safe_place_order", return_value={"status": "dry_run"}),
         patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),
@@ -176,7 +183,6 @@ def test_veto_result_contains_signal():
 
     with (
         patch("src.runtime.pipeline.get_news_score", return_value=_veto_result()),
-        patch("src.runtime.pipeline.safe_place_order"),
         patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),
@@ -196,7 +202,6 @@ def test_news_veto_sends_operator_notification():
 
     with (
         patch("src.runtime.pipeline.get_news_score", return_value=_veto_result()),
-        patch("src.runtime.pipeline.safe_place_order"),
         patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),
@@ -229,7 +234,6 @@ def test_veto_notify_failure_does_not_change_status():
     # pipeline-end notify) succeed normally.
     with (
         patch("src.runtime.pipeline.get_news_score", return_value=_veto_result()),
-        patch("src.runtime.pipeline.safe_place_order"),
         patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),

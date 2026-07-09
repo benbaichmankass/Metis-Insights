@@ -36,12 +36,6 @@ import os
 
 HALT_FLAG_PATH = os.environ.get("HALT_FLAG_PATH", "/data/bot-data/trader_halt.flag")
 
-# S-026 G2: legacy single-client path placeholder. Sizing is decided
-# per-account inside Coordinator.multi_account_execute via
-# RiskManager.position_size(); the legacy path has no per-account
-# context. The placeholder exists so safe_place_order's halt/news/risk-
-# cap rails can still run through when MULTI_ACCOUNT_DISPATCH=false.
-_DRY_MODE_PLACEHOLDER_QTY = 1.0
 from dotenv import load_dotenv  # noqa: E402
 load_dotenv()
 
@@ -49,7 +43,6 @@ import logging  # noqa: E402
 from typing import Any, Callable, Dict, Optional  # noqa: E402
 
 from src.runtime.notify import send_to_operator  # noqa: E402
-from src.runtime.orders import safe_place_order  # noqa: E402
 from src.runtime.outcomes import Level, report  # noqa: E402
 from src.web.runtime_status import write_status  # noqa: E402
 # PR-8 / D1: formatting helpers extracted to pipeline_result.py.
@@ -534,13 +527,14 @@ def run_pipeline(
             # ``_signal_carries_full_sltp`` so the missing-sltp warning
             # in the audit-log block uses the same definition.
             if multi and _signal_carries_full_sltp(signal):
-                # S-026 G2: the multi-account dispatch fast-path skips
-                # the legacy ``safe_place_order`` validation entirely.
-                # Sizing is now decided per-account inside
-                # ``Coordinator.multi_account_execute`` via
-                # ``RiskManager.position_size(pkg, balance)`` — the
-                # single qty-deciding site post-G2. Halt-flag + news
-                # veto are already checked above.
+                # S-026 G2: the multi-account dispatch fast-path is the
+                # ONE sanctioned order path. Sizing is decided per-account
+                # inside ``Coordinator.multi_account_execute`` via
+                # ``RiskManager.position_size(pkg, balance)`` — the single
+                # qty-deciding site post-G2. Halt-flag + news veto are
+                # already checked above. (E1-F1: the ``else`` branch below
+                # no longer places orders — it refuses, so there is no
+                # divergent live path to fall through to.)
 
                 # Strategy-monocle gate (one open package per strategy
                 # globally, regardless of how many accounts follow it).
@@ -734,24 +728,50 @@ def run_pipeline(
                         "order": signal,
                     }
             else:
-                # Legacy single-client path. Reached when:
-                #   * MULTI_ACCOUNT_DISPATCH is pinned off by the operator
-                #     (single-account smoke deployments), or
-                #   * signal is missing entry/sl/tp (smoke/synthetic).
-                # S-026 G2: sizing has fully moved into the per-account
-                # RiskManager. This path still runs ``safe_place_order``
-                # for halt-flag / news / validation rails, but it has no
-                # per-account context — there is no balance to size
-                # against. Use ``DRY_MODE_PLACEHOLDER_QTY`` (1.0) so
-                # validation can run. Per the operator directive of
-                # 2026-05-03, ``safe_place_order`` no longer carries a
-                # mode gate either — the per-account RiskManager is the
-                # only dry/live toggle, so this fallback path now hits
-                # the exchange via ``client.place_order`` directly when
-                # an exchange_client is injected. Tests can stub
-                # ``exchange_client`` to assert the dispatch shape.
-                _signal_for_orders = {**signal, "qty": _DRY_MODE_PLACEHOLDER_QTY}
-                result = safe_place_order(_signal_for_orders, settings, exchange_client)
+                # E1-F1 (full-system audit 2026-07-09): REFUSE — never
+                # place an order outside the one sanctioned path.
+                #
+                # Reached when either:
+                #   * MULTI_ACCOUNT_DISPATCH is pinned off by the operator, or
+                #   * an actionable signal is missing entry/sl/tp.
+                #
+                # The old behaviour here sized a hardcoded placeholder qty
+                # (1.0) and called ``safe_place_order`` — which, with the
+                # real Bybit adapter injected by ``src/main.py``, would send
+                # a NAKED, un-sized, SL/TP-less ~1-unit market order straight
+                # to the exchange. That bypassed both the per-account
+                # ``RiskManager.position_size`` AND the SL/TP the strategy is
+                # supposed to carry — a live-money bypass of the one
+                # sanctioned order path (``Coordinator.multi_account_execute``).
+                # It was latent (builders currently populate SL/TP and the
+                # dispatch flag defaults on) but nothing *guaranteed* it, so
+                # the bug class stays reachable until the divergent live path
+                # is removed outright.
+                #
+                # There is no per-account risk context on this path (no
+                # balance to size against), so there is no correct way to
+                # place the order here. Refuse it explicitly and journal the
+                # cause: a ``multi_account_dispatch_disabled`` refusal is an
+                # operator misconfiguration; an ``actionable_signal_missing_sltp``
+                # refusal is a caught upstream builder bug (the existing
+                # ``signal_missing_sltp`` WARN below fires alongside it).
+                _refuse_reason = (
+                    "multi_account_dispatch_disabled"
+                    if not multi
+                    else "actionable_signal_missing_sltp"
+                )
+                logger.warning(
+                    "pipeline: refusing order — no sanctioned sizing path "
+                    "(reason=%s symbol=%s side=%s). The legacy single-client "
+                    "placement was removed (E1-F1); the only order path is "
+                    "Coordinator.multi_account_execute with per-account sizing.",
+                    _refuse_reason, signal.get("symbol"), signal.get("side"),
+                )
+                result = {
+                    "status": "refused",
+                    "reason": _refuse_reason,
+                    "signal": signal,
+                }
 
     _report_pipeline_outcome(result, signal)
 
@@ -818,19 +838,21 @@ def run_pipeline(
 
     # G5 (CP-2026-05-02-09): when an actionable signal reaches the
     # validator without entry/sl/tp populated at the top level, the
-    # multi-account dispatch fast-path skips it and the legacy
-    # single-client path raises ``failed_validation``. Log the
-    # smoking-gun so journalctl identifies the offending strategy
-    # without us having to interpret per-tick "failed_validation"
-    # noise. S-026 G1: the qty>0 gate dropped — strategies no longer
-    # emit qty (sizing is the per-account RiskManager's job in G2).
+    # multi-account dispatch fast-path skips it and the order block
+    # REFUSES it (E1-F1: ``status:refused`` reason
+    # ``actionable_signal_missing_sltp`` — the legacy naked-order
+    # placement was removed). Log the smoking-gun so journalctl
+    # identifies the offending strategy — a missing-SL/TP actionable
+    # signal is an upstream builder bug, not a routine skip.
+    # S-026 G1: the qty>0 gate dropped — strategies no longer emit qty
+    # (sizing is the per-account RiskManager's job in G2).
     if (
         signal.get("side") in ("buy", "sell")
         and not _signal_carries_full_sltp(signal)
     ):
         logger.warning(
             "pipeline: actionable %s signal lacks entry/sl/tp at top level "
-            "falls into legacy single-client path. signal=%s",
+            "— refused (no sanctioned sizing path). signal=%s",
             _strategy, signal,
         )
         try:
