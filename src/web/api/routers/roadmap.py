@@ -138,7 +138,7 @@ def _sprint_refs_in(cell: str) -> list[str]:
 
 
 def _parse_milestones(text: str) -> list[dict[str, Any]]:
-    """Parse the ``## M0..M15 Milestone Roadmap`` table into milestone dicts.
+    """Parse the ``## Milestone Roadmap`` table into milestone dicts.
 
     Each milestone carries the sprint ids its status cell links to, so the
     consumer can drill milestone → sprint without a separate mapping.
