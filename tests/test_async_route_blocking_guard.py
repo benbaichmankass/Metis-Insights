@@ -20,8 +20,6 @@ import inspect
 import sqlite3
 from pathlib import Path
 
-import pytest
-
 from scripts.ci.check_async_route_blocking import find_violations_in_source, scan_paths
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
