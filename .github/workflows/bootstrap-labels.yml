@@ -197,11 +197,6 @@ jobs:
                 description: 'Triggers vm-bybit-diag — reproduce the bot bybit_2 authenticated call on the VM (masked key + egress v4/v6) to pinpoint ErrCode 10010.',
               },
               {
-                name: 'stop-micro-zombie',
-                color: 'b60205',
-                description: 'Triggers stop-micro-zombie — stop + disable the zombie bot units on the retired x86 micro (158.178.210.252) that spam bybit_2 ErrCode 10010.',
-              },
-              {
                 name: 'vm-net-diag-request',
                 color: '0e8a16',
                 description: 'Triggers vm-net-diag workflow — read-only network diagnostics for VM port reachability.',
@@ -215,11 +210,6 @@ jobs:
                 name: 'health-snapshot-trigger',
                 color: '0e8a16',
                 description: 'Triggers health-snapshot-pr workflow from a sandbox session (issue-driven dispatch).',
-              },
-              {
-                name: 'cf-worker-deploy',
-                color: '1d76db',
-                description: 'Triggers cf-worker-deploy workflow — wrangler deploy of cf-worker/ from CI.',
               },
               {
                 name: 'provision-training-vm',
