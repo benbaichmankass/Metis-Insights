@@ -174,8 +174,9 @@
       "tier": 2,
       "trigger_condition": "Operator OK in chat; then sync-vm-secrets + dashboard secret update.",
       "resolution_criteria": "prop-report relay logs show the bearer header being sent; unauthenticated POST returns 401.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
+      "resolution_note": "RESOLVED 2026-07-09 (RISK-3 Task 2). Operator provisioned DASHBOARD_API_TOKEN into the GitHub Actions secret + the Streamlit dashboard Secrets; synced to the live VM /etc/ict-trader/web-api.env via sync-vm-secrets (#6069) with ict-web-api restarted. The write gate was then hardened fail-closed: PR #6070 (squash 867eec0) replaced the permissive-when-unset _check_admin_token with _require_write_token on POST /prop/report only (unset->503, missing/wrong bearer->401, matching bearer passes; read surface + Android device-register stay intended-permissive). Deployed live via pull-and-deploy #6071 (VM HEAD a0d8f22->867eec0, ict-web-api active). Gate logic unit-verified 6/6 + CI route tests green. So the token is now set (dashboard sends the matching bearer -> authenticated writes 200) AND a future .env drop can't silently reopen the anonymous-write hole. NOTE: the device-token write routes (register) remain intended-permissive per the API contract (Android's only write, no token) — only the prop-report write was in scope.",
       "updates": []
     },
     {
