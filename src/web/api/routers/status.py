@@ -35,5 +35,5 @@ def _load_status(path: Path) -> Dict[str, Any]:
 
 
 @router.get("/status")
-async def get_status(_session: dict = Depends(require_session)) -> Dict[str, Any]:
+def get_status(_session: dict = Depends(require_session)) -> Dict[str, Any]:
     return _load_status(STATUS_PATH)

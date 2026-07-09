@@ -101,5 +101,5 @@ app.include_router(market_ws_router.router)
 
 
 @app.get("/api/health", tags=["health"])
-async def health() -> dict:
+def health() -> dict:
     return {"ok": True}

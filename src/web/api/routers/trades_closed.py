@@ -247,7 +247,7 @@ def _query_closed_trades(
 
 
 @router.get("/trades/closed")
-async def get_closed_trades(
+def get_closed_trades(
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     since: Optional[str] = Query(None, max_length=64),
     account_id: Optional[str] = Query(None, max_length=64),

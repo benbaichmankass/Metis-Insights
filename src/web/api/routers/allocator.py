@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/bot", tags=["bot"])
 
 
 @router.get("/allocator/soak")
-async def allocator_soak(
+def allocator_soak(
     limit: int = Query(100, ge=1, le=500),
     symbol: str | None = Query(None),
     regret: bool = Query(False, description="only rows where the allocator would pick a different candidate"),

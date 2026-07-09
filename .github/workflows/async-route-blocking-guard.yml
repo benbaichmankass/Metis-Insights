@@ -1,0 +1,42 @@
+name: async-route blocking guard
+
+# Fails the PR check when a FastAPI route blocks uvicorn's event loop — either an
+# `async def` route that awaits nothing (a synchronous handler running on the
+# loop) or one that calls a blocking primitive (sqlite3.connect / subprocess /
+# time.sleep / requests) directly instead of via asyncio.to_thread /
+# run_in_executor. A blocking call on the loop starves EVERY concurrent request
+# for its duration (RISK-3 / BL-20260707-HEALTHAPI-ACCTBAL-BLOCKING-DB — the
+# health endpoints failed in the same window as /accounts/balances). This guard
+# keeps that class dead. See scripts/ci/check_async_route_blocking.py.
+#
+# NOT a required status check, so it's safe to trigger-filter with `paths:` —
+# the guard statically scans src/web/api for async-route blocking, so it can
+# only change result on a `.py` (or workflow) diff.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+    paths:
+      - "src/web/api/**/*.py"
+      - "scripts/ci/check_async_route_blocking.py"
+      - ".github/workflows/async-route-blocking-guard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  async-route-blocking-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Scan src/web/api for routes that block the event loop
+        run: python scripts/ci/check_async_route_blocking.py

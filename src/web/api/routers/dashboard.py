@@ -11,6 +11,7 @@ through to a fabricated ``0`` or ``"unknown"`` here is a contract bug.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import sqlite3
@@ -462,7 +463,7 @@ def _tail_plain_log(path: Path, n: int) -> list[dict]:
 
 
 @router.get("/stats")
-async def get_stats() -> dict[str, Any]:
+def get_stats() -> dict[str, Any]:
     try:
         pnl24h, total_pnl, open_trades, win_rate = _pnl_stats_for(
             _NOT_PAPER_PREDICATE
@@ -565,7 +566,7 @@ def _outcome_to_entry(o: dict) -> dict[str, Any]:
 
 
 @router.get("/logs")
-async def get_logs(
+def get_logs(
     limit: int = Query(_LOG_TAIL, ge=1, le=1000),
     since: str | None = Query(None, description="ISO-8601 UTC cutoff (oldest kept)"),
     level: str | None = Query(None, description="CSV of levels to keep (info,warn,error,trade)"),
@@ -610,23 +611,22 @@ async def get_logs(
     return rows[:limit]
 
 
-@router.get("/positions")
-async def get_positions(
-    include_paper: bool = Query(False),
-    include_demo: bool = Query(False),
-) -> list[dict[str, Any]]:
-    """Open positions (real-money by default). Each row carries
-    ``accountClass`` ("paper" | "real_money") plus the legacy ``isDemo``
-    flag; pass ``include_paper=true`` to also include paper-account
-    positions alongside real-money. ``include_demo`` is a deprecated alias
-    for ``include_paper`` (effective include = include_paper OR include_demo).
+def _fetch_open_position_rows(effective_include: bool) -> list:
+    """Blocking open-positions read, isolated so it can run in a worker thread.
+
+    Runs off uvicorn's event loop via ``asyncio.to_thread`` (see
+    ``get_positions``): a synchronous sqlite read in an ``async`` route
+    starves every concurrent request while the loop is blocked
+    (RISK-3, BL-20260707-HEALTHAPI-ACCTBAL-BLOCKING-DB). Best-effort:
+    returns ``[]`` on a missing DB or read error.
     """
-    effective_include = include_paper or include_demo
     if not _DB_PATH.exists():
         return []
     try:
         conn = sqlite3.connect(str(_DB_PATH))
         try:
+            # A locked DB waits up to 3s rather than raising immediately.
+            conn.execute("PRAGMA busy_timeout=3000")
             cur = conn.cursor()
             # ``pnl`` (realised) is no longer projected into the response
             # — for open rows it is NULL and pre-this-PR the COALESCE
@@ -648,12 +648,30 @@ async def get_positions(
                 sql += _NOT_PAPER_PREDICATE
             sql += " ORDER BY created_at DESC LIMIT 50"
             cur.execute(sql)
-            rows = cur.fetchall()
+            return cur.fetchall()
         finally:
             conn.close()
     except sqlite3.Error:
         logger.exception("dashboard: /positions sqlite read failed")
         return []
+
+
+@router.get("/positions")
+async def get_positions(
+    include_paper: bool = Query(False),
+    include_demo: bool = Query(False),
+) -> list[dict[str, Any]]:
+    """Open positions (real-money by default). Each row carries
+    ``accountClass`` ("paper" | "real_money") plus the legacy ``isDemo``
+    flag; pass ``include_paper=true`` to also include paper-account
+    positions alongside real-money. ``include_demo`` is a deprecated alias
+    for ``include_paper`` (effective include = include_paper OR include_demo).
+    """
+    effective_include = include_paper or include_demo
+    # Offload the blocking sqlite read to a worker thread so it never runs on
+    # uvicorn's event loop (this route stays async for the awaited broker read
+    # below). RISK-3 / BL-20260707-HEALTHAPI-ACCTBAL-BLOCKING-DB.
+    rows = await asyncio.to_thread(_fetch_open_position_rows, effective_include)
     out: list[dict[str, Any]] = []
     for r in rows:
         # Offloaded to the dedicated single-worker account-read executor
@@ -717,7 +735,7 @@ async def get_positions(
 
 
 @router.get("/signals")
-async def get_signals() -> list[dict[str, Any]]:
+def get_signals() -> list[dict[str, Any]]:
     raw = _tail_jsonl(_AUDIT_LOG, _SIGNAL_TAIL)
     out = []
     for e in raw:
