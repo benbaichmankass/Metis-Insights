@@ -789,7 +789,7 @@ def _journalctl_tail(
 
 
 @router.get("/snapshot")
-async def get_snapshot(request: Request, limit: int = _DEFAULT_LIMIT) -> dict[str, Any]:
+def get_snapshot(request: Request, limit: int = _DEFAULT_LIMIT) -> dict[str, Any]:
     _require_diag_token(request)
     n = _clamp(limit, _DEFAULT_LIMIT, _MAX_LIMIT)
     states = _is_active_batch(list(_CANONICAL_UNITS))
@@ -806,13 +806,13 @@ async def get_snapshot(request: Request, limit: int = _DEFAULT_LIMIT) -> dict[st
 
 
 @router.get("/audit")
-async def get_audit(request: Request, limit: int = _DEFAULT_LIMIT) -> list[dict[str, Any]]:
+def get_audit(request: Request, limit: int = _DEFAULT_LIMIT) -> list[dict[str, Any]]:
     _require_diag_token(request)
     return _audit_tail(_clamp(limit, _DEFAULT_LIMIT, _MAX_LIMIT))
 
 
 @router.get("/journal")
-async def get_journal(
+def get_journal(
     request: Request,
     table: str,
     limit: int = _DEFAULT_LIMIT,
@@ -822,7 +822,7 @@ async def get_journal(
 
 
 @router.get("/audit_query")
-async def get_audit_query(
+def get_audit_query(
     request: Request,
     since: str | None = None,
     until: str | None = None,
@@ -893,7 +893,7 @@ async def get_audit_query(
 
 
 @router.get("/db_info")
-async def get_db_info(request: Request) -> dict[str, Any]:
+def get_db_info(request: Request) -> dict[str, Any]:
     """Diagnostic — resolved DB path, inode, table list, row counts.
 
     Companion to ``/journal``. Surfaces the per-table error string when
@@ -906,7 +906,7 @@ async def get_db_info(request: Request) -> dict[str, Any]:
 
 
 @router.get("/status")
-async def get_status(request: Request) -> dict[str, Any]:
+def get_status(request: Request) -> dict[str, Any]:
     _require_diag_token(request)
     return {
         "captured_at": datetime.now(timezone.utc).isoformat(),
@@ -917,14 +917,14 @@ async def get_status(request: Request) -> dict[str, Any]:
 
 
 @router.get("/services")
-async def get_services(request: Request) -> list[dict[str, str]]:
+def get_services(request: Request) -> list[dict[str, str]]:
     _require_diag_token(request)
     states = _is_active_batch(list(_CANONICAL_UNITS))
     return [{"unit": u, "state": states.get(u, "unknown")} for u in _CANONICAL_UNITS]
 
 
 @router.get("/ib_state")
-async def get_ib_state(request: Request) -> dict[str, Any]:
+def get_ib_state(request: Request) -> dict[str, Any]:
     """IB connection-state legibility (BL-20260707-IB-STATE-LEGIBILITY).
 
     Read-only view of ``runtime_logs/ib_state.json`` — the per-tick snapshot
@@ -979,7 +979,7 @@ async def get_ib_state(request: Request) -> dict[str, Any]:
 
 
 @router.get("/journalctl")
-async def get_journalctl(
+def get_journalctl(
     request: Request,
     unit: str,
     lines: int = _DEFAULT_JOURNAL_LINES,
@@ -1018,7 +1018,7 @@ async def get_journalctl(
 
 
 @router.get("/version")
-async def get_version(request: Request) -> dict[str, Any]:
+def get_version(request: Request) -> dict[str, Any]:
     """Diagnostic — git SHA + captured timestamp of the running web-api
     process. Used by ``scripts/deploy_pull_restart.sh`` to assert that
     a post-deploy restart actually rolled the running code forward
@@ -1039,7 +1039,7 @@ async def get_version(request: Request) -> dict[str, Any]:
 
 
 @router.get("/log_file")
-async def get_log_file(
+def get_log_file(
     request: Request,
     name: str,
     lines: int = _DEFAULT_LIMIT,
@@ -1075,7 +1075,7 @@ async def get_log_file(
 
 
 @router.get("/shadow_stats")
-async def get_shadow_stats(
+def get_shadow_stats(
     request: Request,
     model_id: str | None = None,
     stage: str | None = None,
@@ -1217,7 +1217,7 @@ async def get_exchange_positions(
 
 
 @router.get("/broker_account_status")
-async def get_broker_account_status(
+def get_broker_account_status(
     request: Request,
     account_id: str | None = None,
 ) -> dict[str, Any]:

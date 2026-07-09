@@ -158,7 +158,7 @@ def build_pnl_history(
 
 
 @router.get("/pnl/history")
-async def get_pnl_history(
+def get_pnl_history(
     days: int = Query(DEFAULT_DAYS, ge=1, le=MAX_DAYS),
     account_id: Optional[str] = Query(None, max_length=64),
 ) -> List[Dict[str, Any]]:

@@ -156,5 +156,5 @@ def build_pnl(
 
 
 @router.get("/pnl")
-async def get_pnl(_session: dict = Depends(require_session)) -> Dict[str, Any]:
+def get_pnl(_session: dict = Depends(require_session)) -> Dict[str, Any]:
     return build_pnl()

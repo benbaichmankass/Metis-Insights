@@ -241,5 +241,5 @@ def build_config(
 
 
 @router.get("/config")
-async def get_bot_config() -> Dict[str, Any]:
+def get_bot_config() -> Dict[str, Any]:
     return build_config()

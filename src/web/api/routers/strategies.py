@@ -281,7 +281,7 @@ def _tick_age_seconds(last_tick_utc: Any) -> Optional[float]:
 
 
 @router.get("/strategies")
-async def get_strategies() -> Dict[str, Any]:
+def get_strategies() -> Dict[str, Any]:
     """Return config, live-runtime status, stats, descriptions, and changelog.
 
     "Live runtime" surfaces what the bot is **actually** running, not just

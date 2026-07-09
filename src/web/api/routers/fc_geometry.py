@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/bot", tags=["bot"])
 
 
 @router.get("/fc-geometry/soak")
-async def fc_geometry_soak(
+def fc_geometry_soak(
     limit: int = Query(100, ge=1, le=500),
     symbol: str | None = Query(None),
     account_id: str | None = Query(None),

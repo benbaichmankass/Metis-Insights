@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/bot", tags=["bot"])
 
 
 @router.get("/exit-ladder/soak")
-async def exit_ladder_soak(
+def exit_ladder_soak(
     limit: int = Query(100, ge=1, le=500),
     venue: str | None = Query(None, description="filter: api | prop"),
     account_id: str | None = Query(None),

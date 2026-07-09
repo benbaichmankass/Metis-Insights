@@ -222,7 +222,7 @@ def _query_order_packages(
 
 
 @router.get("/order-packages")
-async def get_order_packages(
+def get_order_packages(
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     since: Optional[str] = Query(None, max_length=64),
     strategy: Optional[str] = Query(None, max_length=64),
