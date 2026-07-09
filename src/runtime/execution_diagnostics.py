@@ -904,13 +904,20 @@ def enqueue_trade_open(
     tp: Optional[float] = None,
     risk_usd: Optional[float] = None,
     order_id: Optional[str] = None,
+    demo: bool = False,
     priority: str = "normal",
 ) -> Optional[Path]:
-    """``🟢 TRADE OPENED — <symbol> <SIDE>`` + collapsible details."""
+    """``🟢 TRADE OPENED — <symbol> <SIDE>`` + collapsible details.
+
+    ``demo`` prefixes the title with a 🧪 DEMO marker so a demo-account open
+    still reads clearly as demo. This is the SINGLE trade-open notification —
+    the separate ``*DEMO TRADER* SUBMITTED`` ping was removed (it duplicated
+    this one for demo accounts; operator ask 2026-07-09)."""
     try:
         from src.units.ui.telegram_format import Section, kv_block, render_html
 
-        title = f"🟢 TRADE OPENED — {symbol} {str(side or '').upper()}"
+        marker = "🧪 DEMO · " if demo else ""
+        title = f"{marker}🟢 TRADE OPENED — {symbol} {str(side or '').upper()}"
         body = render_html(
             header=title,
             sections=[Section(summary="Details", body=kv_block([

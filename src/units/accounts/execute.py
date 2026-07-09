@@ -1456,6 +1456,7 @@ def _log_trade_to_journal(
                     sl=getattr(pkg, "sl", None),
                     tp=getattr(pkg, "tp", None),
                     order_id=trade_id,
+                    demo=bool(account_cfg.get("demo")),
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
