@@ -21,7 +21,9 @@ permissions:
   issues: write
 
 env:
-  VM_HOST: 158.178.210.252
+  # Live trader (Ampere ict-bot-arm since the 2026-06-14 cutover; the old x86
+  # micro 158.178.210.252 was terminated 2026-06-16). Full-system audit 2026-07-09.
+  VM_HOST: 141.145.193.91
   VM_USER: ubuntu
 
 jobs:

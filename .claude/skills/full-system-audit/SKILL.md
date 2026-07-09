@@ -282,8 +282,42 @@ in** — not when code hits `main`. At close, per session:
    (merge / close-with-rationale), every stale issue closed. "Wrap all open
    sessions; no loose ends" is part of the program, not optional.
 
+### The audit REPORT — program deliverable (binding, operator directive 2026-07-09)
+
+When the audit program completes, it **MUST produce a consolidated audit report
+and publish it to the SAME Reports log as the daily/weekly/monthly system
+reports** — so it lands on `/api/bot/reports` and shows up in the dashboard +
+Android **Reports** tabs right alongside the routine reports. (Operator: "when
+you finish an audit, there should be a report — what we found, what was fixed,
+all the things — pushed to the same report log as the weeklies and dailies.")
+
+- **Content:** what the audit COVERED (workstreams + per-file coverage map),
+  what it FOUND (findings by axis + tier), what was FIXED (cite SHAs / PR#s +
+  the live-verify evidence), what was PROPOSED and still awaits operator
+  approval (Tier-3 draft PRs), what was verified a NON-issue, and what remains
+  open. Report coverage honestly ("read X/Y, did not reach Z"). Source it from
+  the findings doc (`docs/audits/full-system-audit-<date>.md`).
+- **Mechanism — reuse the system-report pipeline, do NOT invent a new one:**
+  build the report envelope with **`window: "audit"`** (the
+  `comms/schema/system_report_response.template.json` shape + audit-specific
+  sections), render it with **`scripts/reports/render_system_report.py`** (writes
+  `comms/reports/audit/<UTC-ts>/{report.html,report.md,report.json}`), and append
+  the index entry to **`comms/reports/index.json`**. Commit it — the live VM
+  mirrors `comms/reports/` via `ict-git-sync`, so `/api/bot/reports` serves it.
+  The renderer accepts any `window` string and the index is newest-first, so an
+  `audit` report appears in the Reports "All" view immediately; also add
+  `"audit"` to `_VALID_WINDOWS` in `src/web/api/routers/reports.py` (Tier-1) so
+  the `?window=audit` filter recognizes it too.
+- **Ping:** send the one-line completion ping (`send-ping` system-action) with
+  the report's deep-link, exactly like the routine reports do.
+
+This is the *closing* step — it summarizes everything the program did, so it runs
+after the fixes are shipped + live-verified (not a mid-flight status; the
+findings doc is the running record, this report is the finished record).
+
 The **program** is done when every workstream row is ✅, every loose PR/issue is
-closed, and the milestone is marked complete in ROADMAP.
+closed, the milestone is marked complete in ROADMAP, **and the audit report is
+published to the Reports log**.
 
 ---
 
