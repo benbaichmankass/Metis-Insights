@@ -1412,3 +1412,70 @@ def account_open_positions(
         except Exception:  # noqa: BLE001
             pass
         return None
+
+
+# Integrations that expose a cheap, authoritative PER-SYMBOL open/flat check
+# (distinct from the batch ``account_open_positions`` list). Today only Alpaca
+# (``GET /v2/positions/{symbol}`` → 404=flat / 2xx=open). IB/OANDA read the
+# whole portfolio in one call and have no per-symbol endpoint wired, so they
+# keep the batch-LIST reconcile path unchanged (RISK-1 blast-radius bound).
+_POSITION_PRESENCE_EXCHANGES: frozenset[str] = frozenset({"alpaca"})
+
+
+def supports_position_presence(account: Optional[Dict[str, Any]]) -> bool:
+    """True when *account*'s integration can positively confirm a SINGLE
+    symbol's open/flat state via :func:`account_position_present`.
+
+    Gate for the reconciler's per-symbol absence-close confirmation: where this
+    is True the reconciler REQUIRES a broker-confirmed ``flat`` before closing a
+    row that vanished from the batch snapshot; where it is False the existing
+    2-observation batch-LIST behaviour is preserved (no regression for IB/OANDA,
+    which have no per-symbol endpoint). Pure, never raises.
+    """
+    if not isinstance(account, dict):
+        return False
+    return str(account.get("exchange") or "").strip().lower() in _POSITION_PRESENCE_EXCHANGES
+
+
+def account_position_present(
+    account: Dict[str, Any], symbol: str
+) -> Optional[bool]:
+    """POSITIVE per-symbol open/flat confirmation for *symbol* on *account*.
+
+    Three-valued (mirrors :meth:`AlpacaClient.position_present`):
+      * ``True``  — the position is OPEN on the broker.
+      * ``False`` — CONFIRMED FLAT (a broker 404 for the symbol).
+      * ``None``  — could NOT confirm (dry account / missing creds / read
+                    failure / **unsupported integration**).
+
+    The reverse reconciler requires ``is False`` before closing a
+    strategy-attributed row that is absent from the batch ``positions()``
+    snapshot — so a partial/stale LIST (some rows visible, one omitted) or a
+    transient read failure can no longer false-close a still-open position, and
+    the ≥3 "reset" batch never amplifies one bad read into N false closes
+    (RISK-1, BL-20260707-ALPACA-PAPER-NEGATIVE-EQUITY). ``None`` for any
+    integration without a per-symbol endpoint (see
+    :func:`supports_position_presence`), so callers gate on that first.
+    """
+    if not isinstance(account, dict) or not symbol:
+        return None
+    ex = (account.get("exchange") or "unknown").lower()
+    try:
+        if ex == "alpaca":
+            # Dry accounts are never dialled from the read path (mirrors
+            # account_open_positions) — can't/shouldn't confirm.
+            mode = str(account.get("mode") or "live").lower()
+            if mode != "live":
+                return None
+            client = alpaca_client_for(account)
+            if client is None:
+                return None
+            return client.position_present(symbol)
+        # No per-symbol presence endpoint wired for this integration.
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "account_position_present(%s, %s): %s",
+            account.get("account_id") or "unknown", symbol, exc,
+        )
+        return None

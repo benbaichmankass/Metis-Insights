@@ -371,6 +371,54 @@ class AlpacaClient:
         result = env.get("result")
         return result if isinstance(result, dict) else None
 
+    def position_present(self, symbol: str) -> Optional[bool]:
+        """POSITIVE per-symbol open/flat confirmation via ``GET /v2/positions/{symbol}``.
+
+        Three-valued — the discriminator the reverse reconciler needs before it
+        dares close a DB row on *absence from the batch* ``positions()`` list:
+
+          * ``True``  — the position is OPEN on the broker (2xx, non-zero qty).
+          * ``False`` — the position is CONFIRMED FLAT (Alpaca returns **404**
+                        for a symbol with no open position).
+          * ``None``  — could NOT confirm (missing creds / network / any non-404
+                        error). The caller must **not** treat this as flat.
+
+        Distinct from :meth:`_position_raw`, which collapses 404 and read-failure
+        both into ``None``. Here a 404 is a POSITIVE "flat" signal, so the
+        reconciler can require ``is False`` to close: a partial / stale batch
+        ``positions()`` LIST that merely omits a still-open symbol no longer
+        false-closes it (this per-symbol check returns ``True``), and a read
+        failure (``None``) is never a close (RISK-1,
+        BL-20260707-ALPACA-PAPER-NEGATIVE-EQUITY / -RECONCILER-MASS-FALSE-CLOSE).
+        """
+        try:
+            self._require_creds("position_present")
+        except MissingCredentialsError as exc:
+            logger.warning("%s", exc)
+            return None
+        sym = str(symbol).upper()
+        env = self._request("GET", f"/v2/positions/{sym}")
+        rc = env.get("retCode")
+        if rc == 0:
+            result = env.get("result")
+            if isinstance(result, dict):
+                try:
+                    qty = abs(float(result.get("qty") or 0))
+                except (TypeError, ValueError):
+                    qty = 0.0
+                return qty > 0
+            # 2xx with an unexpected body — cannot positively confirm either way.
+            return None
+        if rc == 404:
+            # Alpaca 404s a symbol it holds no open position for → confirmed flat.
+            return False
+        # Network (-1) / auth (401/403) / server (5xx) / other — unconfirmed.
+        logger.warning(
+            "alpaca position_present(%s): unconfirmed (retCode=%s retMsg=%s)",
+            sym, rc, env.get("retMsg"),
+        )
+        return None
+
     def _await_qty_available(self, symbol: str, want_qty: float, deadline: float) -> Optional[float]:
         """Poll until the position's ``qty_available`` reaches ``want_qty``.
 

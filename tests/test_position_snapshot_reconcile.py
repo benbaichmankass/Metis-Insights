@@ -57,6 +57,15 @@ _CFGS = {
         "exchange": "oanda",
         "mode": "live",
     },
+    # Alpaca has a per-symbol presence endpoint (GET /v2/positions/{symbol}), so
+    # supports_position_presence(cfg) is True and the RISK-1 per-symbol confirm
+    # gate engages: an absent-from-LIST row closes ONLY on a broker-confirmed
+    # flat (account_position_present is False).
+    "alpaca_live": {
+        "account_id": "alpaca_live",
+        "exchange": "alpaca",
+        "mode": "live",
+    },
     # Uncapped integration — exchange_management_caps("kraken") == frozenset(),
     # so account_supports_management(cfg, "open_positions") is False and the
     # snapshot pass leaves its rows as-is.
@@ -84,6 +93,7 @@ def tmp_db(tmp_path, monkeypatch):
     import src.runtime.order_monitor as _om
     _om._PENDING_SNAPSHOT_DISAPPEAR_CONFIRM.clear()
     _om._PENDING_ORPHAN_DISAPPEAR_CONFIRM.clear()
+    _om._RESET_ALERT_LATCHED.clear()
     db = Database(db_path=str(db_path))
 
     monkeypatch.setattr(
@@ -503,11 +513,12 @@ def test_orphan_adopt_row_not_double_handled(tmp_db):
 # ─────────────────────────────────────────────────────────────────────
 
 
-def test_account_wide_reset_tags_reset_flat_and_one_alert(tmp_db, monkeypatch):
-    """>= _ACCOUNT_RESET_SNAPSHOT_THRESHOLD positions on ONE account confirmed
-    absent in a single pass is a wholesale RESET (the 2026-07-07 alpaca_paper
-    paper-account reset): closes are tagged exit_reason='exchange_reset_flat'
-    (excluded from strategy metrics) and fire ONE consolidated alert, not N."""
+def test_account_wide_reset_alerts_first_and_does_not_close(tmp_db, monkeypatch):
+    """RISK-1 (BL-20260707-RECONCILER-MASS-FALSE-CLOSE): >= threshold positions on
+    ONE account confirmed absent in a single pass is a SUSPECTED wholesale reset —
+    which is NEVER auto-closed. Mass-closing N live rows on one inference is the
+    amplifier that turned a bad 2026-07-07 read into 7 false closes. The rows stay
+    OPEN, and ONE latched alert fires (not N closes)."""
     import src.runtime.order_monitor as _om
     alerts = []
     monkeypatch.setattr(
@@ -520,22 +531,157 @@ def test_account_wide_reset_tags_reset_flat_and_one_alert(tmp_db, monkeypatch):
         "src.units.accounts.clients.account_open_positions", return_value=[],
     ):
         _reconcile_orphan_exchange_positions(tmp_db)            # arms all 4
-        summary = _reconcile_orphan_exchange_positions(tmp_db)  # confirms + closes
-    assert summary["snapshot_closed"] == 4
-    assert summary["snapshot_reset_closed"] == 4
+        summary = _reconcile_orphan_exchange_positions(tmp_db)  # confirms → ALERTS
+    # Nothing auto-closed; the mass vanish is alerted, not actioned.
+    assert summary["snapshot_closed"] == 0
+    assert summary["snapshot_reset_closed"] == 0
+    assert summary["snapshot_reset_alerted"] == 4
     conn = tmp_db.connect()
     try:
         rows = conn.execute(
-            "SELECT exit_reason, notes FROM trades WHERE account_id='ib_paper'"
+            "SELECT status FROM trades WHERE account_id='ib_paper'"
         ).fetchall()
     finally:
         conn.close()
-    assert rows and all(r[0] == "exchange_reset_flat" for r in rows)
-    assert all(json.loads(r[1]).get("reset_event") is True for r in rows)
+    # All four rows are LEFT OPEN for manual resolution.
+    assert rows and all(r[0] == "open" for r in rows)
     # Exactly ONE consolidated alert for the account (not one per position).
     assert len(alerts) == 1
     assert alerts[0][0] == "ib_paper"
     assert set(alerts[0][1]) == {"MES", "MGC", "MHG", "SPY"}
+
+
+def test_reset_alert_is_latched_not_re_fired_each_pass(tmp_db, monkeypatch):
+    """The reset alert fires ONCE per account per episode (latched), not on every
+    confirm window while the mass vanish persists."""
+    import src.runtime.order_monitor as _om
+    alerts = []
+    monkeypatch.setattr(
+        _om, "_alert_account_reset",
+        lambda aid, syms: alerts.append((aid, list(syms))),
+    )
+    for sym in ("MES", "MGC", "MHG", "SPY"):
+        _insert_open_trade(tmp_db, symbol=sym, direction="long")
+    with patch(
+        "src.units.accounts.clients.account_open_positions", return_value=[],
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)   # arms
+        _reconcile_orphan_exchange_positions(tmp_db)   # confirms → alert #1
+        _reconcile_orphan_exchange_positions(tmp_db)   # re-arms
+        _reconcile_orphan_exchange_positions(tmp_db)   # confirms again → latched
+    assert len(alerts) == 1  # latched — not re-fired
+
+
+# ─────────────────────────────────────────────────────────────────────
+# RISK-1: per-symbol positive-flat confirmation before an absence-close
+# (BL-20260707-ALPACA-PAPER-NEGATIVE-EQUITY / -RECONCILER-MASS-FALSE-CLOSE)
+# ─────────────────────────────────────────────────────────────────────
+
+
+def test_alpaca_still_open_per_symbol_blocks_close(tmp_db, monkeypatch):
+    """The batch snapshot reads the symbol as absent (partial/stale LIST — the
+    exact 2026-07-07 signature), but the per-symbol broker check says STILL OPEN
+    (True) → the row is NOT closed. This is the core RISK-1 false-close guard."""
+    _insert_open_trade(tmp_db, symbol="SPY", direction="long",
+                       account_id="alpaca_live", strategy_name="equity_mr")
+    with patch(
+        "src.units.accounts.clients.account_open_positions", return_value=[],
+    ), patch(
+        "src.units.accounts.clients.account_position_present", return_value=True,
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)            # arms
+        summary = _reconcile_orphan_exchange_positions(tmp_db)  # would close…
+    assert summary["snapshot_closed"] == 0
+    assert summary["snapshot_presence_unconfirmed"] >= 1
+    conn = tmp_db.connect()
+    try:
+        row = conn.execute(
+            "SELECT status FROM trades WHERE account_id='alpaca_live'"
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row[0] == "open"  # left open — never false-closed
+
+
+def test_alpaca_per_symbol_404_confirms_close(tmp_db, monkeypatch):
+    """When the per-symbol broker check CONFIRMS flat (False = a 404), an
+    individual disappearance closes as exchange_flat_reconciled — a genuine
+    strategy exit the batch LIST missed still reconciles."""
+    _insert_open_trade(tmp_db, symbol="SPY", direction="long",
+                       account_id="alpaca_live", strategy_name="equity_mr")
+    with patch(
+        "src.units.accounts.clients.account_open_positions", return_value=[],
+    ), patch(
+        "src.units.accounts.clients.account_position_present", return_value=False,
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+    assert summary["snapshot_closed"] == 1
+    conn = tmp_db.connect()
+    try:
+        row = conn.execute(
+            "SELECT status, exit_reason FROM trades WHERE account_id='alpaca_live'"
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row[0] == "closed" and row[1] == "exchange_flat_reconciled"
+
+
+def test_alpaca_per_symbol_readfail_does_not_close(tmp_db, monkeypatch):
+    """A per-symbol read failure (None = couldn't confirm) is NEVER a close —
+    only a broker-confirmed flat closes; an unconfirmed read waits."""
+    _insert_open_trade(tmp_db, symbol="SPY", direction="long",
+                       account_id="alpaca_live", strategy_name="equity_mr")
+    with patch(
+        "src.units.accounts.clients.account_open_positions", return_value=[],
+    ), patch(
+        "src.units.accounts.clients.account_position_present", return_value=None,
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+    assert summary["snapshot_closed"] == 0
+    assert summary["snapshot_presence_unconfirmed"] >= 1
+    conn = tmp_db.connect()
+    try:
+        row = conn.execute(
+            "SELECT status FROM trades WHERE account_id='alpaca_live'"
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row[0] == "open"
+
+
+def test_alpaca_mass_vanish_all_confirmed_flat_still_alert_first(tmp_db, monkeypatch):
+    """Even when EVERY symbol individually confirms flat (per-symbol 404), a
+    mass vanish (>= threshold in one pass) is still alert-first, never a mass
+    auto-close — the reset amplifier is disarmed for alpaca too."""
+    import src.runtime.order_monitor as _om
+    alerts = []
+    monkeypatch.setattr(
+        _om, "_alert_account_reset",
+        lambda aid, syms: alerts.append((aid, list(syms))),
+    )
+    for sym in ("SPY", "QQQ", "IWM", "GLD"):  # 4 >= threshold (3)
+        _insert_open_trade(tmp_db, symbol=sym, direction="long",
+                           account_id="alpaca_live", strategy_name="equity_mr")
+    with patch(
+        "src.units.accounts.clients.account_open_positions", return_value=[],
+    ), patch(
+        "src.units.accounts.clients.account_position_present", return_value=False,
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+    assert summary["snapshot_closed"] == 0            # no mass auto-close
+    assert summary["snapshot_reset_alerted"] == 4
+    assert len(alerts) == 1
+    conn = tmp_db.connect()
+    try:
+        rows = conn.execute(
+            "SELECT status FROM trades WHERE account_id='alpaca_live'"
+        ).fetchall()
+    finally:
+        conn.close()
+    assert rows and all(r[0] == "open" for r in rows)  # left open
 
 
 def test_below_threshold_is_normal_flat_no_reset_alert(tmp_db, monkeypatch):
