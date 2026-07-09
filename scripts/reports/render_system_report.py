@@ -458,7 +458,9 @@ def _section_monitoring(report: dict) -> str:
 
 def render_html(report: dict) -> str:
     cons = report.get("consolidated") or {}
-    title = f"System report — {report.get('window', '')}"
+    is_audit = str(report.get("window") or "") == "audit"
+    title = ("Full-system audit report" if is_audit
+             else f"System report — {report.get('window', '')}")
     header = [
         f"<h1>{html.escape(title)}</h1>",
         f'<p class="meta">Generated {_f(report.get("reviewed_at"))} · '
@@ -468,18 +470,27 @@ def render_html(report: dict) -> str:
     ]
     if cons.get("headline"):
         header.append(f"<p>{_f(cons.get('headline'))}</p>")
+    # An audit report is a governance pass, not a trading window: the trade /
+    # market / ML / review-coverage sections don't apply, so they're skipped
+    # (rendering them would print misleading em-dash trading blocks). The audit
+    # narrative rides in actions (findings + fixes + Tier-3 queue + cross notes),
+    # health (the audit axes as findings), and monitoring (remaining / handed-off).
+    sections = [_section_actions(report), _section_health(report)]
+    if not is_audit:
+        sections += [
+            _section_trading(report),
+            _section_market(report),
+            _section_ml(report),
+            _section_review_coverage(report),
+        ]
+    sections.append(_section_monitoring(report))
+    footer_kind = "full-system-audit" if is_audit else "system-report"
     body = "\n".join([
         *header,
-        _section_actions(report),
-        _section_health(report),
-        _section_trading(report),
-        _section_market(report),
-        _section_ml(report),
-        _section_review_coverage(report),
-        _section_monitoring(report),
+        *sections,
         f'<footer>report_id {_f(report.get("report_id"))} · reviewer {_f(report.get("reviewer"))} '
         f'· prior {_f(report.get("prior_report_id"))} · '
-        f'ICT Trading Bot system-report</footer>',
+        f'ICT Trading Bot {footer_kind}</footer>',
     ])
     return (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
@@ -496,8 +507,10 @@ def render_html(report: dict) -> str:
 def render_md(report: dict) -> str:
     cons = report.get("consolidated") or {}
     pbc = cons.get("pnl_by_class") or {}
+    is_audit = str(report.get("window") or "") == "audit"
     lines = [
-        f"# System report — {report.get('window', '')}",
+        ("# Full-system audit report" if is_audit
+         else f"# System report — {report.get('window', '')}"),
         "",
         f"- Generated: {report.get('reviewed_at', DASH)}",
         f"- Window: {report.get('window_start', DASH)} → {report.get('window_end', DASH)}",
@@ -505,14 +518,16 @@ def render_md(report: dict) -> str:
         "",
         cons.get("headline", ""),
         "",
-        "## P&L by class",
     ]
-    for cls in ("real", "paper", "prop"):
-        d = pbc.get(cls) or {}
-        lines.append(
-            f"- **{cls}**: window {_money(d.get('window_pnl'))} "
-            f"(prior {_money(d.get('prior_window_pnl'))}, {d.get('trend', DASH)})"
-        )
+    # P&L-by-class is a trading-window concept; an audit report omits it.
+    if not is_audit:
+        lines.append("## P&L by class")
+        for cls in ("real", "paper", "prop"):
+            d = pbc.get(cls) or {}
+            lines.append(
+                f"- **{cls}**: window {_money(d.get('window_pnl'))} "
+                f"(prior {_money(d.get('prior_window_pnl'))}, {d.get('trend', DASH)})"
+            )
     lines += ["", "## Operator priorities"]
     for p in (cons.get("operator_priorities") or []):
         lines.append(f"{p.get('rank', '-')}. {p.get('title', '')} — {p.get('detail', '')}")

@@ -1,0 +1,80 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Full-system audit report</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>Full-system audit report</h1>
+<p class="meta">Generated 2026-07-09T10:47:02+00:00 · window 2026-07-09T06:00:00+00:00 → 2026-07-09T10:47:02+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>Full-system audit — Phase 0 (rules) + kickoff pass. This is the INTERIM audit report: the rules-first gate is settled, canonical-doc drift is corrected (ARCH) or specced (ROADMAP), zombie infra is cleaned up, the live trader/web-api/DB verified healthy, and the OOM-dead trainer recovered (operator-confirmed). The money-path structural risks (RISK-1/2, E1-F1) are root-caused into verified fix specs but NOT yet shipped — they + the S-AUDIT-C/E/G/H workstreams are in flight in the follow-on session. A final closing audit report will publish once the fixes are shipped + live-verified.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Approve the Tier-3 money-path fixes (E1-F1, RISK-1, RISK-2) once their draft PRs land</b> <span class="pill">cross · T3</span> ⚠️ operator<br><span class='muted'>E1-F1 order-path bypass, RISK-1 reconciler false-close, RISK-2 IB warm-up wedge are specced + verified but require explicit operator approval before merge (live order path / live-VM). Draft PRs come from the follow-on session.</span></li>
+<li><b>PR #6016 stays a draft — do not merge without approval</b> <span class="pill">cross · T3</span> ⚠️ operator<br><span class='muted'>The program&#x27;s tracking PR carries governance + rule-doc changes and rides on the audit branch. Merge only on explicit operator go-ahead.</span></li>
+<li><b>Ship the remaining structural fixes + drain the backlogs (follow-on session)</b> <span class="pill">cross · T1</span><br><span class='muted'>RISK-3 (web-api blocking-DB + prop idempotency), RISK-4 (OCI /dev/null deploy clobber), MB-20260709-TRAINER-SUBPROC-ISOLATION, S-AUDIT-C/E/G/H. Tracked in docs/audits/full-system-audit-2026-07-09.md.</span></li>
+</ul>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>cross</span> E1-F1 — order-path bypass structural fix. Draft PR for operator approval (touches the live order path). Root cause + change + test + live-verify plan in the findings doc.</li>
+<li><span class='pill'>cross</span> RISK-1 Task 1 — reconciler false-close hardening (close-on-disappear integrity). Draft PR for operator approval (live-VM reconciler).</li>
+<li><span class='pill'>cross</span> RISK-2 — IB account warm-up wedge on restart. Draft PR for operator approval (live order-path connect path).</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>Verified NON-issues (premise-verification, commit 3389c23): the json.dumps(...)[:N] &#x27;closed-flat&#x27; footgun is ALREADY migrated out of src/ (zero matches on main); the _DRY_RUN_OVERRIDES dead-code &#x27;deletion never landed&#x27; doc claim is false — it IS deleted. Specs were corrected against main before any code was written.</li>
+<li>Coverage honesty: this session covered Phase 0 (rules) fully, ARCH doc-drift fully, zombie-infra fully, VM/DB health via relay, and money-path risk root-causing. It did NOT complete the per-line src/ sweep, the consumer-repo cosmetics, the backlog drain, or ship the Tier-3 fixes — all explicitly handed to the follow-on session and listed under Monitoring.</li>
+<li>The running record is docs/audits/full-system-audit-2026-07-09.md (the shared findings brain); this report is the log-facing summary of it.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>canonical-rules (Phase 0)</td><td class="sev-ok">🟢 ok</td><td>Rules-first gate complete. 3 parallel contradiction-hunt agents + canonical-doc-coherence (4/4 PASS) reviewed the corpus; the 2 genuine wording ambiguities were settled with the operator and fixed (R1-R5 in CLAUDE-RULES-CANONICAL). Commit c347a4b.</td></tr>
+<tr><td>canonical-doc drift (ARCH)</td><td class="sev-ok">🟢 ok</td><td>ARCHITECTURE-CANONICAL reconciled with config/code reality: &#x27;12 strategies&#x27;-&gt;48, squeeze_breakout_4h live, turtle_soup/ict_scalp_5m shadow, alpaca_live real-money live, retired &#x27;IBKR offline&#x27; + _DRY_RUN_OVERRIDES &#x27;never landed&#x27; claims. Commit 941b8b4.</td></tr>
+<tr><td>canonical-doc drift (ROADMAP)</td><td class="sev-watch">🟡 watch</td><td>D7/D8/M16 ROADMAP corrections identified in the findings doc; handed to the follow-on session (S-AUDIT-A remainder), not yet committed.</td></tr>
+<tr><td>zombie / dead infrastructure</td><td class="sev-ok">🟢 ok</td><td>Dead label blocks (stop-micro-zombie, cf-worker-deploy) removed from bootstrap-labels.yml; oci-storage-verify.yml VM_HOST repointed off the terminated micro 158.178.210.252 to 141.145.193.91. Commit 80ccc0f.</td></tr>
+<tr><td>live trader / web-api / DB</td><td class="sev-ok">🟢 ok</td><td>Verified healthy via the diag relay: ict-trader-live + ict-web-api active, heartbeat fresh, trade_journal.db intact (single canonical inode). No zombie units on the live VM.</td></tr>
+<tr><td>trainer VM (OOM incident)</td><td class="sev-ok">🟢 ok</td><td>SSH-dead trainer (158.178.209.121) recovered via OCI hard reset -&gt; RUNNING; memory freed (368Mi, swap 0); operator confirmed the green [OK] recovery ping. Structural cure queued as MB-20260709-TRAINER-SUBPROC-ISOLATION.</td></tr>
+<tr><td>money-path structural risks</td><td class="sev-concern">🔴 concern</td><td>RISK-1 (reconciler false-close / closed-flat integrity), RISK-2 (IB warm-up wedge on restart), E1-F1 (order-path bypass) root-caused into verified structural-fix specs (commits 4461fdf, 3389c23) — but the Tier-3 fixes are NOT yet shipped/merged. In flight in the follow-on session; E1-F1 + RISK-1/2 require operator approval before merge.</td></tr>
+<tr><td>consumer repos (dashboard / android)</td><td class="sev-watch">🟡 watch</td><td>S-AUDIT-C (5 consumer wiring cosmetics) not yet worked; handed to the follow-on session. No correctness defect confirmed this session — the consumers are rename-resilient by contract.</td></tr>
+<tr><td>per-line code sweep (src/)</td><td class="sev-watch">🟡 watch</td><td>S-AUDIT-E per-line sweep is partial. Money-path files audited to structural-fix depth; the exhaustive per-line pass across all of src/ is incomplete and handed off. Honest coverage: partial.</td></tr>
+<tr><td>review backlogs</td><td class="sev-watch">🟡 watch</td><td>~143 open items across the three review backlogs. Draining to structural resolution (S-AUDIT-G) is handed to the follow-on session; this session did not work them down.</td></tr>
+</table></div>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>RISK-1</code></td><td>health</td><td>🗳️ awaiting-decision</td><td>Reconciler false-close + closed-flat integrity — verified fix spec recorded; Tier-3 draft PR pending operator approval.</td><td>draft PR opened by follow-on session</td></tr>
+<tr><td><code>RISK-2</code></td><td>health</td><td>🗳️ awaiting-decision</td><td>IB account/portfolio warm-up wedge on restart — fix specced; Tier-3 draft PR pending operator approval.</td><td>draft PR opened by follow-on session</td></tr>
+<tr><td><code>RISK-3</code></td><td>health</td><td>🔁 verify</td><td>web-api blocking-DB on async routes + prop report auth/idempotency. Tier-1/2 fixes in flight in the follow-on session.</td><td>fixes shipped + live-verified</td></tr>
+<tr><td><code>RISK-4</code></td><td>health</td><td>🔁 verify</td><td>OCI /dev/null clobber blocking deploys (infra). Source-kill determined; implementation handed off.</td><td>fix shipped</td></tr>
+<tr><td><code>E1-F1</code></td><td>health</td><td>🗳️ awaiting-decision</td><td>Order-path bypass structural fix — Tier-3, draft PR for operator approval.</td><td>operator approval on the draft PR</td></tr>
+<tr><td><code>MB-20260709-TRAINER-SUBPROC-ISOLATION</code></td><td>ml</td><td>🔁 verify</td><td>Structural cure for the trainer OOM class (isolate training subprocs so an OOM can&#x27;t take the VM SSH-dead). Recovery done; cure in flight.</td><td>cure shipped + a training cycle survives under memory pressure</td></tr>
+<tr><td><code>S-AUDIT-C/E/G/H</code></td><td>health</td><td>🧱 awaiting-data</td><td>Consumer cosmetics (C), per-line src/ sweep (E), ~143 backlog items to structural resolution (G), stale PR/issue closeout (H). Handed to the follow-on session; the closing audit report publishes when these complete.</td><td>follow-on session completes the workstreams</td></tr>
+</table></div>
+<footer>report_id RPT-20260709-104702-audit · reviewer claude · prior — · ICT Trading Bot full-system-audit</footer></div></body></html>

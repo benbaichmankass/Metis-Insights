@@ -1,0 +1,177 @@
+{
+  "report_id": "RPT-20260709-104702-audit",
+  "reviewed_at": "2026-07-09T10:47:02+00:00",
+  "reviewer": "claude",
+  "window": "audit",
+  "window_start": "2026-07-09T06:00:00+00:00",
+  "window_end": "2026-07-09T10:47:02+00:00",
+  "prior_report_id": null,
+  "overall_assessment": "caution",
+  "health": {
+    "overall_assessment": "caution",
+    "findings": {
+      "canonical-rules (Phase 0)": {
+        "status": "ok",
+        "note": "Rules-first gate complete. 3 parallel contradiction-hunt agents + canonical-doc-coherence (4/4 PASS) reviewed the corpus; the 2 genuine wording ambiguities were settled with the operator and fixed (R1-R5 in CLAUDE-RULES-CANONICAL). Commit c347a4b."
+      },
+      "canonical-doc drift (ARCH)": {
+        "status": "ok",
+        "note": "ARCHITECTURE-CANONICAL reconciled with config/code reality: '12 strategies'->48, squeeze_breakout_4h live, turtle_soup/ict_scalp_5m shadow, alpaca_live real-money live, retired 'IBKR offline' + _DRY_RUN_OVERRIDES 'never landed' claims. Commit 941b8b4."
+      },
+      "canonical-doc drift (ROADMAP)": {
+        "status": "watch",
+        "note": "D7/D8/M16 ROADMAP corrections identified in the findings doc; handed to the follow-on session (S-AUDIT-A remainder), not yet committed."
+      },
+      "zombie / dead infrastructure": {
+        "status": "ok",
+        "note": "Dead label blocks (stop-micro-zombie, cf-worker-deploy) removed from bootstrap-labels.yml; oci-storage-verify.yml VM_HOST repointed off the terminated micro 158.178.210.252 to 141.145.193.91. Commit 80ccc0f."
+      },
+      "live trader / web-api / DB": {
+        "status": "ok",
+        "note": "Verified healthy via the diag relay: ict-trader-live + ict-web-api active, heartbeat fresh, trade_journal.db intact (single canonical inode). No zombie units on the live VM."
+      },
+      "trainer VM (OOM incident)": {
+        "status": "ok",
+        "note": "SSH-dead trainer (158.178.209.121) recovered via OCI hard reset -> RUNNING; memory freed (368Mi, swap 0); operator confirmed the green [OK] recovery ping. Structural cure queued as MB-20260709-TRAINER-SUBPROC-ISOLATION."
+      },
+      "money-path structural risks": {
+        "status": "concern",
+        "note": "RISK-1 (reconciler false-close / closed-flat integrity), RISK-2 (IB warm-up wedge on restart), E1-F1 (order-path bypass) root-caused into verified structural-fix specs (commits 4461fdf, 3389c23) \u2014 but the Tier-3 fixes are NOT yet shipped/merged. In flight in the follow-on session; E1-F1 + RISK-1/2 require operator approval before merge."
+      },
+      "consumer repos (dashboard / android)": {
+        "status": "watch",
+        "note": "S-AUDIT-C (5 consumer wiring cosmetics) not yet worked; handed to the follow-on session. No correctness defect confirmed this session \u2014 the consumers are rename-resilient by contract."
+      },
+      "per-line code sweep (src/)": {
+        "status": "watch",
+        "note": "S-AUDIT-E per-line sweep is partial. Money-path files audited to structural-fix depth; the exhaustive per-line pass across all of src/ is incomplete and handed off. Honest coverage: partial."
+      },
+      "review backlogs": {
+        "status": "watch",
+        "note": "~143 open items across the three review backlogs. Draining to structural resolution (S-AUDIT-G) is handed to the follow-on session; this session did not work them down."
+      }
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "Full-system audit \u2014 Phase 0 (rules) + kickoff pass. This is the INTERIM audit report: the rules-first gate is settled, canonical-doc drift is corrected (ARCH) or specced (ROADMAP), zombie infra is cleaned up, the live trader/web-api/DB verified healthy, and the OOM-dead trainer recovered (operator-confirmed). The money-path structural risks (RISK-1/2, E1-F1) are root-caused into verified fix specs but NOT yet shipped \u2014 they + the S-AUDIT-C/E/G/H workstreams are in flight in the follow-on session. A final closing audit report will publish once the fixes are shipped + live-verified.",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Approve the Tier-3 money-path fixes (E1-F1, RISK-1, RISK-2) once their draft PRs land",
+        "source_review": "cross",
+        "tier": 3,
+        "detail": "E1-F1 order-path bypass, RISK-1 reconciler false-close, RISK-2 IB warm-up wedge are specced + verified but require explicit operator approval before merge (live order path / live-VM). Draft PRs come from the follow-on session.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "PR #6016 stays a draft \u2014 do not merge without approval",
+        "source_review": "cross",
+        "tier": 3,
+        "detail": "The program's tracking PR carries governance + rule-doc changes and rides on the audit branch. Merge only on explicit operator go-ahead.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 3,
+        "title": "Ship the remaining structural fixes + drain the backlogs (follow-on session)",
+        "source_review": "cross",
+        "tier": 1,
+        "detail": "RISK-3 (web-api blocking-DB + prop idempotency), RISK-4 (OCI /dev/null deploy clobber), MB-20260709-TRAINER-SUBPROC-ISOLATION, S-AUDIT-C/E/G/H. Tracked in docs/audits/full-system-audit-2026-07-09.md.",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "Verified NON-issues (premise-verification, commit 3389c23): the json.dumps(...)[:N] 'closed-flat' footgun is ALREADY migrated out of src/ (zero matches on main); the _DRY_RUN_OVERRIDES dead-code 'deletion never landed' doc claim is false \u2014 it IS deleted. Specs were corrected against main before any code was written.",
+      "Coverage honesty: this session covered Phase 0 (rules) fully, ARCH doc-drift fully, zombie-infra fully, VM/DB health via relay, and money-path risk root-causing. It did NOT complete the per-line src/ sweep, the consumer-repo cosmetics, the backlog drain, or ship the Tier-3 fixes \u2014 all explicitly handed to the follow-on session and listed under Monitoring.",
+      "The running record is docs/audits/full-system-audit-2026-07-09.md (the shared findings brain); this report is the log-facing summary of it."
+    ],
+    "tier3_proposals_pending": [
+      {
+        "source_review": "cross",
+        "summary": "E1-F1 \u2014 order-path bypass structural fix. Draft PR for operator approval (touches the live order path). Root cause + change + test + live-verify plan in the findings doc.",
+        "tier": 3
+      },
+      {
+        "source_review": "cross",
+        "summary": "RISK-1 Task 1 \u2014 reconciler false-close hardening (close-on-disappear integrity). Draft PR for operator approval (live-VM reconciler).",
+        "tier": 3
+      },
+      {
+        "source_review": "cross",
+        "summary": "RISK-2 \u2014 IB account warm-up wedge on restart. Draft PR for operator approval (live order-path connect path).",
+        "tier": 3
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "RISK-1",
+        "domain": "health",
+        "category": "awaiting-decision",
+        "detail": "Reconciler false-close + closed-flat integrity \u2014 verified fix spec recorded; Tier-3 draft PR pending operator approval.",
+        "since": "2026-07-09",
+        "next_check": "draft PR opened by follow-on session"
+      },
+      {
+        "item_id": "RISK-2",
+        "domain": "health",
+        "category": "awaiting-decision",
+        "detail": "IB account/portfolio warm-up wedge on restart \u2014 fix specced; Tier-3 draft PR pending operator approval.",
+        "since": "2026-07-09",
+        "next_check": "draft PR opened by follow-on session"
+      },
+      {
+        "item_id": "RISK-3",
+        "domain": "health",
+        "category": "verify",
+        "detail": "web-api blocking-DB on async routes + prop report auth/idempotency. Tier-1/2 fixes in flight in the follow-on session.",
+        "since": "2026-07-09",
+        "next_check": "fixes shipped + live-verified"
+      },
+      {
+        "item_id": "RISK-4",
+        "domain": "health",
+        "category": "verify",
+        "detail": "OCI /dev/null clobber blocking deploys (infra). Source-kill determined; implementation handed off.",
+        "since": "2026-07-09",
+        "next_check": "fix shipped"
+      },
+      {
+        "item_id": "E1-F1",
+        "domain": "health",
+        "category": "awaiting-decision",
+        "detail": "Order-path bypass structural fix \u2014 Tier-3, draft PR for operator approval.",
+        "since": "2026-07-09",
+        "next_check": "operator approval on the draft PR"
+      },
+      {
+        "item_id": "MB-20260709-TRAINER-SUBPROC-ISOLATION",
+        "domain": "ml",
+        "category": "verify",
+        "detail": "Structural cure for the trainer OOM class (isolate training subprocs so an OOM can't take the VM SSH-dead). Recovery done; cure in flight.",
+        "since": "2026-07-09",
+        "next_check": "cure shipped + a training cycle survives under memory pressure"
+      },
+      {
+        "item_id": "S-AUDIT-C/E/G/H",
+        "domain": "health",
+        "category": "awaiting-data",
+        "detail": "Consumer cosmetics (C), per-line src/ sweep (E), ~143 backlog items to structural resolution (G), stale PR/issue closeout (H). Handed to the follow-on session; the closing audit report publishes when these complete.",
+        "since": "2026-07-09",
+        "next_check": "follow-on session completes the workstreams"
+      }
+    ]
+  },
+  "artifacts": {
+    "json_path": "comms/reports/audit/20260709T104702Z/report.json",
+    "html_path": "comms/reports/audit/20260709T104702Z/report.html",
+    "md_path": "comms/reports/audit/20260709T104702Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/audit/20260709T104702Z/report.html",
+    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260709-104702-audit"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "pending",
+    "priority": "normal",
+    "message": "[audit:2026-07-09] roll-up caution \u2014 Phase 0 rules settled, ARCH drift fixed, zombie infra cleaned, trainer recovered; money-path fixes (RISK-1/2, E1-F1) specced + in flight, closing report to follow."
+  }
+}
