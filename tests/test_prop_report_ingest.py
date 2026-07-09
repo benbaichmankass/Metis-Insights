@@ -298,12 +298,20 @@ def test_unacted_ticket_fill_match_is_account_scoped(isolated_db: Path) -> None:
 # ── REST router ───────────────────────────────────────────────────────
 
 def test_router_post_report_and_reads(
-    client: TestClient, isolated_db: Path, no_notify: list
+    client: TestClient, isolated_db: Path, no_notify: list,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    r = client.post("/api/bot/prop/report", json={
-        "account_id": "breakout_1", "symbol": "SOLUSDT", "direction": "long",
-        "status": "closed", "pnl": 42.0, "exit_price": 80.0,
-    })
+    # The write gate is fail-closed: authenticate the POST. (Reads below stay
+    # unauthenticated — the read surface is intentionally permissive.)
+    monkeypatch.setenv("DASHBOARD_API_TOKEN", "secret")
+    r = client.post(
+        "/api/bot/prop/report",
+        headers={"Authorization": "Bearer secret"},
+        json={
+            "account_id": "breakout_1", "symbol": "SOLUSDT", "direction": "long",
+            "status": "closed", "pnl": 42.0, "exit_price": 80.0,
+        },
+    )
     assert r.status_code == 200, r.text
     assert r.json()["ok"] is True
 
@@ -318,9 +326,33 @@ def test_router_post_report_and_reads(
     assert "summary" in recon and recon["summary"]["fills_total"] == 1
 
 
-def test_router_post_rejects_bad_body(client: TestClient, isolated_db: Path) -> None:
-    r = client.post("/api/bot/prop/report", json={"status": "closed"})  # no account
+def test_router_post_rejects_bad_body(
+    client: TestClient, isolated_db: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Authenticate first (the write gate is fail-closed): a structurally-bad
+    # report still resolves to 400, not a masked auth error.
+    monkeypatch.setenv("DASHBOARD_API_TOKEN", "secret")
+    r = client.post(
+        "/api/bot/prop/report",
+        headers={"Authorization": "Bearer secret"},
+        json={"status": "closed"},  # no account
+    )
     assert r.status_code == 400
+
+
+def test_router_post_fail_closed_when_token_unset(
+    client: TestClient, isolated_db: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fail-closed: an unset DASHBOARD_API_TOKEN refuses the write with 503,
+    never silently accepts an unauthenticated prop-report write
+    (BL-20260705-DASHBOARD-API-TOKEN-UNSET). The check precedes body parsing,
+    so a well-formed report is still refused when the token is unset."""
+    monkeypatch.delenv("DASHBOARD_API_TOKEN", raising=False)
+    r = client.post(
+        "/api/bot/prop/report",
+        json={"account_id": "breakout_1", "symbol": "SOLUSDT", "status": "skipped"},
+    )
+    assert r.status_code == 503, r.text
 
 
 def test_router_post_token_gated(
