@@ -269,9 +269,12 @@
       "tier": 1,
       "trigger_condition": "Next /health-review, or before any second prop account is added to accounts.yaml.",
       "resolution_criteria": "A single is_prop_account helper is the only prop-classification predicate in src/prop/; the three call sites delegate to it; a test covers an account_class:prop-without-breakout account being recognised by all three.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [],
+      "resolved_at": "2026-07-09T11:26:38+00:00",
+      "resolved_by": "claude (full-system-audit RISK-3 Task 4, 2026-07-09)",
+      "resolution_note": "Verified single-homed on main: prop_identity.is_prop_account is the only prop funding-class predicate; the 3 former sites (account_rulesets.unit_for_account, telegram_report_handler.default_prop_account, prop_journal._prop_scope) all delegate to it (confirmed by grep + a new cross-site delegation test). Added scripts/ci/check_prop_identity_single_home.py (+ prop-identity-guard.yml): an AST merge-gate forbidding a re-inlined prop classifier outside the seam (account_class/type==\"prop\" anywhere; exchange==\"breakout\" inside src/prop/), while leaving legitimate connector dispatch (exchange==\"breakout\" in coordinator/execute) free. Tests: tests/test_prop_identity_guard.py (self-test + live-tree-clean + delegation)."
     },
     {
       "id": "BL-20260628-PROP-TICKET-UPSERT-NO-OPID-BACKFILL",
