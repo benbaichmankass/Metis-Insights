@@ -122,6 +122,7 @@ on:
           - supersede-reset-orphan-artifacts
           - fix-prop-mislinked-close
           - reset-daily-risk-state
+          - repair-malformed-notes
       reason:
         description: "Why this action is being run (audit trail; required for Tier-2)"
         required: false
@@ -487,7 +488,7 @@ jobs:
             status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|migrate-closed-at-iso|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|flatten-ib-position|flatten-bybit-position|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|fix-prop-mislinked-close|reset-daily-risk-state)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|migrate-closed-at-iso|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|flatten-ib-position|flatten-bybit-position|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|fix-prop-mislinked-close|reset-daily-risk-state|repair-malformed-notes)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -734,6 +735,7 @@ jobs:
             supersede-reset-orphan-artifacts)   SCRIPT="supersede_reset_orphan_artifacts_action.sh" ;;
             fix-prop-mislinked-close)           SCRIPT="prop_fix_mislinked_close_action.sh" ;;
             reset-daily-risk-state)             SCRIPT="reset_daily_risk_state.sh" ;;
+            repair-malformed-notes)             SCRIPT="repair_malformed_notes_action.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
               exit 2
@@ -893,6 +895,9 @@ jobs:
             REMOTE_CMD="ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_IDS=$(printf '%q' "${ACTION_IDS:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "fix-prop-mislinked-close" ]; then
+            REMOTE_CMD="ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "repair-malformed-notes" ]; then
             REMOTE_CMD="ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "reset-daily-risk-state" ]; then
