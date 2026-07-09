@@ -3646,10 +3646,19 @@
       "tier": 2,
       "trigger_condition": "INV-6 total_count > 0 on the live VM (visible in the ict-db-integrity journal), or the next /health-review.",
       "resolution_criteria": "repair_malformed_notes.py --apply run on the live DB with INV-6 total returning to 0, OR INV-6 confirmed total==0 (no-op) and recorded.",
-      "status": "open",
+      "status": "resolved",
+      "resolved_at": "2026-07-09T18:00:00+00:00",
+      "resolved_by": "claude (full-system-audit, 2026-07-09)",
+      "resolution_note": "RESOLVED. The nonfinite-aware dry-run (issue #6058) found 1085 json_valid=0 rows and classified ALL of them as TRUNCATED (49 trades.notes + 1036 order_packages.signal_logic; nonfinite=0) — i.e. the original char-slice footgun (BL-20260618 class), whose write-side was already eliminated by the dump_capped migration. HONESTY NOTE: an interim hypothesis that the 1036 signal_logic rows were NaN/Infinity serialization was DISPROVED by the classifier (json.loads accepts NaN, so a complete-but-nonfinite blob would parse; all 1085 fail to parse → truncation, confirmed by the mid-string tails). PR #6055 (json_notes.sanitize_nonfinite) still shipped as a valid LATENT-bug fix — dump_capped genuinely must never emit NaN/Infinity — but it was NOT the cause of this population. The one-shot repair (issue #6059, repair_malformed_notes.py --apply, Tier-2 DB writeback) rewrote all 1085 rows into valid JSON (salvage envelope preserving the raw under _original_truncated + recovering closed_at on the trades.notes rows that unblock closed_flat_invariant), verified by the script's post-commit re-scan: 'applied; remaining malformed rows = 0'. INV-6 (ict-db-integrity, hourly at :28, checks trades.notes) will independently re-confirm total=0 on its next run. Repair dispatched via the repair-malformed-notes system-action (added earlier this session).",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-09T18:00:00+00:00",
+          "by": "claude (full-system-audit)",
+          "note": "Closed. Deploy #6057 landed fce8d7d (nonfinite-aware repair script); dry-run #6058 confirmed 1085 truncated rows; apply #6059 -> remaining malformed rows = 0."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-07-08T16:58:36.988383+00:00"
+  "updated_at": "2026-07-09T18:00:00+00:00"
 }
