@@ -128,6 +128,7 @@ def _empty(window: str, since: Optional[str], error: bool = False) -> Dict[str, 
         "maxDrawdown": None,
         "perStrategy": [],
         "perAssetClass": [],
+        "perSymbol": [],
         "equity": [],
     }
 
@@ -246,6 +247,7 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     r_count = 0            # # trades with a computable R (entry+stop+size known)
     per: Dict[str, Dict[str, float]] = {}
     per_class: Dict[str, Dict[str, float]] = {}
+    per_symbol: Dict[str, Dict[str, Any]] = {}
     equity: List[Dict[str, Any]] = []
     cum = 0.0
     peak = 0.0           # running equity peak for max-drawdown
@@ -292,6 +294,20 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         if rr is not None:
             cbucket["r"] += rr
             cbucket["rc"] += 1
+        # per-symbol breakdown (drives the dashboard's symbol-stacked asset bar).
+        # Computed in this SAME loop over the SAME windowed rows as the class
+        # total, so a class that reports a total can never render an empty
+        # per-symbol split — the drift that left the client-side `/trades/closed`
+        # aggregation blank (a recently-closed trade with a null closedAt that
+        # `/performance` still counts).
+        sym = str(r["symbol"] or "unknown")
+        sbucket = per_symbol.setdefault(
+            sym, {"assetClass": cls, "trades": 0.0, "wins": 0.0, "pnl": 0.0}
+        )
+        sbucket["trades"] += 1
+        if pnl > 0:
+            sbucket["wins"] += 1
+        sbucket["pnl"] += pnl
         cum += pnl
         if cum > peak:
             peak = cum
@@ -337,6 +353,23 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     per_asset_class.sort(key=lambda c: (CLASS_ORDER.index(c["assetClass"])
                                         if c["assetClass"] in CLASS_ORDER else 99))
 
+    # Per-symbol breakdown — each symbol tagged with its asset class so the
+    # consumer can subdivide an asset-class bar by its constituent symbols.
+    per_symbol_list = [
+        {
+            "symbol": sym,
+            "assetClass": b["assetClass"],
+            "trades": int(b["trades"]),
+            "wins": int(b["wins"]),
+            "winRate": round(b["wins"] / b["trades"] * 100.0, 1) if b["trades"] else 0.0,
+            "totalPnl": round(b["pnl"], 4),
+            "expectancy": round(b["pnl"] / b["trades"], 4) if b["trades"] else 0.0,
+        }
+        for sym, b in per_symbol.items()
+    ]
+    # biggest movers first (by |P&L|) — stable palette in the consumer.
+    per_symbol_list.sort(key=lambda s: abs(s["totalPnl"]), reverse=True)
+
     # Profit factor: gross profit / gross loss. None when there are no losing
     # trades (undefined / infinite) or no trades — never a fabricated 0.
     profit_factor: Optional[float] = (
@@ -367,6 +400,7 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         "maxDrawdown": max_drawdown,
         "perStrategy": per_strategy,
         "perAssetClass": per_asset_class,
+        "perSymbol": per_symbol_list,
         "equity": _downsample(equity, _MAX_EQUITY_POINTS),
     }
 
