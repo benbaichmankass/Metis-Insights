@@ -1216,10 +1216,16 @@
    "tier": 3,
    "trigger_condition": "Reviewed each /performance-review; act when operator approves the shadow flip OR a backtest confirms/refutes the no-edge read.",
    "resolution_criteria": "Either (a) both cells flipped to execution: shadow (operator-approved) and confirmed no longer placing paper brackets, or (b) a fresh backtest shows a real edge and the live losses are attributed to a fixable execution/regime issue (then refine, keep live).",
-   "status": "open",
+   "status": "resolved",
    "snoozed_until": null,
-   "updates": []
+   "updates": [
+    {
+     "at": "2026-07-10T16:10:00+00:00",
+     "by": "claude (backtest gate, trainer-vm-diag #6106)",
+     "note": "DEMOTE HYPOTHESIS REFUTED — KEEP BOTH LIVE (on paper). Ran scripts/backtest_pullback.py at exact live params over 9yr trainer GLD/QQQ 1h data (2017-03 -> 2026-06), net-of-fee 1bps. gld_pullback_1h: net +113.6R, expectancy +0.323R, 39.5% WR, 352 trades, maxDD -19.2R, net-positive in 8/10 years (only 2018 -8.1, 2019 flat), 2024 +19.3 / 2025 +24.9 / 2026 +8.6 YTD. qqq_pullback_1h: net +90.7R, expectancy +0.340R, 39.7% WR, 267 trades, maxDD -10.6R, net-positive 8/10 years, 2024 +12.5 / 2025 +9.1 / 2026 +15.7 YTD. A min_confidence floor (0.3/0.5) marginally improves both (GLD 0.5 -> +127R, QQQ 0.5 -> +98.6R) — a possible future refinement, not needed for edge. CONCLUSION: both cells have a strong, robust, recent-inclusive net-of-fee edge; the live paper 0/9 + 0/7 is small-sample (16 combined closes) + bucket-B artifact-contaminated closes (reconciler_filled / exchange_flat_reconciled, per the 07-10 grade delta), NOT no-edge. No execution: shadow flip. Residual: gld_pullback_1h's alpaca_live 'sized_qty=0' dispatch-refusal is an underfunded-ACCOUNT issue (operator chose leave-as-is), orthogonal to the strategy edge. Closing the demote item."
+    }
+   ]
   }
  ],
- "updated_at": "2026-07-10T15:45:00+00:00"
+ "updated_at": "2026-07-10T16:10:00+00:00"
 }
