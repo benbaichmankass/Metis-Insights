@@ -92,26 +92,44 @@ that gap:
   (`cycle_already_complete`, exits fast); on a day the primary run was
   OOM-killed partway through, it picks up the remaining manifests same-day
   instead of stranding them until tomorrow's primary fire.
-- **Resource guard.** `ict-trainer.service` now sets `MemoryHigh=4G` /
-  `MemoryMax=5G` (of the VM's 6GB) with `OOMPolicy=continue` — the default
-  systemd `OOMPolicy=stop` kills the whole cgroup (and therefore the entire
-  in-progress cycle) on any single manifest's OOM; `continue` lets the kernel
-  OOM-kill just the offending subprocess while the service (and the loop's
-  existing rc=137-tolerant "one failed manifest doesn't abort the cycle"
-  handling) keeps running. Combined with checkpoint/resume, one expensive
-  manifest now costs one `failed` row instead of the whole day.
-- **Swap headroom (2026-07-08, MB-20260705-TRAINER-OOM).** `OOMPolicy=continue`
-  only contains a per-manifest *subprocess* OOM; the 2026-07-07 08:48 and
-  2026-07-08 07:06 kills were the service's **main process** exceeding the 5G
-  `MemoryMax` (RAM) plus the then-only-2G swap, which `OOMPolicy` cannot save.
-  The swapfile was grown **2G → 8G** (`/swapfile`, persisted in `/etc/fstab`;
-  the trainer cloud-init `runcmd` provisions 8G idempotently on re-provision).
-  With `MemorySwapMax=infinity` the main process now swaps past the 5G RAM cap
-  and completes (slowly under memory pressure) instead of being OOM-killed —
-  the 5G RAM cap still protects the host. The **deeper** fix — running each
-  manifest in its own subprocess so the orchestrator's RSS stays low and any
-  single manifest's OOM is fully contained by `OOMPolicy=continue` — is logged
-  to the ml-review backlog (avoids the swap-thrash slowdown).
+- **Resource guard.** `ict-trainer{,-catchup}.service` set `MemoryHigh=3G` /
+  `MemoryMax=5G` / `MemorySwapMax=512M` (of the VM's 6GB) with
+  `OOMPolicy=continue` — the default systemd `OOMPolicy=stop` kills the whole
+  cgroup (and therefore the entire in-progress cycle) on any single manifest's
+  OOM; `continue` lets the kernel OOM-kill just the offending subprocess while
+  the service (and the loop's existing rc=137-tolerant "one failed manifest
+  doesn't abort the cycle" handling) keeps running. Combined with
+  checkpoint/resume, one expensive manifest now costs one `failed` row instead
+  of the whole day. **NB the accounting:** `MemoryMax` bounds the whole *cgroup*
+  (bash + the ONE active `python -m ml` child + page cache), not a long-lived
+  "main process" — training already runs each manifest AND each dataset family
+  in its own subprocess (`run_training_cycle.sh` / `build_trainer_datasets.sh`),
+  so the peak RSS is a single child (the ~215k-row `market_features` build), not
+  an orchestrator that needs splitting.
+- **Swap containment (2026-07-10, MB-20260709 — supersedes the 07-08 swap
+  headroom).** The 2026-07-08 fix grew swap 2G→8G with `MemorySwapMax=infinity`
+  so a child could swap past the 5G RAM cap instead of being OOM-killed. That
+  **regressed** into an SSH-death: on 2026-07-10 a child paged into the full 8G
+  and swap-thrashed the 1-OCPU box until sshd couldn't answer the banner
+  exchange, needing an OCI hard reset. Fixed by capping per-cgroup swap
+  (`MemorySwapMax=512M`) so a runaway child is **OOM-killed + contained by
+  `OOMPolicy=continue`** rather than thrashing the host, and lowering
+  `MemoryHigh`→3G so reclaim starts earlier. The 8G swapfile stays as benign
+  host headroom (now capped per-cgroup). Do **not** re-raise `MemorySwapMax` to
+  infinity. Normal builds peak <5G RAM so the cap is untouched; it only bites a
+  genuine runaway. **Stagger** (opt-in) further relieves cumulative pressure:
+  `build_trainer_datasets.sh` day-parity-rebuilds the ALT ETH/SOL 5m/15m shards
+  on alternating nights (`BUILD_ALL_SHARDS=1` forces all), and
+  `run_training_cycle.sh` supports `TRAINING_MANIFEST_ROTATE=1` to alternate the
+  manifest fleet by day-parity. The **real peak-RSS reduction** — streaming the
+  `market_features` load instead of slurping a list-of-dicts — is the tracked
+  follow-up (`MB-20260709-TRAINER-SUBPROC-ISOLATION`); the caps above make the
+  box unkillable meanwhile.
+
+> **Log paths.** The dataset-build log is `runtime_logs/trainer/dataset_builds.jsonl`
+> and the dataset-audit log is `runtime_logs/trainer/dataset_audit.jsonl` (both
+> under the `trainer/` subdir, `BUILD_LOG_PATH`-overridable); the training-cycle
+> log is one level up at `runtime_logs/training_cycle.jsonl`.
 
 Both the script logic and the unit/timer definitions live in
 `deploy/training-vm-cloud-init.yaml` for re-provisioning; the live trainer VM
