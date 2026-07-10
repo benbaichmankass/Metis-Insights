@@ -51,7 +51,15 @@
       "resolution_criteria": "Each manifest trains in its own subprocess (orchestrator RSS stays well under the 5G cap, swap usage near zero during a nightly cycle) OR a decision is recorded that the swap headroom is sufficient and the refactor isn't worth it; AND the dataset_builds.jsonl path is confirmed (writer + read path aligned).",
       "status": "open",
       "snoozed_until": null,
-      "status_history": "open 2026-07-09 (split from the resolved MB-20260705-TRAINER-OOM: the swap fix stopped the kills; this tracks the deeper subprocess-isolation improvement + the dataset_builds.jsonl path check)."
+      "priority": "elevated",
+      "updates": [
+        {
+          "at": "2026-07-10T10:00:00+00:00",
+          "by": "claude (trainer DOWN incident 2026-07-10)",
+          "note": "RECURRENCE — the swap-thrash tradeoff this item flagged BIT for real, elevating it from non-urgent to prioritize. 2026-07-10 ~09:34Z the trainer went SSH-DEAD (trainer_reachability_alert DOWN; trainer-vm-diag probe #6085 returned 'Connection timed out during banner exchange … port 22 timed out'). This is the swap-thrash failure mode the 8G-swap 'fix' accepts made concrete: instead of an OOM-kill the box paged so hard on the 1-OCPU trainer that sshd could not complete a handshake — the VM was alive but unreachable, so no in-band recovery was possible. RECOVERED autonomously via an OCI control-plane hard RESET (reset-instance workflow, issue #6086: STOPPING→RUNNING, capacity preserved, no terminate) — the sanctioned recovery for exactly this symptom, no operator console needed. Post-reset verified healthy (trainer-vm-diag #6087): uptime 22m, mem 377Mi/5.8Gi used + 0B swap, ict-trainer-publish.timer active, mirror publishing again (trainer_status.json fresh, registry 80 models). NET: the swap headroom stops OOM-KILLS but does NOT stop swap-thrash-into-SSH-death — so 'the swap fix has the box stable' (resolution_criteria escape hatch) is now DISPROVEN; the subprocess-isolation refactor (keep orchestrator RSS under the 5G cap so it never pages) is the actual fix and should be done, not deferred. Interim mitigation to consider until then: a MemoryHigh throttle low enough that the orchestrator can't reach the swap-thrash regime, or a lightweight watchdog that RESETs on the banner-timeout symptom. Recurring MES/ML-lifecycle-availability risk (each wedge stalls all training until a manual/auto reset)."
+        }
+      ],
+      "status_history": "open 2026-07-09 (split from the resolved MB-20260705-TRAINER-OOM: the swap fix stopped the kills; this tracks the deeper subprocess-isolation improvement + the dataset_builds.jsonl path check). 2026-07-10 priority ELEVATED after a real SSH-dead swap-thrash wedge recovered by an autonomous OCI RESET (#6086)."
     },
     {
       "id": "MB-20260626-001",
