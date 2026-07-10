@@ -69,6 +69,15 @@ MARKET_START="${MARKET_START:-$(date -u -d '5 years ago' +%Y-%m-%d 2>/dev/null |
 MARKET_END="${MARKET_END:-$(date -u +%Y-%m-%d)}"
 BUILD_LOG_PATH="${BUILD_LOG_PATH:-$REPO_ROOT/runtime_logs/trainer/dataset_builds.jsonl}"
 
+# Night-parity stagger (MB-20260709, structural memory + runtime relief): BTC
+# rebuilds every night (the primary fleet); the ALT intraday shards (ETH/SOL
+# 5m/15m) rebuild on alternating nights so no single cycle rebuilds all 9 crypto
+# shards + their heavy market_features derivations at once. A stale-by-one-day
+# alt shard is harmless (RG4 tolerates ~1-2d lag). Set BUILD_ALL_SHARDS=1 to
+# force all shards regardless of parity.
+NIGHT_PARITY="$(( 10#$(date -u +%j) % 2 ))"
+build_alt_intraday() { [ "${BUILD_ALL_SHARDS:-0}" = "1" ] || [ "$NIGHT_PARITY" = "0" ]; }
+
 iso_now() { date -u +'%Y-%m-%dT%H:%M:%S+00:00'; }
 
 emit() {
@@ -276,16 +285,20 @@ build_bybit_pair ETHUSDT 1h
 # head, while the BTC 5m/15m heads pass RG4 cleanly. eth-regime-{5m,15m}-lgbm-v1
 # port the proven BTC 5m/15m recipe; their label datasets must be refreshed
 # daily so RG4 can score their live shadow rows once they soak.
-build_bybit_pair ETHUSDT 5m
-build_bybit_pair ETHUSDT 15m
+if build_alt_intraday; then
+  build_bybit_pair ETHUSDT 5m
+  build_bybit_pair ETHUSDT 15m
+fi
 build_bybit_pair SOLUSDT 1h
 # SOL 5m + 15m (multi-symbol regime, follow-on to ETH): sol-regime-{5m,15m}-lgbm-v1
 # port the proven BTC/ETH 5m/15m recipe to SOLUSDT (live-traded: trend_donchian_sol
 # prop 1h + a 4h SOL alt on demo). Same rationale as the ETH 5m/15m heads — the 1h
 # regime family is the weak RG4 timeframe — so SOL goes straight to 5m/15m. Their
 # label datasets must refresh daily so RG4 can score the live shadow rows post-soak.
-build_bybit_pair SOLUSDT 5m
-build_bybit_pair SOLUSDT 15m
+if build_alt_intraday; then
+  build_bybit_pair SOLUSDT 5m
+  build_bybit_pair SOLUSDT 15m
+fi
 
 # ---- MES market_features (yfinance ES=F 5m base, resampled to 15m) -------
 # MES has no deep intraday feed on the trainer VM: the IBKR gateway lives on
