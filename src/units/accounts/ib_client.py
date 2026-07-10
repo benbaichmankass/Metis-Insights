@@ -57,7 +57,7 @@ import math
 import os
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, time as dt_time, timezone
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from src.units.accounts.ib_instruments import ib_instrument_spec, is_ib_equity_symbol
@@ -103,6 +103,31 @@ _IB_PROBE_RETRY_GAP_S = _env_float("IB_PROBE_RETRY_GAP_S", 1.5)
 # the gateway again. Long enough that a wedged gateway can't be hammered every
 # tick; short enough that a genuine recovery is picked up promptly.
 _IB_BREAKER_COOLDOWN_S = _env_float("IB_BREAKER_COOLDOWN_S", 120.0)
+
+# BL-20260709-IB-POSTRESTART-RECONNECT-WEDGE — clientId rotation on reconnect.
+# After a gateway (container) restart under the socat relay, the trader's old
+# socket can go half-open: isConnected() reads False (so connect() attempts a
+# fresh socket) yet the gateway/socat side still holds the ORIGINAL clientId as
+# an active session, so a fresh connect on the SAME clientId times out
+# (connect_failed: TimeoutError) until an external gateway restart reaps it
+# (~18-min wedge, 2026-07-09). After this many CONSECUTIVE connect/probe
+# failures, connect() rotates to a fresh clientId (base + N*stride) so the
+# reconnect can't be blocked by a stale gateway-side session on the base id —
+# the trader-side equivalent of the second manual gateway restart. 0 disables
+# rotation (the teardown-before-reconnect hygiene below still applies).
+_IB_RECONNECT_ROTATE_CLIENTID_AFTER = int(
+    _env_float("IB_RECONNECT_ROTATE_CLIENTID_AFTER", 3)
+)
+# Offset stride between rotated clientIds. Large enough that a rotated id never
+# lands on a sibling exec client's base id (the 496/497/498 cluster) or on
+# another base's rotations (bands stay disjoint while bases differ by < stride).
+_IB_RECONNECT_CLIENTID_STRIDE = int(_env_float("IB_RECONNECT_CLIENTID_STRIDE", 100))
+# Distinct rotated ids to cycle through before wrapping back to the first
+# rotated id (bounds id sprawl; a successful connect resets the streak so the
+# base id is retried first on the next clean reconnect).
+_IB_RECONNECT_CLIENTID_MAX_ROTATIONS = int(
+    _env_float("IB_RECONNECT_CLIENTID_MAX_ROTATIONS", 5)
+)
 
 # Hard cap on the post-connect account/portfolio WARM-UP
 # (BL-20260706-IBWARMUP). ib_insync's ``accountSummary()`` (used by
@@ -408,20 +433,38 @@ class IBClient:
         if self._ib is not None and self._is_connected(self._ib):
             ib = self._ib
         else:
+            # Reconnect path. Tear down any lingering prior handle FIRST
+            # (BL-20260709-IB-POSTRESTART-RECONNECT-WEDGE): after a gateway
+            # (container) restart under the socat relay, isConnected() can read
+            # False while the OLD fd is still half-open and still occupies this
+            # clientId on the gateway side — opening a fresh socket on the same
+            # id without releasing the old one lets a stale session block the
+            # reconnect. Releasing it first is plain socket hygiene the pre-fix
+            # else-branch skipped (it never disconnected self._ib before
+            # building a fresh IB). _safe_disconnect nulls self._ib.
+            if self._ib is not None:
+                self._safe_disconnect(self._ib)
+            # clientId to connect on — the base id normally, a rotated id after
+            # too many consecutive failures on the base id (a stale gateway-side
+            # session; see _effective_client_id).
+            eff_client_id = self._effective_client_id()
             ib = self._new_ib()
             try:
                 ib.connect(
                     self.host,
                     self.port,
-                    clientId=self.client_id,
+                    clientId=eff_client_id,
                     timeout=self.timeout,
                     readonly=self.readonly,
                 )
             except Exception as exc:  # noqa: BLE001 — normalise every connect failure
+                # Don't leak the failed handle's (possibly half-open) socket —
+                # each leaked fd is another stale session fighting over the id.
+                self._safe_disconnect(ib)
                 self._trip_breaker(reason=f"connect_failed: {type(exc).__name__}")
                 raise IBConnectionError(
                     f"IBClient: failed to connect to IB Gateway at "
-                    f"{self.host}:{self.port} (clientId={self.client_id}, "
+                    f"{self.host}:{self.port} (clientId={eff_client_id}, "
                     f"account={self._masked_account()}): {type(exc).__name__}: {exc}. "
                     "Is IB Gateway / TWS running with the API enabled on this port?"
                 ) from exc
@@ -501,6 +544,39 @@ class IBClient:
             self.host, self.port, self._masked_account(),
             self._breaker_fail_count, _IB_BREAKER_COOLDOWN_S,
         )
+
+    def _effective_client_id(self) -> int:
+        """clientId to use on the NEXT socket connect.
+
+        Normally the configured base ``client_id``. After
+        ``_IB_RECONNECT_ROTATE_CLIENTID_AFTER`` consecutive connect/probe
+        failures on the base id, rotate to ``base + N*stride`` so a stale
+        gateway-side session still holding the base id (the BL-20260709
+        post-restart wedge) can't keep blocking the reconnect — the
+        trader-side equivalent of the second manual gateway restart that
+        cleared it. A successful connect resets ``_breaker_fail_count`` (see
+        :meth:`connect`), so the base id is retried first on the next clean
+        reconnect — rotation never permanently drifts the id.
+
+        Suppressed during IBKR's own ~03:45-05:45 UTC gateway reset window: a
+        connect failure there is expected for EVERY client and clientId
+        rotation cannot help, so rotating would only churn ids (mirrors the
+        gateway-watchdog ``--suppress-window-utc 03:45-05:45``).
+        """
+        after = _IB_RECONNECT_ROTATE_CLIENTID_AFTER
+        if after <= 0 or self._breaker_fail_count < after:
+            return self.client_id
+        if self._in_ibkr_reset_window():
+            return self.client_id
+        max_rot = max(1, _IB_RECONNECT_CLIENTID_MAX_ROTATIONS)
+        rot = ((self._breaker_fail_count - after) % max_rot) + 1
+        return self.client_id + rot * _IB_RECONNECT_CLIENTID_STRIDE
+
+    @staticmethod
+    def _in_ibkr_reset_window() -> bool:
+        """True during IBKR's documented ~03:45-05:45 UTC daily reset window."""
+        now = datetime.now(timezone.utc).time()
+        return dt_time(3, 45) <= now <= dt_time(5, 45)
 
     def _safe_disconnect(self, ib: Any) -> None:
         """Drop a dead handle so the next connect() reconnects fresh."""
@@ -1864,6 +1940,7 @@ class IBClient:
             "host": self.host,
             "port": self.port,
             "client_id": self.client_id,
+            "effective_client_id": self._effective_client_id(),
             "account": self._masked_account(),
             "symbol": self.symbol,
             "readonly": self.readonly,
