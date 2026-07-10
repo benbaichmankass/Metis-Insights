@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260710-161500-since-last",
+      "window": "since-last",
+      "generated_at": "2026-07-10T16:15:00+00:00",
+      "window_start": "2026-07-08T07:47:00+00:00",
+      "window_end": "2026-07-10T16:15:00+00:00",
+      "roll_up_grade": "healthy",
+      "headline": "Core system healthy. Prop pipeline verified sound \u2014 the 'no prop trades' was market conditions (SOL/ETH range-bound + chop), not the notification consolidation. Shadow-prop 'orphaned' mislabeling fixed (PR #6103). ETF pullback cells backtest-confirmed edge \u2014 no demotes.",
+      "html_path": "comms/reports/since-last/20260710T161500Z/report.html",
+      "json_path": "comms/reports/since-last/20260710T161500Z/report.json",
+      "md_path": "comms/reports/since-last/20260710T161500Z/report.md"
+    },
+    {
       "id": "RPT-20260709-104702-audit",
       "window": "audit",
       "generated_at": "2026-07-09T10:47:02+00:00",

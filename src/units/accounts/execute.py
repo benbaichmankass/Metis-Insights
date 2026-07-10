@@ -207,6 +207,39 @@ def execute_pkg(
             trade_id = f"dry-{uuid.uuid4().hex[:12]}"
             logger.info("breakout: dry/shadow — ticket NOT emitted: %s %s",
                         getattr(pkg, "strategy", "?"), getattr(pkg, "symbol", "?"))
+            # A shadow/dry prop leg emits NO ticket, but the order package logged
+            # in Coordinator._log_new_order_package still sits status='open' /
+            # linked_trade_id=NULL. Because this branch returns a TRUTHY `dry-`
+            # trade_id, the coordinator's BUG-049 no-trade backstop treats the leg
+            # as placed and never terminalises the package — so the monitor
+            # reconciler mis-stamps it 'orphaned — never executed' at +5min. That
+            # red-flag status is wrong for a deliberate shadow/dry non-emit, and it
+            # made the shadow prop variants (trend_donchian_{sol,eth}_prop, which
+            # are execution: shadow) surface as alarming "orphaned" rows on
+            # /api/bot/prop/tickets. Terminalise the package accurately with
+            # status='shadow' (a non-'open' status the orphan sweep + the
+            # strategy-monocle both ignore, and distinct from a real 'emitted'
+            # ticket) — the mirror of the live-branch prop-package contract below.
+            # Best-effort: a journal hiccup must never change the (already-decided)
+            # no-emit outcome.
+            try:
+                pkg_id = (getattr(pkg, "meta", None) or {}).get("order_package_id")
+                if pkg_id:
+                    from src.units.db.database import Database
+                    from src.utils.paths import trade_journal_db_path
+
+                    Database(db_path=trade_journal_db_path()).update_order_package(
+                        pkg_id, {
+                            "status": "shadow",
+                            "close_reason": "prop_shadow_no_emit",
+                        })
+            except Exception as exc:  # noqa: BLE001 — never break the no-emit path
+                logger.warning(
+                    "execute_pkg: prop shadow package status update failed "
+                    "(strategy=%s symbol=%s pkg_id=%s): %s",
+                    getattr(pkg, "strategy", "?"), getattr(pkg, "symbol", "?"),
+                    (getattr(pkg, "meta", None) or {}).get("order_package_id"), exc,
+                )
             return trade_id
         from src.prop.breakout_executor import emit_prop_ticket
         order = {
