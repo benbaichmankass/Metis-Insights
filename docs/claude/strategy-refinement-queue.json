@@ -1,175 +1,185 @@
 {
-  "_comment": "Strategy refinement queue (2026-06-18) — the active pipeline for `paper_ready` cells (docs/strategy-readiness-ladder.md). A paper_ready cell is a net-of-fee-positive edge that is NOT yet fold-robust (cleared the demo bar, missed the live-money bar). Each row records WHY it missed live + a concrete refinement HYPOTHESIS to test. /performance-review + the backtesting skill drain this: re-test the hypothesis on the harness, re-tier with scripts/ops/classify_strategy_tier.py, then advance (paper->live proposal), iterate, or reject with evidence. This is distinct from: performance-review-backlog.json (live-strategy tweak puzzles), ml-review-backlog.json (model experiments), health-review-backlog.json (system bugs). Item ids: SRQ-YYYYMMDD-NNN.",
-  "_see_also": "docs/research/strategy-primitives-recombination-DESIGN.md — the combinatorial primitive-recombination initiative (operator direction 2026-06-18). Its first probes drain SRQ-20260618-001/-002 (regime-filter swap) and -003 (exit-manager swap) by treating each refinement hypothesis as a (entry, filter, exit, timeframe) tuple to sweep + re-tier via classify_strategy_tier.py. DESIGN — for operator review; trainer-gated.",
-  "schema_version": 1,
-  "items": [
+ "_comment": "Strategy refinement queue (2026-06-18) — the active pipeline for `paper_ready` cells (docs/strategy-readiness-ladder.md). A paper_ready cell is a net-of-fee-positive edge that is NOT yet fold-robust (cleared the demo bar, missed the live-money bar). Each row records WHY it missed live + a concrete refinement HYPOTHESIS to test. /performance-review + the backtesting skill drain this: re-test the hypothesis on the harness, re-tier with scripts/ops/classify_strategy_tier.py, then advance (paper->live proposal), iterate, or reject with evidence. This is distinct from: performance-review-backlog.json (live-strategy tweak puzzles), ml-review-backlog.json (model experiments), health-review-backlog.json (system bugs). Item ids: SRQ-YYYYMMDD-NNN.",
+ "_see_also": "docs/research/strategy-primitives-recombination-DESIGN.md — the combinatorial primitive-recombination initiative (operator direction 2026-06-18). Its first probes drain SRQ-20260618-001/-002 (regime-filter swap) and -003 (exit-manager swap) by treating each refinement hypothesis as a (entry, filter, exit, timeframe) tuple to sweep + re-tier via classify_strategy_tier.py. DESIGN — for operator review; trainer-gated.",
+ "schema_version": 1,
+ "items": [
+  {
+   "id": "SRQ-20260618-001",
+   "opened_at": "2026-06-18T07:30:00+00:00",
+   "opened_by": "claude (system-audit / strategy-expansion session)",
+   "source": "M15 WS-C alt k-fold gate (detached sweep, trainer-vm-diag #3930/#3936), scripts/ops/m15_ws_c_kfold.sh over freshly-fetched Bybit alt perps. 5-fold anchored walk-forward, net-of-fee 7.5 + 15 bps.",
+   "cell": "trend_4h on {ETHUSDT, SOLUSDT, XRPUSDT, ADAUSDT, AVAXUSDT}",
+   "family": "trend_donchian",
+   "tier": "paper_ready",
+   "gate_verdict": "FAIL (strict every-fold) — but net-of-fee positive overall + 2x-fee headroom; e.g. one cell +26.9R OOS / survives 15 bps. The 5-fold every-fold gate fails them because the most-recent fold (~2025-11-15 -> 2026-06-11) is net-negative (e.g. -5.6R / 35 trades).",
+   "missed_live_because": "Edge is positive across the full OOS window and most folds, but degrades in the recent (late-2025 -> 2026) regime — consistent with a chop/range regime where a breakout-trend follower whipsaws (the same failure mode trend_donchian/fade already gate against on BTC).",
+   "refinement_hypothesis": "Add an ADX / regime entry gate (skip entries when ADX < ~threshold or detected regime = chop), mirroring the live trend_donchian long-only + regime-router treatment, then re-run the k-fold. If the recent losing fold turns flat/positive without killing the trending-regime edge, the cell advances toward live_money_ready. Secondary lever: a min_confidence floor sweep (the harness emits live-parity confidence; --confidence-sweep).",
+   "next_step": "WIRED 2026-06-18: all 5 cells (trend_donchian_{eth,sol,xrp,ada,avax}_4h) are live on bybit_1 DEMO (execution: live, demo-only, both-sides) for decision/ML soak. REMAINING: run the ADX/regime-gated re-sweep on the trainer; re-tier with classify_strategy_tier.py once folds land; a clean every-fold pass + operator approval graduates the family toward real-money bybit_2 (separate Tier-3 gate).",
+   "wired_to_demo": {
+    "at": "2026-06-18",
+    "account": "bybit_1",
+    "strategies": [
+     "trend_donchian_eth_4h",
+     "trend_donchian_sol_4h",
+     "trend_donchian_xrp_4h",
+     "trend_donchian_ada_4h",
+     "trend_donchian_avax_4h"
+    ],
+    "note": "execution: live on demo (paper money); observe-for-soak, NOT live-money-ready."
+   },
+   "status": "open",
+   "snoozed_until": null,
+   "drain_notes": [
     {
-      "id": "SRQ-20260618-001",
-      "opened_at": "2026-06-18T07:30:00+00:00",
-      "opened_by": "claude (system-audit / strategy-expansion session)",
-      "source": "M15 WS-C alt k-fold gate (detached sweep, trainer-vm-diag #3930/#3936), scripts/ops/m15_ws_c_kfold.sh over freshly-fetched Bybit alt perps. 5-fold anchored walk-forward, net-of-fee 7.5 + 15 bps.",
-      "cell": "trend_4h on {ETHUSDT, SOLUSDT, XRPUSDT, ADAUSDT, AVAXUSDT}",
-      "family": "trend_donchian",
-      "tier": "paper_ready",
-      "gate_verdict": "FAIL (strict every-fold) — but net-of-fee positive overall + 2x-fee headroom; e.g. one cell +26.9R OOS / survives 15 bps. The 5-fold every-fold gate fails them because the most-recent fold (~2025-11-15 -> 2026-06-11) is net-negative (e.g. -5.6R / 35 trades).",
-      "missed_live_because": "Edge is positive across the full OOS window and most folds, but degrades in the recent (late-2025 -> 2026) regime — consistent with a chop/range regime where a breakout-trend follower whipsaws (the same failure mode trend_donchian/fade already gate against on BTC).",
-      "refinement_hypothesis": "Add an ADX / regime entry gate (skip entries when ADX < ~threshold or detected regime = chop), mirroring the live trend_donchian long-only + regime-router treatment, then re-run the k-fold. If the recent losing fold turns flat/positive without killing the trending-regime edge, the cell advances toward live_money_ready. Secondary lever: a min_confidence floor sweep (the harness emits live-parity confidence; --confidence-sweep).",
-      "next_step": "WIRED 2026-06-18: all 5 cells (trend_donchian_{eth,sol,xrp,ada,avax}_4h) are live on bybit_1 DEMO (execution: live, demo-only, both-sides) for decision/ML soak. REMAINING: run the ADX/regime-gated re-sweep on the trainer; re-tier with classify_strategy_tier.py once folds land; a clean every-fold pass + operator approval graduates the family toward real-money bybit_2 (separate Tier-3 gate).",
-      "wired_to_demo": {
-        "at": "2026-06-18",
-        "account": "bybit_1",
-        "strategies": [
-          "trend_donchian_eth_4h",
-          "trend_donchian_sol_4h",
-          "trend_donchian_xrp_4h",
-          "trend_donchian_ada_4h",
-          "trend_donchian_avax_4h"
-        ],
-        "note": "execution: live on demo (paper money); observe-for-soak, NOT live-money-ready."
-      },
-      "status": "open",
-      "snoozed_until": null,
-      "drain_notes": [
-        {
-          "at": "2026-06-18T11:45:00+00:00",
-          "by": "/performance-review",
-          "note": "Recombination orchestrator + ADX regime-filter lever SHIPPED (#3945). The regime-swap re-sweep (adx_min~20 on these cells) is now runnable via scripts/ops/recombination_sweep.py — trainer-gated, queued behind the WS-C sweep. Live 06-18 grading corroborates: the cells' weak-regime tail (eth_pullback conf<0.15 in chop) is exactly what an adx_min gate removes. Status unchanged (awaiting the trainer re-sweep + re-tier)."
-        },
-        {
-          "at": "2026-07-07T09:50:00+00:00",
-          "by": "/performance-review 2026-07-07",
-          "note": "'Let time + the live demo soak be the arbiter' (2026-06-18 next_refinement) is starting to accrue real signal: today's diversified-paper-book tracker run (100-trade bybit_1 sample, 2026-06-16 -> 2026-07-05) shows trend_donchian_ada_4h net +$6748.97 (n=11, WR 81.8%), trend_donchian_eth_4h net +$2407.44 (n=3, WR 66.7%), trend_donchian_xrp_4h net +$2073.79 (n=4, WR 75.0%) — all net-positive on live paper — while trend_donchian_avax_4h is net -$1123.15 (n=5, WR 60%) and trend_donchian_sol_4h is net -$1086.35 (n=4, WR 50%). Sample sizes are still thin (3-11 closes/cell) — not yet enough for a re-tier verdict — but the split (ETH/ADA/XRP trending positive, AVAX/SOL lagging) is a useful early read to track against the backtest fold evidence. No re-tier action yet; keep accruing."
-        }
-      ],
-      "resweep_results": [
-        {
-          "at": "2026-06-18T13:18:00+00:00",
-          "by": "ADX-20 regime-swap re-sweep (vm-driver on trainer, MCP-independent)",
-          "probe": "--adx-min 20 on trend_4h + pullback_2h k-fold (5-fold, 7.5/15 bps), A/B vs un-gated WS-C baseline",
-          "outcome": "NO cell graduated to live_ready — all 10 stay paper_ready (every cell still has >=1 negative fold). A flat adx_min=20 HELPS ETH (trend +42.3 vs +27.9, worst fold -1.16; pullback +62.7 vs +59.0) and ADA pullback (+41.4 vs +30.0), but HURTS XRP/SOL/AVAX (filters profitable trending trades, e.g. trend_XRP +19.3 vs +45.0). Conclusion: regime gating is real signal but a single blunt threshold is wrong — needs per-cell tuning.",
-          "next": "ADX threshold sweep (15/20/25/30) per cell to find if any flips every-fold positive; lead with the ETH cells (responded best to gating). If none clears the strict gate, the cells stay paper_ready on demo soak — refine via the recombination orchestrator (regime_filter axis) or a softer regime weight, not a hard gate."
-        },
-        {
-          "at": "2026-06-18T13:33:00+00:00",
-          "by": "per-cell ADX threshold sweep (15/20/25/30) via vm-driver",
-          "outcome": "BREAKTHROUGH (with overfit caveat): 4 of 10 cells reach a clean every-fold pass (live_ready) at a PER-CELL tuned ADX threshold — pullback_ETH@25 (+63.1R), pullback_ADA@30 (+60.9R), pullback_SOL@15 (+43.8R), trend_XRP@15 (+40.5R). Optimal threshold differs per cell, confirming a single global gate is wrong but per-cell regime gating graduates ~40% of the book. Other 6 stay paper_ready.",
-          "caveat": "Thresholds were SELECTED on the same k-fold (best of 15/20/25/30 per cell) — mild in-sample-selection/overfit risk. These are live_ready CANDIDATES, not auto-promote.",
-          "next": "Out-of-pool HOLDOUT before any real-money (Tier-3) proposal: re-test each candidate's tuned threshold on a withheld period (e.g. 2026 H2 as it accrues) and/or a held-out symbol, to confirm the tuned ADX generalizes. If it holds → Tier-3 demo→bybit_2 promotion proposal per cell with the tuned adx_min. The 6 non-graduating cells continue demo soak / try the exit-manager or confidence-floor axes."
-        },
-        {
-          "at": "2026-06-18T13:43:00+00:00",
-          "by": "ADX holdout/overfit check (vm-driver)",
-          "outcome": "ALL 4 live_ready candidates FAIL the holdout -> they were in-sample artifacts, NOT robust. The every-fold-positive 'pass' holds ONLY at the exact 5-fold/0.40 split and breaks at k=6, k=7, train_frac 0.35/0.45 (1/5 fold-configs pass for every candidate). Threshold-band plateau was mixed (ETH 5/5 robust, SOL knife-edge 1/5). Net: NONE qualifies for a real-money (Tier-3) promotion.",
-          "decision": "REJECT all 4 as live_ready. They remain genuinely paper_ready (net-of-fee positive + 2x headroom across the FULL window is robust) and stay on bybit_1 demo soak. The holdout did its job: caught the overfit before any capital was risked.",
-          "methodology_followup": "The classify_strategy_tier 'live_ready' gate (every fold positive at ONE k-fold config) is too weak — single-split every-fold pass is overfit-prone. Strengthen it to require robustness across multiple fold-configs (e.g. pass at k=5/6/7 AND train_frac 0.35-0.45) before stamping live_ready. Logged as a tooling follow-up.",
-          "next_refinement": "Backtest threshold-tuning has hit diminishing returns on these cells (further tuning just overfits). Better levers: (a) the exit-manager axis (SRQ-003 style) or a softer regime-WEIGHT (DESIGN phase 3+) rather than a hard gate; (b) let TIME + the live demo soak accrue real out-of-sample decisions be the arbiter rather than more in-sample backtests."
-        }
-      ]
+     "at": "2026-06-18T11:45:00+00:00",
+     "by": "/performance-review",
+     "note": "Recombination orchestrator + ADX regime-filter lever SHIPPED (#3945). The regime-swap re-sweep (adx_min~20 on these cells) is now runnable via scripts/ops/recombination_sweep.py — trainer-gated, queued behind the WS-C sweep. Live 06-18 grading corroborates: the cells' weak-regime tail (eth_pullback conf<0.15 in chop) is exactly what an adx_min gate removes. Status unchanged (awaiting the trainer re-sweep + re-tier)."
     },
     {
-      "id": "SRQ-20260618-002",
-      "opened_at": "2026-06-18T07:30:00+00:00",
-      "opened_by": "claude (system-audit / strategy-expansion session)",
-      "source": "Same WS-C alt k-fold gate run as SRQ-20260618-001 (trainer-vm-diag #3936).",
-      "cell": "htf_pullback_2h on {ETHUSDT, ADAUSDT, SOLUSDT, XRPUSDT, AVAXUSDT}",
-      "family": "htf_pullback_trend_2h",
-      "tier": "paper_ready",
-      "gate_verdict": "FAIL (strict every-fold) — net-of-fee positive overall + 2x-fee headroom, fails only the every-fold gate on the recent fold. (eth_pullback_2h is already live on bybit_1 demo from the looser 3-fold WS-C adoption; the 5-fold gate is stricter and it does not clear it — informative, not a regression: it is demo-only.)",
-      "missed_live_because": "Same shape as the trend family — the pullback-continuation edge holds across the full window but the recent regime fold goes negative.",
-      "refinement_hypothesis": "Add an ADX/regime entry gate (pullback-continuation only in trending/transitional regimes, skip chop) + re-test; this is the exact router-policy treatment htf_pullback already has on BTC (long ON in trending/transitional, off in chop). Re-run the k-fold gated and re-tier.",
-      "next_step": "WIRED 2026-06-18: the 4 not-yet-wired symbols ({sol,xrp,ada,avax}_pullback_2h) are now live on bybit_1 DEMO (execution: live, demo-only) for soak; eth_pullback_2h was already wired. REMAINING: run the regime-gated re-sweep on the trainer; re-tier with classify_strategy_tier.py; feed the same ADX/regime refinement to all 5 cells. Graduation to real-money bybit_2 is a separate Tier-3 gate.",
-      "wired_to_demo": {
-        "at": "2026-06-18",
-        "account": "bybit_1",
-        "strategies": [
-          "sol_pullback_2h",
-          "xrp_pullback_2h",
-          "ada_pullback_2h",
-          "avax_pullback_2h"
-        ],
-        "note": "eth_pullback_2h already wired (M15 WS-C). execution: live on demo (paper money); observe-for-soak, NOT live-money-ready."
-      },
-      "status": "open",
-      "snoozed_until": null,
-      "drain_notes": [
-        {
-          "at": "2026-06-18T11:45:00+00:00",
-          "by": "/performance-review",
-          "note": "Recombination orchestrator + ADX regime-filter lever SHIPPED (#3945). The regime-swap re-sweep (adx_min~20 on these cells) is now runnable via scripts/ops/recombination_sweep.py — trainer-gated, queued behind the WS-C sweep. Live 06-18 grading corroborates: the cells' weak-regime tail (eth_pullback conf<0.15 in chop) is exactly what an adx_min gate removes. Status unchanged (awaiting the trainer re-sweep + re-tier)."
-        },
-        {
-          "at": "2026-07-07T09:50:00+00:00",
-          "by": "/performance-review 2026-07-07",
-          "note": "Today's diversified-paper-book tracker run (100-trade bybit_1 sample, 2026-06-16 -> 2026-07-05) shows the pullback family mixed: ada_pullback_2h net +$2240.20 (n=9, WR 66.7%), eth_pullback_2h net +$2916.26 (n=11, WR 54.5%), xrp_pullback_2h net +$748.60 (n=8, WR 62.5%) are net-positive, while avax_pullback_2h net -$1888.79 (n=10, WR 30%) and sol_pullback_2h net -$2039.81 (n=17, WR 23.5%) are the book's clearest live-paper laggards — consistent with this item's 'not every-fold' backtest finding for those two names. Sample still thin for a re-tier call; keep accruing, but AVAX/SOL pullback are now the strongest candidates for the exit-manager/regime-weight refinement axis this item already flagged."
-        }
-      ],
-      "resweep_results": [
-        {
-          "at": "2026-06-18T13:18:00+00:00",
-          "by": "ADX-20 regime-swap re-sweep (vm-driver on trainer, MCP-independent)",
-          "probe": "--adx-min 20 on trend_4h + pullback_2h k-fold (5-fold, 7.5/15 bps), A/B vs un-gated WS-C baseline",
-          "outcome": "NO cell graduated to live_ready — all 10 stay paper_ready (every cell still has >=1 negative fold). A flat adx_min=20 HELPS ETH (trend +42.3 vs +27.9, worst fold -1.16; pullback +62.7 vs +59.0) and ADA pullback (+41.4 vs +30.0), but HURTS XRP/SOL/AVAX (filters profitable trending trades, e.g. trend_XRP +19.3 vs +45.0). Conclusion: regime gating is real signal but a single blunt threshold is wrong — needs per-cell tuning.",
-          "next": "ADX threshold sweep (15/20/25/30) per cell to find if any flips every-fold positive; lead with the ETH cells (responded best to gating). If none clears the strict gate, the cells stay paper_ready on demo soak — refine via the recombination orchestrator (regime_filter axis) or a softer regime weight, not a hard gate."
-        },
-        {
-          "at": "2026-06-18T13:33:00+00:00",
-          "by": "per-cell ADX threshold sweep (15/20/25/30) via vm-driver",
-          "outcome": "BREAKTHROUGH (with overfit caveat): 4 of 10 cells reach a clean every-fold pass (live_ready) at a PER-CELL tuned ADX threshold — pullback_ETH@25 (+63.1R), pullback_ADA@30 (+60.9R), pullback_SOL@15 (+43.8R), trend_XRP@15 (+40.5R). Optimal threshold differs per cell, confirming a single global gate is wrong but per-cell regime gating graduates ~40% of the book. Other 6 stay paper_ready.",
-          "caveat": "Thresholds were SELECTED on the same k-fold (best of 15/20/25/30 per cell) — mild in-sample-selection/overfit risk. These are live_ready CANDIDATES, not auto-promote.",
-          "next": "Out-of-pool HOLDOUT before any real-money (Tier-3) proposal: re-test each candidate's tuned threshold on a withheld period (e.g. 2026 H2 as it accrues) and/or a held-out symbol, to confirm the tuned ADX generalizes. If it holds → Tier-3 demo→bybit_2 promotion proposal per cell with the tuned adx_min. The 6 non-graduating cells continue demo soak / try the exit-manager or confidence-floor axes."
-        },
-        {
-          "at": "2026-06-18T13:43:00+00:00",
-          "by": "ADX holdout/overfit check (vm-driver)",
-          "outcome": "ALL 4 live_ready candidates FAIL the holdout -> they were in-sample artifacts, NOT robust. The every-fold-positive 'pass' holds ONLY at the exact 5-fold/0.40 split and breaks at k=6, k=7, train_frac 0.35/0.45 (1/5 fold-configs pass for every candidate). Threshold-band plateau was mixed (ETH 5/5 robust, SOL knife-edge 1/5). Net: NONE qualifies for a real-money (Tier-3) promotion.",
-          "decision": "REJECT all 4 as live_ready. They remain genuinely paper_ready (net-of-fee positive + 2x headroom across the FULL window is robust) and stay on bybit_1 demo soak. The holdout did its job: caught the overfit before any capital was risked.",
-          "methodology_followup": "The classify_strategy_tier 'live_ready' gate (every fold positive at ONE k-fold config) is too weak — single-split every-fold pass is overfit-prone. Strengthen it to require robustness across multiple fold-configs (e.g. pass at k=5/6/7 AND train_frac 0.35-0.45) before stamping live_ready. Logged as a tooling follow-up.",
-          "next_refinement": "Backtest threshold-tuning has hit diminishing returns on these cells (further tuning just overfits). Better levers: (a) the exit-manager axis (SRQ-003 style) or a softer regime-WEIGHT (DESIGN phase 3+) rather than a hard gate; (b) let TIME + the live demo soak accrue real out-of-sample decisions be the arbiter rather than more in-sample backtests."
-        }
-      ]
+     "at": "2026-07-07T09:50:00+00:00",
+     "by": "/performance-review 2026-07-07",
+     "note": "'Let time + the live demo soak be the arbiter' (2026-06-18 next_refinement) is starting to accrue real signal: today's diversified-paper-book tracker run (100-trade bybit_1 sample, 2026-06-16 -> 2026-07-05) shows trend_donchian_ada_4h net +$6748.97 (n=11, WR 81.8%), trend_donchian_eth_4h net +$2407.44 (n=3, WR 66.7%), trend_donchian_xrp_4h net +$2073.79 (n=4, WR 75.0%) — all net-positive on live paper — while trend_donchian_avax_4h is net -$1123.15 (n=5, WR 60%) and trend_donchian_sol_4h is net -$1086.35 (n=4, WR 50%). Sample sizes are still thin (3-11 closes/cell) — not yet enough for a re-tier verdict — but the split (ETH/ADA/XRP trending positive, AVAX/SOL lagging) is a useful early read to track against the backtest fold evidence. No re-tier action yet; keep accruing."
     },
     {
-      "id": "SRQ-20260618-003",
-      "opened_at": "2026-06-18T07:30:00+00:00",
-      "opened_by": "claude (system-audit / strategy-expansion session)",
-      "source": "Same WS-C alt k-fold gate run; ict_scalp 5m k-fold still executing at session time (multi-year 5m, slow — ADAUSDT in progress per trainer-vm-diag #3936).",
-      "cell": "ict_scalp_5m on {ADAUSDT, AVAXUSDT, ETHUSDT, LINKUSDT}",
-      "family": "ict_scalp_5m",
-      "tier": "reject",
-      "gate_verdict": "REJECT (fee-bleed confirmed 2026-06-18) — the multi-year 5m k-fold completed and the edge is FEE-FRAGILE: gross-positive but it does not survive realistic fees on thin alt books. ADAUSDT: +50R @ 7.5 bps / -38R @ 15 bps; AVAXUSDT: +65R @ 7.5 bps / -26R @ 15 bps. The 7.5 bps -> 15 bps doubling flips both cells from strongly positive to strongly negative, so the strategy lives entirely inside the round-trip cost band — the highest decision frequency (300-1600 trades/window/symbol) that made it the most valuable SOAK candidate is exactly what makes it the most fee-sensitive. NOT paper_ready as-is (a demo soak would generate volume but no net-of-fee edge worth promoting).",
-      "missed_live_because": "Edge sits below the 2x-fee survival bar — the per-trade R is smaller than the fee-doubling delta, so the family is structurally fee-bound at 5m on alt perps. This is a different failure mode from the trend/pullback cells (which are net-of-fee positive overall and fail only the recent-regime fold); ict_scalp 5m fails the fee-headroom bar itself.",
-      "refinement_hypothesis": "Do NOT soak the 5m alt cells as-is. Instead test lower-frequency / higher-edge-per-trade variants that escape the fee band: (a) ict_scalp at 15m (fewer, larger-R trades — same logic, longer hold, less round-trip drag); (b) a higher-selectivity parameter set (raise min_confidence / tighten the HTF-bias + session/killzone filter — the unit already has session_filter_enabled — to trade only the strongest setups, lifting per-trade R above the fee band); (c) a displacement-continuation momentum scalp (enter on a confirmed displacement leg + FVG continuation rather than every mean-reversion tag — fewer, trend-aligned entries); (d) a maker-entry VWAP-band mean-reversion (post-only limit entries at the VWAP band edges to EARN the maker rebate / pay zero taker fee, directly attacking the fee bleed rather than the signal).",
-      "next_step": "REJECTED for direct demo soak (fee-bleed). Open a fresh research thread on the four low-TF/higher-edge alternatives above; backtest each on the same alt panel under the 7.5/15 bps net-of-fee k-fold; re-tier any survivor with classify_strategy_tier.py and open a new SRQ row if a variant clears paper_ready. The 5m ict_scalp alt cells themselves are not advanced.",
-      "rejected": {
-        "at": "2026-06-18",
-        "reason": "fee_bleed",
-        "evidence": {
-          "ADAUSDT": {
-            "r_7_5bps": 50,
-            "r_15bps": -38
-          },
-          "AVAXUSDT": {
-            "r_7_5bps": 65,
-            "r_15bps": -26
-          }
-        },
-        "alternatives_to_test": [
-          "ict_scalp @ 15m (lower frequency, larger R/trade)",
-          "higher-selectivity params (raise min_confidence + session/killzone + HTF-bias tightening)",
-          "displacement-continuation momentum scalp (trend-aligned entries only)",
-          "maker-entry VWAP-band mean-reversion (post-only limits to earn maker rebate / avoid taker fee)"
-        ]
-      },
-      "status": "open",
-      "snoozed_until": null,
-      "drain_notes": [
-        {
-          "at": "2026-06-18T11:45:00+00:00",
-          "by": "/performance-review",
-          "note": "Exit-manager axis is now in the recombination pool (_deferred: maker_band/partial-ladder need Phase-3 harness; trail-distance is v1). The ict_scalp exit-swap probe is queued behind WS-C. Status unchanged (reject for direct soak; alternatives pending the trainer test)."
-        }
-      ]
+     "at": "2026-07-10T15:45:00+00:00",
+     "by": "/performance-review 2026-07-10",
+     "note": "Paper soak deepening the AVAX/SOL split from the 07-07 note. demo perf 7d (relay #6104): trend_donchian_avax_4h -$3730.1 (0/3, worst single cell this window), trend_donchian_ada_4h -$2074.1 (1/4) — but ada_4h is +$2946.8 net over 30d (75% WR, 12t) so its 7d dip is variance, KEEP. trend_donchian_avax_4h and trend_donchian_sol_4h (-$999.3 30d) remain the two persistent laggards of this family. Still thin per-cell; not yet a re-tier verdict, but AVAX_4h is the leading DEMOTE_SHADOW candidate of the trend_4h cohort if the next window confirms. Keep accruing; refinement lever remains regime-weight/exit-manager (backtest tuning already shown to overfit, 2026-06-18 holdout)."
     }
-  ],
-  "updated_at": "2026-07-07T09:50:00+00:00"
+   ],
+   "resweep_results": [
+    {
+     "at": "2026-06-18T13:18:00+00:00",
+     "by": "ADX-20 regime-swap re-sweep (vm-driver on trainer, MCP-independent)",
+     "probe": "--adx-min 20 on trend_4h + pullback_2h k-fold (5-fold, 7.5/15 bps), A/B vs un-gated WS-C baseline",
+     "outcome": "NO cell graduated to live_ready — all 10 stay paper_ready (every cell still has >=1 negative fold). A flat adx_min=20 HELPS ETH (trend +42.3 vs +27.9, worst fold -1.16; pullback +62.7 vs +59.0) and ADA pullback (+41.4 vs +30.0), but HURTS XRP/SOL/AVAX (filters profitable trending trades, e.g. trend_XRP +19.3 vs +45.0). Conclusion: regime gating is real signal but a single blunt threshold is wrong — needs per-cell tuning.",
+     "next": "ADX threshold sweep (15/20/25/30) per cell to find if any flips every-fold positive; lead with the ETH cells (responded best to gating). If none clears the strict gate, the cells stay paper_ready on demo soak — refine via the recombination orchestrator (regime_filter axis) or a softer regime weight, not a hard gate."
+    },
+    {
+     "at": "2026-06-18T13:33:00+00:00",
+     "by": "per-cell ADX threshold sweep (15/20/25/30) via vm-driver",
+     "outcome": "BREAKTHROUGH (with overfit caveat): 4 of 10 cells reach a clean every-fold pass (live_ready) at a PER-CELL tuned ADX threshold — pullback_ETH@25 (+63.1R), pullback_ADA@30 (+60.9R), pullback_SOL@15 (+43.8R), trend_XRP@15 (+40.5R). Optimal threshold differs per cell, confirming a single global gate is wrong but per-cell regime gating graduates ~40% of the book. Other 6 stay paper_ready.",
+     "caveat": "Thresholds were SELECTED on the same k-fold (best of 15/20/25/30 per cell) — mild in-sample-selection/overfit risk. These are live_ready CANDIDATES, not auto-promote.",
+     "next": "Out-of-pool HOLDOUT before any real-money (Tier-3) proposal: re-test each candidate's tuned threshold on a withheld period (e.g. 2026 H2 as it accrues) and/or a held-out symbol, to confirm the tuned ADX generalizes. If it holds → Tier-3 demo→bybit_2 promotion proposal per cell with the tuned adx_min. The 6 non-graduating cells continue demo soak / try the exit-manager or confidence-floor axes."
+    },
+    {
+     "at": "2026-06-18T13:43:00+00:00",
+     "by": "ADX holdout/overfit check (vm-driver)",
+     "outcome": "ALL 4 live_ready candidates FAIL the holdout -> they were in-sample artifacts, NOT robust. The every-fold-positive 'pass' holds ONLY at the exact 5-fold/0.40 split and breaks at k=6, k=7, train_frac 0.35/0.45 (1/5 fold-configs pass for every candidate). Threshold-band plateau was mixed (ETH 5/5 robust, SOL knife-edge 1/5). Net: NONE qualifies for a real-money (Tier-3) promotion.",
+     "decision": "REJECT all 4 as live_ready. They remain genuinely paper_ready (net-of-fee positive + 2x headroom across the FULL window is robust) and stay on bybit_1 demo soak. The holdout did its job: caught the overfit before any capital was risked.",
+     "methodology_followup": "The classify_strategy_tier 'live_ready' gate (every fold positive at ONE k-fold config) is too weak — single-split every-fold pass is overfit-prone. Strengthen it to require robustness across multiple fold-configs (e.g. pass at k=5/6/7 AND train_frac 0.35-0.45) before stamping live_ready. Logged as a tooling follow-up.",
+     "next_refinement": "Backtest threshold-tuning has hit diminishing returns on these cells (further tuning just overfits). Better levers: (a) the exit-manager axis (SRQ-003 style) or a softer regime-WEIGHT (DESIGN phase 3+) rather than a hard gate; (b) let TIME + the live demo soak accrue real out-of-sample decisions be the arbiter rather than more in-sample backtests."
+    }
+   ]
+  },
+  {
+   "id": "SRQ-20260618-002",
+   "opened_at": "2026-06-18T07:30:00+00:00",
+   "opened_by": "claude (system-audit / strategy-expansion session)",
+   "source": "Same WS-C alt k-fold gate run as SRQ-20260618-001 (trainer-vm-diag #3936).",
+   "cell": "htf_pullback_2h on {ETHUSDT, ADAUSDT, SOLUSDT, XRPUSDT, AVAXUSDT}",
+   "family": "htf_pullback_trend_2h",
+   "tier": "paper_ready",
+   "gate_verdict": "FAIL (strict every-fold) — net-of-fee positive overall + 2x-fee headroom, fails only the every-fold gate on the recent fold. (eth_pullback_2h is already live on bybit_1 demo from the looser 3-fold WS-C adoption; the 5-fold gate is stricter and it does not clear it — informative, not a regression: it is demo-only.)",
+   "missed_live_because": "Same shape as the trend family — the pullback-continuation edge holds across the full window but the recent regime fold goes negative.",
+   "refinement_hypothesis": "Add an ADX/regime entry gate (pullback-continuation only in trending/transitional regimes, skip chop) + re-test; this is the exact router-policy treatment htf_pullback already has on BTC (long ON in trending/transitional, off in chop). Re-run the k-fold gated and re-tier.",
+   "next_step": "WIRED 2026-06-18: the 4 not-yet-wired symbols ({sol,xrp,ada,avax}_pullback_2h) are now live on bybit_1 DEMO (execution: live, demo-only) for soak; eth_pullback_2h was already wired. REMAINING: run the regime-gated re-sweep on the trainer; re-tier with classify_strategy_tier.py; feed the same ADX/regime refinement to all 5 cells. Graduation to real-money bybit_2 is a separate Tier-3 gate.",
+   "wired_to_demo": {
+    "at": "2026-06-18",
+    "account": "bybit_1",
+    "strategies": [
+     "sol_pullback_2h",
+     "xrp_pullback_2h",
+     "ada_pullback_2h",
+     "avax_pullback_2h"
+    ],
+    "note": "eth_pullback_2h already wired (M15 WS-C). execution: live on demo (paper money); observe-for-soak, NOT live-money-ready."
+   },
+   "status": "open",
+   "snoozed_until": null,
+   "drain_notes": [
+    {
+     "at": "2026-06-18T11:45:00+00:00",
+     "by": "/performance-review",
+     "note": "Recombination orchestrator + ADX regime-filter lever SHIPPED (#3945). The regime-swap re-sweep (adx_min~20 on these cells) is now runnable via scripts/ops/recombination_sweep.py — trainer-gated, queued behind the WS-C sweep. Live 06-18 grading corroborates: the cells' weak-regime tail (eth_pullback conf<0.15 in chop) is exactly what an adx_min gate removes. Status unchanged (awaiting the trainer re-sweep + re-tier)."
+    },
+    {
+     "at": "2026-07-07T09:50:00+00:00",
+     "by": "/performance-review 2026-07-07",
+     "note": "Today's diversified-paper-book tracker run (100-trade bybit_1 sample, 2026-06-16 -> 2026-07-05) shows the pullback family mixed: ada_pullback_2h net +$2240.20 (n=9, WR 66.7%), eth_pullback_2h net +$2916.26 (n=11, WR 54.5%), xrp_pullback_2h net +$748.60 (n=8, WR 62.5%) are net-positive, while avax_pullback_2h net -$1888.79 (n=10, WR 30%) and sol_pullback_2h net -$2039.81 (n=17, WR 23.5%) are the book's clearest live-paper laggards — consistent with this item's 'not every-fold' backtest finding for those two names. Sample still thin for a re-tier call; keep accruing, but AVAX/SOL pullback are now the strongest candidates for the exit-manager/regime-weight refinement axis this item already flagged."
+    },
+    {
+     "at": "2026-07-10T15:45:00+00:00",
+     "by": "/performance-review 2026-07-10",
+     "note": "AVAX/SOL pullback laggards persist (07-07 note). 30d demo: sol_pullback_2h and avax_pullback_2h remain net-negative low-WR (tracker: sol -$2039.8 23.5% n17, avax -$1888.8 30% n10); 7d avax_pullback_2h -$1043.4 (40%, 5t). Meanwhile ada_pullback_2h +$1908.4 (60%, 10t) and eth_pullback_2h +$4319.6 (50%, 16t) and xrp_pullback_2h +$748.6 net-positive over 30d — the family is genuinely SPLIT by symbol, not uniformly weak. SOL+AVAX pullback are the two DEMOTE_SHADOW candidates; ETH/ADA/XRP keep soaking. Same conclusion as SRQ-001: per-symbol not per-family. No re-tier action; the exit-manager/regime-weight refinement axis is the path, not more in-sample ADX tuning."
+    }
+   ],
+   "resweep_results": [
+    {
+     "at": "2026-06-18T13:18:00+00:00",
+     "by": "ADX-20 regime-swap re-sweep (vm-driver on trainer, MCP-independent)",
+     "probe": "--adx-min 20 on trend_4h + pullback_2h k-fold (5-fold, 7.5/15 bps), A/B vs un-gated WS-C baseline",
+     "outcome": "NO cell graduated to live_ready — all 10 stay paper_ready (every cell still has >=1 negative fold). A flat adx_min=20 HELPS ETH (trend +42.3 vs +27.9, worst fold -1.16; pullback +62.7 vs +59.0) and ADA pullback (+41.4 vs +30.0), but HURTS XRP/SOL/AVAX (filters profitable trending trades, e.g. trend_XRP +19.3 vs +45.0). Conclusion: regime gating is real signal but a single blunt threshold is wrong — needs per-cell tuning.",
+     "next": "ADX threshold sweep (15/20/25/30) per cell to find if any flips every-fold positive; lead with the ETH cells (responded best to gating). If none clears the strict gate, the cells stay paper_ready on demo soak — refine via the recombination orchestrator (regime_filter axis) or a softer regime weight, not a hard gate."
+    },
+    {
+     "at": "2026-06-18T13:33:00+00:00",
+     "by": "per-cell ADX threshold sweep (15/20/25/30) via vm-driver",
+     "outcome": "BREAKTHROUGH (with overfit caveat): 4 of 10 cells reach a clean every-fold pass (live_ready) at a PER-CELL tuned ADX threshold — pullback_ETH@25 (+63.1R), pullback_ADA@30 (+60.9R), pullback_SOL@15 (+43.8R), trend_XRP@15 (+40.5R). Optimal threshold differs per cell, confirming a single global gate is wrong but per-cell regime gating graduates ~40% of the book. Other 6 stay paper_ready.",
+     "caveat": "Thresholds were SELECTED on the same k-fold (best of 15/20/25/30 per cell) — mild in-sample-selection/overfit risk. These are live_ready CANDIDATES, not auto-promote.",
+     "next": "Out-of-pool HOLDOUT before any real-money (Tier-3) proposal: re-test each candidate's tuned threshold on a withheld period (e.g. 2026 H2 as it accrues) and/or a held-out symbol, to confirm the tuned ADX generalizes. If it holds → Tier-3 demo→bybit_2 promotion proposal per cell with the tuned adx_min. The 6 non-graduating cells continue demo soak / try the exit-manager or confidence-floor axes."
+    },
+    {
+     "at": "2026-06-18T13:43:00+00:00",
+     "by": "ADX holdout/overfit check (vm-driver)",
+     "outcome": "ALL 4 live_ready candidates FAIL the holdout -> they were in-sample artifacts, NOT robust. The every-fold-positive 'pass' holds ONLY at the exact 5-fold/0.40 split and breaks at k=6, k=7, train_frac 0.35/0.45 (1/5 fold-configs pass for every candidate). Threshold-band plateau was mixed (ETH 5/5 robust, SOL knife-edge 1/5). Net: NONE qualifies for a real-money (Tier-3) promotion.",
+     "decision": "REJECT all 4 as live_ready. They remain genuinely paper_ready (net-of-fee positive + 2x headroom across the FULL window is robust) and stay on bybit_1 demo soak. The holdout did its job: caught the overfit before any capital was risked.",
+     "methodology_followup": "The classify_strategy_tier 'live_ready' gate (every fold positive at ONE k-fold config) is too weak — single-split every-fold pass is overfit-prone. Strengthen it to require robustness across multiple fold-configs (e.g. pass at k=5/6/7 AND train_frac 0.35-0.45) before stamping live_ready. Logged as a tooling follow-up.",
+     "next_refinement": "Backtest threshold-tuning has hit diminishing returns on these cells (further tuning just overfits). Better levers: (a) the exit-manager axis (SRQ-003 style) or a softer regime-WEIGHT (DESIGN phase 3+) rather than a hard gate; (b) let TIME + the live demo soak accrue real out-of-sample decisions be the arbiter rather than more in-sample backtests."
+    }
+   ]
+  },
+  {
+   "id": "SRQ-20260618-003",
+   "opened_at": "2026-06-18T07:30:00+00:00",
+   "opened_by": "claude (system-audit / strategy-expansion session)",
+   "source": "Same WS-C alt k-fold gate run; ict_scalp 5m k-fold still executing at session time (multi-year 5m, slow — ADAUSDT in progress per trainer-vm-diag #3936).",
+   "cell": "ict_scalp_5m on {ADAUSDT, AVAXUSDT, ETHUSDT, LINKUSDT}",
+   "family": "ict_scalp_5m",
+   "tier": "reject",
+   "gate_verdict": "REJECT (fee-bleed confirmed 2026-06-18) — the multi-year 5m k-fold completed and the edge is FEE-FRAGILE: gross-positive but it does not survive realistic fees on thin alt books. ADAUSDT: +50R @ 7.5 bps / -38R @ 15 bps; AVAXUSDT: +65R @ 7.5 bps / -26R @ 15 bps. The 7.5 bps -> 15 bps doubling flips both cells from strongly positive to strongly negative, so the strategy lives entirely inside the round-trip cost band — the highest decision frequency (300-1600 trades/window/symbol) that made it the most valuable SOAK candidate is exactly what makes it the most fee-sensitive. NOT paper_ready as-is (a demo soak would generate volume but no net-of-fee edge worth promoting).",
+   "missed_live_because": "Edge sits below the 2x-fee survival bar — the per-trade R is smaller than the fee-doubling delta, so the family is structurally fee-bound at 5m on alt perps. This is a different failure mode from the trend/pullback cells (which are net-of-fee positive overall and fail only the recent-regime fold); ict_scalp 5m fails the fee-headroom bar itself.",
+   "refinement_hypothesis": "Do NOT soak the 5m alt cells as-is. Instead test lower-frequency / higher-edge-per-trade variants that escape the fee band: (a) ict_scalp at 15m (fewer, larger-R trades — same logic, longer hold, less round-trip drag); (b) a higher-selectivity parameter set (raise min_confidence / tighten the HTF-bias + session/killzone filter — the unit already has session_filter_enabled — to trade only the strongest setups, lifting per-trade R above the fee band); (c) a displacement-continuation momentum scalp (enter on a confirmed displacement leg + FVG continuation rather than every mean-reversion tag — fewer, trend-aligned entries); (d) a maker-entry VWAP-band mean-reversion (post-only limit entries at the VWAP band edges to EARN the maker rebate / pay zero taker fee, directly attacking the fee bleed rather than the signal).",
+   "next_step": "REJECTED for direct demo soak (fee-bleed). Open a fresh research thread on the four low-TF/higher-edge alternatives above; backtest each on the same alt panel under the 7.5/15 bps net-of-fee k-fold; re-tier any survivor with classify_strategy_tier.py and open a new SRQ row if a variant clears paper_ready. The 5m ict_scalp alt cells themselves are not advanced.",
+   "rejected": {
+    "at": "2026-06-18",
+    "reason": "fee_bleed",
+    "evidence": {
+     "ADAUSDT": {
+      "r_7_5bps": 50,
+      "r_15bps": -38
+     },
+     "AVAXUSDT": {
+      "r_7_5bps": 65,
+      "r_15bps": -26
+     }
+    },
+    "alternatives_to_test": [
+     "ict_scalp @ 15m (lower frequency, larger R/trade)",
+     "higher-selectivity params (raise min_confidence + session/killzone + HTF-bias tightening)",
+     "displacement-continuation momentum scalp (trend-aligned entries only)",
+     "maker-entry VWAP-band mean-reversion (post-only limits to earn maker rebate / avoid taker fee)"
+    ]
+   },
+   "status": "open",
+   "snoozed_until": null,
+   "drain_notes": [
+    {
+     "at": "2026-06-18T11:45:00+00:00",
+     "by": "/performance-review",
+     "note": "Exit-manager axis is now in the recombination pool (_deferred: maker_band/partial-ladder need Phase-3 harness; trail-distance is v1). The ict_scalp exit-swap probe is queued behind WS-C. Status unchanged (reject for direct soak; alternatives pending the trainer test)."
+    }
+   ]
+  }
+ ],
+ "updated_at": "2026-07-10T15:45:00+00:00"
 }
