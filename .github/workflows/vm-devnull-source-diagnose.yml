@@ -1,0 +1,199 @@
+name: vm-devnull-source-diagnose
+# Identify (and set up to identify) WHAT strips /dev/null's write bit on the
+# live trader VM — the recurring perms-regression source behind the
+# ict-devnull-guard self-heal (BL-20260629-DEVNULL-OCI-SOURCE-KILL / RISK-4).
+#
+# The guard (ict-devnull-guard.timer) keeps us resilient by re-asserting
+# /dev/null = char(1,3) mode 0666 every 60s, but it treats the SYMPTOM. This
+# workflow gathers the EVIDENCE needed to kill the cause, replacing the
+# long-standing "suspected oracle-cloud-agent oci-wlp / Cloud Guard FIM" guess
+# with a definitive attribution.
+#
+# Three modes (issue body line `mode: <x>`; default `inspect`):
+#   inspect     READ-ONLY. Dump the oracle-cloud-agent unit/plugin list +
+#               config + logs (grepped for dev/null / remediat / world-writable),
+#               the current /dev/null state, and any auditd rules/events already
+#               present. Zero mutation. Often enough on its own — an agent that
+#               remediates world-writable files logs what it "fixed".
+#   arm-audit   Tier-2 MUTATION. Install auditd if absent, then install a
+#               PERSISTENT watch rule (/etc/audit/rules.d/devnull.rules:
+#               `-w /dev/null -p wa -k devnull`) + load it, so the NEXT flip is
+#               captured with the acting pid/exe/comm. Survives reboot.
+#   read-audit  READ-ONLY. `ausearch -k devnull -i` — report captured chmod
+#               events. The CULPRIT is whatever SYSCALL sets mode 0444 (strips
+#               the write bit); the guard's own 0666 restores are expected noise,
+#               distinguishable by the mode argument + exe (the guard oneshot).
+#
+# Blast radius: `inspect`/`read-audit` touch nothing. `arm-audit` installs the
+# auditd package (a standard, lightweight daemon) + one narrow watch rule on a
+# single inode — no trade path, no other unit. Fixed-form remote script.
+#
+# Trigger: workflow_dispatch (mode input), or an issue labeled
+# `vm-devnull-diagnose` (mode parsed from the body, default inspect).
+# Secrets: VM_SSH_KEY. inspect/read-audit are Tier-1 (read); arm-audit is Tier-2
+# (operator-approved — a package install + daemon on the live VM).
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'inspect | arm-audit | read-audit'
+        required: false
+        default: 'inspect'
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vm-devnull-source-diagnose
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'vm-devnull-diagnose'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+    steps:
+      - name: Dedup — bail if a bot comment already exists
+        if: github.event_name == 'issues'
+        id: dedup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, per_page: 100,
+            });
+            core.setOutput('skip',
+              comments.some(c => c.user && c.user.login === 'github-actions[bot]') ? 'true' : 'false');
+
+      - name: Resolve mode
+        if: steps.dedup.outputs.skip != 'true'
+        id: mode
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          DISPATCH_MODE: ${{ github.event.inputs.mode }}
+        run: |
+          set -euo pipefail
+          MODE="inspect"
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            MODE="${DISPATCH_MODE:-inspect}"
+          else
+            # Parse a `mode: <x>` line from the (untrusted) issue body via env — never inline-interpolated.
+            PARSED="$(printf '%s' "${ISSUE_BODY:-}" | grep -iE '^[[:space:]]*mode:' | head -1 | sed -E 's/^[[:space:]]*[Mm][Oo][Dd][Ee]:[[:space:]]*//' | tr -d '\r' | tr '[:upper:]' '[:lower:]' | awk '{print $1}')"
+            [ -n "${PARSED}" ] && MODE="${PARSED}"
+          fi
+          case "${MODE}" in
+            inspect|arm-audit|read-audit) : ;;
+            *) echo "::error::unknown mode '${MODE}' (want inspect|arm-audit|read-audit)"; exit 1 ;;
+          esac
+          echo "mode=${MODE}" >> "$GITHUB_OUTPUT"
+          echo "Resolved mode: ${MODE}"
+
+      - name: Set up SSH key
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          [ -z "${VM_SSH_KEY}" ] && { echo "::error::VM_SSH_KEY unset"; exit 1; }
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Diagnose on the VM
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          MODE: ${{ steps.mode.outputs.mode }}
+        run: |
+          set -euo pipefail
+          # MODE is validated against a fixed allowlist above (inspect|arm-audit|read-audit),
+          # so interpolating it into the remote command is injection-free (not from the issue body).
+          ssh -i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 "${VM_SSH_USER}@${VM_SSH_HOST}" "MODE='${MODE}' bash -s" > out.txt 2>&1 <<'REMOTE' || true
+          set +e
+          MODE="${MODE:-inspect}"
+          echo "===== mode: ${MODE} ====="
+          echo "===== /dev/null state now ====="
+          ls -l /dev/null; stat -c 'inode=%i type=%F mode=%a major:minor=%t:%T' /dev/null 2>/dev/null
+
+          if [ "${MODE}" = "inspect" ]; then
+            echo; echo "===== oracle-cloud-agent units ====="
+            systemctl list-units --all --no-legend --no-pager 2>/dev/null | grep -iE 'oracle|oci|wlp|cloud-agent|osms|cloud-guard' || echo "(no matching units)"
+            echo; echo "===== oracle-cloud-agent plugins (snapshot.d / config) ====="
+            for d in /etc/oracle-cloud-agent /var/lib/oracle-cloud-agent /etc/osms /opt/oracle-cloud-agent; do
+              [ -e "$d" ] && { echo "--- $d ---"; sudo ls -la "$d" 2>/dev/null; }
+            done
+            echo; echo "===== agent config mentioning FIM / remediation / world-writable ====="
+            sudo grep -rIiEl 'remediat|world.?writable|file.?integrity|/dev/null|permission' /etc/oracle-cloud-agent /var/lib/oracle-cloud-agent /opt/oracle-cloud-agent 2>/dev/null | head -20
+            echo; echo "===== agent logs referencing /dev/null or a perms remediation (last hits) ====="
+            for L in /var/log/oracle-cloud-agent /var/log/osms; do
+              [ -d "$L" ] || continue
+              echo "--- ${L} tree ---"; sudo ls -la "$L" 2>/dev/null | head -40
+              echo "--- grep dev/null|remediat|0444|world-writable in ${L} ---"
+              sudo grep -rIiE 'dev/null|remediat|0444|world.?writable|chmod' "$L" 2>/dev/null | tail -40
+            done
+            echo; echo "===== auditd present? existing devnull rule/events? ====="
+            command -v auditctl >/dev/null 2>&1 && echo "auditctl: present" || echo "auditctl: ABSENT (arm-audit will install)"
+            sudo auditctl -l 2>/dev/null | grep -i devnull || echo "(no devnull audit rule yet)"
+            [ -f /etc/audit/rules.d/devnull.rules ] && { echo "--- /etc/audit/rules.d/devnull.rules ---"; sudo cat /etc/audit/rules.d/devnull.rules; }
+            echo; echo "===== ict-devnull-guard recent journal (correlate its 0666 restores) ====="
+            sudo journalctl -u ict-devnull-guard.service --no-pager -n 20 2>/dev/null || echo "(no guard journal)"
+
+          elif [ "${MODE}" = "arm-audit" ]; then
+            echo; echo "===== ensure auditd installed ====="
+            if ! command -v auditctl >/dev/null 2>&1; then
+              echo "installing auditd..."
+              sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y auditd audispd-plugins && echo "auditd: installed" || echo "auditd: INSTALL FAILED"
+            else
+              echo "auditd already present"
+            fi
+            echo; echo "===== install persistent watch rule ====="
+            sudo mkdir -p /etc/audit/rules.d
+            printf '%s\n' '## RISK-4 BL-20260629-DEVNULL-OCI-SOURCE-KILL — attribute /dev/null perm strips' '-w /dev/null -p wa -k devnull' | sudo tee /etc/audit/rules.d/devnull.rules >/dev/null
+            echo "wrote /etc/audit/rules.d/devnull.rules:"; sudo cat /etc/audit/rules.d/devnull.rules
+            sudo systemctl enable --now auditd 2>/dev/null; sudo augenrules --load 2>/dev/null || sudo auditctl -R /etc/audit/rules.d/devnull.rules 2>/dev/null
+            echo; echo "===== active rules ====="; sudo auditctl -l 2>/dev/null | grep -i devnull || echo "(rule not active — check auditd)"
+            echo "ARMED. Re-run with mode: read-audit after the next flip (guard journal shows a restore ⇒ a flip happened)."
+
+          elif [ "${MODE}" = "read-audit" ]; then
+            echo; echo "===== ausearch -k devnull (interpreted) ====="
+            command -v ausearch >/dev/null 2>&1 || { echo "ausearch ABSENT — run arm-audit first"; exit 0; }
+            sudo ausearch -k devnull -i 2>/dev/null | tail -120 || echo "(no devnull events captured yet — wait for the next flip)"
+            echo; echo "===== CULPRIT HINT ====="
+            echo "The SYSCALL that sets /dev/null to mode 0444 (0x124, write bit stripped) is the SOURCE."
+            echo "Its exe=/comm=/ppid names the process. The guard's own restores set 0666 (0x1b6) — expected noise."
+          fi
+          echo "(done)"
+          REMOTE
+          echo "ssh exit=$?"
+
+      - name: Post result to issue
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let out = '(no output)';
+            try { out = fs.readFileSync('out.txt','utf8'); } catch {}
+            const mode = '${{ steps.mode.outputs.mode }}' || 'inspect';
+            const body = [`**vm-devnull-source-diagnose** (mode: ${mode}) result`, '', '```', out.slice(0,55000), '```'].join('\n');
+            await github.rest.issues.createComment({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,body});
+            await github.rest.issues.update({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,state:'closed'});
+
+      - name: Summary (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch' && steps.dedup.outputs.skip != 'true'
+        run: |
+          { echo '```'; cat out.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

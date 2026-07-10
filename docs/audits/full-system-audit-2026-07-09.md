@@ -168,6 +168,26 @@ fixed + verified LIVE. Tier-3 money-path merges pause for explicit operator OK.
   exclusion) — Tier-2 VM-infra, one operator ack to run the mutating step. Three linked
   backlog items collapse here: BL-20260629-DEVNULL-OCI-SOURCE-KILL (root),
   -CLOBBERED-LIVE-VM (symptom), BL-20260706-PROP-REPORT-DEVNULL-NOISE (prop-relay symptom).
+  - **STATUS 2026-07-10 — diagnostic tooling BUILT (PR pending), Tier-2 run HELD:**
+    the attribution path is now a single owner-gated workflow
+    `.github/workflows/vm-devnull-source-diagnose.yml` (label `vm-devnull-diagnose`,
+    added to `bootstrap-labels.yml`) instead of a bespoke `ausearch` hand-off. Three
+    modes: **`inspect`** (READ-ONLY — dumps the `oracle-cloud-agent`/`oci-wlp`
+    unit+plugin+config list and greps its logs for `dev/null`/`remediat`/`world-writable`,
+    plus the current `/dev/null` state and any existing auditd rule/events; often
+    conclusive on its own since a remediating FIM agent logs what it "fixed");
+    **`arm-audit`** (Tier-2 — installs `auditd` if absent + a PERSISTENT
+    `/etc/audit/rules.d/devnull.rules` = `-w /dev/null -p wa -k devnull`, survives reboot,
+    so the next flip is captured with the acting pid/exe); **`read-audit`** (READ-ONLY —
+    `ausearch -k devnull -i`, culprit = whatever SYSCALL sets mode **0444** / strips the
+    write bit; the guard's own **0666** restores are expected noise). Sequence to
+    source-kill: run `inspect` first (zero mutation — may already name the agent); if
+    inconclusive, `arm-audit` (the one operator-ack Tier-2 step) then `read-audit` after
+    the next flip; then reconfigure the on-VM agent plugin's `/dev` remediation (autonomous
+    via a runner+sudo) OR, if tenancy-level, exclude `/dev` from the OCI Cloud Guard /
+    Workload-Protection FIM profile (OCI-console operator action). Building the workflow is
+    Tier-1 (done); running `inspect`/`read-audit` is Tier-1 read; running `arm-audit` is the
+    single held Tier-2 mutation.
 
 **Relay contract note (Tier-1 doc fix):** the `vm-diag-snapshot` relay resolves diag
 paths from the issue **BODY** (one path per line), NOT the title — a prose body is
