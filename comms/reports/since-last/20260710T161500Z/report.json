@@ -1,0 +1,392 @@
+{
+  "report_id": "RPT-20260710-161500-since-last",
+  "reviewed_at": "2026-07-10T16:15:00+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-07-08T07:47:00+00:00",
+  "window_end": "2026-07-10T16:15:00+00:00",
+  "prior_report_id": "RPT-20260708-074700-since-last",
+  "overall_assessment": "healthy",
+  "health": {
+    "overall_assessment": "healthy",
+    "findings": {
+      "trader_process": {
+        "state": "active/running",
+        "heartbeat": "running (age ~94s at snapshot)",
+        "last_tick_utc": "2026-07-10T15:22:27Z",
+        "uptime_s": 15890,
+        "git_sha": "fddb8bd1",
+        "note": "Restarted 10:57 UTC; deployed SHA is current HEAD."
+      },
+      "web_api": {
+        "state": "active/running",
+        "note": "All Tier-1 read endpoints responding via diag relay."
+      },
+      "ib_execution": {
+        "note": "ib_paper live; MGC paper position open + monitored. No IB wedge banner this window."
+      },
+      "trainer_vm": {
+        "state": "recovered",
+        "note": "SSH-dead swap-thrash recurrence 2026-07-10 auto-recovered via OCI RESET (commit fddb8bd). Mirror fresh at snapshot (no trainer_down banner). Deep ML detail deferred to /ml-review."
+      },
+      "health_checks": {
+        "ok": 7,
+        "total": 7,
+        "grade": "good",
+        "source": "insights/health cache"
+      },
+      "data_endpoints": {
+        "note": "DB 472MB at canonical /data/bot-data path, all tables present, no integrity errors; signals dual-write healthy (889k rows)."
+      },
+      "reconciler_artifacts": {
+        "note": "Recent paper closes are reconciler-heavy (reconciler_filled / exchange_flat_reconciled) rather than clean SL/TP round-trips \u2014 the bucket-B pre-filter class; affects paper win-rate readability, not a bug."
+      }
+    },
+    "claude_channel_ping": {
+      "delivered_via": "consolidated (suppressed individual)"
+    }
+  },
+  "performance": {
+    "overall_assessment": "healthy",
+    "summary": "Real-money small + positive (7d +$5.07 / 4 trades / 50% WR / PF 1.98). Paper book near-flat on a risk-adjusted basis (30d -$2.6k but +6.6R; the $ loss is large paper-notional variance, not systematic failure). The two apparent 'worst' paper cells (gld_pullback_1h, qqq_pullback_1h) were backtested and CONFIRMED to have a strong 9-year net-of-fee edge \u2014 kept live, not demoted.",
+    "grading": {
+      "window_packages_graded": 2,
+      "newest_grade_reviewed_at": "2026-07-10T15:40:04+00:00",
+      "grade_histogram": {
+        "B": 1,
+        "D": 1
+      },
+      "note": "Window held few clean closed decisions; both graded rows were never-filled reconciler artifacts (setup-only grade). slv_trend_1h D/should_skip, avax_pullback_2h B/optimal."
+    },
+    "claude_channel_ping": {
+      "delivered_via": "consolidated (suppressed individual)"
+    }
+  },
+  "ml": {
+    "overall_assessment": "watch",
+    "model_status": [
+      {
+        "note": "No deep per-model review this window (deferred to /ml-review). Trainer service recovered from the 07-10 swap-thrash; mirror fresh."
+      }
+    ],
+    "promotion_recommendations": [],
+    "summary": "Trainer recovered (OCI RESET, 8G swap held). No promotions this window. Full model-lifecycle detail is /ml-review scope.",
+    "claude_channel_ping": {
+      "delivered_via": "consolidated (suppressed individual)"
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "healthy",
+    "headline": "Core system healthy. Prop pipeline verified sound \u2014 the 'no prop trades' was market conditions (SOL/ETH range-bound + chop), not the notification consolidation. Shadow-prop 'orphaned' mislabeling fixed (PR #6103). ETF pullback cells backtest-confirmed edge \u2014 no demotes.",
+    "services": [
+      {
+        "unit": "ict-trader-live.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "2026-07-10 10:57:17 UTC"
+      },
+      {
+        "unit": "ict-web-api.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "2026-07-10 10:57:17 UTC"
+      }
+    ],
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Prop pipeline healthy \u2014 no missed trades",
+        "source_review": "performance",
+        "tier": 1,
+        "detail": "Last real prop ticket 2026-07-06 (eth_pullback_2h ETH long), filled + closed 07-08 at SL (-$78.76), clean report-back; reconcile 0 unacted. All 4 live prop strategies evaluate every bar but SOL/ETH have been range-bound (Donchian no-breakout) / chop (ADX ~20, no pullback setup) \u2014 no entry setup. Notification consolidation (#5967) only touched the monitor pulse; emit path byte-identical. Nothing missed.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 2,
+        "title": "Shadow-prop 'orphaned' mislabeling \u2014 FIXED",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "Shadow _prop variants' order-packages were mis-swept 'orphaned' on /prop/tickets. execute_pkg dry branch now stamps status='shadow'. PR #6103 (CI green, draft). Removes a real source of future prop-investigation confusion.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 3,
+        "title": "ETF pullback cells backtest-confirmed edge \u2014 KEEP",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "gld_pullback_1h + qqq_pullback_1h looked like the worst paper losers (0/9, 0/7) but 9yr net-of-fee backtest shows strong robust edge (GLD +113.6R/exp+0.32; QQQ +90.7R/exp+0.34; both +8/10 years incl. 2024-2026). Live paper 0-win is small-sample + artifact closes. Demote hypothesis REJECTED \u2014 kept live.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 4,
+        "title": "alpaca_live underfunded (gld_pullback dispatch refusals)",
+        "source_review": "health",
+        "tier": 2,
+        "detail": "alpaca_live balance $149.61 / avail $55.93 can't size GLD (~$376/share) -> recurring 'sized_qty=0' dispatch warning. Operator chose leave-as-is. Not an error (paper leg still places); account-funding issue, orthogonal to strategy edge.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 5,
+        "title": "SOL/AVAX alt cells lagging on paper \u2014 keep soaking",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "sol/avax pullback_2h + trend_donchian_avax_4h are the persistent per-symbol laggards (SRQ-20260618 cohort); ETH/ADA/XRP siblings net-positive over 30d. Operator chose keep soaking; SRQ items refreshed with 07-10 evidence.",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "The 'paper bleed' framing resolves to variance + oversized paper notional + artifact-contaminated closes, NOT broken strategies. On a risk-normalized (R) basis the 30d paper book is roughly flat (+6.6R).",
+      "The two cells that looked worst on live paper have the STRONGEST backtested edge \u2014 a caution against demoting on thin live-paper samples without a backtest gate. 'Backtest first' (operator) was the correct call.",
+      "Prop is a third funding class, isolated from real/paper KPIs; its silence this window is setup-availability, not a wiring fault."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": 5.0727,
+        "trend": "up",
+        "trades": 4,
+        "wins": 2,
+        "win_rate": 50.0,
+        "expectancy": 1.2682,
+        "profit_factor": 1.9758,
+        "max_drawdown": -5.1987,
+        "note": "7d proxy for the ~2-day since-last window (exact 2-day real closes were sparse). Lifetime -$26.26.",
+        "per_strategy": [
+          {
+            "name": "ada_pullback_2h",
+            "trades": 2,
+            "win_rate": 50.0,
+            "pnl": 4.5271
+          },
+          {
+            "name": "xrp_pullback_2h",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 0.964
+          },
+          {
+            "name": "trend_donchian_xrp_4h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -0.4184
+          }
+        ],
+        "per_asset_class": {
+          "crypto": 5.0727
+        },
+        "equity_curve": []
+      },
+      "paper": {
+        "window_pnl": -6628.22,
+        "trend": "down",
+        "trades": 39,
+        "wins": 11,
+        "win_rate": 28.2,
+        "expectancy": -169.95,
+        "profit_factor": 0.5419,
+        "max_drawdown": -10189.54,
+        "note": "7d demo window. NOTE: 30d demo is only -$2.6k over 173 trades at +6.6R (near-flat risk-adjusted) \u2014 the 7d $ figure is a handful of large-notional losers (trend_donchian_avax_4h -$3.7k/0-3, trend_donchian_ada_4h -$2.1k [but +$2.9k over 30d = variance]). Large paper position sizing amplifies $ swings; R-metrics are the truer read.",
+        "per_strategy": [
+          {
+            "name": "trend_donchian_avax_4h",
+            "trades": 3,
+            "win_rate": 0.0,
+            "pnl": -3730.15
+          },
+          {
+            "name": "trend_donchian_ada_4h",
+            "trades": 4,
+            "win_rate": 25.0,
+            "pnl": -2074.08
+          },
+          {
+            "name": "avax_pullback_2h",
+            "trades": 5,
+            "win_rate": 40.0,
+            "pnl": -1043.36
+          },
+          {
+            "name": "gld_pullback_1h",
+            "trades": 4,
+            "win_rate": 0.0,
+            "pnl": -967.9
+          },
+          {
+            "name": "spy_pullback_1h",
+            "trades": 3,
+            "win_rate": 100.0,
+            "pnl": 1735.63
+          },
+          {
+            "name": "ada_pullback_2h",
+            "trades": 2,
+            "win_rate": 50.0,
+            "pnl": 1151.44
+          }
+        ],
+        "per_asset_class": {
+          "crypto": -6705.18,
+          "commodity": -1225.37,
+          "equity": 1323.8,
+          "bond": -21.47
+        },
+        "equity_curve": []
+      },
+      "prop": {
+        "window_pnl": 0.0,
+        "trend": "flat",
+        "trades": 0,
+        "note": "No new prop fills this window. Last close 07-08 (eth_pullback_2h ETH long, -$78.76 net SL). Account balance $5116 / equity $5118 (eval, +$116 over $5k start); day-loss room $153, DD-floor room $418; 0 unacted tickets. No SOL/ETH entry setup occurred."
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "SOLUSDT",
+        "note": "Range-bound ~77-79.65 (Donchian channel), no breakout \u2014 trend_donchian_sol non-actionable all window. (bot-exchange/Bybit)"
+      },
+      {
+        "symbol": "ETHUSDT",
+        "note": "Range ~1737-1813 (Donchian) + chop regime (ADX ~20) \u2014 both trend_donchian_eth and eth_pullback_2h non-actionable. Drove the prop silence. (bot-exchange/Bybit)"
+      },
+      {
+        "symbol": "GLD",
+        "note": "Gold ETF; the gld_pullback_1h cell's 9yr backtest is +113.6R net (2026 YTD +8.6R)."
+      },
+      {
+        "symbol": "QQQ",
+        "note": "Nasdaq-100 ETF; qqq_pullback_1h 9yr backtest +90.7R net (2026 YTD +15.7R)."
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": null,
+        "order_package_id": "prop-manual-d66c09f37547",
+        "account": "breakout_1",
+        "account_class": "prop",
+        "symbol": "ETHUSDT",
+        "direction": "long",
+        "strategy": "eth_pullback_2h",
+        "opened_at": "2026-07-06T15:41:00Z",
+        "closed_at": "2026-07-08T15:41:13Z",
+        "entry_price": 1766.43,
+        "exit_price": 1717.66,
+        "qty": 1.57,
+        "pnl": -78.76,
+        "pnl_percent": null,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "The window's only real prop round-trip; stopped out at SL, clean broker-confirmed report-back. Prop emission pipeline verified healthy by this trade."
+        },
+        "model_scores": {},
+        "signal_logic": null,
+        "meta": {
+          "funding_class": "prop"
+        }
+      }
+    ],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 1,
+      "summarized_trades": 41,
+      "rule": "Window closes were dominated by paper reconciler artifacts (bucket-B); the one clean cross-funding-class round-trip (the prop ETH SL) is dossiered in full. Real/paper aggregates in pnl_by_class."
+    },
+    "backlog_summary": {
+      "health": {
+        "note": "not drained this run (health-review not re-run; snapshot only)"
+      },
+      "performance": {
+        "total": 67,
+        "resolved_this_run": 1,
+        "drained_this_run": 2,
+        "note": "Resolved PB-20260710-ETF-PULLBACK-ZEROWIN (backtest -> KEEP); drained SRQ-20260618-001/002 with 07-10 evidence."
+      },
+      "ml": {
+        "note": "not drained (ml-review scope)"
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "performance",
+        "summary": "None actionable this window. ETF-cell demote proposal RESOLVED (backtest confirmed edge -> keep). SOL/AVAX alt cells: operator chose keep-soaking (refinement axis = exit-manager/regime-weight, not more in-sample ADX tuning).",
+        "tier": 3
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "PROP-SOL-ETH-SETUP",
+        "domain": "performance",
+        "category": "market-dependent",
+        "detail": "Watch for the next SOL/ETH breakout/pullback setup to confirm the prop emit->fill->report loop end-to-end on a fresh trade (last confirmed 07-06).",
+        "since": "2026-07-10",
+        "next_check": "next actionable prop signal"
+      },
+      {
+        "item_id": "SRQ-20260618-001/002",
+        "domain": "performance",
+        "category": "soaking",
+        "detail": "SOL/AVAX alt cells accruing paper soak; trend_donchian_avax_4h is the leading demote candidate if the next window confirms.",
+        "since": "2026-06-18",
+        "next_check": "next /performance-review"
+      },
+      {
+        "item_id": "MB-20260705-TRAINER-OOM",
+        "domain": "ml",
+        "category": "watch",
+        "detail": "Trainer swap-thrash recurred 07-10 (auto-recovered via OCI RESET, 8G swap). Watch for repeat; subproc-isolation follow-up open.",
+        "since": "2026-07-05",
+        "next_check": "next /ml-review"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [],
+        "summary": "No promotions or demotes this window. ETF pullback cells: demote hypothesis tested via backtest and REJECTED (strong 9yr edge) -> KEEP. SOL/AVAX alt cells: operator-directed keep-soaking. Formal M7 packets not re-generated this run."
+      },
+      "ml_training_health": {
+        "status": "recovered",
+        "detail": "Trainer SSH-dead swap-thrash 07-10 auto-recovered (OCI RESET); mirror fresh at snapshot. No dataset-build/cycle detail pulled this run (ml-review scope)."
+      },
+      "soak_status": [
+        {
+          "soak": "prop manual-bridge",
+          "status": "healthy",
+          "detail": "0 unacted tickets; account within all rule limits; awaiting next SOL/ETH setup."
+        },
+        {
+          "soak": "SRQ-20260618 alt cohort",
+          "status": "accruing",
+          "detail": "ETH/ADA/XRP net-positive 30d; SOL/AVAX lagging (watch)."
+        }
+      ],
+      "flags_raised": [
+        "alpaca_live underfunded -> recurring gld_pullback_1h dispatch refusal (operator: leave-as-is)",
+        "trend_donchian_avax_4h -$3.7k/0-3 this week (variance-vs-decay watch; SRQ-618)"
+      ],
+      "account_reachability": {
+        "all_live_up": true,
+        "detail": "bybit_1/2, ib_paper, alpaca_paper/live/options_paper, breakout_1 all live/reachable; ib_live + oanda_practice intentionally dry. No account_down/trainer_down banner."
+      },
+      "backlog_drive": {
+        "resolved": 1,
+        "drained": 2,
+        "detail": "Resolved the ETF-cell demote item (backtest -> keep); drained SRQ-20260618-001/002."
+      }
+    }
+  },
+  "artifacts": {
+    "json_path": "",
+    "html_path": "",
+    "md_path": "",
+    "github_link": "",
+    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260710-161500-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "pending-pings.jsonl",
+    "priority": "normal",
+    "message": "/system-review 2026-07-10 (since-last): HEALTHY. Prop verified sound (no missed trades \u2014 SOL/ETH just range-bound; consolidation exonerated). Shadow-prop orphan mislabel fixed (PR #6103, CI green). ETF pullback cells backtest-confirmed edge (+113R/+91R 9yr) -> KEEP, not demote. Real +$5/7d; paper near-flat risk-adj."
+  }
+}

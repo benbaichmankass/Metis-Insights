@@ -1,0 +1,162 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-07-10T16:15:00+00:00 · window 2026-07-08T07:47:00+00:00 → 2026-07-10T16:15:00+00:00</p>
+<p><span class="grade">Roll-up: 🟢 healthy</span></p>
+<p>Core system healthy. Prop pipeline verified sound — the &#x27;no prop trades&#x27; was market conditions (SOL/ETH range-bound + chop), not the notification consolidation. Shadow-prop &#x27;orphaned&#x27; mislabeling fixed (PR #6103). ETF pullback cells backtest-confirmed edge — no demotes.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Prop pipeline healthy — no missed trades</b> <span class="pill">performance · T1</span><br><span class='muted'>Last real prop ticket 2026-07-06 (eth_pullback_2h ETH long), filled + closed 07-08 at SL (-$78.76), clean report-back; reconcile 0 unacted. All 4 live prop strategies evaluate every bar but SOL/ETH have been range-bound (Donchian no-breakout) / chop (ADX ~20, no pullback setup) — no entry setup. Notification consolidation (#5967) only touched the monitor pulse; emit path byte-identical. Nothing missed.</span></li>
+<li><b>Shadow-prop &#x27;orphaned&#x27; mislabeling — FIXED</b> <span class="pill">health · T1</span><br><span class='muted'>Shadow _prop variants&#x27; order-packages were mis-swept &#x27;orphaned&#x27; on /prop/tickets. execute_pkg dry branch now stamps status=&#x27;shadow&#x27;. PR #6103 (CI green, draft). Removes a real source of future prop-investigation confusion.</span></li>
+<li><b>ETF pullback cells backtest-confirmed edge — KEEP</b> <span class="pill">performance · T3</span><br><span class='muted'>gld_pullback_1h + qqq_pullback_1h looked like the worst paper losers (0/9, 0/7) but 9yr net-of-fee backtest shows strong robust edge (GLD +113.6R/exp+0.32; QQQ +90.7R/exp+0.34; both +8/10 years incl. 2024-2026). Live paper 0-win is small-sample + artifact closes. Demote hypothesis REJECTED — kept live.</span></li>
+<li><b>alpaca_live underfunded (gld_pullback dispatch refusals)</b> <span class="pill">health · T2</span><br><span class='muted'>alpaca_live balance $149.61 / avail $55.93 can&#x27;t size GLD (~$376/share) -&gt; recurring &#x27;sized_qty=0&#x27; dispatch warning. Operator chose leave-as-is. Not an error (paper leg still places); account-funding issue, orthogonal to strategy edge.</span></li>
+<li><b>SOL/AVAX alt cells lagging on paper — keep soaking</b> <span class="pill">performance · T3</span><br><span class='muted'>sol/avax pullback_2h + trend_donchian_avax_4h are the persistent per-symbol laggards (SRQ-20260618 cohort); ETH/ADA/XRP siblings net-positive over 30d. Operator chose keep soaking; SRQ items refreshed with 07-10 evidence.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">— open</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">— open / 67 total</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">— open</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>performance</span> None actionable this window. ETF-cell demote proposal RESOLVED (backtest confirmed edge -&gt; keep). SOL/AVAX alt cells: operator chose keep-soaking (refinement axis = exit-manager/regime-weight, not more in-sample ADX tuning).</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>The &#x27;paper bleed&#x27; framing resolves to variance + oversized paper notional + artifact-contaminated closes, NOT broken strategies. On a risk-normalized (R) basis the 30d paper book is roughly flat (+6.6R).</li>
+<li>The two cells that looked worst on live paper have the STRONGEST backtested edge — a caution against demoting on thin live-paper samples without a backtest gate. &#x27;Backtest first&#x27; (operator) was the correct call.</li>
+<li>Prop is a third funding class, isolated from real/paper KPIs; its silence this window is setup-availability, not a wiring fault.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟢 healthy</span></h2>
+<div class="tablewrap"><table><tr><th>Service</th><th>State</th><th>Since</th></tr>
+<tr><td>ict-trader-live.service</td><td>active/running</td><td>2026-07-10 10:57:17 UTC</td></tr>
+<tr><td>ict-web-api.service</td><td>active/running</td><td>2026-07-10 10:57:17 UTC</td></tr>
+</table></div>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>trader_process</td><td class="muted"> —</td><td>Restarted 10:57 UTC; deployed SHA is current HEAD.</td></tr>
+<tr><td>web_api</td><td class="muted"> —</td><td>All Tier-1 read endpoints responding via diag relay.</td></tr>
+<tr><td>ib_execution</td><td class="muted"> —</td><td>ib_paper live; MGC paper position open + monitored. No IB wedge banner this window.</td></tr>
+<tr><td>trainer_vm</td><td class="muted"> —</td><td>SSH-dead swap-thrash recurrence 2026-07-10 auto-recovered via OCI RESET (commit fddb8bd). Mirror fresh at snapshot (no trainer_down banner). Deep ML detail deferred to /ml-review.</td></tr>
+<tr><td>health_checks</td><td class="muted"> —</td><td>—</td></tr>
+<tr><td>data_endpoints</td><td class="muted"> —</td><td>DB 472MB at canonical /data/bot-data path, all tables present, no integrity errors; signals dual-write healthy (889k rows).</td></tr>
+<tr><td>reconciler_artifacts</td><td class="muted"> —</td><td>Recent paper closes are reconciler-heavy (reconciler_filled / exchange_flat_reconciled) rather than clean SL/TP round-trips — the bucket-B pre-filter class; affects paper win-rate readability, not a bug.</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$5.07</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↑</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">4</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">50.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$1.27</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">1.98</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-5.20</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">2</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>ada_pullback_2h</td><td>2</td><td>50.0%</td><td class="pos">+$4.53</td></tr>
+<tr><td>xrp_pullback_2h</td><td>1</td><td>100.0%</td><td class="pos">+$0.96</td></tr>
+<tr><td>trend_donchian_xrp_4h</td><td>1</td><td>0.0%</td><td class="neg">$-0.42</td></tr>
+</table></div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-6,628.22</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">39</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">28.2%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-169.95</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.54</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-10,189.54</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">11</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>trend_donchian_avax_4h</td><td>3</td><td>0.0%</td><td class="neg">$-3,730.15</td></tr>
+<tr><td>trend_donchian_ada_4h</td><td>4</td><td>25.0%</td><td class="neg">$-2,074.08</td></tr>
+<tr><td>avax_pullback_2h</td><td>5</td><td>40.0%</td><td class="neg">$-1,043.36</td></tr>
+<tr><td>gld_pullback_1h</td><td>4</td><td>0.0%</td><td class="neg">$-967.90</td></tr>
+<tr><td>spy_pullback_1h</td><td>3</td><td>100.0%</td><td class="pos">+$1,735.63</td></tr>
+<tr><td>ada_pullback_2h</td><td>2</td><td>50.0%</td><td class="pos">+$1,151.44</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">—</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">1 full dossiers, 41 summarized (Window closes were dominated by paper reconciler artifacts (bucket-B); the one clean cross-funding-class round-trip (the prop ETH SL) is dossiered in full. Real/paper aggregates in pnl_by_class.).</p>
+<details><summary><span class="pill prop">prop</span> ETHUSDT long · eth_pullback_2h · <span class="neg">$-78.76</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>—</div><div class="k">account</div><div>breakout_1</div><div class="k">opened</div><div>2026-07-06T15:41:00Z</div><div class="k">closed</div><div>2026-07-08T15:41:13Z</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1766.43</div><div class="k">exit</div><div>1717.66</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>1.57</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>sl</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>The window&#x27;s only real prop round-trip; stopped out at SL, clean broker-confirmed report-back. Prop emission pipeline verified healthy by this trade.</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>SOLUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>Range-bound ~77-79.65 (Donchian channel), no breakout — trend_donchian_sol non-actionable all window. (bot-exchange/Bybit)</td></tr>
+<tr><td>ETHUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>Range ~1737-1813 (Donchian) + chop regime (ADX ~20) — both trend_donchian_eth and eth_pullback_2h non-actionable. Drove the prop silence. (bot-exchange/Bybit)</td></tr>
+<tr><td>GLD</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>Gold ETF; the gld_pullback_1h cell&#x27;s 9yr backtest is +113.6R net (2026 YTD +8.6R).</td></tr>
+<tr><td>QQQ</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>Nasdaq-100 ETF; qqq_pullback_1h 9yr backtest +90.7R net (2026 YTD +15.7R).</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟡 watch</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>No deep per-model review this window (deferred to /ml-review). Trainer service recovered from the 07-10 swap-thrash; mirror fresh.</td></tr>
+</table></div>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li class='muted'>No promotions or demotes this window. ETF pullback cells: demote hypothesis tested via backtest and REJECTED (strong 9yr edge) -&gt; KEEP. SOL/AVAX alt cells: operator-directed keep-soaking. Formal M7 packets not re-generated this run.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">—</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>prop manual-bridge</td><td>—</td><td>0 unacted tickets; account within all rule limits; awaiting next SOL/ETH setup.</td></tr>
+<tr><td>SRQ-20260618 alt cohort</td><td>—</td><td>ETH/ADA/XRP net-positive 30d; SOL/AVAX lagging (watch).</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 alpaca_live underfunded -&gt; recurring gld_pullback_1h dispatch refusal (operator: leave-as-is)</li><li>🚩 trend_donchian_avax_4h -$3.7k/0-3 this week (variance-vs-decay watch; SRQ-618)</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>PROP-SOL-ETH-SETUP</code></td><td>performance</td><td>• market-dependent</td><td>Watch for the next SOL/ETH breakout/pullback setup to confirm the prop emit-&gt;fill-&gt;report loop end-to-end on a fresh trade (last confirmed 07-06).</td><td>next actionable prop signal</td></tr>
+<tr><td><code>SRQ-20260618-001/002</code></td><td>performance</td><td>⏳ soaking</td><td>SOL/AVAX alt cells accruing paper soak; trend_donchian_avax_4h is the leading demote candidate if the next window confirms.</td><td>next /performance-review</td></tr>
+<tr><td><code>MB-20260705-TRAINER-OOM</code></td><td>ml</td><td>• watch</td><td>Trainer swap-thrash recurred 07-10 (auto-recovered via OCI RESET, 8G swap). Watch for repeat; subproc-isolation follow-up open.</td><td>next /ml-review</td></tr>
+</table></div>
+<footer>report_id RPT-20260710-161500-since-last · reviewer claude · prior RPT-20260708-074700-since-last · ICT Trading Bot system-report</footer></div></body></html>
