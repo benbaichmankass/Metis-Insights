@@ -624,10 +624,16 @@ class TestIBIsolationGuardRails:
         assert "circuit breaker OPEN" not in str(ei.value)
 
     def test_liveness_probe_timeout_is_bounded_and_trips_breaker(self, monkeypatch):
+        # Strict mode (IB_PROBE_TRUST_FRESH_HANDSHAKE off): a genuinely wedged
+        # gateway is caught at connect() — the probe is bounded AND the breaker
+        # trips. (The DEFAULT now proceeds best-effort on a fresh handshake —
+        # see test_liveness_probe_timeout_best_effort_on_fresh_handshake below;
+        # BL-20260709 exec-connect asymmetry.)
         import src.units.accounts.ib_client as mod
 
         monkeypatch.setattr(mod, "_IB_PROBE_TIMEOUT_S", 0.2)
         monkeypatch.setattr(mod, "_IB_PROBE_RETRY_GAP_S", 0.05)
+        monkeypatch.setattr(mod, "_IB_PROBE_TRUST_FRESH_HANDSHAKE", False)
 
         class HangIB(FakeIB):
             async def reqCurrentTimeAsync(self):
@@ -653,6 +659,41 @@ class TestIBIsolationGuardRails:
         with pytest.raises(IBConnectionError) as ei2:
             c.connect()
         assert "circuit breaker OPEN" in str(ei2.value)
+
+    def test_liveness_probe_timeout_best_effort_on_fresh_handshake(self, monkeypatch):
+        # DEFAULT behaviour (IB_PROBE_TRUST_FRESH_HANDSHAKE on): a FRESH connect
+        # whose handshake completed (isConnected True) but whose liveness probe
+        # never answers proceeds best-effort — NOT condemned, breaker stays
+        # closed — because a cold socat-relay flow can miss BOTH bounded probe
+        # attempts on a genuinely healthy session (BL-20260709: a healthy
+        # rotated-clientId reconnect was false-condemned into a ~17-min wedge).
+        # The probe must STILL be bounded — best-effort means "don't condemn",
+        # not "wait 30s for the hung round-trip".
+        import src.units.accounts.ib_client as mod
+
+        monkeypatch.setattr(mod, "_IB_PROBE_TIMEOUT_S", 0.2)
+        monkeypatch.setattr(mod, "_IB_PROBE_RETRY_GAP_S", 0.05)
+        assert mod._IB_PROBE_TRUST_FRESH_HANDSHAKE is True  # the default
+
+        class HangIB(FakeIB):
+            async def reqCurrentTimeAsync(self):
+                import asyncio
+
+                await asyncio.sleep(30)  # never answers within the probe bound
+
+        inj = types.ModuleType("ib_insync")
+        inj.IB = HangIB
+        monkeypatch.setitem(sys.modules, "ib_insync", inj)
+
+        c = IBClient(port=7497, client_id=34, account="DUQ325724")
+        t0 = time.monotonic()
+        ib = c.connect()
+        elapsed = time.monotonic() - t0
+        assert ib is not None
+        assert c.connected is True
+        assert elapsed < 5.0, f"probe was not bounded (took {elapsed:.1f}s)"
+        assert c._breaker_open_until == 0.0  # NOT condemned
+        assert c._breaker_fail_count == 0
 
     def test_liveness_probe_cold_miss_then_recovers(self, monkeypatch):
         # BL-20260610-009: the first bounded attempt over a freshly-established

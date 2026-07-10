@@ -85,6 +85,13 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
 # Hard cap on the post-connect liveness probe (reqCurrentTime round-trip). A
 # healthy gateway answers in milliseconds; a logged-out one never answers, so
 # this is the bound that converts "hang forever" into "fail in N seconds".
@@ -116,7 +123,7 @@ _IB_BREAKER_COOLDOWN_S = _env_float("IB_BREAKER_COOLDOWN_S", 120.0)
 # the trader-side equivalent of the second manual gateway restart. 0 disables
 # rotation (the teardown-before-reconnect hygiene below still applies).
 _IB_RECONNECT_ROTATE_CLIENTID_AFTER = int(
-    _env_float("IB_RECONNECT_ROTATE_CLIENTID_AFTER", 3)
+    _env_float("IB_RECONNECT_ROTATE_CLIENTID_AFTER", 1)
 )
 # Offset stride between rotated clientIds. Large enough that a rotated id never
 # lands on a sibling exec client's base id (the 496/497/498 cluster) or on
@@ -128,6 +135,21 @@ _IB_RECONNECT_CLIENTID_STRIDE = int(_env_float("IB_RECONNECT_CLIENTID_STRIDE", 1
 _IB_RECONNECT_CLIENTID_MAX_ROTATIONS = int(
     _env_float("IB_RECONNECT_CLIENTID_MAX_ROTATIONS", 5)
 )
+# BL-20260709 (exec-connect asymmetry, live-verified 2026-07-10): after a fresh
+# ib.connect() reaches "API connection ready" (ib_insync completed the full
+# startup handshake — nextValidId/managedAccounts came back, so the gateway is
+# logged in and functional), a reqCurrentTime liveness probe can STILL time out
+# for minutes on a cold socat-relay flow (the rotated clientId 598 session
+# connected cleanly at 18:32:58 but the probe condemned it repeatedly until
+# ~18:38). Condemning a just-handshaked connection on that probe is a false
+# negative that turned a working post-restart reconnect into a ~17-min wedge.
+# When True, a probe timeout on a FRESH handle that ib reports still-connected
+# is downgraded to best-effort (log + proceed) instead of tripping the breaker
+# — IB_FETCH_TIMEOUT_S still bounds every real fetch, so a genuinely-hung
+# gateway is caught per-call. A probe failure on a CACHED (previously-good)
+# handle still condemns (that's a real mid-life wedge). 0/false restores the
+# strict "always condemn on probe timeout" behaviour.
+_IB_PROBE_TRUST_FRESH_HANDSHAKE = _env_bool("IB_PROBE_TRUST_FRESH_HANDSHAKE", True)
 
 # Hard cap on the post-connect account/portfolio WARM-UP
 # (BL-20260706-IBWARMUP). ib_insync's ``accountSummary()`` (used by
@@ -430,6 +452,7 @@ class IBClient:
                 "IB calls so the trader loop is not blocked."
             )
 
+        fresh_connect = False
         if self._ib is not None and self._is_connected(self._ib):
             ib = self._ib
         else:
@@ -469,6 +492,7 @@ class IBClient:
                     "Is IB Gateway / TWS running with the API enabled on this port?"
                 ) from exc
             self._ib = ib
+            fresh_connect = True
             # Fresh handle (new socket or first-ever connect) — its wrapper
             # caches are empty, so the warm-up below must run again.
             self._account_data_ready = False
@@ -479,15 +503,42 @@ class IBClient:
         # so a wedged gateway is caught here (and trips the breaker) instead of
         # hanging the first real request (accountSummary / portfolio / bars).
         if not self._probe_liveness(ib):
-            self._trip_breaker(reason="liveness_probe_timeout")
-            self._safe_disconnect(ib)
-            raise IBConnectionError(
-                f"IBClient: Gateway at {self.host}:{self.port} "
-                f"(account={self._masked_account()}) accepted the socket but did "
-                f"not answer a liveness probe within {_IB_PROBE_TIMEOUT_S:.0f}s "
-                "(likely logged out). Tripping circuit breaker so IB calls do "
-                "not block the trader loop."
-            )
+            if (
+                fresh_connect
+                and _IB_PROBE_TRUST_FRESH_HANDSHAKE
+                and self._is_connected(ib)
+            ):
+                # BL-20260709 (exec-connect asymmetry): the fresh handshake
+                # completed ("API connection ready" — nextValidId/managedAccounts
+                # came back, so the gateway is logged in and functional), but
+                # reqCurrentTime timed out on a cold socat-relay flow. Condemning
+                # here false-negatived a healthy rotated-clientId reconnect into a
+                # ~17-min wedge (live-observed 2026-07-10: clientId 598 connected
+                # cleanly then the probe killed it repeatedly). Proceed
+                # best-effort — the connection is live; IB_FETCH_TIMEOUT_S bounds
+                # every real fetch, so a genuinely-hung gateway is still caught
+                # per-call. A CACHED handle's probe failure still condemns below
+                # (a real mid-life wedge, not a cold-start miss).
+                logger.warning(
+                    "IBClient: Gateway at %s:%s (account=%s) completed the "
+                    "connect handshake but the liveness probe did not answer "
+                    "within %.0fs on this FRESH connection — proceeding "
+                    "best-effort (cold socat-relay flow; IB_FETCH_TIMEOUT_S "
+                    "bounds each fetch). NOT tripping the breaker "
+                    "(BL-20260709 exec-connect asymmetry).",
+                    self.host, self.port, self._masked_account(),
+                    _IB_PROBE_TIMEOUT_S,
+                )
+            else:
+                self._trip_breaker(reason="liveness_probe_timeout")
+                self._safe_disconnect(ib)
+                raise IBConnectionError(
+                    f"IBClient: Gateway at {self.host}:{self.port} "
+                    f"(account={self._masked_account()}) accepted the socket but did "
+                    f"not answer a liveness probe within {_IB_PROBE_TIMEOUT_S:.0f}s "
+                    "(likely logged out). Tripping circuit breaker so IB calls do "
+                    "not block the trader loop."
+                )
 
         # Post-connect account/portfolio warm-up (BL-20260706-IBWARMUP). Runs
         # once per underlying ``ib`` handle (guarded by

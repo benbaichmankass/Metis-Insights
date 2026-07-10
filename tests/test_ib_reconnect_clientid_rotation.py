@@ -108,3 +108,44 @@ def test_failed_connect_does_not_leak_the_handle(monkeypatch):
         c.connect()
     assert made[-1].disconnect_calls >= 1  # failed handle disconnected, not leaked
     assert c._ib is None
+
+
+def test_rotate_after_default_engages_on_first_reconnect_failure():
+    # BL-20260709 fast-rotate: the default now rotates the clientId after a
+    # SINGLE reconnect failure (the base id is stale-held on the gateway after a
+    # restart — Error 326), not after 3 breaker-spaced failures.
+    assert ibmod._IB_RECONNECT_ROTATE_CLIENTID_AFTER == 1
+
+
+def test_fresh_handshake_probe_timeout_is_best_effort(monkeypatch):
+    # BL-20260709 exec-connect asymmetry: a FRESH connect whose handshake
+    # completed (isConnected True) but whose cold-relay liveness probe timed out
+    # must proceed best-effort, NOT condemn — the connection is live and
+    # IB_FETCH_TIMEOUT_S bounds each real fetch.
+    monkeypatch.setattr(IBClient, "_probe_liveness", lambda self, ib: False)
+    monkeypatch.setattr(ibmod, "_IB_PROBE_TRUST_FRESH_HANDSHAKE", True)
+    attempts: list[int] = []
+    c = IBClient(
+        port=7497, client_id=498, account="DUQ",
+        _ib_factory=lambda: _FlakyIB(stuck=set(), attempts=attempts),
+    )
+    ib = c.connect()
+    assert ib is not None
+    assert c._ib is not None          # handle retained, not torn down
+    assert c._breaker_fail_count == 0  # NOT condemned / breaker not tripped
+
+
+def test_fresh_handshake_probe_timeout_condemns_when_trust_disabled(monkeypatch):
+    # With the trust knob off, a probe timeout still condemns (strict behaviour).
+    monkeypatch.setattr(IBClient, "_probe_liveness", lambda self, ib: False)
+    monkeypatch.setattr(ibmod, "_IB_PROBE_TRUST_FRESH_HANDSHAKE", False)
+    attempts: list[int] = []
+    c = IBClient(
+        port=7497, client_id=498, account="DUQ",
+        _ib_factory=lambda: _FlakyIB(stuck=set(), attempts=attempts),
+    )
+    c._breaker_open_until = 0.0
+    with pytest.raises(IBConnectionError):
+        c.connect()
+    assert c._breaker_fail_count >= 1  # condemned
+    assert c._ib is None               # torn down
