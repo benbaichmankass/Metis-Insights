@@ -3182,7 +3182,14 @@
       "snoozed_until": null,
       "description": "The live trader VM's /dev/null is repeatedly clobbered by an OS-level OCI host agent (suspected oracle-cloud-agent oci-wlp / Cloud Guard Workload-Protection FIM 'remediating' world-writable files, incorrectly including /dev/null) — see docs/runbooks/devnull-guard.md. As of 2026-06-29 we now have THREE self-heal layers (ict-devnull-guard.timer 60s, deploy_pull_restart.sh, and _lib.sh::require_systemctl — the last two added this session) plus the guard %-specifier bugfix, so consumers no longer break on a transient clobber. REMAINING: kill it at the source so /dev/null isn't being rm'd/chmod'd at all. AUTONOMOUS path to try first (SSH+sudo via a runner, NOT operator-manual): `sudo auditctl -w /dev/null -p wa -k devnull` then after it next flips `sudo ausearch -k devnull` to positively identify the writing process/agent; if it's a local oracle-cloud-agent plugin, disable that plugin's /dev remediation via its on-VM config. OPERATOR/OCI-CONSOLE path (only if the rule is tenancy-level): exclude /dev from the OCI Cloud Guard / Workload-Protection FIM profile attached to the instance — needs OCI console/tenancy access (a legitimate category-1 operator/external action). OPTIONAL mitigation regardless: tighten ict-devnull-guard.timer OnUnitActiveSec 60s -> ~20-30s to shrink the exposure window for any non-self-healing consumer (e.g. the trader's own >/dev/null subprocess plumbing).",
       "source": "devnull incident 2026-06-29 (issues #5069/#5080/#5087, PR #5088)",
-      "updates": []
+      "tier": 2,
+      "updates": [
+        {
+          "at": "2026-07-10T08:00:00+00:00",
+          "by": "claude (full-system-audit session, RISK-4)",
+          "note": "Diagnostic tooling BUILT (Tier-1); the mutating step is HELD for one operator OK. The prior hand-off ('sudo auditctl ... then ausearch') is now an owner-gated workflow: .github/workflows/vm-devnull-source-diagnose.yml (label vm-devnull-diagnose, added to bootstrap-labels.yml). Modes: inspect (READ-ONLY — dumps oracle-cloud-agent/oci-wlp units+plugins+config and greps its logs for dev/null|remediat|world-writable + current /dev/null state + any existing auditd rule/events; may name the agent with zero mutation), arm-audit (Tier-2 — installs auditd if absent + persistent /etc/audit/rules.d/devnull.rules '-w /dev/null -p wa -k devnull', survives reboot), read-audit (READ-ONLY — ausearch -k devnull -i; CULPRIT = the SYSCALL setting mode 0444/stripping the write bit; the guard's own 0666 restores are expected noise). Run inspect first; only arm-audit needs the operator ack. Once the writer is identified: reconfigure the on-VM agent plugin's /dev remediation (autonomous via runner+sudo) OR exclude /dev from the tenancy Cloud Guard/Workload-Protection FIM profile (OCI-console operator action if tenancy-level)."
+        }
+      ]
     },
     {
       "id": "BL-20260629-INTENT-REDUCE-CHURN-VERIFY",
