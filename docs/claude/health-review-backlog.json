@@ -3727,7 +3727,24 @@
           "note": "Closed. Deploy #6057 landed fce8d7d (nonfinite-aware repair script); dry-run #6058 confirmed 1085 truncated rows; apply #6059 -> remaining malformed rows = 0."
         }
       ]
+    },
+    {
+      "id": "BL-20260710-RESET-DAILY-RISK-WORKFLOW-SQLITE3",
+      "opened_at": "2026-07-10T21:55:00+00:00",
+      "opened_by": "claude (S-AUDIT-H stale-issue closeout, 2026-07-10)",
+      "source": "Closing three stale reset-daily-risk-state relay issues (#5203/#5208/#5212, opened 2026-06-30, all not_planned) surfaced that the reset path itself is broken: every retry failed identically with `[reset_daily_risk_state] ERROR: sqlite3 not available`. The demo bybit_1 SOLUSDT intraday-drawdown block those resets targeted self-healed via daily_risk_state's per-UTC-day rebuild (src/units/accounts/risk.py), so the resets were moot and closed — but the reset TOOL remains unusable.",
+      "title": "Fix reset-daily-risk-state workflow — 'sqlite3 not available' on the runner",
+      "description": "The reset-daily-risk-state action (clears a per-account intraday drawdown block in trade_journal.db::daily_risk_state) errors `sqlite3 not available` on the GitHub-hosted runner / VM path (issues #5203/#5208/#5212, 2026-06-30 — the 'retry after bash -e fix' series was iterating on an earlier bug and hit this next). Root-cause hypothesis: the reset shell path shells out to the `sqlite3` CLI binary, which isn't on the runner (or the VM path it runs on) — it should instead go through the canonical Python resolver (src.utils.paths.trade_journal_db_path + the sqlite3 stdlib module) or `apt-get install -y sqlite3` in the workflow. Until fixed, a genuine intraday-drawdown reset — especially on a REAL-money account — cannot be executed via the workflow, so this is a latent operability gap, not just a demo-account nuisance. Locate the reset script (scripts/ops around reset_daily_risk_state) + its system-action/workflow wiring and remove the sqlite3-CLI dependency.",
+      "tier": 1,
+      "trigger_condition": "Next need to reset a daily-risk-state drawdown block via the workflow, or the next /health-review.",
+      "resolution_criteria": "reset-daily-risk-state completes exit 0 on a real/no-op invocation with the sqlite3-CLI dependency removed (Python sqlite3 module or the CLI installed in the workflow); verified by a successful reset comment on a fresh relay issue.",
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null,
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-09T20:15:00+00:00"
+  "updated_at": "2026-07-10T21:55:00+00:00"
 }
