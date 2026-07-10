@@ -139,6 +139,24 @@ fi
 if [ -z "${TRAINING_MANIFESTS:-}" ]; then
   # Default: every YAML under ml/configs/. Sorted for deterministic order.
   mapfile -t TRAINING_MANIFEST_LIST < <(find ml/configs -maxdepth 1 -type f -name '*.yaml' | sort)
+  # Opt-in nightly rotation (MB-20260709): with TRAINING_MANIFEST_ROTATE=1, train
+  # every other manifest by UTC day-parity so the torch-heavy heads (TCN, SSL-MAE)
+  # and the LightGBM fleet alternate nights — halving a single cycle's cumulative
+  # memory + runtime pressure. Safe because the checkpoint/resume + catch-up timer
+  # already make a partial night fine: the untrained half simply retrains next
+  # cycle. Default OFF (unset) → behaviour unchanged (train the full fleet).
+  if [ "${TRAINING_MANIFEST_ROTATE:-0}" = "1" ]; then
+    _parity="$(( 10#$(date -u +%j) % 2 ))"
+    _i=0
+    _rotated=()
+    for _m in "${TRAINING_MANIFEST_LIST[@]}"; do
+      [ "$(( _i % 2 ))" = "$_parity" ] && _rotated+=("$_m")
+      _i=$(( _i + 1 ))
+    done
+    # Never let a parity split empty the list (e.g. a 1-manifest dir); fall back
+    # to the full list if the rotation would train nothing this cycle.
+    [ "${#_rotated[@]}" -gt 0 ] && TRAINING_MANIFEST_LIST=("${_rotated[@]}")
+  fi
 else
   # Split on whitespace.
   read -r -a TRAINING_MANIFEST_LIST <<<"$TRAINING_MANIFESTS"
