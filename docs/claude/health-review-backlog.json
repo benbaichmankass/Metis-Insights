@@ -73,9 +73,15 @@
       "title": "[prop] insert_fill is a blind append (no idempotency) — a re-reported / duplicate fill creates a second prop_fills row",
       "description": "prop_journal.insert_fill does a straight INSERT with no dedup guard, so re-posting the same fill (operator re-report, corrective re-report, or a relay retry) creates a duplicate prop_fills row. This is the SECONDARY double-log vector behind BL-20260706-PROP-CLOSE-MISLINK (the primary — a close linking to the wrong ticket — was fixed in #5744). Concrete residue: prop_fills 15/16 are the same trade (ext order 500139412) as two rows. FIX (Tier-2, prop DB write path): make insert_fill idempotent/upsert-ish on a natural key — (account_id, external_order_id, status) when external_order_id is present, else (account_id, ticket_id, status, qty, exit_price) — updating the existing row instead of inserting a duplicate; or at minimum flag/supersede the older duplicate in raw/notes. Prop journal is isolated from real-money/paper KPIs so this is data-hygiene, not money-at-risk. Verify with a re-post of an existing fill producing no new row.",
       "tier": 2,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-10T00:00:00+00:00",
+          "by": "claude (full-system-audit session, RISK-3 Task 3)",
+          "note": "RESOLVED. insert_fill is now idempotent — it computes the natural key ((account_id, external_order_id, status) when external_order_id is present, else (account_id, ticket_id, status, qty, exit_price)), SELECTs any existing matching row, and UPDATEs it in place rather than inserting a duplicate; direction synonyms (buy->long / sell->short) are normalized so a corrective re-report under the canonical direction dedupes against the original. Shipped in #6079 (ae5dc3b), deployed to the live VM (#6082), covered by tests/test_prop_journal_idempotency.py (5 tests: re-report updates in place, buy/long synonym dedupe, distinct-status separate row, no-ext fallback-key dedupe, keyless append). This prevents ALL future duplicate prop fills. The single pre-existing historical duplicate (prop_fills id 15, a stale buy-direction row superseded by the canonical ticket-linked id 16 for ETH ext-order 500139412) is intentionally left uncleaned per operator decision (2026-07-09 \"skip it\"): it is cosmetic, on an already-closed trade, prop-only and isolated from all real-money/paper KPIs, and cleaning one row would require standing up a new allowlisted maintenance system-action for no material benefit."
+        }
+      ]
     },
     {
       "id": "BL-20260706-PROP-STALE-EMITTED-TICKETS",
