@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260711-061800-since-last",
+      "window": "since-last",
+      "generated_at": "2026-07-11T06:18:00+00:00",
+      "window_start": "2026-07-10T16:15:00+00:00",
+      "window_end": "2026-07-11T06:18:00+00:00",
+      "roll_up_grade": "healthy",
+      "headline": "Quiet, healthy 14h window since the 16:15Z report. No real-money closed trades; paper booked +$18.94. All live + paper broker accounts reachable. Standout: the scheduled 06:05 UTC IB gateway reset was handled autonomously by the freshly-deployed #6114 fix \u2014 the exec client rotated clientId and reconnected in ~4.5 min with no wedge and no manual recovery (the ~17-min wedge this fix targeted). ML training healthy (33 manifests / 0 failures). Two low-severity watches: trainer disk at 84% and a transient /api/pnl/history fetch error.",
+      "html_path": "comms/reports/since-last/20260711T061800Z/report.html",
+      "json_path": "comms/reports/since-last/20260711T061800Z/report.json",
+      "md_path": "comms/reports/since-last/20260711T061800Z/report.md"
+    },
+    {
       "id": "RPT-20260710-161500-since-last",
       "window": "since-last",
       "generated_at": "2026-07-10T16:15:00+00:00",
