@@ -37,6 +37,7 @@ def _init_db(path: str) -> None:
                 pnl_percent REAL,
                 timestamp TEXT,
                 exit_reason TEXT,
+                setup_type TEXT,
                 notes TEXT,
                 status TEXT,
                 is_backtest INTEGER DEFAULT 0,
