@@ -1,0 +1,391 @@
+{
+  "report_id": "RPT-20260711-061800-since-last",
+  "reviewed_at": "2026-07-11T06:18:00+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-07-10T16:15:00+00:00",
+  "window_end": "2026-07-11T06:18:00+00:00",
+  "prior_report_id": "RPT-20260710-161500-since-last",
+  "overall_assessment": "healthy",
+  "health": {
+    "overall_assessment": "healthy",
+    "summary": "Both live services active (trader-live + web-api, running #6114 deploy 38ac1c0 since 23:36Z). Notifications feed clean. Scheduled 06:05Z IB gateway reset self-healed in ~4.5min via the #6114 fix \u2014 no wedge.",
+    "findings": {
+      "live services": {
+        "status": "ok",
+        "note": "ict-trader-live + ict-web-api both active/running since 2026-07-10 23:36:41Z (the #6114 deploy)."
+      },
+      "notifications banner feed": {
+        "status": "ok",
+        "note": "/api/bot/notifications: 0 banners, has_alerts=false \u2014 no trainer_down / account_down / operator_warning conditions."
+      },
+      "IB gateway 06:05Z reset": {
+        "status": "ok",
+        "note": "Exec client 498 breaker-cycled + rotated 498\u2192698 post-reset, reconnected clean on 498 by 06:13:09Z (likely_wedged never true). #6114 handled it autonomously \u2014 the ~17min wedge class is closed."
+      },
+      "reconciler / orphan flaps": {
+        "status": "ok",
+        "note": "Recent /api/diag/snapshot window clean of adopted_orphan / detect_only / superseded / reentry_suppressed artifacts."
+      },
+      "/api/pnl/history": {
+        "status": "watch",
+        "note": "Returned {error:fetch_failed} during the report batch (sibling candles call succeeded) \u2014 likely transient; prior-window PnL trend recorded unavailable. Re-check next review."
+      },
+      "trainer disk": {
+        "status": "watch",
+        "note": "Trainer VM / at 84% (7.3G free) \u2014 schedule cleanup before it tightens."
+      }
+    },
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "performance": {
+    "overall_assessment": "healthy",
+    "summary": "Real-money flat (0 closed). Paper +$18.94 across 2 BTCUSDT round-trips (trend_donchian +$72.63 / htf_pullback_trend_2h -$53.69; 50% WR). Grading fresh (delta=0 \u2014 no real closes; paper excluded by design).",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "ml": {
+    "overall_assessment": "healthy",
+    "summary": "Training progressing: 33 manifests ok / 0 failed, 38 dataset builds ok / 0 failed (rc=0) in 24h. Registry 80 (1 advisory, 28 shadow, 50 candidate, 1 research_only). Trainer on current main, publishing every ~2min, actively training (load 2.7). Watch: cycles_24h=0 status-field oddity (manifests clearly ran); disk 84%.",
+    "model_status": [
+      {
+        "model_id": "btc-regime-15m-lgbm-v2",
+        "stage": "advisory",
+        "last_training": {
+          "headline_metric": "\u2014",
+          "trend_vs_prior_run": "\u2014"
+        },
+        "live_shadow": {
+          "drift": "\u2014"
+        },
+        "note": "The one advisory head \u2014 live BTC vol-gate (per-symbol enforce). Unchanged this window."
+      },
+      {
+        "model_id": "setup-quality-lgbm-v2 (+ baselines)",
+        "stage": "shadow",
+        "last_training": {
+          "headline_metric": "raw \u22120.05..\u22120.47 on live pkgs",
+          "trend_vs_prior_run": "\u2014"
+        },
+        "live_shadow": {
+          "drift": "\u2014"
+        },
+        "note": "Weak-negative c_setup contributions \u2014 not promotion-ready; standing ml-backlog item."
+      },
+      {
+        "model_id": "fc heads (BTC+ETH 15m)",
+        "stage": "shadow",
+        "last_training": {
+          "headline_metric": "\u2014",
+          "trend_vs_prior_run": "\u2014"
+        },
+        "live_shadow": {
+          "drift": "\u2014"
+        },
+        "note": "Soaking toward the fc\u2192advisory Tier-3 gate (MB-20260705-FC-ADVISORY-READINESS)."
+      }
+    ],
+    "promotion_recommendations": [],
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "healthy",
+    "headline": "Quiet, healthy 14h window since the 16:15Z report. No real-money closed trades; paper booked +$18.94. All live + paper broker accounts reachable. Standout: the scheduled 06:05 UTC IB gateway reset was handled autonomously by the freshly-deployed #6114 fix \u2014 the exec client rotated clientId and reconnected in ~4.5 min with no wedge and no manual recovery (the ~17-min wedge this fix targeted). ML training healthy (33 manifests / 0 failures). Two low-severity watches: trainer disk at 84% and a transient /api/pnl/history fetch error.",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Trainer disk at 84% (7.3G free)",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "Schedule artifact/cache cleanup on the trainer VM before disk pressure affects builds.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 2,
+        "title": "/api/pnl/history fetch_failed this pull",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "Endpoint returned fetch_failed during the report batch; verify transient next review (prior-window trend recorded unavailable).",
+        "operator_action_required": false
+      },
+      {
+        "rank": 3,
+        "title": "trainer cycles_24h=0 status-field oddity",
+        "source_review": "ml",
+        "tier": 1,
+        "detail": "Reconcile the full-cycle counter vs manifests_24h (33 ok) in trainer_status reporting.",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "POSITIVE: #6114 IB reconnect fix validated in production \u2014 the 06:05Z scheduled gateway reset self-healed in ~4.5 min (clientId rotation 498\u2192698 then clean reconnect on 498, likely_wedged never true), vs the prior ~17-min wedge that needed a manual gateway restart.",
+      "Real-money activity is quiet (0 closes); the trading signal this window is from the paper soak."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": "unavailable: /api/pnl/history fetch_failed",
+        "trend": "flat",
+        "trades": 0,
+        "win_rate": null,
+        "expectancy": null,
+        "profit_factor": null,
+        "max_drawdown": null,
+        "wins": 0,
+        "per_strategy": []
+      },
+      "paper": {
+        "window_pnl": 18.94,
+        "prior_window_pnl": "unavailable: /api/pnl/history fetch_failed",
+        "trend": "up",
+        "trades": 2,
+        "win_rate": 50.0,
+        "expectancy": 9.47,
+        "profit_factor": 1.35,
+        "max_drawdown": -53.69,
+        "wins": 1,
+        "per_strategy": [
+          {
+            "name": "trend_donchian",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 72.627
+          },
+          {
+            "name": "htf_pullback_trend_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -53.69
+          }
+        ]
+      },
+      "prop": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "fills_reported": 0,
+        "unacted_tickets": 0,
+        "tickets_emitted": 0,
+        "rule_distance": {
+          "daily_loss_remaining": null,
+          "static_dd_remaining": null
+        }
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": 63921.7,
+        "close": 64216.6,
+        "high": 64316.3,
+        "low": 63663.3,
+        "pct_change": 0.46,
+        "note": "Quiet uptrend/chop over 16h; transitional regime (ADX ~20 per live order-package). Primary real+paper crypto symbol."
+      },
+      {
+        "symbol": "(others)",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "note": "Per-symbol candles not individually pulled this run (adaptive since-last, quiet window) \u2014 em-dash, not zero."
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": "3343",
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "trend_donchian",
+        "opened_at": "2026-07-10T01:50:17Z",
+        "closed_at": "2026-07-11T02:05:34Z",
+        "hold_seconds": 87317,
+        "entry_price": 63754.2,
+        "exit_price": 64035.7,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 0.258,
+        "pnl": 72.627,
+        "pnl_percent": 0.4415,
+        "close_reason": "other",
+        "claude_grade": null,
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": null,
+        "notable": true
+      },
+      {
+        "trade_id": "3365",
+        "order_package_id": null,
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "strategy": "htf_pullback_trend_2h",
+        "opened_at": "2026-07-10T22:03:30Z",
+        "closed_at": "2026-07-10T22:03:30Z",
+        "hold_seconds": 0,
+        "entry_price": 64041.7,
+        "exit_price": 64124.3,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 0.65,
+        "pnl": -53.69,
+        "pnl_percent": -0.129,
+        "close_reason": "other",
+        "claude_grade": null,
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": null,
+        "notable": true
+      }
+    ],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 2,
+      "summarized_trades": 1,
+      "rule": "since-last \u2192 full dossiers for the 2 paper round-trips; 1 row (id 3370, htf_pullback null-pnl netting artifact, open==close) noted not dossiered. claude_grade null \u2014 paper rows excluded from the order-package grader (0 real-money closes)."
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 207,
+        "open": 78,
+        "resolved": 129,
+        "drained": 2
+      },
+      "performance": {
+        "total": 67,
+        "open": 45,
+        "resolved": 22,
+        "drained": 0
+      },
+      "ml": {
+        "total": 66,
+        "open": 28,
+        "resolved": 38,
+        "drained": 0
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "system-review",
+        "summary": "No NEW Tier-3 proposals surfaced this short window. Standing Tier-3 items remain tracked in the backlogs (MB conviction P4/P5 sizing, regime-router phases, fc\u2192advisory promotion) \u2014 none newly gate-met this window.",
+        "tier": 3
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "MB-20260705-FC-ADVISORY-READINESS",
+        "domain": "ml",
+        "category": "soaking",
+        "detail": "fc heads (BTC+ETH 15m) at shadow, soaking toward the fc\u2192advisory Tier-3 gate.",
+        "since": "2026-07-05",
+        "next_check": "soak criteria met \u2192 operator promotion gate"
+      },
+      {
+        "item_id": "MB-20260628-REGIME-SOAK-READINESS",
+        "domain": "ml",
+        "category": "soaking",
+        "detail": "Multi-symbol ETH/SOL regime heads soaking toward RG4/advisory.",
+        "since": "2026-06-28",
+        "next_check": "RG4 re-check when soaks mature"
+      },
+      {
+        "item_id": "BL-20260624-MHG-CLOSE-CONFIRM-VERIFY",
+        "domain": "health",
+        "category": "verify",
+        "detail": "#4441 IB close-confirm fix holding (recent window clean of MHG re-adopt flaps); full-history verify pending.",
+        "since": "2026-06-24",
+        "next_check": "/health-review counting since-2026-06-24 MHG adopted_orphan+superseded rows"
+      },
+      {
+        "item_id": "BL-20260710-RESET-DAILY-RISK-WORKFLOW-SQLITE3",
+        "domain": "health",
+        "category": "awaiting-decision",
+        "detail": "reset-daily-risk-state workflow broken (sqlite3 not available); benign until a real reset is needed.",
+        "since": "2026-07-10",
+        "next_check": "next drawdown-reset need, or a /health-review fix"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [],
+        "summary": "All HOLD. 0 real-money closed trades in the 14h window \u2192 no new gate-changing evidence for any strategy; no M7 packet crossed a threshold. btc-regime-15m-lgbm-v2 already at advisory (live BTC vol-gate). setup-quality shadow heads remain weak-negative (not promotion-ready). No demote/kill candidate surfaced. A full per-strategy M7 promotion sweep belongs to the weekly review; this since-last window had no fresh closed-trade evidence to move a gate."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": "33 manifests ok / 0 failed (full-cycle counter shows 0 \u2014 status-field oddity)",
+        "dataset_builds_ok": "38 ok / 0 failed (rc=0)",
+        "summary": "Trainer healthy + on current main (38ac1c04), publishing every ~2min, actively training. Registry 80 (1 advisory / 28 shadow / 50 candidate). Watch: cycles_24h=0 reporting oddity; disk 84%."
+      },
+      "soak_status": [
+        {
+          "soak": "shadow regime/decision heads (28 shadow-stage)",
+          "state": "accruing",
+          "detail": "Live order packages carry modelScores from conviction-meta-v1 + setup-quality heads \u2192 shadow predictions accruing; no stall."
+        },
+        {
+          "soak": "conviction sizing",
+          "state": "accruing (observe)",
+          "detail": "order package shows conviction_sizing_decision action=would_be_size (observe/annotate, not applied) \u2014 accruing; no stall."
+        },
+        {
+          "soak": "exit-ladder",
+          "state": "accruing",
+          "detail": "observe-only ExitPlan laddered-vs-single-target soak continues; no stall flagged."
+        }
+      ],
+      "flags_raised": [],
+      "account_reachability": {
+        "bybit_1": "up (paper; 5 positions)",
+        "bybit_2": "up (real_money; 4 positions)",
+        "alpaca_paper": "up (7 positions incl SPY +$2,089 unrealized)",
+        "alpaca_live": "up (1 position, IEF)",
+        "alpaca_options_paper": "up (flat)",
+        "ib_paper": "up (RECOVERED \u2014 transient breaker-cycle after the scheduled 06:05Z gateway reset; exec 498 confirmed connected + account_data_ready 06:13:09Z, likely_wedged never true; #6114 handled it autonomously ~4.5min)",
+        "ib_live": "excluded (mode dry_run / shelved)",
+        "oanda_practice": "excluded (shelved)",
+        "breakout_1": "excluded (API-less prop manual bridge)"
+      },
+      "backlog_drive": {
+        "drained": {
+          "health": [
+            "BL-20260709-IB-POSTRESTART-RECONNECT-WEDGE",
+            "BL-20260707-TRAINER-VM-SSH-UNREACHABLE"
+          ],
+          "performance": [],
+          "ml": []
+        },
+        "updated": {
+          "health": [
+            "BL-20260607-005",
+            "BL-20260624-MHG-CLOSE-CONFIRM-VERIFY",
+            "BL-20260629-DEVNULL-CLOBBERED-LIVE-VM"
+          ]
+        },
+        "deferred": "Remaining opens (health 78 / performance 45 / ml 28) are Tier-3 operator-gated (strategy/promotion/sizing), soak-watches awaiting data accrual, or offline research lines \u2014 none fiat-closable this run. This session already ran a focused drawdown (PRs #6115/#6120/#6122) resolving the 2 drained items + reclassifying/verifying 3 more; the rest carry per-item deferral reasons in the backlog files."
+      }
+    }
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260711T061800Z/report.json",
+    "html_path": "comms/reports/since-last/20260711T061800Z/report.html",
+    "md_path": "comms/reports/since-last/20260711T061800Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260711T061800Z/report.html",
+    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260711-061800-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "send-ping (system-action)",
+    "priority": "normal",
+    "message": "[system-report:since-last] roll-up healthy: H:healthy P:healthy M:healthy \u00b7 IB reset-reconnect clean \u00b7 https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=RPT-20260711-061800-since-last"
+  }
+}
