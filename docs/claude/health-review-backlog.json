@@ -490,6 +490,11 @@
         {
           "at": "2026-06-25T06:05:00+00:00",
           "note": "CORRECTION/fold-in (/system-review follow-up): the 06-24 MHG closes (11:41-13:49) PREDATE the orphan-flap #1 fix (#4464 reconciler flat-close leg-cancel, merged 06-24 15:28) and #4453 (place_protective pre-cancel, 15:11) — they are the LAST pre-fix flap, NOT a regression of #4441. The full orphan-flap hardening queue #1-#5 is now MERGED (#4453/#4464/#4465/#4468/#4469/#4481). My salvaged journal (ids 2805-2853, through 06-25 04:05) shows NO new adopted_orphan/MHG flap after 06-24 13:49 -> the order-path fixes are HOLDING. Residual phantom rows (incl the -2530.41 MHG cluster) are cleaned by #4481's reconcile-orphan-history (dry-run -> operator-gated apply). Recommend: keep open until the dry-run KEEP/VOID plan is run + applied, then close."
+        },
+        {
+          "at": "2026-07-11T00:18:00+00:00",
+          "by": "claude (S-AUDIT-G drawdown tranche 2)",
+          "note": "Positive soak signal (NOT a full close): /api/diag/snapshot?limit=40 (#6121) shows the recent window CLEAN — zero MHG (or MGC) adopted_orphan / detect_only 're-adopt suppressed' / superseded / reentry_suppressed rows; MHG appears only as normal mhg_pullback_1d signal evals. The #4441 close-confirm + close-retry-cooldown fix appears to be holding. Keeping OPEN: a 40-row tail is not a meaningful verification window — a definitive close belongs to a /health-review pass that counts MHG/ib_paper adopted_orphan+superseded rows over the full since-2026-06-24 history."
         }
       ]
     },
@@ -2015,7 +2020,14 @@
       "snoozed_until": null,
       "resolved_at": null,
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "updates": [
+        {
+          "at": "2026-07-11T00:18:00+00:00",
+          "by": "claude (S-AUDIT-G drawdown tranche 2)",
+          "note": "Confirmed STILL PRESENT 2026-07-11 via actions_list(status=queued): exactly 23 runs, ALL dated 2026-05-15 (Health Snapshot / vm-web-api-recover / vwap-backtest / vm-cloud-fix etc.), stuck ~2 months. Not autonomously closable: the available GitHub MCP toolset exposes no workflow-run cancel/delete method, and GitHub historically 500s on cancelling these. BENIGN — they are queued (never scheduled), so they consume ZERO Actions minutes and don't block the runner. Downgrading urgency: leave open as a known cosmetic nuisance; a real fix needs `gh run delete`/API DELETE from a non-MCP context (desktop CLI or a one-shot workflow), not worth prioritising."
+        }
+      ]
     },
     {
       "id": "BL-20260608-CRED",
@@ -3770,5 +3782,5 @@
       "updates": []
     }
   ],
-  "updated_at": "2026-07-11T00:05:00+00:00"
+  "updated_at": "2026-07-11T00:18:00+00:00"
 }
