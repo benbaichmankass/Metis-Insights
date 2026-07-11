@@ -3,6 +3,19 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260711-INTENT-REDUCE-PHANTOM-PNL",
+      "opened_at": "2026-07-11T14:30:00+00:00",
+      "opened_by": "claude (S-TREND-DONCHIAN-ROOTCAUSE)",
+      "source": "PERF-20260601-001 root-cause (docs/research/trend-donchian-live-anomaly-rootcause-2026-07-11.md; trainer-vm-diag #6136). trend_donchian bybit_1 rows 2604/2607/2610 are setup_type='intent_reduce', exit_reason='reconciler_filled', entry_price==exit_price, yet carry a large non-NULL positive pnl (+$561/+620/+898).",
+      "title": "Reconciler books an intent_reduce leg with a phantom non-NULL pnl (entry==exit) — contradicts apply_intent_reduce_partial_close's NULL-pnl design",
+      "description": "A reduce leg is meant to carry NULL pnl (src/units/accounts/execute.py::apply_intent_reduce_partial_close leaves pnl/pnl_percent NULL, pnl_source='deferred_intent_reduce'), and order_monitor already treats reduce legs specially (is_reduce_leg). But some intent_reduce rows get closed via the reconciler_filled path with entry_price==exit_price AND a large fabricated positive pnl (trend_donchian demo 2604 +$561.28 / 2607 +$620.17 / 2610 +$898.60 — all entry==exit). That phantom pnl inflates any analytics that don't explicitly exclude reduce legs. Observed on DEMO here so no real-money impact, and the new exclude_reduce_leg_predicate (src/web/api/_clean_trades.py, applied in /strategy/attribution) now MASKS it in the read path — but the WRITE path should not book the phantom pnl at all (a real-money intent_reduce reconciler-flip would otherwise inject a fabricated win/loss upstream of any single reader). ROOT-CAUSE belongs to the reconciler close path (order_monitor.py _reconcile_open_trades / the reconciler_filled pnl computation for a row whose setup_type='intent_reduce'): it should defer/NULL the pnl for a reduce leg the same way the open-time path does, or skip pnl computation when entry==exit on a reduce leg. Cross-ref: the exclude_reduce_leg guard is defense-in-depth in the analytics layer; this item is the upstream write-path fix.",
+      "tier": 2,
+      "status": "open",
+      "trigger_condition": "Next /health-review touching the reconciler close path, OR a real-money intent_reduce leg appears with a non-NULL reconciler pnl.",
+      "resolution_criteria": "The reconciler close path leaves pnl NULL (or a deferred marker) for an intent_reduce reduce leg instead of booking a phantom entry==exit pnl; a test covers a reduce-leg reconciler close asserting NULL pnl.",
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260708-IB-WARMUP-WEDGE-RECUR",
       "opened_at": "2026-07-08T07:45:00+00:00",
       "opened_by": "claude (/system-review 2026-07-08)",
@@ -3797,5 +3810,5 @@
       "updates": []
     }
   ],
-  "updated_at": "2026-07-11T07:15:00+00:00"
+  "updated_at": "2026-07-11T14:30:00+00:00"
 }

@@ -111,6 +111,46 @@ def exclude_reset_flat_predicate(prefix: str = "") -> str:
     return f" AND COALESCE({er},'') != 'exchange_reset_flat'"
 
 
+def exclude_reduce_leg_predicate(prefix: str = "") -> str:
+    """``AND``-able SQL fragment dropping ``setup_type='intent_reduce'`` reduce
+    legs from per-strategy analytics.
+
+    A reduce leg is a DELIBERATE partial-close the intent layer stamps
+    ``setup_type='intent_reduce'`` (``src.units.accounts.execute`` +
+    ``coordinator``) when a new intent nets down an existing position rather
+    than opening a fresh one. It is bookkeeping, NOT an independent trading
+    decision: ``apply_intent_reduce_partial_close`` leaves its ``pnl`` NULL by
+    design, and ``order_monitor`` already excludes reduce legs from its close /
+    exit-coverage paths (``is_reduce_leg``).
+
+    Two failure modes make an *unfiltered* reduce leg pollute per-strategy KPIs
+    — both observed in the ``trend_donchian`` PERF-20260601-001 root-cause
+    (docs/research/trend-donchian-live-anomaly-rootcause-2026-07-11.md):
+
+    * **Count padding.** A same-bar re-entry storm (pre-#2548 bar-debounce)
+      emits many ``intent_reduce`` no-op legs; counted as "trades" they pad the
+      denominator, so a handful of real losses reads as "0% win over 19 trades"
+      when most of the 19 are reduce-leg bookkeeping rows, not fills.
+    * **Phantom PnL.** A reconciler-flipped reduce leg can be booked
+      ``reconciler_filled`` with ``entry==exit`` yet a large non-NULL ``pnl``
+      (e.g. trend_donchian demo rows 2604/2607/2610 at +$561/+620/+898) — a
+      fabricated win/loss that the ``pnl IS NOT NULL`` filter alone does NOT
+      catch, since the phantom pnl is non-null.
+
+    Sibling of :func:`exclude_reconciler_predicate` / :func:`exclude_superseded_predicate`
+    / :func:`exclude_reset_flat_predicate`. NULL-safe via COALESCE so the
+    overwhelming majority of rows (a real strategy setup_type) are kept.
+    ``'intent_reduce'`` is a hard-coded literal — no injection surface. Also
+    matches the ``notes.intent_reduce`` boolean flag for rows whose setup_type
+    was reattached, mirroring ``order_monitor``'s ``is_reduce_leg`` test."""
+    st = _col(prefix, "setup_type")
+    notes = _col(prefix, "notes")
+    return (
+        f" AND COALESCE({st},'') != 'intent_reduce'"
+        f" AND COALESCE({notes},'') NOT LIKE '%\"intent_reduce\": true%'"
+    )
+
+
 def r_multiple(
     pnl: Any,
     entry_price: Any,

@@ -30,6 +30,7 @@ from src.runtime.positions import net_positions_by_symbol
 from src.utils.paths import trade_journal_db_path
 from src.web.api._clean_trades import (
     exclude_reconciler_predicate,
+    exclude_reduce_leg_predicate,
     exclude_reset_flat_predicate,
     exclude_superseded_predicate,
     not_paper_predicate,
@@ -109,6 +110,13 @@ def _query_attribution(db_path: Path) -> List[Dict[str, Any]]:
                 exclude_reconciler_predicate("")
                 + exclude_superseded_predicate("")
                 + exclude_reset_flat_predicate("")
+                # Drop intent_reduce bookkeeping legs — a same-bar re-entry
+                # storm pads the win-rate denominator with non-fills and a
+                # reconciler-flipped reduce leg can carry a phantom non-NULL pnl
+                # that the pnl-IS-NOT-NULL filter alone misses (the
+                # PERF-20260601-001 trend_donchian "0% win / 19 trades" false
+                # alarm; docs/research/trend-donchian-live-anomaly-rootcause-2026-07-11.md).
+                + exclude_reduce_leg_predicate("")
             )
             closed_rows = conn.execute(
                 f"""

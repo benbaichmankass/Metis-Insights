@@ -3,6 +3,7 @@
 > **Last Updated:** 2026-07-11 (**Roadmap review & forward-plan restructure (S-ROADMAP-REVIEW)**) — Reviewed the whole roadmap end-to-end, compressed this changelog banner (per-session detail lives in each linked `docs/sprint-logs/*.md` + the Historical Sprint Ledger below + git), rebuilt the forward planning section into **[Next — prioritized work plan](#next--prioritized-work-plan)**, added **M20 — Exit Refinement** as the #1 next-strategy priority (operator directive), and pruned the stale queue + Items-Under-Consideration lists.
 >
 > **Recent sessions (newest-first; full write-up in each sprint log):**
+> - 2026-07-11 — `trend_donchian` live-anomaly root-cause: −198R was a measurement artifact, edge intact, KEEP LIVE ([`S-TREND-DONCHIAN-ROOTCAUSE`](docs/sprint-logs/S-TREND-DONCHIAN-ROOTCAUSE-2026-07-11.md)); `PERF-20260601-001` resolved, shipped `exclude_reduce_leg_predicate` analytics guard.
 > - 2026-07-08 — Notification streamlining + trainer-OOM fix ([`S-NOTIF-STREAMLINE`](docs/sprint-logs/S-NOTIF-STREAMLINE-2026-07-08.md)); open: `BL-20260708-ALPACA-CLOSE-QTY-AVAILABLE`, `MB-20260705-TRAINER-OOM`.
 > - 2026-07-07 — Full Alpaca-pipeline audit + 4-PR reliability fix ([`S-ALPACA-PIPELINE-AUDIT`](docs/sprint-logs/S-ALPACA-PIPELINE-AUDIT-2026-07-07.md)); stability watch `BL-20260708-ALPACA-PIPELINE-VERIFICATION-WATCH` (~2026-07-15).
 > - 2026-07-07 — IBKR equity/ETF (STK) support — `ib_paper` trades SPY/QQQ/IWM/TLT ([`S-IBKR-EQUITY-ETF-SUPPORT`](docs/sprint-logs/S-IBKR-EQUITY-ETF-SUPPORT-2026-07-07.md)).
@@ -175,11 +176,12 @@ don't rush their Tier-3 gates, check them on cadence — while **(B) active buil
 effort** goes to the next buildable lever. Backlog ids are the source of truth
 for each item (`docs/claude/{health,performance,ml}-review-backlog.json`).
 
-**Active build queue.** Ordered by strategic priority, but the **`trend_donchian`
-live-failure triage (item 2) runs FIRST** as the immediate next session
-(operator-directed 2026-07-11) — a pipeline-execution bug there must be fixed ASAP
-before we trust the research→live path. Exit Refinement (item 1 / M20) is the
-headline strategy-*development* program that follows.
+**Active build queue.** Ordered by strategic priority. The **`trend_donchian`
+live-failure triage (item 2) is DONE** (2026-07-11, S-TREND-DONCHIAN-ROOTCAUSE) —
+root-caused as a measurement artifact, **not** a pipeline-execution bug; the
+research→live path is trustworthy (`PERF-20260601-001` resolved). So **Exit
+Refinement (item 1 / M20) is now the immediate next session** — the headline
+strategy-*development* program.
 
 1. **Exit Refinement (M20 — #1 next-strategy priority, operator directive 2026-07-11).**
    A dedicated session to lift net PnL through more accurate exit timing. Not
@@ -197,12 +199,21 @@ headline strategy-*development* program that follows.
    within ~0.6R — the live soak is precisely the faithful test). Tier-3 to graduate
    any live exit change.
 
-2. **`trend_donchian` live-vs-research anomaly (`PERF-20260601-001`, in progress).**
-   The research-BEST strategy is **0% win / −198R over 19 live trades** — almost
-   certainly an execution/monitor bug, not a dead edge. High leverage: until it's
-   root-caused, the whole research→live pipeline is suspect. Pair with the low-fill-rate
-   investigation (`PB-20260630-003`: `squeeze_breakout_4h` 1.2%, `htf_pullback_trend_2h`
-   9%) and the `ict_scalp_5m` real-money degradation (`PB-20260630-ICTSCALP-DEGRADE`).
+2. **`trend_donchian` live-vs-research anomaly (`PERF-20260601-001`, ✅ RESOLVED 2026-07-11).**
+   Root-caused (S-TREND-DONCHIAN-ROOTCAUSE; [`docs/research/trend-donchian-live-anomaly-rootcause-2026-07-11.md`](docs/research/trend-donchian-live-anomaly-rootcause-2026-07-11.md)):
+   the "0% win / −198R over 19 trades" was a **measurement artifact**, not a dead
+   edge or a broken exit path. The −198 = 4 genuine fills (−$196.87 **demo** +
+   only −$1.56 **real**), all LONG breakouts stopped out in the late-May BTC
+   range; the "19" was padded with ~15 NULL-pnl `intent_reduce` bookkeeping legs.
+   Two amplifying defects (TP-sentinel exchange-reject storm; re-entry storm) were
+   already fixed and produced **no** real-money loss; the regime vol-gate is
+   **not** dropping signals (`gated:false`/`regime_allow_explicit`). Over the full
+   window the edge is **net-positive on both accounts** → **KEEP LIVE**. Shipped a
+   Tier-1 analytics guard (`exclude_reduce_leg_predicate`) so the false-alarm class
+   can't recur; the only forward constraint is `bybit_2` **capital**
+   (`sized_qty=0` refusals, `PB-20260630-001`). **Still open, decoupled from this:**
+   the low-fill-rate investigation (`PB-20260630-003`) + the `ict_scalp_5m`
+   real-money degradation (`PB-20260630-ICTSCALP-DEGRADE`).
 
 3. **T1.3 — cross-strategy net-R ranker (the shared M18 + M19 unblocker).**
    Session prompt ready (`docs/research/T1.3-ranker-SESSION-PROMPT.md`). The one lever
