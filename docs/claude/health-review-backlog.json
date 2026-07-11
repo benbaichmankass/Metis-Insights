@@ -61,9 +61,18 @@
       "title": "IB exec client fails to cleanly reconnect after a gateway (container) restart — connect_failed:TimeoutError, ~18-min wedge until a fresh manual gateway restart",
       "description": "DISTINCT from BL-20260708-IB-WARMUP-WEDGE-RECUR (that was account_warmup_timeout, fixed by RISK-2 #6044). This one is a CONNECT-level failure (connect_failed: TimeoutError) after the gateway restarts underneath a live trader: the exec client's reconnect times out repeatedly while the readonly client and a sibling exec client are fine, so it's the specific (host,port,clientId) connect flow not recovering — the cold-TCP-flow class (cf. BL-20260610-009, the liveness-probe retry) but at connect() rather than the probe. The reactive ict-ib-gateway-watchdog on the gateway VM did not clear it within the wedge window. INVESTIGATE (morning): why does a gateway restart wedge the trader's exec reconnect for ~18 min when a SECOND gateway restart fixes it in <2 min (stale half-open socket on the socat relay? clientId collision with a not-yet-reaped session? connect timeout too short for a cold relay flow?); should the trader force a fresh clientId / socket teardown after N connect_failed, or should the gateway-side restart be followed by a trader-side IB reconnect kick? Recurring MES/MGC/MHG availability risk.",
       "tier": 2,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-11T00:05:00+00:00",
+          "by": "claude (S-AUDIT-G backlog drawdown)",
+          "note": "Closed. #6100 + #6114 merged+deployed (38ac1c0); live-verified via forced gateway restart — exec client reconnected clean (connected, breaker closed, 0 consecutive failures), no ~18-min wedge."
+        }
+      ],
+      "resolved_at": "2026-07-11T00:05:00+00:00",
+      "resolved_by": "claude (S-AUDIT-G backlog drawdown, 2026-07-11)",
+      "resolution_note": "RESOLVED. Root-caused from the trader journal: the ~18-min wedge was (a) a clean Error 326 clientId-in-use on the base id 498 (the gateway/socat side still holds the pre-restart session as active, so a fresh connect on 498 times out until reaped) AND (b) the freshly-rotated clientId's cold-socat-relay liveness probe repeatedly condemning a genuinely-healthy session (BL-20260610-009 cold-flow class, but at the probe). Fix shipped in two PRs: #6100 (teardown-before-reconnect + clientId rotation after N connect/probe failures + reset-window awareness) and #6114 (IB_RECONNECT_ROTATE_CLIENTID_AFTER default 3->1 so rotation engages on the FIRST reconnect failure, + new IB_PROBE_TRUST_FRESH_HANDSHAKE default true so a probe timeout on a completed fresh handshake is best-effort, not a breaker-tripping condemnation; IB_FETCH_TIMEOUT_S still bounds each real fetch). Both merged to main (38ac1c0) and DEPLOYED to the live VM (pull-and-deploy #6116, HEAD rolled fwd, services active). LIVE-VERIFIED 2026-07-10 23:43Z: forced vm-ib-gateway-recover (#6117) docker-restart; /api/diag/ib_state @23:53 showed BOTH the exec client (498, MES, readonly:false) and the readonly client (9723) state:connected, account_data_ready:true, breaker_open:false, consecutive_failures:0, likely_wedged:false — ZERO recorded exec-client failures after the restart, no wedge, no manual second restart, no rotation needed this cycle (498 reconnected direct). The pre-restart cold-flow probe timeouts (23:41-42) were absorbed best-effort without latching the breaker. Rollback knob IB_PROBE_TRUST_FRESH_HANDSHAKE=0 remains available without a redeploy. Docs: the new knobs are in CLAUDE.md's env-var table (via #6114)."
     },
     {
       "id": "BL-20260706-PROP-INSERT-FILL-IDEMPOTENCY",
@@ -3177,7 +3186,13 @@
       "snoozed_until": null,
       "description": "DISCOVERED 2026-06-29 while deploying #5061: the pull-and-deploy system-action FAILED with 'ERROR: /dev/null is not writable on this host — it has been clobbered into a regular file, so every \">/dev/null\" redirect (and most operator-action wrappers) fail.' On the LIVE trader VM (ict-bot-arm, 141.145.193.91), /dev/null is a regular file instead of the char-special device (1,3). IMPACT: (a) every operator-action wrapper that preflight-checks or redirects to /dev/null aborts — pull-and-deploy, restart-bot-service, reboot-vm are all blocked (so the relay can't even self-repair this), (b) any process doing '>/dev/null' fails, (c) a future systemd restart of ict-trader-live whose ExecStart/redirects touch /dev/null could fail to come up. NOT currently fatal: ict-git-sync still auto-deployed #5061 (trader confirmed on git_sha d661a0ec, uptime ~104s, heartbeat running, ticks healthy) and the trader is alive — but this is a latent live-VM hazard. ROOT FIX (needs root ON the VM; no autonomous path — the action wrappers that would run it are themselves blocked by the same /dev/null breakage, so this is a genuine operator hand-off): `sudo rm -f /dev/null && sudo mknod -m 666 /dev/null c 1 3`. After repair, re-dispatch pull-and-deploy to confirm the operator-action path works again. FOLLOW-UP: find what clobbered /dev/null (a stray '>' to the literal path /dev/null from a process that ran with /dev not mounted, or a script bug writing to '/dev/null' as a file) so it doesn't recur; consider a cheap health-check assertion that /dev/null is char-special (1,3).",
       "source": "pull-and-deploy failure 2026-06-29 (issue #5069) + diag confirm",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-11T00:05:00+00:00",
+          "by": "claude (S-AUDIT-G backlog drawdown)",
+          "note": "RECURRENCE confirmed 2026-07-10 23:36Z: the pull-and-deploy #6116 log shows '/dev/null: Permission denied' x3 at install_systemd_units.sh line 407 (during ict-db-integrity/ict-devnull-guard/ict-git-sync 'enable --now'), i.e. /dev/null is STILL clobbered to a non-writable regular-file/0444-class state on the live VM right now. The deploy still SUCCEEDED (HEAD rolled fwd, services active) — the denials are on the guard-enable redirects, not the git reset/restart — but this reconfirms the condition is live and unresolved. Root-source kill is the sibling BL-20260629-DEVNULL-OCI-SOURCE-KILL / RISK-4 (auditd read-audit armed to NAME the writer)."
+        }
+      ]
     },
     {
       "id": "BL-20260629-DEVNULL-OCI-SOURCE-KILL",
@@ -3417,9 +3432,18 @@
       "title": "Trainer VM (158.178.209.121) unreachable via SSH -- two consecutive connection timeouts during banner exchange, ict-trainer.service health could not be verified this review",
       "description": "This is a network-level failure (no SSH banner at all, not an auth/command failure), so the trainer VM is either down, rebooting, or its OCI security list / SSH daemon is wedged. Not a live-trading blocker (trainer VM carries no order authority) but it does block the mandatory (light-touch) trainer_service health check this review, and blocks the trainer-VM-dependent skills (/ml-review, model-training) entirely until resolved. FIX/NEXT STEP: retry the trainer-vm-diag relay next session; if it still times out, this needs an OCI-console-level check (the one genuinely operator-only action per the trainer VM's autonomous-territory contract) -- Claude has no reboot/console-access workflow for the trainer VM analogous to the live VM's reboot-vm system-action. Resolution: a subsequent trainer-vm-diag-request issue succeeds (SSH banner received, command output returned).",
       "tier": 2,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-11T00:05:00+00:00",
+          "by": "claude (S-AUDIT-G backlog drawdown)",
+          "note": "Closed. Trainer reachable + healthy (SSH relay #6119, 0 swap used, publishing every 2min); swap cap (MemorySwapMax=512M) confirmed live via #6101. Subproc-isolation follow-up stays open (MB-20260709-TRAINER-SUBPROC-ISOLATION)."
+        }
+      ],
+      "resolved_at": "2026-07-11T00:05:00+00:00",
+      "resolved_by": "claude (S-AUDIT-G backlog drawdown, 2026-07-11)",
+      "resolution_note": "RESOLVED. Trainer VM verified reachable + memory-healthy 2026-07-11 00:03Z via trainer-vm-diag (#6119): SSH relay succeeded (no banner-exchange timeout), uptime 14h, free -m = 383MB used / 5344MB available, swap 8G with 0B used (no thrash), ict-trainer-publish.timer active and publishing trainer_status to the live mirror every ~2min (last 00:03:04Z). ict-trainer.service/catchup show 'inactive' — EXPECTED, they are timer-triggered oneshots idle between cycles. The 2026-07-07 unreachability was a banner-exchange connection timeout — the classic symptom of swap-thrash under memory pressure. Root cause addressed by the trainer structural memory fix (#6101): MemorySwapMax=536870912 (512MiB) is confirmed LIVE on ict-trainer.service, capping the swap that produced the thrash. Deeper peak-RSS reduction (per-manifest subprocess isolation) remains tracked separately as MB-20260709-TRAINER-SUBPROC-ISOLATION."
     },
     {
       "id": "BL-20260707-DIAG-ALLOWLIST-REACHABILITY-LOG",
@@ -3746,5 +3770,5 @@
       "updates": []
     }
   ],
-  "updated_at": "2026-07-10T21:55:00+00:00"
+  "updated_at": "2026-07-11T00:05:00+00:00"
 }
