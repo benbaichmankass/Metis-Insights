@@ -494,10 +494,10 @@
    "tier": 3,
    "trigger_condition": "Next /performance-review or /health-review window; or a focused order_monitor investigation of trend_donchian's live exits.",
    "resolution_criteria": "Re-entry storm eliminated (no >1 package per closed bar per strategy+symbol; intent_noop rejection rows drop sharply) after the bar-debounce deploys; and a fresh net-positive trend_donchian window once BTC trends again confirms the edge survives live. The orphan-rate half is BL-20260601-001.",
-   "status": "in_progress",
-   "resolved_at": null,
-   "resolved_by": null,
-   "resolution_note": null,
+   "status": "resolved",
+   "resolved_at": "2026-07-11T14:30:00+00:00",
+   "resolved_by": "claude (S-TREND-DONCHIAN-ROOTCAUSE, operator-directed #1 triage)",
+   "resolution_note": "ROOT-CAUSED + RESOLVED with full per-trade evidence (docs/research/trend-donchian-live-anomaly-rootcause-2026-07-11.md; trainer-vm-diag relays #6136/#6137/#6138 over the synced trade_journal.db, mtime 2026-07-11). VERDICT: the '0% win / -198R over 19 trades' was a MEASUREMENT ARTIFACT, NOT a dead edge and NOT a broken exit path. Decomposition (exact match to this item's own -196.87/-1.56/4 split): the -198 is 4 genuine reconciler_filled fills = -$196.87 DEMO (bybit_1 ids 1722/1731) + only -$1.56 REAL money (bybit_2 ids 1721/1732), all LONG breakouts that stopped out in the late-May BTC $75-78k RANGE (trend-breakout-in-chop, the regime study's known failure). The '19 trades' count was padded with ~15 NULL-pnl intent_reduce / reconciler_incomplete bookkeeping legs (re-entry storm) -> '0 of 19'. Two real execution defects present in that window are BOTH already fixed and BOTH produced NO real-money loss: (c) the TP-sentinel exchange-reject storm (ids 1747-1781, negative/>10% TP -> Bybit ErrCode 10001 -> rejected, no fills; fixed by _TP_SENTINEL_CAP_PCT=0.099 + long_only) and (c) the same-bar re-entry storm (fixed by #2548 bar-debounce). (b) reconciler/orphan artifacts are MINIMAL here: zero 'superseded' rows (the MGC-18-phantom class did NOT hit trend_donchian BTC), just a 4-row stuck_strategy_watchdog tail ~-$0.3. FORWARD (full window 2026-05-25 -> 07-10): net-POSITIVE on both accounts (bybit_1 demo +$1191 incl. 2039 short +$3870 / 3087 long +$2132; bybit_2 real +$4.77) -- edge intact. Regime vol-gate is NOT dropping signals (all 6 regime_hard_gate rows = gated:false/regime_allow_explicit/cell:on; long ON every regime); FLIP_POLICY=hold not implicated (losses predate 05-31, plain SL stop-outs). The real forward constraint is CAPITAL: bybit_2 is undercapitalized for BTC (24 sized_qty=0 refusals) so a real-money record can't accrue (PB-20260630-001 / BL-20260628-CRYPTO-INSTRUMENT-MIN-FLOOR). ACTIONS: KEEP LIVE (no demote); shipped a Tier-1 analytics guard (exclude_reduce_leg_predicate in _clean_trades.py, applied in /strategy/attribution) so a reduce leg can never again pad a win-rate denominator or inject a phantom win/loss; logged the deeper intent_reduce phantom-pnl reconciler accounting bug to the health-review backlog. The research->live pipeline is TRUSTWORTHY -- the failure was in READING the live record (counting demo money + bookkeeping legs as real trades), not in the edge or its execution today.",
    "snoozed_until": null,
    "evidence_log": [
     "2026-06-01 (/performance-review): WINDOW EVIDENCE (thin, trades pull truncated to today ~12-16Z): trend_donchian shows 1 exchange_rejected (id 2062, entry 72381), 1 reconciler_filled-closed (id 2063, pnl not yet computed), 1 open (id 2064) + an orphaned MES package (pkg-0b8b1586, conf 0.392). The exchange_rejected + reconciler_filled + orphan pattern is consistent with the EXECUTION-FRICTION hypothesis (not a dead edge). Mitigations now live that should help: FLIP_POLICY=hold (#2451, 5/31) addresses cause (c) flip-churn; trend_donchian is now long-only (#2570) + retuned 1h/trail5.0 (#2554). STILL NEEDS: a clean look at the Chandelier ATR trail in the live order_monitor (cause a) over a post-5/31 window with enough closed fills - the 19-trade -198R sample predates these fixes and was ~all bybit_1 demo.",
@@ -1227,5 +1227,5 @@
    ]
   }
  ],
- "updated_at": "2026-07-10T16:10:00+00:00"
+ "updated_at": "2026-07-11T14:30:00+00:00"
 }

@@ -15,6 +15,7 @@ import pytest
 from src.web.api._clean_trades import (
     account_class_wire,
     exclude_reconciler_predicate,
+    exclude_reduce_leg_predicate,
     exclude_superseded_predicate,
     not_paper_predicate,
     paper_predicate,
@@ -124,6 +125,48 @@ def test_exclude_superseded_drops_only_superseded(tmp_path):
 def test_exclude_superseded_prefixed_matches_bare():
     assert exclude_superseded_predicate("t.") == exclude_superseded_predicate(
         "").replace("reconcile_status", "t.reconcile_status")
+
+
+# --------------------------------------------------- intent_reduce leg exclusion
+def test_exclude_reduce_leg_drops_intent_reduce_and_notes_flag(tmp_path):
+    """``setup_type='intent_reduce'`` legs AND rows whose notes carry the
+    ``intent_reduce: true`` flag are dropped; real strategy setups survive.
+
+    Guards the PERF-20260601-001 false-alarm class: a reduce leg is
+    bookkeeping (NULL pnl by design, or a reconciler-flipped phantom non-NULL
+    pnl on entry==exit) that must never pad a strategy's win-rate denominator or
+    inject a fabricated win/loss."""
+    db = tmp_path / "reduce.db"
+    conn = sqlite3.connect(str(db))
+    conn.execute(
+        "CREATE TABLE trades (strategy_name TEXT, setup_type TEXT, "
+        "pnl REAL, notes TEXT)"
+    )
+    conn.executemany(
+        "INSERT INTO trades (strategy_name, setup_type, pnl, notes) "
+        "VALUES (?,?,?,?)",
+        [
+            ("trend_donchian", "trend_donchian", 5.0, None),      # real fill  — kept
+            ("trend_donchian", "intent_reduce", None, None),      # reduce leg — DROPPED
+            ("trend_donchian", "intent_reduce", 561.0, None),     # phantom-pnl reduce — DROPPED
+            # reattached setup_type but notes still flag the reduce leg — DROPPED
+            ("trend_donchian", "trend_donchian", 620.0,
+             '{"intent_reduce": true}'),
+            ("ict_scalp_5m", "ict_scalp", -2.0, None),            # real fill  — kept
+        ],
+    )
+    conn.commit()
+    sql = "SELECT strategy_name, pnl FROM trades WHERE 1=1" + exclude_reduce_leg_predicate("")
+    rows = conn.execute(sql).fetchall()
+    conn.close()
+    kept = [(r[0], r[1]) for r in rows]
+    # Only the two genuine fills survive; both phantom/NULL reduce legs dropped.
+    assert kept == [("trend_donchian", 5.0), ("ict_scalp_5m", -2.0)]
+
+
+def test_exclude_reduce_leg_prefixed_matches_bare():
+    assert exclude_reduce_leg_predicate("t.") == exclude_reduce_leg_predicate(
+        "").replace("setup_type", "t.setup_type").replace("notes", "t.notes")
 
 
 # ----------------------------------------------------------- account_class_wire
