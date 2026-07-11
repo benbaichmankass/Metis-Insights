@@ -145,6 +145,46 @@ Knobs (baseline, no enable gate — Prime Directive): `PROP_EXPIRY_PROMPT_SECOND
 ticket that expired longer ago than this is too stale to ask about, so a
 historical backlog can't spam on first deploy).
 
+## Screenshot report-back + folded balance ask (2026-07-11)
+
+Two operator-requested additions close the two friction points that surfaced
+while logging a live ETH prop trade: (1) the report-back was text-only, and
+(2) logging a trade left the rule-distance guard blind until a *separate*
+periodic ping (`prop_status_request`) later asked for the balance.
+
+- **Screenshot path (the image half of the bridge).** The operator can now send
+  a **photo** of the Breakout/DXtrade terminal (a Position detail screen and/or
+  the account/portfolio summary) to the prop bot instead of typing. A
+  `MessageHandler(filters.PHOTO)` in `src/bot/claude_bridge.py`
+  (`_on_operator_photo`) downloads the highest-res image and hands it to
+  `telegram_report_handler.handle_screenshot`, which calls
+  `src/prop/screenshot_parse.py::parse_screenshot` (Claude vision, model
+  `PROP_SCREENSHOT_MODEL`, default `claude-sonnet-5`) to extract the SAME
+  structured report(s) the text grammar produces, then ingests each through the
+  one `prop_report.ingest_report` chokepoint. A single screen can yield a fill
+  **and** an account_status (a portfolio screen showing both). **Honest-null:** the
+  extractor is instructed to OMIT any field it can't read (a Position screen has
+  no balance — "Used Margin" and "Open P/L" are explicitly NOT the account
+  balance / a realized pnl), never a fabricated `0`. Fully isolated: no API key /
+  bad image / unparseable output → a readable "type it instead" reply, never a
+  crash. `anthropic` is already a dependency (M13 insights) — no new package.
+
+- **Folded balance ask.** `telegram_report_handler.account_status_nudge` appends
+  a "also send the account balance" reminder to a **fill** ack (open / placed /
+  close — never a `skip` or a pure `bal`) when the latest `prop_account_status`
+  snapshot is absent or older than `PROP_STATUS_REQUEST_MAX_AGE_HOURS` (the SAME
+  threshold the periodic `prop_status_request` uses, so the two never double up;
+  `<= 0` disables both). A fresh balance on file suppresses it — and when a
+  screenshot carries both a fill and the balance, the account_status is ingested
+  first so the trade ack doesn't nag for a balance it just recorded.
+
+| Piece | File | Role |
+|---|---|---|
+| Vision extractor | `src/prop/screenshot_parse.py` | `parse_screenshot` (image → report list); pure `_reports_from_model_json` shaping + number coercion + honest-null; LLM call isolated in `_call_vision`. |
+| Screenshot orchestration | `src/prop/telegram_report_handler.py::handle_screenshot` | parse → ingest each (account_status first) → combined ack + single nudge. |
+| Balance nudge | `src/prop/telegram_report_handler.py::account_status_nudge` | folds the status ask into every fill ack when the guard is stale/blind. |
+| Photo transport | `src/bot/claude_bridge.py::_on_operator_photo` | downloads the photo, runs the handler off the event loop. |
+
 ## Tests
 
 `tests/test_prop_symbol_map.py` + `tests/test_prop_telegram_commands.py` — both
@@ -154,3 +194,9 @@ links the canonical-symbol ticket + flips it closed).
 `tests/test_prop_expiry_prompt.py` — the detector, per-tick idempotency +
 send-failure retry, the Yes/No callback transitions, and the
 Yes→awaiting_report→fill-links-back lifecycle.
+`tests/test_prop_screenshot_parse.py` — the vision extractor's pure shaping
+(position→fill, account→status, both, comma/currency coercion, honest-null
+omission, drop-junk) + `parse_screenshot` with the LLM seam monkeypatched.
+`tests/test_prop_status_nudge.py` — the folded balance nudge (fires on a fill
+when stale/absent, quiet on fresh/skip/status, env-disabled) + `handle_screenshot`
+ingesting fill+balance from one image with the nudge suppressed.
