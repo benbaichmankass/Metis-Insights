@@ -133,6 +133,7 @@ _MENU_TEXT = (
     "• Tap “📋 Prop report prompt” for the block to give your executor "
     "assistant, then paste its reply back here to log the trade.\n"
     "• Or just type it: close ETHUSD 2950 +80 tp · skip ETHUSD · bal 5040 5010\n"
+    "• Or send a screenshot of the Position or account screen and I'll read it.\n"
     "(I also post Claude's sprint / review / system updates here.)"
 )
 
@@ -235,6 +236,47 @@ async def _on_operator_message(update: Update, _: ContextTypes.DEFAULT_TYPE) -> 
         "Not a prop command. Tap /menu for the report prompt, or type e.g. "
         "`close ETHUSD 2950 +80 tp`. (For Claude/ops, use GitHub or a new session.)"
     )
+
+
+async def _on_operator_photo(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """Screenshot handler — the image half of the prop manual bridge.
+
+    The operator sends a photo of the Breakout/DXtrade terminal (a Position
+    detail screen and/or the account/portfolio summary) and the bot vision-parses
+    it into the same structured report(s) the text grammar produces, ingesting
+    each through ``prop_report.ingest_report``. The download + LLM call + DB
+    ingest all run off the event loop so polling never stalls. Best-effort: any
+    failure replies with a readable hint instead of crashing the bot."""
+    if not _is_authorized(update) or update.message is None:
+        return
+    photos = update.message.photo or []
+    if not photos:
+        return
+    try:
+        # photo sizes are ascending — the last is the highest resolution.
+        tg_file = await photos[-1].get_file()
+        image_bytes = bytes(await tg_file.download_as_bytearray())
+    except Exception as exc:  # noqa: BLE001 — never kill the bot on a download hiccup
+        logger.warning("prop screenshot download failed: %s", exc)
+        await update.message.reply_text(
+            "⚠ Couldn't download that image — try again, or type the report "
+            "(e.g. `close ETHUSD 2950 +80 tp`).")
+        return
+
+    try:
+        from src.prop.telegram_report_handler import (
+            default_prop_account,
+            handle_screenshot,
+        )
+
+        reply = await asyncio.to_thread(
+            handle_screenshot, image_bytes, "image/jpeg",
+            default_account=default_prop_account())
+    except Exception as exc:  # noqa: BLE001 — a handler bug must never kill the bot
+        logger.warning("prop screenshot handler failed: %s", exc)
+        reply = "⚠ Couldn't read that screenshot — type the report instead."
+
+    await update.message.reply_text(reply or "⚠ No report found in that image.")
 
 
 async def _drain_pending_claude_pings(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -345,6 +387,7 @@ def main() -> None:
     app.add_handler(CommandHandler("testexpiry", testexpiry_cmd))
     app.add_handler(CallbackQueryHandler(on_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _on_operator_message))
+    app.add_handler(MessageHandler(filters.PHOTO, _on_operator_photo))
     if app.job_queue is not None:
         app.job_queue.run_repeating(
             _drain_pending_claude_pings,

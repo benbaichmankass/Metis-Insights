@@ -20,12 +20,22 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Dict, Optional, Tuple
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
 
 from src.prop import prop_journal
 from src.prop.telegram_commands import USAGE, build_report, parse_prop_command
 
 logger = logging.getLogger(__name__)
+
+# When a trade is reported, remind the operator to send a fresh balance so the
+# rule-distance guard isn't blind — but only if the last account-status snapshot
+# is missing or older than this (reuse the periodic status-request threshold so
+# the two paths agree; `PROP_STATUS_REQUEST_MAX_AGE_HOURS <= 0` disables both).
+_STATUS_NUDGE_DEFAULT_MAX_AGE_H = 24.0
+# Fill actions that leave/alter a live position — worth a balance nudge. A
+# `skip` opens nothing, so it never nudges.
+_NUDGE_ACTIONS = {"open", "filled", "placed", "close", "closed"}
 
 
 def default_prop_account() -> Optional[str]:
@@ -134,7 +144,67 @@ def handle_json_report(text: str, *, default_account: Optional[str] = None
     return _confirm_json(report, out)
 
 
-def _confirm_json(report: Dict[str, Any], out: Dict[str, Any]) -> str:
+def _status_age_hours(account_id: str) -> Optional[float]:
+    """Age (hours) of the newest ``prop_account_status`` row, or ``None``."""
+    try:
+        row = prop_journal.latest_account_status(account_id)
+    except Exception as exc:  # noqa: BLE001 — a read failure must not raise
+        logger.warning("telegram_report_handler: status age read failed: %s", exc)
+        return None
+    if not row:
+        return None
+    ts = row.get("reported_at") or row.get("created_at")
+    if not ts:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return max(0.0, (datetime.now(timezone.utc) - dt).total_seconds() / 3600.0)
+
+
+def account_status_nudge(account_id: Optional[str]) -> Optional[str]:
+    """A one-shot 'send your balance' reminder, or ``None`` when a fresh snapshot
+    already exists (so a report right after a balance update doesn't nag).
+
+    Folds the account-status ask into the trade-report flow (operator ask,
+    2026-07-11): logging a trade now prompts for the balance in the same reply
+    instead of relying only on the separate periodic ``prop_status_request``
+    ping — same freshness threshold, so the two never double up.
+    """
+    if not account_id:
+        return None
+    raw = os.environ.get("PROP_STATUS_REQUEST_MAX_AGE_HOURS")
+    try:
+        max_age = float(raw) if raw not in (None, "") else _STATUS_NUDGE_DEFAULT_MAX_AGE_H
+    except (TypeError, ValueError):
+        max_age = _STATUS_NUDGE_DEFAULT_MAX_AGE_H
+    if max_age <= 0:  # feature paused
+        return None
+    age = _status_age_hours(account_id)
+    if age is not None and age < max_age:
+        return None  # snapshot fresh enough — don't nag
+    stale = "no balance on file yet" if age is None else f"last balance {age:.0f}h old"
+    return (
+        f"📋 Also send the account balance so the rule-distance guard "
+        f"(daily-loss / DD-floor cushion) is armed — {stale}:\n"
+        "• bal <balance> <equity> [realized_today]   e.g. `bal 5040 5010`\n"
+        "• or send a screenshot of the account screen"
+    )
+
+
+def _with_status_nudge(ack: str, account_id: Optional[str], action: Optional[str]) -> str:
+    """Append the balance nudge to a fill ack when the guard is stale/blind."""
+    if not action or str(action).lower() not in _NUDGE_ACTIONS:
+        return ack
+    nudge = account_status_nudge(account_id)
+    return f"{ack}\n\n{nudge}" if nudge else ack
+
+
+def _confirm_json(report: Dict[str, Any], out: Dict[str, Any],
+                  *, nudge: bool = True) -> str:
     """Human one-line ack for a JSON report-back ingest."""
     kind = out.get("kind")
     if kind == "account_status":
@@ -147,12 +217,16 @@ def _confirm_json(report: Dict[str, Any], out: Dict[str, Any]) -> str:
     tid = out.get("ticket_id")
     tail = f" · ticket {tid}" if tid else ""
     if status == "CLOSED":
-        return (f"✅ recorded CLOSE {sym} @ {report.get('exit_price')} "
-                f"pnl {report.get('pnl', '—')} ({report.get('reason', '—')}){tail}")
-    if status == "SKIPPED":
-        return f"✅ recorded SKIP {sym} ({report.get('reason', '—')}){tail}"
-    return (f"✅ recorded {status or 'OPEN'} {sym} @ {report.get('entry_price')} "
-            f"qty {report.get('qty', '—')}{tail}")
+        ack = (f"✅ recorded CLOSE {sym} @ {report.get('exit_price')} "
+               f"pnl {report.get('pnl', '—')} ({report.get('reason', '—')}){tail}")
+    elif status == "SKIPPED":
+        ack = f"✅ recorded SKIP {sym} ({report.get('reason', '—')}){tail}"
+    else:
+        ack = (f"✅ recorded {status or 'OPEN'} {sym} @ {report.get('entry_price')} "
+               f"qty {report.get('qty', '—')}{tail}")
+    if nudge:
+        return _with_status_nudge(ack, report.get("account_id"), status)
+    return ack
 
 
 def handle_command(text: str, *, default_account: Optional[str] = None) -> Optional[str]:
@@ -221,13 +295,83 @@ def _confirm(intent: dict, report: dict, out: dict) -> str:
     tid = out.get("ticket_id")
     tail = f" · ticket {tid}" if tid else ""
     if act == "close":
-        return (f"✅ recorded CLOSE {sym} @ {report.get('exit_price')} "
-                f"pnl {report.get('pnl', '—')} ({report.get('reason')}){tail}")
-    if act == "open":
-        return (f"✅ recorded OPEN {sym} @ {report.get('entry_price')} "
-                f"qty {report.get('qty', '—')}{tail}")
-    return f"✅ recorded SKIP {sym} ({report.get('reason')}){tail}"
+        ack = (f"✅ recorded CLOSE {sym} @ {report.get('exit_price')} "
+               f"pnl {report.get('pnl', '—')} ({report.get('reason')}){tail}")
+    elif act in ("open", "placed"):
+        verb = "PLACED" if act == "placed" else "OPEN"
+        ack = (f"✅ recorded {verb} {sym} @ {report.get('entry_price')} "
+               f"qty {report.get('qty', '—')}{tail}")
+    else:
+        return f"✅ recorded SKIP {sym} ({report.get('reason')}){tail}"
+    return _with_status_nudge(ack, report.get("account_id"), act)
 
 
-__all__ = ["handle_command", "handle_json_report", "default_prop_account",
-           "resolve_open_ticket"]
+def handle_screenshot(image_bytes: bytes, media_type: str = "image/png",
+                      *, default_account: Optional[str] = None) -> str:
+    """Vision-parse a terminal screenshot into report(s), ingest each, ack.
+
+    The image path of the manual bridge (operator ask, 2026-07-11): the operator
+    sends a photo of the Breakout/DXtrade terminal and the bot extracts the same
+    structured report(s) the text grammar would, routing them through the one
+    ``prop_report.ingest_report`` chokepoint. A single screen may yield a fill
+    AND an account_status (a portfolio screen showing both) — account-status
+    reports are ingested FIRST so a balance in the same shot suppresses the
+    trade ack's stale-balance nudge. Always returns an operator-readable string.
+    """
+    try:
+        from src.prop.screenshot_parse import ScreenshotParseError, parse_screenshot
+    except ImportError:  # pragma: no cover - module always present in-repo
+        return "⚠ screenshot reading is unavailable — type the report instead."
+
+    try:
+        reports = parse_screenshot(
+            image_bytes, media_type, default_account=default_account)
+    except ScreenshotParseError as exc:
+        return f"⚠ {exc}"
+    except Exception as exc:  # noqa: BLE001 — never crash the caller
+        logger.exception("telegram_report_handler: screenshot parse failed")
+        return f"⚠ couldn't read that screenshot: {exc}"
+
+    if not reports:
+        return ("⚠ I couldn't find a trade or balance in that screenshot. Send the "
+                "Position or account screen, or type it — e.g. "
+                "`close ETHUSD 2950 +80 tp` / `bal 5040 5010`.")
+
+    from src.prop.prop_report import ingest_report
+
+    # Account-status first so a same-shot balance is on file before the fill ack
+    # computes its stale-balance nudge (else it would nudge for a balance we just
+    # recorded from the same image).
+    reports = sorted(
+        reports, key=lambda r: 0 if str(r.get("kind") or "") == "account_status" else 1)
+
+    acks: List[str] = []
+    saw_fill = False
+    nudge_account: Optional[str] = None
+    for report in reports:
+        if not (report.get("account_id") or report.get("account")) and default_account:
+            report["account_id"] = default_account
+        try:
+            out = ingest_report(report)
+        except ValueError as exc:
+            acks.append(f"⚠ rejected: {exc}")
+            continue
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("telegram_report_handler: screenshot ingest failed")
+            acks.append(f"⚠ error: {exc}")
+            continue
+        acks.append(_confirm_json(report, out, nudge=False))
+        if out.get("kind") != "account_status":
+            saw_fill = True
+            nudge_account = nudge_account or report.get("account_id") or report.get("account")
+
+    body = "📸 " + "\n".join(acks)
+    if saw_fill:
+        nudge = account_status_nudge(nudge_account)
+        if nudge:
+            body = f"{body}\n\n{nudge}"
+    return body
+
+
+__all__ = ["handle_command", "handle_json_report", "handle_screenshot",
+           "account_status_nudge", "default_prop_account", "resolve_open_ticket"]
