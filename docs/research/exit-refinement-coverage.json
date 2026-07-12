@@ -105,7 +105,7 @@
    },
    "trail_decay": {
     "status": "honest_negative",
-    "ref": "all 4 cells is_oos_fail at the stale-less base; corrected base (stale12 threaded, 6c54000) re-run queued (#6254) \u2014 verdict provisional. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+    "ref": "all 4 cells is_oos_fail at the stale-less base; re-confirmed all-fail on the corrected stale12 base (relay #6255) \u2014 verdict final. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
    }
   },
   {
@@ -403,7 +403,7 @@
    },
    "trail_decay": {
     "status": "passed_unshipped",
-    "ref": "PASS: tlt_pullback_1h stall6 tight1.5 wf 5/6 (also arm2R 4/6, arm1.5R+stall6 5/6) \u2014 Tier-3 declare proposed in #6251. uso_trend_1h stall6/stall10 4/6 EXCLUDED pending corrected-base combo A/B vs the shipped giveback lever (#6254). FAIL: gld_1h, slv_1h, spy_1h (2/6), qqq_1h (2/6). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+    "ref": "PASS: tlt_pullback_1h stall6 tight1.5 wf 5/6 (also arm2R 4/6, arm1.5R+stall6 5/6) \u2014 Tier-3 declare proposed in #6251. uso_trend_1h HONEST NEGATIVE: corrected-base combo A/B (shipped giveback threaded, 6c54000; relay #6255) fails ALL 4 decay cells is_oos - the initial pass was an artifact of the lever-less base; giveback stands alone (one-lever-per-leg confirmed empirically). FAIL: gld_1h, slv_1h, spy_1h (2/6), qqq_1h (2/6). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
    }
   },
   {
