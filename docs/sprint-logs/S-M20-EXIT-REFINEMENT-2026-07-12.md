@@ -317,6 +317,35 @@ better — 2022 flips −1.0R→+1.8R; 2023/2024 marginally lower net_R). Shippe
 a draft Tier-3 PR (lever code + YAML declare together), **awaiting operator
 approval — not merged**.
 
+## Round-2 sweep: squeeze/fvg harness levers (the last two blocked LIVE legs)
+
+The only live legs the 42-leg sweep skipped as `no_harness_levers` were
+`squeeze_breakout_4h` and `fvg_range_15m`. Round 2 unblocked them:
+`backtest_squeeze.py` + `backtest_fvg_range.py` grew the same stale/giveback
+levers (default 0 = off, byte-identical — verified on the sample data:
+lever-off output byte-equal to base; giveback-on changes the trade set), and
+`m20_fleet_exit_sweep.py` learned the two families (`FAMILY_HARNESS`,
+config-exact arg mapping). BTC 15m history didn't exist as a harness CSV on
+the trainer — converted from the E0 dataset side-stream
+(`market_raw_to_csv.py` → `data/BTCUSDT_15m.csv`, 175k rows 2021-07→2026-07,
+relay #6234). Verdicts (relays #6233/#6234/#6235, config-exact):
+
+- **squeeze_breakout_4h — ALL 6 cells FAIL IS/OOS** (stale8/stale12/gb@MFE1/
+  gb@MFE2/trail2.5/trail4.5): a clean honest negative; the live trail3.5
+  already captures the exit value.
+- **fvg_range_15m — ALL 4 cells FAIL IS/OOS** (stale8/stale12/gb@MFE1/
+  gb@MFE2; no trail lever — the strategy exits on stop/target/timeout):
+  honest negative on native (non-proxy) data.
+
+With these, **every LIVE leg in the fleet has now been exit-processed** —
+the remaining matrix gaps are shadow/disabled legs pending harness levers
+(turtle/fade/vwap/scalp) and future exit-head E0/E1 rounds. Also this round:
+the mid-run CI failure on PR #6229 (config-pin tests contradicting the
+Tier-3 cells) was fixed by moving the tlt/mgc/xauusd pins WITH the proposal —
+including flipping the disabled `xauusd_trend_1h` to trail4 (its own cell
+passed 6/6) so the mgc/xauusd sibling-parity contract stays true. PR #6229
+green on all 18 checks at head `35a6690`.
+
 ## Documentation Updated
 - `docs/research/M20-exit-refinement-2026-07-12.md` (the evidence memo).
 - ROADMAP.md M20 row → status update (this session's outcome + next gate).
