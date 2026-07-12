@@ -36,6 +36,9 @@ def main(argv):
     ap.add_argument("--model-id", default="exit-head-donchian-1h-v1")
     ap.add_argument("--tau", type=float, default=0.10)
     ap.add_argument("--below-r", type=float, default=0.5)
+    ap.add_argument("--stage", default="shadow", choices=["shadow", "advisory"],
+                    help="artifact stage; only 'advisory' can influence a live "
+                         "exit (operator promotion gate - E3)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv[1:])
 
@@ -51,7 +54,7 @@ def main(argv):
         "model_id": a.model_id,
         "family": fam_dir.name,
         "tf": a.tf,
-        "stage": "shadow",
+        "stage": a.stage,
         "symbols": symbols,
         "features": FEATURES,
         "shape": {"policy": "below_half_r", "tau": a.tau, "below_r": a.below_r},

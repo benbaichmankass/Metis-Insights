@@ -26,7 +26,7 @@ def _frame(n=60, entry_offset=30):
     return pd.DataFrame(rows), (t0 + timedelta(hours=entry_offset)).isoformat()
 
 
-def _artifact(tmp_path, monkeypatch, tau=0.99, below_r=0.5):
+def _artifact(tmp_path, monkeypatch, tau=0.99, below_r=0.5, stage="shadow"):
     """Train a tiny real booster and stage it where the scorer looks.
 
     tau=0.99 makes nearly every score a would-exit (P is in [0,1])."""
@@ -36,7 +36,7 @@ def _artifact(tmp_path, monkeypatch, tau=0.99, below_r=0.5):
     y = (X[:, 1] > 0.5).astype(int)
     clf = lgb.LGBMClassifier(n_estimators=5, min_child_samples=5, verbose=-1)
     clf.fit(X, y)
-    art = {"model_id": "exit-head-test-v0", "stage": "shadow", "tf": "1h",
+    art = {"model_id": "exit-head-test-v0", "stage": stage, "tf": "1h",
            "features": ehs_features(),
            "shape": {"tau": tau, "below_r": below_r},
            "booster_txt": clf.booster_.model_to_string()}
@@ -162,3 +162,76 @@ def test_timeframe_mismatch_skips(tmp_path, monkeypatch):
     meta["timeframe"] = "1d"
     ehs.maybe_score_exit_head(meta, pkg, df, "long")
     assert not (logs / ehs.SHADOW_LOG_NAME).exists()
+
+
+def _monitor_pkg(entry_time, extra_meta=None):
+    meta = {"entry_time": entry_time, "risk_per_unit": 2.0,
+            "timeframe": "1h", "strategy_label": "trend_donchian",
+            "atr": 0.5, "trail_mult": 50.0}  # huge trail → ratchet never fires
+    meta.update(extra_meta or {})
+    return {"entry": 101.5, "sl": 99.0, "direction": "long",
+            "symbol": "BTCUSDT", "order_package_id": "pkg-e3-1",
+            "tp": 999.0, "meta": meta}
+
+
+def test_e3_apply_closes_when_advisory_and_declared(tmp_path, monkeypatch):
+    """YAML-declared + advisory-stage + policy fires ⇒ a real close."""
+    _artifact(tmp_path, monkeypatch, tau=1.01, stage="advisory")
+    from src.units.strategies.trend_donchian import monitor
+
+    df, entry_time = _frame()
+    pkg = _monitor_pkg(entry_time)
+    verdict = monitor({"exit_head_action": "close"}, df, pkg)
+    assert verdict is not None
+    assert verdict["action"] == "close"
+    assert verdict["reason"] == "exit_head"
+
+
+def test_e3_shadow_stage_never_closes(tmp_path, monkeypatch):
+    """A shadow-stage artifact must stay observe-only even when the YAML
+    declares the lever — the promotion gate is the artifact stage."""
+    logs = _artifact(tmp_path, monkeypatch, tau=1.01, stage="shadow")
+    from src.units.strategies.trend_donchian import monitor
+
+    df, entry_time = _frame()
+    pkg = _monitor_pkg(entry_time)
+    verdict = monitor({"exit_head_action": "close"}, df, pkg)
+    assert not (verdict and verdict.get("reason") == "exit_head")
+    # ...but the shadow record still logged
+    assert (logs / ehs.SHADOW_LOG_NAME).exists()
+
+
+def test_e3_undeclared_never_closes(tmp_path, monkeypatch):
+    """An advisory artifact without the YAML declare stays observe-only —
+    the strategy leg must opt in explicitly."""
+    _artifact(tmp_path, monkeypatch, tau=1.01, stage="advisory")
+    from src.units.strategies.trend_donchian import monitor
+
+    df, entry_time = _frame()
+    pkg = _monitor_pkg(entry_time)
+    verdict = monitor({}, df, pkg)
+    assert not (verdict and verdict.get("reason") == "exit_head")
+
+
+def test_e3_threshold_override_respected(tmp_path, monkeypatch):
+    """A YAML exit_head_threshold of 0.0 can never fire (score >= 0)."""
+    _artifact(tmp_path, monkeypatch, tau=1.01, stage="advisory")
+    from src.units.strategies.trend_donchian import monitor
+
+    df, entry_time = _frame()
+    pkg = _monitor_pkg(entry_time)
+    verdict = monitor({"exit_head_action": "close",
+                       "exit_head_threshold": 0.0}, df, pkg)
+    assert not (verdict and verdict.get("reason") == "exit_head")
+
+
+def test_e3_proven_trade_never_touched(tmp_path, monkeypatch):
+    """open_r >= below_r (a proven winner) is never closed by the head,
+    regardless of score — the trail owns proven trades."""
+    _artifact(tmp_path, monkeypatch, tau=1.01, below_r=-5.0, stage="advisory")
+    from src.units.strategies.trend_donchian import monitor
+
+    df, entry_time = _frame()
+    pkg = _monitor_pkg(entry_time)
+    verdict = monitor({"exit_head_action": "close"}, df, pkg)
+    assert not (verdict and verdict.get("reason") == "exit_head")

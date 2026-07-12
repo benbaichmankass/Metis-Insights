@@ -307,6 +307,59 @@ def _coerce_int(value: Any) -> Optional[int]:
         return None
 
 
+def _exit_head_verdict(
+    rec: Optional[Dict[str, Any]],
+    meta: Dict[str, Any],
+    cfg_dict: Dict[str, Any],
+    current_price: float,
+) -> Optional[Dict[str, Any]]:
+    """M20 E3 apply path — full close when the ADVISORY-stage exit head
+    fires AND the strategy YAML declares it. Fail-closed on anything
+    missing or malformed (returns ``None``); **never raises**.
+
+    Gates, all required:
+    - ``rec`` — a fresh score from ``maybe_score_exit_head`` (None on any
+      scoring skip, incl. the once-per-closed-bar dedup — so the decision
+      is evaluated once per bar, matching the trained policy's cadence).
+    - ``exit_head_action: close`` declared in meta (new packages) or cfg
+      (live YAML — covers already-open packages via the monitor's
+      live-cfg default).
+    - artifact ``stage == "advisory"`` — the operator promotion gate; a
+      shadow-stage artifact NEVER closes anything.
+    - optional ``exit_head_model`` pin must match the artifact's model_id.
+    - the conditional policy fires: score < τ AND open_r < below_r, where
+      τ is ``exit_head_threshold`` (meta/cfg override) or the artifact's
+      own shape default.
+    """
+    try:
+        if not rec:
+            return None
+        action = str(meta.get("exit_head_action")
+                     or cfg_dict.get("exit_head_action") or "").lower()
+        if action != "close":
+            return None
+        if str(rec.get("stage") or "") != "advisory":
+            return None
+        pin = meta.get("exit_head_model") or cfg_dict.get("exit_head_model")
+        if pin and str(pin) != str(rec.get("model_id")):
+            return None
+        tau = _coerce_float(meta.get("exit_head_threshold")
+                            or cfg_dict.get("exit_head_threshold"))
+        if tau is None:
+            tau = _coerce_float(rec.get("tau"))
+        below_r = _coerce_float(rec.get("below_r"))
+        score = _coerce_float(rec.get("score"))
+        open_r = _coerce_float((rec.get("feature_row") or {}).get("open_r"))
+        if None in (tau, below_r, score) or open_r is None:
+            return None
+        if not (score < tau and open_r < below_r):
+            return None
+        return {"action": "close", "reason": "exit_head",
+                "exit_price": current_price}
+    except Exception:  # noqa: BLE001 — fail-closed, never a spurious close
+        return None
+
+
 def _stale_stop_verdict(
     meta: Dict[str, Any],
     cfg_dict: Dict[str, Any],
@@ -497,16 +550,25 @@ def monitor(cfg, candles_df, open_pkg):
     if stale_verdict is not None:
         return stale_verdict
 
-    # 2.6 M20 E2 exit-head SHADOW (observe-only; memo § 9). Scores this open
-    # trade's in-trade state once per closed bar with the trainer-exported
-    # LightGBM head and logs it — NEVER returns a verdict, never raises. A
-    # missing artifact (mirror not published / dev sandbox) is a cheap no-op.
+    # 2.6 M20 exit head — E2 shadow scoring + E3 apply (memo § 9; program
+    # doc § E3). Scoring logs once per closed bar and never raises; a
+    # missing artifact (mirror not published / dev sandbox) is a cheap
+    # no-op. The APPLY below requires ALL of: (a) the strategy's YAML
+    # declares `exit_head_action: close` (threaded into meta for new
+    # packages; live cfg covers already-open ones), (b) the mirrored
+    # artifact is at stage "advisory" — the operator promotion gate — and
+    # (c) the conditional policy fires (P(pays) < τ AND open_r < below_r;
+    # proven trades above +0.5R are never touched — the trail owns them).
+    # Rollback = delete the YAML lines and/or demote the artifact stage.
     try:
         from src.runtime.exit_head_shadow import maybe_score_exit_head
 
-        maybe_score_exit_head(meta, open_pkg, candles_df, direction)
-    except Exception:  # noqa: BLE001 — shadow must never affect the monitor
-        pass
+        _eh_rec = maybe_score_exit_head(meta, open_pkg, candles_df, direction)
+    except Exception:  # noqa: BLE001 — scoring must never affect the monitor
+        _eh_rec = None
+    eh_verdict = _exit_head_verdict(_eh_rec, meta, cfg_dict, current_price)
+    if eh_verdict is not None:
+        return eh_verdict
 
     # 3. Chandelier trail ratchet.
     atr = _coerce_float(meta.get("atr"))

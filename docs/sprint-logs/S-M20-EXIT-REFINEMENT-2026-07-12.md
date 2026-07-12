@@ -207,10 +207,48 @@ stops, exit-ladder optimization." Delivered (PR #6166):
   symbol must be in the artifact's `symbols` allowlist when present), and
   the exporter embeds `symbols`. The 2 pre-guard IWM rows remain in the log
   as harmless artifacts — **exclude them when analyzing the E2 soak**.
-- **E2 soak plan** (program doc): 2–4 weeks observe-only; verify live-vs-
-  offline feature parity + track the realized `future_r_delta` of the head's
-  would-exit flags. E3 (the head actually driving an exit) is Tier-3, gated
-  on this track record.
+- **Fast-gate doctrine (operator directive, same day; #6207).** The 2–4 week
+  observe-only soak was replaced: offline validation (purged walk-forward +
+  truncation-honest replay) IS the confidence gate; the live shadow phase is
+  a MECHANICAL verification in hours — (1) live-vs-offline feature parity,
+  (2) first-decision sanity — then the head soaks ONLINE post-flip under the
+  standing health-review/ml-review monitoring. Program doc § E2/E3 rewritten.
+- **Parity check: three real skews found + fixed in ~90 minutes** (the fast
+  gate paying for itself):
+  1. **Partial-bar scoring** (#6207) — the monitor frame ends in the current
+     forming bar; training rows are closed bars. Scorer now trims un-elapsed
+     bars (`_TF_SECONDS`).
+  2. **Entry-anchor off-by-one** (#6207) — `ts >= entry_time` included the
+     signal/fill bar the E0 builder excludes (bisect_right), leaking
+     pre-entry price into mfe/mae (live mae −0.77R vs true −0.15R). Now
+     strictly-after.
+  3. **Candle-market mismatch in the parity script itself** — the live feed
+     (and the journal's fills) are Bybit SPOT (`defaultType: "spot"`); the
+     first offline recompute used LINEAR klines → a ~30-pt basis offset that
+     also flipped chop/stagnation around the 0.25R band. Lesson on record:
+     parity recomputes MUST use the live feed's market (spot). Second-order
+     caveat: the E0 harness candles are perp-proxy sources while live is
+     spot — features are R-relative (basis-invariant to first order) and
+     each (candles, entry) pairing is internally consistent, so this is
+     accepted and documented, not a blocker.
+- **Parity VERIFIED EXACT (post-#6207 deploy, 13:57Z restart):** live records
+  for bars 12:00 + 13:00 on trade 3344 match the offline spot recompute on
+  ALL 13 features to 4 decimals (issues #6212/#6213/#6214) — incl. atr/vol
+  ratios (Wilder warmup concern moot at equal 200-bar windows).
+- **E3 built (PR #6211, DRAFT — Tier-3 pending operator approval).**
+  `_exit_head_verdict` apply path behind a triple gate (YAML declare +
+  artifact stage `advisory` + policy fires); `run_monitor_tick` now defaults
+  cfg to the LIVE strategies.yaml (mtime-cached) so declared levers reach
+  already-open packages; exporter `--stage`; YAML declares on the three 1h
+  donchian legs + changelog + matrix refs; 5 new gate tests. Merging alone
+  changes nothing — the mirrored artifact stays `shadow` until the operator
+  approves, then the trainer re-exports `--stage advisory`.
+- **Live head read post-fix:** the open BTC donchian trade (3344, +0.26R,
+  59 bars) scores P(pays) 0.030–0.036 with `would_exit:true` — under E3 the
+  head would bank it at the next bar close.
+- **E2→online-soak plan:** post-E3-flip the head soaks LIVE; the first
+  head-driven exit is a mandatory health-review mechanics check; realized
+  `future_r_delta` accrues in the standard soak logs for /ml-review.
 
 ## Documentation Updated
 - `docs/research/M20-exit-refinement-2026-07-12.md` (the evidence memo).
