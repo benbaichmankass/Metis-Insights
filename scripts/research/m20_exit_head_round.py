@@ -118,7 +118,7 @@ def main(argv: list[str]) -> int:
         build_cmd += ["--candles", f"{sym}={path}"]
     if a.db:
         build_cmd += ["--db", a.db]
-    p = sh(build_cmd, timeout=7200)
+    p = sh(build_cmd, timeout=21600)
     print(p.stdout[-2000:], p.stderr[-500:], flush=True)
     if p.returncode != 0:
         return 1
@@ -132,7 +132,7 @@ def main(argv: list[str]) -> int:
             train_cmd += ["--target", a.target]
         if a.features:
             train_cmd += ["--features", a.features]
-        p = sh(train_cmd, timeout=7200)
+        p = sh(train_cmd, timeout=21600)
         print(p.stdout[-3000:], p.stderr[-500:], flush=True)
         e1 = fam_dir / "e1_report.json"
         if e1.exists():
