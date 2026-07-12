@@ -388,6 +388,25 @@ no proxy-data heads). ROADMAP M20 row carries the phase-4 plan so the program
 survives session loss. Execution starts with P4.1 (harness lever + fleet decay
 sweep) and the P4.2+P4.3 E0/E1 round on donchian/1h.
 
+## Phase 4 execution state (late night — session hand-off point)
+
+P4.1 lever + P4.2/P4.3 head retarget MERGED (#6244, squash `f67be26`). On the
+trainer: the fleet trail-decay sweep + two E1 rounds (peak_is_in+extended,
+holding_pays+extended ablation on donchian/1h) were launched CONCURRENTLY —
+which starved the 1-OCPU box (SSH timeouts, mirror publish stale ~18 min;
+BL-20260712-TRAINER-JOB-SERIALIZATION — serialize future rounds). Partial
+decay verdicts before the starvation: a 2h pullback leg PASSES stall-armed
+decay (stall6→tight1.8 wf 5/6; stall10 wf 4/6); the 4h donchians fail their
+decay cells. FULL verdicts + both round reports are ON the trainer
+(`runtime_logs/m20_fleet_decay/<date>/`, `runtime_logs/m20_exit_head/
+p4_{peak,hp_ext}_1h/`) — pull once the jobs drain, apply the design § 3
+gates (one-lever-per-leg: any decay PASS on a leg with a shipped lever needs
+a combo A/B), fold into the matrix (`trail_decay` column) + this log, and
+batch Tier-3 proposals. A GitHub MCP auth drop (~20:50Z, persisting past the
+transient-blip threshold) blocked new relay dispatches at hand-off; existing
+public issue pages remain scrape-readable (that is how the mirror age was
+confirmed: diag #6249).
+
 ## Documentation Updated
 - `docs/research/M20-exit-refinement-2026-07-12.md` (the evidence memo).
 - ROADMAP.md M20 row → status update (this session's outcome + next gate).
