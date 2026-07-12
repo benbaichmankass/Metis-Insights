@@ -127,7 +127,9 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  adx_period: int = 14,
                  stale_exit_bars: Optional[int] = None,
                  stale_exit_below_r: float = 0.0,
-                 flip_exit_bars: Optional[int] = None) -> Dict[str, Any]:
+                 flip_exit_bars: Optional[int] = None,
+                 bank_frac: float = 0.0,
+                 bank_at_r: float = 1.0) -> Dict[str, Any]:
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
     # Trend filter: Donchian midline of the prior trend_lb bars (shift(1) — no
@@ -214,8 +216,17 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         exit_idx = min(i + timeout_bars, n - 1)
         mfe = 0.0
         flip_streak = 0
+        banked = False
         for j in range(i + 1, min(i + timeout_bars + 1, n)):
             bh, bl = float(df["high"].iloc[j]), float(df["low"].iloc[j])
+            # M20 partial-TP bank lever (0=off, byte-identical): bank
+            # `bank_frac` at entry ± bank_at_r × risk; remainder keeps the
+            # trail. Rung credited only when its price actually printed.
+            if bank_frac > 0.0 and not banked:
+                if direction == "long" and bh >= entry + bank_at_r * risk:
+                    banked = True
+                elif direction == "short" and bl <= entry - bank_at_r * risk:
+                    banked = True
             # M20 exit levers — both default-off (None) ⇒ byte-identical run.
             # Checked on bar close, AFTER the intrabar stop check below cannot
             # be pre-empted (stop-first stays conservative because the levers
@@ -260,6 +271,8 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             exit_price = float(df["close"].iloc[exit_idx])
         r = ((exit_price - entry) / risk if direction == "long"
              else (entry - exit_price) / risk)
+        if banked:
+            r = bank_frac * bank_at_r + (1.0 - bank_frac) * r
         trades.append(Trade(
             entry_index=i, entry_time=df["timestamp"].iloc[i], direction=direction,
             entry=entry, sl=sl, risk=risk, exit_index=exit_idx,
@@ -289,6 +302,9 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         params["stale_exit_below_r"] = stale_exit_below_r
     if flip_exit_bars is not None:
         params["flip_exit_bars"] = flip_exit_bars
+    if bank_frac > 0.0:
+        params["bank_frac"] = bank_frac
+        params["bank_at_r"] = bank_at_r
     if adx_min is not None:
         params["adx_min"] = adx_min
     if adx_max is not None:
@@ -406,6 +422,11 @@ def main(argv: List[str]) -> int:
                    help="M20 exit lever: close when the close crosses the Donchian "
                         "trend midline AGAINST the position for this many consecutive "
                         "bars (None=off). The trend-invalidation exit.")
+    p.add_argument("--bank-frac", type=float, default=0.0,
+                   help="M20 partial-TP ladder lever: fraction of the position "
+                        "banked at +bank_at_r R (0=off, legacy behaviour).")
+    p.add_argument("--bank-at-r", type=float, default=1.0,
+                   help="R-multiple of the bank rung for --bank-frac (default 1.0).")
     p.add_argument("--json", dest="json_out", default=None)
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for regime tagging.")
@@ -437,7 +458,9 @@ def main(argv: List[str]) -> int:
                        adx_period=args.adx_period,
                        stale_exit_bars=args.stale_exit_bars,
                        stale_exit_below_r=args.stale_exit_below_r,
-                       flip_exit_bars=args.flip_exit_bars)
+                       flip_exit_bars=args.flip_exit_bars,
+                       bank_frac=args.bank_frac,
+                       bank_at_r=args.bank_at_r)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)

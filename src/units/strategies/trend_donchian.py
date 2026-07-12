@@ -276,12 +276,119 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             "timeframe": timeframe,
         },
     }
+    # M20 stale-stop (Tier-3, YAML-declared): thread the declared params into
+    # the package meta because run_monitor_tick passes cfg={} in production —
+    # meta is the only channel monitor() reliably sees. Absent = the lever is
+    # annotate-only (see _stale_stop_verdict); declared = a real close path.
+    for _key in ("stale_exit_bars", "stale_exit_below_r"):
+        if cfg.get(_key) is not None:
+            package["meta"][_key] = cfg[_key]
     return package
 
 
 # ---------------------------------------------------------------------------
 # monitor() — live Chandelier ATR trailing stop
 # ---------------------------------------------------------------------------
+
+
+# M20 stale-stop reference params — the harness-validated cell (8 native
+# bars, still below 0R). Used ONLY for the observe-only annotate soak when a
+# strategy has not declared its own params; a declared strategy uses exactly
+# what its YAML says.
+_STALE_REF_BARS = 8
+_STALE_REF_BELOW_R = 0.0
+
+
+def _coerce_int(value: Any) -> Optional[int]:
+    try:
+        i = int(value)
+        return i if i > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _stale_stop_verdict(
+    meta: Dict[str, Any],
+    cfg_dict: Dict[str, Any],
+    open_pkg: Dict[str, Any],
+    candles_df: pd.DataFrame,
+    current_price: float,
+    direction: str,
+) -> Optional[Dict[str, Any]]:
+    """M20 conditional stale-stop — close a position that is ≥ N native bars
+    old and still below the declared open-R threshold at bar close.
+
+    Declared (``stale_exit_bars`` in meta/cfg) ⇒ may return a real
+    ``{"action": "close", "reason": "stale_stop"}`` verdict. Undeclared ⇒
+    evaluates the reference cell (8 bars, < 0R) and writes one observe-only
+    annotate row when it would fire, returning ``None`` (behaviour unchanged).
+    Fail-safe: any missing input (entry_time, frozen risk, entry) skips both
+    paths — never a spurious close. **Never raises.**
+    """
+    try:
+        declared_bars = _coerce_int(
+            meta.get("stale_exit_bars") if meta.get("stale_exit_bars") is not None
+            else cfg_dict.get("stale_exit_bars")
+        )
+        below_r_raw = (
+            meta.get("stale_exit_below_r")
+            if meta.get("stale_exit_below_r") is not None
+            else cfg_dict.get("stale_exit_below_r")
+        )
+        below_r = _coerce_float(below_r_raw)
+        n_bars = declared_bars if declared_bars is not None else _STALE_REF_BARS
+        threshold = below_r if (declared_bars is not None and below_r is not None) \
+            else (_STALE_REF_BELOW_R if declared_bars is None else 0.0)
+
+        entry = _coerce_float(open_pkg.get("entry"))
+        risk = _coerce_float(meta.get("risk_per_unit"))
+        if entry is None or risk is None or risk <= 0:
+            return None
+        if not meta.get("entry_time"):
+            return None  # age unknowable — fail-safe skip
+        window = _since_entry(candles_df, open_pkg)
+        # _since_entry falls back to the FULL frame when the entry time can't
+        # be matched; that would fake a huge age, so require a real restriction
+        # (or a genuinely long-lived trade spanning the whole fetch window).
+        if len(window) >= len(candles_df) and len(candles_df) > 0:
+            # Ambiguous: either fallback or a trade older than the fetch
+            # window (limit≈200 bars ≫ any sane stale_exit_bars). Treat a
+            # full-window match as "at least window-length old" ONLY when the
+            # first window bar is at/after the entry time; _since_entry
+            # guarantees that when it actually filtered, so equality here
+            # means fallback — skip (fail-safe).
+            return None
+        age_bars = max(0, len(window) - 1)  # bars strictly after the entry bar
+        if age_bars < n_bars:
+            return None
+        open_r = ((current_price - entry) if direction == "long"
+                  else (entry - current_price)) / risk
+        if open_r >= threshold:
+            return None
+        if declared_bars is not None:
+            return {"action": "close", "reason": "stale_stop",
+                    "exit_price": current_price}
+        # Annotate-only path (undeclared): observe, never act.
+        try:
+            from src.runtime.exit_lever_soak import record_exit_lever_annotation
+
+            record_exit_lever_annotation(
+                lever="stale_stop",
+                strategy=str(meta.get("strategy_label")
+                             or open_pkg.get("strategy_name") or "trend_donchian"),
+                symbol=str(open_pkg.get("symbol") or ""),
+                direction=direction,
+                order_package_id=open_pkg.get("order_package_id"),
+                params={"stale_exit_bars": n_bars,
+                        "stale_exit_below_r": threshold},
+                state={"age_bars": age_bars, "open_r": round(open_r, 4),
+                       "price": current_price, "entry": entry},
+            )
+        except Exception:  # noqa: BLE001 — annotate must never affect the path
+            pass
+        return None
+    except Exception:  # noqa: BLE001 — monitor must never crash on this lever
+        return None
 
 
 def _since_entry(candles_df: pd.DataFrame, open_pkg: Dict[str, Any]) -> pd.DataFrame:
@@ -376,6 +483,19 @@ def monitor(cfg, candles_df, open_pkg):
             return {"action": "close", "reason": "tp_cross", "exit_price": current_price}
         if direction == "short" and current_price <= tp:
             return {"action": "close", "reason": "tp_cross", "exit_price": current_price}
+
+    # 2.5 M20 conditional stale-stop (evidence: docs/research/
+    # M20-exit-refinement-2026-07-12.md § 4-5). Behaviour is YAML-declared:
+    # a strategy whose config (threaded into meta by order_package) sets
+    # `stale_exit_bars` gets a REAL close; every other donchian-family
+    # package is evaluated at the proposed reference params and, when the
+    # lever WOULD fire, logs one observe-only annotate row instead
+    # (runtime_logs/exit_lever_soak.jsonl) — the pre-declare soak.
+    stale_verdict = _stale_stop_verdict(
+        meta, cfg_dict, open_pkg, candles_df, current_price, direction
+    )
+    if stale_verdict is not None:
+        return stale_verdict
 
     # 3. Chandelier trail ratchet.
     atr = _coerce_float(meta.get("atr"))

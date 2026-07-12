@@ -173,6 +173,7 @@ _CONVICTION_SIZING_LOG = runtime_logs_dir() / "conviction_sizing.jsonl"
 _CONVICTION_ARBITRATION_LOG = runtime_logs_dir() / "conviction_arbitration.jsonl"
 _EXIT_LADDER_SOAK_LOG = runtime_logs_dir() / "exit_ladder_soak.jsonl"
 _FC_GEOMETRY_SOAK_LOG = runtime_logs_dir() / "fc_geometry_soak.jsonl"
+_EXIT_LEVER_SOAK_LOG = runtime_logs_dir() / "exit_lever_soak.jsonl"
 _ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
 _ORPHAN_EVENTS_LOG = runtime_logs_dir() / "orphan_events.jsonl"
 
@@ -235,6 +236,13 @@ _LOG_FILES: dict[str, Path] = {
     # soak is accruing + its fc coverage. Absent until the first live opening
     # order runs post-deploy. Also surfaced at /api/bot/fc-geometry/soak.
     "fc_geometry_soak": _FC_GEOMETRY_SOAK_LOG,
+    # M20 exit-lever annotate soak (observe-only): "the stale-stop would have
+    # exited here" rows written by trend_donchian._stale_stop_verdict while a
+    # strategy has NOT declared stale_exit_bars in YAML. The pre-declare
+    # evidence trail for the Tier-3 stale-stop rollout (memo:
+    # docs/research/M20-exit-refinement-2026-07-12.md § 5). Absent until the
+    # first would-fire trade.
+    "exit_lever_soak": _EXIT_LEVER_SOAK_LOG,
     # Allocator soak (M18 P0c, portfolio capital allocator): one line per tick
     # with ≥2 actionable candidates — what a capital allocator WOULD pick (the
     # top-ranked candidate of the full opportunity set) vs what the aggregator

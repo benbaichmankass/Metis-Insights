@@ -54,12 +54,64 @@ def main() -> int:
     ap.add_argument("--eth", default=None)
     ap.add_argument("--sol", default=None)
     ap.add_argument("--split", default="2025-07-01")
+    ap.add_argument("--phase2", action="store_true",
+                    help="Run the phase-2 grids: trailing-stop geometry "
+                         "(trail_mult) and partial-TP ladder (bank_frac × "
+                         "bank_at_r) instead of the phase-1 lever cells.")
     a = ap.parse_args()
 
     def windows() -> list[list[str]]:
         return [["--end", a.split], ["--start", a.split]]
 
     print("== M20 exit-lever sweep (IS = through %s, OOS = after) ==" % a.split)
+
+    if a.phase2:
+        # ---- phase 2: trailing-stop geometry + partial-TP ladder grids ----
+        pull2 = [("base(trail5)", [])] + [
+            (f"trail{t}", ["--trail-mult", str(t)]) for t in (3.0, 4.0, 7.0)
+        ] + [
+            (f"bank{f}@{r}R", ["--bank-frac", str(f), "--bank-at-r", str(r)])
+            for f in (0.25, 0.5) for r in (1.0, 1.5)
+        ]
+        for sym, data, extra in [("BTCUSDT", a.btc, []),
+                                 ("ETHUSDT", a.eth, ["--adx-min", "25"])]:
+            if not data:
+                continue
+            print(f"-- P2 htf_pullback 2h {sym} --")
+            for tag, cell in pull2:
+                res = [run_cell("scripts/backtest_pullback.py",
+                                ["--data", data, "--resample", "2h",
+                                 "--symbol", sym, "--timeframe", "2h",
+                                 *extra, *cell, *w]) for w in windows()]
+                print(line(f"pullback|{sym}|{tag}", res[0], res[1]))
+        don2 = [("base(trail5)", [])] + [
+            (f"trail{t}", ["--trail-mult", str(t)]) for t in (3.0, 4.0, 7.0)
+        ] + [
+            (f"trail{t}+stale8b<0R", ["--trail-mult", str(t),
+                                      "--stale-exit-bars", "8"])
+            for t in (4.0, 5.0)
+        ] + [
+            (f"bank{f}@{r}R", ["--bank-frac", str(f), "--bank-at-r", str(r)])
+            for f in (0.25, 0.5) for r in (1.0, 1.5)
+        ] + [
+            ("bank.25@1R+stale8b<0R", ["--bank-frac", "0.25", "--bank-at-r",
+                                       "1.0", "--stale-exit-bars", "8"]),
+        ]
+        for sym, data, extra in [
+                ("BTCUSDT", a.btc, ["--long-only", "--min-confidence", "0.6"]),
+                ("ETHUSDT", a.eth, ["--min-confidence", "0.6"]),
+                ("SOLUSDT", a.sol, ["--min-confidence", "0.6"])]:
+            if not data:
+                continue
+            print(f"-- P2 trend_donchian 1h {sym} --")
+            for tag, cell in don2:
+                res = [run_cell("scripts/research/backtest_trend.py",
+                                ["--data", data, "--resample", "1h",
+                                 "--symbol", sym, "--timeframe", "1h",
+                                 "--donchian", "20", "--trail-mult", "5.0",
+                                 *extra, *cell, *w]) for w in windows()]
+                print(line(f"donchian|{sym}|{tag}", res[0], res[1]))
+        return 0
 
     # --- htf_pullback family (2h) ------------------------------------------
     pull_cells = [
