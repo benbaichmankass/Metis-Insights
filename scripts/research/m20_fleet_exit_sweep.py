@@ -248,6 +248,9 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--out", default=str(REPO / "runtime_logs" / "m20_fleet"))
     ap.add_argument("--only", default=None,
                     help="CSV of leg names to restrict to (debug)")
+    ap.add_argument("--levers", default=None,
+                    help="CSV of matrix levers to restrict cells to (e.g. "
+                         "trail_decay) — skips already-verdicted cells on a re-run")
     ap.add_argument("--list", action="store_true",
                     help="print the run plan (leg -> harness/data/cells) and exit")
     a = ap.parse_args(argv[1:])
@@ -255,6 +258,7 @@ def main(argv: list[str]) -> int:
     strategies = (yaml.safe_load((REPO / "config" / "strategies.yaml")
                                  .read_text()) or {}).get("strategies") or {}
     only = set(a.only.split(",")) if a.only else None
+    levers = set(a.levers.split(",")) if a.levers else None
     data_dir = Path(a.data_dir)
     run_dir = Path(a.out) / datetime.now(timezone.utc).strftime("%Y-%m-%d")
     plan, skipped = [], []
@@ -276,7 +280,8 @@ def main(argv: list[str]) -> int:
                      "harness": harness, "data": data, "proxy": proxy,
                      "resample": resample,
                      "base": base_args(name, cfg, fam, data, resample),
-                     "cells": cells_for(cfg, fam)})
+                     "cells": [c for c in cells_for(cfg, fam)
+                               if not levers or c[1] in levers]})
 
     print(f"plan: {len(plan)} legs runnable, {len(skipped)} skipped")
     for s in skipped:
