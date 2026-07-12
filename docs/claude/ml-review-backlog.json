@@ -1383,7 +1383,9 @@
           "status": "open",
           "note": "Opened from the Phase-2 fc→SL/TP geometry backtest — inconclusive; simulator unfaithful, needs a live soak."
         }
-      ]
+      ],
+      "detail": " [2026-07-12 M20 update: live soak checked — 23 rows, 7 fc-covered, resolver 85.7% censored, paired n=1. INSUFFICIENT. Re-check ~2026-08-25. sync_trainer_data.sh now mirrors the soak log (was missing).]",
+      "recheck_after": "2026-08-25"
     },
     {
       "id": "MB-20260705-FC-ADVISORY-READINESS",
@@ -1446,7 +1448,17 @@
           "note": "Spike A executed - negative (structural: paper history postdates real holdout window). Stays open as an accrual-gated re-run, not an active work item."
         }
       ]
+    },
+    {
+      "id": "MB-20260712-EXIT-ANALYSIS-COVERAGE",
+      "opened_at": "2026-07-12T07:25:00+00:00",
+      "opened_by": "claude (S-M20-EXIT-REFINEMENT-2026-07-12)",
+      "source": "M20 exit analysis (trainer relay #6158): datasets-out/market_raw holds 15m candles only for BTCUSDT/ETHUSDT/SOLUSDT (+MES shards). 216 of 491 closed trades in the 90d window (ADAUSDT/AVAXUSDT/XRPUSDT 4h donchian alts, equities SPY/QQQ/GLD/TLT/IWM/SLV/IEF, MGC) could not be path-resolved.",
+      "title": "Extend market_raw candle coverage so exit/chop analysis covers the whole fleet",
+      "detail": "Add 15m (or native-TF) candle side-streams for the alt-USDT symbols (Bybit fetch, same pipeline as BTC/ETH/SOL) and a daily-bar source for the equities/metals fleet, then rerun scripts/research/m20_exit_analysis.py for full-fleet chop-hold diagnostics.",
+      "severity": "medium",
+      "status": "open"
     }
   ],
-  "updated_at": "2026-07-08T16:52:24.062882+00:00"
+  "updated_at": "2026-07-12T07:25:00+00:00"
 }

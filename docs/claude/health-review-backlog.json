@@ -3833,7 +3833,17 @@
       "status": "open",
       "snoozed_until": null,
       "updates": []
+    },
+    {
+      "id": "BL-20260712-TRAINER-CHECKOUT-STALE",
+      "opened_at": "2026-07-12T07:25:00+00:00",
+      "opened_by": "claude (S-M20-EXIT-REFINEMENT-2026-07-12)",
+      "source": "trainer-vm-diag #6159: the trainer worktree read 38ac1c04 (behind origin/main c4068a45) — scripts/ml/fc_geometry_resolve.py (merged to main days earlier) was absent on disk. Reset to origin/main in the same relay run.",
+      "title": "Trainer VM worktree silently stops tracking origin/main",
+      "detail": "Whatever mechanism is expected to keep the trainer checkout current (trainer-side git sync / manual resets) had not rolled the worktree forward. One-off reset applied 2026-07-12. Investigate whether the trainer has an ict-git-sync analogue, and if so why it stalled (the 2026-07-06 BL-20260706-TRAINER-GIT-AUTH-BROKEN credential fix may not have restored a periodic pull). Cheap check on the next trainer relay: git rev-parse HEAD vs origin/main.",
+      "severity": "medium",
+      "status": "open"
     }
   ],
-  "updated_at": "2026-07-12T05:15:00+00:00"
+  "updated_at": "2026-07-12T07:25:00+00:00"
 }
