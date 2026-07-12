@@ -151,10 +151,16 @@ fi
 # gate-check CLI's relative defaults (--shadow-log runtime_logs/...) find it.
 # Both are non-fatal: real-time absence means no shadow predictions yet; the
 # backfill log only exists after a `python -m ml backfill-shadow-predictions`.
+# The two exit shadow-soak logs (M20): fc_geometry_soak.jsonl is what
+# scripts/ml/fc_geometry_resolve.py's contract expects mirrored here (its
+# docstring predated this block — the mirror was missing until 2026-07-12),
+# and exit_ladder_soak.jsonl feeds the same exit-refinement analyses.
 mkdir -p "$RUNTIME_LOGS_DIR"
 for pair in \
   "shadow_predictions.jsonl|${LIVE_VM_SHADOW_PRED_PATH}" \
-  "shadow_predictions_backfill.jsonl|${LIVE_VM_SHADOW_PRED_BACKFILL_PATH}"; do
+  "shadow_predictions_backfill.jsonl|${LIVE_VM_SHADOW_PRED_BACKFILL_PATH}" \
+  "exit_ladder_soak.jsonl|/data/bot-data/runtime_logs/exit_ladder_soak.jsonl" \
+  "fc_geometry_soak.jsonl|/data/bot-data/runtime_logs/fc_geometry_soak.jsonl"; do
   artifact="${pair%%|*}"
   src_path="${pair##*|}"
   emit "$(printf '{"ts":"%s","status":"pulling","artifact":"%s","src":"%s@%s:%s"}' \

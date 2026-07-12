@@ -110,7 +110,9 @@ def _signal(df: pd.DataFrame, donchian: int) -> pd.Series:
 
 def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
              trail_mult: float, timeout: int, long_only: bool,
-             min_confidence: float = 0.0) -> List[Trade]:
+             min_confidence: float = 0.0,
+             stale_exit_bars: int = 0, stale_exit_below_r: float = 0.0
+             ) -> List[Trade]:
     atr = _atr(df, atr_p)
     sig = _signal(df, donchian)
     # Donchian channel (causal — prior N bars) for the breakout-depth
@@ -147,11 +149,22 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
             opp = (sig.iloc[i] == -1 and pos['direction'] == 'long') or \
                   (sig.iloc[i] == 1 and pos['direction'] == 'short')
             tmo = timeout > 0 and (i - pos['entry_i']) >= timeout
-            if hit or opp or tmo:
+            # M20 stale-stop lever (default 0 = off, byte-identical): cut a
+            # position that is still below `stale_exit_below_r` open-R after
+            # `stale_exit_bars` bars — the conditional chop-cut, checked at
+            # close, never pre-empting the intrabar stop (hit wins below).
+            r_close = ((cl - pos['entry']) / pos['risk']
+                       if pos['direction'] == 'long'
+                       else (pos['entry'] - cl) / pos['risk'])
+            stale = (stale_exit_bars > 0
+                     and (i - pos['entry_i']) >= stale_exit_bars
+                     and not hit and r_close < stale_exit_below_r)
+            if hit or opp or tmo or stale:
                 trades.append(Trade(
                     pos['direction'], pos['entry'], pos['sl_init'], pos['risk'],
                     exit_px if hit else cl,
-                    'trail_stop' if hit else ('flip' if opp else 'timeout'),
+                    'trail_stop' if hit else ('flip' if opp else
+                                              ('timeout' if tmo else 'stale_stop')),
                     round(r, 6), pos['entry_time'], bar['timestamp']))
                 pos = None
         if pos is None:
@@ -235,6 +248,11 @@ def main(argv: List[str]) -> int:
     p.add_argument('--long-only', action='store_true')
     p.add_argument('--min-confidence', type=float, default=0.0,
                    help='breakout-depth/ATR gate, mirrors the live unit (0.30 live)')
+    p.add_argument('--stale-exit-bars', type=int, default=0,
+                   help='M20 exit lever: close at bar N after entry when open R is '
+                        'below --stale-exit-below-r (0=off, legacy behaviour).')
+    p.add_argument('--stale-exit-below-r', type=float, default=0.0,
+                   help='Threshold R for --stale-exit-bars (default 0.0).')
     p.add_argument('--json', dest='json_out', default=None)
     a = p.parse_args(argv)
 
@@ -247,10 +265,14 @@ def main(argv: List[str]) -> int:
         df = df[df['timestamp'] <= pd.Timestamp(a.end, tz='UTC')].reset_index(drop=True)
 
     trades = backtest(df, a.donchian, a.atr_period, a.atr_stop_mult,
-                      a.trail_mult, a.timeout_bars, a.long_only, a.min_confidence)
+                      a.trail_mult, a.timeout_bars, a.long_only, a.min_confidence,
+                      a.stale_exit_bars, a.stale_exit_below_r)
     params = {'symbol': a.symbol, 'timeframe': a.timeframe, 'donchian': a.donchian,
               'atr_stop_mult': a.atr_stop_mult, 'trail_mult': a.trail_mult,
               'long_only': a.long_only}
+    if a.stale_exit_bars:
+        params['stale_exit_bars'] = a.stale_exit_bars
+        params['stale_exit_below_r'] = a.stale_exit_below_r
     out = summarize(trades, params, df)
     line = (f"trend_donchian — {a.symbol} {a.timeframe} dc={a.donchian} tm={a.trail_mult} "
             f"lo={a.long_only}  trades={out['total_trades']} win={out['win_rate_pct']}% "

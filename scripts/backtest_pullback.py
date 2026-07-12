@@ -124,7 +124,10 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  min_confidence: float = 0.0,
                  adx_min: Optional[float] = None,
                  adx_max: Optional[float] = None,
-                 adx_period: int = 14) -> Dict[str, Any]:
+                 adx_period: int = 14,
+                 stale_exit_bars: Optional[int] = None,
+                 stale_exit_below_r: float = 0.0,
+                 flip_exit_bars: Optional[int] = None) -> Dict[str, Any]:
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
     # Trend filter: Donchian midline of the prior trend_lb bars (shift(1) — no
@@ -210,8 +213,22 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         exit_reason = "timeout"
         exit_idx = min(i + timeout_bars, n - 1)
         mfe = 0.0
+        flip_streak = 0
         for j in range(i + 1, min(i + timeout_bars + 1, n)):
             bh, bl = float(df["high"].iloc[j]), float(df["low"].iloc[j])
+            # M20 exit levers — both default-off (None) ⇒ byte-identical run.
+            # Checked on bar close, AFTER the intrabar stop check below cannot
+            # be pre-empted (stop-first stays conservative because the levers
+            # only ever fire at the close of a bar the stop did NOT hit).
+            bc = float(df["close"].iloc[j])
+            open_r = ((bc - entry) / risk if direction == "long"
+                      else (entry - bc) / risk)
+            if flip_exit_bars is not None:
+                bar_mid = df["mid"].iloc[j]
+                if not pd.isna(bar_mid):
+                    against = (bc < float(bar_mid)) if direction == "long" \
+                        else (bc > float(bar_mid))
+                    flip_streak = flip_streak + 1 if against else 0
             if direction == "long":
                 if bl <= trail:                       # SL-first (conservative)
                     exit_price, exit_idx = trail, j
@@ -228,6 +245,17 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                 ext = min(ext, bl)
                 trail = min(trail, ext + trail_mult * atr)
                 mfe = max(mfe, (entry - ext) / risk)
+            # Lever exits fire at bar close, only when the stop did not hit
+            # this bar (a stop hit breaks above) — stop-first stays intact.
+            if flip_exit_bars is not None and flip_streak >= flip_exit_bars:
+                exit_price, exit_idx = bc, j
+                exit_reason = "trend_flip"
+                break
+            if (stale_exit_bars is not None and (j - i) >= stale_exit_bars
+                    and open_r < stale_exit_below_r):
+                exit_price, exit_idx = bc, j
+                exit_reason = "stale_stop"
+                break
         if exit_price is None:
             exit_price = float(df["close"].iloc[exit_idx])
         r = ((exit_price - entry) / risk if direction == "long"
@@ -256,6 +284,11 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                               "atr_stop_mult": atr_stop_mult,
                               "trail_mult": trail_mult,
                               "min_confidence": min_confidence}
+    if stale_exit_bars is not None:
+        params["stale_exit_bars"] = stale_exit_bars
+        params["stale_exit_below_r"] = stale_exit_below_r
+    if flip_exit_bars is not None:
+        params["flip_exit_bars"] = flip_exit_bars
     if adx_min is not None:
         params["adx_min"] = adx_min
     if adx_max is not None:
@@ -363,6 +396,16 @@ def main(argv: List[str]) -> int:
                    help="Regime filter: skip entries whose Wilder ADX is above this (None=off).")
     p.add_argument("--adx-period", type=int, default=14,
                    help="Wilder ADX period for the regime filter (default 14).")
+    p.add_argument("--stale-exit-bars", type=int, default=None,
+                   help="M20 exit lever: close at bar N after entry when the open "
+                        "R is below --stale-exit-below-r (None=off, legacy behaviour).")
+    p.add_argument("--stale-exit-below-r", type=float, default=0.0,
+                   help="Threshold R for --stale-exit-bars (default 0.0 = only cut "
+                        "trades that are flat-or-losing at the check bar).")
+    p.add_argument("--flip-exit-bars", type=int, default=None,
+                   help="M20 exit lever: close when the close crosses the Donchian "
+                        "trend midline AGAINST the position for this many consecutive "
+                        "bars (None=off). The trend-invalidation exit.")
     p.add_argument("--json", dest="json_out", default=None)
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for regime tagging.")
@@ -391,7 +434,10 @@ def main(argv: List[str]) -> int:
                        min_confidence=args.min_confidence,
                        adx_min=args.adx_min,
                        adx_max=args.adx_max,
-                       adx_period=args.adx_period)
+                       adx_period=args.adx_period,
+                       stale_exit_bars=args.stale_exit_bars,
+                       stale_exit_below_r=args.stale_exit_below_r,
+                       flip_exit_bars=args.flip_exit_bars)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)
