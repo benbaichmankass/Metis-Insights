@@ -42,7 +42,7 @@ def run_cell(harness: str, args: list[str]) -> dict:
 def line(tag: str, res_in: dict, res_oos: dict) -> str:
     def s(res: dict) -> str:
         if "error" in res:
-            return "ERR:" + str(res["error"])[:80]
+            return "ERR:" + str(res["error"]).strip()[-140:].replace("\n", " | ")
         return (f"n={res.get('total_trades')} net_R={res.get('net_total_r')} "
                 f"win={res.get('win_rate_pct')} maxDD={res.get('max_drawdown_r')}")
     return f"{tag:44s} IS[{s(res_in)}]  OOS[{s(res_oos)}]"
