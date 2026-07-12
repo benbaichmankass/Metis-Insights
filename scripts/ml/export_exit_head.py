@@ -46,11 +46,13 @@ def main(argv):
         return 1
     model = train_model(rows)
     trades = len({r["trade_key"] for r in rows})
+    symbols = sorted({r.get("symbol") for r in rows if r.get("symbol")})
     artifact = {
         "model_id": a.model_id,
         "family": fam_dir.name,
         "tf": a.tf,
         "stage": "shadow",
+        "symbols": symbols,
         "features": FEATURES,
         "shape": {"policy": "below_half_r", "tau": a.tau, "below_r": a.below_r},
         "booster_txt": model.booster_.model_to_string(),

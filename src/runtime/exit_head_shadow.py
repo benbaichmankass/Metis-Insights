@@ -195,6 +195,20 @@ def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
         artifact, booster = _load_artifact()
         if booster is None:
             return None
+        # In-distribution guard: the head was trained on specific
+        # (timeframe, symbols); every strategy that reuses the donchian
+        # monitor (incl. equities-1d variants) reaches this hook, and an
+        # out-of-family score would pollute the shadow track record (the
+        # 2026-07-12 IWM-1d rows). Fail-closed on a timeframe mismatch or
+        # unknown timeframe; symbol list enforced when the artifact carries
+        # one.
+        tf = str(artifact.get("tf") or "")
+        meta_tf = str(meta.get("timeframe") or "")
+        if not tf or meta_tf != tf:
+            return None
+        symbols = artifact.get("symbols")
+        if symbols and str(open_pkg.get("symbol") or "") not in symbols:
+            return None
         entry = _f(open_pkg.get("entry"))
         risk = _f(meta.get("risk_per_unit"))
         if entry is None or risk is None or risk <= 0:
