@@ -246,7 +246,13 @@ def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
         cutoff = pd.to_datetime(meta.get("entry_time"), utc=True, errors="coerce")
         if pd.isna(cutoff):
             return None
-        in_trade = ts >= cutoff
+        # STRICTLY-AFTER anchor, matching the E0 builder's
+        # ``bisect_right(cand_ts, t_open)``: the bar carrying the signal/fill
+        # is excluded, rows start at the NEXT bar. ``>=`` included that entry
+        # bar live (meta entry_time is the signal bar's own label), dragging
+        # pre-entry price into mfe/mae — the age-off-by-one the 2026-07-12
+        # trainer parity diff caught (live mae -0.77R vs offline -0.15R).
+        in_trade = ts > cutoff
         if not bool(in_trade.any()) or bool(in_trade.all()):
             return None  # entry outside the fetched window — age unknowable
         entry_idx = int(in_trade.to_numpy().argmax())
