@@ -66,9 +66,12 @@ def test_strategy_yaml_pins_sweep_params():
     assert cfg["execution"] == "live"
     assert cfg["symbols"] == ["XAUUSD"]
     assert cfg["timeframe"] == "1h"
-    # exactly the harness defaults the winning sweep cell ran
+    # exactly the harness defaults the winning sweep cell ran; trail_mult
+    # 3 -> 4: M20 fleet sweep 2026-07-12 walk-forward 6/6 (GC=F proxy) —
+    # moves with the mgc_trend_1h sibling (parity contract). Leg disabled;
+    # a re-enable resumes the better-validated cell.
     assert (cfg["donchian"], cfg["atr_period"]) == (20, 14)
-    assert (cfg["atr_stop_mult"], cfg["trail_mult"]) == (2.5, 3.0)
+    assert (cfg["atr_stop_mult"], cfg["trail_mult"]) == (2.5, 4.0)
     assert cfg["min_confidence"] == 0.0
     assert cfg["shadow_model_ids"] == []
 

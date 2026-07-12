@@ -134,7 +134,9 @@ def test_yaml_entries_pin_validated_params():
     assert tlt["symbols"] == ["TLT"]
     assert tlt["signal_prefixes"] == ["tlt_pullback_1h"]
     assert (tlt["trend_lookback"], tlt["pullback_lookback"], tlt["pullback_frac"]) == (60, 12, 0.5)
-    assert (tlt["atr_period"], tlt["atr_stop_mult"], tlt["trail_mult"]) == (14, 2.5, 4.0)
+    # trail_mult 4 -> 3: M20 fleet sweep 2026-07-12 walk-forward PASS
+    # (runtime_logs/m20_fleet; Tier-3 exit-lever package).
+    assert (tlt["atr_period"], tlt["atr_stop_mult"], tlt["trail_mult"]) == (14, 2.5, 3.0)
     assert tlt["timeframe"] == "1h"
     assert tlt["min_confidence"] == 0.0 and tlt["shadow_model_ids"] == []
     assert tlt["model"] is None

@@ -168,6 +168,8 @@ def run_backtest(df: pd.DataFrame, *, range_lookback: int, atr_period: int,
                  atr_stop_buffer: float, exit_style: str, tp_r: float,
                  timeout_bars: int, cooldown_bars: int, timeframe: str,
                  symbol: str, min_confidence: float = 0.0,
+                 stale_exit_bars: int = 0, stale_exit_below_r: float = 0.0,
+                 giveback_min_mfe_r: float = 0.0, giveback_r: float = 1.0,
                  emit_path: Optional[str] = None) -> Dict[str, Any]:
     if exit_style not in _EXIT_STYLES:
         raise ValueError(f"exit_style must be one of {_EXIT_STYLES}")
@@ -350,6 +352,19 @@ def run_backtest(df: pd.DataFrame, *, range_lookback: int, atr_period: int,
                     break
                 ext = min(ext, bl)
                 mfe = max(mfe, (entry - ext) / risk)
+            # M20 exit levers (default 0 = off, byte-identical): checked at
+            # bar close, never pre-empting the intrabar stop/target above —
+            # same precedence as scripts/research/backtest_trend.py.
+            r_close = ((c[j] - entry) / risk if direction == "long"
+                       else (entry - c[j]) / risk)
+            lever_stale = (stale_exit_bars > 0 and (j - i) >= stale_exit_bars
+                           and r_close < stale_exit_below_r)
+            lever_gb = (giveback_min_mfe_r > 0.0 and mfe >= giveback_min_mfe_r
+                        and (mfe - r_close) >= giveback_r)
+            if lever_stale or lever_gb:
+                exit_price, exit_idx = float(c[j]), j
+                exit_reason = "stale_stop" if lever_stale else "giveback_stop"
+                break
         if exit_price is None:
             exit_price = c[exit_idx]
         r = ((exit_price - entry) / risk if direction == "long"
@@ -596,6 +611,13 @@ def main(argv: List[str]) -> int:
     p.add_argument("--cooldown-bars", type=int, default=1)
     p.add_argument("--fee-bps-roundtrip", type=float, default=FEE_BPS_ROUNDTRIP)
     p.add_argument("--min-confidence", type=float, default=0.0)
+    p.add_argument("--stale-exit-bars", type=int, default=0,
+                   help="M20 stale-stop: close at bar close after N bars if still below --stale-exit-below-r (0=off).")
+    p.add_argument("--stale-exit-below-r", type=float, default=0.0)
+    p.add_argument("--giveback-min-mfe-r", type=float, default=0.0,
+                   help="M20 giveback-stop: arm once peak open profit reaches this many R (0=off).")
+    p.add_argument("--giveback-r", type=float, default=1.0,
+                   help="Close at bar close once the trade gives back this many R from its peak.")
     p.add_argument("--json", dest="json_out", default=None)
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for portfolio_combine.")
@@ -619,6 +641,10 @@ def main(argv: List[str]) -> int:
         exit_style=args.exit_style, tp_r=args.tp_r, timeout_bars=args.timeout_bars,
         cooldown_bars=args.cooldown_bars, timeframe=args.timeframe,
         symbol=args.symbol, min_confidence=args.min_confidence,
+        stale_exit_bars=args.stale_exit_bars,
+        stale_exit_below_r=args.stale_exit_below_r,
+        giveback_min_mfe_r=args.giveback_min_mfe_r,
+        giveback_r=args.giveback_r,
         emit_path=args.emit_trades)
     print(_fmt(out))
     if args.json_out:

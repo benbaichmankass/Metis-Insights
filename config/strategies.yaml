@@ -1145,7 +1145,10 @@ strategies:
     donchian: 20
     atr_period: 14
     atr_stop_mult: 2.5
-    trail_mult: 3.0
+    trail_mult: 4.0          # 3 -> 4 (M20 fleet sweep 2026-07-12, walk-forward
+                             # 6/6 on the GC=F proxy) — moves with the
+                             # mgc_trend_1h sibling (parity contract). Leg is
+                             # disabled; a re-enable resumes this cell.
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
     min_confidence: 0.0
     shadow_model_ids: []     # opt out of ML shadow auto-wiring while this
