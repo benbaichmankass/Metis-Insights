@@ -101,6 +101,37 @@ def _load_strategies(strategies: Optional[List[str]]) -> List[str]:
         return []
 
 
+_STRATEGY_CFG_CACHE: Dict[str, Any] = {"mtime": None, "cfgs": {}}
+
+
+def _load_live_strategy_cfgs() -> Dict[str, Dict[str, Any]]:
+    """Per-strategy cfg dicts from ``config/strategies.yaml`` (mtime-cached).
+
+    M20 E3: a YAML-declared exit lever (``stale_exit_bars``,
+    ``exit_head_*``) must reach ``monitor()`` for ALREADY-OPEN packages —
+    package meta is frozen at signal time, so a lever declared mid-hold
+    would otherwise only cover trades opened after the flip. monitor()
+    implementations keep preferring meta for frozen entry-time params
+    (atr, trail_mult); cfg is the live-YAML fallback. Best-effort: any
+    load error returns the previous cache (or ``{}``), never raises.
+    """
+    path = _REPO_ROOT / "config" / "strategies.yaml"
+    try:
+        mtime = path.stat().st_mtime
+        if _STRATEGY_CFG_CACHE["mtime"] == mtime:
+            return _STRATEGY_CFG_CACHE["cfgs"]
+        import yaml
+        with open(path, "r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+        cfgs = data.get("strategies") or {}
+        if isinstance(cfgs, dict):
+            cfgs = {str(k): v for k, v in cfgs.items() if isinstance(v, dict)}
+            _STRATEGY_CFG_CACHE.update(mtime=mtime, cfgs=cfgs)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("order_monitor: strategies.yaml unavailable: %s", exc)
+    return _STRATEGY_CFG_CACHE["cfgs"]
+
+
 def _resolve_db(db_path: Optional[str]):
     """Build a Database instance for the configured journal path."""
     from src.units.db.database import Database
@@ -6576,7 +6607,10 @@ def run_monitor_tick(
         logger.warning("order_monitor: DB unavailable: %s", exc)
         return summaries
 
-    cfg_map = strategy_cfg or {}
+    # Default to the LIVE strategies.yaml cfgs (M20 E3) so YAML-declared
+    # exit levers reach monitor() for already-open packages; an explicit
+    # strategy_cfg (tests) still wins.
+    cfg_map = strategy_cfg if strategy_cfg is not None else _load_live_strategy_cfgs()
 
     for strategy_name in _load_strategies(strategies):
         summary = _StrategyTickSummary()

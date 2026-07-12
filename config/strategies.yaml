@@ -206,6 +206,9 @@ strategies:
     # whose target_deployment_stage == "shadow" on this strategy's
     # signals. Set `shadow_model_ids: []` to opt out entirely or provide
     # an explicit list to pin specific models.
+    exit_head_model: exit-head-donchian-1h-v1
+    exit_head_threshold: 0.10
+    exit_head_action: close
 
   fade_breakout_4h:
     # Failed-breakout fade (S-STRAT-IMPROVE-S9) — the MIRROR of
@@ -763,6 +766,9 @@ strategies:
     # SOLUSDT signals auto-wire the symbol-agnostic decision/meta models (no
     # SOL-specific head exists; the symbol filter keeps BTC/MES heads off).
     # Observe-only — feeds the cross-symbol decision models with alt data.
+    exit_head_model: exit-head-donchian-1h-v1
+    exit_head_threshold: 0.10
+    exit_head_action: close
 
   trend_donchian_eth:
     # PROP-account alt variant of trend_donchian on ETHUSDT (PB-20260616-004).
@@ -801,6 +807,9 @@ strategies:
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
     # ETHUSDT signals auto-wire the symbol-agnostic decision/meta models (the
     # symbol filter keeps BTC/MES regime heads off). Observe-only.
+    exit_head_model: exit-head-donchian-1h-v1
+    exit_head_threshold: 0.10
+    exit_head_action: close
 
   trend_donchian_sol_prop:
     # SWAP-ROBUST prop exit variant of trend_donchian_sol (SOLUSDT, 1h, LONG-ONLY).

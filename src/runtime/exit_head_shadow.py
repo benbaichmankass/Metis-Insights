@@ -190,11 +190,16 @@ def _feature_row(candles_df, entry: float, risk: float, direction: str,
 
 
 def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
-                          candles_df, direction: str) -> None:
-    """Score one open donchian-family trade at the current bar (observe-only).
+                          candles_df, direction: str) -> Optional[Dict[str, Any]]:
+    """Score one open donchian-family trade at the last CLOSED bar.
 
     Called from ``trend_donchian.monitor`` after the close-path checks.
-    Every failure mode is a silent no-op. Returns ``None`` always.
+    Scoring itself is side-effect-logging only (shadow_predictions +
+    exit_lever_soak); every failure mode is a silent no-op returning
+    ``None``. On a successful score the record dict is returned so the
+    monitor's E3 APPLY path can consult it — that path is gated separately
+    (strategy-YAML declare + artifact ``stage == "advisory"``); the scorer
+    itself never decides anything.
     """
     try:
         artifact, booster = _load_artifact()
@@ -278,7 +283,9 @@ def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
         record = {
             "predicted_at_utc": datetime.now(timezone.utc).isoformat(),
             "model_id": artifact.get("model_id") or MODEL_ID,
-            "stage": "shadow",
+            "stage": str(artifact.get("stage") or "shadow"),
+            "tau": tau,
+            "below_r": below_r,
             "score": round(score, 6),
             "event_source": "exit_head",
             "symbol": str(open_pkg.get("symbol") or ""),
@@ -316,7 +323,11 @@ def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
                 )
             except Exception:  # noqa: BLE001
                 pass
-        return None
+        # M20 E3: the record is returned so the strategy monitor's APPLY
+        # path can act on it — but only behind its own gates (YAML declare
+        # + artifact stage == "advisory"). Observe-only callers ignore it;
+        # every failure mode above still returns None.
+        return record
     except Exception:  # noqa: BLE001 — the monitor must never feel this
         logger.debug("exit_head_shadow: scoring failed", exc_info=True)
         return None
