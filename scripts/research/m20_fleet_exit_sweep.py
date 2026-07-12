@@ -128,12 +128,22 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None) -
         v = cfg.get(key)
         if v is not None:
             a.extend([flag, str(v)])
+    def declared_levers():
+        # Config-exact means DECLARED EXIT LEVERS too — a shipped stale/giveback
+        # cell is part of the leg's baseline, so a new lever cell is measured
+        # ON TOP of it (the structural combo A/B the one-lever-per-leg rule
+        # wants). Donchian + pullback harnesses carry these flags.
+        opt("--stale-exit-bars", "stale_exit_bars")
+        opt("--stale-exit-below-r", "stale_exit_below_r")
+        opt("--giveback-min-mfe-r", "giveback_min_mfe_r")
+        opt("--giveback-r", "giveback_r")
     if fam == "donchian":
         opt("--donchian", "donchian")
         opt("--atr-period", "atr_period")
         opt("--atr-stop-mult", "atr_stop_mult")
         opt("--trail-mult", "trail_mult")
         opt("--min-confidence", "min_confidence")
+        declared_levers()
         if cfg.get("long_only"):
             a.append("--long-only")
     elif fam == "squeeze":
@@ -169,6 +179,7 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None) -
         opt("--trail-mult", "trail_mult")
         opt("--min-confidence", "min_confidence")
         opt("--adx-min", "adx_min")
+        declared_levers()
     return a
 
 
