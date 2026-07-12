@@ -39,8 +39,8 @@
         "ref": "memo §7.2 (banking loses net_R)"
       },
       "exit_head_ml": {
-        "status": "passed_unshipped",
-        "ref": "E3 PR open (YAML declare + advisory-stage gate); flips to shipped on operator merge + artifact promotion"
+        "status": "shipped",
+        "ref": "E3 LIVE 2026-07-12 (#6211 merged, operator-approved; artifact promoted shadow->advisory #6217; deploy #6216). below_half_r@tau0.10; first head-driven exit = mandatory health-review check."
       }
     },
     {
@@ -65,8 +65,8 @@
         "ref": "memo §7.2"
       },
       "exit_head_ml": {
-        "status": "passed_unshipped",
-        "ref": "E3 PR open (YAML declare + advisory-stage gate); flips to shipped on operator merge + artifact promotion"
+        "status": "shipped",
+        "ref": "E3 LIVE 2026-07-12 (#6211 merged, operator-approved; artifact promoted shadow->advisory #6217; deploy #6216). below_half_r@tau0.10; first head-driven exit = mandatory health-review check."
       }
     },
     {
@@ -91,8 +91,8 @@
         "ref": "memo §7.2"
       },
       "exit_head_ml": {
-        "status": "passed_unshipped",
-        "ref": "E3 PR open (YAML declare + advisory-stage gate); flips to shipped on operator merge + artifact promotion"
+        "status": "shipped",
+        "ref": "E3 LIVE 2026-07-12 (#6211 merged, operator-approved; artifact promoted shadow->advisory #6217; deploy #6216). below_half_r@tau0.10; first head-driven exit = mandatory health-review check."
       }
     },
     {
@@ -109,8 +109,8 @@
         "ref": "memo §6"
       },
       "giveback_stop": {
-        "status": "passed_unshipped",
-        "ref": "gb1.0R@MFE1R OOS −3.7→+7.4 memo §7.3 — needs walk-forward + Tier-3 ship (task #26)"
+        "status": "honest_negative",
+        "ref": "walk-forward at CONFIG-EXACT trail4 FAILS 1/6 folds (trainer #6215, 2026-07-12) — the trail5-era sweep pass (memo §7.3) did not survive the trail4 flip; trail4 already captures the giveback protection. Not shipped."
       },
       "exit_ladder": {
         "status": "honest_negative",

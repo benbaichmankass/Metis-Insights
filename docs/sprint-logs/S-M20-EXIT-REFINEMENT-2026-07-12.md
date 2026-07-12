@@ -151,7 +151,14 @@ stops, exit-ladder optimization." Delivered (PR #6166):
 - **Giveback-stop lever** (memo § 7.3, 44 config-exact cells): FAILS for
   donchian (trail already covers it), **PASSES for pullback BTC**
   (gb1.0R@MFE1R: OOS −3.7→+7.4 at flat IS) — confirms trail4's read; combos
-  worse than either lever alone.
+  worse than either lever alone. **SUPERSEDED same day (walk-forward at
+  config-exact trail4, trainer #6215): HONEST NEGATIVE — 1/6 folds.** The
+  sweep pass was measured at the then-live trail5; once trail4 shipped, the
+  giveback edge vanished (trail4 already captures the protection; the lever
+  just churns ~25% more trades at lower net_R). Not shipped; matrix updated.
+  Lesson on record: a lever validated against one exit config must be
+  RE-validated when a sibling exit lever changes — config-exact means
+  today's YAML, not the sweep-day's.
 - **Exit-head program**: full E0–E3 plan committed
   (`docs/research/M20-exit-head-PROGRAM.md`); **E0 FIRST BUILD DONE same day**
   (#6176 builder + #6181 journal-loader schema fix; trainer runs #6179/#6182).
