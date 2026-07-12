@@ -120,7 +120,6 @@ def main() -> int:
                         t_close or t_open, entry, sl, is_long)
         if pm is None or pm["bars"] < 2:
             continue
-        risk = abs(entry - sl)
         real_exit_r = pm["marks"][-1]  # mark at close bar ≈ exit R basis
         # predictions during the hold
         preds = shadow[sym]
