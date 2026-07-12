@@ -296,10 +296,17 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             for t in trades:
                 fr = _fee_r(t)
                 fh.write(json.dumps({
-                    "strategy": "htf_pullback_trend_2h", "entry_time": str(t.entry_time),
+                    "strategy": "htf_pullback_trend_2h", "symbol": symbol,
+                    "entry_time": str(t.entry_time),
                     "direction": t.direction, "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - fr, 4),
-                    "confidence": t.confidence}, default=str) + "\n")
+                    "confidence": t.confidence,
+                    # M20 E0 exit-head dataset fields (additive — existing
+                    # consumers .get() what they need): trade geometry so the
+                    # builder can reconstruct the per-bar in-trade path.
+                    "entry": t.entry, "sl": t.sl,
+                    "exit_time": str(t.exit_time),
+                    "exit_reason": t.outcome}, default=str) + "\n")
     params: Dict[str, Any] = {"trend_lookback": trend_lookback,
                               "pullback_lookback": pullback_lookback,
                               "pullback_frac": pullback_frac,

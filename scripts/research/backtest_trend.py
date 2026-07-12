@@ -26,6 +26,7 @@ import json
 import os
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, List
 
 import pandas as pd
@@ -299,6 +300,10 @@ def main(argv: List[str]) -> int:
     p.add_argument('--giveback-r', type=float, default=1.0,
                    help='R given back from the peak that triggers the exit '
                         '(default 1.0).')
+    p.add_argument('--emit-trades', default=None, metavar='PATH',
+                   help='Write per-trade JSONL (entry_time/direction/net_r/'
+                        'entry/sl/exit_time/exit_reason) for the M20 E0 '
+                        'exit-head dataset builder.')
     p.add_argument('--json', dest='json_out', default=None)
     a = p.parse_args(argv)
 
@@ -324,6 +329,18 @@ def main(argv: List[str]) -> int:
     if a.bank_frac:
         params['bank_frac'] = a.bank_frac
         params['bank_at_r'] = a.bank_at_r
+    if a.emit_trades:
+        Path(a.emit_trades).parent.mkdir(parents=True, exist_ok=True)
+        with open(a.emit_trades, 'w', encoding='utf-8') as fh:
+            for t in trades:
+                fh.write(json.dumps({
+                    'strategy': 'trend_donchian', 'symbol': a.symbol,
+                    'entry_time': str(t.entry_time),
+                    'exit_time': str(t.exit_time),
+                    'direction': t.direction, 'entry': t.entry, 'sl': t.sl,
+                    'gross_r': t.r_multiple,
+                    'net_r': round(t.r_multiple - _fee_r(t), 4),
+                    'exit_reason': t.outcome}, default=str) + '\n')
     out = summarize(trades, params, df)
     line = (f"trend_donchian — {a.symbol} {a.timeframe} dc={a.donchian} tm={a.trail_mult} "
             f"lo={a.long_only}  trades={out['total_trades']} win={out['win_rate_pct']}% "

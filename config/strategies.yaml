@@ -646,15 +646,18 @@ strategies:
     symbols:
       - BTCUSDT              # the only validated symbol (SUPPORTED_SYMBOLS gate).
     # Strategy params — the validated walk-forward config (trend_lookback 40 /
-    # pullback_frac 0.5 / trail_mult 5.0). The wide Chandelier trail (5.0) is the
-    # let-winners-run lever; the deeper-pullback entry (0.5 vs the scaffold's
+    # pullback_frac 0.5). The deeper-pullback entry (0.5 vs the scaffold's
     # 0.33) and faster trend filter (40 vs 50) were the sweep's robust winners.
+    # trail_mult 5.0 -> 4.0 (M20 phase-3, operator-approved 2026-07-12): the
+    # per-year walk-forward showed 4.0 wins 4/6 folds incl. 2025+2026
+    # (OOS net_R -3.7 -> +9.1) — the 5.0 trail held losers through chop OOS.
+    # Evidence: docs/research/M20-exit-refinement-2026-07-12.md § 7.2.
     trend_lookback: 40
     pullback_lookback: 10
     pullback_frac: 0.5
     atr_period: 14
     atr_stop_mult: 2.5
-    trail_mult: 5.0
+    trail_mult: 4.0
     # No fixed profit target — the Chandelier trail is the sole profit-exit
     # (matches the backtest). `tp_r` is a far ~50R sentinel that still satisfies
     # the pipeline's full-SL/TP dispatch gate.
