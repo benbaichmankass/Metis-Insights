@@ -78,7 +78,8 @@ def load_csv_candles(path: Path) -> List[dict]:
             cl = _f(r.get("close"))
             if t is None or hi is None or lo is None or cl is None:
                 continue
-            out.append({"t": t, "high": hi, "low": lo, "close": cl})
+            out.append({"t": t, "high": hi, "low": lo, "close": cl,
+                        "volume": _f(r.get("volume"))})
     out.sort(key=lambda x: x["t"])
     return out
 
@@ -93,11 +94,14 @@ def resample(candles: List[dict], tf_s: int) -> List[dict]:
                 out.append(cur)
             cur_bucket = b
             cur = {"t": float(b), "high": c["high"], "low": c["low"],
-                   "close": c["close"]}
+                   "close": c["close"], "volume": c.get("volume")}
         else:
             cur["high"] = max(cur["high"], c["high"])
             cur["low"] = min(cur["low"], c["low"])
             cur["close"] = c["close"]
+            v = c.get("volume")
+            cur["volume"] = ((cur.get("volume") or 0.0) + v
+                             if v is not None else cur.get("volume"))
     if cur is not None:
         out.append(cur)
     return out
@@ -274,12 +278,32 @@ def rows_for_trade(tr: dict, candles: List[dict], cand_ts: List[float],
     mfe = mae = 0.0
     chop_hits = 0
     stagn_run = 0
+    # M20 P4.3 exhaustion-state trackers (design doc § P4.3): the bar index /
+    # market state AT the trade's favourable extreme, so features can measure
+    # "how has the move decayed since its peak". All strictly bars <= t.
+    peak_a = 0
+    atr_at_peak: Optional[float] = None
+    mom8_at_peak: Optional[float] = None
+    vol_at_peak: Optional[float] = None
+    dc_hist: List[float] = []
+    sign = 1.0 if is_long else -1.0
     for a, k in enumerate(range(i0, j_end)):
         c = candles[k]
         hi_r = ((c["high"] - entry) if is_long else (entry - c["low"])) / risk
         lo_r = ((c["low"] - entry) if is_long else (entry - c["high"])) / risk
+        # favourable-signed 8-bar close momentum (pre-entry bars allowed —
+        # they are <= t)
+        mom_8 = None
+        if k >= 8 and candles[k - 8]["close"] > 0:
+            mom_8 = sign * (c["close"] / candles[k - 8]["close"] - 1.0)
+        new_peak = hi_r > mfe
         mfe = max(mfe, hi_r)
         mae = min(mae, lo_r)
+        if new_peak or a == 0:
+            peak_a = a
+            atr_at_peak = atrs[k]
+            mom8_at_peak = mom_8
+            vol_at_peak = c.get("volume")
         m = marks[a]
         if abs(m) < CHOP_BAND_R:
             chop_hits += 1
@@ -294,6 +318,26 @@ def rows_for_trade(tr: dict, candles: List[dict], cand_ts: List[float],
         dc_hi = max(x["high"] for x in candles[max(0, k - 19):k + 1])
         dc_mid = (dc_lo + dc_hi) / 2.0
         dc_dist = ((c["close"] - dc_mid) / atr_now) if atr_now else None
+        # P4.3 features (leakage-guarded — everything from bars <= t)
+        bars_since_peak = a - peak_a
+        mom_decay = ((mom8_at_peak - mom_8)
+                     if mom_8 is not None and mom8_at_peak is not None else None)
+        atr_impulse_phase = ((atr_now / atr_at_peak)
+                             if atr_now and atr_at_peak else None)
+        vol_win = [x.get("volume") for x in candles[max(0, k - 19):k + 1]]
+        vol_win = sorted(v for v in vol_win if v is not None and v > 0)
+        vol_med = vol_win[len(vol_win) // 2] if len(vol_win) >= 5 else None
+        vol_at_peak_ratio = ((vol_at_peak / vol_med)
+                             if vol_at_peak and vol_med else None)
+        band_ext_pctile = None
+        if dc_dist is not None:
+            fav_dc = sign * dc_dist
+            if len(dc_hist) >= 3:
+                band_ext_pctile = round(
+                    sum(1 for x in dc_hist if x <= fav_dc) / len(dc_hist), 4)
+            dc_hist.append(fav_dc)
+        failure_swing = (1 if a > 0 and bars_since_peak <= 2
+                         and m < marks[a - 1] else 0)
         ts = datetime.fromtimestamp(c["t"], tz=timezone.utc)
         out.append({
             # keys
@@ -316,6 +360,16 @@ def rows_for_trade(tr: dict, candles: List[dict], cand_ts: List[float],
             "donchian_mid_dist_atr": (round(dc_dist, 4)
                                       if dc_dist is not None else None),
             "hour_of_day": ts.hour, "dayofweek": ts.weekday(),
+            # P4.3 exhaustion features (momentum-exhaustion design § P4.3)
+            "bars_since_peak": bars_since_peak,
+            "mom_8": round(mom_8, 6) if mom_8 is not None else None,
+            "mom_decay": round(mom_decay, 6) if mom_decay is not None else None,
+            "atr_impulse_phase": (round(atr_impulse_phase, 4)
+                                  if atr_impulse_phase is not None else None),
+            "vol_at_peak_ratio": (round(vol_at_peak_ratio, 4)
+                                  if vol_at_peak_ratio is not None else None),
+            "band_ext_pctile": band_ext_pctile,
+            "failure_swing": failure_swing,
             # context
             "direction": "long" if is_long else "short",
             # labels
@@ -323,6 +377,15 @@ def rows_for_trade(tr: dict, candles: List[dict], cand_ts: List[float],
             "future_r_delta": round(final_r - m, 4),
             "holding_pays": 1 if (final_r - m) >= HOLDING_PAYS_R else 0,
         })
+    # M20 P4.2 label (design § P4.2): peak_is_in — no meaningful new MFE from
+    # bar t onward. Pure truncation observable (final trade MFE - MFE(t)),
+    # same eps as holding_pays; additive second pass so existing labels are
+    # byte-unchanged.
+    final_mfe = mfe
+    for r in out:
+        fmd = final_mfe - r["mfe_r"]
+        r["future_mfe_delta"] = round(fmd, 4)
+        r["peak_is_in"] = 1 if fmd <= HOLDING_PAYS_R else 0
     return out
 
 

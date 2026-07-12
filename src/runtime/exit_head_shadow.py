@@ -108,26 +108,98 @@ def _feature_row(candles_df, entry: float, risk: float, direction: str,
     win = candles_df.iloc[entry_idx:]
     if len(win) < 2:
         return None
-    highs = win["high"].astype(float).to_numpy()
-    lows = win["low"].astype(float).to_numpy()
-    closes = win["close"].astype(float).to_numpy()
+    full_highs = candles_df["high"].astype(float).to_numpy()
+    full_lows = candles_df["low"].astype(float).to_numpy()
+    full_closes = candles_df["close"].astype(float).to_numpy()
+    full_vols = None
+    if "volume" in candles_df.columns:
+        try:
+            full_vols = candles_df["volume"].astype(float).to_numpy()
+        except (TypeError, ValueError):
+            full_vols = None
 
+    # Wilder ATR-14 full series (mirror of the builder's atr_series: valid
+    # from index >= 14, seeded with the first bar's plain range).
+    atrs = []
+    _atr = None
+    _prev_close = None
+    for i in range(n):
+        tr = (full_highs[i] - full_lows[i]) if _prev_close is None else max(
+            full_highs[i] - full_lows[i], abs(full_highs[i] - _prev_close),
+            abs(full_lows[i] - _prev_close))
+        _atr = tr if _atr is None else (_atr * 13 + tr) / 14
+        atrs.append(_atr if i >= 14 else None)
+        _prev_close = full_closes[i]
+
+    sign = 1.0 if is_long else -1.0
     mfe = mae = 0.0
     chop_hits = 0
     stagn_run = 0
-    for hi, lo, cl in zip(highs, lows, closes):
+    # M20 P4.3 exhaustion-state trackers — EXACT mirror of the E0 builder's
+    # per-bar loop (build_exit_head_dataset.rows_for_trade); live == train
+    # parity is enforced by tests/test_exit_head_feature_parity.py.
+    peak_a = 0
+    atr_at_peak = None
+    mom8_at_peak = None
+    vol_at_peak = None
+    dc_hist = []
+    prev_m = None
+    for a in range(len(win)):
+        k = entry_idx + a
+        hi, lo, cl = full_highs[k], full_lows[k], full_closes[k]
         hi_r = ((hi - entry) if is_long else (entry - lo)) / risk
         lo_r = ((lo - entry) if is_long else (entry - hi)) / risk
         m = ((cl - entry) if is_long else (entry - cl)) / risk
+        mom_8 = None
+        if k >= 8 and full_closes[k - 8] > 0:
+            mom_8 = sign * (cl / full_closes[k - 8] - 1.0)
+        new_peak = hi_r > mfe
         mfe = max(mfe, hi_r)
         mae = min(mae, lo_r)
+        if new_peak or a == 0:
+            peak_a = a
+            atr_at_peak = atrs[k]
+            mom8_at_peak = mom_8
+            vol_at_peak = (float(full_vols[k])
+                           if full_vols is not None
+                           and math.isfinite(full_vols[k]) else None)
         if abs(m) < 0.25:
             chop_hits += 1
             stagn_run += 1
         else:
             stagn_run = 0
+        atr_k = atrs[k]
+        dc_lo_k = float(full_lows[max(0, k - 19):k + 1].min())
+        dc_hi_k = float(full_highs[max(0, k - 19):k + 1].max())
+        dc_dist_k = ((cl - (dc_lo_k + dc_hi_k) / 2.0) / atr_k) if atr_k else None
+        if a == len(win) - 1:
+            last_mom_8 = mom_8
+            last_dc_dist = dc_dist_k
+            band_ext_pctile = None
+            if dc_dist_k is not None and len(dc_hist) >= 3:
+                fav_dc = sign * dc_dist_k
+                band_ext_pctile = round(
+                    sum(1 for x in dc_hist if x <= fav_dc) / len(dc_hist), 4)
+            bars_since_peak = a - peak_a
+            failure_swing = (1 if a > 0 and bars_since_peak <= 2
+                             and prev_m is not None and m < prev_m else 0)
+        elif dc_dist_k is not None:
+            dc_hist.append(sign * dc_dist_k)
+        prev_m = m
     age = len(win) - 1
-    open_r = ((closes[-1] - entry) if is_long else (entry - closes[-1])) / risk
+    open_r = ((full_closes[-1] - entry) if is_long
+              else (entry - full_closes[-1])) / risk
+    mom_decay = ((mom8_at_peak - last_mom_8)
+                 if last_mom_8 is not None and mom8_at_peak is not None else None)
+    atr_now = atrs[n - 1]
+    atr_impulse_phase = ((atr_now / atr_at_peak)
+                         if atr_now and atr_at_peak else None)
+    vol_at_peak_ratio = None
+    if full_vols is not None and vol_at_peak:
+        vw = sorted(v for v in full_vols[max(0, n - 20):n]
+                    if math.isfinite(v) and v > 0)
+        vol_med = vw[len(vw) // 2] if len(vw) >= 5 else None
+        vol_at_peak_ratio = (vol_at_peak / vol_med) if vol_med else None
 
     # entry-time refs need bars strictly BEFORE entry
     def _rvol(cl):
@@ -139,29 +211,10 @@ def _feature_row(candles_df, entry: float, risk: float, direction: str,
         mu = sum(rets) / len(rets)
         return math.sqrt(sum((r - mu) ** 2 for r in rets) / (len(rets) - 1))
 
-    full_closes = candles_df["close"].astype(float).to_numpy()
     vol_entry = _rvol(list(full_closes[max(0, entry_idx - 21):entry_idx]))
     vol_now = _rvol(list(full_closes[max(0, n - 21):n]))
-
-    def _atr_at(idx):
-        # Wilder ATR-14 up to and including idx (mirror of the builder).
-        atr = None
-        prev_close = None
-        h = candles_df["high"].astype(float).to_numpy()
-        lo_ = candles_df["low"].astype(float).to_numpy()
-        c = full_closes
-        for i in range(0, idx + 1):
-            tr = (h[i] - lo_[i]) if prev_close is None else max(
-                h[i] - lo_[i], abs(h[i] - prev_close), abs(lo_[i] - prev_close))
-            atr = tr if atr is None else (atr * 13 + tr) / 14
-            prev_close = c[i]
-        return atr if idx >= 14 else None
-
-    atr_entry = _atr_at(entry_idx - 1) if entry_idx >= 1 else None
-    atr_now = _atr_at(n - 1)
-    dc_lo = float(candles_df["low"].astype(float).iloc[max(0, n - 20):n].min())
-    dc_hi = float(candles_df["high"].astype(float).iloc[max(0, n - 20):n].max())
-    dc_dist = ((full_closes[-1] - (dc_lo + dc_hi) / 2.0) / atr_now) if atr_now else None
+    atr_entry = atrs[entry_idx - 1] if entry_idx >= 1 else None
+    dc_dist = last_dc_dist
 
     ts = candles_df["timestamp"].iloc[-1]
     try:
@@ -184,6 +237,19 @@ def _feature_row(candles_df, entry: float, risk: float, direction: str,
         "donchian_mid_dist_atr": (round(float(dc_dist), 4)
                                   if dc_dist is not None else None),
         "hour_of_day": ts.hour, "dayofweek": ts.weekday(),
+        # P4.3 exhaustion features (live twin of the E0 builder block)
+        "bars_since_peak": int(bars_since_peak),
+        "mom_8": (round(float(last_mom_8), 6)
+                  if last_mom_8 is not None else None),
+        "mom_decay": (round(float(mom_decay), 6)
+                      if mom_decay is not None else None),
+        "atr_impulse_phase": (round(float(atr_impulse_phase), 4)
+                              if atr_impulse_phase is not None else None),
+        "vol_at_peak_ratio": (round(float(vol_at_peak_ratio), 4)
+                              if vol_at_peak_ratio is not None else None),
+        "band_ext_pctile": (float(band_ext_pctile)
+                            if band_ext_pctile is not None else None),
+        "failure_swing": int(failure_swing),
         "is_long": 1 if is_long else 0,
         "_bar_ts": ts.isoformat(),
     }

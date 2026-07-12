@@ -52,6 +52,11 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--db", default=None,
                     help="optional trade_journal.db for the live-source split")
+    ap.add_argument("--target", default=None,
+                    choices=["holding_pays", "peak_is_in"],
+                    help="pass through to train_exit_head (P4.2)")
+    ap.add_argument("--features", default=None, choices=["base", "extended"],
+                    help="pass through to train_exit_head (P4.3)")
     a = ap.parse_args(argv[1:])
 
     strategies = (yaml.safe_load((REPO / "config" / "strategies.yaml")
@@ -121,8 +126,13 @@ def main(argv: list[str]) -> int:
     report = {}
     for fam_dir in sorted(d for d in out.iterdir()
                           if d.is_dir() and (d / "rows.jsonl").exists()):
-        p = sh([sys.executable, REPO / "scripts/ml/train_exit_head.py",
-                "--family-dir", fam_dir, "--tf", a.tf], timeout=7200)
+        train_cmd = [sys.executable, REPO / "scripts/ml/train_exit_head.py",
+                     "--family-dir", fam_dir, "--tf", a.tf]
+        if a.target:
+            train_cmd += ["--target", a.target]
+        if a.features:
+            train_cmd += ["--features", a.features]
+        p = sh(train_cmd, timeout=7200)
         print(p.stdout[-3000:], p.stderr[-500:], flush=True)
         e1 = fam_dir / "e1_report.json"
         if e1.exists():

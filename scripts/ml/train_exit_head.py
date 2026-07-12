@@ -41,8 +41,19 @@ FEATURES = [
     "vol_ratio_vs_entry", "atr_ratio_vs_entry", "donchian_mid_dist_atr",
     "hour_of_day", "dayofweek", "is_long",
 ]
+# M20 P4.3 exhaustion feature block (momentum-exhaustion design § P4.3) —
+# opt-in via --features extended so re-runs on pre-P4 datasets are unchanged.
+FEATURES_EXH = [
+    "bars_since_peak", "mom_8", "mom_decay", "atr_impulse_phase",
+    "vol_at_peak_ratio", "band_ext_pctile", "failure_swing",
+]
+# M20 P4.2: classification target — holding_pays (the original head) or
+# peak_is_in (predict the favourable extreme is already behind us; acts on
+# HIGH probability, so its policy arms use TAUS_HI). Set from --target.
+TARGET = "holding_pays"
 EMBARGO_S = 7 * 86400
 TAUS = [0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50]
+TAUS_HI = [0.60, 0.70, 0.80]
 TF_S = {"5m": 300, "15m": 900, "1h": 3600, "2h": 7200, "4h": 14400, "1d": 86400}
 
 
@@ -71,7 +82,7 @@ def group_trades(rows: List[dict]) -> Dict[str, List[dict]]:
 def matrix(rows: List[dict]):
     X = np.array([[float(r.get(f) if r.get(f) is not None else np.nan)
                    for f in FEATURES] for r in rows], dtype=float)
-    y = np.array([int(r["holding_pays"]) for r in rows], dtype=int)
+    y = np.array([int(r[TARGET]) for r in rows], dtype=int)
     return X, y
 
 
@@ -156,6 +167,44 @@ def policy_model_cond(bars: List[dict], probs: np.ndarray, tau: float,
     return replay_trade(bars, idx)
 
 
+# ---- P4.2 peak-is-in policy arms (act on HIGH probability) ---------------
+def policy_peak_full(bars: List[dict], probs: np.ndarray, tau: float) -> dict:
+    """Full close at the first bar where P(peak_is_in) > tau."""
+    idx = None
+    for i in range(len(bars)):
+        if probs[i] > tau:
+            idx = i
+            break
+    return replay_trade(bars, idx)
+
+
+def policy_peak_winner(bars: List[dict], probs: np.ndarray, tau: float) -> dict:
+    """Close on the signal only if the trade is a proven winner (>= +0.5R) —
+    bank winners near their peak; losers stay with the stop/stale levers."""
+    idx = None
+    for i in range(len(bars)):
+        if probs[i] > tau and float(bars[i]["open_r"]) >= 0.5:
+            idx = i
+            break
+    return replay_trade(bars, idx)
+
+
+def policy_peak_lock(bars: List[dict], probs: np.ndarray, tau: float,
+                     g: float) -> dict:
+    """The signal ARMS an R-lock instead of closing: after the first bar with
+    P(peak_is_in) > tau, exit at the first bar whose close has given back
+    >= g R from the trade's MFE (a truncation-observable stand-in for a
+    trail-tighten — uses only the observed mark path, no barrier
+    re-simulation)."""
+    armed = None
+    for i in range(len(bars)):
+        if armed is None and probs[i] > tau:
+            armed = i
+        if armed is not None and float(bars[i]["giveback_r"]) >= g:
+            return replay_trade(bars, i)
+    return replay_trade(bars, None)
+
+
 def policy_stale(bars: List[dict], n: int = 8, below_r: float = 0.0) -> dict:
     idx = None
     for i, b in enumerate(bars):
@@ -209,6 +258,21 @@ def eval_split(model, trades: Dict[str, List[dict]], tf_s: int) -> dict:
         "giveback_1_1": agg([policy_giveback(b) for b in trades.values()], tf_s),
         "model": {},
     }
+    if TARGET == "peak_is_in":
+        # P4.2 arms: act on HIGH probability that the peak is behind us
+        for tau in TAUS_HI:
+            out["model"][f"peak_full_tau_{tau}"] = agg(
+                [policy_peak_full(b, probs[tk], tau)
+                 for tk, b in trades.items()], tf_s)
+            out["model"][f"peak_winner_tau_{tau}"] = agg(
+                [policy_peak_winner(b, probs[tk], tau)
+                 for tk, b in trades.items()], tf_s)
+            for g in (0.5, 1.0):
+                out["model"][f"peak_lock{g:g}_tau_{tau}"] = agg(
+                    [policy_peak_lock(b, probs[tk], tau, g)
+                     for tk, b in trades.items()], tf_s)
+        out["model_cond"] = {}
+        return out
     for tau in TAUS:
         out["model"][f"tau_{tau}"] = agg(
             [policy_model(b, probs[tk], tau) for tk, b in trades.items()], tf_s)
@@ -228,10 +292,25 @@ def main(argv: List[str]) -> int:
                     help="E0 family dir containing rows.jsonl")
     ap.add_argument("--tf", required=True, choices=sorted(TF_S))
     ap.add_argument("--min-fold-trades", type=int, default=50)
+    ap.add_argument("--target", choices=["holding_pays", "peak_is_in"],
+                    default="holding_pays",
+                    help="M20 P4.2: classification target. peak_is_in needs a "
+                         "post-P4 dataset (rows carry the label).")
+    ap.add_argument("--features", choices=["base", "extended"], default="base",
+                    help="M20 P4.3: 'extended' adds the exhaustion block "
+                         "(needs a post-P4 dataset; missing cols become NaN).")
     a = ap.parse_args(argv[1:])
+    global TARGET, FEATURES
+    TARGET = a.target
+    if a.features == "extended":
+        FEATURES = FEATURES + FEATURES_EXH
 
     fam_dir = Path(a.family_dir)
     rows = load_rows(fam_dir / "rows.jsonl")
+    if TARGET == "peak_is_in" and rows and "peak_is_in" not in rows[0]:
+        print("dataset predates the peak_is_in label — rebuild with the "
+              "post-P4 builder first", file=sys.stderr)
+        return 2
     tf_s = TF_S[a.tf]
     harness = [r for r in rows if r["source"] == "harness"]
     live = [r for r in rows if r["source"] == "live"]
@@ -278,6 +357,7 @@ def main(argv: List[str]) -> int:
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "family": fam_dir.name, "tf": a.tf, "features": FEATURES,
+        "target": TARGET,
         "taus": TAUS, "embargo_days": EMBARGO_S // 86400,
         "harness_trades": len(h_trades), "live_trades": len(l_trades),
         "folds": folds, "live_validation": live_eval,
