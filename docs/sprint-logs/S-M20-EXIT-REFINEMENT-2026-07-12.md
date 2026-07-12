@@ -253,6 +253,24 @@ stops, exit-ladder optimization." Delivered (PR #6166):
 - **Live head read post-fix:** the open BTC donchian trade (3344, +0.26R,
   59 bars) scores P(pays) 0.030–0.036 with `would_exit:true` — under E3 the
   head would bank it at the next bar close.
+- **E3 LIVE + FIRST EXIT VERIFIED (operator approved — "approved, merge #6211
+  and run the sequence").** #6211 merged 14:44Z, deployed (HEAD `5d5adbdf`),
+  artifact promoted shadow→advisory on the trainer (#6217). **First ML
+  head-driven close on real money at 14:46:45Z:** BTC trend_donchian trade
+  3344 (bybit_2), entry 63754.2 → exit 64128.1 × 0.004, PnL +$1.50 (+0.59%,
+  ≈+0.36R) on a 2d13h chop-hold the head read at P(pays)=0.03,
+  `exit_reason: exit_head`. Mechanics check PASS (fast-gate doctrine):
+  exchange flat (boot_reconcile ghost=0/untracked=0), journal closed with
+  pnl, no retry loop, all other legs no_change, zero out-of-family verdicts
+  (#6223/#6224/#6225). The head's would-exit had flagged this exact hold as
+  dead capital — the "bank it" behaviour the milestone mandate asked for.
+- **Fleet-wide sweep RUNNING** (task #27): `m20_fleet_exit_sweep.py` merged
+  (#6219) + equities/futures candle gaps fetched (#6220) — 25+ legs runnable,
+  detached run on the trainer (issues #6221/#6222). Early cross-validation:
+  SOL stale8 re-confirms PASS 4/6 independently; **SOL stale12 PASS 6/6**
+  (Tier-3 tweak candidate, queued for operator); BTC-live + htf_pullback
+  cells fail (matches memo). Giveback pullback-BTC honest-negative at
+  config-exact trail4 recorded (#6218).
 - **E2→online-soak plan:** post-E3-flip the head soaks LIVE; the first
   head-driven exit is a mandatory health-review mechanics check; realized
   `future_r_delta` accrues in the standard soak logs for /ml-review.
