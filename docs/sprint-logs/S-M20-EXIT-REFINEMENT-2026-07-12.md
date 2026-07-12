@@ -143,14 +143,33 @@ stops, exit-ladder optimization." Delivered (PR #6166):
   pre-merge; the flip proceeded on explicit order. ETH config-exact clean pass.
 - **Trail4 walk-forward**: 4/6 yearly folds incl. 2025+2026, 5y +35% —
   recommendation delivered (`trail_mult 5→4` on `htf_pullback_trend_2h`),
-  awaiting operator go (`PB-20260712-PULLBACK-TRAIL4-WALKFORWARD`).
+  **operator-approved same day ("let's move forward on the pullback btc") and
+  SHIPPED LIVE** (#6176, `pull-and-deploy` #6177 — live HEAD `15becc0`, trader
+  restarted 09:29 UTC). `eth_pullback_2h` stays 5.0 (folds failed). The stale
+  BTC↔ETH trail_mult equality assertion in
+  `tests/test_m15_eth_pullback_wiring.py` was updated to per-leg pins.
 - **Giveback-stop lever** (memo § 7.3, 44 config-exact cells): FAILS for
   donchian (trail already covers it), **PASSES for pullback BTC**
   (gb1.0R@MFE1R: OOS −3.7→+7.4 at flat IS) — confirms trail4's read; combos
   worse than either lever alone.
 - **Exit-head program**: full E0–E3 plan committed
-  (`docs/research/M20-exit-head-PROGRAM.md`); E0 dataset builder is the next
-  build step.
+  (`docs/research/M20-exit-head-PROGRAM.md`); **E0 FIRST BUILD DONE same day**
+  (#6176 builder + #6181 journal-loader schema fix; trainer runs #6179/#6182).
+  `scripts/ml/build_exit_head_dataset.py` + `--emit-trades` on both harnesses;
+  5y config-exact harness trades (don BTC 428 / ETH 901 / SOL 402, pb BTC 375
+  / ETH 244) + live journal → per-bar datasets on the trainer under
+  `datasets-out/exit_head/{1h,2h}/`:
+  - **donchian 1h**: 34,919 rows (1,662 harness + 15 live trades),
+    `holding_pays` 20.7% — i.e. at ~4 of 5 in-trade bars, holding did NOT add
+    ≥ +0.25R (the chop-hold thesis, now as a label distribution).
+  - **pullback 2h**: 30,512 rows (614 harness + 26 live trades),
+    `holding_pays` 28.9%.
+  - **E1 coverage gate** (≥300 harness AND ≥20 live): **pullback-2h ENTERS
+    E1**; donchian-1h is at 15/20 live trades (harness side far over) — waits
+    for a handful more resolvable live closes. Other families are live-only
+    (no harness generator yet) and wait per the program doc.
+  - Caveat on record: `dist_to_stop_r` is measured vs the INITIAL stop; the
+    live trailing-stop path is not replayed (documented in the builder).
 
 ## Documentation Updated
 - `docs/research/M20-exit-refinement-2026-07-12.md` (the evidence memo).
