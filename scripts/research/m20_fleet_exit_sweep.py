@@ -172,7 +172,7 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None) -
     return a
 
 
-def cells_for(cfg: dict) -> list[tuple[str, str, list[str]]]:
+def cells_for(cfg: dict, fam: str | None = None) -> list[tuple[str, str, list[str]]]:
     """(cell_tag, matrix_lever, extra_args). Config-exact base is implied."""
     out = [
         ("stale8_lt0R", "stale_stop", ["--stale-exit-bars", "8"]),
@@ -190,6 +190,25 @@ def cells_for(cfg: dict) -> list[tuple[str, str, list[str]]]:
             if nt >= 1.5:
                 out.append((f"trail{nt:g}", "trail_geometry",
                             ["--trail-mult", str(nt)]))
+    # M20 P4.1 trail-decay cells (momentum-exhaustion design § 2): tighten the
+    # trail once the move is R-armed and/or stalls. Only for families whose
+    # harness carries the lever (trend/pullback); tight mult scales off the
+    # leg's own base trail (half, floored at 1.5) so cells stay config-relative.
+    if tm is not None and fam in ("donchian", "pullback"):
+        tight = max(1.5, round(float(tm) / 2.0, 1))
+        decay = [
+            (f"decay_arm2R_t{tight:g}",
+             ["--trail-decay-arm-r", "2.0"]),
+            (f"decay_stall6_t{tight:g}",
+             ["--trail-decay-stall-bars", "6"]),
+            (f"decay_stall10_t{tight:g}",
+             ["--trail-decay-stall-bars", "10"]),
+            (f"decay_arm1.5R_stall6_t{tight:g}",
+             ["--trail-decay-arm-r", "1.5", "--trail-decay-stall-bars", "6"]),
+        ]
+        for tag, extra in decay:
+            out.append((tag, "trail_decay",
+                        extra + ["--trail-decay-tight-mult", str(tight)]))
     return out
 
 
@@ -257,7 +276,7 @@ def main(argv: list[str]) -> int:
                      "harness": harness, "data": data, "proxy": proxy,
                      "resample": resample,
                      "base": base_args(name, cfg, fam, data, resample),
-                     "cells": cells_for(cfg)})
+                     "cells": cells_for(cfg, fam)})
 
     print(f"plan: {len(plan)} legs runnable, {len(skipped)} skipped")
     for s in skipped:
