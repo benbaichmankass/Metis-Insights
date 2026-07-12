@@ -305,7 +305,7 @@ since-entry favourable extreme in R) into the live monitor with the exact
 on the unrestrictable-window ambiguity (a pre-entry extreme must never fake a
 peak). Checked AFTER stale-stop, matching the harness's exit precedence.
 `order_package` threads `giveback_min_mfe_r`/`giveback_r` into meta; the
-monitor's live-cfg default (#6211) covers already-open packages. 12 new tests
+monitor's live-cfg default (#6211) covers already-open packages. 11 new tests
 (`tests/test_giveback_stop_lever.py`) incl. short-side, pre-entry-peak
 exclusion, stale-precedence, and annotate-dedup; full donchian suite 62 pass.
 
