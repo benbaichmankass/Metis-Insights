@@ -187,6 +187,30 @@ stops, exit-ladder optimization." Delivered (PR #6166):
   BTC donchian hold at P(pays) 0.12–0.24 — a state the <0R stale-stop cell
   can't see. **E2 live-shadow graduation proposed to the operator (Tier-2,
   observe-only)** — memo § 9.
+- **E2 LIVE (same day, operator "ok continue"; #6196 + guard fix #6201).**
+  `src/runtime/exit_head_shadow.py` (observe-only scorer, hooked into
+  `trend_donchian.monitor()` § 2.6) + `scripts/ml/export_exit_head.py`
+  (self-contained artifact: booster + shape `below_half_r@τ0.10`, stage
+  `shadow`) + trainer-mirror channel (`publish_trainer_mirror.sh` →
+  `trainer_mirror/exit_head/`). Artifact `exit-head-donchian-1h-v1` (34,338
+  rows / 1,662 trades) exported on the trainer, delivered over the standard
+  mirror, and **verified scoring live** — first record 13:01:50 UTC on the
+  open BTC trend_donchian trade (age 60 bars, open_r 0.24, P(pays)=0.158,
+  `would_exit:false` — a correct hold call). Records land in
+  `shadow_predictions.jsonl` (`event_source:"exit_head"`) + would-exits in
+  `exit_lever_soak.jsonl` (`lever:"exit_head"`).
+- **E2 incident, fixed forward (#6201):** all donchian-family strategies
+  share `trend_donchian.monitor()`, so the crypto-1h head also scored
+  `iwm_trend_long_1d` (IWM, 1d equities) — 2 out-of-distribution soak rows
+  before the fix. `maybe_score_exit_head` now has a **fail-closed
+  in-distribution guard** (meta `timeframe` must equal artifact `tf`;
+  symbol must be in the artifact's `symbols` allowlist when present), and
+  the exporter embeds `symbols`. The 2 pre-guard IWM rows remain in the log
+  as harmless artifacts — **exclude them when analyzing the E2 soak**.
+- **E2 soak plan** (program doc): 2–4 weeks observe-only; verify live-vs-
+  offline feature parity + track the realized `future_r_delta` of the head's
+  would-exit flags. E3 (the head actually driving an exit) is Tier-3, gated
+  on this track record.
 
 ## Documentation Updated
 - `docs/research/M20-exit-refinement-2026-07-12.md` (the evidence memo).
