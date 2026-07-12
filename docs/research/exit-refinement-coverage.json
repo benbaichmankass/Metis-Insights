@@ -1,406 +1,467 @@
 {
-  "_doc": "M20 exit-refinement coverage matrix \u2014 one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) \u2014 never inferred.",
-  "updated_at": "2026-07-12",
-  "lever_columns": [
-    "trail_geometry",
-    "stale_stop",
-    "giveback_stop",
-    "exit_ladder",
-    "exit_head_ml"
-  ],
-  "legend": {
-    "shipped": "validated + live (ref = PR/date)",
-    "passed_unshipped": "validated, awaiting implementation/approval",
-    "honest_negative": "tested, failed the gate \u2014 hard levers/trail stand",
-    "pending": "not yet processed",
-    "blocked": "cannot process yet (reason given)",
-    "n/a": "structurally inapplicable"
+ "_doc": "M20 exit-refinement coverage matrix \u2014 one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) \u2014 never inferred.",
+ "updated_at": "2026-07-12",
+ "lever_columns": [
+  "trail_geometry",
+  "stale_stop",
+  "giveback_stop",
+  "exit_ladder",
+  "exit_head_ml",
+  "trail_decay"
+ ],
+ "legend": {
+  "shipped": "validated + live (ref = PR/date)",
+  "passed_unshipped": "validated, awaiting implementation/approval",
+  "honest_negative": "tested, failed the gate \u2014 hard levers/trail stand",
+  "pending": "not yet processed",
+  "blocked": "cannot process yet (reason given)",
+  "n/a": "structurally inapplicable"
+ },
+ "rows": [
+  {
+   "strategy": "trend_donchian",
+   "symbol": "BTCUSDT",
+   "tf": "1h",
+   "execution": "live",
+   "trail_geometry": {
+    "status": "honest_negative",
+    "ref": "memo \u00a77.2 (2.5 ATR stands)"
+   },
+   "stale_stop": {
+    "status": "honest_negative",
+    "ref": "memo \u00a76 (BTC cell fails)"
+   },
+   "giveback_stop": {
+    "status": "honest_negative",
+    "ref": "memo \u00a77.3"
+   },
+   "exit_ladder": {
+    "status": "honest_negative",
+    "ref": "memo \u00a77.2 (banking loses net_R)"
+   },
+   "exit_head_ml": {
+    "status": "shipped",
+    "ref": "E3 LIVE 2026-07-12 (#6211 merged, operator-approved; artifact promoted shadow->advisory #6217; deploy #6216). below_half_r@tau0.10; first head-driven exit = mandatory health-review check."
+   },
+   "trail_decay": {
+    "status": "honest_negative",
+    "ref": "all 4 decay cells is_oos_fail (BTC 1h). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+   }
   },
-  "rows": [
-    {
-      "strategy": "trend_donchian",
-      "symbol": "BTCUSDT",
-      "tf": "1h",
-      "execution": "live",
-      "trail_geometry": {
-        "status": "honest_negative",
-        "ref": "memo \u00a77.2 (2.5 ATR stands)"
-      },
-      "stale_stop": {
-        "status": "honest_negative",
-        "ref": "memo \u00a76 (BTC cell fails)"
-      },
-      "giveback_stop": {
-        "status": "honest_negative",
-        "ref": "memo \u00a77.3"
-      },
-      "exit_ladder": {
-        "status": "honest_negative",
-        "ref": "memo \u00a77.2 (banking loses net_R)"
-      },
-      "exit_head_ml": {
-        "status": "shipped",
-        "ref": "E3 LIVE 2026-07-12 (#6211 merged, operator-approved; artifact promoted shadow->advisory #6217; deploy #6216). below_half_r@tau0.10; first head-driven exit = mandatory health-review check."
-      }
-    },
-    {
-      "strategy": "trend_donchian_eth",
-      "symbol": "ETHUSDT",
-      "tf": "1h",
-      "execution": "live",
-      "trail_geometry": {
-        "status": "honest_negative",
-        "ref": "memo \u00a77.2"
-      },
-      "stale_stop": {
-        "status": "shipped",
-        "ref": "8 bars <0R, live 2026-07-12 (#6172/#6173)"
-      },
-      "giveback_stop": {
-        "status": "honest_negative",
-        "ref": "memo \u00a77.3"
-      },
-      "exit_ladder": {
-        "status": "honest_negative",
-        "ref": "memo \u00a77.2"
-      },
-      "exit_head_ml": {
-        "status": "shipped",
-        "ref": "E3 LIVE 2026-07-12 (#6211 merged, operator-approved; artifact promoted shadow->advisory #6217; deploy #6216). below_half_r@tau0.10; first head-driven exit = mandatory health-review check."
-      }
-    },
-    {
-      "strategy": "trend_donchian_sol",
-      "symbol": "SOLUSDT",
-      "tf": "1h",
-      "execution": "live",
-      "trail_geometry": {
-        "status": "honest_negative",
-        "ref": "memo \u00a77.2"
-      },
-      "stale_stop": {
-        "status": "shipped",
-        "ref": "8 bars <0R live 2026-07-12 (#6172/#6173); 8->12 UPGRADE walk-forward 6/6 (fleet sweep 2026-07-12) \u2014 Tier-3 PR pending operator approval"
-      },
-      "giveback_stop": {
-        "status": "honest_negative",
-        "ref": "memo \u00a77.3"
-      },
-      "exit_ladder": {
-        "status": "honest_negative",
-        "ref": "memo \u00a77.2"
-      },
-      "exit_head_ml": {
-        "status": "shipped",
-        "ref": "E3 LIVE 2026-07-12 (#6211 merged, operator-approved; artifact promoted shadow->advisory #6217; deploy #6216). below_half_r@tau0.10; first head-driven exit = mandatory health-review check."
-      }
-    },
-    {
-      "strategy": "htf_pullback_trend_2h",
-      "symbol": "BTCUSDT",
-      "tf": "2h",
-      "execution": "live",
-      "trail_geometry": {
-        "status": "shipped",
-        "ref": "trail_mult 5\u21924, walk-forward PASS 4/6 folds, live 2026-07-12 (#6176/#6177)"
-      },
-      "stale_stop": {
-        "status": "honest_negative",
-        "ref": "memo \u00a76"
-      },
-      "giveback_stop": {
-        "status": "honest_negative",
-        "ref": "walk-forward at CONFIG-EXACT trail4 FAILS 1/6 folds (trainer #6215, 2026-07-12) \u2014 the trail5-era sweep pass (memo \u00a77.3) did not survive the trail4 flip; trail4 already captures the giveback protection. Not shipped."
-      },
-      "exit_ladder": {
-        "status": "honest_negative",
-        "ref": "memo \u00a77.2"
-      },
-      "exit_head_ml": {
-        "status": "honest_negative",
-        "ref": "E1 pullback-2h AUC~0.50, memo \u00a78"
-      }
-    },
-    {
-      "strategy": "eth_pullback_2h",
-      "symbol": "ETHUSDT",
-      "tf": "2h",
-      "execution": "live",
-      "trail_geometry": {
-        "status": "honest_negative",
-        "ref": "trail stays 5.0 (no passing cell), memo \u00a77.2"
-      },
-      "stale_stop": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
-      },
-      "giveback_stop": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
-      },
-      "exit_ladder": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked (memo \u00a77.2)"
-      },
-      "exit_head_ml": {
-        "status": "honest_negative",
-        "ref": "pooled pullback-2h head failed E1"
-      }
-    },
-    {
-      "strategy": "sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax_pullback_2h / eth_pullback_prop_2h",
-      "symbol": "SOL/XRP/ADA/AVAX/ETH USDT",
-      "tf": "2h",
-      "execution": "live",
-      "trail_geometry": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 all symbols fail"
-      },
-      "stale_stop": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 all symbols fail"
-      },
-      "giveback_stop": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 all symbols fail"
-      },
-      "exit_ladder": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
-      },
-      "exit_head_ml": {
-        "status": "honest_negative",
-        "ref": "exit-head round 3 (2026-07-12, m20_exit_head_round.py, trainer relays #6236/#6238-#6240; 934 harness trades, 5 folds): E1 GATE FAIL \u2014 AUC mean ~0.54; no naive or conditional shape beats actual on net_R AND maxDD in >=3/5 folds (2023: +95.6R actual vs +72.2R best arm). Honest negative \u2014 the existing trail exits already capture the value"
-      }
-    },
-    {
-      "strategy": "trend_donchian_{eth,sol,xrp,ada,avax}_4h",
-      "symbol": "ETH/SOL/XRP/ADA/AVAX USDT",
-      "tf": "4h",
-      "execution": "live",
-      "trail_geometry": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 eth/sol/xrp/ada/avax all fail"
-      },
-      "stale_stop": {
-        "status": "passed_unshipped",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): XRP-4h stale8 PASS 5/6 (stale12 4/6) \u2014 Tier-3 PR #6229; eth/sol/ada/avax fail"
-      },
-      "giveback_stop": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
-      },
-      "exit_ladder": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
-      },
-      "exit_head_ml": {
-        "status": "honest_negative",
-        "ref": "exit-head round 2 (2026-07-12, m20_exit_head_round.py, trainer relays #6236/#6238-#6240; 953 harness trades, 5 folds): E1 GATE FAIL \u2014 AUC mean ~0.55 (2023/2024 folds <0.50); best conditional shape below_half_r@tau0.15 beats actual 4/5 folds on both axes but gives back the 2023 trend year (+67.8R actual vs +3.0R; the plain stale-8 hard rule gets +37.2R there). Honest negative \u2014 no E2"
-      }
-    },
-    {
-      "strategy": "squeeze_breakout_4h",
-      "symbol": "BTCUSDT",
-      "tf": "4h",
-      "execution": "live",
-      "trail_geometry": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 round 2 (runtime_logs/m20_fleet, harness levers added in the M20 exit-lever package PR; trainer relay #6233): all 6 cells (stale8/stale12/gb@MFE1/gb@MFE2/trail2.5/trail4.5) FAIL IS/OOS \u2014 the existing trail3.5 already captures the exit value"
-      },
-      "stale_stop": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 round 2 (runtime_logs/m20_fleet, harness levers added in the M20 exit-lever package PR; trainer relay #6233): all 6 cells (stale8/stale12/gb@MFE1/gb@MFE2/trail2.5/trail4.5) FAIL IS/OOS \u2014 the existing trail3.5 already captures the exit value"
-      },
-      "giveback_stop": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 round 2 (runtime_logs/m20_fleet, harness levers added in the M20 exit-lever package PR; trainer relay #6233): all 6 cells (stale8/stale12/gb@MFE1/gb@MFE2/trail2.5/trail4.5) FAIL IS/OOS \u2014 the existing trail3.5 already captures the exit value"
-      },
-      "exit_ladder": {
-        "status": "pending",
-        "ref": "no ladder cell in the round-2 sweep \u2014 partial-TP banking is parked milestone-wide (M20 finding: banking underperformed run-the-winner)"
-      },
-      "exit_head_ml": {
-        "status": "pending"
-      }
-    },
-    {
-      "strategy": "fvg_range_15m",
-      "symbol": "BTCUSDT",
-      "tf": "15m",
-      "execution": "live",
-      "trail_geometry": {
-        "status": "blocked",
-        "ref": "lever not applicable \u2014 fvg_range has no trail in its exit structure (stop/target/timeout); nothing to vary"
-      },
-      "stale_stop": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 round 2 (harness levers added in the M20 exit-lever package PR; trainer relays #6234/#6235, native BTCUSDT_15m 175k rows from market_raw): all 4 cells (stale8/stale12/gb@MFE1/gb@MFE2) FAIL IS/OOS \u2014 the stop/target/timeout exit structure already captures the value"
-      },
-      "giveback_stop": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 round 2 (harness levers added in the M20 exit-lever package PR; trainer relays #6234/#6235, native BTCUSDT_15m 175k rows from market_raw): all 4 cells (stale8/stale12/gb@MFE1/gb@MFE2) FAIL IS/OOS \u2014 the stop/target/timeout exit structure already captures the value"
-      },
-      "exit_ladder": {
-        "status": "pending",
-        "ref": "no ladder cell in the round-2 sweep \u2014 partial-TP banking is parked milestone-wide (M20 finding)"
-      },
-      "exit_head_ml": {
-        "status": "pending"
-      }
-    },
-    {
-      "strategy": "mes_trend_long_1d / mgc_pullback_1d / mhg_pullback_1d",
-      "symbol": "MES/MGC/MHG",
-      "tf": "1d",
-      "execution": "live",
-      "trail_geometry": {
-        "status": "passed_unshipped",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [ES/GC/HG PROXY data]: MES trail3 4/6 + MHG trail3 5/6 PASS \u2014 Tier-3 PR #6229; MGC fails"
-      },
-      "stale_stop": {
-        "status": "passed_unshipped",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [PROXY]: MHG stale12 5/6 PASS (not combined with trail3 \u2014 combos untested); MES/MGC fail"
-      },
-      "giveback_stop": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 [PROXY] MGC gb@MFE2 wf 3/6 fails"
-      },
-      "exit_ladder": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
-      },
-      "exit_head_ml": {
-        "status": "pending",
-        "ref": "needs native IBKR history for E0 (proxy OK for levers, not for head training)"
-      }
-    },
-    {
-      "strategy": "xauusd_trend_1h",
-      "symbol": "XAUUSD",
-      "tf": "1h",
-      "execution": "live",
-      "trail_geometry": {
-        "status": "blocked",
-        "ref": "candle coverage (task #27)"
-      },
-      "stale_stop": {
-        "status": "blocked",
-        "ref": "same"
-      },
-      "giveback_stop": {
-        "status": "blocked",
-        "ref": "same"
-      },
-      "exit_ladder": {
-        "status": "blocked",
-        "ref": "same"
-      },
-      "exit_head_ml": {
-        "status": "blocked",
-        "ref": "same"
-      }
-    },
-    {
-      "strategy": "equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; gld/tlt/ief/slv/gdx/iaum pullback)",
-      "symbol": "US ETFs",
-      "tf": "1d",
-      "execution": "live",
-      "trail_geometry": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 ALL 1d equities legs fail every lever \u2014 existing trails already capture the exit value"
-      },
-      "stale_stop": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 ALL 1d equities legs fail every lever \u2014 existing trails already capture the exit value"
-      },
-      "giveback_stop": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 ALL 1d equities legs fail every lever \u2014 existing trails already capture the exit value"
-      },
-      "exit_ladder": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
-      },
-      "exit_head_ml": {
-        "status": "pending",
-        "ref": "equities E0 datasets \u2014 future exit-head round"
-      }
-    },
-    {
-      "strategy": "equities 1h fleet (gld/spy/qqq/tlt pullback; slv/uso trend)",
-      "symbol": "US ETFs",
-      "tf": "1h",
-      "execution": "live",
-      "trail_geometry": {
-        "status": "passed_unshipped",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): TLT-1h trail3 PASS \u2014 Tier-3 PR #6229; gld/spy/qqq/slv fail"
-      },
-      "stale_stop": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
-      },
-      "giveback_stop": {
-        "status": "passed_unshipped",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): USO-1h gb1R@MFE1R PASS (IS 50.3R/dd12.8 vs 48.7R/dd13.9; OOS 9.0R/dd4.3 vs 5.5R/dd4.8; walk-forward 4/6) \u2014 monitor giveback lever implemented (_giveback_verdict) + YAML declare in Tier-3 PR, awaiting operator approval"
-      },
-      "exit_ladder": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
-      },
-      "exit_head_ml": {
-        "status": "pending",
-        "ref": "equities E0 datasets \u2014 future exit-head round"
-      }
-    },
-    {
-      "strategy": "shadow fleet (turtle_soup, fade_breakout_4h, vwap, ict_scalp_5m, trend_donchian_1h, mgc_trend_1h, *_prop)",
-      "symbol": "various",
-      "tf": "various",
-      "execution": "shadow",
-      "trail_geometry": {
-        "status": "pending",
-        "ref": "lower priority \u2014 no live orders; process before any promotion to live"
-      },
-      "stale_stop": {
-        "status": "passed_unshipped",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): trend_donchian_1h (disabled shadow) stale8 4/6 PASS \u2014 note only; prop variants fail"
-      },
-      "giveback_stop": {
-        "status": "pending"
-      },
-      "exit_ladder": {
-        "status": "pending",
-        "ref": "turtle_soup is the only ladder-declaring strategy (memo \u00a75)"
-      },
-      "exit_head_ml": {
-        "status": "pending"
-      }
-    },
-    {
-      "strategy": "xauusd_trend_1h / mgc_trend_1h",
-      "symbol": "XAUUSD/MGC",
-      "tf": "1h",
-      "execution": "disabled / shadow",
-      "trail_geometry": {
-        "status": "passed_unshipped",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [GC=F PROXY]: trail4 PASS 6/6 on BOTH; xauusd leg is disabled (note only); mgc_trend_1h (shadow) trail 3->4 in Tier-3 PR #6229"
-      },
-      "stale_stop": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
-      },
-      "giveback_stop": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
-      },
-      "exit_ladder": {
-        "status": "honest_negative",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
-      },
-      "exit_head_ml": {
-        "status": "pending"
-      }
-    }
-  ]
+  {
+   "strategy": "trend_donchian_eth",
+   "symbol": "ETHUSDT",
+   "tf": "1h",
+   "execution": "live",
+   "trail_geometry": {
+    "status": "honest_negative",
+    "ref": "memo \u00a77.2"
+   },
+   "stale_stop": {
+    "status": "shipped",
+    "ref": "8 bars <0R, live 2026-07-12 (#6172/#6173)"
+   },
+   "giveback_stop": {
+    "status": "honest_negative",
+    "ref": "memo \u00a77.3"
+   },
+   "exit_ladder": {
+    "status": "honest_negative",
+    "ref": "memo \u00a77.2"
+   },
+   "exit_head_ml": {
+    "status": "shipped",
+    "ref": "E3 LIVE 2026-07-12 (#6211 merged, operator-approved; artifact promoted shadow->advisory #6217; deploy #6216). below_half_r@tau0.10; first head-driven exit = mandatory health-review check."
+   },
+   "trail_decay": {
+    "status": "honest_negative",
+    "ref": "all 4 cells is_oos_fail. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+   }
+  },
+  {
+   "strategy": "trend_donchian_sol",
+   "symbol": "SOLUSDT",
+   "tf": "1h",
+   "execution": "live",
+   "trail_geometry": {
+    "status": "honest_negative",
+    "ref": "memo \u00a77.2"
+   },
+   "stale_stop": {
+    "status": "shipped",
+    "ref": "8 bars <0R live 2026-07-12 (#6172/#6173); 8->12 UPGRADE walk-forward 6/6 (fleet sweep 2026-07-12) \u2014 Tier-3 PR pending operator approval"
+   },
+   "giveback_stop": {
+    "status": "honest_negative",
+    "ref": "memo \u00a77.3"
+   },
+   "exit_ladder": {
+    "status": "honest_negative",
+    "ref": "memo \u00a77.2"
+   },
+   "exit_head_ml": {
+    "status": "shipped",
+    "ref": "E3 LIVE 2026-07-12 (#6211 merged, operator-approved; artifact promoted shadow->advisory #6217; deploy #6216). below_half_r@tau0.10; first head-driven exit = mandatory health-review check."
+   },
+   "trail_decay": {
+    "status": "honest_negative",
+    "ref": "all 4 cells is_oos_fail at the stale-less base; corrected base (stale12 threaded, 6c54000) re-run queued (#6254) \u2014 verdict provisional. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+   }
+  },
+  {
+   "strategy": "htf_pullback_trend_2h",
+   "symbol": "BTCUSDT",
+   "tf": "2h",
+   "execution": "live",
+   "trail_geometry": {
+    "status": "shipped",
+    "ref": "trail_mult 5\u21924, walk-forward PASS 4/6 folds, live 2026-07-12 (#6176/#6177)"
+   },
+   "stale_stop": {
+    "status": "honest_negative",
+    "ref": "memo \u00a76"
+   },
+   "giveback_stop": {
+    "status": "honest_negative",
+    "ref": "walk-forward at CONFIG-EXACT trail4 FAILS 1/6 folds (trainer #6215, 2026-07-12) \u2014 the trail5-era sweep pass (memo \u00a77.3) did not survive the trail4 flip; trail4 already captures the giveback protection. Not shipped."
+   },
+   "exit_ladder": {
+    "status": "honest_negative",
+    "ref": "memo \u00a77.2"
+   },
+   "exit_head_ml": {
+    "status": "honest_negative",
+    "ref": "E1 pullback-2h AUC~0.50, memo \u00a78"
+   },
+   "trail_decay": {
+    "status": "honest_negative",
+    "ref": "all 4 cells is_oos_fail (BTC 2h). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+   }
+  },
+  {
+   "strategy": "eth_pullback_2h",
+   "symbol": "ETHUSDT",
+   "tf": "2h",
+   "execution": "live",
+   "trail_geometry": {
+    "status": "honest_negative",
+    "ref": "trail stays 5.0 (no passing cell), memo \u00a77.2"
+   },
+   "stale_stop": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
+   },
+   "giveback_stop": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
+   },
+   "exit_ladder": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked (memo \u00a77.2)"
+   },
+   "exit_head_ml": {
+    "status": "honest_negative",
+    "ref": "pooled pullback-2h head failed E1"
+   },
+   "trail_decay": {
+    "status": "honest_negative",
+    "ref": "all cells fail (best stall10 wf 3/6). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+   }
+  },
+  {
+   "strategy": "sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax_pullback_2h / eth_pullback_prop_2h",
+   "symbol": "SOL/XRP/ADA/AVAX/ETH USDT",
+   "tf": "2h",
+   "execution": "live",
+   "trail_geometry": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 all symbols fail"
+   },
+   "stale_stop": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 all symbols fail"
+   },
+   "giveback_stop": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 all symbols fail"
+   },
+   "exit_ladder": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
+   },
+   "exit_head_ml": {
+    "status": "honest_negative",
+    "ref": "exit-head round 3 (2026-07-12, m20_exit_head_round.py, trainer relays #6236/#6238-#6240; 934 harness trades, 5 folds): E1 GATE FAIL \u2014 AUC mean ~0.54; no naive or conditional shape beats actual on net_R AND maxDD in >=3/5 folds (2023: +95.6R actual vs +72.2R best arm). Honest negative \u2014 the existing trail exits already capture the value"
+   },
+   "trail_decay": {
+    "status": "passed_unshipped",
+    "ref": "sol_pullback_2h stall10 tight2.5 PASS wf 5/6 (LIVE leg \u2014 Tier-3 declare proposed in #6251); xrp 3/6, ada 3/6, avax 2/6, eth_prop 2/6 all fail. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+   }
+  },
+  {
+   "strategy": "trend_donchian_{eth,sol,xrp,ada,avax}_4h",
+   "symbol": "ETH/SOL/XRP/ADA/AVAX USDT",
+   "tf": "4h",
+   "execution": "live",
+   "trail_geometry": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 eth/sol/xrp/ada/avax all fail"
+   },
+   "stale_stop": {
+    "status": "passed_unshipped",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): XRP-4h stale8 PASS 5/6 (stale12 4/6) \u2014 Tier-3 PR #6229; eth/sol/ada/avax fail"
+   },
+   "giveback_stop": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
+   },
+   "exit_ladder": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
+   },
+   "exit_head_ml": {
+    "status": "honest_negative",
+    "ref": "exit-head round 2 (2026-07-12, m20_exit_head_round.py, trainer relays #6236/#6238-#6240; 953 harness trades, 5 folds): E1 GATE FAIL \u2014 AUC mean ~0.55 (2023/2024 folds <0.50); best conditional shape below_half_r@tau0.15 beats actual 4/5 folds on both axes but gives back the 2023 trend year (+67.8R actual vs +3.0R; the plain stale-8 hard rule gets +37.2R there). Honest negative \u2014 no E2"
+   },
+   "trail_decay": {
+    "status": "honest_negative",
+    "ref": "eth/sol/xrp 4h all cells is_oos_fail; ada stall10+combo cells errored, avax harness timeout (contention window) \u2014 negatives consistent with the family's stale/giveback fails. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+   }
+  },
+  {
+   "strategy": "squeeze_breakout_4h",
+   "symbol": "BTCUSDT",
+   "tf": "4h",
+   "execution": "live",
+   "trail_geometry": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 round 2 (runtime_logs/m20_fleet, harness levers added in the M20 exit-lever package PR; trainer relay #6233): all 6 cells (stale8/stale12/gb@MFE1/gb@MFE2/trail2.5/trail4.5) FAIL IS/OOS \u2014 the existing trail3.5 already captures the exit value"
+   },
+   "stale_stop": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 round 2 (runtime_logs/m20_fleet, harness levers added in the M20 exit-lever package PR; trainer relay #6233): all 6 cells (stale8/stale12/gb@MFE1/gb@MFE2/trail2.5/trail4.5) FAIL IS/OOS \u2014 the existing trail3.5 already captures the exit value"
+   },
+   "giveback_stop": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 round 2 (runtime_logs/m20_fleet, harness levers added in the M20 exit-lever package PR; trainer relay #6233): all 6 cells (stale8/stale12/gb@MFE1/gb@MFE2/trail2.5/trail4.5) FAIL IS/OOS \u2014 the existing trail3.5 already captures the exit value"
+   },
+   "exit_ladder": {
+    "status": "pending",
+    "ref": "no ladder cell in the round-2 sweep \u2014 partial-TP banking is parked milestone-wide (M20 finding: banking underperformed run-the-winner)"
+   },
+   "exit_head_ml": {
+    "status": "pending"
+   },
+   "trail_decay": {
+    "status": "n/a",
+    "ref": "squeeze harness has no decay lever (trail family lever only in trend/pullback harnesses). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+   }
+  },
+  {
+   "strategy": "fvg_range_15m",
+   "symbol": "BTCUSDT",
+   "tf": "15m",
+   "execution": "live",
+   "trail_geometry": {
+    "status": "blocked",
+    "ref": "lever not applicable \u2014 fvg_range has no trail in its exit structure (stop/target/timeout); nothing to vary"
+   },
+   "stale_stop": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 round 2 (harness levers added in the M20 exit-lever package PR; trainer relays #6234/#6235, native BTCUSDT_15m 175k rows from market_raw): all 4 cells (stale8/stale12/gb@MFE1/gb@MFE2) FAIL IS/OOS \u2014 the stop/target/timeout exit structure already captures the value"
+   },
+   "giveback_stop": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 round 2 (harness levers added in the M20 exit-lever package PR; trainer relays #6234/#6235, native BTCUSDT_15m 175k rows from market_raw): all 4 cells (stale8/stale12/gb@MFE1/gb@MFE2) FAIL IS/OOS \u2014 the stop/target/timeout exit structure already captures the value"
+   },
+   "exit_ladder": {
+    "status": "pending",
+    "ref": "no ladder cell in the round-2 sweep \u2014 partial-TP banking is parked milestone-wide (M20 finding)"
+   },
+   "exit_head_ml": {
+    "status": "pending"
+   },
+   "trail_decay": {
+    "status": "n/a",
+    "ref": "fvg harness has no decay lever. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+   }
+  },
+  {
+   "strategy": "mes_trend_long_1d / mgc_pullback_1d / mhg_pullback_1d",
+   "symbol": "MES/MGC/MHG",
+   "tf": "1d",
+   "execution": "live",
+   "trail_geometry": {
+    "status": "passed_unshipped",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [ES/GC/HG PROXY data]: MES trail3 4/6 + MHG trail3 5/6 PASS \u2014 Tier-3 PR #6229; MGC fails"
+   },
+   "stale_stop": {
+    "status": "passed_unshipped",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [PROXY]: MHG stale12 5/6 PASS (not combined with trail3 \u2014 combos untested); MES/MGC fail"
+   },
+   "giveback_stop": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 [PROXY] MGC gb@MFE2 wf 3/6 fails"
+   },
+   "exit_ladder": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
+   },
+   "exit_head_ml": {
+    "status": "pending",
+    "ref": "needs native IBKR history for E0 (proxy OK for levers, not for head training)"
+   },
+   "trail_decay": {
+    "status": "passed_unshipped",
+    "ref": "mhg_pullback_1d stall10 tight1.5 PASS wf 5/6 (stall6 4/6; proxy HG_F \u2014 levers-OK; base includes shipped trail3) \u2014 Tier-3 declare proposed in #6251; mes/mgc all cells fail (mgc arm2R wf 3/6 best). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+   }
+  },
+  {
+   "strategy": "xauusd_trend_1h",
+   "symbol": "XAUUSD",
+   "tf": "1h",
+   "execution": "live",
+   "trail_geometry": {
+    "status": "blocked",
+    "ref": "candle coverage (task #27)"
+   },
+   "stale_stop": {
+    "status": "blocked",
+    "ref": "same"
+   },
+   "giveback_stop": {
+    "status": "blocked",
+    "ref": "same"
+   },
+   "exit_ladder": {
+    "status": "blocked",
+    "ref": "same"
+   },
+   "exit_head_ml": {
+    "status": "blocked",
+    "ref": "same"
+   },
+   "trail_decay": {
+    "status": "honest_negative",
+    "ref": "all 4 cells is_oos_fail. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+   }
+  },
+  {
+   "strategy": "equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; gld/tlt/ief/slv/gdx/iaum pullback)",
+   "symbol": "US ETFs",
+   "tf": "1d",
+   "execution": "live",
+   "trail_geometry": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 ALL 1d equities legs fail every lever \u2014 existing trails already capture the exit value"
+   },
+   "stale_stop": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 ALL 1d equities legs fail every lever \u2014 existing trails already capture the exit value"
+   },
+   "giveback_stop": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 ALL 1d equities legs fail every lever \u2014 existing trails already capture the exit value"
+   },
+   "exit_ladder": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
+   },
+   "exit_head_ml": {
+    "status": "pending",
+    "ref": "equities E0 datasets \u2014 future exit-head round"
+   },
+   "trail_decay": {
+    "status": "passed_unshipped",
+    "ref": "PASS: scha arm2R tight2 wf 6/6 (+stall10 4/6), slv stall6 tight2 5/6, iwm stall10 tight2 4/6, gld stall10 tight2 4/6, splg stall6 tight2 4/6, iaum stall10 tight2 4/6 \u2014 Tier-3 declares proposed in #6251. FAIL: spy (stall6 3/6 best), qqq, tqqq, qld, tlt_1d, ief, gdx. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+   }
+  },
+  {
+   "strategy": "equities 1h fleet (gld/spy/qqq/tlt pullback; slv/uso trend)",
+   "symbol": "US ETFs",
+   "tf": "1h",
+   "execution": "live",
+   "trail_geometry": {
+    "status": "passed_unshipped",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): TLT-1h trail3 PASS \u2014 Tier-3 PR #6229; gld/spy/qqq/slv fail"
+   },
+   "stale_stop": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
+   },
+   "giveback_stop": {
+    "status": "passed_unshipped",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): USO-1h gb1R@MFE1R PASS (IS 50.3R/dd12.8 vs 48.7R/dd13.9; OOS 9.0R/dd4.3 vs 5.5R/dd4.8; walk-forward 4/6) \u2014 monitor giveback lever implemented (_giveback_verdict) + YAML declare in Tier-3 PR, awaiting operator approval"
+   },
+   "exit_ladder": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
+   },
+   "exit_head_ml": {
+    "status": "pending",
+    "ref": "equities E0 datasets \u2014 future exit-head round"
+   },
+   "trail_decay": {
+    "status": "passed_unshipped",
+    "ref": "PASS: tlt_pullback_1h stall6 tight1.5 wf 5/6 (also arm2R 4/6, arm1.5R+stall6 5/6) \u2014 Tier-3 declare proposed in #6251. uso_trend_1h stall6/stall10 4/6 EXCLUDED pending corrected-base combo A/B vs the shipped giveback lever (#6254). FAIL: gld_1h, slv_1h, spy_1h (2/6), qqq_1h (2/6). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+   }
+  },
+  {
+   "strategy": "shadow fleet (turtle_soup, fade_breakout_4h, vwap, ict_scalp_5m, trend_donchian_1h, mgc_trend_1h, *_prop)",
+   "symbol": "various",
+   "tf": "various",
+   "execution": "shadow",
+   "trail_geometry": {
+    "status": "pending",
+    "ref": "lower priority \u2014 no live orders; process before any promotion to live"
+   },
+   "stale_stop": {
+    "status": "passed_unshipped",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): trend_donchian_1h (disabled shadow) stale8 4/6 PASS \u2014 note only; prop variants fail"
+   },
+   "giveback_stop": {
+    "status": "pending"
+   },
+   "exit_ladder": {
+    "status": "pending",
+    "ref": "turtle_soup is the only ladder-declaring strategy (memo \u00a75)"
+   },
+   "exit_head_ml": {
+    "status": "pending"
+   },
+   "trail_decay": {
+    "status": "passed_unshipped",
+    "ref": "shadow-leg passes (no live declare batched): trend_donchian_1h stall10 tight2.5 wf 5/6; trend_donchian_eth_prop stall6 tight1.8 5/6 (stall10 4/6); trend_donchian_sol_prop stall10 tight1.8 4/6. turtle/fade/vwap/scalp still no_harness_levers. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+   }
+  },
+  {
+   "strategy": "xauusd_trend_1h / mgc_trend_1h",
+   "symbol": "XAUUSD/MGC",
+   "tf": "1h",
+   "execution": "disabled / shadow",
+   "trail_geometry": {
+    "status": "passed_unshipped",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [GC=F PROXY]: trail4 PASS 6/6 on BOTH; xauusd leg is disabled (note only); mgc_trend_1h (shadow) trail 3->4 in Tier-3 PR #6229"
+   },
+   "stale_stop": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
+   },
+   "giveback_stop": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
+   },
+   "exit_ladder": {
+    "status": "honest_negative",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
+   },
+   "exit_head_ml": {
+    "status": "pending"
+   },
+   "trail_decay": {
+    "status": "honest_negative",
+    "ref": "all cells is_oos_fail on both legs. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+   }
+  }
+ ]
 }
