@@ -340,6 +340,52 @@ that overlap (both tighten the exit) — `trail_mult 4.0` (walk-forward PASS,
 param already exists live); the trail4+giveback combo needs its own A/B before
 stacking.
 
+## 8. E1 — exit-head training + policy replay (2026-07-12, same day)
+
+E0 datasets (built #6182: donchian-1h 34,919 rows / 1,662 harness + 15 live
+trades; pullback-2h 30,512 rows / 614 harness + 26 live) trained per the E1
+protocol (`scripts/ml/train_exit_head.py`, #6184: LightGBM on `holding_pays`,
+purged per-year walk-forward with last-bar purge + 7-day embargo, τ-policy
+truncation replay vs actual and vs the swept hard levers). Raw run: issue
+#6186; full reports in `datasets-out/exit_head/*/e1_report.json` on the
+trainer.
+
+### Pullback-2h (the family that cleared the coverage gate): **FAIL — honest negative**
+
+Fold AUCs 0.47 / 0.53 / 0.48 / 0.54 / 0.47 — chance-level. No τ beats actual
+net_R in any fold except 2026 (τ0.15: 17.5 vs 16.4, within noise at AUC 0.47).
+The head cannot rank pullback in-trade bars on this feature set. **The hard
+levers stand** (trail4 live; giveback grid-passed as the overlapping
+alternative). E1→E2 gate: NOT met.
+
+### Donchian-1h (below-gate research — live n=15 < 20): **PROMISING, not a gate pass**
+
+- **AUC 0.56–0.62 in every fold** (0.604 / 0.564 / 0.610 / 0.559 / 0.617) —
+  real, stable signal, unlike pullback.
+- **τ=0.1 policy vs actual across the 5 folds:** aggregate net_R **86.3 vs
+  73.7**, maxDD better in **5/5 folds** (e.g. 2022: +2.2 vs −18.3 at dd 13.0
+  vs 34.6; 2026: +24.9 vs −4.2 at dd 6.8 vs 20.3), `net_R/pos-day` better in
+  **5/5 folds** (mean hold ~6–11 bars vs ~20). It also beats BOTH hard levers
+  in the same replays.
+- **BUT** it loses raw net_R in the big trend years (2023: 22.2 vs 54.8;
+  2024: 14.8 vs 24.9) — the banking tension again: early exits fund the bad
+  years by giving up part of the good-year tail.
+- **Live validation disagrees in sign** (n=15: τ-policies ≈ 0/negative vs
+  actual +7.0, stale +11.7) — small-n and 2026-only, but the gate is the gate.
+
+### Verdict + queued next steps
+
+E1→E2: **no family passes today.** Queued (ml backlog
+`MB-20260712-ML-EXIT-HEAD`):
+1. **E1.5 — conditional policy shapes on donchian**: arm the exit head only
+   in the states where the chop-hold loss lives (e.g. only when `open_r < 0.5`
+   or after `age ≥ N`), so the trend tail is never truncated — targets the
+   2023/2024 net_R giveback directly.
+2. **Re-run the live half when donchian live trades ≥ 20** (currently 15;
+   accrues naturally).
+3. Pullback: no ML path on this feature set — revisit only with new features
+   (e.g. regime-head scores as inputs) or after the E0 dataset grows.
+
 ## Appendix — raw relay outputs
 
 - Live-VM diag (soak tails + status + trades): issue #6157.

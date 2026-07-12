@@ -170,6 +170,14 @@ stops, exit-ladder optimization." Delivered (PR #6166):
     (no harness generator yet) and wait per the program doc.
   - Caveat on record: `dist_to_stop_r` is measured vs the INITIAL stop; the
     live trailing-stop path is not replayed (documented in the builder).
+- **E1 trained same day** (operator go "let's continue to e1"; trainer
+  `scripts/ml/train_exit_head.py` #6184, run #6186): **pullback-2h FAIL**
+  (fold AUCs 0.47–0.54, chance-level — honest negative; hard levers stand).
+  **Donchian-1h promising but below-gate** (live n=15<20): AUC 0.56–0.62 in
+  every fold; τ=0.1 policy beats actual on maxDD + net_R/pos-day in 5/5 folds
+  and on aggregate net_R (86.3 vs 73.7), but gives up the big trend years and
+  the tiny live set disagrees in sign. **No E1→E2 pass**; E1.5
+  conditional-policy shapes + live-n≥20 re-run queued (memo § 8).
 
 ## Documentation Updated
 - `docs/research/M20-exit-refinement-2026-07-12.md` (the evidence memo).
