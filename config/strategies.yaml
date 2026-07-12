@@ -750,6 +750,12 @@ strategies:
     trail_mult: 5.0
     tp_r: 50.0
     min_confidence: 0.60
+    # M20 stale-stop (operator-approved LIVE 2026-07-12, soak waived —
+    # evidence: docs/research/M20-exit-refinement-2026-07-12.md § 4-6;
+    # 5y IS/OOS PASS on net_R AND maxDD). Close a position >= 8 native
+    # bars old still below 0R at bar close. Rollback = delete these 2 lines.
+    stale_exit_bars: 8
+    stale_exit_below_r: 0.0
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
     # SOLUSDT signals auto-wire the symbol-agnostic decision/meta models (no
     # SOL-specific head exists; the symbol filter keeps BTC/MES heads off).
@@ -783,6 +789,12 @@ strategies:
     trail_mult: 5.0
     tp_r: 50.0
     min_confidence: 0.60
+    # M20 stale-stop (operator-approved LIVE 2026-07-12, soak waived —
+    # evidence: docs/research/M20-exit-refinement-2026-07-12.md § 4-6;
+    # 5y IS/OOS PASS on net_R AND maxDD). Close a position >= 8 native
+    # bars old still below 0R at bar close. Rollback = delete these 2 lines.
+    stale_exit_bars: 8
+    stale_exit_below_r: 0.0
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
     # ETHUSDT signals auto-wire the symbol-agnostic decision/meta models (the
     # symbol filter keeps BTC/MES regime heads off). Observe-only.

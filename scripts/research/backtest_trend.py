@@ -112,7 +112,8 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
              trail_mult: float, timeout: int, long_only: bool,
              min_confidence: float = 0.0,
              stale_exit_bars: int = 0, stale_exit_below_r: float = 0.0,
-             bank_frac: float = 0.0, bank_at_r: float = 1.0
+             bank_frac: float = 0.0, bank_at_r: float = 1.0,
+             giveback_min_mfe_r: float = 0.0, giveback_r: float = 1.0
              ) -> List[Trade]:
     atr = _atr(df, atr_p)
     sig = _signal(df, donchian)
@@ -176,7 +177,19 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
             stale = (stale_exit_bars > 0
                      and (i - pos['entry_i']) >= stale_exit_bars
                      and not hit and r_close < stale_exit_below_r)
-            if hit or opp or tmo or stale:
+            # M20 giveback-stop lever (0=off, byte-identical): once the trade
+            # has SEEN >= giveback_min_mfe_r R of open profit (peak basis),
+            # exit at close when it has given back >= giveback_r R from that
+            # peak — "grab the PnL" instead of riding the full retrace. An
+            # R-based lock, distinct from the price/ATR chandelier trail.
+            gb = False
+            if giveback_min_mfe_r > 0.0 and not hit:
+                peak_r = ((pos['peak'] - pos['entry']) / pos['risk']
+                          if pos['direction'] == 'long'
+                          else (pos['entry'] - pos['peak']) / pos['risk'])
+                gb = (peak_r >= giveback_min_mfe_r
+                      and (peak_r - r_close) >= giveback_r)
+            if hit or opp or tmo or stale or gb:
                 # Weighted R when a rung was banked: bank_frac realized at
                 # +bank_at_r, remainder at the exit r.
                 if pos.get('banked'):
@@ -184,8 +197,9 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
                 trades.append(Trade(
                     pos['direction'], pos['entry'], pos['sl_init'], pos['risk'],
                     exit_px if hit else cl,
-                    'trail_stop' if hit else ('flip' if opp else
-                                              ('timeout' if tmo else 'stale_stop')),
+                    'trail_stop' if hit else ('flip' if opp else (
+                        'timeout' if tmo else (
+                            'stale_stop' if stale else 'giveback_stop'))),
                     round(r, 6), pos['entry_time'], bar['timestamp']))
                 pos = None
         if pos is None:
@@ -279,6 +293,12 @@ def main(argv: List[str]) -> int:
                         'banked at +bank_at_r R (0=off, legacy behaviour).')
     p.add_argument('--bank-at-r', type=float, default=1.0,
                    help='R-multiple of the bank rung for --bank-frac (default 1.0).')
+    p.add_argument('--giveback-min-mfe-r', type=float, default=0.0,
+                   help='M20 giveback-stop lever: arm once peak open profit '
+                        'reaches this many R (0=off, legacy behaviour).')
+    p.add_argument('--giveback-r', type=float, default=1.0,
+                   help='R given back from the peak that triggers the exit '
+                        '(default 1.0).')
     p.add_argument('--json', dest='json_out', default=None)
     a = p.parse_args(argv)
 
@@ -293,7 +313,8 @@ def main(argv: List[str]) -> int:
     trades = backtest(df, a.donchian, a.atr_period, a.atr_stop_mult,
                       a.trail_mult, a.timeout_bars, a.long_only, a.min_confidence,
                       a.stale_exit_bars, a.stale_exit_below_r,
-                      a.bank_frac, a.bank_at_r)
+                      a.bank_frac, a.bank_at_r,
+                      a.giveback_min_mfe_r, a.giveback_r)
     params = {'symbol': a.symbol, 'timeframe': a.timeframe, 'donchian': a.donchian,
               'atr_stop_mult': a.atr_stop_mult, 'trail_mult': a.trail_mult,
               'long_only': a.long_only}
