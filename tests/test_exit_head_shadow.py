@@ -36,7 +36,7 @@ def _artifact(tmp_path, monkeypatch, tau=0.99, below_r=0.5):
     y = (X[:, 1] > 0.5).astype(int)
     clf = lgb.LGBMClassifier(n_estimators=5, min_child_samples=5, verbose=-1)
     clf.fit(X, y)
-    art = {"model_id": "exit-head-test-v0", "stage": "shadow",
+    art = {"model_id": "exit-head-test-v0", "stage": "shadow", "tf": "1h",
            "features": ehs_features(),
            "shape": {"tau": tau, "below_r": below_r},
            "booster_txt": clf.booster_.model_to_string()}
@@ -63,7 +63,7 @@ def ehs_features():
 def _pkg(entry_time):
     return (
         {"entry_time": entry_time, "risk_per_unit": 2.0,
-         "strategy_label": "trend_donchian"},
+         "timeframe": "1h", "strategy_label": "trend_donchian"},
         {"entry": 101.5, "sl": 99.5, "direction": "long",
          "symbol": "BTCUSDT", "order_package_id": "pkg-test-1"},
     )
@@ -132,3 +132,14 @@ def test_monitor_still_returns_trail_verdict(tmp_path, monkeypatch):
     # must not have swallowed or replaced it
     assert verdict is None or set(verdict).issubset({"sl", "action", "reason",
                                                      "exit_price"})
+
+
+def test_timeframe_mismatch_skips(tmp_path, monkeypatch):
+    """An out-of-family monitor call (e.g. a 1d equities donchian variant)
+    must not be scored by the 1h crypto head."""
+    logs = _artifact(tmp_path, monkeypatch)
+    df, entry_time = _frame()
+    meta, pkg = _pkg(entry_time)
+    meta["timeframe"] = "1d"
+    ehs.maybe_score_exit_head(meta, pkg, df, "long")
+    assert not (logs / ehs.SHADOW_LOG_NAME).exists()
