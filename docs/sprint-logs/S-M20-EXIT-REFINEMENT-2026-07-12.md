@@ -105,6 +105,35 @@
   trades per cell) — that is exactly why the full-history sweep gates the
   proposal.
 
+## Phase 2 (same session — operator directive after #6164 merged)
+
+Operator: merge the research, implement the Tier-3 proposal, and keep going —
+"deep research, extensive backtesting on variations, ML supplements, trailing
+stops, exit-ladder optimization." Delivered (PR #6166):
+
+- **Stale-stop implementation, annotate-first** (memo § 6.1):
+  `trend_donchian.monitor()` conditional stale-stop, YAML-declared params via
+  package meta (NO strategy declares yet — live behavior unchanged);
+  undeclared packages annotate the reference cell observe-only to
+  `runtime_logs/exit_lever_soak.jsonl` (diag `exit_lever_soak`). 8 new tests.
+  **YAML declare for `trend_donchian_sol`/`_eth` follows after the annotate
+  window sanity-checks (or on operator instruction).**
+- **Trailing-geometry + exit-ladder sweep** (memo § 6.2, 55 cells, relay
+  #6169): banking loses net_R in ALL 20 cells (tail-for-smoothness — parked
+  for standard accounts, prop-EV follow-up `PB-20260712-PROP-BANKING-EV`);
+  trail geometry is per-family (trail7 repairs donchian-BTC OOS but not to
+  positive; **pullback BTC trail 5→4 is a near-pass** → walk-forward
+  follow-up `PB-20260712-PULLBACK-TRAIL4-WALKFORWARD`); ETH/SOL stale-stop
+  remains the champion vs every phase-2 cell.
+- **ML-supplemented exits** (memo § 6.3, relay #6168): probe honest-negative
+  on current data (shadow log reaches only 2026-07-07; vol heads read ≥0.6
+  always — no exit discrimination as-is); dedicated exit-head experiment
+  spec'd (`MB-20260712-ML-EXIT-HEAD`) + shadow-log-history gap
+  (`MB-20260712-SHADOW-LOG-HISTORY`).
+- Relay-preemption lesson: long trainer sweeps now run detached (`nohup` +
+  collect pass) — the trainer-vm-diag concurrency group cancels in-progress
+  runs when a newer request arrives (#6161 was preempted).
+
 ## Documentation Updated
 - `docs/research/M20-exit-refinement-2026-07-12.md` (the evidence memo).
 - ROADMAP.md M20 row → status update (this session's outcome + next gate).

@@ -1458,7 +1458,27 @@
       "detail": "Add 15m (or native-TF) candle side-streams for the alt-USDT symbols (Bybit fetch, same pipeline as BTC/ETH/SOL) and a daily-bar source for the equities/metals fleet, then rerun scripts/research/m20_exit_analysis.py for full-fleet chop-hold diagnostics.",
       "severity": "medium",
       "status": "open"
+    },
+    {
+      "id": "MB-20260712-ML-EXIT-HEAD",
+      "opened_at": "2026-07-12T08:25:00+00:00",
+      "opened_by": "claude (S-M20 phase-2, operator-directed ML-supplemented exits)",
+      "source": "M20 phase-2 ML-exit probe (trainer relay #6168): joining regime-head shadow scores to in-hold trade paths is currently uninformative — the mirrored shadow log spans only since 2026-07-07 (1 overlapping closed trade) AND the vol-regime heads read P(volatile)>=0.6 essentially always in this window (lo-bucket n=0 over 18k records), so they carry no exit discrimination as-is.",
+      "title": "Train a dedicated EXIT head: P(recover >= X R from here) over in-trade state",
+      "detail": "Experiment spec: build a per-bar in-trade dataset from historical closed trades (features: age_bars, open_r, mfe_so_far, mae_so_far, chop_frac_so_far, dist-to-trail in R, native-TF vol/trend features; label: whether the trade's FINAL realized R exceeds its current mark by >= +0.25R, i.e. 'holding from here paid'). scripts/research/m20_exit_analysis.py::trade_path already computes the path primitives; the label needs no simulation (pure truncation observables, same honesty as the M20 memo counterfactuals). Train LightGBM per timeframe-family; evaluate OOS AUC + a threshold sweep as an exit trigger vs the shipped hard stale-stop. Gate: only worth wiring if it beats the hard rule's delta on the same history. Second experiment: fc-range-scaled TRAIL distance (trail_mult x fc_range_rel/median) evaluated with the same harness lever pattern.",
+      "severity": "medium",
+      "status": "open"
+    },
+    {
+      "id": "MB-20260712-SHADOW-LOG-HISTORY",
+      "opened_at": "2026-07-12T08:25:00+00:00",
+      "opened_by": "claude (S-M20 phase-2)",
+      "source": "Trainer relay #6168: runtime_logs/shadow_predictions.jsonl on the trainer (synced from live) begins 2026-07-07 — earlier history is not in the synced file, so any trade-vs-prediction join has a ~5-day horizon.",
+      "title": "Shadow-prediction history horizon limits trade-vs-score research joins",
+      "detail": "Confirm whether the live VM rotates/truncates shadow_predictions.jsonl (or whether the sync started fresh); if history exists elsewhere (backfill log, rotated files), extend the sync so research joins reach further back. Also note the vol-regime heads' scores cluster >= 0.6 in the current window - worth a calibration look in the next /ml-review.",
+      "severity": "low",
+      "status": "open"
     }
   ],
-  "updated_at": "2026-07-12T07:25:00+00:00"
+  "updated_at": "2026-07-12T08:25:00+00:00"
 }

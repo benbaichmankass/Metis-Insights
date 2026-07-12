@@ -213,6 +213,83 @@ htf_pullback trades post-date this memo; fc-geometry 2026-08-25; the
 chop-hold analyzers (`scripts/research/m20_exit_analysis.py` + `m20_exit_sweep.py`)
 are in-repo and rerunnable in one trainer relay.
 
+## 6. Phase 2 (same day — operator directive: "far from finished")
+
+Operator direction after § 1–5 merged (#6164): implement the approved Tier-3
+stale-stop, and extend the research to **trailing-stop geometry**,
+**exit-ladder (partial-TP) optimization**, and **ML supplements** (not just
+hard rules).
+
+### 6.1 Stale-stop implementation (shipped, annotate-first)
+
+`trend_donchian.monitor()` now carries the conditional stale-stop
+(`_stale_stop_verdict`), driven by YAML-declared `stale_exit_bars` /
+`stale_exit_below_r` threaded through package meta. **No strategy declares
+them yet** — until declared, every donchian-family package is evaluated at the
+reference cell (8 bars, <0R) observe-only, writing one row per would-fire
+trade to `runtime_logs/exit_lever_soak.jsonl` (diag: `log_file?name=exit_lever_soak`).
+The YAML declaration for `trend_donchian_sol`/`trend_donchian_eth` follows
+after the annotate window sanity-checks against § 4.
+
+### 6.2 Trailing-stop geometry + exit-ladder banking (5y IS/OOS)
+
+New default-off harness lever: `--bank-frac F --bank-at-r R` (bank F of the
+position at +R R, remainder keeps the trail) — the ladder-optimization
+evidence the live soak structurally could not produce. Grid swept with
+`m20_exit_sweep.py --phase2` (trail_mult 3/4/5/7 × banking .25/.5 @ 1.0R/1.5R
+× stale-stop combos; full 55-cell table in relay #6169). Key cells:
+
+| cell | IS net_R / maxDD | OOS net_R / maxDD | read |
+|---|---|---|---|
+| pullback BTC base (trail5) | +43.6 / 11.7 | −3.7 / 10.2 | — |
+| pullback BTC **trail4** | +48.4 / 12.6 | **+9.1 / 9.0** | **near-pass** — OOS flips positive, IS net_R better; only IS maxDD slips (11.7→12.6). Candidate pending a k-fold walk-forward. |
+| pullback ETH base | +52.7 / 13.6 | +12.4 / 7.7 | base still best — no change |
+| donchian BTC base | +51.8 / 21.8 | −24.5 / 31.9 | — |
+| donchian BTC **trail7** | +58.2 / 22.2 | −3.6 / 26.5 | large OOS repair but still negative — BTC donchian's OOS weakness is structural, not exit-fixable; no change |
+| donchian BTC trail3/trail4 | −20.7 / −1.7 | −36.8 / −25.7 | tighter trails are much worse for trend-followers |
+| donchian ETH stale8b<0R | −49.8 / 62.5 | **+7.2 / 17.0** | phase-1 champion, confirmed vs all phase-2 cells |
+| donchian SOL stale8b<0R | +5.3 / 36.8 | **+29.1 / 11.1** | phase-1 champion, confirmed |
+| any `bank*` cell, all symbols | net_R always LOWER than its base | maxDD lower, win-rate higher | see below |
+
+**The exit-ladder (banking) verdict:** partial-TP banking **reduced net_R in
+every one of the 20 banking cells** while consistently lowering maxDD and
+raising win rate — the classic tail-for-smoothness trade. For trend-following
+strategies whose edge IS the fat right tail, banking early gives the edge
+away; the ExitPlan-ladder graduation (old P4) stays parked as a net-PnL
+lever. The one venue where this trade could still be RIGHT is the **prop
+ruleset** (survival-weighted EV, daily-loss/DD breach rules — smoothness is
+worth net_R there); logged as the follow-up
+`PB-20260712-PROP-BANKING-EV` for a `run_ev_montecarlo` evaluation under
+`config/prop_rulesets/breakout.yaml`.
+
+**Trailing-geometry verdict:** direction matters and is per-family — looser
+(trail7) helps the 1h donchian family's OOS, tighter (trail4) helps 2h
+pullback BTC, and tight trails (trail3) are harmful everywhere. One
+actionable candidate: **pullback BTC trail 5→4** (near-pass above) — proposed
+for a k-fold walk-forward (the M8 tune-sweep harness) before any Tier-3 YAML
+change; not shipped now.
+
+### 6.3 ML-supplemented exits — probe result + the real experiment
+
+The feasibility probe (`m20_ml_exit_probe.py`, relay #6168) asked whether the
+existing vol-regime heads carry exit information (high P(volatile) during a
+hold ⇒ worse subsequent R). **Honest result: unanswerable with current data,
+and unpromising as-is** — (a) the synced shadow log only reaches back to
+2026-07-07, overlapping exactly ONE closed trade; (b) in that window the
+vol-regime heads read P(volatile) ≥ 0.6 essentially always (lo-bucket n = 0
+across 18k records), i.e. no discrimination to trigger on.
+
+The productive ML path is therefore a **dedicated exit head** —
+`P(the trade recovers ≥ +0.25R from here)` over in-trade state (age, open R,
+MFE/MAE so far, chop fraction, trail distance, native-TF vol/trend features),
+trained on per-bar rows derived from historical trade paths (pure truncation
+observables — no simulator, same honesty as § 3). Filed as
+`MB-20260712-ML-EXIT-HEAD` with the full spec + gate ("must beat the shipped
+hard stale-stop's delta on the same history"); the shadow-log history-horizon
+issue is `MB-20260712-SHADOW-LOG-HISTORY`. A second experiment —
+fc-range-scaled **trail distance** — rides the same harness-lever pattern and
+the fc soak re-check (2026-08-25).
+
 ## Appendix — raw relay outputs
 
 - Live-VM diag (soak tails + status + trades): issue #6157.
