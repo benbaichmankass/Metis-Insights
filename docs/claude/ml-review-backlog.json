@@ -1478,6 +1478,13 @@
       "detail": "Confirm whether the live VM rotates/truncates shadow_predictions.jsonl (or whether the sync started fresh); if history exists elsewhere (backfill log, rotated files), extend the sync so research joins reach further back. Also note the vol-regime heads' scores cluster >= 0.6 in the current window - worth a calibration look in the next /ml-review.",
       "severity": "low",
       "status": "open"
+    },
+    {
+      "id": "MB-20260712-EXIT-HEAD-REMAINING-ROUNDS",
+      "status": "open",
+      "created": "2026-07-12",
+      "title": "Exit-head remaining rounds: equities E0 + MES/MGC/MHG native history",
+      "detail": "Rounds 2-3 (4h donchians, 2h alt pullbacks) E1 GATE FAIL \u2014 honest negatives (runtime_logs/m20_exit_head/{4h,2h} on trainer; sprint log S-M20-EXIT-REFINEMENT-2026-07-12). Remaining exit_head_ml matrix gaps: equities 1h/1d E0 datasets (yfinance-sourced candles OK \u2014 native venue), and MES/MGC/MHG which need native IBKR history (proxy OK for levers, NOT for head training). One command per round: scripts/research/m20_exit_head_round.py."
     }
   ],
   "updated_at": "2026-07-12T08:25:00+00:00"
