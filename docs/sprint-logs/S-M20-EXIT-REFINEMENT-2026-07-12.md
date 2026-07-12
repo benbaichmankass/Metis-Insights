@@ -134,6 +134,24 @@ stops, exit-ladder optimization." Delivered (PR #6166):
   collect pass) — the trainer-vm-diag concurrency group cancels in-progress
   runs when a newer request arrives (#6161 was preempted).
 
+## Phase 3 (same session — operator go-live orders)
+
+- **Stale-stop LIVE**: YAML declared on `trend_donchian_sol`/`_eth` (#6172),
+  activated via `pull-and-deploy` #6173 — live HEAD `5b86e14`, trader
+  restarted 08:54 UTC, verified active. SOL long-only re-validation was MIXED
+  (OOS strongly better incl. maxDD, IS softer) — flagged to the operator
+  pre-merge; the flip proceeded on explicit order. ETH config-exact clean pass.
+- **Trail4 walk-forward**: 4/6 yearly folds incl. 2025+2026, 5y +35% —
+  recommendation delivered (`trail_mult 5→4` on `htf_pullback_trend_2h`),
+  awaiting operator go (`PB-20260712-PULLBACK-TRAIL4-WALKFORWARD`).
+- **Giveback-stop lever** (memo § 7.3, 44 config-exact cells): FAILS for
+  donchian (trail already covers it), **PASSES for pullback BTC**
+  (gb1.0R@MFE1R: OOS −3.7→+7.4 at flat IS) — confirms trail4's read; combos
+  worse than either lever alone.
+- **Exit-head program**: full E0–E3 plan committed
+  (`docs/research/M20-exit-head-PROGRAM.md`); E0 dataset builder is the next
+  build step.
+
 ## Documentation Updated
 - `docs/research/M20-exit-refinement-2026-07-12.md` (the evidence memo).
 - ROADMAP.md M20 row → status update (this session's outcome + next gate).
