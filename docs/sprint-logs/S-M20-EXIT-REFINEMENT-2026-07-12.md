@@ -275,6 +275,23 @@ stops, exit-ladder optimization." Delivered (PR #6166):
   head-driven exit is a mandatory health-review mechanics check; realized
   `future_r_delta` accrues in the standard soak logs for /ml-review.
 
+## Fleet-wide sweep results (42 legs, task #27 — 2026-07-12 evening)
+
+The `m20_fleet_exit_sweep.py` engine (#6219) ran every donchian/pullback-family
+leg config-exact on the trainer (equities/futures candle gaps filled via
+yfinance, #6220; ES=F/GC=F/HG=F proxies for MES/XAUUSD-MGC/MHG). 36 legs
+runnable + 6 skipped (`no_harness_levers`: squeeze/fade/vwap/scalp/fvg/turtle
+— matrix-blocked pending harness lever support). **Six cells pass the full
+IS/OOS + walk-forward gate** (consolidated Tier-3 package: PR #6229, draft):
+SOL stale12 (6/6), XRP-4h stale8 (5/6), MES trail3 (4/6, proxy), MHG trail3
+(5/6, proxy), TLT-1h trail3, MGC-1h trail4 (6/6, proxy, shadow leg). Two
+passes deliberately NOT shipped: USO-1h giveback (live monitors lack a
+giveback lever — implementation queued) and XAUUSD trail4 6/6 (leg disabled).
+**Everything else is an honest negative** — notably the ENTIRE equities 1d
+fleet passes nothing (their existing trails already capture the exit value),
+and all 2h alt pullbacks fail. Full verdicts:
+`runtime_logs/m20_fleet/2026-07-12/` (trainer) + the coverage matrix.
+
 ## Documentation Updated
 - `docs/research/M20-exit-refinement-2026-07-12.md` (the evidence memo).
 - ROADMAP.md M20 row → status update (this session's outcome + next gate).
