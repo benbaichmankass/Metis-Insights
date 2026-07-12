@@ -454,6 +454,20 @@ def main() -> int:
         sub = [t for t in enriched if t["cls"] == cls]
         if sub:
             print(cls, json.dumps(agg(sub)))
+    print("===S3 TOP GIVEBACKS (real_money)===")
+    top = sorted((t for t in enriched if t["cls"] == "real_money"),
+                 key=lambda t: t["giveback"], reverse=True)[:12]
+    for t in top:
+        print(json.dumps({
+            "id": t["id"], "st": t["strategy"], "sym": t["symbol"],
+            "dir": t["dir"],
+            "open": datetime.fromtimestamp(t["t_open"], tz=timezone.utc
+                                           ).isoformat()[:16],
+            "hold_h": round(t["bars"] * BAR_S / 3600, 1),
+            "r": round(t["real_r"], 2), "mfe": round(t["mfe"], 2),
+            "t_mfe_h": round(t["t_mfe_bars"] * BAR_S / 3600, 1),
+            "chop_frac": round(t["chop_frac"], 2),
+            "exit": t["exit_reason"][:24]}))
 
     # truncation counterfactual levers
     def truncate_cf(t: dict, exit_bar: int) -> float:
