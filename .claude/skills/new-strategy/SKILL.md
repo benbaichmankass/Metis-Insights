@@ -517,6 +517,11 @@ Report back with:
    existing roster).
 5. The next-action checklist for the operator: backtest, then flip
    `enabled: true`, then add to accounts.yaml, then `pull-and-deploy`.
+6. A `pending` row for the new leg added to the **exit-refinement
+   coverage matrix** (`docs/research/exit-refinement-coverage.json`) in
+   the wiring PR — every new strategy gets exit-processed via the
+   `exit-refinement` skill; the leg isn't finished until its exit-lever
+   columns carry verdicts (M20 system, operator directive 2026-07-12).
 
 Do **not** open the accounts.yaml PR (step 7) until the operator has
 explicitly authorized live activation.
