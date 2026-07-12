@@ -45,43 +45,50 @@ MODEL_ID = "exit-head-donchian-1h-v1"
 ARTIFACT_SUBPATH = ("trainer_mirror", "exit_head", f"{MODEL_ID}.json")
 SHADOW_LOG_NAME = "shadow_predictions.jsonl"
 
-# (artifact mtime, parsed artifact dict, booster) — reloaded when the mirror
+# per-file: {path_str: (mtime, artifact, booster)} — reloaded when the mirror
 # publishes a newer file.
 _CACHE: dict = {}
-# One score per (order_package_id, last-closed-bar timestamp).
+# One score per (model_id, order_package_id, last-closed-bar timestamp).
 _SEEN: set = set()
 
 
-def _artifact_path():
+def _artifact_dir():
     from src.utils.paths import runtime_logs_dir
 
-    p = runtime_logs_dir()
-    for part in ARTIFACT_SUBPATH:
-        p = p / part
-    return p
+    return runtime_logs_dir() / "trainer_mirror" / "exit_head"
 
 
-def _load_artifact():
-    """(artifact, booster) or (None, None). Cached by file mtime; silent on
-    any failure — a missing/garbled artifact just disables the shadow."""
+def _load_artifacts():
+    """Every servable ``(artifact, booster)`` in the mirror's exit_head dir.
+
+    Multi-artifact since M20 P4.2 — a second head (e.g. the peak-is-in
+    retarget) rides the same channel by publishing another ``*.json``; each
+    scores + logs under its own ``model_id``. Cached per file by mtime; a
+    missing dir or garbled file is silently skipped — worst case the shadow
+    is disabled, never the monitor."""
+    out = []
     try:
-        path = _artifact_path()
-        st = path.stat()
+        files = sorted(_artifact_dir().glob("*.json"))
     except OSError:
-        return None, None
-    try:
-        if _CACHE.get("mtime") == st.st_mtime and _CACHE.get("booster") is not None:
-            return _CACHE["artifact"], _CACHE["booster"]
-        artifact = json.loads(path.read_text(encoding="utf-8"))
-        import lightgbm as lgb
+        return out
+    for path in files:
+        try:
+            st = path.stat()
+            key = str(path)
+            ent = _CACHE.get(key)
+            if ent and ent[0] == st.st_mtime and ent[2] is not None:
+                out.append((ent[1], ent[2]))
+                continue
+            artifact = json.loads(path.read_text(encoding="utf-8"))
+            import lightgbm as lgb
 
-        booster = lgb.Booster(model_str=artifact["booster_txt"])
-        _CACHE.update({"mtime": st.st_mtime, "artifact": artifact,
-                       "booster": booster})
-        return artifact, booster
-    except Exception:  # noqa: BLE001 — shadow must never break the monitor
-        logger.debug("exit_head_shadow: artifact load failed", exc_info=True)
-        return None, None
+            booster = lgb.Booster(model_str=artifact["booster_txt"])
+            _CACHE[key] = (st.st_mtime, artifact, booster)
+            out.append((artifact, booster))
+        except Exception:  # noqa: BLE001 — shadow must never break the monitor
+            logger.debug("exit_head_shadow: artifact load failed: %s", path,
+                         exc_info=True)
+    return out
 
 
 def _f(v: Any) -> Optional[float]:
@@ -268,23 +275,26 @@ def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
     itself never decides anything.
     """
     try:
-        artifact, booster = _load_artifact()
-        if booster is None:
-            return None
-        # In-distribution guard: the head was trained on specific
+        # In-distribution guard: each head was trained on specific
         # (timeframe, symbols); every strategy that reuses the donchian
         # monitor (incl. equities-1d variants) reaches this hook, and an
         # out-of-family score would pollute the shadow track record (the
         # 2026-07-12 IWM-1d rows). Fail-closed on a timeframe mismatch or
         # unknown timeframe; symbol list enforced when the artifact carries
         # one.
-        tf = str(artifact.get("tf") or "")
         meta_tf = str(meta.get("timeframe") or "")
-        if not tf or meta_tf != tf:
+        candidates = []
+        for artifact, booster in _load_artifacts():
+            a_tf = str(artifact.get("tf") or "")
+            if not a_tf or meta_tf != a_tf:
+                continue
+            symbols = artifact.get("symbols")
+            if symbols and str(open_pkg.get("symbol") or "") not in symbols:
+                continue
+            candidates.append((artifact, booster))
+        if not candidates:
             return None
-        symbols = artifact.get("symbols")
-        if symbols and str(open_pkg.get("symbol") or "") not in symbols:
-            return None
+        tf = meta_tf
         entry = _f(open_pkg.get("entry"))
         risk = _f(meta.get("risk_per_unit"))
         if entry is None or risk is None or risk <= 0:
@@ -332,68 +342,90 @@ def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
         if row is None:
             return None
         pkg_id = str(open_pkg.get("order_package_id") or "")
-        seen_key = (pkg_id, row["_bar_ts"])
-        if seen_key in _SEEN:
-            return None
-        _SEEN.add(seen_key)
 
-        features = artifact.get("features") or []
-        vec = [[float(row[f]) if row.get(f) is not None else float("nan")
-                for f in features]]
-        score = float(booster.predict(vec)[0])
-        shape = artifact.get("shape") or {}
-        tau = _f(shape.get("tau")) or 0.10
-        below_r = _f(shape.get("below_r")) or 0.5
-        would_exit = score < tau and row["open_r"] < below_r
+        advisory_record = None
+        first_record = None
+        for artifact, booster in candidates:
+            model_id = str(artifact.get("model_id") or MODEL_ID)
+            seen_key = (model_id, pkg_id, row["_bar_ts"])
+            if seen_key in _SEEN:
+                continue
+            _SEEN.add(seen_key)
 
-        record = {
-            "predicted_at_utc": datetime.now(timezone.utc).isoformat(),
-            "model_id": artifact.get("model_id") or MODEL_ID,
-            "stage": str(artifact.get("stage") or "shadow"),
-            "tau": tau,
-            "below_r": below_r,
-            "score": round(score, 6),
-            "event_source": "exit_head",
-            "symbol": str(open_pkg.get("symbol") or ""),
-            "strategy": str(meta.get("strategy_label")
-                            or open_pkg.get("strategy_name") or "trend_donchian"),
-            "order_package_id": pkg_id,
-            "would_exit": would_exit,
-            "feature_row": {k: v for k, v in row.items() if not k.startswith("_")},
-        }
-        try:
-            from src.utils.paths import runtime_logs_dir
+            features = artifact.get("features") or []
+            vec = [[float(row[f]) if row.get(f) is not None else float("nan")
+                    for f in features]]
+            score = float(booster.predict(vec)[0])
+            shape = artifact.get("shape") or {}
+            tau = _f(shape.get("tau")) or 0.10
+            below_r = _f(shape.get("below_r")) or 0.5
+            # would_exit semantics follow the artifact's declared shape:
+            # below_half_r (the live head) fires LOW scores on losers; the
+            # peak_* shapes fire HIGH scores (P(peak_is_in) > tau).
+            policy = str(shape.get("policy") or "below_half_r")
+            if policy.startswith("peak"):
+                would_exit = score > tau and (
+                    policy != "peak_winner" or row["open_r"] >= below_r)
+            else:
+                would_exit = score < tau and row["open_r"] < below_r
 
-            path = runtime_logs_dir() / SHADOW_LOG_NAME
-            path.parent.mkdir(parents=True, exist_ok=True)
-            with path.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(record) + "\n")
-        except Exception:  # noqa: BLE001
-            pass
-        if would_exit:
+            record = {
+                "predicted_at_utc": datetime.now(timezone.utc).isoformat(),
+                "model_id": model_id,
+                "stage": str(artifact.get("stage") or "shadow"),
+                "tau": tau,
+                "below_r": below_r,
+                "score": round(score, 6),
+                "event_source": "exit_head",
+                "symbol": str(open_pkg.get("symbol") or ""),
+                "strategy": str(meta.get("strategy_label")
+                                or open_pkg.get("strategy_name")
+                                or "trend_donchian"),
+                "order_package_id": pkg_id,
+                "would_exit": would_exit,
+                "feature_row": {k: v for k, v in row.items()
+                                if not k.startswith("_")},
+            }
             try:
-                from src.runtime.exit_lever_soak import record_exit_lever_annotation
+                from src.utils.paths import runtime_logs_dir
 
-                record_exit_lever_annotation(
-                    lever="exit_head",
-                    strategy=record["strategy"],
-                    symbol=record["symbol"],
-                    direction=direction,
-                    # per-bar rows: fold the bar ts into the dedup key so a
-                    # persistent would-exit logs once per bar, not once ever
-                    order_package_id=f"{pkg_id}@{row['_bar_ts']}",
-                    params={"model_id": record["model_id"], "tau": tau,
-                            "below_r": below_r},
-                    state={"age_bars": row["age_bars"], "open_r": row["open_r"],
-                           "score": round(score, 4), "entry": entry},
-                )
+                path = runtime_logs_dir() / SHADOW_LOG_NAME
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with path.open("a", encoding="utf-8") as fh:
+                    fh.write(json.dumps(record) + "\n")
             except Exception:  # noqa: BLE001
                 pass
+            if would_exit:
+                try:
+                    from src.runtime.exit_lever_soak import (
+                        record_exit_lever_annotation)
+
+                    record_exit_lever_annotation(
+                        lever="exit_head",
+                        strategy=record["strategy"],
+                        symbol=record["symbol"],
+                        direction=direction,
+                        # per-bar rows: fold the bar ts into the dedup key so a
+                        # persistent would-exit logs once per bar, not once ever
+                        order_package_id=f"{model_id}:{pkg_id}@{row['_bar_ts']}",
+                        params={"model_id": model_id, "tau": tau,
+                                "below_r": below_r},
+                        state={"age_bars": row["age_bars"],
+                               "open_r": row["open_r"],
+                               "score": round(score, 4), "entry": entry},
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
+            if first_record is None:
+                first_record = record
+            if advisory_record is None and record["stage"] == "advisory":
+                advisory_record = record
         # M20 E3: the record is returned so the strategy monitor's APPLY
         # path can act on it — but only behind its own gates (YAML declare
-        # + artifact stage == "advisory"). Observe-only callers ignore it;
-        # every failure mode above still returns None.
-        return record
+        # + artifact stage == "advisory"). With multiple artifacts the
+        # ADVISORY head's record wins (shadow heads are observe-only by
+        # stage); observe-only callers ignore the return value entirely.
+        return advisory_record or first_record
     except Exception:  # noqa: BLE001 — the monitor must never feel this
         logger.debug("exit_head_shadow: scoring failed", exc_info=True)
         return None
