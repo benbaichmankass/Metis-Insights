@@ -91,12 +91,13 @@ def test_builder_and_live_twin_agree(direction, with_volume):
     assert live is not None
 
     for key in SHARED_FEATURES:
-        o, l = off.get(key), live.get(key)
-        if o is None or l is None:
-            assert o == l, f"{key}: offline={o} live={l}"
+        off_v, live_v = off.get(key), live.get(key)
+        if off_v is None or live_v is None:
+            assert off_v == live_v, f"{key}: offline={off_v} live={live_v}"
         else:
-            assert math.isclose(float(o), float(l), rel_tol=0, abs_tol=1e-4), \
-                f"{key}: offline={o} live={l}"
+            assert math.isclose(float(off_v), float(live_v),
+                                rel_tol=0, abs_tol=1e-4), \
+                f"{key}: offline={off_v} live={live_v}"
 
 
 def test_peak_is_in_label_present_and_consistent():
