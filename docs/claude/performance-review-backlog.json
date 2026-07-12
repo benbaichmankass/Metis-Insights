@@ -1226,7 +1226,27 @@
           "note": "DEMOTE HYPOTHESIS REFUTED — KEEP BOTH LIVE (on paper). Ran scripts/backtest_pullback.py at exact live params over 9yr trainer GLD/QQQ 1h data (2017-03 -> 2026-06), net-of-fee 1bps. gld_pullback_1h: net +113.6R, expectancy +0.323R, 39.5% WR, 352 trades, maxDD -19.2R, net-positive in 8/10 years (only 2018 -8.1, 2019 flat), 2024 +19.3 / 2025 +24.9 / 2026 +8.6 YTD. qqq_pullback_1h: net +90.7R, expectancy +0.340R, 39.7% WR, 267 trades, maxDD -10.6R, net-positive 8/10 years, 2024 +12.5 / 2025 +9.1 / 2026 +15.7 YTD. A min_confidence floor (0.3/0.5) marginally improves both (GLD 0.5 -> +127R, QQQ 0.5 -> +98.6R) — a possible future refinement, not needed for edge. CONCLUSION: both cells have a strong, robust, recent-inclusive net-of-fee edge; the live paper 0/9 + 0/7 is small-sample (16 combined closes) + bucket-B artifact-contaminated closes (reconciler_filled / exchange_flat_reconciled, per the 07-10 grade delta), NOT no-edge. No execution: shadow flip. Residual: gld_pullback_1h's alpaca_live 'sized_qty=0' dispatch-refusal is an underfunded-ACCOUNT issue (operator chose leave-as-is), orthogonal to the strategy edge. Closing the demote item."
         }
       ]
+    },
+    {
+      "id": "PB-20260712-PROP-BANKING-EV",
+      "opened_at": "2026-07-12T08:35:00+00:00",
+      "opened_by": "claude (S-M20 phase-2)",
+      "source": "M20 phase-2 harness sweep (trainer relay #6169): partial-TP banking lowered net_R in all 20 cells but consistently lowered maxDD and raised win rate — wrong trade for standard accounts, potentially RIGHT under prop breach rules where survival is part of EV.",
+      "title": "Evaluate partial-TP banking under the prop ruleset (survival-weighted EV)",
+      "detail": "Run src/prop/montecarlo.py::run_ev_montecarlo over the banked-vs-base harness trade streams (scripts/backtest_* --bank-frac ... --emit-trades) under config/prop_rulesets/breakout.yaml. If banking materially raises survival-weighted EV for the prop-routed alt strategies, propose it for the prop ticket ladder only (Tier-3).",
+      "severity": "low",
+      "status": "open"
+    },
+    {
+      "id": "PB-20260712-PULLBACK-TRAIL4-WALKFORWARD",
+      "opened_at": "2026-07-12T08:35:00+00:00",
+      "opened_by": "claude (S-M20 phase-2)",
+      "source": "M20 phase-2 sweep (relay #6169): htf_pullback_trend_2h BTC trail_mult 5->4 flips OOS net_R -3.7 -> +9.1 with better OOS maxDD and better IS net_R; only IS maxDD slips 11.7->12.6 (near-pass on the M20 gate).",
+      "title": "Walk-forward validate pullback BTC trail_mult 5->4 before proposing the Tier-3 param change",
+      "detail": "Run the M8 k-fold tune-sweep (scripts/ml/strategy_tune_sweep.py) or the research_sweep study spec on trail-mult {4,5} for htf_pullback_trend_2h; if 4 wins across folds, propose the one-line config/strategies.yaml change (Tier-3, operator-gated).",
+      "severity": "medium",
+      "status": "open"
     }
   ],
-  "updated_at": "2026-07-12T07:25:00+00:00"
+  "updated_at": "2026-07-12T08:35:00+00:00"
 }
