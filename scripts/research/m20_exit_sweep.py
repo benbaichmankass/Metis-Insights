@@ -20,7 +20,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+# Run from the repo root (the trainer runs a /tmp copy, so __file__ is not a
+# reliable anchor); allow an explicit override.
+import os  # noqa: E402
+
+REPO = Path(os.environ.get("M20_REPO", Path.cwd()))
 
 
 def run_cell(harness: str, args: list[str]) -> dict:
